@@ -379,6 +379,17 @@ impl Ser {
             .norm())
     }
 
+    /// Composition `Σ coeffs[k] * self^k` (Horner) truncated to `O(t^n)`;
+    /// requires `val > 0` for the truncation to be meaningful.
+    pub fn compose(&self, coeffs: &[C], n: i64) -> Ser {
+        let Some(last) = coeffs.last() else { return Ser::zero_exact() };
+        let mut acc = Ser::constant(last.clone());
+        for c in coeffs[..coeffs.len() - 1].iter().rev() {
+            acc = acc.mul(self).trunc(n).add(&Ser::constant(c.clone()));
+        }
+        acc.trunc(n)
+    }
+
     /// Dense coefficients of `t^0 .. t^(len-1)` (requires `val >= 0`).
     pub fn dense0(&self, len: usize) -> Vec<C> {
         (0..len as i64).map(|k| self.at(k)).collect()
@@ -517,12 +528,17 @@ pub fn tan_kernel(g: &[C], len: usize, t0: &C, alpha: i64, sigma: i64) -> Vec<C>
     for k in 1..len {
         // q_{k-1}
         let j = k - 1;
+        // (T^2)_j using the symmetry of the convolution
         let mut sq = C::zero();
-        for l in 0..=j {
+        for l in 0..(j + 1) / 2 {
             if t[l].is_zero() || t[j - l].is_zero() {
                 continue;
             }
             sq = sq.add(&t[l].mul(&t[j - l]));
+        }
+        sq = sq.mul_int(2);
+        if j % 2 == 0 && !t[j / 2].is_zero() {
+            sq = sq.add(&t[j / 2].mul(&t[j / 2]));
         }
         let mut qj = sq.mul_int(sigma);
         if j == 0 {
@@ -542,4 +558,69 @@ pub fn tan_kernel(g: &[C], len: usize, t0: &C, alpha: i64, sigma: i64) -> Vec<C>
         t.push(acc.div_int(k as i64));
     }
     t
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn q(n: i64, d: i64) -> C {
+        C::N(Number::rational_i64(n, d).unwrap())
+    }
+
+    fn geometric(n: i64) -> Ser {
+        // 1/(1-t) = 1 + t + t^2 + ...
+        Ser::from_coeffs(0, vec![C::one(), C::int(-1)], INF, true).inv(n).unwrap()
+    }
+
+    #[test]
+    fn arithmetic() {
+        let g = geometric(5);
+        assert_eq!(g.c, vec![C::one(); 5]);
+        assert_eq!(g.prec, 5);
+        let sq = g.mul(&g);
+        assert_eq!(sq.c, (1..=5).map(C::int).collect::<Vec<_>>());
+        let d = g.sub(&g);
+        assert!(d.is_zero() && !d.exact && d.prec == 5);
+        // exact polynomials stay exact
+        let p = Ser::from_coeffs(0, vec![C::one(), C::one()], INF, true);
+        let p2 = p.mul(&p);
+        assert!(p2.exact);
+        assert_eq!(p2.c, vec![C::int(1), C::int(2), C::int(1)]);
+        // t^-1 * (t + t^2) = 1 + t
+        let m = Ser::monomial(C::one(), -1).mul(&Ser::from_coeffs(1, vec![C::one(), C::one()], INF, true));
+        assert_eq!((m.val, m.c.len()), (0, 2));
+    }
+
+    #[test]
+    fn kernels() {
+        // exp(t) = Σ t^k/k!
+        let e = exp_kernel(&[C::zero(), C::one()], 5);
+        assert_eq!(e, vec![C::one(), C::one(), q(1, 2), q(1, 6), q(1, 24)]);
+        // log(1+t) = t - t^2/2 + t^3/3
+        let l = log_kernel(&[C::one(), C::one()], 4);
+        assert_eq!(l, vec![C::zero(), C::one(), q(-1, 2), q(1, 3)]);
+        // sqrt(1+t) = 1 + t/2 - t^2/8
+        let s = pow_kernel(&[C::one(), C::one()], &q(1, 2), 3);
+        assert_eq!(s, vec![C::one(), q(1, 2), q(-1, 8)]);
+        // tan(t) = t + t^3/3 + 2 t^5/15
+        let t = tan_kernel(&[C::zero(), C::one()], 6, &C::zero(), 1, 1);
+        assert_eq!(t, vec![C::zero(), C::one(), C::zero(), q(1, 3), C::zero(), q(2, 15)]);
+        let (sn, cs) = sincos_kernel(&[C::zero(), C::one()], 4, false);
+        assert_eq!(sn, vec![C::zero(), C::one(), C::zero(), q(-1, 6)]);
+        assert_eq!(cs, vec![C::one(), C::zero(), q(-1, 2), C::zero()]);
+    }
+
+    #[test]
+    fn calculus_and_composition() {
+        let g = geometric(4); // 1 + t + t^2 + t^3
+        let d = g.deriv();
+        assert_eq!(d.c, vec![C::int(1), C::int(2), C::int(3)]);
+        let i = g.integ().unwrap();
+        assert_eq!((i.val, i.c.clone()), (1, vec![C::one(), q(1, 2), q(1, 3), q(1, 4)]));
+        // (t + t^2) ∘ in 1 + u + u^2
+        let inner = Ser::from_coeffs(1, vec![C::one(), C::one()], INF, true);
+        let c = inner.compose(&[C::one(), C::one(), C::one()], 4);
+        assert_eq!(c.c, vec![C::int(1), C::int(1), C::int(2), C::int(2)]);
+    }
 }

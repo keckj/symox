@@ -201,9 +201,23 @@ def to_sympy(e):
 # Series expansions, the Order term and limits (crates/symox-py/src/series.rs).
 
 
+class PoleError(ValueError):
+    """Raised when an expansion point is a singularity of the expression."""
+
+
+def _series_call(expr, x, x0, n, dir):
+    try:
+        return _core._series(expr, x, x0, n, dir)
+    except ValueError as e:
+        msg = str(e)
+        if msg.startswith("PoleError: "):
+            raise PoleError(msg[len("PoleError: "):]) from None
+        raise
+
+
 def series(expr, x=None, x0=0, n=6, dir="+"):
     """Series expansion of ``expr`` around ``x = x0`` up to ``O((x - x0)**n)``."""
-    return _core._series(expr, x, x0, n, dir)
+    return _series_call(expr, x, x0, n, dir)
 
 
 def Order(expr, *args, **kwargs):
@@ -215,11 +229,11 @@ O = Order
 
 
 def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
-    return _core._series(self, x, x0, n, dir)
+    return _series_call(self, x, x0, n, dir)
 
 
 def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
-    return _core._series(self, x, x0, n, dir)
+    return _series_call(self, x, x0, n, dir)
 
 
 def _expr_taylor_term(self, n, x, *previous_terms):
@@ -240,7 +254,7 @@ def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
     n = 6
     done = 0
     while True:
-        s = _core._series(self, x, x0, n, dir)
+        s = _series_call(self, x, x0, n, dir)
         terms = s.removeO()
         terms = list(terms.args) if terms.is_Add else ([terms] if terms != 0 else [])
         terms = _sort_series_terms(terms, s)
@@ -278,6 +292,22 @@ Expr.leadterm = _expr_leadterm
 Expr.as_leading_term = _expr_as_leading_term
 Expr.is_Order = property(lambda self: _core._is_order(self))
 Expr.contains = lambda self, t: _core._order_contains(self, t)
+
+
+def _order_part(i):
+    def get(self):
+        if not _core._is_order(self):
+            raise AttributeError("only Order terms have expr/variables/point")
+        a = self.args
+        if i == 0:
+            return a[0]
+        return tuple(a[1::2]) if i == 1 else tuple(a[2::2])
+    return property(get)
+
+
+Expr.expr = _order_part(0)
+Expr.variables = _order_part(1)
+Expr.point = _order_part(2)
 
 class Limit:
     """Unevaluated limit ``Limit(e, z, z0, dir)``; ``doit()`` evaluates it."""

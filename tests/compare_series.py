@@ -169,6 +169,17 @@ series(sin(x)**3/x**3, x, 0, 6)
 series(cos(x)**Rational(1,2), x, 0, 6)
 series(x**2*exp(1/x), x, oo, 2)
 series(atan(1/x), x, 0, 3)
+series(sin(x), x, oo)
+series(tanh(x), x, oo, 2)
+series(exp(0.5*x), x, 0, 3)
+series(1/x - 1/sin(x), x, 0, 5)
+series(exp(-1/x)+x, x, 0, 3)
+series(exp(I*x), x, 0, 4)
+series(tan(pi/4+x), x, 0, 4)
+series(sqrt(x**3+1), x, oo, 2)
+O(x*y)
+O(x)*O(x)
+O(x**2)/x**3
 O(x) + x
 x + O(x**2)
 x**3 + O(x**2)
@@ -507,6 +518,8 @@ def compare(case):
     try:
         exp_x = eval(case, ns_x)
     except Exception as e:  # noqa: BLE001
+        if exp_s == f"<{type(e).__name__}>":
+            return "same", f"<{type(e).__name__}>", exp_s
         return "error", f"{type(e).__name__}: {e}", str(exp_s)
     s_s, s_x = str(exp_s), str(exp_x)
     if s_s == s_x:

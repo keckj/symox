@@ -374,6 +374,9 @@ impl Engine {
         if rel <= 0 {
             return Ok(Ser::zero_inexact(n.min(vr.saturating_add(s.rel()))));
         }
+        if matches!(r, C::N(k) if k.is_minus_one()) {
+            return s.inv(n);
+        }
         let len = rel as usize;
         let inv0 = a0.inv().ok_or(SErr::Precision)?;
         let u: Vec<C> = (0..len).map(|i| if i < s.c.len() { s.c[i].mul(&inv0) } else { C::zero() }).collect();
@@ -699,11 +702,7 @@ impl Engine {
                 let z = z.div_int(k as i64);
                 *l = if k % 2 == 0 { z } else { z.neg() };
             }
-            let mut acc = Ser::constant(lk[kmax].clone());
-            for k in (1..kmax).rev() {
-                acc = acc.mul(&r).trunc(prec).add(&Ser::constant(lk[k].clone()));
-            }
-            let lser = acc.mul(&r).trunc(prec);
+            let lser = r.compose(&lk, prec);
             let mut res = if *f == Func::LogGamma {
                 lser
             } else {

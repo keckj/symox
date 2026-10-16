@@ -97,6 +97,21 @@ fn timing_series() {
             let logt = crate::series::logt_symbol();
             let _ = crate::series::with_engine(&x, &Expr::zero(), false, &logt, |eng| eng.ser(&e, n)).unwrap();
         }
-        println!("{src}: total {:?}, engine {:?}", dt, t2.elapsed() / 20);
+        let e2 = e.clone();
+        let t3 = std::time::Instant::now();
+        let mut eng_s = None;
+        for _ in 0..20 {
+            let logt = crate::series::logt_symbol();
+            let mut eng = crate::series::engine::Engine::new(&x, crate::series::engine::var_series(&Expr::zero(), false, 1), 1, &logt);
+            let c = eng.ser(&p("cos(x)"), n).unwrap();
+            eng_s = Some(c);
+        }
+        let tc = t3.elapsed() / 20;
+        let c = eng_s.unwrap();
+        let t4 = std::time::Instant::now();
+        for _ in 0..20 {
+            let _ = c.inv(n).unwrap();
+        }
+        println!("{src}: total {:?}, engine {:?}, cos {:?}, inv {:?} {}", dt, t2.elapsed() / 20, tc, t4.elapsed() / 20, e2);
     }
 }
