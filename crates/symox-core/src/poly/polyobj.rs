@@ -564,6 +564,114 @@ impl Poly {
         (coeff, out)
     }
 
+    /// `f(g)` substituting `g` for the first generator.
+    pub fn compose(&self, g: &Poly) -> Poly {
+        let (a, b) = self.unify(g);
+        let n = a.gens.len();
+        let cs = a.rep.coeffs_in(0);
+        let mut acc = MPoly::zero(n);
+        let top = cs.first().map(|x| x.0).unwrap_or(0);
+        let mut idx = 0;
+        for k in (0..=top).rev() {
+            acc = acc.mul(&b.rep);
+            if idx < cs.len() && cs[idx].0 == k {
+                acc = acc.add(&cs[idx].1);
+                idx += 1;
+            }
+        }
+        a.with_rep(acc)
+    }
+
+    /// Functional decomposition (univariate).
+    pub fn decompose(&self) -> PResult<Vec<Poly>> {
+        if self.gens.len() != 1 {
+            return Err(PolyError::Unsupported("univariate polynomial expected".into()));
+        }
+        let d = super::dense::from_mpoly(&self.rep, 0);
+        if d.len() <= 2 {
+            return Ok(vec![self.clone()]);
+        }
+        let fs = super::roots::decompose(&d);
+        Ok(fs
+            .into_iter()
+            .map(|c| {
+                let mut p = self.with_rep(super::dense::to_mpoly(&c, 0, 1));
+                if p.domain == Domain::ZZ && !p.rep.is_integral() {
+                    p.domain = Domain::QQ;
+                }
+                p
+            })
+            .collect())
+    }
+
+    /// `f(x + a)` in the first generator.
+    pub fn shift(&self, a: &Rat) -> Poly {
+        let mut p = self.with_rep(self.rep.shift(0, a));
+        if !a.is_integer() && p.domain == Domain::ZZ {
+            p.domain = Domain::QQ;
+        }
+        p
+    }
+
+    /// Antiderivative with respect to the `i`-th generator.
+    pub fn integrate(&self, i: usize) -> Poly {
+        let n = self.gens.len();
+        let mut terms = Vec::new();
+        for (e, c) in self.rep.iter() {
+            let mut ne = e.to_vec();
+            ne[i] += 1;
+            let k = ne[i] as i64;
+            terms.push((ne, c.div(&Rat::from_i64(k))));
+        }
+        let mut p = self.with_rep(MPoly::from_terms(n, terms));
+        if p.domain == Domain::ZZ {
+            p.domain = Domain::QQ;
+        }
+        p
+    }
+
+    /// Product of the distinct square-free factors.
+    pub fn sqf_part(&self) -> Poly {
+        let (_, fs) = self.sqf_list();
+        let mut acc = MPoly::one(self.gens.len());
+        for (f, _) in fs {
+            acc = acc.mul(&f.rep);
+        }
+        self.with_rep(acc)
+    }
+
+    pub fn max_norm(&self) -> Rat {
+        self.rep.coeffs().iter().map(|c| c.abs()).max().unwrap_or_else(Rat::zero)
+    }
+
+    pub fn l1_norm(&self) -> Rat {
+        self.rep.coeffs().iter().fold(Rat::zero(), |a, c| a.add(&c.abs()))
+    }
+
+    /// `(d, d*f)` with integer coefficients.
+    pub fn clear_denoms(&self) -> (Int, Poly) {
+        let (d, z) = self.rep.clear_denoms();
+        (d, self.with_rep(z.to_rat()))
+    }
+
+    /// Total degrees (in the generators) of the terms.
+    fn term_degrees(&self) -> Vec<u32> {
+        self.terms().iter().map(|(m, _)| m.iter().sum()).collect()
+    }
+
+    pub fn is_linear(&self) -> bool {
+        self.term_degrees().iter().all(|&d| d <= 1)
+    }
+
+    pub fn is_quadratic(&self) -> bool {
+        self.term_degrees().iter().all(|&d| d <= 2)
+    }
+
+    pub fn is_homogeneous(&self) -> bool {
+        let d = self.term_degrees();
+        d.windows(2).all(|w| w[0] == w[1])
+    }
+
     /// SymPy's `str(Poly)`.
     pub fn to_sympy_string(&self) -> String {
         let atom = |g: &Expr| matches!(g.kind(), Kind::Sym(_) | Kind::Const(_));

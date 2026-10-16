@@ -499,7 +499,7 @@ fn roots_list(f: &UPoly) -> Vec<Expr> {
 }
 
 /// Functional decomposition `f = g1(g2(...(gk)))` over `QQ` (Kozen–Landau).
-fn decompose(f: &[Rat]) -> Vec<Vec<Rat>> {
+pub fn decompose(f: &[Rat]) -> Vec<Vec<Rat>> {
     fn right(f: &[Rat], s: usize) -> Vec<Rat> {
         let n = f.len() - 1;
         let lc = f[n].clone();

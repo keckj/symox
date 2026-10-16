@@ -204,6 +204,8 @@ from ._core import (  # noqa: E402
     cancel,
     cofactors,
     collect,
+    compose,
+    decompose,
     degree,
     discriminant,
     div,
@@ -211,6 +213,9 @@ from ._core import (  # noqa: E402
     factor,
     factor_list,
     gcd,
+    gcdex,
+    half_gcdex,
+    invert,
     lcm,
     nroots,
     pdiv,
@@ -224,6 +229,8 @@ from ._core import (  # noqa: E402
     roots,
     sqf,
     sqf_list,
+    sqf_part,
+    terms_gcd,
 )
 
 together = _core._poly_together

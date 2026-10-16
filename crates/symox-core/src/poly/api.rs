@@ -712,6 +712,99 @@ pub fn cofactors(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr
 }
 
 // ----------------------------------------------------------------------
+// extended Euclid, terms_gcd, composition
+// ----------------------------------------------------------------------
+
+fn uni_pair(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Vec<Rat>, Vec<Rat>, Vec<Expr>)> {
+    let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
+    if ps[0].gens.len() != 1 {
+        return Err(PolyError::Unsupported("univariate polynomials expected".into()));
+    }
+    Ok((dense::from_mpoly(&ps[0].rep, 0), dense::from_mpoly(&ps[1].rep, 0), ps[0].gens.clone()))
+}
+
+fn dense_expr(p: &[Rat], gens: &[Expr]) -> Expr {
+    super::convert::to_expr(&dense::to_mpoly(p, 0, 1), gens)
+}
+
+/// `gcdex(f, g)`: `(s, t, h)` with `s*f + t*g = h = gcd(f, g)` (monic).
+pub fn gcdex(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr)> {
+    let (f, g, gens) = uni_pair(a, b, gens)?;
+    let (h, s, t) = dense::gcdex_field(&f, &g);
+    Ok((dense_expr(&s, &gens), dense_expr(&t, &gens), dense_expr(&h, &gens)))
+}
+
+/// `half_gcdex(f, g)`: `(s, h)` with `s*f = h (mod g)`.
+pub fn half_gcdex(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
+    let (s, _, h) = gcdex(a, b, gens)?;
+    Ok((s, h))
+}
+
+/// `invert(f, g)`: inverse of `f` modulo `g`.
+pub fn invert(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    if let (Some(x), Some(m)) = (a.as_number(), b.as_number()) {
+        if let (Some(x), Some(m)) = (Int::from_number(x), Int::from_number(m)) {
+            let (g, s, _) = x.gcdex(&m);
+            if !g.is_one() {
+                return Err(PolyError::Unsupported("inverse does not exist".into()));
+            }
+            return Ok(Expr::num(s.modulo(&m.abs()).to_number()));
+        }
+    }
+    let (f, g, gens) = uni_pair(a, b, gens)?;
+    let (h, s, _) = dense::gcdex_field(&f, &g);
+    if h.len() != 1 {
+        return Err(PolyError::Unsupported("zero divisor".into()));
+    }
+    Ok(dense_expr(&dense::rem(&s, &g), &gens))
+}
+
+/// `terms_gcd(f)`: pull out the common monomial and the content.
+pub fn terms_gcd(e: &Expr) -> PResult<Expr> {
+    let p = match Poly::from_expr(e, &[]) {
+        Ok(p) => p,
+        Err(_) => return Ok(e.clone()),
+    };
+    let m = p.rep.min_exps();
+    let rest = p.rep.div_monomial(&m);
+    let (den, z) = rest.clear_denoms();
+    let c = z.content();
+    let prim = if c.is_zero() { z.clone() } else { z.div_coeff(&c).unwrap() };
+    let coeff = Rat::new(c, den);
+    let mut term = vec![];
+    for (g, &k) in p.gens.iter().zip(&m) {
+        if k > 0 {
+            term.push(pow(g, &Expr::int(k as i64)));
+        }
+    }
+    let term = mul(&term);
+    if term.is_one() && coeff.is_one() {
+        return Ok(e.clone());
+    }
+    let body = mul(&[term, super::convert::to_expr_int(&prim, &p.gens)]);
+    Ok(keep_coeff(&Expr::num(coeff.to_number()), &body))
+}
+
+/// `compose(f, g)`: `f(g)` (in the first generator of `f`).
+pub fn compose(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
+    Ok(ps[0].compose(&ps[1]).as_expr())
+}
+
+/// `decompose(f)`: functional decomposition `[g1, ..., gn]` with
+/// `f = g1(g2(...gn))`.
+pub fn decompose(e: &Expr, gens: &[Expr]) -> PResult<Vec<Expr>> {
+    let p = Poly::from_expr(e, gens)?;
+    Ok(p.decompose()?.into_iter().map(|q| q.as_expr()).collect())
+}
+
+/// `sqf_part(f)`.
+pub fn sqf_part(e: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    let p = Poly::from_expr(e, gens)?;
+    Ok(p.sqf_part().as_expr())
+}
+
+// ----------------------------------------------------------------------
 // cancel
 // ----------------------------------------------------------------------
 

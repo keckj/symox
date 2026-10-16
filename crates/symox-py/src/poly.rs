@@ -502,7 +502,7 @@ impl PyPoly {
         }
         let lc = self.p.rep.lc();
         let mut p = self.p.mul_ground(&lc.inv());
-        if p.domain == Domain::ZZ && !lc.is_one() {
+        if p.domain == Domain::ZZ && p.modulus.is_none() {
             p.domain = Domain::QQ;
         }
         Ok(PyPoly { p })
@@ -563,6 +563,118 @@ impl PyPoly {
             }
         }
         Ok(v)
+    }
+
+    fn compose(&self, g: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
+        let q = self.other(g).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        Ok(PyPoly { p: self.p.compose(&q) })
+    }
+
+    fn decompose(&self) -> PyResult<Vec<PyPoly>> {
+        Ok(self.p.decompose().map_err(err)?.into_iter().map(|p| PyPoly { p }).collect())
+    }
+
+    fn shift(&self, a: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
+        let e = to_expr(a)?;
+        let r = e
+            .as_number()
+            .and_then(Rat::from_number)
+            .ok_or_else(|| PyValueError::new_err("shift expects a rational number"))?;
+        Ok(PyPoly { p: self.p.shift(&r) })
+    }
+
+    #[pyo3(signature = (*gens))]
+    fn integrate(&self, gens: &Bound<'_, PyTuple>) -> PyResult<PyPoly> {
+        let mut p = self.p.clone();
+        if gens.is_empty() {
+            return Ok(PyPoly { p: p.integrate(0) });
+        }
+        for g in gens.iter() {
+            let i = self.gen_index(Some(&g))?;
+            p = p.integrate(i);
+        }
+        Ok(PyPoly { p })
+    }
+
+    fn clear_denoms<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let (d, p) = self.p.clear_denoms();
+        PyTuple::new(py, [w(Expr::num(d.to_number())).into_pyobject(py)?.into_any(), PyPoly { p }.into_pyobject(py)?.into_any()])
+    }
+
+    fn max_norm(&self) -> PyExpr {
+        w(rat_expr(&self.p.max_norm()))
+    }
+
+    fn l1_norm(&self) -> PyExpr {
+        w(rat_expr(&self.p.l1_norm()))
+    }
+
+    fn sqf_part(&self) -> PyPoly {
+        PyPoly { p: self.p.sqf_part() }
+    }
+
+    #[getter]
+    fn is_linear(&self) -> bool {
+        self.p.is_linear()
+    }
+
+    #[getter]
+    fn is_quadratic(&self) -> bool {
+        self.p.is_quadratic()
+    }
+
+    #[getter]
+    fn is_homogeneous(&self) -> bool {
+        self.p.is_homogeneous()
+    }
+
+    fn as_list(&self) -> PyResult<Vec<PyExpr>> {
+        self.all_coeffs()
+    }
+
+    #[pyo3(signature = (*args))]
+    fn subs(&self, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+        let py = args.py();
+        let e = self.p.as_expr();
+        let pairs: Vec<(Expr, Expr)> = if args.len() == 2 {
+            vec![(to_expr(&args.get_item(0)?)?, to_expr(&args.get_item(1)?)?)]
+        } else if args.len() == 1 {
+            let d = args.get_item(0)?;
+            let d = d.downcast::<PyDict>()?;
+            d.iter().map(|(k, v)| Ok((to_expr(&k)?, to_expr(&v)?))).collect::<PyResult<_>>()?
+        } else {
+            return Err(PyTypeError::new_err("subs expects (old, new) or a dict"));
+        };
+        let r = symox::expand::expand(&symox::subs::subs(&e, &pairs));
+        if let Ok(p) = Poly::from_expr(&r, self.p.true_gens()) {
+            if !r.is_number() {
+                return poly_obj(py, p);
+            }
+        }
+        Ok(w(r).into_pyobject(py)?.into_any().unbind())
+    }
+
+    fn termwise(&self, func: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
+        let mut terms = Vec::new();
+        for (m, c) in self.p.terms() {
+            let mt = PyTuple::new(func.py(), m.clone())?;
+            let r = func.call1((mt, w(c)))?;
+            let e = to_expr(&r)?;
+            let mut f = vec![e];
+            for (g, k) in self.p.true_gens().iter().zip(&m) {
+                f.push(symox::ops::pow(g, &Expr::int(*k as i64)));
+            }
+            terms.push(symox::ops::mul(&f));
+        }
+        let e = symox::ops::add(&terms);
+        let mut p = Poly::from_expr(&e, self.p.true_gens()).map_err(err)?;
+        if p.domain < self.p.domain {
+            p.domain = self.p.domain;
+        }
+        if let Some(m) = self.p.modulus {
+            p = p.set_modulus(m);
+        }
+        Ok(PyPoly { p })
     }
 
     fn as_poly(&self) -> PyPoly {
@@ -1008,6 +1120,51 @@ fn py_together(f: &Bound<'_, PyAny>, deep: bool, _kwargs: Option<&Bound<'_, PyDi
     Ok(w(api::together(&to_expr(f)?)))
 }
 
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn gcdex<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    let (s, t, h) = api::gcdex(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?;
+    PyTuple::new(py, [w(s), w(t), w(h)])
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn half_gcdex<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    let (s, h) = api::half_gcdex(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?;
+    PyTuple::new(py, [w(s), w(h)])
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn invert(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    Ok(w(api::invert(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?))
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, *gens, **_kwargs))]
+fn terms_gcd(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    let _ = gens;
+    Ok(w(api::terms_gcd(&to_expr(f)?).map_err(err)?))
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn compose(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    Ok(w(api::compose(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?))
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, *gens, **_kwargs))]
+fn decompose(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<PyExpr>> {
+    Ok(api::decompose(&to_expr(f)?, &gens_of(gens)?).map_err(err)?.into_iter().map(w).collect())
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, *gens, **_kwargs))]
+fn sqf_part(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    Ok(w(api::sqf_part(&to_expr(f)?, &gens_of(gens)?).map_err(err)?))
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPoly>()?;
     m.add_function(wrap_pyfunction!(factor, m)?)?;
@@ -1034,6 +1191,13 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(roots, m)?)?;
     m.add_function(wrap_pyfunction!(nroots, m)?)?;
     m.add_function(wrap_pyfunction!(real_roots, m)?)?;
+    m.add_function(wrap_pyfunction!(gcdex, m)?)?;
+    m.add_function(wrap_pyfunction!(half_gcdex, m)?)?;
+    m.add_function(wrap_pyfunction!(invert, m)?)?;
+    m.add_function(wrap_pyfunction!(terms_gcd, m)?)?;
+    m.add_function(wrap_pyfunction!(compose, m)?)?;
+    m.add_function(wrap_pyfunction!(decompose, m)?)?;
+    m.add_function(wrap_pyfunction!(sqf_part, m)?)?;
     m.add_function(wrap_pyfunction!(py_together, m)?)?;
     Ok(())
 }
