@@ -72,6 +72,7 @@ fn arg_names(p: &CodePrinter, args: &[Expr]) -> Result<Vec<String>, CodeError> {
 }
 
 fn body(p: &CodePrinter, args: &[Expr], exprs: &[Expr], use_cse: bool) -> Result<Body, CodeError> {
+    let _session = super::order::session();
     let (reps, reduced) = if use_cse {
         let opts = CseOptions {
             excluded_names: args.iter().filter_map(|a| a.as_symbol().map(|s| s.to_string())).collect(),

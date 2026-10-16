@@ -292,9 +292,58 @@ fn cmp_simple(a: &Simple, b: &Simple) -> Ordering {
         .then_with(|| a.exp.cmp_value(b.exp).unwrap_or(Ordering::Equal))
 }
 
+thread_local! {
+    static SESSION: std::cell::RefCell<Option<KeyCache>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Keeps a sort-key cache alive for the current thread while it exists:
+/// printing a whole expression computes the key of every sub-expression
+/// once instead of once per enclosing sum (linear instead of quadratic in
+/// the depth).
+pub struct Session {
+    owner: bool,
+}
+
+/// Start a printing session (nested sessions share the outer cache).
+pub fn session() -> Session {
+    SESSION.with(|c| match c.try_borrow_mut() {
+        Ok(mut slot) if slot.is_none() => {
+            *slot = Some(KeyCache::default());
+            Session { owner: true }
+        }
+        _ => Session { owner: false },
+    })
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        if self.owner {
+            SESSION.with(|c| {
+                if let Ok(mut slot) = c.try_borrow_mut() {
+                    *slot = None;
+                }
+            });
+        }
+    }
+}
+
+/// Run `f` with the session cache when there is one (and it is not in
+/// use), with a fresh cache otherwise.
+fn with_cache<R>(f: impl FnOnce(&mut KeyCache) -> R) -> R {
+    let mut f = Some(f);
+    let r = SESSION.with(|c| match c.try_borrow_mut() {
+        Ok(mut slot) => slot.as_mut().map(|k| (f.take().unwrap())(k)),
+        Err(_) => None,
+    });
+    match r {
+        Some(r) => r,
+        None => (f.take().unwrap())(&mut KeyCache::default()),
+    }
+}
+
 /// SymPy's `default_sort_key(e)`.
 pub fn sort_key(e: &Expr) -> Rc<SortKey> {
-    KeyCache::default().key(e)
+    with_cache(|k| k.key(e))
 }
 
 // ----------------------------------------------------------------------
@@ -303,12 +352,15 @@ pub fn sort_key(e: &Expr) -> Rc<SortKey> {
 
 /// Sort factors with `default_sort_key` (`Mul.as_ordered_factors`).
 pub fn sort_factors(v: &mut [Expr]) {
-    KeyCache::default().sort_factors(v)
+    if v.len() < 2 {
+        return;
+    }
+    with_cache(|k| k.sort_factors(v))
 }
 
 /// `Mul.as_ordered_factors()`.
 pub fn ordered_factors(e: &Expr) -> Vec<Expr> {
-    KeyCache::default().ordered_factors(e)
+    with_cache(|k| k.ordered_factors(e))
 }
 
 // ----------------------------------------------------------------------
@@ -412,7 +464,10 @@ fn cmp_f64(a: f64, b: f64) -> Ordering {
 /// `Add.as_ordered_terms()`: the terms of a sum (with their coefficients,
 /// the numeric term included) in SymPy's printing order.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    KeyCache::default().ordered_terms(e)
+    if !e.is_add() {
+        return vec![e.clone()];
+    }
+    with_cache(|k| k.ordered_terms(e))
 }
 
 impl KeyCache {
@@ -534,7 +589,7 @@ impl KeyCache {
                 if ta.expr == tb.expr {
                     Ordering::Equal
                 } else {
-                    sort_key(&ta.expr).cmp(&sort_key(&tb.expr))
+                    KeyCache::default().key(&ta.expr).cmp(&KeyCache::default().key(&tb.expr))
                 }
             })
     });

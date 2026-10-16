@@ -201,6 +201,7 @@ pub fn cudacode_with(e: &Expr, s: &CudaSettings) -> CodeResult {
 
 /// Print `e` with arbitrary settings.
 pub fn code_with(e: &Expr, s: &CodeSettings) -> CodeResult {
+    let _session = super::order::session();
     let p = CodePrinter::new(s);
     let body = p.print_top(e)?;
     Ok(p.finish(body))
@@ -274,6 +275,8 @@ pub struct CodePrinter<'a> {
     number_symbols: RefCell<Vec<(&'static str, f64)>>,
     /// Fortran: bit patterns of the floats produced by `N(..., 17)`
     n17: RefCell<rustc_hash::FxHashSet<u64>>,
+    /// Fortran: memo of `N(e)`
+    n_memo: RefCell<FxHashMap<Expr, Expr>>,
 }
 
 fn is_half(x: &Expr) -> bool {
@@ -321,7 +324,7 @@ enum Den {
 impl<'a> CodePrinter<'a> {
     pub fn new(s: &'a CodeSettings) -> Self {
         let macros = if s.math_macros { math_macros() } else { vec![] };
-        CodePrinter { s, macros, number_symbols: RefCell::new(Vec::new()), n17: RefCell::new(Default::default()) }
+        CodePrinter { s, macros, number_symbols: RefCell::new(Vec::new()), n17: RefCell::new(Default::default()), n_memo: RefCell::new(Default::default()) }
     }
 
     fn lang(&self) -> Lang {
@@ -407,6 +410,7 @@ impl<'a> CodePrinter<'a> {
     /// Print a whole expression: a lone `Float` gets SymPy's full
     /// precision `str` form in the StrPrinter based languages.
     pub fn print_top(&self, e: &Expr) -> CodeResult {
+        let _session = super::order::session();
         if let Kind::Num(Number::Float(f)) = e.kind() {
             if matches!(self.lang(), Lang::Python | Lang::NumPy | Lang::Rust) {
                 return Ok(crate::number::format_float_full(*f));
@@ -1232,6 +1236,18 @@ impl<'a> CodePrinter<'a> {
     /// SymPy's `N(e)` for the Fortran printer: integers become floats,
     /// numeric sub-expressions are evaluated to 17 digit floats.
     fn fortran_n(&self, e: &Expr) -> Expr {
+        if e.is_atom() && !e.is_number() {
+            return e.clone();
+        }
+        if let Some(r) = self.n_memo.borrow().get(e) {
+            return r.clone();
+        }
+        let r = self.fortran_n_impl(e);
+        self.n_memo.borrow_mut().insert(e.clone(), r.clone());
+        r
+    }
+
+    fn fortran_n_impl(&self, e: &Expr) -> Expr {
         match e.kind() {
             Kind::Num(Number::Int(_) | Number::BigInt(_)) => Expr::float(e.as_number().unwrap().to_f64()),
             Kind::Num(Number::Float(_)) => e.clone(),

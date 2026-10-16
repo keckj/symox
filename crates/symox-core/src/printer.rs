@@ -45,6 +45,7 @@ fn prec(e: &Expr) -> u8 {
 
 /// SymPy `str()` of an expression.
 pub fn to_str(e: &Expr) -> String {
+    let _session = crate::printing::order::session();
     if let Kind::Num(Number::Float(f)) = e.kind() {
         // SymPy prints a lone Float with full precision
         return crate::number::format_float_full(*f);

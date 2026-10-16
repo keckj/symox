@@ -36,6 +36,7 @@ pub fn pretty(e: &Expr) -> String {
 
 /// `pretty(expr, **settings)`.
 pub fn pretty_with(e: &Expr, s: &PrettySettings) -> String {
+    let _session = super::order::session();
     let p = PrettyPrinter { s };
     let pict = p.print_top(e);
     pict.render(s)

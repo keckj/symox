@@ -83,6 +83,7 @@ pub fn latex(e: &Expr) -> String {
 
 /// `latex(expr, **settings)`.
 pub fn latex_with(e: &Expr, settings: &LatexSettings) -> String {
+    let _session = super::order::session();
     let p = LatexPrinter::new(settings);
     let tex = p.print(e);
     match settings.mode {
