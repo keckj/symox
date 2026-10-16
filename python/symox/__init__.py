@@ -223,6 +223,10 @@ class NonInvertibleMatrixError(ValueError, MatrixError):
     """The matrix is singular."""
 
 
+class NonPositiveDefiniteMatrixError(ValueError, MatrixError):
+    """The matrix is not positive-definite."""
+
+
 class PurePoly:
     """Minimal ``PurePoly`` returned by ``Matrix.charpoly``."""
 

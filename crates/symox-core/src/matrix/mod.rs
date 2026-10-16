@@ -20,6 +20,7 @@
 //! assert_eq!(m.inv().unwrap().to_string(), "Matrix([[-2, 1], [3/2, -1/2]])");
 //! ```
 
+pub mod decomp;
 pub mod domain;
 pub mod eigen;
 pub mod ff;
@@ -60,6 +61,8 @@ pub enum MatrixError {
     Index(String),
     /// `TypeError`
     Type(String),
+    /// `NonPositiveDefiniteMatrixError`
+    NonPositiveDefinite(String),
     /// `MatrixError`
     Other(String),
 }
@@ -74,6 +77,7 @@ impl fmt::Display for MatrixError {
             | MatrixError::Value(s)
             | MatrixError::Index(s)
             | MatrixError::Type(s)
+            | MatrixError::NonPositiveDefinite(s)
             | MatrixError::Other(s) => s,
         };
         f.write_str(s)

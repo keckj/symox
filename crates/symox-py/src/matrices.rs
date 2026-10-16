@@ -17,6 +17,7 @@ fn err(py: Python<'_>, e: MatrixError) -> PyErr {
         MatrixError::NonSquare(m) => ("NonSquareMatrixError", m.clone()),
         MatrixError::NonInvertible(m) => ("NonInvertibleMatrixError", m.clone()),
         MatrixError::Other(m) => ("MatrixError", m.clone()),
+        MatrixError::NonPositiveDefinite(m) => ("NonPositiveDefiniteMatrixError", m.clone()),
         MatrixError::NotImplemented(m) => return PyNotImplementedError::new_err(m.clone()),
         MatrixError::Value(m) => return PyValueError::new_err(m.clone()),
         MatrixError::Index(m) => return PyIndexError::new_err(m.clone()),
@@ -700,9 +701,10 @@ impl PyMatrix {
         wrapm(self.m.evalf())
     }
 
+    /// Simplify the entries in place (like SymPy's mutable matrices).
     #[pyo3(signature = (**_kwargs))]
-    fn simplify(&self, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
-        wrapm(self.m.simplify())
+    fn simplify(&mut self, _kwargs: Option<&Bound<'_, PyDict>>) {
+        self.m = self.m.simplify();
     }
 
     fn cancel(&self) -> PyMatrix {
@@ -953,11 +955,97 @@ impl PyMatrix {
     }
 
     #[pyo3(signature = (ord=None))]
-    fn norm(&self, ord: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
-        if ord.is_some_and(|o| !o.is_none()) {
-            return Err(PyNotImplementedError::new_err("only the default (Frobenius / 2-) norm is implemented"));
-        }
-        Ok(wrap(self.m.norm()))
+    fn norm(&self, py: Python<'_>, ord: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
+        let o: Option<String> = match ord {
+            None => None,
+            Some(o) if o.is_none() => None,
+            Some(o) => Some(if let Ok(s) = o.extract::<String>() { s } else { to_expr(o)?.to_string() }),
+        };
+        Ok(wrap(self.m.norm_ord(o.as_deref()).py(py)?))
+    }
+
+    #[pyo3(signature = (hermitian=true))]
+    fn cholesky(&self, py: Python<'_>, hermitian: bool) -> PyResult<PyMatrix> {
+        Ok(wrapm(self.m.cholesky(hermitian).py(py)?))
+    }
+
+    #[pyo3(signature = (hermitian=true))]
+    fn LDLdecomposition<'py>(&self, py: Python<'py>, hermitian: bool) -> PyResult<Bound<'py, PyTuple>> {
+        let (l, d) = self.m.ldl_decomposition(hermitian).py(py)?;
+        PyTuple::new(py, [wrapm(l), wrapm(d)])
+    }
+
+    fn QRdecomposition<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let (q, r) = self.m.qr_decomposition().py(py)?;
+        PyTuple::new(py, [wrapm(q), wrapm(r)])
+    }
+
+    #[pyo3(signature = (reals_only=false, sort=false, normalize=false))]
+    fn diagonalize<'py>(&self, py: Python<'py>, reals_only: bool, sort: bool, normalize: bool) -> PyResult<Bound<'py, PyTuple>> {
+        let _ = (reals_only, sort, normalize);
+        let (p, d) = self.m.diagonalize().py(py)?;
+        PyTuple::new(py, [wrapm(p), wrapm(d)])
+    }
+
+    #[pyo3(signature = (reals_only=false, **_kwargs))]
+    fn is_diagonalizable(&self, reals_only: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> bool {
+        let _ = reals_only;
+        self.m.is_diagonalizable()
+    }
+
+    #[getter]
+    fn is_hermitian(&self) -> Option<bool> {
+        self.m.is_hermitian()
+    }
+
+    fn vec(&self) -> PyMatrix {
+        wrapm(self.m.vec())
+    }
+
+    fn values(&self) -> Vec<PyExpr> {
+        self.m.values().into_iter().map(wrap).collect()
+    }
+
+    fn flat(&self) -> Vec<PyExpr> {
+        self.m.data().iter().cloned().map(wrap).collect()
+    }
+
+    fn as_mutable(&self) -> PyMatrix {
+        self.clone()
+    }
+
+    fn as_immutable(&self) -> PyMatrix {
+        self.clone()
+    }
+
+    fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, (usize, usize, Vec<String>))> {
+        let cls = py.import("symox")?.getattr("Matrix")?;
+        let data: Vec<String> = self.m.data().iter().map(printer::srepr).collect();
+        Ok((cls, (self.m.rows(), self.m.cols(), data)))
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "eye", signature = (n, m=None, **_kwargs))]
+    fn eye_s(n: usize, m: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
+        eye(n, m, None)
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "zeros", signature = (r, c=None, **_kwargs))]
+    fn zeros_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
+        zeros(r, c, None)
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "ones", signature = (r, c=None, **_kwargs))]
+    fn ones_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
+        ones(r, c, None)
+    }
+
+    #[staticmethod]
+    #[pyo3(name = "diag", signature = (*values, **_kwargs))]
+    fn diag_s(values: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        diag(values, None)
     }
 
     #[pyo3(signature = (b, hermitian=None, conjugate_convention=None))]

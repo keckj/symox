@@ -432,6 +432,37 @@ Matrix([[x, 1, 1], [1, x, 1], [1, 1, x]]).eigenvals()
 Matrix([[x, 1, 1], [1, x, 1], [1, 1, x]]).eigenvects()
 Matrix([[1, x, 0], [0, 1, x], [x, 0, 1]]).eigenvals()
 Matrix([[0, x, 0], [0, 0, 1], [1, 0, 0]]).eigenvals()
+# --- decompositions and norms ---
+Matrix([[4, 2], [2, 3]]).cholesky()
+Matrix([[25, 15, -5], [15, 18, 0], [-5, 0, 11]]).cholesky()
+Matrix([[4, 2], [2, 3]]).LDLdecomposition()
+Matrix([[25, 15, -5], [15, 18, 0], [-5, 0, 11]]).LDLdecomposition()
+Matrix([[1, 2], [2, 1]]).cholesky()
+Matrix([[1, 2], [3, 4]]).cholesky()
+Matrix([[x, 1], [1, x]]).cholesky()
+Matrix([[x, 1], [1, x]]).cholesky(hermitian=False)
+Matrix([[2, I], [-I, 2]]).cholesky()
+Matrix([[1, 2], [3, 4]]).QRdecomposition()
+Matrix([[12, -51, 4], [6, 167, -68], [-4, 24, -41]]).QRdecomposition()
+Matrix([[1, 1], [1, 1], [1, 0]]).QRdecomposition()
+Matrix([[1, 2], [3, 4]]).diagonalize()
+Matrix([[2, 1], [1, 2]]).diagonalize()
+Matrix([[1, 1], [0, 1]]).diagonalize()
+Matrix([[1, 1], [0, 1]]).is_diagonalizable()
+Matrix([[a, b], [b, a]]).diagonalize()
+Matrix([[1, 2], [3, 4]]).vec()
+Matrix([[1, 0], [3, 4]]).values()
+Matrix([[1, -2], [3, 4]]).norm(1)
+Matrix([[1, -2], [3, 4]]).norm(oo)
+Matrix([1, -2, 3]).norm(1)
+Matrix([1, -2, 3]).norm(oo)
+Matrix([1, -2, 3]).norm(-oo)
+Matrix([1, -2, 3]).norm(3)
+Matrix([x, y]).norm(1)
+Matrix([[1, 2], [3, 4]]).norm('fro')
+Matrix([[1, I], [-I, 1]]).is_hermitian
+Matrix([[1, 2], [3, 1]]).is_hermitian
+Matrix([[x, 1], [1, x]]).is_hermitian
 """.strip().splitlines()
 
 CASES = [c for c in CASES if c.strip() and not c.lstrip().startswith("#")]
@@ -605,6 +636,16 @@ def test_python_api():
     cp = X.Matrix([[1, 2], [3, 4]]).charpoly(x)
     assert cp.as_expr() == x**2 - 5 * x - 2 and cp.all_coeffs() == [1, -5, -2]
     assert X.det(X.Matrix([[1, 2], [3, 4]])) == -2
+    # pickling and class constructors
+    import pickle
+
+    P = X.Matrix([[x, X.Rational(1, 2)], [X.sin(y), 3]])
+    assert pickle.loads(pickle.dumps(P)) == P
+    assert X.Matrix.eye(2) == X.eye(2) and X.Matrix.zeros(1, 2) == X.zeros(1, 2)
+    assert X.Matrix.diag(1, 2) == X.diag(1, 2)
+    # simplify works in place like SymPy's mutable matrices
+    Z = X.Matrix([[x + x, 1]])
+    assert Z.simplify() is None and str(Z) == "Matrix([[2*x, 1]])"
 
 
 def test_matrices_against_sympy():
