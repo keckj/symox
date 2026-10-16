@@ -106,12 +106,13 @@ without floating-point tolerances. Unquoted Unicode symbol names are accepted.
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
 Undefined functions preserve their identity and declared assumptions and arity,
-including names shared with builtins. Held `Derivative` and `Subs` expressions
+including names shared with builtins. Held `Derivative`, `Subs` and `Limit` expressions
 support evaluation and round trips; simultaneous symbol substitutions preserve
 the original right-hand sides. Limits of unknown functions remain held when
 continuity cannot be established.
-`Subs` currently accepts symbol variables; its equality is structural and does
-not yet identify expressions that differ only by renamed bound variables.
+`Subs` accepts symbol variables and identifies safe renamings of bound variables
+when substitution points do not refer to those variables. Cases with such
+references retain structural identity to preserve their evaluation semantics.
 Simultaneous substitutions with non-symbol keys are rejected explicitly.
 
 `tests/compare_sympy.py` runs every case through SymPy and symox and
@@ -475,7 +476,7 @@ Bases support iteration, indexing, `exprs`, `polys`, `gens`, `domain`,
 `order` and `is_zero_dimensional`. `g.fglm(order="lex")` converts a
 zero-dimensional basis using exact quotient-algebra multiplication matrices
 and linear dependence, over the supported rational, prime finite,
-rational-function and quadratic algebraic fields.
+rational-function and supported algebraic fields.
 Changing the monomial order requires a zero-dimensional ideal; requesting the
 existing order returns the basis unchanged. Polynomial coefficient rings use
 their fraction fields internally and restore integral coefficient normalization.
@@ -498,12 +499,28 @@ these fields. `Poly`, Gröbner bases, reduction and order conversion use native
 algebraic coefficients. Univariate polynomial operations include exact GCD,
 factorization, square-free decomposition, resultants and discriminants.
 The supported constructions also include positive rational cube roots,
-rational transformations of generators and composita of two independent
-quadratic fields, such as `sqrt(2) + I`. Minimal polynomials and constituent
+rational transformations of generators, composita of up to three independent
+quadratic fields, and a positive rational cube root combined with a quadratic
+field. Examples include `sqrt(2) + sqrt(3) + sqrt(5)` (degree 8) and
+`2**Rational(1, 3) + sqrt(3)` (degree 6). Minimal polynomials and constituent
 embeddings are certified with exact rational arithmetic. `minimal_polynomial`
 (`minpoly`) and `primitive_element` expose these constructions; `Poly.norm()`
-uses a resultant over the field's minimal polynomial. Arbitrary algebraic
+uses a resultant over the field's minimal polynomial. `AlgebraicNumber` retains
+the chosen root, exact rational power-basis coefficients and optional alias;
+`to_number_field` constructs primitive generators or tests exact membership in
+a specified supported field. Arbitrary algebraic
 towers and mixtures with transcendental parameters remain unsupported.
+Norms use the monic defining polynomial, so they equal the determinant of
+multiplication over `QQ`. SymPy's `Poly.norm()` can differ by a rational factor
+when its integral defining polynomial is not monic.
+
+```python
+theta = sm.sqrt(2) + sm.sqrt(3)
+a = sm.to_number_field(sm.sqrt(2), theta)
+a.coeffs()                      # [1/2, 0, -9/2, 0] in descending powers of theta
+a.as_expr()                     # represents sqrt(2) exactly through powers of theta
+a.minpoly_of_element()          # Poly(_x**2 - 2, _x, domain='QQ')
+```
 
 `linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
 equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
@@ -559,12 +576,17 @@ matrices with concrete dimensions for the existing exact algorithms.
 Hadamard operations act element by element and require matching matrix shapes;
 Kronecker products multiply dimensions and preserve factor order. These nodes
 also support finite matrix output generation for PyTorch and JAX.
-`BlockDiagMatrix` retains rectangular diagonal blocks and exposes a typed
-immutable grid through `.blocks`. `MatrixSlice` and matrix slice indexing support
+`BlockMatrix` validates block row heights and column widths, and exposes a typed
+immutable grid through `.blocks`. `block_collapse` combines compatible block
+sums, products and nonnegative integer powers while retaining unsupported
+operations. `BlockDiagMatrix` also supports rectangular diagonal blocks.
+`MatrixSlice` and matrix slice indexing support
 contiguous slices with step 1, including nested slices and negative bounds.
 Empty, out-of-range and other-step slices are rejected explicitly.
-Matrix hashes, symbol discovery, rewrites and sort keys preserve shared DAG
-nodes, including derivatives of large matrix powers.
+Matrix hashes, symbol discovery, rewrites, sort keys and pickles preserve shared
+DAG nodes, including derivatives of large matrix powers. The versioned pickle
+codec records scalar and matrix nodes directly, preserving held arithmetic,
+function metadata and arbitrary-precision numbers without printing expressions.
 Scalar differentiation preserves product order, supports integer powers and
 inverses, and uses shared matrix subexpressions for large powers. `Trace` and
 `Determinant` retain abstract parents while applying supported exact identities;

@@ -18,7 +18,7 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
             let mut keep: Vec<(Expr, crate::number::Number)> = Vec::new();
             for (t, k) in terms {
                 let nt = f(t);
-                if nt.ptr_eq(t) || nt == *t {
+                if nt.same_presentation(t) {
                     keep.push((t.clone(), k.clone()));
                 } else {
                     changed = true;
@@ -38,7 +38,7 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
             for (b, x) in facs {
                 let nb = f(b);
                 let nx = if x.is_number() { x.clone() } else { f(x) };
-                if !(nb == *b && nx == *x) {
+                if !(nb.same_presentation(b) && nx.same_presentation(x)) {
                     changed = true;
                 }
                 v.push(if x.is_one() && nx.is_one() { nb } else { pow(&nb, &nx) });
@@ -50,7 +50,7 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
         }
         Kind::Pow(b, x) => {
             let (nb, nx) = (f(b), f(x));
-            if nb == *b && nx == *x {
+            if nb.same_presentation(b) && nx.same_presentation(x) {
                 return e.clone();
             }
             pow(&nb, &nx)
@@ -91,7 +91,7 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
                 return e.clone();
             }
             let na: Vec<Expr> = args.iter().map(|a| f(a)).collect();
-            if na.iter().zip(args).all(|(a, b)| a == b) {
+            if na.iter().zip(args).all(|(a, b)| a.same_presentation(b)) {
                 return e.clone();
             }
             func(fun.clone(), na)
@@ -99,21 +99,21 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
         Kind::Derivative(inner, vars) => {
             let ni = f(inner);
             let nv:Vec<_>=vars.iter().map(|(v,n)|(f(v),*n)).collect();
-            if ni == *inner && nv==*vars {
+            if ni.same_presentation(inner) && nv.iter().zip(vars).all(|((a,n),(b,m))|n==m && a.same_presentation(b)) {
                 return e.clone();
             }
             crate::diff::derivative_unevaluated(&ni,nv)
         }
         Kind::Rel(op, a, b) => {
             let (na, nb) = (f(a), f(b));
-            if na == *a && nb == *b {
+            if na.same_presentation(a) && nb.same_presentation(b) {
                 return e.clone();
             }
             rel(*op, &na, &nb)
         }
         Kind::Piecewise(p) => {
             let np: Vec<(Expr, Expr)> = p.iter().map(|(x, c)| (f(x), f(c))).collect();
-            if np == *p {
+            if np.iter().zip(p).all(|((a,c),(b,d))|a.same_presentation(b) && c.same_presentation(d)) {
                 return e.clone();
             }
             piecewise(np)
@@ -151,6 +151,12 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
             return;
         }
         match e.kind() {
+            Kind::Func(Func::Limit,args)=>{
+                for symbol in free_symbols(&args[0]).into_iter().filter(|s|*s!=args[1]){
+                    if seen.insert(symbol.clone()){out.push(symbol);}
+                }
+                rec(&args[2],seen,out,visited);
+            },
             Kind::Func(Func::Subs,args)=>{
                 let variables=args[1].args();
                 for symbol in free_symbols(&args[0]).into_iter().filter(|s|!variables.contains(s)){
@@ -208,7 +214,7 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
 
 /// Does `e` contain the sub-expression `s` (structurally)?
 pub fn has(e: &Expr, s: &Expr) -> bool {
-    if s.mask() & !e.mask() != 0 {
+    if !s.has_binding_identity() && s.mask() & !e.mask() != 0 {
         return false;
     }
     if e == s {

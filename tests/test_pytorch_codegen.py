@@ -22,6 +22,32 @@ DTYPES = [torch.float32, torch.float64]
 
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("compiled", [False, True])
+def test_block_matrix_broadcast_products_and_autograd(device, compiled):
+    a, b, d = (sm.MatrixSymbol('A', 2, 2), sm.MatrixSymbol('B', 2, 1),
+               sm.MatrixSymbol('D', 1, 1))
+    matrix = sm.BlockMatrix([[a, b], [b.T, d]])
+    function = sm.torch_lambdify((a, b, d),
+                                (matrix, matrix.T, sm.block_collapse(matrix*matrix)),
+                                compile=compiled,
+                                compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    av = torch.arange(8., device=device, dtype=torch.float64).reshape(2, 1, 2, 2).requires_grad_()
+    bv = torch.arange(6., device=device, dtype=torch.float64).reshape(1, 3, 2, 1).requires_grad_()
+    dv = torch.ones(1, 1, device=device, dtype=torch.float64, requires_grad=True)
+    aa, bb, dd = av.expand(2, 3, 2, 2), bv.expand(2, 3, 2, 1), dv.expand(2, 3, 1, 1)
+    reference = torch.cat((torch.cat((aa, bb), dim=-1),
+                           torch.cat((bb.transpose(-2, -1), dd), dim=-1)), dim=-2)
+    expected = (reference, reference.transpose(-2, -1), reference @ reference)
+    actual = function(av, bv, dv)
+    for value, target in zip(actual, expected):
+        torch.testing.assert_close(value, target)
+    gradients = torch.autograd.grad(sum(value.square().sum() for value in actual), (av, bv, dv))
+    references = torch.autograd.grad(sum(value.square().sum() for value in expected), (av, bv, dv))
+    for value, target in zip(gradients, references):
+        torch.testing.assert_close(value, target)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
 def test_rectangular_block_diagonal_and_slice_batched_gradients(device, compiled):
     a, b = sm.MatrixSymbol('A', 2, 3), sm.MatrixSymbol('B', 3, 2)
     function = sm.torch_lambdify((a, b), (sm.BlockDiagMatrix(a, b), a[:, 1:3]),

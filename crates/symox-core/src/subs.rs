@@ -15,8 +15,8 @@ pub fn xreplace(e: &Expr, map: &FxHashMap<Expr, Expr>) -> Expr {
         return e.clone();
     }
     let mask: u64 = map.keys().fold(0, |m, k| m | k.mask());
-    let all_masked = map.keys().all(|k| k.mask() != 0);
-    let mut cache: FxHashMap<Expr, Expr> = FxHashMap::default();
+    let all_masked = map.keys().all(|k| k.mask() != 0 && !k.has_binding_identity());
+    let mut cache: FxHashMap<usize, (Expr,Expr)> = FxHashMap::default();
     xr(e, map, mask, all_masked, false, &mut cache)
 }
 
@@ -26,7 +26,7 @@ fn xr(
     mask: u64,
     all_masked: bool,
     held_derivatives:bool,
-    cache: &mut FxHashMap<Expr, Expr>,
+    cache: &mut FxHashMap<usize, (Expr,Expr)>,
 ) -> Expr {
     if let Some(v) = map.get(e) {
         return v.clone();
@@ -34,7 +34,7 @@ fn xr(
     if e.is_atom() || (all_masked && e.mask() & mask == 0) {
         return e.clone();
     }
-    if let Some(v) = cache.get(e) {
+    if let Some((_,v)) = cache.get(&e.dag_id()) {
         return v.clone();
     }
     if held_derivatives {
@@ -50,7 +50,7 @@ fn xr(
                 xr(point,&point_map,mask,all_masked,true,&mut FxHashMap::default())
             }).collect();
             let result=held_subs(&body,variables,points);
-            cache.insert(e.clone(),result.clone());
+            cache.insert(e.dag_id(),(e.clone(),result.clone()));
             return result;
         }
         if let Kind::Derivative(_,vars)=e.kind(){
@@ -63,7 +63,7 @@ fn xr(
         }
     }
     let r = map_children(e, &mut |c| xr(c, map, mask, all_masked, held_derivatives, cache));
-    cache.insert(e.clone(), r.clone());
+    cache.insert(e.dag_id(), (e.clone(),r.clone()));
     r
 }
 
@@ -87,7 +87,7 @@ pub fn simultaneous(e:&Expr,pairs:&[(Expr,Expr)])->Expr {
     if pairs.is_empty(){return e.clone();}
     let map:FxHashMap<_,_>=pairs.iter().cloned().collect();
     let mask=map.keys().fold(0,|m,k|m|k.mask());
-    let all_masked=map.keys().all(|k|k.mask()!=0);
+    let all_masked=map.keys().all(|k|k.mask()!=0 && !k.has_binding_identity());
     xr(e,&map,mask,all_masked,true,&mut FxHashMap::default())
 }
 
@@ -111,14 +111,14 @@ pub fn subs1(e: &Expr, old: &Expr, new: &Expr) -> Expr {
     s1(e, old, new, &mut cache)
 }
 
-fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
+fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
     if e == old {
         return new.clone();
     }
-    if e.is_atom() || (old.mask() & !e.mask() != 0) {
+    if e.is_atom() || (!old.has_binding_identity() && old.mask() & !e.mask() != 0) {
         return e.clone();
     }
-    if let Some(v) = cache.get(e) {
+    if let Some((_,v)) = cache.get(&e.dag_id()) {
         return v.clone();
     }
     if let Kind::Func(Func::Subs,args)=e.kind(){
@@ -187,7 +187,7 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Ex
         }
         _ => subs_children(e, old, new, cache),
     };
-    cache.insert(e.clone(), r.clone());
+    cache.insert(e.dag_id(), (e.clone(),r.clone()));
     r
 }
 
@@ -195,11 +195,11 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Ex
 /// in Add terms and whole powers in Mul factors. map_children deliberately
 /// visits the compact internal representation instead, which would miss
 /// patterns such as 2*x in 2*x+y, or x**2 in x**2*y.
-fn subs_children(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
+fn subs_children(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
     if e.is_add() || e.is_mul() {
         let args = e.args();
         let replaced: Vec<Expr> = args.iter().map(|c| s1(c, old, new, cache)).collect();
-        if replaced == args {
+        if replaced.iter().zip(&args).all(|(a,b)|a.same_presentation(b)) {
             return e.clone();
         }
         return if e.is_add() { add(&replaced) } else { mul(&replaced) };

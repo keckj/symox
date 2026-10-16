@@ -168,7 +168,7 @@ pub fn has_mp(e: &Expr) -> bool {
 /// Evaluate a numeric expression to `prec` bits. Returns `None` when the
 /// expression has free symbols or uses an unsupported function.
 pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
-    if matches!(e.kind(),Kind::Func(Func::Subs,_)){
+    if matches!(e.kind(),Kind::Func(Func::Subs | Func::Limit,_)){
         let evaluated=crate::functions::doit(e,true);
         if evaluated==*e{return None;}
         return eval_mp(&evaluated,prec);
@@ -231,7 +231,7 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
             acc
         }
         Kind::Pow(b, x) => pow_of(b, x, p)?,
-        Kind::Func(Func::Subs,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
+        Kind::Func(Func::Subs | Func::Limit,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
         Kind::Func(f, args) => func(f, args, p)?,
         _ => return None,
     })

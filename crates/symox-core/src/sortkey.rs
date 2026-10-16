@@ -39,6 +39,11 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
             class.2 = "ImmutableDenseMatrix";
             vec![S(matrix.rows().clone()), S(matrix.cols().clone()), PresentationArg::Node("Tuple", m.data().iter().cloned().map(S).collect())]
         }
+        MatrixKind::Block(grid) => vec![PresentationArg::Node("ImmutableDenseMatrix", vec![
+            S(Expr::int(grid.shape().0 as i64)),
+            S(Expr::int(grid.shape().1 as i64)),
+            PresentationArg::Node("Tuple", grid.data().iter().cloned().map(M).collect()),
+        ])],
         MatrixKind::Identity => vec![S(matrix.rows().clone())],
         MatrixKind::Zero | MatrixKind::One => vec![S(matrix.rows().clone()), S(matrix.cols().clone())],
         MatrixKind::HadamardProduct(factors) | MatrixKind::Kronecker(factors) | MatrixKind::BlockDiag(factors) => factors.iter().cloned().map(M).collect(),
@@ -210,7 +215,7 @@ fn class_key(e: &Expr) -> Key {
         Kind::Pow(..) => (3, 2, "Pow".into()),
         Kind::Mul(..) => (3, 0, "Mul".into()),
         Kind::Add(..) => (3, 1, "Add".into()),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs), _) => (5, 0, f.name().into()),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         Kind::Func(f, _) => {
             let i = match f {
@@ -258,16 +263,18 @@ pub fn sort_key(e: &Expr) -> Key {
 #[derive(Default)]
 struct SortKeyCache {
     memo_scalars: bool,
-    scalars: FxHashMap<Expr, Key>,
-    matrices: FxHashMap<MatrixExpr, Key>,
+    // Presentation depends on the stored bound names, even when two Subs
+    // nodes have equal alpha identities. Retain owners to prevent ID reuse.
+    scalars: FxHashMap<usize, (Expr, Key)>,
+    matrices: FxHashMap<usize, (MatrixExpr, Key)>,
 }
 
 impl SortKeyCache {
     fn key(&mut self, e: &Expr) -> Key {
         if !self.memo_scalars { return self.compute(e); }
-        if let Some(key) = self.scalars.get(e) { return key.clone(); }
+        if let Some((_, key)) = self.scalars.get(&e.dag_id()) { return key.clone(); }
         let key = share_key(self.compute(e));
-        self.scalars.insert(e.clone(), key.clone());
+        self.scalars.insert(e.dag_id(), (e.clone(), key.clone()));
         key
     }
 
@@ -284,14 +291,14 @@ impl SortKeyCache {
     }
 
     fn matrix_key(&mut self, matrix: &MatrixExpr) -> Key {
-        if let Some(key) = self.matrices.get(matrix) { return key.clone(); }
+        if let Some((_, key)) = self.matrices.get(&matrix.dag_id()) { return key.clone(); }
         let mut presentation = matrix_presentation(matrix);
         if let MatrixKind::Add(terms) = matrix.kind() {
             presentation.args = matrix_ordered_terms(terms, |m| self.matrix_key(m)).into_iter().map(PresentationArg::Matrix).collect();
         }
         let args = presentation.args.into_iter().map(|arg| self.presentation_key(arg)).collect();
         let key = share_key(composite_key(presentation.class, args));
-        self.matrices.insert(matrix.clone(), key.clone());
+        self.matrices.insert(matrix.dag_id(), (matrix.clone(), key.clone()));
         key
     }
 

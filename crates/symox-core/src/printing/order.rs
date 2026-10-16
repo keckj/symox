@@ -131,7 +131,7 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Pow(..) => (3, 2, Cow::Borrowed("Pow")),
         Kind::Func(Func::Max, _) => (5, 0, Cow::Borrowed("Max")),
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs), _) => (5, 0, Cow::Owned(f.name().into())),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit), _) => (5, 0, Cow::Owned(f.name().into())),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
         Kind::Func(f, _) => (4, func_ordinal(f), Cow::Owned(f.name().to_string())),
         Kind::Piecewise(_) => (4, 0, Cow::Borrowed("Piecewise")),
@@ -149,8 +149,10 @@ fn one_key() -> SortKey {
 /// once).
 #[derive(Default)]
 pub struct KeyCache {
-    map: FxHashMap<Expr, Rc<SortKey>>,
-    matrices: FxHashMap<MatrixExpr, Rc<SortKey>>,
+    // Sort keys describe original args, not alpha-equivalence classes.
+    // Owners keep temporary args alive while their physical IDs are cached.
+    map: FxHashMap<usize, (Expr, Rc<SortKey>)>,
+    matrices: FxHashMap<usize, (MatrixExpr, Rc<SortKey>)>,
     one: Option<Rc<SortKey>>,
 }
 
@@ -176,24 +178,24 @@ impl KeyCache {
     }
 
     fn matrix_key(&mut self, matrix: &MatrixExpr) -> Rc<SortKey> {
-        if let Some(key) = self.matrices.get(matrix) { return key.clone(); }
+        if let Some((_, key)) = self.matrices.get(&matrix.dag_id()) { return key.clone(); }
         let mut presentation = matrix_presentation(matrix);
         if let MatrixKind::Add(terms) = matrix.kind() {
             presentation.args = matrix_ordered_terms(terms, |m| self.matrix_key(m)).into_iter().map(PresentationArg::Matrix).collect();
         }
         let args: Vec<_> = presentation.args.into_iter().map(|arg| self.presentation_arg(arg)).collect();
         let key = Rc::new(self.composite(presentation.class, KArgs::List(args)));
-        self.matrices.insert(matrix.clone(), key.clone());
+        self.matrices.insert(matrix.dag_id(), (matrix.clone(), key.clone()));
         key
     }
 
     /// `default_sort_key(e)`.
     pub fn key(&mut self, e: &Expr) -> Rc<SortKey> {
-        if let Some(k) = self.map.get(e) {
+        if let Some((_, k)) = self.map.get(&e.dag_id()) {
             return k.clone();
         }
         let k = Rc::new(self.compute(e));
-        self.map.insert(e.clone(), k.clone());
+        self.map.insert(e.dag_id(), (e.clone(), k.clone()));
         k
     }
 

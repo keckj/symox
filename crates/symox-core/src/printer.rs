@@ -103,6 +103,11 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Logic(op), args) => crate::logic::write_logic(*op, args, out),
         Kind::Func(Func::Set(op), args) => crate::sets::write_set(*op, args, out),
         Kind::Func(Func::Order, args) => out.push_str(&crate::series::print::order_str(args)),
+        Kind::Func(Func::Limit,args)=>{
+            out.push_str("Limit(");
+            for value in &args[..3]{write_expr(value,out);out.push_str(", ");}
+            out.push_str("dir='");out.push_str(args[3].as_sym().map(|s|s.name()).unwrap_or("+"));out.push_str("')");
+        },
         Kind::Func(Func::MatrixProxy(parent), _) => out.push_str(&parent.to_str()),
         Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
             out.push_str(f.name()); out.push('('); out.push_str(&parent.to_str()); out.push(')');

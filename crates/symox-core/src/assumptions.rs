@@ -371,6 +371,7 @@ pub fn is_negative(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_nonnegative(e: &Expr) -> Option<bool> {
+    if declared(e).has(A::NOT_NONNEGATIVE){return Some(false);}
     if exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s.subset(Signs::NONNEG) {
@@ -383,6 +384,7 @@ pub fn is_nonnegative(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_nonpositive(e: &Expr) -> Option<bool> {
+    if declared(e).has(A::NOT_NONPOSITIVE){return Some(false);}
     if exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s.subset(Signs::NONPOS) {

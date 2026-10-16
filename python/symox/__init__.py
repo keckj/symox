@@ -15,11 +15,13 @@ import string as _string
 
 from . import _core
 from ._core import (
+    AlgebraicNumber,
     CompiledFunction,
     Derivative,
     Expr,
     Float,
     Integer,
+    IsomorphismFailed,
     N,
     Piecewise,
     Rational,
@@ -41,6 +43,7 @@ from ._core import (
     bernoulli,
     sympify,
     together,
+    to_number_field,
 )
 
 Basic = Expr
@@ -1324,6 +1327,11 @@ def _order_part(i):
                 return self.args[0]
             if i == 1:
                 return tuple(v for v, n in self.variable_count for _ in range(n))
+        if self.is_Limit:
+            if i == 0:
+                return self.args[0]
+            if i == 2:
+                return self.args[2]
         if self.is_Subs:
             return self.args[0] if i == 0 else tuple(self.args[i].args)
         if not _core._is_order(self):
@@ -1338,35 +1346,18 @@ def _order_part(i):
 Expr.expr = _order_part(0)
 Expr.variables = _order_part(1)
 Expr.point = _order_part(2)
+Expr.var = property(lambda self: self.args[1] if self.is_Limit else (_ for _ in ()).throw(AttributeError("only limits have var")))
+Expr.dir = property(lambda self: str(self.args[3]) if self.is_Limit else (_ for _ in ()).throw(AttributeError("only limits have dir")))
 
-class Limit:
-    """Unevaluated limit ``Limit(e, z, z0, dir)``; ``doit()`` evaluates it."""
+class _LimitMeta(type):
+    def __instancecheck__(cls, value):
+        return isinstance(value, Expr) and value.is_Limit
 
-    def __init__(self, e, z, z0, dir="+"):
-        self.expr = sympify(e)
-        self.var = sympify(z)
-        self.point = sympify(z0)
-        if str(self.point) == "oo":
-            dir = "-"
-        elif str(self.point) == "-oo":
-            dir = "+"
-        self.dir = dir
-        self.args = (self.expr, self.var, self.point, dir)
 
-    def doit(self, **hints):
-        r = _core._limit(self.expr, self.var, self.point, self.dir)
-        return self if r is None else r
-
-    def __str__(self):
-        return f"Limit({self.expr}, {self.var}, {self.point}, dir='{self.dir}')"
-
-    __repr__ = __str__
-
-    def __eq__(self, other):
-        return isinstance(other, Limit) and self.args == other.args
-
-    def __hash__(self):
-        return hash(("Limit",) + tuple(str(a) for a in self.args))
+class Limit(metaclass=_LimitMeta):
+    """Held native limit; ``doit()`` invokes the exact limit engine."""
+    def __new__(cls, e, z, z0, dir="+"):
+        return _core._held_limit(e, z, z0, str(dir))
 
 
 def limit(e, z, z0, dir="+"):
@@ -1374,7 +1365,7 @@ def limit(e, z, z0, dir="+"):
 
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
-    r = _core._limit(e, z, z0, dir)
+    r = _core._limit(e, z, z0, str(dir))
     return Limit(e, z, z0, dir) if r is None else r
 
 
@@ -1546,7 +1537,7 @@ from ._matrixexpr import (  # noqa: E402
     MatrixExpr, MatrixSymbol, MatAdd, MatMul, MatPow, Transpose, Adjoint,
     Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
     OneMatrix, HadamardProduct, HadamardPower, KroneckerProduct,
-    BlockDiagMatrix, MatrixSlice,
+    BlockMatrix, BlockDiagMatrix, MatrixSlice, block_collapse,
     hadamard_product, hadamard_power, kronecker_product,
 )
 

@@ -12,7 +12,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
         Func::Order => return crate::series::order::order_from_args(&args),
-        Func::Subs=>return Expr::from_kind(Kind::Func(f,args)),
+        Func::Subs | Func::Limit=>return Expr::from_kind(Kind::Func(f,args)),
         Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
@@ -108,7 +108,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Subs | Func::Logic(_) | Func::Set(_)
+        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => None,
     };
     match r {
@@ -132,6 +132,12 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
         }
         Kind::Derivative(inner, variables) => crate::diff::diff_many(&child(inner), variables),
         Kind::Func(Func::Subs,args)=>crate::subs::subs_doit(&doit(&args[0],deep),&args[1].args(),&args[2].args()),
+        Kind::Func(Func::Limit,args)=>{
+            let body=child(&args[0]);
+            let direction=crate::limits::Dir::parse(args[3].as_sym().map(|s|s.name()).unwrap_or("+"));
+            direction.and_then(|dir|crate::limits::limit(&body,&args[1],&args[2],dir).ok())
+                .unwrap_or_else(||Expr::from_kind(Kind::Func(Func::Limit,vec![body,args[1].clone(),args[2].clone(),args[3].clone()])))
+        },
         Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") => child(&args[0]),
         Kind::Add(..) if !e.is_canonical() => add(&e.args().iter().map(child).collect::<Vec<_>>()),
         Kind::Mul(..) if !e.is_canonical() => mul(&e.args().iter().map(child).collect::<Vec<_>>()),

@@ -53,7 +53,7 @@ pub fn derivative_unevaluated(f: &Expr, vars: Vec<(Expr, u32)>) -> Expr {
     Expr::from_kind(Kind::Derivative(inner, all))
 }
 
-fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
+fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
     if e == x {
         return Expr::one();
     }
@@ -64,7 +64,7 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
         Kind::Num(_) | Kind::Const(_) | Kind::Sym(_) | Kind::Bool(_) => return Expr::zero(),
         _ => {}
     }
-    if let Some(v) = cache.get(e) {
+    if let Some((_,v)) = cache.get(&e.dag_id()) {
         return v.clone();
     }
     let r = match e.kind() {
@@ -140,7 +140,7 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
         ),
         _ => derivative_unevaluated(e, vec![(x.clone(), 1)]),
     };
-    cache.insert(e.clone(), r.clone());
+    cache.insert(e.dag_id(), (e.clone(),r.clone()));
     r
 }
 
@@ -149,7 +149,7 @@ fn d_func(
     f: &Func,
     args: &[Expr],
     x: &Expr,
-    cache: &mut FxHashMap<Expr, Expr>,
+    cache: &mut FxHashMap<usize, (Expr,Expr)>,
 ) -> Expr {
     if let Func::MatrixElement(parent) = f {
         if let Kind::Func(Func::MatrixElement(other), indices) = x.kind() {
@@ -189,7 +189,7 @@ fn d_func(
     if let Func::MatrixProxy(_) = f {
         return Expr::zero();
     }
-    if matches!(f,Func::Subs){
+    if matches!(f,Func::Subs | Func::Limit){
         if !crate::traverse::free_symbols(e).contains(x){return Expr::zero();}
         let evaluated=crate::functions::doit(e,true);
         return if evaluated!=*e{d(&evaluated,x,cache)}else{derivative_unevaluated(e,vec![(x.clone(),1)])};

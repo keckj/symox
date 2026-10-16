@@ -146,7 +146,7 @@ def default_sort_key(expr, order=None):
 
 
 def _restore_atom(name, value):
-    if name == "Symbol":
+    if name in ("Symbol", "Dummy"):
         return Symbol(value[0], **value[1])
     return _core.sympify(value)
 

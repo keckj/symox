@@ -17,6 +17,8 @@ use std::sync::{Arc, OnceLock};
 use rustc_hash::FxHasher;
 
 use crate::number::Number;
+#[path="binding_identity.rs"]
+mod binding_identity;
 
 /// An undefined function head, distinct from builtin names and held operators.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -132,6 +134,8 @@ pub enum Func {
     Undefined(UndefinedFunction),
     /// Held substitution: [expression, Tuple(variables), Tuple(points)].
     Subs,
+    /// Held limit: [expression, variable, point, Symbol(direction)].
+    Limit,
     /// Boolean connectives (`And`, `Or`, `Not`, ...), see [`crate::logic`].
     Logic(crate::logic::LogicOp),
     /// Sets (`Interval`, `FiniteSet`, `Union`, ...), see [`crate::sets`].
@@ -187,6 +191,7 @@ impl Func {
             Func::Order => "Order",
             Func::Undefined(n) => n,
             Func::Subs=>"Subs",
+            Func::Limit=>"Limit",
             Func::Logic(op) => op.name(),
             Func::Set(op) => op.name(),
             Func::MatrixElement(_) => "MatrixElement",
@@ -237,6 +242,7 @@ impl Func {
             "Min" => Func::Min,
             "Order" => Func::Order,
             "Subs"=>Func::Subs,
+            "Limit"=>Func::Limit,
             _ => {
                 return crate::logic::LogicOp::from_name(name)
                     .map(Func::Logic)
@@ -250,6 +256,7 @@ impl Func {
     pub fn arity(&self) -> Option<usize> {
         match self {
             Func::Atan2 => Some(2),
+            Func::Limit => Some(4),
             Func::MatrixElement(_) => Some(2),
             Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => Some(0),
             Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Logic(_) | Func::Set(_) => None,
@@ -330,6 +337,8 @@ pub struct Node {
     kind: Kind,
     canonical: bool,
     has_matrix: bool,
+    features: u8,
+    binding_identity: Option<Arc<binding_identity::Key>>,
     free_symbols: OnceLock<Vec<Expr>>,
     ordered_args: OnceLock<Vec<Expr>>,
 }
@@ -365,6 +374,8 @@ impl Expr {
         let mut h = FxHasher::default();
         let mut mask = 0u64;
         let mut has_matrix = false;
+        let binding_identity=match &kind {Kind::Func(Func::Subs,args)=>binding_identity::build(args),_=>None};
+        let mut features=if binding_identity.is_some(){1}else{0};
         kind.rank().hash(&mut h);
         match &kind {
             Kind::Num(n) => n.hash(&mut h),
@@ -379,6 +390,7 @@ impl Expr {
                     h.write_u64(t.hash64());
                     k.hash(&mut h);
                     mask |= t.mask();
+                    features |= t.0.features;
                     has_matrix |= t.has_matrix();
                 }
             }
@@ -388,6 +400,7 @@ impl Expr {
                     h.write_u64(b.hash64());
                     h.write_u64(e.hash64());
                     mask |= b.mask() | e.mask();
+                    features |= b.0.features | e.0.features;
                     has_matrix |= b.has_matrix() || e.has_matrix();
                 }
             }
@@ -395,12 +408,16 @@ impl Expr {
                 h.write_u64(b.hash64());
                 h.write_u64(e.hash64());
                 mask = b.mask() | e.mask();
+                features |= b.0.features | e.0.features;
                 has_matrix = b.has_matrix() || e.has_matrix();
             }
             Kind::Func(f, args) => {
                 f.hash(&mut h);
+                if let Some(key)=&binding_identity {key.hash(&mut h);}
+                if *f==Func::Limit {features|=2;}
                 for a in args {
-                    h.write_u64(a.hash64());
+                    if binding_identity.is_none(){h.write_u64(a.hash64());}
+                    features |= a.0.features;
                     mask |= a.mask();
                     has_matrix |= a.has_matrix();
                 }
@@ -418,9 +435,11 @@ impl Expr {
                     }
                     for scalar in parent.scalar_free_symbols() {
                         mask |= scalar.mask();
+                        features |= scalar.0.features;
                     }
                     let _ = parent.scalar_map(&mut |scalar| {
                         mask |= scalar.mask();
+                        features |= scalar.0.features;
                         scalar.clone()
                     });
                 }
@@ -428,11 +447,13 @@ impl Expr {
             Kind::Derivative(e, vars) => {
                 h.write_u64(e.hash64());
                 mask = e.mask();
+                features |= e.0.features;
                 has_matrix = e.has_matrix();
                 for (v, n) in vars {
                     h.write_u64(v.hash64());
                     n.hash(&mut h);
                     mask |= v.mask();
+                    features |= v.0.features;
                     has_matrix |= v.has_matrix();
                 }
             }
@@ -441,6 +462,7 @@ impl Expr {
                 h.write_u64(a.hash64());
                 h.write_u64(b.hash64());
                 mask = a.mask() | b.mask();
+                features |= a.0.features | b.0.features;
                 has_matrix = a.has_matrix() || b.has_matrix();
             }
             Kind::Piecewise(pieces) => {
@@ -448,6 +470,7 @@ impl Expr {
                     h.write_u64(e.hash64());
                     h.write_u64(c.hash64());
                     mask |= e.mask() | c.mask();
+                    features |= e.0.features | c.0.features;
                     has_matrix |= e.has_matrix() || c.has_matrix();
                 }
             }
@@ -459,6 +482,8 @@ impl Expr {
             kind,
             canonical,
             has_matrix,
+            features,
+            binding_identity,
             free_symbols: OnceLock::new(),
             ordered_args: OnceLock::new(),
         }))
@@ -469,9 +494,21 @@ impl Expr {
         &self.0.kind
     }
 
+    /// Identity of this live immutable allocation, for graph codecs/memoization.
+    pub fn dag_id(&self) -> usize { Arc::as_ptr(&self.0) as usize }
+
     /// Whether this scalar expression contains a typed matrix entry.
     #[inline]
     pub fn has_matrix(&self) -> bool { self.0.has_matrix }
+
+    /// A semantic pattern with alpha-bound names cannot use a structural mask.
+    pub fn has_binding_identity(&self)->bool {self.0.features & 1 != 0}
+    pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
+
+    /// Conservative unchanged-child check for transforms preserving public args.
+    pub fn same_presentation(&self,other:&Expr)->bool {
+        self.ptr_eq(other) || (!self.has_binding_identity() && !other.has_binding_identity() && self==other)
+    }
 
     /// Whether this node was made by a canonical constructor.
     #[inline]
@@ -802,7 +839,9 @@ impl Expr {
                 b1.cmp_struct(b2).then_with(|| e1.cmp_struct(e2))
             }
             (Kind::Func(f1, a1), Kind::Func(f2, a2)) => {
-                f1.cmp(f2).then_with(|| cmp_slices(a1, a2))
+                if *f1==Func::Subs && *f2==Func::Subs && (self.0.binding_identity.is_some() || o.0.binding_identity.is_some()) {
+                    self.0.binding_identity.cmp(&o.0.binding_identity)
+                }else{f1.cmp(f2).then_with(|| cmp_slices(a1, a2))}
             }
             (Kind::Derivative(e1, v1), Kind::Derivative(e2, v2)) => {
                 e1.cmp_struct(e2).then_with(|| {
@@ -908,7 +947,9 @@ fn kind_eq(a: &Kind, b: &Kind) -> bool {
 impl PartialEq for Expr {
     #[inline]
     fn eq(&self, o: &Expr) -> bool {
-        self.ptr_eq(o) || (self.0.hash == o.0.hash && kind_eq(self.kind(), o.kind()))
+        self.ptr_eq(o) || (self.0.hash == o.0.hash && match (&self.0.binding_identity,&o.0.binding_identity){
+            (Some(a),Some(b))=>a==b,(None,None)=>kind_eq(self.kind(),o.kind()),_=>false,
+        })
     }
 }
 impl Eq for Expr {}

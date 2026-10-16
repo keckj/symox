@@ -394,6 +394,7 @@ impl Parser {
                         _ => return self.err("precision must be an integer"),
                     });
                 }
+                if key=="dir" {args.push(v.clone());}
                 if key=="nargs" {
                     let values=match &v {Val::Tuple(v)=>v.clone(),_=>vec![v.clone()]};
                     self.nargs=Some(values.into_iter().map(|v|self.as_expr(v).and_then(|e|e.as_i64().filter(|n|*n>=0).map(|n|n as usize).ok_or_else(||ParseError{msg:"nargs must contain nonnegative integers".into(),pos:self.at()}))).collect::<R<Vec<_>>>()?);
@@ -476,7 +477,7 @@ impl Parser {
                         let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::Function(crate::expr::UndefinedFunction::new(s,assumptions,nargs)));
                     }
-                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "MatrixSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "BlockMatrix" | "MatrixSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -554,6 +555,14 @@ impl Parser {
             "OneMatrix"=>{arity(2)?;MatrixExpr::one(scalar(0)?,scalar(1)?)},
             "HadamardProduct"=>MatrixExpr::hadamard_product(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
             "KroneckerProduct"=>MatrixExpr::kronecker(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
+            "BlockMatrix"=>{
+                arity(1)?;let Val::Tuple(items)=&args[0] else{return self.err("BlockMatrix expects a grid of matrices");};
+                if items.is_empty(){return self.err("BlockMatrix requires a nonempty grid");}
+                let rows=if items.iter().all(|v|matches!(v,Val::Tuple(_))){items.iter().map(|v|if let Val::Tuple(row)=v{row.clone()}else{unreachable!()}).collect::<Vec<_>>()}else{vec![items.clone()]};
+                let cols=rows[0].len();if cols==0||rows.iter().any(|row|row.len()!=cols){return self.err("BlockMatrix requires rectangular nonempty rows");}
+                let cells=rows.iter().flatten().map(|v|self.as_matrix(v)).collect::<R<Vec<_>>>()?;
+                MatrixExpr::block(crate::matrixexpr::BlockGrid::new(rows.len(),cols,cells).map_err(|e|fail(e.to_string()))?)
+            },
             "BlockDiagMatrix"=>MatrixExpr::block_diag(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?),
             "MatrixSlice"=>{
                 arity(3)?;let parent=matrix(0)?;
@@ -635,6 +644,16 @@ impl Parser {
                 let (variables,points)=(tuple(&values[1]),tuple(&values[2]));
                 if variables.len()!=points.len() || variables.iter().any(|v|!v.is_symbol()){return self.err("Subs requires matching symbol variables and points");}
                 crate::subs::held_subs(&values[0],variables,points)
+            },
+            "Limit"=>{
+                if !(3..=4).contains(&args.len()){return self.err("Limit expects expression, variable, point and optional direction");}
+                let mut values=args.into_iter();
+                let e=self.as_expr(values.next().unwrap())?;let x=self.as_expr(values.next().unwrap())?;let point=self.as_expr(values.next().unwrap())?;
+                let direction=match values.next(){Some(Val::Str(s))=>s,Some(Val::E(e))=>e.as_sym().map(|s|s.name().to_string()).ok_or_else(||ParseError{msg:"invalid limit direction".into(),pos:self.pos})?,None=>"+".into(),_=>return self.err("invalid limit direction")};
+                let Some(dir)=crate::limits::Dir::parse(&direction) else{return self.err("invalid limit direction")};
+                let held=crate::limits::held_limit(&e,&x,&point,dir);
+                if let Err(error)=crate::limits::validate_held(&held){return self.err(error);}
+                held
             },
             "Integer" | "S" | "sympify" | "Float" | "N" => {
                 let v = match args.into_iter().next() {

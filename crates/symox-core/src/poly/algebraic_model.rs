@@ -1,7 +1,7 @@
 //! Certified primitive generators inside small exact rational algebras.
 //!
-//! Supported ambient fields are a positive rational cube root, one quadratic
-//! field, or the compositum of two independent quadratic fields. Expressions
+//! Supported ambient fields are one positive rational cube root together with
+//! at most one quadratic field, or up to three independent quadratic fields. Expressions
 //! are evaluated with their original radical embeddings, then Krylov linear
 //! dependence constructs the minimal polynomial and field membership maps.
 
@@ -12,7 +12,7 @@ use crate::expr::{Expr, Kind};
 use crate::ops::{add, mul, pow};
 
 fn unsupported() -> PolyError {
-    PolyError::Unsupported("supported algebraic extensions are positive rational cube roots and composita of at most two quadratic fields".into())
+    PolyError::Unsupported("supported algebraic extensions are one positive rational cube root with at most one quadratic field, or composita of at most three quadratic fields".into())
 }
 fn rational(e: &Expr) -> Option<Rat> {
     e.as_number().and_then(Rat::from_number)
@@ -114,11 +114,65 @@ fn pure_cubic(e: &Expr) -> Option<Radical> {
         radicand: q,
     })
 }
+/// Consolidate a pure quadratic expression before collecting its radical
+/// factors. In particular I*sqrt(d) generates one quadratic field, not two.
+/// The admitted syntax and exact square preserve its original embedding.
+fn pure_quadratic(e: &Expr) -> Option<Radical> {
+    fn syntax(e: &Expr) -> Option<bool> {
+        if rational(e).is_some() {
+            return Some(false);
+        }
+        if e == &Expr::i() {
+            return Some(true);
+        }
+        match e.kind() {
+            Kind::Add(c, terms) => {
+                Rat::from_number(c)?;
+                let mut has = false;
+                for (t, c) in terms {
+                    Rat::from_number(c)?;
+                    has |= syntax(t)?;
+                }
+                Some(has)
+            }
+            Kind::Mul(c, factors) => {
+                Rat::from_number(c)?;
+                let mut has = false;
+                for (b, x) in factors {
+                    has |= power_syntax(b, x)?;
+                }
+                Some(has)
+            }
+            Kind::Pow(b, x) => power_syntax(b, x),
+            _ => None,
+        }
+    }
+    fn power_syntax(b: &Expr, x: &Expr) -> Option<bool> {
+        let exponent = rational(x)?;
+        if exponent.d.is_one() {
+            return syntax(b);
+        }
+        let base = rational(b)?;
+        (exponent.d == Int::from(2) && !base.is_negative() && !base.is_zero()).then_some(true)
+    }
+    if !syntax(e)? {
+        return None;
+    }
+    let q = rational(&crate::expand::expand(&e.powi(2)))?;
+    if q.is_zero() {
+        return None;
+    }
+    Some(Radical {
+        expression: e.clone(),
+        order: 2,
+        radicand: q,
+    })
+}
 fn collect(e: &Expr, out: &mut Vec<Radical>) -> PResult<()> {
     if rational(e).is_some() {
         return Ok(());
     }
-    if let Some(atom) = pure_cubic(e) {
+    if let Some(atom) = pure_cubic(e).or_else(|| pure_quadratic(e)) {
         if !out.contains(&atom) {
             out.push(atom);
         }
@@ -151,8 +205,14 @@ fn collect(e: &Expr, out: &mut Vec<Radical>) -> PResult<()> {
             if Rat::from_number(c).is_none() {
                 return Err(unsupported());
             }
-            for (b, x) in factors {
-                collect_power(b, x, out)?;
+            let (ordinary, quadratic, cubic) = product_parts(factors)?;
+            for group in [quadratic, cubic] {
+                if !group.is_empty() {
+                    collect(&mul(&group), out)?;
+                }
+            }
+            for factor in ordinary {
+                collect(&factor, out)?;
             }
         }
         Kind::Pow(b, x) => collect_power(b, x, out)?,
@@ -160,7 +220,66 @@ fn collect(e: &Expr, out: &mut Vec<Radical>) -> PResult<()> {
     }
     Ok(())
 }
+fn sixth_parts(b: &Expr, x: &Expr) -> PResult<Option<(Radical, Radical, i64)>> {
+    let Some(exponent) = rational(x) else {
+        return Ok(None);
+    };
+    if exponent.d != Int::from(6) {
+        return Ok(None);
+    }
+    let q = rational(b).ok_or_else(unsupported)?;
+    if q.is_zero() || q.is_negative() {
+        return Err(unsupported());
+    }
+    let m = exponent.n.as_i64().ok_or_else(unsupported)?;
+    Ok(Some((
+        Radical {
+            expression: pow(b, &Expr::rational(1, 2)),
+            order: 2,
+            radicand: q.clone(),
+        },
+        Radical {
+            expression: pow(b, &Expr::rational(1, 3)),
+            order: 3,
+            radicand: q,
+        },
+        m,
+    )))
+}
+/// Recombine the quadratic part of a mixed coefficient before membership
+/// checks. A field may contain I*sqrt(3) without containing I or sqrt(3).
+/// Sixths must be split before this grouping for same-radicand products.
+type ProductParts = (Vec<Expr>, Vec<Expr>, Vec<Expr>);
+fn product_parts(factors: &[(Expr, Expr)]) -> PResult<ProductParts> {
+    let mut ordinary = Vec::new();
+    let mut quadratic = Vec::new();
+    let mut cubic = Vec::new();
+    for (b, x) in factors {
+        if let Some((q, c, m)) = sixth_parts(b, x)? {
+            quadratic.push(q.expression.powi(m));
+            cubic.push(c.expression.powi(-m));
+        } else {
+            let factor = pow(b, x);
+            if pure_quadratic(&factor).is_some() {
+                quadratic.push(factor);
+            } else if pure_cubic(&factor).is_some() {
+                cubic.push(factor);
+            } else {
+                ordinary.push(factor);
+            }
+        }
+    }
+    Ok((ordinary, quadratic, cubic))
+}
 fn collect_power(b: &Expr, x: &Expr, out: &mut Vec<Radical>) -> PResult<()> {
+    if let Some((quadratic, cubic, _)) = sixth_parts(b, x)? {
+        for atom in [quadratic, cubic] {
+            if !out.contains(&atom) {
+                out.push(atom);
+            }
+        }
+        return Ok(());
+    }
     if let Some((radical, _)) = radical_power(b, x)? {
         if !out.contains(&radical) {
             out.push(radical);
@@ -198,9 +317,12 @@ impl Tensor {
                     "could not certify the radical embedding".into(),
                 ));
             }
-            if (!result.bases.is_empty() && result.bases[0].order != atom.order)
-                || (atom.order == 3 && !result.bases.is_empty())
-                || (atom.order == 2 && result.bases.len() >= 2)
+            let cubics = result.bases.iter().filter(|b| b.order == 3).count();
+            let quadratics = result.bases.iter().filter(|b| b.order == 2).count();
+            // Quadratic square-class independence is checked above. A pure
+            // cubic and a quadratic are linearly disjoint (coprime degrees).
+            if (atom.order == 3 && (cubics != 0 || quadratics > 1))
+                || (atom.order == 2 && quadratics >= if cubics == 0 { 3 } else { 1 })
             {
                 return Err(unsupported());
             }
@@ -237,34 +359,36 @@ impl Tensor {
             .map(|(k, b)| b.expression.powi(*k as i64))
             .collect::<Vec<_>>())
     }
-    fn same_power_class(&self, atom: &Radical) -> bool {
-        if self.bases.iter().any(|b| b.order != atom.order) {
-            return false;
+    fn class_monomial(&self, i: usize, order: u32) -> Option<Rat> {
+        let mut q = Rat::one();
+        for (p, b) in self.powers(i).iter().zip(&self.bases) {
+            if *p != 0 && b.order != order {
+                return None;
+            }
+            q = q.mul(&b.radicand.pow(*p));
         }
+        Some(q)
+    }
+    fn same_power_class(&self, atom: &Radical) -> bool {
         (0..self.dimension).any(|i| {
-            let q = self
-                .powers(i)
-                .iter()
-                .zip(&self.bases)
-                .fold(Rat::one(), |q, (p, b)| q.mul(&b.radicand.pow(*p)));
-            exact_root(&atom.radicand.div(&q), atom.order).is_some()
+            self.class_monomial(i, atom.order)
+                .is_some_and(|q| exact_root(&atom.radicand.div(&q), atom.order).is_some())
         })
     }
     fn radical(&self, atom: &Radical) -> PResult<Vec<Rat>> {
-        if self.bases.iter().any(|b| b.order != atom.order) {
-            return Err(unsupported());
-        }
         for i in 0..self.dimension {
-            let mut q = Rat::one();
-            for (p, b) in self.powers(i).iter().zip(&self.bases) {
-                q = q.mul(&b.radicand.pow(*p));
-            }
+            let Some(q) = self.class_monomial(i, atom.order) else {
+                continue;
+            };
             let ratio = atom.radicand.div(&q);
             let Some(c) = exact_root(&ratio, atom.order) else {
                 continue;
             };
             let candidate = mul(&[Expr::num(c.to_number()), self.monomial_expr(i)]);
-            if candidate == atom.expression {
+            // All cubic atoms have an admitted real syntax and positive
+            // rational cube. The same cube therefore identifies the unique
+            // real root exactly, without relying on its radical spelling.
+            if atom.order == 3 || candidate == atom.expression {
                 return Ok(scale(&self.unit(i), &c));
             }
             if atom.order == 2 && crate::ops::neg(&candidate) == atom.expression {
@@ -319,6 +443,11 @@ impl Tensor {
         Ok(result)
     }
     fn eval_power(&self, b: &Expr, x: &Expr) -> PResult<Vec<Rat>> {
+        if let Some((quadratic, cubic, m)) = sixth_parts(b, x)? {
+            let numerator = self.power(&self.radical(&quadratic)?, m)?;
+            let denominator = self.power(&self.radical(&cubic)?, m)?;
+            return Ok(self.multiply(&numerator, &self.inverse(&denominator)?));
+        }
         if let Some((atom, m)) = radical_power(b, x)? {
             self.power(&self.radical(&atom)?, m)
         } else {
@@ -329,8 +458,13 @@ impl Tensor {
         if let Some(c) = rational(e) {
             return Ok(self.constant(c));
         }
-        if let Some(atom) = pure_cubic(e) {
-            return self.radical(&atom);
+        if let Some(atom) = pure_cubic(e).or_else(|| pure_quadratic(e)) {
+            if let Ok(value) = self.radical(&atom) {
+                return Ok(value);
+            }
+            // A polynomial expression in a primitive generator may itself
+            // square to a rational without having the canonical radical
+            // spelling. Evaluate its original tree to certify that identity.
         }
         if e == &Expr::i() {
             return self.radical(&Radical {
@@ -355,6 +489,41 @@ impl Tensor {
             }
             Kind::Mul(c, factors) => {
                 let mut result = self.constant(Rat::from_number(c).ok_or_else(unsupported)?);
+                let (ordinary, quadratic, cubic) = product_parts(factors)?;
+                if quadratic.len() >= 2 || cubic.len() >= 2 {
+                    let mut grouped = Some(self.unit(0));
+                    for parts in [quadratic, cubic] {
+                        if parts.is_empty() {
+                            continue;
+                        }
+                        let group = mul(&parts);
+                        let value = if let Some(c) = rational(&group) {
+                            Ok(self.constant(c))
+                        } else if let Some(atom) =
+                            pure_cubic(&group).or_else(|| pure_quadratic(&group))
+                        {
+                            self.radical(&atom)
+                        } else {
+                            Err(unsupported())
+                        };
+                        match value {
+                            Ok(value) => {
+                                grouped = grouped.map(|g| self.multiply(&g, &value));
+                            }
+                            Err(_) => {
+                                grouped = None;
+                                break;
+                            }
+                        }
+                    }
+                    if let Some(value) = grouped {
+                        result = self.multiply(&result, &value);
+                        for factor in ordinary {
+                            result = self.multiply(&result, &self.evaluate(&factor)?);
+                        }
+                        return Ok(result);
+                    }
+                }
                 for (b, x) in factors {
                     result = self.multiply(&result, &self.eval_power(b, x)?);
                 }
@@ -562,6 +731,14 @@ pub fn inferred_generators(expressions: &[Expr]) -> PResult<Vec<Expr>> {
             return Ok(());
         }
         if let Kind::Pow(b, x) = e.kind() {
+            if let Some((quadratic, cubic, _)) = sixth_parts(b, x)? {
+                for atom in [quadratic, cubic] {
+                    if !atoms.contains(&atom.expression) {
+                        atoms.push(atom.expression);
+                    }
+                }
+                return Ok(());
+            }
             if rational(b).is_some() && rational(x).is_some_and(|r| !r.d.is_one()) {
                 let Some((atom, _)) = radical_power(b, x)? else {
                     return Err(unsupported());
@@ -681,8 +858,13 @@ mod tests {
         let b = AN::from_expr(&expr("4^(1/3)"), field).unwrap();
         assert_eq!(a.mul(&a), b);
         for generators in [
-            vec![expr("sqrt(2)"), expr("sqrt(3)"), expr("sqrt(5)")],
-            vec![expr("2^(1/3)"), expr("sqrt(2)")],
+            vec![
+                expr("sqrt(2)"),
+                expr("sqrt(3)"),
+                expr("sqrt(5)"),
+                expr("sqrt(7)"),
+            ],
+            vec![expr("2^(1/3)"), expr("sqrt(2)"), expr("sqrt(3)")],
             vec![expr("(-2)^(1/3)")],
             vec![expr("2^(1/5)")],
             vec![expr("sqrt(1+sqrt(2))")],
@@ -774,6 +956,11 @@ mod ideal_certificate_tests {
             "sqrt(2)+I",
             "sqrt(2)+sqrt(3)",
             "(sqrt(2)+I)^2",
+            "2^(1/3)+sqrt(2)",
+            "(2/3)^(1/3)+sqrt(5)",
+            "2^(1/3)+I*sqrt(3)",
+            "sqrt(2)+sqrt(3)+sqrt(5)",
+            "2^(1/6)",
         ] {
             let generator = crate::parser::parse_str(source).unwrap();
             let field = NumberField::from_generator(&generator).unwrap();
@@ -861,5 +1048,258 @@ mod closure_tests {
             .unwrap();
             assert!(input.div(&divisor).unwrap().1.rep.is_zero());
         }
+    }
+}
+
+#[cfg(test)]
+mod degree_six_eight_tests {
+    use super::super::algebraic::{AlgebraicPoly, AlgebraicScope, NumberField, AN};
+    use super::super::int::Field;
+    use super::*;
+    fn expr(s: &str) -> Expr {
+        crate::parser::parse_str(s).unwrap()
+    }
+    #[test]
+    fn mixed_cubic_quadratic_and_three_quadratic_classes_are_fields() {
+        for (source, degree, members, outsiders) in [
+            (
+                "2^(1/3)+sqrt(2)",
+                6,
+                vec!["2^(1/3)", "4^(1/3)", "sqrt(2)", "sqrt(8)"],
+                vec!["sqrt(3)", "3^(1/3)"],
+            ),
+            (
+                "(2/3)^(1/3)+sqrt(5)",
+                6,
+                vec![
+                    "(2/3)^(1/3)",
+                    "(2/3)^(2/3)",
+                    "sqrt(5)",
+                    "(2/3)^(1/3)*sqrt(5)",
+                ],
+                vec!["2^(1/3)", "3^(1/3)", "I"],
+            ),
+            (
+                "2^(1/3)+I*sqrt(3)",
+                6,
+                vec!["2^(1/3)", "I*sqrt(3)", "I*sqrt(12)", "2^(1/3)*I*sqrt(3)"],
+                vec!["I", "sqrt(3)"],
+            ),
+            (
+                "sqrt(2)+sqrt(3)+sqrt(5)",
+                8,
+                vec!["sqrt(6)", "sqrt(10)", "sqrt(15)", "sqrt(30)"],
+                vec!["sqrt(7)", "I"],
+            ),
+            (
+                "sqrt(2)+sqrt(3)+I",
+                8,
+                vec!["sqrt(6)", "I*sqrt(2)", "I*sqrt(3)", "I*sqrt(6)"],
+                vec!["sqrt(5)"],
+            ),
+        ] {
+            let generator = expr(source);
+            let field = NumberField::from_generator(&generator).unwrap();
+            assert_eq!(field.degree(), degree, "{source}");
+            assert!(field.model.as_ref().unwrap().verify(&generator));
+            let _scope = AlgebraicScope::new(field.clone());
+            let a = AN::alpha(field.clone()).add(&AN::from_i64(1));
+            assert!(a.mul(&a.inv()).is_one());
+            for member in members {
+                let value = AN::from_expr(&expr(member), field.clone())
+                    .unwrap_or_else(|e| panic!("{source}: {member}: {e:?}"));
+                assert_eq!(
+                    AN::from_expr(&value.as_expr(), field.clone()).unwrap(),
+                    value,
+                    "{source}: {member}"
+                );
+            }
+            for outsider in outsiders {
+                assert!(
+                    AN::from_expr(&expr(outsider), field.clone()).is_err(),
+                    "{source}: {outsider}"
+                );
+            }
+            let x = Expr::symbol("x");
+            let p = AlgebraicPoly::from_expr(
+                &crate::ops::sub(&x, &generator),
+                std::slice::from_ref(&x),
+                field.clone(),
+            )
+            .unwrap();
+            assert_eq!(dense::from_mpoly(&p.norm().unwrap().rep, 0), field.minimal);
+            let squared = p.mul(&p);
+            assert_eq!(
+                squared.convert(&squared.as_expr()).unwrap().rep,
+                squared.rep,
+                "{source}"
+            );
+            let wrapped: super::super::fraction::Polynomial = p.into();
+            let product = wrapped.mul(&wrapped);
+            let one: super::super::fraction::Polynomial =
+                super::super::polyobj::Poly::from_expr(&Expr::one(), std::slice::from_ref(&x))
+                    .unwrap()
+                    .into();
+            let sum = product.add(&one);
+            assert!(sum.algebraic.is_some());
+        }
+    }
+    #[test]
+    fn class_dependence_subfields_and_nonprimitive_generators_are_certified() {
+        let expressions = [
+            expr("sqrt(6)"),
+            expr("sqrt(15)"),
+            expr("sqrt(7)"),
+            expr("sqrt(70)"),
+        ];
+        let field = NumberField::from_generators(&expressions).unwrap();
+        assert_eq!(field.degree(), 8);
+        assert!(AN::from_expr(&expr("sqrt(10)"), field.clone()).is_ok());
+        assert!(AN::from_expr(&expr("sqrt(70)"), field).is_ok());
+        let generator = expr("(2^(1/3)+sqrt(2))^3-3*4^(1/3)*sqrt(2)-6*2^(1/3)");
+        // The full syntax mentions both factors, but this value is 2+2*sqrt(2).
+        let model = PrimitiveModel::build(&generator).unwrap();
+        assert_eq!(model.minimal.len(), 3);
+        assert!(model.coefficient(&expr("sqrt(2)")).is_ok());
+        assert!(model.coefficient(&expr("2^(1/3)")).is_err());
+        let model = PrimitiveModel::build(&expr("(sqrt(2)+sqrt(3)+sqrt(5))^2")).unwrap();
+        assert_eq!(model.minimal.len(), 5);
+        assert!(model.coefficient(&expr("sqrt(6)")).is_ok());
+        assert!(model.coefficient(&expr("sqrt(2)")).is_err());
+        for source in [
+            "sqrt(2)+sqrt(3)+sqrt(5)+sqrt(7)",
+            "2^(1/3)+sqrt(2)+sqrt(3)",
+            "2^(1/3)+3^(1/3)",
+            "sqrt(1+2^(1/3))",
+        ] {
+            assert!(PrimitiveModel::build(&expr(source)).is_err(), "{source}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod extended_factor_tests {
+    use super::super::algebraic::{AlgebraicPoly, AlgebraicScope, NumberField, AN};
+    use super::super::int::Field;
+    use super::*;
+    #[test]
+    fn higher_degree_norm_factorization_reconstructs_and_divides_exactly() {
+        let x = Expr::symbol("x");
+        for source in [
+            "2^(1/3)+sqrt(2)",
+            "(2/3)^(1/3)+sqrt(5)",
+            "2^(1/3)+I*sqrt(3)",
+            "sqrt(2)+sqrt(3)+sqrt(5)",
+        ] {
+            let theta = crate::parser::parse_str(source).unwrap();
+            let field = NumberField::from_generator(&theta).unwrap();
+            let _scope = AlgebraicScope::new(field.clone());
+            let expression = crate::ops::mul(&[
+                crate::ops::sub(&x, &theta),
+                crate::ops::sub(&x, &Expr::one()),
+            ]);
+            let p = AlgebraicPoly::from_expr(&expression, std::slice::from_ref(&x), field).unwrap();
+            let (c, factors) = p.factor_list().unwrap();
+            assert_eq!(factors.len(), 2, "{source}");
+            let product = factors.iter().fold(
+                p.with_rep(super::super::MPoly::constant(c, 1)),
+                |out, (f, k)| out.mul(&f.pow(*k)),
+            );
+            assert_eq!(p.rep, product.rep);
+            for (factor, _) in factors {
+                assert!(p.div(&factor).unwrap().1.rep.is_zero());
+            }
+        }
+        for source in ["0", "2/3", "-4"] {
+            let root = crate::parser::parse_str(source).unwrap();
+            let field = NumberField::for_element(&root).unwrap();
+            assert_eq!(field.degree(), 1);
+            let alpha = AN::alpha(field.clone());
+            assert_eq!(alpha.as_expr(), root);
+            if !alpha.is_zero() {
+                assert!(alpha.mul(&alpha.inv()).is_one());
+            }
+            assert!(NumberField::from_generator(&root).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod mixed_product_tests {
+    use super::super::algebraic::{AlgebraicScope, NumberField, AN};
+    use super::*;
+    #[test]
+    fn imaginary_quadratic_parts_regroup_before_mixed_field_membership() {
+        let parse = |s| crate::parser::parse_str(s).unwrap();
+        let field = NumberField::from_generators(&[
+            parse("3^(1/3)"),
+            parse("I*sqrt(3)"),
+            parse("I*sqrt(12)"),
+        ])
+        .unwrap();
+        assert_eq!(field.degree(), 6);
+        let _scope = AlgebraicScope::new(field.clone());
+        let product = AN::from_expr(&parse("3^(1/3)"), field.clone())
+            .unwrap()
+            .mul(&AN::from_expr(&parse("I*sqrt(3)"), field.clone()).unwrap());
+        let held = crate::ops::mul(&[parse("3^(5/6)"), Expr::i()]);
+        assert_eq!(AN::from_expr(&held, field.clone()).unwrap(), product);
+        assert_eq!(AN::from_expr(&product.as_expr(), field).unwrap(), product);
+    }
+}
+
+#[cfg(test)]
+mod inference_product_tests {
+    use super::super::algebraic::{infer, AlgebraicPoly};
+    use super::*;
+    #[test]
+    fn infer_whole_numeric_coefficients_inside_symbolic_products() {
+        let parse = |s| crate::parser::parse_str(s).unwrap();
+        let x = Expr::symbol("x");
+        let y = Expr::symbol("y");
+        for source in [
+            "2^(1/3)*I*sqrt(3)*x+x^2",
+            "3^(5/6)*I*x+x^2",
+            "sqrt(2)*sqrt(3)*x",
+        ] {
+            let value = parse(source);
+            let field = infer(std::slice::from_ref(&value)).unwrap().unwrap();
+            assert_eq!(
+                field.degree(),
+                if source.contains("1/3") || source.contains("5/6") {
+                    6
+                } else {
+                    2
+                }
+            );
+            let p = AlgebraicPoly::from_expr(&value, std::slice::from_ref(&x), field).unwrap();
+            let squared = p.mul(&p);
+            if let Some(field) = infer(&[squared.as_expr()]).unwrap() {
+                let reloaded =
+                    AlgebraicPoly::from_expr(&squared.as_expr(), std::slice::from_ref(&x), field)
+                        .unwrap();
+                assert_eq!(
+                    squared.convert(&reloaded.as_expr()).unwrap().rep,
+                    squared.rep
+                );
+            } else {
+                // Squaring sqrt(6)*x removes the extension entirely.
+                let ordinary = super::super::polyobj::Poly::from_expr(
+                    &squared.as_expr(),
+                    std::slice::from_ref(&x),
+                )
+                .unwrap();
+                assert!(!ordinary.has_domain_gens());
+                assert_eq!(
+                    squared.convert(&ordinary.as_expr()).unwrap().rep,
+                    squared.rep
+                );
+            }
+        }
+        let value = parse("sqrt(2)*x+sqrt(3)*y");
+        let field = infer(std::slice::from_ref(&value)).unwrap().unwrap();
+        assert_eq!(field.degree(), 4);
+        let p = AlgebraicPoly::from_expr(&value, &[x.clone(), y.clone()], field).unwrap();
+        assert_eq!(p.gens, vec![x, y]);
     }
 }

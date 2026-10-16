@@ -697,6 +697,12 @@ impl<'a> LatexPrinter<'a> {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        if matches!(f,Func::Limit){
+            let direction=args[3].as_sym().map(|s|s.name()).unwrap_or("+");
+            let suffix=if !matches!(args[2].kind(),Kind::Const(crate::expr::Constant::Infinity|crate::expr::Constant::NegInfinity)) && direction!="+-" {format!("^{{{direction}}}")}else{String::new()};
+            let tex=format!("\\lim_{{{} \\to {}{suffix}}} {}",self.print(&args[1]),self.print(&args[2]),self.parenthesize(&args[0],PREC_MUL,false));
+            return Self::do_exponent(tex,exp);
+        }
         if matches!(f,Func::Subs){
             let variables=args[1].args();let points=args[2].args();
             let entries=variables.iter().zip(&points).map(|(v,p)|format!("{}={}",self.print(v),self.print(p))).collect::<Vec<_>>();

@@ -156,7 +156,7 @@ def test_subfield_membership_is_not_guessed_from_an_annihilating_polynomial():
 
 @pytest.mark.parametrize('generator',[
     '2**(1/5)','(-2)**(1/3)','sqrt(1+sqrt(2))',
-    '2**(1/3)+sqrt(2)','sqrt(2)+sqrt(3)+sqrt(5)','pi',
+    '2**(1/3)+sqrt(2)+sqrt(3)','sqrt(2)+sqrt(3)+sqrt(5)+sqrt(7)','pi',
 ])
 def test_outside_supported_towers_fails_explicitly(generator):
     x=sm.Symbol('x');a=expr(generator)

@@ -20,7 +20,7 @@ pub enum MatrixKind {
     Transpose(MatrixExpr), Adjoint(MatrixExpr), Inverse(MatrixExpr), Conjugate(MatrixExpr),
     HadamardProduct(Vec<MatrixExpr>), HadamardPower(MatrixOperand,MatrixOperand),
     Kronecker(Vec<MatrixExpr>),
-    BlockDiag(Vec<MatrixExpr>), Slice(MatrixExpr,[Expr;3],[Expr;3]),
+    BlockDiag(Vec<MatrixExpr>), Block(BlockGrid), Slice(MatrixExpr,[Expr;3],[Expr;3]),
 }
 /// Immutable, matrix-valued grid. Its cells use noncommutative matrix
 /// arithmetic rather than the commutative scalar expression engine.
@@ -34,6 +34,12 @@ impl BlockGrid{
     pub fn shape(&self)->(usize,usize){(self.rows,self.cols)}
     pub fn data(&self)->&[MatrixExpr]{&self.data}
     pub fn get(&self,row:usize,col:usize)->&MatrixExpr{&self.data[row*self.cols+col]}
+    pub fn same_partition(&self,other:&Self)->bool{
+        self.shape()==other.shape()&&(self.rows==0||self.cols==0||(0..self.rows).all(|i|MatrixExpr::same_dimension(self.get(i,0).rows(),other.get(i,0).rows()))&&(0..self.cols).all(|j|MatrixExpr::same_dimension(self.get(0,j).cols(),other.get(0,j).cols())))
+    }
+    pub fn is_structurally_symmetric(&self)->bool{self.rows==self.cols&&(0..self.rows).all(|i|MatrixExpr::same_dimension(self.get(i,0).rows(),self.get(0,i).cols()))}
+    fn can_multiply(&self,other:&Self)->bool{self.cols==other.rows&&(0..self.cols).all(|i|MatrixExpr::same_dimension(self.get(0,i).cols(),other.get(i,0).rows()))}
+    fn diagonal(&self)->bool{self.is_structurally_symmetric()&&(0..self.rows).all(|i|(0..self.cols).all(|j|i==j||matches!(self.get(i,j).kind(),MatrixKind::Zero)))}
     pub fn transpose(&self)->Self{Self{rows:self.cols,cols:self.rows,data:(0..self.cols).flat_map(|i|(0..self.rows).map(move|j|self.get(j,i).clone())).collect()}}
     pub fn add(&self,other:&Self)->MResult<Self>{
         if self.shape()!=other.shape(){return Err(MatrixError::Shape("Block grid sizes do not match".into()));}
@@ -53,6 +59,7 @@ impl BlockGrid{
 pub enum MatrixOperand {Scalar(Expr),Matrix(MatrixExpr)}
 impl MatrixOperand {
     pub fn matrix(&self)->Option<&MatrixExpr>{if let Self::Matrix(m)=self{Some(m)}else{None}}
+    fn same_presentation(&self,other:&Self)->bool{match(self,other){(Self::Scalar(a),Self::Scalar(b))=>a.same_presentation(b),(Self::Matrix(a),Self::Matrix(b))=>a.dag_id()==b.dag_id(),_=>false}}
     fn scalar(&self)->Option<&Expr>{if let Self::Scalar(e)=self{Some(e)}else{None}}
     fn entry(&self,i:&Expr,j:&Expr)->MResult<Expr>{match self{Self::Scalar(e)=>Ok(e.clone()),Self::Matrix(m)=>m.element(i,j)}}
     fn map(&self,matrices:&mut dyn FnMut(&MatrixExpr)->MatrixExpr,scalars:&mut dyn FnMut(&Expr)->Expr)->Self{match self{Self::Scalar(e)=>Self::Scalar(scalars(e)),Self::Matrix(m)=>Self::Matrix(matrices(m))}}
@@ -90,6 +97,7 @@ impl MatrixExpr {
             (MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One,MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One)=>self.rows().cmp(other.rows()).then_with(||self.cols().cmp(other.cols())),
             (MatrixKind::Add(a),MatrixKind::Add(b))|(MatrixKind::HadamardProduct(a),MatrixKind::HadamardProduct(b))|(MatrixKind::Kronecker(a),MatrixKind::Kronecker(b))=>Self::cmp_children(a,b,memo),
             (MatrixKind::BlockDiag(a),MatrixKind::BlockDiag(b))=>Self::cmp_children(a,b,memo),
+            (MatrixKind::Block(a),MatrixKind::Block(b))=>a.shape().cmp(&b.shape()).then_with(||Self::cmp_children(a.data(),b.data(),memo)),
             (MatrixKind::Slice(a,ar,ac),MatrixKind::Slice(b,br,bc))=>a.cmp_cached(b,memo).then_with(||ar.cmp(br)).then_with(||ac.cmp(bc)),
             (MatrixKind::HadamardPower(a,aa),MatrixKind::HadamardPower(b,bb))=>Self::cmp_operand(a,b,memo).then_with(||Self::cmp_operand(aa,bb,memo)),
             (MatrixKind::Mul(a,aa),MatrixKind::Mul(b,bb))=>a.cmp(b).then_with(||Self::cmp_children(aa,bb,memo)),
@@ -150,7 +158,20 @@ impl MatrixExpr {
         let cols=add(&blocks.iter().map(|m|m.cols().clone()).collect::<Vec<_>>());
         Ok(Self::new(MatrixKind::BlockDiag(blocks.to_vec()),rows,cols))
     }
+    fn same_dimension(a:&Expr,b:&Expr)->bool{a==b||is_zero_assume(&sub(a,b))==Some(true)}
+    pub fn block(grid:BlockGrid)->MResult<Self>{
+        let(rows,cols)=grid.shape();if rows==0||cols==0{return Err(MatrixError::Value("BlockMatrix requires one or more nonempty rows of matrices".into()));}
+        for i in 0..rows{for j in 0..cols{
+            if !Self::same_dimension(grid.get(i,j).rows(),grid.get(i,0).rows())||!Self::same_dimension(grid.get(i,j).cols(),grid.get(0,j).cols()){
+                return Err(MatrixError::Shape("Block matrix cells must have matching row heights and column widths".into()));
+            }
+        }}
+        let height=add(&(0..rows).map(|i|grid.get(i,0).rows().clone()).collect::<Vec<_>>());
+        let width=add(&(0..cols).map(|j|grid.get(0,j).cols().clone()).collect::<Vec<_>>());
+        Ok(Self::new(MatrixKind::Block(grid),height,width))
+    }
     pub fn block_grid(&self)->MResult<BlockGrid>{
+        if let MatrixKind::Block(grid)=self.kind(){return Ok(grid.clone());}
         let MatrixKind::BlockDiag(blocks)=self.kind() else{return Err(MatrixError::Type("This matrix has no block grid".into()));};
         let mut entries=Vec::new();for (i,a) in blocks.iter().enumerate(){for (j,b) in blocks.iter().enumerate(){entries.push(if i==j{a.clone()}else{Self::zero(a.rows().clone(),b.cols().clone())?});}}
         BlockGrid::new(blocks.len(),blocks.len(),entries)
@@ -354,6 +375,7 @@ impl MatrixExpr {
         match self.kind(){
             MatrixKind::Zero=>Ok(Expr::zero()),MatrixKind::Identity|MatrixKind::One=>Ok(self.rows().clone()),
             MatrixKind::Kronecker(factors) if factors.iter().all(|m|m.rows()==m.cols())=>Ok(crate::ops::mul(&factors.iter().map(Self::trace).collect::<MResult<Vec<_>>>()?)),
+            MatrixKind::Block(grid) if grid.is_structurally_symmetric()=>Ok(add(&(0..grid.shape().0).map(|i|grid.get(i,i).trace()).collect::<MResult<Vec<_>>>()?)),
             MatrixKind::BlockDiag(blocks) if blocks.iter().all(|m|m.rows()==m.cols())=>Ok(add(&blocks.iter().map(Self::trace).collect::<MResult<Vec<_>>>()?)),
             MatrixKind::Explicit(matrix)=>matrix.trace(),
             MatrixKind::Add(terms)=>Ok(add(&terms.iter().map(Self::trace).collect::<MResult<Vec<_>>>()?)),
@@ -459,6 +481,7 @@ impl MatrixExpr {
                 if derived.is_zero_matrix(){zero()?}else{Self::explicit(derived)}
             },
             MatrixKind::Add(terms)=>Self::add(&terms.iter().map(|a|a.diff_cached(variable,cache)).collect::<MResult<Vec<_>>>()?,true)?,
+            MatrixKind::Block(grid)=>{let cells=grid.data().iter().map(|m|m.diff_cached(variable,cache)).collect::<MResult<Vec<_>>>()?;if cells.iter().all(|m|matches!(m.kind(),MatrixKind::Zero)){zero()?}else{Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,cells)?)?}},
             MatrixKind::BlockDiag(blocks)=>{let derivatives=blocks.iter().map(|m|m.diff_cached(variable,cache)).collect::<MResult<Vec<_>>>()?;if derivatives.iter().all(|m|matches!(m.kind(),MatrixKind::Zero)){zero()?}else{Self::block_diag(&derivatives)?}},
             MatrixKind::Slice(parent,rows,cols)=>{
                 if !Self::scalar_diff(&rows[0],variable)?.is_zero()||!Self::scalar_diff(&cols[0],variable)?.is_zero(){return Err(MatrixError::NotImplemented("Differentiation of a slice with a moving start index is unsupported".into()));}
@@ -556,6 +579,7 @@ impl MatrixExpr {
             MatrixKind::Identity=>return Ok(self.clone()),MatrixKind::One=>return if op==2{Ok(self.clone())}else{Self::one(self.cols().clone(),self.rows().clone())},MatrixKind::Zero=>return if op==2{Ok(self.clone())}else{Self::zero(self.cols().clone(),self.rows().clone())},
             MatrixKind::HadamardProduct(factors)=>return Self::hadamard_product(&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true),
             MatrixKind::Kronecker(factors)=>return Self::kronecker(&factors.iter().map(apply).collect::<MResult<Vec<_>>>()?,true),
+            MatrixKind::Block(grid)=>{let grid=if op==2{grid.clone()}else{grid.transpose()};return Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,grid.data().iter().map(apply).collect::<MResult<Vec<_>>>()?)?);},
             MatrixKind::BlockDiag(blocks)=>return Self::block_diag(&blocks.iter().map(apply).collect::<MResult<Vec<_>>>()?),
             MatrixKind::Slice(parent,rows,cols)=>return if op==2{apply(parent)?.slice(rows.clone().map(Some),cols.clone().map(Some))}else{apply(parent)?.slice(cols.clone().map(Some),rows.clone().map(Some))},
             MatrixKind::HadamardPower(base,exponent) if op==0 || exponent.scalar().is_some_and(|e|crate::assumptions::is_integer(e)==Some(true))=>{
@@ -574,21 +598,53 @@ impl MatrixExpr {
         let (r,c)=if op==2{self.shape()}else{(self.cols().clone(),self.rows().clone())};
         Ok(Self::new(match op{0=>MatrixKind::Transpose(self.clone()),1=>MatrixKind::Adjoint(self.clone()),_=>MatrixKind::Conjugate(self.clone())},r,c))
     }
-    pub fn children(&self)->Vec<Self>{match self.kind(){MatrixKind::Add(a)|MatrixKind::Mul(_,a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>a.clone(),MatrixKind::Slice(parent,..)=>vec![parent.clone()],MatrixKind::HadamardPower(a,b)=>[a,b].into_iter().filter_map(|o|o.matrix().cloned()).collect(),MatrixKind::Pow(b,_)|MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)=>vec![b.clone()],_=>Vec::new()}}
+    fn same_children(a:&[Self],b:&[Self])->bool{a.len()==b.len()&&a.iter().zip(b).all(|(a,b)|a.dag_id()==b.dag_id())}
+    /// Collapse compatible block arithmetic without assuming any Schur pivot invertible.
+    pub fn block_collapse(&self)->MResult<Self>{self.collapse_cached(&mut FxHashMap::default())}
+    fn collapse_cached(&self,memo:&mut FxHashMap<usize,Self>)->MResult<Self>{
+        if let Some(node)=memo.get(&self.dag_id()){return Ok(node.clone());}
+        let old=self.children();let children=old.iter().map(|c|c.collapse_cached(memo)).collect::<MResult<Vec<_>>>()?;
+        let node=if Self::same_children(&old,&children){self.clone()}else{let mut mapped=children.iter();self.map_children(&mut |_|mapped.next().unwrap().clone(),&mut |e|e.clone())?};
+        let result=match node.kind(){
+            MatrixKind::Block(grid) if grid.shape()==(1,1)=>grid.get(0,0).clone(),
+            MatrixKind::Add(terms)=>{
+                let grids=terms.iter().map(|m|m.block_grid()).collect::<MResult<Vec<_>>>();
+                if let Ok(grids)=grids{if grids.iter().all(|g|g.same_partition(&grids[0])){let mut grid=grids[0].clone();for other in &grids[1..]{grid=grid.add(other)?;}Self::block(grid)?}else{node.clone()}}else{node.clone()}
+            },
+            MatrixKind::Mul(coefficient,factors)=>{
+                let grids=factors.iter().map(|m|m.block_grid()).collect::<MResult<Vec<_>>>();
+                if let Ok(grids)=grids{if !grids.is_empty()&&grids.windows(2).all(|p|p[0].can_multiply(&p[1])){let mut grid=grids[0].clone();for other in &grids[1..]{grid=grid.matmul(other)?;}grid=grid.scale(coefficient)?;if factors.iter().all(|m|matches!(m.kind(),MatrixKind::BlockDiag(_)))&&grid.diagonal(){Self::block_diag(&(0..grid.shape().0).map(|i|grid.get(i,i).clone()).collect::<Vec<_>>())?}else{Self::block(grid)?}}else{node.clone()}}else{node.clone()}
+            },
+            MatrixKind::Pow(base,exponent)=>{
+                if let(Some(mut n),Ok(mut square))=(exponent.as_i64().filter(|n|*n>=0),base.block_grid()){
+                    if n==0{Self::identity(base.rows().clone())?}else if n==1{base.clone()}else if square.is_structurally_symmetric(){let mut answer:Option<BlockGrid>=None;while n>0{if n&1==1{answer=Some(if let Some(a)=answer{a.matmul(&square)?}else{square.clone()});}n>>=1;if n>0{square=square.matmul(&square)?;}}let answer=answer.unwrap();if answer.shape()==(0,0){Self::block_diag(&[])?}else{Self::block(answer)?}}else{node.clone()}
+                }else{node.clone()}
+            },
+            MatrixKind::Inverse(base)=>{
+                if let Ok(grid)=base.block_grid(){if grid.diagonal(){Self::block_diag(&(0..grid.shape().0).map(|i|grid.get(i,i).inverse(true)).collect::<MResult<Vec<_>>>()?)?}else{node.clone()}}else{node.clone()}
+            },
+            MatrixKind::Transpose(base)=>base.transpose(true)?,MatrixKind::Adjoint(base)=>base.adjoint(true)?,MatrixKind::Conjugate(base)=>base.conjugate(true)?,
+            _=>node.clone(),
+        };
+        let result=if let MatrixKind::Block(grid)=result.kind(){if grid.shape()==(1,1){grid.get(0,0).clone()}else{result}}else{result};
+        memo.insert(self.dag_id(),result.clone());Ok(result)
+    }
+    pub fn children(&self)->Vec<Self>{match self.kind(){MatrixKind::Add(a)|MatrixKind::Mul(_,a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>a.clone(),MatrixKind::Block(grid)=>grid.data().to_vec(),MatrixKind::Slice(parent,..)=>vec![parent.clone()],MatrixKind::HadamardPower(a,b)=>[a,b].into_iter().filter_map(|o|o.matrix().cloned()).collect(),MatrixKind::Pow(b,_)|MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)=>vec![b.clone()],_=>Vec::new()}}
     pub fn map_children(&self, matrices:&mut dyn FnMut(&Self)->Self, scalars:&mut dyn FnMut(&Expr)->Expr)->MResult<Self>{
         match self.kind(){
-            MatrixKind::Symbol(name)=>{let r=scalars(self.rows());let c=scalars(self.cols());if r==*self.rows()&&c==*self.cols(){Ok(self.clone())}else{Self::symbol(name,r,c)}},
-            MatrixKind::Identity=>{let n=scalars(self.rows());if n==*self.rows(){Ok(self.clone())}else{Self::identity(n)}},
-            MatrixKind::Zero|MatrixKind::One=>{let r=scalars(self.rows());let c=scalars(self.cols());if r==*self.rows()&&c==*self.cols(){Ok(self.clone())}else if matches!(self.kind(),MatrixKind::One){Self::one(r,c)}else{Self::zero(r,c)}},
-            MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)=>{let b:Vec<_>=a.iter().map(matrices).collect();if &b==a{Ok(self.clone())}else if matches!(self.kind(),MatrixKind::Kronecker(_)){Self::kronecker(&b,true)}else{Self::hadamard_product(&b,true)}},
-            MatrixKind::BlockDiag(a)=>{let b:Vec<_>=a.iter().map(matrices).collect();if &b==a{Ok(self.clone())}else{Self::block_diag(&b)}},
-            MatrixKind::Slice(parent,rows,cols)=>{let mapped=matrices(parent);let r=rows.clone().map(|e|scalars(&e));let c=cols.clone().map(|e|scalars(&e));if mapped==*parent&&r==*rows&&c==*cols{Ok(self.clone())}else{mapped.slice(r.map(Some),c.map(Some))}},
-            MatrixKind::HadamardPower(a,b)=>{let aa=a.map(matrices,scalars);let bb=b.map(matrices,scalars);if aa==*a&&bb==*b{Ok(self.clone())}else{Self::hadamard_power(aa,bb,true)}},
-            MatrixKind::Explicit(m)=>{let entries:Vec<_>=m.data().iter().map(scalars).collect();if entries==m.data(){Ok(self.clone())}else{Ok(Self::explicit(Matrix::new(m.rows(),m.cols(),entries)?))}},
-            MatrixKind::Add(a)=>{let b:Vec<_>=a.iter().map(matrices).collect();if &b==a{Ok(self.clone())}else{Self::add(&b,true)}},
-            MatrixKind::Mul(c,a)=>{let coefficient=scalars(c);let b:Vec<_>=a.iter().map(matrices).collect();if &b==a&&coefficient==*c{Ok(self.clone())}else{Self::mul(coefficient,&b,true)}},
-            MatrixKind::Pow(b,e)=>{let base=matrices(b);let exponent=scalars(e);if base==*b&&exponent==*e{Ok(self.clone())}else{base.pow(exponent,true)}},
-            MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)=>{let base=matrices(b);if base==*b{return Ok(self.clone());}match self.kind(){MatrixKind::Transpose(_)=>base.transpose(true),MatrixKind::Adjoint(_)=>base.adjoint(true),MatrixKind::Inverse(_)=>base.inverse(true),_=>base.conjugate(true)}},
+            MatrixKind::Symbol(name)=>{let r=scalars(self.rows());let c=scalars(self.cols());if r.same_presentation(self.rows())&&c.same_presentation(self.cols()){Ok(self.clone())}else{Self::symbol(name,r,c)}},
+            MatrixKind::Identity=>{let n=scalars(self.rows());if n.same_presentation(self.rows()){Ok(self.clone())}else{Self::identity(n)}},
+            MatrixKind::Zero|MatrixKind::One=>{let r=scalars(self.rows());let c=scalars(self.cols());if r.same_presentation(self.rows())&&c.same_presentation(self.cols()){Ok(self.clone())}else if matches!(self.kind(),MatrixKind::One){Self::one(r,c)}else{Self::zero(r,c)}},
+            MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)=>{let b:Vec<_>=a.iter().map(matrices).collect();if Self::same_children(&b,a){Ok(self.clone())}else if matches!(self.kind(),MatrixKind::Kronecker(_)){Self::kronecker(&b,true)}else{Self::hadamard_product(&b,true)}},
+            MatrixKind::Block(grid)=>{let cells:Vec<_>=grid.data().iter().map(matrices).collect();if Self::same_children(&cells,grid.data()){Ok(self.clone())}else{Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,cells)?)}},
+            MatrixKind::BlockDiag(a)=>{let b:Vec<_>=a.iter().map(matrices).collect();if Self::same_children(&b,a){Ok(self.clone())}else{Self::block_diag(&b)}},
+            MatrixKind::Slice(parent,rows,cols)=>{let mapped=matrices(parent);let r=rows.clone().map(|e|scalars(&e));let c=cols.clone().map(|e|scalars(&e));if mapped.dag_id()==parent.dag_id()&&r.iter().zip(rows).all(|(a,b)|a.same_presentation(b))&&c.iter().zip(cols).all(|(a,b)|a.same_presentation(b)){Ok(self.clone())}else{mapped.slice(r.map(Some),c.map(Some))}},
+            MatrixKind::HadamardPower(a,b)=>{let aa=a.map(matrices,scalars);let bb=b.map(matrices,scalars);if aa.same_presentation(a)&&bb.same_presentation(b){Ok(self.clone())}else{Self::hadamard_power(aa,bb,true)}},
+            MatrixKind::Explicit(m)=>{let entries:Vec<_>=m.data().iter().map(scalars).collect();if entries.iter().zip(m.data()).all(|(a,b)|a.same_presentation(b)){Ok(self.clone())}else{Ok(Self::explicit(Matrix::new(m.rows(),m.cols(),entries)?))}},
+            MatrixKind::Add(a)=>{let b:Vec<_>=a.iter().map(matrices).collect();if Self::same_children(&b,a){Ok(self.clone())}else{Self::add(&b,true)}},
+            MatrixKind::Mul(c,a)=>{let coefficient=scalars(c);let b:Vec<_>=a.iter().map(matrices).collect();if Self::same_children(&b,a)&&coefficient.same_presentation(c){Ok(self.clone())}else{Self::mul(coefficient,&b,true)}},
+            MatrixKind::Pow(b,e)=>{let base=matrices(b);let exponent=scalars(e);if base.dag_id()==b.dag_id()&&exponent.same_presentation(e){Ok(self.clone())}else{base.pow(exponent,true)}},
+            MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)=>{let base=matrices(b);if base.dag_id()==b.dag_id(){return Ok(self.clone());}match self.kind(){MatrixKind::Transpose(_)=>base.transpose(true),MatrixKind::Adjoint(_)=>base.adjoint(true),MatrixKind::Inverse(_)=>base.inverse(true),_=>base.conjugate(true)}},
         }
     }
     pub fn matrix_symbols(&self)->Vec<Self>{
@@ -615,7 +671,7 @@ impl MatrixExpr {
         if let Some(result)=memo.get(&self.dag_id()){return Ok(result.clone());}
         let replacement=f(self);if replacement!=*self{memo.insert(self.dag_id(),replacement.clone());return Ok(replacement);}
         let old=self.children();let children=old.iter().map(|c|c.matrix_map_cached(f,memo)).collect::<MResult<Vec<_>>>()?;
-        let result=if children==old{self.clone()}else{self.map_children(&mut |child|old.iter().position(|c|c==child).map(|i|children[i].clone()).unwrap_or_else(||child.clone()),&mut |e|e.clone())?};
+        let result=if Self::same_children(&children,&old){self.clone()}else{self.map_children(&mut |child|old.iter().position(|c|c==child).map(|i|children[i].clone()).unwrap_or_else(||child.clone()),&mut |e|e.clone())?};
         memo.insert(self.dag_id(),result.clone());Ok(result)
     }
 
@@ -624,9 +680,9 @@ impl MatrixExpr {
     }
     pub fn scalar_map(&self,f:&mut dyn FnMut(&Expr)->Expr)->MResult<Self>{
         let mut fields=Vec::new();self.scalar_fields(&mut fields);
-        let values:FxHashMap<_,_>=fields.into_iter().map(|e|{let mapped=f(&e);(e,mapped)}).collect();
-        if values.iter().all(|(a,b)|a==b){return Ok(self.clone());}
-        self.remap_internal(&[],&mut |e|values.get(e).cloned().unwrap_or_else(||e.clone()))
+        let values:FxHashMap<_,_>=fields.into_iter().map(|e|{let mapped=f(&e);(e.dag_id(),(e,mapped))}).collect();
+        if values.values().all(|(a,b)|a.same_presentation(b)){return Ok(self.clone());}
+        self.remap_internal(&[],&mut |e|values.get(&e.dag_id()).map(|(_,mapped)|mapped.clone()).unwrap_or_else(||e.clone()))
     }
     pub fn map_all(&self,replacements:&[(Self,Self)],f:&mut dyn FnMut(&Expr)->Expr)->MResult<Self>{
         self.remap_internal(replacements,f)
@@ -653,7 +709,7 @@ impl MatrixExpr {
     fn doit_cached(&self,deep:bool,memo:&mut FxHashMap<usize,Self>)->MResult<Self>{
         if let Some(result)=memo.get(&self.dag_id()){return Ok(result.clone());}
         let children=if deep{self.children().iter().map(|c|c.doit_cached(true,memo)).collect::<MResult<Vec<_>>>()?}else{self.children()};
-        let result=match self.kind(){MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice(rows.clone().map(Some),cols.clone().map(Some)),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>children[0].pow(e.clone(),true),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
+        let result=match self.kind(){MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice(rows.clone().map(Some),cols.clone().map(Some)),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>children[0].pow(e.clone(),true),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
         let result=if result==*self{self.clone()}else{result};
         memo.insert(self.dag_id(),result.clone());Ok(result)
     }
@@ -679,6 +735,15 @@ impl MatrixExpr {
         for factor in factors.iter().rev(){let(quotient_i,row)=split(&i,factor.rows());let(quotient_j,col)=split(&j,factor.cols());value=Self::entry_product(&value,&factor.element(&row,&col)?);i=quotient_i;j=quotient_j;}
         Ok(value)
     }
+    fn block_element(&self,grid:&BlockGrid,i:&Expr,j:&Expr)->MResult<Expr>{
+        let locate=|index:&Expr,total:&Expr,sizes:Vec<&Expr>|{
+            let mut local=if crate::assumptions::is_negative(index)==Some(true){crate::ops::add2(index,total)}else{index.clone()};
+            for(position,size)in sizes.iter().enumerate(){let beyond=sub(&local,size);if crate::assumptions::is_nonnegative(&beyond)==Some(true){local=beyond;continue;}if crate::assumptions::is_negative(&beyond)==Some(true)||position+1==sizes.len(){return Some((position,local));}return None;}None
+        };
+        let row=locate(i,self.rows(),(0..grid.shape().0).map(|i|grid.get(i,0).rows()).collect());
+        let col=locate(j,self.cols(),(0..grid.shape().1).map(|j|grid.get(0,j).cols()).collect());
+        match(row,col){(Some((r,i)),Some((c,j)))=>grid.get(r,c).element(&i,&j),_=>Ok(self.opaque_element(i,j))}
+    }
     fn block_diag_element(&self,blocks:&[Self],i:&Expr,j:&Expr)->MResult<Expr>{
         fn locate(blocks:&[MatrixExpr],index:&Expr,total:&Expr,rows:bool)->Option<(usize,Expr)>{
             let mut local=if crate::assumptions::is_negative(index)==Some(true){crate::ops::add2(index,total)}else{index.clone()};
@@ -699,6 +764,7 @@ impl MatrixExpr {
         match self.kind(){
             MatrixKind::Zero=>Ok(Expr::zero()),
             MatrixKind::One=>Ok(Expr::one()),
+            MatrixKind::Block(grid)=>self.block_element(grid,i,j),
             MatrixKind::BlockDiag(blocks)=>self.block_diag_element(blocks,i,j),
             MatrixKind::Slice(parent,rows,cols)=>{let normalize=|index:&Expr,size:&Expr|if crate::assumptions::is_negative(index)==Some(true){crate::ops::add2(index,size)}else{index.clone()};parent.element(&crate::ops::add2(&rows[0],&normalize(i,self.rows())),&crate::ops::add2(&cols[0],&normalize(j,self.cols())))},
             MatrixKind::HadamardProduct(factors)=>{let mut value=Expr::one();for factor in factors{value=Self::entry_product(&value,&factor.element(i,j)?);}Ok(value)},
@@ -715,13 +781,18 @@ impl MatrixExpr {
             _=>Ok(self.opaque_element(i,j)),
         }
     }
+    /// Validate and construct a held scalar entry without materializing its parent.
+    pub fn element_unevaluated(&self,i:&Expr,j:&Expr)->MResult<Expr>{
+        Self::validate_index(i,self.rows())?;Self::validate_index(j,self.cols())?;
+        Ok(self.opaque_element(i,j))
+    }
     fn opaque_element(&self,i:&Expr,j:&Expr)->Expr{Expr::from_kind(crate::expr::Kind::Func(Func::MatrixElement(Arc::new(self.clone())),vec![i.clone(),j.clone()]))}
     pub fn as_explicit(&self)->MResult<Matrix>{
         let (rows,cols)=(finite_dim(self.rows())?,finite_dim(self.cols())?);
         match self.kind(){
             MatrixKind::Explicit(m)=>Ok(m.clone()),MatrixKind::Identity=>Ok(Matrix::eye(rows)),MatrixKind::Zero=>Ok(Matrix::zeros(rows,cols)),
             MatrixKind::One=>Ok(Matrix::from_fn(rows,cols,|_,_|Expr::one())),
-            MatrixKind::HadamardProduct(_)|MatrixKind::HadamardPower(..)|MatrixKind::Kronecker(_)|MatrixKind::BlockDiag(_)|MatrixKind::Slice(..)=>{let mut entries=Vec::with_capacity(rows*cols);for i in 0..rows{for j in 0..cols{entries.push(self.element(&Expr::int(i as i64),&Expr::int(j as i64))?);}}Matrix::new(rows,cols,entries)},
+            MatrixKind::HadamardProduct(_)|MatrixKind::HadamardPower(..)|MatrixKind::Kronecker(_)|MatrixKind::BlockDiag(_)|MatrixKind::Block(_)|MatrixKind::Slice(..)=>{let mut entries=Vec::with_capacity(rows*cols);for i in 0..rows{for j in 0..cols{entries.push(self.element(&Expr::int(i as i64),&Expr::int(j as i64))?);}}Matrix::new(rows,cols,entries)},
             MatrixKind::Add(a)=>{let mut m=Matrix::zeros(rows,cols);for e in a{m=m.add(&e.as_explicit()?)?;}Ok(m)},
             MatrixKind::Mul(c,fs)=>{let mut m=fs[0].as_explicit()?;for e in &fs[1..]{m=m.matmul(&e.as_explicit()?)?;}Ok(m.scale(c))},
             MatrixKind::Pow(b,e)=>{let n=e.as_i64().ok_or_else(||MatrixError::NotImplemented("Explicit matrix powers require an integer exponent".into()))?;b.as_explicit()?.powi(n)},
@@ -729,12 +800,13 @@ impl MatrixExpr {
             MatrixKind::Symbol(_)=>{let mut entries=Vec::with_capacity(rows*cols);for i in 0..rows{for j in 0..cols{entries.push(self.opaque_element(&Expr::int(i as i64),&Expr::int(j as i64)));}}Matrix::new(rows,cols,entries)},
         }
     }
-    pub fn kind_name(&self)->&'static str{match self.kind(){MatrixKind::Symbol(_)=>"MatrixSymbol",MatrixKind::Explicit(_)=>"ImmutableMatrix",MatrixKind::Identity=>"Identity",MatrixKind::Zero=>"ZeroMatrix",MatrixKind::One=>"OneMatrix",MatrixKind::HadamardProduct(_)=>"HadamardProduct",MatrixKind::HadamardPower(..)=>"HadamardPower",MatrixKind::Kronecker(_)=>"KroneckerProduct",MatrixKind::BlockDiag(_)=>"BlockDiagMatrix",MatrixKind::Slice(..)=>"MatrixSlice",MatrixKind::Add(_)=>"MatAdd",MatrixKind::Mul(..)=>"MatMul",MatrixKind::Pow(..)=>"MatPow",MatrixKind::Transpose(_)=>"Transpose",MatrixKind::Adjoint(_)=>"Adjoint",MatrixKind::Inverse(_)=>"Inverse",MatrixKind::Conjugate(_)=>"MatrixConjugate"}}
+    pub fn kind_name(&self)->&'static str{match self.kind(){MatrixKind::Symbol(_)=>"MatrixSymbol",MatrixKind::Explicit(_)=>"ImmutableMatrix",MatrixKind::Identity=>"Identity",MatrixKind::Zero=>"ZeroMatrix",MatrixKind::One=>"OneMatrix",MatrixKind::HadamardProduct(_)=>"HadamardProduct",MatrixKind::HadamardPower(..)=>"HadamardPower",MatrixKind::Kronecker(_)=>"KroneckerProduct",MatrixKind::BlockDiag(_)=>"BlockDiagMatrix",MatrixKind::Block(_)=>"BlockMatrix",MatrixKind::Slice(..)=>"MatrixSlice",MatrixKind::Add(_)=>"MatAdd",MatrixKind::Mul(..)=>"MatMul",MatrixKind::Pow(..)=>"MatPow",MatrixKind::Transpose(_)=>"Transpose",MatrixKind::Adjoint(_)=>"Adjoint",MatrixKind::Inverse(_)=>"Inverse",MatrixKind::Conjugate(_)=>"MatrixConjugate"}}
     pub fn to_repr(&self)->String{
         let s=crate::printer::srepr;let me=|e:&Self|e.to_repr();
         let args=match self.kind(){
             MatrixKind::Symbol(name)=>format!("{name:?}, {}, {}",s(self.rows()),s(self.cols())),MatrixKind::Identity=>s(self.rows()),MatrixKind::Zero|MatrixKind::One=>format!("{}, {}",s(self.rows()),s(self.cols())),
             MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>a.iter().map(me).collect::<Vec<_>>().join(", "),
+            MatrixKind::Block(grid)=>format!("Tuple({})",(0..grid.shape().0).map(|i|format!("Tuple({})",(0..grid.shape().1).map(|j|me(grid.get(i,j))).collect::<Vec<_>>().join(", "))).collect::<Vec<_>>().join(", ")),
             MatrixKind::Slice(parent,rows,cols)=>format!("{}, Tuple({}), Tuple({})",parent.to_repr(),rows.iter().map(s).collect::<Vec<_>>().join(", "),cols.iter().map(s).collect::<Vec<_>>().join(", ")),
             MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>s(e),MatrixOperand::Matrix(m)=>m.to_repr()};format!("{}, {}",operand(a),operand(b))},
             MatrixKind::Explicit(m)=>format!("{}, {}, [{}]",m.rows(),m.cols(),m.data().iter().map(s).collect::<Vec<_>>().join(", ")),
@@ -746,6 +818,7 @@ impl MatrixExpr {
         let child=|e:&Self|if matches!(e.kind(),MatrixKind::Add(_)){format!("({})",e.to_str())}else{e.to_str()};
         match self.kind(){MatrixKind::Symbol(n)=>n.clone(),MatrixKind::Explicit(m)=>m.to_str(),MatrixKind::Identity=>"I".into(),MatrixKind::Zero=>"0".into(),MatrixKind::One=>"1".into(),
             MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>format!("{}({})",self.kind_name(),a.iter().map(Self::to_str).collect::<Vec<_>>().join(", ")),
+            MatrixKind::Block(grid)=>format!("BlockMatrix([{}])",(0..grid.shape().0).map(|i|format!("[{}]",(0..grid.shape().1).map(|j|grid.get(i,j).to_str()).collect::<Vec<_>>().join(", "))).collect::<Vec<_>>().join(", ")),
             MatrixKind::Slice(parent,rows,cols)=>format!("{}[{}:{}, {}:{}]",parent.to_str(),rows[0],rows[1],cols[0],cols[1]),
             MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>e.to_string(),MatrixOperand::Matrix(m)=>m.to_str()};format!("HadamardPower({}, {})",operand(a),operand(b))},
             MatrixKind::Add(a)=>{let mut out=String::new();for e in a{let v=e.to_str();if !out.is_empty(){if let Some(positive)=v.strip_prefix('-'){out.push_str(" - ");out.push_str(positive);continue;}out.push_str(" + ");}out.push_str(&v);}out},
@@ -756,6 +829,20 @@ impl MatrixExpr {
 }
 
 impl std::fmt::Display for MatrixExpr { fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{f.write_str(&self.to_str())} }
+
+/// Block simplification inside scalar expressions, including metadata parents.
+pub fn block_collapse_scalar(expression:&Expr)->MResult<Expr>{
+    fn rec(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Expr)>)->MResult<Expr>{
+        if let Some((_,result))=cache.get(&e.dag_id()){return Ok(result.clone());}
+        let result=match e.kind(){
+            Kind::Func(Func::MatrixProxy(parent),_)=>Expr::from_kind(Kind::Func(Func::MatrixProxy(Arc::new(parent.block_collapse()?)),vec![])),
+            Kind::Func(Func::MatrixTrace(parent),_)=>parent.block_collapse()?.trace()?,
+            Kind::Func(Func::MatrixDeterminant(parent),_)=>parent.block_collapse()?.determinant()?,
+            Kind::Func(Func::MatrixElement(parent),args)=>parent.block_collapse()?.element_unevaluated(&rec(&args[0],cache)?,&rec(&args[1],cache)?)?,
+            _=>{let mut error=None;let result=crate::traverse::map_children(e,&mut |child|match rec(child,cache){Ok(result)=>result,Err(e)=>{error=Some(e);child.clone()}});if let Some(error)=error{return Err(error);}result},
+        };cache.insert(e.dag_id(),(e.clone(),result.clone()));Ok(result)
+    }rec(expression,&mut FxHashMap::default())
+}
 
 #[cfg(test)]
 mod tests {
@@ -909,6 +996,23 @@ mod tests {
         let x=Expr::symbol("x");let a=MatrixExpr::mul(x,&[symbol("A",3,3)],true).unwrap().pow(Expr::int(1_000_000_000),true).unwrap();
         let workers:Vec<_>=(0..8).map(|_|{let a=a.clone();std::thread::spawn(move||{let mut h=std::collections::hash_map::DefaultHasher::new();a.hash(&mut h);(h.finish(),a.scalar_free_symbols())})}).collect();
         let answers:Vec<_>=workers.into_iter().map(|w|w.join().unwrap()).collect();assert!(answers.windows(2).all(|w|w[0]==w[1]));
+    }
+
+    #[test]
+    fn true_block_matrix_and_safe_partition_collapse(){
+        let a=symbol("A",2,2);let b=symbol("B",2,1);let c=symbol("C",1,2);let d=symbol("D",1,1);
+        let matrix=MatrixExpr::block(BlockGrid::new(2,2,vec![a.clone(),b.clone(),c.clone(),d.clone()]).unwrap()).unwrap();
+        assert_eq!(matrix.shape(),(Expr::int(3),Expr::int(3)));
+        assert_eq!(matrix.element(&Expr::minus_one(),&Expr::minus_one()).unwrap(),d.element(&Expr::zero(),&Expr::zero()).unwrap());
+        assert_eq!(matrix.trace().unwrap(),add(&[a.trace().unwrap(),d.trace().unwrap()]));
+        let product=MatrixExpr::mul(Expr::one(),&[matrix.clone(),matrix.clone()],true).unwrap().block_collapse().unwrap();
+        let grid=product.block_grid().unwrap();assert_eq!(grid.get(0,1),&MatrixExpr::add(&[MatrixExpr::mul(Expr::one(),&[a.clone(),b.clone()],true).unwrap(),MatrixExpr::mul(Expr::one(),&[b,d.clone()],true).unwrap()],true).unwrap());
+        assert_eq!(product.as_explicit().unwrap(),matrix.as_explicit().unwrap().matmul(&matrix.as_explicit().unwrap()).unwrap());
+        assert!(MatrixExpr::block(BlockGrid::new(2,2,vec![a.clone(),a.clone(),symbol("E",1,1),symbol("F",1,3)]).unwrap()).is_err());
+        let nested=MatrixExpr::block(BlockGrid::new(1,1,vec![a.clone()]).unwrap()).unwrap();assert_eq!(nested.block_collapse().unwrap(),a);
+        let power=matrix.pow(Expr::int(8),true).unwrap().block_collapse().unwrap();assert_eq!(power.shape(),matrix.shape());
+        let diagonal=MatrixExpr::block_diag(&[symbol("U",1,1),symbol("V",2,2)]).unwrap();
+        let unaligned=MatrixExpr::mul(Expr::one(),&[matrix,diagonal],true).unwrap();assert_eq!(unaligned.block_collapse().unwrap(),unaligned);
     }
 
 }

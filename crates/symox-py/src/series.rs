@@ -136,15 +136,28 @@ fn _leadterm<'py>(
 #[pyo3(signature = (e, z, z0, dir="+"))]
 fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<PyExpr>> {
     let d = Dir::parse(dir).ok_or_else(|| PyValueError::new_err("direction must be one of '+', '-' or '+-'"))?;
-    match lm::limit(&to_expr(e)?, &to_expr(z)?, &to_expr(z0)?, d) {
+    let held=lm::held_limit(&to_expr(e)?,&to_expr(z)?,&to_expr(z0)?,d);
+    lm::validate_held(&held).map_err(PyNotImplementedError::new_err)?;
+    let args=held.args();let d=Dir::parse(args[3].as_sym().unwrap().name()).unwrap();
+    match lm::limit(&args[0], &args[1], &args[2], d) {
         Ok(r) => Ok(Some(w(r))),
         Err(LimitError::Unknown(_)) => Ok(None),
         Err(err @ LimitError::Differ(..)) => Err(PyValueError::new_err(err.to_string())),
     }
 }
 
+#[pyfunction]
+#[pyo3(signature=(e,z,z0,dir="+"))]
+fn _held_limit(e:&Bound<'_,PyAny>,z:&Bound<'_,PyAny>,z0:&Bound<'_,PyAny>,dir:&str)->PyResult<PyExpr>{
+    let d=Dir::parse(dir).ok_or_else(||PyValueError::new_err("direction must be one of '+', '-' or '+-'"))?;
+    let held=lm::held_limit(&to_expr(e)?,&to_expr(z)?,&to_expr(z0)?,d);
+    lm::validate_held(&held).map_err(PyNotImplementedError::new_err)?;
+    Ok(w(held))
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_limit, m)?)?;
+    m.add_function(wrap_pyfunction!(_held_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_series, m)?)?;
     m.add_function(wrap_pyfunction!(_order, m)?)?;
     m.add_function(wrap_pyfunction!(_remove_o, m)?)?;

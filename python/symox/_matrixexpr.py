@@ -122,7 +122,18 @@ class KroneckerProduct(MatrixExpr):
         return _core._matrixexpr_node('KroneckerProduct', args)
 
 
-class BlockDiagMatrix(MatrixExpr):
+class BlockMatrix(MatrixExpr):
+    _kinds = ('BlockMatrix', 'BlockDiagMatrix')
+
+    def __new__(cls, blocks):
+        return _core._matrixexpr_node('BlockMatrix', (blocks,))
+
+
+def block_collapse(expr):
+    return _core._block_collapse(expr)
+
+
+class BlockDiagMatrix(BlockMatrix):
     _kinds = ('BlockDiagMatrix',)
 
     def __new__(cls, *matrices):
@@ -192,4 +203,4 @@ class Determinant(metaclass=_ScalarMatrixType):
 __all__ = ['MatrixExpr','MatrixSymbol','MatAdd','MatMul','MatPow','Transpose',
            'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
            'Trace','Determinant','OneMatrix','HadamardProduct','HadamardPower',
-           'KroneckerProduct','BlockDiagMatrix','MatrixSlice','hadamard_product','hadamard_power','kronecker_product']
+           'KroneckerProduct','BlockDiagMatrix','BlockMatrix','block_collapse','MatrixSlice','hadamard_product','hadamard_power','kronecker_product']

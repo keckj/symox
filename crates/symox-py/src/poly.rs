@@ -5,6 +5,9 @@
 
 #![allow(non_snake_case)]
 
+#[path = "algebraic_number.rs"]
+pub(crate) mod algebraic_number;
+
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
@@ -2107,6 +2110,7 @@ fn primitive_element(py:Python<'_>,extension:&Bound<'_,PyAny>,x:Option<&Bound<'_
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    algebraic_number::register(m)?;
     m.add_function(wrap_pyfunction!(minimal_polynomial,m)?)?;
     m.add_function(wrap_pyfunction!(minpoly,m)?)?;
     m.add_function(wrap_pyfunction!(primitive_element,m)?)?;

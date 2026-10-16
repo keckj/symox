@@ -219,7 +219,7 @@ assert g.fglm('lex').domain=='QQ<sqrt(2)>'
 @pytest.mark.parametrize('operation', [lambda p,q:p+q,lambda p,q:p-q,lambda p,q:p*q,lambda p,q:p.div(q)])
 def test_independent_number_fields_do_not_silently_degrade_to_expressions(operation):
     x=sm.Symbol('x')
-    p=sm.Poly(x+sm.sqrt(2),x,extension=sm.sqrt(2))
+    p=sm.Poly(x+sm.sqrt(2)+sm.sqrt(3),x,extension=[sm.sqrt(2),sm.sqrt(3)])
     b=sm.Integer(2)**sm.Rational(1,3)
     q=sm.Poly(x+b,x,extension=b)
     with pytest.raises((TypeError,ValueError,NotImplementedError)):

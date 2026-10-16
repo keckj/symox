@@ -46,6 +46,8 @@ flags! {
     NOT_ZERO = 20, "!zero";
     NOT_NONZERO = 21, "!nonzero";
     NOT_RATIONAL = 22, "!rational";
+    NOT_NONNEGATIVE = 23, "!nonnegative";
+    NOT_NONPOSITIVE = 24, "!nonpositive";
 }
 
 impl Assumptions {
@@ -81,12 +83,14 @@ impl Assumptions {
             imp(&mut a, Self::INTEGER, Self::RATIONAL);
             imp(&mut a, Self::RATIONAL, Self::REAL);
             imp(&mut a, Self::NONZERO, Self::REAL.with(Self::NOT_ZERO));
-            imp(&mut a, Self::NOT_REAL, Self::NOT_NONZERO.with(Self::NOT_RATIONAL).with(Self::NOT_INTEGER).with(Self::NOT_POSITIVE).with(Self::NOT_NEGATIVE));
+            imp(&mut a, Self::NOT_REAL, Self::NOT_NONZERO.with(Self::NOT_RATIONAL).with(Self::NOT_INTEGER).with(Self::NOT_POSITIVE).with(Self::NOT_NEGATIVE).with(Self::NOT_NONNEGATIVE).with(Self::NOT_NONPOSITIVE));
+            imp(&mut a, Self::NOT_NONNEGATIVE, Self::NOT_POSITIVE.with(Self::NOT_ZERO));
+            imp(&mut a, Self::NOT_NONPOSITIVE, Self::NOT_NEGATIVE.with(Self::NOT_ZERO));
             imp(&mut a, Self::NOT_RATIONAL, Self::NOT_INTEGER);
             imp(&mut a, Self::NOT_INTEGER, Self::NOT_ZERO);
             imp(&mut a, Self::IRRATIONAL, Self::REAL.with(Self::NONZERO));
-            imp(&mut a, Self::POSITIVE, Self::REAL.with(Self::NONZERO).with(Self::NONNEGATIVE).with(Self::NOT_NEGATIVE));
-            imp(&mut a, Self::NEGATIVE, Self::REAL.with(Self::NONZERO).with(Self::NONPOSITIVE).with(Self::NOT_POSITIVE));
+            imp(&mut a, Self::POSITIVE, Self::REAL.with(Self::NONZERO).with(Self::NONNEGATIVE).with(Self::NOT_NEGATIVE).with(Self::NOT_NONPOSITIVE));
+            imp(&mut a, Self::NEGATIVE, Self::REAL.with(Self::NONZERO).with(Self::NONPOSITIVE).with(Self::NOT_POSITIVE).with(Self::NOT_NONNEGATIVE));
             imp(&mut a, Self::ZERO, Self::REAL.with(Self::NONNEGATIVE).with(Self::NONPOSITIVE).with(Self::EVEN).with(Self::NOT_POSITIVE).with(Self::NOT_NEGATIVE).with(Self::NOT_NONZERO));
             imp(&mut a, Self::NONNEGATIVE, Self::REAL.with(Self::NOT_NEGATIVE));
             imp(&mut a, Self::NONPOSITIVE, Self::REAL.with(Self::NOT_POSITIVE));
@@ -97,6 +101,12 @@ impl Assumptions {
             if a.has(Self::REAL) && a.has(Self::NOT_NONZERO) { a = a.with(Self::ZERO); }
             if a.has(Self::NOT_ZERO) && a.has(Self::NOT_NONZERO) { a = a.with(Self::NOT_REAL); }
             if a.has(Self::REAL) && a.has(Self::NOT_RATIONAL) { a = a.with(Self::IRRATIONAL); }
+            if a.has(Self::REAL) && a.has(Self::NOT_NONNEGATIVE) { a = a.with(Self::NEGATIVE); }
+            if a.has(Self::REAL) && a.has(Self::NOT_NONPOSITIVE) { a = a.with(Self::POSITIVE); }
+            if a.has(Self::REAL) && a.has(Self::NOT_NEGATIVE) { a = a.with(Self::NONNEGATIVE); }
+            if a.has(Self::REAL) && a.has(Self::NOT_POSITIVE) { a = a.with(Self::NONPOSITIVE); }
+            if a.has(Self::NOT_NONNEGATIVE) && a.has(Self::NOT_NEGATIVE) { a = a.with(Self::NOT_REAL); }
+            if a.has(Self::NOT_NONPOSITIVE) && a.has(Self::NOT_POSITIVE) { a = a.with(Self::NOT_REAL); }
             if a.has(Self::NONNEGATIVE) && a.has(Self::NONZERO) {
                 a = a.with(Self::POSITIVE);
             }
@@ -121,6 +131,8 @@ impl Assumptions {
             || bad(Self::NONZERO, Self::NOT_NONZERO)
             || bad(Self::RATIONAL, Self::NOT_RATIONAL)
             || bad(Self::RATIONAL, Self::IRRATIONAL)
+            || bad(Self::NONNEGATIVE, Self::NOT_NONNEGATIVE)
+            || bad(Self::NONPOSITIVE, Self::NOT_NONPOSITIVE)
         {
             return Err("inconsistent assumptions".into());
         }
@@ -141,8 +153,8 @@ impl Assumptions {
                 ("zero", false) => Self::NOT_ZERO,
                 ("nonzero", false) => Self::NOT_NONZERO,
                 ("rational", false) => Self::NOT_RATIONAL,
-                ("nonnegative", false) => Self::NEGATIVE,
-                ("nonpositive", false) => Self::POSITIVE,
+                ("nonnegative", false) => Self::NOT_NONNEGATIVE,
+                ("nonpositive", false) => Self::NOT_NONPOSITIVE,
                 ("finite", false) | ("complex", false) | ("even", false)
                 | ("odd", false) | ("prime", false) | ("irrational", false) | ("imaginary", false) => {
                     continue

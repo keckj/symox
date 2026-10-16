@@ -35,6 +35,7 @@ pub enum Dir {
 }
 
 impl Dir {
+    pub fn as_str(self)->&'static str {match self{Self::Plus=>"+",Self::Minus=>"-",Self::Both=>"+-"}}
     pub fn parse(s: &str) -> Option<Dir> {
         match s {
             "+" => Some(Dir::Plus),
@@ -43,6 +44,42 @@ impl Dir {
             _ => None,
         }
     }
+}
+
+/// Build the held operator without asserting continuity or evaluating it.
+pub fn held_limit(e:&Expr,x:&Expr,x0:&Expr,dir:Dir)->Expr {
+    let dir=if x0.is_constant(Constant::Infinity){Dir::Minus}else if x0.is_constant(Constant::NegInfinity){Dir::Plus}else{dir};
+    Expr::from_kind(Kind::Func(Func::Limit,vec![e.clone(),x.clone(),x0.clone(),Expr::symbol(dir.as_str())]))
+}
+
+/// Validate held nodes after fallible public substitutions/reconstruction.
+pub fn validate_held(e:&Expr)->Result<(),String>{
+    if !e.has_limit(){return Ok(());}
+    fn visit(e:&Expr,seen:&mut rustc_hash::FxHashMap<usize,Expr>)->Result<(),String>{
+        if seen.insert(e.dag_id(),e.clone()).is_some(){return Ok(());}
+        if let Kind::Func(Func::Limit,args)=e.kind(){
+            if args.len()!=4 || !args[1].is_symbol(){return Err("held limits require a symbol variable".into());}
+            if crate::traverse::has(&args[2],&args[1]){return Err("limits approaching a variable point are not supported".into());}
+        }
+        for arg in e.args(){visit(&arg,seen)?;}
+        Ok(())
+    }
+    visit(e,&mut rustc_hash::FxHashMap::default())
+}
+
+/// Surface known nonexistence errors through Python's fallible doit API.
+pub fn check_doit(e:&Expr,deep:bool)->LRes<()> {
+    if !e.has_limit(){return Ok(());}
+    fn visit(e:&Expr,deep:bool,seen:&mut rustc_hash::FxHashMap<usize,Expr>)->LRes<()>{
+        if seen.insert(e.dag_id(),e.clone()).is_some(){return Ok(());}
+        if deep {for arg in e.args(){visit(&arg,true,seen)?;}}
+        if let Kind::Func(Func::Limit,args)=e.kind(){
+            let dir=Dir::parse(args[3].as_sym().map(|s|s.name()).unwrap_or("+"));
+            if let Some(dir)=dir {if let Err(error@LimitError::Differ(..))=limit(&args[0],&args[1],&args[2],dir){return Err(error);}}
+        }
+        Ok(())
+    }
+    visit(e,deep,&mut rustc_hash::FxHashMap::default())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,6 +115,7 @@ fn is_infinite(e: &Expr) -> bool {
 
 /// `limit(e, x, x0, dir)`.
 pub fn limit(e: &Expr, x: &Expr, x0: &Expr, dir: Dir) -> LRes<Expr> {
+    if !x.is_symbol(){return unknown("limits with non-symbol variables are not implemented");}
     if !depends(e, x) {
         return Ok(e.clone());
     }

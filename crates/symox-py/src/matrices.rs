@@ -1322,12 +1322,13 @@ impl PyMatrix {
         PyMatrix { m: self.m.clone(), immutable: true }
     }
 
-    fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, (usize, usize, Vec<PyExpr>))> {
+    fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyTuple>)> {
+        if self.m.data().iter().any(Expr::has_matrix) {
+            return crate::matrix_dag::reduce_dense(py,&self.m,self.immutable);
+        }
         let cls = py.import("symox")?.getattr(if self.immutable { "ImmutableMatrix" } else { "Matrix" })?;
-        // Serialize entries through Expr.__reduce__ to preserve assumptions,
-        // held nodes and exact floating point payloads.
         let data: Vec<PyExpr> = self.m.data().iter().cloned().map(wrap).collect();
-        Ok((cls, (self.m.rows(), self.m.cols(), data)))
+        Ok((cls, (self.m.rows(), self.m.cols(), data).into_pyobject(py)?))
     }
 
     #[staticmethod]

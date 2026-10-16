@@ -14,6 +14,34 @@ jnp = pytest.importorskip("jax.numpy")
 
 
 @pytest.mark.parametrize("jit", [False, True])
+def test_block_matrix_broadcast_products_and_gradients(jit):
+    a, b, d = (sm.MatrixSymbol('A', 2, 2), sm.MatrixSymbol('B', 2, 1),
+               sm.MatrixSymbol('D', 1, 1))
+    matrix = sm.BlockMatrix([[a, b], [b.T, d]])
+    function = sm.jax_lambdify((a, b, d),
+                              (matrix, matrix.T, sm.block_collapse(matrix*matrix)), jit=jit)
+    av = jnp.arange(8.).reshape(2, 1, 2, 2)
+    bv = jnp.arange(6.).reshape(1, 3, 2, 1)
+    dv = jnp.ones((1, 1))
+
+    def reference(x, y, z):
+        x, y, z = (jnp.broadcast_to(x, (2, 3, 2, 2)),
+                   jnp.broadcast_to(y, (2, 3, 2, 1)), jnp.broadcast_to(z, (2, 3, 1, 1)))
+        result = jnp.concatenate((jnp.concatenate((x, y), axis=-1),
+                                  jnp.concatenate((jnp.swapaxes(y, -2, -1), z), axis=-1)), axis=-2)
+        return result, jnp.swapaxes(result, -2, -1), result @ result
+
+    for value, target in zip(function(av, bv, dv), reference(av, bv, dv)):
+        np.testing.assert_allclose(value, target, rtol=2e-6)
+    gradients = jax.grad(lambda x, y, z: sum(jnp.sum(value**2) for value in function(x, y, z)),
+                         argnums=(0, 1, 2))(av, bv, dv)
+    references = jax.grad(lambda x, y, z: sum(jnp.sum(value**2) for value in reference(x, y, z)),
+                         argnums=(0, 1, 2))(av, bv, dv)
+    for value, target in zip(gradients, references):
+        np.testing.assert_allclose(value, target, rtol=2e-6)
+
+
+@pytest.mark.parametrize("jit", [False, True])
 def test_rectangular_block_diagonal_and_slice_batched_gradients(jit):
     a, b = sm.MatrixSymbol('A', 2, 3), sm.MatrixSymbol('B', 3, 2)
     function = sm.jax_lambdify((a, b), (sm.BlockDiagMatrix(a, b), a[:, 1:3]), jit=jit)

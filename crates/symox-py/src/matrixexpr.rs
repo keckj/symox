@@ -12,7 +12,7 @@ use crate::{wrap,to_expr,PyExpr};
 pub(crate) struct PyMatrixExpr {pub m:MatrixExpr}
 #[pyclass(name="_BlockGrid",module="symox._core",frozen)]
 #[derive(Clone)]
-pub(crate) struct PyBlockGrid{grid:BlockGrid}
+pub(crate) struct PyBlockGrid{pub(crate) grid:BlockGrid}
 #[pymethods]
 impl PyBlockGrid{
     #[new]
@@ -63,8 +63,7 @@ impl PyBlockGrid{
     }
     fn _sympy_<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{self.to_sympy(py)}
     fn __reduce__<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyAny>,Bound<'py,PyTuple>)>{
-        let entries=PyList::new(py,self.grid.data().iter().map(|m|matrix_object(py,m)).collect::<PyResult<Vec<_>>>()?)?;
-        Ok((py.import("symox._core")?.getattr("_BlockGrid")?,(self.rows(),self.cols(),entries).into_pyobject(py)?))
+        crate::matrix_dag::reduce_grid(py,&self.grid)
     }
 }
 pub(crate) fn wrap_matrixexpr(m:MatrixExpr)->PyMatrixExpr{PyMatrixExpr{m}}
@@ -92,6 +91,19 @@ fn slice_argument(value:&Bound<'_,PyAny>,size:&Expr)->PyResult<[Option<Expr>;3]>
     let mut index=to_expr(value)?;
     if symox::assumptions::is_negative(&index)==Some(true){index=symox::ops::add2(size,&index);}
     Ok([Some(index.clone()),Some(symox::ops::add2(&index,&Expr::one())),Some(Expr::one())])
+}
+fn to_block_grid(value:&Bound<'_,PyAny>)->PyResult<BlockGrid>{
+    if let Ok(grid)=value.downcast::<PyBlockGrid>(){return Ok(grid.get().grid.clone());}
+    let value=if value.hasattr("tolist")?{value.call_method0("tolist")?}else{value.clone()};
+    if is_matrix(&value){return Err(PyTypeError::new_err("BlockMatrix requires a grid of matrix-valued cells"));}
+    let items=value.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+    if items.is_empty(){return Err(PyValueError::new_err("BlockMatrix requires a nonempty grid"));}
+    if items.iter().all(is_matrix){return BlockGrid::new(1,items.len(),items.iter().map(to_matrixexpr).collect::<PyResult<_>>()?).map_err(|e|error(value.py(),e));}
+    let mut cols=None;let mut cells=Vec::new();for row in &items{
+        let row=row.try_iter()?.collect::<PyResult<Vec<_>>>()?;
+        if row.is_empty()||cols.is_some_and(|n|n!=row.len()){return Err(PyValueError::new_err("Block matrix rows must be nonempty and have equal lengths"));}
+        cols=Some(row.len());for cell in row{cells.push(to_matrixexpr(&cell)?);}
+    }BlockGrid::new(items.len(),cols.unwrap(),cells).map_err(|e|error(value.py(),e))
 }
 pub(crate) fn to_matrixexpr(value:&Bound<'_,PyAny>)->PyResult<MatrixExpr>{
     if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("A block grid stores matrix-valued cells; use a block matrix constructor"));}
@@ -132,6 +144,7 @@ fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py
         MatrixKind::Symbol(name)=>{args.push(name.into_pyobject(py)?.into_any());args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
         MatrixKind::Identity=>args.push(scalar(m.rows())?),MatrixKind::Zero|MatrixKind::One=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
         MatrixKind::Add(a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>for e in a{args.push(matrix(e)?);},
+        MatrixKind::Block(grid)=>{let value=PyBlockGrid{grid:grid.clone()};args.push(if sympy{value.to_sympy(py)?}else{value.into_pyobject(py)?.into_any()});},
         MatrixKind::Slice(parent,rows,cols)=>{args.push(matrix(parent)?);for indices in [rows,cols]{args.push(PyTuple::new(py,indices.iter().map(scalar).collect::<PyResult<Vec<_>>>()?)?.into_any());}},
         MatrixKind::HadamardPower(a,b)=>for operand in [a,b]{args.push(match operand{MatrixOperand::Scalar(e)=>scalar(e)?,MatrixOperand::Matrix(m)=>matrix(m)?});},
         MatrixKind::Mul(c,a)=>{if !c.is_one(){args.push(scalar(c)?);}for e in a{args.push(matrix(e)?);}},
@@ -150,6 +163,7 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
         "MatrixSymbol" if args.len()==3=>{let name:String=args.get_item(0)?.extract()?;MatrixExpr::symbol(&name,scalar(1)?,scalar(2)?)},
         "Identity" if args.len()==1=>MatrixExpr::identity(scalar(0)?),"ZeroMatrix" if args.len()==2=>MatrixExpr::zero(scalar(0)?,scalar(1)?),
         "OneMatrix" if args.len()==2=>MatrixExpr::one(scalar(0)?,scalar(1)?),
+        "BlockMatrix" if args.len()==1=>MatrixExpr::block(to_block_grid(&args.get_item(0)?)?),
         "BlockDiagMatrix"=>MatrixExpr::block_diag(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?),
         "MatrixSlice" if args.len()==3=>{let parent=matrix(0)?;parent.slice(slice_argument(&args.get_item(1)?,parent.rows())?,slice_argument(&args.get_item(2)?,parent.cols())?)},
         "HadamardProduct"=>MatrixExpr::hadamard_product(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate),
@@ -218,11 +232,14 @@ impl PyMatrixExpr{
     #[getter] fn colslice(&self)->PyResult<(PyExpr,PyExpr,PyExpr)>{if let MatrixKind::Slice(_,_,col)=self.m.kind(){Ok((wrap(col[0].clone()),wrap(col[1].clone()),wrap(col[2].clone())))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has colslice"))}}
     #[getter] fn on_diag(&self)->PyResult<bool>{if let MatrixKind::Slice(_,row,col)=self.m.kind(){Ok(row==col)}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has on_diag"))}}
     #[getter] fn blocks(&self,py:Python<'_>)->PyResult<PyBlockGrid>{Ok(PyBlockGrid{grid:self.m.block_grid().map_err(|e|error(py,e))?})}
-    #[getter] fn blockshape(&self)->PyResult<(usize,usize)>{if let MatrixKind::BlockDiag(blocks)=self.m.kind(){Ok((blocks.len(),blocks.len()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("This matrix has no block shape"))}}
+    #[getter] fn blockshape(&self,py:Python<'_>)->PyResult<(usize,usize)>{Ok(self.m.block_grid().map_err(|e|error(py,e))?.shape())}
     #[getter] fn diag<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{if let MatrixKind::BlockDiag(blocks)=self.m.kind(){PyTuple::new(py,blocks.iter().map(|m|matrix_object(py,m)).collect::<PyResult<Vec<_>>>()?)}else{Err(pyo3::exceptions::PyAttributeError::new_err("This matrix has no diagonal blocks"))}}
     fn get_diag_blocks<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{self.diag(py)}
-    #[getter] fn rowblocksizes(&self)->PyResult<Vec<PyExpr>>{if let MatrixKind::BlockDiag(blocks)=self.m.kind(){Ok(blocks.iter().map(|m|wrap(m.rows().clone())).collect())}else{Err(pyo3::exceptions::PyAttributeError::new_err("This matrix has no row blocks"))}}
-    #[getter] fn colblocksizes(&self)->PyResult<Vec<PyExpr>>{if let MatrixKind::BlockDiag(blocks)=self.m.kind(){Ok(blocks.iter().map(|m|wrap(m.cols().clone())).collect())}else{Err(pyo3::exceptions::PyAttributeError::new_err("This matrix has no column blocks"))}}
+    #[getter] fn rowblocksizes(&self,py:Python<'_>)->PyResult<Vec<PyExpr>>{let grid=self.m.block_grid().map_err(|e|error(py,e))?;Ok((0..grid.shape().0).map(|i|wrap(grid.get(i,0).rows().clone())).collect())}
+    #[getter] fn colblocksizes(&self,py:Python<'_>)->PyResult<Vec<PyExpr>>{let grid=self.m.block_grid().map_err(|e|error(py,e))?;Ok((0..grid.shape().1).map(|i|wrap(grid.get(0,i).cols().clone())).collect())}
+    #[getter] fn is_BlockMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Block(_)|MatrixKind::BlockDiag(_))}
+    #[getter] fn is_structurally_symmetric(&self,py:Python<'_>)->PyResult<bool>{Ok(self.m.block_grid().map_err(|e|error(py,e))?.is_structurally_symmetric())}
+    fn structurally_equal(&self,other:&Bound<'_,PyAny>)->PyResult<bool>{let first=self.m.block_grid().map_err(|e|error(other.py(),e))?;let second=to_matrixexpr(other)?.block_grid().map_err(|e|error(other.py(),e))?;Ok(first.same_partition(&second))}
     #[getter] fn args<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{matrix_args(py,&self.m,false)}
     #[getter] fn func<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{py.import("symox")?.getattr(self.m.kind_name())}
     #[getter] fn free_symbols<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PySet>>{
@@ -302,7 +319,7 @@ impl PyMatrixExpr{
     }
     fn to_sympy<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{matrixexpr_to_sympy(py,&self.m)}
     fn _sympy_<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{self.to_sympy(py)}
-    fn __reduce__<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyAny>,Bound<'py,PyTuple>)>{Ok((py.import("symox")?.getattr(self.m.kind_name())?,matrix_args(py,&self.m,false)?))}
+    fn __reduce__<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyAny>,Bound<'py,PyTuple>)>{crate::matrix_dag::reduce_matrix(py,&self.m)}
 }
 impl PyMatrixExpr{
     pub(crate) fn differentiate(&self,args:&Bound<'_,PyTuple>)->PyResult<Self>{
@@ -318,4 +335,13 @@ impl PyMatrixExpr{
     fn binary_add(&self,other:&Bound<'_,PyAny>,subtract:bool,reverse:bool)->PyResult<Self>{let py=other.py();let mut a=self.m.clone();let mut b=to_matrixexpr(other)?;if reverse{std::mem::swap(&mut a,&mut b);}if subtract{b=MatrixExpr::mul(Expr::minus_one(),&[b],true).map_err(|e|error(py,e))?;}Ok(wrap_matrixexpr(MatrixExpr::add(&[a,b],true).map_err(|e|error(py,e))?))}
     fn binary_mul(&self,other:&Bound<'_,PyAny>,reverse:bool)->PyResult<Self>{let py=other.py();let result=if is_matrix(other){let peer=to_matrixexpr(other)?;let terms=if reverse{vec![peer,self.m.clone()]}else{vec![self.m.clone(),peer]};MatrixExpr::mul(Expr::one(),&terms,true)}else{MatrixExpr::mul(to_expr(other)?,&[self.m.clone()],true)};Ok(wrap_matrixexpr(result.map_err(|e|error(py,e))?))}
 }
-pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_class::<PyBlockGrid>()?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;Ok(())}
+#[pyfunction]
+fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{
+    let py=value.py();
+    if let Ok(matrix)=value.downcast::<PyMatrixExpr>(){return Ok(wrap_matrixexpr(matrix.get().m.block_collapse().map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());}
+    if let Ok(expression)=value.downcast::<PyExpr>(){return crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression.get().e).map_err(|e|error(py,e))?);}
+    if value.downcast::<crate::matrices::PyMatrix>().is_ok(){return Ok(value.clone().unbind());}
+    if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("Block grids require a BlockMatrix wrapper before collapse"));}
+    let expression=to_expr(value)?;crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression).map_err(|e|error(py,e))?)
+}
+pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_class::<PyBlockGrid>()?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;Ok(())}

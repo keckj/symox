@@ -21,6 +21,7 @@ use symox::lambdify::Compiled;
 use symox::number::Number;
 mod matrices;
 mod matrixexpr;
+mod matrix_dag;
 mod linear_solvers;
 mod printing;
 
@@ -195,13 +196,9 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             let kwargs=function.getattr("_kwargs")?;
             let kwargs=kwargs.downcast::<PyDict>()?;
             let selected=PyDict::new(py);
-            let nonreal=kwargs.get_item("real")?.is_some_and(|value|value.is_truthy().is_ok_and(|v|!v));
             for (name,_) in symox::Assumptions::NAMES {
                 let key=name.strip_prefix('!').unwrap_or(name);
                 if let Some(value)=kwargs.get_item(key)?{
-                    // For a nonreal function these are exclusions, not the
-                    // opposite real sign. NOT_REAL already preserves them.
-                    if nonreal && matches!(key,"nonnegative"|"nonpositive") && !value.is_truthy()? {continue;}
                     selected.set_item(key,value)?;
                 }
             }
@@ -229,6 +226,15 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             let mut variables=Vec::new();
             for item in obj.getattr("variable_count")?.try_iter()?{let item=item?;variables.push((to_expr(&item.get_item(0)?)?,item.get_item(1)?.extract()?));}
             return Ok(diff::derivative_unevaluated(&expression,variables));
+        }
+        if head=="Limit" {
+            let args=obj.getattr("args")?;
+            let e=to_expr(&args.get_item(0)?)?;let x=to_expr(&args.get_item(1)?)?;let point=to_expr(&args.get_item(2)?)?;
+            let direction=args.get_item(3)?.str()?.to_string();
+            let direction=symox::limits::Dir::parse(&direction).ok_or_else(||PyValueError::new_err("invalid limit direction"))?;
+            let held=symox::limits::held_limit(&e,&x,&point,direction);
+            symox::limits::validate_held(&held).map_err(PyNotImplementedError::new_err)?;
+            return Ok(held);
         }
         if head == "MatrixElement" {
             let args = obj.getattr("args")?;
@@ -624,6 +630,15 @@ impl PyExpr {
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {
         let py = other.py();
         use pyo3::basic::CompareOp::*;
+        // AlgebraicNumber retains its defining field and alias as identity.
+        // Its _symox_ conversion is for arithmetic, not structural equality.
+        if other.downcast::<poly::algebraic_number::PyAlgebraicNumber>().is_ok() {
+            return Ok(match op {
+                Eq => false.into_pyobject(py)?.to_owned().into_any().unbind(),
+                Ne => true.into_pyobject(py)?.to_owned().into_any().unbind(),
+                _ => py.NotImplemented(),
+            });
+        }
         let Some(o) = opt_expr(other) else {
             return Ok(match op {
                 Eq => false.into_pyobject(py)?.to_owned().into_any().unbind(),
@@ -748,22 +763,8 @@ impl PyExpr {
     }
 
     fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyTuple>)> {
-        if matches!(self.e.kind(), Kind::Func(Func::MatrixProxy(_), _)) {
-            let matrix = expr_object(py, self.e.clone())?;
-            let pair = matrix.bind(py).call_method0("__reduce__")?;
-            return Ok((pair.get_item(0)?, pair.get_item(1)?.downcast_into::<PyTuple>()?));
-        }
-        if let Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) = self.e.kind() {
-            return Ok((py.import("symox._matrixexpr")?.getattr(f.name())?, PyTuple::new(py, [
-                expr_object(py, matrix_proxy((**parent).clone()))?,
-            ])?));
-        }
-        if let Kind::Func(Func::MatrixElement(parent), args) = self.e.kind() {
-            let restore = py.import("symox._matrixexpr")?.getattr("MatrixElement")?;
-            return Ok((restore, PyTuple::new(py, [
-                expr_object(py, matrix_proxy((**parent).clone()))?,
-                expr_object(py, args[0].clone())?, expr_object(py, args[1].clone())?,
-            ])?));
+        if self.e.has_matrix() || matches!(self.e.kind(), Kind::Sym(s) if s.is_wild()) {
+            return matrix_dag::reduce_expr(py, &self.e);
         }
         if let Kind::Func(Func::Undefined(function),args)=self.e.kind(){
             if !function.internal{return Ok((undefined_head(py,function)?,PyTuple::new(py,args.iter().cloned().map(wrap))?));}
@@ -849,6 +850,7 @@ impl PyExpr {
             if !function.internal{return Ok(undefined_head(py,function)?.unbind());}
         }
         if matches!(self.e.kind(),Kind::Func(Func::Subs,_)){return Ok(py.import("symox")?.getattr("Subs")?.unbind());}
+        if matches!(self.e.kind(),Kind::Func(Func::Limit,_)){return Ok(py.import("symox")?.getattr("Limit")?.unbind());}
         if let Kind::Func(f @ (Func::MatrixTrace(_) | Func::MatrixDeterminant(_)), _) = self.e.kind() {
             return Ok(py.import("symox._matrixexpr")?.getattr(f.name())?.unbind());
         }
@@ -950,7 +952,7 @@ impl PyExpr {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::Limit | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
     }
     #[getter]
     fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal)}
@@ -960,6 +962,8 @@ impl PyExpr {
     }
     #[getter]
     fn is_Subs(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Subs,_))}
+    #[getter]
+    fn is_Limit(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Limit,_))}
     #[getter]
     fn variable_count<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
         match self.e.kind(){Kind::Derivative(_,vars)=>PyTuple::new(py,vars.iter().map(|(v,n)|(wrap(v.clone()),*n))),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have variable_count"))}
@@ -1080,13 +1084,16 @@ impl PyExpr {
         if simultaneous{
             if pairs.iter().any(|(old,_)|!old.is_symbol()){return Err(PyNotImplementedError::new_err("simultaneous substitution currently supports symbol keys only"));}
             validate_matrix_replacements(args.py(),&self.e,&pairs,true)?;
-            return Ok(wrap(subs::simultaneous(&self.e,&pairs)));
+            let result=subs::simultaneous(&self.e,&pairs);
+            symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+            return Ok(wrap(result));
         }
         let mut result = self.e.clone();
         for pair in pairs {
             validate_matrix_replacements(args.py(), &result, std::slice::from_ref(&pair), false)?;
             result = subs::subs1(&result, &pair.0, &pair.1);
         }
+        symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
         Ok(wrap(result))
     }
 
@@ -1181,7 +1188,9 @@ impl PyExpr {
             m.insert(replacement_expr(&k)?, replacement_expr(&v)?);
         }
         validate_matrix_replacements(rule.py(), &self.e, &m.iter().map(|(k,v)|(k.clone(),v.clone())).collect::<Vec<_>>(), true)?;
-        Ok(wrap(subs::xreplace(&self.e, &m)))
+        let result=subs::xreplace(&self.e,&m);
+        symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+        Ok(wrap(result))
     }
 
     #[pyo3(signature = (deep=true, **hints))]
@@ -1189,6 +1198,7 @@ impl PyExpr {
         if hints.is_some_and(|hints| !hints.is_empty()) {
             return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));
         }
+        symox::limits::check_doit(&self.e,deep).map_err(|error|PyValueError::new_err(error.to_string()))?;
         Ok(wrap(fx::doit(&self.e, deep)))
     }
 
@@ -1351,6 +1361,7 @@ impl PyExpr {
     fn is_commutative(&self) -> Option<bool> {
         fn query(e: &Expr) -> Option<bool> {
             match e.kind() {
+                Kind::Func(Func::Limit,_)=>None,
                 Kind::Func(Func::Undefined(name), _) if name.is_internal("UnevaluatedExpr") => None,
                 Kind::Add(..) | Kind::Mul(..) => Some(e.args().iter().all(|a| query(a) == Some(true))),
                 Kind::Pow(base, _) => query(base),
@@ -2271,6 +2282,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
     matrices::register(m)?;
     matrixexpr::register(m)?;
+    matrix_dag::register(m)?;
     linear_solvers::register(m)?;
     poly::register(m)?;
     ntheory::register(m)?;
