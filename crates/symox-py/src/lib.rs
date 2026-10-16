@@ -512,9 +512,26 @@ impl PyExpr {
                     }
                     PyTuple::new(py, [s.name().into_pyobject(py)?.into_any(), keywords.into_any()])?.into_any()
                 }
+                Kind::Num(Number::Float(value)) => value.into_pyobject(py)?.into_any(),
                 _ => printer::srepr(&self.e).into_pyobject(py)?.into_any(),
             };
             return Ok((f, PyTuple::new(py, [self.e.class_name().into_pyobject(py)?.into_any(), value])?));
+        }
+        // Keep the native coefficient payload and powers verbatim. Public
+        // args omit zero constants, and reevaluation can normalize a second
+        // time, so neither args nor srepr can represent this losslessly.
+        let payload = match self.e.kind() {
+            Kind::Add(c, terms) => Some((c.clone(), terms.iter().map(|(term, coefficient)|
+                (wrap(term.clone()), wrap(Expr::num(coefficient.clone())))).collect::<Vec<_>>())),
+            Kind::Mul(c, factors) => Some((c.clone(), factors.iter().map(|(base, exponent)|
+                (wrap(base.clone()), wrap(exponent.clone()))).collect::<Vec<_>>())),
+            Kind::Pow(base, exponent) => Some((Number::ONE, vec![(wrap(base.clone()), wrap(exponent.clone()))])),
+            _ => None,
+        };
+        if let Some((coefficient, children)) = payload {
+            let f = py.import("symox._core")?.getattr("_restore_arithmetic")?;
+            return Ok((f, (self.e.class_name(), wrap(Expr::num(coefficient)), children,
+                           self.e.is_canonical()).into_pyobject(py)?));
         }
         let args = self.e.args();
         let evaluate = self.e.is_canonical();
@@ -1260,6 +1277,23 @@ fn construct_node(name: &str, v: Vec<Expr>, evaluate: bool) -> PyResult<Expr> {
 }
 
 #[pyfunction]
+fn _restore_arithmetic(name: &str, coefficient: &Bound<'_, PyAny>, children: Vec<(PyExpr, PyExpr)>, canonical: bool) -> PyResult<PyExpr> {
+    let coefficient = to_expr(coefficient)?.as_number().cloned()
+        .ok_or_else(|| PyTypeError::new_err("arithmetic coefficient must be a number"))?;
+    let children: Vec<_> = children.into_iter().map(|(a, b)| (a.e, b.e)).collect();
+    let kind = match name {
+        "Add" => Kind::Add(coefficient, children.into_iter().map(|(term, coefficient)| {
+            coefficient.as_number().cloned().map(|c| (term, c))
+                .ok_or_else(|| PyTypeError::new_err("additive coefficient must be a number"))
+        }).collect::<PyResult<_>>()?),
+        "Mul" => Kind::Mul(coefficient, children),
+        "Pow" if children.len() == 1 => Kind::Pow(children[0].0.clone(), children[0].1.clone()),
+        _ => return Err(PyValueError::new_err("invalid arithmetic pickle payload")),
+    };
+    Ok(wrap(if canonical { Expr::from_kind(kind) } else { Expr::from_unevaluated_kind(kind) }))
+}
+
+#[pyfunction]
 #[pyo3(name = "_default_sort_key")]
 fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     fn convert(py: Python<'_>, key: symox::sortkey::Key) -> PyResult<PyObject> {
@@ -1721,6 +1755,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
+    m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;
     m.add_function(wrap_pyfunction!(py_default_sort_key, m)?)?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;

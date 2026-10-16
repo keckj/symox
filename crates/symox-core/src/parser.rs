@@ -473,17 +473,19 @@ impl Parser {
                 let v = exprs(self, args)?;
                 log_base(&v[0], &v[1])
             }
-            "Eq" | "Ne" | "Lt" | "Le" | "Gt" | "Ge" => {
+            "Eq" | "Ne" | "Lt" | "Le" | "Gt" | "Ge"
+            | "Equality" | "Unequality" | "StrictLessThan" | "LessThan"
+            | "StrictGreaterThan" | "GreaterThan" => {
                 let v = exprs(self, args)?;
                 if v.len() != 2 {
                     return self.err(format!("{name} expects 2 arguments"));
                 }
                 let op = match name {
-                    "Eq" => RelOp::Eq,
-                    "Ne" => RelOp::Ne,
-                    "Lt" => RelOp::Lt,
-                    "Le" => RelOp::Le,
-                    "Gt" => RelOp::Gt,
+                    "Eq" | "Equality" => RelOp::Eq,
+                    "Ne" | "Unequality" => RelOp::Ne,
+                    "Lt" | "StrictLessThan" => RelOp::Lt,
+                    "Le" | "LessThan" => RelOp::Le,
+                    "Gt" | "StrictGreaterThan" => RelOp::Gt,
                     _ => RelOp::Ge,
                 };
                 rel(op, &v[0], &v[1])

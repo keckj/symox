@@ -112,6 +112,27 @@ and compare generated text. They need a sibling checkout or an explicit path:
 TRISPLYNE_PATH=/path/to/trisplyne python -m pytest tests/test_trisplyne_integration.py
 ```
 
+## Differential fuzzing
+
+The fuzzer builds the same seeded expression trees through both APIs. Each
+native worker is isolated in a subprocess and restarted after a crash or case
+timeout. A wall-clock budget also cancels shrinking; `--jobs` controls the
+number of independent workers. Findings are shrunk and deduplicated into
+`findings.jsonl`, with run counts in `stats.json`.
+
+```bash
+python tests/fuzz/fuzz_core.py --mode core --seeds 0:100 --jobs 2 --time 60
+python tests/fuzz/fuzz_core.py --replay core 7 srepr --timeout 5
+python tests/fuzz/triage.py tests/fuzz/out/findings.jsonl wrong,crash,died
+```
+
+Modes also cover integration, solving, series, limits, summation,
+simplification, lambdify, and parsing (`--mode all` runs all modes). Findings
+distinguish numerical errors, canonical-form differences, unsupported results,
+crashes, timeouts, and slow calls. Runs report findings without failing by
+default; use `--fail-on wrong,crash,died` for an explicit CI failure policy.
+Replay uses the same process isolation and timeout as a normal run.
+
 ## Architecture
 
 | module | content |
