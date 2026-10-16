@@ -123,23 +123,35 @@ pub fn radsimp(e: &Expr) -> Expr {
     expand(&div(&num, &den))
 }
 
-/// A light general purpose simplifier (to be extended): the smallest of
-/// the expression, its expansion, `together`, `cancel` and `factor`.
+/// SymPy's simplify candidates from the polynomial module: `cancel(e)`
+/// and `factor_terms(cancel(e))` (common content and monomials pulled
+/// out, a bare `number*(sum)` product being distributed again).
+fn poly_candidates(e: &Expr) -> Vec<Expr> {
+    let Ok(c) = crate::poly::api::cancel(e) else {
+        return vec![];
+    };
+    let ft = crate::poly::api::together(&c);
+    let ft = match ft.kind() {
+        Kind::Mul(k, facs) if !k.is_one() && facs.len() == 1 && facs[0].0.is_add() && facs[0].1.is_one() => {
+            mul(&[Expr::num(k.clone()), facs[0].0.clone()])
+        }
+        _ => ft,
+    };
+    vec![c, ft]
+}
+
+/// A light general purpose simplifier (to be extended).
 pub fn simplify(e: &Expr) -> Expr {
-    let mut candidates = vec![e.clone(), expand(e), together(e)];
-    if let Ok(c) = crate::poly::api::cancel(e) {
-        candidates.push(c);
-    }
-    if let Ok(f) = crate::poly::api::factor(e) {
-        // re-evaluate a "hollow" `number*(sum)` product like SymPy does
-        let f = match f.kind() {
-            Kind::Mul(c, facs) if !c.is_one() && facs.len() == 1 && facs[0].0.is_add() && facs[0].1.is_one() => {
-                mul(&[Expr::num(c.clone()), facs[0].0.clone()])
-            }
-            _ => f,
-        };
-        candidates.push(f);
-    }
+    let t = crate::simp::trigsimp(e);
+    let mut candidates = vec![
+        e.clone(),
+        expand(e),
+        together(e),
+        crate::simp::powsimp(e),
+        t.clone(),
+        crate::simp::trigsimp(&expand(e)),
+    ];
+    candidates.extend(poly_candidates(e));
     candidates
         .into_iter()
         .min_by_key(|c| crate::traverse::node_count(c))

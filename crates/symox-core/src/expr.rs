@@ -96,6 +96,10 @@ pub enum Func {
     DiracDelta,
     Max,
     Min,
+    /// Landau order term `O(expr, (x, x0), ...)`; args are
+    /// `[expr, x1, p1, x2, p2, ...]`. Built only through
+    /// [`crate::series::order::order`], absorbing rules live in `ops`.
+    Order,
     Undefined(Arc<str>),
 }
 
@@ -138,6 +142,7 @@ impl Func {
             Func::DiracDelta => "DiracDelta",
             Func::Max => "Max",
             Func::Min => "Min",
+            Func::Order => "Order",
             Func::Undefined(n) => n,
         }
     }
@@ -181,6 +186,7 @@ impl Func {
             "DiracDelta" => Func::DiracDelta,
             "Max" => Func::Max,
             "Min" => Func::Min,
+            "Order" => Func::Order,
             _ => return None,
         })
     }
@@ -189,7 +195,7 @@ impl Func {
     pub fn arity(&self) -> Option<usize> {
         match self {
             Func::Atan2 => Some(2),
-            Func::Max | Func::Min | Func::Undefined(_) => None,
+            Func::Max | Func::Min | Func::Order | Func::Undefined(_) => None,
             _ => Some(1),
         }
     }
@@ -223,7 +229,7 @@ impl RelOp {
 #[derive(Clone, Debug)]
 pub enum Kind {
     Num(Number),
-    Sym(Arc<str>),
+    Sym(crate::symbol::Symbol),
     Const(Constant),
     /// `coeff + Σ c_i * t_i`, terms sorted, `t_i` neither number nor carrying
     /// a numeric coefficient, all `c_i != 0`, at least one term.
@@ -270,6 +276,10 @@ pub struct Node {
 #[derive(Clone)]
 pub struct Expr(Arc<Node>);
 
+/// Extra bit set in the mask of `Order` nodes (and so of every expression
+/// containing one): lets `add`/`mul` detect order terms in O(1).
+pub const ORDER_MASK: u64 = 1 << 63;
+
 #[inline]
 fn sym_bit(name: &str) -> u64 {
     let mut h = FxHasher::default();
@@ -287,7 +297,7 @@ impl Expr {
             Kind::Num(n) => n.hash(&mut h),
             Kind::Sym(s) => {
                 s.hash(&mut h);
-                mask = sym_bit(s);
+                mask = sym_bit(s.name());
             }
             Kind::Const(c) => c.hash(&mut h),
             Kind::Add(c, terms) => {
@@ -316,6 +326,9 @@ impl Expr {
                 for a in args {
                     h.write_u64(a.hash64());
                     mask |= a.mask();
+                }
+                if *f == Func::Order {
+                    mask |= ORDER_MASK;
                 }
             }
             Kind::Derivative(e, vars) => {
@@ -375,7 +388,25 @@ impl Expr {
     // ---------------------------------------------------------------
 
     pub fn symbol(name: &str) -> Expr {
-        Expr::from_kind(Kind::Sym(Arc::from(name)))
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::new(name)))
+    }
+
+    /// A symbol with assumptions (`Symbol('x', positive=True)`).
+    pub fn symbol_with(name: &str, a: crate::symbol::Assumptions) -> Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::with_assumptions(name, a)))
+    }
+
+    /// A pattern wildcard (`Wild('a', exclude=[...])`).
+    pub fn wild(name: &str, exclude: Vec<Expr>) -> Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::wild(name, exclude)))
+    }
+
+    /// The symbol payload, if this is a symbol.
+    pub fn as_sym(&self) -> Option<&crate::symbol::Symbol> {
+        match self.kind() {
+            Kind::Sym(s) => Some(s),
+            _ => None,
+        }
     }
 
     pub fn num(n: Number) -> Expr {
@@ -474,7 +505,7 @@ impl Expr {
 
     pub fn as_symbol(&self) -> Option<&str> {
         match self.kind() {
-            Kind::Sym(s) => Some(s),
+            Kind::Sym(s) => Some(s.name()),
             _ => None,
         }
     }
@@ -527,6 +558,13 @@ impl Expr {
             self.kind(),
             Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_)
         )
+    }
+
+    /// Fast negative test: `false` means the expression certainly contains
+    /// no `Order` term.
+    #[inline]
+    pub fn may_have_order(&self) -> bool {
+        self.mask() & ORDER_MASK != 0
     }
 
     /// Fast negative test: `false` means the expression certainly does not

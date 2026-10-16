@@ -104,6 +104,11 @@ pub fn add(args: &[Expr]) -> Expr {
         1 => return args[0].clone(),
         _ => {}
     }
+    if args.iter().any(Expr::may_have_order) {
+        if let Some(r) = crate::series::order::add_hook(args) {
+            return r;
+        }
+    }
     let mut coeff = Number::ZERO;
     let mut terms: Vec<(Expr, Number)> = Vec::with_capacity(args.len() + 4);
     let mut inf = InfFlags::default();
@@ -139,7 +144,75 @@ pub fn add2(a: &Expr, b: &Expr) -> Expr {
     if let (Kind::Num(x), Kind::Num(y)) = (a.kind(), b.kind()) {
         return Expr::num(x.add(y));
     }
+    // fast path: merge already sorted term lists in linear time
+    if let Some(r) = add2_merge(a, b) {
+        return r;
+    }
     add(&[a.clone(), b.clone()])
+}
+
+/// View `e` as a sorted list of `(term, coeff)` plus a constant, when it is
+/// a plain finite term (no infinities / nan involved).
+fn as_terms(e: &Expr) -> Option<(Number, std::borrow::Cow<'_, [(Expr, Number)]>)> {
+    use std::borrow::Cow;
+    match e.kind() {
+        Kind::Add(c, terms) => Some((c.clone(), Cow::Borrowed(terms.as_slice()))),
+        Kind::Num(n) => Some((n.clone(), Cow::Owned(Vec::new()))),
+        Kind::Const(_) => {
+            if matches!(e.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN) {
+                None
+            } else {
+                Some((Number::ZERO, Cow::Owned(vec![(e.clone(), Number::ONE)])))
+            }
+        }
+        Kind::Mul(c, facs) if !c.is_one() => {
+            Some((Number::ZERO, Cow::Owned(vec![(mul_from_factors(facs.clone()), c.clone())])))
+        }
+        _ => Some((Number::ZERO, Cow::Owned(vec![(e.clone(), Number::ONE)]))),
+    }
+}
+
+fn add2_merge(a: &Expr, b: &Expr) -> Option<Expr> {
+    if !(a.is_add() || b.is_add()) || a.may_have_order() || b.may_have_order() {
+        return None;
+    }
+    let (ca, ta) = as_terms(a)?;
+    let (cb, tb) = as_terms(b)?;
+    let coeff = ca.add(&cb);
+    if coeff.is_nan() {
+        return None;
+    }
+    let mut out: Vec<(Expr, Number)> = Vec::with_capacity(ta.len() + tb.len());
+    let (mut i, mut j) = (0, 0);
+    while i < ta.len() && j < tb.len() {
+        match ta[i].0.cmp(&tb[j].0) {
+            std::cmp::Ordering::Less => {
+                out.push(ta[i].clone());
+                i += 1;
+            }
+            std::cmp::Ordering::Greater => {
+                out.push(tb[j].clone());
+                j += 1;
+            }
+            std::cmp::Ordering::Equal => {
+                let k = ta[i].1.add(&tb[j].1);
+                if !k.is_zero() {
+                    out.push((ta[i].0.clone(), k));
+                }
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+    out.extend_from_slice(&ta[i..]);
+    out.extend_from_slice(&tb[j..]);
+    if out.is_empty() {
+        return Some(Expr::num(coeff));
+    }
+    if out.len() == 1 && coeff.is_zero() {
+        return Some(add_term(&out[0].0, &out[0].1));
+    }
+    Some(Expr::from_kind(Kind::Add(coeff, out)))
 }
 
 fn finish_add(coeff: Number, mut terms: Vec<(Expr, Number)>, inf: InfFlags) -> Expr {
@@ -147,7 +220,8 @@ fn finish_add(coeff: Number, mut terms: Vec<(Expr, Number)>, inf: InfFlags) -> E
         return Expr::nan();
     }
     // sort + merge equal terms
-    terms.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    // stable sort: linear on the common case of concatenated sorted runs
+    terms.sort_by(|a, b| a.0.cmp(&b.0));
     let mut out: Vec<(Expr, Number)> = Vec::with_capacity(terms.len());
     for (t, k) in terms {
         match out.last_mut() {
@@ -202,6 +276,11 @@ pub fn mul(args: &[Expr]) -> Expr {
         1 => return args[0].clone(),
         _ => {}
     }
+    if args.iter().any(Expr::may_have_order) {
+        if let Some(r) = crate::series::order::mul_hook(args) {
+            return r;
+        }
+    }
     let mut coeff = Number::ONE;
     let mut facs: Vec<(Expr, Expr)> = Vec::with_capacity(args.len() + 4);
     let mut infs: Vec<Constant> = Vec::new();
@@ -249,7 +328,77 @@ pub fn mul2(a: &Expr, b: &Expr) -> Expr {
         }
         _ => {}
     }
+    if a.may_have_order() || b.may_have_order() {
+        return mul(&[a.clone(), b.clone()]);
+    }
+    if let Some(r) = mul2_fast(a, b).or_else(|| mul2_fast(b, a)) {
+        return r;
+    }
     mul(&[a.clone(), b.clone()])
+}
+
+/// A factor that can never merge with a factor of a different base.
+#[inline]
+fn plain_factor(e: &Expr) -> Option<(Expr, Expr)> {
+    let plain_base = |b: &Expr| match b.kind() {
+        Kind::Sym(_) | Kind::Add(..) => true,
+        Kind::Func(f, _) => !matches!(f, Func::Exp),
+        Kind::Const(c) => matches!(c, Constant::Pi | Constant::EulerGamma | Constant::I),
+        _ => false,
+    };
+    match e.kind() {
+        Kind::Pow(b, x) if plain_base(b) && !matches!(b.kind(), Kind::Const(_)) => {
+            Some((b.clone(), x.clone()))
+        }
+        Kind::Add(..) => None,
+        _ if plain_base(e) => Some((e.clone(), Expr::one())),
+        _ => None,
+    }
+}
+
+/// Allocation-light products for the most common shapes.
+fn mul2_fast(a: &Expr, b: &Expr) -> Option<Expr> {
+    match (a.kind(), b.kind()) {
+        // number * plain factor
+        (Kind::Num(n), _) if !n.is_nan() && !n.is_zero() => {
+            if let Kind::Mul(c, facs) = b.kind() {
+                let k = n.mul(c);
+                if k.is_zero() {
+                    return None;
+                }
+                if k.is_one() {
+                    return Some(mul_from_factors(facs.clone()));
+                }
+                return Some(Expr::from_kind(Kind::Mul(k, facs.clone())));
+            }
+            let f = plain_factor(b)?;
+            Some(Expr::from_kind(Kind::Mul(n.clone(), vec![f])))
+        }
+        // plain * plain with different bases
+        (_, _) if !a.is_mul() && !b.is_mul() => {
+            let fa = plain_factor(a)?;
+            let fb = plain_factor(b)?;
+            if fa.0 == fb.0 {
+                return None;
+            }
+            let v = if cmp_factor(&fa, &fb) == std::cmp::Ordering::Less { vec![fa, fb] } else { vec![fb, fa] };
+            Some(Expr::from_kind(Kind::Mul(Number::ONE, v)))
+        }
+        // product * plain factor whose base is new
+        (Kind::Mul(c, facs), _) if !b.is_mul() => {
+            let f = plain_factor(b)?;
+            let pos = facs.partition_point(|g| g.0 < f.0);
+            if pos < facs.len() && facs[pos].0 == f.0 {
+                return None;
+            }
+            let mut v = Vec::with_capacity(facs.len() + 1);
+            v.extend_from_slice(&facs[..pos]);
+            v.push(f);
+            v.extend_from_slice(&facs[pos..]);
+            Some(Expr::from_kind(Kind::Mul(c.clone(), v)))
+        }
+        _ => None,
+    }
 }
 
 fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant]) -> Expr {
@@ -551,6 +700,11 @@ fn mul_depth(args: &[Expr], depth: u32) -> Expr {
 }
 
 fn distribute(k: &Number, c: &Number, terms: &[(Expr, Number)]) -> Expr {
+    if terms.iter().any(|(t, _)| t.may_have_order()) {
+        let mut v: Vec<Expr> = terms.iter().map(|(t, n)| mul2(&Expr::num(n.mul(k)), t)).collect();
+        v.push(Expr::num(c.mul(k)));
+        return add(&v);
+    }
     let terms: Vec<(Expr, Number)> = terms.iter().map(|(t, n)| (t.clone(), n.mul(k))).collect();
     let c = c.mul(k);
     // coefficients may vanish only through float underflow; be safe
@@ -596,6 +750,11 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             }
         }
         Kind::Const(Constant::E) => return crate::functions::exp(e),
+        Kind::Func(Func::Order, _) => {
+            if let Some(r) = crate::series::order::pow_hook(b, e) {
+                return r;
+            }
+        }
         Kind::Const(Constant::I) => {
             if let Some(k) = e.as_number().and_then(|n| n.to_i64()) {
                 return i_pow(k);
@@ -628,6 +787,19 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             if e.is_integer_number() {
                 return pow(bb, &mul2(be, e));
             }
+            // (b**a)**e = b**(a*e) when b >= 0 and a is real
+            if crate::assumptions::is_nonnegative(bb) == Some(true)
+                && crate::assumptions::is_real(be) == Some(true)
+            {
+                return pow(bb, &mul2(be, e));
+            }
+            // (r**(2k))**e = Abs(r)**(2k*e) for real r
+            if e.is_number()
+                && crate::assumptions::is_real(bb) == Some(true)
+                && be.as_i64().is_some_and(|k| k % 2 == 0)
+            {
+                return pow(&crate::functions::abs(bb), &mul2(be, e));
+            }
         }
         Kind::Mul(c, facs) => {
             if e.is_integer_number() {
@@ -638,6 +810,19 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 }
                 return mul(&v);
             }
+            // pull positive factors out of a radical: sqrt(p*x) = sqrt(p)*sqrt(x)
+            if e.is_rational_number() {
+                let (pos, other): (Vec<&(Expr, Expr)>, Vec<&(Expr, Expr)>) = facs
+                    .iter()
+                    .partition(|(fb, fe)| !fb.is_number() && crate::assumptions::is_positive(&mul_factor(fb, fe)) == Some(true));
+                if !pos.is_empty() {
+                    let mut v: Vec<Expr> = pos.iter().map(|(fb, fe)| pow(&mul_factor(fb, fe), e)).collect();
+                    let mut rest = vec![Expr::num(c.clone())];
+                    rest.extend(other.iter().map(|(fb, fe)| mul_factor(fb, fe)));
+                    v.push(pow(&mul(&rest), e));
+                    return mul(&v);
+                }
+            }
             if e.is_number() && !c.is_one() && c.is_rational() {
                 let rest = mul_from_factors(facs.clone());
                 if c.is_positive() {
@@ -645,6 +830,22 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 } else if !c.is_minus_one() {
                     let neg_rest = Expr::from_kind(Kind::Mul(Number::MINUS_ONE, facs.clone()));
                     return mul2(&num_pow(&c.neg(), e.as_number().unwrap()), &pow_raw(&neg_rest, e));
+                }
+            }
+        }
+        Kind::Func(Func::Abs, args) => {
+            // Abs(r)**(2k) = r**(2k) for real r
+            if e.as_i64().is_some_and(|k| k % 2 == 0) && crate::assumptions::is_real(&args[0]) == Some(true) {
+                return pow(&args[0], e);
+            }
+        }
+        Kind::Num(n) if n.is_minus_one() => {
+            // (-1)**(2k) = 1, (-1)**(2k+1) = -1
+            if crate::assumptions::is_integer(e) == Some(true) {
+                match crate::assumptions::parity_even(e) {
+                    Some(true) => return Expr::one(),
+                    Some(false) => return Expr::minus_one(),
+                    None => {}
                 }
             }
         }
@@ -853,6 +1054,9 @@ fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
 // ----------------------------------------------------------------------
 
 pub fn neg(a: &Expr) -> Expr {
+    if a.may_have_order() {
+        return mul(&[Expr::minus_one(), a.clone()]);
+    }
     match a.kind() {
         Kind::Num(n) => Expr::num(n.neg()),
         Kind::Mul(c, facs) => {

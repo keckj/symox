@@ -167,6 +167,9 @@ x+oo
 2*oo
 oo-oo
 0*oo
+0*pi
+S(0)*E
+pi*0
 oo+1
 x*oo
 -x*oo

@@ -334,7 +334,7 @@ fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(E
         Kind::Mul(..) => {
             // SymPy's Mul.args order (ties in the factor sort keep it)
             let mut a = e.args();
-            crate::sortkey::sort_factors(&mut a);
+            crate::printing::order::sort_factors(&mut a);
             a
         }
         _ => vec![e.clone()],

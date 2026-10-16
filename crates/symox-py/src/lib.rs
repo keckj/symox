@@ -13,12 +13,20 @@ use pyo3::prelude::*;
 use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyList, PySet, PyString, PyTuple};
 use rustc_hash::FxHashMap;
 
+mod series;
+
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
+mod printing;
+
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
 mod poly;
+mod ntheory;
+mod simp;
+mod ode;
+mod solve;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -27,12 +35,12 @@ pub struct PyExpr {
     pub e: Expr,
 }
 
-fn wrap(e: Expr) -> PyExpr {
+pub(crate) fn wrap(e: Expr) -> PyExpr {
     PyExpr { e }
 }
 
 /// Convert any supported Python object into an expression.
-pub fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
+pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(p) = obj.downcast::<PyExpr>() {
         return Ok(p.get().e.clone());
     }
@@ -192,7 +200,7 @@ impl PyExpr {
     }
 
     fn _repr_latex_(&self) -> String {
-        format!("$\\displaystyle {}$", printer::to_str(&self.e))
+        printing::repr_latex(self)
     }
 
     fn srepr(&self) -> String {
@@ -434,32 +442,71 @@ impl PyExpr {
     }
     #[getter]
     fn is_zero(&self) -> Option<bool> {
-        match self.e.kind() {
-            Kind::Num(n) => Some(n.is_zero()),
-            _ if fx::is_numeric_value(&self.e) => evalf::eval_c64(&self.e).map(|z| z.norm() == 0.0),
-            _ => None,
-        }
+        symox::assumptions::is_zero(&self.e)
+    }
+    #[getter]
+    fn is_nonzero(&self) -> Option<bool> {
+        symox::assumptions::is_nonzero(&self.e)
     }
     #[getter]
     fn is_integer(&self) -> Option<bool> {
-        match self.e.kind() {
-            Kind::Num(n) => Some(n.is_integer()),
-            _ => None,
-        }
+        symox::assumptions::is_integer(&self.e)
+    }
+    #[getter]
+    fn is_rational(&self) -> Option<bool> {
+        symox::assumptions::is_rational(&self.e)
+    }
+    #[getter]
+    fn is_real(&self) -> Option<bool> {
+        symox::assumptions::is_real(&self.e)
     }
     #[getter]
     fn is_positive(&self) -> Option<bool> {
-        if fx::is_numeric_value(&self.e) {
-            return evalf::eval_f64(&self.e).map(|v| v > 0.0);
-        }
-        None
+        symox::assumptions::is_positive(&self.e)
     }
     #[getter]
     fn is_negative(&self) -> Option<bool> {
-        if fx::is_numeric_value(&self.e) {
-            return evalf::eval_f64(&self.e).map(|v| v < 0.0);
+        symox::assumptions::is_negative(&self.e)
+    }
+    #[getter]
+    fn is_nonnegative(&self) -> Option<bool> {
+        symox::assumptions::is_nonnegative(&self.e)
+    }
+    #[getter]
+    fn is_nonpositive(&self) -> Option<bool> {
+        symox::assumptions::is_nonpositive(&self.e)
+    }
+    #[getter]
+    fn is_even(&self) -> Option<bool> {
+        symox::assumptions::is_even(&self.e)
+    }
+    #[getter]
+    fn is_odd(&self) -> Option<bool> {
+        symox::assumptions::is_odd(&self.e)
+    }
+    #[getter]
+    fn is_finite(&self) -> Option<bool> {
+        symox::assumptions::is_finite(&self.e)
+    }
+    #[getter]
+    fn is_complex(&self) -> Option<bool> {
+        symox::assumptions::is_finite(&self.e)
+    }
+    /// The assumptions of a symbol as a dict (SymPy's `assumptions0`).
+    #[getter]
+    fn assumptions0<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let d = PyDict::new(py);
+        if let Some(s) = self.e.as_sym() {
+            for (n, f) in symox::Assumptions::NAMES {
+                if s.assumptions().has(*f) {
+                    match n.strip_prefix('!') {
+                        Some(m) => d.set_item(m, false)?,
+                        None => d.set_item(*n, true)?,
+                    }
+                }
+            }
         }
-        None
+        Ok(d)
     }
     /// Left/right hand sides of a relational.
     #[getter]
@@ -490,6 +537,91 @@ impl PyExpr {
         Ok(wrap(subs::subs(&self.e, &pairs)))
     }
 
+    /// `expr.match(pattern)`: dict of wildcard bindings or None.
+    #[pyo3(name = "match")]
+    fn py_match<'py>(&self, py: Python<'py>, pattern: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        let p = to_expr(pattern)?;
+        match symox::pattern::pattern_match(&self.e, &p) {
+            None => Ok(None),
+            Some(m) => {
+                let d = PyDict::new(py);
+                for (k, v) in m {
+                    d.set_item(wrap(k), wrap(v))?;
+                }
+                Ok(Some(d))
+            }
+        }
+    }
+
+    /// `expr.replace(pattern, value)`: pattern may contain Wilds, value may
+    /// be an expression or a callable receiving the bindings by name; a
+    /// function head (e.g. `sin`) may be replaced by another callable.
+    fn replace(&self, py: Python<'_>, pattern: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        let pat = to_expr(pattern);
+        match pat {
+            Ok(p) => {
+                if let Ok(v) = to_expr(value) {
+                    return Ok(wrap(symox::pattern::replace(&self.e, &p, &v)));
+                }
+                if !value.is_callable() {
+                    return Err(PyTypeError::new_err("replacement must be an expression or a callable"));
+                }
+                let mut err: Option<PyErr> = None;
+                let r = symox::pattern::replace_with(&self.e, &p, &mut |bind, _| {
+                    let kw = PyDict::new(py);
+                    for (k, v) in bind {
+                        let name = k.as_sym().map(|s| s.name().to_string()).unwrap_or_default();
+                        if kw.set_item(name, wrap(v.clone())).is_err() {
+                            return None;
+                        }
+                    }
+                    match value.call((), Some(&kw)).and_then(|r| to_expr(&r)) {
+                        Ok(e) => Some(e),
+                        Err(e) => {
+                            err = Some(e);
+                            None
+                        }
+                    }
+                });
+                if let Some(e) = err {
+                    return Err(e);
+                }
+                Ok(wrap(r))
+            }
+            Err(_) => {
+                // function head replacement: replace(sin, cos)
+                let name: String = pattern.getattr("__name__")?.extract()?;
+                let mut err: Option<PyErr> = None;
+                let r = replace_heads(&self.e, &name, &mut |args: Vec<Expr>| {
+                    let t = match PyTuple::new(py, args.into_iter().map(wrap)) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            err = Some(e);
+                            return None;
+                        }
+                    };
+                    match value.call1(t).and_then(|r| to_expr(&r)) {
+                        Ok(e) => Some(e),
+                        Err(e) => {
+                            err = Some(e);
+                            None
+                        }
+                    }
+                });
+                if let Some(e) = err {
+                    return Err(e);
+                }
+                Ok(wrap(r))
+            }
+        }
+    }
+
+    /// Sub-expressions matching a pattern.
+    fn find<'py>(&self, py: Python<'py>, pattern: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PySet>> {
+        let p = to_expr(pattern)?;
+        PySet::new(py, symox::pattern::find(&self.e, &p).into_iter().map(wrap))
+    }
+
     fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyExpr> {
         let mut m = FxHashMap::default();
         for (k, v) in rule.iter() {
@@ -498,10 +630,22 @@ impl PyExpr {
         Ok(wrap(subs::xreplace(&self.e, &m)))
     }
 
-    #[pyo3(signature = (deep=true, **_hints))]
-    fn expand(&self, deep: bool, _hints: Option<&Bound<'_, PyDict>>) -> PyExpr {
+    #[pyo3(signature = (deep=true, **hints))]
+    fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
         let _ = deep;
-        wrap(expand::expand(&self.e))
+        Ok(wrap(expand_hints(&self.e, hints)?))
+    }
+
+    fn trigsimp(&self) -> PyExpr {
+        wrap(symox::simp::trigsimp(&self.e))
+    }
+
+    fn powsimp(&self) -> PyExpr {
+        wrap(symox::simp::powsimp(&self.e))
+    }
+
+    fn nsimplify(&self) -> PyExpr {
+        wrap(symox::simp::nsimplify(&self.e, &[]))
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
@@ -537,6 +681,11 @@ impl PyExpr {
 
     fn simplify(&self) -> PyExpr {
         wrap(simplify::simplify(&self.e))
+    }
+
+    #[pyo3(signature = (*args, **_kwargs))]
+    fn integrate(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+        Ok(wrap(do_integrate(&self.e, args)?))
     }
 
     fn together(&self) -> PyExpr {
@@ -641,6 +790,23 @@ impl PyExpr {
     fn __getnewargs__(&self) -> (String,) {
         (printer::srepr(&self.e),)
     }
+}
+
+/// Replace applications of the function named `name` bottom-up.
+fn replace_heads(e: &Expr, name: &str, f: &mut dyn FnMut(Vec<Expr>) -> Option<Expr>) -> Expr {
+    let rebuilt = if e.is_atom() {
+        e.clone()
+    } else {
+        traverse::map_children(e, &mut |c| replace_heads(c, name, f))
+    };
+    if let Kind::Func(g, args) = rebuilt.kind() {
+        if g.name() == name {
+            if let Some(r) = f(args.clone()) {
+                return r;
+            }
+        }
+    }
+    rebuilt
 }
 
 /// Coefficient of `x**n` in `e` (SymPy `Expr.coeff` semantics: the sum
@@ -767,9 +933,35 @@ impl Head {
 // ----------------------------------------------------------------------
 
 #[pyfunction]
-#[pyo3(name = "Symbol", signature = (name, **_assumptions))]
-fn py_symbol(name: &str, _assumptions: Option<&Bound<'_, PyDict>>) -> PyExpr {
-    wrap(Expr::symbol(name))
+#[pyo3(name = "Symbol", signature = (name, **assumptions))]
+fn py_symbol(name: &str, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    let Some(d) = assumptions else {
+        return Ok(wrap(Expr::symbol(name)));
+    };
+    let mut kw: Vec<(String, bool)> = Vec::new();
+    for (k, v) in d.iter() {
+        let k: String = k.extract()?;
+        if v.is_none() {
+            continue;
+        }
+        kw.push((k, v.is_truthy()?));
+    }
+    let a = symox::Assumptions::from_kwargs(kw.iter().map(|(k, v)| (k.as_str(), *v)))
+        .map_err(PyValueError::new_err)?;
+    Ok(wrap(Expr::symbol_with(name, a)))
+}
+
+#[pyfunction]
+#[pyo3(name = "Wild", signature = (name, exclude=None, properties=None))]
+fn py_wild(name: &str, exclude: Option<&Bound<'_, PyAny>>, properties: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
+    let _ = properties;
+    let mut ex = Vec::new();
+    if let Some(it) = exclude {
+        for x in it.try_iter()? {
+            ex.push(to_expr(&x?)?);
+        }
+    }
+    Ok(wrap(Expr::wild(name, ex)))
 }
 
 #[pyfunction]
@@ -829,11 +1021,103 @@ fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<Py
     Ok(wrap(diff::derivative_unevaluated(&to_expr(f)?, vars)))
 }
 
+/// `integrate(f, x)`, `integrate(f, (x, a, b))`, several variables in turn.
+fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
+    let mut r = f.clone();
+    if args.is_empty() {
+        let fs = traverse::free_symbols(f);
+        if fs.len() != 1 {
+            return Err(PyValueError::new_err("specify the integration variable"));
+        }
+        return Ok(symox::integrate::integrate(f, &fs[0]));
+    }
+    for a in args.iter() {
+        if let Ok(t) = a.downcast::<PyTuple>() {
+            let x = to_expr(&t.get_item(0)?)?;
+            match t.len() {
+                1 => r = symox::integrate::integrate(&r, &x),
+                3 => {
+                    let lo = to_expr(&t.get_item(1)?)?;
+                    let hi = to_expr(&t.get_item(2)?)?;
+                    r = symox::integrate::integrate_definite(&r, &x, &lo, &hi);
+                }
+                _ => return Err(PyValueError::new_err("expected (x,) or (x, a, b)")),
+            }
+        } else {
+            r = symox::integrate::integrate(&r, &to_expr(&a)?);
+        }
+    }
+    Ok(r)
+}
+
 #[pyfunction]
-#[pyo3(name = "expand", signature = (e, deep=true, **_hints))]
-fn py_expand(e: &Bound<'_, PyAny>, deep: bool, _hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+#[pyo3(name = "summation", signature = (f, *limits))]
+fn py_summation(f: &Bound<'_, PyAny>, limits: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+    let mut r = to_expr(f)?;
+    for l in limits.iter() {
+        let t = l
+            .downcast::<PyTuple>()
+            .map_err(|_| PyTypeError::new_err("summation expects (k, a, b) tuples"))?;
+        if t.len() != 3 {
+            return Err(PyValueError::new_err("summation expects (k, a, b) tuples"));
+        }
+        let (k, a, b) = (to_expr(&t.get_item(0)?)?, to_expr(&t.get_item(1)?)?, to_expr(&t.get_item(2)?)?);
+        r = symox::summation::summation(&r, &k, &a, &b);
+    }
+    Ok(wrap(r))
+}
+
+#[pyfunction]
+#[pyo3(name = "bernoulli")]
+fn py_bernoulli(n: usize) -> PyExpr {
+    wrap(symox::summation::bernoulli(n))
+}
+
+#[pyfunction]
+#[pyo3(name = "integrate", signature = (f, *args, **_kwargs))]
+fn py_integrate(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    Ok(wrap(do_integrate(&to_expr(f)?, args)?))
+}
+
+/// `expand` with SymPy hints (`trig`, `log`, `force`, `power_base`, `mul`,
+/// `multinomial`, `power_exp`).
+fn expand_hints(e: &Expr, hints: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
+    let get = |k: &str, default: bool| -> PyResult<bool> {
+        match hints {
+            Some(h) => match h.get_item(k)? {
+                Some(v) => v.is_truthy(),
+                None => Ok(default),
+            },
+            None => Ok(default),
+        }
+    };
+    let force = get("force", false)?;
+    let mut r = e.clone();
+    if get("trig", false)? {
+        r = symox::simp::expand_trig(&r);
+    }
+    if get("log", true)? && (force || get("log", false)?) {
+        r = symox::simp::expand_log(&r, force);
+    } else if get("log", true)? {
+        r = symox::simp::expand_log(&r, false);
+    }
+    if get("power_base", true)? {
+        r = symox::simp::expand_power_base(&r, force);
+    }
+    let full = get("mul", true)? && get("multinomial", true)?;
+    if full {
+        r = expand::expand(&r);
+    } else if get("mul", true)? {
+        r = symox::simp::expand_mul(&r);
+    }
+    Ok(r)
+}
+
+#[pyfunction]
+#[pyo3(name = "expand", signature = (e, deep=true, **hints))]
+fn py_expand(e: &Bound<'_, PyAny>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
     let _ = deep;
-    Ok(wrap(expand::expand(&to_expr(e)?)))
+    Ok(wrap(expand_hints(&to_expr(e)?, hints)?))
 }
 
 #[pyfunction]
@@ -1095,6 +1379,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;
+    m.add_function(wrap_pyfunction!(py_wild, m)?)?;
     m.add_function(wrap_pyfunction!(py_integer, m)?)?;
     m.add_function(wrap_pyfunction!(py_rational, m)?)?;
     m.add_function(wrap_pyfunction!(py_float, m)?)?;
@@ -1102,6 +1387,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;
+    m.add_function(wrap_pyfunction!(py_integrate, m)?)?;
+    m.add_function(wrap_pyfunction!(py_summation, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bernoulli, m)?)?;
     m.add_function(wrap_pyfunction!(py_simplify, m)?)?;
     m.add_function(wrap_pyfunction!(py_together, m)?)?;
     m.add_function(wrap_pyfunction!(py_radsimp, m)?)?;
@@ -1117,6 +1405,12 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
     poly::register(m)?;
+    ntheory::register(m)?;
+    simp::register(m)?;
+    solve::register(m)?;
+    ode::register(m)?;
+    series::register(m)?;
+    printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

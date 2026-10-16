@@ -18,10 +18,14 @@ except ImportError:  # pragma: no cover
     symengine = None
 
 
-def timeit(fn, min_time=0.3, max_runs=50):
+def timeit(fn, min_time=0.3, max_runs=50, setup=None):
+    if setup:
+        setup()
     fn()  # warm-up
     runs, total, best = 0, 0.0, float("inf")
     while total < min_time and runs < max_runs:
+        if setup:
+            setup()  # e.g. clear SymPy's cache, which would make reruns free
         t0 = time.perf_counter()
         fn()
         dt = time.perf_counter() - t0
@@ -40,7 +44,6 @@ def bench_expand(m):
 def bench_expand2(m):
     x, y, z, w = m.symbols("x y z w")
     e = (x + y + z + w) ** 15
-    f = e * (e + w)
     return lambda: m.expand(m.expand(e) * (m.expand(e) + w))
 
 
@@ -49,7 +52,7 @@ def bench_build_sum(m):
 
     def run():
         s = 0
-        for i in range(2000):
+        for i in range(1000):
             s = s + i * x**i
         return s
 
@@ -98,7 +101,7 @@ def bench_lambdify(m):
 BENCHES = [
     ("expand((x+y+z+w+1)**15)", bench_expand),
     ("expand(e*(e+w)), e=(x+y+z+w)**15", bench_expand2),
-    ("build sum_{i<2000} i*x**i", bench_build_sum),
+    ("build sum_{i<1000} i*x**i", bench_build_sum),
     ("4th derivative of a product", bench_diff),
     ("subs on 455-term polynomial", bench_subs),
     ("sympify 300-term string", bench_sympify),
@@ -119,7 +122,8 @@ def main():
             try:
                 fn = b(m)
                 slow = mn == "sympy"
-                times[mn] = timeit(fn, min_time=0.1 if slow else 0.3, max_runs=3 if slow else 50)
+                setup = sympy.core.cache.clear_cache if slow else None
+                times[mn] = timeit(fn, min_time=0.1 if slow else 0.3, max_runs=3 if slow else 50, setup=setup)
             except Exception as e:  # noqa: BLE001
                 times[mn] = None
                 print(f"  ({mn} failed: {type(e).__name__}: {e})")
