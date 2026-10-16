@@ -259,6 +259,9 @@ pub fn to_cnf(e: &Expr, simplify: bool, force: bool) -> Result<Expr, String> {
         return Ok(e.clone());
     }
     if simplify {
+        if super::atoms(e).len() > 20 {
+            return Err("truth-table operations support at most 20 variables".into());
+        }
         if !force && super::atoms(e).len() > 8 {
             return Err(TOO_MANY_VARIABLES.into());
         }
@@ -276,6 +279,9 @@ pub fn to_dnf(e: &Expr, simplify: bool, force: bool) -> Result<Expr, String> {
         return Ok(e.clone());
     }
     if simplify {
+        if super::atoms(e).len() > 20 {
+            return Err("truth-table operations support at most 20 variables".into());
+        }
         if !force && super::atoms(e).len() > 8 {
             return Err(TOO_MANY_VARIABLES.into());
         }
