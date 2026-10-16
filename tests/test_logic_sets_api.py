@@ -49,6 +49,8 @@ def test_range_validation_and_wide_endpoint_arithmetic():
         r = sx.Range(*args)
         assert r.to_sympy() == sympy.Range(*args)
         assert r.contains(args[0]) == sx.true
+    assert not sx.Range(0)
+    assert sx.Range(0).is_empty is True
     assert sx.Interval(-sx.oo, 1).is_closed
     assert sx.Interval(0, sx.oo).is_closed
     assert not sx.Interval.open(0, sx.oo).is_closed

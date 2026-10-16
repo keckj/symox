@@ -492,6 +492,11 @@ class Set:
     def is_empty(self):
         if self.is_EmptySet:
             return True
+        if isinstance(self, Range):
+            if self.start == self.stop:
+                return True
+            if all(v.is_Integer for v in self._e.args):
+                return False
         if isinstance(self, (Interval, FiniteSet)) or self.class_name in (
                 "Reals", "Integers", "Naturals", "Naturals0", "Complexes", "Rationals", "UniversalSet"):
             return False
@@ -519,7 +524,7 @@ class Set:
         return None
 
     def __bool__(self):
-        return not self.is_EmptySet
+        return self.is_empty is not True
 
 
 class Interval(Set):
