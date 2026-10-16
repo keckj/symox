@@ -422,6 +422,16 @@ Matrix([[0, 1, 0], [0, 0, 1], [-1, -1, -1]]).eigenvals()
 Matrix([[0, 1, 0], [0, 0, 1], [3, 0, 0]]).eigenvects()
 Matrix([[1, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 2, 1]]).eigenvects()
 Matrix([[0, 0, 0, 2], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]).eigenvals()
+# --- symbolic 3x3 eigen problems ---
+Matrix([[x, 1, 0], [0, y, 1], [1, 0, x]]).eigenvals()
+Matrix([[x, 1, 0], [1, x, 1], [0, 1, x]]).eigenvals()
+Matrix([[x, 1, 0], [1, x, 1], [0, 1, x]]).eigenvects()
+Matrix([[0, 1, 0], [0, 0, 1], [x, 0, 0]]).eigenvals()
+Matrix([[a, b, 0], [b, a, b], [0, b, a]]).eigenvals()
+Matrix([[x, 1, 1], [1, x, 1], [1, 1, x]]).eigenvals()
+Matrix([[x, 1, 1], [1, x, 1], [1, 1, x]]).eigenvects()
+Matrix([[1, x, 0], [0, 1, x], [x, 0, 1]]).eigenvals()
+Matrix([[0, x, 0], [0, 0, 1], [1, 0, 0]]).eigenvals()
 """.strip().splitlines()
 
 CASES = [c for c in CASES if c.strip() and not c.lstrip().startswith("#")]

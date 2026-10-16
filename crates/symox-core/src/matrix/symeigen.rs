@@ -548,9 +548,21 @@ pub fn roots_symbolic(c: &[Expr]) -> MResult<Vec<(Expr, usize)>> {
                     }
                 }
             }
+            3 => {
+                let nonzero = c.iter().filter(|e| !e.is_zero()).count();
+                if nonzero == 2 {
+                    for r in super::eigen::roots_binomial(&c[0], &c[3], 3)? {
+                        out.push((r, 1));
+                    }
+                } else {
+                    for r in cubic_roots_sym(c)? {
+                        out.push(r);
+                    }
+                }
+            }
             _ => {
                 return Err(MatrixError::NotImplemented(
-                    "roots of symbolic polynomials of degree > 2 are not implemented".into(),
+                    "roots of symbolic polynomials of degree > 3 are not implemented".into(),
                 ))
             }
         }
@@ -559,6 +571,158 @@ pub fn roots_symbolic(c: &[Expr]) -> MResult<Vec<(Expr, usize)>> {
         out.push((Expr::zero(), zeros));
     }
     Ok(merge(out))
+}
+
+/// Integer divisors (positive) of a small integer.
+fn small_divisors(n: &Int) -> Vec<Int> {
+    let Some(v) = n.abs().to_i64() else { return vec![Int::ONE] };
+    if v == 0 || v > 1_000_000 {
+        return vec![Int::ONE];
+    }
+    (1..=v).filter(|d| v % d == 0).map(Int::from).collect()
+}
+
+/// Candidate roots `p/q` with `p | c0`, `q | lc` from light factorisations.
+fn candidate_roots(lc: &Expr, c0: &Expr) -> Vec<Expr> {
+    fn products(f: &Factored) -> Vec<Expr> {
+        let mut acc: Vec<Expr> = small_divisors(&f.coeff.num).iter().map(|d| Expr::num(d.to_number())).collect();
+        for (g, k) in &f.factors {
+            if *k <= 0 {
+                continue;
+            }
+            let mut next = Vec::new();
+            for a in &acc {
+                for e in 0..=*k {
+                    next.push(mul2(a, &pow(g, &Expr::int(e))));
+                }
+            }
+            acc = next;
+            if acc.len() > 200 {
+                break;
+            }
+        }
+        acc
+    }
+    let nums = products(&factor_light(c0));
+    let dens = products(&factor_light(lc));
+    let mut out = Vec::new();
+    for n in &nums {
+        for d in &dens {
+            let r = cancel(&div(n, d));
+            for s in [r.clone(), neg(&r)] {
+                if !out.contains(&s) {
+                    out.push(s);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// SymPy's `roots()` for a symbolic cubic: a linear factor found among
+/// candidate roots splits it, otherwise Cardano's formula.
+fn cubic_roots_sym(c: &[Expr]) -> MResult<Vec<(Expr, usize)>> {
+    let mut parts = Vec::new();
+    for e in c {
+        let (n, d) = as_numer_denom(e);
+        parts.push(n);
+        parts.push(d);
+    }
+    let Some((ctx, ps)) = PolyCtx::from_exprs(&parts, false) else {
+        return Err(MatrixError::NotImplemented("cubic with non-polynomial coefficients".into()));
+    };
+    let ks: Vec<KF> = ps
+        .chunks(2)
+        .map(|nd| KF::new(nd[0].p.mul_int(&nd[1].den), nd[1].p.mul_int(&nd[0].den)))
+        .collect();
+    let mut found: Option<KF> = None;
+    for cand in candidate_roots(&c[0], &c[3]) {
+        let Some(k) = KF::from_expr(&ctx, &cand) else { continue };
+        if horner(&ks, &k).is_zero() {
+            found = Some(k);
+            break;
+        }
+    }
+    match found {
+        Some(r) => {
+            // linear factor times a quadratic (factor_list order)
+            let q = deflate(&ks, &r);
+            let qe: Vec<Expr> = q.iter().map(|x| x.to_expr(&ctx)).collect();
+            let lin = r.to_expr(&ctx);
+            let mut factors: Vec<(Vec<Expr>, usize)> = vec![(vec![Expr::one(), neg(&lin)], 1)];
+            // the quadratic may split further
+            let (a, b, cc) = (&qe[0], &qe[1], &qe[2]);
+            let disc = cancel(&sub(&pow(b, &Expr::int(2)), &mul(&[Expr::int(4), a.clone(), cc.clone()])));
+            let iaa = pow(&mul2(&Expr::int(2), a), &Expr::minus_one());
+            match if disc.is_zero() { Some(Expr::zero()) } else { expr_sqrt(&disc) } {
+                Some(sq) => {
+                    let bb = neg(&mul2(b, &iaa));
+                    for r in [cancel(&sub(&bb, &mul2(&sq, &iaa))), cancel(&add(&[bb.clone(), mul2(&sq, &iaa)]))] {
+                        match factors.iter_mut().find(|(f, _)| f[1] == neg(&r)) {
+                            Some(x) => x.1 += 1,
+                            None => factors.push((vec![Expr::one(), neg(&r)], 1)),
+                        }
+                    }
+                }
+                None => factors.push((qe.clone(), 1)),
+            }
+            // merge equal linear factors
+            let mut merged: Vec<(Vec<Expr>, usize)> = Vec::new();
+            for (f, k) in factors {
+                match merged.iter_mut().find(|(g, _)| *g == f) {
+                    Some(x) => x.1 += k,
+                    None => merged.push((f, k)),
+                }
+            }
+            merged.sort_by(|x, y| factor_key_cmp(&x.0, x.1, &y.0, y.1));
+            let mut out = Vec::new();
+            for (f, k) in merged {
+                if f.len() == 2 {
+                    out.push((cancel(&neg(&div(&f[1], &f[0]))), k));
+                } else {
+                    for r in roots_quadratic_sym(&f[0], &f[1], &f[2]) {
+                        out.push((cancel(&r), k));
+                    }
+                }
+            }
+            Ok(out)
+        }
+        None => {
+            let ic = ks[0].inv();
+            let a = ks[1].mul(&ic).to_expr(&ctx);
+            let b = ks[2].mul(&ic).to_expr(&ctx);
+            let cc = ks[3].mul(&ic).to_expr(&ctx);
+            let rs = super::eigen::roots_cubic_expr(&a, &b, &cc, &|p: &[Expr]| {
+                Ok(super::eigen::multiple(&roots_symbolic(p)?))
+            })?;
+            Ok(rs.into_iter().map(|r| (r, 1)).collect())
+        }
+    }
+}
+
+/// SymPy's `factor_list` order for factors given as coefficient lists in
+/// `lambda` (`(len, multiplicity, dense representation)`).
+fn factor_key_cmp(a: &[Expr], ka: usize, b: &[Expr], kb: usize) -> Ordering {
+    let lam = Expr::symbol("_x0");
+    let to_poly = |c: &[Expr]| {
+        let n = c.len() - 1;
+        add(&c.iter().enumerate().map(|(i, e)| mul2(e, &pow(&lam, &Expr::int((n - i) as i64)))).collect::<Vec<_>>())
+    };
+    let (pa, pb) = (to_poly(a), to_poly(b));
+    let Some((_, ps)) = PolyCtx::from_exprs(&[pa, pb], false) else {
+        return Ordering::Equal;
+    };
+    let norm = |q: &super::ratfunc::QPoly| {
+        let c = q.p.content();
+        let p = if c.is_zero() || c.is_one() { q.p.clone() } else { q.p.divexact_int(&c) };
+        p.normalize_sign()
+    };
+    let (da, db) = (dmp(&norm(&ps[0]), 0), dmp(&norm(&ps[1]), 0));
+    let len = |d: &DKey| match d {
+        DKey::L(v) => v.len(),
+        _ => 0,
+    };
+    len(&da).cmp(&len(&db)).then(ka.cmp(&kb)).then_with(|| dkey_cmp(&da, &db))
 }
 
 /// Clear denominators and remove the polynomial content of the
@@ -619,9 +783,9 @@ fn expr_sqrt(e: &Expr) -> Option<Expr> {
 
 enum KFactor {
     Linear(KF, usize),
-    /// monic `l^2 + p l + q` (irreducible) and its primitive polynomial
-    /// form (expressions, highest degree first) for `roots()`
-    Quad(KF, KF, usize),
+    /// irreducible monic factor, coefficients highest degree first
+    /// (leading 1 omitted)
+    Irr(Vec<KF>, usize),
 }
 
 fn horner(p: &[KF], x: &KF) -> KF {
@@ -642,8 +806,22 @@ fn deflate(p: &[KF], r: &KF) -> Vec<KF> {
     out
 }
 
+/// A root among the rational root theorem candidates (light
+/// factorisations of the constant and leading coefficients).
+fn extra_root(p: &[KF], ctx: &PolyCtx) -> Option<KF> {
+    let lc = p[0].to_expr(ctx);
+    let c0 = p.last().unwrap().to_expr(ctx);
+    for cand in candidate_roots(&lc, &c0) {
+        let Some(k) = KF::from_expr(ctx, &cand) else { continue };
+        if horner(p, &k).is_zero() {
+            return Some(k);
+        }
+    }
+    None
+}
+
 /// Split a monic polynomial over K (highest degree first).
-fn factor_k(p: &[KF], candidates: &[KF]) -> Option<Vec<KFactor>> {
+fn factor_k(p: &[KF], candidates: &[KF], ctx: &PolyCtx) -> Option<Vec<KFactor>> {
     let nv = p[0].n.nvars;
     let mut p: Vec<KF> = p.to_vec();
     let mut out: Vec<KFactor> = Vec::new();
@@ -673,6 +851,18 @@ fn factor_k(p: &[KF], candidates: &[KF]) -> Option<Vec<KFactor>> {
             }
         }
         if !found {
+            // candidates from the coefficients (p | c0, q | lc)
+            if let Some(r) = extra_root(&p, ctx) {
+                p = deflate(&p, &r);
+                push_lin(r, &mut out);
+                continue;
+            }
+            if p.len() == 4 {
+                // assume an irreducible cubic (Cardano)
+                let lc = p[0].clone();
+                out.push(KFactor::Irr(p[1..].iter().map(|x| x.div(&lc)).collect(), 1));
+                return Some(out);
+            }
             return None;
         }
     }
@@ -691,7 +881,7 @@ fn factor_k(p: &[KF], candidates: &[KF]) -> Option<Vec<KFactor>> {
                 push_lin(b.neg().sub(&s).div(&two_a), &mut out);
                 push_lin(b.neg().add(&s).div(&two_a), &mut out);
             } else {
-                out.push(KFactor::Quad(b.div(a), c.div(a), 1));
+                out.push(KFactor::Irr(vec![b.div(a), c.div(a)], 1));
             }
         }
         _ => unreachable!(),
@@ -743,40 +933,137 @@ fn nullspace_k(rows: usize, cols: usize, mut a: Vec<KF>) -> Vec<Vec<KF>> {
     basis
 }
 
-/// Elements `a + b*l` of `K[l]/(l^2 + p l + q)`.
-#[derive(Clone, Debug)]
-struct QK {
-    a: KF,
-    b: KF,
+/// `K[l]/(l^n + m_{n-1} l^{n-1} + ... + m_0)`, elements as coefficient
+/// vectors (low degree first).
+struct ExtK {
+    m: Vec<KF>,
 }
 
-struct ExtK {
-    p: KF,
-    q: KF,
+type QK = Vec<KF>;
+
+fn ktrim(p: &mut Vec<KF>) {
+    while p.len() > 1 && p.last().is_some_and(|c| c.is_zero()) {
+        p.pop();
+    }
+}
+
+fn kmul(a: &[KF], b: &[KF]) -> Vec<KF> {
+    let nv = a[0].n.nvars;
+    let mut out = vec![KF::zero(nv); a.len() + b.len() - 1];
+    for (i, x) in a.iter().enumerate() {
+        if x.is_zero() {
+            continue;
+        }
+        for (j, y) in b.iter().enumerate() {
+            if !y.is_zero() {
+                out[i + j] = out[i + j].add(&x.mul(y));
+            }
+        }
+    }
+    out
+}
+
+fn ksub(a: &[KF], b: &[KF]) -> Vec<KF> {
+    let nv = a[0].n.nvars;
+    let n = a.len().max(b.len());
+    let mut out = vec![KF::zero(nv); n];
+    for (i, x) in a.iter().enumerate() {
+        out[i] = x.clone();
+    }
+    for (i, y) in b.iter().enumerate() {
+        out[i] = out[i].sub(y);
+    }
+    ktrim(&mut out);
+    out
+}
+
+fn kdivmod(a: &[KF], b: &[KF]) -> (Vec<KF>, Vec<KF>) {
+    let nv = a[0].n.nvars;
+    let mut r = a.to_vec();
+    ktrim(&mut r);
+    let mut b = b.to_vec();
+    ktrim(&mut b);
+    let db = b.len() - 1;
+    if r.len() < b.len() {
+        return (vec![KF::zero(nv)], r);
+    }
+    let mut q = vec![KF::zero(nv); r.len() - db];
+    while r.len() > db && !(r.len() == 1 && r[0].is_zero()) {
+        let k = r.len() - 1 - db;
+        let c = r.last().unwrap().div(&b[db]);
+        for (i, bc) in b.iter().enumerate() {
+            r[i + k] = r[i + k].sub(&c.mul(bc));
+        }
+        q[k] = c;
+        r.pop();
+        ktrim(&mut r);
+        if r.len() < b.len() {
+            break;
+        }
+    }
+    if r.is_empty() {
+        r.push(KF::zero(nv));
+    }
+    (q, r)
 }
 
 impl ExtK {
+    fn nv(&self) -> usize {
+        self.m[0].n.nvars
+    }
+    fn deg(&self) -> usize {
+        self.m.len()
+    }
+    fn zero(&self) -> QK {
+        vec![KF::zero(self.nv()); self.deg()]
+    }
+    fn one(&self) -> QK {
+        let mut v = self.zero();
+        v[0] = KF::one(self.nv());
+        v
+    }
+    fn reduce(&self, mut p: Vec<KF>) -> QK {
+        let n = self.deg();
+        while p.len() > n {
+            let t = p.pop().unwrap();
+            let k = p.len() - n;
+            if !t.is_zero() {
+                for (j, mj) in self.m.iter().enumerate() {
+                    p[k + j] = p[k + j].sub(&t.mul(mj));
+                }
+            }
+        }
+        p.resize(n, KF::zero(self.nv()));
+        p
+    }
     fn mul(&self, x: &QK, y: &QK) -> QK {
-        let bd = x.b.mul(&y.b);
-        QK { a: x.a.mul(&y.a).sub(&bd.mul(&self.q)), b: x.a.mul(&y.b).add(&x.b.mul(&y.a)).sub(&bd.mul(&self.p)) }
+        self.reduce(kmul(x, y))
     }
     fn sub(&self, x: &QK, y: &QK) -> QK {
-        QK { a: x.a.sub(&y.a), b: x.b.sub(&y.b) }
-    }
-    fn inv(&self, x: &QK) -> QK {
-        let n = x.a.mul(&x.a).sub(&x.a.mul(&x.b).mul(&self.p)).add(&x.b.mul(&x.b).mul(&self.q));
-        let ni = n.inv();
-        QK { a: x.a.sub(&x.b.mul(&self.p)).mul(&ni), b: x.b.neg().mul(&ni) }
+        x.iter().zip(y).map(|(a, b)| a.sub(b)).collect()
     }
     fn is_zero(x: &QK) -> bool {
-        x.a.is_zero() && x.b.is_zero()
+        x.iter().all(|c| c.is_zero())
+    }
+    fn inv(&self, x: &QK) -> QK {
+        let mut modulus = self.m.clone();
+        modulus.push(KF::one(self.nv()));
+        let mut r1 = x.clone();
+        ktrim(&mut r1);
+        let mut r0 = modulus;
+        let (mut s0, mut s1) = (vec![KF::zero(self.nv())], vec![KF::one(self.nv())]);
+        while !(r1.len() == 1 && r1[0].is_zero()) {
+            let (q, r) = kdivmod(&r0, &r1);
+            r0 = std::mem::replace(&mut r1, r);
+            let ns = ksub(&s0, &kmul(&q, &s1));
+            s0 = std::mem::replace(&mut s1, ns);
+        }
+        let c = r0[0].inv();
+        self.reduce(s0.iter().map(|v| v.mul(&c)).collect())
     }
 }
 
 fn nullspace_ext(f: &ExtK, rows: usize, cols: usize, mut a: Vec<QK>) -> Vec<Vec<QK>> {
-    let nv = f.p.n.nvars;
-    let zero = QK { a: KF::zero(nv), b: KF::zero(nv) };
-    let one = QK { a: KF::one(nv), b: KF::zero(nv) };
     let mut pivots = Vec::new();
     let mut r = 0;
     for c in 0..cols {
@@ -808,8 +1095,8 @@ fn nullspace_ext(f: &ExtK, rows: usize, cols: usize, mut a: Vec<QK>) -> Vec<Vec<
     }
     let mut basis = Vec::new();
     for free in (0..cols).filter(|c| !pivots.contains(c)) {
-        let mut v = vec![zero.clone(); cols];
-        v[free] = one.clone();
+        let mut v = vec![f.zero(); cols];
+        v[free] = f.one();
         for (pr, &pc) in pivots.iter().enumerate() {
             v[pc] = f.sub(&v[pc], &a[pr * cols + free]);
         }
@@ -833,7 +1120,7 @@ pub fn eigenvects_field(m: &Matrix, ctx: &PolyCtx) -> Option<MResult<Vec<super::
             cands.push(d);
         }
     }
-    let factors = factor_k(&cp, &cands)?;
+    let factors = factor_k(&cp, &cands, ctx)?;
     let mut out: Vec<super::eigen::EigenVect> = Vec::new();
     for f in factors {
         match f {
@@ -849,16 +1136,27 @@ pub fn eigenvects_field(m: &Matrix, ctx: &PolyCtx) -> Option<MResult<Vec<super::
                     .collect();
                 out.push((r.to_expr(ctx), k, vs));
             }
-            KFactor::Quad(p, q, k) => {
-                let ext = ExtK { p: p.clone(), q: q.clone() };
-                let mut sh: Vec<QK> = a.iter().map(|x| QK { a: x.clone(), b: KF::zero(nv) }).collect();
+            KFactor::Irr(coeffs, k) => {
+                // monic minimal polynomial, low degree first for ExtK
+                let d = coeffs.len();
+                let low: Vec<KF> = (0..d).map(|i| coeffs[d - 1 - i].clone()).collect();
+                let ext = ExtK { m: low };
+                let mut sh: Vec<QK> = a
+                    .iter()
+                    .map(|x| {
+                        let mut v = ext.zero();
+                        v[0] = x.clone();
+                        v
+                    })
+                    .collect();
                 for i in 0..n {
-                    sh[i * n + i].b = sh[i * n + i].b.sub(&KF::one(nv));
+                    sh[i * n + i][1] = sh[i * n + i][1].sub(&KF::one(nv));
                 }
                 let basis = nullspace_ext(&ext, n, n, sh);
-                // roots of the minimal polynomial l^2 + p l + q
-                let coeffs = vec![Expr::one(), p.to_expr(ctx), q.to_expr(ctx)];
-                let rts = match roots_symbolic(&coeffs) {
+                // roots of the minimal polynomial
+                let mut pe = vec![Expr::one()];
+                pe.extend(coeffs.iter().map(|x| x.to_expr(ctx)));
+                let rts = match roots_symbolic(&pe) {
                     Ok(r) => r,
                     Err(e) => return Some(Err(e)),
                 };
@@ -868,7 +1166,22 @@ pub fn eigenvects_field(m: &Matrix, ctx: &PolyCtx) -> Option<MResult<Vec<super::
                         .map(|v| {
                             Matrix::column(
                                 v.iter()
-                                    .map(|x| add(&[mul2(&x.b.to_expr(ctx), &root), x.a.to_expr(ctx)]))
+                                    .map(|x| {
+                                        let terms: Vec<Expr> = x
+                                            .iter()
+                                            .enumerate()
+                                            .filter(|(_, c)| !c.is_zero())
+                                            .map(|(j, c)| {
+                                                let ce = c.to_expr(ctx);
+                                                if j == 0 {
+                                                    ce
+                                                } else {
+                                                    mul2(&ce, &pow(&root, &Expr::int(j as i64)))
+                                                }
+                                            })
+                                            .collect();
+                                        add(&terms)
+                                    })
                                     .collect(),
                             )
                         })

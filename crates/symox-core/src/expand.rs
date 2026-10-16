@@ -50,7 +50,7 @@ fn ex(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
         Kind::Mul(..) => {
             let factors: Vec<Expr> = e.args().iter().map(|f| ex(f, cache)).collect();
             let m = mul(&factors);
-            if m.is_mul() {
+            let mut r = if m.is_mul() {
                 expand_mul_node(&m)
             } else if m.is_add() && !factors.iter().any(|f| f.is_add()) {
                 m
@@ -58,7 +58,17 @@ fn ex(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
                 expand_product(&factors)
             } else {
                 m
+            };
+            // rebuilding the product may merge expanded sums into new
+            // powers ((x**2 + 2*x + 1)*(x + 1)**2): SymPy's fixed point loop
+            // expands them again
+            for _ in 0..3 {
+                if !has_unexpanded_power(&r) {
+                    break;
+                }
+                r = ex(&r, cache);
             }
+            r
         }
         Kind::Pow(b, x) => {
             let b2 = ex(b, cache);
@@ -419,6 +429,21 @@ fn expand_mul_node(m: &Expr) -> Expr {
         r
     } else {
         expr
+    }
+}
+
+/// Integer powers of sums left in a product or a sum of products.
+fn has_unexpanded_power(e: &Expr) -> bool {
+    let bad = |b: &Expr, x: &Expr| b.is_add() && x.as_i64().is_some_and(|k| k.abs() >= 2);
+    match e.kind() {
+        Kind::Pow(b, x) => bad(b, x),
+        Kind::Mul(_, facs) => facs.iter().any(|(b, x)| bad(b, x)),
+        Kind::Add(_, terms) => terms.iter().any(|(t, _)| match t.kind() {
+            Kind::Mul(_, facs) => facs.iter().any(|(b, x)| bad(b, x)),
+            Kind::Pow(b, x) => bad(b, x),
+            _ => false,
+        }),
+        _ => false,
     }
 }
 

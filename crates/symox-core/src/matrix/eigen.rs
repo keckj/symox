@@ -352,7 +352,7 @@ fn root_of_unity(k: i64, n: i64) -> Option<Expr> {
 }
 
 /// SymPy's `roots_binomial` (`a*x**n + b`) for small `n`.
-fn roots_binomial(a: &Expr, b: &Expr, n: usize) -> MResult<Vec<Expr>> {
+pub(crate) fn roots_binomial(a: &Expr, b: &Expr, n: usize) -> MResult<Vec<Expr>> {
     let base = neg(&cancel(&mul2(b, &pow(a, &Expr::minus_one()))));
     let ni = n as i64;
     let neg_base = base.as_number().is_some_and(|x| x.is_negative());
@@ -417,73 +417,91 @@ fn factor_roots(f: &[Int]) -> MResult<Vec<Expr>> {
 
 /// SymPy's `roots_cubic` (Cardano) for rational coefficients.
 fn roots_cubic(f: &[Int]) -> MResult<Vec<Expr>> {
-    let lc = Rat::from_int(f[0].clone());
-    let a = Rat::from_int(f[1].clone()).div(&lc);
-    let b = Rat::from_int(f[2].clone()).div(&lc);
-    let c = Rat::from_int(f[3].clone()).div(&lc);
-    let r = |x: &Rat| Expr::num(x.to_number());
-    let ri = |n: i64, d: i64| Rat::new(Int::from(n), Int::from(d));
+    let lc = int_expr(&f[0]);
+    let il = pow(&lc, &Expr::minus_one());
+    let (a, b, c) = (mul2(&int_expr(&f[1]), &il), mul2(&int_expr(&f[2]), &il), mul2(&int_expr(&f[3]), &il));
+    roots_cubic_expr(&a, &b, &c, &|p: &[Expr]| {
+        let rs: Option<Vec<Rat>> = p.iter().map(|e| e.as_number().and_then(Rat::from_number)).collect();
+        Ok(multiple(&roots_rational(&rs.unwrap())?))
+    })
+}
+
+/// SymPy's `roots_cubic` for the monic cubic `x**3 + a*x**2 + b*x + c`
+/// (`quad` computes `roots([1, u, v], multiple=True)`).
+pub(crate) fn roots_cubic_expr(
+    a: &Expr,
+    b: &Expr,
+    c: &Expr,
+    quad: &dyn Fn(&[Expr]) -> MResult<Vec<Expr>>,
+) -> MResult<Vec<Expr>> {
+    let third = Expr::rational(1, 3);
+    let three = Expr::int(3);
     if c.is_zero() {
-        let rs = multiple(&roots_rational(&[Rat::one(), a.clone(), b.clone()])?);
+        let rs = quad(&[Expr::one(), a.clone(), b.clone()])?;
         return Ok(vec![rs[0].clone(), Expr::zero(), rs[1].clone()]);
     }
-    let p = b.sub(&a.mul(&a).div(&ri(3, 1)));
-    let q = c.sub(&a.mul(&b).div(&ri(3, 1))).add(&a.mul(&a).mul(&a).mul(&ri(2, 27)));
-    let pon3 = p.div(&ri(3, 1));
-    let aon3 = a.div(&ri(3, 1));
-    let third = Expr::rational(1, 3);
+    let a2 = pow(a, &Expr::int(2));
+    let p = sub(b, &div(&a2, &three));
+    let q = add(&[
+        sub(c, &div(&mul2(a, b), &three)),
+        div(&mul2(&Expr::int(2), &pow(a, &three)), &Expr::int(27)),
+    ]);
+    let pon3 = div(&p, &three);
+    let aon3 = div(a, &three);
+    let positive = |e: &Expr| e.as_number().is_some_and(|n| n.is_positive());
+    let negative = |e: &Expr| e.as_number().is_some_and(|n| n.is_negative());
     let mut u1: Option<Expr> = None;
     if p.is_zero() {
         if q.is_zero() {
-            let x = r(&aon3.neg());
+            let x = neg(&aon3);
             return Ok(vec![x.clone(), x.clone(), x]);
         }
-        u1 = Some(if !q.is_negative() { neg(&pow(&r(&q), &third)) } else { pow(&r(&q.neg()), &third) });
+        u1 = Some(if positive(&q) { neg(&pow(&q, &third)) } else { pow(&neg(&q), &third) });
     } else if q.is_zero() {
-        let ys = multiple(&roots_rational(&[Rat::one(), Rat::zero(), p.clone()])?);
-        let ma = r(&aon3.neg());
+        let ys = quad(&[Expr::one(), Expr::zero(), p.clone()])?;
+        let ma = neg(&aon3);
         return Ok(vec![add(&[ys[0].clone(), ma.clone()]), ma.clone(), add(&[ys[1].clone(), ma])]);
-    } else if q.is_negative() {
-        // -root(-q/2 + sqrt(q**2/4 + pon3**3), 3)
-        let inner = q.mul(&q).div(&ri(4, 1)).add(&pon3.mul(&pon3).mul(&pon3));
-        let base = add(&[r(&q.neg().div(&ri(2, 1))), sqrt(&r(&inner))]);
+    } else if negative(&q) {
+        let inner = add(&[div(&pow(&q, &Expr::int(2)), &Expr::int(4)), pow(&pon3, &three)]);
+        let base = add(&[neg(&div(&q, &Expr::int(2))), sqrt(&inner)]);
         u1 = Some(neg(&pow(&base, &third)));
     }
-    let coeff = mul(&[Expr::i(), sqrt(&Expr::int(3)), Expr::rational(1, 2)]);
+    let coeff = mul(&[Expr::i(), sqrt(&three), Expr::rational(1, 2)]);
     let mhalf = Expr::rational(-1, 2);
     let Some(u1) = u1 else {
         let u2 = add(&[mhalf.clone(), coeff.clone()]);
         let u3 = sub(&mhalf, &coeff);
-        let d0 = a.mul(&a).sub(&b.mul(&ri(3, 1)));
-        let d1 = a.mul(&a).mul(&a).mul(&ri(2, 1)).sub(&a.mul(&b).mul(&ri(9, 1))).add(&c.mul(&ri(27, 1)));
-        let disc = d1.mul(&d1).sub(&d0.mul(&d0).mul(&d0).mul(&ri(4, 1)));
-        let cc = pow(&mul2(&add(&[r(&d1), sqrt(&r(&disc))]), &Expr::rational(1, 2)), &third);
-        let ae = r(&a);
-        let d0e = r(&d0);
+        let d0 = sub(&a2, &mul2(&three, b));
+        // Python's left to right evaluation: (9*b)*c distributes 9 first
+        let d1 = add(&[
+            sub(&mul2(&Expr::int(2), &pow(a, &three)), &mul2(&mul2(&Expr::int(9), a), b)),
+            mul2(&Expr::int(27), c),
+        ]);
+        let disc = sub(&pow(&d1, &Expr::int(2)), &mul2(&Expr::int(4), &pow(&d0, &three)));
+        let cc = pow(&div(&add(&[d1.clone(), sqrt(&disc)]), &Expr::int(2)), &third);
         let mut out = Vec::new();
         for uk in [Expr::one(), u2, u3] {
             // -(b + uk*C + D0/C/uk)/3
-            let t = div(&div(&d0e, &cc), &uk);
-            let s = add(&[ae.clone(), mul2(&uk, &cc), t]);
-            out.push(div(&neg(&s), &Expr::int(3)));
+            let t = div(&div(&d0, &cc), &uk);
+            let s = add(&[a.clone(), mul2(&uk, &cc), t]);
+            out.push(div(&neg(&s), &three));
         }
         return Ok(out);
     };
     let u2 = mul2(&u1, &add(&[mhalf.clone(), coeff.clone()]));
     let u3 = mul2(&u1, &sub(&mhalf, &coeff));
-    let ma = r(&aon3.neg());
+    let ma = neg(&aon3);
     if p.is_zero() {
         return Ok(vec![add(&[u1, ma.clone()]), add(&[u2, ma.clone()]), add(&[u3, ma])]);
     }
-    let pe = r(&pon3);
     Ok([u1, u2, u3]
         .iter()
-        .map(|u| add(&[neg(u), div(&pe, u), ma.clone()]))
+        .map(|u| add(&[neg(u), div(&pon3, u), ma.clone()]))
         .collect())
 }
 
 /// `roots(..., multiple=True)` from the multiset form.
-fn multiple(r: &[(Expr, usize)]) -> Vec<Expr> {
+pub(crate) fn multiple(r: &[(Expr, usize)]) -> Vec<Expr> {
     let mut v = Vec::new();
     for (e, k) in r {
         for _ in 0..*k {
