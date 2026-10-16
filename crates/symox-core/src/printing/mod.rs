@@ -12,6 +12,7 @@ pub mod code;
 pub mod codegen;
 pub mod cse;
 pub mod latex;
+pub mod order;
 pub mod pretty;
 
 pub use code::{

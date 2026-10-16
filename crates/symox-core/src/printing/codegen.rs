@@ -263,7 +263,7 @@ mod tests {
         let src = ccode_function("f", &[x.clone(), y.clone()], &[e.clone()], &CodegenOptions::scalar()).unwrap();
         assert!(src.contains("double f(double x, double y) {"), "{src}");
         assert!(src.contains("const double x0 = x + y;"));
-        assert!(src.contains("return cos(x0) + pow(sin(x0), 2);"), "{src}");
+        assert!(src.contains("return pow(sin(x0), 2) + cos(x0);"), "{src}");
         let src = ccode_function("g", &[x.clone(), y.clone()], &[e.clone(), x.clone()], &CodegenOptions::default())
             .unwrap();
         assert!(src.contains("out1[i] = x;"));

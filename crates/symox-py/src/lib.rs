@@ -16,6 +16,8 @@ use rustc_hash::FxHashMap;
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
+mod printing;
+
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
 /// A symbolic expression.
@@ -25,7 +27,7 @@ pub struct PyExpr {
     pub e: Expr,
 }
 
-fn wrap(e: Expr) -> PyExpr {
+pub(crate) fn wrap(e: Expr) -> PyExpr {
     PyExpr { e }
 }
 
@@ -190,7 +192,7 @@ impl PyExpr {
     }
 
     fn _repr_latex_(&self) -> String {
-        format!("$\\displaystyle {}$", printer::to_str(&self.e))
+        printing::repr_latex(self)
     }
 
     fn srepr(&self) -> String {
@@ -1114,6 +1116,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

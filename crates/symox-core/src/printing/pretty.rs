@@ -831,6 +831,13 @@ impl PrettyPrinter<'_> {
     }
 
     fn print_pow(&self, b: &Expr, x: &Expr) -> Pict {
+        // as_base_exp: (1/q)**e -> q**(-e)
+        if let Kind::Num(Number::Rational(r)) = b.kind() {
+            if r.numer() == &num_bigint::BigInt::from(1) {
+                let q = Expr::num(Number::from_bigint(r.denom().clone()));
+                return self.print_pow(&q, &neg(x));
+            }
+        }
         if x.is_minus_one() {
             return Pict::div(Pict::new("1"), self.print(b));
         }

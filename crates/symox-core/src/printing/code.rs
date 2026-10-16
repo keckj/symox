@@ -340,10 +340,18 @@ impl<'a> CodePrinter<'a> {
         syms.dedup_by(|a, b| a.0 == b.0);
         syms.into_iter()
             .filter_map(|(name, v)| match self.lang() {
-                Lang::Rust => Some(format!("const {name}: f64 = {};", mpf_to_str(v, 17, true))),
-                Lang::C | Lang::Cxx | Lang::Cuda => {
-                    Some(format!("const {} {name} = {};", self.s.real.c_name(), self.float_literal(v)))
-                }
+                Lang::Rust => Some(format!(
+                    "const {name}: f64 = {};",
+                    self.constant_literal(name, 17).unwrap_or_else(|| mpf_to_str(v, 17, true))
+                )),
+                Lang::C | Lang::Cxx | Lang::Cuda => Some(format!(
+                    "const {} {name} = {};",
+                    self.s.real.c_name(),
+                    match self.constant_literal(name, self.s.real.digits()) {
+                        Some(c) => format!("{c}{}", self.s.real.literal_suffix()),
+                        None => self.float_literal(v),
+                    }
+                )),
                 _ => None,
             })
             .collect()
@@ -476,10 +484,25 @@ impl<'a> CodePrinter<'a> {
         }
     }
 
+    /// Exact decimal expansion of a named constant (SymPy evaluates the
+    /// constant to the target precision, not the rounded double).
+    fn constant_literal(&self, name: &str, digits: usize) -> Option<String> {
+        let exact = match name {
+            "pi" => "3.14159265358979323846264338327950288",
+            "E" => "2.71828182845904523536028747135266250",
+            "EulerGamma" => "0.577215664901532860606512090082402431",
+            _ => return None,
+        };
+        Some(round_decimal(exact, digits))
+    }
+
     fn number_symbol(&self, name: &'static str, v: f64) -> String {
         match self.lang() {
-            Lang::Python => mpf_to_str(v, 17, true),
-            Lang::Cuda => self.float_literal(v),
+            Lang::Python => self.constant_literal(name, 17).unwrap_or_else(|| mpf_to_str(v, 17, true)),
+            Lang::Cuda => match self.constant_literal(name, self.s.real.digits()) {
+                Some(s) => format!("{s}{}", self.s.real.literal_suffix()),
+                None => self.float_literal(v),
+            },
             _ => {
                 self.number_symbols.borrow_mut().push((name, v));
                 name.to_string()
@@ -499,7 +522,7 @@ impl<'a> CodePrinter<'a> {
                 Lang::NumPy => "numpy.pi".into(),
                 Lang::Rust => "PI".into(),
                 Lang::Fortran => "pi".into(),
-                Lang::Cuda => self.float_literal(std::f64::consts::PI),
+                Lang::Cuda => self.number_symbol("pi", std::f64::consts::PI),
                 _ => self.number_symbol("pi", std::f64::consts::PI),
             },
             Constant::E => match l {
@@ -507,7 +530,7 @@ impl<'a> CodePrinter<'a> {
                 Lang::NumPy => "numpy.e".into(),
                 Lang::Rust => "E".into(),
                 Lang::Fortran => "exp(1.0d0)".into(),
-                Lang::Cuda => self.float_literal(std::f64::consts::E),
+                Lang::Cuda => self.number_symbol("E", std::f64::consts::E),
                 _ => self.number_symbol("E", std::f64::consts::E),
             },
             Constant::EulerGamma => match l {
@@ -727,7 +750,13 @@ impl<'a> CodePrinter<'a> {
                         }
                     }
                 }
-                let pw = if self.s.fast_math { "__powf".to_string() } else { self.c_func("pow") };
+                // __powf is exp2(y*log2(x)): wrong for negative bases, so it
+                // is only used for non-integer exponents
+                let pw = if self.s.fast_math && !x.is_integer_number() {
+                    "__powf".to_string()
+                } else {
+                    self.c_func("pow")
+                };
                 Ok(format!("{pw}({}, {})", self.print(b)?, self.print(x)?))
             }
             Lang::Python | Lang::NumPy => {
@@ -1249,6 +1278,45 @@ fn math_macros() -> Vec<(Expr, &'static str)> {
     ]
 }
 
+/// Round a positive decimal string `d.ddd...` to `digits` significant
+/// digits (round half up on the exact expansion), trailing zeros stripped.
+fn round_decimal(exact: &str, digits: usize) -> String {
+    let (ip, fp) = exact.split_once('.').unwrap();
+    let all: Vec<u8> = ip.bytes().chain(fp.bytes()).map(|c| c - b'0').collect();
+    // position of the first significant digit
+    let first = all.iter().position(|d| *d != 0).unwrap_or(0);
+    let end = (first + digits).min(all.len());
+    let mut kept: Vec<u8> = all[..end].to_vec();
+    if end < all.len() && all[end] >= 5 {
+        let mut i = kept.len();
+        loop {
+            i -= 1;
+            if kept[i] == 9 {
+                kept[i] = 0;
+                if i == 0 {
+                    kept.insert(0, 1);
+                    break;
+                }
+            } else {
+                kept[i] += 1;
+                break;
+            }
+        }
+    }
+    let int_len = ip.len() + (kept.len() - end);
+    let mut s: String = kept[..int_len].iter().map(|d| (d + b'0') as char).collect();
+    let mut f: String = kept[int_len..].iter().map(|d| (d + b'0') as char).collect();
+    while f.ends_with('0') {
+        f.pop();
+    }
+    if f.is_empty() {
+        f.push('0');
+    }
+    s.push('.');
+    s.push_str(&f);
+    s
+}
+
 /// SymPy's `indent_code` for brace/paren languages.
 pub(crate) fn indent_code(code: &str, tab: &str) -> String {
     if !code.contains('\n') {
@@ -1295,6 +1363,14 @@ mod tests {
     }
 
     #[test]
+    fn constants() {
+        assert_eq!(round_decimal("0.577215664901532860606512090082402431", 17), "0.57721566490153286");
+        assert_eq!(round_decimal("3.14159265358979323846264338327950288", 9), "3.14159265");
+        assert_eq!(round_decimal("2.71828182845904523536028747135266250", 9), "2.71828183");
+        assert_eq!(c("EulerGamma"), "const double EulerGamma = 0.57721566490153286;\nEulerGamma");
+    }
+
+    #[test]
     fn c_basics() {
         assert_eq!(c("x**2"), "pow(x, 2)");
         assert_eq!(c("1/x"), "1.0/x");
@@ -1334,6 +1410,6 @@ mod tests {
         let s = CudaSettings { dtype: FloatType::F32, fast_math: true, ..Default::default() };
         assert_eq!(cudacode_with(&e, &s).unwrap(), "x*x*__sinf(y) + rsqrtf(z)");
         let e = parse_str("y/x**2 + 0.1").unwrap();
-        assert_eq!(cudacode_with(&e, &s).unwrap(), "y/(x*x) + 0.1F");
+        assert_eq!(cudacode_with(&e, &s).unwrap(), "0.1F + y/(x*x)");
     }
 }

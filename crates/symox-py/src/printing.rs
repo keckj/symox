@@ -1,0 +1,402 @@
+//! Python bindings of the printers, `cse` and code generation.
+
+use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError};
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyList, PyTuple};
+
+use symox::expr::Expr;
+use symox::printing::{
+    self as pr, CodeError, CodeSettings, CodegenOptions, CseOptions, CudaSettings, FloatType,
+    InvTrigStyle, LatexMode, LatexSettings, Lang, PrettySettings,
+};
+
+use crate::{to_expr, wrap, PyExpr};
+
+fn code_err(e: CodeError) -> PyErr {
+    match e {
+        CodeError::Unsupported(_) => PyNotImplementedError::new_err(e.to_string()),
+        CodeError::PiecewiseNoDefault => PyValueError::new_err(e.to_string()),
+    }
+}
+
+/// One expression or a sequence of expressions; the flag tells whether a
+/// single expression was given.
+fn expr_list(obj: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
+    if let Ok(e) = to_expr(obj) {
+        return Ok((vec![e], true));
+    }
+    let v = obj
+        .try_iter()
+        .map_err(|_| PyTypeError::new_err("expected an expression or a sequence of expressions"))?
+        .map(|a| to_expr(&a?))
+        .collect::<PyResult<Vec<_>>>()?;
+    Ok((v, false))
+}
+
+fn float_type(dtype: &str) -> PyResult<FloatType> {
+    match dtype {
+        "double" | "float64" | "f64" => Ok(FloatType::F64),
+        "float" | "float32" | "f32" => Ok(FloatType::F32),
+        _ => Err(PyValueError::new_err(format!("unknown dtype {dtype:?} (use 'double' or 'float')"))),
+    }
+}
+
+// ----------------------------------------------------------------------
+// latex / pretty
+// ----------------------------------------------------------------------
+
+#[pyfunction]
+#[pyo3(signature = (expr, **settings))]
+fn latex(expr: &Bound<'_, PyAny>, settings: Option<&Bound<'_, PyDict>>) -> PyResult<String> {
+    let e = to_expr(expr)?;
+    let mut s = LatexSettings::default();
+    if let Some(kw) = settings {
+        for (k, v) in kw.iter() {
+            let key: String = k.extract()?;
+            match key.as_str() {
+                "mode" => {
+                    let m: String = v.extract()?;
+                    s.mode = match m.as_str() {
+                        "plain" => LatexMode::Plain,
+                        "inline" => LatexMode::Inline,
+                        "equation" => LatexMode::Equation,
+                        "equation*" => LatexMode::EquationStar,
+                        _ => {
+                            return Err(PyValueError::new_err(
+                                "'mode' must be one of 'inline', 'plain', 'equation' or 'equation*'",
+                            ))
+                        }
+                    }
+                }
+                "mul_symbol" => s.mul_symbol = v.extract()?,
+                "fold_short_frac" => s.fold_short_frac = v.extract()?,
+                "fold_frac_powers" => s.fold_frac_powers = v.extract()?,
+                "fold_func_brackets" => s.fold_func_brackets = v.extract()?,
+                "inv_trig_style" => {
+                    let m: String = v.extract()?;
+                    s.inv_trig_style = match m.as_str() {
+                        "abbreviated" => InvTrigStyle::Abbreviated,
+                        "full" => InvTrigStyle::Full,
+                        "power" => InvTrigStyle::Power,
+                        _ => return Err(PyValueError::new_err("unknown inv_trig_style")),
+                    }
+                }
+                "ln_notation" => s.ln_notation = v.extract()?,
+                "root_notation" => s.root_notation = v.extract()?,
+                "itex" => s.itex = v.extract()?,
+                "imaginary_unit" => s.imaginary_unit = v.extract()?,
+                "diff_operator" => s.diff_operator = v.extract()?,
+                "parenthesize_super" => s.parenthesize_super = v.extract()?,
+                "symbol_names" => {
+                    let d = v.downcast::<PyDict>()?;
+                    for (sym, name) in d.iter() {
+                        let se = to_expr(&sym)?;
+                        let n = se
+                            .as_symbol()
+                            .ok_or_else(|| PyTypeError::new_err("symbol_names keys must be symbols"))?
+                            .to_string();
+                        s.symbol_names.insert(n, name.extract()?);
+                    }
+                }
+                "order" | "full_prec" | "mat_delim" | "mat_str" | "mat_symbol_style" | "decimal_separator"
+                | "perm_cyclic" | "min" | "max" | "adjoint_style" | "disable_split_super_sub" => {}
+                _ => return Err(PyTypeError::new_err(format!("Unknown setting '{key}'."))),
+            }
+        }
+    }
+    Ok(pr::latex_with(&e, &s))
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, wrap_line=true, num_columns=None, root_notation=true, use_unicode_sqrt_char=true, **_settings))]
+fn pretty(
+    expr: &Bound<'_, PyAny>,
+    wrap_line: bool,
+    num_columns: Option<usize>,
+    root_notation: bool,
+    use_unicode_sqrt_char: bool,
+    _settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    let e = to_expr(expr)?;
+    let s = PrettySettings {
+        wrap_line,
+        num_columns: num_columns.unwrap_or(80),
+        root_notation,
+        use_unicode_sqrt_char,
+    };
+    Ok(pr::pretty_with(&e, &s))
+}
+
+// ----------------------------------------------------------------------
+// cse
+// ----------------------------------------------------------------------
+
+#[pyfunction]
+#[pyo3(name = "_cse", signature = (exprs, optimizations=true, ignore=None, prefix="x"))]
+fn py_cse<'py>(
+    py: Python<'py>,
+    exprs: &Bound<'py, PyAny>,
+    optimizations: bool,
+    ignore: Option<&Bound<'py, PyAny>>,
+    prefix: &str,
+) -> PyResult<(Bound<'py, PyList>, Bound<'py, PyList>)> {
+    let (v, _) = expr_list(exprs)?;
+    let mut opts = CseOptions { symbol_prefix: prefix.to_string(), optimizations, ..Default::default() };
+    if let Some(ig) = ignore {
+        for s in ig.try_iter()? {
+            let e = to_expr(&s?)?;
+            if let Some(n) = e.as_symbol() {
+                opts.ignore.push(n.to_string());
+            }
+        }
+    }
+    let (reps, red) = py.allow_threads(|| pr::cse_with(&v, &opts));
+    let reps_py = PyList::empty(py);
+    for (s, e) in reps {
+        reps_py.append(PyTuple::new(py, [wrap(s), wrap(e)])?)?;
+    }
+    let red_py = PyList::new(py, red.into_iter().map(wrap))?;
+    Ok((reps_py, red_py))
+}
+
+// ----------------------------------------------------------------------
+// code printers
+// ----------------------------------------------------------------------
+
+fn apply_code_kwargs(s: &mut CodeSettings, kw: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
+    let Some(kw) = kw else { return Ok(()) };
+    for (k, v) in kw.iter() {
+        let key: String = k.extract()?;
+        match key.as_str() {
+            "user_functions" => {
+                let d = v.downcast::<PyDict>()?;
+                for (f, n) in d.iter() {
+                    let name: String = match f.extract::<String>() {
+                        Ok(n) => n,
+                        Err(_) => f.getattr("__name__")?.extract()?,
+                    };
+                    if let Ok(target) = n.extract::<String>() {
+                        s.user_functions.insert(name, target);
+                    }
+                }
+            }
+            "allow_unknown_functions" => s.allow_unknown_functions = v.extract()?,
+            "strict" => s.allow_unknown_functions = !v.extract::<bool>()?,
+            "real" | "dtype" | "type" => s.real = float_type(&v.extract::<String>()?)?,
+            "math_macros" => s.math_macros = v.extract::<bool>().unwrap_or(true),
+            "fast_math" => s.fast_math = v.extract()?,
+            "use_rsqrt" => s.use_rsqrt = v.extract()?,
+            "inline_pow" => s.inline_pow = v.extract()?,
+            "precision" | "contract" | "human" | "full_prec" | "order" | "standard" | "fully_qualified_modules"
+            | "inline" | "dereference" | "error_on_reserved" | "reserved_word_suffix" => {}
+            _ => return Err(PyTypeError::new_err(format!("Unknown setting '{key}'."))),
+        }
+    }
+    Ok(())
+}
+
+fn run_code(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    mut s: CodeSettings,
+    kw: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    apply_code_kwargs(&mut s, kw)?;
+    let e = to_expr(expr)?;
+    let p = pr::CodePrinter::new(&s);
+    let body = p.print(&e).map_err(code_err)?;
+    let body = match assign_to {
+        None => body,
+        Some(a) => {
+            let lhs = match a.extract::<String>() {
+                Ok(name) => name,
+                Err(_) => p.print(&to_expr(a)?).map_err(code_err)?,
+            };
+            match s.lang {
+                Lang::Python | Lang::NumPy | Lang::Fortran => format!("{lhs} = {body}"),
+                _ => format!("{lhs} = {body};"),
+            }
+        }
+    };
+    Ok(p.finish(body))
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, assign_to=None, standard="c99", **settings))]
+fn ccode(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    standard: &str,
+    settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    if !matches!(standard.to_lowercase().as_str(), "c99" | "c11" | "c17" | "c89" | "ansi") {
+        return Err(PyValueError::new_err(format!("unsupported C standard {standard:?}")));
+    }
+    run_code(expr, assign_to, CodeSettings::new(Lang::C), settings)
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, assign_to=None, standard="c++11", **settings))]
+fn cxxcode(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    standard: &str,
+    settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    let _ = standard;
+    run_code(expr, assign_to, CodeSettings::new(Lang::Cxx), settings)
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, assign_to=None, **settings))]
+fn pycode(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    run_code(expr, assign_to, CodeSettings::new(Lang::Python), settings)
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, assign_to=None, **settings))]
+fn numpycode(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    run_code(expr, assign_to, CodeSettings::new(Lang::NumPy), settings)
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, assign_to=None, **settings))]
+fn rust_code(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    run_code(expr, assign_to, CodeSettings::new(Lang::Rust), settings)
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, assign_to=None, **settings))]
+fn fcode(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    run_code(expr, assign_to, CodeSettings::new(Lang::Fortran), settings)
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, assign_to=None, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4, **settings))]
+#[allow(clippy::too_many_arguments)]
+fn cudacode(
+    expr: &Bound<'_, PyAny>,
+    assign_to: Option<&Bound<'_, PyAny>>,
+    dtype: &str,
+    fast_math: bool,
+    use_rsqrt: bool,
+    inline_pow: u32,
+    settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    let cs = CudaSettings { dtype: float_type(dtype)?, fast_math, use_rsqrt, inline_pow };
+    run_code(expr, assign_to, cs.to_code_settings(), settings)
+}
+
+// ----------------------------------------------------------------------
+// codegen
+// ----------------------------------------------------------------------
+
+fn symbols_of(obj: &Bound<'_, PyAny>) -> PyResult<Vec<Expr>> {
+    let (v, _) = expr_list(obj)?;
+    if let Some(bad) = v.iter().find(|a| !a.is_symbol()) {
+        return Err(PyTypeError::new_err(format!("arguments must be symbols, got {bad}")));
+    }
+    Ok(v)
+}
+
+#[pyfunction]
+#[pyo3(signature = (name, args, exprs, cse=true, dtype="double", vectorized=true, header=true))]
+fn ccode_function(
+    py: Python<'_>,
+    name: &str,
+    args: &Bound<'_, PyAny>,
+    exprs: &Bound<'_, PyAny>,
+    cse: bool,
+    dtype: &str,
+    vectorized: bool,
+    header: bool,
+) -> PyResult<String> {
+    let a = symbols_of(args)?;
+    let (e, _) = expr_list(exprs)?;
+    let opts = CodegenOptions {
+        cse,
+        dtype: float_type(dtype)?,
+        vectorized,
+        include_header: header,
+        ..Default::default()
+    };
+    py.allow_threads(|| pr::ccode_function(name, &a, &e, &opts)).map_err(code_err)
+}
+
+#[pyfunction]
+#[pyo3(signature = (name, args, exprs, cse=true, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4))]
+#[allow(clippy::too_many_arguments)]
+fn cuda_kernel(
+    py: Python<'_>,
+    name: &str,
+    args: &Bound<'_, PyAny>,
+    exprs: &Bound<'_, PyAny>,
+    cse: bool,
+    dtype: &str,
+    fast_math: bool,
+    use_rsqrt: bool,
+    inline_pow: u32,
+) -> PyResult<String> {
+    let a = symbols_of(args)?;
+    let (e, _) = expr_list(exprs)?;
+    let opts = CodegenOptions { cse, dtype: float_type(dtype)?, fast_math, use_rsqrt, inline_pow, ..Default::default() };
+    py.allow_threads(|| pr::cuda_kernel(name, &a, &e, &opts)).map_err(code_err)
+}
+
+#[pyfunction]
+#[pyo3(signature = (name, args, exprs, cse=true, dtype="double", fast_math=false, use_rsqrt=true, inline_pow=4))]
+#[allow(clippy::too_many_arguments)]
+fn cuda_device_function(
+    py: Python<'_>,
+    name: &str,
+    args: &Bound<'_, PyAny>,
+    exprs: &Bound<'_, PyAny>,
+    cse: bool,
+    dtype: &str,
+    fast_math: bool,
+    use_rsqrt: bool,
+    inline_pow: u32,
+) -> PyResult<String> {
+    let a = symbols_of(args)?;
+    let (e, _) = expr_list(exprs)?;
+    let opts = CodegenOptions { cse, dtype: float_type(dtype)?, fast_math, use_rsqrt, inline_pow, ..Default::default() };
+    py.allow_threads(|| pr::cuda_device_function(name, &a, &e, &opts)).map_err(code_err)
+}
+
+/// `Expr._repr_latex_`: `$\displaystyle ...$` like SymPy.
+pub(crate) fn repr_latex(e: &PyExpr) -> String {
+    format!("$\\displaystyle {}$", pr::latex(&e.e))
+}
+
+pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(latex, m)?)?;
+    m.add_function(wrap_pyfunction!(pretty, m)?)?;
+    m.add_function(wrap_pyfunction!(py_cse, m)?)?;
+    m.add_function(wrap_pyfunction!(ccode, m)?)?;
+    m.add_function(wrap_pyfunction!(cxxcode, m)?)?;
+    m.add_function(wrap_pyfunction!(pycode, m)?)?;
+    m.add_function(wrap_pyfunction!(numpycode, m)?)?;
+    m.add_function(wrap_pyfunction!(rust_code, m)?)?;
+    m.add_function(wrap_pyfunction!(fcode, m)?)?;
+    m.add_function(wrap_pyfunction!(cudacode, m)?)?;
+    m.add_function(wrap_pyfunction!(ccode_function, m)?)?;
+    m.add_function(wrap_pyfunction!(cuda_kernel, m)?)?;
+    m.add_function(wrap_pyfunction!(cuda_device_function, m)?)?;
+    Ok(())
+}
