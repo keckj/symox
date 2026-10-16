@@ -112,9 +112,91 @@ pub fn ordered_key(e: &Expr) -> (u64, Key) {
     (nodes2(e), sort_key(e))
 }
 
+/// Cheap ordering keys for literals (`x`, `~x`) and clauses of literals,
+/// equivalent to [`ordered_key`] on them.
+#[derive(PartialEq, Eq)]
+enum Light<'a> {
+    /// (negated, name)
+    Lit(bool, &'a str),
+    /// (connective class rank, literals)
+    Clause(u8, Vec<(bool, &'a str)>),
+}
+
+fn light_lit(e: &Expr) -> Option<(bool, &str)> {
+    match e.kind() {
+        Kind::Sym(s) if !s.is_wild() && !s.name().starts_with('_') => Some((false, s.name())),
+        Kind::Func(Func::Logic(LogicOp::Not), a) => match a[0].kind() {
+            Kind::Sym(s) if !s.is_wild() && !s.name().starts_with('_') => Some((true, s.name())),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn light(e: &Expr) -> Option<Light<'_>> {
+    if let Some((n, s)) = light_lit(e) {
+        return Some(Light::Lit(n, s));
+    }
+    match e.kind() {
+        Kind::Func(Func::Logic(op @ (LogicOp::And | LogicOp::Or)), a) => {
+            let rank = if *op == LogicOp::And { 0 } else { 2 };
+            let lits: Option<Vec<(bool, &str)>> = a.iter().map(light_lit).collect();
+            Some(Light::Clause(rank, lits?))
+        }
+        _ => None,
+    }
+}
+
+impl Light<'_> {
+    fn nodes(&self) -> u64 {
+        match self {
+            Light::Lit(n, _) => 2 + 2 * (*n as u64),
+            Light::Clause(_, l) => 2 + l.iter().map(|(n, _)| 2 + 2 * (*n as u64)).sum::<u64>(),
+        }
+    }
+    /// class key rank: Symbol < And < Not < Or
+    fn class(&self) -> u8 {
+        match self {
+            Light::Lit(false, _) => 0,
+            Light::Clause(0, _) => 1,
+            Light::Lit(true, _) => 2,
+            _ => 3,
+        }
+    }
+}
+
+fn lit_cmp(a: &(bool, &str), b: &(bool, &str)) -> Ordering {
+    a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1))
+}
+
+fn light_cmp(a: &Light, b: &Light) -> Ordering {
+    a.nodes().cmp(&b.nodes()).then_with(|| a.class().cmp(&b.class())).then_with(|| match (a, b) {
+        (Light::Lit(_, x), Light::Lit(_, y)) => x.cmp(y),
+        (Light::Clause(_, x), Light::Clause(_, y)) => x.len().cmp(&y.len()).then_with(|| {
+            for (p, q) in x.iter().zip(y) {
+                let r = lit_cmp(p, q);
+                if r != Ordering::Equal {
+                    return r;
+                }
+            }
+            Ordering::Equal
+        }),
+        _ => Ordering::Equal,
+    })
+}
+
 /// Sort like SymPy's `ordered()` (ties broken structurally).
 pub fn ordered(v: &mut [Expr]) {
     if v.len() < 2 {
+        return;
+    }
+    // fast path: literals and clauses of literals
+    if let Some(mut keyed) = v.iter().map(|e| light(e).map(|l| (l, e.clone()))).collect::<Option<Vec<_>>>() {
+        keyed.sort_by(|a, b| light_cmp(&a.0, &b.0).then_with(|| a.1.cmp_struct(&b.1)));
+        let sorted: Vec<Expr> = keyed.into_iter().map(|x| x.1).collect();
+        for (slot, e) in v.iter_mut().zip(sorted) {
+            *slot = e;
+        }
         return;
     }
     let mut keyed: Vec<((u64, Key), Expr)> = v.iter().map(|e| (ordered_key(e), e.clone())).collect();

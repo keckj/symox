@@ -65,11 +65,8 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
             match r {
                 Some(b) => Expr::boolean(b),
                 None => {
-                    if crate::logic::is_number_like(x) && op == SetOp::Rationals {
-                        // irrational numeric constants
-                        if is_real == Some(false) {
-                            return f();
-                        }
+                    if op == SetOp::Rationals && (is_real == Some(false) || is_irrational_surd(x)) {
+                        return f();
                     }
                     unevaluated()
                 }
@@ -112,6 +109,19 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
             and(vec![c, contains(&a[2], x)])
         }
         _ => unevaluated(),
+    }
+}
+
+/// `q * n**(p/r)` with rational `q != 0` and an integer `n` whose
+/// automatically simplified root is irrational.
+fn is_irrational_surd(x: &Expr) -> bool {
+    let surd = |b: &Expr, e: &Expr| {
+        b.is_integer_number() && e.as_number().is_some_and(|n| n.is_rational() && !n.is_integer())
+    };
+    match x.kind() {
+        Kind::Pow(b, e) => surd(b, e),
+        Kind::Mul(c, facs) => !c.is_zero() && c.is_rational() && facs.len() == 1 && surd(&facs[0].0, &facs[0].1),
+        _ => false,
     }
 }
 

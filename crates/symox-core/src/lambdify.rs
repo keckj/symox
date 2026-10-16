@@ -192,6 +192,13 @@ impl Builder<'_> {
                     let regs: Result<Vec<u32>, _> = args.iter().map(|a| self.lower(a)).collect();
                     Ins::Fold(matches!(f, Func::Max), regs?)
                 }
+                // booleans are 0.0 / 1.0: And = min, Or = max, Not = 1 - a
+                Func::Logic(op @ (crate::logic::LogicOp::And | crate::logic::LogicOp::Or)) => {
+                    let regs: Result<Vec<u32>, _> = args.iter().map(|a| self.lower(a)).collect();
+                    Ins::Fold(*op == crate::logic::LogicOp::Or, regs?)
+                }
+                Func::Logic(crate::logic::LogicOp::Not) => Ins::Sum(1.0, vec![(self.lower(&args[0])?, -1.0)]),
+                Func::Logic(_) => return self.lower(&crate::logic::eliminate_implications(e)),
                 _ => match f1(f) {
                     Some(g) => {
                         let a = self.lower(&args[0])?;

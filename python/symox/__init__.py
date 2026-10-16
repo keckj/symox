@@ -417,7 +417,9 @@ class Set:
         n = int(n)
         if n < 0:
             raise ValueError("%s: Exponent must be a positive Integer" % n)
-        return ProductSet(*([self] * n)) if n else FiniteSet(Tuple_())
+        if n == 0:
+            raise NotImplementedError("the empty product set is not supported")
+        return ProductSet(*([self] * n))
 
     # membership --------------------------------------------------------------
     def contains(self, other):
@@ -502,6 +504,10 @@ class Set:
                 "Reals", "Integers", "Naturals", "Naturals0", "Complexes", "Rationals"):
             return False
         return None
+
+    @property
+    def is_iterable(self):
+        return isinstance(self, (FiniteSet, Range)) or self.class_name in ("Integers", "Naturals", "Naturals0")
 
     @property
     def is_open(self):
@@ -763,10 +769,6 @@ Naturals = _named("Naturals")
 Naturals0 = _named("Naturals0")
 Complexes = _named("Complexes")
 Rationals = _named("Rationals")
-
-
-def Tuple_(*args):
-    raise NotImplementedError("tuples are not supported")
 
 
 def Contains(x, s):

@@ -634,8 +634,22 @@ pub fn reduce_inequalities(ineqs: &[Expr], x: Option<&Expr>) -> Result<Expr, Str
             }
         }
     };
+    // like SymPy, decide what the assumptions decide for a real variable
+    let real_gen = match gen.as_sym() {
+        Some(s) if !s.assumptions().has(crate::symbol::Assumptions::REAL) => {
+            Some(Expr::symbol_with(&format!("_real_{}", s.name()), crate::symbol::Assumptions::REAL))
+        }
+        _ => None,
+    };
     let mut sets: Vec<Expr> = Vec::new();
     for e in ineqs {
+        let e = &match &real_gen {
+            Some(r) => match subs1(e, &gen, r).kind() {
+                Kind::Bool(b) => Expr::boolean(*b),
+                _ => e.clone(),
+            },
+            None => e.clone(),
+        };
         match e.kind() {
             Kind::Bool(true) => continue,
             Kind::Bool(false) => return Ok(Expr::boolean(false)),
@@ -658,10 +672,10 @@ pub fn reduce_inequalities(ineqs: &[Expr], x: Option<&Expr>) -> Result<Expr, Str
         };
         sets.push(s);
     }
-    let s = intersection(sets);
-    if is_op(&s, SetOp::Reals) || interval_parts(&s).is_some_and(|(a, b, _, _)| is_infinite(&a) && is_infinite(&b)) {
+    if sets.is_empty() {
         return Ok(Expr::boolean(true));
     }
+    let s = intersection(sets);
     Ok(as_relational(&s, &gen))
 }
 
