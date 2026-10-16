@@ -25,3 +25,8 @@ pub mod factor_multi;
 pub mod factor_uni;
 pub mod gcd;
 pub mod sqf;
+pub mod convert;
+pub mod polyobj;
+pub mod api;
+pub mod resultant;
+pub mod roots;

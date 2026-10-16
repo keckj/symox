@@ -1,10 +1,8 @@
 //! String printers: SymPy compatible `str` and `srepr`.
 
-use std::cmp::Ordering;
-
 use crate::expr::{Constant, Expr, Func, Kind, RelOp};
 use crate::number::{format_float, Number};
-use crate::ops::{add_term, mul_factor};
+use crate::ops::mul_factor;
 
 const PREC_ADD: u8 = 40;
 const PREC_MUL: u8 = 50;
@@ -135,101 +133,9 @@ fn write_expr(e: &Expr, out: &mut String) {
     }
 }
 
-// ----------------------------------------------------------------------
-// term ordering (approximation of SymPy's lex ordering)
-// ----------------------------------------------------------------------
-
-#[derive(Clone)]
-struct GenKey {
-    rank: u8,
-    name: String,
-}
-
-fn gen_rank(b: &Expr) -> u8 {
-    match b.kind() {
-        Kind::Sym(_) => 0,
-        Kind::Const(_) => 1,
-        Kind::Func(..) => 2,
-        Kind::Num(_) => 4,
-        _ => 3,
-    }
-}
-
-/// Decompose a term into (generator, degree) pairs.
-fn monomial(t: &Expr) -> Vec<(GenKey, f64)> {
-    let mut v = Vec::new();
-    let mut push = |b: &Expr, x: &Expr| {
-        let deg = x.as_number().map(|n| n.to_f64());
-        let (b, deg) = match deg {
-            Some(d) => (b.clone(), d),
-            None => (mul_factor(b, x), 1.0),
-        };
-        if b.is_number() {
-            return;
-        }
-        v.push((
-            GenKey {
-                rank: gen_rank(&b),
-                name: to_str(&b),
-            },
-            deg,
-        ));
-    };
-    match t.kind() {
-        Kind::Num(_) => {}
-        Kind::Mul(_, facs) => {
-            for (b, x) in facs {
-                push(b, x)
-            }
-        }
-        Kind::Pow(b, x) => push(b, x),
-        _ => push(t, &Expr::one()),
-    }
-    v
-}
-
-fn cmp_gen(a: &GenKey, b: &GenKey) -> Ordering {
-    a.rank.cmp(&b.rank).then_with(|| a.name.cmp(&b.name))
-}
-
-/// Lex comparison: `Less` means `a` is printed first.
-fn cmp_monomials(a: &[(GenKey, f64)], b: &[(GenKey, f64)]) -> Ordering {
-    let mut gens: Vec<&GenKey> = a.iter().map(|x| &x.0).chain(b.iter().map(|x| &x.0)).collect();
-    gens.sort_by(|x, y| cmp_gen(x, y));
-    gens.dedup_by(|x, y| cmp_gen(x, y) == Ordering::Equal);
-    let deg = |m: &[(GenKey, f64)], g: &GenKey| -> f64 {
-        m.iter()
-            .filter(|(k, _)| cmp_gen(k, g) == Ordering::Equal)
-            .map(|(_, d)| *d)
-            .sum()
-    };
-    for g in gens {
-        let (da, db) = (deg(a, g), deg(b, g));
-        if da != db {
-            return db.partial_cmp(&da).unwrap_or(Ordering::Equal);
-        }
-    }
-    Ordering::Equal
-}
-
-/// Terms of an `Add` in printing order.
+/// Terms of an `Add` in printing order (SymPy's `as_ordered_terms`).
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    let Kind::Add(c, terms) = e.kind() else {
-        return vec![e.clone()];
-    };
-    let mut keyed: Vec<(Vec<(GenKey, f64)>, String, Expr)> = terms
-        .iter()
-        .map(|(t, k)| {
-            let full = add_term(t, k);
-            (monomial(t), to_str(t), full)
-        })
-        .collect();
-    keyed.sort_by(|a, b| cmp_monomials(&a.0, &b.0).then_with(|| a.1.cmp(&b.1)));
-    let mut v: Vec<Expr> = keyed.into_iter().map(|x| x.2).collect();
-    if !c.is_zero() {
-        v.push(Expr::num(c.clone()));
-    }
-    v
+    crate::sortkey::ordered_terms(e)
 }
 
 fn write_add(e: &Expr, out: &mut String) {
@@ -249,23 +155,8 @@ fn write_add(e: &Expr, out: &mut String) {
     }
 }
 
-fn factor_rank(b: &Expr) -> u8 {
-    match b.kind() {
-        Kind::Num(_) => 0,
-        Kind::Const(_) => 1,
-        Kind::Sym(_) => 2,
-        Kind::Pow(..) => 2,
-        Kind::Func(..) => 3,
-        Kind::Add(..) => 4,
-        _ => 5,
-    }
-}
-
 fn sort_factors(v: &mut [Expr]) {
-    v.sort_by_cached_key(|f| {
-        let (b, _) = crate::ops::as_base_exp(f);
-        (factor_rank(&b), to_str(&b), to_str(f))
-    });
+    crate::sortkey::sort_factors(v);
 }
 
 fn write_mul(e: &Expr, out: &mut String) {

@@ -25,6 +25,7 @@ pub mod poly;
 pub mod printer;
 pub mod relational;
 pub mod simplify;
+pub mod sortkey;
 pub mod subs;
 pub mod traverse;
 
