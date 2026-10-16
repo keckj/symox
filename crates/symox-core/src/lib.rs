@@ -33,6 +33,7 @@ pub mod relational;
 pub mod simp;
 pub mod simplify;
 pub mod solve;
+pub mod special;
 pub mod sortkey;
 pub mod subs;
 pub mod summation;
@@ -56,6 +57,15 @@ pub mod prelude {
     pub use crate::parser::{parse_str, sympify};
     pub use crate::relational::{eq, ge, gt, le, lt, ne, piecewise};
     pub use crate::simplify::{radsimp, simplify, together};
+    pub use crate::special::{
+        airyai, airyaiprime, airybi, airybiprime, assoc_laguerre, assoc_legendre, bell, bernoulli,
+        besseli, besselj, besselk, bessely, beta, binomial, catalan, chebyshevt, chebyshevu, ci,
+        chi, dirichlet_eta, ei, elliptic_e, elliptic_f, elliptic_k, erf2, erfi, euler, expint,
+        expand_func, factorial, factorial2, ff, fibonacci, fresnelc, fresnels, gegenbauer,
+        hankel1, hankel2, harmonic, hermite, hyper, jacobi, laguerre, lambertw, legendre, li,
+        lowergamma, lucas, partition, polygamma, polylog, rf, shi, si, uppergamma, zeta,
+        SpecialFn,
+    };
     pub use crate::subs::{subs, xreplace};
     pub use crate::traverse::{free_symbols, has};
 }

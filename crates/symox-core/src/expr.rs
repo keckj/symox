@@ -96,6 +96,8 @@ pub enum Func {
     DiracDelta,
     Max,
     Min,
+    /// Special functions (factorial, zeta, Bessel, ...), see [`crate::special`].
+    Special(crate::special::SpecialFn),
     Undefined(Arc<str>),
 }
 
@@ -138,6 +140,7 @@ impl Func {
             Func::DiracDelta => "DiracDelta",
             Func::Max => "Max",
             Func::Min => "Min",
+            Func::Special(s) => s.name(),
             Func::Undefined(n) => n,
         }
     }
@@ -181,7 +184,7 @@ impl Func {
             "DiracDelta" => Func::DiracDelta,
             "Max" => Func::Max,
             "Min" => Func::Min,
-            _ => return None,
+            _ => return crate::special::SpecialFn::from_name(name).map(Func::Special),
         })
     }
 
@@ -190,6 +193,7 @@ impl Func {
         match self {
             Func::Atan2 => Some(2),
             Func::Max | Func::Min | Func::Undefined(_) => None,
+            Func::Special(s) => s.arity(),
             _ => Some(1),
         }
     }

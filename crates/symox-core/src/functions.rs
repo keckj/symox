@@ -13,6 +13,9 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
     }
+    if let Func::Special(s) = f {
+        return crate::special::apply(s, args);
+    }
     // numeric evaluation when an argument is a float
     if !matches!(f, Func::Undefined(_) | Func::Max | Func::Min)
         && !args.is_empty()
@@ -67,30 +70,10 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Abs => eval_abs(&args[0]),
         Func::Sign => eval_sign(&args[0]),
         Func::Floor | Func::Ceiling => eval_floor_ceil(&f, &args[0]),
-        Func::Gamma => eval_gamma(&args[0]),
-        Func::LogGamma => {
-            if args[0].is_one() || args[0].as_i64() == Some(2) {
-                Some(Expr::zero())
-            } else {
-                None
-            }
-        }
-        Func::Erf => eval_odd(&Func::Erf, &args[0], |a| {
-            if a.is_zero() {
-                Some(Expr::zero())
-            } else if a.is_constant(Constant::Infinity) {
-                Some(Expr::one())
-            } else {
-                None
-            }
-        }),
-        Func::Erfc => {
-            if args[0].is_zero() {
-                Some(Expr::one())
-            } else {
-                None
-            }
-        }
+        Func::Gamma => crate::special::eval_gamma(&args[0]),
+        Func::LogGamma => crate::special::eval_loggamma(&args[0]),
+        Func::Erf => crate::special::eval_erf(&args[0]),
+        Func::Erfc => crate::special::eval_erfc(&args[0]),
         Func::Re => eval_re_im(&args[0], true),
         Func::Im => eval_re_im(&args[0], false),
         Func::Conjugate => eval_conjugate(&args[0]),
@@ -111,7 +94,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Undefined(_) => None,
+        Func::Special(_) | Func::Undefined(_) => None,
     };
     match r {
         Some(v) => v,
@@ -134,7 +117,7 @@ pub fn is_numeric_value(e: &Expr) -> bool {
         Kind::Sym(_) | Kind::Derivative(..) | Kind::Rel(..) | Kind::Piecewise(_) | Kind::Bool(_) => {
             false
         }
-        Kind::Func(Func::Undefined(_), _) => false,
+        Kind::Func(Func::Undefined(n), a) => &**n == "Tuple" && a.iter().all(is_numeric_value),
         _ => e.args().iter().all(is_numeric_value),
     }
 }
@@ -876,47 +859,6 @@ fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
             }
             None
         }
-    }
-}
-
-fn eval_gamma(a: &Expr) -> Option<Expr> {
-    match a.kind() {
-        Kind::Num(n) if n.is_integer() => {
-            if !n.is_positive() {
-                return Some(Expr::zoo());
-            }
-            let k = n.to_i64()?;
-            if k > 2000 {
-                return None;
-            }
-            let mut acc = Number::ONE;
-            for i in 2..k {
-                acc = acc.mul(&Number::int(i));
-            }
-            Some(Expr::num(acc))
-        }
-        Kind::Num(n) if n.is_rational() && n.denom() == Number::int(2) => {
-            // gamma(k + 1/2) = (2k)! / (4^k k!) sqrt(pi)
-            let k = n.floor().to_i64()?;
-            if k.abs() > 1000 {
-                return None;
-            }
-            let sp = sqrt(&Expr::pi());
-            let mut c = Number::ONE;
-            if k >= 0 {
-                // prod_{j=0}^{k-1} (j + 1/2)
-                for j in 0..k {
-                    c = c.mul(&Number::rational_i64(2 * j + 1, 2).unwrap());
-                }
-            } else {
-                for j in k..0 {
-                    c = c.div(&Number::rational_i64(2 * j + 1, 2).unwrap()).unwrap();
-                }
-            }
-            Some(mul2(&Expr::num(c), &sp))
-        }
-        Kind::Const(Constant::Infinity) => Some(Expr::oo()),
-        _ => None,
     }
 }
 

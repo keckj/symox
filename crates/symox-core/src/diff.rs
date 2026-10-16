@@ -165,6 +165,21 @@ fn d_func(
     if matches!(f, Func::Max | Func::Min) {
         return derivative_unevaluated(e, vec![(x.clone(), 1)]);
     }
+    if let Func::Special(s) = f {
+        // chain rule over all arguments
+        let mut terms = Vec::new();
+        for (i, a) in args.iter().enumerate() {
+            let da = d(a, x, cache);
+            if da.is_zero() {
+                continue;
+            }
+            match crate::special::diff::partial(*s, args, i) {
+                Some(p) => terms.push(mul(&[p, da])),
+                None => return derivative_unevaluated(e, vec![(x.clone(), 1)]),
+            }
+        }
+        return add(&terms);
+    }
     let u = &args[0];
     let du = d(u, x, cache);
     if du.is_zero() {
@@ -207,6 +222,8 @@ fn d_func(
             exp(&neg(&u.powi(2))),
         ]),
         Func::Heaviside => dirac_delta(u),
+        Func::Gamma => mul(&[e.clone(), crate::special::polygamma(&Expr::zero(), u)]),
+        Func::LogGamma => crate::special::polygamma(&Expr::zero(), u),
         Func::Re => return re(&du),
         Func::Im => return im(&du),
         Func::Conjugate => return conjugate(&du),
