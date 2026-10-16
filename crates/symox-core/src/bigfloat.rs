@@ -12,7 +12,7 @@ use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BigFloat {
     /// Signed mantissa; zero is represented by `man == 0, exp == 0`.
     pub man: BigInt,
@@ -21,12 +21,12 @@ pub struct BigFloat {
 
 /// Convert decimal digits to bits of precision (with no guard bits).
 pub fn dps_to_prec(dps: u32) -> u32 {
-    ((dps as f64) * std::f64::consts::LOG2_10).ceil() as u32 + 1
+    (((dps as f64 + 1.0) * std::f64::consts::LOG2_10).round() as u32).max(2)
 }
 
 /// Convert bits of precision to decimal digits (SymPy's `prec_to_dps`).
 pub fn prec_to_dps(prec: u32) -> u32 {
-    ((prec as f64 - 1.0) / std::f64::consts::LOG2_10).floor().max(1.0) as u32
+    ((prec as f64 / std::f64::consts::LOG2_10 - 1.0).round().max(1.0)) as u32
 }
 
 fn bitlen(n: &BigInt) -> i64 {
@@ -125,33 +125,75 @@ impl BigFloat {
 
     /// `n / d` rounded to `prec` bits.
     pub fn from_ratio(n: &BigInt, d: &BigInt, prec: u32) -> BigFloat {
-        if n.is_zero() {
-            return BigFloat::zero();
+        Self::from_int(n).div(&Self::from_int(d), prec).expect("nonzero denominator")
+    }
+
+    /// Parse a decimal without an intermediate machine float.
+    pub fn from_decimal(s: &str, prec: u32) -> Result<BigFloat, String> {
+        let s = s.trim();
+        let (mantissa, exponent) = match s.find(['e', 'E']) {
+            Some(i) => (&s[..i], s[i + 1..].parse::<i64>().map_err(|_| "invalid decimal exponent")?),
+            None => (s, 0),
+        };
+        let (negative, mantissa) = match mantissa.as_bytes().first() {
+            Some(b'-') => (true, &mantissa[1..]),
+            Some(b'+') => (false, &mantissa[1..]),
+            _ => (false, mantissa),
+        };
+        let mut digits = String::new();
+        let mut fractional = None;
+        for c in mantissa.chars() {
+            if c == '.' && fractional.is_none() { fractional = Some(0i64); }
+            else if c.is_ascii_digit() {
+                digits.push(c);
+                if let Some(ref mut count) = fractional { *count += 1; }
+            } else { return Err("invalid decimal literal".into()); }
         }
-        let shift = prec as i64 + 2 + bitlen(d) - bitlen(n);
-        let shift = shift.max(0);
-        let num = n << (shift as usize);
-        let (q, r) = num.div_rem(d);
-        // sticky bit for correct rounding
-        let q = (q << 1usize) | if r.is_zero() { BigInt::zero() } else { BigInt::one() };
-        BigFloat::round(q, -shift - 1, prec)
+        if digits.is_empty() { return Err("invalid decimal literal".into()); }
+        let power = exponent.checked_sub(fractional.unwrap_or(0)).ok_or("decimal exponent overflow")?;
+        if power.unsigned_abs() > 1_000_000 { return Err("decimal exponent exceeds supported magnitude (1000000)".into()); }
+        let mut n: BigInt = digits.parse().map_err(|_| "invalid decimal literal")?;
+        if negative { n = -n; }
+        let ten = num_traits::pow::Pow::pow(BigInt::from(10), power.unsigned_abs());
+        Ok(if power >= 0 { BigFloat::from_int(&(n * ten)).round_to(prec) }
+            else { BigFloat::from_ratio(&n, &ten, prec) })
+    }
+
+    pub fn to_ratio_exact(&self) -> num_rational::BigRational {
+        if self.exp >= 0 {
+            num_rational::BigRational::from_integer(&self.man << self.exp as usize)
+        } else {
+            num_rational::BigRational::new(self.man.clone(), BigInt::one() << (-self.exp) as usize)
+        }
     }
 
     pub fn to_f64(&self) -> f64 {
         if self.man.is_zero() {
             return 0.0;
         }
-        let bl = bitlen(&self.man);
+        let sign = if self.is_negative() { 1u64 << 63 } else { 0 };
+        // Subnormals have a fixed quantum of 2**-1074. Round directly to
+        // that grid to avoid both powi underflow and double rounding.
+        if self.mag() < -1021 {
+            let shift = self.exp + 1074;
+            let mut mantissa = self.man.abs();
+            if shift >= 0 {
+                mantissa <<= shift as usize;
+            } else {
+                let discarded = shift.unsigned_abs();
+                if discarded > mantissa.bits() + 1 { return f64::from_bits(sign); }
+                let half = BigInt::one() << (discarded as usize - 1);
+                let remainder = &mantissa & ((BigInt::one() << discarded as usize) - 1);
+                mantissa >>= discarded as usize;
+                if remainder > half || (remainder == half && mantissa.is_odd()) { mantissa += 1; }
+            }
+            return f64::from_bits(sign | mantissa.to_u64().unwrap_or(0));
+        }
         let r = BigFloat::round(self.man.clone(), self.exp, 53);
-        let m = r.man.to_f64().unwrap_or(f64::NAN);
-        let _ = bl;
-        if r.exp > 1023 {
-            return if m > 0.0 { f64::INFINITY } else { f64::NEG_INFINITY };
-        }
-        if r.exp < -1100 {
-            return m * 2f64.powi(-1100) * 2f64.powi((r.exp + 1100) as i32);
-        }
-        m * 2f64.powi(r.exp as i32)
+        let exponent = r.mag() - 1;
+        if exponent > 1023 { return f64::from_bits(sign | (0x7ff << 52)); }
+        let mantissa = r.man.abs().to_u64().unwrap() << (53 - r.man.bits());
+        f64::from_bits(sign | (((exponent + 1023) as u64) << 52) | (mantissa & ((1u64 << 52) - 1)))
     }
 
     pub fn neg(&self) -> BigFloat {
@@ -432,16 +474,23 @@ impl BigFloat {
         BigFloat::round(self.man.clone(), self.exp, prec)
     }
 
-    /// e**x
+    /// e**x. Panics if the binary exponent cannot fit in i64; callers
+    /// evaluating untrusted magnitudes should use `checked_exp`.
     pub fn exp(&self, prec: u32) -> BigFloat {
+        self.checked_exp(prec).expect("exponential exponent exceeds the BigFloat i64 range")
+    }
+
+    pub fn checked_exp(&self, prec: u32) -> Option<BigFloat> {
         if self.is_zero() {
-            return BigFloat::one();
+            return Some(BigFloat::one());
         }
         let mag = self.mag();
+        if mag > 64 { return None; }
         let wp = prec + 20 + mag.max(0) as u32;
         // x = k*ln2 + r, |r| <= ln2/2
         let l2 = ln2(wp + mag.max(0) as u32);
         let k = self.div(&l2, wp).unwrap().to_int_round();
+        let ki = k.to_i64()?;
         let kf = BigFloat::from_int(&k);
         let r = self.sub(&kf.mul(&l2, wp + bitlen(&k) as u32), wp);
         // further reduce: r / 2^s
@@ -454,8 +503,8 @@ impl BigFloat {
         for _ in 0..s {
             y = y.mul(&y, wp2);
         }
-        let ki = k.to_i64().unwrap_or(0);
-        y.ldexp(ki).round_to(prec)
+        let exponent = y.exp.checked_add(ki)?;
+        Some(BigFloat { man: y.man, exp: exponent }.round_to(prec))
     }
 
     /// Natural logarithm (None for x <= 0).
@@ -618,7 +667,7 @@ impl BigFloat {
         }
         let wp = prec + 20 + y.mag().max(0) as u32;
         let l = self.ln(wp)?;
-        Some(l.mul(y, wp).exp(prec))
+        l.mul(y, wp).checked_exp(prec)
     }
 
     /// x**n for an integer n.
@@ -629,11 +678,15 @@ impl BigFloat {
         let mut acc = BigFloat::one();
         while e > 0 {
             if e & 1 == 1 {
+                acc.exp.checked_add(base.exp)?;
                 acc = acc.mul(&base, wp);
+                if !acc.is_zero() && acc.mag().unsigned_abs() > 3_321_930 { return None; }
             }
             e >>= 1;
             if e > 0 {
+                base.exp.checked_add(base.exp)?;
                 base = base.mul(&base, wp);
+                if !base.is_zero() && base.mag().unsigned_abs() > 3_321_930 { return None; }
             }
         }
         if n < 0 {
@@ -788,5 +841,34 @@ mod tests {
         assert_eq!(BigFloat::from_f64(2.0).to_string_dps(15, false), "2.00000000000000");
         assert_eq!(BigFloat::from_f64(1e-7).to_string_dps(15, false), "1.00000000000000e-7");
         assert_eq!(BigFloat::from_f64(123.5).to_string_dps(5, false), "123.50");
+    }
+
+    #[test]
+    fn machine_float_conversion_preserves_subnormals_and_rounds_ties_even() {
+        let mut patterns = vec![1, 2, (1u64 << 52) - 1, 1u64 << 52, 0x7fef_ffff_ffff_ffff];
+        let mut seed = 0x123456789abcdefu64;
+        for _ in 0..1000 {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            if (seed >> 52) & 0x7ff != 0x7ff { patterns.push(seed); }
+        }
+        for bits in patterns {
+            let value = f64::from_bits(bits);
+            assert_eq!(BigFloat::from_f64(value).to_f64().to_bits(), value.to_bits());
+        }
+        assert_eq!(BigFloat { man: BigInt::from(1), exp: -1075 }.to_f64().to_bits(), 0);
+        assert_eq!(BigFloat { man: BigInt::from(3), exp: -1075 }.to_f64().to_bits(), 2);
+        assert_eq!(BigFloat { man: BigInt::from(-3), exp: -1075 }.to_f64().to_bits(), (1u64 << 63) | 2);
+    }
+
+    #[test]
+    fn unrepresentable_exponentials_and_powers_are_checked() {
+        let huge = BigFloat::from_decimal("1e100", 200).unwrap();
+        assert!(huge.checked_exp(200).is_none());
+        assert!(huge.neg().checked_exp(200).is_none());
+        assert!(BigFloat::from_i64(10).powf(&huge, 200).is_none());
+        assert!(BigFloat::from_i64(10).powi(i64::MAX, 200).is_none());
+        assert_eq!(BigFloat::zero().powi(2, 200), Some(BigFloat::zero()));
+        let ordinary = BigFloat::from_i64(1000).checked_exp(200).unwrap();
+        assert!(ordinary.mag() > 1400);
     }
 }

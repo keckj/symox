@@ -40,7 +40,7 @@ Implemented:
   merging, exact radicals `sqrt(8) = 2*sqrt(2)`, `I**2 = -1`, numeric
   coefficient distribution, infinities and `nan`, ...)
 * exact integers (machine word fast path, transparent big integers),
-  rationals and floats
+  rationals, machine floats and arbitrary-precision floating-point expressions
 * elementary and special functions with automatic evaluation (special values
   of trig functions, parity, periodicity, inverse compositions, ...)
 * `diff`, `expand` (sparse polynomial fast path), `subs`, `xreplace`,
@@ -77,13 +77,25 @@ derivatives and double precision real/complex numerics. `expand_func`,
 `besselsimp`, `hyperexpand`, Stirling numbers and multinomial coefficients are
 also available. Unsupported symbolic cases remain unevaluated.
 
+`Float(value, digits)`, `expr.evalf(digits)` and `N(expr, digits)` preserve
+arbitrary precision in native expression nodes, including arithmetic, partial
+symbolic evaluation, matrices, parsing, pickling and SymPy interchange.
+Decimal strings are parsed directly; Python floats retain their original
+binary value. The native multiprecision evaluator supports elementary
+real/complex functions and a subset of special functions. Unsupported functions
+remain symbolic; they do not receive invented digits from a double fallback.
+The current resource limits are 10,000 decimal digits or 40,000 precision bits.
+Exponential and hyperbolic evaluation is limited to a real argument magnitude
+of 2,000,000; power results are limited to a decimal exponent magnitude around
+1,000,000. Outside supported ranges expressions remain symbolic.
+Compiled numerical backends still use their declared machine dtypes.
+
 `special_nstr(expr, dps)` returns an arbitrary precision decimal string for
 numeric expressions supported by the multiprecision evaluator, including
 factorial, binomial, rising/falling factorials, beta, Catalan, Fibonacci and
 Lucas via exact gamma/elementary identities. Other special function families
 return `None` when multiprecision evaluation is unsupported; no double
-precision fallback is presented as extra significant digits. The regular
-`N`/`evalf` expression API still uses double precision.
+precision fallback is presented as extra significant digits.
 
 ## Compatibility with SymPy
 
@@ -92,7 +104,6 @@ compares the printed canonical forms and, when they differ, numerical
 equivalence. Known deliberate deviations:
 
 * `diff(Abs(x), x)` returns `sign(x)` (the real-variable formula).
-* `evalf` is double precision for now (`n` is accepted but ignored).
 * Some antiderivatives use a different branch constant from SymPy (for example
   `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
 
@@ -117,7 +128,7 @@ with nvcc or NVRTC, PyTorch, JAX, Slang and SYCL:
 flowchart LR
     E["symox expressions + CSE"] --> N["Native CUDA source"]
     N --> NV["nvcc / ahead-of-time compilation"] -.-> CU["NVIDIA GPU / CUDA"]
-    N -.-> RTC["NVRTC / runtime compilation"]
+    N --> RTC["NVRTC / runtime compilation + PTX cache"]
     RTC --> CU
 
     E --> P["PyTorch operations"]
@@ -127,7 +138,7 @@ flowchart LR
 
     E --> J["JAX operations"]
     J --> X["JAX / optional jax.jit via XLA"]
-    X -.-> CU
+    X --> CU
     X --> CPU
 
     E --> S["Slang source"]
@@ -156,11 +167,14 @@ flowchart LR
 Solid device edges are exercised by this project's numerical execution tests.
 Dotted edges show external toolchain routes not
 validated here; they are not guarantees of feature or precision parity.
-JAX is tested on CPU here; its CUDA route requires a suitable JAX installation.
+JAX is tested on CPU and NVIDIA CUDA; GPU execution requires a suitable
+JAX installation. Explicit JIT devices select the compiled executable's
+placement, including when its inputs are Python scalars.
 Native source exports need their corresponding compiler and host integration.
 Native CUDA source can be compiled ahead of time with nvcc or at runtime with
-NVRTC. The latter is also used by the SlangPy CUDA execution path; symox's raw
-CUDA source exports leave NVRTC invocation and kernel launch to the caller.
+NVRTC. `cuda_lambdify` supplies native NVRTC compilation and execution; raw
+source exports can also be integrated by the caller. NVRTC is also used by
+the SlangPy CUDA execution path.
 SlangPy's CPU dispatch is not enabled by our adapter. AdaptiveCpp's tested
 configuration is the CPU OpenMP backend; GPU execution needs a compiler/runtime
 installation with those backends enabled. The diagram does not imply that
@@ -168,6 +182,44 @@ symox chooses a backend automatically or that every route has the same speed.
 
 Framework functions preserve autograd where supported; Slang and SYCL exports
 are ordinary direct numerical kernels and require no differentiation framework.
+
+## Native CUDA execution with NVRTC
+
+`cuda_lambdify` compiles native CUDA source and executes it through the CUDA
+Driver API. It requires the NVIDIA driver and NVRTC shared libraries, with no
+PyTorch, JAX, CuPy or CUDA Python package dependency. Library loading is lazy.
+
+```python
+import numpy as np
+import symox as sm
+
+x, y = sm.symbols("x y")
+f = sm.cuda_lambdify((x, y), sm.sin(x) + y, dtype="float64")
+result = f(np.arange(3.0)[:, None], np.arange(2.0))  # shape (3, 2)
+f.close()
+```
+
+Host arrays broadcast and may be noncontiguous. Lists/tuples retain structure;
+matrix and array dimensions follow broadcast batch dimensions. Results are
+NumPy arrays, with synchronous transfers to and from the GPU. Boolean outputs,
+float32/float64, safely renamed arguments, CSE and lazy Piecewise branches are
+supported. Complex-valued expressions are not supported by this interface.
+`lambdify(..., "cuda")` and `lambdify(..., "nvrtc")` use the same path.
+
+`compile_cuda(source, name)` loads an `extern "C"` kernel for direct use with
+device pointers and streams. Its `CudaKernel.launch` method accepts explicitly
+typed ctypes arguments; callers own their buffers and asynchronous lifetimes.
+Buffers and streams must belong to the selected device's primary CUDA context.
+Raw launches are asynchronous; `synchronize()` and `close()` wait for that
+primary context. Kernels support context managers. PTX is cached atomically under
+`$XDG_CACHE_HOME/symox/nvrtc` (or `~/.cache/symox/nvrtc`), keyed by source,
+compiler flags, NVRTC version and GPU architecture. Set `cache_dir=False` to
+disable disk caching. Compilation errors include the NVRTC log.
+
+`SYMOX_CUDA_LIBRARY` and `SYMOX_NVRTC_LIBRARY` can select library paths.
+Run GPU integration tests with
+`SYMOX_CUDA_REQUIRE_RUNTIME=1 python -m pytest tests/test_cuda_runtime.py`.
+See the [NVRTC documentation](https://docs.nvidia.com/cuda/nvrtc/).
 
 ## PyTorch code generation
 
@@ -402,8 +454,12 @@ g.contains(x**2 - 1)             # True
 ```
 
 Bases support iteration, indexing, `exprs`, `polys`, `gens`, `domain`,
-`order` and `is_zero_dimensional`. F5B, FGLM and coefficient extensions
-are not implemented.
+`order` and `is_zero_dimensional`. `g.fglm(order="lex")` converts a
+zero-dimensional basis using exact quotient-algebra multiplication matrices
+and linear dependence, over the supported rational and prime finite fields.
+Changing the monomial order requires a zero-dimensional ideal; requesting the
+existing order returns the basis unchanged. F5B and coefficient extensions are
+not implemented.
 
 `linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
 equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
@@ -412,6 +468,30 @@ parameters when none are supplied. `solve_linear_system` provides the
 dictionary interface. Nonlinear terms raise `NonlinearError`. Symbolic row
 reduction uses generic nonzero pivots; it does not enumerate exceptional
 parameter values.
+
+`solve_poly_system` uses Gröbner elimination and exact back substitution for
+supported finite polynomial systems. `nonlinsolve` returns a finite set of
+solution tuples for these systems and delegates linear parametric systems to
+`linsolve`. Symbolic triangular systems are also supported. Unresolved
+nonlinear positive-dimensional systems and roots that cannot all be expressed
+by the implemented exact root solver raise `NotImplementedError`; no partial
+list is presented as a complete solution.
+
+`solve(..., set=True)` returns the symbols and solution tuples. `nsolve`
+supports Newton iteration, real bracketed bisection, `tol`, `maxsteps`,
+`verify` and dictionary output. It verifies the final residual by default
+and rejects failed convergence. Numerical solving currently uses double
+precision; higher `prec` requests and unsupported solvers are explicit errors.
+Unsupported `solve` flags, ODE hints and integration options are rejected
+instead of being silently ignored.
+
+`residue(expr, x, point)` extracts the coefficient of the inverse first power
+from the native Laurent expansion, including higher-order poles. Unsupported
+branch points and essential singularities raise `NotImplementedError`.
+Rational definite integrals cancel removable factors and analyze one-sided
+divergences at real poles and infinite tails. Exact Sturm root counts certify
+pole coverage; unresolved cases remain unevaluated. Opposing infinities produce
+`nan`, rather than a finite Cauchy principal value.
 
 ## Symbolic matrices
 
@@ -426,8 +506,11 @@ in Rust. Cholesky, LDL, QR and diagonalization are also available.
 `rank_decomposition`, `pinv(method="RD")`, `pinv_solve`, triangular solves,
 `QRsolve`, `cholesky_solve`, `LDLsolve` and `solve_least_squares` use exact
 native algorithms. Complex matrix solves use Hermitian conjugation.
-`inv` also accepts `CH`, `LDL` and `QR` methods. Pseudoinversion by `ED` is
-not implemented; QR solves require full column rank. Methods requiring a
+`inv` also accepts `CH`, `LDL` and `QR` methods. `pinv(method="ED")` uses
+exact spectral projectors for supported Hermitian eigenproblems.
+`singular_values`, spectral norms (`norm(2)` / `norm(-2)`),
+`condition_number`, `jordan_form` and `jordan_cells` are available for supported
+exact eigenproblems. QR solves require full column rank. Methods requiring a
 property that cannot be established symbolically raise an explicit error.
 
 ```python
@@ -447,13 +530,19 @@ assumptions and unevaluated arithmetic. Immutable results preserve their
 immutability through arithmetic, slicing and decompositions; `as_mutable()`
 returns an independent editable copy.
 
+`SparseMatrix` / `MutableSparseMatrix` and `ImmutableSparseMatrix` use actual
+dictionary-based sparse storage. Construction, indexing, arithmetic,
+matrix products, nonnegative integer powers, joins and transposes operate on
+stored entries.
+`nnz`, `todok`, NumPy/SymPy conversion and pickling are supported. Advanced
+factorizations and negative powers explicitly convert to the native dense
+algorithms; they are not sparse numerical factorization routines.
+
 This API does not cover every SymPy matrix method. Eigenproblems beyond the
 supported exact algebraic cases, custom zero/simplification callbacks and
-unsupported constructor/algorithm options raise `NotImplementedError`.
-Matrix `evalf` currently supports its default 15-digit double precision;
-other precision requests raise `NotImplementedError`. Vector norms and
-matrix Frobenius/1/infinity norms are supported; matrix spectral norms
-are not implemented.
+unsupported constructor/algorithm options are rejected explicitly.
+Matrix `evalf` supports the same arbitrary precision and substitutions as
+scalar expressions.
 
 ```bash
 python tests/compare_matrices.py
@@ -486,8 +575,8 @@ patterns; `xreplace` performs exact replacement. `reduced(f, divisors, *gens)`
 returns polynomial quotients and a remainder, with deterministic generator
 ordering when generators are inferred. Numeric coefficient domains support
 `lex`, `grlex` and `grevlex`; symbolic coefficient fields support `lex`.
-Explicit `domain`/`modulus`, `polys=True`, and `auto=False` raise
-`NotImplementedError`.
+`domain="ZZ"` / `"QQ"`, prime `modulus`, `polys=True` and `auto` select
+the coefficient domain, return representation and ring/field division.
 
 The extensible Python `CXX17CodePrinter` supports `_print_<Class>` overrides,
 `doprint`, and `parenthesize`. The existing top-level `cxxcode` uses the native

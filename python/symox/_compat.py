@@ -42,7 +42,7 @@ class Float(Number):
     _matches = staticmethod(lambda e: e.is_Float)
 
     def __new__(cls, value=0, dps=None, precision=None):
-        return _core.Float(value)
+        return _core.Float(value, dps, precision=precision)
 
 
 class Symbol(metaclass=_ExprType):

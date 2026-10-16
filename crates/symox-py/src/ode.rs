@@ -17,6 +17,19 @@ fn dsolve(
     ics: Option<&Bound<'_, PyDict>>,
     _hints: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<PyObject> {
+    if let Some(hints) = _hints {
+        for (key, value) in hints.iter() {
+            let key: String = key.extract()?;
+            let supported = match key.as_str() {
+                "hint" => value.extract::<String>()? == "default",
+                "simplify" => value.is_truthy()?,
+                _ => false,
+            };
+            if !supported {
+                return Err(PyNotImplementedError::new_err(format!("dsolve option '{key}' with this value is not implemented")));
+            }
+        }
+    }
     let e = to_expr(eq)?;
     let f = match func {
         Some(f) => to_expr(f)?,

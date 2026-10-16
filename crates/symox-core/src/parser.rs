@@ -147,6 +147,7 @@ struct Parser {
     pos: usize,
     /// boolean keyword arguments of the call being parsed
     kwargs: Vec<(String, bool)>,
+    precision: Option<i64>,
 }
 
 type R<T> = Result<T, ParseError>;
@@ -367,6 +368,12 @@ impl Parser {
                 let Tok::Ident(key) = self.next() else { unreachable!() };
                 self.next();
                 let v = self.value()?;
+                if key == "precision" {
+                    self.precision = Some(match &v {
+                        Val::E(e) => e.as_i64().ok_or_else(|| ParseError { msg: "precision must be an integer".into(), pos: self.at() })?,
+                        _ => return self.err("precision must be an integer"),
+                    });
+                }
                 if let Val::E(e) = &v {
                     if let crate::expr::Kind::Bool(b) = e.kind() {
                         self.kwargs.push((key, *b));
@@ -424,8 +431,34 @@ impl Parser {
             Tok::Ident(name) => {
                 if matches!(self.peek(), Tok::LParen) {
                     let saved = std::mem::take(&mut self.kwargs);
+                    let saved_precision = self.precision.take();
                     let args = self.call_args()?;
                     let kwargs = std::mem::replace(&mut self.kwargs, saved);
+                    let precision = std::mem::replace(&mut self.precision, saved_precision);
+                    if name == "Float" {
+                        if args.is_empty() || args.len() > 2 { return self.err("Float expects one value and optional decimal precision"); }
+                        if precision.is_some() && args.len() == 2 { return self.err("specify decimal digits or bit precision, not both"); }
+                        let bits = match (precision, args.get(1)) {
+                            (Some(p), _) if (2..=40_000).contains(&p) => p as u32,
+                            (Some(_), _) => return self.err("bit precision must lie between 2 and 40000"),
+                            (None, Some(Val::E(e))) => {
+                                let n = e.as_i64().filter(|n| (1..=10_000).contains(n)).ok_or_else(|| ParseError { msg: "decimal precision must lie between 1 and 10000".into(), pos: self.at() })?;
+                                crate::bigfloat::dps_to_prec(n as u32)
+                            }
+                            (None, Some(_)) => return self.err("decimal precision must be an integer"),
+                            _ => 53,
+                        };
+                        let value = match &args[0] {
+                            Val::Str(s) => crate::bigfloat::BigFloat::from_decimal(s, bits)
+                                .map_err(|msg| ParseError { msg, pos: self.at() })?,
+                            Val::E(e) => match e.as_number() {
+                                Some(number) => number.to_bigfloat(bits),
+                                None => return self.err("Float expects a real number"),
+                            },
+                            _ => return self.err("Float expects a real number"),
+                        };
+                        return Ok(Val::E(Expr::num(Number::mp_float(value, bits))));
+                    }
                     if (name == "Symbol" || name == "Dummy") && !kwargs.is_empty() {
                         if let Some(Val::Str(s)) = args.first() {
                             let a = crate::symbol::Assumptions::from_kwargs(
@@ -667,7 +700,7 @@ pub fn parse_number(s: &str) -> Option<Expr> {
 /// Parse a string into an expression.
 pub fn parse_str(s: &str) -> Result<Expr, ParseError> {
     let toks = tokenize(s)?;
-    let mut p = Parser { toks, pos: 0, kwargs: Vec::new() };
+    let mut p = Parser { toks, pos: 0, kwargs: Vec::new(), precision: None };
     let e = p.expr()?;
     if !matches!(p.peek(), Tok::End) {
         return p.err(format!("unexpected trailing token {:?}", p.peek()));

@@ -62,13 +62,16 @@ impl MpComplex {
         BigFloat::atan2(&self.im, &self.re, p)
     }
 
-    fn exp(&self, p: u32) -> MpComplex {
-        let r = self.re.exp(p + 10);
+    fn exp(&self, p: u32) -> Option<MpComplex> {
+        // Keep exponential results inside a decimal exponent magnitude of
+        // one million, matching the native decimal constructor's bound.
+        if self.re.abs().cmp(&BigFloat::from_i64(2_000_000)) == std::cmp::Ordering::Greater { return None; }
+        let r = self.re.checked_exp(p + 10)?;
         if self.im.is_zero() {
-            return MpComplex::real(r.round_to(p));
+            return Some(MpComplex::real(r.round_to(p)));
         }
         let (s, c) = self.im.sin_cos(p + 10);
-        MpComplex { re: r.mul(&c, p), im: r.mul(&s, p) }
+        Some(MpComplex { re: r.mul(&c, p), im: r.mul(&s, p) })
     }
 
     fn ln(&self, p: u32) -> Option<MpComplex> {
@@ -88,7 +91,7 @@ impl MpComplex {
         }
         let wp = p + 20 + e.re.mag().max(0) as u32 + e.im.mag().max(0) as u32;
         let l = self.ln(wp)?;
-        Some(l.mul(e, wp).exp(p))
+        l.mul(e, wp).exp(p)
     }
 
     fn powi(&self, n: i64, p: u32) -> Option<MpComplex> {
@@ -102,10 +105,12 @@ impl MpComplex {
         while k > 0 {
             if k & 1 == 1 {
                 acc = acc.mul(&base, wp);
+                if !supported_magnitude(&acc) { return None; }
             }
             k >>= 1;
             if k > 0 {
                 base = base.mul(&base, wp);
+                if !supported_magnitude(&base) { return None; }
             }
         }
         if n < 0 {
@@ -116,13 +121,28 @@ impl MpComplex {
     }
 }
 
+fn supported_magnitude(value: &MpComplex) -> bool {
+    [&value.re, &value.im].iter().all(|v| v.is_zero() || v.mag().unsigned_abs() <= 3_321_930)
+}
+
 fn number(n: &Number, p: u32) -> BigFloat {
     match n {
         Number::Int(i) => BigFloat::from_i64(*i),
         Number::BigInt(b) => BigFloat::from_int(b),
         Number::Rational(r) => BigFloat::from_ratio(r.numer(), r.denom(), p),
         Number::Float(f) => BigFloat::from_f64(*f),
+        Number::MpFloat(value, _) => value.round_to(p),
     }
+}
+
+/// Highest declared precision among the floating point leaves.
+pub fn max_precision(e: &Expr) -> Option<u32> {
+    if let Kind::Num(n) = e.kind() { return n.float_precision(); }
+    e.args().iter().filter_map(max_precision).max()
+}
+
+pub fn has_mp(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Num(Number::MpFloat(..))) || e.args().iter().any(has_mp)
 }
 
 /// Evaluate a numeric expression to `prec` bits. Returns `None` when the
@@ -130,7 +150,40 @@ fn number(n: &Number, p: u32) -> BigFloat {
 pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
     let wp = prec + 20;
     let r = ev(e, wp)?;
+    if !supported_magnitude(&r) { return None; }
     Some(MpComplex { re: r.re.round_to(prec), im: r.im.round_to(prec) })
+}
+
+/// Convert a computed value back to native expression numbers, retaining the
+/// declared precision. Exact zero components stay exact zero.
+pub fn to_expr(value: MpComplex, prec: u32) -> Expr {
+    let re = if value.re.is_zero() { Expr::zero() } else { Expr::num(Number::mp_float(value.re, prec)) };
+    if value.im.is_zero() { return re; }
+    let im = Expr::from_kind(Kind::Mul(Number::mp_float(value.im, prec), vec![(Expr::i(), Expr::one())]));
+    if re.is_zero() { im } else { crate::ops::add2(&re, &im) }
+}
+
+/// Numerical evaluation with native arbitrary precision numbers. Unsupported
+/// numerical functions remain symbolic; this never silently computes them at
+/// machine precision. Integer powers and symbolic function arguments remain
+/// exact, as in SymPy's partial evalf.
+pub fn evalf(e: &Expr, prec: u32) -> Expr {
+    if e.is_zero() { return Expr::zero(); }
+    if let Some(value) = eval_mp(e, prec) { return to_expr(value, prec); }
+    if crate::functions::is_numeric_value(e) { return e.clone(); }
+    match e.kind() {
+        Kind::Add(..) => crate::ops::add(&e.args().iter().map(|a| evalf(a, prec)).collect::<Vec<_>>()),
+        Kind::Mul(..) => crate::ops::mul(&e.args().iter().map(|a| evalf(a, prec)).collect::<Vec<_>>()),
+        Kind::Pow(base, exponent) => crate::ops::pow(
+            &evalf(base, prec),
+            &if exponent.is_integer_number() { exponent.clone() } else { evalf(exponent, prec) },
+        ),
+        Kind::Rel(op, a, b) => crate::relational::rel(*op, &evalf(a, prec), &evalf(b, prec)),
+        Kind::Piecewise(pairs) => crate::relational::piecewise(
+            pairs.iter().map(|(value, condition)| (evalf(value, prec), condition.clone())).collect(),
+        ),
+        _ => e.clone(),
+    }
 }
 
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
@@ -143,17 +196,7 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
             Constant::EulerGamma => MpComplex::real(euler_gamma(p)),
             _ => return None,
         },
-        Kind::Add(c, terms) => {
-            // extra precision against cancellation
-            let wp = p + 32;
-            let mut s = MpComplex::real(number(c, wp));
-            for (t, k) in terms {
-                let v = ev(t, wp)?;
-                let v = if k.is_one() { v } else { v.scale(&number(k, wp), wp) };
-                s = s.add(&v, wp);
-            }
-            s
-        }
+        Kind::Add(c, terms) => eval_sum(c, terms, p)?,
         Kind::Mul(c, facs) => {
             let mut acc = MpComplex::real(number(c, p));
             for (b, x) in facs {
@@ -166,6 +209,32 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
         Kind::Func(f, args) => func(f, args, p)?,
         _ => return None,
     })
+}
+
+/// Increase working precision when large terms nearly cancel. A fixed guard
+/// budget would incorrectly turn sqrt(10**100 + 1) - 10**50 into exact zero.
+fn eval_sum(constant: &Number, terms: &[(Expr, Number)], precision: u32) -> Option<MpComplex> {
+    let mut working = precision + 32;
+    loop {
+        let mut sum = MpComplex::real(number(constant, working));
+        let mut largest = sum.re.mag();
+        for (term, coefficient) in terms {
+            let value = ev(term, working)?;
+            let value = if coefficient.is_one() { value } else { value.scale(&number(coefficient, working), working) };
+            largest = largest.max(value.re.mag()).max(value.im.mag());
+            sum = sum.add(&value, working);
+        }
+        let magnitude = sum.re.mag().max(sum.im.mag());
+        let cancellation = largest.saturating_sub(magnitude).max(0) as u64;
+        let required = precision as u64 + cancellation + 24;
+        if required <= working as u64 { return Some(sum); }
+        if working >= precision + 4096 { return None; }
+        working = if magnitude < i64::MIN / 8 {
+            (working + (working - precision).max(32)).min(precision + 4096)
+        } else {
+            (required.min((precision + 4096) as u64)) as u32
+        };
+    }
 }
 
 fn pow_of(b: &Expr, x: &Expr, p: u32) -> Option<MpComplex> {
@@ -185,6 +254,9 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
     if let Func::Special(s) = f {
         return crate::special::mp::eval(*s, args, p);
     }
+    if matches!(f, Func::Undefined(name) if name.as_ref() == "UnevaluatedExpr") {
+        return ev(args.first()?, p);
+    }
     if let Func::Atan2 = f {
         let (y, x) = (ev(&args[0], wp)?, ev(&args[1], wp)?);
         if !(y.is_real() && x.is_real()) {
@@ -195,7 +267,7 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
     let a = ev(args.first()?, wp)?;
     let real_only = |v: Option<BigFloat>| v.map(MpComplex::real);
     Some(match f {
-        Func::Exp => a.exp(p),
+        Func::Exp => a.exp(p)?,
         Func::Log => a.ln(p)?,
         Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc if a.is_real() => {
             let (s, c) = a.re.sin_cos(wp);
@@ -211,7 +283,7 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         Func::Sin | Func::Cos | Func::Tan => {
             // complex: via exponentials
             let iz = MpComplex { re: a.im.neg(), im: a.re.clone() };
-            let e1 = iz.exp(wp);
+            let e1 = iz.exp(wp)?;
             let e2 = e1.inv(wp)?;
             let half = BigFloat { man: BigInt::from(1), exp: -1 };
             let cosv = e1.add(&e2, wp).scale(&half, wp);
@@ -229,7 +301,8 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         Func::Atan if a.is_real() => MpComplex::real(a.re.atan(p)),
         Func::Acot if a.is_real() => MpComplex::real(BigFloat::one().div(&a.re, wp)?.atan(p)),
         Func::Sinh | Func::Cosh | Func::Tanh if a.is_real() => {
-            let e1 = a.re.exp(wp);
+            if a.re.abs().cmp(&BigFloat::from_i64(2_000_000)) == std::cmp::Ordering::Greater { return None; }
+            let e1 = a.re.checked_exp(wp)?;
             let e2 = BigFloat::one().div(&e1, wp)?;
             let sh = e1.sub(&e2, wp).ldexp(-1);
             let ch = e1.add(&e2, wp).ldexp(-1);
@@ -276,14 +349,7 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         Func::Erf if a.is_real() => MpComplex::real(erf_mp(&a.re, p)?),
         Func::Erfc if a.is_real() => MpComplex::real(BigFloat::one().sub(&erf_mp(&a.re, wp)?, p)),
         Func::Gamma if a.is_real() => MpComplex::real(gamma_mp(&a.re, p)?),
-        _ => {
-            // fall back to double precision for the remaining functions
-            if p > 80 {
-                return None;
-            }
-            let z = crate::evalf::apply_c64(f, &[num_complex::Complex64::new(a.re.to_f64(), a.im.to_f64())])?;
-            MpComplex { re: BigFloat::from_f64(z.re), im: BigFloat::from_f64(z.im) }
-        }
+        _ => return None,
     })
 }
 
@@ -369,7 +435,7 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
         }
         return Some(BigFloat::from_int(&acc).round_to(prec));
     }
-    let wp = prec + 30;
+    let wp = prec.saturating_mul(2) + 80;
     if x.sign() < 0 || x.cmp(&BigFloat { man: BigInt::from(1), exp: -1 }) == std::cmp::Ordering::Less {
         // reflection: gamma(x) = pi / (sin(pi x) gamma(1-x))
         let one_minus = BigFloat::one().sub(x, wp);
@@ -378,7 +444,7 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
         let s = p.mul(x, wp).sin(wp);
         return p.div(&s.mul(&g, wp), prec);
     }
-    let a = ((wp as f64) * std::f64::consts::LN_2 / (2.0 * std::f64::consts::PI).ln()).ceil() as i64;
+    let a = (((prec + 40) as f64) * std::f64::consts::LN_2 / (2.0 * std::f64::consts::PI).ln()).ceil() as i64;
     let z = x.sub(&BigFloat::one(), wp);
     let af = BigFloat::from_i64(a);
     // c0 = sqrt(2 pi)
@@ -389,7 +455,7 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
         // c_k = (-1)^(k-1) (a-k)^(k-1/2) e^(a-k) / (k-1)!
         let amk = BigFloat::from_i64(a - k);
         let e1 = amk.powf(&BigFloat::from_i64(2 * k - 1).ldexp(-1), wp)?;
-        let e2 = amk.exp(wp);
+        let e2 = amk.checked_exp(wp)?;
         let mut ck = e1.mul(&e2, wp).div(&fact, wp)?;
         if k % 2 == 0 {
             ck = ck.neg();
@@ -401,7 +467,7 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     let za = z.add(&af, wp);
     let half = BigFloat { man: BigInt::from(1), exp: -1 };
     let pw = za.powf(&z.add(&half, wp), wp)?;
-    let ex = za.neg().exp(wp);
+    let ex = za.neg().checked_exp(wp)?;
     Some(pw.mul(&ex, wp).mul(&sum, prec))
 }
 
@@ -425,5 +491,64 @@ mod tests {
         assert_eq!(s(&Expr::constant(Constant::EulerGamma), 30), "0.577215664901532860606512090082");
         assert_eq!(s(&gamma(&Expr::rational(1, 3)), 25), "2.678938534707747633655693");
         assert_eq!(s(&erf(&Expr::one()), 25), "0.8427007929497148693412206");
+    }
+
+    #[test]
+    fn precision_survives_native_expression_arithmetic_and_serialization() {
+        let p = dps_to_prec(70);
+        let value = crate::bigfloat::BigFloat::from_decimal("0.123456789012345678901234567890123456789", p).unwrap();
+        let original = Expr::num(Number::mp_float(value.clone(), p));
+        assert_eq!(max_precision(&original), Some(p));
+        assert_eq!(crate::parser::parse_str(&crate::printer::srepr(&original)).unwrap(), original);
+        let increment = crate::parser::parse_str("Float('1e-60', 70)").unwrap();
+        let changed = add(&[original.clone(), increment]);
+        assert_ne!(changed, original);
+        let delta = sub(&changed, &original);
+        let result = eval_mp(&delta, p).unwrap();
+        assert!((result.re.to_f64() / 1e-60 - 1.0).abs() < 1e-10);
+        let neg = Number::mp_float(value.neg(), p);
+        assert_eq!(neg.add(original.as_number().unwrap()), Number::ZERO);
+    }
+
+    #[test]
+    fn evalf_retains_partial_symbolic_precision() {
+        let x = Expr::symbol("x");
+        let p = dps_to_prec(80);
+        let expression = add(&[x.clone(), Expr::pi()]);
+        let evaluated = super::evalf(&expression, p);
+        assert_eq!(crate::traverse::free_symbols(&evaluated), vec![x]);
+        assert_eq!(max_precision(&evaluated), Some(p));
+        assert!(crate::printer::to_str(&evaluated).contains("3.141592653589793238462643383279502884197"));
+        let raw = Expr::from_kind(Kind::Func(Func::Undefined("unknown_numeric".into()), vec![Expr::pi()]));
+        assert_eq!(super::evalf(&raw, p), raw);
+    }
+
+    #[test]
+    fn cancellation_increases_working_precision() {
+        let expression = crate::parser::parse_str("sqrt(10**100 + 1) - 10**50").unwrap();
+        let result = eval_mp(&expression, dps_to_prec(60)).unwrap();
+        assert!(result.re.sign() > 0);
+        assert!(result.re.to_string_dps(50, false).starts_with("5.0000000000000000000000000000000000000000000000000e-51"));
+    }
+
+    #[test]
+    fn extreme_exponential_inputs_remain_symbolic() {
+        let p = dps_to_prec(60);
+        let huge = crate::parser::parse_str("Float('1e100', 60)").unwrap();
+        for function in [Func::Exp, Func::Sinh, Func::Cosh, Func::Tanh] {
+            for input in [huge.clone(), crate::ops::neg(&huge)] {
+                let expression = crate::functions::func(function.clone(), vec![input]);
+                assert!(matches!(expression.kind(), Kind::Func(..)));
+                assert_eq!(super::evalf(&expression, p), expression);
+            }
+        }
+        let exponent = crate::parser::parse_str("Float('1000001', 60)").unwrap();
+        let expression = crate::ops::pow(&Expr::int(10), &exponent);
+        assert!(matches!(expression.kind(), Kind::Pow(..)));
+        assert_eq!(super::evalf(&expression, p), expression);
+        let boundary = Expr::from_kind(Kind::Func(Func::Exp, vec![Expr::int(2_000_000)]));
+        assert!(eval_mp(&boundary, p).is_some());
+        let outside = Expr::from_kind(Kind::Func(Func::Exp, vec![Expr::int(2_000_001)]));
+        assert!(eval_mp(&outside, p).is_none());
     }
 }

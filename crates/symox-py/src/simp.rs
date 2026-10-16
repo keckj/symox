@@ -1,6 +1,7 @@
 //! Python bindings for targeted simplification routines.
 
 use pyo3::prelude::*;
+use pyo3::exceptions::{PyNotImplementedError, PyValueError};
 
 use symox::simp;
 
@@ -19,15 +20,19 @@ fn expand_trig(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
 #[pyfunction]
 #[pyo3(signature = (e, deep=true, combine="all", force=false))]
 fn powsimp(e: &Bound<'_, PyAny>, deep: bool, combine: &str, force: bool) -> PyResult<PyExpr> {
-    let _ = (deep, combine, force);
-    Ok(wrap(simp::powsimp(&to_expr(e)?)))
+    match combine {
+        "all" | "exp" => {},
+        "base" => return Err(PyNotImplementedError::new_err("powsimp combine='base' is not implemented")),
+        _ => return Err(PyValueError::new_err("combine must be 'all', 'exp' or 'base'")),
+    }
+    if force { return Err(PyNotImplementedError::new_err("powsimp force=True is not implemented")); }
+    Ok(wrap(simp::powsimp_deep(&to_expr(e)?, deep)))
 }
 
 #[pyfunction]
 #[pyo3(signature = (e, deep=true, force=false))]
 fn expand_log(e: &Bound<'_, PyAny>, deep: bool, force: bool) -> PyResult<PyExpr> {
-    let _ = deep;
-    Ok(wrap(simp::expand_log(&to_expr(e)?, force)))
+    Ok(wrap(simp::expand_log_deep(&to_expr(e)?, force, deep)))
 }
 
 #[pyfunction]
@@ -39,22 +44,19 @@ fn logcombine(e: &Bound<'_, PyAny>, force: bool) -> PyResult<PyExpr> {
 #[pyfunction]
 #[pyo3(signature = (e, deep=true, force=false))]
 fn expand_power_base(e: &Bound<'_, PyAny>, deep: bool, force: bool) -> PyResult<PyExpr> {
-    let _ = deep;
-    Ok(wrap(simp::expand_power_base(&to_expr(e)?, force)))
+    Ok(wrap(simp::expand_power_base_deep(&to_expr(e)?, force, deep)))
 }
 
 #[pyfunction]
 #[pyo3(signature = (e, deep=true))]
 fn expand_power_exp(e: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
-    let _ = deep;
-    Ok(wrap(simp::expand_power_exp(&to_expr(e)?)))
+    Ok(wrap(simp::expand_power_exp_deep(&to_expr(e)?, deep)))
 }
 
 #[pyfunction]
 #[pyo3(signature = (e, deep=true))]
 fn expand_mul(e: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
-    let _ = deep;
-    Ok(wrap(simp::expand_mul(&to_expr(e)?)))
+    Ok(wrap(simp::expand_mul_deep(&to_expr(e)?, deep)))
 }
 
 #[pyfunction]
@@ -66,7 +68,14 @@ fn nsimplify(
     full: bool,
     rational: Option<bool>,
 ) -> PyResult<PyExpr> {
-    let _ = (tolerance, full, rational);
+    if let Some(tolerance) = tolerance {
+        if !tolerance.is_finite() || tolerance <= 0.0 {
+            return Err(PyValueError::new_err("tolerance must be finite and positive"));
+        }
+        return Err(PyNotImplementedError::new_err("nsimplify tolerance is not implemented"));
+    }
+    if full { return Err(PyNotImplementedError::new_err("nsimplify full=True is not implemented")); }
+    if rational.is_some() { return Err(PyNotImplementedError::new_err("nsimplify rational option is not implemented")); }
     let mut cs = Vec::new();
     if let Some(c) = constants {
         for x in c.try_iter()? {

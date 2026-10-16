@@ -216,6 +216,10 @@ pub fn float_to_rat(f: f64) -> Rat {
 pub fn number_to_rat(n: &Number) -> Rat {
     match n {
         Number::Float(f) => float_to_rat(*f),
+        Number::MpFloat(value, _) => {
+            let exact = value.to_ratio_exact();
+            Rat::new(Int::from_big(exact.numer().clone()), Int::from_big(exact.denom().clone()))
+        }
         _ => Rat::from_number(n).unwrap(),
     }
 }

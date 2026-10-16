@@ -20,6 +20,8 @@ use crate::traverse::has;
 
 const MAX_DEPTH: u32 = 10;
 
+mod rational_definite;
+
 /// Indefinite integral of `f` with respect to `x`. Returns an unevaluated
 /// `Integral(f, x)` when no rule applies.
 pub fn integrate(f: &Expr, x: &Expr) -> Expr {
@@ -31,6 +33,21 @@ pub fn integrate(f: &Expr, x: &Expr) -> Expr {
 
 /// Definite integral of `f` over `[a, b]` (via the antiderivative).
 pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
+    if a == b { return Expr::zero(); }
+    if rational_definite::compare(a,b) == Some(std::cmp::Ordering::Greater) {
+        return neg(&integrate_definite(f,x,b,a));
+    }
+    let unevaluated = || crate::functions::undefined(
+        "Integral",
+        vec![f.clone(), crate::functions::undefined("Tuple", vec![x.clone(), a.clone(), b.clone()])],
+    );
+    let checked = match rational_definite::analyze(f,x,a,b) {
+        rational_definite::Analysis::Value(value) => return value,
+        rational_definite::Analysis::Unknown => return unevaluated(),
+        rational_definite::Analysis::Regular(value) => value,
+        rational_definite::Analysis::NotRational => f.clone(),
+    };
+    let f = &checked;
     match try_integrate(f, x) {
         Some(big_f) => {
             // evaluate the antiderivative at the bounds, through limits when

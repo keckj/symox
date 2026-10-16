@@ -87,7 +87,9 @@ def test_edge_substitution_inside_barycentric_numerator():
 @pytest.mark.parametrize("options", [
     {"domain": "QQ"}, {"modulus": 2}, {"polys": True}, {"auto": False},
 ])
-def test_reduced_rejects_unsupported_options(options):
+def test_reduced_supports_domain_and_output_options(options):
     x = sx.Symbol("x")
-    with pytest.raises(NotImplementedError):
-        sx.reduced(x, [x], **options)
+    q, r = sx.reduced(x, [x], **options)
+    if options.get("polys"):
+        q, r = [e.as_expr() for e in q], r.as_expr()
+    assert q == [1] and r == 0

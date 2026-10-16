@@ -72,6 +72,32 @@ fn wrapm(m: Matrix) -> PyMatrix {
     PyMatrix { m, immutable: false }
 }
 
+fn matrix_value_hash(rows: usize, cols: usize, mut entries: Vec<((usize, usize), Expr)>) -> isize {
+    use std::hash::{Hash, Hasher};
+    entries.sort_unstable_by_key(|(index, _)| *index);
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    (rows, cols).hash(&mut hash);
+    entries.hash(&mut hash);
+    let value = hash.finish() as isize;
+    if value == -1 { -2 } else { value }
+}
+
+/// Shared value hash for dense and sparse immutable matrices, without
+/// constructing implicit sparse zeros or a dense temporary.
+#[pyfunction]
+fn _sparse_matrix_hash(rows: usize, cols: usize, entries: &Bound<'_, PyDict>) -> PyResult<isize> {
+    let mut values = Vec::with_capacity(entries.len());
+    for (key, value) in entries.iter() {
+        let (i, j): (usize, usize) = key.extract()?;
+        if i >= rows || j >= cols {
+            return Err(PyValueError::new_err("Sparse coordinate is outside matrix shape"));
+        }
+        let value = to_expr(&value)?;
+        if !value.is_zero() { values.push(((i, j), value)); }
+    }
+    Ok(matrix_value_hash(rows, cols, values))
+}
+
 impl PyMatrix {
     fn wrapped(&self, m: Matrix) -> PyMatrix {
         PyMatrix { m, immutable: self.immutable }
@@ -79,7 +105,9 @@ impl PyMatrix {
 
     fn with_peer(&self, peer: &Bound<'_, PyAny>, m: Matrix) -> PyMatrix {
         let immutable = self.immutable || peer.downcast::<PyMatrix>()
-            .is_ok_and(|p| p.borrow().immutable);
+            .is_ok_and(|p| p.borrow().immutable)
+            || (peer.getattr("_symox_sparse").is_ok_and(|value| value.extract::<bool>().unwrap_or(false))
+                && peer.getattr("_immutable").is_ok_and(|value| value.extract::<bool>().unwrap_or(false)));
         PyMatrix { m, immutable }
     }
 
@@ -710,6 +738,9 @@ impl PyMatrix {
 
     fn __richcmp__(&self, py: Python<'_>, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {
         use pyo3::basic::CompareOp::*;
+        if other.getattr("_symox_sparse").is_ok_and(|value| value.extract::<bool>().unwrap_or(false)) {
+            return Ok(py.NotImplemented());
+        }
         let eq = match other.downcast::<PyMatrix>() {
             Ok(o) => o.borrow().m == self.m,
             Err(_) => {
@@ -728,15 +759,12 @@ impl PyMatrix {
     }
 
     fn __hash__(&self) -> PyResult<isize> {
-        use std::hash::{Hash, Hasher};
         if !self.immutable {
             return Err(PyTypeError::new_err("unhashable type: 'Matrix'"));
         }
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        self.m.shape().hash(&mut h);
-        self.m.data().hash(&mut h);
-        let value = h.finish() as isize;
-        Ok(if value == -1 { -2 } else { value })
+        let entries = self.m.data().iter().enumerate().filter(|(_, value)| !value.is_zero())
+            .map(|(index, value)| ((index / self.m.cols(), index % self.m.cols()), value.clone())).collect();
+        Ok(matrix_value_hash(self.m.rows(), self.m.cols(), entries))
     }
 
     #[getter]
@@ -781,18 +809,16 @@ impl PyMatrix {
         Ok(self.wrapped(self.m.try_applyfunc(|e| crate::expand_hints(e, hints))?))
     }
 
-    #[pyo3(signature = (n=15, **_kwargs))]
-    fn evalf(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-        reject_kwargs(_kwargs)?;
-        if n != 15 {
-            return Err(PyNotImplementedError::new_err("matrix evalf currently supports 15 digits"));
-        }
-        Ok(self.wrapped(self.m.evalf()))
+    #[pyo3(signature = (n=15, subs=None, **_kwargs))]
+    fn evalf(&self, n: u32, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        crate::decimal_precision(n)?;
+        crate::evalf_options(_kwargs)?;
+        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::evalf_expr(e, n, subs, _kwargs))?))
     }
 
-    #[pyo3(signature = (n=15, **_kwargs))]
-    fn n(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-        self.evalf(n, _kwargs)
+    #[pyo3(signature = (n=15, subs=None, **_kwargs))]
+    fn n(&self, n: u32, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        self.evalf(n, subs, _kwargs)
     }
 
     /// Simplify the entries in place (like SymPy's mutable matrices).
@@ -1010,14 +1036,12 @@ impl PyMatrix {
 
     #[pyo3(signature = (method="RD"))]
     fn pinv(&self, py: Python<'_>, method: &str) -> PyResult<PyMatrix> {
-        if method != "RD" {
-            return Err(if method == "ED" {
-                PyNotImplementedError::new_err("pseudoinverse method ED is not implemented; use RD")
-            } else {
-                PyValueError::new_err(format!("invalid pinv method {method}"))
-            });
-        }
-        Ok(self.wrapped(self.m.pinv().py(py)?))
+        let result = match method {
+            "RD" => self.m.pinv(),
+            "ED" => self.m.pinv_ed(),
+            _ => return Err(PyValueError::new_err(format!("invalid pinv method {method}"))),
+        };
+        Ok(self.wrapped(result.py(py)?))
     }
 
     #[pyo3(signature = (B, arbitrary_matrix=None))]
@@ -1224,6 +1248,33 @@ impl PyMatrix {
         PyTuple::new(py, [self.wrapped(q), self.wrapped(r)])
     }
 
+    fn singular_values(&self, py: Python<'_>) -> PyResult<Vec<PyExpr>> {
+        Ok(self.m.singular_values().py(py)?.into_iter().map(wrap).collect())
+    }
+
+    fn condition_number(&self, py: Python<'_>) -> PyResult<PyExpr> {
+        Ok(wrap(self.m.condition_number().py(py)?))
+    }
+
+    #[pyo3(signature = (calc_transform=true, **kwargs))]
+    fn jordan_form<'py>(&self, py: Python<'py>, calc_transform: bool, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyAny>> {
+        reject_kwargs(kwargs)?;
+        let (p, j, _) = self.m.jordan_decomposition().py(py)?;
+        if calc_transform {
+            Ok(PyTuple::new(py, [self.wrapped(p), self.wrapped(j)])?.into_any())
+        } else {
+            Ok(self.wrapped(j).into_pyobject(py)?.into_any())
+        }
+    }
+
+    #[pyo3(signature = (calc_transformation=true))]
+    fn jordan_cells<'py>(&self, py: Python<'py>, calc_transformation: bool) -> PyResult<Bound<'py, PyTuple>> {
+        let _ = calc_transformation;
+        let (p, _, blocks) = self.m.jordan_decomposition().py(py)?;
+        let cells = PyList::new(py, blocks.into_iter().map(|b|self.wrapped(b)))?;
+        PyTuple::new(py, [self.wrapped(p).into_pyobject(py)?.into_any(), cells.into_any()])
+    }
+
     #[pyo3(signature = (reals_only=false, sort=false, normalize=false))]
     fn diagonalize<'py>(&self, py: Python<'py>, reals_only: bool, sort: bool, normalize: bool) -> PyResult<Bound<'py, PyTuple>> {
         let (p, d) = self.m.diagonalize_with_options(reals_only, sort, normalize).py(py)?;
@@ -1427,5 +1478,6 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_hessian, m)?)?;
     m.add_function(wrap_pyfunction!(py_wronskian, m)?)?;
     m.add_function(wrap_pyfunction!(py_cancel, m)?)?;
+    m.add_function(wrap_pyfunction!(_sparse_matrix_hash, m)?)?;
     Ok(())
 }

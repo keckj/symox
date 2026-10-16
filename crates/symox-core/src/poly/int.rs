@@ -652,7 +652,7 @@ impl Rat {
                 n: Int::from_big(r.numer().clone()),
                 d: Int::from_big(r.denom().clone()),
             }),
-            Number::Float(_) => None,
+            Number::Float(_) | Number::MpFloat(..) => None,
         }
     }
 

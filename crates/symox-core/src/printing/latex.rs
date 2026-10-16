@@ -459,6 +459,13 @@ impl<'a> LatexPrinter<'a> {
                     s
                 }
             }
+            Number::MpFloat(..) => {
+                let s = n.to_string();
+                match s.split_once('e') {
+                    Some((mantissa, exponent)) => format!("{mantissa}{}10^{{{}}}", self.numsep, exponent.trim_start_matches('+')),
+                    None => s,
+                }
+            }
         }
     }
 

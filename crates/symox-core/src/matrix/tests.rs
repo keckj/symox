@@ -148,3 +148,19 @@ fn modular_matches_fraction_free() {
         assert!(rs.inv() == rs.inv_ff(), "square inverse differs in trial {trial}");
     }
 }
+
+#[test]
+fn nonfinite_matrix_products_keep_zero_terms() {
+    let zero = Matrix::zeros(1, 1);
+    for value in [Expr::oo(), Expr::neg_oo(), Expr::zoo(), Expr::nan()] {
+        let special = Matrix::new(1, 1, vec![value]).unwrap();
+        assert!(zero.matmul(&special).unwrap().get(0, 0).is_constant(crate::expr::Constant::NaN));
+        assert!(special.matmul(&zero).unwrap().get(0, 0).is_constant(crate::expr::Constant::NaN));
+        assert!(zero.matmul_plain(&special).get(0, 0).is_constant(crate::expr::Constant::NaN));
+    }
+    let held = Expr::from_unevaluated_kind(crate::expr::Kind::Mul(
+        crate::number::Number::ONE, vec![(Expr::oo(), Expr::one()), (Expr::symbol("x"), Expr::one())],
+    ));
+    let special = Matrix::new(1, 1, vec![held]).unwrap();
+    assert!(zero.matmul(&special).unwrap().get(0, 0).is_constant(crate::expr::Constant::NaN));
+}

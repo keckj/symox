@@ -25,6 +25,8 @@ pub enum Number {
     Rational(BigRational),
     /// Double precision float (never `-0.0`).
     Float(f64),
+    /// Finite arbitrary precision binary float, with its declared bit precision.
+    MpFloat(crate::bigfloat::BigFloat, u32),
 }
 
 use Number::*;
@@ -49,6 +51,40 @@ impl Number {
     pub fn float(f: f64) -> Number {
         // normalise -0.0 so that hashing/equality are consistent
         Float(if f == 0.0 { 0.0 } else { f })
+    }
+
+    pub fn mp_float(value: crate::bigfloat::BigFloat, prec: u32) -> Number {
+        let value = value.round_to(prec);
+        if prec == 53 {
+            let f = value.to_f64();
+            if f.is_finite() && crate::bigfloat::BigFloat::from_f64(f) == value {
+                return Self::float(f);
+            }
+        }
+        MpFloat(value, prec)
+    }
+
+    pub fn float_precision(&self) -> Option<u32> {
+        match self { Float(_) => Some(53), MpFloat(_, p) => Some(*p), _ => None }
+    }
+
+    pub fn to_bigfloat(&self, prec: u32) -> crate::bigfloat::BigFloat {
+        use crate::bigfloat::BigFloat as BF;
+        match self {
+            Int(n) => BF::from_i64(*n).round_to(prec),
+            BigInt(n) => BF::from_int(n).round_to(prec),
+            Rational(r) => BF::from_ratio(r.numer(), r.denom(), prec),
+            Float(f) => BF::from_f64(*f).round_to(prec),
+            MpFloat(value, _) => value.round_to(prec),
+        }
+    }
+
+    fn mp_result(value: crate::bigfloat::BigFloat, prec: u32) -> Number {
+        if value.is_zero() { Int(0) } else { Self::mp_float(value, prec) }
+    }
+
+    fn mixed_precision(&self, other: &Number) -> u32 {
+        self.float_precision().unwrap_or(0).max(other.float_precision().unwrap_or(0))
     }
 
     /// Result of floating point arithmetic: like SymPy, an exact zero
@@ -109,6 +145,7 @@ impl Number {
         match self {
             Int(i) => *i == 0,
             Float(f) => *f == 0.0,
+            MpFloat(value, _) => value.is_zero(),
             _ => false,
         }
     }
@@ -130,12 +167,12 @@ impl Number {
 
     #[inline]
     pub fn is_rational(&self) -> bool {
-        !matches!(self, Float(_))
+        !matches!(self, Float(_) | MpFloat(..))
     }
 
     #[inline]
     pub fn is_float(&self) -> bool {
-        matches!(self, Float(_))
+        matches!(self, Float(_) | MpFloat(..))
     }
 
     pub fn is_negative(&self) -> bool {
@@ -144,6 +181,7 @@ impl Number {
             BigInt(b) => b.is_negative(),
             Rational(r) => r.is_negative(),
             Float(f) => *f < 0.0,
+            MpFloat(value, _) => value.is_negative(),
         }
     }
 
@@ -153,6 +191,7 @@ impl Number {
             BigInt(b) => b.is_positive(),
             Rational(r) => r.is_positive(),
             Float(f) => *f > 0.0,
+            MpFloat(value, _) => value.sign() > 0,
         }
     }
 
@@ -173,6 +212,7 @@ impl Number {
             BigInt(b) => b.to_f64().unwrap_or(f64::NAN),
             Rational(r) => ratio_to_f64(r),
             Float(f) => *f,
+            MpFloat(value, _) => value.to_f64(),
         }
     }
 
@@ -189,7 +229,7 @@ impl Number {
             Int(i) => Some(BigRational::from_integer(BigInt::from(*i))),
             BigInt(b) => Some(BigRational::from_integer(b.clone())),
             Rational(r) => Some(r.clone()),
-            Float(_) => None,
+            Float(_) | MpFloat(..) => None,
         }
     }
 
@@ -199,7 +239,7 @@ impl Number {
             Int(i) => Some((BigInt::from(*i), BigInt::one())),
             BigInt(b) => Some((b.clone(), BigInt::one())),
             Rational(r) => Some((r.numer().clone(), r.denom().clone())),
-            Float(_) => None,
+            Float(_) | MpFloat(..) => None,
         }
     }
 
@@ -230,6 +270,7 @@ impl Number {
             BigInt(b) => Self::from_bigint(-b),
             Rational(r) => Rational(-r),
             Float(f) => Self::float(-f),
+            MpFloat(value, prec) => Self::mp_float(value.neg(), *prec),
         }
     }
 
@@ -242,6 +283,10 @@ impl Number {
     }
 
     pub fn add(&self, o: &Number) -> Number {
+        if matches!(self, MpFloat(..)) || matches!(o, MpFloat(..)) {
+            let p = self.mixed_precision(o);
+            return Self::mp_result(self.to_bigfloat(p).add(&o.to_bigfloat(p), p), p);
+        }
         match (self, o) {
             (Int(a), Int(b)) => match a.checked_add(*b) {
                 Some(v) => Int(v),
@@ -267,6 +312,10 @@ impl Number {
     }
 
     pub fn mul(&self, o: &Number) -> Number {
+        if matches!(self, MpFloat(..)) || matches!(o, MpFloat(..)) {
+            let p = self.mixed_precision(o);
+            return Self::mp_result(self.to_bigfloat(p).mul(&o.to_bigfloat(p), p), p);
+        }
         match (self, o) {
             (Int(a), Int(b)) => match a.checked_mul(*b) {
                 Some(v) => Int(v),
@@ -283,6 +332,10 @@ impl Number {
 
     /// Division. Returns `None` when dividing an exact number by exact zero.
     pub fn div(&self, o: &Number) -> Option<Number> {
+        if matches!(self, MpFloat(..)) || matches!(o, MpFloat(..)) {
+            let p = self.mixed_precision(o);
+            return self.to_bigfloat(p).div(&o.to_bigfloat(p), p).map(|v| Self::mp_result(v, p));
+        }
         match (self, o) {
             (Float(a), _) => Some(Self::float_result(a / o.to_f64())),
             (_, Float(b)) => Some(Self::float_result(self.to_f64() / b)),
@@ -301,6 +354,7 @@ impl Number {
     /// `self ** n` for an integer exponent.
     /// Returns `None` for `0 ** negative` with an exact zero.
     pub fn pow_i64(&self, n: i64) -> Option<Number> {
+        if let MpFloat(value, p) = self { return value.powi(n, *p).map(|v| Self::mp_float(v, *p)); }
         if let Float(f) = self {
             return Some(Self::float(f.powf(n as f64)));
         }
@@ -331,6 +385,7 @@ impl Number {
                 Self::from_ratio(BigRational::new_raw(num, den))
             }
             Float(f) => Self::float(f.powf(n as f64)),
+            MpFloat(_, _) => self.pow_i64(n as i64).unwrap(),
         }
     }
 
@@ -339,12 +394,25 @@ impl Number {
         match self {
             Rational(r) => Self::from_bigint(r.floor().to_integer()),
             Float(f) => Self::float(f.floor()),
+            MpFloat(value, _) => {
+                let mut integer = value.to_int_trunc();
+                if value.is_negative() && crate::bigfloat::BigFloat::from_int(&integer) != *value { integer -= 1; }
+                Self::from_bigint(integer)
+            }
             _ => self.clone(),
         }
     }
 
     /// Compare numerical values (`None` only for NaN).
     pub fn cmp_value(&self, o: &Number) -> Option<Ordering> {
+        if matches!(self, MpFloat(..)) || matches!(o, MpFloat(..)) {
+            let exact = |n: &Number| match n {
+                Float(f) if f.is_finite() => Some(crate::bigfloat::BigFloat::from_f64(*f).to_ratio_exact()),
+                MpFloat(value, _) => Some(value.to_ratio_exact()),
+                _ => n.to_ratio(),
+            };
+            return Some(exact(self)?.cmp(&exact(o)?));
+        }
         match (self, o) {
             (Int(a), Int(b)) => Some(a.cmp(b)),
             (Float(_), _) | (_, Float(_)) => self.to_f64().partial_cmp(&o.to_f64()),
@@ -386,6 +454,7 @@ impl Number {
                 BigInt(_) => 1,
                 Rational(_) => 2,
                 Float(_) => 3,
+                MpFloat(..) => 4,
             }
         }
         match (self, o) {
@@ -393,6 +462,7 @@ impl Number {
             (BigInt(a), BigInt(b)) => a.cmp(b),
             (Rational(a), Rational(b)) => a.cmp(b),
             (Float(a), Float(b)) => a.to_bits().cmp(&b.to_bits()),
+            (MpFloat(a, ap), MpFloat(b, bp)) => a.cmp(b).then(ap.cmp(bp)),
             _ => rank(self).cmp(&rank(o)),
         }
     }
@@ -403,22 +473,41 @@ fn big_pow(b: &BigInt, n: u64) -> BigInt {
 }
 
 fn ratio_to_f64(r: &BigRational) -> f64 {
-    match (r.numer().to_f64(), r.denom().to_f64()) {
-        (Some(n), Some(d)) if n.is_finite() && d.is_finite() => n / d,
-        _ => {
-            // scale down huge values
-            let nb = r.numer().bits() as i64;
-            let db = r.denom().bits() as i64;
-            let shift = (nb - db) - 60;
-            let (n, d) = if shift > 0 {
-                (r.numer().clone(), r.denom() << (shift as usize))
-            } else {
-                (r.numer() << ((-shift) as usize), r.denom().clone())
-            };
-            let q = (n / d).to_f64().unwrap_or(f64::NAN);
-            q * 2f64.powi(shift as i32)
-        }
+    // Divide the exact integers at the destination's binary quantum, then
+    // round once. Rounding numerator and denominator independently, or first
+    // rounding to 53 significant bits before a subnormal conversion, can
+    // choose the wrong side of an IEEE midpoint.
+    let sign = if r.is_negative() { 1u64 << 63 } else { 0 };
+    let numerator = r.numer().abs();
+    if numerator.is_zero() { return 0.0; }
+    let denominator = r.denom();
+    let mut exponent = numerator.bits() as i64 - denominator.bits() as i64;
+    if exponent > 1024 { return f64::from_bits(sign | (0x7ff << 52)); }
+    if exponent < -1075 { return f64::from_bits(sign); }
+    let below_estimate = if exponent >= 0 {
+        numerator < denominator << exponent as usize
+    } else {
+        (&numerator << (-exponent) as usize) < *denominator
+    };
+    if below_estimate { exponent -= 1; }
+    if exponent > 1023 { return f64::from_bits(sign | (0x7ff << 52)); }
+    let quantum = (exponent - 52).max(-1074);
+    let (scaled_numerator, scaled_denominator) = if quantum >= 0 {
+        (numerator, denominator << quantum as usize)
+    } else {
+        (numerator << (-quantum) as usize, denominator.clone())
+    };
+    let (mut mantissa, remainder) = scaled_numerator.div_rem(&scaled_denominator);
+    let comparison = (&remainder << 1usize).cmp(&scaled_denominator);
+    if comparison == Ordering::Greater || (comparison == Ordering::Equal && mantissa.is_odd()) { mantissa += 1; }
+    let mut mantissa = mantissa.to_u64().unwrap();
+    if exponent < -1022 { return f64::from_bits(sign | mantissa); }
+    if mantissa == 1u64 << 53 {
+        mantissa >>= 1;
+        exponent += 1;
     }
+    if exponent > 1023 { return f64::from_bits(sign | (0x7ff << 52)); }
+    f64::from_bits(sign | (((exponent + 1023) as u64) << 52) | (mantissa & ((1u64 << 52) - 1)))
 }
 
 impl PartialEq for Number {
@@ -428,6 +517,7 @@ impl PartialEq for Number {
             (BigInt(a), BigInt(b)) => a == b,
             (Rational(a), Rational(b)) => a == b,
             (Float(a), Float(b)) => a.to_bits() == b.to_bits(),
+            (MpFloat(a, ap), MpFloat(b, bp)) => a == b && ap == bp,
             _ => false,
         }
     }
@@ -454,6 +544,11 @@ impl Hash for Number {
                 3u8.hash(h);
                 f.to_bits().hash(h)
             }
+            MpFloat(value, p) => {
+                4u8.hash(h);
+                value.hash(h);
+                p.hash(h);
+            }
         }
     }
 }
@@ -465,6 +560,7 @@ impl fmt::Display for Number {
             BigInt(b) => write!(f, "{b}"),
             Rational(r) => write!(f, "{}/{}", r.numer(), r.denom()),
             Float(x) => write!(f, "{}", format_float(*x)),
+            MpFloat(value, prec) => write!(f, "{}", value.to_string_dps(crate::bigfloat::prec_to_dps(*prec), true)),
         }
     }
 }
@@ -631,6 +727,41 @@ mod tests {
         assert_eq!(Int(i64::MAX).add(&Int(1)).sub(&Int(1)), Int(i64::MAX));
         assert_eq!(Int(2).pow_i64(-2).unwrap(), Number::rational_i64(1, 4).unwrap());
         assert!(Int(0).pow_i64(-1).is_none());
+    }
+
+    #[test]
+    fn arbitrary_precision_numbers_compare_without_machine_float_rounding() {
+        use crate::bigfloat::{BigFloat as BF, dps_to_prec};
+        let p = dps_to_prec(80);
+        let a = Number::mp_float(BF::from_decimal("1.0000000000000000000000000000000000000001", p).unwrap(), p);
+        assert_eq!(a.cmp_value(&Number::ONE), Some(Ordering::Greater));
+        let b = Number::mp_float(BF::from_decimal("1e400", p).unwrap(), p);
+        assert_eq!(b.cmp_value(&a), Some(Ordering::Greater));
+        assert!(b.div(&b).unwrap().is_float());
+        assert_eq!(b.div(&b).unwrap().to_f64(), 1.0);
+        let negative = BF::from_ratio(&BigInt::from(-1), &BigInt::from(3), p);
+        assert_eq!(negative, BF::from_ratio(&BigInt::from(1), &BigInt::from(3), p).neg());
+    }
+
+    #[test]
+    fn rational_to_machine_float_rounds_once_at_normal_and_subnormal_midpoints() {
+        let denominator = big_pow(&BigInt::from(10), 30);
+        for n in ["1414213562373095048801688724209", "1414213562373095048801688724210"] {
+            let value = Number::rational(n.parse().unwrap(), denominator.clone()).unwrap();
+            assert_eq!(value.to_f64().to_bits(), 2f64.sqrt().to_bits());
+        }
+        let power = BigInt::one() << 53usize;
+        let midpoint = &power + 1;
+        assert_eq!(Number::rational(midpoint, power.clone()).unwrap().to_f64(), 1.0);
+        assert_eq!(Number::rational(&power + 3, power).unwrap().to_f64().to_bits(), 1f64.to_bits() + 2);
+        let quantum = BigInt::one() << 1075usize;
+        assert_eq!(Number::rational(BigInt::one(), quantum.clone()).unwrap().to_f64().to_bits(), 0);
+        assert_eq!(Number::rational(BigInt::from(3), quantum.clone()).unwrap().to_f64().to_bits(), 2);
+        let fine = BigInt::one() << 200usize;
+        // Slightly above a subnormal midpoint: a 53-bit intermediate would
+        // erase the excess and incorrectly round the final conversion to 0.
+        let above = Number::rational(&fine + 1, quantum * fine).unwrap();
+        assert_eq!(above.to_f64().to_bits(), 1);
     }
 
     #[test]

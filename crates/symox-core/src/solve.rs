@@ -656,17 +656,34 @@ fn linear_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
 /// Newton's method for a system `f_i(vars) = 0` from `x0` (double
 /// precision, complex arithmetic).
 pub fn nsolve(eqs: &[Expr], vars: &[Expr], x0: &[f64]) -> Option<Vec<f64>> {
+    nsolve_with_options(eqs, vars, x0, 1e-14, 100, true)
+}
+
+/// Newton iteration with an explicit residual check and iteration budget.
+/// This real-valued interface never discards an imaginary component.
+pub fn nsolve_with_options(eqs: &[Expr], vars: &[Expr], x0: &[f64], tolerance: f64, maxsteps: usize, verify: bool) -> Option<Vec<f64>> {
     use num_complex::Complex64 as C;
     let n = vars.len();
+    if n == 0 || eqs.len() != n || x0.len() != n || !tolerance.is_finite() || tolerance <= 0.0 || maxsteps == 0 || x0.iter().any(|x| !x.is_finite()) {
+        return None;
+    }
     let fs: Vec<Expr> = eqs.iter().map(as_expr).collect();
     let jac: Vec<Vec<Expr>> = fs.iter().map(|f| vars.iter().map(|v| diff(f, v)).collect()).collect();
     let mut x: Vec<C> = x0.iter().map(|v| C::new(*v, 0.0)).collect();
+    // The f64 evaluator addresses symbols by name: distinct assumed symbols
+    // sharing a name must not silently alias.
     let names: Vec<String> = vars.iter().map(|v| v.to_string()).collect();
-    for _ in 0..100 {
+    if names.iter().enumerate().any(|(i, name)| names[..i].contains(name)) {
+        return None;
+    }
+    for _ in 0..maxsteps {
         let env = |s: &str| names.iter().position(|nm| nm == s).map(|i| x[i]);
         let fx: Vec<C> = fs.iter().map(|f| crate::evalf::eval_with(f, &env)).collect::<Option<_>>()?;
+        if fx.iter().any(|z| !z.re.is_finite() || !z.im.is_finite()) {
+            return None;
+        }
         let norm: f64 = fx.iter().map(|z| z.norm()).fold(0.0, f64::max);
-        if norm < 1e-15 {
+        if norm <= tolerance {
             break;
         }
         let mut a: Vec<Vec<C>> = jac
@@ -676,7 +693,10 @@ pub fn nsolve(eqs: &[Expr], vars: &[Expr], x0: &[f64]) -> Option<Vec<f64>> {
         // solve J dx = -f by Gaussian elimination with partial pivoting
         let mut b: Vec<C> = fx.iter().map(|z| -z).collect();
         for col in 0..n {
-            let p = (col..n).max_by(|&i, &j| a[i][col].norm().partial_cmp(&a[j][col].norm()).unwrap())?;
+            if a.iter().flatten().any(|z| !z.re.is_finite() || !z.im.is_finite()) {
+                return None;
+            }
+            let p = (col..n).max_by(|&i, &j| a[i][col].norm().total_cmp(&a[j][col].norm()))?;
             if a[p][col].norm() < 1e-300 {
                 return None;
             }
@@ -704,11 +724,50 @@ pub fn nsolve(eqs: &[Expr], vars: &[Expr], x0: &[f64]) -> Option<Vec<f64>> {
         for i in 0..n {
             x[i] += dx[i];
         }
-        if step < 1e-15 * x.iter().map(|z| z.norm()).fold(1.0, f64::max) {
+        if step <= tolerance * x.iter().map(|z| z.norm()).fold(1.0, f64::max) {
             break;
         }
     }
+    if x.iter().any(|z| !z.re.is_finite() || !z.im.is_finite() || z.im.abs() > tolerance * z.re.abs().max(1.0)) {
+        return None;
+    }
+    if verify {
+        let env = |s: &str| names.iter().position(|nm| nm == s).map(|i| x[i]);
+        for f in &fs {
+            let residual = crate::evalf::eval_with(f, &env)?;
+            if !residual.norm().is_finite() || residual.norm_sqr() > tolerance {
+                return None;
+            }
+        }
+    }
     Some(x.into_iter().map(|z| z.re).collect())
+}
+
+/// Bracketed real bisection. Residual verification rejects discontinuity poles.
+pub fn nsolve_bisect(equation: &Expr, variable: &Expr, mut a: f64, mut b: f64, tolerance: f64, maxsteps: usize, verify: bool) -> Option<f64> {
+    if !a.is_finite() || !b.is_finite() || a >= b || !tolerance.is_finite() || tolerance <= 0.0 || maxsteps == 0 {
+        return None;
+    }
+    let expression = as_expr(equation);
+    let name = variable.to_string();
+    let evaluate = |x: f64| {
+        let value = crate::evalf::eval_with(&expression, &|s| (s == name).then(|| num_complex::Complex64::new(x, 0.0)))?;
+        (value.re.is_finite() && value.im == 0.0).then_some(value.re)
+    };
+    let mut fa = evaluate(a)?;
+    let fb = evaluate(b)?;
+    if fa == 0.0 { return Some(a); }
+    if fb == 0.0 { return Some(b); }
+    if fa.signum() == fb.signum() { return None; }
+    let mut midpoint = a;
+    for _ in 0..maxsteps {
+        midpoint = a / 2.0 + b / 2.0;
+        let fm = evaluate(midpoint)?;
+        if fm == 0.0 || (b-a).abs() <= tolerance * midpoint.abs().max(1.0) { break; }
+        if fa.signum() == fm.signum() { a = midpoint; fa = fm; } else { b = midpoint; }
+    }
+    let residual = evaluate(midpoint)?;
+    (!verify || residual * residual <= tolerance).then_some(midpoint)
 }
 
 /// Convenience: free symbols of a set of equations.

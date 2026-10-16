@@ -890,6 +890,7 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
     if let Some(k) = e.to_i64() {
         return match b.pow_i64(k) {
             Some(v) => Expr::num(v),
+            None if matches!(b, Number::MpFloat(..)) && !b.is_zero() => Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone()))),
             None => Expr::zoo(),
         };
     }
@@ -908,6 +909,12 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
         return Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
     }
     if b.is_float() || e.is_float() {
+        if matches!(b, Number::MpFloat(..)) || matches!(e, Number::MpFloat(..)) {
+            let precision = b.float_precision().unwrap_or(0).max(e.float_precision().unwrap_or(0));
+            let raw = Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
+            return crate::evalf_mp::eval_mp(&raw, precision)
+                .map(|value| crate::evalf_mp::to_expr(value, precision)).unwrap_or(raw);
+        }
         let (x, y) = (b.to_f64(), e.to_f64());
         if x >= 0.0 || y.fract() == 0.0 {
             return Expr::float(x.powf(y));

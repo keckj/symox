@@ -602,7 +602,7 @@ impl Rat {
                 num: norm(r.numer().clone()),
                 den: norm(r.denom().clone()),
             }),
-            Number::Float(_) => None,
+            Number::Float(_) | Number::MpFloat(..) => None,
         }
     }
     pub fn to_number(&self) -> Number {

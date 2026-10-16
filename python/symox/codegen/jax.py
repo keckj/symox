@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import functools
 import itertools
 import keyword
 import linecache
@@ -33,12 +34,17 @@ def _sx_tensor(value, reference):
     return value
 
 
-def _sx_prepare(values, dtype, device):
+def _sx_device(device):
     if isinstance(device, str):
         devices = jax.devices(device)
         if not devices:
             raise ValueError("No JAX device found for backend " + device)
         device = devices[0]
+    return device
+
+
+def _sx_prepare(values, dtype, device):
+    device = _sx_device(device)
     converted = tuple(jnp.asarray(value, dtype=dtype) for value in values)
     target_dtype = jnp.dtype(dtype) if dtype is not None else (jnp.result_type(*converted) if converted else jnp.asarray(0.0).dtype)
     converted = tuple(value if dtype is None and value.dtype == jnp.bool_ else value.astype(target_dtype) for value in converted)
@@ -154,6 +160,9 @@ def jax_lambdify(args, exprs, *, cse=True, jit=False, jit_options=None, user_fun
 
     ``dtype`` and ``device`` are static keyword arguments under JIT. Other JIT
     settings pass through ``jit_options``. Errors propagate without a fallback.
+    An explicit device selects the compiled executable's placement; otherwise
+    JAX infers placement from the inputs. Lowering and shape inspection remain
+    available through ``lower``, ``trace``, and ``eval_shape``.
     ``user_functions`` accepts dotted Python names or callable implementations.
     CSE is disabled for expressions containing Piecewise to preserve its masks.
     """
@@ -178,7 +187,70 @@ def jax_lambdify(args, exprs, *, cse=True, jit=False, jit_options=None, user_fun
         static = (static,) if isinstance(static, str) else tuple(static)
         options["static_argnames"] = tuple(dict.fromkeys((*static, "dtype", "device")))
         original = function
-        function = jax.jit(original, **options)
+        default = jax.jit(original, **options)
+        placed = {}
+
+        def dispatch(args, kwargs):
+            device = namespace["_sx_device"](kwargs.get("device"))
+            if device is None:
+                # Let JAX infer placement from committed input arrays.
+                return default, args, kwargs
+            if device not in placed:
+                specific = dict(options)
+                backend = specific.get("backend")
+                aliases = {device.platform}
+                if device.platform in ("gpu", "cuda"):
+                    aliases.update(("gpu", "cuda"))
+                if backend is not None and backend not in aliases:
+                    raise ValueError("device conflicts with jit_options backend")
+                if specific.get("device") is not None and specific["device"] != device:
+                    raise ValueError("device conflicts with jit_options device")
+                # Output sharding determines the executable's device assignment,
+                # including when inputs are Python scalars or there are no inputs.
+                if specific.get("out_shardings") is None:
+                    specific["out_shardings"] = jax.sharding.SingleDeviceSharding(device)
+                else:
+                    for sharding in jax.tree_util.tree_leaves(specific["out_shardings"]):
+                        if sharding is not None and sharding.device_set != {device}:
+                            raise ValueError("device conflicts with jit_options out_shardings")
+                    specific["out_shardings"] = jax.tree_util.tree_map(
+                        lambda sharding: (jax.sharding.SingleDeviceSharding(device)
+                                          if sharding is None else sharding),
+                        specific["out_shardings"], is_leaf=lambda value: value is None)
+                placed[device] = jax.jit(original, **specific)
+
+            def transfer(value):
+                if isinstance(value, (jax.Array, jax.core.Tracer)):
+                    return jax.device_put(value, device)
+                return value
+
+            # Move committed inputs before staging the computation: an internal
+            # device_put cannot select the JIT backend, and an output constraint
+            # alone conflicts with inputs already committed to another device.
+            args = jax.tree_util.tree_map(transfer, args)
+            kwargs = jax.tree_util.tree_map(transfer, dict(kwargs, device=device))
+            return placed[device], args, kwargs
+
+        @functools.wraps(original)
+        def function(*args, **kwargs):
+            compiled, args, kwargs = dispatch(args, kwargs)
+            return compiled(*args, **kwargs)
+
+        def stage(method):
+            def invoke(*args, **kwargs):
+                compiled, args, kwargs = dispatch(args, kwargs)
+                return getattr(compiled, method)(*args, **kwargs)
+            return invoke
+
+        def clear_cache():
+            default.clear_cache()
+            for compiled in placed.values():
+                compiled.clear_cache()
+
+        function.lower = stage("lower")
+        function.trace = stage("trace")
+        function.eval_shape = stage("eval_shape")
+        function.clear_cache = clear_cache
         function.__source__ = source
         function.__wrapped__ = original
     return function

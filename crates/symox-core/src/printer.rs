@@ -51,6 +51,9 @@ pub fn to_str(e: &Expr) -> String {
         // SymPy prints a lone Float with full precision
         return crate::number::format_float_full(*f);
     }
+    if let Kind::Num(Number::MpFloat(value, precision)) = e.kind() {
+        return value.to_string_dps(crate::bigfloat::prec_to_dps(*precision), false);
+    }
     let mut s = String::new();
     write_expr(e, &mut s);
     s
@@ -338,6 +341,10 @@ fn write_srepr(e: &Expr, out: &mut String) {
             // Seventeen significant digits recover every finite f64. The
             // human-readable str formatter intentionally rounds to 15.
             Number::Float(f) => out.push_str(&format!("Float('{f:.16e}', precision=53)")),
+            Number::MpFloat(value, precision) => out.push_str(&format!(
+                "Float('{}', precision={precision})",
+                value.to_string_dps(crate::bigfloat::prec_to_dps(*precision) + 3, true),
+            )),
         },
         Kind::Sym(s) => {
             let kw = s.given().keywords();

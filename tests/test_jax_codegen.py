@@ -1,6 +1,7 @@
 """Execute standalone JAX code, including JIT and differentiated branches."""
 
 import inspect
+import os
 import subprocess
 import sys
 
@@ -10,6 +11,12 @@ import symox as sm
 
 jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _require_requested_gpu():
+    if os.environ.get("SYMOX_JAX_REQUIRE_GPU") == "1":
+        assert jax.default_backend() in ("gpu", "cuda"), "JAX tests require a CUDA GPU backend"
 
 
 def _enable_x64(enabled=True):
@@ -255,6 +262,61 @@ def test_explicit_device_and_dtype_for_python_scalars(as_string, jit):
             assert result.dtype == jnp.float64 and result.device == device
         np.testing.assert_allclose(results[0], np.sin(.5), rtol=1e-14)
         np.testing.assert_allclose(results[1], 1/3, rtol=1e-14)
+
+
+@pytest.mark.parametrize("jit_options", [None, {"out_shardings": (None, None)}])
+def test_explicit_device_compiles_constants_on_requested_backend(jit_options):
+    device = jax.devices("cpu")[0]
+    f = sm.jax_lambdify((), (sm.pi, sm.Rational(1, 3)), jit=True, jit_options=jit_options)
+    compiled = f.lower(device="cpu").compile()
+    assert compiled.runtime_executable().local_devices() == [device]
+    for result, expected in zip(f(device="cpu"), (np.pi, 1/3)):
+        assert result.device == device
+        np.testing.assert_allclose(result, expected, rtol=1e-6)
+
+
+@pytest.mark.parametrize("target_backend", ["cpu", "gpu"])
+def test_explicit_device_moves_inputs_before_compilation(target_backend):
+    try:
+        gpu = jax.devices("gpu")[0]
+    except RuntimeError:
+        pytest.skip("Requires both CPU and GPU devices")
+    cpu = jax.devices("cpu")[0]
+    target, origin = (cpu, gpu) if target_backend == "cpu" else (gpu, cpu)
+    x, y = sm.symbols("x y")
+    f = sm.jax_lambdify(((x, y),), (sm.sin(x)+y*y, [sm.pi, x > y]), jit=True)
+    inputs = tuple(jax.device_put(np.array([.25, .5], dtype=np.float32)+shift, origin)
+                   for shift in (0., .1))
+    compiled = f.lower(inputs, device=target).compile()
+    assert compiled.runtime_executable().local_devices() == [target]
+    result = f(inputs, device=target)
+    assert all(leaf.device == target for leaf in jax.tree_util.tree_leaves(result))
+    np.testing.assert_allclose(result[0], np.sin(np.asarray(inputs[0]))+np.asarray(inputs[1])**2,
+                               rtol=1e-6)
+    # Reuse the same generated function in the opposite direction, and allow
+    # normal JAX placement inference when no explicit device is supplied.
+    back = tuple(jax.device_put(value, target) for value in inputs)
+    assert f(back, device=origin)[0].device == origin
+    assert f(inputs)[0].device == origin
+
+
+def test_explicit_device_preserves_nested_autodiff_and_jit_options():
+    x, y = sm.symbols("x y")
+    cpu = jax.devices("cpu")[0]
+    f = sm.jax_lambdify(((x, y),), sm.sin(x)+y*y, jit=True,
+                        jit_options={"inline": True})
+    wrapped = lambda value: f((value, .3), device="cpu")
+    with _enable_x64():
+        result = f((.2, .3), device=cpu, dtype=jnp.float64)
+        assert result.dtype == jnp.float64 and result.device == cpu
+        np.testing.assert_allclose(jax.grad(wrapped)(.2), np.cos(.2), rtol=1e-12)
+        np.testing.assert_allclose(jax.hessian(wrapped)(.2), -np.sin(.2), rtol=1e-12)
+        values = jax.device_put(np.array([.1, .2, .3]), cpu)
+        actual = jax.vmap(wrapped)(values)
+        assert actual.device == cpu
+        np.testing.assert_allclose(actual, np.sin(np.asarray(values))+.09, rtol=1e-12)
+    assert f.eval_shape((.2, .3), device=cpu).shape == ()
+    f.clear_cache()
 
 
 def test_loggamma_preserves_assumptions_and_rejects_ambiguous_domains():

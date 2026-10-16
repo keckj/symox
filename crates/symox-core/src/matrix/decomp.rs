@@ -274,6 +274,8 @@ impl Matrix {
                 let m = self.applyfunc(abs);
                 Ok(maxf((0..m.rows()).map(|i| add(m.row(i).data())).collect()))
             }
+            Some("2") => Ok(maxf(self.singular_values()?)),
+            Some("-2") => Ok(minf(self.singular_values()?)),
             None | Some("f") | Some("fro") | Some("frobenius") | Some("vector") => self.vec().norm_ord(Some("2")),
             _ => Err(MatrixError::NotImplemented("Matrix Norms under development".into())),
         }

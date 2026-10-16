@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 
 use num_bigint::BigInt;
 use numpy::{PyArray1, PyArrayMethods, PyReadonlyArray1};
-use pyo3::exceptions::{PyTypeError, PyValueError, PyZeroDivisionError};
+use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
 use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyList, PySet, PyString, PyTuple};
 use rustc_hash::FxHashMap;
@@ -31,6 +31,7 @@ mod ode;
 mod solve;
 mod logic;
 mod special;
+mod calculus;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -147,6 +148,55 @@ fn num_complex_c64(re: f64, im: f64) -> num_complex::Complex64 {
 
 fn opt_expr(obj: &Bound<'_, PyAny>) -> Option<Expr> {
     to_expr(obj).ok()
+}
+
+pub(crate) fn decimal_precision(n: u32) -> PyResult<u32> {
+    if !(1..=10_000).contains(&n) {
+        return Err(PyValueError::new_err("decimal precision must lie between 1 and 10000"));
+    }
+    Ok(symox::bigfloat::dps_to_prec(n))
+}
+
+pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
+    if let Some(kwargs) = kwargs {
+        for (key, value) in kwargs {
+            let key: String = key.extract()?;
+            match key.as_str() {
+                "chop" | "strict" | "verbose" if !value.is_truthy()? => {},
+                "chop" | "strict" | "verbose" | "maxn" | "quad" => return Err(PyNotImplementedError::new_err(format!("evalf option {key} is not implemented"))),
+                _ => return Err(PyTypeError::new_err(format!("unexpected evalf option {key}"))),
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn evalf_expr(e: &Expr, n: u32, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
+    let precision = decimal_precision(n)?;
+    evalf_options(kwargs)?;
+    let e = match replacements {
+        Some(mapping) => {
+            let pairs = mapping.iter().map(|(old, new)| Ok((to_expr(&old)?, to_expr(&new)?))).collect::<PyResult<Vec<_>>>()?;
+            symox::subs::subs(e, &pairs)
+        }
+        None => e.clone(),
+    };
+    Ok(symox::evalf_mp::evalf(&e, precision))
+}
+
+fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
+    if let Some(kwargs) = kwargs {
+        for (key, value) in kwargs {
+            let key: String = key.extract()?;
+            match key.as_str() {
+                "meijerg" | "risch" | "heurisch" | "manual" if value.is_none() => {},
+                "conds" if value.extract::<String>().is_ok_and(|s| s == "piecewise") => {},
+                "meijerg" | "risch" | "heurisch" | "manual" | "conds" => return Err(PyNotImplementedError::new_err(format!("integration option {key} is not implemented"))),
+                _ => return Err(PyTypeError::new_err(format!("unexpected integration option {key}"))),
+            }
+        }
+    }
+    Ok(())
 }
 
 fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
@@ -443,14 +493,17 @@ impl PyExpr {
     }
     fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         let py = o.py();
-        if o.downcast::<matrices::PyMatrix>().is_ok() {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
             // let Matrix.__rmul__ handle scalar * matrix
             return Ok(py.NotImplemented());
         }
         Ok(wrap(ops::mul2(&self.e, &to_expr(o)?)).into_pyobject(py)?.into_any().unbind())
     }
-    fn __rmul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::mul2(&to_expr(o)?, &self.e)))
+    fn __rmul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
+            return Ok(o.py().NotImplemented());
+        }
+        Ok(wrap(ops::mul2(&to_expr(o)?, &self.e)).into_pyobject(o.py())?.into_any().unbind())
     }
     fn __truediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(wrap(ops::div(&self.e, &to_expr(o)?)))
@@ -492,6 +545,7 @@ impl PyExpr {
 
     fn __int__(&self) -> PyResult<BigInt> {
         match self.e.kind() {
+            Kind::Num(Number::MpFloat(value, _)) => Ok(value.to_int_trunc()),
             Kind::Num(n) => {
                 if let Some(b) = n.to_bigint() {
                     return Ok(b);
@@ -656,7 +710,13 @@ impl PyExpr {
     }
     #[getter]
     fn is_Float(&self) -> bool {
-        matches!(self.e.as_number(), Some(Number::Float(_)))
+        self.e.as_number().is_some_and(Number::is_float)
+    }
+
+    #[getter]
+    fn _prec(&self) -> PyResult<u32> {
+        self.e.as_number().and_then(Number::float_precision)
+            .ok_or_else(|| pyo3::exceptions::PyAttributeError::new_err("only Float numbers have a bit precision"))
     }
     #[getter]
     fn is_Add(&self) -> bool {
@@ -883,7 +943,7 @@ impl PyExpr {
 
     #[pyo3(signature = (deep=true, **hints))]
     fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-        let _ = deep;
+        if !deep { return Err(PyNotImplementedError::new_err("expand(deep=False) is not implemented")); }
         Ok(wrap(expand_hints(&self.e, hints)?))
     }
 
@@ -906,18 +966,7 @@ impl PyExpr {
         subs: Option<&Bound<'_, PyDict>>,
         _kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<PyExpr> {
-        let _ = n;
-        let e = match subs {
-            Some(d) => {
-                let mut pairs = Vec::new();
-                for (k, v) in d.iter() {
-                    pairs.push((to_expr(&k)?, to_expr(&v)?));
-                }
-                symox::subs::subs(&self.e, &pairs)
-            }
-            None => self.e.clone(),
-        };
-        Ok(wrap(evalf::evalf(&e)))
+        Ok(wrap(evalf_expr(&self.e, n, subs, _kwargs)?))
     }
 
     #[pyo3(signature = (n=15, subs=None, **kwargs))]
@@ -936,6 +985,7 @@ impl PyExpr {
 
     #[pyo3(signature = (*args, **_kwargs))]
     fn integrate(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+        integrate_options(_kwargs)?;
         Ok(wrap(do_integrate(&self.e, args)?))
     }
 
@@ -1405,9 +1455,40 @@ fn py_rational(p: &Bound<'_, PyAny>, q: Option<&Bound<'_, PyAny>>) -> PyResult<P
 }
 
 #[pyfunction]
-#[pyo3(name = "Float")]
-fn py_float(obj: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(evalf::evalf(&to_expr(obj)?)))
+#[pyo3(name = "Float", signature = (obj, dps=None, *, precision=None))]
+fn py_float(obj: &Bound<'_, PyAny>, dps: Option<u32>, precision: Option<u32>) -> PyResult<PyExpr> {
+    if dps.is_some() && precision.is_some() { return Err(PyValueError::new_err("specify decimal digits or bit precision, not both")); }
+    let p = match (dps, precision) {
+        (Some(n), _) => decimal_precision(n)?,
+        (_, Some(p)) if (2..=40_000).contains(&p) => p,
+        (_, Some(_)) => return Err(PyValueError::new_err("bit precision must lie between 2 and 40000")),
+        _ => 53,
+    };
+    let ty = obj.get_type();
+    let decimal = ty.name().is_ok_and(|name| name == "Decimal")
+        && ty.module().is_ok_and(|module| module == "decimal");
+    if obj.is_instance_of::<PyString>() || decimal {
+        let source = if decimal { obj.str()?.to_string() } else { obj.extract::<String>()? };
+        let special = match source.trim() {
+            "inf" | "+inf" | "Infinity" | "+Infinity" => Some(Expr::oo()),
+            "-inf" | "-Infinity" => Some(Expr::constant(Constant::NegInfinity)),
+            "nan" | "NaN" => Some(Expr::nan()),
+            _ => None,
+        };
+        if let Some(e) = special { return Ok(wrap(e)); }
+        let value = symox::bigfloat::BigFloat::from_decimal(&source, p).map_err(PyValueError::new_err)?;
+        return Ok(wrap(Expr::num(Number::mp_float(value, p))));
+    }
+    let e = to_expr(obj)?;
+    if matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN)) { return Ok(wrap(e)); }
+    if let Some(number) = e.as_number() {
+        if dps.is_none() && precision.is_none() && number.is_float() { return Ok(wrap(e)); }
+        return Ok(wrap(Expr::num(Number::mp_float(number.to_bigfloat(p), p))));
+    }
+    match symox::evalf_mp::eval_mp(&e, p) {
+        Some(value) if value.is_real() => Ok(wrap(Expr::num(Number::mp_float(value.re, p)))),
+        _ => Err(PyTypeError::new_err("Float expects a finite real number")),
+    }
 }
 
 #[pyfunction]
@@ -1484,12 +1565,44 @@ fn py_bernoulli(n: usize) -> PyExpr {
 #[pyfunction]
 #[pyo3(name = "integrate", signature = (f, *args, **_kwargs))]
 fn py_integrate(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    integrate_options(_kwargs)?;
     Ok(wrap(do_integrate(&to_expr(f)?, args)?))
 }
 
 /// `expand` with SymPy hints (`trig`, `log`, `force`, `power_base`, `mul`,
 /// `multinomial`, `power_exp`).
 fn expand_hints(e: &Expr, hints: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
+    // The native full expander distributes exp(a+b). Preserve individual
+    // exponential nodes when that transformation is explicitly disabled,
+    // while still expanding their arguments and the surrounding arithmetic.
+    fn protect_exp(e: &Expr, hints: Option<&Bound<'_, PyDict>>, held: &mut rustc_hash::FxHashMap<Expr, Expr>, used: &mut std::collections::HashSet<String>) -> PyResult<Expr> {
+        if let Kind::Func(Func::Exp, arguments) = e.kind() {
+            let value = fx::exp(&expand_hints(&arguments[0], hints)?);
+            let mut index = held.len();
+            let name = loop {
+                let candidate = format!("_sx_expand_held_{index}");
+                if used.insert(candidate.clone()) { break candidate; }
+                index += 1;
+            };
+            let symbol = Expr::symbol(&name);
+            held.insert(symbol.clone(), value);
+            return Ok(symbol);
+        }
+        let mut error = None;
+        let result = traverse::map_children(e, &mut |child| match protect_exp(child, hints, held, used) {
+            Ok(value) => value,
+            Err(value) => { error = Some(value); child.clone() },
+        });
+        error.map_or(Ok(result), Err)
+    }
+    if let Some(hints) = hints {
+        for (name, _) in hints.iter() {
+            let name: String = name.extract()?;
+            if !["trig", "log", "force", "power_base", "power_exp", "mul", "multinomial"].contains(&name.as_str()) {
+                return Err(PyNotImplementedError::new_err(format!("expand hint '{name}' is not implemented")));
+            }
+        }
+    }
     let get = |k: &str, default: bool| -> PyResult<bool> {
         match hints {
             Some(h) => match h.get_item(k)? {
@@ -1512,11 +1625,21 @@ fn expand_hints(e: &Expr, hints: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
     if get("power_base", true)? {
         r = symox::simp::expand_power_base(&r, force);
     }
+    let power_exp = get("power_exp", true)?;
+    let mut held = rustc_hash::FxHashMap::default();
+    if !power_exp {
+        let mut used = traverse::free_symbols(&r).iter().map(ToString::to_string).collect();
+        r = protect_exp(&r, hints, &mut held, &mut used)?;
+    }
     let full = get("mul", true)? && get("multinomial", true)?;
     if full {
         r = expand::expand(&r);
     } else if get("mul", true)? {
         r = symox::simp::expand_mul(&r);
+    }
+    if !held.is_empty() { r = subs::xreplace(&r, &held); }
+    if power_exp {
+        r = symox::simp::expand_power_exp(&r);
     }
     Ok(r)
 }
@@ -1524,13 +1647,16 @@ fn expand_hints(e: &Expr, hints: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
 #[pyfunction]
 #[pyo3(name = "expand", signature = (e, deep=true, **hints))]
 fn py_expand(e: &Bound<'_, PyAny>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    let _ = deep;
+    if !deep { return Err(PyNotImplementedError::new_err("expand(deep=False) is not implemented")); }
     Ok(wrap(expand_hints(&to_expr(e)?, hints)?))
 }
 
 #[pyfunction]
 #[pyo3(name = "simplify", signature = (e, **_kwargs))]
 fn py_simplify(e: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    if _kwargs.is_some_and(|options| !options.is_empty()) {
+        return Err(PyNotImplementedError::new_err("custom simplify options are not implemented"));
+    }
     Ok(wrap(simplify::simplify(&to_expr(e)?)))
 }
 
@@ -1547,10 +1673,9 @@ fn py_radsimp(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
 }
 
 #[pyfunction]
-#[pyo3(name = "N", signature = (e, n=15))]
-fn py_n(e: &Bound<'_, PyAny>, n: u32) -> PyResult<PyExpr> {
-    let _ = n;
-    Ok(wrap(evalf::evalf(&to_expr(e)?)))
+#[pyo3(name = "N", signature = (e, n=15, subs=None, **kwargs))]
+fn py_n(e: &Bound<'_, PyAny>, n: u32, subs: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    Ok(wrap(evalf_expr(&to_expr(e)?, n, subs, kwargs)?))
 }
 
 #[pyfunction]
@@ -1833,6 +1958,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ode::register(m)?;
     logic::register(m)?;
     special::register(m)?;
+    calculus::register(m)?;
     series::register(m)?;
     printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

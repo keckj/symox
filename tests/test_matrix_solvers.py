@@ -131,8 +131,7 @@ def test_structured_error_classes():
         sx.Matrix([[0]]).upper_triangular_solve(sx.ones(1, 1))
     with pytest.raises(sx.NonSquareMatrixError):
         sx.ones(2, 1).lower_triangular_solve(sx.ones(2, 1))
-    with pytest.raises(NotImplementedError):
-        sx.eye(2).pinv(method='ED')
+    equal(sx.eye(2).pinv(method='ED'), sp.eye(2))
     with pytest.raises(ValueError):
         sx.eye(2).pinv(method='invalid')
     with pytest.raises(NotImplementedError):

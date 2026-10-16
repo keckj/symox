@@ -746,6 +746,7 @@ impl PrettyPrinter<'_> {
                 }
             }
             Number::Float(f) => Pict::new(&float_str(*f)),
+            Number::MpFloat(..) => Pict::new(&n.to_string()),
         }
     }
 

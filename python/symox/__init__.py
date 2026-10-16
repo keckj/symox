@@ -125,6 +125,8 @@ from ._core import (  # noqa: E402
 from ._core import checkodesol, dsolve, nsolve, solve  # noqa: E402
 from ._core import NonlinearError  # noqa: E402
 from ._linear import linear_eq_to_matrix, linsolve, solve_linear_system  # noqa: E402
+from ._polysolve import solve_poly_system, nonlinsolve  # noqa: E402
+from ._core import residue  # noqa: E402
 
 # --- special ---
 # Special functions (symox::special): every head is a real function node with
@@ -1408,8 +1410,23 @@ from .printing.sycl import SYCLCodePrinter, AdaptiveCppCodePrinter, syclcode, ad
 from .codegen.sycl import (  # noqa: E402
     syclcode_function, sycl_kernel, adaptivecppcode_function, adaptivecpp_kernel,
 )
+from .codegen.cuda import CudaError, CudaKernel, compile_cuda, cuda_lambdify  # noqa: E402
+from ._sparse import SparseMatrix, MutableSparseMatrix, ImmutableSparseMatrix  # noqa: E402
 
 _native_lambdify = lambdify
+
+_native_N = N
+
+
+def N(expr, n=15, **kwargs):
+    """Evaluate to ``n`` decimal digits using the native precision engine.
+
+    Supports expressions and matrices. Decimal precision is 1 through 10000;
+    unsupported evaluation options raise an explicit error.
+    """
+    if isinstance(expr, _core.Matrix) or getattr(expr, "_symox_sparse", False):
+        return expr.evalf(n, **kwargs)
+    return _native_N(expr, n, **kwargs)
 
 
 def lambdify(args, expr, modules=None, **kwargs):
@@ -1443,6 +1460,10 @@ def lambdify(args, expr, modules=None, **kwargs):
         if len(candidates) != 1:
             raise NotImplementedError("Slang lambdify requires a single module; use user_functions for overrides")
         return slang_lambdify(args, expr, **kwargs)
+    if any(isinstance(module, str) and module in ("cuda", "nvrtc") for module in candidates):
+        if len(candidates) != 1:
+            raise NotImplementedError("CUDA lambdify requires a single module")
+        return cuda_lambdify(args, expr, **kwargs)
     return _native_lambdify(args, expr, modules=modules, **kwargs)
 
 __all__ = [n for n in dir() if not n.startswith("_")]

@@ -647,7 +647,7 @@ impl Expr {
                     "Rational"
                 }
             }
-            Kind::Num(Number::Float(_)) => "Float",
+            Kind::Num(Number::Float(_) | Number::MpFloat(..)) => "Float",
             // SymPy's `Dummy` symbols print as `_name`; symox represents them
             // as symbols whose name starts with an underscore.
             Kind::Sym(s) if s.name().starts_with('_') && !s.is_wild() => "Dummy",

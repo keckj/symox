@@ -6,6 +6,9 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 
+use rustc_hash::{FxHashMap, FxHashSet};
+
+use super::convert::{PResult, PolyError};
 use super::int::Rat;
 use super::mpoly::MPoly;
 use super::polyobj::reduce_mod;
@@ -70,6 +73,19 @@ pub struct CoefficientField {
     pub modulus: Option<u64>,
 }
 impl CoefficientField {
+    fn scalar(self, c: Rat) -> Rat {
+        match self.modulus {
+            None => c,
+            Some(p) => {
+                let v = super::gf::mulmod(c.n.rem_u64(p), super::gf::invmod(c.d.rem_u64(p), p), p);
+                Rat::from_i64(if v > p / 2 {
+                    v as i64 - p as i64
+                } else {
+                    v as i64
+                })
+            }
+        }
+    }
     pub fn normalize(self, p: &MPoly<Rat>) -> MPoly<Rat> {
         match self.modulus {
             Some(m) => reduce_mod(p, m),
@@ -272,6 +288,157 @@ pub fn is_zero_dimensional(basis: &[MPoly<Rat>], order: MonomialOrder, nvars: us
     })
 }
 
+/// Convert a zero-dimensional reduced basis using the FGLM algorithm.
+///
+/// The source staircase gives a finite basis of the quotient algebra.
+/// Multiplication matrices express products by its generators. Increasing
+/// target monomials are then classified by incremental exact linear algebra;
+/// dependencies give the new reduced basis. No Groebner recomputation is used.
+pub fn fglm(
+    basis: &[MPoly<Rat>],
+    source: MonomialOrder,
+    target: MonomialOrder,
+    field: CoefficientField,
+    nvars: usize,
+) -> PResult<Vec<MPoly<Rat>>> {
+    if source == target {
+        return Ok(basis.to_vec());
+    }
+    if !is_zero_dimensional(basis, source, nvars) {
+        return Err(PolyError::Unsupported(
+            "cannot convert Groebner bases of ideals with positive dimension".into(),
+        ));
+    }
+    let leading: Vec<_> = basis
+        .iter()
+        .map(|p| p.exp(source.leading_index(p)).to_vec())
+        .collect();
+    let zero = vec![0; nvars];
+    let mut staircase = Vec::new();
+    let mut queue = VecDeque::from([zero.clone()]);
+    let mut seen = FxHashSet::default();
+    seen.insert(zero.clone());
+    while let Some(e) = queue.pop_front() {
+        if leading.iter().any(|m| divides(m, &e)) {
+            continue;
+        }
+        staircase.push(e.clone());
+        for v in 0..nvars {
+            let mut child = e.clone();
+            child[v] += 1;
+            if seen.insert(child.clone()) {
+                queue.push_back(child);
+            }
+        }
+    }
+    staircase.sort_by(|a, b| source.compare(a, b));
+    let dimension = staircase.len();
+    let index: FxHashMap<_, _> = staircase
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(i, e)| (e, i))
+        .collect();
+    // matrices[v][column][row] represents multiplication by generator v.
+    let mut matrices = Vec::with_capacity(nvars);
+    for v in 0..nvars {
+        let mut columns = Vec::with_capacity(dimension);
+        for e in &staircase {
+            let mut child = e.clone();
+            child[v] += 1;
+            let nf = reduce(&MPoly::monomial(&child, Rat::one()), basis, source, field).1;
+            let mut column = vec![Rat::zero(); dimension];
+            for (m, c) in nf.iter() {
+                column[index[m]] = c.clone();
+            }
+            columns.push(column);
+        }
+        matrices.push(columns);
+    }
+    let multiply = |v: usize, vector: &[Rat]| {
+        let mut out = vec![Rat::zero(); dimension];
+        for (j, c) in vector.iter().enumerate() {
+            if c.is_zero() {
+                continue;
+            }
+            for (row, a) in out.iter_mut().enumerate() {
+                *a = field.scalar(a.add(&matrices[v][j][row].mul(c)));
+            }
+        }
+        out
+    };
+    let mut one = vec![Rat::zero(); dimension];
+    one[index[&zero]] = Rat::one();
+    let mut candidates = vec![(zero.clone(), one)];
+    seen.clear();
+    seen.insert(zero);
+    let mut accepted: Vec<Vec<u32>> = Vec::new();
+    // Each normalized row is accompanied by its representation in the
+    // accepted target monomials; this gives exact dependency coefficients.
+    let mut rows: Vec<(usize, Vec<Rat>, Vec<Rat>)> = Vec::new();
+    let mut result: Vec<MPoly<Rat>> = Vec::new();
+    let mut target_leading: Vec<Vec<u32>> = Vec::new();
+    while !candidates.is_empty() {
+        let next = (0..candidates.len())
+            .min_by(|&i, &j| target.compare(&candidates[i].0, &candidates[j].0))
+            .unwrap();
+        let (e, vector) = candidates.swap_remove(next);
+        if target_leading.iter().any(|m| divides(m, &e)) {
+            continue;
+        }
+        let mut residual = vector.clone();
+        let mut coefficients = vec![Rat::zero(); accepted.len()];
+        for (pivot, row, witness) in &rows {
+            let c = residual[*pivot].clone();
+            if c.is_zero() {
+                continue;
+            }
+            for (a, b) in residual.iter_mut().zip(row) {
+                *a = field.scalar(a.sub(&c.mul(b)));
+            }
+            for (a, b) in coefficients.iter_mut().zip(witness) {
+                *a = field.scalar(a.add(&c.mul(b)));
+            }
+        }
+        if let Some(pivot) = residual.iter().position(|c| !c.is_zero()) {
+            let inv = field.quotient(&Rat::one(), &residual[pivot]);
+            let row: Vec<_> = residual.iter().map(|c| field.scalar(c.mul(&inv))).collect();
+            let mut witness: Vec<_> = coefficients
+                .iter()
+                .map(|c| field.scalar(c.neg().mul(&inv)))
+                .collect();
+            witness.push(inv);
+            rows.push((pivot, row, witness));
+            accepted.push(e.clone());
+            for v in 0..nvars {
+                let mut child = e.clone();
+                child[v] += 1;
+                if seen.insert(child.clone()) {
+                    candidates.push((child, multiply(v, &vector)));
+                }
+            }
+        } else {
+            let mut terms = vec![(e.clone(), Rat::one())];
+            terms.extend(
+                accepted
+                    .iter()
+                    .zip(coefficients)
+                    .filter(|(_, c)| !c.is_zero())
+                    .map(|(m, c)| (m.clone(), field.scalar(c.neg()))),
+            );
+            result.push(MPoly::from_terms(nvars, terms));
+            target_leading.push(e);
+        }
+    }
+    result.sort_by(|a, b| {
+        target.compare(
+            b.exp(target.leading_index(b)),
+            a.exp(target.leading_index(a)),
+        )
+    });
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +507,40 @@ mod tests {
             ),
             vec![MPoly::one(2)]
         );
+    }
+
+    #[test]
+    fn fglm_converts_quotient_algebra() {
+        for expressions in [
+            vec!["x*y-1", "y**2-x"],
+            vec!["x**2", "y**3"],
+            vec!["x**2+y**2-1", "x*y-2"],
+        ] {
+            let es: Vec<_> = expressions.iter().map(|s| parse_str(s).unwrap()).collect();
+            let input = from_exprs(&es).unwrap().polys;
+            for modulus in [None, Some(2), Some(5)] {
+                let field = CoefficientField { modulus };
+                for source in [
+                    MonomialOrder::Lex,
+                    MonomialOrder::Grlex,
+                    MonomialOrder::Grevlex,
+                ] {
+                    let a = buchberger(&input, source, field);
+                    if !is_zero_dimensional(&a, source, 2) {
+                        continue;
+                    }
+                    for target in [
+                        MonomialOrder::Lex,
+                        MonomialOrder::Grlex,
+                        MonomialOrder::Grevlex,
+                    ] {
+                        assert_eq!(
+                            fglm(&a, source, target, field, 2).unwrap(),
+                            buchberger(&input, target, field)
+                        );
+                    }
+                }
+            }
+        }
     }
 }

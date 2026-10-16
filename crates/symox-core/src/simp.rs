@@ -258,7 +258,11 @@ pub fn trigsimp(e: &Expr) -> Expr {
 
 /// Combine powers with equal bases (and exponentials), SymPy's `powsimp`.
 pub fn powsimp(e: &Expr) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut powsimp) };
+    powsimp_deep(e, true)
+}
+
+pub fn powsimp_deep(e: &Expr, deep: bool) -> Expr {
+    let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut |c| powsimp_deep(c, deep)) };
     let Kind::Mul(c, facs) = e2.kind() else { return e2 };
     let mut groups: Vec<(Expr, Vec<Expr>)> = Vec::new();
     let mut exps: Vec<Expr> = Vec::new();
@@ -299,7 +303,11 @@ impl Expr {
 /// `log(x*y) -> log(x) + log(y)`, `log(x**n) -> n*log(x)` for positive
 /// arguments (or everything with `force`).
 pub fn expand_log(e: &Expr, force: bool) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_log(c, force)) };
+    expand_log_deep(e, force, true)
+}
+
+pub fn expand_log_deep(e: &Expr, force: bool, deep: bool) -> Expr {
+    let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_log_deep(c, force, deep)) };
     let Kind::Func(Func::Log, a) = e2.kind() else { return e2 };
     let ok = |x: &Expr| force || is_positive(x) == Some(true);
     match a[0].kind() {
@@ -372,7 +380,11 @@ pub fn logcombine(e: &Expr, force: bool) -> Expr {
 
 /// `(x*y)**a -> x**a * y**a` (for positive factors, or with `force`).
 pub fn expand_power_base(e: &Expr, force: bool) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_power_base(c, force)) };
+    expand_power_base_deep(e, force, true)
+}
+
+pub fn expand_power_base_deep(e: &Expr, force: bool, deep: bool) -> Expr {
+    let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_power_base_deep(c, force, deep)) };
     if let Kind::Pow(b, x) = e2.kind() {
         if let Kind::Mul(..) = b.kind() {
             let fs = b.args();
@@ -386,19 +398,54 @@ pub fn expand_power_base(e: &Expr, force: bool) -> Expr {
 
 /// `x**(a+b) -> x**a * x**b` when the base is known to be non-zero.
 pub fn expand_power_exp(e: &Expr) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut expand_power_exp) };
+    expand_power_exp_deep(e, true)
+}
+
+pub fn expand_power_exp_deep(e: &Expr, deep: bool) -> Expr {
+    let e2 = if !deep || e.is_atom() { e.clone() } else if let Kind::Add(c, terms) = e.kind() {
+        // Scaling an expanded child with mul2 would merge its factors again.
+        let transformed: Vec<_> = terms.iter().map(|(t,k)| (expand_power_exp_deep(t, true), k.clone())).collect();
+        if transformed.iter().zip(terms).all(|((a,_),(b,_))| a == b) { e.clone() }
+        else { Expr::from_unevaluated_kind(Kind::Add(c.clone(), transformed)) }
+    } else { map_children(e, &mut |c| expand_power_exp_deep(c, deep)) };
     match e2.kind() {
         Kind::Pow(b, x) if x.is_add() && crate::assumptions::is_nonzero(b) == Some(true) => {
-            mul(&x.args().iter().map(|t| pow(b, t)).collect::<Vec<_>>())
+            expanded_product(&x.args().iter().map(|t| pow(b, t)).collect::<Vec<_>>())
         }
-        Kind::Func(Func::Exp, a) if a[0].is_add() => mul(&a[0].args().iter().map(exp).collect::<Vec<_>>()),
+        Kind::Func(Func::Exp, a) if a[0].is_add() => expanded_product(&a[0].args().iter().map(exp).collect::<Vec<_>>()),
+        Kind::Mul(..) if deep => {
+            let args = e2.args();
+            let changed: Vec<_> = args.iter().map(|f| expand_power_exp_deep(f, false)).collect();
+            if args.iter().zip(&changed).any(|(a,b)| a != b) { expanded_product(&changed) } else { e2 }
+        }
         _ => e2,
     }
 }
 
+/// The ordinary product constructor merges equal bases, undoing this
+/// expansion. Preserve its explicit factors just as for evaluate=False.
+fn expanded_product(args: &[Expr]) -> Expr {
+    let mut coefficient = Number::ONE;
+    let mut factors = Vec::new();
+    for arg in args {
+        match arg.kind() {
+            Kind::Num(n) => coefficient = coefficient.mul(n),
+            Kind::Mul(c, fs) => { coefficient = coefficient.mul(c); factors.extend(fs.iter().cloned()); },
+            Kind::Pow(base, exponent) => factors.push((base.clone(), exponent.clone())),
+            _ => factors.push((arg.clone(), Expr::one())),
+        }
+    }
+    if factors.is_empty() { return Expr::num(coefficient); }
+    Expr::from_unevaluated_kind(Kind::Mul(coefficient, factors))
+}
+
 /// Distribute products over sums (but do not expand powers).
 pub fn expand_mul(e: &Expr) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut expand_mul) };
+    expand_mul_deep(e, true)
+}
+
+pub fn expand_mul_deep(e: &Expr, deep: bool) -> Expr {
+    let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_mul_deep(c, deep)) };
     if let Kind::Mul(..) = e2.kind() {
         let fs = e2.args();
         if fs.iter().any(|f| f.is_add()) {

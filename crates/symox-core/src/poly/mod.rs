@@ -33,3 +33,4 @@ pub mod roots;
 pub mod modgcd;
 pub mod ratfunc;
 pub mod groebner;
+pub mod systems;

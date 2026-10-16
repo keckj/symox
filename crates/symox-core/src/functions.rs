@@ -19,6 +19,14 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
     }
+    if args.iter().any(crate::evalf_mp::has_mp) {
+        let precision = args.iter().filter_map(crate::evalf_mp::max_precision).max().unwrap();
+        if args.iter().all(is_numeric_value) {
+            let raw = Expr::from_kind(Kind::Func(f, args));
+            return crate::evalf_mp::eval_mp(&raw, precision)
+                .map(|value| crate::evalf_mp::to_expr(value, precision)).unwrap_or(raw);
+        }
+    }
     if let Func::Special(s) = f {
         return crate::special::apply(s, args);
     }

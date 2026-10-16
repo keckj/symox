@@ -461,10 +461,12 @@ impl Matrix {
     /// Matrix product with expression arithmetic only.
     pub(crate) fn matmul_plain(&self, o: &Matrix) -> Matrix {
         let n = self.cols();
+        let skip_zeros = !self.has_nonfinite() && !o.has_nonfinite();
         Matrix::from_fn(self.rows(), o.cols(), |i, j| {
             let terms: Vec<Expr> = (0..n)
-                .filter(|&k| !self.get(i, k).is_zero() && !o.get(k, j).is_zero())
-                .map(|k| mul2(self.get(i, k), o.get(k, j)))
+                .filter(|&k| !skip_zeros || (!self.get(i, k).is_zero() && !o.get(k, j).is_zero()))
+                .map(|k| if skip_zeros { mul2(self.get(i, k), o.get(k, j)) }
+                    else { super::nonfinite_product(self.get(i, k), o.get(k, j)) })
                 .collect();
             add(&terms)
         })

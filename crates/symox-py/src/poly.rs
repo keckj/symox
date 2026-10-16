@@ -304,6 +304,26 @@ impl PyGroebnerBasis {
             "QQ".into()
         }
     }
+
+    /// Convert orders through the finite-dimensional quotient algebra.
+    fn fglm(&self, order: &str) -> PyResult<Self> {
+        use symox::poly::groebner::{fglm, CoefficientField, MonomialOrder};
+        let target = MonomialOrder::parse(order)
+            .ok_or_else(|| PyValueError::new_err("order must be 'lex', 'grlex', or 'grevlex'"))?;
+        if target == self.monomial_order { return Ok(self.clone()); }
+        let reps: Vec<_> = self.basis.iter().map(|p| p.rep.clone()).collect();
+        let converted = fglm(&reps,self.monomial_order,target,CoefficientField {modulus:self.prime},self.generators.len())
+            .map_err(|e| PyNotImplementedError::new_err(e.to_string()))?;
+        let mut result = self.clone();
+        result.monomial_order = target;
+        result.basis = converted.into_iter().map(|rep| {
+            let rep = if self.coefficient_domain == Domain::ZZ && self.prime.is_none() {
+                let (_,p) = rep.clear_denoms(); p.div_coeff(&p.content()).unwrap().to_rat()
+            } else {rep};
+            Poly {rep,gens:self.generators.clone(),ngens:self.generators.len(),domain:self.coefficient_domain,modulus:self.prime}
+        }).collect();
+        Ok(result)
+    }
     #[getter]
     fn is_zero_dimensional(&self) -> bool {
         let reps: Vec<_> = self.basis.iter().map(|p| p.rep.clone()).collect();
@@ -443,6 +463,17 @@ fn is_zero_dimensional(
         PyGroebnerBasis::build(f, gens, order, domain, modulus, method, None)?
             .is_zero_dimensional(),
     )
+}
+
+#[pyfunction]
+fn _solve_poly_system(f: &Bound<'_,PyAny>, symbols: &Bound<'_,PyAny>) -> PyResult<Option<Vec<Vec<PyExpr>>>> {
+    let equations = f.try_iter()?.map(|e| to_expr(&e?)).collect::<PyResult<Vec<_>>>()?;
+    let variables = symbols.try_iter()?.map(|e| to_expr(&e?)).collect::<PyResult<Vec<_>>>()?;
+    let result = symox::poly::systems::solve_poly_system(&equations,&variables).map_err(|e| match e {
+        PolyError::Unsupported(message) => PyNotImplementedError::new_err(message),
+        other => err(other),
+    })?;
+    Ok(result.map(|solutions| solutions.into_iter().map(|s| s.into_iter().map(w).collect()).collect()))
 }
 
 /// A polynomial with explicit generators (SymPy's `Poly`).
@@ -592,7 +623,10 @@ impl PyPoly {
 
     #[getter]
     fn domain(&self) -> String {
-        self.p.domain_str()
+        match self.p.modulus {
+            Some(p) => format!("GF({p})"),
+            None => self.p.domain_str(),
+        }
     }
 
     #[getter]
@@ -1290,49 +1324,89 @@ fn py_div<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, g, *gens, order="lex", **_kwargs))]
-fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
-    let monomial_order = symox::poly::groebner::MonomialOrder::parse(order)
+#[pyo3(signature = (f, g, *gens, order="lex", domain=None, modulus=None, polys=None, auto=None, **_kwargs))]
+fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, domain: Option<&str>, modulus: Option<u64>, polys: Option<bool>, auto: Option<bool>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    use symox::poly::convert::{from_exprs, from_exprs_gens, to_expr_f};
+    use symox::poly::groebner::{reduce_with_options, CoefficientField, MonomialOrder};
+    let monomial_order = MonomialOrder::parse(order)
         .ok_or_else(|| PyValueError::new_err("order must be 'lex', 'grlex', or 'grevlex'"))?;
+    // SymPy disables automatic field extension for explicit domains unless
+    // auto=True is supplied explicitly.
+    let auto = auto.unwrap_or(domain.is_none());
     if let Some(kwargs) = _kwargs {
-        for (key, value) in kwargs.iter() {
-            let name = key.extract::<String>()?;
-            let supported = match name.as_str() {
-                "domain" | "modulus" => value.is_none(),
-                "polys" => !value.is_truthy()?,
-                "auto" => value.is_truthy()?,
-                _ => return Err(PyTypeError::new_err(format!("reduced() got an unsupported keyword argument '{name}'"))),
-            };
-            if !supported {
-                return Err(PyNotImplementedError::new_err(format!("reduced() does not support the '{name}' option")));
-            }
+        if let Some((key,_)) = kwargs.iter().next() {
+            return Err(PyTypeError::new_err(format!("reduced() got an unsupported keyword argument '{}'",key.extract::<String>()?)));
         }
     }
-    let ds: Vec<Expr> = g.try_iter()?.map(|d| to_expr(&d?)).collect::<PyResult<_>>()?;
-    let (q, r) = if order == "lex" {
-        api::reduced(&to_expr(f)?, &ds, &gens_of(gens)?).map_err(err)?
-    } else {
-        use symox::poly::convert::{from_exprs, from_exprs_gens, to_expr_f};
-        use symox::poly::groebner::{reduce, CoefficientField};
-        let mut expressions = vec![to_expr(f)?];
-        expressions.extend(ds);
-        let gv = gens_of(gens)?;
-        let converted = if gv.is_empty() {from_exprs(&expressions)} else {from_exprs_gens(&expressions,&gv)}.map_err(err)?;
-        if converted.ngens != converted.gens.len() {
-            return Err(PyNotImplementedError::new_err("graded reduction with coefficient extensions is not implemented"));
-        }
-        if converted.polys.iter().skip(1).any(|p| p.is_zero()) {
-            return Err(PyZeroDivisionError::new_err("polynomial division by zero"));
-        }
-        if converted.polys[0].is_zero() { (Vec::new(),Expr::zero()) }
-        else {
-            let (q,r) = reduce(&converted.polys[0],&converted.polys[1..],monomial_order,CoefficientField {modulus:None});
-            let expression = |p: &symox::poly::MPoly<Rat>| to_expr_f(p,&converted.gens,converted.float);
-            (q.iter().map(expression).collect(),expression(&r))
-        }
+    if domain.is_some_and(|d| d != "ZZ" && d != "QQ" && d != "RR") {
+        return Err(PyNotImplementedError::new_err("reduced supports ZZ, QQ, RR, and prime modulus domains"));
+    }
+    if domain.is_some() && modulus.is_some() {
+        return Err(PyValueError::new_err("specify either domain or modulus"));
+    }
+    let mut expressions = Vec::new();
+    let mut inferred_gens = Vec::new();
+    let mut inferred_domain = Domain::ZZ;
+    let mut inferred_prime = None;
+    let mut any_poly = false;
+    let mut append = |item: &Bound<'_,PyAny>| -> PyResult<()> {
+        if let Ok(p) = item.downcast::<PyPoly>() {
+            any_poly = true;
+            let p = &p.get().p;
+            expressions.push(p.as_expr());
+            inferred_gens = symox::poly::polyobj::unify_gens(&inferred_gens,p.true_gens());
+            inferred_domain = inferred_domain.max(p.domain);
+            if let Some(m) = p.modulus {
+                if inferred_prime.is_some_and(|q| q != m) {return Err(PyValueError::new_err("incompatible finite-field domains"));}
+                inferred_prime = Some(m);
+            }
+        } else { expressions.push(to_expr(item)?); }
+        Ok(())
     };
-    let q = PyList::new(py, q.into_iter().map(w))?;
-    PyTuple::new(py, [q.into_any(), w(r).into_pyobject(py)?.into_any()])
+    append(f)?;
+    for divisor in g.try_iter()? { append(&divisor?)?; }
+    let mut gv = gens_of(gens)?;
+    if gv.is_empty() && any_poly {gv = inferred_gens;}
+    for (i,g) in gv.iter().enumerate() {
+        if g.is_number() || gv[..i].contains(g) {return Err(PyValueError::new_err("generators must be distinct nonnumeric expressions"));}
+    }
+    let converted = if gv.is_empty() {from_exprs(&expressions)} else {from_exprs_gens(&expressions,&gv)}.map_err(err)?;
+    if converted.ngens == 0 {return Err(PyValueError::new_err("reduced() requires generators"));}
+    if converted.polys.iter().skip(1).any(|p| p.is_zero()) {return Err(PyZeroDivisionError::new_err("polynomial division by zero"));}
+    let prime = modulus.or(if domain.is_none() {inferred_prime} else {None}).map(check_mod).transpose()?;
+    let return_polys = polys.unwrap_or(any_poly);
+    if converted.ngens != converted.gens.len() {
+        if domain.is_none() && prime.is_none() && !return_polys && auto && order == "lex" {
+            let (q,r) = api::reduced(&expressions[0],&expressions[1..],&gv).map_err(err)?;
+            let q = PyList::new(py,q.into_iter().map(w))?;
+            return PyTuple::new(py,[q.into_any(),w(r).into_pyobject(py)?.into_any()]);
+        }
+        return Err(PyNotImplementedError::new_err("coefficient extensions currently support only default lex expression reduction"));
+    }
+    let integral = converted.polys.iter().all(|p| p.is_integral());
+    if (domain == Some("ZZ") || prime.is_some()) && (!integral || converted.float) {
+        return Err(PyValueError::new_err("coefficients must be integers in the selected domain"));
+    }
+    let mut output_domain = match domain {
+        Some("ZZ") => Domain::ZZ,
+        Some("QQ") => Domain::QQ,
+        Some("RR") => Domain::RR,
+        _ if converted.float => Domain::RR,
+        _ if !integral => Domain::QQ,
+        _ => inferred_domain,
+    };
+    let divisors: Vec<_> = converted.polys[1..].iter().map(|p| CoefficientField {modulus:prime}.normalize(p)).collect();
+    if divisors.iter().any(|p| p.is_zero()) {return Err(PyZeroDivisionError::new_err("polynomial division by zero in selected domain"));}
+    let (mut q,r) = reduce_with_options(&converted.polys[0],&divisors,monomial_order,CoefficientField {modulus:prime},prime.is_none() && !auto && output_domain == Domain::ZZ);
+    if converted.polys[0].is_zero() {q.clear();}
+    if output_domain == Domain::ZZ && prime.is_none() && (!r.is_integral() || q.iter().any(|p| !p.is_integral())) {output_domain = Domain::QQ;}
+    let object = |rep: symox::poly::MPoly<Rat>| -> PyResult<PyObject> {
+        if return_polys {
+            poly_obj(py,Poly {rep,gens:converted.gens.clone(),ngens:converted.ngens,domain:output_domain,modulus:prime})
+        } else {Ok(w(to_expr_f(&rep,&converted.gens,output_domain == Domain::RR)).into_pyobject(py)?.into_any().unbind())}
+    };
+    let qs = PyList::new(py,q.into_iter().map(object).collect::<PyResult<Vec<_>>>()?)?;
+    PyTuple::new(py,[qs.into_any(),object(r)?.into_bound(py)])
 }
 
 #[pyfunction]
@@ -1579,6 +1653,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyGroebnerBasis>()?;
     m.add_function(wrap_pyfunction!(groebner, m)?)?;
     m.add_function(wrap_pyfunction!(is_zero_dimensional, m)?)?;
+    m.add_function(wrap_pyfunction!(_solve_poly_system, m)?)?;
     m.add_function(wrap_pyfunction!(factor, m)?)?;
     m.add_function(wrap_pyfunction!(sqf, m)?)?;
     m.add_function(wrap_pyfunction!(factor_list, m)?)?;

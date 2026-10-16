@@ -31,6 +31,7 @@ pub mod mpoly;
 pub mod ratfunc;
 pub mod symeigen;
 pub mod solvers;
+pub mod spectral;
 
 use std::fmt;
 
@@ -569,6 +570,7 @@ impl Matrix {
         if let (Some(a), Some(b)) = (linalg::RatMat::from_matrix(self), linalg::RatMat::from_matrix(o)) {
             return Ok(a.matmul(&b).to_matrix());
         }
+        let skip_zeros = !self.has_nonfinite() && !o.has_nonfinite();
         let n = self.cols;
         let mut data = Vec::with_capacity(self.rows * o.cols);
         let mut terms: Vec<Expr> = Vec::with_capacity(n);
@@ -578,15 +580,28 @@ impl Matrix {
                 for k in 0..n {
                     let a = self.get(i, k);
                     let b = o.get(k, j);
-                    if a.is_zero() || b.is_zero() {
+                    if skip_zeros && (a.is_zero() || b.is_zero()) {
                         continue;
                     }
-                    terms.push(mul2(a, b));
+                    terms.push(if skip_zeros { mul2(a, b) } else { nonfinite_product(a, b) });
                 }
                 data.push(add(&terms));
             }
         }
         Ok(Matrix { rows: self.rows, cols: o.cols, data })
+    }
+
+    /// Explicit infinities/NaN can invalidate the zero-product shortcut,
+    /// including when they occur inside an unevaluated product.
+    pub(crate) fn has_nonfinite(&self) -> bool {
+        fn contains(e: &Expr) -> bool {
+            match e.kind() {
+                crate::expr::Kind::Const(c) => c.is_infinite() || *c == crate::expr::Constant::NaN,
+                crate::expr::Kind::Num(crate::number::Number::Float(value)) => !value.is_finite(),
+                _ => e.args().iter().any(contains),
+            }
+        }
+        self.data.iter().any(contains)
     }
 
     /// Entry-wise (Hadamard) product.
@@ -805,6 +820,25 @@ impl Matrix {
             format!("Matrix([\n{}])", lines.join(",\n"))
         }
     }
+}
+
+/// Held arithmetic nodes can contain explicit infinities which the scalar
+/// zero fast path otherwise hides. Functions and nontrivial powers retain
+/// their own scalar semantics rather than treating every nested infinity
+/// as an infinite value.
+fn arithmetic_nonfinite(e: &Expr) -> bool {
+    match e.kind() {
+        crate::expr::Kind::Const(c) => c.is_infinite() || *c == crate::expr::Constant::NaN,
+        crate::expr::Kind::Num(crate::number::Number::Float(value)) => !value.is_finite(),
+        crate::expr::Kind::Add(..) | crate::expr::Kind::Mul(..) => e.args().iter().any(arithmetic_nonfinite),
+        _ => false,
+    }
+}
+
+fn nonfinite_product(a: &Expr, b: &Expr) -> Expr {
+    if (a.is_zero() && arithmetic_nonfinite(b)) || (b.is_zero() && arithmetic_nonfinite(a)) {
+        Expr::nan()
+    } else { mul2(a, b) }
 }
 
 fn clamp_insert(pos: isize, n: usize) -> usize {

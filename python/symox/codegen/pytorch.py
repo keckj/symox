@@ -121,7 +121,7 @@ def _expressions(exprs):
     leaves = []
 
     def visit(value):
-        if isinstance(value, Matrix):
+        if isinstance(value, Matrix) or getattr(value, "_symox_sparse", False):
             return "dense", tuple(value.shape), tuple(visit(item) for item in value)
         if isinstance(value, np.ndarray):
             return "dense", tuple(value.shape), tuple(visit(item) for item in value.flat)

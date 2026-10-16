@@ -14,6 +14,7 @@
 
 pub mod assumptions;
 pub mod bigfloat;
+pub mod calculus;
 pub mod diff;
 pub mod evalf;
 pub mod evalf_mp;

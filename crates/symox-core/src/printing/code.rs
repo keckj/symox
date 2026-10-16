@@ -513,6 +513,18 @@ impl<'a> CodePrinter<'a> {
                 }
                 _ => float_str(*f),
             },
+            Number::MpFloat(..) => {
+                let s = n.to_string();
+                match self.lang() {
+                    Lang::C | Lang::Cxx | Lang::Cuda => format!("{s}{}", self.s.real.literal_suffix()),
+                    Lang::Rust => format!("{s}_f64"),
+                    Lang::Fortran => match s.split_once('e') {
+                        Some((mantissa, exponent)) => format!("{mantissa}d{exponent}"),
+                        None => format!("{s}d0"),
+                    },
+                    _ => s,
+                }
+            }
         }
     }
 
