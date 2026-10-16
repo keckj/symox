@@ -330,7 +330,12 @@ fn symbolic_factor_list(e: &Expr, sqf: bool) -> PResult<(Expr, Vec<(FItem, Expr)
     let mut coeff = Expr::one();
     let mut factors: Vec<(FItem, Expr)> = Vec::new();
     let args: Vec<Expr> = match e.kind() {
-        Kind::Mul(..) => e.args(),
+        Kind::Mul(..) => {
+            // SymPy's Mul.args order (ties in the factor sort keep it)
+            let mut a = e.args();
+            crate::sortkey::sort_factors(&mut a);
+            a
+        }
         _ => vec![e.clone()],
     };
     for arg in args {
@@ -516,6 +521,29 @@ pub fn factor(e: &Expr) -> PResult<Expr> {
     generic_factor(e, false)
 }
 
+/// `factor(expr, deep=True)`: factor the arguments of functions and the
+/// sub-sums first.
+pub fn factor_deep(e: &Expr) -> PResult<Expr> {
+    if e.is_atom() {
+        return Ok(e.clone());
+    }
+    let mut err = None;
+    let inner = map_children(e, &mut |c| match factor_deep(c) {
+        Ok(v) => v,
+        Err(x) => {
+            err = Some(x);
+            c.clone()
+        }
+    });
+    if let Some(x) = err {
+        return Err(x);
+    }
+    match inner.kind() {
+        Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => factor(&inner),
+        _ => Ok(inner),
+    }
+}
+
 /// `sqf(expr)`.
 pub fn sqf(e: &Expr) -> PResult<Expr> {
     generic_factor(e, true)
@@ -687,18 +715,51 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
 // ----------------------------------------------------------------------
 
 /// `div(f, g, *gens)`: `(quotient, remainder)`.
-pub fn pdiv(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
+pub fn div_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     let (q, r) = ps[0].div(&ps[1])?;
     Ok((q.as_expr(), r.as_expr()))
 }
 
-pub fn prem(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
-    Ok(pdiv(a, b, gens)?.1)
+/// `rem(f, g, *gens)`.
+pub fn rem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    Ok(div_expr(a, b, gens)?.1)
 }
 
-pub fn pquo(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
-    Ok(pdiv(a, b, gens)?.0)
+/// `quo(f, g, *gens)`.
+pub fn quo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    Ok(div_expr(a, b, gens)?.0)
+}
+
+/// `pdiv(f, g, *gens)`: pseudo-division `(q, r)` with
+/// `lc(g)**(deg f - deg g + 1) * f = q*g + r`.
+pub fn pdiv_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
+    let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
+    let (q, r) = ps[0].pdiv(&ps[1])?;
+    Ok((q.as_expr(), r.as_expr()))
+}
+
+/// `prem(f, g, *gens)`: pseudo-remainder.
+pub fn prem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    Ok(pdiv_expr(a, b, gens)?.1)
+}
+
+/// `pquo(f, g, *gens)`: pseudo-quotient.
+pub fn pquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    Ok(pdiv_expr(a, b, gens)?.0)
+}
+
+/// `pexquo(f, g, *gens)`: exact pseudo-quotient.
+pub fn pexquo_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
+    let (q, r) = pdiv_expr(a, b, gens)?;
+    if !r.is_zero() {
+        return Err(PolyError::Unsupported(format!(
+            "{} does not divide {}",
+            crate::printer::to_str(b),
+            crate::printer::to_str(a)
+        )));
+    }
+    Ok(q)
 }
 
 /// `exquo(f, g)`.
@@ -1029,7 +1090,7 @@ mod tests {
         assert_eq!(to_str(&lcm(&s("x**2 - 1"), &s("x + 1"), &[]).unwrap()), "x**2 - 1");
         assert_eq!(to_str(&resultant(&s("x**2 + y"), &s("x*y - 1"), &[s("x")]).unwrap()), "y**3 + 1");
         assert_eq!(to_str(&discriminant(&s("x**2 + b*x + c"), &[s("x")]).unwrap()), "b**2 - 4*c");
-        let (q, r) = pdiv(&s("x**2 + 1"), &s("2*x"), &[]).unwrap();
+        let (q, r) = div_expr(&s("x**2 + 1"), &s("2*x"), &[]).unwrap();
         assert_eq!((to_str(&q), to_str(&r)), ("x/2".to_string(), "1".to_string()));
         assert_eq!(to_str(&collect(&s("a*x**2 + b*x**2 + a*x - b*x + c"), &[s("x")])), "c + x**2*(a + b) + x*(a - b)");
         assert_eq!(to_str(&collect(&s("x**2*y + x*y + x + y"), &[s("x"), s("y")])), "x**2*y + x*(y + 1) + y");

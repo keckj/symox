@@ -576,10 +576,13 @@ fn pair<'py>(py: Python<'py>, c: Expr, fs: Vec<(Expr, Expr)>) -> PyResult<Bound<
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, **_kwargs))]
-fn factor(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+#[pyo3(signature = (f, *gens, deep=false, **_kwargs))]
+fn factor(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, deep: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
     let _ = gens;
     let e = to_expr(f)?;
+    if deep {
+        return Ok(w(api::factor_deep(&e).map_err(err)?));
+    }
     Ok(w(api::factor(&e).map_err(err)?))
 }
 
@@ -741,7 +744,7 @@ fn div_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple
             gv = p.get().p.true_gens().to_vec();
         }
     }
-    let (q, r) = api::pdiv(&to_expr(f)?, &to_expr(g)?, &gv).map_err(err)?;
+    let (q, r) = api::div_expr(&to_expr(f)?, &to_expr(g)?, &gv).map_err(err)?;
     Ok((q, r, gv, as_poly))
 }
 
@@ -773,6 +776,45 @@ fn quo(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<
     }
     let (q, _, gv, as_poly) = div_like(f, g, gens)?;
     poly_result(py, q, as_poly, &gv)
+}
+
+fn pdiv_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>) -> PyResult<(Expr, Expr, Vec<Expr>, bool)> {
+    let as_poly = f.downcast::<PyPoly>().is_ok() || g.downcast::<PyPoly>().is_ok();
+    let mut gv = gens_of(gens)?;
+    if gv.is_empty() {
+        if let Ok(p) = f.downcast::<PyPoly>() {
+            gv = p.get().p.true_gens().to_vec();
+        }
+    }
+    let (q, r) = api::pdiv_expr(&to_expr(f)?, &to_expr(g)?, &gv).map_err(err)?;
+    Ok((q, r, gv, as_poly))
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn pdiv<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    let (q, r, gv, as_poly) = pdiv_like(f, g, gens)?;
+    PyTuple::new(py, [poly_result(py, q, as_poly, &gv)?, poly_result(py, r, as_poly, &gv)?])
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn prem(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let (_, r, gv, as_poly) = pdiv_like(f, g, gens)?;
+    poly_result(py, r, as_poly, &gv)
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn pquo(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let (q, _, gv, as_poly) = pdiv_like(f, g, gens)?;
+    poly_result(py, q, as_poly, &gv)
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn pexquo(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    Ok(w(api::pexquo_expr(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?))
 }
 
 #[pyfunction]
@@ -924,6 +966,10 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(rem, m)?)?;
     m.add_function(wrap_pyfunction!(quo, m)?)?;
     m.add_function(wrap_pyfunction!(exquo, m)?)?;
+    m.add_function(wrap_pyfunction!(pdiv, m)?)?;
+    m.add_function(wrap_pyfunction!(prem, m)?)?;
+    m.add_function(wrap_pyfunction!(pquo, m)?)?;
+    m.add_function(wrap_pyfunction!(pexquo, m)?)?;
     m.add_function(wrap_pyfunction!(resultant, m)?)?;
     m.add_function(wrap_pyfunction!(discriminant, m)?)?;
     m.add_function(wrap_pyfunction!(degree, m)?)?;

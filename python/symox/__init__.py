@@ -213,6 +213,10 @@ from ._core import (  # noqa: E402
     gcd,
     lcm,
     nroots,
+    pdiv,
+    pexquo,
+    pquo,
+    prem,
     quo,
     real_roots,
     rem,
@@ -239,6 +243,32 @@ def lcm_list(seq, *gens, **args):
 
 def poly(expr, *gens, **args):
     return Poly(expr, *gens, **args)
+
+
+def LC(f, *gens, **args):
+    """Leading coefficient of ``f``."""
+    return Poly(f, *gens, **args).LC()
+
+
+def LM(f, *gens, **args):
+    """Leading monomial of ``f`` (as an expression)."""
+    p = Poly(f, *gens, **args)
+    m = 1
+    for g, k in zip(p.gens, p.LM()):
+        m = m * g**k
+    return sympify(m)
+
+
+def LT(f, *gens, **args):
+    """Leading term of ``f``."""
+    p = Poly(f, *gens, **args)
+    return p.LC() * LM(f, *gens, **args)
+
+
+def primitive(f, *gens, **args):
+    """``(content, primitive part)`` of a polynomial."""
+    c, p = Poly(f, *gens, **args).primitive()
+    return c, p.as_expr()
 
 
 def _install_poly_methods():

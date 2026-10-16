@@ -30,3 +30,4 @@ pub mod polyobj;
 pub mod api;
 pub mod resultant;
 pub mod roots;
+pub mod modgcd;

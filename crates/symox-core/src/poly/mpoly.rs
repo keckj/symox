@@ -622,6 +622,9 @@ impl<C: Coeff> MPoly<C> {
     /// Substitute `x_v = a` (the variable stays in the ring, with degree 0).
     pub fn eval(&self, v: usize, a: &C) -> Self {
         let n = self.nvars;
+        if !a.is_zero() && (v + 1..n).all(|w| self.iter().all(|(e, _)| e[w] == 0)) {
+            return self.eval_last(v, a);
+        }
         if a.is_zero() {
             let mut exps = Vec::new();
             let mut coeffs = Vec::new();
@@ -646,6 +649,37 @@ impl<C: Coeff> MPoly<C> {
             map.entry(ne).or_insert_with(C::zero).add_mul(c, &powers[k]);
         }
         Self::from_terms(n, map.into_iter().collect())
+    }
+
+    /// `eval` when no variable after `v` occurs: terms differing only in
+    /// `x_v` are contiguous, so the evaluation is a single pass.
+    fn eval_last(&self, v: usize, a: &C) -> Self {
+        let n = self.nvars;
+        let mut powers: Vec<C> = vec![C::one()];
+        let mut exps: Vec<u32> = Vec::with_capacity(self.exps.len());
+        let mut coeffs: Vec<C> = Vec::with_capacity(self.len());
+        let mut i = 0;
+        while i < self.len() {
+            let e = self.exp(i);
+            let mut acc = C::zero();
+            let mut j = i;
+            while j < self.len() && self.exp(j)[..v] == e[..v] {
+                let k = self.exp(j)[v] as usize;
+                while powers.len() <= k {
+                    let p = powers.last().unwrap().mul(a);
+                    powers.push(p);
+                }
+                acc.add_mul(&self.coeffs[j], &powers[k]);
+                j += 1;
+            }
+            if !acc.is_zero() {
+                exps.extend_from_slice(&e[..v]);
+                exps.extend(std::iter::repeat_n(0, n - v));
+                coeffs.push(acc);
+            }
+            i = j;
+        }
+        MPoly { nvars: n, exps, coeffs }
     }
 
     /// Evaluate all variables.

@@ -170,17 +170,19 @@ fn modular_gcd_zx(f: &[Int], g: &[Int]) -> (Vec<Int>, Vec<Int>, Vec<Int>) {
             // CRT combine
             let pm = Int::from_u64(p);
             let inv = gf::invmod(modulus.rem_u64(p), p);
+            let mp = modulus.mul(&pm);
             let mut changed = false;
             for (i, ai) in acc.iter_mut().enumerate() {
                 let hi = h.get(i).copied().unwrap_or(0);
                 let ar = ai.rem_u64(p);
                 let delta = gf::mulmod((hi + p - ar) % p, inv, p);
-                if delta != 0 {
+                let v = ai.add(&modulus.mul(&Int::from_u64(delta)));
+                if !changed && v.symmetric_mod(&mp) != ai.symmetric_mod(&modulus) {
                     changed = true;
                 }
-                *ai = ai.add(&modulus.mul(&Int::from_u64(delta)));
+                *ai = v;
             }
-            modulus = modulus.mul(&pm);
+            modulus = mp;
             if changed {
                 continue;
             }
@@ -277,7 +279,7 @@ pub fn gcd_mz(f: &MPoly<Int>, g: &MPoly<Int>) -> (MPoly<Int>, MPoly<Int>, MPoly<
             let mut h = without.clone();
             for (_, c) in with.coeffs_in(v) {
                 h = gcd_mz(&h, &c).0;
-                if h.is_constant() {
+                if h.is_one() {
                     break;
                 }
             }
@@ -285,6 +287,18 @@ pub fn gcd_mz(f: &MPoly<Int>, g: &MPoly<Int>) -> (MPoly<Int>, MPoly<Int>, MPoly<
             let a = with.div_exact(&h).expect("gcd divides");
             let b = without.div_exact(&h).expect("gcd divides");
             return if swapped { (h, b, a) } else { (h, a, b) };
+        }
+    }
+    if use_modular(f, g, &vars) {
+        let cont = f.content().gcd(&g.content());
+        let fp = f.div_coeff(&cont).unwrap();
+        let gp = g.div_coeff(&cont).unwrap();
+        if let Some(h) = super::modgcd::modular_gcd_mz(&fp, &gp) {
+            let h = h.scale(&cont);
+            let h = if h.lc().is_negative() { h.neg() } else { h };
+            let a = f.div_exact(&h).expect("gcd divides f");
+            let b = g.div_exact(&h).expect("gcd divides g");
+            return (h, a, b);
         }
     }
     if let Some(r) = heugcd_mz(f, g) {
@@ -295,6 +309,30 @@ pub fn gcd_mz(f: &MPoly<Int>, g: &MPoly<Int>) -> (MPoly<Int>, MPoly<Int>, MPoly<
     let a = f.div_exact(&h).expect("gcd divides f");
     let b = g.div_exact(&h).expect("gcd divides g");
     (h, a, b)
+}
+
+/// Heuristic choice between the heuristic gcd (cheap for small inputs) and
+/// the modular gcd (robust against coefficient growth).
+fn use_modular(f: &MPoly<Int>, g: &MPoly<Int>, vars: &[usize]) -> bool {
+    if std::env::var_os("SYMOX_HEUGCD").is_some() {
+        return false;
+    }
+    if vars.len() < 2 {
+        return false;
+    }
+    if std::env::var_os("SYMOX_MODGCD").is_some() {
+        return true;
+    }
+    // predicted size (bits) of the integers at the bottom of the heuristic
+    // gcd recursion: every evaluated variable multiplies it by (1 + degree)
+    let norm = f.max_norm().max(g.max_norm());
+    let mut bits = norm.bits() as f64 + 2.0;
+    let df = f.degrees();
+    let dg = g.degrees();
+    for &v in &vars[1..] {
+        bits *= 1.0 + df[v].max(dg[v]) as f64;
+    }
+    bits > 6000.0
 }
 
 /// Gcd only.
