@@ -14,6 +14,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
         Func::Order => return crate::series::order::order_from_args(&args),
+        Func::MatrixElement(_) | Func::MatrixProxy(_) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
@@ -108,7 +109,8 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
+        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_)
+        | Func::MatrixElement(_) | Func::MatrixProxy(_) => None,
     };
     match r {
         Some(v) => v,

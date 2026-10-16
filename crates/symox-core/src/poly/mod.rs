@@ -34,3 +34,5 @@ pub mod modgcd;
 pub mod ratfunc;
 pub mod groebner;
 pub mod systems;
+pub mod fieldalg;
+pub mod fraction;

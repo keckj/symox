@@ -82,6 +82,14 @@ def _sx_group(value, length):
     if not isinstance(value, (tuple, list)) or len(value) != length:
         raise ValueError("Nested PyTorch function arguments must match the declared list/tuple structure")
     return value
+
+
+def _sx_matrix(value, shape):
+    if not isinstance(value, torch.Tensor):
+        value = torch.as_tensor(value)
+    if value.ndim < 2 or tuple(value.shape[-2:]) != shape:
+        raise ValueError("Matrix input trailing dimensions must match the declared MatrixSymbol shape")
+    return value
 '''
 
 _GENERATED = itertools.count(1)
@@ -89,7 +97,7 @@ _DOTTED_NAME = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*\Z", re.ASCII)
 
 
 def _arguments(args, backend="PyTorch"):
-    from symox import Symbol
+    from symox import MatrixSymbol, Symbol
 
     top = list(args) if isinstance(args, (list, tuple)) else [args]
     leaves = []
@@ -97,6 +105,22 @@ def _arguments(args, backend="PyTorch"):
     groups = []
 
     def visit(value, path):
+        if isinstance(value, MatrixSymbol) and backend in ("PyTorch", "JAX"):
+            if any(not dim.is_Integer for dim in value.shape):
+                raise NotImplementedError("MatrixSymbol code generation requires concrete integer dimensions")
+            shape = tuple(int(dim) for dim in value.shape)
+            if 0 in shape:
+                raise NotImplementedError("MatrixSymbol inputs require nonempty dimensions")
+            alias = f"_sx_matrix_{len(groups)}"
+            groups.append((alias, (path, shape)))
+            for row in range(shape[0]):
+                for column in range(shape[1]):
+                    entry = value[row, column]
+                    if entry in leaves:
+                        raise ValueError(f"Duplicate input symbol: {value}")
+                    unpacking.append((f"_sx_v_{len(leaves)}", f"{alias}[..., {row}, {column}]"))
+                    leaves.append(entry)
+            return
         if isinstance(value, Symbol):
             if value in leaves:
                 raise ValueError(f"Duplicate input symbol: {value}")
@@ -121,6 +145,8 @@ def _expressions(exprs):
     leaves = []
 
     def visit(value):
+        if getattr(value, "_symox_matrixexpr", False):
+            value = value.as_explicit()
         if isinstance(value, Matrix) or getattr(value, "_symox_sparse", False):
             return "dense", tuple(value.shape), tuple(visit(item) for item in value)
         if isinstance(value, np.ndarray):
@@ -147,6 +173,13 @@ def _contains_conditionals(expressions):
             return True
         stack.extend(value.args)
     return False
+
+
+def _check_bound(expressions, symbols):
+    free = set().union(*(expr.free_symbols for expr in expressions)) if expressions else set()
+    unknown = free.difference(symbols)
+    if unknown:
+        raise ValueError("Expression contains unbound symbols: " + ", ".join(sorted(map(str, unknown))))
 
 
 def _cse_preserving_assumptions(expressions, prefix):
@@ -200,15 +233,12 @@ def _generate(name, args, exprs, cse, user_functions, allow_callables=False):
         raise TypeError("cse must be a bool")
     top, symbols, unpacking, groups = _arguments(args)
     expressions, structure = _expressions(exprs)
-    free = set().union(*(expr.free_symbols for expr in expressions)) if expressions else set()
-    unknown = free.difference(symbols)
-    if unknown:
-        raise ValueError("Expression contains unbound symbols: " + ", ".join(sorted(map(str, unknown))))
     # Dummify before CSE so two distinct symbols named x (with different
     # assumptions) stay independent and user names cannot collide with helpers.
     dummy_symbols = [Symbol(f"_sx_input_{index}", **symbol.assumptions0) for index, symbol in enumerate(symbols)]
     dummies = dict(zip(symbols, dummy_symbols))
     expressions = [expr.xreplace(dummies) for expr in expressions]
+    _check_bound(expressions, dummy_symbols)
     functions, imports, namespace = _functions(user_functions, allow_callables)
     if name in {module.split(".")[0] for module in imports}:
         raise ValueError("Function name conflicts with a custom function module")
@@ -245,7 +275,11 @@ def _generate(name, args, exprs, cse, user_functions, allow_callables=False):
     parameters += (", *, " if parameters else "*, ") + "dtype=None, device=None"
     lines = [f"def {name}({parameters}):"]
     for path, length in groups:
-        lines.append(f"    _sx_group({path}, {length})")
+        if isinstance(length, tuple):
+            source_path, shape = length
+            lines.append(f"    {path} = _sx_matrix({source_path}, {shape!r})")
+        else:
+            lines.append(f"    _sx_group({path}, {length})")
     for safe, path in unpacking:
         lines.append(f"    {safe} = {path}")
     variables = ", ".join(safe for safe, _ in unpacking)

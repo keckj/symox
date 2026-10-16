@@ -19,6 +19,7 @@ use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
 mod matrices;
+mod matrixexpr;
 mod linear_solvers;
 mod printing;
 
@@ -44,10 +45,66 @@ pub(crate) fn wrap(e: Expr) -> PyExpr {
     PyExpr { e }
 }
 
+pub(crate) fn expr_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    if let Kind::Func(Func::MatrixProxy(parent), _) = e.kind() {
+        return Ok(matrixexpr::wrap_matrixexpr((**parent).clone()).into_pyobject(py)?.into_any().unbind());
+    }
+    Ok(wrap(e).into_pyobject(py)?.into_any().unbind())
+}
+
+fn matrix_proxy(parent: symox::matrixexpr::MatrixExpr) -> Expr {
+    Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(parent)), vec![]))
+}
+
+fn scalar_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
+    let e = to_expr(obj)?;
+    if matches!(e.kind(), Kind::Func(Func::MatrixProxy(_), _)) {
+        return Err(PyTypeError::new_err("a matrix expression cannot be used as a scalar"));
+    }
+    Ok(e)
+}
+
+fn replacement_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
+    if obj.downcast::<matrices::PyMatrix>().is_ok() || obj.getattr("_symox_sparse").is_ok_and(|value| value.is_truthy().unwrap_or(false)) {
+        return Ok(matrix_proxy(matrixexpr::to_matrixexpr(obj)?));
+    }
+    to_expr(obj)
+}
+
+/// Matrix reconstruction is fallible (dimensions, indices, scalar/matrix
+/// types). Validate it before entering the scalar core's infallible traversal.
+fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)], exact: bool) -> PyResult<()> {
+    if !e.has_matrix() { return Ok(()); }
+    let mut matrix_pairs = Vec::new();
+    let mut scalars = FxHashMap::default();
+    for (old, new) in pairs {
+        if let Kind::Func(Func::MatrixProxy(old), _) = old.kind() {
+            if let Kind::Func(Func::MatrixProxy(new), _) = new.kind() {
+                matrix_pairs.push(((**old).clone(), (**new).clone()));
+            } else { return Err(PyTypeError::new_err("Matrix replacements must be matrices")); }
+        } else { scalars.insert(old.clone(), new.clone()); }
+    }
+    let mut transform = |value: &Expr| if exact { subs::xreplace(value, &scalars) } else { subs::subs(value, pairs) };
+    fn validate(py: Python<'_>, node: &Expr, pairs: &[(Expr, Expr)], matrix_pairs: &[(symox::matrixexpr::MatrixExpr, symox::matrixexpr::MatrixExpr)], transform: &mut dyn FnMut(&Expr)->Expr) -> PyResult<()> {
+        if !node.has_matrix() || pairs.iter().any(|(old, _)| old == node) { return Ok(()); }
+        if let Kind::Func(Func::MatrixElement(parent), indices) = node.kind() {
+            parent.map_all(matrix_pairs, transform).and_then(|matrix| {
+                matrix.element(&transform(&indices[0]), &transform(&indices[1]))
+            }).map_err(|error| matrices::err(py, error))?;
+        }
+        for child in node.args() { validate(py, &child, pairs, matrix_pairs, transform)?; }
+        Ok(())
+    }
+    validate(py, e, pairs, &matrix_pairs, &mut transform)
+}
+
 /// Convert any supported Python object into an expression.
 pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(p) = obj.downcast::<PyExpr>() {
         return Ok(p.get().e.clone());
+    }
+    if let Ok(p) = obj.downcast::<matrixexpr::PyMatrixExpr>() {
+        return Ok(matrix_proxy(p.get().m.clone()));
     }
     if obj.is_instance_of::<pyo3::types::PyBool>() {
         return Ok(Expr::boolean(obj.extract::<bool>()?));
@@ -110,6 +167,15 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if module.starts_with("sympy") || inherited_sympy {
         let py = obj.py();
         let head: String = obj.getattr("func")?.getattr("__name__")?.extract()?;
+        if head == "MatrixElement" {
+            let args = obj.getattr("args")?;
+            let parent = matrixexpr::to_matrixexpr(&args.get_item(0)?)?;
+            return parent.element(&to_expr(&args.get_item(1)?)?, &to_expr(&args.get_item(2)?)?)
+                .map_err(|error| matrices::err(py, error));
+        }
+        if obj.getattr("is_Matrix").is_ok_and(|value| value.is_truthy().unwrap_or(false)) {
+            return Ok(matrix_proxy(matrixexpr::to_matrixexpr(obj)?));
+        }
         if head == "Symbol" {
             let name: String = obj.getattr("name")?.extract()?;
             let assumptions = obj.getattr("_assumptions_orig")?;
@@ -205,6 +271,12 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         PyTuple::new(py, args.iter().map(|a| expr_to_sympy(py, a)).collect::<PyResult<Vec<_>>>()?)
     };
     match e.kind() {
+        Kind::Func(Func::MatrixProxy(parent), _) => matrixexpr::matrixexpr_to_sympy(py, parent),
+        Kind::Func(Func::MatrixElement(parent), args) => {
+            let parent = matrixexpr::matrixexpr_to_sympy(py, parent)?;
+            py.import("sympy.matrices.expressions.matexpr")?.getattr("MatrixElement")?
+                .call1((parent, expr_to_sympy(py, &args[0])?, expr_to_sympy(py, &args[1])?))
+        }
         Kind::Sym(s) => {
             let kwargs = PyDict::new(py);
             for keyword in s.given().keywords() {
@@ -294,6 +366,8 @@ fn operation_count(e: &Expr) -> usize {
     match e.kind() {
         Kind::Num(n) => usize::from(n.is_negative()) + usize::from(matches!(n, Number::Rational(_))),
         Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 0,
+        Kind::Func(Func::MatrixProxy(_), _) => 0,
+        Kind::Func(Func::MatrixElement(_), args) => args.iter().map(operation_count).sum(),
         Kind::Add(c, terms) => {
             let mut count = terms.len() + usize::from(!c.is_zero()) - 1;
             let all_negative = (c.is_zero() || c.is_negative()) && terms.iter().all(|(_, k)| k.is_negative());
@@ -394,7 +468,7 @@ pub(crate) fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)
             let a = args.get_item(0)?;
             if let Ok(d) = a.downcast::<PyDict>() {
                 for (k, v) in d.iter() {
-                    pairs.push((to_expr(&k)?, to_expr(&v)?));
+                    pairs.push((replacement_expr(&k)?, replacement_expr(&v)?));
                 }
                 // A mapping is unordered in SymPy's substitution API: replace
                 // larger patterns before symbols they contain. Explicit pair
@@ -409,11 +483,11 @@ pub(crate) fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)
                     let t = item.downcast::<PyTuple>().map_err(|_| {
                         PyTypeError::new_err("subs expects a dict, an iterable of pairs or (old, new)")
                     })?;
-                    pairs.push((to_expr(&t.get_item(0)?)?, to_expr(&t.get_item(1)?)?));
+                    pairs.push((replacement_expr(&t.get_item(0)?)?, replacement_expr(&t.get_item(1)?)?));
                 }
             }
         }
-        2 => pairs.push((to_expr(&args.get_item(0)?)?, to_expr(&args.get_item(1)?)?)),
+        2 => pairs.push((replacement_expr(&args.get_item(0)?)?, replacement_expr(&args.get_item(1)?)?)),
         _ => return Err(PyTypeError::new_err("subs expects 1 or 2 arguments")),
     }
     Ok(pairs)
@@ -479,49 +553,53 @@ impl PyExpr {
 
     // arithmetic -------------------------------------------------------
 
-    fn __add__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::add2(&self.e, &to_expr(o)?)))
+    fn __add__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
+        expr_object(o.py(), ops::add2(&self.e, &scalar_expr(o)?))
     }
-    fn __radd__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::add2(&to_expr(o)?, &self.e)))
+    fn __radd__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
+        expr_object(o.py(), ops::add2(&scalar_expr(o)?, &self.e))
     }
-    fn __sub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::sub(&self.e, &to_expr(o)?)))
+    fn __sub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
+        expr_object(o.py(), ops::sub(&self.e, &scalar_expr(o)?))
     }
-    fn __rsub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::sub(&to_expr(o)?, &self.e)))
+    fn __rsub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
+        expr_object(o.py(), ops::sub(&scalar_expr(o)?, &self.e))
     }
     fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         let py = o.py();
-        if o.downcast::<matrices::PyMatrix>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
             // let Matrix.__rmul__ handle scalar * matrix
             return Ok(py.NotImplemented());
         }
-        Ok(wrap(ops::mul2(&self.e, &to_expr(o)?)).into_pyobject(py)?.into_any().unbind())
+        Ok(wrap(ops::mul2(&self.e, &scalar_expr(o)?)).into_pyobject(py)?.into_any().unbind())
     }
     fn __rmul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-        if o.downcast::<matrices::PyMatrix>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
             return Ok(o.py().NotImplemented());
         }
-        Ok(wrap(ops::mul2(&to_expr(o)?, &self.e)).into_pyobject(o.py())?.into_any().unbind())
+        Ok(wrap(ops::mul2(&scalar_expr(o)?, &self.e)).into_pyobject(o.py())?.into_any().unbind())
     }
     fn __truediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::div(&self.e, &to_expr(o)?)))
+        Ok(wrap(ops::div(&self.e, &scalar_expr(o)?)))
     }
     fn __rtruediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::div(&to_expr(o)?, &self.e)))
+        Ok(wrap(ops::div(&scalar_expr(o)?, &self.e)))
     }
     fn __pow__(&self, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
         if m.is_some_and(|m| !m.is_none()) {
             return Err(PyTypeError::new_err("modular pow is not supported"));
         }
-        Ok(wrap(ops::pow(&self.e, &to_expr(o)?)))
+        Ok(wrap(ops::pow(&self.e, &scalar_expr(o)?)))
     }
     fn __rpow__(&self, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
         if m.is_some_and(|m| !m.is_none()) {
             return Err(PyTypeError::new_err("modular pow is not supported"));
         }
-        Ok(wrap(ops::pow(&to_expr(o)?, &self.e)))
+        Ok(wrap(ops::pow(&scalar_expr(o)?, &self.e)))
     }
     fn __neg__(&self) -> PyExpr {
         wrap(ops::neg(&self.e))
@@ -571,6 +649,13 @@ impl PyExpr {
     }
 
     fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyTuple>)> {
+        if let Kind::Func(Func::MatrixElement(parent), args) = self.e.kind() {
+            let restore = py.import("symox._matrixexpr")?.getattr("MatrixElement")?;
+            return Ok((restore, PyTuple::new(py, [
+                expr_object(py, matrix_proxy((**parent).clone()))?,
+                expr_object(py, args[0].clone())?, expr_object(py, args[1].clone())?,
+            ])?));
+        }
         // Pickle children separately: parsing srepr would evaluate held Mul/Pow
         // nodes, including those nested inside an otherwise canonical tree.
         let compat = py.import("symox._compat")?;
@@ -626,6 +711,12 @@ impl PyExpr {
 
     #[getter]
     fn args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if let Kind::Func(Func::MatrixElement(parent), args) = self.e.kind() {
+            return PyTuple::new(py, [
+                expr_object(py, matrix_proxy((**parent).clone()))?,
+                expr_object(py, args[0].clone())?, expr_object(py, args[1].clone())?,
+            ]);
+        }
         PyTuple::new(py, python_args(&self.e).into_iter().map(wrap))
     }
 
@@ -638,6 +729,9 @@ impl PyExpr {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if matches!(self.e.kind(), Kind::Func(Func::MatrixElement(_), _)) {
+            return Ok(py.import("symox._matrixexpr")?.getattr("MatrixElement")?.unbind());
+        }
         let name = match self.e.kind() {
             Kind::Add(..) => Some("Add"),
             Kind::Mul(..) => Some("Mul"),
@@ -685,7 +779,7 @@ impl PyExpr {
 
     #[getter]
     fn free_symbols<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PySet>> {
-        PySet::new(py, traverse::free_symbols(&self.e).into_iter().map(wrap))
+        PySet::new(py, traverse::free_symbols(&self.e).into_iter().map(|e| expr_object(py, e)).collect::<PyResult<Vec<_>>>()?)
     }
 
     #[getter]
@@ -732,7 +826,7 @@ impl PyExpr {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(..))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::MatrixElement(_) | Func::MatrixProxy(_)))
     }
     #[getter]
     fn is_Derivative(&self) -> bool {
@@ -845,7 +939,12 @@ impl PyExpr {
     #[pyo3(signature = (*args, **_kwargs))]
     fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
         let pairs = subs_pairs(args)?;
-        Ok(wrap(subs::subs(&self.e, &pairs)))
+        let mut result = self.e.clone();
+        for pair in pairs {
+            validate_matrix_replacements(args.py(), &result, std::slice::from_ref(&pair), false)?;
+            result = subs::subs1(&result, &pair.0, &pair.1);
+        }
+        Ok(wrap(result))
     }
 
     /// `expr.match(pattern)`: dict of wildcard bindings or None.
@@ -936,8 +1035,9 @@ impl PyExpr {
     fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyExpr> {
         let mut m = FxHashMap::default();
         for (k, v) in rule.iter() {
-            m.insert(to_expr(&k)?, to_expr(&v)?);
+            m.insert(replacement_expr(&k)?, replacement_expr(&v)?);
         }
+        validate_matrix_replacements(rule.py(), &self.e, &m.iter().map(|(k,v)|(k.clone(),v.clone())).collect::<Vec<_>>(), true)?;
         Ok(wrap(subs::xreplace(&self.e, &m)))
     }
 
@@ -1423,8 +1523,8 @@ fn py_wild(name: &str, exclude: Option<&Bound<'_, PyAny>>, properties: Option<&B
 }
 
 #[pyfunction]
-fn sympify(obj: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(to_expr(obj)?))
+fn sympify(obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    expr_object(obj.py(), to_expr(obj)?)
 }
 
 #[pyfunction]
@@ -1500,6 +1600,9 @@ fn py_srepr(obj: &Bound<'_, PyAny>) -> PyResult<String> {
 #[pyfunction]
 #[pyo3(name = "diff", signature = (f, *args))]
 fn py_diff(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+    if f.downcast::<matrixexpr::PyMatrixExpr>().is_ok() {
+        return Err(PyNotImplementedError::new_err("abstract matrix differentiation is not implemented; differentiate explicit scalar entries instead"));
+    }
     Ok(wrap(do_diff(&to_expr(f)?, args)?))
 }
 
@@ -1646,18 +1749,28 @@ fn expand_hints(e: &Expr, hints: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
 
 #[pyfunction]
 #[pyo3(name = "expand", signature = (e, deep=true, **hints))]
-fn py_expand(e: &Bound<'_, PyAny>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+fn py_expand(e: &Bound<'_, PyAny>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     if !deep { return Err(PyNotImplementedError::new_err("expand(deep=False) is not implemented")); }
-    Ok(wrap(expand_hints(&to_expr(e)?, hints)?))
+    if let Ok(matrix) = e.downcast::<matrixexpr::PyMatrixExpr>() {
+        if hints.is_some_and(|hints| !hints.is_empty()) { return Err(PyNotImplementedError::new_err("matrix expansion hints are not implemented")); }
+        let result = matrix.get().m.expand().map_err(|error| matrices::err(e.py(), error))?;
+        return expr_object(e.py(), matrix_proxy(result));
+    }
+    expr_object(e.py(), expand_hints(&to_expr(e)?, hints)?)
 }
 
 #[pyfunction]
 #[pyo3(name = "simplify", signature = (e, **_kwargs))]
-fn py_simplify(e: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+fn py_simplify(e: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     if _kwargs.is_some_and(|options| !options.is_empty()) {
         return Err(PyNotImplementedError::new_err("custom simplify options are not implemented"));
     }
-    Ok(wrap(simplify::simplify(&to_expr(e)?)))
+    if let Ok(matrix) = e.downcast::<matrixexpr::PyMatrixExpr>() {
+        let result = matrix.get().m.scalar_map(&mut simplify::simplify).and_then(|matrix| matrix.doit(true))
+            .map_err(|error| matrices::err(e.py(), error))?;
+        return expr_object(e.py(), matrix_proxy(result));
+    }
+    expr_object(e.py(), simplify::simplify(&to_expr(e)?))
 }
 
 #[pyfunction]
@@ -1950,6 +2063,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
     matrices::register(m)?;
+    matrixexpr::register(m)?;
     linear_solvers::register(m)?;
     poly::register(m)?;
     ntheory::register(m)?;

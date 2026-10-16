@@ -2,7 +2,7 @@
 
 use rustc_hash::FxHashSet;
 
-use crate::expr::{Expr, Kind};
+use crate::expr::{Expr, Func, Kind};
 use crate::functions::func;
 use crate::ops::{add, mul, mul2, pow};
 use crate::relational::{piecewise, rel};
@@ -56,6 +56,33 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
             pow(&nb, &nx)
         }
         Kind::Func(fun, args) => {
+            if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) = fun {
+                let proxy = |matrix: crate::matrixexpr::MatrixExpr| Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
+                let mapped = if matches!(fun, Func::MatrixElement(_)) {
+                    match f(&proxy((**parent).clone())).kind() {
+                        Kind::Func(Func::MatrixProxy(new), _) => Ok((**new).clone()),
+                        _ => Ok((**parent).clone()),
+                    }
+                } else {
+                    // Both callbacks descend through f; do not map scalars in
+                    // a child again after f has already transformed it.
+                    let callback = std::cell::RefCell::new(&mut *f);
+                    parent.map_children(&mut |child| {
+                        match callback.borrow_mut()(&proxy(child.clone())).kind() {
+                            Kind::Func(Func::MatrixProxy(new), _) => (**new).clone(),
+                            _ => child.clone(),
+                        }
+                    }, &mut |scalar| callback.borrow_mut()(scalar))
+                };
+                if let Ok(matrix) = mapped {
+                    let na: Vec<Expr> = args.iter().map(&mut *f).collect();
+                    if matches!(fun, Func::MatrixElement(_)) && na.len() == 2 {
+                        return matrix.element(&na[0], &na[1]).unwrap_or_else(|_| e.clone());
+                    }
+                    return Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
+                }
+                return e.clone();
+            }
             let na: Vec<Expr> = args.iter().map(|a| f(a)).collect();
             if na.iter().zip(args).all(|(a, b)| a == b) {
                 return e.clone();
@@ -120,6 +147,17 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
             return;
         }
         match e.kind() {
+            Kind::Func(Func::MatrixProxy(parent), _) => {
+                for matrix in parent.matrix_symbols() {
+                    let proxy = Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
+                    if seen.insert(proxy.clone()) { out.push(proxy); }
+                }
+                for symbol in parent.scalar_free_symbols() { rec(&symbol, seen, out, visited); }
+            }
+            Kind::Func(Func::MatrixElement(parent), args) => {
+                rec(&Expr::from_kind(Kind::Func(Func::MatrixProxy(parent.clone()), vec![])), seen, out, visited);
+                for index in args { rec(index, seen, out, visited); }
+            }
             Kind::Func(crate::expr::Func::Set(op), args)
                 if matches!(op, crate::sets::SetOp::Lambda | crate::sets::SetOp::ConditionSet)
                     && args.len() >= 2 => {
@@ -166,6 +204,12 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
         return true;
     }
     match e.kind() {
+        Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent), args) => {
+            let matrix_match = if let Kind::Func(Func::MatrixProxy(target), _) = s.kind() {
+                parent == target || parent.matrix_symbols().iter().any(|matrix| matrix == target.as_ref())
+            } else { false };
+            matrix_match || parent.scalar_free_symbols().iter().any(|scalar| has(scalar, s)) || args.iter().any(|a| has(a, s))
+        }
         Kind::Add(c, terms) => {
             if let Kind::Add(sc, subterms) = s.kind() {
                 // `x + y` is contained in `x + y + z`

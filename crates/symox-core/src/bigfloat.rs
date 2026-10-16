@@ -224,7 +224,7 @@ impl BigFloat {
         let (a, b) = if self.mag() >= o.mag() { (self, o) } else { (o, self) };
         let gap = a.mag() - b.mag();
         if gap > prec as i64 + 4 {
-            let shift = (prec as i64 + 4 - (a.exp - a.mag() + prec as i64)).max(0);
+            let shift = (prec as i64 + 4 - bitlen(&a.man)).max(0);
             let m = (&a.man << (shift as usize + 2)) + if b.is_negative() { -1 } else { 1 };
             return BigFloat::round(m, a.exp - shift as i64 - 2, prec);
         }
@@ -870,5 +870,16 @@ mod tests {
         assert_eq!(BigFloat::zero().powi(2, 200), Some(BigFloat::zero()));
         let ordinary = BigFloat::from_i64(1000).checked_exp(200).unwrap();
         assert!(ordinary.mag() > 1400);
+    }
+
+    #[test]
+    fn negligible_addends_do_not_corrupt_short_mantissas() {
+        let small = BigFloat::one().ldexp(-1000);
+        for precision in [53, 169, 336] {
+            assert_eq!(BigFloat::one().add(&small, precision), BigFloat::one());
+            assert_eq!(BigFloat::one().sub(&small, precision), BigFloat::one());
+            assert_eq!(BigFloat::from_i64(-1).add(&small, precision), BigFloat::from_i64(-1));
+            assert_eq!(BigFloat::from_i64(-1).sub(&small, precision), BigFloat::from_i64(-1));
+        }
     }
 }

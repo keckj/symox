@@ -975,6 +975,23 @@ impl<'a> CodePrinter<'a> {
 
     fn print_func(&self, e: &Expr) -> CodeResult {
         let Kind::Func(f, args) = e.kind() else { unreachable!() };
+        if let Func::MatrixElement(parent) = f {
+            let crate::matrixexpr::MatrixKind::Symbol(name) = parent.kind() else {
+                return Err(CodeError::Unsupported("an unevaluated matrix operation in a scalar entry".into()));
+            };
+            let name = self.symbol_name(name);
+            return match self.lang() {
+                Lang::Python | Lang::NumPy => Ok(format!("{name}[{}, {}]", self.print(&args[0])?, self.print(&args[1])?)),
+                Lang::Fortran => Ok(format!("{name}({}, {})", self.print(&crate::ops::add2(&args[0], &Expr::one()))?, self.print(&crate::ops::add2(&args[1], &Expr::one()))?)),
+                _ => {
+                    let index = crate::ops::add2(&crate::ops::mul2(&args[0], parent.cols()), &args[1]);
+                    Ok(format!("{name}[{}]", self.print(&index)?))
+                }
+            };
+        }
+        if let Func::MatrixProxy(_) = f {
+            return Err(CodeError::Unsupported("a matrix expression used as a scalar".into()));
+        }
         if let Some(n) = self.s.user_functions.get(f.name()) {
             return Ok(format!("{n}({})", self.join_args(args)?));
         }

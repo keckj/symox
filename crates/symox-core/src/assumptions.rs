@@ -8,6 +8,22 @@ use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
 use crate::symbol::Assumptions as A;
 
+thread_local! {
+    static NUMERIC_REFINEMENT: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+}
+
+/// Use structural proofs only while checking solver candidate assumptions.
+/// This is thread local and restores its previous state even during unwinding.
+pub(crate) fn exact_queries<R>(query: impl FnOnce() -> R) -> R {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) { NUMERIC_REFINEMENT.with(|enabled| enabled.set(self.0)); }
+    }
+    let previous = NUMERIC_REFINEMENT.with(|enabled| enabled.replace(false));
+    let _restore = Restore(previous);
+    query()
+}
+
 /// Possible signs of a real quantity, as a set: bit 0 = negative,
 /// bit 1 = zero, bit 2 = positive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -147,7 +163,7 @@ pub fn real_signs(e: &Expr) -> Option<Signs> {
 
 /// Refine an unknown sign of a numeric expression by evaluating it.
 fn numeric_refine(e: &Expr, s: Signs) -> Option<Signs> {
-    if s != Signs::ANY || !crate::functions::is_numeric_value(e) {
+    if s != Signs::ANY || !NUMERIC_REFINEMENT.with(|enabled| enabled.get()) || !crate::functions::is_numeric_value(e) {
         return Some(s);
     }
     match crate::evalf::eval_f64(e) {
@@ -281,7 +297,7 @@ pub fn is_real(e: &Expr) -> Option<bool> {
             Some(false)
         }
         _ => {
-            if crate::functions::is_numeric_value(e) {
+            if NUMERIC_REFINEMENT.with(|enabled| enabled.get()) && crate::functions::is_numeric_value(e) {
                 if let Some(z) = crate::evalf::eval_c64(e) {
                     if z.im.abs() > 1e-10 * (1.0 + z.re.abs()) {
                         return Some(false);
@@ -358,7 +374,7 @@ pub fn is_zero(e: &Expr) -> Option<bool> {
             return Some(false);
         }
     }
-    if crate::functions::is_numeric_value(e) {
+    if NUMERIC_REFINEMENT.with(|enabled| enabled.get()) && crate::functions::is_numeric_value(e) {
         if let Some(z) = crate::evalf::eval_c64(e) {
             if z.norm() > 1e-10 {
                 return Some(false);

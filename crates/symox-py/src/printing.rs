@@ -278,7 +278,7 @@ fn array_code(
                 settings.symbol_names.insert(symbol_name, target);
             } else {
                 let symbol = to_expr(&symbol)?;
-                if !symbol.is_symbol() {
+                if !symbol.is_symbol() && !matches!(symbol.kind(), symox::expr::Kind::Func(symox::expr::Func::MatrixProxy(_), _)) {
                     return Err(PyTypeError::new_err("symbol_names keys must be symbols or strings"));
                 }
                 settings.exact_symbol_names.insert(symbol, target);
@@ -300,7 +300,11 @@ fn array_code(
     // Reject those rather than silently aliasing two independent inputs.
     let mut emitted = std::collections::BTreeMap::new();
     for symbol in symox::traverse::free_symbols(&expression) {
-        let name = symbol.as_symbol().unwrap();
+        let matrix_name;
+        let name = if let Some(name) = symbol.as_symbol() { name } else if let symox::expr::Kind::Func(symox::expr::Func::MatrixProxy(parent), _) = symbol.kind() {
+            if let symox::matrixexpr::MatrixKind::Symbol(name) = parent.kind() { matrix_name = name.clone(); &matrix_name }
+            else { return Err(PyTypeError::new_err("expected a matrix symbol")); }
+        } else { return Err(PyTypeError::new_err("expected an input symbol")); };
         let target = settings.exact_symbol_names.get(&symbol)
             .or_else(|| settings.symbol_names.get(name)).map(String::as_str).unwrap_or(name);
         if let Some(previous) = emitted.insert(target.to_string(), symbol.clone()) {

@@ -5,6 +5,7 @@
 //! constructors printed by `srepr` (`Integer`, `Rational`, `Symbol`, ...).
 
 use std::fmt;
+use std::sync::Arc;
 
 use num_bigint::BigInt;
 
@@ -13,6 +14,7 @@ use crate::functions::{func, log_base, undefined};
 use crate::number::Number;
 use crate::ops::{add, div, mul, neg, pow, sqrt};
 use crate::relational::{piecewise, rel};
+use crate::matrixexpr::MatrixExpr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseError {
@@ -36,6 +38,8 @@ enum Tok {
     Op(&'static str),
     LParen,
     RParen,
+    LBracket,
+    RBracket,
     Comma,
     End,
 }
@@ -81,13 +85,20 @@ fn tokenize(s: &str) -> Result<Vec<(Tok, usize)>, ParseError> {
         }
         if c == '\'' || c == '"' {
             i += 1;
+            let mut value=String::new();
             while i < b.len() && b[i] as char != c {
-                i += 1;
+                let ch=s[i..].chars().next().unwrap();
+                i+=ch.len_utf8();
+                if ch=='\\' {
+                    let escaped=s[i..].chars().next().ok_or_else(||ParseError{msg:"unterminated string escape".into(),pos:start})?;
+                    i+=escaped.len_utf8();
+                    match escaped {'n'=>value.push('\n'),'r'=>value.push('\r'),'t'=>value.push('\t'),'\\'|'\''|'"'=>value.push(escaped),_=>{value.push('\\');value.push(escaped);}}
+                }else{value.push(ch);}
             }
             if i >= b.len() {
                 return Err(ParseError { msg: "unterminated string".into(), pos: start });
             }
-            out.push((Tok::Str(s[start + 1..i].to_string()), start));
+            out.push((Tok::Str(value), start));
             i += 1;
             continue;
         }
@@ -117,8 +128,10 @@ fn tokenize(s: &str) -> Result<Vec<(Tok, usize)>, ParseError> {
             '&' => Tok::Op("&"),
             '|' => Tok::Op("|"),
             '~' => Tok::Op("~"),
-            '(' | '[' => Tok::LParen,
-            ')' | ']' => Tok::RParen,
+            '(' => Tok::LParen,
+            ')' => Tok::RParen,
+            '[' => Tok::LBracket,
+            ']' => Tok::RBracket,
             ',' => Tok::Comma,
             _ => {
                 return Err(ParseError {
@@ -407,6 +420,16 @@ impl Parser {
                 pos: self.at(),
             })?)),
             Tok::Str(s) => Ok(Val::Str(s)),
+            Tok::LBracket => {
+                let mut items=Vec::new();
+                while !matches!(self.peek(),Tok::RBracket) {
+                    items.push(self.value()?);
+                    if !matches!(self.peek(),Tok::Comma){break;}
+                    self.next();
+                }
+                self.expect(Tok::RBracket)?;
+                Ok(Val::Tuple(items))
+            }
             Tok::LParen => {
                 if matches!(self.peek(), Tok::RParen) {
                     self.next();
@@ -435,6 +458,10 @@ impl Parser {
                     let args = self.call_args()?;
                     let kwargs = std::mem::replace(&mut self.kwargs, saved);
                     let precision = std::mem::replace(&mut self.precision, saved_precision);
+                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                        let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
+                        return self.matrix_call(&name,args,evaluate);
+                    }
                     if name == "Float" {
                         if args.is_empty() || args.len() > 2 { return self.err("Float expects one value and optional decimal precision"); }
                         if precision.is_some() && args.len() == 2 { return self.err("specify decimal digits or bit precision, not both"); }
@@ -492,7 +519,58 @@ impl Parser {
         }
     }
 
+    fn as_matrix(&self, value: &Val) -> R<MatrixExpr> {
+        if let Val::E(e)=value { if let Kind::Func(Func::MatrixProxy(m),_)=e.kind() { return Ok((**m).clone()); } }
+        self.err("expected a matrix expression")
+    }
+
+    fn matrix_call(&self, name:&str, args:Vec<Val>, evaluate:bool)->R<Val> {
+        let fail=|msg:String| ParseError{msg,pos:self.at()};
+        let scalar=|i:usize| ->R<Expr>{args.get(i).cloned().ok_or_else(||fail(format!("{name}: missing argument"))).and_then(|a|self.as_expr(a))};
+        let matrix=|i:usize| ->R<MatrixExpr>{self.as_matrix(args.get(i).ok_or_else(||fail(format!("{name}: missing matrix argument")))?)};
+        let arity=|n:usize|->R<()>{if args.len()==n {Ok(())}else{self.err(format!("{name} expects {n} arguments"))}};
+        let result=match name {
+            "MatrixSymbol"=>{arity(3)?;let Val::Str(s)=&args[0] else{return self.err("MatrixSymbol expects a string name");};MatrixExpr::symbol(s,scalar(1)?,scalar(2)?)},
+            "Identity"=>{arity(1)?;MatrixExpr::identity(scalar(0)?)},
+            "ZeroMatrix"=>{arity(2)?;MatrixExpr::zero(scalar(0)?,scalar(1)?)},
+            "MatAdd"=>MatrixExpr::add(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
+            "MatMul"=>{
+                let mut matrices=Vec::new();let mut scalars=Vec::new();
+                for a in &args {if let Ok(m)=self.as_matrix(a){matrices.push(m);}else{scalars.push(self.as_expr(a.clone())?);}}
+                MatrixExpr::mul(mul(&scalars),&matrices,evaluate)
+            },
+            "MatPow"=>{arity(2)?;matrix(0)?.pow(scalar(1)?,evaluate)},
+            "Inverse"=>{
+                if args.len()!=1 && !(args.len()==2 && scalar(1)?==Expr::minus_one()){return self.err("Inverse expects a matrix and optional exponent -1");}
+                matrix(0)?.inverse(evaluate)
+            },
+            "Transpose"=>{arity(1)?;matrix(0)?.transpose(evaluate)},
+            "Adjoint"=>{arity(1)?;matrix(0)?.adjoint(evaluate)},
+            "MatrixConjugate"=>{arity(1)?;matrix(0)?.conjugate(evaluate)},
+            "MatrixElement"=>{arity(3)?;return Ok(Val::E(matrix(0)?.element(&scalar(1)?,&scalar(2)?).map_err(|e|fail(e.to_string()))?));},
+            "ImmutableMatrix"|"ImmutableDenseMatrix"|"MutableDenseMatrix"|"Matrix"=>{
+                fn flatten(p:&Parser,v:Val,out:&mut Vec<Expr>)->R<()>{match v{Val::Tuple(items)=>{for item in items{flatten(p,item,out)?;}},a=>out.push(p.as_expr(a)?)};Ok(())}
+                let (rows,cols,entries)=if args.len()==3 {
+                    let rows=scalar(0)?.as_i64().and_then(|n|usize::try_from(n).ok()).ok_or_else(||fail("invalid matrix row count".into()))?;
+                    let cols=scalar(1)?.as_i64().and_then(|n|usize::try_from(n).ok()).ok_or_else(||fail("invalid matrix column count".into()))?;
+                    let mut entries=Vec::new();flatten(self,args[2].clone(),&mut entries)?;(rows,cols,entries)
+                }else if args.len()==1 {
+                    let Val::Tuple(rows)=&args[0] else{return self.err("matrix literal expects nested rows");};
+                    let cols=match rows.first(){Some(Val::Tuple(row))=>row.len(),None=>0,_=>return self.err("matrix literal expects nested rows")};
+                    if rows.iter().any(|row|!matches!(row,Val::Tuple(items) if items.len()==cols)){return self.err("matrix rows have unequal lengths");}
+                    let mut entries=Vec::new();flatten(self,args[0].clone(),&mut entries)?;(rows.len(),cols,entries)
+                }else{return self.err("matrix literal expects rows, columns, and entries");};
+                crate::matrix::Matrix::new(rows,cols,entries).map(MatrixExpr::explicit)
+            },
+            _=>return self.err("unknown matrix constructor"),
+        }.map_err(|e|fail(e.to_string()))?;
+        Ok(Val::E(Expr::from_kind(Kind::Func(Func::MatrixProxy(Arc::new(result)),vec![]))))
+    }
+
     fn call(&mut self, name: &str, args: Vec<Val>) -> R<Val> {
+        if name == "Str" {
+            return match args.as_slice() { [Val::Str(s)]=>Ok(Val::Str(s.clone())), _=>self.err("Str expects one string") };
+        }
         let exprs = |p: &Parser, args: Vec<Val>| -> R<Vec<Expr>> {
             args.into_iter().map(|a| p.as_expr(a)).collect()
         };
@@ -711,4 +789,28 @@ pub fn parse_str(s: &str) -> Result<Expr, ParseError> {
 /// `sympify` for strings.
 pub fn sympify(s: &str) -> Result<Expr, ParseError> {
     parse_str(s)
+}
+
+#[cfg(test)]
+mod matrix_parser_tests {
+    use super::*;
+    #[test]
+    fn typed_matrix_srepr_roundtrip() {
+        let a=MatrixExpr::symbol("A",Expr::int(2),Expr::int(2)).unwrap();
+        let b=MatrixExpr::symbol("B",Expr::int(2),Expr::int(2)).unwrap();
+        let explicit=MatrixExpr::explicit(crate::matrix::Matrix::new(2,2,vec![Expr::one(),Expr::int(2),Expr::int(3),Expr::int(4)]).unwrap());
+        let values=vec![a.clone(),MatrixExpr::add(&[a.clone(),b.clone()],true).unwrap(),MatrixExpr::mul(Expr::int(2),&[a.clone(),b],true).unwrap(),a.transpose(false).unwrap(),a.inverse(false).unwrap(),explicit];
+        for value in values {
+            let parsed=parse_str(&value.to_repr()).unwrap();
+            assert!(matches!(parsed.kind(),Kind::Func(Func::MatrixProxy(m),_) if **m==value));
+        }
+        let element=a.element(&Expr::zero(),&Expr::one()).unwrap();
+        assert_eq!(parse_str(&crate::printer::srepr(&element)).unwrap(),element);
+        let matrix=parse_str("MatrixSymbol(Str('A'), Integer(2), Integer(2))").unwrap();
+        assert!(matches!(matrix.kind(),Kind::Func(Func::MatrixProxy(m),_) if **m==a));
+        assert!(parse_str("MatMul(MatrixSymbol('A',2,3),MatrixSymbol('B',2,2))").is_err());
+        assert!(parse_str("ImmutableDenseMatrix([[Integer(1)]])").is_ok());
+        let escaped=MatrixExpr::symbol("A\\\"x\n",Expr::int(1),Expr::int(1)).unwrap();
+        assert!(matches!(parse_str(&escaped.to_repr()).unwrap().kind(),Kind::Func(Func::MatrixProxy(m),_) if **m==escaped));
+    }
 }

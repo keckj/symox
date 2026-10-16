@@ -67,6 +67,10 @@ false = _core.constant("false")
 
 def _make(name):
     def f(*args):
+        if len(args) == 1 and getattr(args[0], "_symox_matrixexpr", False):
+            if name == "conjugate":
+                return args[0].conjugate()
+            raise NotImplementedError(f"{name} of abstract matrices is not implemented")
         return _core._apply(name, *args)
 
     f.__name__ = name
@@ -449,6 +453,8 @@ def trace(M):
 
 
 def transpose(M):
+    if getattr(M, "_symox_matrixexpr", False):
+        return M.transpose()
     return Matrix(M).T
 
 
@@ -1424,6 +1430,8 @@ def N(expr, n=15, **kwargs):
     Supports expressions and matrices. Decimal precision is 1 through 10000;
     unsupported evaluation options raise an explicit error.
     """
+    if getattr(expr, "_symox_matrixexpr", False):
+        raise NotImplementedError("Materialize abstract matrices with as_explicit() before numerical evaluation")
     if isinstance(expr, _core.Matrix) or getattr(expr, "_symox_sparse", False):
         return expr.evalf(n, **kwargs)
     return _native_N(expr, n, **kwargs)
@@ -1465,5 +1473,10 @@ def lambdify(args, expr, modules=None, **kwargs):
             raise NotImplementedError("CUDA lambdify requires a single module")
         return cuda_lambdify(args, expr, **kwargs)
     return _native_lambdify(args, expr, modules=modules, **kwargs)
+
+from ._matrixexpr import (  # noqa: E402
+    MatrixExpr, MatrixSymbol, MatAdd, MatMul, MatPow, Transpose, Adjoint,
+    Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate,
+)
 
 __all__ = [n for n in dir() if not n.startswith("_")]

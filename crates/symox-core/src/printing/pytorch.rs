@@ -281,6 +281,16 @@ impl<'a> TorchPrinter<'a> {
                 self.expr(rhs, mask)?
             )),
             Kind::Piecewise(pairs) => self.piecewise(pairs, mask),
+            Kind::Func(Func::MatrixElement(parent), args) => {
+                let crate::matrixexpr::MatrixKind::Symbol(name) = parent.kind() else {
+                    return Err(self.unsupported("an unevaluated matrix operation in a scalar entry"));
+                };
+                let proxy = Expr::from_kind(Kind::Func(Func::MatrixProxy(parent.clone()), vec![]));
+                let name = self.settings.exact_symbol_names.get(&proxy).or_else(|| self.settings.symbol_names.get(name)).map(String::as_str).unwrap_or(name);
+                if !is_python_identifier(name) { return Err(self.unsupported("unsafe matrix symbol name")); }
+                Ok(format!("{name}[{}, {}]", self.expr(&args[0], None)?, self.expr(&args[1], None)?))
+            }
+            Kind::Func(Func::MatrixProxy(_), _) => Err(self.unsupported("a matrix expression used as a scalar")),
             Kind::Func(function, args) => self.function(function, args, mask),
             Kind::Derivative(..) => Err(self.unsupported("unevaluated Derivative")),
         }

@@ -31,6 +31,20 @@ pub fn set_nvars(n: usize) -> usize {
     NVARS.with(|c| c.replace(n))
 }
 
+/// Restore the ambient coefficient dimension even when an operation exits
+/// early. Nested polynomial operations may safely use a different field.
+pub struct Scope(usize);
+impl Scope {
+    pub fn new(n: usize) -> Self {
+        Self(set_nvars(n))
+    }
+}
+impl Drop for Scope {
+    fn drop(&mut self) {
+        set_nvars(self.0);
+    }
+}
+
 fn nv() -> usize {
     NVARS.with(|c| c.get())
 }
@@ -39,12 +53,18 @@ impl RF {
     pub fn new(n: MPoly<Int>, d: MPoly<Int>) -> RF {
         assert!(!d.is_zero(), "zero denominator");
         if n.is_zero() {
-            return RF { d: MPoly::one(n.nvars), n };
+            return RF {
+                d: MPoly::one(n.nvars),
+                n,
+            };
         }
         let (g, a, b) = gcd_mz(&n, &d);
         let (a, b) = if g.is_one() { (n, d) } else { (a, b) };
         if b.lc().is_negative() {
-            RF { n: a.neg(), d: b.neg() }
+            RF {
+                n: a.neg(),
+                d: b.neg(),
+            }
         } else {
             RF { n: a, d: b }
         }
@@ -52,7 +72,10 @@ impl RF {
 
     pub fn from_poly(p: MPoly<Int>) -> RF {
         let n = p.nvars;
-        RF { n: p, d: MPoly::one(n) }
+        RF {
+            n: p,
+            d: MPoly::one(n),
+        }
     }
 
     pub fn from_rat_poly(p: &MPoly<Rat>) -> RF {
@@ -63,13 +86,22 @@ impl RF {
 
 impl Coeff for RF {
     fn zero() -> Self {
-        RF { n: MPoly::zero(nv()), d: MPoly::one(nv()) }
+        RF {
+            n: MPoly::zero(nv()),
+            d: MPoly::one(nv()),
+        }
     }
     fn one() -> Self {
-        RF { n: MPoly::one(nv()), d: MPoly::one(nv()) }
+        RF {
+            n: MPoly::one(nv()),
+            d: MPoly::one(nv()),
+        }
     }
     fn from_i64(i: i64) -> Self {
-        RF { n: MPoly::constant(Int::S(i), nv()), d: MPoly::one(nv()) }
+        RF {
+            n: MPoly::constant(Int::S(i), nv()),
+            d: MPoly::one(nv()),
+        }
     }
     fn is_zero(&self) -> bool {
         self.n.is_zero()
@@ -94,12 +126,18 @@ impl Coeff for RF {
     }
     fn mul(&self, o: &Self) -> Self {
         if self.n.is_zero() || o.n.is_zero() {
-            return RF { n: MPoly::zero(self.n.nvars), d: MPoly::one(self.n.nvars) };
+            return RF {
+                n: MPoly::zero(self.n.nvars),
+                d: MPoly::one(self.n.nvars),
+            };
         }
         RF::new(self.n.mul(&o.n), self.d.mul(&o.d))
     }
     fn neg(&self) -> Self {
-        RF { n: self.n.neg(), d: self.d.clone() }
+        RF {
+            n: self.n.neg(),
+            d: self.d.clone(),
+        }
     }
     fn is_negative(&self) -> bool {
         self.n.lc().is_negative()
@@ -123,9 +161,15 @@ impl Field for RF {
     fn inv(&self) -> Self {
         assert!(!self.n.is_zero(), "division by zero");
         if self.n.lc().is_negative() {
-            RF { n: self.d.neg(), d: self.n.neg() }
+            RF {
+                n: self.d.neg(),
+                d: self.n.neg(),
+            }
         } else {
-            RF { n: self.d.clone(), d: self.n.clone() }
+            RF {
+                n: self.d.clone(),
+                d: self.n.clone(),
+            }
         }
     }
 }

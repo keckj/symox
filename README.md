@@ -51,13 +51,13 @@ Implemented:
   subexpression sharing, vectorised over NumPy arrays (GIL released)
 * Python bindings (PyO3, abi3 wheels for CPython >= 3.9), conversion to and
   from SymPy objects
-* polynomials over integer, rational and finite-field domains: `Poly`,
+* polynomials over integer, rational, finite-field and rational-function domains: `Poly`,
   factorization, GCD, cancellation, partial fractions, roots, division and
   reduced Gröbner bases
 * symbolic assumptions, simplification, integration, summation, equation and
   ODE solving, series and limits
-* mutable and immutable symbolic matrices, exact linear algebra and supported
-  eigenproblems
+* mutable, immutable and sparse matrices, abstract matrix expressions,
+  exact linear algebra and supported eigenproblems
 * Boolean algebra, normal forms, truth-table minimization, SAT, symbolic sets
   and supported set-based equation solving
 * LaTeX and pretty printing, common subexpression elimination, native code
@@ -441,7 +441,10 @@ and [installation instructions](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/
 ## Polynomial ideals and linear systems
 
 `groebner` computes reduced Gröbner bases with a native Buchberger algorithm
-over `QQ`, `ZZ` and prime finite fields. It supports deterministic `lex`,
+over `QQ`, `ZZ`, prime finite fields and rational-function coefficient fields
+such as `QQ(a,b)`. Polynomial coefficient rings `QQ[a,b]` and `ZZ[a,b]`
+are also supported, with deterministic parameter inference and coefficient
+normalization. It supports deterministic `lex`,
 `grlex` and `grevlex` orders:
 
 ```python
@@ -458,8 +461,16 @@ Bases support iteration, indexing, `exprs`, `polys`, `gens`, `domain`,
 zero-dimensional basis using exact quotient-algebra multiplication matrices
 and linear dependence, over the supported rational and prime finite fields.
 Changing the monomial order requires a zero-dimensional ideal; requesting the
-existing order returns the basis unchanged. F5B and coefficient extensions are
-not implemented.
+existing order returns the basis unchanged. FGLM for rational-function
+coefficients, F5B and algebraic number extensions are not implemented.
+
+```python
+a, b, x, y = sm.symbols("a b x y")
+g = sm.groebner([a*x + y, x*y - b], x, y, domain="QQ(a,b)")
+g.reduce(x*y - b)                 # zero remainder
+p = sm.Poly(x**2 + x/a + b, x, domain="QQ(a,b)")
+p.diff()                         # native exact coefficient arithmetic
+```
 
 `linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
 equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
@@ -477,11 +488,16 @@ nonlinear positive-dimensional systems and roots that cannot all be expressed
 by the implemented exact root solver raise `NotImplementedError`; no partial
 list is presented as a complete solution.
 
-`solve(..., set=True)` returns the symbols and solution tuples. `nsolve`
-supports Newton iteration, real bracketed bisection, `tol`, `maxsteps`,
-`verify` and dictionary output. It verifies the final residual by default
-and rejects failed convergence. Numerical solving currently uses double
-precision; higher `prec` requests and unsupported solvers are explicit errors.
+`solve(..., set=True)` infers omitted unknowns and returns the symbols and
+solution tuples. Candidate checking respects known symbol assumptions;
+`check=False` retains candidates before pole, residual and assumption filtering.
+`nsolve`
+supports real and complex Newton iteration, arbitrary precision through `prec`,
+real bracketed bisection, `tol`, `maxsteps`, `verify` and dictionary output.
+Overdetermined systems use complex QR least squares in the arbitrary-precision
+solver. It verifies the final residual by default and rejects failed convergence.
+These solvers execute natively without SymPy or mpmath. Unsupported numerical
+solver selections are explicit errors.
 Unsupported `solve` flags, ODE hints and integration options are rejected
 instead of being silently ignored.
 
@@ -494,6 +510,31 @@ pole coverage; unresolved cases remain unevaluated. Opposing infinities produce
 `nan`, rather than a finite Cauchy principal value.
 
 ## Symbolic matrices
+
+`MatrixSymbol`, `MatAdd`, `MatMul`, `MatPow`, `Transpose`, `Adjoint`,
+`Inverse`, `Identity` and `ZeroMatrix` share a native typed matrix expression
+tree. Products preserve their order and validate dimensions, including symbolic
+dimensions. Matrix elements participate in scalar arithmetic, substitutions,
+cached free symbols, pickling and SymPy conversion. `as_explicit()` materializes
+matrices with concrete dimensions for the existing exact algorithms.
+
+```python
+import symox as sm
+
+A, B = sm.MatrixSymbol("A", 2, 3), sm.MatrixSymbol("B", 3, 2)
+(A*B).shape                      # (2, 2)
+(A*B)[0, 0]                      # finite scalar contraction
+f = sm.torch_lambdify((A, B), A*B, compile=True)
+g = sm.jax_lambdify((A, B), A*B, jit=True)
+```
+
+PyTorch and JAX functions accept nonempty `MatrixSymbol` inputs with concrete
+dimensions. Input matrix dimensions occupy the last two axes; leading batch
+axes broadcast with scalar inputs. Generated matrix outputs follow the same
+convention and support the backend's autodiff and compilation. These operations
+currently expand to scalar entries at generation time. Matrix inputs with
+symbolic dimensions, abstract matrix derivatives and matrix-valued inputs to
+the Slang/SYCL/CUDA function exporters are not yet supported.
 
 `Matrix` provides mutable dense matrices; `ImmutableMatrix` and
 `ImmutableDenseMatrix` provide immutable, hashable matrices. Constructors

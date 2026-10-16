@@ -36,22 +36,75 @@ fn sort_solutions(v: &mut Vec<Expr>) {
 
 /// Solve `eq = 0` for `x`. Returns `None` when no method applies.
 pub fn solve(eq: &Expr, x: &Expr) -> Option<Vec<Expr>> {
+    solve_with_check(eq, x, true)
+}
+
+pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
     let f = as_expr(eq);
     if let Kind::Bool(b) = eq.kind() {
         return if *b { None } else { Some(vec![]) };
     }
     let mut sols = solve_rec(&f, x, 0)?;
-    // drop solutions where the original expression is undefined
-    let (_, den) = numer_denom(&together(&f));
-    sols.retain(|s| {
-        let d = subs1(&den, x, s);
-        let d = expand(&d);
-        !(d.is_zero() || matches!(d.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)))
-    });
-    // verify numerically when possible (spurious roots of radical equations)
-    sols.retain(|s| verify(&f, x, s));
+    if check {
+        // drop solutions where the original expression is undefined
+        let (_, den) = numer_denom(&together(&f));
+        sols.retain(|s| {
+            let d = expand(&subs1(&den, x, s));
+            !(d.is_zero() || matches!(d.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)))
+                && matches_assumptions(x, s)
+        });
+        // Numerical substitution only verifies the original equation; it is
+        // never used to infer a candidate's symbolic assumption properties.
+        sols.retain(|s| verify(&f, x, s));
+    }
     sort_solutions(&mut sols);
     Some(sols)
+}
+
+fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
+    use crate::assumptions as query;
+    use crate::symbol::Assumptions as A;
+    let Some(symbol) = variable.as_sym() else { return true; };
+    let assumptions = symbol.assumptions();
+    if assumptions.is_empty() { return true; }
+    query::exact_queries(|| {
+        let integer = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_integer(value) };
+        let rational = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_rational(value) };
+        let real = query::is_real(value).or_else(|| {
+            let imaginary_part = im(value);
+            if matches!(imaginary_part.kind(), Kind::Func(Func::Im, _)) { None } else { query::is_zero(&imaginary_part) }
+        });
+        let zero = query::is_zero(value).or_else(|| value.is_constant(Constant::I).then_some(false));
+        let imaginary = if zero == Some(true) || real == Some(true) { Some(false) }
+            else {
+                let real_part = re(value);
+                if matches!(real_part.kind(), Kind::Func(Func::Re, _)) { None }
+                else { query::is_zero(&real_part).and_then(|is_zero| if !is_zero { Some(false) } else { real.map(|real| !real) }) }
+            };
+        let prime = value.as_number().and_then(Number::to_bigint).map(|integer| crate::ntheory::isprime(&integer));
+        let finite = query::is_finite(value);
+        let complex = finite.filter(|finite| !finite).or_else(|| {
+            if real == Some(true) || imaginary == Some(true) { Some(true) } else { None }
+        });
+        let irrational = match (real, rational) {
+            (Some(false), _) | (_, Some(true)) => Some(false),
+            (Some(true), Some(false)) => Some(true),
+            _ => None,
+        };
+        let facts = [
+            (A::REAL, real, true), (A::NOT_REAL, real, false),
+            (A::POSITIVE, query::is_positive(value), true), (A::NOT_POSITIVE, query::is_positive(value), false),
+            (A::NEGATIVE, query::is_negative(value), true), (A::NOT_NEGATIVE, query::is_negative(value), false),
+            (A::NONNEGATIVE, query::is_nonnegative(value), true), (A::NONPOSITIVE, query::is_nonpositive(value), true),
+            (A::ZERO, zero, true), (A::NONZERO, zero.map(|zero| !zero), true),
+            (A::INTEGER, integer, true), (A::NOT_INTEGER, integer, false),
+            (A::RATIONAL, rational, true), (A::IRRATIONAL, irrational, true),
+            (A::EVEN, query::is_even(value), true), (A::ODD, query::is_odd(value), true),
+            (A::PRIME, prime, true), (A::FINITE, finite, true), (A::COMPLEX, complex, true),
+            (A::IMAGINARY, imaginary, true),
+        ];
+        facts.iter().all(|(flag, known, expected)| !assumptions.has(*flag) || known.is_none_or(|known| known == *expected))
+    })
 }
 
 fn verify(f: &Expr, x: &Expr, s: &Expr) -> bool {
@@ -525,12 +578,18 @@ fn is_linear_in(e: &Expr, vars: &[Expr]) -> bool {
 
 /// Solve a system of equations for `vars`.
 pub fn solve_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
+    solve_system_with_check(eqs, vars, true)
+}
+
+pub fn solve_system_with_check(eqs: &[Expr], vars: &[Expr], check: bool) -> Option<SystemSolution> {
+    let original: Vec<Expr> = eqs.iter().map(as_expr).collect();
     let eqs: Vec<Expr> = eqs.iter().map(|e| expand(&as_expr(e))).filter(|e| !e.is_zero()).collect();
     if eqs.iter().all(|e| is_linear_in(e, vars)) {
-        return linear_system(&eqs, vars);
+        let result = linear_system(&eqs, vars)?;
+        return Some(if check { check_system_solution(result, &original, vars) } else { result });
     }
     // nonlinear: successive substitution
-    let sols = substitute_solve(&eqs, vars, 0)?;
+    let sols = substitute_solve(&eqs, vars, 0, check)?;
     if sols.is_empty() {
         return Some(SystemSolution::NoSolution);
     }
@@ -540,10 +599,34 @@ pub fn solve_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
         .collect();
     tuples.sort_by_cached_key(|t| t.iter().map(crate::sortkey::sort_key).collect::<Vec<_>>());
     tuples.dedup();
-    Some(SystemSolution::Tuples(tuples))
+    let result = SystemSolution::Tuples(tuples);
+    Some(if check { check_system_solution(result, &original, vars) } else { result })
 }
 
-fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32) -> Option<Vec<FxHashMap<Expr, Expr>>> {
+fn check_system_solution(result: SystemSolution, equations: &[Expr], variables: &[Expr]) -> SystemSolution {
+    let valid = |assignments: &[(Expr, Expr)]| {
+        if assignments.iter().any(|(variable, value)| !matches_assumptions(variable, value)) { return false; }
+        equations.iter().all(|equation| {
+            let (_, denominator) = numer_denom(&together(equation));
+            let denominator = expand(&subs(&denominator, assignments));
+            if denominator.is_zero() || matches!(denominator.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)) { return false; }
+            let residual = subs(equation, assignments);
+            if matches!(residual.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)) { return false; }
+            if !crate::functions::is_numeric_value(&residual) { return true; }
+            crate::evalf::eval_c64(&residual).is_none_or(|value| value.norm() < 1e-7)
+        })
+    };
+    match result {
+        SystemSolution::Map(assignments) => if valid(&assignments) { SystemSolution::Map(assignments) } else { SystemSolution::NoSolution },
+        SystemSolution::Tuples(mut rows) => {
+            rows.retain(|row| valid(&variables.iter().cloned().zip(row.iter().cloned()).collect::<Vec<_>>()));
+            if rows.is_empty() { SystemSolution::NoSolution } else { SystemSolution::Tuples(rows) }
+        }
+        SystemSolution::NoSolution => SystemSolution::NoSolution,
+    }
+}
+
+fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32, check: bool) -> Option<Vec<FxHashMap<Expr, Expr>>> {
     if depth > 6 {
         return None;
     }
@@ -571,12 +654,12 @@ fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32) -> Option<Vec<FxHas
     }
     let (i, j, _) = best?;
     let v = &vars[j];
-    let roots = solve(&eqs[i], v)?;
+    let roots = solve_with_check(&eqs[i], v, check)?;
     let mut out = Vec::new();
     let rest_vars: Vec<Expr> = vars.iter().filter(|w| *w != v).cloned().collect();
     for r in roots {
         let rest: Vec<Expr> = eqs.iter().enumerate().filter(|(k, _)| *k != i).map(|(_, e)| subs1(e, v, &r)).collect();
-        for mut m in substitute_solve(&rest, &rest_vars, depth + 1)? {
+        for mut m in substitute_solve(&rest, &rest_vars, depth + 1, check)? {
             let val = expand(&subs(&r, &m.iter().map(|(a, b)| (a.clone(), b.clone())).collect::<Vec<_>>()));
             m.insert(v.clone(), val);
             out.push(m);
@@ -818,6 +901,23 @@ mod tests {
         assert_eq!(s("2**x-8"), "[3]");
         assert_eq!(s("x**5-x"), "[-1, 0, 1, -I, I]");
         assert_eq!(s("x**2-2*x+1"), "[1]");
+    }
+
+    #[test]
+    fn optional_candidate_checks_and_exact_assumptions() {
+        use crate::symbol::Assumptions as A;
+        let positive = Expr::symbol_with("positive", A::POSITIVE);
+        let equation = sub(&positive.powi(2), &Expr::int(4));
+        assert_eq!(solve(&equation, &positive).unwrap(), vec![Expr::int(2)]);
+        assert_eq!(solve_with_check(&equation, &positive, false).unwrap(), vec![Expr::int(-2), Expr::int(2)]);
+        let real = Expr::symbol_with("real", A::REAL);
+        assert!(solve(&add2(&real.powi(2), &Expr::one()), &real).unwrap().is_empty());
+        let x = Expr::symbol("x");
+        let sinc = div(&sin(&x), &x);
+        assert_eq!(solve(&sinc, &x).unwrap(), vec![Expr::pi()]);
+        assert_eq!(solve_with_check(&sinc, &x, false).unwrap(), vec![Expr::zero(), Expr::pi()]);
+        let candidate = sub(&sqrt(&Expr::int(2)), &Expr::int(2));
+        assert_eq!(solve(&sub(&positive, &candidate), &positive).unwrap(), vec![candidate]);
     }
 
     #[test]

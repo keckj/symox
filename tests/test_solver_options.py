@@ -16,7 +16,7 @@ def test_solve_set_and_dict_outputs():
     assert s.solve(x-1, x, check=True, simplify=True) == [1]
 
 
-@pytest.mark.parametrize("flags", [dict(check=False), dict(simplify=False), dict(mispelled=True), dict(rational=False)])
+@pytest.mark.parametrize("flags", [dict(manual=True), dict(simplify=False), dict(mispelled=True), dict(rational=False)])
 def test_solve_unimplemented_flags_are_explicit(flags):
     x = s.Symbol("x")
     with pytest.raises(NotImplementedError):
@@ -43,7 +43,7 @@ def test_nsolve_convergence_controls_and_real_bracketing():
     assert isinstance(vector, s.Matrix) and vector.shape == (2, 1)
 
 
-@pytest.mark.parametrize("flags", [dict(prec=50), dict(solver="muller"), dict(unknown=True)])
+@pytest.mark.parametrize("flags", [dict(verbose=True), dict(solver="muller"), dict(unknown=True)])
 def test_nsolve_unsupported_flags_are_explicit(flags):
     x = s.Symbol("x")
     with pytest.raises(NotImplementedError):

@@ -10,6 +10,12 @@ from fractions import Fraction
 from . import _core
 
 
+def _matrix_operand(value):
+    return (getattr(value, '_symox_matrixexpr', False)
+            or isinstance(value, _core.Matrix)
+            or getattr(value, '_symox_sparse', False))
+
+
 class _ExprType(type):
     def __instancecheck__(cls, value):
         return isinstance(value, _core.Expr) and bool(cls._matches(value))
@@ -56,6 +62,9 @@ class Add(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Add)
 
     def __new__(cls, *args, evaluate=True):
+        if any(_matrix_operand(arg) for arg in args):
+            from ._matrixexpr import MatAdd
+            return MatAdd(*args,evaluate=evaluate)
         return _core._node("Add", args, evaluate)
 
     @staticmethod
@@ -68,6 +77,9 @@ class Mul(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Mul)
 
     def __new__(cls, *args, evaluate=True):
+        if any(_matrix_operand(arg) for arg in args):
+            from ._matrixexpr import MatMul
+            return MatMul(*args,evaluate=evaluate)
         return _core._node("Mul", args, evaluate)
 
     @staticmethod
@@ -80,6 +92,9 @@ class Pow(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Pow)
 
     def __new__(cls, base, exp, evaluate=True):
+        if _matrix_operand(base):
+            from ._matrixexpr import MatPow
+            return MatPow(base,exp,evaluate=evaluate)
         return _core._node("Pow", (base, exp), evaluate)
 
 

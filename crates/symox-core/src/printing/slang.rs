@@ -190,7 +190,9 @@ pub fn slangcode_with(expr: &Expr, settings: &SlangSettings) -> Result {
     // Distinct assumed symbols must not silently alias after textual printing.
     let mut seen = BTreeMap::new();
     for symbol in crate::traverse::free_symbols(expr) {
-        let source = symbol.as_symbol().unwrap();
+        let Some(source) = symbol.as_symbol() else {
+            return Err(CodeError::Unsupported("matrix-valued Slang inputs; materialize entries and substitute scalar inputs first".into()));
+        };
         let target = settings
             .exact_symbol_names
             .get(&symbol)

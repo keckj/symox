@@ -151,6 +151,25 @@ fn d_func(
     x: &Expr,
     cache: &mut FxHashMap<Expr, Expr>,
 ) -> Expr {
+    if let Func::MatrixElement(parent) = f {
+        if let Kind::Func(Func::MatrixElement(other), indices) = x.kind() {
+            let independent_symbols = matches!(parent.kind(), crate::matrixexpr::MatrixKind::Symbol(_))
+                && matches!(other.kind(), crate::matrixexpr::MatrixKind::Symbol(_));
+            if independent_symbols && (parent != other || args.iter().zip(indices).any(|(a, b)| {
+                a.as_i64().zip(b.as_i64()).is_some_and(|(a, b)| a != b)
+            })) {
+                return Expr::zero();
+            }
+            return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+        }
+        if !crate::traverse::has(e, x) {
+            return Expr::zero();
+        }
+        return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+    }
+    if let Func::MatrixProxy(_) = f {
+        return Expr::zero();
+    }
     if let Func::Undefined(_) = f {
         return derivative_unevaluated(e, vec![(x.clone(), 1)]);
     }

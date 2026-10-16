@@ -13,6 +13,20 @@ jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 
 
+@pytest.mark.parametrize("jit", [False, True])
+def test_matrix_symbols_batch_codegen_and_grad(jit):
+    a, b = sm.MatrixSymbol("A", 2, 3), sm.MatrixSymbol("B", 3, 2)
+    f = sm.jax_lambdify((a, b), a*b, jit=jit)
+    ta = jnp.arange(12.).reshape(2, 2, 3)
+    tb = jnp.arange(6.).reshape(3, 2)
+    np.testing.assert_allclose(f(ta, tb), ta @ tb)
+    actual = jax.grad(lambda x: jnp.sum(f(x, tb)))(ta)
+    expected = jax.grad(lambda x: jnp.sum(x @ tb))(ta)
+    np.testing.assert_allclose(actual, expected)
+    with pytest.raises(ValueError, match="Matrix input"):
+        f(ta[..., :2], tb)
+
+
 @pytest.fixture(scope="module", autouse=True)
 def _require_requested_gpu():
     if os.environ.get("SYMOX_JAX_REQUIRE_GPU") == "1":

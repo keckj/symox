@@ -7,11 +7,10 @@ use rustc_hash::FxHashMap;
 
 use symox::expr::Expr;
 use symox::matrix::{self, DetMethod, Matrix, MatrixError};
-use symox::printer;
 
 use crate::{diff_vars, subs_pairs, to_expr, wrap, PyExpr};
 
-fn err(py: Python<'_>, e: MatrixError) -> PyErr {
+pub(crate) fn err(py: Python<'_>, e: MatrixError) -> PyErr {
     let (cls, msg) = match &e {
         MatrixError::Shape(m) => ("ShapeError", m.clone()),
         MatrixError::NonSquare(m) => ("NonSquareMatrixError", m.clone()),
@@ -68,11 +67,11 @@ pub struct PyMatrix {
     immutable: bool,
 }
 
-fn wrapm(m: Matrix) -> PyMatrix {
+pub(crate) fn wrapm(m: Matrix) -> PyMatrix {
     PyMatrix { m, immutable: false }
 }
 
-fn matrix_value_hash(rows: usize, cols: usize, mut entries: Vec<((usize, usize), Expr)>) -> isize {
+pub(crate) fn matrix_value_hash(rows: usize, cols: usize, mut entries: Vec<((usize, usize), Expr)>) -> isize {
     use std::hash::{Hash, Hasher};
     entries.sort_unstable_by_key(|(index, _)| *index);
     let mut hash = std::collections::hash_map::DefaultHasher::new();
@@ -314,20 +313,10 @@ impl PyMatrix {
 
     /// Convert to a SymPy ``Matrix``.
     fn to_sympy<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let ns = PyDict::new(py);
-        ns.set_item("__builtins__", py.import("builtins")?)?;
-        py.run(&std::ffi::CString::new("from sympy import *")?, Some(&ns), None)?;
         let (r, c) = self.m.shape();
         let name = if self.immutable { "ImmutableMatrix" } else { "Matrix" };
-        let mut s = format!("{name}({r}, {c}, [");
-        for (i, e) in self.m.data().iter().enumerate() {
-            if i > 0 {
-                s.push_str(", ");
-            }
-            s.push_str(&printer::srepr(e));
-        }
-        s.push_str("])");
-        py.eval(&std::ffi::CString::new(s)?, Some(&ns), None)
+        let entries = self.m.data().iter().map(|e| crate::expr_to_sympy(py, e)).collect::<PyResult<Vec<_>>>()?;
+        py.import("sympy")?.getattr(name)?.call1((r, c, PyList::new(py, entries)?))
     }
 
     fn _sympy_<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -666,6 +655,7 @@ impl PyMatrix {
     }
 
     fn __mul__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if o.is_instance_of::<crate::matrixexpr::PyMatrixExpr>() { return Ok(py.NotImplemented()); }
         match scalar_or_matrix(o) {
             Ok(Ok(m)) => Ok(self.with_peer(o, self.m.matmul(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             Ok(Err(e)) => Ok(self.with_peer(o, self.m.scale(&e)).into_pyobject(py)?.into_any().unbind()),
@@ -674,6 +664,7 @@ impl PyMatrix {
     }
 
     fn __rmul__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if o.is_instance_of::<crate::matrixexpr::PyMatrixExpr>() { return Ok(py.NotImplemented()); }
         match scalar_or_matrix(o) {
             Ok(Ok(m)) => Ok(self.with_peer(o, m.matmul(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             Ok(Err(e)) => Ok(self.with_peer(o, self.m.scale_left(&e)).into_pyobject(py)?.into_any().unbind()),
@@ -738,6 +729,7 @@ impl PyMatrix {
 
     fn __richcmp__(&self, py: Python<'_>, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {
         use pyo3::basic::CompareOp::*;
+        if other.is_instance_of::<crate::matrixexpr::PyMatrixExpr>() { return Ok(py.NotImplemented()); }
         if other.getattr("_symox_sparse").is_ok_and(|value| value.extract::<bool>().unwrap_or(false)) {
             return Ok(py.NotImplemented());
         }

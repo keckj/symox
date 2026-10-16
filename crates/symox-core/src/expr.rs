@@ -107,6 +107,10 @@ pub enum Func {
     Logic(crate::logic::LogicOp),
     /// Sets (`Interval`, `FiniteSet`, `Union`, ...), see [`crate::sets`].
     Set(crate::sets::SetOp),
+    /// A scalar entry of an ordered, typed matrix expression.
+    MatrixElement(Arc<crate::matrixexpr::MatrixExpr>),
+    /// Internal matrix atom used by scalar traversal/substitution APIs.
+    MatrixProxy(Arc<crate::matrixexpr::MatrixExpr>),
 }
 
 impl Func {
@@ -153,6 +157,8 @@ impl Func {
             Func::Undefined(n) => n,
             Func::Logic(op) => op.name(),
             Func::Set(op) => op.name(),
+            Func::MatrixElement(_) => "MatrixElement",
+            Func::MatrixProxy(_) => "MatrixSymbol",
         }
     }
 
@@ -209,6 +215,8 @@ impl Func {
     pub fn arity(&self) -> Option<usize> {
         match self {
             Func::Atan2 => Some(2),
+            Func::MatrixElement(_) => Some(2),
+            Func::MatrixProxy(_) => Some(0),
             Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
@@ -286,6 +294,7 @@ pub struct Node {
     mask: u64,
     kind: Kind,
     canonical: bool,
+    has_matrix: bool,
     free_symbols: OnceLock<Vec<Expr>>,
     ordered_args: OnceLock<Vec<Expr>>,
 }
@@ -320,6 +329,7 @@ impl Expr {
     fn from_payload(kind: Kind, canonical: bool) -> Expr {
         let mut h = FxHasher::default();
         let mut mask = 0u64;
+        let mut has_matrix = false;
         kind.rank().hash(&mut h);
         match &kind {
             Kind::Num(n) => n.hash(&mut h),
@@ -334,6 +344,7 @@ impl Expr {
                     h.write_u64(t.hash64());
                     k.hash(&mut h);
                     mask |= t.mask();
+                    has_matrix |= t.has_matrix();
                 }
             }
             Kind::Mul(c, facs) => {
@@ -342,30 +353,50 @@ impl Expr {
                     h.write_u64(b.hash64());
                     h.write_u64(e.hash64());
                     mask |= b.mask() | e.mask();
+                    has_matrix |= b.has_matrix() || e.has_matrix();
                 }
             }
             Kind::Pow(b, e) => {
                 h.write_u64(b.hash64());
                 h.write_u64(e.hash64());
                 mask = b.mask() | e.mask();
+                has_matrix = b.has_matrix() || e.has_matrix();
             }
             Kind::Func(f, args) => {
                 f.hash(&mut h);
                 for a in args {
                     h.write_u64(a.hash64());
                     mask |= a.mask();
+                    has_matrix |= a.has_matrix();
                 }
                 if *f == Func::Order {
                     mask |= ORDER_MASK;
+                }
+                if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) = f {
+                    has_matrix = true;
+                    for matrix in parent.matrix_symbols() {
+                        // Include the whole typed atom, rather than dimensions,
+                        // in the dependency mask just as free_symbols does.
+                        mask |= sym_bit(&format!("{matrix:?}"));
+                    }
+                    for scalar in parent.scalar_free_symbols() {
+                        mask |= scalar.mask();
+                    }
+                    let _ = parent.scalar_map(&mut |scalar| {
+                        mask |= scalar.mask();
+                        scalar.clone()
+                    });
                 }
             }
             Kind::Derivative(e, vars) => {
                 h.write_u64(e.hash64());
                 mask = e.mask();
+                has_matrix = e.has_matrix();
                 for (v, n) in vars {
                     h.write_u64(v.hash64());
                     n.hash(&mut h);
                     mask |= v.mask();
+                    has_matrix |= v.has_matrix();
                 }
             }
             Kind::Rel(op, a, b) => {
@@ -373,12 +404,14 @@ impl Expr {
                 h.write_u64(a.hash64());
                 h.write_u64(b.hash64());
                 mask = a.mask() | b.mask();
+                has_matrix = a.has_matrix() || b.has_matrix();
             }
             Kind::Piecewise(pieces) => {
                 for (e, c) in pieces {
                     h.write_u64(e.hash64());
                     h.write_u64(c.hash64());
                     mask |= e.mask() | c.mask();
+                    has_matrix |= e.has_matrix() || c.has_matrix();
                 }
             }
             Kind::Bool(b) => b.hash(&mut h),
@@ -388,6 +421,7 @@ impl Expr {
             mask,
             kind,
             canonical,
+            has_matrix,
             free_symbols: OnceLock::new(),
             ordered_args: OnceLock::new(),
         }))
@@ -397,6 +431,10 @@ impl Expr {
     pub fn kind(&self) -> &Kind {
         &self.0.kind
     }
+
+    /// Whether this scalar expression contains a typed matrix entry.
+    #[inline]
+    pub fn has_matrix(&self) -> bool { self.0.has_matrix }
 
     /// Whether this node was made by a canonical constructor.
     #[inline]

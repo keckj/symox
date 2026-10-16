@@ -15,21 +15,22 @@ fn set_result(py: Python<'_>, variables: &[Expr], solutions: Vec<Vec<Expr>>) -> 
     Ok((symbols, PySet::new(py, rows)?).into_pyobject(py)?.into_any().unbind())
 }
 
-fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool)> {
-    let (mut dict, mut set) = (false, false);
+fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool)> {
+    let (mut dict, mut set, mut check) = (false, false, true);
     if let Some(flags) = flags {
         for (key, value) in flags.iter() {
             let key: String = key.extract()?;
             match key.as_str() {
                 "dict" => dict = value.is_truthy()?,
                 "set" => set = value.is_truthy()?,
-                "check" | "simplify" | "cubics" | "quartics" | "quintics" if value.is_truthy()? => {},
+                "check" => check = value.is_truthy()?,
+                "simplify" | "cubics" | "quartics" | "quintics" if value.is_truthy()? => {},
                 "manual" | "warn" | "minimal" if !value.is_truthy()? => {},
                 _ => return Err(PyNotImplementedError::new_err(format!("solve option '{key}' with this value is not implemented"))),
             }
         }
     }
-    Ok((dict, set && !dict))
+    Ok((dict, set && !dict, check))
 }
 
 fn expr_list(o: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
@@ -46,7 +47,7 @@ fn expr_list(o: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
 #[pyfunction]
 #[pyo3(signature = (f, *symbols, **flags))]
 fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, flags: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    let (as_dict, as_set) = solve_flags(flags)?;
+    let (as_dict, as_set, check) = solve_flags(flags)?;
     let (eqs, is_system) = expr_list(f)?;
     let mut vars: Vec<Expr> = Vec::new();
     for s in symbols.iter() {
@@ -54,15 +55,15 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
         vars.extend(v);
     }
     if vars.is_empty() {
-        if as_set { return set_result(py, &vars, vec![]); }
         vars = sv::unknowns(&eqs);
     }
     if vars.is_empty() {
+        if as_set { return set_result(py, &vars, vec![]); }
         return Ok(PyList::empty(py).into_any().unbind());
     }
     if !is_system && eqs.len() == 1 && vars.len() == 1 {
         let x = &vars[0];
-        let sols = sv::solve(&eqs[0], x).ok_or_else(|| {
+        let sols = sv::solve_with_check(&eqs[0], x, check).ok_or_else(|| {
             PyNotImplementedError::new_err(format!("could not solve {} for {}", eqs[0], x))
         })?;
         if as_set { return set_result(py, &vars, sols.into_iter().map(|s| vec![s]).collect()); }
@@ -77,7 +78,7 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
         }
         return Ok(PyList::new(py, sols.into_iter().map(wrap))?.into_any().unbind());
     }
-    let res = sv::solve_system(&eqs, &vars)
+    let res = sv::solve_system_with_check(&eqs, &vars, check)
         .ok_or_else(|| PyNotImplementedError::new_err("could not solve the system"))?;
     match res {
         SystemSolution::NoSolution if as_set => set_result(py, &vars, vec![]),
@@ -118,58 +119,94 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
 #[pyfunction]
 #[pyo3(signature = (f, x, x0, **_kwargs))]
 fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: &Bound<'_, PyAny>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    let (mut tolerance, mut maxsteps, mut verify, mut as_dict) = (1e-14_f64, 100_usize, true, false);
+    let (mut digits, mut maxsteps, mut verify, mut as_dict) = (15_u32, 100_usize, true, false);
+    let mut tolerance = None;
     let mut solver = "newton".to_owned();
     if let Some(kwargs) = _kwargs {
         for (key, value) in kwargs.iter() {
             let key: String = key.extract()?;
             match key.as_str() {
-                "tol" => tolerance = value.extract()?,
+                "tol" if value.is_none() => {},
+                "tol" => tolerance = Some(to_expr(&value)?),
                 "maxsteps" => maxsteps = value.extract()?,
                 "verify" => verify = value.extract()?,
                 "dict" => as_dict = value.is_truthy()?,
                 "solver" => solver = value.extract()?,
-                "prec" if (1..=15).contains(&value.extract::<u32>()?) => {},
+                "prec" => digits = value.extract()?,
                 "verbose" if !value.is_truthy()? => {},
                 _ => return Err(PyNotImplementedError::new_err(format!("nsolve option '{key}' with this value is not implemented"))),
             }
         }
     }
-    if !tolerance.is_finite() || tolerance <= 0.0 || maxsteps == 0 {
-        return Err(PyValueError::new_err("tol must be finite and positive, and maxsteps must be positive"));
+    let precision = crate::decimal_precision(digits)?;
+    if maxsteps == 0 { return Err(PyValueError::new_err("maxsteps must be positive")); }
+    if !matches!(solver.as_str(), "newton" | "bisect") {
+        return Err(PyNotImplementedError::new_err(format!("nsolve solver '{solver}' is not implemented")));
     }
     let (eqs, sys) = expr_list(f)?;
     let (vars, _) = expr_list(x)?;
-    let starts: Vec<f64> = if let Ok(v) = x0.extract::<f64>() {
-        vec![v]
-    } else {
-        x0.extract::<Vec<f64>>()?
-    };
-    if vars.iter().any(|v| !v.is_symbol()) || vars.iter().enumerate().any(|(i, v)| vars[..i].contains(v)) {
+    let (initial, _) = expr_list(x0)?;
+    if vars.is_empty() || vars.iter().any(|v| !v.is_symbol()) || vars.iter().enumerate().any(|(i, v)| vars[..i].contains(v)) {
         return Err(PyValueError::new_err("nsolve unknowns must be distinct symbols"));
     }
-    let r = if solver == "bisect" {
-        if vars.len() != 1 || eqs.len() != 1 || starts.len() != 2 {
+    if solver == "bisect" {
+        if vars.len() != 1 || eqs.len() != 1 || initial.len() != 2 {
             return Err(PyValueError::new_err("bisection requires one equation, one symbol and a two-endpoint bracket"));
         }
-        sv::nsolve_bisect(&eqs[0], &vars[0], starts[0], starts[1], tolerance, maxsteps, verify).map(|r| vec![r])
-    } else if solver == "newton" {
-        if vars.len() != starts.len() || vars.len() != eqs.len() {
-        return Err(PyValueError::new_err("nsolve needs as many equations, unknowns and starting points"));
+    } else if initial.len() != vars.len() || eqs.len() < vars.len() {
+        return Err(PyValueError::new_err("nsolve needs one starting point per unknown and at least as many equations as unknowns"));
+    }
+    let working = initial.iter().chain(&eqs).filter_map(symox::evalf_mp::max_precision)
+        .max().unwrap_or(precision).max(precision) + 64;
+    let starts: Vec<_> = initial.iter().map(|point| symox::evalf_mp::eval_mp(point, working)
+        .ok_or_else(|| PyValueError::new_err("starting points must be finite numeric values"))).collect::<PyResult<_>>()?;
+    let numerical_tolerance = tolerance.as_ref().map(|expression| {
+        let value = symox::evalf_mp::eval_mp(expression, working)
+            .ok_or_else(|| PyValueError::new_err("tol must be finite, real and positive"))?;
+        if !value.is_real() || value.re.sign() <= 0 {
+            return Err(PyValueError::new_err("tol must be finite, real and positive"));
         }
-        sv::nsolve_with_options(&eqs, &vars, &starts, tolerance, maxsteps, verify)
+        Ok(value.re)
+    }).transpose()?;
+    let use_mp = digits != 15 || eqs.len() > vars.len() || starts.iter().any(|point| !point.is_real())
+        || initial.iter().chain(&eqs).any(symox::evalf_mp::has_mp)
+        || eqs.iter().any(|equation| symox::traverse::has(equation, &Expr::i()));
+    let results: Vec<Expr> = if use_mp {
+        let options = symox::nsolve_mp::Options {
+            precision,
+            tolerance: numerical_tolerance.unwrap_or_else(|| symox::bigfloat::BigFloat::one().ldexp(-(precision as i64) - 8)),
+            maxsteps,
+            verify,
+        };
+        let values = if solver == "bisect" {
+            symox::nsolve_mp::bisect(&eqs[0], &vars[0], &starts[0], &starts[1], &options).map(|root| vec![root])
+        } else {
+            symox::nsolve_mp::newton(&eqs, &vars, &starts, &options)
+        }.map_err(PyValueError::new_err)?;
+        values.into_iter().map(|value| symox::evalf_mp::to_expr(value, precision)).collect()
     } else {
-        return Err(PyNotImplementedError::new_err(format!("nsolve solver '{solver}' is not implemented")));
-    }.ok_or_else(|| PyValueError::new_err("Could not find root within given tolerance"))?;
+        let tolerance = numerical_tolerance.map(|value| value.to_f64()).unwrap_or(1e-14);
+        if !tolerance.is_finite() || tolerance <= 0.0 {
+            return Err(PyValueError::new_err("tol is not representable at the default precision; request a higher prec"));
+        }
+        let starts: Vec<f64> = initial.iter().map(|point| symox::evalf::eval_f64(point)
+            .ok_or_else(|| PyValueError::new_err("starting points must be finite real values"))).collect::<PyResult<_>>()?;
+        let values = if solver == "bisect" {
+            sv::nsolve_bisect(&eqs[0], &vars[0], starts[0], starts[1], tolerance, maxsteps, verify).map(|root| vec![root])
+        } else {
+            sv::nsolve_with_options(&eqs, &vars, &starts, tolerance, maxsteps, verify)
+        }.ok_or_else(|| PyValueError::new_err("Could not find root within given tolerance"))?;
+        values.into_iter().map(Expr::float).collect()
+    };
     if as_dict {
         let mapping = PyDict::new(py);
-        for (symbol, value) in vars.iter().zip(r) { mapping.set_item(wrap(symbol.clone()), wrap(Expr::float(value)))?; }
+        for (symbol, value) in vars.iter().zip(results) { mapping.set_item(wrap(symbol.clone()), wrap(value))?; }
         return Ok(PyList::new(py, [mapping])?.into_any().unbind());
     }
-    if !sys && r.len() == 1 {
-        return Ok(wrap(Expr::float(r[0])).into_pyobject(py)?.into_any().unbind());
+    if !sys && results.len() == 1 {
+        return Ok(wrap(results[0].clone()).into_pyobject(py)?.into_any().unbind());
     }
-    let values = PyList::new(py, r.into_iter().map(|v| wrap(Expr::float(v))))?;
+    let values = PyList::new(py, results.into_iter().map(wrap))?;
     Ok(py.import("symox")?.getattr("Matrix")?.call1((vars.len(), 1, values))?.unbind())
 }
 

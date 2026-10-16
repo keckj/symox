@@ -20,6 +20,29 @@ DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
 DTYPES = [torch.float32, torch.float64]
 
 
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, "eager", "inductor"])
+def test_matrix_symbols_batch_codegen_and_autograd(device, compiled):
+    a = sm.MatrixSymbol("A", 2, 3)
+    b = sm.MatrixSymbol("B", 3, 2)
+    scale = sm.Symbol("scale", real=True)
+    f = sm.torch_lambdify((a, [b, scale]), a*b + scale*sm.Identity(2),
+                          compile=bool(compiled), compile_options={"backend": compiled, "fullgraph": True} if compiled else None)
+    ta = torch.arange(12., dtype=torch.float64, device=device).reshape(2, 2, 3).requires_grad_()
+    tb = torch.arange(6., dtype=torch.float64, device=device).reshape(3, 2).requires_grad_()
+    ts = torch.tensor([1., 2.], dtype=torch.float64, device=device, requires_grad=True)
+    result = f(ta, [tb, ts])
+    expected = ta @ tb + ts[:, None, None]*torch.eye(2, dtype=torch.float64, device=device)
+    torch.testing.assert_close(result, expected)
+    actual_grad = torch.autograd.grad(result.sum(), (ta, tb, ts))
+    expected_grad = torch.autograd.grad(expected.sum(), (ta, tb, ts))
+    for actual, expected in zip(actual_grad, expected_grad):
+        torch.testing.assert_close(actual, expected)
+    if not compiled:
+        with pytest.raises(ValueError, match="Matrix input"):
+            f(ta[..., :2], [tb, ts])
+
+
 def assert_tensor(actual, expected, **kwargs):
     assert isinstance(actual, torch.Tensor)
     if not isinstance(expected, torch.Tensor):

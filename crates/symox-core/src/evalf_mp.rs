@@ -22,11 +22,11 @@ impl MpComplex {
         self.im.is_zero()
     }
 
-    fn add(&self, o: &MpComplex, p: u32) -> MpComplex {
+    pub(crate) fn add(&self, o: &MpComplex, p: u32) -> MpComplex {
         MpComplex { re: self.re.add(&o.re, p), im: self.im.add(&o.im, p) }
     }
 
-    fn mul(&self, o: &MpComplex, p: u32) -> MpComplex {
+    pub(crate) fn mul(&self, o: &MpComplex, p: u32) -> MpComplex {
         if self.is_real() && o.is_real() {
             return MpComplex::real(self.re.mul(&o.re, p));
         }
@@ -35,11 +35,11 @@ impl MpComplex {
         MpComplex { re, im }
     }
 
-    fn scale(&self, k: &BigFloat, p: u32) -> MpComplex {
+    pub(crate) fn scale(&self, k: &BigFloat, p: u32) -> MpComplex {
         MpComplex { re: self.re.mul(k, p), im: self.im.mul(k, p) }
     }
 
-    fn inv(&self, p: u32) -> Option<MpComplex> {
+    pub(crate) fn inv(&self, p: u32) -> Option<MpComplex> {
         if self.is_real() {
             return Some(MpComplex::real(BigFloat::one().div(&self.re, p)?));
         }
@@ -47,7 +47,7 @@ impl MpComplex {
         Some(MpComplex { re: self.re.div(&d, p)?, im: self.im.neg().div(&d, p)? })
     }
 
-    fn abs(&self, p: u32) -> BigFloat {
+    pub(crate) fn abs(&self, p: u32) -> BigFloat {
         if self.is_real() {
             return self.re.abs();
         }
@@ -56,6 +56,26 @@ impl MpComplex {
             .add(&self.im.mul(&self.im, p + 10), p + 10)
             .sqrt(p)
             .unwrap()
+    }
+
+    pub(crate) fn neg(&self) -> MpComplex {
+        MpComplex { re: self.re.neg(), im: self.im.neg() }
+    }
+
+    pub(crate) fn sub(&self, other: &MpComplex, precision: u32) -> MpComplex {
+        self.add(&other.neg(), precision)
+    }
+
+    pub(crate) fn div(&self, other: &MpComplex, precision: u32) -> Option<MpComplex> {
+        Some(self.mul(&other.inv(precision + 8)?, precision))
+    }
+
+    pub(crate) fn conjugate(&self) -> MpComplex {
+        MpComplex { re: self.re.clone(), im: self.im.neg() }
+    }
+
+    pub(crate) fn round_to(&self, precision: u32) -> MpComplex {
+        MpComplex { re: self.re.round_to(precision), im: self.im.round_to(precision) }
     }
 
     fn arg(&self, p: u32) -> BigFloat {

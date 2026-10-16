@@ -160,7 +160,9 @@ pub fn syclcode_with(
 ) -> std::result::Result<String, CodeError> {
     let mut emitted = BTreeMap::new();
     for symbol in crate::traverse::free_symbols(expr) {
-        let name = symbol.as_symbol().unwrap();
+        let Some(name) = symbol.as_symbol() else {
+            return Err(CodeError::Unsupported("matrix-valued SYCL inputs; materialize entries and substitute scalar inputs first".into()));
+        };
         let target = settings
             .exact_symbol_names
             .get(&symbol)

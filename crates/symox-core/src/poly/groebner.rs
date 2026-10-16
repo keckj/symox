@@ -53,7 +53,7 @@ impl MonomialOrder {
             a.cmp(b)
         }
     }
-    pub fn leading_index(self, p: &MPoly<Rat>) -> usize {
+    pub fn leading_index<C: super::int::Coeff>(self, p: &MPoly<C>) -> usize {
         (0..p.len())
             .max_by(|&i, &j| self.compare(p.exp(i), p.exp(j)))
             .expect("nonzero polynomial")
