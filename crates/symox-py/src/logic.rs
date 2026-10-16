@@ -11,6 +11,26 @@ use symox::sets::{self as st};
 
 use crate::{to_expr, wrap, PyExpr};
 
+pyo3::create_exception!(_core,BadSignatureError,PyTypeError);
+pyo3::create_exception!(_core,BadArgumentsError,PyTypeError);
+pub(crate) fn bad_signature(message:String)->PyErr{BadSignatureError::new_err(message)}
+pub(crate) fn lambda_argument_error(message:String)->PyErr{
+    if message.starts_with("Duplicate symbol") || message.starts_with("Lambda signature"){bad_signature(message)}
+    else if message.starts_with("calculus ") || message.starts_with("Integral ") || message.starts_with("Integral/") || message.starts_with("Limit "){PyValueError::new_err(message)}
+    else{BadArgumentsError::new_err(message)}
+}
+/// Python sequences in signatures/arguments are symbolic Tuple nodes.
+pub(crate) fn lambda_value(value:&Bound<'_,PyAny>)->PyResult<Expr>{
+    if value.is_instance_of::<PyTuple>() || value.is_instance_of::<PyList>(){
+        return Ok(symox::special::tuple(value.try_iter()?.map(|v|lambda_value(&v?)).collect::<PyResult<_>>()?));
+    }
+    to_expr(value)
+}
+pub(crate) fn apply_lambda_expr(e:&Expr,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{
+    let args=args.iter().map(|v|lambda_value(&v)).collect::<PyResult<Vec<_>>>()?;
+    st::lambda_apply(e,&args).map(wrap).map_err(lambda_argument_error)
+}
+
 fn exprs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     args.iter().map(|a| to_expr(&a)).collect()
 }
@@ -497,15 +517,14 @@ fn py_product_set(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
 
 #[pyfunction]
 #[pyo3(name = "Lambda")]
-fn py_lambda(var: &Bound<'_, PyAny>, body: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(st::lambda(&to_expr(var)?, &to_expr(body)?)))
+pub(crate) fn py_lambda(signature:&Bound<'_,PyAny>,expr:&Bound<'_,PyAny>)->PyResult<PyExpr>{
+    st::lambda_checked(&lambda_value(signature)?,&lambda_value(expr)?).map(wrap).map_err(bad_signature)
 }
 
 #[pyfunction]
-fn _lambda_call(lam: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    st::apply_lambda(&to_expr(lam)?, &to_expr(x)?)
-        .map(wrap)
-        .ok_or_else(|| PyTypeError::new_err("not a Lambda"))
+#[pyo3(signature=(lam,*args))]
+fn _lambda_call(lam:&Bound<'_,PyAny>,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{
+    apply_lambda_expr(&to_expr(lam)?,args)
 }
 
 #[pyfunction]
@@ -672,6 +691,8 @@ fn reduce_inequalities(inequalities: &Bound<'_, PyAny>, symbols: Option<&Bound<'
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("BadSignatureError",m.py().get_type::<BadSignatureError>())?;
+    m.add("BadArgumentsError",m.py().get_type::<BadArgumentsError>())?;
     m.add_class::<ModelIterator>()?;
     for f in [
         wrap_pyfunction!(py_and, m)?,

@@ -489,7 +489,7 @@ impl Parser {
                         let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::Function(crate::expr::UndefinedFunction::new(s,assumptions,nargs)));
                     }
-                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "FunctionMatrix" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -566,6 +566,7 @@ impl Parser {
         let arity=|n:usize|->R<()>{if args.len()==n {Ok(())}else{self.err(format!("{name} expects {n} arguments"))}};
         let result=match name {
             "MatrixSymbol"=>{arity(3)?;let Val::Str(s)=&args[0] else{return self.err("MatrixSymbol expects a string name");};MatrixExpr::symbol(s,scalar(1)?,scalar(2)?)},
+            "FunctionMatrix"=>{arity(3)?;MatrixExpr::function(scalar(0)?,scalar(1)?,scalar(2)?)},
             "Identity"=>{arity(1)?;MatrixExpr::identity(scalar(0)?)},
             "ZeroMatrix"=>{arity(2)?;MatrixExpr::zero(scalar(0)?,scalar(1)?)},
             "OneMatrix"=>{arity(2)?;MatrixExpr::one(scalar(0)?,scalar(1)?)},
@@ -659,6 +660,17 @@ impl Parser {
             "UnevaluatedExpr" => Expr::from_kind(Kind::Func(
                 Func::Undefined("UnevaluatedExpr".into()), vec![one(self, args)?],
             )),
+            "Lambda"=>{
+                if args.len()!=2{return self.err("Lambda requires a signature and an expression");}
+                let mut values=args.into_iter();
+                let signature=self.tuple_expr(values.next().unwrap())?;
+                let body=self.tuple_expr(values.next().unwrap())?;
+                crate::sets::lambda_checked(&signature,&body).map_err(|msg|ParseError{msg,pos:self.at()})?
+            },
+            "IdentityFunction"=>{
+                if !args.is_empty(){return self.err("IdentityFunction takes no arguments");}
+                crate::sets::identity_function()
+            },
             "Integral" | "Sum" => {
                 let mut values=args.into_iter();
                 let body=self.as_expr(values.next().ok_or_else(||ParseError{msg:"calculus constructor requires an integrand".into(),pos:self.at()})?)?;

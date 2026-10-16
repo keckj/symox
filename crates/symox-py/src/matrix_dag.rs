@@ -50,6 +50,7 @@ impl Node{
                 match m.kind(){
                     MatrixKind::Symbol(_)|MatrixKind::Zero|MatrixKind::One=>{out.push(Self::S(m.rows().clone()));out.push(Self::S(m.cols().clone()));},
                     MatrixKind::Identity=>out.push(Self::S(m.rows().clone())),
+                    MatrixKind::Function(lambda)=>{out.push(Self::S(m.rows().clone()));out.push(Self::S(m.cols().clone()));out.push(Self::S(lambda.clone()));},
                     MatrixKind::Explicit(a)=>out.extend(a.data().iter().cloned().map(Self::S)),
                     MatrixKind::Mul(c,_)|MatrixKind::Pow(_,c)=>out.push(Self::S(c.clone())),
                     MatrixKind::HadamardPower(a,b)=>for operand in [a,b]{if let MatrixOperand::Scalar(e)=operand{out.push(Self::S(e.clone()));}},
@@ -94,6 +95,7 @@ impl<'py> Encoder<'py>{
         let(tag,canonical,fields)=match node{
             Node::M(m)=>{let mut tag=m.kind_name();let fields=match m.kind(){
                 MatrixKind::Symbol(name)=>vec![obj(py,name.as_str())?,obj(py,self.scalar(m.rows()))?,obj(py,self.scalar(m.cols()))?],
+                MatrixKind::Function(lambda)=>vec![obj(py,self.scalar(m.rows()))?,obj(py,self.scalar(m.cols()))?,obj(py,self.scalar(lambda))?],
                 MatrixKind::Block(grid)=>vec![obj(py,grid.shape().0)?,obj(py,grid.shape().1)?,obj(py,self.matrices(grid.data()))?],
                 MatrixKind::Identity=>vec![obj(py,self.scalar(m.rows()))?],
                 MatrixKind::Zero|MatrixKind::One=>vec![obj(py,self.scalar(m.rows()))?,obj(py,self.scalar(m.cols()))?],
@@ -152,6 +154,7 @@ fn constant(name:&str)->PyResult<Constant>{Ok(match name{"pi"=>Constant::Pi,"E"=
 fn validate_function(function:&Func,args:&[Expr])->PyResult<()>{
     if function.arity().is_some_and(|n|n!=args.len()){return Err(invalid("function arity mismatch"));}
     if matches!(function,Func::Integral|Func::Sum){symox::binders::validate(function,args).map_err(invalid)?;}
+    if let Func::Set(op @ (symox::sets::SetOp::Lambda|symox::sets::SetOp::IdentityFunction))=function{symox::sets::validate_lambda(*op,args).map_err(invalid)?;}
     if matches!(function,Func::Subs){
         if args.len()!=3{return Err(invalid("Subs requires three arguments"));}
         let tuple=|e:&Expr|matches!(e.kind(),Kind::Func(Func::Undefined(head),_) if head.is_internal("Tuple"));
@@ -202,7 +205,14 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                         symox::binders::held(function,&args[0],limits).map_err(invalid)?.kind().clone()
                     }else{Kind::Func(Func::Undefined(head),args)}
                 },
-                "s.function"=>{arity(2)?;let name:String=f.get_item(0)?.extract()?;let function=Func::from_name(&name).ok_or_else(||invalid("unknown function"))?;let args=ss(1)?;validate_function(&function,&args)?;Kind::Func(function,args)},
+                "s.function"=>{arity(2)?;let name:String=f.get_item(0)?.extract()?;let function=Func::from_name(&name).ok_or_else(||invalid("unknown function"))?;let args=ss(1)?;
+                    if matches!(function,Func::Set(symox::sets::SetOp::Lambda)){
+                        if args.len()!=2{return Err(invalid("Lambda requires a signature and a body"));}
+                        // Read both old [Symbol, body] and normalized [Tuple, body]
+                        // records. User functions named Lambda use s.undefined.
+                        symox::sets::lambda_checked(&args[0],&args[1]).map_err(invalid)?.kind().clone()
+                    }else{validate_function(&function,&args)?;Kind::Func(function,args)}
+                },
                 "s.element"|"s.proxy"|"s.trace"|"s.determinant"=>{
                     arity(2)?;let matrix=m(0)?;let args=ss(1)?;let n=if tag=="s.element"{2}else{0};if args.len()!=n{return Err(invalid("matrix scalar arity mismatch"));}
                     if tag=="s.element"{matrix.element_unevaluated(&args[0],&args[1]).map_err(|e|invalid(e.to_string()))?;}
@@ -215,6 +225,7 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
             match tag.as_str(){
                 "MatrixSymbol"=>{arity(3)?;matrix_result(MatrixExpr::symbol(&f.get_item(0)?.extract::<String>()?,s(1)?,s(2)?))?},
                 "Identity"=>{arity(1)?;matrix_result(MatrixExpr::identity(s(0)?))?},
+                "FunctionMatrix"=>{arity(3)?;matrix_result(MatrixExpr::function(s(0)?,s(1)?,s(2)?))?},
                 "ZeroMatrix"=>{arity(2)?;matrix_result(MatrixExpr::zero(s(0)?,s(1)?))?},
                 "OneMatrix"=>{arity(2)?;matrix_result(MatrixExpr::one(s(0)?,s(1)?))?},
                 "m.explicit"|"dense"=>{arity(if tag=="dense"{4}else{3})?;let rows:usize=f.get_item(0)?.extract()?;let cols:usize=f.get_item(1)?.extract()?;let entries=ss(2)?;if rows.checked_mul(cols)!=Some(entries.len()){return Err(invalid("dense shape does not match its entries"));}let matrix=Matrix::new(rows,cols,entries).map_err(|e|invalid(e.to_string()))?;if tag=="dense"{Decoded::D(matrix,f.get_item(3)?.extract()?)}else{Decoded::M(MatrixExpr::explicit(matrix))}},
@@ -233,7 +244,11 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
         };reader.nodes.push(node);
     }
     match reader.nodes.get(root).ok_or_else(||invalid("root reference out of range"))?{
-        Decoded::S(e)=>crate::expr_object(py,e.clone()),
+        Decoded::S(e)=>{
+            if matches!(e.kind(),Kind::Func(Func::Set(symox::sets::SetOp::IdentityFunction),_)){
+                Ok(py.import("symox")?.getattr("IdentityFunction")?.call0()?.unbind())
+            }else{crate::expr_object(py,e.clone())}
+        },
         Decoded::M(m)=>Ok(crate::matrixexpr::wrap_matrixexpr(m.clone()).into_pyobject(py)?.into_any().unbind()),
         Decoded::G(grid)=>Ok(crate::matrixexpr::PyBlockGrid{grid:grid.clone()}.into_pyobject(py)?.into_any().unbind()),
         Decoded::D(matrix,immutable)=>{let value=crate::matrices::wrapm(matrix.clone()).into_pyobject(py)?;if *immutable{Ok(value.call_method0("as_immutable")?.unbind())}else{Ok(value.into_any().unbind())}},

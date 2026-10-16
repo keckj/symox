@@ -402,6 +402,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
             }
             head.push(')');list(&head,args,out);
         },
+        Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction), _) => out.push_str("IdentityFunction()"),
         Kind::Func(Func::Set(op), args) if args.is_empty() => out.push_str(op.name()),
         Kind::Func(Func::MatrixProxy(parent), _) => out.push_str(&parent.to_repr()),
         Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {

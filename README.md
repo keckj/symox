@@ -132,6 +132,11 @@ Their `doit()` methods use the native integration and summation engines;
 unsupported cases remain held. Differentiation supports the fundamental theorem
 and Leibniz rule for integrals and retains discrete endpoint derivatives.
 Finite sums use Karr's convention for reversed endpoints.
+`Lambda` accepts multiple variables, nested tuple signatures and empty signatures.
+Its arguments retain the signature tuple; application uses exact simultaneous
+replacement, following SymPy's binding behavior. Identity lambdas use the native
+`S.IdentityFunction` singleton. Existing scalar and facade Lambda pickles remain
+readable.
 Undefined functions preserve their identity and declared assumptions and arity,
 including names shared with builtins. Held `Derivative`, `Subs` and `Limit` expressions
 support evaluation and round trips; simultaneous symbol substitutions preserve
@@ -521,6 +526,9 @@ own domain, avoiding SymPy's inconsistent equality/hash behavior with integers.
 Polynomial coefficient rings support division with remainder and exact division, with
 coefficient content preserved in GCDs, LCMs and cofactors. `Poly.div` and
 `Poly.exquo` honor `auto=False` when retaining the coefficient ring.
+The global `div`, `rem`, `quo` and `exquo` functions honor explicit generators,
+`auto`, `polys` and supported coefficient-domain options. They preserve typed
+domains when returning polynomials and reject unknown or incompatible options.
 Fraction fields over finite or algebraic ground domains require further support.
 Existing polynomial calculations with general expression coefficients remain
 available; requesting a typed domain for unsupported expression or inexact
@@ -655,6 +663,12 @@ matrices with concrete dimensions for the existing exact algorithms.
 retains a matrix's shape while zeroing its off-diagonal entries. These nodes
 preserve empty shapes, support symbolic dimensions, and lower to finite
 PyTorch/JAX outputs alongside the other matrix expressions.
+`FunctionMatrix(rows, cols, Lambda((i, j), body))` defines entries through a
+native two-argument symbolic function. It supports scalar derivatives,
+substitutions, explicit materialization and finite PyTorch/JAX output generation,
+including JIT compilation and gradients. Its `.lamda` property follows SymPy's
+spelling. Existing native symbolic function heads are accepted; strings and
+arbitrary Python callables are rejected.
 Hadamard operations act element by element and require matching matrix shapes;
 Kronecker products multiply dimensions and preserve factor order. These nodes
 also support finite matrix output generation for PyTorch and JAX.
@@ -777,8 +791,8 @@ Python sets.
 grouping for Horner code generation. `subs` supports algebraic sum and product
 patterns; `xreplace` performs exact replacement. `reduced(f, divisors, *gens)`
 returns polynomial quotients and a remainder, with deterministic generator
-ordering when generators are inferred. Numeric coefficient domains support
-`lex`, `grlex` and `grevlex`; symbolic coefficient fields support `lex`.
+ordering when generators are inferred. Numeric and supported symbolic
+coefficient fields support `lex`, `grlex` and `grevlex`.
 `domain="ZZ"` / `"QQ"`, prime `modulus`, `polys=True` and `auto` select
 the coefficient domain, return representation and ring/field division.
 

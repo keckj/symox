@@ -177,6 +177,7 @@ fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py
     let mut args=Vec::new();
     match m.kind(){
         MatrixKind::Symbol(name)=>{args.push(name.into_pyobject(py)?.into_any());args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
+        MatrixKind::Function(lambda)=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);args.push(scalar(lambda)?);},
         MatrixKind::Identity=>args.push(scalar(m.rows())?),MatrixKind::Zero|MatrixKind::One=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
         MatrixKind::Add(a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>for e in a{args.push(matrix(e)?);},
         MatrixKind::Block(grid)=>{let value=PyBlockGrid{grid:grid.clone()};args.push(if sympy{value.to_sympy(py)?}else{value.into_pyobject(py)?.into_any()});},
@@ -196,6 +197,7 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
     let operand=|i|->PyResult<MatrixOperand>{let value=args.get_item(i)?;if is_matrix(&value){Ok(MatrixOperand::Matrix(to_matrixexpr(&value)?))}else{Ok(MatrixOperand::Scalar(to_expr(&value)?))}};
     let result=match kind{
         "MatrixSymbol" if args.len()==3=>{let name:String=args.get_item(0)?.extract()?;MatrixExpr::symbol(&name,scalar(1)?,scalar(2)?)},
+        "FunctionMatrix" if args.len()==3=>MatrixExpr::function(scalar(0)?,scalar(1)?,scalar(2)?),
         "Identity" if args.len()==1=>MatrixExpr::identity(scalar(0)?),"ZeroMatrix" if args.len()==2=>MatrixExpr::zero(scalar(0)?,scalar(1)?),
         "OneMatrix" if args.len()==2=>MatrixExpr::one(scalar(0)?,scalar(1)?),
         "DiagMatrix" if args.len()==1=>MatrixExpr::diag(&matrix(0)?),
@@ -245,6 +247,8 @@ impl PyMatrixExpr{
     #[getter] fn is_Atom(&self)->bool{false}
     #[getter] fn is_Number(&self)->bool{false}
     #[getter] fn is_MatrixSymbol(&self)->bool{matches!(self.m.kind(),MatrixKind::Symbol(_))}
+    #[getter] fn is_FunctionMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Function(_))}
+    #[getter] fn lamda(&self)->PyResult<PyExpr>{self.m.function_lambda().cloned().map(wrap).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("Only FunctionMatrix has a lamda"))}
     #[getter] fn is_ZeroMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Zero)}
     #[getter] fn is_Identity(&self)->bool{matches!(self.m.kind(),MatrixKind::Identity)}
     #[getter] fn is_OneMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::One)}

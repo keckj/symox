@@ -11,6 +11,8 @@
 
 mod props;
 mod solveset;
+mod lambda;
+pub use lambda::{identity_function,lambda_checked,lambda_signature,lambda_arity,lambda_parts,lambda_apply,validate_lambda,validate_lambda_tree};
 
 pub use props::{as_relational, boundary, closure, contains, inf, interior, is_subset, measure, sup};
 pub use solveset::{reduce_inequalities, solve_univariate_inequality, solveset, solveset_real};
@@ -35,6 +37,7 @@ pub enum SetOp {
     ConditionSet,
     Range,
     Lambda,
+    IdentityFunction,
     Contains,
     EmptySet,
     UniversalSet,
@@ -59,6 +62,7 @@ impl SetOp {
             SetOp::ConditionSet => "ConditionSet",
             SetOp::Range => "Range",
             SetOp::Lambda => "Lambda",
+            SetOp::IdentityFunction => "IdentityFunction",
             SetOp::Contains => "Contains",
             SetOp::EmptySet => "EmptySet",
             SetOp::UniversalSet => "UniversalSet",
@@ -83,6 +87,7 @@ impl SetOp {
             "ConditionSet" => SetOp::ConditionSet,
             "Range" => SetOp::Range,
             "Lambda" => SetOp::Lambda,
+            "IdentityFunction" => SetOp::IdentityFunction,
             "Contains" => SetOp::Contains,
             "EmptySet" => SetOp::EmptySet,
             "UniversalSet" => SetOp::UniversalSet,
@@ -132,7 +137,7 @@ pub fn as_set(e: &Expr) -> Option<(SetOp, &[Expr])> {
 
 /// Is `e` a set?
 pub fn is_set(e: &Expr) -> bool {
-    matches!(as_set(e), Some((op, _)) if !matches!(op, SetOp::Lambda | SetOp::Contains))
+    matches!(as_set(e), Some((op, _)) if !matches!(op, SetOp::Lambda | SetOp::IdentityFunction | SetOp::Contains))
 }
 
 #[inline]
@@ -626,13 +631,15 @@ fn image_in_interval(img: &Expr, iv: &Expr) -> Option<Expr> {
     if !is_op(&a[1], SetOp::Integers) {
         return None;
     }
-    let (SetOp::Lambda, l) = as_set(&a[0])? else { return None };
+    if lambda_arity(&a[0])!=Some(1){return None;}
+    let (variables, body)=lambda_parts(&a[0])?;
+    if variables.len()!=1{return None;}
+    let n=&variables[0];
     let (s, e, _, _) = interval_parts(iv)?;
     if is_infinite(&s) || is_infinite(&e) {
         return None;
     }
-    let n = &l[0];
-    let body = &l[1];
+    let body = &body;
     let p = crate::diff::diff(body, n);
     let c = crate::expand::expand(&crate::subs::subs1(body, n, &Expr::zero()));
     if crate::traverse::has(&p, n) || p.is_zero() {
@@ -834,27 +841,20 @@ pub fn product_set(sets: Vec<Expr>) -> Expr {
     mk(SetOp::ProductSet, sets)
 }
 
-/// `Lambda(var, body)`.
+/// Single-variable compatibility constructor; new fallible APIs use lambda_checked.
 pub fn lambda(var: &Expr, body: &Expr) -> Expr {
-    mk(SetOp::Lambda, vec![var.clone(), body.clone()])
+    lambda_checked(var,body).expect("valid internal Lambda signature")
 }
 
-/// Apply a `Lambda` to an argument.
-pub fn apply_lambda(lam: &Expr, x: &Expr) -> Option<Expr> {
-    let (SetOp::Lambda, a) = as_set(lam)? else { return None };
-    Some(crate::subs::subs1(&a[1], &a[0], x))
-}
+/// Single-variable compatibility application.
+pub fn apply_lambda(lam:&Expr,x:&Expr)->Option<Expr>{lambda_apply(lam,std::slice::from_ref(x)).ok()}
 
 /// `ImageSet(Lambda(var, body), base)`.
 pub fn image_set(lam: &Expr, base: &Expr) -> Expr {
     if is_empty_set(base) {
         return empty_set();
     }
-    if let Some((SetOp::Lambda, a)) = as_set(lam) {
-        if a[0] == a[1] {
-            return base.clone();
-        }
-    }
+    if is_op(lam,SetOp::IdentityFunction) { return base.clone(); }
     mk(SetOp::ImageSet, vec![lam.clone(), base.clone()])
 }
 
@@ -937,6 +937,8 @@ pub fn eval(op: SetOp, args: Vec<Expr>) -> Expr {
             _ => mk(op, args),
         },
         SetOp::Contains if args.len() == 2 => contains_expr(&args[0], &args[1]),
+        SetOp::Lambda if args.len()==2=>lambda_checked(&args[0],&args[1]).unwrap_or_else(|_|mk(op,args)),
+        SetOp::IdentityFunction if args.is_empty()=>identity_function(),
         _ => mk(op, args),
     }
 }
@@ -961,6 +963,14 @@ pub(crate) fn write_set(op: SetOp, args: &[Expr], out: &mut String) {
         }
     };
     match op {
+        SetOp::IdentityFunction => out.push_str("Lambda(_x, _x)"),
+        SetOp::Lambda if args.len()==2=>{
+            out.push_str("Lambda(");
+            let signature=lambda_signature(&mk(op,args.to_vec())).unwrap();
+            let vars=signature.args();
+            if vars.len()==1 && vars[0].is_symbol(){write_expr(&vars[0],out);}else{write_expr(&signature,out);}
+            out.push_str(", ");write_expr(&args[1],out);out.push(')');
+        },
         SetOp::Interval if args.len() == 4 => {
             let (a, b) = (&args[0], &args[1]);
             let (l, r) = (args[2] == Expr::boolean(true), args[3] == Expr::boolean(true));

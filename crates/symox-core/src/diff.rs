@@ -151,6 +151,9 @@ fn d_func(
     x: &Expr,
     cache: &mut FxHashMap<usize, (Expr,Expr)>,
 ) -> Expr {
+    if matches!(f,Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction)){
+        return if crate::traverse::free_symbols(e).contains(x){derivative_unevaluated(e,vec![(x.clone(),1)])}else{Expr::zero()};
+    }
     if let Func::MatrixElement(parent) = f {
         if let Kind::Func(Func::MatrixElement(other), indices) = x.kind() {
             let independent_symbols = matches!(parent.kind(), crate::matrixexpr::MatrixKind::Symbol(_))

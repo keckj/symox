@@ -165,15 +165,17 @@ def test_periodic_solution_dummy_cannot_capture_a_user_parameter():
     assert sm.from_sympy(converted)==result._e
 
 
-def test_sympy_lambda_import_preserves_a_single_dummy_binder_and_rejects_multiple():
+def test_sympy_lambda_import_preserves_dummy_binders_and_multiple_variables():
     d=sp.Dummy('x',integer=True)
     actual=sm.from_sympy(sp.Lambda(d,d+1))
     native=sm.from_sympy(d)
-    assert actual.args==(native,native+1)
+    assert actual.args==(sm.Tuple(native),native+1)
     assert actual.free_symbols==set()
     assert sm.to_sympy(actual)==sp.Lambda(d,d+1)
     x,y=sp.symbols('x y')
-    with pytest.raises(NotImplementedError):sm.from_sympy(sp.Lambda((x,y),x+y))
+    multiple=sm.from_sympy(sp.Lambda((x,y),x+y))
+    assert multiple.variables==sm.symbols('x y')
+    assert sm.to_sympy(multiple)==sp.Lambda((x,y),x+y)
 
 
 def test_native_and_sympy_fresh_generators_have_independent_namespaces():

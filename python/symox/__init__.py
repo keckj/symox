@@ -47,7 +47,7 @@ from ._core import (
     to_number_field,
 )
 
-from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed
+from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, UnificationFailed
 
 Basic = Expr
 S = sympify
@@ -972,31 +972,58 @@ class ProductSet(Set):
         return self.args
 
 
-class Lambda:
-    """``Lambda(var, expr)`` (single variable)."""
+BadSignatureError = _core.BadSignatureError
+BadArgumentsError = _core.BadArgumentsError
+_identity_lambda = None
 
+
+class _LambdaMeta(type):
+    def __call__(cls, *args, **kwargs):
+        global _identity_lambda
+        if cls is IdentityFunction:
+            if kwargs:
+                raise TypeError("IdentityFunction takes no constructor options")
+            value = _core._apply("IdentityFunction", *args)
+        else:
+            value = _core.Lambda(*args, **kwargs)
+        if value.is_IdentityFunction:
+            if _identity_lambda is None:
+                _identity_lambda = value
+            return _identity_lambda
+        return value
+
+    def __instancecheck__(cls, value):
+        if type(value) is Lambda or type(value) is IdentityFunction:
+            return cls is Lambda or value._e.is_IdentityFunction
+        return isinstance(value, Expr) and (value.is_IdentityFunction if cls is IdentityFunction else value.is_Lambda)
+
+
+def _restore_lambda(value):
+    """Upgrade legacy Python Lambda wrappers to the native expression."""
+    return IdentityFunction() if value.is_IdentityFunction else value
+
+
+class Lambda(metaclass=_LambdaMeta):
+    """A symbolic function with a tuple signature and exact simultaneous calls.
+
+    Newly constructed values are native Expr objects. The historical slot is
+    retained so pickles of the original Python wrapper remain readable.
+    """
     __slots__ = ("_e",)
 
-    def __init__(self, var, expr):
-        self._e = _core.Lambda(var, expr)
+    def __getattr__(self, name):
+        if name == "_e":
+            raise AttributeError(name)
+        return getattr(object.__getattribute__(self, "_e"), name)
 
     def _symox_(self):
         return self._e
 
-    @property
-    def free_symbols(self):
-        return self._e.free_symbols
+    def _sympy_(self):
+        return self._e.to_sympy()
 
-    @property
-    def variables(self):
-        return (self._e.args[0],)
-
-    @property
-    def expr(self):
-        return self._e.args[1]
-
-    def __call__(self, x):
-        return _core._lambda_call(self._e, x)
+    def __call__(self, *args):
+        return self._e(*args)
 
     def __str__(self):
         return str(self._e)
@@ -1004,10 +1031,17 @@ class Lambda:
     __repr__ = __str__
 
     def __eq__(self, other):
-        return isinstance(other, Lambda) and self._e == other._e
+        return self._e == _unwrap(other)
 
     def __hash__(self):
         return hash(self._e)
+
+    def __reduce__(self):
+        return (_restore_lambda, (self._e,))
+
+
+class IdentityFunction(Lambda):
+    __slots__ = ()
 
 
 class ImageSet(Set):
@@ -1019,9 +1053,7 @@ class ImageSet(Set):
 
     @property
     def lamda(self):
-        lam = object.__new__(Lambda)
-        lam._e = self._e.args[0]
-        return lam
+        return self._e.args[0]
 
     @property
     def base_set(self):
@@ -1347,6 +1379,11 @@ Expr.contains = lambda self, t: _core._order_contains(self, t)
 
 def _order_part(i):
     def get(self):
+        if self.is_Lambda:
+            if i == 0:
+                return self._lambda_body
+            if i == 1:
+                return self._lambda_variables
         if (self.is_Integral or self.is_Sum) and i == 1:
             return [limit[0] for limit in self.limits]
         if self.is_Derivative:
@@ -1486,7 +1523,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
 # SymPy's constructor classes and printer extension points. Keep this last:
 # constructors delegate to the native API defined above.
 from ._compat import (  # noqa: E402
-    Add, Mul, Pow, Symbol, Dummy, Number, Integer, Rational, Float, UnevaluatedExpr,
+    Add, Mul, Pow, Symbol, Dummy, Number, Integer, Rational, Float, Tuple, UnevaluatedExpr,
     S, count_ops, default_sort_key,
 )
 from .codegen.ast import Indexed, IndexedBase  # noqa: E402
@@ -1561,7 +1598,7 @@ def lambdify(args, expr, modules=None, **kwargs):
     return _native_lambdify(args, expr, modules=modules, **kwargs)
 
 from ._matrixexpr import (  # noqa: E402
-    MatrixExpr, MatrixSymbol, MatAdd, MatMul, MatPow, Transpose, Adjoint,
+    MatrixExpr, MatrixSymbol, FunctionMatrix, MatAdd, MatMul, MatPow, Transpose, Adjoint,
     Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
     OneMatrix, HadamardProduct, HadamardPower, KroneckerProduct,
     BlockMatrix, BlockDiagMatrix, MatrixSlice, block_collapse,

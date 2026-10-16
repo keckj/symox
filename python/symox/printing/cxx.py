@@ -41,6 +41,8 @@ class CXX17CodePrinter(Printer):
 
     def _print_MatrixElement(self, expr):
         parent, row, column = expr.args
+        if getattr(parent, "kind", None) == "FunctionMatrix":
+            return self._print(parent[row, column])
         if getattr(parent, "kind", None) != "MatrixSymbol":
             raise NotImplementedError("Materialize the matrix operation before printing a scalar entry")
         return f"{parent.name}[{self._print(row * parent.cols + column)}]"

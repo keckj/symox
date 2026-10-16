@@ -217,11 +217,13 @@ impl KeyCache {
 
     fn compute(&mut self, e: &Expr) -> SortKey {
         match e.kind() {
-            Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 && args[0].is_symbol() => {
-                let variables=self.presentation_arg(PresentationArg::Node("Tuple",vec![PresentationArg::Scalar(args[0].clone())]));
+            Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 => {
+                let signature=crate::sets::lambda_signature(e).unwrap();
+                let variables=self.key(&signature);
                 let body=self.key(&args[1]);
                 self.composite((5,0,"Lambda"),KArgs::List(vec![variables,body]))
             }
+            Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_)=>self.composite((5,0,"IdentityFunction"),KArgs::List(vec![])),
             Kind::Derivative(expression, variables) => {
                 let mut args = vec![self.key(expression)];
                 for (variable, count) in variables {
@@ -275,7 +277,7 @@ impl KeyCache {
                     Kind::Pow(b, x) => (b.clone(), Some(x.clone())),
                     _ => (rest, None),
                 };
-                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
                     let mut key = (*self.key(&expr)).clone();
                     key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
                     key.coeff = coeff;

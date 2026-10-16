@@ -45,6 +45,7 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
             S(Expr::int(grid.shape().1 as i64)),
             PresentationArg::Node("Tuple", grid.data().iter().cloned().map(M).collect()),
         ])],
+        MatrixKind::Function(lambda) => vec![S(matrix.rows().clone()), S(matrix.cols().clone()), S(lambda.clone())],
         MatrixKind::Identity => vec![S(matrix.rows().clone())],
         MatrixKind::Zero | MatrixKind::One => vec![S(matrix.rows().clone()), S(matrix.cols().clone())],
         MatrixKind::HadamardProduct(factors) | MatrixKind::Kronecker(factors) | MatrixKind::BlockDiag(factors) => factors.iter().cloned().map(M).collect(),
@@ -313,10 +314,11 @@ impl SortKeyCache {
 
     fn compute(&mut self, e: &Expr) -> Key {
     match e.kind() {
-        Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 && args[0].is_symbol() => {
-            let variables=composite_key((5,0,"Tuple"),vec![self.key(&args[0])]);
-            return composite_key((5,0,"Lambda"),vec![variables,self.key(&args[1])]);
+        Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 => {
+            let signature=crate::sets::lambda_signature(e).unwrap();
+            return composite_key((5,0,"Lambda"),vec![self.key(&signature),self.key(&args[1])]);
         }
+        Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_)=>return composite_key((5,0,"IdentityFunction"),vec![]),
         Kind::Derivative(expression, variables) => {
             let mut args = vec![self.key(expression)];
             for (variable, count) in variables {
@@ -347,7 +349,7 @@ impl SortKeyCache {
         Kind::Pow(b, x) => (b.clone(), x.clone()),
         _ => (rest.clone(), Expr::one()),
     };
-    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
         let mut parts = match self.key(&base) {
             Key::Tup(parts) => parts,
             Key::Shared(parts) => parts.to_vec(),

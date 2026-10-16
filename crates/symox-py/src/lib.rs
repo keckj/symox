@@ -231,12 +231,9 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             let limits=obj.getattr("limits")?.try_iter()?.map(|limit|limit?.try_iter()?.map(|value|to_expr(&value?)).collect::<PyResult<Vec<_>>>()).collect::<PyResult<Vec<_>>>()?;
             return symox::binders::held(if head=="Integral" {Func::Integral} else {Func::Sum},&body,limits).map_err(PyValueError::new_err);
         }
+        if head=="IdentityFunction" {return Ok(symox::sets::identity_function());}
         if head=="Lambda" {
-            let variables=obj.getattr("variables")?.try_iter()?.map(|variable|to_expr(&variable?)).collect::<PyResult<Vec<_>>>()?;
-            if variables.len()!=1 || !variables[0].is_symbol() {
-                return Err(PyNotImplementedError::new_err("Lambda currently supports a single symbol variable"));
-            }
-            return Ok(symox::sets::lambda(&variables[0],&to_expr(&obj.getattr("expr")?)?));
+            return symox::sets::lambda_checked(&to_expr(&obj.getattr("signature")?)?,&to_expr(&obj.getattr("expr")?)?).map_err(logic::bad_signature);
         }
         if head=="Subs" {
             let args=obj.getattr("args")?;
@@ -409,6 +406,7 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             kwargs.set_item("remove_true", false)?;
             sm.getattr("Xor")?.call(convert_args(args)?, Some(&kwargs))
         }
+        Kind::Func(Func::Set(symox::sets::SetOp::IdentityFunction),_)=>sm.getattr("S")?.getattr("IdentityFunction"),
         Kind::Func(Func::Set(op), args) if op.is_named() && args.is_empty() => sm.getattr(op.name()),
         Kind::Func(f, args) => sm.getattr(f.name())?.call1(convert_args(args)?),
         Kind::Rel(..) => sm.getattr(e.class_name())?.call1(convert_args(&e.args())?),
@@ -477,7 +475,7 @@ fn operation_count(e: &Expr) -> BigInt {
             if base.is_constant(Constant::E){1+count(exponent,memo)}
             else{count(base, memo) + if exponent.is_minus_one() { BigInt::from(1) } else { 1 + count(exponent, memo) }}
         }
-        Kind::Func(Func::Subs|Func::Limit|Func::Order,args) => args.iter().map(|a|count(a,memo)).sum(),
+        Kind::Func(Func::Subs|Func::Limit|Func::Order|Func::Set(symox::sets::SetOp::IdentityFunction),args) => args.iter().map(|a|count(a,memo)).sum(),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") || n.is_internal("Tuple") => args.iter().map(|a| count(a, memo)).sum(),
         _ => 1 + e.args().iter().map(|a| count(a, memo)).sum::<BigInt>(),
         };
@@ -802,7 +800,9 @@ impl PyExpr {
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
         if let Kind::Func(Func::Undefined(function),_)=self.e.kind(){
             if !function.internal{return Ok(undefined_head(py,function)?.unbind());}
+            if function.is_internal("Tuple"){return Ok(py.import("symox._compat")?.getattr("Tuple")?.unbind());}
         }
+        if let Kind::Func(Func::Set(op @ (symox::sets::SetOp::Lambda|symox::sets::SetOp::IdentityFunction)),_)=self.e.kind(){return Ok(py.import("symox")?.getattr(op.name())?.unbind());}
         if let Kind::Func(f @ (Func::Integral|Func::Sum),_)=self.e.kind(){return Ok(py.import("symox")?.getattr(f.name())?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Subs,_)){return Ok(py.import("symox")?.getattr("Subs")?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Limit,_)){return Ok(py.import("symox")?.getattr("Limit")?.unbind());}
@@ -929,6 +929,32 @@ impl PyExpr {
     #[getter]
     fn is_Limit(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Limit,_))}
     #[getter]
+    fn is_Tuple(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(head),_) if head.is_internal("Tuple"))}
+    #[getter]
+    fn is_Lambda(&self)->bool{symox::sets::lambda_signature(&self.e).is_some()}
+    #[getter]
+    fn is_IdentityFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Set(symox::sets::SetOp::IdentityFunction),_))}
+    #[getter]
+    fn signature(&self)->PyResult<PyExpr>{symox::sets::lambda_signature(&self.e).map(wrap).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("only Lambda has signature"))}
+    #[getter]
+    fn nargs(&self)->PyResult<PyExpr>{symox::sets::lambda_arity(&self.e).map(|n|wrap(symox::sets::finite_set(vec![Expr::int(n as i64)]))).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("only Lambda has nargs"))}
+    #[getter]
+    fn is_identity(&self)->PyResult<bool>{
+        let signature=symox::sets::lambda_signature(&self.e).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("only Lambda has is_identity"))?;
+        Ok(symox::sets::lambda_parts(&self.e).is_some_and(|(_,body)|signature==body))
+    }
+    #[getter]
+    fn _lambda_variables<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        let (variables,_)=symox::sets::lambda_parts(&self.e).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))?;
+        PyTuple::new(py,variables.into_iter().map(wrap))
+    }
+    #[getter]
+    fn _lambda_body(&self)->PyResult<PyExpr>{symox::sets::lambda_parts(&self.e).map(|(_,body)|wrap(body)).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))}
+    #[getter]
+    fn _e(&self)->PyResult<PyExpr>{if self.is_Lambda(){Ok(self.clone())}else{Err(pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))}}
+    #[pyo3(signature=(*args))]
+    fn __call__(&self,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{logic::apply_lambda_expr(&self.e,args)}
+    #[getter]
     fn is_Integral(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Integral,_))}
     #[getter]
     fn is_Sum(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Sum,_))}
@@ -941,8 +967,9 @@ impl PyExpr {
         match self.e.kind(){Kind::Func(Func::Integral|Func::Sum,args)=>PyTuple::new(py,args[1..].iter().map(|limit|PyTuple::new(py,limit.args().into_iter().map(wrap))).collect::<PyResult<Vec<_>>>()?),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have limits"))}
     }
     #[getter]
-    fn bound_symbols<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyList>>{
-        match self.e.kind(){Kind::Func(f @ (Func::Integral|Func::Sum),args)=>Ok(PyList::new(py,symox::binders::limits(args).into_iter().filter(|limit|*f==Func::Sum||limit.len()>1).map(|limit|wrap(limit[0].clone())).collect::<Vec<_>>())?),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have bound_symbols"))}
+    fn bound_symbols<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{
+        if self.is_Lambda(){return Ok(self._lambda_variables(py)?.into_any());}
+        match self.e.kind(){Kind::Func(f @ (Func::Integral|Func::Sum),args)=>Ok(PyList::new(py,symox::binders::limits(args).into_iter().filter(|limit|*f==Func::Sum||limit.len()>1).map(|limit|wrap(limit[0].clone())).collect::<Vec<_>>())?.into_any()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only binders have bound_symbols"))}
     }
     #[getter]
     fn variable_count<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
@@ -1069,6 +1096,7 @@ impl PyExpr {
             let result=subs::simultaneous(&self.e,&pairs);
             symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
             symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
+        symox::sets::validate_lambda_tree(&result).map_err(logic::bad_signature)?;
             return Ok(wrap(result));
         }
         let mut result = self.e.clone();
@@ -1079,6 +1107,7 @@ impl PyExpr {
         }
         symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
         symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
+        symox::sets::validate_lambda_tree(&result).map_err(logic::bad_signature)?;
         Ok(wrap(result))
     }
 
@@ -1176,6 +1205,7 @@ impl PyExpr {
         let result=subs::xreplace(&self.e,&m);
         symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
         symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
+        symox::sets::validate_lambda_tree(&result).map_err(logic::bad_signature)?;
         Ok(wrap(result))
     }
 
@@ -2049,6 +2079,11 @@ fn py_log(x: &Bound<'_, PyAny>, base: Option<&Bound<'_, PyAny>>) -> PyResult<PyE
 #[pyfunction]
 #[pyo3(name = "_apply", signature = (name, *args))]
 fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+    if name=="Lambda"{
+        if args.len()!=2{return Err(PyTypeError::new_err("Lambda requires a signature and an expression"));}
+        return logic::py_lambda(&args.get_item(0)?,&args.get_item(1)?);
+    }
+    if name=="IdentityFunction" && !args.is_empty(){return Err(PyTypeError::new_err("IdentityFunction takes no arguments"));}
     if name=="Integral" || name=="Sum" {
         if args.is_empty(){return Err(PyValueError::new_err("calculus constructor requires an integrand"));}
         let limits=PyTuple::new(args.py(),args.iter().skip(1))?;

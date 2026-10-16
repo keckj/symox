@@ -619,11 +619,8 @@ impl AlgebraicPoly {
             return Err(PolyError::Unsupported("polynomial division by zero".into()));
         }
         let _s = AlgebraicScope::new(self.number_field.clone());
-        let (q, r) = fieldalg::reduce(&self.rep, std::slice::from_ref(&o.rep), MonomialOrder::Lex);
-        Ok((
-            self.with_rep(q.into_iter().next().unwrap()),
-            self.with_rep(r),
-        ))
+        let (q,r)=super::fraction::recursive_division(&self.rep,&o.rep,0,&|_|true);
+        Ok((self.with_rep(q),self.with_rep(r)))
     }
     pub fn diff(&self, i: usize) -> Self {
         let _s = AlgebraicScope::new(self.number_field.clone());

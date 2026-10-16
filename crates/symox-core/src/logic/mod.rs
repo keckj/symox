@@ -104,7 +104,7 @@ pub fn nodes2(e: &Expr) -> u64 {
         Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 2,
         // `Lambda` stores its signature as a `Tuple`
         Kind::Func(Func::Set(crate::sets::SetOp::Lambda), a) => {
-            4 + a.iter().map(nodes2).sum::<u64>()
+            2 + a.iter().map(nodes2).sum::<u64>()
         }
         _ => 2 + e.args().iter().map(nodes2).sum::<u64>(),
     }

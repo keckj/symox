@@ -13,6 +13,32 @@ jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 
 
+@pytest.mark.parametrize("jit",[False,True])
+def test_function_matrix_native_lambda_batching_jit_and_gradients(jit):
+    i,j=sm.symbols('i j',integer=True)
+    a,b=sm.symbols('a b')
+    matrix=sm.FunctionMatrix(2,3,sm.Lambda((i,j),a*(i+1)+b*j*j+a*b))
+    outputs=(matrix,matrix[::-1,::2],matrix.diff(a),sm.MatrixElement(matrix,0,2))
+    function=sm.jax_lambdify((a,b),outputs,jit=jit)
+    av=jnp.asarray([[1.],[2.]])
+    bv=jnp.asarray([[2.,3.,4.]])
+
+    def reference(x,y):
+        rows=jnp.arange(2).reshape(2,1)
+        cols=jnp.arange(3).reshape(1,3)
+        dense=x[...,None,None]*(rows+1)+y[...,None,None]*cols**2+(x*y)[...,None,None]
+        derivative=jnp.broadcast_to((rows+1)+y[...,None,None],dense.shape)
+        return dense,dense[...,::-1,::2],derivative,dense[...,0,2]
+
+    for value,target in zip(function(av,bv),reference(av,bv)):
+        np.testing.assert_allclose(value,target,rtol=2e-6)
+        assert value.dtype==av.dtype
+    gradients=jax.grad(lambda x,y:sum(jnp.sum(v**2) for v in function(x,y)),argnums=(0,1))(av,bv)
+    references=jax.grad(lambda x,y:sum(jnp.sum(v**2) for v in reference(x,y)),argnums=(0,1))(av,bv)
+    for value,target in zip(gradients,references):
+        np.testing.assert_allclose(value,target,rtol=2e-6)
+
+
 def test_distinct_dummy_inputs_jit_and_gradients():
     first, second = sm.Dummy('x'), sm.Dummy('x')
     function = sm.jax_lambdify((first, second), first**2 + 2*second, jit=True)

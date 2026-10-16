@@ -98,7 +98,7 @@ fn periodic_solution_branches_share_a_fresh_binder_per_invocation() {
         let first=solveset(&p(source),&x,&reals()).unwrap();
         let second=solveset(&p(source),&x,&reals()).unwrap();
         assert_eq!(first.to_string(),expected);
-        let binders=|value:&Expr|value.args().iter().map(|image|image.args()[0].args()[0].clone()).collect::<Vec<_>>();
+        let binders=|value:&Expr|value.args().iter().map(|image|lambda_parts(&image.args()[0]).unwrap().0[0].clone()).collect::<Vec<_>>();
         let variables=binders(&first);assert_eq!(variables.len(),count);
         assert!(variables.iter().all(|variable|variable.ptr_eq(&variables[0])));
         assert!(variables[0].as_sym().unwrap().is_dummy());

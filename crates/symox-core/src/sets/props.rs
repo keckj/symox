@@ -107,10 +107,10 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
             unevaluated()
         }
         SetOp::ImageSet => {
-            if let Some((SetOp::Lambda, lam)) = as_set(&a[0]) {
-                if lam.len() == 2 {
-                    let variable = &lam[0];
-                    let body = &lam[1];
+            if let Some((variables, body)) = lambda_parts(&a[0]) {
+                if variables.len()==1 && lambda_arity(&a[0])==Some(1) {
+                    let variable = &variables[0];
+                    let body = &body;
                     let coefficient = crate::diff::diff(body, variable);
                     if !crate::traverse::has(&coefficient, variable)
                         && crate::assumptions::is_zero(&coefficient) == Some(false) {

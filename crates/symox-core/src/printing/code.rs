@@ -984,6 +984,10 @@ impl<'a> CodePrinter<'a> {
             return self.print(&explicit);
         }
         if let Func::MatrixElement(parent) = f {
+            if matches!(parent.kind(), crate::matrixexpr::MatrixKind::Function(_)) {
+                let value = parent.element(&args[0], &args[1]).map_err(|error| CodeError::Unsupported(error.to_string()))?;
+                return self.print(&value);
+            }
             let crate::matrixexpr::MatrixKind::Symbol(name) = parent.kind() else {
                 return Err(CodeError::Unsupported("an unevaluated matrix operation in a scalar entry".into()));
             };

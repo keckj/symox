@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 // Dense polynomial division recursively in the declared main generators.
 // A coefficient-ring obstruction stops division at that leading coefficient;
 // it must not be confused with sparse multivariate ring-element reduction.
-fn recursive_division<C: Field>(f: &MPoly<C>, g: &MPoly<C>, v: usize, allow: &impl Fn(&C)->bool) -> (MPoly<C>, MPoly<C>) {
+pub(crate) fn recursive_division<C: Field>(f: &MPoly<C>, g: &MPoly<C>, v: usize, allow: &impl Fn(&C)->bool) -> (MPoly<C>, MPoly<C>) {
     let n=f.nvars;
     if v>=n || (f.is_constant() && g.is_constant()) {
         if let (Some(a),Some(b))=(f.constant_value(),g.constant_value()) {
@@ -671,6 +671,16 @@ impl Polynomial {
     pub fn div_with_options(&self,o:&Self,auto:bool)->PResult<(Self,Self)>{
         if let Some((a,b))=self.checked_algebraic_pair(o)?{let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
         if let Some((a,b))=self.pair(o){let(q,r)=a.div_with_options(&b,auto)?;return Ok((q.into(),r.into()));}
+        if let Some(prime)=self.modulus.or(o.modulus) {
+            if !self.base.domain_gens().is_empty()||!o.base.domain_gens().is_empty(){return Err(PolyError::Unsupported("finite-field division requires scalar coefficients; finite symbolic coefficient domains are not implemented".into()));}
+            if self.modulus.is_some()&&o.modulus.is_some()&&self.modulus!=o.modulus{return Err(PolyError::Unsupported("cannot divide polynomials over different finite fields".into()));}
+            let(a,b)=self.base.unify(&o.base);let _scope=super::f5b::PrimeScope::new(prime)?;
+            let convert=|p:&MPoly<Rat>|->PResult<MPoly<super::f5b::Fp>>{Ok(MPoly::from_terms(p.nvars,p.iter().map(|(e,c)|Ok((e.to_vec(),super::f5b::Fp::from_rat(c,prime)?))).collect::<PResult<_>>()?))};
+            let fa=convert(&a.rep)?;let fb=convert(&b.rep)?;
+            if fb.is_zero(){return Err(PolyError::Unsupported("polynomial division by zero in the selected finite field".into()));}
+            let(q,r)=recursive_division(&fa,&fb,0,&|_|true);
+            return Ok((a.with_rep(q.map_coeffs(Coeff::to_rat)).into(),a.with_rep(r.map_coeffs(Coeff::to_rat)).into()));
+        }
         if !auto&&self.modulus.is_none()&&o.modulus.is_none()&&self.domain.max(o.domain)==super::polyobj::Domain::ZZ {
             let(a,b)=self.base.unify(&o.base);if b.rep.is_zero(){return Err(PolyError::Unsupported("polynomial division by zero".into()));}
             let(q,r)=recursive_division(&a.rep,&b.rep,0,&|c|c.is_integer());
@@ -863,5 +873,44 @@ mod ring_division_certificates {
         assert_eq!(q.mul(&b).add(&r).as_expr(),a.as_expr());
         let a=p("a*x","ZZ[a]");let b=p("a*x","QQ[a]");
         assert_eq!(a.add(&b).domain_str(),"QQ[a]");
+    }
+}
+
+#[cfg(test)]
+mod typed_dense_division {
+    use super::*;
+    use crate::parser::parse_str;
+    #[test]
+    fn finite_division_is_recursive_and_scopes_restore() {
+        let gens=vec![Expr::symbol("x"),Expr::symbol("y")];
+        let _outer=super::super::f5b::PrimeScope::new(7).unwrap();
+        for prime in [2,5,7,101] {
+            for (f,g,expected) in [("x*y+x","y","0"),("(x+y)*(x+2)+1","x+y","x+2")] {
+                let p=|s:&str|->Polynomial{Poly::from_expr(&parse_str(s).unwrap(),&gens).unwrap().set_modulus(prime).into()};
+                let a=p(f);let b=p(g);let(q,r)=a.div(&b).unwrap();
+                assert_eq!(q.base.rep,p(expected).base.rep);assert_eq!(q.mul(&b).add(&r).base.rep,a.base.rep);
+                assert_eq!(q.modulus,Some(prime));assert_eq!(r.modulus,Some(prime));
+            }
+        }
+        assert!(super::super::f5b::Fp::from_i64(14).is_zero());
+        let a:Polynomial=Poly::from_expr(&parse_str("x+1").unwrap(),&gens).unwrap().set_modulus(5).into();
+        let b:Polynomial=Poly::from_expr(&parse_str("x+1").unwrap(),&gens).unwrap().set_modulus(7).into();
+        assert!(a.div(&b).is_err());
+        let opaque:Polynomial=Poly::from_expr(&parse_str("sqrt(2)*x+1").unwrap(),&[Expr::symbol("x")]).unwrap().set_modulus(5).into();
+        assert!(a.div(&opaque).is_err());
+    }
+    #[test]
+    fn algebraic_division_stops_at_coefficient_remainder() {
+        let gens=vec![Expr::symbol("x"),Expr::symbol("y")];
+        for generator in ["sqrt(2)","2^(1/3)+I"] {
+            let field=super::super::algebraic::NumberField::from_generator(&parse_str(generator).unwrap()).unwrap();
+            let p=|s:&str|->Polynomial{super::super::algebraic::AlgebraicPoly::from_expr(&parse_str(s).unwrap(),&gens,field.clone()).unwrap().into()};
+            for(f,g,expected)in[("x*y+x","y","0"),("(x+sqrt(2))*(y+1)+1","x+sqrt(2)","y+1")] {
+                if generator!="sqrt(2)"&&f.contains("sqrt"){continue;}
+                let a=p(f);let b=p(g);let(q,r)=a.div(&b).unwrap();
+                assert_eq!(q.algebraic.as_ref().unwrap().rep,p(expected).algebraic.unwrap().rep);
+                assert_eq!(q.mul(&b).add(&r).algebraic.unwrap().rep,a.algebraic.unwrap().rep);
+            }
+        }
     }
 }

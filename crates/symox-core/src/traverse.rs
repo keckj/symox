@@ -178,8 +178,15 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
                 rec(&Expr::from_kind(Kind::Func(Func::MatrixProxy(parent.clone()), vec![])), seen, out, visited);
                 for index in args { rec(index, seen, out, visited); }
             }
+            Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_)=>{
+                if let Some((variables,body))=crate::sets::lambda_parts(e){
+                    for symbol in free_symbols(&body).into_iter().filter(|s|!variables.contains(s)){
+                        if seen.insert(symbol.clone()){out.push(symbol);}
+                    }
+                }
+            },
             Kind::Func(crate::expr::Func::Set(op), args)
-                if matches!(op, crate::sets::SetOp::Lambda | crate::sets::SetOp::ConditionSet)
+                if matches!(op, crate::sets::SetOp::ConditionSet)
                     && args.len() >= 2 => {
                 // The binder applies to the body/condition, but not the base set.
                 for symbol in free_symbols(&args[1]).into_iter().filter(|s| *s != args[0]) {

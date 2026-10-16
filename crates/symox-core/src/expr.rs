@@ -492,6 +492,7 @@ impl Expr {
                     has_matrix |= a.has_matrix();
                 }
                 if matches!(f,Func::Integral|Func::Sum) {features|=4;}
+                if matches!(f,Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction)){features|=8;}
                 if *f == Func::Order {
                     mask |= ORDER_MASK;
                 }
@@ -601,6 +602,7 @@ impl Expr {
     /// A semantic pattern with alpha-bound names cannot use a structural mask.
     pub fn has_binding_identity(&self)->bool {self.0.features & 1 != 0}
     pub fn has_calculus_binding(&self)->bool {self.0.features & 4 != 0}
+    pub fn has_lambda_binding(&self)->bool {self.0.features & 8 != 0}
     pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
 
     /// Conservative unchanged-child check for transforms preserving public args.

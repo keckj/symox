@@ -286,6 +286,10 @@ impl<'a> TorchPrinter<'a> {
             )),
             Kind::Piecewise(pairs) => self.piecewise(pairs, mask),
             Kind::Func(Func::MatrixElement(parent), args) => {
+                if matches!(parent.kind(), crate::matrixexpr::MatrixKind::Function(_)) {
+                    let value = parent.element(&args[0], &args[1]).map_err(|error| self.unsupported(&error.to_string()))?;
+                    return self.expr(&value, mask);
+                }
                 let crate::matrixexpr::MatrixKind::Symbol(name) = parent.kind() else {
                     return Err(self.unsupported("an unevaluated matrix operation in a scalar entry"));
                 };

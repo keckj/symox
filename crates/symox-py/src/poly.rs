@@ -11,6 +11,8 @@ pub(crate) mod algebraic_number;
 mod an_rational;
 #[path="domains.rs"]
 pub(crate) mod domains;
+#[path="poly_division.rs"]
+pub(crate) mod division;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -1740,40 +1742,11 @@ fn collect(expr: &Bound<'_, PyAny>, syms: &Bound<'_, PyAny>, func: Option<&Bound
     }
 }
 
-fn kw_modulus(kw: Option<&Bound<'_, PyDict>>) -> PyResult<Option<u64>> {
-    match kw {
-        Some(d) => match d.get_item("modulus")? {
-            Some(v) if !v.is_none() => Ok(Some(check_mod(v.extract::<u64>()?)?)),
-            _ => Ok(None),
-        },
-        None => Ok(None),
-    }
-}
-
-fn div_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, kw: Option<&Bound<'_, PyDict>>) -> PyResult<(Expr, Expr, Vec<Expr>, bool)> {
-    let as_poly = f.downcast::<PyPoly>().is_ok() || g.downcast::<PyPoly>().is_ok();
-    if let Some(m) = kw_modulus(kw)? {
-        let (q, r) = api::div_mod(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?, m).map_err(err)?;
-        return Ok((q, r, vec![], false));
-    }
-    let mut gv = gens_of(gens)?;
-    if gv.is_empty() {
-        if let Ok(p) = f.downcast::<PyPoly>() {
-            gv = p.get().p.true_gens().to_vec();
-        }
-    }
-    let (q, r) = api::div_expr(&to_expr(f)?, &to_expr(g)?, &gv).map_err(err)?;
-    Ok((q, r, gv, as_poly))
-}
 
 #[pyfunction]
 #[pyo3(name = "div", signature = (f, g, *gens, **_kwargs))]
-fn py_div<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
-    if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
-        return a.get().div(py, g, true);
-    }
-    let (q, r, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
-    PyTuple::new(py, [poly_result(py, q, as_poly, &gv)?, poly_result(py, r, as_poly, &gv)?])
+fn py_div<'py>(f: &Bound<'py, PyAny>, g: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    division::run(f,g,gens,_kwargs,division::Operation::Div)
 }
 
 #[pyfunction]
@@ -1915,23 +1888,11 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn rem(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
-        return Ok(a.get().rem(g, true)?.into_pyobject(py)?.into_any().unbind());
-    }
-    let (_, r, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
-    poly_result(py, r, as_poly, &gv)
-}
+fn rem<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Rem)}
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn quo(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
-        return Ok(a.get().quo(g, true)?.into_pyobject(py)?.into_any().unbind());
-    }
-    let (q, _, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
-    poly_result(py, q, as_poly, &gv)
-}
+fn quo<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Quo)}
 
 fn pdiv_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>) -> PyResult<(Expr, Expr, Vec<Expr>, bool)> {
     let as_poly = f.downcast::<PyPoly>().is_ok() || g.downcast::<PyPoly>().is_ok();
@@ -1974,9 +1935,7 @@ fn pexquo(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>,
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn exquo(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    Ok(w(api::exquo(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?))
-}
+fn exquo<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Exquo)}
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
@@ -2199,6 +2158,7 @@ fn primitive_element(py:Python<'_>,extension:&Bound<'_,PyAny>,x:Option<&Bound<'_
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     domains::register(m)?;
+    division::register(m)?;
     algebraic_number::register(m)?;
     an_rational::register(m)?;
     m.add_function(wrap_pyfunction!(minimal_polynomial,m)?)?;

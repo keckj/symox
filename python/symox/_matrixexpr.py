@@ -21,6 +21,38 @@ class MatrixSymbol(MatrixExpr):
         return _core._matrixexpr_node('MatrixSymbol', (str(name), n, m))
 
 
+class FunctionMatrix(MatrixExpr):
+    _kinds = ('FunctionMatrix',)
+
+    def __new__(cls, rows, cols, lamda):
+        from . import Dummy, Function, Lambda
+        if isinstance(lamda, str):
+            raise NotImplementedError('FunctionMatrix requires a native Lambda; lambda strings are unsupported')
+        if isinstance(lamda, Function):
+            if lamda._nargs is not None and 2 not in lamda._nargs:
+                raise ValueError('FunctionMatrix function must accept two arguments')
+            i, j = Dummy('i'), Dummy('j')
+            lamda = Lambda((i, j), lamda(i, j))
+        elif not isinstance(lamda, _core.Expr):
+            head = getattr(getattr(lamda, 'func', None), '__name__', None)
+            if head in ('Lambda', 'IdentityFunction'):
+                lamda = _core.sympify(lamda)
+            else:
+                # Only known native mathematical heads are invoked. Ordinary
+                # Python callables are not symbolic function definitions.
+                import sys
+                namespace = vars(sys.modules[__package__])
+                names = ('atan2', 'Max', 'Min', 'Mod', 'log',
+                         'beta', 'binomial', 'polygamma', 'besselj', 'bessely',
+                         'besseli', 'besselk', 'hankel1', 'hankel2', 'jn', 'yn')
+                if not any(lamda is candidate for name in names
+                           if (candidate := namespace.get(name)) is not None):
+                    raise TypeError('FunctionMatrix requires a native Lambda or a supported symbolic function head')
+                i, j = Dummy('i'), Dummy('j')
+                lamda = Lambda((i, j), lamda(i, j))
+        return _core._matrixexpr_node('FunctionMatrix', (rows, cols, lamda))
+
+
 class MatAdd(MatrixExpr):
     _kinds = ('MatAdd',)
 
@@ -240,7 +272,7 @@ class Determinant(metaclass=_ScalarMatrixType):
         return _core._matrix_determinant(arg, evaluate)
 
 
-__all__ = ['MatrixExpr','MatrixSymbol','MatAdd','MatMul','MatPow','Transpose',
+__all__ = ['MatrixExpr','MatrixSymbol','FunctionMatrix','MatAdd','MatMul','MatPow','Transpose',
            'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
            'Trace','Determinant','OneMatrix','HadamardProduct','HadamardPower',
            'KroneckerProduct','DiagMatrix','DiagonalOf','DiagonalMatrix','BlockDiagMatrix','BlockMatrix','block_collapse','MatrixSlice','hadamard_product','hadamard_power','kronecker_product']

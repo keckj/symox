@@ -105,6 +105,14 @@ class Pow(metaclass=_ExprType):
         return _core._node("Pow", (base, exp), evaluate)
 
 
+class Tuple(metaclass=_ExprType):
+    """An immutable tuple of native symbolic objects."""
+    _matches = staticmethod(lambda e: e.is_Tuple)
+
+    def __new__(cls, *items):
+        return _core._apply("Tuple", *(Tuple(*item) if isinstance(item, (tuple, list)) else item for item in items))
+
+
 class UnevaluatedExpr(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.class_name == "UnevaluatedExpr")
 
@@ -122,6 +130,9 @@ class _SingletonRegistry:
         return _core.sympify(value)
 
     def __getattr__(self, name):
+        if name == "IdentityFunction":
+            from . import IdentityFunction
+            return IdentityFunction()
         if name in ("EmptySet", "UniversalSet", "Reals", "Integers", "Naturals",
                     "Naturals0", "Complexes", "Rationals"):
             from . import __dict__ as namespace
