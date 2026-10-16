@@ -17,11 +17,10 @@ use rustc_hash::FxHashMap;
 use super::{unknown, LRes, LimitError};
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::functions as fx;
-use crate::number::Number;
 use crate::ops::{add, div, mul, mul2, mul_factor, neg, pow, sub};
 use crate::series::coeff::C;
 use crate::series::engine::{depends, sign_of};
-use crate::series::leading_term_with;
+use crate::series::{leading_term_with, SErr};
 use crate::subs::xreplace;
 use crate::traverse::node_count;
 
@@ -86,13 +85,11 @@ impl Gruntz {
             return Ok(e);
         }
         let (c0, e0) = self.mrv_leadterm(&e)?;
-        if e0.is_positive() {
-            return Ok(Expr::zero());
+        match self.sign(&e0)? {
+            1 => Ok(Expr::zero()),
+            -1 => self.infinity_with_sign_of(&c0),
+            _ => self.limitinf(&c0),
         }
-        if e0.is_negative() {
-            return self.infinity_with_sign_of(&c0);
-        }
-        self.limitinf(&c0)
     }
 
     fn infinity_with_sign_of(&mut self, c0: &Expr) -> LRes<Expr> {
@@ -166,6 +163,16 @@ impl Gruntz {
         }
         if let Some(r) = self.prep.get(e) {
             return Ok(r.clone());
+        }
+        if let Kind::Mul(c, facs) = e.kind() {
+            // factors (not bases and exponents separately) must be prepared
+            let mut v = vec![Expr::num(c.clone())];
+            for (b, p) in facs {
+                v.push(self.prepare(&mul_factor(b, p))?);
+            }
+            let r = mul(&v);
+            self.prep.insert(e.clone(), r.clone());
+            return Ok(r);
         }
         let mut err: Option<LimitError> = None;
         let x = self.x.clone();
@@ -368,14 +375,15 @@ impl Gruntz {
     }
 
     /// `(c0, e0)` with `e ~ c0 * w**e0`, `w -> 0+` the mrv variable.
-    pub fn mrv_leadterm(&mut self, e: &Expr) -> LRes<(Expr, Number)> {
+    pub fn mrv_leadterm(&mut self, e: &Expr) -> LRes<(Expr, Expr)> {
         let x = self.x.clone();
         if !depends(e, &x) {
-            return Ok((e.clone(), Number::ZERO));
+            return Ok((e.clone(), Expr::zero()));
         }
         let mut omega = self.mrv(e)?;
+        if std::env::var("SYMOX_TRACE").is_ok() { eprintln!("mrv_leadterm {} omega {:?}", e, omega.iter().map(|o| o.to_string()).collect::<Vec<_>>()); }
         if omega.is_empty() {
-            return Ok((e.clone(), Number::ZERO));
+            return Ok((e.clone(), Expr::zero()));
         }
         let mut e = e.clone();
         if omega.len() == 1 && omega[0] == x {
@@ -393,18 +401,13 @@ impl Gruntz {
             // The mrv set is moved up too: recomputing it would recurse.
             let up = self.move_up(&e);
             let up = self.prepare(&up)?;
-            let om_up: Vec<Expr> = omega.iter().map(|f| self.move_up(f)).collect();
-            if om_up.iter().all(|f| crate::traverse::has(&up, f)) {
-                omega = om_up;
-            } else {
-                omega = self.mrv(&up)?;
-                if omega.contains(&x) {
-                    return unknown("cannot move up");
-                }
+            omega = self.mrv(&up)?;
+            if omega.contains(&x) {
+                return unknown("cannot move up");
             }
             e = up;
             if omega.is_empty() {
-                return Ok((e, Number::ZERO));
+                return Ok((e, Expr::zero()));
             }
         }
         let w = self.fresh("w");
@@ -412,16 +415,96 @@ impl Gruntz {
         self.leadterm_in(&f, &w, &logw)
     }
 
-    fn leadterm_in(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> LRes<(Expr, Number)> {
+    fn leadterm_in(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> LRes<(Expr, Expr)> {
         let l = self.fresh("logw");
-        let lt = leading_term_with(f, w, &Expr::zero(), false, &l, logw)
-            .map_err(|er| LimitError::Unknown(format!("series in mrv variable: {er}")))?;
-        if depends(&lt.coeff, w) {
+        let (c, e) = match leading_term_with(f, w, &Expr::zero(), false, &l, logw) {
+            Ok(lt) => (lt.coeff, Expr::num(lt.exp)),
+            Err(SErr::Pole(s)) => return unknown(format!("series in mrv variable: {s}")),
+            Err(_) => self.lt_fallback(f, w, logw)?,
+        };
+        if depends(&c, w) {
             return unknown("leading coefficient depends on w");
         }
-        Ok((lt.coeff, lt.exp))
+        Ok((c, e))
     }
 
+    /// Leading term algebra `(c, e)` with symbolic exponents (`w**log(2)`),
+    /// used when the series engine cannot represent the exponents.
+    fn lt_fallback(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> LRes<(Expr, Expr)> {
+        if !depends(f, w) {
+            return Ok((f.clone(), Expr::zero()));
+        }
+        if f == w {
+            return Ok((Expr::one(), Expr::one()));
+        }
+        let l = self.fresh("logw");
+        if let Ok(lt) = leading_term_with(f, w, &Expr::zero(), false, &l, logw) {
+            return Ok((lt.coeff, Expr::num(lt.exp)));
+        }
+        match f.kind() {
+            Kind::Mul(c, facs) => {
+                let mut cc = vec![Expr::num(c.clone())];
+                let mut ee = vec![];
+                for (b, p) in facs {
+                    let (c1, e1) = self.lt_fallback(&mul_factor(b, p), w, logw)?;
+                    cc.push(c1);
+                    ee.push(e1);
+                }
+                Ok((mul(&cc), add(&ee)))
+            }
+            Kind::Pow(b, p) if !depends(p, w) => {
+                let (c1, e1) = self.lt_fallback(b, w, logw)?;
+                Ok((pow(&c1, p), mul2(&e1, p)))
+            }
+            Kind::Add(c, terms) => {
+                let mut best: Vec<(Expr, Expr)> = vec![];
+                if !c.is_zero() {
+                    best.push((Expr::num(c.clone()), Expr::zero()));
+                }
+                for (t, k) in terms {
+                    let (c1, e1) = self.lt_fallback(&crate::ops::add_term(t, k), w, logw)?;
+                    match best.first() {
+                        None => best.push((c1, e1)),
+                        Some((_, eb)) => {
+                            let d = sub(&e1, eb);
+                            match self.sign(&d)? {
+                                0 => best.push((c1, e1)),
+                                -1 => best = vec![(c1, e1)],
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                let c0 = add(&best.iter().map(|b| b.0.clone()).collect::<Vec<_>>());
+                if c0.is_zero() {
+                    return unknown("cancellation in symbolic leading term");
+                }
+                Ok((c0, best[0].1.clone()))
+            }
+            Kind::Func(Func::Log, a) => {
+                let (c1, e1) = self.lt_fallback(&a[0], w, logw)?;
+                let r = add(&[fx::log(&c1), mul2(&e1, logw)]);
+                if r.is_zero() {
+                    return unknown("cancellation in log leading term");
+                }
+                Ok((r, Expr::zero()))
+            }
+            Kind::Func(f0, a) if a.len() == 1 => {
+                let (c1, e1) = self.lt_fallback(&a[0], w, logw)?;
+                let v = match self.sign(&e1)? {
+                    1 => Expr::zero(),
+                    0 => c1,
+                    _ => return unknown("pole in symbolic leading term"),
+                };
+                let r = crate::functions::func(f0.clone(), vec![v]);
+                if r.is_zero() {
+                    return unknown("zero of a function in symbolic leading term");
+                }
+                Ok((r, Expr::zero()))
+            }
+            _ => unknown(format!("leading term of {f}")),
+        }
+    }
     fn rewrite(&mut self, e: &Expr, mut omega: Vec<Expr>, w: &Expr) -> LRes<(Expr, Expr)> {
         let arg = |f: &Expr| -> LRes<Expr> {
             match f.kind() {

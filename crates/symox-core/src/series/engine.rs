@@ -553,6 +553,21 @@ impl Engine {
                 self.ser_inverse(f, arg, n)
             }
             Func::Erf | Func::Erfc => {
+                let a = self.ser(arg, n)?;
+                if !a.is_zero() && a.val < 0 {
+                    // erf(z) = ±1 - (exponentially small) for z -> ±oo (real)
+                    let s = sign_of(a.lead().unwrap()).ok_or_else(|| SErr::Pole(format!("erf({arg})")))?;
+                    let v = match (f, s) {
+                        (Func::Erf, s) => s as i64,
+                        (_, 1) => 0,
+                        _ => 2,
+                    };
+                    let mut r = Ser::zero_inexact(n.max(1));
+                    if v != 0 {
+                        r = Ser::constant(C::int(v)).add(&r);
+                    }
+                    return Ok(r);
+                }
                 let mut m = n;
                 for _ in 0..5 {
                     let a = self.ser(arg, m)?;
@@ -572,6 +587,7 @@ impl Engine {
                 }
                 Err(SErr::Precision)
             }
+            Func::Gamma | Func::LogGamma => self.ser_gamma(f, arg, n),
             Func::Abs => {
                 let a = self.ser_nonzero(arg, n)?;
                 match sign_of(a.lead().unwrap()) {
@@ -654,6 +670,69 @@ impl Engine {
         Err(SErr::Precision)
     }
 
+    /// `gamma`/`loggamma` at integer points through
+    /// `loggamma(1 + r) = -EulerGamma r + Σ (-1)^k zeta(k) r^k / k`.
+    fn ser_gamma(&mut self, f: &Func, arg: &Expr, n: i64) -> SRes<Ser> {
+        let mut m = n;
+        for _ in 0..5 {
+            let a = self.ser(arg, m)?;
+            let c0 = self.analytic_arg(&a, f.name())?;
+            let k0 = match &c0 {
+                C::N(Number::Int(k)) => *k,
+                _ => return Err(SErr::Unsupported(format!("{}({arg})", f.name()))),
+            };
+            if *f == Func::LogGamma && k0 < 1 {
+                return Err(SErr::Pole(format!("loggamma({arg})")));
+            }
+            let r = a.sub(&Ser::constant(c0.clone()));
+            if r.is_zero() {
+                return self.constant(&func(f.clone(), vec![c0.to_expr()]));
+            }
+            let vr = r.val.max(1);
+            let prec = if r.exact { m + vr * (k0.unsigned_abs() as i64 + 2) } else { r.prec };
+            let kmax = ((prec + vr - 1) / vr).max(1) as usize;
+            // L(r) = Σ_{k>=1} l_k r^k (Horner)
+            let mut lk: Vec<C> = vec![C::zero(); kmax + 1];
+            lk[1] = C::from_expr(neg(&Expr::constant(Constant::EulerGamma)));
+            for (k, l) in lk.iter_mut().enumerate().skip(2) {
+                let z = C::from_expr(zeta_int(k as i64));
+                let z = z.div_int(k as i64);
+                *l = if k % 2 == 0 { z } else { z.neg() };
+            }
+            let mut acc = Ser::constant(lk[kmax].clone());
+            for k in (1..kmax).rev() {
+                acc = acc.mul(&r).trunc(prec).add(&Ser::constant(lk[k].clone()));
+            }
+            let lser = acc.mul(&r).trunc(prec);
+            let mut res = if *f == Func::LogGamma {
+                lser
+            } else {
+                self.exp_ser(&lser, prec)?
+            };
+            // shift from 1 + r to k0 + r
+            if k0 >= 1 {
+                for j in 1..k0 {
+                    let fac = r.add(&Ser::constant(C::int(j)));
+                    res = if *f == Func::LogGamma {
+                        res.add(&self.log_ser(&fac, prec)?)
+                    } else {
+                        res.mul(&fac)
+                    };
+                }
+            } else {
+                for j in 0..=(-k0) {
+                    let fac = r.sub(&Ser::constant(C::int(j)));
+                    res = res.mul(&fac.inv(prec)?);
+                }
+            }
+            if res.prec >= n {
+                return Ok(res);
+            }
+            m += (n - res.prec).max(1);
+        }
+        Err(SErr::Precision)
+    }
+
     /// Leading term `(coefficient, exponent in t-units)`.
     pub fn leading(&mut self, e: &Expr) -> SRes<(C, i64)> {
         let s = self.ser_nonzero(e, self.d)?;
@@ -679,5 +758,45 @@ pub fn var_series(x0: &Expr, minus: bool, d: i64) -> Ser {
         t
     } else {
         t.add(&Ser::constant(C::from_expr(x0.clone())))
+    }
+}
+
+/// Bernoulli numbers `B_0 .. B_n` (with `B_1 = -1/2`).
+fn bernoulli(n: usize) -> Vec<Number> {
+    let mut b: Vec<Number> = vec![Number::ONE];
+    for m in 1..=n {
+        // B_m = -1/(m+1) Σ_{k<m} C(m+1, k) B_k
+        let mut acc = Number::ZERO;
+        let mut binom = Number::ONE; // C(m+1, 0)
+        for (k, bk) in b.iter().enumerate() {
+            acc = acc.add(&binom.mul(bk));
+            // C(m+1, k+1) = C(m+1, k) * (m+1-k)/(k+1)
+            binom = binom
+                .mul(&Number::int((m + 1 - k) as i64))
+                .div(&Number::int((k + 1) as i64))
+                .unwrap();
+        }
+        b.push(acc.div(&Number::int(-(m as i64) - 1)).unwrap());
+    }
+    b
+}
+
+/// `zeta(k)` for an integer `k >= 2`: closed form for even `k`.
+pub fn zeta_int(k: i64) -> Expr {
+    if k % 2 == 0 {
+        // zeta(2n) = (-1)^(n+1) B_2n (2 pi)^(2n) / (2 (2n)!)
+        let b = bernoulli(k as usize);
+        let mut fact = Number::ONE;
+        for i in 2..=k {
+            fact = fact.mul(&Number::int(i));
+        }
+        let two_k = Number::int(2).pow_i64(k).unwrap();
+        let mut c = b[k as usize].mul(&two_k).div(&fact.mul(&Number::int(2))).unwrap();
+        if (k / 2) % 2 == 0 {
+            c = c.neg();
+        }
+        mul2(&Expr::num(c), &pow(&Expr::pi(), &Expr::int(k)))
+    } else {
+        crate::functions::undefined("zeta", vec![Expr::int(k)])
     }
 }

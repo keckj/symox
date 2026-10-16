@@ -21,3 +21,8 @@ fn classic_limits() {
     assert_eq!(lim("1/x", "0", Dir::Both), "zoo");
     assert_eq!(lim("exp(x)*(exp(1/x - exp(-x)) - exp(1/x))", "oo", Dir::Plus), "-1");
 }
+
+#[test]
+fn debug_pow_limit() {
+    assert_eq!(lim("2**x/3**x", "oo", Dir::Plus), "0");
+}
