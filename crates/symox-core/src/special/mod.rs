@@ -24,7 +24,7 @@ use crate::functions::func;
 use crate::number::Number;
 
 mod bessel;
-mod combinatorial;
+pub(crate) mod combinatorial;
 pub mod diff;
 mod elliptic;
 mod error;
@@ -35,7 +35,7 @@ pub mod integers;
 pub mod integrate;
 pub mod mp;
 pub mod numeric;
-mod orthopoly;
+pub(crate) mod orthopoly;
 mod zeta;
 
 pub use expand::{besselsimp, expand_func, hyperexpand};
@@ -120,7 +120,7 @@ special_fns! {
     Erfi => "erfi" [1] true;
     Erf2 => "erf2" [2] false;
     Erfinv => "erfinv" [1] true;
-    Erfcinv => "erfcinv" [1] true;
+    Erfcinv => "erfcinv" [1] false;
     FresnelS => "fresnels" [1] true;
     FresnelC => "fresnelc" [1] true;
     Ei => "Ei" [1] true;

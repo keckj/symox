@@ -130,9 +130,16 @@ fn expand_one(e: &Expr) -> Option<Expr> {
                     super::factorial(&sub(n, m)),
                     pow(&super::factorial(&add(&[n.clone(), m.clone()])), &Expr::minus_one()),
                 ]));
-                let r = mul(&[pre, exp(&mul(&[Expr::i(), m.clone(), ph.clone()])), super::assoc_legendre(n, m, &cos(th))]);
-                let old = sqrt(&sub(&Expr::one(), &cos(th).powi(2)));
-                Some(crate::subs::subs1(&r, &old, &sin(th)))
+                let p = match (as_small(n), as_small(m)) {
+                    (Some(nn), Some(mm)) if nn >= 0 && mm >= 0 && mm <= nn && nn <= 200 => {
+                        // (-1)^m sin^m(theta) P_n^(m)(cos theta)
+                        let c = super::orthopoly::legendre_deriv_coeffs(nn as usize, mm as usize);
+                        let poly = super::combinatorial::poly_q(&c, &cos(th));
+                        mul(&[Expr::int(if mm % 2 == 0 { 1 } else { -1 }), sin(th).powi(mm), poly])
+                    }
+                    _ => super::assoc_legendre(n, m, &cos(th)),
+                };
+                Some(mul(&[pre, exp(&mul(&[Expr::i(), m.clone(), ph.clone()])), p]))
             }
             Hyper => hyperexpand_one(a),
             _ => None,
@@ -221,22 +228,30 @@ fn half_order(s: SpecialFn, nu: &Number, z: &Expr) -> Option<Expr> {
             _ => mul(&[sqrt(&Expr::pi()), pow(&two, &rat(-1, 2)), pow(z, &rat(-1, 2)), exp(&neg(z))]),
         });
     }
-    // general half integer: via spherical functions
+    // general half integer: via spherical functions, written SymPy style as
+    // sqrt(2) * P(z) / (sqrt(pi) * z**(nu)) with P free of fractional powers
     let n = nu.sub(&half).to_i64()?;
     if n.abs() > 50 {
         return None;
     }
     let pre2 = mul(&[sqrt(&two), pow(&Expr::pi(), &rat(-1, 2)), sqrt(z)]);
+    let normalized = |sign: i64, sph: Expr, k: i64| -> Expr {
+        // sqrt(2z/pi) * sign * sph  =  sqrt(2)/sqrt(pi) * z^(-k-1/2) * (sign z^(k+1) sph)
+        let p = crate::expand::expand(&mul(&[Expr::int(sign), z.powi(k + 1), sph]));
+        let first_neg = crate::printer::ordered_terms(&p)
+            .first()
+            .is_some_and(|t| crate::ops::as_coeff_mul(t).0.is_negative());
+        let (p, sg) = if first_neg { (neg(&p), -1) } else { (p, 1) };
+        mul(&[Expr::int(sg), sqrt(&two), pow(&Expr::pi(), &rat(-1, 2)), pow(z, &rat(-2 * k - 1, 2)), p])
+    };
     match s {
         BesselJ | BesselY => {
-            // J_{n+1/2} = sqrt(2z/pi) j_n(z); Y_{n+1/2} = sqrt(2z/pi) y_n(z)
-            // negative: J_{-n-1/2} = (-1)^(n+1) Y_{n-1/2}... use j_{-n-1} = (-1)^(n+1) y_n
+            // J_{n+1/2} = sqrt(2z/pi) j_n(z), Y_{n+1/2} = sqrt(2z/pi) y_n(z),
+            // J_{-m-1/2} = (-1)^(m+1) Y_{m+1/2}, Y_{-m-1/2} = (-1)^m J_{m+1/2}
             let (head, k, sign) = if n >= 0 {
                 (if s == BesselJ { Jn } else { Yn }, n, 1)
             } else {
-                let m = -n - 1; // nu = -m - 1/2
-                // J_{-m-1/2} = (-1)^(m+1) Y_{m+1/2}... use reflection:
-                // J_{-(m+1/2)} = (-1)^m ... rely on Y: J_{-nu} = cos(nu pi) J_nu - sin(nu pi) Y_nu
+                let m = -n - 1;
                 if s == BesselJ {
                     (Yn, m, if m % 2 == 0 { -1 } else { 1 })
                 } else {
@@ -244,7 +259,40 @@ fn half_order(s: SpecialFn, nu: &Number, z: &Expr) -> Option<Expr> {
                 }
             };
             let sph = spherical_closed(head, &Expr::int(k), z)?;
-            Some(crate::expand::expand(&mul(&[Expr::int(sign), pre2, sph])))
+            let _ = &pre2;
+            Some(normalized(sign, sph, k))
+        }
+        BesselI => {
+            // I_{n+1/2}(z) = sqrt(2z/pi) i_n(z), i_n(z) = (-i)^n j_n(iz); I_{-n-1/2} via y_n
+            let (head, k) = if n >= 0 { (Jn, n) } else { (Yn, -n - 1) };
+            let iz = mul2(&Expr::i(), z);
+            let sph = spherical_closed(head, &Expr::int(k), &iz)?;
+            let f = if n >= 0 {
+                pow(&neg(&Expr::i()), &Expr::int(k))
+            } else {
+                // I_{-k-1/2}(z) = sqrt(2z/pi) (-i)^(k+1) y_k(iz)
+                pow(&neg(&Expr::i()), &Expr::int(k + 1))
+            };
+            Some(normalized(1, crate::expand::expand(&mul2(&f, &sph)), k))
+        }
+        BesselK => {
+            // K_{n+1/2}(z) = sqrt(pi/(2z)) e^-z sum_k (n+k)!/(k!(n-k)!(2z)^k), K_{-nu} = K_nu
+            let k = if n >= 0 { n } else { -n - 1 };
+            let v: Vec<Expr> = (0..=k)
+                .map(|j| {
+                    let c = super::integers::factorial((k + j) as u64)
+                        / (super::integers::factorial(j as u64) * super::integers::factorial((k - j) as u64));
+                    let c = Expr::num(Number::rational(c, num_bigint::BigInt::from(1) << (j as usize)).unwrap());
+                    mul2(&c, &z.powi(k - j))
+                })
+                .collect();
+            Some(mul(&[
+                sqrt(&Expr::pi()),
+                pow(&two, &rat(-1, 2)),
+                pow(z, &rat(-2 * k - 1, 2)),
+                exp(&neg(z)),
+                add(&v),
+            ]))
         }
         _ => None,
     }

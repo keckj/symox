@@ -330,6 +330,11 @@ pub fn hyper_c(a: &[C64], b: &[C64], z: C64) -> Option<C64> {
     if a.len() > b.len() + 1 {
         return None;
     }
+    if a.iter().chain(b.iter()).all(|v| is_real_c(*v)) && is_real_c(z) {
+        let ar: Vec<f64> = a.iter().map(|v| v.re).collect();
+        let br: Vec<f64> = b.iter().map(|v| v.re).collect();
+        return hyper_dd(&ar, &br, z.re).map(cr);
+    }
     if a.len() == b.len() + 1 && z.norm() >= 0.95 {
         return None;
     }
@@ -359,6 +364,42 @@ pub fn hyper_c(a: &[C64], b: &[C64], z: C64) -> Option<C64> {
         }
     }
     Some(sum)
+}
+
+/// Real hypergeometric series in double-double arithmetic.
+fn hyper_dd(a: &[f64], b: &[f64], z: f64) -> Option<f64> {
+    use super::dd::DD;
+    if a.len() == b.len() + 1 && z.abs() >= 0.95 {
+        return None;
+    }
+    for bb in b {
+        if *bb <= 0.0 && *bb == bb.floor() {
+            return None;
+        }
+    }
+    let zd = DD::new(z);
+    let mut term = DD::ONE;
+    let mut sum = DD::ONE;
+    for k in 0..20000 {
+        let kf = k as f64;
+        let mut num = zd;
+        for aa in a {
+            num = num * DD::new(*aa).add_f64(kf);
+        }
+        let mut den = DD::new(kf + 1.0);
+        for bb in b {
+            den = den * DD::new(*bb).add_f64(kf);
+        }
+        term = term * num / den;
+        sum = sum + term;
+        if term.hi == 0.0 {
+            break;
+        }
+        if term.hi.abs() < 1e-33 * sum.hi.abs() && kf > z.abs() {
+            break;
+        }
+    }
+    Some(sum.to_f64())
 }
 
 fn binom_real(n: f64, k: f64) -> f64 {

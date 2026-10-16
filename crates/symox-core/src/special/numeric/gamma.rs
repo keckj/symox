@@ -268,11 +268,14 @@ pub fn hurwitz_zeta(s: C64, a: C64) -> Option<C64> {
     let n = ((18.0 + sabs * 0.6 - a.re).ceil()).max(0.0) as usize;
     let mut sum = C64::new(0.0, 0.0);
     let mut sum_dd_re = DD::ZERO;
-    let real = is_real_c(s) && is_real_c(a) && a.re > 0.0;
+    let sint = is_real_c(s) && s.re == s.re.floor() && s.re.abs() < 1000.0;
+    let real = is_real_c(s) && is_real_c(a) && (a.re > 0.0 || sint);
     for k in 0..n {
         let base = a + k as f64;
         if real {
-            sum_dd_re = sum_dd_re + DD::new(base.re.powf(-s.re));
+            let b = DD::new(a.re).add_f64(k as f64);
+            let t = if sint { b.powi(-(s.re as i64)) } else { DD::new(base.re.powf(-s.re)) };
+            sum_dd_re = sum_dd_re + t;
         } else {
             sum += cpow(base, -s);
         }
@@ -355,7 +358,7 @@ pub fn eta_c(s: C64) -> Option<C64> {
     d[0] = n as f64 * acc;
     for i in 1..=n {
         // ratio term_i / term_{i-1} = (n+i-1) * 4 / ((n-i+1) (2i)(2i-1))
-        term *= (n + i - 1) as f64 * 4.0 / ((n - i + 1) as f64 * (2 * i) as f64 * (2 * i - 1) as f64);
+        term *= (n + i - 1) as f64 * 4.0 * (n - i + 1) as f64 / ((2 * i) as f64 * (2 * i - 1) as f64);
         acc += term;
         d[i] = n as f64 * acc;
     }
@@ -397,6 +400,12 @@ pub fn polylog_c(s: C64, z: C64) -> Option<C64> {
     let az = z.norm();
     if az <= 0.5 {
         return Some(polylog_series(sr, z));
+    }
+    if is_real_c(z) && z.re < 0.0 && az < 2.0 {
+        // Li_s(z) = 2^(1-s) Li_s(z^2) - Li_s(-z)
+        let a = polylog_c(s, z * z)?;
+        let b = polylog_c(s, -z)?;
+        return Some(cr((a * 2f64.powf(1.0 - sr) - b).re));
     }
     if az < 2.0 {
         return polylog_logseries(sr, z);
@@ -600,7 +609,7 @@ pub fn lowergamma_real(a: f64, x: f64) -> Option<f64> {
     if a <= 0.0 && a == a.floor() {
         return None;
     }
-    if x < a + 1.0 || a < 0.0 {
+    if x < a + 1.0 || a < 0.0 || x < 1.0 {
         return Some(xa_emx(a, x) * gser(a, x));
     }
     Some(gamma_real(a) - xa_emx(a, x) * gcf(a, x))
@@ -614,7 +623,7 @@ pub fn uppergamma_real(a: f64, x: f64) -> Option<f64> {
     if x == 0.0 {
         return if a > 0.0 { Some(gamma_real(a)) } else { None };
     }
-    if x >= a + 1.0 || (a <= 0.0 && x >= 1.0) {
+    if x >= a + 1.0 && x >= 1.0 {
         return Some(xa_emx(a, x) * gcf(a, x));
     }
     if a <= 0.0 && a == a.floor() {

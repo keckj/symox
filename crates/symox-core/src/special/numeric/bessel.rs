@@ -27,8 +27,8 @@ fn series_sum_dd(nu: f64, x: f64, sign: f64) -> DD {
     let mut k = 0.0;
     loop {
         k += 1.0;
-        let d = k * (nu + k);
-        term = (term * t).div_f64(d);
+        let d = DD::new(nu).add_f64(k).mul_f64(k);
+        term = term * t / d;
         sum = sum + term;
         if (term.hi.abs() < 1e-33 * sum.hi.abs() && k > x) || k > 2000.0 {
             break;
@@ -280,7 +280,8 @@ pub fn besselk_c(nu: f64, z: C64) -> Option<C64> {
     }
     let nu = nu.abs();
     let ax = z.norm();
-    let h = (0.6 / (ax + 1.0).sqrt()).min(0.2) / (1.0 + z.im.abs() / (z.re + 1.0)).sqrt();
+    let dstrip = (z.re / z.im.abs().max(1e-300)).atan().min(PI / 2.0);
+    let h = (0.5 / ((ax * ax + nu * nu).sqrt() + 1.0).sqrt()).min(0.2) * (dstrip / (PI / 2.0));
     let real = z.im == 0.0;
     // peak of the integrand exponent -x cosh t + nu t
     let mut sum = C64::new(0.0, 0.0);
@@ -492,7 +493,55 @@ pub fn besselk_cc(nu: C64, z: C64) -> Option<C64> {
     if is_real_c(z) && z.re > 0.0 {
         return Some(cr(besselk_real(nu.re, z.re)));
     }
-    besselk_c(nu.re, z)
+    if z.re > 0.0 && ((z.re >= z.im.abs() && z.norm() > 2.0) || z.norm() > 20.0) {
+        return besselk_c(nu.re, z);
+    }
+    if z == cr(0.0) || z.norm() > 30.0 {
+        return None;
+    }
+    let n = nu.re.abs();
+    if !is_int(n) {
+        // pi/2 (I_{-nu} - I_nu) / sin(nu pi)
+        let a = ji_series_c(-n, z, 1.0)?;
+        let b = ji_series_c(n, z, 1.0)?;
+        return Some((a - b) * (PI / 2.0) / sinpi(n));
+    }
+    // integer order: series with logarithm
+    let ni = n as i64;
+    let h = z / 2.0;
+    let mut s1 = C64::new(0.0, 0.0);
+    if ni > 0 {
+        let mut f = gamma_real(n);
+        let mut p = h.powi(-(ni as i32));
+        for k in 0..ni {
+            let t = p * f;
+            s1 += if k % 2 == 0 { t } else { -t };
+            if k + 1 < ni {
+                f /= (ni - k - 1) as f64 * (k + 1) as f64;
+            }
+            p *= h * h;
+        }
+    }
+    let t = h * h;
+    let mut psi1 = -EULER;
+    let mut psi2 = -EULER;
+    for j in 1..=ni {
+        psi2 += 1.0 / j as f64;
+    }
+    let mut term = h.powi(ni as i32) * rgamma_real(n + 1.0);
+    let mut s2 = C64::new(0.0, 0.0);
+    for k in 1..3000i64 {
+        s2 += term * (psi1 + psi2);
+        term = term * t / (k * (ni + k)) as f64;
+        psi1 += 1.0 / k as f64;
+        psi2 += 1.0 / (ni + k) as f64;
+        if term.norm() < 1e-18 * s2.norm() && k as f64 > z.norm() {
+            break;
+        }
+    }
+    let i_n = ji_series_c(n, z, 1.0)?;
+    let sgn = if ni % 2 == 0 { 1.0 } else { -1.0 };
+    Some(-sgn * h.ln() * i_n + s1 * 0.5 + s2 * (sgn * 0.5))
 }
 
 pub fn hankel_c(nu: C64, z: C64, first: bool) -> Option<C64> {

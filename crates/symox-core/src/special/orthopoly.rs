@@ -72,6 +72,15 @@ pub(crate) fn legendre_coeffs(n: usize) -> Vec<BigRational> {
     p1
 }
 
+/// Coefficients of `d^m/dx^m P_n(x)`.
+pub(crate) fn legendre_deriv_coeffs(n: usize, m: usize) -> Vec<BigRational> {
+    let mut c = legendre_coeffs(n);
+    for _ in 0..m {
+        c = c.iter().enumerate().skip(1).map(|(i, v)| v * qi(i as i64)).collect();
+    }
+    c
+}
+
 /// Integer coefficients from a three-term recurrence
 /// `p_{k+1} = alpha x p_k - beta(k) p_{k-1}`.
 fn recurrence(n: usize, p0: Vec<BigInt>, p1: Vec<BigInt>, alpha: i64, beta: impl Fn(i64) -> i64) -> Vec<BigInt> {
@@ -181,8 +190,8 @@ fn eval_assoc_legendre(n: &Expr, m: &Expr, x: &Expr) -> Option<Expr> {
     if could_extract_minus_sign(m) {
         let mm = neg(m);
         let f = div(
-            &super::factorial(&add(&[mm.clone(), n.clone()])),
-            &super::factorial(&sub(n, &mm)),
+            &super::factorial(&add(&[m.clone(), n.clone()])),
+            &super::factorial(&sub(n, m)),
         );
         return Some(mul(&[pow(&Expr::minus_one(), &mm), f, super::assoc_legendre(n, &mm, x)]));
     }
@@ -204,10 +213,7 @@ fn eval_assoc_legendre(n: &Expr, m: &Expr, x: &Expr) -> Option<Expr> {
         return None;
     }
     // (-1)^m (1 - x^2)^(m/2) d^m/dx^m P_n(x)
-    let mut c = legendre_coeffs(nn as usize);
-    for _ in 0..mm {
-        c = c.iter().enumerate().skip(1).map(|(i, v)| v * qi(i as i64)).collect();
-    }
+    let c = legendre_deriv_coeffs(nn as usize, mm as usize);
     if c.is_empty() {
         return Some(Expr::zero());
     }

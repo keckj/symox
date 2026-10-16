@@ -169,6 +169,13 @@ fn d_func(
         // chain rule over all arguments
         let mut terms = Vec::new();
         for (i, a) in args.iter().enumerate() {
+            if let Some(items) = crate::special::tuple_items(a) {
+                // parameter tuples (hyper): only constant ones are supported
+                if items.iter().all(|t| d(t, x, cache).is_zero()) {
+                    continue;
+                }
+                return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+            }
             let da = d(a, x, cache);
             if da.is_zero() {
                 continue;
