@@ -120,6 +120,19 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
             return;
         }
         match e.kind() {
+            Kind::Func(crate::expr::Func::Set(op), args)
+                if matches!(op, crate::sets::SetOp::Lambda | crate::sets::SetOp::ConditionSet)
+                    && args.len() >= 2 => {
+                // The binder applies to the body/condition, but not the base set.
+                for symbol in free_symbols(&args[1]).into_iter().filter(|s| *s != args[0]) {
+                    if seen.insert(symbol.clone()) {
+                        out.push(symbol);
+                    }
+                }
+                for base in &args[2..] {
+                    rec(base, seen, out, visited);
+                }
+            }
             Kind::Add(_, terms) => {
                 for (t, _) in terms {
                     rec(t, seen, out, visited)

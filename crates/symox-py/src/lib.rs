@@ -27,6 +27,7 @@ mod ntheory;
 mod simp;
 mod ode;
 mod solve;
+mod logic;
 mod special;
 
 /// A symbolic expression.
@@ -161,10 +162,12 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             kwargs.set_item("evaluate", e.is_canonical())?;
             sm.getattr(e.class_name())?.call(args, Some(&kwargs))
         }
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "Tuple" => sm.getattr("Tuple")?.call1(convert_args(args)?),
         Kind::Func(Func::Undefined(name), args) if name.as_ref() != "UnevaluatedExpr" => {
             sm.getattr("Function")?.call1((name.as_ref(),))?.call1(convert_args(args)?)
         }
         Kind::Func(Func::Order, _) => sm.getattr("sympify")?.call1((printer::srepr(e),)),
+        Kind::Func(Func::Set(op), args) if op.is_named() && args.is_empty() => sm.getattr(op.name()),
         Kind::Func(f, args) => sm.getattr(f.name())?.call1(convert_args(args)?),
         Kind::Rel(..) => sm.getattr(e.class_name())?.call1(convert_args(&e.args())?),
         Kind::Piecewise(pairs) => {
@@ -1797,6 +1800,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     simp::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
+    logic::register(m)?;
     special::register(m)?;
     series::register(m)?;
     printing::register(m)?;
