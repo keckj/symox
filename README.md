@@ -6,10 +6,10 @@
 
 **Fast symbolic mathematics in Rust, with a SymPy compatible Python API.**
 
-symox is a computer algebra system written from scratch in Rust. It follows
-SymPy's semantics (canonical forms, automatic simplifications, printing) so
-that existing SymPy code can switch with minimal changes, while being one to
-three orders of magnitude faster.
+symox is a computer algebra system written from scratch in Rust, designed as
+a **drop-in replacement for SymPy**. It follows SymPy's semantics (canonical
+forms, automatic simplifications, printing), while being one to three orders
+of magnitude faster on the included benchmarks.
 
 ```python
 from symox import symbols, sin, cos, exp, expand, diff, lambdify
