@@ -221,6 +221,11 @@ PRINTERS = {
     "pycode": (sympy.pycode, symox.pycode),
     "numpy": (_sympy_numpy, symox.numpycode),
     "rust_code": (sympy.rust_code, symox.rust_code),
+    "fcode": (sympy.fcode, symox.fcode),
+    "fcode95": (
+        lambda e: sympy.fcode(e, standard=95, source_format="free"),
+        lambda e: symox.fcode(e, standard=95, source_format="free"),
+    ),
 }
 
 # Deliberate deviations (documented in the module docs / report).
@@ -237,6 +242,13 @@ KNOWN_DEVIATIONS = {
     # SymPy raises (TypeError / KeyError) where symox prints valid code.
     ("rust_code", "Rational(1, 2)**x"),
     ("numpy", "zoo"),
+    # SymPy's Fortran printer cannot print -oo.
+    ("fcode", "-oo"),
+    ("fcode95", "-oo"),
+    # fcode evaluates numeric function calls (N(..., 17)): symox does it in
+    # double precision, SymPy with mpmath (last digit differs).
+    ("fcode", "log(2)"),
+    ("fcode95", "log(2)"),
 }
 
 
@@ -353,7 +365,8 @@ def _gen(rnd, d):
 
 def compare_random(n=400, seed=2024, verbose=True):
     """Random expressions: every printer except rust_code (SymPy's rust
-    printer fails on many of them) must agree whenever ``str`` agrees.
+    printer fails on many of them) and fcode (numeric evaluation with
+    mpmath) must agree whenever ``str`` agrees.
     Expressions containing floats are skipped (SymPy evaluates numeric
     functions with mpmath, the last bits may differ)."""
     rnd = random.Random(seed)
@@ -371,7 +384,7 @@ def compare_random(n=400, seed=2024, verbose=True):
             continue
         stats["compared"] += 1
         for pname, (fs, fx) in PRINTERS.items():
-            if pname == "rust_code":
+            if pname in ("rust_code", "fcode", "fcode95"):
                 continue
             a, b = run_printer(fs, es), run_printer(fx, ex)
             if a != b and not (a[0] == b[0] == "err"):

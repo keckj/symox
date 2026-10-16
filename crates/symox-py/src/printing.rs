@@ -278,13 +278,25 @@ fn rust_code(
 }
 
 #[pyfunction]
-#[pyo3(signature = (expr, assign_to=None, **settings))]
+#[pyo3(signature = (expr, assign_to=None, standard=77, source_format="fixed", **settings))]
 fn fcode(
     expr: &Bound<'_, PyAny>,
     assign_to: Option<&Bound<'_, PyAny>>,
+    standard: u32,
+    source_format: &str,
     settings: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<String> {
-    run_code(expr, assign_to, CodeSettings::new(Lang::Fortran), settings)
+    let mut s = CodeSettings::new(Lang::Fortran);
+    if ![66, 77, 90, 95, 2003, 2008].contains(&standard) {
+        return Err(PyValueError::new_err(format!("Unknown Fortran standard: {standard}")));
+    }
+    s.fortran_standard = standard;
+    s.fortran_free_form = match source_format {
+        "fixed" => false,
+        "free" => true,
+        _ => return Err(PyValueError::new_err(format!("Unknown source format: {source_format}"))),
+    };
+    run_code(expr, assign_to, s, settings)
 }
 
 #[pyfunction]

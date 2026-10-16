@@ -109,6 +109,10 @@ pub struct CodeSettings {
     pub user_functions: FxHashMap<String, String>,
     /// Print unknown functions as `name(args)` instead of failing.
     pub allow_unknown_functions: bool,
+    /// Fortran standard (66, 77, 90, 95, 2003, 2008); SymPy's default 77.
+    pub fortran_standard: u32,
+    /// Fortran free source form (default: fixed form, 6 column lead).
+    pub fortran_free_form: bool,
 }
 
 impl CodeSettings {
@@ -122,6 +126,8 @@ impl CodeSettings {
             math_macros: matches!(lang, Lang::C | Lang::Cxx | Lang::Cuda),
             user_functions: FxHashMap::default(),
             allow_unknown_functions: false,
+            fortran_standard: 77,
+            fortran_free_form: false,
         }
     }
 }
@@ -178,7 +184,7 @@ pub fn rust_code(e: &Expr) -> CodeResult {
     code_with(e, &CodeSettings::new(Lang::Rust))
 }
 
-/// Basic Fortran 95 free-form expression printer.
+/// SymPy's `fcode(expr)` (Fortran 77, fixed source form).
 pub fn fcode(e: &Expr) -> CodeResult {
     code_with(e, &CodeSettings::new(Lang::Fortran))
 }
@@ -266,6 +272,8 @@ pub struct CodePrinter<'a> {
     s: &'a CodeSettings,
     macros: Vec<(Expr, &'static str)>,
     number_symbols: RefCell<Vec<(&'static str, f64)>>,
+    /// Fortran: bit patterns of the floats produced by `N(..., 17)`
+    n17: RefCell<rustc_hash::FxHashSet<u64>>,
 }
 
 fn is_half(x: &Expr) -> bool {
@@ -313,7 +321,7 @@ enum Den {
 impl<'a> CodePrinter<'a> {
     pub fn new(s: &'a CodeSettings) -> Self {
         let macros = if s.math_macros { math_macros() } else { vec![] };
-        CodePrinter { s, macros, number_symbols: RefCell::new(Vec::new()) }
+        CodePrinter { s, macros, number_symbols: RefCell::new(Vec::new()), n17: RefCell::new(Default::default()) }
     }
 
     fn lang(&self) -> Lang {
@@ -324,6 +332,9 @@ impl<'a> CodePrinter<'a> {
     pub fn finish(&self, body: String) -> String {
         let mut lines = self.declarations();
         lines.push(body);
+        if self.lang() == Lang::Fortran {
+            return fortran_wrap(&lines, self.s.fortran_free_form).join("\n");
+        }
         let code = lines.join("\n");
         match self.lang() {
             Lang::C | Lang::Cxx | Lang::Cuda => indent_code(&code, "   "),
@@ -342,6 +353,10 @@ impl<'a> CodePrinter<'a> {
             .filter_map(|(name, v)| match self.lang() {
                 Lang::Rust => Some(format!(
                     "const {name}: f64 = {};",
+                    self.constant_literal(name, 17).unwrap_or_else(|| mpf_to_str(v, 17, true))
+                )),
+                Lang::Fortran => Some(format!(
+                    "parameter ({name} = {}d0)",
                     self.constant_literal(name, 17).unwrap_or_else(|| mpf_to_str(v, 17, true))
                 )),
                 Lang::C | Lang::Cxx | Lang::Cuda => Some(format!(
@@ -483,10 +498,12 @@ impl<'a> CodePrinter<'a> {
             Number::Float(f) => match self.lang() {
                 Lang::C | Lang::Cxx | Lang::Cuda => self.float_literal(*f),
                 Lang::Fortran => {
-                    let s = mpf_to_str(*f, 17, true);
-                    let s = s.strip_prefix('+').unwrap_or(&s).to_string();
+                    if self.n17.borrow().contains(&f.to_bits()) {
+                        return fortran_n17(*f);
+                    }
+                    let s = float_str(*f);
                     match s.split_once('e') {
-                        Some((m, x)) => format!("{m}d{}", x.strip_prefix('+').unwrap_or(x)),
+                        Some((m, x)) => format!("{m}d{x}"),
                         None => format!("{s}d0"),
                     }
                 }
@@ -532,7 +549,7 @@ impl<'a> CodePrinter<'a> {
                 Lang::Python => "math.pi".into(),
                 Lang::NumPy => "numpy.pi".into(),
                 Lang::Rust => "PI".into(),
-                Lang::Fortran => "pi".into(),
+                Lang::Fortran => self.number_symbol("pi", std::f64::consts::PI),
                 Lang::Cuda => self.number_symbol("pi", std::f64::consts::PI),
                 _ => self.number_symbol("pi", std::f64::consts::PI),
             },
@@ -540,7 +557,7 @@ impl<'a> CodePrinter<'a> {
                 Lang::Python => "math.e".into(),
                 Lang::NumPy => "numpy.e".into(),
                 Lang::Rust => "E".into(),
-                Lang::Fortran => "exp(1.0d0)".into(),
+                Lang::Fortran => self.number_symbol("E", std::f64::consts::E),
                 Lang::Cuda => self.number_symbol("E", std::f64::consts::E),
                 _ => self.number_symbol("E", std::f64::consts::E),
             },
@@ -556,14 +573,14 @@ impl<'a> CodePrinter<'a> {
             Constant::Infinity => match l {
                 Lang::Python => "math.inf".into(),
                 Lang::NumPy => "numpy.inf".into(),
-                Lang::Fortran => "huge(1.0d0)".into(),
+                Lang::Fortran => "(huge(0d0) + 1)".into(),
                 _ => "INFINITY".into(),
             },
             Constant::NegInfinity => match l {
                 Lang::Python => "float('-inf')".into(),
                 Lang::NumPy => "-numpy.inf".into(),
                 Lang::Rust => "NEG_INFINITY".into(),
-                Lang::Fortran => "-huge(1.0d0)".into(),
+                Lang::Fortran => "-(huge(0d0) + 1)".into(),
                 _ => "-INFINITY".into(),
             },
             Constant::NaN => match l {
@@ -796,11 +813,19 @@ impl<'a> CodePrinter<'a> {
             }
             Lang::Rust => self.rust_pow(b, x),
             Lang::Fortran => {
+                if is_minus_one_valued(x) {
+                    return Ok(format!("1d0/{}", self.parenthesize(b, PREC_POW, false)?));
+                }
                 if is_half(x) {
+                    if let Some(n) = b.as_number() {
+                        if n.is_integer() {
+                            return Ok(format!("sqrt({n}.0d0)"));
+                        }
+                    }
                     return Ok(format!("sqrt({})", self.print(b)?));
                 }
-                if x.is_minus_one() {
-                    return Ok(format!("1.0d0/{}", self.parenthesize(b, PREC_POW, false)?));
+                if *x == Expr::rational(-1, 2) {
+                    return Ok(format!("1/sqrt({})", self.print(b)?));
                 }
                 Ok(format!(
                     "{}**{}",
@@ -1117,6 +1142,17 @@ impl<'a> CodePrinter<'a> {
     }
 
     fn fortran_function(&self, f: &Func, args: &[Expr]) -> CodeResult {
+        // the arguments are evaluated with N(): numbers become floats and a
+        // function of numbers is evaluated
+        let v: Vec<Expr> = args.iter().map(|a| self.fortran_n(a)).collect();
+        if !matches!(f, Func::Max | Func::Min | Func::Undefined(_))
+            && args.iter().all(|a| crate::functions::is_numeric_value(a) && !crate::functions::contains_i(a))
+        {
+            let call = crate::functions::func(f.clone(), args.to_vec());
+            if let Some(x) = crate::evalf::eval_f64(&call) {
+                return Ok(fortran_n17(x));
+            }
+        }
         let name = match f {
             Func::Sin => "sin",
             Func::Cos => "cos",
@@ -1133,17 +1169,28 @@ impl<'a> CodePrinter<'a> {
             Func::Erf => "erf",
             Func::Abs => "abs",
             Func::Conjugate => "conjg",
-            Func::Max => "max",
-            Func::Min => "min",
-            Func::Floor => "floor",
-            Func::Ceiling => "ceiling",
-            Func::Gamma => "gamma",
-            Func::LogGamma => "log_gamma",
-            Func::Erfc => "erfc",
-            Func::Asinh => "asinh",
-            Func::Acosh => "acosh",
-            Func::Atanh => "atanh",
+            Func::Max | Func::Min => {
+                // not Functions in SymPy: no float conversion of the args
+                let v = Self::sorted_minmax_args(args);
+                let n = if *f == Func::Max { "max" } else { "min" };
+                return Ok(format!("{n}({})", self.join_args(&v)?));
+            }
+            Func::Erfc => {
+                return Ok(format!("(1 - {})", self.fortran_function(&Func::Erf, args)?));
+            }
+            Func::Heaviside if self.s.fortran_standard >= 95 => {
+                let x = &args[0];
+                let pw = vec![
+                    (Expr::zero(), Expr::from_kind(Kind::Rel(RelOp::Lt, x.clone(), Expr::zero()))),
+                    (Expr::float(0.5), Expr::from_kind(Kind::Rel(RelOp::Eq, x.clone(), Expr::zero()))),
+                    (Expr::one(), Expr::boolean(true)),
+                ];
+                return Ok(format!("({})", self.print_piecewise(&pw)?));
+            }
             Func::Sign => {
+                if self.s.fortran_standard < 95 {
+                    return Err(CodeError::Unsupported("sign (merge requires Fortran 95 or newer)".into()));
+                }
                 let a = self.print(&args[0])?;
                 return Ok(format!("merge(0d0, dsign(1d0, {a}), {a} == 0d0)"));
             }
@@ -1156,7 +1203,61 @@ impl<'a> CodePrinter<'a> {
                 return self.unsupported(f, args);
             }
         };
-        Ok(format!("{name}({})", self.join_args(args)?))
+        let parts: Vec<String> = v.iter().map(|a| self.print(a)).collect::<Result<_, _>>()?;
+        Ok(format!("{name}({})", parts.join(", ")))
+    }
+
+    /// A float evaluated with `N(..., 17)` (printed with 17 digits).
+    fn n17_float(&self, x: f64) -> Expr {
+        let e = Expr::float(x);
+        if let Kind::Num(Number::Float(f)) = e.kind() {
+            self.n17.borrow_mut().insert(f.to_bits());
+        }
+        e
+    }
+
+    /// SymPy's `N(e)` for the Fortran printer: integers become floats,
+    /// numeric sub-expressions are evaluated to 17 digit floats.
+    fn fortran_n(&self, e: &Expr) -> Expr {
+        match e.kind() {
+            Kind::Num(Number::Int(_) | Number::BigInt(_)) => Expr::float(e.as_number().unwrap().to_f64()),
+            Kind::Num(Number::Float(_)) => e.clone(),
+            Kind::Num(n) => self.n17_float(n.to_f64()),
+            Kind::Sym(_) | Kind::Bool(_) => e.clone(),
+            _ => {
+                if crate::functions::is_numeric_value(e) && !crate::functions::contains_i(e) {
+                    if let Some(x) = crate::evalf::eval_f64(e) {
+                        return self.n17_float(x);
+                    }
+                }
+                match e.kind() {
+                    Kind::Mul(c, facs) => {
+                        let mut v: Vec<Expr> = Vec::with_capacity(facs.len() + 1);
+                        if c.is_minus_one() {
+                            v.push(Expr::minus_one());
+                        } else if !c.is_one() {
+                            v.push(self.fortran_n(&Expr::num(c.clone())));
+                        }
+                        v.extend(facs.iter().map(|(b, x)| self.fortran_n(&mul_factor(b, x))));
+                        crate::ops::mul(&v)
+                    }
+                    Kind::Add(c, terms) => {
+                        let mut v: Vec<Expr> =
+                            terms.iter().map(|(t, k)| self.fortran_n(&crate::ops::add_term(t, k))).collect();
+                        if !c.is_zero() {
+                            v.push(self.fortran_n(&Expr::num(c.clone())));
+                        }
+                        crate::ops::add(&v)
+                    }
+                    Kind::Pow(b, x) => {
+                        let nx = if x.is_integer_number() { x.clone() } else { self.fortran_n(x) };
+                        crate::ops::pow(&self.fortran_n(b), &nx)
+                    }
+                    _ if e.is_atom() => e.clone(),
+                    _ => crate::traverse::map_children(e, &mut |c| self.fortran_n(c)),
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1186,7 +1287,6 @@ impl<'a> CodePrinter<'a> {
             }
             Lang::Fortran => {
                 let o = match op {
-                    RelOp::Eq => "==",
                     RelOp::Ne => "/=",
                     o => o.symbol(),
                 };
@@ -1255,6 +1355,11 @@ impl<'a> CodePrinter<'a> {
                 Ok(lines.join("\n"))
             }
             Lang::Fortran => {
+                if self.s.fortran_standard < 95 {
+                    return Err(CodeError::Unsupported(
+                        "Piecewise as an inline expression requires Fortran 95 or newer".into(),
+                    ));
+                }
                 if !has_default {
                     return Err(CodeError::PiecewiseNoDefault);
                 }
@@ -1328,6 +1433,63 @@ fn round_decimal(exact: &str, digits: usize) -> String {
     s
 }
 
+/// A float evaluated with `N(..., 17)`, printed with 17 digits.
+fn fortran_n17(x: f64) -> String {
+    let s = mpf_to_str(x, 17, true);
+    match s.split_once('e') {
+        Some((m, e)) => format!("{m}d{}", e.strip_prefix('+').unwrap_or(e)),
+        None => format!("{s}d0"),
+    }
+}
+
+/// SymPy's Fortran line layout: 6 column lead (fixed form) and lines
+/// wrapped at column 72 with `@` continuation lines (`&` in free form).
+fn fortran_wrap(lines: &[String], free: bool) -> Vec<String> {
+    let (lead, cont, trailing) = if free { ("", "      ", " &") } else { ("      ", "     @ ", "") };
+    let alnum = |c: char| c == '_' || c == '+' || c == '-' || c == '.' || c.is_ascii_alphanumeric();
+    let white = |c: char| c == ' ' || c == '\t' || c == '(' || c == ')';
+    let split_pos = |line: &[char], endpos: usize| -> usize {
+        if line.len() <= endpos {
+            return line.len();
+        }
+        let split = |p: usize| {
+            let (c, d) = (line[p], line[p - 1]);
+            (alnum(c) && !alnum(d)) || (!alnum(c) && alnum(d)) || (white(c) && !white(d)) || (!white(c) && white(d))
+        };
+        let mut pos = endpos;
+        while !split(pos) {
+            pos -= 1;
+            if pos == 0 {
+                return endpos;
+            }
+        }
+        pos
+    };
+    let mut out = Vec::new();
+    for raw in lines {
+        for l in raw.split('\n') {
+            let line: Vec<char> = format!("{lead}{l}").chars().collect();
+            let pos = split_pos(&line, 72);
+            let mut hunk: String = line[..pos].iter().collect::<String>().trim_end().to_string();
+            let mut rest: Vec<char> = line[pos..].iter().copied().skip_while(|c| *c == ' ').collect();
+            if !rest.is_empty() {
+                hunk.push_str(trailing);
+            }
+            out.push(hunk);
+            while !rest.is_empty() {
+                let pos = split_pos(&rest, 65);
+                let mut hunk: String = rest[..pos].iter().collect::<String>().trim_end().to_string();
+                rest = rest[pos..].iter().copied().skip_while(|c| *c == ' ').collect();
+                if !rest.is_empty() {
+                    hunk.push_str(trailing);
+                }
+                out.push(format!("{cont}{hunk}"));
+            }
+        }
+    }
+    out
+}
+
 /// SymPy's `indent_code` for brace/paren languages.
 pub(crate) fn indent_code(code: &str, tab: &str) -> String {
     if !code.contains('\n') {
@@ -1397,6 +1559,17 @@ mod tests {
         assert_eq!(c("1/(2*x)"), "(1.0/2.0)/x");
         assert_eq!(c("Max(x, y, z)"), "fmax(x, fmax(y, z))");
         assert_eq!(c("Piecewise((x, x > 0), (0, True))"), "((x > 0) ? (\n   x\n)\n: (\n   0\n))");
+    }
+
+    #[test]
+    fn fortran() {
+        let f = |s: &str| fcode(&parse_str(s).unwrap()).unwrap();
+        assert_eq!(f("x**2"), "      x**2");
+        assert_eq!(f("x/2"), "      (1.0d0/2.0d0)*x");
+        assert_eq!(f("1/x"), "      1d0/x");
+        assert_eq!(f("pi*x"), "      parameter (pi = 3.1415926535897932d0)\n      pi*x");
+        assert_eq!(f("x + 0.1"), "      x + 0.1d0");
+        assert_eq!(f("sec(x)"), "      (1d0/cos(x))");
     }
 
     #[test]
