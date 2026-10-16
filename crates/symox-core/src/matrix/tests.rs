@@ -109,3 +109,42 @@ fn lu() {
 fn p_(s: &str) -> Expr {
     p(s)
 }
+
+fn lcg(seed: &mut u64) -> i64 {
+    *seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+    (*seed >> 33) as i64
+}
+
+#[test]
+fn modular_matches_fraction_free() {
+    use super::linalg::RatMat;
+    let mut seed = 7u64;
+    for trial in 0..40 {
+        let rows = 6 + (lcg(&mut seed) % 7) as usize;
+        let cols = 6 + (lcg(&mut seed) % 9) as usize;
+        let rank_cap = if trial % 3 == 0 { 1 + (lcg(&mut seed) % 5) as usize } else { 100 };
+        // low rank via product when requested
+        let m = if rank_cap < 100 {
+            let a = Matrix::from_fn(rows, rank_cap, |_, _| Expr::int(lcg(&mut seed) % 11 - 5));
+            let b = Matrix::from_fn(rank_cap, cols, |_, _| Expr::int(lcg(&mut seed) % 11 - 5));
+            a.matmul(&b).unwrap()
+        } else if trial % 3 == 1 {
+            Matrix::from_fn(rows, cols, |_, _| Expr::rational(lcg(&mut seed) % 21 - 10, 1 + lcg(&mut seed) % 7))
+        } else {
+            Matrix::from_fn(rows, cols, |_, _| Expr::int(lcg(&mut seed) % 2001 - 1000))
+        };
+        let r = RatMat::from_matrix(&m).unwrap();
+        let (a, pa) = r.rref();
+        let (b, pb) = r.rref_ff();
+        assert_eq!(pa, pb, "pivots differ in trial {trial}");
+        assert!(a == b, "rref differs in trial {trial}");
+        if rows == cols {
+            let x = r.inv();
+            let y = r.inv_ff();
+            assert!(x == y, "inverse differs in trial {trial}");
+        }
+        let sq = Matrix::from_fn(rows, rows, |i, j| m.get(i, j % cols).clone());
+        let rs = RatMat::from_matrix(&sq).unwrap();
+        assert!(rs.inv() == rs.inv_ff(), "square inverse differs in trial {trial}");
+    }
+}

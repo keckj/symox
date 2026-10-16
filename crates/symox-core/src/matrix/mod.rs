@@ -25,6 +25,7 @@ pub mod eigen;
 pub mod ff;
 pub mod int;
 pub mod linalg;
+pub mod modular;
 pub mod mpoly;
 pub mod ratfunc;
 

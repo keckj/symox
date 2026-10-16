@@ -21,6 +21,9 @@ use crate::ops::{add, div, mul, mul2, neg, pow, sub};
 
 pub use super::domain::RatMat;
 
+/// Smallest dimension for which the multimodular kernels are used.
+const MODULAR_MIN: usize = 6;
+
 /// Determinant algorithms (SymPy's `method=` keyword).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DetMethod {
@@ -67,6 +70,21 @@ impl RatMat {
     /// Reduced row echelon form and pivot columns.
     pub fn rref(&self) -> (RatMat, Vec<usize>) {
         let (mut a, _) = self.to_int_rows();
+        if self.rows.min(self.cols) >= MODULAR_MIN {
+            if let Some((x, d, pivots)) = super::modular::rref_int(&a, self.rows, self.cols) {
+                let r = pivots.len();
+                let mut data = vec![Rat::zero(); self.rows * self.cols];
+                for i in 0..r {
+                    for j in 0..self.cols {
+                        let v = &x[i * self.cols + j];
+                        if !v.is_zero() {
+                            data[i * self.cols + j] = Rat::new(v.clone(), d.clone());
+                        }
+                    }
+                }
+                return (RatMat { rows: self.rows, cols: self.cols, data }, pivots);
+            }
+        }
         let (den, pivots) = rref_den(&mut a, self.rows, self.cols, &Int::ONE);
         let data = a.into_iter().map(|x| if x.is_zero() { Rat::zero() } else { Rat::new(x, den.clone()) }).collect();
         (RatMat { rows: self.rows, cols: self.cols, data }, pivots)
@@ -81,6 +99,34 @@ impl RatMat {
     pub fn inv(&self) -> Option<RatMat> {
         let n = self.rows;
         let (a, scales) = self.to_int_rows();
+        if n >= MODULAR_MIN {
+            if let Some(res) = super::modular::inv_int(&a, n) {
+                let (adj, det) = res?;
+                let data = adj
+                    .iter()
+                    .enumerate()
+                    .map(|(k, x)| {
+                        if x.is_zero() {
+                            Rat::zero()
+                        } else {
+                            Rat::new(x.mul(&scales[k % n]), det.clone())
+                        }
+                    })
+                    .collect();
+                return Some(RatMat { rows: n, cols: n, data });
+            }
+        }
+        self.inv_ff_scaled(a, scales)
+    }
+
+    /// Fraction-free inverse (always available).
+    pub fn inv_ff(&self) -> Option<RatMat> {
+        let (a, scales) = self.to_int_rows();
+        self.inv_ff_scaled(a, scales)
+    }
+
+    fn inv_ff_scaled(&self, a: Vec<Int>, scales: Vec<Int>) -> Option<RatMat> {
+        let n = self.rows;
         let w = 2 * n;
         let mut aug = Vec::with_capacity(n * w);
         for i in 0..n {
@@ -106,6 +152,14 @@ impl RatMat {
             }
         }
         Some(RatMat { rows: n, cols: n, data })
+    }
+
+    /// Fraction-free reduced row echelon form (always available).
+    pub fn rref_ff(&self) -> (RatMat, Vec<usize>) {
+        let (mut a, _) = self.to_int_rows();
+        let (den, pivots) = rref_den(&mut a, self.rows, self.cols, &Int::ONE);
+        let data = a.into_iter().map(|x| if x.is_zero() { Rat::zero() } else { Rat::new(x, den.clone()) }).collect();
+        (RatMat { rows: self.rows, cols: self.cols, data }, pivots)
     }
 
     /// Characteristic polynomial coefficients `[1, c1, ..., cn]`.
