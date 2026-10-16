@@ -237,3 +237,27 @@ def test_qr_decomposition_invariants(entries):
     q, r = matrix.QRdecomposition()
     assert_matrix_equal(q * r, sp.Matrix(entries))
     assert_matrix_equal(q.H * q, sp.eye(q.cols))
+
+
+@pytest.mark.parametrize("build", [
+    lambda m: [m.Matrix([1, 2]), m.Matrix([3, 4])],
+    lambda m: [[m.Matrix([1, 2]), m.Matrix([3, 4])]],
+    lambda m: [m.Matrix([1, 2]), 3],
+    lambda m: [[m.eye(2), m.ones(2)], [m.zeros(2), m.eye(2)]],
+])
+def test_constructor_stacks_flat_matrices_and_joins_block_rows(build):
+    assert_matrix_equal(sx.Matrix(build(sx)), sp.Matrix(build(sp)))
+
+
+def test_matrix_power_rejects_float_integer_overflow():
+    with pytest.raises(ValueError, match="exponent too large"):
+        sx.Matrix([[-1]]) ** 1e100
+    assert sx.Matrix([[2]]) ** 2.0 == sx.Matrix([[4]])
+
+
+def test_zero_matrix_predicate_preserves_unknown_assumptions():
+    assert sx.Matrix([[sx.Symbol("x")]]).is_zero_matrix is None
+    assert sx.Matrix([[sx.Symbol("x", nonzero=True)]]).is_zero_matrix is False
+    assert sx.Matrix([[sx.Symbol("x", zero=True)]]).is_zero_matrix is True
+    assert sx.zeros(2).is_zero_matrix is True
+    assert sx.Matrix([[sx.Symbol("x"), 1]]).is_zero_matrix is False

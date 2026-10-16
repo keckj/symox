@@ -49,7 +49,7 @@ Implemented (milestone 1, the core):
   from SymPy objects
 
 Planned next: polynomials (`Poly`, `gcd`, `factor`, `cancel`, `apart`),
-`solve`, `series`/`limit`, matrices, `simplify`, integration, LaTeX
+`solve`, `series`/`limit`, `simplify`, integration, LaTeX
 printing, code generation (C/CUDA), arbitrary precision `evalf`,
 assumptions.
 
@@ -85,6 +85,46 @@ pip install maturin
 maturin develop --release       # Python package into the active venv
 python tests/compare_sympy.py   # differential tests (needs sympy)
 python benches/bench_vs_sympy.py
+```
+
+## Symbolic matrices
+
+`Matrix` provides mutable dense matrices; `ImmutableMatrix` and
+`ImmutableDenseMatrix` provide immutable, hashable matrices. Constructors
+accept nested sequences, NumPy arrays, SymPy matrices and nested matrix
+blocks. Arithmetic, slicing, entry transformations, symbolic derivatives,
+Jacobian/Hessian construction, exact determinant/inverse, row reduction,
+linear solves, characteristic polynomials and supported eigenproblems run
+in Rust. Cholesky, LDL, QR and diagonalization are also available.
+
+```python
+from symox import Matrix, ImmutableMatrix, symbols
+
+x = symbols("x")
+a = Matrix([[x, 1], [1, x]])
+a.det()                          # x**2 - 1
+a.inv()
+a.gauss_jordan_solve(Matrix([1, 2]), freevar=True)
+ImmutableMatrix(a)               # rejects mutation; usable as a dictionary key
+```
+
+`dot` supports Hermitian conjugation conventions; `diagonalize` supports
+`reals_only`, `sort` and `normalize`. Matrix pickles preserve entry
+assumptions and unevaluated arithmetic. Immutable results preserve their
+immutability through arithmetic, slicing and decompositions; `as_mutable()`
+returns an independent editable copy.
+
+This API does not cover every SymPy matrix method. Eigenproblems beyond the
+supported exact algebraic cases, custom zero/simplification callbacks and
+unsupported constructor/algorithm options raise `NotImplementedError`.
+Matrix `evalf` currently supports its default 15-digit double precision;
+other precision requests raise `NotImplementedError`. Vector norms and
+matrix Frobenius/1/infinity norms are supported; matrix spectral norms
+are not implemented.
+
+```bash
+python tests/compare_matrices.py
+python -m pytest tests/test_matrix_compat.py tests/compare_matrices.py
 ```
 
 ## Symbolic code generation compatibility

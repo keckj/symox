@@ -132,31 +132,40 @@ fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
     if items.is_empty() {
         return Ok(Matrix::zeros(0, 0));
     }
-    // list of matrices: stack them vertically (rows)
-    if items.iter().all(|i| i.downcast::<PyMatrix>().is_ok()) {
-        let ms: Vec<Matrix> = items.iter().map(|i| i.downcast::<PyMatrix>().unwrap().borrow().m.clone()).collect();
-        if ms.iter().all(|m| m.rows() == 1) || ms.iter().all(|m| m.cols() != 1) {
-            let refs: Vec<&Matrix> = ms.iter().collect();
-            return Matrix::vstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
-        }
-        let refs: Vec<&Matrix> = ms.iter().collect();
-        return Matrix::hstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
+    let is_matrix = |item: &Bound<'_, PyAny>| -> bool {
+        item.downcast::<PyMatrix>().is_ok()
+            || (is_sympy_obj(item) && item.hasattr("shape").unwrap_or(false)
+                && item.hasattr("tolist").unwrap_or(false))
+    };
+    // A flat list of matrices is stacked vertically. Nested rows of
+    // matrices are block rows and are joined horizontally first.
+    if items.iter().any(&is_matrix) {
+        let blocks: Vec<Matrix> = items.iter().map(|item| {
+            if is_matrix(item) { to_matrix(item) }
+            else { Ok(Matrix::column(vec![to_expr(item)?])) }
+        }).collect::<PyResult<_>>()?;
+        let refs: Vec<&Matrix> = blocks.iter().collect();
+        return Matrix::vstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
     }
     if items.iter().all(|i| is_seq(i) || (i.hasattr("tolist").unwrap_or(false) && !is_sympy_obj(i) && i.hasattr("shape").unwrap_or(false))) {
         let mut rows = Vec::with_capacity(items.len());
         for it in &items {
             let it = if is_seq(it) { it.clone() } else { it.call_method0("tolist")? };
-            let row: Vec<Expr> = it.try_iter()?.map(|x| to_expr(&x?)).collect::<PyResult<_>>()?;
-            rows.push(row);
+            let entries: Vec<Bound<'_, PyAny>> = it.try_iter()?.collect::<PyResult<_>>()?;
+            if entries.iter().any(&is_matrix) {
+                let blocks: Vec<Matrix> = entries.iter().map(|entry| {
+                    if is_matrix(entry) { to_matrix(entry) }
+                    else { Ok(Matrix::column(vec![to_expr(entry)?])) }
+                }).collect::<PyResult<_>>()?;
+                let refs: Vec<&Matrix> = blocks.iter().collect();
+                rows.push(Matrix::hstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()))?);
+            } else {
+                let row: Vec<Expr> = entries.iter().map(to_expr).collect::<PyResult<_>>()?;
+                rows.push(Matrix::new(1, row.len(), row).map_err(|e| PyValueError::new_err(e.to_string()))?);
+            }
         }
-        let c = rows[0].len();
-        if rows.iter().any(|r| r.len() != c) {
-            return Err(PyValueError::new_err("mismatched dimensions"));
-        }
-        if c == 0 {
-            return Ok(Matrix::zeros(rows.len(), 0));
-        }
-        return Matrix::from_rows(rows).map_err(|e| PyValueError::new_err(e.to_string()));
+        let refs: Vec<&Matrix> = rows.iter().collect();
+        return Matrix::vstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
     }
     let col: Vec<Expr> = items.iter().map(to_expr).collect::<PyResult<_>>()?;
     Ok(Matrix::column(col))
@@ -322,8 +331,17 @@ impl PyMatrix {
     }
 
     #[getter]
-    fn is_zero_matrix(&self) -> bool {
-        self.m.is_zero_matrix()
+    fn is_zero_matrix(&self) -> Option<bool> {
+        let mut unknown = false;
+        for entry in self.m.data() {
+            match symox::assumptions::is_zero(entry)
+                .or_else(|| matrix::ratfunc::is_zero_assume(entry)) {
+                Some(false) => return Some(false),
+                None => unknown = true,
+                Some(true) => {},
+            }
+        }
+        if unknown { None } else { Some(true) }
     }
 
     #[getter]
@@ -666,7 +684,13 @@ impl PyMatrix {
         let e = to_expr(o)?;
         let n = match e.as_number() {
             Some(n) if n.is_integer() => n.to_i64().ok_or_else(|| PyValueError::new_err("exponent too large"))?,
-            Some(n) if n.is_float() && n.to_f64().fract() == 0.0 => n.to_f64() as i64,
+            Some(n) if n.is_float() && n.to_f64().fract() == 0.0 => {
+                let value = n.to_f64();
+                if value < i64::MIN as f64 || value >= -(i64::MIN as f64) {
+                    return Err(PyValueError::new_err("exponent too large"));
+                }
+                value as i64
+            }
             _ => {
                 return Err(PyNotImplementedError::new_err(
                     "only integer powers of matrices are implemented",
