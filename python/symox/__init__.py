@@ -123,6 +123,8 @@ from ._core import (  # noqa: E402
     logcombine, nsimplify, powsimp, trigsimp,
 )
 from ._core import checkodesol, dsolve, nsolve, solve  # noqa: E402
+from ._core import NonlinearError  # noqa: E402
+from ._linear import linear_eq_to_matrix, linsolve, solve_linear_system  # noqa: E402
 
 # --- special ---
 # Special functions (symox::special): every head is a real function node with
@@ -454,6 +456,7 @@ def transpose(M):
 
 from ._core import (  # noqa: E402
     And, Equivalent, ITE, Implies, Nand, Nor, Not, Or, POSform, SOPform, Xnor, Xor,
+    ANFform, anf_coeffs, is_anf, to_anf,
     distribute_and_over_or, distribute_or_over_and, eliminate_implications,
     is_cnf, is_dnf, is_literal, is_nnf, simplify_logic, to_cnf, to_dnf, to_nnf,
 )
@@ -992,7 +995,8 @@ for _c in (Interval, FiniteSet, Union, Intersection, Complement, ProductSet, Ima
            ConditionSet, Range):
     _SET_CLASSES[_c.__name__] = _c
 
-EmptySet = _named("EmptySet", is_EmptySet=True)
+EmptySet = _named("EmptySet", is_EmptySet=True,
+                  __iter__=lambda self: iter(()), __len__=lambda self: 0)
 UniversalSet = _named("UniversalSet", is_UniversalSet=True)
 Reals = _named("Reals")
 Integers = _named("Integers")
@@ -1038,6 +1042,7 @@ def reduce_inequalities(inequalities, symbols=[]):  # noqa: B006
 # --- poly ---
 from ._core import (  # noqa: E402
     Poly,
+    GroebnerBasis, groebner, is_zero_dimensional,
     apart,
     cancel,
     cofactors,

@@ -11,9 +11,12 @@
 
 mod minimize;
 mod normal;
+mod anf;
 pub mod sat;
 
 pub use minimize::{simplify_logic, sop_form, pos_form, truth_table, LogicForm};
+pub use minimize::simplify_logic_dontcare;
+pub use anf::{to_anf, is_anf, anf_form, anf_coeffs, anf_from_coeffs};
 pub use normal::{distribute_and_over_or, distribute_or_over_and, eliminate_implications, is_cnf, is_dnf, is_literal, is_nnf, to_cnf, to_dnf, to_nnf};
 pub use sat::{satisfiable, satisfiable_all, Model};
 

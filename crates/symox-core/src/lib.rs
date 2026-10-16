@@ -22,6 +22,7 @@ pub mod expr;
 pub mod functions;
 pub mod integrate;
 pub mod lambdify;
+pub mod linear;
 pub mod matrix;
 pub mod logic;
 pub mod ntheory;

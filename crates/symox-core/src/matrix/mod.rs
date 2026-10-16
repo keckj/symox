@@ -30,6 +30,7 @@ pub mod modular;
 pub mod mpoly;
 pub mod ratfunc;
 pub mod symeigen;
+pub mod solvers;
 
 use std::fmt;
 

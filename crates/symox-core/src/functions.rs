@@ -921,12 +921,11 @@ fn eval_conjugate(a: &Expr) -> Option<Expr> {
         }
         Kind::Const(Constant::I) => Some(neg(a)),
         Kind::Func(Func::Conjugate, x) => Some(x[0].clone()),
+        Kind::Pow(base, exponent) if crate::assumptions::is_integer(exponent) == Some(true) => {
+            Some(pow(&conjugate(base), exponent))
+        }
         Kind::Add(..) | Kind::Mul(..) => {
             let args: Vec<Expr> = a.args().iter().map(conjugate).collect();
-            let has_i = args.iter().any(|x| matches!(x.kind(), Kind::Func(Func::Conjugate, _)));
-            if !has_i && !crate::functions::contains_i(a) {
-                return None;
-            }
             Some(if a.is_add() { add(&args) } else { mul(&args) })
         }
         _ => None,

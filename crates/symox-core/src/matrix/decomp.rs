@@ -172,7 +172,10 @@ impl Matrix {
         let mut q = q.extract(&all_rows, &ranked)?;
         let mut r = r.extract(&ranked, &all_cols)?;
         for i in 0..q.cols() {
-            let norm = q.col(i).norm();
+            // The Hermitian product evaluates exact complex entries without
+            // leaving Abs(a + b*I)**2 opaque in subsequent linear solves.
+            let column = q.col(i);
+            let norm = sqrt(&expand(&hdot(&column, &column)));
             let inv = pow(&norm, &Expr::minus_one());
             for k in 0..q.rows() {
                 let v = mul2(q.get(k, i), &inv);

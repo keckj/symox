@@ -493,6 +493,9 @@ pub fn sop_form(vars: &[Expr], minterms: &[u32], dontcares: &[u32]) -> Expr {
 /// Minimal product of sums (`POSform`) of the function true on the rows
 /// `minterms` with `dontcares`.
 pub fn pos_form(vars: &[Expr], minterms: &[u32], dontcares: &[u32]) -> Expr {
+    // SymPy chooses False for an empty on-set, including an entirely
+    // unconstrained function (all remaining rows are don't-cares).
+    if minterms.is_empty() { return Expr::boolean(false); }
     let n = vars.len();
     let dc: FxHashSet<u32> = dontcares.iter().copied().collect();
     let on: FxHashSet<u32> = minterms.iter().copied().collect();
@@ -509,7 +512,13 @@ pub fn pos_form(vars: &[Expr], minterms: &[u32], dontcares: &[u32]) -> Expr {
 /// a `form`, the shorter of the two is guessed from the truth table (like
 /// SymPy). Expressions with more than 8 variables are returned unchanged
 /// unless `force`.
-pub fn simplify_logic(e: &Expr, form: Option<LogicForm>, _deep: bool, force: bool) -> Expr {
+pub fn simplify_logic(e: &Expr, form: Option<LogicForm>, deep: bool, force: bool) -> Expr {
+    simplify_logic_dontcare(e, form, deep, force, None)
+}
+
+/// Minimise on the care set. Rows where `dontcare` is true can be assigned
+/// either value; they are removed from the on-set before minimisation.
+pub fn simplify_logic_dontcare(e: &Expr, form: Option<LogicForm>, deep: bool, force: bool, dontcare: Option<&Expr>) -> Expr {
     if let Some(f) = form {
         let ok = match f {
             LogicForm::Cnf => is_cnf(e),
@@ -519,51 +528,70 @@ pub fn simplify_logic(e: &Expr, form: Option<LogicForm>, _deep: bool, force: boo
             return e.clone();
         }
     }
-    if as_logic(e).is_none() {
-        return e.clone();
+    let e = if deep {
+        let changes = atoms(e).into_iter()
+            .filter(|r| matches!(r.kind(), Kind::Rel(..)))
+            .map(|r| { let simplified = crate::simplify::simplify(&r); (r, simplified) })
+            .collect();
+        crate::subs::xreplace(e, &changes)
+    } else { e.clone() };
+    if as_logic(&e).is_none() {
+        return e;
     }
-    // relationals become variables (their negations negated variables)
+    // Relationals and their complements must share one propositional atom,
+    // including when the complementary predicate occurs only in dontcare.
+    let mut all_atoms = atoms(&e);
+    if let Some(dc) = dontcare {
+        all_atoms.extend(atoms(dc));
+        super::ordered(&mut all_atoms);
+        all_atoms.dedup();
+    }
     let mut repl: FxHashMap<Expr, Expr> = FxHashMap::default();
     let mut undo: FxHashMap<Expr, Expr> = FxHashMap::default();
-    let rels: Vec<Expr> = atoms(e).into_iter().filter(|a| matches!(a.kind(), Kind::Rel(..))).collect();
-    if !rels.is_empty() {
-        let mut k = 0;
-        for r in &rels {
-            if repl.contains_key(r) {
-                continue;
-            }
-            let d = loop {
-                let candidate = Expr::symbol(&format!("_logic_{k}"));
-                k += 1;
-                if !crate::traverse::has(e, &candidate) { break candidate; }
-            };
-            undo.insert(d.clone(), r.clone());
-            repl.insert(r.clone(), d.clone());
-            let nr = super::negated_rel(r);
-            if rels.contains(&nr) && !repl.contains_key(&nr) {
-                repl.insert(nr, not(&d));
-            }
+    let rels: Vec<Expr> = all_atoms.into_iter().filter(|a| matches!(a.kind(), Kind::Rel(..))).collect();
+    let mut k = 0;
+    for r in &rels {
+        if repl.contains_key(r) { continue; }
+        let d = loop {
+            let candidate = Expr::symbol(&format!("_logic_{k}"));
+            k += 1;
+            if !crate::traverse::has(&e, &candidate)
+                && dontcare.is_none_or(|dc| !crate::traverse::has(dc, &candidate)) { break candidate; }
+        };
+        undo.insert(d.clone(), r.clone());
+        repl.insert(r.clone(), d.clone());
+        let nr = super::negated_rel(r);
+        if rels.contains(&nr) && !repl.contains_key(&nr) {
+            repl.insert(nr, not(&d));
         }
     }
-    let ex = if repl.is_empty() { e.clone() } else { crate::subs::xreplace(e, &repl) };
-    let vars = atoms(&ex);
-    if !force && vars.len() > 8 {
-        return e.clone();
+    let ex = crate::subs::xreplace(&e, &repl);
+    let mut vars = atoms(&ex);
+    if !force && vars.len() > 8 { return e; }
+    let mut dc = dontcare.map(|dc| crate::subs::xreplace(dc, &repl));
+    if let Some(d) = &dc {
+        let mut combined = vars.clone();
+        combined.extend(atoms(d));
+        super::ordered(&mut combined);
+        combined.dedup();
+        if !force && combined.len() > 8 {
+            dc = None;
+        } else {
+            vars = combined;
+        }
     }
-    let Some(tt) = table_of(&ex, &vars) else { return e.clone() };
+    let Some(tt) = table_of(&ex, &vars) else { return e };
+    let dct = dc.as_ref().and_then(|d| table_of(d, &vars));
+    let dcrows = dct.as_ref().map(Table::ones).unwrap_or_default();
+    let ones: Vec<u32> = tt.ones().into_iter().filter(|&r| dct.as_ref().is_none_or(|d| !d.get(r as usize))).collect();
     let n = vars.len();
-    let ones = tt.ones();
     let big = ones.len() >= (1usize << n) / 2 && n > 0 || (n == 0 && !ones.is_empty());
     let r = if form == Some(LogicForm::Dnf) || (form.is_none() && big) {
-        sop_form(&vars, &ones, &[])
+        sop_form(&vars, &ones, &dcrows)
     } else {
-        pos_form(&vars, &ones, &[])
+        pos_form(&vars, &ones, &dcrows)
     };
-    if undo.is_empty() {
-        r
-    } else {
-        crate::subs::xreplace(&r, &undo)
-    }
+    crate::subs::xreplace(&r, &undo)
 }
 
 /// Rows of the truth table of `e` over `vars` (first variable most
@@ -584,4 +612,50 @@ pub fn truth_table(e: &Expr, vars: &[Expr]) -> Vec<(Vec<bool>, Expr)> {
         out.push((row, crate::subs::xreplace(e, &map)));
     }
     out
+}
+
+#[cfg(test)]
+mod care_tests {
+    use super::*;
+    use crate::logic::{eval_bool, ite};
+
+    #[test]
+    fn care_set_has_priority_and_extra_variables() {
+        let (x,y,z) = (Expr::symbol("x"), Expr::symbol("y"), Expr::symbol("z"));
+        let e = or(vec![x.clone(), y.clone()]);
+        assert_eq!(simplify_logic_dontcare(&e, None, true, false, Some(&y)), x);
+        let dc = or(vec![x.clone(),z.clone()]);
+        assert_eq!(simplify_logic_dontcare(&e, None, true, false, Some(&dc)), y);
+        let e = ite(&x, &y, &z);
+        let dc = and(vec![not(&x),y.clone()]);
+        for form in [None, Some(LogicForm::Cnf), Some(LogicForm::Dnf)] {
+            let result = simplify_logic_dontcare(&e, form, true, false, Some(&dc));
+            for row in 0..8 {
+                let val = |v: &Expr| [x.clone(),y.clone(),z.clone()].iter().position(|x|x==v).map(|i| row & (1 << i) != 0);
+                if eval_bool(&dc,&val)==Some(false) { assert_eq!(eval_bool(&e,&val),eval_bool(&result,&val)); }
+            }
+        }
+    }
+
+    #[test]
+    fn all_two_variable_functions_and_care_sets() {
+        let vars = [Expr::symbol("a"), Expr::symbol("b")];
+        for on in 0u32..16 {
+            let rows: Vec<u32> = (0..4).filter(|r| on & (1 << r) != 0).collect();
+            let e = sop_form(&vars, &rows, &[]);
+            for dc_bits in 0u32..16 {
+                let dcrows: Vec<u32> = (0..4).filter(|r| dc_bits & (1 << r) != 0).collect();
+                let dc = sop_form(&vars, &dcrows, &[]);
+                for form in [None, Some(LogicForm::Cnf), Some(LogicForm::Dnf)] {
+                    let result = simplify_logic_dontcare(&e, form, true, false, Some(&dc));
+                    let table = table_of(&result, &vars).unwrap();
+                    for row in 0..4 {
+                        if dc_bits & (1 << row) == 0 {
+                            assert_eq!(table.get(row), on & (1 << row) != 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

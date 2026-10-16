@@ -832,11 +832,17 @@ impl PyMatrix {
     ) -> PyResult<PyMatrix> {
         reject_callback("iszerofunc", iszerofunc)?;
         let _ = try_block_diag;
+        if !self.m.is_square() {
+            return Err(err(py, MatrixError::NonSquare("A Matrix must be square to invert.".into())));
+        }
         let r = match method.map(|s| s.to_uppercase()) {
             None => self.m.inv(),
             Some(s) if s == "GE" => self.m.inverse_ge(),
             Some(s) if s == "LU" => self.m.inverse_lu(),
             Some(s) if s == "ADJ" => self.m.inverse_adj(),
+            Some(s) if s == "CH" => self.m.cholesky_solve(&Matrix::eye(self.m.rows())),
+            Some(s) if s == "LDL" => self.m.ldl_solve(&Matrix::eye(self.m.rows())),
+            Some(s) if s == "QR" => self.m.qr_solve(&Matrix::eye(self.m.rows())),
             Some(s) if s == "DM" || s == "DMNC" => self.m.inv(),
             Some(s) => return Err(PyValueError::new_err(format!("Inversion method unrecognized: {s}"))),
         };
@@ -853,6 +859,21 @@ impl PyMatrix {
 
     fn inverse_ADJ(&self, py: Python<'_>) -> PyResult<PyMatrix> {
         Ok(self.wrapped(self.m.inverse_adj().py(py)?))
+    }
+
+    #[pyo3(signature = (iszerofunc=None))]
+    fn inverse_CH(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        self.inv(py, Some("CH"), iszerofunc, false)
+    }
+
+    #[pyo3(signature = (iszerofunc=None))]
+    fn inverse_LDL(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        self.inv(py, Some("LDL"), iszerofunc, false)
+    }
+
+    #[pyo3(signature = (iszerofunc=None))]
+    fn inverse_QR(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        self.inv(py, Some("QR"), iszerofunc, false)
     }
 
     #[pyo3(signature = (method="berkowitz"))]
@@ -979,12 +1000,91 @@ impl PyMatrix {
         Ok(self.wrapped(self.m.lu_solve(&to_matrix(rhs)?).py(py)?))
     }
 
+    #[pyo3(signature = (iszerofunc=None, simplify=false))]
+    fn rank_decomposition<'py>(&self, py: Python<'py>, iszerofunc: Option<&Bound<'_, PyAny>>, simplify: bool) -> PyResult<Bound<'py, PyTuple>> {
+        reject_callback("iszerofunc", iszerofunc)?;
+        let _ = simplify;
+        let (c, f) = self.m.rank_decomposition().py(py)?;
+        PyTuple::new(py, [self.wrapped(c), self.wrapped(f)])
+    }
+
+    #[pyo3(signature = (method="RD"))]
+    fn pinv(&self, py: Python<'_>, method: &str) -> PyResult<PyMatrix> {
+        if method != "RD" {
+            return Err(if method == "ED" {
+                PyNotImplementedError::new_err("pseudoinverse method ED is not implemented; use RD")
+            } else {
+                PyValueError::new_err(format!("invalid pinv method {method}"))
+            });
+        }
+        Ok(self.wrapped(self.m.pinv().py(py)?))
+    }
+
+    #[pyo3(signature = (B, arbitrary_matrix=None))]
+    fn pinv_solve(&self, py: Python<'_>, B: &Bound<'_, PyAny>, arbitrary_matrix: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        let b = to_matrix(B)?;
+        let arbitrary = arbitrary_matrix.filter(|w| !w.is_none()).map(to_matrix).transpose()?;
+        Ok(self.wrapped(self.m.pinv_solve(&b, arbitrary.as_ref()).py(py)?))
+    }
+
+    fn lower_triangular_solve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.lower_triangular_solve(&to_matrix(rhs)?).py(py)?))
+    }
+
+    fn upper_triangular_solve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.upper_triangular_solve(&to_matrix(rhs)?).py(py)?))
+    }
+
+    fn diagonal_solve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.diagonal_solve(&to_matrix(rhs)?).py(py)?))
+    }
+
+    fn QRsolve(&self, py: Python<'_>, b: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.qr_solve(&to_matrix(b)?).py(py)?))
+    }
+
+    fn cholesky_solve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.cholesky_solve(&to_matrix(rhs)?).py(py)?))
+    }
+
+    fn LDLsolve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.ldl_solve(&to_matrix(rhs)?).py(py)?))
+    }
+
+    #[pyo3(signature = (rhs, method="CH"))]
+    fn solve_least_squares(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>, method: &str) -> PyResult<PyMatrix> {
+        let b = to_matrix(rhs)?;
+        let result = match method.to_uppercase().as_str() {
+            "CH" => self.m.cholesky_solve(&b),
+            "LDL" => self.m.ldl_solve(&b),
+            "QR" => self.m.qr_solve(&b),
+            "PINV" => self.m.pinv_solve(&b, None),
+            "GJ" | "GE" | "LU" | "ADJ" | "DM" | "DMNC" => {
+                let h = self.m.adjoint();
+                let normal = h.matmul(&self.m).py(py)?;
+                let rhs = h.matmul(&b).py(py)?;
+                match method.to_uppercase().as_str() {
+                    "LU" => normal.lu_solve(&rhs),
+                    "ADJ" => normal.inverse_adj().and_then(|i| i.matmul(&rhs)),
+                    "DM" | "DMNC" => normal.inv().and_then(|i| i.matmul(&rhs)),
+                    _ => normal.solve(&rhs),
+                }
+            }
+            _ => return Err(PyNotImplementedError::new_err(format!("matrix least-squares method {method} is not implemented"))),
+        };
+        Ok(self.wrapped(result.py(py)?))
+    }
+
     #[pyo3(signature = (rhs, method="GJ"))]
     fn solve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>, method: &str) -> PyResult<PyMatrix> {
         let b = to_matrix(rhs)?;
         let r = match method.to_uppercase().as_str() {
             "GJ" | "GE" => self.m.solve(&b),
             "LU" => self.m.lu_solve(&b),
+            "CH" => self.m.cholesky_solve(&b),
+            "LDL" => self.m.ldl_solve(&b),
+            "QR" => self.m.qr_solve(&b),
+            "PINV" => self.m.pinv_solve(&b, None),
             "ADJ" => self.m.inverse_adj().and_then(|i| i.matmul(&b)),
             "DM" | "DMNC" => self.m.inv().and_then(|i| i.matmul(&b)),
             _ => return Err(PyNotImplementedError::new_err(format!("matrix solve method {method} is not implemented"))),

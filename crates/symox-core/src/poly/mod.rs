@@ -32,3 +32,4 @@ pub mod resultant;
 pub mod roots;
 pub mod modgcd;
 pub mod ratfunc;
+pub mod groebner;

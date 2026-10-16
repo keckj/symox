@@ -48,7 +48,8 @@ Implemented:
 * Python bindings (PyO3, abi3 wheels for CPython >= 3.9), conversion to and
   from SymPy objects
 * polynomials over integer, rational and finite-field domains: `Poly`,
-  factorization, GCD, cancellation, partial fractions, roots and division
+  factorization, GCD, cancellation, partial fractions, roots, division and
+  reduced Gröbner bases
 * symbolic assumptions, simplification, integration, summation, equation and
   ODE solving, series and limits
 * mutable and immutable symbolic matrices, exact linear algebra and supported
@@ -103,13 +104,17 @@ python benches/bench_vs_sympy.py
 
 ## Code generation targets
 
-The same expression tree can feed several execution paths. In particular,
-CUDA is reachable through native CUDA source, PyTorch, JAX, Slang or SYCL:
+**symox aims to be the most complete symbolic engine for code generation across
+heterogeneous targets.** One symbolic model feeds native code and array frameworks
+across CPUs and GPUs. CUDA alone is reachable through native CUDA source compiled
+with nvcc or NVRTC, PyTorch, JAX, Slang and SYCL:
 
 ```mermaid
 flowchart LR
     E["symox expressions + CSE"] --> N["Native CUDA source"]
-    N --> NV["nvcc / CUDA toolchain"] -.-> CU["NVIDIA GPU / CUDA"]
+    N --> NV["nvcc / ahead-of-time compilation"] -.-> CU["NVIDIA GPU / CUDA"]
+    N -.-> RTC["NVRTC / runtime compilation"]
+    RTC --> CU
 
     E --> P["PyTorch operations"]
     P --> PT["PyTorch / optional torch.compile"]
@@ -123,7 +128,7 @@ flowchart LR
 
     E --> S["Slang source"]
     S --> SC["Slang compiler / optional SlangPy"]
-    SC --> CU
+    SC --> RTC
     SC --> V["Vulkan / SPIR-V"]
     SC -.-> M["Metal / Apple GPU"]
     SC -.-> D["Direct3D / Windows GPU"]
@@ -149,6 +154,9 @@ Dotted edges show external toolchain routes not
 validated here; they are not guarantees of feature or precision parity.
 JAX is tested on CPU here; its CUDA route requires a suitable JAX installation.
 Native source exports need their corresponding compiler and host integration.
+Native CUDA source can be compiled ahead of time with nvcc or at runtime with
+NVRTC. The latter is also used by the SlangPy CUDA execution path; symox's raw
+CUDA source exports leave NVRTC invocation and kernel launch to the caller.
 SlangPy's CPU dispatch is not enabled by our adapter. AdaptiveCpp's tested
 configuration is the CPU OpenMP backend; GPU execution needs a compiler/runtime
 installation with those backends enabled. The diagram does not imply that
@@ -374,6 +382,33 @@ SYMOX_ACPP=/path/to/acpp SYMOX_ACPP_TARGETS=omp python -m pytest tests/test_sycl
 See AdaptiveCpp's [compilation model](https://adaptivecpp.github.io/AdaptiveCpp/compilation/)
 and [installation instructions](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md).
 
+## Polynomial ideals and linear systems
+
+`groebner` computes reduced Gröbner bases with a native Buchberger algorithm
+over `QQ`, `ZZ` and prime finite fields. It supports deterministic `lex`,
+`grlex` and `grevlex` orders:
+
+```python
+import symox as sm
+
+x, y = sm.symbols("x y")
+g = sm.groebner([x*y - 1, y**2 - 1], x, y)
+g.reduce(x**2 - 1)               # quotients and remainder
+g.contains(x**2 - 1)             # True
+```
+
+Bases support iteration, indexing, `exprs`, `polys`, `gens`, `domain`,
+`order` and `is_zero_dimensional`. F5B, FGLM and coefficient extensions
+are not implemented.
+
+`linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
+equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
+pair. Underdetermined solutions retain free variables or receive generated
+parameters when none are supplied. `solve_linear_system` provides the
+dictionary interface. Nonlinear terms raise `NonlinearError`. Symbolic row
+reduction uses generic nonzero pivots; it does not enumerate exceptional
+parameter values.
+
 ## Symbolic matrices
 
 `Matrix` provides mutable dense matrices; `ImmutableMatrix` and
@@ -383,6 +418,13 @@ blocks. Arithmetic, slicing, entry transformations, symbolic derivatives,
 Jacobian/Hessian construction, exact determinant/inverse, row reduction,
 linear solves, characteristic polynomials and supported eigenproblems run
 in Rust. Cholesky, LDL, QR and diagonalization are also available.
+
+`rank_decomposition`, `pinv(method="RD")`, `pinv_solve`, triangular solves,
+`QRsolve`, `cholesky_solve`, `LDLsolve` and `solve_least_squares` use exact
+native algorithms. Complex matrix solves use Hermitian conjugation.
+`inv` also accepts `CH`, `LDL` and `QR` methods. Pseudoinversion by `ED` is
+not implemented; QR solves require full column rank. Methods requiring a
+property that cannot be established symbolically raise an explicit error.
 
 ```python
 from symox import Matrix, ImmutableMatrix, symbols
@@ -416,7 +458,8 @@ python -m pytest tests/test_matrix_compat.py tests/compare_matrices.py
 
 ## Symbolic code generation compatibility
 
-For the scalar polynomial API used by TriSplyne, replace imports consistently:
+For SymPy-compatible scalar polynomial code generation, replace imports
+consistently:
 
 ```python
 import symox as sm
@@ -437,8 +480,9 @@ Python sets.
 grouping for Horner code generation. `subs` supports algebraic sum and product
 patterns; `xreplace` performs exact replacement. `reduced(f, divisors, *gens)`
 returns polynomial quotients and a remainder, with deterministic generator
-ordering when generators are inferred. Reduction currently supports `order="lex"`;
-explicit `domain`/`modulus`, `polys=True`, and `auto=False` raise
+ordering when generators are inferred. Numeric coefficient domains support
+`lex`, `grlex` and `grevlex`; symbolic coefficient fields support `lex`.
+Explicit `domain`/`modulus`, `polys=True`, and `auto=False` raise
 `NotImplementedError`.
 
 The extensible Python `CXX17CodePrinter` supports `_print_<Class>` overrides,
@@ -446,13 +490,6 @@ The extensible Python `CXX17CodePrinter` supports `_print_<Class>` overrides,
 Rust printer. `StrPrinter` and `PrettyPrinter` are available for debug output.
 This compatibility surface targets scalar polynomial workflows; it is not a
 replacement for every SymPy module.
-
-Consumer integration tests load the real TriSplyne modules with each backend
-and compare generated text. They need a sibling checkout or an explicit path:
-
-```bash
-TRISPLYNE_PATH=/path/to/trisplyne python -m pytest tests/test_trisplyne_integration.py
-```
 
 ## Boolean logic and sets
 
@@ -467,8 +504,13 @@ Periodic solutions exclude denominator poles.
 The SAT solver uses propositional atoms. `use_lra_theory=True`, `minimal=True`
 and external solver selections raise `NotImplementedError`. Dense truth-table
 operations support at most 20 variables; ordinary SAT solving has no such
-limit. `simplify_logic(..., dontcare=...)` is not yet supported (the separate
-`SOPform` and `POSform` functions accept don't-care rows). Inequality solving
+limit. `simplify_logic(..., dontcare=...)` minimizes over the care set using
+atoms from both expressions; `SOPform` and `POSform` also accept don't-care
+rows. `to_anf`, `is_anf`, `ANFform` and `anf_coeffs` support algebraic normal
+forms over GF(2). Sparse ANF conversion has no variable-count cap; dense
+truth-table conversion has the same 20-variable limit. ANF constants survive
+pickling and SymPy conversion. Deep conversion also expands `ITE` into ANF,
+where SymPy 1.14 may leave it unchanged. Inequality solving
 supports one variable. Other unresolved membership queries remain symbolic.
 
 ## Differential fuzzing

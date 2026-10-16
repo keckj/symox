@@ -19,6 +19,7 @@ use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
 mod matrices;
+mod linear_solvers;
 mod printing;
 
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
@@ -122,7 +123,11 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         }
         if !matches!(head.as_str(), "Piecewise" | "Order") && (Func::from_name(&head).is_some() || obj.getattr("is_Function").is_ok_and(|v| v.is_truthy().unwrap_or(false))) {
             let args = obj.getattr("args")?;
-            let v = args.try_iter()?.map(|a| to_expr(&a?)).collect::<PyResult<Vec<_>>>()?;
+            let mut v = args.try_iter()?.map(|a| to_expr(&a?)).collect::<PyResult<Vec<_>>>()?;
+            if head == "Xor" && v.iter().any(|value| matches!(value.kind(), Kind::Bool(true))) {
+                symox::logic::ordered(&mut v);
+                return Ok(Expr::from_kind(Kind::Func(Func::Logic(symox::logic::LogicOp::Xor), v)));
+            }
             return Ok(fx::func(Func::from_name(&head).unwrap_or_else(|| Func::Undefined(head.into())), v));
         }
         let srepr = py.import("sympy")?.getattr("srepr")?.call1((obj,))?;
@@ -168,6 +173,11 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             sm.getattr("Function")?.call1((name.as_ref(),))?.call1(convert_args(args)?)
         }
         Kind::Func(Func::Order, _) => sm.getattr("sympify")?.call1((printer::srepr(e),)),
+        Kind::Func(Func::Logic(symox::logic::LogicOp::Xor), args) => {
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("remove_true", false)?;
+            sm.getattr("Xor")?.call(convert_args(args)?, Some(&kwargs))
+        }
         Kind::Func(Func::Set(op), args) if op.is_named() && args.is_empty() => sm.getattr(op.name()),
         Kind::Func(f, args) => sm.getattr(f.name())?.call1(convert_args(args)?),
         Kind::Rel(..) => sm.getattr(e.class_name())?.call1(convert_args(&e.args())?),
@@ -530,6 +540,11 @@ impl PyExpr {
         // Keep the native coefficient payload and powers verbatim. Public
         // args omit zero constants, and reevaluation can normalize a second
         // time, so neither args nor srepr can represent this losslessly.
+        if let Kind::Func(Func::Logic(op), children) = self.e.kind() {
+            let restore = py.import("symox._core")?.getattr("_restore_logic")?;
+            let values: Vec<_> = children.iter().cloned().map(wrap).collect();
+            return Ok((restore, (op.name(), values).into_pyobject(py)?));
+        }
         let payload = match self.e.kind() {
             Kind::Add(c, terms) => Some((c.clone(), terms.iter().map(|(term, coefficient)|
                 (wrap(term.clone()), wrap(Expr::num(coefficient.clone())))).collect::<Vec<_>>())),
@@ -1304,6 +1319,13 @@ fn _restore_arithmetic(name: &str, coefficient: &Bound<'_, PyAny>, children: Vec
 }
 
 #[pyfunction]
+fn _restore_logic(name: &str, children: Vec<PyExpr>) -> PyResult<PyExpr> {
+    let op = symox::logic::LogicOp::from_name(name)
+        .ok_or_else(|| PyValueError::new_err("Invalid Boolean connective"))?;
+    Ok(wrap(Expr::from_kind(Kind::Func(Func::Logic(op), children.into_iter().map(|child| child.e).collect()))))
+}
+
+#[pyfunction]
 #[pyo3(name = "_default_sort_key")]
 fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     fn convert(py: Python<'_>, key: symox::sortkey::Key) -> PyResult<PyObject> {
@@ -1773,6 +1795,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
     m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;
+    m.add_function(wrap_pyfunction!(_restore_logic, m)?)?;
     m.add_function(wrap_pyfunction!(py_default_sort_key, m)?)?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;
@@ -1802,6 +1825,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
     matrices::register(m)?;
+    linear_solvers::register(m)?;
     poly::register(m)?;
     ntheory::register(m)?;
     simp::register(m)?;

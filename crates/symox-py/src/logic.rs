@@ -3,6 +3,7 @@
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
+use num_bigint::BigInt;
 
 use symox::expr::{Expr, Kind};
 use symox::logic::{self as lg, LogicForm};
@@ -245,12 +246,59 @@ fn simplify_logic(
     dontcare: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyExpr> {
     let e = to_expr(expr)?;
-    if force { check_table_size(lg::atoms(&e).len())?; }
     let form = parse_form(form)?;
-    if dontcare.is_some_and(|d| !d.is_none()) {
-        return Err(PyNotImplementedError::new_err("dontcare is not supported"));
+    let dc = dontcare.filter(|d| !d.is_none()).map(to_expr).transpose()?;
+    if force {
+        let mut vars = lg::atoms(&e);
+        if let Some(d) = &dc { vars.extend(lg::atoms(d)); }
+        lg::ordered(&mut vars);
+        vars.dedup();
+        check_table_size(vars.len())?;
     }
-    Ok(wrap(lg::simplify_logic(&e, form, deep, force)))
+    Ok(wrap(lg::simplify_logic_dontcare(&e, form, deep, force, dc.as_ref())))
+}
+
+#[pyfunction]
+#[pyo3(signature = (expr, deep = true))]
+fn to_anf(expr: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
+    Ok(wrap(lg::to_anf(&to_expr(expr)?, deep)))
+}
+
+#[pyfunction]
+fn is_anf(expr: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(lg::is_anf(&to_expr(expr)?))
+}
+
+fn truthvalues(o: &Bound<'_, PyAny>) -> PyResult<Vec<BigInt>> {
+    // Accept bools and arbitrary exact integers, as SymPy's bitwise XOR
+    // transform does; a float is not an integer truth-table entry.
+    o.try_iter()?.map(|v| v?.extract::<BigInt>()).collect()
+}
+
+#[pyfunction]
+fn anf_coeffs(truthvalues: &Bound<'_, PyAny>) -> PyResult<Vec<BigInt>> {
+    let values = self::truthvalues(truthvalues)?;
+    if !values.len().is_power_of_two() {
+        return Err(PyValueError::new_err(format!("The number of truth values must be a power of two, got {}", values.len())));
+    }
+    check_table_size(values.len().trailing_zeros() as usize)?;
+    Ok(lg::anf_coeffs(&values))
+}
+
+#[pyfunction]
+#[pyo3(name = "ANFform")]
+fn anf_form(variables: &Bound<'_, PyAny>, truthvalues: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    let vars = expr_seq(variables)?;
+    check_table_size(vars.len())?;
+    let values = self::truthvalues(truthvalues)?;
+    if values.len() != 1usize << vars.len() {
+        return Err(PyValueError::new_err(format!("The number of truth values must be equal to 2^{}, got {}", vars.len(), values.len())));
+    }
+    for v in &vars {
+        if !lg::is_boolean(v) { return Err(PyTypeError::new_err("ANF variables must be Boolean expressions")); }
+    }
+    let coefficients: Vec<bool> = lg::anf_coeffs(&values).into_iter().map(|c| c == BigInt::from(1)).collect();
+    Ok(wrap(lg::anf_from_coeffs(&vars, &coefficients)))
 }
 
 fn model_dict<'py>(py: Python<'py>, m: &lg::Model) -> PyResult<Bound<'py, PyDict>> {
@@ -639,6 +687,10 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         wrap_pyfunction!(to_cnf, m)?,
         wrap_pyfunction!(to_dnf, m)?,
         wrap_pyfunction!(to_nnf, m)?,
+        wrap_pyfunction!(to_anf, m)?,
+        wrap_pyfunction!(is_anf, m)?,
+        wrap_pyfunction!(anf_form, m)?,
+        wrap_pyfunction!(anf_coeffs, m)?,
         wrap_pyfunction!(eliminate_implications, m)?,
         wrap_pyfunction!(distribute_and_over_or, m)?,
         wrap_pyfunction!(distribute_or_over_and, m)?,
