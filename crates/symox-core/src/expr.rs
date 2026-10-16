@@ -103,6 +103,10 @@ pub enum Func {
     /// [`crate::series::order::order`], absorbing rules live in `ops`.
     Order,
     Undefined(Arc<str>),
+    /// Boolean connectives (`And`, `Or`, `Not`, ...), see [`crate::logic`].
+    Logic(crate::logic::LogicOp),
+    /// Sets (`Interval`, `FiniteSet`, `Union`, ...), see [`crate::sets`].
+    Set(crate::sets::SetOp),
 }
 
 impl Func {
@@ -147,6 +151,8 @@ impl Func {
             Func::Special(s) => s.name(),
             Func::Order => "Order",
             Func::Undefined(n) => n,
+            Func::Logic(op) => op.name(),
+            Func::Set(op) => op.name(),
         }
     }
 
@@ -190,7 +196,12 @@ impl Func {
             "Max" => Func::Max,
             "Min" => Func::Min,
             "Order" => Func::Order,
-            _ => return crate::special::SpecialFn::from_name(name).map(Func::Special),
+            _ => {
+                return crate::logic::LogicOp::from_name(name)
+                    .map(Func::Logic)
+                    .or_else(|| crate::sets::SetOp::from_name(name).map(Func::Set))
+                    .or_else(|| crate::special::SpecialFn::from_name(name).map(Func::Special))
+            }
         })
     }
 
@@ -198,7 +209,7 @@ impl Func {
     pub fn arity(&self) -> Option<usize> {
         match self {
             Func::Atan2 => Some(2),
-            Func::Max | Func::Min | Func::Order | Func::Undefined(_) => None,
+            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
         }
@@ -637,6 +648,9 @@ impl Expr {
                 }
             }
             Kind::Num(Number::Float(_)) => "Float",
+            // SymPy's `Dummy` symbols print as `_name`; symox represents them
+            // as symbols whose name starts with an underscore.
+            Kind::Sym(s) if s.name().starts_with('_') && !s.is_wild() => "Dummy",
             Kind::Sym(_) => "Symbol",
             Kind::Const(c) => match c {
                 Constant::Pi => "Pi",

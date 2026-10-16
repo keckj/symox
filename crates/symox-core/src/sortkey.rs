@@ -87,6 +87,7 @@ fn class_key(e: &Expr) -> Key {
         Kind::Pow(..) => (3, 2, "Pow".into()),
         Kind::Mul(..) => (3, 0, "Mul".into()),
         Kind::Add(..) => (3, 1, "Add".into()),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_)), _) => (5, 0, f.name().into()),
         Kind::Func(f, _) => {
             let i = match f {
                 Func::Exp => 10,

@@ -100,6 +100,10 @@ class _SingletonRegistry:
         return _core.sympify(value)
 
     def __getattr__(self, name):
+        if name in ("EmptySet", "UniversalSet", "Reals", "Integers", "Naturals",
+                    "Naturals0", "Complexes", "Rationals"):
+            from . import __dict__ as namespace
+            return namespace[name]
         names = {
             "Pi": "pi", "Exp1": "E", "ImaginaryUnit": "I",
             "Infinity": "oo", "ComplexInfinity": "zoo", "NaN": "nan",

@@ -67,7 +67,7 @@ fn paren(e: &Expr, p: u8, strict: bool, out: &mut String) {
     }
 }
 
-fn write_expr(e: &Expr, out: &mut String) {
+pub(crate) fn write_expr(e: &Expr, out: &mut String) {
     match e.kind() {
         Kind::Num(n) => out.push_str(&n.to_string()),
         Kind::Sym(s) => {
@@ -97,6 +97,8 @@ fn write_expr(e: &Expr, out: &mut String) {
             }
             out.push(')');
         }
+        Kind::Func(Func::Logic(op), args) => crate::logic::write_logic(*op, args, out),
+        Kind::Func(Func::Set(op), args) => crate::sets::write_set(*op, args, out),
         Kind::Func(Func::Order, args) => out.push_str(&crate::series::print::order_str(args)),
         Kind::Func(f, args) => {
             out.push_str(f.name());
@@ -353,6 +355,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
+        Kind::Func(Func::Set(op), args) if args.is_empty() => out.push_str(op.name()),
         Kind::Func(Func::Order, args) => {
             out.push_str("Order(");
             write_srepr(&args[0], out);

@@ -10,8 +10,11 @@ use crate::ops::{
 
 /// Apply function `f` to `args`, performing automatic simplifications.
 pub fn func(f: Func, args: Vec<Expr>) -> Expr {
-    if f == Func::Order {
-        return crate::series::order::order_from_args(&args);
+    match f {
+        Func::Logic(op) => return crate::logic::eval(op, args),
+        Func::Set(op) => return crate::sets::eval(op, args),
+        Func::Order => return crate::series::order::order_from_args(&args),
+        _ => {}
     }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
@@ -97,7 +100,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Order | Func::Undefined(_) => None,
+        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
     };
     match r {
         Some(v) => v,
@@ -124,6 +127,7 @@ pub fn is_numeric_value(e: &Expr) -> bool {
         Kind::Sym(_) | Kind::Derivative(..) | Kind::Rel(..) | Kind::Piecewise(_) | Kind::Bool(_) => {
             false
         }
+        Kind::Func(Func::Logic(_) | Func::Set(_), _) => false,
         Kind::Func(Func::Undefined(n), a) => &**n == "Tuple" && a.iter().all(is_numeric_value),
         _ => e.args().iter().all(is_numeric_value),
     }

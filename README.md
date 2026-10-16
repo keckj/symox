@@ -167,6 +167,23 @@ and compare generated text. They need a sibling checkout or an explicit path:
 TRISPLYNE_PATH=/path/to/trisplyne python -m pytest tests/test_trisplyne_integration.py
 ```
 
+## Boolean logic and sets
+
+`And`, `Or`, `Not`, `Xor`, `Implies`, `Equivalent`, `ITE`, CNF/DNF/NNF
+conversion, `SOPform`, `POSform`, `simplify_logic`, truth tables and a native
+SAT solver are available. Set operations include intervals, finite sets,
+unions, intersections, complements, products, image sets, condition sets,
+ranges and the standard named sets through `S`. `solveset` handles polynomial
+and supported periodic equations; unresolved equations remain `ConditionSet`s.
+Periodic solutions exclude denominator poles.
+
+The SAT solver uses propositional atoms. `use_lra_theory=True`, `minimal=True`
+and external solver selections raise `NotImplementedError`. Dense truth-table
+operations support at most 20 variables; ordinary SAT solving has no such
+limit. `simplify_logic(..., dontcare=...)` is not yet supported (the separate
+`SOPform` and `POSform` functions accept don't-care rows). Inequality solving
+supports one variable. Other unresolved membership queries remain symbolic.
+
 ## Differential fuzzing
 
 The fuzzer builds the same seeded expression trees through both APIs. Each
