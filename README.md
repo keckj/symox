@@ -53,6 +53,21 @@ Planned next: polynomials (`Poly`, `gcd`, `factor`, `cancel`, `apart`),
 printing, code generation (C/CUDA), arbitrary precision `evalf`,
 assumptions.
 
+Special functions include combinatorial numbers, gamma/zeta families, error
+and exponential integrals, Bessel/Airy functions, elliptic integrals, Lambert W,
+hypergeometric functions and orthogonal polynomials, with symbolic evaluation,
+derivatives and double precision real/complex numerics. `expand_func`,
+`besselsimp`, `hyperexpand`, Stirling numbers and multinomial coefficients are
+also available. Unsupported symbolic cases remain unevaluated.
+
+`special_nstr(expr, dps)` returns an arbitrary precision decimal string for
+numeric expressions supported by the multiprecision evaluator, including
+factorial, binomial, rising/falling factorials, beta, Catalan, Fibonacci and
+Lucas via exact gamma/elementary identities. Other special function families
+return `None` when multiprecision evaluation is unsupported; no double
+precision fallback is presented as extra significant digits. The regular
+`N`/`evalf` expression API still uses double precision.
+
 ## Compatibility with SymPy
 
 `tests/compare_sympy.py` runs every case through SymPy and symox and

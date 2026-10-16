@@ -48,8 +48,9 @@ def consumers():
             ):
                 path = source_root.joinpath(*relative.split(".")).with_suffix(".py")
                 source = path.read_text().replace("trisplyne.", prefix + ".")
-                source = source.replace("import sympy as sm", "import " + backend.__name__ + " as sm")
-                source = source.replace("from sympy.", "from " + backend.__name__ + ".")
+                for original in ("sympy", "symox"):
+                    source = source.replace("import " + original + " as sm", "import " + backend.__name__ + " as sm")
+                    source = source.replace("from " + original + ".", "from " + backend.__name__ + ".")
                 name = prefix + "." + relative
                 module = types.ModuleType(name)
                 module.__file__ = str(path)

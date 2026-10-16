@@ -7,7 +7,8 @@
 
 use rustc_hash::FxHashMap;
 
-use crate::evalf::{erf_f64, gamma_f64};
+use crate::special::numeric::{erf::{erf_real, erfc_real}, gamma::gamma_real};
+use crate::special::SpecialFn;
 use crate::expr::{Constant, Expr, Func, Kind};
 
 #[derive(Clone, Debug)]
@@ -28,6 +29,8 @@ enum Ins {
     Pow(u32, Exp),
     Call1(fn(f64) -> f64, u32),
     Call2(fn(f64, f64) -> f64, u32, u32),
+    /// special function of any arity (real arguments and result)
+    CallS(SpecialFn, Vec<u32>),
     Fold(bool, Vec<u32>), // max (true) / min (false)
     Select(Vec<(u32, u32)>),
     Cmp(crate::expr::RelOp, u32, u32),
@@ -98,10 +101,15 @@ fn f1(f: &Func) -> Option<fn(f64) -> f64> {
         },
         Func::Floor => f64::floor,
         Func::Ceiling => f64::ceil,
-        Func::Gamma => gamma_f64,
-        Func::LogGamma => |x| gamma_f64(x).abs().ln(),
-        Func::Erf => erf_f64,
-        Func::Erfc => |x| 1.0 - erf_f64(x),
+        Func::Gamma => gamma_real,
+        Func::LogGamma => |x| {
+            crate::special::numeric::gamma::loggamma_c(num_complex::Complex64::new(x, 0.0))
+                .filter(|z| z.im == 0.0)
+                .map(|z| z.re)
+                .unwrap_or(f64::NAN)
+        },
+        Func::Erf => erf_real,
+        Func::Erfc => erfc_real,
         Func::Re | Func::Conjugate => |x| x,
         Func::Im => |_| 0.0,
         Func::Arg => |x| if x < 0.0 { std::f64::consts::PI } else { 0.0 },
@@ -192,6 +200,13 @@ impl Builder<'_> {
                     let regs: Result<Vec<u32>, _> = args.iter().map(|a| self.lower(a)).collect();
                     Ins::Fold(matches!(f, Func::Max), regs?)
                 }
+                Func::Special(s) => {
+                    if matches!(s, SpecialFn::Hyper | SpecialFn::Bell) && args.len() == 3 {
+                        return Err(LambdifyError::Unsupported(e.to_string()));
+                    }
+                    let regs: Result<Vec<u32>, _> = args.iter().map(|a| self.lower(a)).collect();
+                    Ins::CallS(*s, regs?)
+                }
                 _ => match f1(f) {
                     Some(g) => {
                         let a = self.lower(&args[0])?;
@@ -267,6 +282,7 @@ impl Compiled {
                 Ins::Pow(r, x) => pow_scalar(regs[*r as usize], x, &regs),
                 Ins::Call1(g, r) => g(regs[*r as usize]),
                 Ins::Call2(g, a, b) => g(regs[*a as usize], regs[*b as usize]),
+                Ins::CallS(s, rs) => call_special(*s, rs.iter().map(|r| regs[*r as usize])),
                 Ins::Fold(is_max, rs) => fold(*is_max, rs.iter().map(|r| regs[*r as usize])),
                 Ins::Cmp(op, a, b) => cmp(*op, regs[*a as usize], regs[*b as usize]),
                 Ins::Select(p) => select(p.iter().map(|(x, c)| (regs[*x as usize], regs[*c as usize]))),
@@ -322,6 +338,11 @@ impl Compiled {
                     Ins::Call2(g, a, b) => {
                         for j in 0..len {
                             dst[j] = g(prev[*a as usize][j], prev[*b as usize][j]);
+                        }
+                    }
+                    Ins::CallS(s, rs) => {
+                        for j in 0..len {
+                            dst[j] = call_special(*s, rs.iter().map(|r| prev[*r as usize][j]));
                         }
                     }
                     Ins::Fold(is_max, rs) => {
@@ -390,6 +411,23 @@ fn mul_pow_into(dst: &mut [f64], src: &[f64], x: &Exp, prev: &[[f64; 256]], len:
                 dst[j] *= src[j].powf(e[j]);
             }
         }
+    }
+}
+
+fn call_special(s: SpecialFn, args: impl Iterator<Item = f64>) -> f64 {
+    let mut buf = [0.0f64; 4];
+    let mut n = 0;
+    for a in args {
+        if n < 4 {
+            buf[n] = a;
+        }
+        n += 1;
+    }
+    match n {
+        1 => crate::special::numeric::real1(s, buf[0]),
+        2 => crate::special::numeric::real2(s, buf[0], buf[1]),
+        3 | 4 => crate::special::numeric::realn(s, &buf[..n]),
+        _ => f64::NAN,
     }
 }
 

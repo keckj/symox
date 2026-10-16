@@ -350,6 +350,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
+        Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
         Kind::Func(Func::Order, args) => {

@@ -27,6 +27,7 @@ mod ntheory;
 mod simp;
 mod ode;
 mod solve;
+mod special;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -1556,6 +1557,13 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
     let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
     match Func::from_name(name) {
         Some(f) => {
+            if let Func::Special(s) = &f {
+                if !s.nargs().contains(&v.len()) {
+                    return Err(PyTypeError::new_err(format!(
+                        "{name} accepts argument counts {:?}, got {}", s.nargs(), v.len()
+                    )));
+                }
+            }
             if let Some(n) = f.arity() {
                 if v.len() != n {
                     return Err(PyTypeError::new_err(format!("{name} takes exactly {n} argument(s)")));
@@ -1789,6 +1797,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     simp::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
+    special::register(m)?;
     series::register(m)?;
     printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

@@ -227,6 +227,18 @@ impl Parser {
         Ok(Val::E(add(&terms)))
     }
 
+    /// An expression, with tuples converted to `Tuple(...)` (for
+    /// `hyper((a,), (b,), z)`).
+    fn tuple_expr(&self, v: Val) -> R<Expr> {
+        match v {
+            Val::Tuple(t) => {
+                let items = t.into_iter().map(|x| self.tuple_expr(x)).collect::<R<Vec<Expr>>>()?;
+                Ok(crate::special::tuple(items))
+            }
+            v => self.as_expr(v),
+        }
+    }
+
     fn as_expr(&self, v: Val) -> R<Expr> {
         match v {
             Val::E(e) => Ok(e),
@@ -566,7 +578,11 @@ impl Parser {
             }
             "expand" => crate::expand::expand(&one(self, args)?),
             _ => {
-                let v = exprs(self, args)?;
+                let v = if matches!(name, "hyper" | "bell") {
+                    args.into_iter().map(|a| self.tuple_expr(a)).collect::<R<Vec<Expr>>>()?
+                } else {
+                    exprs(self, args)?
+                };
                 match Func::from_name(name) {
                     Some(f) => {
                         if let Some(n) = f.arity() {

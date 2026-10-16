@@ -96,6 +96,8 @@ pub enum Func {
     DiracDelta,
     Max,
     Min,
+    /// Special functions (factorial, zeta, Bessel, ...), see [`crate::special`].
+    Special(crate::special::SpecialFn),
     /// Landau order term `O(expr, (x, x0), ...)`; args are
     /// `[expr, x1, p1, x2, p2, ...]`. Built only through
     /// [`crate::series::order::order`], absorbing rules live in `ops`.
@@ -142,6 +144,7 @@ impl Func {
             Func::DiracDelta => "DiracDelta",
             Func::Max => "Max",
             Func::Min => "Min",
+            Func::Special(s) => s.name(),
             Func::Order => "Order",
             Func::Undefined(n) => n,
         }
@@ -187,7 +190,7 @@ impl Func {
             "Max" => Func::Max,
             "Min" => Func::Min,
             "Order" => Func::Order,
-            _ => return None,
+            _ => return crate::special::SpecialFn::from_name(name).map(Func::Special),
         })
     }
 
@@ -196,6 +199,7 @@ impl Func {
         match self {
             Func::Atan2 => Some(2),
             Func::Max | Func::Min | Func::Order | Func::Undefined(_) => None,
+            Func::Special(s) => s.arity(),
             _ => Some(1),
         }
     }

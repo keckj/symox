@@ -133,7 +133,7 @@ pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
     Some(MpComplex { re: r.re.round_to(prec), im: r.im.round_to(prec) })
 }
 
-fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
+pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
     Some(match e.kind() {
         Kind::Num(n) => MpComplex::real(number(n, p)),
         Kind::Const(c) => match c {
@@ -182,6 +182,9 @@ fn pow_of(b: &Expr, x: &Expr, p: u32) -> Option<MpComplex> {
 
 fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
     let wp = p + 10;
+    if let Func::Special(s) = f {
+        return crate::special::mp::eval(*s, args, p);
+    }
     if let Func::Atan2 = f {
         let (y, x) = (ev(&args[0], wp)?, ev(&args[1], wp)?);
         if !(y.is_real() && x.is_real()) {
