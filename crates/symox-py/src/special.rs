@@ -82,6 +82,11 @@ fn nstr(e: &Bound<'_, PyAny>, dps: u32) -> PyResult<Option<String>> {
 #[pyo3(name = "_numeric", signature = (name, *args))]
 fn numeric<'py>(py: Python<'py>, name: &str, args: &Bound<'py, PyTuple>) -> PyResult<Option<Bound<'py, PyComplex>>> {
     let f = SpecialFn::from_name(name).ok_or_else(|| PyValueError::new_err(format!("unknown special function {name}")))?;
+    if !f.nargs().contains(&args.len()) {
+        return Err(PyTypeError::new_err(format!(
+            "{name} accepts argument counts {:?}, got {}", f.nargs(), args.len()
+        )));
+    }
     let mut v = Vec::new();
     for a in args.iter() {
         let c: num_complex::Complex64 = if let Ok(x) = a.extract::<f64>() {
@@ -102,6 +107,9 @@ fn numeric<'py>(py: Python<'py>, name: &str, args: &Bound<'py, PyTuple>) -> PyRe
 #[pyo3(name = "_numeric_many")]
 fn numeric_many(name: &str, xs: Vec<f64>) -> PyResult<Vec<f64>> {
     let f = SpecialFn::from_name(name).ok_or_else(|| PyValueError::new_err(format!("unknown special function {name}")))?;
+    if !f.nargs().contains(&1) {
+        return Err(PyTypeError::new_err(format!("{name} does not accept one argument")));
+    }
     Ok(xs.into_iter().map(|x| symox::special::numeric::real1(f, x)).collect())
 }
 

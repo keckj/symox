@@ -13,11 +13,16 @@ use pyo3::prelude::*;
 use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyList, PySet, PyString, PyTuple};
 use rustc_hash::FxHashMap;
 
+mod series;
+
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
+mod printing;
+
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
+mod poly;
 mod ntheory;
 mod simp;
 mod ode;
@@ -87,8 +92,37 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(hook) = obj.getattr("_symox_") {
         return to_expr(&hook.call0()?);
     }
-    if module.starts_with("sympy") {
+    // Applied undefined SymPy functions can have __module__ = None (or a
+    // user module). Identify their SymPy ancestry without importing SymPy
+    // during ordinary native expression construction.
+    let inherited_sympy = if module.starts_with("sympy") {
+        false
+    } else if let Ok(mro) = ty.getattr("__mro__") {
+        mro.try_iter()?.filter_map(Result::ok).any(|base| {
+            base.getattr("__module__").and_then(|m| m.extract::<String>())
+                .is_ok_and(|module| module.starts_with("sympy"))
+        })
+    } else { false };
+    if module.starts_with("sympy") || inherited_sympy {
         let py = obj.py();
+        let head: String = obj.getattr("func")?.getattr("__name__")?.extract()?;
+        if head == "Symbol" {
+            let name: String = obj.getattr("name")?.extract()?;
+            let assumptions = obj.getattr("_assumptions_orig")?;
+            return Ok(py_symbol(&name, Some(assumptions.downcast::<PyDict>()?))?.e);
+        }
+        if matches!(head.as_str(), "Add" | "Mul" | "Pow" | "UnevaluatedExpr") {
+            let args = obj.getattr("args")?;
+            let args = args.downcast::<PyTuple>()?;
+            let evaluate = obj.eq(obj.getattr("func")?.call1(args)?)?;
+            let v = args.iter().map(|a| to_expr(&a)).collect::<PyResult<Vec<_>>>()?;
+            return construct_node(&head, v, evaluate);
+        }
+        if !matches!(head.as_str(), "Piecewise" | "Order") && (Func::from_name(&head).is_some() || obj.getattr("is_Function").is_ok_and(|v| v.is_truthy().unwrap_or(false))) {
+            let args = obj.getattr("args")?;
+            let v = args.try_iter()?.map(|a| to_expr(&a?)).collect::<PyResult<Vec<_>>>()?;
+            return Ok(fx::func(Func::from_name(&head).unwrap_or_else(|| Func::Undefined(head.into())), v));
+        }
         let srepr = py.import("sympy")?.getattr("srepr")?.call1((obj,))?;
         let s: String = srepr.extract()?;
         return parser::parse_str(&s).map_err(|e| {
@@ -106,6 +140,140 @@ fn num_complex_c64(re: f64, im: f64) -> num_complex::Complex64 {
 
 fn opt_expr(obj: &Bound<'_, PyAny>) -> Option<Expr> {
     to_expr(obj).ok()
+}
+
+fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
+    let sm = py.import("sympy")?;
+    let convert_args = |args: &[Expr]| -> PyResult<Bound<'py, PyTuple>> {
+        PyTuple::new(py, args.iter().map(|a| expr_to_sympy(py, a)).collect::<PyResult<Vec<_>>>()?)
+    };
+    match e.kind() {
+        Kind::Sym(s) => {
+            let kwargs = PyDict::new(py);
+            for keyword in s.given().keywords() {
+                if let Some((key, value)) = keyword.split_once('=') { kwargs.set_item(key, value == "True")?; }
+            }
+            sm.getattr("Symbol")?.call((s.name(),), Some(&kwargs))
+        }
+        Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
+            let args = convert_args(&e.args())?;
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("evaluate", e.is_canonical())?;
+            sm.getattr(e.class_name())?.call(args, Some(&kwargs))
+        }
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() != "UnevaluatedExpr" => {
+            sm.getattr("Function")?.call1((name.as_ref(),))?.call1(convert_args(args)?)
+        }
+        Kind::Func(Func::Order, _) => sm.getattr("sympify")?.call1((printer::srepr(e),)),
+        Kind::Func(f, args) => sm.getattr(f.name())?.call1(convert_args(args)?),
+        Kind::Rel(..) => sm.getattr(e.class_name())?.call1(convert_args(&e.args())?),
+        Kind::Piecewise(pairs) => {
+            let args = pairs.iter().map(|(value, condition)| {
+                PyTuple::new(py, [expr_to_sympy(py, value)?, expr_to_sympy(py, condition)?])
+            }).collect::<PyResult<Vec<_>>>()?;
+            sm.getattr("Piecewise")?.call1(PyTuple::new(py, args)?)
+        }
+        Kind::Derivative(value, variables) => {
+            let mut args = vec![expr_to_sympy(py, value)?];
+            for (variable, order) in variables {
+                args.push(PyTuple::new(py, [expr_to_sympy(py, variable)?, order.into_pyobject(py)?.into_any()])?.into_any());
+            }
+            sm.getattr("Derivative")?.call1(PyTuple::new(py, args)?)
+        }
+        _ => sm.getattr("sympify")?.call1((printer::srepr(e),)),
+    }
+}
+
+/// Ordering used by SymPy's immutable `.args`, which differs from the
+/// presentation ordering used by default_sort_key/as_ordered_terms.
+fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
+    fn rank(e: &Expr) -> (u8, String) {
+        match e.kind() {
+            Kind::Num(_) => (0, String::new()),
+            Kind::Const(_) => (1, e.class_name().into()),
+            Kind::Sym(_) => (2, String::new()),
+            Kind::Pow(..) => (3, String::new()),
+            Kind::Mul(..) => (4, String::new()),
+            Kind::Add(..) => (5, String::new()),
+            _ => (6, e.class_name().into()),
+        }
+    }
+    let ordering = rank(a).cmp(&rank(b));
+    if ordering != std::cmp::Ordering::Equal { return ordering; }
+    match (a.kind(), b.kind()) {
+        (Kind::Num(x), Kind::Num(y)) => x.cmp_value(y).unwrap_or_else(|| a.cmp_struct(b)),
+        (Kind::Sym(x), Kind::Sym(y)) => x.cmp(y),
+        _ => {
+            let aa = python_args(a);
+            let bb = python_args(b);
+            aa.len().cmp(&bb.len()).then_with(|| {
+                for (x, y) in aa.iter().zip(&bb) {
+                    let comparison = args_cmp(x, y);
+                    if comparison != std::cmp::Ordering::Equal { return comparison; }
+                }
+                a.cmp_struct(b)
+            })
+        }
+    }
+}
+
+fn python_args(e: &Expr) -> Vec<Expr> {
+    e.cached_ordered_args(|| {
+        let mut args = e.args();
+        let canonical = e.is_canonical() && (e.is_add() || e.is_mul());
+        if canonical { args.sort_by(args_cmp); }
+        args
+    })
+}
+
+fn operation_count(e: &Expr) -> usize {
+    match e.kind() {
+        Kind::Num(n) => usize::from(n.is_negative()) + usize::from(matches!(n, Number::Rational(_))),
+        Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 0,
+        Kind::Add(c, terms) => {
+            let mut count = terms.len() + usize::from(!c.is_zero()) - 1;
+            let all_negative = (c.is_zero() || c.is_negative()) && terms.iter().all(|(_, k)| k.is_negative());
+            count += usize::from(all_negative);
+            if !c.is_zero() { count += usize::from(matches!(c, Number::Rational(_))); }
+            for (term, coefficient) in terms {
+                count += operation_count(&ops::add_term(term, &coefficient.abs()));
+            }
+            count
+        }
+        Kind::Mul(c, factors) => {
+            let abs = c.abs();
+            let mut numerator = Vec::new();
+            let mut denominator = Vec::new();
+            for (base, exponent) in factors {
+                if exponent.as_number().is_some_and(|n| n.is_negative()) {
+                    denominator.push(ops::pow(base, &ops::neg(exponent)));
+                } else {
+                    numerator.push(ops::mul_factor(base, exponent));
+                }
+            }
+            if !abs.is_one() { numerator.push(Expr::num(abs)); }
+            usize::from(c.is_negative())
+                + numerator.iter().map(operation_count).sum::<usize>()
+                + denominator.iter().map(operation_count).sum::<usize>()
+                + numerator.len().saturating_sub(1)
+                + denominator.len().saturating_sub(1)
+                + usize::from(!denominator.is_empty())
+        }
+        Kind::Pow(base, exponent) => {
+            operation_count(base) + if exponent.is_minus_one() { 1 } else { 1 + operation_count(exponent) }
+        }
+        Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => args.iter().map(operation_count).sum(),
+        _ => 1 + e.args().iter().map(operation_count).sum::<usize>(),
+    }
+}
+
+fn unwrap_unevaluated(e: &Expr) -> Expr {
+    if let Kind::Func(Func::Undefined(name), args) = e.kind() {
+        if name.as_ref() == "UnevaluatedExpr" {
+            return unwrap_unevaluated(&args[0]);
+        }
+    }
+    if e.is_atom() { e.clone() } else { traverse::map_children(e, &mut unwrap_unevaluated) }
 }
 
 /// Parse the variable list of `diff(expr, x, y, (z, 2), x, 3)`.
@@ -164,6 +332,13 @@ fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)>> {
                 for (k, v) in d.iter() {
                     pairs.push((to_expr(&k)?, to_expr(&v)?));
                 }
+                // A mapping is unordered in SymPy's substitution API: replace
+                // larger patterns before symbols they contain. Explicit pair
+                // sequences retain the caller's requested sequential order.
+                pairs.sort_by_cached_key(|(old, _)| (
+                    std::cmp::Reverse(traverse::node_count(old)),
+                    symox::sortkey::sort_key(old),
+                ));
             } else {
                 for item in a.try_iter()? {
                     let item = item?;
@@ -196,7 +371,7 @@ impl PyExpr {
     }
 
     fn _repr_latex_(&self) -> String {
-        format!("$\\displaystyle {}$", printer::to_str(&self.e))
+        printing::repr_latex(self)
     }
 
     fn srepr(&self) -> String {
@@ -322,16 +497,41 @@ impl PyExpr {
             .ok_or_else(|| PyTypeError::new_err("only integers can be used as an index"))
     }
 
-    fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, (String,))> {
-        let f = py.import("symox")?.getattr("sympify")?;
-        Ok((f, (printer::srepr(&self.e),)))
+    fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyTuple>)> {
+        // Pickle children separately: parsing srepr would evaluate held Mul/Pow
+        // nodes, including those nested inside an otherwise canonical tree.
+        let compat = py.import("symox._compat")?;
+        if self.e.is_atom() {
+            let f = compat.getattr("_restore_atom")?;
+            let value = match self.e.kind() {
+                Kind::Sym(s) => {
+                    let keywords = PyDict::new(py);
+                    for kw in s.given().keywords() {
+                        if let Some((key, value)) = kw.split_once('=') {
+                            keywords.set_item(key, value == "True")?;
+                        }
+                    }
+                    PyTuple::new(py, [s.name().into_pyobject(py)?.into_any(), keywords.into_any()])?.into_any()
+                }
+                _ => printer::srepr(&self.e).into_pyobject(py)?.into_any(),
+            };
+            return Ok((f, PyTuple::new(py, [self.e.class_name().into_pyobject(py)?.into_any(), value])?));
+        }
+        let args = self.e.args();
+        let evaluate = self.e.is_canonical();
+        let f = compat.getattr("_restore_expr")?;
+        Ok((f, PyTuple::new(py, [
+            self.e.class_name().into_pyobject(py)?.into_any(),
+            PyTuple::new(py, args.into_iter().map(wrap))?.into_any(),
+            evaluate.into_pyobject(py)?.to_owned().into_any(),
+        ])?))
     }
 
     // structure --------------------------------------------------------
 
     #[getter]
     fn args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        PyTuple::new(py, self.e.args().into_iter().map(wrap))
+        PyTuple::new(py, python_args(&self.e).into_iter().map(wrap))
     }
 
     /// SymPy class name of the node (`Add`, `Mul`, `Symbol`, `sin`, ...).
@@ -343,6 +543,20 @@ impl PyExpr {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let name = match self.e.kind() {
+            Kind::Add(..) => Some("Add"),
+            Kind::Mul(..) => Some("Mul"),
+            Kind::Pow(..) => Some("Pow"),
+            Kind::Sym(_) => Some("Symbol"),
+            Kind::Num(n) if n.is_integer() => Some("Integer"),
+            Kind::Num(n) if n.is_rational() => Some("Rational"),
+            Kind::Num(_) => Some("Float"),
+            Kind::Func(Func::Undefined(n), _) if n.as_ref() == "UnevaluatedExpr" => Some("UnevaluatedExpr"),
+            _ => None,
+        };
+        if let Some(name) = name {
+            return Ok(py.import("symox._compat")?.getattr(name)?.unbind());
+        }
         let head = Head::of(&self.e);
         Ok(Py::new(py, head)?.into_any())
     }
@@ -716,8 +930,90 @@ impl PyExpr {
     }
 
     fn as_coeff_Mul<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        // An evaluate=False product stores its factors verbatim. Its first
+        // factor can consequently be numeric instead of living in the native
+        // canonical numeric-coefficient field.
+        if let Kind::Mul(c, factors) = self.e.kind() {
+            if c.is_one() {
+                if let Some((first, exponent)) = factors.first() {
+                    if first.is_number() && exponent.is_one() {
+                        let rest: Vec<Expr> = factors[1..].iter().map(|(b, e)| ops::mul_factor(b, e)).collect();
+                        return PyTuple::new(py, [wrap(first.clone()), wrap(ops::mul(&rest))]);
+                    }
+                }
+            }
+        }
         let (c, r) = ops::as_coeff_mul(&self.e);
         PyTuple::new(py, [wrap(Expr::num(c)), wrap(r)])
+    }
+
+    fn as_coeff_exponent<'py>(&self, py: Python<'py>, x: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
+        let x = to_expr(x)?;
+        let (coefficient, exponent) = if self.e == x {
+            (Expr::one(), Expr::one())
+        } else {
+            match self.e.kind() {
+                Kind::Pow(base, exponent) if *base == x => (Expr::one(), exponent.clone()),
+                Kind::Mul(c, factors) => {
+                    let mut exponent = Expr::zero();
+                    let mut rest = vec![Expr::num(c.clone())];
+                    for (base, power) in factors {
+                        if *base == x {
+                            exponent = ops::add2(&exponent, power);
+                        } else {
+                            rest.push(ops::mul_factor(base, power));
+                        }
+                    }
+                    (ops::mul(&rest), exponent)
+                }
+                _ => (self.e.clone(), Expr::zero()),
+            }
+        };
+        PyTuple::new(py, [wrap(coefficient), wrap(exponent)])
+    }
+
+    fn as_two_terms<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let args = python_args(&self.e);
+        if args.len() < 2 || !(self.e.is_add() || self.e.is_mul()) {
+            return Err(PyValueError::new_err("expected an Add or Mul with at least two arguments"));
+        }
+        let rest = if self.e.is_add() { ops::add(&args[1..]) } else { ops::mul(&args[1..]) };
+        PyTuple::new(py, [wrap(args[0].clone()), wrap(rest)])
+    }
+
+    #[getter]
+    fn base(&self) -> PyResult<PyExpr> {
+        match self.e.kind() {
+            Kind::Pow(base, _) => Ok(wrap(base.clone())),
+            _ => Err(pyo3::exceptions::PyAttributeError::new_err("expression has no base")),
+        }
+    }
+
+    #[getter]
+    fn exp(&self) -> PyResult<PyExpr> {
+        match self.e.kind() {
+            Kind::Pow(_, exponent) => Ok(wrap(exponent.clone())),
+            _ => Err(pyo3::exceptions::PyAttributeError::new_err("expression has no exp")),
+        }
+    }
+
+    #[getter]
+    fn is_commutative(&self) -> Option<bool> {
+        fn query(e: &Expr) -> Option<bool> {
+            match e.kind() {
+                Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => None,
+                Kind::Add(..) | Kind::Mul(..) => Some(e.args().iter().all(|a| query(a) == Some(true))),
+                Kind::Pow(base, _) => query(base),
+                _ => Some(true),
+            }
+        }
+        query(&self.e)
+    }
+
+    fn count_ops(&self) -> usize { operation_count(&self.e) }
+
+    fn as_ordered_factors(&self) -> Vec<PyExpr> {
+        symox::sortkey::ordered_factors(&self.e).into_iter().map(wrap).collect()
     }
 
     fn as_coeff_Add<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -770,13 +1066,7 @@ impl PyExpr {
 
     /// Convert to a SymPy expression.
     fn to_sympy<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let sympy = py.import("sympy")?;
-        let s = printer::srepr(&self.e);
-        let ns = PyDict::new(py);
-        ns.set_item("__builtins__", py.import("builtins")?)?;
-        py.run(&std::ffi::CString::new("from sympy import *")?, Some(&ns), None)?;
-        let _ = sympy;
-        py.eval(&std::ffi::CString::new(s)?, Some(&ns), None)
+        expr_to_sympy(py, &self.e)
     }
 
     fn _sympy_<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -927,6 +1217,63 @@ impl Head {
 // ----------------------------------------------------------------------
 // module level functions
 // ----------------------------------------------------------------------
+
+/// Build ordinary or explicitly held arithmetic without a Python expression
+/// hierarchy: every returned object still uses the Rust expression engine.
+#[pyfunction]
+#[pyo3(name = "_node", signature = (name, args, evaluate=true))]
+fn py_node(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<PyExpr> {
+    let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
+    Ok(wrap(construct_node(name, v, evaluate)?))
+}
+
+fn construct_node(name: &str, v: Vec<Expr>, evaluate: bool) -> PyResult<Expr> {
+    let evaluate = evaluate || (matches!(name, "Add" | "Mul") && v.len() < 2);
+    if !evaluate && matches!(name, "Add" | "Mul" | "Pow") {
+        // Holding evaluation is observable through the public argument tree,
+        // not through Rust's choice of coefficient/factor storage. Reuse the
+        // canonical representation when it already has the requested tree.
+        let canonical = match name {
+            "Add" => Some(ops::add(&v)),
+            "Mul" => Some(ops::mul(&v)),
+            "Pow" if v.len() == 2 => Some(ops::pow(&v[0], &v[1])),
+            _ => None,
+        };
+        if let Some(canonical) = canonical {
+            if python_args(&canonical) == v { return Ok(canonical); }
+        }
+    }
+    Ok(match name {
+        "Add" if evaluate => ops::add(&v),
+        "Mul" if evaluate => ops::mul(&v),
+        "Add" => Expr::from_unevaluated_kind(Kind::Add(Number::Int(0), v.into_iter().map(|a| (a, Number::Int(1))).collect())),
+        "Mul" => Expr::from_unevaluated_kind(Kind::Mul(Number::Int(1), v.into_iter().map(|a| (a, Expr::one())).collect())),
+        "Pow" => {
+            if v.len() != 2 { return Err(PyTypeError::new_err("Pow expects exactly two arguments")); }
+            if evaluate { ops::pow(&v[0], &v[1]) } else { Expr::from_unevaluated_kind(Kind::Pow(v[0].clone(), v[1].clone())) }
+        }
+        "UnevaluatedExpr" => {
+            if v.len() != 1 { return Err(PyTypeError::new_err("UnevaluatedExpr expects exactly one argument")); }
+            Expr::from_kind(Kind::Func(Func::Undefined(name.into()), v))
+        }
+        _ => return Err(PyValueError::new_err(format!("unknown arithmetic node {name}"))),
+    })
+}
+
+#[pyfunction]
+#[pyo3(name = "_default_sort_key")]
+fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    fn convert(py: Python<'_>, key: symox::sortkey::Key) -> PyResult<PyObject> {
+        use symox::sortkey::Key;
+        Ok(match key {
+            Key::Int(n) => n.into_pyobject(py)?.into_any().unbind(),
+            Key::Str(s) => s.into_pyobject(py)?.into_any().unbind(),
+            Key::Num(n) => wrap(Expr::num(n)).into_pyobject(py)?.into_any().unbind(),
+            Key::Tup(keys) => PyTuple::new(py, keys.into_iter().map(|k| convert(py, k)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind(),
+        })
+    }
+    convert(py, symox::sortkey::sort_key(&to_expr(obj)?))
+}
 
 #[pyfunction]
 #[pyo3(name = "Symbol", signature = (name, **assumptions))]
@@ -1176,6 +1523,13 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
     let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
     match Func::from_name(name) {
         Some(f) => {
+            if let Func::Special(s) = &f {
+                if !s.nargs().contains(&v.len()) {
+                    return Err(PyTypeError::new_err(format!(
+                        "{name} accepts argument counts {:?}, got {}", s.nargs(), v.len()
+                    )));
+                }
+            }
             if let Some(n) = f.arity() {
                 if v.len() != n {
                     return Err(PyTypeError::new_err(format!("{name} takes exactly {n} argument(s)")));
@@ -1363,6 +1717,7 @@ fn py_lambdify(
     } else {
         (expr.try_iter()?.map(|a| to_expr(&a?)).collect::<PyResult<_>>()?, false)
     };
+    let exprs: Vec<Expr> = exprs.iter().map(unwrap_unevaluated).collect();
     let c = Compiled::new(&arg_list, &exprs).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let text = exprs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
     Ok(PyCompiled { c, scalar_out, text })
@@ -1373,6 +1728,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyExpr>()?;
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;
+    m.add_function(wrap_pyfunction!(py_node, m)?)?;
+    m.add_function(wrap_pyfunction!(py_default_sort_key, m)?)?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;
     m.add_function(wrap_pyfunction!(py_wild, m)?)?;
@@ -1400,11 +1757,14 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    poly::register(m)?;
     ntheory::register(m)?;
     simp::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
     special::register(m)?;
+    series::register(m)?;
+    printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

@@ -16,5 +16,7 @@ def test_differential(path):
     spec = importlib.util.spec_from_file_location(path.stem, path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    if not hasattr(mod, "run"):
+        pytest.skip("pytest-style module, collected on its own")
     bad = mod.run(verbose=False)
     assert not bad, "\n".join(f"{c}: symox={g} sympy={w}" for c, g, w in bad)

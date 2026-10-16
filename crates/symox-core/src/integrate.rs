@@ -33,8 +33,20 @@ pub fn integrate(f: &Expr, x: &Expr) -> Expr {
 pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
     match try_integrate(f, x) {
         Some(big_f) => {
-            let fb = subs1(&big_f, x, b);
-            let fa = subs1(&big_f, x, a);
+            // evaluate the antiderivative at the bounds, through limits when
+            // the bound is infinite or the substitution is singular
+            let at = |p: &Expr, dir: crate::limits::Dir| -> Expr {
+                let v = subs1(&big_f, x, p);
+                let infinite = matches!(p.kind(), Kind::Const(c) if c.is_infinite());
+                if infinite || has_bad(&v) {
+                    if let Ok(l) = crate::limits::limit(&big_f, x, p, dir) {
+                        return l;
+                    }
+                }
+                v
+            };
+            let fb = at(b, crate::limits::Dir::Minus);
+            let fa = at(a, crate::limits::Dir::Plus);
             if has_bad(&fb) || has_bad(&fa) {
                 return crate::functions::undefined(
                     "Integral",

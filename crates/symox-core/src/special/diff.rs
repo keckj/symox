@@ -24,6 +24,9 @@ fn m1(x: &Expr) -> Expr {
 /// `d f(args) / d args[i]`, `None` when SymPy leaves it unevaluated.
 pub fn partial(s: SpecialFn, a: &[Expr], i: usize) -> Option<Expr> {
     use SpecialFn::*;
+    if !s.nargs().contains(&a.len()) || i >= a.len() {
+        return None;
+    }
     let sp = sqrt(&Expr::pi());
     let e = || sf(s, a.to_vec());
     Some(match (s, i) {

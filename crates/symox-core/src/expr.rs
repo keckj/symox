@@ -12,7 +12,7 @@
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use rustc_hash::FxHasher;
 
@@ -98,6 +98,10 @@ pub enum Func {
     Min,
     /// Special functions (factorial, zeta, Bessel, ...), see [`crate::special`].
     Special(crate::special::SpecialFn),
+    /// Landau order term `O(expr, (x, x0), ...)`; args are
+    /// `[expr, x1, p1, x2, p2, ...]`. Built only through
+    /// [`crate::series::order::order`], absorbing rules live in `ops`.
+    Order,
     Undefined(Arc<str>),
 }
 
@@ -141,6 +145,7 @@ impl Func {
             Func::Max => "Max",
             Func::Min => "Min",
             Func::Special(s) => s.name(),
+            Func::Order => "Order",
             Func::Undefined(n) => n,
         }
     }
@@ -184,6 +189,7 @@ impl Func {
             "DiracDelta" => Func::DiracDelta,
             "Max" => Func::Max,
             "Min" => Func::Min,
+            "Order" => Func::Order,
             _ => return crate::special::SpecialFn::from_name(name).map(Func::Special),
         })
     }
@@ -192,7 +198,7 @@ impl Func {
     pub fn arity(&self) -> Option<usize> {
         match self {
             Func::Atan2 => Some(2),
-            Func::Max | Func::Min | Func::Undefined(_) => None,
+            Func::Max | Func::Min | Func::Order | Func::Undefined(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
         }
@@ -268,11 +274,18 @@ pub struct Node {
     hash: u64,
     mask: u64,
     kind: Kind,
+    canonical: bool,
+    free_symbols: OnceLock<Vec<Expr>>,
+    ordered_args: OnceLock<Vec<Expr>>,
 }
 
 /// A symbolic expression.
 #[derive(Clone)]
 pub struct Expr(Arc<Node>);
+
+/// Extra bit set in the mask of `Order` nodes (and so of every expression
+/// containing one): lets `add`/`mul` detect order terms in O(1).
+pub const ORDER_MASK: u64 = 1 << 63;
 
 #[inline]
 fn sym_bit(name: &str) -> u64 {
@@ -284,6 +297,16 @@ fn sym_bit(name: &str) -> u64 {
 impl Expr {
     /// Build a node from an already canonical payload.
     pub fn from_kind(kind: Kind) -> Expr {
+        Self::from_payload(kind, true)
+    }
+
+    /// Preserve the argument order and grouping requested with evaluate=False.
+    /// Algorithms may canonicalize these nodes when their operands change.
+    pub fn from_unevaluated_kind(kind: Kind) -> Expr {
+        Self::from_payload(kind, false)
+    }
+
+    fn from_payload(kind: Kind, canonical: bool) -> Expr {
         let mut h = FxHasher::default();
         let mut mask = 0u64;
         kind.rank().hash(&mut h);
@@ -321,6 +344,9 @@ impl Expr {
                     h.write_u64(a.hash64());
                     mask |= a.mask();
                 }
+                if *f == Func::Order {
+                    mask |= ORDER_MASK;
+                }
             }
             Kind::Derivative(e, vars) => {
                 h.write_u64(e.hash64());
@@ -350,12 +376,21 @@ impl Expr {
             hash: h.finish(),
             mask,
             kind,
+            canonical,
+            free_symbols: OnceLock::new(),
+            ordered_args: OnceLock::new(),
         }))
     }
 
     #[inline]
     pub fn kind(&self) -> &Kind {
         &self.0.kind
+    }
+
+    /// Whether this node was made by a canonical constructor.
+    #[inline]
+    pub fn is_canonical(&self) -> bool {
+        self.0.canonical
     }
 
     #[inline]
@@ -367,6 +402,24 @@ impl Expr {
     #[inline]
     pub fn mask(&self) -> u64 {
         self.0.mask
+    }
+
+    /// Cache symbol discovery on immutable non-atomic nodes. Symbols themselves
+    /// must never cache a clone of themselves: that would create an Arc cycle.
+    pub(crate) fn cached_free_symbols(&self, init: impl FnOnce() -> Vec<Expr>) -> Vec<Expr> {
+        if self.is_atom() {
+            return init();
+        }
+        self.0.free_symbols.get_or_init(init).clone()
+    }
+
+    /// The Python facade's canonical argument order differs from the storage
+    /// order. Cache it lazily on the DAG node, shared by all Python wrappers.
+    pub fn cached_ordered_args(&self, init: impl FnOnce() -> Vec<Expr>) -> Vec<Expr> {
+        if self.is_atom() {
+            return Vec::new();
+        }
+        self.0.ordered_args.get_or_init(init).clone()
     }
 
     #[inline]
@@ -549,6 +602,13 @@ impl Expr {
             self.kind(),
             Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_)
         )
+    }
+
+    /// Fast negative test: `false` means the expression certainly contains
+    /// no `Order` term.
+    #[inline]
+    pub fn may_have_order(&self) -> bool {
+        self.mask() & ORDER_MASK != 0
     }
 
     /// Fast negative test: `false` means the expression certainly does not

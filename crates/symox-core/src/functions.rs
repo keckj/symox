@@ -10,6 +10,9 @@ use crate::ops::{
 
 /// Apply function `f` to `args`, performing automatic simplifications.
 pub fn func(f: Func, args: Vec<Expr>) -> Expr {
+    if f == Func::Order {
+        return crate::series::order::order_from_args(&args);
+    }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
     }
@@ -94,7 +97,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Undefined(_) => None,
+        Func::Special(_) | Func::Order | Func::Undefined(_) => None,
     };
     match r {
         Some(v) => v,
@@ -111,6 +114,10 @@ fn has_float(e: &Expr) -> bool {
 
 /// Free of symbols and undefined functions (so it can be evaluated).
 pub fn is_numeric_value(e: &Expr) -> bool {
+    // any symbol (or Order term) inside sets a mask bit: O(1) rejection
+    if e.mask() != 0 {
+        return false;
+    }
     match e.kind() {
         Kind::Num(_) => true,
         Kind::Const(c) => !c.is_infinite() && *c != Constant::NaN,

@@ -23,14 +23,18 @@ pub mod functions;
 pub mod integrate;
 pub mod lambdify;
 pub mod ntheory;
+pub mod limits;
 pub mod number;
 pub mod ode;
 pub mod ops;
 pub mod parser;
+pub mod poly;
 pub mod pattern;
 pub mod printer;
+pub mod printing;
 pub mod relational;
 pub mod simp;
+pub mod series;
 pub mod simplify;
 pub mod solve;
 pub mod special;
@@ -55,7 +59,13 @@ pub mod prelude {
     pub use crate::number::Number;
     pub use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
     pub use crate::parser::{parse_str, sympify};
+    pub use crate::printing::{
+        ccode, ccode_function, cse, cuda_kernel, cudacode, cxxcode, latex, pprint, pretty, pycode,
+        rust_code,
+    };
     pub use crate::relational::{eq, ge, gt, le, lt, ne, piecewise};
+    pub use crate::limits::{limit, Dir};
+    pub use crate::series::{order, series};
     pub use crate::simplify::{radsimp, simplify, together};
     pub use crate::special::{
         airyai, airyaiprime, airybi, airybiprime, assoc_laguerre, assoc_legendre, bell, bernoulli,

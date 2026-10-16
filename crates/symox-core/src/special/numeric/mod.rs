@@ -71,6 +71,9 @@ pub fn realn(s: SpecialFn, a: &[f64]) -> f64 {
 
 /// Evaluate `s(args)` with numeric expression arguments to a complex double.
 pub fn eval_c64(s: SpecialFn, args: &[Expr]) -> Option<C64> {
+    if !s.nargs().contains(&args.len()) {
+        return None;
+    }
     if s == SpecialFn::Hyper {
         let ap: Option<Vec<C64>> = tuple_items(&args[0])?.iter().map(crate::evalf::eval_c64).collect();
         let bq: Option<Vec<C64>> = tuple_items(&args[1])?.iter().map(crate::evalf::eval_c64).collect();
@@ -105,6 +108,9 @@ fn int_arg(z: C64) -> Option<i64> {
 /// Core of the numeric dispatch.
 pub fn apply(s: SpecialFn, a: &[C64]) -> Option<C64> {
     use SpecialFn::*;
+    if !s.nargs().contains(&a.len()) {
+        return None;
+    }
     let x = *a.first()?;
     let r = match s {
         Factorial => gamma::factorial_c(x)?,

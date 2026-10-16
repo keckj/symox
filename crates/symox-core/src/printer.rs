@@ -39,12 +39,14 @@ fn prec(e: &Expr) -> u8 {
             }
         }
         Kind::Rel(..) => 20,
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => prec(&args[0]),
         _ => PREC_ATOM,
     }
 }
 
 /// SymPy `str()` of an expression.
 pub fn to_str(e: &Expr) -> String {
+    let _session = crate::printing::order::session();
     if let Kind::Num(Number::Float(f)) = e.kind() {
         // SymPy prints a lone Float with full precision
         return crate::number::format_float_full(*f);
@@ -79,6 +81,9 @@ fn write_expr(e: &Expr, out: &mut String) {
         Kind::Add(..) => write_add(e, out),
         Kind::Mul(..) => write_mul(e, out),
         Kind::Pow(b, x) => write_pow(b, x, out),
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => {
+            write_expr(&args[0], out);
+        }
         Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => {
             out.push('(');
             for (i, a) in args.iter().enumerate() {
@@ -92,6 +97,7 @@ fn write_expr(e: &Expr, out: &mut String) {
             }
             out.push(')');
         }
+        Kind::Func(Func::Order, args) => out.push_str(&crate::series::print::order_str(args)),
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');
@@ -153,7 +159,12 @@ fn write_expr(e: &Expr, out: &mut String) {
 
 /// Terms of an `Add` in SymPy's printing order.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    crate::sortkey::ordered_terms(e)
+    if let Kind::Add(_, terms) = e.kind() {
+        if e.may_have_order() && terms.iter().any(|(t, _)| t.is_func(&Func::Order)) {
+            return crate::series::print::series_ordered_terms(e);
+        }
+    }
+    crate::printing::order::ordered_terms(e)
 }
 
 fn write_add(e: &Expr, out: &mut String) {
@@ -180,6 +191,11 @@ fn negative_exponent(x: &Expr) -> Option<Expr> {
         Kind::Mul(c, _) if c.is_negative() => Some(crate::ops::neg(x)),
         _ => None,
     }
+}
+
+/// Sort `Mul` factors in SymPy's `as_ordered_factors` printing order.
+pub fn sort_factors(v: &mut [Expr]) {
+    crate::printing::order::sort_factors(v)
 }
 
 fn write_mul(e: &Expr, out: &mut String) {
@@ -263,6 +279,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Rel(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(b) <= PREC_POW,
         _ => false,
     };
     if base_needs {
@@ -277,6 +294,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(x) <= PREC_POW,
         _ => false,
     };
     if exp_needs {
@@ -331,7 +349,20 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
         Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => list("Tuple", args, out),
+        Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
+        Kind::Func(Func::Order, args) => {
+            out.push_str("Order(");
+            write_srepr(&args[0], out);
+            for p in args[1..].chunks(2) {
+                out.push_str(", Tuple(");
+                write_srepr(&p[0], out);
+                out.push_str(", ");
+                write_srepr(&p[1], out);
+                out.push(')');
+            }
+            out.push(')');
+        }
         Kind::Func(f, args) => list(f.name(), args, out),
         Kind::Derivative(f, vars) => {
             out.push_str("Derivative(");
