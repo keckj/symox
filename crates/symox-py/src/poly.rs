@@ -1444,15 +1444,23 @@ impl PyPoly {
         Ok(PyPoly {p:p.norm().map_err(err)?.into()})
     }
 
-    fn resultant(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
-        if let Some(field)=self.p.algebraic.as_ref().or(q.algebraic.as_ref()) {let a=field.convert(&self.p.as_expr()).map_err(err)?;let b=field.convert(&q.as_expr()).map_err(err)?;return Ok(w(a.resultant(&b).map_err(err)?.as_expr()));}
-        Ok(w(api::resultant(&self.p.as_expr(), &q.as_expr(), self.p.true_gens()).map_err(err)?))
+    #[pyo3(signature=(g,includePRS=false))]
+    fn resultant(&self, g: &Bound<'_, PyAny>,includePRS:bool) -> PyResult<PyObject> {
+        let q = self.other(g).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        let(result,sequence)=self.p.resultant_prs(&q).map_err(err)?;
+        let py=g.py();let result=division::render_eliminated(py,result,true)?;
+        if !includePRS{return Ok(result);}
+        let sequence=PyList::new(py,sequence.into_iter().map(|p|PyPoly{p}).collect::<Vec<_>>())?.into_any().unbind();
+        Ok(PyTuple::new(py,[result,sequence])?.into_any().unbind())
     }
 
-    fn discriminant(&self) -> PyResult<PyExpr> {
-        if let Some(p)=&self.p.algebraic{return Ok(w(p.discriminant().map_err(err)?.as_expr()));}
-        Ok(w(api::discriminant(&self.p.as_expr(), self.p.true_gens()).map_err(err)?))
+    fn discriminant(&self,py:Python<'_>) -> PyResult<PyObject> {
+        division::render_eliminated(py,self.p.discriminant_poly().map_err(err)?,true)
+    }
+
+    fn subresultants(&self,g:&Bound<'_,PyAny>)->PyResult<Vec<PyPoly>> {
+        let q=self.other(g).ok_or_else(||PyTypeError::new_err("expected a polynomial with a compatible coefficient domain"))?;
+        Ok(self.p.subresultants(&q).map_err(err)?.into_iter().map(|p|PyPoly{p}).collect())
     }
 }
 
@@ -1920,15 +1928,21 @@ fn pexquo<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,
 fn exquo<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Exquo)}
 
 #[pyfunction]
-#[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn resultant(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    Ok(w(api::resultant(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?))
+#[pyo3(signature = (f, g, *gens, includePRS=false, **_kwargs))]
+fn resultant<'py>(f: &Bound<'py, PyAny>, g: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, includePRS:bool, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    division::run(f,g,gens,_kwargs,division::Operation::Resultant(includePRS))
 }
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, **_kwargs))]
-fn discriminant(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    Ok(w(api::discriminant(&to_expr(f)?, &gens_of(gens)?).map_err(err)?))
+fn discriminant<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    division::run(f,f,gens,_kwargs,division::Operation::Discriminant)
+}
+
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn subresultants<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{
+    division::run(f,g,gens,_kwargs,division::Operation::Subresultants)
 }
 
 #[pyfunction]
@@ -2174,6 +2188,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pexquo, m)?)?;
     m.add_function(wrap_pyfunction!(resultant, m)?)?;
     m.add_function(wrap_pyfunction!(discriminant, m)?)?;
+    m.add_function(wrap_pyfunction!(subresultants, m)?)?;
     m.add_function(wrap_pyfunction!(degree, m)?)?;
     m.add_function(wrap_pyfunction!(roots, m)?)?;
     m.add_function(wrap_pyfunction!(nroots, m)?)?;

@@ -704,3 +704,85 @@ def test_nested_printer_symbol_and_function_override():
     overridden = Cosine().doprint(expression)
     actual = eval(overridden, {"torch": torch, "_sx_tensor": helper, "v_x": inputs})
     assert_tensor(actual, inputs.cos()+inputs*inputs)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+@pytest.mark.parametrize("pivot", ["A", "D"])
+def test_block_schur_rectangular_complex_decomposition_reconstruction_and_gradients(device, compiled, pivot):
+    t = sm.Symbol("t", real=True)
+    if pivot == "A":
+        a = sm.ImmutableMatrix([[2+sm.I+t]])
+        b = sm.ImmutableMatrix([[1+sm.I, 2, -sm.I]])
+        c = sm.ImmutableMatrix([[2], [1-sm.I]])
+        d = sm.ImmutableMatrix([[3+t, 1+sm.I, 2-t], [-1, 4-sm.I+t, 1+2*t]])
+    else:
+        a = sm.ImmutableMatrix([[1+t, 2+sm.I, 3], [-sm.I, 4-t, 1+2*t]])
+        b = sm.ImmutableMatrix([[2, 1+sm.I], [1, -1]])
+        c = sm.ImmutableMatrix([[1, 2, -sm.I], [3, 0, 2+sm.I]])
+        d = sm.ImmutableMatrix([[3+sm.I+t, 0], [0, 4-2*sm.I+t]])
+    matrix = sm.BlockMatrix([[a, b], [c, d]])
+    factors = matrix.LDUdecomposition() if pivot == "A" else matrix.UDLdecomposition()
+    function = sm.torch_lambdify(t, (matrix.schur(pivot), *factors), compile=compiled,
+        compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    tv = torch.tensor([[-.3, .2], [.4, .8]], device=device, dtype=torch.float64, requires_grad=True)
+
+    def reference(value):
+        scale = value[..., None, None]
+        def constant(values):
+            array = torch.tensor(values, device=device, dtype=torch.complex128)
+            return array.expand(tuple(value.shape)+tuple(array.shape))
+        if pivot == "A":
+            aa = constant([[2+1j]])+scale
+            bb = constant([[1+1j, 2, -1j]])
+            cc = constant([[2], [1-1j]])
+            dd = constant([[3, 1+1j, 2], [-1, 4-1j, 1]])+scale*constant([[1, 0, -1], [0, 1, 2]])
+            complement = dd-cc@torch.linalg.solve(aa, bb)
+        else:
+            aa = constant([[1, 2+1j, 3], [-1j, 4, 1]])+scale*constant([[1, 0, 0], [0, -1, 2]])
+            bb = constant([[2, 1+1j], [1, -1]])
+            cc = constant([[1, 2, -1j], [3, 0, 2+1j]])
+            dd = constant([[3+1j, 0], [0, 4-2j]])+scale*constant([[1, 0], [0, 1]])
+            complement = aa-bb@torch.linalg.solve(dd, cc)
+        dense = torch.cat((torch.cat((aa, bb), dim=-1), torch.cat((cc, dd), dim=-1)), dim=-2)
+        return complement, dense
+
+    complement, left, diagonal, right = function(tv)
+    reconstructed = left@diagonal@right
+    expected_complement, expected_dense = reference(tv)
+    assert left.shape[-2:] == (expected_dense.shape[-2],)*2
+    assert diagonal.shape[-2:] == expected_dense.shape[-2:]
+    assert right.shape[-2:] == (expected_dense.shape[-1],)*2
+    for actual, expected in [(complement, expected_complement), (reconstructed, expected_dense)]:
+        assert actual.dtype == torch.complex128 and actual.device == tv.device
+        torch.testing.assert_close(actual, expected, rtol=1e-9, atol=1e-10)
+    # The oracle builds the original dense matrix and uses the backend's solve,
+    # independently of Symox's symbolic inverse and block factorization.
+    actual_loss = complement.abs().square().sum()+reconstructed.abs().square().sum()
+    expected_loss = expected_complement.abs().square().sum()+expected_dense.abs().square().sum()
+    actual_gradient = torch.autograd.grad(actual_loss, tv)[0]
+    expected_gradient = torch.autograd.grad(expected_loss, tv)[0]
+    torch.testing.assert_close(actual_gradient, expected_gradient, rtol=1e-9, atol=1e-10)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+@pytest.mark.parametrize("dtype", DTYPES)
+def test_complex_scalar_fraction_contextual_constants_and_inductor_backward(device, compiled, dtype):
+    t = sm.Symbol("t", real=True)
+    expression = (1+sm.I)*t/(t+2+sm.I)
+    function = sm.torch_lambdify(t, expression, compile=compiled,
+        compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    assert "_sx_tensor(1j, _sx_ref)" in function.__source__
+    assert "_sx_tensor(1j, reference)" in sm.torchcode(expression, reference="reference")
+    value = torch.tensor([-.3, .2, .8], dtype=dtype, device=device, requires_grad=True)
+    actual = function(value)
+    expected_dtype = torch.complex128 if dtype == torch.float64 else torch.complex64
+    assert actual.dtype == expected_dtype and actual.device == value.device
+    # |(1+i)t/(t+2+i)|² has this independent, entirely real expression.
+    expected_norm = 2*value.square()/((value+2).square()+1)
+    actual_norm = actual.abs().square()
+    torch.testing.assert_close(actual_norm, expected_norm)
+    actual_gradient = torch.autograd.grad(actual_norm.sum(), value)[0]
+    expected_gradient = torch.autograd.grad(expected_norm.sum(), value)[0]
+    torch.testing.assert_close(actual_gradient, expected_gradient)

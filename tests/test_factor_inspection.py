@@ -128,14 +128,13 @@ def test_number_class_includes_numeric_infinities_and_nan(source):
     assert isinstance(value, sx.Number) == isinstance(reference, sp.Number)
 
 
-@pytest.mark.xfail(strict=True, reason='Held arithmetic still differs in normalization and default_sort_key')
 @pytest.mark.parametrize('source', [
     'Add(Mul(-1,2,zoo,evaluate=False),Add(-oo,oo,x,evaluate=False),evaluate=False)',
     'Add(oo,Mul(-1,sin(x),-1,evaluate=False),evaluate=False)',
     'Add(y,Add(y,-2,-1,evaluate=False),evaluate=False)',
     'Add(Mul(-1,x,Rational(1,2),evaluate=False),y,evaluate=False)',
 ])
-def test_held_sign_ties_track_remaining_sympy_ordering_gaps(source):
+def test_held_sign_ties_preserve_raw_products_and_normalize_nested_sums(source):
     assert expression(sx, source).could_extract_minus_sign() == expression(sp, source).could_extract_minus_sign()
 
 

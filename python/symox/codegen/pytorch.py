@@ -255,7 +255,12 @@ def _generate(name, args, exprs, cse, user_functions, allow_callables=False):
     names.update({symbol: f"_sx_t_{index}" for index, (symbol, _) in enumerate(replacements)})
 
     def emit(expr):
-        return _core._torchcode(expr, symbol_names=names, user_functions=functions, reference="_sx_ref")
+        # Tensorize the imaginary unit before arithmetic. Inductor's complex
+        # fallback kernels cannot carry a Python complex scalar through backward.
+        from symox import I
+        return _core._torchcode(expr, symbol_names=names, user_functions=functions,
+                                reference="_sx_ref",
+                                expression_overrides={I: "_sx_tensor(1j, _sx_ref)"})
 
     rendered = [f"_sx_output({emit(expr)}, _sx_ref, _sx_shape)" for expr in expressions]
 

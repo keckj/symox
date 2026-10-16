@@ -74,6 +74,27 @@ pub(crate) trait PseudoCoeff: Coeff {
     fn validate_size(&self) -> PResult<()>;
     fn compatible(&self, other: &Self) -> bool;
     fn preflight(&self, other: &Self, add: bool) -> PResult<()>;
+    fn preflight_div(&self, other: &Self) -> PResult<()> {
+        self.preflight(other, false)
+    }
+    fn checked_div(&self, other: &Self) -> PResult<Self> {
+        self.validate_size()?;
+        other.validate_size()?;
+        if !self.compatible(other) || other.is_zero() {
+            return Err(PolyError::Failed(
+                "invalid exact coefficient quotient".into(),
+            ));
+        }
+        if self.is_zero() || other.is_one() {
+            return Ok(self.clone());
+        }
+        self.preflight_div(other)?;
+        let result = self.div_exact(other).ok_or_else(|| {
+            PolyError::ExactQuotientFailed("subresultant coefficient quotient is not exact".into())
+        })?;
+        result.validate_size()?;
+        Ok(result)
+    }
     fn checked_mul(&self, other: &Self) -> PResult<Self> {
         self.validate_size()?;
         other.validate_size()?;
@@ -148,6 +169,10 @@ impl PseudoCoeff for Rat {
     fn preflight(&self, b: &Self, add: bool) -> PResult<()> {
         rat_pair(self, b, add)
     }
+    fn preflight_div(&self, b: &Self) -> PResult<()> {
+        bits(self.n.bits() + b.d.bits())?;
+        bits(self.d.bits() + b.n.bits())
+    }
 }
 impl PseudoCoeff for Fp {
     fn validate_size(&self) -> PResult<()> {
@@ -201,6 +226,10 @@ impl PseudoCoeff for RF {
             int_product(&self.n, &b.n)
         }
     }
+    fn preflight_div(&self, b: &Self) -> PResult<()> {
+        int_product(&self.n, &b.d)?;
+        int_product(&self.d, &b.n)
+    }
 }
 impl PseudoCoeff for AN {
     fn validate_size(&self) -> PResult<()> {
@@ -237,18 +266,21 @@ impl PseudoCoeff for AN {
         )
     }
 }
-struct Budget {
+pub(crate) struct Budget {
     work: u64,
 }
 impl Budget {
-    fn charge(&mut self, n: u64) -> PResult<()> {
+    pub(crate) fn new() -> Self {
+        Self { work: MAX_WORK }
+    }
+    pub(crate) fn charge(&mut self, n: u64) -> PResult<()> {
         self.work = self
             .work
             .checked_sub(n)
             .ok_or_else(|| limit("polynomial work"))?;
         Ok(())
     }
-    fn check<C: PseudoCoeff>(&self, p: &MPoly<C>) -> PResult<()> {
+    pub(crate) fn check<C: PseudoCoeff>(&self, p: &MPoly<C>) -> PResult<()> {
         for c in p.coeffs() {
             c.validate_size()?;
         }
@@ -264,7 +296,20 @@ impl Budget {
         }
         Ok(())
     }
-    fn merge<C: PseudoCoeff>(
+    pub(crate) fn retain<C: PseudoCoeff>(&self, p: &MPoly<C>, total: &mut u64) -> PResult<()> {
+        let size = p.coeffs().iter().try_fold(0u64, |sum, c| {
+            sum.checked_add(c.weight() + p.nvars as u64 * 32)
+                .ok_or_else(|| limit("PRS storage"))
+        })?;
+        *total = total
+            .checked_add(size)
+            .ok_or_else(|| limit("PRS storage"))?;
+        if *total > MAX_STORAGE {
+            return Err(limit("PRS storage"));
+        }
+        Ok(())
+    }
+    pub(crate) fn merge<C: PseudoCoeff>(
         &mut self,
         a: &MPoly<C>,
         b: &MPoly<C>,
@@ -300,7 +345,7 @@ impl Budget {
         self.check(&p)?;
         Ok(p)
     }
-    fn mul<C: PseudoCoeff>(&mut self, a: &MPoly<C>, b: &MPoly<C>) -> PResult<MPoly<C>> {
+    pub(crate) fn mul<C: PseudoCoeff>(&mut self, a: &MPoly<C>, b: &MPoly<C>) -> PResult<MPoly<C>> {
         if a.is_zero() || b.is_zero() {
             return Ok(MPoly::zero(a.nvars));
         }
@@ -339,7 +384,7 @@ impl Budget {
         }
         Ok(MPoly::from_terms(a.nvars, map.into_iter().collect()))
     }
-    fn pow<C: PseudoCoeff>(&mut self, a: &MPoly<C>, mut n: u64) -> PResult<MPoly<C>> {
+    pub(crate) fn pow<C: PseudoCoeff>(&mut self, a: &MPoly<C>, mut n: u64) -> PResult<MPoly<C>> {
         if n == 0 || a.is_one() {
             return Ok(MPoly::one(a.nvars));
         }
@@ -356,6 +401,44 @@ impl Budget {
         }
         Ok(out)
     }
+    /// Exact sparse long division with the same bounds as multiplication.
+    /// This is used only for the exact Brown--Traub normalization quotients.
+    pub(crate) fn exact_div<C: PseudoCoeff>(
+        &mut self,
+        a: &MPoly<C>,
+        b: &MPoly<C>,
+    ) -> PResult<MPoly<C>> {
+        self.check(a)?;
+        self.check(b)?;
+        if a.nvars != b.nvars || b.is_zero() {
+            return Err(PolyError::Failed(
+                "invalid subresultant exact divisor".into(),
+            ));
+        }
+        let mut remainder = a.clone();
+        let mut quotient = MPoly::zero(a.nvars);
+        while !remainder.is_zero() {
+            self.charge(1)?;
+            let previous = remainder.lm().to_vec();
+            if previous.iter().zip(b.lm()).any(|(x, y)| x < y) {
+                return Err(PolyError::ExactQuotientFailed(
+                    "subresultant polynomial quotient is not exact".into(),
+                ));
+            }
+            let exponent: Vec<_> = previous.iter().zip(b.lm()).map(|(x, y)| x - y).collect();
+            let coefficient = remainder.lc().checked_div(&b.lc())?;
+            let term = MPoly::monomial(&exponent, coefficient);
+            quotient = self.merge(&quotient, &term, false)?;
+            let product = self.mul(&term, b)?;
+            remainder = self.merge(&remainder, &product, true)?;
+            if !remainder.is_zero() && remainder.lm() >= previous.as_slice() {
+                return Err(PolyError::Failed(
+                    "subresultant exact division did not lower its leading monomial".into(),
+                ));
+            }
+        }
+        Ok(quotient)
+    }
 }
 /// `LC(g)^max(deg(f)-deg(g)+1,0) f = q*g+r`, with `deg(r)<deg(g)`.
 /// The selected variable is a main polynomial generator, never a coefficient
@@ -365,6 +448,14 @@ pub(crate) fn pdiv<C: PseudoCoeff>(
     g: &MPoly<C>,
     variable: usize,
 ) -> PResult<(MPoly<C>, MPoly<C>)> {
+    pdiv_with_budget(f, g, variable, &mut Budget::new())
+}
+pub(crate) fn pdiv_with_budget<C: PseudoCoeff>(
+    f: &MPoly<C>,
+    g: &MPoly<C>,
+    variable: usize,
+    budget: &mut Budget,
+) -> PResult<(MPoly<C>, MPoly<C>)> {
     if f.nvars != g.nvars || variable >= f.nvars {
         return Err(PolyError::Failed(
             "invalid pseudo-division generators".into(),
@@ -373,7 +464,6 @@ pub(crate) fn pdiv<C: PseudoCoeff>(
     if g.is_zero() {
         return Err(PolyError::Unsupported("polynomial division by zero".into()));
     }
-    let mut budget = Budget { work: MAX_WORK };
     budget.check(f)?;
     budget.check(g)?;
     let unit = C::one();

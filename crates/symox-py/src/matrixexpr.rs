@@ -292,6 +292,10 @@ impl PyMatrixExpr{
     #[getter] fn is_BlockMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Block(_)|MatrixKind::BlockDiag(_))}
     #[getter] fn is_structurally_symmetric(&self,py:Python<'_>)->PyResult<bool>{Ok(self.m.block_grid().map_err(|e|error(py,e))?.is_structurally_symmetric())}
     fn structurally_equal(&self,other:&Bound<'_,PyAny>)->PyResult<bool>{let first=self.m.block_grid().map_err(|e|error(other.py(),e))?;let second=to_matrixexpr(other)?.block_grid().map_err(|e|error(other.py(),e))?;Ok(first.same_partition(&second))}
+    #[pyo3(signature=(mat="A",generalized=false))]
+    fn schur(&self,py:Python<'_>,mat:&str,generalized:bool)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.schur(mat,generalized).map_err(|e|error(py,e))?))}
+    fn LDUdecomposition(&self,py:Python<'_>)->PyResult<(Self,Self,Self)>{let(a,b,c)=self.m.ldu_decomposition().map_err(|e|error(py,e))?;Ok((wrap_matrixexpr(a),wrap_matrixexpr(b),wrap_matrixexpr(c)))}
+    fn UDLdecomposition(&self,py:Python<'_>)->PyResult<(Self,Self,Self)>{let(a,b,c)=self.m.udl_decomposition().map_err(|e|error(py,e))?;Ok((wrap_matrixexpr(a),wrap_matrixexpr(b),wrap_matrixexpr(c)))}
     #[getter] fn args<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{matrix_args(py,&self.m,false)}
     #[getter] fn func<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{py.import("symox")?.getattr(self.m.kind_name())}
     #[getter] fn free_symbols<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PySet>>{

@@ -578,7 +578,7 @@ impl Polynomial {
     fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
         self.checked_algebraic_pair(o).expect("compatible algebraic fields")
     }
-    fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {
+    pub(crate) fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {
         let Some(prototype)=self.field.as_ref().or(o.field.as_ref()) else{return Ok(None)};
         if self.modulus.is_some()||o.modulus.is_some()||self.algebraic.is_some()||o.algebraic.is_some(){return Err(PolyError::Unsupported("cannot combine rational-function, algebraic, and finite coefficient fields".into()));}
         if let(Some(a),Some(b))=(&self.field,&o.field){if let(super::domains::ExactDomain::Functions{order:a,..},super::domains::ExactDomain::Functions{order:b,..})=(&a.coefficient_domain,&b.coefficient_domain){if a!=b{return Err(PolyError::Unsupported("cannot unify coefficient rings with different monomial orders".into()));}}}

@@ -15,6 +15,37 @@ thread_local! {
     static NUMERIC_REFINEMENT: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
 }
 
+/// Numeric query policy is part of every memoization context.
+#[inline]
+pub(crate) fn numeric_refinement_enabled()->bool{NUMERIC_REFINEMENT.with(|enabled|enabled.get())}
+
+// Thirty bits per policy: thirteen Boolean slots and a four-bit Signs field.
+// Even/odd use the single parity slot; two Boolean slots remain reserved.
+const BANK_BITS:u32=30;
+const SIGNS_OFFSET:u32=26;
+#[derive(Clone,Copy)]
+enum Query{Real,Positive,Negative,Nonnegative,Nonpositive,Zero,Nonzero,Integer,Rational,Parity,Finite}
+
+#[cfg(test)]
+thread_local!{static COMPUTATIONS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};}
+#[inline]
+fn calculation(){#[cfg(test)] COMPUTATIONS.with(|count|count.set(count.get()+1));}
+
+#[inline]
+fn cached_bool(e:&Expr,query:Query,compute:fn(&Expr)->Option<bool>)->Option<bool>{
+    // Symbols and literal atoms remain as cheap as the declared-fact lookup.
+    if e.is_atom(){return compute(e);}
+    let mode=numeric_refinement_enabled();
+    let shift=query as u32*2+if mode{BANK_BITS}else{0};
+    match e.cached_assumption(shift,2){1=>return None,2=>return Some(false),3=>return Some(true),_=>{}}
+    calculation();
+    let answer=if mode{crate::evalf::with_numeric_cache(||compute(e))}else{compute(e)};
+    let encoded=match answer{None=>1,Some(false)=>2,Some(true)=>3};
+    // No marker for an in-progress recursion is ever published.
+    e.remember_assumption(shift,2,encoded);
+    answer
+}
+
 /// Use structural proofs only while checking solver candidate assumptions.
 /// This is thread local and restores its previous state even during unwinding.
 pub(crate) fn exact_queries<R>(query: impl FnOnce() -> R) -> R {
@@ -116,7 +147,16 @@ fn declared_signs(a:A)->Option<Signs>{
 }
 
 /// Sign set of `e` if `e` is known to be real (finite), else `None`.
-pub fn real_signs(e: &Expr) -> Option<Signs> {
+#[inline]
+pub fn real_signs(e:&Expr)->Option<Signs>{
+    if e.is_atom(){return real_signs_uncached(e);}
+    let mode=numeric_refinement_enabled();let shift=SIGNS_OFFSET+if mode{BANK_BITS}else{0};
+    let cached=e.cached_assumption(shift,4);
+    if cached==8{return None;}else if cached!=0{return Some(Signs(cached));}
+    calculation();let answer=if mode{crate::evalf::with_numeric_cache(||real_signs_uncached(e))}else{real_signs_uncached(e)};
+    e.remember_assumption(shift,4,answer.map_or(8,|signs|signs.0));answer
+}
+fn real_signs_uncached(e: &Expr) -> Option<Signs> {
     if !declared(e).is_empty(){return declared_signs(declared(e));}
     match e.kind() {
         Kind::Num(n) => Some(number_sign(n)),
@@ -178,7 +218,7 @@ pub fn real_signs(e: &Expr) -> Option<Signs> {
 
 /// Refine an unknown sign of a numeric expression by evaluating it.
 fn numeric_refine(e: &Expr, s: Signs) -> Option<Signs> {
-    if s != Signs::ANY || !NUMERIC_REFINEMENT.with(|enabled| enabled.get()) || !crate::functions::is_numeric_value(e) {
+    if s != Signs::ANY || !numeric_refinement_enabled() || !crate::functions::is_numeric_value(e) {
         return Some(s);
     }
     match crate::evalf::eval_f64(e) {
@@ -282,7 +322,9 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
 // public queries
 // ----------------------------------------------------------------------
 
-pub fn is_real(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_real(e:&Expr)->Option<bool>{cached_bool(e,Query::Real,is_real_uncached)}
+fn is_real_uncached(e: &Expr) -> Option<bool> {
     if real_signs(e).is_some() {
         return Some(true);
     }
@@ -313,7 +355,7 @@ pub fn is_real(e: &Expr) -> Option<bool> {
             if nonreal==1 {Some(false)} else if nonreal==0 {Some(true)} else {None}
         }
         _ => {
-            if NUMERIC_REFINEMENT.with(|enabled| enabled.get()) && crate::functions::is_numeric_value(e) {
+            if numeric_refinement_enabled() && crate::functions::is_numeric_value(e) {
                 if let Some(z) = crate::evalf::eval_c64(e) {
                     if z.im.abs() > 1e-10 * (1.0 + z.re.abs()) {
                         return Some(false);
@@ -325,7 +367,9 @@ pub fn is_real(e: &Expr) -> Option<bool> {
     }
 }
 
-pub fn is_positive(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_positive(e:&Expr)->Option<bool>{cached_bool(e,Query::Positive,is_positive_uncached)}
+fn is_positive_uncached(e: &Expr) -> Option<bool> {
     if e.is_constant(Constant::Infinity) {
         return Some(true);
     }
@@ -340,7 +384,9 @@ pub fn is_positive(e: &Expr) -> Option<bool> {
     }
 }
 
-pub fn is_negative(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_negative(e:&Expr)->Option<bool>{cached_bool(e,Query::Negative,is_negative_uncached)}
+fn is_negative_uncached(e: &Expr) -> Option<bool> {
     if e.is_constant(Constant::NegInfinity) {
         return Some(true);
     }
@@ -355,7 +401,9 @@ pub fn is_negative(e: &Expr) -> Option<bool> {
     }
 }
 
-pub fn is_nonnegative(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_nonnegative(e:&Expr)->Option<bool>{cached_bool(e,Query::Nonnegative,is_nonnegative_uncached)}
+fn is_nonnegative_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NOT_NONNEGATIVE){return Some(false);}
     if exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
@@ -368,7 +416,9 @@ pub fn is_nonnegative(e: &Expr) -> Option<bool> {
     }
 }
 
-pub fn is_nonpositive(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_nonpositive(e:&Expr)->Option<bool>{cached_bool(e,Query::Nonpositive,is_nonpositive_uncached)}
+fn is_nonpositive_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NOT_NONPOSITIVE){return Some(false);}
     if exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
@@ -381,7 +431,9 @@ pub fn is_nonpositive(e: &Expr) -> Option<bool> {
     }
 }
 
-pub fn is_zero(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_zero(e:&Expr)->Option<bool>{cached_bool(e,Query::Zero,is_zero_uncached)}
+fn is_zero_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NOT_ZERO){return Some(false);}
     if declared(e).has(A::ZERO){return Some(true);}
     match e.kind() {
@@ -404,7 +456,7 @@ pub fn is_zero(e: &Expr) -> Option<bool> {
             return Some(false);
         }
     }
-    if NUMERIC_REFINEMENT.with(|enabled| enabled.get()) && crate::functions::is_numeric_value(e) {
+    if numeric_refinement_enabled() && crate::functions::is_numeric_value(e) {
         if let Some(z) = crate::evalf::eval_c64(e) {
             if z.norm() > 1e-10 {
                 return Some(false);
@@ -414,7 +466,9 @@ pub fn is_zero(e: &Expr) -> Option<bool> {
     None
 }
 
-pub fn is_nonzero(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_nonzero(e:&Expr)->Option<bool>{cached_bool(e,Query::Nonzero,is_nonzero_uncached)}
+fn is_nonzero_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NONZERO){return Some(true);}
     if declared(e).has(A::NOT_NONZERO){return Some(false);}
     if let Kind::Sym(s)=e.kind() {
@@ -428,7 +482,9 @@ pub fn is_nonzero(e: &Expr) -> Option<bool> {
     }
 }
 
-pub fn is_integer(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_integer(e:&Expr)->Option<bool>{cached_bool(e,Query::Integer,is_integer_uncached)}
+fn is_integer_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::INTEGER){return Some(true);}
     if declared(e).has(A::NOT_INTEGER){return Some(false);}
     match e.kind() {
@@ -497,7 +553,9 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
     }
 }
 
-pub fn is_rational(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_rational(e:&Expr)->Option<bool>{cached_bool(e,Query::Rational,is_rational_uncached)}
+fn is_rational_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::RATIONAL){return Some(true);}
     if declared(e).has(A::NOT_RATIONAL)||declared(e).has(A::IRRATIONAL){return Some(false);}
     if exact_queries(||is_real(e))==Some(false){return Some(false);}
@@ -553,7 +611,9 @@ pub fn is_rational(e: &Expr) -> Option<bool> {
 
 /// `Some(true)` if even, `Some(false)` if odd, `None` if unknown / not an
 /// integer.
-pub fn parity_even(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn parity_even(e:&Expr)->Option<bool>{cached_bool(e,Query::Parity,parity_even_uncached)}
+fn parity_even_uncached(e: &Expr) -> Option<bool> {
     match e.kind() {
         Kind::Num(n) => {
             let b = n.to_bigint()?;
@@ -617,7 +677,9 @@ pub fn is_odd(e: &Expr) -> Option<bool> {
     parity_even(e).map(|b| !b)
 }
 
-pub fn is_finite(e: &Expr) -> Option<bool> {
+#[inline]
+pub fn is_finite(e:&Expr)->Option<bool>{cached_bool(e,Query::Finite,is_finite_uncached)}
+fn is_finite_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::FINITE){return Some(true);}
     match e.kind() {
         Kind::Num(_) => Some(true),
@@ -698,5 +760,86 @@ mod tests {
         assert_eq!(is_positive(&sqrt(&p)), Some(true));
         assert_eq!(is_positive(&sub(&Expr::pi(), &Expr::int(3))), Some(true));
         assert_eq!(is_real(&Expr::i()), Some(false));
+    }
+}
+
+#[cfg(test)]
+mod dag_cache_tests {
+    use super::*;
+    use std::hash::{Hash,Hasher};
+    use std::collections::hash_map::DefaultHasher;
+    fn shared_mul(base:Expr,depth:usize)->Expr{
+        let mut value=base;let one=Expr::one();
+        for _ in 0..depth{value=Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,vec![(value.clone(),one.clone()),(value,one.clone())]));}
+        value
+    }
+    fn difference()->Expr{Expr::from_kind(Kind::Add(Number::ZERO,vec![(Expr::pi(),Number::ONE),(Expr::e(),Number::Int(-1))]))}
+    fn facts(e:&Expr)->[Option<bool>;12]{[
+        is_real(e),is_positive(e),is_negative(e),is_nonnegative(e),is_nonpositive(e),is_zero(e),is_nonzero(e),
+        is_integer(e),is_rational(e),is_even(e),is_odd(e),is_finite(e),
+    ]}
+    #[test]
+    fn deep_shared_arithmetic_queries_cache_known_and_unknown_answers(){
+        let value=shared_mul(Expr::symbol_with("r",A::REAL),80);
+        COMPUTATIONS.with(|count|count.set(0));
+        let expected=exact_queries(||facts(&value));
+        assert_eq!(expected,[Some(true),None,None,None,None,None,None,None,None,None,None,Some(true)]);
+        let cold=COMPUTATIONS.with(|count|count.get());assert!(cold<=80*28,"{cold} computations");
+        for _ in 0..8{assert_eq!(exact_queries(||facts(&value)),expected);}
+        assert_eq!(COMPUTATIONS.with(|count|count.get()),cold);
+        assert_eq!(value.cached_assumption(Query::Positive as u32*2,2),1,"unknown is not an empty slot");
+        let numeric=facts(&value);assert_eq!(numeric,expected);
+        let warm=COMPUTATIONS.with(|count|count.get());for _ in 0..8{assert_eq!(facts(&value),numeric);}
+        assert_eq!(COMPUTATIONS.with(|count|count.get()),warm);
+        let positive=shared_mul(Expr::symbol_with("p",A::POSITIVE),80);
+        assert_eq!(is_positive(&positive),Some(true));assert_eq!(is_zero(&positive),Some(false));
+        let integer=shared_mul(Expr::symbol_with("k",A::ODD),80);
+        assert_eq!(is_integer(&integer),Some(true));assert_eq!(is_even(&integer),Some(false));assert_eq!(is_odd(&integer),Some(true));
+    }
+    #[test]
+    fn query_modes_never_share_numeric_refinements_in_either_order(){
+        for numeric_first in [false,true]{
+            let e=difference();
+            if numeric_first{assert_eq!(is_positive(&e),Some(true));}
+            assert_eq!(exact_queries(||is_positive(&e)),None);
+            assert_eq!(exact_queries(||is_negative(&e)),None);
+            assert_eq!(exact_queries(||real_signs(&e)),Some(Signs::ANY));
+            assert_eq!(is_positive(&e),Some(true));assert_eq!(is_zero(&e),Some(false));
+            assert_eq!(real_signs(&e),Some(Signs::POS));
+            for _ in 0..8{assert_eq!(exact_queries(||is_positive(&e)),None);assert_eq!(is_positive(&e),Some(true));}
+        }
+    }
+    #[test]
+    fn concurrent_modes_publish_only_complete_independent_fields(){
+        let e=difference();let product=shared_mul(Expr::symbol_with("p",A::POSITIVE),80);
+        std::thread::scope(|scope|{
+            for thread in 0..8{let e=e.clone();let product=product.clone();scope.spawn(move||{
+                for _ in 0..20{
+                    if thread%2==0{assert_eq!(exact_queries(||is_positive(&e)),None);}else{assert_eq!(is_positive(&e),Some(true));}
+                    assert_eq!(exact_queries(||is_positive(&product)),Some(true));assert_eq!(is_finite(&product),Some(true));
+                }
+            });}
+        });
+        assert_eq!(exact_queries(||is_positive(&e)),None);assert_eq!(is_positive(&e),Some(true));
+    }
+    #[test]
+    fn exact_mode_panic_restores_policy_and_caches_do_not_change_identity(){
+        let e=difference();let duplicate=difference();let hash=|e:&Expr|{let mut h=DefaultHasher::new();e.hash(&mut h);h.finish()};
+        let before=(hash(&e),e.mask(),crate::printer::srepr(&e));
+        let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||exact_queries(||{
+            assert_eq!(is_positive(&e),None);panic!("expected query unwind");
+        })));
+        assert!(result.is_err());assert!(numeric_refinement_enabled());assert_eq!(is_positive(&e),Some(true));
+        assert_eq!(e,duplicate);assert_eq!(e.cmp_struct(&duplicate),std::cmp::Ordering::Equal);
+        assert_eq!(before,(hash(&e),e.mask(),crate::printer::srepr(&e)));
+    }
+    #[test]
+    fn closed_numeric_shared_add_keeps_classification_and_refinement_linear(){
+        let value=shared_mul(Expr::one(),80);
+        let e=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![(value.clone(),Number::ONE),(value,Number::Int(-1))]));
+        assert_eq!(real_signs(&e),Some(Signs::ANY));
+        assert!(crate::functions::is_numeric_value(&e));assert_eq!(e.cached_assumption(60,2),3);
+        assert_eq!(crate::evalf::eval_f64(&e),Some(0.0));
+        assert_eq!(exact_queries(||real_signs(&e)),Some(Signs::ANY));
     }
 }

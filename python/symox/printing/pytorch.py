@@ -88,6 +88,12 @@ class PyTorchPrinter(Printer):
     def emptyPrinter(self, expr):
         from symox import _core
         overrides = {}
+        if self._native_method == "_torchcode":
+            from symox import I
+            reference = self._settings["reference"] or "None"
+            # Keep constants on the reference device/dtype and avoid Python
+            # complex operands in Inductor's fallback kernels during backward.
+            overrides[I] = f"_sx_tensor(1j, {reference})"
         if self._custom_methods:
             stack, seen = [expr], set()
             while stack:

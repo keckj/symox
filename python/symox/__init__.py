@@ -1199,6 +1199,7 @@ from ._core import (  # noqa: E402
     reduced,
     rem,
     resultant,
+    subresultants,
     roots,
     sqf,
     sqf_list,

@@ -9,8 +9,45 @@ use crate::ops::{add, mul, pow};
 
 const EULER_GAMMA: f64 = 0.577_215_664_901_532_9;
 
+// Memoize by physical identity, retaining owners of temporary nodes from doit.
+// A root numeric evaluation owns the scope; nested special-function and power
+// evaluations reuse it. Environment-dependent eval_with never uses this table.
+struct NumericMemo {
+    depth:usize,
+    values:Option<rustc_hash::FxHashMap<(usize,bool),(Expr,Option<C64>)>>,
+}
+thread_local! {
+    static NUMERIC_MEMO:std::cell::RefCell<NumericMemo>=const{std::cell::RefCell::new(NumericMemo{depth:0,values:None})};
+    #[cfg(test)]
+    static EVALUATIONS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};
+}
+struct NumericScope;
+impl NumericScope {
+    fn enter()->Self{NUMERIC_MEMO.with(|memo|memo.borrow_mut().depth+=1);Self}
+}
+impl Drop for NumericScope {
+    fn drop(&mut self){NUMERIC_MEMO.with(|memo|{
+        let mut memo=memo.borrow_mut();memo.depth-=1;if memo.depth==0{memo.values=None;}
+    });}
+}
+pub(crate) fn with_numeric_cache<R>(evaluation:impl FnOnce()->R)->R{
+    let _scope=NumericScope::enter();evaluation()
+}
+
+
 /// Evaluate a numeric expression (no free symbols) to a complex double.
-pub fn eval_c64(e: &Expr) -> Option<C64> {
+pub fn eval_c64(e:&Expr)->Option<C64>{
+    if e.is_atom(){return eval_c64_uncached(e);}
+    let _scope=NumericScope::enter();
+    let key=(e.dag_id(),crate::assumptions::numeric_refinement_enabled());
+    let cached=NUMERIC_MEMO.with(|memo|memo.borrow().values.as_ref().and_then(|values|values.get(&key).map(|(_,value)|*value)));
+    if let Some(value)=cached{return value;}
+    #[cfg(test)] EVALUATIONS.with(|count|count.set(count.get()+1));
+    let value=eval_c64_uncached(e);
+    NUMERIC_MEMO.with(|memo|{memo.borrow_mut().values.get_or_insert_with(rustc_hash::FxHashMap::default).insert(key,(e.clone(),value));});
+    value
+}
+fn eval_c64_uncached(e: &Expr) -> Option<C64> {
     Some(match e.kind() {
         Kind::Num(n) => C64::new(n.to_f64(), 0.0),
         Kind::Const(c) => match c {
@@ -196,7 +233,10 @@ pub fn c64_to_expr(z: C64) -> Expr {
 }
 
 /// Evaluate `f(args)` numerically if possible (used for float arguments).
-pub fn eval_func_numeric(f: &Func, args: &[Expr]) -> Option<Expr> {
+pub fn eval_func_numeric(f:&Func,args:&[Expr])->Option<Expr>{
+    with_numeric_cache(||eval_func_numeric_inner(f,args))
+}
+fn eval_func_numeric_inner(f: &Func, args: &[Expr]) -> Option<Expr> {
     let a: Option<Vec<C64>> = args.iter().map(eval_c64).collect();
     let z = apply_c64(f, &a?)?;
     if !z.re.is_finite() || !z.im.is_finite() {
@@ -384,5 +424,87 @@ mod tests {
         assert!((gamma_f64(0.5) - std::f64::consts::PI.sqrt()).abs() < 1e-13);
         assert!((erf_f64(1.0) - 0.842_700_792_949_714_9).abs() < 1e-14);
         assert!((erf_f64(3.0) - 0.999_977_909_503_001_4).abs() < 1e-14);
+    }
+}
+
+#[cfg(test)]
+mod dag_cache_tests {
+    use super::*;
+    fn shared_mul(base:Expr,depth:usize)->Expr{
+        let mut value=base;let one=Expr::one();
+        for _ in 0..depth{value=Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,vec![(value.clone(),one.clone()),(value,one.clone())]));}value
+    }
+    #[test]
+    fn closed_numeric_dag_is_evaluated_once_per_node(){
+        let e=shared_mul(Expr::one(),80);EVALUATIONS.with(|count|count.set(0));
+        assert_eq!(eval_c64(&e),Some(C64::new(1.0,0.0)));
+        assert_eq!(EVALUATIONS.with(|count|count.get()),80);
+        NUMERIC_MEMO.with(|memo|{let memo=memo.borrow();assert_eq!(memo.depth,0);assert!(memo.values.is_none());});
+    }
+    #[test]
+    fn unknown_values_contexts_and_physical_identity_are_memoized(){
+        let a=Expr::from_kind(Kind::Func(Func::Sin,vec![Expr::pi()]));
+        let b=Expr::from_kind(Kind::Func(Func::Sin,vec![Expr::pi()]));
+        assert_eq!(a,b);assert!(!a.ptr_eq(&b));
+        let unknown=Expr::from_kind(Kind::Func(Func::Undefined("f".into()),vec![Expr::one()]));
+        EVALUATIONS.with(|count|count.set(0));
+        with_numeric_cache(||{
+            assert!(eval_c64(&a).is_some());assert!(eval_c64(&a).is_some());assert_eq!(EVALUATIONS.with(|count|count.get()),1);
+            assert!(eval_c64(&b).is_some());assert_eq!(EVALUATIONS.with(|count|count.get()),2);
+            assert_eq!(eval_c64(&unknown),None);assert_eq!(eval_c64(&unknown),None);assert_eq!(EVALUATIONS.with(|count|count.get()),3);
+            crate::assumptions::exact_queries(||{assert_eq!(eval_c64(&unknown),None);assert!(eval_c64(&a).is_some());});
+            assert_eq!(EVALUATIONS.with(|count|count.get()),5);
+            assert!(eval_c64(&a).is_some());assert_eq!(EVALUATIONS.with(|count|count.get()),5);
+            NUMERIC_MEMO.with(|memo|assert_eq!(memo.borrow().values.as_ref().unwrap().len(),5));
+        });
+        NUMERIC_MEMO.with(|memo|assert!(memo.borrow().values.is_none()));
+    }
+    #[test]
+    fn scoped_owners_and_panic_cleanup_are_correct(){
+        let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(||with_numeric_cache(||{
+            // Only the memo owns each temporary after its statement returns.
+            for _ in 0..32{let e=Expr::from_kind(Kind::Func(Func::Sin,vec![Expr::pi()]));assert!(eval_c64(&e).is_some());}
+            NUMERIC_MEMO.with(|memo|assert_eq!(memo.borrow().values.as_ref().unwrap().len(),32));
+            panic!("expected numeric unwind");
+        })));
+        assert!(result.is_err());
+        NUMERIC_MEMO.with(|memo|{let memo=memo.borrow();assert_eq!(memo.depth,0);assert!(memo.values.is_none());});
+        assert_eq!(eval_f64(&shared_mul(Expr::one(),80)),Some(1.0));
+    }
+    #[test]
+    fn environments_are_separate_from_closed_numeric_memo(){
+        let x=Expr::symbol("x");let e=Expr::from_kind(Kind::Func(Func::Sin,vec![x]));
+        with_numeric_cache(||{
+            assert_eq!(eval_c64(&e),None);
+            let first=eval_with(&e,&|name|(name=="x").then_some(C64::new(0.0,0.0)));
+            let second=eval_with(&e,&|name|(name=="x").then_some(C64::new(std::f64::consts::FRAC_PI_2,0.0)));
+            assert_eq!(first,Some(C64::new(0.0,0.0)));assert_eq!(second,Some(C64::new(1.0,0.0)));
+            assert_eq!(eval_c64(&e),None);
+        });
+    }
+    #[test]
+    fn ambiguous_numeric_assumptions_share_all_descendant_refinements() {
+        let mut value=Expr::one();
+        for _ in 0..80 {
+            value=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![
+                (value.clone(),Number::ONE),(value,Number::MINUS_ONE),
+            ]));
+        }
+        EVALUATIONS.with(|count|count.set(0));
+        assert_eq!(crate::assumptions::is_positive(&value),None);
+        // Every prefix needs refinement, but all prefixes share one memo.
+        assert_eq!(EVALUATIONS.with(|count|count.get()),80);
+        NUMERIC_MEMO.with(|memo|{let memo=memo.borrow();assert_eq!(memo.depth,0);assert!(memo.values.is_none());});
+    }
+
+    #[test]
+    fn multi_argument_numeric_entries_share_their_scope(){
+        let e=shared_mul(Expr::one(),80);let args=vec![e.clone(),e];
+        EVALUATIONS.with(|count|count.set(0));
+        assert!(eval_func_numeric(&Func::Atan2,&args).is_some());
+        assert_eq!(EVALUATIONS.with(|count|count.get()),80);
+        EVALUATIONS.with(|count|count.set(0));
+        assert!(crate::special::numeric::eval_c64(crate::special::SpecialFn::Beta,&args).is_some());
+        assert_eq!(EVALUATIONS.with(|count|count.get()),80);
     }
 }

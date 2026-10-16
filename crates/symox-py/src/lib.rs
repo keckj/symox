@@ -1323,22 +1323,10 @@ impl PyExpr {
 
     fn could_extract_minus_sign(&self)->bool{symox::decompose::could_extract_minus_sign(&self.e)}
 
-    fn as_coeff_Mul<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        // An evaluate=False product stores its factors verbatim. Its first
-        // factor can consequently be numeric instead of living in the native
-        // canonical numeric-coefficient field.
-        if let Kind::Mul(c, factors) = self.e.kind() {
-            if c.is_one() {
-                if let Some((first, exponent)) = factors.first() {
-                    if first.is_number() && exponent.is_one() {
-                        let rest: Vec<Expr> = factors[1..].iter().map(|(b, e)| ops::mul_factor(b, e)).collect();
-                        return PyTuple::new(py, [wrap(first.clone()), wrap(ops::mul(&rest))]);
-                    }
-                }
-            }
-        }
-        let (c, r) = ops::as_coeff_mul(&self.e);
-        PyTuple::new(py, [wrap(Expr::num(c)), wrap(r)])
+    #[pyo3(signature=(rational=false))]
+    fn as_coeff_Mul<'py>(&self, py: Python<'py>,rational:bool) -> PyResult<Bound<'py, PyTuple>> {
+        let(c,r)=symox::decompose::as_coeff_mul_head(&self.e,rational);
+        PyTuple::new(py,[wrap(c),wrap(r)])
     }
 
     #[pyo3(signature=(*deps))]
@@ -1729,6 +1717,7 @@ fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObj
             Key::Index(n) => n.clone().into_pyobject(py)?.into_any().unbind(),
             Key::Str(s) => s.as_str().into_pyobject(py)?.into_any().unbind(),
             Key::Num(n) => wrap(Expr::num(n.clone())).into_pyobject(py)?.into_any().unbind(),
+            Key::SpecialNumber(c) => wrap(Expr::constant(*c)).into_pyobject(py)?.into_any().unbind(),
             Key::Tup(keys) => PyTuple::new(py, keys.iter().map(|key| convert(py, key, tuples)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind(),
             Key::Shared(keys) => {
                 let id = keys.as_ptr() as usize;
@@ -1742,7 +1731,7 @@ fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObj
     }
     let expression = to_expr(obj)?;
     let key = symox::sortkey::sort_key(&expression);
-    let mut tuples = expression.has_matrix().then(FxHashMap::default);
+    let mut tuples = Some(FxHashMap::default());
     convert(py, &key, &mut tuples)
 }
 

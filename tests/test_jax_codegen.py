@@ -629,3 +629,70 @@ def test_nested_printer_symbol_and_function_override():
     overridden = Cosine().doprint(expression)
     actual = eval(overridden, {"jnp": jnp, "_sx_tensor": helper, "v_x": inputs})
     np.testing.assert_allclose(actual, jnp.cos(inputs)+inputs*inputs, rtol=2e-6)
+
+
+@pytest.mark.parametrize("jit", [False, True])
+@pytest.mark.parametrize("pivot", ["A", "D"])
+def test_block_schur_rectangular_complex_decomposition_reconstruction_and_gradients(jit, pivot):
+    # Complex64 reconstruction must use full float32 products on GPUs, rather
+    # than the default reduced-precision matmul kernels.
+    with jax.default_matmul_precision("highest"):
+        _check_block_schur_rectangular_complex(jit, pivot)
+
+
+def _check_block_schur_rectangular_complex(jit, pivot):
+    t = sm.Symbol("t", real=True)
+    if pivot == "A":
+        a = sm.ImmutableMatrix([[2+sm.I+t]])
+        b = sm.ImmutableMatrix([[1+sm.I, 2, -sm.I]])
+        c = sm.ImmutableMatrix([[2], [1-sm.I]])
+        d = sm.ImmutableMatrix([[3+t, 1+sm.I, 2-t], [-1, 4-sm.I+t, 1+2*t]])
+    else:
+        a = sm.ImmutableMatrix([[1+t, 2+sm.I, 3], [-sm.I, 4-t, 1+2*t]])
+        b = sm.ImmutableMatrix([[2, 1+sm.I], [1, -1]])
+        c = sm.ImmutableMatrix([[1, 2, -sm.I], [3, 0, 2+sm.I]])
+        d = sm.ImmutableMatrix([[3+sm.I+t, 0], [0, 4-2*sm.I+t]])
+    matrix = sm.BlockMatrix([[a, b], [c, d]])
+    factors = matrix.LDUdecomposition() if pivot == "A" else matrix.UDLdecomposition()
+    function = sm.jax_lambdify(t, (matrix.schur(pivot), *factors), jit=jit)
+    tv = jnp.asarray([[-.3, .2], [.4, .8]])
+
+    def reference(value):
+        scale = value[..., None, None]
+        dtype = jnp.complex128 if value.dtype == jnp.float64 else jnp.complex64
+        def constant(values):
+            array = jnp.asarray(values, dtype=dtype)
+            return jnp.broadcast_to(array, value.shape+array.shape)
+        if pivot == "A":
+            aa = constant([[2+1j]])+scale
+            bb = constant([[1+1j, 2, -1j]])
+            cc = constant([[2], [1-1j]])
+            dd = constant([[3, 1+1j, 2], [-1, 4-1j, 1]])+scale*constant([[1, 0, -1], [0, 1, 2]])
+            complement = dd-cc@jnp.linalg.solve(aa, bb)
+        else:
+            aa = constant([[1, 2+1j, 3], [-1j, 4, 1]])+scale*constant([[1, 0, 0], [0, -1, 2]])
+            bb = constant([[2, 1+1j], [1, -1]])
+            cc = constant([[1, 2, -1j], [3, 0, 2+1j]])
+            dd = constant([[3+1j, 0], [0, 4-2j]])+scale*constant([[1, 0], [0, 1]])
+            complement = aa-bb@jnp.linalg.solve(dd, cc)
+        dense = jnp.concatenate((jnp.concatenate((aa, bb), axis=-1), jnp.concatenate((cc, dd), axis=-1)), axis=-2)
+        return complement, dense
+
+    def actual_outputs(value):
+        complement, left, diagonal, right = function(value)
+        return complement, left@diagonal@right
+
+    complement, left, diagonal, right = function(tv)
+    expected_complement, expected_dense = reference(tv)
+    assert left.shape[-2:] == (expected_dense.shape[-2],)*2
+    assert diagonal.shape[-2:] == expected_dense.shape[-2:]
+    assert right.shape[-2:] == (expected_dense.shape[-1],)*2
+    for actual, expected in zip(actual_outputs(tv), (expected_complement, expected_dense)):
+        assert actual.dtype == expected.dtype
+        np.testing.assert_allclose(actual, expected, rtol=3e-5, atol=3e-6)
+    # Differentiate the real squared norm of complex outputs; backend solve
+    # and direct dense assembly provide an independent reconstruction oracle.
+    loss = lambda outputs: sum(jnp.sum(jnp.abs(value)**2) for value in outputs)
+    actual_gradient = jax.grad(lambda value: loss(actual_outputs(value)))(tv)
+    expected_gradient = jax.grad(lambda value: loss(reference(value)))(tv)
+    np.testing.assert_allclose(actual_gradient, expected_gradient, rtol=3e-5, atol=3e-5)

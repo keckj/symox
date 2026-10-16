@@ -17,10 +17,13 @@ pub enum Operation {
     Prem,
     Pquo,
     Pexquo,
+    Resultant(bool),
+    Discriminant,
+    Subresultants,
 }
 impl Operation {
-    fn is_pseudo(&self) -> bool {
-        matches!(self, Self::Pdiv | Self::Prem | Self::Pquo | Self::Pexquo)
+    fn allow_auto(&self) -> bool {
+        matches!(self, Self::Div | Self::Rem | Self::Quo | Self::Exquo)
     }
 }
 struct Options<'py> {
@@ -70,7 +73,7 @@ impl<'py> Options<'py> {
                     "auto" => {
                         if !allow_auto {
                             return Err(FlagError::new_err(
-                                "'auto' flag is not allowed in pseudo-division",
+                                "'auto' flag is not allowed in this context",
                             ));
                         }
                         out.auto = boolean(&value, "auto")?.unwrap_or(true);
@@ -320,7 +323,7 @@ impl Inputs {
         kw: Option<&Bound<'py, PyDict>>,
         operation: &Operation,
     ) -> PyResult<Self> {
-        let opts = Options::parse(gens, kw, !operation.is_pseudo())?;
+        let opts = Options::parse(gens, kw, operation.allow_auto())?;
         let inherited = inherited_extension(f, g, &opts)?;
         let fp = f.downcast::<PyPoly>().ok();
         let gp = g.downcast::<PyPoly>().ok();
@@ -516,7 +519,26 @@ impl Inputs {
                     _ => self.render(py, q),
                 }
             }
+            Operation::Subresultants => {
+                let values=self.a.subresultants(&self.b).map_err(err)?;
+                Ok(PyList::new(py,values.into_iter().map(|p|self.render(py,p)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind())
+            }
+            Operation::Discriminant => render_eliminated(py,self.a.discriminant_poly().map_err(err)?,self.polys),
+            Operation::Resultant(include_prs) => {
+                let(result,sequence)=self.a.resultant_prs(&self.b).map_err(err)?;
+                let result=render_eliminated(py,result,self.polys)?;
+                if !include_prs {return Ok(result);}
+                let sequence=PyList::new(py,sequence.into_iter().map(|p|self.render(py,p)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind();
+                Ok(PyTuple::new(py,[result,sequence])?.into_any().unbind())
+            }
         }
+    }
+}
+pub fn render_eliminated(py:Python<'_>,p:PolyValue,polys:bool)->PyResult<PyObject> {
+    if polys && p.true_gens().len()>1 {
+        Ok(PyPoly{p:p.eliminate_first().map_err(err)?}.into_pyobject(py)?.into_any().unbind())
+    } else {
+        Ok(w(p.as_expr()).into_pyobject(py)?.into_any().unbind())
     }
 }
 pub fn run<'py>(

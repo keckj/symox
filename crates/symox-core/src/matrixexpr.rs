@@ -283,6 +283,59 @@ impl MatrixExpr {
         let mut entries=Vec::new();for (i,a) in blocks.iter().enumerate(){for (j,b) in blocks.iter().enumerate(){entries.push(if i==j{a.clone()}else{Self::zero(a.rows().clone(),b.cols().clone())?});}}
         BlockGrid::new(blocks.len(),blocks.len(),entries)
     }
+    fn block_two_by_two(&self)->MResult<BlockGrid>{
+        let grid=self.block_grid()?;
+        if grid.shape()!=(2,2){return Err(MatrixError::Shape("Block Schur complements and decompositions require a 2x2 block grid".into()));}
+        Ok(grid)
+    }
+    fn block_pivot_inverse(pivot:&Self,certify_square:bool)->MResult<Self>{
+        if !Self::same_dimension(pivot.rows(),pivot.cols()){
+            if is_zero_assume(&sub(pivot.rows(),pivot.cols()))==Some(false){return Err(MatrixError::NonSquare("The block pivot must be square".into()));}
+            if certify_square{return Err(MatrixError::NotImplemented("Block decomposition requires a pivot with certified equal row and column dimensions".into()));}
+        }
+        // The unique map on a zero-dimensional space is invertible, including
+        // when its spelling is ZeroMatrix(0, 0).
+        if pivot.rows().is_zero()&&pivot.cols().is_zero(){return Self::identity(Expr::zero());}
+        pivot.inverse(true)
+    }
+    /// Ordered Schur complement with respect to either diagonal block.
+    /// Only the selected pivot is assumed invertible; the other block may be rectangular.
+    pub fn schur(&self,pivot:&str,generalized:bool)->MResult<Self>{
+        if generalized{return Err(MatrixError::NotImplemented("Generalized block Schur complements are not implemented".into()));}
+        if !matches!(pivot,"A"|"D"){
+            return Err(if matches!(pivot,"B"|"C"){MatrixError::NotImplemented("Schur complements with off-diagonal pivots are not implemented".into())}else{MatrixError::Value("Schur pivot must be 'A' or 'D'".into())});
+        }
+        let grid=self.block_two_by_two()?;
+        let(a,b,c,d)=(grid.get(0,0),grid.get(0,1),grid.get(1,0),grid.get(1,1));
+        let(base,left,p,right)=if pivot=="A"{(d,c,a,b)}else{(a,b,d,c)};
+        let inverse=Self::block_pivot_inverse(p,false)?;
+        let correction=Self::mul(Expr::minus_one(),&[left.clone(),inverse,right.clone()],true)?;
+        Self::add(&[base.clone(),correction],true)
+    }
+    /// Rectangular block LDU: square outer factors, possibly rectangular diagonal factor.
+    pub fn ldu_decomposition(&self)->MResult<(Self,Self,Self)>{
+        let grid=self.block_two_by_two()?;
+        let(a,b,c,d)=(grid.get(0,0),grid.get(0,1),grid.get(1,0),grid.get(1,1));
+        let inverse=Self::block_pivot_inverse(a,true)?;
+        let(p,r,q)=(a.rows().clone(),d.rows().clone(),d.cols().clone());
+        let ip=Self::identity(p.clone())?;let ir=Self::identity(r.clone())?;let iq=Self::identity(q.clone())?;
+        let lower=Self::block(BlockGrid::new(2,2,vec![ip.clone(),Self::zero(p.clone(),r)?,Self::mul(Expr::one(),&[c.clone(),inverse.clone()],true)?,ir])?)?;
+        let diagonal=Self::block_diag(&[a.clone(),self.schur("A",false)?])?;
+        let upper=Self::block(BlockGrid::new(2,2,vec![ip,Self::mul(Expr::one(),&[inverse,b.clone()],true)?,Self::zero(q,p)?,iq])?)?;
+        Ok((lower,diagonal,upper))
+    }
+    /// Rectangular block UDL, using the bottom-right block as the only pivot.
+    pub fn udl_decomposition(&self)->MResult<(Self,Self,Self)>{
+        let grid=self.block_two_by_two()?;
+        let(a,b,c,d)=(grid.get(0,0),grid.get(0,1),grid.get(1,0),grid.get(1,1));
+        let inverse=Self::block_pivot_inverse(d,true)?;
+        let(p,r,q)=(a.rows().clone(),a.cols().clone(),d.rows().clone());
+        let ip=Self::identity(p.clone())?;let ir=Self::identity(r.clone())?;let iq=Self::identity(q.clone())?;
+        let upper=Self::block(BlockGrid::new(2,2,vec![ip,Self::mul(Expr::one(),&[b.clone(),inverse.clone()],true)?,Self::zero(q.clone(),p)?,iq.clone()])?)?;
+        let diagonal=Self::block_diag(&[self.schur("D",false)?,d.clone()])?;
+        let lower=Self::block(BlockGrid::new(2,2,vec![ir,Self::zero(r.clone(),q)?,Self::mul(Expr::one(),&[inverse,c.clone()],true)?,iq])?)?;
+        Ok((upper,diagonal,lower))
+    }
     pub fn slice(&self,rows:[Option<Expr>;3],cols:[Option<Expr>;3])->MResult<Self>{
         self.slice_normalized(SliceSpec::from_raw(rows,self.rows())?,SliceSpec::from_raw(cols,self.cols())?)
     }
@@ -1224,6 +1277,30 @@ mod tests {
             assert!(concrete.as_explicit().is_ok());
         }
         assert!(a.slice([None,None,Some(k)],[None,None,None]).is_err());
+    }
+
+    #[test]
+    fn block_schur_and_rectangular_ldu_udl_reconstruct(){
+        let a=symbol("A",2,2);let b=symbol("B",2,4);let c=symbol("C",3,2);let d=symbol("D",3,4);
+        let x=MatrixExpr::block(BlockGrid::new(2,2,vec![a,b,c,d]).unwrap()).unwrap();
+        let(l,m,u)=x.ldu_decomposition().unwrap();
+        assert_eq!(l.shape(),(Expr::int(5),Expr::int(5)));assert_eq!(m.shape(),x.shape());assert_eq!(u.shape(),(Expr::int(6),Expr::int(6)));
+        assert_eq!(MatrixExpr::mul(Expr::one(),&[l,m,u],true).unwrap().block_collapse().unwrap(),x);
+        let x=MatrixExpr::block(BlockGrid::new(2,2,vec![symbol("A",2,3),symbol("B",2,4),symbol("C",4,3),symbol("D",4,4)]).unwrap()).unwrap();
+        let(u,m,l)=x.udl_decomposition().unwrap();assert_eq!(m.shape(),x.shape());
+        assert_eq!(MatrixExpr::mul(Expr::one(),&[u,m,l],true).unwrap().block_collapse().unwrap(),x);
+        // Complex coefficients exercise ordinary inverse/product, with no Hermitian transpose.
+        let pivot=MatrixExpr::explicit(Matrix::from_rows(vec![vec![add(&[Expr::one(),Expr::i()])]]).unwrap());
+        let x=MatrixExpr::block(BlockGrid::new(2,2,vec![pivot.clone(),symbol("B",1,2),symbol("C",2,1),symbol("D",2,2)]).unwrap()).unwrap();
+        let(l,m,u)=x.ldu_decomposition().unwrap();let actual=MatrixExpr::mul(Expr::one(),&[l,m,u],true).unwrap().as_explicit().unwrap();let expected=x.as_explicit().unwrap();
+        for(a,b)in actual.data().iter().zip(expected.data()){assert!(crate::simplify::simplify(&sub(a,b)).is_zero());}
+        for(p,r,q)in[(0,0,0),(0,3,2),(2,0,3),(2,3,0)]{
+            let pivot=MatrixExpr::explicit(Matrix::eye(p));
+            let x=MatrixExpr::block(BlockGrid::new(2,2,vec![pivot,symbol("B",p as i64,q),symbol("C",r,p as i64),symbol("D",r,q)]).unwrap()).unwrap();
+            let(l,m,u)=x.ldu_decomposition().unwrap();assert_eq!(m.shape(),x.shape());assert_eq!(MatrixExpr::mul(Expr::one(),&[l,m,u],true).unwrap().as_explicit().unwrap(),x.as_explicit().unwrap());
+        }
+        let empty=MatrixExpr::zero(Expr::zero(),Expr::zero()).unwrap();assert!(MatrixExpr::block_pivot_inverse(&empty,true).is_ok());
+        let singular=MatrixExpr::block_diag(&[MatrixExpr::zero(Expr::one(),Expr::one()).unwrap(),pivot]).unwrap();assert!(matches!(singular.ldu_decomposition(),Err(MatrixError::NonInvertible(_))));
     }
 
     #[test]

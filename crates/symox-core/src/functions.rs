@@ -176,7 +176,15 @@ fn has_float(e: &Expr) -> bool {
 }
 
 /// Free of symbols and undefined functions (so it can be evaluated).
-pub fn is_numeric_value(e: &Expr) -> bool {
+pub fn is_numeric_value(e:&Expr)->bool{
+    // Classification is independent of numeric-refinement policy and uses the
+    // two bits above the two assumption-cache banks (bits 60 and 61).
+    if e.mask()!=0 || e.is_atom(){return is_numeric_value_uncached(e);}
+    match e.cached_assumption(60,2){2=>return false,3=>return true,_=>{}}
+    let value=is_numeric_value_uncached(e);
+    e.remember_assumption(60,2,if value{3}else{2});value
+}
+fn is_numeric_value_uncached(e: &Expr) -> bool {
     // any symbol (or Order term) inside sets a mask bit: O(1) rejection
     if e.mask() != 0 {
         return false;
@@ -189,6 +197,22 @@ pub fn is_numeric_value(e: &Expr) -> bool {
         }
         Kind::Func(Func::Logic(_) | Func::Set(_), _) => false,
         Kind::Func(Func::Undefined(n), a) => n.is_internal("Tuple") && a.iter().all(is_numeric_value),
+        // Inspect compact payloads instead of args(): reconstructing public
+        // terms and powers may canonicalize a shared held arithmetic DAG.
+        Kind::Add(_, terms) => terms.iter().all(|(term, coefficient)| {
+            coefficient.is_zero() || is_numeric_value(term)
+        }),
+        Kind::Mul(_, factors) => factors.iter().all(|(base, exponent)| {
+            if exponent.is_zero() || base.is_one() {
+                true
+            } else if base.is_atom() && exponent.is_atom() && !exponent.is_one() {
+                // Scalar power simplifications, e.g. oo**-1 -> 0, are bounded.
+                is_numeric_value(&crate::ops::pow(base, exponent))
+            } else {
+                is_numeric_value(base) && is_numeric_value(exponent)
+            }
+        }),
+        Kind::Pow(base, exponent) => is_numeric_value(base) && is_numeric_value(exponent),
         _ => e.args().iter().all(is_numeric_value),
     }
 }

@@ -13,7 +13,7 @@ use num_complex::Complex64;
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::functions::is_numeric_value;
 use crate::number::Number;
-use crate::ops::{as_coeff_mul, mul_factor, pow};
+use crate::ops::{as_coeff_mul, pow};
 use crate::matrixexpr::{MatrixExpr, MatrixKind, MatrixOperand};
 
 /// Presentation arguments deliberately differ from scalar `Expr::args()`:
@@ -121,7 +121,7 @@ fn composite_key(class: (u8, u32, &str), args: Vec<Key>) -> Key {
 }
 
 pub fn matrix_sort_key(matrix: &MatrixExpr) -> Key {
-    SortKeyCache { memo_scalars: true, ..Default::default() }.matrix_key(matrix)
+    SortKeyCache::default().matrix_key(matrix)
 }
 
 /// A Python-tuple like sort key.
@@ -131,6 +131,7 @@ pub enum Key {
     Index(num_bigint::BigInt),
     Str(String),
     Num(Number),
+    SpecialNumber(Constant),
     Tup(Vec<Key>),
     Shared(Arc<[Key]>),
 }
@@ -139,7 +140,7 @@ impl Key {
     fn rank(&self) -> u8 {
         match self {
             Key::Int(_) | Key::Index(_) => 0,
-            Key::Num(_) => 0,
+            Key::Num(_) | Key::SpecialNumber(_) => 0,
             Key::Str(_) => 1,
             Key::Tup(_) | Key::Shared(_) => 2,
         }
@@ -154,6 +155,16 @@ fn cmp_num(a: &Number, b: &Number) -> Ordering {
     a.cmp_value(b).unwrap_or_else(|| a.cmp_struct(b))
 }
 
+fn special_rank(c:Constant)->i8{match c{Constant::NegInfinity=>-1,Constant::Infinity=>1,_=>2}}
+fn cmp_special(c:Constant,n:&Number)->Ordering{
+    let rank=special_rank(c);
+    if let Number::Float(f)=n{
+        let numeric=if f.is_nan(){Some(2)}else if *f==f64::NEG_INFINITY{Some(-1)}else if *f==f64::INFINITY{Some(1)}else{None};
+        if let Some(other)=numeric{return rank.cmp(&other);}
+    }
+    rank.cmp(&0)
+}
+
 impl Ord for Key {
     fn cmp(&self, o: &Key) -> Ordering {
         if let (Some(a), Some(b)) = (self.tuple(), o.tuple()) {
@@ -165,6 +176,13 @@ impl Ord for Key {
             return a.len().cmp(&b.len());
         }
         match (self, o) {
+            (Key::SpecialNumber(a),Key::SpecialNumber(b))=>special_rank(*a).cmp(&special_rank(*b)),
+            (Key::SpecialNumber(a),Key::Num(b))=>cmp_special(*a,b),
+            (Key::Num(a),Key::SpecialNumber(b))=>cmp_special(*b,a).reverse(),
+            (Key::SpecialNumber(a),Key::Int(b))=>cmp_special(*a,&Number::Int(*b)),
+            (Key::Int(a),Key::SpecialNumber(b))=>cmp_special(*b,&Number::Int(*a)).reverse(),
+            (Key::SpecialNumber(a),Key::Index(b))=>cmp_special(*a,&Number::from_bigint(b.clone())),
+            (Key::Index(a),Key::SpecialNumber(b))=>cmp_special(*b,&Number::from_bigint(a.clone())).reverse(),
             (Key::Int(a), Key::Int(b)) => a.cmp(b),
             (Key::Index(a), Key::Index(b)) => a.cmp(b),
             (Key::Index(a), Key::Int(b)) => a.cmp(&(*b).into()),
@@ -216,7 +234,7 @@ fn class_key(e: &Expr) -> Key {
     let (a, b, n): (i64, i64, String) = match e.kind() {
         Kind::Num(_) => (1, 0, "Number".into()),
         Kind::Const(c) => match c {
-            Constant::Infinity | Constant::NegInfinity | Constant::ComplexInfinity | Constant::NaN => {
+            Constant::Infinity | Constant::NegInfinity | Constant::NaN => {
                 (1, 0, "Number".into())
             }
             _ => (2, 0, e.class_name().into()),
@@ -266,13 +284,12 @@ fn number_key(n: Number) -> Key {
 
 /// SymPy's `default_sort_key`.
 pub fn sort_key(e: &Expr) -> Key {
-    SortKeyCache { memo_scalars: e.has_matrix(), ..Default::default() }.key(e)
+    SortKeyCache::default().key(e)
 }
 
 /// Each scalar and matrix node is keyed once; tuple children retain sharing.
 #[derive(Default)]
 struct SortKeyCache {
-    memo_scalars: bool,
     // Presentation depends on the stored bound names, even when two Subs
     // nodes have equal alpha identities. Retain owners to prevent ID reuse.
     scalars: FxHashMap<usize, (Expr, Key)>,
@@ -281,7 +298,6 @@ struct SortKeyCache {
 
 impl SortKeyCache {
     fn key(&mut self, e: &Expr) -> Key {
-        if !self.memo_scalars { return self.compute(e); }
         if let Some((_, key)) = self.scalars.get(&e.dag_id()) { return key.clone(); }
         let key = share_key(self.compute(e));
         self.scalars.insert(e.dag_id(), (e.clone(), key.clone()));
@@ -338,16 +354,18 @@ impl SortKeyCache {
             return composite_key((5, 0, f.name()), vec![self.matrix_key(matrix)]);
         }
         Kind::Num(n) => return number_key(n.clone()),
-        Kind::Const(Constant::Infinity) => return number_key(Number::Float(f64::INFINITY)),
-        Kind::Const(Constant::NegInfinity) => return number_key(Number::Float(f64::NEG_INFINITY)),
-        Kind::Const(Constant::ComplexInfinity | Constant::NaN) => {
-            return number_key(Number::Float(f64::MAX))
+        Kind::Const(c @ (Constant::Infinity|Constant::NegInfinity|Constant::NaN))=>{
+            let mut fields=number_key(Number::ONE).tuple().unwrap().to_vec();fields[3]=Key::SpecialNumber(*c);return tup(fields);
         }
         _ => {}
     }
-    let (coeff, rest) = as_coeff_mul(e);
+    let (coeff,rest)=crate::decompose::as_coeff_mul_head(e,false);
+    let coefficient=match coeff.kind(){Kind::Num(n)=>Key::Num(n.clone()),Kind::Const(c)=>Key::SpecialNumber(*c),_=>unreachable!("a numeric coefficient")};
     let (base, exp) = match rest.kind() {
-        Kind::Pow(b, x) => (b.clone(), x.clone()),
+        Kind::Pow(..)=>{
+            let(b,x)=crate::decompose::as_base_exp(&rest);
+            if b.is_constant(Constant::E){(crate::functions::undefined("exp",vec![x]),Expr::one())}else{(b,x)}
+        },
         _ => (rest.clone(), Expr::one()),
     };
     if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
@@ -357,7 +375,7 @@ impl SortKeyCache {
             _ => unreachable!("expression sort keys are tuples"),
         };
         parts[2] = self.key(&exp);
-        parts[3] = Key::Num(coeff);
+        parts[3] = coefficient;
         return tup(parts);
     }
     let args: Vec<Key> = if let Kind::Sym(symbol) = base.kind() {
@@ -372,8 +390,8 @@ impl SortKeyCache {
         vec![Key::Str(crate::printer::to_str(&base))]
     } else {
         match base.kind() {
-            Kind::Add(..) => ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
-            Kind::Mul(..) => ordered_factors(&base).iter().map(|arg| self.key(arg)).collect(),
+            Kind::Add(..) => self.ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
+            Kind::Mul(..) => self.ordered_factors(&base).iter().map(|arg| self.key(arg)).collect(),
             _ => base.args().iter().map(|arg| self.key(arg)).collect(),
         }
     };
@@ -381,20 +399,24 @@ impl SortKeyCache {
         class_key(&base),
         tup(vec![Key::Int(args.len() as i64), tup(args)]),
         self.key(&exp),
-        Key::Num(coeff),
+        coefficient,
     ])
     }
 }
 
 /// SymPy's `as_ordered_factors` for a product (numbers first).
 pub fn ordered_factors(e: &Expr) -> Vec<Expr> {
-    let mut v = match e.kind() {
-        Kind::Mul(..) => e.args(),
-        _ => return vec![e.clone()],
-    };
-    let mut keyed: Vec<(Key, Expr)> = v.drain(..).map(|f| (sort_key(&f), f)).collect();
-    keyed.sort_by(|a, b| a.0.cmp(&b.0));
-    keyed.into_iter().map(|x| x.1).collect()
+    SortKeyCache::default().ordered_factors(e)
+}
+
+impl SortKeyCache {
+    fn ordered_factors(&mut self, e: &Expr) -> Vec<Expr> {
+        if !matches!(e.kind(), Kind::Mul(..)) { return vec![e.clone()]; }
+        let (commutative, noncommutative) = crate::decompose::args_cnc(e, true);
+        let mut keyed: Vec<_> = commutative.into_iter().map(|f| (self.key(&f), f)).collect();
+        keyed.sort_by(|a,b| a.0.cmp(&b.0));
+        keyed.into_iter().map(|(_, f)| f).chain(noncommutative).collect()
+    }
 }
 
 /// SymPy's `decompose_power`: `(base, integer exponent)`.
@@ -430,49 +452,51 @@ fn decompose_power(f: &Expr) -> (Expr, i64) {
 
 /// SymPy's `as_ordered_terms` (default `lex` order) for a sum.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
+    SortKeyCache::default().ordered_terms(e)
+}
+
+impl SortKeyCache {
+fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
     let args = match e.kind() {
         Kind::Add(..) => e.args(),
         _ => return vec![e.clone()],
     };
-    // special case: Number + Mul(negative Number, expr) prints number first
+    // The positive numeric term precedes a negative single-factor term.
     if args.len() == 2 {
-        let (num, other): (Vec<&Expr>, Vec<&Expr>) =
-            args.iter().partition(|a| a.is_number() || is_number_symbol(a));
-        if num.len() == 1 && other.len() == 1 {
-            if let Kind::Mul(c, facs) = other[0].kind() {
-                let positive = match num[0].kind() {
-                    Kind::Num(n) => n.is_positive(),
-                    _ => true,
-                };
-                if facs.len() == 1 && c.is_negative() && positive {
-                    return vec![num[0].clone(), other[0].clone()];
-                }
-            }
+        let numeric = |a:&Expr| matches!(a.kind(),Kind::Num(_)|Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::NaN)) || is_number_symbol(a);
+        let (numbers, other):(Vec<_>,Vec<_>)=args.iter().partition(|a|numeric(a));
+        if numbers.len()==1 && other.len()==1 && other[0].is_mul() {
+            let mut factors=other[0].args();factors.sort_by_key(|a|!numeric(a));
+            let positive=match numbers[0].kind(){Kind::Num(n)=>n.is_positive(),_=>is_number_symbol(numbers[0])};
+            if factors.len()==2 && positive && factors[0].as_number().is_some_and(Number::is_negative){return vec![numbers[0].clone(),other[0].clone()];}
         }
     }
     struct T {
         term: Expr,
         coeff: Complex64,
         cpart: Vec<(Expr, i64)>,
+        ncpart: Vec<Key>,
     }
     let mut terms: Vec<T> = Vec::with_capacity(args.len());
     let mut gens: Vec<Expr> = Vec::new();
     for t in args {
-        let (c, rest) = as_coeff_mul(&t);
-        let mut coeff = Complex64::new(c.to_f64(), 0.0);
+        let (c, rest) = crate::decompose::as_coeff_mul_head(&t, false);
+        let mut coeff = numeric_coefficient(&c).unwrap_or(Complex64::new(1.0,0.0));
         let mut cpart: Vec<(Expr, i64)> = Vec::new();
+        let mut ncpart=Vec::new();
         if !rest.is_one() {
             let factors = match rest.kind() {
-                Kind::Mul(_, fs) => fs.iter().map(|(b, x)| mul_factor(b, x)).collect(),
+                Kind::Mul(..) => rest.args(),
                 _ => vec![rest.clone()],
             };
             for f in factors {
-                if is_numeric_value(&f) {
-                    if let Some(z) = crate::evalf::eval_c64(&f) {
+                if is_numeric_value(&f) || matches!(f.kind(),Kind::Const(Constant::NaN|Constant::ComplexInfinity)) {
+                    if let Some(z) = numeric_coefficient(&f) {
                         coeff *= z;
                         continue;
                     }
                 }
+                if crate::decompose::commutativity(&f)!=Some(true){ncpart.push(self.key(&f));continue;}
                 let (b, k) = decompose_power(&f);
                 if !gens.contains(&b) {
                     gens.push(b.clone());
@@ -480,12 +504,12 @@ pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
                 cpart.push((b, k));
             }
         }
-        terms.push(T { term: t, coeff, cpart });
+        terms.push(T { term: t, coeff, cpart, ncpart });
     }
-    let mut gkeys: Vec<(Key, Expr)> = gens.into_iter().map(|g| (sort_key(&g), g)).collect();
+    let mut gkeys: Vec<(Key, Expr)> = gens.into_iter().map(|g| (self.key(&g), g)).collect();
     gkeys.sort_by(|a, b| a.0.cmp(&b.0));
     let gens: Vec<Expr> = gkeys.into_iter().map(|x| x.1).collect();
-    let mut keyed: Vec<(Vec<i64>, (bool, f64, f64), Expr)> = terms
+    let mut keyed: Vec<(Vec<i64>, Vec<Key>, (bool, f64, f64), Expr)> = terms
         .into_iter()
         .map(|t| {
             let mut monom = vec![0i64; gens.len()];
@@ -493,21 +517,27 @@ pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
                 let i = gens.iter().position(|g| g == b).unwrap();
                 monom[i] = *k;
             }
-            (monom, (t.coeff.im != 0.0, t.coeff.im, t.coeff.re), t.term)
+            (monom, t.ncpart, (t.coeff.im != 0.0, t.coeff.im, t.coeff.re), t.term)
         })
         .collect();
     keyed.sort_by(|a, b| {
         // descending lex on monomials, then ascending coefficient
-        b.0.cmp(&a.0).then_with(|| {
-            let (ai, aim, are) = a.1;
-            let (bi, bim, bre) = b.1;
+        b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)).then_with(|| {
+            let (ai, aim, are) = a.2;
+            let (bi, bim, bre) = b.2;
             ai.cmp(&bi)
                 .then(aim.partial_cmp(&bim).unwrap_or(Ordering::Equal))
                 .then(are.partial_cmp(&bre).unwrap_or(Ordering::Equal))
                 .then(aim.partial_cmp(&bim).unwrap_or(Ordering::Equal))
         })
     });
-    keyed.into_iter().map(|x| x.2).collect()
+    keyed.into_iter().map(|x| x.3).collect()
+}
+}
+
+fn numeric_coefficient(e:&Expr)->Option<Complex64>{
+    if matches!(e.kind(),Kind::Const(Constant::NaN|Constant::ComplexInfinity)){return Some(Complex64::new(f64::NAN,f64::NAN));}
+    crate::evalf::eval_c64(e)
 }
 
 fn is_number_symbol(e: &Expr) -> bool {
@@ -516,7 +546,8 @@ fn is_number_symbol(e: &Expr) -> bool {
 
 /// Compare expressions using SymPy default ordering.
 pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
-    sort_key(a).cmp(&sort_key(b))
+    let mut cache = SortKeyCache::default();
+    cache.key(a).cmp(&cache.key(b))
 }
 
 #[cfg(test)]
@@ -534,6 +565,17 @@ mod tests {
             assert_eq!(args[1].tuple().unwrap(),&[atom.clone()]);
         }
         assert_eq!(atom.tuple().unwrap()[1].tuple().unwrap()[0],Key::Int(2));
+    }
+
+    #[test]
+    fn scalar_keys_retain_shared_children_at_depth_eighty() {
+        let mut node=Expr::symbol("x");
+        for _ in 0..80 { node=Expr::from_unevaluated_kind(Kind::Func(Func::Undefined("pair".into()),vec![node.clone(),node])); }
+        let mut cache=SortKeyCache::default();let first=cache.key(&node);let second=cache.key(&node);
+        assert_eq!(first,second);assert!(cache.scalars.len()<250);
+        let huge=Number::from_bigint(num_bigint::BigInt::from(1)<<10000);
+        assert!(Key::SpecialNumber(Constant::Infinity)>Key::Num(huge.clone()));
+        assert!(Key::SpecialNumber(Constant::NegInfinity)<Key::Num(huge.neg()));
     }
 
     #[test]

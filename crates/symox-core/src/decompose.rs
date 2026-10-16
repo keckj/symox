@@ -9,6 +9,29 @@ use crate::{ops,traverse};
 
 fn args(e:&Expr)->Vec<Expr>{traverse::ordered_args(e)}
 
+/// Leading Number coefficient, preserving the unevaluated tail of a product.
+pub fn as_coeff_mul_head(e:&Expr,rational:bool)->(Expr,Expr){
+    fn product(parent:&Expr,values:&[Expr])->Expr{
+        if parent.is_canonical(){return ops::mul(values);}
+        match values.len(){0=>Expr::one(),1=>values[0].clone(),_=>Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,values.iter().cloned().map(|a|(a,Expr::one())).collect()))}
+    }
+    if number_atom(e){
+        if !rational||e.is_rational_number(){return(e.clone(),Expr::one());}
+        return(Expr::one(),e.clone());
+    }
+    if e.is_mul(){
+        let values=args(e);
+        if let Some(first)=values.first().filter(|a|number_atom(a)){
+            if !rational||first.is_rational_number(){return(first.clone(),product(e,&values[1..]));}
+            if first.as_number().is_some_and(Number::is_negative)||first.is_constant(Constant::NegInfinity){
+                let mut tail=vec![ops::neg(first)];tail.extend(values[1..].iter().cloned());
+                return(Expr::minus_one(),product(e,&tail));
+            }
+        }
+    }
+    (Expr::one(),e.clone())
+}
+
 /// Public power view. Internal multiplication keeps the literal base so that
 /// this presentation rule cannot change automatic evaluation.
 pub fn as_base_exp(e:&Expr)->(Expr,Expr){
@@ -75,25 +98,40 @@ pub fn args_cnc(e:&Expr,split_one:bool)->(Vec<Expr>,Vec<Expr>){
 
 /// A syntactic sign choice; assumptions about a symbol's sign do not count.
 pub fn could_extract_minus_sign(e:&Expr)->bool{
-    fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,bool)>)->bool{
+    fn negate(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Expr)>)->Expr{
+        if let Some((_,value))=cache.get(&e.dag_id()){return value.clone();}
+        let value=if e.is_add(){ops::add(&args(e).iter().map(|a|negate(a,cache)).collect::<Vec<_>>())}
+        else if e.is_mul(){
+            if e.is_canonical(){ops::neg(e)}else{
+                let (coefficient,tail)=as_coeff_mul_head(e,true);
+                let mut factors=if tail.is_mul(){args(&tail)}else{vec![tail]};
+                let coefficient=if factors.first().is_some_and(|a|a.is_constant(Constant::ComplexInfinity)){coefficient}else{ops::neg(&coefficient)};
+                if !coefficient.is_one(){
+                    if factors.first().is_some_and(number_atom){factors[0]=ops::mul2(&coefficient,&factors[0]);}
+                    else{factors.insert(0,coefficient);}
+                }
+                match factors.len(){0=>Expr::one(),1=>factors.pop().unwrap(),_=>Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,factors.into_iter().map(|a|(a,Expr::one())).collect()))}
+            }
+        }
+        else{ops::neg(e)};
+        cache.insert(e.dag_id(),(e.clone(),value.clone()));value
+    }
+    fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,bool)>,negative_cache:&mut FxHashMap<usize,(Expr,Expr)>)->bool{
         if let Some((_,value))=cache.get(&e.dag_id()){return *value;}
         let value=match e.kind(){
             Kind::Num(n)=>n.is_negative(),
             Kind::Const(Constant::NegInfinity)=>true,
             Kind::Mul(..)=>{
                 let first=args(e).into_iter().next();
-                first.is_some_and(|a|a.as_number().is_some_and(Number::is_negative)||a.is_constant(Constant::NegInfinity)) && *e!=ops::neg(e)
+                first.is_some_and(|a|a.as_number().is_some_and(Number::is_negative)||a.is_constant(Constant::NegInfinity)) && *e!=negate(e,negative_cache)
             },
             Kind::Add(..)=>{
-                let terms=args(e);let negative=terms.iter().filter(|term|visit(term,cache)).count();
+                let terms=args(e);let negative=terms.iter().filter(|term|visit(term,cache,negative_cache)).count();
                 match negative.cmp(&(terms.len()-negative)){
                     std::cmp::Ordering::Greater=>true,
                     std::cmp::Ordering::Less=>false,
                     std::cmp::Ordering::Equal=>{
-                        // Rebuild the negated public terms: compact negation
-                        // assumes a canonical Add, whereas held sums may cancel.
-                        let negative=ops::add(&terms.iter().map(|term|ops::mul(&[Expr::minus_one(),term.clone()])).collect::<Vec<_>>());
-                        crate::sortkey::sort_key(e)<crate::sortkey::sort_key(&negative)
+                        crate::sortkey::cmp_default(e,&negate(e,negative_cache)).is_lt()
                     },
                 }
             },
@@ -101,7 +139,7 @@ pub fn could_extract_minus_sign(e:&Expr)->bool{
         };
         cache.insert(e.dag_id(),(e.clone(),value));value
     }
-    visit(e,&mut FxHashMap::default())
+    visit(e,&mut FxHashMap::default(),&mut FxHashMap::default())
 }
 
 fn number_atom(e:&Expr)->bool{matches!(e.kind(),Kind::Num(_)|Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::NaN))}

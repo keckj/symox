@@ -70,7 +70,10 @@ pub fn realn(s: SpecialFn, a: &[f64]) -> f64 {
 }
 
 /// Evaluate `s(args)` with numeric expression arguments to a complex double.
-pub fn eval_c64(s: SpecialFn, args: &[Expr]) -> Option<C64> {
+pub fn eval_c64(s:SpecialFn,args:&[Expr])->Option<C64>{
+    crate::evalf::with_numeric_cache(||eval_c64_inner(s,args))
+}
+fn eval_c64_inner(s: SpecialFn, args: &[Expr]) -> Option<C64> {
     if !s.nargs().contains(&args.len()) {
         return None;
     }

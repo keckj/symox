@@ -125,8 +125,12 @@ factors whose exponents cancel to zero.
 unsupported.
 Scalar equality, ordering, operation counts and pickles also preserve DAG sharing.
 `count_ops()` counts all occurrences in the mathematical expression using exact
-integers, without expanding a shared tree. Scalar pickles use flat native node
-records; existing recursive scalar pickles remain readable.
+integers, without expanding a shared tree. Assumption queries cache independent
+structural and numerical results per node; closed double-precision evaluations
+share a temporary cache across the query. Numerical solvers keep their changing
+variable environments separate. Default sort keys retain shared tuple children.
+Scalar pickles use flat native node records; existing recursive scalar pickles
+remain readable.
 Python `expand` supports independent `mul`, `multinomial`, `power_exp`,
 `power_base`, `log` and `trig` hints, including `deep=False` and `force`.
 Scalar and matrix expansion share a work budget and check conservative bounds
@@ -587,6 +591,15 @@ p = sm.Poly(x**2 + x/a + b, x, domain="QQ(a,b)")
 p.diff()                         # native exact coefficient arithmetic
 ```
 
+`Poly.subresultants`, `resultant(..., includePRS=True)` and `discriminant`
+use a checked native Brown–Traub PRS over rational, finite-field, supported
+algebraic and rational-function coefficients, including polynomial coefficient
+rings. Multivariate elimination removes only the first main generator and
+preserves the remaining generators and coefficient-domain metadata. PRS terms
+retain their exact normalization, including abnormal degree drops; the last
+constant PRS term need not equal the resultant. Resultants preserve the
+mathematical sign for the original argument order.
+
 Algebraic coefficient fields execute exact arithmetic in
 `QQ[T]/(m(T))`, with the chosen radical embedding retained. `extension=sqrt(2)`,
 `extension=I`, `extension=True` and domains such as `"QQ<sqrt(2)>"` select
@@ -699,6 +712,11 @@ also support finite matrix output generation for PyTorch and JAX.
 immutable grid through `.blocks`. `block_collapse` combines compatible block
 sums, products and nonnegative integer powers while retaining unsupported
 operations. `BlockDiagMatrix` also supports rectangular diagonal blocks.
+Two-by-two blocks expose `schur(mat="A")` and `schur(mat="D")`, plus
+`LDUdecomposition()` and `UDLdecomposition()`. They preserve rectangular outer
+blocks when the selected diagonal pivot is invertible and square. Singular
+Schur complements and empty blocks are supported. Generalized inverses and
+B/C pivots are explicitly unsupported.
 `MatrixSlice` and matrix slice indexing follow Python clipping and stride rules,
 including negative steps, omitted bounds, empty ranges and nested slices.
 Scalar indices preserve a one-row or one-column matrix when combined with a

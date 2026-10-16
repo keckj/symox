@@ -13,6 +13,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
+use std::sync::atomic::{AtomicU64,Ordering as AtomicOrdering};
 
 use rustc_hash::{FxHasher, FxHashMap};
 use std::cell::RefCell;
@@ -386,6 +387,9 @@ pub struct Node {
     free_symbols: OnceLock<Vec<Expr>>,
     ordered_args: OnceLock<Vec<Expr>>,
     float_info: OnceLock<FloatInfo>,
+    // Three-valued facts have independent exact/numeric banks. This metadata
+    // never contributes to structural identity, symbol masks or serialization.
+    assumption_cache: AtomicU64,
 }
 
 /// Floating-point metadata of an immutable mixed scalar/matrix expression DAG.
@@ -559,6 +563,7 @@ impl Expr {
             free_symbols: OnceLock::new(),
             ordered_args: OnceLock::new(),
             float_info: OnceLock::new(),
+            assumption_cache: AtomicU64::new(0),
         }))
     }
 
@@ -593,6 +598,21 @@ impl Expr {
             }
             info
         })
+    }
+
+    #[inline]
+    pub(crate) fn cached_assumption(&self,shift:u32,width:u32)->u8 {
+        ((self.0.assumption_cache.load(AtomicOrdering::Relaxed)>>shift)&((1u64<<width)-1)) as u8
+    }
+
+    /// Publish only a complete fact, without disturbing concurrently written
+    /// fields. In particular, an unknown answer is distinct from an empty slot.
+    pub(crate) fn remember_assumption(&self,shift:u32,width:u32,value:u8) {
+        let mask=((1u64<<width)-1)<<shift;
+        debug_assert!(shift+width<=64 && value!=0 && (value as u64)<(1u64<<width));
+        let _=self.0.assumption_cache.fetch_update(AtomicOrdering::Relaxed,AtomicOrdering::Relaxed,|old|{
+            if old&mask==0{Some(old|((value as u64)<<shift))}else{None}
+        });
     }
 
     /// Whether this scalar expression contains a typed matrix entry.
