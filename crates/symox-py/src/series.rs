@@ -5,6 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
 use symox::expr::Expr;
+use symox::limits::{self as lm, Dir, LimitError};
 use symox::series::{self as sr, SErr};
 use symox::traverse::free_symbols;
 
@@ -130,7 +131,20 @@ fn _leadterm<'py>(
     PyTuple::new(py, [w(lt.coeff), w(Expr::num(lt.exp))])
 }
 
+/// `limit(e, z, z0, dir)`; `None` when the limit could not be computed.
+#[pyfunction]
+#[pyo3(signature = (e, z, z0, dir="+"))]
+fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<PyExpr>> {
+    let d = Dir::parse(dir).ok_or_else(|| PyValueError::new_err("direction must be one of '+', '-' or '+-'"))?;
+    match lm::limit(&to_expr(e)?, &to_expr(z)?, &to_expr(z0)?, d) {
+        Ok(r) => Ok(Some(w(r))),
+        Err(LimitError::Unknown(_)) => Ok(None),
+        Err(err @ LimitError::Differ(..)) => Err(PyValueError::new_err(err.to_string())),
+    }
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_series, m)?)?;
     m.add_function(wrap_pyfunction!(_order, m)?)?;
     m.add_function(wrap_pyfunction!(_remove_o, m)?)?;

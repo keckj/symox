@@ -18,6 +18,7 @@ pub mod expand;
 pub mod expr;
 pub mod functions;
 pub mod lambdify;
+pub mod limits;
 pub mod number;
 pub mod ops;
 pub mod parser;
@@ -42,6 +43,7 @@ pub mod prelude {
     pub use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
     pub use crate::parser::{parse_str, sympify};
     pub use crate::relational::{eq, ge, gt, le, lt, ne, piecewise};
+    pub use crate::limits::{limit, Dir};
     pub use crate::series::{order, series};
     pub use crate::simplify::{radsimp, simplify, together};
     pub use crate::subs::{subs, xreplace};

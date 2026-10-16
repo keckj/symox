@@ -278,6 +278,47 @@ Expr.leadterm = _expr_leadterm
 Expr.as_leading_term = _expr_as_leading_term
 Expr.is_Order = property(lambda self: _core._is_order(self))
 Expr.contains = lambda self, t: _core._order_contains(self, t)
+
+class Limit:
+    """Unevaluated limit ``Limit(e, z, z0, dir)``; ``doit()`` evaluates it."""
+
+    def __init__(self, e, z, z0, dir="+"):
+        self.expr = sympify(e)
+        self.var = sympify(z)
+        self.point = sympify(z0)
+        if str(self.point) == "oo":
+            dir = "-"
+        elif str(self.point) == "-oo":
+            dir = "+"
+        self.dir = dir
+        self.args = (self.expr, self.var, self.point, dir)
+
+    def doit(self, **hints):
+        r = _core._limit(self.expr, self.var, self.point, self.dir)
+        return self if r is None else r
+
+    def __str__(self):
+        return f"Limit({self.expr}, {self.var}, {self.point}, dir='{self.dir}')"
+
+    __repr__ = __str__
+
+    def __eq__(self, other):
+        return isinstance(other, Limit) and self.args == other.args
+
+    def __hash__(self):
+        return hash(("Limit",) + tuple(str(a) for a in self.args))
+
+
+def limit(e, z, z0, dir="+"):
+    """Limit of ``e`` as ``z -> z0`` (``dir`` is ``'+'``, ``'-'`` or ``'+-'``).
+
+    Returns an unevaluated :class:`Limit` when the limit cannot be computed.
+    """
+    r = _core._limit(e, z, z0, dir)
+    return Limit(e, z, z0, dir) if r is None else r
+
+
+Expr.limit = lambda self, x, xlim, dir="+": limit(self, x, xlim, dir)
 # --- end series ---
 
 __all__ = [n for n in dir() if not n.startswith("_")]
