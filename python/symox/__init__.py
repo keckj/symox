@@ -228,6 +228,116 @@ def to_sympy(e):
     return sympify(e).to_sympy()
 
 
+# --- poly ---
+from ._core import (  # noqa: E402
+    Poly,
+    apart,
+    cancel,
+    cofactors,
+    collect,
+    compose,
+    decompose,
+    degree,
+    discriminant,
+    div,
+    exquo,
+    factor,
+    factor_list,
+    gcd,
+    gcdex,
+    half_gcdex,
+    invert,
+    lcm,
+    nroots,
+    pdiv,
+    pexquo,
+    pquo,
+    prem,
+    quo,
+    real_roots,
+    rem,
+    resultant,
+    roots,
+    sqf,
+    sqf_list,
+    sqf_part,
+    terms_gcd,
+)
+
+together = _core._poly_together
+
+
+class PolynomialError(ValueError):
+    """Raised for invalid polynomial operations."""
+
+
+def gcd_list(seq, *gens, **args):
+    return gcd(list(seq), *gens, **args)
+
+
+def lcm_list(seq, *gens, **args):
+    return lcm(list(seq), *gens, **args)
+
+
+def poly(expr, *gens, **args):
+    return Poly(expr, *gens, **args)
+
+
+def LC(f, *gens, **args):
+    """Leading coefficient of ``f``."""
+    return Poly(f, *gens, **args).LC()
+
+
+def LM(f, *gens, **args):
+    """Leading monomial of ``f`` (as an expression)."""
+    p = Poly(f, *gens, **args)
+    m = 1
+    for g, k in zip(p.gens, p.LM()):
+        m = m * g**k
+    return sympify(m)
+
+
+def LT(f, *gens, **args):
+    """Leading term of ``f``."""
+    p = Poly(f, *gens, **args)
+    return p.LC() * LM(f, *gens, **args)
+
+
+def primitive(f, *gens, **args):
+    """``(content, primitive part)`` of a polynomial."""
+    c, p = Poly(f, *gens, **args).primitive()
+    return c, p.as_expr()
+
+
+def _install_poly_methods():
+    methods = {
+        "factor": lambda self, *gens, **kw: factor(self, *gens, **kw),
+        "cancel": lambda self, *gens, **kw: cancel(self, *gens, **kw),
+        "apart": lambda self, x=None, **kw: apart(self, x, **kw),
+        "collect": lambda self, syms, **kw: collect(self, syms, **kw),
+        "as_poly": lambda self, *gens, **kw: Poly(self, *gens, **kw),
+        "together": lambda self, *a, **kw: together(self, *a, **kw),
+    }
+    for name, fn in methods.items():
+        try:
+            setattr(Expr, name, fn)
+        except (TypeError, AttributeError):  # immutable extension type
+            pass
+    try:
+        Poly.get_domain = lambda self: self.domain
+
+        def _get_modulus(self):
+            if self.modulus is None:
+                raise PolynomialError("not a polynomial over a Galois field")
+            return self.modulus
+
+        Poly.get_modulus = _get_modulus
+    except (TypeError, AttributeError):
+        pass
+
+
+_install_poly_methods()
+# --- end poly ---
 # --- series ---
 # Series expansions, the Order term and limits (crates/symox-py/src/series.rs).
 

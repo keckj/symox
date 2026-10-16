@@ -22,6 +22,7 @@ mod printing;
 
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
+mod poly;
 mod ntheory;
 mod simp;
 mod ode;
@@ -1403,6 +1404,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    poly::register(m)?;
     ntheory::register(m)?;
     simp::register(m)?;
     solve::register(m)?;

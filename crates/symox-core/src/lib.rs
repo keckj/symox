@@ -28,6 +28,7 @@ pub mod number;
 pub mod ode;
 pub mod ops;
 pub mod parser;
+pub mod poly;
 pub mod pattern;
 pub mod printer;
 pub mod printing;
