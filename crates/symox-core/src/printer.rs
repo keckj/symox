@@ -261,7 +261,8 @@ fn factor_rank(b: &Expr) -> u8 {
     }
 }
 
-fn sort_factors(v: &mut [Expr]) {
+/// Sort `Mul` factors in SymPy's `as_ordered_factors` printing order.
+pub fn sort_factors(v: &mut [Expr]) {
     v.sort_by_cached_key(|f| {
         let (b, _) = crate::ops::as_base_exp(f);
         (factor_rank(&b), to_str(&b), to_str(f))
