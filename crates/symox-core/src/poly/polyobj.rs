@@ -28,6 +28,19 @@ pub struct Poly {
     pub gens: Vec<Expr>,
     pub ngens: usize,
     pub domain: Domain,
+    /// `Some(p)` for polynomials over `GF(p)` (symmetric representatives).
+    pub modulus: Option<u64>,
+}
+
+/// Symmetric representatives modulo `p` of the coefficients.
+pub fn reduce_mod(rep: &MPoly<Rat>, p: u64) -> MPoly<Rat> {
+    rep.map_coeffs(|c| {
+        let n = c.n.rem_u64(p);
+        let d = c.d.rem_u64(p);
+        let v = if d == 1 { n } else { super::gf::mulmod(n, super::gf::invmod(d, p), p) };
+        let s = if v > p / 2 { v as i64 - p as i64 } else { v as i64 };
+        Rat::from_i64(s)
+    })
 }
 
 fn natural_domain(p: &MPoly<Rat>, float: bool) -> Domain {
@@ -73,7 +86,7 @@ pub fn unify_gens(f: &[Expr], g: &[Expr]) -> Vec<Expr> {
 impl Poly {
     pub fn new(rep: MPoly<Rat>, gens: Vec<Expr>, ngens: usize, domain: Domain) -> Poly {
         debug_assert_eq!(rep.nvars, gens.len());
-        Poly { rep, gens, ngens, domain }
+        Poly { rep, gens, ngens, domain, modulus: None }
     }
 
     /// `Poly(expr, *gens)`.
@@ -87,7 +100,7 @@ impl Poly {
         }
         let rep = c.polys.into_iter().next().unwrap();
         let domain = natural_domain(&rep, c.float);
-        Ok(Poly { rep, gens: c.gens, ngens: c.ngens, domain })
+        Ok(Poly { rep, gens: c.gens, ngens: c.ngens, domain, modulus: None })
     }
 
     /// Several expressions over a common ring (`parallel_poly_from_expr`).
@@ -102,12 +115,53 @@ impl Poly {
         }
         Ok(c.polys
             .into_iter()
-            .map(|rep| Poly { rep, gens: c.gens.clone(), ngens: c.ngens, domain: dom })
+            .map(|rep| Poly { rep, gens: c.gens.clone(), ngens: c.ngens, domain: dom, modulus: None })
             .collect())
     }
 
+    /// The same polynomial over `GF(p)`.
+    pub fn set_modulus(&self, p: u64) -> Poly {
+        Poly {
+            rep: reduce_mod(&self.rep, p),
+            gens: self.gens.clone(),
+            ngens: self.ngens,
+            domain: Domain::ZZ,
+            modulus: Some(p),
+        }
+    }
+
+    fn require_gf(&self) -> PResult<u64> {
+        let p = self.modulus.unwrap();
+        if self.gens.len() != 1 {
+            return Err(PolyError::Unsupported("multivariate polynomials over finite fields".into()));
+        }
+        Ok(p)
+    }
+
+    /// Dense coefficients in `[0, p)` (univariate).
+    pub fn to_gf(&self) -> Vec<u64> {
+        let p = self.modulus.unwrap();
+        let d = super::dense::from_mpoly(&self.rep, 0);
+        let mut v: Vec<u64> = d.iter().map(|c| c.n.rem_u64(p)).collect();
+        super::gf::trim(&mut v);
+        v
+    }
+
+    pub fn from_gf(&self, v: &[u64]) -> Poly {
+        let p = self.modulus.unwrap();
+        let ints = super::gf::to_int_sym(v, p);
+        let rats = super::dense::to_rat(&ints);
+        let mut rr = rats;
+        super::dense::trim(&mut rr);
+        self.with_rep(super::dense::to_mpoly(&rr, 0, self.gens.len()))
+    }
+
     pub fn with_rep(&self, rep: MPoly<Rat>) -> Poly {
-        Poly { rep, gens: self.gens.clone(), ngens: self.ngens, domain: self.domain }
+        let rep = match self.modulus {
+            Some(p) => reduce_mod(&rep, p),
+            None => rep,
+        };
+        Poly { rep, gens: self.gens.clone(), ngens: self.ngens, domain: self.domain, modulus: self.modulus }
     }
 
     pub fn true_gens(&self) -> &[Expr] {
@@ -254,10 +308,15 @@ impl Poly {
     pub fn unify(&self, o: &Poly) -> (Poly, Poly) {
         if self.gens == o.gens && self.ngens == o.ngens {
             let d = self.domain.max(o.domain);
+            let m = self.modulus.or(o.modulus);
             let mut a = self.clone();
             let mut b = o.clone();
             a.domain = d;
             b.domain = d;
+            if m.is_some() && (a.modulus.is_none() || b.modulus.is_none()) {
+                a = a.set_modulus(m.unwrap());
+                b = b.set_modulus(m.unwrap());
+            }
             return (a, b);
         }
         let tg = unify_gens(self.true_gens(), o.true_gens());
@@ -275,8 +334,8 @@ impl Poly {
         let b = convert::reembed(&o.rep, &o.gens, &all);
         let d = self.domain.max(o.domain);
         (
-            Poly { rep: a, gens: all.clone(), ngens, domain: d },
-            Poly { rep: b, gens: all, ngens, domain: d },
+            Poly { rep: a, gens: all.clone(), ngens, domain: d, modulus: self.modulus.or(o.modulus) },
+            Poly { rep: b, gens: all, ngens, domain: d, modulus: self.modulus.or(o.modulus) },
         )
     }
 
@@ -328,6 +387,11 @@ impl Poly {
         if b.rep.is_zero() {
             return Err(PolyError::Unsupported("polynomial division by zero".into()));
         }
+        if a.modulus.is_some() {
+            let p = a.require_gf()?;
+            let (q, r) = super::gf::divrem(&a.to_gf(), &b.to_gf(), p);
+            return Ok((a.from_gf(&q), a.from_gf(&r)));
+        }
         let (q, r) = div_rec(&a.rep, &b.rep, 0);
         if a.has_domain_gens() && !r.is_zero() && r.degree(0) >= b.rep.degree(0) {
             // the quotient over the fraction field of the coefficient ring
@@ -341,11 +405,14 @@ impl Poly {
         if dom == Domain::ZZ && !(q.is_integral() && r.is_integral()) {
             dom = Domain::QQ;
         }
-        let mk = |rep: MPoly<Rat>| Poly { rep, gens: a.gens.clone(), ngens: a.ngens, domain: dom };
+        let mk = |rep: MPoly<Rat>| Poly { rep, gens: a.gens.clone(), ngens: a.ngens, domain: dom, modulus: None };
         Ok((mk(q), mk(r)))
     }
 
     pub fn rem(&self, o: &Poly) -> PResult<Poly> {
+        if self.modulus.is_some() || o.modulus.is_some() {
+            return Ok(self.div(o)?.1);
+        }
         let (_, mut r) = self.div(o)?;
         if self.domain.max(o.domain) == Domain::ZZ && r.rep.is_integral() {
             r.domain = Domain::ZZ;
@@ -354,6 +421,9 @@ impl Poly {
     }
 
     pub fn quo(&self, o: &Poly) -> PResult<Poly> {
+        if self.modulus.is_some() || o.modulus.is_some() {
+            return Ok(self.div(o)?.0);
+        }
         let (mut q, _) = self.div(o)?;
         if self.domain.max(o.domain) == Domain::ZZ && q.rep.is_integral() {
             q.domain = Domain::ZZ;
@@ -410,11 +480,23 @@ impl Poly {
     /// Gcd (positive leading coefficient over `ZZ`, monic over `QQ`).
     pub fn gcd(&self, o: &Poly) -> Poly {
         let (a, b) = self.unify(o);
+        if let Some(p) = a.modulus {
+            return a.from_gf(&super::gf::gcd(&a.to_gf(), &b.to_gf(), p));
+        }
         a.with_rep(gcd_rep(&a.rep, &b.rep, a.domain))
     }
 
     pub fn lcm(&self, o: &Poly) -> Poly {
         let (a, b) = self.unify(o);
+        if let Some(p) = a.modulus {
+            let (x, y) = (a.to_gf(), b.to_gf());
+            if x.is_empty() || y.is_empty() {
+                return a.from_gf(&[]);
+            }
+            let g = super::gf::gcd(&x, &y, p);
+            let l = super::gf::divrem(&super::gf::mul(&x, &y, p), &g, p).0;
+            return a.from_gf(&super::gf::monic(&l, p));
+        }
         a.with_rep(lcm_rep(&a.rep, &b.rep, a.domain))
     }
 
@@ -443,6 +525,9 @@ impl Poly {
 
     /// `(coefficient, [(factor, multiplicity)])` sorted like SymPy.
     pub fn factor_list(&self) -> (Rat, Vec<(Poly, u32)>) {
+        if let Some(p) = self.modulus {
+            return self.gf_list(p, false);
+        }
         let (d, z) = self.rep.clear_denoms();
         let (c, fs) = factor_list_mz(&z);
         let coeff = Rat::new(c, d);
@@ -451,8 +536,23 @@ impl Poly {
         (coeff, out)
     }
 
+    /// Factorisation / square-free decomposition over `GF(p)` (factors
+    /// sorted by their coefficient lists in `[0, p)`, like SymPy).
+    fn gf_list(&self, p: u64, sqf: bool) -> (Rat, Vec<(Poly, u32)>) {
+        let f = self.to_gf();
+        let (lc, mut fs) = if sqf { super::gf::sqf_list(&f, p) } else { super::gf::factor_list(&f, p) };
+        fs.sort_by(|(a, ka), (b, kb)| {
+            a.len().cmp(&b.len()).then(ka.cmp(kb)).then_with(|| a.iter().rev().cmp(b.iter().rev()))
+        });
+        let lcs = if lc > p / 2 { lc as i64 - p as i64 } else { lc as i64 };
+        (Rat::from_i64(lcs), fs.into_iter().map(|(g, k)| (self.from_gf(&g), k)).collect())
+    }
+
     /// Square-free decomposition.
     pub fn sqf_list(&self) -> (Rat, Vec<(Poly, u32)>) {
+        if let Some(p) = self.modulus {
+            return self.gf_list(p, true);
+        }
         let (d, z) = self.rep.clear_denoms();
         let (c, mut parts) = sqf_list_mz(&z);
         // powers of the variables are part of the decomposition in SymPy
@@ -522,6 +622,9 @@ impl Poly {
             }
         }
         let gl: Vec<String> = self.true_gens().iter().map(to_str).collect();
+        if let Some(p) = self.modulus {
+            return format!("Poly({}, {}, modulus={p})", terms.join(" "), gl.join(", "));
+        }
         format!(
             "Poly({}, {}, domain='{}')",
             terms.join(" "),
@@ -542,7 +645,7 @@ impl Poly {
         if !a.is_integer() && dom == Domain::ZZ {
             dom = Domain::QQ;
         }
-        Poly { rep, gens, ngens: self.ngens - 1, domain: dom }
+        Poly { rep, gens, ngens: self.ngens - 1, domain: dom, modulus: self.modulus }
     }
 
     /// Structural equality (same generators and representation).

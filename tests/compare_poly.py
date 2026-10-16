@@ -19,6 +19,7 @@ from __future__ import annotations
 import cmath
 import random
 import sys
+import warnings
 
 import sympy
 import symox
@@ -438,6 +439,34 @@ simplify(2*x + 2*y)
 simplify(x*y + x*z)
 simplify((x**2 + 3*x + 2)/(x + 1))
 simplify(1/(x + 1) + 1/(x - 1))
+factor(x**2 + 1, modulus=2)
+factor(x**4 - 1, modulus=5)
+factor(x**3 + x + 1, modulus=3)
+factor_list(x**4 - 1, modulus=5)
+factor(2*x**2 + 4*x + 2, modulus=7)
+factor(x**6 - 1, modulus=7)
+Poly(x**3 + 1, modulus=3)
+Poly(x**2 + 5*x + 7, x, modulus=5)
+gcd(x**2 + 1, x + 1, modulus=2)
+sqf_list(x**3 + 1, modulus=3)
+Poly(x**2 + 1, modulus=2)*Poly(x + 1, modulus=2)
+factor(3*x**2 + 6, modulus=5)
+factor(x**5 + x + 1, modulus=2)
+factor(4*x**2 + 3, modulus=5)
+factor_list(4*x**2 + 3, modulus=5)
+factor(x**10 - 1, modulus=3)
+factor(x**9 - x, modulus=3)
+factor(x**4 + 1, modulus=2)
+Poly(4*x**2 + 3, modulus=5)
+Poly(x**2 - 1, modulus=5) + Poly(3*x, modulus=5)
+gcd(x**3 - 1, x**2 - 1, modulus=3)
+div(x**3 + 1, 2*x + 1, modulus=5)
+sqf_list(x**6 + 1, modulus=3)
+factor(-x**2 + 1, modulus=7)
+Poly(x**3 + 2*x, modulus=3).factor_list()
+lcm(x**2 + 1, x + 1, modulus=2)
+factor(x**8 + x**4 + 1, modulus=2)
+Poly(x**2 + 1, modulus=7).get_modulus()
 """.strip().splitlines()
 
 
@@ -520,6 +549,7 @@ def sem_equal(s, x):
 
 
 def compare(case):
+    warnings.filterwarnings("ignore")
     exp_s = eval(case, namespace(sympy))
     try:
         exp_x = eval(case, namespace(symox))

@@ -287,6 +287,13 @@ def _install_poly_methods():
             pass
     try:
         Poly.get_domain = lambda self: self.domain
+
+        def _get_modulus(self):
+            if self.modulus is None:
+                raise PolynomialError("not a polynomial over a Galois field")
+            return self.modulus
+
+        Poly.get_modulus = _get_modulus
     except (TypeError, AttributeError):
         pass
 

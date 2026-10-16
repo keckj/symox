@@ -493,3 +493,67 @@ mod tests {
         assert!(!is_prime(1_000_000_008));
     }
 }
+
+/// Square-free decomposition over `GF(p)`: `(lc, [(monic factor, k)])`.
+pub fn sqf_list(f: &[u64], p: u64) -> (u64, Vec<(GfPoly, u32)>) {
+    let mut f = f.to_vec();
+    trim(&mut f);
+    if f.is_empty() {
+        return (0, vec![]);
+    }
+    let lc = *f.last().unwrap();
+    f = monic(&f, p);
+    let mut factors: Vec<(GfPoly, u32)> = Vec::new();
+    if f.len() <= 1 {
+        return (lc, factors);
+    }
+    let mut n = 1u32;
+    loop {
+        let mut sqf = false;
+        let df = derivative(&f, p);
+        if !df.is_empty() {
+            let mut g = gcd(&f, &df, p);
+            let mut h = divrem(&f, &g, p).0;
+            let mut i = 1u32;
+            while h.len() > 1 {
+                let gg = gcd(&g, &h, p);
+                let hh = divrem(&h, &gg, p).0;
+                if hh.len() > 1 {
+                    factors.push((monic(&hh, p), i * n));
+                }
+                g = divrem(&g, &gg, p).0;
+                h = gg;
+                i += 1;
+            }
+            if g.len() <= 1 {
+                sqf = true;
+            } else {
+                f = g;
+            }
+        }
+        if sqf {
+            break;
+        }
+        // f is a p-th power: f(x) = g(x^p) = g(x)^p
+        let r = p as usize;
+        let d = (f.len() - 1) / r;
+        f = (0..=d).map(|i| f[i * r]).collect();
+        n *= p as u32;
+        if f.len() <= 1 {
+            break;
+        }
+    }
+    (lc, factors)
+}
+
+/// Full factorisation over `GF(p)`: `(lc, [(monic irreducible, k)])`.
+pub fn factor_list(f: &[u64], p: u64) -> (u64, Vec<(GfPoly, u32)>) {
+    let (lc, parts) = sqf_list(f, p);
+    let mut out = Vec::new();
+    for (g, k) in parts {
+        for h in factor_sqf(&g, p) {
+            out.push((h, k));
+        }
+    }
+    (lc, out)
+}

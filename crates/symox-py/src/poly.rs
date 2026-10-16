@@ -47,6 +47,13 @@ fn gens_of(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     Ok(v)
 }
 
+fn check_mod(p: u64) -> PyResult<u64> {
+    if p < 2 || p >= (1 << 32) || !symox::poly::gf::is_prime(p) {
+        return Err(PyValueError::new_err(format!("modulus must be a prime below 2**32, got {p}")));
+    }
+    Ok(p)
+}
+
 fn rat_expr(r: &Rat) -> Expr {
     Expr::num(r.to_number())
 }
@@ -105,6 +112,22 @@ fn set_domain(mut p: Poly, domain: Option<&str>) -> PyResult<Poly> {
 }
 
 impl PyPoly {
+    fn build(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&str>) -> PyResult<Self> {
+        let gens = gens_of(gens)?;
+        if let Ok(q) = expr.downcast::<PyPoly>() {
+            let q = &q.get().p;
+            if gens.is_empty() {
+                return Ok(PyPoly { p: set_domain(q.clone(), domain)? });
+            }
+            let p = Poly::from_expr(&q.as_expr(), &gens).map_err(err)?;
+            return Ok(PyPoly { p: set_domain(p, domain)? });
+        }
+        let (e, g2) = expr_or_coeff_list(expr)?;
+        let gens = if gens.is_empty() { g2 } else { gens };
+        let p = Poly::from_expr(&e, &gens).map_err(err)?;
+        Ok(PyPoly { p: set_domain(p, domain)? })
+    }
+
     fn other(&self, o: &Bound<'_, PyAny>) -> Option<Poly> {
         if let Ok(q) = o.downcast::<PyPoly>() {
             return Some(q.get().p.clone());
@@ -159,21 +182,18 @@ fn degree_obj(py: Python<'_>, d: Option<u32>) -> PyResult<PyObject> {
 #[pymethods]
 impl PyPoly {
     #[new]
-    #[pyo3(signature = (expr, *gens, domain=None, **_kwargs))]
-    fn py_new(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&str>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-        let gens = gens_of(gens)?;
-        if let Ok(q) = expr.downcast::<PyPoly>() {
-            let q = &q.get().p;
-            if gens.is_empty() {
-                return Ok(PyPoly { p: set_domain(q.clone(), domain)? });
-            }
-            let p = Poly::from_expr(&q.as_expr(), &gens).map_err(err)?;
-            return Ok(PyPoly { p: set_domain(p, domain)? });
+    #[pyo3(signature = (expr, *gens, domain=None, modulus=None, **_kwargs))]
+    fn py_new(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&str>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        let mut r = Self::build(expr, gens, domain)?;
+        if let Some(m) = modulus {
+            r.p = r.p.set_modulus(check_mod(m)?);
         }
-        let (e, g2) = expr_or_coeff_list(expr)?;
-        let gens = if gens.is_empty() { g2 } else { gens };
-        let p = Poly::from_expr(&e, &gens).map_err(err)?;
-        Ok(PyPoly { p: set_domain(p, domain)? })
+        Ok(r)
+    }
+
+    #[getter]
+    fn modulus(&self) -> Option<u64> {
+        self.p.modulus
     }
 
     fn __repr__(&self) -> String {
@@ -576,10 +596,13 @@ fn pair<'py>(py: Python<'py>, c: Expr, fs: Vec<(Expr, Expr)>) -> PyResult<Bound<
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, deep=false, **_kwargs))]
-fn factor(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, deep: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+#[pyo3(signature = (f, *gens, deep=false, modulus=None, **_kwargs))]
+fn factor(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, deep: bool, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
     let _ = gens;
     let e = to_expr(f)?;
+    if let Some(p) = modulus {
+        return Ok(w(api::factor_mod(&e, check_mod(p)?).map_err(err)?));
+    }
     if deep {
         return Ok(w(api::factor_deep(&e).map_err(err)?));
     }
@@ -587,17 +610,24 @@ fn factor(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, deep: bool, _kwargs: 
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, **_kwargs))]
-fn sqf(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+#[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
+fn sqf(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
     let _ = gens;
+    if let Some(p) = modulus {
+        return Ok(w(api::sqf_mod(&to_expr(f)?, check_mod(p)?).map_err(err)?));
+    }
     Ok(w(api::sqf(&to_expr(f)?).map_err(err)?))
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, **_kwargs))]
-fn factor_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+#[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
+fn factor_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
     if let Ok(p) = f.downcast::<PyPoly>() {
         return p.get().factor_list(py);
+    }
+    if let Some(m) = modulus {
+        let (c, fs) = api::factor_list_mod(&to_expr(f)?, check_mod(m)?).map_err(err)?;
+        return pair(py, c, fs);
     }
     let gens = gens_of(gens)?;
     let e = to_expr(f)?;
@@ -610,10 +640,14 @@ fn factor_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTu
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, **_kwargs))]
-fn sqf_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+#[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
+fn sqf_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
     if let Ok(p) = f.downcast::<PyPoly>() {
         return p.get().sqf_list(py);
+    }
+    if let Some(m) = modulus {
+        let (c, fs) = api::sqf_list_mod(&to_expr(f)?, check_mod(m)?).map_err(err)?;
+        return pair(py, c, fs);
     }
     let _ = gens;
     let (c, fs) = api::sqf_list(&to_expr(f)?).map_err(err)?;
@@ -640,8 +674,12 @@ fn poly_result(py: Python<'_>, e: Expr, as_poly: bool, gens: &[Expr]) -> PyResul
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, g=None, *gens, **_kwargs))]
-fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+#[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
+fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if let (Some(m), Some(g)) = (modulus, g) {
+        let r = api::gcd_mod(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?, check_mod(m)?).map_err(err)?;
+        return Ok(w(r).into_pyobject(py)?.into_any().unbind());
+    }
     let as_poly = f.downcast::<PyPoly>().is_ok();
     let mut gv = gens_of(gens)?;
     if let Some(items) = list_items(f) {
@@ -663,8 +701,12 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, g=None, *gens, **_kwargs))]
-fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+#[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
+fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if let (Some(m), Some(g)) = (modulus, g) {
+        let r = api::lcm_mod(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?, check_mod(m)?).map_err(err)?;
+        return Ok(w(r).into_pyobject(py)?.into_any().unbind());
+    }
     let as_poly = f.downcast::<PyPoly>().is_ok();
     let mut gv = gens_of(gens)?;
     if let Some(items) = list_items(f) {
@@ -736,8 +778,22 @@ fn collect(expr: &Bound<'_, PyAny>, syms: &Bound<'_, PyAny>, func: Option<&Bound
     }
 }
 
-fn div_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>) -> PyResult<(Expr, Expr, Vec<Expr>, bool)> {
+fn kw_modulus(kw: Option<&Bound<'_, PyDict>>) -> PyResult<Option<u64>> {
+    match kw {
+        Some(d) => match d.get_item("modulus")? {
+            Some(v) if !v.is_none() => Ok(Some(check_mod(v.extract::<u64>()?)?)),
+            _ => Ok(None),
+        },
+        None => Ok(None),
+    }
+}
+
+fn div_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, kw: Option<&Bound<'_, PyDict>>) -> PyResult<(Expr, Expr, Vec<Expr>, bool)> {
     let as_poly = f.downcast::<PyPoly>().is_ok() || g.downcast::<PyPoly>().is_ok();
+    if let Some(m) = kw_modulus(kw)? {
+        let (q, r) = api::div_mod(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?, m).map_err(err)?;
+        return Ok((q, r, vec![], false));
+    }
     let mut gv = gens_of(gens)?;
     if gv.is_empty() {
         if let Ok(p) = f.downcast::<PyPoly>() {
@@ -754,7 +810,7 @@ fn py_div<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens
     if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
         return a.get().div(py, g);
     }
-    let (q, r, gv, as_poly) = div_like(f, g, gens)?;
+    let (q, r, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
     PyTuple::new(py, [poly_result(py, q, as_poly, &gv)?, poly_result(py, r, as_poly, &gv)?])
 }
 
@@ -764,7 +820,7 @@ fn rem(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<
     if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
         return Ok(a.get().rem(g)?.into_pyobject(py)?.into_any().unbind());
     }
-    let (_, r, gv, as_poly) = div_like(f, g, gens)?;
+    let (_, r, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
     poly_result(py, r, as_poly, &gv)
 }
 
@@ -774,7 +830,7 @@ fn quo(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<
     if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
         return Ok(a.get().quo(g)?.into_pyobject(py)?.into_any().unbind());
     }
-    let (q, _, gv, as_poly) = div_like(f, g, gens)?;
+    let (q, _, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
     poly_result(py, q, as_poly, &gv)
 }
 

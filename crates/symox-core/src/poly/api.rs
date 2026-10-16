@@ -327,7 +327,7 @@ fn rat_expr(c: &Rat, float: bool) -> Expr {
 }
 
 /// SymPy's `_symbolic_factor_list`: `(coeff, [(factor, exponent)])`.
-fn symbolic_factor_list(e: &Expr, sqf: bool) -> PResult<(Expr, Vec<(FItem, Expr)>)> {
+fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(Expr, Vec<(FItem, Expr)>)> {
     let mut coeff = Expr::one();
     let mut factors: Vec<(FItem, Expr)> = Vec::new();
     let args: Vec<Expr> = match e.kind() {
@@ -364,6 +364,15 @@ fn symbolic_factor_list(e: &Expr, sqf: bool) -> PResult<(Expr, Vec<(FItem, Expr)
                 factors.push((FItem::E(base), exp));
                 continue;
             }
+        };
+        let poly = match modulus {
+            Some(m) => {
+                if poly.gens.len() > 1 {
+                    return Err(PolyError::Unsupported("multivariate polynomials over finite fields".into()));
+                }
+                poly.set_modulus(m)
+            }
+            None => poly,
         };
         let float = poly.is_float();
         let (c, fs) = if sqf { poly.sqf_list() } else { poly.factor_list() };
@@ -493,11 +502,11 @@ fn factors_product(fs: &[(FItem, Expr)]) -> Expr {
     mul(&parts)
 }
 
-fn generic_factor(e: &Expr, sqf: bool) -> PResult<Expr> {
+fn generic_factor(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<Expr> {
     match e.kind() {
         Kind::Rel(..) | Kind::Piecewise(_) => {
             let mut err = None;
-            let r = map_children(e, &mut |c| match generic_factor(c, sqf) {
+            let r = map_children(e, &mut |c| match generic_factor(c, sqf, modulus) {
                 Ok(v) => v,
                 Err(x) => {
                     err = Some(x);
@@ -513,13 +522,23 @@ fn generic_factor(e: &Expr, sqf: bool) -> PResult<Expr> {
         _ => {}
     }
     let t = together(e);
-    let (coeff, fs) = symbolic_factor_list(&t, sqf)?;
+    let (coeff, fs) = symbolic_factor_list(&t, sqf, modulus)?;
     Ok(keep_coeff(&coeff, &factors_product(&fs)))
 }
 
 /// `factor(expr)`.
 pub fn factor(e: &Expr) -> PResult<Expr> {
-    generic_factor(e, false)
+    generic_factor(e, false, None)
+}
+
+/// `factor(expr, modulus=p)` (univariate).
+pub fn factor_mod(e: &Expr, p: u64) -> PResult<Expr> {
+    generic_factor(e, false, Some(p))
+}
+
+/// `sqf(expr, modulus=p)`.
+pub fn sqf_mod(e: &Expr, p: u64) -> PResult<Expr> {
+    generic_factor(e, true, Some(p))
 }
 
 /// `factor(expr, deep=True)`: factor the arguments of functions and the
@@ -547,7 +566,7 @@ pub fn factor_deep(e: &Expr) -> PResult<Expr> {
 
 /// `sqf(expr)`.
 pub fn sqf(e: &Expr) -> PResult<Expr> {
-    generic_factor(e, true)
+    generic_factor(e, true, None)
 }
 
 fn item_poly(f: FItem) -> FItem {
@@ -560,11 +579,11 @@ fn item_poly(f: FItem) -> FItem {
     }
 }
 
-fn generic_factor_list(e: &Expr, sqf: bool) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
+fn generic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
     let t = together(e);
     let (n, d) = as_numer_denom(&t);
-    let (cp, fp) = symbolic_factor_list(&n, sqf)?;
-    let (cq, fq) = symbolic_factor_list(&d, sqf)?;
+    let (cp, fp) = symbolic_factor_list(&n, sqf, modulus)?;
+    let (cq, fq) = symbolic_factor_list(&d, sqf, modulus)?;
     if !fq.is_empty() {
         return Err(PolyError::Unsupported(format!("a polynomial expected, got {}", crate::printer::to_str(e))));
     }
@@ -579,7 +598,15 @@ fn generic_factor_list(e: &Expr, sqf: bool) -> PResult<(Expr, Vec<(Expr, Expr)>)
         }
     }
     let mut keyed: Vec<(Poly, u32)> = polys.iter().map(|(p, k, _)| (p.clone(), *k)).collect();
-    sorted_factors(&mut keyed, sqf);
+    match modulus {
+        None => sorted_factors(&mut keyed, sqf),
+        Some(m) => keyed.sort_by(|(a, ka), (b, kb)| {
+            let (ga, gb) = (a.to_gf(), b.to_gf());
+            let main = if sqf { ka.cmp(kb).then(ga.len().cmp(&gb.len())) } else { ga.len().cmp(&gb.len()).then(ka.cmp(kb)) };
+            let _ = m;
+            main.then_with(|| ga.iter().rev().cmp(gb.iter().rev()))
+        }),
+    }
     let mut out: Vec<(Expr, Expr)> = keyed.into_iter().map(|(p, k)| (p.as_expr(), Expr::int(k as i64))).collect();
     out.extend(others);
     Ok((div(&cp, &cq), out))
@@ -587,12 +614,22 @@ fn generic_factor_list(e: &Expr, sqf: bool) -> PResult<(Expr, Vec<(Expr, Expr)>)
 
 /// `factor_list(expr)`: `(coeff, [(factor, multiplicity)])`.
 pub fn factor_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
-    generic_factor_list(e, false)
+    generic_factor_list(e, false, None)
+}
+
+/// `factor_list(expr, modulus=p)`.
+pub fn factor_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
+    generic_factor_list(e, false, Some(p))
+}
+
+/// `sqf_list(expr, modulus=p)`.
+pub fn sqf_list_mod(e: &Expr, p: u64) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
+    generic_factor_list(e, true, Some(p))
 }
 
 /// `sqf_list(expr)`.
 pub fn sqf_list(e: &Expr) -> PResult<(Expr, Vec<(Expr, Expr)>)> {
-    generic_factor_list(e, true)
+    generic_factor_list(e, true, None)
 }
 
 /// `factor_list(expr, *gens)` / `Poly.factor_list()` with explicit
@@ -638,6 +675,33 @@ pub fn lcm(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
     }
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     Ok(ps[0].lcm(&ps[1]).as_expr())
+}
+
+fn mod_polys(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<(Poly, Poly)> {
+    let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
+    if ps[0].gens.len() > 1 {
+        return Err(PolyError::Unsupported("multivariate polynomials over finite fields".into()));
+    }
+    Ok((ps[0].set_modulus(p), ps[1].set_modulus(p)))
+}
+
+/// `gcd(f, g, modulus=p)`.
+pub fn gcd_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {
+    let (x, y) = mod_polys(a, b, gens, p)?;
+    Ok(x.gcd(&y).as_expr())
+}
+
+/// `lcm(f, g, modulus=p)`.
+pub fn lcm_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<Expr> {
+    let (x, y) = mod_polys(a, b, gens, p)?;
+    Ok(x.lcm(&y).as_expr())
+}
+
+/// `div(f, g, modulus=p)`.
+pub fn div_mod(a: &Expr, b: &Expr, gens: &[Expr], p: u64) -> PResult<(Expr, Expr)> {
+    let (x, y) = mod_polys(a, b, gens, p)?;
+    let (q, r) = x.div(&y)?;
+    Ok((q.as_expr(), r.as_expr()))
 }
 
 /// `cofactors(f, g)`: `(h, f/h, g/h)`.
