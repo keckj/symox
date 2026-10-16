@@ -18,6 +18,7 @@ mod series;
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
+mod matrices;
 mod printing;
 
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
@@ -280,7 +281,7 @@ fn unwrap_unevaluated(e: &Expr) -> Expr {
 }
 
 /// Parse the variable list of `diff(expr, x, y, (z, 2), x, 3)`.
-fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>> {
+pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>> {
     let mut vars: Vec<(Expr, u32)> = Vec::new();
     let items: Vec<Bound<'_, PyAny>> = args.iter().collect();
     let mut i = 0;
@@ -326,7 +327,7 @@ fn do_diff(e: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
     Ok(diff::diff_many(e, &vars))
 }
 
-fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)>> {
+pub(crate) fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)>> {
     let mut pairs = Vec::new();
     match args.len() {
         1 => {
@@ -430,8 +431,13 @@ impl PyExpr {
     fn __rsub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(wrap(ops::sub(&to_expr(o)?, &self.e)))
     }
-    fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::mul2(&self.e, &to_expr(o)?)))
+    fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let py = o.py();
+        if o.downcast::<matrices::PyMatrix>().is_ok() {
+            // let Matrix.__rmul__ handle scalar * matrix
+            return Ok(py.NotImplemented());
+        }
+        Ok(wrap(ops::mul2(&self.e, &to_expr(o)?)).into_pyobject(py)?.into_any().unbind())
     }
     fn __rmul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(wrap(ops::mul2(&to_expr(o)?, &self.e)))
@@ -1795,6 +1801,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    matrices::register(m)?;
     poly::register(m)?;
     ntheory::register(m)?;
     simp::register(m)?;

@@ -284,3 +284,8 @@ pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
 fn is_number_symbol(e: &Expr) -> bool {
     matches!(e.kind(), Kind::Const(Constant::Pi | Constant::E | Constant::EulerGamma))
 }
+
+/// Compare expressions using SymPy default ordering.
+pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
+    sort_key(a).cmp(&sort_key(b))
+}

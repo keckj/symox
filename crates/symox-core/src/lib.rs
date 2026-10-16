@@ -22,6 +22,7 @@ pub mod expr;
 pub mod functions;
 pub mod integrate;
 pub mod lambdify;
+pub mod matrix;
 pub mod logic;
 pub mod ntheory;
 pub mod limits;
@@ -57,6 +58,7 @@ pub mod prelude {
     pub use crate::expand::expand;
     pub use crate::expr::{Constant, Expr, Func, Kind, RelOp};
     pub use crate::functions::*;
+    pub use crate::matrix::{hessian, jacobian, Matrix};
     pub use crate::integrate::{integrate, integrate_definite, try_integrate};
     pub use crate::number::Number;
     pub use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
