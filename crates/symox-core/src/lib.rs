@@ -19,6 +19,7 @@ pub mod evalf_mp;
 pub mod expand;
 pub mod expr;
 pub mod functions;
+pub mod integrate;
 pub mod lambdify;
 pub mod number;
 pub mod ops;
@@ -26,6 +27,7 @@ pub mod parser;
 pub mod printer;
 pub mod relational;
 pub mod simplify;
+pub mod sortkey;
 pub mod subs;
 pub mod traverse;
 
@@ -39,6 +41,7 @@ pub mod prelude {
     pub use crate::expand::expand;
     pub use crate::expr::{Constant, Expr, Func, Kind, RelOp};
     pub use crate::functions::*;
+    pub use crate::integrate::{integrate, integrate_definite, try_integrate};
     pub use crate::number::Number;
     pub use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
     pub use crate::parser::{parse_str, sympify};

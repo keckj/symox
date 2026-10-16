@@ -1,10 +1,8 @@
 //! String printers: SymPy compatible `str` and `srepr`.
 
-use std::cmp::Ordering;
-
 use crate::expr::{Constant, Expr, Func, Kind, RelOp};
 use crate::number::{format_float, Number};
-use crate::ops::{add_term, mul_factor};
+use crate::ops::mul_factor;
 
 const PREC_ADD: u8 = 40;
 const PREC_MUL: u8 = 50;
@@ -135,101 +133,9 @@ fn write_expr(e: &Expr, out: &mut String) {
     }
 }
 
-// ----------------------------------------------------------------------
-// term ordering (approximation of SymPy's lex ordering)
-// ----------------------------------------------------------------------
-
-#[derive(Clone)]
-struct GenKey {
-    rank: u8,
-    name: String,
-}
-
-fn gen_rank(b: &Expr) -> u8 {
-    match b.kind() {
-        Kind::Sym(_) => 0,
-        Kind::Const(_) => 1,
-        Kind::Func(..) => 2,
-        Kind::Num(_) => 4,
-        _ => 3,
-    }
-}
-
-/// Decompose a term into (generator, degree) pairs.
-fn monomial(t: &Expr) -> Vec<(GenKey, f64)> {
-    let mut v = Vec::new();
-    let mut push = |b: &Expr, x: &Expr| {
-        let deg = x.as_number().map(|n| n.to_f64());
-        let (b, deg) = match deg {
-            Some(d) => (b.clone(), d),
-            None => (mul_factor(b, x), 1.0),
-        };
-        if b.is_number() {
-            return;
-        }
-        v.push((
-            GenKey {
-                rank: gen_rank(&b),
-                name: to_str(&b),
-            },
-            deg,
-        ));
-    };
-    match t.kind() {
-        Kind::Num(_) => {}
-        Kind::Mul(_, facs) => {
-            for (b, x) in facs {
-                push(b, x)
-            }
-        }
-        Kind::Pow(b, x) => push(b, x),
-        _ => push(t, &Expr::one()),
-    }
-    v
-}
-
-fn cmp_gen(a: &GenKey, b: &GenKey) -> Ordering {
-    a.rank.cmp(&b.rank).then_with(|| a.name.cmp(&b.name))
-}
-
-/// Lex comparison: `Less` means `a` is printed first.
-fn cmp_monomials(a: &[(GenKey, f64)], b: &[(GenKey, f64)]) -> Ordering {
-    let mut gens: Vec<&GenKey> = a.iter().map(|x| &x.0).chain(b.iter().map(|x| &x.0)).collect();
-    gens.sort_by(|x, y| cmp_gen(x, y));
-    gens.dedup_by(|x, y| cmp_gen(x, y) == Ordering::Equal);
-    let deg = |m: &[(GenKey, f64)], g: &GenKey| -> f64 {
-        m.iter()
-            .filter(|(k, _)| cmp_gen(k, g) == Ordering::Equal)
-            .map(|(_, d)| *d)
-            .sum()
-    };
-    for g in gens {
-        let (da, db) = (deg(a, g), deg(b, g));
-        if da != db {
-            return db.partial_cmp(&da).unwrap_or(Ordering::Equal);
-        }
-    }
-    Ordering::Equal
-}
-
-/// Terms of an `Add` in printing order.
+/// Terms of an `Add` in SymPy's printing order.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    let Kind::Add(c, terms) = e.kind() else {
-        return vec![e.clone()];
-    };
-    let mut keyed: Vec<(Vec<(GenKey, f64)>, String, Expr)> = terms
-        .iter()
-        .map(|(t, k)| {
-            let full = add_term(t, k);
-            (monomial(t), to_str(t), full)
-        })
-        .collect();
-    keyed.sort_by(|a, b| cmp_monomials(&a.0, &b.0).then_with(|| a.1.cmp(&b.1)));
-    let mut v: Vec<Expr> = keyed.into_iter().map(|x| x.2).collect();
-    if !c.is_zero() {
-        v.push(Expr::num(c.clone()));
-    }
-    v
+    crate::sortkey::ordered_terms(e)
 }
 
 fn write_add(e: &Expr, out: &mut String) {
@@ -249,67 +155,47 @@ fn write_add(e: &Expr, out: &mut String) {
     }
 }
 
-fn factor_rank(b: &Expr) -> u8 {
-    match b.kind() {
-        Kind::Num(_) => 0,
-        Kind::Const(_) => 1,
-        Kind::Sym(_) => 2,
-        Kind::Pow(..) => 2,
-        Kind::Func(..) => 3,
-        Kind::Add(..) => 4,
-        _ => 5,
+/// Negative-exponent test used to move factors to the denominator.
+fn negative_exponent(x: &Expr) -> Option<Expr> {
+    match x.kind() {
+        Kind::Num(n) if n.is_negative() => Some(Expr::num(n.neg())),
+        Kind::Mul(c, _) if c.is_negative() => Some(crate::ops::neg(x)),
+        _ => None,
     }
-}
-
-fn sort_factors(v: &mut [Expr]) {
-    v.sort_by_cached_key(|f| {
-        let (b, _) = crate::ops::as_base_exp(f);
-        (factor_rank(&b), to_str(&b), to_str(f))
-    });
 }
 
 fn write_mul(e: &Expr, out: &mut String) {
     let Kind::Mul(c, facs) = e.kind() else { unreachable!() };
+    let mut factors_src: Vec<(Expr, Expr)> = facs.clone();
     let mut c = c.clone();
     if c.is_negative() {
         out.push('-');
         c = c.neg();
     }
+    let body = if c.is_one() && factors_src.len() == 1 {
+        let (b, x) = factors_src.pop().unwrap();
+        mul_factor(&b, &x)
+    } else {
+        Expr::from_kind(Kind::Mul(c, facs.clone()))
+    };
+    let ordered = crate::sortkey::ordered_factors(&body);
     let mut num: Vec<Expr> = Vec::new();
     let mut den: Vec<Expr> = Vec::new();
-    match &c {
-        Number::Rational(_) => {
-            let n = c.numer();
-            if !n.is_one() {
-                num.push(Expr::num(n));
+    for item in ordered {
+        match item.kind() {
+            Kind::Pow(b, x) => match negative_exponent(x) {
+                Some(px) => den.push(mul_factor(b, &px)),
+                None => num.push(item.clone()),
+            },
+            Kind::Num(Number::Rational(r)) => {
+                let p = Number::from_bigint(r.numer().clone());
+                if !p.is_one() {
+                    num.push(Expr::num(p));
+                }
+                den.push(Expr::num(Number::from_bigint(r.denom().clone())));
             }
-            den.push(Expr::num(c.denom()));
+            _ => num.push(item.clone()),
         }
-        _ => {
-            if !c.is_one() {
-                num.push(Expr::num(c.clone()));
-            }
-        }
-    }
-    let mut num_f: Vec<Expr> = Vec::new();
-    let mut den_f: Vec<Expr> = Vec::new();
-    for (b, x) in facs {
-        match x.as_number() {
-            Some(n) if n.is_negative() && n.is_rational() => {
-                den_f.push(mul_factor(b, &Expr::num(n.neg())));
-            }
-            _ => num_f.push(mul_factor(b, x)),
-        }
-    }
-    sort_factors(&mut num_f);
-    sort_factors(&mut den_f);
-    num.extend(num_f);
-    // numeric denominator printed last ("3*x*y/2" but "x/(2*y)")
-    let mut den_all = den_f;
-    den_all.extend(den);
-    if den_all.len() > 1 {
-        // put the number first inside the denominator
-        den_all.sort_by_key(|f| if f.is_number() { 0 } else { 1 });
     }
     let write_list = |v: &[Expr], out: &mut String| {
         for (i, f) in v.iter().enumerate() {
@@ -324,13 +210,13 @@ fn write_mul(e: &Expr, out: &mut String) {
     } else {
         write_list(&num, out);
     }
-    if !den_all.is_empty() {
+    if !den.is_empty() {
         out.push('/');
-        if den_all.len() == 1 {
-            paren(&den_all[0], PREC_MUL, true, out);
+        if den.len() == 1 {
+            paren(&den[0], PREC_MUL, false, out);
         } else {
             out.push('(');
-            write_list(&den_all, out);
+            write_list(&den, out);
             out.push(')');
         }
     }

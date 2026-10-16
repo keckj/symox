@@ -537,6 +537,11 @@ impl PyExpr {
         wrap(simplify::simplify(&self.e))
     }
 
+    #[pyo3(signature = (*args, **_kwargs))]
+    fn integrate(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+        Ok(wrap(do_integrate(&self.e, args)?))
+    }
+
     fn together(&self) -> PyExpr {
         wrap(simplify::together(&self.e))
     }
@@ -827,6 +832,41 @@ fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<Py
     Ok(wrap(diff::derivative_unevaluated(&to_expr(f)?, vars)))
 }
 
+/// `integrate(f, x)`, `integrate(f, (x, a, b))`, several variables in turn.
+fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
+    let mut r = f.clone();
+    if args.is_empty() {
+        let fs = traverse::free_symbols(f);
+        if fs.len() != 1 {
+            return Err(PyValueError::new_err("specify the integration variable"));
+        }
+        return Ok(symox::integrate::integrate(f, &fs[0]));
+    }
+    for a in args.iter() {
+        if let Ok(t) = a.downcast::<PyTuple>() {
+            let x = to_expr(&t.get_item(0)?)?;
+            match t.len() {
+                1 => r = symox::integrate::integrate(&r, &x),
+                3 => {
+                    let lo = to_expr(&t.get_item(1)?)?;
+                    let hi = to_expr(&t.get_item(2)?)?;
+                    r = symox::integrate::integrate_definite(&r, &x, &lo, &hi);
+                }
+                _ => return Err(PyValueError::new_err("expected (x,) or (x, a, b)")),
+            }
+        } else {
+            r = symox::integrate::integrate(&r, &to_expr(&a)?);
+        }
+    }
+    Ok(r)
+}
+
+#[pyfunction]
+#[pyo3(name = "integrate", signature = (f, *args, **_kwargs))]
+fn py_integrate(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    Ok(wrap(do_integrate(&to_expr(f)?, args)?))
+}
+
 #[pyfunction]
 #[pyo3(name = "expand", signature = (e, deep=true, **_hints))]
 fn py_expand(e: &Bound<'_, PyAny>, deep: bool, _hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
@@ -1100,6 +1140,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;
+    m.add_function(wrap_pyfunction!(py_integrate, m)?)?;
     m.add_function(wrap_pyfunction!(py_simplify, m)?)?;
     m.add_function(wrap_pyfunction!(py_together, m)?)?;
     m.add_function(wrap_pyfunction!(py_radsimp, m)?)?;

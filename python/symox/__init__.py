@@ -28,6 +28,7 @@ from ._core import (
     cbrt,
     diff,
     expand,
+    integrate,
     lambdify,
     log,
     radsimp,
