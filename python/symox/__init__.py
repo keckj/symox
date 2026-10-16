@@ -197,4 +197,71 @@ def to_sympy(e):
     return sympify(e).to_sympy()
 
 
+# --- poly ---
+from ._core import (  # noqa: E402
+    Poly,
+    apart,
+    cancel,
+    cofactors,
+    collect,
+    degree,
+    discriminant,
+    div,
+    exquo,
+    factor,
+    factor_list,
+    gcd,
+    lcm,
+    nroots,
+    quo,
+    real_roots,
+    rem,
+    resultant,
+    roots,
+    sqf,
+    sqf_list,
+)
+
+together = _core._poly_together
+
+
+class PolynomialError(ValueError):
+    """Raised for invalid polynomial operations."""
+
+
+def gcd_list(seq, *gens, **args):
+    return gcd(list(seq), *gens, **args)
+
+
+def lcm_list(seq, *gens, **args):
+    return lcm(list(seq), *gens, **args)
+
+
+def poly(expr, *gens, **args):
+    return Poly(expr, *gens, **args)
+
+
+def _install_poly_methods():
+    methods = {
+        "factor": lambda self, *gens, **kw: factor(self, *gens, **kw),
+        "cancel": lambda self, *gens, **kw: cancel(self, *gens, **kw),
+        "apart": lambda self, x=None, **kw: apart(self, x, **kw),
+        "collect": lambda self, syms, **kw: collect(self, syms, **kw),
+        "as_poly": lambda self, *gens, **kw: Poly(self, *gens, **kw),
+        "together": lambda self, *a, **kw: together(self, *a, **kw),
+    }
+    for name, fn in methods.items():
+        try:
+            setattr(Expr, name, fn)
+        except (TypeError, AttributeError):  # immutable extension type
+            pass
+    try:
+        Poly.get_domain = lambda self: self.domain
+    except (TypeError, AttributeError):
+        pass
+
+
+_install_poly_methods()
+# --- end poly ---
+
 __all__ = [n for n in dir() if not n.startswith("_")]

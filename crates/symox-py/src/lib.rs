@@ -18,6 +18,8 @@ use symox::lambdify::Compiled;
 use symox::number::Number;
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
+mod poly;
+
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
 #[derive(Clone)]
@@ -1114,6 +1116,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    poly::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }
