@@ -36,6 +36,8 @@ from ._core import (
     simplify,
     sqrt,
     srepr,
+    summation,
+    bernoulli,
     sympify,
     together,
 )

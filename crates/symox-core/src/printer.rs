@@ -74,6 +74,19 @@ fn write_expr(e: &Expr, out: &mut String) {
         Kind::Add(..) => write_add(e, out),
         Kind::Mul(..) => write_mul(e, out),
         Kind::Pow(b, x) => write_pow(b, x, out),
+        Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => {
+            out.push('(');
+            for (i, a) in args.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                write_expr(a, out);
+            }
+            if args.len() == 1 {
+                out.push(',');
+            }
+            out.push(')');
+        }
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');

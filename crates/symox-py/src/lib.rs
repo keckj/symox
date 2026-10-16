@@ -862,6 +862,29 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
 }
 
 #[pyfunction]
+#[pyo3(name = "summation", signature = (f, *limits))]
+fn py_summation(f: &Bound<'_, PyAny>, limits: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+    let mut r = to_expr(f)?;
+    for l in limits.iter() {
+        let t = l
+            .downcast::<PyTuple>()
+            .map_err(|_| PyTypeError::new_err("summation expects (k, a, b) tuples"))?;
+        if t.len() != 3 {
+            return Err(PyValueError::new_err("summation expects (k, a, b) tuples"));
+        }
+        let (k, a, b) = (to_expr(&t.get_item(0)?)?, to_expr(&t.get_item(1)?)?, to_expr(&t.get_item(2)?)?);
+        r = symox::summation::summation(&r, &k, &a, &b);
+    }
+    Ok(wrap(r))
+}
+
+#[pyfunction]
+#[pyo3(name = "bernoulli")]
+fn py_bernoulli(n: usize) -> PyExpr {
+    wrap(symox::summation::bernoulli(n))
+}
+
+#[pyfunction]
 #[pyo3(name = "integrate", signature = (f, *args, **_kwargs))]
 fn py_integrate(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
     Ok(wrap(do_integrate(&to_expr(f)?, args)?))
@@ -1141,6 +1164,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;
     m.add_function(wrap_pyfunction!(py_integrate, m)?)?;
+    m.add_function(wrap_pyfunction!(py_summation, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bernoulli, m)?)?;
     m.add_function(wrap_pyfunction!(py_simplify, m)?)?;
     m.add_function(wrap_pyfunction!(py_together, m)?)?;
     m.add_function(wrap_pyfunction!(py_radsimp, m)?)?;

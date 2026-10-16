@@ -29,6 +29,7 @@ pub mod relational;
 pub mod simplify;
 pub mod sortkey;
 pub mod subs;
+pub mod summation;
 pub mod traverse;
 
 pub use expr::{Constant, Expr, Func, Kind, RelOp};
