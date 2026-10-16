@@ -156,6 +156,8 @@ enum Val {
     Tuple(Vec<Val>),
     Str(String),
     Function(crate::expr::UndefinedFunction),
+    SliceSpec(crate::matrixexpr::SliceSpec),
+    None,
 }
 
 struct Parser {
@@ -165,6 +167,7 @@ struct Parser {
     kwargs: Vec<(String, bool)>,
     precision: Option<i64>,
     nargs:Option<Vec<usize>>,
+    dummy_index:Option<BigInt>,
 }
 
 type R<T> = Result<T, ParseError>;
@@ -394,6 +397,13 @@ impl Parser {
                         _ => return self.err("precision must be an integer"),
                     });
                 }
+                if key=="dummy_index" {
+                    self.dummy_index=Some(match &v {
+                        Val::E(e) => e.as_number().filter(|n|n.is_integer()).and_then(|n|n.numer_denom()).map(|(n,_)|n)
+                            .ok_or_else(||ParseError{msg:"dummy_index must be an integer".into(),pos:self.at()})?,
+                        _ => return self.err("dummy_index must be an integer"),
+                    });
+                }
                 if key=="dir" {args.push(v.clone());}
                 if key=="nargs" {
                     let values=match &v {Val::Tuple(v)=>v.clone(),_=>vec![v.clone()]};
@@ -468,16 +478,18 @@ impl Parser {
                     let saved = std::mem::take(&mut self.kwargs);
                     let saved_precision = self.precision.take();
                     let saved_nargs=self.nargs.take();
+                    let saved_dummy_index=self.dummy_index.take();
                     let args = self.call_args()?;
                     let kwargs = std::mem::replace(&mut self.kwargs, saved);
                     let precision = std::mem::replace(&mut self.precision, saved_precision);
                     let nargs=std::mem::replace(&mut self.nargs,saved_nargs);
+                    let dummy_index=std::mem::replace(&mut self.dummy_index,saved_dummy_index);
                     if name=="Function" {
                         let Some(Val::Str(s))=args.first() else{return self.err("Function expects a string");};
                         let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::Function(crate::expr::UndefinedFunction::new(s,assumptions,nargs)));
                     }
-                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -505,14 +517,17 @@ impl Parser {
                         };
                         return Ok(Val::E(Expr::num(Number::mp_float(value, bits))));
                     }
-                    if (name == "Symbol" || name == "Dummy") && !kwargs.is_empty() {
-                        if let Some(Val::Str(s)) = args.first() {
-                            let a = crate::symbol::Assumptions::from_kwargs(
-                                kwargs.iter().map(|(k, v)| (k.as_str(), *v)),
-                            )
-                            .map_err(|m| ParseError { msg: m, pos: self.at() })?;
-                            return Ok(Val::E(Expr::symbol_with(s, a)));
-                        }
+                    if name == "Symbol" || name == "Dummy" {
+                        let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v)))
+                            .map_err(|msg|ParseError{msg,pos:self.at()})?;
+                        let symbol=match (name.as_str(),args.as_slice(),dummy_index) {
+                            ("Symbol",[Val::Str(s)],None)=>crate::Symbol::with_assumptions(s,assumptions),
+                            ("Dummy",[Val::Str(s)],Some(index))=>crate::Symbol::dummy_with_index(s,assumptions,index),
+                            ("Dummy",[Val::Str(s)],None)=>crate::Symbol::dummy(s,assumptions),
+                            ("Dummy",[],None)=>crate::Symbol::anonymous_dummy(assumptions),
+                            _=>return self.err("Symbol/Dummy expects a string name; explicit dummy_index requires a Dummy name"),
+                        };
+                        return Ok(Val::E(Expr::from_kind(Kind::Sym(symbol))));
                     }
                     if matches!(name.as_str(), "Add" | "Mul" | "Pow")
                         && kwargs.iter().any(|(key, value)| key == "evaluate" && !value)
@@ -532,6 +547,7 @@ impl Parser {
                     }
                     return self.call(&name, args);
                 }
+                if name=="None"{return Ok(Val::None);}
                 Ok(Val::E(ident(&name)))
             }
             t => self.err(format!("unexpected token {t:?}")),
@@ -567,15 +583,18 @@ impl Parser {
                 MatrixExpr::block(crate::matrixexpr::BlockGrid::new(rows.len(),cols,cells).map_err(|e|fail(e.to_string()))?)
             },
             "BlockDiagMatrix"=>MatrixExpr::block_diag(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?),
+            "NormalizedSlice"=>{arity(5)?;let omitted=match scalar(4)?.kind(){Kind::Bool(b)=>*b,_=>return self.err("NormalizedSlice flag must be boolean")};return Ok(Val::SliceSpec(crate::matrixexpr::SliceSpec::normalized(scalar(0)?,scalar(1)?,scalar(2)?,scalar(3)?,omitted).map_err(|e|fail(e.to_string()))?));},
             "MatrixSlice"=>{
                 arity(3)?;let parent=matrix(0)?;
-                let spec=|value:&Val,size:&Expr|->R<[Option<Expr>;3]>{
-                    if let Val::Tuple(items)=value {
+                let spec=|value:&Val,size:&Expr|->R<crate::matrixexpr::SliceSpec>{
+                    if let Val::SliceSpec(spec)=value{return Ok(spec.clone());}
+                    let raw=if let Val::Tuple(items)=value{
                         if items.len()!=2&&items.len()!=3{return self.err("slice bounds require two or three values");}
-                        let mut out=[None,None,None];for (i,item) in items.iter().enumerate(){out[i]=Some(self.as_expr(item.clone())?);}Ok(out)
-                    }else{let mut start=self.as_expr(value.clone())?;if crate::assumptions::is_negative(&start)==Some(true){start=crate::ops::add2(&start,size);}Ok([Some(start.clone()),Some(crate::ops::add2(&start,&Expr::one())),None])}
+                        let mut out=[None,None,None];for(i,item)in items.iter().enumerate(){if !matches!(item,Val::None){out[i]=Some(self.as_expr(item.clone())?);}}out
+                    }else{return crate::matrixexpr::SliceSpec::index(self.as_expr(value.clone())?,size).map_err(|e|fail(e.to_string()));};
+                    crate::matrixexpr::SliceSpec::from_raw(raw,size).map_err(|e|fail(e.to_string()))
                 };
-                parent.slice(spec(&args[1],parent.rows())?,spec(&args[2],parent.cols())?)
+                parent.slice_normalized(spec(&args[1],parent.rows())?,spec(&args[2],parent.cols())?)
             },
             "HadamardPower"=>{arity(2)?;let operand=|i:usize|->R<MatrixOperand>{if let Ok(matrix)=self.as_matrix(&args[i]){Ok(MatrixOperand::Matrix(matrix))}else{Ok(MatrixOperand::Scalar(scalar(i)?))}};let a=operand(0)?;let b=operand(1)?;if let(MatrixOperand::Scalar(a),MatrixOperand::Scalar(b))=(&a,&b){return Ok(Val::E(pow(a,b)));}MatrixExpr::hadamard_power(a,b,evaluate)},
             "MatAdd"=>MatrixExpr::add(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
@@ -630,7 +649,7 @@ impl Parser {
         };
         Ok(Val::E(match name {
             "Symbol" | "Dummy" => match args.first() {
-                Some(Val::Str(s)) => Expr::symbol(s),
+                Some(Val::Str(s)) => if name=="Dummy" {Expr::dummy(s,crate::Assumptions::NONE)} else {Expr::symbol(s)},
                 _ => return self.err("Symbol expects a string"),
             },
             "Function" => match args.first() {
@@ -843,7 +862,7 @@ pub fn parse_number(s: &str) -> Option<Expr> {
 /// Parse a string into an expression.
 pub fn parse_str(s: &str) -> Result<Expr, ParseError> {
     let toks = tokenize(s)?;
-    let mut p = Parser { toks, pos: 0, kwargs: Vec::new(), precision: None,nargs:None };
+    let mut p = Parser { toks, pos: 0, kwargs: Vec::new(), precision: None,nargs:None,dummy_index:None };
     let e = p.expr()?;
     if !matches!(p.peek(), Tok::End) {
         return p.err(format!("unexpected trailing token {:?}", p.peek()));

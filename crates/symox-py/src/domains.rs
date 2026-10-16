@@ -1,0 +1,1373 @@
+//! Typed coefficient domains: no display string participates in identity.
+#![allow(non_snake_case)]
+use super::{err, w, AlgebraicPoly, Domain, FractionPoly, NumberField, Poly, PolyValue};
+use crate::{to_expr, PyExpr};
+use pyo3::basic::CompareOp;
+use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
+use pyo3::prelude::*;
+use pyo3::types::{PySlice, PyTuple};
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
+use symox::poly::domains::{DomainElement, ElementValue, ExactDomain};
+use symox::poly::int::Coeff;
+use symox::Expr;
+
+pyo3::create_exception!(symox, DomainError, PyValueError);
+pyo3::create_exception!(symox, CoercionFailed, DomainError);
+pyo3::create_exception!(symox, ExactQuotientFailed, DomainError);
+fn element_error(e: symox::poly::convert::PolyError) -> PyErr {
+    if matches!(&e, symox::poly::convert::PolyError::Failed(_)) {
+        coercion(e)
+    } else {
+        err(e)
+    }
+}
+fn coercion(e: impl std::fmt::Display) -> PyErr {
+    CoercionFailed::new_err(e.to_string())
+}
+fn domain_error(e: impl std::fmt::Display) -> PyErr {
+    DomainError::new_err(e.to_string())
+}
+fn hashed<T: Hash>(v: &T) -> isize {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    v.hash(&mut h);
+    let x = h.finish() as isize;
+    if x == -1 {
+        -2
+    } else {
+        x
+    }
+}
+
+#[pyclass(name = "Domain", module = "symox._core", frozen)]
+#[derive(Clone, Debug)]
+pub struct PyDomain {
+    pub inner: ExactDomain,
+}
+impl std::fmt::Display for PyDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+impl PyDomain {
+    pub fn object(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match self.inner {
+            ExactDomain::ZZ => Ok(py.import("symox._core")?.getattr("ZZ")?.unbind()),
+            ExactDomain::QQ => Ok(py.import("symox._core")?.getattr("QQ")?.unbind()),
+            _ => Ok(self.clone().into_pyobject(py)?.into_any().unbind()),
+        }
+    }
+    pub fn of(p: &PolyValue) -> PyResult<Self> {
+        let p = normalize_poly(p.clone())?;
+        if p.field.is_none() && p.algebraic.is_none() && !p.base.domain_gens().is_empty() {
+            return Err(PyNotImplementedError::new_err(
+                "this legacy coefficient backend has no implemented typed Domain descriptor",
+            ));
+        }
+        Ok(Self {
+            inner: if let Some(a) = &p.algebraic {
+                ExactDomain::Algebraic(a.number_field.clone())
+            } else if let Some(f) = &p.field {
+                f.coefficient_domain.clone()
+            } else if let Some(p) = p.modulus {
+                ExactDomain::GF(p)
+            } else {
+                match p.domain {
+                    Domain::ZZ => ExactDomain::ZZ,
+                    Domain::QQ => ExactDomain::QQ,
+                    Domain::RR => ExactDomain::RR,
+                }
+            },
+        })
+    }
+    pub fn poly(&self, e: &Expr, gens: &[Expr]) -> PyResult<PolyValue> {
+        match &self.inner {
+            ExactDomain::Algebraic(field) => AlgebraicPoly::from_expr(e, gens, field.clone())
+                .map(Into::into)
+                .map_err(coercion),
+            ExactDomain::Functions {
+                parameters,
+                ring,
+                integral,
+                ..
+            } => {
+                let mut p = FractionPoly::from_expr(e, gens, parameters, &self.inner.to_string())
+                    .map_err(coercion)?;
+                if *ring
+                    && p.rep
+                        .coeffs()
+                        .iter()
+                        .any(|c| !symox::poly::fraction::coefficient_in_ring(c, *integral))
+                {
+                    return Err(coercion("coefficient outside selected ring"));
+                }
+                p.coefficient_domain = self.inner.clone();
+                Ok(p.into())
+            }
+            _ => {
+                let mut p = Poly::from_expr(e, gens).map_err(coercion)?;
+                if p.gens.len() != p.ngens {
+                    return Err(coercion("coefficient contains undeclared generators"));
+                }
+                if matches!(self.inner, ExactDomain::ZZ) && !p.rep.is_integral() {
+                    return Err(coercion("expected integer coefficients"));
+                }
+                p.domain = match self.inner {
+                    ExactDomain::ZZ => Domain::ZZ,
+                    ExactDomain::RR => Domain::RR,
+                    _ => Domain::QQ,
+                };
+                if let ExactDomain::GF(prime) = self.inner {
+                    if !p.rep.is_integral() {
+                        return Err(coercion(
+                            "finite-field conversion requires integral coefficients",
+                        ));
+                    }
+                    p = p.set_modulus(prime);
+                }
+                Ok(p.into())
+            }
+        }
+    }
+    fn element(
+        &self,
+        obj: &Bound<'_, PyAny>,
+        source: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyDomainElement> {
+        if let Ok(value) = obj.extract::<PyRef<'_, PyDomainElement>>() {
+            if let Some(source) = source {
+                let source = source.extract::<PyRef<'_, Self>>()?;
+                if source.inner != value.value.domain {
+                    return Err(coercion("source domain does not match element"));
+                }
+            }
+            if value.value.domain == self.inner {
+                return Ok(value.clone());
+            }
+            // Finite residues are not canonically integers/rationals.
+            if let ExactDomain::GF(prime) = value.value.domain {
+                if matches!(self.inner, ExactDomain::ZZ) {
+                    return self
+                        .inner
+                        .convert(&value.value.as_expr())
+                        .map(|value| PyDomainElement { value })
+                        .map_err(coercion);
+                }
+                if matches!(self.inner, ExactDomain::GF(_)) {
+                    let ElementValue::Finite(a) = &value.value.value else {
+                        unreachable!()
+                    };
+                    let n = a.to_rat().n.modulo(&symox::poly::Int::from_u64(prime));
+                    return self
+                        .inner
+                        .convert(&Expr::num(n.to_number()))
+                        .map(|value| PyDomainElement { value })
+                        .map_err(coercion);
+                }
+                return Err(coercion("no canonical embedding from a finite field"));
+            }
+            return self
+                .inner
+                .convert(&value.value.as_expr())
+                .map(|value| PyDomainElement { value })
+                .map_err(coercion);
+        }
+        let e = if let Ok(text) = obj.extract::<String>() {
+            symox::parser::parse_str(&text).map_err(coercion)?
+        } else {
+            to_expr(obj)?
+        };
+        self.inner
+            .convert(&e)
+            .map(|value| PyDomainElement { value })
+            .map_err(coercion)
+    }
+    fn factory(&self, gens: &Bound<'_, PyTuple>, order: &str, ring: bool) -> PyResult<Self> {
+        let integral=match self.inner{ExactDomain::ZZ=>true,ExactDomain::QQ=>false,_=>return Err(PyNotImplementedError::new_err("polynomial rings and fraction fields currently require ZZ or QQ ground coefficients"))};
+        let parameters = super::gens_of(gens)?;
+        ExactDomain::functions(integral, ring, parameters, order)
+            .map(|inner| Self { inner })
+            .map_err(domain_error)
+    }
+}
+#[pymethods]
+impl PyDomain {
+    fn __str__(&self) -> String {
+        self.inner.to_string()
+    }
+    fn __repr__(&self) -> String {
+        self.inner.to_string()
+    }
+    fn __hash__(&self) -> isize {
+        hashed(&self.inner)
+    }
+    fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp, py: Python<'_>) -> PyObject {
+        let equal = other
+            .extract::<PyRef<'_, Self>>()
+            .is_ok_and(|o| o.inner == self.inner);
+        match op {
+            CompareOp::Eq => equal
+                .into_pyobject(py)
+                .unwrap()
+                .to_owned()
+                .into_any()
+                .unbind(),
+            CompareOp::Ne => (!equal)
+                .into_pyobject(py)
+                .unwrap()
+                .to_owned()
+                .into_any()
+                .unbind(),
+            _ => py.NotImplemented(),
+        }
+    }
+    #[getter]
+    fn is_ZZ(&self) -> bool {
+        matches!(self.inner, ExactDomain::ZZ)
+    }
+    #[getter]
+    fn is_QQ(&self) -> bool {
+        matches!(self.inner, ExactDomain::QQ)
+    }
+    #[getter]
+    fn is_RR(&self) -> bool {
+        matches!(self.inner, ExactDomain::RR)
+    }
+    #[getter]
+    fn is_FF(&self) -> bool {
+        matches!(self.inner, ExactDomain::GF(_))
+    }
+    #[getter]
+    fn is_FiniteField(&self) -> bool {
+        self.is_FF()
+    }
+    #[getter]
+    fn is_AlgebraicField(&self) -> bool {
+        matches!(self.inner, ExactDomain::Algebraic(_))
+    }
+    #[getter]
+    fn is_FractionField(&self) -> bool {
+        matches!(self.inner, ExactDomain::Functions { ring: false, .. })
+    }
+    #[getter]
+    fn is_PolynomialRing(&self) -> bool {
+        matches!(self.inner, ExactDomain::Functions { ring: true, .. })
+    }
+    #[getter]
+    fn is_Field(&self) -> bool {
+        self.inner.is_field()
+    }
+    #[getter]
+    fn is_Ring(&self) -> bool {
+        true
+    }
+    #[getter]
+    fn is_Exact(&self) -> bool {
+        !self.is_RR()
+    }
+    #[getter]
+    fn is_Numerical(&self) -> bool {
+        !matches!(self.inner, ExactDomain::Functions { .. })
+    }
+    #[getter]
+    fn has_CharacteristicZero(&self) -> bool {
+        self.inner.characteristic() == 0
+    }
+    #[getter]
+    fn is_Composite(&self) -> bool {
+        matches!(self.inner, ExactDomain::Functions { .. })
+    }
+    #[getter]
+    fn is_PID(&self) -> bool {
+        self.is_Field()
+            || self.is_ZZ()
+            || matches!(&self.inner,ExactDomain::Functions{integral:false,ring:true,parameters,..} if parameters.len()==1)
+    }
+    fn characteristic(&self) -> u64 {
+        self.inner.characteristic()
+    }
+    #[getter]
+    fn zero(&self) -> PyResult<PyDomainElement> {
+        Ok(PyDomainElement {
+            value: self.inner.convert(&Expr::zero()).map_err(err)?,
+        })
+    }
+    #[getter]
+    fn one(&self) -> PyResult<PyDomainElement> {
+        Ok(PyDomainElement {
+            value: self.inner.convert(&Expr::one()).map_err(err)?,
+        })
+    }
+    #[getter]
+    fn dtype(&self) -> Self {
+        self.clone()
+    }
+    fn __instancecheck__(&self, obj: &Bound<'_, PyAny>) -> bool {
+        obj.extract::<PyRef<'_, PyDomainElement>>()
+            .is_ok_and(|e| e.value.domain == self.inner)
+    }
+    #[pyo3(signature=(value,denominator=None))]
+    fn __call__(
+        &self,
+        value: &Bound<'_, PyAny>,
+        denominator: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyDomainElement> {
+        let a = self.element(value, None)?;
+        if let Some(d) = denominator {
+            a.binary(d, '/', false)
+        } else {
+            Ok(a)
+        }
+    }
+    #[pyo3(signature=(element,base=None))]
+    fn convert(
+        &self,
+        element: &Bound<'_, PyAny>,
+        base: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyDomainElement> {
+        self.element(element, base)
+    }
+    fn from_sympy(&self, element: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(element, None)
+    }
+    fn to_sympy(&self, element: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        Ok(w(self.element(element, None)?.value.as_expr()))
+    }
+    fn of_type(&self, element: &Bound<'_, PyAny>) -> bool {
+        self.__instancecheck__(element)
+    }
+    fn __contains__(&self, element: &Bound<'_, PyAny>) -> bool {
+        self.element(element, None).is_ok()
+    }
+    pub fn get_field(&self) -> Self {
+        Self {
+            inner: self.inner.field(),
+        }
+    }
+    pub fn get_ring(&self) -> PyResult<Self> {
+        self.inner
+            .ring()
+            .map(|inner| Self { inner })
+            .map_err(domain_error)
+    }
+    #[getter]
+    fn dom(&self) -> PyResult<Self> {
+        match self.inner {
+            ExactDomain::Functions { integral, .. } => Ok(Self {
+                inner: if integral {
+                    ExactDomain::ZZ
+                } else {
+                    ExactDomain::QQ
+                },
+            }),
+            ExactDomain::Algebraic(_) => Ok(Self {
+                inner: ExactDomain::QQ,
+            }),
+            _ => Err(domain_error(
+                "ground domains do not have a coefficient domain",
+            )),
+        }
+    }
+    #[getter]
+    fn domain(&self) -> PyResult<Self> {
+        self.dom()
+    }
+    #[getter]
+    fn order(&self) -> Option<String> {
+        match &self.inner {
+            ExactDomain::Functions { order, .. } => Some(order.clone()),
+            _ => None,
+        }
+    }
+    #[getter]
+    fn symbols(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match &self.inner {
+            ExactDomain::Functions { parameters, .. } => {
+                Ok(PyTuple::new(py, parameters.iter().cloned().map(w))?
+                    .into_any()
+                    .unbind())
+            }
+            ExactDomain::Algebraic(_) => Ok(PyTuple::new(py, [self.ext(py)?])?.into_any().unbind()),
+            _ => Ok(PyTuple::empty(py).into_any().unbind()),
+        }
+    }
+    #[getter]
+    fn gens(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match &self.inner {
+            ExactDomain::Functions { parameters, .. } => Ok(PyTuple::new(
+                py,
+                parameters
+                    .iter()
+                    .map(|p| self.inner.convert(p).map(|value| PyDomainElement { value }))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(coercion)?,
+            )?
+            .into_any()
+            .unbind()),
+            _ => self.symbols(py),
+        }
+    }
+    #[getter]
+    fn ngens(&self) -> usize {
+        match &self.inner {
+            ExactDomain::Functions { parameters, .. } => parameters.len(),
+            ExactDomain::Algebraic(_) => 1,
+            _ => 0,
+        }
+    }
+    #[getter]
+    fn ext(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let ExactDomain::Algebraic(k) = &self.inner else {
+            return Err(domain_error("this domain is not an algebraic field"));
+        };
+        let args = PyTuple::new(py, [w(k.generator.clone())])?;
+        let kwargs = pyo3::types::PyDict::new(py);
+        if let Some(alias) = &k.alias {
+            kwargs.set_item("alias", w(alias.clone()))?;
+        }
+        Ok(py
+            .import("symox._core")?
+            .getattr("AlgebraicNumber")?
+            .call(&args, Some(&kwargs))?
+            .unbind())
+    }
+    #[getter]
+    fn unit(&self) -> PyResult<PyDomainElement> {
+        let ExactDomain::Algebraic(k) = &self.inner else {
+            return Err(domain_error("unit is the primitive algebraic generator"));
+        };
+        self.inner
+            .convert(&k.generator)
+            .map(|value| PyDomainElement { value })
+            .map_err(coercion)
+    }
+    #[pyo3(signature=(*extension,alias=None))]
+    fn algebraic_field(
+        &self,
+        extension: &Bound<'_, PyTuple>,
+        alias: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        if self.inner != ExactDomain::QQ {
+            return Err(PyNotImplementedError::new_err(
+                "algebraic fields currently require QQ as their ground field",
+            ));
+        }
+        let generators = super::gens_of(extension)?;
+        let field = NumberField::from_generators(&generators).map_err(err)?;
+        let mut k = (*field).clone();
+        if let Some(alias) = alias {
+            if !alias.is_none() {
+                let a = if let Ok(name) = alias.extract::<String>() {
+                    Expr::symbol(&name)
+                } else {
+                    to_expr(alias)?
+                };
+                if !a.is_symbol() {
+                    return Err(PyValueError::new_err("alias must be a symbol"));
+                }
+                k.alias = Some(a);
+            }
+        }
+        Ok(Self {
+            inner: ExactDomain::Algebraic(Arc::new(k)),
+        })
+    }
+    #[pyo3(signature=(*symbols,order="lex"))]
+    fn frac_field(&self, symbols: &Bound<'_, PyTuple>, order: &str) -> PyResult<Self> {
+        self.factory(symbols, order, false)
+    }
+    #[pyo3(signature=(*symbols,order="lex"))]
+    fn poly_ring(&self, symbols: &Bound<'_, PyTuple>, order: &str) -> PyResult<Self> {
+        self.factory(symbols, order, true)
+    }
+    fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if key.downcast::<PySlice>().is_ok() || key.extract::<isize>().is_ok() {
+            return Ok(self.__str__().into_pyobject(py)?.get_item(key)?.unbind());
+        }
+        let args = if let Ok(t) = key.downcast::<PyTuple>() {
+            t.clone()
+        } else {
+            PyTuple::new(py, [key])?
+        };
+        Ok(self
+            .factory(&args, "lex", true)?
+            .into_pyobject(py)?
+            .into_any()
+            .unbind())
+    }
+    fn startswith(&self, prefix: &str) -> bool {
+        self.__str__().starts_with(prefix)
+    }
+    fn endswith(&self, suffix: &str) -> bool {
+        self.__str__().ends_with(suffix)
+    }
+    fn exquo(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(a, None)?.binary(b, '/', false)
+    }
+    fn quo(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        Ok(self.div(a, b)?.0)
+    }
+    fn rem(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        Ok(self.div(a, b)?.1)
+    }
+    fn div(
+        &self,
+        a: &Bound<'_, PyAny>,
+        b: &Bound<'_, PyAny>,
+    ) -> PyResult<(PyDomainElement, PyDomainElement)> {
+        let a = self.element(a, None)?;
+        let b = self.element(b, None)?;
+        if b.value.is_zero() {
+            return Err(PyZeroDivisionError::new_err("division by zero"));
+        }
+        if self.is_ZZ() {
+            let (ElementValue::Rational(a), ElementValue::Rational(b)) =
+                (&a.value.value, &b.value.value)
+            else {
+                unreachable!()
+            };
+            let (q, r) = a.n.div_mod_floor(&b.n);
+            return Ok((
+                PyDomainElement {
+                    value: self
+                        .inner
+                        .convert(&Expr::num(q.to_number()))
+                        .map_err(coercion)?,
+                },
+                PyDomainElement {
+                    value: self
+                        .inner
+                        .convert(&Expr::num(r.to_number()))
+                        .map_err(coercion)?,
+                },
+            ));
+        }
+        if self.is_Field() {
+            Ok((
+                PyDomainElement {
+                    value: a.value.binary(&b.value, '/').map_err(err)?,
+                },
+                self.zero()?,
+            ))
+        } else {
+            Err(PyNotImplementedError::new_err("polynomial-ring Euclidean division requires a univariate supported coefficient ring"))
+        }
+    }
+    fn gcd(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        let a = self.element(a, None)?;
+        let b = self.element(b, None)?;
+        a.value
+            .gcd(&b.value)
+            .map(|value| PyDomainElement { value })
+            .map_err(err)
+    }
+    fn lcm(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        let a = self.element(a, None)?;
+        let b = self.element(b, None)?;
+        a.value
+            .lcm(&b.value)
+            .map(|value| PyDomainElement { value })
+            .map_err(err)
+    }
+    fn numer(&self, a: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(a, None)?.fraction_part(false)
+    }
+    fn denom(&self, a: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(a, None)?.fraction_part(true)
+    }
+    fn add(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(a, None)?.binary(b, '+', false)
+    }
+    fn sub(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(a, None)?.binary(b, '-', false)
+    }
+    fn mul(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(a, None)?.binary(b, '*', false)
+    }
+    fn neg(&self, a: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        self.element(a, None)?.__neg__()
+    }
+    fn pow(&self, a: &Bound<'_, PyAny>, n: i64) -> PyResult<PyDomainElement> {
+        self.element(a, None)?
+            .value
+            .pow(n)
+            .map(|value| PyDomainElement { value })
+            .map_err(err)
+    }
+    fn invert(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
+        let a = self.element(a, None)?;
+        let b = self.element(b, None)?;
+        if let (ExactDomain::ZZ, ElementValue::Rational(a), ElementValue::Rational(b)) =
+            (&self.inner, &a.value.value, &b.value.value)
+        {
+            if b.is_zero() {
+                return Err(PyZeroDivisionError::new_err("zero modulus"));
+            }
+            let (g, s, _) = a.n.gcdex(&b.n);
+            if !g.is_one() {
+                return Err(super::an_rational::NotInvertible::new_err("zero divisor"));
+            }
+            return self
+                .inner
+                .convert(&Expr::num(s.modulo(&b.n).to_number()))
+                .map(|value| PyDomainElement { value })
+                .map_err(err);
+        }
+        if let ExactDomain::Functions {
+            ring: true,
+            parameters,
+            ..
+        } = &self.inner
+        {
+            let e = symox::poly::api::invert(&a.value.as_expr(), &b.value.as_expr(), parameters)
+                .map_err(err)?;
+            return self
+                .inner
+                .convert(&e)
+                .map(|value| PyDomainElement { value })
+                .map_err(coercion);
+        }
+        Err(PyNotImplementedError::new_err("modular inversion requires ZZ or a supported univariate polynomial ring; use a**-1 for field inversion"))
+    }
+    fn gcdex(
+        &self,
+        a: &Bound<'_, PyAny>,
+        b: &Bound<'_, PyAny>,
+    ) -> PyResult<(PyDomainElement, PyDomainElement, PyDomainElement)> {
+        let a = self.element(a, None)?;
+        let b = self.element(b, None)?;
+        let triple =
+            if let (ExactDomain::ZZ, ElementValue::Rational(a), ElementValue::Rational(b)) =
+                (&self.inner, &a.value.value, &b.value.value)
+            {
+                let (g, s, t) = a.n.gcdex(&b.n);
+                (
+                    Expr::num(s.to_number()),
+                    Expr::num(t.to_number()),
+                    Expr::num(g.to_number()),
+                )
+            } else if let ExactDomain::Functions {
+                ring: true,
+                parameters,
+                ..
+            } = &self.inner
+            {
+                symox::poly::api::gcdex(&a.value.as_expr(), &b.value.as_expr(), parameters)
+                    .map_err(err)?
+            } else if self.is_Field() {
+                if !a.value.is_zero() {
+                    (
+                        a.value.pow(-1).map_err(err)?.as_expr(),
+                        Expr::zero(),
+                        Expr::one(),
+                    )
+                } else if !b.value.is_zero() {
+                    (
+                        Expr::zero(),
+                        b.value.pow(-1).map_err(err)?.as_expr(),
+                        Expr::one(),
+                    )
+                } else {
+                    (Expr::zero(), Expr::zero(), Expr::zero())
+                }
+            } else {
+                return Err(PyNotImplementedError::new_err(
+                    "extended gcd is not implemented for this domain",
+                ));
+            };
+        let convert = |e: &Expr| {
+            self.inner
+                .convert(e)
+                .map(|value| PyDomainElement { value })
+                .map_err(coercion)
+        };
+        Ok((
+            convert(&triple.0)?,
+            convert(&triple.1)?,
+            convert(&triple.2)?,
+        ))
+    }
+    fn unify(&self, other: PyRef<'_, Self>) -> PyResult<Self> {
+        unify_native(&self.inner, &other.inner).map(|inner| Self { inner })
+    }
+    fn is_zero(&self, a: &Bound<'_, PyAny>) -> PyResult<bool> {
+        Ok(self.element(a, None)?.value.is_zero())
+    }
+    fn is_one(&self, a: &Bound<'_, PyAny>) -> PyResult<bool> {
+        Ok(self.element(a, None)?.value == self.one()?.value)
+    }
+    fn is_unit(&self, a: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let a = self.element(a, None)?;
+        if self.is_Field() {
+            return Ok(!a.value.is_zero());
+        }
+        Ok(a.value.pow(-1).is_ok())
+    }
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<(PyObject, PyObject)> {
+        let (kind, prime, parameters, generator, alias, integral, ring, order) = match &self.inner {
+            ExactDomain::RR => (
+                "RR",
+                None,
+                vec![],
+                None,
+                None,
+                false,
+                false,
+                "lex".to_string(),
+            ),
+            ExactDomain::ZZ => (
+                "ZZ",
+                None,
+                vec![],
+                None,
+                None,
+                false,
+                false,
+                "lex".to_string(),
+            ),
+            ExactDomain::QQ => (
+                "QQ",
+                None,
+                vec![],
+                None,
+                None,
+                false,
+                false,
+                "lex".to_string(),
+            ),
+            ExactDomain::GF(p) => (
+                "GF",
+                Some(*p),
+                vec![],
+                None,
+                None,
+                false,
+                false,
+                "lex".to_string(),
+            ),
+            ExactDomain::Algebraic(k) => (
+                "AN",
+                None,
+                vec![],
+                Some(w(k.generator.clone())),
+                k.alias.clone().map(w),
+                false,
+                false,
+                "lex".to_string(),
+            ),
+            ExactDomain::Functions {
+                integral,
+                ring,
+                parameters,
+                order,
+            } => (
+                "RF",
+                None,
+                parameters.iter().cloned().map(w).collect(),
+                None,
+                None,
+                *integral,
+                *ring,
+                order.clone(),
+            ),
+        };
+        Ok((
+            py.import("symox._core")?
+                .getattr("_restore_domain")?
+                .unbind(),
+            (
+                kind, prime, parameters, generator, alias, integral, ring, order,
+            )
+                .into_pyobject(py)?
+                .into_any()
+                .unbind(),
+        ))
+    }
+}
+
+#[pyclass(name = "DomainElement", module = "symox._core", frozen)]
+#[derive(Clone)]
+pub struct PyDomainElement {
+    pub value: DomainElement,
+}
+impl PyDomainElement {
+    fn fraction_part(&self, denominator: bool) -> PyResult<Self> {
+        let (domain, e) = match (&self.value.domain, &self.value.value) {
+            (ExactDomain::ZZ | ExactDomain::QQ, ElementValue::Rational(r)) => (
+                ExactDomain::ZZ,
+                Expr::num(if denominator {
+                    r.d.to_number()
+                } else {
+                    r.n.to_number()
+                }),
+            ),
+            (
+                ExactDomain::Functions {
+                    integral,
+                    parameters,
+                    order,
+                    ..
+                },
+                ElementValue::Function(r),
+            ) => (
+                ExactDomain::functions(*integral, true, parameters.clone(), order).map_err(err)?,
+                symox::poly::convert::to_expr_int(
+                    if denominator { &r.d } else { &r.n },
+                    parameters,
+                ),
+            ),
+            (_, _) => (
+                self.value.domain.clone(),
+                if denominator {
+                    Expr::one()
+                } else {
+                    self.value.as_expr()
+                },
+            ),
+        };
+        domain
+            .convert(&e)
+            .map(|value| Self { value })
+            .map_err(coercion)
+    }
+    fn operation(
+        &self,
+        other: &Bound<'_, PyAny>,
+        operation: char,
+        reverse: bool,
+    ) -> PyResult<PyObject> {
+        if other
+            .extract::<PyRef<'_, PyExpr>>()
+            .is_ok_and(|e| !e.e.is_number())
+            && matches!(
+                self.value.domain,
+                ExactDomain::ZZ | ExactDomain::QQ | ExactDomain::GF(_)
+            )
+        {
+            return Ok(other.py().NotImplemented());
+        }
+        Ok(self
+            .binary(other, operation, reverse)?
+            .into_pyobject(other.py())?
+            .into_any()
+            .unbind())
+    }
+    fn binary(&self, other: &Bound<'_, PyAny>, operation: char, reverse: bool) -> PyResult<Self> {
+        if let Ok(b) = other.extract::<PyRef<'_, Self>>() {
+            if !self.value.compatible_embedding(&b.value)
+                && !(matches!(self.value.value, ElementValue::Rational(_))
+                    && matches!(b.value.value, ElementValue::Rational(_)))
+            {
+                return Err(coercion(
+                    "incompatible coefficient domains; use convert explicitly",
+                ));
+            }
+        }
+        let d = PyDomain {
+            inner: self.value.domain.clone(),
+        };
+        let b = d.element(other, None)?;
+        let value = if reverse {
+            b.value.binary(&self.value, operation)
+        } else {
+            self.value.binary(&b.value, operation)
+        }
+        .map_err(element_error)?;
+        Ok(Self { value })
+    }
+}
+#[pymethods]
+impl PyDomainElement {
+    #[getter]
+    fn numerator(&self) -> PyResult<Self> {
+        self.fraction_part(false)
+    }
+    #[getter]
+    fn denominator(&self) -> PyResult<Self> {
+        self.fraction_part(true)
+    }
+    #[getter]
+    fn numer(&self) -> PyResult<Self> {
+        self.fraction_part(false)
+    }
+    #[getter]
+    fn denom(&self) -> PyResult<Self> {
+        self.fraction_part(true)
+    }
+    fn to_list(&self) -> PyResult<Vec<Self>> {
+        let ElementValue::Algebraic(a) = &self.value.value else {
+            return Err(PyTypeError::new_err(
+                "power-basis coefficients are only defined for algebraic elements",
+            ));
+        };
+        Ok(a.coefficients
+            .iter()
+            .rev()
+            .map(|r| Self {
+                value: ExactDomain::QQ.convert(&Expr::num(r.to_number())).unwrap(),
+            })
+            .collect())
+    }
+    fn parent(&self) -> PyDomain {
+        PyDomain {
+            inner: self.value.domain.clone(),
+        }
+    }
+    fn as_expr(&self) -> PyExpr {
+        w(self.value.as_expr())
+    }
+    fn __str__(&self) -> String {
+        self.value.as_expr().to_string()
+    }
+    fn __repr__(&self) -> String {
+        format!("{}({})", self.value.domain, self.value.as_expr())
+    }
+    fn __bool__(&self) -> bool {
+        !self.value.is_zero()
+    }
+    fn __hash__(&self) -> isize {
+        if let ElementValue::Rational(r) = &self.value.value {
+            crate::python_hash::exact_hash(&r.to_number()).unwrap()
+        } else {
+            hashed(&self.value)
+        }
+    }
+    fn __int__(&self) -> PyResult<num_bigint::BigInt> {
+        match &self.value.value {
+            ElementValue::Rational(r) if r.is_integer() => Ok(r.n.to_big()),
+            ElementValue::Finite(r) => {
+                let r = r.to_rat();
+                let ExactDomain::GF(p) = self.value.domain else {
+                    unreachable!()
+                };
+                Ok(r.n.modulo(&symox::poly::Int::from_u64(p)).to_big())
+            }
+            _ => Err(PyTypeError::new_err(
+                "only integral coefficients convert to int",
+            )),
+        }
+    }
+    fn __index__(&self) -> PyResult<num_bigint::BigInt> {
+        self.__int__()
+    }
+    fn __float__(&self) -> PyResult<f64> {
+        match &self.value.value {
+            ElementValue::Rational(r) => Ok(r.to_f64()),
+            _ => Err(PyTypeError::new_err(
+                "this exact coefficient has no real float conversion",
+            )),
+        }
+    }
+    fn __add__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '+', false)
+    }
+    fn __radd__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '+', true)
+    }
+    fn __sub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '-', false)
+    }
+    fn __rsub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '-', true)
+    }
+    fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '*', false)
+    }
+    fn __rmul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '*', true)
+    }
+    fn __truediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '/', false)
+    }
+    fn __rtruediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.operation(o, '/', true)
+    }
+    fn __neg__(&self) -> PyResult<Self> {
+        let zero = self.value.domain.convert(&Expr::zero()).map_err(err)?;
+        zero.binary(&self.value, '-')
+            .map(|value| Self { value })
+            .map_err(err)
+    }
+    fn __pos__(&self) -> Self {
+        self.clone()
+    }
+    fn __pow__(&self, exponent: i64, modulo: Option<&Bound<'_, PyAny>>) -> PyResult<Self> {
+        if modulo.is_some() {
+            return Err(PyTypeError::new_err(
+                "modular power is not defined for domain elements",
+            ));
+        }
+        self.value
+            .pow(exponent)
+            .map(|value| Self { value })
+            .map_err(element_error)
+    }
+    fn __richcmp__(
+        &self,
+        o: &Bound<'_, PyAny>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<PyObject> {
+        let d = PyDomain {
+            inner: self.value.domain.clone(),
+        };
+        let b = if let Ok(b) = o.extract::<PyRef<'_, Self>>() {
+            if !self.value.compatible_embedding(&b.value)
+                && !(matches!(b.value.value, ElementValue::Rational(_))
+                    && matches!(self.value.value, ElementValue::Rational(_)))
+            {
+                return Ok(match op {
+                    CompareOp::Eq => false.into_pyobject(py)?.to_owned().into_any().unbind(),
+                    CompareOp::Ne => true.into_pyobject(py)?.to_owned().into_any().unbind(),
+                    _ => py.NotImplemented(),
+                });
+            }
+            b.clone()
+        } else {
+            if !matches!(self.value.value, ElementValue::Rational(_)) {
+                return Ok(py.NotImplemented());
+            }
+            match d.element(o, None) {
+                Ok(b) => b,
+                Err(_) => return Ok(py.NotImplemented()),
+            }
+        };
+        let equal = match (&self.value.value, &b.value.value) {
+            (ElementValue::Rational(a), ElementValue::Rational(b)) => a == b,
+            _ => self.value == b.value,
+        };
+        let comparison = match op {
+            CompareOp::Eq => equal,
+            CompareOp::Ne => !equal,
+            _ => {
+                let (ElementValue::Rational(a), ElementValue::Rational(b)) =
+                    (&self.value.value, &b.value.value)
+                else {
+                    return Ok(py.NotImplemented());
+                };
+                let delta = a.sub(b);
+                match op {
+                    CompareOp::Lt => delta.is_negative(),
+                    CompareOp::Le => delta.is_negative() || delta.is_zero(),
+                    CompareOp::Gt => !delta.is_negative() && !delta.is_zero(),
+                    CompareOp::Ge => !delta.is_negative(),
+                    _ => unreachable!(),
+                }
+            }
+        };
+        Ok(comparison.into_pyobject(py)?.to_owned().into_any().unbind())
+    }
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<(PyObject, PyObject)> {
+        Ok((
+            py.import("symox._core")?
+                .getattr("_restore_domain_element")?
+                .unbind(),
+            (self.parent(), self.as_expr())
+                .into_pyobject(py)?
+                .into_any()
+                .unbind(),
+        ))
+    }
+}
+#[pyfunction]
+#[pyo3(signature=(modulus,symmetric=true))]
+fn GF(modulus: u64, symmetric: bool) -> PyResult<PyDomain> {
+    if !symmetric {
+        return Err(PyNotImplementedError::new_err(
+            "nonsymmetric finite-field displays are not implemented",
+        ));
+    }
+    ExactDomain::finite(modulus)
+        .map(|inner| PyDomain { inner })
+        .map_err(domain_error)
+}
+#[pyfunction]
+fn _restore_domain(
+    py: Python<'_>,
+    kind: &str,
+    prime: Option<u64>,
+    parameters: Vec<PyRef<'_, PyExpr>>,
+    generator: Option<PyRef<'_, PyExpr>>,
+    alias: Option<PyRef<'_, PyExpr>>,
+    integral: bool,
+    ring: bool,
+    order: &str,
+) -> PyResult<PyObject> {
+    let inner = match kind {
+        "RR" => ExactDomain::RR,
+        "ZZ" => ExactDomain::ZZ,
+        "QQ" => ExactDomain::QQ,
+        "GF" => ExactDomain::finite(prime.ok_or_else(|| domain_error("missing characteristic"))?)
+            .map_err(domain_error)?,
+        "RF" => ExactDomain::functions(
+            integral,
+            ring,
+            parameters.iter().map(|p| p.e.clone()).collect(),
+            order,
+        )
+        .map_err(domain_error)?,
+        "AN" => {
+            let mut field = (*NumberField::from_generator(
+                &generator
+                    .ok_or_else(|| domain_error("missing algebraic generator"))?
+                    .e,
+            )
+            .map_err(err)?)
+            .clone();
+            field.alias = alias.map(|a| a.e.clone());
+            ExactDomain::Algebraic(Arc::new(field))
+        }
+        _ => return Err(domain_error("unknown domain descriptor")),
+    };
+    PyDomain { inner }.object(py)
+}
+#[pyfunction]
+fn _restore_domain_element(
+    domain: PyRef<'_, PyDomain>,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<PyDomainElement> {
+    domain.element(value, None)
+}
+pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyDomain>()?;
+    m.add_class::<PyDomainElement>()?;
+    m.add(
+        "ZZ",
+        PyDomain {
+            inner: ExactDomain::ZZ,
+        },
+    )?;
+    m.add(
+        "QQ",
+        PyDomain {
+            inner: ExactDomain::QQ,
+        },
+    )?;
+    m.add_function(wrap_pyfunction!(GF, m)?)?;
+    m.add_function(wrap_pyfunction!(_restore_domain, m)?)?;
+    m.add_function(wrap_pyfunction!(_restore_domain_element, m)?)?;
+    m.add(
+        "ExactQuotientFailed",
+        m.py().get_type::<ExactQuotientFailed>(),
+    )?;
+    m.add("DomainError", m.py().get_type::<DomainError>())?;
+    m.add("CoercionFailed", m.py().get_type::<CoercionFailed>())?;
+    Ok(())
+}
+
+pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
+    if a == b {
+        return Ok(a.clone());
+    }
+    let inner = match (a, b) {
+        (ExactDomain::ZZ, ExactDomain::QQ) | (ExactDomain::QQ, ExactDomain::ZZ) => ExactDomain::QQ,
+        (ExactDomain::Algebraic(k), ExactDomain::ZZ | ExactDomain::QQ)
+        | (ExactDomain::ZZ | ExactDomain::QQ, ExactDomain::Algebraic(k)) => {
+            ExactDomain::Algebraic(k.clone())
+        }
+        (ExactDomain::Algebraic(a), ExactDomain::Algebraic(b)) => {
+            ExactDomain::Algebraic(if a.same_embedding(b) {
+                a.clone()
+            } else {
+                NumberField::from_generators(&[a.generator.clone(), b.generator.clone()])
+                    .map_err(err)?
+            })
+        }
+        (
+            ExactDomain::Functions {
+                integral: a,
+                ring: ra,
+                parameters: pa,
+                order: oa,
+            },
+            ExactDomain::Functions {
+                integral: b,
+                ring: rb,
+                parameters: pb,
+                order: ob,
+            },
+        ) => {
+            if oa != ob {
+                return Err(domain_error(
+                    "cannot unify coefficient rings with different monomial orders",
+                ));
+            }
+            let mut parameters = symox::poly::polyobj::unify_gens(pa, pb);
+            symox::poly::convert::sort_gens(&mut parameters);
+            ExactDomain::functions(*a && *b, *ra && *rb, parameters, oa).map_err(err)?
+        }
+        (
+            ExactDomain::Functions {
+                integral,
+                ring,
+                parameters,
+                order,
+            },
+            ExactDomain::ZZ | ExactDomain::QQ,
+        )
+        | (
+            ExactDomain::ZZ | ExactDomain::QQ,
+            ExactDomain::Functions {
+                integral,
+                ring,
+                parameters,
+                order,
+            },
+        ) => ExactDomain::functions(
+            *integral && !matches!(a, ExactDomain::QQ) && !matches!(b, ExactDomain::QQ),
+            *ring,
+            parameters.clone(),
+            order,
+        )
+        .map_err(err)?,
+        _ => {
+            return Err(domain_error(
+                "coefficient domains have no implemented common exact domain",
+            ))
+        }
+    };
+    Ok(inner)
+}
+
+/// Move exact implicit symbolic coefficients into the actual coefficient-ring
+/// backend. A descriptor never labels an unrelated QQ/ZZ polynomial as a ring.
+pub fn normalize_poly(p: PolyValue) -> PyResult<PolyValue> {
+    if p.field.is_some() || p.algebraic.is_some() || p.base.domain_gens().is_empty() {
+        return Ok(p);
+    }
+    if p.modulus.is_some() || p.domain == Domain::RR {
+        return Ok(p);
+    }
+    let parameters = p.base.domain_gens().to_vec();
+    if parameters.iter().any(|g| !g.is_symbol()) {
+        return Ok(p);
+    }
+    let descriptor =
+        ExactDomain::functions(p.domain == Domain::ZZ, true, parameters.clone(), "lex")
+            .map_err(err)?;
+    let mut field = FractionPoly::from_expr(
+        &p.as_expr(),
+        p.true_gens(),
+        &parameters,
+        &descriptor.to_string(),
+    )
+    .map_err(err)?;
+    field.coefficient_domain = descriptor;
+    Ok(field.into())
+}
+
+/// Legacy strings are parsed only at the public boundary. Native domains carry
+/// their generators and embeddings directly into polynomial constructors.
+pub struct Selection {
+    pub native: Option<PyDomain>,
+    pub legacy: Option<String>,
+    pub modulus: Option<u64>,
+}
+impl Selection {
+    pub fn from_native(inner: ExactDomain) -> Self {
+        let modulus = if let ExactDomain::GF(p) = inner {
+            Some(p)
+        } else {
+            None
+        };
+        let legacy = if modulus.is_some() {
+            None
+        } else {
+            Some(inner.to_string())
+        };
+        Self {
+            native: Some(PyDomain { inner }),
+            legacy,
+            modulus,
+        }
+    }
+    pub fn new(
+        domain: Option<&Bound<'_, PyAny>>,
+        modulus: Option<u64>,
+        extension: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let domain = domain.filter(|d| !d.is_none());
+        if domain.is_some() && modulus.is_some() {
+            return Err(PyValueError::new_err("specify either domain or modulus"));
+        }
+        if domain.is_some() && extension.is_some_and(|e| !e.is_none()) {
+            return Err(PyValueError::new_err("specify either domain or extension"));
+        }
+        let Some(domain) = domain else {
+            return Ok(Self {
+                native: None,
+                legacy: None,
+                modulus,
+            });
+        };
+        if let Ok(d) = domain.extract::<PyRef<'_, PyDomain>>() {
+            return Ok(Self {
+                native: Some(d.clone()),
+                legacy: if matches!(d.inner, ExactDomain::GF(_)) {
+                    None
+                } else {
+                    Some(d.inner.to_string())
+                },
+                modulus: if let ExactDomain::GF(p) = d.inner {
+                    Some(p)
+                } else {
+                    None
+                },
+            });
+        }
+        let text = domain.extract::<String>().map_err(|_| {
+            PyTypeError::new_err("domain must be a native Domain or a domain string")
+        })?;
+        if text.starts_with("GF(") && text.ends_with(')') {
+            let prime = text[3..text.len() - 1]
+                .parse::<u64>()
+                .map_err(domain_error)?;
+            let inner = ExactDomain::finite(prime).map_err(domain_error)?;
+            return Ok(Self {
+                native: Some(PyDomain { inner }),
+                legacy: None,
+                modulus: Some(prime),
+            });
+        }
+        Ok(Self {
+            native: None,
+            legacy: Some(text),
+            modulus: None,
+        })
+    }
+    pub fn algebraic(
+        &self,
+        extension: Option<&Bound<'_, PyAny>>,
+        expressions: &[Expr],
+    ) -> PyResult<Option<Arc<NumberField>>> {
+        if let Some(PyDomain {
+            inner: ExactDomain::Algebraic(field),
+        }) = &self.native
+        {
+            return Ok(Some(field.clone()));
+        }
+        super::algebraic_extension(extension, expressions, self.legacy.as_deref())
+    }
+    pub fn parameters(&self, available: &[Expr]) -> PyResult<Option<Vec<Expr>>> {
+        if let Some(PyDomain {
+            inner: ExactDomain::Functions { parameters, .. },
+        }) = &self.native
+        {
+            return Ok(Some(parameters.clone()));
+        }
+        self.legacy
+            .as_deref()
+            .map(|d| symox::poly::fraction::parse_domain(d, available))
+            .transpose()
+            .map_err(err)
+            .map(Option::flatten)
+    }
+    pub fn apply_fraction(&self, p: &mut FractionPoly) {
+        if let Some(PyDomain {
+            inner: domain @ ExactDomain::Functions { .. },
+        }) = &self.native
+        {
+            p.coefficient_domain = domain.clone();
+        }
+    }
+}

@@ -16,7 +16,7 @@ pub fn unify(a: &AlgebraicPoly, b: &AlgebraicPoly) -> PResult<(AlgebraicPoly, Al
             "algebraic rational operations require one polynomial generator".into(),
         ));
     }
-    let field = if a.number_field == b.number_field {
+    let field = if a.number_field.same_embedding(&b.number_field) {
         a.number_field.clone()
     } else {
         NumberField::from_generators(&[

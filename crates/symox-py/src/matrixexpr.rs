@@ -4,12 +4,32 @@ use pyo3::types::{PyDict,PyList,PySet,PyTuple,PySlice};
 use pyo3::exceptions::{PyTypeError,PyNotImplementedError,PyValueError,PyIndexError};
 use rustc_hash::FxHashMap;
 use symox::expr::Expr;
-use symox::matrixexpr::{MatrixExpr,MatrixKind,MatrixOperand,BlockGrid};
+use symox::matrixexpr::{MatrixExpr,MatrixKind,MatrixOperand,BlockGrid,SliceSpec};
 use crate::{wrap,to_expr,PyExpr};
 
 #[pyclass(name="_MatrixExpr",module="symox._core",frozen)]
 #[derive(Clone)]
 pub(crate) struct PyMatrixExpr {pub m:MatrixExpr}
+#[pyclass(name="_SliceSpec",module="symox._core",frozen)]
+#[derive(Clone)]
+pub(crate) struct PySliceSpec{pub spec:SliceSpec}
+#[pymethods]
+impl PySliceSpec{
+    #[getter] fn args<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{PyTuple::new(py,self.spec.args().into_iter().map(|e|e.map(|e|wrap(e).into_pyobject(py).unwrap().into_any().unbind()).unwrap_or_else(||py.None())))}
+    fn __reduce__<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyAny>,Bound<'py,PyTuple>)>{Ok((py.import("symox._core")?.getattr("_normalized_slice")?,(wrap(self.spec.start.clone()),wrap(self.spec.stop.clone()),wrap(self.spec.step.clone()),wrap(self.spec.length.clone()),self.spec.stop_is_omitted).into_pyobject(py)?))}
+}
+fn slice_object<'py>(py:Python<'py>,spec:&SliceSpec)->PyResult<Bound<'py,PyAny>>{py.import("symox._matrixexpr")?.getattr("_SliceTuple")?.call1((PySliceSpec{spec:spec.clone()},))}
+fn slice_index(value:&Bound<'_,PyAny>)->PyResult<Expr>{
+    if value.is_instance_of::<PyExpr>()||value.get_type().module().is_ok_and(|m|m.to_string().starts_with("sympy")){return to_expr(value);}
+    to_expr(&value.py().import("operator")?.getattr("index")?.call1((value,))?)
+}
+fn slice_spec(value:&Bound<'_,PyAny>,size:&Expr)->PyResult<SliceSpec>{
+    if let Ok(spec)=value.getattr("_symox_slice_spec"){if let Ok(spec)=spec.downcast::<PySliceSpec>(){return Ok(spec.get().spec.clone());}}
+    if !value.is_instance_of::<PySlice>()&&value.downcast::<PyTuple>().is_err()&&value.downcast::<PyList>().is_err(){return SliceSpec::index(slice_index(value)?,size).map_err(|e|error(value.py(),e));}
+    SliceSpec::from_raw(slice_argument(value,size)?,size).map_err(|e|error(value.py(),e))
+}
+#[pyfunction]
+fn _normalized_slice(start:&Bound<'_,PyAny>,stop:&Bound<'_,PyAny>,step:&Bound<'_,PyAny>,length:&Bound<'_,PyAny>,omitted:bool)->PyResult<PySliceSpec>{Ok(PySliceSpec{spec:SliceSpec::normalized(to_expr(start)?,to_expr(stop)?,to_expr(step)?,to_expr(length)?,omitted).map_err(|e|error(start.py(),e))?})}
 #[pyclass(name="_BlockGrid",module="symox._core",frozen)]
 #[derive(Clone)]
 pub(crate) struct PyBlockGrid{pub(crate) grid:BlockGrid}
@@ -79,16 +99,17 @@ fn is_matrix(value:&Bound<'_,PyAny>)->bool{
 }
 fn slice_argument(value:&Bound<'_,PyAny>,size:&Expr)->PyResult<[Option<Expr>;3]>{
     if value.is_instance_of::<PySlice>(){
-        let field=|name:&str|->PyResult<Option<Expr>>{let item=value.getattr(name)?;if item.is_none(){Ok(None)}else{to_expr(&item).map(Some)}};
+        let field=|name:&str|->PyResult<Option<Expr>>{let item=value.getattr(name)?;if item.is_none(){Ok(None)}else{slice_index(&item).map(Some)}};
         return Ok([field("start")?,field("stop")?,field("step")?]);
     }
     if value.downcast::<PyTuple>().is_ok()||value.downcast::<PyList>().is_ok(){
         let parts=value.try_iter()?.collect::<PyResult<Vec<_>>>()?;
         if parts.len()!=2&&parts.len()!=3{return Err(PyIndexError::new_err("A matrix slice needs two or three bounds"));}
-        let mut result=[None,None,None];for (i,item) in parts.iter().enumerate(){if !item.is_none(){result[i]=Some(to_expr(item)?);}}
+        let mut result=[None,None,None];for (i,item) in parts.iter().enumerate(){if !item.is_none(){result[i]=Some(slice_index(item)?);}}
         return Ok(result);
     }
-    let mut index=to_expr(value)?;
+    let mut index=slice_index(value)?;
+    MatrixExpr::validate_index(&index,size).map_err(|e|error(value.py(),e))?;
     if symox::assumptions::is_negative(&index)==Some(true){index=symox::ops::add2(size,&index);}
     Ok([Some(index.clone()),Some(symox::ops::add2(&index,&Expr::one())),Some(Expr::one())])
 }
@@ -115,6 +136,11 @@ pub(crate) fn to_matrixexpr(value:&Bound<'_,PyAny>)->PyResult<MatrixExpr>{
         let head:String=value.getattr("func")?.getattr("__name__")?.extract()?;
         let args=value.getattr("args")?;
         let args=args.downcast::<PyTuple>()?;
+        if head=="MatrixSlice"{
+            let parent=to_matrixexpr(&args.get_item(0)?)?;
+            let normalized=|index:usize,name:&str|->PyResult<SliceSpec>{let values=args.get_item(index)?;let a=to_expr(&values.get_item(0)?)?;let h=to_expr(&values.get_item(2)?)?;let length=to_expr(&value.getattr(name)?)?;let b=symox::ops::add2(&a,&symox::ops::mul2(&h,&length));let omitted=symox::assumptions::is_negative(&h)==Some(true)&&symox::assumptions::is_negative(&b)==Some(true);SliceSpec::normalized(a,b,h,length,omitted).map_err(|e|error(value.py(),e))};
+            return parent.slice_normalized(normalized(1,"rows")?,normalized(2,"cols")?).map_err(|e|error(value.py(),e));
+        }
         if head=="MatrixSymbol"{
             let name:String=value.getattr("name")?.extract()?;
             return MatrixExpr::symbol(&name,to_expr(&value.getattr("rows")?)?,to_expr(&value.getattr("cols")?)?).map_err(|e|error(value.py(),e));
@@ -134,6 +160,15 @@ pub(crate) fn matrixexpr_to_sympy<'py>(py:Python<'py>,m:&MatrixExpr)->PyResult<B
     let args=matrix_args(py,m,true)?;
     let kwargs=PyDict::new(py);
     if matches!(m.kind(),MatrixKind::Add(_)|MatrixKind::Mul(..)|MatrixKind::Pow(..)){kwargs.set_item("evaluate",false)?;}
+    if matches!(m.kind(),MatrixKind::Slice(..)){
+        // SymPy's MatrixSlice.as_explicit infers shape from nested lists and
+        // collapses empty axes. Empty explicit matrices preserve both axes.
+        if let(Some(rows),Some(cols))=(m.rows().as_i64(),m.cols().as_i64()){
+            if rows==0||cols==0{return sympy.getattr("ImmutableMatrix")?.call1((rows,cols,PyList::empty(py)));}
+        }
+        let mut raw=vec![sympy.getattr("MatrixSlice")?];raw.extend(args.iter());
+        return sympy.getattr("Basic")?.getattr("__new__")?.call(PyTuple::new(py,raw)?,None);
+    }
     sympy.getattr(m.kind_name())?.call(args,Some(&kwargs))
 }
 fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py,PyTuple>>{
@@ -145,7 +180,7 @@ fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py
         MatrixKind::Identity=>args.push(scalar(m.rows())?),MatrixKind::Zero|MatrixKind::One=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
         MatrixKind::Add(a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>for e in a{args.push(matrix(e)?);},
         MatrixKind::Block(grid)=>{let value=PyBlockGrid{grid:grid.clone()};args.push(if sympy{value.to_sympy(py)?}else{value.into_pyobject(py)?.into_any()});},
-        MatrixKind::Slice(parent,rows,cols)=>{args.push(matrix(parent)?);for indices in [rows,cols]{args.push(PyTuple::new(py,indices.iter().map(scalar).collect::<PyResult<Vec<_>>>()?)?.into_any());}},
+        MatrixKind::Slice(parent,rows,cols)=>{args.push(matrix(parent)?);for spec in [rows,cols]{args.push(if sympy{PyTuple::new(py,[scalar(&spec.start)?,scalar(&spec.stop)?,scalar(&spec.step)?])?.into_any()}else{slice_object(py,spec)?});}},
         MatrixKind::HadamardPower(a,b)=>for operand in [a,b]{args.push(match operand{MatrixOperand::Scalar(e)=>scalar(e)?,MatrixOperand::Matrix(m)=>matrix(m)?});},
         MatrixKind::Mul(c,a)=>{if !c.is_one(){args.push(scalar(c)?);}for e in a{args.push(matrix(e)?);}},
         MatrixKind::Pow(b,e)=>{args.push(matrix(b)?);args.push(scalar(e)?);},
@@ -168,7 +203,7 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
         "DiagonalMatrix" if args.len()==1=>MatrixExpr::diagonal(&matrix(0)?),
         "BlockMatrix" if args.len()==1=>MatrixExpr::block(to_block_grid(&args.get_item(0)?)?),
         "BlockDiagMatrix"=>MatrixExpr::block_diag(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?),
-        "MatrixSlice" if args.len()==3=>{let parent=matrix(0)?;parent.slice(slice_argument(&args.get_item(1)?,parent.rows())?,slice_argument(&args.get_item(2)?,parent.cols())?)},
+        "MatrixSlice" if args.len()==3=>{let parent=matrix(0)?;parent.slice_normalized(slice_spec(&args.get_item(1)?,parent.rows())?,slice_spec(&args.get_item(2)?,parent.cols())?)},
         "HadamardProduct"=>MatrixExpr::hadamard_product(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate),
         "KroneckerProduct"=>MatrixExpr::kronecker(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate),
         "HadamardPower" if args.len()==2=>{let a=operand(0)?;let b=operand(1)?;if let (MatrixOperand::Scalar(a),MatrixOperand::Scalar(b))=(&a,&b){return Ok(wrap(symox::ops::pow(a,b)).into_pyobject(py)?.into_any().unbind());}MatrixExpr::hadamard_power(a,b,evaluate)},
@@ -231,8 +266,8 @@ impl PyMatrixExpr{
     #[getter] fn exp(&self,py:Python<'_>)->PyResult<PyObject>{match self.m.kind(){MatrixKind::Pow(_,e)|MatrixKind::HadamardPower(_,MatrixOperand::Scalar(e))=>Ok(wrap(e.clone()).into_pyobject(py)?.into_any().unbind()),MatrixKind::Inverse(_)=>Ok(wrap(Expr::minus_one()).into_pyobject(py)?.into_any().unbind()),MatrixKind::HadamardPower(_,MatrixOperand::Matrix(m))=>Ok(matrix_object(py,m)?.unbind()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("Only matrix powers have an exponent"))}}
     #[getter] fn arg(&self)->PyResult<PyMatrixExpr>{let c=self.m.children();if c.len()==1{Ok(wrap_matrixexpr(c[0].clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Matrix expression does not have one matrix argument"))}}
     #[getter] fn parent(&self)->PyResult<PyMatrixExpr>{if let MatrixKind::Slice(parent,..)=self.m.kind(){Ok(wrap_matrixexpr(parent.clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has a parent"))}}
-    #[getter] fn rowslice(&self)->PyResult<(PyExpr,PyExpr,PyExpr)>{if let MatrixKind::Slice(_,row,_)=self.m.kind(){Ok((wrap(row[0].clone()),wrap(row[1].clone()),wrap(row[2].clone())))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has rowslice"))}}
-    #[getter] fn colslice(&self)->PyResult<(PyExpr,PyExpr,PyExpr)>{if let MatrixKind::Slice(_,_,col)=self.m.kind(){Ok((wrap(col[0].clone()),wrap(col[1].clone()),wrap(col[2].clone())))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has colslice"))}}
+    #[getter] fn rowslice<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{if let MatrixKind::Slice(_,row,_)=self.m.kind(){slice_object(py,row)}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has rowslice"))}}
+    #[getter] fn colslice<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{if let MatrixKind::Slice(_,_,col)=self.m.kind(){slice_object(py,col)}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has colslice"))}}
     #[getter] fn on_diag(&self)->PyResult<bool>{if let MatrixKind::Slice(_,row,col)=self.m.kind(){Ok(row==col)}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only a matrix slice has on_diag"))}}
     #[getter] fn blocks(&self,py:Python<'_>)->PyResult<PyBlockGrid>{Ok(PyBlockGrid{grid:self.m.block_grid().map_err(|e|error(py,e))?})}
     #[getter] fn blockshape(&self,py:Python<'_>)->PyResult<(usize,usize)>{Ok(self.m.block_grid().map_err(|e|error(py,e))?.shape())}
@@ -301,11 +336,11 @@ impl PyMatrixExpr{
     }
     fn __getitem__(&self,key:&Bound<'_,PyAny>)->PyResult<PyObject>{
         let py=key.py();
-        if key.is_instance_of::<PySlice>(){return Ok(wrap_matrixexpr(self.m.slice(slice_argument(key,self.m.rows())?,[None,None,None]).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());}
+        if key.is_instance_of::<PySlice>(){return Ok(wrap_matrixexpr(self.m.slice_normalized(slice_spec(key,self.m.rows())?,SliceSpec::from_raw([None,None,None],self.m.cols()).map_err(|e|error(py,e))?).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());}
         if let Ok(pair)=key.downcast::<PyTuple>(){
             if pair.len()!=2{return Err(PyTypeError::new_err("MatrixExpr indexing requires two indices"));}
             let row=pair.get_item(0)?;let col=pair.get_item(1)?;
-            if row.is_instance_of::<PySlice>()||col.is_instance_of::<PySlice>(){return Ok(wrap_matrixexpr(self.m.slice(slice_argument(&row,self.m.rows())?,slice_argument(&col,self.m.cols())?).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());}
+            if row.is_instance_of::<PySlice>()||col.is_instance_of::<PySlice>(){return Ok(wrap_matrixexpr(self.m.slice_normalized(slice_spec(&row,self.m.rows())?,slice_spec(&col,self.m.cols())?).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());}
             return Ok(wrap(self.m.element(&to_expr(&row)?,&to_expr(&col)?).map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());
         }
         let mut index:i64=key.extract().map_err(|_|PyIndexError::new_err("Single matrix indexing requires a concrete integer"))?;
@@ -347,4 +382,4 @@ fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{
     if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("Block grids require a BlockMatrix wrapper before collapse"));}
     let expression=to_expr(value)?;crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression).map_err(|e|error(py,e))?)
 }
-pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_class::<PyBlockGrid>()?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;Ok(())}
+pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;Ok(())}

@@ -64,7 +64,7 @@ def test_f5b_prime_fields_including_characteristic_two(order, modulus, kind):
     opts = {'modulus':modulus}
     g = sm.groebner(fs,x,y,order=order,method='f5b',**opts)
     expected = sp.groebner(sf,sx,sy,order=order,method='f5b',modulus=modulus)
-    assert g.domain == f'GF({modulus})'
+    assert str(g.domain) == f'GF({modulus})'
     assert len(g) == len(expected)
     for actual,wanted in zip(g.exprs,expected.exprs):
         assert sp.Poly(oracle(actual)-wanted,sx,sy,modulus=modulus).is_zero
@@ -80,7 +80,7 @@ def test_f5b_parameter_coefficient_fields_and_rings(order,domain):
     sf = [sa*sx*sy-1,sx*sx-sy*(sb+1)]
     g = sm.groebner(fs,x,y,order=order,method='f5b',domain=domain)
     expected = sp.groebner(sf,sx,sy,order=order,method='f5b',domain=domain)
-    assert g.domain==str(expected.domain)
+    assert str(g.domain)==str(expected.domain)
     assert len(g)==len(expected)
     for actual,wanted in zip(g.exprs,expected.exprs):
         assert sp.cancel(oracle(actual)-wanted)==0
@@ -98,7 +98,7 @@ def test_f5b_algebraic_fields(order,extension,poly_input):
     kwargs={} if poly_input else {'extension':a}
     g=sm.groebner(fs,x,y,order=order,method='f5b',**kwargs)
     expected=sp.groebner([sa*sx*sy-1,sx*sx-sy],sx,sy,order=order,extension=sa,method='f5b')
-    assert g.domain==str(expected.domain)
+    assert str(g.domain)==str(expected.domain)
     assert len(g)==len(expected)
     for actual,wanted in zip(g.exprs,expected.exprs): assert sp.simplify(oracle(actual)-wanted)==0
     assert g.exprs==sm.groebner(fs,x,y,order=order,**kwargs).exprs
@@ -116,7 +116,7 @@ def test_f5b_deterministic_permutations_and_zz_normalization(order,gens_reversed
     expected=sp.groebner(sf,*sgens,order=order,method='f5b',domain='ZZ')
     for perm in itertools.permutations(fs):
         g=sm.groebner(perm,*gens,order=order,method='f5b',domain='ZZ')
-        assert g.gens==gens and g.domain=='ZZ'
+        assert g.gens==gens and str(g.domain)=='ZZ'
         assert len(g)==len(expected)
         for actual,wanted in zip(g.exprs,expected.exprs): assert sp.expand(oracle(actual)-wanted)==0
 
@@ -171,21 +171,29 @@ for options in ({'domain':'QQ'},{'modulus':2},{'modulus':101},{'domain':'QQ(a)'}
 @pytest.mark.parametrize('order',ORDERS)
 def test_input_poly_keeps_fraction_domain_and_unused_parameters(method,order):
     x,y=sm.symbols('x y');a=sm.Symbol('a',nonzero=True);b=sm.Symbol('b',real=True)
-    fs=[sm.Poly(a*x*y-1,x,y,domain='QQ(a,b)'),sm.Poly(x*x-y,x,y,domain='QQ(a,b)')]
+    domain=sm.QQ.frac_field(a,b)
+    fs=[sm.Poly(a*x*y-1,x,y,domain=domain),sm.Poly(x*x-y,x,y,domain=domain)]
     g=sm.groebner(fs,x,y,order=order,method=method)
-    assert g.domain=='QQ(a,b)'
+    assert str(g.domain)=='QQ(a,b)'
     assert all(isinstance(p,sm.Poly) and p.domain==g.domain for p in g)
     assert g.contains(a*x*y-1)
-    assert g.exprs==sm.groebner([p.as_expr() for p in fs],x,y,domain='QQ(a,b)',order=order,method=method).exprs
+    assert g.exprs==sm.groebner([p.as_expr() for p in fs],x,y,domain=domain,order=order,method=method).exprs
 
 
 @pytest.mark.parametrize('method',['buchberger','f5b'])
-def test_actual_parameter_assumption_conflicts_remain_explicit(method):
+def test_actual_parameter_assumptions_remain_distinct(method):
     x=sm.Symbol('x');a=sm.Symbol('a',nonzero=True);other_a=sm.Symbol('a')
     first=sm.Poly(a*x-1,x,domain='QQ(a)')
     second=sm.Poly(other_a*x+1,x,domain='QQ(a)')
-    with pytest.raises(ValueError,match='ambiguous parameter assumptions'):
-        sm.groebner([first,second],x,method=method)
+    basis=sm.groebner([first,second],x,method=method)
+    assert basis.exprs==[sm.Integer(1)]
+    assert set(basis.domain.symbols)=={a,other_a}
+    assert len(basis.domain.symbols)==2
+    sy=pytest.importorskip('sympy')
+    ox=sy.Symbol('x');oa=sy.Symbol('a',nonzero=True);ob=sy.Symbol('a')
+    oracle=sy.groebner([sy.Poly(oa*ox-1,ox,domain=sy.QQ.frac_field(oa)),sy.Poly(ob*ox+1,ox,domain=sy.QQ.frac_field(ob))],ox,method=method)
+    assert oracle.exprs==[sy.Integer(1)] and len(oracle.domain.symbols)==2
+
 
 
 @pytest.mark.parametrize('method',['buchberger','f5b'])
@@ -193,5 +201,5 @@ def test_finite_poly_input_without_modulus_uses_sympy_domain_inference(method):
     x=sm.Symbol('x');sx=sp.Symbol('x')
     g=sm.groebner([sm.Poly(2*x+1,x,modulus=5)],x,method=method)
     expected=sp.groebner([sp.Poly(2*sx+1,sx,modulus=5)],sx,method=method)
-    assert g.domain==str(expected.domain)=='ZZ'
+    assert str(g.domain)==str(expected.domain)=='ZZ'
     assert [oracle(e) for e in g.exprs]==expected.exprs

@@ -674,6 +674,11 @@ impl Poly {
 
     /// SymPy's `str(Poly)`.
     pub fn to_sympy_string(&self) -> String {
+        self.to_sympy_string_with_domain(&self.domain_str())
+    }
+
+    /// Render ordered main-generator terms with the selected coefficient label.
+    pub fn to_sympy_string_with_domain(&self, coefficient_domain:&str) -> String {
         let atom = |g: &Expr| matches!(g.kind(), Kind::Sym(_) | Kind::Const(_));
         let gens_s: Vec<String> = self
             .true_gens()
@@ -737,7 +742,7 @@ impl Poly {
             "Poly({}, {}, domain='{}')",
             terms.join(" "),
             gl.join(", "),
-            self.domain_str()
+            coefficient_domain
         )
     }
 

@@ -168,6 +168,9 @@ pub fn real_signs(e: &Expr) -> Option<Signs> {
             Some(s)
         }
         Kind::Pow(b, x) => pow_signs(b, x),
+        Kind::Piecewise(pieces) => {
+            let mut signs=None;for(value,_)in pieces{let next=real_signs(value)?;signs=Some(signs.map_or(next,|old:Signs|old.union(next)));}signs
+        }
         Kind::Func(f, args) => func_signs(f, args),
         _ => None,
     }
@@ -267,27 +270,9 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             }
         }
         Func::Max | Func::Min => {
-            let mut s: Option<Signs> = None;
-            for x in args {
-                let xs = real_signs(x)?;
-                s = Some(match s {
-                    None => xs,
-                    Some(p) => {
-                        if matches!(f, Func::Max) {
-                            if xs == Signs::POS || p == Signs::POS {
-                                Signs::POS
-                            } else {
-                                p.union(xs)
-                            }
-                        } else if xs == Signs::NEG || p == Signs::NEG {
-                            Signs::NEG
-                        } else {
-                            p.union(xs)
-                        }
-                    }
-                });
-            }
-            s
+            let mut result:Option<Signs>=None;for argument in args{let next=real_signs(argument)?;result=Some(match result{None=>next,Some(previous)=>{
+                let mut bits=0;for i in 0..3{for j in 0..3{if previous.0&(1<<i)!=0&&next.0&(1<<j)!=0{bits|=1<<if matches!(f,Func::Max){i.max(j)}else{i.min(j)};}}}Signs(bits)
+            }});}result
         }
         _ => None,
     }
@@ -497,6 +482,7 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
                 None
             }
         }
+        Kind::Piecewise(pieces) if !pieces.is_empty() && pieces.iter().all(|(value,_)|is_integer(value)==Some(true))=>Some(true),
         Kind::Func(Func::Min | Func::Max,args) if !args.is_empty() && args.iter().all(|a|is_integer(a)==Some(true))=>Some(true),
         Kind::Func(Func::Floor | Func::Ceiling, args) => {
             if is_real(&args[0]) == Some(true) {

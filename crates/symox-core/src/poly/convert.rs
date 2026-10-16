@@ -33,12 +33,14 @@ pub enum PolyError {
     Unsupported(String),
     /// A polynomial or residue-class element has no multiplicative inverse.
     NotInvertible(String),
+    /// Division does not stay in the selected coefficient ring.
+    ExactQuotientFailed(String),
 }
 
 impl fmt::Display for PolyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PolyError::Failed(s) | PolyError::Generator(s) | PolyError::Unsupported(s) | PolyError::NotInvertible(s) => write!(f, "{s}"),
+            PolyError::Failed(s) | PolyError::Generator(s) | PolyError::Unsupported(s) | PolyError::NotInvertible(s) | PolyError::ExactQuotientFailed(s) => write!(f, "{s}"),
         }
     }
 }

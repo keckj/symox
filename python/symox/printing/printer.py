@@ -41,6 +41,8 @@ class Printer:
             method = getattr(self, "_print_Integer", None)
         elif name == "Half":
             method = getattr(self, "_print_Rational", None)
+        elif name in ("Dummy", "Wild"):
+            method = getattr(self, "_print_Symbol", None)
         if method is not None:
             return method(expr, **kwargs)
         for cls in type(expr).__mro__:

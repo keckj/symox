@@ -39,7 +39,7 @@ def test_fraction_field_and_coefficient_ring_bases_match_sympy(system, order, do
         options["domain"] = domain
     g = sm.groebner([sm.sympify(e) for e in system], x, y, **options)
     expected = sp.groebner([sp.sympify(e) for e in system], sx, sy, **options)
-    assert g.domain == str(expected.domain)
+    assert str(g.domain) == str(expected.domain)
     assert len(g) == len(expected)
     assert all(equal(a, b) for a, b in zip(g, expected))
     assert g.is_zero_dimensional == expected.is_zero_dimensional
@@ -75,7 +75,7 @@ def test_reduced_fraction_domains_match_sympy(order, options):
     assert equal(r, oremainder.as_expr() if isinstance(oremainder, sp.Poly) else oremainder)
     if options.get("polys"):
         assert all(isinstance(p, sm.Poly) for p in q+[r])
-        assert [p.domain for p in q+[r]] == [str(p.domain) for p in oq+[oremainder]]
+        assert [str(p.domain) for p in q+[r]] == [str(p.domain) for p in oq+[oremainder]]
 
 
 def test_native_poly_fraction_arithmetic_and_metadata():
@@ -85,7 +85,7 @@ def test_native_poly_fraction_arithmetic_and_metadata():
     sx, sa, sb = sp.symbols("x a b")
     op = sp.Poly(sx/sa+1/(sa+1), sx, domain="QQ(a,b)")
     oq = sp.Poly((sa+1)*sx-sb, sx, domain="QQ(a,b)")
-    assert isinstance(p, sm.Poly) and p.domain == "QQ(a,b)"
+    assert isinstance(p, sm.Poly) and str(p.domain) == "QQ(a,b)"
     assert p.gens == (x,) and p.degree() == 1 and p.total_degree() == 1
     assert p.monoms() == [(1,), (0,)]
     assert equal(p.LC(), op.LC()) and equal(p.TC(), op.TC())
@@ -95,7 +95,7 @@ def test_native_poly_fraction_arithmetic_and_metadata():
                              (p.diff(), op.diff()), (p.integrate(), op.integrate()),
                              (p.compose(q), op.compose(oq)), (p.shift(2), op.shift(2))]:
         assert isinstance(result, sm.Poly)
-        assert result.domain == "QQ(a,b)"
+        assert str(result.domain) == "QQ(a,b)"
         assert equal(result, expected.as_expr())
     quotient, remainder = divmod(p*q, p)
     assert quotient == q and remainder.is_zero
@@ -130,7 +130,7 @@ def test_fraction_domains_inference_assumptions_and_zero_unit_ideals():
     a = sm.Symbol("a", nonzero=True)
     g = sm.groebner([a*x-1], x, domain="QQ(a)", polys=True)
     assert g.gens == (x,) and isinstance(g[0], sm.Poly)
-    assert g[0].domain == "QQ(a)" and g[0].gens == (x,)
+    assert str(g[0].domain) == "QQ(a)" and g[0].gens == (x,)
     assert g.contains(a*x-1)
     assert g.fglm("lex").exprs == g.exprs
     converted = g.fglm("grlex")
@@ -220,11 +220,11 @@ def test_poly_field_evaluation_and_multiple_fields_preserve_native_storage():
     first = sm.Poly(x/a+1, x, domain="QQ(a)")
     second = sm.Poly(x/b+1, x, domain="QQ(b)")
     result = first+second
-    assert isinstance(result, sm.Poly) and result.domain == "QQ(a,b)"
+    assert isinstance(result, sm.Poly) and str(result.domain) == "QQ(a,b)"
     assert equal(result, oracle(first)+oracle(second))
     assert first.termwise(lambda monomial, c: 2*c).domain == first.domain
     zz = sm.Poly(x/a+1, x, domain="ZZ(a)")
-    assert (zz+zz).domain == "ZZ(a)"
+    assert str((zz+zz).domain) == "ZZ(a)"
 
 
 @pytest.mark.parametrize("domain", ["QQ(a]", "QQ[a)", "QQ()", "QQ(a,a)", "QQ(a+x)"])

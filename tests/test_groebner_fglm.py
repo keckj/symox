@@ -38,7 +38,7 @@ def test_fglm_matches_sympy_and_direct_basis(system, source, target, options):
     converted = g.fglm(target)
     assert converted.order == target
     assert converted.gens == (x, y)
-    assert converted.domain == str(expected.domain)
+    assert str(converted.domain) == str(expected.domain)
     assert [oracle(e) for e in converted] == list(expected)
     assert converted.exprs == sm.groebner(f, x, y, order=target, **options).exprs
     assert converted.fglm(source).exprs == g.exprs
@@ -101,7 +101,7 @@ def test_reduced_options_match_sympy(order, options):
     assert oracle(r) == (expected[1].as_expr() if isinstance(expected[1], sp.Poly) else expected[1])
     if options.get("polys"):
         assert all(isinstance(e, sm.Poly) for e in q+[r])
-        assert [e.domain for e in q+[r]] == [str(e.domain) for e in expected[0]+[expected[1]]]
+        assert [str(e.domain) for e in q+[r]] == [str(e.domain) for e in expected[0]+[expected[1]]]
     delta = sp.expand(oracle(f)-sum(oracle(a)*oracle(b) for a, b in zip(q, divisors))-oracle(r))
     if "modulus" in options:
         assert sp.Poly(delta, sx, sy, modulus=options["modulus"]).is_zero
@@ -119,7 +119,7 @@ def test_reduced_domain_selection_and_coercion():
         with pytest.raises(ValueError, match="integers"):
             sm.reduced(x/2, [x], x, **options)
     q, r = sm.reduced(sm.Poly(x, x, modulus=5), [sm.Poly(2*x, x, modulus=5)])
-    assert q[0].as_expr() == -2 and q[0].domain == "GF(5)" and r.domain == "GF(5)"
+    assert q[0].as_expr() == -2 and str(q[0].domain) == "GF(5)" and str(r.domain) == "GF(5)"
     for options in ({}, {"polys": True}, {"modulus": 5}, {"auto": False}):
         q, r = sm.reduced(0, [x], x, **options)
         assert q == [] and expr(r) == 0

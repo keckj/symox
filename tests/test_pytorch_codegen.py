@@ -21,6 +21,43 @@ DTYPES = [torch.float32, torch.float64]
 
 
 @pytest.mark.parametrize("device", DEVICES)
+def test_distinct_dummy_inputs_forward_and_backward(device):
+    first, second = sm.Dummy('x'), sm.Dummy('x')
+    function = sm.torch_lambdify((first, second), first**2 + 2*second, compile=True,
+                                compile_options={"backend": "inductor", "fullgraph": True})
+    a = torch.tensor([1., 2.], device=device, requires_grad=True)
+    b = torch.tensor([3., 4.], device=device, requires_grad=True)
+    torch.testing.assert_close(function(a, b), a**2+2*b)
+    da, db = torch.autograd.grad(function(a, b).sum(), (a, b))
+    torch.testing.assert_close(da, 2*a)
+    torch.testing.assert_close(db, torch.full_like(b, 2))
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+def test_strided_reverse_composed_and_empty_matrix_slices(device, compiled):
+    matrix = sm.MatrixSymbol('A', 5, 6)
+    outputs = (matrix[::-1, ::-2], matrix[::2, 1::2], matrix[4:1:-2, 5:0:-2],
+               matrix[::2, ::-1][::-1, 1::2], matrix[1:1, ::-1], matrix[::-1, 10:20])
+    function = sm.torch_lambdify(matrix, outputs, compile=compiled,
+                                compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    a = torch.arange(180., device=device, dtype=torch.float64).reshape(2, 3, 5, 6).requires_grad_()
+    indices = [([4, 3, 2, 1, 0], [5, 3, 1]), ([0, 2, 4], [1, 3, 5]),
+               ([4, 2], [5, 3, 1]), ([4, 2, 0], [4, 2, 0]),
+               ([], [5, 4, 3, 2, 1, 0]), ([4, 3, 2, 1, 0], [])]
+    expected = tuple(a.index_select(-2, torch.tensor(rows, device=device, dtype=torch.int64))
+                     .index_select(-1, torch.tensor(cols, device=device, dtype=torch.int64))
+                     for rows, cols in indices)
+    actual = function(a)
+    for value, target in zip(actual, expected):
+        torch.testing.assert_close(value, target)
+        assert value.dtype == a.dtype and value.device == a.device
+    gradient = torch.autograd.grad(sum(value.square().sum() for value in actual), a)[0]
+    reference = torch.autograd.grad(sum(value.square().sum() for value in expected), a)[0]
+    torch.testing.assert_close(gradient, reference)
+
+
+@pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("compiled", [False, True])
 def test_diagonal_maps_broadcast_and_autograd(device, compiled):
     vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)

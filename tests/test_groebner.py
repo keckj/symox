@@ -30,7 +30,7 @@ def assert_same_basis(expressions, names="x y", **options):
     assert all(sp.expand(oracle(a) - b) == 0 for a, b in zip(native, expected))
     assert native.gens == sx
     assert native.order == str(expected.order)
-    assert native.domain == str(expected.domain)
+    assert str(native.domain) == str(expected.domain)
     assert native.is_zero_dimensional == expected.is_zero_dimensional
     return native, expected
 
@@ -104,12 +104,12 @@ def test_reduction_integer_coefficients_and_poly_return_mode():
     assert isinstance(g[0], sm.Poly)
     assert isinstance(g.polys[0], sm.Poly)
     q, r = g.reduce(x)
-    assert q[0].domain == "QQ" and r.domain == "QQ"
+    assert str(q[0].domain) == "QQ" and str(r.domain) == "QQ"
     assert q[0].as_expr() == sm.Rational(1, 2)
     assert r.as_expr() == y/2
     assert isinstance(sm.groebner([sm.Poly(x+y, x, y)])[0], sm.Poly)
-    assert sm.groebner([sm.Poly(x, x, domain="QQ")]).domain == "ZZ"
-    assert sm.groebner([sm.Poly(2*x+1, x, modulus=5)]).domain == "ZZ"
+    assert str(sm.groebner([sm.Poly(x, x, domain="QQ")]).domain) == "ZZ"
+    assert str(sm.groebner([sm.Poly(2*x+1, x, modulus=5)]).domain) == "ZZ"
 
 
 def test_empty_unit_and_positive_dimensional_ideals():

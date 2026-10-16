@@ -47,6 +47,8 @@ from ._core import (
     to_number_field,
 )
 
+from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed
+
 Basic = Expr
 S = sympify
 
@@ -304,7 +306,8 @@ def _symbols(names, *, seq=False, cls=None, **assumptions):
     out = []
     for p in parts:
         for n in _expand_range(p):
-            out.append(Function(n, **assumptions) if cls is Function else Symbol(n, **assumptions))
+            out.append(Function(n, **assumptions) if cls is Function else
+                       Dummy(n, **assumptions) if cls is Dummy else Symbol(n, **assumptions))
     if len(out) == 1 and not seq and "," not in names and ":" not in names:
         return out[0]
     return tuple(out)
@@ -1460,7 +1463,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
 # SymPy's constructor classes and printer extension points. Keep this last:
 # constructors delegate to the native API defined above.
 from ._compat import (  # noqa: E402
-    Add, Mul, Pow, Symbol, Number, Integer, Rational, Float, UnevaluatedExpr,
+    Add, Mul, Pow, Symbol, Dummy, Number, Integer, Rational, Float, UnevaluatedExpr,
     S, count_ops, default_sort_key,
 )
 from .codegen.ast import Indexed, IndexedBase  # noqa: E402

@@ -300,13 +300,18 @@ fn array_code(
     // Reject those rather than silently aliasing two independent inputs.
     let mut emitted = std::collections::BTreeMap::new();
     for symbol in symox::traverse::free_symbols(&expression) {
+        if settings.expression_overrides.contains_key(&symbol) { continue; }
         let matrix_name;
         let name = if let Some(name) = symbol.as_symbol() { name } else if let symox::expr::Kind::Func(symox::expr::Func::MatrixProxy(parent), _) = symbol.kind() {
             if let symox::matrixexpr::MatrixKind::Symbol(name) = parent.kind() { matrix_name = name.clone(); &matrix_name }
             else { return Err(PyTypeError::new_err("expected a matrix symbol")); }
         } else { return Err(PyTypeError::new_err("expected an input symbol")); };
+        let default_name = match symbol.kind() {
+            symox::expr::Kind::Sym(s) if s.is_dummy() => format!("{}_{index}", s.name(), index=s.dummy_index().unwrap()),
+            _ => name.to_owned(),
+        };
         let target = settings.exact_symbol_names.get(&symbol)
-            .or_else(|| settings.symbol_names.get(name)).map(String::as_str).unwrap_or(name);
+            .or_else(|| settings.symbol_names.get(name)).map(String::as_str).unwrap_or(&default_name);
         if let Some(previous) = emitted.insert(target.to_string(), symbol.clone()) {
             if previous != symbol {
                 return Err(PyValueError::new_err(format!("ambiguous symbol name {name:?}; dummify the inputs before printing")));

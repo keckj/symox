@@ -31,7 +31,17 @@ fn is_real_domain(domain: &Expr) -> bool {
 
 /// The integer dummy of `ImageSet(Lambda(_n, ...), Integers)`.
 pub fn dummy_n() -> Expr {
-    Expr::symbol_with("_n", crate::symbol::Assumptions::INTEGER)
+    // Fresh per image; the same atom is reused by its Lambda body and binder.
+    // A user parameter Symbol("_n") must remain free.
+    Expr::dummy("n", crate::symbol::Assumptions::INTEGER)
+}
+
+/// Every periodic branch of one solve uses the same bound integer atom.
+/// This keeps presentation independent of branch discovery/allocation order.
+#[derive(Default)]
+struct SolveContext { periodic_variable: std::sync::OnceLock<Expr> }
+impl SolveContext {
+    fn periodic_variable(&self)->&Expr { self.periodic_variable.get_or_init(dummy_n) }
 }
 
 /// The only function of `x` in `f` if it is `sin`/`cos`/`tan`/`exp` of
@@ -85,13 +95,13 @@ fn reduce_mod(c: &Expr, p: &Expr) -> Option<Expr> {
     Some(crate::expand::expand(&sub(c, &mul2(&Expr::int(k as i64), p))))
 }
 
-fn image(period: &Expr, c: &Expr) -> Expr {
-    let n = dummy_n();
-    image_set(&lambda(&n, &add2(&mul2(period, &n), c)), &integers())
+fn image(period: &Expr, c: &Expr, context: &SolveContext) -> Expr {
+    let n = context.periodic_variable();
+    image_set(&lambda(n, &add2(&mul2(period, n), c)), &integers())
 }
 
 /// Periodic solutions of `trig(a*x + b) = k` / `exp(a*x + b) = k`.
-fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
+fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
     use crate::functions::{acos, asin, atan, log};
     let Kind::Func(f, args) = g.kind() else { return None };
     if args.len() != 1 {
@@ -123,7 +133,7 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
                 let period = div(&two_pi, &a);
                 let imgs: Vec<Expr> = ts
                     .iter()
-                    .map(|t| image(&period, &crate::expand::expand(&div(&sub(t, &b), &a))))
+                    .map(|t| image(&period, &crate::expand::expand(&div(&sub(t, &b), &a)), context))
                     .collect();
                 let cond = crate::logic::and(vec![
                     crate::relational::le(&Expr::minus_one(), k),
@@ -173,7 +183,7 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
             // a*x + b = log(k) + 2*n*pi*I
             let period = div(&mul2(&two_pi, &Expr::i()), &a);
             let c = crate::expand::expand(&div(&sub(&log(k), &b), &a));
-            return Some(image(&period, &c));
+            return Some(image(&period, &c, context));
         }
         _ => return None,
     }
@@ -188,11 +198,11 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
             cs.push(c);
         }
     }
-    Some(union(cs.iter().map(|c| image(&period, c)).collect()))
+    Some(union(cs.iter().map(|c| image(&period, c, context)).collect()))
 }
 
 /// Solutions of `f == 0` restricted to `domain`, as a set.
-fn solve_zero(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
+fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
     let real = is_real_domain(domain);
     // product: union of the factors' solutions
     let (num, den) = crate::simplify::numer_denom(&crate::simplify::together(f));
@@ -206,10 +216,10 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
                 if !has(b, x) || e.as_number().is_some_and(|n| n.is_negative()) {
                     continue;
                 }
-                parts.push(solve_zero(b, x, domain)?);
+                parts.push(solve_zero(b, x, domain, context)?);
             }
             let u = union(parts);
-            return Some(exclude_poles(u, &den, x, domain));
+            return Some(exclude_poles(u, &den, x, domain, context));
         }
     }
     if let Some(g) = single_generator(&num, x) {
@@ -222,7 +232,7 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
             let ks = crate::solve::solve(&p, &t)?;
             let mut parts = Vec::new();
             for k in ks {
-                parts.push(periodic(&g, &k, x, domain)?);
+                parts.push(periodic(&g, &k, x, domain, context)?);
             }
             let r = union(parts);
             let r = if is_op(domain, SetOp::Reals) || is_op(domain, SetOp::Complexes) {
@@ -230,7 +240,7 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
             } else {
                 intersection(vec![r, domain.clone()])
             };
-            return Some(exclude_poles(r, &den, x, domain));
+            return Some(exclude_poles(r, &den, x, domain, context));
         }
     }
     if has_periodic_in(&num, x) {
@@ -238,15 +248,15 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
     }
     // absolute values over the reals: split on the sign of the argument
     if real {
-        if let Some(r) = solve_abs(&num, x, domain) {
-            return Some(exclude_poles(r, &den, x, domain));
+        if let Some(r) = solve_abs(&num, x, domain, context) {
+            return Some(exclude_poles(r, &den, x, domain, context));
         }
     }
     let sols = crate::solve::solve(f, x)?;
     Some(filter_domain(sols, domain))
 }
 
-fn exclude_poles(s: Expr, den: &Expr, x: &Expr, domain: &Expr) -> Expr {
+fn exclude_poles(s: Expr, den: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Expr {
     if !has(den, x) {
         return s;
     }
@@ -263,7 +273,7 @@ fn exclude_poles(s: Expr, den: &Expr, x: &Expr, domain: &Expr) -> Expr {
             let _ = domain;
             finite_set(keep)
         }
-        None => match solve_zero(den, x, domain) {
+        None => match solve_zero(den, x, domain, context) {
             Some(poles) => complement(&s, &poles),
             None => mk(SetOp::Complement, vec![s, condition_set(x, &crate::relational::eq(den, &Expr::zero()), domain)]),
         },
@@ -281,7 +291,7 @@ fn find_abs(e: &Expr, x: &Expr, out: &mut Vec<Expr>) {
     }
 }
 
-fn solve_abs(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
+fn solve_abs(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
     let mut abs = Vec::new();
     find_abs(f, x, &mut abs);
     if abs.len() != 1 {
@@ -293,7 +303,7 @@ fn solve_abs(f: &Expr, x: &Expr, domain: &Expr) -> Option<Expr> {
     for sign in [1i64, -1] {
         let repl = if sign == 1 { u.clone() } else { neg(u) };
         let g = subs1(f, &abs[0], &repl);
-        let s = solve_zero(&g, x, domain)?;
+        let s = solve_zero(&g, x, domain, context)?;
         let el = finite_elements(&s).map(|e| e.to_vec()).unwrap_or_default();
         if !is_empty_set(&s) && finite_elements(&s).is_none() {
             return None;
@@ -338,12 +348,16 @@ fn filter_domain(sols: Vec<Expr>, domain: &Expr) -> Expr {
 /// an `Eq`/`Ne` or an inequality (real domains only). Returns an `Err`
 /// for unsupported inputs.
 pub fn solveset(f: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
+    solveset_with_context(f,x,domain,&SolveContext::default())
+}
+
+fn solveset_with_context(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Result<Expr, String> {
     match f.kind() {
         Kind::Bool(true) => return Ok(domain.clone()),
         Kind::Bool(false) => return Ok(empty_set()),
-        Kind::Rel(RelOp::Eq, a, b) => return solveset(&sub(a, b), x, domain),
+        Kind::Rel(RelOp::Eq, a, b) => return solveset_with_context(&sub(a, b), x, domain, context),
         Kind::Rel(RelOp::Ne, a, b) => {
-            let s = solveset(&sub(a, b), x, domain)?;
+            let s = solveset_with_context(&sub(a, b), x, domain, context)?;
             return Ok(complement(domain, &s));
         }
         Kind::Rel(..) => {
@@ -363,7 +377,7 @@ pub fn solveset(f: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
     if !has(f, x) {
         return Ok(if f.is_zero() { domain.clone() } else { empty_set() });
     }
-    match solve_zero(f, x, domain) {
+    match solve_zero(f, x, domain, context) {
         Some(s) => Ok(s),
         None => Ok(condition_set(x, &crate::relational::eq(f, &Expr::zero()), domain)),
     }
@@ -437,7 +451,7 @@ fn real_roots(g: &Expr, x: &Expr) -> Option<Vec<Expr>> {
     if !has(g, x) {
         return Some(vec![]);
     }
-    let s = solve_zero(g, x, &reals())?;
+    let s = solve_zero(g, x, &reals(), &SolveContext::default())?;
     if is_empty_set(&s) {
         return Some(vec![]);
     }

@@ -87,3 +87,22 @@ fn range_wide_endpoints() {
     assert_eq!(contains(&r, &Expr::int(i64::MIN)), Expr::boolean(true));
     assert_eq!(contains(&r, &Expr::int(i64::MAX)), Expr::boolean(false));
 }
+
+#[test]
+fn periodic_solution_branches_share_a_fresh_binder_per_invocation() {
+    let x=Expr::symbol("x");
+    for (source,expected,count) in [
+        ("sin(x+1)","Union(ImageSet(Lambda(_n, 2*_n*pi - 1 + pi), Integers), ImageSet(Lambda(_n, 2*_n*pi - 1 + 2*pi), Integers))",2),
+        ("2*cos(x)**2-1","Union(ImageSet(Lambda(_n, 2*_n*pi + pi/4), Integers), ImageSet(Lambda(_n, 2*_n*pi + 3*pi/4), Integers), ImageSet(Lambda(_n, 2*_n*pi + 5*pi/4), Integers), ImageSet(Lambda(_n, 2*_n*pi + 7*pi/4), Integers))",4),
+    ] {
+        let first=solveset(&p(source),&x,&reals()).unwrap();
+        let second=solveset(&p(source),&x,&reals()).unwrap();
+        assert_eq!(first.to_string(),expected);
+        let binders=|value:&Expr|value.args().iter().map(|image|image.args()[0].args()[0].clone()).collect::<Vec<_>>();
+        let variables=binders(&first);assert_eq!(variables.len(),count);
+        assert!(variables.iter().all(|variable|variable.ptr_eq(&variables[0])));
+        assert!(variables[0].as_sym().unwrap().is_dummy());
+        assert_ne!(variables[0],binders(&second)[0]);
+        assert!(crate::traverse::free_symbols(&first).is_empty());
+    }
+}

@@ -10,7 +10,7 @@ use symox::expr::{Expr,Kind,Func,Constant,RelOp,UndefinedFunction};
 use symox::number::Number;
 use symox::symbol::{Symbol,Assumptions};
 use symox::matrix::{Matrix,MResult};
-use symox::matrixexpr::{MatrixExpr,MatrixKind,MatrixOperand,BlockGrid};
+use symox::matrixexpr::{MatrixExpr,MatrixKind,MatrixOperand,BlockGrid,SliceSpec};
 
 const VERSION:u32=1;
 type Reduction<'py>=(Bound<'py,PyAny>,Bound<'py,PyTuple>);
@@ -53,7 +53,7 @@ impl Node{
                     MatrixKind::Explicit(a)=>out.extend(a.data().iter().cloned().map(Self::S)),
                     MatrixKind::Mul(c,_)|MatrixKind::Pow(_,c)=>out.push(Self::S(c.clone())),
                     MatrixKind::HadamardPower(a,b)=>for operand in [a,b]{if let MatrixOperand::Scalar(e)=operand{out.push(Self::S(e.clone()));}},
-                    MatrixKind::Slice(_,rows,cols)=>out.extend(rows.iter().chain(cols).cloned().map(Self::S)),
+                    MatrixKind::Slice(_,rows,cols)=>out.extend(rows.fields().into_iter().chain(cols.fields()).map(Self::S)),
                     _=>{},
                 }out
             },
@@ -103,11 +103,14 @@ impl<'py> Encoder<'py>{
                 MatrixKind::Pow(a,b)=>vec![obj(py,self.matrix(a))?,obj(py,self.scalar(b))?],
                 MatrixKind::Transpose(a)|MatrixKind::Adjoint(a)|MatrixKind::Inverse(a)|MatrixKind::Conjugate(a)|MatrixKind::Diag(a)|MatrixKind::DiagonalOf(a)|MatrixKind::Diagonal(a)=>vec![obj(py,self.matrix(a))?],
                 MatrixKind::HadamardPower(a,b)=>{let operand=|a:&MatrixOperand|match a{MatrixOperand::Matrix(m)=>(true,self.matrix(m)),MatrixOperand::Scalar(s)=>(false,self.scalar(s))};vec![obj(py,operand(a))?,obj(py,operand(b))?]},
-                MatrixKind::Slice(parent,rows,cols)=>vec![obj(py,self.matrix(parent))?,obj(py,self.scalars(rows))?,obj(py,self.scalars(cols))?],
+                MatrixKind::Slice(parent,rows,cols)=>{tag="m.slice";vec![obj(py,self.matrix(parent))?,obj(py,self.scalars(&rows.fields()))?,obj(py,rows.stop_is_omitted)?,obj(py,self.scalars(&cols.fields()))?,obj(py,cols.stop_is_omitted)?]},
             };(tag,false,fields)},
             Node::S(e)=>{let(tag,fields)=match e.kind(){
                 Kind::Num(n)=>("s.number",vec![number(py,n)?]),
-                Kind::Sym(s)=>("s.symbol",vec![obj(py,s.name())?,obj(py,s.given().0)?,obj(py,s.is_wild())?,obj(py,self.scalars(s.exclude()))?]),
+                Kind::Sym(s)=>match s.dummy_index(){
+                    Some(index)=>("s.dummy",vec![obj(py,s.name())?,obj(py,s.given().0)?,obj(py,index.clone())?]),
+                    None=>("s.symbol",vec![obj(py,s.name())?,obj(py,s.given().0)?,obj(py,s.is_wild())?,obj(py,self.scalars(s.exclude()))?]),
+                },
                 Kind::Const(c)=>("s.constant",vec![obj(py,c.name())?]),
                 Kind::Bool(b)=>("s.bool",vec![obj(py,*b)?]),
                 Kind::Add(c,terms)=>{let terms=terms.iter().map(|(t,c)|tuple(py,vec![obj(py,self.scalar(t))?,number(py,c)?])).collect::<PyResult<Vec<_>>>()?;("s.add",vec![number(py,c)?,obj(py,terms)?])},
@@ -177,6 +180,7 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
             let kind=match tag.as_str(){
                 "s.number"=>{arity(1)?;Kind::Num(read_number(&f.get_item(0)?)?)},
                 "s.symbol"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let given=assumptions(f.get_item(1)?.extract()?)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}if wild&&given!=Assumptions::NONE{return Err(invalid("wildcard assumptions unsupported"));}Kind::Sym(if wild{Symbol::wild(&name,exclude)}else{Symbol::with_assumptions(&name,given)})},
+                "s.dummy"=>{arity(3)?;Kind::Sym(Symbol::dummy_with_index(&f.get_item(0)?.extract::<String>()?,assumptions(f.get_item(1)?.extract()?)?,f.get_item(2)?.extract()?))},
                 "s.constant"=>{arity(1)?;Kind::Const(constant(&f.get_item(0)?.extract::<String>()?)?)},
                 "s.bool"=>{arity(1)?;Kind::Bool(f.get_item(0)?.extract()?)},
                 "s.add"=>{arity(2)?;let mut terms=Vec::new();for pair in f.get_item(1)?.try_iter()?{let pair=pair?;if pair.len()?!=2{return Err(invalid("additive term requires reference and coefficient"));}terms.push((reader.scalar(pair.get_item(0)?.extract()?)?,read_number(&pair.get_item(1)?)?));}Kind::Add(read_number(&f.get_item(0)?)?,terms)},
@@ -210,6 +214,7 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                 "DiagMatrix"|"DiagonalOf"|"DiagonalMatrix"=>{arity(1)?;let parent=m(0)?;matrix_result(match tag.as_str(){"DiagMatrix"=>MatrixExpr::diag(&parent),"DiagonalOf"=>MatrixExpr::diagonal_of(&parent),_=>MatrixExpr::diagonal(&parent)})?},
                 "HadamardPower"=>{arity(2)?;let operand=|i|->PyResult<MatrixOperand>{let(is_matrix,id):(bool,usize)=f.get_item(i)?.extract()?;Ok(if is_matrix{MatrixOperand::Matrix(reader.matrix(id)?)}else{MatrixOperand::Scalar(reader.scalar(id)?)})};matrix_result(MatrixExpr::hadamard_power(operand(0)?,operand(1)?,false))?},
                 "MatrixSlice"=>{arity(3)?;let rows=ss(1)?;let cols=ss(2)?;if rows.len()!=3||cols.len()!=3{return Err(invalid("slice specifications need three values"));}matrix_result(m(0)?.slice([Some(rows[0].clone()),Some(rows[1].clone()),Some(rows[2].clone())],[Some(cols[0].clone()),Some(cols[1].clone()),Some(cols[2].clone())]))?},
+                "m.slice"=>{arity(5)?;let spec=|i,j|->PyResult<SliceSpec>{let values=ss(i)?;let [start,stop,step,length]:[Expr;4]=values.try_into().map_err(|_|invalid("normalized slice needs four scalar fields"))?;SliceSpec::normalized(start,stop,step,length,f.get_item(j)?.extract()?).map_err(|e|invalid(e.to_string()))};matrix_result(m(0)?.slice_normalized(spec(1,2)?,spec(3,4)?))?},
                 "grid"=>{arity(3)?;Decoded::G(BlockGrid::new(f.get_item(0)?.extract()?,f.get_item(1)?.extract()?,mm(2)?).map_err(|e|invalid(e.to_string()))?)},
                 _=>return Err(invalid("unknown matrix node tag")),
             }

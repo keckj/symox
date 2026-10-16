@@ -203,8 +203,9 @@ fn d_func(
             let derivative=d(arg,x,cache);
             if derivative.is_zero(){continue;}
             if arg.is_symbol(){terms.push(mul(&[derivative,derivative_unevaluated(e,vec![(arg.clone(),1)])]));continue;}
-            let mut index=i+1;
-            let dummy=loop{let candidate=Expr::symbol(&format!("_xi_{index}"));if !crate::traverse::has(e,&candidate){break candidate;}index+=1;};
+            // One fresh atom shared by the argument, derivative and substitution
+            // binder; user symbols with the same display name cannot be captured.
+            let dummy=Expr::dummy(&format!("xi_{}",i+1),crate::Assumptions::NONE);
             let mut arguments=args.to_vec();arguments[i]=dummy.clone();
             let applied=crate::functions::func(f.clone(),arguments);
             let partial=derivative_unevaluated(&applied,vec![(dummy.clone(),1)]);

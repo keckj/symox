@@ -422,7 +422,10 @@ impl<'a> CodePrinter<'a> {
     pub fn print(&self, e: &Expr) -> CodeResult {
         match e.kind() {
             Kind::Num(n) => Ok(self.print_number(n)),
-            Kind::Sym(name) => Ok(self.print_symbol(name)),
+            Kind::Sym(symbol) => Ok(self.print_symbol(&match symbol.dummy_index() {
+                Some(index) => format!("{}_{index}",symbol.name()),
+                None => symbol.name().to_owned(),
+            })),
             Kind::Const(c) => self.print_constant(e, *c),
             Kind::Bool(b) => Ok(match self.lang() {
                 Lang::Python | Lang::NumPy => if *b { "True" } else { "False" }.into(),

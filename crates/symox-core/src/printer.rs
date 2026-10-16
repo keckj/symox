@@ -74,6 +74,7 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
     match e.kind() {
         Kind::Num(n) => out.push_str(&n.to_string()),
         Kind::Sym(s) => {
+            if s.is_dummy() { out.push('_'); }
             out.push_str(s);
             if s.is_wild() {
                 out.push('_');
@@ -369,12 +370,11 @@ fn write_srepr(e: &Expr, out: &mut String) {
             )),
         },
         Kind::Sym(s) => {
-            let kw = s.given().keywords();
-            if kw.is_empty() {
-                out.push_str(&format!("Symbol('{s}')"));
-            } else {
-                out.push_str(&format!("Symbol('{s}', {})", kw.join(", ")));
-            }
+            let name=s.name().replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
+            out.push_str(&format!("{}('{name}'", if s.is_dummy() {"Dummy"} else {"Symbol"}));
+            for keyword in s.given().keywords() { out.push_str(", "); out.push_str(&keyword); }
+            if let Some(index)=s.dummy_index() { out.push_str(&format!(", dummy_index={index}")); }
+            out.push(')');
         }
         Kind::Const(c) => out.push_str(c.name()),
         Kind::Bool(b) => out.push_str(if *b { "true" } else { "false" }),

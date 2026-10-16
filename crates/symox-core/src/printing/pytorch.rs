@@ -218,13 +218,17 @@ impl<'a> TorchPrinter<'a> {
                 Constant::ComplexInfinity => return Err(self.unsupported("complex infinity")),
             }),
             Kind::Sym(symbol) => {
+                let default_name = match symbol.dummy_index() {
+                    Some(index) => format!("{}_{index}", symbol.name()),
+                    None => symbol.name().to_owned(),
+                };
                 let name = self
                     .settings
                     .exact_symbol_names
                     .get(expr)
                     .or_else(|| self.settings.symbol_names.get(symbol.name()))
                     .map(String::as_str)
-                    .unwrap_or(symbol.name());
+                    .unwrap_or(&default_name);
                 if !is_python_identifier(name)
                     || matches!(name, "torch" | "jax" | "jnp" | "jsp" | "_sx_tensor")
                 {

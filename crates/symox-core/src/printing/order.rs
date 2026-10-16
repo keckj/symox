@@ -27,6 +27,8 @@ enum KArgs {
     Empty,
     /// `(1, (str(atom),))`
     Atom(String),
+    /// Dummy atoms include their identity index after the unprefixed name.
+    Dummy(String, num_bigint::BigInt),
     /// `(len(args), tuple(keys))`
     List(Vec<Rc<SortKey>>),
 }
@@ -45,11 +47,13 @@ fn cmp_args(a: &KArgs, b: &KArgs) -> Ordering {
     let len = |k: &KArgs| match k {
         KArgs::Empty => 0,
         KArgs::Atom(_) => 1,
+        KArgs::Dummy(..) => 2,
         KArgs::List(v) => v.len(),
     };
     len(a).cmp(&len(b)).then_with(|| match (a, b) {
         (KArgs::Empty, KArgs::Empty) => Ordering::Equal,
         (KArgs::Atom(x), KArgs::Atom(y)) => x.cmp(y),
+        (KArgs::Dummy(x, i), KArgs::Dummy(y, j)) => x.cmp(y).then_with(|| i.cmp(j)),
         (KArgs::List(x), KArgs::List(y)) => {
             for (p, q) in x.iter().zip(y) {
                 let r = p.cmp(q);
@@ -61,6 +65,8 @@ fn cmp_args(a: &KArgs, b: &KArgs) -> Ordering {
         }
         (KArgs::Atom(_), _) => Ordering::Less,
         (_, KArgs::Atom(_)) => Ordering::Greater,
+        (KArgs::Dummy(..), _) => Ordering::Less,
+        (_, KArgs::Dummy(..)) => Ordering::Greater,
         _ => Ordering::Equal,
     })
 }
@@ -125,7 +131,7 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
             Constant::EulerGamma => (2, 0, Cow::Borrowed("EulerGamma")),
             Constant::ComplexInfinity => (2, 0, Cow::Borrowed("ComplexInfinity")),
         },
-        Kind::Sym(_) => (2, 0, Cow::Borrowed("Symbol")),
+        Kind::Sym(_) => (2, 0, Cow::Owned(e.class_name().into())),
         Kind::Mul(..) => (3, 0, Cow::Borrowed("Mul")),
         Kind::Add(..) => (3, 1, Cow::Borrowed("Add")),
         Kind::Pow(..) => (3, 2, Cow::Borrowed("Pow")),
@@ -143,6 +149,15 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
 
 fn one_key() -> SortKey {
     SortKey { class: (1, 0, Cow::Borrowed("Number")), args: KArgs::Empty, exp: None, coeff: Number::ONE }
+}
+
+fn atom_args(e: &Expr) -> KArgs {
+    if let Kind::Sym(symbol) = e.kind() {
+        if let Some(index) = symbol.dummy_index() {
+            return KArgs::Dummy(symbol.name().into(), index.clone());
+        }
+    }
+    KArgs::Atom(crate::printer::to_str(e))
 }
 
 /// Memo table of sort keys (keys of shared sub-expressions are computed
@@ -170,6 +185,7 @@ impl KeyCache {
             PresentationArg::Scalar(e) => self.key(&e),
             PresentationArg::Matrix(m) => self.matrix_key(&m),
             PresentationArg::Text(s) => Rc::new(self.composite((2, 0, "Str"), KArgs::Atom(s))),
+            PresentationArg::None => Rc::new(self.composite((0, 0, "NoneType"), KArgs::Atom("None".into()))),
             PresentationArg::Node(name, args) => {
                 let args = args.into_iter().map(|arg| self.presentation_arg(arg)).collect();
                 Rc::new(self.composite((5, 0, name), KArgs::List(args)))
@@ -201,6 +217,11 @@ impl KeyCache {
 
     fn compute(&mut self, e: &Expr) -> SortKey {
         match e.kind() {
+            Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 && args[0].is_symbol() => {
+                let variables=self.presentation_arg(PresentationArg::Node("Tuple",vec![PresentationArg::Scalar(args[0].clone())]));
+                let body=self.key(&args[1]);
+                self.composite((5,0,"Lambda"),KArgs::List(vec![variables,body]))
+            }
             Kind::Derivative(expression, variables) => {
                 let mut args = vec![self.key(expression)];
                 for (variable, count) in variables {
@@ -233,7 +254,7 @@ impl KeyCache {
             }
             Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => SortKey {
                 class: class_key(e),
-                args: KArgs::Atom(crate::printer::to_str(e)),
+                args: atom_args(e),
                 exp: Some(self.one()),
                 coeff: Number::ONE,
             },
@@ -254,15 +275,16 @@ impl KeyCache {
                     Kind::Pow(b, x) => (b.clone(), Some(x.clone())),
                     _ => (rest, None),
                 };
-                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
                     let mut key = (*self.key(&expr)).clone();
                     key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
                     key.coeff = coeff;
                     return key;
                 }
                 let args = match expr.kind() {
+                    Kind::Sym(symbol) if symbol.is_dummy() => KArgs::List(vec![self.key(&expr)]),
                     Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => {
-                        KArgs::Atom(crate::printer::to_str(&expr))
+                        atom_args(&expr)
                     }
                     Kind::Add(..) => {
                         let t = self.ordered_terms(&expr);
@@ -325,7 +347,7 @@ struct Simple<'a> {
 
 fn atom_class(e: &Expr) -> Option<(u8, &'static str, &str)> {
     match e.kind() {
-        Kind::Sym(s) => Some((2, "Symbol", s)),
+        Kind::Sym(s) if !s.is_dummy() => Some((2, if s.is_wild() { "Wild" } else { "Symbol" }, s)),
         Kind::Const(Constant::Pi) => Some((2, "Pi", "pi")),
         Kind::Const(Constant::E) => Some((2, "Exp1", "E")),
         Kind::Const(Constant::I) => Some((2, "ImaginaryUnit", "I")),
@@ -666,6 +688,19 @@ mod tests {
 
     fn s(x: &str) -> String {
         parse_str(x).unwrap().to_string()
+    }
+
+    #[test]
+    fn dummy_coefficient_and_power_keys_wrap_the_atomic_key() {
+        use super::*;
+        let d=Expr::dummy_with_index("x",crate::Assumptions::NONE,37.into());
+        let atom=sort_key(&d);
+        for expression in [crate::ops::neg(&d),crate::ops::mul2(&Expr::int(2),&d),d.powi(2)] {
+            let key=sort_key(&expression);
+            let KArgs::List(children)=&key.args else {panic!("a Dummy expression key wraps its atomic key")};
+            assert_eq!(children.len(),1);assert_eq!(*children[0],*atom);
+        }
+        assert!(matches!(atom.args,KArgs::Dummy(..)));
     }
 
     #[test]

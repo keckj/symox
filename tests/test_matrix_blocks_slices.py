@@ -121,13 +121,13 @@ def test_slice_nested_negative_element_and_boundaries():
     assert A[1:3].shape == (2, 6)
     assert A[-1] == A[4, 5]
     assert A[7] == A[1, 1]
-    for row in [slice(0, 0), slice(-7, 2), slice(1, 9)]:
-        with pytest.raises(IndexError):
-            A[row, :]
+    for row in [slice(0, 0), slice(-7, 2), slice(1, 9), slice(None, None, -2)]:
+        selected = list(range(5))[row]
+        assert A[row, :].shape == (len(selected), 6)
+        assert [A[row, :][i, 0] for i in range(len(selected))] == [A[i, 0] for i in selected]
     with pytest.raises(ValueError):
         A[::0, :]
-    with pytest.raises(NotImplementedError, match='step=1'):
-        A[::2, :]
+    assert A[::2, :].shape == (3, 6)
     with pytest.raises(IndexError):
         view[2, 0]
 
@@ -137,15 +137,17 @@ def test_symbolic_slice_substitution_and_derivative():
     x = sx.Symbol('x', real=True)
     A = sx.MatrixSymbol('A', n, n)
     view = A[1:k, :]
-    assert view.shape == (k-1, n)
+    assert view.rows.is_integer is True
+    assert view.rows.is_nonnegative is True
+    assert view.xreplace({n:10, k:4}).shape == (3, 10)
     assert view.free_symbols == {A, k, n}
     replacement = sx.MatrixSymbol('B', 5, 5)
-    assert view.xreplace({A: replacement, k: 4}).shape == (3, n)
+    assert view.xreplace({A: replacement, k: 4}).cols == n
     concrete = view.xreplace({A: replacement, k: 4, n: 5})
     assert concrete.shape == (3, 5)
     assert concrete[0, 0] == sx.MatrixSymbol('B', 5, 5)[1, 0]
     assert ((x*A)[1:k, :]).diff(x) == A[1:k, :]
-    assert A[1:k, :].diff(x) == sx.ZeroMatrix(k-1, n)
+    assert A[1:k, :].diff(x) == sx.ZeroMatrix(*view.shape)
     with pytest.raises(NotImplementedError, match='moving|start|bound'):
         A[k:n, :].diff(k)
 

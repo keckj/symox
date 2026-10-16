@@ -58,6 +58,13 @@ class Symbol(metaclass=_ExprType):
         return _core.Symbol(name, **assumptions)
 
 
+class Dummy(Symbol):
+    _matches = staticmethod(lambda e: e.is_Dummy)
+
+    def __new__(cls, name=None, dummy_index=None, **assumptions):
+        return _core.Dummy(name, dummy_index, **assumptions)
+
+
 class Add(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Add)
 

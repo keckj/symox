@@ -161,6 +161,25 @@ class BlockDiagMatrix(BlockMatrix):
         return _core._matrixexpr_node('BlockDiagMatrix', matrices)
 
 
+class _SliceTuple(tuple):
+    """A semantic slice triple retaining its immutable native normalized range."""
+    def __new__(cls, spec):
+        value=tuple.__new__(cls,spec.args)
+        object.__setattr__(value,'_symox_slice_spec',spec)
+        return value
+
+    def __setattr__(self,name,value):
+        raise AttributeError('Normalized slice specifications are immutable')
+
+    def __reduce__(self):
+        return (_SliceTuple,(self._symox_slice_spec,))
+
+
+def NormalizedSlice(start,stop,step,length,omitted=False):
+    """Reconstruct the normalized slice metadata used by native srepr/pickle."""
+    return _SliceTuple(_core._normalized_slice(start,stop,step,length,omitted))
+
+
 class MatrixSlice(MatrixExpr):
     _kinds = ('MatrixSlice',)
 

@@ -57,7 +57,7 @@ def test_minimal_polynomial_is_irreducible_and_matches_oracle(generator,polys):
     assert sp.Poly(oracle(actual),sx).is_irreducible
     assert sp.simplify(oracle(actual).subs(sx,sa))==0
     assert sm.minpoly(a,x,polys=polys)==actual
-    if polys:assert actual.domain=='QQ' and actual.gens==(x,)
+    if polys:assert str(actual.domain)=='QQ' and actual.gens==(x,)
 
 
 @pytest.mark.parametrize('generators',[
@@ -80,7 +80,7 @@ def test_primitive_element_linear_combination_and_exact_embeddings(generators,po
         same(reconstructed,oracle(original))
     plain=sm.primitive_element(values,x,ex=False,polys=polys)
     assert plain==(minimal,weights)
-    if polys:assert minimal.domain=='QQ'
+    if polys:assert str(minimal.domain)=='QQ'
 
 
 @pytest.mark.parametrize('generator',['2**(1/3)','sqrt(2)+I','sqrt(2)+sqrt(3)','1+sqrt(2)','(sqrt(2)+I)**2'])
@@ -88,7 +88,7 @@ def test_norms_and_true_factorization_in_supported_fields(generator):
     x,sx=sm.Symbol('x'),sp.Symbol('x');a,sa=expr(generator),expr(generator,sp)
     p=sm.Poly((x-a)/(1+a),x,extension=a)
     expected=sp.Poly((sx-sa)/(1+sa),sx,extension=sa)
-    norm=p.norm();assert norm.domain=='QQ'
+    norm=p.norm();assert str(norm.domain)=='QQ'
     assert sp.expand(oracle(norm)-expected.norm().as_expr())==0
     minimal=sm.minimal_polynomial(a,x)
     target=sm.Poly(minimal,x,extension=a)
@@ -142,7 +142,7 @@ def test_joint_coercion_inferred_fields_and_dependent_extensions():
     inferred=sm.Poly(x+u+v,x,extension=True);same(inferred,sx+sp.sqrt(2)+sp.I,sx)
     g=sm.groebner([sm.Poly(x-u,x,y,extension=u),sm.Poly(y-v,x,y,extension=v)],x,y,method='f5b')
     assert g.contains(x-u) and g.contains(y-v)
-    assert sm.Poly(x+sm.sqrt(8),x,extension=[u,sm.sqrt(8)]).domain=='QQ<sqrt(2)>'
+    assert str(sm.Poly(x+sm.sqrt(8),x,extension=[u,sm.sqrt(8)]).domain)=='QQ<sqrt(2)>'
 
 
 def test_subfield_membership_is_not_guessed_from_an_annihilating_polynomial():

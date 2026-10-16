@@ -13,6 +13,37 @@ jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 
 
+def test_distinct_dummy_inputs_jit_and_gradients():
+    first, second = sm.Dummy('x'), sm.Dummy('x')
+    function = sm.jax_lambdify((first, second), first**2 + 2*second, jit=True)
+    a, b = jnp.asarray([1., 2.]), jnp.asarray([3., 4.])
+    np.testing.assert_allclose(function(a, b), a**2+2*b)
+    da, db = jax.grad(lambda x, y: jnp.sum(function(x, y)), argnums=(0, 1))(a, b)
+    np.testing.assert_allclose(da, 2*a)
+    np.testing.assert_allclose(db, jnp.full_like(b, 2))
+
+
+@pytest.mark.parametrize("jit", [False, True])
+def test_strided_reverse_composed_and_empty_matrix_slices(jit):
+    matrix = sm.MatrixSymbol('A', 5, 6)
+    outputs = (matrix[::-1, ::-2], matrix[::2, 1::2], matrix[4:1:-2, 5:0:-2],
+               matrix[::2, ::-1][::-1, 1::2], matrix[1:1, ::-1], matrix[::-1, 10:20])
+    function = sm.jax_lambdify(matrix, outputs, jit=jit)
+    a = jnp.arange(180., dtype=jnp.float32).reshape(2, 3, 5, 6)
+
+    def reference(value):
+        return (value[..., ::-1, ::-2], value[..., ::2, 1::2], value[..., 4:1:-2, 5:0:-2],
+                value[..., ::2, ::-1][..., ::-1, 1::2],
+                value[..., 1:1, ::-1], value[..., ::-1, 10:20])
+
+    for value, target in zip(function(a), reference(a)):
+        assert value.dtype == a.dtype
+        np.testing.assert_allclose(value, target, rtol=2e-6)
+    actual = jax.grad(lambda value: sum(jnp.sum(v**2) for v in function(value)))(a)
+    expected = jax.grad(lambda value: sum(jnp.sum(v**2) for v in reference(value)))(a)
+    np.testing.assert_allclose(actual, expected, rtol=2e-6)
+
+
 @pytest.mark.parametrize("jit", [False, True])
 def test_diagonal_maps_broadcast_and_gradients(jit):
     vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)

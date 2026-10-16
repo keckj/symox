@@ -68,3 +68,39 @@ def test_diagonal_matrix_presentation_keys_match_sympy(name, shape):
     actual = getattr(sx, name)(sx.MatrixSymbol('A', *shape))
     expected = getattr(sp, name)(sp.MatrixSymbol('A', *shape))
     assert normalized(sx.default_sort_key(actual)) == sp.default_sort_key(expected)
+
+
+@pytest.mark.parametrize('dummy',[False,True])
+def test_single_lambda_key_uses_tuple_of_variables_and_preserves_identity(dummy):
+    if dummy:
+        x=sx.Dummy('x',dummy_index=37,integer=True)
+        X=sp.Dummy('x',dummy_index=37,integer=True)
+    else:
+        x=sx.Symbol('x');X=sp.Symbol('x')
+    actual=sx.Lambda(x,2*x+1)._e
+    expected=sp.Lambda(X,2*X+1)
+    for expression,oracle in [(actual,expected),(2*actual,2*expected),(actual**2,expected**2)]:
+        assert normalized(sx.default_sort_key(expression))==sp.default_sort_key(oracle)
+    if dummy:
+        other=sx.Dummy('x',dummy_index=38,integer=True)
+        assert sx.default_sort_key(sx.Lambda(other,2*other+1)._e)!=sx.default_sort_key(actual)
+
+
+@pytest.mark.parametrize('operation',[
+    lambda d,x:d,
+    lambda d,x:-d,
+    lambda d,x:2*d,
+    lambda d,x:d**2,
+    lambda d,x:2*d**2,
+    lambda d,x:d**x,
+    lambda d,x:2*d**x,
+    lambda d,x:d**-1,
+])
+def test_dummy_atom_and_coefficient_power_keys_have_distinct_argument_shapes(operation):
+    from sympy.core.cache import clear_cache
+    clear_cache()
+    d=sx.Dummy('key_dummy',dummy_index=113,real=True)
+    D=sp.Dummy('key_dummy',dummy_index=113,real=True)
+    x=sx.Symbol('x');X=sp.Symbol('x')
+    actual=operation(d,x);expected=operation(D,X)
+    assert normalized(sx.default_sort_key(actual))==sp.default_sort_key(expected)

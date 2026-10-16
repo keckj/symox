@@ -14,11 +14,48 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
-use rustc_hash::FxHasher;
+use rustc_hash::{FxHasher, FxHashMap};
+use std::cell::RefCell;
 
 use crate::number::Number;
 #[path="binding_identity.rs"]
 mod binding_identity;
+
+// A comparison may cross scalar/matrix metadata several times. Keep its
+// physical-pair memo for the whole call, rather than resetting it at each
+// matrix/scalar boundary. RefCell borrows are always released before recursion.
+struct ComparisonMemo<T> {
+    depth: usize,
+    values: Option<FxHashMap<(usize, usize), T>>,
+}
+impl<T> ComparisonMemo<T> {
+    const fn new() -> Self { Self { depth: 0, values: None } }
+    fn leave(&mut self) {
+        self.depth -= 1;
+        if self.depth == 0 { self.values = None; }
+    }
+}
+thread_local! {
+    static EQ_MEMO: RefCell<ComparisonMemo<bool>> = const { RefCell::new(ComparisonMemo::new()) };
+    static ORDER_MEMO: RefCell<ComparisonMemo<Ordering>> = const { RefCell::new(ComparisonMemo::new()) };
+}
+struct ComparisonGuard { equality: bool }
+impl ComparisonGuard {
+    fn equality() -> Self {
+        EQ_MEMO.with(|memo| memo.borrow_mut().depth += 1);
+        Self { equality: true }
+    }
+    fn order() -> Self {
+        ORDER_MEMO.with(|memo| memo.borrow_mut().depth += 1);
+        Self { equality: false }
+    }
+}
+impl Drop for ComparisonGuard {
+    fn drop(&mut self) {
+        if self.equality { EQ_MEMO.with(|memo| memo.borrow_mut().leave()); }
+        else { ORDER_MEMO.with(|memo| memo.borrow_mut().leave()); }
+    }
+}
 
 /// An undefined function head, distinct from builtin names and held operators.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -407,7 +444,7 @@ impl Expr {
             Kind::Num(n) => n.hash(&mut h),
             Kind::Sym(s) => {
                 s.hash(&mut h);
-                mask = sym_bit(s.name());
+                mask = if s.is_dummy() { 1u64 << (h.finish() % 64) } else { sym_bit(s.name()) };
             }
             Kind::Const(c) => c.hash(&mut h),
             Kind::Add(c, terms) => {
@@ -615,6 +652,15 @@ impl Expr {
         Expr::from_kind(Kind::Sym(crate::symbol::Symbol::with_assumptions(name, a)))
     }
 
+    /// A fresh Dummy atom. Its display name does not determine identity.
+    pub fn dummy(name: &str, a: crate::symbol::Assumptions) -> Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::dummy(name, a)))
+    }
+
+    pub fn dummy_with_index(name: &str, a: crate::symbol::Assumptions, index: num_bigint::BigInt) -> Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::dummy_with_index(name, a, index)))
+    }
+
     /// A pattern wildcard (`Wild('a', exclude=[...])`).
     pub fn wild(name: &str, exclude: Vec<Expr>) -> Expr {
         Expr::from_kind(Kind::Sym(crate::symbol::Symbol::wild(name, exclude)))
@@ -813,8 +859,7 @@ impl Expr {
             }
             Kind::Num(Number::Float(_) | Number::MpFloat(..)) => "Float",
             // SymPy's `Dummy` symbols print as `_name`; symox represents them
-            // as symbols whose name starts with an underscore.
-            Kind::Sym(s) if s.name().starts_with('_') && !s.is_wild() => "Dummy",
+            Kind::Sym(s) if s.is_dummy() => "Dummy",
             Kind::Sym(_) => "Symbol",
             Kind::Const(c) => match c {
                 Constant::Pi => "Pi",
@@ -848,14 +893,20 @@ impl Expr {
     /// Structural total order (independent of hashes). Used for printing
     /// and as a tie-breaker.
     pub fn cmp_struct(&self, o: &Expr) -> Ordering {
-        if self.ptr_eq(o) {
-            return Ordering::Equal;
-        }
-        let (a, b) = (self.kind(), o.kind());
-        let r = a.rank().cmp(&b.rank());
-        if r != Ordering::Equal {
-            return r;
-        }
+        if self.ptr_eq(o) { return Ordering::Equal; }
+        let rank=self.kind().rank().cmp(&o.kind().rank());
+        if rank!=Ordering::Equal { return rank; }
+        if self.is_atom() { return self.cmp_struct_uncached(o); }
+        let _guard=ComparisonGuard::order();
+        let pair=(self.dag_id(),o.dag_id());
+        if let Some(result)=ORDER_MEMO.with(|memo|memo.borrow().values.as_ref().and_then(|values|values.get(&pair)).copied()) { return result; }
+        let result=self.cmp_struct_uncached(o);
+        ORDER_MEMO.with(|memo|memo.borrow_mut().values.get_or_insert_with(FxHashMap::default).insert(pair,result));
+        result
+    }
+
+    fn cmp_struct_uncached(&self, o: &Expr) -> Ordering {
+        let (a,b)=(self.kind(),o.kind());
         match (a, b) {
             (Kind::Num(x), Kind::Num(y)) => x.cmp_struct(y),
             (Kind::Sym(x), Kind::Sym(y)) => x.cmp(y),
@@ -999,9 +1050,19 @@ fn kind_eq(a: &Kind, b: &Kind) -> bool {
 impl PartialEq for Expr {
     #[inline]
     fn eq(&self, o: &Expr) -> bool {
-        self.ptr_eq(o) || (self.0.hash == o.0.hash && match (&self.0.binding_identity,&o.0.binding_identity){
-            (Some(a),Some(b))=>a==b,(None,None)=>kind_eq(self.kind(),o.kind()),_=>false,
-        })
+        if self.ptr_eq(o) { return true; }
+        if self.0.hash!=o.0.hash { return false; }
+        if self.is_atom() { return kind_eq(self.kind(),o.kind()); }
+        let _guard=ComparisonGuard::equality();
+        let pair=(self.dag_id(),o.dag_id());
+        if let Some(result)=EQ_MEMO.with(|memo|memo.borrow().values.as_ref().and_then(|values|values.get(&pair)).copied()) { return result; }
+        let result=match (&self.0.binding_identity,&o.0.binding_identity) {
+            (Some(a),Some(b))=>a==b,
+            (None,None)=>kind_eq(self.kind(),o.kind()),
+            _=>false,
+        };
+        EQ_MEMO.with(|memo|memo.borrow_mut().values.get_or_insert_with(FxHashMap::default).insert(pair,result));
+        result
     }
 }
 impl Eq for Expr {}
@@ -1038,5 +1099,46 @@ impl fmt::Debug for Expr {
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", crate::printer::to_str(self))
+    }
+}
+
+#[cfg(test)]
+mod dag_comparison_tests {
+    use super::*;
+
+    fn pair_graph(depth: usize) -> Expr {
+        let mut value=Expr::symbol("leaf");
+        for _ in 0..depth {
+            value=Expr::from_kind(Kind::Func(Func::Undefined("pair".into()),vec![value.clone(),value]));
+        }
+        value
+    }
+
+    #[test]
+    fn scalar_dag_eq_and_both_orders_visit_shared_pairs_once() {
+        let first=pair_graph(100);let restored=pair_graph(100);
+        assert!(first==restored);
+        assert_eq!(first.cmp_struct(&restored),Ordering::Equal);
+        assert_eq!(first.cmp(&restored),Ordering::Equal);
+        // Multiple outer calls must start with independent, freshly owned memos.
+        assert!(restored==pair_graph(100));
+        assert!(first!=pair_graph(99));
+    }
+
+    #[test]
+    fn comparison_context_survives_scalar_matrix_boundaries() {
+        fn mixed_graph(depth:usize)->Expr {
+            let mut value=Expr::symbol("leaf");
+            for _ in 0..depth {
+                let matrix=crate::matrix::Matrix::new(2,2,vec![value.clone(),value.clone(),value.clone(),value]).unwrap();
+                let parent=crate::matrixexpr::MatrixExpr::explicit(matrix);
+                value=Expr::from_kind(Kind::Func(Func::MatrixTrace(Arc::new(parent)),vec![]));
+            }
+            value
+        }
+        let first=mixed_graph(24);let restored=mixed_graph(24);
+        assert!(first==restored);
+        assert_eq!(first.cmp_struct(&restored),Ordering::Equal);
+        assert_eq!(first.cmp(&restored),Ordering::Equal);
     }
 }

@@ -190,15 +190,20 @@ pub fn slangcode_with(expr: &Expr, settings: &SlangSettings) -> Result {
     // Distinct assumed symbols must not silently alias after textual printing.
     let mut seen = BTreeMap::new();
     for symbol in crate::traverse::free_symbols(expr) {
+        if settings.expression_overrides.contains_key(&symbol) { continue; }
         let Some(source) = symbol.as_symbol() else {
             return Err(CodeError::Unsupported("matrix-valued Slang inputs; materialize entries and substitute scalar inputs first".into()));
+        };
+        let default_name = match symbol.kind() {
+            Kind::Sym(s) if s.is_dummy() => format!("{}_{index}", s.name(), index=s.dummy_index().unwrap()),
+            _ => source.to_owned(),
         };
         let target = settings
             .exact_symbol_names
             .get(&symbol)
             .or_else(|| settings.symbol_names.get(source))
             .map(String::as_str)
-            .unwrap_or(source);
+            .unwrap_or(&default_name);
         if seen
             .insert(target.to_string(), symbol.clone())
             .is_some_and(|other| other != symbol)
@@ -365,13 +370,17 @@ impl<'a> SlangPrinter<'a> {
                 _ => return Err(self.unsupported("complex constant")),
             }),
             Kind::Sym(s) => {
+                let default_name = match s.dummy_index() {
+                    Some(index) => format!("{}_{index}", s.name()),
+                    None => s.name().to_owned(),
+                };
                 let name = self
                     .settings
                     .exact_symbol_names
                     .get(expr)
                     .or_else(|| self.settings.symbol_names.get(s.name()))
                     .map(String::as_str)
-                    .unwrap_or(s.name());
+                    .unwrap_or(&default_name);
                 if !(match self.backend {
                     ScalarBackend::Slang => is_slang_identifier(name),
                     ScalarBackend::Sycl => super::sycl::is_sycl_identifier(name),

@@ -35,6 +35,10 @@ class CXX17CodePrinter(Printer):
     def _print_Symbol(self, expr):
         return expr.name
 
+    def _print_Dummy(self, expr):
+        from symox import _core
+        return _core.cxxcode(expr)
+
     def _print_MatrixElement(self, expr):
         parent, row, column = expr.args
         if getattr(parent, "kind", None) != "MatrixSymbol":

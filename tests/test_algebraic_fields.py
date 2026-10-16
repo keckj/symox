@@ -55,7 +55,7 @@ def test_groebner_domains_orders_and_membership(kind, order, option):
         f = [sm.Poly(e, x, y, extension=a) for e in f]
     g = sm.groebner(f, x, y, order=order, **opts)
     expected = sp.groebner(sf, sx, sy, order=order, extension=sa)
-    assert g.domain == str(expected.domain)
+    assert str(g.domain) == str(expected.domain)
     assert len(g) == len(expected)
     for actual, wanted in zip(g.exprs, expected.exprs):
         same(actual, wanted)
@@ -85,7 +85,7 @@ def test_reduced_exact_quotient_identity(order, polys):
     expr = lambda e: e.as_expr() if isinstance(e, sm.Poly) else e
     for p, expected in zip(q, sq):
         same(expr(p), expected)
-        if polys: assert p.domain == 'QQ<sqrt(2)>'
+        if polys: assert str(p.domain) == 'QQ<sqrt(2)>'
     same(expr(r), sr)
     same(sum((expr(p)*d for p, d in zip(q, divisors)), sm.Integer(0))+expr(r), oracle(f))
 
@@ -171,8 +171,8 @@ def test_unsupported_fields_fail_explicitly(call):
 
 def test_plain_extension_inference_does_not_change_rational_domain():
     x=sm.Symbol('x')
-    assert sm.Poly(x*x-2,x,extension=True).domain=='ZZ'
-    assert sm.groebner([x*x-2],x,extension=True).domain=='ZZ'
+    assert str(sm.Poly(x*x-2,x,extension=True).domain)=='ZZ'
+    assert str(sm.groebner([x*x-2],x,extension=True).domain)=='ZZ'
 
 
 def test_top_level_algebraic_factor_and_gcd_options():
@@ -210,7 +210,7 @@ assert p.sqf_list()[1][0][1]==2
 assert len(s.Poly(x*x-2,x,extension=a).factor_list()[1])==2
 g=s.groebner([x*y-a,y*y-x],x,y,extension=a,order='grevlex')
 assert g.contains((x+y)*(x*y-a))
-assert g.fglm('lex').domain=='QQ<sqrt(2)>'
+assert str(g.fglm('lex').domain)=='QQ<sqrt(2)>'
 '''
     result=subprocess.run([sys.executable,'-c',code],text=True,capture_output=True)
     assert result.returncode==0,result.stderr

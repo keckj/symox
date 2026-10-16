@@ -1,9 +1,11 @@
 //! Symbols and their assumptions (`Symbol('x', positive=True)`).
 
 use std::fmt;
-use std::hash::{Hash, Hasher};
+use std::hash::{BuildHasher, Hash, Hasher};
+use rustc_hash::FxHashSet;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
+use num_bigint::BigInt;
 
 /// Assumption flags attached to a symbol. Only *known true* facts are
 /// stored; implied facts are added by [`Assumptions::closure`].
@@ -193,10 +195,54 @@ impl Assumptions {
     }
 }
 
+/// Fresh indices keep a process namespace independent of foreign generators.
+/// Explicit restoration reserves an index but never pulls this sequence into a
+/// foreign namespace. Only restored/imported indices occupy the reservation set.
+struct DummyState {
+    pid: u32,
+    next: BigInt,
+    anonymous: BigInt,
+    reserved: FxHashSet<BigInt>,
+}
+impl DummyState {
+    fn seed(pid: u32) -> BigInt {
+        let nanos=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default().as_nanos();
+        let random=std::collections::hash_map::RandomState::new().build_hasher().finish();
+        (BigInt::from(1u8)<<192usize) + (BigInt::from(nanos)<<96usize)
+            + (BigInt::from(pid)<<64usize) + BigInt::from(random)
+    }
+    fn new() -> Self {
+        let pid=std::process::id();
+        Self{pid,next:Self::seed(pid),anonymous:BigInt::from(0),reserved:FxHashSet::default()}
+    }
+    fn fresh(&mut self) -> BigInt {
+        let pid=std::process::id();
+        if pid!=self.pid {
+            // A fork copies global state: the child must start its own namespace.
+            self.pid=pid;self.next=Self::seed(pid);self.anonymous=BigInt::from(0);
+        }
+        loop {
+            let result=self.next.clone();self.next+=1;
+            if !self.reserved.contains(&result) { return result; }
+        }
+    }
+}
+fn with_dummy_state<T>(operation:impl FnOnce(&mut DummyState)->T) -> T {
+    static STATE:OnceLock<Mutex<DummyState>>=OnceLock::new();
+    operation(&mut STATE.get_or_init(||Mutex::new(DummyState::new())).lock().unwrap())
+}
+fn next_dummy_index(reserve: Option<&BigInt>) -> BigInt {
+    with_dummy_state(|state| match reserve {
+        Some(index)=>{state.reserved.insert(index.clone());index.clone()},
+        None=>state.fresh(),
+    })
+}
+
 /// A symbol: a name plus assumptions. Dereferences to its name.
 ///
-/// Identity (equality, hashing) uses the name and the assumptions *as
-/// given* (like SymPy's `assumptions0`); queries use their closure.
+/// Identity uses the name, closed assumptions, and optional Dummy index.
+/// The assumptions originally provided remain available for round trips.
 #[derive(Clone, Debug)]
 pub struct Symbol {
     name: Arc<str>,
@@ -204,17 +250,56 @@ pub struct Symbol {
     known: Assumptions,
     /// `Some(exclude)` for pattern wildcards (`Wild('a', exclude=[x])`).
     wild: Option<Arc<Vec<crate::expr::Expr>>>,
+    /// Explicit identity of a Dummy; ordinary symbols never infer this from a name.
+    dummy_index: Option<Arc<BigInt>>,
 }
 
 impl Symbol {
     pub fn new(name: &str) -> Symbol {
-        Symbol { name: Arc::from(name), given: Assumptions::NONE, known: Assumptions::NONE, wild: None }
+        Symbol { name: Arc::from(name), given: Assumptions::NONE, known: Assumptions::NONE, wild: None, dummy_index: None }
     }
 
     /// `given` are the user's assumptions; their closure is computed here.
     pub fn with_assumptions(name: &str, given: Assumptions) -> Symbol {
         let known = given.closure().unwrap_or(given);
-        Symbol { name: Arc::from(name), given, known, wild: None }
+        Symbol { name: Arc::from(name), given, known, wild: None, dummy_index: None }
+    }
+
+    /// A fresh Dummy, whose identity is independent of its displayed name.
+    pub fn dummy(name: &str, given: Assumptions) -> Symbol {
+        let index = next_dummy_index(None);
+        Self::dummy_registered(name, given, index)
+    }
+
+    /// Restore a Dummy identity, reserving its index against fresh construction.
+    pub fn dummy_with_index(name: &str, given: Assumptions, index: BigInt) -> Symbol {
+        next_dummy_index(Some(&index));
+        Self::dummy_registered(name, given, index)
+    }
+
+    pub fn anonymous_dummy(given: Assumptions) -> Symbol {
+        let (index,name)=with_dummy_state(|state| {
+            let index=state.fresh();
+            let name=format!("Dummy_{}",state.anonymous);state.anonymous+=1;
+            (index,name)
+        });
+        Self::dummy_registered(&name, given, index)
+    }
+
+    fn dummy_registered(name: &str, given: Assumptions, index: BigInt) -> Symbol {
+        let mut symbol = Self::with_assumptions(name, given);
+        symbol.dummy_index = Some(Arc::new(index));
+        symbol
+    }
+
+    #[inline]
+    pub fn dummy_index(&self) -> Option<&BigInt> {
+        self.dummy_index.as_deref()
+    }
+
+    #[inline]
+    pub fn is_dummy(&self) -> bool {
+        self.dummy_index.is_some()
     }
 
     /// A pattern wildcard that must not match expressions containing any
@@ -225,6 +310,7 @@ impl Symbol {
             given: Assumptions::NONE,
             known: Assumptions::NONE,
             wild: Some(Arc::new(exclude)),
+            dummy_index: None,
         }
     }
 
@@ -263,6 +349,7 @@ impl PartialEq for Symbol {
     fn eq(&self, o: &Symbol) -> bool {
         self.name == o.name
             && self.known == o.known
+            && self.dummy_index == o.dummy_index
             && match (&self.wild, &o.wild) {
                 (None, None) => true,
                 (Some(a), Some(b)) => a == b,
@@ -282,7 +369,8 @@ impl Ord for Symbol {
         self.name
             .cmp(&o.name)
             .then(self.known.cmp(&o.known))
-            .then(self.wild.is_some().cmp(&o.wild.is_some()))
+            .then(self.dummy_index.cmp(&o.dummy_index))
+            .then_with(|| self.wild.cmp(&o.wild))
     }
 }
 
@@ -291,6 +379,10 @@ impl Hash for Symbol {
         self.name.hash(h);
         if !self.known.is_empty() {
             self.known.hash(h);
+        }
+        if let Some(index) = &self.dummy_index {
+            0xd00du16.hash(h);
+            index.hash(h);
         }
         if let Some(w) = &self.wild {
             0xa11du16.hash(h);
@@ -346,5 +438,82 @@ mod tests {
         assert!(A::from_kwargs([("imaginary",true),("nonzero",true)]).is_err());
         assert!(A::from_kwargs([("zero",true),("zero",false)]).is_err());
         assert!(A::from_kwargs([("rational",true),("rational",false)]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod dummy_tests {
+    use super::*;
+    use crate::{expr::Expr, ops, parser, printer, traverse};
+    use std::collections::{HashSet, BTreeSet};
+
+    #[test]
+    fn dummy_identity_is_explicit_and_independent_of_display_name() {
+        let a=Expr::dummy("x",Assumptions::POSITIVE);
+        let b=Expr::dummy("x",Assumptions::POSITIVE);
+        let index=a.as_sym().unwrap().dummy_index().unwrap().clone();
+        let restored=Expr::dummy_with_index("x",Assumptions::POSITIVE,index.clone());
+        assert_eq!(a,restored);assert_ne!(a,b);
+        assert_ne!(a,Expr::symbol_with("x",Assumptions::POSITIVE));
+        assert_ne!(a,Expr::dummy_with_index("y",Assumptions::POSITIVE,index.clone()));
+        assert_ne!(a,Expr::dummy_with_index("x",Assumptions::NONE,index));
+        assert_eq!(HashSet::from([a.clone(),b.clone(),restored.clone()]).len(),2);
+        assert_eq!(BTreeSet::from([a.clone(),b.clone(),restored]).len(),2);
+        assert_eq!(a.class_name(),"Dummy");
+        assert_eq!(a.to_string(),"_x");
+        assert_eq!(Expr::symbol("_x").class_name(),"Symbol");
+    }
+
+    #[test]
+    fn dummy_arithmetic_has_substitution_and_derivatives_do_not_capture_names() {
+        let a=Expr::dummy("x",Assumptions::NONE);let b=Expr::dummy("x",Assumptions::NONE);
+        let x=Expr::symbol("x");let underscore=Expr::symbol("_x");
+        let e=ops::add(&[a.clone(),b.clone(),x.clone(),underscore.clone()]);
+        assert_eq!(traverse::free_symbols(&e).len(),4);
+        assert_eq!(crate::diff::diff(&e,&a),Expr::one());
+        let replaced=crate::subs::subs1(&e,&a,&Expr::int(2));
+        assert!(!traverse::has(&replaced,&a));assert!(traverse::has(&replaced,&b));
+        assert!(traverse::has(&replaced,&x));assert!(traverse::has(&replaced,&underscore));
+        let f=crate::functions::undefined("f",vec![x.powi(2)]);
+        let first=crate::diff::diff(&f,&x);let second=crate::diff::diff(&f,&x);
+        assert_eq!(first,second); // held Subs alpha identity ignores fresh bound indices
+        assert_eq!(traverse::free_symbols(&first),vec![x]);
+    }
+
+    #[test]
+    fn dummy_srepr_roundtrips_arbitrary_indices_and_assumptions() {
+        for index in [BigInt::from(-7),BigInt::from(1)<<180] {
+            let e=Expr::dummy_with_index("a'\\b",Assumptions::REAL,index);
+            let encoded=printer::srepr(&e);
+            assert!(encoded.starts_with("Dummy("));assert_eq!(parser::parse_str(&encoded).unwrap(),e);
+            let pair=ops::add(&[e.clone(),Expr::dummy("a'\\b",Assumptions::REAL)]);
+            assert_eq!(parser::parse_str(&printer::srepr(&pair)).unwrap(),pair);
+        }
+    }
+
+    #[test]
+    fn explicit_restoration_reserves_indices_for_future_fresh_atoms() {
+        let high:BigInt=BigInt::from(1)<<200;
+        let restored=Symbol::dummy_with_index("x",Assumptions::NONE,high.clone());
+        let fresh=Symbol::dummy("x",Assumptions::NONE);
+        assert_ne!(fresh.dummy_index().unwrap(),&high);assert_ne!(restored,fresh);
+    }
+
+    #[test]
+    fn fresh_namespace_skips_explicit_indices_and_deduplicates_reservations() {
+        with_dummy_state(|state|{
+            let index=state.next.clone();
+            let before=state.reserved.len();
+            state.reserved.insert(index.clone());state.reserved.insert(index.clone());
+            assert_eq!(state.reserved.len(),before+1);
+            assert_ne!(state.fresh(),index);
+        });
+    }
+
+    #[test]
+    fn dummy_cxx_names_contain_the_exact_identity() {
+        let d=Expr::dummy_with_index("x",Assumptions::NONE,BigInt::from(57));
+        assert_eq!(crate::printing::code::cxxcode(&d).unwrap(),"x_57");
+        assert_eq!(crate::printing::code::cxxcode(&Expr::symbol("_x")).unwrap(),"_x");
     }
 }

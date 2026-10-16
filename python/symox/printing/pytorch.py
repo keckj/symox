@@ -76,6 +76,8 @@ class PyTorchPrinter(Printer):
         method = self._custom_methods.get("_print_" + name)
         if method is None and name in ("Zero", "One", "NegativeOne", "Half"):
             method = self._custom_methods.get("_print_" + ("Rational" if name == "Half" else "Integer"))
+        if method is None and name in ("Dummy", "Wild"):
+            method = self._custom_methods.get("_print_Symbol")
         if method is None:
             for cls in type(expr).__mro__:
                 method = self._custom_methods.get("_print_" + cls.__name__)

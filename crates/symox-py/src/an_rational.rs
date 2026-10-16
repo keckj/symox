@@ -1,7 +1,7 @@
 //! Coercion and return-type boundary for exact rational operations over AN.
 #![allow(non_snake_case)]
 use super::{
-    algebraic_extension, err, expr_or_coeff_list, gens_of, w, AlgebraicPoly, NumberField,
+    err, expr_or_coeff_list, gens_of, w, AlgebraicPoly, NumberField,
     PolyValue, PyPoly,
 };
 use crate::{to_expr, PyExpr};
@@ -21,7 +21,7 @@ pub(super) struct Selected {
 }
 fn selected_options<'py>(
     kwargs: Option<&Bound<'py, PyDict>>,
-) -> PyResult<(Option<Bound<'py, PyAny>>, Option<String>)> {
+) -> PyResult<(Option<Bound<'py, PyAny>>, Option<Bound<'py, PyAny>>)> {
     let extension = kwargs
         .map(|k| k.get_item("extension"))
         .transpose()?
@@ -31,9 +31,7 @@ fn selected_options<'py>(
         .map(|k| k.get_item("domain"))
         .transpose()?
         .flatten()
-        .filter(|v| !v.is_none())
-        .map(|d| d.extract::<String>())
-        .transpose()?;
+        .filter(|v| !v.is_none());
     Ok((extension, domain))
 }
 pub(super) fn select(
@@ -45,11 +43,9 @@ pub(super) fn select(
     let (fe, fg) = expr_or_coeff_list(f)?;
     let (ge, gg) = expr_or_coeff_list(g)?;
     let (extension, domain) = selected_options(kwargs)?;
-    let mut field = algebraic_extension(
-        extension.as_ref(),
-        &[fe.clone(), ge.clone()],
-        domain.as_deref(),
-    )?;
+    let selected=super::domains::Selection::new(domain.as_ref(),None,extension.as_ref())?;
+    if selected.native.as_ref().is_some_and(|d|!matches!(d.inner,symox::poly::domains::ExactDomain::ZZ|symox::poly::domains::ExactDomain::QQ|symox::poly::domains::ExactDomain::Algebraic(_))){return Err(PyNotImplementedError::new_err("this rational operation currently supports QQ and certified algebraic domains"));}
+    let mut field=selected.algebraic(extension.as_ref(),&[fe.clone(),ge.clone()])?;
     if field.is_none() && domain.is_none() {
         for obj in [f, g] {
             if let Ok(p) = obj.downcast::<PyPoly>() {

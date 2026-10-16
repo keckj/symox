@@ -126,6 +126,19 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(p) = obj.downcast::<PyExpr>() {
         return Ok(p.get().e.clone());
     }
+    if let Ok(element) = obj.extract::<PyRef<'_, poly::domains::PyDomainElement>>() {
+        use symox::poly::domains::{ElementValue, ExactDomain};
+        use symox::poly::int::Coeff;
+        return match (&element.value.value, &element.value.domain) {
+            (ElementValue::Rational(_), _) => Ok(element.value.as_expr()),
+            (ElementValue::Finite(value), ExactDomain::GF(prime)) => {
+                let rational = value.to_rat();
+                let residue = rational.n.modulo(&symox::poly::Int::from_u64(*prime));
+                Ok(Expr::num(residue.to_number()))
+            }
+            _ => Err(PyTypeError::new_err("convert this coefficient explicitly with its domain.to_sympy method")),
+        };
+    }
     if let Ok(p) = obj.downcast::<matrixexpr::PyMatrixExpr>() {
         return Ok(matrix_proxy(p.get().m.clone()));
     }
@@ -213,6 +226,13 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         if head=="Tuple" {
             return Ok(fx::undefined("Tuple",obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?));
         }
+        if head=="Lambda" {
+            let variables=obj.getattr("variables")?.try_iter()?.map(|variable|to_expr(&variable?)).collect::<PyResult<Vec<_>>>()?;
+            if variables.len()!=1 || !variables[0].is_symbol() {
+                return Err(PyNotImplementedError::new_err("Lambda currently supports a single symbol variable"));
+            }
+            return Ok(symox::sets::lambda(&variables[0],&to_expr(&obj.getattr("expr")?)?));
+        }
         if head=="Subs" {
             let args=obj.getattr("args")?;
             let expression=to_expr(&args.get_item(0)?)?;
@@ -251,10 +271,14 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         if obj.getattr("is_Matrix").is_ok_and(|value| value.is_truthy().unwrap_or(false)) {
             return Ok(matrix_proxy(matrixexpr::to_matrixexpr(obj)?));
         }
-        if head == "Symbol" {
+        if head == "Symbol" || head == "Dummy" {
             let name: String = obj.getattr("name")?.extract()?;
             let assumptions = obj.getattr("_assumptions_orig")?;
-            return Ok(py_symbol(&name, Some(assumptions.downcast::<PyDict>()?))?.e);
+            let assumptions = Some(assumptions.downcast::<PyDict>()?);
+            return if head == "Dummy" {
+                let index: BigInt = obj.getattr("dummy_index")?.extract()?;
+                Ok(py_dummy(Some(&name), Some(index), assumptions)?.e)
+            } else { Ok(py_symbol(&name, assumptions)?.e) };
         }
         if matches!(head.as_str(), "Add" | "Mul" | "Pow" | "UnevaluatedExpr") {
             let args = obj.getattr("args")?;
@@ -360,7 +384,8 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             for keyword in s.given().keywords() {
                 if let Some((key, value)) = keyword.split_once('=') { kwargs.set_item(key, value == "True")?; }
             }
-            sm.getattr("Symbol")?.call((s.name(),), Some(&kwargs))
+            if let Some(index) = s.dummy_index() { kwargs.set_item("dummy_index", index)?; }
+            sm.getattr(if s.is_dummy() { "Dummy" } else { "Symbol" })?.call((s.name(),), Some(&kwargs))
         }
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
             let args = convert_args(&e.args())?;
@@ -401,21 +426,23 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
 
 fn python_args(e: &Expr) -> Vec<Expr> { traverse::ordered_args(e) }
 
-fn operation_count(e: &Expr) -> usize {
-    match e.kind() {
-        Kind::Num(n) => usize::from(n.is_negative()) + usize::from(matches!(n, Number::Rational(_))),
-        Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => 0,
-        Kind::Func(Func::MatrixProxy(_), _) => 0,
-        Kind::Func(Func::MatrixElement(_), args) => args.iter().map(operation_count).sum(),
+fn operation_count(e: &Expr) -> BigInt {
+    fn count(e: &Expr, memo: &mut FxHashMap<usize, (Expr, BigInt)>) -> BigInt {
+        if let Some((_, value)) = memo.get(&e.dag_id()) { return value.clone(); }
+        let value = match e.kind() {
+        Kind::Num(n) => BigInt::from(usize::from(n.is_negative()) + usize::from(matches!(n, Number::Rational(_)))),
+        Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => BigInt::from(0),
+        Kind::Func(Func::MatrixProxy(_), _) => BigInt::from(0),
+        Kind::Func(Func::MatrixElement(_), args) => args.iter().map(|a| count(a, memo)).sum(),
         Kind::Add(c, terms) => {
-            let mut count = terms.len() + usize::from(!c.is_zero()) - 1;
+            let mut result = BigInt::from((terms.len() + usize::from(!c.is_zero())).saturating_sub(1));
             let all_negative = (c.is_zero() || c.is_negative()) && terms.iter().all(|(_, k)| k.is_negative());
-            count += usize::from(all_negative);
-            if !c.is_zero() { count += usize::from(matches!(c, Number::Rational(_))); }
+            result += usize::from(all_negative);
+            if !c.is_zero() { result += usize::from(matches!(c, Number::Rational(_))); }
             for (term, coefficient) in terms {
-                count += operation_count(&ops::add_term(term, &coefficient.abs()));
+                result += count(&ops::add_term(term, &coefficient.abs()), memo);
             }
-            count
+            result
         }
         Kind::Mul(c, factors) => {
             let abs = c.abs();
@@ -429,19 +456,25 @@ fn operation_count(e: &Expr) -> usize {
                 }
             }
             if !abs.is_one() { numerator.push(Expr::num(abs)); }
-            usize::from(c.is_negative())
-                + numerator.iter().map(operation_count).sum::<usize>()
-                + denominator.iter().map(operation_count).sum::<usize>()
+            BigInt::from(usize::from(c.is_negative()))
+                + numerator.iter().map(|a| count(a, memo)).sum::<BigInt>()
+                + denominator.iter().map(|a| count(a, memo)).sum::<BigInt>()
                 + numerator.len().saturating_sub(1)
                 + denominator.len().saturating_sub(1)
                 + usize::from(!denominator.is_empty())
         }
         Kind::Pow(base, exponent) => {
-            operation_count(base) + if exponent.is_minus_one() { 1 } else { 1 + operation_count(exponent) }
+            count(base, memo) + if exponent.is_minus_one() { BigInt::from(1) } else { 1 + count(exponent, memo) }
         }
-        Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => args.iter().map(operation_count).sum(),
-        _ => 1 + e.args().iter().map(operation_count).sum::<usize>(),
+        Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => args.iter().map(|a| count(a, memo)).sum(),
+        _ => 1 + e.args().iter().map(|a| count(a, memo)).sum::<BigInt>(),
+        };
+        // Synthetic coefficient/power nodes also enter this cache. Retain an
+        // owner so their allocation addresses cannot be recycled mid-walk.
+        memo.insert(e.dag_id(), (e.clone(), value.clone()));
+        value
     }
+    count(e, &mut FxHashMap::default())
 }
 
 fn unwrap_unevaluated(e: &Expr) -> Expr {
@@ -594,7 +627,12 @@ impl PyExpr {
                 _ => py.NotImplemented(),
             });
         }
-        let Some(o) = opt_expr(other) else {
+        let converted = if let Ok(element) = other.extract::<PyRef<'_, poly::domains::PyDomainElement>>() {
+            if matches!(element.value.value, symox::poly::domains::ElementValue::Rational(_)) {
+                Some(element.value.as_expr())
+            } else { None }
+        } else { opt_expr(other) };
+        let Some(o) = converted else {
             return Ok(match op {
                 Eq => false.into_pyobject(py)?.to_owned().into_any().unbind(),
                 Ne => true.into_pyobject(py)?.to_owned().into_any().unbind(),
@@ -718,61 +756,10 @@ impl PyExpr {
     }
 
     fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyTuple>)> {
-        if self.e.has_matrix() || matches!(self.e.kind(), Kind::Sym(s) if s.is_wild()) {
-            return matrix_dag::reduce_expr(py, &self.e);
-        }
-        if let Kind::Func(Func::Undefined(function),args)=self.e.kind(){
-            if !function.internal{return Ok((undefined_head(py,function)?,PyTuple::new(py,args.iter().cloned().map(wrap))?));}
-        }
-        // Pickle children separately: parsing srepr would evaluate held Mul/Pow
-        // nodes, including those nested inside an otherwise canonical tree.
-        let compat = py.import("symox._compat")?;
-        if self.e.is_atom() {
-            let f = compat.getattr("_restore_atom")?;
-            let value = match self.e.kind() {
-                Kind::Sym(s) => {
-                    let keywords = PyDict::new(py);
-                    for kw in s.given().keywords() {
-                        if let Some((key, value)) = kw.split_once('=') {
-                            keywords.set_item(key, value == "True")?;
-                        }
-                    }
-                    PyTuple::new(py, [s.name().into_pyobject(py)?.into_any(), keywords.into_any()])?.into_any()
-                }
-                Kind::Num(Number::Float(value)) => value.into_pyobject(py)?.into_any(),
-                _ => printer::srepr(&self.e).into_pyobject(py)?.into_any(),
-            };
-            return Ok((f, PyTuple::new(py, [self.e.class_name().into_pyobject(py)?.into_any(), value])?));
-        }
-        // Keep the native coefficient payload and powers verbatim. Public
-        // args omit zero constants, and reevaluation can normalize a second
-        // time, so neither args nor srepr can represent this losslessly.
-        if let Kind::Func(Func::Logic(op), children) = self.e.kind() {
-            let restore = py.import("symox._core")?.getattr("_restore_logic")?;
-            let values: Vec<_> = children.iter().cloned().map(wrap).collect();
-            return Ok((restore, (op.name(), values).into_pyobject(py)?));
-        }
-        let payload = match self.e.kind() {
-            Kind::Add(c, terms) => Some((c.clone(), terms.iter().map(|(term, coefficient)|
-                (wrap(term.clone()), wrap(Expr::num(coefficient.clone())))).collect::<Vec<_>>())),
-            Kind::Mul(c, factors) => Some((c.clone(), factors.iter().map(|(base, exponent)|
-                (wrap(base.clone()), wrap(exponent.clone()))).collect::<Vec<_>>())),
-            Kind::Pow(base, exponent) => Some((Number::ONE, vec![(wrap(base.clone()), wrap(exponent.clone()))])),
-            _ => None,
-        };
-        if let Some((coefficient, children)) = payload {
-            let f = py.import("symox._core")?.getattr("_restore_arithmetic")?;
-            return Ok((f, (self.e.class_name(), wrap(Expr::num(coefficient)), children,
-                           self.e.is_canonical()).into_pyobject(py)?));
-        }
-        let args = self.e.args();
-        let evaluate = self.e.is_canonical();
-        let f = compat.getattr("_restore_expr")?;
-        Ok((f, PyTuple::new(py, [
-            self.e.class_name().into_pyobject(py)?.into_any(),
-            PyTuple::new(py, args.into_iter().map(wrap))?.into_any(),
-            evaluate.into_pyobject(py)?.to_owned().into_any(),
-        ])?))
+        // Encoding physical nodes once preserves scalar sharing just as it
+        // does mixed matrix expressions. Recursive child pickles duplicate a
+        // shared binary DAG exponentially and can lose native metadata.
+        matrix_dag::reduce_expr(py, &self.e)
     }
 
     // structure --------------------------------------------------------
@@ -816,7 +803,7 @@ impl PyExpr {
             Kind::Add(..) => Some("Add"),
             Kind::Mul(..) => Some("Mul"),
             Kind::Pow(..) => Some("Pow"),
-            Kind::Sym(_) => Some("Symbol"),
+            Kind::Sym(s) => Some(if s.is_dummy() { "Dummy" } else { "Symbol" }),
             Kind::Num(n) if n.is_integer() => Some("Integer"),
             Kind::Num(n) if n.is_rational() => Some("Rational"),
             Kind::Num(_) => Some("Float"),
@@ -870,6 +857,15 @@ impl PyExpr {
     #[getter]
     fn is_Symbol(&self) -> bool {
         self.e.is_symbol()
+    }
+    #[getter]
+    fn is_Dummy(&self) -> bool {
+        self.e.as_sym().is_some_and(|s| s.is_dummy())
+    }
+    #[getter]
+    fn dummy_index(&self) -> PyResult<BigInt> {
+        self.e.as_sym().and_then(|s| s.dummy_index()).cloned()
+            .ok_or_else(|| pyo3::exceptions::PyAttributeError::new_err("expression is not a Dummy"))
     }
     #[getter]
     fn is_Number(&self) -> bool {
@@ -1356,7 +1352,7 @@ impl PyExpr {
         query(&self.e)
     }
 
-    fn count_ops(&self) -> usize { operation_count(&self.e) }
+    fn count_ops(&self) -> BigInt { operation_count(&self.e) }
 
     fn as_ordered_factors(&self) -> Vec<PyExpr> {
         symox::sortkey::ordered_factors(&self.e).into_iter().map(wrap).collect()
@@ -1491,6 +1487,7 @@ pub struct Head {
     kind: HeadKind,
 }
 
+#[derive(PartialEq, Eq, Hash)]
 enum HeadKind {
     Add,
     Mul,
@@ -1520,6 +1517,23 @@ impl Head {
 
 #[pymethods]
 impl Head {
+    fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {
+        let py = other.py();
+        let equal = other.extract::<PyRef<'_, Self>>().is_ok_and(|other| self.kind == other.kind);
+        Ok(match op {
+            pyo3::basic::CompareOp::Eq => equal.into_pyobject(py)?.to_owned().into_any().unbind(),
+            pyo3::basic::CompareOp::Ne => (!equal).into_pyobject(py)?.to_owned().into_any().unbind(),
+            _ => py.NotImplemented(),
+        })
+    }
+
+    fn __hash__(&self) -> isize {
+        let mut hasher = DefaultHasher::new();
+        self.kind.hash(&mut hasher);
+        let hash = hasher.finish() as isize;
+        if hash == -1 { -2 } else { hash }
+    }
+
     #[pyo3(signature = (*args))]
     fn __call__(&self, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
         let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
@@ -1638,6 +1652,7 @@ fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObj
         use symox::sortkey::Key;
         Ok(match key {
             Key::Int(n) => (*n).into_pyobject(py)?.into_any().unbind(),
+            Key::Index(n) => n.clone().into_pyobject(py)?.into_any().unbind(),
             Key::Str(s) => s.as_str().into_pyobject(py)?.into_any().unbind(),
             Key::Num(n) => wrap(Expr::num(n.clone())).into_pyobject(py)?.into_any().unbind(),
             Key::Tup(keys) => PyTuple::new(py, keys.iter().map(|key| convert(py, key, tuples)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind(),
@@ -1674,6 +1689,19 @@ fn py_symbol(name: &str, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<Py
     let a = symox::Assumptions::from_kwargs(kw.iter().map(|(k, v)| (k.as_str(), *v)))
         .map_err(PyValueError::new_err)?;
     Ok(wrap(Expr::symbol_with(name, a)))
+}
+
+#[pyfunction]
+#[pyo3(name = "Dummy", signature = (name=None, dummy_index=None, **assumptions))]
+fn py_dummy(name: Option<&str>, dummy_index: Option<BigInt>, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    let given = py_symbol("", assumptions)?.e.as_sym().unwrap().given();
+    let symbol = match (name, dummy_index) {
+        (Some(name), Some(index)) => symox::Symbol::dummy_with_index(name, given, index),
+        (Some(name), None) => symox::Symbol::dummy(name, given),
+        (None, None) => symox::Symbol::anonymous_dummy(given),
+        (None, Some(_)) => return Err(PyValueError::new_err("an explicit dummy_index requires a name")),
+    };
+    Ok(wrap(Expr::from_kind(Kind::Sym(symbol))))
 }
 
 #[pyfunction]
@@ -2236,6 +2264,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_restore_logic, m)?)?;
     m.add_function(wrap_pyfunction!(py_default_sort_key, m)?)?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
+    m.add_function(wrap_pyfunction!(py_dummy, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;
     m.add_function(wrap_pyfunction!(py_wild, m)?)?;
     m.add_function(wrap_pyfunction!(py_integer, m)?)?;

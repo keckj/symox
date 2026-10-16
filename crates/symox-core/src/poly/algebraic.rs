@@ -21,6 +21,7 @@ use crate::ops::{add, mul, pow};
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct NumberField {
     pub generator: Expr,
+    pub alias: Option<Expr>,
     pub minimal: Vec<Rat>,
     /// Valid only for the pure quadratic fast path (model=None).
     pub radicand: Rat,
@@ -28,6 +29,9 @@ pub struct NumberField {
 }
 
 impl NumberField {
+    pub fn same_embedding(&self,other:&Self)->bool {
+        self.generator==other.generator && self.minimal==other.minimal && self.model==other.model && self.radicand==other.radicand
+    }
     pub fn quadratic(generator: &Expr) -> PResult<Arc<Self>> {
         if !crate::traverse::free_symbols(generator).is_empty() {
             return Err(PolyError::Unsupported(
@@ -62,6 +66,7 @@ impl NumberField {
         }
         Ok(Arc::new(Self {
             generator: generator.clone(),
+            alias: None,
             minimal: vec![d.neg(), Rat::zero(), Rat::one()],
             radicand: d,
             model: None,
@@ -93,6 +98,7 @@ impl NumberField {
         }
         Ok(Arc::new(Self {
             generator: generator.clone(),
+            alias: None,
             minimal: model.minimal.clone(),
             radicand: Rat::zero(),
             model: Some(Arc::new(model)),
@@ -109,6 +115,7 @@ impl NumberField {
         }
         Ok(Arc::new(Self {
             generator,
+            alias: None,
             minimal: model.minimal.clone(),
             radicand: Rat::zero(),
             model: Some(Arc::new(model)),
@@ -136,7 +143,7 @@ impl NumberField {
         self.minimal.len() - 1
     }
     pub fn display(&self) -> String {
-        format!("QQ<{}>", self.generator)
+        format!("QQ<{}>", self.alias.as_ref().unwrap_or(&self.generator))
     }
     pub fn parse(domain: &str) -> PResult<Option<Arc<Self>>> {
         if !domain.starts_with("QQ<") {

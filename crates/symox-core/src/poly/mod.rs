@@ -45,3 +45,7 @@ pub mod f5b;
 pub mod algebraic_model;
 
 pub mod algebraic_rational;
+
+pub mod domains;
+
+pub mod domain_integration;

@@ -105,11 +105,20 @@ exact rational-power and supported quadratic facts filter solver candidates
 without floating-point tolerances. Unquoted Unicode symbol names are accepted.
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
+`Dummy` atoms carry a distinct identity index: two `Dummy("x")` objects remain
+different through substitutions, differentiation, SymPy conversion and pickling.
+`Symbol("_x")` remains an ordinary symbol. Code printers use distinct indexed
+identifiers for dummy variables. Tensor, Slang and SYCL printers also accept
+explicit symbol-name mappings.
 `as_coeff_add`, `as_coeff_mul`, `as_independent` and `as_content_primitive`
 provide structural decompositions, including dependency selection and rational
 or supported radical content. Floating-point presence and maximum precision
 are cached per node, so repeated inspection preserves shared expression graphs
 instead of traversing every occurrence again.
+Scalar equality, ordering, operation counts and pickles also preserve DAG sharing.
+`count_ops()` counts all occurrences in the mathematical expression using exact
+integers, without expanding a shared tree. Scalar pickles use flat native node
+records; existing recursive scalar pickles remain readable.
 Undefined functions preserve their identity and declared assumptions and arity,
 including names shared with builtins. Held `Derivative`, `Subs` and `Limit` expressions
 support evaluation and round trips; simultaneous symbol substitutions preserve
@@ -461,6 +470,47 @@ and [installation instructions](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/
 
 ## Polynomial ideals and linear systems
 
+`ZZ`, `QQ` and `GF(prime)` are native domain objects, also available from
+`symox.polys.domains`. `QQ.algebraic_field(...)`, `QQ.frac_field(...)` and
+`QQ.poly_ring(...)` construct supported exact extensions. Domain elements retain
+their domain under arithmetic; conversions check membership instead of merely
+changing a label.
+
+```python
+import symox as sm
+
+a, b, x = sm.symbols("a b x")
+K = sm.QQ.frac_field(a, b, order="grevlex")
+u = K.convert((a + 1)/(b - 1))
+assert u * u**-1 == K.one
+p = sm.Poly(x**2 + x/a + b, x, domain=K)
+assert p.domain == K and p.domain.is_Field
+```
+
+For supported coefficient domains, `Poly.domain` and `GroebnerBasis.domain`
+return domain objects. Use `str(domain)`
+for their display names; a domain does not compare equal to a string.
+Typed domains preserve generator assumptions and order, unused parameters,
+algebraic embeddings and aliases through polynomial operations and pickling.
+`set_domain`, `to_field` and `to_ring` validate the resulting coefficients.
+`Poly.integrate` promotes coefficient rings to their fraction fields by default;
+`auto=False` retains the ring and raises `ExactQuotientFailed` when division
+is not exact, including multivariate cases where SymPy 1.14 silently truncates
+integer coefficients. Finite-field integration uses modular inverses and raises
+`NotInvertible` when the required denominator vanishes in the field.
+Finite fields currently require a prime characteristic below `2**32`. Domain
+elements share a native `DomainElement` representation; `K.dtype` constructs and
+recognizes elements of `K`. Converting inexact floats to exact domains is not
+implemented. Rational-function and
+polynomial coefficient domains use `ZZ` or `QQ` ground coefficients; additional
+towers require separate support. Finite-field elements compare within their
+own domain, avoiding SymPy's inconsistent equality/hash behavior with integers.
+Euclidean division in polynomial coefficient rings and fraction fields over
+finite or algebraic ground domains require further support.
+Existing polynomial calculations with general expression coefficients remain
+available; requesting a typed domain for unsupported expression or inexact
+coefficient rings raises `NotImplementedError`.
+
 `groebner` computes reduced Gröbner bases with native Buchberger and F5B
 algorithms over `QQ`, `ZZ`, prime finite fields and rational-function coefficient fields
 such as `QQ(a,b)`. Polynomial coefficient rings `QQ[a,b]` and `ZZ[a,b]`
@@ -597,9 +647,11 @@ also support finite matrix output generation for PyTorch and JAX.
 immutable grid through `.blocks`. `block_collapse` combines compatible block
 sums, products and nonnegative integer powers while retaining unsupported
 operations. `BlockDiagMatrix` also supports rectangular diagonal blocks.
-`MatrixSlice` and matrix slice indexing support
-contiguous slices with step 1, including nested slices and negative bounds.
-Empty, out-of-range and other-step slices are rejected explicitly.
+`MatrixSlice` and matrix slice indexing follow Python clipping and stride rules,
+including negative steps, omitted bounds, empty ranges and nested slices.
+Scalar indices preserve a one-row or one-column matrix when combined with a
+slice. Symbolic strides require a known nonzero sign; normalized affine ranges
+retain their exact lengths through reconstruction, transformations and pickling.
 Matrix hashes, symbol discovery, rewrites, sort keys and pickles preserve shared
 DAG nodes, including derivatives of large matrix powers. The versioned pickle
 codec records scalar and matrix nodes directly, preserving held arithmetic,

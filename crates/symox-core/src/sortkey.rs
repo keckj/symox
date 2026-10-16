@@ -22,6 +22,7 @@ pub(crate) enum PresentationArg {
     Scalar(Expr),
     Matrix(MatrixExpr),
     Text(String),
+    None,
     Node(&'static str, Vec<PresentationArg>),
 }
 
@@ -48,8 +49,8 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
         MatrixKind::Zero | MatrixKind::One => vec![S(matrix.rows().clone()), S(matrix.cols().clone())],
         MatrixKind::HadamardProduct(factors) | MatrixKind::Kronecker(factors) | MatrixKind::BlockDiag(factors) => factors.iter().cloned().map(M).collect(),
         MatrixKind::Slice(parent, rows, cols) => vec![M(parent.clone()),
-            PresentationArg::Node("Tuple", rows.iter().cloned().map(S).collect()),
-            PresentationArg::Node("Tuple", cols.iter().cloned().map(S).collect())],
+            PresentationArg::Node("Tuple", rows.args().into_iter().map(|e| e.map(S).unwrap_or(PresentationArg::None)).collect()),
+            PresentationArg::Node("Tuple", cols.args().into_iter().map(|e| e.map(S).unwrap_or(PresentationArg::None)).collect())],
         MatrixKind::HadamardPower(base, exponent) => [base, exponent].into_iter().map(|operand| match operand {
             MatrixOperand::Scalar(e) => S(e.clone()), MatrixOperand::Matrix(m) => M(m.clone()),
         }).collect(),
@@ -125,6 +126,7 @@ pub fn matrix_sort_key(matrix: &MatrixExpr) -> Key {
 #[derive(Clone, Debug)]
 pub enum Key {
     Int(i64),
+    Index(num_bigint::BigInt),
     Str(String),
     Num(Number),
     Tup(Vec<Key>),
@@ -134,7 +136,7 @@ pub enum Key {
 impl Key {
     fn rank(&self) -> u8 {
         match self {
-            Key::Int(_) => 0,
+            Key::Int(_) | Key::Index(_) => 0,
             Key::Num(_) => 0,
             Key::Str(_) => 1,
             Key::Tup(_) | Key::Shared(_) => 2,
@@ -162,6 +164,11 @@ impl Ord for Key {
         }
         match (self, o) {
             (Key::Int(a), Key::Int(b)) => a.cmp(b),
+            (Key::Index(a), Key::Index(b)) => a.cmp(b),
+            (Key::Index(a), Key::Int(b)) => a.cmp(&(*b).into()),
+            (Key::Int(a), Key::Index(b)) => num_bigint::BigInt::from(*a).cmp(b),
+            (Key::Index(a), Key::Num(b)) => cmp_num(&Number::from_bigint(a.clone()), b),
+            (Key::Num(a), Key::Index(b)) => cmp_num(a, &Number::from_bigint(b.clone())),
             (Key::Num(a), Key::Num(b)) => cmp_num(a, b),
             (Key::Int(a), Key::Num(b)) => cmp_num(&Number::Int(*a), b),
             (Key::Num(a), Key::Int(b)) => cmp_num(a, &Number::Int(*b)),
@@ -284,6 +291,7 @@ impl SortKeyCache {
             PresentationArg::Scalar(e) => self.key(&e),
             PresentationArg::Matrix(m) => self.matrix_key(&m),
             PresentationArg::Text(s) => composite_key((2, 0, "Str"), vec![Key::Str(s)]),
+            PresentationArg::None => composite_key((0, 0, "NoneType"), vec![Key::Str("None".into())]),
             PresentationArg::Node(name, args) => {
                 let args = args.into_iter().map(|arg| self.presentation_key(arg)).collect();
                 composite_key((5, 0, name), args)
@@ -305,6 +313,10 @@ impl SortKeyCache {
 
     fn compute(&mut self, e: &Expr) -> Key {
     match e.kind() {
+        Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 && args[0].is_symbol() => {
+            let variables=composite_key((5,0,"Tuple"),vec![self.key(&args[0])]);
+            return composite_key((5,0,"Lambda"),vec![variables,self.key(&args[1])]);
+        }
         Kind::Derivative(expression, variables) => {
             let mut args = vec![self.key(expression)];
             for (variable, count) in variables {
@@ -335,7 +347,7 @@ impl SortKeyCache {
         Kind::Pow(b, x) => (b.clone(), x.clone()),
         _ => (rest.clone(), Expr::one()),
     };
-    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
         let mut parts = match self.key(&base) {
             Key::Tup(parts) => parts,
             Key::Shared(parts) => parts.to_vec(),
@@ -345,7 +357,15 @@ impl SortKeyCache {
         parts[3] = Key::Num(coeff);
         return tup(parts);
     }
-    let args: Vec<Key> = if base.is_atom() {
+    let args: Vec<Key> = if let Kind::Sym(symbol) = base.kind() {
+        match symbol.dummy_index() {
+            // Dummy.sort_key has its own atomic representation, whereas
+            // Expr.sort_key wraps a Dummy base in its complete atomic key.
+            Some(_) if !e.is_symbol() => vec![self.key(&base)],
+            Some(index) => vec![Key::Str(symbol.name().into()), Key::Index(index.clone())],
+            None => vec![Key::Str(crate::printer::to_str(&base))],
+        }
+    } else if base.is_atom() {
         vec![Key::Str(crate::printer::to_str(&base))]
     } else {
         match base.kind() {
@@ -499,6 +519,19 @@ pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dummy_base_is_wrapped_only_for_composite_expression_keys() {
+        let d=Expr::dummy_with_index("x",crate::Assumptions::NONE,37.into());
+        let atom=sort_key(&d);
+        for expression in [crate::ops::neg(&d),crate::ops::mul2(&Expr::int(2),&d),d.powi(2),crate::ops::mul2(&Expr::int(2),&d.powi(2))] {
+            let key=sort_key(&expression);
+            let args=key.tuple().unwrap()[1].tuple().unwrap();
+            assert_eq!(args[0],Key::Int(1));
+            assert_eq!(args[1].tuple().unwrap(),&[atom.clone()]);
+        }
+        assert_eq!(atom.tuple().unwrap()[1].tuple().unwrap()[0],Key::Int(2));
+    }
 
     #[test]
     fn shared_and_owned_sort_keys_have_identical_ordering() {

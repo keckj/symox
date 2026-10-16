@@ -17,6 +17,7 @@ pub struct FractionPoly {
     pub gens: Vec<Expr>,
     pub parameters: Vec<Expr>,
     pub display: String,
+    pub coefficient_domain: super::domains::ExactDomain,
 }
 
 pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr>>> {
@@ -103,7 +104,7 @@ pub fn coefficient_expr(c: &RF, parameters: &[Expr]) -> Expr {
     )
 }
 
-fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
+pub fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
     let value = crate::simplify::together(value);
     let (num, den) = crate::simplify::numer_denom(&value);
     let converted = from_exprs_gens(&[num, den], parameters)?;
@@ -165,6 +166,7 @@ impl FractionPoly {
             gens: gens.to_vec(),
             parameters: parameters.to_vec(),
             display: display.into(),
+            coefficient_domain: super::domains::ExactDomain::functions(display.starts_with("ZZ"),display.ends_with(']'),parameters.to_vec(),"lex")?,
         })
     }
     pub fn with_rep(&self, rep: MPoly<RF>) -> Self {
@@ -199,7 +201,11 @@ impl FractionPoly {
             .expect("field polynomial is polynomial in its generators")
     }
     pub fn convert(&self, e: &Expr) -> PResult<Self> {
-        Self::from_expr(e, &self.gens, &self.parameters, &self.display)
+        Self::from_expr(e, &self.gens, &self.parameters, &self.display).map(|mut p| {p.coefficient_domain=self.coefficient_domain.clone();p})
+    }
+    pub fn promote_field(&mut self) {
+        self.display=self.display.replace('[',"(").replace(']',")");
+        self.coefficient_domain=self.coefficient_domain.field();
     }
     pub fn belongs_to_ring(&self) -> bool {
         self.rep
@@ -230,7 +236,7 @@ impl FractionPoly {
         let _s = Scope::new(self.parameters.len());
         let mut p = self.with_rep(fieldalg::monic(&self.rep, MonomialOrder::Lex));
         if p.display.ends_with(']') && !p.belongs_to_ring() {
-            p.display = p.display.replace('[', "(").replace(']', ")");
+            p.promote_field();
         }
         p
     }
@@ -247,8 +253,8 @@ impl FractionPoly {
         let mut q = self.with_rep(q.into_iter().next().unwrap());
         let mut r = self.with_rep(r);
         if self.display.ends_with(']') && (!q.belongs_to_ring() || !r.belongs_to_ring()) {
-            q.display = q.display.replace('[', "(").replace(']', ")");
-            r.display = q.display.clone();
+            q.promote_field();
+            r.promote_field();
         }
         Ok((q, r))
     }
@@ -268,7 +274,9 @@ impl FractionPoly {
                 (e, c)
             })
             .collect();
-        self.with_rep(MPoly::from_terms(self.gens.len(), terms))
+        let mut p=self.with_rep(MPoly::from_terms(self.gens.len(), terms));
+        p.promote_field();
+        p
     }
     pub fn gcd(&self, other: &Self) -> Self {
         let _s = Scope::new(self.parameters.len());
@@ -284,12 +292,20 @@ impl FractionPoly {
             .expect("gcd polynomial conversion")
             .monic();
         if self.display.ends_with(']') {
-            let mut p = p.ring_normalize();
-            p.display = self.display.clone();
-            p
+            if p.rep.is_zero(){return self.with_rep(p.rep);}
+            let content=self.coefficient_content().gcd(&other.coefficient_content()).expect("valid coefficient-ring gcd");
+            let mut primitive=p.with_rep(p.rep.scale(&RF::from_poly(p.denominator())));
+            primitive.display=self.display.clone();primitive.coefficient_domain=self.coefficient_domain.clone();
+            let divisor=primitive.coefficient_content();
+            let (super::domains::ElementValue::Function(content),super::domains::ElementValue::Function(divisor))=(content.value,divisor.value)else{unreachable!()};
+            self.with_rep(primitive.rep.scale(&content.div(&divisor)))
         } else {
             p
         }
+    }
+    fn coefficient_content(&self)->super::domains::DomainElement {
+        use super::domains::{DomainElement,ElementValue};
+        self.rep.coeffs().iter().fold(DomainElement{domain:self.coefficient_domain.clone(),value:ElementValue::Function(RF::zero())},|g,c|g.gcd(&DomainElement{domain:self.coefficient_domain.clone(),value:ElementValue::Function(c.clone())}).expect("valid polynomial-ring coefficient gcd"))
     }
     pub fn clear_coeff_denominators(&self) -> MPoly<Int> {
         let _s = Scope::new(self.parameters.len());
@@ -511,7 +527,7 @@ impl Polynomial {
         }
         let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
         let field=if let(Some(a),Some(b))=(&self.algebraic,&o.algebraic){
-            if a.number_field==b.number_field {a.number_field.clone()}else{
+            if a.number_field.same_embedding(&b.number_field) {a.number_field.clone()}else{
                 super::algebraic::NumberField::from_generators(&[a.number_field.generator.clone(),b.number_field.generator.clone()])?
             }
         }else{prototype.number_field.clone()};
@@ -571,10 +587,13 @@ impl Polynomial {
                 display = display.replacen("QQ", "ZZ", 1);
             }
         }
-        let a = FractionPoly::from_expr(&self.as_expr(), &gens, &parameters, &display)
+        let mut a = FractionPoly::from_expr(&self.as_expr(), &gens, &parameters, &display)
             .expect("compatible fraction fields");
-        let b = FractionPoly::from_expr(&o.as_expr(), &gens, &parameters, &display)
+        let mut b = FractionPoly::from_expr(&o.as_expr(), &gens, &parameters, &display)
             .expect("compatible fraction fields");
+        let order=if let super::domains::ExactDomain::Functions{order,..}=&prototype.coefficient_domain {order.as_str()}else{"lex"};
+        a.coefficient_domain=super::domains::ExactDomain::functions(display.starts_with("ZZ"),display.ends_with(']'),parameters,order).expect("valid coefficient domain");
+        b.coefficient_domain=a.coefficient_domain.clone();
         Some((a, b))
     }
     pub fn add(&self, o: &Self) -> Self {
@@ -690,20 +709,9 @@ impl Polynomial {
         (g, a, b)
     }
     pub fn to_sympy_string(&self) -> String {
-        if self.field.is_none() && self.algebraic.is_none() {
-            return self.base.to_sympy_string();
-        }
-        format!(
-            "Poly({}, {}, domain='{}')",
-            self.as_expr(),
-            self.true_gens()
-                .iter()
-                .map(crate::printer::to_str)
-                .collect::<Vec<_>>()
-                .join(", "),
-            self.domain_str()
-        )
+        self.base.to_sympy_string_with_domain(&self.domain_str())
     }
+
 }
 
 #[cfg(test)]
@@ -770,6 +778,42 @@ mod tests {
             .collect();
         for worker in workers {
             worker.join().unwrap();
+        }
+    }
+}
+
+#[cfg(test)]
+mod implicit_ring_gcd_certificates {
+    use super::*;
+    use crate::parser::parse_str;
+    #[test]
+    fn coefficient_first_display_preserves_main_generator_order(){
+        let x=Expr::symbol("x");let y=Expr::symbol("y");
+        for (source,generator,parameter,domain,expected) in [
+            ("x*y+1",x.clone(),y.clone(),"ZZ[y]","Poly(y*x + 1, x, domain='ZZ[y]')"),
+            ("x^2+2*x*y+1",y.clone(),x.clone(),"ZZ[x]","Poly(2*x*y + x**2 + 1, y, domain='ZZ[x]')"),
+            ("x^2+x*y",y,x,"ZZ[x]","Poly(x*y + x**2, y, domain='ZZ[x]')"),
+        ]{
+            let p:Polynomial=FractionPoly::from_expr(&parse_str(source).unwrap(),&[generator],&[parameter],domain).unwrap().into();
+            assert_eq!(p.to_sympy_string(),expected);
+        }
+    }
+    #[test]
+    fn ring_content_survives_fraction_field_primitive_gcd(){
+        let x=Expr::symbol("x");let a=Expr::symbol("a");
+        for (domain,left,right,expected) in [
+            ("ZZ[a]","a*x","a*x^2","a*x"),
+            ("ZZ[a]","2*a*x+2*a","4*a*x^2+8*a*x+4*a","2*a*x+2*a"),
+            ("QQ[a]","2*a*x/3","4*a*x^2/5","2*a*x/15"),
+            ("QQ[a]","2*(a+1)*x/3","4*(a+1)*x^2/5","(a+1)*x"),
+            ("QQ[a]","x/2+1","x/3+2/3","x/6+1/3"),
+            ("ZZ[a]","0","2*(a+1)*x","2*(a+1)*x"),
+        ]{
+            let p=|source:&str|FractionPoly::from_expr(&parse_str(source).unwrap(),std::slice::from_ref(&x),std::slice::from_ref(&a),domain).unwrap();
+            let left=p(left);let right=p(right);let result=left.gcd(&right);
+            assert_eq!(result.rep,p(expected).rep,"{domain}");
+            assert!(left.div(&result).unwrap().1.rep.is_zero());assert!(right.div(&result).unwrap().1.rep.is_zero());
+            assert!(result.belongs_to_ring());assert_eq!(result.coefficient_domain,left.coefficient_domain);
         }
     }
 }

@@ -296,7 +296,9 @@ fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
         match e.kind() {
             Kind::Num(_) => (0, String::new()),
             Kind::Const(_) => (1, e.class_name().into()),
-            Kind::Sym(_) => (2, String::new()),
+            // SymPy Basic.compare puts ordinary Symbol before Dummy, unlike
+            // default_sort_key whose class names order Dummy before Symbol.
+            Kind::Sym(symbol) => (2, if symbol.is_dummy() { "1".into() } else { String::new() }),
             Kind::Pow(..) => (3, String::new()),
             Kind::Mul(..) => (4, String::new()),
             Kind::Add(..) => (5, String::new()),

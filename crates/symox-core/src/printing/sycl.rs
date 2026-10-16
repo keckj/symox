@@ -5,7 +5,7 @@
 
 use super::slang::{SlangPrinter, SlangSettings};
 use super::CodeError;
-use crate::expr::Expr;
+use crate::expr::{Expr, Kind};
 use std::collections::BTreeMap;
 
 pub use super::slang::SlangDtype as SyclDtype;
@@ -160,15 +160,20 @@ pub fn syclcode_with(
 ) -> std::result::Result<String, CodeError> {
     let mut emitted = BTreeMap::new();
     for symbol in crate::traverse::free_symbols(expr) {
+        if settings.expression_overrides.contains_key(&symbol) { continue; }
         let Some(name) = symbol.as_symbol() else {
             return Err(CodeError::Unsupported("matrix-valued SYCL inputs; materialize entries and substitute scalar inputs first".into()));
+        };
+        let default_name = match symbol.kind() {
+            Kind::Sym(s) if s.is_dummy() => format!("{}_{index}", s.name(), index=s.dummy_index().unwrap()),
+            _ => name.to_owned(),
         };
         let target = settings
             .exact_symbol_names
             .get(&symbol)
             .or_else(|| settings.symbol_names.get(name))
             .map(String::as_str)
-            .unwrap_or(name);
+            .unwrap_or(&default_name);
         if emitted
             .insert(target.to_string(), symbol.clone())
             .is_some_and(|previous| previous != symbol)

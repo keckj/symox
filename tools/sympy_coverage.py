@@ -100,6 +100,7 @@ def main():
         'Matrix methods': (sp.Matrix([[1, 2], [3, 4]]), sx.Matrix([[1, 2], [3, 4]])),
         'MatrixExpr methods': (sp.MatrixSymbol('A', 2, 2), sx.MatrixSymbol('A', 2, 2)),
         'AlgebraicNumber methods': (sp.AlgebraicNumber(sp.sqrt(2)), sx.AlgebraicNumber(sx.sqrt(2))),
+        'Rational domain methods': (sp.QQ, sx.QQ),
     }
     report = {
         'measured_at': datetime.now(timezone.utc).isoformat(),
