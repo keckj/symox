@@ -12,8 +12,10 @@
 //! assert_eq!(diff(&sin(&x), &x).to_string(), "cos(x)");
 //! ```
 
+pub mod bigfloat;
 pub mod diff;
 pub mod evalf;
+pub mod evalf_mp;
 pub mod expand;
 pub mod expr;
 pub mod functions;
