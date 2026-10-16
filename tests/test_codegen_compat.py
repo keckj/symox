@@ -31,8 +31,12 @@ def trisplyne_printers(tmp_path_factory):
     if not source.exists():
         pytest.skip("Set TRISPLYNE_PRINTERS to run the trisplyne integration checks")
     pytest.importorskip("sympy")
-    reference = _load_module(source, "_trisplyne_sympy_printers")
-    target = tmp_path_factory.mktemp("trisplyne_printer") / "printers.py"
+    directory = tmp_path_factory.mktemp("trisplyne_printer")
+    reference_source = directory / "reference.py"
+    reference_source.write_text(source.read_text().replace("import symox", "import sympy").replace(
+        "from symox.", "from sympy."))
+    reference = _load_module(reference_source, "_trisplyne_sympy_printers")
+    target = directory / "printers.py"
     target.write_text(source.read_text().replace("import sympy", "import symox").replace(
         "from sympy.", "from symox."))
     compatible = _load_module(target, "_trisplyne_symox_printers")

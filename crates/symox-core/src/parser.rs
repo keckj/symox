@@ -260,6 +260,18 @@ impl Parser {
         Ok(Val::E(add(&terms)))
     }
 
+    /// An expression, with tuples converted to `Tuple(...)` (for
+    /// `hyper((a,), (b,), z)`).
+    fn tuple_expr(&self, v: Val) -> R<Expr> {
+        match v {
+            Val::Tuple(t) => {
+                let items = t.into_iter().map(|x| self.tuple_expr(x)).collect::<R<Vec<Expr>>>()?;
+                Ok(crate::special::tuple(items))
+            }
+            v => self.as_expr(v),
+        }
+    }
+
     fn as_expr(&self, v: Val) -> R<Expr> {
         match v {
             Val::E(e) => Ok(e),
@@ -512,17 +524,19 @@ impl Parser {
                 let v = exprs(self, args)?;
                 log_base(&v[0], &v[1])
             }
-            "Eq" | "Ne" | "Lt" | "Le" | "Gt" | "Ge" => {
+            "Eq" | "Ne" | "Lt" | "Le" | "Gt" | "Ge"
+            | "Equality" | "Unequality" | "StrictLessThan" | "LessThan"
+            | "StrictGreaterThan" | "GreaterThan" => {
                 let v = exprs(self, args)?;
                 if v.len() != 2 {
                     return self.err(format!("{name} expects 2 arguments"));
                 }
                 let op = match name {
-                    "Eq" => RelOp::Eq,
-                    "Ne" => RelOp::Ne,
-                    "Lt" => RelOp::Lt,
-                    "Le" => RelOp::Le,
-                    "Gt" => RelOp::Gt,
+                    "Eq" | "Equality" => RelOp::Eq,
+                    "Ne" | "Unequality" => RelOp::Ne,
+                    "Lt" | "StrictLessThan" => RelOp::Lt,
+                    "Le" | "LessThan" => RelOp::Le,
+                    "Gt" | "StrictGreaterThan" => RelOp::Gt,
                     _ => RelOp::Ge,
                 };
                 rel(op, &v[0], &v[1])
@@ -603,7 +617,11 @@ impl Parser {
             }
             "expand" => crate::expand::expand(&one(self, args)?),
             _ => {
-                let v = exprs(self, args)?;
+                let v = if matches!(name, "hyper" | "bell") {
+                    args.into_iter().map(|a| self.tuple_expr(a)).collect::<R<Vec<Expr>>>()?
+                } else {
+                    exprs(self, args)?
+                };
                 match Func::from_name(name) {
                     Some(f) => {
                         if let Some(n) = f.arity() {
