@@ -51,6 +51,17 @@ impl Number {
         Float(if f == 0.0 { 0.0 } else { f })
     }
 
+    /// Result of floating point arithmetic: like SymPy, an exact zero
+    /// result is the integer `0` (`Float(6.0) - 6 == 0`).
+    #[inline]
+    pub fn float_result(f: f64) -> Number {
+        if f == 0.0 {
+            Int(0)
+        } else {
+            Float(f)
+        }
+    }
+
     /// Build `n/d` in lowest terms. Returns `None` if `d == 0`.
     pub fn rational(n: BigInt, d: BigInt) -> Option<Number> {
         if d.is_zero() {
@@ -236,8 +247,8 @@ impl Number {
                 Some(v) => Int(v),
                 None => BigInt(BigInt::from(*a) + BigInt::from(*b)),
             },
-            (Float(a), _) => Self::float(a + o.to_f64()),
-            (_, Float(b)) => Self::float(self.to_f64() + b),
+            (Float(a), _) => Self::float_result(a + o.to_f64()),
+            (_, Float(b)) => Self::float_result(self.to_f64() + b),
             (Rational(_), _) | (_, Rational(_)) => {
                 Self::from_ratio(self.to_ratio().unwrap() + o.to_ratio().unwrap())
             }
@@ -261,8 +272,8 @@ impl Number {
                 Some(v) => Int(v),
                 None => BigInt(BigInt::from(*a) * BigInt::from(*b)),
             },
-            (Float(a), _) => Self::float(a * o.to_f64()),
-            (_, Float(b)) => Self::float(self.to_f64() * b),
+            (Float(a), _) => Self::float_result(a * o.to_f64()),
+            (_, Float(b)) => Self::float_result(self.to_f64() * b),
             (Rational(_), _) | (_, Rational(_)) => {
                 Self::from_ratio(self.to_ratio().unwrap() * o.to_ratio().unwrap())
             }
@@ -273,8 +284,8 @@ impl Number {
     /// Division. Returns `None` when dividing an exact number by exact zero.
     pub fn div(&self, o: &Number) -> Option<Number> {
         match (self, o) {
-            (Float(a), _) => Some(Self::float(a / o.to_f64())),
-            (_, Float(b)) => Some(Self::float(self.to_f64() / b)),
+            (Float(a), _) => Some(Self::float_result(a / o.to_f64())),
+            (_, Float(b)) => Some(Self::float_result(self.to_f64() / b)),
             _ if o.is_zero() => None,
             (Int(a), Int(b)) => Self::rational_i64(*a, *b),
             _ => Some(Self::from_ratio(

@@ -618,7 +618,8 @@ pub struct CharPoly {
 }
 
 impl CharPoly {
-    /// `PurePoly.as_expr()`: the expanded polynomial.
+    /// `PurePoly.as_expr()`: `sum(c_k * var**k)` (coefficients kept as
+    /// they are, like SymPy's conversion from the ground domain).
     pub fn as_expr(&self) -> Expr {
         let n = self.coeffs.len() - 1;
         let terms: Vec<Expr> = self
@@ -627,7 +628,7 @@ impl CharPoly {
             .enumerate()
             .map(|(i, c)| mul2(c, &pow(&self.var, &Expr::int((n - i) as i64))))
             .collect();
-        expand(&add(&terms))
+        add(&terms)
     }
 }
 

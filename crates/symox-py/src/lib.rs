@@ -248,8 +248,13 @@ impl PyExpr {
     fn __rsub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(wrap(ops::sub(&to_expr(o)?, &self.e)))
     }
-    fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::mul2(&self.e, &to_expr(o)?)))
+    fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let py = o.py();
+        if o.downcast::<matrices::PyMatrix>().is_ok() {
+            // let Matrix.__rmul__ handle scalar * matrix
+            return Ok(py.NotImplemented());
+        }
+        Ok(wrap(ops::mul2(&self.e, &to_expr(o)?)).into_pyobject(py)?.into_any().unbind())
     }
     fn __rmul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(wrap(ops::mul2(&to_expr(o)?, &self.e)))
