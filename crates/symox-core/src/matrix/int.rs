@@ -218,6 +218,17 @@ impl Int {
         }
     }
 
+    /// Floor division (for non-negative operands this is exact division
+    /// rounded down).
+    pub fn divexact_floor(&self, o: &Int) -> Int {
+        let (q, r) = self.div_rem(o);
+        if !r.is_zero() && (r.is_negative() != o.is_negative()) {
+            q.sub(&Int::ONE)
+        } else {
+            q
+        }
+    }
+
     /// Euclidean division with remainder of the same sign as the divisor
     /// is not needed: truncated division.
     pub fn div_rem(&self, o: &Int) -> (Int, Int) {

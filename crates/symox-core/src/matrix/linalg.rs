@@ -1263,26 +1263,55 @@ fn frac_charpoly(m: &Matrix, ctx: &PolyCtx) -> Option<Vec<Expr>> {
 fn poly_inverse(pm: &PolyMat, scales: &[MPoly]) -> MResult<Matrix> {
     let n = pm.rows;
     let nv = pm.ctx.nvars();
-    let w = 2 * n;
     let one = MPoly::one(nv);
     let zero = MPoly::zero(nv);
-    let mut aug = Vec::with_capacity(n * w);
-    for i in 0..n {
-        for j in 0..n {
-            aug.push(pm.get(i, j).clone());
+    // (adjugate, determinant): cofactors for small matrices, fraction-free
+    // Gauss-Jordan otherwise
+    let (adj, den): (Vec<MPoly>, MPoly) = if n <= 4 {
+        let det = bareiss_det(pm.data.clone(), n, &one);
+        if det.is_zero() {
+            return Err(non_invertible());
         }
-        for j in 0..n {
-            aug.push(if i == j { one.clone() } else { zero.clone() });
+        let mut adj = vec![zero.clone(); n * n];
+        for i in 0..n {
+            for j in 0..n {
+                // adj[j][i] = (-1)^(i+j) * minor(i, j)
+                let mut sub = Vec::with_capacity((n - 1) * (n - 1));
+                for r in (0..n).filter(|&r| r != i) {
+                    for c in (0..n).filter(|&c| c != j) {
+                        sub.push(pm.get(r, c).clone());
+                    }
+                }
+                let m = bareiss_det(sub, n - 1, &one);
+                adj[j * n + i] = if (i + j) % 2 == 1 { m.neg() } else { m };
+            }
         }
-    }
-    let (den, pivots) = rref_den(&mut aug, n, w, &one);
-    if pivots.len() < n || pivots[n - 1] != n - 1 {
-        return Err(non_invertible());
-    }
+        (adj, det)
+    } else {
+        let w = 2 * n;
+        let mut aug = Vec::with_capacity(n * w);
+        for i in 0..n {
+            for j in 0..n {
+                aug.push(pm.get(i, j).clone());
+            }
+            for j in 0..n {
+                aug.push(if i == j { one.clone() } else { zero.clone() });
+            }
+        }
+        let (den, pivots) = rref_den(&mut aug, n, w, &one);
+        if pivots.len() < n || pivots[n - 1] != n - 1 {
+            return Err(non_invertible());
+        }
+        let mut adj = Vec::with_capacity(n * n);
+        for i in 0..n {
+            adj.extend_from_slice(&aug[i * w + n..(i + 1) * w]);
+        }
+        (adj, den)
+    };
     let mut data = Vec::with_capacity(n * n);
     for i in 0..n {
         for j in 0..n {
-            let x = &aug[i * w + n + j];
+            let x = &adj[i * n + j];
             if x.is_zero() {
                 data.push(Expr::zero());
                 continue;
