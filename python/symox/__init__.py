@@ -255,6 +255,7 @@ from ._core import (  # noqa: E402
     prem,
     quo,
     real_roots,
+    reduced,
     rem,
     resultant,
     roots,
@@ -575,5 +576,15 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
     return reps, red
 
 # --- end printing ---
+
+# SymPy's constructor classes and printer extension points. Keep this last:
+# constructors delegate to the native API defined above.
+from ._compat import (  # noqa: E402
+    Add, Mul, Pow, Symbol, Number, Integer, Rational, Float, UnevaluatedExpr,
+    S, count_ops, default_sort_key,
+)
+from .codegen.ast import Indexed, IndexedBase  # noqa: E402
+from .printing.str import StrPrinter  # noqa: E402
+from .printing.pretty import PrettyPrinter  # noqa: E402
 
 __all__ = [n for n in dir() if not n.startswith("_")]

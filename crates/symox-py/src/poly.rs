@@ -5,7 +5,7 @@
 
 #![allow(non_snake_case)]
 
-use pyo3::exceptions::{PyTypeError, PyValueError, PyZeroDivisionError};
+use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 
@@ -927,6 +927,32 @@ fn py_div<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens
 }
 
 #[pyfunction]
+#[pyo3(signature = (f, g, *gens, order="lex", **_kwargs))]
+fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    if order != "lex" {
+        return Err(PyValueError::new_err("reduced currently supports lex monomial order"));
+    }
+    if let Some(kwargs) = _kwargs {
+        for (key, value) in kwargs.iter() {
+            let name = key.extract::<String>()?;
+            let supported = match name.as_str() {
+                "domain" | "modulus" => value.is_none(),
+                "polys" => !value.is_truthy()?,
+                "auto" => value.is_truthy()?,
+                _ => return Err(PyTypeError::new_err(format!("reduced() got an unsupported keyword argument '{name}'"))),
+            };
+            if !supported {
+                return Err(PyNotImplementedError::new_err(format!("reduced() does not support the '{name}' option")));
+            }
+        }
+    }
+    let ds: Vec<Expr> = g.try_iter()?.map(|d| to_expr(&d?)).collect::<PyResult<_>>()?;
+    let (q, r) = api::reduced(&to_expr(f)?, &ds, &gens_of(gens)?).map_err(err)?;
+    let q = PyList::new(py, q.into_iter().map(w))?;
+    PyTuple::new(py, [q.into_any(), w(r).into_pyobject(py)?.into_any()])
+}
+
+#[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn rem(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
@@ -1179,6 +1205,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(collect, m)?)?;
     m.add_function(wrap_pyfunction!(py_div, m)?)?;
     m.add_function(wrap_pyfunction!(rem, m)?)?;
+    m.add_function(wrap_pyfunction!(reduced, m)?)?;
     m.add_function(wrap_pyfunction!(quo, m)?)?;
     m.add_function(wrap_pyfunction!(exquo, m)?)?;
     m.add_function(wrap_pyfunction!(pdiv, m)?)?;

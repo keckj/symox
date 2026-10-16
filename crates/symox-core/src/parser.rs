@@ -8,7 +8,7 @@ use std::fmt;
 
 use num_bigint::BigInt;
 
-use crate::expr::{Constant, Expr, Func, RelOp};
+use crate::expr::{Constant, Expr, Func, Kind, RelOp};
 use crate::functions::{func, log_base, undefined};
 use crate::number::Number;
 use crate::ops::{add, div, mul, neg, pow, sqrt};
@@ -309,7 +309,7 @@ impl Parser {
         }
         loop {
             // keyword arguments: booleans are kept (Symbol assumptions),
-            // others (evaluate=False, precision=53) are ignored
+            // others (precision=53) are ignored
             if matches!(self.peek(), Tok::Ident(_))
                 && matches!(self.toks.get(self.pos + 1), Some((Tok::Op("="), _)))
             {
@@ -384,6 +384,22 @@ impl Parser {
                             return Ok(Val::E(Expr::symbol_with(s, a)));
                         }
                     }
+                    if matches!(name.as_str(), "Add" | "Mul" | "Pow")
+                        && kwargs.iter().any(|(key, value)| key == "evaluate" && !value)
+                    {
+                        let v: Vec<Expr> = args.into_iter().map(|a| self.as_expr(a)).collect::<R<_>>()?;
+                        if name == "Pow" && v.len() != 2 { return self.err("Pow expects 2 arguments"); }
+                        if v.len() >= 2 {
+                            let kind = match name.as_str() {
+                                "Add" => Kind::Add(Number::Int(0), v.into_iter().map(|a| (a, Number::Int(1))).collect()),
+                                "Mul" => Kind::Mul(Number::Int(1), v.into_iter().map(|a| (a, Expr::one())).collect()),
+                                "Pow" if v.len() == 2 => Kind::Pow(v[0].clone(), v[1].clone()),
+                                _ => return self.err("Pow expects 2 arguments"),
+                            };
+                            return Ok(Val::E(Expr::from_unevaluated_kind(kind)));
+                        }
+                        return Ok(Val::E(if name == "Add" { add(&v) } else { mul(&v) }));
+                    }
                     return self.call(&name, args);
                 }
                 Ok(Val::E(ident(&name)))
@@ -412,6 +428,9 @@ impl Parser {
                 Some(Val::Str(s)) => return Ok(Val::Str(s.clone())),
                 _ => return self.err("Function expects a string"),
             },
+            "UnevaluatedExpr" => Expr::from_kind(Kind::Func(
+                Func::Undefined("UnevaluatedExpr".into()), vec![one(self, args)?],
+            )),
             "Integer" | "S" | "sympify" | "Float" | "N" => {
                 let v = match args.into_iter().next() {
                     Some(Val::Str(s)) => parse_str(&s)?,

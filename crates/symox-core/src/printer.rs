@@ -39,6 +39,7 @@ fn prec(e: &Expr) -> u8 {
             }
         }
         Kind::Rel(..) => 20,
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => prec(&args[0]),
         _ => PREC_ATOM,
     }
 }
@@ -80,6 +81,9 @@ fn write_expr(e: &Expr, out: &mut String) {
         Kind::Add(..) => write_add(e, out),
         Kind::Mul(..) => write_mul(e, out),
         Kind::Pow(b, x) => write_pow(b, x, out),
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => {
+            write_expr(&args[0], out);
+        }
         Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => {
             out.push('(');
             for (i, a) in args.iter().enumerate() {
@@ -275,6 +279,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Rel(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(b) <= PREC_POW,
         _ => false,
     };
     if base_needs {
@@ -289,6 +294,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(x) <= PREC_POW,
         _ => false,
     };
     if exp_needs {
@@ -342,6 +348,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
+        Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
         Kind::Func(Func::Order, args) => {
             out.push_str("Order(");
