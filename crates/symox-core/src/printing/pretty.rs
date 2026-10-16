@@ -904,10 +904,9 @@ impl PrettyPrinter<'_> {
             }
             Func::Heaviside => self.print(&args[0]).paren().left(&[Pict::new("θ")]),
             Func::DiracDelta => self.print(&args[0]).paren().left(&[Pict::new("δ")]),
+            // Max/Min are not Functions in SymPy: printed with str()
             Func::Max | Func::Min => {
-                let mut v = args.to_vec();
-                v.sort_by_cached_key(|a| (!a.is_number(), crate::printer::to_str(a)));
-                self.function(f.name(), &v)
+                Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(), args.to_vec()))))
             }
             _ => self.function(f.name(), args),
         }

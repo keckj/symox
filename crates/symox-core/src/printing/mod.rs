@@ -99,27 +99,19 @@ pub(crate) fn ordered_factors(e: &Expr) -> Vec<Expr> {
     }
 }
 
-/// Is `e` known to be a positive real constant (for sign decisions)?
-pub(crate) fn is_positive_constant(e: &Expr) -> bool {
-    match e.kind() {
-        Kind::Num(n) => n.is_positive(),
-        Kind::Const(c) => matches!(c, Constant::Pi | Constant::E | Constant::EulerGamma | Constant::Infinity),
-        Kind::Pow(b, x) => is_positive_constant(b) && x.is_number(),
-        Kind::Mul(c, facs) => c.is_positive() && facs.iter().all(|(b, x)| is_positive_constant(b) && x.is_number()),
-        _ => false,
-    }
-}
-
 /// SymPy's `is_negative` restricted to what can be decided without
-/// assumptions (numbers and negative multiples of positive constants).
+/// assumptions: numbers, and real numeric expressions (decided by
+/// evaluating them).
 pub(crate) fn is_known_negative(e: &Expr) -> bool {
     match e.kind() {
         Kind::Num(n) => n.is_negative(),
         Kind::Const(Constant::NegInfinity) => true,
-        Kind::Mul(c, facs) => {
-            c.is_negative() && facs.iter().all(|(b, x)| is_positive_constant(b) && x.is_number())
+        Kind::Const(_) | Kind::Sym(_) => false,
+        _ => {
+            crate::functions::is_numeric_value(e)
+                && !crate::functions::contains_i(e)
+                && matches!(crate::evalf::eval_f64(e), Some(v) if v < 0.0)
         }
-        _ => false,
     }
 }
 

@@ -500,7 +500,7 @@ impl<'a> LatexPrinter<'a> {
             if self.needs_mul_brackets(term, i == 0) {
                 tt = Self::parens(&tt);
             }
-            if ends_with_number(&last) && starts_with_digit(term) {
+            if ends_with_number(&last) && starts_like_number(&tt) {
                 tex.push_str(&self.numsep);
             } else if !tex.is_empty() {
                 tex.push_str(&self.sep);
@@ -848,14 +848,19 @@ fn ends_with_number(s: &str) -> bool {
     t.ends_with(|c: char| c.is_ascii_digit())
 }
 
-/// Does SymPy's `str(term)` start with a digit?
-fn starts_with_digit(e: &Expr) -> bool {
-    match e.kind() {
-        Kind::Num(n) => !n.is_negative(),
-        Kind::Pow(b, _) => matches!(b.as_number(), Some(n) if n.is_integer() && !n.is_negative()),
-        Kind::Sym(_) | Kind::Const(_) | Kind::Func(..) => false,
-        _ => crate::printer::to_str(e).starts_with(|c: char| c.is_ascii_digit()),
+/// `re.match(r'(\d|\\frac{\d+}{\d+})', tex)`
+fn starts_like_number(tex: &str) -> bool {
+    if tex.starts_with(|c: char| c.is_ascii_digit()) {
+        return true;
     }
+    let Some(rest) = tex.strip_prefix("\\frac{") else { return false };
+    let d1 = rest.chars().take_while(|c| c.is_ascii_digit()).count();
+    if d1 == 0 {
+        return false;
+    }
+    let Some(rest) = rest[d1..].strip_prefix("}{") else { return false };
+    let d2 = rest.chars().take_while(|c| c.is_ascii_digit()).count();
+    d2 > 0 && rest[d2..].starts_with('}')
 }
 
 #[cfg(test)]

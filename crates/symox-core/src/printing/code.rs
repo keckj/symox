@@ -196,7 +196,7 @@ pub fn cudacode_with(e: &Expr, s: &CudaSettings) -> CodeResult {
 /// Print `e` with arbitrary settings.
 pub fn code_with(e: &Expr, s: &CodeSettings) -> CodeResult {
     let p = CodePrinter::new(s);
-    let body = p.print(e)?;
+    let body = p.print_top(e)?;
     Ok(p.finish(body))
 }
 
@@ -387,6 +387,17 @@ impl<'a> CodePrinter<'a> {
         } else {
             Ok(s)
         }
+    }
+
+    /// Print a whole expression: a lone `Float` gets SymPy's full
+    /// precision `str` form in the StrPrinter based languages.
+    pub fn print_top(&self, e: &Expr) -> CodeResult {
+        if let Kind::Num(Number::Float(f)) = e.kind() {
+            if matches!(self.lang(), Lang::Python | Lang::NumPy | Lang::Rust) {
+                return Ok(crate::number::format_float_full(*f));
+            }
+        }
+        self.print(e)
     }
 
     pub fn print(&self, e: &Expr) -> CodeResult {

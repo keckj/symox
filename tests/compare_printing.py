@@ -290,6 +290,100 @@ def compare_printers(verbose=True):
 
 
 # ----------------------------------------------------------------------
+# LaTeX settings
+# ----------------------------------------------------------------------
+
+LATEX_SETTINGS_CASES = [
+    ("x/2 + y**2", dict(mode="inline")),
+    ("x/2 + y**2", dict(mode="equation")),
+    ("x/2 + y**2", dict(mode="equation*")),
+    ("x*y/2", dict(mul_symbol="dot")),
+    ("2*3**x*y", dict(mul_symbol="times")),
+    ("x*y", dict(mul_symbol="ldot")),
+    ("x/2 + 1/(x + y)", dict(fold_short_frac=True)),
+    ("asin(x) + acos(x)**2 + atan(x) + asinh(x)", dict(inv_trig_style="full")),
+    ("asin(x) + acos(x)**2 + atan(x)", dict(inv_trig_style="power")),
+    ("log(x) + log(x)**2", dict(ln_notation=True)),
+    ("sqrt(x) + x**Rational(1, 3)", dict(root_notation=False)),
+    ("x**Rational(2, 3) + sin(x)**Rational(1, 3)", dict(fold_frac_powers=True)),
+    ("sin(x) + cos(2*x)", dict(fold_func_brackets=True)),
+    ("I*x", dict(imaginary_unit="j")),
+    ("I*x", dict(imaginary_unit="ri")),
+    ("Derivative(f(x), x)", dict(diff_operator="rd")),
+    ("x + y", dict(symbol_names={"x": r"\xi"})),
+    ("x < y", dict(itex=True)),
+]
+
+
+def compare_latex_settings(verbose=True):
+    bad = []
+    for case, kw in LATEX_SETTINGS_CASES:
+        es, ex = eval(case, NS_S), eval(case, NS_X)
+        kws, kwx = dict(kw), dict(kw)
+        if "symbol_names" in kw:
+            kws["symbol_names"] = {NS_S[k]: v for k, v in kw["symbol_names"].items()}
+            kwx["symbol_names"] = {NS_X[k]: v for k, v in kw["symbol_names"].items()}
+        a, b = sympy.latex(es, **kws), symox.latex(ex, **kwx)
+        if a != b:
+            bad.append((case, kw, b, a))
+        if verbose:
+            print(f"[latex {'ok ' if a == b else 'BAD'}] {case} {kw}" + ("" if a == b else f"\n   symox {b!r}\n   sympy {a!r}"))
+    return bad
+
+
+# ----------------------------------------------------------------------
+# random expressions
+# ----------------------------------------------------------------------
+
+def _gen(rnd, d):
+    atoms = ["x", "y", "z", "2", "3", "Rational(1,2)", "Rational(-2,3)", "pi", "alpha", "x1", "E", "I"]
+    if d <= 0 or rnd.random() < 0.25:
+        return rnd.choice(atoms)
+    op = rnd.choice(["+", "-", "*", "/", "**", "f", "f", "neg"])
+    if op == "f":
+        fn = rnd.choice(["sin", "cos", "exp", "log", "sqrt", "tan", "Abs", "atan", "sinh", "gamma", "floor"])
+        return f"{fn}({_gen(rnd, d - 1)})"
+    if op == "neg":
+        return f"(-{_gen(rnd, d - 1)})"
+    if op == "**":
+        e = rnd.choice(["2", "3", "-1", "-2", "Rational(1,2)", "Rational(1,3)", "Rational(-1,2)", "Rational(3,2)", "y", "x"])
+        return f"({_gen(rnd, d - 1)})**({e})"
+    return f"({_gen(rnd, d - 1)}){op}({_gen(rnd, d - 1)})"
+
+
+def compare_random(n=400, seed=2024, verbose=True):
+    """Random expressions: every printer except rust_code (SymPy's rust
+    printer fails on many of them) must agree whenever ``str`` agrees.
+    Expressions containing floats are skipped (SymPy evaluates numeric
+    functions with mpmath, the last bits may differ)."""
+    rnd = random.Random(seed)
+    stats = {"compared": 0, "skipped": 0}
+    bad = []
+    for _ in range(n):
+        case = _gen(rnd, 4)
+        try:
+            es, ex = eval(case, NS_S), eval(case, NS_X)
+        except Exception:  # noqa: BLE001
+            stats["skipped"] += 1
+            continue
+        if not isinstance(es, sympy.Basic) or str(es) != str(ex) or "." in str(es) or es.has(sympy.zoo):
+            stats["skipped"] += 1
+            continue
+        stats["compared"] += 1
+        for pname, (fs, fx) in PRINTERS.items():
+            if pname == "rust_code":
+                continue
+            a, b = run_printer(fs, es), run_printer(fx, ex)
+            if a != b and not (a[0] == b[0] == "err"):
+                bad.append((pname, case, b[1], a[1]))
+                if verbose:
+                    print(f"[random {pname}] {case}\n   symox {b[1]!r}\n   sympy {a[1]!r}")
+    if verbose:
+        print(f"random expressions: {stats}, mismatches: {len(bad)}")
+    return bad
+
+
+# ----------------------------------------------------------------------
 # cse
 # ----------------------------------------------------------------------
 
@@ -462,6 +556,16 @@ def test_printers_against_sympy():
     assert not bad, "\n".join(f"{p} {c}: symox={x!r} sympy={s!r}" for p, c, x, s in bad)
 
 
+def test_latex_settings():
+    bad = compare_latex_settings(verbose=False)
+    assert not bad, bad
+
+
+def test_random_expressions():
+    bad = compare_random(verbose=False)
+    assert not bad, bad
+
+
 def test_cse_semantics():
     bad = compare_cse(verbose=False)
     assert not bad, bad
@@ -479,6 +583,10 @@ def test_repr_latex():
 
 if __name__ == "__main__":
     b1 = compare_printers()
+    print()
+    b1 += compare_latex_settings()
+    print()
+    b1 += compare_random()
     print()
     b2 = compare_cse()
     print()

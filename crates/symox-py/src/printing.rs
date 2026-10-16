@@ -204,7 +204,7 @@ fn run_code(
     apply_code_kwargs(&mut s, kw)?;
     let e = to_expr(expr)?;
     let p = pr::CodePrinter::new(&s);
-    let body = p.print(&e).map_err(code_err)?;
+    let body = p.print_top(&e).map_err(code_err)?;
     let body = match assign_to {
         None => body,
         Some(a) => {
