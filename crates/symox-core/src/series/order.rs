@@ -260,6 +260,15 @@ fn add_args(e: &Expr) -> Vec<Expr> {
 
 /// `add` with order terms; `None` when no argument is an order term.
 pub fn add_hook(args: &[Expr]) -> Option<Expr> {
+    // cheap check first: the mask bit may also come from an ordinary symbol
+    let has = args.iter().any(|a| match a.kind() {
+        Kind::Func(Func::Order, _) => true,
+        Kind::Add(_, terms) => a.may_have_order() && terms.iter().any(|(t, _)| is_order(t)),
+        _ => false,
+    });
+    if !has {
+        return None;
+    }
     let mut orders: Vec<Expr> = Vec::new();
     let mut rest: Vec<Expr> = Vec::with_capacity(args.len());
     for a in args {

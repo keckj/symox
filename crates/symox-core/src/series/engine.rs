@@ -303,7 +303,7 @@ impl Engine {
         }
         match p.as_number() {
             Some(k) if k.is_integer() && k.is_positive() => {
-                let k = k.to_i64().ok_or_else(|| SErr::Unsupported("huge power".into()))?;
+                let k = k.to_i64().filter(|k| *k < 1 << 40).ok_or_else(|| SErr::Unsupported("huge power".into()))?;
                 let mut s = self.ser(b, n)?;
                 for _ in 0..6 {
                     let v = s.val;
@@ -316,7 +316,11 @@ impl Engine {
                 if s.is_zero() {
                     return Ok(if s.exact { Ser::zero_exact() } else { Ser::zero_inexact(k.saturating_mul(s.prec)) });
                 }
-                if s.exact && (s.c.len() == 1 || k <= 64) {
+                if s.exact && s.c.len() == 1 {
+                    let v = s.val.checked_mul(k).ok_or_else(|| SErr::Unsupported("huge power".into()))?;
+                    return Ok(Ser::monomial(s.c[0].pow(&C::int(k)), v).trunc(n));
+                }
+                if s.exact && k <= 64 {
                     // repeated products keep exact results exact
                     let v = s.val.min(0);
                     let mut result = s.clone();

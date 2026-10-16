@@ -140,7 +140,16 @@ pub fn series(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool) -> SRes<Expr> 
         return Ok(e.clone());
     }
     if e.may_have_order() {
-        return Err(SErr::Unsupported("series of an expression containing O".into()));
+        if let Some(o) = get_o(e) {
+            let rest = remove_o(e);
+            if !rest.may_have_order() {
+                let s = series(&rest, x, x0, n, minus)?;
+                return Ok(add(&[s, o]));
+            }
+        }
+        if contains_order(e) {
+            return Err(SErr::Unsupported("series of an expression containing O".into()));
+        }
     }
     if x0.is_zero() && !minus {
         if let Some((l, rest, k)) = split_log_factor(e, x) {
@@ -229,6 +238,10 @@ fn series_impl(e: &Expr, x: &Expr, x0: &Expr, n: i64, minus: bool, logfac: Optio
         terms.push(order(&oe, &[(x.clone(), x0.clone())]));
     }
     Ok(add(&terms))
+}
+
+fn contains_order(e: &Expr) -> bool {
+    e.may_have_order() && (is_order(e) || e.args().iter().any(contains_order))
 }
 
 /// SymPy's `taylor_term(n, x)`: the `x**n` term of the expansion at 0.
