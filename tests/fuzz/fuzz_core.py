@@ -1083,6 +1083,7 @@ class Worker:
             self.restarts += 1
             self.conn.send(task)
         deadline = time.monotonic() + timeout
+        disconnected = False
         while True:
             if stop is not None and stop.is_set():
                 raise FuzzStopped()
@@ -1093,9 +1094,14 @@ class Worker:
                 try:
                     return self.conn.recv()
                 except (EOFError, ConnectionResetError, OSError):
+                    disconnected = True
                     break
         state = self.state.value.decode("utf8", "replace")
-        alive = self.proc.is_alive()
+        if disconnected:
+            # Pipe EOF can be delivered just before multiprocessing observes
+            # the exit status. This is a death, not an elapsed case deadline.
+            self.proc.join(0.1)
+        alive = not disconnected and self.proc.is_alive()
         self.kill()
         code = self.proc.exitcode
         self.start()
