@@ -5,15 +5,12 @@
 //! SymPy's `roots()` for these cases. Characteristic polynomials whose
 //! irreducible factors have degree > 2 are reported as not implemented.
 
-use std::cmp::Ordering;
-
 use super::int::{Int, Rat};
 use super::linalg::RatMat;
 use super::ratfunc::{cancel, is_zero_assume};
 use super::{MResult, Matrix, MatrixError};
 use crate::expand::expand;
-use crate::expr::{Constant, Expr, Kind};
-use crate::number::Number;
+use crate::expr::{Expr, Kind};
 use crate::ops::{add, mul, mul2, neg, pow, sqrt, sub};
 
 // ----------------------------------------------------------------------
@@ -475,101 +472,7 @@ pub fn roots_rational(coeffs: &[Rat]) -> MResult<Vec<(Expr, usize)>> {
     Ok(result)
 }
 
-// ----------------------------------------------------------------------
-// SymPy's default_sort_key (enough for eigenvalues)
-// ----------------------------------------------------------------------
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Key {
-    Num(f64, String),
-    Str(String),
-    Int(i64),
-    Tup(Vec<Key>),
-}
-
-impl Key {
-    pub fn cmp(&self, o: &Key) -> Ordering {
-        match (self, o) {
-            (Key::Num(a, _), Key::Num(b, _)) => a.partial_cmp(b).unwrap_or(Ordering::Equal),
-            (Key::Str(a), Key::Str(b)) => a.cmp(b),
-            (Key::Int(a), Key::Int(b)) => a.cmp(b),
-            (Key::Tup(a), Key::Tup(b)) => {
-                for (x, y) in a.iter().zip(b) {
-                    let c = x.cmp(y);
-                    if c != Ordering::Equal {
-                        return c;
-                    }
-                }
-                a.len().cmp(&b.len())
-            }
-            _ => rank(self).cmp(&rank(o)),
-        }
-    }
-}
-
-fn rank(k: &Key) -> u8 {
-    match k {
-        Key::Num(..) => 0,
-        Key::Int(_) => 1,
-        Key::Str(_) => 2,
-        Key::Tup(_) => 3,
-    }
-}
-
-fn class_key(e: &Expr) -> Key {
-    let (a, b, name) = match e.kind() {
-        Kind::Num(_) => (1, 0, "Number".to_string()),
-        Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => (2, 0, e.class_name().to_string()),
-        Kind::Mul(..) => (3, 0, "Mul".into()),
-        Kind::Add(..) => (3, 1, "Add".into()),
-        Kind::Pow(..) => (3, 2, "Pow".into()),
-        _ => (5, 0, e.class_name().to_string()),
-    };
-    Key::Tup(vec![Key::Int(a), Key::Int(b), Key::Str(name)])
-}
-
-fn num_key(n: &Number) -> Key {
-    Key::Num(n.to_f64(), n.to_string())
-}
-
-/// Approximation of SymPy's `default_sort_key`.
-pub fn sort_key(e: &Expr) -> Key {
-    match e.kind() {
-        Kind::Num(n) => Key::Tup(vec![class_key(e), Key::Tup(vec![Key::Int(0), Key::Tup(vec![])]), Key::Tup(vec![]), num_key(n)]),
-        Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => Key::Tup(vec![
-            class_key(e),
-            Key::Tup(vec![Key::Int(1), Key::Tup(vec![Key::Str(e.to_string())])]),
-            sort_key(&Expr::one()),
-            num_key(&Number::ONE),
-        ]),
-        _ => {
-            let (coeff, rest) = crate::ops::as_coeff_mul(e);
-            let (expr, exp) = match rest.kind() {
-                Kind::Pow(b, x) if !b.is_constant(Constant::E) => (b.clone(), x.clone()),
-                _ => (rest.clone(), Expr::one()),
-            };
-            let args: Vec<Key> = if expr.is_atom() {
-                vec![Key::Str(expr.to_string())]
-            } else {
-                let parts = match expr.kind() {
-                    Kind::Add(..) => crate::printer::ordered_terms(&expr),
-                    _ => expr.args(),
-                };
-                parts.iter().map(sort_key).collect()
-            };
-            Key::Tup(vec![
-                class_key(&expr),
-                Key::Tup(vec![Key::Int(args.len() as i64), Key::Tup(args)]),
-                sort_key(&exp),
-                num_key(&coeff),
-            ])
-        }
-    }
-}
-
-pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
-    sort_key(a).cmp(&sort_key(b))
-}
+pub use crate::sortkey::cmp_default;
 
 // ----------------------------------------------------------------------
 // quadratic number fields Q[t]/(t^2 + p t + q)
@@ -721,6 +624,14 @@ impl Matrix {
         if let Some(r) = RatMat::from_matrix(self) {
             return eigenvects_rational(self, &r);
         }
+        match super::domain::matrix_domain(self) {
+            super::domain::Domain::Poly { ctx, .. } | super::domain::Domain::Frac { ctx, .. } => {
+                if let Some(r) = super::symeigen::eigenvects_field(self, &ctx) {
+                    return r;
+                }
+            }
+            _ => {}
+        }
         let mut vals = self.eigenvals()?;
         vals.sort_by(|a, b| cmp_default(&a.0, &b.0));
         let n = self.rows();
@@ -761,177 +672,19 @@ fn block_roots(blk: &Matrix) -> MResult<Vec<(Expr, usize)>> {
     symbolic_roots(&cp.coeffs)
 }
 
-/// Roots of a polynomial with symbolic coefficients (degree <= 2).
 fn symbolic_roots(c: &[Expr]) -> MResult<Vec<(Expr, usize)>> {
-    let n = c.len() - 1;
-    let simp = |e: &Expr| cancel(&expand(e));
-    match n {
-        0 => Ok(vec![]),
-        1 => Ok(vec![(simp(&neg(&mul2(&c[1], &pow(&c[0], &Expr::minus_one())))), 1)]),
-        2 => {
-            let (a, b, cc) = (&c[0], &c[1], &c[2]);
-            if cc.is_zero() {
-                let r = simp(&neg(&mul2(b, &pow(a, &Expr::minus_one()))));
-                return Ok(merge(vec![Expr::zero(), r]));
-            }
-            // discriminant; rational roots when it is a perfect square
-            let d = simp(&sub(&pow(b, &Expr::int(2)), &mul(&[Expr::int(4), a.clone(), cc.clone()])));
-            let sd = poly_sqrt(&d);
-            let aa = mul2(&Expr::int(2), a);
-            let bb = simp(&neg(&mul2(b, &pow(&aa, &Expr::minus_one()))));
-            match sd {
-                Some(s) => {
-                    let r0 = simp(&sub(&bb, &mul2(&s, &pow(&aa, &Expr::minus_one()))));
-                    let r1 = simp(&add(&[bb.clone(), mul2(&s, &pow(&aa, &Expr::minus_one()))]));
-                    let mut rs = vec![r0, r1];
-                    rs.sort_by(|x, y| linear_factor_cmp(x, y));
-                    Ok(merge(rs))
-                }
-                None => {
-                    let dd = mul2(&sqrt(&d), &pow(&aa, &Expr::minus_one()));
-                    let r0 = expand(&sub(&bb, &dd));
-                    let r1 = expand(&add(&[bb, dd]));
-                    Ok(merge(vec![r0, r1]))
-                }
-            }
-        }
-        _ => Err(MatrixError::NotImplemented(
-            "eigenvalues of symbolic matrices larger than 2x2 blocks are not implemented".into(),
-        )),
-    }
+    super::symeigen::roots_symbolic(c)
 }
 
-fn merge(rs: Vec<Expr>) -> Vec<(Expr, usize)> {
-    let mut out: Vec<(Expr, usize)> = Vec::new();
-    for r in rs {
-        if let Some(x) = out.iter_mut().find(|(e, _)| *e == r) {
-            x.1 += 1;
-        } else {
-            out.push((r, 1));
-        }
+/// Rational roots of a polynomial with rational coefficients.
+pub fn rational_roots_pub(p: &[Rat]) -> MResult<Vec<Rat>> {
+    let mut v: UPoly = p.to_vec();
+    trim(&mut v);
+    let mut out = Vec::new();
+    for (sf, _) in squarefree(&v) {
+        out.extend(rational_roots(&sf)?);
     }
-    out
-}
-
-/// Dense recursive representation (SymPy's `dmp`) used as a sort key.
-#[derive(Clone, Debug, PartialEq)]
-enum DKey {
-    I(Int),
-    L(Vec<DKey>),
-}
-
-fn dkey_cmp(a: &DKey, b: &DKey) -> Ordering {
-    match (a, b) {
-        (DKey::I(x), DKey::I(y)) => x.cmp(y),
-        (DKey::L(x), DKey::L(y)) => {
-            for (p, q) in x.iter().zip(y) {
-                let c = dkey_cmp(p, q);
-                if c != Ordering::Equal {
-                    return c;
-                }
-            }
-            x.len().cmp(&y.len())
-        }
-        (DKey::I(_), DKey::L(_)) => Ordering::Less,
-        (DKey::L(_), DKey::I(_)) => Ordering::Greater,
-    }
-}
-
-fn dmp_zero(u: usize) -> DKey {
-    let mut r = DKey::L(vec![]);
-    for _ in 0..u {
-        r = DKey::L(vec![r]);
-    }
-    r
-}
-
-fn dmp(p: &super::mpoly::MPoly, k: usize) -> DKey {
-    let n = p.nvars;
-    if k == n {
-        return DKey::I(p.as_constant().unwrap_or(Int::ZERO));
-    }
-    if p.is_zero() {
-        return dmp_zero(n - 1 - k);
-    }
-    let cs = p.coeffs_in(k);
-    DKey::L(cs.iter().rev().map(|c| if k + 1 == n || !c.is_zero() { dmp(c, k + 1) } else { dmp_zero(n - 2 - k) }).collect())
-}
-
-/// Order of the linear factors `lambda - r` in SymPy's `factor_list`
-/// (primitive, positive leading coefficient, sorted by the dense
-/// representation with SymPy's generator order).
-fn linear_factor_cmp(a: &Expr, b: &Expr) -> Ordering {
-    let lam = Expr::symbol("_x0");
-    let fa = sub(&lam, a);
-    let fb = sub(&lam, b);
-    let Some((_, ps)) = super::ratfunc::PolyCtx::from_exprs(&[fa, fb], false) else {
-        return Ordering::Equal;
-    };
-    let norm = |q: &super::ratfunc::QPoly| {
-        let c = q.p.content();
-        let p = if c.is_zero() || c.is_one() { q.p.clone() } else { q.p.divexact_int(&c) };
-        p.normalize_sign()
-    };
-    let (ka, kb) = (dmp(&norm(&ps[0]), 0), dmp(&norm(&ps[1]), 0));
-    let la = match &ka { DKey::L(v) => v.len(), _ => 0 };
-    let lb = match &kb { DKey::L(v) => v.len(), _ => 0 };
-    la.cmp(&lb).then_with(|| dkey_cmp(&ka, &kb))
-}
-
-/// Square root of a polynomial expression when it is a perfect square.
-fn poly_sqrt(e: &Expr) -> Option<Expr> {
-    if let Some(n) = e.as_number() {
-        let r = Rat::from_number(n)?;
-        let a = r.num.exact_sqrt()?;
-        let b = r.den.exact_sqrt()?;
-        return Some(Expr::num(Rat::new(a, b).to_number()));
-    }
-    let (ctx, ps) = super::ratfunc::PolyCtx::from_exprs(std::slice::from_ref(e), false)?;
-    let q = &ps[0];
-    // sqrt(p/den): den must be a square
-    let sden = q.den.exact_sqrt()?;
-    let p = &q.p;
-    if p.lc().is_negative() {
-        return None;
-    }
-    let s = mpoly_sqrt(p)?;
-    Some(ctx.to_expr_scaled(&s, &sden))
-}
-
-fn mpoly_sqrt(p: &super::mpoly::MPoly) -> Option<super::mpoly::MPoly> {
-    use super::mpoly::{MPoly, Mono};
-    // leading term must be a square; iterative extraction
-    let n = p.nvars;
-    let (lm, lc) = p.terms.first()?;
-    if lm.iter().any(|e| e % 2 == 1) {
-        return None;
-    }
-    let c = lc.exact_sqrt()?;
-    let m: Mono = lm.iter().map(|e| e / 2).collect();
-    let mut s = MPoly::monomial(n, m, c);
-    for _ in 0..p.terms.len() + 2 {
-        let r = p.sub(&s.mul(&s));
-        if r.is_zero() {
-            return Some(s);
-        }
-        // next term: lt(r) / (2 lt(s))
-        let (rm, rc) = &r.terms[0];
-        let (sm, sc) = &s.terms[0];
-        let mut nm = Mono::with_capacity(n);
-        for (a, b) in rm.iter().zip(sm.iter()) {
-            if a < b {
-                return None;
-            }
-            nm.push(a - b);
-        }
-        let two_sc = sc.mul(&Int::from(2));
-        if !rc.is_divisible_by(&two_sc) {
-            return None;
-        }
-        let t = MPoly::monomial(n, nm, rc.divexact(&two_sc));
-        s = s.add(&t);
-    }
-    None
+    Ok(out)
 }
 
 fn eigenvects_rational(m: &Matrix, r: &RatMat) -> MResult<Vec<EigenVect>> {

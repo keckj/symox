@@ -28,6 +28,7 @@ pub mod linalg;
 pub mod modular;
 pub mod mpoly;
 pub mod ratfunc;
+pub mod symeigen;
 
 use std::fmt;
 

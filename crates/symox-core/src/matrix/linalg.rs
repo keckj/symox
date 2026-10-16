@@ -222,6 +222,43 @@ fn pivot_simp(e: &Expr) -> Expr {
     c
 }
 
+/// Light stand-in for SymPy's `simplify` on generic (EX) coefficients:
+/// expansion, cancellation and the Pythagorean identities, keeping the
+/// smallest result.
+pub(crate) fn ex_simplify(e: &Expr) -> Expr {
+    let c0 = cancel(&expand(e));
+    if c0.is_atom() {
+        return c0;
+    }
+    let mut best = c0.clone();
+    let mut size = crate::traverse::node_count(&c0);
+    for cand in [expand(&trig_squares(&c0)), expand(&trig_squares_rev(&c0))] {
+        let n = crate::traverse::node_count(&cand);
+        if n < size {
+            size = n;
+            best = cand;
+        }
+    }
+    best
+}
+
+/// Rewrite `cos(u)**(2k)` as `(1 - sin(u)**2)**k`.
+fn trig_squares_rev(e: &Expr) -> Expr {
+    use crate::expr::Func;
+    if e.is_atom() {
+        return e.clone();
+    }
+    if let Kind::Pow(b, x) = e.kind() {
+        if let (Kind::Func(Func::Cos, args), Some(n)) = (b.kind(), x.as_i64()) {
+            if n >= 2 && n % 2 == 0 {
+                let s = crate::functions::sin(&args[0]);
+                return pow(&sub(&Expr::one(), &pow(&s, &Expr::int(2))), &Expr::int(n / 2));
+            }
+        }
+    }
+    crate::traverse::map_children(e, &mut |c| trig_squares_rev(c))
+}
+
 /// Rewrite `sin(u)**(2k)` as `(1 - cos(u)**2)**k` and `cosh(u)**(2k)` as
 /// `(1 + sinh(u)**2)**k`.
 fn trig_squares(e: &Expr) -> Expr {
@@ -1195,7 +1232,7 @@ impl Matrix {
         }
         // generic: Berkowitz over expressions, simplified coefficients
         let v = berkowitz_vector_expr(self);
-        let coeffs: Vec<Expr> = v.iter().map(|c| cancel(&expand(c))).collect();
+        let coeffs: Vec<Expr> = v.iter().map(ex_simplify).collect();
         let _ = n;
         let domain = super::domain::construct_domain(&coeffs).name();
         Ok(CharPoly { var, coeffs, domain })
