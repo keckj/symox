@@ -21,6 +21,8 @@ dynamic = ["version"]
 [project.optional-dependencies]
 sympy = ["sympy>=1.12"]
 test = ["pytest", "sympy>=1.12"]
+torch = ["torch>=2.2"]
+jax = ["jax>=0.4.30"]
 
 [tool.maturin]
 manifest-path = "crates/symox-py/Cargo.toml"

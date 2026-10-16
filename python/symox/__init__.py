@@ -1393,5 +1393,36 @@ from ._compat import (  # noqa: E402
 from .codegen.ast import Indexed, IndexedBase  # noqa: E402
 from .printing.str import StrPrinter  # noqa: E402
 from .printing.pretty import PrettyPrinter  # noqa: E402
+from .printing.pytorch import PyTorchPrinter, TorchPrinter, torchcode  # noqa: E402
+from .codegen.pytorch import torchcode_function, torch_lambdify  # noqa: E402
+from .printing.jax import JaxPrinter, JAXPrinter, jaxcode  # noqa: E402
+from .codegen.jax import jaxcode_function, jax_lambdify  # noqa: E402
+
+_native_lambdify = lambdify
+
+
+def lambdify(args, expr, modules=None, **kwargs):
+    """Build a numerical callable with native NumPy, PyTorch or JAX operations.
+
+    PyTorch supports ``cse``, ``compile``, ``compile_options`` and
+    ``user_functions``; JAX supports ``cse``, ``jit``, ``jit_options`` and
+    ``user_functions``. The default and NumPy paths use the native evaluator.
+    """
+    candidates = modules if isinstance(modules, (list, tuple)) else [modules]
+    torch_modules = [module for module in candidates
+                     if (isinstance(module, str) and module in ("torch", "pytorch"))
+                     or getattr(module, "__name__", None) == "torch"]
+    if torch_modules:
+        if len(candidates) != 1:
+            raise NotImplementedError("PyTorch lambdify requires a single module; use user_functions for overrides")
+        return torch_lambdify(args, expr, **kwargs)
+    jax_modules = [module for module in candidates
+                   if (isinstance(module, str) and module == "jax")
+                   or getattr(module, "__name__", None) == "jax"]
+    if jax_modules:
+        if len(candidates) != 1:
+            raise NotImplementedError("JAX lambdify requires a single module; use user_functions for overrides")
+        return jax_lambdify(args, expr, **kwargs)
+    return _native_lambdify(args, expr, modules=modules, **kwargs)
 
 __all__ = [n for n in dir() if not n.startswith("_")]

@@ -260,6 +260,86 @@ fn pycode(
     run_code(expr, assign_to, CodeSettings::new(Lang::Python), settings)
 }
 
+fn array_code(
+    expr: &Bound<'_, PyAny>,
+    symbol_names: Option<&Bound<'_, PyDict>>,
+    user_functions: Option<&Bound<'_, PyDict>>,
+    reference: Option<String>,
+    mask: Option<String>,
+    expression_overrides: Option<&Bound<'_, PyDict>>,
+    jax: bool,
+) -> PyResult<String> {
+    let expression = to_expr(expr)?;
+    let mut settings = pr::TorchSettings { reference, mask, ..Default::default() };
+    if let Some(names) = symbol_names {
+        for (symbol, name) in names.iter() {
+            let target: String = name.extract()?;
+            if let Ok(symbol_name) = symbol.extract::<String>() {
+                settings.symbol_names.insert(symbol_name, target);
+            } else {
+                let symbol = to_expr(&symbol)?;
+                if !symbol.is_symbol() {
+                    return Err(PyTypeError::new_err("symbol_names keys must be symbols or strings"));
+                }
+                settings.exact_symbol_names.insert(symbol, target);
+            }
+        }
+    }
+    if let Some(functions) = user_functions {
+        for (function, target) in functions.iter() {
+            let name = function.extract::<String>().or_else(|_| function.getattr("__name__")?.extract())?;
+            settings.user_functions.insert(name, target.extract()?);
+        }
+    }
+    if let Some(overrides) = expression_overrides {
+        for (expression, code) in overrides.iter() {
+            settings.expression_overrides.insert(to_expr(&expression)?, code.extract()?);
+        }
+    }
+    // Symbols with different assumptions may have the same textual name.
+    // Reject those rather than silently aliasing two independent inputs.
+    let mut emitted = std::collections::BTreeMap::new();
+    for symbol in symox::traverse::free_symbols(&expression) {
+        let name = symbol.as_symbol().unwrap();
+        let target = settings.exact_symbol_names.get(&symbol)
+            .or_else(|| settings.symbol_names.get(name)).map(String::as_str).unwrap_or(name);
+        if let Some(previous) = emitted.insert(target.to_string(), symbol.clone()) {
+            if previous != symbol {
+                return Err(PyValueError::new_err(format!("ambiguous symbol name {name:?}; dummify the inputs before printing")));
+            }
+        }
+    }
+    if jax { pr::jaxcode_with(&expression, &settings) } else { pr::torchcode_with(&expression, &settings) }.map_err(code_err)
+}
+
+
+#[pyfunction]
+#[pyo3(name = "_torchcode", signature = (expr, symbol_names=None, user_functions=None, reference=None, mask=None, expression_overrides=None))]
+fn py_torchcode(
+    expr: &Bound<'_, PyAny>,
+    symbol_names: Option<&Bound<'_, PyDict>>,
+    user_functions: Option<&Bound<'_, PyDict>>,
+    reference: Option<String>,
+    mask: Option<String>,
+    expression_overrides: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    array_code(expr, symbol_names, user_functions, reference, mask, expression_overrides, false)
+}
+
+#[pyfunction]
+#[pyo3(name = "_jaxcode", signature = (expr, symbol_names=None, user_functions=None, reference=None, mask=None, expression_overrides=None))]
+fn py_jaxcode(
+    expr: &Bound<'_, PyAny>,
+    symbol_names: Option<&Bound<'_, PyDict>>,
+    user_functions: Option<&Bound<'_, PyDict>>,
+    reference: Option<String>,
+    mask: Option<String>,
+    expression_overrides: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    array_code(expr, symbol_names, user_functions, reference, mask, expression_overrides, true)
+}
+
+
 #[pyfunction]
 #[pyo3(signature = (expr, assign_to=None, **settings))]
 fn numpycode(
@@ -407,6 +487,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(cxxcode, m)?)?;
     m.add_function(wrap_pyfunction!(pycode, m)?)?;
     m.add_function(wrap_pyfunction!(numpycode, m)?)?;
+    m.add_function(wrap_pyfunction!(py_torchcode, m)?)?;
+    m.add_function(wrap_pyfunction!(py_jaxcode, m)?)?;
     m.add_function(wrap_pyfunction!(rust_code, m)?)?;
     m.add_function(wrap_pyfunction!(fcode, m)?)?;
     m.add_function(wrap_pyfunction!(cudacode, m)?)?;

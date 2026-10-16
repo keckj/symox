@@ -44,3 +44,40 @@ jobs:
           pip install --no-index --find-links dist symox
       - name: Tests
         run: python -m pytest -q tests
+
+  pytorch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build with optional PyTorch backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin pytest sympy numpy
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          maturin build --release -o dist
+          pip install --no-index --find-links dist symox
+      - name: Tensor execution, autograd and compilation
+        run: python -m pytest -q tests/test_pytorch_codegen.py
+
+  jax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build with optional JAX backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin pytest sympy numpy jax
+          maturin build --release -o dist
+          pip install --no-index --find-links dist symox
+      - name: Array execution, differentiation and compilation
+        run: python -m pytest -q tests/test_jax_codegen.py

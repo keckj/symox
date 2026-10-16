@@ -57,6 +57,8 @@ Implemented:
   and supported set-based equation solving
 * LaTeX and pretty printing, common subexpression elimination, native code
   printers and extensible C++17 generation
+* optional PyTorch and JAX code generation, standalone source export, automatic
+  differentiation and opt-in compilation with `torch.compile` / `jax.jit`
 * isolated differential fuzzing, seeded replay, shrinking and triage
 
 The sections below describe the supported subsets and remaining limitations.
@@ -96,6 +98,115 @@ maturin develop --release       # Python package into the active venv
 python tests/compare_sympy.py   # differential tests (needs sympy)
 python benches/bench_vs_sympy.py
 ```
+
+## PyTorch code generation
+
+Install `symox[torch]`, or install the PyTorch build appropriate for your GPU
+separately. Importing symox does not import PyTorch. The PyTorch backend builds
+tensor operations from the native expression tree without a SymPy dependency:
+
+```python
+import torch
+import symox as sm
+
+x, y = sm.symbols("x y")
+expression = sm.Matrix([[sm.sin(x*y)], [sm.sqrt(1 + x*x + y*y)]])
+f = sm.lambdify((x, y), expression, "torch")
+xv = torch.linspace(0, 1, 1024, requires_grad=True)
+result = f(xv, 0.3)                      # shape: (1024, 2, 1)
+result.sum().backward()
+
+compiled = sm.torch_lambdify(
+    (x, y), expression, compile=True,
+    compile_options={"fullgraph": True},  # default backend: Inductor
+)
+result = compiled(xv, 0.3)
+```
+
+Tensor inputs determine the device and promoted dtype. Python scalar inputs
+use PyTorch's default floating dtype when no tensor is supplied. Every call
+also accepts `dtype=` and `device=`. Scalar outputs broadcast to the common
+input shape. Lists and tuples retain their structure; symbolic matrices and
+NumPy arrays become tensors with batch dimensions followed by expression
+dimensions. Boolean outputs retain boolean dtype, and complex values remain
+complex. Existing input tensors stay connected to autograd.
+
+`torchcode_function("my_function", (x, y), expression)` returns a complete
+Python module that needs only PyTorch at runtime. Generated callables expose
+the full module through `__source__`; `inspect.getsource` retrieves the function
+definition. `torchcode` and
+`symox.printing.pytorch.PyTorchPrinter` provide lower-level expression printing;
+these expression snippets use the `_sx_tensor` helper included in exported
+modules. Custom functions can be supplied through `user_functions`; source
+export requires qualified import paths, whereas `torch_lambdify` also accepts
+callables.
+
+CSE shares work across outputs. For `Piecewise`, CSE is currently disabled to
+keep expressions inside their branch masks. The printer neutralizes inactive
+arguments of supported operations before evaluating branches, including
+division, square roots and logarithms, so invalid inactive branches do not
+poison gradients. Custom function mappings are responsible for their own
+domains and autograd behavior. Unsupported symbolic functions fail during
+generation instead of silently switching numerical backends.
+
+Compilation is optional and its errors are propagated. The first call includes
+tracing and compilation; shape, dtype or device changes may cause recompilation.
+Use `compile_options` to pass PyTorch options such as `backend`, `dynamic`,
+`fullgraph` or `mode`. Performance depends on workload and batch size: measure
+warm execution separately from compilation, for example:
+
+```bash
+python benches/bench_pytorch.py --help
+```
+
+See PyTorch's [compilation documentation](https://docs.pytorch.org/docs/stable/generated/torch.compile.html)
+and [autograd explanation of invalid operations](https://docs.pytorch.org/docs/stable/notes/autograd.html#division-by-zero-in-autograd).
+
+For an indicative local measurement, the benchmark's default refraction kernel
+with 65,536 float32 rays on an RTX 5090 took 0.549 ms in eager mode and 0.098 ms
+with Inductor after compilation (5.6x). With gradients, it took 1.961 ms versus
+0.552 ms (3.6x). The first compiled call took 2.4–4.2 seconds, excluding wrapper
+setup. These are local measurements with PyTorch 2.11, not performance guarantees.
+
+## JAX code generation
+
+Install `symox[jax]` for the CPU backend, or install a suitable JAX accelerator
+build separately. JAX also stays optional and is not imported by `import symox`.
+The API uses the same input/output structure and native traversal as PyTorch:
+
+```python
+import jax
+import jax.numpy as jnp
+import symox as sm
+
+x, y = sm.symbols("x y")
+expr = sm.sin(x*y) + sm.sqrt(1 + x*x)
+f = sm.lambdify((x, y), expr, "jax", jit=True)
+values = f(jnp.linspace(0, 1, 1024), 0.3)
+gradient = jax.grad(f, argnums=0)(0.2, 0.3)
+batched = jax.vmap(f, in_axes=(0, None))(jnp.linspace(0, 1, 1024), 0.3)
+```
+
+`jax_lambdify` accepts `cse`, `user_functions`, `jit` and `jit_options`.
+`jaxcode_function` exports a module importing only JAX; `jaxcode` and
+`symox.printing.jax.JaxPrinter` expose expression printing. Generated functions
+accept `dtype=` and `device=` (a JAX Device or a backend name such as `"cpu"`);
+these keywords are static when JIT is enabled. Dtypes obey JAX's configuration,
+including its default disabling of 64-bit arithmetic. No global configuration
+is changed. `Piecewise` uses the same masking precautions as PyTorch, with CSE
+disabled for conditional graphs. Use `block_until_ready` when timing JAX work.
+`python benches/bench_jax.py --help` describes the reproducible JAX benchmark,
+with compilation time and warm execution reported separately.
+
+Both backends support elementary functions, relations, Boolean operations and
+selected special functions. In particular, `loggamma` requires a provably
+positive argument: the real `lgamma`/`gammaln` operations do not implement
+SymPy's complex branches. Unsupported special functions raise
+`NotImplementedError`. These backends extend the supported SymPy surface;
+symox does not yet implement all of SymPy.
+
+See JAX's [JIT documentation](https://docs.jax.dev/en/latest/jit-compilation.html)
+and [FAQ on gradients through `where`](https://docs.jax.dev/en/latest/faq.html#gradients-contain-nan-where-using-where).
 
 ## Symbolic matrices
 
