@@ -29,7 +29,7 @@ println!("{}", diff(&e, &x));
 
 ## Status
 
-Implemented (milestone 1, the core):
+Implemented:
 
 * expression DAG with cached hashes, canonical `Add`/`Mul`/`Pow` following
   SymPy's automatic simplification rules (like-term collection, power
@@ -47,11 +47,19 @@ Implemented (milestone 1, the core):
   subexpression sharing, vectorised over NumPy arrays (GIL released)
 * Python bindings (PyO3, abi3 wheels for CPython >= 3.9), conversion to and
   from SymPy objects
+* polynomials over integer, rational and finite-field domains: `Poly`,
+  factorization, GCD, cancellation, partial fractions, roots and division
+* symbolic assumptions, simplification, integration, summation, equation and
+  ODE solving, series and limits
+* mutable and immutable symbolic matrices, exact linear algebra and supported
+  eigenproblems
+* Boolean algebra, normal forms, truth-table minimization, SAT, symbolic sets
+  and supported set-based equation solving
+* LaTeX and pretty printing, common subexpression elimination, native code
+  printers and extensible C++17 generation
+* isolated differential fuzzing, seeded replay, shrinking and triage
 
-Planned next: polynomials (`Poly`, `gcd`, `factor`, `cancel`, `apart`),
-`solve`, `series`/`limit`, `simplify`, integration, LaTeX
-printing, code generation (C/CUDA), arbitrary precision `evalf`,
-assumptions.
+The sections below describe the supported subsets and remaining limitations.
 
 Special functions include combinatorial numbers, gamma/zeta families, error
 and exponential integrals, Bessel/Airy functions, elliptic integrals, Lambert W,
@@ -76,6 +84,8 @@ equivalence. Known deliberate deviations:
 
 * `diff(Abs(x), x)` returns `sign(x)` (the real-variable formula).
 * `evalf` is double precision for now (`n` is accepted but ignored).
+* Some antiderivatives use a different branch constant from SymPy (for example
+  `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
 
 ## Building
 
@@ -216,6 +226,10 @@ Replay uses the same process isolation and timeout as a normal run.
 | `diff.rs`, `expand.rs`, `subs.rs`, `evalf.rs` | core algorithms |
 | `printer.rs`, `parser.rs` | `str`/`srepr` and `sympify` |
 | `lambdify.rs` | numerical compilation |
+| `poly/` | exact polynomial arithmetic, factoring and rational functions |
+| `matrix/` | symbolic and exact matrix algorithms |
+| `logic/`, `sets/` | Boolean algebra, SAT, set operations and solving |
+| `special/` | special functions and numerical evaluation |
 | `crates/symox-py` | Python bindings, `python/symox` the Python package |
 
 Invariants: ordinary `Expr` nodes are canonical. Only `ops`/`functions`

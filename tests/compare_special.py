@@ -777,7 +777,8 @@ sin(x)*besselj(0, x) + besselj(0, x)*cos(x)
 
 # Deliberate deviations from SymPy.
 KNOWN_DEVIATIONS = {
-    # SymPy returns Ei(x*exp_polar(I*pi)) (same value on the principal branch).
+    # SymPy returns Ei(x*exp_polar(I*pi)); Ei(-x) is also an antiderivative,
+    # but their branch constants can differ on a connected domain.
     "integrate(exp(-x)/x, x)",
 }
 
