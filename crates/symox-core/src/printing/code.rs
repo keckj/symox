@@ -978,7 +978,7 @@ impl<'a> CodePrinter<'a> {
 
     fn print_func(&self, e: &Expr) -> CodeResult {
         let Kind::Func(f, args) = e.kind() else { unreachable!() };
-        if matches!(f, Func::MatrixTrace(_) | Func::MatrixDeterminant(_)) {
+        if matches!(f, Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)) {
             let explicit = crate::functions::materialize_matrix_scalars(e)
                 .map_err(|error| CodeError::Unsupported(error.to_string()))?;
             return self.print(&explicit);

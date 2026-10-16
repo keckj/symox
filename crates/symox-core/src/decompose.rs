@@ -73,6 +73,7 @@ pub fn commutativity(e:&Expr)->Option<bool>{
         if let Some((_,value))=cache.get(&e.dag_id()){return *value;}
         let value=match e.kind(){
             Kind::Func(crate::expr::Func::Limit,_)=>None,
+            Kind::Func(crate::expr::Func::MatrixDotProduct(..),_)=>None,
             Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")=>None,
             Kind::Add(..)|Kind::Mul(..)=>Some(args(e).iter().all(|a|visit(a,cache)==Some(true))),
             Kind::Pow(base,_)=>visit(base,cache),
@@ -100,20 +101,7 @@ pub fn args_cnc(e:&Expr,split_one:bool)->(Vec<Expr>,Vec<Expr>){
 pub fn could_extract_minus_sign(e:&Expr)->bool{
     fn negate(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Expr)>)->Expr{
         if let Some((_,value))=cache.get(&e.dag_id()){return value.clone();}
-        let value=if e.is_add(){ops::add(&args(e).iter().map(|a|negate(a,cache)).collect::<Vec<_>>())}
-        else if e.is_mul(){
-            if e.is_canonical(){ops::neg(e)}else{
-                let (coefficient,tail)=as_coeff_mul_head(e,true);
-                let mut factors=if tail.is_mul(){args(&tail)}else{vec![tail]};
-                let coefficient=if factors.first().is_some_and(|a|a.is_constant(Constant::ComplexInfinity)){coefficient}else{ops::neg(&coefficient)};
-                if !coefficient.is_one(){
-                    if factors.first().is_some_and(number_atom){factors[0]=ops::mul2(&coefficient,&factors[0]);}
-                    else{factors.insert(0,coefficient);}
-                }
-                match factors.len(){0=>Expr::one(),1=>factors.pop().unwrap(),_=>Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,factors.into_iter().map(|a|(a,Expr::one())).collect()))}
-            }
-        }
-        else{ops::neg(e)};
+        let value=ops::neg(e);
         cache.insert(e.dag_id(),(e.clone(),value.clone()));value
     }
     fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,bool)>,negative_cache:&mut FxHashMap<usize,(Expr,Expr)>)->bool{

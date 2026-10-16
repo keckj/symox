@@ -53,7 +53,8 @@ fn ex(
             Func::MatrixProxy(_)
                 | Func::MatrixElement(_)
                 | Func::MatrixTrace(_)
-                | Func::MatrixDeterminant(_),
+                | Func::MatrixDeterminant(_)
+                | Func::MatrixDotProduct(_, _),
             _
         )
     ) {

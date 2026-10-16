@@ -44,6 +44,7 @@ pub fn validate_tree(e:&Expr)->Result<(),String> {
     fn walk(e:&Expr,seen:&mut FxHashMap<usize,Expr>)->Result<(),String> {
         if !e.has_calculus_binding() || seen.insert(e.dag_id(),e.clone()).is_some() { return Ok(()); }
         if let Kind::Func(f,args)=e.kind() { if is_calculus(f) { validate(f,args)?; } }
+        if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){for parent in [a,b]{let mut fields=Vec::new();parent.scalar_fields(&mut fields);for scalar in fields{walk(&scalar,seen)?;}}}
         if let Kind::Func(Func::MatrixElement(parent)|Func::MatrixProxy(parent)|Func::MatrixTrace(parent)|Func::MatrixDeterminant(parent),_)=e.kind(){
             let mut fields=Vec::new();parent.scalar_fields(&mut fields);
             for scalar in fields{walk(&scalar,seen)?;}
@@ -197,6 +198,7 @@ pub fn check_substitution(e:&Expr,old:&Expr,new:&Expr)->Result<(),String> {
                 }
             }}
         }}
+        if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){for parent in [a,b]{let mut fields=Vec::new();parent.scalar_fields(&mut fields);for scalar in fields{walk(&scalar,old,new,seen)?;}}}
         if let Kind::Func(Func::MatrixElement(parent)|Func::MatrixProxy(parent)|Func::MatrixTrace(parent)|Func::MatrixDeterminant(parent),_)=e.kind(){
             let mut fields=Vec::new();parent.scalar_fields(&mut fields);
             for scalar in fields{walk(&scalar,old,new,seen)?;}

@@ -117,6 +117,7 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
             for value in &args[..3]{write_expr(value,out);out.push_str(", ");}
             out.push_str("dir='");out.push_str(args[3].as_sym().map(|s|s.name()).unwrap_or("+"));out.push_str("')");
         },
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>{out.push_str("DotProduct(");out.push_str(&a.to_str());out.push_str(", ");out.push_str(&b.to_str());out.push(')');},
         Kind::Func(Func::MatrixProxy(parent), _) => out.push_str(&parent.to_str()),
         Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
             out.push_str(f.name()); out.push('('); out.push_str(&parent.to_str()); out.push(')');
@@ -404,6 +405,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         },
         Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction), _) => out.push_str("IdentityFunction()"),
         Kind::Func(Func::Set(op), args) if args.is_empty() => out.push_str(op.name()),
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>{out.push_str("DotProduct(");out.push_str(&a.to_repr());out.push_str(", ");out.push_str(&b.to_repr());out.push(')');},
         Kind::Func(Func::MatrixProxy(parent), _) => out.push_str(&parent.to_repr()),
         Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
             out.push_str(f.name()); out.push('('); out.push_str(&parent.to_repr()); out.push(')');

@@ -345,6 +345,10 @@ impl SortKeyCache {
             return composite_key((5, 0, "Derivative"), args);
         }
         Kind::Func(Func::MatrixProxy(matrix), _) => return self.matrix_key(matrix),
+        Kind::Func(Func::MatrixDotProduct(left,right),_) => {
+            let args=vec![self.matrix_key(left),self.matrix_key(right)];
+            return composite_key((5,0,"DotProduct"),args);
+        }
         Kind::Func(Func::MatrixElement(matrix), args) => {
             let mut keys = vec![self.matrix_key(matrix)];
             keys.extend(args.iter().map(|arg| self.key(arg)));
@@ -368,7 +372,7 @@ impl SortKeyCache {
         },
         _ => (rest.clone(), Expr::one()),
     };
-    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
         let mut parts = match self.key(&base) {
             Key::Tup(parts) => parts,
             Key::Shared(parts) => parts.to_vec(),
@@ -490,7 +494,7 @@ fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
                 _ => vec![rest.clone()],
             };
             for f in factors {
-                if is_numeric_value(&f) || matches!(f.kind(),Kind::Const(Constant::NaN|Constant::ComplexInfinity)) {
+                if crate::symbolic_number::is_symbolic_number(&f) {
                     if let Some(z) = numeric_coefficient(&f) {
                         coeff *= z;
                         continue;
@@ -509,7 +513,8 @@ fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
     let mut gkeys: Vec<(Key, Expr)> = gens.into_iter().map(|g| (self.key(&g), g)).collect();
     gkeys.sort_by(|a, b| a.0.cmp(&b.0));
     let gens: Vec<Expr> = gkeys.into_iter().map(|x| x.1).collect();
-    let mut keyed: Vec<(Vec<i64>, Vec<Key>, (bool, f64, f64), Expr)> = terms
+    type TermKey=(Vec<i64>,Vec<Key>,(bool,f64,f64),Expr);
+    let mut keyed: Vec<TermKey> = terms
         .into_iter()
         .map(|t| {
             let mut monom = vec![0i64; gens.len()];
@@ -520,24 +525,46 @@ fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
             (monom, t.ncpart, (t.coeff.im != 0.0, t.coeff.im, t.coeff.re), t.term)
         })
         .collect();
-    keyed.sort_by(|a, b| {
+    let compare=|a:&TermKey,b:&TermKey| {
         // descending lex on monomials, then ascending coefficient
         b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)).then_with(|| {
             let (ai, aim, are) = a.2;
             let (bi, bim, bre) = b.2;
-            ai.cmp(&bi)
-                .then(aim.partial_cmp(&bim).unwrap_or(Ordering::Equal))
-                .then(are.partial_cmp(&bre).unwrap_or(Ordering::Equal))
-                .then(aim.partial_cmp(&bim).unwrap_or(Ordering::Equal))
+            ai.cmp(&bi).then_with(||{
+                // Python tuple comparison stops at unequal NaNs; it does not
+                // continue with the real coefficient when neither is less.
+                for(x,y)in[(aim,bim),(are,bre),(aim,bim)]{
+                    if x!=y{return x.partial_cmp(&y).unwrap_or(Ordering::Equal);}
+                }
+                Ordering::Equal
+            })
         })
-    });
+    };
+    if keyed.iter().any(|entry|entry.2.1.is_nan()||entry.2.2.is_nan()){
+        // NaN comparison is partial. A stable insertion pass preserves its
+        // Python semantics without imposing Rust sort's total-order contract.
+        for i in 1..keyed.len(){let mut j=i;while j>0 && compare(&keyed[j],&keyed[j-1]).is_lt(){keyed.swap(j,j-1);j-=1;}}
+    }else{keyed.sort_by(compare);}
     keyed.into_iter().map(|x| x.3).collect()
 }
 }
 
 fn numeric_coefficient(e:&Expr)->Option<Complex64>{
     if matches!(e.kind(),Kind::Const(Constant::NaN|Constant::ComplexInfinity)){return Some(Complex64::new(f64::NAN,f64::NAN));}
-    crate::evalf::eval_c64(e)
+    if let Some(value)=crate::evalf::eval_c64(e){return Some(value);}
+    // Closed held arithmetic can contain zoo/nan, which the finite evaluator
+    // deliberately refuses. Normalize those arithmetic nodes for this numeric
+    // presentation only; never feed this fallback into assumption inference.
+    if e.has_nonfinite(){
+        let value=match e.kind(){
+            Kind::Add(..)=>crate::ops::add(&e.args()),
+            Kind::Mul(..)=>crate::ops::mul(&e.args()),
+            Kind::Pow(base,exponent)=>crate::ops::pow(base,exponent),
+            _=>return None,
+        };
+        if value!=*e{return numeric_coefficient(&value);}
+    }
+    None
 }
 
 fn is_number_symbol(e: &Expr) -> bool {

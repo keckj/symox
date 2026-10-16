@@ -786,3 +786,40 @@ def test_complex_scalar_fraction_contextual_constants_and_inductor_backward(devi
     actual_gradient = torch.autograd.grad(actual_norm.sum(), value)[0]
     expected_gradient = torch.autograd.grad(expected_norm.sum(), value)[0]
     torch.testing.assert_close(actual_gradient, expected_gradient)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+@pytest.mark.parametrize("arow", [False, True])
+@pytest.mark.parametrize("conjugated", [False, True])
+def test_dotproduct_complex_mixed_vector_orientation_batching_total_derivative_and_gradients(device, compiled, arow, conjugated):
+    a = sm.MatrixSymbol('a', *((1, 3) if arow else (3, 1)))
+    b = sm.MatrixSymbol('b', *((3, 1) if arow else (1, 3)))
+    t = sm.Symbol('t', real=True)
+    parent = (t*a).conjugate() if conjugated else t*a
+    value = sm.DotProduct(parent, b)
+    function = sm.torch_lambdify((a, b, t), (value, value.diff(t)), compile=compiled,
+        compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    real_a = torch.arange(6, device=device, dtype=torch.float64).reshape(2, 1, 3)
+    real_b = torch.arange(9, device=device, dtype=torch.float64).reshape(1, 3, 3)
+    av = torch.complex(.1+.2*real_a, -.3+.1*real_a).requires_grad_()
+    bv = torch.complex(-.4+.15*real_b, .2+.07*real_b).requires_grad_()
+    tv = torch.tensor([[.3], [.8]], device=device, dtype=torch.float64, requires_grad=True)
+    a_input = av.unsqueeze(-2) if arow else av.unsqueeze(-1)
+    b_input = bv.unsqueeze(-1) if arow else bv.unsqueeze(-2)
+    actual = function(a_input, b_input, tv)
+    # Elementwise sums are independent of symbolic contraction evaluation and
+    # avoid the reduced-precision matmul paths of GPU BLAS implementations.
+    scaled = tv[..., None]*av
+    expected = (((scaled.conj() if conjugated else scaled)*bv).sum(dim=-1),
+                ((av.conj() if conjugated else av)*bv).sum(dim=-1))
+    for output, target in zip(actual, expected):
+        assert output.shape == (2, 3)
+        assert output.dtype == torch.complex128 and output.device == tv.device
+        torch.testing.assert_close(output, target, rtol=1e-10, atol=1e-11)
+    if conjugated:
+        assert not torch.allclose(expected[0], (scaled*bv).sum(dim=-1))
+    actual_gradient = torch.autograd.grad(sum(v.abs().square().sum() for v in actual), (av, bv, tv))
+    expected_gradient = torch.autograd.grad(sum(v.abs().square().sum() for v in expected), (av, bv, tv))
+    for output, target in zip(actual_gradient, expected_gradient):
+        torch.testing.assert_close(output, target, rtol=1e-10, atol=1e-11)

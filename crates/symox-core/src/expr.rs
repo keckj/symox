@@ -187,6 +187,7 @@ pub enum Func {
     MatrixProxy(Arc<crate::matrixexpr::MatrixExpr>),
     MatrixTrace(Arc<crate::matrixexpr::MatrixExpr>),
     MatrixDeterminant(Arc<crate::matrixexpr::MatrixExpr>),
+    MatrixDotProduct(Arc<crate::matrixexpr::MatrixExpr>, Arc<crate::matrixexpr::MatrixExpr>),
 }
 
 impl Func {
@@ -241,6 +242,7 @@ impl Func {
             Func::MatrixProxy(_) => "MatrixSymbol",
             Func::MatrixTrace(_) => "Trace",
             Func::MatrixDeterminant(_) => "Determinant",
+            Func::MatrixDotProduct(_, _) => "DotProduct",
         }
     }
 
@@ -303,7 +305,7 @@ impl Func {
             Func::Atan2 => Some(2),
             Func::Limit => Some(4),
             Func::MatrixElement(_) => Some(2),
-            Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => Some(0),
+            Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => Some(0),
             Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
@@ -450,6 +452,9 @@ impl Expr {
         let mut has_matrix = false;
         let binding_identity=match &kind {Kind::Func(Func::Subs,args)=>binding_identity::build(args),_=>None};
         let mut features=if binding_identity.is_some(){1}else{0};
+        if !canonical && matches!(kind,Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){features|=16;}
+        if matches!(&kind,Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN))
+            || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite()){features|=32;}
         kind.rank().hash(&mut h);
         match &kind {
             Kind::Num(n) => n.hash(&mut h),
@@ -518,6 +523,13 @@ impl Expr {
                         features |= scalar.0.features;
                         scalar.clone()
                     });
+                }
+                if let Func::MatrixDotProduct(a,b)=f {
+                    has_matrix=true;
+                    for parent in [a,b] {
+                        for matrix in parent.matrix_symbols(){let mut atom_hash=FxHasher::default();matrix.hash(&mut atom_hash);mask|=1u64<<(atom_hash.finish()%64);}
+                        let _=parent.scalar_map(&mut |scalar|{mask|=scalar.mask();features|=scalar.0.features;scalar.clone()});
+                    }
                 }
             }
             Kind::Derivative(e, vars) => {
@@ -591,6 +603,7 @@ impl Expr {
                         let mut fields=Vec::new();matrix.scalar_fields(&mut fields);
                         for field in fields{info.include(field.float_info());}
                     }
+                    if let Func::MatrixDotProduct(a,b)=f {for matrix in [a,b]{let mut fields=Vec::new();matrix.scalar_fields(&mut fields);for field in fields{info.include(field.float_info());}}}
                 },
                 Kind::Derivative(e,variables)=>{info.include(e.float_info());for (v,_) in variables{info.include(v.float_info());}},
                 Kind::Piecewise(parts)=>{for (e,c) in parts{info.include(e.float_info());info.include(c.float_info());}},
@@ -623,11 +636,15 @@ impl Expr {
     pub fn has_binding_identity(&self)->bool {self.0.features & 1 != 0}
     pub fn has_calculus_binding(&self)->bool {self.0.features & 4 != 0}
     pub fn has_lambda_binding(&self)->bool {self.0.features & 8 != 0}
+    /// Whether a scalar descendant preserves explicitly held arithmetic.
+    pub fn has_held_arithmetic(&self)->bool {self.0.features & 16 != 0}
+    pub fn has_nonfinite(&self)->bool {self.0.features & 32 != 0}
     pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
 
     /// Conservative unchanged-child check for transforms preserving public args.
     pub fn same_presentation(&self,other:&Expr)->bool {
-        self.ptr_eq(other) || (!self.has_binding_identity() && !other.has_binding_identity() && self==other)
+        self.ptr_eq(other) || (!self.has_binding_identity() && !other.has_binding_identity()
+            && !self.has_held_arithmetic() && !other.has_held_arithmetic() && self==other)
     }
 
     /// Whether this node was made by a canonical constructor.

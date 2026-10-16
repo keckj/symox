@@ -27,6 +27,7 @@ pub mod integrate;
 pub mod lambdify;
 pub mod linear;
 pub mod matrix;
+pub mod matrixcontraction;
 pub mod matrixexpr;
 pub mod logic;
 pub mod ntheory;
@@ -51,6 +52,7 @@ pub mod sortkey;
 pub mod subs;
 pub mod summation;
 pub mod symbol;
+pub mod symbolic_number;
 pub mod traverse;
 
 pub use expr::{Constant, Expr, Func, Kind, RelOp};

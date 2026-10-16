@@ -696,3 +696,42 @@ def _check_block_schur_rectangular_complex(jit, pivot):
     actual_gradient = jax.grad(lambda value: loss(actual_outputs(value)))(tv)
     expected_gradient = jax.grad(lambda value: loss(reference(value)))(tv)
     np.testing.assert_allclose(actual_gradient, expected_gradient, rtol=3e-5, atol=3e-5)
+
+
+@pytest.mark.parametrize("jit", [False, True])
+@pytest.mark.parametrize("arow", [False, True])
+@pytest.mark.parametrize("conjugated", [False, True])
+def test_dotproduct_complex_mixed_vector_orientation_batching_total_derivative_and_gradients(jit, arow, conjugated):
+    a = sm.MatrixSymbol('a', *((1, 3) if arow else (3, 1)))
+    b = sm.MatrixSymbol('b', *((3, 1) if arow else (1, 3)))
+    t = sm.Symbol('t', real=True)
+    parent = (t*a).conjugate() if conjugated else t*a
+    value = sm.DotProduct(parent, b)
+    function = sm.jax_lambdify((a, b, t), (value, value.diff(t)), jit=jit)
+    real_a = jnp.arange(6, dtype=jnp.float32).reshape(2, 1, 3)
+    real_b = jnp.arange(9, dtype=jnp.float32).reshape(1, 3, 3)
+    av = .1+.2*real_a+1j*(-.3+.1*real_a)
+    bv = -.4+.15*real_b+1j*(.2+.07*real_b)
+    tv = jnp.asarray([[.3], [.8]])
+
+    def outputs(aa, bb, tt):
+        a_input = jnp.expand_dims(aa, -2 if arow else -1)
+        b_input = jnp.expand_dims(bb, -1 if arow else -2)
+        return function(a_input, b_input, tt)
+
+    def reference(aa, bb, tt):
+        scaled = tt[..., None]*aa
+        return (jnp.sum((scaled.conj() if conjugated else scaled)*bb, axis=-1),
+                jnp.sum((aa.conj() if conjugated else aa)*bb, axis=-1))
+
+    actual, expected = outputs(av, bv, tv), reference(av, bv, tv)
+    for output, target in zip(actual, expected):
+        assert output.shape == (2, 3) and output.dtype == jnp.complex64
+        np.testing.assert_allclose(output, target, rtol=3e-6, atol=3e-7)
+    if conjugated:
+        assert not np.allclose(expected[0], jnp.sum((tv[..., None]*av)*bv, axis=-1))
+    loss = lambda values: sum(jnp.sum(jnp.abs(v)**2) for v in values)
+    actual_gradient = jax.grad(lambda aa, bb, tt: loss(outputs(aa, bb, tt)), argnums=(0, 1, 2))(av, bv, tv)
+    expected_gradient = jax.grad(lambda aa, bb, tt: loss(reference(aa, bb, tt)), argnums=(0, 1, 2))(av, bv, tv)
+    for output, target in zip(actual_gradient, expected_gradient):
+        np.testing.assert_allclose(output, target, rtol=3e-6, atol=1e-6)

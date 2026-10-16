@@ -22,6 +22,14 @@ pub fn add_term(t: &Expr, k: &Number) -> Expr {
     if k.is_one() {
         return t.clone();
     }
+    if let Kind::Mul(c,factors)=t.kind(){
+        if !t.is_canonical(){
+            let mut tail=Vec::with_capacity(factors.len()+1);
+            if !c.is_one(){tail.push((Expr::num(c.clone()),Expr::one()));}
+            tail.extend(factors.iter().cloned());
+            return Expr::from_unevaluated_kind(Kind::Mul(k.clone(),tail));
+        }
+    }
     match t.kind() {
         Kind::Mul(c, facs) if c.is_one() => Expr::from_kind(Kind::Mul(k.clone(), facs.clone())),
         Kind::Pow(b, e) => Expr::from_kind(Kind::Mul(k.clone(), vec![(b.clone(), e.clone())])),
@@ -42,7 +50,7 @@ pub fn mul_factor(b: &Expr, e: &Expr) -> Expr {
 pub fn as_coeff_mul(e: &Expr) -> (Number, Expr) {
     match e.kind() {
         Kind::Num(n) => (n.clone(), Expr::one()),
-        Kind::Mul(c, facs) if !c.is_one() => (c.clone(), mul_from_factors(facs.clone())),
+        Kind::Mul(c, facs) if !c.is_one() => (c.clone(), mul_from_factors_like(e,facs.clone())),
         _ => (Number::ONE, e.clone()),
     }
 }
@@ -75,6 +83,16 @@ fn mul_from_factors(facs: Vec<(Expr, Expr)>) -> Expr {
     Expr::from_kind(Kind::Mul(Number::ONE, facs))
 }
 
+/// Extracting a coefficient must not certify a raw product tail as canonical.
+fn mul_from_factors_like(parent:&Expr,factors:Vec<(Expr,Expr)>)->Expr{
+    if parent.is_canonical(){return mul_from_factors(factors);}
+    match factors.len(){
+        0=>Expr::one(),
+        1=>mul_factor(&factors[0].0,&factors[0].1),
+        _=>Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,factors)),
+    }
+}
+
 impl Expr {
     /// Fix an `Add` node which may have become degenerate (0 or 1 term).
     fn normalize_add(self) -> Expr {
@@ -99,6 +117,21 @@ struct InfFlags {
 
 /// Canonical sum of `args`.
 pub fn add(args: &[Expr]) -> Expr {
+    add_with_cache(args,&mut rustc_hash::FxHashMap::default())
+}
+
+type ArithmeticMemo=rustc_hash::FxHashMap<usize,(Expr,Expr)>;
+
+/// Flatten held sums once per physical node, reclassifying their literal
+/// arguments rather than treating a raw payload as a canonical term table.
+fn normalized_sum(expression:&Expr,cache:&mut ArithmeticMemo)->Expr{
+    if let Some((_,value))=cache.get(&expression.dag_id()){return value.clone();}
+    let values=expression.args();
+    let value=if values.len()==1 && values[0].is_add() && values[0].has_held_arithmetic(){normalized_sum(&values[0],cache)}else{add_with_cache(&values,cache)};
+    cache.insert(expression.dag_id(),(expression.clone(),value.clone()));value
+}
+
+fn add_with_cache(args:&[Expr],cache:&mut ArithmeticMemo)->Expr{
     match args.len() {
         0 => return Expr::zero(),
         1 => return args[0].clone(),
@@ -112,16 +145,30 @@ pub fn add(args: &[Expr]) -> Expr {
     let mut coeff = Number::ZERO;
     let mut terms: Vec<(Expr, Number)> = Vec::with_capacity(args.len() + 4);
     let mut inf = InfFlags::default();
-    for a in args {
+    for argument in args {
+        let normalized=if argument.is_add() && argument.has_held_arithmetic(){Some(normalized_sum(argument,cache))}else{None};
+        let a=normalized.as_ref().unwrap_or(argument);
         match a.kind() {
             Kind::Num(n) => coeff = coeff.add(n),
             Kind::Add(c, ts) => {
                 coeff = coeff.add(c);
-                terms.extend(ts.iter().cloned());
+                if a.has_nonfinite(){
+                    for(t,k)in ts{
+                        if k.is_nan(){return Expr::nan();}
+                        if k.is_zero(){continue;}
+                        match t.kind(){
+                            Kind::Const(Constant::NaN)=>return Expr::nan(),
+                            Kind::Const(Constant::ComplexInfinity)=>inf.complex=true,
+                            Kind::Const(Constant::Infinity)=>if k.is_negative(){inf.neg=true}else{inf.pos=true},
+                            Kind::Const(Constant::NegInfinity)=>if k.is_negative(){inf.pos=true}else{inf.neg=true},
+                            _=>terms.push((t.clone(),k.clone())),
+                        }
+                    }
+                }else{terms.extend(ts.iter().cloned());}
             }
             Kind::Mul(c, facs) if !c.is_one() => {
                 // a term `c * oo` never exists: mul normalises it
-                terms.push((mul_from_factors(facs.clone()), c.clone()));
+                terms.push((mul_from_factors_like(a,facs.clone()), c.clone()));
             }
             Kind::Const(Constant::NaN) => return Expr::nan(),
             Kind::Const(Constant::Infinity) => inf.pos = true,
@@ -156,6 +203,7 @@ pub fn add2(a: &Expr, b: &Expr) -> Expr {
 fn as_terms(e: &Expr) -> Option<(Number, std::borrow::Cow<'_, [(Expr, Number)]>)> {
     use std::borrow::Cow;
     match e.kind() {
+        Kind::Add(..) if !e.is_canonical() => None,
         Kind::Add(c, terms) => Some((c.clone(), Cow::Borrowed(terms.as_slice()))),
         Kind::Num(n) => Some((n.clone(), Cow::Owned(Vec::new()))),
         Kind::Const(_) => {
@@ -166,14 +214,14 @@ fn as_terms(e: &Expr) -> Option<(Number, std::borrow::Cow<'_, [(Expr, Number)]>)
             }
         }
         Kind::Mul(c, facs) if !c.is_one() => {
-            Some((Number::ZERO, Cow::Owned(vec![(mul_from_factors(facs.clone()), c.clone())])))
+            Some((Number::ZERO, Cow::Owned(vec![(mul_from_factors_like(e,facs.clone()), c.clone())])))
         }
         _ => Some((Number::ZERO, Cow::Owned(vec![(e.clone(), Number::ONE)]))),
     }
 }
 
 fn add2_merge(a: &Expr, b: &Expr) -> Option<Expr> {
-    if !(a.is_add() || b.is_add()) || a.may_have_order() || b.may_have_order() {
+    if !(a.is_add() || b.is_add()) || a.may_have_order() || b.may_have_order() || a.has_nonfinite() || b.has_nonfinite() {
         return None;
     }
     let (ca, ta) = as_terms(a)?;
@@ -235,6 +283,14 @@ fn finish_add(coeff: Number, mut terms: Vec<(Expr, Number)>, inf: InfFlags) -> E
         if (inf.pos && inf.neg) || (inf.complex && (inf.pos || inf.neg)) {
             return Expr::nan();
         }
+        crate::assumptions::exact_queries(||out.retain(|(term,_)|{
+            if inf.complex{
+                !(crate::assumptions::is_finite(term)==Some(true) && crate::assumptions::is_real(term).is_some())
+            }else{
+                crate::assumptions::is_real(term)!=Some(true)
+                    && if inf.pos{crate::assumptions::is_nonnegative(term)!=Some(true)}else{crate::assumptions::is_nonpositive(term)!=Some(true)}
+            }
+        }));
         coeff = Number::ZERO;
         let c = if inf.complex {
             Constant::ComplexInfinity
@@ -666,6 +722,10 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Exp
         // Number * (a + b) distributes
         if e.is_one() {
             if let Kind::Add(c, terms) = b.kind() {
+                if !b.is_canonical(){
+                    let normalized=normalized_sum(b,&mut ArithmeticMemo::default());
+                    return mul2(&Expr::num(coeff),&normalized);
+                }
                 return distribute(&coeff, c, terms);
             }
         }
@@ -700,7 +760,7 @@ fn mul_depth(args: &[Expr], depth: u32) -> Expr {
 }
 
 fn distribute(k: &Number, c: &Number, terms: &[(Expr, Number)]) -> Expr {
-    if terms.iter().any(|(t, _)| t.may_have_order()) {
+    if terms.iter().any(|(t, _)| t.may_have_order()||t.has_nonfinite()) {
         let mut v: Vec<Expr> = terms.iter().map(|(t, n)| mul2(&Expr::num(n.mul(k)), t)).collect();
         v.push(Expr::num(c.mul(k)));
         return add(&v);
@@ -1061,6 +1121,32 @@ fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
 // ----------------------------------------------------------------------
 
 pub fn neg(a: &Expr) -> Expr {
+    if (a.has_held_arithmetic() && (a.is_add()||a.is_mul())) || (a.is_add()&&a.has_nonfinite()){
+        return neg_held(a,&mut ArithmeticMemo::default(),&mut ArithmeticMemo::default());
+    }
+    neg_canonical(a)
+}
+
+fn neg_held(a:&Expr,negative:&mut ArithmeticMemo,sums:&mut ArithmeticMemo)->Expr{
+    if let Some((_,value))=negative.get(&a.dag_id()){return value.clone();}
+    let value=if a.is_add(){
+        let values=a.args().iter().map(|term|neg_held(term,negative,sums)).collect::<Vec<_>>();
+        add_with_cache(&values,sums)
+    }else if a.is_mul() && !a.is_canonical(){
+        let(coefficient,tail)=crate::decompose::as_coeff_mul_head(a,true);
+        let mut factors=if tail.is_mul(){tail.args()}else{vec![tail]};
+        let coefficient=if factors.first().is_some_and(|factor|factor.is_constant(Constant::ComplexInfinity)){coefficient}else{neg_canonical(&coefficient)};
+        if !coefficient.is_one(){
+            if factors.first().is_some_and(|factor|matches!(factor.kind(),Kind::Num(_)|Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::NaN))){
+                factors[0]=mul2(&coefficient,&factors[0]);
+            }else{factors.insert(0,coefficient);}
+        }
+        match factors.len(){0=>Expr::one(),1=>factors.pop().unwrap(),_=>Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,factors.into_iter().map(|factor|(factor,Expr::one())).collect()))}
+    }else{neg_canonical(a)};
+    negative.insert(a.dag_id(),(a.clone(),value.clone()));value
+}
+
+fn neg_canonical(a:&Expr)->Expr{
     if a.may_have_order() {
         return mul(&[Expr::minus_one(), a.clone()]);
     }
@@ -1205,5 +1291,62 @@ impl Expr {
     }
     pub fn sqrt(&self) -> Expr {
         sqrt(self)
+    }
+}
+
+#[cfg(test)]
+mod held_arithmetic_tests {
+    use super::*;
+    fn p(source:&str)->Expr{crate::parser::parse_str(source).unwrap()}
+
+    #[test]
+    fn raw_product_tails_survive_coefficient_extraction_and_negation(){
+        for(source,expected)in[
+            ("Mul(-1,x,1/2,evaluate=False)","Mul(x,1/2,evaluate=False)"),
+            ("Mul(y,-2,I,evaluate=False)","Mul(-1,y,-2,I,evaluate=False)"),
+            ("Mul(-2.5,x,2,evaluate=False)","Mul(2.5,x,2,evaluate=False)"),
+        ]{
+            let value=p(source);let wanted=p(expected);
+            assert_eq!(crate::sortkey::sort_key(&neg(&value)),crate::sortkey::sort_key(&wanted),"{source}");
+            assert!(value.has_held_arithmetic());
+        }
+        assert!(!p("x+y").has_held_arithmetic());
+        assert!(p("sin(Mul(x,2,evaluate=False))").has_held_arithmetic());
+        let value=p("Mul(-1,x,1/2,evaluate=False)");
+        let(c,tail)=as_coeff_mul(&value);
+        assert!(c.is_minus_one());assert!(!tail.is_canonical());
+        assert_eq!(tail.args(),vec![p("x"),p("1/2")]);
+        assert_eq!(add_term(&tail,&c).args(),value.args());
+    }
+
+    #[test]
+    fn held_sum_flattening_reclassifies_constants_and_shares_deep_dags(){
+        assert_eq!(add(&[p("Add(1,1,evaluate=False)"),Expr::int(2)]),Expr::int(4));
+        assert_eq!(mul2(&Expr::int(2),&p("Add(1,1,evaluate=False)")),Expr::int(4));
+        let mut value=p("x");
+        for _ in 0..80{value=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![(value.clone(),Number::ONE),(value,Number::ONE)]));}
+        let coefficient=Expr::num(Number::from_bigint(num_bigint::BigInt::from(1)<<80));
+        let expected=mul2(&coefficient,&p("x"));
+        assert_eq!(add(&[value.clone(),Expr::one()]),add(&[expected.clone(),Expr::one()]));
+        assert_eq!(neg(&value),neg(&expected));
+        assert_eq!(mul2(&Expr::int(2),&value),mul2(&Expr::int(2),&expected));
+    }
+}
+
+#[cfg(test)]
+mod nonfinite_add_tests{
+    use super::*;
+    #[test]
+    fn infinities_are_reclassified_when_flattening_and_distributing(){
+        let x=Expr::symbol("x");let real=Expr::symbol_with("r",crate::Assumptions::REAL);
+        assert_eq!(add2(&Expr::oo(),&real),Expr::oo());
+        assert_eq!(add2(&Expr::zoo(),&Expr::i()),Expr::zoo());
+        let value=add2(&Expr::oo(),&x);
+        assert_eq!(add2(&value,&Expr::neg_oo()),Expr::nan());
+        assert_eq!(add2(&value,&Expr::int(2)),value);
+        assert_eq!(neg(&value),add2(&Expr::neg_oo(),&neg(&x)));
+        assert_eq!(mul2(&Expr::int(2),&value),add2(&Expr::oo(),&mul2(&Expr::int(2),&x)));
+        let held=crate::parser::parse_str("Add(-2,Add(I,2,oo,evaluate=False),evaluate=False)").unwrap();
+        assert_eq!(neg(&held),add2(&Expr::neg_oo(),&neg(&Expr::i())));
     }
 }

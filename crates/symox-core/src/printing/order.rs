@@ -232,6 +232,10 @@ impl KeyCache {
                 self.composite((5, 0, "Derivative"), KArgs::List(args))
             }
             Kind::Func(Func::MatrixProxy(matrix), _) => (*self.matrix_key(matrix)).clone(),
+            Kind::Func(Func::MatrixDotProduct(left,right),_) => {
+                let args=vec![self.matrix_key(left),self.matrix_key(right)];
+                self.composite((5,0,"DotProduct"),KArgs::List(args))
+            }
             Kind::Func(Func::MatrixElement(matrix), args) => {
                 let mut keys = vec![self.matrix_key(matrix)];
                 keys.extend(args.iter().map(|arg| self.key(arg)));
@@ -262,22 +266,12 @@ impl KeyCache {
             },
             _ => {
                 // coeff, expr = as_coeff_Mul()
-                let (coeff, rest) = match e.kind() {
-                    Kind::Mul(c, facs) if !c.is_one() => {
-                        let rest = if facs.len() == 1 {
-                            mul_factor(&facs[0].0, &facs[0].1)
-                        } else {
-                            Expr::from_kind(Kind::Mul(Number::ONE, facs.clone()))
-                        };
-                        (c.clone(), rest)
-                    }
-                    _ => (Number::ONE, e.clone()),
-                };
+                let (coeff, rest) = crate::ops::as_coeff_mul(e);
                 let (expr, exp) = match rest.kind() {
                     Kind::Pow(b, x) => (b.clone(), Some(x.clone())),
                     _ => (rest, None),
                 };
-                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
                     let mut key = (*self.key(&expr)).clone();
                     key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
                     key.coeff = coeff;
@@ -325,18 +319,10 @@ impl KeyCache {
 
     /// `Mul.as_ordered_factors()`.
     pub fn ordered_factors(&mut self, e: &Expr) -> Vec<Expr> {
-        match e.kind() {
-            Kind::Mul(c, facs) => {
-                let mut v: Vec<Expr> = Vec::with_capacity(facs.len() + 1);
-                if !c.is_one() {
-                    v.push(Expr::num(c.clone()));
-                }
-                v.extend(facs.iter().map(|(b, x)| mul_factor(b, x)));
-                self.sort_factors(&mut v);
-                v
-            }
-            _ => vec![e.clone()],
-        }
+        if !e.is_mul(){return vec![e.clone()];}
+        let(mut commutative,noncommutative)=crate::decompose::args_cnc(e,true);
+        self.sort_factors(&mut commutative);
+        commutative.extend(noncommutative);commutative
     }
 }
 

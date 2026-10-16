@@ -88,7 +88,7 @@ impl PyBlockGrid{
 }
 pub(crate) fn wrap_matrixexpr(m:MatrixExpr)->PyMatrixExpr{PyMatrixExpr{m}}
 fn error(py:Python<'_>,e:symox::matrix::MatrixError)->PyErr{crate::matrices::err(py,e)}
-fn matrix_object<'py>(py:Python<'py>,m:&MatrixExpr)->PyResult<Bound<'py,PyAny>>{
+pub(crate) fn matrix_object<'py>(py:Python<'py>,m:&MatrixExpr)->PyResult<Bound<'py,PyAny>>{
     if let MatrixKind::Explicit(value)=m.kind(){return Ok(crate::matrices::wrapm(value.clone()).into_pyobject(py)?.call_method0("as_immutable")?);}
     Ok(wrap_matrixexpr(m.clone()).into_pyobject(py)?.into_any())
 }
@@ -244,6 +244,10 @@ fn _matrix_determinant(parent:&Bound<'_,PyAny>,evaluate:bool)->PyResult<PyExpr>{
     let matrix=to_matrixexpr(parent)?;
     Ok(wrap((if evaluate{matrix.determinant()}else{matrix.determinant_unevaluated()}).map_err(|e|error(parent.py(),e))?))
 }
+#[pyfunction]
+fn _matrix_dot_product(a:&Bound<'_,PyAny>,b:&Bound<'_,PyAny>)->PyResult<PyExpr>{
+    Ok(wrap(symox::matrixcontraction::dot_product(&to_matrixexpr(a)?,&to_matrixexpr(b)?,false).map_err(|e|error(a.py(),e))?))
+}
 #[pymethods]
 impl PyMatrixExpr{
     #[getter] fn _symox_matrixexpr(&self)->bool{true}
@@ -253,6 +257,7 @@ impl PyMatrixExpr{
     #[getter] fn is_Symbol(&self)->bool{false}
     #[getter] fn is_Atom(&self)->bool{false}
     #[getter] fn is_Number(&self)->bool{false}
+    #[getter] fn is_number(&self)->bool{false}
     #[getter] fn is_MatrixSymbol(&self)->bool{matches!(self.m.kind(),MatrixKind::Symbol(_))}
     #[getter] fn function(&self)->PyResult<PyExpr>{if let MatrixKind::ApplyFunction(function,_)=self.m.kind(){Ok(wrap(function.clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only ElementwiseApplyFunction has a function"))}}
     #[getter] fn expr(&self)->PyResult<Self>{if let MatrixKind::ApplyFunction(_,parent)=self.m.kind(){Ok(wrap_matrixexpr(parent.clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only ElementwiseApplyFunction has an expr"))}}
@@ -408,4 +413,4 @@ fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{
     if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("Block grids require a BlockMatrix wrapper before collapse"));}
     let expression=to_expr(value)?;crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression).map_err(|e|error(py,e))?)
 }
-pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;Ok(())}
+pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_class::<PyBlockGrid>()?;m.add_class::<PySliceSpec>()?;m.add_function(wrap_pyfunction!(_normalized_slice,m)?)?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_block_collapse,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;m.add_function(wrap_pyfunction!(_matrix_dot_product,m)?)?;Ok(())}

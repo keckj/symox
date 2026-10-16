@@ -69,35 +69,109 @@ def test_scalar_key_keeps_shared_python_tuples_without_expanding_dag():
         key = children[0]
 
 
-def test_seeded_held_signs_match_oracle_without_canonicalizing_input():
-    randomizer = random.Random(756913)
+@pytest.mark.parametrize('seed,extra', [
+    (756913, ()), (756912, ('oo', '-oo', 'zoo', 'nan')),
+])
+def test_seeded_held_signs_and_keys_match_oracle_without_canonicalizing_input(seed, extra):
+    randomizer = random.Random(seed)
     def generate(depth):
         if not depth or randomizer.random() < .45:
-            return randomizer.choice(['x', 'y', 'z', '1', '-1', '2', '-2', 'Rational(1,2)', 'I', 'sin(x)'])
+            return randomizer.choice(['x', 'y', 'z', '1', '-1', '2', '-2', 'Rational(1,2)', 'I', 'sin(x)'] + list(extra))
         children = [generate(depth-1) for _ in range(randomizer.choice([2, 3]))]
         head = 'Add' if randomizer.random() < .65 else 'Mul'
         return f'{head}({",".join(children)},evaluate=False)'
-    for _ in range(400):
+    for _ in range(1000):
         source = generate(2)
         actual, expected = expression(sx, source), expression(sp, source)
         actual, expected = sx.sympify(actual), sp.sympify(expected)
-        assert actual.could_extract_minus_sign() == expected.could_extract_minus_sign(), source
+        try:
+            expected_sign = expected.could_extract_minus_sign()
+        except (TypeError, ValueError):
+            # SymPy can reject its own NaN comparisons while choosing a sign.
+            continue
+        assert actual.could_extract_minus_sign() == expected_sign, source
+        try:
+            expected_key = sp.default_sort_key(expected)
+        except (TypeError, ValueError):
+            # A rejected oracle key is not a reference ordering.
+            continue
+        assert normalized(sx.default_sort_key(actual)) == expected_key, source
 
 
-@pytest.mark.xfail(strict=True, reason='Canonical Add reconstruction still changes the raw tail of a held product')
 @pytest.mark.parametrize('source', [
     'Add(-2,Mul(y,-2,I,evaluate=False),evaluate=False)',
     'Add(y,Mul(-1,x,Rational(1,2),evaluate=False),evaluate=False)',
     'Add(Mul(-1,x,I,evaluate=False),Mul(x,y,-2,evaluate=False),evaluate=False)',
 ])
-def test_remaining_held_sum_reconstruction_sign_cases(source):
+def test_held_sum_reconstruction_preserves_product_signs(source):
     assert expression(sx, source).could_extract_minus_sign() == expression(sp, source).could_extract_minus_sign()
 
 
-@pytest.mark.xfail(strict=True, reason='Held Add may reuse a canonical parent whose product children have different public argument order')
 @pytest.mark.parametrize('source', [
     'Add(Rational(1,2),Mul(2,1,evaluate=False),evaluate=False)',
     'Add(x,Mul(2,2,Rational(1,2),evaluate=False),Mul(x,x,-1,evaluate=False),evaluate=False)',
 ])
-def test_remaining_held_sum_reconstruction_key_cases(source):
+def test_held_sum_reconstruction_preserves_product_presentation(source):
     assert normalized(sx.default_sort_key(expression(sx, source))) == sp.default_sort_key(expression(sp, source))
+
+
+@pytest.mark.parametrize('source', SOURCES + [
+    'Mul(x,oo,evaluate=False)', 'Mul(x,-oo,evaluate=False)',
+    'Mul(x,zoo,evaluate=False)', 'Mul(x,nan,evaluate=False)',
+    'Add(Add(1,1,evaluate=False),2,evaluate=False)',
+    'Add(x,Add(y,2,evaluate=False),evaluate=False)',
+])
+def test_negation_of_held_arithmetic_matches_oracle_without_changing_input(source):
+    actual, expected = expression(sx, source), expression(sp, source)
+    before = actual.args
+    assert normalized(sx.default_sort_key(-actual)) == sp.default_sort_key(-expected)
+    assert actual.args == before
+
+
+@pytest.mark.parametrize('source', SOURCES + [
+    'Mul(x,oo,evaluate=False)', 'Mul(x,-oo,evaluate=False)',
+    'Add(Mul(x,oo,evaluate=False),y,evaluate=False)',
+])
+def test_public_term_order_uses_the_same_keys_as_default_sort_key(source):
+    actual, expected = expression(sx, source), expression(sp, source)
+    assert [normalized(sx.default_sort_key(term)) for term in actual.as_ordered_terms()] == [sp.default_sort_key(term) for term in expected.as_ordered_terms()]
+
+
+def test_public_arithmetic_preserves_dag_sharing_for_held_sum_normalization():
+    one = sx.Integer(1)
+    x = sx.Symbol('x')
+    value = x
+    for _ in range(80):
+        value = sx._core._restore_arithmetic('Add', sx.Integer(0), [(value, one), (value, one)], False)
+    assert value + 1 == 2**80*x+1
+    assert -value == -(2**80*x)
+    assert 2*value == 2**81*x
+    assert sx.Add(sx.Add(1,1,evaluate=False),2) == 4
+
+
+@pytest.mark.parametrize('source', [
+    'Add(-2,Add(I,2,oo,evaluate=False),evaluate=False)',
+    'Add(-1,Add(z,-oo,evaluate=False),evaluate=False)',
+    'Add(Add(I,-oo,I,evaluate=False),Mul(-1,1,evaluate=False),evaluate=False)',
+    'Add(Add(Rational(1,2),zoo,y,evaluate=False),-oo,evaluate=False)',
+])
+def test_nested_nonfinite_sum_signs_reclassify_flattened_infinities(source):
+    assert expression(sx, source).could_extract_minus_sign() == expression(sp, source).could_extract_minus_sign()
+
+
+@pytest.mark.parametrize('source', [
+    '(oo+x)-oo', '2*(oo+x)', '-(oo+x)', '(oo+I)+2',
+    'oo+Symbol("r",real=True)', 'zoo+I',
+])
+def test_nonfinite_arithmetic_uses_exact_finiteness_facts(source):
+    assert normalized(sx.default_sort_key(expression(sx, source))) == sp.default_sort_key(expression(sp, source))
+
+
+@pytest.mark.parametrize('source', [
+    'Add(Add(Rational(1,2),oo,evaluate=False),Mul(oo,-2,evaluate=False),evaluate=False)',
+    'Add(nan,I,Add(-1,Rational(1,2),-oo,evaluate=False),evaluate=False)',
+    'Add(Add(x,I,2,evaluate=False),Mul(-2,I,evaluate=False),Add(-1,-oo,1,evaluate=False),evaluate=False)',
+])
+def test_nonfinite_numeric_coefficients_stop_comparison_at_unequal_nan(source):
+    actual, expected = expression(sx, source), expression(sp, source)
+    assert normalized(sx.default_sort_key(actual)) == sp.default_sort_key(expected)

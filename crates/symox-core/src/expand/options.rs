@@ -243,7 +243,8 @@ fn is_matrix_metadata(e: &Expr) -> bool {
             crate::Func::MatrixProxy(_)
                 | crate::Func::MatrixElement(_)
                 | crate::Func::MatrixTrace(_)
-                | crate::Func::MatrixDeterminant(_),
+                | crate::Func::MatrixDeterminant(_)
+                | crate::Func::MatrixDotProduct(_, _),
             _
         )
     )
@@ -259,6 +260,14 @@ fn matrix_metadata(e: &Expr, options: &ExpandOptions, budget: &mut ExpandBudget)
     let Kind::Func(function, args) = e.kind() else {
         return Ok(e.clone());
     };
+    if let crate::Func::MatrixDotProduct(a,b)=function {
+        let na=a.expand_with_options(options,budget).map_err(|e|ExpandError(e.to_string()))?;
+        let nb=b.expand_with_options(options,budget).map_err(|e|ExpandError(e.to_string()))?;
+        let value=if na.dag_id()==a.dag_id()&&nb.dag_id()==b.dag_id(){e.clone()}else{
+            crate::matrixcontraction::dot_product(&na,&nb,false).map_err(|e|ExpandError(e.to_string()))?
+        };
+        budget.scalar_cache.insert(key,(e.clone(),value.clone()));return Ok(value);
+    }
     let (crate::Func::MatrixProxy(parent)
     | crate::Func::MatrixElement(parent)
     | crate::Func::MatrixTrace(parent)

@@ -74,6 +74,7 @@ fn eval_c64_uncached(e: &Expr) -> Option<C64> {
             p
         }
         Kind::Pow(b, x) => cpow(eval_c64(b)?, x)?,
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>eval_c64(&crate::matrixcontraction::dot_product(a,b,true).ok()?)?,
         Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}eval_c64(&evaluated)?},
         Kind::Func(Func::Special(s), args) => crate::special::numeric::eval_c64(*s, args)?,
         Kind::Func(f, args) => {
@@ -215,7 +216,7 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
             realonly(best)
         }
         Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_)
-        | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => return None,
+        | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => return None,
         Func::Special(s) => return crate::special::numeric::apply(*s, a),
     })
 }

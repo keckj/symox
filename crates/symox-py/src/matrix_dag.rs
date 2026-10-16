@@ -65,7 +65,7 @@ impl Node{
                     Kind::Add(_,terms)=>out.extend(terms.iter().map(|(e,_)|Self::S(e.clone()))),
                     Kind::Mul(_,terms)=>for(a,b)in terms{out.push(Self::S(a.clone()));out.push(Self::S(b.clone()));},
                     Kind::Pow(a,b)|Kind::Rel(_,a,b)=>{out.push(Self::S(a.clone()));out.push(Self::S(b.clone()));},
-                    Kind::Func(f,args)=>{if let Func::MatrixElement(m)|Func::MatrixProxy(m)|Func::MatrixTrace(m)|Func::MatrixDeterminant(m)=f{out.push(Self::M((**m).clone()));}out.extend(args.iter().cloned().map(Self::S));},
+                    Kind::Func(f,args)=>{if let Func::MatrixDotProduct(a,b)=f{out.push(Self::M((**a).clone()));out.push(Self::M((**b).clone()));}if let Func::MatrixElement(m)|Func::MatrixProxy(m)|Func::MatrixTrace(m)|Func::MatrixDeterminant(m)=f{out.push(Self::M((**m).clone()));}out.extend(args.iter().cloned().map(Self::S));},
                     Kind::Derivative(e,vars)=>{out.push(Self::S(e.clone()));out.extend(vars.iter().map(|(e,_)|Self::S(e.clone())));},
                     Kind::Piecewise(pairs)=>for(a,b)in pairs{out.push(Self::S(a.clone()));out.push(Self::S(b.clone()));},
                     _=>{},
@@ -126,6 +126,7 @@ impl<'py> Encoder<'py>{
                 Kind::Func(f,args)=>{
                     let refs=obj(py,self.scalars(args))?;
                     match f{
+                        Func::MatrixDotProduct(a,b)=>("s.dot",vec![obj(py,self.matrix(a))?,obj(py,self.matrix(b))?]),
                         Func::MatrixElement(m)|Func::MatrixProxy(m)|Func::MatrixTrace(m)|Func::MatrixDeterminant(m)=>{
                             let tag=match f{Func::MatrixElement(_)=>"s.element",Func::MatrixProxy(_)=>"s.proxy",Func::MatrixTrace(_)=>"s.trace",_=>"s.determinant"};(tag,vec![obj(py,self.matrix(m))?,refs])
                         },
@@ -215,6 +216,7 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                         symox::sets::lambda_checked(&args[0],&args[1]).map_err(invalid)?.kind().clone()
                     }else{validate_function(&function,&args)?;Kind::Func(function,args)}
                 },
+                "s.dot"=>{arity(2)?;symox::matrixcontraction::dot_product(&m(0)?,&m(1)?,false).map_err(|e|invalid(e.to_string()))?.kind().clone()},
                 "s.element"|"s.proxy"|"s.trace"|"s.determinant"=>{
                     arity(2)?;let matrix=m(0)?;let args=ss(1)?;let n=if tag=="s.element"{2}else{0};if args.len()!=n{return Err(invalid("matrix scalar arity mismatch"));}
                     if tag=="s.element"{matrix.element_unevaluated(&args[0],&args[1]).map_err(|e|invalid(e.to_string()))?;}

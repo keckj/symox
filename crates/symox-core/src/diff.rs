@@ -175,6 +175,17 @@ fn d_func(
         }
         return derivative_unevaluated(e, vec![(x.clone(), 1)]);
     }
+    if let Func::MatrixDotProduct(a,b)=f {
+        let result=(||->crate::matrix::MResult<Expr>{
+            let da=a.diff(x)?;let db=b.diff(x)?;
+            let zero=|m:&crate::matrixexpr::MatrixExpr|match m.kind(){crate::matrixexpr::MatrixKind::Zero=>true,crate::matrixexpr::MatrixKind::Explicit(m)=>m.data().iter().all(Expr::is_zero),_=>false};
+            let mut terms=Vec::new();
+            if !zero(&da){terms.push(crate::matrixcontraction::dot_product(&da,b,false)?);}
+            if !zero(&db){terms.push(crate::matrixcontraction::dot_product(a,&db,false)?);}
+            Ok(add(&terms))
+        })();
+        return result.unwrap_or_else(|_|derivative_unevaluated(e,vec![(x.clone(),1)]));
+    }
     if let Func::MatrixTrace(parent) = f {
         if let Ok(evaluated) = parent.trace() {
             if evaluated != *e { return d(&evaluated, x, cache); }

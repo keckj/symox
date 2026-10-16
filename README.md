@@ -110,7 +110,8 @@ different through substitutions, differentiation, SymPy conversion and pickling.
 `Symbol("_x")` remains an ordinary symbol. Code printers use distinct indexed
 identifiers for dummy variables. Tensor, Slang and SYCL printers also accept
 explicit symbol-name mappings.
-`as_coeff_add`, `as_coeff_mul`, `as_independent` and `as_content_primitive`
+`as_coeff_add`, `as_coeff_mul`, `as_coeff_Mul`, `as_independent` and
+`as_content_primitive`
 provide structural decompositions, including dependency selection and rational
 or supported radical content. Floating-point presence and maximum precision
 are cached per node, so repeated inspection preserves shared expression graphs
@@ -118,7 +119,12 @@ instead of traversing every occurrence again.
 `as_base_exp`, `as_powers_dict`, `args_cnc` and `could_extract_minus_sign`
 provide public factor and sign views, preserving held products and exact
 exponents. Power dictionaries retain distinct dummy variables, including held
-factors whose exponents cancel to zero.
+factors whose exponents cancel to zero. Leading coefficient extraction preserves
+raw product tails. Negation preserves the factor order of held products, and
+held sums are reclassified before regrouping.
+`.is_number` classifies the held expression independently of finite evaluation:
+infinities and NaN are numbers, while undefined functions and held matrix
+contractions are not. Integral and Sum use their scoped free variables.
 `collect` supports exact or power-based matching, coefficient dictionaries with
 `evaluate=False`, recursive coefficient callbacks and order-term distribution.
 `exact=None`, Wild patterns and multivariate derivative patterns are explicitly
@@ -161,14 +167,13 @@ Simultaneous substitutions with non-symbol keys are rejected explicitly.
 
 `tests/compare_sympy.py` runs every case through SymPy and symox and
 compares the printed canonical forms and, when they differ, numerical
-equivalence. Known deliberate deviations:
+equivalence. Known differences and remaining gaps:
 
 * `diff(Abs(x), x)` returns `sign(x)` (the real-variable formula).
 * Some antiderivatives use a different branch constant from SymPy (for example
   `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
-* Some held expressions still have different ordering and syntactic sign
-  choices, including nested arithmetic and infinities; regression tests record
-  these remaining gaps.
+* Held-product multiplication still has compatibility gaps in numerical
+  coefficient collection and nonfinite arithmetic.
 
 ## Building
 
@@ -637,6 +642,19 @@ a.as_expr()                     # represents sqrt(2) exactly through powers of t
 a.minpoly_of_element()          # Poly(_x**2 - 2, _x, domain='QQ')
 ```
 
+`sturm`, `count_roots`, `intervals` and `refine_root` provide certified real-root
+analysis for univariate polynomials over `QQ` and `ZZ`, including their `Poly`
+methods. Counts use distinct roots and closed rational bounds; isolating
+intervals retain multiplicities and exact rational roots. Refinement preserves
+the isolated root and applies `eps`, `steps`, `fast` and `check_sqf`.
+The arithmetic stays exact and sparse, with a degree bound of 4096 and shared
+work, storage and rational-size limits. Sturm sequences promote `ZZ` to `QQ`
+unless `auto=False`. Isolating fractions can differ from SymPy's continued
+fraction algorithm. Complex rectangles, other coefficient domains,
+`intervals(all=True)`, `strict=True` and simultaneous polynomial lists are
+explicitly unsupported. Reversed bounds and singleton intervals that are not
+roots raise errors.
+
 `linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
 equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
 pair. Underdetermined solutions retain free variables or receive generated
@@ -688,6 +706,12 @@ tree. Products preserve their order and validate dimensions, including symbolic
 dimensions. Matrix elements participate in scalar arithmetic, substitutions,
 cached free symbols, pickling and SymPy conversion. `as_explicit()` materializes
 matrices with concrete dimensions for the existing exact algorithms.
+`DotProduct(a, b)` holds an ordered scalar contraction of row or column vectors
+with equal lengths. It is bilinear over complex entries; request conjugation
+explicitly for a Hermitian pairing. `.doit()` evaluates finite contractions or
+retains a symbolic Sum for a symbolic length. Scalar differentiation, rewrites,
+pickling, SymPy interchange and finite code generation preserve both matrix
+parents. Empty vectors contract to zero.
 `DiagMatrix` turns a row or column vector into a square diagonal matrix;
 `DiagonalOf` extracts the main diagonal as a column vector, and `DiagonalMatrix`
 retains a matrix's shape while zeroing its off-diagonal entries. These nodes

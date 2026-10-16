@@ -17,7 +17,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             return Expr::from_kind(Kind::Func(f,args));
         },
         Func::Subs | Func::Limit=>return Expr::from_kind(Kind::Func(f,args)),
-        Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => return Expr::from_kind(Kind::Func(f, args)),
+        Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
@@ -113,7 +113,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
         Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_)
-        | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => None,
+        | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => None,
     };
     match r {
         Some(v) => v,
@@ -126,6 +126,10 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
 pub fn doit(e: &Expr, deep: bool) -> Expr {
     let child = |value: &Expr| if deep { doit(value, true) } else { value.clone() };
     match e.kind() {
+        Kind::Func(Func::MatrixDotProduct(a,b), _) => {
+            let parents=if deep {a.doit(true).and_then(|a|b.doit(true).map(|b|(a,b)))}else{Ok(((**a).clone(),(**b).clone()))};
+            parents.and_then(|(a,b)|crate::matrixcontraction::dot_product(&a,&b,true)).unwrap_or_else(|_|e.clone())
+        }
         Kind::Func(Func::MatrixTrace(parent), _) => {
             let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
             parent.and_then(|p| p.trace().ok()).unwrap_or_else(|| e.clone())
@@ -165,6 +169,7 @@ pub fn materialize_matrix_scalars(e: &Expr) -> crate::matrix::MResult<Expr> {
     });
     if let Some(error) = failure { return Err(error); }
     match mapped.kind() {
+        Kind::Func(Func::MatrixDotProduct(a,b), _) => crate::matrixcontraction::dot_product(a,b,true),
         Kind::Func(Func::MatrixTrace(parent), _) => parent.trace_explicit(),
         Kind::Func(Func::MatrixDeterminant(parent), _) => parent.determinant_explicit(),
         _ => Ok(mapped),

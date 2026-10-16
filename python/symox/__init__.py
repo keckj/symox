@@ -1200,6 +1200,7 @@ from ._core import (  # noqa: E402
     rem,
     resultant,
     subresultants,
+    sturm, count_roots, intervals, refine_root, RefinementFailed,
     roots,
     sqf,
     sqf_list,
@@ -1602,7 +1603,7 @@ from ._matrixexpr import (  # noqa: E402
     MatrixExpr, MatrixSymbol, FunctionMatrix, ElementwiseApplyFunction, MatAdd, MatMul, MatPow, Transpose, Adjoint,
     Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
     OneMatrix, HadamardProduct, HadamardPower, KroneckerProduct,
-    BlockMatrix, BlockDiagMatrix, MatrixSlice, block_collapse,
+    BlockMatrix, BlockDiagMatrix, MatrixSlice, block_collapse, DotProduct,
     DiagMatrix, DiagonalOf, DiagonalMatrix,
     hadamard_product, hadamard_power, kronecker_product,
 )

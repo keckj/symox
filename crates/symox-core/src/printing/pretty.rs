@@ -950,6 +950,7 @@ impl PrettyPrinter<'_> {
         if let Func::MatrixElement(parent) = f {
             return Pict::new(&format!("{}[{}, {}]",parent.to_str(),args[0],args[1]));
         }
+        if let Func::MatrixDotProduct(a,b)=f{return Pict::new(&format!("DotProduct({}, {})",a,b));}
         if let Func::MatrixProxy(parent) = f { return Pict::new(&parent.to_str()); }
         if let Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent) = f {
             return Pict::new(&format!("{}({})",f.name(),parent.to_str()));

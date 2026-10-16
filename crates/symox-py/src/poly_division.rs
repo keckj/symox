@@ -35,7 +35,7 @@ struct Options<'py> {
     modulus: Option<u64>,
     generators: Vec<Expr>,
 }
-fn boolean(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<bool>> {
+pub(super) fn boolean(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<bool>> {
     if value.is_none() {
         return Ok(None);
     }
@@ -540,6 +540,10 @@ pub fn render_eliminated(py:Python<'_>,p:PolyValue,polys:bool)->PyResult<PyObjec
     } else {
         Ok(w(p.as_expr()).into_pyobject(py)?.into_any().unbind())
     }
+}
+pub(super) fn prepare_unary<'py>(f:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,kw:Option<&Bound<'py,PyDict>>)->PyResult<(PolyValue,bool)> {
+    let input=Inputs::build(f,f,gens,kw,&Operation::Discriminant)?;
+    Ok((input.a,input.polys))
 }
 pub fn run<'py>(
     f: &Bound<'py, PyAny>,

@@ -726,6 +726,7 @@ impl<'a> LatexPrinter<'a> {
         }
         let a0 = || self.print(&args[0]);
         match f {
+            Func::MatrixDotProduct(a,b)=>{let parent=|m:&crate::matrixexpr::MatrixExpr|if matches!(m.kind(),crate::matrixexpr::MatrixKind::Add(_)){format!("\\left({}\\right)",m)}else{m.to_str()};return Self::sup(format!("{} \\cdot {}",parent(a),parent(b)),exp);},
             Func::MatrixProxy(parent) => return Self::sup(parent.to_str(), exp),
             Func::MatrixTrace(parent) => return Self::sup(format!("\\operatorname{{tr}}\\left({}\\right)", parent.to_str()), exp),
             Func::MatrixDeterminant(parent) => return Self::sup(format!("\\det\\left({}\\right)", parent.to_str()), exp),

@@ -352,7 +352,7 @@ impl MatrixExpr {
         let mut scalars=Vec::new();self.scalar_fields(&mut scalars);
         scalars.iter().any(Self::scalar_nonfinite)
     }
-    fn entry_product(a:&Expr,b:&Expr)->Expr{
+    pub(crate) fn entry_product(a:&Expr,b:&Expr)->Expr{
         if (a.is_zero()&&Self::scalar_nonfinite(b))||(b.is_zero()&&Self::scalar_nonfinite(a)){Expr::nan()}else{mul2(a,b)}
     }
     pub fn hadamard_product(factors:&[Self],evaluate:bool)->MResult<Self>{
@@ -1050,6 +1050,7 @@ pub fn block_collapse_scalar(expression:&Expr)->MResult<Expr>{
             Kind::Func(Func::MatrixProxy(parent),_)=>Expr::from_kind(Kind::Func(Func::MatrixProxy(Arc::new(parent.block_collapse()?)),vec![])),
             Kind::Func(Func::MatrixTrace(parent),_)=>parent.block_collapse()?.trace()?,
             Kind::Func(Func::MatrixDeterminant(parent),_)=>parent.block_collapse()?.determinant()?,
+            Kind::Func(Func::MatrixDotProduct(a,b),_)=>crate::matrixcontraction::dot_product(&a.block_collapse()?,&b.block_collapse()?,false)?,
             Kind::Func(Func::MatrixElement(parent),args)=>parent.block_collapse()?.element_unevaluated(&rec(&args[0],cache)?,&rec(&args[1],cache)?)?,
             _=>{let mut error=None;let result=crate::traverse::map_children(e,&mut |child|match rec(child,cache){Ok(result)=>result,Err(e)=>{error=Some(e);child.clone()}});if let Some(error)=error{return Err(error);}result},
         };cache.insert(e.dag_id(),(e.clone(),result.clone()));Ok(result)

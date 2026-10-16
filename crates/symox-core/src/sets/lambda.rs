@@ -96,6 +96,7 @@ pub fn validate_lambda_tree(e:&Expr)->Result<(),String>{
     fn walk(e:&Expr,seen:&mut FxHashMap<usize,Expr>)->Result<(),String>{
         if !e.has_lambda_binding() || seen.insert(e.dag_id(),e.clone()).is_some(){return Ok(());}
         if let Some((op,args))=as_set(e){if matches!(op,SetOp::Lambda|SetOp::IdentityFunction){validate_lambda(op,args)?;}}
+        if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){for m in [a,b]{let mut fields=Vec::new();m.scalar_fields(&mut fields);for scalar in fields{walk(&scalar,seen)?;}}}
         if let Kind::Func(Func::MatrixElement(m)|Func::MatrixProxy(m)|Func::MatrixTrace(m)|Func::MatrixDeterminant(m),_)=e.kind(){
             let mut fields=Vec::new();m.scalar_fields(&mut fields);for scalar in fields{walk(&scalar,seen)?;}
         }

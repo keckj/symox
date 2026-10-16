@@ -489,7 +489,7 @@ impl Parser {
                         let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::Function(crate::expr::UndefinedFunction::new(s,assumptions,nargs)));
                     }
-                    if matches!(name.as_str(), "MatrixSymbol" | "FunctionMatrix" | "ElementwiseApplyFunction" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "FunctionMatrix" | "ElementwiseApplyFunction" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "DotProduct" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -614,6 +614,7 @@ impl Parser {
             "Adjoint"=>{arity(1)?;matrix(0)?.adjoint(evaluate)},
             "MatrixConjugate"=>{arity(1)?;matrix(0)?.conjugate(evaluate)},
             "MatrixElement"=>{arity(3)?;return Ok(Val::E(matrix(0)?.element(&scalar(1)?,&scalar(2)?).map_err(|e|fail(e.to_string()))?));},
+            "DotProduct"=>{arity(2)?;return Ok(Val::E(crate::matrixcontraction::dot_product(&matrix(0)?,&matrix(1)?,false).map_err(|e|fail(e.to_string()))?));},
             "Trace"=>{arity(1)?;let parent=matrix(0)?;return Ok(Val::E((if evaluate{parent.trace()}else{parent.trace_unevaluated()}).map_err(|e|fail(e.to_string()))?));},
             "Determinant"=>{arity(1)?;let parent=matrix(0)?;return Ok(Val::E((if evaluate{parent.determinant()}else{parent.determinant_unevaluated()}).map_err(|e|fail(e.to_string()))?));},
             "ImmutableMatrix"|"ImmutableDenseMatrix"|"MutableDenseMatrix"|"Matrix"=>{

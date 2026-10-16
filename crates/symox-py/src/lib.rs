@@ -87,8 +87,23 @@ fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)]
         } else { scalars.insert(old.clone(), new.clone()); }
     }
     let mut transform = |value: &Expr| if exact { subs::xreplace(value, &scalars) } else { subs::subs(value, pairs) };
-    fn validate(py: Python<'_>, node: &Expr, pairs: &[(Expr, Expr)], matrix_pairs: &[(symox::matrixexpr::MatrixExpr, symox::matrixexpr::MatrixExpr)], transform: &mut dyn FnMut(&Expr)->Expr) -> PyResult<()> {
+    fn validate(py: Python<'_>, node: &Expr, pairs: &[(Expr, Expr)], matrix_pairs: &[(symox::matrixexpr::MatrixExpr, symox::matrixexpr::MatrixExpr)], transform: &mut dyn FnMut(&Expr)->Expr, visited: &mut FxHashMap<usize,Expr>) -> PyResult<()> {
         if !node.has_matrix() || pairs.iter().any(|(old, _)| old == node) { return Ok(()); }
+        if visited.insert(node.dag_id(),node.clone()).is_some(){return Ok(());}
+        let parents=match node.kind(){Kind::Func(Func::MatrixDotProduct(a,b),_)=>vec![a,b],Kind::Func(Func::MatrixElement(a)|Func::MatrixTrace(a)|Func::MatrixDeterminant(a)|Func::MatrixProxy(a),_)=>vec![a],_=>Vec::new()};
+        for parent in parents{
+            let mut failure=None;
+            parent.scalar_map(&mut |field|{
+                if failure.is_none(){if let Err(error)=validate(py,field,pairs,matrix_pairs,transform,visited){failure=Some(error);}}
+                field.clone()
+            }).map_err(|e|matrices::err(py,e))?;
+            if let Some(error)=failure{return Err(error);}
+        }
+        if let Kind::Func(Func::MatrixDotProduct(a,b),_)=node.kind(){
+            let a=a.map_all(matrix_pairs,transform).map_err(|e|matrices::err(py,e))?;
+            let b=b.map_all(matrix_pairs,transform).map_err(|e|matrices::err(py,e))?;
+            symox::matrixcontraction::validate(&a,&b).map_err(|e|matrices::err(py,e))?;
+        }
         if let Kind::Func(f @ (Func::MatrixElement(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), indices) = node.kind() {
             parent.map_all(matrix_pairs, transform).and_then(|matrix| {
                 if matches!(f, Func::MatrixTrace(_)) { matrix.trace() }
@@ -96,10 +111,10 @@ fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)]
                 else { matrix.element(&transform(&indices[0]), &transform(&indices[1])) }
             }).map_err(|error| matrices::err(py, error))?;
         }
-        for child in node.args() { validate(py, &child, pairs, matrix_pairs, transform)?; }
+        for child in node.args() { validate(py, &child, pairs, matrix_pairs, transform, visited)?; }
         Ok(())
     }
-    validate(py, e, pairs, &matrix_pairs, &mut transform)
+    validate(py, e, pairs, &matrix_pairs, &mut transform, &mut FxHashMap::default())
 }
 
 fn function_spec(name:&str,assumptions:&Bound<'_,PyDict>,nargs:Option<Vec<usize>>)->PyResult<symox::expr::UndefinedFunction>{
@@ -258,6 +273,10 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             symox::limits::validate_held(&held).map_err(PyNotImplementedError::new_err)?;
             return Ok(held);
         }
+        if head=="DotProduct" {
+            let args=obj.getattr("args")?;
+            return symox::matrixcontraction::dot_product(&matrixexpr::to_matrixexpr(&args.get_item(0)?)?,&matrixexpr::to_matrixexpr(&args.get_item(1)?)?,false).map_err(|error|matrices::err(py,error));
+        }
         if head == "MatrixElement" {
             let args = obj.getattr("args")?;
             let parent = matrixexpr::to_matrixexpr(&args.get_item(0)?)?;
@@ -372,6 +391,7 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         PyTuple::new(py, args.iter().map(|a| expr_to_sympy(py, a)).collect::<PyResult<Vec<_>>>()?)
     };
     match e.kind() {
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>py.import("sympy")?.getattr("DotProduct")?.call1((matrixexpr::matrixexpr_to_sympy(py,a)?,matrixexpr::matrixexpr_to_sympy(py,b)?)),
         Kind::Func(Func::MatrixProxy(parent), _) => matrixexpr::matrixexpr_to_sympy(py, parent),
         Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
             sm.getattr(f.name())?.call1((matrixexpr::matrixexpr_to_sympy(py, parent)?,))
@@ -430,12 +450,31 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
 fn python_args(e: &Expr) -> Vec<Expr> { traverse::ordered_args(e) }
 
 fn operation_count(e: &Expr) -> BigInt {
+    fn matrix_count(matrix:&symox::matrixexpr::MatrixExpr,scalars:&mut FxHashMap<usize,(Expr,BigInt)>,matrices:&mut FxHashMap<usize,(symox::matrixexpr::MatrixExpr,BigInt)>)->BigInt{
+        use symox::matrixexpr::{MatrixKind as M,MatrixOperand};
+        if let Some((_,n))=matrices.get(&matrix.dag_id()){return n.clone();}
+        let mut n:BigInt=matrix.children().iter().map(|m|matrix_count(m,scalars,matrices)).sum();
+        match matrix.kind(){
+            M::Symbol(_)|M::Identity|M::Zero|M::One=>{n+=count(matrix.rows(),scalars)+count(matrix.cols(),scalars);},
+            M::Function(lambda)=>{n+=count(matrix.rows(),scalars)+count(matrix.cols(),scalars)+count(lambda,scalars);},
+            M::ApplyFunction(function,_)=>n+=count(function,scalars),
+            M::Explicit(m)=>n+=m.data().iter().map(|e|count(e,scalars)).sum::<BigInt>(),
+            M::Add(args)=>n+=args.len().saturating_sub(1),
+            M::Mul(coefficient,args)=>{n+=count(coefficient,scalars)+BigInt::from((args.len()+usize::from(!coefficient.is_one())).saturating_sub(1));},
+            M::Pow(_,e)=>n+=count(e,scalars),M::Inverse(_)=>n+=1,
+            M::HadamardPower(a,b)=>{for value in [a,b]{if let MatrixOperand::Scalar(e)=value{n+=count(e,scalars);}}},
+            M::Slice(_,a,b)=>{for axis in [a,b]{for arg in axis.args().into_iter().flatten(){n+=count(&arg,scalars);}}},
+            _=>{},
+        }
+        matrices.insert(matrix.dag_id(),(matrix.clone(),n.clone()));n
+    }
     fn count(e: &Expr, memo: &mut FxHashMap<usize, (Expr, BigInt)>) -> BigInt {
         if let Some((_, value)) = memo.get(&e.dag_id()) { return value.clone(); }
         let value = match e.kind() {
         Kind::Num(n) => BigInt::from(usize::from(n.is_rational() && n.is_negative()) + usize::from(matches!(n, Number::Rational(_)))),
         Kind::Const(Constant::E) => BigInt::from(1),
         Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => BigInt::from(0),
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>{let mut matrices=FxHashMap::default();matrix_count(a,memo,&mut matrices)+matrix_count(b,memo,&mut matrices)},
         Kind::Func(Func::MatrixProxy(_), _) => BigInt::from(0),
         Kind::Func(Func::MatrixElement(_), args) => args.iter().map(|a| count(a, memo)).sum(),
         Kind::Add(c, terms) => {
@@ -777,6 +816,7 @@ impl PyExpr {
     #[getter]
     fn args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         if !self.e.has_matrix() { return PyTuple::new(py,python_args(&self.e).into_iter().map(wrap)); }
+        if let Kind::Func(Func::MatrixDotProduct(a,b),_)=self.e.kind(){return PyTuple::new(py,[matrixexpr::matrix_object(py,a)?,matrixexpr::matrix_object(py,b)?]);}
         if let Kind::Func(Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), _) = self.e.kind() {
             return PyTuple::new(py, [expr_object(py, matrix_proxy((**parent).clone()))?]);
         }
@@ -806,7 +846,7 @@ impl PyExpr {
         if let Kind::Func(f @ (Func::Integral|Func::Sum),_)=self.e.kind(){return Ok(py.import("symox")?.getattr(f.name())?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Subs,_)){return Ok(py.import("symox")?.getattr("Subs")?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Limit,_)){return Ok(py.import("symox")?.getattr("Limit")?.unbind());}
-        if let Kind::Func(f @ (Func::MatrixTrace(_) | Func::MatrixDeterminant(_)), _) = self.e.kind() {
+        if let Kind::Func(f @ (Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)), _) = self.e.kind() {
             return Ok(py.import("symox._matrixexpr")?.getattr(f.name())?.unbind());
         }
         if matches!(self.e.kind(), Kind::Func(Func::MatrixElement(_), _)) {
@@ -916,7 +956,7 @@ impl PyExpr {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)))
     }
     #[getter]
     fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal)}
@@ -987,11 +1027,10 @@ impl PyExpr {
     fn is_Piecewise(&self) -> bool {
         matches!(self.e.kind(), Kind::Piecewise(..))
     }
-    /// True if the expression has no free symbols (it is a number).
+    /// Structural SymPy number classification, including nonfinite constants.
     #[getter]
     fn is_number(&self) -> bool {
-        if matches!(self.e.kind(),Kind::Func(Func::Integral|Func::Sum,_)){return traverse::free_symbols(&self.e).is_empty();}
-        fx::is_numeric_value(&self.e)
+        symox::symbolic_number::is_symbolic_number(&self.e)
     }
     #[getter]
     fn is_zero(&self) -> Option<bool> {
@@ -1211,9 +1250,13 @@ impl PyExpr {
 
     #[pyo3(signature = (deep=true, **hints))]
     fn doit(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-        if hints.is_some_and(|hints| !hints.is_empty()) {
-            return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));
-        }
+        if let Some(hints)=hints {for (name,value) in hints.iter(){
+            if matches!(self.e.kind(),Kind::Func(Func::MatrixDotProduct(_,_),_))&&name.extract::<String>()?=="expand" {
+                // SymPy DotProduct accepts this compatibility argument without
+                // changing contraction evaluation (it does not expand factors).
+                let _:bool=value.extract()?;
+            }else{return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));}
+        }}
         symox::limits::check_doit(&self.e,deep).map_err(|error|PyValueError::new_err(error.to_string()))?;
         Ok(wrap(fx::doit(&self.e, deep)))
     }
@@ -1426,7 +1469,8 @@ impl PyExpr {
     }
 
     fn as_ordered_terms(&self) -> Vec<PyExpr> {
-        printer::ordered_terms(&self.e).into_iter().map(wrap).collect()
+        let terms=if self.e.may_have_order(){printer::ordered_terms(&self.e)}else{symox::sortkey::ordered_terms(&self.e)};
+        terms.into_iter().map(wrap).collect()
     }
 
     fn as_coefficients_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
@@ -1652,7 +1696,7 @@ fn py_node(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<Py
 
 fn construct_node(name: &str, v: Vec<Expr>, evaluate: bool) -> PyResult<Expr> {
     let evaluate = evaluate || (matches!(name, "Add" | "Mul") && v.len() < 2);
-    if !evaluate && matches!(name, "Add" | "Mul" | "Pow") {
+    if !evaluate && matches!(name, "Add" | "Mul" | "Pow") && !v.iter().any(|a|a.has_held_arithmetic()||a.has_matrix()) {
         // Holding evaluation is observable through the public argument tree,
         // not through Rust's choice of coefficient/factor storage. Reuse the
         // canonical representation when it already has the requested tree.

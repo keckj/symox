@@ -56,6 +56,16 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
             pow(&nb, &nx)
         }
         Kind::Func(fun, args) => {
+            if let Func::MatrixDotProduct(a,b)=fun {
+                let mut mapped=|parent:&std::sync::Arc<crate::matrixexpr::MatrixExpr>|{
+                    let proxy=Expr::from_kind(Kind::Func(Func::MatrixProxy(parent.clone()),vec![]));
+                    if let Kind::Func(Func::MatrixProxy(new),_)=f(&proxy).kind(){new.clone()}else{parent.clone()}
+                };
+                let na=mapped(a);let nb=mapped(b);
+                if na.dag_id()==a.dag_id()&&nb.dag_id()==b.dag_id(){return e.clone();}
+                return crate::matrixcontraction::dot_product(&na,&nb,false).unwrap_or_else(|_|e.clone());
+            }
+
             if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent) = fun {
                 let proxy = |matrix: crate::matrixexpr::MatrixExpr| Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
                 let mapped = if !matches!(fun, Func::MatrixProxy(_)) {
@@ -167,6 +177,9 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
                 }
                 rec(&args[2],seen,out,visited);
             },
+            Kind::Func(Func::MatrixDotProduct(a,b),_)=>{
+                for parent in [a,b]{rec(&Expr::from_kind(Kind::Func(Func::MatrixProxy(parent.clone()),vec![])),seen,out,visited);}
+            }
             Kind::Func(Func::MatrixProxy(parent), _) => {
                 for matrix in parent.matrix_symbols() {
                     let proxy = Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
@@ -231,6 +244,7 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
         return true;
     }
     match e.kind() {
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>[a,b].iter().any(|parent|has(&Expr::from_kind(Kind::Func(Func::MatrixProxy((*parent).clone()),vec![])),s)),
         Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), args) => {
             let matrix_match = if let Kind::Func(Func::MatrixProxy(target), _) = s.kind() {
                 let mut pending = vec![parent.as_ref().clone()];

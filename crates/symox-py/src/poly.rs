@@ -13,6 +13,8 @@ mod an_rational;
 pub(crate) mod domains;
 #[path="poly_division.rs"]
 pub(crate) mod division;
+#[path="poly_real_roots.rs"]
+mod root_analysis;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -1462,6 +1464,14 @@ impl PyPoly {
         let q=self.other(g).ok_or_else(||PyTypeError::new_err("expected a polynomial with a compatible coefficient domain"))?;
         Ok(self.p.subresultants(&q).map_err(err)?.into_iter().map(|p|PyPoly{p}).collect())
     }
+    #[pyo3(signature=(auto=true))]
+    fn sturm(&self,auto:bool)->PyResult<Vec<PyPoly>>{root_analysis::sturm_method(&self.p,auto)}
+    #[pyo3(signature=(inf=None,sup=None))]
+    fn count_roots(&self,inf:Option<&Bound<'_,PyAny>>,sup:Option<&Bound<'_,PyAny>>)->PyResult<PyExpr>{root_analysis::count_method(&self.p,inf,sup)}
+    #[pyo3(signature=(all=false,eps=None,inf=None,sup=None,fast=false,sqf=false))]
+    fn intervals(&self,py:Python<'_>,all:bool,eps:Option<&Bound<'_,PyAny>>,inf:Option<&Bound<'_,PyAny>>,sup:Option<&Bound<'_,PyAny>>,fast:bool,sqf:bool)->PyResult<PyObject>{root_analysis::intervals_method(py,&self.p,all,eps,inf,sup,fast,sqf)}
+    #[pyo3(signature=(s,t,eps=None,steps=None,fast=false,check_sqf=false))]
+    fn refine_root(&self,s:&Bound<'_,PyAny>,t:&Bound<'_,PyAny>,eps:Option<&Bound<'_,PyAny>>,steps:Option<i64>,fast:bool,check_sqf:bool)->PyResult<(PyExpr,PyExpr)>{root_analysis::refine_method(&self.p,s,t,eps,steps,fast,check_sqf)}
 }
 
 // ----------------------------------------------------------------------
@@ -2155,6 +2165,7 @@ fn primitive_element(py:Python<'_>,extension:&Bound<'_,PyAny>,x:Option<&Bound<'_
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     domains::register(m)?;
     division::register(m)?;
+    root_analysis::register(m)?;
     algebraic_number::register(m)?;
     an_rational::register(m)?;
     m.add_function(wrap_pyfunction!(minimal_polynomial,m)?)?;

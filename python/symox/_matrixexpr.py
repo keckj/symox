@@ -287,7 +287,9 @@ class MatrixElement(metaclass=_ElementType):
 
 class _ScalarMatrixType(type):
     def __instancecheck__(cls, value):
-        return isinstance(value, _core.Expr) and getattr(value.func, '__name__', None) == cls.__name__
+        return (isinstance(value, _core.Expr)
+                and not getattr(value, 'is_UndefinedFunction', False)
+                and getattr(value.func, '__name__', None) == cls.__name__)
 
 
 class Trace(metaclass=_ScalarMatrixType):
@@ -300,7 +302,12 @@ class Determinant(metaclass=_ScalarMatrixType):
         return _core._matrix_determinant(arg, evaluate)
 
 
-__all__ = ['MatrixExpr','MatrixSymbol','FunctionMatrix','ElementwiseApplyFunction','MatAdd','MatMul','MatPow','Transpose',
+class DotProduct(metaclass=_ScalarMatrixType):
+    def __new__(cls, arg1, arg2):
+        return _core._matrix_dot_product(arg1, arg2)
+
+
+__all__ = ['DotProduct','MatrixExpr','MatrixSymbol','FunctionMatrix','ElementwiseApplyFunction','MatAdd','MatMul','MatPow','Transpose',
            'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
            'Trace','Determinant','OneMatrix','HadamardProduct','HadamardPower',
            'KroneckerProduct','DiagMatrix','DiagonalOf','DiagonalMatrix','BlockDiagMatrix','BlockMatrix','block_collapse','MatrixSlice','hadamard_product','hadamard_power','kronecker_product']
