@@ -318,7 +318,74 @@ pub fn mul2(a: &Expr, b: &Expr) -> Expr {
         }
         _ => {}
     }
+    if let Some(r) = mul2_fast(a, b).or_else(|| mul2_fast(b, a)) {
+        return r;
+    }
     mul(&[a.clone(), b.clone()])
+}
+
+/// A factor that can never merge with a factor of a different base.
+#[inline]
+fn plain_factor(e: &Expr) -> Option<(Expr, Expr)> {
+    let plain_base = |b: &Expr| match b.kind() {
+        Kind::Sym(_) | Kind::Add(..) => true,
+        Kind::Func(f, _) => !matches!(f, Func::Exp),
+        Kind::Const(c) => matches!(c, Constant::Pi | Constant::EulerGamma | Constant::I),
+        _ => false,
+    };
+    match e.kind() {
+        Kind::Pow(b, x) if plain_base(b) && !matches!(b.kind(), Kind::Const(_)) => {
+            Some((b.clone(), x.clone()))
+        }
+        Kind::Add(..) => None,
+        _ if plain_base(e) => Some((e.clone(), Expr::one())),
+        _ => None,
+    }
+}
+
+/// Allocation-light products for the most common shapes.
+fn mul2_fast(a: &Expr, b: &Expr) -> Option<Expr> {
+    match (a.kind(), b.kind()) {
+        // number * plain factor
+        (Kind::Num(n), _) if !n.is_nan() => {
+            if let Kind::Mul(c, facs) = b.kind() {
+                let k = n.mul(c);
+                if k.is_zero() {
+                    return None;
+                }
+                if k.is_one() {
+                    return Some(mul_from_factors(facs.clone()));
+                }
+                return Some(Expr::from_kind(Kind::Mul(k, facs.clone())));
+            }
+            let f = plain_factor(b)?;
+            Some(Expr::from_kind(Kind::Mul(n.clone(), vec![f])))
+        }
+        // plain * plain with different bases
+        (_, _) if !a.is_mul() && !b.is_mul() => {
+            let fa = plain_factor(a)?;
+            let fb = plain_factor(b)?;
+            if fa.0 == fb.0 {
+                return None;
+            }
+            let v = if cmp_factor(&fa, &fb) == std::cmp::Ordering::Less { vec![fa, fb] } else { vec![fb, fa] };
+            Some(Expr::from_kind(Kind::Mul(Number::ONE, v)))
+        }
+        // product * plain factor whose base is new
+        (Kind::Mul(c, facs), _) if !b.is_mul() => {
+            let f = plain_factor(b)?;
+            let pos = facs.partition_point(|g| g.0 < f.0);
+            if pos < facs.len() && facs[pos].0 == f.0 {
+                return None;
+            }
+            let mut v = Vec::with_capacity(facs.len() + 1);
+            v.extend_from_slice(&facs[..pos]);
+            v.push(f);
+            v.extend_from_slice(&facs[pos..]);
+            Some(Expr::from_kind(Kind::Mul(c.clone(), v)))
+        }
+        _ => None,
+    }
 }
 
 fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant]) -> Expr {
