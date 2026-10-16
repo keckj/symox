@@ -20,7 +20,12 @@ use std::rc::Rc;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::expr::{Expr, Kind};
-use crate::ops::{add, could_extract_minus_sign, mul, neg, pow};
+use crate::ops::{add, mul, neg, pow};
+
+/// Sums/products with more arguments than this are processed in storage
+/// order instead of SymPy's `ordered()` order (only the numbering of the
+/// extracted symbols depends on it).
+const CANONICAL_ORDER_MAX_ARGS: usize = 64;
 
 /// Options of [`cse_with`].
 #[derive(Clone, Debug)]
@@ -84,9 +89,36 @@ struct Uneval {
 
 #[derive(Default)]
 struct Cse {
+    keys: super::order::KeyCache,
     args_cache: FxHashMap<Expr, Rc<[Expr]>>,
     unevals: Vec<Uneval>,
     opt_subs: FxHashMap<Expr, usize>,
+}
+
+/// SymPy's `could_extract_minus_sign` (ties of a sum are broken with
+/// `default_sort_key`, like SymPy).
+fn could_extract_minus_sign(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Num(n) => n.is_negative(),
+        Kind::Const(crate::expr::Constant::NegInfinity) => true,
+        Kind::Mul(c, _) => c.is_negative(),
+        Kind::Add(c, terms) => {
+            let mut negs = terms.iter().filter(|(_, k)| k.is_negative()).count();
+            let mut n = terms.len();
+            if !c.is_zero() {
+                n += 1;
+                if c.is_negative() {
+                    negs += 1;
+                }
+            }
+            let pos = n - negs;
+            if pos != negs {
+                return negs > pos;
+            }
+            super::order::sort_key(e) < super::order::sort_key(&neg(e))
+        }
+        _ => false,
+    }
 }
 
 /// Leaves of the CSE tree. Derivatives are opaque (their inner expression
@@ -217,54 +249,58 @@ impl Cse {
 
         let mut t = ArgTracker::default();
         for (fi, f) in funcs.iter().enumerate() {
-            let mut set = BTreeSet::new();
+            let mut set: Vec<usize> = Vec::new();
             for a in self.args(f).iter() {
                 let n = t.number(Val::E(a.clone()));
-                set.insert(n);
+                set.push(n);
                 t.arg_to_funcs[n].insert(fi);
             }
+            set.sort_unstable();
+            set.dedup();
             t.func_to_args.push(set);
         }
-        let mut changed: FxHashSet<usize> = FxHashSet::default();
+        let mut changed = vec![false; funcs.len()];
+        let mut remaining = vec![false; funcs.len()];
         for i in 0..funcs.len() {
             let counts = t.common_candidates(i, i + 1);
             let mut cands: Vec<(usize, usize)> = counts.into_iter().map(|(k, c)| (c, k)).collect();
             cands.sort_unstable();
-            // ordered set of remaining candidates
-            let mut remaining: BTreeSet<usize> = cands.iter().map(|(_, k)| *k).collect();
             for &(_, j) in &cands {
-                if !remaining.remove(&j) {
+                remaining[j] = true;
+            }
+            for &(_, j) in &cands {
+                if !remaining[j] {
                     continue;
                 }
-                let com: BTreeSet<usize> = t.func_to_args[i].intersection(&t.func_to_args[j]).copied().collect();
+                remaining[j] = false;
+                let com = sorted_inter(&t.func_to_args[i], &t.func_to_args[j]);
                 if com.len() <= 1 {
                     continue;
                 }
-                let diff_i: BTreeSet<usize> = t.func_to_args[i].difference(&com).copied().collect();
+                let diff_i = sorted_diff(&t.func_to_args[i], &com);
                 let com_num = if !diff_i.is_empty() {
                     let args: Vec<Val> = com.iter().map(|n| t.values[*n].clone()).collect();
                     let u = self.new_uneval(op, args);
                     let num = t.number(Val::U(u));
-                    let mut ns = diff_i;
-                    ns.insert(num);
-                    t.update(i, ns);
-                    changed.insert(i);
+                    t.update(i, sorted_insert(diff_i, num));
+                    changed[i] = true;
                     num
                 } else {
                     t.number(Val::E(funcs[i].clone()))
                 };
-                let mut diff_j: BTreeSet<usize> = t.func_to_args[j].difference(&com).copied().collect();
-                diff_j.insert(com_num);
-                t.update(j, diff_j);
-                changed.insert(j);
+                let diff_j = sorted_diff(&t.func_to_args[j], &com);
+                t.update(j, sorted_insert(diff_j, com_num));
+                changed[j] = true;
                 for k in t.subset_candidates(&com, &remaining) {
-                    let mut diff_k: BTreeSet<usize> = t.func_to_args[k].difference(&com).copied().collect();
-                    diff_k.insert(com_num);
-                    t.update(k, diff_k);
-                    changed.insert(k);
+                    let diff_k = sorted_diff(&t.func_to_args[k], &com);
+                    t.update(k, sorted_insert(diff_k, com_num));
+                    changed[k] = true;
                 }
             }
-            if changed.contains(&i) {
+            for &(_, j) in &cands {
+                remaining[j] = false;
+            }
+            if changed[i] {
                 let args: Vec<Val> = t.func_to_args[i].iter().map(|n| t.values[*n].clone()).collect();
                 let u = self.new_uneval(op, args);
                 self.opt_subs.insert(funcs[i].clone(), u);
@@ -357,11 +393,11 @@ impl Cse {
         let mut replacements: Vec<(Expr, Expr)> = Vec::new();
         let mut reduced = Vec::with_capacity(exprs.len());
         for root in exprs {
-            // explicit stack: (value, children pushed?)
-            let mut stack: Vec<(Val, bool)> = vec![(Val::E(root.clone()), false)];
+            // explicit stack: Some(children) once the children are pushed
+            let mut stack: Vec<(Val, Option<Vec<Val>>)> = vec![(Val::E(root.clone()), None)];
             let mut results: Vec<Expr> = Vec::new();
-            while let Some((v, expanded)) = stack.pop() {
-                if !expanded {
+            while let Some((v, done)) = stack.pop() {
+                let Some(old) = done else {
                     if let Val::E(e) = &v {
                         if e.is_atom() {
                             results.push(e.clone());
@@ -373,21 +409,20 @@ impl Cse {
                         continue;
                     }
                     let ch = self.ordered_children(&v);
-                    stack.push((v, true));
-                    for c in ch.into_iter().rev() {
-                        stack.push((c, false));
+                    let pushed: Vec<Val> = ch.iter().rev().cloned().collect();
+                    stack.push((v, Some(ch)));
+                    for c in pushed {
+                        stack.push((c, None));
                     }
                     continue;
-                }
-                let ch_len = self.ordered_children_len(&v);
-                let new_args: Vec<Expr> = results.split_off(results.len() - ch_len);
+                };
+                let new_args: Vec<Expr> = results.split_off(results.len() - old.len());
                 let new_expr = match &v {
                     Val::U(u) => build(self.unevals[*u].op, &new_args),
                     Val::E(e) => {
                         if let Some(&u) = self.opt_subs.get(e) {
                             build(self.unevals[u].op, &new_args)
                         } else {
-                            let old = self.ordered_children(&v);
                             let same = old.iter().zip(&new_args).all(|(o, n)| matches!(o, Val::E(x) if x.ptr_eq(n)));
                             if same {
                                 e.clone()
@@ -416,25 +451,80 @@ impl Cse {
     fn ordered_children(&mut self, v: &Val) -> Vec<Val> {
         let mut ch = self.children(v);
         if let Val::E(e) = v {
-            if !self.opt_subs.contains_key(e) && matches!(e.kind(), Kind::Add(..) | Kind::Mul(..)) {
-                ch.sort_by(|a, b| match (a, b) {
-                    (Val::E(x), Val::E(y)) => x.cmp_struct(y),
-                    _ => std::cmp::Ordering::Equal,
-                });
+            // (very wide sums/products keep their storage order: the
+            // canonical order only affects the numbering of the symbols)
+            if ch.len() <= CANONICAL_ORDER_MAX_ARGS
+                && !self.opt_subs.contains_key(e)
+                && matches!(e.kind(), Kind::Add(..) | Kind::Mul(..))
+            {
+                // SymPy's `ordered(args)`: default_sort_key order
+                let mut keyed: Vec<(Rc<super::order::SortKey>, Val)> = ch
+                    .into_iter()
+                    .map(|v| match &v {
+                        Val::E(x) => (self.keys.key(x), v),
+                        Val::U(_) => unreachable!(),
+                    })
+                    .collect();
+                keyed.sort_by(|a, b| a.0.cmp(&b.0));
+                ch = keyed.into_iter().map(|(_, v)| v).collect();
             }
         }
         ch
     }
 
-    fn ordered_children_len(&mut self, v: &Val) -> usize {
-        match v {
-            Val::E(e) => match self.opt_subs.get(e) {
-                Some(&u) => self.unevals[u].args.len(),
-                None => self.args(e).len(),
-            },
-            Val::U(u) => self.unevals[*u].args.len(),
+}
+
+fn sorted_inter(a: &[usize], b: &[usize]) -> Vec<usize> {
+    let mut out = Vec::new();
+    let (mut i, mut j) = (0, 0);
+    while i < a.len() && j < b.len() {
+        match a[i].cmp(&b[j]) {
+            std::cmp::Ordering::Less => i += 1,
+            std::cmp::Ordering::Greater => j += 1,
+            std::cmp::Ordering::Equal => {
+                out.push(a[i]);
+                i += 1;
+                j += 1;
+            }
         }
     }
+    out
+}
+
+fn sorted_diff(a: &[usize], b: &[usize]) -> Vec<usize> {
+    let mut out = Vec::with_capacity(a.len());
+    let mut j = 0;
+    for &x in a {
+        while j < b.len() && b[j] < x {
+            j += 1;
+        }
+        if j < b.len() && b[j] == x {
+            continue;
+        }
+        out.push(x);
+    }
+    out
+}
+
+fn sorted_insert(mut v: Vec<usize>, x: usize) -> Vec<usize> {
+    if let Err(p) = v.binary_search(&x) {
+        v.insert(p, x);
+    }
+    v
+}
+
+fn is_subset(sub: &[usize], sup: &[usize]) -> bool {
+    let mut j = 0;
+    for &x in sub {
+        while j < sup.len() && sup[j] < x {
+            j += 1;
+        }
+        if j >= sup.len() || sup[j] != x {
+            return false;
+        }
+        j += 1;
+    }
+    true
 }
 
 /// `FuncArgTracker`: functions ↔ argument value numbers.
@@ -443,7 +533,10 @@ struct ArgTracker {
     numbers: FxHashMap<Val, usize>,
     values: Vec<Val>,
     arg_to_funcs: Vec<BTreeSet<usize>>,
-    func_to_args: Vec<BTreeSet<usize>>,
+    /// sorted argument numbers of every function
+    func_to_args: Vec<Vec<usize>>,
+    /// scratch counters of `common_candidates`
+    counts: Vec<u32>,
 }
 
 impl ArgTracker {
@@ -459,67 +552,70 @@ impl ArgTracker {
     }
 
     fn stop_tracking(&mut self, fi: usize) {
-        let args: Vec<usize> = self.func_to_args[fi].iter().copied().collect();
-        for a in args {
+        for k in 0..self.func_to_args[fi].len() {
+            let a = self.func_to_args[fi][k];
             self.arg_to_funcs[a].remove(&fi);
         }
     }
 
     /// Functions `>= min` sharing at least two arguments with function
     /// `fi`, with the number of shared arguments.
-    fn common_candidates(&self, fi: usize, min: usize) -> FxHashMap<usize, usize> {
-        let mut count: FxHashMap<usize, usize> = FxHashMap::default();
+    fn common_candidates(&mut self, fi: usize, min: usize) -> Vec<(usize, usize)> {
         let argset = &self.func_to_args[fi];
         if argset.is_empty() {
-            return count;
+            return Vec::new();
         }
+        if self.counts.len() < self.func_to_args.len() {
+            self.counts.resize(self.func_to_args.len(), 0);
+        }
+        // the largest function set is only used to bump existing counts
         let largest = argset.iter().max_by_key(|a| self.arg_to_funcs[**a].len()).copied().unwrap();
+        let mut touched: Vec<usize> = Vec::new();
         for a in argset {
             if *a == largest {
                 continue;
             }
             for &f in self.arg_to_funcs[*a].range(min..) {
-                *count.entry(f).or_insert(0) += 1;
+                if self.counts[f] == 0 {
+                    touched.push(f);
+                }
+                self.counts[f] += 1;
             }
         }
         let big = &self.arg_to_funcs[largest];
-        if big.len() < count.len() {
-            for &f in big.range(min..) {
-                if let Some(c) = count.get_mut(&f) {
-                    *c += 1;
-                }
-            }
-        } else {
-            for (f, c) in count.iter_mut() {
-                if big.contains(f) {
-                    *c += 1;
-                }
+        for f in &touched {
+            if big.contains(f) {
+                self.counts[*f] += 1;
             }
         }
-        count.retain(|_, c| *c >= 2);
-        count
-    }
-
-    fn subset_candidates(&self, argset: &BTreeSet<usize>, restrict: &BTreeSet<usize>) -> Vec<usize> {
-        let mut it = argset.iter();
-        let first = *it.next().unwrap();
-        let mut idx: BTreeSet<usize> = self.arg_to_funcs[first].intersection(restrict).copied().collect();
-        for a in it {
-            idx = idx.intersection(&self.arg_to_funcs[*a]).copied().collect();
-            if idx.is_empty() {
-                break;
+        let mut out = Vec::new();
+        for f in touched {
+            let c = self.counts[f] as usize;
+            self.counts[f] = 0;
+            if c >= 2 {
+                out.push((f, c));
             }
         }
-        idx.into_iter().collect()
+        out
     }
 
-    fn update(&mut self, fi: usize, new: BTreeSet<usize>) {
+    /// Remaining candidate functions whose arguments contain `argset`.
+    fn subset_candidates(&self, argset: &[usize], remaining: &[bool]) -> Vec<usize> {
+        let smallest = argset.iter().min_by_key(|a| self.arg_to_funcs[**a].len()).copied().unwrap();
+        self.arg_to_funcs[smallest]
+            .iter()
+            .copied()
+            .filter(|f| remaining[*f] && is_subset(argset, &self.func_to_args[*f]))
+            .collect()
+    }
+
+    fn update(&mut self, fi: usize, new: Vec<usize>) {
         let old = std::mem::take(&mut self.func_to_args[fi]);
-        for d in old.difference(&new) {
-            self.arg_to_funcs[*d].remove(&fi);
+        for d in sorted_diff(&old, &new) {
+            self.arg_to_funcs[d].remove(&fi);
         }
-        for a in new.difference(&old) {
-            self.arg_to_funcs[*a].insert(fi);
+        for a in sorted_diff(&new, &old) {
+            self.arg_to_funcs[a].insert(fi);
         }
         self.func_to_args[fi] = new;
     }

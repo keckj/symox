@@ -321,10 +321,11 @@ def compare_cse(verbose=True):
     nss = dict(NS_S, w=sympy.Symbol("w"))
     nsx = dict(NS_X, w=symox.Symbol("w"))
     for case in CSE_CASES:
-        es = eval(case, nss)
         ex = eval(case, nsx)
-        es = list(es) if isinstance(es, list) else [es]
         ex = list(ex) if isinstance(ex, list) else [ex]
+        # run SymPy's cse on the very same expressions (symox's canonical
+        # forms, e.g. of derivatives, may differ structurally)
+        es = [sympy.sympify(str(e), locals=nss) for e in ex]
         rs, reds = sympy.cse(es)
         rx, redx = symox.cse(ex)
         back = _back(rx, redx)
