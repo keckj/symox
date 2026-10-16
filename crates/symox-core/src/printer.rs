@@ -65,7 +65,7 @@ fn paren(e: &Expr, p: u8, strict: bool, out: &mut String) {
     }
 }
 
-fn write_expr(e: &Expr, out: &mut String) {
+pub(crate) fn write_expr(e: &Expr, out: &mut String) {
     match e.kind() {
         Kind::Num(n) => out.push_str(&n.to_string()),
         Kind::Sym(s) => {
@@ -92,6 +92,8 @@ fn write_expr(e: &Expr, out: &mut String) {
             }
             out.push(')');
         }
+        Kind::Func(Func::Logic(op), args) => crate::logic::write_logic(*op, args, out),
+        Kind::Func(Func::Set(op), args) => crate::sets::write_set(*op, args, out),
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');
@@ -331,6 +333,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
+        Kind::Func(Func::Set(op), args) if args.is_empty() => out.push_str(op.name()),
         Kind::Func(f, args) => list(f.name(), args, out),
         Kind::Derivative(f, vars) => {
             out.push_str("Derivative(");

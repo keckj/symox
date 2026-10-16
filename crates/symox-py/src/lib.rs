@@ -22,6 +22,7 @@ mod ntheory;
 mod simp;
 mod ode;
 mod solve;
+mod logic;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -1403,6 +1404,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     simp::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
+    logic::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

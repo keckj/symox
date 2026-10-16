@@ -114,6 +114,9 @@ fn tokenize(s: &str) -> Result<Vec<(Tok, usize)>, ParseError> {
             '<' => Tok::Op("<"),
             '>' => Tok::Op(">"),
             '=' => Tok::Op("="),
+            '&' => Tok::Op("&"),
+            '|' => Tok::Op("|"),
+            '~' => Tok::Op("~"),
             '(' | '[' => Tok::LParen,
             ')' | ']' => Tok::RParen,
             ',' => Tok::Comma,
@@ -181,7 +184,37 @@ impl Parser {
         }
     }
 
+    /// Boolean operators `|` and `&` (looser than relationals, which SymPy
+    /// always parenthesizes inside them).
     fn value(&mut self) -> R<Val> {
+        let first = self.bool_and()?;
+        if !matches!(self.peek(), Tok::Op("|")) {
+            return Ok(first);
+        }
+        let mut v = vec![self.as_expr(first)?];
+        while matches!(self.peek(), Tok::Op("|")) {
+            self.next();
+            let t = self.bool_and()?;
+            v.push(self.as_expr(t)?);
+        }
+        Ok(Val::E(crate::logic::or(v)))
+    }
+
+    fn bool_and(&mut self) -> R<Val> {
+        let first = self.relational()?;
+        if !matches!(self.peek(), Tok::Op("&")) {
+            return Ok(first);
+        }
+        let mut v = vec![self.as_expr(first)?];
+        while matches!(self.peek(), Tok::Op("&")) {
+            self.next();
+            let t = self.relational()?;
+            v.push(self.as_expr(t)?);
+        }
+        Ok(Val::E(crate::logic::and(v)))
+    }
+
+    fn relational(&mut self) -> R<Val> {
         let lhs = self.arith()?;
         let op = match self.peek() {
             Tok::Op("<") => Some(RelOp::Lt),
@@ -269,6 +302,12 @@ impl Parser {
             Tok::Op("+") => {
                 self.next();
                 self.unary()
+            }
+            Tok::Op("~") => {
+                self.next();
+                let v = self.unary()?;
+                let e = self.as_expr(v)?;
+                Ok(Val::E(crate::logic::not(&e)))
             }
             _ => self.power(),
         }
@@ -553,7 +592,7 @@ fn ident(name: &str) -> Expr {
         "EulerGamma" => Expr::constant(Constant::EulerGamma),
         "True" | "true" => Expr::boolean(true),
         "False" | "false" => Expr::boolean(false),
-        _ => Expr::symbol(name),
+        _ => crate::sets::named_set(name).unwrap_or_else(|| Expr::symbol(name)),
     }
 }
 
