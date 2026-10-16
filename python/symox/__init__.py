@@ -1397,16 +1397,24 @@ from .printing.pytorch import PyTorchPrinter, TorchPrinter, torchcode  # noqa: E
 from .codegen.pytorch import torchcode_function, torch_lambdify  # noqa: E402
 from .printing.jax import JaxPrinter, JAXPrinter, jaxcode  # noqa: E402
 from .codegen.jax import jaxcode_function, jax_lambdify  # noqa: E402
+from .printing.slang import SlangCodePrinter, SlangPrinter, slangcode  # noqa: E402
+from .codegen.slang import slangcode_function, slang_kernel, slang_lambdify  # noqa: E402
+from .printing.sycl import SYCLCodePrinter, AdaptiveCppCodePrinter, syclcode, adaptivecppcode  # noqa: E402
+from .codegen.sycl import (  # noqa: E402
+    syclcode_function, sycl_kernel, adaptivecppcode_function, adaptivecpp_kernel,
+)
 
 _native_lambdify = lambdify
 
 
 def lambdify(args, expr, modules=None, **kwargs):
-    """Build a numerical callable with native NumPy, PyTorch or JAX operations.
+    """Build a numerical callable with native NumPy, PyTorch, JAX or Slang.
 
     PyTorch supports ``cse``, ``compile``, ``compile_options`` and
     ``user_functions``; JAX supports ``cse``, ``jit``, ``jit_options`` and
-    ``user_functions``. The default and NumPy paths use the native evaluator.
+    ``user_functions``. Slang uses the optional SlangPy runtime and accepts
+    ``device``, ``backend``, ``dtype``, ``cse`` and ``return_type`` settings.
+    The default and NumPy paths use the native evaluator.
     """
     candidates = modules if isinstance(modules, (list, tuple)) else [modules]
     torch_modules = [module for module in candidates
@@ -1423,6 +1431,13 @@ def lambdify(args, expr, modules=None, **kwargs):
         if len(candidates) != 1:
             raise NotImplementedError("JAX lambdify requires a single module; use user_functions for overrides")
         return jax_lambdify(args, expr, **kwargs)
+    slang_modules = [module for module in candidates
+                     if (isinstance(module, str) and module in ("slang", "slangpy"))
+                     or getattr(module, "__name__", None) == "slangpy"]
+    if slang_modules:
+        if len(candidates) != 1:
+            raise NotImplementedError("Slang lambdify requires a single module; use user_functions for overrides")
+        return slang_lambdify(args, expr, **kwargs)
     return _native_lambdify(args, expr, modules=modules, **kwargs)
 
 __all__ = [n for n in dir() if not n.startswith("_")]

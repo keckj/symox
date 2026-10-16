@@ -59,6 +59,8 @@ Implemented:
   printers and extensible C++17 generation
 * optional PyTorch and JAX code generation, standalone source export, automatic
   differentiation and opt-in compilation with `torch.compile` / `jax.jit`
+* portable Slang source and optional SlangPy execution; standard SYCL C++ source
+  and asynchronous kernels for AdaptiveCpp
 * isolated differential fuzzing, seeded replay, shrinking and triage
 
 The sections below describe the supported subsets and remaining limitations.
@@ -98,6 +100,62 @@ maturin develop --release       # Python package into the active venv
 python tests/compare_sympy.py   # differential tests (needs sympy)
 python benches/bench_vs_sympy.py
 ```
+
+## Code generation targets
+
+The same expression tree can feed several execution paths. In particular,
+CUDA is reachable through native CUDA source, PyTorch, JAX, Slang or SYCL:
+
+```mermaid
+flowchart LR
+    E["symox expressions + CSE"] --> N["Native CUDA source"]
+    N --> NV["nvcc / CUDA toolchain"] -.-> CU["NVIDIA GPU / CUDA"]
+
+    E --> P["PyTorch operations"]
+    P --> PT["PyTorch / optional torch.compile"]
+    PT --> CU
+    PT --> CPU["CPU"]
+
+    E --> J["JAX operations"]
+    J --> X["JAX / optional jax.jit via XLA"]
+    X -.-> CU
+    X --> CPU
+
+    E --> S["Slang source"]
+    S --> SC["Slang compiler / optional SlangPy"]
+    SC --> CU
+    SC --> V["Vulkan / SPIR-V"]
+    SC -.-> M["Metal / Apple GPU"]
+    SC -.-> D["Direct3D / Windows GPU"]
+    SC -.-> W["WGSL / WebGPU"]
+    SC -.->|source export| CPU
+
+    E --> Y["SYCL C++ source"]
+    Y --> A["AdaptiveCpp / SYCL toolchain"]
+    A --> CPU
+    A -.-> CU
+    A -.-> AMD["AMD GPU / ROCm"]
+    A -.-> INTEL["Intel GPU / Level Zero or OpenCL"]
+    A -.->|experimental| M
+    A -.->|experimental| V
+
+    E --> C["C / C++ / Rust / Fortran source"]
+    C --> CC["Native compiler"] -.-> CPU
+    E --> NP["Native NumPy evaluator"] --> CPU
+```
+
+Solid device edges are exercised by this project's numerical execution tests.
+Dotted edges show external toolchain routes not
+validated here; they are not guarantees of feature or precision parity.
+JAX is tested on CPU here; its CUDA route requires a suitable JAX installation.
+Native source exports need their corresponding compiler and host integration.
+SlangPy's CPU dispatch is not enabled by our adapter. AdaptiveCpp's tested
+configuration is the CPU OpenMP backend; GPU execution needs a compiler/runtime
+installation with those backends enabled. The diagram does not imply that
+symox chooses a backend automatically or that every route has the same speed.
+
+Framework functions preserve autograd where supported; Slang and SYCL exports
+are ordinary direct numerical kernels and require no differentiation framework.
 
 ## PyTorch code generation
 
@@ -207,6 +265,114 @@ symox does not yet implement all of SymPy.
 
 See JAX's [JIT documentation](https://docs.jax.dev/en/latest/jit-compilation.html)
 and [FAQ on gradients through `where`](https://docs.jax.dev/en/latest/faq.html#gradients-contain-nan-where-using-where).
+
+## Slang code generation
+
+`slangcode` and the extensible `SlangCodePrinter` print real scalar expressions.
+`slangcode_function` exports a complete Slang function with shared CSE. Scalar
+results return directly; lists, tuples, matrices and arrays return a generated
+struct whose `_sx_o_0`, `_sx_o_1`, ... fields follow depth-first row-major order.
+Source export requires neither SlangPy nor a GPU:
+
+```python
+import symox as sm
+
+x, y = sm.symbols("x y")
+expr = sm.Matrix([[sm.sin(x*y)], [sm.sqrt(1+x*x+y*y)]])
+source = sm.slangcode_function("evaluate", (x, y), expr, dtype="float32")
+```
+
+For optional Python execution, install `symox[slang]`. SlangPy compiles and
+vectorizes the scalar function for the chosen backend; no Torch or JAX runtime
+is needed. CUDA and Vulkan are exercised by numerical tests, including software
+Vulkan in CI. Other backend selections depend on the external runtime and device.
+
+```python
+import numpy as np
+import slangpy as spy
+
+device = spy.create_device(type=spy.DeviceType.cuda)  # or DeviceType.vulkan
+f = sm.lambdify((x, y), expr, "slang", device=device)
+inputs = spy.Tensor.from_numpy(device, np.linspace(0, 1, 1024, dtype=np.float32))
+result = f(inputs, 0.3)       # GPU Tensor, shape (1024, 2, 1)
+host_result = result.to_numpy()
+f(inputs, 0.3, out=result)   # reuse the output allocation
+```
+
+Existing SlangPy tensors stay on device. NumPy inputs are uploaded; request
+`return_type="numpy"` at construction for explicit host results. Lists and tuples
+retain their structure, matrices and arrays have trailing expression dimensions,
+and boolean outputs retain their logical type. `out=` reuses supplied tensors;
+`_append_to=` records into a SlangPy command encoder for deferred submission.
+Deferred execution cannot be combined with automatic NumPy output.
+
+`slang_kernel` additionally exports an explicit `name_kernel` compute entry with
+`StructuredBuffer` inputs, writable output buffers and a count. This lower-level
+ABI uses equally sized contiguous scalar batches, one output buffer per expression
+leaf; boolean outputs use uint32 values 0/1. The host controls allocation and
+dispatch. SlangPy's higher-level adapter handles broadcasting and tensor strides.
+
+The portable baseline is float32. Float64 source uses double literals and depends
+on target capabilities; the Python adapter currently permits float64 execution
+only with CUDA. CPU dispatch is not exposed by this adapter. Complex expressions
+and unsupported special functions fail explicitly. CSE is disabled around
+`Piecewise` graphs to keep inactive branches inside scalar short-circuit conditions.
+Custom `user_functions` mappings name functions supplied by the surrounding Slang
+module. Automatic differentiation is not part of this backend.
+
+`python benches/bench_slang.py --help` describes the synchronized optical
+benchmark, with source generation, module loading, first dispatch and warm
+execution separated. It optionally compares against `torch.compile`. For one
+local 65,536-ray float32 run, Slang CUDA took about 0.113 ms versus 0.095 ms for
+Inductor; Slang is not assumed to outperform the framework compiler. Software
+Vulkan inverse trigonometric builtins can also have lower numerical accuracy
+than the tested NVIDIA implementation.
+
+See the [Slang targets](https://docs.shader-slang.org/en/stable/external/slang/docs/user-guide/09-targets.html)
+and [SlangPy vectorization](https://slangpy.shader-slang.org/en/latest/src/basics/firstfunctions.html)
+documentation for external runtime details.
+
+## SYCL and AdaptiveCpp code generation
+
+`syclcode` / `SYCLCodePrinter` print standard SYCL 2020 math in C++17.
+`syclcode_function` exports an inline scalar function, using the same flattened
+result-struct convention as Slang. `sycl_kernel` exports a scalar `name_eval`
+function and an asynchronous `name` launcher:
+
+```python
+source = sm.sycl_kernel("evaluate", (x, y), expr, dtype="float64")
+with open("evaluate.hpp", "w") as generated:
+    generated.write(source)
+```
+
+The launcher takes a `sycl::queue&`, element count, one constant USM input pointer
+per argument, one writable USM output pointer per expression leaf, and optional
+event dependencies. It returns a `sycl::event`, performs no allocation or wait,
+and preserves dependencies for zero-length batches. The caller supplies valid
+USM allocations with equal-length contiguous batches and owns their lifetime.
+Float64 is the default; launchers check `sycl::aspect::fp64` before execution.
+Boolean outputs use `bool*`. `adaptivecppcode`, `AdaptiveCppCodePrinter`,
+`adaptivecppcode_function` and `adaptivecpp_kernel` are aliases of the SYCL API.
+
+An application including the generated header can be compiled with a configured
+AdaptiveCpp installation, for example:
+
+```bash
+acpp --acpp-targets=generic -std=c++17 -O3 application.cpp -o application
+```
+
+No AdaptiveCpp SDK is needed for source generation. Numerical tests compile and
+execute the generated functions and USM kernels using AdaptiveCpp's OpenMP CPU
+backend. This validates generated code and asynchronous dependencies; it does not
+validate AdaptiveCpp GPU execution or its generic JIT configuration. A full SDK
+and appropriate drivers are needed for those routes. To run SDK integration tests:
+
+```bash
+SYMOX_ACPP=/path/to/acpp SYMOX_ACPP_TARGETS=omp python -m pytest tests/test_sycl_codegen.py
+```
+
+See AdaptiveCpp's [compilation model](https://adaptivecpp.github.io/AdaptiveCpp/compilation/)
+and [installation instructions](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/installing.md).
 
 ## Symbolic matrices
 

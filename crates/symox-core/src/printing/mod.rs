@@ -16,6 +16,8 @@ pub mod jax;
 pub mod order;
 pub mod pretty;
 pub mod pytorch;
+pub mod slang;
+pub mod sycl;
 
 pub use code::{
     ccode, code_with, cudacode, cudacode_with, cxxcode, fcode, numpycode, pycode, rust_code,
@@ -27,6 +29,8 @@ pub use latex::{latex, latex_with, InvTrigStyle, LatexMode, LatexSettings};
 pub use jax::{jaxcode, jaxcode_with, JaxPrinter, JaxSettings};
 pub use pretty::{pprint, pretty, pretty_with, PrettySettings};
 pub use pytorch::{torchcode, torchcode_with, TorchPrinter, TorchSettings};
+pub use slang::{slangcode, slangcode_with, slang_type, SlangDtype, SlangPrinter, SlangSettings};
+pub use sycl::{syclcode, syclcode_with, sycl_type, SyclDtype, SyclSettings};
 
 use crate::expr::{Constant, Expr, Kind};
 use crate::number::Number;

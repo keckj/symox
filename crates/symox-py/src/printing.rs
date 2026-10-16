@@ -341,6 +341,110 @@ fn py_jaxcode(
 
 
 #[pyfunction]
+#[pyo3(name = "_slangcode", signature = (expr, dtype="float32", symbol_names=None, user_functions=None, expression_overrides=None))]
+fn py_slangcode(
+    expr: &Bound<'_, PyAny>,
+    dtype: &str,
+    symbol_names: Option<&Bound<'_, PyDict>>,
+    user_functions: Option<&Bound<'_, PyDict>>,
+    expression_overrides: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    let dtype = match dtype {
+        "float32" | "float" => pr::SlangDtype::Float32,
+        "float64" | "double" => pr::SlangDtype::Float64,
+        _ => return Err(PyValueError::new_err("Slang dtype must be float32 or float64")),
+    };
+    let mut settings = pr::SlangSettings { dtype, ..Default::default() };
+    if let Some(names) = symbol_names {
+        for (symbol, name) in names.iter() {
+            let target: String = name.extract()?;
+            if let Ok(name) = symbol.extract::<String>() {
+                settings.symbol_names.insert(name, target);
+            } else {
+                let symbol = to_expr(&symbol)?;
+                if !symbol.is_symbol() { return Err(PyTypeError::new_err("symbol_names keys must be symbols or strings")); }
+                settings.exact_symbol_names.insert(symbol, target);
+            }
+        }
+    }
+    if let Some(functions) = user_functions {
+        for (function, target) in functions.iter() {
+            let name = function.extract::<String>().or_else(|_| function.getattr("__name__")?.extract())?;
+            settings.user_functions.insert(name, target.extract()?);
+        }
+    }
+    if let Some(overrides) = expression_overrides {
+        for (expression, code) in overrides.iter() { settings.expression_overrides.insert(to_expr(&expression)?, code.extract()?); }
+    }
+    pr::slangcode_with(&to_expr(expr)?, &settings).map_err(code_err)
+}
+
+#[pyfunction]
+#[pyo3(name = "_slang_type")]
+fn py_slang_type(expr: &Bound<'_, PyAny>) -> PyResult<&'static str> {
+    pr::slang_type(&to_expr(expr)?).map_err(code_err)
+}
+
+#[pyfunction]
+#[pyo3(name = "_is_slang_identifier")]
+fn py_is_slang_identifier(name: &str) -> bool {
+    pr::slang::is_slang_identifier(name)
+}
+
+
+#[pyfunction]
+#[pyo3(name = "_syclcode", signature = (expr, dtype="float64", symbol_names=None, user_functions=None, expression_overrides=None))]
+fn py_syclcode(
+    expr: &Bound<'_, PyAny>,
+    dtype: &str,
+    symbol_names: Option<&Bound<'_, PyDict>>,
+    user_functions: Option<&Bound<'_, PyDict>>,
+    expression_overrides: Option<&Bound<'_, PyDict>>,
+) -> PyResult<String> {
+    let dtype = match dtype {
+        "float32" | "float" => pr::SyclDtype::Float32,
+        "float64" | "double" => pr::SyclDtype::Float64,
+        _ => return Err(PyValueError::new_err("SYCL dtype must be float32 or float64")),
+    };
+    let mut settings = pr::SyclSettings { dtype, ..Default::default() };
+    if let Some(names) = symbol_names {
+        for (symbol, name) in names.iter() {
+            let target: String = name.extract()?;
+            if let Ok(name) = symbol.extract::<String>() {
+                settings.symbol_names.insert(name, target);
+            } else {
+                let symbol = to_expr(&symbol)?;
+                if !symbol.is_symbol() { return Err(PyTypeError::new_err("symbol_names keys must be symbols or strings")); }
+                settings.exact_symbol_names.insert(symbol, target);
+            }
+        }
+    }
+    if let Some(functions) = user_functions {
+        for (function, target) in functions.iter() {
+            let name = function.extract::<String>().or_else(|_| function.getattr("__name__")?.extract())?;
+            settings.user_functions.insert(name, target.extract()?);
+        }
+    }
+    if let Some(overrides) = expression_overrides {
+        for (expression, code) in overrides.iter() { settings.expression_overrides.insert(to_expr(&expression)?, code.extract()?); }
+    }
+    pr::syclcode_with(&to_expr(expr)?, &settings).map_err(code_err)
+}
+
+#[pyfunction]
+#[pyo3(name = "_sycl_type")]
+fn py_sycl_type(expr: &Bound<'_, PyAny>) -> PyResult<&'static str> {
+    pr::sycl_type(&to_expr(expr)?).map_err(code_err)
+}
+
+#[pyfunction]
+#[pyo3(name = "_is_sycl_identifier")]
+fn py_is_sycl_identifier(name: &str) -> bool {
+    pr::sycl::is_sycl_identifier(name)
+}
+
+
+#[pyfunction]
 #[pyo3(signature = (expr, assign_to=None, **settings))]
 fn numpycode(
     expr: &Bound<'_, PyAny>,
@@ -489,6 +593,12 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(numpycode, m)?)?;
     m.add_function(wrap_pyfunction!(py_torchcode, m)?)?;
     m.add_function(wrap_pyfunction!(py_jaxcode, m)?)?;
+    m.add_function(wrap_pyfunction!(py_slangcode, m)?)?;
+    m.add_function(wrap_pyfunction!(py_slang_type, m)?)?;
+    m.add_function(wrap_pyfunction!(py_is_slang_identifier, m)?)?;
+    m.add_function(wrap_pyfunction!(py_syclcode, m)?)?;
+    m.add_function(wrap_pyfunction!(py_sycl_type, m)?)?;
+    m.add_function(wrap_pyfunction!(py_is_sycl_identifier, m)?)?;
     m.add_function(wrap_pyfunction!(rust_code, m)?)?;
     m.add_function(wrap_pyfunction!(fcode, m)?)?;
     m.add_function(wrap_pyfunction!(cudacode, m)?)?;

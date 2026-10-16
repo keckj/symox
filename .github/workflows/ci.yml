@@ -81,3 +81,69 @@ jobs:
           pip install --no-index --find-links dist symox
       - name: Array execution, differentiation and compilation
         run: python -m pytest -q tests/test_jax_codegen.py
+
+  slang:
+    runs-on: ubuntu-latest
+    env:
+      SYMOX_SLANG_TEST_BACKENDS: vulkan
+      SYMOX_SLANG_REQUIRE_RUNTIME: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install software Vulkan driver
+        run: sudo apt-get update && sudo apt-get install -y mesa-vulkan-drivers libvulkan1
+      - name: Build with optional Slang backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin pytest sympy numpy 'slangpy>=0.43.1'
+          maturin build --release -o dist
+          pip install --no-index --find-links dist symox
+      - name: Compile and execute through Vulkan
+        run: python -m pytest -q tests/test_slang_codegen.py
+
+  sycl:
+    runs-on: ubuntu-latest
+    env:
+      SYMOX_ACPP: ${{ runner.temp }}/symox-acpp/bin/acpp
+      SYMOX_ACPP_REQUIRE_RUNTIME: "1"
+      SYMOX_ACPP_TARGETS: omp
+      OMP_NUM_THREADS: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install AdaptiveCpp CPU build dependencies
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libboost-dev libnuma-dev
+      - uses: actions/cache@v4
+        id: acpp
+        with:
+          path: ${{ runner.temp }}/symox-acpp
+          key: acpp-omp-${{ runner.os }}-31db2e83903c1db9f50b03b620eb0a09224cd0eb-v1
+      - name: Build pinned AdaptiveCpp CPU SDK
+        if: steps.acpp.outputs.cache-hit != 'true'
+        run: |
+          git init "$RUNNER_TEMP/acpp-src"
+          git -C "$RUNNER_TEMP/acpp-src" fetch --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp.git 31db2e83903c1db9f50b03b620eb0a09224cd0eb
+          git -C "$RUNNER_TEMP/acpp-src" checkout --detach FETCH_HEAD
+          cmake -S "$RUNNER_TEMP/acpp-src" -B "$RUNNER_TEMP/acpp-build" -GNinja \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/symox-acpp" -DCMAKE_BUILD_TYPE=Release \
+            -DACPP_COMPILER_FEATURE_PROFILE=none -DWITH_CUDA_BACKEND=OFF \
+            -DWITH_ROCM_BACKEND=OFF -DWITH_OPENCL_BACKEND=OFF \
+            -DWITH_LEVEL_ZERO_BACKEND=OFF -DWITH_VULKAN_BACKEND=OFF \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build "$RUNNER_TEMP/acpp-build" --target install --parallel 2
+      - name: Build symox
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin pytest sympy numpy
+          maturin build --release -o dist
+          pip install --no-index --find-links dist symox
+      - name: Compile and execute generated SYCL
+        run: python -m pytest -q tests/test_sycl_codegen.py
