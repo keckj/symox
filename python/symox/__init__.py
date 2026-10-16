@@ -136,24 +136,26 @@ def Ge(a, b):
 # symbols()
 # ---------------------------------------------------------------------------
 
-_RANGE = _re.compile(r"^(.*?)(\d*|[a-zA-Z]?):(\d*|[a-zA-Z]?)$")
-
-
 def _expand_range(name):
+    """``x:3`` -> x0 x1 x2, ``x1:3`` -> x1 x2, ``a:d`` -> a b c d."""
     if ":" not in name:
         return [name]
-    m = _RANGE.match(name)
-    if not m:
-        raise ValueError(f"invalid range in symbol name {name!r}")
-    prefix, a, b = m.groups()
-    if (a == "" or a.isdigit()) and (b == "" or b.isdigit()):
-        if b == "":
+    left, right = name.split(":", 1)
+    if right.isdigit() or (right == "" and left[-1:].isdigit()):
+        if right == "":
             raise ValueError("missing end of range")
-        lo = int(a) if a else 0
-        return [f"{prefix}{i}" for i in range(lo, int(b))]
+        m = _re.match(r"^(.*?)(\d*)$", left)
+        prefix, start = m.group(1), m.group(2)
+        return [f"{prefix}{i}" for i in range(int(start) if start else 0, int(right))]
     letters = _string.ascii_letters
-    lo = letters.index(a) if a else 0
-    hi = letters.index(b) + 1 if b else len(letters)
+    if left and left[-1] in letters:
+        prefix, start = left[:-1], left[-1]
+    else:
+        prefix, start = left, "a"
+    if right and right not in letters:
+        raise ValueError(f"invalid range in symbol name {name!r}")
+    lo = letters.index(start)
+    hi = letters.index(right) + 1 if right else len(letters)
     return [f"{prefix}{c}" for c in letters[lo:hi]]
 
 

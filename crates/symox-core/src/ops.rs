@@ -139,7 +139,75 @@ pub fn add2(a: &Expr, b: &Expr) -> Expr {
     if let (Kind::Num(x), Kind::Num(y)) = (a.kind(), b.kind()) {
         return Expr::num(x.add(y));
     }
+    // fast path: merge already sorted term lists in linear time
+    if let Some(r) = add2_merge(a, b) {
+        return r;
+    }
     add(&[a.clone(), b.clone()])
+}
+
+/// View `e` as a sorted list of `(term, coeff)` plus a constant, when it is
+/// a plain finite term (no infinities / nan involved).
+fn as_terms(e: &Expr) -> Option<(Number, std::borrow::Cow<'_, [(Expr, Number)]>)> {
+    use std::borrow::Cow;
+    match e.kind() {
+        Kind::Add(c, terms) => Some((c.clone(), Cow::Borrowed(terms.as_slice()))),
+        Kind::Num(n) => Some((n.clone(), Cow::Owned(Vec::new()))),
+        Kind::Const(_) => {
+            if matches!(e.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN) {
+                None
+            } else {
+                Some((Number::ZERO, Cow::Owned(vec![(e.clone(), Number::ONE)])))
+            }
+        }
+        Kind::Mul(c, facs) if !c.is_one() => {
+            Some((Number::ZERO, Cow::Owned(vec![(mul_from_factors(facs.clone()), c.clone())])))
+        }
+        _ => Some((Number::ZERO, Cow::Owned(vec![(e.clone(), Number::ONE)]))),
+    }
+}
+
+fn add2_merge(a: &Expr, b: &Expr) -> Option<Expr> {
+    if !(a.is_add() || b.is_add()) {
+        return None;
+    }
+    let (ca, ta) = as_terms(a)?;
+    let (cb, tb) = as_terms(b)?;
+    let coeff = ca.add(&cb);
+    if coeff.is_nan() {
+        return None;
+    }
+    let mut out: Vec<(Expr, Number)> = Vec::with_capacity(ta.len() + tb.len());
+    let (mut i, mut j) = (0, 0);
+    while i < ta.len() && j < tb.len() {
+        match ta[i].0.cmp(&tb[j].0) {
+            std::cmp::Ordering::Less => {
+                out.push(ta[i].clone());
+                i += 1;
+            }
+            std::cmp::Ordering::Greater => {
+                out.push(tb[j].clone());
+                j += 1;
+            }
+            std::cmp::Ordering::Equal => {
+                let k = ta[i].1.add(&tb[j].1);
+                if !k.is_zero() {
+                    out.push((ta[i].0.clone(), k));
+                }
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+    out.extend_from_slice(&ta[i..]);
+    out.extend_from_slice(&tb[j..]);
+    if out.is_empty() {
+        return Some(Expr::num(coeff));
+    }
+    if out.len() == 1 && coeff.is_zero() {
+        return Some(add_term(&out[0].0, &out[0].1));
+    }
+    Some(Expr::from_kind(Kind::Add(coeff, out)))
 }
 
 fn finish_add(coeff: Number, mut terms: Vec<(Expr, Number)>, inf: InfFlags) -> Expr {
@@ -147,7 +215,8 @@ fn finish_add(coeff: Number, mut terms: Vec<(Expr, Number)>, inf: InfFlags) -> E
         return Expr::nan();
     }
     // sort + merge equal terms
-    terms.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+    // stable sort: linear on the common case of concatenated sorted runs
+    terms.sort_by(|a, b| a.0.cmp(&b.0));
     let mut out: Vec<(Expr, Number)> = Vec::with_capacity(terms.len());
     for (t, k) in terms {
         match out.last_mut() {
