@@ -82,11 +82,13 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
             }
         }
         SetOp::Range => {
-            if let (Some(st), Some(sp), Some(stp)) = (a[0].as_i64(), a[1].as_i64(), a[2].as_i64()) {
+            let integer = |e: &Expr| e.as_number().and_then(|n| n.to_bigint());
+            if let (Some(st), Some(sp), Some(stp)) = (integer(&a[0]), integer(&a[1]), integer(&a[2])) {
                 if let Some(v) = x.as_number() {
-                    let Some(v) = (if v.is_integer() { v.to_i64() } else { return f() }) else { return f() };
-                    let inside = if stp > 0 { v >= st && v < sp } else { v <= st && v > sp };
-                    return Expr::boolean(inside && (v - st) % stp == 0);
+                    let Some(v) = v.to_bigint() else { return f() };
+                    let zero = num_bigint::BigInt::from(0);
+                    let inside = if stp > zero { v >= st && v < sp } else { v <= st && v > sp };
+                    return Expr::boolean(inside && stp != zero && (v - st) % stp == zero);
                 }
             }
             if let Some(v) = x.as_number() {
@@ -99,6 +101,25 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
                 if a[2].is_one() {
                     if let (Some(l), Some(h)) = (lo_ok, hi_ok) {
                         return Expr::boolean(l && h);
+                    }
+                }
+            }
+            unevaluated()
+        }
+        SetOp::ImageSet => {
+            if let Some((SetOp::Lambda, lam)) = as_set(&a[0]) {
+                if lam.len() == 2 {
+                    let variable = &lam[0];
+                    let body = &lam[1];
+                    let coefficient = crate::diff::diff(body, variable);
+                    if !crate::traverse::has(&coefficient, variable)
+                        && crate::assumptions::is_nonzero(&coefficient) == Some(true) {
+                        let offset = crate::subs::subs1(body, variable, &Expr::zero());
+                        let residual = crate::ops::sub(body, &crate::ops::add2(&crate::ops::mul2(&coefficient, variable), &offset));
+                        if crate::expand::expand(&residual).is_zero() {
+                            let inverse = crate::simplify::simplify(&crate::ops::div(&crate::ops::sub(x, &offset), &coefficient));
+                            return contains(&a[1], &inverse);
+                        }
                     }
                 }
             }

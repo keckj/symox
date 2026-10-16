@@ -72,6 +72,63 @@ python tests/compare_sympy.py   # differential tests (needs sympy)
 python benches/bench_vs_sympy.py
 ```
 
+## Symbolic code generation compatibility
+
+For the scalar polynomial API used by TriSplyne, replace imports consistently:
+
+```python
+import symox as sm
+from symox.printing.cxx import CXX17CodePrinter
+from symox.printing.precedence import precedence, PRECEDENCE
+from symox.codegen.ast import Assignment, CodeBlock, Comment
+```
+
+`Add`, `Mul`, `Pow`, `Symbol`, `Integer`, `Rational`, `Float`, and
+`UnevaluatedExpr` provide constructors and `isinstance` checks for native Rust
+expressions. `S.Half`, tree reconstruction through `expr.func(*expr.args)`,
+coefficient extraction, operation counts, deterministic `default_sort_key`,
+NumPy object arrays, and expression pickling are supported. Free symbol
+discovery is cached on immutable expression nodes; callers receive independent
+Python sets.
+
+`UnevaluatedExpr` and `Mul(..., evaluate=False)` preserve coefficients and
+grouping for Horner code generation. `subs` supports algebraic sum and product
+patterns; `xreplace` performs exact replacement. `reduced(f, divisors, *gens)`
+returns polynomial quotients and a remainder, with deterministic generator
+ordering when generators are inferred. Reduction currently supports `order="lex"`;
+explicit `domain`/`modulus`, `polys=True`, and `auto=False` raise
+`NotImplementedError`.
+
+The extensible Python `CXX17CodePrinter` supports `_print_<Class>` overrides,
+`doprint`, and `parenthesize`. The existing top-level `cxxcode` uses the native
+Rust printer. `StrPrinter` and `PrettyPrinter` are available for debug output.
+This compatibility surface targets scalar polynomial workflows; it is not a
+replacement for every SymPy module.
+
+Consumer integration tests load the real TriSplyne modules with each backend
+and compare generated text. They need a sibling checkout or an explicit path:
+
+```bash
+TRISPLYNE_PATH=/path/to/trisplyne python -m pytest tests/test_trisplyne_integration.py
+```
+
+## Boolean logic and sets
+
+`And`, `Or`, `Not`, `Xor`, `Implies`, `Equivalent`, `ITE`, CNF/DNF/NNF
+conversion, `SOPform`, `POSform`, `simplify_logic`, truth tables and a native
+SAT solver are available. Set operations include intervals, finite sets,
+unions, intersections, complements, products, image sets, condition sets,
+ranges and the standard named sets through `S`. `solveset` handles polynomial
+and supported periodic equations; unresolved equations remain `ConditionSet`s.
+Periodic solutions exclude denominator poles.
+
+The SAT solver uses propositional atoms. `use_lra_theory=True`, `minimal=True`
+and external solver selections raise `NotImplementedError`. Dense truth-table
+operations support at most 20 variables; ordinary SAT solving has no such
+limit. `simplify_logic(..., dontcare=...)` is not yet supported (the separate
+`SOPform` and `POSform` functions accept don't-care rows). Inequality solving
+supports one variable. Other unresolved membership queries remain symbolic.
+
 ## Architecture
 
 | module | content |
@@ -85,9 +142,11 @@ python benches/bench_vs_sympy.py
 | `lambdify.rs` | numerical compilation |
 | `crates/symox-py` | Python bindings, `python/symox` the Python package |
 
-Invariants: every `Expr` is canonical. Only `ops`/`functions` constructors
-create nodes (`Expr::from_kind` is reserved for code that guarantees the
-canonical form itself). `Add` stores `(term, coefficient)` pairs, `Mul`
+Invariants: ordinary `Expr` nodes are canonical. Only `ops`/`functions`
+constructors create canonical nodes (`Expr::from_kind` is reserved for code
+that guarantees the canonical form itself). The Python `evaluate=False`
+constructors explicitly mark held nodes with `Expr::from_unevaluated_kind`.
+`Add` stores `(term, coefficient)` pairs, `Mul`
 stores `(base, exponent)` pairs, both sorted by `Expr`'s `Ord` (`Mul`
 factors by base then exponent).
 

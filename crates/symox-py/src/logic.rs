@@ -82,13 +82,17 @@ fn py_ite(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
 #[pyfunction]
 #[pyo3(signature = (expr, simplify = false, force = false))]
 fn to_cnf(expr: &Bound<'_, PyAny>, simplify: bool, force: bool) -> PyResult<PyExpr> {
-    lg::to_cnf(&to_expr(expr)?, simplify, force).map(wrap).map_err(PyValueError::new_err)
+    let e = to_expr(expr)?;
+    if simplify && force { check_table_size(lg::atoms(&e).len())?; }
+    lg::to_cnf(&e, simplify, force).map(wrap).map_err(PyValueError::new_err)
 }
 
 #[pyfunction]
 #[pyo3(signature = (expr, simplify = false, force = false))]
 fn to_dnf(expr: &Bound<'_, PyAny>, simplify: bool, force: bool) -> PyResult<PyExpr> {
-    lg::to_dnf(&to_expr(expr)?, simplify, force).map(wrap).map_err(PyValueError::new_err)
+    let e = to_expr(expr)?;
+    if simplify && force { check_table_size(lg::atoms(&e).len())?; }
+    lg::to_dnf(&e, simplify, force).map(wrap).map_err(PyValueError::new_err)
 }
 
 #[pyfunction]
@@ -146,6 +150,7 @@ fn parse_form(form: Option<&str>) -> PyResult<Option<LogicForm>> {
 /// dicts mapping variables to 0/1).
 fn terms_to_rows(vars: &[Expr], terms: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<u32>> {
     let n = vars.len();
+    check_table_size(n)?;
     let mut rows = Vec::new();
     let Some(t) = terms else { return Ok(rows) };
     if t.is_none() {
@@ -154,6 +159,9 @@ fn terms_to_rows(vars: &[Expr], terms: Option<&Bound<'_, PyAny>>) -> PyResult<Ve
     for item in t.try_iter()? {
         let item = item?;
         if let Ok(i) = item.extract::<u32>() {
+            if i >= (1u32 << n) {
+                return Err(PyValueError::new_err("minterm index exceeds the number of variables"));
+            }
             rows.push(i);
         } else if let Ok(d) = item.downcast::<PyDict>() {
             // partial assignment: expand the unspecified variables
@@ -187,12 +195,33 @@ fn expr_seq(o: &Bound<'_, PyAny>) -> PyResult<Vec<Expr>> {
     o.try_iter()?.map(|i| to_expr(&i?)).collect()
 }
 
+// Dense truth tables and the u32 implicant representation require a bound.
+fn check_table_size(n: usize) -> PyResult<()> {
+    if n > 20 {
+        return Err(PyNotImplementedError::new_err("truth-table operations support at most 20 variables"));
+    }
+    Ok(())
+}
+
+fn validate_terms(vars: &[Expr], on: &[u32], dc: &[u32]) -> PyResult<()> {
+    for (i, v) in vars.iter().enumerate() {
+        if !lg::is_boolean(v) || vars[..i].contains(v) {
+            return Err(PyValueError::new_err("variables must be distinct boolean expressions"));
+        }
+    }
+    if on.iter().any(|r| dc.contains(r)) {
+        return Err(PyValueError::new_err("minterms must not also occur in dontcares"));
+    }
+    Ok(())
+}
+
 #[pyfunction]
 #[pyo3(name = "SOPform", signature = (variables, minterms, dontcares = None))]
 fn sop_form(variables: &Bound<'_, PyAny>, minterms: &Bound<'_, PyAny>, dontcares: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
     let vars = expr_seq(variables)?;
     let on = terms_to_rows(&vars, Some(minterms))?;
     let dc = terms_to_rows(&vars, dontcares)?;
+    validate_terms(&vars, &on, &dc)?;
     Ok(wrap(lg::sop_form(&vars, &on, &dc)))
 }
 
@@ -202,6 +231,7 @@ fn pos_form(variables: &Bound<'_, PyAny>, minterms: &Bound<'_, PyAny>, dontcares
     let vars = expr_seq(variables)?;
     let on = terms_to_rows(&vars, Some(minterms))?;
     let dc = terms_to_rows(&vars, dontcares)?;
+    validate_terms(&vars, &on, &dc)?;
     Ok(wrap(lg::pos_form(&vars, &on, &dc)))
 }
 
@@ -215,6 +245,7 @@ fn simplify_logic(
     dontcare: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyExpr> {
     let e = to_expr(expr)?;
+    if force { check_table_size(lg::atoms(&e).len())?; }
     let form = parse_form(form)?;
     if dontcare.is_some_and(|d| !d.is_none()) {
         return Err(PyNotImplementedError::new_err("dontcare is not supported"));
@@ -281,7 +312,14 @@ fn satisfiable(
     minimal: bool,
     use_lra_theory: bool,
 ) -> PyResult<PyObject> {
-    let _ = (algorithm, minimal, use_lra_theory);
+    if use_lra_theory || minimal {
+        return Err(PyNotImplementedError::new_err("LRA theory and minimal SAT models are not supported"));
+    }
+    match algorithm {
+        None | Some("dpll") | Some("dpll2") => {}
+        Some("z3" | "pycosat" | "minisat22") => return Err(PyNotImplementedError::new_err("external SAT solvers are not supported")),
+        Some(_) => return Err(PyValueError::new_err("unknown SAT algorithm")),
+    }
     let e = boolean_arg(expr)?;
     let trivially_true = matches!(e.kind(), Kind::Bool(true));
     if all_models {
@@ -303,6 +341,9 @@ fn satisfiable(
 /// Solve a DIMACS style CNF directly (list of clauses of non-zero ints).
 #[pyfunction]
 fn _sat_dimacs(py: Python<'_>, nvars: usize, clauses: Vec<Vec<i32>>) -> PyResult<PyObject> {
+    if nvars > (i32::MAX as usize) || clauses.iter().flatten().any(|&v| v == 0 || v.unsigned_abs() as usize > nvars) {
+        return Err(PyValueError::new_err("DIMACS literals must be nonzero and refer to an existing variable"));
+    }
     match py.allow_threads(|| lg::sat::solve_dimacs(nvars, &clauses)) {
         Some(m) => Ok(PyList::new(py, m)?.into_any().unbind()),
         None => Ok(false.into_pyobject(py)?.to_owned().into_any().unbind()),
@@ -314,6 +355,7 @@ fn _sat_dimacs(py: Python<'_>, nvars: usize, clauses: Vec<Vec<i32>>) -> PyResult
 fn truth_table(py: Python<'_>, expr: &Bound<'_, PyAny>, variables: &Bound<'_, PyAny>, input: bool) -> PyResult<PyObject> {
     let e = to_expr(expr)?;
     let vars = expr_seq(variables)?;
+    check_table_size(vars.len())?;
     let rows = lg::truth_table(&e, &vars);
     let out = PyList::empty(py);
     for (bits, v) in rows {
@@ -352,12 +394,21 @@ fn py_finite_set(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
     Ok(wrap(st::finite_set(exprs(args)?)))
 }
 
+fn require_set(e: &Expr) -> PyResult<()> {
+    if !st::is_set(e) {
+        return Err(PyTypeError::new_err(format!("expected a Set, got {e}")));
+    }
+    Ok(())
+}
+
 fn set_args(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     // accept a single iterable of sets too
     if args.len() == 1 {
         let a = args.get_item(0)?;
         if to_expr(&a).is_err() {
-            return expr_seq(&a);
+            let v = expr_seq(&a)?;
+            for s in &v { require_set(s)?; }
+            return Ok(v);
         }
     }
     let v = exprs(args)?;
@@ -384,13 +435,16 @@ fn py_intersection(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
 #[pyfunction]
 #[pyo3(name = "Complement")]
 fn py_complement(a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(st::complement(&to_expr(a)?, &to_expr(b)?)))
+    let (a, b) = (to_expr(a)?, to_expr(b)?);
+    require_set(&a)?;
+    require_set(&b)?;
+    Ok(wrap(st::complement(&a, &b)))
 }
 
 #[pyfunction]
 #[pyo3(name = "ProductSet", signature = (*args))]
 fn py_product_set(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
-    Ok(wrap(st::product_set(exprs(args)?)))
+    Ok(wrap(st::product_set(set_args(args)?)))
 }
 
 #[pyfunction]
@@ -426,6 +480,11 @@ fn py_condition_set(sym: &Bound<'_, PyAny>, condition: &Bound<'_, PyAny>, base_s
 #[pyo3(name = "Range", signature = (*args))]
 fn py_range(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
     let v = exprs(args)?;
+    for (i, e) in v.iter().enumerate() {
+        if e.as_number().is_some_and(|n| !n.is_integer()) || (i == 2 && e.is_zero()) {
+            return Err(PyValueError::new_err("Range requires integer arguments and a nonzero step"));
+        }
+    }
     Ok(wrap(match v.len() {
         1 => st::range(&Expr::zero(), &v[0], &Expr::one()),
         2 => st::range(&v[0], &v[1], &Expr::one()),
@@ -518,6 +577,8 @@ fn solveset(f: &Bound<'_, PyAny>, symbol: Option<&Bound<'_, PyAny>>, domain: Opt
         Some(d) => to_expr(d)?,
         None => st::complexes(),
     };
+    require_set(&dom)?;
+    if !x.is_symbol() { return Err(PyValueError::new_err("the independent variable must be a symbol")); }
     st::solveset(&f, &x, &dom).map(wrap).map_err(PyValueError::new_err)
 }
 

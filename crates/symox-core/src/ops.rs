@@ -104,6 +104,11 @@ pub fn add(args: &[Expr]) -> Expr {
         1 => return args[0].clone(),
         _ => {}
     }
+    if args.iter().any(Expr::may_have_order) {
+        if let Some(r) = crate::series::order::add_hook(args) {
+            return r;
+        }
+    }
     let mut coeff = Number::ZERO;
     let mut terms: Vec<(Expr, Number)> = Vec::with_capacity(args.len() + 4);
     let mut inf = InfFlags::default();
@@ -168,7 +173,7 @@ fn as_terms(e: &Expr) -> Option<(Number, std::borrow::Cow<'_, [(Expr, Number)]>)
 }
 
 fn add2_merge(a: &Expr, b: &Expr) -> Option<Expr> {
-    if !(a.is_add() || b.is_add()) {
+    if !(a.is_add() || b.is_add()) || a.may_have_order() || b.may_have_order() {
         return None;
     }
     let (ca, ta) = as_terms(a)?;
@@ -271,6 +276,11 @@ pub fn mul(args: &[Expr]) -> Expr {
         1 => return args[0].clone(),
         _ => {}
     }
+    if args.iter().any(Expr::may_have_order) {
+        if let Some(r) = crate::series::order::mul_hook(args) {
+            return r;
+        }
+    }
     let mut coeff = Number::ONE;
     let mut facs: Vec<(Expr, Expr)> = Vec::with_capacity(args.len() + 4);
     let mut infs: Vec<Constant> = Vec::new();
@@ -317,6 +327,9 @@ pub fn mul2(a: &Expr, b: &Expr) -> Expr {
             return Expr::zero()
         }
         _ => {}
+    }
+    if a.may_have_order() || b.may_have_order() {
+        return mul(&[a.clone(), b.clone()]);
     }
     if let Some(r) = mul2_fast(a, b).or_else(|| mul2_fast(b, a)) {
         return r;
@@ -687,6 +700,11 @@ fn mul_depth(args: &[Expr], depth: u32) -> Expr {
 }
 
 fn distribute(k: &Number, c: &Number, terms: &[(Expr, Number)]) -> Expr {
+    if terms.iter().any(|(t, _)| t.may_have_order()) {
+        let mut v: Vec<Expr> = terms.iter().map(|(t, n)| mul2(&Expr::num(n.mul(k)), t)).collect();
+        v.push(Expr::num(c.mul(k)));
+        return add(&v);
+    }
     let terms: Vec<(Expr, Number)> = terms.iter().map(|(t, n)| (t.clone(), n.mul(k))).collect();
     let c = c.mul(k);
     // coefficients may vanish only through float underflow; be safe
@@ -732,6 +750,11 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             }
         }
         Kind::Const(Constant::E) => return crate::functions::exp(e),
+        Kind::Func(Func::Order, _) => {
+            if let Some(r) = crate::series::order::pow_hook(b, e) {
+                return r;
+            }
+        }
         Kind::Const(Constant::I) => {
             if let Some(k) = e.as_number().and_then(|n| n.to_i64()) {
                 return i_pow(k);
@@ -1031,6 +1054,9 @@ fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
 // ----------------------------------------------------------------------
 
 pub fn neg(a: &Expr) -> Expr {
+    if a.may_have_order() {
+        return mul(&[Expr::minus_one(), a.clone()]);
+    }
     match a.kind() {
         Kind::Num(n) => Expr::num(n.neg()),
         Kind::Mul(c, facs) => {

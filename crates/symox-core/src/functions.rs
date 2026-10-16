@@ -13,6 +13,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     match f {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
+        Func::Order => return crate::series::order::order_from_args(&args),
         _ => {}
     }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
@@ -116,7 +117,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
+        Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
     };
     match r {
         Some(v) => v,
@@ -133,6 +134,10 @@ fn has_float(e: &Expr) -> bool {
 
 /// Free of symbols and undefined functions (so it can be evaluated).
 pub fn is_numeric_value(e: &Expr) -> bool {
+    // any symbol (or Order term) inside sets a mask bit: O(1) rejection
+    if e.mask() != 0 {
+        return false;
+    }
     match e.kind() {
         Kind::Num(_) => true,
         Kind::Const(c) => !c.is_infinite() && *c != Constant::NaN,

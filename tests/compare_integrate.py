@@ -95,6 +95,12 @@ exp(-x), (x, 0, 1)
 x*exp(x), (x, 0, 2)
 log(x), (x, 1, E)
 cos(x)**2, (x, 0, pi)
+exp(-x), (x, 0, oo)
+1/(1+x**2), (x, -oo, oo)
+x*exp(-x), (x, 0, oo)
+exp(-x**2), (x, -oo, oo)
+1/x**2, (x, 1, oo)
+log(x), (x, 0, 1)
 """.strip().splitlines()
 
 

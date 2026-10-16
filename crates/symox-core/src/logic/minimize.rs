@@ -110,6 +110,7 @@ impl Table {
 /// Truth table of `e` over `vars`; `None` if `e` contains other atoms.
 pub fn table_of(e: &Expr, vars: &[Expr]) -> Option<Table> {
     let n = vars.len();
+    if n > 20 { return None; }
     let idx: FxHashMap<&Expr, usize> = vars.iter().enumerate().map(|(i, v)| (v, i)).collect();
     fn rec(e: &Expr, n: usize, idx: &FxHashMap<&Expr, usize>) -> Option<Table> {
         if let Some(&i) = idx.get(e) {
@@ -531,8 +532,11 @@ pub fn simplify_logic(e: &Expr, form: Option<LogicForm>, _deep: bool, force: boo
             if repl.contains_key(r) {
                 continue;
             }
-            let d = Expr::symbol(&format!("_logic_{k}"));
-            k += 1;
+            let d = loop {
+                let candidate = Expr::symbol(&format!("_logic_{k}"));
+                k += 1;
+                if !crate::traverse::has(e, &candidate) { break candidate; }
+            };
             undo.insert(d.clone(), r.clone());
             repl.insert(r.clone(), d.clone());
             let nr = super::negated_rel(r);

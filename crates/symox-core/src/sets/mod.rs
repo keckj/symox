@@ -828,14 +828,10 @@ pub fn product_set(sets: Vec<Expr>) -> Expr {
     if sets.iter().any(is_empty_set) {
         return empty_set();
     }
-    let mut v = Vec::new();
-    for s in sets {
-        match as_set(&s) {
-            Some((SetOp::ProductSet, a)) => v.extend(a.iter().cloned()),
-            _ => v.push(s),
-        }
+    if sets.is_empty() {
+        return finite_set(vec![Expr::from_kind(Kind::Func(Func::Undefined("Tuple".into()), vec![]))]);
     }
-    mk(SetOp::ProductSet, v)
+    mk(SetOp::ProductSet, sets)
 }
 
 /// `Lambda(var, body)`.
@@ -900,11 +896,14 @@ pub fn range(start: &Expr, stop: &Expr, step: &Expr) -> Expr {
         if s == 0 {
             return mk(SetOp::Range, vec![start.clone(), stop.clone(), step.clone()]);
         }
+        // Widen before subtracting: valid i64 endpoints can span more than i64.
+        let (a, b, s) = (a as i128, b as i128, s as i128);
         let n = (b - a + s - s.signum()) / s; // ceil((b - a) / s)
         if n <= 0 {
             return mk(SetOp::Range, vec![Expr::zero(), Expr::zero(), Expr::one()]);
         }
-        return mk(SetOp::Range, vec![Expr::int(a), Expr::int(a + n * s), Expr::int(s)]);
+        let integer = |v: i128| Expr::num(crate::number::Number::from_bigint(v.into()));
+        return mk(SetOp::Range, vec![integer(a), integer(a + n * s), integer(s)]);
     }
     mk(SetOp::Range, vec![start.clone(), stop.clone(), step.clone()])
 }

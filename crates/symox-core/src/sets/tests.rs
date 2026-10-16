@@ -66,3 +66,24 @@ fn solving() {
     assert_eq!(s(&reduce_inequalities(&[p("x**2 >= 0")], Some(&x)).unwrap()), "True");
     assert_eq!(s(&reduce_inequalities(&[p("x > 1"), p("x < 3")], Some(&x)).unwrap()), "(1 < x) & (x < 3)");
 }
+
+#[test]
+fn bound_symbols_products_and_periodic_poles() {
+    use crate::traverse::free_symbols;
+    let (x, y) = (Expr::symbol("x"), Expr::symbol("y"));
+    assert_eq!(free_symbols(&lambda(&x, &p("x + y"))), vec![y.clone()]);
+    assert_eq!(free_symbols(&condition_set(&x, &p("x > y"), &reals())), vec![y]);
+    assert_ne!(p("ProductSet(ProductSet(FiniteSet(1), FiniteSet(2)), FiniteSet(3))"),
+               p("ProductSet(FiniteSet(1), FiniteSet(2), FiniteSet(3))"));
+    let roots = solveset(&p("sin(x)/x"), &x, &reals()).unwrap();
+    assert_eq!(contains(&roots, &Expr::zero()), Expr::boolean(false));
+    assert_eq!(contains(&roots, &p("2*pi")), Expr::boolean(true));
+}
+
+#[test]
+fn range_wide_endpoints() {
+    let r = range(&Expr::int(i64::MIN), &Expr::int(i64::MAX), &Expr::int(2));
+    assert_eq!(r.to_string(), "Range(-9223372036854775808, 9223372036854775808, 2)");
+    assert_eq!(contains(&r, &Expr::int(i64::MIN)), Expr::boolean(true));
+    assert_eq!(contains(&r, &Expr::int(i64::MAX)), Expr::boolean(false));
+}

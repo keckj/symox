@@ -414,11 +414,12 @@ class Set:
         return ProductSet(self, other)
 
     def __pow__(self, n):
+        n = sympify(n)
+        if not n.is_Integer:
+            raise ValueError("set powers require a nonnegative integer")
         n = int(n)
         if n < 0:
             raise ValueError("%s: Exponent must be a positive Integer" % n)
-        if n == 0:
-            raise NotImplementedError("the empty product set is not supported")
         return ProductSet(*([self] * n))
 
     # membership --------------------------------------------------------------
@@ -518,7 +519,7 @@ class Set:
         return None
 
     def __bool__(self):
-        return True
+        return not self.is_EmptySet
 
 
 class Interval(Set):
@@ -576,7 +577,7 @@ class Interval(Set):
 
     @property
     def is_closed(self):
-        return not bool(self.left_open) and not bool(self.right_open)
+        return (self.start == -oo or not bool(self.left_open)) and (self.end == oo or not bool(self.right_open))
 
 
 class FiniteSet(Set):
@@ -658,6 +659,10 @@ class Lambda:
 
     def _symox_(self):
         return self._e
+
+    @property
+    def free_symbols(self):
+        return self._e.free_symbols
 
     @property
     def variables(self):
@@ -802,33 +807,365 @@ def reduce_inequalities(inequalities, symbols=[]):  # noqa: B006
     return _core.reduce_inequalities(inequalities, syms)
 
 
-class _SingletonRegistry:
-    """``S``: ``S(obj)`` is ``sympify``; ``S.Reals``, ``S.Half``, ... are the
-    singletons."""
-
-    __slots__ = ()
-
-    def __call__(self, *args, **kwargs):
-        return sympify(*args, **kwargs)
-
-    def __getattr__(self, name):
-        table = {
-            "EmptySet": EmptySet, "UniversalSet": UniversalSet, "Reals": Reals,
-            "Integers": Integers, "Naturals": Naturals, "Naturals0": Naturals0,
-            "Complexes": Complexes, "Rationals": Rationals,
-            "true": true, "false": false, "Zero": Integer(0), "One": Integer(1),
-            "NegativeOne": Integer(-1), "Half": Rational(1, 2), "Infinity": oo,
-            "NegativeInfinity": -oo, "ComplexInfinity": zoo, "NaN": nan, "Pi": pi,
-            "Exp1": E, "ImaginaryUnit": I, "EulerGamma": EulerGamma,
-        }
-        try:
-            return table[name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-
-S = _SingletonRegistry()
 # --- end logic ---
 
+# --- poly ---
+from ._core import (  # noqa: E402
+    Poly,
+    apart,
+    cancel,
+    cofactors,
+    collect,
+    compose,
+    decompose,
+    degree,
+    discriminant,
+    div,
+    exquo,
+    factor,
+    factor_list,
+    gcd,
+    gcdex,
+    half_gcdex,
+    invert,
+    lcm,
+    nroots,
+    pdiv,
+    pexquo,
+    pquo,
+    prem,
+    quo,
+    real_roots,
+    reduced,
+    rem,
+    resultant,
+    roots,
+    sqf,
+    sqf_list,
+    sqf_part,
+    terms_gcd,
+)
+
+together = _core._poly_together
+
+
+class PolynomialError(ValueError):
+    """Raised for invalid polynomial operations."""
+
+
+def gcd_list(seq, *gens, **args):
+    return gcd(list(seq), *gens, **args)
+
+
+def lcm_list(seq, *gens, **args):
+    return lcm(list(seq), *gens, **args)
+
+
+def poly(expr, *gens, **args):
+    return Poly(expr, *gens, **args)
+
+
+def LC(f, *gens, **args):
+    """Leading coefficient of ``f``."""
+    return Poly(f, *gens, **args).LC()
+
+
+def LM(f, *gens, **args):
+    """Leading monomial of ``f`` (as an expression)."""
+    p = Poly(f, *gens, **args)
+    m = 1
+    for g, k in zip(p.gens, p.LM()):
+        m = m * g**k
+    return sympify(m)
+
+
+def LT(f, *gens, **args):
+    """Leading term of ``f``."""
+    p = Poly(f, *gens, **args)
+    return p.LC() * LM(f, *gens, **args)
+
+
+def primitive(f, *gens, **args):
+    """``(content, primitive part)`` of a polynomial."""
+    c, p = Poly(f, *gens, **args).primitive()
+    return c, p.as_expr()
+
+
+def _install_poly_methods():
+    methods = {
+        "factor": lambda self, *gens, **kw: factor(self, *gens, **kw),
+        "cancel": lambda self, *gens, **kw: cancel(self, *gens, **kw),
+        "apart": lambda self, x=None, **kw: apart(self, x, **kw),
+        "collect": lambda self, syms, **kw: collect(self, syms, **kw),
+        "as_poly": lambda self, *gens, **kw: Poly(self, *gens, **kw),
+        "together": lambda self, *a, **kw: together(self, *a, **kw),
+    }
+    for name, fn in methods.items():
+        try:
+            setattr(Expr, name, fn)
+        except (TypeError, AttributeError):  # immutable extension type
+            pass
+    try:
+        Poly.get_domain = lambda self: self.domain
+
+        def _get_modulus(self):
+            if self.modulus is None:
+                raise PolynomialError("not a polynomial over a Galois field")
+            return self.modulus
+
+        Poly.get_modulus = _get_modulus
+    except (TypeError, AttributeError):
+        pass
+
+
+_install_poly_methods()
+# --- end poly ---
+# --- series ---
+# Series expansions, the Order term and limits (crates/symox-py/src/series.rs).
+
+
+class PoleError(ValueError):
+    """Raised when an expansion point is a singularity of the expression."""
+
+
+def _series_call(expr, x, x0, n, dir):
+    try:
+        return _core._series(expr, x, x0, n, dir)
+    except ValueError as e:
+        msg = str(e)
+        if msg.startswith("PoleError: "):
+            raise PoleError(msg[len("PoleError: "):]) from None
+        raise
+
+
+def series(expr, x=None, x0=0, n=6, dir="+"):
+    """Series expansion of ``expr`` around ``x = x0`` up to ``O((x - x0)**n)``."""
+    return _series_call(expr, x, x0, n, dir)
+
+
+def Order(expr, *args, **kwargs):
+    """Landau order term ``O(expr, (x, x0), ...)``."""
+    return _core._order(expr, *args)
+
+
+O = Order
+
+
+def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    return _series_call(self, x, x0, n, dir)
+
+
+def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    return _series_call(self, x, x0, n, dir)
+
+
+def _expr_taylor_term(self, n, x, *previous_terms):
+    return _core._taylor_term(self, n, x)
+
+
+def _expr_getO(self):
+    return _core._get_o(self)
+
+
+def _expr_getn(self):
+    n = _core._getn(self)
+    return n
+
+
+def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
+    """Lazy iterator over the terms of the expansion (in increasing order)."""
+    n = 6
+    done = 0
+    while True:
+        s = _series_call(self, x, x0, n, dir)
+        terms = s.removeO()
+        terms = list(terms.args) if terms.is_Add else ([terms] if terms != 0 else [])
+        terms = _sort_series_terms(terms, s)
+        for t in terms[done:]:
+            yield t
+        done = len(terms)
+        if _core._get_o(s) is None:
+            return
+        n *= 2
+
+
+def _sort_series_terms(terms, s):
+    order = [str(t) for t in (s.as_ordered_terms() if s.is_Add else [s])]
+    return sorted(terms, key=lambda t: order.index(str(t)) if str(t) in order else len(order))
+
+
+def _expr_leadterm(self, x, x0=0, dir="+"):
+    return _core._leadterm(self, x, x0, dir)
+
+
+def _expr_as_leading_term(self, *symbols, **kwargs):
+    x = symbols[0] if symbols else None
+    c, e = _core._leadterm(self, x)
+    return c * x**e
+
+
+Expr.series = _expr_series
+Expr.nseries = _expr_nseries
+Expr.taylor_term = _expr_taylor_term
+Expr.removeO = lambda self: _core._remove_o(self)
+Expr.getO = _expr_getO
+Expr.getn = _expr_getn
+Expr.lseries = _expr_lseries
+Expr.leadterm = _expr_leadterm
+Expr.as_leading_term = _expr_as_leading_term
+Expr.is_Order = property(lambda self: _core._is_order(self))
+Expr.contains = lambda self, t: _core._order_contains(self, t)
+
+
+def _order_part(i):
+    def get(self):
+        if not _core._is_order(self):
+            raise AttributeError("only Order terms have expr/variables/point")
+        a = self.args
+        if i == 0:
+            return a[0]
+        return tuple(a[1::2]) if i == 1 else tuple(a[2::2])
+    return property(get)
+
+
+Expr.expr = _order_part(0)
+Expr.variables = _order_part(1)
+Expr.point = _order_part(2)
+
+class Limit:
+    """Unevaluated limit ``Limit(e, z, z0, dir)``; ``doit()`` evaluates it."""
+
+    def __init__(self, e, z, z0, dir="+"):
+        self.expr = sympify(e)
+        self.var = sympify(z)
+        self.point = sympify(z0)
+        if str(self.point) == "oo":
+            dir = "-"
+        elif str(self.point) == "-oo":
+            dir = "+"
+        self.dir = dir
+        self.args = (self.expr, self.var, self.point, dir)
+
+    def doit(self, **hints):
+        r = _core._limit(self.expr, self.var, self.point, self.dir)
+        return self if r is None else r
+
+    def __str__(self):
+        return f"Limit({self.expr}, {self.var}, {self.point}, dir='{self.dir}')"
+
+    __repr__ = __str__
+
+    def __eq__(self, other):
+        return isinstance(other, Limit) and self.args == other.args
+
+    def __hash__(self):
+        return hash(("Limit",) + tuple(str(a) for a in self.args))
+
+
+def limit(e, z, z0, dir="+"):
+    """Limit of ``e`` as ``z -> z0`` (``dir`` is ``'+'``, ``'-'`` or ``'+-'``).
+
+    Returns an unevaluated :class:`Limit` when the limit cannot be computed.
+    """
+    r = _core._limit(e, z, z0, dir)
+    return Limit(e, z, z0, dir) if r is None else r
+
+
+Expr.limit = lambda self, x, xlim, dir="+": limit(self, x, xlim, dir)
+# --- end series ---
+
+# --- printing ---
+# LaTeX / pretty printers, common subexpression elimination and code
+# generation (C, C++, CUDA, Python, NumPy, Rust, Fortran).
+import builtins as _builtins  # noqa: E402
+
+from ._core import (  # noqa: E402
+    ccode,
+    ccode_function,
+    cuda_device_function,
+    cuda_kernel,
+    cudacode,
+    cxxcode,
+    fcode,
+    latex,
+    numpycode,
+    pretty,
+    pycode,
+    rust_code,
+)
+
+
+def pprint(expr, **settings):
+    """Print the 2D unicode form of ``expr`` (SymPy's ``pprint``)."""
+    print(pretty(expr, **settings))
+
+
+pretty_print = pprint
+
+
+def print_latex(expr, **settings):
+    print(latex(expr, **settings))
+
+
+def print_ccode(expr, **settings):
+    print(ccode(expr, **settings))
+
+
+def numbered_symbols(prefix="x", start=0, exclude=()):
+    """Infinite generator of symbols ``prefix0, prefix1, ...``."""
+    excluded = {str(e) for e in exclude}
+    i = start
+    while True:
+        name = f"{prefix}{i}"
+        i += 1
+        if name not in excluded:
+            yield Symbol(name)
+
+
+def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+        order="canonical", ignore=(), list=True):
+    """Common subexpression elimination (SymPy's ``cse``).
+
+    Returns ``(replacements, reduced_exprs)`` where ``replacements`` is a
+    list of ``(Symbol, expr)`` pairs in evaluation order.
+    """
+    single = isinstance(exprs, (Expr, int, float, str))
+    if isinstance(exprs, dict):
+        keys = _builtins.list(exprs)
+        reps, red = cse([exprs[k] for k in keys], symbols, optimizations, postprocess, order, ignore)
+        return reps, dict(zip(keys, red))
+    seq = [exprs] if single else exprs
+    opt = optimizations not in (False, "none")
+    reps, red = _core._cse(seq, opt, ignore or None)
+    if symbols is not None:
+        it = iter(symbols)
+        mapping = {}
+        new_reps = []
+        for s, v in reps:
+            v = v.xreplace(mapping) if mapping else v
+            t = next(it)
+            mapping[s] = t
+            new_reps.append((t, v))
+        reps = new_reps
+        red = [r.xreplace(mapping) for r in red] if mapping else red
+    if postprocess is not None:
+        return postprocess(reps, red)
+    if single and not list:
+        return reps, red[0]
+    if not single and not list:
+        return reps, type(exprs)(red)
+    return reps, red
+
+# --- end printing ---
+
+# SymPy's constructor classes and printer extension points. Keep this last:
+# constructors delegate to the native API defined above.
+from ._compat import (  # noqa: E402
+    Add, Mul, Pow, Symbol, Number, Integer, Rational, Float, UnevaluatedExpr,
+    S, count_ops, default_sort_key,
+)
+from .codegen.ast import Indexed, IndexedBase  # noqa: E402
+from .printing.str import StrPrinter  # noqa: E402
+from .printing.pretty import PrettyPrinter  # noqa: E402
 
 __all__ = [n for n in dir() if not n.startswith("_")]

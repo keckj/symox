@@ -100,6 +100,10 @@ pub fn preorder(e: &Expr, f: &mut dyn FnMut(&Expr)) {
 
 /// Set of free symbols.
 pub fn free_symbols(e: &Expr) -> Vec<Expr> {
+    e.cached_free_symbols(|| collect_free_symbols(e))
+}
+
+fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
     let mut seen: FxHashSet<Expr> = FxHashSet::default();
     let mut out = Vec::new();
     fn rec(e: &Expr, seen: &mut FxHashSet<Expr>, out: &mut Vec<Expr>, visited: &mut FxHashSet<Expr>) {
@@ -116,6 +120,19 @@ pub fn free_symbols(e: &Expr) -> Vec<Expr> {
             return;
         }
         match e.kind() {
+            Kind::Func(crate::expr::Func::Set(op), args)
+                if matches!(op, crate::sets::SetOp::Lambda | crate::sets::SetOp::ConditionSet)
+                    && args.len() >= 2 => {
+                // The binder applies to the body/condition, but not the base set.
+                for symbol in free_symbols(&args[1]).into_iter().filter(|s| *s != args[0]) {
+                    if seen.insert(symbol.clone()) {
+                        out.push(symbol);
+                    }
+                }
+                for base in &args[2..] {
+                    rec(base, seen, out, visited);
+                }
+            }
             Kind::Add(_, terms) => {
                 for (t, _) in terms {
                     rec(t, seen, out, visited)
@@ -149,10 +166,14 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
         return true;
     }
     match e.kind() {
-        Kind::Add(_, terms) => {
-            if s.is_add() {
+        Kind::Add(c, terms) => {
+            if let Kind::Add(sc, subterms) = s.kind() {
                 // `x + y` is contained in `x + y + z`
-                if crate::subs::add_contains(e, s).is_some() {
+                // Structural containment does not allow the sign changes or
+                // constant offsets supported by algebraic substitution.
+                if (sc.is_zero() || c == sc)
+                    && subterms.iter().all(|term| terms.contains(term))
+                {
                     return true;
                 }
             }
@@ -166,4 +187,32 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
 /// Number of nodes (SymPy's `count_ops`-like size measure).
 pub fn node_count(e: &Expr) -> usize {
     1 + e.args().iter().map(node_count).sum::<usize>()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn symbol_cache_preserves_assumptions_and_replacements() {
+        let x = Expr::symbol("x");
+        let y = Expr::symbol_with("x", crate::symbol::Assumptions::from_kwargs([("positive", true)]).unwrap());
+        let e = add(&[x.clone(), y.clone()]);
+        assert_eq!(free_symbols(&e).len(), 2);
+        let mut returned = free_symbols(&e);
+        returned.clear();
+        assert_eq!(free_symbols(&e).len(), 2);
+        let map = [(x, Expr::one())].into_iter().collect();
+        let replaced = crate::subs::xreplace(&e, &map);
+        assert_eq!(free_symbols(&replaced), vec![y]);
+    }
+
+    #[test]
+    fn structural_sum_containment_differs_from_substitution() {
+        let parse = |s| crate::parser::parse_str(s).unwrap();
+        assert!(has(&parse("x+y+z"), &parse("x+y")));
+        assert!(!has(&parse("x+y"), &parse("x+y+1")));
+        assert!(!has(&parse("x-y"), &parse("y-x")));
+        assert!(!has(&parse("2*x+2*y"), &parse("x+y")));
+    }
 }

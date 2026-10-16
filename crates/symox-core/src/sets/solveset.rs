@@ -263,7 +263,10 @@ fn exclude_poles(s: Expr, den: &Expr, x: &Expr, domain: &Expr) -> Expr {
             let _ = domain;
             finite_set(keep)
         }
-        None => s,
+        None => match solve_zero(den, x, domain) {
+            Some(poles) => complement(&s, &poles),
+            None => mk(SetOp::Complement, vec![s, condition_set(x, &crate::relational::eq(den, &Expr::zero()), domain)]),
+        },
     }
 }
 
