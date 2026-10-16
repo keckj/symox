@@ -229,7 +229,7 @@ pub fn slang_type(expr: &Expr) -> std::result::Result<&'static str, CodeError> {
             Ok(ty.unwrap_or("real"))
         }
         Kind::Func(Func::Undefined(name), args)
-            if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 =>
+            if name.is_internal("UnevaluatedExpr") && args.len() == 1 =>
         {
             slang_type(&args[0])
         }
@@ -568,7 +568,7 @@ impl<'a> SlangPrinter<'a> {
         let zero = self.literal("0");
         let one = self.literal("1");
         match f {
-            Func::Undefined(name) if name.as_ref() == "UnevaluatedExpr" && values.len() == 1 => {
+            Func::Undefined(name) if name.is_internal("UnevaluatedExpr") && values.len() == 1 => {
                 Ok(values[0].clone())
             }
             Func::Atan2 => Ok(self.call("atan2", &[&values[0], &values[1]])),

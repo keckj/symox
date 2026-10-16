@@ -22,7 +22,9 @@ use crate::ops::{add, mul, pow};
 pub struct NumberField {
     pub generator: Expr,
     pub minimal: Vec<Rat>,
+    /// Valid only for the pure quadratic fast path (model=None).
     pub radicand: Rat,
+    pub model: Option<Arc<super::algebraic_model::PrimitiveModel>>,
 }
 
 impl NumberField {
@@ -62,7 +64,57 @@ impl NumberField {
             generator: generator.clone(),
             minimal: vec![d.neg(), Rat::zero(), Rat::one()],
             radicand: d,
+            model: None,
         }))
+    }
+    pub fn from_generator(generator: &Expr) -> PResult<Arc<Self>> {
+        if let Ok(field) = Self::quadratic(generator) {
+            return Ok(field);
+        }
+        if !crate::traverse::free_symbols(generator).is_empty() {
+            return Err(PolyError::Unsupported(
+                "algebraic generators must be numeric".into(),
+            ));
+        }
+        let model = super::algebraic_model::PrimitiveModel::build(generator)?;
+        Self::from_model(generator.clone(), model)
+    }
+    fn from_model(
+        generator: Expr,
+        model: super::algebraic_model::PrimitiveModel,
+    ) -> PResult<Arc<Self>> {
+        if model.minimal.len() < 3 {
+            return Err(PolyError::Unsupported(
+                "a nonrational algebraic generator is required".into(),
+            ));
+        }
+        Ok(Arc::new(Self {
+            generator,
+            minimal: model.minimal.clone(),
+            radicand: Rat::zero(),
+            model: Some(Arc::new(model)),
+        }))
+    }
+    pub fn from_generators(generators: &[Expr]) -> PResult<Arc<Self>> {
+        let Some(first) = generators.first() else {
+            return Err(PolyError::Unsupported(
+                "an algebraic extension needs a generator".into(),
+            ));
+        };
+        if let Ok(field) = Self::from_generator(first) {
+            let _scope = AlgebraicScope::new(field.clone());
+            if generators
+                .iter()
+                .all(|e| AN::from_expr(e, field.clone()).is_ok())
+            {
+                return Ok(field);
+            }
+        }
+        let (generator, model) = super::algebraic_model::PrimitiveModel::build_many(generators)?;
+        Self::from_model(generator, model)
+    }
+    pub fn degree(&self) -> usize {
+        self.minimal.len() - 1
     }
     pub fn display(&self) -> String {
         format!("QQ<{}>", self.generator)
@@ -78,7 +130,7 @@ impl NumberField {
         }
         let e = crate::parser::parse_str(&domain[3..domain.len() - 1])
             .map_err(|_| PolyError::Failed("invalid algebraic generator".into()))?;
-        Self::quadratic(&e).map(Some)
+        Self::from_generator(&e).map(Some)
     }
 }
 
@@ -151,15 +203,31 @@ impl AN {
         }
         result
     }
-    pub fn conjugate(&self) -> Self {
-        Self::new(
-            self.coefficients
-                .iter()
-                .enumerate()
-                .map(|(i, c)| if i % 2 == 0 { c.clone() } else { c.neg() })
-                .collect(),
-            self.field.clone(),
-        )
+    pub fn conjugate(&self) -> PResult<Self> {
+        if self.field.degree() != 2 {
+            return Err(PolyError::Unsupported(
+                "quadratic conjugation is not a norm for higher-degree fields".into(),
+            ));
+        }
+        if self.field.model.is_none() {
+            return Ok(Self::new(
+                self.coefficients
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| if i % 2 == 0 { c.clone() } else { c.neg() })
+                    .collect(),
+                self.field.clone(),
+            ));
+        }
+        let image = Self::rational(self.field.minimal[1].neg(), self.field.clone())
+            .sub(&Self::alpha(self.field.clone()));
+        let mut result = Self::rational(Rat::zero(), self.field.clone());
+        for c in self.coefficients.iter().rev() {
+            result = result
+                .mul(&image)
+                .add(&Self::rational(c.clone(), self.field.clone()));
+        }
+        Ok(result)
     }
     pub fn from_expr(e: &Expr, field: Arc<NumberField>) -> PResult<Self> {
         if e == &field.generator {
@@ -167,6 +235,9 @@ impl AN {
         }
         if let Some(r) = e.as_number().and_then(Rat::from_number) {
             return Ok(Self::rational(r, field));
+        }
+        if let Some(model) = &field.model {
+            return Ok(Self::new(model.coefficient(e)?, field.clone()));
         }
         if let Ok(other) = NumberField::quadratic(e) {
             let ratio = other.radicand.div(&field.radicand);
@@ -230,7 +301,7 @@ impl AN {
     }
 }
 fn unsupported() -> PolyError {
-    PolyError::Unsupported("coefficient is not in the selected quadratic number field".into())
+    PolyError::Unsupported("coefficient is not in the selected algebraic number field".into())
 }
 impl Coeff for AN {
     fn zero() -> Self {
@@ -302,13 +373,18 @@ impl Field for AN {
 }
 
 pub fn infer(expressions: &[Expr]) -> PResult<Option<Arc<NumberField>>> {
+    // Validate unsupported numeric radical degrees before collecting whole
+    // numeric subexpressions, which may generate a proper subfield.
+    super::algebraic_model::inferred_generators(expressions)?;
     fn scan(e: &Expr, out: &mut Vec<Expr>) {
         let (_, tail) = crate::ops::as_coeff_mul(e);
-        if let Ok(f) = NumberField::quadratic(&tail) {
-            if !out.contains(&f.generator) {
-                out.push(f.generator.clone());
+        if crate::traverse::free_symbols(&tail).is_empty() {
+            if let Ok(field) = NumberField::from_generator(&tail) {
+                if !out.contains(&field.generator) {
+                    out.push(field.generator.clone());
+                }
+                return;
             }
-            return;
         }
         for a in e.args() {
             scan(&a, out);
@@ -318,15 +394,70 @@ pub fn infer(expressions: &[Expr]) -> PResult<Option<Arc<NumberField>>> {
     for e in expressions {
         scan(e, &mut candidates);
     }
-    let Some(generator) = candidates.first() else {
-        return Ok(None);
-    };
-    let field = NumberField::quadratic(generator)?;
-    let _scope = AlgebraicScope::new(field.clone());
-    for e in candidates {
-        AN::from_expr(&e, field.clone())?;
+    if candidates.is_empty() {
+        Ok(None)
+    } else {
+        NumberField::from_generators(&candidates).map(Some)
     }
-    Ok(Some(field))
+}
+
+/// Field norm of a univariate polynomial in x, by eliminating the primitive
+/// generator T. Rational denominator scaling is restored exactly after the
+/// integer subresultant calculation.
+fn polynomial_norm(coefficients: &[AN], field: &NumberField) -> PResult<Vec<Rat>> {
+    if coefficients.is_empty() {
+        return Ok(Vec::new());
+    }
+    if field.degree() == 2 && field.model.is_none() {
+        let conjugate = coefficients
+            .iter()
+            .map(AN::conjugate)
+            .collect::<PResult<Vec<_>>>()?;
+        let result = dense::mul(coefficients, &conjugate);
+        if result.iter().any(|c| c.coefficients.len() > 1) {
+            return Err(PolyError::Failed("nonrational quadratic norm".into()));
+        }
+        return Ok(result.iter().map(Coeff::to_rat).collect());
+    }
+    let modulus = MPoly::from_terms(
+        2,
+        field
+            .minimal
+            .iter()
+            .enumerate()
+            .map(|(j, c)| (vec![j as u32, 0], c.clone()))
+            .collect(),
+    );
+    let value = MPoly::from_terms(
+        2,
+        coefficients
+            .iter()
+            .enumerate()
+            .flat_map(|(i, a)| {
+                a.coefficients
+                    .iter()
+                    .enumerate()
+                    .map(move |(j, c)| (vec![j as u32, i as u32], c.clone()))
+            })
+            .collect(),
+    );
+    let (md, m) = modulus.clear_denoms();
+    let (fd, f) = value.clear_denoms();
+    let degree_t = f.degree(0).max(0) as u32;
+    let denominator = Rat::from(md.pow(degree_t).mul(&fd.pow(field.degree() as u32)));
+    let resultant = super::resultant::resultant_mz(&m, &f, 0);
+    if resultant.is_zero() {
+        return Ok(Vec::new());
+    }
+    let mut result = vec![Rat::zero(); resultant.degree(1) as usize + 1];
+    for (e, c) in resultant.iter() {
+        if e[0] != 0 {
+            return Err(PolyError::Failed("generator remains in field norm".into()));
+        }
+        result[e[1] as usize] = Rat::from(c.clone()).div(&denominator);
+    }
+    dense::trim(&mut result);
+    Ok(result)
 }
 
 #[derive(Clone, Debug)]
@@ -560,6 +691,22 @@ impl AlgebraicPoly {
         }
         (leading, out)
     }
+    pub fn norm(&self) -> PResult<Poly> {
+        if self.gens.len() != 1 {
+            return Err(PolyError::Unsupported(
+                "algebraic polynomial norms currently require one generator".into(),
+            ));
+        }
+        let _scope = AlgebraicScope::new(self.number_field.clone());
+        let coefficients = polynomial_norm(&dense::from_mpoly(&self.rep, 0), &self.number_field)?;
+        Ok(Poly {
+            rep: dense::to_mpoly(&coefficients, 0, 1),
+            gens: self.gens.clone(),
+            ngens: 1,
+            domain: super::polyobj::Domain::QQ,
+            modulus: None,
+        })
+    }
     pub fn factor_list(&self) -> PResult<(AN, Vec<(Self, u32)>)> {
         if self.gens.len() != 1 {
             return Err(PolyError::Unsupported(
@@ -591,15 +738,22 @@ impl AlgebraicPoly {
             out
         };
         let alpha = AN::alpha(field.clone());
-        for s in 0..64 {
-            let delta = alpha.mul(&AN::from_i64(s));
+        // There are N roots of the conjugate factors. Distinct roots can
+        // collide for at most one shift each, so N*(N-1)/2+1 integer shifts
+        // suffice to obtain a squarefree norm (characteristic zero).
+        let n = field
+            .degree()
+            .checked_mul(f.len().saturating_sub(1))
+            .ok_or_else(|| {
+                PolyError::Unsupported("algebraic factorization degree overflow".into())
+            })?;
+        let bound = n.checked_mul(n.saturating_sub(1)).ok_or_else(|| {
+            PolyError::Unsupported("algebraic factorization degree overflow".into())
+        })? / 2;
+        for s in 0..=bound {
+            let delta = alpha.mul(&AN::from_i64(s as i64));
             let shifted = shift(&f, &delta.neg());
-            let conjugate: Vec<_> = shifted.iter().map(AN::conjugate).collect();
-            let norm = dense::mul(&shifted, &conjugate);
-            if norm.iter().any(|a| a.coefficients.len() > 1) {
-                return Err(PolyError::Failed("nonrational algebraic norm".into()));
-            }
-            let norm: Vec<_> = norm.iter().map(Coeff::to_rat).collect();
+            let norm = polynomial_norm(&shifted, &field)?;
             if dense::gcd_field(&norm, &dense::derivative(&norm)).len() > 1 {
                 continue;
             }

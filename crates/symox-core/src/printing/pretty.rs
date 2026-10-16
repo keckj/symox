@@ -946,6 +946,7 @@ impl PrettyPrinter<'_> {
     }
 
     fn print_func(&self, f: &Func, args: &[Expr]) -> Pict {
+        if matches!(f,Func::Subs){return Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(),args.to_vec()))));}
         if let Func::MatrixElement(parent) = f {
             return Pict::new(&format!("{}[{}, {}]",parent.to_str(),args[0],args[1]));
         }

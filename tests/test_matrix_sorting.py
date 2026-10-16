@@ -39,6 +39,8 @@ def normalized(key):
     lambda s, A, B: s.HadamardPower(2, A),
     lambda s, A, B: s.HadamardPower(A, B),
     lambda s, A, B: s.KroneckerProduct(B, A),
+    lambda s, A, B: s.BlockDiagMatrix(A, B),
+    lambda s, A, B: s.MatrixSlice(A, (0, 1), (0, 2)),
     lambda s, A, B: s.MatrixExpr(s.ImmutableMatrix([[1, 2], [3, 4]])) if s is sx else s.ImmutableMatrix([[1, 2], [3, 4]]),
 ])
 def test_matrix_sort_keys_match_sympy(operation):
@@ -70,3 +72,50 @@ def test_scalar_matrix_printing_uses_the_same_parent_order():
         (sx.Trace(B)*sx.Trace(A), sp.Trace(b)*sp.Trace(a)),
     ]:
         assert str(expression) == str(reference)
+
+
+def test_large_derivative_sort_key_preserves_dag_sharing():
+    import subprocess
+    import sys
+    # Timeout bounds a regression even if expansion returns; the count checks
+    # actual sharing independently of machine speed or a wall-clock assertion.
+    subprocess.run([sys.executable, '-c', '''
+import symox as s
+x=s.Symbol('x'); A=s.MatrixSymbol('A',2,2); B=s.MatrixSymbol('B',2,2)
+expression=((x*A+B)**1000000000).diff(x)
+key=s.default_sort_key(expression)
+seen=set(); pending=[key]
+while pending:
+    current=pending.pop()
+    if not isinstance(current,tuple) or id(current) in seen: continue
+    seen.add(id(current)); pending.extend(current)
+assert len(seen)<10000, len(seen)
+assert isinstance(key,tuple) and len(key)==4
+assert expression.free_symbols=={x,A,B}
+'''], check=True, timeout=20)
+
+
+def test_dependency_mask_is_independent_of_matrix_cache_state():
+    A = sx.MatrixSymbol('CacheState', 2, 2)
+    first = A[0, 0]
+    hash(A)
+    assert A.free_symbols == {A}
+    second = A[0, 0]
+    replacement = sx.ImmutableMatrix([[1, 2], [3, 4]])
+    for entry in (first, second):
+        assert entry.has(A)
+        assert entry.xreplace({A: replacement}) == 1
+
+
+def test_structural_has_distinguishes_shape_from_free_symbols():
+    n = sx.Symbol('n', integer=True, positive=True)
+    N = sp.Symbol('n', integer=True, positive=True)
+    A, a = sx.MatrixSymbol('A', n, n), sp.MatrixSymbol('A', N, N)
+    x, y = sx.symbols('x y')
+    for expression, expected in [(A[0, 0], a[0, 0]), (sx.Trace(A), sp.Trace(a))]:
+        assert expression.has(n) == expected.has(N) is True
+        assert expression.free_symbols == {A}
+    assert sx.Trace((x+y)*A).has(x+y)
+    B = sx.MatrixSymbol('B', n, n)
+    C = sx.MatrixSymbol('C', n, n)
+    assert sx.Trace((A+B)*C).has(A+B)

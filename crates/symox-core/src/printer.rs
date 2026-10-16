@@ -39,7 +39,7 @@ fn prec(e: &Expr) -> u8 {
             }
         }
         Kind::Rel(..) => 20,
-        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => prec(&args[0]),
+        Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => prec(&args[0]),
         _ => PREC_ATOM,
     }
 }
@@ -84,10 +84,10 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
         Kind::Add(..) => write_add(e, out),
         Kind::Mul(..) => write_mul(e, out),
         Kind::Pow(b, x) => write_pow(b, x, out),
-        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => {
+        Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => {
             write_expr(&args[0], out);
         }
-        Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => {
+        Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => {
             out.push('(');
             for (i, a) in args.iter().enumerate() {
                 if i > 0 {
@@ -112,6 +112,14 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
             write_expr(&args[0], out); out.push_str(", ");
             write_expr(&args[1], out); out.push(']');
         }
+        Kind::Func(Func::Subs,args)=>{
+            out.push_str("Subs(");write_expr(&args[0],out);
+            for tuple in &args[1..] {
+                out.push_str(", ");let values=tuple.args();
+                if values.len()==1{write_expr(&values[0],out);}else{write_expr(tuple,out);}
+            }
+            out.push(')');
+        },
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');
@@ -293,7 +301,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Rel(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
-        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(b) <= PREC_POW,
+        Kind::Func(Func::Undefined(name), _) if name.is_internal("UnevaluatedExpr") => prec(b) <= PREC_POW,
         _ => false,
     };
     if base_needs {
@@ -308,7 +316,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
-        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(x) <= PREC_POW,
+        Kind::Func(Func::Undefined(name), _) if name.is_internal("UnevaluatedExpr") => prec(x) <= PREC_POW,
         _ => false,
     };
     if exp_needs {
@@ -368,9 +376,19 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
-        Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => list("Tuple", args, out),
-        Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => list("UnevaluatedExpr", args, out),
-        Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
+        Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => list("Tuple", args, out),
+        Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => list("UnevaluatedExpr", args, out),
+        Kind::Func(Func::Undefined(n), args) => {
+            let escaped=n.name.replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
+            let mut head=format!("Function('{escaped}'");
+            for keyword in n.assumptions.keywords(){head.push_str(", ");head.push_str(&keyword);}
+            if let Some(counts)=&n.nargs {
+                head.push_str(", nargs=(");
+                for count in counts {head.push_str(&format!("{count},"));}
+                head.push(')');
+            }
+            head.push(')');list(&head,args,out);
+        },
         Kind::Func(Func::Set(op), args) if args.is_empty() => out.push_str(op.name()),
         Kind::Func(Func::MatrixProxy(parent), _) => out.push_str(&parent.to_repr()),
         Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {

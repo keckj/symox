@@ -160,10 +160,7 @@ def test_algebraic_fglm(order):
     lambda x,a: sm.Poly(x+a,x,extension=a,domain='QQ'),
     lambda x,a: sm.Poly(x+a,x,extension=a,modulus=5),
     lambda x,a: sm.Poly(x+sm.sqrt(3),x,extension=a),
-    lambda x,a: sm.Poly(x+a+sm.sqrt(3),x,extension=True),
-    lambda x,a: sm.Poly(x+a,x,extension=[a,sm.I]),
     lambda x,a: sm.Poly(x+a,x,domain='QQ<sqrt(2)'),
-    lambda x,a: sm.Poly(x+a,x,extension=a+1),
     lambda x,a: sm.groebner([x+a],x,extension=a,modulus=5),
     lambda x,a: sm.reduced(x+a,[x],x,extension=a,modulus=5),
 ])
@@ -223,7 +220,8 @@ assert g.fglm('lex').domain=='QQ<sqrt(2)>'
 def test_independent_number_fields_do_not_silently_degrade_to_expressions(operation):
     x=sm.Symbol('x')
     p=sm.Poly(x+sm.sqrt(2),x,extension=sm.sqrt(2))
-    q=sm.Poly(x+sm.I,x,extension=sm.I)
+    b=sm.Integer(2)**sm.Rational(1,3)
+    q=sm.Poly(x+b,x,extension=b)
     with pytest.raises((TypeError,ValueError,NotImplementedError)):
         operation(p,q)
 

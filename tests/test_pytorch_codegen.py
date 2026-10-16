@@ -22,6 +22,27 @@ DTYPES = [torch.float32, torch.float64]
 
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("compiled", [False, True])
+def test_rectangular_block_diagonal_and_slice_batched_gradients(device, compiled):
+    a, b = sm.MatrixSymbol('A', 2, 3), sm.MatrixSymbol('B', 3, 2)
+    function = sm.torch_lambdify((a, b), (sm.BlockDiagMatrix(a, b), a[:, 1:3]),
+                                 compile=compiled, compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    av = torch.arange(12., device=device, dtype=torch.float64).reshape(2, 1, 2, 3).requires_grad_()
+    bv = torch.arange(18., device=device, dtype=torch.float64).reshape(1, 3, 3, 2).requires_grad_()
+    aa, bb = av.expand(2, 3, 2, 3), bv.expand(2, 3, 3, 2)
+    top = torch.cat((aa, aa.new_zeros(2, 3, 2, 2)), dim=-1)
+    bottom = torch.cat((aa.new_zeros(2, 3, 3, 3), bb), dim=-1)
+    expected = (torch.cat((top, bottom), dim=-2), aa[..., :, 1:3])
+    actual = function(av, bv)
+    for result, reference in zip(actual, expected):
+        torch.testing.assert_close(result, reference)
+    gradients = torch.autograd.grad(sum(value.sum() for value in actual), (av, bv))
+    references = torch.autograd.grad(sum(value.sum() for value in expected), (av, bv))
+    for result, reference in zip(gradients, references):
+        torch.testing.assert_close(result, reference)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
 def test_hadamard_kronecker_batched_codegen_and_autograd(device, compiled):
     a, b = [sm.MatrixSymbol(name, 2, 2) for name in ('A', 'B')]
     outputs = (sm.HadamardProduct(a, b), sm.HadamardPower(a, 2),

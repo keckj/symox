@@ -18,6 +18,33 @@ use rustc_hash::FxHasher;
 
 use crate::number::Number;
 
+/// An undefined function head, distinct from builtin names and held operators.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct UndefinedFunction {
+    pub name: Arc<str>,
+    pub assumptions: crate::symbol::Assumptions,
+    pub nargs: Option<Vec<usize>>,
+    pub internal: bool,
+}
+impl UndefinedFunction {
+    pub fn new(name:&str, assumptions:crate::symbol::Assumptions, mut nargs:Option<Vec<usize>>)->Self {
+        if let Some(n)=&mut nargs {n.sort_unstable();n.dedup();}
+        Self{name:Arc::from(name),assumptions:assumptions.closure().unwrap_or(assumptions),nargs,internal:false}
+    }
+    pub fn is_internal(&self,name:&str)->bool {self.internal && self.name.as_ref()==name}
+    pub fn accepts(&self,n:usize)->bool {self.nargs.as_ref().is_none_or(|v|v.contains(&n))}
+}
+impl From<&str> for UndefinedFunction {
+    fn from(name:&str)->Self {
+        let mut function=Self::new(name,crate::symbol::Assumptions::NONE,None);
+        function.internal=matches!(name,"Tuple"|"UnevaluatedExpr"|"Integral"|"Sum");function
+    }
+}
+impl From<String> for UndefinedFunction {fn from(name:String)->Self {Self::from(name.as_str())}}
+impl std::ops::Deref for UndefinedFunction {type Target=str;fn deref(&self)->&str{&self.name}}
+impl AsRef<str> for UndefinedFunction {fn as_ref(&self)->&str{&self.name}}
+impl std::fmt::Display for UndefinedFunction {fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{f.write_str(&self.name)}}
+
 /// Named mathematical constants and special values.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Constant {
@@ -102,7 +129,9 @@ pub enum Func {
     /// `[expr, x1, p1, x2, p2, ...]`. Built only through
     /// [`crate::series::order::order`], absorbing rules live in `ops`.
     Order,
-    Undefined(Arc<str>),
+    Undefined(UndefinedFunction),
+    /// Held substitution: [expression, Tuple(variables), Tuple(points)].
+    Subs,
     /// Boolean connectives (`And`, `Or`, `Not`, ...), see [`crate::logic`].
     Logic(crate::logic::LogicOp),
     /// Sets (`Interval`, `FiniteSet`, `Union`, ...), see [`crate::sets`].
@@ -157,6 +186,7 @@ impl Func {
             Func::Special(s) => s.name(),
             Func::Order => "Order",
             Func::Undefined(n) => n,
+            Func::Subs=>"Subs",
             Func::Logic(op) => op.name(),
             Func::Set(op) => op.name(),
             Func::MatrixElement(_) => "MatrixElement",
@@ -206,6 +236,7 @@ impl Func {
             "Max" => Func::Max,
             "Min" => Func::Min,
             "Order" => Func::Order,
+            "Subs"=>Func::Subs,
             _ => {
                 return crate::logic::LogicOp::from_name(name)
                     .map(Func::Logic)
@@ -221,7 +252,7 @@ impl Func {
             Func::Atan2 => Some(2),
             Func::MatrixElement(_) => Some(2),
             Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => Some(0),
-            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
+            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
         }
@@ -381,7 +412,9 @@ impl Expr {
                     for matrix in parent.matrix_symbols() {
                         // Include the whole typed atom, rather than dimensions,
                         // in the dependency mask just as free_symbols does.
-                        mask |= sym_bit(&format!("{matrix:?}"));
+                        let mut atom_hash = FxHasher::default();
+                        matrix.hash(&mut atom_hash);
+                        mask |= 1u64 << (atom_hash.finish() % 64);
                     }
                     for scalar in parent.scalar_free_symbols() {
                         mask |= scalar.mask();

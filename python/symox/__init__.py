@@ -94,21 +94,67 @@ Abs = globals()["Abs"]
 class Function:
     """Undefined function: ``f = Function('f'); f(x)``."""
 
-    def __init__(self, name: str, **_assumptions):
+    def __init__(self, name: str, *, nargs=None, **assumptions):
+        if not isinstance(name, str):
+            raise TypeError("Function expects a string name")
         self.name = name
         self.__name__ = name
+        self._assumptions = dict(_core.Symbol("_function_assumptions", **assumptions).assumptions0)
+        if nargs is None:
+            self._nargs = None
+        else:
+            import operator
+            try:
+                counts = (operator.index(nargs),)
+            except TypeError:
+                counts = tuple(operator.index(n) for n in nargs)
+            if not counts or any(n < 0 for n in counts):
+                raise ValueError("nargs must contain nonnegative integers")
+            self._nargs = tuple(sorted(set(counts)))
+
+    @property
+    def nargs(self):
+        return Naturals0 if self._nargs is None else FiniteSet(*self._nargs)
 
     def __call__(self, *args):
-        return _core._apply(self.name, *args)
+        return _core._undefined_function(self.name, args, self._assumptions, self._nargs)
 
     def __repr__(self):
         return self.name
 
     def __eq__(self, other):
-        return isinstance(other, Function) and other.name == self.name
+        return (isinstance(other, Function) and other.name == self.name
+                and other._assumptions == self._assumptions and other._nargs == self._nargs)
 
     def __hash__(self):
-        return hash(("Function", self.name))
+        return hash(("Function", self.name, tuple(sorted(self._assumptions.items())), self._nargs))
+
+    def __reduce__(self):
+        return (_restore_function, (self.name, self._assumptions, self._nargs))
+
+    def to_sympy(self):
+        import sympy
+        options = dict(self._assumptions)
+        if self._nargs is not None:
+            options["nargs"] = self._nargs
+        return sympy.Function(self.name, **options)
+
+    _sympy_ = to_sympy
+
+
+def _restore_function(name, assumptions, nargs):
+    return Function(name, nargs=nargs, **assumptions)
+
+
+class _SubsMeta(type):
+    def __instancecheck__(cls, value):
+        return isinstance(value, Expr) and value.is_Subs
+
+
+class Subs(metaclass=_SubsMeta):
+    """Held substitution with explicit bound variables and evaluation points."""
+    def __new__(cls, expr, variables, point):
+        return _core._subs(expr, variables, point)
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +300,7 @@ def _symbols(names, *, seq=False, cls=None, **assumptions):
     out = []
     for p in parts:
         for n in _expand_range(p):
-            out.append(Function(n) if cls is Function else Symbol(n, **assumptions))
+            out.append(Function(n, **assumptions) if cls is Function else Symbol(n, **assumptions))
     if len(out) == 1 and not seq and "," not in names and ":" not in names:
         return out[0]
     return tuple(out)
@@ -278,12 +324,18 @@ def var(names, **assumptions):
 
 def from_sympy(e):
     """Convert a SymPy expression (or anything sympifiable) to symox."""
+    if isinstance(e, Function):
+        return e
+    if isinstance(e, type) and any(cls.__name__ == "AppliedUndef" for cls in e.__mro__):
+        counts = e.nargs
+        count = min(map(int, counts)) if getattr(counts, "is_FiniteSet", False) else 0
+        return sympify(e(*(Symbol(f"_function_arg_{i}") for i in range(count)))).func
     return sympify(e)
 
 
 def to_sympy(e):
     """Convert a symox expression to SymPy."""
-    return sympify(e).to_sympy()
+    return e.to_sympy() if isinstance(e, Function) else sympify(e).to_sympy()
 
 
 # --- matrices ---
@@ -1074,6 +1126,9 @@ from ._core import (  # noqa: E402
     half_gcdex,
     invert,
     lcm,
+    minimal_polynomial,
+    minpoly,
+    primitive_element,
     nroots,
     pdiv,
     pexquo,
@@ -1264,6 +1319,13 @@ Expr.contains = lambda self, t: _core._order_contains(self, t)
 
 def _order_part(i):
     def get(self):
+        if self.is_Derivative:
+            if i == 0:
+                return self.args[0]
+            if i == 1:
+                return tuple(v for v, n in self.variable_count for _ in range(n))
+        if self.is_Subs:
+            return self.args[0] if i == 0 else tuple(self.args[i].args)
         if not _core._is_order(self):
             raise AttributeError("only Order terms have expr/variables/point")
         a = self.args
@@ -1484,6 +1546,7 @@ from ._matrixexpr import (  # noqa: E402
     MatrixExpr, MatrixSymbol, MatAdd, MatMul, MatPow, Transpose, Adjoint,
     Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
     OneMatrix, HadamardProduct, HadamardPower, KroneckerProduct,
+    BlockDiagMatrix, MatrixSlice,
     hadamard_product, hadamard_power, kronecker_product,
 )
 

@@ -98,14 +98,11 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
         }
         Kind::Derivative(inner, vars) => {
             let ni = f(inner);
-            if ni == *inner {
+            let nv:Vec<_>=vars.iter().map(|(v,n)|(f(v),*n)).collect();
+            if ni == *inner && nv==*vars {
                 return e.clone();
             }
-            let mut r = ni;
-            for (v, n) in vars {
-                r = crate::diff::diff_n(&r, v, *n);
-            }
-            r
+            crate::diff::derivative_unevaluated(&ni,nv)
         }
         Kind::Rel(op, a, b) => {
             let (na, nb) = (f(a), f(b));
@@ -154,6 +151,13 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
             return;
         }
         match e.kind() {
+            Kind::Func(Func::Subs,args)=>{
+                let variables=args[1].args();
+                for symbol in free_symbols(&args[0]).into_iter().filter(|s|!variables.contains(s)){
+                    if seen.insert(symbol.clone()){out.push(symbol);}
+                }
+                rec(&args[2],seen,out,visited);
+            },
             Kind::Func(Func::MatrixProxy(parent), _) => {
                 for matrix in parent.matrix_symbols() {
                     let proxy = Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
@@ -213,9 +217,20 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
     match e.kind() {
         Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), args) => {
             let matrix_match = if let Kind::Func(Func::MatrixProxy(target), _) = s.kind() {
-                parent == target || parent.matrix_symbols().iter().any(|matrix| matrix == target.as_ref())
+                let mut pending = vec![parent.as_ref().clone()];
+                let mut seen = FxHashSet::default();
+                let mut found = false;
+                while let Some(matrix) = pending.pop() {
+                    if !seen.insert(matrix.dag_id()) { continue; }
+                    if &matrix == target.as_ref() { found = true; break; }
+                    pending.extend(matrix.children());
+                }
+                found
             } else { false };
-            matrix_match || parent.scalar_free_symbols().iter().any(|scalar| has(scalar, s)) || args.iter().any(|a| has(a, s))
+            if matrix_match { return true; }
+            let mut fields = Vec::new();
+            parent.scalar_fields(&mut fields);
+            fields.iter().any(|scalar| has(scalar, s)) || args.iter().any(|a| has(a, s))
         }
         Kind::Add(c, terms) => {
             if let Kind::Add(sc, subterms) = s.kind() {

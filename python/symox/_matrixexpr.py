@@ -122,6 +122,20 @@ class KroneckerProduct(MatrixExpr):
         return _core._matrixexpr_node('KroneckerProduct', args)
 
 
+class BlockDiagMatrix(MatrixExpr):
+    _kinds = ('BlockDiagMatrix',)
+
+    def __new__(cls, *matrices):
+        return _core._matrixexpr_node('BlockDiagMatrix', matrices)
+
+
+class MatrixSlice(MatrixExpr):
+    _kinds = ('MatrixSlice',)
+
+    def __new__(cls, parent, rowslice, colslice):
+        return _core._matrixexpr_node('MatrixSlice', (parent, rowslice, colslice))
+
+
 def hadamard_product(*matrices):
     if not matrices:
         raise TypeError('Empty Hadamard product is undefined')
@@ -178,4 +192,4 @@ class Determinant(metaclass=_ScalarMatrixType):
 __all__ = ['MatrixExpr','MatrixSymbol','MatAdd','MatMul','MatPow','Transpose',
            'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
            'Trace','Determinant','OneMatrix','HadamardProduct','HadamardPower',
-           'KroneckerProduct','hadamard_product','hadamard_power','kronecker_product']
+           'KroneckerProduct','BlockDiagMatrix','MatrixSlice','hadamard_product','hadamard_power','kronecker_product']

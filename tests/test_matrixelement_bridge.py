@@ -14,7 +14,8 @@ def test_matrix_entries_reconstruct_pickle_and_convert():
     assert entry.args == (a, i, j)
     assert entry.func(*entry.args) == entry
     assert entry.free_symbols == {a, i, j}
-    assert entry.has(a) and not entry.has(n)
+    assert entry.has(a) and entry.has(n)
+    assert n not in entry.free_symbols
     assert s.sympify(a) == a
     assert s.sympify(entry.to_sympy()) == entry
     expression = (entry + 1)**2

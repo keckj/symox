@@ -101,6 +101,25 @@ fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)]
     validate(py, e, pairs, &matrix_pairs, &mut transform)
 }
 
+fn function_spec(name:&str,assumptions:&Bound<'_,PyDict>,nargs:Option<Vec<usize>>)->PyResult<symox::expr::UndefinedFunction>{
+    let mut kwargs=Vec::new();
+    for (key,value) in assumptions.iter(){let key:String=key.extract()?;if !value.is_none(){kwargs.push((key,value.is_truthy()?));}}
+    let assumptions=symox::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(PyValueError::new_err)?;
+    if nargs.as_ref().is_some_and(Vec::is_empty){return Err(PyValueError::new_err("nargs must not be empty"));}
+    Ok(symox::expr::UndefinedFunction::new(name,assumptions,nargs))
+}
+
+fn function_kwargs<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)->PyResult<Bound<'py,PyDict>>{
+    let kwargs=PyDict::new(py);
+    for keyword in function.assumptions.keywords(){if let Some((key,value))=keyword.split_once('='){kwargs.set_item(key,value=="True")?;}}
+    if let Some(counts)=&function.nargs{kwargs.set_item("nargs",PyTuple::new(py,counts)?)?;}
+    Ok(kwargs)
+}
+
+fn undefined_head<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)->PyResult<Bound<'py,PyAny>>{
+    py.import("symox")?.getattr("Function")?.call((function.name.as_ref(),),Some(&function_kwargs(py,function)?))
+}
+
 /// Convert any supported Python object into an expression.
 pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(p) = obj.downcast::<PyExpr>() {
@@ -170,6 +189,47 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if module.starts_with("sympy") || inherited_sympy {
         let py = obj.py();
         let head: String = obj.getattr("func")?.getattr("__name__")?.extract()?;
+        let applied_undefined=obj.get_type().getattr("__mro__").is_ok_and(|mro|mro.try_iter().is_ok_and(|bases|bases.filter_map(Result::ok).any(|base|base.getattr("__name__").is_ok_and(|name|name.extract::<String>().is_ok_and(|name|name=="AppliedUndef")))));
+        if applied_undefined {
+            let function=obj.getattr("func")?;
+            let kwargs=function.getattr("_kwargs")?;
+            let kwargs=kwargs.downcast::<PyDict>()?;
+            let selected=PyDict::new(py);
+            let nonreal=kwargs.get_item("real")?.is_some_and(|value|value.is_truthy().is_ok_and(|v|!v));
+            for (name,_) in symox::Assumptions::NAMES {
+                let key=name.strip_prefix('!').unwrap_or(name);
+                if let Some(value)=kwargs.get_item(key)?{
+                    // For a nonreal function these are exclusions, not the
+                    // opposite real sign. NOT_REAL already preserves them.
+                    if nonreal && matches!(key,"nonnegative"|"nonpositive") && !value.is_truthy()? {continue;}
+                    selected.set_item(key,value)?;
+                }
+            }
+            let counts=function.getattr("nargs")?;
+            let nargs=if counts.getattr("is_FiniteSet").is_ok_and(|value|value.is_truthy().unwrap_or(false)) {
+                Some(counts.try_iter()?.map(|value|to_expr(&value?).and_then(|e|e.as_i64().and_then(|n|usize::try_from(n).ok()).ok_or_else(||PyValueError::new_err("invalid function nargs")))).collect::<PyResult<Vec<_>>>()?)
+            }else{None};
+            let spec=function_spec(&head,&selected,nargs)?;
+            let args=obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?;
+            return Ok(fx::func(Func::Undefined(spec),args));
+        }
+        if head=="Tuple" {
+            return Ok(fx::undefined("Tuple",obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?));
+        }
+        if head=="Subs" {
+            let args=obj.getattr("args")?;
+            let expression=to_expr(&args.get_item(0)?)?;
+            let variables=to_expr(&args.get_item(1)?)?.args();
+            let points=to_expr(&args.get_item(2)?)?.args();
+            if variables.iter().any(|v|!v.is_symbol()){return Err(PyNotImplementedError::new_err("Subs currently supports symbol variables"));}
+            return Ok(symox::subs::held_subs(&expression,variables,points));
+        }
+        if head=="Derivative" {
+            let expression=to_expr(&obj.getattr("expr")?)?;
+            let mut variables=Vec::new();
+            for item in obj.getattr("variable_count")?.try_iter()?{let item=item?;variables.push((to_expr(&item.get_item(0)?)?,item.get_item(1)?.extract()?));}
+            return Ok(diff::derivative_unevaluated(&expression,variables));
+        }
         if head == "MatrixElement" {
             let args = obj.getattr("args")?;
             let parent = matrixexpr::to_matrixexpr(&args.get_item(0)?)?;
@@ -302,9 +362,10 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             kwargs.set_item("evaluate", e.is_canonical())?;
             sm.getattr(e.class_name())?.call(args, Some(&kwargs))
         }
-        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "Tuple" => sm.getattr("Tuple")?.call1(convert_args(args)?),
-        Kind::Func(Func::Undefined(name), args) if name.as_ref() != "UnevaluatedExpr" => {
-            sm.getattr("Function")?.call1((name.as_ref(),))?.call1(convert_args(args)?)
+        Kind::Func(Func::Undefined(name), args) if name.is_internal("Tuple") => sm.getattr("Tuple")?.call1(convert_args(args)?),
+        Kind::Func(Func::Undefined(name), args) if !name.is_internal("UnevaluatedExpr") => {
+            let kwargs=function_kwargs(py,name)?;
+            sm.getattr("Function")?.call((name.as_ref(),),Some(&kwargs))?.call1(convert_args(args)?)
         }
         Kind::Func(Func::Order, _) => sm.getattr("sympify")?.call1((printer::srepr(e),)),
         Kind::Func(Func::Logic(symox::logic::LogicOp::Xor), args) => {
@@ -367,6 +428,11 @@ fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
 
 fn python_args(e: &Expr) -> Vec<Expr> {
     e.cached_ordered_args(|| {
+        if let Kind::Derivative(inner,vars)=e.kind(){
+            let mut args=vec![inner.clone()];
+            args.extend(vars.iter().map(|(v,n)|fx::undefined("Tuple",vec![v.clone(),Expr::int(*n as i64)])));
+            return args;
+        }
         let mut args = e.args();
         let canonical = e.is_canonical() && (e.is_add() || e.is_mul());
         if canonical { args.sort_by(args_cmp); }
@@ -412,14 +478,14 @@ fn operation_count(e: &Expr) -> usize {
         Kind::Pow(base, exponent) => {
             operation_count(base) + if exponent.is_minus_one() { 1 } else { 1 + operation_count(exponent) }
         }
-        Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => args.iter().map(operation_count).sum(),
+        Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => args.iter().map(operation_count).sum(),
         _ => 1 + e.args().iter().map(operation_count).sum::<usize>(),
     }
 }
 
 fn unwrap_unevaluated(e: &Expr) -> Expr {
     if let Kind::Func(Func::Undefined(name), args) = e.kind() {
-        if name.as_ref() == "UnevaluatedExpr" {
+        if name.is_internal("UnevaluatedExpr") {
             return unwrap_unevaluated(&args[0]);
         }
     }
@@ -442,6 +508,14 @@ pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>>
             vars.push((v, n));
             i += 1;
             continue;
+        }
+        if let Ok(e)=to_expr(it){
+            if let Kind::Func(Func::Undefined(name),values)=e.kind(){
+                if name.is_internal("Tuple") && values.len()==2 {
+                    let n=values[1].as_i64().and_then(|n|u32::try_from(n).ok()).ok_or_else(||PyValueError::new_err("derivative order must be a nonnegative integer"))?;
+                    vars.push((values[0].clone(),n));i+=1;continue;
+                }
+            }
         }
         if it.is_instance_of::<PyInt>() {
             let n: u32 = it.extract()?;
@@ -691,6 +765,9 @@ impl PyExpr {
                 expr_object(py, args[0].clone())?, expr_object(py, args[1].clone())?,
             ])?));
         }
+        if let Kind::Func(Func::Undefined(function),args)=self.e.kind(){
+            if !function.internal{return Ok((undefined_head(py,function)?,PyTuple::new(py,args.iter().cloned().map(wrap))?));}
+        }
         // Pickle children separately: parsing srepr would evaluate held Mul/Pow
         // nodes, including those nested inside an otherwise canonical tree.
         let compat = py.import("symox._compat")?;
@@ -768,6 +845,10 @@ impl PyExpr {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if let Kind::Func(Func::Undefined(function),_)=self.e.kind(){
+            if !function.internal{return Ok(undefined_head(py,function)?.unbind());}
+        }
+        if matches!(self.e.kind(),Kind::Func(Func::Subs,_)){return Ok(py.import("symox")?.getattr("Subs")?.unbind());}
         if let Kind::Func(f @ (Func::MatrixTrace(_) | Func::MatrixDeterminant(_)), _) = self.e.kind() {
             return Ok(py.import("symox._matrixexpr")?.getattr(f.name())?.unbind());
         }
@@ -782,7 +863,7 @@ impl PyExpr {
             Kind::Num(n) if n.is_integer() => Some("Integer"),
             Kind::Num(n) if n.is_rational() => Some("Rational"),
             Kind::Num(_) => Some("Float"),
-            Kind::Func(Func::Undefined(n), _) if n.as_ref() == "UnevaluatedExpr" => Some("UnevaluatedExpr"),
+            Kind::Func(Func::Undefined(n), _) if n.is_internal("UnevaluatedExpr") => Some("UnevaluatedExpr"),
             _ => None,
         };
         if let Some(name) = name {
@@ -869,11 +950,23 @@ impl PyExpr {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
     }
+    #[getter]
+    fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal)}
     #[getter]
     fn is_Derivative(&self) -> bool {
         matches!(self.e.kind(), Kind::Derivative(..))
+    }
+    #[getter]
+    fn is_Subs(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Subs,_))}
+    #[getter]
+    fn variable_count<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        match self.e.kind(){Kind::Derivative(_,vars)=>PyTuple::new(py,vars.iter().map(|(v,n)|(wrap(v.clone()),*n))),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have variable_count"))}
+    }
+    #[getter]
+    fn derivative_count(&self)->PyResult<u64>{
+        match self.e.kind(){Kind::Derivative(_,vars)=>Ok(vars.iter().map(|(_,n)|*n as u64).sum()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have derivative_count"))}
     }
     #[getter]
     fn is_Relational(&self) -> bool {
@@ -982,6 +1075,13 @@ impl PyExpr {
     #[pyo3(signature = (*args, **_kwargs))]
     fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
         let pairs = subs_pairs(args)?;
+        let mut simultaneous=false;
+        if let Some(kwargs)=_kwargs{for (key,value) in kwargs.iter(){let key:String=key.extract()?;match key.as_str(){"simultaneous"=>simultaneous=value.is_truthy()?,_=>return Err(PyNotImplementedError::new_err(format!("subs option '{key}' is not implemented")))}}}
+        if simultaneous{
+            if pairs.iter().any(|(old,_)|!old.is_symbol()){return Err(PyNotImplementedError::new_err("simultaneous substitution currently supports symbol keys only"));}
+            validate_matrix_replacements(args.py(),&self.e,&pairs,true)?;
+            return Ok(wrap(subs::simultaneous(&self.e,&pairs)));
+        }
         let mut result = self.e.clone();
         for pair in pairs {
             validate_matrix_replacements(args.py(), &result, std::slice::from_ref(&pair), false)?;
@@ -1151,6 +1251,14 @@ impl PyExpr {
     #[pyo3(signature = (*patterns))]
     fn has(&self, patterns: &Bound<'_, PyTuple>) -> PyResult<bool> {
         for p in patterns.iter() {
+            if let Ok(name)=p.getattr("name").and_then(|v|v.extract::<String>()){
+                if let Ok(assumptions)=p.getattr("_assumptions"){
+                    let nargs=p.getattr("_nargs")?.extract::<Option<Vec<usize>>>()?;
+                    let target=function_spec(&name,assumptions.downcast::<PyDict>()?,nargs)?;
+                    fn contains(e:&Expr,target:&symox::expr::UndefinedFunction)->bool{matches!(e.kind(),Kind::Func(Func::Undefined(f),_) if f==target)||e.args().iter().any(|a|contains(a,target))}
+                    if contains(&self.e,&target){return Ok(true);}continue;
+                }
+            }
             if traverse::has(&self.e, &to_expr(&p)?) {
                 return Ok(true);
             }
@@ -1243,7 +1351,7 @@ impl PyExpr {
     fn is_commutative(&self) -> Option<bool> {
         fn query(e: &Expr) -> Option<bool> {
             match e.kind() {
-                Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => None,
+                Kind::Func(Func::Undefined(name), _) if name.is_internal("UnevaluatedExpr") => None,
                 Kind::Add(..) | Kind::Mul(..) => Some(e.args().iter().all(|a| query(a) == Some(true))),
                 Kind::Pow(base, _) => query(base),
                 _ => Some(true),
@@ -1427,7 +1535,8 @@ impl Head {
             HeadKind::Rel(op) => relational::rel(*op, &v[0], &v[1]),
             HeadKind::Atom(e) => e.clone(),
             HeadKind::Derivative => {
-                let vars = v[1..].iter().map(|x| (x.clone(), 1)).collect();
+                let arguments=PyTuple::new(args.py(),args.iter().skip(1))?;
+                let vars=diff_vars(&arguments)?;
                 diff::derivative_unevaluated(&v[0], vars)
             }
             HeadKind::Piecewise => {
@@ -1529,16 +1638,27 @@ fn _restore_logic(name: &str, children: Vec<PyExpr>) -> PyResult<PyExpr> {
 #[pyfunction]
 #[pyo3(name = "_default_sort_key")]
 fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
-    fn convert(py: Python<'_>, key: symox::sortkey::Key) -> PyResult<PyObject> {
+    fn convert(py: Python<'_>, key: &symox::sortkey::Key, tuples: &mut Option<FxHashMap<usize, PyObject>>) -> PyResult<PyObject> {
         use symox::sortkey::Key;
         Ok(match key {
-            Key::Int(n) => n.into_pyobject(py)?.into_any().unbind(),
-            Key::Str(s) => s.into_pyobject(py)?.into_any().unbind(),
-            Key::Num(n) => wrap(Expr::num(n)).into_pyobject(py)?.into_any().unbind(),
-            Key::Tup(keys) => PyTuple::new(py, keys.into_iter().map(|k| convert(py, k)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind(),
+            Key::Int(n) => (*n).into_pyobject(py)?.into_any().unbind(),
+            Key::Str(s) => s.as_str().into_pyobject(py)?.into_any().unbind(),
+            Key::Num(n) => wrap(Expr::num(n.clone())).into_pyobject(py)?.into_any().unbind(),
+            Key::Tup(keys) => PyTuple::new(py, keys.iter().map(|key| convert(py, key, tuples)).collect::<PyResult<Vec<_>>>()?)?.into_any().unbind(),
+            Key::Shared(keys) => {
+                let id = keys.as_ptr() as usize;
+                if let Some(value) = tuples.as_ref().and_then(|cache| cache.get(&id)) { return Ok(value.clone_ref(py)); }
+                let children = keys.iter().map(|key| convert(py, key, tuples)).collect::<PyResult<Vec<_>>>()?;
+                let value = PyTuple::new(py, children)?.into_any().unbind();
+                if let Some(cache) = tuples { cache.insert(id, value.clone_ref(py)); }
+                value
+            },
         })
     }
-    convert(py, symox::sortkey::sort_key(&to_expr(obj)?))
+    let expression = to_expr(obj)?;
+    let key = symox::sortkey::sort_key(&expression);
+    let mut tuples = expression.has_matrix().then(FxHashMap::default);
+    convert(py, &key, &mut tuples)
 }
 
 #[pyfunction]
@@ -1665,13 +1785,36 @@ fn py_diff(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyObject
 }
 
 #[pyfunction]
-#[pyo3(name = "Derivative", signature = (f, *args))]
-fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+#[pyo3(name = "Derivative", signature = (f, *args, evaluate=false))]
+fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>,evaluate:bool) -> PyResult<PyExpr> {
     if f.downcast::<matrixexpr::PyMatrixExpr>().is_ok() {
         return Err(PyNotImplementedError::new_err("held matrix derivatives are not implemented; use diff with a scalar variable"));
     }
-    let vars = diff_vars(args)?;
-    Ok(wrap(diff::derivative_unevaluated(&to_expr(f)?, vars)))
+    let expression=to_expr(f)?;
+    let mut vars = diff_vars(args)?;
+    if vars.is_empty(){let symbols=traverse::free_symbols(&expression);match symbols.len(){0=>return Ok(wrap(Expr::zero())),1=>vars.push((symbols[0].clone(),1)),_=>return Err(PyValueError::new_err("specify the differentiation variables"))}}
+    if vars.iter().any(|(v,_)|!matches!(v.kind(),Kind::Sym(_)|Kind::Func(Func::Undefined(_),_))){return Err(PyValueError::new_err("cannot differentiate with respect to this expression"));}
+    Ok(wrap(if evaluate{diff::diff_many(&expression,&vars)}else{diff::derivative_unevaluated(&expression,vars)}))
+}
+
+#[pyfunction]
+fn _undefined_function(name:&str,args:&Bound<'_,PyTuple>,assumptions:&Bound<'_,PyDict>,nargs:Option<Vec<usize>>)->PyResult<PyExpr>{
+    let spec=function_spec(name,assumptions,nargs)?;
+    if !spec.accepts(args.len()){return Err(PyTypeError::new_err(format!("{name} accepts argument counts {:?}, got {}",spec.nargs.as_ref().unwrap(),args.len())));}
+    Ok(wrap(fx::func(Func::Undefined(spec),args.iter().map(|arg|to_expr(&arg)).collect::<PyResult<Vec<_>>>()?)))
+}
+
+#[pyfunction]
+fn _subs(expr:&Bound<'_,PyAny>,variables:&Bound<'_,PyAny>,points:&Bound<'_,PyAny>)->PyResult<PyExpr>{
+    fn values(value:&Bound<'_,PyAny>)->PyResult<Vec<Expr>>{
+        if let Ok(e)=to_expr(value){return Ok(match e.kind(){Kind::Func(Func::Undefined(f),args) if f.is_internal("Tuple")=>args.clone(),_=>vec![e]});}
+        value.try_iter()?.map(|v|to_expr(&v?)).collect()
+    }
+    let variables=values(variables)?;let points=values(points)?;
+    if variables.len()!=points.len(){return Err(PyValueError::new_err("Subs variables and points must have the same length"));}
+    if variables.iter().any(|v|!v.is_symbol()){return Err(PyNotImplementedError::new_err("Subs currently supports symbol variables"));}
+    if variables.iter().enumerate().any(|(i,v)|variables[..i].contains(v)){return Err(PyValueError::new_err("Subs variables must be distinct"));}
+    Ok(wrap(subs::held_subs(&to_expr(expr)?,variables,points)))
 }
 
 /// `integrate(f, x)`, `integrate(f, (x, a, b))`, several variables in turn.
@@ -2106,6 +2249,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_materialize_matrix_scalars, m)?)?;
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
+    m.add_function(wrap_pyfunction!(_undefined_function, m)?)?;
+    m.add_function(wrap_pyfunction!(_subs, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;
     m.add_function(wrap_pyfunction!(py_integrate, m)?)?;
     m.add_function(wrap_pyfunction!(py_summation, m)?)?;

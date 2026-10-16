@@ -477,7 +477,7 @@ pub fn tuple(v: Vec<Expr>) -> Expr {
 /// Elements of a `Tuple(...)` argument.
 pub fn tuple_items(e: &Expr) -> Option<&[Expr]> {
     match e.kind() {
-        Kind::Func(Func::Undefined(n), a) if &**n == "Tuple" => Some(a),
+        Kind::Func(Func::Undefined(n), a) if n.is_internal("Tuple") => Some(a),
         _ => None,
     }
 }

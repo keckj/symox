@@ -133,8 +133,17 @@ fn is_sympy_obj(obj: &Bound<'_, PyAny>) -> bool {
 /// Convert a Python object to a matrix (symox/SymPy matrices, nested
 /// sequences, numpy arrays).
 pub fn to_matrix(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
+    if obj.is_instance_of::<crate::matrixexpr::PyBlockGrid>() {
+        return Err(PyTypeError::new_err("A block grid contains matrix-valued cells and cannot be converted to a scalar matrix"));
+    }
+    if let Ok(matrix)=obj.downcast::<crate::matrixexpr::PyMatrixExpr>() {
+        return matrix.get().m.as_explicit().map_err(|e|err(obj.py(),e));
+    }
     if let Ok(m) = obj.downcast::<PyMatrix>() {
         return Ok(m.borrow().m.clone());
+    }
+    if is_sympy_obj(obj) && obj.getattr("is_MatrixExpr").is_ok_and(|v|v.is_truthy().unwrap_or(false)) {
+        return crate::matrixexpr::to_matrixexpr(obj)?.as_explicit().map_err(|e|err(obj.py(),e));
     }
     if obj.hasattr("tolist")? && (is_sympy_obj(obj) || obj.hasattr("shape")?) {
         let shape: Option<(usize, usize)> = obj.getattr("shape").ok().and_then(|s| s.extract().ok());
@@ -161,15 +170,16 @@ fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
     }
     let is_matrix = |item: &Bound<'_, PyAny>| -> bool {
         item.downcast::<PyMatrix>().is_ok()
-            || (is_sympy_obj(item) && item.hasattr("shape").unwrap_or(false)
-                && item.hasattr("tolist").unwrap_or(false))
+            || item.is_instance_of::<crate::matrixexpr::PyMatrixExpr>()
+            || (is_sympy_obj(item) && (item.getattr("is_MatrixExpr").is_ok_and(|v|v.is_truthy().unwrap_or(false))
+                || (item.hasattr("shape").unwrap_or(false) && item.hasattr("tolist").unwrap_or(false))))
     };
     // A flat list of matrices is stacked vertically. Nested rows of
     // matrices are block rows and are joined horizontally first.
     if items.iter().any(&is_matrix) {
         let blocks: Vec<Matrix> = items.iter().map(|item| {
             if is_matrix(item) { to_matrix(item) }
-            else { Ok(Matrix::column(vec![to_expr(item)?])) }
+            else { Ok(Matrix::column(vec![scalar_matrix_entry(item)?])) }
         }).collect::<PyResult<_>>()?;
         let refs: Vec<&Matrix> = blocks.iter().collect();
         return Matrix::vstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
@@ -182,19 +192,19 @@ fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
             if entries.iter().any(&is_matrix) {
                 let blocks: Vec<Matrix> = entries.iter().map(|entry| {
                     if is_matrix(entry) { to_matrix(entry) }
-                    else { Ok(Matrix::column(vec![to_expr(entry)?])) }
+                    else { Ok(Matrix::column(vec![scalar_matrix_entry(entry)?])) }
                 }).collect::<PyResult<_>>()?;
                 let refs: Vec<&Matrix> = blocks.iter().collect();
                 rows.push(Matrix::hstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()))?);
             } else {
-                let row: Vec<Expr> = entries.iter().map(to_expr).collect::<PyResult<_>>()?;
+                let row: Vec<Expr> = entries.iter().map(scalar_matrix_entry).collect::<PyResult<_>>()?;
                 rows.push(Matrix::new(1, row.len(), row).map_err(|e| PyValueError::new_err(e.to_string()))?);
             }
         }
         let refs: Vec<&Matrix> = rows.iter().collect();
         return Matrix::vstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
     }
-    let col: Vec<Expr> = items.iter().map(to_expr).collect::<PyResult<_>>()?;
+    let col: Vec<Expr> = items.iter().map(scalar_matrix_entry).collect::<PyResult<_>>()?;
     Ok(Matrix::column(col))
 }
 
@@ -243,7 +253,15 @@ fn scalar_or_matrix(o: &Bound<'_, PyAny>) -> PyResult<Result<Matrix, Expr>> {
     if is_sympy_obj(o) && o.hasattr("shape")? && o.hasattr("tolist")? {
         return Ok(Ok(to_matrix(o)?));
     }
-    Ok(Err(to_expr(o)?))
+    Ok(Err(scalar_matrix_entry(o)?))
+}
+
+fn scalar_matrix_entry(value: &Bound<'_, PyAny>) -> PyResult<Expr> {
+    if value.is_instance_of::<crate::matrixexpr::PyMatrixExpr>() || value.is_instance_of::<crate::matrixexpr::PyBlockGrid>()
+        || value.getattr("is_Matrix").is_ok_and(|v|v.is_truthy().unwrap_or(false)) {
+        return Err(PyTypeError::new_err("Dense matrices require scalar entries; materialize the matrix explicitly or use a typed block grid"));
+    }
+    to_expr(value)
 }
 
 #[pymethods]
@@ -262,7 +280,7 @@ impl PyMatrix {
                     let mut data = Vec::with_capacity(r * c);
                     for i in 0..r {
                         for j in 0..c {
-                            data.push(to_expr(&src.call1((i, j))?)?);
+                            data.push(scalar_matrix_entry(&src.call1((i, j))?)?);
                         }
                     }
                     return Ok(wrapm(Matrix::new(r, c, data).py(py)?));
@@ -272,10 +290,10 @@ impl PyMatrix {
                     let it = it?;
                     if is_seq(&it) {
                         for x in it.try_iter()? {
-                            flat.push(to_expr(&x?)?);
+                            flat.push(scalar_matrix_entry(&x?)?);
                         }
                     } else {
-                        flat.push(to_expr(&it)?);
+                        flat.push(scalar_matrix_entry(&it)?);
                     }
                 }
                 Ok(wrapm(Matrix::new(r, c, flat).py(py)?))
@@ -769,7 +787,7 @@ impl PyMatrix {
     // ------------------------------------------------------------------
 
     fn applyfunc(&self, f: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(self.wrapped(self.m.try_applyfunc(|e| to_expr(&f.call1((wrap(e.clone()),))?))?))
+        Ok(self.wrapped(self.m.try_applyfunc(|e| scalar_matrix_entry(&f.call1((wrap(e.clone()),))?))?))
     }
 
     #[pyo3(signature = (*args, **_kwargs))]
@@ -1405,10 +1423,10 @@ fn diag(values: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyR
     reject_kwargs(_kwargs)?;
     let mut blocks: Vec<Matrix> = Vec::new();
     for v in values.iter() {
-        if v.downcast::<PyMatrix>().is_ok() || is_seq(&v) || (is_sympy_obj(&v) && v.hasattr("shape")?) {
+        if v.downcast::<PyMatrix>().is_ok() || is_seq(&v) || v.getattr("is_Matrix").is_ok_and(|v|v.is_truthy().unwrap_or(false)) || (is_sympy_obj(&v) && v.hasattr("shape")?) {
             blocks.push(to_matrix(&v)?);
         } else {
-            blocks.push(Matrix::new(1, 1, vec![to_expr(&v)?]).unwrap());
+            blocks.push(Matrix::new(1, 1, vec![scalar_matrix_entry(&v)?]).unwrap());
         }
     }
     Ok(wrapm(Matrix::diag_blocks(&blocks)))

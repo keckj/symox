@@ -20,6 +20,19 @@ class Printer:
             return getattr(expr, self.printmethod)(self, **kwargs)
         name = getattr(expr, "class_name", type(expr).__name__)
         method = getattr(self, "_print_" + name, None)
+        undefined = (getattr(expr, "is_UndefinedFunction", False)
+                     or any(cls.__name__ == "AppliedUndef" for cls in type(expr).__mro__))
+        if undefined:
+            # Native nodes share Expr's Python class.  A coincidentally named
+            # undefined function must not inherit a builtin printer handler.
+            # Explicit handlers supplied by a user subclass remain available.
+            if method is not None and not getattr(method, "__module__", "").startswith("symox.printing."):
+                return method(expr, **kwargs)
+            for head in ("UndefinedFunction", "AppliedUndef", "Function"):
+                function_method = getattr(self, "_print_" + head, None)
+                if function_method is not None:
+                    return function_method(expr, **kwargs)
+            return self.emptyPrinter(expr)
         if method is not None:
             return method(expr, **kwargs)
         # Rust nodes share the Expr Python type, while SymPy's singleton

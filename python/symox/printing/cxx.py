@@ -142,6 +142,9 @@ class CXX17CodePrinter(Printer):
         if getattr(expr, "is_Function", False):
             function = self.known_functions.get(name)
             if function is None:
+                if (getattr(expr, "is_UndefinedFunction", False)
+                        or any(cls.__name__ == "AppliedUndef" for cls in type(expr).__mro__)):
+                    raise TypeError(f"Undefined function {name} needs an explicit user_functions mapping")
                 function = {"Abs": "std::fabs", "ceiling": "std::ceil"}.get(name, "std::" + name)
             if not isinstance(function, str):
                 function = next((f for test, f in function if test(*expr.args)), name)

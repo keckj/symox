@@ -505,8 +505,11 @@ impl Polynomial {
     fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
         let prototype=self.algebraic.as_ref().or(o.algebraic.as_ref())?;
         let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
-        let a=super::algebraic::AlgebraicPoly::from_expr(&self.as_expr(),&gens,prototype.number_field.clone()).expect("compatible algebraic fields");
-        let b=super::algebraic::AlgebraicPoly::from_expr(&o.as_expr(),&gens,prototype.number_field.clone()).expect("compatible algebraic fields");
+        let field=if let(Some(a),Some(b))=(&self.algebraic,&o.algebraic){
+            super::algebraic::NumberField::from_generators(&[a.number_field.generator.clone(),b.number_field.generator.clone()]).expect("compatible algebraic fields")
+        }else{prototype.number_field.clone()};
+        let a=super::algebraic::AlgebraicPoly::from_expr(&self.as_expr(),&gens,field.clone()).expect("compatible algebraic fields");
+        let b=super::algebraic::AlgebraicPoly::from_expr(&o.as_expr(),&gens,field).expect("compatible algebraic fields");
         Some((a,b))
     }
     fn pair(&self, o: &Self) -> Option<(FractionPoly, FractionPoly)> {

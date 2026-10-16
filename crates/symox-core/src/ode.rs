@@ -477,9 +477,9 @@ fn apply_ics(sol: &Expr, f: &Expr, x: &Expr, ics: &[(Expr, Expr)]) -> Option<Exp
     for (cond, val) in ics {
         // f(x0) or Subs(Derivative(f(x), x, k), x, x0) given as f'(x0)
         let (k, x0) = match cond.kind() {
-            Kind::Func(Func::Undefined(n), a) if &**n == "Subs" => {
+            Kind::Func(Func::Subs, a) if a[1].args().len()==1 && a[2].args().len()==1 => {
                 let Kind::Derivative(_, vars) = a[0].kind() else { return None };
-                (vars[0].1 as usize, a[2].clone())
+                (vars[0].1 as usize, a[2].args()[0].clone())
             }
             Kind::Func(Func::Undefined(_), a) => (0usize, a[0].clone()),
             _ => return None,

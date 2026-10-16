@@ -51,7 +51,8 @@ Implemented:
   subexpression sharing, vectorised over NumPy arrays (GIL released)
 * Python bindings (PyO3, abi3 wheels for CPython >= 3.9), conversion to and
   from SymPy objects
-* polynomials over integer, rational, finite-field and rational-function domains: `Poly`,
+* polynomials over integer, rational, finite-field, rational-function and
+  supported algebraic domains: `Poly`,
   factorization, GCD, cancellation, partial fractions, roots, division and
   reduced Gröbner bases
 * symbolic assumptions, simplification, integration, summation, equation and
@@ -104,6 +105,14 @@ exact rational-power and supported quadratic facts filter solver candidates
 without floating-point tolerances. Unquoted Unicode symbol names are accepted.
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
+Undefined functions preserve their identity and declared assumptions and arity,
+including names shared with builtins. Held `Derivative` and `Subs` expressions
+support evaluation and round trips; simultaneous symbol substitutions preserve
+the original right-hand sides. Limits of unknown functions remain held when
+continuity cannot be established.
+`Subs` currently accepts symbol variables; its equality is structural and does
+not yet identify expressions that differ only by renamed bound variables.
+Simultaneous substitutions with non-symbol keys are rejected explicitly.
 
 `tests/compare_sympy.py` runs every case through SymPy and symox and
 compares the printed canonical forms and, when they differ, numerical
@@ -482,14 +491,19 @@ p = sm.Poly(x**2 + x/a + b, x, domain="QQ(a,b)")
 p.diff()                         # native exact coefficient arithmetic
 ```
 
-Quadratic algebraic coefficient fields execute exact arithmetic in
+Algebraic coefficient fields execute exact arithmetic in
 `QQ[T]/(m(T))`, with the chosen radical embedding retained. `extension=sqrt(2)`,
 `extension=I`, `extension=True` and domains such as `"QQ<sqrt(2)>"` select
 these fields. `Poly`, Gröbner bases, reduction and order conversion use native
 algebraic coefficients. Univariate polynomial operations include exact GCD,
 factorization, square-free decomposition, resultants and discriminants.
-Independent algebraic extensions, general algebraic number fields and mixtures
-with transcendental parameters are not yet supported.
+The supported constructions also include positive rational cube roots,
+rational transformations of generators and composita of two independent
+quadratic fields, such as `sqrt(2) + I`. Minimal polynomials and constituent
+embeddings are certified with exact rational arithmetic. `minimal_polynomial`
+(`minpoly`) and `primitive_element` expose these constructions; `Poly.norm()`
+uses a resultant over the field's minimal polynomial. Arbitrary algebraic
+towers and mixtures with transcendental parameters remain unsupported.
 
 `linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
 equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
@@ -545,6 +559,12 @@ matrices with concrete dimensions for the existing exact algorithms.
 Hadamard operations act element by element and require matching matrix shapes;
 Kronecker products multiply dimensions and preserve factor order. These nodes
 also support finite matrix output generation for PyTorch and JAX.
+`BlockDiagMatrix` retains rectangular diagonal blocks and exposes a typed
+immutable grid through `.blocks`. `MatrixSlice` and matrix slice indexing support
+contiguous slices with step 1, including nested slices and negative bounds.
+Empty, out-of-range and other-step slices are rejected explicitly.
+Matrix hashes, symbol discovery, rewrites and sort keys preserve shared DAG
+nodes, including derivatives of large matrix powers.
 Scalar differentiation preserves product order, supports integer powers and
 inverses, and uses shared matrix subexpressions for large powers. `Trace` and
 `Determinant` retain abstract parents while applying supported exact identities;

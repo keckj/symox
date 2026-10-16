@@ -697,6 +697,13 @@ impl<'a> LatexPrinter<'a> {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        if matches!(f,Func::Subs){
+            let variables=args[1].args();let points=args[2].args();
+            let entries=variables.iter().zip(&points).map(|(v,p)|format!("{}={}",self.print(v),self.print(p))).collect::<Vec<_>>();
+            let lower=if entries.len()==1{entries[0].clone()}else{format!("\\substack{{{}}}",entries.join(" \\\\ "))};
+            let value=format!("\\left. {} \\right|_{{{lower}}}",self.print(&args[0]));
+            return exp.map_or_else(||value.clone(),|power|format!("\\left({value}\\right)^{{{power}}}"));
+        }
         let a0 = || self.print(&args[0]);
         match f {
             Func::MatrixProxy(parent) => return Self::sup(parent.to_str(), exp),

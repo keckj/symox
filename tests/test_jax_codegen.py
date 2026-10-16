@@ -14,6 +14,27 @@ jnp = pytest.importorskip("jax.numpy")
 
 
 @pytest.mark.parametrize("jit", [False, True])
+def test_rectangular_block_diagonal_and_slice_batched_gradients(jit):
+    a, b = sm.MatrixSymbol('A', 2, 3), sm.MatrixSymbol('B', 3, 2)
+    function = sm.jax_lambdify((a, b), (sm.BlockDiagMatrix(a, b), a[:, 1:3]), jit=jit)
+    av = jnp.arange(12.).reshape(2, 1, 2, 3)
+    bv = jnp.arange(18.).reshape(1, 3, 3, 2)
+
+    def reference(x, y):
+        x, y = jnp.broadcast_to(x, (2, 3, 2, 3)), jnp.broadcast_to(y, (2, 3, 3, 2))
+        top = jnp.concatenate((x, jnp.zeros((2, 3, 2, 2))), axis=-1)
+        bottom = jnp.concatenate((jnp.zeros((2, 3, 3, 3)), y), axis=-1)
+        return (jnp.concatenate((top, bottom), axis=-2), x[..., :, 1:3])
+
+    for result, expected in zip(function(av, bv), reference(av, bv)):
+        np.testing.assert_allclose(result, expected, rtol=2e-6)
+    actual = jax.grad(lambda x, y: sum(jnp.sum(value) for value in function(x, y)), argnums=(0, 1))(av, bv)
+    expected = jax.grad(lambda x, y: sum(jnp.sum(value) for value in reference(x, y)), argnums=(0, 1))(av, bv)
+    for result, expected in zip(actual, expected):
+        np.testing.assert_allclose(result, expected, rtol=2e-6)
+
+
+@pytest.mark.parametrize("jit", [False, True])
 def test_hadamard_kronecker_batched_codegen_and_grad(jit):
     a, b = [sm.MatrixSymbol(name, 2, 2) for name in ('A', 'B')]
     outputs = (sm.HadamardProduct(a, b), sm.HadamardPower(a, 2),

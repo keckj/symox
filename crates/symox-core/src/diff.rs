@@ -45,9 +45,9 @@ pub fn derivative_unevaluated(f: &Expr, vars: Vec<(Expr, u32)>) -> Expr {
         _ => (f.clone(), Vec::new()),
     };
     for (v, n) in vars {
-        match all.iter_mut().find(|(w, _)| *w == v) {
-            Some((_, m)) => *m += n,
-            None => all.push((v, n)),
+        match all.last_mut() {
+            Some((w, m)) if *w==v => *m += n,
+            _ => all.push((v, n)),
         }
     }
     Expr::from_kind(Kind::Derivative(inner, all))
@@ -189,8 +189,29 @@ fn d_func(
     if let Func::MatrixProxy(_) = f {
         return Expr::zero();
     }
-    if let Func::Undefined(_) = f {
-        return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+    if matches!(f,Func::Subs){
+        if !crate::traverse::free_symbols(e).contains(x){return Expr::zero();}
+        let evaluated=crate::functions::doit(e,true);
+        return if evaluated!=*e{d(&evaluated,x,cache)}else{derivative_unevaluated(e,vec![(x.clone(),1)])};
+    }
+    if let Func::Undefined(function) = f {
+        if function.internal || args.iter().all(|arg|arg.is_symbol()) {
+            return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+        }
+        let mut terms=Vec::new();
+        for (i,arg) in args.iter().enumerate(){
+            let derivative=d(arg,x,cache);
+            if derivative.is_zero(){continue;}
+            if arg.is_symbol(){terms.push(mul(&[derivative,derivative_unevaluated(e,vec![(arg.clone(),1)])]));continue;}
+            let mut index=i+1;
+            let dummy=loop{let candidate=Expr::symbol(&format!("_xi_{index}"));if !crate::traverse::has(e,&candidate){break candidate;}index+=1;};
+            let mut arguments=args.to_vec();arguments[i]=dummy.clone();
+            let applied=crate::functions::func(f.clone(),arguments);
+            let partial=derivative_unevaluated(&applied,vec![(dummy.clone(),1)]);
+            let evaluated=crate::subs::held_subs(&partial,vec![dummy],vec![arg.clone()]);
+            terms.push(mul(&[derivative,evaluated]));
+        }
+        return add(&terms);
     }
     if let Func::Atan2 = f {
         let (y, xx) = (&args[0], &args[1]);

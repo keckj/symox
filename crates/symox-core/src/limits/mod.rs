@@ -81,6 +81,11 @@ pub fn limit(e: &Expr, x: &Expr, x0: &Expr, dir: Dir) -> LRes<Expr> {
     if !depends(e, x) {
         return Ok(e.clone());
     }
+    fn unknown_function(e:&Expr,x:&Expr)->bool {
+        if matches!(e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal) && depends(e,x){return true;}
+        e.args().iter().any(|a|unknown_function(a,x))
+    }
+    if unknown_function(e,x){return unknown("continuity of an undefined function is not known");}
     let infinite_point = x0.is_constant(Constant::Infinity) || x0.is_constant(Constant::NegInfinity);
     match dir {
         _ if infinite_point => limit_one_sided(e, x, x0, false),

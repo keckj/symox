@@ -151,7 +151,7 @@ fn release_unevaluated(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
         return cached.clone();
     }
     let result = match e.kind() {
-        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => {
+        Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => {
             release_unevaluated(&args[0], cache)
         }
         _ => crate::traverse::map_children(e, &mut |child| release_unevaluated(child, cache)),

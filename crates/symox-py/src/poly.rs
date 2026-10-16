@@ -14,7 +14,7 @@ use symox::poly::api;
 use symox::poly::convert::PolyError;
 use symox::poly::polyobj::{Domain, Poly};
 use symox::poly::fraction::{FractionPoly, Polynomial as PolyValue};
-use symox::poly::algebraic::{AlgebraicPoly,NumberField,AlgebraicScope,AN};
+use symox::poly::algebraic::{AlgebraicPoly,NumberField,AlgebraicScope};
 use std::sync::Arc;
 use symox::poly::roots as proots;
 use symox::poly::Rat;
@@ -72,11 +72,8 @@ fn algebraic_extension(extension:Option<&Bound<'_,PyAny>>,expressions:&[Expr],do
         return symox::poly::algebraic::infer(expressions).map_err(err);
     }
     let generators:Vec<Expr>=if extension.downcast::<PyList>().is_ok()||extension.downcast::<PyTuple>().is_ok(){extension.try_iter()?.map(|e|to_expr(&e?)).collect::<PyResult<_>>()?}else{vec![to_expr(extension)?]};
-    let Some(generator)=generators.first()else{return Err(PyValueError::new_err("an algebraic extension needs a generator"));};
-    let field=NumberField::quadratic(generator).map_err(err)?;
-    let _scope=AlgebraicScope::new(field.clone());
-    for generator in &generators {AN::from_expr(generator,field.clone()).map_err(err)?;}
-    Ok(Some(field))
+    if generators.is_empty(){return Err(PyValueError::new_err("an algebraic extension needs a generator"));}
+    NumberField::from_generators(&generators).map(Some).map_err(err)
 }
 
 /// A univariate polynomial given as a coefficient list (SymPy accepts
@@ -150,7 +147,7 @@ impl PyGroebnerBasis {
         let mut inferred_gens = Vec::new();
         let mut inferred_prime = None;
         let mut poly_domain = Domain::ZZ;
-        let mut inferred_algebraic=None;
+        let mut inferred_algebraic:Option<Arc<NumberField>>=None;
         let mut inferred_fraction:Option<FractionPoly>=None;
         for item in f.try_iter()? {
             let item = item?;
@@ -158,7 +155,9 @@ impl PyGroebnerBasis {
                 any_poly = true;
                 let p = &p.get().p;
                 exprs.push(p.as_expr());
-                if let Some(a)=&p.algebraic {inferred_algebraic=Some(a.number_field.clone());}
+                if let Some(a)=&p.algebraic {
+                    inferred_algebraic=Some(if let Some(previous)=inferred_algebraic {NumberField::from_generators(&[previous.generator.clone(),a.number_field.generator.clone()]).map_err(err)?}else{a.number_field.clone()});
+                }
                 if let Some(field)=&p.field {
                     if let Some(current)=&mut inferred_fraction {
                         for parameter in &field.parameters {
@@ -707,8 +706,9 @@ impl PyPoly {
             let gens=symox::poly::polyobj::unify_gens(self.p.true_gens(),q.true_gens());
             if let Some(field)=self.p.algebraic.as_ref().or(q.algebraic.as_ref()) {
                 if self.p.field.is_some()||q.field.is_some()||self.p.modulus.is_some()||q.modulus.is_some(){return None;}
-                AlgebraicPoly::from_expr(&self.p.as_expr(),&gens,field.number_field.clone()).ok()?;
-                AlgebraicPoly::from_expr(&q.as_expr(),&gens,field.number_field.clone()).ok()?;
+                let number_field=if let(Some(a),Some(b))=(&self.p.algebraic,&q.algebraic){NumberField::from_generators(&[a.number_field.generator.clone(),b.number_field.generator.clone()]).ok()?}else{field.number_field.clone()};
+                AlgebraicPoly::from_expr(&self.p.as_expr(),&gens,number_field.clone()).ok()?;
+                AlgebraicPoly::from_expr(&q.as_expr(),&gens,number_field).ok()?;
                 return Some(q.clone());
             }
             for f in [self.p.field.as_ref(),q.field.as_ref()].into_iter().flatten() {
@@ -740,7 +740,7 @@ impl PyPoly {
             None => {
                 if let Ok(q)=o.downcast::<PyPoly>() {
                     if self.p.algebraic.is_some() || q.get().p.algebraic.is_some() {
-                        return Err(PyTypeError::new_err("incompatible coefficient fields; composite algebraic extensions are not implemented"));
+                        return Err(PyTypeError::new_err("incompatible coefficient fields; construct a supported joint extension explicitly"));
                     }
                 }
                 let e = to_expr(o)?;
@@ -1365,6 +1365,11 @@ impl PyPoly {
         self.clone()
     }
 
+    fn norm(&self)->PyResult<PyPoly> {
+        let Some(p)=&self.p.algebraic else{return Err(PyTypeError::new_err("polynomial norm requires an algebraic coefficient field"))};
+        Ok(PyPoly {p:p.norm().map_err(err)?.into()})
+    }
+
     fn resultant(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         if let Some(field)=self.p.algebraic.as_ref().or(q.algebraic.as_ref()) {let a=field.convert(&self.p.as_expr()).map_err(err)?;let b=field.convert(&q.as_expr()).map_err(err)?;return Ok(w(a.resultant(&b).map_err(err)?.as_expr()));}
@@ -1719,7 +1724,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
     let mut expressions = Vec::new();
     let mut inferred_gens = Vec::new();
     let mut inferred_domain = Domain::ZZ;
-    let mut inferred_algebraic=None;
+    let mut inferred_algebraic:Option<Arc<NumberField>>=None;
     let mut inferred_prime = None;
     let mut any_poly = false;
     let mut append = |item: &Bound<'_,PyAny>| -> PyResult<()> {
@@ -1727,7 +1732,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
             any_poly = true;
             let p = &p.get().p;
             expressions.push(p.as_expr());
-            if let Some(a)=&p.algebraic{inferred_algebraic=Some(a.number_field.clone());}
+            if let Some(a)=&p.algebraic{inferred_algebraic=Some(if let Some(previous)=inferred_algebraic.take(){NumberField::from_generators(&[previous.generator.clone(),a.number_field.generator.clone()]).map_err(err)?}else{a.number_field.clone()});}
             inferred_gens = symox::poly::polyobj::unify_gens(&inferred_gens,p.true_gens());
             inferred_domain = inferred_domain.max(p.domain);
             if let Some(m) = p.modulus {
@@ -2061,7 +2066,50 @@ fn sqf_part(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bo
     Ok(w(api::sqf_part(&to_expr(f)?, &gens_of(gens)?).map_err(err)?))
 }
 
+fn minimal_polynomial_value(model:&symox::poly::algebraic_model::PrimitiveModel,generator:Expr)->Poly {
+    let(_,coefficients)=symox::poly::dense::clear_denoms(&model.minimal);
+    Poly {rep:symox::poly::dense::to_mpoly(&coefficients,0,1).to_rat(),gens:vec![generator],ngens:1,domain:Domain::QQ,modulus:None}
+}
+#[pyfunction]
+#[pyo3(signature=(ex,x=None,compose=true,polys=false,domain=None))]
+fn minimal_polynomial(py:Python<'_>,ex:&Bound<'_,PyAny>,x:Option<&Bound<'_,PyAny>>,compose:bool,polys:bool,domain:Option<&str>)->PyResult<PyObject> {
+    if !compose{return Err(PyNotImplementedError::new_err("compose=False minimal polynomials are not implemented"));}
+    if domain.is_some_and(|d|d!="QQ"){return Err(PyNotImplementedError::new_err("minimal polynomials currently support ground domain QQ"));}
+    let generator=x.map(to_expr).transpose()?.unwrap_or_else(||Expr::symbol("_x"));
+    if !generator.is_symbol(){return Err(PyValueError::new_err("minimal polynomial generator must be a symbol"));}
+    let model=symox::poly::algebraic_model::PrimitiveModel::build(&to_expr(ex)?).map_err(err)?;
+    let p=minimal_polynomial_value(&model,generator);
+    if polys{poly_obj(py,p)}else{Ok(w(p.as_expr()).into_pyobject(py)?.into_any().unbind())}
+}
+#[pyfunction]
+#[pyo3(signature=(ex,x=None,compose=true,polys=false,domain=None))]
+fn minpoly(py:Python<'_>,ex:&Bound<'_,PyAny>,x:Option<&Bound<'_,PyAny>>,compose:bool,polys:bool,domain:Option<&str>)->PyResult<PyObject> {minimal_polynomial(py,ex,x,compose,polys,domain)}
+#[pyfunction]
+#[pyo3(signature=(extension,x=None,ex=false,polys=false))]
+fn primitive_element(py:Python<'_>,extension:&Bound<'_,PyAny>,x:Option<&Bound<'_,PyAny>>,ex:bool,polys:bool)->PyResult<PyObject> {
+    let generators=expression_vector(extension)?;
+    let(generator,model,weights)=symox::poly::algebraic_model::PrimitiveModel::build_many_with_weights(&generators).map_err(err)?;
+    let variable=x.map(to_expr).transpose()?.unwrap_or_else(||Expr::symbol("_x"));
+    if !variable.is_symbol(){return Err(PyValueError::new_err("primitive polynomial generator must be a symbol"));}
+    let polynomial=minimal_polynomial_value(&model,variable);
+    let polynomial=if polys{poly_obj(py,polynomial)?}else{w(polynomial.as_expr()).into_pyobject(py)?.into_any().unbind()};
+    let weights=weights.into_pyobject(py)?.into_any().unbind();
+    let mut values=vec![polynomial,weights];
+    if ex {
+        let representations=PyList::empty(py);
+        for expression in generators {let mut coefficients=model.coefficient(&expression).map_err(err)?;if coefficients.is_empty(){coefficients.push(Rat::from_i64(0));}coefficients.reverse();representations.append(PyList::new(py,coefficients.iter().map(|c|w(rat_expr(c))))?)?;}
+        values.push(representations.into_any().unbind());
+    }
+    // The generator is certified during construction; the returned linear
+    // combination and embeddings refer to this same primitive element.
+    let _=generator;
+    Ok(PyTuple::new(py,values)?.into_any().unbind())
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(minimal_polynomial,m)?)?;
+    m.add_function(wrap_pyfunction!(minpoly,m)?)?;
+    m.add_function(wrap_pyfunction!(primitive_element,m)?)?;
     m.add_class::<PyPoly>()?;
     m.add_function(wrap_pyfunction!(_rebuild_poly,m)?)?;
     m.add_function(wrap_pyfunction!(_rebuild_groebner,m)?)?;

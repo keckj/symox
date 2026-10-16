@@ -168,6 +168,11 @@ pub fn has_mp(e: &Expr) -> bool {
 /// Evaluate a numeric expression to `prec` bits. Returns `None` when the
 /// expression has free symbols or uses an unsupported function.
 pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
+    if matches!(e.kind(),Kind::Func(Func::Subs,_)){
+        let evaluated=crate::functions::doit(e,true);
+        if evaluated==*e{return None;}
+        return eval_mp(&evaluated,prec);
+    }
     let wp = prec + 20;
     let r = ev(e, wp)?;
     if !supported_magnitude(&r) { return None; }
@@ -226,6 +231,7 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
             acc
         }
         Kind::Pow(b, x) => pow_of(b, x, p)?,
+        Kind::Func(Func::Subs,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
         Kind::Func(f, args) => func(f, args, p)?,
         _ => return None,
     })
@@ -274,7 +280,7 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
     if let Func::Special(s) = f {
         return crate::special::mp::eval(*s, args, p);
     }
-    if matches!(f, Func::Undefined(name) if name.as_ref() == "UnevaluatedExpr") {
+    if matches!(f, Func::Undefined(name) if name.is_internal("UnevaluatedExpr")) {
         return ev(args.first()?, p);
     }
     if let Func::Atan2 = f {

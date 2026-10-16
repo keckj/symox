@@ -4,7 +4,7 @@ use num_integer::Integer;
 use num_traits::ToPrimitive;
 use rustc_hash::FxHashMap;
 
-use crate::expr::{Expr, Kind};
+use crate::expr::{Expr, Func, Kind};
 use crate::number::Number;
 use crate::ops::{add, add_from_terms, div, mul, mul2, mul_factor, pow};
 use crate::traverse::map_children;
@@ -17,7 +17,7 @@ pub fn xreplace(e: &Expr, map: &FxHashMap<Expr, Expr>) -> Expr {
     let mask: u64 = map.keys().fold(0, |m, k| m | k.mask());
     let all_masked = map.keys().all(|k| k.mask() != 0);
     let mut cache: FxHashMap<Expr, Expr> = FxHashMap::default();
-    xr(e, map, mask, all_masked, &mut cache)
+    xr(e, map, mask, all_masked, false, &mut cache)
 }
 
 fn xr(
@@ -25,6 +25,7 @@ fn xr(
     map: &FxHashMap<Expr, Expr>,
     mask: u64,
     all_masked: bool,
+    held_derivatives:bool,
     cache: &mut FxHashMap<Expr, Expr>,
 ) -> Expr {
     if let Some(v) = map.get(e) {
@@ -36,7 +37,32 @@ fn xr(
     if let Some(v) = cache.get(e) {
         return v.clone();
     }
-    let r = map_children(e, &mut |c| xr(c, map, mask, all_masked, cache));
+    if held_derivatives {
+        if let Kind::Func(Func::Subs,args)=e.kind(){
+            // Subs binds variables in its body.  Evaluation points are ordered:
+            // a bound variable may occur freely in its own/later points, while
+            // earlier points are protected by the later substitution.
+            let variables=args[1].args();
+            let body_map:FxHashMap<_,_>=map.iter().filter(|(key,_)|!variables.contains(key)).map(|(k,v)|(k.clone(),v.clone())).collect();
+            let body=xr(&args[0],&body_map,mask,all_masked,true,&mut FxHashMap::default());
+            let points=args[2].args().iter().enumerate().map(|(i,point)|{
+                let point_map:FxHashMap<_,_>=map.iter().filter(|(key,_)|!variables[i+1..].contains(key)).map(|(k,v)|(k.clone(),v.clone())).collect();
+                xr(point,&point_map,mask,all_masked,true,&mut FxHashMap::default())
+            }).collect();
+            let result=held_subs(&body,variables,points);
+            cache.insert(e.clone(),result.clone());
+            return result;
+        }
+        if let Kind::Derivative(_,vars)=e.kind(){
+            if vars.iter().any(|(v,_)|map.contains_key(v)){
+                let mut keys:Vec<_>=map.keys().filter(|key|crate::traverse::has(e,key)).cloned().collect();
+                keys.sort_by_cached_key(crate::sortkey::sort_key);
+                let points=keys.iter().map(|key|map[key].clone()).collect();
+                return held_subs(e,keys,points);
+            }
+        }
+    }
+    let r = map_children(e, &mut |c| xr(c, map, mask, all_masked, held_derivatives, cache));
     cache.insert(e.clone(), r.clone());
     r
 }
@@ -48,6 +74,34 @@ pub fn subs(e: &Expr, pairs: &[(Expr, Expr)]) -> Expr {
         r = subs1(&r, old, new);
     }
     r
+}
+
+pub fn held_subs(e:&Expr, variables:Vec<Expr>,points:Vec<Expr>)->Expr {
+    if variables.is_empty(){return e.clone();}
+    Expr::from_kind(Kind::Func(Func::Subs,vec![e.clone(),crate::functions::undefined("Tuple",variables),crate::functions::undefined("Tuple",points)]))
+}
+
+/// Simultaneous substitution for symbol keys, preserving differentiation
+/// variables by routing them through the same held-Subs rules as subs1.
+pub fn simultaneous(e:&Expr,pairs:&[(Expr,Expr)])->Expr {
+    if pairs.is_empty(){return e.clone();}
+    let map:FxHashMap<_,_>=pairs.iter().cloned().collect();
+    let mask=map.keys().fold(0,|m,k|m|k.mask());
+    let all_masked=map.keys().all(|k|k.mask()!=0);
+    xr(e,&map,mask,all_masked,true,&mut FxHashMap::default())
+}
+
+pub fn subs_doit(e:&Expr,variables:&[Expr],points:&[Expr])->Expr {
+    let active:Vec<_>=variables.iter().cloned().zip(points.iter().cloned()).filter(|(v,p)|v!=p).collect();
+    if active.is_empty(){return e.clone();}
+    fn bound_derivative(e:&Expr,variables:&[Expr])->bool {
+        if let Kind::Derivative(_,vars)=e.kind(){if vars.iter().any(|(v,_)|variables.contains(v)){return true;}}
+        e.args().iter().any(|a|bound_derivative(a,variables))
+    }
+    if bound_derivative(e,variables){return held_subs(e,variables.to_vec(),points.to_vec());}
+    // Like SymPy Subs.doit, evaluation follows the specified variable order;
+    // this is distinct from expr.subs(..., simultaneous=True).
+    subs(e,&active)
 }
 
 /// Substitute a single `old -> new` (with algebraic matching of sums,
@@ -67,10 +121,26 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Ex
     if let Some(v) = cache.get(e) {
         return v.clone();
     }
+    if let Kind::Func(Func::Subs,args)=e.kind(){
+        let variables=args[1].args();
+        if variables.contains(old) && (!new.is_symbol() || crate::traverse::has(&args[2],new) || variables.contains(new)){
+            let points=args[2].args().iter().map(|p|s1(p,old,new,cache)).collect();
+            return held_subs(&args[0],variables,points);
+        }
+    }
     // substituting a differentiation variable: keep an unevaluated Subs
     if let Kind::Derivative(_, vars) = e.kind() {
         if vars.iter().any(|(v, _)| v == old) {
-            return crate::functions::undefined("Subs", vec![e.clone(), old.clone(), new.clone()]);
+            if new.is_symbol() && !crate::traverse::has(e,new) {
+                let Kind::Derivative(inner,vars)=e.kind() else{unreachable!()};
+                let inner=subs1(inner,old,new);
+                let vars=vars.iter().map(|(v,n)|(if v==old{new.clone()}else{v.clone()},*n)).collect();
+                return crate::diff::derivative_unevaluated(&inner,vars);
+            }
+            return held_subs(e,vec![old.clone()],vec![new.clone()]);
+        }
+        if crate::traverse::has(e,old) && vars.iter().any(|(v,_)|crate::traverse::has(new,v)) {
+            return held_subs(e,vec![old.clone()],vec![new.clone()]);
         }
     }
     let r = match (e.kind(), old.kind()) {

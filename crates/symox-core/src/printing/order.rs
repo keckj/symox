@@ -14,8 +14,8 @@ use rustc_hash::FxHashMap;
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
 use crate::ops::{add_term, mul, mul_factor, pow};
-use crate::matrixexpr::MatrixExpr;
-use crate::sortkey::{matrix_presentation, PresentationArg};
+use crate::matrixexpr::{MatrixExpr, MatrixKind};
+use crate::sortkey::{matrix_ordered_terms, matrix_presentation, PresentationArg};
 
 // ----------------------------------------------------------------------
 // default_sort_key
@@ -78,6 +78,7 @@ impl PartialOrd for SortKey {
 }
 impl Ord for SortKey {
     fn cmp(&self, o: &Self) -> Ordering {
+        if std::ptr::eq(self, o) { return Ordering::Equal; }
         self.class
             .cmp(&o.class)
             .then_with(|| cmp_args(&self.args, &o.args))
@@ -94,7 +95,7 @@ impl Ord for SortKey {
 /// `Function.class_key` ordinals of the known functions.
 fn func_ordinal(f: &Func) -> u32 {
     match f {
-        Func::Undefined(_) => 0,
+        Func::Undefined(head) => crate::sortkey::undefined_ordinal(&head.name),
         Func::Exp => 10,
         Func::Log => 11,
         Func::Sin => 20,
@@ -130,6 +131,8 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Pow(..) => (3, 2, Cow::Borrowed("Pow")),
         Kind::Func(Func::Max, _) => (5, 0, Cow::Borrowed("Max")),
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs), _) => (5, 0, Cow::Owned(f.name().into())),
+        Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
         Kind::Func(f, _) => (4, func_ordinal(f), Cow::Owned(f.name().to_string())),
         Kind::Piecewise(_) => (4, 0, Cow::Borrowed("Piecewise")),
         Kind::Derivative(..) => (5, 0, Cow::Borrowed("Derivative")),
@@ -174,7 +177,10 @@ impl KeyCache {
 
     fn matrix_key(&mut self, matrix: &MatrixExpr) -> Rc<SortKey> {
         if let Some(key) = self.matrices.get(matrix) { return key.clone(); }
-        let presentation = matrix_presentation(matrix);
+        let mut presentation = matrix_presentation(matrix);
+        if let MatrixKind::Add(terms) = matrix.kind() {
+            presentation.args = matrix_ordered_terms(terms, |m| self.matrix_key(m)).into_iter().map(PresentationArg::Matrix).collect();
+        }
         let args: Vec<_> = presentation.args.into_iter().map(|arg| self.presentation_arg(arg)).collect();
         let key = Rc::new(self.composite(presentation.class, KArgs::List(args)));
         self.matrices.insert(matrix.clone(), key.clone());
@@ -193,6 +199,13 @@ impl KeyCache {
 
     fn compute(&mut self, e: &Expr) -> SortKey {
         match e.kind() {
+            Kind::Derivative(expression, variables) => {
+                let mut args = vec![self.key(expression)];
+                for (variable, count) in variables {
+                    args.push(self.presentation_arg(PresentationArg::Node("Tuple", vec![PresentationArg::Scalar(variable.clone()), PresentationArg::Scalar(Expr::int(*count as i64))])));
+                }
+                self.composite((5, 0, "Derivative"), KArgs::List(args))
+            }
             Kind::Func(Func::MatrixProxy(matrix), _) => (*self.matrix_key(matrix)).clone(),
             Kind::Func(Func::MatrixElement(matrix), args) => {
                 let mut keys = vec![self.matrix_key(matrix)];
@@ -239,7 +252,7 @@ impl KeyCache {
                     Kind::Pow(b, x) => (b.clone(), Some(x.clone())),
                     _ => (rest, None),
                 };
-                if matches!(expr.kind(), Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
                     let mut key = (*self.key(&expr)).clone();
                     key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
                     key.coeff = coeff;

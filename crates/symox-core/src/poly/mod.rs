@@ -41,3 +41,5 @@ pub mod fraction;
 pub mod algebraic;
 
 pub mod f5b;
+
+pub mod algebraic_model;

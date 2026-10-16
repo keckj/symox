@@ -79,7 +79,7 @@ fn form(
             Kind::Pow(base, exponent) if exponent.is_one() => {
                 result = form(base, variables, dependency, cache)?;
             }
-            Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => {
+            Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => {
                 result = form(&args[0], variables, dependency, cache)?;
             }
             _ => return Err(LinearError::Nonlinear(e.clone())),

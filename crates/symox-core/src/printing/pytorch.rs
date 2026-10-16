@@ -437,7 +437,7 @@ impl<'a> TorchPrinter<'a> {
             return self.unary(name, &args[0], mask, neutral);
         }
         match function {
-            Func::Undefined(name) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => {
+            Func::Undefined(name) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => {
                 self.expr(&args[0], mask)
             }
             Func::Im => {

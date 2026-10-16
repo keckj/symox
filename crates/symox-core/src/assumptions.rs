@@ -107,8 +107,17 @@ fn number_sign(n: &Number) -> Signs {
     }
 }
 
+fn declared(e:&Expr)->A {
+    match e.kind(){Kind::Sym(s)=>s.assumptions(),Kind::Func(Func::Undefined(f),_)=>f.assumptions,_=>A::NONE}
+}
+fn declared_signs(a:A)->Option<Signs>{
+    if !a.has(A::REAL){return None;}
+    Some(if a.has(A::ZERO){Signs::ZERO}else if a.has(A::POSITIVE){Signs::POS}else if a.has(A::NEGATIVE){Signs::NEG}else if a.has(A::NONNEGATIVE){Signs::NONNEG}else if a.has(A::NONPOSITIVE){Signs::NONPOS}else if a.has(A::NONZERO){Signs::NONZERO}else{Signs::ANY})
+}
+
 /// Sign set of `e` if `e` is known to be real (finite), else `None`.
 pub fn real_signs(e: &Expr) -> Option<Signs> {
+    if !declared(e).is_empty(){return declared_signs(declared(e));}
     match e.kind() {
         Kind::Num(n) => Some(number_sign(n)),
         Kind::Const(c) => match c {
@@ -292,6 +301,7 @@ pub fn is_real(e: &Expr) -> Option<bool> {
     if real_signs(e).is_some() {
         return Some(true);
     }
+    if declared(e).has(A::NOT_REAL){return Some(false);}
     match e.kind() {
         Kind::Pow(base,exponent) if exact::rational_power(base,exponent).and_then(|f| f.real).is_some() => exact::rational_power(base,exponent).and_then(|f| f.real),
         Kind::Const(Constant::I) => Some(false),
@@ -334,7 +344,7 @@ pub fn is_positive(e: &Expr) -> Option<bool> {
     if e.is_constant(Constant::Infinity) {
         return Some(true);
     }
-    if e.as_sym().is_some_and(|s|s.assumptions().has(A::NOT_POSITIVE)) || exact_queries(||is_real(e))==Some(false){return Some(false);}
+    if declared(e).has(A::NOT_POSITIVE) || exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s == Signs::POS {
         Some(true)
@@ -349,7 +359,7 @@ pub fn is_negative(e: &Expr) -> Option<bool> {
     if e.is_constant(Constant::NegInfinity) {
         return Some(true);
     }
-    if e.as_sym().is_some_and(|s|s.assumptions().has(A::NOT_NEGATIVE)) || exact_queries(||is_real(e))==Some(false){return Some(false);}
+    if declared(e).has(A::NOT_NEGATIVE) || exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s == Signs::NEG {
         Some(true)
@@ -385,6 +395,8 @@ pub fn is_nonpositive(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_zero(e: &Expr) -> Option<bool> {
+    if declared(e).has(A::NOT_ZERO){return Some(false);}
+    if declared(e).has(A::ZERO){return Some(true);}
     match e.kind() {
         Kind::Num(n) => return Some(n.is_zero()),
         Kind::Sym(s) if s.assumptions().has(A::NOT_ZERO) => return Some(false),
@@ -416,6 +428,8 @@ pub fn is_zero(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_nonzero(e: &Expr) -> Option<bool> {
+    if declared(e).has(A::NONZERO){return Some(true);}
+    if declared(e).has(A::NOT_NONZERO){return Some(false);}
     if let Kind::Sym(s)=e.kind() {
         if s.assumptions().has(A::NOT_NONZERO){return Some(false);}
         if s.assumptions().has(A::NONZERO){return Some(true);}
@@ -428,6 +442,8 @@ pub fn is_nonzero(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_integer(e: &Expr) -> Option<bool> {
+    if declared(e).has(A::INTEGER){return Some(true);}
+    if declared(e).has(A::NOT_INTEGER){return Some(false);}
     match e.kind() {
         Kind::Num(n) => Some(n.is_integer()),
         Kind::Sym(s) => {
@@ -493,6 +509,8 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_rational(e: &Expr) -> Option<bool> {
+    if declared(e).has(A::RATIONAL){return Some(true);}
+    if declared(e).has(A::NOT_RATIONAL)||declared(e).has(A::IRRATIONAL){return Some(false);}
     if exact_queries(||is_real(e))==Some(false){return Some(false);}
     match e.kind() {
         Kind::Num(n) => if n.is_float(){None}else{Some(true)},
@@ -611,6 +629,7 @@ pub fn is_odd(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_finite(e: &Expr) -> Option<bool> {
+    if declared(e).has(A::FINITE){return Some(true);}
     match e.kind() {
         Kind::Num(_) => Some(true),
         Kind::Const(c) => Some(!c.is_infinite() && *c != Constant::NaN),

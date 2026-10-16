@@ -1,7 +1,5 @@
 //! Elementary and special functions with SymPy-like automatic evaluation.
 
-use std::sync::Arc;
-
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
 use crate::ops::{
@@ -14,6 +12,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
         Func::Order => return crate::series::order::order_from_args(&args),
+        Func::Subs=>return Expr::from_kind(Kind::Func(f,args)),
         Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
@@ -109,7 +108,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_)
+        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Subs | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => None,
     };
     match r {
@@ -132,7 +131,8 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             parent.and_then(|p| p.determinant().ok()).unwrap_or_else(|| e.clone())
         }
         Kind::Derivative(inner, variables) => crate::diff::diff_many(&child(inner), variables),
-        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" => child(&args[0]),
+        Kind::Func(Func::Subs,args)=>crate::subs::subs_doit(&doit(&args[0],deep),&args[1].args(),&args[2].args()),
+        Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") => child(&args[0]),
         Kind::Add(..) if !e.is_canonical() => add(&e.args().iter().map(child).collect::<Vec<_>>()),
         Kind::Mul(..) if !e.is_canonical() => mul(&e.args().iter().map(child).collect::<Vec<_>>()),
         Kind::Pow(base, exponent) if !e.is_canonical() => pow(&child(base), &child(exponent)),
@@ -180,7 +180,7 @@ pub fn is_numeric_value(e: &Expr) -> bool {
             false
         }
         Kind::Func(Func::Logic(_) | Func::Set(_), _) => false,
-        Kind::Func(Func::Undefined(n), a) => &**n == "Tuple" && a.iter().all(is_numeric_value),
+        Kind::Func(Func::Undefined(n), a) => n.is_internal("Tuple") && a.iter().all(is_numeric_value),
         _ => e.args().iter().all(is_numeric_value),
     }
 }
@@ -229,8 +229,12 @@ pub fn log_base(x: &Expr, b: &Expr) -> Expr {
 
 /// Applied undefined function `name(args...)`.
 pub fn undefined(name: &str, args: Vec<Expr>) -> Expr {
-    func(Func::Undefined(Arc::from(name)), args)
+    func(Func::Undefined(name.into()), args)
 }
+
+#[cfg(test)]
+#[path="functions_api_tests.rs"]
+mod functions_api_tests;
 
 // --------------------------------------------------------------------
 // helpers

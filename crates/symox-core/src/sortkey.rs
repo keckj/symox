@@ -5,6 +5,8 @@
 //! orderings exactly is what makes the printed output identical.
 
 use std::cmp::Ordering;
+use std::sync::Arc;
+use rustc_hash::FxHashMap;
 
 use num_complex::Complex64;
 
@@ -39,13 +41,16 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
         }
         MatrixKind::Identity => vec![S(matrix.rows().clone())],
         MatrixKind::Zero | MatrixKind::One => vec![S(matrix.rows().clone()), S(matrix.cols().clone())],
-        MatrixKind::HadamardProduct(factors) | MatrixKind::Kronecker(factors) => factors.iter().cloned().map(M).collect(),
+        MatrixKind::HadamardProduct(factors) | MatrixKind::Kronecker(factors) | MatrixKind::BlockDiag(factors) => factors.iter().cloned().map(M).collect(),
+        MatrixKind::Slice(parent, rows, cols) => vec![M(parent.clone()),
+            PresentationArg::Node("Tuple", rows.iter().cloned().map(S).collect()),
+            PresentationArg::Node("Tuple", cols.iter().cloned().map(S).collect())],
         MatrixKind::HadamardPower(base, exponent) => [base, exponent].into_iter().map(|operand| match operand {
             MatrixOperand::Scalar(e) => S(e.clone()), MatrixOperand::Matrix(m) => M(m.clone()),
         }).collect(),
         MatrixKind::Add(terms) => {
             class = (3, 1, "MatAdd");
-            matrix_ordered_terms(terms).into_iter().map(M).collect()
+            terms.iter().cloned().map(M).collect()
         }
         MatrixKind::Mul(c, factors) => {
             class = (3, 0, "MatMul");
@@ -66,7 +71,7 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
 
 /// Matrix sums order scalar monomials first, then ordered noncommutative
 /// factors. A scalar coefficient must not make `2*B` sort before `A`.
-fn matrix_ordered_terms(terms: &[MatrixExpr]) -> Vec<MatrixExpr> {
+pub(crate) fn matrix_ordered_terms<K: Ord>(terms: &[MatrixExpr], mut matrix_key: impl FnMut(&MatrixExpr) -> K) -> Vec<MatrixExpr> {
     let mut gens = Vec::new();
     let mut entries = Vec::new();
     for term in terms {
@@ -84,7 +89,7 @@ fn matrix_ordered_terms(terms: &[MatrixExpr]) -> Vec<MatrixExpr> {
             if !gens.contains(&base) { gens.push(base.clone()); }
             monomial.push((base, exponent));
         }
-        entries.push((term.clone(), monomial, factors.iter().map(matrix_sort_key).collect::<Vec<_>>(), coefficient));
+        entries.push((term.clone(), monomial, factors.iter().map(&mut matrix_key).collect::<Vec<_>>(), coefficient));
     }
     gens.sort_by_cached_key(sort_key);
     let mut keyed: Vec<_> = entries.into_iter().map(|(term, monomial, ncpart, coeff)| {
@@ -98,15 +103,6 @@ fn matrix_ordered_terms(terms: &[MatrixExpr]) -> Vec<MatrixExpr> {
     keyed.into_iter().map(|(_, _, _, term)| term).collect()
 }
 
-fn presentation_key(arg: PresentationArg) -> Key {
-    match arg {
-        PresentationArg::Scalar(e) => sort_key(&e),
-        PresentationArg::Matrix(m) => matrix_sort_key(&m),
-        PresentationArg::Text(s) => composite_key((2, 0, "Str"), vec![Key::Str(s)]),
-        PresentationArg::Node(name, args) => composite_key((5, 0, name), args.into_iter().map(presentation_key).collect()),
-    }
-}
-
 fn composite_key(class: (u8, u32, &str), args: Vec<Key>) -> Key {
     tup(vec![
         tup(vec![Key::Int(class.0.into()), Key::Int(class.1.into()), Key::Str(class.2.into())]),
@@ -116,9 +112,7 @@ fn composite_key(class: (u8, u32, &str), args: Vec<Key>) -> Key {
 }
 
 pub fn matrix_sort_key(matrix: &MatrixExpr) -> Key {
-    let presentation = matrix_presentation(matrix);
-    let args: Vec<_> = presentation.args.into_iter().map(presentation_key).collect();
-    composite_key(presentation.class, args)
+    SortKeyCache { memo_scalars: true, ..Default::default() }.matrix_key(matrix)
 }
 
 /// A Python-tuple like sort key.
@@ -128,6 +122,7 @@ pub enum Key {
     Str(String),
     Num(Number),
     Tup(Vec<Key>),
+    Shared(Arc<[Key]>),
 }
 
 impl Key {
@@ -136,8 +131,12 @@ impl Key {
             Key::Int(_) => 0,
             Key::Num(_) => 0,
             Key::Str(_) => 1,
-            Key::Tup(_) => 2,
+            Key::Tup(_) | Key::Shared(_) => 2,
         }
+    }
+
+    fn tuple(&self) -> Option<&[Key]> {
+        match self { Key::Tup(v) => Some(v), Key::Shared(v) => Some(v), _ => None }
     }
 }
 
@@ -147,21 +146,20 @@ fn cmp_num(a: &Number, b: &Number) -> Ordering {
 
 impl Ord for Key {
     fn cmp(&self, o: &Key) -> Ordering {
+        if let (Some(a), Some(b)) = (self.tuple(), o.tuple()) {
+            if a.len() == b.len() && std::ptr::eq(a.as_ptr(), b.as_ptr()) { return Ordering::Equal; }
+            for (x, y) in a.iter().zip(b.iter()) {
+                let comparison = x.cmp(y);
+                if comparison != Ordering::Equal { return comparison; }
+            }
+            return a.len().cmp(&b.len());
+        }
         match (self, o) {
             (Key::Int(a), Key::Int(b)) => a.cmp(b),
             (Key::Num(a), Key::Num(b)) => cmp_num(a, b),
             (Key::Int(a), Key::Num(b)) => cmp_num(&Number::Int(*a), b),
             (Key::Num(a), Key::Int(b)) => cmp_num(a, &Number::Int(*b)),
             (Key::Str(a), Key::Str(b)) => a.cmp(b),
-            (Key::Tup(a), Key::Tup(b)) => {
-                for (x, y) in a.iter().zip(b) {
-                    let r = x.cmp(y);
-                    if r != Ordering::Equal {
-                        return r;
-                    }
-                }
-                a.len().cmp(&b.len())
-            }
             _ => self.rank().cmp(&o.rank()),
         }
     }
@@ -182,6 +180,23 @@ fn tup(v: Vec<Key>) -> Key {
     Key::Tup(v)
 }
 
+fn share_key(key: Key) -> Key {
+    match key {
+        Key::Tup(children) => Key::Shared(children.into_iter().map(share_key).collect::<Vec<_>>().into()),
+        other => other,
+    }
+}
+
+pub(crate) fn undefined_ordinal(name: &str) -> u32 {
+    match name {
+        "exp" => 10, "log" => 11,
+        "sin" => 20, "cos" => 21, "tan" => 22, "cot" => 23,
+        "sinh" => 30, "cosh" => 31, "tanh" => 32, "coth" => 33,
+        "conjugate" => 40, "re" => 41, "im" => 42, "arg" => 43,
+        _ => 0,
+    }
+}
+
 fn class_key(e: &Expr) -> Key {
     let (a, b, n): (i64, i64, String) = match e.kind() {
         Kind::Num(_) => (1, 0, "Number".into()),
@@ -195,7 +210,8 @@ fn class_key(e: &Expr) -> Key {
         Kind::Pow(..) => (3, 2, "Pow".into()),
         Kind::Mul(..) => (3, 0, "Mul".into()),
         Kind::Add(..) => (3, 1, "Add".into()),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_)), _) => (5, 0, f.name().into()),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs), _) => (5, 0, f.name().into()),
+        Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         Kind::Func(f, _) => {
             let i = match f {
                 Func::Exp => 10,
@@ -212,7 +228,8 @@ fn class_key(e: &Expr) -> Key {
                 Func::Re => 41,
                 Func::Im => 42,
                 Func::Arg => 43,
-                Func::Undefined(_) | Func::Max | Func::Min => 0,
+                Func::Undefined(head) => undefined_ordinal(&head.name).into(),
+                Func::Max | Func::Min => 0,
                 _ => 10000,
             };
             (4, i, f.name().into())
@@ -234,15 +251,68 @@ fn number_key(n: Number) -> Key {
 
 /// SymPy's `default_sort_key`.
 pub fn sort_key(e: &Expr) -> Key {
+    SortKeyCache { memo_scalars: e.has_matrix(), ..Default::default() }.key(e)
+}
+
+/// Each scalar and matrix node is keyed once; tuple children retain sharing.
+#[derive(Default)]
+struct SortKeyCache {
+    memo_scalars: bool,
+    scalars: FxHashMap<Expr, Key>,
+    matrices: FxHashMap<MatrixExpr, Key>,
+}
+
+impl SortKeyCache {
+    fn key(&mut self, e: &Expr) -> Key {
+        if !self.memo_scalars { return self.compute(e); }
+        if let Some(key) = self.scalars.get(e) { return key.clone(); }
+        let key = share_key(self.compute(e));
+        self.scalars.insert(e.clone(), key.clone());
+        key
+    }
+
+    fn presentation_key(&mut self, arg: PresentationArg) -> Key {
+        match arg {
+            PresentationArg::Scalar(e) => self.key(&e),
+            PresentationArg::Matrix(m) => self.matrix_key(&m),
+            PresentationArg::Text(s) => composite_key((2, 0, "Str"), vec![Key::Str(s)]),
+            PresentationArg::Node(name, args) => {
+                let args = args.into_iter().map(|arg| self.presentation_key(arg)).collect();
+                composite_key((5, 0, name), args)
+            }
+        }
+    }
+
+    fn matrix_key(&mut self, matrix: &MatrixExpr) -> Key {
+        if let Some(key) = self.matrices.get(matrix) { return key.clone(); }
+        let mut presentation = matrix_presentation(matrix);
+        if let MatrixKind::Add(terms) = matrix.kind() {
+            presentation.args = matrix_ordered_terms(terms, |m| self.matrix_key(m)).into_iter().map(PresentationArg::Matrix).collect();
+        }
+        let args = presentation.args.into_iter().map(|arg| self.presentation_key(arg)).collect();
+        let key = share_key(composite_key(presentation.class, args));
+        self.matrices.insert(matrix.clone(), key.clone());
+        key
+    }
+
+    fn compute(&mut self, e: &Expr) -> Key {
     match e.kind() {
-        Kind::Func(Func::MatrixProxy(matrix), _) => return matrix_sort_key(matrix),
+        Kind::Derivative(expression, variables) => {
+            let mut args = vec![self.key(expression)];
+            for (variable, count) in variables {
+                let args_variable = vec![self.key(variable), number_key(Number::Int(*count as i64))];
+                args.push(composite_key((5, 0, "Tuple"), args_variable));
+            }
+            return composite_key((5, 0, "Derivative"), args);
+        }
+        Kind::Func(Func::MatrixProxy(matrix), _) => return self.matrix_key(matrix),
         Kind::Func(Func::MatrixElement(matrix), args) => {
-            let mut keys = vec![matrix_sort_key(matrix)];
-            keys.extend(args.iter().map(sort_key));
+            let mut keys = vec![self.matrix_key(matrix)];
+            keys.extend(args.iter().map(|arg| self.key(arg)));
             return composite_key((5, 0, "MatrixElement"), keys);
         }
         Kind::Func(f @ (Func::MatrixTrace(matrix) | Func::MatrixDeterminant(matrix)), _) => {
-            return composite_key((5, 0, f.name()), vec![matrix_sort_key(matrix)]);
+            return composite_key((5, 0, f.name()), vec![self.matrix_key(matrix)]);
         }
         Kind::Num(n) => return number_key(n.clone()),
         Kind::Const(Constant::Infinity) => return number_key(Number::Float(f64::INFINITY)),
@@ -257,29 +327,32 @@ pub fn sort_key(e: &Expr) -> Key {
         Kind::Pow(b, x) => (b.clone(), x.clone()),
         _ => (rest.clone(), Expr::one()),
     };
-    if matches!(base.kind(), Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
-        if let Key::Tup(mut parts) = sort_key(&base) {
-            parts[2] = sort_key(&exp);
-            parts[3] = Key::Num(coeff);
-            return Key::Tup(parts);
-        }
-        unreachable!("matrix sort keys are tuples");
+    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+        let mut parts = match self.key(&base) {
+            Key::Tup(parts) => parts,
+            Key::Shared(parts) => parts.to_vec(),
+            _ => unreachable!("expression sort keys are tuples"),
+        };
+        parts[2] = self.key(&exp);
+        parts[3] = Key::Num(coeff);
+        return tup(parts);
     }
     let args: Vec<Key> = if base.is_atom() {
         vec![Key::Str(crate::printer::to_str(&base))]
     } else {
         match base.kind() {
-            Kind::Add(..) => ordered_terms(&base).iter().map(sort_key).collect(),
-            Kind::Mul(..) => ordered_factors(&base).iter().map(sort_key).collect(),
-            _ => base.args().iter().map(sort_key).collect(),
+            Kind::Add(..) => ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
+            Kind::Mul(..) => ordered_factors(&base).iter().map(|arg| self.key(arg)).collect(),
+            _ => base.args().iter().map(|arg| self.key(arg)).collect(),
         }
     };
     tup(vec![
         class_key(&base),
         tup(vec![Key::Int(args.len() as i64), tup(args)]),
-        sort_key(&exp),
+        self.key(&exp),
         Key::Num(coeff),
     ])
+    }
 }
 
 /// SymPy's `as_ordered_factors` for a product (numbers first).
@@ -413,4 +486,23 @@ fn is_number_symbol(e: &Expr) -> bool {
 /// Compare expressions using SymPy default ordering.
 pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
     sort_key(a).cmp(&sort_key(b))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_and_owned_sort_keys_have_identical_ordering() {
+        let keys: Vec<_> = ["0", "-1", "1/2", "x", "y", "x**2", "sin(x)", "x+y", "x*y"]
+            .iter().map(|text| sort_key(&crate::parser::parse_str(text).unwrap())).collect();
+        for a in &keys {
+            for b in &keys {
+                let expected = a.cmp(b);
+                assert_eq!(a.cmp(&share_key(b.clone())), expected);
+                assert_eq!(share_key(a.clone()).cmp(b), expected);
+                assert_eq!(share_key(a.clone()).cmp(&share_key(b.clone())), expected);
+            }
+        }
+    }
 }
