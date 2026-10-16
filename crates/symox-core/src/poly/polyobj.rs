@@ -434,34 +434,14 @@ impl Poly {
     /// Pseudo-division with respect to the first generator:
     /// `lc(g)**(deg f - deg g + 1) * f = q*g + r`.
     pub fn pdiv(&self, o: &Poly) -> PResult<(Poly, Poly)> {
+        if self.modulus.is_some()&&o.modulus.is_some()&&self.modulus!=o.modulus{return Err(PolyError::Unsupported("cannot pseudo-divide polynomials over different finite fields".into()));}
         let (a, b) = self.unify(o);
         if b.rep.is_zero() {
             return Err(PolyError::Unsupported("polynomial division by zero".into()));
         }
-        let n = a.gens.len();
-        let f = &a.rep;
-        let g = &b.rep;
-        let db = g.degree(0);
-        let lb = g.lc_in(0);
-        let mut q = MPoly::zero(n);
-        let mut r = f.clone();
-        let mut steps = (f.degree(0) - db + 1).max(0) as u32;
-        while !r.is_zero() && r.degree(0) >= db {
-            let j = (r.degree(0) - db) as u32;
-            let lr = r.lc_in(0);
-            let mut e = vec![0u32; n];
-            e[0] = j;
-            let t = lr.mul_term(&e, &Rat::one());
-            q = q.mul(&lb).add(&t);
-            r = r.mul(&lb).sub(&t.mul(g));
-            steps = steps.saturating_sub(1);
-        }
-        if steps > 0 {
-            let c = lb.pow(steps);
-            q = q.mul(&c);
-            r = r.mul(&c);
-        }
-        Ok((a.with_rep(q), a.with_rep(r)))
+        if a.modulus.is_some(){return super::fraction::Polynomial::from(a).pdiv(&super::fraction::Polynomial::from(b)).map(|(q,r)|(q.base,r.base));}
+        let(q,r)=super::pseudo::pdiv(&a.rep,&b.rep,0)?;
+        Ok((a.with_rep(q),a.with_rep(r)))
     }
 
     /// Exact quotient (error if not exact).

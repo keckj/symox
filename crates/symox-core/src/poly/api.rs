@@ -1279,76 +1279,12 @@ fn partial_fractions(p: &[Int], q: &[Int]) -> Vec<(Vec<Rat>, Vec<Int>, u32)> {
 // collect
 // ----------------------------------------------------------------------
 
-fn factor_list_of(t: &Expr) -> (Number, Vec<(Expr, Expr)>) {
-    match t.kind() {
-        Kind::Num(n) => (n.clone(), vec![]),
-        Kind::Mul(c, facs) => (c.clone(), facs.clone()),
-        Kind::Pow(b, x) => (Number::ONE, vec![(b.clone(), x.clone())]),
-        _ => (Number::ONE, vec![(t.clone(), Expr::one())]),
+/// `collect(expr, syms)` with default expression-valued options.
+pub fn collect(e:&Expr,syms:&[Expr])->Expr{
+    match super::collect::run::<std::convert::Infallible>(e,syms,super::collect::Options::default(),true,None){
+        Ok(super::collect::Collection::Expression(value))=>value,
+        _=>e.clone(),
     }
-}
-
-/// Try to extract `sym**k` from a term: `(sym**k, rest)`.
-fn extract(term: &Expr, sym: &Expr) -> Option<(Expr, Expr)> {
-    let (c, facs) = factor_list_of(term);
-    let (sb, se) = match sym.kind() {
-        Kind::Pow(b, x) => (b.clone(), x.clone()),
-        _ => (sym.clone(), Expr::one()),
-    };
-    for (i, (b, x)) in facs.iter().enumerate() {
-        if *b == sb {
-            // exponent ratio
-            let ratio = div(x, &se);
-            let ok = match ratio.as_number() {
-                Some(n) => n.is_rational() && !n.is_zero(),
-                None => false,
-            };
-            if !ok {
-                continue;
-            }
-            let key = pow(sym, &ratio);
-            let mut rest: Vec<Expr> = vec![Expr::num(c.clone())];
-            for (j, (b2, x2)) in facs.iter().enumerate() {
-                if j != i {
-                    rest.push(mul_factor(b2, x2));
-                }
-            }
-            return Some((key, mul(&rest)));
-        }
-    }
-    None
-}
-
-/// `collect(expr, syms)`.
-pub fn collect(e: &Expr, syms: &[Expr]) -> Expr {
-    let terms: Vec<Expr> = match e.kind() {
-        Kind::Add(..) => e.args(),
-        _ => vec![e.clone()],
-    };
-    let mut disliked: Vec<Expr> = Vec::new();
-    let mut collected: Vec<(Expr, Vec<Expr>)> = Vec::new();
-    for t in terms {
-        let mut done = false;
-        for s in syms {
-            if let Some((key, rest)) = extract(&t, s) {
-                if let Some(g) = collected.iter_mut().find(|g| g.0 == key) {
-                    g.1.push(rest);
-                } else {
-                    collected.push((key, vec![rest]));
-                }
-                done = true;
-                break;
-            }
-        }
-        if !done {
-            disliked.push(t);
-        }
-    }
-    let mut parts = disliked;
-    for (k, rs) in collected {
-        parts.push(mul(&[k, add(&rs)]));
-    }
-    add(&parts)
 }
 
 #[cfg(test)]

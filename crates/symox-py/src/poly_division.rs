@@ -1,4 +1,4 @@
-//! Shared, typed front end for the four global polynomial division functions.
+//! Shared, typed front end for ordinary division and pseudo-division.
 use super::*;
 use pyo3::create_exception;
 use symox::poly::domains::ExactDomain;
@@ -6,12 +6,22 @@ use symox::poly::groebner::MonomialOrder;
 
 create_exception!(symox, OptionError, PyValueError);
 create_exception!(symox, UnificationFailed, PyValueError);
+create_exception!(symox, FlagError, OptionError);
 
 pub enum Operation {
     Div,
     Rem,
     Quo,
     Exquo,
+    Pdiv,
+    Prem,
+    Pquo,
+    Pexquo,
+}
+impl Operation {
+    fn is_pseudo(&self) -> bool {
+        matches!(self, Self::Pdiv | Self::Prem | Self::Pquo | Self::Pexquo)
+    }
 }
 struct Options<'py> {
     auto: bool,
@@ -39,7 +49,11 @@ fn boolean(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<bool>> {
     )))
 }
 impl<'py> Options<'py> {
-    fn parse(gens: &Bound<'py, PyTuple>, kw: Option<&Bound<'py, PyDict>>) -> PyResult<Self> {
+    fn parse(
+        gens: &Bound<'py, PyTuple>,
+        kw: Option<&Bound<'py, PyDict>>,
+        allow_auto: bool,
+    ) -> PyResult<Self> {
         let mut out = Self {
             auto: true,
             polys: None,
@@ -53,7 +67,14 @@ impl<'py> Options<'py> {
             for (key, value) in kw.iter() {
                 let key = key.extract::<String>()?;
                 match key.as_str() {
-                    "auto" => out.auto = boolean(&value, "auto")?.unwrap_or(true),
+                    "auto" => {
+                        if !allow_auto {
+                            return Err(FlagError::new_err(
+                                "'auto' flag is not allowed in pseudo-division",
+                            ));
+                        }
+                        out.auto = boolean(&value, "auto")?.unwrap_or(true);
+                    }
                     "polys" => out.polys = boolean(&value, "polys")?,
                     "field" => out.field = boolean(&value, "field")?,
                     "domain" if !value.is_none() => out.domain = Some(value),
@@ -297,8 +318,9 @@ impl Inputs {
         g: &Bound<'py, PyAny>,
         gens: &Bound<'py, PyTuple>,
         kw: Option<&Bound<'py, PyDict>>,
+        operation: &Operation,
     ) -> PyResult<Self> {
-        let opts = Options::parse(gens, kw)?;
+        let opts = Options::parse(gens, kw, !operation.is_pseudo())?;
         let inherited = inherited_extension(f, g, &opts)?;
         let fp = f.downcast::<PyPoly>().ok();
         let gp = g.downcast::<PyPoly>().ok();
@@ -476,6 +498,24 @@ impl Inputs {
                 py,
                 self.a.exquo_with_options(&self.b, self.auto).map_err(err)?,
             ),
+            Operation::Pdiv | Operation::Prem | Operation::Pquo | Operation::Pexquo => {
+                let (q, r) = self.a.pdiv(&self.b).map_err(err)?;
+                match op {
+                    Operation::Pdiv => Ok(PyTuple::new(
+                        py,
+                        [self.render(py, q)?, self.render(py, r)?],
+                    )?
+                    .into_any()
+                    .unbind()),
+                    Operation::Prem => self.render(py, r),
+                    Operation::Pexquo if !r.is_zero() => {
+                        Err(domains::ExactQuotientFailed::new_err(
+                            "pseudo-division has a nonzero remainder",
+                        ))
+                    }
+                    _ => self.render(py, q),
+                }
+            }
         }
     }
 }
@@ -486,10 +526,11 @@ pub fn run<'py>(
     kw: Option<&Bound<'py, PyDict>>,
     op: Operation,
 ) -> PyResult<PyObject> {
-    Inputs::build(f, g, gens, kw)?.calculate(f.py(), op)
+    Inputs::build(f, g, gens, kw, &op)?.calculate(f.py(), op)
 }
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("OptionError", m.py().get_type::<OptionError>())?;
+    m.add("FlagError", m.py().get_type::<FlagError>())?;
     m.add("UnificationFailed", m.py().get_type::<UnificationFailed>())?;
     Ok(())
 }

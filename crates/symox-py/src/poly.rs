@@ -1105,6 +1105,14 @@ impl PyPoly {
         Ok(PyPoly { p: (self.p.exquo_with_options(&q,auto).map_err(err)?).into() })
     }
 
+    fn pdiv<'py>(&self,py:Python<'py>,o:&Bound<'_,PyAny>)->PyResult<Bound<'py,PyTuple>>{
+        let other=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial with compatible coefficient domain"))?;
+        let(q,r)=self.p.pdiv(&other).map_err(err)?;PyTuple::new(py,[PyPoly{p:q},PyPoly{p:r}])
+    }
+    fn prem(&self,o:&Bound<'_,PyAny>)->PyResult<PyPoly>{let other=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial with compatible coefficient domain"))?;Ok(PyPoly{p:self.p.prem(&other).map_err(err)?})}
+    fn pquo(&self,o:&Bound<'_,PyAny>)->PyResult<PyPoly>{let other=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial with compatible coefficient domain"))?;Ok(PyPoly{p:self.p.pquo(&other).map_err(err)?})}
+    fn pexquo(&self,o:&Bound<'_,PyAny>)->PyResult<PyPoly>{let other=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial with compatible coefficient domain"))?;Ok(PyPoly{p:self.p.pexquo(&other).map_err(err)?})}
+
     #[pyo3(signature=(g,auto=true))]
     fn gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
         let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
@@ -1715,33 +1723,30 @@ fn apart(f: &Bound<'_, PyAny>, x: Option<&Bound<'_, PyAny>>, full: bool, _kwargs
 }
 
 #[pyfunction]
-#[pyo3(signature = (expr, syms, func=None, evaluate=true, **_kwargs))]
-fn collect(expr: &Bound<'_, PyAny>, syms: &Bound<'_, PyAny>, func: Option<&Bound<'_, PyAny>>, evaluate: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    let _ = evaluate;
-    let py = expr.py();
-    let e = to_expr(expr)?;
-    let syms = match list_items(syms) {
-        Some(v) => v,
-        None => vec![to_expr(syms)?],
-    };
-    let r = api::collect(&e, &syms);
-    match func {
-        Some(f) => {
-            // apply func to each collected coefficient
-            let parts: Vec<Expr> = match r.kind() {
-                symox::Kind::Add(..) => r.args(),
-                _ => vec![r.clone()],
-            };
-            let mut out = Vec::new();
-            for t in parts {
-                out.push(to_expr(&f.call1((w(t),))?)?);
-            }
-            Ok(w(symox::ops::add(&out)).into_pyobject(py)?.into_any().unbind())
+#[pyo3(signature=(expr,syms,func=None,evaluate=None,exact=Some(false),distribute_order_term=true,**_kwargs))]
+fn collect(expr:&Bound<'_,PyAny>,syms:&Bound<'_,PyAny>,func:Option<&Bound<'_,PyAny>>,evaluate:Option<bool>,exact:Option<bool>,distribute_order_term:bool,_kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
+    use symox::poly::collect::{self,Collection,Error,Options};
+    if let Some(kwargs)=_kwargs{if let Some((key,_))=kwargs.iter().next(){return Err(PyTypeError::new_err(format!("collect() got an unexpected keyword argument '{}'",key.extract::<String>()?)));}}
+    let exact=exact.ok_or_else(||PyNotImplementedError::new_err("collect(exact=None) is not implemented; use exact=True or exact=False"))?;
+    let e=to_expr(expr)?;
+    let patterns=if let Ok(native)=syms.downcast::<PyExpr>(){
+        if let Some(items)=symox::special::tuple_items(&native.get().e){items.to_vec()}else{vec![native.get().e.clone()]}
+    }else if !syms.is_instance_of::<pyo3::types::PyString>(){
+        if let Ok(items)=syms.try_iter(){items.map(|value|to_expr(&value?)).collect::<PyResult<Vec<_>>>()?}else{vec![to_expr(syms)?]}
+    }else{vec![to_expr(syms)?]};
+    let func=func.filter(|value|!value.is_none());
+    if func.is_some_and(|value|!value.is_callable()){return Err(PyTypeError::new_err("collect func must be callable"));}
+    let mut callback=|value:&Expr|->PyResult<Expr>{to_expr(&func.unwrap().call1((w(value.clone()),))?)};
+    let callback=if func.is_some(){Some(&mut callback as &mut dyn FnMut(&Expr)->PyResult<Expr>)}else{None};
+    let result=collect::run(&e,&patterns,Options{exact,distribute_order_term},evaluate.unwrap_or(true),callback).map_err(|error|match error{Error::Unsupported(message)=>PyNotImplementedError::new_err(message),Error::Callback(error)=>error})?;
+    let py=expr.py();
+    match result{
+        Collection::Expression(value)=>Ok(w(value).into_pyobject(py)?.into_any().unbind()),
+        Collection::Dictionary(pairs)=>{
+            let dictionary=PyDict::new(py);for(key,value)in pairs{dictionary.set_item(w(key),w(value))?;}Ok(dictionary.into_any().unbind())
         }
-        None => Ok(w(r).into_pyobject(py)?.into_any().unbind()),
     }
 }
-
 
 #[pyfunction]
 #[pyo3(name = "div", signature = (f, g, *gens, **_kwargs))]
@@ -1894,44 +1899,21 @@ fn rem<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kw
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn quo<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Quo)}
 
-fn pdiv_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>) -> PyResult<(Expr, Expr, Vec<Expr>, bool)> {
-    let as_poly = f.downcast::<PyPoly>().is_ok() || g.downcast::<PyPoly>().is_ok();
-    let mut gv = gens_of(gens)?;
-    if gv.is_empty() {
-        if let Ok(p) = f.downcast::<PyPoly>() {
-            gv = p.get().p.true_gens().to_vec();
-        }
-    }
-    let (q, r) = api::pdiv_expr(&to_expr(f)?, &to_expr(g)?, &gv).map_err(err)?;
-    Ok((q, r, gv, as_poly))
-}
+#[pyfunction]
+#[pyo3(signature = (f, g, *gens, **_kwargs))]
+fn pdiv<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Pdiv)}
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn pdiv<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
-    let (q, r, gv, as_poly) = pdiv_like(f, g, gens)?;
-    PyTuple::new(py, [poly_result(py, q, as_poly, &gv)?, poly_result(py, r, as_poly, &gv)?])
-}
+fn prem<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Prem)}
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn prem(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    let (_, r, gv, as_poly) = pdiv_like(f, g, gens)?;
-    poly_result(py, r, as_poly, &gv)
-}
+fn pquo<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Pquo)}
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn pquo(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    let (q, _, gv, as_poly) = pdiv_like(f, g, gens)?;
-    poly_result(py, q, as_poly, &gv)
-}
-
-#[pyfunction]
-#[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn pexquo(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    Ok(w(api::pexquo_expr(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?))
-}
+fn pexquo<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,_kwargs:Option<&Bound<'py,PyDict>>)->PyResult<PyObject>{division::run(f,g,gens,_kwargs,division::Operation::Pexquo)}
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]

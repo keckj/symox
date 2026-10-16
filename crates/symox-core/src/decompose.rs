@@ -9,6 +9,101 @@ use crate::{ops,traverse};
 
 fn args(e:&Expr)->Vec<Expr>{traverse::ordered_args(e)}
 
+/// Public power view. Internal multiplication keeps the literal base so that
+/// this presentation rule cannot change automatic evaluation.
+pub fn as_base_exp(e:&Expr)->(Expr,Expr){
+    match e.kind(){
+        Kind::Const(Constant::I)=>(Expr::minus_one(),Expr::rational(1,2)),
+        Kind::Func(crate::expr::Func::Exp,a)=>(Expr::e(),a[0].clone()),
+        Kind::Pow(base,exponent)=>{
+            if let Some((numerator,denominator))=base.as_number().filter(|n|n.is_rational()).and_then(Number::numer_denom){
+                if numerator.is_one() && !denominator.is_one(){return(Expr::num(Number::from_bigint(denominator)),ops::neg(exponent));}
+            }
+            (base.clone(),exponent.clone())
+        },
+        _=>(e.clone(),Expr::one()),
+    }
+}
+
+/// Insertion-ordered factor powers, retaining zero exponents of held products.
+/// Memoization counts repeated DAG edges without expanding their occurrences.
+pub fn as_powers_dict(e:&Expr)->Vec<(Expr,Expr)>{
+    fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Vec<(Expr,Expr)>)>)->Vec<(Expr,Expr)>{
+        if let Some((_,result))=cache.get(&e.dag_id()){return result.clone();}
+        let result=if e.is_mul(){
+            let mut positions=FxHashMap::default();let mut out:Vec<(Expr,Expr)>=Vec::new();
+            for factor in args(e){for(base,exponent)in visit(&factor,cache){
+                if let Some(&index)=positions.get(&base){let pair:&mut(Expr,Expr)=&mut out[index];pair.1=ops::add2(&pair.1,&exponent);}
+                else{positions.insert(base.clone(),out.len());out.push((base,exponent));}
+            }}
+            out
+        }else if e.is_constant(Constant::NegInfinity){vec![(Expr::minus_one(),Expr::one()),(Expr::oo(),Expr::one())]}
+        else{vec![as_base_exp(e)]};
+        cache.insert(e.dag_id(),(e.clone(),result.clone()));result
+    }
+    visit(e,&mut FxHashMap::default())
+}
+
+/// Native commutativity facts used by the Python expression protocol.
+pub fn commutativity(e:&Expr)->Option<bool>{
+    fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Option<bool>)>)->Option<bool>{
+        if let Some((_,value))=cache.get(&e.dag_id()){return *value;}
+        let value=match e.kind(){
+            Kind::Func(crate::expr::Func::Limit,_)=>None,
+            Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")=>None,
+            Kind::Add(..)|Kind::Mul(..)=>Some(args(e).iter().all(|a|visit(a,cache)==Some(true))),
+            Kind::Pow(base,_)=>visit(base,cache),
+            _=>Some(true),
+        };
+        cache.insert(e.dag_id(),(e.clone(),value));value
+    }
+    visit(e,&mut FxHashMap::default())
+}
+
+/// Split at the first factor whose commutativity is not known to be true.
+pub fn args_cnc(e:&Expr,split_one:bool)->(Vec<Expr>,Vec<Expr>){
+    let factors=if e.is_mul(){args(e)}else{vec![e.clone()]};
+    let boundary=factors.iter().position(|factor|commutativity(factor)!=Some(true)).unwrap_or(factors.len());
+    let(mut commutative,noncommutative)=(factors[..boundary].to_vec(),factors[boundary..].to_vec());
+    if split_one{
+        if let Some(first)=commutative.first().filter(|e|!e.is_minus_one() && (e.as_number().is_some_and(Number::is_negative)||e.is_constant(Constant::NegInfinity))){
+            let positive=ops::neg(first);commutative[0]=positive;commutative.insert(0,Expr::minus_one());
+        }
+    }
+    (commutative,noncommutative)
+}
+
+/// A syntactic sign choice; assumptions about a symbol's sign do not count.
+pub fn could_extract_minus_sign(e:&Expr)->bool{
+    fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,bool)>)->bool{
+        if let Some((_,value))=cache.get(&e.dag_id()){return *value;}
+        let value=match e.kind(){
+            Kind::Num(n)=>n.is_negative(),
+            Kind::Const(Constant::NegInfinity)=>true,
+            Kind::Mul(..)=>{
+                let first=args(e).into_iter().next();
+                first.is_some_and(|a|a.as_number().is_some_and(Number::is_negative)||a.is_constant(Constant::NegInfinity)) && *e!=ops::neg(e)
+            },
+            Kind::Add(..)=>{
+                let terms=args(e);let negative=terms.iter().filter(|term|visit(term,cache)).count();
+                match negative.cmp(&(terms.len()-negative)){
+                    std::cmp::Ordering::Greater=>true,
+                    std::cmp::Ordering::Less=>false,
+                    std::cmp::Ordering::Equal=>{
+                        // Rebuild the negated public terms: compact negation
+                        // assumes a canonical Add, whereas held sums may cancel.
+                        let negative=ops::add(&terms.iter().map(|term|ops::mul(&[Expr::minus_one(),term.clone()])).collect::<Vec<_>>());
+                        crate::sortkey::sort_key(e)<crate::sortkey::sort_key(&negative)
+                    },
+                }
+            },
+            _=>false,
+        };
+        cache.insert(e.dag_id(),(e.clone(),value));value
+    }
+    visit(e,&mut FxHashMap::default())
+}
+
 fn number_atom(e:&Expr)->bool{matches!(e.kind(),Kind::Num(_)|Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::NaN))}
 fn has(e:&Expr,pattern:&Expr)->bool {
     if pattern.is_symbol() || e.has_matrix() || pattern.has_matrix(){return traverse::has(e,pattern);}
@@ -229,6 +324,30 @@ fn radical_primitive(e:&Expr)->Result<Expr,String>{
 mod tests {
     use super::*;
     fn p(source:&str)->Expr{crate::parser::parse_str(source).unwrap()}
+    #[test]
+    fn public_factor_views_preserve_exact_and_held_powers(){
+        assert_eq!(as_base_exp(&p("I")),(Expr::minus_one(),Expr::rational(1,2)));
+        assert_eq!(as_base_exp(&p("Pow(1/2,x,evaluate=False)")),(Expr::int(2),p("-x")));
+        assert_eq!(as_base_exp(&p("Pow(2/3,x,evaluate=False)")),(Expr::rational(2,3),p("x")));
+        assert_eq!(as_base_exp(&p("exp(x)")),(Expr::e(),p("x")));
+        assert_eq!(as_powers_dict(&p("Mul(x,1/x,evaluate=False)")),vec![(p("x"),Expr::zero())]);
+        assert_eq!(as_powers_dict(&Expr::neg_oo()),vec![(Expr::minus_one(),Expr::one()),(Expr::oo(),Expr::one())]);
+        let mut dag=p("x");
+        for _ in 0..80{dag=Expr::from_unevaluated_kind(Kind::Mul(Number::ONE,vec![(dag.clone(),Expr::one()),(dag,Expr::one())]));}
+        assert_eq!(as_powers_dict(&dag),vec![(p("x"),Expr::num(Number::from_bigint(BigInt::one()<<80)))]);
+        assert_eq!(commutativity(&dag),Some(true));
+    }
+    #[test]
+    fn public_factor_partition_and_syntactic_signs(){
+        assert_eq!(args_cnc(&p("-2*x*y"),true),(vec![p("-1"),p("2"),p("x"),p("y")],vec![]));
+        assert_eq!(args_cnc(&p("-2*x*y"),false),(vec![p("-2"),p("x"),p("y")],vec![]));
+        assert_eq!(args_cnc(&p("Mul(x,UnevaluatedExpr(y),z,evaluate=False)"),true),(vec![p("x")],vec![p("UnevaluatedExpr(y)"),p("z")]));
+        for(source,expected)in[("x-y",false),("y-x",true),("1-x",true),("x-1",false),("2-x-y",true),("-2+x+y",false),("3-sqrt(2)",false),("sqrt(2)-3",true),("-x-y+z",true),("x*(y-x)",false),("-oo*x",true),("zoo*x",false),("Add(x,-x,evaluate=False)",false)]{
+            assert_eq!(could_extract_minus_sign(&p(source)),expected,"{source}");
+        }
+        let n=Expr::symbol_with("n",crate::Assumptions::NEGATIVE);
+        assert!(!could_extract_minus_sign(&n));
+    }
     #[test]
     fn coefficients_dependencies_and_bound_independence(){
         let x=p("x");

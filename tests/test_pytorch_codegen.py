@@ -47,6 +47,33 @@ def test_function_matrix_native_lambda_batching_jit_and_gradients(device, compil
 
 
 @pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+def test_matrix_applyfunc_free_parameter_total_derivative_and_gradients(device, compiled):
+    matrix = sm.MatrixSymbol('A', 2, 3)
+    z, t = sm.symbols('z t', real=True)
+    applied = (t*matrix).applyfunc(sm.Lambda(z, z*z+t*z+t*t))
+    outputs = (applied, applied.diff(t), applied.T,
+               applied[::-1, ::2], sm.MatrixElement(applied, 0, 2))
+    function = sm.torch_lambdify((matrix, t), outputs, compile=compiled,
+                                compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    av = torch.linspace(-.8, 1.2, 36, device=device, dtype=torch.float64).reshape(2, 3, 2, 3).requires_grad_()
+    tv = torch.tensor([[.3], [.8]], device=device, dtype=torch.float64, requires_grad=True)
+    scalar = tv[..., None, None]
+    parent = scalar*av
+    dense = parent.square()+scalar*parent+scalar.square()
+    derivative = (2*parent+scalar)*av+parent+2*scalar
+    expected = (dense, derivative, dense.transpose(-1, -2), dense.flip(-2)[..., ::2], dense[..., 0, 2])
+    actual = function(av, tv)
+    for value, target in zip(actual, expected):
+        torch.testing.assert_close(value, target)
+        assert value.dtype == av.dtype and value.device == av.device
+    gradients = torch.autograd.grad(sum(value.square().sum() for value in actual), (av, tv))
+    references = torch.autograd.grad(sum(value.square().sum() for value in expected), (av, tv))
+    for value, target in zip(gradients, references):
+        torch.testing.assert_close(value, target)
+
+
+@pytest.mark.parametrize("device", DEVICES)
 def test_distinct_dummy_inputs_forward_and_backward(device):
     first, second = sm.Dummy('x'), sm.Dummy('x')
     function = sm.torch_lambdify((first, second), first**2 + 2*second, compile=True,

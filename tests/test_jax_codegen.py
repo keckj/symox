@@ -39,6 +39,33 @@ def test_function_matrix_native_lambda_batching_jit_and_gradients(jit):
         np.testing.assert_allclose(value,target,rtol=2e-6)
 
 
+@pytest.mark.parametrize("jit", [False, True])
+def test_matrix_applyfunc_free_parameter_total_derivative_and_gradients(jit):
+    matrix = sm.MatrixSymbol('A', 2, 3)
+    z, t = sm.symbols('z t', real=True)
+    applied = (t*matrix).applyfunc(sm.Lambda(z, z*z+t*z+t*t))
+    outputs = (applied, applied.diff(t), applied.T,
+               applied[::-1, ::2], sm.MatrixElement(applied, 0, 2))
+    function = sm.jax_lambdify((matrix, t), outputs, jit=jit)
+    av = jnp.linspace(-.8, 1.2, 36).reshape(2, 3, 2, 3)
+    tv = jnp.asarray([[.3], [.8]])
+
+    def reference(a, t):
+        scalar = t[..., None, None]
+        parent = scalar*a
+        dense = parent**2+scalar*parent+scalar**2
+        derivative = (2*parent+scalar)*a+parent+2*scalar
+        return dense, derivative, jnp.swapaxes(dense, -1, -2), dense[..., ::-1, ::2], dense[..., 0, 2]
+
+    for value, target in zip(function(av, tv), reference(av, tv)):
+        np.testing.assert_allclose(value, target, rtol=2e-6, atol=1e-6)
+        assert value.dtype == av.dtype and value.device == av.device
+    gradients = jax.grad(lambda a, t: sum(jnp.sum(v**2) for v in function(a, t)), argnums=(0, 1))(av, tv)
+    references = jax.grad(lambda a, t: sum(jnp.sum(v**2) for v in reference(a, t)), argnums=(0, 1))(av, tv)
+    for value, target in zip(gradients, references):
+        np.testing.assert_allclose(value, target, rtol=2e-6, atol=1e-6)
+
+
 def test_distinct_dummy_inputs_jit_and_gradients():
     first, second = sm.Dummy('x'), sm.Dummy('x')
     function = sm.jax_lambdify((first, second), first**2 + 2*second, jit=True)

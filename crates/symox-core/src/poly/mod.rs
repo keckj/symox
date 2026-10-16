@@ -28,6 +28,7 @@ pub mod sqf;
 pub mod convert;
 pub mod polyobj;
 pub mod api;
+pub mod collect;
 pub mod resultant;
 pub mod roots;
 pub mod modgcd;
@@ -49,3 +50,5 @@ pub mod algebraic_rational;
 pub mod domains;
 
 pub mod domain_integration;
+
+pub(crate) mod pseudo;

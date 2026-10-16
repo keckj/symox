@@ -158,6 +158,11 @@ pub(crate) fn matrixexpr_to_sympy<'py>(py:Python<'py>,m:&MatrixExpr)->PyResult<B
     if let MatrixKind::Explicit(value)=m.kind(){return matrix_object(py,&MatrixExpr::explicit(value.clone()))?.call_method0("to_sympy");}
     if let MatrixKind::Conjugate(parent)=m.kind(){return matrixexpr_to_sympy(py,parent)?.call_method0("conjugate");}
     let args=matrix_args(py,m,true)?;
+    if matches!(m.kind(),MatrixKind::ApplyFunction(..)){
+        let head=py.import("sympy.matrices.expressions.applyfunc")?.getattr("ElementwiseApplyFunction")?;
+        let mut held=vec![head];held.extend(args.iter());
+        return sympy.getattr("Basic")?.getattr("__new__")?.call1(PyTuple::new(py,held)?);
+    }
     let kwargs=PyDict::new(py);
     if matches!(m.kind(),MatrixKind::Add(_)|MatrixKind::Mul(..)|MatrixKind::Pow(..)){kwargs.set_item("evaluate",false)?;}
     if matches!(m.kind(),MatrixKind::Slice(..)){
@@ -177,6 +182,7 @@ fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py
     let mut args=Vec::new();
     match m.kind(){
         MatrixKind::Symbol(name)=>{args.push(name.into_pyobject(py)?.into_any());args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
+        MatrixKind::ApplyFunction(function,parent)=>{args.push(scalar(function)?);args.push(matrix(parent)?);},
         MatrixKind::Function(lambda)=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);args.push(scalar(lambda)?);},
         MatrixKind::Identity=>args.push(scalar(m.rows())?),MatrixKind::Zero|MatrixKind::One=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
         MatrixKind::Add(a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>for e in a{args.push(matrix(e)?);},
@@ -197,6 +203,7 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
     let operand=|i|->PyResult<MatrixOperand>{let value=args.get_item(i)?;if is_matrix(&value){Ok(MatrixOperand::Matrix(to_matrixexpr(&value)?))}else{Ok(MatrixOperand::Scalar(to_expr(&value)?))}};
     let result=match kind{
         "MatrixSymbol" if args.len()==3=>{let name:String=args.get_item(0)?.extract()?;MatrixExpr::symbol(&name,scalar(1)?,scalar(2)?)},
+        "ElementwiseApplyFunction" if args.len()==2=>MatrixExpr::apply_function(scalar(0)?,&matrix(1)?,false),
         "FunctionMatrix" if args.len()==3=>MatrixExpr::function(scalar(0)?,scalar(1)?,scalar(2)?),
         "Identity" if args.len()==1=>MatrixExpr::identity(scalar(0)?),"ZeroMatrix" if args.len()==2=>MatrixExpr::zero(scalar(0)?,scalar(1)?),
         "OneMatrix" if args.len()==2=>MatrixExpr::one(scalar(0)?,scalar(1)?),
@@ -247,6 +254,9 @@ impl PyMatrixExpr{
     #[getter] fn is_Atom(&self)->bool{false}
     #[getter] fn is_Number(&self)->bool{false}
     #[getter] fn is_MatrixSymbol(&self)->bool{matches!(self.m.kind(),MatrixKind::Symbol(_))}
+    #[getter] fn function(&self)->PyResult<PyExpr>{if let MatrixKind::ApplyFunction(function,_)=self.m.kind(){Ok(wrap(function.clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only ElementwiseApplyFunction has a function"))}}
+    #[getter] fn expr(&self)->PyResult<Self>{if let MatrixKind::ApplyFunction(_,parent)=self.m.kind(){Ok(wrap_matrixexpr(parent.clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only ElementwiseApplyFunction has an expr"))}}
+    #[getter] fn is_ElementwiseApplyFunction(&self)->bool{matches!(self.m.kind(),MatrixKind::ApplyFunction(..))}
     #[getter] fn is_FunctionMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Function(_))}
     #[getter] fn lamda(&self)->PyResult<PyExpr>{self.m.function_lambda().cloned().map(wrap).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("Only FunctionMatrix has a lamda"))}
     #[getter] fn is_ZeroMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Zero)}
@@ -314,6 +324,10 @@ impl PyMatrixExpr{
     fn __pow__(&self,exponent:&Bound<'_,PyAny>,modulo:Option<&Bound<'_,PyAny>>)->PyResult<Self>{if modulo.is_some_and(|m|!m.is_none()){return Err(PyTypeError::new_err("Modular matrix powers are unsupported"));}if is_matrix(exponent){return Err(PyTypeError::new_err("Matrix exponent must be scalar"));}Ok(wrap_matrixexpr(self.m.pow(to_expr(exponent)?,true).map_err(|e|error(exponent.py(),e))?))}
     fn __neg__(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(MatrixExpr::mul(Expr::minus_one(),&[self.m.clone()],true).map_err(|e|error(py,e))?))}
     fn __pos__(&self)->Self{self.clone()}
+    fn applyfunc(&self,function:&Bound<'_,PyAny>)->PyResult<PyObject>{
+        let py=function.py();
+        Ok(py.import("symox._matrixexpr")?.getattr("ElementwiseApplyFunction")?.call1((function,matrix_object(py,&self.m)?))?.unbind())
+    }
     fn transpose(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.transpose(true).map_err(|e|error(py,e))?))}
     fn adjoint(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.adjoint(true).map_err(|e|error(py,e))?))}
     fn conjugate(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.conjugate(true).map_err(|e|error(py,e))?))}

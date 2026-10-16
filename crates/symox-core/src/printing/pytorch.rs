@@ -286,7 +286,7 @@ impl<'a> TorchPrinter<'a> {
             )),
             Kind::Piecewise(pairs) => self.piecewise(pairs, mask),
             Kind::Func(Func::MatrixElement(parent), args) => {
-                if matches!(parent.kind(), crate::matrixexpr::MatrixKind::Function(_)) {
+                if matches!(parent.kind(), crate::matrixexpr::MatrixKind::Function(_)|crate::matrixexpr::MatrixKind::ApplyFunction(..)) {
                     let value = parent.element(&args[0], &args[1]).map_err(|error| self.unsupported(&error.to_string()))?;
                     return self.expr(&value, mask);
                 }

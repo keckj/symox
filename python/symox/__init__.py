@@ -47,7 +47,7 @@ from ._core import (
     to_number_field,
 )
 
-from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, UnificationFailed
+from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, FlagError, UnificationFailed
 
 Basic = Expr
 S = sympify
@@ -1598,7 +1598,7 @@ def lambdify(args, expr, modules=None, **kwargs):
     return _native_lambdify(args, expr, modules=modules, **kwargs)
 
 from ._matrixexpr import (  # noqa: E402
-    MatrixExpr, MatrixSymbol, FunctionMatrix, MatAdd, MatMul, MatPow, Transpose, Adjoint,
+    MatrixExpr, MatrixSymbol, FunctionMatrix, ElementwiseApplyFunction, MatAdd, MatMul, MatPow, Transpose, Adjoint,
     Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
     OneMatrix, HadamardProduct, HadamardPower, KroneckerProduct,
     BlockMatrix, BlockDiagMatrix, MatrixSlice, block_collapse,

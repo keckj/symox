@@ -115,6 +115,14 @@ provide structural decompositions, including dependency selection and rational
 or supported radical content. Floating-point presence and maximum precision
 are cached per node, so repeated inspection preserves shared expression graphs
 instead of traversing every occurrence again.
+`as_base_exp`, `as_powers_dict`, `args_cnc` and `could_extract_minus_sign`
+provide public factor and sign views, preserving held products and exact
+exponents. Power dictionaries retain distinct dummy variables, including held
+factors whose exponents cancel to zero.
+`collect` supports exact or power-based matching, coefficient dictionaries with
+`evaluate=False`, recursive coefficient callbacks and order-term distribution.
+`exact=None`, Wild patterns and multivariate derivative patterns are explicitly
+unsupported.
 Scalar equality, ordering, operation counts and pickles also preserve DAG sharing.
 `count_ops()` counts all occurrences in the mathematical expression using exact
 integers, without expanding a shared tree. Scalar pickles use flat native node
@@ -154,6 +162,9 @@ equivalence. Known deliberate deviations:
 * `diff(Abs(x), x)` returns `sign(x)` (the real-variable formula).
 * Some antiderivatives use a different branch constant from SymPy (for example
   `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
+* Some held expressions still have different ordering and syntactic sign
+  choices, including nested arithmetic and infinities; regression tests record
+  these remaining gaps.
 
 ## Building
 
@@ -529,6 +540,12 @@ coefficient content preserved in GCDs, LCMs and cofactors. `Poly.div` and
 The global `div`, `rem`, `quo` and `exquo` functions honor explicit generators,
 `auto`, `polys` and supported coefficient-domain options. They preserve typed
 domains when returning polynomials and reject unknown or incompatible options.
+`Poly.pdiv`, `prem`, `pquo` and `pexquo`, and their global counterparts, perform
+pseudo-division in the selected coefficient ring. The quotient and remainder
+satisfy `LC(g)**(degree(f)-degree(g)+1)*f == q*g+r` when `degree(f) >= degree(g)`.
+The implementation checks exponent, coefficient, term and work bounds before
+allocating large intermediates. The global pseudo-division functions reject the
+`auto` option with `FlagError`, following SymPy's option contract.
 Fraction fields over finite or algebraic ground domains require further support.
 Existing polynomial calculations with general expression coefficients remain
 available; requesting a typed domain for unsupported expression or inexact
@@ -669,6 +686,12 @@ substitutions, explicit materialization and finite PyTorch/JAX output generation
 including JIT compilation and gradients. Its `.lamda` property follows SymPy's
 spelling. Existing native symbolic function heads are accepted; strings and
 arbitrary Python callables are rejected.
+`A.applyfunc(Lambda(z, body))` and `ElementwiseApplyFunction` apply a scalar
+function to every matrix entry while retaining the parent matrix graph.
+They support identity and composition, transformations, expansion, pickling
+and finite PyTorch/JAX outputs. Scalar differentiation includes the chain rule
+and explicit parameters in the Lambda body. General non-holomorphic complex
+chain derivatives remain unsupported.
 Hadamard operations act element by element and require matching matrix shapes;
 Kronecker products multiply dimensions and preserve factor order. These nodes
 also support finite matrix output generation for PyTorch and JAX.

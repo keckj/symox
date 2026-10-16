@@ -50,6 +50,7 @@ impl Node{
                 match m.kind(){
                     MatrixKind::Symbol(_)|MatrixKind::Zero|MatrixKind::One=>{out.push(Self::S(m.rows().clone()));out.push(Self::S(m.cols().clone()));},
                     MatrixKind::Identity=>out.push(Self::S(m.rows().clone())),
+                    MatrixKind::ApplyFunction(function,_)=>out.push(Self::S(function.clone())),
                     MatrixKind::Function(lambda)=>{out.push(Self::S(m.rows().clone()));out.push(Self::S(m.cols().clone()));out.push(Self::S(lambda.clone()));},
                     MatrixKind::Explicit(a)=>out.extend(a.data().iter().cloned().map(Self::S)),
                     MatrixKind::Mul(c,_)|MatrixKind::Pow(_,c)=>out.push(Self::S(c.clone())),
@@ -95,6 +96,7 @@ impl<'py> Encoder<'py>{
         let(tag,canonical,fields)=match node{
             Node::M(m)=>{let mut tag=m.kind_name();let fields=match m.kind(){
                 MatrixKind::Symbol(name)=>vec![obj(py,name.as_str())?,obj(py,self.scalar(m.rows()))?,obj(py,self.scalar(m.cols()))?],
+                MatrixKind::ApplyFunction(function,parent)=>vec![obj(py,self.scalar(function))?,obj(py,self.matrix(parent))?],
                 MatrixKind::Function(lambda)=>vec![obj(py,self.scalar(m.rows()))?,obj(py,self.scalar(m.cols()))?,obj(py,self.scalar(lambda))?],
                 MatrixKind::Block(grid)=>vec![obj(py,grid.shape().0)?,obj(py,grid.shape().1)?,obj(py,self.matrices(grid.data()))?],
                 MatrixKind::Identity=>vec![obj(py,self.scalar(m.rows()))?],
@@ -225,6 +227,7 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
             match tag.as_str(){
                 "MatrixSymbol"=>{arity(3)?;matrix_result(MatrixExpr::symbol(&f.get_item(0)?.extract::<String>()?,s(1)?,s(2)?))?},
                 "Identity"=>{arity(1)?;matrix_result(MatrixExpr::identity(s(0)?))?},
+                "ElementwiseApplyFunction"=>{arity(2)?;matrix_result(MatrixExpr::apply_function(s(0)?,&m(1)?,false))?},
                 "FunctionMatrix"=>{arity(3)?;matrix_result(MatrixExpr::function(s(0)?,s(1)?,s(2)?))?},
                 "ZeroMatrix"=>{arity(2)?;matrix_result(MatrixExpr::zero(s(0)?,s(1)?))?},
                 "OneMatrix"=>{arity(2)?;matrix_result(MatrixExpr::one(s(0)?,s(1)?))?},

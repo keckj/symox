@@ -578,8 +578,10 @@ impl Polynomial {
     fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
         self.checked_algebraic_pair(o).expect("compatible algebraic fields")
     }
-    fn pair(&self, o: &Self) -> Option<(FractionPoly, FractionPoly)> {
-        let prototype = self.field.as_ref().or(o.field.as_ref())?;
+    fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {
+        let Some(prototype)=self.field.as_ref().or(o.field.as_ref()) else{return Ok(None)};
+        if self.modulus.is_some()||o.modulus.is_some()||self.algebraic.is_some()||o.algebraic.is_some(){return Err(PolyError::Unsupported("cannot combine rational-function, algebraic, and finite coefficient fields".into()));}
+        if let(Some(a),Some(b))=(&self.field,&o.field){if let(super::domains::ExactDomain::Functions{order:a,..},super::domains::ExactDomain::Functions{order:b,..})=(&a.coefficient_domain,&b.coefficient_domain){if a!=b{return Err(PolyError::Unsupported("cannot unify coefficient rings with different monomial orders".into()));}}}
         let mut gens = super::polyobj::unify_gens(self.true_gens(), o.true_gens());
         if gens.is_empty() {
             gens = prototype.gens.clone();
@@ -610,15 +612,15 @@ impl Polynomial {
         let integral=[self,o].iter().all(|p|if let Some(f)=&p.field {matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{integral:true,..})}else{p.domain==super::polyobj::Domain::ZZ});
         let ring=[self,o].iter().all(|p|p.field.as_ref().is_none_or(|f|matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{ring:true,..})));
         let order=if let super::domains::ExactDomain::Functions{order,..}=&prototype.coefficient_domain{order.as_str()}else{"lex"};
-        let descriptor=super::domains::ExactDomain::functions(integral,ring,parameters.clone(),order).expect("valid unified coefficient parameters");
+        let descriptor=super::domains::ExactDomain::functions(integral,ring,parameters.clone(),order)?;
         let display=descriptor.to_string();
-        let mut a = FractionPoly::from_expr(&self.as_expr(), &gens, &parameters, &display)
-            .expect("compatible fraction fields");
-        let mut b = FractionPoly::from_expr(&o.as_expr(), &gens, &parameters, &display)
-            .expect("compatible fraction fields");
+        let mut a = FractionPoly::from_expr(&self.as_expr(), &gens, &parameters, &display)?;
+        let mut b = FractionPoly::from_expr(&o.as_expr(), &gens, &parameters, &display)?;
         a.coefficient_domain=descriptor.clone();b.coefficient_domain=descriptor;
-        Some((a, b))
+        Ok(Some((a, b)))
     }
+    fn pair(&self,o:&Self)->Option<(FractionPoly,FractionPoly)>{self.checked_fraction_pair(o).expect("compatible fraction coefficient domains")}
+
     pub fn add(&self, o: &Self) -> Self {
         if let Some((a,b))=self.algebraic_pair(o){return a.add(&b).into();}
         if let Some((a, b)) = self.pair(o) {
@@ -670,7 +672,7 @@ impl Polynomial {
     pub fn div(&self,o:&Self)->PResult<(Self,Self)>{self.div_with_options(o,true)}
     pub fn div_with_options(&self,o:&Self,auto:bool)->PResult<(Self,Self)>{
         if let Some((a,b))=self.checked_algebraic_pair(o)?{let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
-        if let Some((a,b))=self.pair(o){let(q,r)=a.div_with_options(&b,auto)?;return Ok((q.into(),r.into()));}
+        if let Some((a,b))=self.checked_fraction_pair(o)?{let(q,r)=a.div_with_options(&b,auto)?;return Ok((q.into(),r.into()));}
         if let Some(prime)=self.modulus.or(o.modulus) {
             if !self.base.domain_gens().is_empty()||!o.base.domain_gens().is_empty(){return Err(PolyError::Unsupported("finite-field division requires scalar coefficients; finite symbolic coefficient domains are not implemented".into()));}
             if self.modulus.is_some()&&o.modulus.is_some()&&self.modulus!=o.modulus{return Err(PolyError::Unsupported("cannot divide polynomials over different finite fields".into()));}
@@ -688,6 +690,27 @@ impl Polynomial {
         }
         let(q,r)=self.base.div(&o.base)?;Ok((q.into(),r.into()))
     }
+    pub fn pdiv(&self,o:&Self)->PResult<(Self,Self)>{
+        if let Some((a,b))=self.checked_algebraic_pair(o)?{
+            let _scope=super::algebraic::AlgebraicScope::new(a.number_field.clone());
+            let(q,r)=super::pseudo::pdiv(&a.rep,&b.rep,0)?;return Ok((a.with_rep(q).into(),a.with_rep(r).into()));
+        }
+        if let Some((a,b))=self.checked_fraction_pair(o)?{
+            let _scope=Scope::new(a.parameters.len());let(q,r)=super::pseudo::pdiv(&a.rep,&b.rep,0)?;return Ok((a.with_rep(q).into(),a.with_rep(r).into()));
+        }
+        if let Some(prime)=self.modulus.or(o.modulus){
+            if !self.base.domain_gens().is_empty()||!o.base.domain_gens().is_empty(){return Err(PolyError::Unsupported("finite-field pseudo-division requires scalar coefficients".into()));}
+            if self.modulus.is_some()&&o.modulus.is_some()&&self.modulus!=o.modulus{return Err(PolyError::Unsupported("cannot pseudo-divide polynomials over different finite fields".into()));}
+            let(a,b)=self.base.unify(&o.base);let _scope=super::f5b::PrimeScope::new(prime)?;
+            let convert=|p:&MPoly<Rat>|->PResult<MPoly<super::f5b::Fp>>{Ok(MPoly::from_terms(p.nvars,p.iter().map(|(e,c)|Ok((e.to_vec(),super::f5b::Fp::from_rat(c,prime)?))).collect::<PResult<_>>()?))};
+            let(q,r)=super::pseudo::pdiv(&convert(&a.rep)?,&convert(&b.rep)?,0)?;
+            return Ok((a.with_rep(q.map_coeffs(Coeff::to_rat)).into(),a.with_rep(r.map_coeffs(Coeff::to_rat)).into()));
+        }
+        let(q,r)=self.base.pdiv(&o.base)?;Ok((q.into(),r.into()))
+    }
+    pub fn prem(&self,o:&Self)->PResult<Self>{Ok(self.pdiv(o)?.1)}
+    pub fn pquo(&self,o:&Self)->PResult<Self>{Ok(self.pdiv(o)?.0)}
+    pub fn pexquo(&self,o:&Self)->PResult<Self>{let(q,r)=self.pdiv(o)?;if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("pseudo-division has a nonzero remainder".into()));}Ok(q)}
     pub fn rem(&self,o:&Self)->PResult<Self>{self.rem_with_options(o,true)}
     pub fn quo(&self,o:&Self)->PResult<Self>{self.quo_with_options(o,true)}
     fn retract_division_component(&self,o:&Self,mut result:Self)->Self{

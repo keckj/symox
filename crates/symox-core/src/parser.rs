@@ -489,7 +489,7 @@ impl Parser {
                         let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::Function(crate::expr::UndefinedFunction::new(s,assumptions,nargs)));
                     }
-                    if matches!(name.as_str(), "MatrixSymbol" | "FunctionMatrix" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "FunctionMatrix" | "ElementwiseApplyFunction" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -566,6 +566,7 @@ impl Parser {
         let arity=|n:usize|->R<()>{if args.len()==n {Ok(())}else{self.err(format!("{name} expects {n} arguments"))}};
         let result=match name {
             "MatrixSymbol"=>{arity(3)?;let Val::Str(s)=&args[0] else{return self.err("MatrixSymbol expects a string name");};MatrixExpr::symbol(s,scalar(1)?,scalar(2)?)},
+            "ElementwiseApplyFunction"=>{arity(2)?;MatrixExpr::apply_function(scalar(0)?,&matrix(1)?,false)},
             "FunctionMatrix"=>{arity(3)?;MatrixExpr::function(scalar(0)?,scalar(1)?,scalar(2)?)},
             "Identity"=>{arity(1)?;MatrixExpr::identity(scalar(0)?)},
             "ZeroMatrix"=>{arity(2)?;MatrixExpr::zero(scalar(0)?,scalar(1)?)},

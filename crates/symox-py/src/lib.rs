@@ -882,7 +882,7 @@ impl PyExpr {
     }
     #[getter]
     fn is_Number(&self) -> bool {
-        self.e.is_number()
+        self.e.is_number() || matches!(self.e.kind(),Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::NaN))
     }
     #[getter]
     fn is_Integer(&self) -> bool {
@@ -1297,12 +1297,31 @@ impl PyExpr {
     }
 
     fn as_base_exp<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        let (b, x) = match self.e.kind() {
-            Kind::Func(Func::Exp, a) => (Expr::e(), a[0].clone()),
-            _ => ops::as_base_exp(&self.e),
-        };
+        let (b,x)=symox::decompose::as_base_exp(&self.e);
         PyTuple::new(py, [wrap(b), wrap(x)])
     }
+
+    fn as_powers_dict(&self,py:Python<'_>)->PyResult<PyObject>{
+        let result=if self.e.is_constant(Constant::NegInfinity){PyDict::new(py).into_any()}
+        else{py.import("collections")?.getattr("defaultdict")?.call1((py.get_type::<pyo3::types::PyInt>(),))?};
+        for(base,exponent)in symox::decompose::as_powers_dict(&self.e){result.set_item(expr_object(py,base)?,expr_object(py,exponent)?)?;}
+        Ok(result.unbind())
+    }
+
+    #[pyo3(signature=(cset=false,warn=true,split_1=true))]
+    fn args_cnc(&self,py:Python<'_>,cset:bool,warn:bool,split_1:bool)->PyResult<PyObject>{
+        let(commutative,noncommutative)=symox::decompose::args_cnc(&self.e,split_1);
+        let nc=PyList::new(py,noncommutative.into_iter().map(|e|expr_object(py,e)).collect::<PyResult<Vec<_>>>()?)?;
+        let c=if cset{
+            let original=commutative.len();
+            let c=PySet::new(py,commutative.into_iter().map(|e|expr_object(py,e)).collect::<PyResult<Vec<_>>>()?)?;
+            if warn && c.len()!=original{return Err(PyValueError::new_err("repeated commutative arguments"));}
+            c.into_any()
+        }else{PyList::new(py,commutative.into_iter().map(|e|expr_object(py,e)).collect::<PyResult<Vec<_>>>()?)?.into_any()};
+        Ok(PyList::new(py,[c,nc.into_any()])?.into_any().unbind())
+    }
+
+    fn could_extract_minus_sign(&self)->bool{symox::decompose::could_extract_minus_sign(&self.e)}
 
     fn as_coeff_Mul<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         // An evaluate=False product stores its factors verbatim. Its first
@@ -1404,16 +1423,7 @@ impl PyExpr {
 
     #[getter]
     fn is_commutative(&self) -> Option<bool> {
-        fn query(e: &Expr) -> Option<bool> {
-            match e.kind() {
-                Kind::Func(Func::Limit,_)=>None,
-                Kind::Func(Func::Undefined(name), _) if name.is_internal("UnevaluatedExpr") => None,
-                Kind::Add(..) | Kind::Mul(..) => Some(e.args().iter().all(|a| query(a) == Some(true))),
-                Kind::Pow(base, _) => query(base),
-                _ => Some(true),
-            }
-        }
-        query(&self.e)
+        symox::decompose::commutativity(&self.e)
     }
 
     fn count_ops(&self) -> BigInt { operation_count(&self.e) }

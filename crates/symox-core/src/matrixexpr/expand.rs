@@ -141,6 +141,12 @@ impl Context<'_> {
                 if rows.same_presentation(expression.rows()) && cols.same_presentation(expression.cols()) { expression.clone() }
                 else { MatrixExpr::symbol(name, rows, cols)? }
             }
+            MatrixKind::ApplyFunction(function, parent) => {
+                let function_mapped = self.scalar_child(function)?;
+                let mapped = self.matrix_child(parent)?;
+                if function_mapped.same_presentation(function) && mapped.dag_id() == parent.dag_id() { expression.clone() }
+                else { MatrixExpr::apply_function(function_mapped, &mapped, false)? }
+            }
             MatrixKind::Function(lambda) => {
                 let rows = self.scalar_child(expression.rows())?;
                 let cols = self.scalar_child(expression.cols())?;

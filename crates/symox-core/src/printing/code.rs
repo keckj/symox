@@ -984,7 +984,7 @@ impl<'a> CodePrinter<'a> {
             return self.print(&explicit);
         }
         if let Func::MatrixElement(parent) = f {
-            if matches!(parent.kind(), crate::matrixexpr::MatrixKind::Function(_)) {
+            if matches!(parent.kind(), crate::matrixexpr::MatrixKind::Function(_)|crate::matrixexpr::MatrixKind::ApplyFunction(..)) {
                 let value = parent.element(&args[0], &args[1]).map_err(|error| CodeError::Unsupported(error.to_string()))?;
                 return self.print(&value);
             }

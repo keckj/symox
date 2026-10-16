@@ -21,36 +21,64 @@ class MatrixSymbol(MatrixExpr):
         return _core._matrixexpr_node('MatrixSymbol', (str(name), n, m))
 
 
+def _normalize_matrix_function(function, arity, context):
+    """Accept native Lambda values and known public symbolic function heads."""
+    from . import Dummy, Function, Lambda
+    if isinstance(function, str):
+        raise NotImplementedError(f'{context} requires a native Lambda; function strings are unsupported')
+    if isinstance(function, _core.Expr):
+        return function
+    if isinstance(function, Function):
+        if function._nargs is not None and arity not in function._nargs:
+            raise ValueError(f'{context} function must accept {arity} arguments')
+    else:
+        head = getattr(getattr(function, 'func', None), '__name__', None)
+        if head in ('Lambda', 'IdentityFunction'):
+            return _core.sympify(function)
+        # Compare identities with the official public wrappers. Ordinary
+        # Python callables are never invoked to manufacture symbolic bodies.
+        import sys
+        namespace = vars(sys.modules[__package__])
+        if arity == 2:
+            names = ('atan2', 'Max', 'Min', 'Mod', 'log', 'beta', 'binomial',
+                     'polygamma', 'besselj', 'bessely', 'besseli', 'besselk',
+                     'hankel1', 'hankel2', 'jn', 'yn')
+        else:
+            names = ('exp', 'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'asin',
+                     'acos', 'atan', 'acot', 'sinh', 'cosh', 'tanh', 'coth',
+                     'asinh', 'acosh', 'atanh', 'Abs', 'sign', 'floor',
+                     'ceiling', 'gamma', 'loggamma', 'erf', 'erfc', 're',
+                     'im', 'conjugate', 'arg', 'Heaviside', 'DiracDelta',
+                     'Max', 'Min', 'log', 'factorial', 'factorial2',
+                     'subfactorial', 'harmonic', 'bernoulli', 'euler',
+                     'catalan', 'fibonacci', 'lucas', 'partition', 'digamma',
+                     'trigamma', 'zeta', 'dirichlet_eta', 'erfi', 'erfinv',
+                     'erfcinv', 'fresnels', 'fresnelc', 'Ei', 'li', 'Li',
+                     'Si', 'Ci', 'Shi', 'Chi', 'E1', 'airyai', 'airybi',
+                     'airyaiprime', 'airybiprime', 'elliptic_k', 'elliptic_e',
+                     'LambertW')
+        if not any(function is candidate for name in names
+                   if (candidate := namespace.get(name)) is not None):
+            raise TypeError(f'{context} requires a native Lambda or a supported symbolic function head')
+    parameters = tuple(Dummy(name) for name in (('i', 'j') if arity == 2 else ('d',)))
+    body = function(*parameters)
+    return Lambda(parameters if arity == 2 else parameters[0], body)
+
+
 class FunctionMatrix(MatrixExpr):
     _kinds = ('FunctionMatrix',)
 
     def __new__(cls, rows, cols, lamda):
-        from . import Dummy, Function, Lambda
-        if isinstance(lamda, str):
-            raise NotImplementedError('FunctionMatrix requires a native Lambda; lambda strings are unsupported')
-        if isinstance(lamda, Function):
-            if lamda._nargs is not None and 2 not in lamda._nargs:
-                raise ValueError('FunctionMatrix function must accept two arguments')
-            i, j = Dummy('i'), Dummy('j')
-            lamda = Lambda((i, j), lamda(i, j))
-        elif not isinstance(lamda, _core.Expr):
-            head = getattr(getattr(lamda, 'func', None), '__name__', None)
-            if head in ('Lambda', 'IdentityFunction'):
-                lamda = _core.sympify(lamda)
-            else:
-                # Only known native mathematical heads are invoked. Ordinary
-                # Python callables are not symbolic function definitions.
-                import sys
-                namespace = vars(sys.modules[__package__])
-                names = ('atan2', 'Max', 'Min', 'Mod', 'log',
-                         'beta', 'binomial', 'polygamma', 'besselj', 'bessely',
-                         'besseli', 'besselk', 'hankel1', 'hankel2', 'jn', 'yn')
-                if not any(lamda is candidate for name in names
-                           if (candidate := namespace.get(name)) is not None):
-                    raise TypeError('FunctionMatrix requires a native Lambda or a supported symbolic function head')
-                i, j = Dummy('i'), Dummy('j')
-                lamda = Lambda((i, j), lamda(i, j))
+        lamda = _normalize_matrix_function(lamda, 2, 'FunctionMatrix')
         return _core._matrixexpr_node('FunctionMatrix', (rows, cols, lamda))
+
+
+class ElementwiseApplyFunction(MatrixExpr):
+    _kinds = ('ElementwiseApplyFunction',)
+
+    def __new__(cls, function, expr):
+        function = _normalize_matrix_function(function, 1, 'ElementwiseApplyFunction')
+        return _core._matrixexpr_node('ElementwiseApplyFunction', (function, expr))
 
 
 class MatAdd(MatrixExpr):
@@ -272,7 +300,7 @@ class Determinant(metaclass=_ScalarMatrixType):
         return _core._matrix_determinant(arg, evaluate)
 
 
-__all__ = ['MatrixExpr','MatrixSymbol','FunctionMatrix','MatAdd','MatMul','MatPow','Transpose',
+__all__ = ['MatrixExpr','MatrixSymbol','FunctionMatrix','ElementwiseApplyFunction','MatAdd','MatMul','MatPow','Transpose',
            'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
            'Trace','Determinant','OneMatrix','HadamardProduct','HadamardPower',
            'KroneckerProduct','DiagMatrix','DiagonalOf','DiagonalMatrix','BlockDiagMatrix','BlockMatrix','block_collapse','MatrixSlice','hadamard_product','hadamard_power','kronecker_product']

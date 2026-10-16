@@ -45,6 +45,7 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
             S(Expr::int(grid.shape().1 as i64)),
             PresentationArg::Node("Tuple", grid.data().iter().cloned().map(M).collect()),
         ])],
+        MatrixKind::ApplyFunction(function,parent) => vec![S(function.clone()),M(parent.clone())],
         MatrixKind::Function(lambda) => vec![S(matrix.rows().clone()), S(matrix.cols().clone()), S(lambda.clone())],
         MatrixKind::Identity => vec![S(matrix.rows().clone())],
         MatrixKind::Zero | MatrixKind::One => vec![S(matrix.rows().clone()), S(matrix.cols().clone())],
