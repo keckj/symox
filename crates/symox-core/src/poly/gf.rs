@@ -173,23 +173,41 @@ pub fn divrem(a: &[u64], b: &[u64], p: u64) -> (GfPoly, GfPoly) {
     }
     let db = b.len() - 1;
     let inv = invmod(b[db], p);
-    let mut r = a.to_vec();
     let mut q = vec![0u64; a.len() - db];
+    // lazy reduction: subtract c*b_j as the addition of c*(p - b_j), only
+    // the leading coefficient of each step is reduced
+    let nb: Vec<u64> = b[..db].iter().map(|&x| if x == 0 { 0 } else { p - x }).collect();
+    if p < (1 << 16) {
+        let mut r: Vec<u64> = a.to_vec();
+        for k in (0..q.len()).rev() {
+            let c = mulmod(r[k + db] % p, inv, p);
+            if c != 0 {
+                for (j, &bj) in nb.iter().enumerate() {
+                    r[k + j] += c * bj;
+                }
+            }
+            q[k] = c;
+        }
+        let mut rr: GfPoly = r[..db].iter().map(|&x| x % p).collect();
+        trim(&mut rr);
+        trim(&mut q);
+        return (q, rr);
+    }
+    let mut r: Vec<u128> = a.iter().map(|&x| x as u128).collect();
+    let pp = p as u128;
     for k in (0..q.len()).rev() {
-        let c = mulmod(r[k + db], inv, p);
+        let c = mulmod((r[k + db] % pp) as u64, inv, p);
         if c != 0 {
-            for (j, &bj) in b.iter().enumerate() {
-                let t = mulmod(c, bj, p);
-                let x = r[k + j];
-                r[k + j] = if x >= t { x - t } else { x + p - t };
+            for (j, &bj) in nb.iter().enumerate() {
+                r[k + j] += (c * bj) as u128;
             }
         }
         q[k] = c;
     }
-    r.truncate(db);
-    trim(&mut r);
+    let mut rr: GfPoly = r[..db].iter().map(|&x| (x % pp) as u64).collect();
+    trim(&mut rr);
     trim(&mut q);
-    (q, r)
+    (q, rr)
 }
 
 pub fn rem(a: &[u64], b: &[u64], p: u64) -> GfPoly {
@@ -273,14 +291,39 @@ pub fn ddf(f: &[u64], p: u64) -> Vec<(GfPoly, usize)> {
     let x: GfPoly = vec![0, 1];
     let mut h = x.clone();
     let mut d = 0usize;
-    // x^p mod f via the Frobenius matrix would be faster; repeated powering
-    // is enough for the sizes encountered
+    let n0 = f.len() - 1;
+    // Frobenius matrix rows x^(i p) mod f (built by repeated shifts, cheap
+    // for small p); h^p = Σ h_i x^(i p)
+    let frob: Option<Vec<GfPoly>> = if p < (1 << 16) && (p as usize) < 4 * n0 * n0 {
+        Some(frobenius_rows(&f, p))
+    } else {
+        None
+    };
     while f.len() > 1 {
         d += 1;
         if 2 * d > f.len() - 1 {
             break;
         }
-        h = powmod_poly(&h, p as u128, &f, p);
+        h = match &frob {
+            Some(q) => {
+                let mut acc = vec![0u64; n0];
+                for (i, &hi) in h.iter().enumerate() {
+                    if hi == 0 {
+                        continue;
+                    }
+                    for (k, &qk) in q[i].iter().enumerate() {
+                        acc[k] += hi * qk;
+                        if acc[k] >= (1u64 << 62) {
+                            acc[k] %= p;
+                        }
+                    }
+                }
+                let mut r: GfPoly = acc.into_iter().map(|v| v % p).collect();
+                trim(&mut r);
+                rem(&r, &f, p)
+            }
+            None => powmod_poly(&h, p as u128, &f, p),
+        };
         let g = gcd(&f, &sub(&h, &x, p), p);
         if g.len() > 1 {
             f = divrem(&f, &g, p).0;
@@ -293,6 +336,38 @@ pub fn ddf(f: &[u64], p: u64) -> Vec<(GfPoly, usize)> {
         out.push((f, df));
     }
     out
+}
+
+/// `x^(i p) mod f` for `i < deg f`.
+fn frobenius_rows(f: &[u64], p: u64) -> Vec<GfPoly> {
+    let n = f.len() - 1;
+    let lc_inv = invmod(f[n], p);
+    let fm: Vec<u64> = f.iter().map(|&c| mulmod(c, lc_inv, p)).collect();
+    // multiply a reduced polynomial (length n) by x modulo f
+    let shift = |v: &mut Vec<u64>| {
+        let top = v[n - 1];
+        for k in (1..n).rev() {
+            v[k] = v[k - 1];
+        }
+        v[0] = 0;
+        if top != 0 {
+            for k in 0..n {
+                let t = mulmod(top, fm[k], p);
+                v[k] = if v[k] >= t { v[k] - t } else { v[k] + p - t };
+            }
+        }
+    };
+    let mut rows = Vec::with_capacity(n);
+    let mut cur = vec![0u64; n];
+    cur[0] = 1;
+    rows.push(cur.clone());
+    for _ in 1..n {
+        for _ in 0..p {
+            shift(&mut cur);
+        }
+        rows.push(cur.clone());
+    }
+    rows
 }
 
 /// Small deterministic pseudo random generator (xorshift).

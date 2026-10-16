@@ -735,7 +735,7 @@ mod mont_tests {
         let ctx = Mont::new(&pl).unwrap();
         let x = Int::S(123456789);
         let y = Int::S(987654321);
-        let r = ctx.from_mont(ctx.mul(ctx.to_mont(&x), ctx.to_mont(&y)));
+        let r = Int::from_big(num_bigint::BigInt::from(ctx.redc(0, ctx.mul(ctx.to_mont(&x), ctx.to_mont(&y)))));
         assert_eq!(r, x.mul(&y).modulo(&pl));
     }
 }
