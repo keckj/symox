@@ -152,22 +152,12 @@ pub(crate) fn from_leading(lt: &LeadTerm) -> Option<Expr> {
             if crate::functions::is_numeric_value(&ck) {
                 return None; // complex
             }
-            if ck.free_symbols_empty() {
+            if crate::traverse::free_symbols(&ck).is_empty() {
                 return None;
             }
             let s = crate::functions::sign(&ck);
             Some(mul2(&mul2(&Expr::int(parity as i64), &s), &Expr::oo()))
         }
-    }
-}
-
-trait FreeEmpty {
-    fn free_symbols_empty(&self) -> bool;
-}
-
-impl FreeEmpty for Expr {
-    fn free_symbols_empty(&self) -> bool {
-        crate::traverse::free_symbols(self).is_empty()
     }
 }
 

@@ -131,6 +131,10 @@ pub fn sign_of(c: &C) -> Option<i32> {
             if z.im.abs() > 1e-12 * (1.0 + z.re.abs()) || !z.re.is_finite() {
                 return None;
             }
+            // too close to zero to be trusted (e.g. sin(1)**2 + cos(1)**2 - 1)
+            if z.re.abs() < 1e-12 {
+                return None;
+            }
             if z.re > 0.0 {
                 Some(1)
             } else if z.re < 0.0 {
