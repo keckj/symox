@@ -1231,7 +1231,7 @@ fn frac_charpoly(m: &Matrix, ctx: &PolyCtx) -> Option<Vec<Expr>> {
     let mut nums = Vec::with_capacity(m.len());
     let mut dens = Vec::with_capacity(m.len());
     for e in m.data() {
-        let (a, b) = crate::simplify::numer_denom(e);
+        let (a, b) = super::ratfunc::as_numer_denom(e);
         let pa = ctx.to_qpoly(&a)?;
         let pb = ctx.to_qpoly(&b)?;
         nums.push(pa.p.mul_int(&pb.den));

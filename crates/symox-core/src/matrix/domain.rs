@@ -8,7 +8,6 @@ use super::ratfunc::{PolyCtx, QPoly};
 use super::Matrix;
 use crate::expr::{Constant, Expr, Kind};
 use crate::number::Number;
-use crate::simplify::numer_denom;
 
 /// The domain of a matrix' entries.
 #[derive(Clone, Debug)]
@@ -115,7 +114,7 @@ pub fn construct_domain(items: &[Expr]) -> Domain {
     }
     let mut parts = Vec::with_capacity(2 * items.len());
     for e in items {
-        let (n, d) = numer_denom(e);
+        let (n, d) = super::ratfunc::as_numer_denom(e);
         parts.push(n);
         parts.push(d);
     }
@@ -324,7 +323,7 @@ impl PolyMat {
             let mut nums = Vec::with_capacity(m.cols());
             let mut dens: Vec<MPoly> = Vec::with_capacity(m.cols());
             for j in 0..m.cols() {
-                let (a, b) = numer_denom(m.get(i, j));
+                let (a, b) = super::ratfunc::as_numer_denom(m.get(i, j));
                 let pa = ctx.to_qpoly(&a)?;
                 let pb = ctx.to_qpoly(&b)?;
                 // a/b = (pa.p/pa.den)/(pb.p/pb.den) = (pa.p*pb.den)/(pb.p*pa.den)

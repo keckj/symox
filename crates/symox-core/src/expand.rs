@@ -49,10 +49,15 @@ fn ex(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
         }
         Kind::Mul(..) => {
             let factors: Vec<Expr> = e.args().iter().map(|f| ex(f, cache)).collect();
-            if factors.iter().any(|f| f.is_add()) {
+            let m = mul(&factors);
+            if m.is_mul() {
+                expand_mul_node(&m)
+            } else if m.is_add() && !factors.iter().any(|f| f.is_add()) {
+                m
+            } else if factors.iter().any(|f| f.is_add()) {
                 expand_product(&factors)
             } else {
-                mul(&factors)
+                m
             }
         }
         Kind::Pow(b, x) => {
@@ -333,6 +338,97 @@ fn from_poly(p: Poly, gens: &Gens) -> Expr {
     }
     // products of radicals may produce new sums (e.g. I*I = -1): flatten
     add(&v)
+}
+
+/// SymPy's `fraction(expr)` (non-exact) for a product: numerator and
+/// denominator factors.
+fn fraction_parts(m: &Expr) -> (Vec<Expr>, Vec<Expr>) {
+    let mut num = Vec::new();
+    let mut den = Vec::new();
+    for t in m.args() {
+        let (b, x) = match t.kind() {
+            Kind::Pow(b, x) => (b.clone(), x.clone()),
+            Kind::Func(Func::Exp, a) => (crate::expr::Expr::e(), a[0].clone()),
+            Kind::Num(n) if n.is_rational() && !n.is_integer() => {
+                let p = n.numer();
+                if !p.is_one() {
+                    num.push(Expr::num(p));
+                }
+                den.push(Expr::num(n.denom()));
+                continue;
+            }
+            _ => {
+                num.push(t);
+                continue;
+            }
+        };
+        let rebuild = |b: &Expr, x: &Expr| {
+            if b.is_constant(crate::expr::Constant::E) {
+                exp(x)
+            } else {
+                pow(b, x)
+            }
+        };
+        match x.as_number() {
+            Some(n) if n.is_negative() => {
+                den.push(if n.is_minus_one() { b } else { rebuild(&b, &Expr::num(n.neg())) });
+            }
+            Some(_) => num.push(t),
+            None => match x.kind() {
+                Kind::Mul(c, _) if c.is_negative() => {
+                    den.push(rebuild(&b, &crate::ops::neg(&x)));
+                }
+                _ => num.push(t),
+            },
+        }
+    }
+    (num, den)
+}
+
+/// SymPy's `Mul._eval_expand_mul`: a product of several denominators is
+/// expanded into a single one, then sums in the numerator are distributed.
+fn expand_mul_node(m: &Expr) -> Expr {
+    let (num, den) = fraction_parts(m);
+    let dm = mul(&den);
+    let expr = if dm.is_mul() {
+        let n = mul(&num);
+        let n2 = if n.is_mul() { expand_mul_node(&n) } else { n };
+        let d2 = expand_mul_node(&dm);
+        crate::ops::div(&n2, &d2)
+    } else {
+        m.clone()
+    };
+    if !expr.is_mul() {
+        return expr;
+    }
+    let factors = expr.args();
+    if factors.iter().any(|f| f.is_add()) {
+        let r = expand_product(&factors);
+        // SymPy repeats the expansion until a fixed point: products of
+        // several denominators created by the distribution are combined
+        if let Kind::Add(..) = r.kind() {
+            if r.args().iter().any(has_multi_denominator) {
+                let parts: Vec<Expr> = r
+                    .args()
+                    .iter()
+                    .map(|t| if has_multi_denominator(t) { expand_mul_node(t) } else { t.clone() })
+                    .collect();
+                return add(&parts);
+            }
+        }
+        r
+    } else {
+        expr
+    }
+}
+
+/// Does the product `t` have a denominator made of several factors?
+fn has_multi_denominator(t: &Expr) -> bool {
+    if !t.is_mul() {
+        return false;
+    }
+    let (_, den) = fraction_parts(t);
+    den.len() >= 2
 }
 
 /// Expand a product of already expanded factors.
