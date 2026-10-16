@@ -235,7 +235,43 @@ from ._core import Matrix, diag, eye, hessian, jacobian, ones, wronskian, zeros 
 
 MutableDenseMatrix = Matrix
 DenseMatrix = Matrix
-ImmutableMatrix = Matrix
+class _ImmutableMatrixMeta(type):
+    def __instancecheck__(cls, obj):
+        return isinstance(obj, Matrix) and obj._immutable
+
+    def __call__(cls, *args):
+        return Matrix(*args).as_immutable()
+
+
+class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
+    """Immutable dense matrix, backed by the native matrix implementation."""
+
+    @staticmethod
+    def eye(*args, **kwargs):
+        return eye(*args, **kwargs).as_immutable()
+
+    @staticmethod
+    def zeros(*args, **kwargs):
+        return zeros(*args, **kwargs).as_immutable()
+
+    @staticmethod
+    def ones(*args, **kwargs):
+        return ones(*args, **kwargs).as_immutable()
+
+    @staticmethod
+    def diag(*args, **kwargs):
+        return diag(*args, **kwargs).as_immutable()
+
+    @staticmethod
+    def hstack(*args):
+        return Matrix.hstack(*args).as_immutable()
+
+    @staticmethod
+    def vstack(*args):
+        return Matrix.vstack(*args).as_immutable()
+
+
+ImmutableDenseMatrix = ImmutableMatrix
 
 
 class MatrixError(Exception):
@@ -309,7 +345,7 @@ class PurePoly:
     def __eq__(self, other):
         if isinstance(other, PurePoly):
             return self._coeffs == other._coeffs
-        return self._expr == other
+        return False
 
     def __hash__(self):
         return hash(tuple(self._coeffs))

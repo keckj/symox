@@ -32,6 +32,24 @@ fn err(py: Python<'_>, e: MatrixError) -> PyErr {
     }
 }
 
+
+fn reject_callback(name: &str, callback: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
+    if callback.is_some_and(|c| !c.is_none()) {
+        Err(PyNotImplementedError::new_err(format!("custom {name} callbacks are not implemented for matrices")))
+    } else {
+        Ok(())
+    }
+}
+
+fn reject_kwargs(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
+    if let Some(kwargs) = kwargs {
+        if let Some((key, _)) = kwargs.iter().next() {
+            return Err(PyNotImplementedError::new_err(format!("matrix option {key} is not implemented")));
+        }
+    }
+    Ok(())
+}
+
 trait IntoPy<T> {
     fn py(self, py: Python<'_>) -> PyResult<T>;
 }
@@ -47,10 +65,31 @@ impl<T> IntoPy<T> for Result<T, MatrixError> {
 #[derive(Clone)]
 pub struct PyMatrix {
     pub m: Matrix,
+    immutable: bool,
 }
 
 fn wrapm(m: Matrix) -> PyMatrix {
-    PyMatrix { m }
+    PyMatrix { m, immutable: false }
+}
+
+impl PyMatrix {
+    fn wrapped(&self, m: Matrix) -> PyMatrix {
+        PyMatrix { m, immutable: self.immutable }
+    }
+
+    fn with_peer(&self, peer: &Bound<'_, PyAny>, m: Matrix) -> PyMatrix {
+        let immutable = self.immutable || peer.downcast::<PyMatrix>()
+            .is_ok_and(|p| p.borrow().immutable);
+        PyMatrix { m, immutable }
+    }
+
+    fn require_mutable(&self) -> PyResult<()> {
+        if self.immutable {
+            Err(PyTypeError::new_err("Cannot set values of an immutable matrix"))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 fn exprs_list<'py>(py: Python<'py>, v: &[Expr]) -> PyResult<Bound<'py, PyList>> {
@@ -242,7 +281,8 @@ impl PyMatrix {
         ns.set_item("__builtins__", py.import("builtins")?)?;
         py.run(&std::ffi::CString::new("from sympy import *")?, Some(&ns), None)?;
         let (r, c) = self.m.shape();
-        let mut s = format!("Matrix({r}, {c}, [");
+        let name = if self.immutable { "ImmutableMatrix" } else { "Matrix" };
+        let mut s = format!("{name}({r}, {c}, [");
         for (i, e) in self.m.data().iter().enumerate() {
             if i > 0 {
                 s.push_str(", ");
@@ -348,7 +388,7 @@ impl PyMatrix {
                 return Ok(wrap(self.m.get(ri[0], ci[0]).clone()).into_pyobject(py)?.into_any().unbind());
             }
             let sub = self.m.extract(&ri, &ci).py(py)?;
-            return Ok(wrapm(sub).into_pyobject(py)?.into_any().unbind());
+            return Ok(self.wrapped(sub).into_pyobject(py)?.into_any().unbind());
         }
         let (ix, is_slice) = key_indices(key, self.m.len())?;
         if is_slice {
@@ -359,6 +399,7 @@ impl PyMatrix {
     }
 
     fn __setitem__(&mut self, key: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.require_mutable()?;
         let (r, c) = self.m.shape();
         let (ri, ci, flat) = if let Ok(t) = key.downcast::<PyTuple>() {
             if t.len() != 2 {
@@ -418,57 +459,61 @@ impl PyMatrix {
 
     fn row(&self, py: Python<'_>, i: isize) -> PyResult<PyMatrix> {
         let i = norm_index(i, self.m.rows()).map_err(|_| err(py, MatrixError::Index("Index out of range".into())))?;
-        Ok(wrapm(self.m.row(i)))
+        Ok(self.wrapped(self.m.row(i)))
     }
 
     fn col(&self, j: isize) -> PyResult<PyMatrix> {
         let j = norm_index(j, self.m.cols())?;
-        Ok(wrapm(self.m.col(j)))
+        Ok(self.wrapped(self.m.col(j)))
     }
 
     fn extract(&self, py: Python<'_>, rowsList: &Bound<'_, PyAny>, colsList: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
         let (ri, _) = key_indices(rowsList, self.m.rows())?;
         let (ci, _) = key_indices(colsList, self.m.cols())?;
-        Ok(wrapm(self.m.extract(&ri, &ci).py(py)?))
+        Ok(self.wrapped(self.m.extract(&ri, &ci).py(py)?))
     }
 
     fn reshape(&self, py: Python<'_>, rows: usize, cols: usize) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.reshape(rows, cols).py(py)?))
+        Ok(self.wrapped(self.m.reshape(rows, cols).py(py)?))
     }
 
     fn row_del(&mut self, py: Python<'_>, i: isize) -> PyResult<()> {
+        self.require_mutable()?;
         let i = norm_index(i, self.m.rows())?;
         self.m.row_del(i).py(py)
     }
 
     fn col_del(&mut self, py: Python<'_>, j: isize) -> PyResult<()> {
+        self.require_mutable()?;
         let j = norm_index(j, self.m.cols())?;
         self.m.col_del(j).py(py)
     }
 
     fn row_insert(&self, py: Python<'_>, pos: isize, other: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.row_insert(pos, &to_matrix(other)?).py(py)?))
+        Ok(self.wrapped(self.m.row_insert(pos, &to_matrix(other)?).py(py)?))
     }
 
     fn col_insert(&self, py: Python<'_>, pos: isize, other: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.col_insert(pos, &to_matrix(other)?).py(py)?))
+        Ok(self.wrapped(self.m.col_insert(pos, &to_matrix(other)?).py(py)?))
     }
 
     fn row_join(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.row_join(&to_matrix(other)?).py(py)?))
+        Ok(self.wrapped(self.m.row_join(&to_matrix(other)?).py(py)?))
     }
 
     fn col_join(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.col_join(&to_matrix(other)?).py(py)?))
+        Ok(self.wrapped(self.m.col_join(&to_matrix(other)?).py(py)?))
     }
 
     fn row_swap(&mut self, i: isize, j: isize) -> PyResult<()> {
+        self.require_mutable()?;
         let n = self.m.rows();
         self.m.row_swap(norm_index(i, n)?, norm_index(j, n)?);
         Ok(())
     }
 
     fn col_swap(&mut self, i: isize, j: isize) -> PyResult<()> {
+        self.require_mutable()?;
         let n = self.m.cols();
         self.m.col_swap(norm_index(i, n)?, norm_index(j, n)?);
         Ok(())
@@ -479,7 +524,8 @@ impl PyMatrix {
     fn hstack(py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<PyMatrix> {
         let ms: Vec<Matrix> = args.iter().map(|a| to_matrix(&a)).collect::<PyResult<_>>()?;
         let refs: Vec<&Matrix> = ms.iter().collect();
-        Ok(wrapm(Matrix::hstack(&refs).py(py)?))
+        let immutable = args.iter().any(|arg| arg.downcast::<PyMatrix>().is_ok_and(|m| m.borrow().immutable));
+        Ok(PyMatrix { m: Matrix::hstack(&refs).py(py)?, immutable })
     }
 
     #[staticmethod]
@@ -487,7 +533,8 @@ impl PyMatrix {
     fn vstack(py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<PyMatrix> {
         let ms: Vec<Matrix> = args.iter().map(|a| to_matrix(&a)).collect::<PyResult<_>>()?;
         let refs: Vec<&Matrix> = ms.iter().collect();
-        Ok(wrapm(Matrix::vstack(&refs).py(py)?))
+        let immutable = args.iter().any(|arg| arg.downcast::<PyMatrix>().is_ok_and(|m| m.borrow().immutable));
+        Ok(PyMatrix { m: Matrix::vstack(&refs).py(py)?, immutable })
     }
 
     // ------------------------------------------------------------------
@@ -497,31 +544,31 @@ impl PyMatrix {
     #[getter]
     #[pyo3(name = "T")]
     fn t(&self) -> PyMatrix {
-        wrapm(self.m.transpose())
+        self.wrapped(self.m.transpose())
     }
 
     #[getter]
     #[pyo3(name = "H")]
     fn h(&self) -> PyMatrix {
-        wrapm(self.m.adjoint())
+        self.wrapped(self.m.adjoint())
     }
 
     #[getter]
     #[pyo3(name = "C")]
     fn c(&self) -> PyMatrix {
-        wrapm(self.m.conjugate())
+        self.wrapped(self.m.conjugate())
     }
 
     fn transpose(&self) -> PyMatrix {
-        wrapm(self.m.transpose())
+        self.wrapped(self.m.transpose())
     }
 
     fn conjugate(&self) -> PyMatrix {
-        wrapm(self.m.conjugate())
+        self.wrapped(self.m.conjugate())
     }
 
     fn adjoint(&self) -> PyMatrix {
-        wrapm(self.m.adjoint())
+        self.wrapped(self.m.adjoint())
     }
 
     fn trace(&self, py: Python<'_>) -> PyResult<PyExpr> {
@@ -529,7 +576,7 @@ impl PyMatrix {
     }
 
     fn diagonal(&self) -> PyMatrix {
-        wrapm(self.m.diagonal())
+        self.wrapped(self.m.diagonal())
     }
 
     // ------------------------------------------------------------------
@@ -537,7 +584,7 @@ impl PyMatrix {
     // ------------------------------------------------------------------
 
     fn __neg__(&self) -> PyMatrix {
-        wrapm(self.m.neg())
+        self.wrapped(self.m.neg())
     }
 
     fn __pos__(&self) -> PyMatrix {
@@ -546,58 +593,58 @@ impl PyMatrix {
 
     fn __add__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(self.m.add(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, self.m.add(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
         }
     }
 
     fn __radd__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(m.add(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, m.add(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
         }
     }
 
     fn __sub__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(self.m.sub(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, self.m.sub(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
         }
     }
 
     fn __rsub__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(m.sub(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, m.sub(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
         }
     }
 
     fn __mul__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(self.m.matmul(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
-            Ok(Err(e)) => Ok(wrapm(self.m.scale(&e)).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, self.m.matmul(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Err(e)) => Ok(self.with_peer(o, self.m.scale(&e)).into_pyobject(py)?.into_any().unbind()),
             Err(_) => Ok(py.NotImplemented()),
         }
     }
 
     fn __rmul__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(m.matmul(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
-            Ok(Err(e)) => Ok(wrapm(self.m.scale_left(&e)).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, m.matmul(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Err(e)) => Ok(self.with_peer(o, self.m.scale_left(&e)).into_pyobject(py)?.into_any().unbind()),
             Err(_) => Ok(py.NotImplemented()),
         }
     }
 
     fn __matmul__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(self.m.matmul(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, self.m.matmul(&m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
         }
     }
 
     fn __rmatmul__(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         match scalar_or_matrix(o) {
-            Ok(Ok(m)) => Ok(wrapm(m.matmul(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
+            Ok(Ok(m)) => Ok(self.with_peer(o, m.matmul(&self.m).py(py)?).into_pyobject(py)?.into_any().unbind()),
             _ => Ok(py.NotImplemented()),
         }
     }
@@ -606,13 +653,16 @@ impl PyMatrix {
         match scalar_or_matrix(o) {
             Ok(Err(e)) => {
                 let inv = symox::ops::pow(&e, &Expr::minus_one());
-                Ok(wrapm(self.m.scale(&inv)).into_pyobject(py)?.into_any().unbind())
+                Ok(self.wrapped(self.m.scale(&inv)).into_pyobject(py)?.into_any().unbind())
             }
             _ => Ok(py.NotImplemented()),
         }
     }
 
     fn __pow__(&self, py: Python<'_>, o: &Bound<'_, PyAny>, _m: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        if _m.is_some_and(|m| !m.is_none()) {
+            return Err(PyTypeError::new_err("matrix powers do not support a modulus"));
+        }
         let e = to_expr(o)?;
         let n = match e.as_number() {
             Some(n) if n.is_integer() => n.to_i64().ok_or_else(|| PyValueError::new_err("exponent too large"))?,
@@ -623,15 +673,15 @@ impl PyMatrix {
                 ))
             }
         };
-        Ok(wrapm(self.m.powi(n).py(py)?))
+        Ok(self.wrapped(self.m.powi(n).py(py)?))
     }
 
     fn multiply_elementwise(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.multiply_elementwise(&to_matrix(o)?).py(py)?))
+        Ok(self.with_peer(o, self.m.multiply_elementwise(&to_matrix(o)?).py(py)?))
     }
 
     fn multiply(&self, py: Python<'_>, o: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.matmul(&to_matrix(o)?).py(py)?))
+        Ok(self.with_peer(o, self.m.matmul(&to_matrix(o)?).py(py)?))
     }
 
     fn __richcmp__(&self, py: Python<'_>, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {
@@ -653,21 +703,36 @@ impl PyMatrix {
         })
     }
 
-    #[classattr]
-    const __hash__: Option<PyObject> = None;
+    fn __hash__(&self) -> PyResult<isize> {
+        use std::hash::{Hash, Hasher};
+        if !self.immutable {
+            return Err(PyTypeError::new_err("unhashable type: 'Matrix'"));
+        }
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        self.m.shape().hash(&mut h);
+        self.m.data().hash(&mut h);
+        let value = h.finish() as isize;
+        Ok(if value == -1 { -2 } else { value })
+    }
+
+    #[getter]
+    fn _immutable(&self) -> bool {
+        self.immutable
+    }
 
     // ------------------------------------------------------------------
     // element-wise
     // ------------------------------------------------------------------
 
     fn applyfunc(&self, f: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.try_applyfunc(|e| to_expr(&f.call1((wrap(e.clone()),))?))?))
+        Ok(self.wrapped(self.m.try_applyfunc(|e| to_expr(&f.call1((wrap(e.clone()),))?))?))
     }
 
     #[pyo3(signature = (*args, **_kwargs))]
     fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        reject_kwargs(_kwargs)?;
         let pairs = subs_pairs(args)?;
-        Ok(wrapm(self.m.subs(&pairs)))
+        Ok(self.wrapped(self.m.subs(&pairs)))
     }
 
     fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyMatrix> {
@@ -675,40 +740,51 @@ impl PyMatrix {
         for (k, v) in rule.iter() {
             m.insert(to_expr(&k)?, to_expr(&v)?);
         }
-        Ok(wrapm(self.m.xreplace(&m)))
+        Ok(self.wrapped(self.m.xreplace(&m)))
     }
 
     #[pyo3(signature = (*args, **_kwargs))]
     fn diff(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         let vars = diff_vars(args)?;
-        Ok(wrapm(self.m.diff_many(&vars)))
+        Ok(self.wrapped(self.m.diff_many(&vars)))
     }
 
-    #[pyo3(signature = (*_args, **_kwargs))]
-    fn expand(&self, _args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
-        wrapm(self.m.expand())
-    }
-
-    #[pyo3(signature = (n=15, **_kwargs))]
-    fn evalf(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
-        let _ = n;
-        wrapm(self.m.evalf())
+    #[pyo3(signature = (deep=true, **hints))]
+    fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        if !deep {
+            return Err(PyNotImplementedError::new_err("matrix expand(deep=False) is not implemented"));
+        }
+        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::expand_hints(e, hints))?))
     }
 
     #[pyo3(signature = (n=15, **_kwargs))]
-    fn n(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
-        let _ = n;
-        wrapm(self.m.evalf())
+    fn evalf(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        reject_kwargs(_kwargs)?;
+        if n != 15 {
+            return Err(PyNotImplementedError::new_err("matrix evalf currently supports 15 digits"));
+        }
+        Ok(self.wrapped(self.m.evalf()))
+    }
+
+    #[pyo3(signature = (n=15, **_kwargs))]
+    fn n(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        self.evalf(n, _kwargs)
     }
 
     /// Simplify the entries in place (like SymPy's mutable matrices).
     #[pyo3(signature = (**_kwargs))]
-    fn simplify(&mut self, _kwargs: Option<&Bound<'_, PyDict>>) {
-        self.m = self.m.simplify();
+    fn simplify(&mut self, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Option<PyMatrix>> {
+        reject_kwargs(_kwargs)?;
+        Ok(if self.immutable {
+            Some(self.wrapped(self.m.simplify()))
+        } else {
+            self.m = self.m.simplify();
+            None
+        })
     }
 
     fn cancel(&self) -> PyMatrix {
-        wrapm(self.m.cancel())
+        self.wrapped(self.m.cancel())
     }
 
     // ------------------------------------------------------------------
@@ -717,7 +793,7 @@ impl PyMatrix {
 
     #[pyo3(signature = (method="bareiss", iszerofunc=None))]
     fn det(&self, py: Python<'_>, method: &str, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
-        let _ = iszerofunc;
+        reject_callback("iszerofunc", iszerofunc)?;
         let m = DetMethod::from_name(method).py(py)?;
         Ok(wrap(self.m.det_method(m).py(py)?))
     }
@@ -730,7 +806,8 @@ impl PyMatrix {
         iszerofunc: Option<&Bound<'_, PyAny>>,
         try_block_diag: bool,
     ) -> PyResult<PyMatrix> {
-        let _ = (iszerofunc, try_block_diag);
+        reject_callback("iszerofunc", iszerofunc)?;
+        let _ = try_block_diag;
         let r = match method.map(|s| s.to_uppercase()) {
             None => self.m.inv(),
             Some(s) if s == "GE" => self.m.inverse_ge(),
@@ -739,25 +816,25 @@ impl PyMatrix {
             Some(s) if s == "DM" || s == "DMNC" => self.m.inv(),
             Some(s) => return Err(PyValueError::new_err(format!("Inversion method unrecognized: {s}"))),
         };
-        Ok(wrapm(r.py(py)?))
+        Ok(self.wrapped(r.py(py)?))
     }
 
     fn inverse_GE(&self, py: Python<'_>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.inverse_ge().py(py)?))
+        Ok(self.wrapped(self.m.inverse_ge().py(py)?))
     }
 
     fn inverse_LU(&self, py: Python<'_>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.inverse_lu().py(py)?))
+        Ok(self.wrapped(self.m.inverse_lu().py(py)?))
     }
 
     fn inverse_ADJ(&self, py: Python<'_>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.inverse_adj().py(py)?))
+        Ok(self.wrapped(self.m.inverse_adj().py(py)?))
     }
 
     #[pyo3(signature = (method="berkowitz"))]
     fn adjugate(&self, py: Python<'_>, method: &str) -> PyResult<PyMatrix> {
         let _ = method;
-        Ok(wrapm(self.m.adjugate().py(py)?))
+        Ok(self.wrapped(self.m.adjugate().py(py)?))
     }
 
     #[pyo3(signature = (i, j, method="berkowitz"))]
@@ -777,12 +854,12 @@ impl PyMatrix {
     #[pyo3(signature = (method="berkowitz"))]
     fn cofactor_matrix(&self, py: Python<'_>, method: &str) -> PyResult<PyMatrix> {
         let _ = method;
-        Ok(wrapm(self.m.cofactor_matrix().py(py)?))
+        Ok(self.wrapped(self.m.cofactor_matrix().py(py)?))
     }
 
     fn minor_submatrix(&self, i: isize, j: isize) -> PyResult<PyMatrix> {
         let (i, j) = (norm_index(i, self.m.rows())?, norm_index(j, self.m.cols())?);
-        Ok(wrapm(self.m.minor_submatrix(i, j)))
+        Ok(self.wrapped(self.m.minor_submatrix(i, j)))
     }
 
     #[pyo3(signature = (iszerofunc=None, simplify=false, pivots=true, normalize_last=true))]
@@ -794,13 +871,14 @@ impl PyMatrix {
         pivots: bool,
         normalize_last: bool,
     ) -> PyResult<PyObject> {
-        let _ = (iszerofunc, simplify, normalize_last);
+        reject_callback("iszerofunc", iszerofunc)?;
+        let _ = (simplify, normalize_last);
         let (r, p) = self.m.rref();
         if pivots {
             let t = PyTuple::new(py, p)?;
-            Ok(PyTuple::new(py, [wrapm(r).into_pyobject(py)?.into_any(), t.into_any()])?.into_any().unbind())
+            Ok(PyTuple::new(py, [self.wrapped(r).into_pyobject(py)?.into_any(), t.into_any()])?.into_any().unbind())
         } else {
-            Ok(wrapm(r).into_pyobject(py)?.into_any().unbind())
+            Ok(self.wrapped(r).into_pyobject(py)?.into_any().unbind())
         }
     }
 
@@ -812,38 +890,41 @@ impl PyMatrix {
         simplify: bool,
         with_pivots: bool,
     ) -> PyResult<PyObject> {
-        let _ = (iszerofunc, simplify);
+        reject_callback("iszerofunc", iszerofunc)?;
+        let _ = simplify;
         let (r, p) = self.m.echelon_form();
         if with_pivots {
             let t = PyTuple::new(py, p)?;
-            Ok(PyTuple::new(py, [wrapm(r).into_pyobject(py)?.into_any(), t.into_any()])?.into_any().unbind())
+            Ok(PyTuple::new(py, [self.wrapped(r).into_pyobject(py)?.into_any(), t.into_any()])?.into_any().unbind())
         } else {
-            Ok(wrapm(r).into_pyobject(py)?.into_any().unbind())
+            Ok(self.wrapped(r).into_pyobject(py)?.into_any().unbind())
         }
     }
 
     #[pyo3(signature = (iszerofunc=None, simplify=false))]
-    fn rank(&self, iszerofunc: Option<&Bound<'_, PyAny>>, simplify: bool) -> usize {
-        let _ = (iszerofunc, simplify);
-        self.m.rank()
+    fn rank(&self, iszerofunc: Option<&Bound<'_, PyAny>>, simplify: bool) -> PyResult<usize> {
+        reject_callback("iszerofunc", iszerofunc)?;
+        let _ = simplify;
+        Ok(self.m.rank())
     }
 
     #[pyo3(signature = (simplify=false, iszerofunc=None))]
-    fn nullspace(&self, simplify: bool, iszerofunc: Option<&Bound<'_, PyAny>>) -> Vec<PyMatrix> {
-        let _ = (iszerofunc, simplify);
-        self.m.nullspace().into_iter().map(wrapm).collect()
+    fn nullspace(&self, simplify: bool, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<PyMatrix>> {
+        reject_callback("iszerofunc", iszerofunc)?;
+        let _ = simplify;
+        Ok(self.m.nullspace().into_iter().map(|m| self.wrapped(m)).collect())
     }
 
     #[pyo3(signature = (simplify=false))]
     fn columnspace(&self, simplify: bool) -> Vec<PyMatrix> {
         let _ = simplify;
-        self.m.columnspace().into_iter().map(wrapm).collect()
+        self.m.columnspace().into_iter().map(|m| self.wrapped(m)).collect()
     }
 
     #[pyo3(signature = (simplify=false))]
     fn rowspace(&self, simplify: bool) -> Vec<PyMatrix> {
         let _ = simplify;
-        self.m.rowspace().into_iter().map(wrapm).collect()
+        self.m.rowspace().into_iter().map(|m| self.wrapped(m)).collect()
     }
 
     #[pyo3(signature = (iszerofunc=None, simpfunc=None, rankcheck=false))]
@@ -854,14 +935,15 @@ impl PyMatrix {
         simpfunc: Option<&Bound<'_, PyAny>>,
         rankcheck: bool,
     ) -> PyResult<Bound<'py, PyTuple>> {
-        let _ = (iszerofunc, simpfunc, rankcheck);
-        let (l, u, p) = self.m.lu_decomposition().py(py)?;
+        reject_callback("iszerofunc", iszerofunc)?;
+        reject_callback("simpfunc", simpfunc)?;
+        let (l, u, p) = self.m.lu_decomposition_with_rankcheck(rankcheck).py(py)?;
         let perm = PyList::new(py, p.iter().map(|(a, b)| vec![*a, *b]))?;
         PyTuple::new(
             py,
             [
-                wrapm(l).into_pyobject(py)?.into_any(),
-                wrapm(u).into_pyobject(py)?.into_any(),
+                self.wrapped(l).into_pyobject(py)?.into_any(),
+                self.wrapped(u).into_pyobject(py)?.into_any(),
                 perm.into_any(),
             ],
         )
@@ -869,8 +951,8 @@ impl PyMatrix {
 
     #[pyo3(signature = (rhs, iszerofunc=None))]
     fn LUsolve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
-        let _ = iszerofunc;
-        Ok(wrapm(self.m.lu_solve(&to_matrix(rhs)?).py(py)?))
+        reject_callback("iszerofunc", iszerofunc)?;
+        Ok(self.wrapped(self.m.lu_solve(&to_matrix(rhs)?).py(py)?))
     }
 
     #[pyo3(signature = (rhs, method="GJ"))]
@@ -879,16 +961,23 @@ impl PyMatrix {
         let r = match method.to_uppercase().as_str() {
             "GJ" | "GE" => self.m.solve(&b),
             "LU" => self.m.lu_solve(&b),
-            _ => self.m.inv().and_then(|i| i.matmul(&b)),
+            "ADJ" => self.m.inverse_adj().and_then(|i| i.matmul(&b)),
+            "DM" | "DMNC" => self.m.inv().and_then(|i| i.matmul(&b)),
+            _ => return Err(PyNotImplementedError::new_err(format!("matrix solve method {method} is not implemented"))),
         };
-        Ok(wrapm(r.py(py)?))
+        Ok(self.wrapped(r.py(py)?))
     }
 
     #[pyo3(signature = (B, freevar=false))]
     fn gauss_jordan_solve<'py>(&self, py: Python<'py>, B: &Bound<'_, PyAny>, freevar: bool) -> PyResult<Bound<'py, PyTuple>> {
-        let _ = freevar;
         let (s, t) = self.m.gauss_jordan_solve(&to_matrix(B)?).py(py)?;
-        PyTuple::new(py, [wrapm(s), wrapm(t)])
+        let mut values = vec![self.wrapped(s).into_pyobject(py)?.into_any(), self.wrapped(t).into_pyobject(py)?.into_any()];
+        if freevar {
+            let pivots = self.m.rref().1;
+            let free: Vec<usize> = (0..self.m.cols()).filter(|c| !pivots.contains(c)).collect();
+            values.push(PyList::new(py, free)?.into_any());
+        }
+        PyTuple::new(py, values)
     }
 
     /// Characteristic polynomial ``det(lambda*I - M)`` as a ``PurePoly``.
@@ -899,7 +988,7 @@ impl PyMatrix {
         x: Option<&Bound<'_, PyAny>>,
         simplify: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let _ = simplify;
+        reject_callback("simplify", simplify)?;
         let name = match x {
             None => "lambda".to_string(),
             Some(o) => {
@@ -917,25 +1006,31 @@ impl PyMatrix {
         cls.call_method1("_from_coeffs", (coeffs, wrap(cp.var.clone()), cp.domain.clone(), wrap(cp.as_expr())))
     }
 
-    #[pyo3(signature = (error_when_incomplete=true, **_flags))]
-    fn eigenvals<'py>(&self, py: Python<'py>, error_when_incomplete: bool, _flags: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyDict>> {
+    #[pyo3(signature = (error_when_incomplete=true, multiple=false, **_flags))]
+    fn eigenvals<'py>(&self, py: Python<'py>, error_when_incomplete: bool, multiple: bool, _flags: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyAny>> {
+        reject_kwargs(_flags)?;
         let _ = error_when_incomplete;
         let ev = self.m.eigenvals().py(py)?;
+        if multiple {
+            let values: Vec<PyExpr> = ev.into_iter().flat_map(|(v, k)| std::iter::repeat_n(v, k)).map(wrap).collect();
+            return Ok(PyList::new(py, values)?.into_any());
+        }
         let d = PyDict::new(py);
         for (v, k) in ev {
             d.set_item(wrap(v), k)?;
         }
-        Ok(d)
+        Ok(d.into_any())
     }
 
     #[pyo3(signature = (error_when_incomplete=true, **_flags))]
     fn eigenvects<'py>(&self, py: Python<'py>, error_when_incomplete: bool, _flags: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyList>> {
+        reject_kwargs(_flags)?;
         let _ = error_when_incomplete;
         let ev = self.m.eigenvects().py(py)?;
         let items: Vec<Bound<'py, PyTuple>> = ev
             .into_iter()
             .map(|(v, k, vs)| {
-                let l = PyList::new(py, vs.into_iter().map(wrapm))?;
+                let l = PyList::new(py, vs.into_iter().map(|m| self.wrapped(m)))?;
                 PyTuple::new(
                     py,
                     [
@@ -951,7 +1046,7 @@ impl PyMatrix {
 
     fn jacobian(&self, py: Python<'_>, X: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
         let vars = to_matrix(X)?;
-        Ok(wrapm(self.m.jacobian(vars.data()).py(py)?))
+        Ok(self.wrapped(self.m.jacobian(vars.data()).py(py)?))
     }
 
     #[pyo3(signature = (ord=None))]
@@ -959,38 +1054,62 @@ impl PyMatrix {
         let o: Option<String> = match ord {
             None => None,
             Some(o) if o.is_none() => None,
-            Some(o) => Some(if let Ok(s) = o.extract::<String>() { s } else { to_expr(o)?.to_string() }),
+            Some(o) => {
+                if let Ok(value) = o.extract::<String>() {
+                    if self.m.is_vector() {
+                        return Err(PyValueError::new_err("Expected order to be Number, Symbol, oo"));
+                    }
+                    let value = value.to_lowercase();
+                    if !matches!(value.as_str(), "f" | "fro" | "frobenius" | "vector") {
+                        return Err(PyNotImplementedError::new_err("Matrix Norms under development"));
+                    }
+                    Some(value)
+                } else {
+                    let order = to_expr(o)?;
+                    if self.m.is_vector() && !order.is_constant(symox::Constant::Infinity)
+                        && !order.is_constant(symox::Constant::NegInfinity) {
+                        let values = self.m.values();
+                        let values = if values.is_empty() { vec![Expr::zero()] } else { values };
+                        let terms: Vec<Expr> = values.iter().map(|e| {
+                            let abs = symox::functions::func(symox::Func::Abs, vec![e.clone()]);
+                            symox::ops::pow(&abs, &order)
+                        }).collect();
+                        let inverse = symox::ops::pow(&order, &Expr::minus_one());
+                        return Ok(wrap(symox::ops::pow(&symox::ops::add(&terms), &inverse)));
+                    }
+                    Some(order.to_string())
+                }
+            }
         };
         Ok(wrap(self.m.norm_ord(o.as_deref()).py(py)?))
     }
 
     #[pyo3(signature = (hermitian=true))]
     fn cholesky(&self, py: Python<'_>, hermitian: bool) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.cholesky(hermitian).py(py)?))
+        Ok(self.wrapped(self.m.cholesky(hermitian).py(py)?))
     }
 
     #[pyo3(signature = (hermitian=true))]
     fn LDLdecomposition<'py>(&self, py: Python<'py>, hermitian: bool) -> PyResult<Bound<'py, PyTuple>> {
         let (l, d) = self.m.ldl_decomposition(hermitian).py(py)?;
-        PyTuple::new(py, [wrapm(l), wrapm(d)])
+        PyTuple::new(py, [self.wrapped(l), self.wrapped(d)])
     }
 
     fn QRdecomposition<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         let (q, r) = self.m.qr_decomposition().py(py)?;
-        PyTuple::new(py, [wrapm(q), wrapm(r)])
+        PyTuple::new(py, [self.wrapped(q), self.wrapped(r)])
     }
 
     #[pyo3(signature = (reals_only=false, sort=false, normalize=false))]
     fn diagonalize<'py>(&self, py: Python<'py>, reals_only: bool, sort: bool, normalize: bool) -> PyResult<Bound<'py, PyTuple>> {
-        let _ = (reals_only, sort, normalize);
-        let (p, d) = self.m.diagonalize().py(py)?;
-        PyTuple::new(py, [wrapm(p), wrapm(d)])
+        let (p, d) = self.m.diagonalize_with_options(reals_only, sort, normalize).py(py)?;
+        PyTuple::new(py, [self.wrapped(p), self.wrapped(d)])
     }
 
     #[pyo3(signature = (reals_only=false, **_kwargs))]
-    fn is_diagonalizable(&self, reals_only: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> bool {
-        let _ = reals_only;
-        self.m.is_diagonalizable()
+    fn is_diagonalizable(&self, py: Python<'_>, reals_only: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<bool> {
+        reject_kwargs(_kwargs)?;
+        self.m.is_diagonalizable(reals_only).py(py)
     }
 
     #[getter]
@@ -999,7 +1118,7 @@ impl PyMatrix {
     }
 
     fn vec(&self) -> PyMatrix {
-        wrapm(self.m.vec())
+        self.wrapped(self.m.vec())
     }
 
     fn values(&self) -> Vec<PyExpr> {
@@ -1011,41 +1130,43 @@ impl PyMatrix {
     }
 
     fn as_mutable(&self) -> PyMatrix {
-        self.clone()
+        wrapm(self.m.clone())
     }
 
     fn as_immutable(&self) -> PyMatrix {
-        self.clone()
+        PyMatrix { m: self.m.clone(), immutable: true }
     }
 
-    fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, (usize, usize, Vec<String>))> {
-        let cls = py.import("symox")?.getattr("Matrix")?;
-        let data: Vec<String> = self.m.data().iter().map(printer::srepr).collect();
+    fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, (usize, usize, Vec<PyExpr>))> {
+        let cls = py.import("symox")?.getattr(if self.immutable { "ImmutableMatrix" } else { "Matrix" })?;
+        // Serialize entries through Expr.__reduce__ to preserve assumptions,
+        // held nodes and exact floating point payloads.
+        let data: Vec<PyExpr> = self.m.data().iter().cloned().map(wrap).collect();
         Ok((cls, (self.m.rows(), self.m.cols(), data)))
     }
 
     #[staticmethod]
     #[pyo3(name = "eye", signature = (n, m=None, **_kwargs))]
-    fn eye_s(n: usize, m: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
-        eye(n, m, None)
+    fn eye_s(n: usize, m: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        eye(n, m, _kwargs)
     }
 
     #[staticmethod]
     #[pyo3(name = "zeros", signature = (r, c=None, **_kwargs))]
-    fn zeros_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
-        zeros(r, c, None)
+    fn zeros_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        zeros(r, c, _kwargs)
     }
 
     #[staticmethod]
     #[pyo3(name = "ones", signature = (r, c=None, **_kwargs))]
-    fn ones_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
-        ones(r, c, None)
+    fn ones_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+        ones(r, c, _kwargs)
     }
 
     #[staticmethod]
     #[pyo3(name = "diag", signature = (*values, **_kwargs))]
     fn diag_s(values: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-        diag(values, None)
+        diag(values, _kwargs)
     }
 
     #[pyo3(signature = (b, hermitian=None, conjugate_convention=None))]
@@ -1056,12 +1177,22 @@ impl PyMatrix {
         hermitian: Option<bool>,
         conjugate_convention: Option<&str>,
     ) -> PyResult<PyExpr> {
-        let _ = (hermitian, conjugate_convention);
-        Ok(wrap(self.m.dot(&to_matrix(b)?).py(py)?))
+        let other = to_matrix(b)?;
+        let hermitian = hermitian.unwrap_or(conjugate_convention.is_some());
+        let result = if hermitian {
+            match conjugate_convention.unwrap_or("maths") {
+                "math" | "maths" | "left" => self.m.conjugate().dot(&other),
+                "physics" | "right" => self.m.dot(&other.conjugate()),
+                _ => return Err(PyValueError::new_err("Unknown conjugate_convention; expected math, maths, left, physics or right")),
+            }
+        } else {
+            self.m.dot(&other)
+        };
+        Ok(wrap(result.py(py)?))
     }
 
     fn cross(&self, py: Python<'_>, b: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
-        Ok(wrapm(self.m.cross(&to_matrix(b)?).py(py)?))
+        Ok(self.wrapped(self.m.cross(&to_matrix(b)?).py(py)?))
     }
 
     fn strongly_connected_components(&self) -> Vec<Vec<usize>> {
@@ -1079,28 +1210,32 @@ fn dims(r: usize, c: Option<usize>) -> (usize, usize) {
 
 #[pyfunction]
 #[pyo3(signature = (n, m=None, **_kwargs))]
-fn eye(n: usize, m: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
+fn eye(n: usize, m: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    reject_kwargs(_kwargs)?;
     let (r, c) = dims(n, m);
-    wrapm(Matrix::from_fn(r, c, |i, j| if i == j { Expr::one() } else { Expr::zero() }))
+    Ok(wrapm(Matrix::from_fn(r, c, |i, j| if i == j { Expr::one() } else { Expr::zero() })))
 }
 
 #[pyfunction]
 #[pyo3(signature = (r, c=None, **_kwargs))]
-fn zeros(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
+fn zeros(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    reject_kwargs(_kwargs)?;
     let (r, c) = dims(r, c);
-    wrapm(Matrix::zeros(r, c))
+    Ok(wrapm(Matrix::zeros(r, c)))
 }
 
 #[pyfunction]
 #[pyo3(signature = (r, c=None, **_kwargs))]
-fn ones(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyMatrix {
+fn ones(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    reject_kwargs(_kwargs)?;
     let (r, c) = dims(r, c);
-    wrapm(Matrix::ones(r, c))
+    Ok(wrapm(Matrix::ones(r, c)))
 }
 
 #[pyfunction]
 #[pyo3(signature = (*values, **_kwargs))]
 fn diag(values: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    reject_kwargs(_kwargs)?;
     let mut blocks: Vec<Matrix> = Vec::new();
     for v in values.iter() {
         if v.downcast::<PyMatrix>().is_ok() || is_seq(&v) || (is_sympy_obj(&v) && v.hasattr("shape")?) {

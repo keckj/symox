@@ -1064,7 +1064,11 @@ impl Matrix {
 
     /// `(L, U, row swaps)` with `P*M = L*U`.
     pub fn lu_decomposition(&self) -> MResult<(Matrix, Matrix, Vec<(usize, usize)>)> {
-        let (combined, p) = lu_simple(self, false)?;
+        self.lu_decomposition_with_rankcheck(false)
+    }
+
+    pub fn lu_decomposition_with_rankcheck(&self, rankcheck: bool) -> MResult<(Matrix, Matrix, Vec<(usize, usize)>)> {
+        let (combined, p) = lu_simple(self, rankcheck)?;
         let (r, c) = combined.shape();
         let l = Matrix::from_fn(r, r, |i, j| {
             if i < j {

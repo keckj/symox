@@ -98,7 +98,7 @@ impl Matrix {
             }
             let s: Vec<Expr> = (0..i).map(|k| mul2(l.get(i, k), &c(l.get(i, k)))).collect();
             let lii2 = sub(self.get(i, i), &add(&s));
-            if is_not_positive(&lii2) {
+            if hermitian && is_not_positive(&lii2) {
                 return Err(MatrixError::NonPositiveDefinite("Matrix must be positive-definite".into()));
             }
             l.set(i, i, sqrt(&lii2));
@@ -125,7 +125,7 @@ impl Matrix {
                 .map(|k| crate::ops::mul(&[l.get(i, k).clone(), c(l.get(i, k)), d.get(k, k).clone()]))
                 .collect();
             let dii = sub(self.get(i, i), &add(&s));
-            if is_not_positive(&dii) {
+            if hermitian && is_not_positive(&dii) {
                 return Err(MatrixError::NonPositiveDefinite("Matrix must be positive-definite".into()));
             }
             d.set(i, i, dii);
@@ -188,30 +188,41 @@ impl Matrix {
 
     /// `(P, D)` with `M = P * D * P**-1`.
     pub fn diagonalize(&self) -> MResult<(Matrix, Matrix)> {
+        self.diagonalize_with_options(false, false, false)
+    }
+
+    pub fn diagonalize_with_options(&self, reals_only: bool, sort: bool, normalize: bool) -> MResult<(Matrix, Matrix)> {
         if !self.is_square() {
             return Err(non_square());
         }
-        let ev = self.eigenvects()?;
+        let mut ev = self.eigenvects()?;
+        if sort {
+            ev.sort_by(|a, b| crate::sortkey::cmp_default(&a.0, &b.0));
+        }
         let mut cols: Vec<Matrix> = Vec::new();
         let mut diag: Vec<Expr> = Vec::new();
         for (val, mult, basis) in &ev {
-            if basis.len() != *mult {
+            if basis.len() != *mult || (reals_only && crate::assumptions::is_real(val) != Some(true)) {
                 return Err(MatrixError::Other("Matrix is not diagonalizable".into()));
             }
-            for _ in 0..*mult {
+            for v in basis {
                 diag.push(val.clone());
+                cols.push(if normalize { v.scale(&pow(&v.norm(), &Expr::minus_one())) } else { v.clone() });
             }
-            cols.extend(basis.iter().cloned());
         }
         let refs: Vec<&Matrix> = cols.iter().collect();
         Ok((Matrix::hstack(&refs)?, Matrix::diag(&diag)))
     }
 
-    pub fn is_diagonalizable(&self) -> bool {
-        match self.eigenvects() {
-            Ok(ev) => ev.iter().all(|(_, m, b)| b.len() == *m),
-            Err(_) => false,
+    /// Unsupported eigenproblems must propagate their error rather than
+    /// incorrectly claiming the matrix is not diagonalizable.
+    pub fn is_diagonalizable(&self, reals_only: bool) -> MResult<bool> {
+        if !self.is_square() {
+            return Ok(false);
         }
+        let ev = self.eigenvects()?;
+        Ok(ev.iter().all(|(v, m, b)| b.len() == *m
+            && (!reals_only || crate::assumptions::is_real(v) == Some(true))))
     }
 
     /// Column-stacked vector.
