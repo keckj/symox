@@ -24,6 +24,7 @@ pub mod integrate;
 pub mod lambdify;
 pub mod ntheory;
 pub mod number;
+pub mod ode;
 pub mod ops;
 pub mod parser;
 pub mod pattern;

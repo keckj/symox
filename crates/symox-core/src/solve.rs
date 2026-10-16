@@ -103,6 +103,13 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if let Some(r) = invert(&num, x, depth) {
         return Some(r);
     }
+    // several logarithms: combine them (log(a) - log(b) = log(a/b))
+    let lc = crate::simp::logcombine(&num, true);
+    if lc != num {
+        if let Some(r) = solve_rec(&lc, x, depth + 1) {
+            return Some(r);
+        }
+    }
     let ex = expand(&num);
     if ex != num {
         return solve_rec(&ex, x, depth + 1);

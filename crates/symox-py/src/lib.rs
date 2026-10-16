@@ -20,6 +20,7 @@ use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relation
 
 mod ntheory;
 mod simp;
+mod ode;
 mod solve;
 
 /// A symbolic expression.
@@ -1401,6 +1402,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ntheory::register(m)?;
     simp::register(m)?;
     solve::register(m)?;
+    ode::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

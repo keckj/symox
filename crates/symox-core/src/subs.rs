@@ -65,6 +65,12 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Ex
     if let Some(v) = cache.get(e) {
         return v.clone();
     }
+    // substituting a differentiation variable: keep an unevaluated Subs
+    if let Kind::Derivative(_, vars) = e.kind() {
+        if vars.iter().any(|(v, _)| v == old) {
+            return crate::functions::undefined("Subs", vec![e.clone(), old.clone(), new.clone()]);
+        }
+    }
     let r = match (e.kind(), old.kind()) {
         (Kind::Add(..), Kind::Add(..)) => match add_contains(e, old) {
             Some((k, rest)) => {
