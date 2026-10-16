@@ -245,6 +245,45 @@ pub struct Converted {
     pub float: bool,
 }
 
+fn factor_needs_expand(b: &Expr, x: &Expr) -> bool {
+    if b.is_add() {
+        return true;
+    }
+    if x.is_add() {
+        return true;
+    }
+    match b.kind() {
+        Kind::Func(Func::Exp, a) => a[0].is_add(),
+        Kind::Mul(..) => true,
+        _ => false,
+    }
+}
+
+/// Is `expand(e)` possibly different from `e` (as far as the polynomial
+/// structure is concerned)?
+pub fn needs_expand(e: &Expr) -> bool {
+    let term = |t: &Expr| -> bool {
+        match t.kind() {
+            Kind::Mul(_, facs) => facs.iter().any(|(b, x)| factor_needs_expand(b, x)),
+            Kind::Pow(b, x) => factor_needs_expand(b, x),
+            Kind::Func(Func::Exp, a) => a[0].is_add(),
+            _ => false,
+        }
+    };
+    match e.kind() {
+        Kind::Add(_, terms) => terms.iter().any(|(t, _)| term(t)),
+        _ => term(e),
+    }
+}
+
+fn expand_if_needed(e: &Expr) -> Expr {
+    if needs_expand(e) {
+        expand(e)
+    } else {
+        e.clone()
+    }
+}
+
 /// Convert expressions with automatic generator detection.
 pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
     let mut float = false;
@@ -253,7 +292,7 @@ pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
     let mut all_terms: Vec<Vec<(Rat, Vec<(usize, i64)>)>> = Vec::new();
     for e in exprs {
         check_number(e)?;
-        let ex = expand(e);
+        let ex = expand_if_needed(e);
         let mut terms = Vec::new();
         for t in raw_terms(&ex) {
             if t.coeff.is_float() {
@@ -318,7 +357,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
     let mut all: Vec<Vec<(Vec<u32>, Rat, Vec<(usize, i64)>)>> = Vec::new();
     for e in exprs {
         check_number(e)?;
-        let ex = expand(e);
+        let ex = expand_if_needed(e);
         let mut terms = Vec::new();
         for t in raw_terms(&ex) {
             if t.coeff.is_float() {

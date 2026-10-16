@@ -123,9 +123,23 @@ pub fn radsimp(e: &Expr) -> Expr {
     expand(&div(&num, &den))
 }
 
-/// A light general purpose simplifier (to be extended).
+/// A light general purpose simplifier (to be extended): the smallest of
+/// the expression, its expansion, `together`, `cancel` and `factor`.
 pub fn simplify(e: &Expr) -> Expr {
-    let candidates = [e.clone(), expand(e), together(e)];
+    let mut candidates = vec![e.clone(), expand(e), together(e)];
+    if let Ok(c) = crate::poly::api::cancel(e) {
+        candidates.push(c);
+    }
+    if let Ok(f) = crate::poly::api::factor(e) {
+        // re-evaluate a "hollow" `number*(sum)` product like SymPy does
+        let f = match f.kind() {
+            Kind::Mul(c, facs) if !c.is_one() && facs.len() == 1 && facs[0].0.is_add() && facs[0].1.is_one() => {
+                mul(&[Expr::num(c.clone()), facs[0].0.clone()])
+            }
+            _ => f,
+        };
+        candidates.push(f);
+    }
     candidates
         .into_iter()
         .min_by_key(|c| crate::traverse::node_count(c))

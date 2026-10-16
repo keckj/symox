@@ -61,24 +61,23 @@ fn inv_mod(a: &Int, m: &Int) -> Int {
 
 /// One quadratic Hensel step (von zur Gathen–Gerhard 15.10): from
 /// `f = g h mod m`, `s g + t h = 1 mod m` (`h` monic) to the same
-/// relations modulo `m^2`.
+/// relations modulo `m2` (any multiple of `m` dividing `m^2`).
 fn hensel_step(
     f: &[Int],
     g: &[Int],
     h: &[Int],
     s: &[Int],
     t: &[Int],
-    m: &Int,
+    m2: &Int,
 ) -> (Vec<Int>, Vec<Int>, Vec<Int>, Vec<Int>) {
-    let m2 = m.mul(m);
-    let e = sub_m(f, &mul_m(g, h, &m2), &m2);
-    let (q, r) = divrem_monic_m(&mul_m(s, &e, &m2), h, &m2);
-    let g2 = add_m(&add_m(g, &mul_m(t, &e, &m2), &m2), &mul_m(&q, g, &m2), &m2);
-    let h2 = add_m(h, &r, &m2);
-    let b = sub_m(&add_m(&mul_m(s, &g2, &m2), &mul_m(t, &h2, &m2), &m2), &[Int::one()], &m2);
-    let (c, d) = divrem_monic_m(&mul_m(s, &b, &m2), &h2, &m2);
-    let s2 = sub_m(s, &d, &m2);
-    let t2 = sub_m(&sub_m(t, &mul_m(t, &b, &m2), &m2), &mul_m(&c, &g2, &m2), &m2);
+    let e = sub_m(f, &mul_m(g, h, m2), m2);
+    let (q, r) = divrem_monic_m(&mul_m(s, &e, m2), h, m2);
+    let g2 = add_m(&add_m(g, &mul_m(t, &e, m2), m2), &mul_m(&q, g, m2), m2);
+    let h2 = add_m(h, &r, m2);
+    let b = sub_m(&add_m(&mul_m(s, &g2, m2), &mul_m(t, &h2, m2), m2), &[Int::one()], m2);
+    let (c, d) = divrem_monic_m(&mul_m(s, &b, m2), &h2, m2);
+    let s2 = sub_m(s, &d, m2);
+    let t2 = sub_m(&sub_m(t, &mul_m(t, &b, m2), m2), &mul_m(&c, &g2, m2), m2);
     (g2, h2, s2, t2)
 }
 
@@ -105,14 +104,29 @@ fn hensel_lift(f: &[Int], fs: &[Vec<u64>], p: u64, pl: &Int) -> Vec<Vec<Int>> {
     }
     let (_, s0, t0) = gf::gcdex(&g0, &h0, p);
     let (mut g, mut h, mut s, mut t) = (gf_to_int(&g0), gf_to_int(&h0), gf_to_int(&s0), gf_to_int(&t0));
-    let mut m = pm;
-    while &m < pl {
-        let r = hensel_step(f, &g, &h, &s, &t, &m);
+    // exponent sequence 1 -> ... -> l with e_{i+1} <= 2 e_i
+    let l = {
+        let mut l = 0u32;
+        let mut m = Int::one();
+        while &m < pl {
+            m = m.mul(&pm);
+            l += 1;
+        }
+        l
+    };
+    let mut seq = vec![l];
+    while *seq.last().unwrap() > 1 {
+        let e = *seq.last().unwrap();
+        seq.push(e.div_ceil(2));
+    }
+    seq.reverse();
+    for &e in &seq[1..] {
+        let m2 = pm.pow(e);
+        let r = hensel_step(f, &g, &h, &s, &t, &m2);
         g = r.0;
         h = r.1;
         s = r.2;
         t = r.3;
-        m = m.mul(&m);
     }
     let g = reduce(&g, pl);
     let h = reduce(&h, pl);

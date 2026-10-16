@@ -244,14 +244,25 @@ impl Int {
 
     /// Remainder in `[0, |m|)`.
     pub fn modulo(&self, m: &Int) -> Int {
-        if let (Int::S(a), Int::S(b)) = (self, m) {
-            if *b != 0 {
-                return Int::S(a.rem_euclid(*b));
+        match (self, m) {
+            (Int::S(a), Int::S(b)) if *b != 0 => Int::S(a.rem_euclid(*b)),
+            (Int::S(a), Int::B(b)) if b.is_positive() => {
+                if *a >= 0 {
+                    self.clone()
+                } else {
+                    Int::from_big(&**b + *a)
+                }
+            }
+            (Int::B(a), Int::S(b)) if *b > 0 => {
+                let r = (**a).mod_floor(&BigInt::from(*b));
+                Int::S(r.to_i64().unwrap())
+            }
+            (Int::B(a), Int::B(b)) if b.is_positive() => Int::from_big((**a).mod_floor(b)),
+            _ => {
+                let mb = m.to_big().abs();
+                Int::from_big(self.to_big().mod_floor(&mb))
             }
         }
-        let mb = m.to_big().abs();
-        let r = self.to_big().mod_floor(&mb);
-        Int::from_big(r)
     }
 
     /// Symmetric remainder in `(-m/2, m/2]` for `m > 0`.
