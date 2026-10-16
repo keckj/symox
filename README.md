@@ -1,5 +1,9 @@
 # symox
 
+<p align="center">
+  <img src="img/logo.png" alt="symox logo" width="720">
+</p>
+
 **Fast symbolic mathematics in Rust, with a SymPy compatible Python API.**
 
 symox is a computer algebra system written from scratch in Rust. It follows
