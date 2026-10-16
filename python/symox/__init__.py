@@ -197,4 +197,87 @@ def to_sympy(e):
     return sympify(e).to_sympy()
 
 
+# --- series ---
+# Series expansions, the Order term and limits (crates/symox-py/src/series.rs).
+
+
+def series(expr, x=None, x0=0, n=6, dir="+"):
+    """Series expansion of ``expr`` around ``x = x0`` up to ``O((x - x0)**n)``."""
+    return _core._series(expr, x, x0, n, dir)
+
+
+def Order(expr, *args, **kwargs):
+    """Landau order term ``O(expr, (x, x0), ...)``."""
+    return _core._order(expr, *args)
+
+
+O = Order
+
+
+def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    return _core._series(self, x, x0, n, dir)
+
+
+def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    return _core._series(self, x, x0, n, dir)
+
+
+def _expr_taylor_term(self, n, x, *previous_terms):
+    return _core._taylor_term(self, n, x)
+
+
+def _expr_getO(self):
+    return _core._get_o(self)
+
+
+def _expr_getn(self):
+    n = _core._getn(self)
+    return n
+
+
+def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
+    """Lazy iterator over the terms of the expansion (in increasing order)."""
+    n = 6
+    done = 0
+    while True:
+        s = _core._series(self, x, x0, n, dir)
+        terms = s.removeO()
+        terms = list(terms.args) if terms.is_Add else ([terms] if terms != 0 else [])
+        terms = _sort_series_terms(terms, s)
+        for t in terms[done:]:
+            yield t
+        done = len(terms)
+        if _core._get_o(s) is None:
+            return
+        n *= 2
+
+
+def _sort_series_terms(terms, s):
+    order = [str(t) for t in (s.as_ordered_terms() if s.is_Add else [s])]
+    return sorted(terms, key=lambda t: order.index(str(t)) if str(t) in order else len(order))
+
+
+def _expr_leadterm(self, x, x0=0, dir="+"):
+    return _core._leadterm(self, x, x0, dir)
+
+
+def _expr_as_leading_term(self, *symbols, **kwargs):
+    x = symbols[0] if symbols else None
+    c, e = _core._leadterm(self, x)
+    return c * x**e
+
+
+Expr.series = _expr_series
+Expr.nseries = _expr_nseries
+Expr.taylor_term = _expr_taylor_term
+Expr.removeO = lambda self: _core._remove_o(self)
+Expr.getO = _expr_getO
+Expr.getn = _expr_getn
+Expr.lseries = _expr_lseries
+Expr.leadterm = _expr_leadterm
+Expr.as_leading_term = _expr_as_leading_term
+Expr.is_Order = property(lambda self: _core._is_order(self))
+Expr.contains = lambda self, t: _core._order_contains(self, t)
+# --- end series ---
+
 __all__ = [n for n in dir() if not n.startswith("_")]

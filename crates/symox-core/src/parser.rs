@@ -498,6 +498,26 @@ impl Parser {
                     crate::diff::derivative_unevaluated(&f, vars)
                 }
             }
+            "O" | "Order" => {
+                let mut it = args.into_iter();
+                let e = match it.next() {
+                    Some(v) => self.as_expr(v)?,
+                    None => return self.err("Order expects arguments"),
+                };
+                let mut vars = Vec::new();
+                for a in it {
+                    match a {
+                        Val::Tuple(t) if t.len() == 2 => {
+                            let mut it = t.into_iter();
+                            let v = self.as_expr(it.next().unwrap())?;
+                            let p = self.as_expr(it.next().unwrap())?;
+                            vars.push((v, p));
+                        }
+                        v => vars.push((self.as_expr(v)?, Expr::zero())),
+                    }
+                }
+                crate::series::order::order(&e, &vars)
+            }
             "Tuple" => {
                 return Ok(Val::Tuple(args));
             }

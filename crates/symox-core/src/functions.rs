@@ -10,6 +10,9 @@ use crate::ops::{
 
 /// Apply function `f` to `args`, performing automatic simplifications.
 pub fn func(f: Func, args: Vec<Expr>) -> Expr {
+    if f == Func::Order {
+        return crate::series::order::order_from_args(&args);
+    }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
     }
@@ -111,7 +114,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Undefined(_) => None,
+        Func::Order | Func::Undefined(_) => None,
     };
     match r {
         Some(v) => v,

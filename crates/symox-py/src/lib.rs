@@ -13,6 +13,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyList, PySet, PyString, PyTuple};
 use rustc_hash::FxHashMap;
 
+mod series;
+
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
@@ -1114,6 +1116,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    series::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

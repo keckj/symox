@@ -23,6 +23,7 @@ pub mod ops;
 pub mod parser;
 pub mod printer;
 pub mod relational;
+pub mod series;
 pub mod simplify;
 pub mod subs;
 pub mod traverse;
@@ -41,6 +42,7 @@ pub mod prelude {
     pub use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
     pub use crate::parser::{parse_str, sympify};
     pub use crate::relational::{eq, ge, gt, le, lt, ne, piecewise};
+    pub use crate::series::{order, series};
     pub use crate::simplify::{radsimp, simplify, together};
     pub use crate::subs::{subs, xreplace};
     pub use crate::traverse::{free_symbols, has};

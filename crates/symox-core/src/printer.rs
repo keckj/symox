@@ -76,6 +76,7 @@ fn write_expr(e: &Expr, out: &mut String) {
         Kind::Add(..) => write_add(e, out),
         Kind::Mul(..) => write_mul(e, out),
         Kind::Pow(b, x) => write_pow(b, x, out),
+        Kind::Func(Func::Order, args) => out.push_str(&crate::series::print::order_str(args)),
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');
@@ -217,6 +218,9 @@ pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
     let Kind::Add(c, terms) = e.kind() else {
         return vec![e.clone()];
     };
+    if e.may_have_order() && terms.iter().any(|(t, _)| t.is_func(&Func::Order)) {
+        return crate::series::print::series_ordered_terms(e);
+    }
     let mut keyed: Vec<(Vec<(GenKey, f64)>, String, Expr)> = terms
         .iter()
         .map(|(t, k)| {
@@ -420,6 +424,18 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
+        Kind::Func(Func::Order, args) => {
+            out.push_str("Order(");
+            write_srepr(&args[0], out);
+            for p in args[1..].chunks(2) {
+                out.push_str(", Tuple(");
+                write_srepr(&p[0], out);
+                out.push_str(", ");
+                write_srepr(&p[1], out);
+                out.push(')');
+            }
+            out.push(')');
+        }
         Kind::Func(f, args) => list(f.name(), args, out),
         Kind::Derivative(f, vars) => {
             out.push_str("Derivative(");
