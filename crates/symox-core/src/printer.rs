@@ -45,6 +45,7 @@ fn prec(e: &Expr) -> u8 {
 
 /// SymPy `str()` of an expression.
 pub fn to_str(e: &Expr) -> String {
+    let _session = crate::printing::order::session();
     if let Kind::Num(Number::Float(f)) = e.kind() {
         // SymPy prints a lone Float with full precision
         return crate::number::format_float_full(*f);
@@ -159,7 +160,7 @@ pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
             return crate::series::print::series_ordered_terms(e);
         }
     }
-    crate::sortkey::ordered_terms(e)
+    crate::printing::order::ordered_terms(e)
 }
 
 fn write_add(e: &Expr, out: &mut String) {
@@ -186,6 +187,11 @@ fn negative_exponent(x: &Expr) -> Option<Expr> {
         Kind::Mul(c, _) if c.is_negative() => Some(crate::ops::neg(x)),
         _ => None,
     }
+}
+
+/// Sort `Mul` factors in SymPy's `as_ordered_factors` printing order.
+pub fn sort_factors(v: &mut [Expr]) {
+    crate::printing::order::sort_factors(v)
 }
 
 fn write_mul(e: &Expr, out: &mut String) {

@@ -131,6 +131,10 @@ fn has_float(e: &Expr) -> bool {
 
 /// Free of symbols and undefined functions (so it can be evaluated).
 pub fn is_numeric_value(e: &Expr) -> bool {
+    // any symbol (or Order term) inside sets a mask bit: O(1) rejection
+    if e.mask() != 0 {
+        return false;
+    }
     match e.kind() {
         Kind::Num(_) => true,
         Kind::Const(c) => !c.is_infinite() && *c != Constant::NaN,

@@ -18,6 +18,8 @@ mod series;
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
+mod printing;
+
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
 mod ntheory;
@@ -197,7 +199,7 @@ impl PyExpr {
     }
 
     fn _repr_latex_(&self) -> String {
-        format!("$\\displaystyle {}$", printer::to_str(&self.e))
+        printing::repr_latex(self)
     }
 
     fn srepr(&self) -> String {
@@ -1406,6 +1408,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     solve::register(m)?;
     ode::register(m)?;
     series::register(m)?;
+    printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

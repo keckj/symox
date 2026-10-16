@@ -30,6 +30,7 @@ pub mod ops;
 pub mod parser;
 pub mod pattern;
 pub mod printer;
+pub mod printing;
 pub mod relational;
 pub mod simp;
 pub mod series;
@@ -56,6 +57,10 @@ pub mod prelude {
     pub use crate::number::Number;
     pub use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
     pub use crate::parser::{parse_str, sympify};
+    pub use crate::printing::{
+        ccode, ccode_function, cse, cuda_kernel, cudacode, cxxcode, latex, pprint, pretty, pycode,
+        rust_code,
+    };
     pub use crate::relational::{eq, ge, gt, le, lt, ne, piecewise};
     pub use crate::limits::{limit, Dir};
     pub use crate::series::{order, series};

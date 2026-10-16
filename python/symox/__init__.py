@@ -382,4 +382,88 @@ def limit(e, z, z0, dir="+"):
 Expr.limit = lambda self, x, xlim, dir="+": limit(self, x, xlim, dir)
 # --- end series ---
 
+# --- printing ---
+# LaTeX / pretty printers, common subexpression elimination and code
+# generation (C, C++, CUDA, Python, NumPy, Rust, Fortran).
+import builtins as _builtins  # noqa: E402
+
+from ._core import (  # noqa: E402
+    ccode,
+    ccode_function,
+    cuda_device_function,
+    cuda_kernel,
+    cudacode,
+    cxxcode,
+    fcode,
+    latex,
+    numpycode,
+    pretty,
+    pycode,
+    rust_code,
+)
+
+
+def pprint(expr, **settings):
+    """Print the 2D unicode form of ``expr`` (SymPy's ``pprint``)."""
+    print(pretty(expr, **settings))
+
+
+pretty_print = pprint
+
+
+def print_latex(expr, **settings):
+    print(latex(expr, **settings))
+
+
+def print_ccode(expr, **settings):
+    print(ccode(expr, **settings))
+
+
+def numbered_symbols(prefix="x", start=0, exclude=()):
+    """Infinite generator of symbols ``prefix0, prefix1, ...``."""
+    excluded = {str(e) for e in exclude}
+    i = start
+    while True:
+        name = f"{prefix}{i}"
+        i += 1
+        if name not in excluded:
+            yield Symbol(name)
+
+
+def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+        order="canonical", ignore=(), list=True):
+    """Common subexpression elimination (SymPy's ``cse``).
+
+    Returns ``(replacements, reduced_exprs)`` where ``replacements`` is a
+    list of ``(Symbol, expr)`` pairs in evaluation order.
+    """
+    single = isinstance(exprs, (Expr, int, float, str))
+    if isinstance(exprs, dict):
+        keys = _builtins.list(exprs)
+        reps, red = cse([exprs[k] for k in keys], symbols, optimizations, postprocess, order, ignore)
+        return reps, dict(zip(keys, red))
+    seq = [exprs] if single else exprs
+    opt = optimizations not in (False, "none")
+    reps, red = _core._cse(seq, opt, ignore or None)
+    if symbols is not None:
+        it = iter(symbols)
+        mapping = {}
+        new_reps = []
+        for s, v in reps:
+            v = v.xreplace(mapping) if mapping else v
+            t = next(it)
+            mapping[s] = t
+            new_reps.append((t, v))
+        reps = new_reps
+        red = [r.xreplace(mapping) for r in red] if mapping else red
+    if postprocess is not None:
+        return postprocess(reps, red)
+    if single and not list:
+        return reps, red[0]
+    if not single and not list:
+        return reps, type(exprs)(red)
+    return reps, red
+
+# --- end printing ---
+
 __all__ = [n for n in dir() if not n.startswith("_")]
