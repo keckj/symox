@@ -290,7 +290,7 @@ impl Ser {
                     if bn[j].is_zero() {
                         continue;
                     }
-                    acc = acc.add(&self.c[i].as_number().unwrap().mul(bn[j]));
+                    acc = super::coeff::nadd(&acc, &super::coeff::nmul(self.c[i].as_number().unwrap(), bn[j]));
                 }
                 *ck = C::N(acc);
             }

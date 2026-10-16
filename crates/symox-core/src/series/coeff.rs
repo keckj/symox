@@ -1,5 +1,10 @@
 //! Series coefficients: exact numbers (fast path) or general expressions.
 
+use num_bigint::BigInt;
+use num_integer::Integer;
+use num_rational::BigRational;
+use num_traits::{One, Zero};
+
 use crate::expr::{Expr, Kind};
 use crate::number::Number;
 use crate::ops::{add, add2, mul2, neg, pow};
@@ -67,7 +72,7 @@ impl C {
 
     pub fn add(&self, o: &C) -> C {
         match (self, o) {
-            (C::N(a), C::N(b)) => C::N(a.add(b)),
+            (C::N(a), C::N(b)) => C::N(nadd(a, b)),
             (C::N(a), _) if a.is_zero() => o.clone(),
             (_, C::N(b)) if b.is_zero() => self.clone(),
             _ => C::from_expr(add2(&self.to_expr(), &o.to_expr())),
@@ -87,7 +92,7 @@ impl C {
 
     pub fn mul(&self, o: &C) -> C {
         match (self, o) {
-            (C::N(a), C::N(b)) => C::N(a.mul(b)),
+            (C::N(a), C::N(b)) => C::N(nmul(a, b)),
             (C::N(a), C::E(e)) | (C::E(e), C::N(a)) => {
                 if a.is_zero() {
                     C::zero()
@@ -103,7 +108,7 @@ impl C {
 
     pub fn mul_num(&self, k: &Number) -> C {
         match self {
-            C::N(a) => C::N(a.mul(k)),
+            C::N(a) => C::N(nmul(a, k)),
             C::E(e) => {
                 if k.is_zero() {
                     C::zero()
@@ -123,7 +128,7 @@ impl C {
                     Some(v) => C::N(Number::Int(v)),
                     None => C::N(a.mul(&Number::int(k))),
                 },
-                _ => C::N(a.mul(&Number::int(k))),
+                _ => C::N(nmul(a, &Number::int(k))),
             },
             _ => self.mul_num(&Number::int(k)),
         }
@@ -191,5 +196,56 @@ impl AddArgs for Expr {
         } else {
             vec![self.clone()]
         }
+    }
+}
+
+/// `a + b` without the clones of `Number::add` for rationals.
+pub fn nadd(a: &Number, b: &Number) -> Number {
+    match (a, b) {
+        (Number::Int(x), Number::Int(y)) => match x.checked_add(*y) {
+            Some(v) => Number::Int(v),
+            None => a.add(b),
+        },
+        (Number::Rational(x), Number::Rational(y)) => Number::from_ratio(x + y),
+        (Number::Rational(x), Number::Int(i)) | (Number::Int(i), Number::Rational(x)) => {
+            if *i == 0 {
+                return Number::Rational(x.clone());
+            }
+            // (p + i q)/q is reduced when p/q is
+            let num = x.numer() + x.denom() * BigInt::from(*i);
+            Number::Rational(BigRational::new_raw(num, x.denom().clone()))
+        }
+        _ => a.add(b),
+    }
+}
+
+/// `a * b` without the clones of `Number::mul` for rationals.
+pub fn nmul(a: &Number, b: &Number) -> Number {
+    match (a, b) {
+        (Number::Int(x), Number::Int(y)) => match x.checked_mul(*y) {
+            Some(v) => Number::Int(v),
+            None => a.mul(b),
+        },
+        (Number::Rational(x), Number::Rational(y)) => Number::from_ratio(x * y),
+        (Number::Rational(x), Number::Int(i)) | (Number::Int(i), Number::Rational(x)) => {
+            if *i == 0 {
+                return Number::ZERO;
+            }
+            if *i == 1 {
+                return Number::Rational(x.clone());
+            }
+            let bi = BigInt::from(*i);
+            let g = bi.gcd(x.denom());
+            let num = x.numer() * (&bi / &g);
+            let den = x.denom() / &g;
+            if den.is_one() {
+                Number::from_bigint(num)
+            } else if num.is_zero() {
+                Number::ZERO
+            } else {
+                Number::Rational(BigRational::new_raw(num, den))
+            }
+        }
+        _ => a.mul(b),
     }
 }

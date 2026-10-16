@@ -71,7 +71,6 @@ impl Gruntz {
             return unknown("recursion too deep");
         }
         self.depth += 1;
-        if std::env::var("SYMOX_TRACE").is_ok() { eprintln!("{}limitinf {}", " ".repeat(self.depth as usize), e); }
         let r = self.limitinf_impl(e);
         self.depth -= 1;
         let r = r?;
@@ -381,7 +380,6 @@ impl Gruntz {
             return Ok((e.clone(), Expr::zero()));
         }
         let mut omega = self.mrv(e)?;
-        if std::env::var("SYMOX_TRACE").is_ok() { eprintln!("mrv_leadterm {} omega {:?}", e, omega.iter().map(|o| o.to_string()).collect::<Vec<_>>()); }
         if omega.is_empty() {
             return Ok((e.clone(), Expr::zero()));
         }
