@@ -169,8 +169,8 @@ def test_unsupported_options_and_invalid_inputs_are_explicit():
         sm.groebner([x], 1)
     with pytest.raises(ValueError, match="order"):
         sm.groebner([x], x, order="ilex")
-    with pytest.raises(NotImplementedError, match="buchberger"):
-        sm.groebner([x], x, method="f5b")
+    with pytest.raises(ValueError, match="buchberger"):
+        sm.groebner([x], x, method="f4")
     with pytest.raises(NotImplementedError, match="exact rational"):
         sm.groebner([1.5*x], x)
     with pytest.raises(NotImplementedError, match="extensions"):

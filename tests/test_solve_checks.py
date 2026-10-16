@@ -57,5 +57,11 @@ def test_unknown_signs_are_not_decided_by_floating_point():
     # The current structural assumption engine cannot prove this difference
     # positive. Candidate filtering must keep an undecidable result, even
     # when a numerical approximation suggests its sign.
-    candidate = sm.sqrt(2) - 2
+    candidate = sm.sqrt(2) + sm.sqrt(3) - 4
     assert sm.solve(positive - candidate, positive) == [candidate]
+
+
+def test_quadratic_signs_are_filtered_by_exact_rational_comparisons():
+    positive = sm.Symbol("positive", positive=True)
+    assert sm.solve(positive - (sm.sqrt(2)-2), positive) == []
+    assert sm.solve(positive - (sm.sqrt(2)-1), positive) == [sm.sqrt(2)-1]

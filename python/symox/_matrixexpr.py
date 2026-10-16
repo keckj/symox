@@ -90,6 +90,66 @@ class ZeroMatrix(MatrixExpr):
         return _core._matrixexpr_node('ZeroMatrix',(n,m))
 
 
+class OneMatrix(MatrixExpr):
+    _kinds = ('OneMatrix',)
+
+    def __new__(cls, n, m):
+        return _core._matrixexpr_node('OneMatrix', (n, m))
+
+
+class HadamardProduct(MatrixExpr):
+    _kinds = ('HadamardProduct',)
+
+    def __new__(cls, *args, evaluate=False, check=None):
+        if check is not None and check is not True:
+            raise NotImplementedError('Disabling Hadamard shape validation is unsupported')
+        return _core._matrixexpr_node('HadamardProduct', args, evaluate)
+
+
+class HadamardPower(MatrixExpr):
+    _kinds = ('HadamardPower',)
+
+    def __new__(cls, base, exp):
+        return _core._matrixexpr_node('HadamardPower', (base, exp))
+
+
+class KroneckerProduct(MatrixExpr):
+    _kinds = ('KroneckerProduct',)
+
+    def __new__(cls, *args, check=True):
+        if check is not True:
+            raise NotImplementedError('Disabling Kronecker operand validation is unsupported')
+        return _core._matrixexpr_node('KroneckerProduct', args)
+
+
+def hadamard_product(*matrices):
+    if not matrices:
+        raise TypeError('Empty Hadamard product is undefined')
+    if len(matrices) == 1:
+        return matrices[0]
+    return HadamardProduct(*matrices).doit()
+
+
+def hadamard_power(base, exp):
+    from . import sympify
+    base, exp = sympify(base), sympify(exp)
+    if exp == 1:
+        return base
+    if not getattr(base, 'is_Matrix', False):
+        return base ** exp
+    if getattr(exp, 'is_Matrix', False):
+        raise ValueError('cannot raise expression to a matrix')
+    return HadamardPower(base, exp)
+
+
+def kronecker_product(*matrices):
+    if not matrices:
+        raise TypeError('Empty Kronecker product is undefined')
+    if len(matrices) == 1:
+        return matrices[0]
+    return KroneckerProduct(*matrices).doit()
+
+
 class _ElementType(type):
     def __instancecheck__(cls, value):
         return isinstance(value, _core.Expr) and getattr(value.func,'__name__',None)=='MatrixElement'
@@ -117,4 +177,5 @@ class Determinant(metaclass=_ScalarMatrixType):
 
 __all__ = ['MatrixExpr','MatrixSymbol','MatAdd','MatMul','MatPow','Transpose',
            'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
-           'Trace','Determinant']
+           'Trace','Determinant','OneMatrix','HadamardProduct','HadamardPower',
+           'KroneckerProduct','hadamard_product','hadamard_power','kronecker_product']

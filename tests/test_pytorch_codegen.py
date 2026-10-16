@@ -20,6 +20,28 @@ DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
 DTYPES = [torch.float32, torch.float64]
 
 
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+def test_hadamard_kronecker_batched_codegen_and_autograd(device, compiled):
+    a, b = [sm.MatrixSymbol(name, 2, 2) for name in ('A', 'B')]
+    outputs = (sm.HadamardProduct(a, b), sm.HadamardPower(a, 2),
+               sm.HadamardPower(2, a), sm.HadamardPower(a, b), sm.KroneckerProduct(a, b))
+    function = sm.torch_lambdify((a, b), outputs, compile=compiled,
+                                 compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    av = (torch.arange(8., device=device, dtype=torch.float64).reshape(2, 1, 2, 2)/10+1).requires_grad_()
+    bv = (torch.arange(12., device=device, dtype=torch.float64).reshape(1, 3, 2, 2)/10+1).requires_grad_()
+    aa, bb = torch.broadcast_tensors(av, bv)
+    kron = (aa[..., :, None, :, None]*bb[..., None, :, None, :]).reshape(2, 3, 4, 4)
+    expected = (aa*bb, aa**2, 2**aa, aa**bb, kron)
+    actual = function(av, bv)
+    for result, reference in zip(actual, expected):
+        torch.testing.assert_close(result, reference)
+    gradients = torch.autograd.grad(sum(value.sum() for value in actual), (av, bv))
+    references = torch.autograd.grad(sum(value.sum() for value in expected), (av, bv))
+    for result, reference in zip(gradients, references):
+        torch.testing.assert_close(result, reference)
+
+
 @pytest.mark.parametrize("device",DEVICES)
 def test_matrix_trace_determinant_codegen_and_gradient(device):
     a=sm.MatrixSymbol("A",2,2)

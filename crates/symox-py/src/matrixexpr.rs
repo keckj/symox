@@ -4,7 +4,7 @@ use pyo3::types::{PyDict,PyList,PySet,PyTuple};
 use pyo3::exceptions::{PyTypeError,PyNotImplementedError,PyValueError};
 use rustc_hash::FxHashMap;
 use symox::expr::Expr;
-use symox::matrixexpr::{MatrixExpr,MatrixKind};
+use symox::matrixexpr::{MatrixExpr,MatrixKind,MatrixOperand};
 use crate::{wrap,to_expr,PyExpr};
 
 #[pyclass(name="_MatrixExpr",module="symox._core",frozen)]
@@ -57,8 +57,9 @@ fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py
     let mut args=Vec::new();
     match m.kind(){
         MatrixKind::Symbol(name)=>{args.push(name.into_pyobject(py)?.into_any());args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
-        MatrixKind::Identity=>args.push(scalar(m.rows())?),MatrixKind::Zero=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
-        MatrixKind::Add(a)=>for e in a{args.push(matrix(e)?);},
+        MatrixKind::Identity=>args.push(scalar(m.rows())?),MatrixKind::Zero|MatrixKind::One=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
+        MatrixKind::Add(a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)=>for e in a{args.push(matrix(e)?);},
+        MatrixKind::HadamardPower(a,b)=>for operand in [a,b]{args.push(match operand{MatrixOperand::Scalar(e)=>scalar(e)?,MatrixOperand::Matrix(m)=>matrix(m)?});},
         MatrixKind::Mul(c,a)=>{if !c.is_one(){args.push(scalar(c)?);}for e in a{args.push(matrix(e)?);}},
         MatrixKind::Pow(b,e)=>{args.push(matrix(b)?);args.push(scalar(e)?);},
         MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)=>args.push(matrix(b)?),
@@ -70,15 +71,20 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
     let py=args.py();let fail=||PyTypeError::new_err(format!("Invalid {kind} arguments"));
     let matrix=|i|to_matrixexpr(&args.get_item(i)?);
     let scalar=|i|to_expr(&args.get_item(i)?);
+    let operand=|i|->PyResult<MatrixOperand>{let value=args.get_item(i)?;if is_matrix(&value){Ok(MatrixOperand::Matrix(to_matrixexpr(&value)?))}else{Ok(MatrixOperand::Scalar(to_expr(&value)?))}};
     let result=match kind{
         "MatrixSymbol" if args.len()==3=>{let name:String=args.get_item(0)?.extract()?;MatrixExpr::symbol(&name,scalar(1)?,scalar(2)?)},
         "Identity" if args.len()==1=>MatrixExpr::identity(scalar(0)?),"ZeroMatrix" if args.len()==2=>MatrixExpr::zero(scalar(0)?,scalar(1)?),
+        "OneMatrix" if args.len()==2=>MatrixExpr::one(scalar(0)?,scalar(1)?),
+        "HadamardProduct"=>MatrixExpr::hadamard_product(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate),
+        "KroneckerProduct"=>MatrixExpr::kronecker(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?,evaluate),
+        "HadamardPower" if args.len()==2=>{let a=operand(0)?;let b=operand(1)?;if let (MatrixOperand::Scalar(a),MatrixOperand::Scalar(b))=(&a,&b){return Ok(wrap(symox::ops::pow(a,b)).into_pyobject(py)?.into_any().unbind());}MatrixExpr::hadamard_power(a,b,evaluate)},
         "MatAdd"=>{if args.is_empty(){return Ok(wrap(Expr::zero()).into_pyobject(py)?.into_any().unbind());}let terms=args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?;MatrixExpr::add(&terms,evaluate)},
         "MatMul"=>{let mut coefficient=Expr::one();let mut factors=Vec::new();for arg in args.iter(){if is_matrix(&arg){factors.push(to_matrixexpr(&arg)?);}else{coefficient=symox::ops::mul2(&coefficient,&to_expr(&arg)?);}}if factors.is_empty(){return Ok(wrap(coefficient).into_pyobject(py)?.into_any().unbind());}MatrixExpr::mul(coefficient,&factors,evaluate)},
         "MatPow" if args.len()==2=>matrix(0)?.pow(scalar(1)?,evaluate),"Transpose" if args.len()==1=>matrix(0)?.transpose(evaluate),"Adjoint" if args.len()==1=>matrix(0)?.adjoint(evaluate),"Inverse" if args.len()==1 || (args.len()==2 && scalar(1)?==Expr::minus_one())=>matrix(0)?.inverse(evaluate),"MatrixConjugate" if args.len()==1=>matrix(0)?.conjugate(evaluate),
         _=>return Err(fail()),
     }.map_err(|e|error(py,e))?;
-    Ok(wrap_matrixexpr(result).into_pyobject(py)?.into_any().unbind())
+    Ok(matrix_object(py,&result)?.unbind())
 }
 #[pyfunction]
 #[pyo3(signature=(kind,args,evaluate=false))]
@@ -113,6 +119,10 @@ impl PyMatrixExpr{
     #[getter] fn is_MatrixSymbol(&self)->bool{matches!(self.m.kind(),MatrixKind::Symbol(_))}
     #[getter] fn is_ZeroMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Zero)}
     #[getter] fn is_Identity(&self)->bool{matches!(self.m.kind(),MatrixKind::Identity)}
+    #[getter] fn is_OneMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::One)}
+    #[getter] fn is_HadamardProduct(&self)->bool{matches!(self.m.kind(),MatrixKind::HadamardProduct(_))}
+    #[getter] fn is_HadamardPower(&self)->bool{matches!(self.m.kind(),MatrixKind::HadamardPower(..))}
+    #[getter] fn is_KroneckerProduct(&self)->bool{matches!(self.m.kind(),MatrixKind::Kronecker(_))}
     #[getter] fn is_MatAdd(&self)->bool{matches!(self.m.kind(),MatrixKind::Add(_))}
     #[getter] fn is_MatMul(&self)->bool{matches!(self.m.kind(),MatrixKind::Mul(..))}
     #[getter] fn is_MatPow(&self)->bool{matches!(self.m.kind(),MatrixKind::Pow(..)|MatrixKind::Inverse(_))}
@@ -122,8 +132,8 @@ impl PyMatrixExpr{
     #[getter] fn shape(&self)->(PyExpr,PyExpr){(self.rows(),self.cols())}
     #[getter] fn is_square(&self)->Option<bool>{if self.m.rows()==self.m.cols(){Some(true)}else{symox::matrix::ratfunc::is_zero_assume(&symox::ops::sub(self.m.rows(),self.m.cols()))}}
     #[getter] fn name(&self)->PyResult<String>{if let MatrixKind::Symbol(name)=self.m.kind(){Ok(name.clone())}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only MatrixSymbol has a name"))}}
-    #[getter] fn base(&self)->PyResult<PyMatrixExpr>{match self.m.kind(){MatrixKind::Pow(b,_)|MatrixKind::Inverse(b)=>Ok(wrap_matrixexpr(b.clone())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("Only matrix powers have a base"))}}
-    #[getter] fn exp(&self)->PyResult<PyExpr>{match self.m.kind(){MatrixKind::Pow(_,e)=>Ok(wrap(e.clone())),MatrixKind::Inverse(_)=>Ok(wrap(Expr::minus_one())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("Only matrix powers have an exponent"))}}
+    #[getter] fn base(&self,py:Python<'_>)->PyResult<PyObject>{match self.m.kind(){MatrixKind::Pow(b,_)|MatrixKind::Inverse(b)|MatrixKind::HadamardPower(MatrixOperand::Matrix(b),_)=>Ok(matrix_object(py,b)?.unbind()),MatrixKind::HadamardPower(MatrixOperand::Scalar(e),_)=>Ok(wrap(e.clone()).into_pyobject(py)?.into_any().unbind()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("Only matrix powers have a base"))}}
+    #[getter] fn exp(&self,py:Python<'_>)->PyResult<PyObject>{match self.m.kind(){MatrixKind::Pow(_,e)|MatrixKind::HadamardPower(_,MatrixOperand::Scalar(e))=>Ok(wrap(e.clone()).into_pyobject(py)?.into_any().unbind()),MatrixKind::Inverse(_)=>Ok(wrap(Expr::minus_one()).into_pyobject(py)?.into_any().unbind()),MatrixKind::HadamardPower(_,MatrixOperand::Matrix(m))=>Ok(matrix_object(py,m)?.unbind()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("Only matrix powers have an exponent"))}}
     #[getter] fn arg(&self)->PyResult<PyMatrixExpr>{let c=self.m.children();if c.len()==1{Ok(wrap_matrixexpr(c[0].clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Matrix expression does not have one matrix argument"))}}
     #[getter] fn args<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{matrix_args(py,&self.m,false)}
     #[getter] fn func<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{py.import("symox")?.getattr(self.m.kind_name())}
@@ -172,7 +182,7 @@ impl PyMatrixExpr{
     fn as_explicit(&self,py:Python<'_>)->PyResult<crate::matrices::PyMatrix>{Ok(crate::matrices::wrapm(self.m.as_explicit().map_err(|e|error(py,e))?).into_pyobject(py)?.call_method0("as_immutable")?.extract()?)}
     fn as_mutable(&self,py:Python<'_>)->PyResult<crate::matrices::PyMatrix>{Ok(crate::matrices::wrapm(self.m.as_explicit().map_err(|e|error(py,e))?))}
     #[pyo3(signature=(deep=true,**kwargs))]
-    fn doit(&self,py:Python<'_>,deep:bool,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{if kwargs.is_some_and(|d|!d.is_empty()){return Err(PyNotImplementedError::new_err("MatrixExpr doit options are unsupported"));}Ok(wrap_matrixexpr(self.m.doit(deep).map_err(|e|error(py,e))?))}
+    fn doit(&self,py:Python<'_>,deep:bool,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{if kwargs.is_some_and(|d|!d.is_empty()){return Err(PyNotImplementedError::new_err("MatrixExpr doit options are unsupported"));}Ok(matrix_object(py,&self.m.doit(deep).map_err(|e|error(py,e))?)?.unbind())}
     fn expand(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.expand().map_err(|e|error(py,e))?))}
     #[pyo3(signature=(*args,**kwargs))]
     fn diff(&self,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{
@@ -187,7 +197,7 @@ impl PyMatrixExpr{
     fn subs(&self,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{
         if kwargs.is_some_and(|d|!d.is_empty()){return Err(PyNotImplementedError::new_err("MatrixExpr subs options are unsupported"));}
         let mut pairs=Vec::new();if args.len()==2{pairs.push((args.get_item(0)?,args.get_item(1)?));}else if args.len()==1{let rule=args.get_item(0)?;if let Ok(d)=rule.downcast::<PyDict>(){pairs.extend(d.iter());}else{for pair in rule.try_iter()?{let pair=pair?;let a=pair.get_item(0)?;let b=pair.get_item(1)?;pairs.push((a,b));}}}else{return Err(PyTypeError::new_err("subs expects a mapping, pairs or (old,new)"));}
-        let mut result=self.m.clone();for (a,b) in pairs{result=if is_matrix(&a){result.map_all(&[(to_matrixexpr(&a)?,to_matrixexpr(&b)?)],&mut |e|e.clone())}else{let old=to_expr(&a)?;let new=to_expr(&b)?;result.scalar_map(&mut |e|symox::subs::subs(e,&[(old.clone(),new.clone())]))}.map_err(|e|error(args.py(),e))?;}Ok(wrap_matrixexpr(result))
+        let mut result=self.m.clone();for (a,b) in pairs{result=if is_matrix(&a){result.xreplace(&[(to_matrixexpr(&a)?,to_matrixexpr(&b)?)],&FxHashMap::default())}else{let old=to_expr(&a)?;let new=to_expr(&b)?;result.scalar_map(&mut |e|symox::subs::subs(e,&[(old.clone(),new.clone())]))}.map_err(|e|error(args.py(),e))?;}Ok(wrap_matrixexpr(result))
     }
     fn to_sympy<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{matrixexpr_to_sympy(py,&self.m)}
     fn _sympy_<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{self.to_sympy(py)}

@@ -1,2 +1,2 @@
-from ..._matrixexpr import Identity, ZeroMatrix
-__all__ = ['Identity', 'ZeroMatrix']
+from ..._matrixexpr import Identity, ZeroMatrix, OneMatrix
+__all__ = ['Identity', 'ZeroMatrix', 'OneMatrix']

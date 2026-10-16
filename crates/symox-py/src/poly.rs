@@ -132,11 +132,11 @@ impl PyGroebnerBasis {
         use symox::poly::groebner::{buchberger, CoefficientField, MonomialOrder};
         let monomial_order = MonomialOrder::parse(order)
             .ok_or_else(|| PyValueError::new_err("order must be 'lex', 'grlex', or 'grevlex'"))?;
-        if method.is_some_and(|m| m != "buchberger") {
-            return Err(PyNotImplementedError::new_err(
-                "only method='buchberger' is implemented",
-            ));
-        }
+        let use_f5b=match method {
+            None|Some("buchberger")=>false,
+            Some("f5b")=>true,
+            Some(other)=>return Err(PyValueError::new_err(format!("'{other}' is not a valid Groebner algorithm (valid are 'buchberger' and 'f5b')"))),
+        };
         if domain.is_some_and(|d| d != "ZZ" && d != "QQ" && !d.starts_with("QQ(") && !d.starts_with("ZZ(") && !d.starts_with("QQ[") && !d.starts_with("ZZ[") && !d.starts_with("QQ<")) {
             return Err(PyNotImplementedError::new_err(
                 "Groebner bases support only ZZ, QQ, or modulus=<prime>",
@@ -151,6 +151,7 @@ impl PyGroebnerBasis {
         let mut inferred_prime = None;
         let mut poly_domain = Domain::ZZ;
         let mut inferred_algebraic=None;
+        let mut inferred_fraction:Option<FractionPoly>=None;
         for item in f.try_iter()? {
             let item = item?;
             if let Ok(p) = item.downcast::<PyPoly>() {
@@ -158,6 +159,17 @@ impl PyGroebnerBasis {
                 let p = &p.get().p;
                 exprs.push(p.as_expr());
                 if let Some(a)=&p.algebraic {inferred_algebraic=Some(a.number_field.clone());}
+                if let Some(field)=&p.field {
+                    if let Some(current)=&mut inferred_fraction {
+                        for parameter in &field.parameters {
+                            if !current.parameters.iter().any(|p|p.as_symbol()==parameter.as_symbol()){current.parameters.push(parameter.clone());}
+                        }
+                        symox::poly::convert::sort_gens(&mut current.parameters);
+                        let base=if current.display.starts_with("QQ")||field.display.starts_with("QQ"){ "QQ" }else{ "ZZ" };
+                        let names=current.parameters.iter().map(symox::printer::to_str).collect::<Vec<_>>().join(",");
+                        current.display=if current.display.ends_with(']')&&field.display.ends_with(']'){format!("{base}[{names}]")}else{format!("{base}({names})")};
+                    } else {inferred_fraction=Some(field.clone());}
+                }
                 inferred_gens = symox::poly::polyobj::unify_gens(&inferred_gens, p.true_gens());
                 poly_domain = poly_domain.max(p.domain);
                 if let Some(m) = p.modulus {
@@ -177,6 +189,8 @@ impl PyGroebnerBasis {
         if generators.is_empty() && any_poly {
             generators = inferred_gens;
         }
+        let inferred_fraction_display=inferred_fraction.as_ref().map(|field|field.display.clone());
+        let domain=domain.or(inferred_fraction_display.as_deref());
         let algebraic=algebraic_extension(extension,&exprs,domain)?.or(if domain.is_none(){inferred_algebraic}else{None});
         if let Some(number_field)=algebraic {
             if modulus.is_some() || inferred_prime.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
@@ -184,10 +198,12 @@ impl PyGroebnerBasis {
             let prototype=AlgebraicPoly::from_expr(&Expr::zero(),&generators,number_field.clone()).map_err(err)?;
             let inputs=exprs.iter().map(|e|prototype.convert(e).map(|p|p.rep)).collect::<Result<Vec<_>,_>>().map_err(err)?;
             let _scope=AlgebraicScope::new(number_field);
-            let basis=symox::poly::fieldalg::buchberger(&inputs,monomial_order).into_iter().map(|rep|prototype.with_rep(rep).into()).collect();
+            let reps=if use_f5b {symox::poly::f5b::f5b(&inputs,monomial_order).map_err(err)?}else{symox::poly::fieldalg::buchberger(&inputs,monomial_order)};
+            let basis=reps.into_iter().map(|rep|prototype.with_rep(rep).into()).collect();
             return Ok(Self {basis,generators,coefficient_domain:Domain::QQ,prime:None,monomial_order,return_polys:polys.unwrap_or(any_poly),fraction_domain:None,algebraic_domain:Some(prototype)});
         }
-        let available=symox::poly::fraction::infer_parameters(&exprs,&[]);
+        let mut available=symox::poly::fraction::infer_parameters(&exprs,&[]);
+        if let Some(field)=&inferred_fraction {for parameter in &field.parameters {if !available.iter().any(|p|p.as_symbol()==parameter.as_symbol()){available.push(parameter.clone());}}}
         let declared=domain.map(|d|symox::poly::fraction::parse_domain(d,&available)).transpose().map_err(err)?.flatten();
         if generators.is_empty() {
             if let Some(parameters)=&declared {generators=symox::poly::fraction::infer_parameters(&exprs,parameters);}
@@ -223,7 +239,7 @@ impl PyGroebnerBasis {
             if display.ends_with(']') && converted_inputs.iter().any(|p|!p.belongs_to_ring()){return Err(PyValueError::new_err("coefficient does not belong to the selected polynomial ring"));}
             let inputs=converted_inputs.into_iter().map(|p|p.rep).collect::<Vec<_>>();
             let _scope=symox::poly::ratfunc::Scope::new(parameters.len());
-            let reps=symox::poly::fieldalg::buchberger(&inputs,monomial_order);
+            let reps=if use_f5b {symox::poly::f5b::f5b(&inputs,monomial_order).map_err(err)?}else{symox::poly::fieldalg::buchberger(&inputs,monomial_order)};
             let basis=reps.into_iter().map(|rep| {
                 let p=prototype.with_rep(rep);
                 if display.ends_with(']') {p.ring_normalize().into()}else{p.into()}
@@ -256,7 +272,10 @@ impl PyGroebnerBasis {
             _ => Domain::ZZ,
         };
         let field = CoefficientField { modulus: prime };
-        let reps = buchberger(&converted.polys, monomial_order, field);
+        let reps = if use_f5b {
+            if let Some(prime)=prime {symox::poly::f5b::f5b_modular(&converted.polys,monomial_order,prime).map_err(err)?}
+            else {symox::poly::f5b::f5b(&converted.polys,monomial_order).map_err(err)?}
+        } else {buchberger(&converted.polys, monomial_order, field)};
         let basis = reps
             .into_iter()
             .map(|rep| {

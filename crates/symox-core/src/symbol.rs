@@ -43,6 +43,9 @@ flags! {
     NOT_INTEGER = 17, "!integer";
     NOT_POSITIVE = 18, "!positive";
     NOT_NEGATIVE = 19, "!negative";
+    NOT_ZERO = 20, "!zero";
+    NOT_NONZERO = 21, "!nonzero";
+    NOT_RATIONAL = 22, "!rational";
 }
 
 impl Assumptions {
@@ -77,14 +80,23 @@ impl Assumptions {
             imp(&mut a, Self::ODD, Self::INTEGER.with(Self::NONZERO));
             imp(&mut a, Self::INTEGER, Self::RATIONAL);
             imp(&mut a, Self::RATIONAL, Self::REAL);
+            imp(&mut a, Self::NONZERO, Self::REAL.with(Self::NOT_ZERO));
+            imp(&mut a, Self::NOT_REAL, Self::NOT_NONZERO.with(Self::NOT_RATIONAL).with(Self::NOT_INTEGER).with(Self::NOT_POSITIVE).with(Self::NOT_NEGATIVE));
+            imp(&mut a, Self::NOT_RATIONAL, Self::NOT_INTEGER);
+            imp(&mut a, Self::NOT_INTEGER, Self::NOT_ZERO);
             imp(&mut a, Self::IRRATIONAL, Self::REAL.with(Self::NONZERO));
             imp(&mut a, Self::POSITIVE, Self::REAL.with(Self::NONZERO).with(Self::NONNEGATIVE).with(Self::NOT_NEGATIVE));
             imp(&mut a, Self::NEGATIVE, Self::REAL.with(Self::NONZERO).with(Self::NONPOSITIVE).with(Self::NOT_POSITIVE));
-            imp(&mut a, Self::ZERO, Self::REAL.with(Self::NONNEGATIVE).with(Self::NONPOSITIVE).with(Self::EVEN).with(Self::NOT_POSITIVE).with(Self::NOT_NEGATIVE));
+            imp(&mut a, Self::ZERO, Self::REAL.with(Self::NONNEGATIVE).with(Self::NONPOSITIVE).with(Self::EVEN).with(Self::NOT_POSITIVE).with(Self::NOT_NEGATIVE).with(Self::NOT_NONZERO));
             imp(&mut a, Self::NONNEGATIVE, Self::REAL.with(Self::NOT_NEGATIVE));
             imp(&mut a, Self::NONPOSITIVE, Self::REAL.with(Self::NOT_POSITIVE));
             imp(&mut a, Self::REAL, Self::COMPLEX.with(Self::FINITE));
-            imp(&mut a, Self::IMAGINARY, Self::COMPLEX.with(Self::NOT_REAL).with(Self::NONZERO));
+            imp(&mut a, Self::COMPLEX, Self::FINITE);
+            imp(&mut a, Self::IMAGINARY, Self::COMPLEX.with(Self::NOT_REAL).with(Self::NOT_ZERO).with(Self::NOT_NONZERO));
+            if a.has(Self::REAL) && a.has(Self::NOT_ZERO) { a = a.with(Self::NONZERO); }
+            if a.has(Self::REAL) && a.has(Self::NOT_NONZERO) { a = a.with(Self::ZERO); }
+            if a.has(Self::NOT_ZERO) && a.has(Self::NOT_NONZERO) { a = a.with(Self::NOT_REAL); }
+            if a.has(Self::REAL) && a.has(Self::NOT_RATIONAL) { a = a.with(Self::IRRATIONAL); }
             if a.has(Self::NONNEGATIVE) && a.has(Self::NONZERO) {
                 a = a.with(Self::POSITIVE);
             }
@@ -105,6 +117,9 @@ impl Assumptions {
             || bad(Self::INTEGER, Self::NOT_INTEGER)
             || bad(Self::EVEN, Self::ODD)
             || bad(Self::ZERO, Self::NONZERO)
+            || bad(Self::ZERO, Self::NOT_ZERO)
+            || bad(Self::NONZERO, Self::NOT_NONZERO)
+            || bad(Self::RATIONAL, Self::NOT_RATIONAL)
             || bad(Self::RATIONAL, Self::IRRATIONAL)
         {
             return Err("inconsistent assumptions".into());
@@ -123,11 +138,12 @@ impl Assumptions {
                 ("integer", false) => Self::NOT_INTEGER,
                 ("positive", false) => Self::NOT_POSITIVE,
                 ("negative", false) => Self::NOT_NEGATIVE,
-                ("zero", false) => Self::NONZERO,
-                ("nonzero", false) => Self::ZERO,
+                ("zero", false) => Self::NOT_ZERO,
+                ("nonzero", false) => Self::NOT_NONZERO,
+                ("rational", false) => Self::NOT_RATIONAL,
                 ("nonnegative", false) => Self::NEGATIVE,
                 ("nonpositive", false) => Self::POSITIVE,
-                ("finite", false) | ("complex", false) | ("rational", false) | ("even", false)
+                ("finite", false) | ("complex", false) | ("even", false)
                 | ("odd", false) | ("prime", false) | ("irrational", false) | ("imaginary", false) => {
                     continue
                 }
@@ -299,5 +315,24 @@ impl PartialEq<str> for Symbol {
 impl PartialEq<&str> for Symbol {
     fn eq(&self, o: &&str) -> bool {
         &*self.name == *o
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Assumptions as A;
+    #[test]
+    fn real_nonzero_and_complex_nonzero_are_distinct() {
+        let nonzero=A::from_kwargs([("nonzero",true)]).unwrap().closure().unwrap();
+        assert!(nonzero.has(A::REAL));assert!(nonzero.has(A::NOT_ZERO));
+        let not_zero=A::from_kwargs([("zero",false)]).unwrap().closure().unwrap();
+        assert!(!not_zero.has(A::REAL));assert!(!not_zero.has(A::NONZERO));
+        let not_nonzero=A::from_kwargs([("nonzero",false)]).unwrap().closure().unwrap();
+        assert!(!not_nonzero.has(A::ZERO));assert!(!not_nonzero.has(A::REAL));
+        let imaginary=A::from_kwargs([("imaginary",true)]).unwrap().closure().unwrap();
+        assert!(imaginary.has(A::NOT_ZERO));assert!(imaginary.has(A::NOT_NONZERO));assert!(!imaginary.has(A::NONZERO));
+        assert!(A::from_kwargs([("imaginary",true),("nonzero",true)]).is_err());
+        assert!(A::from_kwargs([("zero",true),("zero",false)]).is_err());
+        assert!(A::from_kwargs([("rational",true),("rational",false)]).is_err());
     }
 }

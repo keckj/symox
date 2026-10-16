@@ -99,6 +99,12 @@ precision fallback is presented as extra significant digits.
 
 ## Compatibility with SymPy
 
+Assumptions distinguish real `nonzero=True` from complex `zero=False`, and
+exact rational-power and supported quadratic facts filter solver candidates
+without floating-point tolerances. Unquoted Unicode symbol names are accepted.
+Numeric expressions follow Python's hash contract for equal built-in numbers
+and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
+
 `tests/compare_sympy.py` runs every case through SymPy and symox and
 compares the printed canonical forms and, when they differ, numerical
 equivalence. Known deliberate deviations:
@@ -440,8 +446,8 @@ and [installation instructions](https://github.com/AdaptiveCpp/AdaptiveCpp/blob/
 
 ## Polynomial ideals and linear systems
 
-`groebner` computes reduced Gröbner bases with a native Buchberger algorithm
-over `QQ`, `ZZ`, prime finite fields and rational-function coefficient fields
+`groebner` computes reduced Gröbner bases with native Buchberger and F5B
+algorithms over `QQ`, `ZZ`, prime finite fields and rational-function coefficient fields
 such as `QQ(a,b)`. Polynomial coefficient rings `QQ[a,b]` and `ZZ[a,b]`
 are also supported, with deterministic parameter inference and coefficient
 normalization. It supports deterministic `lex`,
@@ -451,7 +457,7 @@ normalization. It supports deterministic `lex`,
 import symox as sm
 
 x, y = sm.symbols("x y")
-g = sm.groebner([x*y - 1, y**2 - 1], x, y)
+g = sm.groebner([x*y - 1, y**2 - 1], x, y, method="f5b")
 g.reduce(x**2 - 1)               # quotients and remainder
 g.contains(x**2 - 1)             # True
 ```
@@ -464,7 +470,9 @@ rational-function and quadratic algebraic fields.
 Changing the monomial order requires a zero-dimensional ideal; requesting the
 existing order returns the basis unchanged. Polynomial coefficient rings use
 their fraction fields internally and restore integral coefficient normalization.
-F5B is not implemented.
+`method="buchberger"` remains the default; `method="f5b"` selects signature-based
+reduction with rewrite and syzygy criteria. Both return reduced bases over all
+supported coefficient fields; their relative speed depends on the system.
 
 ```python
 a, b, x, y = sm.symbols("a b x y")
@@ -528,11 +536,15 @@ pole coverage; unresolved cases remain unevaluated. Opposing infinities produce
 ## Symbolic matrices
 
 `MatrixSymbol`, `MatAdd`, `MatMul`, `MatPow`, `Transpose`, `Adjoint`,
-`Inverse`, `Identity` and `ZeroMatrix` share a native typed matrix expression
+`Inverse`, `Identity`, `ZeroMatrix`, `OneMatrix`, `HadamardProduct`,
+`HadamardPower` and `KroneckerProduct` share a native typed matrix expression
 tree. Products preserve their order and validate dimensions, including symbolic
 dimensions. Matrix elements participate in scalar arithmetic, substitutions,
 cached free symbols, pickling and SymPy conversion. `as_explicit()` materializes
 matrices with concrete dimensions for the existing exact algorithms.
+Hadamard operations act element by element and require matching matrix shapes;
+Kronecker products multiply dimensions and preserve factor order. These nodes
+also support finite matrix output generation for PyTorch and JAX.
 Scalar differentiation preserves product order, supports integer powers and
 inverses, and uses shared matrix subexpressions for large powers. `Trace` and
 `Determinant` retain abstract parents while applying supported exact identities;

@@ -113,7 +113,7 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
                     let body = &lam[1];
                     let coefficient = crate::diff::diff(body, variable);
                     if !crate::traverse::has(&coefficient, variable)
-                        && crate::assumptions::is_nonzero(&coefficient) == Some(true) {
+                        && crate::assumptions::is_zero(&coefficient) == Some(false) {
                         let offset = crate::subs::subs1(body, variable, &Expr::zero());
                         let residual = crate::ops::sub(body, &crate::ops::add2(&crate::ops::mul2(&coefficient, variable), &offset));
                         if crate::expand::expand(&residual).is_zero() {

@@ -14,7 +14,7 @@ use crate::functions::{func, log_base, undefined};
 use crate::number::Number;
 use crate::ops::{add, div, mul, neg, pow, sqrt};
 use crate::relational::{piecewise, rel};
-use crate::matrixexpr::MatrixExpr;
+use crate::matrixexpr::{MatrixExpr,MatrixOperand};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseError {
@@ -49,9 +49,9 @@ fn tokenize(s: &str) -> Result<Vec<(Tok, usize)>, ParseError> {
     let mut i = 0;
     let mut out = Vec::new();
     while i < b.len() {
-        let c = b[i] as char;
+        let c = s[i..].chars().next().unwrap();
         if c.is_whitespace() {
-            i += 1;
+            i += c.len_utf8();
             continue;
         }
         let start = i;
@@ -77,8 +77,10 @@ fn tokenize(s: &str) -> Result<Vec<(Tok, usize)>, ParseError> {
             continue;
         }
         if c.is_alphabetic() || c == '_' {
-            while i < b.len() && ((b[i] as char).is_alphanumeric() || b[i] == b'_') {
-                i += 1;
+            while i < b.len() {
+                let ch = s[i..].chars().next().unwrap();
+                if !ch.is_alphanumeric() && ch != '_' { break; }
+                i += ch.len_utf8();
             }
             out.push((Tok::Ident(s[start..i].to_string()), start));
             continue;
@@ -102,7 +104,7 @@ fn tokenize(s: &str) -> Result<Vec<(Tok, usize)>, ParseError> {
             i += 1;
             continue;
         }
-        let two = if i + 1 < b.len() { &s[i..i + 2] } else { "" };
+        let two = s.get(i..i + 2).unwrap_or("");
         let op: Option<&'static str> = match two {
             "**" => Some("**"),
             "<=" => Some("<="),
@@ -458,7 +460,7 @@ impl Parser {
                     let args = self.call_args()?;
                     let kwargs = std::mem::replace(&mut self.kwargs, saved);
                     let precision = std::mem::replace(&mut self.precision, saved_precision);
-                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -533,6 +535,10 @@ impl Parser {
             "MatrixSymbol"=>{arity(3)?;let Val::Str(s)=&args[0] else{return self.err("MatrixSymbol expects a string name");};MatrixExpr::symbol(s,scalar(1)?,scalar(2)?)},
             "Identity"=>{arity(1)?;MatrixExpr::identity(scalar(0)?)},
             "ZeroMatrix"=>{arity(2)?;MatrixExpr::zero(scalar(0)?,scalar(1)?)},
+            "OneMatrix"=>{arity(2)?;MatrixExpr::one(scalar(0)?,scalar(1)?)},
+            "HadamardProduct"=>MatrixExpr::hadamard_product(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
+            "KroneckerProduct"=>MatrixExpr::kronecker(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
+            "HadamardPower"=>{arity(2)?;let operand=|i:usize|->R<MatrixOperand>{if let Ok(matrix)=self.as_matrix(&args[i]){Ok(MatrixOperand::Matrix(matrix))}else{Ok(MatrixOperand::Scalar(scalar(i)?))}};let a=operand(0)?;let b=operand(1)?;if let(MatrixOperand::Scalar(a),MatrixOperand::Scalar(b))=(&a,&b){return Ok(Val::E(pow(a,b)));}MatrixExpr::hadamard_power(a,b,evaluate)},
             "MatAdd"=>MatrixExpr::add(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
             "MatMul"=>{
                 let mut matrices=Vec::new();let mut scalars=Vec::new();

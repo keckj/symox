@@ -12,6 +12,114 @@ use crate::expr::{Constant, Expr, Func, Kind};
 use crate::functions::is_numeric_value;
 use crate::number::Number;
 use crate::ops::{as_coeff_mul, mul_factor, pow};
+use crate::matrixexpr::{MatrixExpr, MatrixKind, MatrixOperand};
+
+/// Presentation arguments deliberately differ from scalar `Expr::args()`:
+/// matrix parents live in typed payloads, not in commutative scalar children.
+pub(crate) enum PresentationArg {
+    Scalar(Expr),
+    Matrix(MatrixExpr),
+    Text(String),
+    Node(&'static str, Vec<PresentationArg>),
+}
+
+pub(crate) struct MatrixPresentation {
+    pub class: (u8, u32, &'static str),
+    pub args: Vec<PresentationArg>,
+}
+
+pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
+    use PresentationArg::{Matrix as M, Scalar as S};
+    let mut class = (5, 0, matrix.kind_name());
+    let args = match matrix.kind() {
+        MatrixKind::Symbol(name) => vec![PresentationArg::Text(name.clone()), S(matrix.rows().clone()), S(matrix.cols().clone())],
+        MatrixKind::Explicit(m) => {
+            class.2 = "ImmutableDenseMatrix";
+            vec![S(matrix.rows().clone()), S(matrix.cols().clone()), PresentationArg::Node("Tuple", m.data().iter().cloned().map(S).collect())]
+        }
+        MatrixKind::Identity => vec![S(matrix.rows().clone())],
+        MatrixKind::Zero | MatrixKind::One => vec![S(matrix.rows().clone()), S(matrix.cols().clone())],
+        MatrixKind::HadamardProduct(factors) | MatrixKind::Kronecker(factors) => factors.iter().cloned().map(M).collect(),
+        MatrixKind::HadamardPower(base, exponent) => [base, exponent].into_iter().map(|operand| match operand {
+            MatrixOperand::Scalar(e) => S(e.clone()), MatrixOperand::Matrix(m) => M(m.clone()),
+        }).collect(),
+        MatrixKind::Add(terms) => {
+            class = (3, 1, "MatAdd");
+            matrix_ordered_terms(terms).into_iter().map(M).collect()
+        }
+        MatrixKind::Mul(c, factors) => {
+            class = (3, 0, "MatMul");
+            let mut args = Vec::new();
+            if !c.is_one() { args.push(S(c.clone())); }
+            args.extend(factors.iter().cloned().map(M)); args
+        }
+        MatrixKind::Pow(base, exponent) => vec![M(base.clone()), S(exponent.clone())],
+        MatrixKind::Inverse(base) => vec![M(base.clone()), S(Expr::minus_one())],
+        MatrixKind::Transpose(base) | MatrixKind::Adjoint(base) => vec![M(base.clone())],
+        MatrixKind::Conjugate(base) => {
+            class.2 = "Adjoint";
+            vec![PresentationArg::Node("Transpose", vec![M(base.clone())])]
+        }
+    };
+    MatrixPresentation { class, args }
+}
+
+/// Matrix sums order scalar monomials first, then ordered noncommutative
+/// factors. A scalar coefficient must not make `2*B` sort before `A`.
+fn matrix_ordered_terms(terms: &[MatrixExpr]) -> Vec<MatrixExpr> {
+    let mut gens = Vec::new();
+    let mut entries = Vec::new();
+    for term in terms {
+        let (scalar, factors) = match term.kind() {
+            MatrixKind::Mul(c, factors) => (c.clone(), factors.clone()),
+            _ => (Expr::one(), vec![term.clone()]),
+        };
+        let numeric = if is_numeric_value(&scalar) { crate::evalf::eval_c64(&scalar) } else { None };
+        let coefficient = numeric.unwrap_or(Complex64::new(1.0, 0.0));
+        let mut monomial = Vec::new();
+        // MatMul stores its entire scalar coefficient as one argument. For
+        // example x*y remains one generator here, matching SymPy's as_terms.
+        if numeric.is_none() && !scalar.is_one() {
+            let (base, exponent) = decompose_power(&scalar);
+            if !gens.contains(&base) { gens.push(base.clone()); }
+            monomial.push((base, exponent));
+        }
+        entries.push((term.clone(), monomial, factors.iter().map(matrix_sort_key).collect::<Vec<_>>(), coefficient));
+    }
+    gens.sort_by_cached_key(sort_key);
+    let mut keyed: Vec<_> = entries.into_iter().map(|(term, monomial, ncpart, coeff)| {
+        let mut powers = vec![0i64; gens.len()];
+        for (base, exponent) in monomial { powers[gens.iter().position(|g| g == &base).unwrap()] = exponent; }
+        (powers, ncpart, coeff, term)
+    }).collect();
+    keyed.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1))
+        .then_with(|| (a.2.im != 0.0).cmp(&(b.2.im != 0.0)))
+        .then_with(|| a.2.im.total_cmp(&b.2.im)).then_with(|| a.2.re.total_cmp(&b.2.re)));
+    keyed.into_iter().map(|(_, _, _, term)| term).collect()
+}
+
+fn presentation_key(arg: PresentationArg) -> Key {
+    match arg {
+        PresentationArg::Scalar(e) => sort_key(&e),
+        PresentationArg::Matrix(m) => matrix_sort_key(&m),
+        PresentationArg::Text(s) => composite_key((2, 0, "Str"), vec![Key::Str(s)]),
+        PresentationArg::Node(name, args) => composite_key((5, 0, name), args.into_iter().map(presentation_key).collect()),
+    }
+}
+
+fn composite_key(class: (u8, u32, &str), args: Vec<Key>) -> Key {
+    tup(vec![
+        tup(vec![Key::Int(class.0.into()), Key::Int(class.1.into()), Key::Str(class.2.into())]),
+        tup(vec![Key::Int(args.len() as i64), tup(args)]),
+        number_key(Number::ONE), Key::Num(Number::ONE),
+    ])
+}
+
+pub fn matrix_sort_key(matrix: &MatrixExpr) -> Key {
+    let presentation = matrix_presentation(matrix);
+    let args: Vec<_> = presentation.args.into_iter().map(presentation_key).collect();
+    composite_key(presentation.class, args)
+}
 
 /// A Python-tuple like sort key.
 #[derive(Clone, Debug)]
@@ -127,6 +235,15 @@ fn number_key(n: Number) -> Key {
 /// SymPy's `default_sort_key`.
 pub fn sort_key(e: &Expr) -> Key {
     match e.kind() {
+        Kind::Func(Func::MatrixProxy(matrix), _) => return matrix_sort_key(matrix),
+        Kind::Func(Func::MatrixElement(matrix), args) => {
+            let mut keys = vec![matrix_sort_key(matrix)];
+            keys.extend(args.iter().map(sort_key));
+            return composite_key((5, 0, "MatrixElement"), keys);
+        }
+        Kind::Func(f @ (Func::MatrixTrace(matrix) | Func::MatrixDeterminant(matrix)), _) => {
+            return composite_key((5, 0, f.name()), vec![matrix_sort_key(matrix)]);
+        }
         Kind::Num(n) => return number_key(n.clone()),
         Kind::Const(Constant::Infinity) => return number_key(Number::Float(f64::INFINITY)),
         Kind::Const(Constant::NegInfinity) => return number_key(Number::Float(f64::NEG_INFINITY)),
@@ -140,6 +257,14 @@ pub fn sort_key(e: &Expr) -> Key {
         Kind::Pow(b, x) => (b.clone(), x.clone()),
         _ => (rest.clone(), Expr::one()),
     };
+    if matches!(base.kind(), Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+        if let Key::Tup(mut parts) = sort_key(&base) {
+            parts[2] = sort_key(&exp);
+            parts[3] = Key::Num(coeff);
+            return Key::Tup(parts);
+        }
+        unreachable!("matrix sort keys are tuples");
+    }
     let args: Vec<Key> = if base.is_atom() {
         vec![Key::Str(crate::printer::to_str(&base))]
     } else {

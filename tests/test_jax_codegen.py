@@ -13,6 +13,28 @@ jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 
 
+@pytest.mark.parametrize("jit", [False, True])
+def test_hadamard_kronecker_batched_codegen_and_grad(jit):
+    a, b = [sm.MatrixSymbol(name, 2, 2) for name in ('A', 'B')]
+    outputs = (sm.HadamardProduct(a, b), sm.HadamardPower(a, 2),
+               sm.HadamardPower(2, a), sm.HadamardPower(a, b), sm.KroneckerProduct(a, b))
+    function = sm.jax_lambdify((a, b), outputs, jit=jit)
+    av = jnp.arange(8.).reshape(2, 1, 2, 2)/10+1
+    bv = jnp.arange(12.).reshape(1, 3, 2, 2)/10+1
+
+    def reference(x, y):
+        x, y = jnp.broadcast_arrays(x, y)
+        kron = (x[..., :, None, :, None]*y[..., None, :, None, :]).reshape(2, 3, 4, 4)
+        return (x*y, x**2, 2**x, x**y, kron)
+
+    for result, expected in zip(function(av, bv), reference(av, bv)):
+        np.testing.assert_allclose(result, expected, rtol=2e-6)
+    actual = jax.grad(lambda x, y: sum(jnp.sum(value) for value in function(x, y)), argnums=(0, 1))(av, bv)
+    expected = jax.grad(lambda x, y: sum(jnp.sum(value) for value in reference(x, y)), argnums=(0, 1))(av, bv)
+    for result, expected in zip(actual, expected):
+        np.testing.assert_allclose(result, expected, rtol=2e-6)
+
+
 @pytest.mark.parametrize("jit",[False,True])
 def test_matrix_trace_determinant_codegen_and_gradient(jit):
     a=sm.MatrixSymbol("A",2,2)

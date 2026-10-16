@@ -68,19 +68,21 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
     let assumptions = symbol.assumptions();
     if assumptions.is_empty() { return true; }
     query::exact_queries(|| {
-        let integer = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_integer(value) };
-        let rational = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_rational(value) };
-        let real = query::is_real(value).or_else(|| {
+        let algebraic=query::quadratic_facts(value);
+        let integer = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_integer(value).or_else(||algebraic.and_then(|f|f.integer)) };
+        let rational = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_rational(value).or_else(||algebraic.and_then(|f|f.rational)) };
+        let real = query::is_real(value).or_else(||algebraic.and_then(|f|f.real)).or_else(|| {
             let imaginary_part = im(value);
             if matches!(imaginary_part.kind(), Kind::Func(Func::Im, _)) { None } else { query::is_zero(&imaginary_part) }
         });
-        let zero = query::is_zero(value).or_else(|| value.is_constant(Constant::I).then_some(false));
-        let imaginary = if zero == Some(true) || real == Some(true) { Some(false) }
+        let zero = query::is_zero(value).or_else(||algebraic.and_then(|f|f.zero));
+        let nonzero=match real {Some(false)=>Some(false),Some(true)=>zero.map(|z|!z),None=>zero.filter(|z|*z).map(|_|false)};
+        let imaginary = algebraic.and_then(|f|f.imaginary).or_else(||if zero == Some(true) || real == Some(true) { Some(false) }
             else {
                 let real_part = re(value);
                 if matches!(real_part.kind(), Kind::Func(Func::Re, _)) { None }
                 else { query::is_zero(&real_part).and_then(|is_zero| if !is_zero { Some(false) } else { real.map(|real| !real) }) }
-            };
+            });
         let prime = value.as_number().and_then(Number::to_bigint).map(|integer| crate::ntheory::isprime(&integer));
         let finite = query::is_finite(value);
         let complex = finite.filter(|finite| !finite).or_else(|| {
@@ -91,14 +93,18 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
             (Some(true), Some(false)) => Some(true),
             _ => None,
         };
+        let positive=query::is_positive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>0));
+        let negative=query::is_negative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<0));
+        let nonnegative=query::is_nonnegative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>=0));
+        let nonpositive=query::is_nonpositive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<=0));
         let facts = [
             (A::REAL, real, true), (A::NOT_REAL, real, false),
-            (A::POSITIVE, query::is_positive(value), true), (A::NOT_POSITIVE, query::is_positive(value), false),
-            (A::NEGATIVE, query::is_negative(value), true), (A::NOT_NEGATIVE, query::is_negative(value), false),
-            (A::NONNEGATIVE, query::is_nonnegative(value), true), (A::NONPOSITIVE, query::is_nonpositive(value), true),
-            (A::ZERO, zero, true), (A::NONZERO, zero.map(|zero| !zero), true),
+            (A::POSITIVE,positive,true),(A::NOT_POSITIVE,positive,false),
+            (A::NEGATIVE,negative,true),(A::NOT_NEGATIVE,negative,false),
+            (A::NONNEGATIVE,nonnegative,true),(A::NONPOSITIVE,nonpositive,true),
+            (A::ZERO, zero, true), (A::NOT_ZERO,zero,false), (A::NONZERO, nonzero, true), (A::NOT_NONZERO,nonzero,false),
             (A::INTEGER, integer, true), (A::NOT_INTEGER, integer, false),
-            (A::RATIONAL, rational, true), (A::IRRATIONAL, irrational, true),
+            (A::RATIONAL, rational, true), (A::NOT_RATIONAL,rational,false), (A::IRRATIONAL, irrational, true),
             (A::EVEN, query::is_even(value), true), (A::ODD, query::is_odd(value), true),
             (A::PRIME, prime, true), (A::FINITE, finite, true), (A::COMPLEX, complex, true),
             (A::IMAGINARY, imaginary, true),
@@ -917,7 +923,7 @@ mod tests {
         assert_eq!(solve(&sinc, &x).unwrap(), vec![Expr::pi()]);
         assert_eq!(solve_with_check(&sinc, &x, false).unwrap(), vec![Expr::zero(), Expr::pi()]);
         let candidate = sub(&sqrt(&Expr::int(2)), &Expr::int(2));
-        assert_eq!(solve(&sub(&positive, &candidate), &positive).unwrap(), vec![candidate]);
+        assert_eq!(solve(&sub(&positive, &candidate), &positive).unwrap(), Vec::<Expr>::new());
     }
 
     #[test]

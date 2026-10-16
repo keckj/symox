@@ -409,7 +409,7 @@ pub fn expand_power_exp_deep(e: &Expr, deep: bool) -> Expr {
         else { Expr::from_unevaluated_kind(Kind::Add(c.clone(), transformed)) }
     } else { map_children(e, &mut |c| expand_power_exp_deep(c, deep)) };
     match e2.kind() {
-        Kind::Pow(b, x) if x.is_add() && crate::assumptions::is_nonzero(b) == Some(true) => {
+        Kind::Pow(b, x) if x.is_add() && crate::assumptions::is_zero(b) == Some(false) => {
             expanded_product(&x.args().iter().map(|t| pow(b, t)).collect::<Vec<_>>())
         }
         Kind::Func(Func::Exp, a) if a[0].is_add() => expanded_product(&a[0].args().iter().map(exp).collect::<Vec<_>>()),

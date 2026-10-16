@@ -14,6 +14,7 @@ use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyList, PySet, PyString, Py
 use rustc_hash::FxHashMap;
 
 mod series;
+mod python_hash;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -531,10 +532,19 @@ impl PyExpr {
         printer::srepr(&self.e)
     }
 
-    fn __hash__(&self) -> u64 {
+    fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
+        match self.e.kind() {
+            Kind::Num(Number::Float(value)) => return value.into_pyobject(py)?.hash(),
+            Kind::Num(number) => if let Some(hash) = python_hash::exact_hash(number) { return Ok(hash); },
+            Kind::Bool(value) => return Ok(isize::from(*value)),
+            Kind::Const(Constant::Infinity) => return Ok(314159),
+            Kind::Const(Constant::NegInfinity) => return Ok(-314159),
+            _ => {},
+        }
         let mut h = DefaultHasher::new();
         self.e.hash(&mut h);
-        h.finish()
+        let hash = h.finish() as isize;
+        Ok(if hash == -1 { -2 } else { hash })
     }
 
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {

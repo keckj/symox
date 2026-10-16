@@ -1483,6 +1483,8 @@ def lambdify(args, expr, modules=None, **kwargs):
 from ._matrixexpr import (  # noqa: E402
     MatrixExpr, MatrixSymbol, MatAdd, MatMul, MatPow, Transpose, Adjoint,
     Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
+    OneMatrix, HadamardProduct, HadamardPower, KroneckerProduct,
+    hadamard_product, hadamard_power, kronecker_product,
 )
 
 __all__ = [n for n in dir() if not n.startswith("_")]

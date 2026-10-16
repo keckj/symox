@@ -7,6 +7,9 @@
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
 use crate::symbol::Assumptions as A;
+#[path = "assumptions_exact.rs"]
+mod exact;
+pub(crate) use exact::quadratic_facts;
 
 thread_local! {
     static NUMERIC_REFINEMENT: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
@@ -223,7 +226,7 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             Some(Signs::POS)
         }
         Func::Abs => {
-            let s = if is_nonzero(a) == Some(true) { Signs::POS } else { Signs::NONNEG };
+            let s = if is_zero(a) == Some(false) { Signs::POS } else { Signs::NONNEG };
             Some(s)
         }
         Func::Log => {
@@ -290,11 +293,29 @@ pub fn is_real(e: &Expr) -> Option<bool> {
         return Some(true);
     }
     match e.kind() {
+        Kind::Pow(base,exponent) if exact::rational_power(base,exponent).and_then(|f| f.real).is_some() => exact::rational_power(base,exponent).and_then(|f| f.real),
         Kind::Const(Constant::I) => Some(false),
         Kind::Const(c) if c.is_infinite() || *c == Constant::NaN => Some(false),
         Kind::Sym(s) if s.assumptions().has(A::NOT_REAL) => Some(false),
         Kind::Mul(c, facs) if facs.len() == 1 && facs[0].0.is_constant(Constant::I) && facs[0].1.is_one() && !c.is_zero() => {
             Some(false)
+        }
+        Kind::Add(_,terms) => {
+            let mut nonreal=0;
+            for (term,_) in terms { match is_real(term) {Some(true)=>{},Some(false)=>nonreal+=1,None=>return None} }
+            if nonreal==1 {Some(false)} else if nonreal==0 {Some(true)} else {None}
+        }
+        Kind::Mul(_,factors) => {
+            let mut nonreal=0;
+            for (base,exponent) in factors {
+                let factor=crate::ops::mul_factor(base,exponent);
+                match is_real(&factor) {
+                    Some(true) if exact_queries(|| is_zero(&factor))==Some(false)=>{},
+                    Some(false)=>nonreal+=1,
+                    _=>return None,
+                }
+            }
+            if nonreal==1 {Some(false)} else if nonreal==0 {Some(true)} else {None}
         }
         _ => {
             if NUMERIC_REFINEMENT.with(|enabled| enabled.get()) && crate::functions::is_numeric_value(e) {
@@ -313,6 +334,7 @@ pub fn is_positive(e: &Expr) -> Option<bool> {
     if e.is_constant(Constant::Infinity) {
         return Some(true);
     }
+    if e.as_sym().is_some_and(|s|s.assumptions().has(A::NOT_POSITIVE)) || exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s == Signs::POS {
         Some(true)
@@ -327,6 +349,7 @@ pub fn is_negative(e: &Expr) -> Option<bool> {
     if e.is_constant(Constant::NegInfinity) {
         return Some(true);
     }
+    if e.as_sym().is_some_and(|s|s.assumptions().has(A::NOT_NEGATIVE)) || exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s == Signs::NEG {
         Some(true)
@@ -338,6 +361,7 @@ pub fn is_negative(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_nonnegative(e: &Expr) -> Option<bool> {
+    if exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s.subset(Signs::NONNEG) {
         Some(true)
@@ -349,6 +373,7 @@ pub fn is_nonnegative(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_nonpositive(e: &Expr) -> Option<bool> {
+    if exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s.subset(Signs::NONPOS) {
         Some(true)
@@ -362,8 +387,14 @@ pub fn is_nonpositive(e: &Expr) -> Option<bool> {
 pub fn is_zero(e: &Expr) -> Option<bool> {
     match e.kind() {
         Kind::Num(n) => return Some(n.is_zero()),
-        Kind::Sym(s) if s.assumptions().has(A::NONZERO) => return Some(false),
+        Kind::Sym(s) if s.assumptions().has(A::NOT_ZERO) => return Some(false),
         Kind::Sym(s) if s.assumptions().has(A::ZERO) => return Some(true),
+        Kind::Const(Constant::I | Constant::Pi | Constant::E | Constant::EulerGamma) => return Some(false),
+        Kind::Mul(c,factors) if !c.is_zero() && factors.iter().all(|(b,x)| exact_queries(||is_zero(&crate::ops::mul_factor(b,x)))==Some(false)) => return Some(false),
+        Kind::Pow(base,exponent) => {
+            if let Some(facts)=exact::rational_power(base,exponent) {if facts.zero.is_some(){return facts.zero;}}
+            if exact_queries(||is_zero(base))==Some(false) && is_finite(exponent)==Some(true) {return Some(false);}
+        },
         _ => {}
     }
     if let Some(s) = real_signs(e) {
@@ -385,7 +416,15 @@ pub fn is_zero(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_nonzero(e: &Expr) -> Option<bool> {
-    is_zero(e).map(|z| !z)
+    if let Kind::Sym(s)=e.kind() {
+        if s.assumptions().has(A::NOT_NONZERO){return Some(false);}
+        if s.assumptions().has(A::NONZERO){return Some(true);}
+    }
+    match is_real(e) {
+        Some(false)=>Some(false),
+        Some(true)=>is_zero(e).map(|zero|!zero),
+        None=>is_zero(e).filter(|zero|*zero).map(|_|false),
+    }
 }
 
 pub fn is_integer(e: &Expr) -> Option<bool> {
@@ -403,6 +442,7 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
         }
         Kind::Const(_) => Some(false),
         Kind::Add(c, terms) => {
+            if is_rational(e)==Some(false){return Some(false);}
             if !c.is_integer() {
                 // integer + non-integer rational is not an integer
                 if terms.iter().all(|(t, k)| k.is_integer() && is_integer(t) == Some(true)) {
@@ -418,6 +458,7 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
             Some(true)
         }
         Kind::Mul(c, facs) => {
+            if is_rational(e)==Some(false){return Some(false);}
             if !c.is_integer() {
                 return None;
             }
@@ -430,6 +471,8 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
             Some(true)
         }
         Kind::Pow(b, x) => {
+            if let Some(facts)=exact::rational_power(b,x){if facts.integer.is_some(){return facts.integer;}}
+            if is_rational(e)==Some(false){return Some(false);}
             if is_integer(b) == Some(true) && x.as_i64().is_some_and(|k| k >= 0) {
                 Some(true)
             } else {
@@ -450,20 +493,54 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_rational(e: &Expr) -> Option<bool> {
+    if exact_queries(||is_real(e))==Some(false){return Some(false);}
     match e.kind() {
-        Kind::Num(n) => Some(n.is_rational()),
+        Kind::Num(n) => if n.is_float(){None}else{Some(true)},
         Kind::Sym(s) => {
             let a = s.assumptions();
             if a.has(A::RATIONAL) {
                 Some(true)
-            } else if a.has(A::IRRATIONAL) {
+            } else if a.has(A::IRRATIONAL) || a.has(A::NOT_RATIONAL) || a.has(A::NOT_REAL) {
                 Some(false)
             } else {
                 None
             }
         }
-        Kind::Const(Constant::Pi | Constant::E) => Some(false),
-        _ => is_integer(e).filter(|b| *b),
+        Kind::Const(Constant::Pi | Constant::E | Constant::I) => Some(false),
+        Kind::Add(c,terms) => {
+            if !c.is_rational(){return None;}
+            let mut irrational=0;
+            for (term,coefficient) in terms {
+                if !coefficient.is_rational(){return None;}
+                match is_rational(term){Some(true)=>{},Some(false)=>irrational+=1,None=>return None}
+            }
+            if irrational==0{Some(true)}else if irrational==1{Some(false)}else{None}
+        },
+        Kind::Mul(c,factors) => {
+            if !c.is_rational(){return None;}
+            let mut irrational=0;
+            for (b,x) in factors {
+                let factor=crate::ops::mul_factor(b,x);
+                match is_rational(&factor){
+                    Some(false)=>irrational+=1,
+                    Some(true) if exact_queries(||is_zero(&factor))==Some(false)=>{},
+                    _=>return None,
+                }
+            }
+            if irrational==0{Some(true)}else if irrational==1{Some(false)}else{None}
+        },
+        Kind::Pow(b,x) => {
+            if let Some(facts)=exact::rational_power(b,x){if facts.rational.is_some(){return facts.rational;}}
+            let k=x.as_i64()?;
+            match is_rational(b) {
+                Some(true) if k>=0 || exact_queries(||is_zero(b))==Some(false)=>Some(true),
+                Some(false) if k==1 || (k==-1 && exact_queries(||is_zero(b))==Some(false))=>Some(false),
+                _=>None,
+            }
+        },
+        Kind::Func(Func::Floor | Func::Ceiling | Func::Sign,args) if is_real(&args[0])==Some(true)=>Some(true),
+        Kind::Func(Func::Abs,args)=>is_rational(&args[0]).filter(|r|*r),
+        _ => None,
     }
 }
 
@@ -559,6 +636,37 @@ mod tests {
     use super::*;
     use crate::prelude::*;
     use crate::symbol::Assumptions;
+
+    #[test]
+    fn exact_rational_powers_and_complex_nonzero() {
+        exact_queries(|| {
+            for source in ["sqrt(2)","2**(1/3)","2**(2/3)","sqrt(2)/2","1+sqrt(2)","sqrt(2)-1","I","sqrt(2)*I"] {
+                let e=crate::parser::parse_str(source).unwrap();
+                assert_eq!(is_rational(&e),Some(false),"{source}");
+                assert_eq!(is_integer(&e),Some(false),"{source}");
+            }
+            let i=Expr::i();
+            assert_eq!(is_zero(&i),Some(false));assert_eq!(is_nonzero(&i),Some(false));
+            let e=crate::parser::parse_str("(-2)**(1/3)").unwrap();
+            assert_eq!(is_real(&e),Some(false));
+            let e=crate::parser::parse_str("sqrt(2)+sqrt(3)").unwrap();
+            assert_eq!(is_rational(&e),None);
+        });
+    }
+
+    #[test]
+    fn bounded_quadratic_solver_facts() {
+        for (source,integer,sign) in [("(1+sqrt(2))*(sqrt(2)-1)",true,1),("sqrt(2)-2",false,-1),("-100+sqrt(2)",false,-1),("-sqrt(2)",false,-1),("2-sqrt(8)",false,-1),("-sqrt(2)-1",false,-1)] {
+            let e=crate::parser::parse_str(source).unwrap();
+            let facts=quadratic_facts(&e).unwrap();
+            assert_eq!(facts.integer,Some(integer));assert_eq!(facts.sign,Some(sign));
+        }
+        let e=crate::parser::parse_str("1+sqrt(2)*I").unwrap();
+        let facts=quadratic_facts(&e).unwrap();
+        assert_eq!(facts.real,Some(false));assert_eq!(facts.rational,Some(false));assert_eq!(facts.zero,Some(false));
+        let held=Expr::from_unevaluated_kind(Kind::Pow(Expr::int(2),Expr::rational(1_000_001,2)));
+        assert!(quadratic_facts(&held).is_none());
+    }
 
     #[test]
     fn inference() {

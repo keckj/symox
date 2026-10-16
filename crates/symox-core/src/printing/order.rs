@@ -14,6 +14,8 @@ use rustc_hash::FxHashMap;
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
 use crate::ops::{add_term, mul, mul_factor, pow};
+use crate::matrixexpr::MatrixExpr;
+use crate::sortkey::{matrix_presentation, PresentationArg};
 
 // ----------------------------------------------------------------------
 // default_sort_key
@@ -145,12 +147,38 @@ fn one_key() -> SortKey {
 #[derive(Default)]
 pub struct KeyCache {
     map: FxHashMap<Expr, Rc<SortKey>>,
+    matrices: FxHashMap<MatrixExpr, Rc<SortKey>>,
     one: Option<Rc<SortKey>>,
 }
 
 impl KeyCache {
     fn one(&mut self) -> Rc<SortKey> {
         self.one.get_or_insert_with(|| Rc::new(one_key())).clone()
+    }
+
+    fn composite(&mut self, class: (u8, u32, &'static str), args: KArgs) -> SortKey {
+        SortKey { class: (class.0, class.1, Cow::Borrowed(class.2)), args, exp: Some(self.one()), coeff: Number::ONE }
+    }
+
+    fn presentation_arg(&mut self, arg: PresentationArg) -> Rc<SortKey> {
+        match arg {
+            PresentationArg::Scalar(e) => self.key(&e),
+            PresentationArg::Matrix(m) => self.matrix_key(&m),
+            PresentationArg::Text(s) => Rc::new(self.composite((2, 0, "Str"), KArgs::Atom(s))),
+            PresentationArg::Node(name, args) => {
+                let args = args.into_iter().map(|arg| self.presentation_arg(arg)).collect();
+                Rc::new(self.composite((5, 0, name), KArgs::List(args)))
+            }
+        }
+    }
+
+    fn matrix_key(&mut self, matrix: &MatrixExpr) -> Rc<SortKey> {
+        if let Some(key) = self.matrices.get(matrix) { return key.clone(); }
+        let presentation = matrix_presentation(matrix);
+        let args: Vec<_> = presentation.args.into_iter().map(|arg| self.presentation_arg(arg)).collect();
+        let key = Rc::new(self.composite(presentation.class, KArgs::List(args)));
+        self.matrices.insert(matrix.clone(), key.clone());
+        key
     }
 
     /// `default_sort_key(e)`.
@@ -165,6 +193,20 @@ impl KeyCache {
 
     fn compute(&mut self, e: &Expr) -> SortKey {
         match e.kind() {
+            Kind::Func(Func::MatrixProxy(matrix), _) => (*self.matrix_key(matrix)).clone(),
+            Kind::Func(Func::MatrixElement(matrix), args) => {
+                let mut keys = vec![self.matrix_key(matrix)];
+                keys.extend(args.iter().map(|arg| self.key(arg)));
+                self.composite((5, 0, "MatrixElement"), KArgs::List(keys))
+            }
+            Kind::Func(Func::MatrixTrace(matrix), _) => {
+                let args = vec![self.matrix_key(matrix)];
+                self.composite((5, 0, "Trace"), KArgs::List(args))
+            }
+            Kind::Func(Func::MatrixDeterminant(matrix), _) => {
+                let args = vec![self.matrix_key(matrix)];
+                self.composite((5, 0, "Determinant"), KArgs::List(args))
+            }
             Kind::Num(n) => SortKey { class: class_key(e), args: KArgs::Empty, exp: None, coeff: n.clone() },
             Kind::Const(c @ (Constant::Infinity | Constant::NegInfinity | Constant::NaN)) => {
                 let v = match c {
@@ -197,6 +239,12 @@ impl KeyCache {
                     Kind::Pow(b, x) => (b.clone(), Some(x.clone())),
                     _ => (rest, None),
                 };
+                if matches!(expr.kind(), Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _)) {
+                    let mut key = (*self.key(&expr)).clone();
+                    key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
+                    key.coeff = coeff;
+                    return key;
+                }
                 let args = match expr.kind() {
                     Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => {
                         KArgs::Atom(crate::printer::to_str(&expr))
