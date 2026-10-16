@@ -11,7 +11,7 @@ use super::ratfunc::{cancel, is_zero_assume};
 use super::{MResult, Matrix, MatrixError};
 use crate::expand::expand;
 use crate::expr::{Expr, Kind};
-use crate::ops::{add, mul, mul2, neg, pow, sqrt, sub};
+use crate::ops::{add, div, mul, mul2, neg, pow, sqrt, sub};
 
 // ----------------------------------------------------------------------
 // univariate polynomials over Q (coefficients highest degree first)
@@ -280,7 +280,7 @@ fn factor_list(p: &UPoly) -> MResult<Vec<Factor>> {
         }
         match deg(&rest) {
             0 => {}
-            2 => out.push(Factor { coeffs: primitive_int(&rest), mult: m }),
+            2 | 3 => out.push(Factor { coeffs: primitive_int(&rest), mult: m }),
             _ => {
                 return Err(MatrixError::NotImplemented(
                     "eigenvalues of characteristic polynomials with irreducible factors of degree > 2 are not implemented".into(),
@@ -409,7 +409,88 @@ fn factor_roots(f: &[Int]) -> MResult<Vec<Expr>> {
             .map(cancel)
             .collect());
     }
-    Err(MatrixError::NotImplemented("roots of factors of degree > 2".into()))
+    if n == 3 {
+        return roots_cubic(f);
+    }
+    Err(MatrixError::NotImplemented("roots of factors of degree > 3".into()))
+}
+
+/// SymPy's `roots_cubic` (Cardano) for rational coefficients.
+fn roots_cubic(f: &[Int]) -> MResult<Vec<Expr>> {
+    let lc = Rat::from_int(f[0].clone());
+    let a = Rat::from_int(f[1].clone()).div(&lc);
+    let b = Rat::from_int(f[2].clone()).div(&lc);
+    let c = Rat::from_int(f[3].clone()).div(&lc);
+    let r = |x: &Rat| Expr::num(x.to_number());
+    let ri = |n: i64, d: i64| Rat::new(Int::from(n), Int::from(d));
+    if c.is_zero() {
+        let rs = multiple(&roots_rational(&[Rat::one(), a.clone(), b.clone()])?);
+        return Ok(vec![rs[0].clone(), Expr::zero(), rs[1].clone()]);
+    }
+    let p = b.sub(&a.mul(&a).div(&ri(3, 1)));
+    let q = c.sub(&a.mul(&b).div(&ri(3, 1))).add(&a.mul(&a).mul(&a).mul(&ri(2, 27)));
+    let pon3 = p.div(&ri(3, 1));
+    let aon3 = a.div(&ri(3, 1));
+    let third = Expr::rational(1, 3);
+    let mut u1: Option<Expr> = None;
+    if p.is_zero() {
+        if q.is_zero() {
+            let x = r(&aon3.neg());
+            return Ok(vec![x.clone(), x.clone(), x]);
+        }
+        u1 = Some(if !q.is_negative() { neg(&pow(&r(&q), &third)) } else { pow(&r(&q.neg()), &third) });
+    } else if q.is_zero() {
+        let ys = multiple(&roots_rational(&[Rat::one(), Rat::zero(), p.clone()])?);
+        let ma = r(&aon3.neg());
+        return Ok(vec![add(&[ys[0].clone(), ma.clone()]), ma.clone(), add(&[ys[1].clone(), ma])]);
+    } else if q.is_negative() {
+        // -root(-q/2 + sqrt(q**2/4 + pon3**3), 3)
+        let inner = q.mul(&q).div(&ri(4, 1)).add(&pon3.mul(&pon3).mul(&pon3));
+        let base = add(&[r(&q.neg().div(&ri(2, 1))), sqrt(&r(&inner))]);
+        u1 = Some(neg(&pow(&base, &third)));
+    }
+    let coeff = mul(&[Expr::i(), sqrt(&Expr::int(3)), Expr::rational(1, 2)]);
+    let mhalf = Expr::rational(-1, 2);
+    let Some(u1) = u1 else {
+        let u2 = add(&[mhalf.clone(), coeff.clone()]);
+        let u3 = sub(&mhalf, &coeff);
+        let d0 = a.mul(&a).sub(&b.mul(&ri(3, 1)));
+        let d1 = a.mul(&a).mul(&a).mul(&ri(2, 1)).sub(&a.mul(&b).mul(&ri(9, 1))).add(&c.mul(&ri(27, 1)));
+        let disc = d1.mul(&d1).sub(&d0.mul(&d0).mul(&d0).mul(&ri(4, 1)));
+        let cc = pow(&mul2(&add(&[r(&d1), sqrt(&r(&disc))]), &Expr::rational(1, 2)), &third);
+        let ae = r(&a);
+        let d0e = r(&d0);
+        let mut out = Vec::new();
+        for uk in [Expr::one(), u2, u3] {
+            // -(b + uk*C + D0/C/uk)/3
+            let t = div(&div(&d0e, &cc), &uk);
+            let s = add(&[ae.clone(), mul2(&uk, &cc), t]);
+            out.push(div(&neg(&s), &Expr::int(3)));
+        }
+        return Ok(out);
+    };
+    let u2 = mul2(&u1, &add(&[mhalf.clone(), coeff.clone()]));
+    let u3 = mul2(&u1, &sub(&mhalf, &coeff));
+    let ma = r(&aon3.neg());
+    if p.is_zero() {
+        return Ok(vec![add(&[u1, ma.clone()]), add(&[u2, ma.clone()]), add(&[u3, ma])]);
+    }
+    let pe = r(&pon3);
+    Ok([u1, u2, u3]
+        .iter()
+        .map(|u| add(&[neg(u), div(&pe, u), ma.clone()]))
+        .collect())
+}
+
+/// `roots(..., multiple=True)` from the multiset form.
+fn multiple(r: &[(Expr, usize)]) -> Vec<Expr> {
+    let mut v = Vec::new();
+    for (e, k) in r {
+        for _ in 0..*k {
+            v.push(e.clone());
+        }
+    }
+    v
 }
 
 /// SymPy's `roots(p)` (as an insertion ordered multiset) for a polynomial
@@ -453,10 +534,10 @@ pub fn roots_rational(coeffs: &[Rat]) -> MResult<Vec<(Expr, usize)>> {
                     push(r, 1, &mut result);
                 }
             } else if fl.len() == 1 && fl[0].mult == 1 {
-                // irreducible of degree > 2
-                return Err(MatrixError::NotImplemented(
-                    "roots of irreducible polynomials of degree > 2".into(),
-                ));
+                // irreducible of degree > 2 (_try_decompose)
+                for r in factor_roots(&fl[0].coeffs)? {
+                    push(r, 1, &mut result);
+                }
             } else {
                 for f in &fl {
                     for r in factor_roots(&f.coeffs)? {
@@ -475,60 +556,147 @@ pub fn roots_rational(coeffs: &[Rat]) -> MResult<Vec<(Expr, usize)>> {
 pub use crate::sortkey::cmp_default;
 
 // ----------------------------------------------------------------------
-// quadratic number fields Q[t]/(t^2 + p t + q)
+// algebraic number fields Q[t]/(minpoly)
 // ----------------------------------------------------------------------
 
-#[derive(Clone, Debug, PartialEq)]
-struct QF {
-    a: Rat,
-    b: Rat,
+/// `Q[t]/(t^n + m_{n-1} t^{n-1} + ... + m_0)`; elements are coefficient
+/// vectors (low degree first) of length `n`.
+struct AlgF {
+    m: Vec<Rat>,
 }
 
-#[derive(Clone, Debug)]
-struct Field2 {
-    p: Rat,
-    q: Rat,
+type AE = Vec<Rat>;
+
+fn ptrim(p: &mut Vec<Rat>) {
+    while p.len() > 1 && p.last().is_some_and(|c| c.is_zero()) {
+        p.pop();
+    }
 }
 
-impl Field2 {
-    fn zero(&self) -> QF {
-        QF { a: Rat::zero(), b: Rat::zero() }
+/// Polynomial division (low degree first).
+fn pdivmod(a: &[Rat], b: &[Rat]) -> (Vec<Rat>, Vec<Rat>) {
+    let mut r = a.to_vec();
+    ptrim(&mut r);
+    let mut b = b.to_vec();
+    ptrim(&mut b);
+    let db = b.len() - 1;
+    if r.len() < b.len() {
+        return (vec![Rat::zero()], r);
     }
-    fn one(&self) -> QF {
-        QF { a: Rat::one(), b: Rat::zero() }
-    }
-    fn sub(&self, x: &QF, y: &QF) -> QF {
-        QF { a: x.a.sub(&y.a), b: x.b.sub(&y.b) }
-    }
-    fn mul(&self, x: &QF, y: &QF) -> QF {
-        // (a + b t)(c + d t) = ac + (ad+bc) t + bd t^2,  t^2 = -p t - q
-        let bd = x.b.mul(&y.b);
-        QF {
-            a: x.a.mul(&y.a).sub(&bd.mul(&self.q)),
-            b: x.a.mul(&y.b).add(&x.b.mul(&y.a)).sub(&bd.mul(&self.p)),
+    let mut q = vec![Rat::zero(); r.len() - db];
+    while r.len() > db && !(r.len() == 1 && r[0].is_zero()) {
+        let k = r.len() - 1 - db;
+        let c = r.last().unwrap().div(&b[db]);
+        for (i, bc) in b.iter().enumerate() {
+            r[i + k] = r[i + k].sub(&c.mul(bc));
+        }
+        q[k] = c;
+        r.pop();
+        ptrim(&mut r);
+        if r.len() <= db && r.len() < b.len() {
+            break;
         }
     }
-    fn inv(&self, x: &QF) -> QF {
-        // (a + b t)^-1 = (a - b p - b t) / (a^2 - a b p + b^2 q)
-        let n = x.a.mul(&x.a).sub(&x.a.mul(&x.b).mul(&self.p)).add(&x.b.mul(&x.b).mul(&self.q));
-        let ni = n.inv();
-        QF { a: x.a.sub(&x.b.mul(&self.p)).mul(&ni), b: x.b.neg().mul(&ni) }
+    if r.is_empty() {
+        r.push(Rat::zero());
     }
-    fn is_zero(&self, x: &QF) -> bool {
-        x.a.is_zero() && x.b.is_zero()
+    (q, r)
+}
+
+fn pmul(a: &[Rat], b: &[Rat]) -> Vec<Rat> {
+    let mut out = vec![Rat::zero(); a.len() + b.len() - 1];
+    for (i, x) in a.iter().enumerate() {
+        if x.is_zero() {
+            continue;
+        }
+        for (j, y) in b.iter().enumerate() {
+            out[i + j] = out[i + j].add(&x.mul(y));
+        }
+    }
+    out
+}
+
+fn psub(a: &[Rat], b: &[Rat]) -> Vec<Rat> {
+    let n = a.len().max(b.len());
+    let mut out = vec![Rat::zero(); n];
+    for (i, x) in a.iter().enumerate() {
+        out[i] = x.clone();
+    }
+    for (i, y) in b.iter().enumerate() {
+        out[i] = out[i].sub(y);
+    }
+    ptrim(&mut out);
+    out
+}
+
+impl AlgF {
+    fn n(&self) -> usize {
+        self.m.len()
+    }
+    fn zero(&self) -> AE {
+        vec![Rat::zero(); self.n()]
+    }
+    fn one(&self) -> AE {
+        let mut v = self.zero();
+        v[0] = Rat::one();
+        v
+    }
+    fn modulus(&self) -> Vec<Rat> {
+        let mut v = self.m.clone();
+        v.push(Rat::one());
+        v
+    }
+    fn reduce(&self, mut p: Vec<Rat>) -> AE {
+        let n = self.n();
+        while p.len() > n {
+            let t = p.pop().unwrap();
+            let k = p.len() - n;
+            if !t.is_zero() {
+                for (j, mj) in self.m.iter().enumerate() {
+                    p[k + j] = p[k + j].sub(&t.mul(mj));
+                }
+            }
+        }
+        p.resize(n, Rat::zero());
+        p
+    }
+    fn sub(&self, x: &AE, y: &AE) -> AE {
+        x.iter().zip(y).map(|(a, b)| a.sub(b)).collect()
+    }
+    fn mul(&self, x: &AE, y: &AE) -> AE {
+        self.reduce(pmul(x, y))
+    }
+    fn is_zero(x: &AE) -> bool {
+        x.iter().all(|c| c.is_zero())
+    }
+    fn inv(&self, x: &AE) -> AE {
+        // extended Euclid: s*x = r (mod modulus)
+        let (mut r0, mut r1) = (self.modulus(), {
+            let mut v = x.clone();
+            ptrim(&mut v);
+            v
+        });
+        let (mut s0, mut s1) = (vec![Rat::zero()], vec![Rat::one()]);
+        while !(r1.len() == 1 && r1[0].is_zero()) {
+            let (q, r) = pdivmod(&r0, &r1);
+            r0 = std::mem::replace(&mut r1, r);
+            let ns = psub(&s0, &pmul(&q, &s1));
+            s0 = std::mem::replace(&mut s1, ns);
+        }
+        let c = r0[0].inv();
+        self.reduce(s0.iter().map(|v| v.mul(&c)).collect())
     }
 }
 
-/// Nullspace of a matrix over the quadratic field (standard basis from
-/// the reduced row echelon form).
-fn nullspace_qf(f: &Field2, rows: usize, cols: usize, mut a: Vec<QF>) -> Vec<Vec<QF>> {
+/// Nullspace over the algebraic field (standard basis from the rref).
+fn nullspace_alg(f: &AlgF, rows: usize, cols: usize, mut a: Vec<AE>) -> Vec<Vec<AE>> {
     let mut pivots = Vec::new();
     let mut r = 0;
     for c in 0..cols {
         if r == rows {
             break;
         }
-        let Some(p) = (r..rows).find(|&i| !f.is_zero(&a[i * cols + c])) else {
+        let Some(p) = (r..rows).find(|&i| !AlgF::is_zero(&a[i * cols + c])) else {
             continue;
         };
         for k in 0..cols {
@@ -543,7 +711,7 @@ fn nullspace_qf(f: &Field2, rows: usize, cols: usize, mut a: Vec<QF>) -> Vec<Vec
                 continue;
             }
             let x = a[i * cols + c].clone();
-            if f.is_zero(&x) {
+            if AlgF::is_zero(&x) {
                 continue;
             }
             for k in 0..cols {
@@ -703,26 +871,53 @@ fn eigenvects_rational(m: &Matrix, r: &RatMat) -> MResult<Vec<EigenVect>> {
             let vs = sh.to_matrix().nullspace();
             out.push((e, f.mult, vs));
         } else {
-            // quadratic minimal polynomial t^2 + p t + q (monic)
+            // algebraic eigenvalue: minimal polynomial = the factor
+            let d = f.coeffs.len() - 1;
             let a0 = Rat::from_int(f.coeffs[0].clone());
-            let p = Rat::from_int(f.coeffs[1].clone()).div(&a0);
-            let q = Rat::from_int(f.coeffs[2].clone()).div(&a0);
-            let fld = Field2 { p: p.clone(), q: q.clone() };
-            let theta = QF { a: Rat::zero(), b: Rat::one() };
-            let mut a: Vec<QF> = r.data.iter().map(|x| QF { a: x.clone(), b: Rat::zero() }).collect();
+            let mono: Vec<Rat> = (0..d).map(|k| Rat::from_int(f.coeffs[d - k].clone()).div(&a0)).collect();
+            let fld = AlgF { m: mono };
+            let mut theta = fld.zero();
+            theta[1] = Rat::one();
+            let mut a: Vec<AE> = r
+                .data
+                .iter()
+                .map(|x| {
+                    let mut v = fld.zero();
+                    v[0] = x.clone();
+                    v
+                })
+                .collect();
             for i in 0..n {
                 a[i * n + i] = fld.sub(&a[i * n + i], &theta);
             }
-            let basis = nullspace_qf(&fld, n, n, a);
+            let basis = nullspace_alg(&fld, n, n, a);
             // roots of the minimal polynomial, SymPy's roots() order
-            let rts = roots_rational(&[Rat::one(), p, q])?;
+            let mp: Vec<Rat> = f.coeffs.iter().map(|c| Rat::from_int(c.clone())).collect();
+            let rts = roots_rational(&mp)?;
+            if rts.iter().map(|(_, k)| k).sum::<usize>() != d {
+                return Err(MatrixError::NotImplemented("eigenvectors for CRootOf eigenvalues".into()));
+            }
             for (root, _) in rts {
                 let vs: Vec<Matrix> = basis
                     .iter()
                     .map(|v| {
                         Matrix::column(
                             v.iter()
-                                .map(|x| add(&[mul2(&rat_expr(&x.b), &root), rat_expr(&x.a)]))
+                                .map(|x| {
+                                    let terms: Vec<Expr> = x
+                                        .iter()
+                                        .enumerate()
+                                        .filter(|(_, c)| !c.is_zero())
+                                        .map(|(k, c)| {
+                                            if k == 0 {
+                                                rat_expr(c)
+                                            } else {
+                                                mul2(&rat_expr(c), &pow(&root, &Expr::int(k as i64)))
+                                            }
+                                        })
+                                        .collect();
+                                    add(&terms)
+                                })
                                 .collect(),
                         )
                     })
