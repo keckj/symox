@@ -40,6 +40,7 @@ import math
 import multiprocessing as mp
 import os
 import pickle
+import queue
 import random
 import sys
 import time
@@ -190,7 +191,7 @@ class Gen:
         if u < 0.45:
             return ("S", r.choice(self.syms))
         if u < 0.70:
-            return ("N", r.choice([0, 1, 2, 3, -1, -2, 4, 5, 6, 8, 9, 12, -3, 10, 100, 2**70]) if r.random() < 0.97 else ("N", r.randint(-10**30, 10**30)))
+            return ("N", r.choice([0, 1, 2, 3, -1, -2, 4, 5, 6, 8, 9, 12, -3, 10, 100, 2**70]) if r.random() < 0.97 else r.randint(-10**30, 10**30))
         if u < 0.82:
             p = r.choice([1, -1, 2, 3, -3, 5, 7])
             q = r.choice([2, 3, 4, 5, 7, 12])
@@ -317,7 +318,11 @@ def to_complex(v):
     S = _sympy
     if v is S.nan:
         return NAN
-    if v in (S.oo, S.zoo) or v == -S.oo:
+    if v is S.zoo:
+        return NAN  # an unsigned complex infinity has no numerical direction
+    if v == -S.oo:
+        return -INF
+    if v == S.oo:
         return INF
     try:
         return complex(v)
@@ -349,7 +354,7 @@ def close(a, b, tol):
     if cmath.isnan(a) or cmath.isnan(b):
         return cmath.isnan(a) and cmath.isnan(b)
     if cmath.isinf(a) or cmath.isinf(b):
-        return cmath.isinf(a) and cmath.isinf(b)
+        return a == b
     return abs(a - b) <= tol * max(1.0, abs(a), abs(b))
 
 
@@ -481,7 +486,8 @@ def chk_srepr(t, rng):
     r = sx_call("srepr", _symox.srepr, x)
     x2 = sx_call("sympify(srepr(x))", _symox.sympify, r)
     if x2 != x:
-        raise Finding("wrong" if "Float" not in r else "form", f"srepr roundtrip: {r} -> {_symox.srepr(x2)}")
+        difference = values_differ(sx_to_sp(x), sx_to_sp(x2), rng)
+        raise Finding("wrong" if difference else "form", f"srepr roundtrip: {r} -> {_symox.srepr(x2)} {difference or ''}")
     if hash(x2) != hash(x):
         raise Finding("wrong", f"hash differs after srepr roundtrip: {r}")
     sr = sp_call(_sympy.srepr, s)
@@ -557,6 +563,8 @@ def chk_diff(t, rng):
     s, x = built(t)
     if getattr(s, "is_Relational", False):
         return
+    if any(arg.args[0].is_real is not True for arg in s.atoms(_sympy.Abs)):
+        return  # documented real-variable Abs derivative is outside this oracle
     v = rng.choice(list(SYMS))
     ds = sp_call(_sympy.diff, s, SP.syms[v])
     dx = sx_call(f"diff(., {v})", _symox.diff, x, SX.syms[v])
@@ -587,6 +595,8 @@ def chk_evalf(t, rng):
     ref = sp_value(s, pt, 30)
     if ref is None:
         return
+    if s.has(_sympy.zoo):
+        return  # complex infinity has no direction for a numerical comparison
     sub = {SX.syms[n]: sx_num(v) for n, v in pt.items()}
     xv = sx_call("subs(point)", lambda: x.subs(sub) if sub else x)
     xe = sx_call("evalf", lambda: xv.evalf())
@@ -1038,8 +1048,10 @@ def worker_main(conn, state):
 
 
 class Worker:
-    def __init__(self, ctx):
+    def __init__(self, ctx, target=worker_main, stop=None):
         self.ctx = ctx
+        self.target = target
+        self.stop = stop
         self.proc = None
         self.restarts = 0
         self.start()
@@ -1047,7 +1059,7 @@ class Worker:
     def start(self):
         self.conn, child = self.ctx.Pipe()
         self.state = self.ctx.Array("c", 1024, lock=False)
-        self.proc = self.ctx.Process(target=worker_main, args=(child, self.state), daemon=True)
+        self.proc = self.ctx.Process(target=self.target, args=(child, self.state), daemon=True)
         self.proc.start()
         child.close()
 
@@ -1057,9 +1069,12 @@ class Worker:
             self.proc.join(5)
         except Exception:  # noqa: BLE001
             pass
+        finally:
+            self.conn.close()
 
-    def call(self, task, timeout):
+    def call(self, task, timeout, stop=None):
         """Returns ('ok', ...), ('timeout', state) or ('died', exitcode, state)."""
+        stop = self.stop if stop is None else stop
         try:
             self.conn.send(task)
         except (BrokenPipeError, OSError):
@@ -1067,11 +1082,18 @@ class Worker:
             self.start()
             self.restarts += 1
             self.conn.send(task)
-        if self.conn.poll(timeout):
-            try:
-                return self.conn.recv()
-            except (EOFError, ConnectionResetError, OSError):
-                pass
+        deadline = time.monotonic() + timeout
+        while True:
+            if stop is not None and stop.is_set():
+                raise FuzzStopped()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            if self.conn.poll(min(0.05, remaining)):
+                try:
+                    return self.conn.recv()
+                except (EOFError, ConnectionResetError, OSError):
+                    break
         state = self.state.value.decode("utf8", "replace")
         alive = self.proc.is_alive()
         self.kill()
@@ -1081,6 +1103,10 @@ class Worker:
         if alive:
             return ("timeout", state)
         return ("died", code, state)
+
+
+class FuzzStopped(Exception):
+    """Cooperative cancellation, including during a shrinking worker call."""
 
 
 # ---------------------------------------------------------------------------
@@ -1237,122 +1263,165 @@ def drive(args):
             for line in fh:
                 try:
                     sigs.add(json.loads(line)["sig"])
-                except Exception:  # noqa: BLE001
+                except (ValueError, KeyError):
                     pass
-    stats = {"cases": 0, "findings": 0, "new": 0, "by_class": {}, "timeouts": 0, "deaths": 0, "skipped_sympy_timeouts": 0}
-    jobs = max(1, min(args.jobs, 2))
-    t_end = time.time() + args.time if args.time else None
-
-    task_q = ctx.Queue()
-    res_q = ctx.Queue()
-    procs = [ctx.Process(target=driver_slave, args=(i, task_q, res_q, args.timeout, args.shrink_budget)) for i in range(jobs)]
-    for p in procs:
-        p.start()
+    stats = {"cases": 0, "findings": 0, "new": 0, "by_class": {}, "timeouts": 0,
+             "deaths": 0, "skipped_sympy_timeouts": 0, "interrupted": False}
+    jobs = min(args.jobs, (hi - lo) * len(modes))
+    deadline = time.monotonic() + args.time if args.time else None
+    stop = ctx.Event()
+    task_q, res_q = ctx.Queue(), ctx.Queue()
+    procs = []
     seeds = iter((m, s) for s in range(lo, hi) for m in modes)
     inflight = 0
-    for _ in range(jobs * 4):
-        nxt = next(seeds, None)
-        if nxt is None:
-            break
-        task_q.put(nxt)
-        inflight += 1
-    last_report = time.time()
-    fh = open(fpath, "a")
-    while inflight:
-        msg = res_q.get()
-        if msg[0] == "done":
-            inflight -= 1
-            stats["cases"] += 1
-            for k in ("timeouts", "deaths", "skipped_sympy_timeouts"):
-                stats[k] += msg[2].get(k, 0)
-            if not (t_end and time.time() > t_end):
-                nxt = next(seeds, None)
-                if nxt is not None:
-                    task_q.put(nxt)
-                    inflight += 1
-        elif msg[0] == "finding":
-            rec = msg[1]
-            stats["findings"] += 1
-            stats["by_class"][rec["cls"]] = stats["by_class"].get(rec["cls"], 0) + 1
-            if rec["sig"] not in sigs:
-                sigs.add(rec["sig"])
-                stats["new"] += 1
-                fh.write(json.dumps(rec) + "\n")
-                fh.flush()
-                if args.verbose:
-                    print(f"[{rec['cls']}] {rec['mode']}/{rec['check']} {rec['min_src']}\n    {rec['min_msg'][:400]}", flush=True)
-        if time.time() - last_report > 30:
-            last_report = time.time()
-            print(f"stats: {json.dumps(stats)}", flush=True)
-            with open(os.path.join(args.out, "stats.json"), "w") as sf:
-                json.dump(stats, sf)
-    for _ in procs:
-        task_q.put(None)
-    for p in procs:
-        p.join(10)
-    fh.close()
+    last_report = time.monotonic()
+    try:
+        with open(fpath, "a") as fh:
+            for i in range(jobs):
+                proc = ctx.Process(target=driver_slave, args=(i, task_q, res_q, args.timeout,
+                                                            args.shrink_budget, stop))
+                proc.start()
+                procs.append(proc)
+                task_q.put(next(seeds))
+                inflight += 1
+            while inflight:
+                remaining = deadline - time.monotonic() if deadline else 1.0
+                if remaining <= 0:
+                    stats["interrupted"] = True
+                    break
+                try:
+                    msg = res_q.get(timeout=min(0.25, remaining))
+                except queue.Empty:
+                    dead = [p.exitcode for p in procs if not p.is_alive()]
+                    if dead:
+                        raise RuntimeError(f"fuzz driver exited unexpectedly: {dead}")
+                    continue
+                if msg[0] == "done":
+                    inflight -= 1
+                    stats["cases"] += 1
+                    for k in ("timeouts", "deaths", "skipped_sympy_timeouts"):
+                        stats[k] += msg[2].get(k, 0)
+                    nxt = next(seeds, None)
+                    if nxt is not None and not (deadline and time.monotonic() >= deadline):
+                        task_q.put(nxt)
+                        inflight += 1
+                elif msg[0] == "driver_error":
+                    raise RuntimeError(f"fuzz driver {msg[1]} failed:\n{msg[2]}")
+                elif msg[0] == "finding":
+                    rec = msg[1]
+                    stats["findings"] += 1
+                    stats["by_class"][rec["cls"]] = stats["by_class"].get(rec["cls"], 0) + 1
+                    if rec["sig"] not in sigs:
+                        sigs.add(rec["sig"])
+                        stats["new"] += 1
+                        fh.write(json.dumps(rec) + "\n")
+                        fh.flush()
+                        if args.verbose:
+                            print(f"[{rec['cls']}] {rec['mode']}/{rec['check']} {rec['min_src']}\n"
+                                  f"    {rec['min_msg'][:400]}", flush=True)
+                if time.monotonic() - last_report > 30:
+                    last_report = time.monotonic()
+                    print(f"stats: {json.dumps(stats)}", flush=True)
+    except KeyboardInterrupt:
+        stats["interrupted"] = True
+    finally:
+        # Cancellation is checked inside every worker call, including shrinking.
+        # Drivers close and reap their own native workers before exiting.
+        stop.set()
+        for _ in procs:
+            task_q.put(None)
+        for p in procs:
+            p.join(2)
+            if p.is_alive():
+                p.terminate()
+                p.join(2)
+        task_q.close()
+        task_q.cancel_join_thread()
+        res_q.close()
+        with open(os.path.join(args.out, "stats.json"), "w") as sf:
+            json.dump(stats, sf)
     print(f"final stats: {json.dumps(stats)}", flush=True)
-    with open(os.path.join(args.out, "stats.json"), "w") as sf:
-        json.dump(stats, sf)
+    return stats
 
 
-def driver_slave(idx, task_q, res_q, timeout, budget):
-    """Feeds cases to its own worker, shrinks failures."""
+def driver_slave(idx, task_q, res_q, timeout, budget, stop):
+    """Feeds cases to its own worker, shrinks failures, and always reaps it."""
     ctx = mp.get_context("spawn")
-    w = Worker(ctx)
-    while True:
-        task = task_q.get()
-        if task is None:
-            w.call(("quit",), 1)
-            w.kill()
-            return
-        mode, seed = task
-        st = {}
-        r = w.call(("case", mode, seed), timeout)
-        fails = []
-        if r[0] == "ok":
-            t, res = r[1], r[2]
-            fails = [(c, (cls, msg)) for c, cls, msg in res]
-        else:
-            state = r[1] if r[0] == "timeout" else r[2]
-            parts = state.split(":", 2)
-            t = MODES[mode][0](random.Random(seed))
-            if state.startswith("sympy"):
-                st["skipped_sympy_timeouts"] = 1
+    w = Worker(ctx, stop=stop)
+    try:
+        while True:
+            if stop.is_set():
+                return
+            task = task_q.get()
+            if task is None:
+                return
+            mode, seed = task
+            st = {}
+            r = w.call(("case", mode, seed), timeout)
+            fails = []
+            if r[0] == "ok":
+                t, res = r[1], r[2]
+                fails = [(c, (cls, msg)) for c, cls, msg in res]
             else:
-                # which check? re-run each check separately to find out
-                st["timeouts" if r[0] == "timeout" else "deaths"] = 1
-                for c in MODES[mode][1]:
-                    rr = eval_candidate(w, mode, c, t, seed, timeout)
-                    if rr is not None and rr[0] in ("timeout", "died", "crash", "wrong", "form", "weak", "slow"):
-                        if rr[0] == "timeout" and "sympy" in rr[1].split(":")[0]:
-                            continue
-                        fails.append((c, rr))
-            del parts
-        for check, failure in fails:
-            mt, mf = shrink(w, mode, check, t, seed, failure, timeout, budget)
-            rec = {
-                "mode": mode, "seed": seed, "check": check, "cls": failure[0],
-                "src": to_src(t), "msg": failure[1][:2000],
-                "min_src": to_src(mt), "min_msg": (mf[1] if mf else failure[1])[:2000],
-                "min_tree": repr(mt),
-            }
-            rec["sig"] = signature(mode, check, mf or failure, mt)
-            res_q.put(("finding", rec))
-        res_q.put(("done", seed, st))
+                state = r[1] if r[0] == "timeout" else r[2]
+                parts = state.split(":", 2)
+                t = MODES[mode][0](random.Random(seed))
+                if state.startswith("sympy"):
+                    st["skipped_sympy_timeouts"] = 1
+                else:
+                    # which check? re-run each check separately to find out
+                    st["timeouts" if r[0] == "timeout" else "deaths"] = 1
+                    for c in MODES[mode][1]:
+                        rr = eval_candidate(w, mode, c, t, seed, timeout)
+                        if rr is not None and rr[0] in ("timeout", "died", "crash", "wrong", "form", "weak", "slow"):
+                            if rr[0] == "timeout" and "sympy" in rr[1].split(":")[0]:
+                                continue
+                            fails.append((c, rr))
+                del parts
+            for check, failure in fails:
+                mt, mf = shrink(w, mode, check, t, seed, failure, timeout, budget)
+                rec = {
+                    "mode": mode, "seed": seed, "check": check, "cls": failure[0],
+                    "src": to_src(t), "msg": failure[1][:2000],
+                    "min_src": to_src(mt), "min_msg": (mf[1] if mf else failure[1])[:2000],
+                    "min_tree": repr(mt),
+                }
+                rec["sig"] = signature(mode, check, mf or failure, mt)
+                res_q.put(("finding", rec))
+            res_q.put(("done", seed, st))
+    except FuzzStopped:
+        pass
+    except BaseException:
+        res_q.put(("driver_error", idx, traceback.format_exc()))
+    finally:
+        w.kill()
 
 
-def replay(mode, seed, check=None):
-    init_libs()
-    t, res = run_case(mode, seed, only=[check] if check else None)
+def replay(mode, seed, check=None, timeout=20):
+    # Replay is isolated too: reproducing a crash must not kill the frontend.
+    t = MODES[mode][0](random.Random(seed))
+    worker = Worker(mp.get_context("spawn"))
+    try:
+        if check:
+            failure = eval_candidate(worker, mode, check, t, seed, timeout)
+            res = [(check, *failure)] if failure and failure[0] != "skip" else []
+        else:
+            result = worker.call(("case", mode, seed), timeout)
+            if result[0] == "ok":
+                t, res = result[1:]
+            else:
+                res = [("case", result[0], str(result[1:]))]
+    finally:
+        worker.kill()
     print("tree:", to_src(t))
     for c, cls, msg in res:
         print(f"  [{cls}] {c}: {msg}")
     if not res:
         print("  no findings")
+    return res
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--mode", default="core", help="core, integrate, solve, series, limit, summation, simplify, lambdify, parser, all, or a comma list")
     ap.add_argument("--seeds", default="0:100000000")
@@ -1361,14 +1430,45 @@ def main():
     ap.add_argument("--timeout", type=float, default=20.0, help="per case timeout (seconds)")
     ap.add_argument("--shrink-budget", type=int, default=300)
     ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "out"))
-    ap.add_argument("--replay", nargs="+", metavar=("MODE", "SEED"))
+    ap.add_argument("--replay", nargs="+", metavar="ITEM", help="MODE SEED [CHECK], isolated with --timeout")
+    ap.add_argument("--fail-on", default="", help="comma-separated finding classes that give exit status 1")
     ap.add_argument("-v", "--verbose", action="store_true")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    if args.jobs < 1:
+        ap.error("--jobs must be at least 1")
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        ap.error("--timeout must be finite and positive")
+    if not math.isfinite(args.time) or args.time < 0:
+        ap.error("--time must be finite and nonnegative")
+    if args.shrink_budget < 0:
+        ap.error("--shrink-budget must be nonnegative")
+    classes = {"crash", "died", "timeout", "slow", "wrong", "form", "weak"}
+    fail_on = set(args.fail_on.split(",")) if args.fail_on else set()
+    if not fail_on <= classes:
+        ap.error("--fail-on contains an unknown finding class")
     if args.replay:
-        replay(args.replay[0], int(args.replay[1]), args.replay[2] if len(args.replay) > 2 else None)
-        return
-    drive(args)
+        if not 2 <= len(args.replay) <= 3 or args.replay[0] not in MODES:
+            ap.error("--replay expects MODE SEED [CHECK] with a supported mode")
+        try:
+            seed = int(args.replay[1])
+        except ValueError:
+            ap.error("replay SEED must be an integer")
+        check = args.replay[2] if len(args.replay) == 3 else None
+        if check and check not in MODES[args.replay[0]][1]:
+            ap.error("unknown check for replay mode")
+        return int(any(cls in fail_on for _, cls, _ in replay(args.replay[0], seed, check, args.timeout)))
+    modes = list(MODES) if args.mode == "all" else args.mode.split(",")
+    if any(mode not in MODES for mode in modes):
+        ap.error("--mode contains an unknown mode")
+    try:
+        lo, hi = (int(v) for v in args.seeds.split(":"))
+        if lo < 0 or hi < lo:
+            raise ValueError
+    except ValueError:
+        ap.error("--seeds must be a nonnegative START:STOP range")
+    stats = drive(args)
+    return int(any(stats["by_class"].get(cls, 0) for cls in fail_on))
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
