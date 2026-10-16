@@ -14,6 +14,7 @@
 
 pub mod assumptions;
 pub mod bigfloat;
+pub mod binders;
 pub mod calculus;
 pub mod diff;
 pub mod decompose;

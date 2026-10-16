@@ -1,0 +1,530 @@
+//! Checked expansion options and a shared allocation/work budget.
+use crate::expr::{Expr, Kind};
+use rustc_hash::FxHashMap;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub struct ExpandOptions {
+    pub deep: bool,
+    pub basic: bool,
+    pub mul: bool,
+    pub multinomial: bool,
+    pub power_base: bool,
+    pub power_exp: bool,
+    pub log: bool,
+    pub trig: bool,
+    pub force: bool,
+}
+impl Default for ExpandOptions {
+    fn default() -> Self {
+        Self {
+            deep: true,
+            basic: true,
+            mul: true,
+            multinomial: true,
+            power_base: true,
+            power_exp: true,
+            log: true,
+            trig: false,
+            force: false,
+        }
+    }
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExpandError(pub String);
+impl std::fmt::Display for ExpandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+impl std::error::Error for ExpandError {}
+type Result<T> = std::result::Result<T, ExpandError>;
+
+/// Shared by scalar coefficients and matrix products. Reservations happen
+/// before allocating Cartesian products or expanding large integer powers.
+pub struct ExpandBudget {
+    max_terms: usize,
+    remaining_work: usize,
+    scalar_cache: FxHashMap<(usize, ExpandOptions), (Expr, Expr)>,
+    matrix_cache: FxHashMap<
+        (usize, ExpandOptions),
+        (crate::matrixexpr::MatrixExpr, crate::matrixexpr::MatrixExpr),
+    >,
+}
+impl Default for ExpandBudget {
+    fn default() -> Self {
+        Self::new(100_000)
+    }
+}
+impl ExpandBudget {
+    pub fn new(max_terms: usize) -> Self {
+        Self {
+            max_terms,
+            remaining_work: 5_000_000,
+            scalar_cache: FxHashMap::default(),
+            matrix_cache: FxHashMap::default(),
+        }
+    }
+    pub(crate) fn matrix_result(
+        &self,
+        e: &crate::matrixexpr::MatrixExpr,
+        options: &ExpandOptions,
+    ) -> Option<crate::matrixexpr::MatrixExpr> {
+        self.matrix_cache
+            .get(&(e.dag_id(), *options))
+            .map(|(_, v)| v.clone())
+    }
+    pub(crate) fn remember_matrix(
+        &mut self,
+        e: &crate::matrixexpr::MatrixExpr,
+        options: &ExpandOptions,
+        value: &crate::matrixexpr::MatrixExpr,
+    ) {
+        self.matrix_cache
+            .insert((e.dag_id(), *options), (e.clone(), value.clone()));
+    }
+    pub fn claim_terms(&mut self, n: usize) -> Result<()> {
+        if n > self.max_terms {
+            Err(ExpandError(format!(
+                "expansion term limit exceeded (maximum {})",
+                self.max_terms
+            )))
+        } else {
+            Ok(())
+        }
+    }
+    pub fn claim_product(&mut self, left: usize, right: usize) -> Result<()> {
+        let work = left
+            .checked_mul(right)
+            .ok_or_else(|| ExpandError("expansion work budget exceeded".into()))?;
+        if work > self.remaining_work {
+            return Err(ExpandError("expansion work budget exceeded".into()));
+        }
+        self.remaining_work -= work;
+        Ok(())
+    }
+    fn power_terms(&mut self, terms: usize, exponent: u64) -> Result<usize> {
+        if terms <= 1 || exponent == 0 {
+            return Ok(1);
+        }
+        // C(exponent+terms-1,terms-1), stopping at the configured bound.
+        // Loop over the smaller argument, never over a huge exponent.
+        let n = exponent
+            .checked_add((terms - 1) as u64)
+            .ok_or_else(|| ExpandError("expansion term limit exceeded".into()))?;
+        let k = exponent.min((terms - 1) as u64);
+        let mut count = 1u128;
+        for i in 1..=k {
+            count = count
+                .checked_mul((n - k + i) as u128)
+                .ok_or_else(|| ExpandError("expansion term limit exceeded".into()))?
+                / (i as u128);
+            if count > self.max_terms as u128 {
+                return Err(ExpandError(format!(
+                    "expansion term limit exceeded (maximum {})",
+                    self.max_terms
+                )));
+            }
+        }
+        let count = count as usize;
+        let exponent = usize::try_from(exponent)
+            .map_err(|_| ExpandError("expansion work budget exceeded".into()))?;
+        self.claim_product(
+            exponent,
+            terms
+                .checked_mul(count)
+                .ok_or_else(|| ExpandError("expansion work budget exceeded".into()))?,
+        )?;
+        Ok(count)
+    }
+}
+
+/// Check a conservative sparse-polynomial bound before the arithmetic pass.
+/// Physical identities preserve the presentation of alpha-equal binders.
+fn reserve_arithmetic(
+    e: &Expr,
+    options: &ExpandOptions,
+    budget: &mut ExpandBudget,
+    memo: &mut FxHashMap<usize, (Expr, usize)>,
+) -> Result<usize> {
+    if let Some((_, count)) = memo.get(&e.dag_id()) {
+        return Ok(*count);
+    }
+    let mut child = |e: &Expr| {
+        if options.deep {
+            reserve_arithmetic(e, options, budget, memo)
+        } else {
+            Ok(if e.is_add() { e.args().len() } else { 1 })
+        }
+    };
+    let count = match e.kind() {
+        Kind::Add(c, terms) => {
+            let mut count = usize::from(!c.is_zero());
+            for (term, _) in terms {
+                count = count
+                    .checked_add(child(term)?)
+                    .ok_or_else(|| ExpandError("expansion term limit exceeded".into()))?;
+            }
+            count.max(1)
+        }
+        Kind::Mul(..) => {
+            let counts = e
+                .args()
+                .iter()
+                .map(&mut child)
+                .collect::<Result<Vec<_>>>()?;
+            if options.mul {
+                let mut count = 1usize;
+                for next in counts {
+                    budget.claim_product(count, next)?;
+                    count = count
+                        .checked_mul(next)
+                        .ok_or_else(|| ExpandError("expansion term limit exceeded".into()))?;
+                    budget.claim_terms(count)?;
+                }
+                count
+            } else {
+                1
+            }
+        }
+        Kind::Pow(base, exponent) => {
+            let terms = child(base)?;
+            child(exponent)?;
+            if options.multinomial && terms > 1 {
+                if let Some(n) = exponent.as_number() {
+                    let integer = n.floor().to_i64();
+                    if let Some(k) = integer {
+                        if k != 0 {
+                            let count = budget.power_terms(terms, k.unsigned_abs())?;
+                            if k > 0 {
+                                count
+                            } else {
+                                1
+                            }
+                        } else {
+                            1
+                        }
+                    } else if n.is_integer() {
+                        return Err(ExpandError("expansion exponent limit exceeded".into()));
+                    } else {
+                        1
+                    }
+                } else {
+                    1
+                }
+            } else {
+                1
+            }
+        }
+        _ => {
+            if options.deep {
+                for argument in e.args() {
+                    child(&argument)?;
+                }
+            }
+            1
+        }
+    };
+    budget.claim_terms(count)?;
+    memo.insert(e.dag_id(), (e.clone(), count));
+    Ok(count)
+}
+
+#[derive(Clone, Copy)]
+enum Hint {
+    Trig,
+    Log,
+    PowerBase,
+    PowerExp,
+}
+fn is_matrix_metadata(e: &Expr) -> bool {
+    matches!(
+        e.kind(),
+        Kind::Func(
+            crate::Func::MatrixProxy(_)
+                | crate::Func::MatrixElement(_)
+                | crate::Func::MatrixTrace(_)
+                | crate::Func::MatrixDeterminant(_),
+            _
+        )
+    )
+}
+fn matrix_metadata(e: &Expr, options: &ExpandOptions, budget: &mut ExpandBudget) -> Result<Expr> {
+    if !options.deep {
+        return Ok(e.clone());
+    }
+    let key = (e.dag_id(), *options);
+    if let Some((_, value)) = budget.scalar_cache.get(&key) {
+        return Ok(value.clone());
+    }
+    let Kind::Func(function, args) = e.kind() else {
+        return Ok(e.clone());
+    };
+    let (crate::Func::MatrixProxy(parent)
+    | crate::Func::MatrixElement(parent)
+    | crate::Func::MatrixTrace(parent)
+    | crate::Func::MatrixDeterminant(parent)) = function
+    else {
+        return Ok(e.clone());
+    };
+    let mapped = parent
+        .expand_with_options(options, budget)
+        .map_err(|e| ExpandError(e.to_string()))?;
+    let arguments = args
+        .iter()
+        .map(|e| expand_with_options(e, options, budget))
+        .collect::<Result<Vec<_>>>()?;
+    let value = if mapped.dag_id() == parent.dag_id()
+        && arguments
+            .iter()
+            .zip(args)
+            .all(|(a, b)| a.same_presentation(b))
+    {
+        e.clone()
+    } else {
+        let parent = std::sync::Arc::new(mapped);
+        let function = match function {
+            crate::Func::MatrixProxy(_) => crate::Func::MatrixProxy(parent),
+            crate::Func::MatrixElement(_) => crate::Func::MatrixElement(parent),
+            crate::Func::MatrixTrace(_) => crate::Func::MatrixTrace(parent),
+            _ => crate::Func::MatrixDeterminant(parent),
+        };
+        Expr::from_kind(Kind::Func(function, arguments))
+    };
+    budget.scalar_cache.insert(key, (e.clone(), value.clone()));
+    Ok(value)
+}
+fn hint_pass(
+    e: &Expr,
+    options: &ExpandOptions,
+    hint: Hint,
+    budget: &mut ExpandBudget,
+    memo: &mut FxHashMap<usize, (Expr, Expr)>,
+) -> Result<Expr> {
+    if e.is_atom() {
+        return Ok(e.clone());
+    }
+    if let Some((_, value)) = memo.get(&e.dag_id()) {
+        return Ok(value.clone());
+    }
+    if is_matrix_metadata(e) {
+        return matrix_metadata(e, options, budget);
+    }
+    let mut error = None;
+    let mut visit = |child: &Expr| match hint_pass(child, options, hint, budget, memo) {
+        Ok(value) => value,
+        Err(e) => {
+            error = Some(e);
+            child.clone()
+        }
+    };
+    let mapped = if !options.deep {
+        e.clone()
+    } else if matches!(hint, Hint::PowerExp) {
+        match e.kind() {
+            Kind::Add(c, terms) => {
+                let transformed: Vec<_> = terms
+                    .iter()
+                    .map(|(term, k)| (visit(term), k.clone()))
+                    .collect();
+                if transformed
+                    .iter()
+                    .zip(terms)
+                    .all(|((a, _), (b, _))| a.same_presentation(b))
+                {
+                    e.clone()
+                } else {
+                    Expr::from_unevaluated_kind(Kind::Add(c.clone(), transformed))
+                }
+            }
+            Kind::Mul(..) => {
+                let args = e.args();
+                let transformed: Vec<_> = args.iter().map(&mut visit).collect();
+                if args
+                    .iter()
+                    .zip(&transformed)
+                    .all(|(a, b)| a.same_presentation(b))
+                {
+                    e.clone()
+                } else {
+                    crate::simp::expanded_product(&transformed)
+                }
+            }
+            _ => crate::traverse::map_children(e, &mut visit),
+        }
+    } else {
+        crate::traverse::map_children(e, &mut visit)
+    };
+    if let Some(error) = error {
+        return Err(error);
+    }
+    budget.claim_product(1, mapped.args().len())?;
+    if matches!(hint, Hint::Trig) {
+        if let Kind::Func(
+            crate::Func::Sin
+            | crate::Func::Cos
+            | crate::Func::Tan
+            | crate::Func::Sinh
+            | crate::Func::Cosh,
+            args,
+        ) = mapped.kind()
+        {
+            if args[0].is_add() {
+                let terms = 1usize
+                    .checked_shl(args[0].args().len().saturating_sub(1) as u32)
+                    .ok_or_else(|| {
+                        ExpandError("trigonometric expansion term limit exceeded".into())
+                    })?;
+                budget.claim_terms(terms)?;
+                budget.claim_product(terms, args[0].args().len())?;
+            }
+        }
+    }
+    let result = match hint {
+        Hint::Trig => crate::simp::expand_trig_deep(&mapped, false),
+        Hint::Log => crate::simp::expand_log_deep(&mapped, options.force, false),
+        Hint::PowerBase => crate::simp::expand_power_base_deep(&mapped, options.force, false),
+        Hint::PowerExp => crate::simp::expand_power_exp_deep(&mapped, false),
+    };
+    memo.insert(e.dag_id(), (e.clone(), result.clone()));
+    Ok(result)
+}
+
+pub fn expand_with_options(
+    e: &Expr,
+    options: &ExpandOptions,
+    budget: &mut ExpandBudget,
+) -> Result<Expr> {
+    let key = (e.dag_id(), *options);
+    if let Some((_, value)) = budget.scalar_cache.get(&key) {
+        return Ok(value.clone());
+    }
+    let mut value = e.clone();
+    for (enabled, hint) in [
+        (options.log, Hint::Log),
+        (options.power_base, Hint::PowerBase),
+    ] {
+        if enabled {
+            value = hint_pass(&value, options, hint, budget, &mut FxHashMap::default())?;
+        }
+    }
+    reserve_arithmetic(&value, options, budget, &mut FxHashMap::default())?;
+    let arithmetic = |value: &Expr, budget: &mut ExpandBudget| -> Result<Expr> {
+        let mut error = None;
+        let value = super::arithmetic_expand_with(value, options, &mut |e| match matrix_metadata(
+            e, options, budget,
+        ) {
+            Ok(value) => Some(value),
+            Err(failure) => {
+                error = Some(failure);
+                Some(e.clone())
+            }
+        });
+        error.map_or(Ok(value), Err)
+    };
+    value = arithmetic(&value, budget)?;
+    if options.trig {
+        value = hint_pass(
+            &value,
+            options,
+            Hint::Trig,
+            budget,
+            &mut FxHashMap::default(),
+        )?;
+        reserve_arithmetic(&value, options, budget, &mut FxHashMap::default())?;
+        value = arithmetic(&value, budget)?;
+    }
+    if options.power_exp {
+        value = hint_pass(
+            &value,
+            options,
+            Hint::PowerExp,
+            budget,
+            &mut FxHashMap::default(),
+        )?;
+    }
+    budget.scalar_cache.insert(key, (e.clone(), value.clone()));
+    Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::parse_str;
+    #[test]
+    fn shallow_and_independent_arithmetic_hints() {
+        for (source, options, wanted) in [
+            (
+                "sin((x+y)^2)",
+                ExpandOptions {
+                    deep: false,
+                    ..Default::default()
+                },
+                "sin((x+y)^2)",
+            ),
+            (
+                "(x+y)^2",
+                ExpandOptions {
+                    deep: false,
+                    ..Default::default()
+                },
+                "x^2+2*x*y+y^2",
+            ),
+            (
+                "z*(x+y)^2",
+                ExpandOptions {
+                    mul: false,
+                    ..Default::default()
+                },
+                "z*(x^2+2*x*y+y^2)",
+            ),
+            (
+                "z*(x+y)^2",
+                ExpandOptions {
+                    multinomial: false,
+                    ..Default::default()
+                },
+                "z*(x+y)^2",
+            ),
+        ] {
+            assert_eq!(
+                expand_with_options(
+                    &parse_str(source).unwrap(),
+                    &options,
+                    &mut ExpandBudget::default()
+                )
+                .unwrap(),
+                parse_str(wanted).unwrap()
+            );
+        }
+    }
+    #[test]
+    fn huge_powers_fail_before_allocation() {
+        let x = Expr::symbol("x");
+        let y = Expr::symbol("y");
+        for exponent in [1_000_000_000, i64::MIN, i64::MAX] {
+            let value = crate::ops::pow(&crate::ops::add2(&x, &y), &Expr::int(exponent));
+            let before = value.hash64();
+            assert!(expand_with_options(
+                &value,
+                &ExpandOptions::default(),
+                &mut ExpandBudget::new(1000)
+            )
+            .is_err());
+            assert_eq!(value.hash64(), before);
+        }
+    }
+    #[test]
+    fn sparse_exponents_do_not_overflow_machine_i32() {
+        let value = parse_str("(x^2147483647+y)^2").unwrap();
+        let wanted = parse_str("x^4294967294+2*x^2147483647*y+y^2").unwrap();
+        assert_eq!(
+            expand_with_options(
+                &value,
+                &ExpandOptions::default(),
+                &mut ExpandBudget::default()
+            )
+            .unwrap(),
+            wanted
+        );
+    }
+}

@@ -47,7 +47,7 @@ pub(crate) fn build(args:&[Expr])->Option<Arc<Key>> {
     if !safe(args) || args[0].has_matrix(){return None;}
     fn unsupported(e:&Expr,seen:&mut FxHashMap<usize,Expr>)->bool {
         if seen.insert(e.dag_id(),e.clone()).is_some(){return false;}
-        if matches!(e.kind(),Kind::Func(Func::Limit|Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::ConditionSet),_)){return true;}
+        if matches!(e.kind(),Kind::Func(Func::Limit|Func::Integral|Func::Sum|Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::ConditionSet),_)){return true;}
         if matches!(e.kind(),Kind::Func(Func::Undefined(f),_) if f.is_internal("Integral") || f.is_internal("Sum")){return true;}
         e.args().iter().any(|arg|unsupported(arg,seen))
     }

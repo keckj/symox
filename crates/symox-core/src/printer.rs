@@ -104,6 +104,14 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Logic(op), args) => crate::logic::write_logic(*op, args, out),
         Kind::Func(Func::Set(op), args) => crate::sets::write_set(*op, args, out),
         Kind::Func(Func::Order, args) => out.push_str(&crate::series::print::order_str(args)),
+        Kind::Func(f @ (Func::Integral|Func::Sum),args)=>{
+            out.push_str(f.name());out.push('(');write_expr(&args[0],out);
+            for limit in &args[1..] {
+                out.push_str(", ");let values=limit.args();
+                if values.len()==1 {write_expr(&values[0],out);} else {write_expr(limit,out);}
+            }
+            out.push(')');
+        },
         Kind::Func(Func::Limit,args)=>{
             out.push_str("Limit(");
             for value in &args[..3]{write_expr(value,out);out.push_str(", ");}

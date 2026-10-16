@@ -48,8 +48,10 @@ fn cheb_u(n: u32, t: &Expr) -> Expr {
 }
 
 /// Expand trigonometric functions of sums and integer multiples.
-pub fn expand_trig(e: &Expr) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut expand_trig) };
+pub fn expand_trig(e: &Expr) -> Expr { expand_trig_deep(e,true) }
+
+pub fn expand_trig_deep(e: &Expr,deep:bool) -> Expr {
+    let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut expand_trig) };
     let Kind::Func(f, args) = e2.kind() else { return e2 };
     if !matches!(f, Func::Sin | Func::Cos | Func::Tan | Func::Sinh | Func::Cosh) {
         return e2;
@@ -81,7 +83,7 @@ pub fn expand_trig(e: &Expr) -> Expr {
                     add2(&mul2(&ca, &cb), &mul2(&sa, &sb))
                 }
             };
-            expand(&r)
+            if matches!(f,Func::Sinh|Func::Cosh){expand(&r)}else{r}
         }
         Kind::Mul(c, facs) if c.is_integer() && c.is_positive() && !c.is_one() => {
             let n = c.to_i64().unwrap_or(1);
@@ -424,7 +426,7 @@ pub fn expand_power_exp_deep(e: &Expr, deep: bool) -> Expr {
 
 /// The ordinary product constructor merges equal bases, undoing this
 /// expansion. Preserve its explicit factors just as for evaluate=False.
-fn expanded_product(args: &[Expr]) -> Expr {
+pub(crate) fn expanded_product(args: &[Expr]) -> Expr {
     let mut coefficient = Number::ONE;
     let mut factors = Vec::new();
     for arg in args {

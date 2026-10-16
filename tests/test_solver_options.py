@@ -81,8 +81,7 @@ def test_expand_and_simplify_options_are_applied_or_rejected():
     for operation in (s.expand, lambda expression, **kw: expression.expand(**kw)):
         with pytest.raises(NotImplementedError):
             operation(x, unknown=True)
-        with pytest.raises(NotImplementedError):
-            operation(x, deep=False)
+        assert operation(x, deep=False) == x
     with pytest.raises(NotImplementedError):
         s.simplify(x, ratio=1)
     with pytest.raises((TypeError, NotImplementedError)):

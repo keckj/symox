@@ -151,6 +151,7 @@ fn assumptions(bits:u32)->PyResult<Assumptions>{if bits&!Assumptions::NAMES.iter
 fn constant(name:&str)->PyResult<Constant>{Ok(match name{"pi"=>Constant::Pi,"E"=>Constant::E,"I"=>Constant::I,"EulerGamma"=>Constant::EulerGamma,"oo"=>Constant::Infinity,"-oo"=>Constant::NegInfinity,"zoo"=>Constant::ComplexInfinity,"nan"=>Constant::NaN,_=>return Err(invalid("unknown constant"))})}
 fn validate_function(function:&Func,args:&[Expr])->PyResult<()>{
     if function.arity().is_some_and(|n|n!=args.len()){return Err(invalid("function arity mismatch"));}
+    if matches!(function,Func::Integral|Func::Sum){symox::binders::validate(function,args).map_err(invalid)?;}
     if matches!(function,Func::Subs){
         if args.len()!=3{return Err(invalid("Subs requires three arguments"));}
         let tuple=|e:&Expr|matches!(e.kind(),Kind::Func(Func::Undefined(head),_) if head.is_internal("Tuple"));
@@ -189,7 +190,18 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                 "s.derivative"=>{arity(2)?;let vars:Vec<(usize,u32)>=f.get_item(1)?.extract()?;if vars.iter().any(|(_,n)|*n==0){return Err(invalid("derivative order must be positive"));}Kind::Derivative(s(0)?,vars.into_iter().map(|(id,n)|Ok((reader.scalar(id)?,n))).collect::<PyResult<_>>()?)},
                 "s.rel"=>{arity(3)?;let op=match f.get_item(0)?.extract::<String>()?.as_str(){"=="=>RelOp::Eq,"!="=>RelOp::Ne,"<"=>RelOp::Lt,"<="=>RelOp::Le,">"=>RelOp::Gt,">="=>RelOp::Ge,_=>return Err(invalid("unknown relation"))};Kind::Rel(op,s(1)?,s(2)?)},
                 "s.piecewise"=>{arity(1)?;let pairs:Vec<(usize,usize)>=f.get_item(0)?.extract()?;Kind::Piecewise(pairs.into_iter().map(|(a,b)|Ok((reader.scalar(a)?,reader.scalar(b)?))).collect::<PyResult<_>>()?)},
-                "s.undefined"=>{arity(5)?;let head=UndefinedFunction{name:Arc::from(f.get_item(0)?.extract::<String>()?),assumptions:assumptions(f.get_item(1)?.extract()?)?,nargs:f.get_item(2)?.extract()?,internal:f.get_item(3)?.extract()?};let args=ss(4)?;if !head.accepts(args.len()){return Err(invalid("undefined function arity mismatch"));}Kind::Func(Func::Undefined(head),args)},
+                "s.undefined"=>{arity(5)?;let head=UndefinedFunction{name:Arc::from(f.get_item(0)?.extract::<String>()?),assumptions:assumptions(f.get_item(1)?.extract()?)?,nargs:f.get_item(2)?.extract()?,internal:f.get_item(3)?.extract()?};let args=ss(4)?;if !head.accepts(args.len()){return Err(invalid("undefined function arity mismatch"));}
+                    if head.internal&&matches!(head.name.as_ref(),"Integral"|"Sum"){
+                        if args.len()<2||head.assumptions!=Assumptions::NONE||head.nargs.is_some(){return Err(invalid("invalid legacy calculus placeholder"));}
+                        let function=if head.name.as_ref()=="Integral"{Func::Integral}else{Func::Sum};
+                        let limits=args[1..].iter().map(|limit|{
+                            if function==Func::Integral&&limit.is_symbol(){Ok(vec![limit.clone()])}
+                            else if matches!(limit.kind(),Kind::Func(Func::Undefined(head),_) if head.is_internal("Tuple")){Ok(limit.args())}
+                            else{Err(invalid("invalid legacy calculus limit"))}
+                        }).collect::<PyResult<Vec<_>>>()?;
+                        symox::binders::held(function,&args[0],limits).map_err(invalid)?.kind().clone()
+                    }else{Kind::Func(Func::Undefined(head),args)}
+                },
                 "s.function"=>{arity(2)?;let name:String=f.get_item(0)?.extract()?;let function=Func::from_name(&name).ok_or_else(||invalid("unknown function"))?;let args=ss(1)?;validate_function(&function,&args)?;Kind::Func(function,args)},
                 "s.element"|"s.proxy"|"s.trace"|"s.determinant"=>{
                     arity(2)?;let matrix=m(0)?;let args=ss(1)?;let n=if tag=="s.element"{2}else{0};if args.len()!=n{return Err(invalid("matrix scalar arity mismatch"));}

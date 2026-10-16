@@ -215,7 +215,127 @@ impl DomainElement {
             ElementValue::Function(r) => r.is_zero(),
         }
     }
+    /// Exact multivariate polynomial view of a ring element. Rational function
+    /// denominators are constant in QQ[parameters], and one in ZZ[parameters].
+    pub fn ring_polynomial(&self) -> PResult<super::MPoly<Rat>> {
+        let (
+            ExactDomain::Functions {
+                integral,
+                ring: true,
+                parameters,
+                ..
+            },
+            ElementValue::Function(r),
+        ) = (&self.domain, &self.value)
+        else {
+            return Err(failure("a polynomial-ring element is required"));
+        };
+        if r.n.nvars != parameters.len()
+            || r.d.nvars != parameters.len()
+            || r.d.is_zero()
+            || !coefficient_in_ring(r, *integral)
+        {
+            return Err(failure(
+                "invalid polynomial-ring coefficient representation",
+            ));
+        }
+        Ok(r.n.to_rat().scale(&Rat::new(super::Int::one(), r.d.lc())))
+    }
+    pub fn div_rem(&self, other: &Self) -> PResult<(Self, Self)> {
+        if !self.compatible_embedding(other) {
+            return Err(failure("incompatible coefficient domains"));
+        }
+        if other.is_zero() {
+            return Err(PolyError::Unsupported("division by zero".into()));
+        }
+        if let ExactDomain::Functions {
+            integral,
+            ring: true,
+            parameters,
+            order,
+        } = &self.domain
+        {
+            let a = self.ring_polynomial()?;
+            let b = other.ring_polynomial()?;
+            let order = super::groebner::MonomialOrder::parse(order)
+                .ok_or_else(|| failure("invalid monomial order"))?;
+            let (mut quotients, remainder) = super::groebner::reduce_with_options(
+                &a,
+                &[b],
+                order,
+                super::groebner::CoefficientField { modulus: None },
+                *integral,
+            );
+            let _scope = Scope::new(parameters.len());
+            let wrap = |p: &super::MPoly<Rat>| Self {
+                domain: self.domain.clone(),
+                value: ElementValue::Function(RF::from_rat_poly(p)),
+            };
+            return Ok((wrap(&quotients.remove(0)), wrap(&remainder)));
+        }
+        if let (ExactDomain::ZZ, ElementValue::Rational(a), ElementValue::Rational(b)) =
+            (&self.domain, &self.value, &other.value)
+        {
+            let (q, r) = a.n.div_mod_floor(&b.n);
+            let wrap = |v: super::Int| Self {
+                domain: ExactDomain::ZZ,
+                value: ElementValue::Rational(Rat::from(v)),
+            };
+            return Ok((wrap(q), wrap(r)));
+        }
+        if self.domain.is_field() {
+            return Ok((
+                self.binary(other, '/')?,
+                self.domain.convert(&Expr::zero())?,
+            ));
+        }
+        Err(PolyError::Unsupported(
+            "division is not implemented for this coefficient domain".into(),
+        ))
+    }
+    pub fn exquo(&self, other: &Self) -> PResult<Self> {
+        let (q, r) = self.div_rem(other)?;
+        if !r.is_zero() {
+            return Err(PolyError::ExactQuotientFailed(
+                "polynomial or integer division is not exact in the selected ring".into(),
+            ));
+        }
+        Ok(q)
+    }
+    pub fn gcdex(&self, other: &Self) -> PResult<(Self, Self, Self)> {
+        if !self.compatible_embedding(other) {
+            return Err(failure("incompatible coefficient domains"));
+        }
+        if let (ExactDomain::ZZ, ElementValue::Rational(a), ElementValue::Rational(b)) =
+            (&self.domain, &self.value, &other.value)
+        {
+            let (g, s, t) = a.n.gcdex(&b.n);
+            let wrap = |v: super::Int| Self {
+                domain: ExactDomain::ZZ,
+                value: ElementValue::Rational(Rat::from(v)),
+            };
+            return Ok((wrap(s), wrap(t), wrap(g)));
+        }
+        if !self.domain.is_field() {
+            return Err(PolyError::Unsupported(
+                "extended gcd requires a supported coefficient field or ZZ".into(),
+            ));
+        }
+        let zero = self.domain.convert(&Expr::zero())?;
+        if self.is_zero() && other.is_zero() {
+            return Ok((zero.clone(), self.domain.convert(&Expr::one())?, zero));
+        }
+        let g = self.gcd(other)?;
+        if self.is_zero() {
+            Ok((zero, g.binary(other, '/')?, g))
+        } else {
+            Ok((g.binary(self, '/')?, zero, g))
+        }
+    }
     pub fn binary(&self, other: &Self, op: char) -> PResult<Self> {
+        if op == '/' && matches!(self.domain, ExactDomain::Functions { ring: true, .. }) {
+            return self.exquo(other);
+        }
         if !self.compatible_embedding(other) {
             return Err(failure("incompatible coefficient domains"));
         }
@@ -356,7 +476,13 @@ impl DomainElement {
                         }
                         super::MPoly::monomial(&powers, coefficient)
                     } else {
-                        super::gcd::gcd_mq(&a, &b).0
+                        let h = super::gcd::gcd_mq(&a, &b).0;
+                        let order = if let ExactDomain::Functions { order, .. } = &self.domain {
+                            super::groebner::MonomialOrder::parse(order).unwrap()
+                        } else {
+                            unreachable!()
+                        };
+                        h.scale(&h.coeff(order.leading_index(&h)).inv())
                     };
                     return Ok(Self {
                         domain: self.domain.clone(),
@@ -421,6 +547,32 @@ impl DomainElement {
                 unreachable!()
             };
             let _scope = Scope::new(parameters.len());
+            if matches!(
+                self.domain,
+                ExactDomain::Functions {
+                    integral: false,
+                    ring: true,
+                    ..
+                }
+            ) {
+                let a = self.ring_polynomial()?;
+                let b = other.ring_polynomial()?;
+                let gcd = super::gcd::gcd_mq(&a, &b).0;
+                let p = a
+                    .div_exact(&gcd)
+                    .ok_or_else(|| failure("polynomial lcm certificate failed"))?
+                    .mul(&b);
+                let order = if let ExactDomain::Functions { order, .. } = &self.domain {
+                    super::groebner::MonomialOrder::parse(order).unwrap()
+                } else {
+                    unreachable!()
+                };
+                let p = p.scale(&p.coeff(order.leading_index(&p)).inv());
+                return Ok(Self {
+                    domain: self.domain.clone(),
+                    value: ElementValue::Function(RF::from_rat_poly(&p)),
+                });
+            }
             let (gn, _, _) = super::gcd::gcd_mz(&a.n, &b.n);
             let (gd, _, _) = super::gcd::gcd_mz(&a.d, &b.d);
             let mut n =
@@ -531,4 +683,30 @@ mod tests {
             k.convert(&parse_str("x/((x+1)*(x+2))").unwrap()).unwrap()
         );
     }
+    #[test]
+    fn polynomial_ring_division_certificates_all_orders() {
+        let params=vec![Expr::symbol("a"),Expr::symbol("b")];
+        for order in ["lex","grlex","grevlex"] {for integral in [false,true] {
+            let k=ExactDomain::functions(integral,true,params.clone(),order).unwrap();
+            for (a,b) in [("a^2+2*a","2*a"),("a*b+1","2*a+2*b"),("(a+2*b^2)*(a+b)+1","a+2*b^2"),("0","a+1")] {
+                let a=k.convert(&parse_str(a).unwrap()).unwrap();let b=k.convert(&parse_str(b).unwrap()).unwrap();
+                let(q,r)=a.div_rem(&b).unwrap();
+                assert_eq!(q.binary(&b,'*').unwrap().binary(&r,'+').unwrap(),a,"{order} integral={integral}");
+                assert_eq!(q.domain,k);assert_eq!(r.domain,k);
+                let(q2,r2)=r.div_rem(&b).unwrap();assert!(q2.is_zero());assert_eq!(r2,r);
+                if r.is_zero(){assert_eq!(a.exquo(&b).unwrap(),q);}else{assert!(matches!(a.exquo(&b),Err(PolyError::ExactQuotientFailed(_))));}
+            }
+            let a=k.convert(&parse_str("(a+b)*(a-b)").unwrap()).unwrap();let b=k.convert(&parse_str("a-b").unwrap()).unwrap();
+            assert_eq!(a.binary(&b,'/').unwrap(),k.convert(&parse_str("a+b").unwrap()).unwrap());
+            assert!(a.div_rem(&k.convert(&Expr::zero()).unwrap()).is_err());
+        }}
+    }
+    #[test]
+    fn field_gcdex_normalization_matches_its_gcd() {
+        for k in [ExactDomain::QQ,ExactDomain::functions(false,false,vec![Expr::symbol("a")],"grevlex").unwrap()] {
+            let pairs=if k==ExactDomain::QQ {vec![("2/3","4/5"),("0","4/5"),("2/3","0"),("0","0")]}else{vec![("2*a/(a+1)","3*a/(a+2)"),("0","3*a/(a+2)"),("a","0"),("0","0")]};
+            for(a,b)in pairs{let a=k.convert(&parse_str(a).unwrap()).unwrap();let b=k.convert(&parse_str(b).unwrap()).unwrap();let(s,t,h)=a.gcdex(&b).unwrap();assert_eq!(s.binary(&a,'*').unwrap().binary(&t.binary(&b,'*').unwrap(),'+').unwrap(),h);assert_eq!(h,a.gcd(&b).unwrap());}
+        }
+    }
+
 }

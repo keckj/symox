@@ -226,6 +226,11 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         if head=="Tuple" {
             return Ok(fx::undefined("Tuple",obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?));
         }
+        if head=="Integral" || head=="Sum" {
+            let body=to_expr(&obj.getattr("function")?)?;
+            let limits=obj.getattr("limits")?.try_iter()?.map(|limit|limit?.try_iter()?.map(|value|to_expr(&value?)).collect::<PyResult<Vec<_>>>()).collect::<PyResult<Vec<_>>>()?;
+            return symox::binders::held(if head=="Integral" {Func::Integral} else {Func::Sum},&body,limits).map_err(PyValueError::new_err);
+        }
         if head=="Lambda" {
             let variables=obj.getattr("variables")?.try_iter()?.map(|variable|to_expr(&variable?)).collect::<PyResult<Vec<_>>>()?;
             if variables.len()!=1 || !variables[0].is_symbol() {
@@ -430,7 +435,8 @@ fn operation_count(e: &Expr) -> BigInt {
     fn count(e: &Expr, memo: &mut FxHashMap<usize, (Expr, BigInt)>) -> BigInt {
         if let Some((_, value)) = memo.get(&e.dag_id()) { return value.clone(); }
         let value = match e.kind() {
-        Kind::Num(n) => BigInt::from(usize::from(n.is_negative()) + usize::from(matches!(n, Number::Rational(_)))),
+        Kind::Num(n) => BigInt::from(usize::from(n.is_rational() && n.is_negative()) + usize::from(matches!(n, Number::Rational(_)))),
+        Kind::Const(Constant::E) => BigInt::from(1),
         Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => BigInt::from(0),
         Kind::Func(Func::MatrixProxy(_), _) => BigInt::from(0),
         Kind::Func(Func::MatrixElement(_), args) => args.iter().map(|a| count(a, memo)).sum(),
@@ -455,7 +461,11 @@ fn operation_count(e: &Expr) -> BigInt {
                     numerator.push(ops::mul_factor(base, exponent));
                 }
             }
-            if !abs.is_one() { numerator.push(Expr::num(abs)); }
+            if abs.is_rational() && !abs.is_integer() {
+                let p=abs.numer();
+                if !p.is_one(){numerator.push(Expr::num(p));}
+                denominator.push(Expr::num(abs.denom()));
+            }else if !abs.is_one(){numerator.push(Expr::num(abs));}
             BigInt::from(usize::from(c.is_negative()))
                 + numerator.iter().map(|a| count(a, memo)).sum::<BigInt>()
                 + denominator.iter().map(|a| count(a, memo)).sum::<BigInt>()
@@ -464,9 +474,11 @@ fn operation_count(e: &Expr) -> BigInt {
                 + usize::from(!denominator.is_empty())
         }
         Kind::Pow(base, exponent) => {
-            count(base, memo) + if exponent.is_minus_one() { BigInt::from(1) } else { 1 + count(exponent, memo) }
+            if base.is_constant(Constant::E){1+count(exponent,memo)}
+            else{count(base, memo) + if exponent.is_minus_one() { BigInt::from(1) } else { 1 + count(exponent, memo) }}
         }
-        Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => args.iter().map(|a| count(a, memo)).sum(),
+        Kind::Func(Func::Subs|Func::Limit|Func::Order,args) => args.iter().map(|a|count(a,memo)).sum(),
+        Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") || n.is_internal("Tuple") => args.iter().map(|a| count(a, memo)).sum(),
         _ => 1 + e.args().iter().map(|a| count(a, memo)).sum::<BigInt>(),
         };
         // Synthetic coefficient/power nodes also enter this cache. Retain an
@@ -791,6 +803,7 @@ impl PyExpr {
         if let Kind::Func(Func::Undefined(function),_)=self.e.kind(){
             if !function.internal{return Ok(undefined_head(py,function)?.unbind());}
         }
+        if let Kind::Func(f @ (Func::Integral|Func::Sum),_)=self.e.kind(){return Ok(py.import("symox")?.getattr(f.name())?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Subs,_)){return Ok(py.import("symox")?.getattr("Subs")?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Limit,_)){return Ok(py.import("symox")?.getattr("Limit")?.unbind());}
         if let Kind::Func(f @ (Func::MatrixTrace(_) | Func::MatrixDeterminant(_)), _) = self.e.kind() {
@@ -903,7 +916,7 @@ impl PyExpr {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::Limit | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
     }
     #[getter]
     fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal)}
@@ -915,6 +928,22 @@ impl PyExpr {
     fn is_Subs(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Subs,_))}
     #[getter]
     fn is_Limit(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Limit,_))}
+    #[getter]
+    fn is_Integral(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Integral,_))}
+    #[getter]
+    fn is_Sum(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Sum,_))}
+    #[getter]
+    fn function(&self)->PyResult<PyExpr>{
+        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum,args)=>Ok(wrap(args[0].clone())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have function"))}
+    }
+    #[getter]
+    fn limits<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum,args)=>PyTuple::new(py,args[1..].iter().map(|limit|PyTuple::new(py,limit.args().into_iter().map(wrap))).collect::<PyResult<Vec<_>>>()?),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have limits"))}
+    }
+    #[getter]
+    fn bound_symbols<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyList>>{
+        match self.e.kind(){Kind::Func(f @ (Func::Integral|Func::Sum),args)=>Ok(PyList::new(py,symox::binders::limits(args).into_iter().filter(|limit|*f==Func::Sum||limit.len()>1).map(|limit|wrap(limit[0].clone())).collect::<Vec<_>>())?),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have bound_symbols"))}
+    }
     #[getter]
     fn variable_count<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
         match self.e.kind(){Kind::Derivative(_,vars)=>PyTuple::new(py,vars.iter().map(|(v,n)|(wrap(v.clone()),*n))),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only derivatives have variable_count"))}
@@ -934,6 +963,7 @@ impl PyExpr {
     /// True if the expression has no free symbols (it is a number).
     #[getter]
     fn is_number(&self) -> bool {
+        if matches!(self.e.kind(),Kind::Func(Func::Integral|Func::Sum,_)){return traverse::free_symbols(&self.e).is_empty();}
         fx::is_numeric_value(&self.e)
     }
     #[getter]
@@ -1034,17 +1064,21 @@ impl PyExpr {
         if let Some(kwargs)=_kwargs{for (key,value) in kwargs.iter(){let key:String=key.extract()?;match key.as_str(){"simultaneous"=>simultaneous=value.is_truthy()?,_=>return Err(PyNotImplementedError::new_err(format!("subs option '{key}' is not implemented")))}}}
         if simultaneous{
             if pairs.iter().any(|(old,_)|!old.is_symbol()){return Err(PyNotImplementedError::new_err("simultaneous substitution currently supports symbol keys only"));}
+            for (old,new) in &pairs {symox::binders::check_substitution(&self.e,old,new).map_err(PyValueError::new_err)?;}
             validate_matrix_replacements(args.py(),&self.e,&pairs,true)?;
             let result=subs::simultaneous(&self.e,&pairs);
             symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+            symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
             return Ok(wrap(result));
         }
         let mut result = self.e.clone();
         for pair in pairs {
+            symox::binders::check_substitution(&result,&pair.0,&pair.1).map_err(PyValueError::new_err)?;
             validate_matrix_replacements(args.py(), &result, std::slice::from_ref(&pair), false)?;
             result = subs::subs1(&result, &pair.0, &pair.1);
         }
         symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+        symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
         Ok(wrap(result))
     }
 
@@ -1141,6 +1175,7 @@ impl PyExpr {
         validate_matrix_replacements(rule.py(), &self.e, &m.iter().map(|(k,v)|(k.clone(),v.clone())).collect::<Vec<_>>(), true)?;
         let result=subs::xreplace(&self.e,&m);
         symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+        symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
         Ok(wrap(result))
     }
 
@@ -1155,8 +1190,7 @@ impl PyExpr {
 
     #[pyo3(signature = (deep=true, **hints))]
     fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-        if !deep { return Err(PyNotImplementedError::new_err("expand(deep=False) is not implemented")); }
-        Ok(wrap(expand_hints(&self.e, hints)?))
+        Ok(wrap(expand_hints(&self.e, deep, hints)?))
     }
 
     fn trigsimp(&self) -> PyExpr {
@@ -1853,9 +1887,15 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
     }
     for a in args.iter() {
         if let Ok(t) = a.downcast::<PyTuple>() {
+            if !(1..=3).contains(&t.len()){return Err(PyValueError::new_err("expected (x,), (x,b), or (x,a,b)"));}
             let x = to_expr(&t.get_item(0)?)?;
+            if !x.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
             match t.len() {
                 1 => r = symox::integrate::integrate(&r, &x),
+                2 => {let upper=to_expr(&t.get_item(1)?)?;
+                    let held=symox::binders::held(Func::Integral,&r,vec![vec![x,upper]]).map_err(PyValueError::new_err)?;
+                    r=fx::doit(&held,true);
+                },
                 3 => {
                     let lo = to_expr(&t.get_item(1)?)?;
                     let hi = to_expr(&t.get_item(2)?)?;
@@ -1864,7 +1904,9 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
                 _ => return Err(PyValueError::new_err("expected (x,) or (x, a, b)")),
             }
         } else {
-            r = symox::integrate::integrate(&r, &to_expr(&a)?);
+            let variable=to_expr(&a)?;
+            if !variable.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
+            r = symox::integrate::integrate(&r, &variable);
         }
     }
     Ok(r)
@@ -1873,6 +1915,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
 #[pyfunction]
 #[pyo3(name = "summation", signature = (f, *limits))]
 fn py_summation(f: &Bound<'_, PyAny>, limits: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+    if limits.is_empty(){return Err(PyValueError::new_err("summation requires (k,a,b) limits"));}
     let mut r = to_expr(f)?;
     for l in limits.iter() {
         let t = l
@@ -1882,6 +1925,7 @@ fn py_summation(f: &Bound<'_, PyAny>, limits: &Bound<'_, PyTuple>) -> PyResult<P
             return Err(PyValueError::new_err("summation expects (k, a, b) tuples"));
         }
         let (k, a, b) = (to_expr(&t.get_item(0)?)?, to_expr(&t.get_item(1)?)?, to_expr(&t.get_item(2)?)?);
+        if !k.is_symbol(){return Err(PyValueError::new_err("summation variable must be a symbol"));}
         r = symox::summation::summation(&r, &k, &a, &b);
     }
     Ok(wrap(r))
@@ -1900,91 +1944,45 @@ fn py_integrate(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option
     Ok(wrap(do_integrate(&to_expr(f)?, args)?))
 }
 
-/// `expand` with SymPy hints (`trig`, `log`, `force`, `power_base`, `mul`,
-/// `multinomial`, `power_exp`).
-fn expand_hints(e: &Expr, hints: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
-    // The native full expander distributes exp(a+b). Preserve individual
-    // exponential nodes when that transformation is explicitly disabled,
-    // while still expanding their arguments and the surrounding arithmetic.
-    fn protect_exp(e: &Expr, hints: Option<&Bound<'_, PyDict>>, held: &mut rustc_hash::FxHashMap<Expr, Expr>, used: &mut std::collections::HashSet<String>) -> PyResult<Expr> {
-        if let Kind::Func(Func::Exp, arguments) = e.kind() {
-            let value = fx::exp(&expand_hints(&arguments[0], hints)?);
-            let mut index = held.len();
-            let name = loop {
-                let candidate = format!("_sx_expand_held_{index}");
-                if used.insert(candidate.clone()) { break candidate; }
-                index += 1;
-            };
-            let symbol = Expr::symbol(&name);
-            held.insert(symbol.clone(), value);
-            return Ok(symbol);
-        }
-        let mut error = None;
-        let result = traverse::map_children(e, &mut |child| match protect_exp(child, hints, held, used) {
-            Ok(value) => value,
-            Err(value) => { error = Some(value); child.clone() },
-        });
-        error.map_or(Ok(result), Err)
-    }
-    if let Some(hints) = hints {
-        for (name, _) in hints.iter() {
-            let name: String = name.extract()?;
-            if !["trig", "log", "force", "power_base", "power_exp", "mul", "multinomial"].contains(&name.as_str()) {
-                return Err(PyNotImplementedError::new_err(format!("expand hint '{name}' is not implemented")));
+/// Parse the common scalar and matrix expansion options once.
+pub(crate) fn parse_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<(expand::ExpandOptions,expand::ExpandBudget)> {
+    let mut options=expand::ExpandOptions{deep,..Default::default()};
+    let mut max_terms=100_000usize;
+    if let Some(hints)=hints {
+        for (name,value) in hints.iter(){
+            let name:String=name.extract()?;
+            if name=="max_terms" {
+                if value.is_instance_of::<pyo3::types::PyBool>(){return Err(PyTypeError::new_err("max_terms must be a positive integer"));}
+                max_terms=value.extract::<usize>().map_err(|_|PyValueError::new_err("max_terms must be a positive integer"))?;
+                if max_terms==0{return Err(PyValueError::new_err("max_terms must be a positive integer"));}
+                continue;
             }
+            let slot=match name.as_str(){
+                "basic"=>&mut options.basic,"mul"=>&mut options.mul,"multinomial"=>&mut options.multinomial,
+                "power_base"=>&mut options.power_base,"power_exp"=>&mut options.power_exp,"log"=>&mut options.log,
+                "trig"=>&mut options.trig,"force"=>&mut options.force,
+                _=>return Err(PyNotImplementedError::new_err(format!("expand hint '{name}' is not implemented"))),
+            };
+            *slot=value.is_truthy()?;
         }
     }
-    let get = |k: &str, default: bool| -> PyResult<bool> {
-        match hints {
-            Some(h) => match h.get_item(k)? {
-                Some(v) => v.is_truthy(),
-                None => Ok(default),
-            },
-            None => Ok(default),
-        }
-    };
-    let force = get("force", false)?;
-    let mut r = e.clone();
-    if get("trig", false)? {
-        r = symox::simp::expand_trig(&r);
-    }
-    if get("log", true)? && (force || get("log", false)?) {
-        r = symox::simp::expand_log(&r, force);
-    } else if get("log", true)? {
-        r = symox::simp::expand_log(&r, false);
-    }
-    if get("power_base", true)? {
-        r = symox::simp::expand_power_base(&r, force);
-    }
-    let power_exp = get("power_exp", true)?;
-    let mut held = rustc_hash::FxHashMap::default();
-    if !power_exp {
-        let mut used = traverse::free_symbols(&r).iter().map(ToString::to_string).collect();
-        r = protect_exp(&r, hints, &mut held, &mut used)?;
-    }
-    let full = get("mul", true)? && get("multinomial", true)?;
-    if full {
-        r = expand::expand(&r);
-    } else if get("mul", true)? {
-        r = symox::simp::expand_mul(&r);
-    }
-    if !held.is_empty() { r = subs::xreplace(&r, &held); }
-    if power_exp {
-        r = symox::simp::expand_power_exp(&r);
-    }
-    Ok(r)
+    Ok((options,expand::ExpandBudget::new(max_terms)))
+}
+fn expand_hints(e:&Expr,deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<Expr>{
+    let (options,mut budget)=parse_expand_options(deep,hints)?;
+    expand::expand_with_options(e,&options,&mut budget).map_err(|e|PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
 #[pyo3(name = "expand", signature = (e, deep=true, **hints))]
-fn py_expand(e: &Bound<'_, PyAny>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
-    if !deep { return Err(PyNotImplementedError::new_err("expand(deep=False) is not implemented")); }
-    if let Ok(matrix) = e.downcast::<matrixexpr::PyMatrixExpr>() {
-        if hints.is_some_and(|hints| !hints.is_empty()) { return Err(PyNotImplementedError::new_err("matrix expansion hints are not implemented")); }
-        let result = matrix.get().m.expand().map_err(|error| matrices::err(e.py(), error))?;
-        return expr_object(e.py(), matrix_proxy(result));
+fn py_expand(e:&Bound<'_,PyAny>,deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
+    if e.is_instance_of::<matrices::PyMatrix>() {return Ok(e.call_method("expand",(deep,),hints)?.unbind());}
+    if let Ok(matrix)=e.downcast::<matrixexpr::PyMatrixExpr>(){
+        let (options,mut budget)=parse_expand_options(deep,hints)?;
+        let result=matrix.get().m.expand_with_options(&options,&mut budget).map_err(|error|matrices::err(e.py(),error))?;
+        return expr_object(e.py(),matrix_proxy(result));
     }
-    expr_object(e.py(), expand_hints(&to_expr(e)?, hints)?)
+    expr_object(e.py(),expand_hints(&to_expr(e)?,deep,hints)?)
 }
 
 #[pyfunction]
@@ -2051,6 +2049,11 @@ fn py_log(x: &Bound<'_, PyAny>, base: Option<&Bound<'_, PyAny>>) -> PyResult<PyE
 #[pyfunction]
 #[pyo3(name = "_apply", signature = (name, *args))]
 fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+    if name=="Integral" || name=="Sum" {
+        if args.is_empty(){return Err(PyValueError::new_err("calculus constructor requires an integrand"));}
+        let limits=PyTuple::new(args.py(),args.iter().skip(1))?;
+        return calculus::_calculus(name,&args.get_item(0)?,&limits);
+    }
     let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
     match Func::from_name(name) {
         Some(f) => {

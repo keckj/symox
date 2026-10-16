@@ -8,6 +8,8 @@ use crate::functions::func;
 use crate::matrix::{Matrix, MatrixError, MResult};
 use crate::matrix::ratfunc::is_zero_assume;
 use crate::ops::{add, mul2, neg, pow, sub};
+#[path="matrixexpr/expand.rs"]
+mod expansion;
 
 #[derive(Clone, Debug)]
 pub struct MatrixExpr(Arc<MatrixNode>);
@@ -376,7 +378,7 @@ impl MatrixExpr {
         if result.len()==1 {
             if scalar.is_one(){return Ok(result.remove(0));}
             if let MatrixKind::Explicit(m)=result[0].kind(){return Ok(Self::explicit(m.scale(&scalar)));}
-            if let MatrixKind::Add(args)=result[0].kind(){return Self::add(&args.iter().map(|a|Self::mul(scalar.clone(),&[a.clone()],true)).collect::<MResult<Vec<_>>>()?,true);}
+            if let MatrixKind::Add(args)=result[0].kind(){if scalar.is_rational_number(){return Self::add(&args.iter().map(|a|Self::mul(scalar.clone(),&[a.clone()],true)).collect::<MResult<Vec<_>>>()?,true);}}
         }
         Ok(Self::new(MatrixKind::Mul(scalar,result),rows,cols))
     }
@@ -778,13 +780,6 @@ impl MatrixExpr {
         let result=if result==*self{self.clone()}else{result};
         memo.insert(self.dag_id(),result.clone());Ok(result)
     }
-    pub fn expand(&self)->MResult<Self>{
-        let node=self.doit(true)?;
-        match node.kind(){
-            MatrixKind::Add(args)=>Self::add(&args.iter().map(|a|a.expand()).collect::<MResult<Vec<_>>>()?,true),
-            MatrixKind::Mul(c,fs)=>{let mut terms=vec![Vec::new()];for factor in fs{let expanded=factor.expand()?;let choices=if let MatrixKind::Add(a)=expanded.kind(){a.clone()}else{vec![expanded]};let mut next=Vec::new();for prefix in terms{for term in &choices{let mut chain=prefix.clone();chain.push(term.clone());next.push(chain);}}terms=next;}Self::add(&terms.iter().map(|chain|Self::mul(c.clone(),chain,true)).collect::<MResult<Vec<_>>>()?,true)},_=>Ok(node)
-        }
-    }
     pub fn validate_index(index:&Expr,dim:&Expr)->MResult<()> {
         if crate::assumptions::is_integer(index)==Some(false){return Err(MatrixError::Index("Matrix indices must be integers".into()));}
         if crate::assumptions::is_nonnegative(&sub(index,dim))==Some(true)||crate::assumptions::is_negative(&crate::ops::add2(index,dim))==Some(true){return Err(MatrixError::Index("Matrix index out of range".into()));}
@@ -900,7 +895,7 @@ impl MatrixExpr {
             MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>e.to_string(),MatrixOperand::Matrix(m)=>m.to_str()};format!("HadamardPower({}, {})",operand(a),operand(b))},
             MatrixKind::Add(a)=>{let mut out=String::new();for e in a{let v=e.to_str();if !out.is_empty(){if let Some(positive)=v.strip_prefix('-'){out.push_str(" - ");out.push_str(positive);continue;}out.push_str(" + ");}out.push_str(&v);}out},
             MatrixKind::Mul(c,a)=>{let mut terms:Vec<_>=a.iter().map(child).collect();if !c.is_one(){let scalar=if c.is_add(){format!("({c})")}else{c.to_string()};if c==&Expr::minus_one(){return format!("-{}",terms.join("*"));}terms.insert(0,scalar);}terms.join("*")},
-            MatrixKind::Pow(b,e)=>format!("{}**{}",child(b),if e.is_atom()&&!e.as_number().is_some_and(|n|n.is_negative()){e.to_string()}else{format!("({e})")}),MatrixKind::Inverse(b)=>format!("{}**(-1)",child(b)),MatrixKind::Transpose(b)=>format!("{}.T",child(b)),MatrixKind::Adjoint(b)=>format!("Adjoint({})",b.to_str()),MatrixKind::Conjugate(b)=>format!("Adjoint({}.T)",child(b)),
+            MatrixKind::Pow(b,e)=>format!("{}**{}",if matches!(b.kind(),MatrixKind::Add(_)|MatrixKind::Mul(..)|MatrixKind::Pow(..)|MatrixKind::Inverse(_)){format!("({})",b.to_str())}else{b.to_str()},if e.is_atom()&&!e.as_number().is_some_and(|n|n.is_negative()){e.to_string()}else{format!("({e})")}),MatrixKind::Inverse(b)=>format!("{}**(-1)",child(b)),MatrixKind::Transpose(b)=>format!("{}.T",child(b)),MatrixKind::Adjoint(b)=>format!("Adjoint({})",b.to_str()),MatrixKind::Conjugate(b)=>format!("Adjoint({}.T)",child(b)),
         }
     }
 }

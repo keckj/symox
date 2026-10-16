@@ -16,7 +16,7 @@ use crate::ops::{add, add2, div, mul, mul2, neg, pow, sqrt, sub};
 use crate::relational::{ne, piecewise};
 use crate::simplify::numer_denom;
 use crate::subs::subs1;
-use crate::traverse::has;
+use crate::binders::depends_on as has;
 
 const MAX_DEPTH: u32 = 10;
 
@@ -37,10 +37,7 @@ pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
     if rational_definite::compare(a,b) == Some(std::cmp::Ordering::Greater) {
         return neg(&integrate_definite(f,x,b,a));
     }
-    let unevaluated = || crate::functions::undefined(
-        "Integral",
-        vec![f.clone(), crate::functions::undefined("Tuple", vec![x.clone(), a.clone(), b.clone()])],
-    );
+    let unevaluated = || integral_definite_unevaluated(f,x,a,b);
     let checked = match rational_definite::analyze(f,x,a,b) {
         rational_definite::Analysis::Value(value) => return value,
         rational_definite::Analysis::Unknown => return unevaluated(),
@@ -65,17 +62,11 @@ pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
             let fb = at(b, crate::limits::Dir::Minus);
             let fa = at(a, crate::limits::Dir::Plus);
             if has_bad(&fb) || has_bad(&fa) {
-                return crate::functions::undefined(
-                    "Integral",
-                    vec![f.clone(), crate::functions::undefined("Tuple", vec![x.clone(), a.clone(), b.clone()])],
-                );
+                return integral_definite_unevaluated(f,x,a,b);
             }
             expand_if_numeric(&sub(&fb, &fa))
         }
-        None => crate::functions::undefined(
-            "Integral",
-            vec![f.clone(), crate::functions::undefined("Tuple", vec![x.clone(), a.clone(), b.clone()])],
-        ),
+        None => integral_definite_unevaluated(f,x,a,b),
     }
 }
 
@@ -98,7 +89,11 @@ fn expand_if_numeric(e: &Expr) -> Expr {
 
 /// `Integral(f, x)` placeholder.
 pub fn integral_unevaluated(f: &Expr, x: &Expr) -> Expr {
-    crate::functions::undefined("Integral", vec![f.clone(), x.clone()])
+    crate::binders::held(Func::Integral,f,vec![vec![x.clone()]]).expect("valid integration variable")
+}
+
+pub fn integral_definite_unevaluated(f:&Expr,x:&Expr,a:&Expr,b:&Expr)->Expr {
+    crate::binders::held(Func::Integral,f,vec![vec![x.clone(),a.clone(),b.clone()]]).expect("valid integration limits")
 }
 
 /// Antiderivative, or `None` if the integrator gives up.

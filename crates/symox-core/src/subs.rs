@@ -38,6 +38,10 @@ fn xr(
         return v.clone();
     }
     if held_derivatives {
+        if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum,_)) {
+            let pairs=map.iter().map(|(key,value)|(key.clone(),value.clone())).collect::<Vec<_>>();
+            return crate::binders::substitute(e,&pairs,true);
+        }
         if let Kind::Func(Func::Subs,args)=e.kind(){
             // Subs binds variables in its body.  Evaluation points are ordered:
             // a bound variable may occur freely in its own/later points, while
@@ -120,6 +124,9 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     }
     if let Some((_,v)) = cache.get(&e.dag_id()) {
         return v.clone();
+    }
+    if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum,_)) {
+        return crate::binders::substitute(e,&[(old.clone(),new.clone())],false);
     }
     if let Kind::Func(Func::Subs,args)=e.kind(){
         let variables=args[1].args();

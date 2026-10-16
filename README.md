@@ -119,6 +119,19 @@ Scalar equality, ordering, operation counts and pickles also preserve DAG sharin
 `count_ops()` counts all occurrences in the mathematical expression using exact
 integers, without expanding a shared tree. Scalar pickles use flat native node
 records; existing recursive scalar pickles remain readable.
+Python `expand` supports independent `mul`, `multinomial`, `power_exp`,
+`power_base`, `log` and `trig` hints, including `deep=False` and `force`.
+Scalar and matrix expansion share a work budget and check conservative bounds
+before allocating products or expanding powers. The default term bound is
+100,000; `max_terms=` changes it. Exceeding a term or work bound raises
+`ValueError`. Matrix expansion preserves held transposes, adjoints, inverses
+and matrix powers while expanding their descendants when `deep=True`.
+`Integral` and `Sum` are native held binding operators with ordered limits,
+scope-aware free symbols and substitution, and exact SymPy interchange.
+Their `doit()` methods use the native integration and summation engines;
+unsupported cases remain held. Differentiation supports the fundamental theorem
+and Leibniz rule for integrals and retains discrete endpoint derivatives.
+Finite sums use Karr's convention for reversed endpoints.
 Undefined functions preserve their identity and declared assumptions and arity,
 including names shared with builtins. Held `Derivative`, `Subs` and `Limit` expressions
 support evaluation and round trips; simultaneous symbol substitutions preserve
@@ -505,8 +518,10 @@ implemented. Rational-function and
 polynomial coefficient domains use `ZZ` or `QQ` ground coefficients; additional
 towers require separate support. Finite-field elements compare within their
 own domain, avoiding SymPy's inconsistent equality/hash behavior with integers.
-Euclidean division in polynomial coefficient rings and fraction fields over
-finite or algebraic ground domains require further support.
+Polynomial coefficient rings support division with remainder and exact division, with
+coefficient content preserved in GCDs, LCMs and cofactors. `Poly.div` and
+`Poly.exquo` honor `auto=False` when retaining the coefficient ring.
+Fraction fields over finite or algebraic ground domains require further support.
 Existing polynomial calculations with general expression coefficients remain
 available; requesting a typed domain for unsupported expression or inexact
 coefficient rings raises `NotImplementedError`.

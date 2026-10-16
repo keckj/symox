@@ -709,6 +709,7 @@ impl PyPoly {
     fn other(&self, o: &Bound<'_, PyAny>) -> Option<PolyValue> {
         if let Ok(q)=o.downcast::<PyPoly>() {
             let q=&q.get().p;
+            if let (Some(a),Some(b))=(&self.p.field,&q.field){domains::unify_native(&a.coefficient_domain,&b.coefficient_domain).ok()?;}
             let gens=symox::poly::polyobj::unify_gens(self.p.true_gens(),q.true_gens());
             if let Some(field)=self.p.algebraic.as_ref().or(q.algebraic.as_ref()) {
                 if self.p.field.is_some()||q.field.is_some()||self.p.modulus.is_some()||q.modulus.is_some(){return None;}
@@ -744,7 +745,7 @@ impl PyPoly {
             Some(q) => Ok(PyPoly { p: (f(&self.p, &q)).into() }.into_pyobject(py)?.into_any().unbind()),
             None => {
                 if let Ok(q)=o.downcast::<PyPoly>() {
-                    if self.p.algebraic.is_some() || q.get().p.algebraic.is_some() {
+                    if self.p.algebraic.is_some() || q.get().p.algebraic.is_some() || self.p.field.is_some() || q.get().p.field.is_some() {
                         return Err(PyTypeError::new_err("incompatible coefficient fields; construct a supported joint extension explicitly"));
                     }
                 }
@@ -1054,7 +1055,7 @@ impl PyPoly {
         Ok(PyPoly { p: (self.p.rem(&q).map_err(err)?).into() })
     }
     fn __divmod__<'py>(&self, py: Python<'py>, o: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
-        self.div(py, o)
+        self.div(py, o, true)
     }
 
     fn __eq__(&self, o: &Bound<'_, PyAny>) -> bool {
@@ -1083,23 +1084,23 @@ impl PyPoly {
         !self.p.is_zero()
     }
 
-    fn div<'py>(&self, py: Python<'py>, o: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
+    #[pyo3(signature=(o,auto=true))]
+    fn div<'py>(&self, py: Python<'py>, o: &Bound<'_, PyAny>, auto:bool) -> PyResult<Bound<'py, PyTuple>> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
-        let (a, b) = self.p.div(&q).map_err(err)?;
+        let (a, b) = self.p.div_with_options(&q,auto).map_err(err)?;
         PyTuple::new(py, [PyPoly { p: (a).into() }, PyPoly { p: (b).into() }])
     }
 
-    fn rem(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
-        self.__mod__(o)
-    }
+    #[pyo3(signature=(o,auto=true))]
+    fn rem(&self,o:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly>{let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;Ok(PyPoly{p:self.p.rem_with_options(&q,auto).map_err(err)?})}
 
-    fn quo(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
-        self.__floordiv__(o)
-    }
+    #[pyo3(signature=(o,auto=true))]
+    fn quo(&self,o:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly>{let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;Ok(PyPoly{p:self.p.quo_with_options(&q,auto).map_err(err)?})}
 
-    fn exquo(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
+    #[pyo3(signature=(o,auto=true))]
+    fn exquo(&self, o: &Bound<'_, PyAny>, auto:bool) -> PyResult<PyPoly> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
-        Ok(PyPoly { p: (self.p.exquo(&q).map_err(err)?).into() })
+        Ok(PyPoly { p: (self.p.exquo_with_options(&q,auto).map_err(err)?).into() })
     }
 
     #[pyo3(signature=(g,auto=true))]
@@ -1769,7 +1770,7 @@ fn div_like(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple
 #[pyo3(name = "div", signature = (f, g, *gens, **_kwargs))]
 fn py_div<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
     if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
-        return a.get().div(py, g);
+        return a.get().div(py, g, true);
     }
     let (q, r, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
     PyTuple::new(py, [poly_result(py, q, as_poly, &gv)?, poly_result(py, r, as_poly, &gv)?])
@@ -1916,7 +1917,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn rem(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
-        return Ok(a.get().rem(g)?.into_pyobject(py)?.into_any().unbind());
+        return Ok(a.get().rem(g, true)?.into_pyobject(py)?.into_any().unbind());
     }
     let (_, r, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
     poly_result(py, r, as_poly, &gv)
@@ -1926,7 +1927,7 @@ fn rem(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn quo(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     if let (Ok(a), Ok(_)) = (f.downcast::<PyPoly>(), g.downcast::<PyPoly>()) {
-        return Ok(a.get().quo(g)?.into_pyobject(py)?.into_any().unbind());
+        return Ok(a.get().quo(g, true)?.into_pyobject(py)?.into_any().unbind());
     }
     let (q, _, gv, as_poly) = div_like(f, g, gens, _kwargs)?;
     poly_result(py, q, as_poly, &gv)

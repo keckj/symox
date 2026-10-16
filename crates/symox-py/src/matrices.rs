@@ -813,10 +813,9 @@ impl PyMatrix {
 
     #[pyo3(signature = (deep=true, **hints))]
     fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-        if !deep {
-            return Err(PyNotImplementedError::new_err("matrix expand(deep=False) is not implemented"));
-        }
-        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::expand_hints(e, hints))?))
+        let (options,mut budget)=crate::parse_expand_options(deep,hints)?;
+        budget.claim_terms(self.m.data().len()).map_err(|e|PyValueError::new_err(e.to_string()))?;
+        Ok(self.wrapped(self.m.try_applyfunc(|e| symox::expand::expand_with_options(e,&options,&mut budget).map_err(|e|PyValueError::new_err(e.to_string())))?))
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]

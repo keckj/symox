@@ -173,6 +173,9 @@ pub enum Func {
     Subs,
     /// Held limit: [expression, variable, point, Symbol(direction)].
     Limit,
+    /// Held calculus binders: [body, Tuple(variable, bounds...), ...].
+    Integral,
+    Sum,
     /// Boolean connectives (`And`, `Or`, `Not`, ...), see [`crate::logic`].
     Logic(crate::logic::LogicOp),
     /// Sets (`Interval`, `FiniteSet`, `Union`, ...), see [`crate::sets`].
@@ -229,6 +232,8 @@ impl Func {
             Func::Undefined(n) => n,
             Func::Subs=>"Subs",
             Func::Limit=>"Limit",
+            Func::Integral=>"Integral",
+            Func::Sum=>"Sum",
             Func::Logic(op) => op.name(),
             Func::Set(op) => op.name(),
             Func::MatrixElement(_) => "MatrixElement",
@@ -280,6 +285,8 @@ impl Func {
             "Order" => Func::Order,
             "Subs"=>Func::Subs,
             "Limit"=>Func::Limit,
+            "Integral"=>Func::Integral,
+            "Sum"=>Func::Sum,
             _ => {
                 return crate::logic::LogicOp::from_name(name)
                     .map(Func::Logic)
@@ -296,7 +303,7 @@ impl Func {
             Func::Limit => Some(4),
             Func::MatrixElement(_) => Some(2),
             Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => Some(0),
-            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Logic(_) | Func::Set(_) => None,
+            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
         }
@@ -484,6 +491,7 @@ impl Expr {
                     mask |= a.mask();
                     has_matrix |= a.has_matrix();
                 }
+                if matches!(f,Func::Integral|Func::Sum) {features|=4;}
                 if *f == Func::Order {
                     mask |= ORDER_MASK;
                 }
@@ -592,6 +600,7 @@ impl Expr {
 
     /// A semantic pattern with alpha-bound names cannot use a structural mask.
     pub fn has_binding_identity(&self)->bool {self.0.features & 1 != 0}
+    pub fn has_calculus_binding(&self)->bool {self.0.features & 4 != 0}
     pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
 
     /// Conservative unchanged-child check for transforms preserving public args.

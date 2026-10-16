@@ -12,6 +12,10 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
         Func::Order => return crate::series::order::order_from_args(&args),
+        Func::Integral | Func::Sum=>{
+            if crate::binders::validate(&f,&args).is_ok(){return crate::binders::held(f,&args[0],crate::binders::limits(&args)).unwrap();}
+            return Expr::from_kind(Kind::Func(f,args));
+        },
         Func::Subs | Func::Limit=>return Expr::from_kind(Kind::Func(f,args)),
         Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
@@ -108,7 +112,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Logic(_) | Func::Set(_)
+        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => None,
     };
     match r {
@@ -130,6 +134,7 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
             parent.and_then(|p| p.determinant().ok()).unwrap_or_else(|| e.clone())
         }
+        Kind::Func(f @ (Func::Integral|Func::Sum),args)=>crate::binders::doit(f,args,deep),
         Kind::Derivative(inner, variables) => crate::diff::diff_many(&child(inner), variables),
         Kind::Func(Func::Subs,args)=>crate::subs::subs_doit(&doit(&args[0],deep),&args[1].args(),&args[2].args()),
         Kind::Func(Func::Limit,args)=>{

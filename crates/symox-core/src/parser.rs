@@ -659,6 +659,21 @@ impl Parser {
             "UnevaluatedExpr" => Expr::from_kind(Kind::Func(
                 Func::Undefined("UnevaluatedExpr".into()), vec![one(self, args)?],
             )),
+            "Integral" | "Sum" => {
+                let mut values=args.into_iter();
+                let body=self.as_expr(values.next().ok_or_else(||ParseError{msg:"calculus constructor requires an integrand".into(),pos:self.at()})?)?;
+                let mut limits=Vec::new();
+                for value in values {limits.push(match value {Val::Tuple(values)=>values.into_iter().map(|value|self.as_expr(value)).collect::<R<Vec<_>>>()?,value=>{
+                    let value=self.as_expr(value)?;
+                    match value.kind(){Kind::Func(Func::Undefined(head),args) if head.is_internal("Tuple")=>args.clone(),_=>vec![value]}
+                }});}
+                if limits.is_empty() && name=="Integral" {
+                    let symbols=crate::traverse::free_symbols(&body);
+                    if symbols.len()==1 {limits.push(symbols);} else {return self.err("specify integration variables explicitly");}
+                }
+                crate::binders::held(if name=="Integral" {Func::Integral} else {Func::Sum},&body,limits)
+                    .map_err(|msg|ParseError{msg,pos:self.at()})?
+            },
             "Subs"=>{
                 let values=args.into_iter().map(|a|self.tuple_expr(a)).collect::<R<Vec<_>>>()?;
                 if values.len()!=3{return self.err("Subs expects expression, variables, points");}

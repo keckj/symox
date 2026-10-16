@@ -17,7 +17,7 @@ use crate::number::Number;
 use crate::ops::{add, add2, div, mul, mul2, neg, pow, sub};
 use crate::relational::{eq, lt, piecewise};
 use crate::subs::subs1;
-use crate::traverse::has;
+use crate::binders::depends_on as has;
 
 /// Bernoulli numbers `B_0 .. B_n` (with `B_1 = -1/2`).
 pub fn bernoulli_numbers(n: usize) -> Vec<BigRational> {
@@ -73,7 +73,7 @@ fn faulhaber(p: usize, n: &Expr) -> Expr {
 
 /// `Sum(f, (k, a, b))` placeholder.
 pub fn sum_unevaluated(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Expr {
-    undefined("Sum", vec![f.clone(), undefined("Tuple", vec![k.clone(), a.clone(), b.clone()])])
+    crate::binders::held(Func::Sum,f,vec![vec![k.clone(),a.clone(),b.clone()]]).expect("valid summation limits")
 }
 
 /// `sum_{k=a}^{b} f`.
@@ -81,24 +81,23 @@ pub fn summation(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Expr {
     try_summation(f, k, a, b).unwrap_or_else(|| sum_unevaluated(f, k, a, b))
 }
 
-fn finite_range(a: &Expr, b: &Expr) -> Option<(i64, i64)> {
-    Some((a.as_i64()?, b.as_i64()?))
-}
-
 pub fn try_summation(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    if matches!(a.kind(),Kind::Const(c) if c.is_infinite()) || b.is_constant(Constant::NegInfinity) {return None;}
     if b.is_constant(Constant::Infinity) {
         return infinite_sum(f, k, a);
     }
     if !has(f, k) {
         return Some(mul2(f, &add(&[b.clone(), neg(a), Expr::one()])));
     }
-    if let Some((lo, hi)) = finite_range(a, b) {
-        if hi < lo {
-            return Some(Expr::zero());
+    // Karr convention: a backwards sum is the negative sum over its interior.
+    // Decide only an exact integer difference, never approximate endpoint order.
+    if let Some(distance)=sub(b,a).as_i64() {
+        if distance == -1 {return Some(Expr::zero());}
+        if distance < -1 {
+            return try_summation(f,k,&add2(b,&Expr::one()),&sub(a,&Expr::one())).map(|value|neg(&value));
         }
-        if hi - lo <= 2000 && poly_coeffs(f, k).is_none() {
-            let terms: Vec<Expr> = (lo..=hi).map(|i| subs1(f, k, &Expr::int(i))).collect();
-            return Some(add(&terms));
+        if distance <= 1999 && poly_coeffs(f,k).is_none() {
+            return Some(add(&(0..=distance).map(|offset|subs1(f,k,&add2(a,&Expr::int(offset)))).collect::<Vec<_>>()));
         }
     }
     // constant factors (kept outside like SymPy)

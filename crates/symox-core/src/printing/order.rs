@@ -137,7 +137,7 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Pow(..) => (3, 2, Cow::Borrowed("Pow")),
         Kind::Func(Func::Max, _) => (5, 0, Cow::Borrowed("Max")),
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit), _) => (5, 0, Cow::Owned(f.name().into())),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum), _) => (5, 0, Cow::Owned(f.name().into())),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
         Kind::Func(f, _) => (4, func_ordinal(f), Cow::Owned(f.name().to_string())),
         Kind::Piecewise(_) => (4, 0, Cow::Borrowed("Piecewise")),

@@ -37,7 +37,7 @@ pub fn eval_c64(e: &Expr) -> Option<C64> {
             p
         }
         Kind::Pow(b, x) => cpow(eval_c64(b)?, x)?,
-        Kind::Func(Func::Subs | Func::Limit,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}eval_c64(&evaluated)?},
+        Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}eval_c64(&evaluated)?},
         Kind::Func(Func::Special(s), args) => crate::special::numeric::eval_c64(*s, args)?,
         Kind::Func(f, args) => {
             let a: Option<Vec<C64>> = args.iter().map(eval_c64).collect();
@@ -177,7 +177,7 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
             }
             realonly(best)
         }
-        Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Logic(_) | Func::Set(_)
+        Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => return None,
         Func::Special(s) => return crate::special::numeric::apply(*s, a),
     })

@@ -697,6 +697,20 @@ impl<'a> LatexPrinter<'a> {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        if matches!(f,Func::Integral|Func::Sum) {
+            let limits=crate::binders::limits(args);
+            let mut value=String::new();
+            for limit in limits.iter().rev() {
+                if *f==Func::Sum {value.push_str(&format!("\\sum_{{{}={}}}^{{{}}} ",self.print(&limit[0]),self.print(&limit[1]),self.print(&limit[2])));}
+                else {value.push_str("\\int");match limit.len(){
+                    2=>value.push_str(&format!("^{{{}}}",self.print(&limit[1]))),
+                    3=>value.push_str(&format!("_{{{}}}^{{{}}}",self.print(&limit[1]),self.print(&limit[2]))),_=>{},
+                }value.push(' ');}
+            }
+            value.push_str(&self.parenthesize(&args[0],PREC_MUL,false));
+            if *f==Func::Integral {for limit in limits {value.push_str(&format!("\\, d{}",self.print(&limit[0])));}}
+            return Self::do_exponent(value,exp);
+        }
         if matches!(f,Func::Limit){
             let direction=args[3].as_sym().map(|s|s.name()).unwrap_or("+");
             let suffix=if !matches!(args[2].kind(),Kind::Const(crate::expr::Constant::Infinity|crate::expr::Constant::NegInfinity)) && direction!="+-" {format!("^{{{direction}}}")}else{String::new()};

@@ -152,6 +152,27 @@ def _restore_function(name, assumptions, nargs):
     return Function(name, nargs=nargs, **assumptions)
 
 
+class _CalculusMeta(type):
+    def __instancecheck__(cls, value):
+        return isinstance(value, Expr) and getattr(value, 'is_'+cls.__name__, False)
+
+
+class Integral(metaclass=_CalculusMeta):
+    """Held integral with ordered symbolic integration limits."""
+    def __new__(cls, function, *limits, **kwargs):
+        if kwargs:
+            raise NotImplementedError("Integral constructor options are not implemented")
+        return _core._calculus("Integral", function, limits)
+
+
+class Sum(metaclass=_CalculusMeta):
+    """Held sum with ordered integer limits."""
+    def __new__(cls, function, *limits, **kwargs):
+        if kwargs:
+            raise NotImplementedError("Sum constructor options are not implemented")
+        return _core._calculus("Sum", function, limits)
+
+
 class _SubsMeta(type):
     def __instancecheck__(cls, value):
         return isinstance(value, Expr) and value.is_Subs
@@ -1326,6 +1347,8 @@ Expr.contains = lambda self, t: _core._order_contains(self, t)
 
 def _order_part(i):
     def get(self):
+        if (self.is_Integral or self.is_Sum) and i == 1:
+            return [limit[0] for limit in self.limits]
         if self.is_Derivative:
             if i == 0:
                 return self.args[0]

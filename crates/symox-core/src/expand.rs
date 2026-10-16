@@ -13,28 +13,66 @@ use crate::functions::exp;
 use crate::number::Number;
 use crate::ops::{add, add_from_terms, mul, mul_factor, pow};
 
-type Mono = SmallVec<[i32; 8]>;
+mod options;
+pub use options::{expand_with_options, ExpandBudget, ExpandError, ExpandOptions};
+
+type Mono = SmallVec<[i64; 8]>;
 
 /// Default `expand()` (hints `mul`, `multinomial`, `power_exp`).
 pub fn expand(e: &Expr) -> Expr {
-    let mut cache = FxHashMap::default();
-    ex(e, &mut cache)
+    arithmetic_expand(e, &ExpandOptions::default())
 }
 
-fn ex(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
+fn arithmetic_expand(e: &Expr, options: &ExpandOptions) -> Expr {
+    arithmetic_expand_with(e, options, &mut |_| None)
+}
+fn arithmetic_expand_with(
+    e: &Expr,
+    options: &ExpandOptions,
+    opaque: &mut dyn FnMut(&Expr) -> Option<Expr>,
+) -> Expr {
+    let mut cache = FxHashMap::default();
+    ex(e, &mut cache, options, opaque)
+}
+
+fn ex(
+    e: &Expr,
+    cache: &mut FxHashMap<usize, (Expr, Expr)>,
+    options: &ExpandOptions,
+    opaque: &mut dyn FnMut(&Expr) -> Option<Expr>,
+) -> Expr {
     if e.is_atom() {
         return e.clone();
     }
-    if let Some(v) = cache.get(e) {
+    if let Some((_, v)) = cache.get(&e.dag_id()) {
         return v.clone();
+    }
+    if matches!(
+        e.kind(),
+        Kind::Func(
+            Func::MatrixProxy(_)
+                | Func::MatrixElement(_)
+                | Func::MatrixTrace(_)
+                | Func::MatrixDeterminant(_),
+            _
+        )
+    ) {
+        if let Some(value) = opaque(e) {
+            cache.insert(e.dag_id(), (e.clone(), value.clone()));
+            return value;
+        }
     }
     let r = match e.kind() {
         Kind::Add(c, terms) => {
             let mut v: Vec<Expr> = Vec::with_capacity(terms.len() + 1);
             let mut unchanged: Vec<(Expr, Number)> = Vec::new();
             for (t, k) in terms {
-                let nt = ex(t, cache);
-                if nt == *t {
+                let nt = if options.deep {
+                    ex(t, cache, options, opaque)
+                } else {
+                    t.clone()
+                };
+                if nt.same_presentation(t) {
                     unchanged.push((t.clone(), k.clone()));
                 } else {
                     v.push(mul(&[Expr::num(k.clone()), nt]));
@@ -48,13 +86,25 @@ fn ex(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
             }
         }
         Kind::Mul(..) => {
-            let factors: Vec<Expr> = e.args().iter().map(|f| ex(f, cache)).collect();
+            let factors: Vec<Expr> = e
+                .args()
+                .iter()
+                .map(|f| {
+                    if options.deep {
+                        ex(f, cache, options, opaque)
+                    } else {
+                        f.clone()
+                    }
+                })
+                .collect();
             let m = mul(&factors);
-            let mut r = if m.is_mul() {
+            let mut r = if !options.mul {
+                m
+            } else if m.is_mul() {
                 expand_mul_node(&m)
             } else if m.is_add() && !factors.iter().any(|f| f.is_add()) {
                 m
-            } else if factors.iter().any(|f| f.is_add()) {
+            } else if options.mul && factors.iter().any(|f| f.is_add()) {
                 expand_product(&factors)
             } else {
                 m
@@ -63,35 +113,61 @@ fn ex(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
             // powers ((x**2 + 2*x + 1)*(x + 1)**2): SymPy's fixed point loop
             // expands them again
             for _ in 0..3 {
-                if !has_unexpanded_power(&r) {
+                if !options.deep
+                    || !options.mul
+                    || !options.multinomial
+                    || r.same_presentation(e)
+                    || !has_unexpanded_power(&r)
+                {
                     break;
                 }
-                r = ex(&r, cache);
+                r = ex(&r, cache, options, opaque);
             }
             r
         }
         Kind::Pow(b, x) => {
-            let b2 = ex(b, cache);
-            let x2 = ex(x, cache);
-            expand_pow(&b2, &x2, cache)
+            let b2 = if options.deep {
+                ex(b, cache, options, opaque)
+            } else {
+                b.clone()
+            };
+            let x2 = if options.deep {
+                ex(x, cache, options, opaque)
+            } else {
+                x.clone()
+            };
+            expand_pow(&b2, &x2, cache, options, opaque)
         }
         Kind::Func(Func::Exp, args) => {
-            let a = ex(&args[0], cache);
+            let a = if options.deep {
+                ex(&args[0], cache, options, opaque)
+            } else {
+                args[0].clone()
+            };
             match a.kind() {
-                Kind::Add(..) => {
+                Kind::Add(..) if options.power_exp => {
                     let parts: Vec<Expr> = a.args().iter().map(exp).collect();
                     mul(&parts)
                 }
                 _ => exp(&a),
             }
         }
-        _ => crate::traverse::map_children(e, &mut |c| ex(c, cache)),
+        _ if options.deep => {
+            crate::traverse::map_children(e, &mut |c| ex(c, cache, options, opaque))
+        }
+        _ => e.clone(),
     };
-    cache.insert(e.clone(), r.clone());
+    cache.insert(e.dag_id(), (e.clone(), r.clone()));
     r
 }
 
-fn expand_pow(b: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
+fn expand_pow(
+    b: &Expr,
+    x: &Expr,
+    cache: &mut FxHashMap<usize, (Expr, Expr)>,
+    options: &ExpandOptions,
+    opaque: &mut dyn FnMut(&Expr) -> Option<Expr>,
+) -> Expr {
     // x**(a+b) -> x**a * x**b, only when the base is known to be non-zero
     // (SymPy's power_exp hint without assumptions)
     let nonzero_base = match b.kind() {
@@ -99,19 +175,23 @@ fn expand_pow(b: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
         Kind::Const(c) => !c.is_infinite() && *c != crate::expr::Constant::NaN,
         _ => false,
     };
-    if let (Kind::Add(..), true) = (x.kind(), nonzero_base) {
+    if let (Kind::Add(..), true) = (x.kind(), nonzero_base && options.power_exp) {
         let parts: Vec<Expr> = x.args().iter().map(|t| pow(b, t)).collect();
         let m = mul(&parts);
         return if m.is_mul() {
-            let factors: Vec<Expr> = m.args().iter().map(|f| ex(f, cache)).collect();
-            if factors.iter().any(|f| f.is_add()) {
+            let factors: Vec<Expr> = m
+                .args()
+                .iter()
+                .map(|f| ex(f, cache, options, opaque))
+                .collect();
+            if options.mul && factors.iter().any(|f| f.is_add()) {
                 expand_product(&factors)
             } else {
                 mul(&factors)
             }
         } else if let Kind::Pow(b3, x3) = m.kind() {
             if b3.is_add() && x3.is_integer_number() {
-                expand_pow(b3, x3, cache)
+                expand_pow(b3, x3, cache, options, opaque)
             } else {
                 m
             }
@@ -119,12 +199,16 @@ fn expand_pow(b: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
             m
         };
     }
-    if let (Kind::Add(..), Some(n)) = (b.kind(), x.as_number()) {
+    if let (Kind::Add(..), Some(n), true) = (b.kind(), x.as_number(), options.multinomial) {
         if let Some(k) = n.to_i64() {
             if k > 0 {
-                return power_poly(b, k as u32);
+                return u32::try_from(k)
+                    .map(|k| power_poly(b, k))
+                    .unwrap_or_else(|_| pow(b, x));
             } else if k < 0 {
-                return pow(&power_poly(b, (-k) as u32), &Expr::minus_one());
+                return u32::try_from(k.unsigned_abs())
+                    .map(|k| pow(&power_poly(b, k), &Expr::minus_one()))
+                    .unwrap_or_else(|_| pow(b, x));
             }
         } else if n.is_rational() && !n.is_integer() {
             // (x+1)**(5/2) -> (x+1)**2 * sqrt(x+1), expanded
@@ -133,7 +217,13 @@ fn expand_pow(b: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
                 if k >= 1 {
                     let frac = Expr::num(n.sub(&Number::int(k)));
                     let radical = pow(b, &frac);
-                    return expand_product(&[power_poly(b, k as u32), radical]);
+                    let Ok(k) = u32::try_from(k) else {
+                        return pow(b, x);
+                    };
+                    let factors = [power_poly(b, k), radical];
+                    // Multinomial expansion includes this distribution even
+                    // when the independent multiplication hint is disabled.
+                    return expand_product(&factors);
                 }
             }
         }
@@ -141,11 +231,19 @@ fn expand_pow(b: &Expr, x: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
     let p = pow(b, x);
     // (a*b)**2 may become a product of expandable powers
     if let Kind::Mul(..) = p.kind() {
-        if !matches!(b.kind(), Kind::Mul(..)) || !x.is_integer_number() {
+        if !options.deep
+            || !options.multinomial
+            || !matches!(b.kind(), Kind::Mul(..))
+            || !x.is_integer_number()
+        {
             return p;
         }
-        let factors: Vec<Expr> = p.args().iter().map(|f| ex(f, cache)).collect();
-        if factors.iter().any(|f| f.is_add()) {
+        let factors: Vec<Expr> = p
+            .args()
+            .iter()
+            .map(|f| ex(f, cache, options, opaque))
+            .collect();
+        if options.mul && factors.iter().any(|f| f.is_add()) {
             return expand_product(&factors);
         }
         return mul(&factors);
@@ -240,7 +338,7 @@ fn to_poly(raw: Vec<RawTerm>, n: usize) -> Poly {
     for (c, m) in raw {
         let mut mono: Mono = SmallVec::from_elem(0, n);
         for (g, k) in m {
-            mono[g] += k;
+            mono[g] += i64::from(k);
         }
         match p.get_mut(&mono) {
             Some(v) => *v = v.add(&c),
@@ -255,8 +353,10 @@ fn to_poly(raw: Vec<RawTerm>, n: usize) -> Poly {
 
 fn poly_mul(a: &Poly, b: &Poly) -> Poly {
     let (a, b) = if a.len() < b.len() { (b, a) } else { (a, b) };
-    let mut out: Poly =
-        FxHashMap::with_capacity_and_hasher(a.len().saturating_mul(b.len()).min(1 << 22), Default::default());
+    let mut out: Poly = FxHashMap::with_capacity_and_hasher(
+        a.len().saturating_mul(b.len()).min(1 << 22),
+        Default::default(),
+    );
     let mut mono: Mono = SmallVec::new();
     for (mb, cb) in b {
         for (ma, ca) in a {
@@ -381,7 +481,11 @@ fn fraction_parts(m: &Expr) -> (Vec<Expr>, Vec<Expr>) {
         };
         match x.as_number() {
             Some(n) if n.is_negative() => {
-                den.push(if n.is_minus_one() { b } else { rebuild(&b, &Expr::num(n.neg())) });
+                den.push(if n.is_minus_one() {
+                    b
+                } else {
+                    rebuild(&b, &Expr::num(n.neg()))
+                });
             }
             Some(_) => num.push(t),
             None => match x.kind() {
@@ -421,7 +525,13 @@ fn expand_mul_node(m: &Expr) -> Expr {
                 let parts: Vec<Expr> = r
                     .args()
                     .iter()
-                    .map(|t| if has_multi_denominator(t) { expand_mul_node(t) } else { t.clone() })
+                    .map(|t| {
+                        if has_multi_denominator(t) {
+                            expand_mul_node(t)
+                        } else {
+                            t.clone()
+                        }
+                    })
                     .collect();
                 return add(&parts);
             }
@@ -434,7 +544,7 @@ fn expand_mul_node(m: &Expr) -> Expr {
 
 /// Integer powers of sums left in a product or a sum of products.
 fn has_unexpanded_power(e: &Expr) -> bool {
-    let bad = |b: &Expr, x: &Expr| b.is_add() && x.as_i64().is_some_and(|k| k.abs() >= 2);
+    let bad = |b: &Expr, x: &Expr| b.is_add() && x.as_i64().is_some_and(|k| k.unsigned_abs() >= 2);
     match e.kind() {
         Kind::Pow(b, x) => bad(b, x),
         Kind::Mul(_, facs) => facs.iter().any(|(b, x)| bad(b, x)),

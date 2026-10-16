@@ -11,6 +11,31 @@ use crate::expr::{Expr, Kind};
 use crate::ops::{add, div, mul, pow};
 use std::collections::BTreeMap;
 
+// Dense polynomial division recursively in the declared main generators.
+// A coefficient-ring obstruction stops division at that leading coefficient;
+// it must not be confused with sparse multivariate ring-element reduction.
+fn recursive_division<C: Field>(f: &MPoly<C>, g: &MPoly<C>, v: usize, allow: &impl Fn(&C)->bool) -> (MPoly<C>, MPoly<C>) {
+    let n=f.nvars;
+    if v>=n || (f.is_constant() && g.is_constant()) {
+        if let (Some(a),Some(b))=(f.constant_value(),g.constant_value()) {
+            if !b.is_zero() { let c=a.div(&b); if allow(&c) {return (MPoly::constant(c,n),MPoly::zero(n));} }
+        }
+        return (MPoly::zero(n),f.clone());
+    }
+    let dg=g.degree(v); let mut q=MPoly::zero(n); let mut r=f.clone();
+    if r.is_zero() || r.degree(v)<dg {return (q,r);}
+    let lcg=g.lc_in(v);
+    loop {
+        let dr=r.degree(v);
+        let (c,rr)=recursive_division(&r.lc_in(v),&lcg,v+1,allow);
+        if !rr.is_zero() || c.is_zero(){break;}
+        let mut e=vec![0;n];e[v]=(dr-dg) as u32;
+        let t=c.mul_term(&e,&C::one()); q=q.add(&t);r=r.sub(&t.mul(g));
+        if r.is_zero()||r.degree(v)<dg||r.degree(v)>=dr{break;}
+    }
+    (q,r)
+}
+
 #[derive(Clone, Debug)]
 pub struct FractionPoly {
     pub rep: MPoly<RF>,
@@ -240,17 +265,14 @@ impl FractionPoly {
         }
         p
     }
-    pub fn div(&self, other: &Self) -> PResult<(Self, Self)> {
+    pub fn div(&self,other:&Self)->PResult<(Self,Self)>{self.div_with_options(other,true)}
+    pub fn div_with_options(&self, other: &Self, auto:bool) -> PResult<(Self, Self)> {
         if other.rep.is_zero() {
             return Err(PolyError::Unsupported("polynomial division by zero".into()));
         }
         let _s = Scope::new(self.parameters.len());
-        let (q, r) = fieldalg::reduce(
-            &self.rep,
-            std::slice::from_ref(&other.rep),
-            MonomialOrder::Lex,
-        );
-        let mut q = self.with_rep(q.into_iter().next().unwrap());
+        let (q,r)=recursive_division(&self.rep,&other.rep,0,&|c|auto||!self.display.ends_with(']')||coefficient_in_ring(c,self.display.starts_with("ZZ")));
+        let mut q=self.with_rep(q);
         let mut r = self.with_rep(r);
         if self.display.ends_with(']') && (!q.belongs_to_ring() || !r.belongs_to_ring()) {
             q.promote_field();
@@ -302,6 +324,22 @@ impl FractionPoly {
         } else {
             p
         }
+    }
+    pub fn lcm(&self,other:&Self)->Self {
+        let _scope=Scope::new(self.parameters.len());
+        if self.rep.is_zero()||other.rep.is_zero(){return self.with_rep(MPoly::zero(self.gens.len()));}
+        if !self.display.ends_with(']') {return self.mul(other).div(&self.gcd(other)).expect("polynomial gcd divides the product").0.monic();}
+        // Gauss' lemma over the coefficient ring: remove each input's
+        // content first, form the primitive lcm, then restore lcm(contents).
+        // Normalizing the product/gcd afterwards loses unit factors when
+        // the coefficient domain itself has noncanonical gcd associates.
+        let a=self.coefficient_content();let b=other.coefficient_content();
+        let target=a.lcm(&b).expect("valid coefficient-ring lcm");
+        let(super::domains::ElementValue::Function(a),super::domains::ElementValue::Function(b),super::domains::ElementValue::Function(target))=(a.value,b.value,target.value)else{unreachable!()};
+        let a=self.with_rep(self.rep.scale(&a.inv()));let b=other.with_rep(other.rep.scale(&b.inv()));
+        let product=a.mul(&b);let gcd=a.gcd(&b);
+        let q=product.div_with_options(&gcd,false).expect("primitive gcd divides the product in its ring").0;
+        self.with_rep(q.rep.scale(&target))
     }
     fn coefficient_content(&self)->super::domains::DomainElement {
         use super::domains::{DomainElement,ElementValue};
@@ -569,31 +607,16 @@ impl Polynomial {
         if parameters != prototype.parameters {
             sort_gens(&mut parameters);
         }
-        let mut display = domain_name(&parameters);
-        if prototype.display.starts_with("ZZ(")
-            && self.field.as_ref().is_none_or(|f|!f.display.starts_with("QQ"))
-            && o.field.as_ref().is_none_or(|f|!f.display.starts_with("QQ")) {
-            display=display.replacen("QQ","ZZ",1);
-        }
-        if prototype.display.ends_with(']')
-            && self.field.as_ref().is_none_or(|f| f.display.ends_with(']'))
-            && o.field.as_ref().is_none_or(|f| f.display.ends_with(']'))
-        {
-            display = display.replace('(', "[").replace(')', "]");
-            if prototype.display.starts_with("ZZ")
-                && self.domain == super::polyobj::Domain::ZZ
-                && o.domain == super::polyobj::Domain::ZZ
-            {
-                display = display.replacen("QQ", "ZZ", 1);
-            }
-        }
+        let integral=[self,o].iter().all(|p|if let Some(f)=&p.field {matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{integral:true,..})}else{p.domain==super::polyobj::Domain::ZZ});
+        let ring=[self,o].iter().all(|p|p.field.as_ref().is_none_or(|f|matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{ring:true,..})));
+        let order=if let super::domains::ExactDomain::Functions{order,..}=&prototype.coefficient_domain{order.as_str()}else{"lex"};
+        let descriptor=super::domains::ExactDomain::functions(integral,ring,parameters.clone(),order).expect("valid unified coefficient parameters");
+        let display=descriptor.to_string();
         let mut a = FractionPoly::from_expr(&self.as_expr(), &gens, &parameters, &display)
             .expect("compatible fraction fields");
         let mut b = FractionPoly::from_expr(&o.as_expr(), &gens, &parameters, &display)
             .expect("compatible fraction fields");
-        let order=if let super::domains::ExactDomain::Functions{order,..}=&prototype.coefficient_domain {order.as_str()}else{"lex"};
-        a.coefficient_domain=super::domains::ExactDomain::functions(display.starts_with("ZZ"),display.ends_with(']'),parameters,order).expect("valid coefficient domain");
-        b.coefficient_domain=a.coefficient_domain.clone();
+        a.coefficient_domain=descriptor.clone();b.coefficient_domain=descriptor;
         Some((a, b))
     }
     pub fn add(&self, o: &Self) -> Self {
@@ -644,35 +667,31 @@ impl Polynomial {
             .as_ref()
             .map_or_else(|| self.base.integrate(i).into(), |p| p.integrate(i).into())
     }
-    pub fn div(&self, o: &Self) -> PResult<(Self, Self)> {
+    pub fn div(&self,o:&Self)->PResult<(Self,Self)>{self.div_with_options(o,true)}
+    pub fn div_with_options(&self,o:&Self,auto:bool)->PResult<(Self,Self)>{
         if let Some((a,b))=self.checked_algebraic_pair(o)?{let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
-        if let Some((a, b)) = self.pair(o) {
-            let (q, r) = a.div(&b)?;
-            Ok((q.into(), r.into()))
-        } else {
-            let (q, r) = self.base.div(&o.base)?;
-            Ok((q.into(), r.into()))
+        if let Some((a,b))=self.pair(o){let(q,r)=a.div_with_options(&b,auto)?;return Ok((q.into(),r.into()));}
+        if !auto&&self.modulus.is_none()&&o.modulus.is_none()&&self.domain.max(o.domain)==super::polyobj::Domain::ZZ {
+            let(a,b)=self.base.unify(&o.base);if b.rep.is_zero(){return Err(PolyError::Unsupported("polynomial division by zero".into()));}
+            let(q,r)=recursive_division(&a.rep,&b.rep,0,&|c|c.is_integer());
+            return Ok((a.with_rep(q).into(),a.with_rep(r).into()));
         }
+        let(q,r)=self.base.div(&o.base)?;Ok((q.into(),r.into()))
     }
-    pub fn rem(&self, o: &Self) -> PResult<Self> {
-        if self.field.is_none() && o.field.is_none() && self.algebraic.is_none() && o.algebraic.is_none() {
-            return Ok(self.base.rem(&o.base)?.into());
-        }
-        Ok(self.div(o)?.1)
+    pub fn rem(&self,o:&Self)->PResult<Self>{self.rem_with_options(o,true)}
+    pub fn quo(&self,o:&Self)->PResult<Self>{self.quo_with_options(o,true)}
+    fn retract_division_component(&self,o:&Self,mut result:Self)->Self{
+        if let Some((a,_))=self.pair(o){
+            if a.display.ends_with(']') {if let Some(p)=result.field.as_mut(){if p.rep.coeffs().iter().all(|c|coefficient_in_ring(c,a.display.starts_with("ZZ"))){p.display=a.display;p.coefficient_domain=a.coefficient_domain;}}}
+        }else if self.algebraic.is_none()&&o.algebraic.is_none()&&self.modulus.is_none()&&o.modulus.is_none()&&self.domain.max(o.domain)==super::polyobj::Domain::ZZ&&result.base.rep.is_integral(){result.base.domain=super::polyobj::Domain::ZZ;}
+        result
     }
-    pub fn quo(&self, o: &Self) -> PResult<Self> {
-        if self.field.is_none() && o.field.is_none() && self.algebraic.is_none() && o.algebraic.is_none() {
-            return Ok(self.base.quo(&o.base)?.into());
-        }
-        Ok(self.div(o)?.0)
-    }
-    pub fn exquo(&self, o: &Self) -> PResult<Self> {
-        let (q, r) = self.div(o)?;
-        if r.is_zero() {
-            Ok(q)
-        } else {
-            Err(PolyError::Failed("polynomial division is not exact".into()))
-        }
+    pub fn rem_with_options(&self,o:&Self,auto:bool)->PResult<Self>{let r=self.div_with_options(o,auto)?.1;Ok(self.retract_division_component(o,r))}
+    pub fn quo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{let q=self.div_with_options(o,auto)?.0;Ok(self.retract_division_component(o,q))}
+    pub fn exquo(&self,o:&Self)->PResult<Self>{self.exquo_with_options(o,true)}
+    pub fn exquo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{
+        let(q,r)=self.div_with_options(o,auto)?;
+        if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("polynomial division is not exact in the selected coefficient domain".into()));}Ok(q)
     }
     pub fn gcd(&self, o: &Self) -> Self {
         if let Some((a,b))=self.algebraic_pair(o){return a.gcd(&b).into();}
@@ -684,17 +703,8 @@ impl Polynomial {
     }
     pub fn lcm(&self, o: &Self) -> Self {
         if self.algebraic.is_some()||o.algebraic.is_some(){if self.is_zero()||o.is_zero(){return self.mul(o);}return self.mul(o).exquo(&self.gcd(o)).unwrap().algebraic.unwrap().monic().into();}
-        if self.field.is_some() || o.field.is_some() {
-            if self.is_zero() || o.is_zero() {
-                return self.mul(o);
-            }
-            self.mul(o)
-                .exquo(&self.gcd(o))
-                .unwrap()
-                .field
-                .unwrap()
-                .monic()
-                .into()
+        if let Some((a,b))=self.pair(o){
+            a.lcm(&b).into()
         } else {
             self.base.lcm(&o.base).into()
         }
@@ -704,8 +714,8 @@ impl Polynomial {
         if g.is_zero() {
             return (g, self.clone(), o.clone());
         }
-        let a = self.exquo(&g).unwrap();
-        let b = o.exquo(&g).unwrap();
+        let a = self.exquo_with_options(&g,false).expect("gcd divides first input in its ring");
+        let b = o.exquo_with_options(&g,false).expect("gcd divides second input in its ring");
         (g, a, b)
     }
     pub fn to_sympy_string(&self) -> String {
@@ -815,5 +825,43 @@ mod implicit_ring_gcd_certificates {
             assert!(left.div(&result).unwrap().1.rep.is_zero());assert!(right.div(&result).unwrap().1.rep.is_zero());
             assert!(result.belongs_to_ring());assert_eq!(result.coefficient_domain,left.coefficient_domain);
         }
+    }
+}
+
+#[cfg(test)]
+mod ring_division_certificates {
+    use super::*;
+    use crate::parser::parse_str;
+    fn p(source:&str,domain:&str)->Polynomial{FractionPoly::from_expr(&parse_str(source).unwrap(),&[Expr::symbol("x")],&[Expr::symbol("a")],domain).unwrap().into()}
+    #[test]
+    fn ring_lcm_and_cofactors_preserve_content_and_membership(){
+        for(domain,left,right,expected)in [
+            ("ZZ[a]","a*x","a*x^2","a*x^2"),
+            ("ZZ[a]","2*a*x","4*a*x^2","4*a*x^2"),
+            ("ZZ[a]","2*(a+1)*x","4*(a+1)*x^2","4*(a+1)*x^2"),
+            ("QQ[a]","2*a*x","4*a*x^2","a*x^2"),
+            ("QQ[a]","2*(a+1)*x","4*(a+1)*x^2","(a+1)*x^2"),
+            ("QQ[a]","x/2+1","x/3+2/3","x+2"),
+            ("QQ[a]","2*x+1","4*x+2","2*x+1"),
+            ("QQ[a]","2*(a+1)*(x+1)","4*(a+1)*(x+1)^2","4*(a+1)*(x+1)^2"),
+        ]{
+            let a=p(left,domain);let b=p(right,domain);let l=a.lcm(&b);let(g,u,v)=a.cofactors(&b);
+            assert_eq!(l.field.as_ref().unwrap().rep,p(expected,domain).field.unwrap().rep,"{domain} {left} {right}");
+            for c in [&l,&g,&u,&v]{assert_eq!(c.field.as_ref().unwrap().coefficient_domain,a.field.as_ref().unwrap().coefficient_domain);assert!(c.field.as_ref().unwrap().belongs_to_ring());}
+            assert_eq!(g.mul(&u).field.unwrap().rep,a.field.as_ref().unwrap().rep);assert_eq!(g.mul(&v).field.unwrap().rep,b.field.as_ref().unwrap().rep);
+            assert!(l.exquo_with_options(&a,false).is_ok());assert!(l.exquo_with_options(&b,false).is_ok());
+        }
+    }
+    #[test]
+    fn polynomial_division_is_recursive_and_auto_is_exact(){
+        let a=p("x^2+2*x","ZZ[a]");let b=p("2*x","ZZ[a]");
+        let(q,r)=a.div_with_options(&b,false).unwrap();assert!(q.is_zero());assert_eq!(r.as_expr(),a.as_expr());
+        let a=p("x+1","ZZ[a]");let b=p("2*x+2","ZZ[a]");
+        let(q,r)=a.div(&b).unwrap();assert_eq!(q.domain_str(),"ZZ(a)");assert_eq!(r.domain_str(),"ZZ(a)");
+        assert_eq!(a.rem(&b).unwrap().domain_str(),"ZZ[a]");
+        assert!(matches!(a.exquo_with_options(&b,false),Err(PolyError::ExactQuotientFailed(_))));
+        assert_eq!(q.mul(&b).add(&r).as_expr(),a.as_expr());
+        let a=p("a*x","ZZ[a]");let b=p("a*x","QQ[a]");
+        assert_eq!(a.add(&b).domain_str(),"QQ[a]");
     }
 }

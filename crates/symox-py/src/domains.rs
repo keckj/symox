@@ -58,7 +58,6 @@ impl PyDomain {
         }
     }
     pub fn of(p: &PolyValue) -> PyResult<Self> {
-        let p = normalize_poly(p.clone())?;
         if p.field.is_none() && p.algebraic.is_none() && !p.base.domain_gens().is_empty() {
             return Err(PyNotImplementedError::new_err(
                 "this legacy coefficient backend has no implemented typed Domain descriptor",
@@ -502,7 +501,12 @@ impl PyDomain {
         self.__str__().ends_with(suffix)
     }
     fn exquo(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
-        self.element(a, None)?.binary(b, '/', false)
+        let a = self.element(a, None)?;
+        let b = self.element(b, None)?;
+        a.value
+            .exquo(&b.value)
+            .map(|value| PyDomainElement { value })
+            .map_err(err)
     }
     fn quo(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
         Ok(self.div(a, b)?.0)
@@ -517,41 +521,8 @@ impl PyDomain {
     ) -> PyResult<(PyDomainElement, PyDomainElement)> {
         let a = self.element(a, None)?;
         let b = self.element(b, None)?;
-        if b.value.is_zero() {
-            return Err(PyZeroDivisionError::new_err("division by zero"));
-        }
-        if self.is_ZZ() {
-            let (ElementValue::Rational(a), ElementValue::Rational(b)) =
-                (&a.value.value, &b.value.value)
-            else {
-                unreachable!()
-            };
-            let (q, r) = a.n.div_mod_floor(&b.n);
-            return Ok((
-                PyDomainElement {
-                    value: self
-                        .inner
-                        .convert(&Expr::num(q.to_number()))
-                        .map_err(coercion)?,
-                },
-                PyDomainElement {
-                    value: self
-                        .inner
-                        .convert(&Expr::num(r.to_number()))
-                        .map_err(coercion)?,
-                },
-            ));
-        }
-        if self.is_Field() {
-            Ok((
-                PyDomainElement {
-                    value: a.value.binary(&b.value, '/').map_err(err)?,
-                },
-                self.zero()?,
-            ))
-        } else {
-            Err(PyNotImplementedError::new_err("polynomial-ring Euclidean division requires a univariate supported coefficient ring"))
-        }
+        let (q, r) = a.value.div_rem(&b.value).map_err(err)?;
+        Ok((PyDomainElement { value: q }, PyDomainElement { value: r }))
     }
     fn gcd(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
         let a = self.element(a, None)?;
@@ -613,6 +584,7 @@ impl PyDomain {
                 .map(|value| PyDomainElement { value })
                 .map_err(err);
         }
+        if matches!(self.inner,ExactDomain::Functions{integral:true,ring:true,..}) {return Err(DomainError::new_err("inversion over a polynomial ring requires a field as its ground domain"));}
         if let ExactDomain::Functions {
             ring: true,
             parameters,
@@ -636,55 +608,32 @@ impl PyDomain {
     ) -> PyResult<(PyDomainElement, PyDomainElement, PyDomainElement)> {
         let a = self.element(a, None)?;
         let b = self.element(b, None)?;
-        let triple =
-            if let (ExactDomain::ZZ, ElementValue::Rational(a), ElementValue::Rational(b)) =
-                (&self.inner, &a.value.value, &b.value.value)
-            {
-                let (g, s, t) = a.n.gcdex(&b.n);
-                (
-                    Expr::num(s.to_number()),
-                    Expr::num(t.to_number()),
-                    Expr::num(g.to_number()),
-                )
-            } else if let ExactDomain::Functions {
-                ring: true,
-                parameters,
-                ..
-            } = &self.inner
-            {
+        if let ExactDomain::Functions {
+            integral,
+            ring: true,
+            parameters,
+            ..
+        } = &self.inner
+        {
+            if *integral {
+                return Err(domain_error("extended gcd requires a field ground domain"));
+            }
+            let (s, t, g) =
                 symox::poly::api::gcdex(&a.value.as_expr(), &b.value.as_expr(), parameters)
-                    .map_err(err)?
-            } else if self.is_Field() {
-                if !a.value.is_zero() {
-                    (
-                        a.value.pow(-1).map_err(err)?.as_expr(),
-                        Expr::zero(),
-                        Expr::one(),
-                    )
-                } else if !b.value.is_zero() {
-                    (
-                        Expr::zero(),
-                        b.value.pow(-1).map_err(err)?.as_expr(),
-                        Expr::one(),
-                    )
-                } else {
-                    (Expr::zero(), Expr::zero(), Expr::zero())
-                }
-            } else {
-                return Err(PyNotImplementedError::new_err(
-                    "extended gcd is not implemented for this domain",
-                ));
+                    .map_err(err)?;
+            let wrap = |e: &Expr| {
+                self.inner
+                    .convert(e)
+                    .map(|value| PyDomainElement { value })
+                    .map_err(coercion)
             };
-        let convert = |e: &Expr| {
-            self.inner
-                .convert(e)
-                .map(|value| PyDomainElement { value })
-                .map_err(coercion)
-        };
+            return Ok((wrap(&s)?, wrap(&t)?, wrap(&g)?));
+        }
+        let (s, t, g) = a.value.gcdex(&b.value).map_err(err)?;
         Ok((
-            convert(&triple.0)?,
-            convert(&triple.1)?,
-            convert(&triple.2)?,
+            PyDomainElement { value: s },
+            PyDomainElement { value: t },
+            PyDomainElement { value: g },
         ))
     }
     fn unify(&self, other: PyRef<'_, Self>) -> PyResult<Self> {
@@ -793,6 +742,17 @@ pub struct PyDomainElement {
 impl PyDomainElement {
     fn fraction_part(&self, denominator: bool) -> PyResult<Self> {
         let (domain, e) = match (&self.value.domain, &self.value.value) {
+            (ExactDomain::Functions { ring: true, .. }, _) => {
+                return if denominator {
+                    self.value
+                        .domain
+                        .convert(&Expr::one())
+                        .map(|value| Self { value })
+                        .map_err(err)
+                } else {
+                    Ok(self.clone())
+                };
+            }
             (ExactDomain::ZZ | ExactDomain::QQ, ElementValue::Rational(r)) => (
                 ExactDomain::ZZ,
                 Expr::num(if denominator {
@@ -829,6 +789,42 @@ impl PyDomainElement {
             .convert(&e)
             .map(|value| Self { value })
             .map_err(coercion)
+    }
+    fn divide(&self, other: &Bound<'_, PyAny>, reverse: bool) -> PyResult<(Self, Self)> {
+        if let Ok(b) = other.extract::<PyRef<'_, Self>>() {
+            if !self.value.compatible_embedding(&b.value) {
+                return Err(coercion("incompatible coefficient domains"));
+            }
+        }
+        let b = self.parent().element(other, None)?;
+        let (q, r) = if reverse {
+            b.value.div_rem(&self.value)
+        } else {
+            self.value.div_rem(&b.value)
+        }
+        .map_err(err)?;
+        Ok((Self { value: q }, Self { value: r }))
+    }
+    fn ring_operator(
+        &self,
+        other: &Bound<'_, PyAny>,
+        operation: char,
+        reverse: bool,
+    ) -> PyResult<PyObject> {
+        if !matches!(
+            self.value.domain,
+            ExactDomain::ZZ | ExactDomain::Functions { ring: true, .. }
+        ) {
+            return Ok(other.py().NotImplemented());
+        }
+        let (q, r) = self.divide(other, reverse)?;
+        if operation == 'q' {
+            Ok(q.into_pyobject(other.py())?.into_any().unbind())
+        } else if operation == 'r' {
+            Ok(r.into_pyobject(other.py())?.into_any().unbind())
+        } else {
+            Ok((q, r).into_pyobject(other.py())?.into_any().unbind())
+        }
     }
     fn operation(
         &self,
@@ -981,6 +977,42 @@ impl PyDomainElement {
     }
     fn __rtruediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         self.operation(o, '/', true)
+    }
+    fn div(&self, o: &Bound<'_, PyAny>) -> PyResult<(Self, Self)> {
+        self.divide(o, false)
+    }
+    fn quo(&self, o: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(self.divide(o, false)?.0)
+    }
+    fn rem(&self, o: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Ok(self.divide(o, false)?.1)
+    }
+    fn exquo(&self, o: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let (q, r) = self.divide(o, false)?;
+        if !r.value.is_zero() {
+            return Err(ExactQuotientFailed::new_err(
+                "division is not exact in the selected ring",
+            ));
+        }
+        Ok(q)
+    }
+    fn __floordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.ring_operator(o, 'q', false)
+    }
+    fn __rfloordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.ring_operator(o, 'q', true)
+    }
+    fn __mod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.ring_operator(o, 'r', false)
+    }
+    fn __rmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.ring_operator(o, 'r', true)
+    }
+    fn __divmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.ring_operator(o, 'd', false)
+    }
+    fn __rdivmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        self.ring_operator(o, 'd', true)
     }
     fn __neg__(&self) -> PyResult<Self> {
         let zero = self.value.domain.convert(&Expr::zero()).map_err(err)?;
