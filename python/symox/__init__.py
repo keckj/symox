@@ -108,6 +108,17 @@ class Function:
 
 
 # ---------------------------------------------------------------------------
+# number theory
+# ---------------------------------------------------------------------------
+
+from ._core import (  # noqa: E402
+    binomial, crt, divisor_count, divisor_sigma, divisors, factorial, factorint,
+    integer_nthroot, isprime, jacobi_symbol, legendre_symbol, mobius, mod_inverse,
+    n_order, nextprime, perfect_power, prevprime, prime, primepi, primerange,
+    primitive_root, totient,
+)
+
+# ---------------------------------------------------------------------------
 # relationals
 # ---------------------------------------------------------------------------
 

@@ -18,6 +18,8 @@ use symox::lambdify::Compiled;
 use symox::number::Number;
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
+mod ntheory;
+
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
 #[derive(Clone)]
@@ -25,12 +27,12 @@ pub struct PyExpr {
     pub e: Expr,
 }
 
-fn wrap(e: Expr) -> PyExpr {
+pub(crate) fn wrap(e: Expr) -> PyExpr {
     PyExpr { e }
 }
 
 /// Convert any supported Python object into an expression.
-pub fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
+pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(p) = obj.downcast::<PyExpr>() {
         return Ok(p.get().e.clone());
     }
@@ -1348,6 +1350,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    ntheory::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

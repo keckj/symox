@@ -22,6 +22,7 @@ pub mod expr;
 pub mod functions;
 pub mod integrate;
 pub mod lambdify;
+pub mod ntheory;
 pub mod number;
 pub mod ops;
 pub mod parser;
