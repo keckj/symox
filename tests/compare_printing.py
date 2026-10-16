@@ -216,6 +216,7 @@ def _sympy_numpy(e):
 PRINTERS = {
     "latex": (sympy.latex, symox.latex),
     "pretty": (lambda e: sympy.pretty(e, use_unicode=True), symox.pretty),
+    "pretty_ascii": (lambda e: sympy.pretty(e, use_unicode=False), lambda e: symox.pretty(e, use_unicode=False)),
     "ccode": (sympy.ccode, symox.ccode),
     "cxxcode": (sympy.cxxcode, symox.cxxcode),
     "pycode": (sympy.pycode, symox.pycode),

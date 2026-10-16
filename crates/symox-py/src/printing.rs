@@ -108,9 +108,11 @@ fn latex(expr: &Bound<'_, PyAny>, settings: Option<&Bound<'_, PyDict>>) -> PyRes
 }
 
 #[pyfunction]
-#[pyo3(signature = (expr, wrap_line=true, num_columns=None, root_notation=true, use_unicode_sqrt_char=true, **_settings))]
+#[pyo3(signature = (expr, use_unicode=None, wrap_line=true, num_columns=None, root_notation=true, use_unicode_sqrt_char=true, **_settings))]
+#[allow(clippy::too_many_arguments)]
 fn pretty(
     expr: &Bound<'_, PyAny>,
+    use_unicode: Option<bool>,
     wrap_line: bool,
     num_columns: Option<usize>,
     root_notation: bool,
@@ -119,6 +121,7 @@ fn pretty(
 ) -> PyResult<String> {
     let e = to_expr(expr)?;
     let s = PrettySettings {
+        use_unicode: use_unicode.unwrap_or(true),
         wrap_line,
         num_columns: num_columns.unwrap_or(80),
         root_notation,

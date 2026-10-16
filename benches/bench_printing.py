@@ -83,6 +83,39 @@ for label, builder in (("poly15", poly), ("nested", nested)):
     BENCHES.append((f"pretty({label})", (lambda e=ex: symox.pretty(e), lambda e=es: sympy.pretty(e))))
     BENCHES.append((f"cse({label})", (lambda e=ex: symox.cse(e), lambda e=es: sympy.cse(e))))
 
+def chain(m, n=50):
+    """A deep (non-shared) expression: sin(...sin(x) + x...) + 49*x."""
+    x = m.Symbol("x")
+    e = x
+    for i in range(n):
+        e = m.sin(e) + x * i
+    return e
+
+
+def dag(m, n=12):
+    """A heavily shared DAG (tree size exponential in n)."""
+    x, y = m.symbols("x y")
+    e = x + y
+    for i in range(n):
+        e = m.sin(e) * e + e**2 + i
+    return e
+
+
+def jacobian3(m):
+    x, y, z, w = m.symbols("x y z w")
+    f = m.exp(-(x - y) ** 2) * m.cos(z * w + x) / (1 + x**2 + y**2 + z**2 + w**2)
+    return [m.diff(f, a, b, c) for a in (x, y, z, w) for b in (x, y, z, w) for c in (x, y, z, w)]
+
+
+cx, cs = chain(symox), chain(sympy)
+BENCHES.append(("str(chain 50)", (lambda: str(cx), lambda: str(cs))))
+BENCHES.append(("latex(chain 50)", (lambda: symox.latex(cx), lambda: sympy.latex(cs))))
+BENCHES.append(("ccode(chain 50)", (lambda: symox.ccode(cx), lambda: sympy.ccode(cs))))
+dx, ds = dag(symox), dag(sympy)
+BENCHES.append(("cse(shared DAG, 12 levels)", (lambda: symox.cse(dx), lambda: sympy.cse(ds))))
+j3x, j3s = same_expr(jacobian3)
+BENCHES.append(("cse(3rd derivatives, 64 outputs)", (lambda: symox.cse(j3x), lambda: sympy.cse(j3s))))
+
 jx, js = same_expr(jacobian)
 BENCHES.append(("cse(jacobian 16 outputs)", (lambda: symox.cse(jx), lambda: sympy.cse(js))))
 xs4 = symox.symbols("x y z w")

@@ -15,6 +15,8 @@ use crate::ops::neg;
 /// Settings of the pretty printer.
 #[derive(Clone, Debug)]
 pub struct PrettySettings {
+    /// Unicode box drawing / greek letters (default) or plain ASCII.
+    pub use_unicode: bool,
     /// Break lines longer than `num_columns` like SymPy (default `true`).
     pub wrap_line: bool,
     /// Terminal width used for line wrapping (SymPy falls back to 80).
@@ -25,7 +27,13 @@ pub struct PrettySettings {
 
 impl Default for PrettySettings {
     fn default() -> Self {
-        PrettySettings { wrap_line: true, num_columns: 80, root_notation: true, use_unicode_sqrt_char: true }
+        PrettySettings {
+            use_unicode: true,
+            wrap_line: true,
+            num_columns: 80,
+            root_notation: true,
+            use_unicode_sqrt_char: true,
+        }
     }
 }
 
@@ -37,6 +45,7 @@ pub fn pretty(e: &Expr) -> String {
 /// `pretty(expr, **settings)`.
 pub fn pretty_with(e: &Expr, s: &PrettySettings) -> String {
     let _session = super::order::session();
+    let _ascii = AsciiGuard::set(!s.use_unicode);
     let p = PrettyPrinter { s };
     let pict = p.print_top(e);
     pict.render(s)
@@ -50,6 +59,40 @@ pub fn pprint(e: &Expr) {
 // ----------------------------------------------------------------------
 // pictures
 // ----------------------------------------------------------------------
+
+thread_local! {
+    static ASCII: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Sets the ASCII mode of the current thread for one printing call.
+struct AsciiGuard {
+    old: bool,
+}
+
+impl AsciiGuard {
+    fn set(v: bool) -> AsciiGuard {
+        AsciiGuard { old: ASCII.with(|c| c.replace(v)) }
+    }
+}
+
+impl Drop for AsciiGuard {
+    fn drop(&mut self) {
+        ASCII.with(|c| c.set(self.old));
+    }
+}
+
+fn ascii() -> bool {
+    ASCII.with(|c| c.get())
+}
+
+/// `xsym`: unicode symbol or its ASCII fallback.
+fn xsym(u: &'static str, a: &'static str) -> &'static str {
+    if ascii() {
+        a
+    } else {
+        u
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Binding {
@@ -169,7 +212,7 @@ impl Pict {
             })
             .max()
             .unwrap_or(0);
-        let line = Pict::new(&"─".repeat(width));
+        let line = Pict::new(&xsym("─", "-").repeat(width));
         let objs: Vec<Pict> = items
             .into_iter()
             .map(|i| match i {
@@ -249,14 +292,14 @@ impl Pict {
         let mut result: Vec<Pict> = Vec::with_capacity(forms.len() * 2);
         for (i, mut a) in forms.into_iter().enumerate() {
             if i > 0 {
-                result.push(Pict::new("⋅"));
+                result.push(Pict::new(xsym("⋅", "*")));
             }
             if a.binding > Binding::Mul && a.binding != Binding::Neg {
                 a = a.paren();
             }
             result.push(a);
         }
-        if result.len() > 1 && result[0].text() == "-1" && result[1].text() == "⋅" {
+        if result.len() > 1 && result[0].text() == "-1" && result[1].text() == xsym("⋅", "*") {
             result.remove(0);
             result[0] = Pict::new("-");
         }
@@ -324,7 +367,7 @@ impl Pict {
             return self.text();
         }
         let ncols = if s.num_columns == 0 { 80 } else { s.num_columns };
-        let (ostart, oend) = ("↪ ", " ↪");
+        let (ostart, oend) = if ascii() { ("> ", " >") } else { ("↪ ", " ↪") };
         let chunks = |line: &str| -> Vec<String> {
             let mut out = Vec::new();
             let mut prefix = String::new();
@@ -360,7 +403,19 @@ impl Pict {
 /// Vertical delimiter of height `h` (`xobj`).
 fn vobj(sym: &str, h: usize) -> String {
     // (ext, top, bot, mid, single)
-    let (ext, top, bot, mid, c1): (&str, &str, &str, Option<&str>, &str) = match sym {
+    let (ext, top, bot, mid, c1): (&str, &str, &str, Option<&str>, &str) = if ascii() {
+        match sym {
+            "(" => ("|", "/", "\\", None, "("),
+            ")" => ("|", "\\", "/", None, ")"),
+            "[" => ("[", "[", "[", None, "["),
+            "]" => ("]", "]", "]", None, "]"),
+            "{" => ("|", "/", "\\", Some("<"), "{"),
+            "}" => ("|", "\\", "/", Some(">"), "}"),
+            "|" => ("|", "|", "|", None, "|"),
+            other => (other, other, other, None, other),
+        }
+    } else {
+        match sym {
         "(" => ("⎜", "⎛", "⎝", None, "("),
         ")" => ("⎟", "⎞", "⎠", None, ")"),
         "[" => ("⎢", "⎡", "⎣", None, "["),
@@ -373,6 +428,7 @@ fn vobj(sym: &str, h: usize) -> String {
         "lceil" => ("⎢", "⎡", "⎢", None, "⌈"),
         "rceil" => ("⎥", "⎤", "⎥", None, "⌉"),
         other => (other, other, other, None, other),
+        }
     };
     let mut length = h.max(1);
     let midc = match mid {
@@ -573,6 +629,9 @@ fn translate(s: &str) -> String {
 
 /// `pretty_symbol(name)`.
 fn pretty_symbol(name: &str) -> String {
+    if ascii() {
+        return name.to_string();
+    }
     let (n, sups, subs) = super::latex::split_super_sub(name);
     let n = translate(&n);
     let pretty_list = |l: &[String], f: fn(&str) -> Option<&'static str>| -> Option<Vec<String>> {
@@ -632,12 +691,12 @@ impl PrettyPrinter<'_> {
             Kind::Num(n) => self.print_number(n),
             Kind::Sym(s) => Pict::new(&pretty_symbol(s)),
             Kind::Const(c) => Pict::new(match c {
-                Constant::Pi => "π",
-                Constant::E => "ℯ",
-                Constant::I => "ⅈ",
-                Constant::EulerGamma => "γ",
-                Constant::Infinity => "∞",
-                Constant::NegInfinity => "-∞",
+                Constant::Pi => xsym("π", "pi"),
+                Constant::E => xsym("ℯ", "e"),
+                Constant::I => xsym("ⅈ", "I"),
+                Constant::EulerGamma => xsym("γ", "EulerGamma"),
+                Constant::Infinity => xsym("∞", "oo"),
+                Constant::NegInfinity => xsym("-∞", "-oo"),
                 Constant::ComplexInfinity => "zoo",
                 Constant::NaN => "nan",
             }),
@@ -650,11 +709,11 @@ impl PrettyPrinter<'_> {
             Kind::Rel(op, a, b) => {
                 let o = match op {
                     RelOp::Eq => "=",
-                    RelOp::Ne => "≠",
+                    RelOp::Ne => xsym("≠", "!="),
                     RelOp::Lt => "<",
-                    RelOp::Le => "≤",
+                    RelOp::Le => xsym("≤", "<="),
                     RelOp::Gt => ">",
-                    RelOp::Ge => "≥",
+                    RelOp::Ge => xsym("≥", ">="),
                 };
                 Pict::next(&[self.print(a), Pict::new(&format!(" {o} ")), self.print(b)]).bind(Binding::Open)
             }
@@ -721,7 +780,7 @@ impl PrettyPrinter<'_> {
                     forms.push(Some(Self::pretty_negative(self.print_number(&n.neg()), i)));
                 }
                 Kind::Const(Constant::NegInfinity) => {
-                    forms.push(Some(Self::pretty_negative(Pict::new("∞"), i)));
+                    forms.push(Some(Self::pretty_negative(Pict::new(xsym("∞", "oo")), i)));
                 }
                 Kind::Rel(..) => forms.push(Some(self.print(t).paren())),
                 _ => forms.push(Some(self.print(t))),
@@ -795,6 +854,7 @@ impl PrettyPrinter<'_> {
     fn nth_root(&self, base: &Expr, root: &Expr) -> Pict {
         let bp = self.print(base);
         if self.s.use_unicode_sqrt_char
+            && !ascii()
             && root.as_i64() == Some(2)
             && bp.height() == 1
             && (bp.width() == 1 || matches!(base.as_number(), Some(n) if n.is_integer() && !n.is_negative()))
@@ -814,14 +874,14 @@ impl PrettyPrinter<'_> {
             }
             s
         };
-        let mut rootsign = "╲╱".to_string();
+        let mut rootsign = xsym("╲╱", "\\/").to_string();
         if line_width(&exp) > 2 {
             rootsign = format!("{}{rootsign}", " ".repeat(line_width(&exp) - 2));
         }
         let mut rs = Pict::with_baseline(&format!("{exp}\n{rootsign}"), 0);
         let linelength = bp.height() as isize - 1;
         let diag_text: Vec<String> = (0..linelength.max(0))
-            .map(|i| format!("{}╱{}", " ".repeat((linelength - i - 1) as usize), " ".repeat(i as usize)))
+            .map(|i| format!("{}{}{}", " ".repeat((linelength - i - 1) as usize), xsym("╱", "/"), " ".repeat(i as usize)))
             .collect();
         let diag = Pict::with_baseline(&diag_text.join("\n"), linelength - 1);
         rs = rs.right(&[diag]);
@@ -886,10 +946,10 @@ impl PrettyPrinter<'_> {
 
     fn print_func(&self, f: &Func, args: &[Expr]) -> Pict {
         match f {
-            Func::Exp => Pict::pow(Pict::new("ℯ"), self.print(&args[0])),
+            Func::Exp => Pict::pow(Pict::new(xsym("ℯ", "e")), self.print(&args[0])),
             Func::Abs => self.print(&args[0]).parens("|", "|"),
-            Func::Floor => self.print(&args[0]).parens("lfloor", "rfloor"),
-            Func::Ceiling => self.print(&args[0]).parens("lceil", "rceil"),
+            Func::Floor if !ascii() => self.print(&args[0]).parens("lfloor", "rfloor"),
+            Func::Ceiling if !ascii() => self.print(&args[0]).parens("lceil", "rceil"),
             Func::Conjugate => {
                 let p = self.print(&args[0]);
                 let bar = Pict::new(&"_".repeat(p.width()));
@@ -897,17 +957,19 @@ impl PrettyPrinter<'_> {
             }
             Func::Atan2 => self.seq(args).paren().left(&[Pict::new("atan2")]),
             Func::Gamma => {
-                let pf = Pict::new("Γ");
+                let pf = Pict::new(xsym("Γ", "Gamma"));
                 let pa = self.seq(args).paren();
                 let mut p = Pict::next(&[pf.clone(), pa.clone()]).bind(Binding::Func);
                 p.func = Some(Rc::new((pf, pa)));
                 p
             }
-            Func::Heaviside => self.print(&args[0]).paren().left(&[Pict::new("θ")]),
-            Func::DiracDelta => self.print(&args[0]).paren().left(&[Pict::new("δ")]),
+            Func::Heaviside => self.print(&args[0]).paren().left(&[Pict::new(xsym("θ", "Heaviside"))]),
+            Func::DiracDelta if !ascii() => self.print(&args[0]).paren().left(&[Pict::new("δ")]),
             // Max/Min are not Functions in SymPy: printed with str()
             Func::Max | Func::Min => {
-                Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(), args.to_vec()))))
+                let mut v = args.to_vec();
+                v.sort_by_cached_key(|a| (!a.is_number(), crate::printer::to_str(a)));
+                Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(), v))))
             }
             _ => self.function(f.name(), args),
         }
@@ -915,7 +977,7 @@ impl PrettyPrinter<'_> {
 
     fn print_derivative(&self, f: &Expr, vars: &[(Expr, u32)]) -> Pict {
         let partial = crate::traverse::free_symbols(f).len() > 1;
-        let d = if partial { "∂" } else { "d" };
+        let d = if partial && !ascii() { "∂" } else { "d" };
         let mut x: Option<Pict> = None;
         let mut total = 0u32;
         for (v, n) in vars.iter().rev() {
@@ -1010,5 +1072,11 @@ mod tests {
         assert_eq!(p("x1"), "x₁");
         assert_eq!(p("Abs(x)"), "│x│");
         assert_eq!(p("Piecewise((x, x > 0), (0, True))"), "⎧x  for x > 0\n⎨            \n⎩0  otherwise");
+        let a = |s: &str| {
+            let st = PrettySettings { use_unicode: false, ..Default::default() };
+            pretty_with(&parse_str(s).unwrap(), &st)
+        };
+        assert_eq!(a("sqrt(x)"), "  ___\n\\/ x ");
+        assert_eq!(a("x/y + pi"), "x     \n- + pi\ny     ");
     }
 }
