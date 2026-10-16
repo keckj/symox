@@ -228,4 +228,158 @@ def to_sympy(e):
     return sympify(e).to_sympy()
 
 
+# --- series ---
+# Series expansions, the Order term and limits (crates/symox-py/src/series.rs).
+
+
+class PoleError(ValueError):
+    """Raised when an expansion point is a singularity of the expression."""
+
+
+def _series_call(expr, x, x0, n, dir):
+    try:
+        return _core._series(expr, x, x0, n, dir)
+    except ValueError as e:
+        msg = str(e)
+        if msg.startswith("PoleError: "):
+            raise PoleError(msg[len("PoleError: "):]) from None
+        raise
+
+
+def series(expr, x=None, x0=0, n=6, dir="+"):
+    """Series expansion of ``expr`` around ``x = x0`` up to ``O((x - x0)**n)``."""
+    return _series_call(expr, x, x0, n, dir)
+
+
+def Order(expr, *args, **kwargs):
+    """Landau order term ``O(expr, (x, x0), ...)``."""
+    return _core._order(expr, *args)
+
+
+O = Order
+
+
+def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    return _series_call(self, x, x0, n, dir)
+
+
+def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    return _series_call(self, x, x0, n, dir)
+
+
+def _expr_taylor_term(self, n, x, *previous_terms):
+    return _core._taylor_term(self, n, x)
+
+
+def _expr_getO(self):
+    return _core._get_o(self)
+
+
+def _expr_getn(self):
+    n = _core._getn(self)
+    return n
+
+
+def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
+    """Lazy iterator over the terms of the expansion (in increasing order)."""
+    n = 6
+    done = 0
+    while True:
+        s = _series_call(self, x, x0, n, dir)
+        terms = s.removeO()
+        terms = list(terms.args) if terms.is_Add else ([terms] if terms != 0 else [])
+        terms = _sort_series_terms(terms, s)
+        for t in terms[done:]:
+            yield t
+        done = len(terms)
+        if _core._get_o(s) is None:
+            return
+        n *= 2
+
+
+def _sort_series_terms(terms, s):
+    order = [str(t) for t in (s.as_ordered_terms() if s.is_Add else [s])]
+    return sorted(terms, key=lambda t: order.index(str(t)) if str(t) in order else len(order))
+
+
+def _expr_leadterm(self, x, x0=0, dir="+"):
+    return _core._leadterm(self, x, x0, dir)
+
+
+def _expr_as_leading_term(self, *symbols, **kwargs):
+    x = symbols[0] if symbols else None
+    c, e = _core._leadterm(self, x)
+    return c * x**e
+
+
+Expr.series = _expr_series
+Expr.nseries = _expr_nseries
+Expr.taylor_term = _expr_taylor_term
+Expr.removeO = lambda self: _core._remove_o(self)
+Expr.getO = _expr_getO
+Expr.getn = _expr_getn
+Expr.lseries = _expr_lseries
+Expr.leadterm = _expr_leadterm
+Expr.as_leading_term = _expr_as_leading_term
+Expr.is_Order = property(lambda self: _core._is_order(self))
+Expr.contains = lambda self, t: _core._order_contains(self, t)
+
+
+def _order_part(i):
+    def get(self):
+        if not _core._is_order(self):
+            raise AttributeError("only Order terms have expr/variables/point")
+        a = self.args
+        if i == 0:
+            return a[0]
+        return tuple(a[1::2]) if i == 1 else tuple(a[2::2])
+    return property(get)
+
+
+Expr.expr = _order_part(0)
+Expr.variables = _order_part(1)
+Expr.point = _order_part(2)
+
+class Limit:
+    """Unevaluated limit ``Limit(e, z, z0, dir)``; ``doit()`` evaluates it."""
+
+    def __init__(self, e, z, z0, dir="+"):
+        self.expr = sympify(e)
+        self.var = sympify(z)
+        self.point = sympify(z0)
+        if str(self.point) == "oo":
+            dir = "-"
+        elif str(self.point) == "-oo":
+            dir = "+"
+        self.dir = dir
+        self.args = (self.expr, self.var, self.point, dir)
+
+    def doit(self, **hints):
+        r = _core._limit(self.expr, self.var, self.point, self.dir)
+        return self if r is None else r
+
+    def __str__(self):
+        return f"Limit({self.expr}, {self.var}, {self.point}, dir='{self.dir}')"
+
+    __repr__ = __str__
+
+    def __eq__(self, other):
+        return isinstance(other, Limit) and self.args == other.args
+
+    def __hash__(self):
+        return hash(("Limit",) + tuple(str(a) for a in self.args))
+
+
+def limit(e, z, z0, dir="+"):
+    """Limit of ``e`` as ``z -> z0`` (``dir`` is ``'+'``, ``'-'`` or ``'+-'``).
+
+    Returns an unevaluated :class:`Limit` when the limit cannot be computed.
+    """
+    r = _core._limit(e, z, z0, dir)
+    return Limit(e, z, z0, dir) if r is None else r
+
+
+Expr.limit = lambda self, x, xlim, dir="+": limit(self, x, xlim, dir)
+# --- end series ---
+
 __all__ = [n for n in dir() if not n.startswith("_")]
