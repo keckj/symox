@@ -483,6 +483,65 @@ impl<C: Coeff> MPoly<C> {
         r
     }
 
+    /// Multivariate division by an ordered list of divisors in lex order.
+    /// The first divisor whose leading monomial and coefficient divide the
+    /// current leading term is used. Terms that cannot be reduced go to the
+    /// remainder, so this differs from recursive univariate division.
+    pub fn reduced(&self, divisors: &[Self]) -> Option<(Vec<Self>, Self)> {
+        use std::collections::BTreeMap;
+
+        if divisors.iter().any(|g| g.is_zero() || g.nvars != self.nvars) {
+            return None;
+        }
+        let mut pending: BTreeMap<Vec<u32>, C> =
+            self.iter().map(|(e, c)| (e.to_vec(), c.clone())).collect();
+        let mut quotients: Vec<Vec<(Vec<u32>, C)>> = vec![Vec::new(); divisors.len()];
+        let mut remainder = Vec::new();
+        while let Some((exponent, coefficient)) = pending.pop_last() {
+            let mut reduced = false;
+            for (i, g) in divisors.iter().enumerate() {
+                if exponent.iter().zip(g.lm()).any(|(a, b)| a < b) {
+                    continue;
+                }
+                let Some(c) = coefficient.div_exact(g.coeff(0)) else {
+                    continue;
+                };
+                let shift: Vec<u32> = exponent.iter().zip(g.lm()).map(|(a, b)| a - b).collect();
+                quotients[i].push((shift.clone(), c.clone()));
+                // The leading term was removed by pop_last(). Each other
+                // term introduced is strictly smaller, which ensures progress.
+                for (ge, gc) in g.iter().skip(1) {
+                    let key: Vec<u32> = ge.iter().zip(&shift).map(|(a, b)| a + b).collect();
+                    let value = c.mul(gc).neg();
+                    match pending.entry(key) {
+                        std::collections::btree_map::Entry::Vacant(entry) => {
+                            if !value.is_zero() {
+                                entry.insert(value);
+                            }
+                        }
+                        std::collections::btree_map::Entry::Occupied(mut entry) => {
+                            let next = entry.get().add(&value);
+                            if next.is_zero() {
+                                entry.remove();
+                            } else {
+                                *entry.get_mut() = next;
+                            }
+                        }
+                    }
+                }
+                reduced = true;
+                break;
+            }
+            if !reduced {
+                remainder.push((exponent, coefficient));
+            }
+        }
+        Some((
+            quotients.into_iter().map(|q| Self::from_terms(self.nvars, q)).collect(),
+            Self::from_terms(self.nvars, remainder),
+        ))
+    }
+
     /// Exact division by `g` (`None` if `g` does not divide `self`).
     pub fn div_exact(&self, g: &Self) -> Option<Self> {
         let n = self.nvars;

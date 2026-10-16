@@ -12,7 +12,7 @@
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use rustc_hash::FxHasher;
 
@@ -270,6 +270,9 @@ pub struct Node {
     hash: u64,
     mask: u64,
     kind: Kind,
+    canonical: bool,
+    free_symbols: OnceLock<Vec<Expr>>,
+    ordered_args: OnceLock<Vec<Expr>>,
 }
 
 /// A symbolic expression.
@@ -290,6 +293,16 @@ fn sym_bit(name: &str) -> u64 {
 impl Expr {
     /// Build a node from an already canonical payload.
     pub fn from_kind(kind: Kind) -> Expr {
+        Self::from_payload(kind, true)
+    }
+
+    /// Preserve the argument order and grouping requested with evaluate=False.
+    /// Algorithms may canonicalize these nodes when their operands change.
+    pub fn from_unevaluated_kind(kind: Kind) -> Expr {
+        Self::from_payload(kind, false)
+    }
+
+    fn from_payload(kind: Kind, canonical: bool) -> Expr {
         let mut h = FxHasher::default();
         let mut mask = 0u64;
         kind.rank().hash(&mut h);
@@ -359,12 +372,21 @@ impl Expr {
             hash: h.finish(),
             mask,
             kind,
+            canonical,
+            free_symbols: OnceLock::new(),
+            ordered_args: OnceLock::new(),
         }))
     }
 
     #[inline]
     pub fn kind(&self) -> &Kind {
         &self.0.kind
+    }
+
+    /// Whether this node was made by a canonical constructor.
+    #[inline]
+    pub fn is_canonical(&self) -> bool {
+        self.0.canonical
     }
 
     #[inline]
@@ -376,6 +398,24 @@ impl Expr {
     #[inline]
     pub fn mask(&self) -> u64 {
         self.0.mask
+    }
+
+    /// Cache symbol discovery on immutable non-atomic nodes. Symbols themselves
+    /// must never cache a clone of themselves: that would create an Arc cycle.
+    pub(crate) fn cached_free_symbols(&self, init: impl FnOnce() -> Vec<Expr>) -> Vec<Expr> {
+        if self.is_atom() {
+            return init();
+        }
+        self.0.free_symbols.get_or_init(init).clone()
+    }
+
+    /// The Python facade's canonical argument order differs from the storage
+    /// order. Cache it lazily on the DAG node, shared by all Python wrappers.
+    pub fn cached_ordered_args(&self, init: impl FnOnce() -> Vec<Expr>) -> Vec<Expr> {
+        if self.is_atom() {
+            return Vec::new();
+        }
+        self.0.ordered_args.get_or_init(init).clone()
     }
 
     #[inline]

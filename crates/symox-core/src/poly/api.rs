@@ -879,6 +879,62 @@ pub fn div_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
     Ok((q.as_expr(), r.as_expr()))
 }
 
+/// `reduced(f, divisors, *gens)`: ordered multivariate division with
+/// remainder in lexicographic monomial order. Automatic generator detection
+/// uses the existing deterministic SymPy-compatible generator ordering.
+pub fn reduced(a: &Expr, divisors: &[Expr], gens: &[Expr]) -> PResult<(Vec<Expr>, Expr)> {
+    use super::convert::{from_exprs, from_exprs_gens, to_expr_f};
+    use super::ratfunc::{set_nvars, RF};
+    use std::collections::BTreeMap;
+
+    let mut exprs = vec![a.clone()];
+    exprs.extend_from_slice(divisors);
+    let converted = if gens.is_empty() { from_exprs(&exprs)? } else { from_exprs_gens(&exprs, gens)? };
+    if converted.polys.iter().skip(1).any(MPoly::is_zero) {
+        return Err(PolyError::Unsupported("polynomial division by zero".into()));
+    }
+    // SymPy's sparse division returns no quotient entries for zero input.
+    if converted.polys[0].is_zero() {
+        return Ok((Vec::new(), Expr::zero()));
+    }
+    if converted.ngens == converted.gens.len() {
+        let (q, r) = converted.polys[0].reduced(&converted.polys[1..]).unwrap();
+        let to_expr = |p: &MPoly<Rat>| to_expr_f(p, &converted.gens, converted.float);
+        return Ok((q.iter().map(to_expr).collect(), to_expr(&r)));
+    }
+
+    // Explicit generators leave parameters in the coefficient domain. Work
+    // over its fraction field, so e.g. reduced(x, [a*x], x) gives 1/a.
+    let n = converted.ngens;
+    let domain_gens = &converted.gens[n..];
+    let old_nvars = set_nvars(domain_gens.len());
+    let to_rf_poly = |p: &MPoly<Rat>| {
+        let mut grouped: BTreeMap<Vec<u32>, Vec<(Vec<u32>, Rat)>> = BTreeMap::new();
+        for (e, c) in p.iter() {
+            grouped.entry(e[..n].to_vec()).or_default().push((e[n..].to_vec(), c.clone()));
+        }
+        MPoly::from_terms(n, grouped.into_iter().map(|(e, terms)| {
+            (e, RF::from_rat_poly(&MPoly::from_terms(domain_gens.len(), terms)))
+        }).collect())
+    };
+    let polys: Vec<MPoly<RF>> = converted.polys.iter().map(to_rf_poly).collect();
+    let (q, r) = polys[0].reduced(&polys[1..]).unwrap();
+    let to_expr = |p: &MPoly<RF>| {
+        add(&p.iter().map(|(e, c)| {
+            let mut factors = vec![rf_expr(c, domain_gens)];
+            for (g, &k) in converted.gens[..n].iter().zip(e) {
+                if k != 0 {
+                    factors.push(pow(g, &Expr::int(k as i64)));
+                }
+            }
+            mul(&factors)
+        }).collect::<Vec<_>>())
+    };
+    let result = (q.iter().map(to_expr).collect(), to_expr(&r));
+    set_nvars(old_nvars);
+    Ok(result)
+}
+
 /// `rem(f, g, *gens)`.
 pub fn rem_expr(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
     Ok(div_expr(a, b, gens)?.1)
@@ -1348,6 +1404,29 @@ mod tests {
         for (a, b) in cases {
             assert_eq!(to_str(&apart(&s(a), None).unwrap()), b, "apart({a})");
         }
+    }
+
+    #[test]
+    fn reduced_multivariate_lex() {
+        let x = s("x");
+        let y = s("y");
+        let cases = [
+            ("x**2 + y**2", vec!["x + y"], vec![], vec!["x - y"], "2*y**2"),
+            ("x**2 + y**2", vec!["x + y"], vec![y.clone(), x.clone()], vec!["y - x"], "2*x**2"),
+            ("x*y**2 + x*y + x", vec!["x*y - 1", "y**2 - 1"], vec![], vec!["y + 1", "0"], "x + y + 1"),
+            ("2*x + 1", vec!["3*x"], vec![], vec!["2/3"], "1"),
+            ("x", vec!["a*x"], vec![x.clone()], vec!["1/a"], "0"),
+            ("x + y", vec![], vec![], vec![], "x + y"),
+        ];
+        for (expr, divisors, gens, expected_q, expected_r) in cases {
+            let ds: Vec<Expr> = divisors.iter().map(|d| s(d)).collect();
+            let (q, r) = reduced(&s(expr), &ds, &gens).unwrap();
+            assert_eq!(q, expected_q.iter().map(|v| s(v)).collect::<Vec<_>>(), "quotient {expr}");
+            assert_eq!(r, s(expected_r), "remainder {expr}");
+            let reconstructed = add(&q.iter().zip(&ds).map(|(q, d)| mul(&[q.clone(), d.clone()])).chain(std::iter::once(r)).collect::<Vec<_>>());
+            assert_eq!(expand(&reconstructed), expand(&s(expr)));
+        }
+        assert!(reduced(&x, &[Expr::zero()], &[]).is_err());
     }
 
     #[test]
