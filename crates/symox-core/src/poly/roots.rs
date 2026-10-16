@@ -156,18 +156,70 @@ fn roots_quadratic(f: &UPoly) -> Vec<Expr> {
     vec![r0, r1]
 }
 
+/// Exact first quadrant values `(cos, sin)` of `p*pi/q` for the angles
+/// SymPy evaluates but the core does not.
+fn trig_table(p: i64, q: i64) -> Option<(Expr, Expr)> {
+    let r = |a: i64, b: i64| Expr::rational(a, b);
+    let s5 = sqrt(&Expr::int(5));
+    let s2 = sqrt(&Expr::int(2));
+    let a = add(&[r(1, 4), mul(&[r(1, 4), s5.clone()])]); // 1/4 + sqrt(5)/4
+    let b = add(&[r(-1, 4), mul(&[r(1, 4), s5.clone()])]); // -1/4 + sqrt(5)/4
+    let c = sqrt(&add(&[r(5, 8), mul(&[r(-1, 8), s5.clone()])])); // sqrt(5/8 - sqrt(5)/8)
+    let d = sqrt(&add(&[r(5, 8), mul(&[r(1, 8), s5])])); // sqrt(sqrt(5)/8 + 5/8)
+    let e = sqrt(&add(&[r(1, 2), mul(&[r(1, 4), s2.clone()])])); // sqrt(sqrt(2)/4 + 1/2)
+    let f = sqrt(&add(&[r(1, 2), mul(&[r(-1, 4), s2])])); // sqrt(1/2 - sqrt(2)/4)
+    Some(match (p, q) {
+        (1, 5) => (a, c),
+        (2, 5) => (b, d),
+        (1, 10) => (d, b),
+        (3, 10) => (c, a),
+        (1, 8) => (e, f),
+        (3, 8) => (f, e),
+        _ => return None,
+    })
+}
+
+/// `(cos(k*pi/n), sin(k*pi/n))` with exact values where known.
+fn cos_sin_pi(k: i64, n: i64) -> (Expr, Expr) {
+    // reduce k/n modulo 2 into [0, 2)
+    let g = gcd_i(k, n).max(1);
+    let (mut k, n) = (k / g, n / g);
+    let n = if n < 0 { k = -k; -n } else { n };
+    k = k.rem_euclid(2 * n);
+    let (mut sc, mut ss) = (1i64, 1i64);
+    if k > n {
+        k = 2 * n - k;
+        ss = -1;
+    }
+    // now angle in [0, pi]
+    if 2 * k > n {
+        k = n - k;
+        sc = -1;
+    }
+    let g = gcd_i(k, n).max(1);
+    let (p, q) = (k / g, n / g);
+    let (c, s) = match trig_table(p, q) {
+        Some(v) => v,
+        None => {
+            let ang = mul(&[Expr::rational(p, q), Expr::pi()]);
+            (cos(&ang), sin(&ang))
+        }
+    };
+    (mul(&[Expr::int(sc), c]), mul(&[Expr::int(ss), s]))
+}
+
 /// `exp(2*pi*I*k/n)` expanded (exact cos/sin values where known).
 fn unit_root(k: i64, n: i64) -> Expr {
-    let ang = mul(&[Expr::rational(2 * k, n), Expr::pi()]);
-    add(&[cos(&ang), mul(&[Expr::i(), sin(&ang)])])
+    let (c, s) = cos_sin_pi(2 * k, n);
+    add(&[c, mul(&[Expr::i(), s])])
 }
 
 /// `root(base, n)` expanded into real and imaginary parts for real bases.
 fn principal_root(base: &Expr, n: i64) -> Expr {
     if is_neg(base) && is_real_num(base) {
         let r = root_n(&neg(base), n);
-        let ang = mul(&[Expr::rational(1, n), Expr::pi()]);
-        return expand(&mul(&[r, add(&[cos(&ang), mul(&[Expr::i(), sin(&ang)])])]));
+        let (c, s) = cos_sin_pi(1, n);
+        return expand(&mul(&[r, add(&[c, mul(&[Expr::i(), s])])]));
     }
     root_n(base, n)
 }
@@ -986,12 +1038,38 @@ pub fn nroots(e: &Expr, gens: &[Expr], n: u32) -> PResult<Vec<Expr>> {
     nroots_poly(&p, n)
 }
 
+/// Numerical roots with multiplicities resolved through the square-free
+/// decomposition (multiple roots are computed as simple roots).
+fn nroots_sqf(c: &[Rat]) -> Vec<C64> {
+    let (_, z) = dense::clear_denoms(c);
+    let mut z = z;
+    dense::trim(&mut z);
+    if z.len() <= 1 {
+        return vec![];
+    }
+    let zeros = z.iter().take_while(|x| x.is_zero()).count();
+    let z: Vec<Int> = z[zeros..].to_vec();
+    let mut out: Vec<C64> = vec![C64::new(0.0, 0.0); zeros];
+    if z.len() > 1 {
+        let (_, parts) = super::sqf::sqf_list_zx(&z);
+        for (a, k) in parts {
+            let rs = nroots_rat(&dense::to_rat(&a));
+            for r in rs {
+                for _ in 0..k {
+                    out.push(r);
+                }
+            }
+        }
+    }
+    sort_roots(out)
+}
+
 pub fn nroots_poly(p: &Poly, _n: u32) -> PResult<Vec<Expr>> {
     if p.ngens != 1 || p.has_domain_gens() {
         return Err(PolyError::Unsupported("can't compute numerical roots of a multivariate or symbolic polynomial".into()));
     }
     let c = dense::from_mpoly(&p.rep, 0);
-    let rs = nroots_rat(&c);
+    let rs = nroots_sqf(&c);
     Ok(rs
         .into_iter()
         .map(|z| {

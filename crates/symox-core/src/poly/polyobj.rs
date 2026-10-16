@@ -320,38 +320,45 @@ impl Poly {
         self.ngens != self.gens.len()
     }
 
-    fn require_field(&self, o: &Poly) -> PResult<(Poly, Poly)> {
-        let (mut a, mut b) = self.unify(o);
-        if a.has_domain_gens() {
-            return Err(PolyError::Unsupported(format!(
-                "division over {} is not supported",
-                a.domain_str()
-            )));
-        }
-        if a.domain == Domain::ZZ {
-            a.domain = Domain::QQ;
-            b.domain = Domain::QQ;
-        }
-        Ok((a, b))
-    }
-
     /// Polynomial division with remainder (recursive in the generators,
-    /// over the field of fractions of the domain).
+    /// over the field of fractions of the domain). As in SymPy, results
+    /// over `ZZ` are retracted to `ZZ` when their coefficients allow it.
     pub fn div(&self, o: &Poly) -> PResult<(Poly, Poly)> {
-        let (a, b) = self.require_field(o)?;
+        let (a, b) = self.unify(o);
         if b.rep.is_zero() {
             return Err(PolyError::Unsupported("polynomial division by zero".into()));
         }
         let (q, r) = div_rec(&a.rep, &b.rep, 0);
-        Ok((a.with_rep(q), a.with_rep(r)))
+        if a.has_domain_gens() && !r.is_zero() && r.degree(0) >= b.rep.degree(0) {
+            // the quotient over the fraction field of the coefficient ring
+            // would need rational function coefficients
+            return Err(PolyError::Unsupported(format!(
+                "division over {} with non-polynomial quotient is not supported",
+                a.domain_str()
+            )));
+        }
+        let mut dom = a.domain;
+        if dom == Domain::ZZ && !(q.is_integral() && r.is_integral()) {
+            dom = Domain::QQ;
+        }
+        let mk = |rep: MPoly<Rat>| Poly { rep, gens: a.gens.clone(), ngens: a.ngens, domain: dom };
+        Ok((mk(q), mk(r)))
     }
 
     pub fn rem(&self, o: &Poly) -> PResult<Poly> {
-        Ok(self.div(o)?.1)
+        let (_, mut r) = self.div(o)?;
+        if self.domain.max(o.domain) == Domain::ZZ && r.rep.is_integral() {
+            r.domain = Domain::ZZ;
+        }
+        Ok(r)
     }
 
     pub fn quo(&self, o: &Poly) -> PResult<Poly> {
-        Ok(self.div(o)?.0)
+        let (mut q, _) = self.div(o)?;
+        if self.domain.max(o.domain) == Domain::ZZ && q.rep.is_integral() {
+            q.domain = Domain::ZZ;
+        }
+        Ok(q)
     }
 
     /// Exact quotient (error if not exact).
