@@ -813,12 +813,69 @@ fn merge(rs: Vec<Expr>) -> Vec<(Expr, usize)> {
     out
 }
 
-/// Order of linear factors `lambda - r` in SymPy's `factor_list`
-/// (approximation: compare `r` by its constant term).
+/// Dense recursive representation (SymPy's `dmp`) used as a sort key.
+#[derive(Clone, Debug, PartialEq)]
+enum DKey {
+    I(Int),
+    L(Vec<DKey>),
+}
+
+fn dkey_cmp(a: &DKey, b: &DKey) -> Ordering {
+    match (a, b) {
+        (DKey::I(x), DKey::I(y)) => x.cmp(y),
+        (DKey::L(x), DKey::L(y)) => {
+            for (p, q) in x.iter().zip(y) {
+                let c = dkey_cmp(p, q);
+                if c != Ordering::Equal {
+                    return c;
+                }
+            }
+            x.len().cmp(&y.len())
+        }
+        (DKey::I(_), DKey::L(_)) => Ordering::Less,
+        (DKey::L(_), DKey::I(_)) => Ordering::Greater,
+    }
+}
+
+fn dmp_zero(u: usize) -> DKey {
+    let mut r = DKey::L(vec![]);
+    for _ in 0..u {
+        r = DKey::L(vec![r]);
+    }
+    r
+}
+
+fn dmp(p: &super::mpoly::MPoly, k: usize) -> DKey {
+    let n = p.nvars;
+    if k == n {
+        return DKey::I(p.as_constant().unwrap_or(Int::ZERO));
+    }
+    if p.is_zero() {
+        return dmp_zero(n - 1 - k);
+    }
+    let cs = p.coeffs_in(k);
+    DKey::L(cs.iter().rev().map(|c| if k + 1 == n || !c.is_zero() { dmp(c, k + 1) } else { dmp_zero(n - 2 - k) }).collect())
+}
+
+/// Order of the linear factors `lambda - r` in SymPy's `factor_list`
+/// (primitive, positive leading coefficient, sorted by the dense
+/// representation with SymPy's generator order).
 fn linear_factor_cmp(a: &Expr, b: &Expr) -> Ordering {
-    let ca = crate::ops::as_coeff_add(a).0;
-    let cb = crate::ops::as_coeff_add(b).0;
-    ca.cmp_value(&cb).unwrap_or(Ordering::Equal)
+    let lam = Expr::symbol("_x0");
+    let fa = sub(&lam, a);
+    let fb = sub(&lam, b);
+    let Some((_, ps)) = super::ratfunc::PolyCtx::from_exprs(&[fa, fb], false) else {
+        return Ordering::Equal;
+    };
+    let norm = |q: &super::ratfunc::QPoly| {
+        let c = q.p.content();
+        let p = if c.is_zero() || c.is_one() { q.p.clone() } else { q.p.divexact_int(&c) };
+        p.normalize_sign()
+    };
+    let (ka, kb) = (dmp(&norm(&ps[0]), 0), dmp(&norm(&ps[1]), 0));
+    let la = match &ka { DKey::L(v) => v.len(), _ => 0 };
+    let lb = match &kb { DKey::L(v) => v.len(), _ => 0 };
+    la.cmp(&lb).then_with(|| dkey_cmp(&ka, &kb))
 }
 
 /// Square root of a polynomial expression when it is a perfect square.

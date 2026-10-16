@@ -155,7 +155,46 @@ fn pivot_simp(e: &Expr) -> Expr {
     if x.is_atom() {
         return x;
     }
-    cancel(&x)
+    let c = cancel(&x);
+    if c.is_number() {
+        return c;
+    }
+    // Pythagorean identities (what SymPy's simplify finds for rotation
+    // like matrices); only used when they decide the value is a number
+    let t = expand(&trig_squares(&c));
+    if t.is_number() {
+        return t;
+    }
+    c
+}
+
+/// Rewrite `sin(u)**(2k)` as `(1 - cos(u)**2)**k` and `cosh(u)**(2k)` as
+/// `(1 + sinh(u)**2)**k`.
+fn trig_squares(e: &Expr) -> Expr {
+    use crate::expr::Func;
+    if e.is_atom() {
+        return e.clone();
+    }
+    if let Kind::Pow(b, x) = e.kind() {
+        if let (Kind::Func(f, args), Some(n)) = (b.kind(), x.as_i64()) {
+            if n >= 2 && n % 2 == 0 {
+                let two = Expr::int(2);
+                let k = Expr::int(n / 2);
+                match f {
+                    Func::Sin => {
+                        let c = crate::functions::cos(&args[0]);
+                        return pow(&sub(&Expr::one(), &pow(&c, &two)), &k);
+                    }
+                    Func::Cosh => {
+                        let s = crate::functions::sinh(&args[0]);
+                        return pow(&add(&[Expr::one(), pow(&s, &two)]), &k);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    crate::traverse::map_children(e, &mut |c| trig_squares(c))
 }
 
 struct Pivot {
