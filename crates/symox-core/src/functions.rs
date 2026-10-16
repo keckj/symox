@@ -10,6 +10,9 @@ use crate::ops::{
 
 /// Apply function `f` to `args`, performing automatic simplifications.
 pub fn func(f: Func, args: Vec<Expr>) -> Expr {
+    if f == Func::Order {
+        return crate::series::order::order_from_args(&args);
+    }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
     }
@@ -111,7 +114,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Undefined(_) => None,
+        Func::Order | Func::Undefined(_) => None,
     };
     match r {
         Some(v) => v,
@@ -128,6 +131,10 @@ fn has_float(e: &Expr) -> bool {
 
 /// Free of symbols and undefined functions (so it can be evaluated).
 pub fn is_numeric_value(e: &Expr) -> bool {
+    // any symbol (or Order term) inside sets a mask bit: O(1) rejection
+    if e.mask() != 0 {
+        return false;
+    }
     match e.kind() {
         Kind::Num(_) => true,
         Kind::Const(c) => !c.is_infinite() && *c != Constant::NaN,
@@ -325,6 +332,7 @@ fn eval_log(a: &Expr) -> Option<Expr> {
             None
         }
         Kind::Const(Constant::E) => Some(Expr::one()),
+        Kind::Func(Func::Exp, x) if crate::assumptions::is_real(&x[0]) == Some(true) => Some(x[0].clone()),
         Kind::Const(Constant::I) => Some(mul(&[Expr::i(), Expr::pi(), half()])),
         Kind::Const(Constant::Infinity) | Kind::Const(Constant::NegInfinity) => Some(Expr::oo()),
         Kind::Const(Constant::ComplexInfinity) => Some(Expr::zoo()),
@@ -403,7 +411,23 @@ fn cos_pi(k: &Number) -> Expr {
     }
 }
 
+/// `k` with `a = k*pi` and `k` a known (symbolic) integer.
+fn integer_pi_multiple(a: &Expr) -> Option<Expr> {
+    if let Kind::Mul(_, facs) = a.kind() {
+        if facs.iter().any(|(b, e)| b.is_constant(Constant::Pi) && e.is_one()) {
+            let k = div(a, &Expr::pi());
+            if !k.is_number() && crate::assumptions::is_integer(&k) == Some(true) {
+                return Some(k);
+            }
+        }
+    }
+    None
+}
+
 fn eval_sin(a: &Expr) -> Option<Expr> {
+    if integer_pi_multiple(a).is_some() {
+        return Some(Expr::zero());
+    }
     if let Some(k) = pi_coeff(a) {
         let v = sin_pi(&k);
         return Some(v);
@@ -439,6 +463,9 @@ fn eval_sin(a: &Expr) -> Option<Expr> {
 }
 
 fn eval_cos(a: &Expr) -> Option<Expr> {
+    if let Some(k) = integer_pi_multiple(a) {
+        return Some(pow(&Expr::minus_one(), &k));
+    }
     if let Some(k) = pi_coeff(a) {
         return Some(cos_pi(&k));
     }
@@ -472,6 +499,9 @@ fn eval_cos(a: &Expr) -> Option<Expr> {
 }
 
 fn eval_tan(a: &Expr) -> Option<Expr> {
+    if integer_pi_multiple(a).is_some() {
+        return Some(Expr::zero());
+    }
     if let Some(k) = pi_coeff(a) {
         let k = rmod(&k, 1);
         let s = sin_pi(&k);
@@ -733,6 +763,14 @@ fn eval_tanh(a: &Expr) -> Option<Expr> {
 // --------------------------------------------------------------------
 
 fn eval_abs(a: &Expr) -> Option<Expr> {
+    if !a.is_number() {
+        if crate::assumptions::is_nonnegative(a) == Some(true) {
+            return Some(a.clone());
+        }
+        if crate::assumptions::is_nonpositive(a) == Some(true) {
+            return Some(neg(a));
+        }
+    }
     match a.kind() {
         Kind::Num(n) => Some(Expr::num(n.abs())),
         Kind::Const(Constant::I) => Some(Expr::one()),
@@ -750,7 +788,10 @@ fn eval_abs(a: &Expr) -> Option<Expr> {
                     changed = true;
                     continue;
                 }
-                if matches!(b.kind(), Kind::Const(Constant::Pi | Constant::E)) || (b.is_number() && b.as_number().unwrap().is_positive() && e.is_rational_number()) {
+                if matches!(b.kind(), Kind::Const(Constant::Pi | Constant::E))
+                    || (b.is_number() && b.as_number().unwrap().is_positive() && e.is_rational_number())
+                    || crate::assumptions::is_positive(&crate::ops::mul_factor(b, e)) == Some(true)
+                {
                     // positive factor
                     return Some(mul2(
                         &crate::ops::mul_factor(b, e),
@@ -776,6 +817,17 @@ fn eval_abs(a: &Expr) -> Option<Expr> {
 }
 
 fn eval_sign(a: &Expr) -> Option<Expr> {
+    if !a.is_number() {
+        if crate::assumptions::is_positive(a) == Some(true) {
+            return Some(Expr::one());
+        }
+        if crate::assumptions::is_negative(a) == Some(true) {
+            return Some(Expr::minus_one());
+        }
+        if crate::assumptions::is_zero(a) == Some(true) {
+            return Some(Expr::zero());
+        }
+    }
     match a.kind() {
         Kind::Num(n) => Some(Expr::int(if n.is_positive() {
             1
@@ -799,6 +851,9 @@ fn eval_sign(a: &Expr) -> Option<Expr> {
 
 fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
     let ceil = matches!(f, Func::Ceiling);
+    if !a.is_number() && crate::assumptions::is_integer(a) == Some(true) {
+        return Some(a.clone());
+    }
     match a.kind() {
         Kind::Num(n) => {
             let fl = match n {
@@ -875,6 +930,9 @@ fn eval_gamma(a: &Expr) -> Option<Expr> {
 /// Split a numeric value into exact real and imaginary parts when trivially
 /// possible.
 fn eval_re_im(a: &Expr, want_re: bool) -> Option<Expr> {
+    if !a.is_number() && crate::assumptions::is_real(a) == Some(true) {
+        return Some(if want_re { a.clone() } else { Expr::zero() });
+    }
     match a.kind() {
         Kind::Num(_) | Kind::Const(Constant::Pi | Constant::E | Constant::EulerGamma) => {
             Some(if want_re { a.clone() } else { Expr::zero() })
@@ -908,6 +966,9 @@ fn eval_re_im(a: &Expr, want_re: bool) -> Option<Expr> {
 }
 
 fn eval_conjugate(a: &Expr) -> Option<Expr> {
+    if !a.is_number() && crate::assumptions::is_real(a) == Some(true) {
+        return Some(a.clone());
+    }
     match a.kind() {
         Kind::Num(_) | Kind::Const(Constant::Pi | Constant::E | Constant::EulerGamma) => {
             Some(a.clone())
@@ -976,6 +1037,25 @@ fn eval_minmax(f: &Func, args: Vec<Expr>) -> Expr {
     }
     rest.sort();
     rest.dedup();
+    // drop arguments dominated by another one (known sign of the difference)
+    let mut i = 0;
+    while i < rest.len() {
+        let dominated = (0..rest.len()).any(|j| {
+            j != i && {
+                let d = sub(&rest[j], &rest[i]);
+                if is_max {
+                    crate::assumptions::is_positive(&d) == Some(true)
+                } else {
+                    crate::assumptions::is_negative(&d) == Some(true)
+                }
+            }
+        });
+        if dominated {
+            rest.remove(i);
+        } else {
+            i += 1;
+        }
+    }
     if rest.len() == 1 {
         return rest.pop().unwrap();
     }

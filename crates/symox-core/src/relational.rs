@@ -19,6 +19,20 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
         return Some(matches!(op, RelOp::Eq | RelOp::Le | RelOp::Ge));
     }
     let d = sub(a, b);
+    if !d.is_number() {
+        use crate::assumptions as asm;
+        let r = match op {
+            RelOp::Gt => asm::is_positive(&d).or(asm::is_nonpositive(&d).map(|b| !b)),
+            RelOp::Ge => asm::is_nonnegative(&d).or(asm::is_negative(&d).map(|b| !b)),
+            RelOp::Lt => asm::is_negative(&d).or(asm::is_nonnegative(&d).map(|b| !b)),
+            RelOp::Le => asm::is_nonpositive(&d).or(asm::is_positive(&d).map(|b| !b)),
+            RelOp::Eq => asm::is_zero(&d),
+            RelOp::Ne => asm::is_zero(&d).map(|b| !b),
+        };
+        if r.is_some() {
+            return r;
+        }
+    }
     if let Kind::Num(n) = d.kind() {
         let c = n.cmp_value(&crate::number::Number::ZERO)?;
         return Some(cmp_holds(op, c));

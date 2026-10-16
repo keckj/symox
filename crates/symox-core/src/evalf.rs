@@ -175,7 +175,7 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
             }
             realonly(best)
         }
-        Func::Undefined(_) => return None,
+        Func::Order | Func::Undefined(_) => return None,
     })
 }
 

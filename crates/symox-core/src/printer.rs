@@ -1,7 +1,5 @@
 //! String printers: SymPy compatible `str` and `srepr`.
 
-use std::cmp::Ordering;
-
 use crate::expr::{Constant, Expr, Func, Kind, RelOp};
 use crate::number::{format_float, Number};
 use crate::ops::mul_factor;
@@ -41,12 +39,14 @@ fn prec(e: &Expr) -> u8 {
             }
         }
         Kind::Rel(..) => 20,
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => prec(&args[0]),
         _ => PREC_ATOM,
     }
 }
 
 /// SymPy `str()` of an expression.
 pub fn to_str(e: &Expr) -> String {
+    let _session = crate::printing::order::session();
     if let Kind::Num(Number::Float(f)) = e.kind() {
         // SymPy prints a lone Float with full precision
         return crate::number::format_float_full(*f);
@@ -70,12 +70,34 @@ fn paren(e: &Expr, p: u8, strict: bool, out: &mut String) {
 fn write_expr(e: &Expr, out: &mut String) {
     match e.kind() {
         Kind::Num(n) => out.push_str(&n.to_string()),
-        Kind::Sym(s) => out.push_str(s),
+        Kind::Sym(s) => {
+            out.push_str(s);
+            if s.is_wild() {
+                out.push('_');
+            }
+        }
         Kind::Const(c) => out.push_str(c.name()),
         Kind::Bool(b) => out.push_str(if *b { "True" } else { "False" }),
         Kind::Add(..) => write_add(e, out),
         Kind::Mul(..) => write_mul(e, out),
         Kind::Pow(b, x) => write_pow(b, x, out),
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" && args.len() == 1 => {
+            write_expr(&args[0], out);
+        }
+        Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => {
+            out.push('(');
+            for (i, a) in args.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                write_expr(a, out);
+            }
+            if args.len() == 1 {
+                out.push(',');
+            }
+            out.push(')');
+        }
+        Kind::Func(Func::Order, args) => out.push_str(&crate::series::print::order_str(args)),
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');
@@ -135,13 +157,14 @@ fn write_expr(e: &Expr, out: &mut String) {
     }
 }
 
-// ----------------------------------------------------------------------
-// term ordering (SymPy's `as_ordered_terms`, see `sortkey`)
-// ----------------------------------------------------------------------
-
-/// Terms of an `Add` in printing order.
+/// Terms of an `Add` in SymPy's printing order.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    crate::sortkey::ordered_terms(e)
+    if let Kind::Add(_, terms) = e.kind() {
+        if e.may_have_order() && terms.iter().any(|(t, _)| t.is_func(&Func::Order)) {
+            return crate::series::print::series_ordered_terms(e);
+        }
+    }
+    crate::printing::order::ordered_terms(e)
 }
 
 fn write_add(e: &Expr, out: &mut String) {
@@ -161,71 +184,52 @@ fn write_add(e: &Expr, out: &mut String) {
     }
 }
 
-fn sort_factors(v: &mut [Expr]) {
-    v.sort_by_cached_key(|f| SortKeyOrd(crate::sortkey::sort_key(f)));
+/// Negative-exponent test used to move factors to the denominator.
+fn negative_exponent(x: &Expr) -> Option<Expr> {
+    match x.kind() {
+        Kind::Num(n) if n.is_negative() => Some(Expr::num(n.neg())),
+        Kind::Mul(c, _) if c.is_negative() => Some(crate::ops::neg(x)),
+        _ => None,
+    }
 }
 
-struct SortKeyOrd(crate::sortkey::SortKey);
-
-impl PartialEq for SortKeyOrd {
-    fn eq(&self, o: &Self) -> bool {
-        self.0.compare(&o.0) == Ordering::Equal
-    }
-}
-impl Eq for SortKeyOrd {}
-impl PartialOrd for SortKeyOrd {
-    fn partial_cmp(&self, o: &Self) -> Option<Ordering> {
-        Some(self.cmp(o))
-    }
-}
-impl Ord for SortKeyOrd {
-    fn cmp(&self, o: &Self) -> Ordering {
-        self.0.compare(&o.0)
-    }
+/// Sort `Mul` factors in SymPy's `as_ordered_factors` printing order.
+pub fn sort_factors(v: &mut [Expr]) {
+    crate::printing::order::sort_factors(v)
 }
 
 fn write_mul(e: &Expr, out: &mut String) {
     let Kind::Mul(c, facs) = e.kind() else { unreachable!() };
+    let mut factors_src: Vec<(Expr, Expr)> = facs.clone();
     let mut c = c.clone();
     if c.is_negative() {
         out.push('-');
         c = c.neg();
     }
+    let body = if c.is_one() && factors_src.len() == 1 {
+        let (b, x) = factors_src.pop().unwrap();
+        mul_factor(&b, &x)
+    } else {
+        Expr::from_kind(Kind::Mul(c, facs.clone()))
+    };
+    let ordered = crate::sortkey::ordered_factors(&body);
     let mut num: Vec<Expr> = Vec::new();
     let mut den: Vec<Expr> = Vec::new();
-    match &c {
-        Number::Rational(_) => {
-            let n = c.numer();
-            if !n.is_one() {
-                num.push(Expr::num(n));
+    for item in ordered {
+        match item.kind() {
+            Kind::Pow(b, x) => match negative_exponent(x) {
+                Some(px) => den.push(mul_factor(b, &px)),
+                None => num.push(item.clone()),
+            },
+            Kind::Num(Number::Rational(r)) => {
+                let p = Number::from_bigint(r.numer().clone());
+                if !p.is_one() {
+                    num.push(Expr::num(p));
+                }
+                den.push(Expr::num(Number::from_bigint(r.denom().clone())));
             }
-            den.push(Expr::num(c.denom()));
+            _ => num.push(item.clone()),
         }
-        _ => {
-            if !c.is_one() {
-                num.push(Expr::num(c.clone()));
-            }
-        }
-    }
-    let mut num_f: Vec<Expr> = Vec::new();
-    let mut den_f: Vec<Expr> = Vec::new();
-    for (b, x) in facs {
-        match x.as_number() {
-            Some(n) if n.is_negative() && n.is_rational() => {
-                den_f.push(mul_factor(b, &Expr::num(n.neg())));
-            }
-            _ => num_f.push(mul_factor(b, x)),
-        }
-    }
-    sort_factors(&mut num_f);
-    sort_factors(&mut den_f);
-    num.extend(num_f);
-    // numeric denominator printed last ("3*x*y/2" but "x/(2*y)")
-    let mut den_all = den_f;
-    den_all.extend(den);
-    if den_all.len() > 1 {
-        // put the number first inside the denominator
-        den_all.sort_by_key(|f| if f.is_number() { 0 } else { 1 });
     }
     let write_list = |v: &[Expr], out: &mut String| {
         for (i, f) in v.iter().enumerate() {
@@ -240,13 +244,13 @@ fn write_mul(e: &Expr, out: &mut String) {
     } else {
         write_list(&num, out);
     }
-    if !den_all.is_empty() {
+    if !den.is_empty() {
         out.push('/');
-        if den_all.len() == 1 {
-            paren(&den_all[0], PREC_MUL, true, out);
+        if den.len() == 1 {
+            paren(&den[0], PREC_MUL, false, out);
         } else {
             out.push('(');
-            write_list(&den_all, out);
+            write_list(&den, out);
             out.push(')');
         }
     }
@@ -275,6 +279,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Rel(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(b) <= PREC_POW,
         _ => false,
     };
     if base_needs {
@@ -289,6 +294,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        Kind::Func(Func::Undefined(name), _) if name.as_ref() == "UnevaluatedExpr" => prec(x) <= PREC_POW,
         _ => false,
     };
     if exp_needs {
@@ -329,13 +335,33 @@ fn write_srepr(e: &Expr, out: &mut String) {
             Number::Rational(r) => out.push_str(&format!("Rational({}, {})", r.numer(), r.denom())),
             Number::Float(f) => out.push_str(&format!("Float('{}', precision=53)", format_float(*f))),
         },
-        Kind::Sym(s) => out.push_str(&format!("Symbol('{s}')")),
+        Kind::Sym(s) => {
+            let kw = s.given().keywords();
+            if kw.is_empty() {
+                out.push_str(&format!("Symbol('{s}')"));
+            } else {
+                out.push_str(&format!("Symbol('{s}', {})", kw.join(", ")));
+            }
+        }
         Kind::Const(c) => out.push_str(c.name()),
         Kind::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
+        Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
+        Kind::Func(Func::Order, args) => {
+            out.push_str("Order(");
+            write_srepr(&args[0], out);
+            for p in args[1..].chunks(2) {
+                out.push_str(", Tuple(");
+                write_srepr(&p[0], out);
+                out.push_str(", ");
+                write_srepr(&p[1], out);
+                out.push(')');
+            }
+            out.push(')');
+        }
         Kind::Func(f, args) => list(f.name(), args, out),
         Kind::Derivative(f, vars) => {
             out.push_str("Derivative(");

@@ -1,0 +1,75 @@
+//! Python bindings for `dsolve`.
+
+use pyo3::exceptions::PyNotImplementedError;
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyList, PyTuple};
+
+use symox::Expr;
+
+use crate::{to_expr, wrap};
+
+#[pyfunction]
+#[pyo3(signature = (eq, func=None, ics=None, **_hints))]
+fn dsolve(
+    py: Python<'_>,
+    eq: &Bound<'_, PyAny>,
+    func: Option<&Bound<'_, PyAny>>,
+    ics: Option<&Bound<'_, PyDict>>,
+    _hints: Option<&Bound<'_, PyDict>>,
+) -> PyResult<PyObject> {
+    let e = to_expr(eq)?;
+    let f = match func {
+        Some(f) => to_expr(f)?,
+        None => find_function(&e).ok_or_else(|| PyNotImplementedError::new_err("cannot determine the unknown function"))?,
+    };
+    let mut conds = Vec::new();
+    if let Some(d) = ics {
+        for (k, v) in d.iter() {
+            conds.push((to_expr(&k)?, to_expr(&v)?));
+        }
+    }
+    let sols = symox::ode::dsolve(&e, &f, &conds)
+        .ok_or_else(|| PyNotImplementedError::new_err(format!("dsolve: cannot solve {e}")))?;
+    if sols.len() == 1 {
+        return Ok(wrap(sols[0].clone()).into_pyobject(py)?.into_any().unbind());
+    }
+    Ok(PyList::new(py, sols.into_iter().map(wrap))?.into_any().unbind())
+}
+
+fn find_function(e: &Expr) -> Option<Expr> {
+    let mut found = None;
+    symox::traverse::preorder(e, &mut |s| {
+        if found.is_none() {
+            if let symox::Kind::Func(symox::Func::Undefined(n), a) = s.kind() {
+                if &**n != "Subs" && a.len() == 1 && a[0].is_symbol() {
+                    found = Some(s.clone());
+                }
+            }
+        }
+    });
+    found
+}
+
+/// `checkodesol(ode, sol)` -> `(True, 0)` when the solution checks.
+#[pyfunction]
+#[pyo3(signature = (ode, sol, func=None))]
+fn checkodesol<'py>(py: Python<'py>, ode: &Bound<'py, PyAny>, sol: &Bound<'py, PyAny>, func: Option<&Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyTuple>> {
+    let e = to_expr(ode)?;
+    let s = to_expr(sol)?;
+    let f = match func {
+        Some(f) => to_expr(f)?,
+        None => find_function(&e).ok_or_else(|| PyNotImplementedError::new_err("cannot determine the unknown function"))?,
+    };
+    let y = match s.kind() {
+        symox::Kind::Rel(_, _, r) => r.clone(),
+        _ => s.clone(),
+    };
+    let ok = symox::ode::checkodesol(&e, &f, &y);
+    PyTuple::new(py, [ok.into_pyobject(py)?.to_owned().into_any(), wrap(if ok { Expr::zero() } else { y }).into_pyobject(py)?.into_any()])
+}
+
+pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(dsolve, m)?)?;
+    m.add_function(wrap_pyfunction!(checkodesol, m)?)?;
+    Ok(())
+}

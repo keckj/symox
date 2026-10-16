@@ -1,337 +1,290 @@
-//! SymPy's `default_sort_key` and the printing order of terms and factors
-//! (`Add.as_ordered_terms`, `Mul.as_ordered_factors`).
+//! SymPy's `default_sort_key`, `as_ordered_terms` and `as_ordered_factors`.
+//!
+//! These orderings only matter for printing: internally sums and products
+//! are kept sorted by hash, which is much cheaper. Reproducing SymPy's
+//! orderings exactly is what makes the printed output identical.
 
 use std::cmp::Ordering;
 
-use crate::expr::{Constant, Expr, Func, Kind};
-use crate::number::Number;
-use crate::ops::{add_term, as_coeff_mul, mul, mul_factor, pow};
+use num_complex::Complex64;
 
-/// A sort key (mirrors the nested tuples SymPy builds).
+use crate::expr::{Constant, Expr, Func, Kind};
+use crate::functions::is_numeric_value;
+use crate::number::Number;
+use crate::ops::{as_coeff_mul, mul_factor, pow};
+
+/// A Python-tuple like sort key.
 #[derive(Clone, Debug)]
-pub enum SortKey {
+pub enum Key {
     Int(i64),
     Str(String),
     Num(Number),
-    Tup(Vec<SortKey>),
+    Tup(Vec<Key>),
 }
 
-impl SortKey {
-    pub fn compare(&self, o: &SortKey) -> Ordering {
+impl Key {
+    fn rank(&self) -> u8 {
+        match self {
+            Key::Int(_) => 0,
+            Key::Num(_) => 0,
+            Key::Str(_) => 1,
+            Key::Tup(_) => 2,
+        }
+    }
+}
+
+fn cmp_num(a: &Number, b: &Number) -> Ordering {
+    a.cmp_value(b).unwrap_or_else(|| a.cmp_struct(b))
+}
+
+impl Ord for Key {
+    fn cmp(&self, o: &Key) -> Ordering {
         match (self, o) {
-            (SortKey::Int(a), SortKey::Int(b)) => a.cmp(b),
-            (SortKey::Str(a), SortKey::Str(b)) => a.cmp(b),
-            (SortKey::Num(a), SortKey::Num(b)) => a.cmp_value(b).unwrap_or(Ordering::Equal),
-            (SortKey::Tup(a), SortKey::Tup(b)) => {
+            (Key::Int(a), Key::Int(b)) => a.cmp(b),
+            (Key::Num(a), Key::Num(b)) => cmp_num(a, b),
+            (Key::Int(a), Key::Num(b)) => cmp_num(&Number::Int(*a), b),
+            (Key::Num(a), Key::Int(b)) => cmp_num(a, &Number::Int(*b)),
+            (Key::Str(a), Key::Str(b)) => a.cmp(b),
+            (Key::Tup(a), Key::Tup(b)) => {
                 for (x, y) in a.iter().zip(b) {
-                    let c = x.compare(y);
-                    if c != Ordering::Equal {
-                        return c;
+                    let r = x.cmp(y);
+                    if r != Ordering::Equal {
+                        return r;
                     }
                 }
                 a.len().cmp(&b.len())
             }
-            (SortKey::Int(a), SortKey::Num(b)) => Number::Int(*a).cmp_value(b).unwrap_or(Ordering::Equal),
-            (SortKey::Num(a), SortKey::Int(b)) => a.cmp_value(&Number::Int(*b)).unwrap_or(Ordering::Equal),
-            _ => rank(self).cmp(&rank(o)),
+            _ => self.rank().cmp(&o.rank()),
         }
     }
 }
-
-fn rank(k: &SortKey) -> u8 {
-    match k {
-        SortKey::Int(_) | SortKey::Num(_) => 0,
-        SortKey::Str(_) => 1,
-        SortKey::Tup(_) => 2,
+impl PartialOrd for Key {
+    fn partial_cmp(&self, o: &Key) -> Option<Ordering> {
+        Some(self.cmp(o))
     }
 }
-
-fn tup(v: Vec<SortKey>) -> SortKey {
-    SortKey::Tup(v)
-}
-
-fn class_key3(a: i64, b: i64, name: &str) -> SortKey {
-    tup(vec![SortKey::Int(a), SortKey::Int(b), SortKey::Str(name.to_string())])
-}
-
-fn func_class_index(f: &Func) -> i64 {
-    match f {
-        Func::Exp => 10,
-        Func::Log => 11,
-        Func::Sin => 20,
-        Func::Cos => 21,
-        Func::Tan => 22,
-        Func::Cot => 23,
-        Func::Sinh => 30,
-        Func::Cosh => 31,
-        Func::Tanh => 32,
-        Func::Coth => 33,
-        Func::Conjugate => 40,
-        Func::Re => 41,
-        Func::Im => 42,
-        Func::Arg => 43,
-        Func::Undefined(_) | Func::Max | Func::Min => 0,
-        _ => 10000,
+impl PartialEq for Key {
+    fn eq(&self, o: &Key) -> bool {
+        self.cmp(o) == Ordering::Equal
     }
 }
+impl Eq for Key {}
 
-fn is_sympy_number(e: &Expr) -> bool {
-    match e.kind() {
-        Kind::Num(_) => true,
-        Kind::Const(c) => matches!(c, Constant::Infinity | Constant::NegInfinity | Constant::NaN),
-        _ => false,
-    }
+fn tup(v: Vec<Key>) -> Key {
+    Key::Tup(v)
 }
 
-/// SymPy's `class_key()`.
-pub fn class_key(e: &Expr) -> SortKey {
-    match e.kind() {
-        _ if is_sympy_number(e) => class_key3(1, 0, "Number"),
-        Kind::Sym(_) => class_key3(2, 0, "Symbol"),
-        Kind::Const(_) | Kind::Bool(_) => class_key3(2, 0, e.class_name()),
-        Kind::Mul(..) => class_key3(3, 0, "Mul"),
-        Kind::Add(..) => class_key3(3, 1, "Add"),
-        Kind::Pow(..) => class_key3(3, 2, "Pow"),
-        Kind::Func(f, _) => class_key3(4, func_class_index(f), f.name()),
-        _ => class_key3(5, 0, e.class_name()),
-    }
-}
-
-fn number_key(e: &Expr) -> SortKey {
-    let n = match e.kind() {
-        Kind::Num(n) => SortKey::Num(n.clone()),
-        Kind::Const(Constant::Infinity) => SortKey::Num(Number::float(f64::INFINITY)),
-        Kind::Const(Constant::NegInfinity) => SortKey::Num(Number::float(f64::NEG_INFINITY)),
-        _ => SortKey::Num(Number::float(f64::NAN)),
+fn class_key(e: &Expr) -> Key {
+    let (a, b, n): (i64, i64, String) = match e.kind() {
+        Kind::Num(_) => (1, 0, "Number".into()),
+        Kind::Const(c) => match c {
+            Constant::Infinity | Constant::NegInfinity | Constant::ComplexInfinity | Constant::NaN => {
+                (1, 0, "Number".into())
+            }
+            _ => (2, 0, e.class_name().into()),
+        },
+        Kind::Sym(_) | Kind::Bool(_) => (2, 0, e.class_name().into()),
+        Kind::Pow(..) => (3, 2, "Pow".into()),
+        Kind::Mul(..) => (3, 0, "Mul".into()),
+        Kind::Add(..) => (3, 1, "Add".into()),
+        Kind::Func(f, _) => {
+            let i = match f {
+                Func::Exp => 10,
+                Func::Log => 11,
+                Func::Sin => 20,
+                Func::Cos => 21,
+                Func::Tan => 22,
+                Func::Cot => 23,
+                Func::Sinh => 30,
+                Func::Cosh => 31,
+                Func::Tanh => 32,
+                Func::Coth => 33,
+                Func::Conjugate => 40,
+                Func::Re => 41,
+                Func::Im => 42,
+                Func::Arg => 43,
+                Func::Undefined(_) | Func::Max | Func::Min => 0,
+                _ => 10000,
+            };
+            (4, i, f.name().into())
+        }
+        Kind::Piecewise(_) => (4, 0, "Piecewise".into()),
+        _ => (5, 0, e.class_name().into()),
     };
-    tup(vec![class_key(e), tup(vec![SortKey::Int(0), tup(vec![])]), tup(vec![]), n])
+    tup(vec![Key::Int(a), Key::Int(b), Key::Str(n)])
 }
 
-fn one_key() -> SortKey {
-    number_key(&Expr::one())
+fn number_key(n: Number) -> Key {
+    tup(vec![
+        tup(vec![Key::Int(1), Key::Int(0), Key::Str("Number".into())]),
+        tup(vec![Key::Int(0), tup(vec![])]),
+        tup(vec![]),
+        Key::Num(n),
+    ])
 }
 
-/// SymPy's `default_sort_key(e)`.
-pub fn sort_key(e: &Expr) -> SortKey {
-    if is_sympy_number(e) {
-        return number_key(e);
-    }
+/// SymPy's `default_sort_key`.
+pub fn sort_key(e: &Expr) -> Key {
     match e.kind() {
-        Kind::Sym(s) => tup(vec![
-            class_key(e),
-            tup(vec![SortKey::Int(1), tup(vec![SortKey::Str(s.to_string())])]),
-            one_key(),
-            SortKey::Num(Number::ONE),
-        ]),
-        Kind::Const(_) | Kind::Bool(_) => tup(vec![
-            class_key(e),
-            tup(vec![SortKey::Int(1), tup(vec![SortKey::Str(crate::printer::to_str(e))])]),
-            one_key(),
-            SortKey::Num(Number::ONE),
-        ]),
-        Kind::Rel(..) | Kind::Piecewise(..) => {
-            let args: Vec<SortKey> = e.args().iter().map(sort_key).collect();
-            tup(vec![
-                class_key(e),
-                tup(vec![SortKey::Int(args.len() as i64), tup(args)]),
-                one_key(),
-                SortKey::Num(Number::ONE),
-            ])
+        Kind::Num(n) => return number_key(n.clone()),
+        Kind::Const(Constant::Infinity) => return number_key(Number::Float(f64::INFINITY)),
+        Kind::Const(Constant::NegInfinity) => return number_key(Number::Float(f64::NEG_INFINITY)),
+        Kind::Const(Constant::ComplexInfinity | Constant::NaN) => {
+            return number_key(Number::Float(f64::MAX))
         }
-        _ => {
-            let (coeff, rest) = as_coeff_mul(e);
-            let (expr, exp) = match rest.kind() {
-                Kind::Pow(b, x) => {
-                    if b.is_constant(Constant::E) {
-                        (crate::functions::exp(x), Expr::one())
-                    } else {
-                        (b.clone(), x.clone())
-                    }
-                }
-                _ => (rest.clone(), Expr::one()),
-            };
-            let args: Vec<SortKey> = if expr.is_atom() {
-                vec![SortKey::Str(crate::printer::to_str(&expr))]
-            } else {
-                let parts = match expr.kind() {
-                    Kind::Add(..) => ordered_terms(&expr),
-                    Kind::Mul(..) => ordered_factors(&expr),
-                    _ => expr.args(),
-                };
-                parts.iter().map(sort_key).collect()
-            };
-            tup(vec![
-                class_key(&expr),
-                tup(vec![SortKey::Int(args.len() as i64), tup(args)]),
-                sort_key(&exp),
-                SortKey::Num(coeff),
-            ])
-        }
+        _ => {}
     }
+    let (coeff, rest) = as_coeff_mul(e);
+    let (base, exp) = match rest.kind() {
+        Kind::Pow(b, x) => (b.clone(), x.clone()),
+        _ => (rest.clone(), Expr::one()),
+    };
+    let args: Vec<Key> = if base.is_atom() {
+        vec![Key::Str(crate::printer::to_str(&base))]
+    } else {
+        match base.kind() {
+            Kind::Add(..) => ordered_terms(&base).iter().map(sort_key).collect(),
+            Kind::Mul(..) => ordered_factors(&base).iter().map(sort_key).collect(),
+            _ => base.args().iter().map(sort_key).collect(),
+        }
+    };
+    tup(vec![
+        class_key(&base),
+        tup(vec![Key::Int(args.len() as i64), tup(args)]),
+        sort_key(&exp),
+        Key::Num(coeff),
+    ])
 }
 
-pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
-    sort_key(a).compare(&sort_key(b))
-}
-
-/// `Mul.as_ordered_factors()`: the factors (including the numeric
-/// coefficient) sorted by `default_sort_key`.
+/// SymPy's `as_ordered_factors` for a product (numbers first).
 pub fn ordered_factors(e: &Expr) -> Vec<Expr> {
-    let mut v = e.args();
-    if !e.is_mul() {
-        return vec![e.clone()];
-    }
-    let mut keyed: Vec<(SortKey, Expr)> = v.drain(..).map(|f| (sort_key(&f), f)).collect();
-    keyed.sort_by(|a, b| a.0.compare(&b.0));
+    let mut v = match e.kind() {
+        Kind::Mul(..) => e.args(),
+        _ => return vec![e.clone()],
+    };
+    let mut keyed: Vec<(Key, Expr)> = v.drain(..).map(|f| (sort_key(&f), f)).collect();
+    keyed.sort_by(|a, b| a.0.cmp(&b.0));
     keyed.into_iter().map(|x| x.1).collect()
 }
 
-/// SymPy's `decompose_power`.
-fn decompose_power(f: &Expr) -> (Expr, Expr) {
+/// SymPy's `decompose_power`: `(base, integer exponent)`.
+fn decompose_power(f: &Expr) -> (Expr, i64) {
     let (b, x) = match f.kind() {
         Kind::Pow(b, x) => (b.clone(), x.clone()),
         Kind::Func(Func::Exp, a) => (Expr::e(), a[0].clone()),
-        _ => return (f.clone(), Expr::one()),
-    };
-    let rebuild = |b: &Expr, x: &Expr| {
-        if b.is_constant(Constant::E) {
-            crate::functions::exp(x)
-        } else {
-            pow(b, x)
-        }
+        _ => return (f.clone(), 1),
     };
     if let Some(n) = x.as_number() {
-        if n.is_rational() {
-            let (p, q) = n.numer_denom().unwrap();
-            let base = if q == num_bigint::BigInt::from(1) {
-                b
-            } else {
-                rebuild(&b, &Expr::num(Number::rational(num_bigint::BigInt::from(1), q).unwrap()))
-            };
-            return (base, Expr::num(Number::from_bigint(p)));
-        }
-        return (f.clone(), Expr::one());
+        return match n {
+            Number::Int(k) => (b, *k),
+            Number::Rational(r) => {
+                let q = num_traits::ToPrimitive::to_i64(r.denom()).unwrap_or(1);
+                let p = num_traits::ToPrimitive::to_i64(r.numer()).unwrap_or(1);
+                (pow(&b, &Expr::rational(1, q)), p)
+            }
+            _ => (f.clone(), 1),
+        };
     }
     let (c, tail) = as_coeff_mul(&x);
     if !c.is_rational() || c.is_one() {
-        return (f.clone(), Expr::one());
+        return (f.clone(), 1);
     }
     if c.is_minus_one() {
-        return (rebuild(&b, &tail), Expr::minus_one());
+        return (pow(&b, &tail), -1);
     }
-    let (p, q) = c.numer_denom().unwrap();
-    let t = mul(&[Expr::num(Number::rational(num_bigint::BigInt::from(1), q).unwrap()), tail]);
-    (rebuild(&b, &t), Expr::num(Number::from_bigint(p)))
+    let p = c.numer().to_i64().unwrap_or(1);
+    let q = c.denom().to_i64().unwrap_or(1);
+    let t = crate::ops::mul2(&Expr::rational(1, q), &tail);
+    (pow(&b, &t), p)
 }
 
-fn is_number_like(e: &Expr) -> bool {
-    crate::functions::is_numeric_value(e)
-}
-
-fn coeff_key(re: f64, im: f64) -> (bool, f64, f64, f64) {
-    (im != 0.0, im, re, im)
-}
-
-fn cmp_f(a: f64, b: f64) -> Ordering {
-    a.partial_cmp(&b).unwrap_or(Ordering::Equal)
-}
-
-/// `Add.as_ordered_terms()` (SymPy's printing order of the terms).
+/// SymPy's `as_ordered_terms` (default `lex` order) for a sum.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    let Kind::Add(c, terms) = e.kind() else {
-        return vec![e.clone()];
+    let args = match e.kind() {
+        Kind::Add(..) => e.args(),
+        _ => return vec![e.clone()],
     };
-    let mut args: Vec<Expr> = terms.iter().map(|(t, k)| add_term(t, k)).collect();
-    if !c.is_zero() {
-        args.push(Expr::num(c.clone()));
-    }
-    // special case Add(Number, Mul(-Number, expr))
+    // special case: Number + Mul(negative Number, expr) prints number first
     if args.len() == 2 {
-        let is_num = |x: &Expr| is_sympy_number(x) || matches!(x.kind(), Kind::Const(Constant::Pi | Constant::E | Constant::EulerGamma));
-        let (n, m) = if is_num(&args[0]) { (&args[0], &args[1]) } else { (&args[1], &args[0]) };
-        if is_num(n) {
-            if let Kind::Mul(k, facs) = m.kind() {
-                let positive = match n.kind() {
-                    Kind::Num(x) => x.is_positive(),
-                    Kind::Const(Constant::Infinity) => true,
-                    Kind::Const(Constant::Pi | Constant::E | Constant::EulerGamma) => true,
-                    _ => false,
+        let (num, other): (Vec<&Expr>, Vec<&Expr>) =
+            args.iter().partition(|a| a.is_number() || is_number_symbol(a));
+        if num.len() == 1 && other.len() == 1 {
+            if let Kind::Mul(c, facs) = other[0].kind() {
+                let positive = match num[0].kind() {
+                    Kind::Num(n) => n.is_positive(),
+                    _ => true,
                 };
-                if facs.len() == 1 && !k.is_one() && k.is_negative() && positive {
-                    return vec![n.clone(), m.clone()];
+                if facs.len() == 1 && c.is_negative() && positive {
+                    return vec![num[0].clone(), other[0].clone()];
                 }
             }
         }
     }
     struct T {
-        expr: Expr,
-        re: f64,
-        im: f64,
-        cpart: Vec<(Expr, Expr)>,
-        s: String,
+        term: Expr,
+        coeff: Complex64,
+        cpart: Vec<(Expr, i64)>,
     }
+    let mut terms: Vec<T> = Vec::with_capacity(args.len());
     let mut gens: Vec<Expr> = Vec::new();
-    let mut ts: Vec<T> = Vec::with_capacity(args.len());
-    for t in &args {
-        let (k, rest) = as_coeff_mul(t);
-        let mut re = k.to_f64();
-        let mut im = 0.0;
-        let mut cpart: Vec<(Expr, Expr)> = Vec::new();
+    for t in args {
+        let (c, rest) = as_coeff_mul(&t);
+        let mut coeff = Complex64::new(c.to_f64(), 0.0);
+        let mut cpart: Vec<(Expr, i64)> = Vec::new();
         if !rest.is_one() {
-            let factors: Vec<Expr> = match rest.kind() {
-                Kind::Mul(_, facs) => facs.iter().map(|(b, x)| mul_factor(b, x)).collect(),
+            let factors = match rest.kind() {
+                Kind::Mul(_, fs) => fs.iter().map(|(b, x)| mul_factor(b, x)).collect(),
                 _ => vec![rest.clone()],
             };
             for f in factors {
-                if is_number_like(&f) {
+                if is_numeric_value(&f) {
                     if let Some(z) = crate::evalf::eval_c64(&f) {
-                        if z.re.is_finite() && z.im.is_finite() {
-                            let (a, b) = (re * z.re - im * z.im, re * z.im + im * z.re);
-                            re = a;
-                            im = b;
-                            continue;
-                        }
+                        coeff *= z;
+                        continue;
                     }
                 }
-                let (base, x) = decompose_power(&f);
-                if !gens.contains(&base) {
-                    gens.push(base.clone());
+                let (b, k) = decompose_power(&f);
+                if !gens.contains(&b) {
+                    gens.push(b.clone());
                 }
-                cpart.push((base, x));
+                cpart.push((b, k));
             }
         }
-        ts.push(T { expr: t.clone(), re, im, cpart, s: crate::printer::to_str(t) });
+        terms.push(T { term: t, coeff, cpart });
     }
-    let mut keyed: Vec<(SortKey, Expr)> = gens.iter().map(|g| (sort_key(g), g.clone())).collect();
-    keyed.sort_by(|a, b| a.0.compare(&b.0));
-    let gens: Vec<Expr> = keyed.into_iter().map(|x| x.1).collect();
-    let monom = |t: &T| -> Vec<Number> {
-        gens.iter()
-            .map(|g| {
-                t.cpart
-                    .iter()
-                    .find(|(b, _)| b == g)
-                    .and_then(|(_, x)| x.as_number().cloned())
-                    .unwrap_or(Number::ZERO)
-            })
-            .collect()
-    };
-    let mut items: Vec<(Vec<Number>, (bool, f64, f64, f64), &T)> =
-        ts.iter().map(|t| (monom(t), coeff_key(t.re, t.im), t)).collect();
-    items.sort_by(|a, b| {
-        // negated monomial ascending == monomial descending (lex)
-        for (x, y) in a.0.iter().zip(&b.0) {
-            let c = y.cmp_value(x).unwrap_or(Ordering::Equal);
-            if c != Ordering::Equal {
-                return c;
+    let mut gkeys: Vec<(Key, Expr)> = gens.into_iter().map(|g| (sort_key(&g), g)).collect();
+    gkeys.sort_by(|a, b| a.0.cmp(&b.0));
+    let gens: Vec<Expr> = gkeys.into_iter().map(|x| x.1).collect();
+    let mut keyed: Vec<(Vec<i64>, (bool, f64, f64), Expr)> = terms
+        .into_iter()
+        .map(|t| {
+            let mut monom = vec![0i64; gens.len()];
+            for (b, k) in &t.cpart {
+                let i = gens.iter().position(|g| g == b).unwrap();
+                monom[i] = *k;
             }
-        }
-        let (ka, kb) = (&a.1, &b.1);
-        ka.0.cmp(&kb.0)
-            .then_with(|| cmp_f(ka.1, kb.1))
-            .then_with(|| cmp_f(ka.2, kb.2))
-            .then_with(|| cmp_f(ka.3, kb.3))
-            .then_with(|| a.2.s.cmp(&b.2.s))
+            (monom, (t.coeff.im != 0.0, t.coeff.im, t.coeff.re), t.term)
+        })
+        .collect();
+    keyed.sort_by(|a, b| {
+        // descending lex on monomials, then ascending coefficient
+        b.0.cmp(&a.0).then_with(|| {
+            let (ai, aim, are) = a.1;
+            let (bi, bim, bre) = b.1;
+            ai.cmp(&bi)
+                .then(aim.partial_cmp(&bim).unwrap_or(Ordering::Equal))
+                .then(are.partial_cmp(&bre).unwrap_or(Ordering::Equal))
+                .then(aim.partial_cmp(&bim).unwrap_or(Ordering::Equal))
+        })
     });
-    items.into_iter().map(|x| x.2.expr.clone()).collect()
+    keyed.into_iter().map(|x| x.2).collect()
+}
+
+fn is_number_symbol(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Const(Constant::Pi | Constant::E | Constant::EulerGamma))
+}
+
+/// Compare expressions using SymPy default ordering.
+pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
+    sort_key(a).cmp(&sort_key(b))
 }

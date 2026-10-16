@@ -8,7 +8,7 @@ use std::fmt;
 
 use num_bigint::BigInt;
 
-use crate::expr::{Constant, Expr, Func, RelOp};
+use crate::expr::{Constant, Expr, Func, Kind, RelOp};
 use crate::functions::{func, log_base, undefined};
 use crate::number::Number;
 use crate::ops::{add, div, mul, neg, pow, sqrt};
@@ -142,6 +142,8 @@ enum Val {
 struct Parser {
     toks: Vec<(Tok, usize)>,
     pos: usize,
+    /// boolean keyword arguments of the call being parsed
+    kwargs: Vec<(String, bool)>,
 }
 
 type R<T> = Result<T, ParseError>;
@@ -306,13 +308,19 @@ impl Parser {
             return Ok(args);
         }
         loop {
-            // keyword arguments (evaluate=False, precision=53) are ignored
+            // keyword arguments: booleans are kept (Symbol assumptions),
+            // others (precision=53) are ignored
             if matches!(self.peek(), Tok::Ident(_))
                 && matches!(self.toks.get(self.pos + 1), Some((Tok::Op("="), _)))
             {
+                let Tok::Ident(key) = self.next() else { unreachable!() };
                 self.next();
-                self.next();
-                self.value()?;
+                let v = self.value()?;
+                if let Val::E(e) = &v {
+                    if let crate::expr::Kind::Bool(b) = e.kind() {
+                        self.kwargs.push((key, *b));
+                    }
+                }
                 match self.next() {
                     Tok::Comma => continue,
                     Tok::RParen => break,
@@ -364,7 +372,34 @@ impl Parser {
             }
             Tok::Ident(name) => {
                 if matches!(self.peek(), Tok::LParen) {
+                    let saved = std::mem::take(&mut self.kwargs);
                     let args = self.call_args()?;
+                    let kwargs = std::mem::replace(&mut self.kwargs, saved);
+                    if (name == "Symbol" || name == "Dummy") && !kwargs.is_empty() {
+                        if let Some(Val::Str(s)) = args.first() {
+                            let a = crate::symbol::Assumptions::from_kwargs(
+                                kwargs.iter().map(|(k, v)| (k.as_str(), *v)),
+                            )
+                            .map_err(|m| ParseError { msg: m, pos: self.at() })?;
+                            return Ok(Val::E(Expr::symbol_with(s, a)));
+                        }
+                    }
+                    if matches!(name.as_str(), "Add" | "Mul" | "Pow")
+                        && kwargs.iter().any(|(key, value)| key == "evaluate" && !value)
+                    {
+                        let v: Vec<Expr> = args.into_iter().map(|a| self.as_expr(a)).collect::<R<_>>()?;
+                        if name == "Pow" && v.len() != 2 { return self.err("Pow expects 2 arguments"); }
+                        if v.len() >= 2 {
+                            let kind = match name.as_str() {
+                                "Add" => Kind::Add(Number::Int(0), v.into_iter().map(|a| (a, Number::Int(1))).collect()),
+                                "Mul" => Kind::Mul(Number::Int(1), v.into_iter().map(|a| (a, Expr::one())).collect()),
+                                "Pow" if v.len() == 2 => Kind::Pow(v[0].clone(), v[1].clone()),
+                                _ => return self.err("Pow expects 2 arguments"),
+                            };
+                            return Ok(Val::E(Expr::from_unevaluated_kind(kind)));
+                        }
+                        return Ok(Val::E(if name == "Add" { add(&v) } else { mul(&v) }));
+                    }
                     return self.call(&name, args);
                 }
                 Ok(Val::E(ident(&name)))
@@ -393,6 +428,9 @@ impl Parser {
                 Some(Val::Str(s)) => return Ok(Val::Str(s.clone())),
                 _ => return self.err("Function expects a string"),
             },
+            "UnevaluatedExpr" => Expr::from_kind(Kind::Func(
+                Func::Undefined("UnevaluatedExpr".into()), vec![one(self, args)?],
+            )),
             "Integer" | "S" | "sympify" | "Float" | "N" => {
                 let v = match args.into_iter().next() {
                     Some(Val::Str(s)) => parse_str(&s)?,
@@ -498,6 +536,26 @@ impl Parser {
                     crate::diff::derivative_unevaluated(&f, vars)
                 }
             }
+            "O" | "Order" => {
+                let mut it = args.into_iter();
+                let e = match it.next() {
+                    Some(v) => self.as_expr(v)?,
+                    None => return self.err("Order expects arguments"),
+                };
+                let mut vars = Vec::new();
+                for a in it {
+                    match a {
+                        Val::Tuple(t) if t.len() == 2 => {
+                            let mut it = t.into_iter();
+                            let v = self.as_expr(it.next().unwrap())?;
+                            let p = self.as_expr(it.next().unwrap())?;
+                            vars.push((v, p));
+                        }
+                        v => vars.push((self.as_expr(v)?, Expr::zero())),
+                    }
+                }
+                crate::series::order::order(&e, &vars)
+            }
             "Tuple" => {
                 return Ok(Val::Tuple(args));
             }
@@ -552,7 +610,7 @@ pub fn parse_number(s: &str) -> Option<Expr> {
 /// Parse a string into an expression.
 pub fn parse_str(s: &str) -> Result<Expr, ParseError> {
     let toks = tokenize(s)?;
-    let mut p = Parser { toks, pos: 0 };
+    let mut p = Parser { toks, pos: 0, kwargs: Vec::new() };
     let e = p.expr()?;
     if !matches!(p.peek(), Tok::End) {
         return p.err(format!("unexpected trailing token {:?}", p.peek()));
