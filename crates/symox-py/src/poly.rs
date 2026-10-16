@@ -896,6 +896,8 @@ fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multip
         });
     }
     if multiple {
+        // SymPy: ordered(result)
+        rs.sort_by_cached_key(|(r, _)| symox::sortkey::sort_key(r));
         let l = PyList::empty(py);
         for (r, k) in rs {
             for _ in 0..k {

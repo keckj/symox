@@ -200,7 +200,8 @@ fn gcd_terms(terms: &[Expr]) -> Expr {
     } else {
         (cont, numer)
     };
-    mul(&[cont, numer, pow(&denom, &Expr::minus_one())])
+    let (coeff, factors) = as_coeff_mul(&cont);
+    keep_coeff(&Expr::num(coeff), &mul(&[factors, numer, pow(&denom, &Expr::minus_one())]))
 }
 
 /// SymPy's `together` (not deep).
@@ -836,6 +837,9 @@ pub fn apart(f: &Expr, x: Option<&Expr>) -> PResult<Expr> {
     let gens: Vec<Expr> = x.into_iter().cloned().collect();
     let ps = Poly::from_exprs(&[p, q], &gens)?;
     let (pp, qp) = (&ps[0], &ps[1]);
+    if pp.ngens == 1 && pp.has_domain_gens() {
+        return apart_param(pp, qp);
+    }
     if pp.gens.len() > 1 || pp.has_domain_gens() {
         let fc = cancel(f)?;
         if fc != *f {
@@ -876,6 +880,112 @@ pub fn apart(f: &Expr, x: Option<&Expr>) -> PResult<Expr> {
     let mut all = vec![poly_e];
     all.extend(terms);
     Ok(mul(&[Expr::num(common.to_number()), add(&all)]))
+}
+
+fn rf_expr(r: &super::ratfunc::RF, gens: &[Expr]) -> Expr {
+    let n = super::convert::to_expr_int(&r.n, gens);
+    if r.d.is_one() {
+        return n;
+    }
+    div(&n, &super::convert::to_expr_int(&r.d, gens))
+}
+
+fn rf_dense_expr(p: &[super::ratfunc::RF], gens: &[Expr]) -> Expr {
+    let mut terms = Vec::new();
+    for (i, c) in p.iter().enumerate() {
+        if c.n.is_zero() {
+            continue;
+        }
+        terms.push(mul(&[rf_expr(c, gens), pow(&gens[0], &Expr::int(i as i64))]));
+    }
+    add(&terms)
+}
+
+fn rf_dense(p: &MPoly<Int>) -> Vec<super::ratfunc::RF> {
+    use super::ratfunc::RF;
+    let n = p.nvars;
+    let d = p.degree(0).max(0) as usize;
+    let mut out: Vec<RF> = (0..=d).map(|_| RF::from_poly(MPoly::zero(n))).collect();
+    if p.is_zero() {
+        return vec![];
+    }
+    for (k, c) in p.coeffs_in(0) {
+        out[k as usize] = RF::from_poly(c);
+    }
+    out
+}
+
+/// `apart` with symbolic parameters: partial fractions over `QQ(params)`.
+fn apart_param(pp: &Poly, qp: &Poly) -> PResult<Expr> {
+    use super::ratfunc::{set_nvars, RF};
+    let n = pp.gens.len();
+    let gens = pp.gens.clone();
+    let old = set_nvars(n);
+    let res = (|| -> PResult<Expr> {
+        // P.cancel(Q) over ZZ[params] (dmp_cancel with include=False)
+        let (cq0, f) = pp.rep.clear_denoms();
+        let (cp0, g) = qp.rep.clear_denoms();
+        let (_, mut p, mut q) = super::gcd::gcd_mz(&f, &g);
+        let gg = cp0.gcd(&cq0);
+        let mut cp = cp0.div_exact_unchecked(&gg);
+        let cq = cq0.div_exact_unchecked(&gg);
+        let pn = p.lc().is_negative();
+        let qn = q.lc().is_negative();
+        if pn && qn {
+            p = p.neg();
+            q = q.neg();
+        } else if pn {
+            cp = cp.neg();
+            p = p.neg();
+        } else if qn {
+            cp = cp.neg();
+            q = q.neg();
+        }
+        let common = Rat::new(cp, cq);
+        if q.degree(0) <= 0 {
+            return Err(PolyError::Unsupported("apart: denominator free of the variable".into()));
+        }
+        let pd = rf_dense(&p);
+        let qd = rf_dense(&q);
+        let (poly, rem) = if pd.is_empty() { (vec![], vec![]) } else { dense::divrem(&pd, &qd) };
+        let mut terms: Vec<Expr> = vec![rf_dense_expr(&poly, &gens)];
+        if !rem.is_empty() {
+            if q.degree(0) <= 1 {
+                let t = div(&rf_dense_expr(&rem, &gens), &rf_dense_expr(&qd, &gens));
+                terms.push(factor(&t)?);
+            } else {
+                let (_, fs) = super::factor_multi::factor_list_mz(&q);
+                for (fct, k) in fs {
+                    if fct.degree(0) <= 0 {
+                        continue;
+                    }
+                    let fd = rf_dense(&fct);
+                    let mut a = vec![<RF as super::int::Coeff>::one()];
+                    for _ in 0..k {
+                        a = dense::mul(&a, &fd);
+                    }
+                    let (b, _) = dense::divrem(&qd, &a);
+                    let (_, s, _) = dense::gcdex_field(&dense::rem(&b, &a), &a);
+                    let mut num = dense::rem(&dense::mul(&rem, &s), &a);
+                    let fe = super::convert::to_expr_int(&fct, &gens);
+                    let mut i = 0u32;
+                    while !num.is_empty() && i < k {
+                        let (qt, rr) = dense::divrem(&num, &fd);
+                        if !rr.is_empty() {
+                            let he = rf_dense_expr(&rr, &gens);
+                            let t = div(&he, &pow(&fe, &Expr::int((k - i) as i64)));
+                            terms.push(factor(&t)?);
+                        }
+                        num = qt;
+                        i += 1;
+                    }
+                }
+            }
+        }
+        Ok(mul(&[Expr::num(common.to_number()), add(&terms)]))
+    })();
+    set_nvars(old);
+    res
 }
 
 /// `dmp_cancel(include=False)` for univariate polynomials over `QQ`:

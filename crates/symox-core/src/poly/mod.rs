@@ -31,3 +31,4 @@ pub mod api;
 pub mod resultant;
 pub mod roots;
 pub mod modgcd;
+pub mod ratfunc;
