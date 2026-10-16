@@ -1,7 +1,7 @@
 //! String printers: SymPy compatible `str` and `srepr`.
 
 use crate::expr::{Constant, Expr, Func, Kind, RelOp};
-use crate::number::{format_float, Number};
+use crate::number::Number;
 use crate::ops::mul_factor;
 
 const PREC_ADD: u8 = 40;
@@ -333,7 +333,9 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Num(n) => match n {
             Number::Int(_) | Number::BigInt(_) => out.push_str(&format!("Integer({n})")),
             Number::Rational(r) => out.push_str(&format!("Rational({}, {})", r.numer(), r.denom())),
-            Number::Float(f) => out.push_str(&format!("Float('{}', precision=53)", format_float(*f))),
+            // Seventeen significant digits recover every finite f64. The
+            // human-readable str formatter intentionally rounds to 15.
+            Number::Float(f) => out.push_str(&format!("Float('{f:.16e}', precision=53)")),
         },
         Kind::Sym(s) => {
             let kw = s.given().keywords();
@@ -348,6 +350,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
         Kind::Mul(..) => list("Mul", &e.args(), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
+        Kind::Func(Func::Undefined(n), args) if &**n == "Tuple" => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.as_ref() == "UnevaluatedExpr" => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
         Kind::Func(Func::Order, args) => {

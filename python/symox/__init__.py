@@ -112,7 +112,7 @@ class Function:
 # ---------------------------------------------------------------------------
 
 from ._core import (  # noqa: E402
-    binomial, crt, divisor_count, divisor_sigma, divisors, factorial, factorint,
+    crt, divisor_count, divisor_sigma, divisors, factorint,
     integer_nthroot, isprime, jacobi_symbol, legendre_symbol, mobius, mod_inverse,
     n_order, nextprime, perfect_power, prevprime, prime, primepi, primerange,
     primitive_root, totient,
@@ -123,6 +123,56 @@ from ._core import (  # noqa: E402
     logcombine, nsimplify, powsimp, trigsimp,
 )
 from ._core import checkodesol, dsolve, nsolve, solve  # noqa: E402
+
+# --- special ---
+# Special functions (symox::special): every head is a real function node with
+# SymPy's automatic evaluation, derivatives and numerics.
+from ._core import (  # noqa: E402
+    besselsimp, expand_func, hyperexpand, multinomial_coefficients, stirling,
+)
+
+_SPECIAL = [
+    "factorial", "factorial2", "subfactorial", "binomial", "RisingFactorial",
+    "FallingFactorial", "harmonic", "bernoulli", "euler", "catalan", "fibonacci",
+    "lucas", "partition", "polygamma", "digamma", "trigamma", "beta",
+    "lowergamma", "uppergamma", "zeta", "dirichlet_eta", "polylog", "lerchphi",
+    "erfi", "erf2", "erfinv", "erfcinv", "fresnels", "fresnelc", "Ei", "li", "Li",
+    "Si", "Ci", "Shi", "Chi", "expint", "E1", "besselj", "bessely", "besseli",
+    "besselk", "hankel1", "hankel2", "jn", "yn", "airyai", "airybi",
+    "airyaiprime", "airybiprime", "elliptic_k", "elliptic_e", "elliptic_f",
+    "elliptic_pi", "LambertW", "legendre", "assoc_legendre", "chebyshevt",
+    "chebyshevu", "hermite", "laguerre", "assoc_laguerre", "jacobi",
+    "gegenbauer", "Ynm",
+]
+for _n in _SPECIAL:
+    globals()[_n] = _make(_n)
+rf = RisingFactorial  # noqa: F821
+ff = FallingFactorial  # noqa: F821
+
+
+def _tuple(items):
+    return _core._apply("Tuple", *items)
+
+
+def hyper(ap, bq, z):
+    """Generalised hypergeometric function ``hyper(ap, bq, z)``."""
+    return _core._apply("hyper", _tuple(ap), _tuple(bq), z)
+
+
+def bell(n, k_sym=None, symbols=None):
+    """Bell numbers, Bell polynomials and incomplete Bell polynomials."""
+    if k_sym is None:
+        return _core._apply("bell", n)
+    if symbols is None:
+        return _core._apply("bell", n, k_sym)
+    return _core._apply("bell", n, k_sym, _tuple(symbols))
+
+
+def special_nstr(e, dps=15):
+    """Arbitrary precision value of ``e`` as a string (``None`` if not
+    supported)."""
+    return _core._nstr(e, dps)
+# --- end special ---
 
 # ---------------------------------------------------------------------------
 # relationals

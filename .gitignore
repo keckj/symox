@@ -6,3 +6,4 @@
 .venv*
 /dist
 .pytest_cache
+tests/fuzz/out/

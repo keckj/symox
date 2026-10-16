@@ -6,9 +6,8 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use symox::ntheory as nt;
-use symox::Expr;
 
-use crate::{to_expr, wrap, PyExpr};
+use crate::to_expr;
 
 fn int_arg(o: &Bound<'_, PyAny>) -> PyResult<BigInt> {
     if let Ok(b) = o.extract::<BigInt>() {
@@ -140,29 +139,6 @@ fn crt(m: Vec<BigInt>, v: Vec<BigInt>) -> Option<(BigInt, BigInt)> {
     nt::crt(&v, &m)
 }
 
-/// factorial(n): an Integer for integer n, else unevaluated.
-#[pyfunction]
-fn factorial(n: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    let e = to_expr(n)?;
-    if let Some(k) = e.as_i64() {
-        if k < 0 {
-            return Ok(wrap(Expr::zoo()));
-        }
-        return Ok(wrap(Expr::num(symox::Number::from_bigint(nt::factorial(k as u64)))));
-    }
-    Ok(wrap(symox::functions::undefined("factorial", vec![e])))
-}
-
-/// binomial(n, k): an Integer for integer arguments, else unevaluated.
-#[pyfunction]
-fn binomial(n: &Bound<'_, PyAny>, k: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    let (ne, ke) = (to_expr(n)?, to_expr(k)?);
-    if let (Some(a), Some(b)) = (ne.as_number().and_then(|x| x.to_bigint()), ke.as_number().and_then(|x| x.to_bigint())) {
-        return Ok(wrap(Expr::num(symox::Number::from_bigint(nt::binomial(&a, &b)))));
-    }
-    Ok(wrap(symox::functions::undefined("binomial", vec![ne, ke])))
-}
-
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(isprime, m)?)?;
     m.add_function(wrap_pyfunction!(factorint, m)?)?;
@@ -184,7 +160,5 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(n_order, m)?)?;
     m.add_function(wrap_pyfunction!(primitive_root, m)?)?;
     m.add_function(wrap_pyfunction!(crt, m)?)?;
-    m.add_function(wrap_pyfunction!(factorial, m)?)?;
-    m.add_function(wrap_pyfunction!(binomial, m)?)?;
     Ok(())
 }

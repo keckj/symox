@@ -37,6 +37,7 @@ pub fn eval_c64(e: &Expr) -> Option<C64> {
             p
         }
         Kind::Pow(b, x) => cpow(eval_c64(b)?, x)?,
+        Kind::Func(Func::Special(s), args) => crate::special::numeric::eval_c64(*s, args)?,
         Kind::Func(f, args) => {
             let a: Option<Vec<C64>> = args.iter().map(eval_c64).collect();
             apply_c64(f, &a?)?
@@ -143,10 +144,10 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
         }
         Func::Floor => realonly(real(x)?.floor()),
         Func::Ceiling => realonly(real(x)?.ceil()),
-        Func::Gamma => realonly(gamma_f64(real(x)?)),
-        Func::LogGamma => realonly(gamma_f64(real(x)?).abs().ln()),
-        Func::Erf => realonly(erf_f64(real(x)?)),
-        Func::Erfc => realonly(1.0 - erf_f64(real(x)?)),
+        Func::Gamma => crate::special::numeric::gamma::gamma_c(x)?,
+        Func::LogGamma => crate::special::numeric::gamma::loggamma_c(x)?,
+        Func::Erf => crate::special::numeric::erf::erf_c(x),
+        Func::Erfc => crate::special::numeric::erf::erfc_c(x),
         Func::Re => realonly(x.re),
         Func::Im => realonly(x.im),
         Func::Conjugate => x.conj(),
@@ -175,6 +176,7 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
             }
             realonly(best)
         }
+        Func::Special(s) => return crate::special::numeric::apply(*s, a),
         Func::Order | Func::Undefined(_) => return None,
     })
 }

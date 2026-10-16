@@ -297,6 +297,9 @@ fn integ_inner(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Op
     if let Some(r) = table(f, x) {
         return Some(r);
     }
+    if let Some(r) = crate::special::integrate::table(f, x) {
+        return Some(r);
+    }
     if let Some(r) = rational(f, x, depth, seen) {
         return Some(r);
     }
