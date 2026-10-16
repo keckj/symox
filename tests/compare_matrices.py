@@ -258,6 +258,16 @@ Matrix([1, 2, 3]).dot(Matrix([4, 5, 6]))
 Matrix([x, y, z]).dot(Matrix([1, 2, 3]))
 Matrix([1, 0, 0]).cross(Matrix([0, 1, 0]))
 Matrix([[x, y, z]]).cross(Matrix([[1, 2, 3]]))
+# --- errors (exception types must match) ---
+Matrix([[1, 2], [2, 4]]).inv()
+Matrix([[1, 2, 3], [4, 5, 6]]).det()
+Matrix([[1, 2], [3, 4]]) + Matrix([[1, 2, 3]])
+Matrix([[1, 2], [3, 4]])*Matrix([[1, 2, 3]])
+Matrix([[1, 2], [2, 4]]).solve(Matrix([1, 2]))
+Matrix([[1, 2], [3, 4]])[2, 0]
+Matrix([[1, 2, 3], [4, 5, 6]]).inv()
+Matrix([[1, 2, 3]]).cross(Matrix([[1, 2]]))
+Matrix([[1, 2], [2, 4]]).LUsolve(Matrix([1, 2]))
 # --- harder cases ---
 Matrix(5, 5, lambda i, j: x**((i*j) % 3) + i - j).det()
 Matrix(5, 5, lambda i, j: (x + y)**((i + j) % 2) - i*j).det()
@@ -452,7 +462,9 @@ def compare(case):
         exp_x = eval(case, ns_x)
     except Exception as e:  # noqa: BLE001
         if isinstance(exp_s, Exception):
-            return "same-error", type(e).__name__, type(exp_s).__name__
+            if type(e).__name__ == type(exp_s).__name__:
+                return "same-error", type(e).__name__, type(exp_s).__name__
+            return "error", f"{type(e).__name__}: {e}", f"{type(exp_s).__name__}: {exp_s}"
         return "error", f"{type(e).__name__}: {e}", str(exp_s)
     if isinstance(exp_s, Exception):
         return "DIFFERENT", str(exp_x), f"{type(exp_s).__name__}: {exp_s}"
@@ -485,10 +497,77 @@ def run(verbose=True, show_all=False):
     return bad
 
 
+def test_python_api():
+    """Mutation, conversions and errors (not covered by str comparison)."""
+    import numpy as np
+
+    X = symox
+    x, y = X.symbols("x y")
+    M = X.Matrix([[1, 2], [3, 4]])
+    M[0, 1] = x
+    assert str(M) == "Matrix([[1, x], [3, 4]])"
+    M[3] = y
+    assert M[1, 1] == y and M[-1] == y
+    M[:, 0] = X.Matrix([7, 8])
+    assert M.tolist() == [[7, x], [8, y]]
+    M[0, :] = [9, 10]
+    assert str(M) == "Matrix([[9, 10], [8, y]])"
+    N = M.copy()
+    N[0, 0] = 0
+    assert M[0, 0] == 9
+    M.row_del(0)
+    assert M.shape == (1, 2)
+    M.col_del(-1)
+    assert str(M) == "Matrix([[8]])"
+    try:
+        hash(X.Matrix([[1]]))
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("mutable matrices must be unhashable")
+    # errors are SymPy-like
+    try:
+        X.Matrix([[1, 2], [2, 4]]).inv()
+    except X.NonInvertibleMatrixError as e:
+        assert isinstance(e, ValueError) and isinstance(e, X.MatrixError)
+    else:
+        raise AssertionError
+    try:
+        X.Matrix([[1, 2, 3]]).det()
+    except X.NonSquareMatrixError as e:
+        assert isinstance(e, X.ShapeError)
+    try:
+        X.Matrix([[1, 2]]) + X.Matrix([[1, 2, 3]])
+    except X.ShapeError:
+        pass
+    # SymPy round trip
+    sx, sy = sympy.symbols("x y")
+    S = sympy.Matrix([[sx, sympy.Rational(1, 2)], [sympy.sin(sy), 3]])
+    A = X.Matrix(S)
+    assert str(A) == str(S)
+    assert A.to_sympy() == S
+    assert sympy.sympify(A) == S
+    assert A == S
+    # numpy input
+    B = X.Matrix(np.array([[1, 2], [3, 4]]))
+    assert str(B) == "Matrix([[1, 2], [3, 4]])"
+    # constructors
+    assert X.Matrix(2, 2, [1, 2, 3, 4]) == X.Matrix([[1, 2], [3, 4]])
+    assert X.Matrix(2, 2, lambda i, j: i - j).tolist() == [[0, -1], [1, 0]]
+    assert X.Matrix([[1, 2], [3, 4]]).applyfunc(lambda e: e + x)[1, 1] == x + 4
+    assert list(X.Matrix([[1, 2], [3, 4]])) == [1, 2, 3, 4]
+    assert (x * X.Matrix([[1, 2]])).tolist() == [[x, 2 * x]]
+    assert X.Matrix([1, 2]).T.shape == (1, 2)
+    cp = X.Matrix([[1, 2], [3, 4]]).charpoly(x)
+    assert cp.as_expr() == x**2 - 5 * x - 2 and cp.all_coeffs() == [1, -5, -2]
+    assert X.det(X.Matrix([[1, 2], [3, 4]])) == -2
+
+
 def test_matrices_against_sympy():
     bad = run(verbose=False)
     assert not bad, "\n".join(f"{c}: symox={g} sympy={w}" for c, g, w in bad)
 
 
 if __name__ == "__main__":
+    test_python_api()
     sys.exit(1 if run(show_all="-v" in sys.argv) else 0)
