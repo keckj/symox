@@ -975,6 +975,11 @@ impl<'a> CodePrinter<'a> {
 
     fn print_func(&self, e: &Expr) -> CodeResult {
         let Kind::Func(f, args) = e.kind() else { unreachable!() };
+        if matches!(f, Func::MatrixTrace(_) | Func::MatrixDeterminant(_)) {
+            let explicit = crate::functions::materialize_matrix_scalars(e)
+                .map_err(|error| CodeError::Unsupported(error.to_string()))?;
+            return self.print(&explicit);
+        }
         if let Func::MatrixElement(parent) = f {
             let crate::matrixexpr::MatrixKind::Symbol(name) = parent.kind() else {
                 return Err(CodeError::Unsupported("an unevaluated matrix operation in a scalar entry".into()));

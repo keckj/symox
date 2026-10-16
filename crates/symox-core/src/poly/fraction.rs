@@ -20,6 +20,7 @@ pub struct FractionPoly {
 }
 
 pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr>>> {
+    if domain.starts_with("QQ<") {return Ok(None);}
     let Some(open) = domain.find(['(', '[']) else {
         return Ok(None);
     };
@@ -416,10 +417,11 @@ pub fn coefficient_in_ring(c: &RF, integral: bool) -> bool {
 pub struct Polynomial {
     pub base: Poly,
     pub field: Option<FractionPoly>,
+    pub algebraic: Option<super::algebraic::AlgebraicPoly>,
 }
 impl From<Poly> for Polynomial {
     fn from(base: Poly) -> Self {
-        Self { base, field: None }
+        Self { base, field: None, algebraic:None }
     }
 }
 impl From<FractionPoly> for Polynomial {
@@ -427,8 +429,12 @@ impl From<FractionPoly> for Polynomial {
         Self {
             base: field.legacy(),
             field: Some(field),
+            algebraic:None,
         }
     }
+}
+impl From<super::algebraic::AlgebraicPoly> for Polynomial {
+    fn from(p:super::algebraic::AlgebraicPoly)->Self {Self {base:p.legacy(),field:None,algebraic:Some(p)}}
 }
 impl std::ops::Deref for Polynomial {
     type Target = Poly;
@@ -443,16 +449,19 @@ impl std::ops::DerefMut for Polynomial {
 }
 impl Polynomial {
     pub fn as_expr(&self) -> Expr {
+        if let Some(p)=&self.algebraic {return p.as_expr();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.as_expr(), FractionPoly::as_expr)
     }
     pub fn domain_str(&self) -> String {
+        if let Some(p)=&self.algebraic {return p.number_field.display();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.domain_str(), |p| p.display.clone())
     }
     pub fn terms(&self) -> Vec<(Vec<u32>, Expr)> {
+        if let Some(p)=&self.algebraic {return p.terms();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.terms(), FractionPoly::terms)
@@ -482,7 +491,7 @@ impl Polynomial {
             .unwrap_or_else(Expr::zero)
     }
     pub fn all_coeffs(&self) -> PResult<Vec<Expr>> {
-        if self.field.is_none() {
+        if self.field.is_none() && self.algebraic.is_none() {
             return self.base.all_coeffs();
         }
         if self.ngens != 1 {
@@ -492,6 +501,13 @@ impl Polynomial {
         }
         let n = self.base.rep.degree(0).max(0) as u32;
         Ok((0..=n).rev().map(|i| self.coeff_monomial(&[i])).collect())
+    }
+    fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
+        let prototype=self.algebraic.as_ref().or(o.algebraic.as_ref())?;
+        let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
+        let a=super::algebraic::AlgebraicPoly::from_expr(&self.as_expr(),&gens,prototype.number_field.clone()).expect("compatible algebraic fields");
+        let b=super::algebraic::AlgebraicPoly::from_expr(&o.as_expr(),&gens,prototype.number_field.clone()).expect("compatible algebraic fields");
+        Some((a,b))
     }
     fn pair(&self, o: &Self) -> Option<(FractionPoly, FractionPoly)> {
         let prototype = self.field.as_ref().or(o.field.as_ref())?;
@@ -547,6 +563,7 @@ impl Polynomial {
         Some((a, b))
     }
     pub fn add(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.algebraic_pair(o){return a.add(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.add(&b).into()
         } else {
@@ -554,6 +571,7 @@ impl Polynomial {
         }
     }
     pub fn sub(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.algebraic_pair(o){return a.sub(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.sub(&b).into()
         } else {
@@ -561,6 +579,7 @@ impl Polynomial {
         }
     }
     pub fn mul(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.algebraic_pair(o){return a.mul(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.mul(&b).into()
         } else {
@@ -568,26 +587,31 @@ impl Polynomial {
         }
     }
     pub fn neg(&self) -> Self {
+        if let Some(p)=&self.algebraic {return p.neg().into();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.neg().into(), |p| p.neg().into())
     }
     pub fn pow(&self, k: u32) -> Self {
+        if let Some(p)=&self.algebraic {return p.pow(k).into();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.pow(k).into(), |p| p.pow(k).into())
     }
     pub fn diff(&self, i: usize) -> Self {
+        if let Some(p)=&self.algebraic {return p.diff(i).into();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.diff(i).into(), |p| p.diff(i).into())
     }
     pub fn integrate(&self, i: usize) -> Self {
+        if let Some(p)=&self.algebraic {return p.integrate(i).into();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.integrate(i).into(), |p| p.integrate(i).into())
     }
     pub fn div(&self, o: &Self) -> PResult<(Self, Self)> {
+        if let Some((a,b))=self.algebraic_pair(o){let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
         if let Some((a, b)) = self.pair(o) {
             let (q, r) = a.div(&b)?;
             Ok((q.into(), r.into()))
@@ -597,13 +621,13 @@ impl Polynomial {
         }
     }
     pub fn rem(&self, o: &Self) -> PResult<Self> {
-        if self.field.is_none() && o.field.is_none() {
+        if self.field.is_none() && o.field.is_none() && self.algebraic.is_none() && o.algebraic.is_none() {
             return Ok(self.base.rem(&o.base)?.into());
         }
         Ok(self.div(o)?.1)
     }
     pub fn quo(&self, o: &Self) -> PResult<Self> {
-        if self.field.is_none() && o.field.is_none() {
+        if self.field.is_none() && o.field.is_none() && self.algebraic.is_none() && o.algebraic.is_none() {
             return Ok(self.base.quo(&o.base)?.into());
         }
         Ok(self.div(o)?.0)
@@ -617,6 +641,7 @@ impl Polynomial {
         }
     }
     pub fn gcd(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.algebraic_pair(o){return a.gcd(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.gcd(&b).into()
         } else {
@@ -624,6 +649,7 @@ impl Polynomial {
         }
     }
     pub fn lcm(&self, o: &Self) -> Self {
+        if self.algebraic.is_some()||o.algebraic.is_some(){if self.is_zero()||o.is_zero(){return self.mul(o);}return self.mul(o).exquo(&self.gcd(o)).unwrap().algebraic.unwrap().monic().into();}
         if self.field.is_some() || o.field.is_some() {
             if self.is_zero() || o.is_zero() {
                 return self.mul(o);
@@ -649,7 +675,7 @@ impl Polynomial {
         (g, a, b)
     }
     pub fn to_sympy_string(&self) -> String {
-        if self.field.is_none() {
+        if self.field.is_none() && self.algebraic.is_none() {
             return self.base.to_sympy_string();
         }
         format!(

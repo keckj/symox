@@ -71,5 +71,4 @@ def test_scalar_matrix_arithmetic_does_not_create_commutative_proxy():
     assert s.simplify(s.MatAdd(a, a)) == 2*a
     assert s.conjugate(a) == a.conjugate()
     assert s.transpose(a) == a.T
-    with pytest.raises(NotImplementedError, match="matrix"):
-        s.diff(a, x)
+    assert s.diff(a, x) == s.ZeroMatrix(2, 2)

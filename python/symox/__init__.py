@@ -445,10 +445,16 @@ class PurePoly:
 
 def det(M, **kwargs):
     """Determinant of a matrix."""
+    if getattr(M, "_symox_matrixexpr", False):
+        if kwargs:
+            raise NotImplementedError("Custom abstract determinant options are not implemented")
+        return M.det()
     return Matrix(M).det(**kwargs)
 
 
 def trace(M):
+    if getattr(M, "_symox_matrixexpr", False):
+        return M.trace()
     return Matrix(M).trace()
 
 
@@ -1476,7 +1482,7 @@ def lambdify(args, expr, modules=None, **kwargs):
 
 from ._matrixexpr import (  # noqa: E402
     MatrixExpr, MatrixSymbol, MatAdd, MatMul, MatPow, Transpose, Adjoint,
-    Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate,
+    Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
 )
 
 __all__ = [n for n in dir() if not n.startswith("_")]

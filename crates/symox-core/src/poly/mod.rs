@@ -34,5 +34,8 @@ pub mod modgcd;
 pub mod ratfunc;
 pub mod groebner;
 pub mod systems;
+pub mod parametric;
+pub mod radical_cert;
 pub mod fieldalg;
 pub mod fraction;
+pub mod algebraic;

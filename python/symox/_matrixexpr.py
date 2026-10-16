@@ -100,5 +100,21 @@ class MatrixElement(metaclass=_ElementType):
         return _core._matrix_element(parent,i,j)
 
 
+class _ScalarMatrixType(type):
+    def __instancecheck__(cls, value):
+        return isinstance(value, _core.Expr) and getattr(value.func, '__name__', None) == cls.__name__
+
+
+class Trace(metaclass=_ScalarMatrixType):
+    def __new__(cls, arg, evaluate=False):
+        return _core._matrix_trace(arg, evaluate)
+
+
+class Determinant(metaclass=_ScalarMatrixType):
+    def __new__(cls, arg, evaluate=False):
+        return _core._matrix_determinant(arg, evaluate)
+
+
 __all__ = ['MatrixExpr','MatrixSymbol','MatAdd','MatMul','MatPow','Transpose',
-           'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate']
+           'Adjoint','Inverse','Identity','ZeroMatrix','MatrixElement','MatrixConjugate',
+           'Trace','Determinant']

@@ -458,7 +458,7 @@ impl Parser {
                     let args = self.call_args()?;
                     let kwargs = std::mem::replace(&mut self.kwargs, saved);
                     let precision = std::mem::replace(&mut self.precision, saved_precision);
-                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -548,6 +548,8 @@ impl Parser {
             "Adjoint"=>{arity(1)?;matrix(0)?.adjoint(evaluate)},
             "MatrixConjugate"=>{arity(1)?;matrix(0)?.conjugate(evaluate)},
             "MatrixElement"=>{arity(3)?;return Ok(Val::E(matrix(0)?.element(&scalar(1)?,&scalar(2)?).map_err(|e|fail(e.to_string()))?));},
+            "Trace"=>{arity(1)?;let parent=matrix(0)?;return Ok(Val::E((if evaluate{parent.trace()}else{parent.trace_unevaluated()}).map_err(|e|fail(e.to_string()))?));},
+            "Determinant"=>{arity(1)?;let parent=matrix(0)?;return Ok(Val::E((if evaluate{parent.determinant()}else{parent.determinant_unevaluated()}).map_err(|e|fail(e.to_string()))?));},
             "ImmutableMatrix"|"ImmutableDenseMatrix"|"MutableDenseMatrix"|"Matrix"=>{
                 fn flatten(p:&Parser,v:Val,out:&mut Vec<Expr>)->R<()>{match v{Val::Tuple(items)=>{for item in items{flatten(p,item,out)?;}},a=>out.push(p.as_expr(a)?)};Ok(())}
                 let (rows,cols,entries)=if args.len()==3 {

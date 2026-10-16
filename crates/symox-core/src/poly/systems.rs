@@ -6,7 +6,7 @@ use crate::expand::expand;
 use crate::expr::{Expr, Kind};
 use crate::integrate::poly_coeffs;
 use crate::subs::subs1;
-use crate::traverse::{free_symbols, has};
+use crate::traverse::has;
 
 fn unsupported(message: &str) -> PolyError {
     PolyError::Unsupported(message.into())
@@ -16,13 +16,12 @@ fn normalize(e: &Expr) -> Expr {
     crate::simplify::simplify(&expand(e))
 }
 
-fn scalar_is_zero(e: &Expr) -> bool {
+fn scalar_zero_status(e: &Expr) -> Option<bool> {
     if e.is_zero() {
-        return true;
+        return Some(true);
     }
-    // Closed radical expressions can retain equivalent forms after exact
-    // simplification. Use the same numerical verification as native solve.
-    free_symbols(e).is_empty() && crate::evalf::eval_c64(e).is_some_and(|z| z.norm() < 1e-8)
+    crate::assumptions::exact_queries(|| crate::assumptions::is_zero(e))
+        .or_else(|| super::radical_cert::is_zero(e))
 }
 
 fn complete_roots(e: &Expr, x: &Expr) -> PResult<Vec<Expr>> {
@@ -37,7 +36,17 @@ fn complete_roots(e: &Expr, x: &Expr) -> PResult<Vec<Expr>> {
     if roots.iter().map(|(_, m)| *m as usize).sum::<usize>() != degree {
         return Err(unsupported("a complete solution set cannot be expressed by the implemented radical root algorithms"));
     }
-    let mut values: Vec<_> = roots.into_iter().map(|(r, _)| normalize(&r)).collect();
+    let mut values = Vec::new();
+    for (root, _) in roots {
+        // Expansion can turn related radicals into independent-looking
+        // powers. Preserve the original formula for algebraic certificates.
+        let residual = subs1(e, x, &root);
+        if scalar_zero_status(&normalize(&residual)) != Some(true)
+            && super::radical_cert::is_zero(&residual) != Some(true) {
+            return Err(unsupported("an exact zero certificate for a radical root is not implemented"));
+        }
+        values.push(normalize(&root));
+    }
     values.sort_by_cached_key(crate::sortkey::sort_key);
     values.dedup();
     Ok(values)
@@ -55,11 +64,14 @@ fn descend(
         .map(normalize)
         .filter(|e| !e.is_zero())
         .collect();
-    if equations
-        .iter()
-        .any(|e| remaining.iter().all(|&j| !has(e, &variables[j])) && !scalar_is_zero(e))
-    {
-        return Ok(Vec::new());
+    for e in &equations {
+        if remaining.iter().all(|&j| !has(e, &variables[j])) {
+            match scalar_zero_status(e) {
+                Some(true) => {},
+                Some(false) => return Ok(Vec::new()),
+                None => return Err(unsupported("an exact zero certificate for a radical residual or external parameter condition is not implemented")),
+            }
+        }
     }
     let equations: Vec<_> = equations
         .into_iter()
@@ -219,7 +231,7 @@ mod tests {
                         .iter()
                         .zip(&solution)
                         .fold(equation.clone(), |e, (x, v)| subs1(&e, x, v));
-                    assert!(scalar_is_zero(&normalize(&value)));
+                    assert_eq!(scalar_zero_status(&normalize(&value)), Some(true));
                 }
             }
         }

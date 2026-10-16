@@ -140,7 +140,7 @@ def _arguments(args, backend="PyTorch"):
 
 def _expressions(exprs):
     import numpy as np
-    from symox import Matrix, sympify
+    from symox import Matrix, sympify, _core
 
     leaves = []
 
@@ -153,7 +153,7 @@ def _expressions(exprs):
             return "dense", tuple(value.shape), tuple(visit(item) for item in value.flat)
         if isinstance(value, (tuple, list)):
             return "tuple" if isinstance(value, tuple) else "list", tuple(visit(item) for item in value)
-        expression = sympify(value)
+        expression = _core._materialize_matrix_scalars(sympify(value))
         index = len(leaves)
         leaves.append(expression)
         return "leaf", index

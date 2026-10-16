@@ -95,8 +95,7 @@ def test_inconsistency_is_distinct_from_unsupported_systems():
     for equations in ([], [0], [x], [x*y-1]):
         with pytest.raises(NotImplementedError, match="zero-dimensional"):
             sm.solve_poly_system(equations, x, y)
-    with pytest.raises(NotImplementedError, match="zero-dimensional"):
-        sm.nonlinsolve([x*y-1], x, y)
+    assert sm.nonlinsolve([x*y-1], x, y) != sm.EmptySet
     for strict in (False, True):
         with pytest.raises(NotImplementedError, match="complete solution"):
             sm.solve_poly_system([x**5-x+1, y-x], x, y, strict=strict)

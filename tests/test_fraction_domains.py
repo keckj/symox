@@ -133,8 +133,9 @@ def test_fraction_domains_inference_assumptions_and_zero_unit_ideals():
     assert g[0].domain == "QQ(a)" and g[0].gens == (x,)
     assert g.contains(a*x-1)
     assert g.fglm("lex").exprs == g.exprs
-    with pytest.raises(NotImplementedError, match="FGLM"):
-        g.fglm("grlex")
+    converted = g.fglm("grlex")
+    assert converted.order == "grlex" and converted.domain == g.domain
+    assert converted.exprs == g.exprs
     assert sm.groebner([a*x-1], domain="QQ(a)").gens == (x,)
     assert sm.Poly(x/a, x, domain="QQ(a)").gens == (x,)
     empty = sm.groebner([], x, domain="QQ(a)")

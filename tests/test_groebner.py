@@ -188,8 +188,7 @@ def test_unsupported_options_and_invalid_inputs_are_explicit():
         g.reduce(x/5)
     with pytest.raises(ValueError, match="coefficients"):
         g.reduce(x+y)
-    with pytest.raises(TypeError):
-        sm.groebner([x], x, extension=True)
+    assert list(sm.groebner([x], x, extension=True)) == [x]
 
 
 def test_groebner_does_not_import_sympy_at_runtime():

@@ -13,6 +13,18 @@ jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 
 
+@pytest.mark.parametrize("jit",[False,True])
+def test_matrix_trace_determinant_codegen_and_gradient(jit):
+    a=sm.MatrixSymbol("A",2,2)
+    function=sm.jax_lambdify(a,sm.Trace(a)+sm.Determinant(a),jit=jit)
+    value=jnp.asarray([[[1.,2.],[3.,4.]],[[2.,1.],[0.,3.]]])
+    expected=lambda x:jnp.trace(x,axis1=-2,axis2=-1)+jnp.linalg.det(x)
+    np.testing.assert_allclose(function(value),expected(value),rtol=1e-6,atol=1e-6)
+    actual=jax.grad(lambda x:jnp.sum(function(x)))(value)
+    reference=jax.grad(lambda x:jnp.sum(expected(x)))(value)
+    np.testing.assert_allclose(actual,reference,rtol=1e-6,atol=1e-6)
+
+
 @pytest.mark.parametrize("jit", [False, True])
 def test_matrix_symbols_batch_codegen_and_grad(jit):
     a, b = sm.MatrixSymbol("A", 2, 3), sm.MatrixSymbol("B", 3, 2)

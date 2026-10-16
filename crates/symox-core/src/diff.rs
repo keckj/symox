@@ -165,7 +165,26 @@ fn d_func(
         if !crate::traverse::has(e, x) {
             return Expr::zero();
         }
+        if args.iter().all(|index| !crate::traverse::has(index, x)) {
+            if let Ok(derivative) = parent.diff(x).and_then(|matrix| matrix.element(&args[0], &args[1])) {
+                return derivative;
+            }
+        }
         return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+    }
+    if let Func::MatrixTrace(parent) = f {
+        if let Ok(evaluated) = parent.trace() {
+            if evaluated != *e { return d(&evaluated, x, cache); }
+        }
+        return parent.diff(x).and_then(|matrix| matrix.trace())
+            .unwrap_or_else(|_| derivative_unevaluated(e, vec![(x.clone(), 1)]));
+    }
+    if let Func::MatrixDeterminant(parent) = f {
+        if let Ok(evaluated) = parent.determinant() {
+            if evaluated != *e { return d(&evaluated, x, cache); }
+        }
+        return parent.determinant_diff(x)
+            .unwrap_or_else(|_| derivative_unevaluated(e, vec![(x.clone(), 1)]));
     }
     if let Func::MatrixProxy(_) = f {
         return Expr::zero();
@@ -210,6 +229,11 @@ fn d_func(
     let du = d(u, x, cache);
     if du.is_zero() {
         return Expr::zero();
+    }
+    if matches!(f, Func::Conjugate | Func::Re | Func::Im)
+        && crate::assumptions::is_real(x) != Some(true)
+    {
+        return derivative_unevaluated(e, vec![(x.clone(), 1)]);
     }
     let one = Expr::one();
     let outer = match f {

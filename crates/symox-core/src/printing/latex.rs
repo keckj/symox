@@ -700,6 +700,8 @@ impl<'a> LatexPrinter<'a> {
         let a0 = || self.print(&args[0]);
         match f {
             Func::MatrixProxy(parent) => return Self::sup(parent.to_str(), exp),
+            Func::MatrixTrace(parent) => return Self::sup(format!("\\operatorname{{tr}}\\left({}\\right)", parent.to_str()), exp),
+            Func::MatrixDeterminant(parent) => return Self::sup(format!("\\det\\left({}\\right)", parent.to_str()), exp),
             Func::MatrixElement(parent) => return Self::sup(format!("{}_{{{}, {}}}", parent.to_str(), self.print(&args[0]), self.print(&args[1])), exp),
             Func::Exp => return Self::do_exponent(format!("e^{{{}}}", a0()), exp),
             Func::Log => {

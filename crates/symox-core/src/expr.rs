@@ -111,6 +111,8 @@ pub enum Func {
     MatrixElement(Arc<crate::matrixexpr::MatrixExpr>),
     /// Internal matrix atom used by scalar traversal/substitution APIs.
     MatrixProxy(Arc<crate::matrixexpr::MatrixExpr>),
+    MatrixTrace(Arc<crate::matrixexpr::MatrixExpr>),
+    MatrixDeterminant(Arc<crate::matrixexpr::MatrixExpr>),
 }
 
 impl Func {
@@ -159,6 +161,8 @@ impl Func {
             Func::Set(op) => op.name(),
             Func::MatrixElement(_) => "MatrixElement",
             Func::MatrixProxy(_) => "MatrixSymbol",
+            Func::MatrixTrace(_) => "Trace",
+            Func::MatrixDeterminant(_) => "Determinant",
         }
     }
 
@@ -216,7 +220,7 @@ impl Func {
         match self {
             Func::Atan2 => Some(2),
             Func::MatrixElement(_) => Some(2),
-            Func::MatrixProxy(_) => Some(0),
+            Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => Some(0),
             Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
@@ -372,7 +376,7 @@ impl Expr {
                 if *f == Func::Order {
                     mask |= ORDER_MASK;
                 }
-                if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) = f {
+                if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent) = f {
                     has_matrix = true;
                     for matrix in parent.matrix_symbols() {
                         // Include the whole typed atom, rather than dimensions,

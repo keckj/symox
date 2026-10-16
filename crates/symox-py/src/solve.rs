@@ -45,6 +45,17 @@ fn expr_list(o: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
 }
 
 #[pyfunction]
+fn _nonlinsolve_parametric(f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyAny>) -> PyResult<Vec<(Vec<crate::PyExpr>, Vec<Vec<crate::PyExpr>>)>> {
+    let (equations, _) = expr_list(f)?;
+    let (variables, _) = expr_list(symbols)?;
+    let result = symox::poly::parametric::nonlinsolve(&equations, &variables).map_err(|e| match e {
+        symox::poly::convert::PolyError::Unsupported(message) => PyNotImplementedError::new_err(message),
+        other => PyValueError::new_err(other.to_string()),
+    })?;
+    Ok(result.into_iter().map(|b| (b.values.into_iter().map(wrap).collect(), b.excluded.into_iter().map(|r| r.into_iter().map(wrap).collect()).collect())).collect())
+}
+
+#[pyfunction]
 #[pyo3(signature = (f, *symbols, **flags))]
 fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, flags: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let (as_dict, as_set, check) = solve_flags(flags)?;
@@ -211,6 +222,7 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: &Bound
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_nonlinsolve_parametric, m)?)?;
     m.add_function(wrap_pyfunction!(solve, m)?)?;
     m.add_function(wrap_pyfunction!(nsolve, m)?)?;
     Ok(())

@@ -14,7 +14,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
         Func::Order => return crate::series::order::order_from_args(&args),
-        Func::MatrixElement(_) | Func::MatrixProxy(_) => return Expr::from_kind(Kind::Func(f, args)),
+        Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
@@ -110,11 +110,53 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
         Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Logic(_) | Func::Set(_)
-        | Func::MatrixElement(_) | Func::MatrixProxy(_) => None,
+        | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) => None,
     };
     match r {
         Some(v) => v,
         None => Expr::from_kind(Kind::Func(f, args)),
+    }
+}
+
+/// Evaluate held operations. Matrix scalar nodes retain their typed parents;
+/// abstract symbols stay abstract instead of being materialized implicitly.
+pub fn doit(e: &Expr, deep: bool) -> Expr {
+    let child = |value: &Expr| if deep { doit(value, true) } else { value.clone() };
+    match e.kind() {
+        Kind::Func(Func::MatrixTrace(parent), _) => {
+            let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
+            parent.and_then(|p| p.trace().ok()).unwrap_or_else(|| e.clone())
+        }
+        Kind::Func(Func::MatrixDeterminant(parent), _) => {
+            let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
+            parent.and_then(|p| p.determinant().ok()).unwrap_or_else(|| e.clone())
+        }
+        Kind::Derivative(inner, variables) => crate::diff::diff_many(&child(inner), variables),
+        Kind::Func(Func::Undefined(name), args) if name.as_ref() == "UnevaluatedExpr" => child(&args[0]),
+        Kind::Add(..) if !e.is_canonical() => add(&e.args().iter().map(child).collect::<Vec<_>>()),
+        Kind::Mul(..) if !e.is_canonical() => mul(&e.args().iter().map(child).collect::<Vec<_>>()),
+        Kind::Pow(base, exponent) if !e.is_canonical() => pow(&child(base), &child(exponent)),
+        _ if deep => crate::traverse::map_children(e, &mut |value| doit(value, true)),
+        _ => e.clone(),
+    }
+}
+
+/// Lower trace and determinant nodes to finite scalar expressions for code
+/// generation. This is explicit, so ordinary simplify/doit preserve abstract
+/// matrix symbols as SymPy does.
+pub fn materialize_matrix_scalars(e: &Expr) -> crate::matrix::MResult<Expr> {
+    let mut failure = None;
+    let mapped = crate::traverse::map_children(e, &mut |value| {
+        match materialize_matrix_scalars(value) {
+            Ok(value) => value,
+            Err(error) => { failure = Some(error); value.clone() }
+        }
+    });
+    if let Some(error) = failure { return Err(error); }
+    match mapped.kind() {
+        Kind::Func(Func::MatrixTrace(parent), _) => parent.trace_explicit(),
+        Kind::Func(Func::MatrixDeterminant(parent), _) => parent.determinant_explicit(),
+        _ => Ok(mapped),
     }
 }
 

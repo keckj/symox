@@ -2,7 +2,7 @@
 use std::cmp::Ordering;
 use std::sync::Arc;
 use rustc_hash::{FxHashMap, FxHashSet};
-use crate::expr::{Expr, Func};
+use crate::expr::{Expr, Func, Kind};
 use crate::functions::func;
 use crate::matrix::{Matrix, MatrixError, MResult};
 use crate::matrix::ratfunc::is_zero_assume;
@@ -20,7 +20,19 @@ pub enum MatrixKind {
 }
 impl Ord for MatrixExpr {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self == other { Ordering::Equal } else { self.to_repr().cmp(&other.to_repr()) }
+        if Arc::ptr_eq(&self.0,&other.0){return Ordering::Equal;}
+        let kind=self.kind_name().cmp(other.kind_name());
+        if kind!=Ordering::Equal{return kind;}
+        match (self.kind(),other.kind()){
+            (MatrixKind::Symbol(a),MatrixKind::Symbol(b))=>a.cmp(b).then_with(||self.rows().cmp(other.rows())).then_with(||self.cols().cmp(other.cols())),
+            (MatrixKind::Explicit(a),MatrixKind::Explicit(b))=>a.shape().cmp(&b.shape()).then_with(||a.data().cmp(b.data())),
+            (MatrixKind::Identity|MatrixKind::Zero,MatrixKind::Identity|MatrixKind::Zero)=>self.rows().cmp(other.rows()).then_with(||self.cols().cmp(other.cols())),
+            (MatrixKind::Add(a),MatrixKind::Add(b))=>a.cmp(b),
+            (MatrixKind::Mul(a,aa),MatrixKind::Mul(b,bb))=>a.cmp(b).then_with(||aa.cmp(bb)),
+            (MatrixKind::Pow(a,aa),MatrixKind::Pow(b,bb))=>a.cmp(b).then_with(||aa.cmp(bb)),
+            (MatrixKind::Transpose(a),MatrixKind::Transpose(b))|(MatrixKind::Adjoint(a),MatrixKind::Adjoint(b))|(MatrixKind::Inverse(a),MatrixKind::Inverse(b))|(MatrixKind::Conjugate(a),MatrixKind::Conjugate(b))=>a.cmp(b),
+            _=>unreachable!("distinct matrix kinds have distinct names"),
+        }
     }
 }
 impl PartialOrd for MatrixExpr { fn partial_cmp(&self, other:&Self)->Option<Ordering>{Some(self.cmp(other))} }
@@ -140,6 +152,180 @@ impl MatrixExpr {
     pub fn transpose(&self,evaluate:bool)->MResult<Self>{self.unary(0,evaluate)}
     pub fn adjoint(&self,evaluate:bool)->MResult<Self>{self.unary(1,evaluate)}
     pub fn conjugate(&self,evaluate:bool)->MResult<Self>{self.unary(2,evaluate)}
+    fn require_square(&self)->MResult<()>{
+        compatible(self.rows(),self.cols()).map_err(|_|MatrixError::NonSquare("Trace and determinant require a square matrix".into()))
+    }
+    pub fn trace_unevaluated(&self)->MResult<Expr>{
+        self.require_square()?;
+        Ok(Expr::from_kind(Kind::Func(Func::MatrixTrace(Arc::new(self.clone())),vec![])))
+    }
+    pub fn determinant_unevaluated(&self)->MResult<Expr>{
+        self.require_square()?;
+        Ok(Expr::from_kind(Kind::Func(Func::MatrixDeterminant(Arc::new(self.clone())),vec![])))
+    }
+    /// Evaluate certified trace identities, retaining a typed scalar trace
+    /// when the matrix is abstract. No implicit expansion into scalar entries.
+    pub fn trace(&self)->MResult<Expr>{
+        self.require_square()?;
+        match self.kind(){
+            MatrixKind::Zero=>Ok(Expr::zero()),MatrixKind::Identity=>Ok(self.rows().clone()),
+            MatrixKind::Explicit(matrix)=>matrix.trace(),
+            MatrixKind::Add(terms)=>Ok(add(&terms.iter().map(Self::trace).collect::<MResult<Vec<_>>>()?)),
+            MatrixKind::Mul(coefficient,factors)=>{
+                if factors.len()==1{return Ok(mul2(coefficient,&factors[0].trace()?));}
+                // The trace is invariant under cyclic rotations, including
+                // rectangular compatible factors forming a closed chain.
+                let transposed=factors.iter().rev().map(|factor|factor.transpose(true)).collect::<MResult<Vec<_>>>()?;
+                let mut canonical=factors.clone();
+                for orientation in [factors,&transposed]{
+                    for i in 0..orientation.len(){
+                        let rotation=orientation[i..].iter().chain(&orientation[..i]).cloned().collect::<Vec<_>>();
+                        if rotation<canonical{canonical=rotation;}
+                    }
+                }
+                let parent=Self::mul(Expr::one(),&canonical,false)?;
+                Ok(mul2(coefficient,&parent.trace_unevaluated()?))
+            },
+            MatrixKind::Transpose(base)=>base.trace(),
+            MatrixKind::Adjoint(base)|MatrixKind::Conjugate(base)=>Ok(func(Func::Conjugate,vec![base.trace()?])),
+            _=>self.trace_unevaluated(),
+        }
+    }
+    pub fn determinant(&self)->MResult<Expr>{
+        self.require_square()?;
+        if self.rows().is_zero(){return Ok(Expr::one());}
+        match self.kind(){
+            MatrixKind::Zero=>Ok(Expr::zero()),MatrixKind::Identity=>Ok(Expr::one()),
+            MatrixKind::Explicit(matrix)=>matrix.det(),
+            MatrixKind::Mul(coefficient,factors) if factors.iter().all(|factor|factor.rows()==factor.cols())=>{
+                let mut values=vec![pow(coefficient,self.rows())];
+                values.extend(factors.iter().map(Self::determinant).collect::<MResult<Vec<_>>>()?);
+                Ok(crate::ops::mul(&values))
+            },
+            MatrixKind::Transpose(base)=>base.determinant(),
+            MatrixKind::Adjoint(base)|MatrixKind::Conjugate(base)=>Ok(func(Func::Conjugate,vec![base.determinant()?])),
+            MatrixKind::Inverse(base)=>{
+                let determinant=base.determinant()?;
+                if determinant.is_zero(){return Err(MatrixError::NonInvertible("A singular matrix has no inverse".into()));}
+                Ok(pow(&determinant,&Expr::minus_one()))
+            },
+            MatrixKind::Pow(base,exponent) if crate::assumptions::is_integer(exponent)==Some(true)=>{
+                let determinant=base.determinant()?;
+                if determinant.is_zero()&&crate::assumptions::is_negative(exponent)==Some(true){return Err(MatrixError::NonInvertible("A singular matrix has no negative power".into()));}
+                Ok(pow(&determinant,exponent))
+            },
+            _=>self.determinant_unevaluated(),
+        }
+    }
+    pub fn trace_explicit(&self)->MResult<Expr>{
+        self.require_square()?;
+        let n=finite_dim(self.rows())?;
+        Ok(add(&(0..n).map(|i|self.element(&Expr::int(i as i64),&Expr::int(i as i64))).collect::<MResult<Vec<_>>>()?))
+    }
+    pub fn determinant_explicit(&self)->MResult<Expr>{self.require_square()?;self.as_explicit()?.det()}
+    /// Jacobi's adjugate formula is valid even at singular matrices. In
+    /// contrast, det(A)*trace(A^-1*A') loses those cases through division.
+    pub fn determinant_diff(&self,variable:&Expr)->MResult<Expr>{
+        self.require_square()?;
+        let derivative=self.diff(variable)?;
+        if matches!(derivative.kind(),MatrixKind::Zero){return Ok(Expr::zero());}
+        self.as_explicit()?.adjugate()?.matmul(&derivative.as_explicit()?)?.trace()
+    }
+    /// Derivative with respect to a scalar variable. Matrix factors retain
+    /// their order; dimensions describe the result and are not scalar entries.
+    pub fn diff(&self,variable:&Expr)->MResult<Self>{
+        if !matches!(variable.kind(),Kind::Sym(_)|Kind::Func(Func::Undefined(_),_)){
+            return Err(MatrixError::NotImplemented("MatrixExpr differentiation requires a scalar symbol or scalar function; matrix-variable derivatives require tensor expressions".into()));
+        }
+        let mut cache=FxHashMap::default();
+        self.diff_cached(variable,&mut cache)
+    }
+    pub fn diff_many(&self,variables:&[(Expr,u32)])->MResult<Self>{
+        let mut result=self.clone();
+        for (variable,order) in variables {for _ in 0..*order {result=result.diff(variable)?;if matches!(result.kind(),MatrixKind::Zero){break;}}}
+        Ok(result)
+    }
+    fn scalar_diff(e:&Expr,variable:&Expr)->MResult<Expr>{
+        if crate::assumptions::is_real(variable)!=Some(true){
+            let mut nonholomorphic=false;
+            crate::traverse::preorder(e,&mut |node|{
+                if let Kind::Func(Func::Conjugate|Func::Re|Func::Im,args)=node.kind(){
+                    if args.iter().any(|a|!crate::diff::diff(a,variable).is_zero()){nonholomorphic=true;}
+                }
+            });
+            if nonholomorphic{return Err(MatrixError::NotImplemented("Differentiating conjugate, real or imaginary matrix coefficients requires a real differentiation variable".into()));}
+        }
+        Ok(crate::diff::diff(e,variable))
+    }
+    fn diff_cached(&self,variable:&Expr,cache:&mut FxHashMap<Self,Self>)->MResult<Self>{
+        if let Some(result)=cache.get(self){return Ok(result.clone());}
+        let zero=||Self::zero(self.rows().clone(),self.cols().clone());
+        let result=match self.kind(){
+            MatrixKind::Symbol(_)|MatrixKind::Identity|MatrixKind::Zero=>zero()?,
+            MatrixKind::Explicit(matrix)=>{
+                let derived=matrix.try_applyfunc::<MatrixError>(|e|Self::scalar_diff(e,variable))?;
+                if derived.is_zero_matrix(){zero()?}else{Self::explicit(derived)}
+            },
+            MatrixKind::Add(terms)=>Self::add(&terms.iter().map(|a|a.diff_cached(variable,cache)).collect::<MResult<Vec<_>>>()?,true)?,
+            MatrixKind::Mul(coefficient,factors)=>{
+                if coefficient.is_zero(){return zero();}
+                let mut terms=Vec::new();
+                let dc=Self::scalar_diff(coefficient,variable)?;
+                if !dc.is_zero(){terms.push(Self::mul(dc,factors,true)?);}
+                for (index,factor) in factors.iter().enumerate(){
+                    let derivative=factor.diff_cached(variable,cache)?;
+                    if matches!(derivative.kind(),MatrixKind::Zero){continue;}
+                    let mut product=factors.clone();product[index]=derivative;
+                    terms.push(Self::mul(coefficient.clone(),&product,true)?);
+                }
+                if terms.is_empty(){zero()?}else{Self::add(&terms,true)?}
+            },
+            MatrixKind::Pow(base,exponent)=>{
+                if exponent.is_zero(){return zero();}
+                let derivative=base.diff_cached(variable,cache)?;
+                let de=Self::scalar_diff(exponent,variable)?;
+                if matches!(derivative.kind(),MatrixKind::Zero)&&de.is_zero(){zero()?}
+                else{
+                    let n=exponent.as_i64().ok_or_else(||MatrixError::NotImplemented("Derivatives of matrix powers require a constant integer exponent".into()))?;
+                    if n<0{
+                        let inverse=base.inverse(true)?;
+                        let dinverse=Self::mul(Expr::minus_one(),&[inverse.clone(),derivative,inverse.clone()],true)?;
+                        Self::diff_power(&inverse,&dinverse,n.unsigned_abs(),&mut FxHashMap::default())?
+                    }else{Self::diff_power(base,&derivative,n as u64,&mut FxHashMap::default())?}
+                }
+            },
+            MatrixKind::Inverse(base)=>{
+                let derivative=base.diff_cached(variable,cache)?;
+                if matches!(derivative.kind(),MatrixKind::Zero){zero()?}
+                else{let inverse=base.inverse(true)?;Self::mul(Expr::minus_one(),&[inverse.clone(),derivative,inverse],true)?}
+            },
+            MatrixKind::Transpose(base)=>base.diff_cached(variable,cache)?.transpose(true)?,
+            MatrixKind::Adjoint(base)|MatrixKind::Conjugate(base)=>{
+                let derivative=base.diff_cached(variable,cache)?;
+                if matches!(derivative.kind(),MatrixKind::Zero){zero()?}
+                else{
+                    if crate::assumptions::is_real(variable)!=Some(true){return Err(MatrixError::NotImplemented("Differentiating a dependent adjoint or conjugate requires a real scalar variable".into()));}
+                    if matches!(self.kind(),MatrixKind::Adjoint(_)){derivative.adjoint(true)?}else{derivative.conjugate(true)?}
+                }
+            },
+        };
+        cache.insert(self.clone(),result.clone());Ok(result)
+    }
+    /// A balanced product rule keeps very large integer powers compact.
+    fn diff_power(base:&Self,derivative:&Self,n:u64,cache:&mut FxHashMap<u64,Self>)->MResult<Self>{
+        if n==0{return Self::zero(base.rows().clone(),base.cols().clone());}
+        if n==1{return Ok(derivative.clone());}
+        if let Some(result)=cache.get(&n){return Ok(result.clone());}
+        let left=n/2;let right=n-left;
+        let exponent=|n:u64|Expr::num(crate::number::Number::from_bigint(num_bigint::BigInt::from(n)));
+        let dl=Self::diff_power(base,derivative,left,cache)?;
+        let dr=Self::diff_power(base,derivative,right,cache)?;
+        let result=Self::add(&[
+            Self::mul(Expr::one(),&[dl,base.pow(exponent(right),true)?],true)?,
+            Self::mul(Expr::one(),&[base.pow(exponent(left),true)?,dr],true)?,
+        ],true)?;
+        cache.insert(n,result.clone());Ok(result)
+    }
     fn unary(&self,op:u8,evaluate:bool)->MResult<Self>{
         let apply=|m:&Self|m.unary(op,true);
         if evaluate {match self.kind(){
@@ -310,5 +496,47 @@ mod tests {
         let raw=MatrixExpr::mul(Expr::one(),&[a.clone(),MatrixExpr::identity(n).unwrap()],false).unwrap();
         assert_eq!(raw.scalar_map(&mut |e|e.clone()).unwrap(),raw);
         assert_eq!(raw.map_children(&mut |e|e.clone(),&mut |e|e.clone()).unwrap(),raw);
+    }
+    #[test]
+    fn ordered_scalar_derivatives_and_inverse() {
+        let x=Expr::symbol("x");let a=symbol("A",2,2);let b=symbol("B",2,2);
+        let xa=MatrixExpr::mul(x.clone(),&[a.clone()],true).unwrap();
+        let base=MatrixExpr::add(&[xa.clone(),b.clone()],true).unwrap();
+        let derivative=base.pow(Expr::int(3),true).unwrap().diff(&x).unwrap().expand().unwrap();
+        let expected=MatrixExpr::add(&[
+            MatrixExpr::mul(Expr::one(),&[a.clone(),base.pow(Expr::int(2),true).unwrap()],true).unwrap(),
+            MatrixExpr::mul(Expr::one(),&[base.clone(),a.clone(),base.clone()],true).unwrap(),
+            MatrixExpr::mul(Expr::one(),&[base.pow(Expr::int(2),true).unwrap(),a.clone()],true).unwrap(),
+        ],true).unwrap().expand().unwrap();
+        let actual=derivative.as_explicit().unwrap();let wanted=expected.as_explicit().unwrap();
+        for (a,b) in actual.data().iter().zip(wanted.data()){assert!(crate::expand::expand(&sub(a,b)).is_zero());}
+        let inverse=base.inverse(true).unwrap();
+        assert_eq!(inverse.diff(&x).unwrap(),MatrixExpr::mul(Expr::minus_one(),&[inverse.clone(),a.clone(),inverse],true).unwrap());
+        assert!(matches!(a.diff(&x).unwrap().kind(),MatrixKind::Zero));
+        assert!(base.pow(x.clone(),true).unwrap().diff(&x).is_err());
+        assert!(base.adjoint(false).unwrap().diff(&x).is_err());
+        assert!(xa.adjoint(true).unwrap().diff(&x).is_err());
+    }
+    #[test]
+    fn abstract_trace_determinant_and_explicit_certificates(){
+        let a=symbol("A",2,3);let b=symbol("B",3,2);
+        let ab=MatrixExpr::mul(Expr::one(),&[a.clone(),b.clone()],true).unwrap();
+        let ba=MatrixExpr::mul(Expr::one(),&[b,a],true).unwrap();
+        assert_eq!(ab.trace().unwrap(),ba.trace().unwrap());
+        assert!(matches!(ab.determinant().unwrap().kind(),Kind::Func(Func::MatrixDeterminant(_),_)));
+        assert_eq!(MatrixExpr::identity(Expr::int(0)).unwrap().determinant().unwrap(),Expr::one());
+        assert_eq!(MatrixExpr::zero(Expr::int(0),Expr::int(0)).unwrap().determinant().unwrap(),Expr::one());
+        let a=symbol("C",2,2);let b=symbol("D",2,2);
+        let product=MatrixExpr::mul(Expr::int(3),&[a.clone(),b.clone()],true).unwrap();
+        assert_eq!(product.determinant().unwrap(),crate::ops::mul(&[Expr::int(9),a.determinant().unwrap(),b.determinant().unwrap()]));
+        assert_eq!(a.trace_explicit().unwrap(),a.as_explicit().unwrap().trace().unwrap());
+        assert_eq!(a.determinant_explicit().unwrap(),a.as_explicit().unwrap().det().unwrap());
+    }
+    #[test]
+    fn large_integer_power_derivatives_share_subexpressions(){
+        let x=Expr::symbol("x");let a=symbol("A",2,2);let b=symbol("B",2,2);
+        let base=MatrixExpr::add(&[MatrixExpr::mul(x.clone(),&[a],true).unwrap(),b],true).unwrap();
+        let result=base.pow(Expr::int(1_000_000_000),true).unwrap().diff(&x).unwrap();
+        assert_eq!(result.shape(),(Expr::int(2),Expr::int(2)));
     }
 }

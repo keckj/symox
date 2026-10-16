@@ -290,6 +290,11 @@ impl<'a> TorchPrinter<'a> {
                 if !is_python_identifier(name) { return Err(self.unsupported("unsafe matrix symbol name")); }
                 Ok(format!("{name}[{}, {}]", self.expr(&args[0], None)?, self.expr(&args[1], None)?))
             }
+            Kind::Func(Func::MatrixTrace(_) | Func::MatrixDeterminant(_), _) => {
+                let explicit = crate::functions::materialize_matrix_scalars(expr)
+                    .map_err(|error| self.unsupported(&error.to_string()))?;
+                self.expr(&explicit, mask)
+            }
             Kind::Func(Func::MatrixProxy(_), _) => Err(self.unsupported("a matrix expression used as a scalar")),
             Kind::Func(function, args) => self.function(function, args, mask),
             Kind::Derivative(..) => Err(self.unsupported("unevaluated Derivative")),

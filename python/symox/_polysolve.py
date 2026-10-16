@@ -29,15 +29,16 @@ def solve_poly_system(seq, *gens, strict=False, **options):
 
 
 def nonlinsolve(system, *symbols):
-    """Solve exact polynomial systems as a FiniteSet of solution tuples.
+    """Solve supported exact rational systems, including free parameters.
 
-    Linear systems retain the existing parametric linsolve behavior. Nonlinear
-    systems use the finite polynomial solver; positive-dimensional nonlinear
-    varieties, transcendental equations, and incomplete radical root sets
-    raise explicitly.
+    Native factorization and triangular linear/quadratic elimination retain
+    zero-coefficient branches. Free parameters retain their symbols; excluded
+    parameter values are represented by Complement(Complexes, FiniteSet(...)).
+    Every branch must be solved completely, otherwise NotImplementedError is
+    raised. Conditions on external parameters require including those symbols
+    among the unknowns.
     """
-    from . import EmptySet, FiniteSet, NonlinearError, _core
-    from ._linear import linear_eq_to_matrix, linsolve
+    from . import Complexes, Complement, EmptySet, FiniteSet, _core, _unwrap
 
     variables = _symbols(symbols)
     if not variables:
@@ -45,12 +46,13 @@ def nonlinsolve(system, *symbols):
     equations = _equations(system)
     if not equations:
         return EmptySet
-    try:
-        a, b = linear_eq_to_matrix(equations, *variables)
-    except NonlinearError:
-        result = _core._solve_poly_system(equations, variables)
-        return EmptySet if result is None else FiniteSet(*(_core._apply("Tuple", *solution) for solution in result))
-    return linsolve((a, b), *variables)
+    result = _core._nonlinsolve_parametric(equations, variables)
+    rows = []
+    for values, excluded in result:
+        row = [_unwrap(Complement(Complexes, FiniteSet(*roots))) if roots else value
+               for value, roots in zip(values, excluded)]
+        rows.append(_core._apply("Tuple", *row))
+    return EmptySet if not rows else FiniteSet(*rows)
 
 
 __all__ = ["solve_poly_system", "nonlinsolve"]

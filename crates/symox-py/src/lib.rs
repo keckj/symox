@@ -87,9 +87,11 @@ fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)]
     let mut transform = |value: &Expr| if exact { subs::xreplace(value, &scalars) } else { subs::subs(value, pairs) };
     fn validate(py: Python<'_>, node: &Expr, pairs: &[(Expr, Expr)], matrix_pairs: &[(symox::matrixexpr::MatrixExpr, symox::matrixexpr::MatrixExpr)], transform: &mut dyn FnMut(&Expr)->Expr) -> PyResult<()> {
         if !node.has_matrix() || pairs.iter().any(|(old, _)| old == node) { return Ok(()); }
-        if let Kind::Func(Func::MatrixElement(parent), indices) = node.kind() {
+        if let Kind::Func(f @ (Func::MatrixElement(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), indices) = node.kind() {
             parent.map_all(matrix_pairs, transform).and_then(|matrix| {
-                matrix.element(&transform(&indices[0]), &transform(&indices[1]))
+                if matches!(f, Func::MatrixTrace(_)) { matrix.trace() }
+                else if matches!(f, Func::MatrixDeterminant(_)) { matrix.determinant() }
+                else { matrix.element(&transform(&indices[0]), &transform(&indices[1])) }
             }).map_err(|error| matrices::err(py, error))?;
         }
         for child in node.args() { validate(py, &child, pairs, matrix_pairs, transform)?; }
@@ -172,6 +174,12 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             let parent = matrixexpr::to_matrixexpr(&args.get_item(0)?)?;
             return parent.element(&to_expr(&args.get_item(1)?)?, &to_expr(&args.get_item(2)?)?)
                 .map_err(|error| matrices::err(py, error));
+        }
+        if matches!(head.as_str(), "Trace" | "Determinant") {
+            let args = obj.getattr("args")?;
+            let parent = std::sync::Arc::new(matrixexpr::to_matrixexpr(&args.get_item(0)?)?);
+            let f = if head == "Trace" { Func::MatrixTrace(parent) } else { Func::MatrixDeterminant(parent) };
+            return Ok(Expr::from_kind(Kind::Func(f, vec![])));
         }
         if obj.getattr("is_Matrix").is_ok_and(|value| value.is_truthy().unwrap_or(false)) {
             return Ok(matrix_proxy(matrixexpr::to_matrixexpr(obj)?));
@@ -272,6 +280,9 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
     };
     match e.kind() {
         Kind::Func(Func::MatrixProxy(parent), _) => matrixexpr::matrixexpr_to_sympy(py, parent),
+        Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
+            sm.getattr(f.name())?.call1((matrixexpr::matrixexpr_to_sympy(py, parent)?,))
+        }
         Kind::Func(Func::MatrixElement(parent), args) => {
             let parent = matrixexpr::matrixexpr_to_sympy(py, parent)?;
             py.import("sympy.matrices.expressions.matexpr")?.getattr("MatrixElement")?
@@ -443,6 +454,9 @@ pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>>
         vars.push((to_expr(it)?, 1));
         i += 1;
     }
+    if vars.iter().any(|(v,_)| matches!(v.kind(),Kind::Func(Func::MatrixProxy(_),_))) {
+        return Err(PyNotImplementedError::new_err("matrix-variable derivatives require tensor expressions"));
+    }
     Ok(vars)
 }
 
@@ -452,6 +466,7 @@ fn do_diff(e: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
         let fs = traverse::free_symbols(e);
         return match fs.len() {
             0 => Ok(Expr::zero()),
+            1 if matches!(fs[0].kind(),Kind::Func(Func::MatrixProxy(_),_)) => Err(PyNotImplementedError::new_err("matrix-variable derivatives require tensor expressions")),
             1 => Ok(diff::diff(e, &fs[0])),
             _ => Err(PyValueError::new_err(
                 "Since there is more than one variable in the expression, the variable(s) of differentiation must be supplied",
@@ -649,6 +664,16 @@ impl PyExpr {
     }
 
     fn __reduce__<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyTuple>)> {
+        if matches!(self.e.kind(), Kind::Func(Func::MatrixProxy(_), _)) {
+            let matrix = expr_object(py, self.e.clone())?;
+            let pair = matrix.bind(py).call_method0("__reduce__")?;
+            return Ok((pair.get_item(0)?, pair.get_item(1)?.downcast_into::<PyTuple>()?));
+        }
+        if let Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) = self.e.kind() {
+            return Ok((py.import("symox._matrixexpr")?.getattr(f.name())?, PyTuple::new(py, [
+                expr_object(py, matrix_proxy((**parent).clone()))?,
+            ])?));
+        }
         if let Kind::Func(Func::MatrixElement(parent), args) = self.e.kind() {
             let restore = py.import("symox._matrixexpr")?.getattr("MatrixElement")?;
             return Ok((restore, PyTuple::new(py, [
@@ -711,13 +736,17 @@ impl PyExpr {
 
     #[getter]
     fn args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if !self.e.has_matrix() { return PyTuple::new(py,python_args(&self.e).into_iter().map(wrap)); }
+        if let Kind::Func(Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), _) = self.e.kind() {
+            return PyTuple::new(py, [expr_object(py, matrix_proxy((**parent).clone()))?]);
+        }
         if let Kind::Func(Func::MatrixElement(parent), args) = self.e.kind() {
             return PyTuple::new(py, [
                 expr_object(py, matrix_proxy((**parent).clone()))?,
                 expr_object(py, args[0].clone())?, expr_object(py, args[1].clone())?,
             ]);
         }
-        PyTuple::new(py, python_args(&self.e).into_iter().map(wrap))
+        PyTuple::new(py, python_args(&self.e).into_iter().map(|e|expr_object(py,e)).collect::<PyResult<Vec<_>>>()?)
     }
 
     /// SymPy class name of the node (`Add`, `Mul`, `Symbol`, `sin`, ...).
@@ -729,6 +758,9 @@ impl PyExpr {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if let Kind::Func(f @ (Func::MatrixTrace(_) | Func::MatrixDeterminant(_)), _) = self.e.kind() {
+            return Ok(py.import("symox._matrixexpr")?.getattr(f.name())?.unbind());
+        }
         if matches!(self.e.kind(), Kind::Func(Func::MatrixElement(_), _)) {
             return Ok(py.import("symox._matrixexpr")?.getattr("MatrixElement")?.unbind());
         }
@@ -779,6 +811,7 @@ impl PyExpr {
 
     #[getter]
     fn free_symbols<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PySet>> {
+        if !self.e.has_matrix() { return PySet::new(py,traverse::free_symbols(&self.e).into_iter().map(wrap)); }
         PySet::new(py, traverse::free_symbols(&self.e).into_iter().map(|e| expr_object(py, e)).collect::<PyResult<Vec<_>>>()?)
     }
 
@@ -826,7 +859,7 @@ impl PyExpr {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::MatrixElement(_) | Func::MatrixProxy(_)))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_)))
     }
     #[getter]
     fn is_Derivative(&self) -> bool {
@@ -1039,6 +1072,14 @@ impl PyExpr {
         }
         validate_matrix_replacements(rule.py(), &self.e, &m.iter().map(|(k,v)|(k.clone(),v.clone())).collect::<Vec<_>>(), true)?;
         Ok(wrap(subs::xreplace(&self.e, &m)))
+    }
+
+    #[pyo3(signature = (deep=true, **hints))]
+    fn doit(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+        if hints.is_some_and(|hints| !hints.is_empty()) {
+            return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));
+        }
+        Ok(wrap(fx::doit(&self.e, deep)))
     }
 
     #[pyo3(signature = (deep=true, **hints))]
@@ -1598,17 +1639,27 @@ fn py_srepr(obj: &Bound<'_, PyAny>) -> PyResult<String> {
 }
 
 #[pyfunction]
+fn _materialize_matrix_scalars(obj: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    let e = to_expr(obj)?;
+    if !e.has_matrix() { return Ok(wrap(e)); }
+    fx::materialize_matrix_scalars(&e).map(wrap).map_err(|error| matrices::err(obj.py(),error))
+}
+
+#[pyfunction]
 #[pyo3(name = "diff", signature = (f, *args))]
-fn py_diff(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
-    if f.downcast::<matrixexpr::PyMatrixExpr>().is_ok() {
-        return Err(PyNotImplementedError::new_err("abstract matrix differentiation is not implemented; differentiate explicit scalar entries instead"));
+fn py_diff(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+    if let Ok(matrix) = f.downcast::<matrixexpr::PyMatrixExpr>() {
+        return Ok(matrix.get().differentiate(args)?.into_pyobject(f.py())?.into_any().unbind());
     }
-    Ok(wrap(do_diff(&to_expr(f)?, args)?))
+    expr_object(f.py(), do_diff(&to_expr(f)?, args)?)
 }
 
 #[pyfunction]
 #[pyo3(name = "Derivative", signature = (f, *args))]
 fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+    if f.downcast::<matrixexpr::PyMatrixExpr>().is_ok() {
+        return Err(PyNotImplementedError::new_err("held matrix derivatives are not implemented; use diff with a scalar variable"));
+    }
     let vars = diff_vars(args)?;
     Ok(wrap(diff::derivative_unevaluated(&to_expr(f)?, vars)))
 }
@@ -2042,6 +2093,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_rational, m)?)?;
     m.add_function(wrap_pyfunction!(py_float, m)?)?;
     m.add_function(wrap_pyfunction!(py_srepr, m)?)?;
+    m.add_function(wrap_pyfunction!(_materialize_matrix_scalars, m)?)?;
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;

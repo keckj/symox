@@ -14,6 +14,8 @@ use symox::poly::api;
 use symox::poly::convert::PolyError;
 use symox::poly::polyobj::{Domain, Poly};
 use symox::poly::fraction::{FractionPoly, Polynomial as PolyValue};
+use symox::poly::algebraic::{AlgebraicPoly,NumberField,AlgebraicScope,AN};
+use std::sync::Arc;
 use symox::poly::roots as proots;
 use symox::poly::Rat;
 
@@ -59,6 +61,24 @@ fn rat_expr(r: &Rat) -> Expr {
     Expr::num(r.to_number())
 }
 
+fn algebraic_extension(extension:Option<&Bound<'_,PyAny>>,expressions:&[Expr],domain:Option<&str>)->PyResult<Option<Arc<NumberField>>> {
+    if let Some(d)=domain {
+        if extension.is_some(){return Err(PyValueError::new_err("specify either domain or extension"));}
+        return NumberField::parse(d).map_err(err);
+    }
+    let Some(extension)=extension else{return Ok(None)};
+    if extension.is_instance_of::<pyo3::types::PyBool>() {
+        if !extension.extract::<bool>()?{return Err(PyValueError::new_err("extension=False is not a supported extension option"));}
+        return symox::poly::algebraic::infer(expressions).map_err(err);
+    }
+    let generators:Vec<Expr>=if extension.downcast::<PyList>().is_ok()||extension.downcast::<PyTuple>().is_ok(){extension.try_iter()?.map(|e|to_expr(&e?)).collect::<PyResult<_>>()?}else{vec![to_expr(extension)?]};
+    let Some(generator)=generators.first()else{return Err(PyValueError::new_err("an algebraic extension needs a generator"));};
+    let field=NumberField::quadratic(generator).map_err(err)?;
+    let _scope=AlgebraicScope::new(field.clone());
+    for generator in &generators {AN::from_expr(generator,field.clone()).map_err(err)?;}
+    Ok(Some(field))
+}
+
 /// A univariate polynomial given as a coefficient list (SymPy accepts
 /// `roots([1, 0, -1])`).
 fn expr_or_coeff_list(obj: &Bound<'_, PyAny>) -> PyResult<(Expr, Vec<Expr>)> {
@@ -94,6 +114,7 @@ pub struct PyGroebnerBasis {
     monomial_order: symox::poly::groebner::MonomialOrder,
     return_polys: bool,
     fraction_domain: Option<FractionPoly>,
+    algebraic_domain: Option<AlgebraicPoly>,
 }
 
 impl PyGroebnerBasis {
@@ -105,6 +126,7 @@ impl PyGroebnerBasis {
         modulus: Option<u64>,
         method: Option<&str>,
         polys: Option<bool>,
+        extension: Option<&Bound<'_,PyAny>>,
     ) -> PyResult<Self> {
         use symox::poly::convert::{from_exprs, from_exprs_gens};
         use symox::poly::groebner::{buchberger, CoefficientField, MonomialOrder};
@@ -115,7 +137,7 @@ impl PyGroebnerBasis {
                 "only method='buchberger' is implemented",
             ));
         }
-        if domain.is_some_and(|d| d != "ZZ" && d != "QQ" && !d.starts_with("QQ(") && !d.starts_with("ZZ(") && !d.starts_with("QQ[") && !d.starts_with("ZZ[")) {
+        if domain.is_some_and(|d| d != "ZZ" && d != "QQ" && !d.starts_with("QQ(") && !d.starts_with("ZZ(") && !d.starts_with("QQ[") && !d.starts_with("ZZ[") && !d.starts_with("QQ<")) {
             return Err(PyNotImplementedError::new_err(
                 "Groebner bases support only ZZ, QQ, or modulus=<prime>",
             ));
@@ -128,12 +150,14 @@ impl PyGroebnerBasis {
         let mut inferred_gens = Vec::new();
         let mut inferred_prime = None;
         let mut poly_domain = Domain::ZZ;
+        let mut inferred_algebraic=None;
         for item in f.try_iter()? {
             let item = item?;
             if let Ok(p) = item.downcast::<PyPoly>() {
                 any_poly = true;
                 let p = &p.get().p;
                 exprs.push(p.as_expr());
+                if let Some(a)=&p.algebraic {inferred_algebraic=Some(a.number_field.clone());}
                 inferred_gens = symox::poly::polyobj::unify_gens(&inferred_gens, p.true_gens());
                 poly_domain = poly_domain.max(p.domain);
                 if let Some(m) = p.modulus {
@@ -152,6 +176,16 @@ impl PyGroebnerBasis {
         let mut generators = gens_of(gens)?;
         if generators.is_empty() && any_poly {
             generators = inferred_gens;
+        }
+        let algebraic=algebraic_extension(extension,&exprs,domain)?.or(if domain.is_none(){inferred_algebraic}else{None});
+        if let Some(number_field)=algebraic {
+            if modulus.is_some() || inferred_prime.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+            if generators.is_empty(){generators=symox::poly::fraction::infer_parameters(&exprs,&[]);}
+            let prototype=AlgebraicPoly::from_expr(&Expr::zero(),&generators,number_field.clone()).map_err(err)?;
+            let inputs=exprs.iter().map(|e|prototype.convert(e).map(|p|p.rep)).collect::<Result<Vec<_>,_>>().map_err(err)?;
+            let _scope=AlgebraicScope::new(number_field);
+            let basis=symox::poly::fieldalg::buchberger(&inputs,monomial_order).into_iter().map(|rep|prototype.with_rep(rep).into()).collect();
+            return Ok(Self {basis,generators,coefficient_domain:Domain::QQ,prime:None,monomial_order,return_polys:polys.unwrap_or(any_poly),fraction_domain:None,algebraic_domain:Some(prototype)});
         }
         let available=symox::poly::fraction::infer_parameters(&exprs,&[]);
         let declared=domain.map(|d|symox::poly::fraction::parse_domain(d,&available)).transpose().map_err(err)?.flatten();
@@ -194,7 +228,7 @@ impl PyGroebnerBasis {
                 let p=prototype.with_rep(rep);
                 if display.ends_with(']') {p.ring_normalize().into()}else{p.into()}
             }).collect();
-            return Ok(Self {basis,generators,coefficient_domain:Domain::QQ,prime:None,monomial_order,return_polys:polys.unwrap_or(any_poly),fraction_domain:Some(prototype)});
+            return Ok(Self {basis,generators,coefficient_domain:Domain::QQ,prime:None,monomial_order,return_polys:polys.unwrap_or(any_poly),fraction_domain:Some(prototype),algebraic_domain:None});
         }
         if converted.ngens != converted.gens.len() || converted.float || poly_domain == Domain::RR {
             return Err(PyNotImplementedError::new_err("Groebner bases require exact rational coefficients; coefficient extensions are not implemented"));
@@ -249,6 +283,7 @@ impl PyGroebnerBasis {
             monomial_order,
             return_polys: polys.unwrap_or(any_poly),
             fraction_domain: None,
+            algebraic_domain: None,
         })
     }
 
@@ -295,7 +330,7 @@ impl PyGroebnerBasis {
 #[pymethods]
 impl PyGroebnerBasis {
     #[new]
-    #[pyo3(signature = (f, *gens, order="lex", domain=None, modulus=None, method=None, polys=None))]
+    #[pyo3(signature = (f, *gens, order="lex", domain=None, modulus=None, method=None, polys=None, extension=None))]
     fn py_new(
         f: &Bound<'_, PyAny>,
         gens: &Bound<'_, PyTuple>,
@@ -304,8 +339,9 @@ impl PyGroebnerBasis {
         modulus: Option<u64>,
         method: Option<&str>,
         polys: Option<bool>,
+        extension: Option<&Bound<'_,PyAny>>,
     ) -> PyResult<Self> {
-        Self::build(f, gens, order, domain, modulus, method, polys)
+        Self::build(f, gens, order, domain, modulus, method, polys, extension)
     }
 
     #[getter]
@@ -326,6 +362,7 @@ impl PyGroebnerBasis {
     }
     #[getter]
     fn domain(&self) -> String {
+        if let Some(field)=&self.algebraic_domain {return field.number_field.display();}
         if let Some(field)=&self.fraction_domain {return field.display.clone();}
         if let Some(p) = self.prime {
             format!("GF({p})")
@@ -342,7 +379,29 @@ impl PyGroebnerBasis {
         let target = MonomialOrder::parse(order)
             .ok_or_else(|| PyValueError::new_err("order must be 'lex', 'grlex', or 'grevlex'"))?;
         if target == self.monomial_order { return Ok(self.clone()); }
-        if self.fraction_domain.is_some() {return Err(PyNotImplementedError::new_err("FGLM over rational function coefficient fields is not yet implemented"));}
+        if let Some(field) = &self.algebraic_domain {
+            let _scope = AlgebraicScope::new(field.number_field.clone());
+            let reps: Vec<_> = self.basis.iter().map(|p| p.algebraic.as_ref().unwrap().rep.clone()).collect();
+            let converted = symox::poly::fieldalg::fglm(&reps,self.monomial_order,target,self.generators.len())
+                .map_err(|error| PyNotImplementedError::new_err(error.to_string()))?;
+            let mut result = self.clone();
+            result.monomial_order = target;
+            result.basis = converted.into_iter().map(|rep| field.with_rep(rep).into()).collect();
+            return Ok(result);
+        }
+        if let Some(field) = &self.fraction_domain {
+            let _scope = symox::poly::ratfunc::Scope::new(field.parameters.len());
+            let reps: Vec<_> = self.basis.iter().map(|p| p.field.as_ref().unwrap().rep.clone()).collect();
+            let converted = symox::poly::fieldalg::fglm(&reps,self.monomial_order,target,self.generators.len())
+                .map_err(|error| PyNotImplementedError::new_err(error.to_string()))?;
+            let mut result = self.clone();
+            result.monomial_order = target;
+            result.basis = converted.into_iter().map(|rep| {
+                let poly = field.with_rep(rep);
+                if field.display.ends_with(']') { poly.ring_normalize().into() } else { poly.into() }
+            }).collect();
+            return Ok(result);
+        }
         let reps: Vec<_> = self.basis.iter().map(|p| p.rep.clone()).collect();
         let converted = fglm(&reps,self.monomial_order,target,CoefficientField {modulus:self.prime},self.generators.len())
             .map_err(|e| PyNotImplementedError::new_err(e.to_string()))?;
@@ -358,6 +417,11 @@ impl PyGroebnerBasis {
     }
     #[getter]
     fn is_zero_dimensional(&self) -> bool {
+        if let Some(field)=&self.algebraic_domain {
+            let _scope=AlgebraicScope::new(field.number_field.clone());
+            let reps:Vec<_>=self.basis.iter().map(|p|p.algebraic.as_ref().unwrap().rep.clone()).collect();
+            return symox::poly::fieldalg::zero_dimensional(&reps,self.monomial_order,self.generators.len());
+        }
         if let Some(field)=&self.fraction_domain {
             let reps:Vec<_>=self.basis.iter().map(|p|p.field.as_ref().unwrap().rep.clone()).collect();
             let _scope=symox::poly::ratfunc::Scope::new(field.parameters.len());
@@ -414,6 +478,15 @@ impl PyGroebnerBasis {
         f: &Bound<'_, PyAny>,
         auto: bool,
     ) -> PyResult<(Vec<PyObject>, PyObject)> {
+        if let Some(field)=&self.algebraic_domain {
+            let input=field.convert(&to_expr(f)?).map_err(err)?;
+            let _scope=AlgebraicScope::new(field.number_field.clone());
+            let reps:Vec<_>=self.basis.iter().map(|p|p.algebraic.as_ref().unwrap().rep.clone()).collect();
+            let(mut q,r)=symox::poly::fieldalg::reduce(&input.rep,&reps,self.monomial_order);
+            if input.rep.is_zero(){q.clear();}
+            let object=|rep|->PyResult<PyObject>{let p=field.with_rep(rep);if self.return_polys{poly_obj(py,p)}else{Ok(w(p.as_expr()).into_pyobject(py)?.into_any().unbind())}};
+            return Ok((q.into_iter().map(object).collect::<PyResult<_>>()?,object(r)?));
+        }
         if let Some(field)=&self.fraction_domain {
                         let input=field.convert(&to_expr(f)?).map_err(err)?;
             if field.display.ends_with(']') && !input.belongs_to_ring(){return Err(PyValueError::new_err("input coefficients do not belong to the basis ring"));}
@@ -474,6 +547,12 @@ impl PyGroebnerBasis {
     }
 
     fn contains(&self, f: &Bound<'_, PyAny>) -> PyResult<bool> {
+        if let Some(field)=&self.algebraic_domain {
+            let input=field.convert(&to_expr(f)?).map_err(err)?;
+            let _scope=AlgebraicScope::new(field.number_field.clone());
+            let reps:Vec<_>=self.basis.iter().map(|p|p.algebraic.as_ref().unwrap().rep.clone()).collect();
+            return Ok(symox::poly::fieldalg::reduce(&input.rep,&reps,self.monomial_order).1.is_zero());
+        }
         if let Some(field)=&self.fraction_domain {
             let input=field.convert(&to_expr(f)?).map_err(err)?;
             if field.display.ends_with(']') && !input.belongs_to_ring(){return Err(PyValueError::new_err("input coefficients do not belong to the basis ring"));}
@@ -498,7 +577,7 @@ impl PyGroebnerBasis {
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, order="lex", domain=None, modulus=None, method=None, polys=None))]
+#[pyo3(signature = (f, *gens, order="lex", domain=None, modulus=None, method=None, polys=None, extension=None))]
 fn groebner(
     f: &Bound<'_, PyAny>,
     gens: &Bound<'_, PyTuple>,
@@ -507,12 +586,13 @@ fn groebner(
     modulus: Option<u64>,
     method: Option<&str>,
     polys: Option<bool>,
+    extension: Option<&Bound<'_,PyAny>>,
 ) -> PyResult<PyGroebnerBasis> {
-    PyGroebnerBasis::build(f, gens, order, domain, modulus, method, polys)
+    PyGroebnerBasis::build(f, gens, order, domain, modulus, method, polys, extension)
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, order="lex", domain=None, modulus=None, method=None))]
+#[pyo3(signature = (f, *gens, order="lex", domain=None, modulus=None, method=None, extension=None))]
 fn is_zero_dimensional(
     f: &Bound<'_, PyAny>,
     gens: &Bound<'_, PyTuple>,
@@ -520,9 +600,10 @@ fn is_zero_dimensional(
     domain: Option<&str>,
     modulus: Option<u64>,
     method: Option<&str>,
+    extension: Option<&Bound<'_,PyAny>>,
 ) -> PyResult<bool> {
     Ok(
-        PyGroebnerBasis::build(f, gens, order, domain, modulus, method, None)?
+        PyGroebnerBasis::build(f, gens, order, domain, modulus, method, None, extension)?
             .is_zero_dimensional(),
     )
 }
@@ -570,6 +651,11 @@ fn set_domain(mut p: Poly, domain: Option<&str>) -> PyResult<Poly> {
 impl PyPoly {
     fn build(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&str>) -> PyResult<Self> {
         use symox::poly::fraction::{parse_domain,infer_parameters,domain_name};
+        if let Some(field)=algebraic_extension(None,&[],domain)? {
+            let(e,g2)=expr_or_coeff_list(expr)?;let mut generators=gens_of(gens)?;if generators.is_empty(){generators=g2;}
+            if generators.is_empty(){generators=symox::poly::fraction::infer_parameters(std::slice::from_ref(&e),&[]);}
+            return Ok(Self {p:AlgebraicPoly::from_expr(&e,&generators,field).map_err(err)?.into()});
+        }
         let mut generators = gens_of(gens)?;
         if let Ok(q) = expr.downcast::<PyPoly>() {
             if generators.is_empty() && domain.is_none() {return Ok(q.get().clone());}
@@ -600,6 +686,12 @@ impl PyPoly {
         if let Ok(q)=o.downcast::<PyPoly>() {
             let q=&q.get().p;
             let gens=symox::poly::polyobj::unify_gens(self.p.true_gens(),q.true_gens());
+            if let Some(field)=self.p.algebraic.as_ref().or(q.algebraic.as_ref()) {
+                if self.p.field.is_some()||q.field.is_some()||self.p.modulus.is_some()||q.modulus.is_some(){return None;}
+                AlgebraicPoly::from_expr(&self.p.as_expr(),&gens,field.number_field.clone()).ok()?;
+                AlgebraicPoly::from_expr(&q.as_expr(),&gens,field.number_field.clone()).ok()?;
+                return Some(q.clone());
+            }
             for f in [self.p.field.as_ref(),q.field.as_ref()].into_iter().flatten() {
                 if gens.iter().any(|g|f.parameters.contains(g)) || q.modulus.is_some() || self.p.modulus.is_some(){return None;}
             }
@@ -611,6 +703,7 @@ impl PyPoly {
             }
             return Some(q.clone());
         }
+        if let Some(field)=&self.p.algebraic {return field.convert(&to_expr(o).ok()?).ok().map(Into::into);}
         if let Some(field)=&self.p.field {
             return field.convert(&to_expr(o).ok()?).ok().map(Into::into);
         }
@@ -626,6 +719,11 @@ impl PyPoly {
         match self.other(o) {
             Some(q) => Ok(PyPoly { p: (f(&self.p, &q)).into() }.into_pyobject(py)?.into_any().unbind()),
             None => {
+                if let Ok(q)=o.downcast::<PyPoly>() {
+                    if self.p.algebraic.is_some() || q.get().p.algebraic.is_some() {
+                        return Err(PyTypeError::new_err("incompatible coefficient fields; composite algebraic extensions are not implemented"));
+                    }
+                }
                 let e = to_expr(o)?;
                 Ok(w(g(&self.p.as_expr(), &e)).into_pyobject(py)?.into_any().unbind())
             }
@@ -662,11 +760,15 @@ fn degree_obj(py: Python<'_>, d: Option<u32>) -> PyResult<PyObject> {
 #[pymethods]
 impl PyPoly {
     #[new]
-    #[pyo3(signature = (expr, *gens, domain=None, modulus=None, **_kwargs))]
-    fn py_new(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&str>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-        let mut r = Self::build(expr, gens, domain)?;
+    #[pyo3(signature = (expr, *gens, domain=None, modulus=None, extension=None, **_kwargs))]
+    fn py_new(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&str>, modulus: Option<u64>, extension:Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        let(e,g2)=expr_or_coeff_list(expr)?;
+        let mut r=if let Some(field)=algebraic_extension(extension,std::slice::from_ref(&e),domain)? {
+            let mut generators=gens_of(gens)?;if generators.is_empty(){generators=g2;}if generators.is_empty(){generators=symox::poly::fraction::infer_parameters(std::slice::from_ref(&e),&[]);}
+            Self {p:AlgebraicPoly::from_expr(&e,&generators,field).map_err(err)?.into()}
+        }else{Self::build(expr,gens,domain)?};
         if let Some(m) = modulus {
-            if r.p.field.is_some() {return Err(PyNotImplementedError::new_err("finite fraction fields are not implemented"));}
+            if r.p.field.is_some() || r.p.algebraic.is_some() {return Err(PyNotImplementedError::new_err("finite fraction fields are not implemented"));}
             r.p = r.p.set_modulus(check_mod(m)?).into();
         }
         Ok(r)
@@ -846,17 +948,19 @@ impl PyPoly {
     }
 
     #[getter]
-    fn is_irreducible(&self) -> bool {
-        if let Some(f)=&self.p.field {let(_,fs)=f.factor_list();return fs.len()==1 && fs[0].1==1;}
+    fn is_irreducible(&self) -> PyResult<bool> {
+        if let Some(f)=&self.p.algebraic {if f.rep.is_constant(){return Ok(true);}let(_,fs)=f.factor_list().map_err(err)?;return Ok(fs.len()==1 && fs[0].1==1);}
+        if let Some(f)=&self.p.field {let(_,fs)=f.factor_list();return Ok(fs.len()==1 && fs[0].1==1);}
         let (_, fs) = self.p.factor_list();
-        fs.len() == 1 && fs[0].1 == 1
+        Ok(fs.len() == 1 && fs[0].1 == 1)
     }
 
     #[getter]
-    fn is_sqf(&self) -> bool {
-        if let Some(f)=&self.p.field {return f.sqf_list().1.iter().all(|(_,k)|*k==1);}
+    fn is_sqf(&self) -> PyResult<bool> {
+        if let Some(f)=&self.p.algebraic {if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate squarefree factorization over algebraic fields is not implemented"));}return Ok(f.sqf_list().1.iter().all(|(_,k)|*k==1));}
+        if let Some(f)=&self.p.field {return Ok(f.sqf_list().1.iter().all(|(_,k)|*k==1));}
         let (_, fs) = self.p.sqf_list();
-        fs.iter().all(|(_, k)| *k == 1)
+        Ok(fs.iter().all(|(_, k)| *k == 1))
     }
 
     fn __add__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
@@ -948,21 +1052,30 @@ impl PyPoly {
 
     fn gcd(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        if (self.p.algebraic.is_some()||q.algebraic.is_some()) && symox::poly::polyobj::unify_gens(self.p.true_gens(),q.true_gens()).len()!=1{return Err(PyNotImplementedError::new_err("multivariate gcd over number fields is not implemented"));}
         Ok(PyPoly { p: (self.p.gcd(&q)).into() })
     }
 
     fn lcm(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        if (self.p.algebraic.is_some()||q.algebraic.is_some()) && symox::poly::polyobj::unify_gens(self.p.true_gens(),q.true_gens()).len()!=1{return Err(PyNotImplementedError::new_err("multivariate gcd over number fields is not implemented"));}
         Ok(PyPoly { p: (self.p.lcm(&q)).into() })
     }
 
     fn cofactors<'py>(&self, py: Python<'py>, o: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyTuple>> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        if (self.p.algebraic.is_some()||q.algebraic.is_some()) && symox::poly::polyobj::unify_gens(self.p.true_gens(),q.true_gens()).len()!=1{return Err(PyNotImplementedError::new_err("multivariate gcd over number fields is not implemented"));}
         let (h, a, b) = self.p.cofactors(&q);
         PyTuple::new(py, [PyPoly { p: (h).into() }, PyPoly { p: (a).into() }, PyPoly { p: (b).into() }])
     }
 
     fn factor_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some(f)=&self.p.algebraic {
+            if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
+            let(c,factors)=f.factor_list().map_err(err)?;let list=PyList::empty(py);
+            for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
+            return PyTuple::new(py,[w(c.as_expr()).into_pyobject(py)?.into_any(),list.into_any()]);
+        }
         if let Some(f)=&self.p.field {
             let(c,factors)=f.factor_list();let list=PyList::empty(py);
             for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
@@ -978,6 +1091,12 @@ impl PyPoly {
     }
 
     fn sqf_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some(f)=&self.p.algebraic {
+            if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
+            let(c,factors)=f.sqf_list();let list=PyList::empty(py);
+            for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
+            return PyTuple::new(py,[w(c.as_expr()).into_pyobject(py)?.into_any(),list.into_any()]);
+        }
         if let Some(f)=&self.p.field {
             let(c,factors)=f.sqf_list();let list=PyList::empty(py);
             for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
@@ -993,6 +1112,7 @@ impl PyPoly {
     }
 
     fn primitive<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if self.p.algebraic.is_some(){return PyTuple::new(py,[w(if self.p.is_zero(){Expr::zero()}else{Expr::one()}).into_pyobject(py)?.into_any(),self.clone().into_pyobject(py)?.into_any()]);}
         if let Some(f)=&self.p.field {
             let(c,p)=f.primitive();let c=symox::poly::fraction::coefficient_expr(&c,&f.parameters);
             return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),poly_obj(py,p)?.into_bound(py)]);
@@ -1002,11 +1122,13 @@ impl PyPoly {
     }
 
     fn content(&self) -> PyExpr {
+        if self.p.algebraic.is_some(){return w(if self.p.is_zero(){Expr::zero()}else{Expr::one()});}
         if let Some(f)=&self.p.field {return w(symox::poly::fraction::coefficient_expr(&f.primitive().0,&f.parameters));}
         w(rat_expr(&self.p.primitive().0))
     }
 
     fn monic(&self) -> PyResult<PyPoly> {
+        if let Some(f)=&self.p.algebraic {return Ok(PyPoly {p:f.monic().into()});}
         if let Some(f)=&self.p.field {return Ok(PyPoly {p:f.monic().into()});}
         if self.p.is_zero() {
             return Ok(self.clone());
@@ -1041,6 +1163,12 @@ impl PyPoly {
         let g = self.p.true_gens()[i].clone();
         let r = symox::subs::subs(&self.p.as_expr(), &[(g, val)]);
         let r = symox::expand::expand(&r);
+        if let Some(field)=&self.p.algebraic {
+            if self.p.ngens>1 {let mut gens=field.gens.clone();gens.remove(i);return poly_obj(py,AlgebraicPoly::from_expr(&r,&gens,field.number_field.clone()).map_err(err)?);}
+            let value=field.convert(&r).map_err(err)?;
+            if !value.rep.is_constant(){return Err(PyValueError::new_err("evaluation value must belong to the coefficient field"));}
+            return Ok(w(value.as_expr()).into_pyobject(py)?.into_any().unbind());
+        }
         if let Some(field)=&self.p.field {
             if self.p.ngens>1 {let mut gens=field.gens.clone();gens.remove(i);return poly_obj(py,FractionPoly::from_expr(&r,&gens,&field.parameters,&field.display).map_err(err)?);}
             let value=field.convert(&r).map_err(err)?;
@@ -1050,7 +1178,7 @@ impl PyPoly {
         if self.p.ngens > 1 {
             let mut gens = self.p.true_gens().to_vec();
             gens.remove(i);
-            if let Ok(p) = Poly::from_expr(&r, &gens) {
+                if let Ok(p) = Poly::from_expr(&r, &gens) {
                 return poly_obj(py, p);
             }
         }
@@ -1083,17 +1211,19 @@ impl PyPoly {
     }
 
     fn compose(&self, g: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
+        if let Some(f)=&self.p.algebraic {if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("algebraic compose requires one generator"));}let q=f.convert(&to_expr(g)?).map_err(err)?;return Ok(PyPoly {p:f.compose(&q).into()});}
         if let Some(f)=&self.p.field {let q=f.convert(&to_expr(g)?).map_err(err)?;return Ok(PyPoly {p:f.compose(&q).into()});}
         let q = self.other(g).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: (self.p.compose(&q)).into() })
     }
 
     fn decompose(&self) -> PyResult<Vec<PyPoly>> {
-        if self.p.field.is_some(){return Err(PyNotImplementedError::new_err("functional decomposition over fraction fields is not yet implemented"));}
+        if self.p.field.is_some()||self.p.algebraic.is_some(){return Err(PyNotImplementedError::new_err("functional decomposition over fraction fields is not yet implemented"));}
         Ok(self.p.decompose().map_err(err)?.into_iter().map(|p| PyPoly { p: p.into() }).collect())
     }
 
     fn shift(&self, a: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
+        if let Some(f)=&self.p.algebraic {if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("algebraic shift requires one generator"));}let argument=symox::ops::add2(&f.gens[0],&to_expr(a)?);let q=f.convert(&argument).map_err(err)?;return Ok(PyPoly {p:f.compose(&q).into()});}
         if let Some(f)=&self.p.field {let argument=symox::ops::add2(&f.gens[0],&to_expr(a)?);let q=f.convert(&argument).map_err(err)?;return Ok(PyPoly {p:f.compose(&q).into()});}
         let e = to_expr(a)?;
         let r = e
@@ -1117,6 +1247,7 @@ impl PyPoly {
     }
 
     fn clear_denoms<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if self.p.algebraic.is_some(){return PyTuple::new(py,[w(Expr::one()).into_pyobject(py)?.into_any(),self.clone().into_pyobject(py)?.into_any()]);}
         if let Some(f)=&self.p.field {
             let _scope=symox::poly::ratfunc::Scope::new(f.parameters.len());
             let d=f.denominator();let e=symox::poly::convert::to_expr_int(&d,&f.parameters);
@@ -1128,18 +1259,19 @@ impl PyPoly {
     }
 
     fn max_norm(&self) -> PyResult<PyExpr> {
-        if self.p.field.is_some(){return Err(PyTypeError::new_err("rational function coefficients have no ordered absolute norm"));}
+        if self.p.field.is_some()||self.p.algebraic.is_some(){return Err(PyTypeError::new_err("rational function coefficients have no ordered absolute norm"));}
         Ok(w(rat_expr(&self.p.max_norm())))
     }
 
     fn l1_norm(&self) -> PyResult<PyExpr> {
-        if self.p.field.is_some(){return Err(PyTypeError::new_err("rational function coefficients have no ordered absolute norm"));}
+        if self.p.field.is_some()||self.p.algebraic.is_some(){return Err(PyTypeError::new_err("rational function coefficients have no ordered absolute norm"));}
         Ok(w(rat_expr(&self.p.l1_norm())))
     }
 
-    fn sqf_part(&self) -> PyPoly {
-        if let Some(f)=&self.p.field {let mut p=f.convert(&Expr::one()).expect("unit polynomial");for(q,_)in f.factor_list().1{p=p.mul(&q);}return PyPoly {p:p.monic().into()};}
-        PyPoly { p: (self.p.sqf_part()).into() }
+    fn sqf_part(&self) -> PyResult<PyPoly> {
+        if let Some(f)=&self.p.algebraic {if f.rep.is_zero(){return Ok(self.clone());}if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic squarefree factorization is not implemented"));}let mut p=f.convert(&Expr::one()).map_err(err)?;for(q,_)in f.sqf_list().1{p=p.mul(&q);}return Ok(PyPoly {p:p.monic().into()});}
+        if let Some(f)=&self.p.field {let mut p=f.convert(&Expr::one()).expect("unit polynomial");for(q,_)in f.factor_list().1{p=p.mul(&q);}return Ok(PyPoly {p:p.monic().into()});}
+        Ok(PyPoly { p: (self.p.sqf_part()).into() })
     }
 
     #[getter]
@@ -1175,6 +1307,7 @@ impl PyPoly {
             return Err(PyTypeError::new_err("subs expects (old, new) or a dict"));
         };
         let r = symox::expand::expand(&symox::subs::subs(&e, &pairs));
+        if let Some(field)=&self.p.algebraic {return poly_obj(py,field.convert(&r).map_err(err)?);}
         if let Some(field)=&self.p.field {return poly_obj(py,field.convert(&r).map_err(err)?);}
         if let Ok(p) = Poly::from_expr(&r, self.p.true_gens()) {
             if !r.is_number() {
@@ -1197,6 +1330,7 @@ impl PyPoly {
             terms.push(symox::ops::mul(&f));
         }
         let e = symox::ops::add(&terms);
+        if let Some(field)=&self.p.algebraic {return Ok(PyPoly {p:field.convert(&e).map_err(err)?.into()});}
         if let Some(field)=&self.p.field {return Ok(PyPoly {p:field.convert(&e).map_err(err)?.into()});}
         let mut p = Poly::from_expr(&e, self.p.true_gens()).map_err(err)?;
         if p.domain < self.p.domain {
@@ -1214,10 +1348,12 @@ impl PyPoly {
 
     fn resultant(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
+        if let Some(field)=self.p.algebraic.as_ref().or(q.algebraic.as_ref()) {let a=field.convert(&self.p.as_expr()).map_err(err)?;let b=field.convert(&q.as_expr()).map_err(err)?;return Ok(w(a.resultant(&b).map_err(err)?.as_expr()));}
         Ok(w(api::resultant(&self.p.as_expr(), &q.as_expr(), self.p.true_gens()).map_err(err)?))
     }
 
     fn discriminant(&self) -> PyResult<PyExpr> {
+        if let Some(p)=&self.p.algebraic{return Ok(w(p.discriminant().map_err(err)?.as_expr()));}
         Ok(w(api::discriminant(&self.p.as_expr(), self.p.true_gens()).map_err(err)?))
     }
 }
@@ -1238,6 +1374,7 @@ fn _rebuild_poly(expr:&Bound<'_,PyAny>,generators:&Bound<'_,PyAny>,parameters:Op
         let parameters=expression_vector(parameters)?;
         return Ok(PyPoly {p:FractionPoly::from_expr(&e,&generators,&parameters,domain).map_err(err)?.into()});
     }
+    if let Some(field)=NumberField::parse(domain).map_err(err)?{return Ok(PyPoly {p:AlgebraicPoly::from_expr(&e,&generators,field).map_err(err)?.into()});}
     let mut p=Poly::from_expr(&e,&generators).map_err(err)?;
     let base=domain.split(['[','(']).next().unwrap_or(domain);
     p=set_domain(p,Some(base))?;
@@ -1250,7 +1387,7 @@ fn _rebuild_poly(expr:&Bound<'_,PyAny>,generators:&Bound<'_,PyAny>,parameters:Op
 fn _rebuild_groebner(py:Python<'_>,expressions:&Bound<'_,PyAny>,generators:&Bound<'_,PyAny>,parameters:Option<&Bound<'_,PyAny>>,domain:&str,order:&str,polys:bool,modulus:Option<u64>)->PyResult<PyGroebnerBasis> {
     let generators=expression_vector(generators)?;
     let args=PyTuple::new(py,generators.iter().cloned().map(w))?;
-    let mut result=PyGroebnerBasis::build(expressions,&args,order,if modulus.is_some(){None}else{Some(domain)},modulus,None,Some(polys))?;
+    let mut result=PyGroebnerBasis::build(expressions,&args,order,if modulus.is_some(){None}else{Some(domain)},modulus,None,Some(polys),None)?;
     if let Some(parameters)=parameters {
         let parameters=expression_vector(parameters)?;
         let prototype=FractionPoly::from_expr(&Expr::zero(),&generators,&parameters,domain).map_err(err)?;
@@ -1258,6 +1395,16 @@ fn _rebuild_groebner(py:Python<'_>,expressions:&Bound<'_,PyAny>,generators:&Boun
         result.fraction_domain=Some(prototype);
     }
     Ok(result)
+}
+
+fn algebraic_option_poly(f:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<AlgebraicPoly>> {
+    let Some(kwargs)=kwargs else{return Ok(None)};
+    let extension=kwargs.get_item("extension")?;
+    let domain=kwargs.get_item("domain")?.map(|d|d.extract::<String>()).transpose()?;
+    let(e,g2)=expr_or_coeff_list(f)?;
+    let Some(field)=algebraic_extension(extension.as_ref(),std::slice::from_ref(&e),domain.as_deref())?else{return Ok(None)};
+    let mut generators=gens_of(gens)?;if generators.is_empty(){generators=g2;}if generators.is_empty(){generators=symox::poly::fraction::infer_parameters(std::slice::from_ref(&e),&[]);}
+    AlgebraicPoly::from_expr(&e,&generators,field).map(Some).map_err(err)
 }
 
 fn pair<'py>(py: Python<'py>, c: Expr, fs: Vec<(Expr, Expr)>) -> PyResult<Bound<'py, PyTuple>> {
@@ -1275,6 +1422,11 @@ fn pair<'py>(py: Python<'py>, c: Expr, fs: Vec<(Expr, Expr)>) -> PyResult<Bound<
 #[pyfunction]
 #[pyo3(signature = (f, *gens, deep=false, modulus=None, **_kwargs))]
 fn factor(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, deep: bool, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
+        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
+        let(c,fs)=p.factor_list().map_err(err)?;let mut factors=vec![c.as_expr()];for(q,k)in fs{factors.push(q.as_expr().powi(k as i64));}return Ok(w(symox::ops::mul(&factors)));
+    }
     let _ = gens;
     let e = to_expr(f)?;
     if let Some(p) = modulus {
@@ -1289,6 +1441,11 @@ fn factor(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, deep: bool, modulus: 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
 fn sqf(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
+        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
+        let(c,fs)=p.sqf_list();let mut factors=vec![c.as_expr()];for(q,k)in fs{factors.push(q.as_expr().powi(k as i64));}return Ok(w(symox::ops::mul(&factors)));
+    }
     let _ = gens;
     if let Some(p) = modulus {
         return Ok(w(api::sqf_mod(&to_expr(f)?, check_mod(p)?).map_err(err)?));
@@ -1299,6 +1456,11 @@ fn sqf(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _k
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
 fn factor_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
+        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
+        let(c,fs)=p.factor_list().map_err(err)?;return pair(py,c.as_expr(),fs.into_iter().map(|(p,k)|(p.as_expr(),Expr::int(k as i64))).collect());
+    }
     if let Ok(p) = f.downcast::<PyPoly>() {
         return p.get().factor_list(py);
     }
@@ -1319,6 +1481,11 @@ fn factor_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTu
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
 fn sqf_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
+        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
+        let(c,fs)=p.sqf_list();return pair(py,c.as_expr(),fs.into_iter().map(|(p,k)|(p.as_expr(),Expr::int(k as i64))).collect());
+    }
     if let Ok(p) = f.downcast::<PyPoly>() {
         return p.get().sqf_list(py);
     }
@@ -1353,6 +1520,15 @@ fn poly_result(py: Python<'_>, e: Expr, as_poly: bool, gens: &[Expr]) -> PyResul
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){if p.get().p.algebraic.is_some()||p.get().p.field.is_some(){return poly_obj(py,p.get().gcd(q)?.p);}}}
+    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
+        let q=g.ok_or_else(||PyTypeError::new_err("expected a second polynomial"))?;
+        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate gcd over number fields is not implemented"));}
+        let q=p.convert(&to_expr(q)?).map_err(err)?;
+        let result=p.gcd(&q);
+        return Ok(w(result.as_expr()).into_pyobject(py)?.into_any().unbind());
+    }
     if let (Some(m), Some(g)) = (modulus, g) {
         let r = api::gcd_mod(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?, check_mod(m)?).map_err(err)?;
         return Ok(w(r).into_pyobject(py)?.into_any().unbind());
@@ -1380,6 +1556,15 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){if p.get().p.algebraic.is_some()||p.get().p.field.is_some(){return poly_obj(py,p.get().lcm(q)?.p);}}}
+    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
+        let q=g.ok_or_else(||PyTypeError::new_err("expected a second polynomial"))?;
+        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate gcd over number fields is not implemented"));}
+        let q=p.convert(&to_expr(q)?).map_err(err)?;
+        let result=if p.rep.is_zero()||q.rep.is_zero(){p.convert(&Expr::zero()).map_err(err)?}else{p.mul(&q).div(&p.gcd(&q)).map_err(err)?.0.monic()};
+        return Ok(w(result.as_expr()).into_pyobject(py)?.into_any().unbind());
+    }
     if let (Some(m), Some(g)) = (modulus, g) {
         let r = api::lcm_mod(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?, check_mod(m)?).map_err(err)?;
         return Ok(w(r).into_pyobject(py)?.into_any().unbind());
@@ -1492,8 +1677,8 @@ fn py_div<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, g, *gens, order="lex", domain=None, modulus=None, polys=None, auto=None, **_kwargs))]
-fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, domain: Option<&str>, modulus: Option<u64>, polys: Option<bool>, auto: Option<bool>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+#[pyo3(signature = (f, g, *gens, order="lex", domain=None, modulus=None, polys=None, auto=None, extension=None, **_kwargs))]
+fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, domain: Option<&str>, modulus: Option<u64>, polys: Option<bool>, auto: Option<bool>, extension: Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
     use symox::poly::convert::{from_exprs, from_exprs_gens, to_expr_f};
     use symox::poly::groebner::{reduce_with_options, CoefficientField, MonomialOrder};
     let monomial_order = MonomialOrder::parse(order)
@@ -1506,7 +1691,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
             return Err(PyTypeError::new_err(format!("reduced() got an unsupported keyword argument '{}'",key.extract::<String>()?)));
         }
     }
-    if domain.is_some_and(|d| d != "ZZ" && d != "QQ" && d != "RR" && !d.starts_with("QQ(") && !d.starts_with("ZZ(") && !d.starts_with("QQ[") && !d.starts_with("ZZ[")) {
+    if domain.is_some_and(|d| d != "ZZ" && d != "QQ" && d != "RR" && !d.starts_with("QQ(") && !d.starts_with("ZZ(") && !d.starts_with("QQ[") && !d.starts_with("ZZ[") && !d.starts_with("QQ<")) {
         return Err(PyNotImplementedError::new_err("reduced supports ZZ, QQ, RR, and prime modulus domains"));
     }
     if domain.is_some() && modulus.is_some() {
@@ -1515,6 +1700,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
     let mut expressions = Vec::new();
     let mut inferred_gens = Vec::new();
     let mut inferred_domain = Domain::ZZ;
+    let mut inferred_algebraic=None;
     let mut inferred_prime = None;
     let mut any_poly = false;
     let mut append = |item: &Bound<'_,PyAny>| -> PyResult<()> {
@@ -1522,6 +1708,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
             any_poly = true;
             let p = &p.get().p;
             expressions.push(p.as_expr());
+            if let Some(a)=&p.algebraic{inferred_algebraic=Some(a.number_field.clone());}
             inferred_gens = symox::poly::polyobj::unify_gens(&inferred_gens,p.true_gens());
             inferred_domain = inferred_domain.max(p.domain);
             if let Some(m) = p.modulus {
@@ -1535,6 +1722,21 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gen
     for divisor in g.try_iter()? { append(&divisor?)?; }
     let mut gv = gens_of(gens)?;
     if gv.is_empty() && any_poly {gv = inferred_gens;}
+    let algebraic=algebraic_extension(extension,&expressions,domain)?.or(if domain.is_none(){inferred_algebraic}else{None});
+    if let Some(number_field)=algebraic {
+        if modulus.is_some() || inferred_prime.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
+        if gv.is_empty(){gv=symox::poly::fraction::infer_parameters(&expressions,&[]);}
+        let prototype=AlgebraicPoly::from_expr(&Expr::zero(),&gv,number_field.clone()).map_err(err)?;
+        let inputs=expressions.iter().map(|e|prototype.convert(e)).collect::<Result<Vec<_>,_>>().map_err(err)?;
+        let divisors:Vec<_>=inputs.iter().skip(1).map(|p|p.rep.clone()).collect();
+        if divisors.iter().any(|p|p.is_zero()){return Err(PyZeroDivisionError::new_err("polynomial division by zero"));}
+        let _scope=AlgebraicScope::new(number_field);
+        let(mut q,r)=symox::poly::fieldalg::reduce(&inputs[0].rep,&divisors,monomial_order);
+        if inputs[0].rep.is_zero(){q.clear();}
+        let object=|rep|->PyResult<PyObject>{let p=prototype.with_rep(rep);if polys.unwrap_or(any_poly){poly_obj(py,p)}else{Ok(w(p.as_expr()).into_pyobject(py)?.into_any().unbind())}};
+        let qs=PyList::new(py,q.into_iter().map(object).collect::<PyResult<Vec<_>>>()?)?;
+        return PyTuple::new(py,[qs.into_any(),object(r)?.into_bound(py)]);
+    }
     let available=symox::poly::fraction::infer_parameters(&expressions,&[]);
     let declared=domain.map(|d|symox::poly::fraction::parse_domain(d,&available)).transpose().map_err(err)?.flatten();
     if gv.is_empty() {if let Some(parameters)=&declared {gv=symox::poly::fraction::infer_parameters(&expressions,parameters);}}

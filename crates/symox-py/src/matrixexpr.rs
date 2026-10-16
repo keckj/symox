@@ -1,7 +1,7 @@
 //! Python interface to the native typed MatrixExpr DAG.
 use pyo3::prelude::*;
 use pyo3::types::{PyDict,PyList,PySet,PyTuple};
-use pyo3::exceptions::{PyTypeError,PyNotImplementedError};
+use pyo3::exceptions::{PyTypeError,PyNotImplementedError,PyValueError};
 use rustc_hash::FxHashMap;
 use symox::expr::Expr;
 use symox::matrixexpr::{MatrixExpr,MatrixKind};
@@ -89,6 +89,18 @@ fn _matrix_element(parent:&Bound<'_,PyAny>,i:&Bound<'_,PyAny>,j:&Bound<'_,PyAny>
 }
 #[pyfunction]
 fn _as_matrixexpr(value:&Bound<'_,PyAny>)->PyResult<PyMatrixExpr>{Ok(wrap_matrixexpr(to_matrixexpr(value)?))}
+#[pyfunction]
+#[pyo3(signature=(parent,evaluate=false))]
+fn _matrix_trace(parent:&Bound<'_,PyAny>,evaluate:bool)->PyResult<PyExpr>{
+    let matrix=to_matrixexpr(parent)?;
+    Ok(wrap((if evaluate{matrix.trace()}else{matrix.trace_unevaluated()}).map_err(|e|error(parent.py(),e))?))
+}
+#[pyfunction]
+#[pyo3(signature=(parent,evaluate=false))]
+fn _matrix_determinant(parent:&Bound<'_,PyAny>,evaluate:bool)->PyResult<PyExpr>{
+    let matrix=to_matrixexpr(parent)?;
+    Ok(wrap((if evaluate{matrix.determinant()}else{matrix.determinant_unevaluated()}).map_err(|e|error(parent.py(),e))?))
+}
 #[pymethods]
 impl PyMatrixExpr{
     #[getter] fn _symox_matrixexpr(&self)->bool{true}
@@ -149,6 +161,10 @@ impl PyMatrixExpr{
     fn adjoint(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.adjoint(true).map_err(|e|error(py,e))?))}
     fn conjugate(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.conjugate(true).map_err(|e|error(py,e))?))}
     fn inverse(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.inverse(true).map_err(|e|error(py,e))?))}
+    fn trace(&self,py:Python<'_>)->PyResult<PyExpr>{Ok(wrap(self.m.trace().map_err(|e|error(py,e))?))}
+    fn det(&self,py:Python<'_>)->PyResult<PyExpr>{Ok(wrap(self.m.determinant().map_err(|e|error(py,e))?))}
+    fn trace_explicit(&self,py:Python<'_>)->PyResult<PyExpr>{Ok(wrap(self.m.trace_explicit().map_err(|e|error(py,e))?))}
+    fn determinant_explicit(&self,py:Python<'_>)->PyResult<PyExpr>{Ok(wrap(self.m.determinant_explicit().map_err(|e|error(py,e))?))}
     fn inv(&self,py:Python<'_>)->PyResult<Self>{self.inverse(py)}
     #[getter] fn T(&self,py:Python<'_>)->PyResult<Self>{self.transpose(py)}
     #[getter] fn H(&self,py:Python<'_>)->PyResult<Self>{self.adjoint(py)}
@@ -158,6 +174,13 @@ impl PyMatrixExpr{
     #[pyo3(signature=(deep=true,**kwargs))]
     fn doit(&self,py:Python<'_>,deep:bool,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{if kwargs.is_some_and(|d|!d.is_empty()){return Err(PyNotImplementedError::new_err("MatrixExpr doit options are unsupported"));}Ok(wrap_matrixexpr(self.m.doit(deep).map_err(|e|error(py,e))?))}
     fn expand(&self,py:Python<'_>)->PyResult<Self>{Ok(wrap_matrixexpr(self.m.expand().map_err(|e|error(py,e))?))}
+    #[pyo3(signature=(*args,**kwargs))]
+    fn diff(&self,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{
+        if let Some(options)=kwargs {for (key,value) in options.iter(){
+            if key.extract::<String>()? != "evaluate" || !value.is_truthy()? {return Err(PyNotImplementedError::new_err("MatrixExpr.diff supports evaluated scalar derivatives only"));}
+        }}
+        self.differentiate(args)
+    }
     fn __getitem__(&self,key:&Bound<'_,PyAny>)->PyResult<PyExpr>{let pair=key.downcast::<PyTuple>().map_err(|_|PyTypeError::new_err("MatrixExpr indexing requires (row, col)"))?;if pair.len()!=2{return Err(PyTypeError::new_err("MatrixExpr indexing requires two indices"));}Ok(wrap(self.m.element(&to_expr(&pair.get_item(0)?)?,&to_expr(&pair.get_item(1)?)?).map_err(|e|error(key.py(),e))?))}
     fn xreplace(&self,rule:&Bound<'_,PyDict>)->PyResult<Self>{let mut matrices=Vec::new();let mut scalars=FxHashMap::default();for (a,b) in rule.iter(){if is_matrix(&a){matrices.push((to_matrixexpr(&a)?,to_matrixexpr(&b)?));}else{scalars.insert(to_expr(&a)?,to_expr(&b)?);}}Ok(wrap_matrixexpr(self.m.xreplace(&matrices,&scalars).map_err(|e|error(rule.py(),e))?))}
     #[pyo3(signature=(*args,**kwargs))]
@@ -171,7 +194,17 @@ impl PyMatrixExpr{
     fn __reduce__<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyAny>,Bound<'py,PyTuple>)>{Ok((py.import("symox")?.getattr(self.m.kind_name())?,matrix_args(py,&self.m,false)?))}
 }
 impl PyMatrixExpr{
+    pub(crate) fn differentiate(&self,args:&Bound<'_,PyTuple>)->PyResult<Self>{
+        let mut variables=crate::diff_vars(args)?;
+        if variables.is_empty(){
+            let scalar=self.m.scalar_free_symbols();let matrices=self.m.matrix_symbols();
+            if scalar.len()==1&&matrices.is_empty(){variables.push((scalar[0].clone(),1));}
+            else if scalar.is_empty()&&matrices.len()==1{return Err(PyNotImplementedError::new_err("Matrix-symbol derivatives require tensor expressions; supply a scalar differentiation variable"));}
+            else{return Err(PyValueError::new_err("Supply the scalar variable(s) of differentiation"));}
+        }
+        Ok(wrap_matrixexpr(self.m.diff_many(&variables).map_err(|e|error(args.py(),e))?))
+    }
     fn binary_add(&self,other:&Bound<'_,PyAny>,subtract:bool,reverse:bool)->PyResult<Self>{let py=other.py();let mut a=self.m.clone();let mut b=to_matrixexpr(other)?;if reverse{std::mem::swap(&mut a,&mut b);}if subtract{b=MatrixExpr::mul(Expr::minus_one(),&[b],true).map_err(|e|error(py,e))?;}Ok(wrap_matrixexpr(MatrixExpr::add(&[a,b],true).map_err(|e|error(py,e))?))}
     fn binary_mul(&self,other:&Bound<'_,PyAny>,reverse:bool)->PyResult<Self>{let py=other.py();let result=if is_matrix(other){let peer=to_matrixexpr(other)?;let terms=if reverse{vec![peer,self.m.clone()]}else{vec![self.m.clone(),peer]};MatrixExpr::mul(Expr::one(),&terms,true)}else{MatrixExpr::mul(to_expr(other)?,&[self.m.clone()],true)};Ok(wrap_matrixexpr(result.map_err(|e|error(py,e))?))}
 }
-pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;Ok(())}
+pub(crate) fn register(m:&Bound<'_,PyModule>)->PyResult<()>{m.add_class::<PyMatrixExpr>()?;m.add_function(wrap_pyfunction!(_matrixexpr_node,m)?)?;m.add_function(wrap_pyfunction!(_matrix_element,m)?)?;m.add_function(wrap_pyfunction!(_as_matrixexpr,m)?)?;m.add_function(wrap_pyfunction!(_matrix_trace,m)?)?;m.add_function(wrap_pyfunction!(_matrix_determinant,m)?)?;Ok(())}

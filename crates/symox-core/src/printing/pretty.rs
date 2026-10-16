@@ -946,6 +946,13 @@ impl PrettyPrinter<'_> {
     }
 
     fn print_func(&self, f: &Func, args: &[Expr]) -> Pict {
+        if let Func::MatrixElement(parent) = f {
+            return Pict::new(&format!("{}[{}, {}]",parent.to_str(),args[0],args[1]));
+        }
+        if let Func::MatrixProxy(parent) = f { return Pict::new(&parent.to_str()); }
+        if let Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent) = f {
+            return Pict::new(&format!("{}({})",f.name(),parent.to_str()));
+        }
         match f {
             Func::Exp => Pict::pow(Pict::new(xsym("ℯ", "e")), self.print(&args[0])),
             Func::Abs => self.print(&args[0]).parens("|", "|"),

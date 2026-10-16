@@ -459,10 +459,12 @@ g.contains(x**2 - 1)             # True
 Bases support iteration, indexing, `exprs`, `polys`, `gens`, `domain`,
 `order` and `is_zero_dimensional`. `g.fglm(order="lex")` converts a
 zero-dimensional basis using exact quotient-algebra multiplication matrices
-and linear dependence, over the supported rational and prime finite fields.
+and linear dependence, over the supported rational, prime finite,
+rational-function and quadratic algebraic fields.
 Changing the monomial order requires a zero-dimensional ideal; requesting the
-existing order returns the basis unchanged. FGLM for rational-function
-coefficients, F5B and algebraic number extensions are not implemented.
+existing order returns the basis unchanged. Polynomial coefficient rings use
+their fraction fields internally and restore integral coefficient normalization.
+F5B is not implemented.
 
 ```python
 a, b, x, y = sm.symbols("a b x y")
@@ -471,6 +473,15 @@ g.reduce(x*y - b)                 # zero remainder
 p = sm.Poly(x**2 + x/a + b, x, domain="QQ(a,b)")
 p.diff()                         # native exact coefficient arithmetic
 ```
+
+Quadratic algebraic coefficient fields execute exact arithmetic in
+`QQ[T]/(m(T))`, with the chosen radical embedding retained. `extension=sqrt(2)`,
+`extension=I`, `extension=True` and domains such as `"QQ<sqrt(2)>"` select
+these fields. `Poly`, Gröbner bases, reduction and order conversion use native
+algebraic coefficients. Univariate polynomial operations include exact GCD,
+factorization, square-free decomposition, resultants and discriminants.
+Independent algebraic extensions, general algebraic number fields and mixtures
+with transcendental parameters are not yet supported.
 
 `linear_eq_to_matrix` extracts exact linear coefficients; `linsolve` accepts
 equations with explicit unknowns, an augmented matrix, or an `(A, b)` matrix
@@ -481,12 +492,17 @@ reduction uses generic nonzero pivots; it does not enumerate exceptional
 parameter values.
 
 `solve_poly_system` uses Gröbner elimination and exact back substitution for
-supported finite polynomial systems. `nonlinsolve` returns a finite set of
-solution tuples for these systems and delegates linear parametric systems to
-`linsolve`. Symbolic triangular systems are also supported. Unresolved
-nonlinear positive-dimensional systems and roots that cannot all be expressed
-by the implemented exact root solver raise `NotImplementedError`; no partial
-list is presented as a complete solution.
+supported finite polynomial systems. `nonlinsolve` also decomposes supported
+factorable and triangular rational systems with free parameters. Elimination
+retains both zero and nonzero coefficient branches; pole exclusions are
+represented with `Complement(Complexes, FiniteSet(...))`. All branches must be
+resolved before a result is returned. External parameter conditions, unresolved
+components and roots outside the exact algorithms raise `NotImplementedError`;
+no partial list is presented as a complete solution.
+Finite radical roots and residuals require exact zero certificates. Supported
+closed radical identities are proved by polynomial ideal membership, including
+nonvanishing proofs for their denominators; unresolved certificates stay
+explicitly unsupported.
 
 `solve(..., set=True)` infers omitted unknowns and returns the symbols and
 solution tuples. Candidate checking respects known symbol assumptions;
@@ -517,6 +533,12 @@ tree. Products preserve their order and validate dimensions, including symbolic
 dimensions. Matrix elements participate in scalar arithmetic, substitutions,
 cached free symbols, pickling and SymPy conversion. `as_explicit()` materializes
 matrices with concrete dimensions for the existing exact algorithms.
+Scalar differentiation preserves product order, supports integer powers and
+inverses, and uses shared matrix subexpressions for large powers. `Trace` and
+`Determinant` retain abstract parents while applying supported exact identities;
+determinant derivatives with concrete dimensions use the adjugate, including
+at singular matrices. Complex non-holomorphic matrix derivatives that cannot
+be represented correctly remain explicit errors.
 
 ```python
 import symox as sm
@@ -533,8 +555,11 @@ dimensions. Input matrix dimensions occupy the last two axes; leading batch
 axes broadcast with scalar inputs. Generated matrix outputs follow the same
 convention and support the backend's autodiff and compilation. These operations
 currently expand to scalar entries at generation time. Matrix inputs with
-symbolic dimensions, abstract matrix derivatives and matrix-valued inputs to
+symbolic dimensions, derivatives with respect to entire matrices and matrix-valued inputs to
 the Slang/SYCL/CUDA function exporters are not yet supported.
+Trace and determinant outputs with concrete dimensions are lowered to scalar
+entries for native and Torch/JAX generation. Ordinary `.doit()` preserves
+abstract matrix symbols; explicit materialization is confined to generation.
 
 `Matrix` provides mutable dense matrices; `ImmutableMatrix` and
 `ImmutableDenseMatrix` provide immutable, hashable matrices. Constructors

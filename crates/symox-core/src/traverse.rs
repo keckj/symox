@@ -56,9 +56,9 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
             pow(&nb, &nx)
         }
         Kind::Func(fun, args) => {
-            if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) = fun {
+            if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent) = fun {
                 let proxy = |matrix: crate::matrixexpr::MatrixExpr| Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
-                let mapped = if matches!(fun, Func::MatrixElement(_)) {
+                let mapped = if !matches!(fun, Func::MatrixProxy(_)) {
                     match f(&proxy((**parent).clone())).kind() {
                         Kind::Func(Func::MatrixProxy(new), _) => Ok((**new).clone()),
                         _ => Ok((**parent).clone()),
@@ -76,8 +76,15 @@ pub fn map_children(e: &Expr, f: &mut dyn FnMut(&Expr) -> Expr) -> Expr {
                 };
                 if let Ok(matrix) = mapped {
                     let na: Vec<Expr> = args.iter().map(&mut *f).collect();
+                    if matrix == **parent && na == *args { return e.clone(); }
                     if matches!(fun, Func::MatrixElement(_)) && na.len() == 2 {
                         return matrix.element(&na[0], &na[1]).unwrap_or_else(|_| e.clone());
+                    }
+                    if matches!(fun, Func::MatrixTrace(_)) {
+                        return Expr::from_kind(Kind::Func(Func::MatrixTrace(std::sync::Arc::new(matrix)), vec![]));
+                    }
+                    if matches!(fun, Func::MatrixDeterminant(_)) {
+                        return Expr::from_kind(Kind::Func(Func::MatrixDeterminant(std::sync::Arc::new(matrix)), vec![]));
                     }
                     return Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(matrix)), vec![]));
                 }
@@ -154,7 +161,7 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
                 }
                 for symbol in parent.scalar_free_symbols() { rec(&symbol, seen, out, visited); }
             }
-            Kind::Func(Func::MatrixElement(parent), args) => {
+            Kind::Func(Func::MatrixElement(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), args) => {
                 rec(&Expr::from_kind(Kind::Func(Func::MatrixProxy(parent.clone()), vec![])), seen, out, visited);
                 for index in args { rec(index, seen, out, visited); }
             }
@@ -204,7 +211,7 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
         return true;
     }
     match e.kind() {
-        Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent), args) => {
+        Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), args) => {
             let matrix_match = if let Kind::Func(Func::MatrixProxy(target), _) = s.kind() {
                 parent == target || parent.matrix_symbols().iter().any(|matrix| matrix == target.as_ref())
             } else { false };

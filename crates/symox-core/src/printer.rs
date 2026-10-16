@@ -104,6 +104,9 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Set(op), args) => crate::sets::write_set(*op, args, out),
         Kind::Func(Func::Order, args) => out.push_str(&crate::series::print::order_str(args)),
         Kind::Func(Func::MatrixProxy(parent), _) => out.push_str(&parent.to_str()),
+        Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
+            out.push_str(f.name()); out.push('('); out.push_str(&parent.to_str()); out.push(')');
+        }
         Kind::Func(Func::MatrixElement(parent), args) => {
             out.push_str(&parent.to_str()); out.push('[');
             write_expr(&args[0], out); out.push_str(", ");
@@ -370,6 +373,9 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Undefined(n), args) => list(&format!("Function('{n}')"), args, out),
         Kind::Func(Func::Set(op), args) if args.is_empty() => out.push_str(op.name()),
         Kind::Func(Func::MatrixProxy(parent), _) => out.push_str(&parent.to_repr()),
+        Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
+            out.push_str(f.name()); out.push('('); out.push_str(&parent.to_repr()); out.push(')');
+        }
         Kind::Func(Func::MatrixElement(parent), args) => {
             out.push_str("MatrixElement("); out.push_str(&parent.to_repr()); out.push_str(", ");
             write_srepr(&args[0], out); out.push_str(", ");

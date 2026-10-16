@@ -20,6 +20,20 @@ DEVICES = ["cpu"] + (["cuda"] if torch.cuda.is_available() else [])
 DTYPES = [torch.float32, torch.float64]
 
 
+@pytest.mark.parametrize("device",DEVICES)
+def test_matrix_trace_determinant_codegen_and_gradient(device):
+    a=sm.MatrixSymbol("A",2,2)
+    function=sm.torch_lambdify(a,(sm.Trace(a),sm.Determinant(a)),compile=True,
+                             compile_options={"backend":"inductor","fullgraph":True})
+    value=torch.tensor([[[1.,2.],[3.,4.]],[[2.,1.],[0.,3.]]],device=device,requires_grad=True)
+    trace,det=function(value)
+    torch.testing.assert_close(trace,value.diagonal(dim1=-2,dim2=-1).sum(-1))
+    torch.testing.assert_close(det,torch.linalg.det(value))
+    actual,=torch.autograd.grad((trace+det).sum(),value)
+    reference,=torch.autograd.grad((value.diagonal(dim1=-2,dim2=-1).sum(-1)+torch.linalg.det(value)).sum(),value)
+    torch.testing.assert_close(actual,reference)
+
+
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("compiled", [False, "eager", "inductor"])
 def test_matrix_symbols_batch_codegen_and_autograd(device, compiled):
