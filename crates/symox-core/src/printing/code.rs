@@ -304,7 +304,7 @@ fn real_non_integer_number(e: &Expr) -> bool {
         Kind::Num(n) => !n.is_integer(),
         Kind::Const(c) => matches!(c, Constant::Pi | Constant::E | Constant::EulerGamma),
         _ => {
-            crate::functions::is_numeric_value(e)
+            super::is_numeric(e)
                 && !crate::functions::contains_i(e)
                 && !e.is_integer_number()
         }
@@ -712,6 +712,16 @@ impl<'a> CodePrinter<'a> {
             });
         }
         let num = a_str.join("*");
+        if self.s.fast_math && self.lang() == Lang::Cuda && !b_str.is_empty() {
+            // fast single precision division intrinsic
+            let den = if b_str.len() == 1 {
+                b_str[0].trim_start_matches('(').trim_end_matches(')').to_string()
+            } else {
+                b_str.join("*")
+            };
+            let den = if b_str.len() == 1 && !balanced(&den) { b_str[0].clone() } else { den };
+            return Ok(format!("{sign}__fdividef({num}, {den})"));
+        }
         Ok(match b_str.len() {
             0 => format!("{sign}{num}"),
             1 => format!("{sign}{num}/{}", b_str[0]),
@@ -751,6 +761,9 @@ impl<'a> CodePrinter<'a> {
                     return Ok(vec![s; n as usize].join("*"));
                 }
                 if is_minus_one_valued(x) {
+                    if self.s.fast_math && self.lang() == Lang::Cuda {
+                        return Ok(format!("__fdividef({}, {})", self.float_literal(1.0), self.print(b)?));
+                    }
                     return Ok(format!(
                         "{}/{}",
                         self.float_literal(1.0),
@@ -1146,7 +1159,7 @@ impl<'a> CodePrinter<'a> {
         // function of numbers is evaluated
         let v: Vec<Expr> = args.iter().map(|a| self.fortran_n(a)).collect();
         if !matches!(f, Func::Max | Func::Min | Func::Undefined(_))
-            && args.iter().all(|a| crate::functions::is_numeric_value(a) && !crate::functions::contains_i(a))
+            && args.iter().all(|a| super::is_numeric(a) && !crate::functions::contains_i(a))
         {
             let call = crate::functions::func(f.clone(), args.to_vec());
             if let Some(x) = crate::evalf::eval_f64(&call) {
@@ -1225,7 +1238,7 @@ impl<'a> CodePrinter<'a> {
             Kind::Num(n) => self.n17_float(n.to_f64()),
             Kind::Sym(_) | Kind::Bool(_) => e.clone(),
             _ => {
-                if crate::functions::is_numeric_value(e) && !crate::functions::contains_i(e) {
+                if super::is_numeric(e) && !crate::functions::contains_i(e) {
                     if let Some(x) = crate::evalf::eval_f64(e) {
                         return self.n17_float(x);
                     }
@@ -1442,6 +1455,24 @@ fn fortran_n17(x: f64) -> String {
     }
 }
 
+/// Are the parentheses of `s` balanced (so that it can stand alone)?
+fn balanced(s: &str) -> bool {
+    let mut depth = 0i64;
+    for c in s.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    depth == 0
+}
+
 /// SymPy's Fortran line layout: 6 column lead (fixed form) and lines
 /// wrapped at column 72 with `@` continuation lines (`&` in free form).
 fn fortran_wrap(lines: &[String], free: bool) -> Vec<String> {
@@ -1594,6 +1625,9 @@ mod tests {
         let s = CudaSettings { dtype: FloatType::F32, fast_math: true, ..Default::default() };
         assert_eq!(cudacode_with(&e, &s).unwrap(), "x*x*__sinf(y) + rsqrtf(z)");
         let e = parse_str("y/x**2 + 0.1").unwrap();
-        assert_eq!(cudacode_with(&e, &s).unwrap(), "0.1F + y/(x*x)");
+        assert_eq!(cudacode_with(&e, &s).unwrap(), "0.1F + __fdividef(y, x*x)");
+        let s2 = CudaSettings { dtype: FloatType::F32, ..Default::default() };
+        assert_eq!(cudacode_with(&e, &s2).unwrap(), "0.1F + y/(x*x)");
+        assert_eq!(cudacode_with(&parse_str("1/(x + y)").unwrap(), &s).unwrap(), "__fdividef(1.0F, x + y)");
     }
 }

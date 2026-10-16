@@ -97,7 +97,7 @@ struct Cse {
 
 /// SymPy's `could_extract_minus_sign` (ties of a sum are broken with
 /// `default_sort_key`, like SymPy).
-fn could_extract_minus_sign(e: &Expr) -> bool {
+fn could_extract_minus_sign(e: &Expr, keys: &mut super::order::KeyCache) -> bool {
     match e.kind() {
         Kind::Num(n) => n.is_negative(),
         Kind::Const(crate::expr::Constant::NegInfinity) => true,
@@ -115,7 +115,7 @@ fn could_extract_minus_sign(e: &Expr) -> bool {
             if pos != negs {
                 return negs > pos;
             }
-            super::order::sort_key(e) < super::order::sort_key(&neg(e))
+            keys.key(e) < keys.key(&neg(e))
         }
         _ => false,
     }
@@ -198,7 +198,7 @@ impl Cse {
                     continue;
                 }
                 let mut expr = e.clone();
-                if matches!(e.kind(), Kind::Add(..) | Kind::Mul(..) | Kind::Num(_)) && could_extract_minus_sign(&e) {
+                if matches!(e.kind(), Kind::Add(..) | Kind::Mul(..) | Kind::Num(_)) && could_extract_minus_sign(&e, &mut self.keys) {
                     let ne = neg(&e);
                     if !ne.is_atom() {
                         let u = self.new_uneval(Op::Mul, vec![Val::E(Expr::minus_one()), Val::E(ne.clone())]);
@@ -219,7 +219,7 @@ impl Cse {
                         }
                     }
                     Kind::Pow(b, x) => {
-                        if could_extract_minus_sign(x) {
+                        if could_extract_minus_sign(x, &mut self.keys) {
                             let p = pow(b, &neg(x));
                             let u = self.new_uneval(Op::Pow, vec![Val::E(p), Val::E(Expr::minus_one())]);
                             self.opt_subs.insert(expr.clone(), u);

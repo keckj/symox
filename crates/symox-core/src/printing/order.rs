@@ -468,7 +468,7 @@ impl KeyCache {
         gens: &mut FxHashMap<Expr, usize>,
         gen_list: &mut Vec<Expr>,
     ) {
-        if crate::functions::is_numeric_value(&f) {
+        if super::is_numeric(&f) {
             if let Some(v) = crate::evalf::eval_c64(&f) {
                 if v.re.is_finite() && v.im.is_finite() {
                     *z *= v;

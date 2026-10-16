@@ -99,6 +99,12 @@ pub(crate) fn ordered_factors(e: &Expr) -> Vec<Expr> {
     }
 }
 
+/// Free of symbols and undefined functions. The symbol Bloom mask of the
+/// node makes the (common) negative answer O(1) instead of a traversal.
+pub(crate) fn is_numeric(e: &Expr) -> bool {
+    e.mask() == 0 && crate::functions::is_numeric_value(e)
+}
+
 /// SymPy's `is_negative` restricted to what can be decided without
 /// assumptions: numbers, and real numeric expressions (decided by
 /// evaluating them).
@@ -108,7 +114,7 @@ pub(crate) fn is_known_negative(e: &Expr) -> bool {
         Kind::Const(Constant::NegInfinity) => true,
         Kind::Const(_) | Kind::Sym(_) => false,
         _ => {
-            crate::functions::is_numeric_value(e)
+            is_numeric(e)
                 && !crate::functions::contains_i(e)
                 && matches!(crate::evalf::eval_f64(e), Some(v) if v < 0.0)
         }

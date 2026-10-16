@@ -483,6 +483,7 @@ static inline float rsqrtf(float x) { return 1.0f / sqrtf(x); }
 #define __expf(x) expf(x)
 #define __logf(x) logf(x)
 #define __powf(x, y) powf(x, y)
+#define __fdividef(x, y) ((x) / (y))
 """
 
 
@@ -590,8 +591,24 @@ def test_generated_code_compiles_and_runs():
 
 
 def test_repr_latex():
-    x = symox.Symbol("x")
-    assert (x**2 / 2)._repr_latex_() == sympy.Symbol("x")._repr_latex_().replace("x", r"\frac{x^{2}}{2}")
+    for case in ("x**2/2", "sin(alpha)**2 + sqrt(x1)", "Piecewise((x, x > 0), (0, True))"):
+        assert eval(case, NS_X)._repr_latex_() == eval(case, NS_S)._repr_latex_()
+
+
+def test_cse_api():
+    x, y = symox.symbols("x y")
+    e = (x + y) ** 2 + symox.sin(x + y)
+    reps, red = symox.cse(e)
+    assert [(str(a), str(b)) for a, b in reps] == [("x0", "x + y")]
+    assert [str(r) for r in red] == ["x0**2 + sin(x0)"]
+    reps, red = symox.cse(e, symbols=symox.numbered_symbols("t"))
+    assert str(reps[0][0]) == "t0" and str(red[0]) == "t0**2 + sin(t0)"
+    reps, red = symox.cse(e, list=False)
+    assert str(red) == "x0**2 + sin(x0)"
+    reps, red = symox.cse({"a": e, "b": symox.cos(x + y)})
+    assert set(red) == {"a", "b"} and str(red["b"]) == "cos(x0)"
+    reps, red = symox.cse([e], optimizations="none")
+    assert len(reps) == 1
 
 
 if __name__ == "__main__":
