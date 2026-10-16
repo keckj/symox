@@ -383,6 +383,11 @@ impl Expr {
         Expr::from_kind(Kind::Sym(crate::symbol::Symbol::with_assumptions(name, a)))
     }
 
+    /// A pattern wildcard (`Wild('a', exclude=[...])`).
+    pub fn wild(name: &str, exclude: Vec<Expr>) -> Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::wild(name, exclude)))
+    }
+
     /// The symbol payload, if this is a symbol.
     pub fn as_sym(&self) -> Option<&crate::symbol::Symbol> {
         match self.kind() {

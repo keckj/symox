@@ -68,7 +68,12 @@ fn paren(e: &Expr, p: u8, strict: bool, out: &mut String) {
 fn write_expr(e: &Expr, out: &mut String) {
     match e.kind() {
         Kind::Num(n) => out.push_str(&n.to_string()),
-        Kind::Sym(s) => out.push_str(s),
+        Kind::Sym(s) => {
+            out.push_str(s);
+            if s.is_wild() {
+                out.push('_');
+            }
+        }
         Kind::Const(c) => out.push_str(c.name()),
         Kind::Bool(b) => out.push_str(if *b { "True" } else { "False" }),
         Kind::Add(..) => write_add(e, out),

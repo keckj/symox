@@ -174,17 +174,43 @@ pub struct Symbol {
     name: Arc<str>,
     given: Assumptions,
     known: Assumptions,
+    /// `Some(exclude)` for pattern wildcards (`Wild('a', exclude=[x])`).
+    wild: Option<Arc<Vec<crate::expr::Expr>>>,
 }
 
 impl Symbol {
     pub fn new(name: &str) -> Symbol {
-        Symbol { name: Arc::from(name), given: Assumptions::NONE, known: Assumptions::NONE }
+        Symbol { name: Arc::from(name), given: Assumptions::NONE, known: Assumptions::NONE, wild: None }
     }
 
     /// `given` are the user's assumptions; their closure is computed here.
     pub fn with_assumptions(name: &str, given: Assumptions) -> Symbol {
         let known = given.closure().unwrap_or(given);
-        Symbol { name: Arc::from(name), given, known }
+        Symbol { name: Arc::from(name), given, known, wild: None }
+    }
+
+    /// A pattern wildcard that must not match expressions containing any
+    /// of `exclude`.
+    pub fn wild(name: &str, exclude: Vec<crate::expr::Expr>) -> Symbol {
+        Symbol {
+            name: Arc::from(name),
+            given: Assumptions::NONE,
+            known: Assumptions::NONE,
+            wild: Some(Arc::new(exclude)),
+        }
+    }
+
+    #[inline]
+    pub fn is_wild(&self) -> bool {
+        self.wild.is_some()
+    }
+
+    /// Exclusion list of a wildcard.
+    pub fn exclude(&self) -> &[crate::expr::Expr] {
+        match &self.wild {
+            Some(v) => v,
+            None => &[],
+        }
     }
 
     #[inline]
@@ -207,7 +233,13 @@ impl Symbol {
 
 impl PartialEq for Symbol {
     fn eq(&self, o: &Symbol) -> bool {
-        self.name == o.name && self.known == o.known
+        self.name == o.name
+            && self.known == o.known
+            && match (&self.wild, &o.wild) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a == b,
+                _ => false,
+            }
     }
 }
 impl Eq for Symbol {}
@@ -219,7 +251,10 @@ impl PartialOrd for Symbol {
 }
 impl Ord for Symbol {
     fn cmp(&self, o: &Symbol) -> std::cmp::Ordering {
-        self.name.cmp(&o.name).then(self.known.cmp(&o.known))
+        self.name
+            .cmp(&o.name)
+            .then(self.known.cmp(&o.known))
+            .then(self.wild.is_some().cmp(&o.wild.is_some()))
     }
 }
 
@@ -228,6 +263,10 @@ impl Hash for Symbol {
         self.name.hash(h);
         if !self.known.is_empty() {
             self.known.hash(h);
+        }
+        if let Some(w) = &self.wild {
+            0xa11du16.hash(h);
+            w.len().hash(h);
         }
     }
 }

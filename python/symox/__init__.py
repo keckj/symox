@@ -24,6 +24,7 @@ from ._core import (
     Piecewise,
     Rational,
     Symbol,
+    Wild,
     __version__,
     cbrt,
     diff,
@@ -163,9 +164,17 @@ def _expand_range(name):
 
 
 def symbols(names, *, seq=False, cls=None, **assumptions):
+    if cls is Wild:
+        syms = symbols(names, seq=True)
+        out = tuple(Wild(s.name, **assumptions) for s in syms)
+        return out if (seq or len(out) != 1) else out[0]
+    return _symbols(names, seq=seq, cls=cls, **assumptions)
+
+
+def _symbols(names, *, seq=False, cls=None, **assumptions):
     """Create symbols like ``sympy.symbols`` (``"x y"``, ``"x,y"``, ``"x:3"``)."""
     if not isinstance(names, str):
-        return type(names)(symbols(n, **assumptions) for n in names)
+        return type(names)(symbols(n, cls=cls, **assumptions) for n in names)
     parts = [p for p in _re.split(r"[\s,]+", names.strip()) if p]
     out = []
     for p in parts:

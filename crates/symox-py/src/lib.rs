@@ -527,6 +527,91 @@ impl PyExpr {
         Ok(wrap(subs::subs(&self.e, &pairs)))
     }
 
+    /// `expr.match(pattern)`: dict of wildcard bindings or None.
+    #[pyo3(name = "match")]
+    fn py_match<'py>(&self, py: Python<'py>, pattern: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        let p = to_expr(pattern)?;
+        match symox::pattern::pattern_match(&self.e, &p) {
+            None => Ok(None),
+            Some(m) => {
+                let d = PyDict::new(py);
+                for (k, v) in m {
+                    d.set_item(wrap(k), wrap(v))?;
+                }
+                Ok(Some(d))
+            }
+        }
+    }
+
+    /// `expr.replace(pattern, value)`: pattern may contain Wilds, value may
+    /// be an expression or a callable receiving the bindings by name; a
+    /// function head (e.g. `sin`) may be replaced by another callable.
+    fn replace(&self, py: Python<'_>, pattern: &Bound<'_, PyAny>, value: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        let pat = to_expr(pattern);
+        match pat {
+            Ok(p) => {
+                if let Ok(v) = to_expr(value) {
+                    return Ok(wrap(symox::pattern::replace(&self.e, &p, &v)));
+                }
+                if !value.is_callable() {
+                    return Err(PyTypeError::new_err("replacement must be an expression or a callable"));
+                }
+                let mut err: Option<PyErr> = None;
+                let r = symox::pattern::replace_with(&self.e, &p, &mut |bind, _| {
+                    let kw = PyDict::new(py);
+                    for (k, v) in bind {
+                        let name = k.as_sym().map(|s| s.name().to_string()).unwrap_or_default();
+                        if kw.set_item(name, wrap(v.clone())).is_err() {
+                            return None;
+                        }
+                    }
+                    match value.call((), Some(&kw)).and_then(|r| to_expr(&r)) {
+                        Ok(e) => Some(e),
+                        Err(e) => {
+                            err = Some(e);
+                            None
+                        }
+                    }
+                });
+                if let Some(e) = err {
+                    return Err(e);
+                }
+                Ok(wrap(r))
+            }
+            Err(_) => {
+                // function head replacement: replace(sin, cos)
+                let name: String = pattern.getattr("__name__")?.extract()?;
+                let mut err: Option<PyErr> = None;
+                let r = replace_heads(&self.e, &name, &mut |args: Vec<Expr>| {
+                    let t = match PyTuple::new(py, args.into_iter().map(wrap)) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            err = Some(e);
+                            return None;
+                        }
+                    };
+                    match value.call1(t).and_then(|r| to_expr(&r)) {
+                        Ok(e) => Some(e),
+                        Err(e) => {
+                            err = Some(e);
+                            None
+                        }
+                    }
+                });
+                if let Some(e) = err {
+                    return Err(e);
+                }
+                Ok(wrap(r))
+            }
+        }
+    }
+
+    /// Sub-expressions matching a pattern.
+    fn find<'py>(&self, py: Python<'py>, pattern: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PySet>> {
+        let p = to_expr(pattern)?;
+        PySet::new(py, symox::pattern::find(&self.e, &p).into_iter().map(wrap))
+    }
+
     fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyExpr> {
         let mut m = FxHashMap::default();
         for (k, v) in rule.iter() {
@@ -685,6 +770,23 @@ impl PyExpr {
     }
 }
 
+/// Replace applications of the function named `name` bottom-up.
+fn replace_heads(e: &Expr, name: &str, f: &mut dyn FnMut(Vec<Expr>) -> Option<Expr>) -> Expr {
+    let rebuilt = if e.is_atom() {
+        e.clone()
+    } else {
+        traverse::map_children(e, &mut |c| replace_heads(c, name, f))
+    };
+    if let Kind::Func(g, args) = rebuilt.kind() {
+        if g.name() == name {
+            if let Some(r) = f(args.clone()) {
+                return r;
+            }
+        }
+    }
+    rebuilt
+}
+
 /// Coefficient of `x**n` in `e` (SymPy `Expr.coeff` semantics: the sum
 /// of the cofactors of terms containing exactly `x**n` and nothing else
 /// depending on `x`; `n = 0` gives the terms independent of `x`).
@@ -825,6 +927,19 @@ fn py_symbol(name: &str, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<Py
     let a = symox::Assumptions::from_kwargs(kw.iter().map(|(k, v)| (k.as_str(), *v)))
         .map_err(PyValueError::new_err)?;
     Ok(wrap(Expr::symbol_with(name, a)))
+}
+
+#[pyfunction]
+#[pyo3(name = "Wild", signature = (name, exclude=None, properties=None))]
+fn py_wild(name: &str, exclude: Option<&Bound<'_, PyAny>>, properties: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
+    let _ = properties;
+    let mut ex = Vec::new();
+    if let Some(it) = exclude {
+        for x in it.try_iter()? {
+            ex.push(to_expr(&x?)?);
+        }
+    }
+    Ok(wrap(Expr::wild(name, ex)))
 }
 
 #[pyfunction]
@@ -1208,6 +1323,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_symbol, m)?)?;
     m.add_function(wrap_pyfunction!(sympify, m)?)?;
+    m.add_function(wrap_pyfunction!(py_wild, m)?)?;
     m.add_function(wrap_pyfunction!(py_integer, m)?)?;
     m.add_function(wrap_pyfunction!(py_rational, m)?)?;
     m.add_function(wrap_pyfunction!(py_float, m)?)?;
