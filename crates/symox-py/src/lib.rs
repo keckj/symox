@@ -16,6 +16,8 @@ use rustc_hash::FxHashMap;
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
 use symox::number::Number;
+mod matrices;
+
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
 /// A symbolic expression.
@@ -25,7 +27,7 @@ pub struct PyExpr {
     pub e: Expr,
 }
 
-fn wrap(e: Expr) -> PyExpr {
+pub(crate) fn wrap(e: Expr) -> PyExpr {
     PyExpr { e }
 }
 
@@ -103,7 +105,7 @@ fn opt_expr(obj: &Bound<'_, PyAny>) -> Option<Expr> {
 }
 
 /// Parse the variable list of `diff(expr, x, y, (z, 2), x, 3)`.
-fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>> {
+pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>> {
     let mut vars: Vec<(Expr, u32)> = Vec::new();
     let items: Vec<Bound<'_, PyAny>> = args.iter().collect();
     let mut i = 0;
@@ -149,7 +151,7 @@ fn do_diff(e: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
     Ok(diff::diff_many(e, &vars))
 }
 
-fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)>> {
+pub(crate) fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)>> {
     let mut pairs = Vec::new();
     match args.len() {
         1 => {
@@ -1114,6 +1116,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
+    matrices::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

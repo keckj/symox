@@ -197,4 +197,136 @@ def to_sympy(e):
     return sympify(e).to_sympy()
 
 
+# --- matrices ---
+# Symbolic matrices (Rust implementation in symox._core.Matrix).
+
+from ._core import Matrix, diag, eye, hessian, jacobian, ones, wronskian, zeros  # noqa: E402
+
+MutableDenseMatrix = Matrix
+DenseMatrix = Matrix
+ImmutableMatrix = Matrix
+
+
+class MatrixError(Exception):
+    """Base class for matrix errors (as in SymPy)."""
+
+
+class ShapeError(ValueError, MatrixError):
+    """Wrong matrix shape."""
+
+
+class NonSquareMatrixError(ShapeError):
+    """The matrix must be square."""
+
+
+class NonInvertibleMatrixError(ValueError, MatrixError):
+    """The matrix is singular."""
+
+
+class PurePoly:
+    """Minimal ``PurePoly`` returned by ``Matrix.charpoly``."""
+
+    __slots__ = ("_coeffs", "_gen", "_domain", "_expr")
+
+    @classmethod
+    def _from_coeffs(cls, coeffs, gen, domain, expr):
+        p = cls.__new__(cls)
+        p._coeffs = list(coeffs)
+        p._gen = gen
+        p._domain = domain
+        p._expr = expr
+        return p
+
+    def as_expr(self, *gens):
+        if gens:
+            return self._expr.subs(self._gen, gens[0])
+        return self._expr
+
+    def all_coeffs(self):
+        return list(self._coeffs)
+
+    def coeffs(self):
+        return [c for c in self._coeffs if c != 0]
+
+    def degree(self, *gens):
+        return len(self._coeffs) - 1
+
+    @property
+    def gen(self):
+        return self._gen
+
+    @property
+    def gens(self):
+        return (self._gen,)
+
+    @property
+    def domain(self):
+        return self._domain
+
+    def get_domain(self):
+        return self._domain
+
+    def eval(self, x):
+        return self._expr.subs(self._gen, x)
+
+    __call__ = eval
+
+    def __eq__(self, other):
+        if isinstance(other, PurePoly):
+            return self._coeffs == other._coeffs
+        return self._expr == other
+
+    def __hash__(self):
+        return hash(tuple(self._coeffs))
+
+    def __str__(self):
+        g = str(self._gen)
+        n = len(self._coeffs) - 1
+        terms = []
+        for i, c in enumerate(self._coeffs):
+            e = n - i
+            if c == 0:
+                continue
+            mon = "" if e == 0 else (g if e == 1 else "%s**%d" % (g, e))
+            if c.is_Add:
+                sc = "(" + str(c) + ")" if mon else str(c)
+            else:
+                if mon and c == 1:
+                    terms += ["+", mon]
+                    continue
+                if mon and c == -1:
+                    terms += ["-", mon]
+                    continue
+                sc = str(c)
+            st = sc if not mon else sc + "*" + mon
+            if st.startswith("-"):
+                terms += ["-", st[1:]]
+            else:
+                terms += ["+", st]
+        if not terms:
+            terms = ["+", "0"]
+        if terms[0] in ("-", "+"):
+            mod = terms.pop(0)
+            if mod == "-":
+                terms[0] = "-" + terms[0]
+        return "PurePoly(%s, %s, domain='%s')" % (" ".join(terms), g, self._domain)
+
+    __repr__ = __str__
+
+
+def det(M, **kwargs):
+    """Determinant of a matrix."""
+    return Matrix(M).det(**kwargs)
+
+
+def trace(M):
+    return Matrix(M).trace()
+
+
+def transpose(M):
+    return Matrix(M).T
+
+
+# --- end matrices ---
+
 __all__ = [n for n in dir() if not n.startswith("_")]
