@@ -22,6 +22,55 @@ DTYPES = [torch.float32, torch.float64]
 
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("compiled", [False, True])
+def test_diagonal_maps_broadcast_and_autograd(device, compiled):
+    vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)
+    outputs = (sm.DiagMatrix(vector), sm.DiagonalOf(matrix), sm.DiagonalMatrix(matrix))
+    function = sm.torch_lambdify((vector, matrix), outputs, compile=compiled,
+                                compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    v = torch.arange(6., device=device, dtype=torch.float64).reshape(2, 1, 3, 1).requires_grad_()
+    a = torch.arange(18., device=device, dtype=torch.float64).reshape(1, 3, 2, 3).requires_grad_()
+    vv, aa = v.expand(2, 3, 3, 1), a.expand(2, 3, 2, 3)
+    expected = (torch.diag_embed(vv[..., 0]), aa.diagonal(dim1=-2, dim2=-1).unsqueeze(-1),
+                aa*torch.eye(2, 3, device=device, dtype=torch.float64))
+    actual = function(v, a)
+    for value, target in zip(actual, expected):
+        torch.testing.assert_close(value, target)
+    gradients = torch.autograd.grad(sum(value.square().sum() for value in actual), (v, a))
+    references = torch.autograd.grad(sum(value.square().sum() for value in expected), (v, a))
+    for value, target in zip(gradients, references):
+        torch.testing.assert_close(value, target)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+def test_diagonal_maps_complex_adjoint(device):
+    vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)
+    function = sm.torch_lambdify((vector, matrix),
+                                (sm.DiagMatrix(vector).H, sm.DiagonalOf(matrix).H,
+                                 sm.DiagonalMatrix(matrix).H))
+    v = torch.tensor([[1+2j], [3-1j], [2j]], device=device, dtype=torch.complex128)
+    a = torch.tensor([[1+1j, 2j, 3], [4, 5-2j, 6j]], device=device, dtype=torch.complex128)
+    expected = (torch.diag_embed(v[:, 0]).mH, a.diagonal().unsqueeze(-1).mH,
+                (a*torch.eye(2, 3, device=device)).mH)
+    for value, target in zip(function(v, a), expected):
+        torch.testing.assert_close(value, target)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+def test_empty_diagonal_outputs_keep_batch_shape_dtype_and_device(device, compiled):
+    x = sm.Symbol('x')
+    outputs = (sm.DiagMatrix(sm.ZeroMatrix(0, 1)), sm.DiagonalOf(sm.ZeroMatrix(0, 4)),
+               sm.DiagonalMatrix(sm.ZeroMatrix(0, 4)))
+    function = sm.torch_lambdify(x, outputs, compile=compiled,
+                                compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    value = torch.ones((2, 3), device=device, dtype=torch.float64)
+    for result, shape in zip(function(value), [(0, 0), (0, 1), (0, 4)]):
+        assert result.shape == (2, 3) + shape
+        assert result.dtype == value.dtype and result.device == value.device
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
 def test_block_matrix_broadcast_products_and_autograd(device, compiled):
     a, b, d = (sm.MatrixSymbol('A', 2, 2), sm.MatrixSymbol('B', 2, 1),
                sm.MatrixSymbol('D', 1, 1))

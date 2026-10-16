@@ -16,6 +16,7 @@ pub mod assumptions;
 pub mod bigfloat;
 pub mod calculus;
 pub mod diff;
+pub mod decompose;
 pub mod evalf;
 pub mod evalf_mp;
 pub mod expand;

@@ -65,7 +65,8 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
         }
         MatrixKind::Pow(base, exponent) => vec![M(base.clone()), S(exponent.clone())],
         MatrixKind::Inverse(base) => vec![M(base.clone()), S(Expr::minus_one())],
-        MatrixKind::Transpose(base) | MatrixKind::Adjoint(base) => vec![M(base.clone())],
+        MatrixKind::Transpose(base) | MatrixKind::Adjoint(base)
+        | MatrixKind::Diag(base) | MatrixKind::DiagonalOf(base) | MatrixKind::Diagonal(base) => vec![M(base.clone())],
         MatrixKind::Conjugate(base) => {
             class.2 = "Adjoint";
             vec![PresentationArg::Node("Transpose", vec![M(base.clone())])]

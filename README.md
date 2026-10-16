@@ -105,6 +105,11 @@ exact rational-power and supported quadratic facts filter solver candidates
 without floating-point tolerances. Unquoted Unicode symbol names are accepted.
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
+`as_coeff_add`, `as_coeff_mul`, `as_independent` and `as_content_primitive`
+provide structural decompositions, including dependency selection and rational
+or supported radical content. Floating-point presence and maximum precision
+are cached per node, so repeated inspection preserves shared expression graphs
+instead of traversing every occurrence again.
 Undefined functions preserve their identity and declared assumptions and arity,
 including names shared with builtins. Held `Derivative`, `Subs` and `Limit` expressions
 support evaluation and round trips; simultaneous symbol substitutions preserve
@@ -513,6 +518,13 @@ towers and mixtures with transcendental parameters remain unsupported.
 Norms use the monic defining polynomial, so they equal the determinant of
 multiplication over `QQ`. SymPy's `Poly.norm()` can differ by a rational factor
 when its integral defining polynomial is not monic.
+Univariate `cancel`, `apart`, `invert`, `gcdex` and `half_gcdex` also operate over
+these fields. Partial fractions handle repeated and irreducible factors using
+exact CRT arithmetic; `full=True` and symbolic parameters in algebraic
+coefficients remain unsupported. `Poly` exposes the corresponding Bézout,
+inverse and cancellation methods over `QQ` and supported algebraic fields,
+plus `coeff_monomial` for the existing coefficient domains. A noninvertible
+residue class raises the native `NotInvertible` exception.
 
 ```python
 theta = sm.sqrt(2) + sm.sqrt(3)
@@ -573,6 +585,11 @@ tree. Products preserve their order and validate dimensions, including symbolic
 dimensions. Matrix elements participate in scalar arithmetic, substitutions,
 cached free symbols, pickling and SymPy conversion. `as_explicit()` materializes
 matrices with concrete dimensions for the existing exact algorithms.
+`DiagMatrix` turns a row or column vector into a square diagonal matrix;
+`DiagonalOf` extracts the main diagonal as a column vector, and `DiagonalMatrix`
+retains a matrix's shape while zeroing its off-diagonal entries. These nodes
+preserve empty shapes, support symbolic dimensions, and lower to finite
+PyTorch/JAX outputs alongside the other matrix expressions.
 Hadamard operations act element by element and require matching matrix shapes;
 Kronecker products multiply dimensions and preserve factor order. These nodes
 also support finite matrix output generation for PyTorch and JAX.
@@ -725,6 +742,19 @@ truth-table conversion has the same 20-variable limit. ANF constants survive
 pickling and SymPy conversion. Deep conversion also expands `ITE` into ANF,
 where SymPy 1.14 may leave it unchanged. Inequality solving
 supports one variable. Other unresolved membership queries remain symbolic.
+
+## Compatibility measurement
+
+```bash
+python tools/sympy_coverage.py --corpus --json /tmp/symox-coverage.json
+```
+
+The report counts available SymPy top-level names and methods on representative
+objects, then compares the curated expression corpus exactly or by symbolic
+simplification. It records missing names and unresolved differences. API
+presence does not verify signatures, accepted domains or behavior, and the
+corpus targets implemented features. These indicators do not form a global
+percentage of SymPy parity.
 
 ## Differential fuzzing
 

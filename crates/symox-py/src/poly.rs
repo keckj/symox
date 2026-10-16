@@ -7,6 +7,8 @@
 
 #[path = "algebraic_number.rs"]
 pub(crate) mod algebraic_number;
+#[path="an_rational.rs"]
+mod an_rational;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -30,6 +32,7 @@ fn w(e: Expr) -> PyExpr {
 
 fn err(e: PolyError) -> PyErr {
     match &e {
+        PolyError::NotInvertible(message)=>an_rational::NotInvertible::new_err(message.clone()),
         PolyError::Unsupported(s) if s.contains("division by zero") => PyZeroDivisionError::new_err(s.clone()),
         _ => PyValueError::new_err(e.to_string()),
     }
@@ -709,9 +712,8 @@ impl PyPoly {
             let gens=symox::poly::polyobj::unify_gens(self.p.true_gens(),q.true_gens());
             if let Some(field)=self.p.algebraic.as_ref().or(q.algebraic.as_ref()) {
                 if self.p.field.is_some()||q.field.is_some()||self.p.modulus.is_some()||q.modulus.is_some(){return None;}
-                let number_field=if let(Some(a),Some(b))=(&self.p.algebraic,&q.algebraic){NumberField::from_generators(&[a.number_field.generator.clone(),b.number_field.generator.clone()]).ok()?}else{field.number_field.clone()};
-                AlgebraicPoly::from_expr(&self.p.as_expr(),&gens,number_field.clone()).ok()?;
-                AlgebraicPoly::from_expr(&q.as_expr(),&gens,number_field).ok()?;
+                let _=field;
+                self.p.checked_algebraic_pair(q).ok()??;
                 return Some(q.clone());
             }
             for f in [self.p.field.as_ref(),q.field.as_ref()].into_iter().flatten() {
@@ -925,6 +927,21 @@ impl PyPoly {
         PyTuple::new(py, m)
     }
 
+    fn coeff_monomial(&self,monom:&Bound<'_,PyAny>)->PyResult<PyExpr> {
+        let powers=if monom.downcast::<PyTuple>().is_ok() || monom.downcast::<PyList>().is_ok() {
+            let powers=monom.extract::<Vec<u32>>().map_err(|_|PyValueError::new_err("monomial exponents must be nonnegative integers"))?;
+            if powers.len()!=self.p.true_gens().len(){return Err(PyValueError::new_err("exponent of each generator must be specified"));}
+            powers
+        }else {
+            let e=to_expr(monom)?;
+            let p=Poly::from_expr(&e,self.p.true_gens()).map_err(err)?;
+            if p.gens!=self.p.true_gens() || p.rep.len()!=1 || !p.rep.lc().is_one() || p.domain==Domain::RR {return Err(PyValueError::new_err(format!("expected a monomial, got {e}")));}
+            let powers=p.rep.iter().next().unwrap().0.to_vec();
+            powers
+        };
+        Ok(w(self.p.coeff_monomial(&powers)))
+    }
+
     #[pyo3(signature = (*n))]
     fn nth(&self, n: Vec<u32>) -> PyExpr {
         w(self.p.coeff_monomial(&n))
@@ -1070,6 +1087,34 @@ impl PyPoly {
     fn exquo(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: (self.p.exquo(&q).map_err(err)?).into() })
+    }
+
+    #[pyo3(signature=(g,auto=true))]
+    fn gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
+        let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
+        let values=an_rational::poly_bezout(&self.p,&q,false,auto)?;
+        Ok(PyTuple::new(g.py(),values.into_iter().map(|p|PyPoly {p}))?.into_any().unbind())
+    }
+    #[pyo3(signature=(g,auto=true))]
+    fn half_gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
+        let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
+        let values=an_rational::poly_bezout(&self.p,&q,true,auto)?;
+        Ok(PyTuple::new(g.py(),values.into_iter().map(|p|PyPoly {p}))?.into_any().unbind())
+    }
+    #[pyo3(signature=(g,auto=true))]
+    fn invert(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly> {
+        let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
+        Ok(PyPoly {p:an_rational::poly_inverse(&self.p,&q,auto)?})
+    }
+    #[pyo3(signature=(g,include=false))]
+    fn cancel(&self,g:&Bound<'_,PyAny>,include:bool)->PyResult<PyObject> {
+        let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
+        let(a,b)=an_rational::poly_cancel(&self.p,&q)?;let py=g.py();
+        let mut values=vec![];
+        if !include{values.push(w(Expr::one()).into_pyobject(py)?.into_any().unbind());}
+        values.push(PyPoly {p:a}.into_pyobject(py)?.into_any().unbind());
+        values.push(PyPoly {p:b}.into_pyobject(py)?.into_any().unbind());
+        Ok(PyTuple::new(py,values)?.into_any().unbind())
     }
 
     fn gcd(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
@@ -1623,15 +1668,22 @@ fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, g
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, **_kwargs))]
-fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    let _ = gens;
-    Ok(w(api::cancel(&to_expr(f)?).map_err(err)?))
+fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let py=f.py();
+    if let Some(result)=an_rational::cancel_input(py,f,gens,_kwargs)?{return Ok(result);}
+    if let Ok(pair)=f.downcast::<PyTuple>() {
+        if pair.len()!=2{return Err(PyValueError::new_err("cancel expects a numerator/denominator pair"));}
+        let result=api::cancel(&symox::ops::div(&to_expr(&pair.get_item(0)?)?,&to_expr(&pair.get_item(1)?)?)).map_err(err)?;
+        let(n,d)=api::as_numer_denom(&result);
+        return Ok(PyTuple::new(py,[w(Expr::one()),w(n),w(d)])?.into_any().unbind());
+    }
+    Ok(w(api::cancel(&to_expr(f)?).map_err(err)?).into_pyobject(py)?.into_any().unbind())
 }
 
 #[pyfunction]
 #[pyo3(signature = (f, x=None, full=false, **_kwargs))]
 fn apart(f: &Bound<'_, PyAny>, x: Option<&Bound<'_, PyAny>>, full: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    let _ = full;
+    if let Some(result)=an_rational::apart_input(f,x,full,_kwargs)?{return Ok(result);}
     let x = match x {
         Some(x) => Some(to_expr(x)?),
         None => None,
@@ -2026,22 +2078,26 @@ fn py_together(f: &Bound<'_, PyAny>, deep: bool, _kwargs: Option<&Bound<'_, PyDi
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn gcdex<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
-    let (s, t, h) = api::gcdex(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?;
-    PyTuple::new(py, [w(s), w(t), w(h)])
+fn gcdex(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::bezout(py,selected,false);}
+    let (s,t,h)=api::gcdex(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?;
+    Ok(PyTuple::new(py,[w(s),w(t),w(h)])?.into_any().unbind())
 }
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn half_gcdex<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
-    let (s, h) = api::half_gcdex(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?;
-    PyTuple::new(py, [w(s), w(h)])
+fn half_gcdex(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::bezout(py,selected,true);}
+    let (s,h)=api::half_gcdex(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?;
+    Ok(PyTuple::new(py,[w(s),w(h)])?.into_any().unbind())
 }
 
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
-fn invert(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    Ok(w(api::invert(&to_expr(f)?, &to_expr(g)?, &gens_of(gens)?).map_err(err)?))
+fn invert(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let py=f.py();
+    if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::inverse(py,selected);}
+    Ok(w(api::invert(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?).into_pyobject(py)?.into_any().unbind())
 }
 
 #[pyfunction]
@@ -2111,6 +2167,7 @@ fn primitive_element(py:Python<'_>,extension:&Bound<'_,PyAny>,x:Option<&Bound<'_
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     algebraic_number::register(m)?;
+    an_rational::register(m)?;
     m.add_function(wrap_pyfunction!(minimal_polynomial,m)?)?;
     m.add_function(wrap_pyfunction!(minpoly,m)?)?;
     m.add_function(wrap_pyfunction!(primitive_element,m)?)?;

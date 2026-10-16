@@ -399,52 +399,7 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
     }
 }
 
-/// Ordering used by SymPy's immutable `.args`, which differs from the
-/// presentation ordering used by default_sort_key/as_ordered_terms.
-fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
-    fn rank(e: &Expr) -> (u8, String) {
-        match e.kind() {
-            Kind::Num(_) => (0, String::new()),
-            Kind::Const(_) => (1, e.class_name().into()),
-            Kind::Sym(_) => (2, String::new()),
-            Kind::Pow(..) => (3, String::new()),
-            Kind::Mul(..) => (4, String::new()),
-            Kind::Add(..) => (5, String::new()),
-            _ => (6, e.class_name().into()),
-        }
-    }
-    let ordering = rank(a).cmp(&rank(b));
-    if ordering != std::cmp::Ordering::Equal { return ordering; }
-    match (a.kind(), b.kind()) {
-        (Kind::Num(x), Kind::Num(y)) => x.cmp_value(y).unwrap_or_else(|| a.cmp_struct(b)),
-        (Kind::Sym(x), Kind::Sym(y)) => x.cmp(y),
-        _ => {
-            let aa = python_args(a);
-            let bb = python_args(b);
-            aa.len().cmp(&bb.len()).then_with(|| {
-                for (x, y) in aa.iter().zip(&bb) {
-                    let comparison = args_cmp(x, y);
-                    if comparison != std::cmp::Ordering::Equal { return comparison; }
-                }
-                a.cmp_struct(b)
-            })
-        }
-    }
-}
-
-fn python_args(e: &Expr) -> Vec<Expr> {
-    e.cached_ordered_args(|| {
-        if let Kind::Derivative(inner,vars)=e.kind(){
-            let mut args=vec![inner.clone()];
-            args.extend(vars.iter().map(|(v,n)|fx::undefined("Tuple",vec![v.clone(),Expr::int(*n as i64)])));
-            return args;
-        }
-        let mut args = e.args();
-        let canonical = e.is_canonical() && (e.is_add() || e.is_mul());
-        if canonical { args.sort_by(args_cmp); }
-        args
-    })
-}
+fn python_args(e: &Expr) -> Vec<Expr> { traverse::ordered_args(e) }
 
 fn operation_count(e: &Expr) -> usize {
     match e.kind() {
@@ -1305,6 +1260,36 @@ impl PyExpr {
         }
         let (c, r) = ops::as_coeff_mul(&self.e);
         PyTuple::new(py, [wrap(Expr::num(c)), wrap(r)])
+    }
+
+    #[pyo3(signature=(*deps))]
+    fn as_coeff_add<'py>(&self,py:Python<'py>,deps:&Bound<'_,PyTuple>)->PyResult<Bound<'py,PyTuple>>{
+        let deps=deps.iter().map(|d|to_expr(&d)).collect::<PyResult<Vec<_>>>()?;
+        let(c,tail)=symox::decompose::as_coeff_add(&self.e,&deps);
+        PyTuple::new(py,[wrap(c).into_pyobject(py)?.into_any(),PyTuple::new(py,tail.into_iter().map(wrap))?.into_any()])
+    }
+
+    #[pyo3(signature=(*deps,rational=true,**kwargs))]
+    fn as_coeff_mul<'py>(&self,py:Python<'py>,deps:&Bound<'_,PyTuple>,rational:bool,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Bound<'py,PyTuple>>{
+        if kwargs.is_some_and(|kw|!kw.is_empty()){return Err(PyNotImplementedError::new_err("unsupported as_coeff_mul options"));}
+        let deps=deps.iter().map(|d|to_expr(&d)).collect::<PyResult<Vec<_>>>()?;
+        let(c,tail)=symox::decompose::as_coeff_mul(&self.e,&deps,rational);
+        PyTuple::new(py,[wrap(c).into_pyobject(py)?.into_any(),PyTuple::new(py,tail.into_iter().map(wrap))?.into_any()])
+    }
+
+    #[pyo3(signature=(*deps,**hints))]
+    fn as_independent<'py>(&self,py:Python<'py>,deps:&Bound<'_,PyTuple>,hints:Option<&Bound<'_,PyDict>>)->PyResult<Bound<'py,PyTuple>>{
+        let mut as_add=None;
+        if let Some(hints)=hints{for(key,value)in hints.iter(){let key:String=key.extract()?;if key=="as_Add"{as_add=Some(value.is_truthy()?);}else{return Err(PyNotImplementedError::new_err(format!("as_independent hint '{key}' is not implemented")));}}}
+        let deps=deps.iter().map(|d|to_expr(&d)).collect::<PyResult<Vec<_>>>()?;
+        let(i,d)=symox::decompose::as_independent(&self.e,&deps,as_add);
+        PyTuple::new(py,[wrap(i),wrap(d)])
+    }
+
+    #[pyo3(signature=(radical=false,clear=true))]
+    fn as_content_primitive<'py>(&self,py:Python<'py>,radical:bool,clear:bool)->PyResult<Bound<'py,PyTuple>>{
+        let(c,p)=symox::decompose::as_content_primitive(&self.e,radical,clear).map_err(PyNotImplementedError::new_err)?;
+        PyTuple::new(py,[wrap(Expr::num(c)),wrap(p)])
     }
 
     fn as_coeff_exponent<'py>(&self, py: Python<'py>, x: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyTuple>> {

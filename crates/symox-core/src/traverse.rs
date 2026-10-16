@@ -288,3 +288,50 @@ mod tests {
         assert!(!has(&parse("2*x+2*y"), &parse("x+y")));
     }
 }
+
+/// Ordering used by SymPy's immutable `.args`, which differs from the
+/// presentation ordering used by default_sort_key/as_ordered_terms.
+fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
+    fn rank(e: &Expr) -> (u8, String) {
+        match e.kind() {
+            Kind::Num(_) => (0, String::new()),
+            Kind::Const(_) => (1, e.class_name().into()),
+            Kind::Sym(_) => (2, String::new()),
+            Kind::Pow(..) => (3, String::new()),
+            Kind::Mul(..) => (4, String::new()),
+            Kind::Add(..) => (5, String::new()),
+            _ => (6, e.class_name().into()),
+        }
+    }
+    let ordering = rank(a).cmp(&rank(b));
+    if ordering != std::cmp::Ordering::Equal { return ordering; }
+    match (a.kind(), b.kind()) {
+        (Kind::Num(x), Kind::Num(y)) => x.cmp_value(y).unwrap_or_else(|| a.cmp_struct(b)),
+        (Kind::Sym(x), Kind::Sym(y)) => x.cmp(y),
+        _ => {
+            let aa = ordered_args(a);
+            let bb = ordered_args(b);
+            aa.len().cmp(&bb.len()).then_with(|| {
+                for (x, y) in aa.iter().zip(&bb) {
+                    let comparison = args_cmp(x, y);
+                    if comparison != std::cmp::Ordering::Equal { return comparison; }
+                }
+                a.cmp_struct(b)
+            })
+        }
+    }
+}
+
+pub fn ordered_args(e: &Expr) -> Vec<Expr> {
+    e.cached_ordered_args(|| {
+        if let Kind::Derivative(inner,vars)=e.kind(){
+            let mut args=vec![inner.clone()];
+            args.extend(vars.iter().map(|(v,n)|crate::functions::undefined("Tuple",vec![v.clone(),Expr::int(*n as i64)])));
+            return args;
+        }
+        let mut args = e.args();
+        let canonical = e.is_canonical() && (e.is_add() || e.is_mul());
+        if canonical { args.sort_by(args_cmp); }
+        args
+    })
+}

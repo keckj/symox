@@ -22,6 +22,7 @@ from ._core import (
     Float,
     Integer,
     IsomorphismFailed,
+    NotInvertible,
     N,
     Piecewise,
     Rational,
@@ -1538,6 +1539,7 @@ from ._matrixexpr import (  # noqa: E402
     Inverse, Identity, ZeroMatrix, MatrixElement, MatrixConjugate, Trace, Determinant,
     OneMatrix, HadamardProduct, HadamardPower, KroneckerProduct,
     BlockMatrix, BlockDiagMatrix, MatrixSlice, block_collapse,
+    DiagMatrix, DiagonalOf, DiagonalMatrix,
     hadamard_product, hadamard_power, kronecker_product,
 )
 

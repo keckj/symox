@@ -502,15 +502,27 @@ impl Polynomial {
         let n = self.base.rep.degree(0).max(0) as u32;
         Ok((0..=n).rev().map(|i| self.coeff_monomial(&[i])).collect())
     }
-    fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
-        let prototype=self.algebraic.as_ref().or(o.algebraic.as_ref())?;
+    /// Checked coercion boundary for public fallible operations. Coefficients
+    /// from incompatible fields never enter arithmetic or an expect here.
+    pub fn checked_algebraic_pair(&self,o:&Self)->PResult<Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)>> {
+        let Some(prototype)=self.algebraic.as_ref().or(o.algebraic.as_ref()) else{return Ok(None)};
+        if self.field.is_some() || o.field.is_some() || self.modulus.is_some() || o.modulus.is_some() {
+            return Err(PolyError::Unsupported("cannot combine algebraic, rational-function, and finite coefficient fields".into()));
+        }
         let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
         let field=if let(Some(a),Some(b))=(&self.algebraic,&o.algebraic){
-            super::algebraic::NumberField::from_generators(&[a.number_field.generator.clone(),b.number_field.generator.clone()]).expect("compatible algebraic fields")
+            if a.number_field==b.number_field {a.number_field.clone()}else{
+                super::algebraic::NumberField::from_generators(&[a.number_field.generator.clone(),b.number_field.generator.clone()])?
+            }
         }else{prototype.number_field.clone()};
-        let a=super::algebraic::AlgebraicPoly::from_expr(&self.as_expr(),&gens,field.clone()).expect("compatible algebraic fields");
-        let b=super::algebraic::AlgebraicPoly::from_expr(&o.as_expr(),&gens,field).expect("compatible algebraic fields");
-        Some((a,b))
+        let convert=|p:&Self| {
+            if let Some(a)=&p.algebraic {if a.number_field==field && a.gens==gens {return Ok(a.clone());}}
+            super::algebraic::AlgebraicPoly::from_expr(&p.as_expr(),&gens,field.clone())
+        };
+        Ok(Some((convert(self)?,convert(o)?)))
+    }
+    fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
+        self.checked_algebraic_pair(o).expect("compatible algebraic fields")
     }
     fn pair(&self, o: &Self) -> Option<(FractionPoly, FractionPoly)> {
         let prototype = self.field.as_ref().or(o.field.as_ref())?;
@@ -614,7 +626,7 @@ impl Polynomial {
             .map_or_else(|| self.base.integrate(i).into(), |p| p.integrate(i).into())
     }
     pub fn div(&self, o: &Self) -> PResult<(Self, Self)> {
-        if let Some((a,b))=self.algebraic_pair(o){let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
+        if let Some((a,b))=self.checked_algebraic_pair(o)?{let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
         if let Some((a, b)) = self.pair(o) {
             let (q, r) = a.div(&b)?;
             Ok((q.into(), r.into()))

@@ -477,7 +477,7 @@ impl Parser {
                         let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::Function(crate::expr::UndefinedFunction::new(s,assumptions,nargs)));
                     }
-                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "BlockMatrix" | "MatrixSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "MatrixSymbol" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -555,6 +555,9 @@ impl Parser {
             "OneMatrix"=>{arity(2)?;MatrixExpr::one(scalar(0)?,scalar(1)?)},
             "HadamardProduct"=>MatrixExpr::hadamard_product(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
             "KroneckerProduct"=>MatrixExpr::kronecker(&args.iter().map(|a|self.as_matrix(a)).collect::<R<Vec<_>>>()?,evaluate),
+            "DiagMatrix"=>{arity(1)?;MatrixExpr::diag(&matrix(0)?)},
+            "DiagonalOf"=>{arity(1)?;MatrixExpr::diagonal_of(&matrix(0)?)},
+            "DiagonalMatrix"=>{arity(1)?;MatrixExpr::diagonal(&matrix(0)?)},
             "BlockMatrix"=>{
                 arity(1)?;let Val::Tuple(items)=&args[0] else{return self.err("BlockMatrix expects a grid of matrices");};
                 if items.is_empty(){return self.err("BlockMatrix requires a nonempty grid");}

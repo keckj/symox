@@ -60,3 +60,11 @@ def test_block_matrix_presentation_keys_match_sympy(operation):
     expected = operation(sp, sp.MatrixSymbol('A', 2, 2), sp.MatrixSymbol('B', 2, 1),
                          sp.MatrixSymbol('D', 1, 1))
     assert normalized(sx.default_sort_key(actual)) == sp.default_sort_key(expected)
+
+
+@pytest.mark.parametrize('name', ['DiagMatrix', 'DiagonalOf', 'DiagonalMatrix'])
+@pytest.mark.parametrize('shape', [(3,1), (1,3), (1,1)])
+def test_diagonal_matrix_presentation_keys_match_sympy(name, shape):
+    actual = getattr(sx, name)(sx.MatrixSymbol('A', *shape))
+    expected = getattr(sp, name)(sp.MatrixSymbol('A', *shape))
+    assert normalized(sx.default_sort_key(actual)) == sp.default_sort_key(expected)

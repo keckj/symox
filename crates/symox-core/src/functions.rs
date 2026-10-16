@@ -167,10 +167,7 @@ pub fn materialize_matrix_scalars(e: &Expr) -> crate::matrix::MResult<Expr> {
 }
 
 fn has_float(e: &Expr) -> bool {
-    match e.kind() {
-        Kind::Num(n) => n.is_float(),
-        _ => e.args().iter().any(has_float),
-    }
+    e.float_info().max_precision.is_some()
 }
 
 /// Free of symbols and undefined functions (so it can be evaluated).

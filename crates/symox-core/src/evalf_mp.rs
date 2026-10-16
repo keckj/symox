@@ -157,12 +157,11 @@ fn number(n: &Number, p: u32) -> BigFloat {
 
 /// Highest declared precision among the floating point leaves.
 pub fn max_precision(e: &Expr) -> Option<u32> {
-    if let Kind::Num(n) = e.kind() { return n.float_precision(); }
-    e.args().iter().filter_map(max_precision).max()
+    e.float_info().max_precision
 }
 
 pub fn has_mp(e: &Expr) -> bool {
-    matches!(e.kind(), Kind::Num(Number::MpFloat(..))) || e.args().iter().any(has_mp)
+    e.float_info().has_mp
 }
 
 /// Evaluate a numeric expression to `prec` bits. Returns `None` when the

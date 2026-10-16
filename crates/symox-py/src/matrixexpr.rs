@@ -149,7 +149,7 @@ fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py
         MatrixKind::HadamardPower(a,b)=>for operand in [a,b]{args.push(match operand{MatrixOperand::Scalar(e)=>scalar(e)?,MatrixOperand::Matrix(m)=>matrix(m)?});},
         MatrixKind::Mul(c,a)=>{if !c.is_one(){args.push(scalar(c)?);}for e in a{args.push(matrix(e)?);}},
         MatrixKind::Pow(b,e)=>{args.push(matrix(b)?);args.push(scalar(e)?);},
-        MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)=>args.push(matrix(b)?),
+        MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)|MatrixKind::Diag(b)|MatrixKind::DiagonalOf(b)|MatrixKind::Diagonal(b)=>args.push(matrix(b)?),
         MatrixKind::Explicit(value)=>{args.push(value.rows().into_pyobject(py)?.into_any());args.push(value.cols().into_pyobject(py)?.into_any());args.push(PyList::new(py,value.data().iter().map(|e|wrap(e.clone())))?.into_any());},
     }
     PyTuple::new(py,args)
@@ -163,6 +163,9 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
         "MatrixSymbol" if args.len()==3=>{let name:String=args.get_item(0)?.extract()?;MatrixExpr::symbol(&name,scalar(1)?,scalar(2)?)},
         "Identity" if args.len()==1=>MatrixExpr::identity(scalar(0)?),"ZeroMatrix" if args.len()==2=>MatrixExpr::zero(scalar(0)?,scalar(1)?),
         "OneMatrix" if args.len()==2=>MatrixExpr::one(scalar(0)?,scalar(1)?),
+        "DiagMatrix" if args.len()==1=>MatrixExpr::diag(&matrix(0)?),
+        "DiagonalOf" if args.len()==1=>MatrixExpr::diagonal_of(&matrix(0)?),
+        "DiagonalMatrix" if args.len()==1=>MatrixExpr::diagonal(&matrix(0)?),
         "BlockMatrix" if args.len()==1=>MatrixExpr::block(to_block_grid(&args.get_item(0)?)?),
         "BlockDiagMatrix"=>MatrixExpr::block_diag(&args.iter().map(|v|to_matrixexpr(&v)).collect::<PyResult<Vec<_>>>()?),
         "MatrixSlice" if args.len()==3=>{let parent=matrix(0)?;parent.slice(slice_argument(&args.get_item(1)?,parent.rows())?,slice_argument(&args.get_item(2)?,parent.cols())?)},

@@ -497,6 +497,7 @@ pub fn is_integer(e: &Expr) -> Option<bool> {
                 None
             }
         }
+        Kind::Func(Func::Min | Func::Max,args) if !args.is_empty() && args.iter().all(|a|is_integer(a)==Some(true))=>Some(true),
         Kind::Func(Func::Floor | Func::Ceiling, args) => {
             if is_real(&args[0]) == Some(true) {
                 Some(true)

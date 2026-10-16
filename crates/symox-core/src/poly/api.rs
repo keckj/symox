@@ -744,17 +744,19 @@ pub fn half_gcdex(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr)> {
 pub fn invert(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<Expr> {
     if let (Some(x), Some(m)) = (a.as_number(), b.as_number()) {
         if let (Some(x), Some(m)) = (Int::from_number(x), Int::from_number(m)) {
+            if m.is_zero() { return Err(PolyError::Unsupported("division by zero".into())); }
             let (g, s, _) = x.gcdex(&m);
             if !g.is_one() {
-                return Err(PolyError::Unsupported("inverse does not exist".into()));
+                return Err(PolyError::NotInvertible("inverse does not exist".into()));
             }
             return Ok(Expr::num(s.modulo(&m.abs()).to_number()));
         }
     }
     let (f, g, gens) = uni_pair(a, b, gens)?;
+    if g.is_empty() { return Err(PolyError::Unsupported("polynomial division by zero".into())); }
     let (h, s, _) = dense::gcdex_field(&f, &g);
     if h.len() != 1 {
-        return Err(PolyError::Unsupported("zero divisor".into()));
+        return Err(PolyError::NotInvertible("zero divisor".into()));
     }
     Ok(dense_expr(&dense::rem(&s, &g), &gens))
 }

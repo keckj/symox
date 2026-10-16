@@ -14,6 +14,56 @@ jnp = pytest.importorskip("jax.numpy")
 
 
 @pytest.mark.parametrize("jit", [False, True])
+def test_diagonal_maps_broadcast_and_gradients(jit):
+    vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)
+    function = sm.jax_lambdify((vector, matrix),
+                              (sm.DiagMatrix(vector), sm.DiagonalOf(matrix),
+                               sm.DiagonalMatrix(matrix)), jit=jit)
+    v, a = jnp.arange(6.).reshape(2, 1, 3, 1), jnp.arange(18.).reshape(1, 3, 2, 3)
+
+    def reference(x, y):
+        x, y = jnp.broadcast_to(x, (2, 3, 3, 1)), jnp.broadcast_to(y, (2, 3, 2, 3))
+        return (x*jnp.eye(3), jnp.diagonal(y, axis1=-2, axis2=-1)[..., None],
+                y*jnp.eye(2, 3))
+
+    for value, target in zip(function(v, a), reference(v, a)):
+        np.testing.assert_allclose(value, target, rtol=2e-6)
+    gradients = jax.grad(lambda x, y: sum(jnp.sum(value**2) for value in function(x, y)),
+                         argnums=(0, 1))(v, a)
+    references = jax.grad(lambda x, y: sum(jnp.sum(value**2) for value in reference(x, y)),
+                         argnums=(0, 1))(v, a)
+    for value, target in zip(gradients, references):
+        np.testing.assert_allclose(value, target, rtol=2e-6)
+
+
+@pytest.mark.parametrize("jit", [False, True])
+def test_diagonal_maps_complex_adjoint(jit):
+    vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)
+    function = sm.jax_lambdify((vector, matrix),
+                              (sm.DiagMatrix(vector).H, sm.DiagonalOf(matrix).H,
+                               sm.DiagonalMatrix(matrix).H), jit=jit)
+    v = jnp.asarray([[1+2j], [3-1j], [2j]])
+    a = jnp.asarray([[1+1j, 2j, 3], [4, 5-2j, 6j]])
+    adjoint = lambda x: jnp.swapaxes(jnp.conj(x), -2, -1)
+    expected = (adjoint(jnp.diag(v[:, 0])), adjoint(jnp.diag(a)[:, None]),
+                adjoint(a*jnp.eye(2, 3)))
+    for value, target in zip(function(v, a), expected):
+        np.testing.assert_allclose(value, target, rtol=2e-6)
+
+
+@pytest.mark.parametrize("jit", [False, True])
+def test_empty_diagonal_outputs_keep_batch_shape_and_dtype(jit):
+    x = sm.Symbol('x')
+    outputs = (sm.DiagMatrix(sm.ZeroMatrix(0, 1)), sm.DiagonalOf(sm.ZeroMatrix(0, 4)),
+               sm.DiagonalMatrix(sm.ZeroMatrix(0, 4)))
+    function = sm.jax_lambdify(x, outputs, jit=jit)
+    value = jnp.ones((2, 3), dtype=jnp.float32)
+    for result, shape in zip(function(value), [(0, 0), (0, 1), (0, 4)]):
+        assert result.shape == (2, 3) + shape
+        assert result.dtype == value.dtype
+
+
+@pytest.mark.parametrize("jit", [False, True])
 def test_block_matrix_broadcast_products_and_gradients(jit):
     a, b, d = (sm.MatrixSymbol('A', 2, 2), sm.MatrixSymbol('B', 2, 1),
                sm.MatrixSymbol('D', 1, 1))

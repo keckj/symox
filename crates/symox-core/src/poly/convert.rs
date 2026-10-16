@@ -31,12 +31,14 @@ pub enum PolyError {
     Generator(String),
     /// Operation not supported for these arguments.
     Unsupported(String),
+    /// A polynomial or residue-class element has no multiplicative inverse.
+    NotInvertible(String),
 }
 
 impl fmt::Display for PolyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PolyError::Failed(s) | PolyError::Generator(s) | PolyError::Unsupported(s) => write!(f, "{s}"),
+            PolyError::Failed(s) | PolyError::Generator(s) | PolyError::Unsupported(s) | PolyError::NotInvertible(s) => write!(f, "{s}"),
         }
     }
 }

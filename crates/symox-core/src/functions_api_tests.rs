@@ -104,3 +104,22 @@ fn alpha_subs_key_keeps_shared_scalar_dag_compact(){
     let a=crate::subs::held_subs(&a,vec![x],vec![Expr::zero()]);let b=crate::subs::held_subs(&b,vec![y],vec![Expr::zero()]);
     assert!(a==b);assert_eq!(a.cmp(&b),std::cmp::Ordering::Equal);
 }
+
+#[test]
+fn floating_facts_are_cached_on_shared_nodes_and_preserve_precision(){
+    let mut dag=Expr::symbol("x");
+    for _ in 0..40{dag=undefined("pair",vec![dag.clone(),dag]);}
+    assert!(!crate::evalf_mp::has_mp(&dag));assert_eq!(crate::evalf_mp::max_precision(&dag),None);
+    let mp=crate::number::Number::mp_float(crate::bigfloat::BigFloat::from_decimal("1.25",300).unwrap(),300);
+    let machine=Expr::float(1.25);let precise=Expr::num(mp.clone());assert_eq!(machine.as_number().unwrap().cmp_value(&mp),Some(std::cmp::Ordering::Equal));
+    for leaves in [vec![machine.clone(),precise.clone()],vec![precise.clone(),machine.clone()]]{
+        let call=undefined("pair",leaves);assert!(crate::evalf_mp::has_mp(&call));assert_eq!(crate::evalf_mp::max_precision(&call),Some(300));
+    }
+    let x=Expr::symbol("x");
+    for raw in [Kind::Add(mp.clone(),vec![(x.clone(),Number::ONE)]),Kind::Add(Number::ZERO,vec![(x.clone(),mp.clone())]),Kind::Mul(mp.clone(),vec![(x.clone(),Expr::one())]),Kind::Mul(Number::ONE,vec![(x,precise.clone())])]{
+        let e=Expr::from_kind(raw);assert!(crate::evalf_mp::has_mp(&e));assert_eq!(crate::evalf_mp::max_precision(&e),Some(300));
+    }
+    let matrix=crate::matrixexpr::MatrixExpr::explicit(crate::matrix::Matrix::from_rows(vec![vec![precise]]).unwrap());
+    let trace=Expr::from_kind(Kind::Func(Func::MatrixTrace(std::sync::Arc::new(matrix)),vec![]));
+    assert!(crate::evalf_mp::has_mp(&trace));assert_eq!(crate::evalf_mp::max_precision(&trace),Some(300));
+}

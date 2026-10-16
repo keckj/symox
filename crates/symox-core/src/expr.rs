@@ -341,6 +341,21 @@ pub struct Node {
     binding_identity: Option<Arc<binding_identity::Key>>,
     free_symbols: OnceLock<Vec<Expr>>,
     ordered_args: OnceLock<Vec<Expr>>,
+    float_info: OnceLock<FloatInfo>,
+}
+
+/// Floating-point metadata of an immutable mixed scalar/matrix expression DAG.
+#[derive(Clone,Copy,Debug,Default)]
+pub struct FloatInfo {
+    pub max_precision: Option<u32>,
+    pub has_mp: bool,
+}
+impl FloatInfo {
+    fn include(&mut self,other:Self){
+        self.max_precision=self.max_precision.max(other.max_precision);
+        self.has_mp |= other.has_mp;
+    }
+    fn number(n:&Number)->Self {Self{max_precision:n.float_precision(),has_mp:matches!(n,Number::MpFloat(..))}}
 }
 
 /// A symbolic expression.
@@ -366,7 +381,18 @@ impl Expr {
 
     /// Preserve the argument order and grouping requested with evaluate=False.
     /// Algorithms may canonicalize these nodes when their operands change.
-    pub fn from_unevaluated_kind(kind: Kind) -> Expr {
+    pub fn from_unevaluated_kind(mut kind: Kind) -> Expr {
+        // The first numerical factor has the same public position whether it
+        // lives in the compact coefficient slot or in the held factor vector.
+        // Normalize that storage choice, while retaining explicit unit factors.
+        if let Kind::Mul(Number::Int(1),factors)=&mut kind {
+            if let Some((first,power))=factors.first(){
+                if power.is_one(){if let Some(number)=first.as_number().filter(|n|!n.is_one()){
+                    let coefficient=number.clone();factors.remove(0);
+                    kind=Kind::Mul(coefficient,std::mem::take(factors));
+                }}
+            }
+        }
         Self::from_payload(kind, false)
     }
 
@@ -486,6 +512,7 @@ impl Expr {
             binding_identity,
             free_symbols: OnceLock::new(),
             ordered_args: OnceLock::new(),
+            float_info: OnceLock::new(),
         }))
     }
 
@@ -496,6 +523,31 @@ impl Expr {
 
     /// Identity of this live immutable allocation, for graph codecs/memoization.
     pub fn dag_id(&self) -> usize { Arc::as_ptr(&self.0) as usize }
+
+    /// Each shared node is inspected once. Compact coefficients and matrix
+    /// metadata are visited directly, without synthesizing public arguments.
+    pub fn float_info(&self)->FloatInfo {
+        *self.0.float_info.get_or_init(||{
+            let mut info=FloatInfo::default();
+            match self.kind(){
+                Kind::Num(n)=>info=FloatInfo::number(n),
+                Kind::Add(c,terms)=>{info.include(FloatInfo::number(c));for (e,c) in terms{info.include(e.float_info());info.include(FloatInfo::number(c));}},
+                Kind::Mul(c,factors)=>{info.include(FloatInfo::number(c));for (b,e) in factors{info.include(b.float_info());info.include(e.float_info());}},
+                Kind::Pow(b,e)|Kind::Rel(_,b,e)=>{info.include(b.float_info());info.include(e.float_info());},
+                Kind::Func(f,args)=>{
+                    for arg in args{info.include(arg.float_info());}
+                    if let Func::MatrixElement(matrix)|Func::MatrixProxy(matrix)|Func::MatrixTrace(matrix)|Func::MatrixDeterminant(matrix)=f {
+                        let mut fields=Vec::new();matrix.scalar_fields(&mut fields);
+                        for field in fields{info.include(field.float_info());}
+                    }
+                },
+                Kind::Derivative(e,variables)=>{info.include(e.float_info());for (v,_) in variables{info.include(v.float_info());}},
+                Kind::Piecewise(parts)=>{for (e,c) in parts{info.include(e.float_info());info.include(c.float_info());}},
+                _=>{},
+            }
+            info
+        })
+    }
 
     /// Whether this scalar expression contains a typed matrix entry.
     #[inline]
