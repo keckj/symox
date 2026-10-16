@@ -21,6 +21,7 @@ pub mod lambdify;
 pub mod number;
 pub mod ops;
 pub mod parser;
+pub mod poly;
 pub mod printer;
 pub mod relational;
 pub mod simplify;
