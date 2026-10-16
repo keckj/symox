@@ -12,6 +12,7 @@
 //! assert_eq!(diff(&sin(&x), &x).to_string(), "cos(x)");
 //! ```
 
+pub mod assumptions;
 pub mod bigfloat;
 pub mod diff;
 pub mod evalf;
@@ -30,9 +31,11 @@ pub mod simplify;
 pub mod sortkey;
 pub mod subs;
 pub mod summation;
+pub mod symbol;
 pub mod traverse;
 
 pub use expr::{Constant, Expr, Func, Kind, RelOp};
+pub use symbol::{Assumptions, Symbol};
 pub use number::Number;
 
 /// Everything needed for day to day use.

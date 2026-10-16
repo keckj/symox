@@ -312,7 +312,14 @@ fn write_srepr(e: &Expr, out: &mut String) {
             Number::Rational(r) => out.push_str(&format!("Rational({}, {})", r.numer(), r.denom())),
             Number::Float(f) => out.push_str(&format!("Float('{}', precision=53)", format_float(*f))),
         },
-        Kind::Sym(s) => out.push_str(&format!("Symbol('{s}')")),
+        Kind::Sym(s) => {
+            let kw = s.given().keywords();
+            if kw.is_empty() {
+                out.push_str(&format!("Symbol('{s}')"));
+            } else {
+                out.push_str(&format!("Symbol('{s}', {})", kw.join(", ")));
+            }
+        }
         Kind::Const(c) => out.push_str(c.name()),
         Kind::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
         Kind::Add(..) => list("Add", &ordered_terms(e), out),

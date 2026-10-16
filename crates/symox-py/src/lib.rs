@@ -432,32 +432,71 @@ impl PyExpr {
     }
     #[getter]
     fn is_zero(&self) -> Option<bool> {
-        match self.e.kind() {
-            Kind::Num(n) => Some(n.is_zero()),
-            _ if fx::is_numeric_value(&self.e) => evalf::eval_c64(&self.e).map(|z| z.norm() == 0.0),
-            _ => None,
-        }
+        symox::assumptions::is_zero(&self.e)
+    }
+    #[getter]
+    fn is_nonzero(&self) -> Option<bool> {
+        symox::assumptions::is_nonzero(&self.e)
     }
     #[getter]
     fn is_integer(&self) -> Option<bool> {
-        match self.e.kind() {
-            Kind::Num(n) => Some(n.is_integer()),
-            _ => None,
-        }
+        symox::assumptions::is_integer(&self.e)
+    }
+    #[getter]
+    fn is_rational(&self) -> Option<bool> {
+        symox::assumptions::is_rational(&self.e)
+    }
+    #[getter]
+    fn is_real(&self) -> Option<bool> {
+        symox::assumptions::is_real(&self.e)
     }
     #[getter]
     fn is_positive(&self) -> Option<bool> {
-        if fx::is_numeric_value(&self.e) {
-            return evalf::eval_f64(&self.e).map(|v| v > 0.0);
-        }
-        None
+        symox::assumptions::is_positive(&self.e)
     }
     #[getter]
     fn is_negative(&self) -> Option<bool> {
-        if fx::is_numeric_value(&self.e) {
-            return evalf::eval_f64(&self.e).map(|v| v < 0.0);
+        symox::assumptions::is_negative(&self.e)
+    }
+    #[getter]
+    fn is_nonnegative(&self) -> Option<bool> {
+        symox::assumptions::is_nonnegative(&self.e)
+    }
+    #[getter]
+    fn is_nonpositive(&self) -> Option<bool> {
+        symox::assumptions::is_nonpositive(&self.e)
+    }
+    #[getter]
+    fn is_even(&self) -> Option<bool> {
+        symox::assumptions::is_even(&self.e)
+    }
+    #[getter]
+    fn is_odd(&self) -> Option<bool> {
+        symox::assumptions::is_odd(&self.e)
+    }
+    #[getter]
+    fn is_finite(&self) -> Option<bool> {
+        symox::assumptions::is_finite(&self.e)
+    }
+    #[getter]
+    fn is_complex(&self) -> Option<bool> {
+        symox::assumptions::is_finite(&self.e)
+    }
+    /// The assumptions of a symbol as a dict (SymPy's `assumptions0`).
+    #[getter]
+    fn assumptions0<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let d = PyDict::new(py);
+        if let Some(s) = self.e.as_sym() {
+            for (n, f) in symox::Assumptions::NAMES {
+                if s.assumptions().has(*f) {
+                    match n.strip_prefix('!') {
+                        Some(m) => d.set_item(m, false)?,
+                        None => d.set_item(*n, true)?,
+                    }
+                }
+            }
         }
-        None
+        Ok(d)
     }
     /// Left/right hand sides of a relational.
     #[getter]
@@ -770,9 +809,22 @@ impl Head {
 // ----------------------------------------------------------------------
 
 #[pyfunction]
-#[pyo3(name = "Symbol", signature = (name, **_assumptions))]
-fn py_symbol(name: &str, _assumptions: Option<&Bound<'_, PyDict>>) -> PyExpr {
-    wrap(Expr::symbol(name))
+#[pyo3(name = "Symbol", signature = (name, **assumptions))]
+fn py_symbol(name: &str, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    let Some(d) = assumptions else {
+        return Ok(wrap(Expr::symbol(name)));
+    };
+    let mut kw: Vec<(String, bool)> = Vec::new();
+    for (k, v) in d.iter() {
+        let k: String = k.extract()?;
+        if v.is_none() {
+            continue;
+        }
+        kw.push((k, v.is_truthy()?));
+    }
+    let a = symox::Assumptions::from_kwargs(kw.iter().map(|(k, v)| (k.as_str(), *v)))
+        .map_err(PyValueError::new_err)?;
+    Ok(wrap(Expr::symbol_with(name, a)))
 }
 
 #[pyfunction]

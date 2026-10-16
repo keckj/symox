@@ -170,7 +170,7 @@ def symbols(names, *, seq=False, cls=None, **assumptions):
     out = []
     for p in parts:
         for n in _expand_range(p):
-            out.append(Function(n) if cls is Function else Symbol(n))
+            out.append(Function(n) if cls is Function else Symbol(n, **assumptions))
     if len(out) == 1 and not seq and "," not in names and ":" not in names:
         return out[0]
     return tuple(out)

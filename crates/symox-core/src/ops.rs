@@ -764,6 +764,19 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             if e.is_integer_number() {
                 return pow(bb, &mul2(be, e));
             }
+            // (b**a)**e = b**(a*e) when b >= 0 and a is real
+            if crate::assumptions::is_nonnegative(bb) == Some(true)
+                && crate::assumptions::is_real(be) == Some(true)
+            {
+                return pow(bb, &mul2(be, e));
+            }
+            // (r**(2k))**e = Abs(r)**(2k*e) for real r
+            if e.is_number()
+                && crate::assumptions::is_real(bb) == Some(true)
+                && be.as_i64().is_some_and(|k| k % 2 == 0)
+            {
+                return pow(&crate::functions::abs(bb), &mul2(be, e));
+            }
         }
         Kind::Mul(c, facs) => {
             if e.is_integer_number() {
@@ -774,6 +787,19 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 }
                 return mul(&v);
             }
+            // pull positive factors out of a radical: sqrt(p*x) = sqrt(p)*sqrt(x)
+            if e.is_rational_number() {
+                let (pos, other): (Vec<&(Expr, Expr)>, Vec<&(Expr, Expr)>) = facs
+                    .iter()
+                    .partition(|(fb, fe)| !fb.is_number() && crate::assumptions::is_positive(&mul_factor(fb, fe)) == Some(true));
+                if !pos.is_empty() {
+                    let mut v: Vec<Expr> = pos.iter().map(|(fb, fe)| pow(&mul_factor(fb, fe), e)).collect();
+                    let mut rest = vec![Expr::num(c.clone())];
+                    rest.extend(other.iter().map(|(fb, fe)| mul_factor(fb, fe)));
+                    v.push(pow(&mul(&rest), e));
+                    return mul(&v);
+                }
+            }
             if e.is_number() && !c.is_one() && c.is_rational() {
                 let rest = mul_from_factors(facs.clone());
                 if c.is_positive() {
@@ -781,6 +807,22 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 } else if !c.is_minus_one() {
                     let neg_rest = Expr::from_kind(Kind::Mul(Number::MINUS_ONE, facs.clone()));
                     return mul2(&num_pow(&c.neg(), e.as_number().unwrap()), &pow_raw(&neg_rest, e));
+                }
+            }
+        }
+        Kind::Func(Func::Abs, args) => {
+            // Abs(r)**(2k) = r**(2k) for real r
+            if e.as_i64().is_some_and(|k| k % 2 == 0) && crate::assumptions::is_real(&args[0]) == Some(true) {
+                return pow(&args[0], e);
+            }
+        }
+        Kind::Num(n) if n.is_minus_one() => {
+            // (-1)**(2k) = 1, (-1)**(2k+1) = -1
+            if crate::assumptions::is_integer(e) == Some(true) {
+                match crate::assumptions::parity_even(e) {
+                    Some(true) => return Expr::one(),
+                    Some(false) => return Expr::minus_one(),
+                    None => {}
                 }
             }
         }

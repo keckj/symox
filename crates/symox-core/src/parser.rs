@@ -142,6 +142,8 @@ enum Val {
 struct Parser {
     toks: Vec<(Tok, usize)>,
     pos: usize,
+    /// boolean keyword arguments of the call being parsed
+    kwargs: Vec<(String, bool)>,
 }
 
 type R<T> = Result<T, ParseError>;
@@ -306,13 +308,19 @@ impl Parser {
             return Ok(args);
         }
         loop {
-            // keyword arguments (evaluate=False, precision=53) are ignored
+            // keyword arguments: booleans are kept (Symbol assumptions),
+            // others (evaluate=False, precision=53) are ignored
             if matches!(self.peek(), Tok::Ident(_))
                 && matches!(self.toks.get(self.pos + 1), Some((Tok::Op("="), _)))
             {
+                let Tok::Ident(key) = self.next() else { unreachable!() };
                 self.next();
-                self.next();
-                self.value()?;
+                let v = self.value()?;
+                if let Val::E(e) = &v {
+                    if let crate::expr::Kind::Bool(b) = e.kind() {
+                        self.kwargs.push((key, *b));
+                    }
+                }
                 match self.next() {
                     Tok::Comma => continue,
                     Tok::RParen => break,
@@ -364,7 +372,18 @@ impl Parser {
             }
             Tok::Ident(name) => {
                 if matches!(self.peek(), Tok::LParen) {
+                    let saved = std::mem::take(&mut self.kwargs);
                     let args = self.call_args()?;
+                    let kwargs = std::mem::replace(&mut self.kwargs, saved);
+                    if (name == "Symbol" || name == "Dummy") && !kwargs.is_empty() {
+                        if let Some(Val::Str(s)) = args.first() {
+                            let a = crate::symbol::Assumptions::from_kwargs(
+                                kwargs.iter().map(|(k, v)| (k.as_str(), *v)),
+                            )
+                            .map_err(|m| ParseError { msg: m, pos: self.at() })?;
+                            return Ok(Val::E(Expr::symbol_with(s, a)));
+                        }
+                    }
                     return self.call(&name, args);
                 }
                 Ok(Val::E(ident(&name)))
@@ -552,7 +571,7 @@ pub fn parse_number(s: &str) -> Option<Expr> {
 /// Parse a string into an expression.
 pub fn parse_str(s: &str) -> Result<Expr, ParseError> {
     let toks = tokenize(s)?;
-    let mut p = Parser { toks, pos: 0 };
+    let mut p = Parser { toks, pos: 0, kwargs: Vec::new() };
     let e = p.expr()?;
     if !matches!(p.peek(), Tok::End) {
         return p.err(format!("unexpected trailing token {:?}", p.peek()));

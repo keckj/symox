@@ -223,7 +223,7 @@ impl RelOp {
 #[derive(Clone, Debug)]
 pub enum Kind {
     Num(Number),
-    Sym(Arc<str>),
+    Sym(crate::symbol::Symbol),
     Const(Constant),
     /// `coeff + Σ c_i * t_i`, terms sorted, `t_i` neither number nor carrying
     /// a numeric coefficient, all `c_i != 0`, at least one term.
@@ -287,7 +287,7 @@ impl Expr {
             Kind::Num(n) => n.hash(&mut h),
             Kind::Sym(s) => {
                 s.hash(&mut h);
-                mask = sym_bit(s);
+                mask = sym_bit(s.name());
             }
             Kind::Const(c) => c.hash(&mut h),
             Kind::Add(c, terms) => {
@@ -375,7 +375,20 @@ impl Expr {
     // ---------------------------------------------------------------
 
     pub fn symbol(name: &str) -> Expr {
-        Expr::from_kind(Kind::Sym(Arc::from(name)))
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::new(name)))
+    }
+
+    /// A symbol with assumptions (`Symbol('x', positive=True)`).
+    pub fn symbol_with(name: &str, a: crate::symbol::Assumptions) -> Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::with_assumptions(name, a)))
+    }
+
+    /// The symbol payload, if this is a symbol.
+    pub fn as_sym(&self) -> Option<&crate::symbol::Symbol> {
+        match self.kind() {
+            Kind::Sym(s) => Some(s),
+            _ => None,
+        }
     }
 
     pub fn num(n: Number) -> Expr {
@@ -474,7 +487,7 @@ impl Expr {
 
     pub fn as_symbol(&self) -> Option<&str> {
         match self.kind() {
-            Kind::Sym(s) => Some(s),
+            Kind::Sym(s) => Some(s.name()),
             _ => None,
         }
     }
