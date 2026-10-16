@@ -125,7 +125,15 @@ pub fn radsimp(e: &Expr) -> Expr {
 
 /// A light general purpose simplifier (to be extended).
 pub fn simplify(e: &Expr) -> Expr {
-    let candidates = [e.clone(), expand(e), together(e)];
+    let t = crate::simp::trigsimp(e);
+    let candidates = [
+        e.clone(),
+        expand(e),
+        together(e),
+        crate::simp::powsimp(e),
+        t.clone(),
+        crate::simp::trigsimp(&expand(e)),
+    ];
     candidates
         .into_iter()
         .min_by_key(|c| crate::traverse::node_count(c))

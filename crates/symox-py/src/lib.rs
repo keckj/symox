@@ -19,6 +19,7 @@ use symox::number::Number;
 use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relational, simplify, subs, traverse};
 
 mod ntheory;
+mod simp;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -622,10 +623,22 @@ impl PyExpr {
         Ok(wrap(subs::xreplace(&self.e, &m)))
     }
 
-    #[pyo3(signature = (deep=true, **_hints))]
-    fn expand(&self, deep: bool, _hints: Option<&Bound<'_, PyDict>>) -> PyExpr {
+    #[pyo3(signature = (deep=true, **hints))]
+    fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
         let _ = deep;
-        wrap(expand::expand(&self.e))
+        Ok(wrap(expand_hints(&self.e, hints)?))
+    }
+
+    fn trigsimp(&self) -> PyExpr {
+        wrap(symox::simp::trigsimp(&self.e))
+    }
+
+    fn powsimp(&self) -> PyExpr {
+        wrap(symox::simp::powsimp(&self.e))
+    }
+
+    fn nsimplify(&self) -> PyExpr {
+        wrap(symox::simp::nsimplify(&self.e, &[]))
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
@@ -1059,11 +1072,45 @@ fn py_integrate(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option
     Ok(wrap(do_integrate(&to_expr(f)?, args)?))
 }
 
+/// `expand` with SymPy hints (`trig`, `log`, `force`, `power_base`, `mul`,
+/// `multinomial`, `power_exp`).
+fn expand_hints(e: &Expr, hints: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
+    let get = |k: &str, default: bool| -> PyResult<bool> {
+        match hints {
+            Some(h) => match h.get_item(k)? {
+                Some(v) => v.is_truthy(),
+                None => Ok(default),
+            },
+            None => Ok(default),
+        }
+    };
+    let force = get("force", false)?;
+    let mut r = e.clone();
+    if get("trig", false)? {
+        r = symox::simp::expand_trig(&r);
+    }
+    if get("log", true)? && (force || get("log", false)?) {
+        r = symox::simp::expand_log(&r, force);
+    } else if get("log", true)? {
+        r = symox::simp::expand_log(&r, false);
+    }
+    if get("power_base", true)? {
+        r = symox::simp::expand_power_base(&r, force);
+    }
+    let full = get("mul", true)? && get("multinomial", true)?;
+    if full {
+        r = expand::expand(&r);
+    } else if get("mul", true)? {
+        r = symox::simp::expand_mul(&r);
+    }
+    Ok(r)
+}
+
 #[pyfunction]
-#[pyo3(name = "expand", signature = (e, deep=true, **_hints))]
-fn py_expand(e: &Bound<'_, PyAny>, deep: bool, _hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+#[pyo3(name = "expand", signature = (e, deep=true, **hints))]
+fn py_expand(e: &Bound<'_, PyAny>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
     let _ = deep;
-    Ok(wrap(expand::expand(&to_expr(e)?)))
+    Ok(wrap(expand_hints(&to_expr(e)?, hints)?))
 }
 
 #[pyfunction]
@@ -1351,6 +1398,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
     ntheory::register(m)?;
+    simp::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

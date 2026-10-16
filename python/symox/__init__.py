@@ -118,6 +118,11 @@ from ._core import (  # noqa: E402
     primitive_root, totient,
 )
 
+from ._core import (  # noqa: E402
+    expand_log, expand_mul, expand_power_base, expand_power_exp, expand_trig,
+    logcombine, nsimplify, powsimp, trigsimp,
+)
+
 # ---------------------------------------------------------------------------
 # relationals
 # ---------------------------------------------------------------------------

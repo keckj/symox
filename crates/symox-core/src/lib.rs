@@ -29,6 +29,7 @@ pub mod parser;
 pub mod pattern;
 pub mod printer;
 pub mod relational;
+pub mod simp;
 pub mod simplify;
 pub mod sortkey;
 pub mod subs;

@@ -145,11 +145,26 @@ fn assign(
         b.truncate(save);
         return false;
     }
-    let left: Vec<Expr> = items.iter().zip(used.iter()).filter(|(_, u)| !**u).map(|(x, _)| x.clone()).collect();
-    match lone.split_last() {
+    let mut left: Vec<Expr> = items.iter().zip(used.iter()).filter(|(_, u)| !**u).map(|(x, _)| x.clone()).collect();
+    // lone wildcards already bound by the other pattern items consume an
+    // equal item (or stand for the neutral element)
+    let mut unbound: Vec<Expr> = Vec::new();
+    for w in lone {
+        match lookup(b, w).cloned() {
+            Some(v) => {
+                if let Some(i) = left.iter().position(|x| *x == v) {
+                    left.remove(i);
+                } else if v != *neutral {
+                    return false;
+                }
+            }
+            None => unbound.push(w.clone()),
+        }
+    }
+    match unbound.split_last() {
         None => left.is_empty(),
         Some((last, firsts)) => {
-            // all but the last lone wildcard take one item each
+            // all but the last free wildcard take one item each
             if firsts.is_empty() {
                 return m(&combine(&left), last, b);
             }
@@ -159,7 +174,7 @@ fn assign(
                     let mut rest = left.clone();
                     rest.remove(i);
                     let mut used2 = vec![false; rest.len()];
-                    if assign(&rest, &mut used2, &[], &firsts[1..].iter().chain(std::iter::once(last)).cloned().collect::<Vec<_>>(), neutral, combine, b) {
+                    if assign(&rest, &mut used2, &[], &unbound[1..], neutral, combine, b) {
                         return true;
                     }
                 }
