@@ -1,0 +1,20 @@
+[package]
+name = "symox"
+description = "Fast symbolic mathematics (computer algebra) in pure Rust"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+name = "symox"
+
+[dependencies]
+num-bigint.workspace = true
+num-integer.workspace = true
+num-traits.workspace = true
+num-rational.workspace = true
+num-complex.workspace = true
+rustc-hash.workspace = true
+smallvec.workspace = true
