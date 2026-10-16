@@ -122,6 +122,7 @@ from ._core import (  # noqa: E402
     expand_log, expand_mul, expand_power_base, expand_power_exp, expand_trig,
     logcombine, nsimplify, powsimp, trigsimp,
 )
+from ._core import nsolve, solve  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # relationals

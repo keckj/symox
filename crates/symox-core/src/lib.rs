@@ -31,6 +31,7 @@ pub mod printer;
 pub mod relational;
 pub mod simp;
 pub mod simplify;
+pub mod solve;
 pub mod sortkey;
 pub mod subs;
 pub mod summation;

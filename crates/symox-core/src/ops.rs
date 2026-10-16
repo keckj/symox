@@ -347,7 +347,7 @@ fn plain_factor(e: &Expr) -> Option<(Expr, Expr)> {
 fn mul2_fast(a: &Expr, b: &Expr) -> Option<Expr> {
     match (a.kind(), b.kind()) {
         // number * plain factor
-        (Kind::Num(n), _) if !n.is_nan() => {
+        (Kind::Num(n), _) if !n.is_nan() && !n.is_zero() => {
             if let Kind::Mul(c, facs) = b.kind() {
                 let k = n.mul(c);
                 if k.is_zero() {
