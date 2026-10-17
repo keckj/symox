@@ -1714,8 +1714,8 @@ from ._matrixexpr import (  # noqa: E402
     hadamard_product, hadamard_power, kronecker_product,
 )
 from ._simptools import (  # noqa: E402
-    fraction, numer, denom, collect_const, rcollect, radsimp, signsimp, posify, separatevars, hypersimp,
-    hypersimilar, powsimp, powdenest, factor_terms, gcd_terms, factor_nc, sqrtdenest, combsimp, gammasimp,
+    fraction, numer, denom, collect_const, rcollect, radsimp, signsimp, posify, separatevars,
+    powsimp, powdenest, factor_terms, gcd_terms, factor_nc, sqrtdenest, combsimp, gammasimp,
     ratsimp, ratsimpmodprime, fu, exptrigsimp, trigsimp,
 )
 

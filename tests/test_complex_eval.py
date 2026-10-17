@@ -113,8 +113,7 @@ EXTRA = [
 # Known differences, kept strict so a fix is noticed:
 # - symox treats re(x) as finite, so Abs(x+oo) evaluates to oo;
 # - im(sqrt(n)) is the equal value sqrt(-n) because of Mul canonicalization;
-# - -I*oo prints as (-1)*oo*I.
-KNOWN = ['Abs(x+oo)', 'im(sqrt(n))', 'conjugate(oo*I)']
+KNOWN = ['Abs(x+oo)', 'im(sqrt(n))']
 
 
 @pytest.mark.parametrize('source', CASES + EXTRA)
