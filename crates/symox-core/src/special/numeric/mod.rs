@@ -181,6 +181,9 @@ pub fn apply(s: SpecialFn, a: &[C64]) -> Option<C64> {
             };
             cr(num_traits::ToPrimitive::to_f64(&v)?)
         }
+        Totient | ReducedTotient | Mobius | DivisorSigma | UdivisorSigma | LegendreSymbol | JacobiSymbol
+        | KroneckerSymbol | PrimeNu | PrimeOmega | PrimePi | Carmichael | Tribonacci | Genocchi | Andre
+        | Motzkin => return None,
         Polygamma => gamma::polygamma_c(x, a[1])?,
         Digamma => gamma::digamma_c(x)?,
         Trigamma => gamma::polygamma_c(cr(1.0), x)?,

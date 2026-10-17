@@ -2,6 +2,18 @@
 
 use std::collections::BTreeMap;
 
+pub mod bbp;
+pub mod congruence;
+pub mod discrete;
+pub mod ecm;
+pub mod factor;
+pub mod generate;
+pub mod misc;
+pub mod mt;
+pub mod primetest;
+pub mod qs;
+pub mod residue;
+
 use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
 use num_traits::{One, Signed, ToPrimitive, Zero};
@@ -179,7 +191,7 @@ fn sprp(n: &BigInt, a: &BigInt) -> bool {
     false
 }
 
-fn jacobi_big(a: &BigInt, n: &BigInt) -> i32 {
+pub(crate) fn jacobi_big(a: &BigInt, n: &BigInt) -> i32 {
     // n odd positive
     let mut a = a.mod_floor(n);
     let mut n = n.clone();
