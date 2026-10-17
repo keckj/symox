@@ -123,7 +123,11 @@ impl Classifier<'_> {
         let key=(e.dag_id(),bound.to_vec());
         if let Some(found)=self.free_dependencies.get(&key){return *found;}
         let children=if e.is_mul(){self.children(e)}else{Vec::new()};
-        let matches=self.generators.iter().any(|generator|{
+        // Only free candidate nodes participate in a match. A partial pattern
+        // y+z is not a free argument of Integral(x+y+z, (x,0,1)): that Add also
+        // depends on bound x. Its individual free children remain searchable.
+        let eligible=bound.is_empty()||crate::traverse::free_symbols(e).iter().all(|symbol|!bound.contains(symbol));
+        let matches=eligible&&self.generators.iter().any(|generator|{
             let exact=generator==e;
             let partial=!matches!(self.kind,PolynomialKind::Rational);
             let additive=if let (Kind::Add(c,terms),Kind::Add(tc,tts))=(e.kind(),generator.kind()){

@@ -41,6 +41,25 @@ def test_polynomial_rational_and_algebraic_queries_match_sympy(index, selection)
         assert result is expected, (method, index, selection, result, expected)
 
 
+@pytest.mark.parametrize('source', [
+    'Integral(x+y+z,(x,0,1))', 'Integral(x*y*z,(x,1,2))',
+    'Integral(sin(x+y+z),(x,0,1))', 'Lambda(x,x+y+z)',
+    'Lambda(x,x*y*z)', 'Sum(x+y+z,(x,0,3))',
+    'Integral(f(x+y+z),(x,0,1))', 'Integral(f(y+z),(x,0,1))',
+    'Integral(x+y+z,(x,0,y+z))', 'Integral(x+y+z,x)',
+])
+@pytest.mark.parametrize('generator', ['y+z', 'y*z', 'f(y+z)', 'sin(y+z)', '(y+z)**2'])
+def test_partial_generators_match_only_free_candidate_nodes(source, generator):
+    def make(module, text):
+        namespace = vars(module).copy()
+        namespace.update(zip('xyz', module.symbols('x y z')))
+        namespace['f'] = module.Function('f')
+        return eval(text, namespace)
+    actual, expected = make(sx, source), make(sp, source)
+    for method in ('is_polynomial', 'is_rational_function', 'is_algebraic_expr'):
+        assert getattr(actual, method)(make(sx, generator)) is getattr(expected, method)(make(sp, generator)), (source, generator, method)
+
+
 def atom_data(module):
     x, y = module.symbols('x y')
     f = module.Function('f')
