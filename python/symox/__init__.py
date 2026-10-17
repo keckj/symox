@@ -188,12 +188,6 @@ class Subs(metaclass=_SubsMeta):
 # number theory
 # ---------------------------------------------------------------------------
 
-from ._core import (  # noqa: E402
-    crt, divisor_count, divisor_sigma, divisors, factorint,
-    integer_nthroot, isprime, jacobi_symbol, legendre_symbol, mobius, mod_inverse,
-    n_order, nextprime, perfect_power, prevprime, prime, primepi, primerange,
-    primitive_root, totient,
-)
 
 from ._core import (  # noqa: E402
     expand_log, expand_mul, expand_power_base, expand_power_exp, expand_trig,
@@ -224,6 +218,11 @@ _SPECIAL = [
     "elliptic_pi", "LambertW", "legendre", "assoc_legendre", "chebyshevt",
     "chebyshevu", "hermite", "laguerre", "assoc_laguerre", "jacobi",
     "gegenbauer", "Ynm",
+    # number theory heads (symox.ntheory holds the integer functions)
+    "totient", "reduced_totient", "mobius", "divisor_sigma", "udivisor_sigma",
+    "legendre_symbol", "jacobi_symbol", "kronecker_symbol", "primenu",
+    "primeomega", "primepi", "carmichael", "tribonacci", "genocchi", "andre",
+    "motzkin",
 ]
 for _n in _SPECIAL:
     globals()[_n] = _make(_n)
@@ -1620,5 +1619,24 @@ from ._matrixexpr import (  # noqa: E402
 from .assumptions import (Q, Predicate, AppliedPredicate, AssumptionsContext,
                           global_assumptions, assuming, ask, refine)
 Expr.refine = lambda self, assumptions=True: refine(self, assumptions)
+
+from . import ntheory, discrete  # noqa: E402
+from .ntheory import (  # noqa: E402
+    Sieve, abundance, binomial_coefficients, binomial_coefficients_list,
+    composite, compositepi, continued_fraction, continued_fraction_convergents,
+    continued_fraction_iterator, continued_fraction_periodic,
+    continued_fraction_reduce, crt, cycle_length, discrete_log, divisor_count,
+    divisors, egyptian_fraction, factor_cache, factorint, factorrat, igcd, ilcm,
+    integer_log, integer_nthroot, is_abundant, is_amicable, is_carmichael,
+    is_deficient, is_mersenne_prime, is_nthpow_residue, is_perfect,
+    is_primitive_root, is_quad_residue, isprime, mersenne_prime_exponent,
+    mod_inverse, multinomial_coefficients, multiplicity, n_order, nextprime,
+    npartitions, nthroot_mod, num_digits, perfect_power, pollard_pm1,
+    pollard_rho, prevprime, prime, primefactors, primerange, primitive_root,
+    primorial, proper_divisor_count, proper_divisors, quadratic_congruence,
+    quadratic_residues, randprime, sieve, sqrt_mod, sqrt_mod_iter, trailing)
+from .discrete import (  # noqa: E402
+    convolution, covering_product, fft, fwht, ifft, ifwht, intersecting_product,
+    intt, inverse_mobius_transform, mobius_transform, ntt)
 
 __all__ = [n for n in dir() if not n.startswith("_")]

@@ -2296,6 +2296,9 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
                         "{name} accepts argument counts {:?}, got {}", s.nargs(), v.len()
                     )));
                 }
+                if let Err((type_error, msg)) = symox::special::numtheory::check_args(*s, &v) {
+                    return Err(if type_error { PyTypeError::new_err(msg) } else { PyValueError::new_err(msg) });
+                }
             }
             if let Some(n) = f.arity() {
                 if v.len() != n {

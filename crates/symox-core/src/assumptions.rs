@@ -96,6 +96,10 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
         Kind::Const(Constant::EulerGamma)=>seed.extend([("real",true),("positive",true)]),
         Kind::Const(Constant::NaN)=>{},
         _=>{
+            if let Kind::Func(Func::Special(h),args)=e.kind(){
+                if crate::special::numtheory::not_prime(*h){seed.push(("prime",false));}
+                if let Some(integer)=crate::special::numtheory::integer_fact(*h,args){seed.push(("integer",integer));}
+            }
             if let Some(real)=exact_queries(||is_real(e)){seed.push(("real",real));}
             if let Some(finite)=exact_queries(||is_finite(e)){seed.push(("finite",finite));}
             if let Some(zero)=exact_queries(||is_zero(e)){seed.push(("zero",zero));}
@@ -400,6 +404,23 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             real_signs(a)?;
             Some(Signs::POS)
         }
+        Func::Special(h) => {
+            let (pos, neg, nonneg) = crate::special::numtheory::sign_facts(*h, args)?;
+            let mut bits = 7u8;
+            if nonneg || neg == Some(false) {
+                bits &= !1;
+            }
+            if pos == Some(false) {
+                bits &= !4;
+            }
+            if pos == Some(true) {
+                bits = 4;
+            }
+            if neg == Some(true) {
+                bits = 1;
+            }
+            Some(Signs(bits))
+        }
         Func::Abs => {
             let s = if is_zero(a) == Some(false) { Signs::POS } else { Signs::NONNEG };
             Some(s)
@@ -669,6 +690,7 @@ fn is_integer_uncached(e: &Expr) -> Option<bool> {
         }
         Kind::Func(Func::Sign, args) if is_real(&args[0]) == Some(true) => Some(true),
         Kind::Func(Func::Abs, args) if is_integer(&args[0]) == Some(true) => Some(true),
+        Kind::Func(Func::Special(h), args) => crate::special::numtheory::integer_fact(*h, args),
         _ => None,
     }
 }
@@ -679,6 +701,9 @@ fn is_rational_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::RATIONAL){return Some(true);}
     if declared(e).has(A::NOT_RATIONAL)||declared(e).has(A::IRRATIONAL){return Some(false);}
     if exact_queries(||is_real(e))==Some(false){return Some(false);}
+    if let Kind::Func(Func::Special(h),args)=e.kind(){
+        if crate::special::numtheory::integer_fact(*h,args)==Some(true){return Some(true);}
+    }
     match e.kind() {
         Kind::Num(n) => if n.is_float(){None}else{Some(true)},
         Kind::Sym(s) => {

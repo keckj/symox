@@ -35,6 +35,7 @@ pub mod integers;
 pub mod integrate;
 pub mod mp;
 pub mod numeric;
+pub mod numtheory;
 pub(crate) mod orthopoly;
 mod zeta;
 
@@ -104,6 +105,23 @@ special_fns! {
     Lucas => "lucas" [1] false;
     Bell => "bell" [1, 2, 3] false;
     Partition => "partition" [1] false;
+    // number theory
+    Totient => "totient" [1] false;
+    ReducedTotient => "reduced_totient" [1] false;
+    Mobius => "mobius" [1] false;
+    DivisorSigma => "divisor_sigma" [1, 2] false;
+    UdivisorSigma => "udivisor_sigma" [1, 2] false;
+    LegendreSymbol => "legendre_symbol" [2] false;
+    JacobiSymbol => "jacobi_symbol" [2] false;
+    KroneckerSymbol => "kronecker_symbol" [2] false;
+    PrimeNu => "primenu" [1] false;
+    PrimeOmega => "primeomega" [1] false;
+    PrimePi => "primepi" [1] false;
+    Carmichael => "carmichael" [1, 2, 3] false;
+    Tribonacci => "tribonacci" [1, 2] false;
+    Genocchi => "genocchi" [1, 2] false;
+    Andre => "andre" [1] false;
+    Motzkin => "motzkin" [1] false;
     // gamma family
     Polygamma => "polygamma" [2] true;
     Digamma => "digamma" [1] true;
@@ -203,6 +221,9 @@ fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         | Harmonic | Bernoulli | Euler | Catalan | Fibonacci | Lucas | Bell | Partition => {
             combinatorial::eval(s, a)
         }
+        Totient | ReducedTotient | Mobius | DivisorSigma | UdivisorSigma | LegendreSymbol | JacobiSymbol
+        | KroneckerSymbol | PrimeNu | PrimeOmega | PrimePi | Carmichael | Tribonacci | Genocchi | Andre
+        | Motzkin => numtheory::eval(s, a),
         Polygamma | Digamma | Trigamma | Beta | LowerGamma | UpperGamma => gamma::eval(s, a),
         Zeta | DirichletEta | Polylog | Lerchphi => zeta::eval(s, a),
         Erfi | Erf2 | Erfinv | Erfcinv | FresnelS | FresnelC | Ei | Li | LiOffset | Si | Ci | Shi
