@@ -55,6 +55,7 @@ fn eval_c64_uncached(e: &Expr) -> Option<C64> {
             Constant::E => C64::new(std::f64::consts::E, 0.0),
             Constant::I => C64::new(0.0, 1.0),
             Constant::EulerGamma => C64::new(EULER_GAMMA, 0.0),
+            Constant::Catalan | Constant::GoldenRatio | Constant::TribonacciConstant => C64::new(c.approx_f64()?, 0.0),
             Constant::Infinity => C64::new(f64::INFINITY, 0.0),
             Constant::NegInfinity => C64::new(f64::NEG_INFINITY, 0.0),
             _ => return None,

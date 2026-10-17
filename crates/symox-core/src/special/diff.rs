@@ -225,6 +225,26 @@ pub fn partial(s: SpecialFn, a: &[Expr], i: usize) -> Option<Expr> {
             ])
         }
         (Ynm, 3) => mul(&[Expr::i(), a[1].clone(), e()]),
+        (Sech, 0) => neg(&mul2(&crate::functions::tanh(&a[0]), &e())),
+        (Csch, 0) => neg(&mul2(&crate::functions::coth(&a[0]), &e())),
+        (Asec | Acsc, 0) => {
+            let x = &a[0];
+            let d = div(&one(), &mul2(&x.powi(2), &sqrt(&sub(&one(), &x.powi(-2)))));
+            if s == Asec { d } else { neg(&d) }
+        }
+        (Asech, 0) => {
+            let x = &a[0];
+            neg(&div(&one(), &mul2(x, &sqrt(&sub(&one(), &x.powi(2))))))
+        }
+        (Acsch, 0) => {
+            let x = &a[0];
+            neg(&div(&one(), &mul2(&x.powi(2), &sqrt(&add(&[one(), x.powi(-2)])))))
+        }
+        (Acoth, 0) => div(&one(), &sub(&one(), &a[0].powi(2))),
+        (Sinc, 0) => {
+            let x = &a[0];
+            sub(&div(&cos(x), x), &div(&sin(x), &x.powi(2)))
+        }
         _ => return None,
     })
 }

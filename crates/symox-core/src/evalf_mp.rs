@@ -219,6 +219,9 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
             Constant::E => MpComplex::real(BigFloat::one().exp(p)),
             Constant::I => MpComplex { re: BigFloat::zero(), im: BigFloat::one() },
             Constant::EulerGamma => MpComplex::real(euler_gamma(p)),
+            Constant::Catalan => MpComplex::real(catalan(p)),
+            Constant::GoldenRatio => MpComplex::real(golden_ratio(p)),
+            Constant::TribonacciConstant => MpComplex::real(tribonacci_constant(p)),
             _ => return None,
         },
         Kind::Add(c, terms) => eval_sum(c, terms, p)?,
@@ -421,6 +424,51 @@ pub fn euler_gamma(prec: u32) -> BigFloat {
     let r = BigFloat::from_int(&a).div(&BigFloat::from_int(&b), prec).unwrap();
     let _ = ln2;
     r
+}
+
+/// Catalan's constant with Ramanujan's series
+/// `G = pi/8 log(2 + sqrt(3)) + 3/8 sum_n 1/((2n+1)**2 binomial(2n, n))`.
+pub fn catalan(prec: u32) -> BigFloat {
+    let wp = prec + 30;
+    let one = BigInt::from(1) << (wp as usize);
+    // r = 1/binomial(2n, n) in fixed point
+    let mut r = one.clone();
+    let mut sum = BigInt::from(0);
+    let mut n = 0u64;
+    while r.bits() > 0 {
+        let d = BigInt::from(2 * n + 1);
+        sum += &r / (&d * &d);
+        r = (&r * BigInt::from(n + 1)) / BigInt::from(2 * (2 * n + 1));
+        n += 1;
+    }
+    let series = BigFloat::round(sum, -(wp as i64), wp).mul_i64(3, wp).ldexp(-3);
+    let three = BigFloat::from_i64(3).sqrt(wp).unwrap();
+    let lg = BigFloat::from_i64(2).add(&three, wp).ln(wp).unwrap();
+    pi(wp).mul(&lg, wp).ldexp(-3).add(&series, wp).round_to(prec)
+}
+
+/// `GoldenRatio = (1 + sqrt(5))/2`.
+pub fn golden_ratio(prec: u32) -> BigFloat {
+    let wp = prec + 10;
+    BigFloat::from_i64(5).sqrt(wp).unwrap().add(&BigFloat::one(), wp).ldexp(-1).round_to(prec)
+}
+
+/// Real root of `x**3 - x**2 - x - 1` (Newton iteration).
+pub fn tribonacci_constant(prec: u32) -> BigFloat {
+    let wp = prec + 20;
+    let mut x = BigFloat::from_f64(1.839_286_755_214_161);
+    for _ in 0..64 {
+        let x2 = x.mul(&x, wp);
+        let x3 = x2.mul(&x, wp);
+        let f = x3.sub(&x2, wp).sub(&x, wp).sub(&BigFloat::one(), wp);
+        let df = x2.mul_i64(3, wp).sub(&x.mul_i64(2, wp), wp).sub(&BigFloat::one(), wp);
+        let step = f.div(&df, wp).unwrap();
+        x = x.sub(&step, wp);
+        if step.is_zero() || step.mag() < -(wp as i64) {
+            break;
+        }
+    }
+    x.round_to(prec)
 }
 
 fn erf_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {

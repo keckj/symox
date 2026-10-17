@@ -38,7 +38,8 @@ class Number(metaclass=_ExprType):
 
 
 class NumberSymbol(metaclass=_ExprType):
-    _matches = staticmethod(lambda e: e.class_name in ('Pi', 'Exp1', 'EulerGamma'))
+    _matches = staticmethod(lambda e: e.class_name in (
+        'Pi', 'Exp1', 'EulerGamma', 'Catalan', 'GoldenRatio', 'TribonacciConstant'))
 
 
 class Rational(Number):
@@ -136,6 +137,59 @@ class UnevaluatedExpr(metaclass=_ExprType):
         return _core._node("UnevaluatedExpr", (expr,))
 
 
+class Atom(metaclass=_ExprType):
+    _matches = staticmethod(lambda e: e.is_Atom)
+
+
+class AtomicExpr(Atom):
+    _matches = staticmethod(lambda e: e.is_Atom and e.class_name not in ('BooleanTrue', 'BooleanFalse'))
+
+
+_REL_OPS = {
+    "Equality": "==", "Unequality": "!=", "StrictLessThan": "<",
+    "LessThan": "<=", "StrictGreaterThan": ">", "GreaterThan": ">=",
+}
+_REL_ALIASES = {
+    "==": "==", "eq": "==", "!=": "!=", "<>": "!=", "ne": "!=",
+    ">=": ">=", "ge": ">=", "<=": "<=", "le": "<=",
+    ">": ">", "gt": ">", "<": "<", "lt": "<",
+}
+
+
+class Relational(metaclass=_ExprType):
+    """``Relational(lhs, rhs, rop)``; instance checks match any relation."""
+    _matches = staticmethod(lambda e: e.class_name in _REL_OPS)
+
+    def __new__(cls, lhs, rhs=0, rop=None, **kwargs):
+        op = _REL_OPS.get(cls.__name__)
+        if op is None:
+            try:
+                op = _REL_ALIASES[rop if rop is not None else "=="]
+            except (KeyError, TypeError):
+                raise ValueError("Invalid relational operator symbol: %r" % (rop,)) from None
+        return _core.Rel(op, lhs, rhs)
+
+
+Rel = Relational
+
+
+def _relation_class(name, doc):
+    def __new__(cls, lhs, rhs=0, **kwargs):
+        return _core.Rel(_REL_OPS[name], lhs, rhs)
+    return _ExprType(name, (Relational,), {
+        "__new__": __new__, "__doc__": doc, "__module__": __name__,
+        "_matches": staticmethod(lambda e: e.class_name == name),
+    })
+
+
+Equality = _relation_class("Equality", "``lhs == rhs`` (``Eq``).")
+Unequality = _relation_class("Unequality", "``lhs != rhs`` (``Ne``).")
+GreaterThan = _relation_class("GreaterThan", "``lhs >= rhs`` (``Ge``).")
+LessThan = _relation_class("LessThan", "``lhs <= rhs`` (``Le``).")
+StrictGreaterThan = _relation_class("StrictGreaterThan", "``lhs > rhs`` (``Gt``).")
+StrictLessThan = _relation_class("StrictLessThan", "``lhs < rhs`` (``Lt``).")
+
+
 class _SingletonRegistry:
     Half = Rational(1, 2)
     Zero = Integer(0)
@@ -157,6 +211,8 @@ class _SingletonRegistry:
             "Pi": "pi", "Exp1": "E", "ImaginaryUnit": "I",
             "Infinity": "oo", "ComplexInfinity": "zoo", "NaN": "nan",
             "EulerGamma": "EulerGamma", "true": "true", "false": "false",
+            "Catalan": "Catalan", "GoldenRatio": "GoldenRatio",
+            "TribonacciConstant": "TribonacciConstant",
         }
         if name == "NegativeInfinity":
             return -_core.constant("oo")

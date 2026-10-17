@@ -37,7 +37,7 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
             Kind::Sym(symbol)=>symbol.facts().get("algebraic"),
             Kind::Func(Func::Undefined(head),_) if !head.internal=>head.facts().get("algebraic"),
             Kind::Num(number) if !number.is_float()||number.is_zero()=>Some(true),
-            Kind::Const(Constant::I)=>Some(true),
+            Kind::Const(Constant::I|Constant::GoldenRatio|Constant::TribonacciConstant)=>Some(true),
             Kind::Const(Constant::Pi|Constant::E|Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity)=>Some(false),
             Kind::Pow(base,exponent) if power(base,exponent,cache)=>Some(true),
             Kind::Add(c,terms) if !c.is_float()&&terms.iter().all(|(term,c)|!c.is_float()&&walk(term,cache)==Some(true))=>Some(true),
@@ -93,7 +93,8 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
             seed.extend([("finite",false),("extended_real",true),("extended_positive",e.is_constant(Constant::Infinity))]);
         },
         Kind::Const(Constant::ComplexInfinity)=>seed.extend([("finite",false),("extended_real",false)]),
-        Kind::Const(Constant::EulerGamma)=>seed.extend([("real",true),("positive",true)]),
+        Kind::Const(Constant::EulerGamma|Constant::Catalan)=>seed.extend([("real",true),("positive",true)]),
+        Kind::Const(Constant::GoldenRatio|Constant::TribonacciConstant)=>seed.extend([("real",true),("positive",true),("irrational",true),("algebraic",true)]),
         Kind::Const(Constant::NaN)=>{},
         _=>{
             if let Some(real)=exact_queries(||is_real(e)){seed.push(("real",real));}
@@ -284,7 +285,7 @@ fn real_signs_uncached(e: &Expr) -> Option<Signs> {
     match e.kind() {
         Kind::Num(n) => Some(number_sign(n)),
         Kind::Const(c) => match c {
-            Constant::Pi | Constant::E | Constant::EulerGamma => Some(Signs::POS),
+            c if c.is_number_symbol() => Some(Signs::POS),
             _ => None,
         },
         Kind::Sym(s) => {
@@ -426,6 +427,7 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
         }
         Func::Floor | Func::Ceiling => real_signs(a).map(|_| Signs::ANY),
         Func::Re | Func::Im => Some(Signs::ANY),
+        Func::Special(special) => crate::special::elementary::signs(*special, args),
         Func::Gamma => {
             if real_signs(a)? == Signs::POS {
                 Some(Signs::POS)
@@ -559,7 +561,8 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
         Kind::Num(n) => return Some(n.is_zero()),
         Kind::Sym(s) if s.assumptions().has(A::NOT_ZERO) => return Some(false),
         Kind::Sym(s) if s.assumptions().has(A::ZERO) => return Some(true),
-        Kind::Const(Constant::I | Constant::Pi | Constant::E | Constant::EulerGamma) => return Some(false),
+        Kind::Const(Constant::I) => return Some(false),
+        Kind::Const(c) if c.is_number_symbol() => return Some(false),
         Kind::Const(c) if c.is_infinite()=>return Some(false),
         Kind::Mul(c,factors) if !c.is_zero() && factors.iter().all(|(b,x)| exact_queries(||is_zero(&crate::ops::mul_factor(b,x)))==Some(false)) => return Some(false),
         Kind::Pow(base,exponent) => {
@@ -619,7 +622,7 @@ fn is_integer_uncached(e: &Expr) -> Option<bool> {
                 None
             }
         }
-        Kind::Const(Constant::NaN|Constant::EulerGamma)=>None,
+        Kind::Const(Constant::NaN|Constant::EulerGamma|Constant::Catalan)=>None,
         Kind::Const(_) => Some(false),
         Kind::Add(c, terms) => {
             if is_rational(e)==Some(false){return Some(false);}
@@ -670,6 +673,7 @@ fn is_integer_uncached(e: &Expr) -> Option<bool> {
         }
         Kind::Func(Func::Sign, args) if is_real(&args[0]) == Some(true) => Some(true),
         Kind::Func(Func::Abs, args) if is_integer(&args[0]) == Some(true) => Some(true),
+        Kind::Func(Func::Special(special), args) => crate::special::elementary::integer(*special, args),
         _ => None,
     }
 }
@@ -692,7 +696,7 @@ fn is_rational_uncached(e: &Expr) -> Option<bool> {
                 None
             }
         }
-        Kind::Const(Constant::Pi | Constant::E | Constant::I) => Some(false),
+        Kind::Const(Constant::Pi | Constant::E | Constant::I | Constant::GoldenRatio | Constant::TribonacciConstant) => Some(false),
         Kind::Add(c,terms) => {
             if !c.is_rational(){return None;}
             let mut irrational=0;
@@ -819,6 +823,9 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
             } else {
                 None
             }
+        }
+        Kind::Func(Func::Special(special), args) if crate::special::elementary::finite(*special, args).is_some() => {
+            crate::special::elementary::finite(*special, args)
         }
         _ => {
             if real_signs(e).is_some() {

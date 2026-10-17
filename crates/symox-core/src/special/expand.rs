@@ -33,6 +33,20 @@ pub fn expand_func(e: &Expr) -> Expr {
 
 fn expand_one(e: &Expr) -> Option<Expr> {
     use SpecialFn::*;
+    if let Kind::Const(c) = e.kind() {
+        // GoldenRatio / TribonacciConstant._eval_expand_func
+        return match c {
+            crate::expr::Constant::GoldenRatio => Some(div(&add(&[Expr::one(), sqrt(&Expr::int(5))]), &Expr::int(2))),
+            crate::expr::Constant::TribonacciConstant => {
+                let s33 = mul2(&Expr::int(3), &sqrt(&Expr::int(33)));
+                let third = Expr::rational(1, 3);
+                let a = pow(&sub(&Expr::int(19), &s33), &third);
+                let b = pow(&add(&[Expr::int(19), s33]), &third);
+                Some(div(&add(&[Expr::one(), a, b]), &Expr::int(3)))
+            }
+            _ => None,
+        };
+    }
     let Kind::Func(f, a) = e.kind() else { return None };
     match f {
         Func::Gamma => {

@@ -39,6 +39,7 @@ fn prec(e: &Expr) -> u8 {
             }
         }
         Kind::Rel(..) => 20,
+        _ if is_mod(e) => PREC_MUL,
         Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => prec(&args[0]),
         _ => PREC_ATOM,
     }
@@ -57,6 +58,12 @@ pub fn to_str(e: &Expr) -> String {
     let mut s = String::new();
     write_expr(e, &mut s);
     s
+}
+
+/// SymPy gives `Mod` the precedence of `Mul`, so it is parenthesized inside
+/// products with a positive coefficient and inside powers.
+fn is_mod(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Func(Func::Special(crate::special::SpecialFn::Mod), _))
 }
 
 fn paren(e: &Expr, p: u8, strict: bool, out: &mut String) {
@@ -251,7 +258,14 @@ fn write_mul(e: &Expr, out: &mut String) {
     let Kind::Mul(c, facs) = e.kind() else { unreachable!() };
     let mut factors_src: Vec<(Expr, Expr)> = facs.clone();
     let mut c = c.clone();
-    if c.is_negative() {
+    // `-oo*x` keeps `-oo` as a factor: print its sign in front like SymPy
+    let neg_inf = factors_src.iter().position(|(b, x)| b.is_constant(Constant::NegInfinity) && x.is_one());
+    if let Some(i) = neg_inf {
+        factors_src[i].0 = Expr::oo();
+        c = c.neg();
+    }
+    let negative = c.is_negative();
+    if negative {
         out.push('-');
         c = c.neg();
     }
@@ -259,7 +273,7 @@ fn write_mul(e: &Expr, out: &mut String) {
         let (b, x) = factors_src.pop().unwrap();
         mul_factor(&b, &x)
     } else {
-        Expr::from_kind(Kind::Mul(c, facs.clone()))
+        Expr::from_kind(Kind::Mul(c, factors_src.clone()))
     };
     let ordered = crate::sortkey::ordered_factors(&body);
     let mut num: Vec<Expr> = Vec::new();
@@ -280,12 +294,15 @@ fn write_mul(e: &Expr, out: &mut String) {
             _ => num.push(item.clone()),
         }
     }
+    let write_factor = |f: &Expr, out: &mut String| {
+        paren(f, PREC_MUL, !negative && is_mod(f), out);
+    };
     let write_list = |v: &[Expr], out: &mut String| {
         for (i, f) in v.iter().enumerate() {
             if i > 0 {
                 out.push('*');
             }
-            paren(f, PREC_MUL, false, out);
+            write_factor(f, out);
         }
     };
     if num.is_empty() {
@@ -296,7 +313,7 @@ fn write_mul(e: &Expr, out: &mut String) {
     if !den.is_empty() {
         out.push('/');
         if den.len() == 1 {
-            paren(&den[0], PREC_MUL, false, out);
+            write_factor(&den[0], out);
         } else {
             out.push('(');
             write_list(&den, out);
@@ -328,6 +345,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Rel(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        _ if is_mod(b) => true,
         Kind::Func(Func::Undefined(name), _) if name.is_internal("UnevaluatedExpr") => prec(b) <= PREC_POW,
         _ => false,
     };
@@ -343,6 +361,7 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         Kind::Num(n) => n.is_negative() || matches!(n, Number::Rational(_)),
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => true,
         Kind::Const(Constant::NegInfinity) => true,
+        _ if is_mod(x) => true,
         Kind::Func(Func::Undefined(name), _) if name.is_internal("UnevaluatedExpr") => prec(x) <= PREC_POW,
         _ => false,
     };
@@ -400,7 +419,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Const(c) => out.push_str(c.name()),
         Kind::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
-        Kind::Mul(..) => list("Mul", &e.args(), out),
+        Kind::Mul(..) => list("Mul", &crate::sortkey::ordered_factors(e), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => list("UnevaluatedExpr", args, out),

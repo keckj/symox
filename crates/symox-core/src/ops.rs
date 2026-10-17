@@ -517,7 +517,7 @@ fn plain_factor(e: &Expr) -> Option<(Expr, Expr)> {
     let plain_base = |b: &Expr| match b.kind() {
         Kind::Sym(_) | Kind::Add(..) => true,
         Kind::Func(f, _) => !matches!(f, Func::Exp),
-        Kind::Const(c) => matches!(c, Constant::Pi | Constant::EulerGamma | Constant::I),
+        Kind::Const(c) => matches!(c, Constant::Pi | Constant::EulerGamma | Constant::I | Constant::Catalan | Constant::GoldenRatio | Constant::TribonacciConstant),
         _ => false,
     };
     match e.kind() {
@@ -1078,6 +1078,15 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                     Some(false) => return Expr::minus_one(),
                     None => {}
                 }
+            }
+        }
+        Kind::Func(Func::Special(crate::special::SpecialFn::KroneckerDelta), _) => {
+            // KroneckerDelta._eval_power: idempotent for positive powers
+            if crate::assumptions::is_positive(e) == Some(true) {
+                return b.clone();
+            }
+            if crate::assumptions::is_negative(e) == Some(true) && !e.is_minus_one() {
+                return pow(b, &Expr::minus_one());
             }
         }
         Kind::Func(Func::Exp, args) => {

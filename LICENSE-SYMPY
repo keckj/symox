@@ -20,6 +20,18 @@ Petkovsek's rsolve_hyper, casoratian and the rsolve driver) follow the
 algorithms and case analysis of SymPy's sympy/concrete/products.py,
 sympy/concrete/summations.py and sympy/solvers/recurr.py.
 
+The Mod and Rem canonicalisation (Mod.eval), the special-value tables of
+asec, acsc, asech and acsch, the evaluation rules of sinc, frac,
+KroneckerDelta and LeviCivita, the Kronecker delta summation rule and
+real_root in crates/symox-core/src/special/elementary.rs,
+crates/symox-core/src/summation.rs and python/symox/__init__.py are ported
+from SymPy (BSD-3-Clause).
+
+The special-value evaluation of the elementary functions in
+crates/symox-core/src/special/trig_eval.rs and the Basic.rewrite engine and
+_eval_rewrite_as_* rules in crates/symox-core/src/special/rewrite.rs are
+ported from SymPy (BSD-3-Clause).
+
 The deterministic LLL update order and float-to-rational conversion in
 crates/symox-core/src/matrix/lll.rs follow the corresponding SymPy routines.
 The auxiliary matrix kernels in crates/symox-core/src/matrix/auxiliary.rs and

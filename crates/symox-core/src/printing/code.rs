@@ -326,7 +326,7 @@ fn neg_rational(x: &Expr) -> bool {
 fn real_non_integer_number(e: &Expr) -> bool {
     match e.kind() {
         Kind::Num(n) => !n.is_integer(),
-        Kind::Const(c) => matches!(c, Constant::Pi | Constant::E | Constant::EulerGamma),
+        Kind::Const(c) => c.is_number_symbol(),
         _ => {
             super::is_numeric(e)
                 && !crate::functions::contains_i(e)
@@ -559,6 +559,9 @@ impl<'a> CodePrinter<'a> {
             "pi" => "3.14159265358979323846264338327950288",
             "E" => "2.71828182845904523536028747135266250",
             "EulerGamma" => "0.577215664901532860606512090082402431",
+            "Catalan" => "0.915965594177219015054603514932384111",
+            "GoldenRatio" => "1.61803398874989484820458683436563812",
+            "TribonacciConstant" => "1.83928675521416113255185256465328660",
             _ => return None,
         };
         Some(round_decimal(exact, digits))
@@ -605,6 +608,9 @@ impl<'a> CodePrinter<'a> {
                 Lang::NumPy => "numpy.euler_gamma".into(),
                 _ => self.number_symbol("EulerGamma", 0.577_215_664_901_532_9),
             },
+            Constant::Catalan | Constant::GoldenRatio | Constant::TribonacciConstant => {
+                self.number_symbol(c.name(), c.approx_f64().unwrap())
+            }
             Constant::I => match l {
                 Lang::Python | Lang::NumPy => "1j".into(),
                 Lang::Fortran => "cmplx(0,1)".into(),
@@ -983,8 +989,63 @@ impl<'a> CodePrinter<'a> {
                 (Expr::rational(1, 2), Expr::from_kind(Kind::Rel(RelOp::Eq, x.clone(), Expr::zero()))),
                 (Expr::one(), Expr::boolean(true)),
             ])),
+            Func::Special(sp) => return Self::rewrite_elementary(*sp, args),
             _ => return None,
         })
+    }
+
+    /// Rewrites of the elementary special heads (SymPy's `_rewriteable_functions`
+    /// targets and `Mod` as `p - q*floor(p/q)`).
+    fn rewrite_elementary(sp: crate::special::SpecialFn, args: &[Expr]) -> Option<Expr> {
+        use crate::functions as fx;
+        use crate::ops::{add2, mul2, sub};
+        use crate::special::SpecialFn as S;
+        let x = &args[0];
+        let half = Expr::rational(1, 2);
+        let r = || div(&Expr::one(), x);
+        Some(match sp {
+            S::Sech | S::Csch => {
+                let a = mul2(&half, &fx::exp(x));
+                let b = mul2(&half, &fx::exp(&neg(x)));
+                div(&Expr::one(), &if sp == S::Sech { add2(&a, &b) } else { sub(&a, &b) })
+            }
+            S::Asec => fx::acos(&r()),
+            S::Acsc => fx::asin(&r()),
+            S::Asech => fx::log(&add2(
+                &mul2(&crate::ops::sqrt(&sub(&r(), &Expr::one())), &crate::ops::sqrt(&add2(&r(), &Expr::one()))),
+                &r(),
+            )),
+            S::Acsch => fx::log(&add2(&crate::ops::sqrt(&add2(&Expr::one(), &crate::ops::pow(x, &Expr::int(-2)))), &r())),
+            S::Acoth => mul2(&half, &sub(&fx::log(&add2(&Expr::one(), &r())), &fx::log(&sub(&Expr::one(), &r())))),
+            S::Sinc => Expr::from_kind(Kind::Piecewise(vec![
+                (div(&fx::sin(x), x), Expr::from_kind(Kind::Rel(RelOp::Ne, x.clone(), Expr::zero()))),
+                (Expr::one(), Expr::boolean(true)),
+            ])),
+            S::Frac => sub(x, &fx::floor(x)),
+            S::Mod => sub(x, &mul2(&args[1], &fx::floor(&div(x, &args[1])))),
+            S::KroneckerDelta if args.len() == 2 => Expr::from_kind(Kind::Piecewise(vec![
+                (Expr::one(), Expr::from_kind(Kind::Rel(RelOp::Eq, x.clone(), args[1].clone()))),
+                (Expr::zero(), Expr::boolean(true)),
+            ])),
+            _ => return None,
+        })
+    }
+
+    /// `Mod`/`Rem` in C-like languages: `%` for integers, `fmod` otherwise
+    /// (like SymPy, `fmod` keeps the sign of the dividend).
+    fn c_mod(&self, sp: crate::special::SpecialFn, args: &[Expr]) -> CodeResult {
+        use crate::assumptions as a;
+        let (p, q) = (&args[0], &args[1]);
+        if a::is_integer(p) == Some(true) && a::is_integer(q) == Some(true) {
+            let (sp_, sq) = (self.parenthesize(p, PREC_MUL, false)?, self.parenthesize(q, PREC_MUL, false)?);
+            let same_sign = (a::is_nonnegative(p) == Some(true) && a::is_nonnegative(q) == Some(true))
+                || (a::is_nonpositive(p) == Some(true) && a::is_nonpositive(q) == Some(true));
+            if sp == crate::special::SpecialFn::Rem || same_sign {
+                return Ok(format!("{sp_} % {sq}"));
+            }
+            return Ok(format!("(({sp_} % {sq}) + {sq}) % {sq}"));
+        }
+        Ok(format!("{}({}, {})", self.c_func("fmod"), self.print(p)?, self.print(q)?))
     }
 
     fn unsupported(&self, f: &Func, args: &[Expr]) -> CodeResult {
@@ -1078,6 +1139,9 @@ impl<'a> CodePrinter<'a> {
                 let a = self.print(&args[0])?;
                 return Ok(format!("((({a}) > 0) - (({a}) < 0))"));
             }
+            Func::Special(sp @ (crate::special::SpecialFn::Mod | crate::special::SpecialFn::Rem)) => {
+                return self.c_mod(*sp, args);
+            }
             _ => {
                 if let Some(r) = self.rewrite(f, args) {
                     return Ok(format!("({})", self.print(&r)?));
@@ -1166,6 +1230,21 @@ impl<'a> CodePrinter<'a> {
             Func::Im if np => Ok(format!("numpy.imag({})", self.join_args(args)?)),
             Func::Arg if np => Ok(format!("numpy.angle({})", self.join_args(args)?)),
             Func::Conjugate if np => Ok(format!("numpy.conjugate({})", self.join_args(args)?)),
+            Func::Special(crate::special::SpecialFn::Mod) if np => Ok(format!("numpy.mod({})", self.join_args(args)?)),
+            Func::Special(crate::special::SpecialFn::Mod) => Ok(format!(
+                "{} % {}",
+                self.parenthesize(&args[0], PREC_MUL, false)?,
+                self.parenthesize(&args[1], PREC_MUL, false)?
+            )),
+            Func::Special(crate::special::SpecialFn::Frac) if !np => {
+                Ok(format!("{} % 1", self.parenthesize(&args[0], PREC_MUL, false)?))
+            }
+            Func::Special(crate::special::SpecialFn::Rem) => {
+                Ok(format!("{}({})", if np { "numpy.fmod" } else { "math.fmod" }, self.join_args(args)?))
+            }
+            Func::Special(crate::special::SpecialFn::KroneckerDelta) if args.len() == 2 && !np => {
+                Ok(format!("(1 if {} == {} else 0)", self.print(&args[0])?, self.print(&args[1])?))
+            }
             _ => {
                 if let Some(r) = self.rewrite(f, args) {
                     return Ok(format!("({})", self.print(&r)?));

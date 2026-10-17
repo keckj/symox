@@ -382,6 +382,9 @@ impl<'a> LatexPrinter<'a> {
                 Constant::E => "e".into(),
                 Constant::I => self.iu.clone(),
                 Constant::EulerGamma => r"\gamma".into(),
+                Constant::Catalan => "G".into(),
+                Constant::GoldenRatio => r"\phi".into(),
+                Constant::TribonacciConstant => r"\text{TribonacciConstant}".into(),
                 Constant::Infinity => r"\infty".into(),
                 Constant::NegInfinity => r"-\infty".into(),
                 Constant::ComplexInfinity => r"\tilde{\infty}".into(),
@@ -483,7 +486,7 @@ impl<'a> LatexPrinter<'a> {
                 t.clone()
             };
             let tt = self.print(&term);
-            if matches!(term.kind(), Kind::Rel(..) | Kind::Add(..)) {
+            if matches!(term.kind(), Kind::Rel(..) | Kind::Add(..)) || has_mod(&term) {
                 tex.push_str(&Self::parens(&tt));
             } else {
                 tex.push_str(&tt);
@@ -493,11 +496,12 @@ impl<'a> LatexPrinter<'a> {
     }
 
     fn needs_mul_brackets(&self, e: &Expr, first: bool) -> bool {
-        match e.kind() {
+        let base = match e.kind() {
             Kind::Mul(..) => !first && minus_sign(e),
             Kind::Rel(..) | Kind::Piecewise(_) => true,
             _ => precedence_traditional(e) < PREC_MUL,
-        }
+        };
+        base || has_mod(e)
     }
 
     fn convert_args(&self, args: &[Expr]) -> String {
@@ -784,6 +788,28 @@ impl<'a> LatexPrinter<'a> {
                 };
                 return t;
             }
+            Func::Special(sp) => {
+                use crate::special::SpecialFn as S;
+                match sp {
+                    S::Mod => {
+                        let t = format!(
+                            "{} \\bmod {}",
+                            self.parenthesize(&args[0], PREC_MUL, true),
+                            self.parenthesize(&args[1], PREC_MUL, true)
+                        );
+                        return Self::do_exponent(t, exp);
+                    }
+                    S::KroneckerDelta | S::LeviCivita => {
+                        let shown = if *sp == S::KroneckerDelta { &args[..2] } else { &args[..] };
+                        let idx: Vec<String> = shown.iter().map(|a| self.print(a)).collect();
+                        let sym = if *sp == S::KroneckerDelta { "\\delta" } else { "\\varepsilon" };
+                        let sep = if shown.iter().all(|a| a.is_atom()) { " " } else { ", " };
+                        return Self::do_exponent(format!("{sym}_{{{}}}", idx.join(sep)), exp);
+                    }
+                    S::Frac => return Self::sup(format!("\\operatorname{{frac}}{{\\left({}\\right)}}", a0()), exp),
+                    _ => {}
+                }
+            }
             Func::Heaviside | Func::DiracDelta => {
                 let name = if *f == Func::Heaviside { "\\theta" } else { "\\delta" };
                 let t = format!("{name}\\left({}\\right)", a0());
@@ -892,6 +918,10 @@ impl<'a> LatexPrinter<'a> {
 }
 
 /// `(p, q)` of a machine size rational number.
+fn has_mod(e: &Expr) -> bool {
+    crate::special::has_head(e, crate::special::SpecialFn::Mod)
+}
+
 fn small_rational(x: &Expr) -> Option<(i64, i64)> {
     match x.kind() {
         Kind::Num(Number::Int(i)) => Some((*i, 1)),

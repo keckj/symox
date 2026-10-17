@@ -70,6 +70,7 @@ pub(crate) fn precedence(e: &Expr) -> i32 {
             }
         }
         Kind::Pow(..) => PREC_POW,
+        Kind::Func(crate::expr::Func::Special(crate::special::SpecialFn::Mod), _) => PREC_MUL,
         Kind::Func(..) | Kind::Piecewise(_) => PREC_FUNC,
         Kind::Rel(op, ..) => match op {
             crate::expr::RelOp::Eq | crate::expr::RelOp::Ne => PREC_MUL,
