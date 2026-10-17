@@ -9,7 +9,7 @@ from __future__ import annotations
 import operator
 from types import MappingProxyType
 
-from ._core import Matrix, sympify
+from ._core import Matrix, sympify, _as_real_imag_many
 from . import ShapeError, NonSquareMatrixError
 
 _ZERO = sympify(0)
@@ -397,6 +397,15 @@ class _SparseBase:
     def multiply_elementwise(self, other):
         if not _matrix_like(other) or self.shape != (int(other.rows),int(other.cols)): raise ShapeError('Matrix size mismatch')
         return self._new(self.rows,self.cols,{k:v*other[k] for k,v in self._data.items() if v*other[k] != 0},other)
+    def as_real_imag(self, deep=True, **hints):
+        for name, value in hints.items():
+            if name != 'ignore' or value is not None:
+                raise NotImplementedError(f'Sparse as_real_imag hint {name} is not implemented')
+        keys = list(self._data)
+        real, imag = _as_real_imag_many(list(self._data.values()), deep)
+        return (self._new(self.rows, self.cols, {k:v for k,v in zip(keys, real) if v != 0}),
+                self._new(self.rows, self.cols, {k:v for k,v in zip(keys, imag) if v != 0}))
+
     def applyfunc(self, function):
         zero = sympify(function(_ZERO))
         if zero != 0:

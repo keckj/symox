@@ -303,6 +303,16 @@ fn d_func(
         // derivatives when differentiation is with respect to a complex atom.
         return mul(&[numerator,sign(u),pow(u,&Expr::minus_one())]);
     }
+    if matches!(f, Func::Arg) {
+        // SymPy's arg._eval_derivative over the real and imaginary parts.
+        if let Ok(Some((real, imaginary))) = crate::complex_parts::as_real_imag(u, true, None) {
+            let numerator = sub(
+                &mul(&[real.clone(), d(&imaginary, x, cache)]),
+                &mul(&[imaginary.clone(), d(&real, x, cache)]),
+            );
+            return mul(&[numerator, pow(&add(&[real.powi(2), imaginary.powi(2)]), &Expr::minus_one())]);
+        }
+    }
     let one = Expr::one();
     let outer = match f {
         Func::Exp => e.clone(),

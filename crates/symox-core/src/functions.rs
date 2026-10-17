@@ -21,6 +21,9 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
+    // Complex log(0) is zoo for exact and floating zeros. Handle it before
+    // numerical evaluation, which cannot represent complex infinity.
+    if matches!(f,Func::Log)&&args.len()==1&&args[0].as_number().is_some_and(Number::is_zero){return Expr::zoo();}
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
     }
@@ -43,7 +46,9 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     }
     // numeric evaluation when an argument is a float
     // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
+    // arg of a real float is exact (0, pi or nan) as in SymPy
     if !matches!(f, Func::Undefined(_) | Func::Max | Func::Min | Func::Floor | Func::Ceiling)
+        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number))
         && !args.is_empty()
         && args.iter().all(is_numeric_value)
         && args.iter().any(has_float)
@@ -73,16 +78,21 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Asinh => te::asinh_eval(&args[0]),
         Func::Acosh => te::acosh_eval(&args[0]),
         Func::Atanh => te::atanh_eval(&args[0]),
-        Func::Abs => eval_abs(&args[0]),
-        Func::Sign => eval_sign(&args[0]),
+        Func::Abs if args[0].has_matrix() => eval_abs(&args[0]),
+        Func::Abs => crate::complex_parts::evaluate::abs(&args[0]),
+        Func::Sign if args[0].has_matrix() => eval_sign(&args[0]),
+        Func::Sign => crate::complex_parts::evaluate::sign(&args[0]),
         Func::Floor | Func::Ceiling => eval_floor_ceil(&f, &args[0]),
         Func::Gamma => crate::special::eval_gamma(&args[0]),
         Func::LogGamma => crate::special::eval_loggamma(&args[0]),
         Func::Erf => crate::special::eval_erf(&args[0]),
         Func::Erfc => crate::special::eval_erfc(&args[0]),
-        Func::Re => eval_re_im(&args[0], true),
-        Func::Im => eval_re_im(&args[0], false),
-        Func::Conjugate => eval_conjugate(&args[0]),
+        Func::Re | Func::Im if args[0].has_matrix() => eval_re_im(&args[0], matches!(f, Func::Re)),
+        Func::Re => crate::complex_parts::evaluate::re_im(&args[0], true),
+        Func::Im => crate::complex_parts::evaluate::re_im(&args[0], false),
+        Func::Conjugate if args[0].has_matrix() => eval_conjugate(&args[0]),
+        Func::Conjugate => crate::complex_parts::evaluate::conjugate(&args[0]),
+        Func::Arg if !args[0].has_matrix() => crate::complex_parts::evaluate::arg(&args[0]),
         Func::Arg => match args[0].kind() {
             Kind::Num(n) if n.is_positive() => Some(Expr::zero()),
             Kind::Num(n) if n.is_negative() => Some(Expr::pi()),

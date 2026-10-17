@@ -1069,6 +1069,12 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             if e.as_i64().is_some_and(|k| k % 2 == 0) && crate::assumptions::is_real(&args[0]) == Some(true) {
                 return pow(&args[0], e);
             }
+            // Abs(r)**k = r**(k-1)*Abs(r) for odd k != -1 (SymPy's Abs._eval_power)
+            if let Some(k) = e.as_i64().filter(|k| k % 2 != 0 && *k != 1 && *k != -1) {
+                if crate::assumptions::is_real(&args[0]) == Some(true) {
+                    return mul2(&pow(&args[0], &Expr::int(k - 1)), b);
+                }
+            }
         }
         Kind::Num(n) if n.is_minus_one() => {
             // (-1)**(2k) = 1, (-1)**(2k+1) = -1

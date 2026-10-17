@@ -333,7 +333,17 @@ pub fn expand_log_deep(e: &Expr, force: bool, deep: bool) -> Expr {
             }
             add(&parts)
         }
-        Kind::Pow(b, x) if (ok(b) && is_real(x) == Some(true)) || force => mul2(x, &expand_log(&log(b), force)),
+        // SymPy also accepts any base for real exponents in (-1, 1].
+        Kind::Pow(b, x)
+            if force
+                || (is_real(x) == Some(true)
+                    && (ok(b)
+                        || (is_positive(&add2(x, &Expr::one())) == Some(true)
+                            && crate::assumptions::fact(&sub(x, &Expr::one()), "nonpositive") == Some(true)))) =>
+        {
+            let a = log(b);
+            if a.is_func(&Func::Log) { mul2(x, &expand_log(&a, force)) } else { mul2(x, &a) }
+        }
         _ => e2,
     }
 }
