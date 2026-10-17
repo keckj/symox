@@ -18,6 +18,7 @@ pub mod assumption_facts;
 pub mod bigfloat;
 pub mod binders;
 pub mod calculus;
+pub mod complex_parts;
 pub mod diff;
 pub mod decompose;
 pub mod evalf;

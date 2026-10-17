@@ -108,6 +108,10 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
             }else{None};
             if positive==Some(true)||quadratic.and_then(|f|f.sign)==Some(1){seed.push(("positive",true));}
             if negative==Some(true)||quadratic.and_then(|f|f.sign)==Some(-1){seed.push(("negative",true));}
+            if matches!(name,"extended_nonnegative"|"extended_nonpositive"|"extended_positive"|"extended_negative")&&positive!=Some(true)&&negative!=Some(true){
+                if exact_queries(||is_nonnegative(e))==Some(true){seed.push(("nonnegative",true));}
+                else if exact_queries(||is_nonpositive(e))==Some(true){seed.push(("nonpositive",true));}
+            }
             if need_imaginary{
                 if let Some(imaginary)=quadratic.and_then(|f|f.imaginary){seed.push(("imaginary",imaginary));}
             }
@@ -424,7 +428,7 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             Some(Signs::POS)
         }
         Func::Floor | Func::Ceiling => real_signs(a).map(|_| Signs::ANY),
-        Func::Re | Func::Im => Some(Signs::ANY),
+        Func::Re | Func::Im | Func::Arg => Some(Signs::ANY),
         Func::Gamma => {
             if real_signs(a)? == Signs::POS {
                 Some(Signs::POS)
@@ -819,6 +823,8 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
                 None
             }
         }
+        // sign takes values in {0} and the unit circle
+        Kind::Func(Func::Sign, _) => Some(true),
         _ => {
             if real_signs(e).is_some() {
                 Some(true)

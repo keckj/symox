@@ -71,12 +71,29 @@ false = _core.constant("false")
 # ---------------------------------------------------------------------------
 
 
+def _matrix_part(name, M):
+    """re, im, conjugate and Abs of a concrete matrix, entrywise as in SymPy."""
+    if name in ("re", "im"):
+        value = M.as_real_imag()[0 if name == "re" else 1]
+    elif name == "conjugate":
+        value = M.conjugate()
+    else:
+        value = M.applyfunc(Abs)
+    if type(M).__name__ in ("MutableSparseMatrix", "ImmutableSparseMatrix"):
+        return ImmutableSparseMatrix(value)
+    return ImmutableMatrix(value)
+
+
 def _make(name):
     def f(*args):
         if len(args) == 1 and getattr(args[0], "_symox_matrixexpr", False):
             if name == "conjugate":
                 return args[0].conjugate()
             raise NotImplementedError(f"{name} of abstract matrices is not implemented")
+        if (len(args) == 1 and name in ("re", "im", "conjugate", "Abs")
+                and not isinstance(args[0], _core.Expr) and hasattr(args[0], "applyfunc")
+                and hasattr(args[0], "as_real_imag")):
+            return _matrix_part(name, args[0])
         return _core._apply(name, *args)
 
     f.__name__ = name
@@ -199,6 +216,14 @@ from ._core import (  # noqa: E402
     expand_log, expand_mul, expand_power_base, expand_power_exp, expand_trig,
     logcombine, nsimplify, powsimp, trigsimp,
 )
+
+
+def expand_complex(expr, deep=True):
+    """Expand ``expr`` into ``re + I*im`` form, applying only the complex hint."""
+    return sympify(expr).expand(deep=deep, complex=True, basic=False, log=False, mul=False,
+                                power_exp=False, power_base=False, multinomial=False)
+
+
 from ._core import checkodesol, dsolve, nsolve, solve  # noqa: E402
 from ._core import NonlinearError  # noqa: E402
 from ._linear import linear_eq_to_matrix, linsolve, solve_linear_system  # noqa: E402
@@ -538,9 +563,18 @@ def trace(M):
     return Matrix(M).trace()
 
 
+def adjoint(M):
+    if not hasattr(M, "adjoint"):
+        M = sympify(M)
+    return M.adjoint()
+
+
 def transpose(M):
     if getattr(M, "_symox_matrixexpr", False):
         return M.transpose()
+    if isinstance(M, (_core.Expr, int, float, complex)):
+        # the transpose of a commutative scalar is the scalar itself
+        return sympify(M)
     return Matrix(M).T
 
 

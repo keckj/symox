@@ -119,6 +119,30 @@ fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)]
     validate(py, e, pairs, &matrix_pairs, &mut transform, &mut FxHashMap::default())
 }
 
+pub(crate) fn complex_parts_options(hints:Option<&Bound<'_,PyDict>>,scalar:bool)->PyResult<Option<Expr>>{
+    let mut ignore=None;
+    if let Some(hints)=hints{
+        for(key,value)in hints.iter(){
+            let key:String=key.extract()?;
+            if key!="ignore"{return Err(PyNotImplementedError::new_err(format!("as_real_imag hint {key} is not implemented")));}
+            if !value.is_none(){
+                if !scalar{return Err(PyNotImplementedError::new_err("matrix as_real_imag(ignore=...) is not implemented"));}
+                ignore=Some(to_expr(&value)?);
+            }
+        }
+    }
+    Ok(ignore)
+}
+
+#[pyfunction]
+#[pyo3(signature=(values,deep=true))]
+fn _as_real_imag_many(values:Vec<PyExpr>,deep:bool)->PyResult<(Vec<PyExpr>,Vec<PyExpr>)>{
+    let entries=values.into_iter().map(|entry|entry.e).collect::<Vec<_>>();
+    let parts=symox::complex_parts::as_real_imag_many(&entries,deep)
+        .map_err(|error|PyNotImplementedError::new_err(error.to_string()))?;
+    Ok(parts.into_iter().map(|(real,imag)|(wrap(real),wrap(imag))).unzip())
+}
+
 fn function_spec(name:&str,assumptions:&Bound<'_,PyDict>,nargs:Option<Vec<usize>>)->PyResult<symox::expr::UndefinedFunction>{
     let mut kwargs=Vec::new();
     for (key,value) in assumptions.iter(){
@@ -1422,6 +1446,14 @@ impl PyExpr {
     #[pyo3(signature=(*_gens))]
     fn as_expr(&self, _gens:&Bound<'_,PyTuple>) -> PyExpr { wrap(self.e.clone()) }
 
+    #[pyo3(signature = (deep=true, **hints))]
+    fn as_real_imag(&self,deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<Option<(PyExpr,PyExpr)>>{
+        let ignore=complex_parts_options(hints,true)?;
+        symox::complex_parts::as_real_imag(&self.e,deep,ignore.as_ref())
+            .map(|pair|pair.map(|(real,imag)|(wrap(real),wrap(imag))))
+            .map_err(|error|PyNotImplementedError::new_err(error.to_string()))
+    }
+
     fn conjugate(&self) -> PyExpr { wrap(fx::conjugate(&self.e)) }
     fn adjoint(&self) -> PyExpr { wrap(fx::conjugate(&self.e)) }
     fn transpose(&self) -> PyExpr { wrap(self.e.clone()) }
@@ -2196,9 +2228,24 @@ pub(crate) fn parse_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->P
     }
     Ok((options,expand::ExpandBudget::new(max_terms)))
 }
+/// Like `parse_expand_options`, also accepting SymPy's `complex` hint.
+pub(crate) fn parse_scalar_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<(expand::ExpandOptions,expand::ExpandBudget,bool)>{
+    let Some(hints)=hints else {let (options,budget)=parse_expand_options(deep,None)?;return Ok((options,budget,false));};
+    let Some(complex)=hints.get_item("complex")? else {let (options,budget)=parse_expand_options(deep,Some(hints))?;return Ok((options,budget,false));};
+    let rest=hints.copy()?;
+    rest.del_item("complex")?;
+    let (options,budget)=parse_expand_options(deep,Some(&rest))?;
+    Ok((options,budget,complex.is_truthy()?))
+}
+pub(crate) fn expand_scalar(e:&Expr,options:&expand::ExpandOptions,budget:&mut expand::ExpandBudget,complex:bool)->PyResult<Expr>{
+    if complex{
+        return symox::complex_parts::expand_complex(e,options).map_err(|error|PyNotImplementedError::new_err(error.to_string()));
+    }
+    expand::expand_with_options(e,options,budget).map_err(|e|PyValueError::new_err(e.to_string()))
+}
 fn expand_hints(e:&Expr,deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<Expr>{
-    let (options,mut budget)=parse_expand_options(deep,hints)?;
-    expand::expand_with_options(e,&options,&mut budget).map_err(|e|PyValueError::new_err(e.to_string()))
+    let (options,mut budget,complex)=parse_scalar_expand_options(deep,hints)?;
+    expand_scalar(e,&options,&mut budget,complex)
 }
 
 #[pyfunction]
@@ -2513,6 +2560,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(_undefined_function, m)?)?;
     m.add_function(wrap_pyfunction!(_function_facts, m)?)?;
+    m.add_function(wrap_pyfunction!(_as_real_imag_many, m)?)?;
     m.add_function(wrap_pyfunction!(_subs, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;
     m.add_function(wrap_pyfunction!(py_integrate, m)?)?;

@@ -227,6 +227,40 @@ NumPy code generation preserves complex-sign semantics on NumPy 1.x and 2.x,
 including zero, infinities and NaN. NumPy 2 uses its native fast path; older
 versions use a standalone compatibility expression.
 
+`Expr.as_real_imag(deep=True)` expands complex parts natively, including sums,
+products, principal rational powers and common exponential, logarithmic,
+trigonometric and hyperbolic functions. Opaque expressions retain `re`/`im`
+projections.
+Dense and sparse matrices preserve shape, storage and mutability. `ignore` is
+supported for scalar dispatch; other expansion hints are rejected explicitly.
+`sec` and `csc` split through `1/cos` and `1/sin`.
+`expand_complex(expr, deep=True)`, `expand(expr, complex=True, **hints)` and
+`Expr.expand(complex=True)` follow SymPy's hint order: the complex pass runs
+first (children before parents, `Abs` folded to `sqrt(re**2 + im**2)`), then
+the other enabled hints such as `log` and `mul`. Dense and sparse matrices
+expand entrywise; sparse matrices only touch stored entries. `adjoint(expr)`
+conjugates scalars and conjugate-transposes matrices. `expand_log` rewrites
+`log(b**e)` for real `e` with `-1 < e <= 1`, as SymPy does.
+Expansion has conservative resource limits, including 20,000 distinct nodes,
+4,096 terms, literal exponent numerators through 128 and a million-bit numeric
+budget. Oscillatory
+values at infinity that require `AccumBounds` are explicitly unsupported.
+`expand_complex` raises `NotImplementedError` for `Derivative`, `Piecewise`,
+relational, `Integral`/`Sum`/`Limit` and matrix-expression nodes, and
+`polar_lift`, `exp_polar`, `principal_branch`, `periodic_argument` and
+`unbranched_argument` are not provided.
+`re`, `im`, `arg`, `Abs`, `sign` and `conjugate` evaluate natively with
+SymPy's rules: the `as_coefficient(I)` split of sums, `as_real_imag`
+fallbacks, exact `arg` via `atan2` for numbers, `Abs` of products, powers,
+`exp` and `conjugate`, the `sign` product rule, and `conjugate` dispatch
+through `exp`, trigonometric, hyperbolic, `gamma`, `erf`, `atan2` and powers.
+`Abs(r)**k` with real `r` and odd `k` gives `r**(k-1)*Abs(r)`, `arg(z).diff(x)`
+follows SymPy, and `re`/`im`/`conjugate`/`Abs` of matrices work entrywise.
+Remaining gaps: `.rewrite` between these functions, `sech`/`csch`, and
+`factor_terms` inside `arg` (`arg(x*y+x*z)` stays unchanged). `re(x)` and
+`im(x)` are treated as finite, so `Abs(x+oo)` evaluates to `oo`, and facts such
+as `re(x).is_real` answer `True` where SymPy answers `None`.
+
 ## Building
 
 ```bash

@@ -850,6 +850,17 @@ impl PyMatrix {
         self.wrapped(self.m.conjugate())
     }
 
+    #[pyo3(signature = (deep=true, **hints))]
+    fn as_real_imag(&self,deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<(PyMatrix,PyMatrix)>{
+        crate::complex_parts_options(hints,false)?;
+        let parts=symox::complex_parts::as_real_imag_many(self.m.data(),deep)
+            .map_err(|error|PyNotImplementedError::new_err(error.to_string()))?;
+        let(real,imag):(Vec<_>,Vec<_>)=parts.into_iter().unzip();
+        let real=Matrix::new(self.m.rows(),self.m.cols(),real).map_err(|error|PyValueError::new_err(error.to_string()))?;
+        let imag=Matrix::new(self.m.rows(),self.m.cols(),imag).map_err(|error|PyValueError::new_err(error.to_string()))?;
+        Ok((self.wrapped(real),self.wrapped(imag)))
+    }
+
     fn adjoint(&self) -> PyMatrix {
         self.wrapped(self.m.adjoint())
     }
@@ -1071,9 +1082,9 @@ impl PyMatrix {
 
     #[pyo3(signature = (deep=true, **hints))]
     fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-        let (options,mut budget)=crate::parse_expand_options(deep,hints)?;
+        let (options,mut budget,complex)=crate::parse_scalar_expand_options(deep,hints)?;
         budget.claim_terms(self.m.data().len()).map_err(|e|PyValueError::new_err(e.to_string()))?;
-        Ok(self.wrapped(self.m.try_applyfunc(|e| symox::expand::expand_with_options(e,&options,&mut budget).map_err(|e|PyValueError::new_err(e.to_string())))?))
+        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::expand_scalar(e,&options,&mut budget,complex))?))
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]

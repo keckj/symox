@@ -9,6 +9,12 @@ permanent, inverse_BLOCK, Householder Hessenberg and bidiagonal reductions,
 dual, get_diag_blocks, irregular, orthogonalize, casoratian, randMatrix,
 banded, liupc and the Expr.equals heuristics used by Matrix.equals) are ports
 of the corresponding SymPy routines.
+
+The complex expansion in crates/symox-core/src/complex_parts.rs (as_real_imag,
+expand_complex and expand(complex=True)) follows the corresponding SymPy
+as_real_imag methods, Expr._expand_hint ordering and the final Abs.eval rule.
+The expand_log rule for powers with real exponents in -1 < e <= 1 in
+crates/symox-core/src/simp.rs follows SymPy's log._eval_expand_log.
 The SymPy distribution copyright and license notices are reproduced below.
 
 Copyright (c) 2006-2023 SymPy Development Team
