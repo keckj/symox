@@ -63,6 +63,7 @@ pub mod summation;
 pub mod symbol;
 pub mod symbolic_number;
 pub mod traverse;
+pub mod transforms;
 
 pub use expr::{Constant, Expr, Func, Kind, RelOp};
 pub use symbol::{Assumptions, Symbol};

@@ -107,6 +107,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         },
         Func::DiracDelta => match args[0].kind() {
             Kind::Num(n) if !n.is_zero() => Some(Expr::zero()),
+            _ if args.len() == 2 && args[1].is_zero() => Some(func(Func::DiracDelta, vec![args[0].clone()])),
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
@@ -137,6 +138,10 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             parent.and_then(|p| p.determinant().ok()).unwrap_or_else(|| e.clone())
         }
         Kind::Func(f @ (Func::Integral|Func::Sum|Func::Product),args)=>crate::binders::doit(f,args,deep),
+        Kind::Func(Func::Special(s), args) if s.is_transform() => {
+            let args: Vec<Expr> = args.iter().map(child).collect();
+            crate::transforms::doit_default(*s, &args).unwrap_or_else(|| crate::special::apply(*s, args))
+        }
         Kind::Derivative(inner, variables) => crate::diff::diff_many(&child(inner), variables),
         Kind::Func(Func::Subs,args)=>crate::subs::subs_doit(&doit(&args[0],deep),&args[1].args(),&args[2].args()),
         Kind::Func(Func::Limit,args)=>{
@@ -542,6 +547,12 @@ fn eval_minmax(f: &Func, args: Vec<Expr>) -> Expr {
             _ => flat.push(a),
         }
     }
+    // the identity element drops out and the absorbing element wins
+    let (identity, absorbing) = if is_max { (Expr::neg_oo(), Expr::oo()) } else { (Expr::oo(), Expr::neg_oo()) };
+    if flat.contains(&absorbing) {
+        return absorbing;
+    }
+    flat.retain(|a| *a != identity);
     // fold numeric values
     let mut best: Option<(f64, Expr)> = None;
     let mut rest: Vec<Expr> = Vec::new();

@@ -413,6 +413,7 @@ impl Func {
             Func::AppliedPredicate => None,
             Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
+            Func::DiracDelta => None,
             _ => Some(1),
         }
     }

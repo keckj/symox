@@ -258,6 +258,18 @@ equivalence. Known differences and remaining gaps:
   `exptrigsimp`, `hyperexpand`, `besselsimp` or the `fu` trigonometric
   rules, and its keyword options raise `NotImplementedError`.
 
+* Integral transforms (`laplace_transform`, `inverse_laplace_transform`,
+  `fourier_transform`, `sine_transform`, `cosine_transform`,
+  `mellin_transform`, `hankel_transform`, their inverses and the held
+  `*Transform` classes) are native table and rule engines. They follow
+  SymPy's `(result, plane/strip, cond)` tuples and the `noconds`, `simplify`
+  and `needeval` hints. There is no Meijer G fallback, so integrands
+  outside the tables stay held where SymPy may still succeed (for example
+  `laplace_transform(cos(sqrt(t)), t, s)`). Some results are equivalent but
+  printed differently: the Fourier and cosine transforms keep `Abs(k)` where
+  SymPy assumes `k > 0`. Legacy Matrix results warn with `DeprecationWarning`
+  instead of `SymPyDeprecationWarning`.
+
 Absolute-value derivatives respect real and imaginary assumptions. For an
 unconstrained complex argument, derivatives of the real and imaginary parts
 remain explicit; the real-variable formula is used only when justified.

@@ -275,6 +275,10 @@ pub fn apply(s: SpecialFn, a: &[C64]) -> Option<C64> {
         Ynm => misc::ynm_c(x, a[1], a[2], a[3])?,
         Mod | Rem | Sech | Csch | Asec | Acsc | Asech | Acsch | Acoth | Sinc | Frac | KroneckerDelta
         | LeviCivita => elementary_c(s, a)?,
+
+        LaplaceTransform | InverseLaplaceTransform | FourierTransform | InverseFourierTransform
+        | SineTransform | InverseSineTransform | CosineTransform | InverseCosineTransform
+        | HankelTransform | InverseHankelTransform | MellinTransform | InverseMellinTransform => return None,
     };
     Some(r)
 }

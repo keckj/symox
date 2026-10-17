@@ -251,6 +251,13 @@ fn d_func(
         return derivative_unevaluated(e, vec![(x.clone(), 1)]);
     }
     if let Func::Special(s) = f {
+        if s.is_transform() {
+            // held integral transforms: the bound variable is not free
+            if !crate::traverse::free_symbols(e).contains(x) {
+                return Expr::zero();
+            }
+            return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+        }
         // chain rule over all arguments
         let mut terms = Vec::new();
         for (i, a) in args.iter().enumerate() {
@@ -276,6 +283,13 @@ fn d_func(
     let du = d(u, x, cache);
     if du.is_zero() {
         return Expr::zero();
+    }
+    if matches!(f, Func::DiracDelta) {
+        let k = args.get(1).cloned().unwrap_or_else(Expr::zero);
+        if args.len() == 2 && d(&k, x, cache).is_zero() || args.len() == 1 {
+            let order = add(&[k, Expr::one()]);
+            return mul(&[crate::functions::func(Func::DiracDelta, vec![u.clone(), order]), du]);
+        }
     }
     if matches!(f, Func::Conjugate | Func::Re | Func::Im){
         let real_x=crate::assumptions::exact_queries(||crate::assumptions::is_real(x)==Some(true));

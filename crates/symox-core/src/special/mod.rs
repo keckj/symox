@@ -199,9 +199,31 @@ special_fns! {
     Frac => "frac" [1] false;
     KroneckerDelta => "KroneckerDelta" [2, 3] false;
     LeviCivita => "LeviCivita" [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] false;
+
+    // held integral transforms (crate::transforms)
+    LaplaceTransform => "LaplaceTransform" [3] false;
+    InverseLaplaceTransform => "InverseLaplaceTransform" [4] false;
+    FourierTransform => "FourierTransform" [3] false;
+    InverseFourierTransform => "InverseFourierTransform" [3] false;
+    SineTransform => "SineTransform" [3] false;
+    InverseSineTransform => "InverseSineTransform" [3] false;
+    CosineTransform => "CosineTransform" [3] false;
+    InverseCosineTransform => "InverseCosineTransform" [3] false;
+    HankelTransform => "HankelTransform" [4] false;
+    InverseHankelTransform => "InverseHankelTransform" [4] false;
+    MellinTransform => "MellinTransform" [3] false;
+    InverseMellinTransform => "InverseMellinTransform" [5] false;
 }
 
 impl SpecialFn {
+    /// Held integral transform heads (`LaplaceTransform`, ...).
+    pub fn is_transform(self) -> bool {
+        use SpecialFn::*;
+        matches!(self, LaplaceTransform | InverseLaplaceTransform | FourierTransform | InverseFourierTransform
+            | SineTransform | InverseSineTransform | CosineTransform | InverseCosineTransform
+            | HankelTransform | InverseHankelTransform | MellinTransform | InverseMellinTransform)
+    }
+
     /// Fixed number of arguments, `None` when several are accepted.
     pub fn arity(self) -> Option<usize> {
         match self.nargs() {
@@ -254,6 +276,10 @@ fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         | Jacobi | Gegenbauer | Ynm => orthopoly::eval(s, a),
         Mod | Rem | Sech | Csch | Asec | Acsc | Asech | Acsch | Acoth | Sinc | Frac | KroneckerDelta
         | LeviCivita => elementary::eval(s, a),
+
+        LaplaceTransform | InverseLaplaceTransform | FourierTransform | InverseFourierTransform
+        | SineTransform | InverseSineTransform | CosineTransform | InverseCosineTransform
+        | HankelTransform | InverseHankelTransform | MellinTransform | InverseMellinTransform => None,
     }
 }
 
