@@ -42,6 +42,28 @@ fn modular_modulus(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<num_big
         .map_err(|_| PyTypeError::new_err("inv_mod: modulus m must be an integer"))
 }
 
+struct LllDelta(Expr);
+impl Default for LllDelta {
+    fn default() -> Self { Self(Expr::rational(3,4)) }
+}
+impl<'py> FromPyObject<'py> for LllDelta {
+    fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<Self> {
+        crate::scalar_expr(value).map(Self)
+    }
+}
+fn lll_error(py: Python<'_>, error: matrix::lll::LllError) -> PyErr {
+    use matrix::lll::LllError as E;
+    let message=error.to_string();
+    let name=match error {
+        E::Delta=>"DMValueError", E::Shape=>"DMShapeError", E::Rank=>"DMRankError",
+        E::Parameter|E::Domain=>return crate::poly::domains::CoercionFailed::new_err(message),
+        E::Resource|E::Certificate=>return PyNotImplementedError::new_err(message),
+    };
+    match py.import("symox.polys.matrices.exceptions").and_then(|m|m.getattr(name)).and_then(|c|c.call1((&message,))) {
+        Ok(value)=>PyErr::from_value(value), Err(error)=>error,
+    }
+}
+
 // Keep omitted/default cancel distinct from explicitly disabled None/False.
 // A callable is an explicit matrix postprocessor, never a symbolic fallback.
 enum LogSimplifier {
@@ -916,6 +938,28 @@ impl PyMatrix {
             Some(s) => return Err(PyValueError::new_err(format!("Inversion method unrecognized: {s}"))),
         };
         Ok(self.wrapped(r.py(py)?))
+    }
+
+    #[pyo3(signature=(delta=LllDelta::default()), text_signature="($self, delta=0.75)")]
+    fn lll(&self, py: Python<'_>, delta: LllDelta) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.lll(&delta.0).map_err(|e|lll_error(py,e))?))
+    }
+
+    #[pyo3(signature=(delta=LllDelta::default()), text_signature="($self, delta=0.75)")]
+    fn lll_transform<'py>(&self, py: Python<'py>, delta: LllDelta) -> PyResult<Bound<'py, PyTuple>> {
+        let (basis,transform)=self.m.lll_transform(&delta.0).map_err(|e|lll_error(py,e))?;
+        PyTuple::new(py,[self.wrapped(basis),self.wrapped(transform)])
+    }
+
+    #[staticmethod]
+    #[pyo3(signature=(rows, cols, delta=LllDelta::default()))]
+    fn _lll_preflight(py: Python<'_>, rows: num_bigint::BigInt, cols: num_bigint::BigInt, delta: LllDelta) -> PyResult<()> {
+        matrix::lll::preflight(0,0,&delta.0).map_err(|e|lll_error(py,e))?;
+        if rows>cols { return Err(lll_error(py,matrix::lll::LllError::Shape)); }
+        let limited=||lll_error(py,matrix::lll::LllError::Resource);
+        let rows=rows.to_usize().ok_or_else(limited)?;
+        let cols=cols.to_usize().ok_or_else(limited)?;
+        matrix::lll::preflight(rows,cols,&delta.0).map_err(|e|lll_error(py,e))
     }
 
     fn inv_mod(&self, py: Python<'_>, m: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {

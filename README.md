@@ -928,6 +928,27 @@ large dyadic integers, and shares resource checks with Sparse delegation before
 densification. Modulo one returns the zero matrix of the trivial ring, avoiding
 SymPy 1.14's error on nonempty inputs. Nonpositive moduli and noninteger entries
 are rejected.
+`lll(delta=Rational(3, 4))` reduces an integer row-lattice basis;
+`lll_transform()` returns `(B, T)` with `T*A=B` and unimodular integer `T`.
+The native deterministic algorithm follows SymPy's reduction order and
+`floor(mu+1/2)` tie convention. It certifies size reduction and Lovasz
+inequalities by fresh exact Gram-Schmidt, and checks an integer two-sided
+inverse of `T` to certify that the whole lattice is preserved. Inputs must
+have independent rows, at most as many rows as columns, and integer entries;
+exactly integral floats are converted to integers, with bit limits checked
+before compact dyadic values are materialized. Other entry domains and held
+arithmetic are rejected without evaluation. The rational parameter must satisfy
+`1/4 < delta < 1`; float parameters follow SymPy's rational-field coercion.
+Zero-row-count shapes preserve their width and return a `0x0` transform.
+A single all-zero row raises `DMRankError` because it is not a basis, fixing
+SymPy 1.14's accidental acceptance of that case. Shape/range/rank errors use
+`symox.polys.matrices.exceptions` (`DMShapeError`, `DMValueError`, `DMRankError`),
+and noninteger domains raise `CoercionFailed`. Resource bounds cover integer
+and rational products, normalization, storage and the certificates, with
+`NotImplementedError` when a conservative limit is exceeded. Dense and sparse
+results preserve their mutability; Sparse checks the native limits before
+densifying. No SymPy runtime or floating-point reduction heuristic is used.
+The SymPy algorithm attribution and notices are retained in `LICENSE-SYMPY`.
 
 ```python
 from symox import Matrix, ImmutableMatrix, symbols
@@ -954,8 +975,8 @@ stored entries.
 factorizations and negative powers explicitly convert to the native dense
 algorithms; they are not sparse numerical factorization routines.
 The dense delegation also covers `exp`, `log`, `analytic_func`,
-`singular_value_decomposition` and `inv_mod`, converting matrix results back to
-sparse storage with their mutability preserved. These methods reject oversized
+`singular_value_decomposition`, `inv_mod`, `lll` and `lll_transform`, converting
+matrix results back to sparse storage with their mutability preserved. These methods reject oversized
 sparse shapes before allocating a dense input.
 
 This API does not cover every SymPy matrix method. Eigenproblems beyond the
