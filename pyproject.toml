@@ -26,6 +26,7 @@ jax = ["jax>=0.4.30"]
 slang = ["slangpy>=0.43.1"]
 
 [tool.maturin]
+include = [{ path = "LICENSE-*", format = "sdist" }]
 manifest-path = "crates/symox-py/Cargo.toml"
 python-source = "python"
 module-name = "symox._core"
