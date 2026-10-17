@@ -173,6 +173,17 @@ class Sum(metaclass=_CalculusMeta):
         return _core._calculus("Sum", function, limits)
 
 
+class Product(metaclass=_CalculusMeta):
+    """Held product with ordered integer limits."""
+    def __new__(cls, function, *limits, **kwargs):
+        if kwargs:
+            raise NotImplementedError("Product constructor options are not implemented")
+        return _core._calculus("Product", function, limits)
+
+
+from ._concrete import ReorderError  # noqa: E402
+
+
 class _SubsMeta(type):
     def __instancecheck__(cls, value):
         return isinstance(value, Expr) and value.is_Subs
@@ -203,7 +214,10 @@ from ._core import checkodesol, dsolve, nsolve, solve  # noqa: E402
 from ._core import NonlinearError  # noqa: E402
 from ._linear import linear_eq_to_matrix, linsolve, solve_linear_system  # noqa: E402
 from ._polysolve import solve_poly_system, nonlinsolve  # noqa: E402
-from ._core import residue  # noqa: E402
+from ._core import product, residue  # noqa: E402
+from ._core import (  # noqa: E402
+    difference_delta, hypersimilar, hypersimp, rsolve, rsolve_hyper, rsolve_poly, rsolve_ratio,
+)
 
 # --- special ---
 # Special functions (symox::special): every head is a real function node with
@@ -1386,7 +1400,7 @@ def _order_part(i):
                 return self._lambda_body
             if i == 1:
                 return self._lambda_variables
-        if (self.is_Integral or self.is_Sum) and i == 1:
+        if (self.is_Integral or self.is_Sum or self.is_Product) and i == 1:
             return [limit[0] for limit in self.limits]
         if self.is_Derivative:
             if i == 0:

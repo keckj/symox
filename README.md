@@ -194,6 +194,36 @@ Their `doit()` methods use the native integration and summation engines;
 unsupported cases remain held. Differentiation supports the fundamental theorem
 and Leibniz rule for integrals and retains discrete endpoint derivatives.
 Finite sums use Karr's convention for reversed endpoints.
+`Product` is a native held binder with the same scoping, printing and SymPy
+interchange; `product()` and `Product.doit()` evaluate constant, polynomial
+(via rising factorials), rational, power and exponential-sum terms, multiply
+out short definite ranges and use Karr's convention for reversed ranges.
+Unsupported terms stay held. `Sum.is_convergent()`,
+`Sum.is_absolutely_convergent()` and `Product.is_convergent()` run SymPy's
+tests natively on one-limit series (ranges from `-oo` included): exact
+rational and hypergeometric terms, then the divergence test, p-series and
+`k**p*log(k)**q*log(log(k))**r` comparison, alternating series, bounded
+factors times an absolutely convergent series, ratio, Raabe and root tests;
+products go through `Sum(log(f))` and `Sum(f - 1)`. Undecided cases (such as
+symbolic exponents) raise `NotImplementedError`. Deviations: SymPy's wrong
+`False` for `Sum(sin(k)/k)` and `Sum(cos(k)/k)` raises here, and
+`Sum(1 - cos(1/k))` is `True` (SymPy says `False`); `Sum.euler_maclaurin`
+and `Sum.eval_zeta_function` are not implemented. `index`, `reverse_order`,
+`change_index`, `reorder`, `reorder_limit` (raising `ReorderError`),
+`has_finite_limits`, `has_reversed_limits`, `has_empty_sequence` and
+`Product.term` follow SymPy's `ExprWithIntLimits`; `hypersimp` and
+`hypersimilar` are native (the `hypersimp` ratio may differ from SymPy's
+in `simplify` shape). `rsolve`, `rsolve_poly`, `rsolve_ratio` and
+`rsolve_hyper` solve linear recurrences with polynomial or rational
+coefficients and sums of hypergeometric inhomogeneities (Abramov's
+polynomial and rational solutions, Petkovsek's hypergeometric kernel), take
+initial conditions as a dict or list, return `None` where SymPy does and
+raise SymPy's `ValueError`/`TypeError` on malformed input. Differences: an
+inconsistent `rsolve_poly` system returns `None` (SymPy returns the bare
+ansatz), nonlinear terms such as `y(n)*y(n - 1)` raise `ValueError`, some
+results differ in `simplify` shape (`2**n*n/2` for SymPy's `2**(n - 1)*n`),
+and with fewer initial conditions than constants the eliminated constant
+may differ (SymPy's choice depends on set ordering).
 `Lambda` accepts multiple variables, nested tuple signatures and empty signatures.
 Its arguments retain the signature tuple; application uses exact simultaneous
 replacement, following SymPy's binding behavior. Identity lambdas use the native

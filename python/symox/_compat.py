@@ -188,9 +188,9 @@ def _restore_atom(name, value):
 
 
 def _restore_expr(name, args, evaluate=True):
-    if name in ("Integral", "Sum"):
-        from . import Integral, Sum
-        return {"Integral":Integral,"Sum":Sum}[name](*args)
+    if name in ("Integral", "Sum", "Product"):
+        from . import Integral, Sum, Product
+        return {"Integral":Integral,"Sum":Sum,"Product":Product}[name](*args)
     if name in ("Add", "Mul", "Pow", "UnevaluatedExpr"):
         return _core._node(name, args, evaluate)
     relations = {

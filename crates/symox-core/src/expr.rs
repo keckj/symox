@@ -134,7 +134,7 @@ impl PartialOrd for UndefinedFunction {fn partial_cmp(&self,other:&Self)->Option
 impl From<&str> for UndefinedFunction {
     fn from(name:&str)->Self {
         let mut function=Self::new(name,crate::symbol::Assumptions::NONE,None);
-        function.internal=matches!(name,"Tuple"|"UnevaluatedExpr"|"Integral"|"Sum");function
+        function.internal=matches!(name,"Tuple"|"UnevaluatedExpr"|"Integral"|"Sum"|"Product");function
     }
 }
 impl From<String> for UndefinedFunction {fn from(name:String)->Self {Self::from(name.as_str())}}
@@ -234,6 +234,7 @@ pub enum Func {
     /// Held calculus binders: [body, Tuple(variable, bounds...), ...].
     Integral,
     Sum,
+    Product,
     /// Boolean connectives (`And`, `Or`, `Not`, ...), see [`crate::logic`].
     Logic(crate::logic::LogicOp),
     /// Sets (`Interval`, `FiniteSet`, `Union`, ...), see [`crate::sets`].
@@ -297,6 +298,7 @@ impl Func {
             Func::Limit=>"Limit",
             Func::Integral=>"Integral",
             Func::Sum=>"Sum",
+            Func::Product=>"Product",
             Func::Logic(op) => op.name(),
             Func::Set(op) => op.name(),
             Func::MatrixElement(_) => "MatrixElement",
@@ -354,6 +356,7 @@ impl Func {
             "Integral"=>Func::Integral,
             "Sum"=>Func::Sum,
             "AppliedPredicate" | "AppliedBinaryRelation" => Func::AppliedPredicate,
+            "Product"=>Func::Product,
             _ => {
                 return crate::logic::LogicOp::from_name(name)
                     .map(Func::Logic)
@@ -371,7 +374,7 @@ impl Func {
             Func::MatrixElement(_) => Some(2),
             Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) | Func::Predicate(_) => Some(0),
             Func::AppliedPredicate => None,
-            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_) => None,
+            Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
         }
@@ -567,7 +570,7 @@ impl Expr {
                     mask |= a.mask();
                     has_matrix |= a.has_matrix();
                 }
-                if matches!(f,Func::Integral|Func::Sum) {features|=4;}
+                if matches!(f,Func::Integral|Func::Sum|Func::Product) {features|=4;}
                 if matches!(f,Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction)){features|=8;}
                 if *f == Func::Order {
                     mask |= ORDER_MASK;

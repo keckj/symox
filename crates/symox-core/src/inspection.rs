@@ -137,7 +137,7 @@ impl Classifier<'_> {
             (exact||partial&&(additive||multiplicative))&&crate::traverse::free_symbols(generator).iter().all(|symbol|!bound.contains(symbol))
         });
         let found=if matches{true}else{match e.kind(){
-            Kind::Func(function @ (Func::Integral|Func::Sum),args)=>{
+            Kind::Func(function @ (Func::Integral|Func::Sum|Func::Product),args)=>{
                 let limits=crate::binders::limits(args);
                 let mut bound=bound.to_vec();
                 let mut found=false;

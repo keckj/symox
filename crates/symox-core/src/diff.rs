@@ -208,7 +208,7 @@ fn d_func(
     if let Func::MatrixProxy(_) = f {
         return Expr::zero();
     }
-    if matches!(f,Func::Integral|Func::Sum) {return crate::binders::differentiate(e,x);}
+    if matches!(f,Func::Integral|Func::Sum|Func::Product) {return crate::binders::differentiate(e,x);}
     if matches!(f,Func::Subs | Func::Limit){
         if !crate::traverse::free_symbols(e).contains(x){return Expr::zero();}
         let evaluated=crate::functions::doit(e,true);

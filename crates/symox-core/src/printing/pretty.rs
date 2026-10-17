@@ -945,7 +945,36 @@ impl PrettyPrinter<'_> {
         p
     }
 
+    /// SymPy's `_print_Product`: one box sign per limit, innermost first.
+    fn print_product(&self, args: &[Expr]) -> Pict {
+        let mut pretty_func = self.print(&args[0]);
+        let (horizontal, corner, vertical) = if ascii() { ("_", "_", "|") } else { ("─", "┬", "│") };
+        let func_height = pretty_func.height();
+        let (mut first, mut max_upper, mut sign_height) = (true, 0usize, 0usize);
+        for limit in crate::binders::limits(args) {
+            let lower = Pict::next(&[self.print(&limit[0]), Pict::new(" = "), self.print(&limit[1])]);
+            let upper = self.print(&limit[2]);
+            let width = (func_height + 2) * 5 / 3 - 2;
+            let mut lines = vec![Item::P(Pict::new(&format!("{horizontal}{corner}{}{corner}{horizontal}", horizontal.repeat(width - 2))))];
+            for _ in 0..=func_height {
+                lines.push(Item::P(Pict::new(&format!(" {vertical}{}{vertical} ", " ".repeat(width - 2)))));
+            }
+            let mut sign = Pict::stack(lines);
+            max_upper = max_upper.max(upper.height());
+            if first { sign_height = sign.height(); }
+            sign = sign.above(vec![Item::P(upper)]);
+            sign = sign.below(vec![Item::P(lower)]);
+            if first { pretty_func.baseline = 0; first = false; }
+            let padding = Pict::stack((0..sign.height() - 1).map(|_| Item::P(Pict::new(" "))).collect());
+            sign = sign.right(&[padding]);
+            pretty_func = sign.right(&[pretty_func]);
+        }
+        pretty_func.baseline = (max_upper + sign_height / 2) as isize;
+        pretty_func.bind(Binding::Mul)
+    }
+
     fn print_func(&self, f: &Func, args: &[Expr]) -> Pict {
+        if *f == Func::Product { return self.print_product(args); }
         if matches!(f,Func::Predicate(_) | Func::AppliedPredicate | Func::Subs | Func::Limit | Func::Integral | Func::Sum){return Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(),args.to_vec()))));}
         if let Func::MatrixElement(parent) = f {
             return Pict::new(&format!("{}[{}, {}]",parent.to_str(),args[0],args[1]));

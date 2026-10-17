@@ -157,7 +157,7 @@ fn assumptions(bits:u32)->PyResult<Assumptions>{if bits&!Assumptions::NAMES.iter
 fn constant(name:&str)->PyResult<Constant>{Ok(match name{"pi"=>Constant::Pi,"E"=>Constant::E,"I"=>Constant::I,"EulerGamma"=>Constant::EulerGamma,"oo"=>Constant::Infinity,"-oo"=>Constant::NegInfinity,"zoo"=>Constant::ComplexInfinity,"nan"=>Constant::NaN,_=>return Err(invalid("unknown constant"))})}
 fn validate_function(function:&Func,args:&[Expr])->PyResult<()>{
     if function.arity().is_some_and(|n|n!=args.len()){return Err(invalid("function arity mismatch"));}
-    if matches!(function,Func::Integral|Func::Sum){symox::binders::validate(function,args).map_err(invalid)?;}
+    if matches!(function,Func::Integral|Func::Sum|Func::Product){symox::binders::validate(function,args).map_err(invalid)?;}
     if let Func::Set(op @ (symox::sets::SetOp::Lambda|symox::sets::SetOp::IdentityFunction))=function{symox::sets::validate_lambda(*op,args).map_err(invalid)?;}
     if matches!(function,Func::AppliedPredicate){symox::ask::applied_from_args(args.to_vec()).map_err(|e|invalid(e.to_string()))?;}
     if matches!(function,Func::Subs){

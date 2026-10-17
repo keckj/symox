@@ -168,7 +168,7 @@ pub fn has_mp(e: &Expr) -> bool {
 /// expression has free symbols or uses an unsupported function.
 pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
     if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){return eval_mp(&crate::matrixcontraction::dot_product(a,b,true).ok()?,prec);}
-    if matches!(e.kind(),Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum,_)){
+    if matches!(e.kind(),Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product,_)){
         let evaluated=crate::functions::doit(e,true);
         if evaluated==*e{return None;}
         return eval_mp(&evaluated,prec);
@@ -232,7 +232,7 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
         }
         Kind::Pow(b, x) => pow_of(b, x, p)?,
         Kind::Func(Func::MatrixDotProduct(a,b),_)=>ev(&crate::matrixcontraction::dot_product(a,b,true).ok()?,p)?,
-        Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
+        Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
         Kind::Func(f, args) => func(f, args, p)?,
         _ => return None,
     })

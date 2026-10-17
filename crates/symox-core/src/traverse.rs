@@ -161,7 +161,7 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
             return;
         }
         match e.kind() {
-            Kind::Func(f @ (Func::Integral|Func::Sum),args)=>{
+            Kind::Func(f @ (Func::Integral|Func::Sum|Func::Product),args)=>{
                 for symbol in crate::binders::free_symbols(f,args){if seen.insert(symbol.clone()){out.push(symbol);}}
             },
             Kind::Func(Func::Limit,args)=>{

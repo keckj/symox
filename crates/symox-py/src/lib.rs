@@ -37,6 +37,7 @@ mod logic;
 mod special;
 mod calculus;
 mod ask;
+mod recurrences;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -286,10 +287,10 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         if head=="Tuple" {
             return Ok(fx::undefined("Tuple",obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?));
         }
-        if head=="Integral" || head=="Sum" {
+        if head=="Integral" || head=="Sum" || head=="Product" {
             let body=to_expr(&obj.getattr("function")?)?;
             let limits=obj.getattr("limits")?.try_iter()?.map(|limit|limit?.try_iter()?.map(|value|to_expr(&value?)).collect::<PyResult<Vec<_>>>()).collect::<PyResult<Vec<_>>>()?;
-            return symox::binders::held(if head=="Integral" {Func::Integral} else {Func::Sum},&body,limits).map_err(PyValueError::new_err);
+            return symox::binders::held(match head.as_str() {"Integral"=>Func::Integral,"Sum"=>Func::Sum,_=>Func::Product},&body,limits).map_err(PyValueError::new_err);
         }
         if head=="IdentityFunction" {return Ok(symox::sets::identity_function());}
         if head=="Lambda" {
@@ -896,7 +897,7 @@ impl PyExpr {
             if function.is_internal("Tuple"){return Ok(py.import("symox._compat")?.getattr("Tuple")?.unbind());}
         }
         if let Kind::Func(Func::Set(op @ (symox::sets::SetOp::Lambda|symox::sets::SetOp::IdentityFunction)),_)=self.e.kind(){return Ok(py.import("symox")?.getattr(op.name())?.unbind());}
-        if let Kind::Func(f @ (Func::Integral|Func::Sum),_)=self.e.kind(){return Ok(py.import("symox")?.getattr(f.name())?.unbind());}
+        if let Kind::Func(f @ (Func::Integral|Func::Sum|Func::Product),_)=self.e.kind(){return Ok(py.import("symox")?.getattr(f.name())?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Subs,_)){return Ok(py.import("symox")?.getattr("Subs")?.unbind());}
         if matches!(self.e.kind(),Kind::Func(Func::Limit,_)){return Ok(py.import("symox")?.getattr("Limit")?.unbind());}
         if let Kind::Func(f @ (Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)), _) = self.e.kind() {
@@ -1010,7 +1011,7 @@ impl PyExpr {
     }
     #[getter]
     fn is_Function(&self) -> bool {
-        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)))
+        matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)))
     }
     #[getter]
     fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal)}
@@ -1058,8 +1059,10 @@ impl PyExpr {
     #[getter]
     fn is_Sum(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Sum,_))}
     #[getter]
+    fn is_Product(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Product,_))}
+    #[getter]
     fn function(&self)->PyResult<PyExpr>{
-        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum|Func::AppliedPredicate,args)=>Ok(wrap(args[0].clone())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have function"))}
+        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum|Func::Product|Func::AppliedPredicate,args)=>Ok(wrap(args[0].clone())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have function"))}
     }
     #[getter]
     fn arguments<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
@@ -1078,12 +1081,12 @@ impl PyExpr {
     }
     #[getter]
     fn limits<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
-        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum,args)=>PyTuple::new(py,args[1..].iter().map(|limit|PyTuple::new(py,limit.args().into_iter().map(wrap))).collect::<PyResult<Vec<_>>>()?),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have limits"))}
+        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum|Func::Product,args)=>PyTuple::new(py,args[1..].iter().map(|limit|PyTuple::new(py,limit.args().into_iter().map(wrap))).collect::<PyResult<Vec<_>>>()?),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have limits"))}
     }
     #[getter]
     fn bound_symbols<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{
         if self.is_Lambda(){return Ok(self._lambda_variables(py)?.into_any());}
-        match self.e.kind(){Kind::Func(f @ (Func::Integral|Func::Sum),args)=>Ok(PyList::new(py,symox::binders::limits(args).into_iter().filter(|limit|*f==Func::Sum||limit.len()>1).map(|limit|wrap(limit[0].clone())).collect::<Vec<_>>())?.into_any()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only binders have bound_symbols"))}
+        match self.e.kind(){Kind::Func(f @ (Func::Integral|Func::Sum|Func::Product),args)=>Ok(PyList::new(py,symox::binders::limits(args).into_iter().filter(|limit|*f!=Func::Integral||limit.len()>1).map(|limit|wrap(limit[0].clone())).collect::<Vec<_>>())?.into_any()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only binders have bound_symbols"))}
     }
     #[getter]
     fn variable_count<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
@@ -2282,7 +2285,7 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
         return logic::py_lambda(&args.get_item(0)?,&args.get_item(1)?);
     }
     if name=="IdentityFunction" && !args.is_empty(){return Err(PyTypeError::new_err("IdentityFunction takes no arguments"));}
-    if name=="Integral" || name=="Sum" {
+    if name=="Integral" || name=="Sum" || name=="Product" {
         if args.is_empty(){return Err(PyValueError::new_err("calculus constructor requires an integrand"));}
         let limits=PyTuple::new(args.py(),args.iter().skip(1))?;
         return calculus::_calculus(name,&args.get_item(0)?,&limits);
@@ -2544,6 +2547,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     logic::register(m)?;
     special::register(m)?;
     calculus::register(m)?;
+    recurrences::register(m)?;
     series::register(m)?;
     printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

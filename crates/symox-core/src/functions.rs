@@ -12,7 +12,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),
         Func::Order => return crate::series::order::order_from_args(&args),
-        Func::Integral | Func::Sum=>{
+        Func::Integral | Func::Sum | Func::Product=>{
             if crate::binders::validate(&f,&args).is_ok(){return crate::binders::held(f,&args[0],crate::binders::limits(&args)).unwrap();}
             return Expr::from_kind(Kind::Func(f,args));
         },
@@ -112,7 +112,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_)
+        Func::Special(_) | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => None,
     };
     match r {
@@ -138,7 +138,7 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             let parent = if deep { parent.doit(true).ok() } else { Some((**parent).clone()) };
             parent.and_then(|p| p.determinant().ok()).unwrap_or_else(|| e.clone())
         }
-        Kind::Func(f @ (Func::Integral|Func::Sum),args)=>crate::binders::doit(f,args,deep),
+        Kind::Func(f @ (Func::Integral|Func::Sum|Func::Product),args)=>crate::binders::doit(f,args,deep),
         Kind::Derivative(inner, variables) => crate::diff::diff_many(&child(inner), variables),
         Kind::Func(Func::Subs,args)=>crate::subs::subs_doit(&doit(&args[0],deep),&args[1].args(),&args[2].args()),
         Kind::Func(Func::Limit,args)=>{
@@ -872,7 +872,7 @@ fn eval_abs(a: &Expr) -> Option<Expr> {
             // Abs(c * x) = |c| * Abs(x),  Abs(I*x) = Abs(x)
             let mut rest: Vec<Expr> = Vec::new();
             let mut changed = !c.is_one();
-            for (b, e) in facs {
+            for (position, (b, e)) in facs.iter().enumerate() {
                 if b.is_constant(Constant::I) && e.is_one() {
                     changed = true;
                     continue;
@@ -887,7 +887,20 @@ fn eval_abs(a: &Expr) -> Option<Expr> {
                         &abs(&div(a, &crate::ops::mul_factor(b, e))),
                     ));
                 }
-                rest.push(crate::ops::mul_factor(b, e));
+                // SymPy's Abs.eval splits off factors whose Abs evaluates,
+                // e.g. Abs((-1)**n*x) = Abs(x) for an integer n
+                let factor = crate::ops::mul_factor(b, e);
+                if matches!(factor.kind(), Kind::Pow(..)) {
+                    if let Some(known) = eval_abs_pow(&factor) {
+                        // rebuild the cofactor: dividing would leave
+                        // (-1)**(n + 1)*(-1)**(-n - 1) uncancelled
+                        let mut cofactor = vec![Expr::num(c.clone())];
+                        cofactor.extend(facs.iter().enumerate().filter(|(j, _)| *j != position)
+                            .map(|(_, (b, e))| crate::ops::mul_factor(b, e)));
+                        return Some(mul2(&known, &abs(&mul(&cofactor))));
+                    }
+                }
+                rest.push(factor);
             }
             if changed {
                 Some(mul2(&Expr::num(c.abs()), &abs(&mul(&rest))))
@@ -895,6 +908,7 @@ fn eval_abs(a: &Expr) -> Option<Expr> {
                 None
             }
         }
+        Kind::Pow(..) => eval_abs_pow(a),
         _ => {
             if could_extract_minus_sign(a) {
                 Some(abs(&neg(a)))
@@ -903,6 +917,26 @@ fn eval_abs(a: &Expr) -> Option<Expr> {
             }
         }
     }
+}
+
+/// SymPy's `Abs.eval` for `base**n` with a real base and an integer `n`:
+/// even powers are their own absolute value, `Abs((-1)**n)` is one and
+/// otherwise `Abs(base)**n`.
+fn eval_abs_pow(a: &Expr) -> Option<Expr> {
+    let Kind::Pow(base, exponent) = a.kind() else { return None };
+    if exponent.is_number() || crate::assumptions::is_real(base) != Some(true)
+        || crate::assumptions::is_integer(exponent) != Some(true)
+    {
+        return None;
+    }
+    if crate::assumptions::is_even(exponent) == Some(true) {
+        return Some(a.clone());
+    }
+    if *base == Expr::minus_one() {
+        return Some(Expr::one());
+    }
+    let magnitude = abs(base);
+    (magnitude != *base).then(|| pow(&magnitude, exponent))
 }
 
 fn eval_sign(a: &Expr) -> Option<Expr> {
