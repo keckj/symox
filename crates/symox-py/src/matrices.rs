@@ -2,8 +2,9 @@
 
 use pyo3::exceptions::{PyIndexError, PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PySlice, PyTuple};
+use pyo3::types::{PyBool, PyDict, PyInt, PyList, PySlice, PyTuple};
 use rustc_hash::FxHashMap;
+use num_traits::ToPrimitive;
 
 use symox::expr::Expr;
 use symox::matrix::{self, DetMethod, Matrix, MatrixError};
@@ -31,6 +32,15 @@ pub(crate) fn err(py: Python<'_>, e: MatrixError) -> PyErr {
     }
 }
 
+
+fn modular_modulus(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<num_bigint::BigInt> {
+    if value.is_instance_of::<PyBool>() {
+        return Err(PyTypeError::new_err("inv_mod: modulus m must be an integer"));
+    }
+    py.import("operator")?.getattr("index")?.call1((value,))
+        .and_then(|integer| integer.extract::<num_bigint::BigInt>())
+        .map_err(|_| PyTypeError::new_err("inv_mod: modulus m must be an integer"))
+}
 
 fn reject_callback(name: &str, callback: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
     if callback.is_some_and(|c| !c.is_none()) {
@@ -882,6 +892,21 @@ impl PyMatrix {
             Some(s) => return Err(PyValueError::new_err(format!("Inversion method unrecognized: {s}"))),
         };
         Ok(self.wrapped(r.py(py)?))
+    }
+
+    fn inv_mod(&self, py: Python<'_>, m: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        if !self.m.is_square() { return Err(err(py, MatrixError::NonSquare(String::new()))); }
+        let modulus = modular_modulus(py,m)?;
+        Ok(self.wrapped(self.m.inv_mod(&modulus).py(py)?))
+    }
+
+    #[staticmethod]
+    fn _inv_mod_preflight(py: Python<'_>, rows: num_bigint::BigInt, cols: num_bigint::BigInt, m: &Bound<'_, PyAny>) -> PyResult<()> {
+        if rows != cols { return Err(err(py, MatrixError::NonSquare(String::new()))); }
+        let modulus = modular_modulus(py,m)?;
+        matrix::inv_mod::preflight(0,0,&modulus).py(py)?;
+        let n = rows.to_usize().ok_or_else(|| PyNotImplementedError::new_err("Exact modular matrix inverse resource limit exceeded"))?;
+        matrix::inv_mod::preflight(n,n,&modulus).py(py)
     }
 
     fn inverse_GE(&self, py: Python<'_>) -> PyResult<PyMatrix> {

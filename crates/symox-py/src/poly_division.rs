@@ -545,6 +545,9 @@ pub(super) fn prepare_unary<'py>(f:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,kw
     let input=Inputs::build(f,f,gens,kw,&Operation::Discriminant)?;
     Ok((input.a,input.polys))
 }
+pub(super) fn validate_unary(gens:&Bound<'_,PyTuple>,kw:Option<&Bound<'_,PyDict>>)->PyResult<()> {
+    Options::parse(gens,kw,false).map(|_|())
+}
 pub fn run<'py>(
     f: &Bound<'py, PyAny>,
     g: &Bound<'py, PyAny>,

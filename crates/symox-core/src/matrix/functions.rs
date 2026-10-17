@@ -14,6 +14,7 @@ use budget::Budget;
 fn finite(e:&Expr,seen:&mut FxHashSet<usize>)->bool{
     if !seen.insert(e.dag_id()){return true;}
     match e.kind(){
+        Kind::Sym(symbol) if symbol.facts().get("finite")==Some(false)=>return false,
         Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN)=>return false,
         Kind::Num(Number::Float(value)) if !value.is_finite()=>return false,
         Kind::Add(c,terms) if matches!(c,Number::Float(v) if !v.is_finite())||terms.iter().any(|(_,c)|matches!(c,Number::Float(v) if !v.is_finite()))=>return false,
@@ -173,6 +174,27 @@ mod tests{
         equal(&exponential,&expected);
         assert!(matches!(a.analytic_func(&crate::ops::pow(&crate::ops::sub(&x,&Expr::one()),&Expr::minus_one()),&x),Err(MatrixError::Value(_))));
         assert_eq!(Matrix::zeros(0,0).exp().unwrap().shape(),(0,0));
+    }
+    #[test]
+    fn nonfinite_declared_symbols_are_not_finite_matrix_parameters(){
+        let x=Expr::symbol("x");
+        for flags in [vec![("finite",false)],vec![("infinite",true)],vec![("extended_real",true),("finite",false)]] {
+            let facts=crate::assumption_facts::FactSet::from_kwargs(flags).unwrap();
+            let symbol=crate::Symbol::with_facts("z",facts).unwrap();
+            let z=Expr::from_kind(Kind::Sym(symbol));
+            let matrix=Matrix::new(1,1,vec![z.clone()]).unwrap();
+            assert!(matches!(matrix.exp(),Err(MatrixError::Value(_))));
+            assert!(matches!(matrix.analytic_func(&x,&x),Err(MatrixError::Value(_))));
+            let f=Expr::from_unevaluated_kind(Kind::Add(Number::int(0),vec![(x.clone(),Number::int(1)),(z.clone(),Number::int(1))]));
+            assert!(matches!(Matrix::eye(1).analytic_func(&f,&x),Err(MatrixError::Value(_))));
+            assert!(matches!(sample(&x,&x,&z,&mut Budget::new()),Err(MatrixError::Value(_))));
+        }
+        for flags in [vec![],vec![("extended_real",true)]] {
+            let facts=crate::assumption_facts::FactSet::from_kwargs(flags).unwrap();
+            let symbol=crate::Symbol::with_facts("z",facts).unwrap();
+            let z=Expr::from_kind(Kind::Sym(symbol));
+            assert!(Matrix::new(1,1,vec![z]).unwrap().exp().is_ok());
+        }
     }
     #[test]
     fn functional_calculus_resource_guards_precede_evaluation(){

@@ -63,10 +63,9 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
 
 fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
     use crate::assumptions as query;
-    use crate::symbol::Assumptions as A;
     let Some(symbol) = variable.as_sym() else { return true; };
-    let assumptions = symbol.assumptions();
-    if assumptions.is_empty() { return true; }
+    let assumptions = symbol.facts();
+    if assumptions.len()==1 { return true; } // default commutativity only
     query::exact_queries(|| {
         let algebraic=query::quadratic_facts(value);
         let integer = if value.as_number().is_some_and(Number::is_float) { None } else { query::is_integer(value).or_else(||algebraic.and_then(|f|f.integer)) };
@@ -83,7 +82,7 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
                 if matches!(real_part.kind(), Kind::Func(Func::Re, _)) { None }
                 else { query::is_zero(&real_part).and_then(|is_zero| if !is_zero { Some(false) } else { real.map(|real| !real) }) }
             });
-        let prime = value.as_number().and_then(Number::to_bigint).map(|integer| crate::ntheory::isprime(&integer));
+        let prime = query::fact(value,"prime");
         let finite = query::is_finite(value);
         let complex = finite.filter(|finite| !finite).or_else(|| {
             if real == Some(true) || imaginary == Some(true) { Some(true) } else { None }
@@ -97,19 +96,16 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
         let negative=query::is_negative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<0));
         let nonnegative=query::is_nonnegative(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s>=0));
         let nonpositive=query::is_nonpositive(value).or_else(||algebraic.and_then(|f|f.sign).map(|s|s<=0));
-        let facts = [
-            (A::REAL, real, true), (A::NOT_REAL, real, false),
-            (A::POSITIVE,positive,true),(A::NOT_POSITIVE,positive,false),
-            (A::NEGATIVE,negative,true),(A::NOT_NEGATIVE,negative,false),
-            (A::NONNEGATIVE,nonnegative,true),(A::NONPOSITIVE,nonpositive,true),
-            (A::ZERO, zero, true), (A::NOT_ZERO,zero,false), (A::NONZERO, nonzero, true), (A::NOT_NONZERO,nonzero,false),
-            (A::INTEGER, integer, true), (A::NOT_INTEGER, integer, false),
-            (A::RATIONAL, rational, true), (A::NOT_RATIONAL,rational,false), (A::IRRATIONAL, irrational, true),
-            (A::EVEN, query::is_even(value), true), (A::ODD, query::is_odd(value), true),
-            (A::PRIME, prime, true), (A::FINITE, finite, true), (A::COMPLEX, complex, true),
-            (A::IMAGINARY, imaginary, true),
-        ];
-        facts.iter().all(|(flag, known, expected)| !assumptions.has(*flag) || known.is_none_or(|known| known == *expected))
+        assumptions.iter().all(|(name,expected)|{
+            let known=match name {
+                "real"=>real,"integer"=>integer,"rational"=>rational,"irrational"=>irrational,
+                "zero"=>zero,"nonzero"=>nonzero,"positive"=>positive,"negative"=>negative,
+                "nonnegative"=>nonnegative,"nonpositive"=>nonpositive,"prime"=>prime,
+                "finite"=>finite,"complex"=>complex,"imaginary"=>imaginary,
+                _=>query::fact(value,name),
+            };
+            known.is_none_or(|known|known==expected)
+        })
     })
 }
 

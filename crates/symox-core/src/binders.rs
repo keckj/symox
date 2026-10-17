@@ -163,7 +163,7 @@ pub fn differentiate(e:&Expr,x:&Expr)->Expr {
     if inner.has_calculus_binding() && outer[1..].iter().any(|point|matches!(point.kind(),Kind::Func(Func::Undefined(head),_) if !head.internal)) {
         return crate::diff::derivative_unevaluated(e,vec![(x.clone(),1)]);
     }
-    let dummy=Expr::dummy("integration",outer[0].as_sym().unwrap().given());
+    let dummy=Expr::from_kind(Kind::Sym(outer[0].as_sym().unwrap().fresh_dummy_like("integration")));
     let renamed=crate::subs::subs1(&inner,&outer[0],&dummy);
     let partial=crate::diff::diff(&renamed,x);
     let mut terms=Vec::new();

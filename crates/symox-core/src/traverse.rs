@@ -339,7 +339,7 @@ pub(crate) fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
     if ordering != std::cmp::Ordering::Equal { return ordering; }
     match (a.kind(), b.kind()) {
         (Kind::Num(x), Kind::Num(y)) => x.cmp_value(y).unwrap_or_else(|| a.cmp_struct(b)),
-        (Kind::Sym(x), Kind::Sym(y)) => x.cmp(y),
+        (Kind::Sym(x), Kind::Sym(y)) => x.cmp_basic(y),
         _ => {
             let aa = ordered_args(a);
             let bb = ordered_args(b);

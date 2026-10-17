@@ -328,6 +328,9 @@ fn rat_expr(c: &Rat, float: bool) -> Expr {
 
 /// SymPy's `_symbolic_factor_list`: `(coeff, [(factor, exponent)])`.
 fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(Expr, Vec<(FItem, Expr)>)> {
+    symbolic_factor_list_with(e,sqf,modulus,&[],None)
+}
+fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],checked:Option<super::factor_budget::Limits>)->PResult<(Expr,Vec<(FItem,Expr)>)> {
     let mut coeff = Expr::one();
     let mut factors: Vec<(FItem, Expr)> = Vec::new();
     let args: Vec<Expr> = match e.kind() {
@@ -358,7 +361,7 @@ fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(E
             }
             _ => (arg.clone(), Expr::one()),
         };
-        let poly = match Poly::from_expr(&base, &[]) {
+        let poly = match Poly::from_expr(&base, gens) {
             Ok(p) => p,
             Err(_) => {
                 factors.push((FItem::E(base), exp));
@@ -374,14 +377,21 @@ fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(E
             }
             None => poly,
         };
-        let float = poly.is_float();
-        let (c, fs) = if sqf { poly.sqf_list() } else { poly.factor_list() };
+        let(ce,positive,fs)=if let Some(limits)=checked {
+            let result=super::checked_factors::compatible_list(&poly.into(),sqf,false,limits)?;
+            let coefficient=result.unit.as_expr();
+            let positive=coefficient.as_number().is_some_and(|n|n.is_positive());
+            (coefficient,positive,result.factors.into_iter().map(|(p,k)|(p.base,k)).collect())
+        }else{
+            let float = poly.is_float();
+            let (c, fs) = if sqf { poly.sqf_list() } else { poly.factor_list() };
+            (rat_expr(&c,float),c.n.is_positive(),fs)
+        };
         let mut fs: Vec<(FItem, u32)> = fs.into_iter().map(|(p, k)| (FItem::P(p), k)).collect();
-        let ce = rat_expr(&c, float);
         if !ce.is_one() {
             if exp.is_integer_number() {
                 coeff = mul(&[coeff, pow(&ce, &exp)]);
-            } else if c.n.is_positive() {
+            } else if positive {
                 factors.push((FItem::E(ce), exp.clone()));
             } else {
                 fs.push((FItem::E(ce), 1));
@@ -448,7 +458,10 @@ fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(E
     let mut out: Vec<(FItem, Expr)> = Vec::new();
     for (f, k) in factors {
         let fe = f.as_expr();
-        if let Some(x) = out.iter_mut().find(|x| x.0.as_expr() == fe) {
+        if let Some(x) = out.iter_mut().find(|x| {
+            if checked.is_some(){if let(FItem::P(a),FItem::P(b))=(&x.0,&f){if a.gens!=b.gens||a.ngens!=b.ngens||a.domain!=b.domain{return false;}}}
+            x.0.as_expr()==fe
+        }) {
             x.1 = add(&[x.1.clone(), k]);
         } else {
             out.push((f, k));
@@ -456,6 +469,69 @@ fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(E
     }
     out.retain(|(_, k)| !k.is_zero());
     Ok((coeff, out))
+}
+
+/// Natural expression factorization preserves the generators of each source
+/// multiplicative component. Re-inferring generators on the *final* factors,
+/// or keeping one global generator vector, changes SymPy's stable list order.
+pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototype:&super::fraction::Polynomial,limits:super::factor_budget::Limits)->PResult<(Expr,Vec<(super::fraction::Polynomial,u32)>)> {
+    super::factor_budget::run(limits,||{
+        super::factor_preflight::check(e,limits)?;
+        // together/as_numer_denom are legacy recursive expression algorithms.
+        // Bound their unfolded work, recursion and prospective coefficient
+        // products before entering them. The later polynomial engine retains
+        // its separate exact arithmetic/storage bounds.
+        guard_symbolic_factor_work(e,limits)?;
+        let together=together(e);
+        super::factor_preflight::check(&together,limits)?;
+        guard_symbolic_factor_work(&together,limits)?;
+        let(numerator,denominator)=as_numer_denom(&together);
+        super::factor_preflight::check(&numerator,limits)?;
+        super::factor_preflight::check(&denominator,limits)?;
+        let(cp,fp)=symbolic_factor_list_with(&numerator,squarefree,None,gens,Some(limits))?;
+        let(cq,fq)=symbolic_factor_list_with(&denominator,squarefree,None,gens,Some(limits))?;
+        if !fq.is_empty(){return Err(PolyError::Failed("a polynomial expected: denominator factors require frac=True".into()));}
+        let coefficient=div(&cp,&cq);
+        let mut factors=Vec::new();
+        for(f,k)in fp{
+            let k=k.as_i64().filter(|&k|k>0&&k<=limits.degree as i64).ok_or_else(||PolyError::Unsupported("checked factor lists require positive integer multiplicities".into()))? as u32;
+            let poly=match f{FItem::P(p)=>p,FItem::E(e)=>Poly::from_expr(&e,gens)?};
+            factors.push((poly,k));
+        }
+        // Exactly the generic factor-list key. Equal keys retain the order
+        // of components from canonical Mul.args and the inner factor engine.
+        factors.sort_by(|(a,ka),(b,kb)|{
+            let degree=a.rep.degree(0).cmp(&b.rep.degree(0));
+            let generators=a.ngens.cmp(&b.ngens);
+            let main=if squarefree{ka.cmp(kb).then(degree).then(generators)}else{degree.then(generators).then(ka.cmp(kb))};
+            main.then_with(||a.domain_str().cmp(&b.domain_str())).then_with(||super::polyobj::rep_cmp(&a.rep,&b.rep,0))
+        });
+        let factors:Vec<_>=factors.into_iter().map(|(p,k)|(p.into(),k)).collect();
+        super::checked_factors::verify_expression_factors(prototype,&coefficient,&factors,limits)?;
+        Ok((coefficient,factors))
+    })
+}
+fn guard_symbolic_factor_work(e:&Expr,limits:super::factor_budget::Limits)->PResult<()> {
+    let mut stack=vec![(e.clone(),0usize,1u64)];let mut visits=0usize;let mut bits=0u64;
+    let size=|n:&Number|->u64{match n{Number::Int(n)=>if n.unsigned_abs()<=1{0}else{64-n.unsigned_abs().leading_zeros() as u64},Number::BigInt(n)=>n.bits(),Number::Rational(n)=>n.numer().bits()+n.denom().bits(),Number::Float(_)=>1075,Number::MpFloat(n,_)=>n.man.bits().saturating_add(n.exp.unsigned_abs())}};
+    while let Some((e,depth,weight))=stack.pop(){
+        visits=visits.saturating_add(1);
+        if visits>limits.terms||depth>256{return Err(PolyError::Unsupported("factorization resource limit: symbolic component traversal".into()));}
+        let(mut coefficient,mut children)=(0u64,Vec::new());
+        match e.kind(){
+            Kind::Num(n)=>coefficient=size(n),
+            Kind::Add(c,xs)=>{coefficient=size(c);for(e,c)in xs{coefficient=coefficient.saturating_add(size(c));children.push((e.clone(),weight));}},
+            Kind::Mul(c,xs)=>{coefficient=size(c);for(b,p)in xs{let n=p.as_i64().map(i64::unsigned_abs).unwrap_or(1).max(1);children.push((b.clone(),weight.saturating_mul(n)));}},
+            Kind::Pow(b,p)=>{let n=p.as_i64().map(i64::unsigned_abs).unwrap_or(1).max(1);children.push((b.clone(),weight.saturating_mul(n)));},
+            Kind::Sym(_)|Kind::Const(_)|Kind::Bool(_)|Kind::Func(..)=>{},
+            _=>{for child in e.args(){children.push((child,weight));}},
+        }
+        bits=bits.saturating_add(coefficient.saturating_mul(weight));
+        if bits>limits.coefficient_bits{return Err(PolyError::Unsupported("factorization resource limit: symbolic coefficient products".into()));}
+        super::factor_budget::charge(1);
+        for(child,weight)in children{stack.push((child,depth+1,weight));}
+    }
+    Ok(())
 }
 
 /// SymPy's `_keep_coeff(coeff, factors)` (clear=True).
@@ -1295,6 +1371,33 @@ mod tests {
 
     fn s(e: &str) -> Expr {
         parse_str(e).unwrap()
+    }
+
+    #[test]
+    fn checked_natural_factor_components_preserve_generator_provenance_and_order(){
+        let limits=super::super::factor_budget::Limits::default();
+        for (source,expected) in [
+            ("x^4*y-x^2*y^3",vec!["y","x","x-y","x+y"]),
+            ("x*y+x",vec!["x","y+1"]),
+            ("x^2*y-y",vec!["x-1","y","x+1"]),
+            ("x^2*y+x*y^2",vec!["x","y","x+y"]),
+            ("-716*x*z",vec!["x","z"]),
+            ("432*w^2*x^2*y^6",vec!["w","x","y"]),
+        ]{
+            let expression=s(source);
+            let prototype=Poly::from_expr(&expression,&[]).unwrap().into();
+            let(_,factors)=checked_natural_factor_list(&expression,&[],false,&prototype,limits).unwrap();
+            assert_eq!(factors.iter().map(|(p,_)|p.as_expr()).collect::<Vec<_>>(),expected.iter().map(|e|s(e)).collect::<Vec<_>>(),"{source}");
+        }
+        let expression=s("x*y+x");
+        let gens=vec![Expr::symbol("x"),Expr::symbol("y")];
+        let prototype=Poly::from_expr(&expression,&gens).unwrap().into();
+        let(_,factors)=checked_natural_factor_list(&expression,&gens,false,&prototype,limits).unwrap();
+        assert_eq!(factors[0].0.as_expr(),s("y+1"));
+        assert!(factors.iter().all(|(p,_)|p.true_gens()==gens));
+        let mut dag=Expr::symbol("x");
+        for _ in 0..40{dag=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![(dag.clone(),Number::ONE),(dag,Number::ONE)]));}
+        assert!(guard_symbolic_factor_work(&dag,limits).is_err());
     }
 
     #[test]

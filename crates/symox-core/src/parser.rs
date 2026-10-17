@@ -518,15 +518,15 @@ impl Parser {
                         return Ok(Val::E(Expr::num(Number::mp_float(value, bits))));
                     }
                     if name == "Symbol" || name == "Dummy" {
-                        let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v)))
+                        let assumptions=crate::assumption_facts::FactSet::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v)))
                             .map_err(|msg|ParseError{msg,pos:self.at()})?;
                         let symbol=match (name.as_str(),args.as_slice(),dummy_index) {
-                            ("Symbol",[Val::Str(s)],None)=>crate::Symbol::with_assumptions(s,assumptions),
-                            ("Dummy",[Val::Str(s)],Some(index))=>crate::Symbol::dummy_with_index(s,assumptions,index),
-                            ("Dummy",[Val::Str(s)],None)=>crate::Symbol::dummy(s,assumptions),
-                            ("Dummy",[],None)=>crate::Symbol::anonymous_dummy(assumptions),
+                            ("Symbol",[Val::Str(s)],None)=>crate::Symbol::with_facts(s,assumptions),
+                            ("Dummy",[Val::Str(s)],Some(index))=>crate::Symbol::dummy_with_facts(s,assumptions,Some(index)),
+                            ("Dummy",[Val::Str(s)],None)=>crate::Symbol::dummy_with_facts(s,assumptions,None),
+                            ("Dummy",[],None)=>crate::Symbol::anonymous_dummy_with_facts(assumptions),
                             _=>return self.err("Symbol/Dummy expects a string name; explicit dummy_index requires a Dummy name"),
-                        };
+                        }.map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::E(Expr::from_kind(Kind::Sym(symbol))));
                     }
                     if matches!(name.as_str(), "Add" | "Mul" | "Pow")

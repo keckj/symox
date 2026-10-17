@@ -25,6 +25,7 @@ pub mod domain;
 pub mod eigen;
 pub mod ff;
 pub mod int;
+pub mod inv_mod;
 pub mod linalg;
 pub mod modular;
 pub mod mpoly;

@@ -15,6 +15,7 @@ use rustc_hash::FxHashMap;
 
 mod series;
 mod python_hash;
+mod expression_inspection;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -130,6 +131,13 @@ fn function_kwargs<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)
     for keyword in function.assumptions.keywords(){if let Some((key,value))=keyword.split_once('='){kwargs.set_item(key,value=="True")?;}}
     if let Some(counts)=&function.nargs{kwargs.set_item("nargs",PyTuple::new(py,counts)?)?;}
     Ok(kwargs)
+}
+
+/// Keep undefined heads on their existing assumption schema. Symbol's full
+/// fact closure contains additional keywords not yet stored by these heads.
+#[pyfunction]
+fn _function_assumptions<'py>(py:Python<'py>,assumptions:&Bound<'py,PyDict>)->PyResult<Bound<'py,PyDict>>{
+    function_kwargs(py,&function_spec("",assumptions,None)?)
 }
 
 fn undefined_head<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)->PyResult<Bound<'py,PyAny>>{
@@ -403,7 +411,7 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         }
         Kind::Sym(s) => {
             let kwargs = PyDict::new(py);
-            for keyword in s.given().keywords() {
+            for keyword in s.given_facts().keywords() {
                 if let Some((key, value)) = keyword.split_once('=') { kwargs.set_item(key, value == "True")?; }
             }
             if let Some(index) = s.dummy_index() { kwargs.set_item("dummy_index", index)?; }
@@ -1082,21 +1090,48 @@ impl PyExpr {
     }
     #[getter]
     fn is_complex(&self) -> Option<bool> {
-        symox::assumptions::is_finite(&self.e)
+        symox::assumptions::fact(&self.e,"complex")
     }
+    #[getter]
+    fn is_algebraic(&self)->Option<bool>{symox::assumptions::fact(&self.e,"algebraic")}
+    #[getter]
+    fn is_antihermitian(&self)->Option<bool>{symox::assumptions::fact(&self.e,"antihermitian")}
+    #[getter]
+    fn is_composite(&self)->Option<bool>{symox::assumptions::fact(&self.e,"composite")}
+    #[getter]
+    fn is_extended_negative(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_negative")}
+    #[getter]
+    fn is_extended_nonnegative(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_nonnegative")}
+    #[getter]
+    fn is_extended_nonpositive(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_nonpositive")}
+    #[getter]
+    fn is_extended_nonzero(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_nonzero")}
+    #[getter]
+    fn is_extended_positive(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_positive")}
+    #[getter]
+    fn is_extended_real(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_real")}
+    #[getter]
+    fn is_hermitian(&self)->Option<bool>{symox::assumptions::fact(&self.e,"hermitian")}
+    #[getter]
+    fn is_imaginary(&self)->Option<bool>{symox::assumptions::fact(&self.e,"imaginary")}
+    #[getter]
+    fn is_infinite(&self)->Option<bool>{symox::assumptions::fact(&self.e,"infinite")}
+    #[getter]
+    fn is_irrational(&self)->Option<bool>{symox::assumptions::fact(&self.e,"irrational")}
+    #[getter]
+    fn is_noninteger(&self)->Option<bool>{symox::assumptions::fact(&self.e,"noninteger")}
+    #[getter]
+    fn is_polar(&self)->Option<bool>{symox::assumptions::fact(&self.e,"polar")}
+    #[getter]
+    fn is_prime(&self)->Option<bool>{symox::assumptions::fact(&self.e,"prime")}
+    #[getter]
+    fn is_transcendental(&self)->Option<bool>{symox::assumptions::fact(&self.e,"transcendental")}
     /// The assumptions of a symbol as a dict (SymPy's `assumptions0`).
     #[getter]
     fn assumptions0<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let d = PyDict::new(py);
         if let Some(s) = self.e.as_sym() {
-            for (n, f) in symox::Assumptions::NAMES {
-                if s.assumptions().has(*f) {
-                    match n.strip_prefix('!') {
-                        Some(m) => d.set_item(m, false)?,
-                        None => d.set_item(*n, true)?,
-                    }
-                }
-            }
+            for (name,value) in s.facts().iter(){d.set_item(name,value)?;}
         }
         Ok(d)
     }
@@ -1314,6 +1349,35 @@ impl PyExpr {
 
     fn radsimp(&self) -> PyExpr {
         wrap(simplify::radsimp(&self.e))
+    }
+
+    fn copy(&self) -> PyExpr { wrap(self.e.clone()) }
+
+    #[pyo3(signature=(*_gens))]
+    fn as_expr(&self, _gens:&Bound<'_,PyTuple>) -> PyExpr { wrap(self.e.clone()) }
+
+    fn conjugate(&self) -> PyExpr { wrap(fx::conjugate(&self.e)) }
+    fn adjoint(&self) -> PyExpr { wrap(fx::conjugate(&self.e)) }
+    fn transpose(&self) -> PyExpr { wrap(self.e.clone()) }
+
+    #[pyo3(signature=(*types))]
+    fn atoms(&self,py:Python<'_>,types:&Bound<'_,PyTuple>)->PyResult<PyObject>{
+        expression_inspection::atoms(py,&self.e,types)
+    }
+
+    #[pyo3(signature=(*syms))]
+    fn is_polynomial(&self,syms:&Bound<'_,PyTuple>)->PyResult<Option<bool>>{
+        expression_inspection::classify(&self.e,syms,symox::inspection::PolynomialKind::Polynomial)
+    }
+
+    #[pyo3(signature=(*syms))]
+    fn is_rational_function(&self,syms:&Bound<'_,PyTuple>)->PyResult<Option<bool>>{
+        expression_inspection::classify(&self.e,syms,symox::inspection::PolynomialKind::Rational)
+    }
+
+    #[pyo3(signature=(*syms))]
+    fn is_algebraic_expr(&self,syms:&Bound<'_,PyTuple>)->PyResult<Option<bool>>{
+        expression_inspection::classify(&self.e,syms,symox::inspection::PolynomialKind::Algebraic)
     }
 
     #[pyo3(signature = (*patterns))]
@@ -1812,25 +1876,27 @@ fn py_symbol(name: &str, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<Py
     for (k, v) in d.iter() {
         let k: String = k.extract()?;
         if v.is_none() {
+            if k=="commutative" {return Err(PyValueError::new_err("Symbol commutativity must be True or False"));}
             continue;
         }
+        if k=="commutative"&&!v.eq(true)?&&!v.eq(false)? {return Err(PyValueError::new_err("Symbol commutativity must be True or False"));}
         kw.push((k, v.is_truthy()?));
     }
-    let a = symox::Assumptions::from_kwargs(kw.iter().map(|(k, v)| (k.as_str(), *v)))
+    let a = symox::assumption_facts::FactSet::from_kwargs(kw.iter().map(|(k, v)| (k.as_str(), *v)))
         .map_err(PyValueError::new_err)?;
-    Ok(wrap(Expr::symbol_with(name, a)))
+    Ok(wrap(Expr::from_kind(Kind::Sym(symox::Symbol::with_facts(name,a).map_err(PyValueError::new_err)?))))
 }
 
 #[pyfunction]
 #[pyo3(name = "Dummy", signature = (name=None, dummy_index=None, **assumptions))]
 fn py_dummy(name: Option<&str>, dummy_index: Option<BigInt>, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    let given = py_symbol("", assumptions)?.e.as_sym().unwrap().given();
+    let given = py_symbol("", assumptions)?.e.as_sym().unwrap().given_facts();
     let symbol = match (name, dummy_index) {
-        (Some(name), Some(index)) => symox::Symbol::dummy_with_index(name, given, index),
-        (Some(name), None) => symox::Symbol::dummy(name, given),
-        (None, None) => symox::Symbol::anonymous_dummy(given),
+        (Some(name), Some(index)) => symox::Symbol::dummy_with_facts(name, given, Some(index)),
+        (Some(name), None) => symox::Symbol::dummy_with_facts(name, given, None),
+        (None, None) => symox::Symbol::anonymous_dummy_with_facts(given),
         (None, Some(_)) => return Err(PyValueError::new_err("an explicit dummy_index requires a name")),
-    };
+    }.map_err(PyValueError::new_err)?;
     Ok(wrap(Expr::from_kind(Kind::Sym(symbol))))
 }
 
@@ -2379,6 +2445,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(_undefined_function, m)?)?;
+    m.add_function(wrap_pyfunction!(_function_assumptions, m)?)?;
     m.add_function(wrap_pyfunction!(_subs, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;
     m.add_function(wrap_pyfunction!(py_integrate, m)?)?;

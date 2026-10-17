@@ -24,6 +24,8 @@ class _ExprType(type):
         name = cls.__name__
         if issubclass(cls, Number):
             return (1, 0, 'Number')
+        if name == 'NumberSymbol':
+            return (2, 0, name)
         if issubclass(cls, Symbol):
             return (2, 0, name)
         if name in ('Mul', 'Add', 'Pow'):
@@ -33,6 +35,10 @@ class _ExprType(type):
 
 class Number(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Number)
+
+
+class NumberSymbol(metaclass=_ExprType):
+    _matches = staticmethod(lambda e: e.class_name in ('Pi', 'Exp1', 'EulerGamma'))
 
 
 class Rational(Number):

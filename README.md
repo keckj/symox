@@ -103,6 +103,12 @@ precision fallback is presented as extra significant digits.
 Assumptions distinguish real `nonzero=True` from complex `zero=False`, and
 exact rational-power and supported quadratic facts filter solver candidates
 without floating-point tolerances. Unquoted Unicode symbol names are accepted.
+`Symbol` and `Dummy` retain all 31 standard facts in three-valued form.
+`assumptions0` exposes their exact implication closure; contradictions are
+rejected, and explicit false facts survive reconstruction, hashing, pickling
+and SymPy interchange. Public argument ordering compares the complete inferred
+symbol content. Noncommutative symbols and custom facts are explicitly
+unsupported. Undefined-function heads retain their existing assumption subset.
 `AlgebraicNumber.is_nonzero` follows the same real-nonzero meaning as its
 scalar expression view.
 Numeric expressions follow Python's hash contract for equal built-in numbers
@@ -141,6 +147,12 @@ contractions are not. Integral and Sum use their scoped free variables.
 `exact=None`, Wild patterns and multivariate derivative patterns are explicitly
 unsupported.
 Scalar equality, ordering, operation counts and pickles also preserve DAG sharing.
+`atoms()` selects scalar nodes by class, function head or implicit atom class;
+`NumberSymbol` distinguishes constants such as `pi` from ordinary numbers.
+`is_polynomial`, `is_rational_function` and `is_algebraic_expr` inspect held
+expressions without expanding powers, including arbitrary scalar generators
+and calculus binding scopes. Unknown cases retain SymPy's three-valued result.
+These inspection methods currently reject typed matrix parents explicitly.
 `count_ops()` counts all occurrences in the mathematical expression using exact
 integers, without expanding a shared tree. Assumption queries cache independent
 structural and numerical results per node; closed double-precision evaluations
@@ -182,8 +194,6 @@ equivalence. Known differences and remaining gaps:
 
 * Some antiderivatives use a different branch constant from SymPy (for example
   `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
-* The relative presentation order of symbols carrying different assumptions
-  can differ from SymPy's order based on its full inferred assumption set.
 
 Absolute-value derivatives respect real and imaginary assumptions. For an
 unconstrained complex argument, derivatives of the real and imaginary parts
@@ -650,6 +660,16 @@ factor avoids SymPy 1.14's repeated-unit reconstruction bug. These checked
 operations bound input and intermediate degrees, coefficient sizes, storage and
 work, including finite-field splitting, Hensel lifting and algebraic norm
 shifts. Unsupported domains or exhausted limits raise explicit errors.
+Typed `factor_list`, `sqf_list` and `sqf_part`, both global and on `Poly`, apply
+the selected domain and validate options, including `polys=` result types.
+They preserve field versus coefficient-ring normalization and correctly remove
+inseparable multiplicities in finite fields. A preflight bounds expression
+expansion before construction; exact certificates check the resulting factors.
+The natural global expression form keeps its rational scalar content outside the
+polynomial factors. `frac=True` remains explicitly unsupported.
+For already factored expressions, `sqf_list` computes multiplicities over the
+whole polynomial, so repeated factors cannot remain inside a multiplicity-one
+component.
 `gff_list` and `Poly.gff_list()` compute monic greatest factorial factorizations
 over supported characteristic-zero univariate domains. A pair `(h, k)` represents
 `h(x)*h(x-1)*...*h(x-k+1)`; the product reconstructs the input divided by its
@@ -854,6 +874,13 @@ rank-deficient inputs, and preserves matrix mutability. It bounds intermediate
 work and rejects floating-point inputs or undecidable rank and spectra rather
 than using a numerical fallback. The resulting expressions feed all scalar
 code-generation targets, including batched PyTorch and JAX execution.
+`inv_mod(m)` computes exact inverses over positive composite or prime moduli,
+using Bézout row operations and certifying both matrix products modulo `m`.
+It preserves mutability, supports exactly integral floats without materializing
+large dyadic integers, and shares resource checks with Sparse delegation before
+densification. Modulo one returns the zero matrix of the trivial ring, avoiding
+SymPy 1.14's error on nonempty inputs. Nonpositive moduli and noninteger entries
+are rejected.
 
 ```python
 from symox import Matrix, ImmutableMatrix, symbols

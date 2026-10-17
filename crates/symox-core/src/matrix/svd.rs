@@ -219,6 +219,11 @@ fn validate(input: &Matrix) -> MResult<()> {
             continue;
         }
         match entry.kind() {
+            Kind::Sym(symbol) if symbol.facts().get("finite") == Some(false) => {
+                return Err(MatrixError::Value(
+                    "Singular value decomposition requires finite entries".into(),
+                ));
+            }
             Kind::Const(
                 Constant::Infinity
                 | Constant::NegInfinity
@@ -487,6 +492,32 @@ mod tests {
             .sub(&v.matmul(&v.adjoint()).unwrap().scale(&Expr::rational(1, 3)))
             .unwrap();
         certificate(&projector);
+    }
+    #[test]
+    fn declared_nonfinite_symbols_are_rejected_before_spectrum() {
+        for flags in [
+            vec![("finite", false)],
+            vec![("infinite", true)],
+            vec![("extended_real", true), ("finite", false)],
+        ] {
+            let facts = crate::assumption_facts::FactSet::from_kwargs(flags).unwrap();
+            let symbol = crate::Symbol::with_facts("z", facts).unwrap();
+            let z = Expr::from_kind(Kind::Sym(symbol));
+            let input = Matrix::new(1, 2, vec![z, Expr::one()]).unwrap();
+            assert!(matches!(
+                input.singular_value_decomposition(),
+                Err(MatrixError::Value(_))
+            ));
+        }
+        for flags in [vec![], vec![("extended_real", true)]] {
+            let facts = crate::assumption_facts::FactSet::from_kwargs(flags).unwrap();
+            let symbol = crate::Symbol::with_facts("z", facts).unwrap();
+            let z = Expr::from_kind(Kind::Sym(symbol));
+            assert!(Matrix::new(1, 2, vec![z, Expr::one()])
+                .unwrap()
+                .singular_value_decomposition()
+                .is_ok());
+        }
     }
     #[test]
     fn empties_rank_conditions_and_held_growth() {

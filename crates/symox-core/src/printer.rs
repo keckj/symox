@@ -381,7 +381,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Sym(s) => {
             let name=s.name().replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
             out.push_str(&format!("{}('{name}'", if s.is_dummy() {"Dummy"} else {"Symbol"}));
-            for keyword in s.given().keywords() { out.push_str(", "); out.push_str(&keyword); }
+            for keyword in s.given_facts().keywords() { out.push_str(", "); out.push_str(&keyword); }
             if let Some(index)=s.dummy_index() { out.push_str(&format!(", dummy_index={index}")); }
             out.push(')');
         }

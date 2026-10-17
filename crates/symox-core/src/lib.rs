@@ -13,6 +13,7 @@
 //! ```
 
 pub mod assumptions;
+pub mod assumption_facts;
 pub mod bigfloat;
 pub mod binders;
 pub mod calculus;
@@ -24,6 +25,7 @@ pub mod expand;
 pub mod expr;
 pub mod functions;
 pub mod integrate;
+pub mod inspection;
 pub mod lambdify;
 pub mod linear;
 pub mod matrix;

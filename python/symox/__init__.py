@@ -105,7 +105,7 @@ class Function:
             raise TypeError("Function expects a string name")
         self.name = name
         self.__name__ = name
-        self._assumptions = dict(_core.Symbol("_function_assumptions", **assumptions).assumptions0)
+        self._assumptions = dict(_core._function_assumptions(assumptions))
         if nargs is None:
             self._nargs = None
         else:
@@ -1525,7 +1525,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
 # SymPy's constructor classes and printer extension points. Keep this last:
 # constructors delegate to the native API defined above.
 from ._compat import (  # noqa: E402
-    Add, Mul, Pow, Symbol, Dummy, Number, Integer, Rational, Float, Tuple, UnevaluatedExpr,
+    Add, Mul, Pow, Symbol, Dummy, Number, NumberSymbol, Integer, Rational, Float, Tuple, UnevaluatedExpr,
     S, count_ops, default_sort_key,
 )
 from .codegen.ast import Indexed, IndexedBase  # noqa: E402

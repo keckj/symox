@@ -454,7 +454,8 @@ impl Expr {
         let mut features=if binding_identity.is_some(){1}else{0};
         if !canonical && matches!(kind,Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){features|=16;}
         if matches!(&kind,Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN))
-            || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite()){features|=32;}
+            || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite())
+            || matches!(&kind,Kind::Sym(symbol) if symbol.facts().get("finite")==Some(false)){features|=32;}
         kind.rank().hash(&mut h);
         match &kind {
             Kind::Num(n) => n.hash(&mut h),

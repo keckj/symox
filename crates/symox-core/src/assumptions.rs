@@ -26,6 +26,82 @@ const SIGNS_OFFSET:u32=26;
 #[derive(Clone,Copy)]
 enum Query{Real,Positive,Negative,Nonnegative,Nonpositive,Zero,Nonzero,Integer,Rational,Parity,Finite}
 
+fn algebraic_proof(e:&Expr)->Option<bool>{
+    fn power(base:&Expr,exponent:&Expr,cache:&mut rustc_hash::FxHashMap<usize,(Expr,Option<bool>)>)->bool{
+        exponent.is_rational_number()&&walk(base,cache)==Some(true)
+            &&(exponent.as_number().is_some_and(|n|!n.is_negative())||exact_queries(||is_zero(base))==Some(false))
+    }
+    fn walk(e:&Expr,cache:&mut rustc_hash::FxHashMap<usize,(Expr,Option<bool>)>)->Option<bool>{
+        if let Some((_,answer))=cache.get(&e.dag_id()){return *answer;}
+        let answer=match e.kind(){
+            Kind::Sym(symbol)=>symbol.facts().get("algebraic"),
+            Kind::Num(number) if !number.is_float()||number.is_zero()=>Some(true),
+            Kind::Const(Constant::I)=>Some(true),
+            Kind::Const(Constant::Pi|Constant::E|Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity)=>Some(false),
+            Kind::Pow(base,exponent) if power(base,exponent,cache)=>Some(true),
+            Kind::Add(c,terms) if !c.is_float()&&terms.iter().all(|(term,c)|!c.is_float()&&walk(term,cache)==Some(true))=>Some(true),
+            Kind::Mul(c,factors) if !c.is_float()&&factors.iter().all(|(base,exponent)|power(base,exponent,cache))=>Some(true),
+            _=>None,
+        };
+        cache.insert(e.dag_id(),(e.clone(),answer));answer
+    }
+    walk(e,&mut rustc_hash::FxHashMap::default())
+}
+
+/// An exact declared fact, or a conservative native proof for a scalar value.
+/// Additional Symbol facts never fall back to numerical refinement.
+pub fn fact(e:&Expr,name:&str)->Option<bool>{
+    if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
+    if let Kind::Func(Func::Undefined(head),_)=e.kind(){
+        if !head.internal{return crate::assumption_facts::FactSet::from_legacy(head.assumptions).closure().ok()?.get(name);}
+    }
+    if matches!(name,"algebraic"|"transcendental"){
+        if let Some(algebraic)=algebraic_proof(e){
+            if name=="algebraic"{return Some(algebraic);}
+            if algebraic{return Some(false);}
+        }
+    }
+    match name {
+        "real"=>return is_real(e),"positive"=>return is_positive(e),"negative"=>return is_negative(e),
+        "nonnegative"=>return is_nonnegative(e),"nonpositive"=>return is_nonpositive(e),
+        "zero"=>return is_zero(e),"nonzero"=>return is_nonzero(e),"integer"=>return is_integer(e),
+        "rational"=>return is_rational(e),"finite"=>return is_finite(e),"even"=>return is_even(e),"odd"=>return is_odd(e),
+        "commutative"=>return crate::decompose::commutativity(e),_=>{},
+    }
+    let mut seed=Vec::new();
+    match e.kind(){
+        Kind::Num(n)=>{
+            seed.extend([("real",true),("finite",true),("zero",n.is_zero()),("positive",n.is_positive()),("negative",n.is_negative())]);
+            if !n.is_float(){seed.extend([("rational",true),("integer",n.is_integer())]);}
+            if let Some(integer)=n.to_bigint(){
+                seed.push(("integer",true));seed.push(("even",num_integer::Integer::is_even(&integer)));
+                // Native primality is deterministic on the machine range.
+                // Larger probable primes must not become exact assumptions.
+                if integer<=num_bigint::BigInt::from(u64::MAX){seed.push(("prime",crate::ntheory::isprime(&integer)));}
+                if integer>num_bigint::BigInt::from(1)&&seed.iter().any(|(k,v)|*k=="prime"&&!*v){seed.push(("composite",true));}
+            }
+        },
+        Kind::Const(Constant::Pi|Constant::E)=>seed.extend([("real",true),("positive",true),("transcendental",true)]),
+        Kind::Const(Constant::I)=>seed.extend([("imaginary",true),("algebraic",true)]),
+        Kind::Const(Constant::Infinity|Constant::NegInfinity)=>{
+            seed.extend([("finite",false),("extended_real",true),("extended_positive",e.is_constant(Constant::Infinity))]);
+        },
+        Kind::Const(Constant::ComplexInfinity)=>seed.extend([("finite",false),("extended_real",false)]),
+        Kind::Const(Constant::EulerGamma)=>seed.extend([("real",true),("positive",true)]),
+        Kind::Const(Constant::NaN)=>{},
+        _=>{
+            if let Some(real)=exact_queries(||is_real(e)){seed.push(("real",real));}
+            if let Some(finite)=exact_queries(||is_finite(e)){seed.push(("finite",finite));}
+            if let Some(zero)=exact_queries(||is_zero(e)){seed.push(("zero",zero));}
+            if let Some(rational)=exact_queries(||is_rational(e)){seed.push(("rational",rational));}
+            if matches!(name,"imaginary"|"complex"){
+                if let Some(imaginary)=quadratic_facts(e).and_then(|f|f.imaginary){seed.push(("imaginary",imaginary));}
+            }
+        },
+    }
+    crate::assumption_facts::FactSet::from_kwargs(seed).ok()?.closure().ok()?.get(name)
+}
+
 #[cfg(test)]
 thread_local!{static COMPUTATIONS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};}
 #[inline]
@@ -33,6 +109,14 @@ fn calculation(){#[cfg(test)] COMPUTATIONS.with(|count|count.set(count.get()+1))
 
 #[inline]
 fn cached_bool(e:&Expr,query:Query,compute:fn(&Expr)->Option<bool>)->Option<bool>{
+    if let Kind::Sym(symbol)=e.kind(){
+        if !matches!(query,Query::Parity){return symbol.facts().get(match query{
+            Query::Real=>"real",Query::Positive=>"positive",Query::Negative=>"negative",
+            Query::Nonnegative=>"nonnegative",Query::Nonpositive=>"nonpositive",Query::Zero=>"zero",
+            Query::Nonzero=>"nonzero",Query::Integer=>"integer",Query::Rational=>"rational",
+            Query::Finite=>"finite",Query::Parity=>unreachable!(),
+        });}
+    }
     // Symbols and literal atoms remain as cheap as the declared-fact lookup.
     if e.is_atom(){return compute(e);}
     let mode=numeric_refinement_enabled();
@@ -670,10 +754,12 @@ fn parity_even_uncached(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_even(e: &Expr) -> Option<bool> {
+    if let Some(symbol)=e.as_sym(){return symbol.facts().get("even");}
     parity_even(e)
 }
 
 pub fn is_odd(e: &Expr) -> Option<bool> {
+    if let Some(symbol)=e.as_sym(){return symbol.facts().get("odd");}
     parity_even(e).map(|b| !b)
 }
 

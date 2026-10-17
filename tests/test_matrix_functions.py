@@ -234,3 +234,30 @@ for _ in range(50):
     f=s.Mul(f,f,evaluate=False)
 limited(lambda:a.analytic_func(f,x))
 '''], check=True, timeout=20)
+
+
+@pytest.mark.parametrize('kind',['Symbol','Dummy'])
+@pytest.mark.parametrize('flags',[{'finite':False},{'infinite':True},{'extended_real':True,'finite':False}])
+def test_nonfinite_declared_symbols_are_rejected_in_matrix_and_function(kind,flags):
+    x=sx.Symbol('x')
+    z=getattr(sx,kind)('z',**flags)
+    assert z.is_finite is False
+    a=sx.ImmutableMatrix([[z]])
+    with pytest.raises(ValueError,match='finite'):
+        a.exp()
+    with pytest.raises(ValueError,match='finite'):
+        a.analytic_func(sx.exp(x),x)
+    # The concrete nonfinite parameter stays present even if future scalar
+    # canonicalization can absorb finite summands next to an infinity.
+    function=sx.Add(x,z,evaluate=False)
+    with pytest.raises(ValueError,match='nonfinite'):
+        sx.eye(1).analytic_func(function,x)
+
+
+@pytest.mark.parametrize('flags',[{}, {'extended_real':True}])
+def test_unknown_finiteness_keeps_symbolic_matrix_functions_available(flags):
+    z=sx.Symbol('z',**flags)
+    x=sx.Symbol('x')
+    assert z.is_finite is None
+    equal(sx.ImmutableMatrix([[z]]).exp(),sx.ImmutableMatrix([[sx.exp(z)]]))
+    equal(sx.eye(1).analytic_func(x+z,x),sx.ImmutableMatrix([[1+z]]))

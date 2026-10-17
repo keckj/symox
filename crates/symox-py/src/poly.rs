@@ -1165,24 +1165,7 @@ impl PyPoly {
     }
 
     fn factor_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        if let Some(f)=&self.p.algebraic {
-            if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
-            let(c,factors)=f.factor_list().map_err(err)?;let list=PyList::empty(py);
-            for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
-            return PyTuple::new(py,[w(c.as_expr()).into_pyobject(py)?.into_any(),list.into_any()]);
-        }
-        if let Some(f)=&self.p.field {
-            let(c,factors)=f.factor_list();let list=PyList::empty(py);
-            for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
-            let c=symox::poly::fraction::coefficient_expr(&c,&f.parameters);
-            return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),list.into_any()]);
-        }
-        let (c, fs) = self.p.factor_list();
-        let l = PyList::empty(py);
-        for (f, k) in fs {
-            l.append(PyTuple::new(py, [poly_obj(py, f)?, k.into_pyobject(py)?.into_any().unbind()])?)?;
-        }
-        PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), l.into_any()])
+        checked_factor_views::list(&self.p,py,false,false,true)
     }
 
     fn ground_roots(&self,py:Python<'_>)->PyResult<PyObject>{checked_factor_views::ground(&self.p,py)}
@@ -1191,25 +1174,9 @@ impl PyPoly {
     #[pyo3(signature=(all=false))]
     fn sqf_list_include(&self,all:bool)->PyResult<Vec<(PyPoly,u32)>>{checked_factor_views::include(&self.p,true,all)}
 
-    fn sqf_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        if let Some(f)=&self.p.algebraic {
-            if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
-            let(c,factors)=f.sqf_list();let list=PyList::empty(py);
-            for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
-            return PyTuple::new(py,[w(c.as_expr()).into_pyobject(py)?.into_any(),list.into_any()]);
-        }
-        if let Some(f)=&self.p.field {
-            let(c,factors)=f.sqf_list();let list=PyList::empty(py);
-            for(p,k)in factors {list.append(PyTuple::new(py,[poly_obj(py,p)?,k.into_pyobject(py)?.into_any().unbind()])?)?;}
-            let c=symox::poly::fraction::coefficient_expr(&c,&f.parameters);
-            return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),list.into_any()]);
-        }
-        let (c, fs) = self.p.sqf_list();
-        let l = PyList::empty(py);
-        for (f, k) in fs {
-            l.append(PyTuple::new(py, [poly_obj(py, f)?, k.into_pyobject(py)?.into_any().unbind()])?)?;
-        }
-        PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), l.into_any()])
+    #[pyo3(signature=(all=false))]
+    fn sqf_list<'py>(&self, py: Python<'py>, all:bool) -> PyResult<Bound<'py, PyTuple>> {
+        checked_factor_views::list(&self.p,py,true,all,true)
     }
 
     fn primitive<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -1372,9 +1339,7 @@ impl PyPoly {
     }
 
     fn sqf_part(&self) -> PyResult<PyPoly> {
-        if let Some(f)=&self.p.algebraic {if f.rep.is_zero(){return Ok(self.clone());}if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic squarefree factorization is not implemented"));}let mut p=f.convert(&Expr::one()).map_err(err)?;for(q,_)in f.sqf_list().1{p=p.mul(&q);}return Ok(PyPoly {p:p.monic().into()});}
-        if let Some(f)=&self.p.field {let mut p=f.convert(&Expr::one()).expect("unit polynomial");for(q,_)in f.factor_list().1{p=p.mul(&q);}return Ok(PyPoly {p:p.monic().into()});}
-        Ok(PyPoly { p: (self.p.sqf_part()).into() })
+        checked_factor_views::part(&self.p)
     }
 
     #[getter]
@@ -1536,17 +1501,6 @@ fn algebraic_option_poly(f:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Optio
     AlgebraicPoly::from_expr(&e,&generators,field).map(Some).map_err(err)
 }
 
-fn pair<'py>(py: Python<'py>, c: Expr, fs: Vec<(Expr, Expr)>) -> PyResult<Bound<'py, PyTuple>> {
-    let l = PyList::empty(py);
-    for (f, k) in fs {
-        let kk: PyObject = match k.as_i64() {
-            Some(i) => i.into_pyobject(py)?.into_any().unbind(),
-            None => w(k).into_pyobject(py)?.into_any().unbind(),
-        };
-        l.append(PyTuple::new(py, [w(f).into_pyobject(py)?.into_any().unbind(), kk])?)?;
-    }
-    PyTuple::new(py, [w(c).into_pyobject(py)?.into_any(), l.into_any()])
-}
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, deep=false, modulus=None, **_kwargs))]
@@ -1584,47 +1538,14 @@ fn sqf(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _k
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
-fn factor_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
-    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
-        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
-        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
-        let(c,fs)=p.factor_list().map_err(err)?;return pair(py,c.as_expr(),fs.into_iter().map(|(p,k)|(p.as_expr(),Expr::int(k as i64))).collect());
-    }
-    if let Ok(p) = f.downcast::<PyPoly>() {
-        return p.get().factor_list(py);
-    }
-    if let Some(m) = modulus {
-        let (c, fs) = api::factor_list_mod(&to_expr(f)?, check_mod(m)?).map_err(err)?;
-        return pair(py, c, fs);
-    }
-    let gens = gens_of(gens)?;
-    let e = to_expr(f)?;
-    if !gens.is_empty() {
-        let (c, fs) = api::poly_factor_list(&e, &gens).map_err(err)?;
-        return pair(py, c, fs.into_iter().map(|(f, k)| (f, Expr::int(k as i64))).collect());
-    }
-    let (c, fs) = api::factor_list(&e).map_err(err)?;
-    pair(py, c, fs)
+fn factor_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    checked_factor_views::global_list(f,gens,modulus,_kwargs,false)
 }
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
-fn sqf_list<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
-    if let Some(p)=algebraic_option_poly(f,gens,_kwargs)? {
-        if modulus.is_some(){return Err(PyValueError::new_err("algebraic extensions cannot use a finite modulus"));}
-        if p.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
-        let(c,fs)=p.sqf_list();return pair(py,c.as_expr(),fs.into_iter().map(|(p,k)|(p.as_expr(),Expr::int(k as i64))).collect());
-    }
-    if let Ok(p) = f.downcast::<PyPoly>() {
-        return p.get().sqf_list(py);
-    }
-    if let Some(m) = modulus {
-        let (c, fs) = api::sqf_list_mod(&to_expr(f)?, check_mod(m)?).map_err(err)?;
-        return pair(py, c, fs);
-    }
-    let _ = gens;
-    let (c, fs) = api::sqf_list(&to_expr(f)?).map_err(err)?;
-    pair(py, c, fs)
+fn sqf_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    checked_factor_views::global_list(f,gens,modulus,_kwargs,true)
 }
 
 fn list_items(f: &Bound<'_, PyAny>) -> Option<Vec<Expr>> {
@@ -2125,8 +2046,8 @@ fn decompose(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&B
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, **_kwargs))]
-fn sqf_part(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    Ok(w(api::sqf_part(&to_expr(f)?, &gens_of(gens)?).map_err(err)?))
+fn sqf_part<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    checked_factor_views::global_part(f,gens,_kwargs)
 }
 
 fn minimal_polynomial_value(model:&symox::poly::algebraic_model::PrimitiveModel,generator:Expr)->Poly {

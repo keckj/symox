@@ -37,7 +37,7 @@ def test_pickle_reader_rejects_invalid_binding_limit_records(kind):
     value=getattr(s,kind)(s.Function('f')(x),(x,0,1))
     restore,(version,records,root)=value.__reduce__()
     records=list(records)
-    symbol=next(i for i,(tag,_,fields) in enumerate(records) if tag=='s.symbol' and fields[0]=='x')
+    symbol=next(i for i,(tag,_,fields) in enumerate(records) if tag in ('s.symbol','s.symbol.facts') and fields[0]=='x')
     tag,canonical,fields=records[root]
     assert tag=='s.function' and fields[0]==kind
     records[root]=(tag,canonical,(fields[0],[fields[1][0],symbol]))

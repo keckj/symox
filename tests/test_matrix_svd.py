@@ -198,3 +198,27 @@ except NotImplementedError as error:
 else:
     raise AssertionError('polynomial scratch storage must be bounded before conversion')
 '''], check=True, timeout=20)
+
+
+@pytest.mark.parametrize('kind',['Symbol','Dummy'])
+@pytest.mark.parametrize('flags',[{'finite':False},{'infinite':True},{'extended_real':True,'finite':False}])
+def test_declared_nonfinite_symbols_rejected_before_spectral_work(kind,flags):
+    z=getattr(sx,kind)('z',**flags)
+    assert z.is_finite is False
+    for matrix in [sx.ImmutableMatrix([[z,1]]),sx.ImmutableMatrix([[z],[1]])]:
+        with pytest.raises(ValueError,match='finite'):
+            matrix.singular_value_decomposition()
+
+
+@pytest.mark.parametrize('flags',[{}, {'extended_real':True}])
+def test_unknown_finiteness_does_not_reject_certifiable_symbolic_svd(flags):
+    z=sx.Symbol('z',**flags)
+    assert z.is_finite is None
+    a=sx.ImmutableMatrix([[z,1]])
+    u,d,v=a.singular_value_decomposition()
+    assert (u.shape,d.shape,v.shape)==((1,1),(1,1),(2,1))
+    points=[1.,-3.,0.] if flags else [1+2j,-3.,0.]
+    for point in points:
+        values=[np.asarray(f.subs({z:point}).to_sympy().evalf(),dtype=np.complex128) for f in [u,d,v]]
+        left,diag,right=values
+        np.testing.assert_allclose(left@diag@right.conj().T,np.asarray([[point,1]]),rtol=1e-13,atol=1e-13)

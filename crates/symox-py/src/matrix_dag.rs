@@ -112,8 +112,8 @@ impl<'py> Encoder<'py>{
             Node::S(e)=>{let(tag,fields)=match e.kind(){
                 Kind::Num(n)=>("s.number",vec![number(py,n)?]),
                 Kind::Sym(s)=>match s.dummy_index(){
-                    Some(index)=>("s.dummy",vec![obj(py,s.name())?,obj(py,s.given().0)?,obj(py,index.clone())?]),
-                    None=>("s.symbol",vec![obj(py,s.name())?,obj(py,s.given().0)?,obj(py,s.is_wild())?,obj(py,self.scalars(s.exclude()))?]),
+                    Some(index)=>("s.dummy.facts",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,index.clone())?]),
+                    None=>("s.symbol.facts",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,s.is_wild())?,obj(py,self.scalars(s.exclude()))?]),
                 },
                 Kind::Const(c)=>("s.constant",vec![obj(py,c.name())?]),
                 Kind::Bool(b)=>("s.bool",vec![obj(py,*b)?]),
@@ -188,6 +188,8 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                 "s.number"=>{arity(1)?;Kind::Num(read_number(&f.get_item(0)?)?)},
                 "s.symbol"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let given=assumptions(f.get_item(1)?.extract()?)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}if wild&&given!=Assumptions::NONE{return Err(invalid("wildcard assumptions unsupported"));}Kind::Sym(if wild{Symbol::wild(&name,exclude)}else{Symbol::with_assumptions(&name,given)})},
                 "s.dummy"=>{arity(3)?;Kind::Sym(Symbol::dummy_with_index(&f.get_item(0)?.extract::<String>()?,assumptions(f.get_item(1)?.extract()?)?,f.get_item(2)?.extract()?))},
+                "s.symbol.facts"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}if wild&&!given.is_empty(){return Err(invalid("wildcard assumptions unsupported"));}Kind::Sym(if wild{Symbol::wild(&name,exclude)}else{Symbol::with_facts(&name,given).map_err(invalid)?})},
+                "s.dummy.facts"=>{arity(3)?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;Kind::Sym(Symbol::dummy_with_facts(&f.get_item(0)?.extract::<String>()?,given,Some(f.get_item(2)?.extract()?)).map_err(invalid)?)},
                 "s.constant"=>{arity(1)?;Kind::Const(constant(&f.get_item(0)?.extract::<String>()?)?)},
                 "s.bool"=>{arity(1)?;Kind::Bool(f.get_item(0)?.extract()?)},
                 "s.add"=>{arity(2)?;let mut terms=Vec::new();for pair in f.get_item(1)?.try_iter()?{let pair=pair?;if pair.len()?!=2{return Err(invalid("additive term requires reference and coefficient"));}terms.push((reader.scalar(pair.get_item(0)?.extract()?)?,read_number(&pair.get_item(1)?)?));}Kind::Add(read_number(&f.get_item(0)?)?,terms)},

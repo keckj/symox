@@ -216,6 +216,11 @@ fn d_func(
     }
     if let Func::Undefined(function) = f {
         if function.internal || args.iter().all(|arg|arg.is_symbol()) {
+            // The bloom mask is only a negative shortcut. Dummy identities
+            // can collide with an unrelated differentiation symbol's bit.
+            if x.is_symbol() && !crate::traverse::free_symbols(e).contains(x) {
+                return Expr::zero();
+            }
             return derivative_unevaluated(e, vec![(x.clone(), 1)]);
         }
         let mut terms=Vec::new();
@@ -342,4 +347,25 @@ fn d_func(
         _ => return derivative_unevaluated(e, vec![(x.clone(), 1)]),
     };
     mul(&[outer, du])
+}
+
+#[cfg(test)]
+mod dependency_tests {
+    use super::*;
+
+    #[test]
+    fn dummy_bloom_collision_cannot_create_a_false_partial_derivative() {
+        let y=Expr::symbol("y");
+        let dummy=(0..4096).map(|index|Expr::dummy_with_index("integration",crate::Assumptions::NONE,num_bigint::BigInt::from(index)))
+            .find(|candidate|candidate.may_contain(&y)).expect("a collision in the 64-bit dependency filter");
+        assert_ne!(dummy,y);
+        let f=crate::functions::undefined("bloom_dependency",vec![dummy.clone()]);
+        assert!(f.may_contain(&y));
+        assert_eq!(diff(&f,&y),Expr::zero());
+        assert_eq!(diff(&f,&dummy),derivative_unevaluated(&f,vec![(dummy.clone(),1)]));
+        let integral=crate::binders::held(Func::Integral,&mul(&[y.clone(),f.clone()]),vec![vec![dummy.clone(),Expr::zero(),y.clone()]]).unwrap();
+        let endpoint=crate::functions::undefined("bloom_dependency",vec![y.clone()]);
+        let remaining=crate::binders::held(Func::Integral,&f,vec![vec![dummy,Expr::zero(),y.clone()]]).unwrap();
+        assert_eq!(diff(&integral,&y),add(&[mul(&[y,endpoint]),remaining]));
+    }
 }

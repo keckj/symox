@@ -40,7 +40,10 @@ fn check_rep<C: PseudoCoeff>(rep: &MPoly<C>, limits: Limits) -> PResult<()> {
     Ok(())
 }
 fn preflight(p: &Polynomial, limits: Limits) -> PResult<()> {
-    if p.ngens == 0 {
+    preflight_mode(p, limits, false)
+}
+fn preflight_mode(p: &Polynomial, limits: Limits, legacy: bool) -> PResult<()> {
+    if p.ngens == 0 && !p.rep.is_constant() {
         return Err(failure("polynomial generators are required"));
     }
     if let Some(f) = &p.algebraic {
@@ -87,7 +90,7 @@ fn preflight(p: &Polynomial, limits: Limits) -> PResult<()> {
         if let Some(prime) = p.modulus {
             super::f5b::PrimeScope::new(prime)?;
         }
-        if p.domain == Domain::RR || !p.domain_gens().is_empty() {
+        if !legacy && (p.domain == Domain::RR || !p.domain_gens().is_empty()) {
             return Err(failure(
                 "checked factor views require an implemented exact coefficient domain",
             ));
@@ -155,10 +158,30 @@ fn raw(p: &Polynomial, squarefree: bool) -> PResult<Factorization> {
         } else {
             p.base.factor_list()
         };
-        Ok(Factorization {
+        let mut result = Factorization {
             unit: p.base.with_rep(MPoly::constant(unit, p.gens.len())).into(),
             factors: factors.into_iter().map(|(p, k)| (p.into(), k)).collect(),
-        })
+        };
+        // SymPy preserves integer-primitive factors over QQ for factor_list,
+        // but makes square-free groups monic. These are distinct conventions.
+        if squarefree && p.domain == Domain::QQ && p.modulus.is_none() && p.domain_gens().is_empty()
+        {
+            let mut budget = Budget::new();
+            for (f, k) in &mut result.factors {
+                let scalar = f
+                    .base
+                    .with_rep(MPoly::constant(f.rep.lc(), f.gens.len()))
+                    .into();
+                let lc = f.rep.lc();
+                f.base.rep = budget.exact_div(&f.rep, &MPoly::constant(lc, f.gens.len()))?;
+                result.unit =
+                    multiply(&result.unit, &power(&scalar, *k, &mut budget)?, &mut budget)?;
+            }
+        }
+        if squarefree {
+            result.factors.sort_by_key(|(_, k)| *k);
+        }
+        Ok(result)
     }
 }
 fn one(p: &Polynomial) -> Polynomial {
@@ -250,6 +273,235 @@ pub fn factor_list(p: &Polynomial, squarefree: bool, limits: Limits) -> PResult<
         let result = raw(p, squarefree)?;
         verify(p, &result)?;
         Ok(result)
+    })
+}
+/// Existing opaque/inexact coefficient polynomials retain their exact stored
+/// arithmetic. They do not acquire a fictitious typed Domain; their factors
+/// are checked in the existing expanded generator representation instead.
+pub fn compatible_list(
+    p: &Polynomial,
+    squarefree: bool,
+    all: bool,
+    limits: Limits,
+) -> PResult<Factorization> {
+    factor_budget::run(limits, || {
+        let legacy = p.field.is_none()
+            && p.algebraic.is_none()
+            && (p.domain == Domain::RR || !p.domain_gens().is_empty());
+        preflight_mode(p, limits, legacy)?;
+        let mut result = raw(p, if legacy { false } else { squarefree })?;
+        if legacy {
+            let mut kept = Vec::new();
+            let mut budget = Budget::new();
+            for (factor, k) in result.factors {
+                if factor
+                    .rep
+                    .iter()
+                    .all(|(e, _)| e[..p.ngens].iter().all(|&e| e == 0))
+                {
+                    result.unit =
+                        multiply(&result.unit, &power(&factor, k, &mut budget)?, &mut budget)?;
+                } else {
+                    kept.push((factor, k));
+                }
+            }
+            result.factors = kept;
+            if squarefree {
+                let mut groups = std::collections::BTreeMap::<u32, Polynomial>::new();
+                for (factor, k) in result.factors {
+                    if let Some(group) = groups.get_mut(&k) {
+                        *group = multiply(group, &factor, &mut budget)?;
+                    } else {
+                        groups.insert(k, factor);
+                    }
+                }
+                result.factors = groups.into_iter().map(|(k, p)| (p, k)).collect();
+            }
+        }
+        if squarefree {
+            result.factors.sort_by_key(|(_, k)| *k);
+        }
+        if all && !result.factors.is_empty() {
+            let last = result.factors.iter().map(|(_, k)| *k).max().unwrap_or(0);
+            if last as usize > limits.degree {
+                return Err(failure(
+                    "factorization resource limit: square-free multiplicity slots",
+                ));
+            }
+            let mut factors = result.factors.into_iter().peekable();
+            result.factors = (1..=last)
+                .map(|k| {
+                    if factors.peek().is_some_and(|(_, j)| *j == k) {
+                        factors.next().unwrap()
+                    } else {
+                        (one(p), k)
+                    }
+                })
+                .collect();
+        }
+        verify(p, &result)?;
+        Ok(result)
+    })
+}
+pub fn squarefree_part(p: &Polynomial, limits: Limits) -> PResult<Polynomial> {
+    factor_budget::run(limits, || {
+        let result = compatible_list(p, true, false, limits)?;
+        if p.is_zero() {
+            return Ok(p.clone());
+        }
+        let mut product = one(p);
+        let mut budget = Budget::new();
+        for (f, _) in result.factors {
+            product = multiply(&product, &f, &mut budget)?;
+        }
+        Ok(product)
+    })
+}
+/// Symbolic list factorization first separates a coefficient denominator.
+/// This is deliberately distinct from factoring a Poly over QQ/QQ(a): the
+/// factors of an expression with no domain selection are inferred from its
+/// integral numerator, while the coefficient can remain outside that ring.
+pub fn symbolic_numerator(p: &Polynomial, limits: Limits) -> PResult<(Polynomial, Expr)> {
+    factor_budget::run(limits, || {
+        let legacy = p.field.is_none()
+            && p.algebraic.is_none()
+            && (p.domain == Domain::RR || !p.domain_gens().is_empty());
+        preflight_mode(p, limits, legacy)?;
+        if let Some(f) = &p.field {
+            let _scope = Scope::new(f.parameters.len());
+            let denominator = f.denominator();
+            let mut budget = Budget::new();
+            let mut terms = Vec::new();
+            for (e, c) in f.rep.iter() {
+                let quotient = budget.exact_div(&denominator, &c.d)?;
+                let numerator = budget.mul(&c.n, &quotient)?;
+                terms.push((e.to_vec(), super::ratfunc::RF::from_poly(numerator)));
+            }
+            let mut numerator = f.with_rep(MPoly::from_terms(f.gens.len(), terms));
+            let super::domains::ExactDomain::Functions { order, .. } = &f.coefficient_domain else {
+                return Err(failure("unsupported symbolic coefficient descriptor"));
+            };
+            numerator.coefficient_domain =
+                super::domains::ExactDomain::functions(true, true, f.parameters.clone(), order)?;
+            numerator.display = numerator.coefficient_domain.to_string();
+            let coefficient = super::ratfunc::RF::from_poly(denominator);
+            let expected =
+                budget.mul(&f.rep, &MPoly::constant(coefficient.clone(), f.gens.len()))?;
+            if expected != numerator.rep {
+                return Err(failure(
+                    "symbolic numerator failed exact denominator-clearing certificate",
+                ));
+            }
+            let denominator = super::fraction::coefficient_expr(&coefficient, &f.parameters);
+            return Ok((numerator.into(), denominator));
+        }
+        if p.algebraic.is_some() || p.modulus.is_some() || legacy {
+            return Ok((p.clone(), Expr::one()));
+        }
+        let (denominator, mut numerator) = p.base.clear_denoms();
+        numerator.domain = Domain::ZZ;
+        let denominator = Expr::num(denominator.to_number());
+        Ok((numerator.into(), denominator))
+    })
+}
+pub fn symbolic_list(
+    p: &Polynomial,
+    squarefree: bool,
+    limits: Limits,
+) -> PResult<(Factorization, Expr)> {
+    factor_budget::run(limits, || {
+        let (numerator, denominator) = symbolic_numerator(p, limits)?;
+        let mut result = compatible_list(&numerator, squarefree, false, limits)?;
+        // No domain was selected for this symbolic expression. Infer the
+        // coefficient parameters of each computed factor; parameters which
+        // occurred only in the external unit must not leak into that factor.
+        for (factor, _) in &mut result.factors {
+            if let Some(f) = &factor.field {
+                let used: Vec<_> = (0..f.parameters.len())
+                    .filter(|&i| {
+                        f.rep
+                            .coeffs()
+                            .iter()
+                            .any(|c| c.n.degree(i) > 0 || c.d.degree(i) > 0)
+                    })
+                    .collect();
+                if used.is_empty() {
+                    *factor = factor.base.clone().into();
+                    continue;
+                }
+                if used.len() == f.parameters.len() {
+                    continue;
+                }
+                let mut permutation = vec![0; f.parameters.len()];
+                for (j, &i) in used.iter().enumerate() {
+                    permutation[i] = j;
+                }
+                let _scope = Scope::new(used.len());
+                let rep = f.rep.map_coeffs(|c| {
+                    super::ratfunc::RF::new(
+                        c.n.permute(&permutation, used.len()),
+                        c.d.permute(&permutation, used.len()),
+                    )
+                });
+                let mut f = f.clone();
+                f.parameters = used.iter().map(|&i| f.parameters[i].clone()).collect();
+                let super::domains::ExactDomain::Functions {
+                    integral,
+                    ring,
+                    order,
+                    ..
+                } = &f.coefficient_domain
+                else {
+                    return Err(failure("unsupported symbolic factor domain"));
+                };
+                f.coefficient_domain = super::domains::ExactDomain::functions(
+                    *integral,
+                    *ring,
+                    f.parameters.clone(),
+                    order,
+                )?;
+                f.display = f.coefficient_domain.to_string();
+                f.rep = rep;
+                *factor = f.into();
+            }
+        }
+        // Symbolic sorting uses the *inferred* domains of the final factors,
+        // not the common parameter ring in which the numerator was factored.
+        result.factors.sort_by(|(a, ka), (b, kb)| {
+            let degree = a.rep.degree(0).cmp(&b.rep.degree(0));
+            let generators = a.ngens.cmp(&b.ngens);
+            let main = if squarefree {
+                ka.cmp(kb).then(degree).then(generators)
+            } else {
+                degree.then(generators).then(ka.cmp(kb))
+            };
+            main.then_with(|| a.domain_str().cmp(&b.domain_str()))
+                .then_with(|| {
+                    if a.rep.nvars == b.rep.nvars {
+                        super::polyobj::rep_cmp(&a.rep, &b.rep, 0)
+                    } else {
+                        crate::sortkey::sort_key(&a.as_expr())
+                            .cmp(&crate::sortkey::sort_key(&b.as_expr()))
+                    }
+                })
+        });
+        Ok((result, denominator))
+    })
+}
+/// Reconstruct heterogeneous source-component factors in one common stored
+/// polynomial representation. Individual factor generator vectors remain
+/// untouched; the common prototype is used only for the exact certificate.
+pub fn verify_expression_factors(prototype:&Polynomial,coefficient:&Expr,factors:&[(Polynomial,u32)],limits:Limits)->PResult<()> {
+    factor_budget::run(limits,||{
+        let convert=|e:&Expr|->PResult<Polynomial>{
+            if let Some(f)=&prototype.field{return f.convert(e).map(Into::into);}
+            if let Some(f)=&prototype.algebraic{return f.convert(e).map(Into::into);}
+            let p=super::polyobj::Poly::from_expr(e,&prototype.base.gens)?;
+            Ok(prototype.base.with_rep(p.rep).into())
+        };
+        let unit=convert(coefficient)?;
+        let factors=factors.iter().map(|(p,k)|Ok((convert(&p.as_expr())?,*k))).collect::<PResult<_>>()?;
+        verify(prototype,&Factorization{unit,factors})
     })
 }
 pub fn include(
@@ -423,6 +675,105 @@ mod tests {
         fraction::FractionPoly,
         polyobj::Poly,
     };
+    #[test]
+    fn typed_squarefree_parts_and_distinct_factor_list_conventions() {
+        let x = Expr::symbol("x");
+        let mut p =
+            Poly::from_expr(&parse_str("(2*x+1)^2/3").unwrap(), std::slice::from_ref(&x)).unwrap();
+        p.domain = Domain::QQ;
+        let p: Polynomial = p.into();
+        let factors = compatible_list(&p, false, false, Limits::default()).unwrap();
+        assert_eq!(factors.unit.as_expr(), parse_str("1/3").unwrap());
+        assert_eq!(factors.factors[0].0.as_expr(), parse_str("2*x+1").unwrap());
+        let squarefree = compatible_list(&p, true, true, Limits::default()).unwrap();
+        assert_eq!(squarefree.unit.as_expr(), parse_str("4/3").unwrap());
+        assert_eq!(squarefree.factors.len(), 2);
+        assert!(squarefree.factors[0].0.rep.is_one());
+        assert_eq!(
+            squarefree.factors[1].0.as_expr(),
+            parse_str("x+1/2").unwrap()
+        );
+        assert_eq!(
+            squarefree_part(&p, Limits::default()).unwrap().as_expr(),
+            parse_str("x+1/2").unwrap()
+        );
+        let mut finite =
+            Poly::from_expr(&parse_str("(x^2+1)^2").unwrap(), std::slice::from_ref(&x)).unwrap();
+        finite.modulus = Some(2);
+        finite = finite.with_rep(finite.rep.clone());
+        assert_eq!(
+            squarefree_part(&finite.into(), Limits::default())
+                .unwrap()
+                .as_expr(),
+            parse_str("x+1").unwrap()
+        );
+        let zero = Poly::from_expr(&Expr::zero(), std::slice::from_ref(&x)).unwrap();
+        let mut zero: Polynomial = zero.into();
+        zero.base.modulus = Some(5);
+        assert!(squarefree_part(&zero, Limits::default()).unwrap().is_zero());
+        let a = Expr::symbol("a");
+        for domain in ["QQ(a)", "QQ[a]", "ZZ[a]"] {
+            let f = FractionPoly::from_expr(
+                &parse_str("a^2*(a*x+1)^2").unwrap(),
+                std::slice::from_ref(&x),
+                std::slice::from_ref(&a),
+                domain,
+            )
+            .unwrap();
+            let part = squarefree_part(&f.clone().into(), Limits::default()).unwrap();
+            let expected = if domain.ends_with(')') {
+                "x+1/a"
+            } else {
+                "a*x+1"
+            };
+            assert_eq!(part.as_expr(), parse_str(expected).unwrap());
+            assert_eq!(part.field.unwrap().coefficient_domain, f.coefficient_domain);
+        }
+    }
+    #[test]
+    fn symbolic_numerators_have_separate_coefficients_and_natural_factor_domains() {
+        let x = Expr::symbol("x");
+        let a = Expr::symbol("a");
+        let p =
+            Poly::from_expr(&parse_str("(2*x+1)^2/3").unwrap(), std::slice::from_ref(&x)).unwrap();
+        let (result, denominator) = symbolic_list(&p.into(), true, Limits::default()).unwrap();
+        assert_eq!(denominator, Expr::int(3));
+        assert_eq!(result.factors[0].0.domain, Domain::ZZ);
+        assert_eq!(result.factors[0].0.as_expr(), parse_str("2*x+1").unwrap());
+        for expression in ["x/a", "(a*x+1)^2/a^2"] {
+            let p = FractionPoly::from_expr(
+                &parse_str(expression).unwrap(),
+                std::slice::from_ref(&x),
+                std::slice::from_ref(&a),
+                "ZZ(a)",
+            )
+            .unwrap();
+            let (result, denominator) =
+                symbolic_list(&p.clone().into(), true, Limits::default()).unwrap();
+            assert_eq!(result.factors[0].1, if expression == "x/a" { 1 } else { 2 });
+            let value = crate::ops::div(&result.unit.as_expr(), &denominator);
+            let mut expected = value;
+            for (f, k) in result.factors {
+                expected = crate::ops::mul2(&expected, &f.as_expr().powi(k as i64));
+                if expression == "x/a" {
+                    assert!(f.field.is_none());
+                }
+            }
+            let difference = crate::ops::sub(&expected, &p.as_expr());
+            assert!(crate::poly::api::cancel(&difference).unwrap().is_zero());
+        }
+        let b = Expr::symbol("b");
+        let p = FractionPoly::from_expr(
+            &parse_str("(a*x+1)*(b*x+1)/((a+1)*(b+1))").unwrap(),
+            std::slice::from_ref(&x),
+            &[a, b],
+            "ZZ(a,b)",
+        )
+        .unwrap();
+        let (result, _) = symbolic_list(&p.into(), false, Limits::default()).unwrap();
+        assert_eq!(result.factors[0].0.as_expr(), parse_str("a*x+1").unwrap());
+        assert_eq!(result.factors[1].0.as_expr(), parse_str("b*x+1").unwrap());
+    }
     fn expr(source: &str) -> Expr {
         parse_str(source).unwrap()
     }
@@ -436,7 +787,9 @@ mod tests {
         let f = p("2*(x+1)^2");
         let output = include(&f, false, false, Limits::default()).unwrap();
         assert_eq!(output.len(), 2);
-        assert!(output.iter().any(|(factor, k)| factor.rep == p("2").rep && *k == 1));
+        assert!(output
+            .iter()
+            .any(|(factor, k)| factor.rep == p("2").rep && *k == 1));
         let roots = ground_roots(&p("(2*x-1)^3*(x^2-2)"), Limits::default()).unwrap();
         assert_eq!(roots, vec![(Expr::rational(1, 2), 3)]);
         let f = p("(x+1)^3");

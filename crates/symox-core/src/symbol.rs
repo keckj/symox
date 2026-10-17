@@ -248,6 +248,11 @@ pub struct Symbol {
     name: Arc<str>,
     given: Assumptions,
     known: Assumptions,
+    given_facts: crate::assumption_facts::FactSet,
+    facts: crate::assumption_facts::FactSet,
+    // Preserve historical hashes where the legacy projection is lossless.
+    // New distinctions contribute their complete canonical facts.
+    hash_extra: Option<crate::assumption_facts::FactSet>,
     /// `Some(exclude)` for pattern wildcards (`Wild('a', exclude=[x])`).
     wild: Option<Arc<Vec<crate::expr::Expr>>>,
     /// Explicit identity of a Dummy; ordinary symbols never infer this from a name.
@@ -256,13 +261,40 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn new(name: &str) -> Symbol {
-        Symbol { name: Arc::from(name), given: Assumptions::NONE, known: Assumptions::NONE, wild: None, dummy_index: None }
+        Self::with_assumptions(name,Assumptions::NONE)
     }
 
     /// `given` are the user's assumptions; their closure is computed here.
     pub fn with_assumptions(name: &str, given: Assumptions) -> Symbol {
-        let known = given.closure().unwrap_or(given);
-        Symbol { name: Arc::from(name), given, known, wild: None, dummy_index: None }
+        Self::with_facts(name,crate::assumption_facts::FactSet::from_legacy(given)).expect("consistent Symbol facts")
+    }
+
+    pub fn with_facts(name:&str,given_facts:crate::assumption_facts::FactSet)->Result<Self,String>{
+        let facts=given_facts.closure()?;
+        let known=facts.legacy();
+        let hash_extra=(crate::assumption_facts::FactSet::from_legacy(known).closure()?!=facts).then_some(facts);
+        Ok(Self{name:Arc::from(name),given:given_facts.legacy(),known,given_facts,facts,hash_extra,wild:None,dummy_index:None})
+    }
+    pub fn facts(&self)->crate::assumption_facts::FactSet{self.facts}
+    pub fn given_facts(&self)->crate::assumption_facts::FactSet{self.given_facts}
+    pub(crate) fn cmp_basic(&self,other:&Self)->std::cmp::Ordering{
+        (1+self.facts.len()+usize::from(self.is_dummy())).cmp(&(1+other.facts.len()+usize::from(other.is_dummy())))
+            .then_with(||self.name.cmp(&other.name))
+            .then_with(||self.facts.iter().cmp(other.facts.iter()))
+            .then_with(||self.dummy_index.cmp(&other.dummy_index))
+            .then_with(||self.wild.cmp(&other.wild))
+    }
+    pub fn dummy_with_facts(name:&str,given:crate::assumption_facts::FactSet,index:Option<BigInt>)->Result<Self,String>{
+        let mut symbol=Self::with_facts(name,given)?;
+        symbol.dummy_index=Some(Arc::new(next_dummy_index(index.as_ref())));Ok(symbol)
+    }
+    pub fn fresh_dummy_like(&self,name:&str)->Self{
+        Self::dummy_with_facts(name,self.given_facts,None).expect("existing Symbol facts")
+    }
+    pub fn anonymous_dummy_with_facts(given:crate::assumption_facts::FactSet)->Result<Self,String>{
+        let mut symbol=Self::with_facts("",given)?;
+        let(index,name)=with_dummy_state(|state|{let index=state.fresh();let name=format!("Dummy_{}",state.anonymous);state.anonymous+=1;(index,name)});
+        symbol.name=Arc::from(name);symbol.dummy_index=Some(Arc::new(index));Ok(symbol)
     }
 
     /// A fresh Dummy, whose identity is independent of its displayed name.
@@ -305,13 +337,7 @@ impl Symbol {
     /// A pattern wildcard that must not match expressions containing any
     /// of `exclude`.
     pub fn wild(name: &str, exclude: Vec<crate::expr::Expr>) -> Symbol {
-        Symbol {
-            name: Arc::from(name),
-            given: Assumptions::NONE,
-            known: Assumptions::NONE,
-            wild: Some(Arc::new(exclude)),
-            dummy_index: None,
-        }
+        let mut symbol=Self::new(name);symbol.wild=Some(Arc::new(exclude));symbol
     }
 
     #[inline]
@@ -348,7 +374,7 @@ impl Symbol {
 impl PartialEq for Symbol {
     fn eq(&self, o: &Symbol) -> bool {
         self.name == o.name
-            && self.known == o.known
+            && self.facts == o.facts
             && self.dummy_index == o.dummy_index
             && match (&self.wild, &o.wild) {
                 (None, None) => true,
@@ -369,6 +395,7 @@ impl Ord for Symbol {
         self.name
             .cmp(&o.name)
             .then(self.known.cmp(&o.known))
+            .then(self.facts.cmp(&o.facts))
             .then(self.dummy_index.cmp(&o.dummy_index))
             .then_with(|| self.wild.cmp(&o.wild))
     }
@@ -377,9 +404,8 @@ impl Ord for Symbol {
 impl Hash for Symbol {
     fn hash<H: Hasher>(&self, h: &mut H) {
         self.name.hash(h);
-        if !self.known.is_empty() {
-            self.known.hash(h);
-        }
+        if !self.known.is_empty(){self.known.hash(h);}
+        if let Some(extra)=self.hash_extra{0xfac7u16.hash(h);extra.hash(h);}
         if let Some(index) = &self.dummy_index {
             0xd00du16.hash(h);
             index.hash(h);

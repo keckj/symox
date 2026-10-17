@@ -609,8 +609,10 @@ fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant], cache
     for (base, exponent) in factors {
         let factor = mul_factor(&base, &exponent);
         let (zero, positive, negative, real) = crate::assumptions::exact_queries(|| (
-            crate::assumptions::is_zero(&factor), crate::assumptions::is_positive(&factor),
-            crate::assumptions::is_negative(&factor), crate::assumptions::is_real(&factor),
+            crate::assumptions::is_zero(&factor),
+            crate::assumptions::fact(&factor,"extended_positive").or_else(||crate::assumptions::is_positive(&factor)),
+            crate::assumptions::fact(&factor,"extended_negative").or_else(||crate::assumptions::is_negative(&factor)),
+            crate::assumptions::fact(&factor,"extended_real"),
         ));
         if zero == Some(true) { return Expr::nan(); }
         if complex {
@@ -725,6 +727,8 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
         // Scalar powers can expose 0**-1 or oo**1 before zero absorption.
         // Composite bases stay held boundaries, e.g. 0*(x*oo)**1 == 0.
         for (base, exponent, _) in &merged {
+            if exponent.is_one() && base.has_nonfinite()
+                && crate::assumptions::exact_queries(||crate::assumptions::is_finite(base))==Some(false){return Expr::nan();}
             if let Some(value) = exceptional_scalar_power(base, exponent) {
                 if matches!(value.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN)
                     || value.as_number().is_some_and(Number::is_nan) { return Expr::nan(); }
