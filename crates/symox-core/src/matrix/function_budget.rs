@@ -26,15 +26,15 @@ fn rational_profile(m:&Matrix)->Option<(u64,u64)>{
     }}Some((numerator,denominator))
 }
 
-pub(super) struct Budget{
+pub(in crate::matrix) struct Budget{
     work:u64,storage:u64,nodes:FxHashMap<usize,(Expr,u64)>,bits:u64,
 }
 impl Budget{
-    pub(super) fn new()->Self{Self{work:MAX_WORK,storage:MAX_STORAGE,nodes:FxHashMap::default(),bits:MAX_BITS}}
-    pub(super) fn work(&mut self,n:u64)->MResult<()>{self.work=self.work.checked_sub(n).ok_or_else(limit)?;Ok(())}
+    pub(in crate::matrix) fn new()->Self{Self{work:MAX_WORK,storage:MAX_STORAGE,nodes:FxHashMap::default(),bits:MAX_BITS}}
+    pub(in crate::matrix) fn work(&mut self,n:u64)->MResult<()>{self.work=self.work.checked_sub(n).ok_or_else(limit)?;Ok(())}
     fn space(&self,n:u64)->MResult<()>{if n>self.storage{Err(limit())}else{Ok(())}}
-    fn allocate(&mut self,cells:usize)->MResult<()>{let bits=(cells as u64).checked_mul(512).ok_or_else(limit)?;self.space(bits)?;self.storage-=bits;Ok(())}
-    pub(super) fn expression(&mut self,e:&Expr)->MResult<u64>{
+    pub(in crate::matrix) fn allocate(&mut self,cells:usize)->MResult<()>{let bits=(cells as u64).checked_mul(512).ok_or_else(limit)?;self.space(bits)?;self.storage-=bits;Ok(())}
+    pub(in crate::matrix) fn expression(&mut self,e:&Expr)->MResult<u64>{
         if let Some((_,bits))=self.nodes.get(&e.dag_id()){return Ok(*bits);}
         self.scalar_preflight(e,None)?;self.expression_inner(e)
     }
@@ -53,14 +53,14 @@ impl Budget{
         self.nodes.insert(e.dag_id(),(e.clone(),height));Ok(height)
     }
     /// Inspect raw DAGs before substitution can force held numeric powers.
-    pub(super) fn scalar_preflight(&mut self,e:&Expr,replacement:Option<(&Expr,&Expr)>)->MResult<()> {
+    pub(in crate::matrix) fn scalar_preflight(&mut self,e:&Expr,replacement:Option<(&Expr,&Expr)>)->MResult<()> {
         let mut memo=FxHashMap::default();inspect(e,replacement,self.bits,&mut memo)?;
         self.work(memo.len() as u64)
     }
-    pub(super) fn matrix(&mut self,m:&Matrix)->MResult<u64>{let mut height=0;for e in m.data(){height=height.max(self.expression(e)?);}Ok(height)}
-    pub(super) fn zeros(&mut self,n:usize)->MResult<Matrix>{self.allocate(n.checked_mul(n).ok_or_else(limit)?)?;let m=Matrix::zeros(n,n);self.matrix(&m)?;Ok(m)}
-    pub(super) fn identity(&mut self,n:usize)->MResult<Matrix>{self.allocate(n.checked_mul(n).ok_or_else(limit)?)?;let m=Matrix::eye(n);self.matrix(&m)?;Ok(m)}
-    pub(super) fn diagonal(&mut self,values:&[Expr])->MResult<Matrix>{self.allocate(values.len().checked_mul(values.len()).ok_or_else(limit)?)?;let m=Matrix::diag(values);self.matrix(&m)?;Ok(m)}
+    pub(in crate::matrix) fn matrix(&mut self,m:&Matrix)->MResult<u64>{let mut height=0;for e in m.data(){height=height.max(self.expression(e)?);}Ok(height)}
+    pub(in crate::matrix) fn zeros(&mut self,n:usize)->MResult<Matrix>{self.allocate(n.checked_mul(n).ok_or_else(limit)?)?;let m=Matrix::zeros(n,n);self.matrix(&m)?;Ok(m)}
+    pub(in crate::matrix) fn identity(&mut self,n:usize)->MResult<Matrix>{self.allocate(n.checked_mul(n).ok_or_else(limit)?)?;let m=Matrix::eye(n);self.matrix(&m)?;Ok(m)}
+    pub(in crate::matrix) fn diagonal(&mut self,values:&[Expr])->MResult<Matrix>{self.allocate(values.len().checked_mul(values.len()).ok_or_else(limit)?)?;let m=Matrix::diag(values);self.matrix(&m)?;Ok(m)}
     fn preflight(&mut self,a:&Matrix,b:&Matrix,inner:usize,cells:usize)->MResult<()>{
         self.work((cells as u64).checked_mul((inner as u64).max(1)).and_then(|n|n.checked_mul(2)).ok_or_else(limit)?)?;
         let log=if inner<=1{0}else{u64::from(usize::BITS-(inner-1).leading_zeros())};
@@ -72,7 +72,7 @@ impl Budget{
         if height>self.bits{return Err(limit());}
         self.space(height.saturating_add(512).saturating_mul(cells as u64))?;Ok(())
     }
-    pub(super) fn mul(&mut self,a:&Matrix,b:&Matrix)->MResult<Matrix>{
+    pub(in crate::matrix) fn mul(&mut self,a:&Matrix,b:&Matrix)->MResult<Matrix>{
         if a.cols()!=b.rows(){return Err(MatrixError::Shape("Matrix function product shape mismatch".into()));}
         if identity(a){return Ok(b.clone());}
         if identity(b){return Ok(a.clone());}
@@ -80,17 +80,17 @@ impl Budget{
         let cells=a.rows().checked_mul(b.cols()).ok_or_else(limit)?;self.preflight(a,b,a.cols(),cells)?;self.allocate(cells)?;
         let m=a.matmul(b)?;self.matrix(&m)?;Ok(m)
     }
-    pub(super) fn add(&mut self,a:&Matrix,b:&Matrix)->MResult<Matrix>{
+    pub(in crate::matrix) fn add(&mut self,a:&Matrix,b:&Matrix)->MResult<Matrix>{
         if a.is_zero_matrix(){return Ok(b.clone());}
         if b.is_zero_matrix(){return Ok(a.clone());}
         self.preflight(a,b,1,a.data().len())?;self.allocate(a.data().len())?;let m=a.add(b)?;self.matrix(&m)?;Ok(m)
     }
-    pub(super) fn scale(&mut self,a:&Matrix,c:&Expr)->MResult<Matrix>{
+    pub(in crate::matrix) fn scale(&mut self,a:&Matrix,c:&Expr)->MResult<Matrix>{
         self.expression(c)?;if c.is_one(){return Ok(a.clone());}
         let scalar=Matrix::new(1,1,vec![c.clone()])?;self.preflight(a,&scalar,1,a.data().len())?;self.allocate(a.data().len())?;
         let m=a.scale(c);self.matrix(&m)?;Ok(m)
     }
-    pub(super) fn power(&mut self,m:&Matrix,mut exponent:BigUint)->MResult<Matrix>{
+    pub(in crate::matrix) fn power(&mut self,m:&Matrix,mut exponent:BigUint)->MResult<Matrix>{
         if exponent.is_zero(){return self.identity(m.rows());}
         if exponent.is_one(){return Ok(m.clone());}
         if identity(m)||m.is_zero_matrix(){return Ok(m.clone());}
@@ -105,19 +105,60 @@ impl Budget{
             }
         }Ok(answer)
     }
-    pub(super) fn scalar_power(&mut self,base:&Expr,exponent:&Expr)->MResult<Expr>{
+    pub(in crate::matrix) fn scalar_power(&mut self,base:&Expr,exponent:&Expr)->MResult<Expr>{
         let held=Expr::from_unevaluated_kind(Kind::Pow(base.clone(),exponent.clone()));
         self.scalar_preflight(&held,None)?;
         let value=crate::ops::pow(base,exponent);self.expression(&value)?;Ok(value)
     }
-    pub(super) fn cancel_preflight(&mut self,m:&Matrix)->MResult<()>{
+    pub(in crate::matrix) fn cancel_preflight(&mut self,m:&Matrix)->MResult<()>{
         self.matrix(m)?;let mut memo=FxHashMap::default();
-        for e in m.data(){self.work(expansion_terms(e,&mut memo)?)?;}Ok(())
+        for e in m.data(){
+            let terms=expansion_terms(e,&mut memo)?;self.work(terms)?;
+            // A polynomial monomial stores an exponent for every variable.
+            // All cached scalar nodes bound the number of possible generators,
+            // including opaque function atoms; width alone does not bound it.
+            self.space(terms.saturating_mul(self.nodes.len() as u64).saturating_mul(32))?;
+        }Ok(())
     }
-    pub(super) fn cancel(&mut self,m:&Matrix)->MResult<Matrix>{
+    pub(in crate::matrix) fn cancel(&mut self,m:&Matrix)->MResult<Matrix>{
         self.cancel_preflight(m)?;let result=m.cancel();self.matrix(&result)?;Ok(result)
     }
-    pub(super) fn interpolation(&mut self,n:usize,height:u64)->MResult<()>{
+    /// The caller will expand/cancel this product. Bound its joint width
+    /// before scalar multiplication or rational polynomial conversion.
+    pub(in crate::matrix) fn product_preflight(&mut self,a:&Matrix,b:&Matrix)->MResult<()>{
+        if a.cols()!=b.rows(){return Err(MatrixError::Shape("Matrix function product shape mismatch".into()));}
+        self.matrix(a)?;self.matrix(b)?;
+        let mut memo=FxHashMap::default();
+        let mut left=0;let mut right=0;
+        for e in a.data(){if !e.is_zero(){left=left.max(expansion_terms(e,&mut memo)?);}}
+        for e in b.data(){if !e.is_zero(){right=right.max(expansion_terms(e,&mut memo)?);}}
+        let terms=left.saturating_mul(right).saturating_mul(a.cols() as u64);
+        if terms>100_000{return Err(limit());}
+        let cells=(a.rows() as u64).saturating_mul(b.cols() as u64);
+        self.work(terms.saturating_mul(cells))?;
+        self.space(terms.saturating_mul(self.nodes.len() as u64).saturating_mul(32))
+    }
+    /// Eigenvalue routines form characteristic polynomials per connected
+    /// block. Bound even its intermediate products by all ordered words of
+    /// length n over the scalar entry monomials (plus the identity).
+    /// Numeric blocks have coefficient growth but no polynomial monomial
+    /// expansion, already bounded by interpolation().
+    pub(in crate::matrix) fn spectral_preflight(&mut self,m:&Matrix)->MResult<()>{
+        self.cancel_preflight(m)?;
+        let mut memo=FxHashMap::default();
+        for block in super::super::linalg::scc(m){
+            let mut alphabet=1u64;let mut numeric=true;
+            for &i in &block{for &j in &block{let e=m.get(i,j);if !e.is_zero(){alphabet=alphabet.saturating_add(expansion_terms(e,&mut memo)?);}numeric &= e.as_number().is_some();}}
+            let n=block.len() as u64;
+            self.work(n.saturating_pow(4))?;
+            if numeric{continue;}
+            let mut terms=1u64;
+            for _ in 0..n{terms=terms.saturating_mul(alphabet);if terms>100_000{return Err(limit());}}
+            self.work(terms.saturating_mul(n).saturating_mul(n))?;
+            self.space(terms.saturating_mul(self.nodes.len() as u64).saturating_mul(32))?;
+        }Ok(())
+    }
+    pub(in crate::matrix) fn interpolation(&mut self,n:usize,height:u64)->MResult<()>{
         let n=n as u64;self.work(n.checked_mul(n).and_then(|v|v.checked_mul(n)).ok_or_else(limit)?)?;
         let log=u64::from(64-n.max(1).leading_zeros());
         let predicted=n.saturating_mul(height.saturating_add(log+2)).saturating_mul(n+1);
@@ -126,11 +167,11 @@ impl Budget{
     }
 }
 fn identity(m:&Matrix)->bool{m.is_square()&&(0..m.rows()).all(|i|(0..m.cols()).all(|j|if i==j{m.get(i,j).is_one()}else{m.get(i,j).is_zero()}))}
-pub(super) fn exponent(e:&Expr)->Option<BigUint>{match e.as_number()?{Number::Int(n) if *n>=0=>Some(BigUint::from(*n as u64)),Number::BigInt(n)=>n.to_biguint(),_=>None}}
+pub(in crate::matrix) fn exponent(e:&Expr)->Option<BigUint>{match e.as_number()?{Number::Int(n) if *n>=0=>Some(BigUint::from(*n as u64)),Number::BigInt(n)=>n.to_biguint(),_=>None}}
 
 /// Read stored children without map_children: that reconstruction helper can
 /// canonicalize held numeric factors even when its callback returns them.
-pub(super) fn raw_children(e:&Expr)->Vec<Expr>{
+pub(in crate::matrix) fn raw_children(e:&Expr)->Vec<Expr>{
     let mut out=Vec::new();
     match e.kind(){
         Kind::Add(_,terms)=>out.extend(terms.iter().map(|(e,_)|e.clone())),
@@ -267,6 +308,16 @@ mod tests{
         let shifted=crate::ops::add2(&x,&Expr::one());
         let big=Expr::from_unevaluated_kind(Kind::Pow(shifted,Expr::int(1_000_000_000)));
         assert!(Budget::new().cancel(&Matrix::new(1,1,vec![big]).unwrap()).is_err());
+        let symbols:(Vec<_>,Vec<_>)=(0..32).map(|i|{let x=Expr::symbol(&format!("a{i}"));let y=Expr::symbol(&format!("b{i}"));(x,y)}).unzip();
+        let a=Matrix::new(1,1,vec![crate::ops::add(&symbols.0)]).unwrap();
+        let b=Matrix::new(1,1,vec![crate::ops::add(&symbols.1)]).unwrap();
+        let mut budget=Budget::new();budget.work=500;
+        assert!(budget.product_preflight(&a,&b).is_err());
+        let width=crate::ops::add(&symbols.0);
+        let wide=Matrix::new(3,3,vec![width;9]).unwrap();
+        assert!(Budget::new().spectral_preflight(&wide).is_err());
+        let mut budget=Budget::new();budget.storage=20_000;
+        assert!(budget.cancel_preflight(&a).is_err());
         let mut budget=Budget::new();budget.work=10;assert!(budget.interpolation(3,1).is_err());
         let mut budget=Budget::new();budget.storage=10;assert!(budget.identity(2).is_err());
     }

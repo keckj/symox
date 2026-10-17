@@ -32,6 +32,27 @@ pub fn as_coeff_mul_head(e:&Expr,rational:bool)->(Expr,Expr){
     (Expr::one(),e.clone())
 }
 
+/// Leading Number coefficient of a sum, retaining the public raw tail.
+pub fn as_coeff_add_head(e:&Expr,rational:bool)->(Expr,Expr){
+    if number_atom(e){
+        return if !rational||e.is_rational_number(){(e.clone(),Expr::zero())}
+            else{(Expr::zero(),e.clone())};
+    }
+    if let Kind::Add(constant,terms)=e.kind(){
+        let values=args(e);
+        if let Some(first)=values.first().filter(|a|number_atom(a)&&(!rational||a.is_rational_number())){
+            let tail=&values[1..];
+            let tail=match tail.len(){
+                0=>Expr::zero(),1=>tail[0].clone(),
+                _ if e.is_canonical()&&first.as_number()==Some(constant)=>Expr::from_kind(Kind::Add(Number::ZERO,terms.clone())),
+                _=>Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,tail.iter().cloned().map(|e|(e,Number::ONE)).collect())),
+            };
+            return(first.clone(),tail);
+        }
+    }
+    (Expr::zero(),e.clone())
+}
+
 /// Public power view. Internal multiplication keeps the literal base so that
 /// this presentation rule cannot change automatic evaluation.
 pub fn as_base_exp(e:&Expr)->(Expr,Expr){

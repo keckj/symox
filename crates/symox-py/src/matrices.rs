@@ -1257,6 +1257,11 @@ impl PyMatrix {
         PyTuple::new(py, [self.wrapped(q), self.wrapped(r)])
     }
 
+    fn singular_value_decomposition<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let (u, s, v) = self.m.singular_value_decomposition().py(py)?;
+        PyTuple::new(py, [self.wrapped(u), self.wrapped(s), self.wrapped(v)])
+    }
+
     fn singular_values(&self, py: Python<'_>) -> PyResult<Vec<PyExpr>> {
         Ok(self.m.singular_values().py(py)?.into_iter().map(wrap).collect())
     }

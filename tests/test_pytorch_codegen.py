@@ -22,6 +22,46 @@ DTYPES = [torch.float32, torch.float64]
 
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.parametrize("compiled", [False, True])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64, torch.complex64, torch.complex128])
+def test_complex_scalar_constants_and_dense_outputs_compile_with_gradients(device, compiled, dtype):
+    x = sm.Symbol('x')
+    matrix = sm.ImmutableMatrix([[1, sm.I], [0, 2-sm.I]])
+    outputs = (sm.Integer(2), sm.I, sm.sqrt(2)*sm.I, matrix, (x+sm.I)**2)
+    function = sm.torch_lambdify(x, outputs, compile=compiled,
+        compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    point = torch.tensor([[.1, .4, 1.], [1.2, 2., 3.]], dtype=dtype, device=device)
+    if dtype.is_complex:
+        point = point+0.3j
+    point.requires_grad_()
+    complex_dtype = torch.complex128 if dtype in (torch.float64, torch.complex128) else torch.complex64
+    expected = (torch.full_like(point, 2),
+                torch.full_like(point, 1j, dtype=complex_dtype),
+                torch.full_like(point, 2**0.5*1j, dtype=complex_dtype),
+                torch.tensor([[1, 1j], [0, 2-1j]], device=device, dtype=complex_dtype)
+                    .expand(point.shape+(2, 2)),
+                (point+1j)**2)
+    actual = function(point)
+    for value, target in zip(actual, expected):
+        torch.testing.assert_close(value, target)
+        assert value.dtype == target.dtype and value.device == point.device
+    gradient = torch.autograd.grad(sum(value.abs().square().sum() for value in actual), point)[0]
+    reference = torch.autograd.grad(sum(value.abs().square().sum() for value in expected), point)[0]
+    torch.testing.assert_close(gradient, reference)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+def test_complex_constant_outputs_without_inputs_respect_explicit_dtype_and_device(device, compiled):
+    outputs = (sm.I, sm.ImmutableMatrix([[1, sm.I]]))
+    function = sm.torch_lambdify((), outputs, compile=compiled,
+        compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    scalar, matrix = function(dtype=torch.float64, device=device)
+    torch.testing.assert_close(scalar, torch.tensor(1j, dtype=torch.complex128, device=device))
+    torch.testing.assert_close(matrix, torch.tensor([[1, 1j]], dtype=torch.complex128, device=device))
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
 def test_function_matrix_native_lambda_batching_jit_and_gradients(device, compiled):
     i,j=sm.symbols('i j',integer=True)
     a,b=sm.symbols('a b')

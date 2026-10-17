@@ -17,6 +17,35 @@ pub(super) fn include(p: &PolyValue, squarefree: bool, all: bool) -> PyResult<Ve
         .map(|(p, k)| (PyPoly { p }, k))
         .collect())
 }
+pub(super) fn factorial(p: &PolyValue) -> PyResult<Vec<(PyPoly, u32)>> {
+    Ok(symox::poly::factorial::gff_list(p)
+        .map_err(err)?
+        .into_iter()
+        .map(|(p, k)| (PyPoly { p }, k))
+        .collect())
+}
+#[pyfunction]
+#[pyo3(signature=(f,*gens,**kwargs))]
+fn gff_list<'py>(
+    f: &Bound<'py, PyAny>,
+    gens: &Bound<'py, PyTuple>,
+    kwargs: Option<&Bound<'py, PyDict>>,
+) -> PyResult<PyObject> {
+    let (p, polys) = division::prepare_unary(f, gens, kwargs)?;
+    let result = pyo3::types::PyList::empty(f.py());
+    for (p, k) in symox::poly::factorial::gff_list(&p).map_err(err)? {
+        let value = if polys {
+            PyPoly { p }.into_pyobject(f.py())?.into_any().unbind()
+        } else {
+            w(p.as_expr()).into_pyobject(f.py())?.into_any().unbind()
+        };
+        result.append(PyTuple::new(
+            f.py(),
+            [value, k.into_pyobject(f.py())?.into_any().unbind()],
+        )?)?;
+    }
+    Ok(result.into_any().unbind())
+}
 #[pyfunction]
 #[pyo3(signature=(f,*gens,**kwargs))]
 fn ground_roots<'py>(
@@ -34,5 +63,6 @@ fn ground_roots<'py>(
 }
 pub(super) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ground_roots, m)?)?;
+    m.add_function(wrap_pyfunction!(gff_list, m)?)?;
     Ok(())
 }

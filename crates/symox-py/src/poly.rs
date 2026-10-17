@@ -1186,6 +1186,7 @@ impl PyPoly {
     }
 
     fn ground_roots(&self,py:Python<'_>)->PyResult<PyObject>{checked_factor_views::ground(&self.p,py)}
+    fn gff_list(&self)->PyResult<Vec<(PyPoly,u32)>>{checked_factor_views::factorial(&self.p)}
     fn factor_list_include(&self)->PyResult<Vec<(PyPoly,u32)>>{checked_factor_views::include(&self.p,false,false)}
     #[pyo3(signature=(all=false))]
     fn sqf_list_include(&self,all:bool)->PyResult<Vec<(PyPoly,u32)>>{checked_factor_views::include(&self.p,true,all)}

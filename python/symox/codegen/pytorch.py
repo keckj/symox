@@ -33,6 +33,13 @@ def _sx_tensor(value, reference):
         dtype = torch.get_default_dtype()
     elif isinstance(value, float) and not (dtype.is_floating_point or dtype.is_complex):
         dtype = torch.get_default_dtype()
+    if dtype.is_complex:
+        # This also covers real constants promoted by complex inputs. Real
+        # components avoid a constant buffer that CUDA Inductor cannot load
+        # when materializing a broadcast complex output.
+        real_dtype = torch.float64 if dtype == torch.complex128 else (torch.float32 if dtype == torch.complex64 else torch.float16)
+        return torch.complex(torch.as_tensor(value.real, dtype=real_dtype, device=device),
+                             torch.as_tensor(value.imag, dtype=real_dtype, device=device))
     return torch.as_tensor(value, dtype=dtype, device=device)
 
 

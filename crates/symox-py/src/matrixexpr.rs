@@ -303,6 +303,14 @@ impl PyMatrixExpr{
     fn LDUdecomposition(&self,py:Python<'_>)->PyResult<(Self,Self,Self)>{let(a,b,c)=self.m.ldu_decomposition().map_err(|e|error(py,e))?;Ok((wrap_matrixexpr(a),wrap_matrixexpr(b),wrap_matrixexpr(c)))}
     fn UDLdecomposition(&self,py:Python<'_>)->PyResult<(Self,Self,Self)>{let(a,b,c)=self.m.udl_decomposition().map_err(|e|error(py,e))?;Ok((wrap_matrixexpr(a),wrap_matrixexpr(b),wrap_matrixexpr(c)))}
     #[getter] fn args<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{matrix_args(py,&self.m,false)}
+    fn class_key(&self,py:Python<'_>)->PyResult<PyObject>{
+        crate::presentation_key_object(py,&symox::sortkey::matrix_class_key(&self.m))
+    }
+    #[pyo3(signature=(order=None))]
+    fn sort_key(&self,py:Python<'_>,order:Option<&str>)->PyResult<PyObject>{
+        crate::validate_sort_order(order)?;
+        crate::presentation_key_object(py,&symox::sortkey::matrix_sort_key(&self.m))
+    }
     #[getter] fn func<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyAny>>{py.import("symox")?.getattr(self.m.kind_name())}
     #[getter] fn free_symbols<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PySet>>{
         let result=PySet::empty(py)?;for m in self.m.matrix_symbols(){result.add(wrap_matrixexpr(m))?;}
@@ -358,6 +366,11 @@ impl PyMatrixExpr{
     fn as_coeff_Mul<'py>(&self,py:Python<'py>,rational:bool)->PyResult<Bound<'py,PyTuple>>{
         let _=rational;
         PyTuple::new(py,[wrap(Expr::one()).into_pyobject(py)?.into_any(),matrix_object(py,&self.m)?])
+    }
+    #[pyo3(signature=(rational=false))]
+    fn as_coeff_Add<'py>(&self,py:Python<'py>,rational:bool)->PyResult<Bound<'py,PyTuple>>{
+        let _=rational;
+        PyTuple::new(py,[wrap(Expr::zero()).into_pyobject(py)?.into_any(),matrix_object(py,&self.m)?])
     }
     fn as_coeff_matrices<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
         let MatrixKind::Mul(coefficient,factors)=self.m.kind() else{

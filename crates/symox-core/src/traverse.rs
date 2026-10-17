@@ -315,19 +315,25 @@ mod tests {
 
 /// Ordering used by SymPy's immutable `.args`, which differs from the
 /// presentation ordering used by default_sort_key/as_ordered_terms.
-fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
-    fn rank(e: &Expr) -> (u8, String) {
-        match e.kind() {
-            Kind::Num(_) => (0, String::new()),
-            Kind::Const(_) => (1, e.class_name().into()),
-            // SymPy Basic.compare puts ordinary Symbol before Dummy, unlike
-            // default_sort_key whose class names order Dummy before Symbol.
-            Kind::Sym(symbol) => (2, if symbol.is_dummy() { "1".into() } else { String::new() }),
-            Kind::Pow(..) => (3, String::new()),
-            Kind::Mul(..) => (4, String::new()),
-            Kind::Add(..) => (5, String::new()),
-            _ => (6, e.class_name().into()),
-        }
+pub(crate) fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
+    if a.ptr_eq(b) { return std::cmp::Ordering::Equal; }
+    fn rank(e: &Expr) -> (usize, &str) {
+        // SymPy core.basic.ordering_of_classes / _cmp_name. Names absent
+        // from this historical table follow every known class, then compare
+        // lexically: notably ComplexInfinity, Dummy and lowercase sin.
+        const CLASSES: &[&str] = &[
+            "Zero", "One", "Half", "Infinity", "NaN", "NegativeOne", "NegativeInfinity",
+            "Integer", "Rational", "Float", "Exp1", "Pi", "ImaginaryUnit", "Symbol", "Wild",
+            "Pow", "Mul", "Add", "Derivative", "Integral", "Abs", "Sign", "Sqrt", "Floor",
+            "Ceiling", "Re", "Im", "Arg", "Conjugate", "Exp", "Log", "Sin", "Cos", "Tan",
+            "Cot", "ASin", "ACos", "ATan", "ACot", "Sinh", "Cosh", "Tanh", "Coth",
+            "ASinh", "ACosh", "ATanh", "ACoth", "RisingFactorial", "FallingFactorial",
+            "factorial", "binomial", "Gamma", "LowerGamma", "UpperGamma", "PolyGamma", "Erf",
+            "Chebyshev", "Chebyshev2", "Function", "WildFunction", "Lambda", "Order",
+            "Equality", "Unequality", "StrictGreaterThan", "StrictLessThan", "GreaterThan", "LessThan",
+        ];
+        let name = e.class_name();
+        (CLASSES.iter().position(|class| *class == name).unwrap_or(CLASSES.len()), name)
     }
     let ordering = rank(a).cmp(&rank(b));
     if ordering != std::cmp::Ordering::Equal { return ordering; }

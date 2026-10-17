@@ -20,6 +20,16 @@ class _ExprType(type):
     def __instancecheck__(cls, value):
         return isinstance(value, _core.Expr) and bool(cls._matches(value))
 
+    def class_key(cls):
+        name = cls.__name__
+        if issubclass(cls, Number):
+            return (1, 0, 'Number')
+        if issubclass(cls, Symbol):
+            return (2, 0, name)
+        if name in ('Mul', 'Add', 'Pow'):
+            return (3, ('Mul', 'Add', 'Pow').index(name), name)
+        return (5, 0, name)
+
 
 class Number(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Number)
@@ -160,6 +170,8 @@ def count_ops(expr, visual=False):
 
 
 def default_sort_key(expr, order=None):
+    if order not in (None, 'lex'):
+        raise NotImplementedError('Sort keys currently support the default lexicographic order only')
     return _core._default_sort_key(expr)
 
 

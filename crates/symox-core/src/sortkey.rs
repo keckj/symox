@@ -31,6 +31,15 @@ pub(crate) struct MatrixPresentation {
     pub args: Vec<PresentationArg>,
 }
 
+pub fn matrix_class_key(matrix:&MatrixExpr)->Key{
+    let(a,b,name)=match matrix.kind(){
+        MatrixKind::Add(_)=>(3,1,"MatAdd"),MatrixKind::Mul(..)=>(3,0,"MatMul"),
+        MatrixKind::Explicit(_)=>(5,0,"ImmutableDenseMatrix"),MatrixKind::Conjugate(_)=>(5,0,"Adjoint"),
+        _=>(5,0,matrix.kind_name()),
+    };
+    tup(vec![Key::Int(a),Key::Int(b),Key::Str(name.into())])
+}
+
 pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
     use PresentationArg::{Matrix as M, Scalar as S};
     let mut class = (5, 0, matrix.kind_name());
@@ -230,7 +239,8 @@ pub(crate) fn undefined_ordinal(name: &str) -> u32 {
     }
 }
 
-fn class_key(e: &Expr) -> Key {
+pub fn class_key(e: &Expr) -> Key {
+    if let Kind::Func(Func::MatrixProxy(matrix),_)=e.kind(){return matrix_class_key(matrix);}
     let (a, b, n): (i64, i64, String) = match e.kind() {
         Kind::Num(_) => (1, 0, "Number".into()),
         Kind::Const(c) => match c {
@@ -239,10 +249,12 @@ fn class_key(e: &Expr) -> Key {
             }
             _ => (2, 0, e.class_name().into()),
         },
-        Kind::Sym(_) | Kind::Bool(_) => (2, 0, e.class_name().into()),
+        Kind::Sym(_) => (2, 0, e.class_name().into()),
+        Kind::Bool(_) => (5, 0, e.class_name().into()),
         Kind::Pow(..) => (3, 2, "Pow".into()),
         Kind::Mul(..) => (3, 0, "Mul".into()),
         Kind::Add(..) => (3, 1, "Add".into()),
+        Kind::Func(f @ (Func::MatrixElement(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..)),_)=>(5,0,f.name().into()),
         Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         Kind::Func(f, _) => {
@@ -331,6 +343,7 @@ impl SortKeyCache {
 
     fn compute(&mut self, e: &Expr) -> Key {
     match e.kind() {
+        Kind::Bool(_)=>return composite_key((5,0,e.class_name()),vec![]),
         Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 => {
             let signature=crate::sets::lambda_signature(e).unwrap();
             return composite_key((5,0,"Lambda"),vec![self.key(&signature),self.key(&args[1])]);

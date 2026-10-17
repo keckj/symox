@@ -3,6 +3,7 @@ import pickle
 import random
 import subprocess
 import sys
+from itertools import permutations
 
 import pytest
 import sympy as sp
@@ -11,7 +12,8 @@ import symox as sx
 
 def expression(module, source):
     names = ('Add', 'Mul', 'Pow', 'Float', 'Rational', 'Integer', 'sin', 'cos',
-             'exp', 'Function', 'UnevaluatedExpr', 'Symbol', 'Dummy', 'I', 'oo', 'zoo', 'nan')
+             'exp', 'Function', 'UnevaluatedExpr', 'Symbol', 'Dummy', 'I', 'E', 'pi',
+             'EulerGamma', 'oo', 'zoo', 'nan')
     namespace = {name: getattr(module, name) for name in names}
     namespace.update(zip(('x', 'y', 'z'), module.symbols('x y z')))
     namespace['p'] = module.Symbol('p', positive=True)
@@ -89,6 +91,8 @@ def test_active_product_matches_exact_sympy_tree(source):
     'Mul(oo,0,evaluate=False)', 'Mul(x,UnevaluatedExpr(y),evaluate=False)',
     '2*Pow(zoo,1,evaluate=False)',
     '2*Pow(Mul(x,oo,evaluate=False),1,evaluate=False)',
+    'Mul(Pow(zoo,1,evaluate=False),oo)',
+    'Mul(Pow(zoo,1,evaluate=False),-oo)',
 ])
 def test_identity_and_unary_minus_keep_their_distinct_contracts(source):
     value, expected = expression(sx, source), expression(sp, source)
@@ -154,6 +158,13 @@ assert 2*raw==2
 raw=s.Mul(0,s.oo,evaluate=False)
 for _ in range(80):raw=s._core._restore_arithmetic('Mul',one,[(raw,one),(raw,one)],False)
 assert (2*raw)==s.nan
+# Multiplicities of late infinity factors stay compressed as well.
+raw=s.Pow(s.zoo,1,evaluate=False)
+for _ in range(80):raw=s._core._restore_arithmetic('Mul',one,[(raw,one),(raw,one)],False)
+late=s.Mul(s.oo,raw)
+assert late.args==(s.oo,s.zoo)
+restored=pickle.loads(pickle.dumps(late))
+assert restored.args==late.args and s.srepr(restored)==s.srepr(late)
 assert not any(name=='sympy' or name.startswith('sympy.') for name in sys.modules)
 '''
     subprocess.run([sys.executable,'-c',program], check=True, timeout=15)
@@ -179,19 +190,59 @@ def test_late_complex_infinity_values_have_the_same_evaluated_tree(source):
     assert evaluated_tree(sx.to_sympy(actual)) == evaluated_tree(expected)
 
 
-@pytest.mark.xfail(strict=True, reason='Late zoo powers still use a different nonfinite collection phase than SymPy')
 @pytest.mark.parametrize('source', LATE_COMPLEX_INFINITY_CASES)
-def test_remaining_late_complex_infinity_collection_shapes(source):
-    # The value certificate is checked separately, outside this xfail.
+def test_late_complex_infinity_collection_shapes(source):
     actual, expected = expression(sx, source), expression(sp, source)
     assert_same_tree(actual, expected)
+    for protocol in (0, pickle.HIGHEST_PROTOCOL):
+        restored = pickle.loads(pickle.dumps(actual, protocol=protocol))
+        assert_same_tree(restored, expected)
+        assert sx.srepr(restored) == sx.srepr(actual)
+    assert_same_tree(sx.from_sympy(sx.to_sympy(actual)), expected)
+
+
+@pytest.mark.parametrize('power', [
+    'Pow(zoo,1,evaluate=False)', 'Pow(zoo,2,evaluate=False)',
+    'Pow(0,-1,evaluate=False)', 'Pow(oo,1,evaluate=False)',
+])
+@pytest.mark.parametrize('infinite', ['oo', '-oo', 'zoo'])
+@pytest.mark.parametrize('extra', ['x', 'p', 'n', 'I'])
+@pytest.mark.parametrize('reverse', [False, True])
+def test_nonfinite_collection_phases_preserve_signs_and_order(power, infinite, extra, reverse):
+    factors = [power, infinite, extra]
+    if reverse:
+        factors.reverse()
+    source = f'Mul({",".join(factors)})'
+    actual, expected = expression(sx, source), expression(sp, source)
+    assert_same_tree(actual, expected)
+    assert evaluated_tree(sx.to_sympy(actual)) == evaluated_tree(expected)
+    restored = pickle.loads(pickle.dumps(actual))
+    assert_same_tree(restored, expected)
+    assert sx.srepr(restored) == sx.srepr(actual)
+
+
+@pytest.mark.parametrize('extra', [
+    'x', 'x**2', 'x*y', 'x+y', 'I', 'E', 'pi', 'EulerGamma',
+    'Dummy("d",dummy_index=79)', 'Function("f")(x)', 'sin(x)',
+])
+@pytest.mark.parametrize('coefficient', ['2', 'oo', '-oo'])
+def test_late_factors_use_basic_class_order_with_a_distinct_coefficient(extra, coefficient):
+    source = f'Mul({coefficient},Pow(zoo,1,evaluate=False),{extra})'
+    actual, expected = expression(sx, source), expression(sp, source)
+    assert_same_tree(actual, expected)
+    assert_same_tree(pickle.loads(pickle.dumps(actual)), expected)
 
 
 def test_indeterminate_zero_times_infinity_cannot_be_overwritten_by_zoo():
     # SymPy 1.14 currently returns zoo for this held collection order. The
     # explicit 0*oo factor is indeterminate and must remain NaN throughout.
-    power = sx.Pow(sx.oo, 1, evaluate=False)
-    assert sx.Mul(0, power, sx.zoo) == sx.nan
+    for zero in [sx.Integer(0), sx.Pow(0, 1, evaluate=False)]:
+        for infinite in [sx.oo, sx.Pow(sx.oo, 1, evaluate=False)]:
+            for factors in permutations([zero, infinite, sx.zoo]):
+                assert sx.Mul(*factors) == sx.nan
+    negative = sx.Symbol('n', negative=True)
+    for factors in permutations([sx.oo, negative, sx.Pow(0, 1, evaluate=False), sx.zoo]):
+        assert sx.Mul(*factors) == sx.nan
 
 
 @pytest.mark.parametrize('reverse', [False, True])

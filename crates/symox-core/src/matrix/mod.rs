@@ -32,6 +32,7 @@ pub mod ratfunc;
 pub mod symeigen;
 pub mod solvers;
 pub mod spectral;
+pub mod svd;
 pub mod functions;
 
 use std::fmt;

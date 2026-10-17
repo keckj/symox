@@ -371,7 +371,11 @@ impl ProductParts {
         match argument.kind() {
             Kind::Num(number) => self.coefficient = self.coefficient.mul(number),
             Kind::Mul(..) => self.merge(&product_parts(argument, cache)),
-            Kind::Pow(base, exponent) => self.factor(base, exponent, &BigInt::one()),
+            Kind::Pow(base, exponent) => {
+                if let Some(value) = collection_scalar_power(base, exponent) {
+                    self.absorb(&value, cache);
+                } else { self.factor(base, exponent, &BigInt::one()); }
+            }
             Kind::Const(Constant::NaN) => self.coefficient = Number::float(f64::NAN),
             Kind::Const(constant) if constant.is_infinite() => self.infinity(*constant),
             _ => {
@@ -453,7 +457,16 @@ fn mul_with_cache(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
             match argument.kind() {
                 Kind::Num(number) => coefficient = coefficient.mul(number),
                 Kind::Mul(c, fs) => { coefficient = coefficient.mul(c); factors.extend(fs.iter().cloned()); }
-                Kind::Pow(base, exponent) => factors.push((base.clone(), exponent.clone())),
+                Kind::Pow(base, exponent) => {
+                    if let Some(value) = collection_scalar_power(base, exponent) {
+                        match value.kind() {
+                            Kind::Num(number) => coefficient = coefficient.mul(number),
+                            Kind::Const(Constant::NaN) => return Expr::nan(),
+                            Kind::Const(constant) if constant.is_infinite() => infinities.push(*constant),
+                            _ => factors.push((value, Expr::one())),
+                        }
+                    } else { factors.push((base.clone(), exponent.clone())); }
+                }
                 Kind::Const(Constant::NaN) => return Expr::nan(),
                 Kind::Const(constant) if constant.is_infinite() => infinities.push(*constant),
                 _ => {
@@ -576,68 +589,50 @@ fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant], cache
             _ => {}
         }
     }
-    let inf = if complex {
-        Constant::ComplexInfinity
-    } else {
-        Constant::Infinity
+    // Finish the commutative powers before filtering their signs. A zoo
+    // exposed here is a factor, rather than an initial scalar coefficient:
+    // oo*Pow(zoo,1,False) retains (oo,zoo), while an initial zoo absorbs it.
+    // Sending the completed factors through mul again loses that phase.
+    let rest = finish_mul(Number::ONE, facs, 0, cache);
+    if rest.is_zero() || rest.is_constant(Constant::NaN) || rest.as_number().is_some_and(Number::is_nan) {
+        return Expr::nan();
+    }
+    let (number, tail) = as_coeff_mul(&rest);
+    if number.is_negative() { sign_neg = !sign_neg; }
+    let factors = if tail.is_one() { Vec::new() } else {
+        match tail.kind() {
+            Kind::Mul(_, factors) => factors.clone(),
+            _ => vec![as_base_exp(&tail)],
+        }
     };
-    let mut retained = Vec::with_capacity(facs.len());
-    for (base, exponent) in facs {
+    let mut retained = Vec::with_capacity(factors.len() + 1);
+    for (base, exponent) in factors {
         let factor = mul_factor(&base, &exponent);
-        let (zero, positive, negative, finite) = crate::assumptions::exact_queries(|| (
+        let (zero, positive, negative, real) = crate::assumptions::exact_queries(|| (
             crate::assumptions::is_zero(&factor), crate::assumptions::is_positive(&factor),
-            crate::assumptions::is_negative(&factor), crate::assumptions::is_finite(&factor),
+            crate::assumptions::is_negative(&factor), crate::assumptions::is_real(&factor),
         ));
         if zero == Some(true) { return Expr::nan(); }
         if complex {
-            if zero == Some(false) && finite == Some(true) { continue; }
+            // Infinity atoms are exactly nonzero, even where the generic
+            // assumption query conservatively leaves is_zero unknown.
+            if (zero == Some(false) && real.is_some())
+                || matches!(factor.kind(),Kind::Const(c) if c.is_infinite()) { continue; }
         } else if positive == Some(true) { continue; }
         else if negative == Some(true) { sign_neg = !sign_neg; continue; }
         retained.push((base, exponent));
     }
-    let rest = if retained.is_empty() {
-        Expr::one()
-    } else {
-        finish_mul(Number::ONE, retained, 0, cache)
-    };
-    if rest.is_one() {
-        return Expr::constant(match (inf, sign_neg) {
-            (Constant::Infinity, true) => Constant::NegInfinity,
-            (c, _) => c,
-        });
-    }
-    if rest.is_zero() || rest.is_constant(Constant::NaN) || rest.as_number().is_some_and(Number::is_nan) {
-        return Expr::nan();
-    }
-    if let Kind::Const(constant) = rest.kind() {
-        if constant.is_infinite() {
-            if complex || *constant == Constant::ComplexInfinity { return Expr::zoo(); }
-            return Expr::constant(if sign_neg ^ (*constant == Constant::NegInfinity) {
-                Constant::NegInfinity
-            } else { Constant::Infinity });
-        }
-    }
-    let c = if sign_neg && !complex {
-        Number::MINUS_ONE
-    } else {
-        Number::ONE
-    };
-    let (rc, rest) = as_coeff_mul(&rest);
-    let mut sign = c;
-    if rc.is_negative() && !complex {
-        sign = sign.neg();
-    }
-    let mut fs = match rest.kind() {
-        Kind::Mul(_, fs) => fs.clone(),
-        _ => {
-            let (b, e) = as_base_exp(&rest);
-            vec![(b, e)]
-        }
-    };
-    let constant = if sign.is_negative() && !complex { Constant::NegInfinity } else { inf };
-    fs.push((Expr::constant(constant), Expr::one()));
-    fs.sort_unstable_by(cmp_factor);
-    Expr::from_kind(Kind::Mul(Number::ONE, fs))
+    let constant = if complex { Constant::ComplexInfinity }
+        else if sign_neg { Constant::NegInfinity } else { Constant::Infinity };
+    if retained.is_empty() { return Expr::constant(constant); }
+    // The scalar coefficient has its own slot. Only the remaining public
+    // factors use Basic.compare, including late zoo and nested held nodes.
+    retained.sort_by(|(a,x),(b,y)| crate::traverse::args_cmp(&mul_factor(a,x),&mul_factor(b,y)));
+    retained.insert(0, (Expr::constant(constant), Expr::one()));
+    let held = retained.iter().any(|(base, exponent)| exponent.is_one()
+        && (base.is_mul() || base.is_constant(Constant::ComplexInfinity)));
+    let kind = Kind::Mul(Number::ONE, retained);
+    if held { Expr::from_unevaluated_kind(kind) } else { Expr::from_kind(kind) }
 }
 
 /// Canonical order of `Mul` factors: by base, then by exponent.
@@ -655,6 +650,15 @@ fn exceptional_scalar_power(base: &Expr, exponent: &Expr) -> Option<Expr> {
         || base.as_number().is_some_and(|number| number.is_zero()
             || matches!(number, Number::Float(value) if !value.is_finite()));
     exceptional.then(|| pow(base, exponent))
+}
+
+/// Numeric-base exceptional powers contribute to the coefficient during
+/// collection. ComplexInfinity is not a SymPy Number, so its held powers are
+/// deliberately evaluated later, with the other commutative powers.
+fn collection_scalar_power(base: &Expr, exponent: &Expr) -> Option<Expr> {
+    if base.is_constant(Constant::ComplexInfinity) || !exponent.is_rational_number() { return None; }
+    let value = exceptional_scalar_power(base, exponent)?;
+    if value.is_pow() { None } else { Some(value) }
 }
 
 fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache: &mut ProductMemo) -> Expr {
@@ -911,6 +915,9 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
     // complete. Keep their presentation metadata honest for interop/pickling.
     let held = out.iter().any(|(base, exponent)| exponent.is_one()
         && (base.is_mul() || base.is_constant(Constant::ComplexInfinity)));
+    if held {
+        out.sort_by(|(a,x),(b,y)| crate::traverse::args_cmp(&mul_factor(a,x),&mul_factor(b,y)));
+    }
     let kind = Kind::Mul(coeff, out);
     if held { Expr::from_unevaluated_kind(kind) } else { Expr::from_kind(kind) }
 }
@@ -1579,6 +1586,33 @@ mod active_product_tests {
         assert_eq!(mul(&[power(Expr::oo(),0),power(Expr::oo(),0)]),Expr::one());
         assert_eq!(mul2(&Expr::zero(),&power(Expr::int(2),1_000_000_000)),Expr::zero());
         assert_eq!(mul(&[power(Expr::zero(),1),power(Expr::int(2),1_000_000_000)]),Expr::zero());
+    }
+    #[test]
+    fn nonfinite_collection_distinguishes_coefficients_from_late_factors() {
+        let power=|base:Expr,n:i64|Expr::from_unevaluated_kind(Kind::Pow(base,Expr::int(n)));
+        let late=power(Expr::zoo(),1);
+        for (infinity,negative) in [(Expr::oo(),false),(Expr::neg_oo(),true)] {
+            for reversed in [false,true] {
+                let args=if reversed {vec![infinity.clone(),late.clone()]} else {vec![late.clone(),infinity.clone()]};
+                let result=mul(&args);
+                assert!(!result.is_canonical());
+                let Kind::Mul(coefficient,factors)=result.kind() else {panic!("late zoo must remain a factor")};
+                assert!(coefficient.is_one());
+                assert_eq!(factors.len(),2);
+                assert!(factors.contains(&(if negative {Expr::neg_oo()} else {Expr::oo()},Expr::one())));
+                assert!(factors.contains(&(Expr::zoo(),Expr::one())));
+            }
+        }
+        let x=p("x");
+        assert_eq!(mul(&[Expr::zoo(),late.clone(),x.clone()]),p("zoo*x"));
+        assert_eq!(mul(&[power(Expr::zero(),-1),Expr::oo(),x]),p("zoo*x"));
+        assert_eq!(mul(&[Expr::zoo(),late,Expr::i()]),Expr::zoo());
+        // Do not reproduce SymPy's order-sensitive zoo-overwrites-zero bug.
+        for reversed in [false,true] {
+            let mut args=vec![Expr::zero(),power(Expr::oo(),1),Expr::zoo()];
+            if reversed {args.reverse();}
+            assert_eq!(mul(&args),Expr::nan());
+        }
     }
     #[test]
     fn shared_active_product_dag_is_compressed_and_memoized() {

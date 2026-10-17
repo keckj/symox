@@ -1344,6 +1344,22 @@ impl PyExpr {
         PyTuple::new(py, [wrap(b), wrap(x)])
     }
 
+    fn class_key(&self,py:Python<'_>)->PyResult<PyObject>{
+        presentation_key_object(py,&symox::sortkey::class_key(&self.e))
+    }
+
+    #[pyo3(signature=(order=None))]
+    fn sort_key(&self,py:Python<'_>,order:Option<&str>)->PyResult<PyObject>{
+        validate_sort_order(order)?;
+        presentation_key_object(py,&symox::sortkey::sort_key(&self.e))
+    }
+
+    #[pyo3(signature=(rational=false))]
+    fn as_coeff_Add<'py>(&self,py:Python<'py>,rational:bool)->PyResult<Bound<'py,PyTuple>>{
+        let(coefficient,tail)=symox::decompose::as_coeff_add_head(&self.e,rational);
+        PyTuple::new(py,[wrap(coefficient),wrap(tail)])
+    }
+
     fn as_powers_dict(&self,py:Python<'_>)->PyResult<PyObject>{
         let result=if self.e.is_constant(Constant::NegInfinity){PyDict::new(py).into_any()}
         else{py.import("collections")?.getattr("defaultdict")?.call1((py.get_type::<pyo3::types::PyInt>(),))?};
@@ -1461,11 +1477,6 @@ impl PyExpr {
 
     fn as_ordered_factors(&self) -> Vec<PyExpr> {
         symox::sortkey::ordered_factors(&self.e).into_iter().map(wrap).collect()
-    }
-
-    fn as_coeff_Add<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        let (c, r) = ops::as_coeff_add(&self.e);
-        PyTuple::new(py, [wrap(Expr::num(c)), wrap(r)])
     }
 
     fn as_ordered_terms(&self) -> Vec<PyExpr> {
@@ -1752,9 +1763,14 @@ fn _restore_logic(name: &str, children: Vec<PyExpr>) -> PyResult<PyExpr> {
     Ok(wrap(Expr::from_kind(Kind::Func(Func::Logic(op), children.into_iter().map(|child| child.e).collect()))))
 }
 
-#[pyfunction]
-#[pyo3(name = "_default_sort_key")]
-fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub(crate) fn validate_sort_order(order:Option<&str>)->PyResult<()>{
+    if order.is_some_and(|order|order!="lex"){
+        return Err(PyNotImplementedError::new_err("Sort keys currently support the default lexicographic order only"));
+    }
+    Ok(())
+}
+
+pub(crate) fn presentation_key_object(py:Python<'_>,key:&symox::sortkey::Key)->PyResult<PyObject>{
     fn convert(py: Python<'_>, key: &symox::sortkey::Key, tuples: &mut Option<FxHashMap<usize, PyObject>>) -> PyResult<PyObject> {
         use symox::sortkey::Key;
         Ok(match key {
@@ -1774,10 +1790,16 @@ fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObj
             },
         })
     }
+    let mut tuples = Some(FxHashMap::default());
+    convert(py,key,&mut tuples)
+}
+
+#[pyfunction]
+#[pyo3(name = "_default_sort_key")]
+fn py_default_sort_key(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     let expression = to_expr(obj)?;
     let key = symox::sortkey::sort_key(&expression);
-    let mut tuples = Some(FxHashMap::default());
-    convert(py, &key, &mut tuples)
+    presentation_key_object(py, &key)
 }
 
 #[pyfunction]

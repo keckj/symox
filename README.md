@@ -124,9 +124,15 @@ exponents. Power dictionaries retain distinct dummy variables, including held
 factors whose exponents cancel to zero. Leading coefficient extraction preserves
 raw product tails. Negation preserves the factor order of held products, and
 held sums are reclassified before regrouping.
+`as_coeff_Add(rational=...)` preserves the leading coefficient and raw sum tail.
+Scalar and matrix expressions expose `class_key()` and `sort_key()`; sort keys
+retain shared children and support the default lexicographic order. Other named
+orders are rejected explicitly.
 Multiplication normalizes active held-product spines with a shared-node memo,
 collecting numerical coefficients and classifying infinities before zero
 shortcuts. Powers and function arguments retain their evaluation boundaries.
+Early numeric exceptional powers and late complex infinity follow separate
+collection phases, preserving held argument trees and coefficient roles.
 `.is_number` classifies the held expression independently of finite evaluation:
 infinities and NaN are numbers, while undefined functions and held matrix
 contractions are not. Integral and Sum use their scoped free variables.
@@ -176,9 +182,8 @@ equivalence. Known differences and remaining gaps:
 
 * Some antiderivatives use a different branch constant from SymPy (for example
   `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
-* Products exposing `zoo` from held powers can have different public argument
-  trees during late coefficient collection; their evaluated values agree in
-  the regression cases.
+* The relative presentation order of symbols carrying different assumptions
+  can differ from SymPy's order based on its full inferred assumption set.
 
 Absolute-value derivatives respect real and imaginary assumptions. For an
 unconstrained complex argument, derivatives of the real and imaginary parts
@@ -332,6 +337,8 @@ input shape. Lists and tuples retain their structure; symbolic matrices and
 NumPy arrays become tensors with batch dimensions followed by expression
 dimensions. Boolean outputs retain boolean dtype, and complex values remain
 complex. Existing input tensors stay connected to autograd.
+Constant complex scalar and matrix outputs also support CUDA Inductor with
+`fullgraph=True`, including functions without inputs.
 
 `torchcode_function("my_function", (x, y), expression)` returns a complete
 Python module that needs only PyTorch at runtime. Generated callables expose
@@ -643,6 +650,12 @@ factor avoids SymPy 1.14's repeated-unit reconstruction bug. These checked
 operations bound input and intermediate degrees, coefficient sizes, storage and
 work, including finite-field splitting, Hensel lifting and algebraic norm
 shifts. Unsupported domains or exhausted limits raise explicit errors.
+`gff_list` and `Poly.gff_list()` compute monic greatest factorial factorizations
+over supported characteristic-zero univariate domains. A pair `(h, k)` represents
+`h(x)*h(x-1)*...*h(x-k+1)`; the product reconstructs the input divided by its
+leading coefficient. Exact reconstruction, maximality and preservation of the
+original typed domain are checked within the same resource budget. Zero inputs,
+finite fields and multivariate inputs are rejected explicitly.
 Norms use the monic defining polynomial, so they equal the determinant of
 multiplication over `QQ`. SymPy's `Poly.norm()` can differ by a rational factor
 when its integral defining polynomial is not monic.
@@ -834,6 +847,13 @@ exact spectral projectors for supported Hermitian eigenproblems.
 `condition_number`, `jordan_form` and `jordan_cells` are available for supported
 exact eigenproblems. QR solves require full column rank. Methods requiring a
 property that cannot be established symbolically raise an explicit error.
+`singular_value_decomposition()` returns a condensed exact `(U, S, V)` with
+`A = U*S*V.H` and orthonormal columns. The native implementation certifies the
+spectral equations and reconstruction, handles rectangular, complex and
+rank-deficient inputs, and preserves matrix mutability. It bounds intermediate
+work and rejects floating-point inputs or undecidable rank and spectra rather
+than using a numerical fallback. The resulting expressions feed all scalar
+code-generation targets, including batched PyTorch and JAX execution.
 
 ```python
 from symox import Matrix, ImmutableMatrix, symbols
@@ -859,6 +879,10 @@ stored entries.
 `nnz`, `todok`, NumPy/SymPy conversion and pickling are supported. Advanced
 factorizations and negative powers explicitly convert to the native dense
 algorithms; they are not sparse numerical factorization routines.
+The dense delegation also covers `exp`, `analytic_func` and
+`singular_value_decomposition`, converting matrix results back to sparse
+storage with their mutability preserved. These three methods reject oversized
+sparse shapes before allocating a dense input.
 
 This API does not cover every SymPy matrix method. Eigenproblems beyond the
 supported exact algebraic cases, custom zero/simplification callbacks and

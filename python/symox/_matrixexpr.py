@@ -6,6 +6,12 @@ class _MatrixType(type):
     def __instancecheck__(cls, value):
         return isinstance(value, _core._MatrixExpr) and (cls._kinds is None or value.kind in cls._kinds)
 
+    def class_key(cls):
+        name = cls.__name__
+        if name in ('MatMul', 'MatAdd'):
+            return (3, ('MatMul', 'MatAdd').index(name), name)
+        return (5, 0, name)
+
 
 class MatrixExpr(metaclass=_MatrixType):
     _kinds = None

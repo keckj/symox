@@ -455,9 +455,14 @@ class _SparseBase:
         return cls.hstack(*(m.T if isinstance(m,_SparseBase) else cls(m).T for m in matrices)).T
 
     _dense_methods = frozenset('det inv inverse_GE inverse_LU inverse_ADJ inverse_CH inverse_LDL inverse_QR adjugate minor minor_submatrix cofactor cofactor_matrix rank rref echelon_form nullspace columnspace rowspace rank_decomposition LUdecomposition LUsolve solve gauss_jordan_solve pinv pinv_solve lower_triangular_solve upper_triangular_solve diagonal_solve QRsolve cholesky_solve LDLsolve solve_least_squares charpoly eigenvals eigenvects jacobian norm cholesky LDLdecomposition QRdecomposition diagonalize is_diagonalizable singular_values condition_number jordan_form jordan_cells vec dot cross normalized evalf'.split())
+    _bounded_dense_functions = frozenset(('exp', 'analytic_func', 'singular_value_decomposition'))
     def __getattr__(self, name):
-        if name not in self._dense_methods: raise AttributeError(name)
+        if name not in self._dense_methods and name not in self._bounded_dense_functions:
+            raise AttributeError(name)
         def method(*args,**kwargs):
+            if name in self._bounded_dense_functions and (
+                    self.rows*self.cols > 100_000 or self.rows+self.cols > 200_000):
+                raise NotImplementedError('Exact matrix function resource limit exceeded before sparse densification')
             result = getattr(self.as_dense(),name)(*args,**kwargs)
             def convert(value):
                 if isinstance(value, Matrix): return self._new(value.rows,value.cols,_entries(value),value)

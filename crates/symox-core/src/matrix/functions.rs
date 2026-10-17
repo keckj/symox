@@ -8,7 +8,7 @@ use crate::expr::{Constant,Expr,Func,Kind};
 use crate::number::Number;
 use crate::ops::mul2;
 #[path="function_budget.rs"]
-mod budget;
+pub(in crate::matrix) mod budget;
 use budget::Budget;
 
 fn finite(e:&Expr,seen:&mut FxHashSet<usize>)->bool{

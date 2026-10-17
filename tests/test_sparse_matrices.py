@@ -17,6 +17,34 @@ def equal(actual, expected):
     assert all(sp.simplify(a-b) == 0 for a,b in zip(ref,expected))
 
 
+@pytest.mark.parametrize('constructor', [MutableSparseMatrix, ImmutableSparseMatrix])
+def test_exact_matrix_functions_and_svd_preserve_sparse_storage_and_mutability(constructor):
+    a = constructor([[1, 1], [0, 1]])
+    x = sx.Symbol('x')
+    exponential = a.exp()
+    resolvent = a.analytic_func(1/(x+2), x)
+    for result in (exponential, resolvent):
+        assert isinstance(result, constructor)
+    equal(exponential, sp.Matrix([[sp.E, sp.E], [0, sp.E]]))
+    equal(resolvent, sp.Matrix([[sp.Rational(1, 3), -sp.Rational(1, 9)], [0, sp.Rational(1, 3)]]))
+    rectangular = constructor([[1, sx.I, 2], [sx.I, 1, 0]])
+    left, diagonal, right = rectangular.singular_value_decomposition()
+    assert all(isinstance(factor, constructor) for factor in (left, diagonal, right))
+    equal(left.H*left, sp.eye(2))
+    equal(right.H*right, sp.eye(2))
+    equal(left*diagonal*right.H, rectangular.to_sympy())
+
+
+@pytest.mark.parametrize('method', ['exp', 'analytic_func', 'singular_value_decomposition'])
+def test_exact_function_limits_precede_sparse_densification(method, monkeypatch):
+    a = SparseMatrix(10**8, 10**8, {(0, 0): 1})
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Oversized sparse input must be rejected before densification')
+    monkeypatch.setattr(MutableSparseMatrix, 'as_dense', forbidden)
+    with pytest.raises(NotImplementedError, match='before sparse densification'):
+        getattr(a, method)()
+
+
 @pytest.mark.parametrize('args', [
     (), ([[1,0],[0,2]],), ([1,0,2],), ([[1],[0,2]],),
     (2,3,{(0,1):2,(1,2):3}),
