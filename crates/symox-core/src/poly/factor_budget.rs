@@ -197,6 +197,36 @@ pub(crate) fn fused(sum: &Int, a: &Int, b: &Int, subtract: bool) {
     );
     charge(1 + sum.bits().max(product) / 64);
 }
+/// A transferable allowance for native stages separated by Python coercion or
+/// rendering. Only pure Rust closures run with cancellation active: a callback
+/// or finalizer cannot carry the private unwind payload through PyO3.
+pub struct Session {
+    state: State,
+}
+impl Session {
+    pub fn new(limits: Limits) -> Self {
+        Self {
+            state: State {
+                limits,
+                work: limits.work,
+                attempts: limits.attempts,
+            },
+        }
+    }
+    pub fn run<T>(&mut self, operation: impl FnOnce() -> PResult<T>) -> PResult<T> {
+        if active() {
+            let result = run(self.state.limits, operation);
+            self.state = STATE.with(Cell::get).expect("active factor budget");
+            return result;
+        }
+        let restore = Restore(None);
+        STATE.with(|slot| slot.set(Some(self.state)));
+        let result = run(self.state.limits, operation);
+        self.state = STATE.with(Cell::get).expect("session factor budget");
+        drop(restore);
+        result
+    }
+}
 pub fn run<T>(limits: Limits, operation: impl FnOnce() -> PResult<T>) -> PResult<T> {
     #[cfg(not(panic = "unwind"))]
     {
@@ -245,6 +275,36 @@ pub fn run<T>(limits: Limits, operation: impl FnOnce() -> PResult<T>) -> PResult
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn staged_session_shares_allowance_and_deactivates_between_native_calls() {
+        let mut session = super::Session::new(super::Limits {
+            work: 3,
+            ..Default::default()
+        });
+        session
+            .run(|| {
+                super::charge(2);
+                Ok(())
+            })
+            .unwrap();
+        assert!(!super::active());
+        // A Python callback between stages has no ambient private cancellation.
+        super::charge(u64::MAX);
+        assert!(session
+            .run(|| {
+                super::charge(2);
+                Ok(())
+            })
+            .unwrap_err()
+            .to_string()
+            .contains("resource limit"));
+        assert!(!super::active());
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            session.run::<()>(|| panic!("unexpected"))
+        }));
+        assert!(panic.is_err());
+        assert!(!super::active());
+    }
     use super::*;
     use crate::poly::{Int, MPoly};
     #[test]

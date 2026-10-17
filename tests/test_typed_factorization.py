@@ -208,8 +208,7 @@ def test_kwargs_validation(name, keyword):
 def test_frac_flag_has_an_explicit_contract(name, value):
     x = sm.Symbol('x')
     if value is True:
-        with pytest.raises(NotImplementedError, match='frac=True'):
-            getattr(sm, name)(1/(x+1), x, frac=True)
+        assert getattr(sm, name)(1/(x+1), x, frac=True) == (1, [], [(x+1, 1)])
     elif value == 2:
         with pytest.raises(sm.OptionError):
             getattr(sm, name)(x+1, x, frac=value)

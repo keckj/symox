@@ -59,3 +59,4 @@ pub mod factor_budget;
 pub mod checked_factors;
 pub mod factorial;
 pub mod factor_preflight;
+pub mod factor_fraction;

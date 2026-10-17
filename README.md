@@ -674,10 +674,29 @@ They preserve field versus coefficient-ring normalization and correctly remove
 inseparable multiplicities in finite fields. A preflight bounds expression
 expansion before construction; exact certificates check the resulting factors.
 The natural global expression form keeps its rational scalar content outside the
-polynomial factors. `frac=True` remains explicitly unsupported.
+polynomial factors. Global `factor_list(..., frac=True)` and
+`sqf_list(..., frac=True)` return `(coefficient, numerator_factors,
+denominator_factors)`, with positive multiplicities on both sides. A bounded
+DAG splitter uses structural common denominators without polynomial
+cancellation: common numerator/denominator factors remain visible. Domain
+selection preserves typed descriptors; splitting, both factorizations and their
+exact reconstruction certificates share one native work allowance. Python
+coercion and rendering run outside the native cancellation scope. A denominator
+that becomes zero after coefficient coercion raises an error; finite-field
+units are reduced in their field.
+In particular, an unreduced rational unit from a SymPy finite-field list is
+returned as its canonical field residue instead.
+In fraction mode, numerical algebraic units such as `I` and `sqrt(2)` are
+extracted outside natural expression factors. A `Poly` input remains a formal
+numerator.
+Natural fractional lists with noninteger or symbolic power multiplicities
+remain explicitly unsupported; formal polynomial generators can be carried
+by a `Poly` input.
 For already factored expressions, `sqf_list` computes multiplicities over the
 whole polynomial, so repeated factors cannot remain inside a multiplicity-one
 component.
+This also avoids SymPy 1.14's incorrect content scaling for some square-free
+lists over rational polynomial coefficient rings.
 `gff_list` and `Poly.gff_list()` compute monic greatest factorial factorizations
 over supported characteristic-zero univariate domains. A pair `(h, k)` represents
 `h(x)*h(x-1)*...*h(x-k+1)`; the product reconstructs the input divided by its
