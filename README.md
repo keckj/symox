@@ -219,6 +219,14 @@ equivalence. Known differences and remaining gaps:
 
 * Some antiderivatives use a different branch constant from SymPy (for example
   `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
+* Simplification: `trigsimp` (methods `matching` and `fu`, `inverse=True`),
+  `futrig`, `exptrigsimp`, `fu` with a custom `measure`, and the `TR0` ...
+  `TR22`, `TRmorrie`, `TRpower` rules of `sympy.simplify.fu` are native ports.
+  `trigsimp(method='groebner'|'combined')`, `trigsimp(old=True)`,
+  noncommutative arguments and `sech`/`csch` raise or are unsupported.
+  `simplify()` is still a lighter pipeline than SymPy's: it does not call
+  `exptrigsimp`, `hyperexpand`, `besselsimp` or the `fu` trigonometric
+  rules, and its keyword options raise `NotImplementedError`.
 
 Absolute-value derivatives respect real and imaginary assumptions. For an
 unconstrained complex argument, derivatives of the real and imaginary parts

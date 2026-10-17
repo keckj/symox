@@ -46,7 +46,7 @@ def test_power_exponent_expansion_preserves_explicit_factors(function,kind):
     expression=2*base+y if kind=='coefficient' else sx.sin(base) if kind=='nested' else base
     actual=oracle(function,expression)
     assert actual != expression
-    assert sx.powsimp(actual) == sx.powsimp(expression)
+    assert sx.powsimp(actual,deep=True) == sx.powsimp(expression,deep=True)
     if function=='expand':
         unchanged=sx.expand(expression,power_exp=False)
         assert unchanged == expression
@@ -76,7 +76,7 @@ def test_powsimp_deep_and_exp_mode():
     assert result == sx.sin(sx.exp(a+b))
     assert result != expression
     for options in [{'force':True},{'combine':'base'}]:
-        with pytest.raises(NotImplementedError): sx.powsimp(expression,**options)
+        oracle('powsimp',expression,**options)
     with pytest.raises(ValueError): sx.powsimp(expression,combine='invalid')
 
 

@@ -49,6 +49,7 @@ pub mod sets;
 pub mod simp;
 pub mod series;
 pub mod simplify;
+pub mod simptools;
 pub mod solve;
 pub mod special;
 pub mod sortkey;

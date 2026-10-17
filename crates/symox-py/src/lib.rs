@@ -31,6 +31,7 @@ use symox::{diff, evalf, expand, functions as fx, ops, parser, printer, relation
 mod poly;
 mod ntheory;
 mod simp;
+mod simptools;
 mod ode;
 mod solve;
 mod logic;
@@ -2539,6 +2540,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     poly::register(m)?;
     ntheory::register(m)?;
     simp::register(m)?;
+    simptools::register(m)?;
     solve::register(m)?;
     ode::register(m)?;
     logic::register(m)?;
