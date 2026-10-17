@@ -28,7 +28,7 @@ fn class_matches(e:&Expr,name:&str)->bool{
         "Integer"=>e.is_integer_number(),
         "Rational"=>e.is_rational_number(),
         "Number"=>matches!(e.kind(),Kind::Num(_))||matches!(e.class_name(),"Infinity"|"NegativeInfinity"|"NaN"),
-        "NumberSymbol"=>matches!(e.class_name(),"Pi"|"Exp1"|"EulerGamma"),
+        "NumberSymbol"=>matches!(e.kind(),Kind::Const(c) if c.is_number_symbol()),
         _=>e.class_name()==name,
     }
 }

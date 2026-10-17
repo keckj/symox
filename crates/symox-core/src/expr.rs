@@ -157,6 +157,12 @@ pub enum Constant {
     ComplexInfinity,
     /// `nan`
     NaN,
+    /// Catalan's constant `G`.
+    Catalan,
+    /// `(1 + sqrt(5))/2`
+    GoldenRatio,
+    /// Real root of `x**3 - x**2 - x - 1`.
+    TribonacciConstant,
 }
 
 impl Constant {
@@ -170,7 +176,38 @@ impl Constant {
             Constant::NegInfinity => "-oo",
             Constant::ComplexInfinity => "zoo",
             Constant::NaN => "nan",
+            Constant::Catalan => "Catalan",
+            Constant::GoldenRatio => "GoldenRatio",
+            Constant::TribonacciConstant => "TribonacciConstant",
         }
+    }
+
+    /// Double precision value of the real named constants.
+    pub fn approx_f64(self) -> Option<f64> {
+        Some(match self {
+            Constant::Pi => std::f64::consts::PI,
+            Constant::E => std::f64::consts::E,
+            Constant::EulerGamma => 0.577_215_664_901_532_9,
+            Constant::Catalan => 0.915_965_594_177_219,
+            Constant::GoldenRatio => 1.618_033_988_749_895,
+            Constant::TribonacciConstant => 1.839_286_755_214_161_1,
+            Constant::Infinity => f64::INFINITY,
+            Constant::NegInfinity => f64::NEG_INFINITY,
+            _ => return None,
+        })
+    }
+
+    /// SymPy `NumberSymbol`s: real positive named constants.
+    pub fn is_number_symbol(self) -> bool {
+        matches!(
+            self,
+            Constant::Pi
+                | Constant::E
+                | Constant::EulerGamma
+                | Constant::Catalan
+                | Constant::GoldenRatio
+                | Constant::TribonacciConstant
+        )
     }
 
     pub fn is_infinite(self) -> bool {
@@ -985,6 +1022,9 @@ impl Expr {
                 Constant::NegInfinity => "NegativeInfinity",
                 Constant::ComplexInfinity => "ComplexInfinity",
                 Constant::NaN => "NaN",
+                Constant::Catalan => "Catalan",
+                Constant::GoldenRatio => "GoldenRatio",
+                Constant::TribonacciConstant => "TribonacciConstant",
             },
             Kind::Add(..) => "Add",
             Kind::Mul(..) => "Mul",

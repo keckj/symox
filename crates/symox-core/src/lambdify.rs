@@ -163,6 +163,7 @@ impl Builder<'_> {
                 Constant::Pi => std::f64::consts::PI,
                 Constant::E => std::f64::consts::E,
                 Constant::EulerGamma => 0.577_215_664_901_532_9,
+                Constant::Catalan | Constant::GoldenRatio | Constant::TribonacciConstant => c.approx_f64().unwrap(),
                 Constant::Infinity => f64::INFINITY,
                 Constant::NegInfinity => f64::NEG_INFINITY,
                 Constant::NaN | Constant::ComplexInfinity => f64::NAN,

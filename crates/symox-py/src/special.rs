@@ -49,6 +49,13 @@ fn expand_func(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
     Ok(wrap(sp::expand_func(&to_expr(e)?)))
 }
 
+/// Native engine behind `Expr.rewrite(*patterns, rule, deep=True)`.
+#[pyfunction]
+#[pyo3(signature = (e, patterns, rule, deep=true))]
+fn _rewrite(e: &Bound<'_, PyAny>, patterns: Vec<String>, rule: &str, deep: bool) -> PyResult<PyExpr> {
+    Ok(wrap(sp::rewrite::rewrite(&to_expr(e)?, &patterns, rule, deep)))
+}
+
 #[pyfunction]
 fn besselsimp(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
     Ok(wrap(sp::besselsimp(&to_expr(e)?)))
@@ -124,6 +131,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(stirling, m)?)?;
     m.add_function(wrap_pyfunction!(multinomial_coefficients, m)?)?;
     m.add_function(wrap_pyfunction!(expand_func, m)?)?;
+    m.add_function(wrap_pyfunction!(_rewrite, m)?)?;
     m.add_function(wrap_pyfunction!(besselsimp, m)?)?;
     m.add_function(wrap_pyfunction!(hyperexpand, m)?)?;
     m.add_function(wrap_pyfunction!(nstr, m)?)?;

@@ -581,7 +581,7 @@ fn numeric_coefficient(e:&Expr)->Option<Complex64>{
 }
 
 fn is_number_symbol(e: &Expr) -> bool {
-    matches!(e.kind(), Kind::Const(Constant::Pi | Constant::E | Constant::EulerGamma))
+    matches!(e.kind(), Kind::Const(c) if c.is_number_symbol())
 }
 
 /// Compare expressions using SymPy default ordering.

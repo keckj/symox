@@ -81,8 +81,59 @@ pub fn summation(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Expr {
     try_summation(f, k, a, b).unwrap_or_else(|| sum_unevaluated(f, k, a, b))
 }
 
+/// SymPy's `piecewise._canonical_coeff`: `-2*x + 1 < 0` becomes `x > 1/2`.
+fn canonical_coeff(r: &Expr) -> Expr {
+    use crate::decompose::{as_coeff_add_head, as_coeff_mul_head};
+    let r = crate::logic::canonical(r);
+    let Kind::Rel(op, lhs, rhs) = r.kind() else { return r };
+    if matches!(rhs.kind(), Kind::Bool(_)) {
+        return r.clone();
+    }
+    let (b, l) = as_coeff_add_head(lhs, true);
+    let (m, l) = as_coeff_mul_head(&l, true);
+    let rhs = div(&sub(rhs, &b), &m);
+    let op = if m.as_number().is_some_and(Number::is_negative) { crate::logic::reversed_op(*op) } else { *op };
+    crate::relational::rel(op, &l, &rhs)
+}
+
+/// Sum of `f*KroneckerDelta(u, v)` where `u - v` is linear in `k` (SymPy's
+/// `deltasummation`): the delta selects the single index solving `u == v`.
+fn delta_sum(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    use crate::special::SpecialFn;
+    let is_delta = |x: &Expr| {
+        matches!(x.kind(), Kind::Func(Func::Special(SpecialFn::KroneckerDelta), args) if args.len() == 2 && has(x, k))
+    };
+    let factors = match f.kind() {
+        Kind::Mul(..) => f.args(),
+        _ => vec![f.clone()],
+    };
+    let delta = factors.iter().find(|x| is_delta(x))?.clone();
+    let args = delta.args();
+    let d = sub(&args[0], &args[1]);
+    let c = diff(&d, k);
+    if has(&c, k) || c.is_zero() {
+        return None;
+    }
+    let r = expand(&sub(&d, &mul2(&c, k)));
+    if has(&r, k) {
+        return None;
+    }
+    let value = div(&neg(&r), &c);
+    let mut rest = factors;
+    let position = rest.iter().position(|x| *x == delta)?;
+    rest.remove(position);
+    let term = subs1(&mul(&rest), k, &value);
+    // Interval(a, b).as_relational(value), as SymPy builds it
+    let right = if b.is_constant(Constant::Infinity) { lt(&value, b) } else { crate::relational::le(&value, b) };
+    let cond = crate::logic::and(vec![canonical_coeff(&crate::relational::le(a, &value)), canonical_coeff(&right)]);
+    Some(piecewise(vec![(term, cond), (Expr::zero(), Expr::boolean(true))]))
+}
+
 pub fn try_summation(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     if matches!(a.kind(),Kind::Const(c) if c.is_infinite()) || b.is_constant(Constant::NegInfinity) {return None;}
+    if let Some(value) = delta_sum(f, k, a, b) {
+        return Some(value);
+    }
     if b.is_constant(Constant::Infinity) {
         return infinite_sum(f, k, a);
     }

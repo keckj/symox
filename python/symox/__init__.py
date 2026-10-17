@@ -230,6 +230,45 @@ for _n in _SPECIAL:
 rf = RisingFactorial  # noqa: F821
 ff = FallingFactorial  # noqa: F821
 
+# --- elementary completion ---
+# Native heads (symox::special::elementary). Mod/Rem raise ZeroDivisionError
+# for a zero divisor like SymPy.
+_ELEMENTARY = [
+    "Mod", "Rem", "sech", "csch", "asec", "acsc", "asech", "acsch", "acoth",
+    "sinc", "frac", "KroneckerDelta", "LeviCivita",
+]
+for _n in _ELEMENTARY:
+    globals()[_n] = _make(_n)
+Eijk = LeviCivita  # noqa: F821
+Catalan = _core.constant("Catalan")
+GoldenRatio = _core.constant("GoldenRatio")
+TribonacciConstant = _core.constant("TribonacciConstant")
+
+
+def _neg_base_odd_root(e):
+    # SymPy's real_root Transform: -(-b)**(1/q) for b < 0 and odd q (top-down)
+    if (e.is_Pow and e.base.is_negative and e.exp.is_Rational
+            and e.exp.p == 1 and e.exp.q % 2):
+        return -(-e.base)**e.exp
+    if not e.args or not isinstance(e, _core.Expr):
+        return e
+    args = [_neg_base_odd_root(a) for a in e.args]
+    if all(a is b or a == b for a, b in zip(args, e.args)):
+        return e
+    return e.func(*args)
+
+
+def real_root(arg, n=None, evaluate=None):
+    """Real root of ``arg``: ``real_root(-8, 3) == -2`` (SymPy semantics)."""
+    if n is not None:
+        arg, n = sympify(arg), sympify(n)  # noqa: F821
+        return Piecewise(  # noqa: F821
+            (root(arg, n), Or(Eq(n, 1), Eq(n, -1))),  # noqa: F821
+            (sign(arg)*root(Abs(arg), n), And(Eq(im(arg), 0), Eq(Mod(n, 2), 1))),  # noqa: F821
+            (root(arg, n), True))  # noqa: F821
+    return _neg_base_odd_root(sympify(arg))  # noqa: F821
+# --- end elementary completion ---
+
 
 def _tuple(items):
     return _core._apply("Tuple", *items)
@@ -1528,6 +1567,11 @@ from ._compat import (  # noqa: E402
     Add, Mul, Pow, Symbol, Dummy, Number, NumberSymbol, Integer, Rational, Float, Tuple, UnevaluatedExpr,
     S, count_ops, default_sort_key,
 )
+from ._compat import (  # noqa: E402
+    Atom, AtomicExpr, Relational, Rel, Equality, Unequality, GreaterThan, LessThan,
+    StrictGreaterThan, StrictLessThan,
+)
+Id = S.IdentityFunction
 from .codegen.ast import Indexed, IndexedBase  # noqa: E402
 from .printing.str import StrPrinter  # noqa: E402
 from .printing.pretty import PrettyPrinter  # noqa: E402
@@ -1620,5 +1664,29 @@ from ._matrixexpr import (  # noqa: E402
 from .assumptions import (Q, Predicate, AppliedPredicate, AssumptionsContext,
                           global_assumptions, assuming, ask, refine)
 Expr.refine = lambda self, assumptions=True: refine(self, assumptions)
+
+
+def _rewrite_name(r):
+    # SymPy dispatches on `_eval_rewrite_as_<name>`; `abs` means `Abs`.
+    if r is abs:
+        return "Abs"
+    if isinstance(r, str):
+        return r
+    n = getattr(r, "__name__", None)
+    return n if n is not None else type(r).__name__
+
+
+def _expr_rewrite(self, *args, deep=True, **hints):
+    """Rewrite in terms of ``args[-1]``, restricted to instances of
+    ``args[:-1]`` when given (SymPy's ``Basic.rewrite``)."""
+    if not args:
+        return self
+    pattern, rule = args[:-1], args[-1]
+    if pattern and isinstance(pattern[0], (list, tuple, set, frozenset)):
+        pattern = tuple(pattern[0])
+    return _core._rewrite(self, [_rewrite_name(p) for p in pattern], _rewrite_name(rule), deep)
+
+
+Expr.rewrite = _expr_rewrite
 
 __all__ = [n for n in dir() if not n.startswith("_")]

@@ -212,6 +212,9 @@ impl<'a> TorchPrinter<'a> {
                 Constant::E => "2.718281828459045".into(),
                 Constant::I => "1j".into(),
                 Constant::EulerGamma => "0.5772156649015329".into(),
+                Constant::Catalan | Constant::GoldenRatio | Constant::TribonacciConstant => {
+                    format!("{:?}", constant.approx_f64().unwrap())
+                }
                 Constant::Infinity => "float('inf')".into(),
                 Constant::NegInfinity => "-float('inf')".into(),
                 Constant::NaN => "float('nan')".into(),

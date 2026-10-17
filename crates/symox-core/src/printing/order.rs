@@ -129,6 +129,9 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
             Constant::E => (2, 0, Cow::Borrowed("Exp1")),
             Constant::I => (2, 0, Cow::Borrowed("ImaginaryUnit")),
             Constant::EulerGamma => (2, 0, Cow::Borrowed("EulerGamma")),
+            Constant::Catalan => (2, 0, Cow::Borrowed("Catalan")),
+            Constant::GoldenRatio => (2, 0, Cow::Borrowed("GoldenRatio")),
+            Constant::TribonacciConstant => (2, 0, Cow::Borrowed("TribonacciConstant")),
             Constant::ComplexInfinity => (2, 0, Cow::Borrowed("ComplexInfinity")),
         },
         Kind::Sym(_) => (2, 0, Cow::Owned(e.class_name().into())),
@@ -340,6 +343,9 @@ fn atom_class(e: &Expr) -> Option<(u8, &'static str, &str)> {
         Kind::Const(Constant::E) => Some((2, "Exp1", "E")),
         Kind::Const(Constant::I) => Some((2, "ImaginaryUnit", "I")),
         Kind::Const(Constant::EulerGamma) => Some((2, "EulerGamma", "EulerGamma")),
+        Kind::Const(Constant::Catalan) => Some((2, "Catalan", "Catalan")),
+        Kind::Const(Constant::GoldenRatio) => Some((2, "GoldenRatio", "GoldenRatio")),
+        Kind::Const(Constant::TribonacciConstant) => Some((2, "TribonacciConstant", "TribonacciConstant")),
         _ => None,
     }
 }
@@ -497,7 +503,7 @@ fn decompose_power(f: &Expr) -> (Expr, i64) {
 
 fn is_number_like(e: &Expr) -> bool {
     matches!(e.kind(), Kind::Num(_))
-        || matches!(e.kind(), Kind::Const(c) if matches!(c, Constant::Pi | Constant::E | Constant::EulerGamma))
+        || matches!(e.kind(), Kind::Const(c) if c.is_number_symbol())
 }
 
 /// Lexicographic comparison of two sparse monomials (sorted by generator

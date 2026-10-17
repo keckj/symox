@@ -46,6 +46,9 @@ pub fn eval(s: SpecialFn, args: &[Expr], prec: u32) -> Option<MpComplex> {
             let phi = div(&add2(&one, &sqrt(&Expr::int(5))), &Expr::int(2));
             add2(&pow(&phi, x), &mul2(&cos(&mul2(&Expr::pi(), x)), &pow(&phi, &neg(x))))
         }
+        SpecialFn::Mod | SpecialFn::Rem | SpecialFn::Sech | SpecialFn::Csch | SpecialFn::Asec | SpecialFn::Acsc
+        | SpecialFn::Asech | SpecialFn::Acsch | SpecialFn::Acoth | SpecialFn::Sinc | SpecialFn::Frac
+        | SpecialFn::KroneckerDelta => super::elementary::mp_rewrite(s, args, prec)?,
         _ => return None,
     };
     ev(&expr, prec)

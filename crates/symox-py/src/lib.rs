@@ -795,6 +795,26 @@ impl PyExpr {
     fn __rtruediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(wrap(ops::div(&scalar_expr(o)?, &self.e)))
     }
+    fn __mod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        Ok(wrap(checked_mod("Mod", &self.e, &scalar_expr(o)?)?))
+    }
+    fn __rmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        Ok(wrap(checked_mod("Mod", &scalar_expr(o)?, &self.e)?))
+    }
+    fn __floordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        floor_div(&self.e, &scalar_expr(o)?).map(wrap)
+    }
+    fn __rfloordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        floor_div(&scalar_expr(o)?, &self.e).map(wrap)
+    }
+    fn __divmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<(PyExpr, PyExpr)> {
+        let q = scalar_expr(o)?;
+        Ok((wrap(floor_div(&self.e, &q)?), wrap(checked_mod("Mod", &self.e, &q)?)))
+    }
+    fn __rdivmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<(PyExpr, PyExpr)> {
+        let p = scalar_expr(o)?;
+        Ok((wrap(floor_div(&p, &self.e)?), wrap(checked_mod("Mod", &p, &self.e)?)))
+    }
     fn __pow__(&self, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
         if m.is_some_and(|m| !m.is_none()) {
             return Err(PyTypeError::new_err("modular pow is not supported"));
@@ -2273,6 +2293,25 @@ fn py_log(x: &Bound<'_, PyAny>, base: Option<&Bound<'_, PyAny>>) -> PyResult<PyE
     }))
 }
 
+/// `Mod(p, q)` / `Rem(p, q)` raising SymPy's `ZeroDivisionError` for a zero
+/// divisor (the native constructor leaves such nodes unevaluated).
+fn checked_mod(name: &str, p: &Expr, q: &Expr) -> PyResult<Expr> {
+    if symox::assumptions::is_zero(q) == Some(true) {
+        let msg = if name == "Mod" { "Modulo by zero" } else { "Division by zero" };
+        return Err(PyZeroDivisionError::new_err(msg));
+    }
+    let f = if name == "Mod" { symox::special::modulo } else { symox::special::rem };
+    Ok(f(p, q))
+}
+
+/// `floor(p/q)`; a zero numeric divisor of a number raises like SymPy.
+fn floor_div(p: &Expr, q: &Expr) -> PyResult<Expr> {
+    if p.is_number() && q.is_zero() {
+        return Err(PyZeroDivisionError::new_err("integer division or modulo by zero"));
+    }
+    Ok(fx::floor(&ops::div(p, q)))
+}
+
 /// Apply a known function by name (used by the Python layer).
 #[pyfunction]
 #[pyo3(name = "_apply", signature = (name, *args))]
@@ -2288,6 +2327,9 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
         return calculus::_calculus(name,&args.get_item(0)?,&limits);
     }
     let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
+    if (name == "Mod" || name == "Rem") && v.len() == 2 {
+        return checked_mod(name, &v[0], &v[1]).map(wrap);
+    }
     match Func::from_name(name) {
         Some(f) => {
             if let Func::Special(s) = &f {
@@ -2353,6 +2395,9 @@ fn py_constant(name: &str) -> PyResult<PyExpr> {
         "zoo" => Expr::zoo(),
         "nan" => Expr::nan(),
         "EulerGamma" => Expr::constant(Constant::EulerGamma),
+        "Catalan" => Expr::constant(Constant::Catalan),
+        "GoldenRatio" => Expr::constant(Constant::GoldenRatio),
+        "TribonacciConstant" => Expr::constant(Constant::TribonacciConstant),
         "true" => Expr::boolean(true),
         "false" => Expr::boolean(false),
         _ => return Err(PyValueError::new_err(format!("unknown constant {name}"))),

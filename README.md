@@ -227,6 +227,39 @@ NumPy code generation preserves complex-sign semantics on NumPy 1.x and 2.x,
 including zero, infinities and NaN. NumPy 2 uses its native fast path; older
 versions use a standalone compatibility expression.
 
+`Mod` (with SymPy's full canonicalisation, `%`, `//` and `divmod`), `Rem`,
+`sech`, `csch`, `asec`, `acsc`, `asech`, `acsch`, `acoth`, `sinc`, `frac`,
+`KroneckerDelta`, `LeviCivita` (`Eijk`) and the constants `Catalan`,
+`GoldenRatio` and `TribonacciConstant` are native heads with automatic
+evaluation, derivatives, double and multiprecision evalf, assumptions, all
+printers, parsing, SymPy conversion, pickling and code generation; C code
+uses `fmod` for symbolic `Mod` like SymPy. Sums over a `KroneckerDelta`
+linear in the index collapse to a `Piecewise`. `real_root`, `Id`, `Atom`,
+`AtomicExpr` and the relational classes (`Relational`/`Rel`, `Equality`,
+`Unequality`, `GreaterThan`, `LessThan`, `StrictGreaterThan`,
+`StrictLessThan`) are available for `isinstance` checks and construction;
+the function heads themselves are callables, not classes. `frac(oo)` stays
+unevaluated because `AccumBounds` is not implemented, and `Dict`,
+`FunctionClass` and `WildFunction` are not provided.
+
+The trigonometric, hyperbolic and inverse functions, `atan2`, `exp`, `log`
+(including `log(x, b)`), `LambertW` and `sinc` evaluate at special values
+like SymPy (`cos(pi/5)`, `tan(5*pi/12)`, `asin(sqrt(2)/2)`, `log(8, 2)`,
+`exp(7*I*pi/3)`, ...). `Expr.rewrite(*patterns, rule, deep=True)` is native
+and follows SymPy's `Basic.rewrite`: the trigonometric and hyperbolic
+functions rewrite to `exp`, each other, `sincos`, `Pow`, `besselj` and
+`sinc`, `cos(p*pi/q)` rewrites to radicals (`sqrt`/`pow`, including the
+Fermat-prime denominators 3, 5 and 17), inverse functions rewrite to `log`
+and to each other, and `exp`, `Pow`, `E`, `re`, `im`, `arg`, `sign`, `Abs`,
+`Heaviside`, `DiracDelta`, `Max`, `Min`, `floor`, `ceiling`, `frac`, `Mod`
+and `Piecewise` (to `KroneckerDelta`) have their SymPy rules. Not yet
+covered: `AccumBounds` (`sin(oo)`, `atan(zoo)` stay unevaluated), radicals
+for denominators divisible by 257, the special-function rewrite rules
+(`gamma`, `factorial`, ...), two-argument `Heaviside(x, H0)`, `Piecewise`
+condition canonicalisation (`Ne(2*x, 0)` is not reduced to `Ne(x, 0)`),
+evalf of inverse functions off their real domain (`asin(3).evalf()`), and
+SymPy's rule that an `Add` with a float term stays symbolic.
+
 ## Building
 
 ```bash

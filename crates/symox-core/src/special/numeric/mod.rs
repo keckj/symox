@@ -270,8 +270,98 @@ pub fn apply(s: SpecialFn, a: &[C64]) -> Option<C64> {
         Jacobi => misc::jacobi_c(x, a[1], a[2], a[3])?,
         Gegenbauer => misc::gegenbauer_c(x, a[1], a[2])?,
         Ynm => misc::ynm_c(x, a[1], a[2], a[3])?,
+        Mod | Rem | Sech | Csch | Asec | Acsc | Asech | Acsch | Acoth | Sinc | Frac | KroneckerDelta
+        | LeviCivita => elementary_c(s, a)?,
     };
     Some(r)
+}
+
+/// Complex double values of the elementary completion heads, with SymPy's
+/// (mpmath's) principal branches.
+fn elementary_c(s: SpecialFn, a: &[C64]) -> Option<C64> {
+    use SpecialFn::*;
+    // normalise signed zeros so that branch cuts follow mpmath
+    let fix = |z: C64| C64::new(z.re + 0.0, z.im + 0.0);
+    let x = fix(a[0]);
+    let one = cr(1.0);
+    let i = C64::new(0.0, 1.0);
+    let w = || fix(one / x);
+    let real_x = (x.im == 0.0).then_some(x.re);
+    Some(match s {
+        Mod | Rem => {
+            let (p, q) = (real(x)?, real(fix(a[1]))?);
+            if q == 0.0 {
+                return None;
+            }
+            let t = p / q;
+            let k = if s == Mod { t.floor() } else { t.trunc() };
+            cr(p - q * k)
+        }
+        Sech => one / x.cosh(),
+        Csch => one / x.sinh(),
+        Asec => match real_x {
+            Some(v) if v.abs() >= 1.0 => cr((1.0 / v).acos()),
+            _ => {
+                let w = w();
+                -i * (w + i * fix(one - w * w).sqrt()).ln()
+            }
+        },
+        Acsc => match real_x {
+            Some(v) if v.abs() >= 1.0 => cr((1.0 / v).asin()),
+            _ => {
+                let w = w();
+                -i * (i * w + fix(one - w * w).sqrt()).ln()
+            }
+        },
+        Asech => match real_x {
+            Some(v) if v > 0.0 && v <= 1.0 => cr((1.0 / v).acosh()),
+            _ => {
+                let w = w();
+                (w + fix(w + one).sqrt() * fix(w - one).sqrt()).ln()
+            }
+        },
+        Acsch => match real_x {
+            Some(v) if v != 0.0 => cr((1.0 / v).asinh()),
+            _ => {
+                let w = w();
+                (w + fix(w * w + one).sqrt()).ln()
+            }
+        },
+        Acoth => match real_x {
+            Some(v) if v.abs() > 1.0 => cr((1.0 / v).atanh()),
+            _ => {
+                let w = w();
+                (fix(one + w).ln() - fix(one - w).ln()) / 2.0
+            }
+        },
+        Sinc => {
+            if x == cr(0.0) {
+                one
+            } else {
+                x.sin() / x
+            }
+        }
+        Frac => C64::new(x.re - x.re.floor(), x.im - x.im.floor()),
+        KroneckerDelta => {
+            if a.len() != 2 {
+                return None;
+            }
+            cr(if a[0] == a[1] { 1.0 } else { 0.0 })
+        }
+        LeviCivita => {
+            let v: Option<Vec<i64>> = a.iter().map(|z| int_arg(*z)).collect();
+            let v = v?;
+            let mut r = 1.0;
+            for i in 0..v.len() {
+                for j in i + 1..v.len() {
+                    r *= (v[j] - v[i]) as f64;
+                }
+                r /= (1..=i).map(|k| k as f64).product::<f64>();
+            }
+            cr(r)
+        }
+        _ => return None,
+    })
 }
 
 fn real(z: C64) -> Option<f64> {

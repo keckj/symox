@@ -26,6 +26,9 @@ use crate::number::Number;
 mod bessel;
 pub(crate) mod combinatorial;
 pub mod diff;
+pub mod elementary;
+pub(crate) mod trig_eval;
+pub mod rewrite;
 mod elliptic;
 mod error;
 pub mod expand;
@@ -163,6 +166,21 @@ special_fns! {
     Jacobi => "jacobi" [4] true;
     Gegenbauer => "gegenbauer" [3] true;
     Ynm => "Ynm" [4] true;
+    // elementary completion (modular arithmetic, reciprocal and inverse
+    // hyperbolic/trigonometric functions, tensor symbols)
+    Mod => "Mod" [2] false;
+    Rem => "Rem" [2] false;
+    Sech => "sech" [1] true;
+    Csch => "csch" [1] true;
+    Asec => "asec" [1] true;
+    Acsc => "acsc" [1] true;
+    Asech => "asech" [1] true;
+    Acsch => "acsch" [1] true;
+    Acoth => "acoth" [1] true;
+    Sinc => "sinc" [1] true;
+    Frac => "frac" [1] false;
+    KroneckerDelta => "KroneckerDelta" [2, 3] false;
+    LeviCivita => "LeviCivita" [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] false;
 }
 
 impl SpecialFn {
@@ -213,6 +231,8 @@ fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         Hyper => hyper::eval(a),
         Legendre | AssocLegendre | ChebyshevT | ChebyshevU | Hermite | Laguerre | AssocLaguerre
         | Jacobi | Gegenbauer | Ynm => orthopoly::eval(s, a),
+        Mod | Rem | Sech | Csch | Asec | Acsc | Asech | Acsch | Acoth | Sinc | Frac | KroneckerDelta
+        | LeviCivita => elementary::eval(s, a),
     }
 }
 
@@ -457,6 +477,18 @@ ctor! {
     jacobi(n, a, b, x) => Jacobi;
     gegenbauer(n, a, x) => Gegenbauer;
     ynm(n, m, theta, phi) => Ynm;
+    modulo(p, q) => Mod;
+    rem(p, q) => Rem;
+    sech(z) => Sech;
+    csch(z) => Csch;
+    asec(z) => Asec;
+    acsc(z) => Acsc;
+    asech(z) => Asech;
+    acsch(z) => Acsch;
+    acoth(z) => Acoth;
+    sinc(z) => Sinc;
+    frac(z) => Frac;
+    kronecker_delta(i, j) => KroneckerDelta;
 }
 
 /// `bell(n, k, (x_1, ..., x_m))`: incomplete Bell polynomial.

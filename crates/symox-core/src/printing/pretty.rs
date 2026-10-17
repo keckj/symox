@@ -695,6 +695,9 @@ impl PrettyPrinter<'_> {
                 Constant::E => xsym("ℯ", "e"),
                 Constant::I => xsym("ⅈ", "I"),
                 Constant::EulerGamma => xsym("γ", "EulerGamma"),
+                Constant::Catalan => "G",
+                Constant::GoldenRatio => xsym("φ", "GoldenRatio"),
+                Constant::TribonacciConstant => "TribonacciConstant",
                 Constant::Infinity => xsym("∞", "oo"),
                 Constant::NegInfinity => xsym("-∞", "-oo"),
                 Constant::ComplexInfinity => "zoo",
@@ -974,6 +977,20 @@ impl PrettyPrinter<'_> {
                 p
             }
             Func::Heaviside => self.print(&args[0]).paren().left(&[Pict::new(xsym("θ", "Heaviside"))]),
+            Func::Special(crate::special::SpecialFn::Mod) => {
+                let mut p = self.print(&args[0]);
+                if p.binding > Binding::Mul {
+                    p = p.paren();
+                }
+                p.right(&[Pict::new(" mod "), self.print(&args[1])]).bind(Binding::Open)
+            }
+            Func::Special(crate::special::SpecialFn::KroneckerDelta) => {
+                let b = self.print(&args[0]).right(&[Pict::new(","), self.print(&args[1])]);
+                let a = Pict::new(xsym("δ", "d"));
+                let top = b.left(&[Pict::new(&" ".repeat(a.width()))]);
+                let bot = a.right(&[Pict::new(&" ".repeat(b.width()))]);
+                bot.below(vec![Item::P(top)]).bind(Binding::Pow)
+            }
             Func::DiracDelta if !ascii() => self.print(&args[0]).paren().left(&[Pict::new("δ")]),
             // Max/Min are not Functions in SymPy: printed with str()
             Func::Max | Func::Min => {
