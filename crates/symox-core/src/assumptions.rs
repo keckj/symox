@@ -52,6 +52,9 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
 /// Additional Symbol facts never fall back to numerical refinement.
 pub fn fact(e:&Expr,name:&str)->Option<bool>{
     if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
+    // Float zero has a known integer value, but SymPy deliberately keeps its
+    // rationality/irrationality queries unknown, as for other approximate values.
+    if name=="irrational"&&e.as_number().is_some_and(|n|n.is_float()&&n.is_zero()){return None;}
     if let Kind::Func(Func::Undefined(head),_)=e.kind(){
         if !head.internal{return crate::assumption_facts::FactSet::from_legacy(head.assumptions).closure().ok()?.get(name);}
     }
@@ -72,12 +75,14 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
     match e.kind(){
         Kind::Num(n)=>{
             seed.extend([("real",true),("finite",true),("zero",n.is_zero()),("positive",n.is_positive()),("negative",n.is_negative())]);
-            if !n.is_float(){seed.extend([("rational",true),("integer",n.is_integer())]);}
+            if !n.is_float(){seed.push(("rational",true));}
+            if let Some(integer)=number_integer(n){seed.push(("integer",integer));}
             if let Some(integer)=n.to_bigint(){
                 seed.push(("integer",true));seed.push(("even",num_integer::Integer::is_even(&integer)));
                 // Native primality is deterministic on the machine range.
                 // Larger probable primes must not become exact assumptions.
                 if integer<=num_bigint::BigInt::from(u64::MAX){seed.push(("prime",crate::ntheory::isprime(&integer)));}
+                if integer<=num_bigint::BigInt::from(1){seed.push(("composite",false));}
                 if integer>num_bigint::BigInt::from(1)&&seed.iter().any(|(k,v)|*k=="prime"&&!*v){seed.push(("composite",true));}
             }
         },
@@ -94,8 +99,16 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
             if let Some(finite)=exact_queries(||is_finite(e)){seed.push(("finite",finite));}
             if let Some(zero)=exact_queries(||is_zero(e)){seed.push(("zero",zero));}
             if let Some(rational)=exact_queries(||is_rational(e)){seed.push(("rational",rational));}
-            if matches!(name,"imaginary"|"complex"){
-                if let Some(imaginary)=quadratic_facts(e).and_then(|f|f.imaginary){seed.push(("imaginary",imaginary));}
+            let positive=exact_queries(||is_positive(e));
+            let negative=exact_queries(||is_negative(e));
+            let need_imaginary=matches!(name,"imaginary"|"complex");
+            let quadratic=if need_imaginary||(positive!=Some(true)&&negative!=Some(true)){
+                quadratic_facts(e)
+            }else{None};
+            if positive==Some(true)||quadratic.and_then(|f|f.sign)==Some(1){seed.push(("positive",true));}
+            if negative==Some(true)||quadratic.and_then(|f|f.sign)==Some(-1){seed.push(("negative",true));}
+            if need_imaginary{
+                if let Some(imaginary)=quadratic.and_then(|f|f.imaginary){seed.push(("imaginary",imaginary));}
             }
         },
     }
@@ -220,6 +233,23 @@ fn number_sign(n: &Number) -> Signs {
     } else {
         Signs::ZERO
     }
+}
+
+/// Approximate nonzero integral values do not prove membership in the exact
+/// integer set. A fractional binary value does prove non-membership, while
+/// Float zero is an explicit exception in the public assumptions protocol.
+/// Inspect dyadic exponents directly: a huge positive exponent must never
+/// materialize its corresponding arbitrary-precision integer here.
+fn number_integer(n:&Number)->Option<bool>{
+    if !n.is_float(){return Some(n.is_integer());}
+    if n.is_zero(){return Some(true);}
+    let integral=match n{
+        Number::Float(value) if value.is_finite()=>value.fract()==0.0,
+        Number::Float(_)=>return None,
+        Number::MpFloat(value,_)=>value.exp>=0||value.man.trailing_zeros().is_some_and(|zeros|zeros>=value.exp.unsigned_abs()),
+        _=>unreachable!(),
+    };
+    if integral{None}else{Some(false)}
 }
 
 fn declared(e:&Expr)->A {
@@ -416,7 +446,8 @@ fn is_real_uncached(e: &Expr) -> Option<bool> {
     match e.kind() {
         Kind::Pow(base,exponent) if exact::rational_power(base,exponent).and_then(|f| f.real).is_some() => exact::rational_power(base,exponent).and_then(|f| f.real),
         Kind::Const(Constant::I) => Some(false),
-        Kind::Const(c) if c.is_infinite() || *c == Constant::NaN => Some(false),
+        Kind::Const(Constant::NaN)=>None,
+        Kind::Const(c) if c.is_infinite()=>Some(false),
         Kind::Sym(s) if s.assumptions().has(A::NOT_REAL) => Some(false),
         Kind::Mul(c, facs) if facs.len() == 1 && facs[0].0.is_constant(Constant::I) && facs[0].1.is_one() && !c.is_zero() => {
             Some(false)
@@ -454,9 +485,6 @@ fn is_real_uncached(e: &Expr) -> Option<bool> {
 #[inline]
 pub fn is_positive(e:&Expr)->Option<bool>{cached_bool(e,Query::Positive,is_positive_uncached)}
 fn is_positive_uncached(e: &Expr) -> Option<bool> {
-    if e.is_constant(Constant::Infinity) {
-        return Some(true);
-    }
     if declared(e).has(A::NOT_POSITIVE) || exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s == Signs::POS {
@@ -471,9 +499,6 @@ fn is_positive_uncached(e: &Expr) -> Option<bool> {
 #[inline]
 pub fn is_negative(e:&Expr)->Option<bool>{cached_bool(e,Query::Negative,is_negative_uncached)}
 fn is_negative_uncached(e: &Expr) -> Option<bool> {
-    if e.is_constant(Constant::NegInfinity) {
-        return Some(true);
-    }
     if declared(e).has(A::NOT_NEGATIVE) || exact_queries(||is_real(e))==Some(false){return Some(false);}
     let s = real_signs(e)?;
     if s == Signs::NEG {
@@ -525,6 +550,7 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
         Kind::Sym(s) if s.assumptions().has(A::NOT_ZERO) => return Some(false),
         Kind::Sym(s) if s.assumptions().has(A::ZERO) => return Some(true),
         Kind::Const(Constant::I | Constant::Pi | Constant::E | Constant::EulerGamma) => return Some(false),
+        Kind::Const(c) if c.is_infinite()=>return Some(false),
         Kind::Mul(c,factors) if !c.is_zero() && factors.iter().all(|(b,x)| exact_queries(||is_zero(&crate::ops::mul_factor(b,x)))==Some(false)) => return Some(false),
         Kind::Pow(base,exponent) => {
             if let Some(facts)=exact::rational_power(base,exponent) {if facts.zero.is_some(){return facts.zero;}}
@@ -572,7 +598,7 @@ fn is_integer_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::INTEGER){return Some(true);}
     if declared(e).has(A::NOT_INTEGER){return Some(false);}
     match e.kind() {
-        Kind::Num(n) => Some(n.is_integer()),
+        Kind::Num(n) => number_integer(n),
         Kind::Sym(s) => {
             let a = s.assumptions();
             if a.has(A::INTEGER) {
@@ -583,6 +609,7 @@ fn is_integer_uncached(e: &Expr) -> Option<bool> {
                 None
             }
         }
+        Kind::Const(Constant::NaN|Constant::EulerGamma)=>None,
         Kind::Const(_) => Some(false),
         Kind::Add(c, terms) => {
             if is_rational(e)==Some(false){return Some(false);}
@@ -700,6 +727,7 @@ pub fn parity_even(e:&Expr)->Option<bool>{cached_bool(e,Query::Parity,parity_eve
 fn parity_even_uncached(e: &Expr) -> Option<bool> {
     match e.kind() {
         Kind::Num(n) => {
+            if n.is_float()&&n.is_zero(){return Some(true);}
             let b = n.to_bigint()?;
             Some(num_integer::Integer::is_even(&b))
         }
@@ -755,11 +783,13 @@ fn parity_even_uncached(e: &Expr) -> Option<bool> {
 
 pub fn is_even(e: &Expr) -> Option<bool> {
     if let Some(symbol)=e.as_sym(){return symbol.facts().get("even");}
+    if is_integer(e)==Some(false){return Some(false);}
     parity_even(e)
 }
 
 pub fn is_odd(e: &Expr) -> Option<bool> {
     if let Some(symbol)=e.as_sym(){return symbol.facts().get("odd");}
+    if is_integer(e)==Some(false){return Some(false);}
     parity_even(e).map(|b| !b)
 }
 
@@ -769,7 +799,8 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::FINITE){return Some(true);}
     match e.kind() {
         Kind::Num(_) => Some(true),
-        Kind::Const(c) => Some(!c.is_infinite() && *c != Constant::NaN),
+        Kind::Const(Constant::NaN)=>None,
+        Kind::Const(c) => Some(!c.is_infinite()),
         Kind::Sym(s) => {
             if s.assumptions().has(A::FINITE) {
                 Some(true)
@@ -784,6 +815,53 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
                 None
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod numeric_literal_tests {
+    use super::*;
+    use crate::bigfloat::BigFloat;
+    use num_bigint::BigInt;
+
+    #[test]
+    fn dyadic_integer_queries_never_materialize_extreme_exponents(){
+        for exp in [1_000_000_000,i64::MAX]{
+            let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(3),exp},200));
+            assert_eq!(is_integer(&value),None);
+            assert_eq!(is_even(&value),None);
+            assert_eq!(is_odd(&value),None);
+            assert_eq!(fact(&value,"noninteger"),None);
+            assert_eq!(is_rational(&value),None);
+        }
+        for exp in [-1_000_000_000,i64::MIN]{
+            let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(3),exp},200));
+            assert_eq!(is_integer(&value),Some(false));
+            assert_eq!(is_even(&value),Some(false));
+            assert_eq!(is_odd(&value),Some(false));
+            assert_eq!(fact(&value,"noninteger"),Some(true));
+        }
+        let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(4),exp:-2},200));
+        assert_eq!(is_integer(&value),None);
+        let zero=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(0),exp:i64::MIN},200));
+        assert_eq!(is_integer(&zero),Some(true));
+        assert_eq!(is_even(&zero),Some(true));
+        assert_eq!(is_odd(&zero),Some(false));
+    }
+
+    #[test]
+    fn noninteger_predicates_do_not_turn_even_false_into_odd_true(){
+        let value=Expr::rational(1,2);
+        assert_eq!(is_even(&value),Some(false));
+        assert_eq!(is_odd(&value),Some(false));
+        assert_eq!(parity_even(&value),None);
+        let nan=Expr::nan();
+        assert_eq!(is_real(&nan),None);
+        assert_eq!(is_integer(&nan),None);
+        assert_eq!(is_rational(&nan),None);
+        assert_eq!(is_finite(&nan),None);
+        assert_eq!(is_even(&nan),None);
+        assert_eq!(is_odd(&nan),None);
     }
 }
 

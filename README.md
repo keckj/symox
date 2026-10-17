@@ -113,6 +113,10 @@ unsupported. Undefined-function heads retain their existing assumption subset.
 scalar expression view.
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
+Approximate nonzero integral values keep `is_integer=None`; fractional floats
+prove `False`, while Float zero is known to be an integer without changing its
+type. Proven nonintegers are neither even nor odd. The signs of infinities use
+the extended-real predicates, and `nan` keeps its numerical assumptions unknown.
 `Dummy` atoms carry a distinct identity index: two `Dummy("x")` objects remain
 different through substitutions, differentiation, SymPy conversion and pickling.
 `Symbol("_x")` remains an ordinary symbol. Code printers use distinct indexed
