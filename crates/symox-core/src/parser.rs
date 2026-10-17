@@ -82,6 +82,10 @@ fn tokenize(s: &str) -> Result<Vec<(Tok, usize)>, ParseError> {
                 if !ch.is_alphanumeric() && ch != '_' { break; }
                 i += ch.len_utf8();
             }
+            if &s[start..i] == "Q" && b.get(i) == Some(&b'.') {
+                i += 1;
+                while i < b.len() && ((b[i] as char).is_ascii_alphanumeric() || b[i] == b'_') { i += 1; }
+            }
             out.push((Tok::Ident(s[start..i].to_string()), start));
             continue;
         }
@@ -549,6 +553,10 @@ impl Parser {
                     }
                     return self.call(&name, args);
                 }
+                if let Some(name) = name.strip_prefix("Q.") {
+                    let p = crate::ask::Pred::from_name(name).ok_or_else(||ParseError{msg:format!("unknown predicate {name}"),pos:self.at()})?;
+                    return Ok(Val::E(crate::ask::predicate(p)));
+                }
                 if name=="None"{return Ok(Val::None);}
                 Ok(Val::E(ident(&name)))
             }
@@ -639,6 +647,21 @@ impl Parser {
     }
 
     fn call(&mut self, name: &str, args: Vec<Val>) -> R<Val> {
+        if let Some(name) = name.strip_prefix("Q.") {
+            let p = crate::ask::Pred::from_name(name).ok_or_else(||ParseError{msg:format!("unknown predicate {name}"),pos:self.at()})?;
+            let args = args.into_iter().map(|a|self.as_expr(a)).collect::<R<Vec<_>>>()?;
+            return crate::ask::applied(p,args).map(Val::E).map_err(|e|ParseError{msg:e.to_string(),pos:self.at()});
+        }
+        if name == "Predicate" {
+            return match args.as_slice() {
+                [Val::Str(name)] => Ok(Val::E(crate::ask::predicate(crate::ask::Pred::undefined(name)))),
+                _ => self.err("Predicate expects a string name"),
+            };
+        }
+        if name == "AppliedPredicate" || name == "AppliedBinaryRelation" {
+            let args=args.into_iter().map(|a|self.as_expr(a)).collect::<R<Vec<_>>>()?;
+            return crate::ask::applied_from_args(args).map(Val::E).map_err(|e|ParseError{msg:e.to_string(),pos:self.at()});
+        }
         if name == "Str" {
             return match args.as_slice() { [Val::Str(s)]=>Ok(Val::Str(s.clone())), _=>self.err("Str expects one string") };
         }

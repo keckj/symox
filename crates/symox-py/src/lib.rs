@@ -36,6 +36,7 @@ mod solve;
 mod logic;
 mod special;
 mod calculus;
+mod ask;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -272,6 +273,16 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             let args=obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?;
             return Ok(fx::func(Func::Undefined(spec),args));
         }
+        if head.ends_with("Predicate") && head != "AppliedPredicate" {
+            let name = obj.getattr("name")?.str()?.to_string();
+            let p = if head == "UndefinedPredicate" {symox::ask::Pred::undefined(&name)}
+                else {symox::ask::Pred::from_name(&name).ok_or_else(||PyValueError::new_err("unknown predicate"))?};
+            return Ok(symox::ask::predicate(p));
+        }
+        if head=="AppliedPredicate" || head=="AppliedBinaryRelation" {
+            let args=obj.getattr("args")?.try_iter()?.map(|a|to_expr(&a?)).collect::<PyResult<Vec<_>>>()?;
+            return symox::ask::applied_from_args(args).map_err(ask::error);
+        }
         if head=="Tuple" {
             return Ok(fx::undefined("Tuple",obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?));
         }
@@ -425,6 +436,11 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         PyTuple::new(py, args.iter().map(|a| expr_to_sympy(py, a)).collect::<PyResult<Vec<_>>>()?)
     };
     match e.kind() {
+        Kind::Func(Func::Predicate(p),_)=>{
+            if p.is_undefined(){sm.getattr("Predicate")?.call1((p.name(),))}
+            else{sm.getattr("Q")?.getattr(p.name())}
+        },
+        Kind::Func(Func::AppliedPredicate,args)=>expr_to_sympy(py,&args[0])?.call1(convert_args(&args[1..])?),
         Kind::Func(Func::MatrixDotProduct(a,b),_)=>py.import("sympy")?.getattr("DotProduct")?.call1((matrixexpr::matrixexpr_to_sympy(py,a)?,matrixexpr::matrixexpr_to_sympy(py,b)?)),
         Kind::Func(Func::MatrixProxy(parent), _) => matrixexpr::matrixexpr_to_sympy(py, parent),
         Kind::Func(f @ (Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent)), _) => {
@@ -872,6 +888,9 @@ impl PyExpr {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if matches!(self.e.kind(),Kind::Func(Func::AppliedPredicate,_)){
+            return Ok(py.import("symox.assumptions")?.getattr("AppliedPredicate")?.unbind());
+        }
         if let Kind::Func(Func::Undefined(function),_)=self.e.kind(){
             if !function.internal{return Ok(undefined_head(py,function)?.unbind());}
             if function.is_internal("Tuple"){return Ok(py.import("symox._compat")?.getattr("Tuple")?.unbind());}
@@ -908,6 +927,7 @@ impl PyExpr {
     fn name(&self) -> PyResult<String> {
         match self.e.kind() {
             Kind::Sym(s) => Ok(s.to_string()),
+            Kind::Func(Func::Predicate(p), _) => Ok(p.name().to_string()),
             Kind::Func(f, _) => Ok(f.name().to_string()),
             _ => Err(pyo3::exceptions::PyAttributeError::new_err("expression has no name")),
         }
@@ -1027,14 +1047,34 @@ impl PyExpr {
     #[getter]
     fn _e(&self)->PyResult<PyExpr>{if self.is_Lambda(){Ok(self.clone())}else{Err(pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))}}
     #[pyo3(signature=(*args))]
-    fn __call__(&self,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{logic::apply_lambda_expr(&self.e,args)}
+    fn __call__(&self,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{
+        if let Some(p)=symox::ask::as_predicate(&self.e){
+            return symox::ask::applied(p,args.iter().map(|a|replacement_expr(&a)).collect::<PyResult<_>>()?).map(wrap).map_err(ask::error);
+        }
+        logic::apply_lambda_expr(&self.e,args)
+    }
     #[getter]
     fn is_Integral(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Integral,_))}
     #[getter]
     fn is_Sum(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Sum,_))}
     #[getter]
     fn function(&self)->PyResult<PyExpr>{
-        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum,args)=>Ok(wrap(args[0].clone())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have function"))}
+        match self.e.kind(){Kind::Func(Func::Integral|Func::Sum|Func::AppliedPredicate,args)=>Ok(wrap(args[0].clone())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have function"))}
+    }
+    #[getter]
+    fn arguments<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        match symox::ask::as_applied(&self.e){
+            Some((_,args))=>PyTuple::new(py,args.iter().map(|e|expr_object(py,e.clone())).collect::<PyResult<Vec<_>>>()?),
+            None=>Err(pyo3::exceptions::PyAttributeError::new_err("only applied predicates have arguments")),
+        }
+    }
+    #[getter]
+    fn arg(&self)->PyResult<PyExpr>{
+        match symox::ask::as_applied(&self.e){
+            Some((_,[arg]))=>Ok(wrap(arg.clone())),
+            Some(_)=>Err(PyTypeError::new_err("arg is allowed only for unary predicates")),
+            None=>Err(pyo3::exceptions::PyAttributeError::new_err("only applied predicates have arg")),
+        }
     }
     #[getter]
     fn limits<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
@@ -2456,6 +2496,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
+    ask::register(m)?;
     m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;
     m.add_function(wrap_pyfunction!(_restore_logic, m)?)?;
     m.add_function(wrap_pyfunction!(py_default_sort_key, m)?)?;

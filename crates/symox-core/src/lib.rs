@@ -12,6 +12,7 @@
 //! assert_eq!(diff(&sin(&x), &x).to_string(), "cos(x)");
 //! ```
 
+pub mod ask;
 pub mod assumptions;
 pub mod assumption_facts;
 pub mod bigfloat;

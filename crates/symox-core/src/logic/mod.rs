@@ -90,7 +90,7 @@ pub fn as_logic(e: &Expr) -> Option<(LogicOp, &[Expr])> {
 /// as boolean variables.
 pub fn is_boolean(e: &Expr) -> bool {
     match e.kind() {
-        Kind::Bool(_) | Kind::Sym(_) | Kind::Rel(..) | Kind::Func(Func::Logic(_), _) => true,
+        Kind::Bool(_) | Kind::Sym(_) | Kind::Rel(..) | Kind::Func(Func::Logic(_) | Func::AppliedPredicate, _) => true,
         Kind::Func(Func::Set(crate::sets::SetOp::Contains), _) => true,
         Kind::Piecewise(p) => p.iter().all(|(x, _)| is_boolean(x)),
         _ => false,
@@ -246,7 +246,7 @@ pub(crate) fn is_number_like(e: &Expr) -> bool {
     match e.kind() {
         Kind::Num(_) | Kind::Const(_) => true,
         Kind::Sym(_) | Kind::Bool(_) | Kind::Rel(..) | Kind::Piecewise(_) | Kind::Derivative(..) => false,
-        Kind::Func(Func::Undefined(_) | Func::Logic(_) | Func::Set(_), _) => false,
+        Kind::Func(Func::Predicate(_) | Func::AppliedPredicate | Func::Undefined(_) | Func::Logic(_) | Func::Set(_), _) => false,
         _ => e.mask() == 0 && e.args().iter().all(is_number_like),
     }
 }

@@ -245,6 +245,10 @@ pub enum Func {
     MatrixTrace(Arc<crate::matrixexpr::MatrixExpr>),
     MatrixDeterminant(Arc<crate::matrixexpr::MatrixExpr>),
     MatrixDotProduct(Arc<crate::matrixexpr::MatrixExpr>, Arc<crate::matrixexpr::MatrixExpr>),
+    /// A predicate of the new assumptions (`Q.positive`), see [`crate::ask`].
+    Predicate(crate::ask::Pred),
+    /// `AppliedPredicate`/`AppliedBinaryRelation`: `[predicate, arguments...]`.
+    AppliedPredicate,
 }
 
 impl Func {
@@ -300,6 +304,8 @@ impl Func {
             Func::MatrixTrace(_) => "Trace",
             Func::MatrixDeterminant(_) => "Determinant",
             Func::MatrixDotProduct(_, _) => "DotProduct",
+            Func::Predicate(p) => p.class_name(),
+            Func::AppliedPredicate => "AppliedPredicate",
         }
     }
 
@@ -347,6 +353,7 @@ impl Func {
             "Limit"=>Func::Limit,
             "Integral"=>Func::Integral,
             "Sum"=>Func::Sum,
+            "AppliedPredicate" | "AppliedBinaryRelation" => Func::AppliedPredicate,
             _ => {
                 return crate::logic::LogicOp::from_name(name)
                     .map(Func::Logic)
@@ -362,7 +369,8 @@ impl Func {
             Func::Atan2 => Some(2),
             Func::Limit => Some(4),
             Func::MatrixElement(_) => Some(2),
-            Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => Some(0),
+            Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) | Func::Predicate(_) => Some(0),
+            Func::AppliedPredicate => None,
             Func::Max | Func::Min | Func::Order | Func::Undefined(_) | Func::Subs | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_) => None,
             Func::Special(s) => s.arity(),
             _ => Some(1),
@@ -981,6 +989,7 @@ impl Expr {
             Kind::Add(..) => "Add",
             Kind::Mul(..) => "Mul",
             Kind::Pow(..) => "Pow",
+            Kind::Func(Func::AppliedPredicate, a) if a.first().and_then(crate::ask::as_predicate).is_some_and(|p| p.is_binrel()) => "AppliedBinaryRelation",
             Kind::Func(f, _) => f.name(),
             Kind::Derivative(..) => "Derivative",
             Kind::Rel(op, ..) => match op {

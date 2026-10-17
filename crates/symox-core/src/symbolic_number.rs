@@ -39,7 +39,9 @@ pub fn is_symbolic_number(e: &Expr) -> bool {
         // Tuple-valued arguments are Basic objects with is_number=False. The
         // typed forms below contain such arguments, or a matrix argument.
         Kind::Func(
-            Func::Subs
+            Func::Predicate(_)
+            | Func::AppliedPredicate
+            | Func::Subs
             | Func::Limit
             | Func::Logic(_)
             | Func::Set(_)

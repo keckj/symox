@@ -135,6 +135,18 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
             }
             out.push(')');
         },
+        Kind::Func(Func::Predicate(p), _) => out.push_str(&crate::ask::predicate_str(*p)),
+        Kind::Func(Func::AppliedPredicate, args) => {
+            if let Some((head, rest)) = args.split_first() {
+                write_expr(head, out);
+                out.push('(');
+                for (i, arg) in rest.iter().enumerate() {
+                    if i > 0 { out.push_str(", "); }
+                    write_expr(arg, out);
+                }
+                out.push(')');
+            }
+        }
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');
@@ -427,6 +439,11 @@ fn write_srepr(e: &Expr, out: &mut String) {
             }
             out.push(')');
         }
+        Kind::Func(Func::Predicate(p), _) => {
+            if p.is_undefined() { out.push_str("Predicate("); out.push_str(&format!("'{}'", p.name().replace('\\', "\\\\").replace('\'', "\\'"))); out.push(')'); }
+            else { out.push_str(&crate::ask::predicate_str(*p)); }
+        }
+        Kind::Func(Func::AppliedPredicate, args) => list(e.class_name(), args, out),
         Kind::Func(f, args) => list(f.name(), args, out),
         Kind::Derivative(f, vars) => {
             out.push_str("Derivative(");

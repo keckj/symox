@@ -1,3 +1,6 @@
+The assumptions predicates, generated facts, query pipeline, handlers and
+refinement rules in crates/symox-core/src/ask follow SymPy 1.14.
+
 The deterministic LLL update order and float-to-rational conversion in
 crates/symox-core/src/matrix/lll.rs follow the corresponding SymPy routines.
 The SymPy distribution copyright and license notices are reproduced below.

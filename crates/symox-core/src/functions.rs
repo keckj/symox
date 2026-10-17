@@ -16,7 +16,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             if crate::binders::validate(&f,&args).is_ok(){return crate::binders::held(f,&args[0],crate::binders::limits(&args)).unwrap();}
             return Expr::from_kind(Kind::Func(f,args));
         },
-        Func::Subs | Func::Limit=>return Expr::from_kind(Kind::Func(f,args)),
+        Func::Predicate(_) | Func::AppliedPredicate | Func::Subs | Func::Limit=>return Expr::from_kind(Kind::Func(f,args)),
         Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
@@ -112,7 +112,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),
-        Func::Special(_) | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_)
+        Func::Special(_) | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => None,
     };
     match r {

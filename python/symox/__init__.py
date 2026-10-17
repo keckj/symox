@@ -1608,4 +1608,9 @@ from ._matrixexpr import (  # noqa: E402
     hadamard_product, hadamard_power, kronecker_product,
 )
 
+# Assumption-dependent queries and rewrites use the native Rust engine.
+from .assumptions import (Q, Predicate, AppliedPredicate, AssumptionsContext,
+                          global_assumptions, assuming, ask, refine)
+Expr.refine = lambda self, assumptions=True: refine(self, assumptions)
+
 __all__ = [n for n in dir() if not n.startswith("_")]

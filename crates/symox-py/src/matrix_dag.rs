@@ -130,6 +130,7 @@ impl<'py> Encoder<'py>{
                         Func::MatrixElement(m)|Func::MatrixProxy(m)|Func::MatrixTrace(m)|Func::MatrixDeterminant(m)=>{
                             let tag=match f{Func::MatrixElement(_)=>"s.element",Func::MatrixProxy(_)=>"s.proxy",Func::MatrixTrace(_)=>"s.trace",_=>"s.determinant"};(tag,vec![obj(py,self.matrix(m))?,refs])
                         },
+                        Func::Predicate(p)=>("s.predicate",vec![obj(py,p.name())?,obj(py,p.is_undefined())?]),
                         Func::Undefined(head)=>("s.undefined.facts",vec![obj(py,head.name.as_ref())?,obj(py,head.head_facts().bits())?,obj(py,head.nargs.clone())?,obj(py,head.internal)?,refs]),
                         _=>("s.function",vec![obj(py,f.name())?,refs]),
                     }
@@ -158,6 +159,7 @@ fn validate_function(function:&Func,args:&[Expr])->PyResult<()>{
     if function.arity().is_some_and(|n|n!=args.len()){return Err(invalid("function arity mismatch"));}
     if matches!(function,Func::Integral|Func::Sum){symox::binders::validate(function,args).map_err(invalid)?;}
     if let Func::Set(op @ (symox::sets::SetOp::Lambda|symox::sets::SetOp::IdentityFunction))=function{symox::sets::validate_lambda(*op,args).map_err(invalid)?;}
+    if matches!(function,Func::AppliedPredicate){symox::ask::applied_from_args(args.to_vec()).map_err(|e|invalid(e.to_string()))?;}
     if matches!(function,Func::Subs){
         if args.len()!=3{return Err(invalid("Subs requires three arguments"));}
         let tuple=|e:&Expr|matches!(e.kind(),Kind::Func(Func::Undefined(head),_) if head.is_internal("Tuple"));
@@ -220,6 +222,10 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                         }).collect::<PyResult<Vec<_>>>()?;
                         symox::binders::held(function,&args[0],limits).map_err(invalid)?.kind().clone()
                     }else{Kind::Func(Func::Undefined(head),args)}
+                },
+                "s.predicate"=>{arity(2)?;let name:String=f.get_item(0)?.extract()?;let undefined:bool=f.get_item(1)?.extract()?;
+                    let p=if undefined{symox::ask::Pred::undefined(&name)}else{symox::ask::Pred::from_name(&name).ok_or_else(||invalid("unknown predicate"))?};
+                    Kind::Func(Func::Predicate(p),vec![])
                 },
                 "s.function"=>{arity(2)?;let name:String=f.get_item(0)?.extract()?;let function=Func::from_name(&name).ok_or_else(||invalid("unknown function"))?;let args=ss(1)?;
                     if matches!(function,Func::Set(symox::sets::SetOp::Lambda)){

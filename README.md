@@ -111,6 +111,23 @@ symbol content. Noncommutative symbols and custom facts are explicitly
 unsupported. Undefined-function heads retain their existing assumption subset.
 `AlgebraicNumber.is_nonzero` follows the same real-nonzero meaning as its
 scalar expression view.
+`Q` predicates and `ask(proposition, assumptions=True, context=...)` query
+native three-valued facts, propagate Boolean assumptions with the Rust SAT
+solver, and handle scalar arithmetic, elementary functions and supported matrix
+properties. For example, `ask(Q.real(x), Q.positive(x))` returns `True`, while
+`ask(Q.positive(x), Q.real(x))` returns `None`. Contradictory relevant assumptions
+raise `ValueError`. `AssumptionsContext`, `global_assumptions` and nested
+`assuming(...)` contexts are available; temporary contexts restore their previous
+contents even when the body raises an exception. No SymPy import is required.
+`refine(expr, assumptions=True)` and `expr.refine(...)` use these facts for
+absolute values, real/imaginary parts, arguments, supported powers, signs,
+`atan2` quadrants and Boolean predicates. Unsupported rewrites remain symbolic.
+Predicate applications preserve structure, substitutions, matrix arguments,
+pickles and SymPy interchange. `Predicate(name)` creates a distinct undefined
+predicate that can participate in Boolean assumptions. Python handler
+registration and linear real arithmetic inference across inequalities are not
+implemented; queries requiring those algorithms may return `None`.
+
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
 Approximate nonzero integral values keep `is_integer=None`; fractional floats

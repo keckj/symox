@@ -697,6 +697,13 @@ impl<'a> LatexPrinter<'a> {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        if let Func::Predicate(p) = f {
+            return format!("\\operatorname{{Q}}_{{\\text{{{}}}}}", p.name().replace('_', "\\_"));
+        }
+        if matches!(f, Func::AppliedPredicate) {
+            let tail = args[1..].iter().map(|arg|self.print(arg)).collect::<Vec<_>>().join(", ");
+            return format!("{}({tail})", self.print(&args[0]));
+        }
         if matches!(f,Func::Integral|Func::Sum) {
             let limits=crate::binders::limits(args);
             let mut value=String::new();
