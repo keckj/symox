@@ -545,6 +545,16 @@ pub(super) fn prepare_unary<'py>(f:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,kw
     let input=Inputs::build(f,f,gens,kw,&Operation::Discriminant)?;
     Ok((input.a,input.polys))
 }
+/// Joint coefficient-domain inference for fractional factor lists. The list
+/// renderer may then restrict main generators to each side, while retaining
+/// this shared descriptor (including unused parameters and embeddings).
+pub(super) fn prepare_pair<'py>(f:&Bound<'py,PyAny>,g:&Bound<'py,PyAny>,gens:&Bound<'py,PyTuple>,kw:Option<&Bound<'py,PyDict>>)->PyResult<(PolyValue,PolyValue,bool)> {
+    let input=Inputs::build(f,g,gens,kw,&Operation::Discriminant)?;
+    Ok((input.a,input.b,input.polys))
+}
+pub(super) fn option_generators(gens:&Bound<'_,PyTuple>,kw:Option<&Bound<'_,PyDict>>)->PyResult<Vec<Expr>> {
+    Ok(Options::parse(gens,kw,false)?.generators)
+}
 pub(super) fn validate_unary(gens:&Bound<'_,PyTuple>,kw:Option<&Bound<'_,PyDict>>)->PyResult<()> {
     Options::parse(gens,kw,false).map(|_|())
 }

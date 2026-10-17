@@ -170,7 +170,7 @@ impl Term {
 }
 
 /// SymPy's `gcd_terms` on a list of terms (fraction=True).
-fn gcd_terms(terms: &[Expr]) -> Expr {
+pub(crate) fn gcd_terms(terms: &[Expr]) -> Expr {
     let terms: Vec<Term> = terms.iter().filter(|t| !t.is_zero()).map(Term::new).collect();
     if terms.is_empty() {
         return Expr::zero();

@@ -16,6 +16,21 @@ pub struct Factorization {
     pub unit: Polynomial,
     pub factors: Vec<(Polynomial, u32)>,
 }
+/// Attach the coefficient-ring descriptor carried by a natural source Poly.
+/// This conversion runs in the native factor budget, before Python rendering;
+/// it never re-infers main generators or discards source parameters.
+pub fn normalize_natural_factor(p:Polynomial)->PResult<Polynomial>{
+    if p.field.is_some()||p.algebraic.is_some()||p.domain_gens().is_empty()
+        ||p.modulus.is_some()||p.domain==Domain::RR||p.domain_gens().iter().any(|g|!g.is_symbol()){
+        return Ok(p);
+    }
+    let parameters=p.domain_gens().to_vec();
+    let descriptor=super::domains::ExactDomain::functions(p.domain==Domain::ZZ,true,parameters.clone(),"lex")?;
+    let mut field=super::fraction::FractionPoly::from_expr(&p.as_expr(),p.true_gens(),&parameters,&descriptor.to_string())?;
+    field.coefficient_domain=descriptor;
+    if !field.belongs_to_ring(){return Err(failure("natural factor escaped its coefficient ring"));}
+    Ok(field.into())
+}
 fn failure(message: &str) -> PolyError {
     PolyError::Unsupported(message.into())
 }

@@ -131,6 +131,7 @@ pub fn check(e: &Expr, limits: Limits) -> PResult<()> {
         if memo.contains_key(&e.dag_id()) {
             continue;
         }
+        super::factor_budget::charge(1);
         if !ready {
             if memo.len().saturating_add(stack.len()) > limits.terms {
                 return Err(limit("expression DAG size"));
