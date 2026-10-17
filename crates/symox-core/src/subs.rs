@@ -38,7 +38,7 @@ fn xr(
         return v.clone();
     }
     if held_derivatives {
-        if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum,_)) {
+        if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum|Func::Product,_)) {
             let pairs=map.iter().map(|(key,value)|(key.clone(),value.clone())).collect::<Vec<_>>();
             return crate::binders::substitute(e,&pairs,true);
         }
@@ -125,7 +125,7 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     if let Some((_,v)) = cache.get(&e.dag_id()) {
         return v.clone();
     }
-    if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum,_)) {
+    if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum|Func::Product,_)) {
         return crate::binders::substitute(e,&[(old.clone(),new.clone())],false);
     }
     if let Kind::Func(Func::Subs,args)=e.kind(){

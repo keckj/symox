@@ -1,21 +1,21 @@
-//! Held Integral/Sum nodes and their ordered binding scopes.
+//! Held Integral/Sum/Product nodes and their ordered binding scopes.
 use rustc_hash::{FxHashMap,FxHashSet};
 use crate::expr::{Expr,Func,Kind};
 use crate::ops::{add,mul2,neg};
 
-pub fn is_calculus(f:&Func)->bool { matches!(f,Func::Integral|Func::Sum) }
+pub fn is_calculus(f:&Func)->bool { matches!(f,Func::Integral|Func::Sum|Func::Product) }
 pub fn limits(args:&[Expr])->Vec<Vec<Expr>> { args[1..].iter().map(Expr::args).collect() }
 
 pub fn validate(f:&Func,args:&[Expr])->Result<(),String> {
-    if !is_calculus(f) || args.len()<2 { return Err("Integral/Sum requires an integrand and limits".into()); }
+    if !is_calculus(f) || args.len()<2 { return Err("Integral/Sum/Product requires an integrand and limits".into()); }
     if matches!(args[0].kind(),Kind::Func(Func::MatrixProxy(_),_)) { return Err("matrix-valued calculus binders are not supported".into()); }
     for limit in &args[1..] {
         if !matches!(limit.kind(),Kind::Func(Func::Undefined(head),_) if head.is_internal("Tuple")) {
             return Err("calculus limits must be Tuples".into());
         }
         let values=limit.args();
-        if !(1..=3).contains(&values.len()) || (*f==Func::Sum && values.len()!=3) {
-            return Err("Integral expects (x,), (x,b), or (x,a,b); Sum expects (k,a,b)".into());
+        if !(1..=3).contains(&values.len()) || (*f!=Func::Integral && values.len()!=3) {
+            return Err("Integral expects (x,), (x,b), or (x,a,b); Sum and Product expect (k,a,b)".into());
         }
         if !values[0].is_symbol() { return Err("calculus binding variables must be symbols".into()); }
         if values[1..].iter().any(|bound|matches!(bound.kind(),Kind::Func(Func::MatrixProxy(_),_))) {
@@ -100,7 +100,7 @@ pub fn substitute(e:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->Expr {
     let transform=|value:&Expr,active:&[(Expr,Expr)]| if simultaneous {crate::subs::simultaneous(value,active)} else {crate::subs::subs(value,active)};
     let mut body_pairs=pairs.to_vec();
     for limit in &old_limits {
-        if limit.len()>1 || *f==Func::Sum {
+        if limit.len()>1 || *f!=Func::Integral {
             body_pairs.retain(|(key,_)|*key!=limit[0]);
         } else {
             body_pairs.retain(|(key,value)|*key!=limit[0] || value.is_symbol());
@@ -122,6 +122,7 @@ pub fn substitute(e:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->Expr {
 }
 
 pub fn doit(f:&Func,args:&[Expr],deep:bool)->Expr {
+    if *f==Func::Product {return crate::products::doit(args,deep);}
     let mut value=if deep {crate::functions::doit(&args[0],true)} else {args[0].clone()};
     for mut limit in limits(args) {
         if deep { for endpoint in &mut limit[1..] {*endpoint=crate::functions::doit(endpoint,true);} }
@@ -154,6 +155,20 @@ pub fn differentiate(e:&Expr,x:&Expr)->Expr {
         }
         let partial=crate::diff::diff(&inner,x);
         return if partial.is_zero() {partial} else {held(Func::Sum,&partial,vec![outer]).unwrap()};
+    }
+    if *f==Func::Product {
+        // SymPy's product rule: sum over h of the factors before and after h
+        // times the derivative of the h-th factor, with an anonymous Dummy h.
+        if outer[1..].iter().any(|endpoint|crate::traverse::free_symbols(endpoint).contains(x)) {
+            return crate::diff::derivative_unevaluated(e,vec![(x.clone(),1)]);
+        }
+        let h=Expr::from_kind(Kind::Sym(crate::symbol::Symbol::anonymous_dummy(crate::symbol::Assumptions::NONE)));
+        let one=Expr::one();
+        let before=held(Func::Product,&inner,vec![vec![outer[0].clone(),outer[1].clone(),crate::ops::sub(&h,&one)]]).unwrap();
+        let after=held(Func::Product,&inner,vec![vec![outer[0].clone(),crate::ops::add2(&h,&one),outer[2].clone()]]).unwrap();
+        let partial=crate::subs::subs1(&crate::diff::diff(&inner,x),&outer[0],&h);
+        let term=crate::ops::mul(&[before,after,partial]);
+        return held(Func::Sum,&term,vec![vec![h,outer[1].clone(),outer[2].clone()]]).unwrap();
     }
     if outer.len()==1 {
         if outer[0]==*x {return inner;}

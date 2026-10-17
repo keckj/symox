@@ -255,7 +255,7 @@ pub fn class_key(e: &Expr) -> Key {
         Kind::Mul(..) => (3, 0, "Mul".into()),
         Kind::Add(..) => (3, 1, "Add".into()),
         Kind::Func(f @ (Func::MatrixElement(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..)),_)=>(5,0,f.name().into()),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum), _) => (5, 0, f.name().into()),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         Kind::Func(f, _) => {
             let i = match f {

@@ -396,6 +396,7 @@ fn pow_signs(b: &Expr, x: &Expr) -> Option<Signs> {
 fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
     let a = args.first()?;
     match f {
+        Func::Product => crate::products::signs(args),
         Func::Exp => {
             real_signs(a)?;
             Some(Signs::POS)

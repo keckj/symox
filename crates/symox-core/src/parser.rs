@@ -698,7 +698,7 @@ impl Parser {
                 if !args.is_empty(){return self.err("IdentityFunction takes no arguments");}
                 crate::sets::identity_function()
             },
-            "Integral" | "Sum" => {
+            "Integral" | "Sum" | "Product" => {
                 let mut values=args.into_iter();
                 let body=self.as_expr(values.next().ok_or_else(||ParseError{msg:"calculus constructor requires an integrand".into(),pos:self.at()})?)?;
                 let mut limits=Vec::new();
@@ -710,7 +710,7 @@ impl Parser {
                     let symbols=crate::traverse::free_symbols(&body);
                     if symbols.len()==1 {limits.push(symbols);} else {return self.err("specify integration variables explicitly");}
                 }
-                crate::binders::held(if name=="Integral" {Func::Integral} else {Func::Sum},&body,limits)
+                crate::binders::held(match name {"Integral"=>Func::Integral,"Sum"=>Func::Sum,_=>Func::Product},&body,limits)
                     .map_err(|msg|ParseError{msg,pos:self.at()})?
             },
             "Subs"=>{

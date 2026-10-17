@@ -704,18 +704,32 @@ impl<'a> LatexPrinter<'a> {
             let tail = args[1..].iter().map(|arg|self.print(arg)).collect::<Vec<_>>().join(", ");
             return format!("{}({tail})", self.print(&args[0]));
         }
-        if matches!(f,Func::Integral|Func::Sum) {
+        if matches!(f,Func::Sum|Func::Product) {
+            // SymPy's _print_Sum/_print_Product: one limit as sub/superscripts,
+            // several as a substack of inequalities, innermost first.
+            let limits=crate::binders::limits(args);
+            let op=if *f==Func::Sum {"\\sum"} else {"\\prod"};
+            let mut value=if limits.len()==1 {
+                format!("{op}_{{{}={}}}^{{{}}} ",self.print(&limits[0][0]),self.print(&limits[0][1]),self.print(&limits[0][2]))
+            } else {
+                let rows:Vec<String>=limits.iter().map(|l|format!("{} \\leq {} \\leq {}",self.print(&l[1]),self.print(&l[0]),self.print(&l[2]))).collect();
+                format!("{op}_{{\\substack{{{}}}}} ",rows.join("\\\\"))
+            };
+            if matches!(args[0].kind(),Kind::Add(..)) {value.push_str(&format!("\\left({}\\right)",self.print(&args[0])));}
+            else {value.push_str(&self.print(&args[0]));}
+            return Self::do_exponent(value,exp);
+        }
+        if matches!(f,Func::Integral) {
             let limits=crate::binders::limits(args);
             let mut value=String::new();
             for limit in limits.iter().rev() {
-                if *f==Func::Sum {value.push_str(&format!("\\sum_{{{}={}}}^{{{}}} ",self.print(&limit[0]),self.print(&limit[1]),self.print(&limit[2])));}
-                else {value.push_str("\\int");match limit.len(){
+                value.push_str("\\int");match limit.len(){
                     2=>value.push_str(&format!("^{{{}}}",self.print(&limit[1]))),
                     3=>value.push_str(&format!("_{{{}}}^{{{}}}",self.print(&limit[1]),self.print(&limit[2]))),_=>{},
-                }value.push(' ');}
+                }value.push(' ');
             }
             value.push_str(&self.parenthesize(&args[0],PREC_MUL,false));
-            if *f==Func::Integral {for limit in limits {value.push_str(&format!("\\, d{}",self.print(&limit[0])));}}
+            for limit in limits {value.push_str(&format!("\\, d{}",self.print(&limit[0])));}
             return Self::do_exponent(value,exp);
         }
         if matches!(f,Func::Limit){

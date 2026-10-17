@@ -35,7 +35,7 @@ fn class_matches(e:&Expr,name:&str)->bool{
 fn function_node(e:&Expr)->bool{
     match e.kind(){
         Kind::Func(Func::Undefined(head),_)=>!head.is_internal("Tuple")&&!head.is_internal("UnevaluatedExpr")&&!head.is_internal("Order"),
-        Kind::Func(Func::Set(_)|Func::Logic(_)|Func::Max|Func::Min|Func::Subs|Func::Limit|Func::Integral|Func::Sum|Func::MatrixElement(_)|Func::MatrixProxy(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..),_)=>false,
+        Kind::Func(Func::Set(_)|Func::Logic(_)|Func::Max|Func::Min|Func::Subs|Func::Limit|Func::Integral|Func::Sum|Func::Product|Func::MatrixElement(_)|Func::MatrixProxy(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..),_)=>false,
         Kind::Func(_,_)=>true,
         Kind::Piecewise(_)=>true,
         _=>false,

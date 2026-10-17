@@ -128,6 +128,16 @@ pub fn try_summation(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
         }
         return Some(add(&v));
     }
+    // k**(-m) from an integer start a >= 1: harmonic numbers
+    if let Kind::Pow(base, exponent) = f.kind() {
+        let m = exponent.as_i64().filter(|m| *m < 0);
+        let start = a.as_i64().filter(|a| *a >= 1);
+        if let (true, Some(m), Some(_)) = (base == k, m, start) {
+            let am1 = sub(a, &Expr::one());
+            let h = |x: &Expr| if m == -1 { crate::special::harmonic(x) } else { crate::special::harmonic2(x, &Expr::int(-m)) };
+            return Some(sub(&h(b), &h(&am1)));
+        }
+    }
     // c * q**k * poly(k)
     if let Some((poly, q)) = poly_times_geometric(f, k) {
         return geometric_sum(&poly, &q, k, a, b);

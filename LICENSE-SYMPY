@@ -13,6 +13,13 @@ crates/symox-core/src/poly/partfrac.rs and the dispersion set in
 crates/symox-core/src/poly/dispersion.rs follow the corresponding SymPy
 algorithms and recurrences.
 
+The symbolic product evaluation and Product/Sum convergence tests in
+crates/symox-core/src/products.rs and the recurrence solvers in
+crates/symox-core/src/recurr.rs (Abramov's rsolve_poly and rsolve_ratio,
+Petkovsek's rsolve_hyper, casoratian and the rsolve driver) follow the
+algorithms and case analysis of SymPy's sympy/concrete/products.py,
+sympy/concrete/summations.py and sympy/solvers/recurr.py.
+
 The deterministic LLL update order and float-to-rational conversion in
 crates/symox-core/src/matrix/lll.rs follow the corresponding SymPy routines.
 The auxiliary matrix kernels in crates/symox-core/src/matrix/auxiliary.rs and

@@ -31,7 +31,7 @@ pub fn is_symbolic_number(e: &Expr) -> bool {
             .iter()
             .all(|(base, exponent)| is_symbolic_number(base) && is_symbolic_number(exponent)),
         Kind::Pow(base, exponent) => is_symbolic_number(base) && is_symbolic_number(exponent),
-        Kind::Func(Func::Integral | Func::Sum, _) => ClosedQuery::default().closed(e, 0),
+        Kind::Func(Func::Integral | Func::Sum | Func::Product, _) => ClosedQuery::default().closed(e, 0),
         Kind::Func(Func::Set(SetOp::IdentityFunction), _) => true,
         Kind::Func(Func::Undefined(head), args) => {
             head.is_internal("UnevaluatedExpr") && args.iter().all(is_symbolic_number)
@@ -123,7 +123,7 @@ impl ClosedQuery {
             Kind::Piecewise(pieces) => pieces.iter().all(|(value, condition)| {
                 self.closed(value, scope) && self.closed(condition, scope)
             }),
-            Kind::Func(f @ (Func::Integral | Func::Sum), args) => self.calculus(f, args, scope),
+            Kind::Func(f @ (Func::Integral | Func::Sum | Func::Product), args) => self.calculus(f, args, scope),
             Kind::Func(Func::Subs, args) if args.len() == 3 => {
                 let body_scope = self.extend(scope, args[1].args());
                 self.closed(&args[0], body_scope) && self.closed(&args[2], scope)
