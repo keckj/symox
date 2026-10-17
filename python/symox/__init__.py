@@ -1621,4 +1621,15 @@ from .assumptions import (Q, Predicate, AppliedPredicate, AssumptionsContext,
                           global_assumptions, assuming, ask, refine)
 Expr.refine = lambda self, assumptions=True: refine(self, assumptions)
 
+# Integral transforms (Laplace, Fourier, sine/cosine, Mellin, Hankel).
+from ._transforms import (  # noqa: E402
+    IntegralTransform, IntegralTransformError, LaplaceTransform, InverseLaplaceTransform,
+    FourierTransform, InverseFourierTransform, SineTransform, InverseSineTransform,
+    CosineTransform, InverseCosineTransform, HankelTransform, InverseHankelTransform,
+    MellinTransform, InverseMellinTransform, laplace_transform, inverse_laplace_transform,
+    fourier_transform, inverse_fourier_transform, sine_transform, inverse_sine_transform,
+    cosine_transform, inverse_cosine_transform, hankel_transform, inverse_hankel_transform,
+    mellin_transform, inverse_mellin_transform, laplace_correspondence, laplace_initial_conds,
+)
+
 __all__ = [n for n in dir() if not n.startswith("_")]

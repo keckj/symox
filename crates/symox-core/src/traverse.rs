@@ -164,6 +164,11 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
             Kind::Func(f @ (Func::Integral|Func::Sum),args)=>{
                 for symbol in crate::binders::free_symbols(f,args){if seen.insert(symbol.clone()){out.push(symbol);}}
             },
+            Kind::Func(Func::Special(f),args) if f.is_transform() && args.len()>=3 => {
+                for symbol in free_symbols(&args[0]).into_iter().chain(free_symbols(&args[2])).filter(|s|*s!=args[1]){
+                    if seen.insert(symbol.clone()){out.push(symbol);}
+                }
+            },
             Kind::Func(Func::Limit,args)=>{
                 for symbol in free_symbols(&args[0]).into_iter().filter(|s|*s!=args[1]){
                     if seen.insert(symbol.clone()){out.push(symbol);}

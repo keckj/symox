@@ -163,9 +163,30 @@ special_fns! {
     Jacobi => "jacobi" [4] true;
     Gegenbauer => "gegenbauer" [3] true;
     Ynm => "Ynm" [4] true;
+    // held integral transforms (crate::transforms)
+    LaplaceTransform => "LaplaceTransform" [3] false;
+    InverseLaplaceTransform => "InverseLaplaceTransform" [4] false;
+    FourierTransform => "FourierTransform" [3] false;
+    InverseFourierTransform => "InverseFourierTransform" [3] false;
+    SineTransform => "SineTransform" [3] false;
+    InverseSineTransform => "InverseSineTransform" [3] false;
+    CosineTransform => "CosineTransform" [3] false;
+    InverseCosineTransform => "InverseCosineTransform" [3] false;
+    HankelTransform => "HankelTransform" [4] false;
+    InverseHankelTransform => "InverseHankelTransform" [4] false;
+    MellinTransform => "MellinTransform" [3] false;
+    InverseMellinTransform => "InverseMellinTransform" [5] false;
 }
 
 impl SpecialFn {
+    /// Held integral transform heads (`LaplaceTransform`, ...).
+    pub fn is_transform(self) -> bool {
+        use SpecialFn::*;
+        matches!(self, LaplaceTransform | InverseLaplaceTransform | FourierTransform | InverseFourierTransform
+            | SineTransform | InverseSineTransform | CosineTransform | InverseCosineTransform
+            | HankelTransform | InverseHankelTransform | MellinTransform | InverseMellinTransform)
+    }
+
     /// Fixed number of arguments, `None` when several are accepted.
     pub fn arity(self) -> Option<usize> {
         match self.nargs() {
@@ -213,6 +234,9 @@ fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         Hyper => hyper::eval(a),
         Legendre | AssocLegendre | ChebyshevT | ChebyshevU | Hermite | Laguerre | AssocLaguerre
         | Jacobi | Gegenbauer | Ynm => orthopoly::eval(s, a),
+        LaplaceTransform | InverseLaplaceTransform | FourierTransform | InverseFourierTransform
+        | SineTransform | InverseSineTransform | CosineTransform | InverseCosineTransform
+        | HankelTransform | InverseHankelTransform | MellinTransform | InverseMellinTransform => None,
     }
 }
 

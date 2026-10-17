@@ -731,6 +731,30 @@ impl<'a> LatexPrinter<'a> {
             let value=format!("\\left. {} \\right|_{{{lower}}}",self.print(&args[0]));
             return exp.map_or_else(||value.clone(),|power|format!("\\left({value}\\right)^{{{power}}}"));
         }
+        if let Func::Special(sf) = f {
+            if sf.is_transform() && args.len() >= 3 {
+                let name = sf.name();
+                let inverse = name.starts_with("Inverse");
+                let letter = match name.trim_start_matches("Inverse") {
+                    "LaplaceTransform" => Some("L"),
+                    "FourierTransform" => Some("F"),
+                    "SineTransform" => Some("SIN"),
+                    "CosineTransform" => Some("COS"),
+                    "MellinTransform" => Some("M"),
+                    _ => None,
+                };
+                if let Some(letter) = letter {
+                    let tex = format!(
+                        "\\mathcal{{{letter}}}{}_{{{}}}\\left[{}\\right]\\left({}\\right)",
+                        if inverse { "^{-1}" } else { "" },
+                        self.print(&args[1]),
+                        self.print(&args[0]),
+                        self.print(&args[2])
+                    );
+                    return Self::do_exponent(tex, exp);
+                }
+            }
+        }
         let a0 = || self.print(&args[0]);
         match f {
             Func::MatrixDotProduct(a,b)=>{let parent=|m:&crate::matrixexpr::MatrixExpr|if matches!(m.kind(),crate::matrixexpr::MatrixKind::Add(_)){format!("\\left({}\\right)",m)}else{m.to_str()};return Self::sup(format!("{} \\cdot {}",parent(a),parent(b)),exp);},

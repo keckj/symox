@@ -37,6 +37,7 @@ mod logic;
 mod special;
 mod calculus;
 mod ask;
+mod transforms;
 
 /// A symbolic expression.
 #[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
@@ -1059,8 +1060,20 @@ impl PyExpr {
     fn is_Sum(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Sum,_))}
     #[getter]
     fn function(&self)->PyResult<PyExpr>{
+        if let Some(function)=transforms::argument(&self.e,0){return Ok(function);}
         match self.e.kind(){Kind::Func(Func::Integral|Func::Sum|Func::AppliedPredicate,args)=>Ok(wrap(args[0].clone())),_=>Err(pyo3::exceptions::PyAttributeError::new_err("only calculus binders have function"))}
     }
+    // integral transforms (transforms.rs)
+    #[getter]
+    fn function_variable(&self)->PyResult<PyExpr>{transforms::argument(&self.e,1).ok_or_else(||transforms::not_a_transform("function_variable"))}
+    #[getter]
+    fn transform_variable(&self)->PyResult<PyExpr>{transforms::argument(&self.e,2).ok_or_else(||transforms::not_a_transform("transform_variable"))}
+    #[getter]
+    fn fundamental_plane(&self,py:Python<'_>)->PyResult<PyObject>{transforms::python_attribute(py,self,"fundamental_plane")}
+    #[getter]
+    fn fundamental_strip(&self,py:Python<'_>)->PyResult<PyObject>{transforms::python_attribute(py,self,"fundamental_strip")}
+    #[getter]
+    fn as_integral(&self,py:Python<'_>)->PyResult<PyObject>{transforms::python_attribute(py,self,"as_integral")}
     #[getter]
     fn arguments<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
         match symox::ask::as_applied(&self.e){
@@ -1350,7 +1363,11 @@ impl PyExpr {
     }
 
     #[pyo3(signature = (deep=true, **hints))]
-    fn doit(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    fn doit(&self, py: Python<'_>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+        if symox::transforms::as_held(&self.e).is_some() {
+            // integral transforms: SymPy's hints and (result, plane, cond) tuples
+            return Ok(py.import("symox._transforms")?.getattr("_doit")?.call((self.clone(), deep), hints)?.unbind());
+        }
         if let Some(hints)=hints {for (name,value) in hints.iter(){
             if matches!(self.e.kind(),Kind::Func(Func::MatrixDotProduct(_,_),_))&&name.extract::<String>()?=="expand" {
                 // SymPy DotProduct accepts this compatibility argument without
@@ -1359,7 +1376,7 @@ impl PyExpr {
             }else{return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));}
         }}
         symox::limits::check_doit(&self.e,deep).map_err(|error|PyValueError::new_err(error.to_string()))?;
-        Ok(wrap(fx::doit(&self.e, deep)))
+        Ok(wrap(fx::doit(&self.e, deep)).into_pyobject(py)?.into_any().unbind())
     }
 
     #[pyo3(signature = (deep=true, **hints))]
@@ -2544,6 +2561,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     logic::register(m)?;
     special::register(m)?;
     calculus::register(m)?;
+    transforms::register(m)?;
     series::register(m)?;
     printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

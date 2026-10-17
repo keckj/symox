@@ -270,6 +270,9 @@ pub fn apply(s: SpecialFn, a: &[C64]) -> Option<C64> {
         Jacobi => misc::jacobi_c(x, a[1], a[2], a[3])?,
         Gegenbauer => misc::gegenbauer_c(x, a[1], a[2])?,
         Ynm => misc::ynm_c(x, a[1], a[2], a[3])?,
+        LaplaceTransform | InverseLaplaceTransform | FourierTransform | InverseFourierTransform
+        | SineTransform | InverseSineTransform | CosineTransform | InverseCosineTransform
+        | HankelTransform | InverseHankelTransform | MellinTransform | InverseMellinTransform => return None,
     };
     Some(r)
 }
