@@ -17,6 +17,8 @@ pub(crate) mod division;
 mod root_analysis;
 #[path="poly_checked_factors.rs"]
 mod checked_factor_views;
+#[path="poly_structure.rs"]
+mod structural;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -38,11 +40,36 @@ fn w(e: Expr) -> PyExpr {
     PyExpr { e }
 }
 
+/// SymPy's `Poly.cancel(g, include=False)` (`dmp_cancel`) for plain
+/// `ZZ`/`QQ` polynomials: `(cp/cq, p, q)` where `p/q` is the cancelled
+/// fraction scaled to coprime integer polynomials with positive leading
+/// coefficients, `cq`/`cp` being the denominators cleared from `f` and `g`.
+/// `a/b` is the already cancelled `f/g`.
+fn sympy_cancel_parts(f:&PolyValue,g:&PolyValue,a:&PolyValue,b:&PolyValue)->Option<(Rat,PolyValue,PolyValue)>{
+    let plain=|p:&PolyValue|p.field.is_none()&&p.algebraic.is_none()&&p.base.modulus.is_none()&&!p.base.has_domain_gens()&&matches!(p.base.domain,Domain::ZZ|Domain::QQ);
+    if ![f,g,a,b].into_iter().all(plain)||a.base.gens!=b.base.gens||a.base.domain!=b.base.domain||b.base.rep.is_zero(){return None;}
+    let (cq,_)=f.base.rep.clear_denoms();let (cp,_)=g.base.rep.clear_denoms();
+    let (da,ia)=a.base.rep.clear_denoms();let (db,ib)=b.base.rep.clear_denoms();
+    // a/b = (ia*db)/(ib*da) and p/q = (cq/cp)*(a/b).
+    let n=ia.scale(&db.mul(&cq));let m=ib.scale(&da.mul(&cp));
+    let g0=n.content().gcd(&m.content());
+    let (n,m)=if g0.is_one()||g0.is_zero(){(n,m)}else{(n.div_coeff(&g0)?,m.div_coeff(&g0)?)};
+    let mut sign=1i64;
+    let n=if !n.is_zero()&&n.lc().is_negative(){sign=-sign;n.neg()}else{n};
+    let m=if m.lc().is_negative(){sign=-sign;m.neg()}else{m};
+    let h=cp.gcd(&cq);
+    let common=Rat::new(cp.div_exact_unchecked(&h).mul_i64(sign),cq.div_exact_unchecked(&h));
+    // The cancelled pair keeps the unified input domain (QQ stays QQ).
+    let domain=if f.base.domain==Domain::QQ||g.base.domain==Domain::QQ{Domain::QQ}else{Domain::ZZ};
+    let mut p=a.base.clone();p.rep=n.to_rat();p.domain=domain;let mut q=b.base.clone();q.rep=m.to_rat();q.domain=domain;
+    Some((common,p.into(),q.into()))
+}
+
 fn err(e: PolyError) -> PyErr {
     match &e {
         PolyError::ExactQuotientFailed(message)=>domains::ExactQuotientFailed::new_err(message.clone()),
         PolyError::NotInvertible(message)=>an_rational::NotInvertible::new_err(message.clone()),
-        PolyError::Unsupported(s) if s.contains("division by zero") => PyZeroDivisionError::new_err(s.clone()),
+        PolyError::Unsupported(s) if s.contains("division by zero") || s.contains("modulo by zero") => PyZeroDivisionError::new_err(s.clone()),
         _ => PyValueError::new_err(e.to_string()),
     }
 }
@@ -99,16 +126,20 @@ fn expr_or_coeff_list(obj: &Bound<'_, PyAny>) -> PyResult<(Expr, Vec<Expr>)> {
         return Ok((p.as_expr(), p.true_gens().to_vec()));
     }
     if let Ok(l) = obj.downcast::<PyList>() {
-        let x = Expr::symbol("x");
-        let n = l.len();
-        let mut terms = Vec::new();
-        for (i, c) in l.iter().enumerate() {
-            let c = if let Ok(value)=c.extract::<PyRef<'_,domains::PyDomainElement>>(){value.value.as_expr()}else{to_expr(&c)?};
-            terms.push(symox::ops::mul(&[c, symox::ops::pow(&x, &Expr::int((n - 1 - i) as i64))]));
-        }
-        return Ok((symox::ops::add(&terms), vec![x]));
+        return coeff_list_in(l, &Expr::symbol("x"));
     }
     Ok((to_expr(obj)?, vec![]))
+}
+
+/// The expression of a dense descending coefficient list in the symbol `x`.
+fn coeff_list_in(l: &Bound<'_, PyList>, x: &Expr) -> PyResult<(Expr, Vec<Expr>)> {
+    let n = l.len();
+    let mut terms = Vec::new();
+    for (i, c) in l.iter().enumerate() {
+        let c = if let Ok(value)=c.extract::<PyRef<'_,domains::PyDomainElement>>(){value.value.as_expr()}else{to_expr(&c)?};
+        terms.push(symox::ops::mul(&[c, symox::ops::pow(x, &Expr::int((n - 1 - i) as i64))]));
+    }
+    Ok((symox::ops::add(&terms), vec![x.clone()]))
 }
 
 // ----------------------------------------------------------------------
@@ -793,6 +824,39 @@ impl PyPoly {
     #[new]
     #[pyo3(signature = (expr, *gens, domain=None, modulus=None, extension=None, **_kwargs))]
     fn py_new(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, extension:Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        // As in SymPy, a Poly argument keeps its domain when no domain option is
+        // given and the generators are omitted or only reordered.
+        if domain.is_none()&&modulus.is_none()&&extension.is_none(){if let Ok(src)=expr.downcast::<PyPoly>(){
+            let src=src.get();let wanted=gens_of(gens)?;
+            let same_set=wanted.len()==src.p.true_gens().len()&&wanted.iter().all(|g|src.p.true_gens().contains(g));
+            if wanted.is_empty(){return Ok(Self{p:src.p.clone()});}
+            if same_set{
+                if let Some(m)=src.p.modulus{return Self::py_new(expr,gens,None,Some(m),None,None);}
+                if let Ok(d)=src.domain_descriptor(){let d=d.into_pyobject(expr.py())?.into_any();return Self::py_new(expr,gens,Some(&d),None,None,None);}
+            }
+        }}
+        // A coefficient list is a dense polynomial in the single given
+        // generator; expression generators are attached after construction.
+        if let (Ok(l),1)=(expr.downcast::<PyList>(),gens.len()){
+            let gen=to_expr(&gens.get_item(0)?)?;
+            if !gen.is_symbol(){
+                let slot=Expr::dummy("x",Default::default());
+                let slots=PyTuple::new(expr.py(),[w(slot)])?;
+                let built=Self::py_new(l.as_any(),&slots,domain,modulus,extension,None)?;
+                match symox::poly::structure::rename_gens(&built.p,&[gen]){
+                    Ok(p)=>return Ok(Self{p}),
+                    // Structured coefficient domains keep symbol generators;
+                    // read the expression in the composite generator instead.
+                    Err(PolyError::Unsupported(_))=>{},
+                    Err(e)=>return Err(err(e)),
+                }
+            }
+        }
+        if let (Ok(l),1)=(expr.downcast::<PyList>(),gens.len()){
+            let (e,_)=coeff_list_in(l,&to_expr(&gens.get_item(0)?)?)?;
+            let e=w(e).into_pyobject(expr.py())?.into_any();
+            return Self::py_new(&e,gens,domain,modulus,extension,None);
+        }
         let selected=domains::Selection::new(domain,modulus,extension)?;
         let(e,g2)=expr_or_coeff_list(expr)?;
         if let Some(d)=&selected.native {let mut generators=gens_of(gens)?;if generators.is_empty(){generators=g2;}if generators.is_empty(){let excluded=if let symox::poly::domains::ExactDomain::Functions{parameters,..}=&d.inner{parameters.as_slice()}else{&[]};generators=symox::poly::fraction::infer_parameters(std::slice::from_ref(&e),excluded);}
@@ -836,13 +900,17 @@ impl PyPoly {
     }
 
     fn as_expr(&self) -> PyExpr {
-        w(self.p.as_expr())
+        w(symox::poly::structure::sympy_expr(&self.p))
     }
 
     #[getter]
     fn expr(&self) -> PyExpr {
-        w(self.p.as_expr())
+        w(symox::poly::structure::sympy_expr(&self.p))
     }
+
+    /// The same terms over other generators (SymPy's ``Poly.new(rep, *gens)``).
+    #[pyo3(signature=(*gens))]
+    fn _with_gens(&self,gens:&Bound<'_,PyTuple>)->PyResult<Self>{Ok(Self{p:symox::poly::structure::rename_gens(&self.p,&gens_of(gens)?).map_err(err)?})}
 
     #[getter]
     fn gens<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -895,7 +963,8 @@ impl PyPoly {
     }
 
     fn degree_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        let v: Vec<i64> = (0..self.p.ngens).map(|i| self.p.rep.degree(i)).collect();
+        // The zero polynomial has degree -oo in every generator, as in SymPy.
+        let v = (0..self.p.ngens).map(|i| degree_obj(py, self.p.degree(i))).collect::<PyResult<Vec<_>>>()?;
         PyTuple::new(py, v)
     }
 
@@ -907,9 +976,38 @@ impl PyPoly {
         self.p.coeffs().into_iter().map(w).collect()
     }
 
-    fn all_coeffs(&self) -> PyResult<Vec<PyExpr>> {
+    fn all_coeffs(&self,py:Python<'_>) -> PyResult<Vec<PyExpr>> {
+        if self.p.ngens!=1{return Err(structural::polynomial_error(py,"PolynomialError","multivariate polynomials not supported".into()));}
         Ok(self.p.all_coeffs().map_err(err)?.into_iter().map(w).collect())
     }
+
+    fn deflate<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyTuple>,Self)>{let(j,p)=symox::poly::structure::deflate(&self.p).map_err(err)?;Ok((PyTuple::new(py,j)?,Self{p}))}
+    fn terms_gcd<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyTuple>,Self)>{let(j,p)=symox::poly::structure::terms_gcd(&self.p).map_err(err)?;Ok((PyTuple::new(py,j)?,Self{p}))}
+    fn exclude(&self)->PyResult<Self>{Ok(Self{p:symox::poly::structure::exclude(&self.p).map_err(err)?})}
+    #[pyo3(signature=(*gens,**kwargs))]
+    fn reorder(&self,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{Ok(Self{p:structural::reordered(&self.p,gens,kwargs)?})}
+    fn homogeneous_order(&self,py:Python<'_>)->PyResult<PyObject>{use symox::poly::structure::HomogeneousOrder;match symox::poly::structure::homogeneous_order(&self.p).map_err(err)?{
+        HomogeneousOrder::Zero=>Ok(w(Expr::neg_oo()).into_pyobject(py)?.into_any().unbind()),HomogeneousOrder::Degree(n)=>Ok(n.into_pyobject(py)?.into_any().unbind()),HomogeneousOrder::Inhomogeneous=>Ok(py.None()),
+    }}
+    #[pyo3(signature=(*gens))]
+    fn has_only_gens(&self,gens:&Bound<'_,PyTuple>)->PyResult<bool>{structural::has_only(&self.p,gens)}
+    fn homogenize(&self,s:&Bound<'_,PyAny>)->PyResult<Self>{
+        let e=to_expr(s)?;
+        if e.as_symbol().is_none(){return Err(PyTypeError::new_err(format!("``Symbol`` expected, got {}",s.get_type().str()?)));}
+        Ok(Self{p:symox::poly::structure::homogenize(&self.p,&e).map_err(err)?})
+    }
+    #[pyo3(signature=(x,m,n=None))]
+    fn slice(&self,x:&Bound<'_,PyAny>,m:&Bound<'_,PyAny>,n:Option<&Bound<'_,PyAny>>)->PyResult<Self>{
+        let(j,m,n)=match n{None=>(0,x.extract::<i64>()?,m.extract::<i64>()?),Some(n)=>(self.gen_index(Some(x))?,m.extract::<i64>()?,n.extract::<i64>()?)};
+        let clamp=|k:i64|k.clamp(0,u32::MAX as i64) as u32;
+        Ok(Self{p:symox::poly::structure::slice(&self.p,j,clamp(m),clamp(n)).map_err(err)?})
+    }
+    fn ltrim(&self,py:Python<'_>,gen:&Bound<'_,PyAny>)->PyResult<Self>{
+        let j=self.gen_index(Some(gen))?;
+        match symox::poly::structure::ltrim(&self.p,j).map_err(err)?{Some(p)=>Ok(Self{p}),None=>Err(structural::polynomial_error(py,"PolynomialError",format!("Cannot left trim {}",self.__repr__())))}
+    }
+    fn all_monoms<'py>(&self,py:Python<'py>)->PyResult<Vec<Bound<'py,PyTuple>>>{structural::dense(&self.p,py,false)}
+    fn all_terms<'py>(&self,py:Python<'py>)->PyResult<Vec<Bound<'py,PyTuple>>>{structural::dense(&self.p,py,true)}
 
     fn monoms<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyTuple>>> {
         self.p.monoms().into_iter().map(|m| PyTuple::new(py, m)).collect()
@@ -1067,7 +1165,8 @@ impl PyPoly {
     fn __eq__(&self, o: &Bound<'_, PyAny>) -> bool {
         if let Ok(q) = o.downcast::<PyPoly>() {
             let q = &q.get().p;
-            return self.p.true_gens() == q.true_gens() && self.p.as_expr() == q.as_expr();
+            // SymPy's Poly.__eq__ also requires equal coefficient domains.
+            return self.p.true_gens() == q.true_gens() && self.p.domain_str() == q.domain_str() && self.p.modulus == q.modulus && self.p.as_expr() == q.as_expr();
         }
         match self.other(o) {
             Some(q) => self.p.as_expr() == q.as_expr(),
@@ -1138,6 +1237,10 @@ impl PyPoly {
     fn cancel(&self,g:&Bound<'_,PyAny>,include:bool)->PyResult<PyObject> {
         let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
         let(a,b)=an_rational::poly_cancel(&self.p,&q)?;let py=g.py();
+        if !include{if let Some((c,a,b))=sympy_cancel_parts(&self.p,&q,&a,&b){
+            let c=w(Expr::num(c.to_number())).into_pyobject(py)?.into_any().unbind();
+            return Ok(PyTuple::new(py,[c,PyPoly{p:a}.into_pyobject(py)?.into_any().unbind(),PyPoly{p:b}.into_pyobject(py)?.into_any().unbind()])?.into_any().unbind());
+        }}
         let mut values=vec![];
         if !include{values.push(w(Expr::one()).into_pyobject(py)?.into_any().unbind());}
         values.push(PyPoly {p:a}.into_pyobject(py)?.into_any().unbind());
@@ -1357,8 +1460,8 @@ impl PyPoly {
         self.p.is_homogeneous()
     }
 
-    fn as_list(&self) -> PyResult<Vec<PyExpr>> {
-        self.all_coeffs()
+    fn as_list(&self,py:Python<'_>) -> PyResult<Vec<PyExpr>> {
+        self.all_coeffs(py)
     }
 
     #[pyo3(signature = (*args))]
@@ -2142,5 +2245,10 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decompose, m)?)?;
     m.add_function(wrap_pyfunction!(sqf_part, m)?)?;
     m.add_function(wrap_pyfunction!(py_together, m)?)?;
+    m.add_function(wrap_pyfunction!(structural::_cyclotomic_coefficients, m)?)?;
+    m.add_function(wrap_pyfunction!(structural::_orthopoly_coefficients, m)?)?;
+    m.add_function(wrap_pyfunction!(structural::_apart_full_decomposition, m)?)?;
+    m.add_function(wrap_pyfunction!(structural::_dispersion_set, m)?)?;
+    m.add_function(wrap_pyfunction!(structural::_is_cyclotomic, m)?)?;
     Ok(())
 }

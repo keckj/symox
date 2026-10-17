@@ -731,6 +731,47 @@ inverse and cancellation methods over `QQ` and supported algebraic fields,
 plus `coeff_monomial` for the existing coefficient domains. A noninvertible
 residue class raises the native `NotInvertible` exception.
 
+`Poly.deflate()`, `terms_gcd()`, `exclude()` and `reorder()` transform sparse
+exponent vectors without rebuilding coefficients. Inverse exponent certificates
+preserve the polynomial, generator identities and typed coefficient domains,
+including unused parameters and algebraic aliases. `reorder()` accepts explicit
+permutations or the `wrt`/`sort` priorities; duplicate generators are rejected
+instead of reproducing SymPy 1.14's expression-changing result.
+`homogeneous_order()` and `has_only_gens()` inspect main-generator support only.
+Univariate `all_monoms()`, `all_terms()` and `all_coeffs()` share a linear dense
+view capped at 100,000 entries. Sparse transforms allow large exponents but
+bound exponent slots and copied coefficient storage. Default generator sorting
+also bounds label work; matrix-backed atoms require an explicit permutation.
+
+Poly also provides SymPy's structural methods (`EC`/`EM`/`ET`, ordered
+`LC`/`LM`/`LT`, ground arithmetic, `inject`/`eject`, `lift`, `retract`,
+`set_modulus`, `rat_clear_denoms`, `sqf_norm`, `revert`, `dispersion`,
+`nth_power_roots_poly`, `real_roots`/`all_roots`, `homogenize`, `slice`,
+`ltrim`, ...) and the Basic protocol (`atoms`, `has`, `subs`, `xreplace`,
+`match`, `compare`, `sort_key`, ...). The top-level `poly_from_expr`,
+`parallel_poly_from_expr`, `degree_list`, `total_degree`, `trunc`, `monic`,
+`content`, `sqf_norm`, `all_roots` and `nth_power_roots_poly`, the polyfuncs
+`horner`, `interpolate`, `rational_interpolate`, `symmetrize` and `viete`, the
+special and orthogonal polynomials (`cyclotomic_poly`, `swinnerton_dyer_poly`,
+`symmetric_poly`, `interpolating_poly`, `random_poly`, Chebyshev, Hermite,
+Jacobi, Laguerre, Legendre), `itermonomials`, `Monomial`, the monomial orders
+and `apart_list`/`assemble_partfrac_list` follow SymPy 1.14, together with the
+full `polyerrors` hierarchy. The orthogonal recurrences (including
+`spherical_bessel_fn`), the `apart_list` full decomposition over `ZZ`/`QQ`,
+the dispersion set, `is_cyclotomic` and SymPy's `Poly.cancel` sign/content
+normalization run natively. Poly also carries `which_real_roots`,
+`which_all_roots`, `make_monic_over_integers_by_scaling_roots`, `refine`,
+`count`, `has_free`, `is_same`, `matches` and the rest of the Basic protocol.
+`all_roots` lists real roots first. Limitations: `galois_group` is missing;
+`set_modulus` accepts primes only; `apart_list` rejects parametric
+(`ZZ[a]`) and floating coefficient domains; `assemble_partfrac_list` expands
+only linear root factors (no `RootSum`); `jacobi_poly` with algebraic
+parameters returns an equal but differently arranged `EX` expression;
+`which_real_roots` keeps exact non-real candidates where SymPy 1.14
+overflows; `gff` raises `NotImplementedError` like SymPy; `homogenize` with a
+generator already present keeps every term instead of reproducing SymPy
+1.14's overwritten coefficient.
+
 ```python
 theta = sm.sqrt(2) + sm.sqrt(3)
 a = sm.to_number_field(sm.sqrt(2), theta)

@@ -53,7 +53,8 @@ pub type PResult<T> = Result<T, PolyError>;
 // generator order
 // ----------------------------------------------------------------------
 
-fn gens_order(name: &str) -> u32 {
+/// Conventional rank of a generator's base name (before a numeric suffix).
+pub fn gens_order(name: &str) -> u32 {
     let mut ch = name.chars();
     let (Some(c), None) = (ch.next(), ch.next()) else {
         return 1000;

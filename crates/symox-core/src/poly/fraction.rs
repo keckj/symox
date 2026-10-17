@@ -545,16 +545,7 @@ impl Polynomial {
             .unwrap_or_else(Expr::zero)
     }
     pub fn all_coeffs(&self) -> PResult<Vec<Expr>> {
-        if self.field.is_none() && self.algebraic.is_none() {
-            return self.base.all_coeffs();
-        }
-        if self.ngens != 1 {
-            return Err(PolyError::Unsupported(
-                "univariate polynomial expected".into(),
-            ));
-        }
-        let n = self.base.rep.degree(0).max(0) as u32;
-        Ok((0..=n).rev().map(|i| self.coeff_monomial(&[i])).collect())
+        Ok(super::structure::dense_terms(self)?.into_iter().map(|(_,c)|c).collect())
     }
     /// Checked coercion boundary for public fallible operations. Coefficients
     /// from incompatible fields never enter arithmetic or an expect here.

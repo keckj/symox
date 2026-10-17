@@ -468,8 +468,12 @@ impl Inputs {
         let args = PyTuple::new(py, generators.iter().cloned().map(w))?;
         // These constructors also retain the established opaque and inexact
         // coefficient backends. Results themselves are never re-polified.
-        let a = PyPoly::py_new(f, &args, opts.domain.as_ref(), None, None, None)?.p;
-        let b = PyPoly::py_new(g, &args, opts.domain.as_ref(), None, None, None)?.p;
+        // Poly inputs are re-polified from their expressions, as in SymPy's
+        // parallel_poly_from_expr; the Poly constructor would keep their domain.
+        let fe = w(expressions[0].clone()).into_pyobject(py)?.into_any();
+        let ge = w(expressions[1].clone()).into_pyobject(py)?.into_any();
+        let a = PyPoly::py_new(&fe, &args, opts.domain.as_ref(), None, None, None)?.p;
+        let b = PyPoly::py_new(&ge, &args, opts.domain.as_ref(), None, None, None)?.p;
         Ok((a, b))
     }
     fn render(&self, py: Python<'_>, p: PolyValue) -> PyResult<PyObject> {

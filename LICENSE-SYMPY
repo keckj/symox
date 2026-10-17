@@ -1,6 +1,18 @@
 The assumptions predicates, generated facts, query pipeline, handlers and
 refinement rules in crates/symox-core/src/ask follow SymPy 1.14.
 
+The polynomial helpers in python/symox/polys/polyfuncs.py, specialpolys.py,
+orthopolys.py, partfrac.py, dispersion.py, monomials.py, orderings.py and
+polytools.py, the Poly method wrappers in python/symox/polys/_poly_methods.py
+(revert, sqf_norm, nth_power_roots_poly and related structural methods) and
+the sparse exponent transforms and the cyclotomic recognition
+(dup_cyclotomic_p) in crates/symox-core/src/poly/structure.rs, the orthogonal
+polynomial recurrences in crates/symox-core/src/poly/orthopolys.rs, the
+Bronstein full partial fraction decomposition in
+crates/symox-core/src/poly/partfrac.rs and the dispersion set in
+crates/symox-core/src/poly/dispersion.rs follow the corresponding SymPy
+algorithms and recurrences.
+
 The deterministic LLL update order and float-to-rational conversion in
 crates/symox-core/src/matrix/lll.rs follow the corresponding SymPy routines.
 The auxiliary matrix kernels in crates/symox-core/src/matrix/auxiliary.rs and

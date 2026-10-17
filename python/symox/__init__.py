@@ -1211,8 +1211,13 @@ from ._core import (  # noqa: E402
 together = _core._poly_together
 
 
-class PolynomialError(ValueError):
-    """Raised for invalid polynomial operations."""
+from .polys.polyerrors import (  # noqa: E402
+    BasePolynomialError, ComputationFailed, EvaluationFailed, ExtraneousFactors,
+    GeneratorsError, GeneratorsNeeded, HeuristicGCDFailed, HomomorphismFailed,
+    ModularGCDFailed, MultivariatePolynomialError, NotAlgebraic, NotReversible,
+    OperationNotSupported, PolificationFailed, PolynomialDivisionFailed,
+    PolynomialError, UnivariatePolynomialError, UnsolvableFactorError,
+)
 
 
 def gcd_list(seq, *gens, **args):
@@ -1225,26 +1230,6 @@ def lcm_list(seq, *gens, **args):
 
 def poly(expr, *gens, **args):
     return Poly(expr, *gens, **args)
-
-
-def LC(f, *gens, **args):
-    """Leading coefficient of ``f``."""
-    return Poly(f, *gens, **args).LC()
-
-
-def LM(f, *gens, **args):
-    """Leading monomial of ``f`` (as an expression)."""
-    p = Poly(f, *gens, **args)
-    m = 1
-    for g, k in zip(p.gens, p.LM()):
-        m = m * g**k
-    return sympify(m)
-
-
-def LT(f, *gens, **args):
-    """Leading term of ``f``."""
-    p = Poly(f, *gens, **args)
-    return p.LC() * LM(f, *gens, **args)
 
 
 def primitive(f, *gens, **args):
@@ -1281,6 +1266,28 @@ def _install_poly_methods():
 
 
 _install_poly_methods()
+
+from .polys import _poly_methods  # noqa: E402
+_poly_methods.install()
+from .polys.polytools import (  # noqa: E402
+    LC, LM, LT, all_roots, content, degree_list, gff, monic,
+    nth_power_roots_poly, parallel_poly_from_expr, poly_from_expr, real_roots,
+    sqf_norm, total_degree, trunc,
+)
+from .polys.polyfuncs import (  # noqa: E402
+    horner, interpolate, rational_interpolate, symmetrize, viete,
+)
+from .polys.specialpolys import (  # noqa: E402
+    cyclotomic_poly, interpolating_poly, random_poly, swinnerton_dyer_poly,
+    symmetric_poly,
+)
+from .polys.orthopolys import (  # noqa: E402
+    chebyshevt_poly, chebyshevu_poly, hermite_poly,
+    hermite_prob_poly, jacobi_poly, laguerre_poly, legendre_poly,
+)
+from .polys.partfrac import apart_list, assemble_partfrac_list  # noqa: E402
+from .polys.monomials import Monomial, itermonomials  # noqa: E402
+from .polys.orderings import grevlex, grlex, igrevlex, igrlex, ilex, lex  # noqa: E402
 # --- end poly ---
 # --- series ---
 # Series expansions, the Order term and limits (crates/symox-py/src/series.rs).

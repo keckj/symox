@@ -60,3 +60,7 @@ pub mod checked_factors;
 pub mod factorial;
 pub mod factor_preflight;
 pub mod factor_fraction;
+pub mod structure;
+pub mod orthopolys;
+pub mod partfrac;
+pub mod dispersion;
