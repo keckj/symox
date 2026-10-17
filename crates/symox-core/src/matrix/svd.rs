@@ -224,6 +224,9 @@ fn validate(input: &Matrix) -> MResult<()> {
                     "Singular value decomposition requires finite entries".into(),
                 ));
             }
+            Kind::Func(Func::Undefined(head),_) if !head.internal&&head.facts().get("finite")==Some(false)=>{
+                return Err(MatrixError::Value("Singular value decomposition requires finite entries".into()));
+            }
             Kind::Const(
                 Constant::Infinity
                 | Constant::NegInfinity

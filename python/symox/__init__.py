@@ -105,7 +105,7 @@ class Function:
             raise TypeError("Function expects a string name")
         self.name = name
         self.__name__ = name
-        self._assumptions = dict(_core._function_assumptions(assumptions))
+        self._assumptions = dict(_core._function_facts(assumptions))
         if nargs is None:
             self._nargs = None
         else:

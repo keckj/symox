@@ -395,7 +395,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Undefined(n), args) => {
             let escaped=n.name.replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
             let mut head=format!("Function('{escaped}'");
-            for keyword in n.assumptions.keywords(){head.push_str(", ");head.push_str(&keyword);}
+            for keyword in n.head_facts().keywords(){head.push_str(", ");head.push_str(&keyword);}
             if let Some(counts)=&n.nargs {
                 head.push_str(", nargs=(");
                 for count in counts {head.push_str(&format!("{count},"));}

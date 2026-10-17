@@ -130,7 +130,7 @@ impl<'py> Encoder<'py>{
                         Func::MatrixElement(m)|Func::MatrixProxy(m)|Func::MatrixTrace(m)|Func::MatrixDeterminant(m)=>{
                             let tag=match f{Func::MatrixElement(_)=>"s.element",Func::MatrixProxy(_)=>"s.proxy",Func::MatrixTrace(_)=>"s.trace",_=>"s.determinant"};(tag,vec![obj(py,self.matrix(m))?,refs])
                         },
-                        Func::Undefined(head)=>("s.undefined",vec![obj(py,head.name.as_ref())?,obj(py,head.assumptions.0)?,obj(py,head.nargs.clone())?,obj(py,head.internal)?,refs]),
+                        Func::Undefined(head)=>("s.undefined.facts",vec![obj(py,head.name.as_ref())?,obj(py,head.head_facts().bits())?,obj(py,head.nargs.clone())?,obj(py,head.internal)?,refs]),
                         _=>("s.function",vec![obj(py,f.name())?,refs]),
                     }
                 },
@@ -198,7 +198,18 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                 "s.derivative"=>{arity(2)?;let vars:Vec<(usize,u32)>=f.get_item(1)?.extract()?;if vars.iter().any(|(_,n)|*n==0){return Err(invalid("derivative order must be positive"));}Kind::Derivative(s(0)?,vars.into_iter().map(|(id,n)|Ok((reader.scalar(id)?,n))).collect::<PyResult<_>>()?)},
                 "s.rel"=>{arity(3)?;let op=match f.get_item(0)?.extract::<String>()?.as_str(){"=="=>RelOp::Eq,"!="=>RelOp::Ne,"<"=>RelOp::Lt,"<="=>RelOp::Le,">"=>RelOp::Gt,">="=>RelOp::Ge,_=>return Err(invalid("unknown relation"))};Kind::Rel(op,s(1)?,s(2)?)},
                 "s.piecewise"=>{arity(1)?;let pairs:Vec<(usize,usize)>=f.get_item(0)?.extract()?;Kind::Piecewise(pairs.into_iter().map(|(a,b)|Ok((reader.scalar(a)?,reader.scalar(b)?))).collect::<PyResult<_>>()?)},
-                "s.undefined"=>{arity(5)?;let head=UndefinedFunction{name:Arc::from(f.get_item(0)?.extract::<String>()?),assumptions:assumptions(f.get_item(1)?.extract()?)?,nargs:f.get_item(2)?.extract()?,internal:f.get_item(3)?.extract()?};let args=ss(4)?;if !head.accepts(args.len()){return Err(invalid("undefined function arity mismatch"));}
+                "s.undefined"|"s.undefined.facts"=>{arity(5)?;
+                    let name:String=f.get_item(0)?.extract()?;
+                    let given=if tag=="s.undefined"{symox::assumption_facts::FactSet::from_legacy(assumptions(f.get_item(1)?.extract()?)?)}else{
+                        let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;
+                        symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?
+                    };
+                    let mut head=UndefinedFunction::with_facts(&name,given,f.get_item(2)?.extract()?).map_err(invalid)?;
+                    head.internal=f.get_item(3)?.extract()?;
+                    if head.internal && (!matches!(name.as_str(),"Tuple"|"UnevaluatedExpr"|"Integral"|"Sum") || !head.head_facts().is_empty() || head.nargs.is_some()){
+                        return Err(invalid("invalid internal function head"));
+                    }
+                    let args=ss(4)?;if !head.accepts(args.len()) || (head.is_internal("UnevaluatedExpr")&&args.len()!=1){return Err(invalid("undefined function arity mismatch"));}
                     if head.internal&&matches!(head.name.as_ref(),"Integral"|"Sum"){
                         if args.len()<2||head.assumptions!=Assumptions::NONE||head.nargs.is_some(){return Err(invalid("invalid legacy calculus placeholder"));}
                         let function=if head.name.as_ref()=="Integral"{Func::Integral}else{Func::Sum};

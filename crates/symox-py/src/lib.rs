@@ -120,24 +120,64 @@ fn validate_matrix_replacements(py: Python<'_>, e: &Expr, pairs: &[(Expr, Expr)]
 
 fn function_spec(name:&str,assumptions:&Bound<'_,PyDict>,nargs:Option<Vec<usize>>)->PyResult<symox::expr::UndefinedFunction>{
     let mut kwargs=Vec::new();
-    for (key,value) in assumptions.iter(){let key:String=key.extract()?;if !value.is_none(){kwargs.push((key,value.is_truthy()?));}}
-    let assumptions=symox::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(PyValueError::new_err)?;
-    if nargs.as_ref().is_some_and(Vec::is_empty){return Err(PyValueError::new_err("nargs must not be empty"));}
-    Ok(symox::expr::UndefinedFunction::new(name,assumptions,nargs))
+    for (key,value) in assumptions.iter(){
+        let key:String=key.extract()?;
+        if value.is_none(){
+            if key=="commutative"{return Err(PyValueError::new_err("commutativity must be True or False"));}
+            if !symox::assumption_facts::FactSet::NAMES.contains(&key.as_str()){
+                return Err(PyValueError::new_err(format!("unknown assumption {key}")));
+            }
+        }else{
+            if key=="commutative"&&!value.eq(true)?&&!value.eq(false)?{
+                return Err(PyValueError::new_err("commutativity must be True or False"));
+            }
+            kwargs.push((key,value.is_truthy()?));
+        }
+    }
+    let given=symox::assumption_facts::FactSet::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(PyValueError::new_err)?;
+    symox::expr::UndefinedFunction::with_facts(name,given,nargs).map_err(PyValueError::new_err)
 }
 
 fn function_kwargs<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)->PyResult<Bound<'py,PyDict>>{
     let kwargs=PyDict::new(py);
-    for keyword in function.assumptions.keywords(){if let Some((key,value))=keyword.split_once('='){kwargs.set_item(key,value=="True")?;}}
+    for (key,value) in function.head_facts().iter(){kwargs.set_item(key,value)?;}
     if let Some(counts)=&function.nargs{kwargs.set_item("nargs",PyTuple::new(py,counts)?)?;}
     Ok(kwargs)
 }
 
-/// Keep undefined heads on their existing assumption schema. Symbol's full
-/// fact closure contains additional keywords not yet stored by these heads.
+/// Canonical identity metadata, including all standard true and false facts.
 #[pyfunction]
-fn _function_assumptions<'py>(py:Python<'py>,assumptions:&Bound<'py,PyDict>)->PyResult<Bound<'py,PyDict>>{
+fn _function_facts<'py>(py:Python<'py>,assumptions:&Bound<'py,PyDict>)->PyResult<Bound<'py,PyDict>>{
     function_kwargs(py,&function_spec("",assumptions,None)?)
+}
+
+/// Read a SymPy head without importing SymPy, or converting metadata by text.
+fn sympy_function_spec(function:&Bound<'_,PyAny>)->PyResult<symox::expr::UndefinedFunction>{
+    let name:String=function.getattr("__name__")?.extract()?;
+    let options=function.getattr("_kwargs")?;
+    let options=options.downcast::<PyDict>()?;
+    let selected=PyDict::new(function.py());
+    for (key,value) in options.iter(){
+        if key.extract::<String>()?!="nargs"{selected.set_item(key,value)?;}
+    }
+    let counts=function.getattr("nargs")?;
+    let nargs=if counts.getattr("is_FiniteSet").is_ok_and(|value|value.is_truthy().unwrap_or(false)){
+        Some(counts.try_iter()?.map(|value|to_expr(&value?).and_then(|e|e.as_i64().and_then(|n|usize::try_from(n).ok()).ok_or_else(||PyValueError::new_err("invalid function nargs")))).collect::<PyResult<Vec<_>>>()?)
+    }else{None};
+    function_spec(&name,&selected,nargs)
+}
+
+pub(crate) fn function_head(value:&Bound<'_,PyAny>)->PyResult<Option<symox::expr::UndefinedFunction>>{
+    if let (Ok(name),Ok(assumptions),Ok(nargs))=(value.getattr("name"),value.getattr("_assumptions"),value.getattr("_nargs")){
+        if let (Ok(name),Ok(assumptions))=(name.extract::<String>(),assumptions.downcast::<PyDict>()){
+            return function_spec(&name,assumptions,nargs.extract()?).map(Some);
+        }
+    }
+    let sympy_head=value.get_type().getattr("__mro__").is_ok_and(|mro|mro.try_iter().is_ok_and(|bases|bases.filter_map(Result::ok).any(|base|{
+        base.getattr("__name__").is_ok_and(|name|name.extract::<String>().is_ok_and(|name|name=="UndefinedFunction"))
+            &&base.getattr("__module__").is_ok_and(|module|module.extract::<String>().is_ok_and(|module|module.starts_with("sympy.")))
+    })));
+    if sympy_head{sympy_function_spec(value).map(Some)}else{Ok(None)}
 }
 
 fn undefined_head<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)->PyResult<Bound<'py,PyAny>>{
@@ -228,21 +268,7 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         let head: String = obj.getattr("func")?.getattr("__name__")?.extract()?;
         let applied_undefined=obj.get_type().getattr("__mro__").is_ok_and(|mro|mro.try_iter().is_ok_and(|bases|bases.filter_map(Result::ok).any(|base|base.getattr("__name__").is_ok_and(|name|name.extract::<String>().is_ok_and(|name|name=="AppliedUndef")))));
         if applied_undefined {
-            let function=obj.getattr("func")?;
-            let kwargs=function.getattr("_kwargs")?;
-            let kwargs=kwargs.downcast::<PyDict>()?;
-            let selected=PyDict::new(py);
-            for (name,_) in symox::Assumptions::NAMES {
-                let key=name.strip_prefix('!').unwrap_or(name);
-                if let Some(value)=kwargs.get_item(key)?{
-                    selected.set_item(key,value)?;
-                }
-            }
-            let counts=function.getattr("nargs")?;
-            let nargs=if counts.getattr("is_FiniteSet").is_ok_and(|value|value.is_truthy().unwrap_or(false)) {
-                Some(counts.try_iter()?.map(|value|to_expr(&value?).and_then(|e|e.as_i64().and_then(|n|usize::try_from(n).ok()).ok_or_else(||PyValueError::new_err("invalid function nargs")))).collect::<PyResult<Vec<_>>>()?)
-            }else{None};
-            let spec=function_spec(&head,&selected,nargs)?;
+            let spec=sympy_function_spec(&obj.getattr("func")?)?;
             let args=obj.getattr("args")?.try_iter()?.map(|arg|to_expr(&arg?)).collect::<PyResult<Vec<_>>>()?;
             return Ok(fx::func(Func::Undefined(spec),args));
         }
@@ -1383,13 +1409,13 @@ impl PyExpr {
     #[pyo3(signature = (*patterns))]
     fn has(&self, patterns: &Bound<'_, PyTuple>) -> PyResult<bool> {
         for p in patterns.iter() {
-            if let Ok(name)=p.getattr("name").and_then(|v|v.extract::<String>()){
-                if let Ok(assumptions)=p.getattr("_assumptions"){
-                    let nargs=p.getattr("_nargs")?.extract::<Option<Vec<usize>>>()?;
-                    let target=function_spec(&name,assumptions.downcast::<PyDict>()?,nargs)?;
-                    fn contains(e:&Expr,target:&symox::expr::UndefinedFunction)->bool{matches!(e.kind(),Kind::Func(Func::Undefined(f),_) if f==target)||e.args().iter().any(|a|contains(a,target))}
-                    if contains(&self.e,&target){return Ok(true);}continue;
+            if let Some(target)=function_head(&p)?{
+                fn contains(e:&Expr,target:&symox::expr::UndefinedFunction,seen:&mut FxHashMap<usize,Expr>)->bool{
+                    if seen.insert(e.dag_id(),e.clone()).is_some(){return false;}
+                    matches!(e.kind(),Kind::Func(Func::Undefined(f),_) if f==target)
+                        ||e.args().iter().any(|a|contains(a,target,seen))
                 }
+                if contains(&self.e,&target,&mut FxHashMap::default()){return Ok(true);}continue;
             }
             if traverse::has(&self.e, &to_expr(&p)?) {
                 return Ok(true);
@@ -2445,7 +2471,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(_undefined_function, m)?)?;
-    m.add_function(wrap_pyfunction!(_function_assumptions, m)?)?;
+    m.add_function(wrap_pyfunction!(_function_facts, m)?)?;
     m.add_function(wrap_pyfunction!(_subs, m)?)?;
     m.add_function(wrap_pyfunction!(py_expand, m)?)?;
     m.add_function(wrap_pyfunction!(py_integrate, m)?)?;

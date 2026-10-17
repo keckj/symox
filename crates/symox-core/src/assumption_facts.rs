@@ -17,6 +17,11 @@ impl FactSet {
         value.closure()?;Ok(value)
     }
     pub fn bits(self)->(u32,u32){(self.known,self.positive)}
+    /// Remove presentation metadata before reclosing facts for an applied head.
+    pub fn without(self,name:&str)->Self{
+        let Some(index)=data::NAMES.iter().position(|n|*n==name) else{return self;};
+        let mask=!(1<<index);Self{known:self.known&mask,positive:self.positive&mask}
+    }
     pub fn from_kwargs<'a>(kwargs:impl IntoIterator<Item=(&'a str,bool)>)->Result<Self,String>{
         let mut facts=Self::EMPTY;
         for (name,value) in kwargs {
@@ -44,9 +49,16 @@ impl FactSet {
     }
     pub fn closure(self)->Result<Self,String>{
         if self.is_empty()||self==Self::COMMUTATIVE{return Ok(Self::COMMUTATIVE);}
+        self.with_default_commutative(true)
+    }
+    /// Functions have no default declaration of commutativity. It may still be
+    /// implied by a real/complex declaration, independently of their arguments.
+    pub fn closure_without_default_commutative(self)->Result<Self,String>{
+        self.with_default_commutative(false)
+    }
+    fn with_default_commutative(self,default:bool)->Result<Self,String>{
         let mut facts=self;
-        let commutative=1<<data::NAMES.iter().position(|n|*n=="commutative").unwrap();
-        facts.merge(commutative,commutative)?;
+        if default {facts.merge(Self::COMMUTATIVE.known,Self::COMMUTATIVE.positive)?;}
         loop {
             let before=facts;
             for i in 0..31 {
@@ -83,6 +95,44 @@ impl FactSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn function_identity_separates_explicit_commutativity_and_applied_facts(){
+        use crate::expr::UndefinedFunction;
+        let plain=UndefinedFunction::new("f",crate::Assumptions::NONE,None);
+        let explicit=UndefinedFunction::with_facts("f",FactSet::COMMUTATIVE,None).unwrap();
+        assert_ne!(plain,explicit);
+        assert_eq!(plain.facts().get("commutative"),None);
+        assert_eq!(explicit.facts().get("commutative"),Some(true));
+        let real=UndefinedFunction::with_facts("f",FactSet::from_kwargs([("real",true)]).unwrap(),Some(vec![2,1,2])).unwrap();
+        let redundant=UndefinedFunction::with_facts("f",FactSet::from_kwargs([("real",true),("finite",true)]).unwrap(),Some(vec![1,2])).unwrap();
+        assert_eq!(real,redundant);assert_eq!(real.cmp(&redundant),std::cmp::Ordering::Equal);
+        assert_eq!(real.head_facts().get("commutative"),None);
+        assert_eq!(real.facts().get("commutative"),Some(true));
+        use std::hash::{Hash,Hasher};
+        let hash=|head:&UndefinedFunction|{let mut h=rustc_hash::FxHasher::default();head.hash(&mut h);h.finish()};
+        assert_eq!(hash(&real),hash(&redundant));
+        assert!(UndefinedFunction::with_facts("f",FactSet::EMPTY,Some(vec![])).is_err());
+    }
+    #[test]
+    fn full_function_facts_have_fast_declarative_queries_and_nonfinite_consumers(){
+        use crate::{Expr,Func,Kind};
+        let head=crate::expr::UndefinedFunction::with_facts("f",FactSet::from_kwargs([("finite",false)]).unwrap(),None).unwrap();
+        let expression=Expr::from_kind(Kind::Func(Func::Undefined(head),vec![Expr::symbol("x")]));
+        assert_eq!(crate::assumptions::is_finite(&expression),Some(false));
+        assert_eq!(crate::assumptions::is_real(&expression),Some(false));
+        assert_eq!(crate::assumptions::is_even(&expression),Some(false));
+        assert_eq!(crate::assumptions::is_odd(&expression),Some(false));
+        assert_eq!(crate::assumptions::fact(&expression,"algebraic"),Some(false));
+        assert!(expression.has_nonfinite());
+        assert_eq!(crate::ops::mul2(&Expr::zero(),&expression),Expr::nan());
+        let head=crate::expr::UndefinedFunction::with_facts("pair",FactSet::from_kwargs([("real",true),("algebraic",true)]).unwrap(),Some(vec![2])).unwrap();
+        let mut dag=Expr::symbol("x");
+        for _ in 0..80{dag=Expr::from_kind(Kind::Func(Func::Undefined(head.clone()),vec![dag.clone(),dag]));}
+        assert_eq!(crate::assumptions::is_real(&dag),Some(true));
+        assert_eq!(crate::assumptions::fact(&dag,"algebraic"),Some(true));
+        let squared=crate::ops::mul2(&dag,&dag);
+        assert_eq!(crate::assumptions::fact(&squared,"algebraic"),Some(true));
+    }
     #[test]
     fn closure_preserves_false_and_beta_rules(){
         let p=FactSet::from_kwargs([("even",true),("positive",true),("prime",false)]).unwrap().closure().unwrap();

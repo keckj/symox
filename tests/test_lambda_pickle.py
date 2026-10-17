@@ -66,7 +66,7 @@ def test_pickle_reader_rejects_duplicate_lambda_parameters():
     assert fields[0]=='Lambda'
     signature=fields[1][0]
     tag,canonical,fields=records[signature]
-    assert tag=='s.undefined' and fields[0]=='Tuple'
+    assert tag in ('s.undefined', 's.undefined.facts') and fields[0]=='Tuple'
     duplicated=(*fields[:4],[fields[4][0],fields[4][0]])
     records[signature]=(tag,canonical,duplicated)
     with pytest.raises(ValueError,match='Duplicate|signature'):

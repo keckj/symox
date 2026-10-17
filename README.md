@@ -182,9 +182,13 @@ Its arguments retain the signature tuple; application uses exact simultaneous
 replacement, following SymPy's binding behavior. Identity lambdas use the native
 `S.IdentityFunction` singleton. Existing scalar and facade Lambda pickles remain
 readable.
-Undefined functions preserve their identity and declared assumptions and arity,
-including names shared with builtins. Held `Derivative`, `Subs` and `Limit` expressions
-support evaluation and round trips; simultaneous symbol substitutions preserve
+Undefined functions preserve all 31 standard true or false assumption facts,
+canonical head identity and declared arity, including names shared with builtins.
+An explicit `commutative=True` distinguishes a head from an implicit declaration;
+applied facts retain unknown values and do not imply continuity. Custom facts
+and noncommutative heads are rejected explicitly. Arities are normalized to
+sorted, unique tuples. Existing function pickles remain readable.
+Held `Derivative`, `Subs` and `Limit` expressions support evaluation and round trips; simultaneous symbol substitutions preserve
 the original right-hand sides. Limits of unknown functions remain held when
 continuity cannot be established.
 `Subs` accepts symbol variables and identifies safe renamings of bound variables
