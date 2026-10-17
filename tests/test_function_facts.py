@@ -225,7 +225,7 @@ def test_known_nonfinite_function_values_fail_matrix_preflight(kwargs, held):
              'sum': lambda: sx.Add(value, t, evaluate=False),
              'product': lambda: sx.Mul(2, value, evaluate=False)}[held]()
     matrix = sx.ImmutableMatrix([[entry]])
-    for operation in [matrix.exp, lambda: matrix.analytic_func(sx.exp(x), x),
+    for operation in [matrix.exp, matrix.log, lambda: matrix.analytic_func(sx.exp(x), x),
                       matrix.singular_value_decomposition,
                       lambda: sx.eye(1).analytic_func(sx.Add(x, entry, evaluate=False), x)]:
         with pytest.raises(ValueError, match='finite'):
@@ -238,6 +238,7 @@ def test_unknown_function_finiteness_keeps_diagonal_matrix_functions_available(k
     value = sx.Function('f', **kwargs)(t)
     assert value.is_finite is None
     assert sx.ImmutableMatrix([[value]]).exp() == sx.ImmutableMatrix([[sx.exp(value)]])
+    assert sx.ImmutableMatrix([[value]]).log() == sx.ImmutableMatrix([[sx.log(value)]])
     assert sx.eye(1).analytic_func(x+value, x) == sx.ImmutableMatrix([[1+value]])
 
 
