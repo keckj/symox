@@ -413,6 +413,14 @@ fn eval_log(a: &Expr) -> Option<Expr> {
         }
         Kind::Const(Constant::E) => Some(Expr::one()),
         Kind::Func(Func::Exp, x) if crate::assumptions::is_real(&x[0]) == Some(true) => Some(x[0].clone()),
+        Kind::Mul(c, factors)
+            if c.is_minus_one() && factors.len() == 1
+                && factors[0].0.is_constant(Constant::I) && factors[0].1.is_one() =>
+        {
+            // One exact principal argument, without distributing logarithms
+            // across arbitrary products or changing a generic branch.
+            Some(neg(&mul(&[Expr::i(), Expr::pi(), half()])))
+        }
         Kind::Const(Constant::I) => Some(mul(&[Expr::i(), Expr::pi(), half()])),
         Kind::Const(Constant::Infinity) | Kind::Const(Constant::NegInfinity) => Some(Expr::oo()),
         Kind::Const(Constant::ComplexInfinity) => Some(Expr::zoo()),

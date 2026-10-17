@@ -103,7 +103,7 @@ impl Matrix{
             return budget.diagonal(&values);
         }
         let input_height=budget.matrix(self)?;budget.interpolation(self.rows(),input_height)?;
-        budget.cancel_preflight(self)?;
+        budget.spectral_preflight(self)?;
         let eigenvalues=self.eigenvals().map_err(unavailable)?;
         if eigenvalues.iter().map(|(_,n)|*n).sum::<usize>()!=self.rows(){
             return Err(MatrixError::NotImplemented("The exact matrix spectrum is incomplete".into()));
@@ -138,6 +138,22 @@ impl Matrix{
         for coefficient in coefficients.data().iter().rev(){let product=budget.mul(&value,self)?;let term=budget.scale(&identity,coefficient)?;let sum=budget.add(&product,&term)?;value=budget.cancel(&sum)?;}
         for entry in value.data(){ensure_finite(entry)?;}
         Ok(value)
+    }
+
+    /// Primary matrix logarithm obtained by applying the existing scalar log
+    /// at every eigenvalue. Negative real eigenvalues use scalar log's +I*pi
+    /// determination; no global log-product or log-exp identity is assumed.
+    pub fn log(&self)->MResult<Matrix>{self.log_with_simplification(true)}
+
+    /// Optionally cancel the final result. Necessary simplifications inside
+    /// Hermite interpolation and its exact certificates are always retained.
+    pub fn log_with_simplification(&self,simplify:bool)->MResult<Matrix>{
+        crate::assumptions::exact_queries(||{
+            check_matrix(self)?;
+            let x=Expr::dummy("_matrix_log",crate::Assumptions::default());
+            let result=self.analytic_func(&crate::functions::func(Func::Log,vec![x.clone()]),&x)?;
+            if simplify{Budget::new().cancel(&result)}else{Ok(result)}
+        })
     }
 
     /// Matrix exponential. Exact scalar exponentials remain symbolic; this
@@ -175,6 +191,38 @@ mod tests{
         assert!(matches!(a.analytic_func(&crate::ops::pow(&crate::ops::sub(&x,&Expr::one()),&Expr::minus_one()),&x),Err(MatrixError::Value(_))));
         assert_eq!(Matrix::zeros(0,0).exp().unwrap().shape(),(0,0));
     }
+    #[test]
+    fn logarithm_nilpotent_series_scalar_branches_and_similarity(){
+        let nil=m(&[&[0,2,0],&[0,0,3],&[0,0,0]]);
+        for lambda in [Expr::one(),Expr::int(2),Expr::int(-2),Expr::i(),Expr::symbol_with("p",crate::Assumptions::POSITIVE)]{
+            let a=Matrix::eye(3).scale(&lambda).add(&nil).unwrap();
+            let inverse=crate::ops::pow(&lambda,&Expr::minus_one());
+            let expected=Matrix::eye(3).scale(&crate::functions::log(&lambda))
+                .add(&nil.scale(&inverse)).unwrap()
+                .sub(&nil.powi(2).unwrap().scale(&crate::ops::mul2(&Expr::rational(1,2),&crate::ops::pow(&inverse,&Expr::int(2))))).unwrap();
+            let actual=a.log().unwrap();equal(&actual,&expected);
+            equal(&a.matmul(&actual).unwrap(),&actual.matmul(&a).unwrap());
+            equal(&actual.exp().unwrap(),&a);
+        }
+        let p=m(&[&[1,2,-1],&[0,1,3],&[0,0,1]]);
+        let a=Matrix::eye(3).add(&nil).unwrap();
+        let transformed=p.matmul(&a).unwrap().matmul(&p.inv().unwrap()).unwrap();
+        equal(&transformed.log().unwrap(),&p.matmul(&a.log().unwrap()).unwrap().matmul(&p.inv().unwrap()).unwrap());
+    }
+
+    #[test]
+    fn logarithm_domain_empty_and_spectral_preflight(){
+        assert_eq!(Matrix::zeros(0,0).log().unwrap().shape(),(0,0));
+        assert!(matches!(Matrix::zeros(0,2).log(),Err(MatrixError::NonSquare(_))));
+        assert!(matches!(Matrix::zeros(2,2).log(),Err(MatrixError::Value(_))));
+        assert!(matches!(m(&[&[0,1],&[0,0]]).log(),Err(MatrixError::Value(_))));
+        for value in [Expr::oo(),Expr::zoo(),Expr::nan()]{assert!(matches!(Matrix::new(1,1,vec![value]).unwrap().log(),Err(MatrixError::Value(_))));}
+        let entries=(0..36).map(|i|crate::ops::add(&(0..6).map(|j|Expr::symbol(&format!("a{i}_{j}"))).collect::<Vec<_>>())).collect();
+        assert!(matches!(Matrix::new(6,6,entries).unwrap().log(),Err(MatrixError::NotImplemented(_))));
+        let held=Expr::from_unevaluated_kind(Kind::Pow(Expr::int(2),Expr::int(1_000_000_000)));
+        assert!(matches!(Matrix::new(1,1,vec![held]).unwrap().log(),Err(MatrixError::NotImplemented(_))));
+    }
+
     #[test]
     fn nonfinite_declared_symbols_are_not_finite_matrix_parameters(){
         let x=Expr::symbol("x");
