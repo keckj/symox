@@ -407,6 +407,28 @@ class _SparseBase:
     def diff(self, *args, **kwargs): return self.applyfunc(lambda x:x.diff(*args,**kwargs))
     def expand(self, **kwargs): return self.applyfunc(lambda x:x.expand(**kwargs))
     def simplify(self, **kwargs): return self.applyfunc(lambda x:x.simplify(**kwargs))
+    def permute(self, perm, orientation='rows', direction='forward'):
+        from ._sparse_structural import permute
+        return permute(self, perm, orientation, direction)
+    def permute_rows(self, swaps, direction='forward'): return self.permute(swaps, 'rows', direction)
+    def permute_cols(self, swaps, direction='forward'): return self.permute(swaps, 'cols', direction)
+    def permuteFwd(self, perm): return self.permute(perm, 'rows', 'forward')
+    def permuteBkwd(self, perm): return self.permute(perm, 'rows', 'backward')
+    def elementary_row_op(self, op='n->kn', row=None, k=None, row1=None, row2=None):
+        from ._sparse_structural import elementary
+        return elementary(self, True, op, row, k, row1, row2)
+    def elementary_col_op(self, op='n->kn', col=None, k=None, col1=None, col2=None):
+        from ._sparse_structural import elementary
+        return elementary(self, False, op, col, k, col1, col2)
+    def row_op(self, i, f):
+        from ._sparse_structural import callback
+        return callback(self, True, i, None, f)
+    def col_op(self, j, f):
+        from ._sparse_structural import callback
+        return callback(self, False, j, None, f)
+    def zip_row_op(self, i, k, f):
+        from ._sparse_structural import callback
+        return callback(self, True, i, k, f)
     def row_swap(self, i, j):
         self._mutable(); i,j=_index(i,self.rows),_index(j,self.rows)
         self._data = {(j if r==i else i if r==j else r,c):v for (r,c),v in self._data.items()}

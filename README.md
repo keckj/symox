@@ -945,6 +945,46 @@ large dyadic integers, and shares resource checks with Sparse delegation before
 densification. Modulo one returns the zero matrix of the trivial ring, avoiding
 SymPy 1.14's error on nonempty inputs. Nonpositive moduli and noninteger entries
 are rejected.
+`permute`, `permute_rows`, `permute_cols`, `permuteFwd` and `permuteBkwd`
+return new matrices with SymPy's permutation conventions: array form lists the
+source indices, while `direction` reverses the order of a sequence of cycles.
+`elementary_row_op` and `elementary_col_op` implement scaling, swaps and adding
+left scalar multiples. These operations preserve shape and mutability. Sparse
+transformations operate on stored entries and finite permutation support,
+including axes too large for dense storage. If a coefficient such as infinity
+turns implicit zeros into `nan`, the affected line is materialized only after
+a resource check. Mutable `row_op`, `col_op` and `zip_row_op` apply callbacks
+sequentially, allow callbacks to read the matrix, and keep earlier updates if a
+later callback fails. Transformation indices must be integers; negative indices
+are accepted by the mutable callbacks, but not elementary operations or
+permutation specifications. Conservative native allocation and arithmetic
+limits raise `NotImplementedError` before a large transformation is attempted.
+Dense, immutable and sparse matrices also provide SymPy's auxiliary
+`MatrixBase` methods. These include `berkowitz*`, `LUdecomposition_Simple`,
+`LUdecompositionFF`, `per`, `inverse_BLOCK`, `cramer_solve`, `rref_rhs`,
+`upper_hessenberg_decomposition`, `bidiagonal_decomposition`,
+`lower/upper_triangular`, `rot90`, `vech`, `hat`, `vee`, `dual`, `diagonal(k)`,
+`equals`, `pow(method=...)` and the container protocol (`key2ij`, `copyin_*`,
+`fill`, `row_add`, `todok`, `table`, ...). The constructors `jordan_block`,
+`companion`, `wilkinson`, `irregular` and `orthogonalize` are available, as are
+`liupc` and `row_structure_symbolic_cholesky` on sparse matrices. The top-level
+helpers are `GramSchmidt`, `casoratian`, `jordan_cell`, `randMatrix` (same
+seeded output as SymPy), `banded`, `rot_axis*`, `rot_ccw_axis*`, `rot_givens`,
+`symarray`, `list2numpy`, `matrix2numpy`, `matrix_multiply_elementwise`,
+`MutableMatrix` and `MatrixBase`, which is an isinstance facade.
+Householder results are exact; bases and signs can differ from SymPy's.
+The bidiagonal tuple is `(U, B, R)` with `A = U*B*R`, matching SymPy's
+returned right factor (`V.H`). Zero pivots and complex reflectors are supported.
+Classic dense constructors are bounded to 100,000 entries. `irregular(0, ...)`
+rejects nonempty input instead of looping indefinitely. Symbolic powers of
+unipotent matrices use the native analytic-function engine. Cramer's rule
+rejects mismatched right-hand-side row counts with `ShapeError`, including
+cases where SymPy 1.14 instead raises an incidental `IndexError`. `equals` follows SymPy's heuristics conservatively and may return
+`None` where SymPy decides. Not supported: `to_DM` (there is no DomainMatrix),
+`(strongly_)connected_components_decomposition` (it needs PermutationMatrix),
+`DeferredVector`, `MatrixKind`, and the `Basic`/`Expr` methods of immutable
+matrices.
+
 `lll(delta=Rational(3, 4))` reduces an integer row-lattice basis;
 `lll_transform()` returns `(B, T)` with `T*A=B` and unimodular integer `T`.
 The native deterministic algorithm follows SymPy's reduction order and

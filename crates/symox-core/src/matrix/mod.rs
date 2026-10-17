@@ -36,6 +36,8 @@ pub mod solvers;
 pub mod spectral;
 pub mod svd;
 pub mod functions;
+pub mod structural;
+pub mod auxiliary;
 
 use std::fmt;
 

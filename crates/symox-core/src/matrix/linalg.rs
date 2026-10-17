@@ -546,7 +546,7 @@ fn row_reduce(
 }
 
 /// SymPy's `_LUdecomposition_Simple`: combined LU matrix and row swaps.
-fn lu_simple(m: &Matrix, rankcheck: bool) -> MResult<(Matrix, Vec<(usize, usize)>)> {
+pub(crate) fn lu_simple(m: &Matrix, rankcheck: bool) -> MResult<(Matrix, Vec<(usize, usize)>)> {
     let (rows, cols) = m.shape();
     if rows == 0 || cols == 0 {
         return Ok((Matrix::zeros(rows, cols), vec![]));
@@ -643,6 +643,12 @@ pub fn scc(m: &Matrix) -> Vec<Vec<usize>> {
     let gmap: Vec<Vec<usize>> = (0..n)
         .map(|i| (0..n).filter(|&j| !m.get(i, j).is_zero()).collect())
         .collect();
+    tarjan(&gmap)
+}
+
+/// Iterative Tarjan over adjacency lists, in SymPy's component order.
+pub(crate) fn tarjan(gmap: &[Vec<usize>]) -> Vec<Vec<usize>> {
+    let n = gmap.len();
     let mut lowlink = vec![usize::MAX; n];
     let mut index = vec![usize::MAX; n];
     let mut on_stack = vec![false; n];

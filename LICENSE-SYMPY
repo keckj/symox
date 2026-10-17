@@ -3,6 +3,12 @@ refinement rules in crates/symox-core/src/ask follow SymPy 1.14.
 
 The deterministic LLL update order and float-to-rational conversion in
 crates/symox-core/src/matrix/lll.rs follow the corresponding SymPy routines.
+The auxiliary matrix kernels in crates/symox-core/src/matrix/auxiliary.rs and
+python/symox/_matrix_aux.py (Berkowitz vectors, fraction-free and simple LU,
+permanent, inverse_BLOCK, Householder Hessenberg and bidiagonal reductions,
+dual, get_diag_blocks, irregular, orthogonalize, casoratian, randMatrix,
+banded, liupc and the Expr.equals heuristics used by Matrix.equals) are ports
+of the corresponding SymPy routines.
 The SymPy distribution copyright and license notices are reproduced below.
 
 Copyright (c) 2006-2023 SymPy Development Team

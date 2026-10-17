@@ -1,4 +1,8 @@
 //! Python bindings for symbolic matrices (`symox.Matrix`).
+#[path = "matrix_structural.rs"]
+mod structural;
+#[path = "matrix_auxiliary.rs"]
+mod auxiliary;
 
 use pyo3::exceptions::{PyIndexError, PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -262,6 +266,24 @@ fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
     }
     let col: Vec<Expr> = items.iter().map(scalar_matrix_entry).collect::<PyResult<_>>()?;
     Ok(Matrix::column(col))
+}
+
+impl PyMatrix {
+    /// SymPy's `minor`/`cofactor` checks: squareness first, then the
+    /// `minor_submatrix` bounds (negative indices wrap once).
+    fn minor_index(&self, py: Python<'_>, i: isize, j: isize, nonempty: bool) -> PyResult<(usize, usize)> {
+        let (rows, cols) = (self.m.rows() as isize, self.m.cols() as isize);
+        if rows != cols || (nonempty && rows < 1) {
+            return Err(err(py, MatrixError::NonSquare(String::new())));
+        }
+        let (i, j) = (if i < 0 { i + rows } else { i }, if j < 0 { j + cols } else { j });
+        if !(0..rows).contains(&i) || !(0..cols).contains(&j) {
+            return Err(PyValueError::new_err(format!(
+                "`i` and `j` must satisfy 0 <= i < ``M.rows`` ({rows})and 0 <= j < ``M.cols`` ({cols})."
+            )));
+        }
+        Ok((i as usize, j as usize))
+    }
 }
 
 fn norm_index(i: isize, n: usize) -> PyResult<usize> {
@@ -628,6 +650,158 @@ impl PyMatrix {
         Ok(())
     }
 
+    #[pyo3(signature = (perm, orientation="rows", direction="forward"))]
+    fn permute(&self, py: Python<'_>, perm: &Bound<'_, PyAny>, orientation: &str, direction: &str) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(structural::permute(py, &self.m, perm, orientation, direction)?))
+    }
+    #[pyo3(signature = (swaps, direction="forward"))]
+    fn permute_rows(&self, py: Python<'_>, swaps: &Bound<'_, PyAny>, direction: &str) -> PyResult<PyMatrix> {
+        self.permute(py, swaps, "rows", direction)
+    }
+    #[pyo3(signature = (swaps, direction="forward"))]
+    fn permute_cols(&self, py: Python<'_>, swaps: &Bound<'_, PyAny>, direction: &str) -> PyResult<PyMatrix> {
+        self.permute(py, swaps, "cols", direction)
+    }
+    #[pyo3(name = "permuteFwd")]
+    fn permute_fwd(&self, py: Python<'_>, perm: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        self.permute(py, perm, "rows", "forward")
+    }
+    #[pyo3(name = "permuteBkwd")]
+    fn permute_bkwd(&self, py: Python<'_>, perm: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        self.permute(py, perm, "rows", "backward")
+    }
+    #[pyo3(signature = (op="n->kn", row=None, k=None, row1=None, row2=None))]
+    fn elementary_row_op(&self, py: Python<'_>, op: &str, row: Option<&Bound<'_, PyAny>>, k: Option<&Bound<'_, PyAny>>, row1: Option<&Bound<'_, PyAny>>, row2: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(structural::elementary(py, &self.m, true, op, row, k, row1, row2)?))
+    }
+    #[pyo3(signature = (op="n->kn", col=None, k=None, col1=None, col2=None))]
+    fn elementary_col_op(&self, py: Python<'_>, op: &str, col: Option<&Bound<'_, PyAny>>, k: Option<&Bound<'_, PyAny>>, col1: Option<&Bound<'_, PyAny>>, col2: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(structural::elementary(py, &self.m, false, op, col, k, col1, col2)?))
+    }
+    fn row_op(slf: Py<Self>, py: Python<'_>, i: isize, f: &Bound<'_, PyAny>) -> PyResult<()> {
+        structural::callback(py,slf,i,None,f,true)
+    }
+    fn col_op(slf: Py<Self>, py: Python<'_>, j: isize, f: &Bound<'_, PyAny>) -> PyResult<()> {
+        structural::callback(py,slf,j,None,f,false)
+    }
+    fn zip_row_op(slf: Py<Self>, py: Python<'_>, i: isize, k: isize, f: &Bound<'_, PyAny>) -> PyResult<()> {
+        structural::callback(py,slf,i,Some(k),f,true)
+    }
+    #[staticmethod]
+    fn _structural_plan(py: Python<'_>, specification: Vec<Vec<num_bigint::BigInt>>, dimension: num_bigint::BigInt, cycles: bool, backward: bool) -> PyResult<Bound<'_, PyDict>> {
+        structural::plan(py,specification,dimension,cycles,backward)
+    }
+    #[staticmethod]
+    fn _structural_limit(py: Python<'_>, count: num_bigint::BigInt) -> PyResult<()> { structural::limit(py,count) }
+    #[staticmethod]
+    fn _structural_values<'py>(py: Python<'py>, add: bool, coefficient: &Bound<'py, PyAny>, targets: &Bound<'py, PyAny>, sources: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyList>> {
+        structural::values(py,add,coefficient,targets,sources)
+    }
+
+    // ------------------------------------------------------------------
+    // auxiliary MatrixBase methods (kernels in symox::matrix::auxiliary)
+    #[pyo3(signature = (k=None))]
+    fn lower_triangular(&self, py: Python<'_>, k: Option<&Bound<'_,PyAny>>) -> PyResult<PyMatrix> { Ok(self.wrapped(auxiliary::triangular(py,&self.m,k,false)?)) }
+    #[pyo3(signature = (k=None))]
+    fn upper_triangular(&self, py: Python<'_>, k: Option<&Bound<'_,PyAny>>) -> PyResult<PyMatrix> { Ok(self.wrapped(auxiliary::triangular(py,&self.m,k,true)?)) }
+    #[pyo3(signature = (k=1))]
+    fn rot90(&self, k: i64) -> PyMatrix { self.wrapped(self.m.rot90(k)) }
+    fn _vech(&self, py: Python<'_>, diagonal: bool) -> PyResult<PyMatrix> { Ok(self.wrapped(self.m.vech(diagonal).py(py)?)) }
+    fn hat(&self, py: Python<'_>) -> PyResult<PyMatrix> { Ok(self.wrapped(self.m.hat().py(py)?)) }
+    fn vee(&self, py: Python<'_>) -> PyResult<PyMatrix> { Ok(self.wrapped(self.m.vee().py(py)?)) }
+    fn dual(&self, py: Python<'_>) -> PyResult<PyMatrix> { Ok(wrapm(self.m.dual().py(py)?)) }
+    fn per(&self, py: Python<'_>) -> PyResult<PyExpr> { Ok(wrap(self.m.permanent().py(py)?)) }
+    fn berkowitz<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> { auxiliary::berkowitz(py, &self.m) }
+    fn berkowitz_minors<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        PyTuple::new(py, self.m.berkowitz_minors().py(py)?.into_iter().map(wrap))
+    }
+    fn _lu_ff(&self, py: Python<'_>) -> PyResult<(PyMatrix, PyMatrix, PyMatrix, PyMatrix)> {
+        let (p, l, d, u) = self.m.lu_decomposition_ff().py(py)?;
+        Ok((wrapm(p), wrapm(l), wrapm(d), wrapm(u)))
+    }
+    #[pyo3(signature = (iszerofunc=None, simpfunc=None, rankcheck=false))]
+    fn LUdecomposition_Simple<'py>(&self, py: Python<'py>, iszerofunc: Option<&Bound<'_, PyAny>>, simpfunc: Option<&Bound<'_, PyAny>>, rankcheck: bool) -> PyResult<(PyMatrix, Bound<'py, PyList>)> {
+        reject_callback("iszerofunc", iszerofunc)?;
+        reject_callback("simpfunc", simpfunc)?;
+        let (lu, swaps) = self.m.lu_decomposition_simple(rankcheck).py(py)?;
+        let lu = if self.m.data().is_empty() { self.wrapped(lu) } else { wrapm(lu) };
+        Ok((lu, PyList::new(py, swaps.iter().map(|(a, b)| vec![*a, *b]))?))
+    }
+    fn is_nilpotent(&self, py: Python<'_>) -> PyResult<bool> { self.m.is_nilpotent().py(py) }
+    fn is_symbolic(&self) -> bool { self.m.is_symbolic() }
+    fn get_diag_blocks(&self) -> PyResult<Vec<PyMatrix>> {
+        if self.m.rows() != 0 && self.m.cols() == 0 {
+            return Err(PyIndexError::new_err("Index out of range"));
+        }
+        Ok(self.m.diagonal_blocks().into_iter().map(|b| self.wrapped(b)).collect())
+    }
+    fn connected_components(&self, py: Python<'_>) -> PyResult<Vec<Vec<usize>>> { self.m.connected_components().py(py) }
+    #[pyo3(signature = (iszerofunc=None))]
+    fn inverse_BLOCK(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        let _ = iszerofunc; // SymPy ignores it and always uses _iszero.
+        Ok(self.wrapped(self.m.inverse_block().py(py)?))
+    }
+    fn upper_hessenberg_decomposition(&self, py: Python<'_>) -> PyResult<(PyMatrix, PyMatrix)> {
+        let (h, p) = self.m.upper_hessenberg_decomposition().py(py)?;
+        Ok((wrapm(h), wrapm(p)))
+    }
+    #[pyo3(signature = (upper=None))]
+    fn bidiagonal_decomposition(&self, py: Python<'_>, upper: Option<&Bound<'_, PyAny>>) -> PyResult<(PyMatrix, PyMatrix, PyMatrix)> {
+        let upper = match upper { Some(u) => auxiliary::upper_flag(u)?, None => true };
+        let (u, b, v) = auxiliary::bidiagonal(py, &self.m, upper)?;
+        Ok((wrapm(u), wrapm(b), wrapm(v)))
+    }
+    #[pyo3(signature = (upper=None))]
+    fn bidiagonalize(&self, py: Python<'_>, upper: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        let upper = match upper { Some(u) => auxiliary::upper_flag(u)?, None => true };
+        Ok(wrapm(auxiliary::bidiagonalize(py, &self.m, upper)?))
+    }
+    fn rref_rhs(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>) -> PyResult<(PyMatrix, PyMatrix)> {
+        let right = to_matrix(rhs)?;
+        let rational = self.m.data().iter().chain(right.data()).all(|e| e.as_number().is_some_and(|n| !n.is_float()));
+        let (a, b) = self.m.rref_rhs(&right).py(py)?;
+        let peer = !rational && self.with_peer(rhs, Matrix::zeros(0, 0)).immutable;
+        Ok((PyMatrix { m: a, immutable: peer }, PyMatrix { m: b, immutable: peer }))
+    }
+    #[pyo3(signature = (iszerofunc=None))]
+    fn normalized(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(auxiliary::normalized(py, &self.m, iszerofunc)?))
+    }
+    #[pyo3(signature = (simplify=None))]
+    fn is_anti_symmetric(&self, py: Python<'_>, simplify: Option<&Bound<'_, PyAny>>) -> PyResult<Option<bool>> {
+        match simplify {
+            Some(s) => auxiliary::is_anti_symmetric(py, &self.m, s),
+            None => auxiliary::is_anti_symmetric(py, &self.m, PyBool::new(py, true).as_any()),
+        }
+    }
+    #[pyo3(signature = (rhs, det_method=None))]
+    fn cramer_solve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>, det_method: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        let laplace = pyo3::types::PyString::new(py, "laplace");
+        let method = det_method.filter(|m| !m.is_none()).cloned().unwrap_or_else(|| laplace.into_any());
+        Ok(self.wrapped(auxiliary::cramer_solve(py, self, rhs, &method)?))
+    }
+    #[pyo3(signature = (other, failing_expression=false))]
+    fn equals(&self, py: Python<'_>, other: &Bound<'_, PyAny>, failing_expression: bool) -> PyResult<PyObject> {
+        auxiliary::equals(py, &self.m, other, failing_expression)
+    }
+    #[staticmethod]
+    fn _companion(py: Python<'_>, coeffs: &Bound<'_, PyAny>) -> PyResult<PyMatrix> { Ok(wrapm(auxiliary::companion(py, coeffs)?)) }
+    #[staticmethod]
+    fn _jordan_block(py: Python<'_>, size: usize, eigenvalue: &Bound<'_, PyAny>, lower: bool) -> PyResult<PyMatrix> {
+        Ok(wrapm(Matrix::jordan_block(size, &crate::scalar_expr(eigenvalue)?, lower).py(py)?))
+    }
+    #[staticmethod]
+    fn _wilkinson(py: Python<'_>, n: usize) -> PyResult<(PyMatrix, PyMatrix)> { let (a, b) = Matrix::wilkinson(n).py(py)?; Ok((wrapm(a), wrapm(b))) }
+    #[staticmethod]
+    fn _orthogonalize(py: Python<'_>, vecs: &Bound<'_, PyAny>, normalize: bool, rankcheck: bool) -> PyResult<Vec<PyMatrix>> {
+        Ok(auxiliary::orthogonalize(py, vecs, normalize, rankcheck)?.into_iter().map(wrapm).collect())
+    }
+    #[staticmethod]
+    fn _irregular(py: Python<'_>, ntop: usize, matrices: &Bound<'_, PyList>) -> PyResult<PyMatrix> { Ok(wrapm(auxiliary::irregular(py, ntop, matrices)?)) }
+    #[staticmethod]
+    #[pyo3(signature = (seqs, n, zero=true))]
+    fn _casoratian(py: Python<'_>, seqs: &Bound<'_, PyAny>, n: &Bound<'_, PyAny>, zero: bool) -> PyResult<PyExpr> { Ok(wrap(auxiliary::casoratian(py, seqs, n, zero)?)) }
+
     #[staticmethod]
     #[pyo3(signature = (*args))]
     fn hstack(py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<PyMatrix> {
@@ -684,8 +858,36 @@ impl PyMatrix {
         Ok(wrap(self.m.trace().py(py)?))
     }
 
-    fn diagonal(&self) -> PyMatrix {
-        self.wrapped(self.m.diagonal())
+    #[pyo3(signature = (k=None))]
+    fn diagonal(&self, k: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        let k = match k {
+            None => 0i64,
+            Some(k) => {
+                let index = k.py().import("operator")?.call_method1("index", (k,));
+                match index {
+                    Ok(i) => i.extract::<i64>()?,
+                    Err(e) if e.is_instance_of::<PyTypeError>(k.py()) => {
+                        return Err(PyValueError::new_err(format!("{} is not an integer", k.str()?)))
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        };
+        let (rows, cols) = (self.m.rows() as i64, self.m.cols() as i64);
+        if k < 1 - rows || k > cols - 1 {
+            return Err(PyValueError::new_err(format!("\nThe {k} diagonal is out of range [{}, {}]",1 - rows,cols - 1)));
+        }
+        let (r0, c0) = if k > 0 { (0, k) } else { (-k, 0) };
+        let n = (rows - r0).min(cols - c0);
+        if n <= 0 {
+            return Err(PyValueError::new_err(format!(
+                "\nThe {k} diagonal is out of range [{}, {}]",
+                1 - rows,
+                cols - 1
+            )));
+        }
+        let items = (0..n).map(|i| self.m.get((r0 + i) as usize, (c0 + i) as usize).clone()).collect();
+        Ok(self.wrapped(Matrix::row_vector(items)))
     }
 
     // ------------------------------------------------------------------
@@ -1013,14 +1215,14 @@ impl PyMatrix {
     #[pyo3(signature = (i, j, method="berkowitz"))]
     fn minor(&self, py: Python<'_>, i: isize, j: isize, method: &str) -> PyResult<PyExpr> {
         let _ = method;
-        let (i, j) = (norm_index(i, self.m.rows())?, norm_index(j, self.m.cols())?);
+        let (i, j) = self.minor_index(py, i, j, false)?;
         Ok(wrap(self.m.minor(i, j).py(py)?))
     }
 
     #[pyo3(signature = (i, j, method="berkowitz"))]
     fn cofactor(&self, py: Python<'_>, i: isize, j: isize, method: &str) -> PyResult<PyExpr> {
         let _ = method;
-        let (i, j) = (norm_index(i, self.m.rows())?, norm_index(j, self.m.cols())?);
+        let (i, j) = self.minor_index(py, i, j, true)?;
         Ok(wrap(self.m.cofactor(i, j).py(py)?))
     }
 
@@ -1239,6 +1441,10 @@ impl PyMatrix {
         simplify: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Bound<'py, PyAny>> {
         reject_callback("simplify", simplify)?;
+        // Preserve a supplied symbol's identity unless its name clashes
+        // with a matrix coefficient. The native constructor chooses a fresh
+        // name in that case so coefficients cannot capture the generator.
+        let mut gen: Option<Expr> = None;
         let name = match x {
             None => "lambda".to_string(),
             Some(o) => {
@@ -1246,14 +1452,25 @@ impl PyMatrix {
                     s
                 } else {
                     let e = to_expr(o)?;
-                    e.as_symbol().map(|s| s.to_string()).ok_or_else(|| PyTypeError::new_err("expected a symbol"))?
+                    if e.as_symbol().is_none() {
+                        return Err(PyTypeError::new_err("expected a symbol"));
+                    }
+                    let name = e.as_sym().unwrap().name().to_string();
+                    gen = Some(e);
+                    name
                 }
             }
         };
         let cp = self.m.charpoly(&name).py(py)?;
         let coeffs = exprs_list(py, &cp.coeffs)?;
+        let (var, expr) = match gen {
+            Some(g) if cp.var.as_sym().unwrap().name() == g.as_sym().unwrap().name() =>
+                (g.clone(), symox::subs::subs1(&cp.as_expr(), &cp.var, &g)),
+            Some(_) => (cp.var.clone(), cp.as_expr()),
+            None => (cp.var.clone(), cp.as_expr()),
+        };
         let cls = py.import("symox")?.getattr("PurePoly")?;
-        cls.call_method1("_from_coeffs", (coeffs, wrap(cp.var.clone()), cp.domain.clone(), wrap(cp.as_expr())))
+        cls.call_method1("_from_coeffs", (coeffs, wrap(var), cp.domain.clone(), wrap(expr)))
     }
 
     #[pyo3(signature = (error_when_incomplete=true, multiple=false, **_flags))]
@@ -1502,8 +1719,11 @@ impl PyMatrix {
         Ok(self.wrapped(self.m.cross(&to_matrix(b)?).py(py)?))
     }
 
-    fn strongly_connected_components(&self) -> Vec<Vec<usize>> {
-        matrix::linalg::scc(&self.m)
+    fn strongly_connected_components(&self, py: Python<'_>) -> PyResult<Vec<Vec<usize>>> {
+        if !self.m.is_square() {
+            return Err(err(py, MatrixError::NonSquare(String::new())));
+        }
+        Ok(matrix::linalg::scc(&self.m))
     }
 }
 

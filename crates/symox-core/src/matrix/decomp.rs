@@ -135,6 +135,51 @@ impl Matrix {
 
     /// QR decomposition by Gram-Schmidt (SymPy's `QRdecomposition`).
     pub fn qr_decomposition(&self) -> MResult<(Matrix, Matrix)> {
+        let (mut q, mut r) = self.gram_schmidt_ranked()?;
+        let hdot = |u: &Matrix, v: &Matrix| -> Expr {
+            let terms: Vec<Expr> = u.data().iter().zip(v.data()).map(|(a, b)| mul2(&conj(a), b)).collect();
+            add(&terms)
+        };
+        for i in 0..q.cols() {
+            // The Hermitian product evaluates exact complex entries without
+            // leaving Abs(a + b*I)**2 opaque in subsequent linear solves.
+            let column = q.col(i);
+            let norm = sqrt(&expand(&hdot(&column, &column)));
+            let inv = pow(&norm, &Expr::minus_one());
+            for k in 0..q.rows() {
+                let v = mul2(q.get(k, i), &inv);
+                q.set(k, i, v);
+            }
+            for k in 0..r.cols() {
+                let v = mul2(r.get(i, k), &norm);
+                r.set(i, k, v);
+            }
+        }
+        Ok((q, r))
+    }
+
+    /// SymPy's `_QRdecomposition_optional`: Gram-Schmidt without or with
+    /// `norm()` normalization (used by `orthogonalize`).
+    pub fn qr_decomposition_optional(&self, normalize: bool) -> MResult<(Matrix, Matrix)> {
+        let (mut q, mut r) = self.gram_schmidt_ranked()?;
+        if normalize {
+            for i in 0..q.cols() {
+                let norm = q.col(i).norm();
+                for k in 0..q.rows() {
+                    let v = div(q.get(k, i), &norm);
+                    q.set(k, i, v);
+                }
+                for k in 0..r.cols() {
+                    let v = mul2(r.get(i, k), &norm);
+                    r.set(i, k, v);
+                }
+            }
+        }
+        Ok((q, r))
+    }
+
+    /// Unnormalized Gram-Schmidt with dependent columns removed.
+    fn gram_schmidt_ranked(&self) -> MResult<(Matrix, Matrix)> {
         let (rows, cols) = self.shape();
         let mut q = self.clone();
         let mut r = Matrix::zeros(cols, cols);
@@ -169,24 +214,7 @@ impl Matrix {
         }
         let all_rows: Vec<usize> = (0..rows).collect();
         let all_cols: Vec<usize> = (0..cols).collect();
-        let mut q = q.extract(&all_rows, &ranked)?;
-        let mut r = r.extract(&ranked, &all_cols)?;
-        for i in 0..q.cols() {
-            // The Hermitian product evaluates exact complex entries without
-            // leaving Abs(a + b*I)**2 opaque in subsequent linear solves.
-            let column = q.col(i);
-            let norm = sqrt(&expand(&hdot(&column, &column)));
-            let inv = pow(&norm, &Expr::minus_one());
-            for k in 0..q.rows() {
-                let v = mul2(q.get(k, i), &inv);
-                q.set(k, i, v);
-            }
-            for k in 0..r.cols() {
-                let v = mul2(r.get(i, k), &norm);
-                r.set(i, k, v);
-            }
-        }
-        Ok((q, r))
+        Ok((q.extract(&all_rows, &ranked)?, r.extract(&ranked, &all_cols)?))
     }
 
     /// `(P, D)` with `M = P * D * P**-1`.

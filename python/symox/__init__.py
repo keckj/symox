@@ -1543,6 +1543,14 @@ from .codegen.sycl import (  # noqa: E402
 )
 from .codegen.cuda import CudaError, CudaKernel, compile_cuda, cuda_lambdify  # noqa: E402
 from ._sparse import SparseMatrix, MutableSparseMatrix, ImmutableSparseMatrix  # noqa: E402
+from . import _matrix_aux, _sparse as _sparse_module  # noqa: E402
+from ._matrix_aux import (  # noqa: E402
+    GramSchmidt, casoratian, matrix_multiply_elementwise, list2numpy, matrix2numpy, symarray, randMatrix,
+    rot_givens, rot_axis1, rot_axis2, rot_axis3, rot_ccw_axis1, rot_ccw_axis2, rot_ccw_axis3, banded,
+    MatrixBase, jordan_cell_function as jordan_cell,
+)
+_matrix_aux.install(ImmutableMatrix, _sparse_module._SparseBase, MutableSparseMatrix)
+MutableMatrix = Matrix
 
 _native_lambdify = lambdify
 
