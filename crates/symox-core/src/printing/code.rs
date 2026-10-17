@@ -179,6 +179,27 @@ pub fn numpycode(e: &Expr) -> CodeResult {
     code_with(e, &CodeSettings::new(Lang::NumPy))
 }
 
+/// NumPy 2 complex-sign semantics using APIs available since NumPy 1.21.
+/// Bind the input once and dispatch on its runtime dtype. Masked componentwise
+/// division avoids both zero warnings and complex subnormal-division overflow.
+fn numpy_complex_sign(argument: &str) -> String {
+    format!(concat!(
+        "(lambda _sgn_value: numpy.sign(_sgn_value) if numpy.__version__.split('.')[0] not in ('0', '1') or not numpy.iscomplexobj(_sgn_value) else ",
+        "(lambda _sgn_real, _sgn_imag, _sgn_abs: ",
+        "numpy.where(numpy.isnan(_sgn_abs), numpy.nan*(1+1j), ",
+        "numpy.where(numpy.isinf(_sgn_abs), ",
+        "numpy.where(numpy.isinf(_sgn_real), ",
+        "numpy.where(numpy.isinf(_sgn_imag), numpy.nan*(1+1j), numpy.sign(_sgn_real)+0j), ",
+        "1j*numpy.sign(_sgn_imag)), ",
+        "numpy.divide(_sgn_real, _sgn_abs, out=numpy.zeros_like(_sgn_real), ",
+        "where=numpy.isfinite(_sgn_abs)&(_sgn_abs!=0)) + ",
+        "1j*numpy.divide(_sgn_imag, _sgn_abs, out=numpy.zeros_like(_sgn_imag), ",
+        "where=numpy.isfinite(_sgn_abs)&(_sgn_abs!=0))))",
+        ".astype(numpy.asarray(_sgn_value).dtype, copy=False)[()]",
+        ")(numpy.real(_sgn_value), numpy.imag(_sgn_value), numpy.abs(_sgn_value)))({})"
+    ), argument)
+}
+
 /// SymPy's `rust_code(expr)`.
 pub fn rust_code(e: &Expr) -> CodeResult {
     code_with(e, &CodeSettings::new(Lang::Rust))
@@ -1134,7 +1155,9 @@ impl<'a> CodePrinter<'a> {
             Func::Sign => {
                 let a = self.print(&args[0])?;
                 if np {
-                    Ok(format!("numpy.sign({a})"))
+                    if crate::assumptions::exact_queries(||crate::assumptions::is_real(&args[0])) == Some(true) {
+                        Ok(format!("numpy.sign({a})"))
+                    } else { Ok(numpy_complex_sign(&a)) }
                 } else {
                     Ok(format!("(0.0 if {a} == 0 else math.copysign(1, {a}))"))
                 }
@@ -1686,5 +1709,22 @@ mod tests {
         let s2 = CudaSettings { dtype: FloatType::F32, ..Default::default() };
         assert_eq!(cudacode_with(&e, &s2).unwrap(), "0.1F + y/(x*x)");
         assert_eq!(cudacode_with(&parse_str("1/(x + y)").unwrap(), &s).unwrap(), "__fdividef(1.0F, x + y)");
+    }
+}
+
+
+#[cfg(test)]
+mod numpy_sign_tests {
+    use super::*;
+    #[test]
+    fn real_sign_stays_short_while_unknown_sign_dispatches_runtime_dtype() {
+        let real = Expr::symbol_with("r",crate::Assumptions::REAL);
+        assert_eq!(numpycode(&crate::functions::sign(&real)).unwrap(),"numpy.sign(r)");
+        let generic = numpycode(&crate::functions::sign(&Expr::symbol("z"))).unwrap();
+        assert!(generic.starts_with("(lambda _sgn_value:"));
+        assert!(generic.ends_with(")(z)"));
+        assert!(generic.contains("numpy.iscomplexobj"));
+        assert!(generic.contains("out=numpy.zeros_like"));
+        assert!(!generic.contains("symox"));
     }
 }

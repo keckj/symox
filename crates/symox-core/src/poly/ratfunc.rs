@@ -85,6 +85,7 @@ impl RF {
 }
 
 impl Coeff for RF {
+    fn budget_weight(&self)->u64{256+self.n.coeffs().iter().chain(self.d.coeffs()).map(|c|c.budget_weight()+32*self.n.nvars as u64).sum::<u64>()}
     fn zero() -> Self {
         RF {
             n: MPoly::zero(nv()),

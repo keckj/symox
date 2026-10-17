@@ -191,7 +191,8 @@ fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py
         MatrixKind::HadamardPower(a,b)=>for operand in [a,b]{args.push(match operand{MatrixOperand::Scalar(e)=>scalar(e)?,MatrixOperand::Matrix(m)=>matrix(m)?});},
         MatrixKind::Mul(c,a)=>{if !c.is_one(){args.push(scalar(c)?);}for e in a{args.push(matrix(e)?);}},
         MatrixKind::Pow(b,e)=>{args.push(matrix(b)?);args.push(scalar(e)?);},
-        MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)|MatrixKind::Diag(b)|MatrixKind::DiagonalOf(b)|MatrixKind::Diagonal(b)=>args.push(matrix(b)?),
+        MatrixKind::Inverse(b)=>{args.push(matrix(b)?);args.push(scalar(&Expr::minus_one())?);},
+        MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Conjugate(b)|MatrixKind::Diag(b)|MatrixKind::DiagonalOf(b)|MatrixKind::Diagonal(b)=>args.push(matrix(b)?),
         MatrixKind::Explicit(value)=>{args.push(value.rows().into_pyobject(py)?.into_any());args.push(value.cols().into_pyobject(py)?.into_any());args.push(PyList::new(py,value.data().iter().map(|e|wrap(e.clone())))?.into_any());},
     }
     PyTuple::new(py,args)
@@ -346,6 +347,115 @@ impl PyMatrixExpr{
     fn trace_explicit(&self,py:Python<'_>)->PyResult<PyExpr>{Ok(wrap(self.m.trace_explicit().map_err(|e|error(py,e))?))}
     fn determinant_explicit(&self,py:Python<'_>)->PyResult<PyExpr>{Ok(wrap(self.m.determinant_explicit().map_err(|e|error(py,e))?))}
     fn inv(&self,py:Python<'_>)->PyResult<Self>{self.inverse(py)}
+    #[getter] fn I(&self,py:Python<'_>)->PyResult<Self>{self.inverse(py)}
+    // These are public Expr views, not the internal power/coefficient views
+    // used to normalize matrix multiplication. In particular MatPow inherits
+    // Expr.as_base_exp, and MatMul does not extract a scalar in as_coeff_Mul.
+    fn as_base_exp<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        PyTuple::new(py,[matrix_object(py,&self.m)?,wrap(Expr::one()).into_pyobject(py)?.into_any()])
+    }
+    #[pyo3(signature=(rational=false))]
+    fn as_coeff_Mul<'py>(&self,py:Python<'py>,rational:bool)->PyResult<Bound<'py,PyTuple>>{
+        let _=rational;
+        PyTuple::new(py,[wrap(Expr::one()).into_pyobject(py)?.into_any(),matrix_object(py,&self.m)?])
+    }
+    fn as_coeff_matrices<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        let MatrixKind::Mul(coefficient,factors)=self.m.kind() else{
+            return Err(pyo3::exceptions::PyAttributeError::new_err("Only MatMul has as_coeff_matrices"));
+        };
+        if symox::decompose::commutativity(coefficient)==Some(false){
+            return Err(PyNotImplementedError::new_err("Noncommutative scalars in MatMul are unsupported"));
+        }
+        PyTuple::new(py,[crate::expr_object(py,coefficient.clone())?.into_bound(py),PyList::new(py,factors.iter().map(|m|matrix_object(py,m)).collect::<PyResult<Vec<_>>>()?)?.into_any()])
+    }
+    fn as_coeff_mmul<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        let (coefficient,factors)=match self.m.kind(){
+            MatrixKind::Mul(c,factors)=>(c.clone(),factors.clone()),
+            _=>(Expr::one(),vec![self.m.clone()]),
+        };
+        if symox::decompose::commutativity(&coefficient)==Some(false){
+            return Err(PyNotImplementedError::new_err("Noncommutative scalars in MatMul are unsupported"));
+        }
+        let product=MatrixExpr::mul(Expr::one(),&factors,false).map_err(|e|error(py,e))?;
+        PyTuple::new(py,[crate::expr_object(py,coefficient)?.into_bound(py),matrix_object(py,&product)?])
+    }
+    #[pyo3(signature=(*deps,rational=true,**kwargs))]
+    fn as_coeff_mul<'py>(&self,py:Python<'py>,deps:&Bound<'_,PyTuple>,rational:bool,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Bound<'py,PyTuple>>{
+        if kwargs.is_some_and(|d|!d.is_empty()){
+            return Err(PyNotImplementedError::new_err("Unsupported MatrixExpr.as_coeff_mul options"));
+        }
+        if !deps.is_empty(){
+            let dependencies=deps.iter().map(|d|if is_matrix(&d){Ok(MatrixOperand::Matrix(to_matrixexpr(&d)?))}else{Ok(MatrixOperand::Scalar(to_expr(&d)?))}).collect::<PyResult<Vec<_>>>()?;
+            let dependent=|value:&MatrixOperand|dependencies.iter().any(|target|match (value,target){
+                (MatrixOperand::Matrix(value),MatrixOperand::Matrix(target))=>value.has_matrix(target),
+                (MatrixOperand::Matrix(value),MatrixOperand::Scalar(target))=>value.has_scalar(target),
+                (MatrixOperand::Scalar(value),MatrixOperand::Matrix(target))=>symox::matrixexpr::expression_has_matrix(value,target),
+                (MatrixOperand::Scalar(value),MatrixOperand::Scalar(target))=>symox::matrixexpr::expression_has_scalar(value,target),
+            });
+            let args=if let MatrixKind::Mul(coefficient,factors)=self.m.kind(){
+                let mut args=Vec::new();if !coefficient.is_one(){args.push(MatrixOperand::Scalar(coefficient.clone()));}
+                args.extend(factors.iter().cloned().map(MatrixOperand::Matrix));args
+            }else{vec![MatrixOperand::Matrix(self.m.clone())]};
+            let mut independent_matrices=Vec::new();let mut independent_scalars=Vec::new();let mut tail=Vec::new();
+            for argument in args{
+                if dependent(&argument){tail.push(match argument{MatrixOperand::Scalar(e)=>crate::expr_object(py,e)?.into_bound(py),MatrixOperand::Matrix(m)=>matrix_object(py,&m)?});}
+                else{match argument{MatrixOperand::Scalar(e)=>independent_scalars.push(e),MatrixOperand::Matrix(m)=>independent_matrices.push(m)}}
+            }
+            let scalar=symox::ops::mul(&independent_scalars);
+            let head=if independent_matrices.is_empty(){
+                if independent_scalars.is_empty()&&matches!(self.m.kind(),MatrixKind::Mul(..)){
+                    return Err(PyNotImplementedError::new_err("An empty independent MatMul requires a dimensionless GenericIdentity"));
+                }
+                crate::expr_object(py,scalar)?.into_bound(py)
+            }else{
+                // Match _new_rawargs: singleton tails collapse, but multiple
+                // factors keep their original matrix order and evaluation.
+                if independent_matrices.len()==1&&scalar.is_one(){matrix_object(py,&independent_matrices[0])?}
+                else{matrix_object(py,&MatrixExpr::mul(scalar,&independent_matrices,false).map_err(|e|error(py,e))?)?}
+            };
+            return PyTuple::new(py,[head,PyTuple::new(py,tail)?.into_any()]);
+        }
+        let mut tail=Vec::new();let mut head=Expr::one();
+        if let MatrixKind::Mul(coefficient,factors)=self.m.kind(){
+            let number=coefficient.is_number()||matches!(coefficient.kind(),symox::expr::Kind::Const(symox::expr::Constant::Infinity|symox::expr::Constant::NegInfinity|symox::expr::Constant::NaN));
+            if number&&(!rational||coefficient.is_rational_number()){
+                head=coefficient.clone();
+            }else if number&&(coefficient.as_number().is_some_and(symox::number::Number::is_negative)||coefficient.is_constant(symox::expr::Constant::NegInfinity)){
+                head=Expr::minus_one();tail.push(crate::expr_object(py,symox::ops::neg(coefficient))?.into_bound(py));
+            }else if !coefficient.is_one(){tail.push(crate::expr_object(py,coefficient.clone())?.into_bound(py));}
+            for matrix in factors{tail.push(matrix_object(py,matrix)?);}
+        }else{tail.push(matrix_object(py,&self.m)?);}
+        PyTuple::new(py,[crate::expr_object(py,head)?.into_bound(py),PyTuple::new(py,tail)?.into_any()])
+    }
+    #[pyo3(signature=(*patterns))]
+    fn has(&self,patterns:&Bound<'_,PyTuple>)->PyResult<bool>{
+        for pattern in patterns.iter(){
+            if is_matrix(&pattern){if self.m.has_matrix(&to_matrixexpr(&pattern)?){return Ok(true);}}
+            else if self.m.has_scalar(&to_expr(&pattern)?){return Ok(true);}
+        }
+        Ok(false)
+    }
+    fn as_two_terms<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,PyTuple>>{
+        let args=matrix_args(py,&self.m,false)?;
+        match self.m.kind(){
+            MatrixKind::Add(terms)=>{
+                if terms.len()==1{
+                    return Err(PyNotImplementedError::new_err("A singleton MatAdd tail requires a dimensionless GenericZeroMatrix"));
+                }
+                if terms.len()==2{return Ok(args);}
+                let tail=MatrixExpr::add(&terms[1..],false).map_err(|e|error(py,e))?;
+                PyTuple::new(py,[matrix_object(py,&terms[0])?,matrix_object(py,&tail)?])
+            },
+            MatrixKind::Mul(coefficient,factors)=>{
+                if args.len()==1{return PyTuple::new(py,[crate::expr_object(py,Expr::one())?.into_bound(py),matrix_object(py,&self.m)?]);}
+                if args.len()==2{return Ok(args);}
+                let remaining=if coefficient.is_one(){&factors[1..]}else{&factors[..]};
+                let tail=MatrixExpr::mul(Expr::one(),remaining,false).map_err(|e|error(py,e))?;
+                PyTuple::new(py,[args.get_item(0)?,matrix_object(py,&tail)?])
+            },
+            _=>Err(pyo3::exceptions::PyAttributeError::new_err("Only MatAdd and MatMul have as_two_terms")),
+        }
+    }
     #[getter] fn T(&self,py:Python<'_>)->PyResult<Self>{self.transpose(py)}
     #[getter] fn H(&self,py:Python<'_>)->PyResult<Self>{self.adjoint(py)}
     #[getter] fn C(&self,py:Python<'_>)->PyResult<Self>{self.conjugate(py)}

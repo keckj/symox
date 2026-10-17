@@ -15,6 +15,8 @@ pub(crate) mod domains;
 pub(crate) mod division;
 #[path="poly_real_roots.rs"]
 mod root_analysis;
+#[path="poly_checked_factors.rs"]
+mod checked_factor_views;
 
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -1183,6 +1185,11 @@ impl PyPoly {
         PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), l.into_any()])
     }
 
+    fn ground_roots(&self,py:Python<'_>)->PyResult<PyObject>{checked_factor_views::ground(&self.p,py)}
+    fn factor_list_include(&self)->PyResult<Vec<(PyPoly,u32)>>{checked_factor_views::include(&self.p,false,false)}
+    #[pyo3(signature=(all=false))]
+    fn sqf_list_include(&self,all:bool)->PyResult<Vec<(PyPoly,u32)>>{checked_factor_views::include(&self.p,true,all)}
+
     fn sqf_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         if let Some(f)=&self.p.algebraic {
             if f.gens.len()!=1{return Err(PyNotImplementedError::new_err("multivariate algebraic factorization is not implemented"));}
@@ -2166,6 +2173,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     domains::register(m)?;
     division::register(m)?;
     root_analysis::register(m)?;
+    checked_factor_views::register(m)?;
     algebraic_number::register(m)?;
     an_rational::register(m)?;
     m.add_function(wrap_pyfunction!(minimal_polynomial,m)?)?;

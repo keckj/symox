@@ -106,6 +106,8 @@ impl<C: Coeff> MPoly<C> {
 
     /// Build from terms in arbitrary order (duplicates are combined).
     pub fn from_terms(nvars: usize, mut terms: Vec<(Vec<u32>, C)>) -> Self {
+        super::factor_budget::sparse(terms.len(),nvars);
+        if super::factor_budget::active(){super::factor_budget::storage(terms.iter().map(|(_,c)|c.budget_weight()+32*nvars as u64).fold(0u64,u64::saturating_add));}
         terms.sort_by(|a, b| b.0.cmp(&a.0));
         let mut exps = Vec::with_capacity(terms.len() * nvars);
         let mut coeffs: Vec<C> = Vec::with_capacity(terms.len());
@@ -271,6 +273,7 @@ impl<C: Coeff> MPoly<C> {
     }
 
     pub fn scale(&self, k: &C) -> Self {
+        super::factor_budget::product(self.coeffs(),std::slice::from_ref(k),self.len(),self.nvars,1);
         if k.is_zero() {
             return Self::zero(self.nvars);
         }
@@ -387,6 +390,12 @@ impl<C: Coeff> MPoly<C> {
     }
 
     pub fn mul(&self, o: &Self) -> Self {
+        super::factor_budget::sparse(self.len().saturating_mul(o.len()),self.nvars);
+        if super::factor_budget::active(){
+            for (a,b)in self.degrees().iter().zip(o.degrees()){super::factor_budget::dense((*a as usize).saturating_add(b as usize).saturating_add(1));}
+            let a=self.coeffs().iter().max_by_key(|c|c.budget_weight());let b=o.coeffs().iter().max_by_key(|c|c.budget_weight());
+            if let(Some(a),Some(b))=(a,b){let size=a.budget_product_weight(b,self.len().min(o.len())).saturating_add(32*self.nvars as u64);super::factor_budget::storage(size.saturating_mul(self.len().saturating_mul(o.len()) as u64));}
+        }
         let n = self.nvars;
         if self.is_zero() || o.is_zero() {
             return Self::zero(n);
@@ -464,6 +473,7 @@ impl<C: Coeff> MPoly<C> {
     }
 
     pub fn pow(&self, k: u32) -> Self {
+        if super::factor_budget::active(){for d in self.degrees(){super::factor_budget::dense((d as usize).saturating_mul(k as usize).saturating_add(1));}}
         if k == 0 {
             return Self::one(self.nvars);
         }

@@ -175,3 +175,16 @@ def test_nonfinite_arithmetic_uses_exact_finiteness_facts(source):
 def test_nonfinite_numeric_coefficients_stop_comparison_at_unequal_nan(source):
     actual, expected = expression(sx, source), expression(sp, source)
     assert normalized(sx.default_sort_key(actual)) == sp.default_sort_key(expected)
+
+
+
+def test_held_numeric_power_constructor_does_not_evaluate_large_integer():
+    import subprocess
+    import sys
+    subprocess.run([sys.executable, "-c", """
+import symox as s
+power = s.Pow(2, 10**9, evaluate=False)
+assert power.args == (2, 10**9)
+assert 0*power == 0
+assert s.Pow(0, 1, evaluate=False)*power == 0
+"""], check=True, timeout=10)

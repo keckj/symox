@@ -859,6 +859,7 @@ fn eval_abs(a: &Expr) -> Option<Expr> {
             Some(Expr::oo())
         }
         Kind::Func(Func::Abs, _) => Some(a.clone()),
+        Kind::Func(Func::Exp, args) => Some(exp(&re(&args[0]))),
         Kind::Mul(c, facs) => {
             // Abs(c * x) = |c| * Abs(x),  Abs(I*x) = Abs(x)
             let mut rest: Vec<Expr> = Vec::new();
@@ -969,6 +970,9 @@ fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
 /// Split a numeric value into exact real and imaginary parts when trivially
 /// possible.
 fn eval_re_im(a: &Expr, want_re: bool) -> Option<Expr> {
+    if a.as_sym().is_some_and(|s|s.assumptions().has(crate::Assumptions::IMAGINARY)){
+        return Some(if want_re{Expr::zero()}else{mul2(&neg(&Expr::i()),a)});
+    }
     if !a.is_number() && crate::assumptions::is_real(a) == Some(true) {
         return Some(if want_re { a.clone() } else { Expr::zero() });
     }
@@ -1005,6 +1009,9 @@ fn eval_re_im(a: &Expr, want_re: bool) -> Option<Expr> {
 }
 
 fn eval_conjugate(a: &Expr) -> Option<Expr> {
+    if a.as_sym().is_some_and(|s|s.assumptions().has(crate::Assumptions::IMAGINARY)){
+        return Some(neg(a));
+    }
     if !a.is_number() && crate::assumptions::is_real(a) == Some(true) {
         return Some(a.clone());
     }

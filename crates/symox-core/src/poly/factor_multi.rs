@@ -110,6 +110,7 @@ fn eez(f: &MPoly<Int>, v: usize) -> Vec<MPoly<Int>> {
     let mut best: Option<(Vec<Int>, Vec<Vec<Int>>)> = None;
     let mut good = 0;
     for attempt in 0..60u64 {
+        super::factor_budget::event("multivariate evaluation attempts");
         let a: Vec<Int> = if attempt == 0 {
             vec![Int::zero(); ys.len()]
         } else {
@@ -143,6 +144,7 @@ fn eez(f: &MPoly<Int>, v: usize) -> Vec<MPoly<Int>> {
         }
     }
     let Some((a, us)) = best else {
+        super::factor_budget::require(false,"uncertified multivariate evaluation");
         return vec![f.clone()];
     };
     if let Some(gs) = lift(f, v, &ys, &a, &us) {
@@ -153,6 +155,7 @@ fn eez(f: &MPoly<Int>, v: usize) -> Vec<MPoly<Int>> {
     for s in 1..=r / 2 {
         let mut idx: Vec<usize> = (0..s).collect();
         loop {
+            super::factor_budget::event("multivariate recombination");
             if !(2 * s == r && idx[0] != 0) {
                 let mut u1 = vec![Int::one()];
                 let mut u2 = vec![Int::one()];
@@ -304,6 +307,7 @@ fn mtd(
 /// Lift the univariate factors `us` of `f(x_v, a)` to a factorisation of
 /// `f`; `None` if they do not correspond to a true factorisation.
 fn lift(f: &MPoly<Int>, v: usize, ys: &[usize], a: &[Int], us: &[Vec<Int>]) -> Option<Vec<MPoly<Int>>> {
+    super::factor_budget::event("multivariate Hensel lifting");
     let n = f.nvars;
     let r = us.len();
     let mut ff = f.clone();
@@ -346,6 +350,7 @@ fn lift(f: &MPoly<Int>, v: usize, ys: &[usize], a: &[Int], us: &[Vec<Int>]) -> O
         let mut e = fj.sub(&product(&u, n));
         let dj = fj.degree(yj).max(0) as u32;
         for k in 1..=dj {
+            super::factor_budget::event("multivariate Hensel coefficients");
             if e.is_zero() {
                 break;
             }

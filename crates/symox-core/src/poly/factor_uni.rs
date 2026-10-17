@@ -88,6 +88,7 @@ fn gf_to_int(p: &[u64]) -> Vec<Int> {
 /// Lift the monic modular factors `fs` of `f` (`f = lc(f) Π fs mod p`) to
 /// monic factors modulo `pl = p^l`.
 fn hensel_lift(f: &[Int], fs: &[Vec<u64>], p: u64, pl: &Int) -> Vec<Vec<Int>> {
+    super::factor_budget::event("Hensel lifting");
     if fs.len() == 1 {
         let l = inv_mod(f.last().unwrap(), pl);
         return vec![reduce(&dense::scale(f, &l), pl)];
@@ -231,6 +232,8 @@ impl Mont {
     }
 
     fn pmul(&self, a: &[u128], b: &[u128]) -> Vec<u128> {
+        super::factor_budget::dense(a.len().saturating_add(b.len()).saturating_sub(1));
+        super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
         if a.is_empty() || b.is_empty() {
             return vec![];
         }
@@ -248,6 +251,7 @@ impl Mont {
     }
 
     fn padd(&self, a: &[u128], b: &[u128]) -> Vec<u128> {
+        super::factor_budget::charge(a.len().max(b.len()) as u64);
         let n = a.len().max(b.len());
         let mut r: Vec<u128> = (0..n)
             .map(|i| self.add(a.get(i).copied().unwrap_or(0), b.get(i).copied().unwrap_or(0)))
@@ -257,6 +261,7 @@ impl Mont {
     }
 
     fn psub(&self, a: &[u128], b: &[u128]) -> Vec<u128> {
+        super::factor_budget::charge(a.len().max(b.len()) as u64);
         let n = a.len().max(b.len());
         let mut r: Vec<u128> = (0..n)
             .map(|i| self.sub(a.get(i).copied().unwrap_or(0), b.get(i).copied().unwrap_or(0)))
@@ -267,6 +272,8 @@ impl Mont {
 
     /// Division by a monic polynomial.
     fn pdivrem(&self, a: &[u128], b: &[u128]) -> (Vec<u128>, Vec<u128>) {
+        super::factor_budget::dense(a.len());
+        super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
         if a.len() < b.len() {
             return (vec![], a.to_vec());
         }
@@ -320,6 +327,7 @@ fn from_m(ctx: &Mont, v: &[u128]) -> Vec<u128> {
 /// moduli `p^{e_i}` (the last one is `p^l`), `f` holds residues modulo
 /// `p^l`.
 fn hensel_lift_mont(ctxs: &[Mont], f: &[u128], fs: &[Vec<u64>], p: u64) -> Vec<Vec<u128>> {
+    super::factor_budget::event("Hensel lifting");
     let top = ctxs.last().unwrap();
     if fs.len() == 1 {
         let lc = Int::from_big(num_bigint::BigInt::from(*f.last().unwrap()));
@@ -485,6 +493,7 @@ pub fn zassenhaus(f: &[Int]) -> Vec<Vec<Int>> {
     let mut tried = 0;
     let mut p = 2u64;
     while tried < 7 {
+        super::factor_budget::event("modular prime selection");
         p = gf::next_prime(p);
         if lc.rem_u64(p) == 0 {
             continue;
@@ -570,6 +579,7 @@ fn recombine(f: &[Int], lifted: Vec<Vec<Int>>, pl: &Int) -> Vec<Vec<Int>> {
         let mut idx: Vec<usize> = (0..s).collect();
         loop {
             // constant term test
+            super::factor_budget::event("factor recombination");
             let mut c = b.clone();
             for &i in &idx {
                 c = c.mul(&lifted[t[i]][0]).modulo(pl);
@@ -737,5 +747,21 @@ mod mont_tests {
         let y = Int::S(987654321);
         let r = Int::from_big(num_bigint::BigInt::from(ctx.redc(0, ctx.mul(ctx.to_mont(&x), ctx.to_mont(&y)))));
         assert_eq!(r, x.mul(&y).modulo(&pl));
+    }
+}
+
+#[cfg(test)]
+mod checked_budget_tests {
+    use super::*;
+    use crate::poly::factor_budget::{run,Limits};
+    #[test]
+    fn hensel_and_recombination_cancel_at_their_actual_entry_points(){
+        let f=vec![Int::from(2),Int::from(3),Int::one()];
+        let fs=vec![vec![1u64,1],vec![2u64,1]];
+        let error=run(Limits{attempts:0,..Default::default()},||{hensel_lift(&f,&fs,5,&Int::from(625));Ok(())}).unwrap_err();
+        assert!(error.to_string().contains("Hensel lifting"));
+        let lifted=vec![vec![Int::one(),Int::one()],vec![Int::from(2),Int::one()]];
+        let error=run(Limits{attempts:0,..Default::default()},||{recombine(&f,lifted,&Int::from(625));Ok(())}).unwrap_err();
+        assert!(error.to_string().contains("factor recombination"));
     }
 }

@@ -1265,6 +1265,16 @@ impl PyMatrix {
         Ok(wrap(self.m.condition_number().py(py)?))
     }
 
+    fn exp(&self, py: Python<'_>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(self.m.exp().py(py)?))
+    }
+
+    fn analytic_func(&self, py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {
+        let function=crate::scalar_expr(f)?;
+        let parameter=crate::scalar_expr(x)?;
+        Ok(self.wrapped(self.m.analytic_func(&function,&parameter).py(py)?))
+    }
+
     #[pyo3(signature = (calc_transform=true, **kwargs))]
     fn jordan_form<'py>(&self, py: Python<'py>, calc_transform: bool, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyAny>> {
         reject_kwargs(kwargs)?;

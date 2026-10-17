@@ -1696,14 +1696,13 @@ fn py_node(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<Py
 
 fn construct_node(name: &str, v: Vec<Expr>, evaluate: bool) -> PyResult<Expr> {
     let evaluate = evaluate || (matches!(name, "Add" | "Mul") && v.len() < 2);
-    if !evaluate && matches!(name, "Add" | "Mul" | "Pow") && !v.iter().any(|a|a.has_held_arithmetic()||a.has_matrix()) {
+    if !evaluate && matches!(name, "Add" | "Mul") && !v.iter().any(|a|a.has_held_arithmetic()||a.has_matrix()) {
         // Holding evaluation is observable through the public argument tree,
         // not through Rust's choice of coefficient/factor storage. Reuse the
         // canonical representation when it already has the requested tree.
         let canonical = match name {
             "Add" => Some(ops::add(&v)),
             "Mul" => Some(ops::mul(&v)),
-            "Pow" if v.len() == 2 => Some(ops::pow(&v[0], &v[1])),
             _ => None,
         };
         if let Some(canonical) = canonical {
@@ -1717,6 +1716,8 @@ fn construct_node(name: &str, v: Vec<Expr>, evaluate: bool) -> PyResult<Expr> {
         "Mul" => Expr::from_unevaluated_kind(Kind::Mul(Number::Int(1), v.into_iter().map(|a| (a, Expr::one())).collect())),
         "Pow" => {
             if v.len() != 2 { return Err(PyTypeError::new_err("Pow expects exactly two arguments")); }
+            // evaluate=False must never probe the evaluated candidate: even
+            // a tiny input such as Pow(2, 10**9) can allocate enormous integers.
             if evaluate { ops::pow(&v[0], &v[1]) } else { Expr::from_unevaluated_kind(Kind::Pow(v[0].clone(), v[1].clone())) }
         }
         "UnevaluatedExpr" => {

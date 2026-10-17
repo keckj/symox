@@ -823,3 +823,28 @@ def test_dotproduct_complex_mixed_vector_orientation_batching_total_derivative_a
     expected_gradient = torch.autograd.grad(sum(v.abs().square().sum() for v in expected), (av, bv, tv))
     for output, target in zip(actual_gradient, expected_gradient):
         torch.testing.assert_close(output, target, rtol=1e-10, atol=1e-11)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("compiled", [False, True])
+def test_analytic_matrix_exponential_defective_complex_batching_and_gradients(device, compiled):
+    t = sm.Symbol("t", real=True)
+    generator = sm.ImmutableMatrix([[1+sm.I, 2, 0], [0, 1+sm.I, -sm.I], [0, 0, 1+sm.I]])
+    exponential = (t*generator).exp()
+    function = sm.torch_lambdify(t, (exponential, exponential.diff(t)), compile=compiled,
+        compile_options={"backend": "inductor", "fullgraph": True} if compiled else None)
+    value = torch.tensor([[-.3, 0., .1], [.4, .7, .9]], device=device,
+                         dtype=torch.float64, requires_grad=True)
+    dense_generator = torch.tensor([[1+1j, 2, 0], [0, 1+1j, -1j], [0, 0, 1+1j]],
+                                   device=device, dtype=torch.complex128)
+    # Backend matrix_exp is independent of the symbolic Hermite interpolator.
+    expected_value = torch.linalg.matrix_exp(value[..., None, None]*dense_generator)
+    expected = (expected_value, dense_generator@expected_value)
+    actual = function(value)
+    for output, target in zip(actual, expected):
+        assert output.shape == (2, 3, 3, 3)
+        assert output.dtype == torch.complex128 and output.device == value.device
+        torch.testing.assert_close(output, target, rtol=1e-10, atol=1e-11)
+    actual_gradient = torch.autograd.grad(sum(v.abs().square().sum() for v in actual), value)[0]
+    expected_gradient = torch.autograd.grad(sum(v.abs().square().sum() for v in expected), value)[0]
+    torch.testing.assert_close(actual_gradient, expected_gradient, rtol=1e-10, atol=1e-10)

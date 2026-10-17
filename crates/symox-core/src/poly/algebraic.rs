@@ -330,6 +330,7 @@ fn unsupported() -> PolyError {
     PolyError::Unsupported("coefficient is not in the selected algebraic number field".into())
 }
 impl Coeff for AN {
+    fn budget_weight(&self)->u64{256+self.coefficients.iter().map(Coeff::budget_weight).sum::<u64>()}
     fn zero() -> Self {
         Self::new(Vec::new(), current())
     }
@@ -800,6 +801,7 @@ impl AlgebraicPoly {
             PolyError::Unsupported("algebraic factorization degree overflow".into())
         })? / 2;
         for s in 0..=bound {
+            super::factor_budget::event("algebraic norm shifts");
             let delta = alpha.mul(&AN::from_i64(s as i64));
             let shifted = shift(&f, &delta.neg());
             let norm = polynomial_norm(&shifted, &field)?;

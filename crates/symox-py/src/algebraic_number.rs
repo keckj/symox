@@ -353,8 +353,10 @@ impl PyAlgebraicNumber {
             || (self.value.coefficients.len() == 1 && self.value.coefficients[0].d.is_one())
     }
     #[getter]
-    fn is_nonzero(&self) -> bool {
-        !self.value.is_zero()
+    fn is_nonzero(&self) -> Option<bool> {
+        // SymPy's nonzero means real and nonzero, not merely different
+        // from zero. Complex field elements must follow the scalar view.
+        symox::assumptions::is_nonzero(&self.value.as_expr())
     }
     #[getter]
     fn is_finite(&self) -> bool {

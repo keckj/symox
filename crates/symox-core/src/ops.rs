@@ -325,45 +325,150 @@ pub fn add_from_terms(coeff: Number, terms: Vec<(Expr, Number)>) -> Expr {
 // Mul
 // ----------------------------------------------------------------------
 
-/// Canonical product of `args`.
-pub fn mul(args: &[Expr]) -> Expr {
-    match args.len() {
-        0 => return Expr::one(),
-        1 => return args[0].clone(),
-        _ => {}
+/// A compact active-product summary. Repeated DAG edges increase a factor's
+/// multiplicity instead of materializing repeated occurrences. Finalizing a
+/// child product here would distribute coefficients over Add too early.
+#[derive(Clone)]
+struct ProductParts {
+    coefficient: Number,
+    factors: Vec<(Expr, Expr, BigInt)>,
+    positions: rustc_hash::FxHashMap<(usize, usize), usize>,
+    infinite: bool,
+    negative_infinity: bool,
+    complex_infinity: bool,
+    zero_times_infinite_sum: bool,
+}
+impl Default for ProductParts {
+    fn default() -> Self {
+        Self { coefficient: Number::ONE, factors: Vec::new(), positions: rustc_hash::FxHashMap::default(),
+            infinite: false, negative_infinity: false, complex_infinity: false,
+            zero_times_infinite_sum: false }
     }
-    if args.iter().any(Expr::may_have_order) {
-        if let Some(r) = crate::series::order::mul_hook(args) {
-            return r;
+}
+impl ProductParts {
+    fn factor(&mut self, base: &Expr, exponent: &Expr, count: &BigInt) {
+        let key = (base.dag_id(), if exponent.is_one() { 0 } else { exponent.dag_id() });
+        if let Some(&index) = self.positions.get(&key) { self.factors[index].2 += count; }
+        else {
+            self.positions.insert(key, self.factors.len());
+            self.factors.push((base.clone(), exponent.clone(), count.clone()));
         }
     }
-    let mut coeff = Number::ONE;
-    let mut facs: Vec<(Expr, Expr)> = Vec::with_capacity(args.len() + 4);
-    let mut infs: Vec<Constant> = Vec::new();
-    for a in args {
-        match a.kind() {
-            Kind::Num(n) => coeff = coeff.mul(n),
-            Kind::Mul(c, fs) => {
-                coeff = coeff.mul(c);
-                facs.extend(fs.iter().cloned());
+    fn merge(&mut self, other: &Self) {
+        self.coefficient = self.coefficient.mul(&other.coefficient);
+        self.infinite |= other.infinite;
+        self.negative_infinity ^= other.negative_infinity;
+        self.complex_infinity |= other.complex_infinity;
+        self.zero_times_infinite_sum |= other.zero_times_infinite_sum;
+        for (base, exponent, count) in &other.factors { self.factor(base, exponent, count); }
+    }
+    fn infinity(&mut self, constant: Constant) {
+        self.infinite = true;
+        self.negative_infinity ^= constant == Constant::NegInfinity;
+        self.complex_infinity |= constant == Constant::ComplexInfinity;
+    }
+    fn absorb(&mut self, argument: &Expr, cache: &mut ProductMemo) {
+        match argument.kind() {
+            Kind::Num(number) => self.coefficient = self.coefficient.mul(number),
+            Kind::Mul(..) => self.merge(&product_parts(argument, cache)),
+            Kind::Pow(base, exponent) => self.factor(base, exponent, &BigInt::one()),
+            Kind::Const(Constant::NaN) => self.coefficient = Number::float(f64::NAN),
+            Kind::Const(constant) if constant.is_infinite() => self.infinity(*constant),
+            _ => {
+                self.zero_times_infinite_sum |= zero_add_infinity(argument);
+                self.factor(argument, &Expr::one(), &BigInt::one());
             }
-            Kind::Pow(b, e) => facs.push((b.clone(), e.clone())),
-            Kind::Const(Constant::NaN) => return Expr::nan(),
-            Kind::Const(c) if c.is_infinite() => infs.push(*c),
-            _ => facs.push((a.clone(), Expr::one())),
         }
     }
-    if !infs.is_empty() {
-        return mul_infinite(coeff, facs, &infs);
+}
+#[derive(Default)]
+struct ProductMemo {
+    // Owners prevent pointer reuse when public arguments synthesize temporaries.
+    parts: rustc_hash::FxHashMap<usize, (Expr, ProductParts)>,
+}
+fn product_parts(expression: &Expr, cache: &mut ProductMemo) -> ProductParts {
+    if let Some((_, value)) = cache.parts.get(&expression.dag_id()) { return value.clone(); }
+    let Kind::Mul(coefficient, factors) = expression.kind() else { unreachable!() };
+    let mut parts = ProductParts { coefficient: coefficient.clone(), ..ProductParts::default() };
+    for (base, exponent) in factors {
+        if exponent.is_one() { parts.absorb(base, cache); }
+        else { parts.factor(base, exponent, &BigInt::one()); }
     }
-    if coeff.is_nan() {
-        return Expr::nan();
+    cache.parts.insert(expression.dag_id(), (expression.clone(), parts.clone()));
+    parts
+}
+
+/// Literal infinity in the public arguments of an Add/Mul. This intentionally
+/// stops at functions, powers and nested products, as SymPy's Mul.flatten does.
+fn direct_arithmetic_infinity(e: &Expr) -> bool {
+    if !(e.is_add() || e.is_mul()) || !e.has_nonfinite() { return false; }
+    e.args().iter().any(|argument| matches!(argument.kind(), Kind::Const(c) if c.is_infinite()))
+}
+fn zero_add_infinity(e: &Expr) -> bool {
+    if !e.is_add() || !e.has_nonfinite() { return false; }
+    e.args().iter().any(|term| {
+        matches!(term.kind(), Kind::Const(c) if c.is_infinite())
+            || (term.is_mul() && direct_arithmetic_infinity(term))
+    })
+}
+fn needs_product_scan(e: &Expr) -> bool {
+    e.is_mul() && (e.has_held_arithmetic() || e.has_nonfinite()
+        || matches!(e.kind(), Kind::Mul(Number::Float(value), _) if !value.is_finite()))
+}
+
+/// Canonical product of `args`. Shared held products are normalized only along
+/// their active multiplicative spine; powers and functions remain boundaries.
+pub fn mul(args: &[Expr]) -> Expr {
+    mul_with_cache(args, 0, &mut ProductMemo::default())
+}
+fn mul_with_cache(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
+    // Removing exact identity factors must not evaluate the surviving operand.
+    let mut nontrivial = args.iter().filter(|argument| !argument.is_one());
+    let Some(first) = nontrivial.next() else { return Expr::one(); };
+    if nontrivial.next().is_none() { return first.clone(); }
+    if args.iter().any(Expr::may_have_order) {
+        if let Some(result) = crate::series::order::mul_hook(args) { return result; }
     }
-    if coeff.is_zero() {
-        // 0 * x = 0 (also for floats, like SymPy)
-        return Expr::zero();
+    let mut coefficient = Number::ONE;
+    let mut factors = Vec::with_capacity(args.len() + 4);
+    let mut infinities = Vec::new();
+    let mut zero_infinite_sum = false;
+    if args.iter().any(needs_product_scan) {
+        let mut parts = ProductParts::default();
+        for argument in args { parts.absorb(argument, cache); }
+        coefficient = parts.coefficient;
+        zero_infinite_sum = parts.zero_times_infinite_sum;
+        if parts.infinite {
+            infinities.push(if parts.complex_infinity { Constant::ComplexInfinity }
+                else if parts.negative_infinity { Constant::NegInfinity } else { Constant::Infinity });
+        }
+        for (base, exponent, count) in parts.factors {
+            let exponent = if count.is_one() { exponent }
+                else { mul2(&Expr::num(Number::from_bigint(count)), &exponent) };
+            factors.push((base, exponent));
+        }
+    } else {
+        // Keep the usual canonical path allocation-light.
+        for argument in args {
+            match argument.kind() {
+                Kind::Num(number) => coefficient = coefficient.mul(number),
+                Kind::Mul(c, fs) => { coefficient = coefficient.mul(c); factors.extend(fs.iter().cloned()); }
+                Kind::Pow(base, exponent) => factors.push((base.clone(), exponent.clone())),
+                Kind::Const(Constant::NaN) => return Expr::nan(),
+                Kind::Const(constant) if constant.is_infinite() => infinities.push(*constant),
+                _ => {
+                    zero_infinite_sum |= zero_add_infinity(argument);
+                    factors.push((argument.clone(), Expr::one()));
+                }
+            }
+        }
     }
-    finish_mul(coeff, facs, 0)
+    if coefficient.is_nan() { return Expr::nan(); }
+    if zero_infinite_sum && (coefficient.is_zero() || factors.iter().any(|(base, exponent)| {
+        exceptional_scalar_power(base, exponent).is_some_and(|value| value.is_zero())
+    })) { return Expr::nan(); }
+    if !infinities.is_empty() { return mul_infinite(coefficient, factors, &infinities, cache); }
+    finish_mul(coefficient, factors, depth, cache)
 }
 
 /// Fast binary multiplication.
@@ -376,10 +481,10 @@ pub fn mul2(a: &Expr, b: &Expr) -> Expr {
     }
     match (a.kind(), b.kind()) {
         (Kind::Num(x), Kind::Num(y)) => return Expr::num(x.mul(y)),
-        (Kind::Num(x), _) if x.is_zero() && !matches!(b.kind(), Kind::Const(_)) => {
+        (Kind::Num(x), _) if x.is_zero() && !matches!(b.kind(), Kind::Const(_)) && !b.has_nonfinite() && !b.has_held_arithmetic() => {
             return Expr::zero()
         }
-        (_, Kind::Num(y)) if y.is_zero() && !matches!(a.kind(), Kind::Const(_)) => {
+        (_, Kind::Num(y)) if y.is_zero() && !matches!(a.kind(), Kind::Const(_)) && !a.has_nonfinite() && !a.has_held_arithmetic() => {
             return Expr::zero()
         }
         _ => {}
@@ -414,6 +519,7 @@ fn plain_factor(e: &Expr) -> Option<(Expr, Expr)> {
 
 /// Allocation-light products for the most common shapes.
 fn mul2_fast(a: &Expr, b: &Expr) -> Option<Expr> {
+    if needs_product_scan(a) || needs_product_scan(b) { return None; }
     match (a.kind(), b.kind()) {
         // number * plain factor
         (Kind::Num(n), _) if !n.is_nan() && !n.is_zero() => {
@@ -457,7 +563,7 @@ fn mul2_fast(a: &Expr, b: &Expr) -> Option<Expr> {
     }
 }
 
-fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant]) -> Expr {
+fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant], cache: &mut ProductMemo) -> Expr {
     if coeff.is_zero() {
         return Expr::nan();
     }
@@ -475,10 +581,24 @@ fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant]) -> Ex
     } else {
         Constant::Infinity
     };
-    let rest = if facs.is_empty() {
+    let mut retained = Vec::with_capacity(facs.len());
+    for (base, exponent) in facs {
+        let factor = mul_factor(&base, &exponent);
+        let (zero, positive, negative, finite) = crate::assumptions::exact_queries(|| (
+            crate::assumptions::is_zero(&factor), crate::assumptions::is_positive(&factor),
+            crate::assumptions::is_negative(&factor), crate::assumptions::is_finite(&factor),
+        ));
+        if zero == Some(true) { return Expr::nan(); }
+        if complex {
+            if zero == Some(false) && finite == Some(true) { continue; }
+        } else if positive == Some(true) { continue; }
+        else if negative == Some(true) { sign_neg = !sign_neg; continue; }
+        retained.push((base, exponent));
+    }
+    let rest = if retained.is_empty() {
         Expr::one()
     } else {
-        finish_mul(Number::ONE, facs, 0)
+        finish_mul(Number::ONE, retained, 0, cache)
     };
     if rest.is_one() {
         return Expr::constant(match (inf, sign_neg) {
@@ -486,8 +606,16 @@ fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant]) -> Ex
             (c, _) => c,
         });
     }
-    if rest.is_zero() {
+    if rest.is_zero() || rest.is_constant(Constant::NaN) || rest.as_number().is_some_and(Number::is_nan) {
         return Expr::nan();
+    }
+    if let Kind::Const(constant) = rest.kind() {
+        if constant.is_infinite() {
+            if complex || *constant == Constant::ComplexInfinity { return Expr::zoo(); }
+            return Expr::constant(if sign_neg ^ (*constant == Constant::NegInfinity) {
+                Constant::NegInfinity
+            } else { Constant::Infinity });
+        }
     }
     let c = if sign_neg && !complex {
         Number::MINUS_ONE
@@ -506,9 +634,10 @@ fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant]) -> Ex
             vec![(b, e)]
         }
     };
-    fs.push((Expr::constant(inf), Expr::one()));
+    let constant = if sign.is_negative() && !complex { Constant::NegInfinity } else { inf };
+    fs.push((Expr::constant(constant), Expr::one()));
     fs.sort_unstable_by(cmp_factor);
-    Expr::from_kind(Kind::Mul(sign, fs))
+    Expr::from_kind(Kind::Mul(Number::ONE, fs))
 }
 
 /// Canonical order of `Mul` factors: by base, then by exponent.
@@ -521,7 +650,27 @@ fn is_positive_int_base(b: &Expr) -> bool {
     matches!(b.kind(), Kind::Num(n) if n.is_integer() && n.is_positive())
 }
 
-fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Expr {
+fn exceptional_scalar_power(base: &Expr, exponent: &Expr) -> Option<Expr> {
+    let exceptional = matches!(base.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN)
+        || base.as_number().is_some_and(|number| number.is_zero()
+            || matches!(number, Number::Float(value) if !value.is_finite()));
+    exceptional.then(|| pow(base, exponent))
+}
+
+fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache: &mut ProductMemo) -> Expr {
+    // Exceptional scalar powers must be checked before exponent cancellation
+    // and before zero absorption. Ordinary finite powers need no evaluation
+    // here, particularly when their (possibly enormous) value is discarded.
+    let mut scalar_zero = coeff.is_zero();
+    let mut scalar_infinite = false;
+    for (base, exponent) in &facs {
+        if let Some(value) = exceptional_scalar_power(base, exponent) {
+            if value.is_constant(Constant::NaN) || value.as_number().is_some_and(Number::is_nan) { return Expr::nan(); }
+            scalar_zero |= value.is_zero();
+            scalar_infinite |= matches!(value.kind(),Kind::Const(c) if c.is_infinite());
+        }
+    }
+    if scalar_zero && scalar_infinite { return Expr::nan(); }
     facs.sort_unstable_by(cmp_factor);
     // merge equal bases
     let mut merged: Vec<(Expr, Expr, bool)> = Vec::with_capacity(facs.len());
@@ -560,6 +709,24 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Exp
                 }
             }
         }
+    }
+
+    if merged.iter().any(|(base, exponent, _)| exponent.is_zero() && direct_arithmetic_infinity(base)) {
+        return Expr::nan();
+    }
+    if merged.iter().any(|(base, exponent, _)| base.is_constant(Constant::NaN) && !exponent.is_zero()) {
+        return Expr::nan();
+    }
+    if coeff.is_zero() || scalar_zero {
+        // Scalar powers can expose 0**-1 or oo**1 before zero absorption.
+        // Composite bases stay held boundaries, e.g. 0*(x*oo)**1 == 0.
+        for (base, exponent, _) in &merged {
+            if let Some(value) = exceptional_scalar_power(base, exponent) {
+                if matches!(value.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN)
+                    || value.as_number().is_some_and(Number::is_nan) { return Expr::nan(); }
+            }
+        }
+        return Expr::zero();
     }
 
     let mut out: Vec<(Expr, Expr)> = Vec::with_capacity(merged.len());
@@ -620,7 +787,9 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Exp
             continue;
         }
         if e.is_one() && !b.is_number() {
-            out.push((b, e));
+            if b.is_constant(Constant::Infinity) || b.is_constant(Constant::NegInfinity) {
+                pending.push(b);
+            } else { out.push((b, e)); }
             continue;
         }
         let special_base = matches!(b.kind(), Kind::Num(_) | Kind::Const(_));
@@ -638,6 +807,9 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Exp
                 }
             }
             Kind::Num(n) => coeff = coeff.mul(n),
+            Kind::Const(Constant::ComplexInfinity) if b.is_constant(Constant::ComplexInfinity) => {
+                out.push((v.clone(), Expr::one()));
+            }
             Kind::Mul(c, fs) if fs.iter().all(|(fb, _)| fb.is_number()) => {
                 coeff = coeff.mul(c);
                 radicals.extend(fs.iter().cloned());
@@ -692,7 +864,7 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Exp
             for (b, e) in out {
                 pending.push(mul_factor(&b, &e));
             }
-            return mul_depth(&pending, depth + 1);
+            return mul_depth(&pending, depth + 1, cache);
         }
         // give up simplifying further but never drop factors
         for p in pending {
@@ -707,7 +879,10 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Exp
         }
     }
 
+    if coeff.is_nan() { return Expr::nan(); }
     if coeff.is_zero() {
+        if out.iter().any(|(base, exponent)| exponent.is_one()
+            && matches!(base.kind(),Kind::Const(c) if c.is_infinite())) { return Expr::nan(); }
         return Expr::zero();
     }
     if out.is_empty() {
@@ -730,33 +905,18 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32) -> Exp
             }
         }
     }
-    Expr::from_kind(Kind::Mul(coeff, out))
+    // A power can reveal a Mul or zoo only after the active flattening pass.
+    // Those public trees need evaluate=False on reconstruction; they are not
+    // fixed points of another multiplication, even though this operation is
+    // complete. Keep their presentation metadata honest for interop/pickling.
+    let held = out.iter().any(|(base, exponent)| exponent.is_one()
+        && (base.is_mul() || base.is_constant(Constant::ComplexInfinity)));
+    let kind = Kind::Mul(coeff, out);
+    if held { Expr::from_unevaluated_kind(kind) } else { Expr::from_kind(kind) }
 }
 
-fn mul_depth(args: &[Expr], depth: u32) -> Expr {
-    let mut coeff = Number::ONE;
-    let mut facs: Vec<(Expr, Expr)> = Vec::with_capacity(args.len());
-    let mut infs = Vec::new();
-    for a in args {
-        match a.kind() {
-            Kind::Num(n) => coeff = coeff.mul(n),
-            Kind::Mul(c, fs) => {
-                coeff = coeff.mul(c);
-                facs.extend(fs.iter().cloned());
-            }
-            Kind::Pow(b, e) => facs.push((b.clone(), e.clone())),
-            Kind::Const(Constant::NaN) => return Expr::nan(),
-            Kind::Const(c) if c.is_infinite() => infs.push(*c),
-            _ => facs.push((a.clone(), Expr::one())),
-        }
-    }
-    if !infs.is_empty() {
-        return mul_infinite(coeff, facs, &infs);
-    }
-    if coeff.is_zero() {
-        return Expr::zero();
-    }
-    finish_mul(coeff, facs, depth)
+fn mul_depth(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
+    mul_with_cache(args, depth, cache)
 }
 
 fn distribute(k: &Number, c: &Number, terms: &[(Expr, Number)]) -> Expr {
@@ -1133,8 +1293,8 @@ fn neg_held(a:&Expr,negative:&mut ArithmeticMemo,sums:&mut ArithmeticMemo)->Expr
         let values=a.args().iter().map(|term|neg_held(term,negative,sums)).collect::<Vec<_>>();
         add_with_cache(&values,sums)
     }else if a.is_mul() && !a.is_canonical(){
-        let(coefficient,tail)=crate::decompose::as_coeff_mul_head(a,true);
-        let mut factors=if tail.is_mul(){tail.args()}else{vec![tail]};
+        // Keep the tuple tail: a single factor can itself be a held Mul.
+        let(coefficient,mut factors)=crate::decompose::as_coeff_mul(a,&[],true);
         let coefficient=if factors.first().is_some_and(|factor|factor.is_constant(Constant::ComplexInfinity)){coefficient}else{neg_canonical(&coefficient)};
         if !coefficient.is_one(){
             if factors.first().is_some_and(|factor|matches!(factor.kind(),Kind::Num(_)|Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::NaN))){
@@ -1147,6 +1307,9 @@ fn neg_held(a:&Expr,negative:&mut ArithmeticMemo,sums:&mut ArithmeticMemo)->Expr
 }
 
 fn neg_canonical(a:&Expr)->Expr{
+    if a.is_mul() && a.has_nonfinite() {
+        return mul(&[Expr::minus_one(),a.clone()]);
+    }
     if a.may_have_order() {
         return mul(&[Expr::minus_one(), a.clone()]);
     }
@@ -1348,5 +1511,85 @@ mod nonfinite_add_tests{
         assert_eq!(mul2(&Expr::int(2),&value),add2(&Expr::oo(),&mul2(&Expr::int(2),&x)));
         let held=crate::parser::parse_str("Add(-2,Add(I,2,oo,evaluate=False),evaluate=False)").unwrap();
         assert_eq!(neg(&held),add2(&Expr::neg_oo(),&neg(&Expr::i())));
+    }
+}
+
+#[cfg(test)]
+mod active_product_tests {
+    use super::*;
+    fn p(source: &str) -> Expr { crate::parser::parse_str(source).unwrap() }
+    fn raw_mul(arguments: Vec<Expr>) -> Expr {
+        Expr::from_unevaluated_kind(Kind::Mul(Number::ONE, arguments.into_iter().map(|argument| (argument,Expr::one())).collect()))
+    }
+    #[test]
+    fn active_products_reclassify_raw_numeric_and_nested_factors() {
+        let x=p("x");let y=p("y");let z=p("z");
+        let raw=raw_mul(vec![x.clone(),Expr::int(2)]);
+        assert_eq!(mul2(&Expr::int(2),&raw),p("4*x"));
+        assert_eq!(mul(&[raw.clone(),z.clone()]),p("2*x*z"));
+        assert_eq!(mul2(&raw,&y),p("2*x*y"));
+        assert_eq!(mul(&[raw_mul(vec![raw,y.clone()]),z]),p("2*x*y*z"));
+        let wrong_order=raw_mul(vec![y,x.clone()]);
+        assert_eq!(mul2(&wrong_order,&x),p("x**2*y"));
+        // A child coefficient must not distribute across its Add prematurely.
+        let raw=raw_mul(vec![Expr::int(2),p("x+y")]);
+        assert_eq!(mul(&[raw,p("z")]),p("2*z*(x+y)"));
+    }
+    #[test]
+    fn identity_and_unary_negation_preserve_the_raw_tail() {
+        let raw=raw_mul(vec![p("x"),Expr::int(2)]);
+        assert!(mul2(&Expr::one(),&raw).ptr_eq(&raw));
+        assert!(mul(&[Expr::one(),raw.clone(),Expr::one()]).ptr_eq(&raw));
+        let negative=neg(&raw);
+        assert!(!negative.is_canonical());
+        assert_eq!(negative.args(),vec![Expr::minus_one(),p("x"),Expr::int(2)]);
+        assert_eq!(mul2(&Expr::minus_one(),&raw),p("-2*x"));
+    }
+    #[test]
+    fn explicit_infinities_are_seen_before_zero_absorption() {
+        for infinite in [Expr::oo(),Expr::neg_oo(),Expr::zoo(),Expr::nan()] {
+            let raw=raw_mul(vec![p("x"),infinite.clone()]);
+            assert_eq!(mul2(&Expr::zero(),&raw),Expr::nan());
+            assert_eq!(mul(&[raw,Expr::zero()]),Expr::nan());
+            assert_eq!(mul2(&Expr::zero(),&mul(&[p("x"),infinite])),Expr::nan());
+        }
+        let body=raw_mul(vec![Expr::zero(),Expr::oo()]);
+        assert_eq!(mul2(&Expr::int(2),&body),Expr::nan());
+        assert_eq!(mul2(&Expr::zero(),&p("f(oo)")),Expr::zero());
+        assert_eq!(mul2(&Expr::zero(),&p("UnevaluatedExpr(oo)")),Expr::zero());
+        let sum=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![(p("x"),Number::ONE),(Expr::oo(),Number::ONE)]));
+        assert_eq!(mul2(&Expr::zero(),&sum),Expr::nan());
+    }
+    #[test]
+    fn held_powers_are_boundaries_with_scalar_zero_exceptions() {
+        let raw=raw_mul(vec![p("x"),Expr::oo()]);
+        let power=|base:Expr,n:i64|Expr::from_unevaluated_kind(Kind::Pow(base,Expr::int(n)));
+        assert_eq!(mul2(&Expr::zero(),&power(raw.clone(),1)),Expr::zero());
+        let scaled=mul2(&Expr::int(2),&power(raw.clone(),1));
+        assert_eq!(scaled.args(),vec![Expr::int(2),raw.clone()]);
+        for coefficient in [Expr::zero(),Expr::int(2)] {
+            assert_eq!(mul2(&coefficient,&power(raw.clone(),0)),Expr::nan());
+        }
+        assert_eq!(mul2(&Expr::zero(),&power(Expr::oo(),0)),Expr::zero());
+        assert_eq!(mul2(&Expr::zero(),&power(Expr::oo(),1)),Expr::nan());
+        assert_eq!(mul2(&Expr::zero(),&power(Expr::zero(),-1)),Expr::nan());
+        assert_eq!(mul2(&Expr::int(2),&power(Expr::oo(),1)),Expr::oo());
+        assert_eq!(mul(&[power(Expr::zero(),1),power(Expr::zoo(),1)]),Expr::nan());
+        assert_eq!(mul(&[power(Expr::oo(),1),power(Expr::oo(),-1)]),Expr::nan());
+        assert_eq!(mul(&[power(Expr::oo(),0),power(Expr::oo(),0)]),Expr::one());
+        assert_eq!(mul2(&Expr::zero(),&power(Expr::int(2),1_000_000_000)),Expr::zero());
+        assert_eq!(mul(&[power(Expr::zero(),1),power(Expr::int(2),1_000_000_000)]),Expr::zero());
+    }
+    #[test]
+    fn shared_active_product_dag_is_compressed_and_memoized() {
+        let x=p("x");let mut value=x.clone();
+        for _ in 0..80 {value=raw_mul(vec![value.clone(),value]);}
+        let mut cache=ProductMemo::default();
+        let result=mul_with_cache(&[Expr::int(2),value.clone()],0,&mut cache);
+        let exponent=Expr::num(Number::from_bigint(BigInt::one()<<80));
+        assert_eq!(result,Expr::from_kind(Kind::Mul(Number::Int(2),vec![(x,exponent)])));
+        assert_eq!(cache.parts.len(),80);
+        assert_eq!(cache.parts.values().map(|(_,parts)|parts.factors.len()).sum::<usize>(),80);
+        assert!(!value.is_canonical());
     }
 }

@@ -53,6 +53,11 @@ pub fn derivative_unevaluated(f: &Expr, vars: Vec<(Expr, u32)>) -> Expr {
     Expr::from_kind(Kind::Derivative(inner, all))
 }
 
+fn pure_imaginary(value:&Expr)->bool{
+    if value.as_sym().is_some_and(|s|s.assumptions().has(crate::Assumptions::IMAGINARY)){return true;}
+    crate::assumptions::exact_queries(||re(value).is_zero()&&crate::assumptions::is_zero(value)==Some(false))
+}
+
 fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
     if e == x {
         return Expr::one();
@@ -267,10 +272,31 @@ fn d_func(
     if du.is_zero() {
         return Expr::zero();
     }
-    if matches!(f, Func::Conjugate | Func::Re | Func::Im)
-        && crate::assumptions::is_real(x) != Some(true)
-    {
-        return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+    if matches!(f, Func::Conjugate | Func::Re | Func::Im){
+        let real_x=crate::assumptions::exact_queries(||crate::assumptions::is_real(x)==Some(true));
+        let imaginary_x=pure_imaginary(x);
+        if matches!(f,Func::Conjugate){
+            return if real_x{conjugate(&du)}else if imaginary_x{neg(&conjugate(&du))}
+                else{derivative_unevaluated(e,vec![(x.clone(),1)])};
+        }
+        if real_x||crate::assumptions::exact_queries(||crate::assumptions::is_real(u)==Some(true)){
+            return if matches!(f,Func::Re){re(&du)}else{im(&du)};
+        }
+        if imaginary_x||pure_imaginary(u){
+            let part=if matches!(f,Func::Re){im(&du)}else{re(&du)};
+            return mul(&[if matches!(f,Func::Re){Expr::i()}else{neg(&Expr::i())},part]);
+        }
+        return derivative_unevaluated(e,vec![(x.clone(),1)]);
+    }
+    if matches!(f,Func::Abs){
+        if crate::assumptions::exact_queries(||crate::assumptions::is_real(u)==Some(true))||pure_imaginary(u){
+            return mul(&[du,sign(&conjugate(u))]);
+        }
+        let real=re(u);let imaginary=im(u);
+        let numerator=add(&[mul(&[real.clone(),d(&real,x,cache)]),mul(&[imaginary.clone(),d(&imaginary,x,cache)])]);
+        // Abs(u).rewrite(sign) = u/sign(u), including held partial
+        // derivatives when differentiation is with respect to a complex atom.
+        return mul(&[numerator,sign(u),pow(u,&Expr::minus_one())]);
     }
     let one = Expr::one();
     let outer = match f {
@@ -296,7 +322,6 @@ fn d_func(
             &Expr::minus_one(),
         ),
         Func::Atanh => pow(&sub(&one, &u.powi(2)), &Expr::minus_one()),
-        Func::Abs => sign(u),
         Func::Sign | Func::Floor | Func::Ceiling => Expr::zero(),
         Func::Erf => mul(&[
             Expr::int(2),

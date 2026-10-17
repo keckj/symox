@@ -139,6 +139,8 @@ pub fn scale(a: &[u64], k: u64, p: u64) -> GfPoly {
 }
 
 pub fn mul(a: &[u64], b: &[u64], p: u64) -> GfPoly {
+    super::factor_budget::dense(a.len().saturating_add(b.len()).saturating_sub(1));
+    super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
     if a.is_empty() || b.is_empty() {
         return vec![];
     }
@@ -167,6 +169,8 @@ pub fn monic(a: &[u64], p: u64) -> GfPoly {
 }
 
 pub fn divrem(a: &[u64], b: &[u64], p: u64) -> (GfPoly, GfPoly) {
+    super::factor_budget::dense(a.len());
+    super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
     assert!(!b.is_empty());
     if a.len() < b.len() {
         return (vec![], a.to_vec());
@@ -341,6 +345,7 @@ pub fn ddf(f: &[u64], p: u64) -> Vec<(GfPoly, usize)> {
 /// `x^(i p) mod f` for `i < deg f`.
 fn frobenius_rows(f: &[u64], p: u64) -> Vec<GfPoly> {
     let n = f.len() - 1;
+    super::factor_budget::charge((n as u64).saturating_mul(n as u64).saturating_mul(p));
     let lc_inv = invmod(f[n], p);
     let fm: Vec<u64> = f.iter().map(|&c| mulmod(c, lc_inv, p)).collect();
     // multiply a reduced polynomial (length n) by x modulo f
@@ -398,6 +403,7 @@ pub fn edf(f: &[u64], d: usize, p: u64, rng: &mut Rng) -> Vec<GfPoly> {
         return edf_char2(f, d, rng);
     }
     loop {
+        super::factor_budget::event("finite-field splitting attempts");
         let mut a: GfPoly = (0..n).map(|_| rng.next() % p).collect();
         trim(&mut a);
         if a.len() < 2 {
@@ -430,6 +436,7 @@ fn edf_char2(f: &[u64], d: usize, rng: &mut Rng) -> Vec<GfPoly> {
         return vec![f.to_vec()];
     }
     loop {
+        super::factor_budget::event("finite-field splitting attempts");
         let mut a: GfPoly = (0..n).map(|_| rng.next() % 2).collect();
         trim(&mut a);
         if a.len() < 2 {

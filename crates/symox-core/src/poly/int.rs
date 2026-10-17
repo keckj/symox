@@ -150,6 +150,7 @@ impl Int {
 
     #[inline]
     pub fn add(&self, o: &Int) -> Int {
+        super::factor_budget::int_pair(self,o,false,false);
         if let (Int::S(a), Int::S(b)) = (self, o) {
             if let Some(v) = a.checked_add(*b) {
                 return Int::S(v);
@@ -160,6 +161,7 @@ impl Int {
 
     #[inline]
     pub fn sub(&self, o: &Int) -> Int {
+        super::factor_budget::int_pair(self,o,false,true);
         if let (Int::S(a), Int::S(b)) = (self, o) {
             if let Some(v) = a.checked_sub(*b) {
                 return Int::S(v);
@@ -170,6 +172,7 @@ impl Int {
 
     #[inline]
     pub fn mul(&self, o: &Int) -> Int {
+        super::factor_budget::int_pair(self,o,true,false);
         match (self, o) {
             (Int::S(a), Int::S(b)) => match a.checked_mul(*b) {
                 Some(v) => Int::S(v),
@@ -189,6 +192,7 @@ impl Int {
     /// `self += o`
     #[inline]
     pub fn add_assign(&mut self, o: &Int) {
+        super::factor_budget::int_pair(self,o,false,false);
         if let (Int::S(a), Int::S(b)) = (&*self, o) {
             if let Some(v) = a.checked_add(*b) {
                 *self = Int::S(v);
@@ -201,6 +205,8 @@ impl Int {
     /// `self += a * b`
     #[inline]
     pub fn add_mul(&mut self, a: &Int, b: &Int) {
+        super::factor_budget::int_pair(a,b,true,false);
+        super::factor_budget::fused(self,a,b,false);
         if let (Int::S(s), Int::S(x), Int::S(y)) = (&*self, a, b) {
             let v = *s as i128 + *x as i128 * *y as i128;
             *self = Int::from_i128(v);
@@ -212,6 +218,8 @@ impl Int {
     /// `self -= a * b`
     #[inline]
     pub fn sub_mul(&mut self, a: &Int, b: &Int) {
+        super::factor_budget::int_pair(a,b,true,false);
+        super::factor_budget::fused(self,a,b,true);
         if let (Int::S(s), Int::S(x), Int::S(y)) = (&*self, a, b) {
             let v = *s as i128 - *x as i128 * *y as i128;
             *self = Int::from_i128(v);
@@ -346,6 +354,7 @@ impl Int {
     }
 
     pub fn pow(&self, n: u32) -> Int {
+        super::factor_budget::int_pow(self,n);
         if let Int::S(a) = self {
             if let Some(v) = a.checked_pow(n) {
                 return Int::S(v);
@@ -682,6 +691,9 @@ impl PartialOrd for Rat {
 
 /// A commutative coefficient ring with exact division where possible.
 pub trait Coeff: Clone + PartialEq + Eq + std::hash::Hash + fmt::Debug + Send + Sync + 'static {
+    /// Conservative storage bounds used only inside checked factorization.
+    fn budget_weight(&self)->u64{128}
+    fn budget_product_weight(&self,other:&Self,sums:usize)->u64{self.budget_weight().saturating_mul(other.budget_weight()).saturating_div(64).saturating_mul(sums.max(1) as u64)}
     fn zero() -> Self;
     fn one() -> Self;
     fn from_i64(i: i64) -> Self;
@@ -712,6 +724,8 @@ pub trait Field: Coeff {
 }
 
 impl Coeff for Int {
+    fn budget_weight(&self)->u64{128+self.bits()}
+    fn budget_product_weight(&self,other:&Self,sums:usize)->u64{128+self.bits()+other.bits()+64-(sums.max(1) as u64).leading_zeros() as u64}
     #[inline]
     fn zero() -> Self {
         Int::S(0)
@@ -769,6 +783,8 @@ impl Coeff for Int {
 }
 
 impl Coeff for Rat {
+    fn budget_weight(&self)->u64{128+self.n.bits()+self.d.bits()}
+    fn budget_product_weight(&self,other:&Self,sums:usize)->u64{self.budget_weight().saturating_add(other.budget_weight()).saturating_mul(sums.max(1) as u64)}
     fn zero() -> Self {
         Rat::zero()
     }

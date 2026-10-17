@@ -103,6 +103,8 @@ precision fallback is presented as extra significant digits.
 Assumptions distinguish real `nonzero=True` from complex `zero=False`, and
 exact rational-power and supported quadratic facts filter solver candidates
 without floating-point tolerances. Unquoted Unicode symbol names are accepted.
+`AlgebraicNumber.is_nonzero` follows the same real-nonzero meaning as its
+scalar expression view.
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
 `Dummy` atoms carry a distinct identity index: two `Dummy("x")` objects remain
@@ -122,6 +124,9 @@ exponents. Power dictionaries retain distinct dummy variables, including held
 factors whose exponents cancel to zero. Leading coefficient extraction preserves
 raw product tails. Negation preserves the factor order of held products, and
 held sums are reclassified before regrouping.
+Multiplication normalizes active held-product spines with a shared-node memo,
+collecting numerical coefficients and classifying infinities before zero
+shortcuts. Powers and function arguments retain their evaluation boundaries.
 `.is_number` classifies the held expression independently of finite evaluation:
 infinities and NaN are numbers, while undefined functions and held matrix
 contractions are not. Integral and Sum use their scoped free variables.
@@ -169,11 +174,18 @@ Simultaneous substitutions with non-symbol keys are rejected explicitly.
 compares the printed canonical forms and, when they differ, numerical
 equivalence. Known differences and remaining gaps:
 
-* `diff(Abs(x), x)` returns `sign(x)` (the real-variable formula).
 * Some antiderivatives use a different branch constant from SymPy (for example
   `integrate(exp(-x)/x, x)` returns `Ei(-x)`).
-* Held-product multiplication still has compatibility gaps in numerical
-  coefficient collection and nonfinite arithmetic.
+* Products exposing `zoo` from held powers can have different public argument
+  trees during late coefficient collection; their evaluated values agree in
+  the regression cases.
+
+Absolute-value derivatives respect real and imaginary assumptions. For an
+unconstrained complex argument, derivatives of the real and imaginary parts
+remain explicit; the real-variable formula is used only when justified.
+NumPy code generation preserves complex-sign semantics on NumPy 1.x and 2.x,
+including zero, infinities and NaN. NumPy 2 uses its native fast path; older
+versions use a standalone compatibility expression.
 
 ## Building
 
@@ -623,6 +635,14 @@ the chosen root, exact rational power-basis coefficients and optional alias;
 `to_number_field` constructs primitive generators or tests exact membership in
 a specified supported field. Arbitrary algebraic
 towers and mixtures with transcendental parameters remain unsupported.
+`ground_roots` extracts ground-field roots with exact multiplicities, including
+roots in the associated field of a coefficient ring. `Poly.factor_list_include()`
+and `sqf_list_include()` preserve typed domains and certify reconstruction.
+Units are absorbed only into factors of multiplicity one; a separate constant
+factor avoids SymPy 1.14's repeated-unit reconstruction bug. These checked
+operations bound input and intermediate degrees, coefficient sizes, storage and
+work, including finite-field splitting, Hensel lifting and algebraic norm
+shifts. Unsupported domains or exhausted limits raise explicit errors.
 Norms use the monic defining polynomial, so they equal the determinant of
 multiplication over `QQ`. SymPy's `Poly.norm()` can differ by a rational factor
 when its integral defining polynomial is not monic.
@@ -706,12 +726,31 @@ tree. Products preserve their order and validate dimensions, including symbolic
 dimensions. Matrix elements participate in scalar arithmetic, substitutions,
 cached free symbols, pickling and SymPy conversion. `as_explicit()` materializes
 matrices with concrete dimensions for the existing exact algorithms.
+`A.I` aliases the inverse. Public coefficient views distinguish scalar
+`as_coeff_Mul()` from matrix `as_coeff_mmul()` and `MatMul.as_coeff_matrices()`;
+the latter preserve matrix factor order, and `as_coeff_mmul()` retains an
+unevaluated matrix product even for a single factor. `as_coeff_mul()` supports
+rational coefficient selection and dependency partitioning. Instance-based
+`has()` queries cross scalar/matrix parents without expanding shared graphs.
+Dependency partitions must retain dimension-compatible matrix products.
+Dimensionless `GenericIdentity` and `GenericZeroMatrix` results are explicitly
+unsupported in empty dependency partitions and singleton `MatAdd` tails.
 `DotProduct(a, b)` holds an ordered scalar contraction of row or column vectors
 with equal lengths. It is bilinear over complex entries; request conjugation
 explicitly for a Hermitian pairing. `.doit()` evaluates finite contractions or
 retains a symbolic Sum for a symbolic length. Scalar differentiation, rewrites,
 pickling, SymPy interchange and finite code generation preserve both matrix
 parents. Empty vectors contract to zero.
+Dense matrices support exact `exp()` and `analytic_func(f, x)`. Polynomial
+functions evaluate directly on the matrix, independently of spectral solving;
+other functions use exact Hermite interpolation, including repeated eigenvalues
+and defective matrices. Poles raise `ValueError`, and unresolved exact spectra
+raise `NotImplementedError`. Results are ordinary scalar expressions usable by
+the existing code printers, including PyTorch/JAX JIT compilation and gradients.
+Matrix-function operations check conservative work, storage, coefficient and
+expansion bounds before large intermediates, including held numerical powers
+and spectral substitutions. Identity and nilpotent shortcuts retain supported
+large powers.
 `DiagMatrix` turns a row or column vector into a square diagonal matrix;
 `DiagonalOf` extracts the main diagonal as a column vector, and `DiagonalMatrix`
 retains a matrix's shape while zeroing its off-diagonal entries. These nodes

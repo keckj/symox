@@ -10,6 +10,9 @@ use crate::matrix::ratfunc::is_zero_assume;
 use crate::ops::{add, mul2, neg, pow, sub};
 #[path="matrixexpr/expand.rs"]
 mod expansion;
+#[path="matrixexpr/inspect.rs"]
+mod inspection;
+pub use inspection::{expression_has_scalar,expression_has_matrix};
 
 #[derive(Clone, Debug)]
 pub struct MatrixExpr(Arc<MatrixNode>);
@@ -1022,7 +1025,7 @@ impl MatrixExpr {
             MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>s(e),MatrixOperand::Matrix(m)=>m.to_repr()};format!("{}, {}",operand(a),operand(b))},
             MatrixKind::Explicit(m)=>format!("{}, {}, [{}]",m.rows(),m.cols(),m.data().iter().map(s).collect::<Vec<_>>().join(", ")),
             MatrixKind::Add(a)=>a.iter().map(me).collect::<Vec<_>>().join(", "),MatrixKind::Mul(c,a)=>{let mut a=a.iter().map(me).collect::<Vec<_>>();if !c.is_one(){a.insert(0,s(c));}a.join(", ")},
-            MatrixKind::Pow(b,e)=>format!("{}, {}",b.to_repr(),s(e)),_=>self.children()[0].to_repr(),
+            MatrixKind::Pow(b,e)=>format!("{}, {}",b.to_repr(),s(e)),MatrixKind::Inverse(b)=>format!("{}, {}",b.to_repr(),s(&Expr::minus_one())),_=>self.children()[0].to_repr(),
         };format!("{}({args})",self.kind_name())
     }
     pub fn to_str(&self)->String{

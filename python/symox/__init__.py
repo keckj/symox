@@ -1200,7 +1200,7 @@ from ._core import (  # noqa: E402
     rem,
     resultant,
     subresultants,
-    sturm, count_roots, intervals, refine_root, RefinementFailed,
+    sturm, count_roots, intervals, refine_root, ground_roots, RefinementFailed,
     roots,
     sqf,
     sqf_list,

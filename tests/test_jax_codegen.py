@@ -735,3 +735,29 @@ def test_dotproduct_complex_mixed_vector_orientation_batching_total_derivative_a
     expected_gradient = jax.grad(lambda aa, bb, tt: loss(reference(aa, bb, tt)), argnums=(0, 1, 2))(av, bv, tv)
     for output, target in zip(actual_gradient, expected_gradient):
         np.testing.assert_allclose(output, target, rtol=3e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize("jit", [False, True])
+def test_analytic_matrix_exponential_defective_complex_batching_and_gradients(jit):
+    from jax.scipy.linalg import expm
+    t = sm.Symbol("t", real=True)
+    generator = sm.ImmutableMatrix([[1+sm.I, 2, 0], [0, 1+sm.I, -sm.I], [0, 0, 1+sm.I]])
+    exponential = (t*generator).exp()
+    function = sm.jax_lambdify(t, (exponential, exponential.diff(t)), jit=jit)
+    value = jnp.asarray([[-.3, 0., .1], [.4, .7, .9]], dtype=jnp.float32)
+    dense_generator = jnp.asarray([[1+1j, 2, 0], [0, 1+1j, -1j], [0, 0, 1+1j]], dtype=jnp.complex64)
+    def reference(argument):
+        # CUDA's default reduced-precision matmul is inappropriate as the
+        # reference for scalar-generated float32 expressions and gradients.
+        with jax.default_matmul_precision("highest"):
+            matrices = argument.reshape(-1, 1, 1)*dense_generator
+            result = jax.vmap(expm)(matrices).reshape(argument.shape+(3, 3))
+            return result, dense_generator@result
+    actual, expected = function(value), reference(value)
+    for output, target in zip(actual, expected):
+        assert output.shape == (2, 3, 3, 3) and output.dtype == jnp.complex64
+        np.testing.assert_allclose(output, target, rtol=3e-6, atol=1e-6)
+    loss = lambda outputs: sum(jnp.sum(jnp.abs(v)**2) for v in outputs)
+    actual_gradient = jax.grad(lambda argument: loss(function(argument)))(value)
+    expected_gradient = jax.grad(lambda argument: loss(reference(argument)))(value)
+    np.testing.assert_allclose(actual_gradient, expected_gradient, rtol=3e-6, atol=1e-5)

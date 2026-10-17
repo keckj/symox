@@ -295,11 +295,8 @@ x**1
 """.strip().splitlines()
 
 
-# Deliberate deviations from SymPy (documented in README).
-KNOWN_DEVIATIONS = {
-    # SymPy returns the complex-aware formula; symox uses the real one.
-    "diff(Abs(x), x)",
-}
+# Remaining known canonical differences (documented in README).
+KNOWN_DEVIATIONS = set()
 
 
 def namespace(mod):

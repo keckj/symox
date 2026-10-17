@@ -240,6 +240,9 @@ KNOWN_DEVIATIONS = {
     # ("PI*x + y" for pi*(x + y)); symox keeps them (valid code).
     # NumPy conjugate is supported by symox (numpy.conjugate).
     ("numpy", "conjugate(x)"),
+    # NumPy 1.x has incompatible complex sign semantics. The standalone
+    # fallback is verified on scalars/arrays in test_numpy_sign_compat.py.
+    ("numpy", "sign(x)"),
     # SymPy raises (TypeError / KeyError) where symox prints valid code.
     ("rust_code", "Rational(1, 2)**x"),
     ("numpy", "zoo"),

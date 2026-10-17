@@ -202,3 +202,14 @@ assert b.minpoly.degree() == 8
 assert 'sympy' not in sys.modules
 '''
     subprocess.run([sys.executable, '-c', script], check=True)
+
+
+@pytest.mark.parametrize("source", ["0", "1", "-2", "sqrt(2)", "-sqrt(2)",
+                                    "I", "-I", "1+I", "sqrt(2)+I*sqrt(3)"])
+def test_nonzero_means_real_nonzero_for_field_elements(source):
+    value = sm.AlgebraicNumber(sm.sympify(source), alias="a")
+    assert value.is_nonzero == value.as_expr().is_nonzero
+    if not value.is_real:
+        assert value.is_zero is False
+        assert value.is_nonzero is False
+    assert pickle.loads(pickle.dumps(value)).is_nonzero == value.is_nonzero

@@ -46,6 +46,7 @@ pub fn neg<C: Coeff>(a: &[C]) -> Vec<C> {
 }
 
 pub fn scale<C: Coeff>(a: &[C], k: &C) -> Vec<C> {
+    super::factor_budget::product(a,std::slice::from_ref(k),a.len(),0,1);
     if k.is_zero() {
         return vec![];
     }
@@ -55,6 +56,9 @@ pub fn scale<C: Coeff>(a: &[C], k: &C) -> Vec<C> {
 }
 
 pub fn mul<C: Coeff>(a: &[C], b: &[C]) -> Vec<C> {
+    super::factor_budget::dense(a.len().saturating_add(b.len()).saturating_sub(1));
+    super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
+    super::factor_budget::product(a,b,a.len().saturating_add(b.len()).saturating_sub(1),0,a.len().min(b.len()));
     if a.is_empty() || b.is_empty() {
         return vec![];
     }
@@ -73,6 +77,13 @@ pub fn mul<C: Coeff>(a: &[C], b: &[C]) -> Vec<C> {
 
 /// Integer polynomial product with a 128-bit accumulation fast path.
 pub fn mul_int(a: &[Int], b: &[Int]) -> Vec<Int> {
+    super::factor_budget::dense(a.len().saturating_add(b.len()).saturating_sub(1));
+    super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
+    super::factor_budget::product(a,b,a.len().saturating_add(b.len()).saturating_sub(1),0,a.len().min(b.len()));
+    if super::factor_budget::active()&&!a.is_empty()&&!b.is_empty(){
+        let bits=a.iter().map(Int::bits).max().unwrap_or(0)+b.iter().map(Int::bits).max().unwrap_or(0)+64-(a.len().min(b.len()).max(1) as u64).leading_zeros() as u64;
+        super::factor_budget::bits(bits);
+    }
     if a.is_empty() || b.is_empty() {
         return vec![];
     }
@@ -122,6 +133,8 @@ pub fn derivative<C: Coeff>(p: &[C]) -> Vec<C> {
 
 /// Division with remainder over a field.
 pub fn divrem<C: Field>(a: &[C], b: &[C]) -> (Vec<C>, Vec<C>) {
+    super::factor_budget::dense(a.len());
+    super::factor_budget::charge(a.len().saturating_mul(b.len()) as u64);
     assert!(!b.is_empty(), "division by zero polynomial");
     if a.len() < b.len() {
         return (vec![], a.to_vec());
@@ -307,6 +320,7 @@ pub fn from_mpoly<C: Coeff>(p: &MPoly<C>, v: usize) -> Vec<C> {
         return vec![];
     }
     let d = p.degree(v) as usize;
+    super::factor_budget::dense(d.saturating_add(1));
     let mut r = vec![C::zero(); d + 1];
     for (e, c) in p.iter() {
         r[e[v] as usize].add_assign(c);
