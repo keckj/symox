@@ -21,7 +21,8 @@ def _check(rs, rx):
         return
     syms = sorted(rs.free_symbols | bx.free_symbols, key=str)
     for _ in range(3):
-        vals = {z: sympy.Rational(random.randint(3, 19), 7) for z in syms}
+        # offset by 1/13 so no sample lands on an integer pole such as sin(pi*s) = 0
+        vals = {z: sympy.Rational(random.randint(3, 19), 7) + sympy.Rational(1, 13) for z in syms}
         a, b = complex(sympy.N(rs.subs(vals))), complex(sympy.N(bx.subs(vals)))
         assert abs(a - b) <= 1e-8 * (1 + abs(a)), (rs, rx)
 
