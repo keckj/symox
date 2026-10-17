@@ -123,3 +123,14 @@ fn floating_facts_are_cached_on_shared_nodes_and_preserve_precision(){
     let trace=Expr::from_kind(Kind::Func(Func::MatrixTrace(std::sync::Arc::new(matrix)),vec![]));
     assert!(crate::evalf_mp::has_mp(&trace));assert_eq!(crate::evalf_mp::max_precision(&trace),Some(300));
 }
+
+#[test]
+fn logarithm_of_negative_imaginary_unit_uses_principal_argument() {
+    let value=crate::ops::neg(&Expr::i());
+    let expected=crate::ops::mul(&[Expr::rational(-1,2),Expr::i(),Expr::pi()]);
+    assert_eq!(crate::functions::log(&value),expected);
+    assert_eq!(crate::functions::exp(&expected),value);
+    let z=Expr::symbol("z");
+    // Exact -I evaluation does not imply a branch-unsafe log(-z) rewrite.
+    assert!(matches!(crate::functions::log(&crate::ops::neg(&z)).kind(),crate::Kind::Func(crate::Func::Log,_)));
+}

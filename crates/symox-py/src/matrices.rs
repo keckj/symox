@@ -42,6 +42,30 @@ fn modular_modulus(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<num_big
         .map_err(|_| PyTypeError::new_err("inv_mod: modulus m must be an integer"))
 }
 
+// Keep omitted/default cancel distinct from explicitly disabled None/False.
+// A callable is an explicit matrix postprocessor, never a symbolic fallback.
+enum LogSimplifier {
+    Native,
+    Disabled,
+    Callback(Py<PyAny>),
+}
+
+impl<'py> FromPyObject<'py> for LogSimplifier {
+    fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<Self> {
+        if !value.is_truthy()? {
+            Ok(Self::Disabled)
+        } else if value.is_callable() {
+            if value.is(&value.py().import("symox._core")?.getattr("cancel")?) {
+                Ok(Self::Native)
+            } else {
+                Ok(Self::Callback(value.clone().unbind()))
+            }
+        } else {
+            Err(PyTypeError::new_err("Matrix.log: simplify must be a callable, False or None"))
+        }
+    }
+}
+
 fn reject_callback(name: &str, callback: Option<&Bound<'_, PyAny>>) -> PyResult<()> {
     if callback.is_some_and(|c| !c.is_none()) {
         Err(PyNotImplementedError::new_err(format!("custom {name} callbacks are not implemented for matrices")))
@@ -1297,6 +1321,20 @@ impl PyMatrix {
 
     fn exp(&self, py: Python<'_>) -> PyResult<PyMatrix> {
         Ok(self.wrapped(self.m.exp().py(py)?))
+    }
+
+    /// Matrix logarithm using scalar log branches. Explicit simplify callables
+    /// postprocess the matrix once; False/None omit optional final cancellation.
+    #[pyo3(signature = (simplify=LogSimplifier::Native), text_signature = "($self, simplify=cancel)")]
+    fn log(&self, py: Python<'_>, simplify: LogSimplifier) -> PyResult<PyMatrix> {
+        let result = self.m.log_with_simplification(matches!(simplify, LogSimplifier::Native)).py(py)?;
+        match simplify {
+            LogSimplifier::Callback(callback) => {
+                let value = callback.call1(py, (self.wrapped(result),))?;
+                Ok(self.wrapped(to_matrix(value.bind(py))?))
+            }
+            _ => Ok(self.wrapped(result)),
+        }
     }
 
     fn analytic_func(&self, py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyMatrix> {

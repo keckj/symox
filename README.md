@@ -784,6 +784,26 @@ other functions use exact Hermite interpolation, including repeated eigenvalues
 and defective matrices. Poles raise `ValueError`, and unresolved exact spectra
 raise `NotImplementedError`. Results are ordinary scalar expressions usable by
 the existing code printers, including PyTorch/JAX JIT compilation and gradients.
+Dense `log()` applies the existing scalar logarithm branch to each eigenvalue
+through the same exact Hermite calculus. For example,
+`Matrix([[2, 1], [0, 2]]).log()` gives `[[log(2), 1/2], [0, log(2)]]`;
+negative real eigenvalues use `log(abs(value)) + I*pi`. This is a primary
+matrix logarithm with those scalar determinations, including on the negative
+real axis, rather than a promise of analyticity across the scalar branch cut.
+An explicit zero eigenvalue or nonfinite input raises `ValueError`. Generic
+parameter formulas apply at finite values with defined denominators; recompute after
+specializing to singular or coincident-eigenvalue cases. `exp(log(A)) = A` is
+the reconstruction identity; `log(exp(A)) = A` and logarithms of products are
+not unconditional identities. No numerical eigensolver is used.
+`log(simplify=False)` and `log(simplify=None)` disable optional final
+cancellation; necessary internal simplifications and exact certificates remain.
+The default final simplifier is native `cancel`. A supplied callable instead
+postprocesses the resulting matrix once, with the original mutability preserved;
+`True` and other truthy noncallables raise `TypeError`.
+Generated scalar logs retain the backend's real/complex dtype semantics. If a
+parameter can make a log argument negative, pass a complex input or request
+`dtype=torch.complex128` / `dtype=jax.numpy.complex64` (as appropriate) when
+calling the generated function to evaluate the complex branch.
 Matrix-function operations check conservative work, storage, coefficient and
 expansion bounds before large intermediates, including held numerical powers
 and spectral substitutions. Identity and nilpotent shortcuts retain supported
@@ -910,14 +930,15 @@ stored entries.
 `nnz`, `todok`, NumPy/SymPy conversion and pickling are supported. Advanced
 factorizations and negative powers explicitly convert to the native dense
 algorithms; they are not sparse numerical factorization routines.
-The dense delegation also covers `exp`, `analytic_func` and
-`singular_value_decomposition`, converting matrix results back to sparse
-storage with their mutability preserved. These three methods reject oversized
+The dense delegation also covers `exp`, `log`, `analytic_func`,
+`singular_value_decomposition` and `inv_mod`, converting matrix results back to
+sparse storage with their mutability preserved. These methods reject oversized
 sparse shapes before allocating a dense input.
 
 This API does not cover every SymPy matrix method. Eigenproblems beyond the
-supported exact algebraic cases, custom zero/simplification callbacks and
-unsupported constructor/algorithm options are rejected explicitly.
+supported exact algebraic cases and unsupported constructor/algorithm options
+are rejected explicitly. Custom zero/simplification callbacks are unsupported
+except for the explicit final postprocessor of `log`.
 Matrix `evalf` supports the same arbitrary precision and substitutions as
 scalar expressions.
 
