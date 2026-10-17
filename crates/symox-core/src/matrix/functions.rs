@@ -15,6 +15,7 @@ fn finite(e:&Expr,seen:&mut FxHashSet<usize>)->bool{
     if !seen.insert(e.dag_id()){return true;}
     match e.kind(){
         Kind::Sym(symbol) if symbol.facts().get("finite")==Some(false)=>return false,
+        Kind::Func(Func::Undefined(head),_) if !head.internal&&head.facts().get("finite")==Some(false)=>return false,
         Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN)=>return false,
         Kind::Num(Number::Float(value)) if !value.is_finite()=>return false,
         Kind::Add(c,terms) if matches!(c,Number::Float(v) if !v.is_finite())||terms.iter().any(|(_,c)|matches!(c,Number::Float(v) if !v.is_finite()))=>return false,

@@ -486,8 +486,10 @@ impl Parser {
                     let dummy_index=std::mem::replace(&mut self.dummy_index,saved_dummy_index);
                     if name=="Function" {
                         let Some(Val::Str(s))=args.first() else{return self.err("Function expects a string");};
-                        let assumptions=crate::symbol::Assumptions::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
-                        return Ok(Val::Function(crate::expr::UndefinedFunction::new(s,assumptions,nargs)));
+                        if args.len()!=1{return self.err("Function expects one string name");}
+                        let given=crate::assumption_facts::FactSet::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|msg|ParseError{msg,pos:self.at()})?;
+                        let function=crate::expr::UndefinedFunction::with_facts(s,given,nargs).map_err(|msg|ParseError{msg,pos:self.at()})?;
+                        return Ok(Val::Function(function));
                     }
                     if matches!(name.as_str(), "MatrixSymbol" | "FunctionMatrix" | "ElementwiseApplyFunction" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "DotProduct" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);

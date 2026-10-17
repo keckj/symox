@@ -1,6 +1,6 @@
 //! Scalar inspection adapters. Symbol assumptions are handled in lib.rs.
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PySet, PyTuple, PyType};
+use pyo3::types::{PySet, PyTuple, PyType};
 use pyo3::exceptions::PyNotImplementedError;
 
 use symox::expr::{Expr, Func, Kind};
@@ -49,11 +49,8 @@ fn filter(py:Python<'_>,value:&Bound<'_,PyAny>)->PyResult<Filter>{
         });
     }
     if value.is(&py.import("symox")?.getattr("Function")?){return Ok(Filter::Functions);}
-    if let Ok(name)=value.getattr("name").and_then(|name|name.extract::<String>()){
-        if let Ok(assumptions)=value.getattr("_assumptions"){
-            let nargs=value.getattr("_nargs")?.extract::<Option<Vec<usize>>>()?;
-            return Ok(Filter::Function(Func::Undefined(crate::function_spec(&name,assumptions.downcast::<PyDict>()?,nargs)?)));
-        }
+    if let Some(head)=crate::function_head(value)?{
+        return Ok(Filter::Function(Func::Undefined(head)));
     }
     if let Ok(head)=value.extract::<PyRef<'_,Head>>(){
         return Ok(match &head.kind{

@@ -58,22 +58,79 @@ impl Drop for ComparisonGuard {
     }
 }
 
+/// Immutable facts shared by all applications of one undefined function head.
+/// Head identity preserves whether commutative=True was explicitly declared.
+#[derive(Debug)]
+struct FunctionFacts {
+    head: crate::assumption_facts::FactSet,
+    applied: crate::assumption_facts::FactSet,
+    hash_extra: bool,
+}
+
 /// An undefined function head, distinct from builtin names and held operators.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Debug)]
 pub struct UndefinedFunction {
     pub name: Arc<str>,
+    /// Compatibility projection; full declarations are available through facts().
     pub assumptions: crate::symbol::Assumptions,
     pub nargs: Option<Vec<usize>>,
     pub internal: bool,
+    facts: Arc<FunctionFacts>,
 }
 impl UndefinedFunction {
-    pub fn new(name:&str, assumptions:crate::symbol::Assumptions, mut nargs:Option<Vec<usize>>)->Self {
-        if let Some(n)=&mut nargs {n.sort_unstable();n.dedup();}
-        Self{name:Arc::from(name),assumptions:assumptions.closure().unwrap_or(assumptions),nargs,internal:false}
+    pub fn new(name:&str, assumptions:crate::symbol::Assumptions,nargs:Option<Vec<usize>>)->Self {
+        Self::with_facts(name,crate::assumption_facts::FactSet::from_legacy(assumptions),nargs)
+            .expect("consistent legacy function assumptions and arity")
     }
+    pub fn with_facts(name:&str,given:crate::assumption_facts::FactSet,mut nargs:Option<Vec<usize>>)->Result<Self,String>{
+        use crate::assumption_facts::FactSet;
+        if let Some(counts)=&mut nargs {
+            if counts.is_empty(){return Err("nargs must not be empty".into());}
+            counts.sort_unstable();counts.dedup();
+        }
+        static DEFAULT:OnceLock<Arc<FunctionFacts>>=OnceLock::new();
+        if given.is_empty(){
+            let facts=DEFAULT.get_or_init(||Arc::new(FunctionFacts{head:FactSet::EMPTY,applied:FactSet::EMPTY,hash_extra:false})).clone();
+            return Ok(Self{name:Arc::from(name),assumptions:crate::Assumptions::NONE,nargs,internal:false,facts});
+        }
+        // SymPy closes through Symbol, then removes implicit commutativity from
+        // the head's _kwargs. An explicit True remains part of head identity.
+        let closed=given.closure()?;
+        let head=if given.get("commutative").is_none(){closed.without("commutative")}else{closed};
+        let applied=head.closure_without_default_commutative()?;
+        let assumptions=applied.legacy();
+        let old=FactSet::from_legacy(assumptions).closure()?.without("commutative");
+        let hash_extra=head!=old;
+        let facts=Arc::new(FunctionFacts{head,applied,hash_extra});
+        Ok(Self{name:Arc::from(name),assumptions,nargs,internal:false,facts})
+    }
+    pub fn head_facts(&self)->crate::assumption_facts::FactSet{self.facts.head}
+    pub fn facts(&self)->crate::assumption_facts::FactSet{self.facts.applied}
     pub fn is_internal(&self,name:&str)->bool {self.internal && self.name.as_ref()==name}
     pub fn accepts(&self,n:usize)->bool {self.nargs.as_ref().is_none_or(|v|v.contains(&n))}
 }
+impl PartialEq for UndefinedFunction {
+    fn eq(&self,other:&Self)->bool{
+        self.name==other.name && self.assumptions==other.assumptions && self.nargs==other.nargs && self.internal==other.internal
+            && (Arc::ptr_eq(&self.facts,&other.facts)||self.head_facts()==other.head_facts())
+    }
+}
+impl Eq for UndefinedFunction {}
+impl Hash for UndefinedFunction {
+    fn hash<H:Hasher>(&self,state:&mut H){
+        // Preserve the old head hash for facts representable by the legacy flags.
+        self.name.hash(state);self.assumptions.hash(state);self.nargs.hash(state);self.internal.hash(state);
+        if self.facts.hash_extra{self.head_facts().hash(state);}
+    }
+}
+impl Ord for UndefinedFunction {
+    fn cmp(&self,other:&Self)->Ordering{
+        self.name.cmp(&other.name).then_with(||self.assumptions.cmp(&other.assumptions))
+            .then_with(||self.head_facts().cmp(&other.head_facts()))
+            .then_with(||self.nargs.cmp(&other.nargs)).then_with(||self.internal.cmp(&other.internal))
+    }
+}
+impl PartialOrd for UndefinedFunction {fn partial_cmp(&self,other:&Self)->Option<Ordering>{Some(self.cmp(other))}}
 impl From<&str> for UndefinedFunction {
     fn from(name:&str)->Self {
         let mut function=Self::new(name,crate::symbol::Assumptions::NONE,None);
@@ -455,7 +512,8 @@ impl Expr {
         if !canonical && matches!(kind,Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){features|=16;}
         if matches!(&kind,Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN))
             || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite())
-            || matches!(&kind,Kind::Sym(symbol) if symbol.facts().get("finite")==Some(false)){features|=32;}
+            || matches!(&kind,Kind::Sym(symbol) if symbol.facts().get("finite")==Some(false))
+            || matches!(&kind,Kind::Func(Func::Undefined(head),_) if !head.internal && head.facts().get("finite")==Some(false)){features|=32;}
         kind.rank().hash(&mut h);
         match &kind {
             Kind::Num(n) => n.hash(&mut h),

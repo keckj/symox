@@ -35,6 +35,7 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
         if let Some((_,answer))=cache.get(&e.dag_id()){return *answer;}
         let answer=match e.kind(){
             Kind::Sym(symbol)=>symbol.facts().get("algebraic"),
+            Kind::Func(Func::Undefined(head),_) if !head.internal=>head.facts().get("algebraic"),
             Kind::Num(number) if !number.is_float()||number.is_zero()=>Some(true),
             Kind::Const(Constant::I)=>Some(true),
             Kind::Const(Constant::Pi|Constant::E|Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity)=>Some(false),
@@ -53,7 +54,7 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
 pub fn fact(e:&Expr,name:&str)->Option<bool>{
     if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
     if let Kind::Func(Func::Undefined(head),_)=e.kind(){
-        if !head.internal{return crate::assumption_facts::FactSet::from_legacy(head.assumptions).closure().ok()?.get(name);}
+        if !head.internal{return if name=="commutative"{crate::decompose::commutativity(e)}else{head.facts().get(name)};}
     }
     if matches!(name,"algebraic"|"transcendental"){
         if let Some(algebraic)=algebraic_proof(e){
@@ -111,6 +112,14 @@ fn calculation(){#[cfg(test)] COMPUTATIONS.with(|count|count.set(count.get()+1))
 fn cached_bool(e:&Expr,query:Query,compute:fn(&Expr)->Option<bool>)->Option<bool>{
     if let Kind::Sym(symbol)=e.kind(){
         if !matches!(query,Query::Parity){return symbol.facts().get(match query{
+            Query::Real=>"real",Query::Positive=>"positive",Query::Negative=>"negative",
+            Query::Nonnegative=>"nonnegative",Query::Nonpositive=>"nonpositive",Query::Zero=>"zero",
+            Query::Nonzero=>"nonzero",Query::Integer=>"integer",Query::Rational=>"rational",
+            Query::Finite=>"finite",Query::Parity=>unreachable!(),
+        });}
+    }
+    if let Kind::Func(Func::Undefined(head),_)=e.kind(){
+        if !head.internal && !matches!(query,Query::Parity){return head.facts().get(match query{
             Query::Real=>"real",Query::Positive=>"positive",Query::Negative=>"negative",
             Query::Nonnegative=>"nonnegative",Query::Nonpositive=>"nonpositive",Query::Zero=>"zero",
             Query::Nonzero=>"nonzero",Query::Integer=>"integer",Query::Rational=>"rational",
@@ -755,11 +764,13 @@ fn parity_even_uncached(e: &Expr) -> Option<bool> {
 
 pub fn is_even(e: &Expr) -> Option<bool> {
     if let Some(symbol)=e.as_sym(){return symbol.facts().get("even");}
+    if let Kind::Func(Func::Undefined(head),_)=e.kind(){if !head.internal{return head.facts().get("even");}}
     parity_even(e)
 }
 
 pub fn is_odd(e: &Expr) -> Option<bool> {
     if let Some(symbol)=e.as_sym(){return symbol.facts().get("odd");}
+    if let Kind::Func(Func::Undefined(head),_)=e.kind(){if !head.internal{return head.facts().get("odd");}}
     parity_even(e).map(|b| !b)
 }
 

@@ -95,7 +95,14 @@ pub fn commutativity(e:&Expr)->Option<bool>{
         let value=match e.kind(){
             Kind::Func(crate::expr::Func::Limit,_)=>None,
             Kind::Func(crate::expr::Func::MatrixDotProduct(..),_)=>None,
-            Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")=>None,
+            Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")||head.is_internal("Tuple")=>None,
+            Kind::Func(crate::expr::Func::Undefined(head),arguments) if !head.internal=>{
+                head.facts().get("commutative").or_else(||{
+                    let mut unknown=false;
+                    for argument in arguments {match visit(argument,cache){Some(false)=>return Some(false),None=>unknown=true,_=>{}}}
+                    if unknown{None}else{Some(true)}
+                })
+            },
             Kind::Add(..)|Kind::Mul(..)=>Some(args(e).iter().all(|a|visit(a,cache)==Some(true))),
             Kind::Pow(base,_)=>visit(base,cache),
             _=>Some(true),

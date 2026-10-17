@@ -81,7 +81,7 @@ assert s.count_ops(value)==2**80-1
 before=value.__reduce__()[1]
 assert len(before[1])==81
 for tag,canonical,fields in before[1][1:]:
-    assert tag=='s.undefined'
+    assert tag in ('s.undefined', 's.undefined.facts')
     assert fields[-1][0]==fields[-1][1]
 payload=pickle.dumps(value,protocol=protocol)
 assert len(payload)<50000
