@@ -1,3 +1,9 @@
+The category morphism/diagram, finite Cartan-type and local differential-geometry
+interfaces in python/symox/categories, python/symox/liealgebras and
+python/symox/diffgeom follow SymPy 1.14 conventions. The curvature formulas,
+coordinate atlas examples and Xy-pic arrow descriptions adapt the reference
+interfaces to native Symox coefficients, matrices and component arrays.
+
 The Ore-operator, holonomic equation and coordinate-vector interfaces in
 python/symox/holonomic and python/symox/vector follow SymPy 1.14 conventions,
 including the Euler-operator special-function equations, orientation matrices,

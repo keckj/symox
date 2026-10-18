@@ -41,6 +41,7 @@ println!("{}", diff(&e, &x));
 - Boolean algebra, SAT, symbolic sets and assumptions.
 - Exact Euclidean geometry and scalar/linear-system ODE and first-order PDE interfaces.
 - Holonomic differential equations, coefficient recurrences and coordinate vector calculus.
+- Local differential geometry, finite Cartan root systems and category diagrams.
 - Numerical compilation and code generation for NumPy, C/C++, Rust, Fortran,
   CUDA, PyTorch, JAX, Slang and SYCL.
 
@@ -123,9 +124,9 @@ The top-level export percentage covers only the package root.
 | Geometry exports | 30 / 30 | 0 | 100.00% |
 | Combinatorics exports | 33 / 33 | 0 | 100.00% |
 | Symbolic sets exports | 26 / 26 | 0 | 100.00% |
-| Differential geometry exports | 0 / 24 | 24 | 0.00% |
-| Lie algebras exports | 0 / 1 | 1 | 0.00% |
-| Categories exports | 0 / 11 | 11 | 0.00% |
+| Differential geometry exports | 24 / 24 | 0 | 100.00% |
+| Lie algebras exports | 1 / 1 | 0 | 100.00% |
+| Categories exports | 11 / 11 | 0 | 100.00% |
 | Discrete transforms and convolutions exports | 11 / 11 | 0 | 100.00% |
 
 </details>
@@ -244,6 +245,9 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Differential equations](docs/differential-equations.md) | ODE classification, exact equations, linear systems, PDE characteristics and separation |
 | [Holonomic functions](docs/holonomic.md) | Ore operators, D-finite closure, Taylor recurrences and numeric continuation |
 | [Coordinate vector calculus](docs/coordinate-vector.md) | Cartesian/curvilinear frames, dyadics, field operators, potentials and geometric integrals |
+| [Differential geometry](docs/differential-geometry.md) | Charts, fields, exterior calculus, connections, curvature and integral curves |
+| [Lie algebras](docs/lie-algebras.md) | Finite Cartan types, exact roots, reflections and Dynkin diagrams |
+| [Categories](docs/categories.md) | Objects, morphisms, finite diagram properties, layouts and Xy-pic previews |
 | [Geometry](docs/geometry.md) | Exact points, linear entities, conics, polygons, planes and intersections |
 | [Real inequalities](docs/inequalities.md) | Polynomial sign charts, rational systems and nested absolute values |
 | [Coefficient domains](docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |

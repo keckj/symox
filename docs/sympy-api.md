@@ -6,7 +6,7 @@ Measured on 2026-10-18 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 
-All 311 resulting module paths are listed below. 196 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
+All 311 resulting module paths are listed below. 192 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
 
 Names come from `__all__`, or public callables defined in the module when `__all__` is absent, plus documented functions, classes and data actually bound in the installed reference module. Imported helper names are excluded unless explicitly exported or documented. Constants absent from these sources and individual class methods are outside this module export measure.
 
@@ -82,8 +82,8 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.categories](https://docs.sympy.org/latest/modules/categories.html#module-sympy.categories) | 0 / 11 | 11 | 0.00% | missing_module |
-| [sympy.categories.diagram_drawing](https://docs.sympy.org/latest/modules/categories.html#module-sympy.categories.diagram_drawing) | 0 / 5 | 5 | 0.00% | missing_module |
+| [sympy.categories](https://docs.sympy.org/latest/modules/categories.html#module-sympy.categories) | 11 / 11 | 0 | 100.00% | available |
+| [sympy.categories.diagram_drawing](https://docs.sympy.org/latest/modules/categories.html#module-sympy.categories.diagram_drawing) | 5 / 5 | 0 | 100.00% | available |
 
 </details>
 
@@ -178,7 +178,7 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.diffgeom](https://docs.sympy.org/latest/modules/diffgeom.html#module-sympy.diffgeom) | 0 / 24 | 24 | 0.00% | missing_module |
+| [sympy.diffgeom](https://docs.sympy.org/latest/modules/diffgeom.html#module-sympy.diffgeom) | 24 / 24 | 0 | 100.00% | available |
 
 </details>
 
@@ -270,7 +270,7 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.liealgebras](https://docs.sympy.org/latest/modules/liealgebras/index.html#module-sympy.liealgebras) | 0 / 1 | 1 | 0.00% | missing_module |
+| [sympy.liealgebras](https://docs.sympy.org/latest/modules/liealgebras/index.html#module-sympy.liealgebras) | 1 / 1 | 0 | 100.00% | available |
 
 </details>
 
