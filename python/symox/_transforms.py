@@ -12,7 +12,7 @@ import warnings
 from . import _core
 
 __all__ = [
-    "IntegralTransform", "IntegralTransformError",
+    "IntegralTransform", "IntegralTransformError", "MellinTransformStripError",
     "LaplaceTransform", "InverseLaplaceTransform",
     "FourierTransform", "InverseFourierTransform",
     "SineTransform", "InverseSineTransform",
@@ -29,6 +29,10 @@ __all__ = [
 ]
 
 _NONE = "_None"
+
+
+class MellinTransformStripError(ValueError):
+    """An inverse Mellin transform has an incompatible fundamental strip."""
 
 
 class IntegralTransformError(NotImplementedError):

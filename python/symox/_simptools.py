@@ -765,3 +765,31 @@ def _install():
 
 
 _install()
+
+
+# Public Fu rule registry, backed by the existing native transformations.
+FU = {n: getattr(fu_rules, n) for n in (
+    'TR0 TR1 TR2 TR3 TR4 TR5 TR6 TR7 TR8 TR9 TR10 TR10i TR11 '
+    'TR12 TR13 L TR2i TRmorrie TR12i TR14 TR15 TR16 TR111 TR22').split()}
+
+
+def kroneckersimp(expr):
+    """Remove products with incompatible Kronecker equality constraints."""
+    from itertools import combinations
+    from . import Eq, Integer, sympify
+    expr = sympify(expr)
+
+    def visit(e):
+        if not e.args:
+            return e
+        args = tuple(visit(a) for a in e.args)
+        value = e if args == e.args else e.func(*args)
+        if value.is_Mul:
+            deltas = [a for a in value.args if a.class_name == 'KroneckerDelta']
+            for a, b in combinations(deltas, 2):
+                for i in range(2):
+                    for j in range(2):
+                        if Eq(a.args[i], b.args[j]) == True and Eq(a.args[1-i], b.args[1-j]) == False:
+                            return Integer(0)*value
+        return value
+    return visit(expr)

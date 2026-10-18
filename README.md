@@ -51,7 +51,7 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| SymPy top-level exports | 755 / 921 | 166 | 81.98% |
+| SymPy top-level exports | 779 / 921 | 142 | 84.58% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
 | Poly methods | 154 / 154 | 0 | 100.00% |
 | Matrix methods | 178 / 178 | 0 | 100.00% |
@@ -70,13 +70,13 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 | Real analysis exports | 9 / 9 | 0 | 100.00% |
 | Singularities and monotonicity exports | 7 / 7 | 0 | 100.00% |
 | Coefficient domains exports | 32 / 32 | 0 | 100.00% |
-| Polynomial ring constructors exports | 0 / 4 | 4 | 0.00% |
-| Fraction field constructors exports | 0 / 4 | 4 | 0.00% |
-| Number fields exports | 5 / 10 | 5 | 50.00% |
-| Combinatorics exports | 2 / 33 | 31 | 6.06% |
-| Symbolic sets exports | 19 / 26 | 7 | 73.08% |
-| Simplification exports | 28 / 32 | 4 | 87.50% |
-| Integral transforms exports | 25 / 26 | 1 | 96.15% |
+| Polynomial ring constructors exports | 4 / 4 | 0 | 100.00% |
+| Fraction field constructors exports | 4 / 4 | 0 | 100.00% |
+| Number fields exports | 10 / 10 | 0 | 100.00% |
+| Combinatorics exports | 33 / 33 | 0 | 100.00% |
+| Symbolic sets exports | 26 / 26 | 0 | 100.00% |
+| Simplification exports | 32 / 32 | 0 | 100.00% |
+| Integral transforms exports | 26 / 26 | 0 | 100.00% |
 | Special functions: gamma exports | 7 / 9 | 2 | 77.78% |
 | Special functions: hypergeometric exports | 1 / 17 | 16 | 5.88% |
 | Special functions: Bessel exports | 12 / 21 | 9 | 57.14% |
@@ -132,6 +132,9 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Geometry](docs/geometry.md) | Exact points, linear entities, conics, polygons, planes and intersections |
 | [Real inequalities](docs/inequalities.md) | Polynomial sign charts, rational systems and nested absolute values |
 | [Coefficient domains](docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |
+| [Sparse constructors and number fields](docs/polynomial-constructors.md) | Ring/field parents, embeddings, maximal orders and prime ideals |
+| [Combinatorics](docs/combinatorics.md) | Finite groups, rankings, free words, polycyclic collection and polyhedra |
+| [Structural sets](docs/symbolic-sets.md) | Power sets, disjoint unions, complex regions and ordinals |
 | [Algebraic numbers](docs/algebraic-numbers.md) | Exact field coordinates, structural methods and scalar calculations |
 | [Symbolic matrices](docs/matrices.md) | Dense/sparse matrices, matrix expressions and decompositions |
 | [Domain matrices](docs/domain-matrices.md) | Typed coefficient arithmetic, elimination, kernels and solving |

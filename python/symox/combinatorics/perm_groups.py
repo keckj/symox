@@ -86,3 +86,42 @@ class PermutationGroup:
 
     def __repr__(self):
         return 'PermutationGroup(%r)' % self.generators
+
+    is_group = True
+
+    def __getitem__(self,index):
+        return self.generators[index]
+
+    def generate_schreier_sims(self,af=False):
+        for element in self._enumerate():
+            yield element.array_form if af else element
+
+    def orbit(self,alpha):
+        return {g(alpha) for g in self._enumerate()}
+
+    def subgroup(self,gens):
+        group=PermutationGroup(gens or [self.identity])
+        if any(not self.contains(g,strict=False) for g in group.generators):raise ValueError('generators are outside the group')
+        return group
+
+    def polycyclic_group(self):
+        from .pc_groups import PolycyclicGroup
+        if self.order()>256:raise NotImplementedError('polycyclic series construction is limited to 256 elements')
+        if not self.is_solvable:raise ValueError('group is not solvable')
+        # Refine a derived series through maximal normal subgroups with
+        # cyclic quotient, checking each finite subgroup exactly.
+        sequence=[];series=[self];orders=[];group=self
+        while group.order()>1:
+            elems=group._enumerate();derived=PermutationGroup([~a*~b*a*b for a in elems for b in elems])
+            tail=derived
+            while True:
+                candidate=None
+                for g in elems:
+                    if tail.contains(g):continue
+                    enlarged=PermutationGroup(tail.generators+[g])
+                    if enlarged.order()<group.order():candidate=enlarged;break
+                if candidate is None:break
+                tail=candidate
+            generator=next(g for g in elems if not tail.contains(g))
+            sequence.append(generator);orders.append(group.order()//tail.order());series.append(tail);group=tail
+        return PolycyclicGroup(sequence,series,orders)

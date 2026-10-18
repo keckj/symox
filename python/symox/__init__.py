@@ -1770,7 +1770,7 @@ from ._matrix_permutations import PermutationMatrix, MatrixPermute  # noqa: E402
 from ._simptools import (  # noqa: E402
     fraction, numer, denom, collect_const, rcollect, radsimp, signsimp, posify, separatevars,
     powsimp, powdenest, factor_terms, gcd_terms, factor_nc, sqrtdenest, combsimp, gammasimp,
-    ratsimp, ratsimpmodprime, fu, exptrigsimp, trigsimp,
+    ratsimp, ratsimpmodprime, fu, exptrigsimp, trigsimp, FU, kroneckersimp,
 )
 
 # Assumption-dependent queries and rewrites use the native Rust engine.
@@ -1918,5 +1918,14 @@ from .geometry import (  # noqa: E402
 
 from .tensor import _adapters as _indexed_tensor_adapters
 _indexed_tensor_adapters.install(globals())
+
+
+from ._epath import EPath, epath  # noqa: E402
+from .polys.rings import ring, xring, vring, sring  # noqa: E402
+from .polys.fields import field, xfield, vfield, sfield  # noqa: E402
+from ._set_extensions import ComplexRegion, DisjointUnion, PowerSet, imageset  # noqa: E402
+from .sets.ordinals import Ordinal, OmegaPower, ord0  # noqa: E402
+
+from .polys.numberfields import field_isomorphism, isolate, round_two, prime_decomp, prime_valuation  # noqa: E402
 
 __all__ = [n for n in dir() if not n.startswith("_")]

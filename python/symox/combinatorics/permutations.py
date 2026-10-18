@@ -36,6 +36,8 @@ class Permutation:
     _sympy_ = to_sympy
 
     def __init__(self, images, *, size=None):
+        if isinstance(images, Cycle):
+            images = images.list()
         if isinstance(images, Permutation):
             images = images.array_form
         images = tuple(operator.index(i) for i in images)
@@ -133,3 +135,41 @@ class Permutation:
         prefix = '(%d)' % (self.size-1) if self.size and self._images[-1] == self.size-1 else ''
         cycles = ''.join('(%s)' % ' '.join(map(str, cycle)) for cycle in self.cyclic_form)
         return prefix+cycles or '()'
+
+
+class Cycle(dict):
+    """A finite cycle mapping; composition applies the left mapping first."""
+    def __init__(self,*args):
+        super().__init__()
+        if len(args)==1 and isinstance(args[0],Permutation):
+            self.update(enumerate(args[0].array_form))
+        elif len(args)==1 and isinstance(args[0],dict):
+            self.update(args[0])
+            if set(self)!=set(self.values()):raise ValueError('cycle mapping must be a bijection')
+        elif args:
+            values=[operator.index(v) for v in args]
+            if min(values)<0 or len(set(values))!=len(values):raise ValueError('invalid cycle indices')
+            self.update(zip(values,values[1:]+values[:1]))
+
+    @property
+    def size(self):
+        return max(self,default=-1)+1
+
+    def __missing__(self,key):
+        return key
+
+    def __call__(self,*args):
+        other=Cycle(*args)
+        keys=set(self)|set(other)
+        return Cycle({i:other[self[i]] for i in keys})
+
+    def list(self,size=None):
+        size=self.size if size is None else operator.index(size)
+        if size<self.size:raise ValueError('cycle size cannot be reduced')
+        return [self[i] for i in range(size)]
+
+    def copy(self):
+        return Cycle(self)
+
+    def __repr__(self):
+        return str(Permutation(self.list()))

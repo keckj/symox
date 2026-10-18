@@ -260,7 +260,8 @@ They return `(PermutationGroup, alternating)` or a transitive-subgroup enum
 with `by_name=True`. The group results expose generators, exact order,
 membership, transitivity, commutativity and solvability. Permutations support
 array construction, composition, inversion and integer powers. This is a
-bounded small-group API, not the full SymPy combinatorics module. Degrees five
+bounded group API; the broader export surface and its limits are described
+in [combinatorics](combinatorics.md). Degrees five
 and six raise `NotImplementedError`; they are supported by
 [SymPy's Galois algorithms](https://docs.sympy.org/latest/modules/polys/numberfields.html).
 Other limitations:
@@ -335,3 +336,6 @@ Rational definite integrals cancel removable factors and analyze one-sided
 divergences at real poles and infinite tails. Exact Sturm root counts certify
 pole coverage; unresolved cases remain unevaluated. Opposing infinities produce
 `nan`, rather than a finite Cauchy principal value.
+
+Sparse ring/field constructors, embeddings, maximal orders, prime decomposition
+and ideal valuations are described in [constructors and number fields](polynomial-constructors.md).

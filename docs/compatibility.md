@@ -360,3 +360,18 @@ truth-table conversion has the same 20-variable limit. ANF constants survive
 pickling and SymPy conversion. Deep conversion also expands `ITE` into ANF,
 where SymPy 1.14 may leave it unchanged. Inequality solving
 supports one variable. Other unresolved membership queries remain symbolic.
+
+## Additional structural interfaces
+
+`FU` exposes the public Fu rule dictionary backed by native transformations.
+`kroneckersimp` removes products whose Kronecker equality constraints are
+incompatible, including nested scalar expressions. `EPath` and `epath` select
+and transform native expression arguments and nested Python lists/tuples using
+root paths, type/attribute filters, indices and slices. Additive and
+multiplicative arguments follow printing order. Other iterable container types
+and non-root paths are not currently supported.
+
+`MellinTransformStripError` is available from `symox._transforms` as a
+`ValueError` subclass. The native transform table engine remains unchanged.
+See [structural sets](symbolic-sets.md) for the additional set and ordinal
+exports, and [combinatorics](combinatorics.md) for finite group and ranking APIs.
