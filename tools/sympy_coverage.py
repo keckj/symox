@@ -19,6 +19,7 @@ import json
 from pathlib import Path
 import runpy
 import subprocess
+import warnings
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,37 +55,193 @@ MODULES = (
     ('Iterable utilities', 'utilities.iterables', 'utilities.iterables'),
     ('Printing and code generation', 'printing', 'printing'),
     ('Plotting', 'plotting', 'plotting'),
+    ('Physics: units', 'physics.units', 'physics.units'),
+    ('Physics: vectors', 'physics.vector', 'physics.vector'),
+    ('Physics: mechanics', 'physics.mechanics', 'physics.mechanics'),
+    ('Physics: quantum mechanics', 'physics.quantum', 'physics.quantum'),
+    ('Physics: optics', 'physics.optics', 'physics.optics'),
+    ('Physics: Pauli algebra', 'physics.paulialgebra', 'physics.paulialgebra'),
+    ('Physics: control', 'physics.control', 'physics.control'),
+    ('Physics: continuum beams', 'physics.continuum_mechanics.beam', 'physics.continuum_mechanics.beam'),
+    ('Physics: continuum trusses', 'physics.continuum_mechanics.truss', 'physics.continuum_mechanics.truss'),
+    ('Physics: continuum cables', 'physics.continuum_mechanics.cable', 'physics.continuum_mechanics.cable'),
+    ('Physics: continuum arches', 'physics.continuum_mechanics.arch', 'physics.continuum_mechanics.arch'),
+    ('Physics: biomechanics', 'physics.biomechanics', 'physics.biomechanics'),
+    ('Physics: high energy', 'physics.hep.gamma_matrices', 'physics.hep.gamma_matrices'),
+    ('Physics: Wigner symbols', 'physics.wigner', 'physics.wigner'),
+    ('Physics: second quantization', 'physics.secondquant', 'physics.secondquant'),
+    ('Statistics', 'stats', 'stats'),
+    ('Cryptography', 'crypto.crypto', 'crypto.crypto'),
+    ('Holonomic functions', 'holonomic', 'holonomic'),
+    ('Differential geometry', 'diffgeom', 'diffgeom'),
+    ('Lie algebras', 'liealgebras', 'liealgebras'),
+    ('Categories', 'categories', 'categories'),
+    ('Discrete transforms and convolutions', 'discrete', 'discrete'),
+    ('Coordinate vector calculus', 'vector', 'vector'),
+    ('Expression parsing', 'parsing.sympy_parser', 'parsing.sympy_parser'),
 )
 
 
-def exports(module):
+def exports(module, documented=()):
     if hasattr(module, '__all__'):
-        return module.__all__
+        names = list(module.__all__)
     # Do not count imported helpers such as Symbol, exp or simplify as
     # APIs of a submodule with no explicit export list.
-    return [name for name in dir(module) if not name.startswith('_')
-            and callable(getattr(module, name))
-            and getattr(getattr(module, name), '__module__', '').startswith(module.__name__)]
+    else:
+        names = [name for name in dir(module) if not name.startswith('_')
+                 and callable(getattr(module, name))
+                 and (getattr(getattr(module, name), '__module__', '') or '').startswith(module.__name__)]
+    # The official documentation also exposes APIs absent from __all__, such
+    # as evaluate_pauli_product. Only count bindings present in this version.
+    return sorted(set(names).union(name for name in documented if hasattr(module, name)))
 
 
-def module_surfaces(sx):
+def load_inventory(version):
+    inventory = json.loads((ROOT/'tools/sympy_public_modules.json').read_text())
+    if inventory['sympy_version'] != version:
+        raise ValueError('The documented module inventory targets SymPy '
+                         f"{inventory['sympy_version']}; installed version is {version}")
+    return inventory
+
+
+def native_module(qualified):
+    try:
+        return importlib.import_module(qualified), 'available', None
+    except ModuleNotFoundError as error:
+        if error.name == qualified or qualified.startswith((error.name or '')+'.'):
+            return None, 'missing_module', None
+        return None, 'native_import_error', f'{type(error).__name__}: {error}'
+    except Exception as error:
+        return None, 'native_import_error', f'{type(error).__name__}: {error}'
+
+
+def documented_surfaces(sx, inventory):
+    """Inventory every documented module, parent package and curated surface.
+
+    Import failures remain visible with an explicit status. In particular an
+    unavailable reference module must never masquerade as 0% or 100% coverage.
+    """
+    modules = set(inventory['modules'])
+    modules.update('sympy.'+reference for _, reference, _ in MODULES)
+    for name in list(modules):
+        while '.' in name:
+            name = name.rsplit('.', 1)[0]
+            modules.add(name)
+    results = {}
+    for name in sorted(modules):
+        qualified = 'symox'+name[len('sympy'):]
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                reference = importlib.import_module(name)
+        except Exception as error:
+            results[name] = dict(reference_module=name, actual_module=qualified,
+                                 status='reference_import_error', present=None,
+                                 total=None, presence_percent=None, missing=[],
+                                 error=f'{type(error).__name__}: {error}')
+            continue
+        actual, status, error = native_module(qualified)
+        names = exports(reference, inventory['documented_exports'].get(name, ()))
+        result = surface(reference, actual, names)
+        result.update(reference_module=name, actual_module=qualified, status=status)
+        if error:
+            result['error'] = error
+        if not names:
+            result['status'] = 'no_exports' if actual is not None else status
+        results[name] = result
+    return results
+
+
+def module_surfaces(sx, inventory=None):
     results = {}
     for label, reference_name, actual_name in MODULES:
-        reference = importlib.import_module('sympy.'+reference_name)
+        reference_path = 'sympy.'+reference_name
+        actual_path = 'symox' if actual_name is None else 'symox.'+actual_name
+        try:
+            reference = importlib.import_module(reference_path)
+        except Exception as error:
+            results[label+' exports'] = dict(reference_module=reference_path,
+                actual_module=actual_path, status='reference_import_error',
+                present=None, total=None, presence_percent=None, missing=[],
+                error=f'{type(error).__name__}: {error}')
+            continue
         actual = sx
+        status, error = 'available', None
         if actual_name is not None:
-            qualified = 'symox.'+actual_name
-            try:
-                actual = importlib.import_module(qualified)
-            except ModuleNotFoundError as error:
-                if error.name != qualified and not qualified.startswith(error.name+'.'):
-                    raise
-                actual = None
-        result = surface(reference, actual, exports(reference))
+            actual, status, error = native_module(actual_path)
+        documented = ()
+        if inventory is not None and (reference_name.startswith('physics.') or
+                                      reference_name in ('stats', 'crypto.crypto')):
+            documented = inventory['documented_exports'].get(reference.__name__, ())
+        result = surface(reference, actual, exports(reference, documented))
         result.update(reference_module=reference.__name__,
-                      actual_module='symox' if actual_name is None else 'symox.'+actual_name)
+                      actual_module=actual_path, status=status)
+        if error:
+            result['error'] = error
         results[label+' exports'] = result
     return results
+
+
+def percentage(result):
+    value = result['presence_percent']
+    return 'N/A' if value is None else f'{value:.2f}%'
+
+
+def inventory_markdown(report):
+    inventory = report['module_inventory']
+    modules = report['documented_modules']
+    counts = Counter(result['status'] for result in modules.values())
+    lines = [
+        '# SymPy module API inventory', '', '[README](../README.md)', '',
+        f"Measured on {report['measured_at'][:10]} against SymPy {report['sympy_version']}.", '',
+        f"Source: [official Sphinx module inventory]({inventory['source_url']}) "
+        f"({inventory['documented_count']} documented modules), extended with parent "
+        'packages and the README import surfaces.', '',
+        f"All {len(modules)} resulting module paths are listed below. "
+        f"{counts['missing_module']} native module paths are missing; "
+        f"{counts['native_import_error']} native imports failed; "
+        f"{counts['reference_import_error']} reference imports could not be measured.", '',
+        'Names come from `__all__`, or public callables defined in the module when '
+        '`__all__` is absent, plus documented functions, classes and data actually '
+        'bound in the installed reference module. Imported helper names are excluded '
+        'unless explicitly exported or documented. Constants absent from these '
+        'sources and individual class methods are outside this module export measure.', '',
+        'The native column measures the corresponding `symox.*` module path. '
+        'An API available only at the package root is still absent at its compatible '
+        'module path. Existing README rows with an explicit root mapping retain '
+        'their original meaning; they can differ from these module rows.', '',
+        '`missing_module` means the module or a parent package is absent. '
+        '`native_import_error` means an import failed for another reason. '
+        '`reference_import_error` means the reference requires an unavailable '
+        'dependency or the upstream documentation names an unimportable module. '
+        '`no_exports` has no countable names under the stated rule. '
+        'N/A is never treated as 100%.', '',
+        'These are name-presence measurements. They do not check signatures, '
+        'domains, algorithms or behavior. Modules overlap; rows must not be added '
+        'together. This inventory is bounded by the documented modules and listed '
+        'parents, not a claim to enumerate every internal SymPy module.', '',
+        'Reproduce offline after installing the pinned reference version:', '',
+        '```bash', 'python tools/sympy_coverage.py --corpus --json /tmp/symox-coverage.json --update-readme',
+        '```', '', 'The JSON includes missing names and import errors for every module.', '',
+    ]
+    family = None
+    for name, result in modules.items():
+        current = name.split('.')[1] if '.' in name else 'root'
+        if current != family:
+            family = current
+            lines += ['## '+family, '', '| Reference module | Present | Missing | API presence | Status |',
+                      '|---|---:|---:|---:|---|']
+        url = inventory['documentation_urls'].get(name)
+        label = f'[{name}]({url})' if url else f'`{name}`'
+        total, present = result['total'], result['present']
+        fraction = 'N/A' if total is None else f'{present} / {total}'
+        missing = 'N/A' if total is None else str(len(result['missing']))
+        lines.append(f"| {label} | {fraction} | {missing} | {percentage(result)} | {result['status']} |")
+    errors = [(name, result['error']) for name, result in modules.items() if result.get('error')]
+    if errors:
+        lines += ['', '## Import errors', '']
+        lines += [f'- `{name}`: `{error.replace(chr(10), " ").replace("`", chr(39))}`' for name, error in errors]
+    return '\n'.join(lines)+'\n'
 
 
 def update_readme(report):
@@ -94,10 +251,11 @@ def update_readme(report):
     end = contents.index('\nThese percentages', start)
     rows = ['| Surface | Present | Missing | API presence |', '|---|---:|---:|---:|']
     for label, result in report['surfaces'].items():
-        percent = result['presence_percent']
-        rows.append(f"| {label} | {result['present']} / {result['total']} | "
-                    f"{len(result['missing'])} | {percent:.2f}% |")
+        fraction = 'N/A' if result['total'] is None else f"{result['present']} / {result['total']}"
+        missing = 'N/A' if result['total'] is None else str(len(result['missing']))
+        rows.append(f"| {label} | {fraction} | {missing} | {percentage(result)} |")
     path.write_text(contents[:start]+'\n'.join(rows)+'\n'+contents[end:])
+    (ROOT/'docs/sympy-api.md').write_text(inventory_markdown(report))
 
 
 def surface(reference, actual, names):
@@ -166,10 +324,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--corpus', action='store_true', help='also run exact differential expression checks')
     parser.add_argument('--json', type=Path, help='write the complete report, including missing API names')
-    parser.add_argument('--update-readme', action='store_true', help='refresh every measured surface in the README table')
+    parser.add_argument('--update-readme', action='store_true', help='refresh the README table and full documented module inventory')
     options = parser.parse_args()
     import sympy as sp
     import symox as sx
+    inventory = load_inventory(sp.__version__)
 
     x, X = sx.Symbol('x'), sp.Symbol('x')
     samples = {
@@ -189,16 +348,26 @@ def main():
             'API presence does not verify signatures, domains or behavior.',
             'The expression corpus is curated for symox; its percentage is not global SymPy coverage.',
             'There is no combined global parity percentage.',
+            'The full module inventory follows documented modules and parent packages, not every internal module.',
         ],
         'surfaces': {'SymPy top-level exports': surface(sp, sx, sp.__all__)},
     }
     for name, (reference, actual) in samples.items():
         report['surfaces'][name] = surface(reference, actual, methods(reference))
-    report['surfaces'].update(module_surfaces(sx))
+    report['surfaces'].update(module_surfaces(sx, inventory))
+    report['module_inventory'] = {
+        'source_url': inventory['source_url'], 'source_sha256': inventory['source_sha256'],
+        'documented_count': len(inventory['modules']),
+        'documentation_urls': inventory['documentation_urls'],
+    }
+    report['documented_modules'] = documented_surfaces(sx, inventory)
     if options.corpus:
         report['corpus'] = corpus_report(sp, sx)
     for name, values in report['surfaces'].items():
-        print(f"{name}: {values['present']}/{values['total']} names present ({values['presence_percent']}%)")
+        fraction = 'N/A' if values['total'] is None else f"{values['present']}/{values['total']}"
+        print(f"{name}: {fraction} names present ({percentage(values)})")
+    print('Module inventory:', len(report['documented_modules']), 'paths;',
+          json.dumps(dict(Counter(result['status'] for result in report['documented_modules'].values())), sort_keys=True))
     if options.corpus:
         values = report['corpus']
         print(f"Curated corpus: {values['confirmed']}/{values['total']} confirmed ({values['confirmed_percent']}%)")

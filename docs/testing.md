@@ -66,3 +66,17 @@ distinguish numerical errors, canonical-form differences, unsupported results,
 crashes, timeouts, and slow calls. Runs report findings without failing by
 default; use `--fail-on wrong,crash,died` for an explicit CI failure policy.
 Replay uses the same process isolation and timeout as a normal run.
+
+## Documented module inventory
+
+The coverage tool reads `tools/sympy_public_modules.json`, a versioned snapshot
+of the official SymPy 1.14.0 Sphinx inventory. It measures all documented module
+paths, their parent packages and the additional README surfaces, including missing
+modules. The snapshot pins the reference version and records the source URL and
+SHA-256. Measurements run offline. The full generated table is in
+[sympy-api.md](sympy-api.md); the JSON report also includes missing names and import
+errors. Reference import failures and modules without countable exports use N/A.
+
+This module inventory checks import paths and exported names, rather than every
+class method or behavior. Its scope differs from the existing root-mapped README
+rows; neither is a global compatibility percentage.

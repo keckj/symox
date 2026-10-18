@@ -49,6 +49,11 @@ Supported cases and remaining limitations are detailed in the guides below.
 
 Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
+The table summarizes import surfaces, including the unimplemented families.
+The [full module inventory](docs/sympy-api.md) also lists every documented module
+and its parent packages, with missing paths and import failures shown explicitly.
+The top-level export percentage covers only the package root.
+
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
 | SymPy top-level exports | 803 / 921 | 118 | 87.19% |
@@ -86,6 +91,30 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 | Iterable utilities exports | 59 / 59 | 0 | 100.00% |
 | Printing and code generation exports | 6 / 41 | 35 | 14.63% |
 | Plotting exports | 11 / 11 | 0 | 100.00% |
+| Physics: units exports | 0 / 361 | 361 | 0.00% |
+| Physics: vectors exports | 0 / 27 | 27 | 0.00% |
+| Physics: mechanics exports | 0 / 74 | 74 | 0.00% |
+| Physics: quantum mechanics exports | 0 / 44 | 44 | 0.00% |
+| Physics: optics exports | 0 / 39 | 39 | 0.00% |
+| Physics: Pauli algebra exports | 0 / 1 | 1 | 0.00% |
+| Physics: control exports | 0 / 33 | 33 | 0.00% |
+| Physics: continuum beams exports | 0 / 2 | 2 | 0.00% |
+| Physics: continuum trusses exports | 0 / 1 | 1 | 0.00% |
+| Physics: continuum cables exports | 0 / 1 | 1 | 0.00% |
+| Physics: continuum arches exports | 0 / 1 | 1 | 0.00% |
+| Physics: biomechanics exports | 0 / 15 | 15 | 0.00% |
+| Physics: high energy exports | 0 / 5 | 5 | 0.00% |
+| Physics: Wigner symbols exports | 0 / 11 | 11 | 0.00% |
+| Physics: second quantization exports | 0 / 37 | 37 | 0.00% |
+| Statistics exports | 0 / 157 | 157 | 0.00% |
+| Cryptography exports | 0 / 57 | 57 | 0.00% |
+| Holonomic functions exports | 0 / 9 | 9 | 0.00% |
+| Differential geometry exports | 0 / 24 | 24 | 0.00% |
+| Lie algebras exports | 0 / 1 | 1 | 0.00% |
+| Categories exports | 0 / 11 | 11 | 0.00% |
+| Discrete transforms and convolutions exports | 11 / 11 | 0 | 100.00% |
+| Coordinate vector calculus exports | 0 / 43 | 43 | 0.00% |
+| Expression parsing exports | 0 / 21 | 21 | 0.00% |
 
 These percentages count available names. They do not verify signatures,
 accepted domains or behavior, and there is no combined global parity score.
@@ -153,6 +182,7 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Slang](docs/codegen/slang.md) | Shader source and optional SlangPy execution |
 | [SYCL / AdaptiveCpp](docs/codegen/sycl.md) | C++ kernels and asynchronous execution |
 | [Code generation compatibility](docs/codegen/compatibility.md) | SymPy-style constructors and printer extensions |
+| [Full SymPy module inventory](docs/sympy-api.md) | Documented modules, missing import paths and unmeasurable references |
 | [Testing and coverage](docs/testing.md) | Differential tests, API measurement and fuzzing |
 | [Architecture](docs/architecture.md) | Rust modules and expression invariants |
 
