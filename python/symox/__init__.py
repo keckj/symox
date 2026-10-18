@@ -1899,5 +1899,15 @@ from ._solver_checks import (  # noqa: E402
 from .solvers.decompogen import decompogen  # noqa: E402
 from .solvers.deutils import ode_order, homogeneous_order  # noqa: E402
 from ._numeric_float import nfloat  # noqa: E402
+from .solvers.ode import classify_ode, dsolve, checkodesol  # noqa: E402
+from .solvers.pde import (  # noqa: E402
+    pdsolve, classify_pde, checkpdesol, pde_separate, pde_separate_add, pde_separate_mul,
+)
+from .geometry import (  # noqa: E402
+    Point, Point2D, Point3D, Line, Ray, Segment, Line2D, Ray2D, Segment2D,
+    Line3D, Ray3D, Segment3D, Plane, Ellipse, Circle, Polygon, Triangle,
+    RegularPolygon, Curve, Parabola, rad, deg, are_similar, centroid, convex_hull,
+    idiff, intersection, closest_points, farthest_points, GeometryError,
+)
 
 __all__ = [n for n in dir() if not n.startswith("_")]

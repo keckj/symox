@@ -39,6 +39,7 @@ println!("{}", diff(&e, &x));
 - Dense, sparse and abstract matrices with exact linear algebra.
 - Dense and sparse multidimensional arrays, tensor contractions and finite Jacobians.
 - Boolean algebra, SAT, symbolic sets and assumptions.
+- Exact Euclidean geometry and scalar/linear-system ODE and first-order PDE interfaces.
 - Numerical compilation and code generation for NumPy, C/C++, Rust, Fortran,
   CUDA, PyTorch, JAX, Slang and SYCL.
 
@@ -50,16 +51,16 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| SymPy top-level exports | 711 / 921 | 210 | 77.20% |
+| SymPy top-level exports | 749 / 921 | 172 | 81.32% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
 | Poly methods | 154 / 154 | 0 | 100.00% |
 | Matrix methods | 178 / 178 | 0 | 100.00% |
 | MatrixExpr methods | 105 / 105 | 0 | 100.00% |
 | AlgebraicNumber methods | 103 / 103 | 0 | 100.00% |
 | Rational domain methods | 87 / 87 | 0 | 100.00% |
-| Geometry exports | 0 / 30 | 30 | 0.00% |
-| Ordinary differential equations exports | 0 / 11 | 11 | 0.00% |
-| Partial differential equations exports | 0 / 9 | 9 | 0.00% |
+| Geometry exports | 30 / 30 | 0 | 100.00% |
+| Ordinary differential equations exports | 8 / 11 | 3 | 72.73% |
+| Partial differential equations exports | 6 / 9 | 3 | 66.67% |
 | Equation solvers exports | 7 / 15 | 8 | 46.67% |
 | Inequalities exports | 8 / 8 | 0 | 100.00% |
 | Arrays exports | 13 / 16 | 3 | 81.25% |
@@ -92,6 +93,8 @@ Module rows measure the corresponding import surface (the complete mapping is
 in `tools/sympy_coverage.py`), including absent modules at 0%. A name available
 at the package root can still be missing from its compatible module path.
 Rows overlap and must not be added together.
+Geometry and differential-equation support is scoped in the
+[geometry](docs/geometry.md) and [ODE/PDE](docs/differential-equations.md) guides.
 In particular, `galois_group` currently supports degrees up to four;
 `DomainMatrix` covers implemented exact and numerical domains. See the
 [polynomial](docs/polynomials.md) and [matrix](docs/matrices.md) guides for details.
@@ -125,6 +128,8 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Real and complex analysis](docs/real-analysis.md) | Singularities, continuity, periods, monotonicity, convexity and extrema |
 | [Polynomials and linear systems](docs/polynomials.md) | Domains, factorization, Gröbner bases, roots and Galois groups |
 | [Solution checks and linear isolation](docs/solver-checks.md) | Equation validation, pole exclusions and square LU systems |
+| [Differential equations](docs/differential-equations.md) | ODE classification, exact equations, linear systems, PDE characteristics and separation |
+| [Geometry](docs/geometry.md) | Exact points, linear entities, conics, polygons, planes and intersections |
 | [Real inequalities](docs/inequalities.md) | Polynomial sign charts, rational systems and nested absolute values |
 | [Coefficient domains](docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |
 | [Algebraic numbers](docs/algebraic-numbers.md) | Exact field coordinates, structural methods and scalar calculations |

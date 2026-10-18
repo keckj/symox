@@ -37,11 +37,28 @@ impl Ord for Key {fn cmp(&self,other:&Self)->Ordering{self.hash.cmp(&other.hash)
 impl PartialOrd for Key {fn partial_cmp(&self,other:&Self)->Option<Ordering>{Some(self.cmp(other))}}
 
 struct Scope { vars:Vec<(Expr,u32)>, id:u32, mask:u64 }
-struct Builder { cache:FxHashMap<(usize,u32),Arc<Key>>, next_scope:u32 }
+struct Builder {
+    cache:FxHashMap<(usize,u32),Arc<Key>>,
+    dependencies:FxHashMap<(usize,u32),(Expr,bool)>,
+    next_scope:u32,
+}
+
+/// Structural symbol occurrence, visiting shared physical subgraphs once.
+fn contains_symbol(e:&Expr,symbol:&Expr)->bool {
+    let mut pending=vec![e.clone()];
+    let mut seen=FxHashMap::default();
+    while let Some(node)=pending.pop() {
+        if symbol.mask() & !node.mask()!=0 {continue;}
+        if node==*symbol {return true;}
+        if seen.insert(node.dag_id(),node.clone()).is_some(){continue;}
+        pending.extend(crate::inspection::scalar_children(&node));
+    }
+    false
+}
 fn safe(args:&[Expr])->bool {
     if args.len()!=3{return false;}
     let variables=args[1].args();
-    variables.iter().all(Expr::is_symbol) && variables.iter().all(|v|!crate::traverse::has(&args[2],v))
+    variables.iter().all(Expr::is_symbol) && variables.iter().all(|v|!contains_symbol(&args[2],v))
 }
 pub(crate) fn build(args:&[Expr])->Option<Arc<Key>> {
     if !safe(args) || args[0].has_matrix(){return None;}
@@ -55,11 +72,22 @@ pub(crate) fn build(args:&[Expr])->Option<Arc<Key>> {
         e.args().iter().any(|arg|unsupported(arg,seen))
     }
     if unsupported(&args[0],&mut FxHashMap::default()){return None;}
-    let mut builder=Builder{cache:FxHashMap::default(),next_scope:1};
+    let mut builder=Builder{cache:FxHashMap::default(),dependencies:FxHashMap::default(),next_scope:1};
     let scope=Scope{vars:Vec::new(),id:0,mask:0};
     Some(builder.substitution(args,&scope))
 }
 impl Builder {
+    fn depends(&mut self,e:&Expr,scope:&Scope)->bool {
+        if scope.vars.iter().any(|(variable,_)|variable==e){return true;}
+        if e.is_atom() || e.mask() & scope.mask==0 {return false;}
+        let key=(e.dag_id(),scope.id);
+        if let Some((_,answer))=self.dependencies.get(&key){return *answer;}
+        let answer=crate::inspection::scalar_children(e).iter().any(|child|self.depends(child,scope));
+        // Presentation children may be synthesized. Retain their owners for
+        // the lifetime of this pointer-keyed memo to prevent address reuse.
+        self.dependencies.insert(key,(e.clone(),answer));
+        answer
+    }
     fn scope(&mut self,vars:Vec<(Expr,u32)>)->Scope {
         let id=self.next_scope;self.next_scope+=1;
         let mask=vars.iter().fold(0,|m,(v,_)|m|v.mask());
@@ -79,7 +107,7 @@ impl Builder {
         let scope=self.scope(kept);
         let body=self.walk(&args[0],&scope);
         // Unused variables are observable in SymPy's Subs identity.
-        let mut unused:Vec<_>=variables.iter().zip(&points).filter(|(v,_)|!crate::traverse::has(&args[0],v)).map(|(v,p)|Key::node(22,vec![Key::free(v.clone()),self.walk(p,outer)])).collect();
+        let mut unused:Vec<_>=variables.iter().zip(&points).filter(|(v,_)|!contains_symbol(&args[0],v)).map(|(v,p)|Key::node(22,vec![Key::free(v.clone()),self.walk(p,outer)])).collect();
         unused.sort();
         Key::node(19,vec![body,Key::node(21,point_keys),Key::node(23,unused)])
     }
@@ -88,6 +116,14 @@ impl Builder {
         if e.is_atom() || e.mask() & scope.mask==0 {return Key::free(e.clone());}
         let cache_key=(e.dag_id(),scope.id);
         if let Some(key)=self.cache.get(&cache_key){return key.clone();}
+        // A Bloom-mask hit only says that a bound variable might occur.
+        // Rebuilding a wholly free subtree on a false hit makes its key
+        // depend on the chosen dummy's mask, defeating alpha identity.
+        if !self.depends(e,scope) {
+            let key=Key::free(e.clone());
+            self.cache.insert(cache_key,key.clone());
+            return key;
+        }
         let key=match e.kind(){
             Kind::Add(c,terms)=>{
                 let mut terms:Vec<_>=terms.iter().map(|(term,c)|Key::node(10,vec![self.walk(term,scope),Key::free(Expr::num(c.clone()))])).collect();terms.sort();
@@ -109,5 +145,48 @@ impl Builder {
             _=>Key::free(e.clone()),
         };
         self.cache.insert(cache_key,key.clone());key
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bloom_collisions_cannot_change_substitution_alpha_identity() {
+        let free=Expr::symbol("free_coefficient");
+        let candidates=(0..4096).map(|index|Expr::dummy_with_index("partial_coordinate",
+            crate::Assumptions::NONE,num_bigint::BigInt::from(index))).collect::<Vec<_>>();
+        let colliding=candidates.iter().find(|symbol|symbol.mask() & free.mask()!=0).unwrap();
+        let disjoint=candidates.iter().find(|symbol|symbol.mask() & free.mask()==0).unwrap();
+        let free_subtree=crate::ops::add(&[free.clone(),Expr::one()]);
+        let make=|bound:&Expr| {
+            let applied=crate::functions::undefined("alpha_regression",vec![free_subtree.clone(),bound.clone()]);
+            let partial=crate::diff::derivative_unevaluated(&applied,vec![(bound.clone(),1)]);
+            crate::subs::held_subs(&partial,vec![bound.clone()],vec![Expr::zero()])
+        };
+        let left=make(colliding);let right=make(disjoint);
+        assert_eq!(left,right);
+        let mut a=FxHasher::default();let mut b=FxHasher::default();
+        left.hash(&mut a);right.hash(&mut b);
+        assert_eq!(a.finish(),b.finish());
+        assert!(crate::ops::sub(&left,&right).is_zero());
+    }
+
+    #[test]
+    fn colliding_free_shared_graphs_are_not_unfolded() {
+        let free=Expr::symbol("shared_free_coefficient");
+        let bound=(0..4096).map(|index|Expr::dummy_with_index("shared_partial",
+            crate::Assumptions::NONE,num_bigint::BigInt::from(index)))
+            .find(|symbol|symbol.mask() & free.mask()!=0).unwrap();
+        let mut shared=free;
+        for _ in 0..80 {shared=crate::functions::undefined("shared_pair",vec![shared.clone(),shared]);}
+        assert!(!contains_symbol(&shared,&bound));
+        let applied=crate::functions::undefined("shared_alpha_regression",vec![shared.clone(),bound.clone()]);
+        let partial=crate::diff::derivative_unevaluated(&applied,vec![(bound.clone(),1)]);
+        let substitution=crate::subs::held_subs(&partial,vec![bound.clone()],vec![Expr::zero()]);
+        assert!(substitution.has_binding_identity());
+        let unused=crate::subs::held_subs(&shared,vec![bound],vec![Expr::zero()]);
+        assert!(unused.has_binding_identity());
     }
 }
