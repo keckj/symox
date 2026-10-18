@@ -112,3 +112,28 @@ reductions. Parameter derivatives and general numerical evaluation at nonzero
 Held Mathieu construction with `evaluate=False` is currently unsupported.
 Characteristic values, periodic normalization and a Mathieu spectral solver
 are not implemented by these exports.
+
+## Additional root exports
+
+`betainc` and `betainc_regularized` support exact positive-integer polynomial
+reductions, endpoint identities, endpoint/parameter partial derivatives, symbolic
+substitution and arbitrary-precision real/complex mpmath evaluation. Composed
+expressions use the same differentiation and evaluation adapters. `riemann_xi`
+retains an exact symbolic head, has its removable values at zero and one,
+rewrites to gamma/zeta and evaluates with mpmath. `stieltjes` validates its index,
+reduces index zero to `-digamma(a)` and evaluates numerically with mpmath.
+These additional numerical paths are Python adapters over native scalar nodes;
+they are not compiled native kernels and never delegate calculations to SymPy.
+The general adaptive error estimates of SymPy's evalf machinery are not provided.
+
+`erf2inv(x,y)` uses `erfinv(y+erf(x))`. `Ynm_c` conjugates spherical harmonics;
+`Znm` forms real spherical harmonics for orders of known sign.
+`chebyshevt_root` and `chebyshevu_root` implement the exact trigonometric root
+formulas with validated integral degree/index. `hermite_prob` computes
+nonnegative integral degrees and supplies the symbolic argument recurrence.
+`jacobi_normalized` divides the native Jacobi polynomial by its gamma-function
+normalization. Singular parameter cases inherit the underlying gamma/Jacobi
+limits; the adapter does not resolve every removable parameter singularity.
+
+The [splines and variational calculus guide](splines-variations-integer-equations.md)
+describes B-splines, interpolation and singularity functions.

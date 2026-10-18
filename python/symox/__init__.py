@@ -85,7 +85,9 @@ def _matrix_part(name, M):
 
 
 def _make(name):
-    def f(*args, evaluate=True):
+    def f(*args, evaluate=None):
+        from ._public_core import _evaluation
+        evaluate = _evaluation.get() if evaluate is None else evaluate
         if name in ('Min','Max'):
             converted=[]
             for arg in args:
@@ -348,28 +350,34 @@ def special_nstr(e, dps=15):
 # ---------------------------------------------------------------------------
 
 
-def Eq(a, b=0):
-    return _core.Rel("==", a, b)
+def Eq(a, b=0, *, evaluate=None):
+    from ._public_core import _evaluation
+    return _core.Rel("==", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
 
 
-def Ne(a, b):
-    return _core.Rel("!=", a, b)
+def Ne(a, b, *, evaluate=None):
+    from ._public_core import _evaluation
+    return _core.Rel("!=", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
 
 
-def Lt(a, b):
-    return _core.Rel("<", a, b)
+def Lt(a, b, *, evaluate=None):
+    from ._public_core import _evaluation
+    return _core.Rel("<", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
 
 
-def Le(a, b):
-    return _core.Rel("<=", a, b)
+def Le(a, b, *, evaluate=None):
+    from ._public_core import _evaluation
+    return _core.Rel("<=", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
 
 
-def Gt(a, b):
-    return _core.Rel(">", a, b)
+def Gt(a, b, *, evaluate=None):
+    from ._public_core import _evaluation
+    return _core.Rel(">", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
 
 
-def Ge(a, b):
-    return _core.Rel(">=", a, b)
+def Ge(a, b, *, evaluate=None):
+    from ._public_core import _evaluation
+    return _core.Rel(">=", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
 
 
 # ---------------------------------------------------------------------------
@@ -1960,5 +1968,58 @@ from .printing import (  # noqa: E402
     print_maple_code, print_mathml, print_python, print_rcode, print_tree,
     python, rcode, smtlib_code, sstr, sstrrepr,
 )
+
+# Complete the public surface with native-backed implementations.
+from . import algebras, concrete, external, interactive, multipledispatch, release, strategies
+from .algebras import Quaternion
+from .polys.domains._compat import (FF_gmpy,FF_python,GMPYFiniteField,GMPYIntegerRing,
+    GMPYRationalField,PythonFiniteField,PythonIntegerRing,PythonRational,
+    QQ_gmpy,QQ_python,ZZ_gmpy,ZZ_python)
+from ._public_tools import (arity,comp,capture,filldedent,public,threaded,xthreaded,timed,
+    vectorize,failing_assumptions,check_assumptions,register_handler,remove_handler,
+    bool_map,expand_multinomial)
+from ._public_core import (Dict,FunctionClass,WildFunction,PrecisionExhausted,
+    SympifyError,evalf,evaluate,seterr)
+RealNumber = Float
+from ._public_matrix import (DeferredVector,Idx,Permanent,per,blockcut,
+    diagonalize_vector,matrix_symbols,get_indices,get_contraction_structure)
+from ._public_calculus import (piecewise_fold,piecewise_exclusive,bspline_basis,
+    bspline_basis_set,interpolating_spline,line_integrate,euler_equations)
+from ._public_special import (betainc,betainc_regularized,erf2inv,Ynm_c,Znm,
+    chebyshevt_root,chebyshevu_root,hermite_prob,jacobi_normalized,riemann_xi,
+    stieltjes,SingularityFunction,singularityintegrate)
+from ._public_roots import RootOf,CRootOf,ComplexRootOf,rootof,RootSum
+from ._public_solvers import diophantine,factor_system,solve_triangulated,substitution
+from .polys.polyoptions import Options
+from .interactive import init_printing,init_session
+from .plotting import plot_backends
+from ._public_testing import test,doctest
+from . import _public_core,_public_matrix,_public_special,_public_roots
+_public_core.install(globals())
+_public_matrix.install(globals())
+_public_roots.install()
+_public_special.install(globals())
+_native_piecewise = Piecewise
+
+def Piecewise(*pieces,evaluate=None):
+    return _native_piecewise(*pieces,evaluate=_public_core._evaluation.get() if evaluate is None else evaluate)
+
+for _context_name in ('sqrt','cbrt','log'):
+    def _context_function(name,original):
+        def f(*args,evaluate=None):
+            state = _public_core._evaluation.get() if evaluate is None else evaluate
+            if state:return original(*args)
+            if name in ('sqrt','cbrt'):
+                return _core._node('Pow',(args[0],Rational(1,2 if name=='sqrt' else 3)),False)
+            if name == 'log' and len(args) == 2:
+                return _core._undefined_function('log',args,{},(1,2))
+            return _core._apply(name,*args,evaluate=False)
+        if name == 'log':
+            f._symox_head_name = name
+            f._nargs = (1,2)
+        f.__name__ = name
+        return f
+    globals()[_context_name] = _context_function(_context_name,globals()[_context_name])
+ln = log
 
 __all__ = [n for n in dir() if not n.startswith("_")]

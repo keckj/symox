@@ -41,6 +41,9 @@ Implemented:
 * isolated differential fuzzing, seeded replay, shrinking and triage
 
 The sections below describe the supported subsets and remaining limitations.
+The [public interface guide](public-interfaces.md), [root/quaternion guide](algebraic-roots-quaternions.md)
+and [splines/variational guide](splines-variations-integer-equations.md) describe
+the latest root exports. Their presence does not establish complete behavioral parity.
 
 Special functions include combinatorial numbers, gamma/zeta families, error
 and exponential integrals, Bessel/Airy functions, elliptic integrals, Lambert W,

@@ -2550,16 +2550,19 @@ fn py_rel(op: &str, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>, evaluate: bool) 
 }
 
 #[pyfunction]
-#[pyo3(name = "Piecewise", signature = (*pieces))]
-fn py_piecewise(pieces: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+#[pyo3(name = "Piecewise", signature = (*pieces, evaluate=true))]
+fn py_piecewise(pieces: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<PyExpr> {
     let mut v = Vec::new();
     for p in pieces.iter() {
         let t = p
             .downcast::<PyTuple>()
             .map_err(|_| PyTypeError::new_err("Piecewise expects (expr, cond) tuples"))?;
+        if t.len() != 2 {
+            return Err(PyTypeError::new_err("Piecewise expects pairs of expression and condition"));
+        }
         v.push((to_expr(&t.get_item(0)?)?, to_expr(&t.get_item(1)?)?));
     }
-    Ok(wrap(relational::piecewise(v)))
+    Ok(wrap(if evaluate { relational::piecewise(v) } else { Expr::from_unevaluated_kind(Kind::Piecewise(v)) }))
 }
 
 #[pyfunction]

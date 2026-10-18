@@ -15,4 +15,5 @@ Q = AssumptionKeys()
 
 def ask(proposition, assumptions=True, context=global_assumptions):
     """Return True, False or None when the proposition is undecidable."""
-    return _core._ask(proposition, assumptions, context)
+    from .._public_tools import ask as public_ask
+    return public_ask(proposition, assumptions, context)

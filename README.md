@@ -42,6 +42,7 @@ println!("{}", diff(&e, &x));
 - Exact Euclidean geometry and scalar/linear-system ODE and first-order PDE interfaces.
 - Holonomic differential equations, coefficient recurrences and coordinate vector calculus.
 - Local differential geometry, finite Cartan root systems and category diagrams.
+- Algebraic root objects, Hamilton quaternions, exact splines and variational calculus.
 - Numerical compilation and code generation for NumPy, C/C++, Rust, Fortran,
   CUDA, PyTorch, JAX, Slang and SYCL.
 
@@ -63,7 +64,7 @@ The top-level export percentage covers only the package root.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| SymPy top-level exports | 833 / 921 | 88 | 90.45% |
+| SymPy top-level exports | 921 / 921 | 0 | 100.00% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
 
 </details>
@@ -235,6 +236,9 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | Guide | Contents |
 |---|---|
 | [SymPy compatibility](docs/compatibility.md) | Expressions, precision, assumptions, calculus, logic and sets |
+| [Public core and utilities](docs/public-interfaces.md) | Evaluation contexts, import interfaces, dispatch, assumptions and sessions |
+| [Algebraic roots and quaternions](docs/algebraic-roots-quaternions.md) | Exact root objects, symmetric sums, Hamilton algebra and rotations |
+| [Splines and integer equations](docs/splines-variations-integer-equations.md) | Piecewise folding, B-splines, Euler equations, singularity integrals and integer parametrizations |
 | [Expression method options](docs/expression-methods.md) | Coefficients, replacement rules, structural queries and leading terms |
 | [Series and expression analysis](docs/series.md) | Formal/Fourier/asymptotic series, meromorphic tests and branch factors |
 | [Sequences](docs/sequences.md) | Formula and periodic sequences, fitted recurrences and generating functions |

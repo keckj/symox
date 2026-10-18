@@ -94,10 +94,16 @@ class Wild(Symbol):
         return _core.Wild(name,exclude,properties,**assumptions)
 
 
+def _evaluation_state(value=None):
+    from ._public_core import _evaluation
+    return _evaluation.get() if value is None else value
+
+
 class Add(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Add)
 
-    def __new__(cls, *args, evaluate=True):
+    def __new__(cls, *args, evaluate=None):
+        evaluate = _evaluation_state(evaluate)
         if any(getattr(arg,'_symox_tensexpr',False) for arg in args):
             from .tensor.tensor import TensAdd
             return TensAdd(*args,evaluate=evaluate)
@@ -116,7 +122,8 @@ class Add(metaclass=_ExprType):
 class Mul(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Mul)
 
-    def __new__(cls, *args, evaluate=True):
+    def __new__(cls, *args, evaluate=None):
+        evaluate = _evaluation_state(evaluate)
         if any(getattr(arg,'_symox_tensexpr',False) for arg in args):
             from .tensor.tensor import TensMul
             return TensMul(*args,evaluate=evaluate)
@@ -135,7 +142,8 @@ class Mul(metaclass=_ExprType):
 class Pow(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Pow)
 
-    def __new__(cls, base, exp, evaluate=True):
+    def __new__(cls, base, exp, evaluate=None):
+        evaluate = _evaluation_state(evaluate)
         if _matrix_operand(base):
             from ._matrixexpr import MatPow
             return MatPow(base,exp,evaluate=evaluate)
@@ -187,7 +195,7 @@ class Relational(metaclass=_ExprType):
                 op = _REL_ALIASES[rop if rop is not None else "=="]
             except (KeyError, TypeError):
                 raise ValueError("Invalid relational operator symbol: %r" % (rop,)) from None
-        return _core.Rel(op, lhs, rhs) if kwargs.get("evaluate", True) else _core.Rel(op, lhs, rhs, evaluate=False)
+        return _core.Rel(op, lhs, rhs) if _evaluation_state(kwargs.get("evaluate")) else _core.Rel(op, lhs, rhs, evaluate=False)
 
 
 Rel = Relational
@@ -195,7 +203,7 @@ Rel = Relational
 
 def _relation_class(name, doc):
     def __new__(cls, lhs, rhs=0, **kwargs):
-        return _core.Rel(_REL_OPS[name], lhs, rhs) if kwargs.get("evaluate", True) else _core.Rel(_REL_OPS[name], lhs, rhs, evaluate=False)
+        return _core.Rel(_REL_OPS[name], lhs, rhs) if _evaluation_state(kwargs.get("evaluate")) else _core.Rel(_REL_OPS[name], lhs, rhs, evaluate=False)
     return _ExprType(name, (Relational,), {
         "__new__": __new__, "__doc__": doc, "__module__": __name__,
         "_matches": staticmethod(lambda e: e.class_name == name),
