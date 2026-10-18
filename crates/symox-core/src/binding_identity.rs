@@ -49,6 +49,9 @@ pub(crate) fn build(args:&[Expr])->Option<Arc<Key>> {
         if seen.insert(e.dag_id(),e.clone()).is_some(){return false;}
         if matches!(e.kind(),Kind::Func(Func::Limit|Func::Integral|Func::Sum|Func::Product|Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::ConditionSet),_)){return true;}
         if matches!(e.kind(),Kind::Func(Func::Undefined(f),_) if f.is_internal("Integral") || f.is_internal("Sum") || f.is_internal("Product")){return true;}
+        if let Kind::Derivative(body,variables)=e.kind(){
+            return unsupported(body,seen) || variables.iter().any(|(variable,_)|unsupported(variable,seen));
+        }
         e.args().iter().any(|arg|unsupported(arg,seen))
     }
     if unsupported(&args[0],&mut FxHashMap::default()){return None;}

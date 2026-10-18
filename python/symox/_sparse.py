@@ -411,7 +411,14 @@ class _SparseBase:
         if zero != 0:
             return self._new(self.rows,self.cols,{(i,j):function(self[i,j]) for i in range(self.rows) for j in range(self.cols)})
         return self._new(self.rows,self.cols,{k:result for k,v in self._data.items() if (result := sympify(function(v))) != 0})
-    def subs(self, *args, **kwargs): return self.applyfunc(lambda x:x.subs(*args,**kwargs))
+    def subs(self, *args, **kwargs):
+        if not self.rows or not self.cols:return self.copy()
+        if len(args)==1:
+            mapping=args[0]
+            # Materialize a one-shot iterator once for all entries, including
+            # the implicit-zero probe made by sparse applyfunc.
+            args=(dict(mapping.items()),) if hasattr(mapping,'items') else ([tuple(pair) for pair in mapping],)
+        return self.applyfunc(lambda x:x.subs(*args,**kwargs))
     def xreplace(self, rule): return self.applyfunc(lambda x:x.xreplace(rule))
     def diff(self, *args, **kwargs): return self.applyfunc(lambda x:x.diff(*args,**kwargs))
     def expand(self, **kwargs): return self.applyfunc(lambda x:x.expand(**kwargs))

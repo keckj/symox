@@ -502,6 +502,25 @@ impl std::ops::DerefMut for Polynomial {
     }
 }
 impl Polynomial {
+    pub fn decompose(&self)->PResult<Vec<Self>> {
+        if let Some(p)=&self.algebraic {
+            super::roots::decompose_preflight(p.gens.len(),p.rep.degree(0))?;
+            let _scope=super::algebraic::AlgebraicScope::new(p.number_field.clone());
+            let coefficients=super::dense::from_mpoly(&p.rep,0);
+            let parts=super::roots::decompose_field(&coefficients,&|_|true)?;
+            return Ok(parts.iter().map(|part|p.with_rep(super::dense::to_mpoly(part,0,1)).into()).collect());
+        }
+        if let Some(p)=&self.field {
+            super::roots::decompose_preflight(p.gens.len(),p.rep.degree(0))?;
+            let _scope=Scope::new(p.parameters.len());
+            let coefficients=super::dense::from_mpoly(&p.rep,0);
+            let ring=p.display.ends_with(']');
+            let parts=super::roots::decompose_field(&coefficients,&|value|!ring || coefficient_in_ring(value,p.display.starts_with("ZZ")))?;
+            return Ok(parts.iter().map(|part|p.with_rep(super::dense::to_mpoly(part,0,1)).into()).collect());
+        }
+        Ok(self.base.decompose()?.into_iter().map(Into::into).collect())
+    }
+
     pub fn as_expr(&self) -> Expr {
         if let Some(p)=&self.algebraic {return p.as_expr();}
         self.field
@@ -926,5 +945,60 @@ mod typed_dense_division {
                 assert_eq!(q.mul(&b).add(&r).algebraic.unwrap().rep,a.algebraic.unwrap().rep);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod functional_decomposition {
+    use super::*;
+    use crate::parser::parse_str;
+
+    #[test]
+    fn rational_function_parts_reconstruct_and_respect_ring_membership() {
+        let x=Expr::symbol("x");let t=Expr::symbol("t");
+        for (domain,source,count) in [
+            ("QQ(t)","(x^2+x/t)^3+x^2+x/t",2),
+            ("QQ[t]","(t*x^2+x)^2",1),
+            ("ZZ[t]","4*x^4+4*x^3+x^2",1),
+            ("QQ[t]","4*x^4+4*x^3+x^2",2),
+            ("ZZ[t]","(x^2+t*x)^3+1",2),
+        ] {
+            let polynomial:Polynomial=FractionPoly::from_expr(&parse_str(source).unwrap(),std::slice::from_ref(&x),std::slice::from_ref(&t),domain).unwrap().into();
+            let parts=polynomial.decompose().unwrap();assert_eq!(parts.len(),count,"{domain}");
+            let mut rebuilt=parts[0].field.as_ref().unwrap().clone();
+            for inner in &parts[1..] {rebuilt=rebuilt.compose(inner.field.as_ref().unwrap());}
+            assert_eq!(rebuilt.rep,polynomial.field.as_ref().unwrap().rep);
+            assert!(parts.iter().all(|part|part.domain_str()==domain));
+            if domain.ends_with(']') {assert!(parts.iter().all(|part|part.field.as_ref().unwrap().belongs_to_ring()));}
+        }
+    }
+
+    #[test]
+    fn algebraic_parts_use_the_exact_number_field() {
+        let x=Expr::symbol("x");
+        for generator in ["sqrt(2)","I","sqrt(2)+sqrt(3)"] {
+            let field=super::super::algebraic::NumberField::from_generator(&parse_str(generator).unwrap()).unwrap();
+            let source=format!("(x^2+({generator})*x)^3+2*(x^2+({generator})*x)+1");
+            let polynomial:Polynomial=super::super::algebraic::AlgebraicPoly::from_expr(&parse_str(&source).unwrap(),&[x.clone()],field).unwrap().into();
+            let parts=polynomial.decompose().unwrap();assert_eq!(parts.len(),2);
+            let rebuilt=parts[0].algebraic.as_ref().unwrap().compose(parts[1].algebraic.as_ref().unwrap());
+            assert_eq!(rebuilt.rep,polynomial.algebraic.unwrap().rep);
+        }
+    }
+
+    #[test]
+    fn prime_and_integer_decomposition_keep_their_arithmetic() {
+        let x=Expr::symbol("x");
+        let polynomial=Poly::from_expr(&parse_str("4*x^4+4*x^3+x^2").unwrap(),&[x.clone()]).unwrap();
+        assert_eq!(polynomial.decompose().unwrap().len(),1);
+        let _scope=super::super::f5b::PrimeScope::new(7).unwrap();
+        for prime in [3,5,11] {
+            let polynomial=Poly::from_expr(&parse_str("x^4+2*x^2+1").unwrap(),&[x.clone()]).unwrap().set_modulus(prime);
+            let parts=polynomial.decompose().unwrap();assert_eq!(parts.len(),2);
+            assert_eq!(parts[0].compose(&parts[1]).rep,polynomial.rep);
+        }
+        assert!(super::super::f5b::Fp::from_i64(14).is_zero());
+        let polynomial=Poly::from_expr(&parse_str("x^4+1").unwrap(),&[x]).unwrap().set_modulus(2);
+        assert!(matches!(polynomial.decompose(),Err(PolyError::NotInvertible(_))));
     }
 }

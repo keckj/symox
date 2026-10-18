@@ -135,6 +135,12 @@ impl Context<'_> {
         self.budget.claim_terms(1).map_err(failure)?;
         self.budget.claim_product(1, 1).map_err(failure)?;
         let result = match expression.kind() {
+            MatrixKind::Permutation(_) => expression.clone(),
+            MatrixKind::Permute(parent, images, axis) => {
+                let mapped = self.matrix_child(parent)?;
+                if mapped.dag_id() == parent.dag_id() { expression.clone() }
+                else { mapped.permute(images.clone(), *axis, false)? }
+            }
             MatrixKind::Symbol(name) => {
                 let rows = self.scalar_child(expression.rows())?;
                 let cols = self.scalar_child(expression.cols())?;

@@ -80,7 +80,7 @@ def test_powsimp_deep_and_exp_mode():
     with pytest.raises(ValueError): sx.powsimp(expression,combine='invalid')
 
 
-@pytest.mark.parametrize('options',[{'tolerance':1e-5},{'full':True},{'rational':True},{'rational':False}])
+@pytest.mark.parametrize('options',[{'tolerance':1e-5},{'full':True}])
 def test_unsupported_nsimplify_options_are_not_silently_ignored(options):
     with pytest.raises(NotImplementedError): sx.nsimplify(1.4142135623730951,**options)
 

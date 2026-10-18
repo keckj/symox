@@ -340,6 +340,12 @@ impl Symbol {
         let mut symbol=Self::new(name);symbol.wild=Some(Arc::new(exclude));symbol
     }
 
+    pub fn wild_with_facts(name: &str, exclude: Vec<crate::expr::Expr>, given: crate::assumption_facts::FactSet) -> Result<Symbol, String> {
+        let mut symbol = Self::with_facts(name, given)?;
+        symbol.wild = Some(Arc::new(exclude));
+        Ok(symbol)
+    }
+
     #[inline]
     pub fn is_wild(&self) -> bool {
         self.wild.is_some()

@@ -13,7 +13,7 @@ use super::api::{cancel, factor};
 use super::convert::{PResult, PolyError};
 use super::dense;
 use super::factor_uni::cyclotomic;
-use super::int::{Int, Rat};
+use super::int::{Field, Int, Rat};
 use super::polyobj::Poly;
 use crate::expand::expand;
 use crate::expr::{Expr, Kind};
@@ -500,28 +500,46 @@ fn roots_list(f: &UPoly) -> Vec<Expr> {
 
 /// Functional decomposition `f = g1(g2(...(gk)))` over `QQ` (Kozen–Landau).
 pub fn decompose(f: &[Rat]) -> Vec<Vec<Rat>> {
-    fn right(f: &[Rat], s: usize) -> Vec<Rat> {
+    decompose_field(f,&|_|true).expect("rational coefficients have characteristic zero")
+}
+
+/// Bound dense allocation before converting a sparse polynomial.
+pub fn decompose_preflight(variables:usize,degree:i64)->PResult<()> {
+    if variables!=1 {return Err(PolyError::Unsupported("univariate polynomial expected".into()));}
+    if degree>4096 {return Err(PolyError::Unsupported("functional decomposition is limited to degree 4096".into()));}
+    Ok(())
+}
+
+/// Kozen--Landau decomposition over an exact field, optionally restricted to
+/// coefficients that belong to its declared coefficient ring. Every accepted
+/// pair is certified by exact polynomial division, without numeric sampling.
+pub fn decompose_field<C:Field>(f:&[C],allow:&impl Fn(&C)->bool)->PResult<Vec<Vec<C>>> {
+    fn right<C:Field>(f: &[C], s: usize,allow:&impl Fn(&C)->bool) -> PResult<Option<Vec<C>>> {
         let n = f.len() - 1;
         let lc = f[n].clone();
         let r = n / s;
-        let mut g = vec![Rat::zero(); s + 1];
-        g[s] = Rat::one();
+        let mut g = vec![C::zero(); s + 1];
+        g[s] = C::one();
         for i in 1..s {
-            let mut coeff = Rat::zero();
+            let mut coeff = C::zero();
             for j in 0..i {
                 let fc = &f[n + j - i];
                 let gc = &g[s - j];
                 if fc.is_zero() || gc.is_zero() {
                     continue;
                 }
-                let k = Rat::from_i64(i as i64 - (r * j) as i64);
+                let k = C::from_i64(i as i64 - (r * j) as i64);
                 coeff = coeff.add(&k.mul(fc).mul(gc));
             }
-            g[s - i] = coeff.div(&Rat::from_i64((i * r) as i64).mul(&lc));
+            let denominator=C::from_i64((i*r) as i64).mul(&lc);
+            if denominator.is_zero() {return Err(PolyError::NotInvertible("zero divisor in functional decomposition".into()));}
+            let value=coeff.div(&denominator);
+            if !allow(&value) {return Ok(None);}
+            g[s-i]=value;
         }
-        g
+        Ok(Some(g))
     }
-    fn left(f: &[Rat], h: &[Rat]) -> Option<Vec<Rat>> {
+    fn left<C:Field>(f: &[C], h: &[C],allow:&impl Fn(&C)->bool) -> Option<Vec<C>> {
         let mut g = Vec::new();
         let mut f = f.to_vec();
         while !f.is_empty() {
@@ -529,33 +547,36 @@ pub fn decompose(f: &[Rat]) -> Vec<Vec<Rat>> {
             if r.len() > 1 {
                 return None;
             }
-            g.push(r.first().cloned().unwrap_or_else(Rat::zero));
+            let coefficient=r.first().cloned().unwrap_or_else(C::zero);
+            if !allow(&coefficient) {return None;}
+            g.push(coefficient);
             f = q;
         }
         dense::trim(&mut g);
         Some(g)
     }
-    fn step(f: &[Rat]) -> Option<(Vec<Rat>, Vec<Rat>)> {
+    fn step<C:Field>(f: &[C],allow:&impl Fn(&C)->bool) -> PResult<Option<(Vec<C>, Vec<C>)>> {
+        if f.len()<3 {return Ok(None);}
         let df = f.len() - 1;
         for s in 2..df {
             if df % s != 0 {
                 continue;
             }
-            let h = right(f, s);
-            if let Some(g) = left(f, &h) {
-                return Some((g, h));
+            let Some(h) = right(f, s,allow)? else {continue};
+            if let Some(g) = left(f, &h,allow) {
+                return Ok(Some((g, h)));
             }
         }
-        None
+        Ok(None)
     }
-    let mut fs: Vec<Vec<Rat>> = Vec::new();
+    let mut fs: Vec<Vec<C>> = Vec::new();
     let mut f = f.to_vec();
-    while let Some((g, h)) = step(&f) {
+    while let Some((g, h)) = step(&f,allow)? {
         f = g;
         fs.insert(0, h);
     }
     fs.insert(0, f);
-    fs
+    Ok(fs)
 }
 
 fn rats_of(f: &UPoly) -> Option<Vec<Rat>> {

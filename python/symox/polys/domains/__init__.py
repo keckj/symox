@@ -7,3 +7,11 @@ symbol assumptions, generator order, and selected algebraic embedding.
 from ..._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed
 
 __all__ = ["Domain", "DomainElement", "QQ", "ZZ", "GF", "DomainError", "CoercionFailed", "ExactQuotientFailed"]
+
+from ... import _core
+if hasattr(_core, 'EX'):
+    from ..._core import EX, EXRAW, RR, CC, ZZ_I, QQ_I
+    from ._types import *
+    from ._types import __all__ as _type_names
+    FF = GF
+    __all__ += ['EX', 'EXRAW', 'RR', 'CC', 'ZZ_I', 'QQ_I', 'FF'] + _type_names

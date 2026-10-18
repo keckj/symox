@@ -68,7 +68,7 @@ fn filter(py:Python<'_>,value:&Bound<'_,PyAny>)->PyResult<Filter>{
         if let Ok(name)=value.getattr("__name__").and_then(|name|name.extract::<String>()){
             if let Some(function)=Func::from_name(&name){return Ok(Filter::Function(function));}
             if value.getattr("__module__").and_then(|module|module.extract::<String>()).is_ok_and(|module|module.starts_with("sympy.")){
-                if matches!(name.as_str(),"Number"|"NumberSymbol"|"Integer"|"Rational"|"Float"|"Symbol"|"Dummy"|"Zero"|"One"|"NegativeOne"|"Half"|"Add"|"Mul"|"Pow"|"Tuple"){
+                if matches!(name.as_str(),"Number"|"NumberSymbol"|"Integer"|"Rational"|"Float"|"Symbol"|"Dummy"|"Wild"|"Zero"|"One"|"NegativeOne"|"Half"|"Add"|"Mul"|"Pow"|"Tuple"){
                     return Ok(Filter::Class(name));
                 }
                 if name=="Function"{return Ok(Filter::Functions);}

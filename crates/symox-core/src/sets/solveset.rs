@@ -44,7 +44,7 @@ impl SolveContext {
     fn periodic_variable(&self)->&Expr { self.periodic_variable.get_or_init(dummy_n) }
 }
 
-/// The only function of `x` in `f` if it is `sin`/`cos`/`tan`/`exp` of
+/// The only periodic elementary generator in `f`, with
 /// a linear argument.
 fn single_generator(f: &Expr, x: &Expr) -> Option<Expr> {
     fn rec(e: &Expr, x: &Expr, out: &mut Vec<Expr>) {
@@ -68,7 +68,8 @@ fn single_generator(f: &Expr, x: &Expr) -> Option<Expr> {
     }
     let g = v.pop().unwrap();
     let Kind::Func(fun, a) = g.kind() else { return None };
-    if !matches!(fun, Func::Sin | Func::Cos | Func::Tan | Func::Exp) || a.len() != 1 {
+    if !matches!(fun, Func::Sin | Func::Cos | Func::Tan | Func::Exp
+        | Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth) || a.len() != 1 {
         return None;
     }
     linear(&a[0], x)?;
@@ -77,7 +78,8 @@ fn single_generator(f: &Expr, x: &Expr) -> Option<Expr> {
 
 fn has_periodic_in(e: &Expr, x: &Expr) -> bool {
     match e.kind() {
-        Kind::Func(f, a) if matches!(f, Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc) => {
+        Kind::Func(f, a) if matches!(f, Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc
+            | Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth) => {
             a.iter().any(|t| has(t, x))
         }
         _ => e.args().iter().any(|a| has_periodic_in(a, x)),
@@ -102,7 +104,7 @@ fn image(period: &Expr, c: &Expr, context: &SolveContext) -> Expr {
 
 /// Periodic solutions of `trig(a*x + b) = k` / `exp(a*x + b) = k`.
 fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
-    use crate::functions::{acos, asin, atan, log};
+    use crate::functions::{acos, asin, atan, log, asinh, acosh, atanh};
     let Kind::Func(f, args) = g.kind() else { return None };
     if args.len() != 1 {
         return None;
@@ -114,6 +116,62 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
     let pi = Expr::pi();
     let two_pi = mul2(&Expr::int(2), &pi);
     let real = is_real_domain(domain);
+    if matches!(f, Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth) {
+        // A real affine argument admits the real inverse branches. For
+        // complex arguments retain the full imaginary period lattice.
+        if real && crate::assumptions::is_real(&a)==Some(true)
+            && crate::assumptions::is_real(&b)==Some(true) {
+            if crate::assumptions::is_real(k)==Some(false) {
+                return Some(empty_set());
+            }
+            if matches!(f,Func::Cosh) && cmp3(k,&Expr::one())==Some(Ordering::Less) {
+                return Some(empty_set());
+            }
+            if matches!(f,Func::Tanh) && (cmp3(k,&Expr::minus_one())==Some(Ordering::Less)
+                || cmp3(k,&Expr::minus_one())==Some(Ordering::Equal)
+                || cmp3(k,&Expr::one())==Some(Ordering::Greater)
+                || cmp3(k,&Expr::one())==Some(Ordering::Equal)) {
+                return Some(empty_set());
+            }
+            if matches!(f,Func::Coth) && cmp3(k,&Expr::minus_one()).is_some_and(|c|c!=Ordering::Less)
+                && cmp3(k,&Expr::one()).is_some_and(|c|c!=Ordering::Greater) {
+                return Some(empty_set());
+            }
+            let inverse=match f {Func::Sinh=>asinh(k),Func::Cosh=>acosh(k),
+                Func::Coth=>crate::special::acoth(k),_=>atanh(k)};
+            let mut roots=vec![crate::expand::expand(&div(&sub(&inverse,&b),&a))];
+            if matches!(f,Func::Cosh) {
+                roots.push(crate::expand::expand(&div(&sub(&neg(&inverse),&b),&a)));
+            }
+            return Some(filter_domain(roots,domain));
+        }
+        if matches!(f,Func::Tanh | Func::Coth) && (k.is_one() || k.is_minus_one()) {
+            return Some(empty_set());
+        }
+        let imaginary_pi=mul2(&pi,&Expr::i());
+        let (centers,base_period)=match f {
+            Func::Sinh=>{
+                let v=asinh(k);
+                (vec![v.clone(),sub(&imaginary_pi,&v)],mul2(&Expr::int(2),&imaginary_pi))
+            },
+            Func::Cosh=>{
+                let v=acosh(k);
+                (vec![v.clone(),neg(&v)],mul2(&Expr::int(2),&imaginary_pi))
+            },
+            Func::Coth=>(vec![crate::special::acoth(k)],imaginary_pi),
+            _=>{let v=atanh(k);(vec![v],imaginary_pi)},
+        };
+        let period=div(&base_period,&a);
+        let images=union(centers.iter().map(|center|image(&period,
+            &crate::expand::expand(&div(&sub(center,&b),&a)),context)).collect());
+        let images=if real {intersection(vec![images,domain.clone()])} else {images};
+        if matches!(f,Func::Tanh | Func::Coth) && !is_numeric_value(k) {
+            let condition=crate::logic::and(vec![crate::relational::ne(k,&Expr::one()),
+                crate::relational::ne(k,&Expr::minus_one())]);
+            return Some(condition_set(x,&condition,&images));
+        }
+        return Some(images);
+    }
     let thetas: Vec<Expr>;
     let base_period: Expr;
     match f {
@@ -224,7 +282,7 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
     }
     if let Some(g) = single_generator(&num, x) {
         // polynomial in g = trig(a*x + b) (or exp in the complex domain)
-        let t = Expr::symbol("_solveset_t");
+        let t = Expr::dummy("solveset_t", crate::symbol::Assumptions::NONE);
         let mut map = rustc_hash::FxHashMap::default();
         map.insert(g.clone(), t.clone());
         let p = crate::subs::xreplace(&num, &map);
@@ -496,6 +554,28 @@ fn sign_analysis(ineq: &Expr, x: &Expr, domain: &Expr, need_domain: bool) -> Opt
             _ => None,
         };
     }
+    // A known-sign real coefficient gives an exact half-line even when the
+    // root contains parameters, which numeric sign-chart sampling cannot do.
+    if let Some((a,b))=linear(&f,x) {
+        use crate::assumptions::{is_real,is_positive,is_negative};
+        if is_real(&a)==Some(true) && is_real(&b)==Some(true) {
+            let direction=if is_positive(&a)==Some(true) {Some(op)}
+                else if is_negative(&a)==Some(true) {Some(crate::logic::reversed_op(op))}
+                else {None};
+            if let Some(direction)=direction {
+                let root=div(&neg(&b),&a);
+                let solution=match direction {
+                    RelOp::Lt=>interval(&Expr::neg_oo(),&root,true,true),
+                    RelOp::Le=>interval(&Expr::neg_oo(),&root,true,false),
+                    RelOp::Gt=>interval(&root,&Expr::oo(),true,true),
+                    RelOp::Ge=>interval(&root,&Expr::oo(),false,true),
+                    RelOp::Eq=>finite_set(vec![root.clone()]),
+                    RelOp::Ne=>complement(&reals(),&finite_set(vec![root.clone()])),
+                };
+                return Some(intersection(vec![solution,domain.clone()]));
+            }
+        }
+    }
     if has_periodic(&f) {
         return None;
     }
@@ -544,13 +624,13 @@ fn sign_analysis(ineq: &Expr, x: &Expr, domain: &Expr, need_domain: bool) -> Opt
             (false, true) => add2(&lo, &Expr::one()),
             _ => div(&add2(&lo, &hi), &Expr::int(2)),
         };
-        let sat = in_dom(&t) && sign_at(&f, x, &t).is_some_and(|s| holds(op, s));
+        let sat = if in_dom(&t) {holds(op,sign_at(&f,x,&t)?)} else {false};
         segs.push((Seg::Gap(lo, hi), sat));
         if i < k {
             let p = &pts[i];
-            let sat = !poles.iter().any(|q| cmp3(q, p) == Some(Ordering::Equal))
-                && in_dom(p)
-                && sign_at(&f, x, p).is_some_and(|s| holds(op, s));
+            let sat = if !poles.iter().any(|q| cmp3(q,p)==Some(Ordering::Equal)) && in_dom(p) {
+                holds(op,sign_at(&f,x,p)?)
+            } else {false};
             segs.push((Seg::Pt(p.clone()), sat));
         }
     }
@@ -616,6 +696,24 @@ fn solve_univariate_inequality_set(ineq: &Expr, x: &Expr, domain: &Expr) -> Resu
         Kind::Bool(false) => return Ok(empty_set()),
         Kind::Rel(..) => {}
         _ => return Err(format!("{ineq} is not a relational")),
+    }
+    // Positive odd integer powers are strictly increasing on the reals.
+    // Invert them before asking the finite polynomial-root solver, retaining
+    // the real root for negative bounds rather than a complex principal root.
+    if is_real_domain(domain) {
+        let Kind::Rel(op,left,right)=ineq.kind() else {unreachable!()};
+        for (power,bound,direction) in [(left,right,*op),(right,left,crate::logic::reversed_op(*op))] {
+            let Kind::Pow(base,exponent)=power.kind() else {continue};
+            let Some(order)=exponent.as_i64() else {continue};
+            if order<=1 || order%2==0 || has(bound,x) {continue}
+            let real_x=Expr::dummy("inequality_x",crate::symbol::Assumptions::REAL);
+            if crate::assumptions::is_real(bound)!=Some(true)
+                || crate::assumptions::is_real(&subs1(base,x,&real_x))!=Some(true) {continue}
+            let root=mul2(&crate::functions::sign(bound),
+                &crate::ops::pow(&crate::functions::abs(bound),&Expr::rational(1,order)));
+            let reduced=crate::relational::rel(direction,base,&root);
+            return solve_univariate_inequality_set(&reduced,x,domain);
+        }
     }
     sign_analysis(ineq, x, domain, true)
         .ok_or_else(|| format!("The inequality, {ineq}, cannot be solved using solve_univariate_inequality."))
@@ -700,10 +798,8 @@ fn isolate_linear(e: &Expr, x: &Expr) -> Option<Expr> {
     let Kind::Rel(op, l, r) = e.kind() else { return None };
     let (a, b) = linear(&sub(l, r), x)?;
     let rhs = div(&neg(&b), &a);
-    let op = match a.as_number() {
-        Some(n) if n.is_negative() => crate::logic::reversed_op(*op),
-        Some(_) => *op,
-        None => return None,
-    };
+    let op = if crate::assumptions::is_negative(&a)==Some(true) {crate::logic::reversed_op(*op)}
+        else if crate::assumptions::is_positive(&a)==Some(true) {*op}
+        else {return None};
     Some(crate::relational::rel(op, x, &rhs))
 }

@@ -75,13 +75,12 @@ def test_held_sum_tail_preserves_original_argument_order(items, rational):
 
 
 @pytest.mark.parametrize("order", ["grlex", "grevlex", "rev-lex", "none", "invalid"])
-def test_unimplemented_sort_order_is_not_silently_ignored(order):
+def test_atomic_keys_match_reference_when_no_monomial_order_is_needed(order):
     x = sx.Symbol("x")
-    for expression in [x, sx.MatrixSymbol("A", 2, 2)]:
-        with pytest.raises(NotImplementedError, match="lexicographic"):
-            expression.sort_key(order=order)
-        with pytest.raises(NotImplementedError, match="lexicographic"):
-            sx.default_sort_key(expression, order=order)
+    X = sp.Symbol("x")
+    for expression, reference in [(x,X),(sx.MatrixSymbol("A",2,2),sp.MatrixSymbol("A",2,2))]:
+        assert normalized(expression.sort_key(order=order))==reference.sort_key(order=order)
+        assert normalized(sx.default_sort_key(expression,order=order))==sp.default_sort_key(reference,order=order)
 
 
 def test_matrix_add_coefficient_is_scalar_zero_without_extraction():

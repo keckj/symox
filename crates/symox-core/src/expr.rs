@@ -287,12 +287,19 @@ pub enum Func {
     Predicate(crate::ask::Pred),
     /// `AppliedPredicate`/`AppliedBinaryRelation`: `[predicate, arguments...]`.
     AppliedPredicate,
+    /// Polar exponential retains winding information instead of identifying
+    /// arguments modulo 2*pi*I. Append new variants to preserve old node hashes.
+    ExpPolar,
+    /// Generic Expr constructor used by Basic.fromiter, with symbolic leaves.
+    GenericExpr,
 }
 
 impl Func {
     pub fn name(&self) -> &str {
         match self {
             Func::Exp => "exp",
+            Func::ExpPolar => "exp_polar",
+            Func::GenericExpr => "Expr",
             Func::Log => "log",
             Func::Sin => "sin",
             Func::Cos => "cos",
@@ -352,6 +359,8 @@ impl Func {
     pub fn from_name(name: &str) -> Option<Func> {
         Some(match name {
             "exp" => Func::Exp,
+            "exp_polar" => Func::ExpPolar,
+            "Expr" => Func::GenericExpr,
             "log" | "ln" => Func::Log,
             "sin" => Func::Sin,
             "cos" => Func::Cos,
@@ -406,6 +415,7 @@ impl Func {
     /// Number of arguments, `None` when variadic/unknown.
     pub fn arity(&self) -> Option<usize> {
         match self {
+            Func::GenericExpr => None,
             Func::Atan2 => Some(2),
             Func::Limit => Some(4),
             Func::MatrixElement(_) => Some(2),
@@ -1016,6 +1026,7 @@ impl Expr {
             Kind::Num(Number::Float(_) | Number::MpFloat(..)) => "Float",
             // SymPy's `Dummy` symbols print as `_name`; symox represents them
             Kind::Sym(s) if s.is_dummy() => "Dummy",
+            Kind::Sym(s) if s.is_wild() => "Wild",
             Kind::Sym(_) => "Symbol",
             Kind::Const(c) => match c {
                 Constant::Pi => "Pi",

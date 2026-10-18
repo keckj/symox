@@ -95,6 +95,8 @@ impl<'py> Encoder<'py>{
         let py=self.py;
         let(tag,canonical,fields)=match node{
             Node::M(m)=>{let mut tag=m.kind_name();let fields=match m.kind(){
+                MatrixKind::Permutation(p)=>vec![obj(py,p.clone())?],
+                MatrixKind::Permute(parent,p,axis)=>vec![obj(py,self.matrix(parent))?,obj(py,p.clone())?,obj(py,*axis)?],
                 MatrixKind::Symbol(name)=>vec![obj(py,name.as_str())?,obj(py,self.scalar(m.rows()))?,obj(py,self.scalar(m.cols()))?],
                 MatrixKind::ApplyFunction(function,parent)=>vec![obj(py,self.scalar(function))?,obj(py,self.matrix(parent))?],
                 MatrixKind::Function(lambda)=>vec![obj(py,self.scalar(m.rows()))?,obj(py,self.scalar(m.cols()))?,obj(py,self.scalar(lambda))?],
@@ -188,9 +190,9 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
         let node=if tag.starts_with("s."){
             let kind=match tag.as_str(){
                 "s.number"=>{arity(1)?;Kind::Num(read_number(&f.get_item(0)?)?)},
-                "s.symbol"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let given=assumptions(f.get_item(1)?.extract()?)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}if wild&&given!=Assumptions::NONE{return Err(invalid("wildcard assumptions unsupported"));}Kind::Sym(if wild{Symbol::wild(&name,exclude)}else{Symbol::with_assumptions(&name,given)})},
+                "s.symbol"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let given=assumptions(f.get_item(1)?.extract()?)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}Kind::Sym(if wild{Symbol::wild_with_facts(&name,exclude,Symbol::with_assumptions(&name,given).given_facts()).map_err(invalid)?}else{Symbol::with_assumptions(&name,given)})},
                 "s.dummy"=>{arity(3)?;Kind::Sym(Symbol::dummy_with_index(&f.get_item(0)?.extract::<String>()?,assumptions(f.get_item(1)?.extract()?)?,f.get_item(2)?.extract()?))},
-                "s.symbol.facts"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}if wild&&!given.is_empty(){return Err(invalid("wildcard assumptions unsupported"));}Kind::Sym(if wild{Symbol::wild(&name,exclude)}else{Symbol::with_facts(&name,given).map_err(invalid)?})},
+                "s.symbol.facts"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}Kind::Sym(if wild{Symbol::wild_with_facts(&name,exclude,given).map_err(invalid)?}else{Symbol::with_facts(&name,given).map_err(invalid)?})},
                 "s.dummy.facts"=>{arity(3)?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;Kind::Sym(Symbol::dummy_with_facts(&f.get_item(0)?.extract::<String>()?,given,Some(f.get_item(2)?.extract()?)).map_err(invalid)?)},
                 "s.constant"=>{arity(1)?;Kind::Const(constant(&f.get_item(0)?.extract::<String>()?)?)},
                 "s.bool"=>{arity(1)?;Kind::Bool(f.get_item(0)?.extract()?)},
@@ -246,6 +248,8 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
             };Decoded::S(if canonical{Expr::from_kind(kind)}else{Expr::from_unevaluated_kind(kind)})
         }else{
             match tag.as_str(){
+                "PermutationMatrix"=>{arity(1)?;matrix_result(MatrixExpr::permutation(f.get_item(0)?.extract()?,false))?},
+                "MatrixPermute"=>{arity(3)?;let parent=m(0)?;let images:Vec<usize>=f.get_item(1)?.extract()?;let axis:u8=f.get_item(2)?.extract()?;if axis>1||(if axis==0{parent.rows()}else{parent.cols()}).as_i64()!=Some(images.len() as i64){return Err(invalid("permutation axis or size mismatch"));}matrix_result(parent.permute(images,axis,false))?},
                 "MatrixSymbol"=>{arity(3)?;matrix_result(MatrixExpr::symbol(&f.get_item(0)?.extract::<String>()?,s(1)?,s(2)?))?},
                 "Identity"=>{arity(1)?;matrix_result(MatrixExpr::identity(s(0)?))?},
                 "ElementwiseApplyFunction"=>{arity(2)?;matrix_result(MatrixExpr::apply_function(s(0)?,&m(1)?,false))?},

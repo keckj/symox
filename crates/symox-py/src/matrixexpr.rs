@@ -176,11 +176,24 @@ pub(crate) fn matrixexpr_to_sympy<'py>(py:Python<'py>,m:&MatrixExpr)->PyResult<B
     }
     sympy.getattr(m.kind_name())?.call(args,Some(&kwargs))
 }
+fn permutation_object<'py>(py:Python<'py>,images:&[usize],sympy:bool)->PyResult<Bound<'py,PyAny>>{
+    py.import(if sympy{"sympy.combinatorics"}else{"symox.combinatorics"})?
+        .getattr("Permutation")?.call1((images.to_vec(),))
+}
+fn permutation_images(value:&Bound<'_,PyAny>)->PyResult<Vec<usize>>{
+    if let Ok(matrix)=value.downcast::<PyMatrixExpr>() {
+        if let MatrixKind::Permutation(images)=matrix.get().m.kind(){return Ok(images.clone());}
+    }
+    value.getattr("array_form").and_then(|v|v.extract::<Vec<usize>>())
+        .map_err(|_|PyValueError::new_err("Expected a finite Permutation or PermutationMatrix"))
+}
 fn matrix_args<'py>(py:Python<'py>,m:&MatrixExpr,sympy:bool)->PyResult<Bound<'py,PyTuple>>{
     let scalar=|e:&Expr|->PyResult<Bound<'py,PyAny>>{if sympy{crate::expr_to_sympy(py,e)}else{Ok(wrap(e.clone()).into_pyobject(py)?.into_any())}};
     let matrix=|e:&MatrixExpr|if sympy{matrixexpr_to_sympy(py,e)}else{matrix_object(py,e)};
     let mut args=Vec::new();
     match m.kind(){
+        MatrixKind::Permutation(p)=>args.push(permutation_object(py,p,sympy)?),
+        MatrixKind::Permute(parent,p,axis)=>{args.push(matrix(parent)?);args.push(permutation_object(py,p,sympy)?);args.push(scalar(&Expr::int(*axis as i64))?);},
         MatrixKind::Symbol(name)=>{args.push(name.into_pyobject(py)?.into_any());args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);},
         MatrixKind::ApplyFunction(function,parent)=>{args.push(scalar(function)?);args.push(matrix(parent)?);},
         MatrixKind::Function(lambda)=>{args.push(scalar(m.rows())?);args.push(scalar(m.cols())?);args.push(scalar(lambda)?);},
@@ -203,6 +216,8 @@ fn construct(kind:&str,args:&Bound<'_,PyTuple>,evaluate:bool)->PyResult<PyObject
     let scalar=|i|to_expr(&args.get_item(i)?);
     let operand=|i|->PyResult<MatrixOperand>{let value=args.get_item(i)?;if is_matrix(&value){Ok(MatrixOperand::Matrix(to_matrixexpr(&value)?))}else{Ok(MatrixOperand::Scalar(to_expr(&value)?))}};
     let result=match kind{
+        "PermutationMatrix" if args.len()==1=>MatrixExpr::permutation(permutation_images(&args.get_item(0)?)?,false),
+        "MatrixPermute" if args.len()==3=>{let axis=scalar(2)?.as_i64().filter(|i|*i==0||*i==1).ok_or_else(||PyValueError::new_err("Permutation axis must be zero or one"))?;matrix(0)?.permute(permutation_images(&args.get_item(1)?)?,axis as u8,evaluate)},
         "MatrixSymbol" if args.len()==3=>{let name:String=args.get_item(0)?.extract()?;MatrixExpr::symbol(&name,scalar(1)?,scalar(2)?)},
         "ElementwiseApplyFunction" if args.len()==2=>MatrixExpr::apply_function(scalar(0)?,&matrix(1)?,false),
         "FunctionMatrix" if args.len()==3=>MatrixExpr::function(scalar(0)?,scalar(1)?,scalar(2)?),
@@ -251,6 +266,7 @@ fn _matrix_dot_product(a:&Bound<'_,PyAny>,b:&Bound<'_,PyAny>)->PyResult<PyExpr>{
 }
 #[pymethods]
 impl PyMatrixExpr{
+    #[getter] fn _dag_id(&self)->usize{self.m.dag_id()}
     #[getter] fn _symox_matrixexpr(&self)->bool{true}
     #[getter] fn is_Matrix(&self)->bool{true}
     #[getter] fn is_MatrixExpr(&self)->bool{true}
@@ -266,7 +282,9 @@ impl PyMatrixExpr{
     #[getter] fn is_FunctionMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Function(_))}
     #[getter] fn lamda(&self)->PyResult<PyExpr>{self.m.function_lambda().cloned().map(wrap).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("Only FunctionMatrix has a lamda"))}
     #[getter] fn is_ZeroMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Zero)}
-    #[getter] fn is_Identity(&self)->bool{matches!(self.m.kind(),MatrixKind::Identity)}
+    #[getter] fn is_Identity(&self)->bool{matches!(self.m.kind(),MatrixKind::Identity)||matches!(self.m.kind(),MatrixKind::Permutation(p) if p.iter().enumerate().all(|(i,j)|i==*j))}
+    #[getter] fn is_PermutationMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::Permutation(_))}
+    #[getter] fn is_MatrixPermute(&self)->bool{matches!(self.m.kind(),MatrixKind::Permute(..))}
     #[getter] fn is_OneMatrix(&self)->bool{matches!(self.m.kind(),MatrixKind::One)}
     #[getter] fn is_HadamardProduct(&self)->bool{matches!(self.m.kind(),MatrixKind::HadamardProduct(_))}
     #[getter] fn is_HadamardPower(&self)->bool{matches!(self.m.kind(),MatrixKind::HadamardPower(..))}

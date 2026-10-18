@@ -394,7 +394,7 @@ def _as_terms(self):
                         pass
                     else:
                         continue
-                if factor.is_commutative:
+                if factor.is_commutative and not factor.is_Order:
                     base, exp = _decompose_power(factor)
                     cpart[base] = exp
                     gens.add(base)
@@ -580,10 +580,29 @@ def _dummy_eq(self, other, symbol=None):
 
 
 def _iterfreeargs(e):
+    def children(value):
+        return value if isinstance(value, (tuple, list)) else getattr(value, 'args', ())
+
     queue = [e]
-    for i in queue:
-        yield i
-        queue.extend(i.args)
+    for node in queue:
+        yield node
+        bound = getattr(node, 'bound_symbols', ())
+        if bound:
+            # Canonicalize the binder so occurrences of a bound variable
+            # cannot match a query for the original free symbol. Continue
+            # through dependent ancestors to retain their free descendants.
+            canonical = node.as_dummy()
+            hidden = set(node.canonical_variables.values())
+            pending = list(children(canonical))
+            for value in pending:
+                pending.extend(children(value))
+                if isinstance(value, (tuple, list)):
+                    continue
+                if value not in hidden and not any(
+                        getattr(value, 'has', lambda *a: False)(h) for h in hidden):
+                    yield value
+        else:
+            queue.extend(children(node))
 
 
 def _has_xfree(self, s):

@@ -55,6 +55,7 @@ fn contains(root:Node,scalar:Option<&Expr>,matrix:Option<&MatrixExpr>)->bool{
             pending.extend(value.children().into_iter().map(Node::Matrix));
             let mut fields=Vec::new();
             match value.kind(){
+                MatrixKind::Permute(_,_,axis)=>fields.push(Expr::int(*axis as i64)),
                 MatrixKind::Symbol(_)|MatrixKind::Identity|MatrixKind::Zero|MatrixKind::One=>fields.extend([value.rows().clone(),value.cols().clone()]),
                 MatrixKind::Function(lambda)=>fields.extend([value.rows().clone(),value.cols().clone(),lambda.clone()]),
                 MatrixKind::ApplyFunction(function,_)=>fields.push(function.clone()),

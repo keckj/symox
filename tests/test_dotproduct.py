@@ -192,8 +192,7 @@ def test_invalid_arguments_lengths_and_options():
         value.doit(expand='yes')
     undefined = sx.Function('DotProduct')(sx.Symbol('x'), sx.Symbol('y'))
     assert not isinstance(undefined, sx.DotProduct)
-    with pytest.raises(NotImplementedError):
-        value.diff(row)
+    assert value.diff(row)==sx.Array([[2*row[0,j] for j in range(3)]])
 
 
 def test_zero_dimensional_matrix_inputs_remain_explicitly_unsupported_in_codegen():

@@ -1,6 +1,94 @@
 The assumptions predicates, generated facts, query pipeline, handlers and
 refinement rules in crates/symox-core/src/ask follow SymPy 1.14.
 
+The public adapters in python/symox/_expr_methods.py (direction and matching
+semantics), python/symox/_matrix_decompositions.py (graph decomposition result
+construction) and python/symox/polys/matrices/domainmatrix.py (domain inference
+and conversion conventions) follow the corresponding SymPy 1.14 APIs.
+The transitive-group representatives in python/symox/combinatorics/galois.py
+use the generator conventions of sympy/combinatorics/galois.py.
+The adapters in python/symox/_expr_analysis.py (scope normalization, branch
+extraction and local meromorphic tests) and python/symox/series/ (series
+protocols and Fourier normalization) follow the corresponding SymPy 1.14 APIs.
+The structural adapters in python/symox/_matrixexpr_methods.py and
+python/symox/_matrixexpr_algebra.py follow the corresponding Basic/Expr APIs.
+The operation labels in python/symox/_operation_counts.py follow the counting
+conventions and traversal rules in sympy/core/function.py (count_ops).
+The AlgebraicNumber adapters in python/symox/_algebraic_number_methods.py
+follow the corresponding Basic/Expr and field-generator conventions.
+Gaussian Euclidean division and unit conventions in
+crates/symox-core/src/poly/domains.rs follow sympy/polys/domains/gaussiandomains.py;
+the bounded-denominator real conversion follows SymPy's real-field conventions.
+The monogenic quotient interface in python/symox/polys/agca/extensions.py
+follows sympy/polys/agca/extensions.py, using native polynomial arithmetic.
+The domain matrix protocols in python/symox/polys/matrices/ follow the
+corresponding SymPy 1.14 APIs and domain-aware linear algebra conventions.
+The row-reduction, LU, determinant and inverse callback interfaces in the native
+matrix kernels and Python bindings follow SymPy's matrix reductions,
+decomposition and inversion conventions, using fallible native callbacks and
+compact symbolic zero tests.
+The coefficient callback adapter in python/symox/_matrix_charpoly.py follows
+SymPy's characteristic-polynomial transformation and domain conventions,
+using native DomainMatrix arithmetic.
+The permutation matrix adapters, native constructors, rewrites and entry
+conventions follow sympy/matrices/expressions/permutation.py. The textual
+parser also supports the cycle notation emitted by SymPy's permutation printer.
+The evaluation adapters in python/symox/polys/_evaluation.py follow the
+Poly.eval and Poly.as_expr interfaces, retaining native coefficient arithmetic.
+The concrete array interfaces in python/symox/tensor/array/ and shape dispatch
+in python/symox/tensor/functions.py follow the corresponding SymPy 1.14 APIs.
+The finite difference adapters in python/symox/calculus/finite_diff.py follow
+the SymPy stencil interfaces and Fornberg's arbitrary-grid weight recurrence.
+The helpers in python/symox/utilities/ and generic container sort keys follow
+the corresponding SymPy iterator, traversal, sorting and caching interfaces.
+The sequence interfaces in python/symox/series/sequences.py follow SymPy's
+formula, periodic, termwise arithmetic and fitted recurrence conventions.
+The calculus adapters in python/symox/calculus/singularities.py and util.py
+follow the corresponding SymPy analysis interfaces and elementary domain rules.
+The public signatures of python/symox/calculus/_monotonicity.py follow the
+SymPy monotonicity interfaces, with interval proofs using native derivatives,
+continuity domains and symbolic sets.
+The signatures and endpoint-limit conventions in python/symox/calculus/_extrema.py
+follow the SymPy minimum/maximum interfaces, using native critical-point and
+continuity calculations.
+The function_range signature and image-set conventions in
+python/symox/calculus/_range.py follow the SymPy calculus interface, using native
+endpoint attainment proofs and continuous interval images.
+The finite-set nonemptiness interface in python/symox/calculus/_notempty.py
+follows SymPy's not_empty_in API, using native real domains, set membership,
+equation solving and inequality solving.
+The general functional composition adapters in python/symox/solvers/decompogen.py
+follow the corresponding SymPy decompogen/compogen interfaces, with native
+expression substitution and polynomial decomposition.
+The exact functional polynomial decomposition in the native polynomial kernels
+follows the Kozen--Landau normalization and domain conventions of SymPy's
+densetools and polytools interfaces, using native coefficient-field arithmetic.
+The explicit recursive presentation keys in python/symox/_ordered_keys.py follow
+SymPy's sort_key and default_sort_key conventions, retaining native graph sharing.
+The structural differential order in python/symox/solvers/deutils.py follows
+SymPy's ode_order convention, using iterative traversal and native held counts.
+The homogeneous_order interface follows SymPy's positive-scaling convention,
+with structural degree proofs preserving native principal-power branches.
+The floating conversion interface in python/symox/_numeric_float.py follows
+SymPy's nfloat conventions, with native exponent masking and numerical kernels.
+The numerical chopping interface follows SymPy's binary-magnitude convention,
+using native arbitrary-precision real and imaginary components.
+The solution validation and linear isolation adapters in
+python/symox/_solver_checks.py follow the corresponding SymPy solver interfaces.
+The polynomial, rational and absolute-value inequality interfaces in
+python/symox/solvers/inequalities.py follow SymPy's condition and interval
+conventions, using native real sign charts, pole exclusions and exact sets.
+The structural query adapters in python/symox/_structural_queries.py follow
+the SymPy find/count selector and occurrence-counting interfaces.
+The replacement traversal in python/symox/_expression_replace.py, expression
+coefficient and ordering adapters, and differentiation signatures in
+python/symox/_differentiation.py follow the corresponding SymPy Basic/Expr APIs.
+The rational conversion modes in python/symox/_numeric_recognition.py follow
+the nsimplify rationalization interface, using native field conversion and
+Python integer/fraction arithmetic.
+The wildcard type, exclusion metadata and conversion protocols follow
+the SymPy Wild interface; scalar legacy matching uses native linear isolation.
+
 The polynomial helpers in python/symox/polys/polyfuncs.py, specialpolys.py,
 orthopolys.py, partfrac.py, dispersion.py, monomials.py, orderings.py and
 polytools.py, the Poly method wrappers in python/symox/polys/_poly_methods.py

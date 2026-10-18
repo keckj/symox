@@ -541,6 +541,9 @@ pub fn nsimplify_float(x: f64, constants: &[Expr]) -> Option<Expr> {
 
 /// Replace floats in `e` by simple exact numbers.
 pub fn nsimplify(e: &Expr, constants: &[Expr]) -> Expr {
+    // An exact algebraic expression must not be replaced by a nearby
+    // rational obtained by rounding it to a machine float first.
+    if e.float_info().max_precision.is_none() { return e.clone(); }
     match e.kind() {
         Kind::Num(Number::Float(f)) => nsimplify_float(*f, constants).unwrap_or_else(|| e.clone()),
         _ if e.is_atom() => e.clone(),

@@ -3,6 +3,30 @@ use crate::expr::UndefinedFunction;
 fn parse(source:&str)->Expr{crate::parser::parse_str(source).unwrap()}
 
 #[test]
+fn polar_exponential_preserves_winding_and_native_identity(){
+    let x=Expr::symbol("x");
+    let polar=func(Func::ExpPolar,vec![x.clone()]);
+    assert_ne!(polar,undefined("exp_polar",vec![x.clone()]));
+    assert_eq!(crate::diff::diff(&polar,&x),polar);
+    assert_eq!(crate::assumptions::fact(&polar,"polar"),Some(true));
+    let winding=parse("exp_polar(2*I*pi)");
+    assert_ne!(winding,Expr::one());
+    assert_eq!(parse(&crate::printer::srepr(&winding)),winding);
+    assert_eq!(crate::evalf::eval_c64(&winding),None);
+}
+
+#[test]
+fn generic_expr_construction_retains_arguments_without_evaluation(){
+    let node=func(Func::GenericExpr,vec![Expr::nan(),Expr::int(2)]);
+    assert_eq!(node.args(),vec![Expr::nan(),Expr::int(2)]);
+    assert_eq!(parse(&crate::printer::srepr(&node)),node);
+    assert!(!crate::symbolic_number::is_symbolic_number(&node));
+    let node=parse("Expr(x,y)");
+    let y=Expr::symbol("y");
+    assert_eq!(crate::diff::diff(&node,&y),crate::diff::derivative_unevaluated(&node,vec![(y,1)]));
+}
+
+#[test]
 fn undefined_identity_metadata_and_roundtrip(){
     let x=Expr::symbol("x");
     let spec=UndefinedFunction::new("sin",crate::symbol::Assumptions::REAL,Some(vec![1]));
@@ -46,6 +70,29 @@ fn simultaneous_symbol_substitutions_and_unknown_limits(){
     assert!(crate::subs::simultaneous(&parse("x/y"),&pairs).is_constant(Constant::NaN));
     assert!(crate::limits::limit(&parse("f(x)"),&x,&Expr::zero(),crate::limits::Dir::Plus).is_err());
     assert_eq!(crate::limits::limit(&parse("sin(x)/x"),&x,&Expr::zero(),crate::limits::Dir::Plus).unwrap(),Expr::one());
+}
+
+#[test]
+fn exact_replacements_visit_public_coefficients_and_powers() {
+    let cases=[
+        ("sqrt(2)/2","sqrt(2)","sqrt(3)","sqrt(3)/2"),
+        ("2*x+y","2*x","z","y+z"),
+        ("2*x**3","3","4","2*x**4"),
+        ("2*x","2","3","3*x"),
+        ("x**2*y","x**2","z","y*z"),
+    ];
+    for (input,old,new,expected) in cases {
+        let map=rustc_hash::FxHashMap::from_iter([(parse(old),parse(new))]);
+        assert_eq!(crate::subs::xreplace(&parse(input),&map),parse(expected));
+    }
+    let pairs=[(parse("sqrt(2)"),parse("sqrt(3)")),(parse("2"),parse("7"))];
+    assert_eq!(crate::subs::simultaneous(&parse("sqrt(2)+2"),&pairs),parse("sqrt(3)+7"));
+    assert_eq!(crate::subs::subs1(&parse("2**(1/3)"),&parse("sqrt(2)"),&parse("sqrt(3)")),parse("3**(1/3)"));
+    // A general complex base must retain its branch; a positive real base
+    // permits the same fractional exponent ratio.
+    assert_eq!(crate::subs::subs1(&parse("x**2"),&parse("x**3"),&parse("y")),parse("x**2"));
+    let exact=parse("3+2*sqrt(2)");
+    assert_eq!(crate::simp::nsimplify(&exact,&[]),exact);
 }
 
 #[test]
@@ -133,4 +180,37 @@ fn logarithm_of_negative_imaginary_unit_uses_principal_argument() {
     let z=Expr::symbol("z");
     // Exact -I evaluation does not imply a branch-unsafe log(-z) rewrite.
     assert!(matches!(crate::functions::log(&crate::ops::neg(&z)).kind(),crate::Kind::Func(crate::Func::Log,_)));
+}
+#[test]
+fn exact_numeric_extrema_and_mixed_float_relations() {
+    let zero=Expr::zero();
+    let tiny=crate::ops::div(&Expr::one(),&Expr::int(10).powi(1000));
+    assert_eq!(crate::functions::max(vec![zero.clone(),tiny.clone()]),tiny);
+    assert_eq!(crate::functions::min(vec![tiny,zero.clone()]),zero);
+    let large=Expr::int(10).powi(100);
+    let next=crate::ops::add(&[large.clone(),Expr::one()]);
+    assert_eq!(crate::functions::max(vec![large.clone(),next.clone()]),next);
+    assert_eq!(crate::functions::min(vec![next,large.clone()]),large);
+    let tenth=Expr::rational(1,10);
+    let machine=Expr::float(0.1);
+    assert_eq!(crate::relational::gt(&machine,&tenth),Expr::boolean(true));
+    assert_eq!(crate::relational::eq(&machine,&tenth),Expr::boolean(false));
+    assert_eq!(crate::functions::min(vec![machine.clone(),tenth.clone()]),tenth);
+    assert_eq!(crate::functions::max(vec![tenth,machine.clone()]),machine);
+    assert_eq!(crate::relational::lt(&Expr::neg_oo(),&Expr::zero()),Expr::boolean(true));
+    assert_eq!(crate::relational::gt(&Expr::oo(),&Expr::zero()),Expr::boolean(true));
+    assert_eq!(crate::relational::eq(&Expr::nan(),&Expr::nan()),Expr::boolean(false));
+}
+
+#[test]
+fn symbolic_extrema_use_weak_bounds_and_lattice_absorption() {
+    let x=Expr::symbol("x");let y=Expr::symbol("y");let z=Expr::symbol("z");
+    let n=Expr::symbol_with("n",crate::Assumptions::NONNEGATIVE);
+    assert_eq!(crate::functions::max(vec![Expr::zero(),n.clone()]),n.clone());
+    assert_eq!(crate::functions::min(vec![Expr::zero(),n]),Expr::zero());
+    assert_eq!(crate::functions::min(vec![x.clone(),crate::functions::max(vec![x.clone(),y.clone()])]),x.clone());
+    assert_eq!(crate::functions::max(vec![x.clone(),crate::functions::min(vec![x.clone(),y.clone()])]),x.clone());
+    let first=crate::functions::max(vec![x.clone(),y.clone()]);
+    let larger=crate::functions::max(vec![x,y,z]);
+    assert_eq!(crate::functions::min(vec![first.clone(),larger]),first);
 }

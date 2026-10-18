@@ -76,6 +76,27 @@ enum LogSimplifier {
     Callback(Py<PyAny>),
 }
 
+enum PivotSimplifier {
+    Native,
+    Callback(Py<PyAny>),
+}
+
+impl<'py> FromPyObject<'py> for PivotSimplifier {
+    fn extract_bound(value:&Bound<'py,PyAny>)->PyResult<Self> {
+        if value.is_none() || auxiliary::boolean_scalar(value)?.is_some() {Ok(Self::Native)}
+        else {
+            auxiliary::checked_callback(Some(value),"matrix simplify")?;
+            Ok(Self::Callback(value.clone().unbind()))
+        }
+    }
+}
+
+impl PivotSimplifier {
+    fn callback<'a,'py>(&'a self,py:Python<'py>)->Option<&'a Bound<'py,PyAny>> {
+        match self {Self::Native=>None,Self::Callback(callback)=>Some(callback.bind(py))}
+    }
+}
+
 impl<'py> FromPyObject<'py> for LogSimplifier {
     fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<Self> {
         if !value.is_truthy()? {
@@ -721,9 +742,7 @@ impl PyMatrix {
     }
     #[pyo3(signature = (iszerofunc=None, simpfunc=None, rankcheck=false))]
     fn LUdecomposition_Simple<'py>(&self, py: Python<'py>, iszerofunc: Option<&Bound<'_, PyAny>>, simpfunc: Option<&Bound<'_, PyAny>>, rankcheck: bool) -> PyResult<(PyMatrix, Bound<'py, PyList>)> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        reject_callback("simpfunc", simpfunc)?;
-        let (lu, swaps) = self.m.lu_decomposition_simple(rankcheck).py(py)?;
+        let (lu, swaps) = auxiliary::lu_simple(py,&self.m,iszerofunc,simpfunc,rankcheck)?;
         let lu = if self.m.data().is_empty() { self.wrapped(lu) } else { wrapm(lu) };
         Ok((lu, PyList::new(py, swaps.iter().map(|(a, b)| vec![*a, *b]))?))
     }
@@ -1061,9 +1080,10 @@ impl PyMatrix {
 
     #[pyo3(signature = (*args, **_kwargs))]
     fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-        reject_kwargs(_kwargs)?;
+        if self.m.is_empty() {return Ok(self.wrapped(self.m.clone()));}
         let pairs = subs_pairs(args)?;
-        Ok(self.wrapped(self.m.subs(&pairs)))
+        let simultaneous=crate::substitution_options(_kwargs)?;
+        Ok(self.wrapped(self.m.try_applyfunc(|entry|crate::checked_subs(args.py(),entry,&pairs,simultaneous))?))
     }
 
     fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyMatrix> {
@@ -1089,9 +1109,9 @@ impl PyMatrix {
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
     fn evalf(&self, n: u32, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-        crate::decimal_precision(n)?;
-        crate::evalf_options(_kwargs)?;
-        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::evalf_expr(e, n, subs, _kwargs))?))
+        let precision=crate::decimal_precision(n)?;
+        let chop=crate::evalf_options(_kwargs,precision)?;
+        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::evalf_prepared(e,precision,subs,chop))?))
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
@@ -1121,9 +1141,8 @@ impl PyMatrix {
 
     #[pyo3(signature = (method="bareiss", iszerofunc=None))]
     fn det(&self, py: Python<'_>, method: &str, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
-        reject_callback("iszerofunc", iszerofunc)?;
         let m = DetMethod::from_name(method).py(py)?;
-        Ok(wrap(self.m.det_method(m).py(py)?))
+        Ok(wrap(auxiliary::determinant(py,&self.m,m,iszerofunc)?))
     }
 
     #[pyo3(signature = (method=None, iszerofunc=None, try_block_diag=false))]
@@ -1134,23 +1153,7 @@ impl PyMatrix {
         iszerofunc: Option<&Bound<'_, PyAny>>,
         try_block_diag: bool,
     ) -> PyResult<PyMatrix> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        let _ = try_block_diag;
-        if !self.m.is_square() {
-            return Err(err(py, MatrixError::NonSquare("A Matrix must be square to invert.".into())));
-        }
-        let r = match method.map(|s| s.to_uppercase()) {
-            None => self.m.inv(),
-            Some(s) if s == "GE" => self.m.inverse_ge(),
-            Some(s) if s == "LU" => self.m.inverse_lu(),
-            Some(s) if s == "ADJ" => self.m.inverse_adj(),
-            Some(s) if s == "CH" => self.m.cholesky_solve(&Matrix::eye(self.m.rows())),
-            Some(s) if s == "LDL" => self.m.ldl_solve(&Matrix::eye(self.m.rows())),
-            Some(s) if s == "QR" => self.m.qr_solve(&Matrix::eye(self.m.rows())),
-            Some(s) if s == "DM" || s == "DMNC" => self.m.inv(),
-            Some(s) => return Err(PyValueError::new_err(format!("Inversion method unrecognized: {s}"))),
-        };
-        Ok(self.wrapped(r.py(py)?))
+        Ok(self.wrapped(auxiliary::inverse(py,&self.m,method,iszerofunc,try_block_diag)?))
     }
 
     #[pyo3(signature=(delta=LllDelta::default()), text_signature="($self, delta=0.75)")]
@@ -1190,16 +1193,19 @@ impl PyMatrix {
         matrix::inv_mod::preflight(n,n,&modulus).py(py)
     }
 
-    fn inverse_GE(&self, py: Python<'_>) -> PyResult<PyMatrix> {
-        Ok(self.wrapped(self.m.inverse_ge().py(py)?))
+    #[pyo3(signature = (iszerofunc=None))]
+    fn inverse_GE(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        self.inv(py,Some("GE"),iszerofunc,false)
     }
 
-    fn inverse_LU(&self, py: Python<'_>) -> PyResult<PyMatrix> {
-        Ok(self.wrapped(self.m.inverse_lu().py(py)?))
+    #[pyo3(signature = (iszerofunc=None))]
+    fn inverse_LU(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        self.inv(py,Some("LU"),iszerofunc,false)
     }
 
-    fn inverse_ADJ(&self, py: Python<'_>) -> PyResult<PyMatrix> {
-        Ok(self.wrapped(self.m.inverse_adj().py(py)?))
+    #[pyo3(signature = (iszerofunc=None))]
+    fn inverse_ADJ(&self, py: Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
+        self.inv(py,Some("ADJ"),iszerofunc,false)
     }
 
     #[pyo3(signature = (iszerofunc=None))]
@@ -1248,18 +1254,23 @@ impl PyMatrix {
         Ok(self.wrapped(self.m.minor_submatrix(i, j)))
     }
 
-    #[pyo3(signature = (iszerofunc=None, simplify=false, pivots=true, normalize_last=true))]
+    #[pyo3(signature = (iszerofunc=None, simplify=PivotSimplifier::Native, pivots=true, normalize_last=true),
+        text_signature="($self, iszerofunc=None, simplify=False, pivots=True, normalize_last=True)")]
     fn rref(
         &self,
         py: Python<'_>,
         iszerofunc: Option<&Bound<'_, PyAny>>,
-        simplify: bool,
+        simplify: PivotSimplifier,
         pivots: bool,
         normalize_last: bool,
     ) -> PyResult<PyObject> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        let _ = (simplify, normalize_last);
-        let (r, p) = self.m.rref();
+        let custom=simplify.callback(py);
+        let (r,p)=if iszerofunc.is_none_or(|callback|callback.is_none()) && custom.is_none() && normalize_last {
+            self.m.rref()
+        } else {
+            let (matrix,pivots,_)=auxiliary::row_reduce(py,&self.m,iszerofunc,custom,normalize_last,true,true)?;
+            (matrix,pivots)
+        };
         if pivots {
             let t = PyTuple::new(py, p)?;
             Ok(PyTuple::new(py, [self.wrapped(r).into_pyobject(py)?.into_any(), t.into_any()])?.into_any().unbind())
@@ -1268,17 +1279,22 @@ impl PyMatrix {
         }
     }
 
-    #[pyo3(signature = (iszerofunc=None, simplify=false, with_pivots=false))]
+    #[pyo3(signature = (iszerofunc=None, simplify=PivotSimplifier::Native, with_pivots=false),
+        text_signature="($self, iszerofunc=None, simplify=False, with_pivots=False)")]
     fn echelon_form(
         &self,
         py: Python<'_>,
         iszerofunc: Option<&Bound<'_, PyAny>>,
-        simplify: bool,
+        simplify: PivotSimplifier,
         with_pivots: bool,
     ) -> PyResult<PyObject> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        let _ = simplify;
-        let (r, p) = self.m.echelon_form();
+        let custom=simplify.callback(py);
+        let (r,p)=if iszerofunc.is_none_or(|callback|callback.is_none()) && custom.is_none() {
+            self.m.echelon_form()
+        } else {
+            let (matrix,pivots,_)=auxiliary::row_reduce(py,&self.m,iszerofunc,custom,true,false,false)?;
+            (matrix,pivots)
+        };
         if with_pivots {
             let t = PyTuple::new(py, p)?;
             Ok(PyTuple::new(py, [self.wrapped(r).into_pyobject(py)?.into_any(), t.into_any()])?.into_any().unbind())
@@ -1287,30 +1303,51 @@ impl PyMatrix {
         }
     }
 
-    #[pyo3(signature = (iszerofunc=None, simplify=false))]
-    fn rank(&self, iszerofunc: Option<&Bound<'_, PyAny>>, simplify: bool) -> PyResult<usize> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        let _ = simplify;
-        Ok(self.m.rank())
+    #[pyo3(signature = (iszerofunc=None, simplify=PivotSimplifier::Native),
+        text_signature="($self, iszerofunc=None, simplify=False)")]
+    fn rank(&self, py:Python<'_>, iszerofunc: Option<&Bound<'_, PyAny>>, simplify: PivotSimplifier) -> PyResult<usize> {
+        let custom=simplify.callback(py);
+        if iszerofunc.is_none_or(|callback|callback.is_none()) && custom.is_none() {return Ok(self.m.rank());}
+        Ok(auxiliary::row_reduce(py,&self.m,iszerofunc,custom,true,false,false)?.1.len())
     }
 
-    #[pyo3(signature = (simplify=false, iszerofunc=None))]
-    fn nullspace(&self, simplify: bool, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<PyMatrix>> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        let _ = simplify;
-        Ok(self.m.nullspace().into_iter().map(|m| self.wrapped(m)).collect())
+    #[pyo3(signature = (simplify=PivotSimplifier::Native, iszerofunc=None),
+        text_signature="($self, simplify=False, iszerofunc=None)")]
+    fn nullspace(&self, py:Python<'_>, simplify: PivotSimplifier, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<PyMatrix>> {
+        let custom=simplify.callback(py);
+        if iszerofunc.is_none_or(|callback|callback.is_none()) && custom.is_none() {
+            return Ok(self.m.nullspace().into_iter().map(|m| self.wrapped(m)).collect());
+        }
+        let (reduced,pivots,_)=auxiliary::row_reduce(py,&self.m,iszerofunc,custom,true,true,true)?;
+        let mut basis=Vec::new();
+        for free in (0..self.m.cols()).filter(|column|!pivots.contains(column)) {
+            let mut entries=vec![Expr::zero();self.m.cols()];entries[free]=Expr::one();
+            for (row,column) in pivots.iter().enumerate() {entries[*column]=symox::ops::neg(reduced.get(row,free));}
+            basis.push(self.wrapped(Matrix::column(entries)));
+        }
+        Ok(basis)
     }
 
-    #[pyo3(signature = (simplify=false))]
-    fn columnspace(&self, simplify: bool) -> Vec<PyMatrix> {
-        let _ = simplify;
-        self.m.columnspace().into_iter().map(|m| self.wrapped(m)).collect()
+    #[pyo3(signature = (simplify=PivotSimplifier::Native),text_signature="($self, simplify=False)")]
+    fn columnspace(&self, py:Python<'_>, simplify: PivotSimplifier) -> PyResult<Vec<PyMatrix>> {
+        match simplify.callback(py) {
+            None=>Ok(self.m.columnspace().into_iter().map(|m|self.wrapped(m)).collect()),
+            custom=>{
+                let pivots=auxiliary::row_reduce(py,&self.m,None,custom,true,false,false)?.1;
+                Ok(pivots.iter().map(|column|self.wrapped(self.m.col(*column))).collect())
+            }
+        }
     }
 
-    #[pyo3(signature = (simplify=false))]
-    fn rowspace(&self, simplify: bool) -> Vec<PyMatrix> {
-        let _ = simplify;
-        self.m.rowspace().into_iter().map(|m| self.wrapped(m)).collect()
+    #[pyo3(signature = (simplify=PivotSimplifier::Native),text_signature="($self, simplify=False)")]
+    fn rowspace(&self, py:Python<'_>, simplify: PivotSimplifier) -> PyResult<Vec<PyMatrix>> {
+        match simplify.callback(py) {
+            None=>Ok(self.m.rowspace().into_iter().map(|m|self.wrapped(m)).collect()),
+            custom=>{
+                let (reduced,pivots,_)=auxiliary::row_reduce(py,&self.m,None,custom,true,false,false)?;
+                Ok((0..pivots.len()).map(|row|self.wrapped(reduced.row(row))).collect())
+            }
+        }
     }
 
     #[pyo3(signature = (iszerofunc=None, simpfunc=None, rankcheck=false))]
@@ -1321,9 +1358,7 @@ impl PyMatrix {
         simpfunc: Option<&Bound<'_, PyAny>>,
         rankcheck: bool,
     ) -> PyResult<Bound<'py, PyTuple>> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        reject_callback("simpfunc", simpfunc)?;
-        let (l, u, p) = self.m.lu_decomposition_with_rankcheck(rankcheck).py(py)?;
+        let (l, u, p) = auxiliary::lu_decomposition(py,&self.m,iszerofunc,simpfunc,rankcheck)?;
         let perm = PyList::new(py, p.iter().map(|(a, b)| vec![*a, *b]))?;
         PyTuple::new(
             py,
@@ -1337,15 +1372,21 @@ impl PyMatrix {
 
     #[pyo3(signature = (rhs, iszerofunc=None))]
     fn LUsolve(&self, py: Python<'_>, rhs: &Bound<'_, PyAny>, iszerofunc: Option<&Bound<'_, PyAny>>) -> PyResult<PyMatrix> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        Ok(self.wrapped(self.m.lu_solve(&to_matrix(rhs)?).py(py)?))
+        Ok(self.wrapped(auxiliary::lu_solve(py,&self.m,&to_matrix(rhs)?,iszerofunc)?))
     }
 
-    #[pyo3(signature = (iszerofunc=None, simplify=false))]
-    fn rank_decomposition<'py>(&self, py: Python<'py>, iszerofunc: Option<&Bound<'_, PyAny>>, simplify: bool) -> PyResult<Bound<'py, PyTuple>> {
-        reject_callback("iszerofunc", iszerofunc)?;
-        let _ = simplify;
-        let (c, f) = self.m.rank_decomposition().py(py)?;
+    #[pyo3(signature = (iszerofunc=None, simplify=PivotSimplifier::Native),
+        text_signature="($self, iszerofunc=None, simplify=False)")]
+    fn rank_decomposition<'py>(&self, py: Python<'py>, iszerofunc: Option<&Bound<'_, PyAny>>, simplify: PivotSimplifier) -> PyResult<Bound<'py, PyTuple>> {
+        let custom=simplify.callback(py);
+        let (c,f)=if iszerofunc.is_none_or(|callback|callback.is_none()) && custom.is_none() {
+            self.m.rank_decomposition().py(py)?
+        } else {
+            let (reduced,pivots,_)=auxiliary::row_reduce(py,&self.m,iszerofunc,custom,true,true,true)?;
+            let rows=(0..self.m.rows()).collect::<Vec<_>>();
+            let columns=(0..self.m.cols()).collect::<Vec<_>>();
+            (self.m.extract(&rows,&pivots).py(py)?,reduced.extract(&(0..pivots.len()).collect::<Vec<_>>(),&columns).py(py)?)
+        };
         PyTuple::new(py, [self.wrapped(c), self.wrapped(f)])
     }
 

@@ -17,7 +17,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             if crate::binders::validate(&f,&args).is_ok(){return crate::binders::held(f,&args[0],crate::binders::limits(&args)).unwrap();}
             return Expr::from_kind(Kind::Func(f,args));
         },
-        Func::Predicate(_) | Func::AppliedPredicate | Func::Subs | Func::Limit=>return Expr::from_kind(Kind::Func(f,args)),
+        Func::GenericExpr | Func::Predicate(_) | Func::AppliedPredicate | Func::Subs | Func::Limit=>return Expr::from_kind(Kind::Func(f,args)),
         Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => return Expr::from_kind(Kind::Func(f, args)),
         _ => {}
     }
@@ -59,6 +59,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     }
     let r = match &f {
         Func::Exp => te::exp_eval(&args[0]),
+        Func::ExpPolar | Func::GenericExpr => None,
         Func::Log => te::log_eval(&args[0]),
         Func::Sin => te::sin_eval(&args[0]),
         Func::Cos => te::cos_eval(&args[0]),
@@ -553,54 +554,81 @@ fn eval_minmax(f: &Func, args: Vec<Expr>) -> Expr {
         return absorbing;
     }
     flat.retain(|a| *a != identity);
-    // fold numeric values
-    let mut best: Option<(f64, Expr)> = None;
-    let mut rest: Vec<Expr> = Vec::new();
+    // Compare numeric atoms at their stored exact values. Converting them
+    // to f64 loses tiny rationals and adjacent large integers.
+    let mut best: Option<Expr> = None;
+    let mut rest = Vec::new();
     for a in flat {
-        let v = if is_numeric_value(&a) && !crate::functions::contains_i(&a) {
-            crate::evalf::eval_f64(&a)
-        } else {
-            None
-        };
-        match v {
-            Some(v) => {
-                let better = match &best {
-                    None => true,
-                    Some((b, _)) => {
-                        if is_max {
-                            v > *b
-                        } else {
-                            v < *b
-                        }
+        if let Some(value) = a.as_number() {
+            let replace = best.as_ref().is_none_or(|previous| {
+                let old = previous.as_number().unwrap();
+                match value.cmp_value(old) {
+                    Some(std::cmp::Ordering::Greater) => is_max,
+                    Some(std::cmp::Ordering::Less) => !is_max,
+                    Some(std::cmp::Ordering::Equal) => {
+                        let new_float = value.float_precision();
+                        let old_float = old.float_precision();
+                        if new_float.is_some() != old_float.is_some() {
+                            if is_max { new_float.is_none() } else { new_float.is_some() }
+                        } else { new_float > old_float }
                     }
-                };
-                if better {
-                    best = Some((v, a));
+                    None => false,
                 }
-            }
-            None => rest.push(a),
-        }
+            });
+            if replace { best = Some(a); }
+        } else { rest.push(a); }
     }
-    if let Some((_, b)) = best {
-        rest.push(b);
-    }
+    if let Some(best) = best { rest.push(best); }
     rest.sort();
     rest.dedup();
+    let dual=if is_max {Func::Min}else{Func::Max};
+    let mut members:Vec<Option<rustc_hash::FxHashSet<Expr>>>=rest.iter().map(|value| {
+        match value.kind() {
+            Kind::Func(head,args) if head==&dual=>Some(args.iter().cloned().collect()),
+            _=>None,
+        }
+    }).collect();
     // drop arguments dominated by another one (known sign of the difference)
     let mut i = 0;
     while i < rest.len() {
         let dominated = (0..rest.len()).any(|j| {
             j != i && {
-                let d = sub(&rest[j], &rest[i]);
-                if is_max {
-                    crate::assumptions::is_positive(&d) == Some(true)
-                } else {
-                    crate::assumptions::is_negative(&d) == Some(true)
+                let a = &rest[j];
+                let b = &rest[i];
+                if let Some(large)=&members[i] {
+                    if large.contains(a) || members[j].as_ref().is_some_and(|small|small.is_subset(large)) {
+                        return true;
+                    }
                 }
+                let difference = sub(a,b);
+                let (exact,equal) = crate::assumptions::exact_queries(|| {
+                    let forward=if is_max { crate::assumptions::is_nonnegative(&difference) }
+                        else { crate::assumptions::is_nonpositive(&difference) };
+                    let reverse=if forward==Some(true) {
+                        if is_max {crate::assumptions::is_nonpositive(&difference)}
+                        else {crate::assumptions::is_nonnegative(&difference)}
+                    } else {None};
+                    (forward,reverse==Some(true))
+                });
+                if exact == Some(true) { !equal || j<i }
+                else if exact == Some(false) { false }
+                else if is_numeric_value(a) && is_numeric_value(b) && !contains_i(a) && !contains_i(b) {
+                    // Keep unresolved near-ties symbolic rather than discard
+                    // an argument because both approximations round alike.
+                    match (crate::evalf::eval_f64(a),crate::evalf::eval_f64(b)) {
+                        (Some(x),Some(y)) if x.is_finite() && y.is_finite() => {
+                            let gap = x-y;
+                            let separation = 1e-12*x.abs().max(y.abs()).max(1.0);
+                            if is_max { gap > separation } else { gap < -separation }
+                        }
+                        _ => false,
+                    }
+                } else { false }
             }
         });
         if dominated {
             rest.remove(i);
+            members.remove(i);
         } else {
             i += 1;
         }

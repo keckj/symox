@@ -86,6 +86,16 @@ def _matrix_part(name, M):
 
 def _make(name):
     def f(*args):
+        if name in ('Min','Max'):
+            converted=[]
+            for arg in args:
+                value=sympify(arg)
+                numeric_nonreal=(getattr(value,'is_number',False) and getattr(value,'is_real',None) is False
+                                 and value not in (oo,-oo))
+                if value==nan or numeric_nonreal or getattr(value,'is_extended_real',None) is False or getattr(value,'is_Matrix',False):
+                    raise ValueError('%s requires extended-real arguments' % name)
+                converted.append(value)
+            args=tuple(converted)
         if len(args) == 1 and getattr(args[0], "_symox_matrixexpr", False):
             if name == "conjugate":
                 return args[0].conjugate()
@@ -99,6 +109,7 @@ def _make(name):
     f.__name__ = name
     f.__qualname__ = name
     f.__doc__ = f"symbolic {name}"
+    f._symox_head_name = name
     return f
 
 
@@ -401,11 +412,12 @@ def _symbols(names, *, seq=False, cls=None, **assumptions):
     if not isinstance(names, str):
         return type(names)(symbols(n, cls=cls, **assumptions) for n in names)
     parts = [p for p in _re.split(r"[\s,]+", names.strip()) if p]
+    constructor=Symbol if cls is None else cls
+    if not callable(constructor):raise TypeError('Symbol constructor must be callable')
     out = []
     for p in parts:
         for n in _expand_range(p):
-            out.append(Function(n, **assumptions) if cls is Function else
-                       Dummy(n, **assumptions) if cls is Dummy else Symbol(n, **assumptions))
+            out.append(constructor(n,**assumptions))
     if len(out) == 1 and not seq and "," not in names and ":" not in names:
         return out[0]
     return tuple(out)
@@ -535,6 +547,8 @@ class PurePoly:
         return [c for c in self._coeffs if c != 0]
 
     def degree(self, *gens):
+        if all(coefficient == 0 for coefficient in self._coeffs):
+            return S.NegativeInfinity
         return len(self._coeffs) - 1
 
     @property
@@ -559,11 +573,11 @@ class PurePoly:
 
     def __eq__(self, other):
         if isinstance(other, PurePoly):
-            return self._coeffs == other._coeffs
+            return self._coeffs == other._coeffs and str(self._domain) == str(other._domain)
         return False
 
     def __hash__(self):
-        return hash(tuple(self._coeffs))
+        return hash((tuple(self._coeffs), str(self._domain)))
 
     def __str__(self):
         g = str(self._gen)
@@ -710,6 +724,12 @@ class Set:
     is_ProductSet = False
     is_EmptySet = False
     is_UniversalSet = False
+    is_Number = is_Symbol = is_Add = is_Mul = is_Pow = is_Function = False
+    is_Integer = is_Rational = is_Float = is_Relational = is_Matrix = False
+
+    @property
+    def is_Atom(self):
+        return self._e.is_Atom
 
     def __new__(cls, *args):
         raise TypeError("use a concrete set class")
@@ -1237,15 +1257,40 @@ def solveset_complex(f, symbol):
 
 
 def solve_univariate_inequality(expr, gen, relational=True, domain=None, continuous=False):
-    r = _core.solve_univariate_inequality(
-        expr, gen, relational, None if domain is None else _unwrap(domain), continuous)
-    return _wrap_set(r)
+    def absolute_result():
+        condition=sympify(expr)
+        if not condition.is_Relational or not condition.has(Abs):
+            raise NotImplementedError('No reducible absolute-value condition')
+        target=S.Reals if domain is None else _wrap_set(_unwrap(domain))
+        if target.is_subset(S.Reals) is not True:
+            raise NotImplementedError('Absolute-value inequalities require a real domain')
+        from .solvers.inequalities import _abs_domain
+        return _abs_domain(condition.lhs-condition.rhs,condition.rel_op,gen).intersect(target)
+
+    try:
+        r = _core.solve_univariate_inequality(
+            expr, gen, False, None if domain is None else _unwrap(domain), continuous)
+    except NotImplementedError as native_error:
+        try:result=absolute_result()
+        except (ValueError,TypeError,NotImplementedError):raise native_error
+    else:
+        result=_wrap_set(r)
+        if isinstance(result,ConditionSet):
+            try:result=absolute_result()
+            except (ValueError,TypeError,NotImplementedError):pass
+    return result.as_relational(gen) if relational else result
 
 
 def reduce_inequalities(inequalities, symbols=[]):  # noqa: B006
-    if isinstance(inequalities, (list, tuple, set)):
+    if isinstance(inequalities, (list, tuple, set)) or hasattr(inequalities,'__next__'):
         inequalities = [_unwrap(i) for i in inequalities]
+    if hasattr(symbols,'__next__'):symbols=list(symbols)
     syms = symbols if symbols else None
+    conditions=inequalities if isinstance(inequalities,(list,tuple,set)) else [inequalities]
+    if any(sympify(condition).has(Abs) for condition in conditions):
+        from .solvers.inequalities import _reduce_abs_system
+        try:return _reduce_abs_system(inequalities,syms)
+        except (ValueError,TypeError,NotImplementedError):pass
     return _core.reduce_inequalities(inequalities, syms)
 
 
@@ -1355,8 +1400,12 @@ _install_poly_methods()
 
 from .polys import _poly_methods  # noqa: E402
 _poly_methods.install()
+from .polys import _evaluation as _poly_evaluation  # noqa: E402
+_poly_evaluation.install()
+from .polys.numberfields.galoisgroups import galois_group  # noqa: E402
+from .polys.constructor import construct_domain  # noqa: E402
 from .polys.polytools import (  # noqa: E402
-    LC, LM, LT, all_roots, content, degree_list, gff, monic,
+    LC, LM, LT, all_roots, content, decompose, degree_list, gff, monic,
     nth_power_roots_poly, parallel_poly_from_expr, poly_from_expr, real_roots,
     sqf_norm, total_degree, trunc,
 )
@@ -1618,7 +1667,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
 # SymPy's constructor classes and printer extension points. Keep this last:
 # constructors delegate to the native API defined above.
 from ._compat import (  # noqa: E402
-    Add, Mul, Pow, Symbol, Dummy, Number, NumberSymbol, Integer, Rational, Float, Tuple, UnevaluatedExpr,
+    Add, Mul, Pow, Symbol, Dummy, Wild, Number, NumberSymbol, Integer, Rational, Float, Tuple, UnevaluatedExpr,
     S, count_ops, default_sort_key,
 )
 from ._compat import (  # noqa: E402
@@ -1648,6 +1697,10 @@ from ._matrix_aux import (  # noqa: E402
     MatrixBase, jordan_cell_function as jordan_cell,
 )
 _matrix_aux.install(ImmutableMatrix, _sparse_module._SparseBase, MutableSparseMatrix)
+from . import _matrix_decompositions  # noqa: E402
+_matrix_decompositions.install(Matrix, _sparse_module._SparseBase)
+from . import _matrix_charpoly  # noqa: E402
+_matrix_charpoly.install(Matrix)
 MutableMatrix = Matrix
 
 _native_lambdify = lambdify
@@ -1713,6 +1766,7 @@ from ._matrixexpr import (  # noqa: E402
     DiagMatrix, DiagonalOf, DiagonalMatrix,
     hadamard_product, hadamard_power, kronecker_product,
 )
+from ._matrix_permutations import PermutationMatrix, MatrixPermute  # noqa: E402
 from ._simptools import (  # noqa: E402
     fraction, numer, denom, collect_const, rcollect, radsimp, signsimp, posify, separatevars,
     powsimp, powdenest, factor_terms, gcd_terms, factor_nc, sqrtdenest, combsimp, gammasimp,
@@ -1748,6 +1802,14 @@ def _expr_rewrite(self, *args, deep=True, **hints):
 
 Expr.rewrite = _expr_rewrite
 
+from . import _expr_methods  # noqa: E402
+exp_polar = _make('exp_polar')
+from .series import (  # noqa: E402
+    series, fps, fourier_series, FormalPowerSeries, FourierSeries, FiniteFourierSeries,
+    SeqFormula, SeqPer, SeqAdd, SeqMul, EmptySequence, sequence,
+)
+_expr_methods.install()
+
 from . import ntheory, discrete  # noqa: E402
 from .ntheory import (  # noqa: E402
     Sieve, abundance, binomial_coefficients, binomial_coefficients_list,
@@ -1767,6 +1829,25 @@ from .discrete import (  # noqa: E402
     convolution, covering_product, fft, fwht, ifft, ifwht, intersecting_product,
     intt, inverse_mobius_transform, mobius_transform, ntt)
 
+if hasattr(_core, 'EX'):
+    from ._core import EX, EXRAW, RR, CC, ZZ_I, QQ_I
+    from .polys.domains._types import (
+        IntegerRing, RationalField, FiniteField, RealField, ComplexField,
+        GaussianIntegerRing, GaussianRationalField, ExpressionDomain, ExpressionRawDomain,
+        PolynomialRing, FractionField, AlgebraicField,
+    )
+    FF = GF
+
+from .polys.domains import _methods as _domain_methods  # noqa: E402
+_domain_methods.install()
+
+from . import _matrixexpr_methods  # noqa: E402
+_matrixexpr_methods.install()
+from . import _matrixexpr_algebra  # noqa: E402
+_matrixexpr_algebra.install()
+from . import _algebraic_number_methods  # noqa: E402
+_algebraic_number_methods.install()
+
 # Integral transforms (Laplace, Fourier, sine/cosine, Mellin, Hankel).
 from ._transforms import (  # noqa: E402
     IntegralTransform, IntegralTransformError, LaplaceTransform, InverseLaplaceTransform,
@@ -1777,5 +1858,46 @@ from ._transforms import (  # noqa: E402
     cosine_transform, inverse_cosine_transform, hankel_transform, inverse_hankel_transform,
     mellin_transform, inverse_mellin_transform, laplace_correspondence, laplace_initial_conds,
 )
+
+from ._differentiation import diff, install as _install_differentiation  # noqa: E402
+_install_differentiation()
+from ._numeric_recognition import nsimplify  # noqa: E402
+from .solvers.inequalities import (  # noqa: E402
+    solve_poly_inequality, solve_rational_inequalities,
+    reduce_abs_inequality, reduce_abs_inequalities,
+)
+
+from .tensor.array import (  # noqa: E402
+    Array, NDimArray, DenseNDimArray, SparseNDimArray, MutableNDimArray,
+    ImmutableNDimArray, MutableDenseNDimArray, ImmutableDenseNDimArray,
+    MutableSparseNDimArray, ImmutableSparseNDimArray, tensorproduct,
+    tensorcontraction, tensordiagonal, permutedims, derive_by_array,
+)
+from .tensor.functions import shape  # noqa: E402
+from .tensor.array import _adapters as _array_adapters  # noqa: E402
+_array_adapters.install(globals())
+
+from .calculus.finite_diff import (  # noqa: E402
+    finite_diff_weights, apply_finite_diff, differentiate_finite,
+)
+from .calculus import finite_diff as _finite_diff  # noqa: E402
+_finite_diff.install()
+from .calculus import (singularities, stationary_points, periodicity,  # noqa: E402
+    is_increasing, is_strictly_increasing, is_decreasing,
+    is_strictly_decreasing, is_monotonic, is_convex, minimum, maximum, not_empty_in)
+
+from .utilities import (  # noqa: E402
+    ordered, sift, flatten, unflatten, reshape, group, subsets, variations,
+    cartes, prefixes, postfixes, rotations, has_dups, has_variety, take, prod,
+    dict_merge, topological_sort, preorder_traversal, postorder_traversal,
+    bottom_up, use, cacheit, memoize_property,
+)
+from ._solver_checks import (  # noqa: E402
+    checksol, solve_linear, solve_linear_system_LU, solve_undetermined_coeffs,
+)
+
+from .solvers.decompogen import decompogen  # noqa: E402
+from .solvers.deutils import ode_order, homogeneous_order  # noqa: E402
+from ._numeric_float import nfloat  # noqa: E402
 
 __all__ = [n for n in dir() if not n.startswith("_")]

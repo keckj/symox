@@ -272,6 +272,7 @@ version = "0.1.1"
 dependencies = [
  "num-bigint",
  "num-complex",
+ "num-rational",
  "num-traits",
  "numpy",
  "pyo3",

@@ -6,6 +6,22 @@ use crate::expr::{Expr, Func, Kind};
 use crate::functions::*;
 use crate::ops::{add, div, mul, mul_factor, neg, pow, sqrt, sub};
 
+pub fn is_valid_variable(variable: &Expr) -> bool {
+    match variable.kind() {
+        Kind::Sym(_) | Kind::Func(Func::MatrixElement(_), _) => true,
+        Kind::Derivative(inner, variables) => {
+            let Kind::Func(Func::Undefined(head), arguments) = inner.kind() else { return false; };
+            !head.internal && variables.iter().all(|(variable, _)| {
+                arguments.iter().filter(|argument| *argument == variable).count() == 1 &&
+                arguments.iter().all(|argument| argument == variable || !crate::traverse::has(argument, variable))
+            })
+        }
+        Kind::Func(Func::Undefined(head), _) => !head.internal || head.is_internal("Indexed"),
+        _ => false,
+    }
+}
+
+
 /// `d e / d x` where `x` is a symbol (or any atom-like expression such as
 /// an undefined function application).
 pub fn diff(e: &Expr, x: &Expr) -> Expr {
@@ -45,10 +61,17 @@ pub fn derivative_unevaluated(f: &Expr, vars: Vec<(Expr, u32)>) -> Expr {
         _ => (f.clone(), Vec::new()),
     };
     for (v, n) in vars {
-        match all.last_mut() {
-            Some((w, m)) if *w==v => *m += n,
-            _ => all.push((v, n)),
+        if let Some((w, m)) = all.last_mut() {
+            if *w == v {
+                if let Some(total) = m.checked_add(n) {
+                    *m = total;
+                    continue;
+                }
+            }
         }
+        // Keep adjacent groups if their total exceeds u32; the held
+        // derivative still represents the exact sum of their orders.
+        all.push((v, n));
     }
     Expr::from_kind(Kind::Derivative(inner, all))
 }
@@ -131,10 +154,11 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
             match di.kind() {
                 Kind::Derivative(..) => {
                     let mut v = vars.clone();
-                    match v.iter_mut().find(|(w, _)| w == x) {
-                        Some((_, m)) => *m += 1,
-                        None => v.push((x.clone(), 1)),
-                    }
+                    let incremented = v.iter_mut().find(|(w, _)| w == x)
+                        .is_some_and(|(_, m)| {
+                            if let Some(total) = m.checked_add(1) { *m = total; true } else { false }
+                        });
+                    if !incremented { v.push((x.clone(), 1)); }
                     Expr::from_kind(Kind::Derivative(inner.clone(), v))
                 }
                 _ => diff_many(&di, vars),
@@ -156,6 +180,9 @@ fn d_func(
     x: &Expr,
     cache: &mut FxHashMap<usize, (Expr,Expr)>,
 ) -> Expr {
+    if matches!(f, Func::GenericExpr) {
+        return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+    }
     if matches!(f,Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction)){
         return if crate::traverse::free_symbols(e).contains(x){derivative_unevaluated(e,vec![(x.clone(),1)])}else{Expr::zero()};
     }
@@ -329,7 +356,7 @@ fn d_func(
     }
     let one = Expr::one();
     let outer = match f {
-        Func::Exp => e.clone(),
+        Func::Exp | Func::ExpPolar => e.clone(),
         Func::Log => pow(u, &Expr::minus_one()),
         Func::Sin => cos(u),
         Func::Cos => neg(&sin(u)),
@@ -376,6 +403,20 @@ fn d_func(
 #[cfg(test)]
 mod dependency_tests {
     use super::*;
+
+    #[test]
+    fn held_derivative_order_groups_do_not_overflow() {
+        let x = Expr::symbol("x");
+        let f = crate::functions::undefined("f", vec![x.clone()]);
+        let first = derivative_unevaluated(&f, vec![(x.clone(), u32::MAX)]);
+        let second = derivative_unevaluated(&first, vec![(x.clone(), 1)]);
+        let Kind::Derivative(inner, orders) = second.kind() else { panic!("held derivative expected"); };
+        assert_eq!(*inner, f);
+        assert_eq!(orders, &vec![(x.clone(), u32::MAX), (x.clone(), 1)]);
+        assert_eq!(diff(&first, &x), second);
+        let ordinary = derivative_unevaluated(&derivative_unevaluated(&f, vec![(x.clone(), 2)]),vec![(x.clone(), 3)]);
+        assert_eq!(ordinary, derivative_unevaluated(&f, vec![(x, 5)]));
+    }
 
     #[test]
     fn dummy_bloom_collision_cannot_create_a_false_partial_derivative() {

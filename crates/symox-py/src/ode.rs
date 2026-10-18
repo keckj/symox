@@ -50,17 +50,19 @@ fn dsolve(
 }
 
 fn find_function(e: &Expr) -> Option<Expr> {
-    let mut found = None;
-    symox::traverse::preorder(e, &mut |s| {
-        if found.is_none() {
-            if let symox::Kind::Func(symox::Func::Undefined(n), a) = s.kind() {
-                if &**n != "Subs" && a.len() == 1 && a[0].is_symbol() {
-                    found = Some(s.clone());
-                }
+    let mut pending=vec![e.clone()];
+    let mut seen=rustc_hash::FxHashMap::default();
+    while let Some(node)=pending.pop() {
+        if seen.insert(node.dag_id(),node.clone()).is_some() {continue;}
+        if seen.len()>100000 {return None;}
+        if let symox::Kind::Func(symox::Func::Undefined(head),args)=node.kind() {
+            if !head.internal && args.len()==1 && args[0].is_symbol() {
+                return Some(node);
             }
         }
-    });
-    found
+        pending.extend(symox::inspection::scalar_children(&node).into_iter().rev());
+    }
+    None
 }
 
 /// `checkodesol(ode, sol)` -> `(True, 0)` when the solution checks.

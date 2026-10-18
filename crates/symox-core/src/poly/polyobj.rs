@@ -564,22 +564,24 @@ impl Poly {
 
     /// Functional decomposition (univariate).
     pub fn decompose(&self) -> PResult<Vec<Poly>> {
-        if self.gens.len() != 1 {
-            return Err(PolyError::Unsupported("univariate polynomial expected".into()));
-        }
+        super::roots::decompose_preflight(self.gens.len(),self.rep.degree(0))?;
         let d = super::dense::from_mpoly(&self.rep, 0);
         if d.len() <= 2 {
             return Ok(vec![self.clone()]);
         }
-        let fs = super::roots::decompose(&d);
+        let fs = if let Some(prime)=self.modulus {
+            use super::f5b::{Fp,PrimeScope};
+            use super::int::Coeff;
+            let _scope=PrimeScope::new(prime)?;
+            let values=d.iter().map(|value|Fp::from_rat(value,prime)).collect::<PResult<Vec<_>>>()?;
+            super::roots::decompose_field(&values,&|_|true)?.into_iter().map(|values|values.iter().map(Coeff::to_rat).collect()).collect()
+        } else {
+            super::roots::decompose_field(&d,&|value:&Rat|self.domain!=Domain::ZZ || value.is_integer())?
+        };
         Ok(fs
             .into_iter()
             .map(|c| {
-                let mut p = self.with_rep(super::dense::to_mpoly(&c, 0, 1));
-                if p.domain == Domain::ZZ && !p.rep.is_integral() {
-                    p.domain = Domain::QQ;
-                }
-                p
+                self.with_rep(super::dense::to_mpoly(&c, 0, 1))
             })
             .collect())
     }

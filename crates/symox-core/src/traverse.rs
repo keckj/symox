@@ -227,6 +227,10 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
                     rec(x, seen, out, visited);
                 }
             }
+            // Differentiation variables do not become free merely by being
+            // present in a held derivative. Read its compact body directly;
+            // Expr::args() expands each variable according to its order.
+            Kind::Derivative(body,_) => rec(body,seen,out,visited),
             _ => {
                 for a in e.args() {
                     rec(&a, seen, out, visited)
@@ -249,6 +253,8 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
         return true;
     }
     match e.kind() {
+        Kind::Derivative(body,variables)=>has(body,s) || variables.iter().any(|(variable,count)|
+            has(&crate::special::tuple(vec![variable.clone(),Expr::int(*count as i64)]),s)),
         Kind::Func(Func::MatrixDotProduct(a,b),_)=>[a,b].iter().any(|parent|has(&Expr::from_kind(Kind::Func(Func::MatrixProxy((*parent).clone()),vec![])),s)),
         Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), args) => {
             let matrix_match = if let Kind::Func(Func::MatrixProxy(target), _) = s.kind() {
@@ -287,12 +293,36 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
 
 /// Number of nodes (SymPy's `count_ops`-like size measure).
 pub fn node_count(e: &Expr) -> usize {
-    1 + e.args().iter().map(node_count).sum::<usize>()
+    fn count(e:&Expr,depth:usize,memo:&mut rustc_hash::FxHashMap<usize,(Expr,usize)>)->usize {
+        if let Some((_,size))=memo.get(&e.dag_id()) {return *size;}
+        // A size heuristic must remain finite on deeply nested/shared DAGs.
+        if depth>=512 {return usize::MAX;}
+        let size=if let Kind::Derivative(body,variables)=e.kind() {
+            variables.iter().fold(count(body,depth+1,memo).saturating_add(1),|size,(variable,_)|
+                size.saturating_add(count(variable,depth+1,memo)).saturating_add(2))
+        } else {
+            e.args().iter().fold(1usize,|size,child|size.saturating_add(count(child,depth+1,memo)))
+        };
+        memo.insert(e.dag_id(),(e.clone(),size));
+        size
+    }
+    count(e,0,&mut rustc_hash::FxHashMap::default())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn node_size_memoizes_shared_graphs_and_compact_derivatives() {
+        let x=Expr::symbol("x");
+        let body=crate::functions::undefined("f",vec![x.clone()]);
+        let derivative=Expr::from_kind(Kind::Derivative(body,vec![(x.clone(),1_000_000_000)]));
+        assert_eq!(node_count(&derivative),6);
+        let mut expression=x;
+        for _ in 0..80 {expression=crate::functions::undefined("f",vec![expression.clone(),expression]);}
+        assert_eq!(node_count(&expression),usize::MAX);
+    }
 
     #[test]
     fn symbol_cache_preserves_assumptions_and_replacements() {

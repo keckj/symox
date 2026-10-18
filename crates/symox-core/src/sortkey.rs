@@ -22,6 +22,7 @@ pub(crate) enum PresentationArg {
     Scalar(Expr),
     Matrix(MatrixExpr),
     Text(String),
+    Permutation(String),
     None,
     Node(&'static str, Vec<PresentationArg>),
 }
@@ -44,6 +45,9 @@ pub(crate) fn matrix_presentation(matrix: &MatrixExpr) -> MatrixPresentation {
     use PresentationArg::{Matrix as M, Scalar as S};
     let mut class = (5, 0, matrix.kind_name());
     let args = match matrix.kind() {
+        MatrixKind::Permutation(p) => vec![PresentationArg::Permutation(crate::matrixexpr::permutation_label(p))],
+        MatrixKind::Permute(parent,p,axis) => vec![M(parent.clone()),
+            PresentationArg::Permutation(crate::matrixexpr::permutation_label(p)),S(Expr::int(*axis as i64))],
         MatrixKind::Symbol(name) => vec![PresentationArg::Text(name.clone()), S(matrix.rows().clone()), S(matrix.cols().clone())],
         MatrixKind::Explicit(m) => {
             class.2 = "ImmutableDenseMatrix";
@@ -255,7 +259,7 @@ pub fn class_key(e: &Expr) -> Key {
         Kind::Mul(..) => (3, 0, "Mul".into()),
         Kind::Add(..) => (3, 1, "Add".into()),
         Kind::Func(f @ (Func::MatrixElement(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..)),_)=>(5,0,f.name().into()),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product), _) => (5, 0, f.name().into()),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         Kind::Func(f, _) => {
             let i = match f {
@@ -321,6 +325,7 @@ impl SortKeyCache {
             PresentationArg::Scalar(e) => self.key(&e),
             PresentationArg::Matrix(m) => self.matrix_key(&m),
             PresentationArg::Text(s) => composite_key((2, 0, "Str"), vec![Key::Str(s)]),
+            PresentationArg::Permutation(s) => composite_key((2, 0, "Permutation"), vec![Key::Str(s)]),
             PresentationArg::None => composite_key((0, 0, "NoneType"), vec![Key::Str("None".into())]),
             PresentationArg::Node(name, args) => {
                 let args = args.into_iter().map(|arg| self.presentation_key(arg)).collect();
@@ -357,6 +362,21 @@ impl SortKeyCache {
             }
             return composite_key((5, 0, "Derivative"), args);
         }
+        Kind::Func(Func::Order,arguments) if !arguments.is_empty()=>{
+            let mut args=vec![self.key(&arguments[0])];
+            for pair in arguments[1..].chunks(2) {
+                let keys=pair.iter().map(|arg|self.key(arg)).collect();
+                args.push(composite_key((5,0,"Tuple"),keys));
+            }
+            return composite_key((5,0,"Order"),args);
+        }
+        Kind::Piecewise(pieces)=>{
+            let args=pieces.iter().map(|(expression,condition)|{
+                let keys=vec![self.key(expression),self.key(condition)];
+                composite_key((5,0,"ExprCondPair"),keys)
+            }).collect();
+            return composite_key((4,0,"Piecewise"),args);
+        }
         Kind::Func(Func::MatrixProxy(matrix), _) => return self.matrix_key(matrix),
         Kind::Func(Func::MatrixDotProduct(left,right),_) => {
             let args=vec![self.matrix_key(left),self.matrix_key(right)];
@@ -385,7 +405,7 @@ impl SortKeyCache {
         },
         _ => (rest.clone(), Expr::one()),
     };
-    if matches!(base.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
+    if matches!(base.kind(), Kind::Derivative(..) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
         let mut parts = match self.key(&base) {
             Key::Tup(parts) => parts,
             Key::Shared(parts) => parts.to_vec(),
@@ -401,7 +421,7 @@ impl SortKeyCache {
             // Expr.sort_key wraps a Dummy base in its complete atomic key.
             Some(_) if !e.is_symbol() => vec![self.key(&base)],
             Some(index) => vec![Key::Str(symbol.name().into()), Key::Index(index.clone())],
-            None => vec![Key::Str(crate::printer::to_str(&base))],
+            None => vec![Key::Str(symbol.name().to_owned())],
         }
     } else if base.is_atom() {
         vec![Key::Str(crate::printer::to_str(&base))]
@@ -593,6 +613,22 @@ pub fn cmp_default(a: &Expr, b: &Expr) -> Ordering {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn order_and_piecewise_keys_retain_constructor_pairs() {
+        let parse=|source|crate::parser::parse_str(source).unwrap();
+        let x=Expr::symbol("x");
+        let order=parse("Order(x**2,x)");
+        let expected=composite_key((5,0,"Order"),vec![sort_key(&x.powi(2)),
+            composite_key((5,0,"Tuple"),vec![sort_key(&x),sort_key(&Expr::zero())])]);
+        assert_eq!(class_key(&order),tup(vec![Key::Int(5),Key::Int(0),Key::Str("Order".into())]));
+        assert_eq!(sort_key(&order),expected);
+        let piecewise=parse("Piecewise((x,x>0),(0,True))");
+        let expected=composite_key((4,0,"Piecewise"),vec![
+            composite_key((5,0,"ExprCondPair"),vec![sort_key(&x),sort_key(&parse("x>0"))]),
+            composite_key((5,0,"ExprCondPair"),vec![sort_key(&Expr::zero()),sort_key(&Expr::boolean(true))])]);
+        assert_eq!(sort_key(&piecewise),expected);
+    }
 
     #[test]
     fn dummy_base_is_wrapped_only_for_composite_expression_keys() {

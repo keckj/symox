@@ -152,8 +152,7 @@ def test_unsupported_precision_options_are_explicit():
             sm.N(sm.pi, n)
     with pytest.raises(ValueError):
         sm.Float("1.2", 20, precision=80)
-    with pytest.raises(NotImplementedError):
-        sm.pi.evalf(40, chop=True)
+    assert sm.pi.evalf(40, chop=True) == sm.N(sm.pi, 40)
     with pytest.raises(TypeError):
         sm.N(sm.pi, 40, unknown_precision_option=True)
     assert sm.pi.evalf(40, chop=False) == sm.N(sm.pi, 40)

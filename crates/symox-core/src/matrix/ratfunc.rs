@@ -774,10 +774,13 @@ pub fn is_zero_assume(e: &Expr) -> Option<bool> {
         Kind::Num(n) => Some(n.is_zero()),
         Kind::Const(Constant::NaN) => None,
         Kind::Const(_) => Some(false),
-        Kind::Sym(_) => None,
+        Kind::Sym(_) => crate::assumptions::is_zero(e),
         Kind::Bool(_) => None,
         Kind::Func(Func::Exp, _) => Some(false),
         Kind::Pow(b, x) => {
+            if is_zero_assume(b)==Some(true) && crate::assumptions::is_positive(x)==Some(true) {
+                return Some(true);
+            }
             if is_zero_assume(b) == Some(false) {
                 if x.is_number() || b.is_number() || b.is_constant(Constant::E) {
                     return Some(false);
@@ -788,7 +791,21 @@ pub fn is_zero_assume(e: &Expr) -> Option<bool> {
             }
             None
         }
+        Kind::Add(constant,terms)=>{
+            if e.mask()==0 {return numeric_nonzero(e);}
+            if matches!(constant,Number::Float(value) if !value.is_finite()) {return None;}
+            let mut nonzero=usize::from(!constant.is_zero());
+            for (term,coefficient) in terms {
+                if coefficient.is_zero() {continue;}
+                if matches!(coefficient,Number::Float(value) if !value.is_finite()) {return None;}
+                match is_zero_assume(term) {
+                    Some(true)=>{},Some(false)=>nonzero+=1,None=>return None,
+                }
+            }
+            if nonzero==0 {Some(true)} else if nonzero==1 {Some(false)} else {None}
+        }
         Kind::Mul(c, facs) => {
+            if e.has_nonfinite() {return None;}
             if c.is_zero() {
                 return Some(true);
             }

@@ -161,6 +161,7 @@ enum Val {
     Str(String),
     Function(crate::expr::UndefinedFunction),
     SliceSpec(crate::matrixexpr::SliceSpec),
+    Permutation(Vec<usize>),
     None,
 }
 
@@ -170,8 +171,10 @@ struct Parser {
     /// boolean keyword arguments of the call being parsed
     kwargs: Vec<(String, bool)>,
     precision: Option<i64>,
+    literal_precision: Option<u32>,
     nargs:Option<Vec<usize>>,
     dummy_index:Option<BigInt>,
+    wild_exclude:Option<Vec<Expr>>,
 }
 
 type R<T> = Result<T, ParseError>;
@@ -365,6 +368,17 @@ impl Parser {
         let mut v = self.atom()?;
         // Function('f')(x) style application
         while matches!(self.peek(), Tok::LParen) {
+            if let Val::Permutation(images) = &v {
+                let mut images = images.clone();
+                let args = self.call_args()?;
+                let cycle = self.permutation_call(args)?;
+                let size = images.len().max(cycle.len());
+                images.extend(images.len()..size);
+                let mut cycle = cycle;
+                cycle.extend(cycle.len()..size);
+                v = Val::Permutation(images.iter().map(|&i|cycle[i]).collect());
+                continue;
+            }
             let function = match &v {
                 Val::Function(f)=>f.clone(),
                 Val::Str(s) => crate::expr::UndefinedFunction::new(s,crate::symbol::Assumptions::NONE,None),
@@ -395,6 +409,13 @@ impl Parser {
                 let Tok::Ident(key) = self.next() else { unreachable!() };
                 self.next();
                 let v = self.value()?;
+                if key == "exclude" {
+                    let Val::Tuple(values) = v.clone() else { return self.err("exclude must be a sequence"); };
+                    self.wild_exclude=Some(values.into_iter().map(|value|self.as_expr(value)).collect::<R<Vec<_>>>()?);
+                }
+                if key == "properties" && !matches!(&v,Val::Tuple(values) if values.is_empty()) {
+                    return self.err("wildcard predicate properties are not implemented");
+                }
                 if key == "precision" {
                     self.precision = Some(match &v {
                         Val::E(e) => e.as_i64().ok_or_else(|| ParseError { msg: "precision must be an integer".into(), pos: self.at() })?,
@@ -441,10 +462,12 @@ impl Parser {
 
     fn atom(&mut self) -> R<Val> {
         match self.next() {
-            Tok::Num(s) => Ok(Val::E(parse_number(&s).ok_or_else(|| ParseError {
-                msg: format!("bad number {s}"),
-                pos: self.at(),
-            })?)),
+            Tok::Num(s) => {
+                let value=if let Some(precision)=self.literal_precision.filter(|_|s.contains(['.','e','E'])) {
+                    crate::bigfloat::BigFloat::from_decimal(&s,precision).ok().map(|value|Expr::num(Number::mp_float(value,precision)))
+                } else {parse_number(&s)};
+                Ok(Val::E(value.ok_or_else(||ParseError{msg:format!("bad number {s}"),pos:self.at()})?))
+            },
             Tok::Str(s) => Ok(Val::Str(s)),
             Tok::LBracket => {
                 let mut items=Vec::new();
@@ -483,11 +506,18 @@ impl Parser {
                     let saved_precision = self.precision.take();
                     let saved_nargs=self.nargs.take();
                     let saved_dummy_index=self.dummy_index.take();
+                    let saved_wild_exclude=self.wild_exclude.take();
                     let args = self.call_args()?;
                     let kwargs = std::mem::replace(&mut self.kwargs, saved);
                     let precision = std::mem::replace(&mut self.precision, saved_precision);
                     let nargs=std::mem::replace(&mut self.nargs,saved_nargs);
                     let dummy_index=std::mem::replace(&mut self.dummy_index,saved_dummy_index);
+                    let wild_exclude=std::mem::replace(&mut self.wild_exclude,saved_wild_exclude);
+                    if wild_exclude.is_some() && name!="Wild" { return self.err("exclude is supported only for Wild"); }
+                    if name=="Permutation" {
+                        if !kwargs.is_empty() { return self.err("Permutation parser does not accept keyword options"); }
+                        return self.permutation_call(args).map(Val::Permutation);
+                    }
                     if name=="Function" {
                         let Some(Val::Str(s))=args.first() else{return self.err("Function expects a string");};
                         if args.len()!=1{return self.err("Function expects one string name");}
@@ -495,7 +525,7 @@ impl Parser {
                         let function=crate::expr::UndefinedFunction::with_facts(s,given,nargs).map_err(|msg|ParseError{msg,pos:self.at()})?;
                         return Ok(Val::Function(function));
                     }
-                    if matches!(name.as_str(), "MatrixSymbol" | "FunctionMatrix" | "ElementwiseApplyFunction" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "DotProduct" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
+                    if matches!(name.as_str(), "PermutationMatrix" | "MatrixPermute" | "MatrixSymbol" | "FunctionMatrix" | "ElementwiseApplyFunction" | "MatAdd" | "MatMul" | "MatPow" | "Identity" | "ZeroMatrix" | "Inverse" | "Transpose" | "Adjoint" | "MatrixConjugate" | "MatrixElement" | "OneMatrix" | "HadamardProduct" | "HadamardPower" | "KroneckerProduct" | "BlockDiagMatrix" | "DiagMatrix" | "DiagonalOf" | "DiagonalMatrix" | "BlockMatrix" | "MatrixSlice" | "NormalizedSlice" | "DotProduct" | "Trace" | "Determinant" | "ImmutableMatrix" | "ImmutableDenseMatrix" | "MutableDenseMatrix" | "Matrix") {
                         let evaluate=kwargs.iter().find(|(k,_)|k=="evaluate").is_some_and(|(_,v)|*v);
                         return self.matrix_call(&name,args,evaluate);
                     }
@@ -523,11 +553,12 @@ impl Parser {
                         };
                         return Ok(Val::E(Expr::num(Number::mp_float(value, bits))));
                     }
-                    if name == "Symbol" || name == "Dummy" {
+                    if name == "Symbol" || name == "Dummy" || name == "Wild" {
                         let assumptions=crate::assumption_facts::FactSet::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v)))
                             .map_err(|msg|ParseError{msg,pos:self.at()})?;
                         let symbol=match (name.as_str(),args.as_slice(),dummy_index) {
                             ("Symbol",[Val::Str(s)],None)=>crate::Symbol::with_facts(s,assumptions),
+                            ("Wild",[Val::Str(s)],None)=>crate::Symbol::wild_with_facts(s,wild_exclude.unwrap_or_default(),assumptions),
                             ("Dummy",[Val::Str(s)],Some(index))=>crate::Symbol::dummy_with_facts(s,assumptions,Some(index)),
                             ("Dummy",[Val::Str(s)],None)=>crate::Symbol::dummy_with_facts(s,assumptions,None),
                             ("Dummy",[],None)=>crate::Symbol::anonymous_dummy_with_facts(assumptions),
@@ -551,7 +582,23 @@ impl Parser {
                         }
                         return Ok(Val::E(if name == "Add" { add(&v) } else { mul(&v) }));
                     }
-                    return self.call(&name, args);
+                    let operation = if name=="Derivative" && kwargs.iter().any(|(key,value)|key=="evaluate"&&*value) { "diff" }
+                        else if name=="diff" && kwargs.iter().any(|(key,value)|key=="evaluate"&&!*value) { "Derivative" }
+                        else { &name };
+                    if operation=="diff" && kwargs.iter().any(|(key,value)|key=="simplify"&&!*value) {
+                        return self.err("evaluated derivatives use native canonical simplification");
+                    }
+                    if matches!(operation,"Min"|"Max") {
+                        for value in &args {
+                            let value=self.as_expr(value.clone())?;
+                            let numeric_nonreal=crate::functions::is_numeric_value(&value) && crate::assumptions::is_real(&value)==Some(false)
+                                && !value.is_constant(crate::expr::Constant::Infinity) && !value.is_constant(crate::expr::Constant::NegInfinity);
+                            if value.is_constant(crate::expr::Constant::NaN) || numeric_nonreal || crate::assumptions::fact(&value,"extended_real")==Some(false) || value.has_matrix() {
+                                return self.err("Min/Max require extended-real scalar arguments");
+                            }
+                        }
+                    }
+                    return self.call(operation, args);
                 }
                 if let Some(name) = name.strip_prefix("Q.") {
                     let p = crate::ask::Pred::from_name(name).ok_or_else(||ParseError{msg:format!("unknown predicate {name}"),pos:self.at()})?;
@@ -569,12 +616,38 @@ impl Parser {
         self.err("expected a matrix expression")
     }
 
+    fn permutation_call(&self, args:Vec<Val>) -> R<Vec<usize>> {
+        let index = |value:Val|->R<usize>{
+            self.as_expr(value)?.as_i64().and_then(|i|usize::try_from(i).ok())
+                .filter(|i|*i<100_000).ok_or_else(||ParseError{msg:"permutation indices must be integers below 100000".into(),pos:self.at()})
+        };
+        if args.len()==1 {
+            if let Val::Tuple(values)=&args[0] {
+                let images = values.iter().cloned().map(index).collect::<R<Vec<_>>>()?;
+                MatrixExpr::permutation(images.clone(),false).map_err(|e|ParseError{msg:e.to_string(),pos:self.at()})?;
+                return Ok(images);
+            }
+        }
+        let cycle = args.into_iter().map(index).collect::<R<Vec<_>>>()?;
+        let size = cycle.iter().max().map_or(0,|i|i+1);
+        let mut images = (0..size).collect::<Vec<_>>();
+        let mut seen = vec![false;size];
+        for (i,&point) in cycle.iter().enumerate() {
+            if seen[point] { return self.err("duplicate point in permutation cycle"); }
+            seen[point]=true;
+            images[point]=cycle[(i+1)%cycle.len()];
+        }
+        Ok(images)
+    }
+
     fn matrix_call(&self, name:&str, args:Vec<Val>, evaluate:bool)->R<Val> {
         let fail=|msg:String| ParseError{msg,pos:self.at()};
         let scalar=|i:usize| ->R<Expr>{args.get(i).cloned().ok_or_else(||fail(format!("{name}: missing argument"))).and_then(|a|self.as_expr(a))};
         let matrix=|i:usize| ->R<MatrixExpr>{self.as_matrix(args.get(i).ok_or_else(||fail(format!("{name}: missing matrix argument")))?)};
         let arity=|n:usize|->R<()>{if args.len()==n {Ok(())}else{self.err(format!("{name} expects {n} arguments"))}};
         let result=match name {
+            "PermutationMatrix"=>{arity(1)?;let Val::Permutation(images)=&args[0] else{return self.err("PermutationMatrix expects a finite permutation");};MatrixExpr::permutation(images.clone(),false)},
+            "MatrixPermute"=>{arity(3)?;let Val::Permutation(images)=&args[1] else{return self.err("MatrixPermute expects a finite permutation");};let axis=scalar(2)?.as_i64().filter(|i|*i==0||*i==1).ok_or_else(||fail("permutation axis must be zero or one".into()))?;matrix(0)?.permute(images.clone(),axis as u8,evaluate)},
             "MatrixSymbol"=>{arity(3)?;let Val::Str(s)=&args[0] else{return self.err("MatrixSymbol expects a string name");};MatrixExpr::symbol(s,scalar(1)?,scalar(2)?)},
             "ElementwiseApplyFunction"=>{arity(2)?;MatrixExpr::apply_function(scalar(0)?,&matrix(1)?,false)},
             "FunctionMatrix"=>{arity(3)?;MatrixExpr::function(scalar(0)?,scalar(1)?,scalar(2)?)},
@@ -811,32 +884,45 @@ impl Parser {
                     Some(v) => self.as_expr(v)?,
                     None => return self.err("Derivative expects arguments"),
                 };
+                let order = |value: Expr| -> R<u32> {
+                    value.as_i64().and_then(|n|u32::try_from(n).ok())
+                        .ok_or_else(||ParseError{msg:"derivative order must be a nonnegative integer fitting u32".into(),pos:self.at()})
+                };
+                let mut it = it.peekable();
                 let mut vars = Vec::new();
-                for a in it {
-                    match a {
-                        Val::E(v) => vars.push((v, 1u32)),
-                        Val::Tuple(t) if t.len() == 2 => {
-                            let mut it = t.into_iter();
-                            let v = self.as_expr(it.next().unwrap())?;
-                            let n = self.as_expr(it.next().unwrap())?;
-                            let n = n.as_i64().filter(|n| *n >= 0).ok_or_else(|| ParseError {
-                                msg: "derivative order must be a non-negative integer".into(),
-                                pos: self.at(),
-                            })?;
-                            vars.push((v, n as u32));
+                while let Some(specification) = it.next() {
+                    let (variable, count) = match specification {
+                        Val::Tuple(pair) if pair.len()==2 => {
+                            let mut pair=pair.into_iter();
+                            (self.as_expr(pair.next().unwrap())?,order(self.as_expr(pair.next().unwrap())?)?)
                         }
-                        _ => return self.err("bad Derivative variable"),
+                        Val::E(variable) => {
+                            let mut count=1;
+                            if let Some(Val::E(next))=it.peek() {
+                                if next.is_integer_number() {
+                                    count=order(next.clone())?;
+                                    it.next();
+                                }
+                            }
+                            (variable,count)
+                        }
+                        _=>return self.err("expected a derivative variable or (variable, order) pair"),
+                    };
+                    if !crate::diff::is_valid_variable(&variable) {
+                        return self.err("cannot differentiate with respect to this expression");
+                    }
+                    vars.push((variable,count));
+                }
+                if vars.is_empty() {
+                    let symbols=crate::traverse::free_symbols(&f);
+                    match symbols.as_slice() {
+                        []=>return Ok(Val::E(Expr::zero())),
+                        [symbol] if crate::diff::is_valid_variable(symbol)=>vars.push((symbol.clone(),1)),
+                        _=>return self.err("supply differentiation variables explicitly"),
                     }
                 }
-                if name == "diff" {
-                    let mut r = f;
-                    for (v, n) in vars {
-                        r = crate::diff::diff_n(&r, &v, n);
-                    }
-                    r
-                } else {
-                    crate::diff::derivative_unevaluated(&f, vars)
-                }
+                if name=="diff" {crate::diff::diff_many(&f,&vars)}
+                else {crate::diff::derivative_unevaluated(&f,vars)}
             }
             "O" | "Order" => {
                 let mut it = args.into_iter();
@@ -918,8 +1004,18 @@ pub fn parse_number(s: &str) -> Option<Expr> {
 
 /// Parse a string into an expression.
 pub fn parse_str(s: &str) -> Result<Expr, ParseError> {
+    parse_with_precision(s,None)
+}
+
+/// Parse decimal literals directly at a numerical field's precision.
+pub fn parse_str_with_precision(s:&str,precision:u32)->Result<Expr,ParseError> {
+    if !(2..=40_000).contains(&precision){return Err(ParseError{msg:"bit precision must lie between 2 and 40000".into(),pos:0});}
+    parse_with_precision(s,Some(precision))
+}
+
+fn parse_with_precision(s:&str,literal_precision:Option<u32>)->Result<Expr,ParseError> {
     let toks = tokenize(s)?;
-    let mut p = Parser { toks, pos: 0, kwargs: Vec::new(), precision: None,nargs:None,dummy_index:None };
+    let mut p = Parser { toks, pos: 0, kwargs: Vec::new(), precision: None,literal_precision,nargs:None,dummy_index:None,wild_exclude:None };
     let e = p.expr()?;
     if !matches!(p.peek(), Tok::End) {
         return p.err(format!("unexpected trailing token {:?}", p.peek()));
@@ -935,6 +1031,36 @@ pub fn sympify(s: &str) -> Result<Expr, ParseError> {
 #[cfg(test)]
 mod matrix_parser_tests {
     use super::*;
+    #[test]
+    fn derivative_parser_normalizes_counts_and_evaluation() {
+        let x=Expr::symbol("x");
+        let f=crate::functions::sin(&x);
+        let held=crate::diff::derivative_unevaluated(&f,vec![(x,2)]);
+        assert_eq!(parse_str("Derivative(sin(x),x,2)").unwrap(),held);
+        assert_eq!(parse_str("Derivative(sin(x),[x,2])").unwrap(),held);
+        assert_eq!(parse_str("diff(sin(x),x,2,evaluate=False)").unwrap(),held);
+        assert_eq!(parse_str("Derivative(sin(x),x,2,evaluate=True)").unwrap(),crate::ops::neg(&f));
+        assert_eq!(parse_str("diff(sin(x),x,2)").unwrap(),crate::ops::neg(&f));
+        assert_eq!(parse_str("diff(x**2)").unwrap(),parse_str("2*x").unwrap());
+        assert_eq!(parse_str("Derivative(sin(x),x,0)").unwrap(),f);
+        for invalid in ["Derivative(sin(x),(x,4294967296))","Derivative(sin(x),x,0,0)","diff(sin(x),x,2,3)","Derivative(sin(x),sin(x))"] {
+            assert!(parse_str(invalid).is_err(),"{invalid}");
+        }
+    }
+    #[test]
+    fn wildcard_facts_and_nested_exclusion_metadata() {
+        let x=Expr::symbol("x");
+        let a=parse_str("Wild('a',exclude=[Symbol('x'),Symbol('x')],positive=True)").unwrap();
+        let symbol=a.as_sym().unwrap();
+        assert!(symbol.is_wild());
+        assert_eq!(symbol.exclude(),&[x.clone(),x]);
+        assert!(symbol.assumptions().has(crate::Assumptions::POSITIVE));
+        let outer=parse_str("Wild('outer',exclude=[Wild('a',exclude=[Symbol('x'),Symbol('x')],positive=True)])").unwrap();
+        assert_eq!(outer.as_sym().unwrap().exclude(),&[a]);
+        let no_exclusion=parse_str("Wild('b',integer=True)").unwrap();
+        assert_eq!(parse_str(&crate::printer::srepr(&no_exclusion)).unwrap(),no_exclusion);
+        assert!(parse_str("Wild('a',properties=[Symbol('p')])").is_err());
+    }
     #[test]
     fn typed_matrix_srepr_roundtrip() {
         let a=MatrixExpr::symbol("A",Expr::int(2),Expr::int(2)).unwrap();

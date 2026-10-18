@@ -66,7 +66,17 @@ fn xr(
             }
         }
     }
-    let r = map_children(e, &mut |c| xr(c, map, mask, all_masked, held_derivatives, cache));
+    let r = if e.is_add() || e.is_mul() {
+        // Replace public Add terms and Mul powers, including their compact
+        // numeric coefficients. Internal map_children skips those nodes.
+        let children = crate::inspection::scalar_children(e);
+        let replaced = children.iter().map(|c|xr(c,map,mask,all_masked,held_derivatives,cache)).collect::<Vec<_>>();
+        if replaced.iter().zip(&children).all(|(a,b)|a.same_presentation(b)) {
+            e.clone()
+        } else if e.is_add() { add(&replaced) } else { mul(&replaced) }
+    } else {
+        map_children(e, &mut |c| xr(c, map, mask, all_masked, held_derivatives, cache))
+    };
     cache.insert(e.dag_id(), (e.clone(),r.clone()));
     r
 }
@@ -89,6 +99,20 @@ pub fn held_subs(e:&Expr, variables:Vec<Expr>,points:Vec<Expr>)->Expr {
 /// variables by routing them through the same held-Subs rules as subs1.
 pub fn simultaneous(e:&Expr,pairs:&[(Expr,Expr)])->Expr {
     if pairs.is_empty(){return e.clone();}
+    if pairs.iter().any(|(old,_)|!old.is_symbol()) {
+        // Mask algebraic patterns before inserting any replacement value.
+        // A common marker protects zero/pole interactions while masking.
+        let marker=Expr::dummy("subs_m",Default::default());
+        let mut masked=e.clone();
+        let mut restore=FxHashMap::default();
+        for (old,new) in pairs {
+            let temporary=Expr::dummy("subs_d",Default::default());
+            masked=subs1(&masked,old,&mul2(&temporary,&marker));
+            restore.insert(temporary,new.clone());
+        }
+        restore.insert(marker,Expr::one());
+        return xreplace(&masked,&restore);
+    }
     let map:FxHashMap<_,_>=pairs.iter().cloned().collect();
     let mask=map.keys().fold(0,|m,k|m|k.mask());
     let all_masked=map.keys().all(|k|k.mask()!=0 && !k.has_binding_identity());
@@ -186,7 +210,10 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
             let (ob, ox) = crate::ops::as_base_exp(old);
             if *b == ob && !old.is_symbol() {
                 let ratio = div(x, &ox);
-                if ratio.is_integer_number() {
+                let safe_fraction = ratio.is_rational_number() &&
+                    ((crate::assumptions::is_positive(b)==Some(true) && crate::assumptions::is_real(&ox)==Some(true)) ||
+                     (crate::assumptions::is_nonnegative(b)==Some(true) && crate::assumptions::is_nonnegative(&ox)==Some(true)));
+                if ratio.is_integer_number() || safe_fraction {
                     return pow(new, &ratio);
                 }
             }

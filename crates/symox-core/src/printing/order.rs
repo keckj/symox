@@ -159,6 +159,7 @@ fn atom_args(e: &Expr) -> KArgs {
         if let Some(index) = symbol.dummy_index() {
             return KArgs::Dummy(symbol.name().into(), index.clone());
         }
+        return KArgs::Atom(symbol.name().into());
     }
     KArgs::Atom(crate::printer::to_str(e))
 }
@@ -188,6 +189,7 @@ impl KeyCache {
             PresentationArg::Scalar(e) => self.key(&e),
             PresentationArg::Matrix(m) => self.matrix_key(&m),
             PresentationArg::Text(s) => Rc::new(self.composite((2, 0, "Str"), KArgs::Atom(s))),
+            PresentationArg::Permutation(s) => Rc::new(self.composite((2, 0, "Permutation"), KArgs::Atom(s))),
             PresentationArg::None => Rc::new(self.composite((0, 0, "NoneType"), KArgs::Atom("None".into()))),
             PresentationArg::Node(name, args) => {
                 let args = args.into_iter().map(|arg| self.presentation_arg(arg)).collect();

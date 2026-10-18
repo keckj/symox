@@ -40,6 +40,7 @@ pub fn is_symbolic_number(e: &Expr) -> bool {
         // typed forms below contain such arguments, or a matrix argument.
         Kind::Func(
             Func::Predicate(_)
+            | Func::GenericExpr
             | Func::AppliedPredicate
             | Func::Subs
             | Func::Limit

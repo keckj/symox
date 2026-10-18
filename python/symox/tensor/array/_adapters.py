@@ -1,0 +1,53 @@
+"""Dispatch public scalar operations and finite matrix derivatives to arrays."""
+from functools import wraps
+
+from ... import _core
+from ._array import NDimArray
+from .arrayop import derive_by_array
+
+
+def _array_variable(value):
+    return isinstance(value, (NDimArray, _core.Matrix, _core._MatrixExpr)) or bool(
+        getattr(value, '_symox_sparse', False))
+
+
+def _check_derivative_options(options):
+    if any(key != 'evaluate' or value is not True for key, value in options.items()):
+        raise NotImplementedError('Array-variable derivatives require explicit evaluation')
+
+
+def _diff_dispatch(original):
+    @wraps(original)
+    def diff(expression, *variables, **options):
+        if isinstance(expression, NDimArray):
+            return expression.diff(*variables, **options)
+        if len(variables) == 1 and _array_variable(variables[0]):
+            _check_derivative_options(options)
+            return derive_by_array(expression, variables[0])
+        return original(expression, *variables, **options)
+    return diff
+
+
+def _entrywise(original):
+    @wraps(original)
+    def operation(expression, *args, **options):
+        if (isinstance(expression, (NDimArray, _core.Matrix))
+                or getattr(expression, '_symox_sparse', False)):
+            return expression.applyfunc(lambda entry: original(entry, *args, **options))
+        return original(expression, *args, **options)
+    return operation
+
+
+def install(namespace):
+    if namespace.get('_array_adapters_installed', False):
+        return
+    namespace['_array_adapters_installed'] = True
+    for name in ('simplify', 'expand', 'factor', 'trigsimp', 'powsimp', 'ratsimp',
+                 'radsimp', 'cancel', 'together', 'conjugate', 'N'):
+        if name in namespace:
+            namespace[name] = _entrywise(namespace[name])
+    namespace['diff'] = _diff_dispatch(namespace['diff'])
+    for cls in (_core.Expr, _core.Matrix, _core._MatrixExpr):
+        cls.diff = _diff_dispatch(cls.diff)
+    from ..._sparse import _SparseBase
+    _SparseBase.diff = _diff_dispatch(_SparseBase.diff)

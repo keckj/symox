@@ -144,6 +144,16 @@ def test_iterable_patterns_and_defaults_are_explicit():
         sx.collect(expression, [x, object()])
 
 
+@pytest.mark.parametrize('evaluate',[False,True])
+@pytest.mark.parametrize('exact',[False,True])
+def test_method_positional_options(evaluate,exact):
+    x,a,b=sx.symbols('x a b')
+    expression=a*x+b*x+x*x
+    transform=lambda coefficient:coefficient+1
+    expected=sx.collect(expression,x,transform,evaluate,exact,False)
+    assert expression.collect(x,transform,evaluate,exact,False)==expected
+
+
 def test_unsupported_matching_is_rejected_instead_of_silently_ignored():
     x, y, a, b = sx.symbols('x y a b')
     with pytest.raises(NotImplementedError, match='Wild'):

@@ -796,8 +796,12 @@ impl PyPoly {
         match g {
             None => Ok(0),
             Some(g) => {
-                if let Ok(i) = g.extract::<usize>() {
-                    return Ok(i);
+                if let Ok(i) = g.extract::<i64>() {
+                    let count = self.p.true_gens().len() as i64;
+                    if i < -count || i >= count {
+                        return Err(PyValueError::new_err("polynomial generator index is out of range"));
+                    }
+                    return Ok(if i < 0 { (count+i) as usize } else { i as usize });
                 }
                 let e = to_expr(g)?;
                 self.p
@@ -824,6 +828,9 @@ impl PyPoly {
     #[new]
     #[pyo3(signature = (expr, *gens, domain=None, modulus=None, extension=None, **_kwargs))]
     fn py_new(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, extension:Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        if expr.getattr("is_Matrix").is_ok_and(|flag|flag.is_truthy().unwrap_or(false)) {
+            return Err(PyTypeError::new_err("a noncommutative matrix cannot be a scalar polynomial"));
+        }
         // As in SymPy, a Poly argument keeps its domain when no domain option is
         // given and the generators are omitted or only reordered.
         if domain.is_none()&&modulus.is_none()&&extension.is_none(){if let Ok(src)=expr.downcast::<PyPoly>(){
@@ -1298,18 +1305,16 @@ impl PyPoly {
         w(rat_expr(&self.p.primitive().0))
     }
 
-    fn monic(&self) -> PyResult<PyPoly> {
-        if let Some(f)=&self.p.algebraic {return Ok(PyPoly {p:f.monic().into()});}
-        if let Some(f)=&self.p.field {return Ok(PyPoly {p:f.monic().into()});}
-        if self.p.is_zero() {
-            return Ok(self.clone());
-        }
-        let lc = self.p.rep.lc();
-        let mut p = self.p.mul_ground(&lc.inv());
-        if p.domain == Domain::ZZ && p.modulus.is_none() {
-            p.domain = Domain::QQ;
-        }
-        Ok(PyPoly { p: p.into() })
+    #[pyo3(signature=(auto=true))]
+    fn monic(&self, auto:bool) -> PyResult<PyPoly> {
+        let domain = self.domain_descriptor()?;
+        let domain = if auto {domain.get_field()} else {domain};
+        // Rebuild implicit coefficient rings with their true generators before
+        // selecting the leading coefficient. This also preserves typed orders.
+        let p = domain.poly(&self.p.as_expr(), self.p.true_gens())?;
+        if p.is_zero() {return Ok(PyPoly{p});}
+        let divisor = domain.poly(&p.lc(), p.true_gens())?;
+        Ok(PyPoly{p:p.exquo_with_options(&divisor,false).map_err(err)?})
     }
 
     #[pyo3(signature = (*gens))]
@@ -1318,9 +1323,18 @@ impl PyPoly {
         if gens.is_empty() {
             return Ok(PyPoly { p: (p.diff(0)).into() });
         }
-        for g in gens.iter() {
-            let i = self.gen_index(Some(&g))?;
-            p = p.diff(i);
+        for spec in gens.iter() {
+            let (generator, order) = if let Ok(spec) = spec.downcast::<PyTuple>() {
+                if spec.len()!=2 {
+                    return Err(PyValueError::new_err("derivative specification must be (generator, order)"));
+                }
+                (spec.get_item(0)?, spec.get_item(1)?.extract::<i64>()?)
+            } else {(spec,1)};
+            let i = self.gen_index(Some(&generator))?;
+            for _ in 0..order.max(0) {
+                if p.is_zero() {break;}
+                p = p.diff(i);
+            }
         }
         Ok(PyPoly { p: p.into() })
     }
@@ -1358,6 +1372,9 @@ impl PyPoly {
 
     #[pyo3(signature = (*args))]
     fn __call__(&self, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+        if args.len() > self.p.true_gens().len() {
+            return Err(PyValueError::new_err("too many values provided"));
+        }
         let mut pairs = Vec::new();
         for (i, a) in args.iter().enumerate() {
             pairs.push((self.p.true_gens()[i].clone(), to_expr(&a)?));
@@ -1389,8 +1406,10 @@ impl PyPoly {
     }
 
     fn decompose(&self) -> PyResult<Vec<PyPoly>> {
-        if self.p.field.is_some()||self.p.algebraic.is_some(){return Err(PyNotImplementedError::new_err("functional decomposition over fraction fields is not yet implemented"));}
-        Ok(self.p.decompose().map_err(err)?.into_iter().map(|p| PyPoly { p: p.into() }).collect())
+        Ok(self.p.decompose().map_err(|error|match error {
+            PolyError::Unsupported(message)=>PyNotImplementedError::new_err(message),
+            other=>err(other),
+        })?.into_iter().map(|p| PyPoly { p }).collect())
     }
 
     fn shift(&self, a: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
@@ -1419,16 +1438,36 @@ impl PyPoly {
         Ok(PyPoly {p})
     }
 
-    fn clear_denoms<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        if self.p.algebraic.is_some(){return PyTuple::new(py,[w(Expr::one()).into_pyobject(py)?.into_any(),self.clone().into_pyobject(py)?.into_any()]);}
-        if let Some(f)=&self.p.field {
-            let _scope=symox::poly::ratfunc::Scope::new(f.parameters.len());
-            let d=f.denominator();let e=symox::poly::convert::to_expr_int(&d,&f.parameters);
-            let p=f.with_rep(f.rep.scale(&symox::poly::ratfunc::RF::from_poly(d)));
-            return PyTuple::new(py,[w(e).into_pyobject(py)?.into_any(),poly_obj(py,p)?.into_bound(py)]);
-        }
-        let (d, p) = self.p.clear_denoms();
-        PyTuple::new(py, [w(Expr::num(d.to_number())).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()])
+    #[pyo3(signature=(convert=false))]
+    fn clear_denoms<'py>(&self, py: Python<'py>, convert:bool) -> PyResult<Bound<'py, PyTuple>> {
+        let domain = self.domain_descriptor()?;
+        let canonical = domain.poly(&self.p.as_expr(),self.p.true_gens())?;
+        let (denominator, numerator) = if let Some(f) = &canonical.field {
+            let ring = domain.inner.ring().map_err(err)?;
+            let denominator = if matches!(&domain.inner,symox::poly::domains::ExactDomain::Functions{ring:true,..}) {
+                ring.convert(&Expr::one()).map_err(err)?
+            } else {
+                let expression = symox::poly::convert::to_expr_int(&f.denominator(),&f.parameters);
+                let value = ring.convert(&expression).map_err(err)?;
+                // LCM with one fixes the unit using the associated ring's
+                // ground coefficients and monomial order (QQ[a] vs ZZ[a]).
+                ring.convert(&Expr::one()).map_err(err)?.lcm(&value).map_err(err)?
+            };
+            let expression = denominator.as_expr();
+            let numerator:PolyValue = f.mul(&f.convert(&expression).map_err(err)?).into();
+            let numerator = if convert {
+                domains::PyDomain{inner:ring}.poly(&numerator.as_expr(),numerator.true_gens())?
+            } else {numerator};
+            (expression,numerator)
+        } else if canonical.algebraic.is_some() {
+            (Expr::one(),canonical)
+        } else {
+            let (d,mut p) = canonical.base.clear_denoms();
+            if convert && p.domain==Domain::QQ && p.modulus.is_none() {p.domain=Domain::ZZ;}
+            (Expr::num(d.to_number()),p.into())
+        };
+        PyTuple::new(py,[w(denominator).into_pyobject(py)?.into_any(),
+                         PyPoly{p:numerator}.into_pyobject(py)?.into_any()])
     }
 
     fn max_norm(&self) -> PyResult<PyExpr> {

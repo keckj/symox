@@ -6,7 +6,7 @@
 //! linear equations (integrating factor), separable and Bernoulli
 //! first-order equations. Initial conditions solve for the constants.
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap,FxHashSet};
 
 use crate::diff::diff;
 use crate::expand::expand;
@@ -24,23 +24,77 @@ fn constant(i: usize) -> Expr {
     Expr::symbol(&format!("C{i}"))
 }
 
+/// User symbols must never become derivative placeholders, characteristic
+/// variables or integration constants merely because their names coincide.
+struct ProtectedSymbols {
+    forward: FxHashMap<Expr,Expr>,
+    reverse: Vec<(Expr,Expr)>,
+    names: FxHashSet<String>,
+}
+
+impl ProtectedSymbols {
+    fn new<'a>(expressions:impl IntoIterator<Item=&'a Expr>)->Self {
+        let mut original=Vec::new();
+        for expression in expressions {
+            for symbol in crate::traverse::free_symbols(expression) {
+                if symbol.is_symbol() && !original.contains(&symbol) {original.push(symbol);}
+            }
+        }
+        original.sort_by(crate::sortkey::cmp_default);
+        let mut forward=FxHashMap::default();let mut reverse=Vec::new();let mut names=FxHashSet::default();
+        for value in original {
+            let symbol=value.as_sym().unwrap();
+            names.insert(symbol.name().to_owned());
+            let dummy=Expr::from_kind(Kind::Sym(symbol.fresh_dummy_like(symbol.name())));
+            forward.insert(value.clone(),dummy.clone());
+            reverse.push((dummy,value));
+        }
+        Self{forward,reverse,names}
+    }
+
+    fn protect(&self,expression:&Expr)->Expr {xreplace(expression,&self.forward)}
+
+    fn restore_solutions(&self,solutions:Vec<Expr>)->Vec<Expr> {
+        let mut replacements=Vec::new();let mut names=self.names.clone();let mut next=1;
+        for index in 1..=256 {
+            let generated=constant(index);
+            if !solutions.iter().any(|solution|has(solution,&generated)) {continue;}
+            while names.contains(&format!("C{next}")) {next+=1;}
+            let replacement=constant(next);names.insert(format!("C{next}"));next+=1;
+            if generated!=replacement {replacements.push((generated,replacement));}
+        }
+        replacements.extend(self.reverse.iter().cloned());
+        let replacements=replacements.into_iter().collect();
+        solutions.iter().map(|solution|xreplace(solution,&replacements)).collect()
+    }
+}
+
 /// Replace derivatives of `f` by symbols `_y0, _y1, ...`; returns the
 /// rewritten expression and the order.
 fn to_symbols(e: &Expr, f: &Expr, x: &Expr, order: &mut usize) -> Expr {
-    if e == f {
-        return Expr::symbol("_y0");
-    }
-    if let Kind::Derivative(g, vars) = e.kind() {
-        if g == f && vars.len() == 1 && vars[0].0 == *x {
-            let k = vars[0].1 as usize;
-            *order = (*order).max(k);
-            return Expr::symbol(&format!("_y{k}"));
+    fn visit(e: &Expr, f: &Expr, x: &Expr, order: &mut usize,
+             memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+        if let Some((_, result)) = memo.get(&e.dag_id()) { return result.clone(); }
+        if e == f {
+            let result=Expr::symbol("_y0");
+            memo.insert(e.dag_id(),(e.clone(),result.clone()));
+            return result;
         }
+        if let Kind::Derivative(g, vars) = e.kind() {
+            if g == f && vars.len() == 1 && vars[0].0 == *x {
+                let k = vars[0].1 as usize;
+                *order = (*order).max(k);
+                let result=Expr::symbol(&format!("_y{k}"));
+                memo.insert(e.dag_id(),(e.clone(),result.clone()));
+                return result;
+            }
+        }
+        if e.is_atom() { return e.clone(); }
+        let result = map_children(e, &mut |c| visit(c, f, x, order, memo));
+        memo.insert(e.dag_id(), (e.clone(), result.clone()));
+        result
     }
-    if e.is_atom() {
-        return e.clone();
-    }
-    map_children(e, &mut |c| to_symbols(c, f, x, order))
+    visit(e, f, x, order, &mut FxHashMap::default())
 }
 
 fn ysym(k: usize) -> Expr {
@@ -50,19 +104,27 @@ fn ysym(k: usize) -> Expr {
 /// Solve the ODE `ode = 0` (or an `Eq`) for the function `f = f(x)`.
 /// Returns the list of solutions `Eq(f(x), ...)`.
 pub fn dsolve(ode: &Expr, f: &Expr, ics: &[(Expr, Expr)]) -> Option<Vec<Expr>> {
+    let protected=ProtectedSymbols::new(std::iter::once(ode).chain(std::iter::once(f))
+        .chain(ics.iter().flat_map(|(condition,value)|[condition,value])));
+    let conditions=ics.iter().map(|(condition,value)|(protected.protect(condition),protected.protect(value))).collect::<Vec<_>>();
+    let solutions=dsolve_inner(&protected.protect(ode),&protected.protect(f),&conditions)?;
+    Some(protected.restore_solutions(solutions))
+}
+
+fn dsolve_inner(ode:&Expr,f:&Expr,ics:&[(Expr,Expr)])->Option<Vec<Expr>> {
     let Kind::Func(Func::Undefined(_), args) = f.kind() else { return None };
     if args.len() != 1 {
         return None;
     }
     let x = args[0].clone();
+    if !x.is_symbol() {return None;}
     let mut order = 0;
-    let e = expand(&to_symbols(&as_expr(ode), f, &x, &mut order));
+    let converted=to_symbols(&as_expr(ode),f,&x,&mut order);
+    if order==0 || order>256 {return None;}
+    let e = expand(&converted);
     let e = together(&e);
     let (e, _) = crate::simplify::numer_denom(&e);
     let e = expand(&e);
-    if order == 0 {
-        return None;
-    }
     let sols = if let Some(lin) = linear_coeffs(&e, order, &x) {
         vec![solve_linear(&lin, order, &x)?]
     } else if order == 1 {
@@ -473,15 +535,19 @@ fn bernoulli(f: &Expr, x: &Expr) -> Option<Vec<Expr>> {
 }
 
 fn apply_ics(sol: &Expr, f: &Expr, x: &Expr, ics: &[(Expr, Expr)]) -> Option<Expr> {
+    let Kind::Func(expected,_) = f.kind() else {return None};
     let mut eqs = Vec::new();
     for (cond, val) in ics {
         // f(x0) or Subs(Derivative(f(x), x, k), x, x0) given as f'(x0)
         let (k, x0) = match cond.kind() {
-            Kind::Func(Func::Subs, a) if a[1].args().len()==1 && a[2].args().len()==1 => {
-                let Kind::Derivative(_, vars) = a[0].kind() else { return None };
-                (vars[0].1 as usize, a[2].args()[0].clone())
+            Kind::Func(Func::Subs, a) if a.len()==3 && a[1].args().len()==1 && a[2].args().len()==1 => {
+                let Kind::Derivative(body, vars) = a[0].kind() else { return None };
+                if body!=f || a[1].args()[0]!=*x || vars.iter().any(|(variable,_)|variable!=x) {return None;}
+                let count=vars.iter().map(|(_,count)|*count as u64).sum::<u64>();
+                if count>256 {return None;}
+                (count as usize, a[2].args()[0].clone())
             }
-            Kind::Func(Func::Undefined(_), a) => (0usize, a[0].clone()),
+            Kind::Func(head @ Func::Undefined(_), a) if head==expected && a.len()==1 => (0usize, a[0].clone()),
             _ => return None,
         };
         let mut d = sol.clone();
@@ -490,8 +556,7 @@ fn apply_ics(sol: &Expr, f: &Expr, x: &Expr, ics: &[(Expr, Expr)]) -> Option<Exp
         }
         eqs.push(sub(&subs1(&d, x, &x0), val));
     }
-    let _ = f;
-    let consts: Vec<Expr> = (1..=10).map(constant).filter(|c| has(sol, c)).collect();
+    let consts: Vec<Expr> = (1..=256).map(constant).filter(|c| has(sol, c)).collect();
     match solve_system(&eqs, &consts)? {
         SystemSolution::Map(m) => Some(expand(&subs(sol, &m))),
         _ => None,
@@ -505,10 +570,23 @@ fn tidy(e: &Expr, x: &Expr) -> Expr {
 
 /// Check a candidate solution `y` of the ODE (residual is zero).
 pub fn checkodesol(ode: &Expr, f: &Expr, y: &Expr) -> bool {
-    let Kind::Func(_, args) = f.kind() else { return false };
+    let protected=ProtectedSymbols::new([ode,f,y]);
+    let parameters=crate::traverse::free_symbols(ode).into_iter()
+        .chain(crate::traverse::free_symbols(f)).collect::<FxHashSet<_>>();
+    let constants=crate::traverse::free_symbols(y).iter().filter(|value|{
+        !parameters.contains(*value) && value.as_sym().is_some_and(|symbol|
+            symbol.name().strip_prefix('C').and_then(|index|index.parse::<usize>().ok()).is_some_and(|index|index>0))
+    }).map(|value|protected.protect(value)).collect::<Vec<_>>();
+    checkodesol_inner(&protected.protect(ode),&protected.protect(f),&protected.protect(y),&constants)
+}
+
+fn checkodesol_inner(ode:&Expr,f:&Expr,y:&Expr,constants:&[Expr])->bool {
+    let Kind::Func(Func::Undefined(_), args) = f.kind() else { return false };
+    if args.len()!=1 || !args[0].is_symbol() {return false;}
     let x = &args[0];
     let mut order = 0;
     let e = to_symbols(&as_expr(ode), f, x, &mut order);
+    if order>256 {return false;}
     let mut map = Vec::new();
     let mut d = y.clone();
     for k in 0..=order {
@@ -525,8 +603,8 @@ pub fn checkodesol(ode: &Expr, f: &Expr, y: &Expr) -> bool {
     }
     // numeric spot check with arbitrary constants
     let mut rs = r;
-    for i in 1..=10 {
-        rs = subs1(&rs, &constant(i), &Expr::rational(3 * i as i64 + 1, 7));
+    for (index,constant) in constants.iter().enumerate() {
+        rs = subs1(&rs, constant, &Expr::rational(3 * (index as i64+1) + 1, 7));
     }
     [0.31, 0.77, 1.3].iter().all(|v| {
         let val = subs1(&rs, x, &Expr::float(*v));
@@ -538,6 +616,64 @@ pub fn checkodesol(ode: &Expr, f: &Expr, y: &Expr) -> bool {
 mod tests {
     use super::*;
     use crate::parser::parse_str;
+
+    #[test]
+    fn parameters_do_not_alias_generated_solver_symbols() {
+        let x=Expr::symbol("x");let f=parse_str("f(x)").unwrap();
+        let derivative=crate::diff::derivative_unevaluated(&f,vec![(x.clone(),1)]);
+        for name in ["C1","C2","C3","_y0","_y1","_r"] {
+            let parameter=Expr::symbol(name);
+            let ode=sub(&derivative,&mul2(&parameter,&f));
+            let coefficient=if name=="C1" {constant(2)} else {constant(1)};
+            let expected=eq(&f,&mul2(&coefficient,&exp(&mul2(&parameter,&x))));
+            let solutions=dsolve(&ode,&f,&[]).unwrap();
+            assert_eq!(solutions,vec![expected]);
+            let initial=crate::functions::undefined("f",vec![Expr::zero()]);
+            let solutions=dsolve(&ode,&f,&[(initial,Expr::int(3))]).unwrap();
+            let expected=mul2(&Expr::int(3),&exp(&mul2(&parameter,&x)));
+            assert_eq!(solutions,vec![eq(&f,&expected)]);
+            assert!(checkodesol(&ode,&f,&expected));
+        }
+    }
+
+    #[test]
+    fn initial_conditions_require_the_correct_function_and_bounded_orders() {
+        let x=Expr::symbol("x");let f=parse_str("f(x)").unwrap();
+        let ode=sub(&crate::diff::derivative_unevaluated(&f,vec![(x.clone(),1)]),&f);
+        for condition in [crate::functions::undefined("f",vec![]),
+                          crate::functions::undefined("g",vec![Expr::zero()]),
+                          crate::subs::held_subs(&crate::diff::derivative_unevaluated(&f,vec![(x.clone(),u32::MAX)]),vec![x.clone()],vec![Expr::zero()])] {
+            assert!(dsolve(&ode,&f,&[(condition,Expr::one())]).is_none());
+        }
+    }
+
+    #[test]
+    fn derivative_placeholders_retain_shared_dags() {
+        let x=Expr::symbol("x");let f=parse_str("f(x)").unwrap();
+        let mut expression=crate::diff::derivative_unevaluated(&f,vec![(x.clone(),3)]);
+        for _ in 0..80 {
+            expression=Expr::from_kind(Kind::Func(Func::Undefined("pair".into()),vec![expression.clone(),expression]));
+        }
+        let mut order=0;
+        let mut result=to_symbols(&expression,&f,&x,&mut order);
+        assert_eq!(order,3);
+        for _ in 0..80 {
+            let Kind::Func(_,args)=result.kind() else {panic!("shared function expected")};
+            assert!(args[0].ptr_eq(&args[1]));
+            result=args[0].clone();
+        }
+        assert_eq!(result,ysym(3));
+    }
+
+    #[test]
+    fn excessive_ode_orders_and_invalid_functions_are_rejected_before_allocation() {
+        let x=Expr::symbol("x");let f=parse_str("f(x)").unwrap();
+        let huge=crate::diff::derivative_unevaluated(&f,vec![(x.clone(),u32::MAX)]);
+        assert!(dsolve(&huge,&f,&[]).is_none());
+        assert!(!checkodesol(&huge,&f,&Expr::zero()));
+        let empty=crate::functions::undefined("f",vec![]);
+        assert!(!checkodesol(&f,&empty,&Expr::zero()));
+    }
 
     fn ds(s: &str) -> Vec<Expr> {
         let f = parse_str("f(x)").unwrap();

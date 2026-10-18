@@ -12,7 +12,7 @@ __all__ = [
     'minimal_polynomial', 'minpoly', 'primitive_element',
 ]
 from .polytools import (  # noqa: E402
-    LC, LM, LT, all_roots, content, degree_list, gff, monic,
+    LC, LM, LT, all_roots, content, decompose, degree_list, gff, monic,
     nth_power_roots_poly, parallel_poly_from_expr, poly_from_expr, real_roots,
     sqf_norm, total_degree, trunc,
 )
@@ -30,9 +30,10 @@ from .monomials import Monomial, itermonomials  # noqa: E402
 from .orderings import grevlex, grlex, igrevlex, igrlex, ilex, lex  # noqa: E402
 from .polyerrors import *  # noqa: E402,F401,F403
 from . import polyerrors as _polyerrors  # noqa: E402
+from .constructor import construct_domain  # noqa: E402
 
 __all__ += [
-    'LC', 'LM', 'LT', 'all_roots', 'content', 'degree_list', 'gff', 'monic',
+    'LC', 'LM', 'LT', 'all_roots', 'content', 'decompose', 'degree_list', 'gff', 'monic',
     'nth_power_roots_poly', 'parallel_poly_from_expr', 'poly_from_expr',
     'real_roots', 'sqf_norm', 'total_degree', 'trunc', 'horner', 'interpolate',
     'rational_interpolate', 'symmetrize', 'viete', 'cyclotomic_poly',
@@ -41,4 +42,5 @@ __all__ += [
     'hermite_poly', 'hermite_prob_poly', 'jacobi_poly', 'laguerre_poly',
     'legendre_poly', 'apart_list', 'assemble_partfrac_list', 'Monomial',
     'itermonomials', 'grevlex', 'grlex', 'igrevlex', 'igrlex', 'ilex', 'lex',
+    'construct_domain',
 ] + list(_polyerrors.__all__)

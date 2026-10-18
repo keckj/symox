@@ -12,12 +12,20 @@ class _MatrixType(type):
             return (3, ('MatMul', 'MatAdd').index(name), name)
         return (5, 0, name)
 
+    def fromiter(cls, args, **assumptions):
+        return cls(*args, **assumptions)
+
 
 class MatrixExpr(metaclass=_MatrixType):
     _kinds = None
 
     def __new__(cls, value):
         return _core._as_matrixexpr(value)
+
+    @staticmethod
+    def from_index_summation(expr, first_index=None, last_index=None, dimensions=None):
+        from ._matrix_index_sums import from_index_summation
+        return from_index_summation(expr, first_index, last_index, dimensions)
 
 
 class MatrixSymbol(MatrixExpr):
@@ -63,7 +71,7 @@ def _normalize_matrix_function(function, arity, context):
                      'Si', 'Ci', 'Shi', 'Chi', 'E1', 'airyai', 'airybi',
                      'airyaiprime', 'airybiprime', 'elliptic_k', 'elliptic_e',
                      'LambertW')
-        if not any(function is candidate for name in names
+        if not any(function is candidate or function is getattr(candidate, '__wrapped__', None) for name in names
                    if (candidate := namespace.get(name)) is not None):
             raise TypeError(f'{context} requires a native Lambda or a supported symbolic function head')
     parameters = tuple(Dummy(name) for name in (('i', 'j') if arity == 2 else ('d',)))

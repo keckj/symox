@@ -2083,6 +2083,25 @@ fn matrix_pred(cx: &Cx, p: Pred, e: &Expr, a: &Expr) -> R {
         return Ok(None);
     }
     let Some(m) = as_mx(e) else { return Ok(None) };
+    if let MatrixKind::Permutation(images) = m.kind() {
+        let identity = images.iter().enumerate().all(|(i,j)|i==*j);
+        let result = match p {
+            Square | Invertible | Fullrank | Orthogonal | Unitary | Normal |
+                IntegerElements | RealElements | ComplexElements => Some(true),
+            Singular => Some(false),
+            Symmetric | Hermitian => Some(images.iter().enumerate().all(|(i,j)|images[*j]==i)),
+            Diagonal | UpperTriangular | LowerTriangular | Triangular |
+                UnitTriangular | PositiveDefinite => Some(identity),
+            _ => None,
+        };
+        if result.is_some() { return Ok(result); }
+    }
+    if let MatrixKind::Permute(parent,_,_) = m.kind() {
+        if matches!(p,Invertible|Fullrank|Orthogonal|Unitary|Singular|
+                    IntegerElements|RealElements|ComplexElements) {
+            return cx.askp(p,&mx(parent),a);
+        }
+    }
     let a_in = |pp: Pred| in_conjuncts(&q(pp, e), a);
     match p {
         Square => Ok(Some(is_square(m))),

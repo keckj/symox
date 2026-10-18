@@ -61,10 +61,11 @@ def test_native_matrix_scalar_code_and_torch_jax_sources():
         assert "symox" not in source and "sympy" not in source
 
 
-def test_unsupported_tensor_derivatives_do_not_return_scalar_proxies():
+def test_unevaluated_tensor_derivatives_remain_explicitly_unsupported():
     a=sm.MatrixSymbol("A",2,2)
     x=sm.Symbol("x")
+    assert sm.diff(sm.Trace(a),a)==sm.Array([[1,0],[0,1]])
     for operation in (lambda:sm.Derivative(a,x),lambda:sm.Derivative(sm.Trace(a),a),
-                      lambda:sm.diff(sm.Trace(a),a),lambda:sm.Trace(a).diff()):
+                      lambda:sm.Trace(a).diff()):
         with pytest.raises(NotImplementedError,match="matrix|tensor"):
             operation()

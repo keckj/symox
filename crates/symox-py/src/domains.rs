@@ -38,6 +38,17 @@ fn hashed<T: Hash>(v: &T) -> isize {
         x
     }
 }
+fn exact_numeric_parts(e:&Expr)->Option<(num_rational::BigRational,num_rational::BigRational)> {
+    fn ratio(e:&Expr)->Option<num_rational::BigRational> {
+        match e.as_number()? {
+            symox::number::Number::Float(value) if value.is_finite()=>Some(symox::bigfloat::BigFloat::from_f64(*value).to_ratio_exact()),
+            symox::number::Number::MpFloat(value,_)=>Some(value.to_ratio_exact()),
+            number=>number.to_ratio(),
+        }
+    }
+    let (re,im)=symox::complex_parts::as_real_imag(e,true,None).ok()??;
+    Some((ratio(&re)?,ratio(&im)?))
+}
 
 #[pyclass(name = "Domain", module = "symox._core", frozen)]
 #[derive(Clone, Debug)]
@@ -54,6 +65,10 @@ impl PyDomain {
         match self.inner {
             ExactDomain::ZZ => Ok(py.import("symox._core")?.getattr("ZZ")?.unbind()),
             ExactDomain::QQ => Ok(py.import("symox._core")?.getattr("QQ")?.unbind()),
+            ExactDomain::Expression {raw} => Ok(py.import("symox._core")?.getattr(if raw {"EXRAW"} else {"EX"})?.unbind()),
+            ExactDomain::RR => Ok(py.import("symox._core")?.getattr("RR")?.unbind()),
+            ExactDomain::Inexact {precision:53,complex:true} => Ok(py.import("symox._core")?.getattr("CC")?.unbind()),
+            ExactDomain::Gaussian {integral} => Ok(py.import("symox._core")?.getattr(if integral {"ZZ_I"} else {"QQ_I"})?.unbind()),
             _ => Ok(self.clone().into_pyobject(py)?.into_any().unbind()),
         }
     }
@@ -81,6 +96,7 @@ impl PyDomain {
     }
     pub fn poly(&self, e: &Expr, gens: &[Expr]) -> PyResult<PolyValue> {
         match &self.inner {
+            ExactDomain::Expression { .. } | ExactDomain::Inexact {..} | ExactDomain::Gaussian {..} => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
             ExactDomain::Algebraic(field) => AlgebraicPoly::from_expr(e, gens, field.clone())
                 .map(Into::into)
                 .map_err(coercion),
@@ -143,6 +159,21 @@ impl PyDomain {
             if value.value.domain == self.inner {
                 return Ok(value.clone());
             }
+            if let Some(precision)=value.value.domain.inexact_precision() {
+                if matches!(self.inner,ExactDomain::ZZ|ExactDomain::QQ) {
+                    let rational=symox::poly::domains::rationalize_real(&value.value.as_expr(),precision,true).map_err(coercion)?;
+                    return self.inner.convert(&Expr::num(rational.to_number())).map(|value|PyDomainElement{value}).map_err(coercion);
+                }
+                if matches!(self.inner,ExactDomain::Gaussian{..}) {
+                    let numeric=symox::evalf_mp::eval_mp(&value.value.as_expr(),precision).ok_or_else(||coercion("expected a finite numerical value"))?;
+                    let re=symox::evalf_mp::to_expr(symox::evalf_mp::MpComplex::real(numeric.re),precision);
+                    let im=symox::evalf_mp::to_expr(symox::evalf_mp::MpComplex::real(numeric.im),precision);
+                    let real=symox::poly::domains::rationalize_real(&re,precision,true).map_err(coercion)?;
+                    let imag=symox::poly::domains::rationalize_real(&im,precision,true).map_err(coercion)?;
+                    let expression=symox::ops::add2(&Expr::num(real.to_number()),&symox::ops::mul2(&Expr::i(),&Expr::num(imag.to_number())));
+                    return self.inner.convert(&expression).map(|value|PyDomainElement{value}).map_err(coercion);
+                }
+            }
             // Finite residues are not canonically integers/rationals.
             if let ExactDomain::GF(prime) = value.value.domain {
                 if matches!(self.inner, ExactDomain::ZZ) {
@@ -172,7 +203,12 @@ impl PyDomain {
                 .map_err(coercion);
         }
         let e = if let Ok(text) = obj.extract::<String>() {
-            symox::parser::parse_str(&text).map_err(coercion)?
+            if let Some(precision)=self.inner.inexact_precision() {
+                match symox::bigfloat::BigFloat::from_decimal(&text,precision) {
+                    Ok(value)=>Expr::num(symox::number::Number::mp_float(value,precision)),
+                    Err(_)=>symox::parser::parse_str_with_precision(&text,precision).map_err(coercion)?,
+                }
+            } else {symox::parser::parse_str(&text).map_err(coercion)?}
         } else {
             to_expr(obj)?
         };
@@ -230,8 +266,31 @@ impl PyDomain {
     }
     #[getter]
     fn is_RR(&self) -> bool {
-        matches!(self.inner, ExactDomain::RR)
+        self.inner.inexact_precision().is_some()&&!self.inner.is_complex()
     }
+    #[getter]
+    fn is_CC(&self)->bool {self.inner.is_complex()}
+    #[getter]
+    fn is_ZZ_I(&self)->bool {matches!(self.inner,ExactDomain::Gaussian{integral:true})}
+    #[getter]
+    fn is_QQ_I(&self)->bool {matches!(self.inner,ExactDomain::Gaussian{integral:false})}
+    #[getter]
+    fn is_GaussianRing(&self)->bool {self.is_ZZ_I()}
+    #[getter]
+    fn is_GaussianField(&self)->bool {self.is_QQ_I()}
+    #[getter]
+    fn units(&self)->PyResult<Vec<PyDomainElement>> {
+        if !self.is_ZZ_I()&&!self.is_QQ_I(){return Err(domain_error("the finite list of Gaussian units requires a Gaussian domain"));}
+        [Expr::one(),Expr::i(),Expr::int(-1),symox::ops::neg(&Expr::i())].into_iter().map(|e|self.inner.convert(&e).map(|value|PyDomainElement{value}).map_err(coercion)).collect()
+    }
+    #[getter]
+    fn is_RealField(&self)->bool {self.is_RR()}
+    #[getter]
+    fn is_ComplexField(&self)->bool {self.is_CC()}
+    #[getter]
+    fn precision(&self)->Option<u32> {self.inner.inexact_precision()}
+    #[getter]
+    fn dps(&self)->Option<u32> {self.precision().map(symox::bigfloat::prec_to_dps)}
     #[getter]
     fn is_FF(&self) -> bool {
         matches!(self.inner, ExactDomain::GF(_))
@@ -262,12 +321,16 @@ impl PyDomain {
     }
     #[getter]
     fn is_Exact(&self) -> bool {
-        !self.is_RR()
+        self.inner.inexact_precision().is_none()
     }
     #[getter]
     fn is_Numerical(&self) -> bool {
-        !matches!(self.inner, ExactDomain::Functions { .. })
+        !matches!(self.inner, ExactDomain::Functions { .. } | ExactDomain::Expression { .. })
     }
+    #[getter]
+    fn is_EX(&self)->bool {matches!(self.inner,ExactDomain::Expression{raw:false})}
+    #[getter]
+    fn is_EXRAW(&self)->bool {matches!(self.inner,ExactDomain::Expression{raw:true})}
     #[getter]
     fn has_CharacteristicZero(&self) -> bool {
         self.inner.characteristic() == 0
@@ -280,6 +343,7 @@ impl PyDomain {
     fn is_PID(&self) -> bool {
         self.is_Field()
             || self.is_ZZ()
+            || self.is_ZZ_I()
             || matches!(&self.inner,ExactDomain::Functions{integral:false,ring:true,parameters,..} if parameters.len()==1)
     }
     fn characteristic(&self) -> u64 {
@@ -313,7 +377,16 @@ impl PyDomain {
     ) -> PyResult<PyDomainElement> {
         let a = self.element(value, None)?;
         if let Some(d) = denominator {
-            a.binary(d, '/', false)
+            if self.is_CC() || self.is_ZZ_I() || self.is_QQ_I() {
+                let b=self.element(d,None)?;
+                let precision=self.precision().unwrap_or(53);
+                if !symox::evalf_mp::eval_mp(&a.value.as_expr(),precision).is_some_and(|v|v.is_real()) ||
+                   !symox::evalf_mp::eval_mp(&b.value.as_expr(),precision).is_some_and(|v|v.is_real()) {
+                    return Err(coercion("complex real and imaginary components must be real"));
+                }
+                let e=symox::ops::add2(&a.value.as_expr(),&symox::ops::mul2(&Expr::i(),&b.value.as_expr()));
+                self.inner.convert(&e).map(|value|PyDomainElement{value}).map_err(coercion)
+            } else {a.binary(d, '/', false)}
         } else {
             Ok(a)
         }
@@ -334,6 +407,13 @@ impl PyDomain {
     }
     fn of_type(&self, element: &Bound<'_, PyAny>) -> bool {
         self.__instancecheck__(element)
+    }
+    #[pyo3(signature=(element,limit=true))]
+    fn to_rational(&self,element:&Bound<'_,PyAny>,limit:bool)->PyResult<(num_bigint::BigInt,num_bigint::BigInt)> {
+        let precision=self.precision().ok_or_else(||domain_error("to_rational requires a real or complex numerical field"))?;
+        let a=self.element(element,None)?;
+        let rational=symox::poly::domains::rationalize_real(&a.value.as_expr(),precision,limit).map_err(coercion)?;
+        Ok((rational.n.to_big(),rational.d.to_big()))
     }
     fn __contains__(&self, element: &Bound<'_, PyAny>) -> bool {
         self.element(element, None).is_ok()
@@ -362,6 +442,7 @@ impl PyDomain {
             ExactDomain::Algebraic(_) => Ok(Self {
                 inner: ExactDomain::QQ,
             }),
+            ExactDomain::Gaussian {integral} => Ok(Self{inner:if integral {ExactDomain::ZZ} else {ExactDomain::QQ}}),
             _ => Err(domain_error(
                 "ground domains do not have a coefficient domain",
             )),
@@ -654,6 +735,9 @@ impl PyDomain {
     }
     fn __reduce__(&self, py: Python<'_>) -> PyResult<(PyObject, PyObject)> {
         let (kind, prime, parameters, generator, alias, integral, ring, order) = match &self.inner {
+            ExactDomain::Expression {raw} => (if *raw {"EXRAW"} else {"EX"},None,vec![],None,None,false,false,"lex".to_string()),
+            ExactDomain::Inexact {precision,complex} => (if *complex {"Complex"} else {"Real"},Some(*precision as u64),vec![],None,None,false,false,"lex".to_string()),
+            ExactDomain::Gaussian {integral} => (if *integral {"ZZ_I"} else {"QQ_I"},None,vec![],None,None,false,false,"lex".to_string()),
             ExactDomain::RR => (
                 "RR",
                 None,
@@ -740,7 +824,26 @@ pub struct PyDomainElement {
     pub value: DomainElement,
 }
 impl PyDomainElement {
+    fn gaussian_coordinate(&self,imaginary:bool)->PyResult<Self> {
+        let (x,y)=self.value.gaussian_parts().ok_or_else(||PyTypeError::new_err("coordinates require a Gaussian element"))?;
+        let domain=if matches!(self.value.domain,ExactDomain::Gaussian{integral:true}){ExactDomain::ZZ}else{ExactDomain::QQ};
+        domain.convert(&Expr::num(if imaginary {y}else{x}.to_number())).map(|value|Self{value}).map_err(coercion)
+    }
+    fn numerical_coordinate(&self,imaginary:bool)->PyResult<Self> {
+        if let Some(precision)=self.value.domain.inexact_precision() {
+            let value=symox::evalf_mp::eval_mp(&self.value.as_expr(),precision).ok_or_else(||coercion("cannot evaluate a numerical coordinate"))?;
+            let component=if imaginary{value.im}else{value.re};
+            let domain=if precision==53 {ExactDomain::RR}else{ExactDomain::Inexact{precision,complex:false}};
+            return domain.convert(&symox::evalf_mp::to_expr(symox::evalf_mp::MpComplex::real(component),precision)).map(|value|Self{value}).map_err(coercion);
+        }
+        if self.value.gaussian_parts().is_some(){return self.gaussian_coordinate(imaginary);}
+        if imaginary {self.value.domain.convert(&Expr::zero()).map(|value|Self{value}).map_err(coercion)} else {Ok(self.clone())}
+    }
     fn fraction_part(&self, denominator: bool) -> PyResult<Self> {
+        if matches!(self.value.domain,ExactDomain::Gaussian{..}) {
+            let (n,d)=self.value.gaussian_fraction().map_err(err)?;
+            return Ok(Self{value:if denominator {d}else{n}});
+        }
         let (domain, e) = match (&self.value.domain, &self.value.value) {
             (ExactDomain::Functions { ring: true, .. }, _) => {
                 return if denominator {
@@ -813,7 +916,7 @@ impl PyDomainElement {
     ) -> PyResult<PyObject> {
         if !matches!(
             self.value.domain,
-            ExactDomain::ZZ | ExactDomain::Functions { ring: true, .. }
+            ExactDomain::ZZ | ExactDomain::Functions { ring: true, .. } | ExactDomain::Gaussian {integral:true}
         ) {
             return Ok(other.py().NotImplemented());
         }
@@ -832,27 +935,37 @@ impl PyDomainElement {
         operation: char,
         reverse: bool,
     ) -> PyResult<PyObject> {
+        // Let matrix protocols apply a typed scalar on the left, rather
+        // than trying to convert the whole matrix into one coefficient.
+        if other.getattr("_symox_domainmatrix").is_ok_and(|v|v.is_truthy().unwrap_or(false))
+            || other.getattr("_symox_quotient_element").is_ok_and(|v|v.is_truthy().unwrap_or(false))
+            || other.getattr("is_Matrix").is_ok_and(|v|v.is_truthy().unwrap_or(false))
+            || other.getattr("_symox_sparse").is_ok_and(|v|v.is_truthy().unwrap_or(false))
+            || other.downcast::<crate::matrices::PyMatrix>().is_ok() {
+            return Ok(other.py().NotImplemented());
+        }
         if other
             .extract::<PyRef<'_, PyExpr>>()
             .is_ok_and(|e| !e.e.is_number())
             && matches!(
                 self.value.domain,
-                ExactDomain::ZZ | ExactDomain::QQ | ExactDomain::GF(_)
+                ExactDomain::ZZ | ExactDomain::QQ | ExactDomain::GF(_) | ExactDomain::RR | ExactDomain::Inexact {..} | ExactDomain::Gaussian {..}
             )
         {
             return Ok(other.py().NotImplemented());
         }
-        Ok(self
-            .binary(other, operation, reverse)?
-            .into_pyobject(other.py())?
-            .into_any()
-            .unbind())
+        match self.binary(other, operation, reverse) {
+            Ok(value)=>Ok(value.into_pyobject(other.py())?.into_any().unbind()),
+            Err(error) if error.is_instance_of::<PyTypeError>(other.py())=>Ok(other.py().NotImplemented()),
+            Err(error)=>Err(error),
+        }
     }
     fn binary(&self, other: &Bound<'_, PyAny>, operation: char, reverse: bool) -> PyResult<Self> {
         if let Ok(b) = other.extract::<PyRef<'_, Self>>() {
             if !self.value.compatible_embedding(&b.value)
                 && !(matches!(self.value.value, ElementValue::Rational(_))
                     && matches!(b.value.value, ElementValue::Rational(_)))
+                && !(matches!(self.value.domain,ExactDomain::Gaussian{..})&&matches!(b.value.domain,ExactDomain::Gaussian{..}))
             {
                 return Err(coercion(
                     "incompatible coefficient domains; use convert explicitly",
@@ -874,6 +987,28 @@ impl PyDomainElement {
 }
 #[pymethods]
 impl PyDomainElement {
+    #[getter]
+    fn ex(&self)->PyExpr {self.as_expr()}
+    #[getter]
+    fn x(&self)->PyResult<Self> {self.gaussian_coordinate(false)}
+    #[getter]
+    fn y(&self)->PyResult<Self> {self.gaussian_coordinate(true)}
+    #[getter]
+    fn real(&self)->PyResult<Self> {self.numerical_coordinate(false)}
+    #[getter]
+    fn imag(&self)->PyResult<Self> {self.numerical_coordinate(true)}
+    fn __abs__(&self)->PyResult<Self> {
+        let domain=if self.value.domain.is_complex() {
+            let precision=self.value.domain.inexact_precision().unwrap();
+            if precision==53 {ExactDomain::RR}else{ExactDomain::Inexact{precision,complex:false}}
+        }else{self.value.domain.clone()};
+        domain.convert(&symox::functions::abs(&self.value.as_expr())).map(|value|Self{value}).map_err(coercion)
+    }
+    fn quadrant(&self)->PyResult<usize> {
+        let (x,y)=self.value.gaussian_parts().ok_or_else(||PyTypeError::new_err("quadrants require a Gaussian element"))?;
+        Ok(if !y.is_zero()&&!y.is_negative(){if !x.is_zero()&&!x.is_negative(){0}else{1}}
+            else if y.is_negative(){if x.is_negative(){2}else{3}}else if x.is_negative(){2}else{0})
+    }
     #[getter]
     fn numerator(&self) -> PyResult<Self> {
         self.fraction_part(false)
@@ -922,6 +1057,14 @@ impl PyDomainElement {
         !self.value.is_zero()
     }
     fn __hash__(&self) -> isize {
+        if matches!(self.value.value,ElementValue::Inexact(_)) {
+            if let Some((real,imag))=exact_numeric_parts(&self.value.as_expr()) {
+                let re=crate::python_hash::exact_hash(&symox::number::Number::from_ratio(real)).unwrap();
+                let im=crate::python_hash::exact_hash(&symox::number::Number::from_ratio(imag)).unwrap();
+                let hash=re.wrapping_add(im.wrapping_mul(1_000_003));
+                return if hash== -1 {-2} else {hash};
+            }
+        }
         if let ElementValue::Rational(r) = &self.value.value {
             crate::python_hash::exact_hash(&r.to_number()).unwrap()
         } else {
@@ -930,6 +1073,11 @@ impl PyDomainElement {
     }
     fn __int__(&self) -> PyResult<num_bigint::BigInt> {
         match &self.value.value {
+            ElementValue::Inexact(e) => {
+                let value=symox::evalf_mp::eval_mp(e,self.value.domain.inexact_precision().unwrap()).ok_or_else(||coercion("cannot evaluate this numerical element"))?;
+                if !value.is_real(){return Err(PyTypeError::new_err("cannot convert a nonreal coefficient to int"));}
+                Ok(value.re.to_int_trunc())
+            },
             ElementValue::Rational(r) if r.is_integer() => Ok(r.n.to_big()),
             ElementValue::Finite(r) => {
                 let r = r.to_rat();
@@ -944,15 +1092,21 @@ impl PyDomainElement {
         }
     }
     fn __index__(&self) -> PyResult<num_bigint::BigInt> {
+        if matches!(self.value.value,ElementValue::Inexact(_)){return Err(PyTypeError::new_err("inexact coefficients cannot be used as integer indices"));}
         self.__int__()
     }
     fn __float__(&self) -> PyResult<f64> {
         match &self.value.value {
             ElementValue::Rational(r) => Ok(r.to_f64()),
+            ElementValue::Inexact(e) | ElementValue::Expression(e) => symox::evalf::eval_f64(e).ok_or_else(||PyTypeError::new_err("coefficient has no real numerical value")),
             _ => Err(PyTypeError::new_err(
                 "this exact coefficient has no real float conversion",
             )),
         }
+    }
+    fn __complex__<'py>(&self,py:Python<'py>)->PyResult<Bound<'py,pyo3::types::PyComplex>> {
+        let value=symox::evalf::eval_c64(&self.value.as_expr()).ok_or_else(||PyTypeError::new_err("coefficient has no complex numerical value"))?;
+        Ok(pyo3::types::PyComplex::from_doubles(py,value.re,value.im))
     }
     fn __add__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         self.operation(o, '+', false)
@@ -1034,12 +1188,37 @@ impl PyDomainElement {
             .map(|value| Self { value })
             .map_err(element_error)
     }
-    fn __richcmp__(
+    pub(crate) fn __richcmp__(
         &self,
         o: &Bound<'_, PyAny>,
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<PyObject> {
+        if matches!(self.value.value,ElementValue::Inexact(_)) {
+            if o.downcast::<super::algebraic_number::PyAlgebraicNumber>().is_ok() {
+                return Ok(match op {CompareOp::Eq=>false.into_pyobject(py)?.to_owned().into_any().unbind(),CompareOp::Ne=>true.into_pyobject(py)?.to_owned().into_any().unbind(),_=>py.NotImplemented()});
+            }
+            let other=if let Ok(value)=o.extract::<PyRef<'_,Self>>() {
+                if !matches!(value.value.value,ElementValue::Inexact(_)|ElementValue::Rational(_)) {None} else {Some(value.value.as_expr())}
+            } else {to_expr(o).ok()};
+            if let Some((a,b))=exact_numeric_parts(&self.value.as_expr()).zip(other.as_ref().and_then(exact_numeric_parts)) {
+                let equal=a==b;
+                let answer=match op {
+                    CompareOp::Eq=>equal, CompareOp::Ne=>!equal,
+                    _=>{
+                        if self.value.domain.is_complex()||a.1!=num_rational::BigRational::from_integer(0.into())||b.1!=num_rational::BigRational::from_integer(0.into()) {return Ok(py.NotImplemented());}
+                        match op {CompareOp::Lt=>a.0<b.0,CompareOp::Le=>a.0<=b.0,CompareOp::Gt=>a.0>b.0,CompareOp::Ge=>a.0>=b.0,_=>unreachable!()}
+                    }
+                };
+                return Ok(answer.into_pyobject(py)?.to_owned().into_any().unbind());
+            }
+            return Ok(match op {CompareOp::Eq=>false.into_pyobject(py)?.to_owned().into_any().unbind(),CompareOp::Ne=>true.into_pyobject(py)?.to_owned().into_any().unbind(),_=>py.NotImplemented()});
+        }
+        if let Ok(other)=o.extract::<PyRef<'_,Self>>() {
+            if matches!(self.value.value,ElementValue::Rational(_))&&matches!(other.value.value,ElementValue::Inexact(_)) {
+                return other.__richcmp__(&self.clone().into_pyobject(py)?.into_any(),match op {CompareOp::Lt=>CompareOp::Gt,CompareOp::Le=>CompareOp::Ge,CompareOp::Gt=>CompareOp::Lt,CompareOp::Ge=>CompareOp::Le,other=>other},py);
+            }
+        }
         let d = PyDomain {
             inner: self.value.domain.clone(),
         };
@@ -1114,6 +1293,14 @@ fn GF(modulus: u64, symmetric: bool) -> PyResult<PyDomain> {
         .map_err(domain_error)
 }
 #[pyfunction]
+#[pyo3(signature=(prec=None,dps=None,complex=false))]
+fn _numeric_field(prec:Option<u32>,dps:Option<u32>,complex:bool)->PyResult<PyDomain> {
+    if prec.is_some()&&dps.is_some(){return Err(PyTypeError::new_err("specify precision in bits or decimal digits, not both"));}
+    let precision=if let Some(dps)=dps {crate::decimal_precision(dps)?} else {prec.unwrap_or(53)};
+    if !(2..=40_000).contains(&precision){return Err(PyValueError::new_err("bit precision must lie between 2 and 40000"));}
+    Ok(PyDomain{inner:if precision==53&&!complex {ExactDomain::RR} else {ExactDomain::Inexact{precision,complex}}})
+}
+#[pyfunction]
 fn _restore_domain(
     py: Python<'_>,
     kind: &str,
@@ -1129,6 +1316,11 @@ fn _restore_domain(
         "RR" => ExactDomain::RR,
         "ZZ" => ExactDomain::ZZ,
         "QQ" => ExactDomain::QQ,
+        "EX" => ExactDomain::Expression {raw:false},
+        "EXRAW" => ExactDomain::Expression {raw:true},
+        "ZZ_I" => ExactDomain::Gaussian{integral:true},
+        "QQ_I" => ExactDomain::Gaussian{integral:false},
+        "Real"|"Complex" => ExactDomain::Inexact{precision:prime.and_then(|p|u32::try_from(p).ok()).filter(|p|(2..=40_000).contains(p)).ok_or_else(||domain_error("invalid numerical precision"))?,complex:kind=="Complex"},
         "GF" => ExactDomain::finite(prime.ok_or_else(|| domain_error("missing characteristic"))?)
             .map_err(domain_error)?,
         "RF" => ExactDomain::functions(
@@ -1176,6 +1368,13 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         },
     )?;
     m.add_function(wrap_pyfunction!(GF, m)?)?;
+    m.add("EX",PyDomain{inner:ExactDomain::Expression{raw:false}})?;
+    m.add("EXRAW",PyDomain{inner:ExactDomain::Expression{raw:true}})?;
+    m.add("RR",PyDomain{inner:ExactDomain::RR})?;
+    m.add("CC",PyDomain{inner:ExactDomain::Inexact{precision:53,complex:true}})?;
+    m.add("ZZ_I",PyDomain{inner:ExactDomain::Gaussian{integral:true}})?;
+    m.add("QQ_I",PyDomain{inner:ExactDomain::Gaussian{integral:false}})?;
+    m.add_function(wrap_pyfunction!(_numeric_field,m)?)?;
     m.add_function(wrap_pyfunction!(_restore_domain, m)?)?;
     m.add_function(wrap_pyfunction!(_restore_domain_element, m)?)?;
     m.add(
@@ -1192,6 +1391,18 @@ pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
         return Ok(a.clone());
     }
     let inner = match (a, b) {
+        (ExactDomain::Expression {raw:a},ExactDomain::Expression {raw:b}) => ExactDomain::Expression {raw:*a && *b},
+        (ExactDomain::Expression {raw}, other) | (other, ExactDomain::Expression {raw}) if other.characteristic()==0 => ExactDomain::Expression {raw:*raw},
+        (a,b) if a.inexact_precision().is_some()||b.inexact_precision().is_some() => {
+            if a.characteristic()!=0||b.characteristic()!=0||matches!(a,ExactDomain::Functions{..})||matches!(b,ExactDomain::Functions{..}) {
+                return Err(domain_error("cannot unify numerical fields with finite or symbolic coefficient domains"));
+            }
+            let precision=a.inexact_precision().unwrap_or(0).max(b.inexact_precision().unwrap_or(0));
+            let complex=a.is_complex()||b.is_complex()||matches!(a,ExactDomain::Gaussian{..})||matches!(b,ExactDomain::Gaussian{..})||matches!(a,ExactDomain::Algebraic(k) if symox::assumptions::is_real(&k.generator)!=Some(true))||matches!(b,ExactDomain::Algebraic(k) if symox::assumptions::is_real(&k.generator)!=Some(true));
+            if precision==53&&!complex {ExactDomain::RR} else {ExactDomain::Inexact{precision,complex}}
+        },
+        (ExactDomain::Gaussian{integral:a},ExactDomain::Gaussian{integral:b})=>ExactDomain::Gaussian{integral:*a && *b},
+        (ExactDomain::Gaussian{integral},ExactDomain::ZZ|ExactDomain::QQ)|(ExactDomain::ZZ|ExactDomain::QQ,ExactDomain::Gaussian{integral}) => ExactDomain::Gaussian{integral:*integral&&!matches!(a,ExactDomain::QQ)&&!matches!(b,ExactDomain::QQ)},
         (ExactDomain::ZZ, ExactDomain::QQ) | (ExactDomain::QQ, ExactDomain::ZZ) => ExactDomain::QQ,
         (ExactDomain::Algebraic(k), ExactDomain::ZZ | ExactDomain::QQ)
         | (ExactDomain::ZZ | ExactDomain::QQ, ExactDomain::Algebraic(k)) => {

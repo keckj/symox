@@ -277,8 +277,21 @@ impl BigFloat {
     }
 
     pub fn cmp(&self, o: &BigFloat) -> Ordering {
-        let d = self.sub(o, (bitlen(&self.man).max(bitlen(&o.man)) + 8 + (self.exp - o.exp).unsigned_abs() as i64) as u32);
-        d.sign().cmp(&0)
+        let sign=self.sign().cmp(&o.sign());
+        if sign!=Ordering::Equal { return sign; }
+        if self.is_zero() { return Ordering::Equal; }
+        let magnitude=(i128::from(self.exp)+i128::from(self.man.bits()))
+            .cmp(&(i128::from(o.exp)+i128::from(o.man.bits())));
+        if magnitude!=Ordering::Equal {
+            return if self.is_negative() { magnitude.reverse() } else { magnitude };
+        }
+        if self.exp==o.exp { return self.man.cmp(&o.man); }
+        // Equal leading bit positions bound alignment by the mantissa sizes,
+        // even when the stored exponents differ by billions elsewhere.
+        let low=self.exp.min(o.exp);
+        let left=&self.man << (i128::from(self.exp)-i128::from(low)) as usize;
+        let right=&o.man << (i128::from(o.exp)-i128::from(low)) as usize;
+        left.cmp(&right)
     }
 
     /// Square root (None for negative input).
@@ -812,6 +825,23 @@ mod tests {
 
     fn s(x: &BigFloat, dps: u32) -> String {
         x.to_string_dps(dps, false)
+    }
+
+    #[test]
+    fn comparisons_do_not_allocate_exponent_sized_integers() {
+        let tiny=BigFloat{man:BigInt::one(),exp:-1_000_000_000};
+        let huge=BigFloat{man:BigInt::one(),exp:1_000_000_000};
+        assert_eq!(tiny.cmp(&BigFloat::zero()),Ordering::Greater);
+        assert_eq!(tiny.cmp(&BigFloat::one()),Ordering::Less);
+        assert_eq!(huge.cmp(&BigFloat::one()),Ordering::Greater);
+        let same=BigFloat{man:BigInt::from(2),exp:999_999_999};
+        assert_eq!(huge.cmp(&same),Ordering::Equal);
+        let negative=BigFloat{man:BigInt::from(-1),exp:-1_000_000_000};
+        assert_eq!(negative.cmp(&BigFloat::zero()),Ordering::Less);
+        assert_eq!(negative.cmp(&BigFloat::from_i64(-1)),Ordering::Greater);
+        let number=crate::number::Number::MpFloat(tiny,100);
+        assert_eq!(number.cmp_value(&crate::number::Number::ZERO),Some(Ordering::Greater));
+        assert_eq!(number.cmp_value(&crate::number::Number::ONE),Some(Ordering::Less));
     }
 
     #[test]

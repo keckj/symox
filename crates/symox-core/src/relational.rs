@@ -15,8 +15,29 @@ pub fn rel(op: RelOp, a: &Expr, b: &Expr) -> Expr {
 }
 
 fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
+    use crate::expr::Constant;
+    if a.is_constant(Constant::NaN) || b.is_constant(Constant::NaN) {
+        return match op { RelOp::Eq=>Some(false),RelOp::Ne=>Some(true),_=>None };
+    }
     if a == b {
         return Some(matches!(op, RelOp::Eq | RelOp::Le | RelOp::Ge));
+    }
+    if let (Some(a), Some(b)) = (a.as_number(), b.as_number()) {
+        return Some(cmp_holds(op, a.cmp_value(b)?));
+    }
+    let infinity=|value:&Expr| {
+        if value.is_constant(Constant::Infinity) { Some(1) }
+        else if value.is_constant(Constant::NegInfinity) { Some(-1) }
+        else { None }
+    };
+    match (infinity(a),infinity(b)) {
+        (Some(x),Some(y))=>return Some(cmp_holds(op,x.cmp(&y))),
+        (Some(sign),None)=>return infinite_decision(op,sign,b),
+        (None,Some(sign))=>{
+            let swapped=match op {RelOp::Lt=>RelOp::Gt,RelOp::Le=>RelOp::Ge,RelOp::Gt=>RelOp::Lt,RelOp::Ge=>RelOp::Le,other=>other};
+            return infinite_decision(swapped,sign,a);
+        }
+        (None,None)=>{},
     }
     let d = sub(a, b);
     if !d.is_number() {
@@ -49,6 +70,26 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
                 return Some(op == RelOp::Ne);
             }
         }
+    }
+    None
+}
+
+fn infinite_decision(op:RelOp, sign:i32, other:&Expr)->Option<bool> {
+    use crate::assumptions as assumptions;
+    let real=assumptions::is_real(other)==Some(true);
+    let extended=assumptions::fact(other,"extended_real");
+    let finite=real || assumptions::is_finite(other)==Some(true);
+    if matches!(op,RelOp::Eq|RelOp::Ne) {
+        return (finite || extended==Some(false)).then_some(op==RelOp::Ne);
+    }
+    if real || extended==Some(true) {
+        if finite {return Some(cmp_holds(op,if sign>0{Ordering::Greater}else{Ordering::Less}));}
+        // An extended-real symbol can itself be an infinity.
+        return match (sign>0,op) {
+            (true,RelOp::Ge)|(false,RelOp::Le)=>Some(true),
+            (true,RelOp::Lt)|(false,RelOp::Gt)=>Some(false),
+            _=>None,
+        };
     }
     None
 }

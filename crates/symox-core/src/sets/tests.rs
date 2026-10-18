@@ -68,6 +68,37 @@ fn solving() {
 }
 
 #[test]
+fn inequalities_invert_odd_powers_and_known_sign_linear_parameters() {
+    use crate::ops::mul2;
+    use crate::relational::{le,ge,gt,lt};
+    use crate::symbol::Assumptions;
+    let x=Expr::symbol("x");
+    for (source,expected) in [
+        ("x**3 >= -8","Interval(-2, oo)"),
+        ("x**3 < 27","Interval.open(-oo, 3)"),
+        ("-8 <= x**3","Interval(-2, oo)"),
+        ("(x+1)**5 > -32","Interval.open(-3, oo)"),
+        ("x**3 != 0","Union(Interval.open(-oo, 0), Interval.open(0, oo))"),
+    ] {
+        assert_eq!(solve_univariate_inequality(&p(source),&x,false,&reals()).unwrap().to_string(),expected,"{source}");
+    }
+    let positive=Expr::symbol_with("p",Assumptions::POSITIVE);
+    let negative=Expr::symbol_with("n",Assumptions::NEGATIVE);
+    let upper=crate::ops::div(&Expr::one(),&positive);
+    let lower=crate::ops::div(&Expr::one(),&negative);
+    for (condition,expected) in [
+        (le(&mul2(&positive,&x),&Expr::one()),interval(&Expr::neg_oo(),&upper,true,false)),
+        (lt(&mul2(&positive,&x),&Expr::one()),interval(&Expr::neg_oo(),&upper,true,true)),
+        (ge(&mul2(&negative,&x),&Expr::one()),interval(&Expr::neg_oo(),&lower,true,false)),
+        (gt(&mul2(&negative,&x),&Expr::one()),interval(&Expr::neg_oo(),&lower,true,true)),
+    ] {
+        assert_eq!(solve_univariate_inequality(&condition,&x,false,&reals()).unwrap(),expected);
+    }
+    let unknown=Expr::symbol_with("a",Assumptions::REAL);
+    assert!(solve_univariate_inequality(&le(&mul2(&unknown,&x),&Expr::one()),&x,false,&reals()).is_err());
+}
+
+#[test]
 fn bound_symbols_products_and_periodic_poles() {
     use crate::traverse::free_symbols;
     let (x, y) = (Expr::symbol("x"), Expr::symbol("y"));
@@ -105,4 +136,36 @@ fn periodic_solution_branches_share_a_fresh_binder_per_invocation() {
         assert_ne!(variables[0],binders(&second)[0]);
         assert!(crate::traverse::free_symbols(&first).is_empty());
     }
+}
+
+#[test]
+fn hyperbolic_solvesets_keep_all_complex_periodic_branches() {
+    let x=Expr::symbol("x");
+    for (source,expected) in [
+        ("sinh(x)","Union(ImageSet(Lambda(_n, 2*_n*I*pi), Integers), ImageSet(Lambda(_n, 2*_n*I*pi + I*pi), Integers))"),
+        ("cosh(x)","Union(ImageSet(Lambda(_n, 2*_n*I*pi - I*pi/2), Integers), ImageSet(Lambda(_n, 2*_n*I*pi + I*pi/2), Integers))"),
+        ("tanh(x)","ImageSet(Lambda(_n, _n*I*pi), Integers)"),
+        ("coth(x)","ImageSet(Lambda(_n, _n*I*pi + I*pi/2), Integers)"),
+    ] {
+        let result=solveset(&p(source),&x,&complexes()).unwrap();
+        assert_eq!(result.to_string(),expected);
+        assert!(crate::traverse::free_symbols(&result).is_empty());
+    }
+    assert_eq!(solveset(&p("tanh(x)-1"),&x,&complexes()).unwrap(),empty_set());
+    assert_eq!(solveset(&p("tanh(x)+1"),&x,&complexes()).unwrap(),empty_set());
+    for (source,expected) in [("sinh(2*x+1)","{-1/2}"),("cosh(x)","EmptySet"),
+        ("cosh(x)-1","{0}"),("tanh(x)-2","EmptySet"),("sinh(x)-I","EmptySet"),
+        ("coth(x)","EmptySet")] {
+        assert_eq!(solveset(&p(source),&x,&reals()).unwrap().to_string(),expected);
+    }
+    let unresolved=solveset(&p("sinh(x**2)"),&x,&complexes()).unwrap();
+    assert!(is_op(&unresolved,SetOp::ConditionSet));
+}
+
+#[test]
+fn solveset_generator_substitution_does_not_capture_a_user_parameter() {
+    let x=Expr::symbol("x");
+    let parameter=Expr::symbol("_solveset_t");
+    let result=solveset(&p("sin(x)+_solveset_t"),&x,&reals()).unwrap();
+    assert!(crate::traverse::free_symbols(&result).contains(&parameter));
 }

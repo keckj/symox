@@ -218,6 +218,7 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
         }
         Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => return None,
+        Func::ExpPolar | Func::GenericExpr => return None,
         Func::Special(s) => return crate::special::numeric::apply(*s, a),
     })
 }

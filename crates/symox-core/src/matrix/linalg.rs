@@ -204,7 +204,7 @@ fn poly_det(pm: &PolyMat, scales: &[Int]) -> Expr {
 
 /// The "simplify" used in the pivot search (enough to decide zero-ness of
 /// rational functions).
-fn pivot_simp(e: &Expr) -> Expr {
+pub fn pivot_simp(e: &Expr) -> Expr {
     let x = expand(e);
     if x.is_atom() {
         return x;
@@ -296,68 +296,72 @@ struct Pivot {
 
 fn is_float_or_int(e: &Expr) -> Option<bool> {
     match e.as_number() {
-        Some(Number::Float(_)) => Some(true),
+        Some(Number::Float(_) | Number::MpFloat(..)) => Some(true),
         Some(Number::Int(_)) | Some(Number::BigInt(_)) => Some(false),
         _ => None,
     }
 }
 
-/// SymPy's `_find_reasonable_pivot` with `iszerofunc`.
-fn find_pivot(col: &[Expr], iszero: &dyn Fn(&Expr) -> Option<bool>, simp: bool) -> Pivot {
+fn find_pivot_with(
+    col:&[Expr],
+    iszero:&dyn Fn(&Expr)->MResult<Option<bool>>,
+    simplify:Option<&dyn Fn(&Expr)->MResult<Expr>>,
+    partial_numeric:bool,
+)->MResult<Pivot> {
     // numerical column: partial pivoting
     let kinds: Vec<Option<bool>> = col.iter().map(is_float_or_int).collect();
-    if !col.is_empty() && kinds.iter().all(|k| k.is_some()) && kinds.iter().any(|k| *k == Some(true)) {
-        let abs: Vec<f64> = col.iter().map(|e| e.as_number().unwrap().to_f64().abs()).collect();
+    if partial_numeric && !col.is_empty() && kinds.iter().all(|k| k.is_some()) && kinds.iter().any(|k| *k == Some(true)) {
+        let abs: Vec<Number> = col.iter().map(|e| e.as_number().unwrap().abs()).collect();
         let mut best = 0;
         for (i, v) in abs.iter().enumerate() {
-            if *v > abs[best] {
+            if v.cmp_value(&abs[best])==Some(std::cmp::Ordering::Greater) {
                 best = i;
             }
         }
-        if abs[best] == 0.0 {
+        if iszero(&Expr::num(abs[best].clone()))?==Some(true) || abs[best].is_zero() {
             let newly = col
                 .iter()
                 .enumerate()
                 .filter(|(_, e)| !e.is_zero())
                 .map(|(i, _)| (i, Expr::zero()))
                 .collect();
-            return Pivot { offset: None, value: None, newly };
+            return Ok(Pivot { offset: None, value: None, newly });
         }
-        return Pivot { offset: Some(best), value: Some(col[best].clone()), newly: vec![] };
+        return Ok(Pivot { offset: Some(best), value: Some(col[best].clone()), newly: vec![] });
     }
     let mut newly = Vec::new();
     let mut possible: Vec<Option<bool>> = Vec::with_capacity(col.len());
     for (i, x) in col.iter().enumerate() {
-        let z = iszero(x);
+        let z = iszero(x)?;
         if z == Some(false) {
-            return Pivot { offset: Some(i), value: Some(x.clone()), newly };
+            return Ok(Pivot { offset: Some(i), value: Some(x.clone()), newly });
         }
         possible.push(z);
     }
     if possible.iter().all(|z| *z == Some(true)) {
-        return Pivot { offset: None, value: None, newly };
+        return Ok(Pivot { offset: None, value: None, newly });
     }
-    if simp {
+    if let Some(simplify)=simplify {
         for (i, x) in col.iter().enumerate() {
             if possible[i].is_some() {
                 continue;
             }
-            let s = pivot_simp(x);
-            let z = iszero(&s);
+            let s = simplify(x)?;
+            let z = iszero(&s)?;
             if z.is_some() {
                 newly.push((i, s.clone()));
             }
             if z == Some(false) {
-                return Pivot { offset: Some(i), value: Some(s), newly };
+                return Ok(Pivot { offset: Some(i), value: Some(s), newly });
             }
             possible[i] = z;
         }
         if possible.iter().all(|z| *z == Some(true)) {
-            return Pivot { offset: None, value: None, newly };
+            return Ok(Pivot { offset: None, value: None, newly });
         }
     }
     let i = possible.iter().position(|z| z.is_none()).unwrap();
-    Pivot { offset: Some(i), value: Some(col[i].clone()), newly }
+    Ok(Pivot { offset: Some(i), value: Some(col[i].clone()), newly })
 }
 
 fn iszero_assume(e: &Expr) -> Option<bool> {
@@ -374,18 +378,22 @@ fn iszero_expand(e: &Expr) -> Option<bool> {
 
 /// SymPy's recursive Bareiss with `dotprodsimp` on every entry.
 fn bareiss_expr(m: &Matrix) -> Expr {
-    fn rec(mat: Matrix, cumm: Expr) -> Expr {
+    bareiss_expr_with(m,&|value|Ok(iszero_expand(value))).expect("infallible native zero test")
+}
+
+fn bareiss_expr_with(m:&Matrix,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MResult<Expr> {
+    fn rec(mat: Matrix, cumm: Expr,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>) -> MResult<Expr> {
         let n = mat.rows();
         if n == 0 {
-            return Expr::one();
+            return Ok(Expr::one());
         }
         if n == 1 {
-            return mat.get(0, 0).clone();
+            return Ok(mat.get(0, 0).clone());
         }
         let col: Vec<Expr> = (0..n).map(|i| mat.get(i, 0).clone()).collect();
-        let p = find_pivot(&col, &iszero_expand, false);
+        let p = find_pivot_with(&col,iszero,None,true)?;
         let (Some(pos), Some(pv)) = (p.offset, p.value) else {
-            return Expr::zero();
+            return Ok(Expr::zero());
         };
         let rows: Vec<usize> = (0..n).filter(|&i| i != pos).collect();
         let mut data = Vec::with_capacity((n - 1) * (n - 1));
@@ -404,14 +412,14 @@ fn bareiss_expr(m: &Matrix) -> Expr {
             }
         }
         let sub_m = Matrix::new_unchecked(n - 1, n - 1, data);
-        let d = rec(sub_m, pv);
-        if pos % 2 == 1 {
+        let d = rec(sub_m, pv,iszero)?;
+        Ok(if pos % 2 == 1 {
             mul2(&Expr::minus_one(), &d)
         } else {
             d
-        }
+        })
     }
-    rec(m.clone(), Expr::one())
+    rec(m.clone(), Expr::one(),iszero)
 }
 
 /// SymPy's `_berkowitz_vector` (plain arithmetic, no simplification).
@@ -482,6 +490,21 @@ fn row_reduce(
     zero_above: bool,
     simp: bool,
 ) -> (Matrix, Vec<usize>, Vec<(usize, usize)>) {
+    let simplify=|value:&Expr|Ok(pivot_simp(value));
+    row_reduce_with(m,normalize_last,normalize,zero_above,&|value|Ok(iszero_assume(value)),
+        if simp {Some(&simplify)} else {None}).expect("infallible native row-reduction callbacks")
+}
+
+/// Native row reduction with fallible zero and pivot-simplification callbacks.
+/// Callback errors stop the algorithm before any further pivot or row work.
+pub fn row_reduce_with(
+    m:&Matrix,
+    normalize_last:bool,
+    normalize:bool,
+    zero_above:bool,
+    iszero:&dyn Fn(&Expr)->MResult<Option<bool>>,
+    simplify:Option<&dyn Fn(&Expr)->MResult<Expr>>,
+)->MResult<(Matrix,Vec<usize>,Vec<(usize,usize)>)> {
     let (rows, cols) = m.shape();
     let mut mat: Vec<Expr> = m.data().to_vec();
     let mut pivot_cols = Vec::new();
@@ -489,7 +512,7 @@ fn row_reduce(
     let (mut piv_row, mut piv_col) = (0usize, 0usize);
     while piv_col < cols && piv_row < rows {
         let col: Vec<Expr> = (piv_row..rows).map(|i| mat[i * cols + piv_col].clone()).collect();
-        let p = find_pivot(&col, &iszero_assume, simp);
+        let p = find_pivot_with(&col,iszero,simplify,true)?;
         for (off, v) in p.newly {
             mat[(off + piv_row) * cols + piv_col] = v;
         }
@@ -521,7 +544,7 @@ fn row_reduce(
                 continue;
             }
             let val = mat[row * cols + piv_col].clone();
-            if iszero_assume(&val) == Some(true) {
+            if iszero(&val)? == Some(true) {
                 continue;
             }
             for k in 0..cols {
@@ -542,42 +565,43 @@ fn row_reduce(
             }
         }
     }
-    (Matrix::new_unchecked(rows, cols, mat), pivot_cols, swaps)
+    Ok((Matrix::new_unchecked(rows, cols, mat), pivot_cols, swaps))
 }
 
 /// SymPy's `_LUdecomposition_Simple`: combined LU matrix and row swaps.
 pub(crate) fn lu_simple(m: &Matrix, rankcheck: bool) -> MResult<(Matrix, Vec<(usize, usize)>)> {
+    lu_simple_with(m,rankcheck,&|value|Ok(is_zero_assume(value)),None)
+}
+
+fn lu_rank_error()->MatrixError {
+    MatrixError::Value("Rank of matrix is strictly less than number of rows or columns. Pass keyword argument rankcheck=False to compute the LU decomposition of this matrix.".into())
+}
+
+pub fn lu_simple_with(
+    m:&Matrix,rankcheck:bool,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>,
+    simplify:Option<&dyn Fn(&Expr)->MResult<Expr>>,
+)->MResult<(Matrix,Vec<(usize,usize)>)> {
+    lu_simple_kernel(m,rankcheck,iszero,simplify,&lu_rank_error)
+}
+
+fn lu_simple_kernel(
+    m:&Matrix,rankcheck:bool,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>,
+    simplify:Option<&dyn Fn(&Expr)->MResult<Expr>>,rank_err:&dyn Fn()->MatrixError,
+)->MResult<(Matrix,Vec<(usize,usize)>)> {
     let (rows, cols) = m.shape();
     if rows == 0 || cols == 0 {
         return Ok((Matrix::zeros(rows, cols), vec![]));
     }
-    let rank_err = || {
-        MatrixError::Value(
-            "Rank of matrix is strictly less than number of rows or columns. Pass keyword argument rankcheck=False to compute the LU decomposition of this matrix.".into(),
-        )
-    };
     let mut lu = m.clone();
     let mut swaps = Vec::new();
     let mut pivot_col = 0usize;
     for pivot_row in 0..rows - 1 {
         let mut found: Option<(usize, Expr)> = None;
         while pivot_col != cols {
-            // naive pivot search
-            let mut indet: Option<(usize, Expr)> = None;
-            for r in pivot_row..rows {
-                let v = lu.get(r, pivot_col);
-                match is_zero_assume(v) {
-                    Some(false) => {
-                        found = Some((r - pivot_row, v.clone()));
-                        break;
-                    }
-                    None if indet.is_none() => indet = Some((r - pivot_row, v.clone())),
-                    _ => {}
-                }
-            }
-            if found.is_none() {
-                found = indet;
-            }
+            let column=(pivot_row..rows).map(|row|lu.get(row,pivot_col).clone()).collect::<Vec<_>>();
+            let pivot=find_pivot_with(&column,iszero,simplify,false)?;
+            for (offset,value) in pivot.newly {lu.set(pivot_row+offset,pivot_col,value);}
+            found=pivot.offset.zip(pivot.value);
             if found.is_some() {
                 break;
             }
@@ -626,7 +650,7 @@ pub(crate) fn lu_simple(m: &Matrix, rankcheck: bool) -> MResult<(Matrix, Vec<(us
     }
     if rankcheck {
         let k = rows.min(cols) - 1;
-        if is_zero_assume(lu.get(k, k)) == Some(true) {
+        if iszero(lu.get(k, k))? == Some(true) {
             return Err(rank_err());
         }
     }
@@ -781,6 +805,16 @@ impl Matrix {
     }
 
     pub fn det_method(&self, method: DetMethod) -> MResult<Expr> {
+        self.det_method_kernel(method,None)
+    }
+
+    /// Pivot-based determinants honor a fallible zero predicate. The small
+    /// formulas and division-free/domain algorithms need no pivot predicate.
+    pub fn det_method_with(&self,method:DetMethod,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MResult<Expr> {
+        self.det_method_kernel(method,Some(iszero))
+    }
+
+    fn det_method_kernel(&self,method:DetMethod,iszero:Option<&dyn Fn(&Expr)->MResult<Option<bool>>>)->MResult<Expr> {
         if !self.is_square() {
             return Err(non_square());
         }
@@ -791,14 +825,14 @@ impl Matrix {
             2 | 3 => return Ok(det_small(self)),
             _ => {}
         }
-        if method == DetMethod::DomainGE || RatMat::from_matrix(self).is_some() {
+        if method == DetMethod::DomainGE || iszero.is_none() && RatMat::from_matrix(self).is_some() {
             if let Some(r) = RatMat::from_matrix(self) {
                 // the value is unique; SCC splitting is irrelevant
                 return Ok(Expr::num(r.det().to_number()));
             }
         }
         let comps = scc(self);
-        let dom = if method == DetMethod::Bareiss { Some(matrix_domain(self)) } else { None };
+        let dom = if method == DetMethod::Bareiss && iszero.is_none() { Some(matrix_domain(self)) } else { None };
         let mut dets = Vec::with_capacity(comps.len());
         for b in &comps {
             let blk = self.extract(b, b)?;
@@ -814,7 +848,10 @@ impl Matrix {
                     }
                     match r {
                         Some(r) => r,
-                        None => bareiss_expr(&blk),
+                        None => match iszero {
+                            Some(zero) if method==DetMethod::Bareiss=>bareiss_expr_with(&blk,zero)?,
+                            _=>bareiss_expr(&blk),
+                        },
                     }
                 }
                 DetMethod::Berkowitz => {
@@ -827,9 +864,13 @@ impl Matrix {
                     }
                 }
                 DetMethod::LU => {
-                    let (lu, swaps) = lu_simple(&blk, false)?;
+                    let (lu, swaps) = match iszero {
+                        Some(zero)=>lu_simple_with(&blk,false,zero,None)?,
+                        None=>lu_simple(&blk,false)?,
+                    };
                     let k = lu.rows() - 1;
-                    if is_zero_assume(lu.get(k, k)) == Some(true) {
+                    let bottom=match iszero {Some(zero)=>zero(lu.get(k,k))?,None=>is_zero_assume(lu.get(k,k))};
+                    if bottom == Some(true) {
                         Expr::zero()
                     } else {
                         let mut d = if swaps_parity(&swaps) { Expr::minus_one() } else { Expr::one() };
@@ -882,24 +923,60 @@ impl Matrix {
 
     /// Inverse by Gauss-Jordan elimination of `[M | I]` (SymPy's `GE`).
     pub fn inverse_ge(&self) -> MResult<Matrix> {
+        self.inverse_ge_with(&|value|Ok(is_zero_assume(value)))
+    }
+
+    pub fn inverse_ge_with(&self,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MResult<Matrix> {
         if !self.is_square() {
             return Err(MatrixError::NonSquare("A Matrix must be square to invert.".into()));
         }
         let n = self.rows();
         let big = Matrix::hstack(&[self, &Matrix::eye(n)])?;
-        let (red, _) = big.rref_generic(true);
-        if (0..n).any(|j| is_zero_assume(red.get(j, j)) == Some(true)) {
+        let (red,pivots,_) = row_reduce_with(&big,true,true,true,iszero,Some(&|value|Ok(pivot_simp(value))))?;
+        if pivots.len()<n || pivots[..n]!=(0..n).collect::<Vec<_>>() {
             return Err(non_invertible());
+        }
+        for j in 0..n {
+            if iszero(red.get(j,j))?==Some(true) {return Err(non_invertible());}
         }
         Ok(red.slice(0, n, n, 2 * n))
     }
 
     /// Inverse via the LU decomposition (SymPy's `LU`).
     pub fn inverse_lu(&self) -> MResult<Matrix> {
+        self.inverse_lu_with(&|value|Ok(is_zero_assume(value)))
+    }
+
+    pub fn inverse_lu_with(&self,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MResult<Matrix> {
         if !self.is_square() {
             return Err(MatrixError::NonSquare("A Matrix must be square to invert.".into()));
         }
-        self.lu_solve(&Matrix::eye(self.rows()))
+        self.lu_solve_with(&Matrix::eye(self.rows()),iszero)
+    }
+
+    /// Adjugate/decomposition methods first verify the determinant. Only an
+    /// undecidable determinant needs row reduction and the supplied predicate.
+    pub fn verify_invertible_with(&self,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MResult<Expr> {
+        use super::auxiliary::{expr_equals,Equality};
+        if !self.is_square() {return Err(MatrixError::NonSquare("A Matrix must be square to invert.".into()));}
+        let determinant=self.det_method(DetMethod::Berkowitz)?;
+        if is_zero_assume(&determinant)==Some(true) {return Err(non_invertible());}
+        match expr_equals(&determinant,&Expr::zero()) {
+            Equality::True=>return Err(non_invertible()),
+            Equality::False=>{},
+            Equality::Unknown(_)=>{
+                let (reduced,_)=self.rref_generic(true);
+                for j in 0..self.rows() {
+                    if iszero(reduced.get(j,j))?==Some(true) {return Err(non_invertible());}
+                }
+            },
+        }
+        Ok(determinant)
+    }
+
+    pub fn inverse_adj_with(&self,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MResult<Matrix> {
+        let determinant=self.verify_invertible_with(iszero)?;
+        Ok(self.adjugate()?.applyfunc(|value|div(value,&determinant)))
     }
 
     /// Inverse via the adjugate (SymPy's `ADJ`).
@@ -1076,7 +1153,14 @@ impl Matrix {
     }
 
     pub fn lu_decomposition_with_rankcheck(&self, rankcheck: bool) -> MResult<(Matrix, Matrix, Vec<(usize, usize)>)> {
-        let (combined, p) = lu_simple(self, rankcheck)?;
+        self.lu_decomposition_with(rankcheck,&|value|Ok(is_zero_assume(value)),None)
+    }
+
+    pub fn lu_decomposition_with(
+        &self,rankcheck:bool,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>,
+        simplify:Option<&dyn Fn(&Expr)->MResult<Expr>>,
+    )->MResult<(Matrix,Matrix,Vec<(usize,usize)>)> {
+        let (combined, p) = lu_simple_with(self,rankcheck,iszero,simplify)?;
         let (r, c) = combined.shape();
         let l = Matrix::from_fn(r, r, |i, j| {
             if i < j {
@@ -1095,6 +1179,10 @@ impl Matrix {
 
     /// Solve `self * x = rhs` by LU decomposition (SymPy's `LUsolve`).
     pub fn lu_solve(&self, rhs: &Matrix) -> MResult<Matrix> {
+        self.lu_solve_with(rhs,&|value|Ok(is_zero_assume(value)))
+    }
+
+    pub fn lu_solve_with(&self,rhs:&Matrix,iszero:&dyn Fn(&Expr)->MResult<Option<bool>>)->MResult<Matrix> {
         if rhs.rows() != self.rows() {
             return Err(MatrixError::Shape(
                 "``M`` and ``rhs`` must have the same number of rows.".into(),
@@ -1104,7 +1192,7 @@ impl Matrix {
         if m < n {
             return Err(MatrixError::NotImplemented("Underdetermined systems not supported.".into()));
         }
-        let (a, perm) = lu_simple(self, true).map_err(|_| non_invertible())?;
+        let (a, perm) = lu_simple_kernel(self,true,iszero,None,&non_invertible)?;
         let mut b = rhs.permute_rows_swaps(&perm);
         let bc = b.cols();
         for i in 0..m {
@@ -1119,7 +1207,7 @@ impl Matrix {
         if m > n {
             for i in n..m {
                 for j in 0..bc {
-                    if is_zero_assume(b.get(i, j)) != Some(true) {
+                    if iszero(b.get(i, j))? != Some(true) {
                         return Err(MatrixError::Value("The system is inconsistent.".into()));
                     }
                 }
@@ -1376,3 +1464,106 @@ fn poly_inverse(pm: &PolyMat, scales: &[MPoly]) -> MResult<Matrix> {
 
 #[allow(dead_code)]
 fn ring_check<R: Ring>(_: &R) {}
+
+#[cfg(test)]
+mod row_callback_tests {
+    use super::*;
+
+    #[test]
+    fn custom_zero_tests_can_remove_small_numeric_pivots() {
+        let matrix=Matrix::from_rows(vec![vec![Expr::float(1e-12),Expr::one()],vec![Expr::zero(),Expr::one()]]).unwrap();
+        let zero=|value:&Expr|Ok(crate::evalf::eval_f64(value).map(|value|value.abs()<1e-9));
+        let (reduced,pivots,_)=row_reduce_with(&matrix,true,true,true,&zero,None).unwrap();
+        assert_eq!(pivots,vec![1]);
+        assert_eq!(reduced,Matrix::from_rows(vec![vec![Expr::zero(),Expr::one()],vec![Expr::zero(),Expr::zero()]]).unwrap());
+    }
+
+    #[test]
+    fn custom_simplification_resolves_unknown_pivots() {
+        let x=Expr::symbol("x");
+        let matrix=Matrix::from_rows(vec![vec![x.clone(),Expr::one()],vec![Expr::zero(),Expr::one()]]).unwrap();
+        let simplify=|value:&Expr|Ok(if *value==x {Expr::zero()} else {value.clone()});
+        let (reduced,pivots,_)=row_reduce_with(&matrix,true,true,true,&|value|Ok(iszero_assume(value)),Some(&simplify)).unwrap();
+        assert_eq!(pivots,vec![1]);assert!(reduced.get(0,0).is_zero());
+        let calls=std::cell::Cell::new(0);
+        let failure=|_:&Expr| {calls.set(calls.get()+1);Err(MatrixError::Value("stop".into()))};
+        assert!(row_reduce_with(&matrix,true,true,true,&failure,None).is_err());
+        assert_eq!(calls.get(),1);
+    }
+
+    #[test]
+    fn high_precision_partial_pivoting_does_not_underflow_to_machine_zero() {
+        let precision=100;
+        let tiny=Expr::num(Number::mp_float(crate::bigfloat::BigFloat::from_decimal("1e-1000",precision).unwrap(),precision));
+        let larger=mul2(&Expr::int(2),&tiny);
+        let matrix=Matrix::from_rows(vec![vec![tiny,Expr::one()],vec![larger.clone(),Expr::one()]]).unwrap();
+        let (reduced,pivots,swaps)=row_reduce_with(&matrix,true,false,false,&|value|Ok(iszero_assume(value)),None).unwrap();
+        assert_eq!(pivots,vec![0,1]);assert_eq!(swaps,vec![(0,1)]);
+        assert_eq!(reduced.get(0,0),&larger);
+    }
+
+    #[test]
+    fn declared_zero_symbols_and_their_powers_do_not_become_pivots() {
+        let z=Expr::symbol_with("z",crate::Assumptions::ZERO);
+        let w=Expr::symbol_with("w",crate::Assumptions::ZERO);
+        assert_eq!(Matrix::column(vec![z.clone()]).rank(),0);
+        for zero in [z.clone(),z.powi(2),add(&[z.clone(),w])] {
+            let matrix=Matrix::from_rows(vec![vec![zero,Expr::zero()],vec![Expr::zero(),Expr::one()]]).unwrap();
+            assert_eq!(matrix.rank(),1);assert_eq!(matrix.rref().1,vec![1]);
+        }
+        let matrix=Matrix::from_rows(vec![vec![add(&[z,Expr::one()]),Expr::zero()],vec![Expr::zero(),Expr::one()]]).unwrap();
+        assert_eq!(matrix.rank(),2);
+    }
+
+    #[test]
+    fn lu_callbacks_control_pivots_and_propagate_failures() {
+        let matrix=Matrix::from_rows(vec![vec![Expr::float(1e-12),Expr::one()],vec![Expr::zero(),Expr::one()]]).unwrap();
+        let zero=|value:&Expr|Ok(crate::evalf::eval_f64(value).map(|value|value.abs()<1e-9));
+        assert!(lu_simple_with(&matrix,true,&zero,None).is_err());
+        let (left,right,swaps)=matrix.lu_decomposition_with(false,&zero,None).unwrap();
+        assert!(swaps.is_empty());
+        for residual in left.matmul(&right).unwrap().sub(&matrix).unwrap().data() {assert_eq!(zero(residual).unwrap(),Some(true));}
+        let failure=|_:&Expr|Err(MatrixError::Other("callback stopped".into()));
+        assert_eq!(matrix.lu_solve_with(&Matrix::column(vec![Expr::one(),Expr::one()]),&failure),Err(MatrixError::Other("callback stopped".into())));
+    }
+
+    #[test]
+    fn lu_simplification_never_selects_a_proven_zero_pivot() {
+        let x=Expr::symbol("x");
+        let zero_expression=sub(&add(&[crate::functions::sin(&x).powi(2),crate::functions::cos(&x).powi(2)]),&Expr::one());
+        let matrix=Matrix::from_rows(vec![vec![zero_expression,Expr::one()],vec![Expr::zero(),Expr::one()]]).unwrap();
+        let simplify=|value:&Expr|Ok(crate::simp::trigsimp(value));
+        let (left,right,_)=matrix.lu_decomposition_with(false,&|value|Ok(is_zero_assume(value)),Some(&simplify)).unwrap();
+        for residual in left.matmul(&right).unwrap().sub(&matrix).unwrap().data() {assert!(crate::simp::trigsimp(residual).is_zero());}
+        assert!(right.get(0,0).is_zero());
+    }
+
+    #[test]
+    fn determinant_callbacks_override_numeric_domain_pivots() {
+        let matrix=Matrix::from_rows(vec![
+            vec![Expr::float(1e-12),Expr::one(),Expr::zero(),Expr::one()],
+            vec![Expr::float(2e-12),Expr::one(),Expr::int(2),Expr::one()],
+            vec![Expr::float(3e-12),Expr::zero(),Expr::one(),Expr::int(2)],
+            vec![Expr::float(4e-12),Expr::int(2),Expr::one(),Expr::one()],
+        ]).unwrap();
+        let zero=|value:&Expr|Ok(crate::evalf::eval_f64(value).map(|value|value.abs()<1e-9));
+        for method in [DetMethod::Bareiss,DetMethod::LU] {
+            assert!(matrix.det_method_with(method,&zero).unwrap().is_zero());
+            let failure=|_:&Expr|Err(MatrixError::Other("stop determinant".into()));
+            assert_eq!(matrix.det_method_with(method,&failure),Err(MatrixError::Other("stop determinant".into())));
+        }
+    }
+
+    #[test]
+    fn inverse_callbacks_reject_singular_pivots_and_preserve_errors() {
+        let matrix=Matrix::from_rows(vec![vec![Expr::float(1e-12),Expr::one()],vec![Expr::zero(),Expr::one()]]).unwrap();
+        let zero=|value:&Expr|Ok(crate::evalf::eval_f64(value).map(|value|value.abs()<1e-9));
+        assert!(matches!(matrix.inverse_ge_with(&zero),Err(MatrixError::NonInvertible(_))));
+        assert!(matches!(matrix.inverse_lu_with(&zero),Err(MatrixError::NonInvertible(_))));
+        let failure=|_:&Expr|Err(MatrixError::Other("stop inverse".into()));
+        assert_eq!(matrix.inverse_ge_with(&failure),Err(MatrixError::Other("stop inverse".into())));
+        assert_eq!(matrix.inverse_lu_with(&failure),Err(MatrixError::Other("stop inverse".into())));
+        let z=Expr::symbol_with("z",crate::Assumptions::ZERO);
+        assert!(Matrix::column(vec![z]).inverse_adj_with(&|value|Ok(is_zero_assume(value))).is_err());
+    }
+}

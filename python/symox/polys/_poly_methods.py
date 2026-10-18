@@ -1316,6 +1316,8 @@ def install():
     }
     for name, fn in methods.items():
         setattr(Poly, name, fn)
+    from .numberfields.galoisgroups import _poly_galois_group
+    Poly.galois_group = _poly_galois_group
     for name, fn in {"from_dict": from_dict, "from_list": from_list,
                      "from_poly": from_poly, "from_expr": from_expr,
                      "new": new, "class_key": class_key, "fromiter": fromiter}.items():

@@ -52,6 +52,7 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
 /// An exact declared fact, or a conservative native proof for a scalar value.
 /// Additional Symbol facts never fall back to numerical refinement.
 pub fn fact(e:&Expr,name:&str)->Option<bool>{
+    if name=="polar" && e.is_func(&Func::ExpPolar){return Some(true);}
     if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
     // Float zero has a known integer value, but SymPy deliberately keeps its
     // rationality/irrationality queries unknown, as for other approximate values.

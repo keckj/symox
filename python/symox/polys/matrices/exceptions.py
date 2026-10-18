@@ -23,3 +23,15 @@ class DMValueError(DMError):
 
 class DMRankError(DMError):
     pass
+
+
+class DMNotAField(DMDomainError):
+    pass
+
+
+class DMNonSquareMatrixError(DMShapeError):
+    pass
+
+
+class DMNonInvertibleMatrixError(DMError):
+    pass

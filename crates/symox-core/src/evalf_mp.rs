@@ -207,8 +207,19 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
         Kind::Piecewise(pairs) => crate::relational::piecewise(
             pairs.iter().map(|(value, condition)| (evalf(value, prec), condition.clone())).collect(),
         ),
+        Kind::Func(Func::Set(crate::sets::SetOp::Lambda),arguments) if arguments.len()==2 =>
+            crate::sets::lambda(&arguments[0],&evalf(&arguments[1],prec)),
         _ => e.clone(),
     }
+}
+
+/// Remove absolutely small real/imaginary numerical components by binary
+/// magnitude. Partial symbolic coefficients retain ordinary evalf semantics.
+pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i64)->Expr {
+    let Some(mut value)=eval_mp(e,prec) else {return evalf(e,prec)};
+    if !value.re.is_zero() && value.re.mag()<cutoff {value.re=BigFloat::zero();}
+    if !value.im.is_zero() && value.im.mag()<cutoff {value.im=BigFloat::zero();}
+    to_expr(value,prec)
 }
 
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
@@ -552,6 +563,17 @@ mod tests {
     use crate::bigfloat::dps_to_prec;
     use crate::prelude::*;
 
+    #[test]
+    fn chopping_uses_native_component_magnitudes_without_machine_underflow() {
+        let precision=dps_to_prec(80);
+        let tiny=Expr::num(Number::mp_float(BigFloat::from_decimal("1e-1000",precision).unwrap(),precision));
+        assert!(evalf_chop(&tiny,precision,-(precision as i64)).is_zero());
+        let expression=add(&[Expr::one(),mul(&[Expr::i(),tiny.clone()])]);
+        assert_eq!(evalf_chop(&expression,precision,-(precision as i64)),super::evalf(&Expr::one(),precision));
+        let symbolic=add(&[Expr::symbol("x"),tiny]);
+        assert_eq!(evalf_chop(&symbolic,precision,-(precision as i64)),super::evalf(&symbolic,precision));
+    }
+
     fn s(e: &Expr, dps: u32) -> String {
         let v = eval_mp(e, dps_to_prec(dps)).unwrap();
         v.re.to_string_dps(dps, false)
@@ -596,6 +618,20 @@ mod tests {
         assert!(crate::printer::to_str(&evaluated).contains("3.141592653589793238462643383279502884197"));
         let raw = Expr::from_kind(Kind::Func(Func::Undefined("unknown_numeric".into()), vec![Expr::pi()]));
         assert_eq!(super::evalf(&raw, p), raw);
+    }
+
+    #[test]
+    fn lambda_evalf_changes_its_body_and_preserves_bound_signature() {
+        let x=Expr::symbol("x");let y=Expr::symbol("y");
+        let signature=crate::special::tuple(vec![x.clone(),y.clone()]);
+        let body=add(&[crate::ops::mul2(&Expr::rational(1,3),&x),crate::ops::mul2(&Expr::rational(1,7),&y)]);
+        let original=crate::sets::lambda(&signature,&body);
+        let precision=dps_to_prec(60);
+        let result=super::evalf(&original,precision);
+        let (variables,converted)=crate::sets::lambda_parts(&result).unwrap();
+        assert_eq!(variables,vec![x,y]);
+        assert_eq!(max_precision(&converted),Some(precision));
+        assert_eq!(crate::traverse::free_symbols(&result),Vec::<Expr>::new());
     }
 
     #[test]

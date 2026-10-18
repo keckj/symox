@@ -103,7 +103,7 @@ def test_simultaneous_symbol_substitution_preserves_rhs_and_poles():
     assert (x/y).subs({x:0,y:0},simultaneous=True)==sm.nan
     assert (x+y).subs([(x,y),(y,2)],simultaneous=True)==y+2
     assert (x+y).subs([(x,y),(y,2)])==4
-    with pytest.raises(NotImplementedError): (x*x).subs({x*x:y},simultaneous=True)
+    assert (x*x).subs({x*x:y},simultaneous=True) == y
     with pytest.raises(NotImplementedError): x.subs({x:y},unrecognized=True)
 
 

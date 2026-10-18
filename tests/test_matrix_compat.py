@@ -188,15 +188,6 @@ def test_norm_preserves_symbol_assumptions():
 
 
 @pytest.mark.parametrize("operation", [
-    lambda m: m.det(iszerofunc=lambda x: True),
-    lambda m: m.inv(iszerofunc=lambda x: True),
-    lambda m: m.rref(iszerofunc=lambda x: True),
-    lambda m: m.rank(iszerofunc=lambda x: True),
-    lambda m: m.nullspace(iszerofunc=lambda x: True),
-    lambda m: m.LUdecomposition(simpfunc=lambda x: x),
-    lambda m: m.charpoly(simplify=lambda x: 0),
-    lambda m: m.subs({sx.Symbol("x"): 0}, simultaneous=True),
-    lambda m: m.evalf(50, chop=True),
     lambda m: m.evalf(50, maxn=200),
     lambda m: m.eigenvals(chop=True),
     lambda m: m.solve(sx.eye(2), method="unknown"),

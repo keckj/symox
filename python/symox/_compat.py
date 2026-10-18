@@ -17,6 +17,9 @@ def _matrix_operand(value):
 
 
 class _ExprType(type):
+    def fromiter(cls, args, **assumptions):
+        return cls(*tuple(args), **assumptions)
+
     def __instancecheck__(cls, value):
         return isinstance(value, _core.Expr) and bool(cls._matches(value))
 
@@ -80,6 +83,13 @@ class Dummy(Symbol):
 
     def __new__(cls, name=None, dummy_index=None, **assumptions):
         return _core.Dummy(name, dummy_index, **assumptions)
+
+
+class Wild(Symbol):
+    _matches = staticmethod(lambda e: e.is_Wild)
+
+    def __new__(cls, name, exclude=(), properties=(), **assumptions):
+        return _core.Wild(name,exclude,properties,**assumptions)
 
 
 class Add(metaclass=_ExprType):
@@ -200,6 +210,9 @@ class _SingletonRegistry:
         return _core.sympify(value)
 
     def __getattr__(self, name):
+        if name == 'EmptySequence':
+            from . import EmptySequence
+            return EmptySequence
         if name == "IdentityFunction":
             from . import IdentityFunction
             return IdentityFunction()
@@ -226,15 +239,33 @@ S = _SingletonRegistry()
 
 
 def count_ops(expr, visual=False):
-    if visual:
-        raise NotImplementedError("visual operation counts are not supported")
-    return _core.sympify(expr).count_ops()
+    from ._operation_counts import count_ops as implementation
+    return implementation(expr,visual=visual)
 
 
 def default_sort_key(expr, order=None):
-    if order not in (None, 'lex'):
-        raise NotImplementedError('Sort keys currently support the default lexicographic order only')
-    return _core._default_sort_key(expr)
+    from . import Set
+    if isinstance(expr,Set):return expr._e.sort_key(order=order)
+    if isinstance(expr,_core.AlgebraicNumber):
+        return expr.sort_key(order=order)
+    if isinstance(expr,(_core.Expr,_core._MatrixExpr)):
+        return expr.sort_key(order=order)
+    if callable(getattr(expr,'sort_key',None)):
+        return expr.sort_key(order=order)
+    if not isinstance(expr,str):
+        try:
+            children=expr.items() if isinstance(expr,dict) else iter(expr)
+        except TypeError:
+            try:
+                return _core.sympify(expr).sort_key(order=order)
+            except (TypeError,ValueError):
+                pass
+        else:
+            args=[default_sort_key(child,order) for child in children]
+            if isinstance(expr,(dict,set,frozenset)):
+                args.sort()
+            return ((10,0,type(expr).__name__),(len(args),tuple(args)),S.One.sort_key(),S.One)
+    return ((0,0,type(expr).__name__),(1,(str(expr),)),S.One.sort_key(),S.One)
 
 
 def _restore_atom(name, value):

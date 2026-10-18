@@ -20,7 +20,7 @@ __all__ = [
     'sturm', 'count_roots', 'intervals', 'refine_root', 'ground_roots', 'gff_list',
     'poly_from_expr', 'parallel_poly_from_expr', 'degree_list', 'total_degree',
     'trunc', 'monic', 'content', 'gff', 'sqf_norm', 'all_roots', 'real_roots',
-    'nth_power_roots_poly', 'LC', 'LM', 'LT',
+    'nth_power_roots_poly', 'LC', 'LM', 'LT', 'decompose',
 ]
 
 _FLAGS = ('auto', 'frac', 'formal', 'polys', 'include', 'all', 'gen', 'series', 'symbols', 'method')
@@ -230,6 +230,14 @@ def degree_list(f, *gens, **args):
     return F.degree_list()
 
 
+def decompose(f, *gens, **args):
+    """Exact univariate functional decomposition in the selected coefficient domain."""
+    allowed_flags(args, ['polys'])
+    F, opt = _poly_or_fail('decompose', f, gens, args)
+    result = F.decompose()
+    return result if opt.polys else [part.as_expr() for part in result]
+
+
 def total_degree(f, *gens):
     """Total degree of ``f`` in ``gens`` (all of its generators by default)."""
     from .. import Integer, sympify
@@ -255,12 +263,7 @@ def monic(f, *gens, **args):
     """Divide all coefficients of ``f`` by its leading coefficient."""
     allowed_flags(args, ['auto', 'polys'])
     F, opt = _poly_or_fail('monic', f, gens, args)
-    if not opt.auto:
-        K = F.domain
-        if not K.is_Field and F.LC() not in (1, -1) and any(not (c/F.LC()).is_integer for c in F.coeffs()):
-            from .polyerrors import ExactQuotientFailed
-            raise ExactQuotientFailed("%s does not divide %s in %s" % (F.LC(), F.coeffs()[-1], K))
-    result = F.monic()
+    result = F.monic(auto=opt.auto)
     return result if opt.polys else result.as_expr()
 
 

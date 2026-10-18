@@ -83,8 +83,10 @@ def test_complex_scalar_guards_and_invalid_variables():
     assert sx.MatrixConjugate(x*A).diff(x)==A.conjugate()
     for expression in [sx.Adjoint(z*A),sx.MatrixConjugate(z*A),(z*A).adjoint(),(z*A).conjugate()]:
         with pytest.raises(NotImplementedError,match='real'): expression.diff(z)
-    for variable in [A,A[0,0]]:
-        with pytest.raises(NotImplementedError): (z*A).diff(variable)
+    jacobian=(z*A).diff(A)
+    assert jacobian.shape==(2,2,2,2)
+    assert jacobian[0,1,0,1]==z and jacobian[0,1,1,0]==0
+    with pytest.raises(NotImplementedError): (z*A).diff(A[0,0])
     with pytest.raises(ValueError): (z*A).diff(2)
     with pytest.raises(NotImplementedError): A.diff()
     with pytest.raises(ValueError): (x*A).diff()

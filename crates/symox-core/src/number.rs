@@ -405,17 +405,35 @@ impl Number {
 
     /// Compare numerical values (`None` only for NaN).
     pub fn cmp_value(&self, o: &Number) -> Option<Ordering> {
-        if matches!(self, MpFloat(..)) || matches!(o, MpFloat(..)) {
-            let exact = |n: &Number| match n {
-                Float(f) if f.is_finite() => Some(crate::bigfloat::BigFloat::from_f64(*f).to_ratio_exact()),
-                MpFloat(value, _) => Some(value.to_ratio_exact()),
-                _ => n.to_ratio(),
+        if let (Float(a), Float(b)) = (self, o) { return a.partial_cmp(b); }
+        if let Float(value) = self {
+            if value.is_nan() { return None; }
+            if value.is_infinite() { return Some(if value.is_sign_positive() { Ordering::Greater } else { Ordering::Less }); }
+        }
+        if let Float(value) = o {
+            if value.is_nan() { return None; }
+            if value.is_infinite() { return Some(if value.is_sign_positive() { Ordering::Less } else { Ordering::Greater }); }
+        }
+        if matches!(self, Float(_) | MpFloat(..)) || matches!(o, Float(_) | MpFloat(..)) {
+            use crate::bigfloat::BigFloat;
+            let binary = |n: &Number| match n {
+                Float(value) => Some(BigFloat::from_f64(*value)),
+                MpFloat(value, _) => Some(value.clone()),
+                _ => None,
             };
-            return Some(exact(self)?.cmp(&exact(o)?));
+            let compare = |value:BigFloat, rational:BigRational| {
+                let scaled=BigFloat{man:&value.man*rational.denom(),exp:value.exp};
+                scaled.cmp(&BigFloat::from_int(rational.numer()))
+            };
+            return Some(match (binary(self),binary(o)) {
+                (Some(a),Some(b))=>a.cmp(&b),
+                (Some(a),None)=>compare(a,o.to_ratio()?),
+                (None,Some(b))=>compare(b,self.to_ratio()?).reverse(),
+                (None,None)=>unreachable!(),
+            });
         }
         match (self, o) {
             (Int(a), Int(b)) => Some(a.cmp(b)),
-            (Float(_), _) | (_, Float(_)) => self.to_f64().partial_cmp(&o.to_f64()),
             _ => Some(self.to_ratio().unwrap().cmp(&o.to_ratio().unwrap())),
         }
     }

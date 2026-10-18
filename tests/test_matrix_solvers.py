@@ -136,8 +136,8 @@ def test_structured_error_classes():
         sx.eye(2).pinv(method='invalid')
     with pytest.raises(NotImplementedError):
         sx.eye(2).solve_least_squares(sx.ones(2, 1), method='invalid')
-    with pytest.raises(NotImplementedError):
-        sx.eye(2).rank_decomposition(iszerofunc=lambda x: x == 0)
+    left,right=sx.eye(2).rank_decomposition(iszerofunc=lambda x:x==0)
+    assert left==right==sx.eye(2)
 
 
 @pytest.mark.parametrize("operation", [
