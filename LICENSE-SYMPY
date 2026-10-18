@@ -1,3 +1,9 @@
+The Ore-operator, holonomic equation and coordinate-vector interfaces in
+python/symox/holonomic and python/symox/vector follow SymPy 1.14 conventions,
+including the Euler-operator special-function equations, orientation matrices,
+orthogonal-coordinate calculus and geometric integration conventions. The
+implementations use native Symox exact coefficients, derivatives and matrices.
+
 The Python-style parser transformations and the DOT, expression-tree, table and
 TeX preview helpers in python/symox/parsing and python/symox/printing adapt
 SymPy 1.14 algorithms to native expression constructors and printers.

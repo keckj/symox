@@ -40,6 +40,7 @@ println!("{}", diff(&e, &x));
 - Dense and sparse arrays, indexed tensors, Einstein contractions and finite Jacobians.
 - Boolean algebra, SAT, symbolic sets and assumptions.
 - Exact Euclidean geometry and scalar/linear-system ODE and first-order PDE interfaces.
+- Holonomic differential equations, coefficient recurrences and coordinate vector calculus.
 - Numerical compilation and code generation for NumPy, C/C++, Rust, Fortran,
   CUDA, PyTorch, JAX, Slang and SYCL.
 
@@ -109,8 +110,8 @@ The top-level export percentage covers only the package root.
 | Real analysis exports | 9 / 9 | 0 | 100.00% |
 | Singularities and monotonicity exports | 7 / 7 | 0 | 100.00% |
 | Integral transforms exports | 26 / 26 | 0 | 100.00% |
-| Holonomic functions exports | 0 / 9 | 9 | 0.00% |
-| Coordinate vector calculus exports | 0 / 43 | 43 | 0.00% |
+| Holonomic functions exports | 9 / 9 | 0 | 100.00% |
+| Coordinate vector calculus exports | 43 / 43 | 0 | 100.00% |
 
 </details>
 
@@ -205,6 +206,8 @@ at the package root can still be missing from its compatible module path.
 Rows overlap and must not be added together.
 Geometry and differential-equation support is scoped in the
 [geometry](docs/geometry.md) and [ODE/PDE](docs/differential-equations.md) guides.
+The [holonomic](docs/holonomic.md) and [coordinate vector](docs/coordinate-vector.md)
+guides describe the new differential operators, series and geometric integrals.
 In particular, `galois_group` currently supports degrees up to four;
 `DomainMatrix` covers implemented exact and numerical domains. See the
 [polynomial](docs/polynomials.md) and [matrix](docs/matrices.md) guides for details.
@@ -239,6 +242,8 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Polynomials and linear systems](docs/polynomials.md) | Domains, factorization, Gröbner bases, roots and Galois groups |
 | [Solution checks and linear isolation](docs/solver-checks.md) | Equation validation, pole exclusions and square LU systems |
 | [Differential equations](docs/differential-equations.md) | ODE classification, exact equations, linear systems, PDE characteristics and separation |
+| [Holonomic functions](docs/holonomic.md) | Ore operators, D-finite closure, Taylor recurrences and numeric continuation |
+| [Coordinate vector calculus](docs/coordinate-vector.md) | Cartesian/curvilinear frames, dyadics, field operators, potentials and geometric integrals |
 | [Geometry](docs/geometry.md) | Exact points, linear entities, conics, polygons, planes and intersections |
 | [Real inequalities](docs/inequalities.md) | Polynomial sign charts, rational systems and nested absolute values |
 | [Coefficient domains](docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |

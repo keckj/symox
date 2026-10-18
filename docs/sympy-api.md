@@ -6,7 +6,7 @@ Measured on 2026-10-18 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 
-All 311 resulting module paths are listed below. 198 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
+All 311 resulting module paths are listed below. 196 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
 
 Names come from `__all__`, or public callables defined in the module when `__all__` is absent, plus documented functions, classes and data actually bound in the installed reference module. Imported helper names are excluded unless explicitly exported or documented. Constants absent from these sources and individual class methods are outside this module export measure.
 
@@ -237,7 +237,7 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.holonomic](https://docs.sympy.org/latest/modules/holonomic/index.html#module-sympy.holonomic) | 0 / 9 | 9 | 0.00% | missing_module |
+| [sympy.holonomic](https://docs.sympy.org/latest/modules/holonomic/index.html#module-sympy.holonomic) | 9 / 9 | 0 | 100.00% | available |
 
 </details>
 
@@ -611,7 +611,7 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.vector](https://docs.sympy.org/latest/modules/vector/index.html#module-sympy.vector) | 0 / 43 | 43 | 0.00% | missing_module |
+| [sympy.vector](https://docs.sympy.org/latest/modules/vector/index.html#module-sympy.vector) | 43 / 43 | 0 | 100.00% | available |
 
 </details>
 
