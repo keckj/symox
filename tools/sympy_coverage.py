@@ -14,6 +14,7 @@ import argparse
 from collections import Counter
 from datetime import datetime, timezone
 import inspect
+import importlib
 import json
 from pathlib import Path
 import runpy
@@ -21,6 +22,82 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Public import surfaces, including modules that symox has not started yet.
+# A missing module has zero available names; it is never skipped.
+MODULES = (
+    ('Geometry', 'geometry', 'geometry'),
+    ('Ordinary differential equations', 'solvers.ode', 'solvers.ode'),
+    ('Partial differential equations', 'solvers.pde', 'solvers.pde'),
+    ('Equation solvers', 'solvers.solvers', 'solvers.solvers'),
+    ('Inequalities', 'solvers.inequalities', 'solvers.inequalities'),
+    ('Arrays', 'tensor.array', 'tensor.array'),
+    ('Indexed tensor algebra', 'tensor.tensor', 'tensor.tensor'),
+    ('Series and limits', 'series', 'series'),
+    ('Sequences', 'series.sequences', 'series.sequences'),
+    ('Real analysis', 'calculus.util', 'calculus.util'),
+    ('Singularities and monotonicity', 'calculus.singularities', 'calculus.singularities'),
+    ('Coefficient domains', 'polys.domains', 'polys.domains'),
+    ('Polynomial ring constructors', 'polys.rings', 'polys.rings'),
+    ('Fraction field constructors', 'polys.fields', 'polys.fields'),
+    ('Number fields', 'polys.numberfields', 'polys.numberfields'),
+    ('Combinatorics', 'combinatorics', 'combinatorics'),
+    ('Symbolic sets', 'sets', None),
+    ('Simplification', 'simplify', None),
+    ('Integral transforms', 'integrals.transforms', '_transforms'),
+    ('Special functions: gamma', 'functions.special.gamma_functions', None),
+    ('Special functions: hypergeometric', 'functions.special.hyper', None),
+    ('Special functions: Bessel', 'functions.special.bessel', None),
+    ('Special functions: Mathieu', 'functions.special.mathieu_functions', None),
+    ('Complex functions and branches', 'functions.elementary.complexes', None),
+    ('Number theory', 'ntheory', 'ntheory'),
+    ('Iterable utilities', 'utilities.iterables', 'utilities.iterables'),
+    ('Printing and code generation', 'printing', 'printing'),
+    ('Plotting', 'plotting', 'plotting'),
+)
+
+
+def exports(module):
+    if hasattr(module, '__all__'):
+        return module.__all__
+    # Do not count imported helpers such as Symbol, exp or simplify as
+    # APIs of a submodule with no explicit export list.
+    return [name for name in dir(module) if not name.startswith('_')
+            and callable(getattr(module, name))
+            and getattr(getattr(module, name), '__module__', '').startswith(module.__name__)]
+
+
+def module_surfaces(sx):
+    results = {}
+    for label, reference_name, actual_name in MODULES:
+        reference = importlib.import_module('sympy.'+reference_name)
+        actual = sx
+        if actual_name is not None:
+            qualified = 'symox.'+actual_name
+            try:
+                actual = importlib.import_module(qualified)
+            except ModuleNotFoundError as error:
+                if error.name != qualified and not qualified.startswith(error.name+'.'):
+                    raise
+                actual = None
+        result = surface(reference, actual, exports(reference))
+        result.update(reference_module=reference.__name__,
+                      actual_module='symox' if actual_name is None else 'symox.'+actual_name)
+        results[label+' exports'] = result
+    return results
+
+
+def update_readme(report):
+    path = ROOT/'README.md'
+    contents = path.read_text()
+    start = contents.index('| Surface |')
+    end = contents.index('\nThese percentages', start)
+    rows = ['| Surface | Present | Missing | API presence |', '|---|---:|---:|---:|']
+    for label, result in report['surfaces'].items():
+        percent = result['presence_percent']
+        rows.append(f"| {label} | {result['present']} / {result['total']} | "
+                    f"{len(result['missing'])} | {percent:.2f}% |")
+    path.write_text(contents[:start]+'\n'.join(rows)+'\n'+contents[end:])
 
 
 def surface(reference, actual, names):
@@ -89,6 +166,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--corpus', action='store_true', help='also run exact differential expression checks')
     parser.add_argument('--json', type=Path, help='write the complete report, including missing API names')
+    parser.add_argument('--update-readme', action='store_true', help='refresh every measured surface in the README table')
     options = parser.parse_args()
     import sympy as sp
     import symox as sx
@@ -116,6 +194,7 @@ def main():
     }
     for name, (reference, actual) in samples.items():
         report['surfaces'][name] = surface(reference, actual, methods(reference))
+    report['surfaces'].update(module_surfaces(sx))
     if options.corpus:
         report['corpus'] = corpus_report(sp, sx)
     for name, values in report['surfaces'].items():
@@ -127,6 +206,8 @@ def main():
     print('These are separate indicators, not a percentage of global SymPy parity.')
     if options.json:
         options.json.write_text(json.dumps(report, indent=2, sort_keys=True)+'\n')
+    if options.update_readme:
+        update_readme(report)
 
 
 if __name__ == '__main__':

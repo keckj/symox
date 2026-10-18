@@ -48,18 +48,50 @@ Supported cases and remaining limitations are detailed in the guides below.
 
 Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
-| Surface | Present | API presence |
-|---|---:|---:|
-| SymPy top-level exports | 711 / 921 | 77.20% |
-| `Poly` methods | 154 / 154 | 100.00% |
-| `Matrix` methods | 178 / 178 | 100.00% |
-| `Expr` methods | 97 / 97 | 100.00% |
-| Rational domain methods | 87 / 87 | 100.00% |
-| `MatrixExpr` methods | 105 / 105 | 100.00% |
-| `AlgebraicNumber` methods | 103 / 103 | 100.00% |
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
+| SymPy top-level exports | 711 / 921 | 210 | 77.20% |
+| Expr methods | 97 / 97 | 0 | 100.00% |
+| Poly methods | 154 / 154 | 0 | 100.00% |
+| Matrix methods | 178 / 178 | 0 | 100.00% |
+| MatrixExpr methods | 105 / 105 | 0 | 100.00% |
+| AlgebraicNumber methods | 103 / 103 | 0 | 100.00% |
+| Rational domain methods | 87 / 87 | 0 | 100.00% |
+| Geometry exports | 0 / 30 | 30 | 0.00% |
+| Ordinary differential equations exports | 0 / 11 | 11 | 0.00% |
+| Partial differential equations exports | 0 / 9 | 9 | 0.00% |
+| Equation solvers exports | 7 / 15 | 8 | 46.67% |
+| Inequalities exports | 8 / 8 | 0 | 100.00% |
+| Arrays exports | 13 / 16 | 3 | 81.25% |
+| Indexed tensor algebra exports | 0 / 35 | 35 | 0.00% |
+| Series and limits exports | 9 / 18 | 9 | 50.00% |
+| Sequences exports | 7 / 10 | 3 | 70.00% |
+| Real analysis exports | 8 / 9 | 1 | 88.89% |
+| Singularities and monotonicity exports | 6 / 7 | 1 | 85.71% |
+| Coefficient domains exports | 20 / 32 | 12 | 62.50% |
+| Polynomial ring constructors exports | 0 / 4 | 4 | 0.00% |
+| Fraction field constructors exports | 0 / 4 | 4 | 0.00% |
+| Number fields exports | 5 / 10 | 5 | 50.00% |
+| Combinatorics exports | 2 / 33 | 31 | 6.06% |
+| Symbolic sets exports | 19 / 26 | 7 | 73.08% |
+| Simplification exports | 28 / 32 | 4 | 87.50% |
+| Integral transforms exports | 25 / 26 | 1 | 96.15% |
+| Special functions: gamma exports | 7 / 9 | 2 | 77.78% |
+| Special functions: hypergeometric exports | 1 / 17 | 16 | 5.88% |
+| Special functions: Bessel exports | 12 / 21 | 9 | 57.14% |
+| Special functions: Mathieu exports | 0 / 5 | 5 | 0.00% |
+| Complex functions and branches exports | 8 / 14 | 6 | 57.14% |
+| Number theory exports | 73 / 73 | 0 | 100.00% |
+| Iterable utilities exports | 16 / 59 | 43 | 27.12% |
+| Printing and code generation exports | 6 / 41 | 35 | 14.63% |
+| Plotting exports | 0 / 11 | 11 | 0.00% |
 
 These percentages count available names. They do not verify signatures,
 accepted domains or behavior, and there is no combined global parity score.
+Module rows measure the corresponding import surface (the complete mapping is
+in `tools/sympy_coverage.py`), including absent modules at 0%. A name available
+at the package root can still be missing from its compatible module path.
+Rows overlap and must not be added together.
 In particular, `galois_group` currently supports degrees up to four;
 `DomainMatrix` covers implemented exact and numerical domains. See the
 [polynomial](docs/polynomials.md) and [matrix](docs/matrices.md) guides for details.
@@ -67,7 +99,7 @@ In particular, `galois_group` currently supports degrees up to four;
 Reproduce the measurement, including missing names and an optional differential corpus:
 
 ```bash
-python tools/sympy_coverage.py --corpus --json /tmp/symox-coverage.json
+python tools/sympy_coverage.py --corpus --json /tmp/symox-coverage.json --update-readme
 ```
 
 ## Building

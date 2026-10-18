@@ -28,6 +28,8 @@ python benches/bench_vs_sympy.py
 
 ```bash
 python tools/sympy_coverage.py --corpus --json /tmp/symox-coverage.json
+# Refresh the README table from the same measurement:
+python tools/sympy_coverage.py --update-readme
 ```
 
 The report counts available SymPy top-level names and methods on representative
@@ -36,6 +38,13 @@ simplification. It records missing names and unresolved differences. API
 presence does not verify signatures, accepted domains or behavior, and the
 corpus targets implemented features. These indicators do not form a global
 percentage of SymPy parity.
+
+The table also includes incomplete and absent modules. Module names use their
+reference `__all__` when available; otherwise they count public callables
+defined in that reference module. The JSON records both compared import paths
+and every missing name. Missing module paths count as zero even if some of
+their names are available at the symox package root. Module rows overlap with
+each other and with the top-level row; no aggregate is calculated.
 
 ## Differential fuzzing
 
