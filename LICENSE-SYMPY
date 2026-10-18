@@ -1,3 +1,7 @@
+The Python-style parser transformations and the DOT, expression-tree, table and
+TeX preview helpers in python/symox/parsing and python/symox/printing adapt
+SymPy 1.14 algorithms to native expression constructors and printers.
+
 The polar conversion traversal in python/symox/_polar.py follows the SymPy 1.14
 polarify/unpolarify conventions, with native polar evaluation in special/polar.rs.
 

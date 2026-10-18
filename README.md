@@ -61,7 +61,7 @@ The top-level export percentage covers only the package root.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| SymPy top-level exports | 803 / 921 | 118 | 87.19% |
+| SymPy top-level exports | 833 / 921 | 88 | 90.45% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
 
 </details>
@@ -189,9 +189,9 @@ The top-level export percentage covers only the package root.
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
 | Iterable utilities exports | 59 / 59 | 0 | 100.00% |
-| Printing and code generation exports | 6 / 41 | 35 | 14.63% |
+| Printing and code generation exports | 41 / 41 | 0 | 100.00% |
 | Plotting exports | 11 / 11 | 0 | 100.00% |
-| Expression parsing exports | 0 / 21 | 21 | 0.00% |
+| Expression parsing exports | 21 / 21 | 0 | 100.00% |
 
 </details>
 
@@ -256,6 +256,8 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Arrays and tensors](docs/arrays.md) | Multidimensional storage, tensor operations and finite matrix derivatives |
 | [Indexed tensor algebra](docs/indexed-tensors.md) | Typed indices, slot symmetries, metric contractions, components and matching |
 | [Utilities](docs/utilities.md) | Sorting, traversal, containers, graph ordering and memoization |
+| [Expression parsing](docs/expression-parsing.md) | Token transformations, implicit notation, namespaces and held expressions |
+| [Printing](docs/printing.md) | Code targets, MathML, Graphviz, tables, TeX previews and SMT-LIB |
 | [Code generation](docs/codegen/overview.md) | Target overview and execution routes |
 | [CUDA](docs/codegen/cuda.md) | NVRTC compilation and native execution |
 | [PyTorch](docs/codegen/pytorch.md) | Source export, autograd and optional compilation |

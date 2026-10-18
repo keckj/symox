@@ -187,7 +187,7 @@ class Relational(metaclass=_ExprType):
                 op = _REL_ALIASES[rop if rop is not None else "=="]
             except (KeyError, TypeError):
                 raise ValueError("Invalid relational operator symbol: %r" % (rop,)) from None
-        return _core.Rel(op, lhs, rhs)
+        return _core.Rel(op, lhs, rhs) if kwargs.get("evaluate", True) else _core.Rel(op, lhs, rhs, evaluate=False)
 
 
 Rel = Relational
@@ -195,7 +195,7 @@ Rel = Relational
 
 def _relation_class(name, doc):
     def __new__(cls, lhs, rhs=0, **kwargs):
-        return _core.Rel(_REL_OPS[name], lhs, rhs)
+        return _core.Rel(_REL_OPS[name], lhs, rhs) if kwargs.get("evaluate", True) else _core.Rel(_REL_OPS[name], lhs, rhs, evaluate=False)
     return _ExprType(name, (Relational,), {
         "__new__": __new__, "__doc__": doc, "__module__": __name__,
         "_matches": staticmethod(lambda e: e.class_name == name),

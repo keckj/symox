@@ -6,7 +6,7 @@ Measured on 2026-10-18 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 
-All 311 resulting module paths are listed below. 218 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
+All 311 resulting module paths are listed below. 198 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
 
 Names come from `__all__`, or public callables defined in the module when `__all__` is absent, plus documented functions, classes and data actually bound in the installed reference module. Imported helper names are excluded unless explicitly exported or documented. Constants absent from these sources and individual class methods are outside this module export measure.
 
@@ -29,7 +29,7 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy](https://docs.sympy.org/latest/index.html#module-sympy) | 803 / 921 | 118 | 87.19% | available |
+| [sympy](https://docs.sympy.org/latest/index.html#module-sympy) | 833 / 921 | 88 | 90.45% | available |
 
 </details>
 
@@ -327,9 +327,9 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.parsing](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing) | 0 / 1 | 1 | 0.00% | missing_module |
+| [sympy.parsing](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing) | 1 / 1 | 0 | 100.00% | available |
 | [sympy.parsing.sym_expr](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing.sym_expr) | 0 / 1 | 1 | 0.00% | missing_module |
-| `sympy.parsing.sympy_parser` | 0 / 21 | 21 | 0.00% | missing_module |
+| `sympy.parsing.sympy_parser` | 21 / 21 | 0 | 100.00% | available |
 
 </details>
 
@@ -450,37 +450,37 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| `sympy.printing` | 6 / 41 | 35 | 14.63% | available |
+| `sympy.printing` | 41 / 41 | 0 | 100.00% | available |
 | [sympy.printing.aesaracode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.aesaracode) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.printing.c](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.c) | 0 / 10 | 10 | 0.00% | missing_module |
+| [sympy.printing.c](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.c) | 1 / 10 | 9 | 10.00% | available |
 | [sympy.printing.codeprinter](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.codeprinter) | 0 / 11 | 11 | 0.00% | missing_module |
 | [sympy.printing.conventions](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.conventions) | 0 / 2 | 2 | 0.00% | missing_module |
 | [sympy.printing.cxx](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.cxx) | 3 / 3 | 0 | 100.00% | available |
-| [sympy.printing.fortran](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.fortran) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.printing.gtk](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.gtk) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.printing.jscode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.jscode) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.printing.julia](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.julia) | 0 / 5 | 5 | 0.00% | missing_module |
+| [sympy.printing.fortran](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.fortran) | 1 / 3 | 2 | 33.33% | available |
+| [sympy.printing.gtk](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.gtk) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.printing.jscode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.jscode) | 2 / 4 | 2 | 50.00% | available |
+| [sympy.printing.julia](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.julia) | 2 / 5 | 3 | 40.00% | available |
 | [sympy.printing.lambdarepr](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.lambdarepr) | 0 / 6 | 6 | 0.00% | missing_module |
-| [sympy.printing.latex](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.latex) | 0 / 7 | 7 | 0.00% | missing_module |
-| [sympy.printing.maple](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.maple) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.printing.mathematica](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathematica) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.printing.mathml](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathml) | 0 / 6 | 6 | 0.00% | missing_module |
-| [sympy.printing.octave](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.octave) | 0 / 5 | 5 | 0.00% | missing_module |
+| [sympy.printing.latex](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.latex) | 4 / 7 | 3 | 57.14% | available |
+| [sympy.printing.maple](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.maple) | 2 / 3 | 1 | 66.67% | available |
+| [sympy.printing.mathematica](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathematica) | 2 / 3 | 1 | 66.67% | available |
+| [sympy.printing.mathml](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathml) | 5 / 6 | 1 | 83.33% | available |
+| [sympy.printing.octave](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.octave) | 2 / 5 | 3 | 40.00% | available |
 | [sympy.printing.precedence](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.precedence) | 2 / 12 | 10 | 16.67% | available |
 | [sympy.printing.pretty](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty) | 3 / 6 | 3 | 50.00% | available |
-| [sympy.printing.pretty.pretty](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.pretty) | 4 / 19 | 15 | 21.05% | available |
+| [sympy.printing.pretty.pretty](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.pretty) | 6 / 19 | 13 | 31.58% | available |
 | [sympy.printing.pretty.pretty_symbology](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.pretty_symbology) | 0 / 25 | 25 | 0.00% | missing_module |
 | [sympy.printing.pretty.stringpict](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.stringpict) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.printing.preview](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.preview) | 0 / 3 | 3 | 0.00% | missing_module |
+| [sympy.printing.preview](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.preview) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.printing.printer](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.printer) | 1 / 3 | 2 | 33.33% | available |
-| [sympy.printing.pycode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pycode) | 0 / 7 | 7 | 0.00% | missing_module |
-| [sympy.printing.python](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.python) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.printing.rcode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.rcode) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.printing.repr](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.repr) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.printing.rust](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.rust) | 0 / 5 | 5 | 0.00% | missing_module |
-| [sympy.printing.smtlib](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.smtlib) | 0 / 2 | 2 | 0.00% | missing_module |
+| [sympy.printing.pycode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pycode) | 1 / 7 | 6 | 14.29% | available |
+| [sympy.printing.python](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.python) | 2 / 3 | 1 | 66.67% | available |
+| [sympy.printing.rcode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.rcode) | 2 / 4 | 2 | 50.00% | available |
+| [sympy.printing.repr](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.repr) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.printing.rust](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.rust) | 0 / 5 | 5 | 0.00% | available |
+| [sympy.printing.smtlib](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.smtlib) | 2 / 2 | 0 | 100.00% | available |
 | [sympy.printing.str](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.str) | 2 / 4 | 2 | 50.00% | available |
-| [sympy.printing.tree](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.tree) | 0 / 4 | 4 | 0.00% | missing_module |
+| [sympy.printing.tree](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.tree) | 4 / 4 | 0 | 100.00% | available |
 
 </details>
 

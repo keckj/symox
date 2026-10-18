@@ -85,7 +85,7 @@ def _matrix_part(name, M):
 
 
 def _make(name):
-    def f(*args):
+    def f(*args, evaluate=True):
         if name in ('Min','Max'):
             converted=[]
             for arg in args:
@@ -104,7 +104,7 @@ def _make(name):
                 and not isinstance(args[0], _core.Expr) and hasattr(args[0], "applyfunc")
                 and hasattr(args[0], "as_real_imag")):
             return _matrix_part(name, args[0])
-        return _core._apply(name, *args)
+        return _core._apply(name, *args) if evaluate else _core._apply(name, *args, evaluate=False)
 
     f.__name__ = name
     f.__qualname__ = name
@@ -150,7 +150,7 @@ class Function:
     def nargs(self):
         return Naturals0 if self._nargs is None else FiniteSet(*self._nargs)
 
-    def __call__(self, *args):
+    def __call__(self, *args, evaluate=True):
         return _core._undefined_function(self.name, args, self._assumptions, self._nargs)
 
     def __repr__(self):
@@ -1950,5 +1950,15 @@ from ._special_extensions import (
 from . import _special_extensions
 _special_extensions.install()
 from . import functions  # noqa: E402
+
+from .parsing.sympy_parser import parse_expr  # noqa: E402
+from .printing import (  # noqa: E402
+    TableForm, dotprint, glsl_code, jscode, julia_code, latex, maple_code,
+    mathematica_code, mathml, multiline_latex, octave_code, pager_print,
+    pprint, pretty, pretty_print, pprint_try_use_unicode, pprint_use_unicode,
+    preview, print_fcode, print_glsl, print_gtk, print_jscode, print_latex,
+    print_maple_code, print_mathml, print_python, print_rcode, print_tree,
+    python, rcode, smtlib_code, sstr, sstrrepr,
+)
 
 __all__ = [n for n in dir() if not n.startswith("_")]

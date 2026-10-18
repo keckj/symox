@@ -3,10 +3,15 @@
 from ..printer import Printer
 
 
+_use_unicode=True
+
+
 class PrettyPrinter(Printer):
     def doprint(self, expr):
         from symox import _core
-        return _core.pretty(expr, **self._settings)
+        settings=dict(self._settings)
+        if settings.get("use_unicode") is None:settings["use_unicode"]=_use_unicode
+        return _core.pretty(expr, **settings)
 
 
 def pretty(expr, **settings):
@@ -18,3 +23,19 @@ def pretty_print(expr, **settings):
 
 
 pprint = pretty_print
+
+
+def pprint_use_unicode(flag=None):
+    global _use_unicode
+    previous=_use_unicode
+    if flag is not None:_use_unicode=bool(flag)
+    return previous
+
+
+def pprint_try_use_unicode():
+    import sys
+    encoding=getattr(sys.stdout,'encoding',None)
+    if encoding:
+        try:'α√∫'.encode(encoding)
+        except (UnicodeError,LookupError):return
+        pprint_use_unicode(True)

@@ -2494,8 +2494,8 @@ fn floor_div(p: &Expr, q: &Expr) -> PyResult<Expr> {
 
 /// Apply a known function by name (used by the Python layer).
 #[pyfunction]
-#[pyo3(name = "_apply", signature = (name, *args))]
-fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
+#[pyo3(name = "_apply", signature = (name, *args, evaluate=true))]
+fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<PyExpr> {
     if name=="Lambda"{
         if args.len()!=2{return Err(PyTypeError::new_err("Lambda requires a signature and an expression"));}
         return logic::py_lambda(&args.get_item(0)?,&args.get_item(1)?);
@@ -2507,7 +2507,7 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
         return calculus::_calculus(name,&args.get_item(0)?,&limits);
     }
     let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
-    if (name == "Mod" || name == "Rem") && v.len() == 2 {
+    if evaluate && (name == "Mod" || name == "Rem") && v.len() == 2 {
         return checked_mod(name, &v[0], &v[1]).map(wrap);
     }
     match Func::from_name(name) {
@@ -2527,15 +2527,15 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
                     return Err(PyTypeError::new_err(format!("{name} takes exactly {n} argument(s)")));
                 }
             }
-            Ok(wrap(fx::func(f, v)))
+            Ok(wrap(if evaluate { fx::func(f, v) } else { Expr::from_unevaluated_kind(Kind::Func(f, v)) }))
         }
         None => Ok(wrap(fx::undefined(name, v))),
     }
 }
 
 #[pyfunction]
-#[pyo3(name = "Rel")]
-fn py_rel(op: &str, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+#[pyo3(name = "Rel", signature = (op, a, b, evaluate=true))]
+fn py_rel(op: &str, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>, evaluate: bool) -> PyResult<PyExpr> {
     let op = match op {
         "==" => RelOp::Eq,
         "!=" => RelOp::Ne,
@@ -2545,7 +2545,8 @@ fn py_rel(op: &str, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<PyEx
         ">=" => RelOp::Ge,
         _ => return Err(PyValueError::new_err(format!("unknown relational {op}"))),
     };
-    Ok(wrap(relational::rel(op, &to_expr(a)?, &to_expr(b)?)))
+    let (a,b)=(to_expr(a)?,to_expr(b)?);
+    Ok(wrap(if evaluate { relational::rel(op,&a,&b) } else { Expr::from_unevaluated_kind(Kind::Rel(op,a,b)) }))
 }
 
 #[pyfunction]
