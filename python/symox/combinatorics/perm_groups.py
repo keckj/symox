@@ -125,3 +125,8 @@ class PermutationGroup:
             generator=next(g for g in elems if not tail.contains(g))
             sequence.append(generator);orders.append(group.order()//tail.order());series.append(tail);group=tail
         return PolycyclicGroup(sequence,series,orders)
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox.combinatorics.coset', 'Coset')
+_export(globals(), 'symox.combinatorics.named_groups', 'SymmetricPermutationGroup')

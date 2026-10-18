@@ -315,3 +315,7 @@ class DomainMatrix(DomainMatrixAlgorithms):
         if not convert:
             numerator = numerator.convert_to(self.domain)
         return DomainScalar(denominator, ring), numerator
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox.polys.matrices', 'DM')

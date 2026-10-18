@@ -18,3 +18,7 @@ class StrPrinter(Printer):
 
 def sstr(expr, **settings):
     return StrPrinter(settings).doprint(expr)
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox.printing', 'sstrrepr')

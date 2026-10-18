@@ -335,3 +335,7 @@ class RegularPolygon(Polygon):
         if zero(x-y) and x.is_positive is True:
             return RegularPolygon(self.center.scale(x, y, pt=pt), self.radius*x, self.n, self.rotation)
         return Polygon(*(vertex.scale(x, y, pt=pt) for vertex in self.vertices))
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox.geometry.util', 'deg rad')

@@ -39,3 +39,7 @@ def pprint_try_use_unicode():
         try:'α√∫'.encode(encoding)
         except (UnicodeError,LookupError):return
         pprint_use_unicode(True)
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox.printing', 'pager_print')

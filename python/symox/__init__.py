@@ -2023,3 +2023,10 @@ for _context_name in ('sqrt','cbrt','log'):
 ln = log
 
 __all__ = [n for n in dir() if not n.startswith("_")]
+
+# Preload the compatible package before restoring the public callable. A later
+# import of symox.simplify must not overwrite the scalar simplification API.
+from importlib import import_module as _import_api_module
+_simplify_callable = simplify
+_import_api_module('.simplify', __name__)
+simplify = _simplify_callable

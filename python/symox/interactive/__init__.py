@@ -56,3 +56,7 @@ def init_session(ipython=None,pretty_print=True,order=None,use_unicode=None,use_
 
 
 __all__ = ['init_printing','init_session']
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox', 'interactive_traversal')

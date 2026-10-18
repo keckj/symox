@@ -667,3 +667,7 @@ divisor_sigma = _head('divisor_sigma')
 udivisor_sigma = _head('udivisor_sigma')
 primenu = _head('primenu')
 primeomega = _head('primeomega')
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox.ntheory.digits', 'digits')

@@ -228,3 +228,7 @@ def checkodesol(ode, sol, func=None, order='auto', solve_for_func=True):
 
 
 __all__ = ['classify_ode', 'dsolve', 'checkodesol', 'allhints']
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox', 'homogeneous_order')

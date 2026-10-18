@@ -17,3 +17,7 @@ def ask(proposition, assumptions=True, context=global_assumptions):
     """Return True, False or None when the proposition is undecidable."""
     from .._public_tools import ask as public_ask
     return public_ask(proposition, assumptions, context)
+
+# Compatible imports reuse the existing native objects.
+from symox._api_exports import export as _export
+_export(globals(), 'symox._public_tools', 'register_handler remove_handler')
