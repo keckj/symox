@@ -1,3 +1,9 @@
+The polar conversion traversal in python/symox/_polar.py follows the SymPy 1.14
+polarify/unpolarify conventions, with native polar evaluation in special/polar.rs.
+
+The combinatorial iteration algorithms in python/symox/utilities/_iterable_extensions.py
+and _enumerative.py adapt SymPy 1.14 utilities to native Symox containers.
+
 The assumptions predicates, generated facts, query pipeline, handlers and
 refinement rules in crates/symox-core/src/ask follow SymPy 1.14.
 

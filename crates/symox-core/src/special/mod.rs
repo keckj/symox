@@ -25,6 +25,7 @@ use crate::number::Number;
 
 mod bessel;
 mod advanced;
+pub(crate) mod polar;
 pub(crate) mod combinatorial;
 pub mod diff;
 pub mod elementary;
@@ -234,6 +235,9 @@ special_fns! {
     InverseHankelTransform => "InverseHankelTransform" [4] false;
     MellinTransform => "MellinTransform" [3] false;
     InverseMellinTransform => "InverseMellinTransform" [5] false;
+    PolarLift => "polar_lift" [1] false;
+    PeriodicArgument => "periodic_argument" [2] false;
+    PrincipalBranch => "principal_branch" [2] false;
 }
 
 impl SpecialFn {
@@ -278,6 +282,7 @@ pub fn apply(s: SpecialFn, args: Vec<Expr>) -> Expr {
 fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
     use SpecialFn::*;
     match s {
+        PolarLift | PeriodicArgument | PrincipalBranch => polar::eval(s, a),
         Factorial | Factorial2 | Subfactorial | Binomial | RisingFactorial | FallingFactorial
         | Harmonic | Bernoulli | Euler | Catalan | Fibonacci | Lucas | Bell | Partition => {
             combinatorial::eval(s, a)

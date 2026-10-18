@@ -69,3 +69,44 @@ caches. Callers should cache immutable results.
 
 `memoize_property` computes a property once per instance and stores its value in
 `_<property_name>`. This also supports slotted classes that declare that slot.
+
+## Combinatorial enumeration and infinite iterators
+
+The complete measured iterable surface is exposed by
+`symox.utilities.iterables` and `symox.utilities`. Multiset combinations,
+permutations, partitions and derangements enumerate distinct results in a
+canonical order. Integer `partitions` yields multiplicity dictionaries;
+`ordered_partitions` yields nondecreasing lists, not compositions.
+`binary_partitions` restricts parts to powers of two. Several enumeration
+algorithms reuse their yielded lists or dictionaries: copy a result before
+retaining it while advancing the iterator.
+
+`generate_bell` enumerates permutations in adjacent-transposition order;
+`generate_involutions` selects self-inverse permutations. `necklaces`,
+`bracelets`, `generate_oriented_forest`, `kbins`, `permute_signs` and
+`signed_permutations` provide finite combinatorial generators. These outputs
+can grow exponentially or factorially; the functions do not impose a size cap.
+
+`random_derangement` uses a bounded randomized group rotation, preserving the
+input multiset. If a derangement is impossible it raises `ValueError`, or with
+`strict=False` minimizes the number of fixed points. Sampling is not uniform
+over all possible derangements. A custom `choice` function controls its
+randomness without introducing a rejection loop.
+
+`iproduct` fairly enumerates Cartesian products of finite or infinite iterators.
+It caches prefixes of its inputs, so infinite inputs can require unbounded
+memory. An empty factor immediately gives an empty product.
+`roundrobin` interleaves inputs until all are exhausted.
+
+`strongly_connected_components` returns directed graph components in reverse
+topological order; `connected_components` treats edges as undirected. Both use
+explicit stacks rather than recursive graph traversal.
+
+`ibin`, `multiset`, `common_prefix`, `common_suffix`, rotations, `least_rotation`,
+`minlex`, `runs`, `sequence_partitions`, `sequence_partitions_empty`, `uniq`,
+`iterable`, `is_sequence` and `is_palindromic` handle ordinary containers.
+`NotIterable` marks objects that should be excluded by `iterable`.
+`numbered_symbols` generates native symbols, honoring assumptions and excluded
+symbols; `filter_symbols` removes excluded or already seen values. `capture`
+collects standard output and restores it if the callable raises.
+`interactive_traversal` lets a terminal user select expression subtrees.

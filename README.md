@@ -51,7 +51,7 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| SymPy top-level exports | 791 / 921 | 130 | 85.88% |
+| SymPy top-level exports | 803 / 921 | 118 | 87.19% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
 | Poly methods | 154 / 154 | 0 | 100.00% |
 | Matrix methods | 178 / 178 | 0 | 100.00% |
@@ -81,11 +81,11 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 | Special functions: hypergeometric exports | 17 / 17 | 0 | 100.00% |
 | Special functions: Bessel exports | 21 / 21 | 0 | 100.00% |
 | Special functions: Mathieu exports | 5 / 5 | 0 | 100.00% |
-| Complex functions and branches exports | 8 / 14 | 6 | 57.14% |
+| Complex functions and branches exports | 14 / 14 | 0 | 100.00% |
 | Number theory exports | 73 / 73 | 0 | 100.00% |
-| Iterable utilities exports | 16 / 59 | 43 | 27.12% |
+| Iterable utilities exports | 59 / 59 | 0 | 100.00% |
 | Printing and code generation exports | 6 / 41 | 35 | 14.63% |
-| Plotting exports | 0 / 11 | 11 | 0.00% |
+| Plotting exports | 11 / 11 | 0 | 100.00% |
 
 These percentages count available names. They do not verify signatures,
 accepted domains or behavior, and there is no combined global parity score.
@@ -134,6 +134,8 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Coefficient domains](docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |
 | [Sparse constructors and number fields](docs/polynomial-constructors.md) | Ring/field parents, embeddings, maximal orders and prime ideals |
 | [Combinatorics](docs/combinatorics.md) | Finite groups, rankings, free words, polycyclic collection and polyhedra |
+| [Polar branches](docs/polar-branches.md) | Polar lifts, argument reduction and conservative projection |
+| [Plotting](docs/plotting.md) | Native samples, Matplotlib figures, contours, grids and ASCII plots |
 | [Special functions](docs/special-functions.md) | Gamma products, hypergeometric functions, Bessel families and Mathieu identities |
 | [Structural sets](docs/symbolic-sets.md) | Power sets, disjoint unions, complex regions and ordinals |
 | [Algebraic numbers](docs/algebraic-numbers.md) | Exact field coordinates, structural methods and scalar calculations |

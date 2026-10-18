@@ -215,3 +215,31 @@ __all__=['sift','flatten','unflatten','reshape','group','subsets','variations',
     'prod','dict_merge','topological_sort']
 
 from .sorting import ordered
+
+# Native container algorithms and SymPy-compatible iterator interfaces.
+from ._iterable_extensions import (
+    is_palindromic, iproduct, multiset, ibin,
+    filter_symbols, numbered_symbols, capture, common_prefix,
+    common_suffix, strongly_connected_components, connected_components, rotate_left,
+    rotate_right, least_rotation, multiset_combinations, multiset_permutations,
+    multiset_partitions, partitions, ordered_partitions, binary_partitions,
+    uniq, generate_bell, generate_involutions, multiset_derangements,
+    generate_derangements, necklaces, bracelets, generate_oriented_forest,
+    minlex, runs, sequence_partitions, sequence_partitions_empty,
+    kbins, permute_signs, signed_permutations, roundrobin,
+    NotIterable, iterable, is_sequence, postorder_traversal,
+    default_sort_key, random_derangement, interactive_traversal,
+)
+__all__ += [
+    'is_palindromic', 'iproduct', 'multiset', 'ibin',
+    'filter_symbols', 'numbered_symbols', 'capture', 'common_prefix',
+    'common_suffix', 'strongly_connected_components', 'connected_components', 'rotate_left',
+    'rotate_right', 'least_rotation', 'multiset_combinations', 'multiset_permutations',
+    'multiset_partitions', 'partitions', 'ordered_partitions', 'binary_partitions',
+    'uniq', 'generate_bell', 'generate_involutions', 'multiset_derangements',
+    'generate_derangements', 'necklaces', 'bracelets', 'generate_oriented_forest',
+    'minlex', 'runs', 'sequence_partitions', 'sequence_partitions_empty',
+    'kbins', 'permute_signs', 'signed_permutations', 'roundrobin',
+    'NotIterable', 'iterable', 'is_sequence', 'postorder_traversal',
+    'default_sort_key', 'random_derangement', 'interactive_traversal',
+]

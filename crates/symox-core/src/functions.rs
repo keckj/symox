@@ -47,7 +47,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     // numeric evaluation when an argument is a float
     // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
     // arg of a real float is exact (0, pi or nan) as in SymPy
-    if !matches!(f, Func::Undefined(_) | Func::Max | Func::Min | Func::Floor | Func::Ceiling)
+    if !matches!(f, Func::Undefined(_) | Func::ExpPolar | Func::Max | Func::Min | Func::Floor | Func::Ceiling)
         && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number))
         && !args.is_empty()
         && args.iter().all(is_numeric_value)

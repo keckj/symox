@@ -487,9 +487,10 @@ pub(crate) fn abs(a: &Expr) -> Option<Expr> {
             }
         }
     }
-    if let Kind::Func(Func::Exp, args) = a.kind() {
+    if let Kind::Func(Func::Exp | Func::ExpPolar, args) = a.kind() {
         return Some(f::exp(&f::re(&args[0])));
     }
+    if let Kind::Func(Func::Special(crate::special::SpecialFn::PolarLift | crate::special::SpecialFn::PrincipalBranch), args) = a.kind() { return Some(f::abs(&args[0])); }
     if let Kind::Func(Func::Undefined(head), _) = a.kind() {
         if !head.is_internal("Tuple") {
             if holds(a, "positive") {
@@ -586,6 +587,7 @@ pub(crate) fn conjugate(a: &Expr) -> Option<Expr> {
         Kind::Func(Func::Conjugate, args) => Some(args[0].clone()),
         Kind::Func(
             function @ (Func::Exp
+            | Func::ExpPolar
             | Func::Sin
             | Func::Cos
             | Func::Tan

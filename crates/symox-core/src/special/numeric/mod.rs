@@ -269,7 +269,7 @@ pub fn apply(s: SpecialFn, a: &[C64]) -> Option<C64> {
             };
             misc::lambertw_c(x, k)?
         }
-        Hyper | MeijerG | MathieuC | MathieuS | MathieuCPrime | MathieuSPrime
+        PolarLift | PeriodicArgument | PrincipalBranch | Hyper | MeijerG | MathieuC | MathieuS | MathieuCPrime | MathieuSPrime
         | HyperRepPower1 | HyperRepPower2 | HyperRepLog1 | HyperRepLog2 | HyperRepAtanh | HyperRepAsin1 | HyperRepAsin2 | HyperRepSqrts1 | HyperRepSqrts2 | HyperRepCosasin | HyperRepSinasin => return None,
         Hn1 | Hn2 => bessel::spherical_c(x,a[1],true)? + if s==Hn1 {C64::new(0.0,1.0)}else{C64::new(0.0,-1.0)}*bessel::spherical_c(x,a[1],false)?,
         MarcumQ => advanced_numeric::marcumq(a)?,

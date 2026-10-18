@@ -1485,6 +1485,7 @@ pub(crate) fn exp_eval(arg: &Expr) -> Option<Expr> {
 }
 
 pub(crate) fn log_eval(arg: &Expr) -> Option<Expr> {
+    if let Kind::Func(Func::ExpPolar, a) = arg.kind() { return Some(a[0].clone()); }
     match arg.kind() {
         Kind::Num(n) if n.is_zero() => return Some(Expr::zoo()),
         Kind::Num(n) if n.is_one() => return Some(Expr::zero()),

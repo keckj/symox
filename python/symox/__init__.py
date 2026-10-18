@@ -1897,6 +1897,17 @@ from .utilities import (  # noqa: E402
     dict_merge, topological_sort, preorder_traversal, postorder_traversal,
     bottom_up, use, cacheit, memoize_property,
 )
+from ._polar import (polar_lift, periodic_argument, principal_branch,
+                     unbranched_argument, polarify, unpolarify)
+from .utilities.iterables import (numbered_symbols, filter_symbols,
+    multiset, multiset_combinations, multiset_permutations,
+    multiset_partitions, partitions, ordered_partitions,
+    common_prefix, common_suffix, rotate_left, rotate_right,
+    interactive_traversal, iterable, is_sequence)
+
+from .plotting import (plot, plot_parametric, plot3d, plot3d_parametric_line,
+    plot3d_parametric_surface, plot_contour, plot_implicit, textplot, PlotGrid)
+
 from ._solver_checks import (  # noqa: E402
     checksol, solve_linear, solve_linear_system_LU, solve_undetermined_coeffs,
 )

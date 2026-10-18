@@ -951,6 +951,11 @@ fn distribute(k: &Number, c: &Number, terms: &[(Expr, Number)]) -> Expr {
 
 /// Canonical power `b ** e`.
 pub fn pow(b: &Expr, e: &Expr) -> Expr {
+    if !e.is_zero() {
+        if let Kind::Func(Func::ExpPolar, args) = b.kind() {
+            return crate::functions::func(Func::ExpPolar, vec![mul2(&args[0], e)]);
+        }
+    }
     if let Kind::Num(en) = e.kind() {
         if en.is_zero() && en.is_rational() {
             return Expr::one();
