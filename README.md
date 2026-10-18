@@ -284,6 +284,7 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Slang](docs/codegen/slang.md) | Shader source and optional SlangPy execution |
 | [SYCL / AdaptiveCpp](docs/codegen/sycl.md) | C++ kernels and asynchronous execution |
 | [Code generation compatibility](docs/codegen/compatibility.md) | SymPy-style constructors and printer extensions |
+| [API connection audit](docs/api-connections.md) | Section-by-section existing implementations, missing import paths and remaining API work |
 | [Full SymPy module inventory](docs/sympy-api.md) | Documented modules, missing import paths and unmeasurable references |
 | [Testing and coverage](docs/testing.md) | Differential tests, API measurement and fuzzing |
 | [Architecture](docs/architecture.md) | Rust modules and expression invariants |
