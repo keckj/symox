@@ -45,6 +45,7 @@ println!("{}", diff(&e, &x));
 - Algebraic root objects, Hamilton quaternions, exact splines and variational calculus.
 - Classical ciphers, exact RSA/ElGamal protocols, Diffie-Hellman and finite-field LFSRs.
 - Symbolic probability, scalar/joint distributions, stochastic processes and random matrices.
+- Physical units, moving-frame mechanics, optics, control, quantum/Fock algebra and muscle models.
 - Numerical compilation and code generation for NumPy, C/C++, Rust, Fortran,
   CUDA, PyTorch, JAX, Slang and SYCL.
 
@@ -152,21 +153,21 @@ The top-level export percentage covers only the package root.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| Physics: units exports | 0 / 361 | 361 | 0.00% |
-| Physics: vectors exports | 0 / 27 | 27 | 0.00% |
-| Physics: mechanics exports | 0 / 74 | 74 | 0.00% |
-| Physics: quantum mechanics exports | 0 / 44 | 44 | 0.00% |
-| Physics: optics exports | 0 / 39 | 39 | 0.00% |
-| Physics: Pauli algebra exports | 0 / 1 | 1 | 0.00% |
-| Physics: control exports | 0 / 33 | 33 | 0.00% |
-| Physics: continuum beams exports | 0 / 2 | 2 | 0.00% |
-| Physics: continuum trusses exports | 0 / 1 | 1 | 0.00% |
-| Physics: continuum cables exports | 0 / 1 | 1 | 0.00% |
-| Physics: continuum arches exports | 0 / 1 | 1 | 0.00% |
-| Physics: biomechanics exports | 0 / 15 | 15 | 0.00% |
-| Physics: high energy exports | 0 / 5 | 5 | 0.00% |
-| Physics: Wigner symbols exports | 0 / 11 | 11 | 0.00% |
-| Physics: second quantization exports | 0 / 37 | 37 | 0.00% |
+| Physics: units exports | 361 / 361 | 0 | 100.00% |
+| Physics: vectors exports | 27 / 27 | 0 | 100.00% |
+| Physics: mechanics exports | 74 / 74 | 0 | 100.00% |
+| Physics: quantum mechanics exports | 44 / 44 | 0 | 100.00% |
+| Physics: optics exports | 39 / 39 | 0 | 100.00% |
+| Physics: Pauli algebra exports | 1 / 1 | 0 | 100.00% |
+| Physics: control exports | 33 / 33 | 0 | 100.00% |
+| Physics: continuum beams exports | 2 / 2 | 0 | 100.00% |
+| Physics: continuum trusses exports | 1 / 1 | 0 | 100.00% |
+| Physics: continuum cables exports | 1 / 1 | 0 | 100.00% |
+| Physics: continuum arches exports | 1 / 1 | 0 | 100.00% |
+| Physics: biomechanics exports | 15 / 15 | 0 | 100.00% |
+| Physics: high energy exports | 5 / 5 | 0 | 100.00% |
+| Physics: Wigner symbols exports | 11 / 11 | 0 | 100.00% |
+| Physics: second quantization exports | 37 / 37 | 0 | 100.00% |
 
 </details>
 
@@ -261,6 +262,7 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Combinatorics](docs/combinatorics.md) | Finite groups, rankings, free words, polycyclic collection and polyhedra |
 | [Polar branches](docs/polar-branches.md) | Polar lifts, argument reduction and conservative projection |
 | [Cryptography](docs/cryptography.md) | Classical ciphers, RSA, ElGamal, key exchange, bit ciphers, Morse and feedback sequences |
+| [Physics](docs/physics.md) | Units, mechanics, quantum and atomic physics, optics, control, structures and biomechanics |
 | [Statistics](docs/statistics.md) | Probability, conditioning, distributions, joint moments, processes, random matrices and sampling limits |
 | [Plotting](docs/plotting.md) | Native samples, Matplotlib figures, contours, grids and ASCII plots |
 | [Special functions](docs/special-functions.md) | Gamma products, hypergeometric functions, Bessel families and Mathieu identities |

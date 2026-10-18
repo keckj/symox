@@ -6,7 +6,7 @@ Measured on 2026-10-18 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 
-All 311 resulting module paths are listed below. 170 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
+All 311 resulting module paths are listed below. 103 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
 
 Names come from `__all__`, or public callables defined in the module when `__all__` is absent, plus documented functions, classes and data actually bound in the installed reference module. Imported helper names are excluded unless explicitly exported or documented. Constants absent from these sources and individual class methods are outside this module export measure.
 
@@ -338,74 +338,74 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.physics](https://docs.sympy.org/latest/reference/public/physics/index.html#module-sympy.physics) | 0 / 5 | 5 | 0.00% | missing_module |
-| [sympy.physics.biomechanics](https://docs.sympy.org/latest/modules/physics/biomechanics/api/index.html#module-sympy.physics.biomechanics) | 0 / 15 | 15 | 0.00% | missing_module |
-| [sympy.physics.biomechanics.activation](https://docs.sympy.org/latest/modules/physics/biomechanics/api/activation.html#module-sympy.physics.biomechanics.activation) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.physics.biomechanics.curve](https://docs.sympy.org/latest/modules/physics/biomechanics/api/curve.html#module-sympy.physics.biomechanics.curve) | 0 / 9 | 9 | 0.00% | missing_module |
-| [sympy.physics.biomechanics.musculotendon](https://docs.sympy.org/latest/modules/physics/biomechanics/api/musculotendon.html#module-sympy.physics.biomechanics.musculotendon) | 0 / 3 | 3 | 0.00% | missing_module |
-| `sympy.physics.continuum_mechanics` | 0 / 4 | 4 | 0.00% | missing_module |
+| [sympy.physics](https://docs.sympy.org/latest/reference/public/physics/index.html#module-sympy.physics) | 5 / 5 | 0 | 100.00% | available |
+| [sympy.physics.biomechanics](https://docs.sympy.org/latest/modules/physics/biomechanics/api/index.html#module-sympy.physics.biomechanics) | 15 / 15 | 0 | 100.00% | available |
+| [sympy.physics.biomechanics.activation](https://docs.sympy.org/latest/modules/physics/biomechanics/api/activation.html#module-sympy.physics.biomechanics.activation) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.physics.biomechanics.curve](https://docs.sympy.org/latest/modules/physics/biomechanics/api/curve.html#module-sympy.physics.biomechanics.curve) | 9 / 9 | 0 | 100.00% | available |
+| [sympy.physics.biomechanics.musculotendon](https://docs.sympy.org/latest/modules/physics/biomechanics/api/musculotendon.html#module-sympy.physics.biomechanics.musculotendon) | 3 / 3 | 0 | 100.00% | available |
+| `sympy.physics.continuum_mechanics` | 4 / 4 | 0 | 100.00% | available |
 | [sympy.physics.continuum_mechanics.Arch](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/arches.html#module-sympy.physics.continuum_mechanics.Arch) | N/A | N/A | N/A | reference_import_error |
-| `sympy.physics.continuum_mechanics.arch` | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.continuum_mechanics.beam](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/beam.html#module-sympy.physics.continuum_mechanics.beam) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.physics.continuum_mechanics.cable](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/cable.html#module-sympy.physics.continuum_mechanics.cable) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.continuum_mechanics.truss](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/truss.html#module-sympy.physics.continuum_mechanics.truss) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.control](https://docs.sympy.org/latest/modules/physics/control/index.html#module-sympy.physics.control) | 0 / 33 | 33 | 0.00% | missing_module |
-| [sympy.physics.control.lti](https://docs.sympy.org/latest/modules/physics/control/lti.html#module-sympy.physics.control.lti) | 0 / 16 | 16 | 0.00% | missing_module |
-| `sympy.physics.hep` | 0 / 0 | 0 | N/A | missing_module |
-| [sympy.physics.hep.gamma_matrices](https://docs.sympy.org/latest/modules/physics/hep/index.html#module-sympy.physics.hep.gamma_matrices) | 0 / 5 | 5 | 0.00% | missing_module |
-| [sympy.physics.hydrogen](https://docs.sympy.org/latest/modules/physics/hydrogen.html#module-sympy.physics.hydrogen) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.physics.matrices](https://docs.sympy.org/latest/modules/physics/matrices.html#module-sympy.physics.matrices) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.physics.mechanics](https://docs.sympy.org/latest/modules/physics/mechanics/api/index.html#module-sympy.physics.mechanics) | 0 / 74 | 74 | 0.00% | missing_module |
-| [sympy.physics.mechanics.actuator](https://docs.sympy.org/latest/modules/physics/mechanics/api/actuator.html#module-sympy.physics.mechanics.actuator) | 0 / 7 | 7 | 0.00% | missing_module |
-| [sympy.physics.mechanics.joint](https://docs.sympy.org/latest/modules/physics/mechanics/api/joint.html#module-sympy.physics.mechanics.joint) | 0 / 7 | 7 | 0.00% | missing_module |
-| [sympy.physics.mechanics.kane](https://docs.sympy.org/latest/modules/physics/mechanics/api/kane_lagrange.html#module-sympy.physics.mechanics.kane) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.mechanics.lagrange](https://docs.sympy.org/latest/modules/physics/mechanics/api/kane_lagrange.html#module-sympy.physics.mechanics.lagrange) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.mechanics.linearize](https://docs.sympy.org/latest/modules/physics/mechanics/api/linearize.html#module-sympy.physics.mechanics.linearize) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.mechanics.pathway](https://docs.sympy.org/latest/modules/physics/mechanics/api/pathway.html#module-sympy.physics.mechanics.pathway) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.physics.mechanics.wrapping_geometry](https://docs.sympy.org/latest/modules/physics/mechanics/api/wrapping_geometry.html#module-sympy.physics.mechanics.wrapping_geometry) | 0 / 3 | 3 | 0.00% | missing_module |
-| `sympy.physics.optics` | 0 / 39 | 39 | 0.00% | missing_module |
-| [sympy.physics.optics.gaussopt](https://docs.sympy.org/latest/modules/physics/optics/gaussopt.html#module-sympy.physics.optics.gaussopt) | 0 / 16 | 16 | 0.00% | missing_module |
-| [sympy.physics.optics.medium](https://docs.sympy.org/latest/modules/physics/optics/medium.html#module-sympy.physics.optics.medium) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.optics.polarization](https://docs.sympy.org/latest/modules/physics/optics/polarization.html#module-sympy.physics.optics.polarization) | 0 / 11 | 11 | 0.00% | missing_module |
-| [sympy.physics.optics.utils](https://docs.sympy.org/latest/modules/physics/optics/utils.html#module-sympy.physics.optics.utils) | 0 / 10 | 10 | 0.00% | missing_module |
-| [sympy.physics.optics.waves](https://docs.sympy.org/latest/modules/physics/optics/waves.html#module-sympy.physics.optics.waves) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.paulialgebra](https://docs.sympy.org/latest/modules/physics/paulialgebra.html#module-sympy.physics.paulialgebra) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.qho_1d](https://docs.sympy.org/latest/modules/physics/qho_1d.html#module-sympy.physics.qho_1d) | 0 / 3 | 3 | 0.00% | missing_module |
-| `sympy.physics.quantum` | 0 / 44 | 44 | 0.00% | missing_module |
-| [sympy.physics.quantum.anticommutator](https://docs.sympy.org/latest/modules/physics/quantum/anticommutator.html#module-sympy.physics.quantum.anticommutator) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.quantum.cartesian](https://docs.sympy.org/latest/modules/physics/quantum/cartesian.html#module-sympy.physics.quantum.cartesian) | 0 / 15 | 15 | 0.00% | missing_module |
-| [sympy.physics.quantum.cg](https://docs.sympy.org/latest/modules/physics/quantum/cg.html#module-sympy.physics.quantum.cg) | 0 / 5 | 5 | 0.00% | missing_module |
-| [sympy.physics.quantum.circuitplot](https://docs.sympy.org/latest/modules/physics/quantum/circuitplot.html#module-sympy.physics.quantum.circuitplot) | 0 / 7 | 7 | 0.00% | missing_module |
-| [sympy.physics.quantum.commutator](https://docs.sympy.org/latest/modules/physics/quantum/commutator.html#module-sympy.physics.quantum.commutator) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.quantum.constants](https://docs.sympy.org/latest/modules/physics/quantum/constants.html#module-sympy.physics.quantum.constants) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.physics.quantum.dagger](https://docs.sympy.org/latest/modules/physics/quantum/dagger.html#module-sympy.physics.quantum.dagger) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.quantum.gate](https://docs.sympy.org/latest/modules/physics/quantum/gate.html#module-sympy.physics.quantum.gate) | 0 / 29 | 29 | 0.00% | missing_module |
-| [sympy.physics.quantum.grover](https://docs.sympy.org/latest/modules/physics/quantum/grover.html#module-sympy.physics.quantum.grover) | 0 / 5 | 5 | 0.00% | missing_module |
-| [sympy.physics.quantum.hilbert](https://docs.sympy.org/latest/modules/physics/quantum/hilbert.html#module-sympy.physics.quantum.hilbert) | 0 / 8 | 8 | 0.00% | missing_module |
-| [sympy.physics.quantum.innerproduct](https://docs.sympy.org/latest/modules/physics/quantum/innerproduct.html#module-sympy.physics.quantum.innerproduct) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.quantum.operator](https://docs.sympy.org/latest/modules/physics/quantum/operator.html#module-sympy.physics.quantum.operator) | 0 / 6 | 6 | 0.00% | missing_module |
-| [sympy.physics.quantum.operatorset](https://docs.sympy.org/latest/modules/physics/quantum/operatorset.html#module-sympy.physics.quantum.operatorset) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.physics.quantum.piab](https://docs.sympy.org/latest/modules/physics/quantum/piab.html#module-sympy.physics.quantum.piab) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.physics.quantum.qapply](https://docs.sympy.org/latest/modules/physics/quantum/qapply.html#module-sympy.physics.quantum.qapply) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.quantum.qft](https://docs.sympy.org/latest/modules/physics/quantum/qft.html#module-sympy.physics.quantum.qft) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.physics.quantum.qubit](https://docs.sympy.org/latest/modules/physics/quantum/qubit.html#module-sympy.physics.quantum.qubit) | 0 / 11 | 11 | 0.00% | missing_module |
-| [sympy.physics.quantum.represent](https://docs.sympy.org/latest/modules/physics/quantum/represent.html#module-sympy.physics.quantum.represent) | 0 / 6 | 6 | 0.00% | missing_module |
-| [sympy.physics.quantum.shor](https://docs.sympy.org/latest/modules/physics/quantum/shor.html#module-sympy.physics.quantum.shor) | 0 / 6 | 6 | 0.00% | missing_module |
-| [sympy.physics.quantum.spin](https://docs.sympy.org/latest/modules/physics/quantum/spin.html#module-sympy.physics.quantum.spin) | 0 / 25 | 25 | 0.00% | missing_module |
-| [sympy.physics.quantum.state](https://docs.sympy.org/latest/modules/physics/quantum/state.html#module-sympy.physics.quantum.state) | 0 / 13 | 13 | 0.00% | missing_module |
-| [sympy.physics.quantum.tensorproduct](https://docs.sympy.org/latest/modules/physics/quantum/tensorproduct.html#module-sympy.physics.quantum.tensorproduct) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.physics.secondquant](https://docs.sympy.org/latest/modules/physics/secondquant.html#module-sympy.physics.secondquant) | 0 / 37 | 37 | 0.00% | missing_module |
-| [sympy.physics.sho](https://docs.sympy.org/latest/modules/physics/sho.html#module-sympy.physics.sho) | 0 / 2 | 2 | 0.00% | missing_module |
-| `sympy.physics.units` | 0 / 361 | 361 | 0.00% | missing_module |
-| [sympy.physics.units.dimensions](https://docs.sympy.org/latest/modules/physics/units/dimensions.html#module-sympy.physics.units.dimensions) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.physics.units.prefixes](https://docs.sympy.org/latest/modules/physics/units/prefixes.html#module-sympy.physics.units.prefixes) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.physics.units.quantities](https://docs.sympy.org/latest/modules/physics/units/quantities.html#module-sympy.physics.units.quantities) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.physics.units.unitsystem](https://docs.sympy.org/latest/modules/physics/units/unitsystem.html#module-sympy.physics.units.unitsystem) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.units.util](https://docs.sympy.org/latest/modules/physics/units/quantities.html#module-sympy.physics.units.util) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.physics.vector](https://docs.sympy.org/latest/modules/physics/vector/api/index.html#module-sympy.physics.vector) | 0 / 27 | 27 | 0.00% | missing_module |
-| [sympy.physics.vector.functions](https://docs.sympy.org/latest/modules/physics/vector/api/kinematics.html#module-sympy.physics.vector.functions) | 0 / 14 | 14 | 0.00% | missing_module |
-| [sympy.physics.vector.point](https://docs.sympy.org/latest/modules/physics/vector/api/kinematics.html#module-sympy.physics.vector.point) | 0 / 1 | 1 | 0.00% | missing_module |
-| [sympy.physics.wigner](https://docs.sympy.org/latest/modules/physics/wigner.html#module-sympy.physics.wigner) | 0 / 11 | 11 | 0.00% | missing_module |
+| `sympy.physics.continuum_mechanics.arch` | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.continuum_mechanics.beam](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/beam.html#module-sympy.physics.continuum_mechanics.beam) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.physics.continuum_mechanics.cable](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/cable.html#module-sympy.physics.continuum_mechanics.cable) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.continuum_mechanics.truss](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/truss.html#module-sympy.physics.continuum_mechanics.truss) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.control](https://docs.sympy.org/latest/modules/physics/control/index.html#module-sympy.physics.control) | 33 / 33 | 0 | 100.00% | available |
+| [sympy.physics.control.lti](https://docs.sympy.org/latest/modules/physics/control/lti.html#module-sympy.physics.control.lti) | 16 / 16 | 0 | 100.00% | available |
+| `sympy.physics.hep` | 0 / 0 | 0 | N/A | no_exports |
+| [sympy.physics.hep.gamma_matrices](https://docs.sympy.org/latest/modules/physics/hep/index.html#module-sympy.physics.hep.gamma_matrices) | 5 / 5 | 0 | 100.00% | available |
+| [sympy.physics.hydrogen](https://docs.sympy.org/latest/modules/physics/hydrogen.html#module-sympy.physics.hydrogen) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.physics.matrices](https://docs.sympy.org/latest/modules/physics/matrices.html#module-sympy.physics.matrices) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.physics.mechanics](https://docs.sympy.org/latest/modules/physics/mechanics/api/index.html#module-sympy.physics.mechanics) | 74 / 74 | 0 | 100.00% | available |
+| [sympy.physics.mechanics.actuator](https://docs.sympy.org/latest/modules/physics/mechanics/api/actuator.html#module-sympy.physics.mechanics.actuator) | 7 / 7 | 0 | 100.00% | available |
+| [sympy.physics.mechanics.joint](https://docs.sympy.org/latest/modules/physics/mechanics/api/joint.html#module-sympy.physics.mechanics.joint) | 7 / 7 | 0 | 100.00% | available |
+| [sympy.physics.mechanics.kane](https://docs.sympy.org/latest/modules/physics/mechanics/api/kane_lagrange.html#module-sympy.physics.mechanics.kane) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.mechanics.lagrange](https://docs.sympy.org/latest/modules/physics/mechanics/api/kane_lagrange.html#module-sympy.physics.mechanics.lagrange) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.mechanics.linearize](https://docs.sympy.org/latest/modules/physics/mechanics/api/linearize.html#module-sympy.physics.mechanics.linearize) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.mechanics.pathway](https://docs.sympy.org/latest/modules/physics/mechanics/api/pathway.html#module-sympy.physics.mechanics.pathway) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.physics.mechanics.wrapping_geometry](https://docs.sympy.org/latest/modules/physics/mechanics/api/wrapping_geometry.html#module-sympy.physics.mechanics.wrapping_geometry) | 3 / 3 | 0 | 100.00% | available |
+| `sympy.physics.optics` | 39 / 39 | 0 | 100.00% | available |
+| [sympy.physics.optics.gaussopt](https://docs.sympy.org/latest/modules/physics/optics/gaussopt.html#module-sympy.physics.optics.gaussopt) | 16 / 16 | 0 | 100.00% | available |
+| [sympy.physics.optics.medium](https://docs.sympy.org/latest/modules/physics/optics/medium.html#module-sympy.physics.optics.medium) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.optics.polarization](https://docs.sympy.org/latest/modules/physics/optics/polarization.html#module-sympy.physics.optics.polarization) | 11 / 11 | 0 | 100.00% | available |
+| [sympy.physics.optics.utils](https://docs.sympy.org/latest/modules/physics/optics/utils.html#module-sympy.physics.optics.utils) | 10 / 10 | 0 | 100.00% | available |
+| [sympy.physics.optics.waves](https://docs.sympy.org/latest/modules/physics/optics/waves.html#module-sympy.physics.optics.waves) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.paulialgebra](https://docs.sympy.org/latest/modules/physics/paulialgebra.html#module-sympy.physics.paulialgebra) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.qho_1d](https://docs.sympy.org/latest/modules/physics/qho_1d.html#module-sympy.physics.qho_1d) | 3 / 3 | 0 | 100.00% | available |
+| `sympy.physics.quantum` | 44 / 44 | 0 | 100.00% | available |
+| [sympy.physics.quantum.anticommutator](https://docs.sympy.org/latest/modules/physics/quantum/anticommutator.html#module-sympy.physics.quantum.anticommutator) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.quantum.cartesian](https://docs.sympy.org/latest/modules/physics/quantum/cartesian.html#module-sympy.physics.quantum.cartesian) | 15 / 15 | 0 | 100.00% | available |
+| [sympy.physics.quantum.cg](https://docs.sympy.org/latest/modules/physics/quantum/cg.html#module-sympy.physics.quantum.cg) | 5 / 5 | 0 | 100.00% | available |
+| [sympy.physics.quantum.circuitplot](https://docs.sympy.org/latest/modules/physics/quantum/circuitplot.html#module-sympy.physics.quantum.circuitplot) | 7 / 7 | 0 | 100.00% | available |
+| [sympy.physics.quantum.commutator](https://docs.sympy.org/latest/modules/physics/quantum/commutator.html#module-sympy.physics.quantum.commutator) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.quantum.constants](https://docs.sympy.org/latest/modules/physics/quantum/constants.html#module-sympy.physics.quantum.constants) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.physics.quantum.dagger](https://docs.sympy.org/latest/modules/physics/quantum/dagger.html#module-sympy.physics.quantum.dagger) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.quantum.gate](https://docs.sympy.org/latest/modules/physics/quantum/gate.html#module-sympy.physics.quantum.gate) | 29 / 29 | 0 | 100.00% | available |
+| [sympy.physics.quantum.grover](https://docs.sympy.org/latest/modules/physics/quantum/grover.html#module-sympy.physics.quantum.grover) | 5 / 5 | 0 | 100.00% | available |
+| [sympy.physics.quantum.hilbert](https://docs.sympy.org/latest/modules/physics/quantum/hilbert.html#module-sympy.physics.quantum.hilbert) | 8 / 8 | 0 | 100.00% | available |
+| [sympy.physics.quantum.innerproduct](https://docs.sympy.org/latest/modules/physics/quantum/innerproduct.html#module-sympy.physics.quantum.innerproduct) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.quantum.operator](https://docs.sympy.org/latest/modules/physics/quantum/operator.html#module-sympy.physics.quantum.operator) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.physics.quantum.operatorset](https://docs.sympy.org/latest/modules/physics/quantum/operatorset.html#module-sympy.physics.quantum.operatorset) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.physics.quantum.piab](https://docs.sympy.org/latest/modules/physics/quantum/piab.html#module-sympy.physics.quantum.piab) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.physics.quantum.qapply](https://docs.sympy.org/latest/modules/physics/quantum/qapply.html#module-sympy.physics.quantum.qapply) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.quantum.qft](https://docs.sympy.org/latest/modules/physics/quantum/qft.html#module-sympy.physics.quantum.qft) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.physics.quantum.qubit](https://docs.sympy.org/latest/modules/physics/quantum/qubit.html#module-sympy.physics.quantum.qubit) | 11 / 11 | 0 | 100.00% | available |
+| [sympy.physics.quantum.represent](https://docs.sympy.org/latest/modules/physics/quantum/represent.html#module-sympy.physics.quantum.represent) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.physics.quantum.shor](https://docs.sympy.org/latest/modules/physics/quantum/shor.html#module-sympy.physics.quantum.shor) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.physics.quantum.spin](https://docs.sympy.org/latest/modules/physics/quantum/spin.html#module-sympy.physics.quantum.spin) | 25 / 25 | 0 | 100.00% | available |
+| [sympy.physics.quantum.state](https://docs.sympy.org/latest/modules/physics/quantum/state.html#module-sympy.physics.quantum.state) | 13 / 13 | 0 | 100.00% | available |
+| [sympy.physics.quantum.tensorproduct](https://docs.sympy.org/latest/modules/physics/quantum/tensorproduct.html#module-sympy.physics.quantum.tensorproduct) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.physics.secondquant](https://docs.sympy.org/latest/modules/physics/secondquant.html#module-sympy.physics.secondquant) | 37 / 37 | 0 | 100.00% | available |
+| [sympy.physics.sho](https://docs.sympy.org/latest/modules/physics/sho.html#module-sympy.physics.sho) | 2 / 2 | 0 | 100.00% | available |
+| `sympy.physics.units` | 361 / 361 | 0 | 100.00% | available |
+| [sympy.physics.units.dimensions](https://docs.sympy.org/latest/modules/physics/units/dimensions.html#module-sympy.physics.units.dimensions) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.physics.units.prefixes](https://docs.sympy.org/latest/modules/physics/units/prefixes.html#module-sympy.physics.units.prefixes) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.physics.units.quantities](https://docs.sympy.org/latest/modules/physics/units/quantities.html#module-sympy.physics.units.quantities) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.physics.units.unitsystem](https://docs.sympy.org/latest/modules/physics/units/unitsystem.html#module-sympy.physics.units.unitsystem) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.units.util](https://docs.sympy.org/latest/modules/physics/units/quantities.html#module-sympy.physics.units.util) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.physics.vector](https://docs.sympy.org/latest/modules/physics/vector/api/index.html#module-sympy.physics.vector) | 27 / 27 | 0 | 100.00% | available |
+| [sympy.physics.vector.functions](https://docs.sympy.org/latest/modules/physics/vector/api/kinematics.html#module-sympy.physics.vector.functions) | 14 / 14 | 0 | 100.00% | available |
+| [sympy.physics.vector.point](https://docs.sympy.org/latest/modules/physics/vector/api/kinematics.html#module-sympy.physics.vector.point) | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.wigner](https://docs.sympy.org/latest/modules/physics/wigner.html#module-sympy.physics.wigner) | 11 / 11 | 0 | 100.00% | available |
 
 </details>
 

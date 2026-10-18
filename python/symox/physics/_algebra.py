@@ -1,0 +1,123 @@
+"""Ordered operator polynomials with native commuting scalar coefficients."""
+import symox as S
+from ..vector._basis import _BasisDependent
+
+
+def _terms(value):return value._terms if isinstance(value,OperatorExpr) else {():S.sympify(value)}
+
+
+def _word(word):
+    coefficient = S.Integer(1);stack = []
+    for atom in word:
+        if getattr(atom,'is_identity',False):continue
+        if stack and hasattr(stack[-1],'_multiply_atom'):
+            reduction = stack[-1]._multiply_atom(atom)
+            if reduction is not None:
+                stack.pop();factor,replacement = reduction;coefficient *= factor;stack.extend(replacement);continue
+        stack.append(atom)
+    return tuple(stack),coefficient
+
+
+class OperatorExpr(_BasisDependent):
+    is_commutative = False
+    def __init__(self,terms=None):
+        self._terms = {word:S.sympify(value) for word,value in (terms or {}).items() if value!=0}
+    @staticmethod
+    def _make(terms):
+        terms = {word:S.simplify(value) for word,value in terms.items() if value!=0}
+        terms = {word:value for word,value in terms.items() if value!=0}
+        if not terms:return S.Integer(0)
+        if set(terms)=={()}:return terms[()]
+        if len(terms)==1:
+            word,value = next(iter(terms.items()))
+            if len(word)==1 and value==1:return word[0]
+        return OperatorExpr(terms)
+    @property
+    def free_symbols(self):return set().union(*(c.free_symbols for c in self._terms.values()),*(a._parameter_symbols() for w in self._terms for a in w))
+    @property
+    def args(self):return tuple(self._terms.items())
+    def _symox_(self):
+        terms = [coefficient*S._core._apply('OrderedProduct',*(a._native_atom() for a in word),evaluate=False) if word else coefficient for word,coefficient in self._terms.items()]
+        return S.Add(*terms)
+    def __repr__(self):
+        result = []
+        for word,coefficient in self._terms.items():
+            factors = '*'.join(a._atom_repr() for a in word)
+            result.append(factors if coefficient==1 and word else str(coefficient)+(('*'+factors) if word else ''))
+        return ' + '.join(result) or '0'
+    __str__ = __repr__
+    def __eq__(self,other):
+        try:return self._terms==_terms(other)
+        except (TypeError,ValueError):return False
+    __hash__ = None
+    def __bool__(self):return bool(self._terms)
+    def __add__(self,other):
+        terms = dict(self._terms)
+        for word,value in _terms(other).items():terms[word] = terms.get(word,S.Integer(0))+value
+        return self._make(terms)
+    __radd__ = __add__
+    def __neg__(self):return self*-1
+    def __sub__(self,other):return self+-other
+    def __rsub__(self,other):return -self+other
+    def __mul__(self,other):
+        terms = {}
+        for left,a in self._terms.items():
+            for right,b in _terms(other).items():
+                word,factor = _word(left+right);terms[word] = terms.get(word,S.Integer(0))+a*b*factor
+        return self._make(terms)
+    def __rmul__(self,other):
+        if isinstance(other,OperatorExpr):return other*self
+        scalar = S.sympify(other);return self._make({word:scalar*c for word,c in self._terms.items()})
+    def __truediv__(self,other):
+        if isinstance(other,OperatorExpr):return self*other**-1
+        return self*(1/S.sympify(other))
+    def __pow__(self,power):
+        power = S.sympify(power)
+        if not power.is_Integer:return PowerAtom(self,power)
+        if power<0:return PowerAtom(self,power)
+        result = S.Integer(1)
+        for _ in range(int(power)):result = self.__rmul__(result)
+        return result
+    def expand(self,**kwargs):return self
+    def simplify(self,**kwargs):return self._make({w:S.simplify(v,**kwargs) for w,v in self._terms.items()})
+    def trigsimp(self,**kwargs):return self._make({w:S.trigsimp(v,**kwargs) for w,v in self._terms.items()})
+    def evalf(self,*args,**kwargs):return self._make({w:v.evalf(*args,**kwargs) for w,v in self._terms.items()})
+    def doit(self,**hints):return self
+    def diff(self,var,*args,**kwargs):
+        if args:raise NotImplementedError('operator derivatives accept one variable per call')
+        return self._make({w:S.diff(v,var,**kwargs) for w,v in self._terms.items()})
+    def integrate(self,*args,**kwargs):return self._make({w:S.integrate(v,*args,**kwargs) for w,v in self._terms.items()})
+    def subs(self,*args,**kwargs):
+        mapping = args[0] if len(args)==1 else {args[0]:args[1]}
+        scalar_mapping = {k:v for k,v in mapping.items() if not isinstance(k,OperatorExpr)}
+        result = S.Integer(0)
+        for word,value in self._terms.items():
+            term = value.subs(scalar_mapping,**kwargs)
+            for atom in word:term = term*mapping.get(atom,atom._subs_parameters(scalar_mapping,**kwargs))
+            result += term
+        return result
+    def xreplace(self,rule):return self.subs(rule,simultaneous=True)
+    def has(self,*patterns):return any(pattern==a for w in self._terms for a in w for pattern in patterns)
+
+
+class Atom(OperatorExpr):
+    def __init__(self,*labels):
+        self.labels = tuple(labels);self._terms = {(self,):S.Integer(1)}
+    def _key(self):return type(self),self.labels
+    def __hash__(self):return hash(self._key())
+    def __eq__(self,other):return isinstance(other,Atom) and self._key()==other._key()
+    def _parameter_symbols(self):return set().union(*(v.free_symbols for v in self.labels if isinstance(v,S.Expr)))
+    @property
+    def args(self):return self.labels
+    def _atom_repr(self):return '%s(%s)'%(type(self).__name__,', '.join(map(str,self.labels)))
+    def __repr__(self):return self._atom_repr()
+    __str__ = __repr__
+    def _native_atom(self):
+        return S._core._apply(type(self).__name__,*(v._symox_() if isinstance(v,OperatorExpr) else S.Symbol(v) if isinstance(v,str) else S.sympify(v) for v in self.labels),evaluate=False)
+    def _subs_parameters(self,mapping,**kwargs):return type(self)(*(v.subs(mapping,**kwargs) if isinstance(v,S.Expr) else v for v in self.labels))
+
+
+class PowerAtom(Atom):
+    def __init__(self,base,power):self.base,self.power = base,power;super().__init__(base,power)
+    def _atom_repr(self):return '(%s)**%s'%(self.base,self.power)
+    def _subs_parameters(self,mapping,**kwargs):return PowerAtom(self.base.subs(mapping,**kwargs),self.power.subs(mapping,**kwargs))
