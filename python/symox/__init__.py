@@ -1807,6 +1807,8 @@ exp_polar = _make('exp_polar')
 from .series import (  # noqa: E402
     series, fps, fourier_series, FormalPowerSeries, FourierSeries, FiniteFourierSeries,
     SeqFormula, SeqPer, SeqAdd, SeqMul, EmptySequence, sequence,
+    SeqExpr, SeqExprOp, RecursiveSeq,
+    approximants, limit_seq, gruntz,
 )
 _expr_methods.install()
 
@@ -1872,7 +1874,10 @@ from .tensor.array import (  # noqa: E402
     ImmutableNDimArray, MutableDenseNDimArray, ImmutableDenseNDimArray,
     MutableSparseNDimArray, ImmutableSparseNDimArray, tensorproduct,
     tensorcontraction, tensordiagonal, permutedims, derive_by_array,
+    ArrayComprehension, ArrayComprehensionMap, ArrayKind,
 )
+from ._kind import Kind,NumberKind,BooleanKind,UndefinedKind
+from .calculus.accumulationbounds import AccumBounds,AccumulationBounds
 from .tensor.functions import shape  # noqa: E402
 from .tensor.array import _adapters as _array_adapters  # noqa: E402
 _array_adapters.install(globals())
@@ -1900,6 +1905,7 @@ from .solvers.decompogen import decompogen  # noqa: E402
 from .solvers.deutils import ode_order, homogeneous_order  # noqa: E402
 from ._numeric_float import nfloat  # noqa: E402
 from .solvers.ode import classify_ode, dsolve, checkodesol  # noqa: E402
+from .solvers.solvers import det_quick,inv_quick
 from .solvers.pde import (  # noqa: E402
     pdsolve, classify_pde, checkpdesol, pde_separate, pde_separate_add, pde_separate_mul,
 )

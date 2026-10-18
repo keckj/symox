@@ -51,7 +51,7 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| SymPy top-level exports | 749 / 921 | 172 | 81.32% |
+| SymPy top-level exports | 755 / 921 | 166 | 81.98% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
 | Poly methods | 154 / 154 | 0 | 100.00% |
 | Matrix methods | 178 / 178 | 0 | 100.00% |
@@ -61,12 +61,12 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 | Geometry exports | 30 / 30 | 0 | 100.00% |
 | Ordinary differential equations exports | 11 / 11 | 0 | 100.00% |
 | Partial differential equations exports | 9 / 9 | 0 | 100.00% |
-| Equation solvers exports | 7 / 15 | 8 | 46.67% |
+| Equation solvers exports | 15 / 15 | 0 | 100.00% |
 | Inequalities exports | 8 / 8 | 0 | 100.00% |
-| Arrays exports | 13 / 16 | 3 | 81.25% |
+| Arrays exports | 16 / 16 | 0 | 100.00% |
 | Indexed tensor algebra exports | 0 / 35 | 35 | 0.00% |
-| Series and limits exports | 9 / 18 | 9 | 50.00% |
-| Sequences exports | 7 / 10 | 3 | 70.00% |
+| Series and limits exports | 18 / 18 | 0 | 100.00% |
+| Sequences exports | 10 / 10 | 0 | 100.00% |
 | Real analysis exports | 8 / 9 | 1 | 88.89% |
 | Singularities and monotonicity exports | 6 / 7 | 1 | 85.71% |
 | Coefficient domains exports | 20 / 32 | 12 | 62.50% |

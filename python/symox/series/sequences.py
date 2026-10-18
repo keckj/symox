@@ -239,7 +239,31 @@ class SeqBase:
         return coefficients,cancel(numerator/denominator)
 
 
-class SeqFormula(SeqBase):
+class SeqExpr(SeqBase):
+    """Base sequence expression with a bound index and inclusive interval."""
+    __slots__=()
+    def __new__(cls,gen,limits):
+        from .. import Tuple
+        gen=Tuple(*gen) if isinstance(gen,(list,tuple)) else _scalar(gen)
+        limits=_limits((gen,),limits)
+        self=object.__new__(cls)
+        self._limits=limits
+        self._args=(gen,limits)
+        return self
+    def _expressions(self):return (self.gen,)
+    def _eval_coeff(self,pt):
+        raise NotImplementedError('Use a concrete sequence expression to evaluate coefficients')
+    def _transform(self,function,boundary=None,replace_index=False,mapping=None):
+        boundary=function if boundary is None else boundary
+        index=self.variables[0]
+        if replace_index:index=mapping.get(index,index)
+        return type(self)(function(self.gen),(index,boundary(self.start),boundary(self.stop)))
+    def to_sympy(self):
+        from sympy.series.sequences import SeqExpr
+        return SeqExpr(self.gen.to_sympy(),tuple(value.to_sympy() for value in self._limits))
+
+
+class SeqFormula(SeqExpr):
     __slots__=()
     def __new__(cls, formula, limits=None):
         formula=_scalar(formula)
@@ -264,7 +288,7 @@ class SeqFormula(SeqBase):
         return sympy.SeqFormula(self.formula.to_sympy(),tuple(v.to_sympy() for v in self._limits))
 
 
-class SeqPer(SeqBase):
+class SeqPer(SeqExpr):
     __slots__=()
     def __new__(cls, periodical, limits=None):
         values=[]
@@ -320,12 +344,14 @@ class SeqPer(SeqBase):
                             tuple(v.to_sympy() for v in self._limits))
 
 
-class _SeqOperation(SeqBase):
+class SeqExprOp(SeqBase):
     __slots__=()
     def __new__(cls, *arguments, evaluate=True):
         from .. import Max, Min, Dummy, S
         if not all(isinstance(arg,SeqBase) for arg in arguments):
             raise TypeError('Sequence arithmetic requires sequence operands; use coeff_mul for scalars')
+        if cls is SeqExprOp:
+            evaluate=False
         additive=cls is SeqAdd
         if not additive and any(arg is EmptySequence for arg in arguments):return EmptySequence
         arguments=tuple(arg for arg in arguments if arg is not EmptySequence)
@@ -367,9 +393,13 @@ class _SeqOperation(SeqBase):
     @property
     def free_symbols(self):return set().union(*(arg.free_symbols for arg in self.args))
     @property
+    def variables(self):return tuple(index for arg in self.args for index in arg.variables)
+    @property
     def gen(self):return tuple(arg.gen for arg in self.args)
     def _eval_coeff(self, pt):
         from .. import S
+        if type(self) is SeqExprOp:
+            raise NotImplementedError('Use SeqAdd or SeqMul to select a sequence operation')
         values=[arg.coeff(pt) for arg in self.args]
         if isinstance(self,SeqAdd):return sum(values,S.Zero)
         result=S.One
@@ -384,12 +414,95 @@ class _SeqOperation(SeqBase):
     def _transform(self, function, **options):
         return type(self)(*(arg._transform(function,**options) for arg in self.args))
     def to_sympy(self):
-        import sympy
-        return getattr(sympy,type(self).__name__)(*(arg.to_sympy() for arg in self.args),evaluate=False)
+        from sympy.series import sequences
+        constructor=getattr(sequences,type(self).__name__)
+        values=[arg.to_sympy() for arg in self.args]
+        return constructor(*values) if type(self) is SeqExprOp else constructor(*values,evaluate=False)
 
 
-class SeqAdd(_SeqOperation):__slots__=()
-class SeqMul(_SeqOperation):__slots__=()
+class SeqAdd(SeqExprOp):__slots__=()
+class SeqMul(SeqExprOp):__slots__=()
+
+
+class RecursiveSeq(SeqBase):
+    """Memoized finite-order recurrence evaluated with native substitutions."""
+    __slots__=('cache','degree')
+    def __new__(cls,recurrence,yn,n,initial=None,start=0):
+        from .. import Dummy,oo,cancel
+        from ..solvers._differential import nodes
+        recurrence,yn,n,start=map(_scalar,(recurrence,yn,n,start))
+        if not n.is_Symbol or not yn.is_UndefinedFunction or yn.args!=(n,):
+            raise TypeError('The recurrence head must be an undefined function of its index')
+        if start.is_integer is False or start.is_finite is False:
+            raise ValueError('A recurrence requires a finite integer start')
+        degree=0
+        for node in nodes(recurrence):
+            if node.func!=yn.func:
+                continue
+            if len(node.args)!=1:
+                raise TypeError('Recurrence terms must use a single argument')
+            shift=cancel(node.args[0]-n)
+            if not shift.is_Integer or shift>=0:
+                raise TypeError('Recurrence shifts must be constant negative integers')
+            degree=max(degree,-int(shift))
+        if degree>64:
+            raise ValueError('Recurrence order exceeds 64')
+        initial=tuple(Dummy('c_'+str(i)) for i in range(degree)) if initial is None else tuple(map(_scalar,initial))
+        if len(initial)!=degree:
+            raise ValueError('The number of initial terms must equal the recurrence degree')
+        self=object.__new__(cls)
+        self._args=(recurrence,yn,n,initial,start)
+        self._limits=(n,start,oo)
+        self.degree=degree
+        self.cache={yn.func(start+i):value for i,value in enumerate(initial)}
+        return self
+    @property
+    def _recurrence(self):return self.args[0]
+    @property
+    def recurrence(self):
+        from .. import Eq
+        return Eq(self.yn,self._recurrence)
+    @property
+    def yn(self):return self.args[1]
+    @property
+    def y(self):return self.yn.func
+    @property
+    def n(self):return self.args[2]
+    @property
+    def initial(self):return self.args[3]
+    def _expressions(self):return (self._recurrence,*self.initial)
+    def _eval_coeff(self,pt):
+        from .. import cancel
+        offset=cancel(pt-self.start)
+        if not offset.is_Integer:
+            raise NotImplementedError('Recursive coefficients require a concrete integer offset')
+        offset=int(offset)
+        if not 0<=offset<MAX_TERMS:
+            raise ValueError('Recurrence evaluation is limited to 100000 terms')
+        for position in range(len(self.cache),offset+1):
+            index=self.start+position
+            term=self._recurrence.xreplace({self.n:index}).xreplace(self.cache)
+            self.cache[self.y(index)]=term
+        return self.cache[self.y(pt)]
+    def coeff_mul(self,coeff):
+        from .. import cancel
+        coeff=_scalar(coeff)
+        if coeff==0:return SeqFormula(0,self._limits)
+        if self.n in coeff.free_symbols:
+            return SeqMul(self,SeqFormula(coeff,self._limits),evaluate=False)
+        from ..solvers._differential import nodes
+        replacements={node:node/coeff for node in nodes(self._recurrence) if node.func==self.y}
+        recurrence=cancel(coeff*self._recurrence.xreplace(replacements))
+        return RecursiveSeq(recurrence,self.yn,self.n,[coeff*value for value in self.initial],self.start)
+    def _transform(self,function,boundary=None,replace_index=False,mapping=None):
+        boundary=function if boundary is None else boundary
+        n=mapping.get(self.n,self.n) if replace_index else self.n
+        return RecursiveSeq(function(self._recurrence),self.y(n),n,
+                            [function(value) for value in self.initial],boundary(self.start))
+    def to_sympy(self):
+        from sympy.series.sequences import RecursiveSeq
+        return RecursiveSeq(self._recurrence.to_sympy(),self.yn.to_sympy(),self.n.to_sympy(),
+                            [value.to_sympy() for value in self.initial],self.start.to_sympy())
 
 
 class _EmptySequence(SeqBase):
@@ -448,4 +561,5 @@ def sequence(seq, limits=None):
     return SeqFormula(seq,limits)
 
 
-__all__=['SeqFormula','SeqPer','SeqAdd','SeqMul','EmptySequence','sequence']
+__all__=['SeqFormula','SeqPer','SeqAdd','SeqMul','EmptySequence','sequence',
+         'SeqExpr','SeqExprOp','RecursiveSeq']

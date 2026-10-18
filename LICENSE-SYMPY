@@ -7,6 +7,11 @@ SymPy 1.14 algorithms to native arithmetic, differentiation, integration and
 exact linear nullspaces. The PDE method interfaces and characteristic
 conventions in python/symox/solvers/pde.py follow the SymPy solver APIs.
 
+The continued-fraction Pade construction in python/symox/series/approximants.py
+adapts SymPy's approximants algorithm to native exact cancellation. The public
+array-comprehension, sequence and solver-helper conventions follow SymPy 1.14;
+their scalar arithmetic and algebraic operations use native symox kernels.
+
 The public adapters in python/symox/_expr_methods.py (direction and matching
 semantics), python/symox/_matrix_decompositions.py (graph decomposition result
 construction) and python/symox/polys/matrices/domainmatrix.py (domain inference

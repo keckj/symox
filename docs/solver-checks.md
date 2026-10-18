@@ -75,6 +75,59 @@ invalid shapes, missing or duplicate symbols and noninvertible systems.
 Structural rational isolation is limited to 256 nested arithmetic levels and
 the pole/derivative traversal to 10,000 distinct nodes.
 
+## Denominators, matrix shortcuts and sparse solutions
+
+`symox.solvers.solvers.denoms(expr, *symbols)` recursively collects denominator
+factors, optionally restricted to factors containing the selected symbols.
+It accepts equations and expression collections. `recast_to_symbols(eqs,
+symbols)` replaces nonsymbol unknowns with fresh dummy symbols and returns
+the changed equations, unknowns in the original order and a restoration map.
+Overlapping replacements are simultaneous.
+
+`det_perm`, `det_minor` and `det_quick` compute exact determinants;
+`inv_quick` computes exact inverses. Small symbolic matrices use Leibniz
+expansion, memoized Laplace minors or cofactors; larger matrices use native
+matrix kernels. Explicit `det_quick(..., method=...)` selects the native
+determinant method. All require square inputs and preserve them. `det_quick`
+and `inv_quick` are also exported at the package root. Permutation expansion
+is limited to order eight, minors to twelve and cofactor inversion to six.
+
+`minsolve_linear_system(augmented, *symbols, quick=False)` finds a particular
+solution with minimal nonzero support. Exact search enumerates smaller supports
+and checks consistency with native linear solving. `quick=True` uses greedy
+support reduction and does not promise the global minimum. Nontrivial
+homogeneous solutions follow the linear solver's free-variable convention.
+Inconsistent systems return `None`; fully unconstrained systems return `{}`.
+The input is preserved and coefficient parameters are retained. Exact search
+is limited to 20 unknowns and greedy solving to 64.
+
+## Removing radicals
+
+`symox.solvers.solvers.unrad(eq, *symbols, take=None)` eliminates algebraic
+radicals using native polynomial resultants. Nested radicals are replaced
+with fresh coordinates and eliminated from the outside inward. Multiple
+rational powers of one base can use a shared coordinate instead, returning
+its defining relation alongside the transformed equation.
+
+```python
+from symox.solvers.solvers import unrad
+from symox import root
+
+polynomial, cov = unrad(sqrt(x)+root(x, 3)-2)
+p, relation = cov
+assert polynomial == p**3+p**2-2
+assert relation == p**6-x
+```
+
+The result is `(equation, covariance)`; `None` means there were no selected
+radicals. The transformed equation can have extraneous roots: candidates
+must be checked in the original equation and against its denominator and
+branch conditions. Elimination is limited to eight radical generators,
+individual degrees up to 64 and combined resultant degree up to 256.
+Shared-coordinate degree is limited to 64. Symbolic exponents and
+transcendental functions of radical coordinates are outside this polynomial
+elimination interface; unsupported transformations raise `NotImplementedError`.
+
 ## Undetermined coefficients
 
 `solve_undetermined_coeffs(equation, coefficients, *variables, **flags)` matches

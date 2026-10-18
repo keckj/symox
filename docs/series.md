@@ -113,6 +113,49 @@ Growing exponentials are preserved when the native series engine keeps them
 exact. Polar-branch identities used here apply along the positive real
 direction at infinity.
 
+## Pade approximants and sequence limits
+
+`approximants(coefficients, X=Symbol('x'), simplify=False)` generates consecutive
+Pade approximants through a formal continued fraction. Coefficients can be
+exact numbers or symbolic expressions. Exact cancellation terminates the
+generator when the coefficient list already describes a rational function;
+it does not emit a spurious zero or NaN after termination. Input is bounded at
+256 coefficients and is copied before computation.
+
+```python
+from symox import approximants, limit_seq, factorial, cancel
+
+assert cancel(list(approximants([1]*8, x))[-1] - 1/(1-x)) == 0
+n = symbols('n', integer=True, positive=True)
+assert limit_seq((-1)**n/n, n) == 0
+assert limit_seq(2**n/factorial(n), n) == 0
+```
+
+`limit_seq(expr, n=None, trials=5)` combines exact native limits, hypergeometric
+ratio tests and Stolz–Cesaro differences with certified divergence and eventual
+monotonicity of the denominator. Supported sums can be differentiated
+discretely without first finding a closed form. Positive hypergeometric
+summands can certify divergence by their growth ratio. Fibonacci and Lucas
+terms use their exact Binet formulas. Even/odd subsequences handle alternating
+limits; different real limits return an `AccumBounds` interval. Unknown
+functions and unresolved asymptotic comparisons return `None`. `trials` must
+lie between one and 64; this is not the complete general sequence-limit
+algorithm.
+
+`AccumBounds(min, max)` represents a real accumulation interval with endpoint
+metadata and basic interval arithmetic, including integer powers. It is the
+same class as `AccumulationBounds` and collapses equal endpoints to a scalar.
+It does not provide SymPy's complete expression method hierarchy.
+
+The compatible `symox.series` module also exports the existing native
+`Limit`, `limit`, `Order`, `O`, `residue` and `difference_delta` implementations.
+Their `limits`, `order`, `residues` and `limitseq` module paths are available.
+`gruntz(expr, variable, point, dir='+')` uses the Rust exact limit engine,
+including its most-rapidly-varying comparison algorithm, and raises `PoleError`
+when that engine cannot determine a result. Ordinary `limit` retains a held
+`Limit` for unresolved cases. Series expansion and limit solving have distinct
+algorithmic scopes; the restrictions on `aseries` above still apply.
+
 ## Local regularity, branches and constructors
 
 `is_meromorphic(x, a)` is a three-valued local test. It handles arithmetic,

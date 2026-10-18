@@ -50,6 +50,36 @@ and renames it when needed to avoid capturing replacement symbols. Bounds
 remain free. `xreplace` applies literal structural replacements, including the
 index. `simplify` and `expand` transform generating expressions.
 
+## Recursive sequences and expression bases
+
+`RecursiveSeq(recurrence, yn, n, initial=None, start=0)` defines a sequence
+from a finite history. The recurrence is the expression for the next term,
+not an equality. References to `yn.func` must have constant negative integer
+shifts. The largest shift determines `degree`; `initial` must contain exactly
+that many values. Omitting it creates independent symbolic initial values.
+
+```python
+from symox.series.sequences import RecursiveSeq, SeqExpr, SeqExprOp
+from symox import Function
+
+y = Function('y')
+fib = RecursiveSeq(y(n-1)+y(n-2), y(n), n, [0, 1])
+assert fib[:8] == [0, 1, 1, 2, 3, 5, 8, 13]
+assert fib.degree == 2
+```
+
+Coefficient evaluation iteratively fills a cache, avoiding Python recursion.
+Nonlinear recurrences and explicit index dependence are supported, as are
+nonzero starts, parameter substitution, scalar scaling and termwise sequence
+arithmetic. `recurrence`, `yn`, `y`, `n`, `initial` and `cache` expose the
+definition and computed history. Orders are limited to 64 and evaluation to
+100,000 terms from the start; symbolic coefficient offsets cannot be evaluated.
+
+`SeqExpr` is the expression base of `SeqFormula` and `SeqPer`; `SeqExprOp` is
+the operation base of `SeqAdd` and `SeqMul`. Directly constructed base objects
+provide generators, bound variables and interval metadata. Coefficient
+evaluation requires a concrete expression or operation class.
+
 ## Fitted linear recurrences
 
 `seq.find_linear_recurrence(n, d=None, gfvar=None)` searches for the shortest
@@ -78,4 +108,5 @@ need a concrete integer offset from their origin. Undecidable symbolic bounds
 raise `NotImplementedError` when evaluating a coefficient.
 
 This layer does not implement the complete SymPy `Basic` method surface for
-sequence objects, general asymptotic sequence limits, plotting or code generation.
+sequence objects, plotting or code generation. See the [series guide](series.md)
+for the separate `limit_seq` interface and its supported asymptotic cases.

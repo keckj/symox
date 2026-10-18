@@ -83,6 +83,38 @@ Public `simplify`, `expand`, `factor`, `trigsimp`, `powsimp`, `ratsimp`,
 `shape` supports registration for additional Python types through
 `shape.register`; scalar inputs raise `symox.tensor.functions.NoShapeError`.
 
+## Deferred comprehensions and element kinds
+
+`ArrayComprehension(expr, (index, lower, upper), ...)` describes a rectangular
+array with inclusive integer limits. `shape`, `rank()`, `variables`,
+`bound_symbols`, `function`, `limits` and `free_symbols` remain available with
+symbolic bounds. `doit()` expands concrete bounds into an immutable dense
+array; symbolic bounds retain the comprehension. `tolist()` and `tomatrix()`
+require concrete bounds, with matrix conversion also requiring rank two.
+
+```python
+from symox import ArrayComprehension, ArrayComprehensionMap
+
+i, j, n = symbols('i j n')
+table = ArrayComprehension(10*i+j, (i, 1, n), (j, 1, 2))
+assert table.subs(n, 2).tolist() == [[11, 12], [21, 22]]
+assert ArrayComprehensionMap(lambda k: k*k, (i, 1, 3)).tolist() == [1, 4, 9]
+```
+
+Substitution preserves bound indices and renames them to avoid capturing
+replacement symbols; literal `xreplace` can replace the indices themselves.
+`ArrayComprehensionMap` accepts a Python lambda with zero or one positional
+argument. A one-argument lambda receives the product of the index values,
+following SymPy's multidimensional convention. Symbolic comprehensions defer
+the callback until concrete expansion. The same rank and materialization
+limits apply as for ordinary arrays.
+
+`ArrayKind(element_kind)` is interned and records `NumberKind`, `BooleanKind`
+or `UndefinedKind` element metadata. Dense and sparse arrays expose `.kind`;
+mixed element kinds and empty arrays have `ArrayKind(UndefinedKind)`. Sparse
+implicit zeros contribute `NumberKind` without materializing the full array.
+This includes sparse metadata that SymPy 1.14 leaves as `UndefinedKind`.
+
 ## Limits
 
 Arrays require concrete nonnegative dimensions and rank at most 32. Dense

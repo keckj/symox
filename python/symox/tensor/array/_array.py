@@ -213,6 +213,19 @@ class NDimArray:
         return self._shape
 
     @property
+    def kind(self):
+        from ..._kind import scalar_kind,NumberKind,UndefinedKind
+        from .kind import ArrayKind
+        kinds=set()
+        stored=0
+        for _,value in self._items():
+            kinds.add(scalar_kind(value))
+            stored+=1
+        if stored<math.prod(self.shape):
+            kinds.add(NumberKind)
+        return ArrayKind(next(iter(kinds)) if len(kinds)==1 else UndefinedKind)
+
+    @property
     def func(self):
         return type(self)
 
