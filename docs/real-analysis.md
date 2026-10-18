@@ -61,6 +61,13 @@ assert stationary_points(sin(x), x, Interval(0, 2*pi)) == FiniteSet(pi/2, 3*pi/2
 
 ## Periods
 
+`symox.calculus.util.lcim(numbers)` computes the least common integral multiple
+of commensurable finite real constants. Exact rational ratios identify a shared
+irrational scale, so `[2*pi, 3*pi, pi/2]` gives `6*pi`, while
+`[sqrt(2), sqrt(3)]` returns `None`. Rational numerators use integer LCM and
+denominators use integer GCD. Incommensurable or unproved numeric ratios return
+`None`; empty input returns one.
+
 `periodicity(f, x, check=False)` searches structurally for a real period.
 It handles affine trigonometric and purely imaginary exponential/hyperbolic
 frequencies, sums and products with commensurate periods, integer powers,
@@ -83,6 +90,17 @@ the available simplifier cannot prove the identity. The analysis traversal is
 limited to 10,000 distinct scalar nodes.
 
 ## Monotonicity
+
+`symox.calculus.singularities.monotonicity_helper(expression, predicate,
+interval=S.Reals, symbol=None)` checks a custom predicate on the native first
+derivative over the requested interval. For example, `lambda d: d > 0` tests
+strict positivity of every derivative value, including finite endpoints; it
+does not infer strict monotonicity from isolated zeros. The function uses the
+same real continuity and connected-domain checks as the monotonicity adapters.
+Empty intervals are vacuous, singleton intervals evaluate the predicate at
+that point, and unresolved parameter signs return `None`.
+Conjunctions, disjunctions and negations of derivative relations use native
+set intersection, union and complement.
 
 `is_increasing`, `is_decreasing`, their `is_strictly_...` variants and
 `is_monotonic` accept `(expression, interval=S.Reals, symbol=None)`. A single

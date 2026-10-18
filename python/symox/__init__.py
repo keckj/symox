@@ -1916,4 +1916,7 @@ from .geometry import (  # noqa: E402
     idiff, intersection, closest_points, farthest_points, GeometryError,
 )
 
+from .tensor import _adapters as _indexed_tensor_adapters
+_indexed_tensor_adapters.install(globals())
+
 __all__ = [n for n in dir() if not n.startswith("_")]

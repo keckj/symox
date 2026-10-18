@@ -1,5 +1,5 @@
 """Isolated singularity candidates, using the native equation solver."""
-from ._analysis import scalar, variable, walk, name, zeros
+from ._analysis import scalar, variable, walk, name, zeros, inequality
 
 
 def singularities(expression, symbol, domain=None):
@@ -45,5 +45,39 @@ def singularities(expression, symbol, domain=None):
 from ._monotonicity import (is_increasing, is_strictly_increasing,
     is_decreasing, is_strictly_decreasing, is_monotonic)
 
+
+def monotonicity_helper(expression,predicate,interval=None,symbol=None):
+    """Prove that a derivative satisfies a predicate throughout an interval."""
+    from .. import S,Dummy,sympify
+    from ._monotonicity import _context,_subset
+    interval=S.Reals if interval is None else interval
+    result,derivative,real,interior=_context(expression,interval,symbol)
+    if derivative is None:
+        if result is not True or interval==S.EmptySet:return result
+        expression=scalar(expression)
+        if symbol is None:
+            symbol=next(iter(expression.free_symbols),Dummy('constant_x',real=True))
+        derivative=expression.diff(symbol).subs(symbol,interval.args[0])
+        condition=sympify(predicate(derivative))
+        return True if condition==S.true else False if condition==S.false else None
+    condition=sympify(predicate(derivative))
+    if condition==S.true:return True
+    if condition==S.false:return False
+    if not condition.has(real):return None
+    def satisfying(value):
+        from .. import Union
+        if value==S.true:return interval
+        if value==S.false:return S.EmptySet
+        head=getattr(value.func,'__name__','')
+        if head=='And':
+            result=interval
+            for part in value.args:result=result.intersect(satisfying(part))
+            return result
+        if head=='Or':return Union(*(satisfying(part) for part in value.args))
+        if head=='Not':return interval-satisfying(value.args[0])
+        return inequality(value,real,interval)
+    allowed=satisfying(condition)
+    return _subset(interval,allowed)
+
 __all__=['singularities','is_increasing','is_strictly_increasing',
-    'is_decreasing','is_strictly_decreasing','is_monotonic']
+    'is_decreasing','is_strictly_decreasing','is_monotonic','monotonicity_helper']

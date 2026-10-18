@@ -37,7 +37,7 @@ println!("{}", diff(&e, &x));
 - Polynomials, factorization and Gröbner bases over supported exact domains.
 - Symbolic differentiation, integration, solving, series, limits and recurrences.
 - Dense, sparse and abstract matrices with exact linear algebra.
-- Dense and sparse multidimensional arrays, tensor contractions and finite Jacobians.
+- Dense and sparse arrays, indexed tensors, Einstein contractions and finite Jacobians.
 - Boolean algebra, SAT, symbolic sets and assumptions.
 - Exact Euclidean geometry and scalar/linear-system ODE and first-order PDE interfaces.
 - Numerical compilation and code generation for NumPy, C/C++, Rust, Fortran,
@@ -64,12 +64,12 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 | Equation solvers exports | 15 / 15 | 0 | 100.00% |
 | Inequalities exports | 8 / 8 | 0 | 100.00% |
 | Arrays exports | 16 / 16 | 0 | 100.00% |
-| Indexed tensor algebra exports | 0 / 35 | 35 | 0.00% |
+| Indexed tensor algebra exports | 35 / 35 | 0 | 100.00% |
 | Series and limits exports | 18 / 18 | 0 | 100.00% |
 | Sequences exports | 10 / 10 | 0 | 100.00% |
-| Real analysis exports | 8 / 9 | 1 | 88.89% |
-| Singularities and monotonicity exports | 6 / 7 | 1 | 85.71% |
-| Coefficient domains exports | 20 / 32 | 12 | 62.50% |
+| Real analysis exports | 9 / 9 | 0 | 100.00% |
+| Singularities and monotonicity exports | 7 / 7 | 0 | 100.00% |
+| Coefficient domains exports | 32 / 32 | 0 | 100.00% |
 | Polynomial ring constructors exports | 0 / 4 | 4 | 0.00% |
 | Fraction field constructors exports | 0 / 4 | 4 | 0.00% |
 | Number fields exports | 5 / 10 | 5 | 50.00% |
@@ -138,6 +138,7 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Matrix expression protocols](docs/matrix-expressions.md) | Structural queries, scalar calculus and matrix coefficient series |
 | [Permutation matrices](docs/matrix-permutations.md) | Native permutation nodes, composition and row/column operations |
 | [Arrays and tensors](docs/arrays.md) | Multidimensional storage, tensor operations and finite matrix derivatives |
+| [Indexed tensor algebra](docs/indexed-tensors.md) | Typed indices, slot symmetries, metric contractions, components and matching |
 | [Utilities](docs/utilities.md) | Sorting, traversal, containers, graph ordering and memoization |
 | [Code generation](docs/codegen/overview.md) | Target overview and execution routes |
 | [CUDA](docs/codegen/cuda.md) | NVRTC compilation and native execution |

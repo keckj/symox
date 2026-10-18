@@ -125,5 +125,7 @@ Jacobians enforce their intermediate storage bounds before materializing.
 Sparse tensors can have much larger shapes when operations preserve sparsity.
 Nonfinite products respect native scalar rules, including `0*oo = nan`.
 
-Lazy symbolic array-expression nodes, general indexed tensor algebra,
-array-specific printers and code generation are not implemented by this layer.
+Lazy symbolic array-expression nodes, array-specific printers and code
+generation are not implemented by this layer. Typed abstract indices,
+Einstein contractions and slot symmetries are provided separately by
+[indexed tensor algebra](indexed-tensors.md).

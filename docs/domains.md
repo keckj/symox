@@ -24,8 +24,30 @@ explicitly required.
 Constructor facades include `IntegerRing`, `RationalField`, `FiniteField`,
 `RealField`, `ComplexField`, Gaussian and expression domains, `PolynomialRing`,
 `FractionField` and `AlgebraicField`. They return native `Domain` descriptors;
-their elements use the common native `DomainElement` protocol. The internal
-Python/GMP/mpmath element classes of SymPy are not reproduced.
+their elements use the common native `DomainElement` protocol. Backend-specific
+storage engines from SymPy are not reproduced.
+
+### Legacy backend constructor names
+
+`PythonIntegerRing`, `GMPYIntegerRing`, `PythonRationalField`,
+`GMPYRationalField`, `PythonFiniteField` and `GMPYFiniteField` construct the
+corresponding native domains. `ZZ_python`, `ZZ_gmpy`, `QQ_python`, `QQ_gmpy`,
+`FF_python` and `FF_gmpy` are their compatible constructor aliases. The usual
+`pythonintegerring`, `pythonrationalfield`, `pythonfinitefield` and corresponding
+`gmpy...` module paths are available. These spellings do not select Python or
+GMPY storage; coefficients use symox's exact native kernels, with no GMPY
+dependency. Prime-modulus and symmetric-display restrictions of native `GF`
+still apply; `symmetric=False` raises `NotImplementedError`.
+
+`PythonRational(numerator, denominator=None)` is an immutable exact rational
+adapter backed by Python integer fractions. It normalizes signs and common
+factors, supports integer, string, decimal, float and fraction construction,
+and preserves its type through rational arithmetic and integer powers.
+Comparisons and hashing follow exact fraction semantics. Its native conversion
+hook allows `sympify` and native domain constructors to consume it directly.
+Floor division and remainder are deliberately unsupported, following the
+rational coefficient API. This adapter is available from `pythonrational`;
+explicit `to_sympy()` is optional and is the only operation that imports SymPy.
 
 ## Exact arithmetic
 

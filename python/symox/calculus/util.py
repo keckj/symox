@@ -3,6 +3,24 @@ from ._analysis import scalar, variable, walk, name, zeros, real_domain, inequal
 from .. import S as _S
 
 
+def lcim(numbers):
+    """Least common integral multiple of commensurable real constants."""
+    import math
+    from .. import sympify,cancel,simplify,Abs,Rational,S
+    values=[sympify(value) for value in numbers]
+    if not values:return S.One
+    if any(value.free_symbols or value.is_finite is not True or value.is_real is not True
+           for value in values):return None
+    if any(value==0 for value in values):
+        return S.Zero if all(value.is_Rational for value in values) else None
+    unit=values[0]
+    ratios=[simplify(cancel(value/unit)) for value in values]
+    if any(not value.is_Rational for value in ratios):return None
+    numerator=math.lcm(*(abs(int(value.p)) for value in ratios))
+    denominator=math.gcd(*(int(value.q) for value in ratios))
+    return simplify(Abs(unit)*Rational(numerator,denominator))
+
+
 def is_convex(f, *syms, domain=_S.Reals):
     """Prove univariate convexity through a nondecreasing first derivative."""
     if not syms:raise ValueError('Supply the variable for a convexity check')
@@ -205,4 +223,4 @@ from ._extrema import minimum, maximum
 from ._range import function_range
 from ._notempty import not_empty_in
 
-__all__=['continuous_domain','stationary_points','periodicity','is_convex','minimum','maximum','function_range','not_empty_in']
+__all__=['continuous_domain','stationary_points','periodicity','is_convex','minimum','maximum','function_range','not_empty_in','lcim']

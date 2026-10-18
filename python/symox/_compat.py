@@ -3,6 +3,8 @@
 The public classes describe expression kinds. Their constructors return native
 ``Expr`` objects and their instance checks inspect those objects' native kind,
 so arithmetic never crosses into a second Python expression implementation.
+Structured tensor operands dispatch to the indexed tensor layer; their scalar
+coefficients still use these native expression nodes.
 """
 
 from fractions import Fraction
@@ -96,6 +98,9 @@ class Add(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Add)
 
     def __new__(cls, *args, evaluate=True):
+        if any(getattr(arg,'_symox_tensexpr',False) for arg in args):
+            from .tensor.tensor import TensAdd
+            return TensAdd(*args,evaluate=evaluate)
         if any(_matrix_operand(arg) for arg in args):
             from ._matrixexpr import MatAdd
             return MatAdd(*args,evaluate=evaluate)
@@ -103,6 +108,7 @@ class Add(metaclass=_ExprType):
 
     @staticmethod
     def make_args(expr):
+        if getattr(expr,'_symox_tensexpr',False):return (expr,)
         expr = _core.sympify(expr)
         return expr.args if expr.is_Add else (expr,)
 
@@ -111,6 +117,9 @@ class Mul(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Mul)
 
     def __new__(cls, *args, evaluate=True):
+        if any(getattr(arg,'_symox_tensexpr',False) for arg in args):
+            from .tensor.tensor import TensMul
+            return TensMul(*args,evaluate=evaluate)
         if any(_matrix_operand(arg) for arg in args):
             from ._matrixexpr import MatMul
             return MatMul(*args,evaluate=evaluate)
@@ -118,6 +127,7 @@ class Mul(metaclass=_ExprType):
 
     @staticmethod
     def make_args(expr):
+        if getattr(expr,'_symox_tensexpr',False):return (expr,)
         expr = _core.sympify(expr)
         return expr.args if expr.is_Mul else (expr,)
 

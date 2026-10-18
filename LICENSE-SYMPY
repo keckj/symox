@@ -12,6 +12,11 @@ adapts SymPy's approximants algorithm to native exact cancellation. The public
 array-comprehension, sequence and solver-helper conventions follow SymPy 1.14;
 their scalar arithmetic and algebraic operations use native symox kernels.
 
+The indexed tensor interfaces and Riemann cyclic-projection conventions in
+python/symox/tensor follow SymPy 1.14. Their Einstein index handling, bounded
+signed-orbit canonicalization and explicit component evaluation are native
+symox implementations, without a SymPy runtime dependency.
+
 The public adapters in python/symox/_expr_methods.py (direction and matching
 semantics), python/symox/_matrix_decompositions.py (graph decomposition result
 construction) and python/symox/polys/matrices/domainmatrix.py (domain inference

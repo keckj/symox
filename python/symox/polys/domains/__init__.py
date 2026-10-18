@@ -15,3 +15,7 @@ if hasattr(_core, 'EX'):
     from ._types import __all__ as _type_names
     FF = GF
     __all__ += ['EX', 'EXRAW', 'RR', 'CC', 'ZZ_I', 'QQ_I', 'FF'] + _type_names
+
+from ._compat import *
+from ._compat import __all__ as _compat_names
+__all__ += _compat_names
