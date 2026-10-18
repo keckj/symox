@@ -1,0 +1,646 @@
+"""Exact probability, expectation, transforms and conditional sampling."""
+from collections import defaultdict
+from itertools import product
+import operator
+import numpy as np
+import symox as S
+from ._base import REGISTRY,RandomSymbol,Distribution,Domain,PSpace,HALF,scalar,check,variable,integral,sum_expr
+
+
+def random_symbols(expr):
+    if isinstance(expr,RandomSymbol):return {expr}
+    if isinstance(expr,(list,tuple,set)):return set().union(*(random_symbols(v) for v in expr))
+    if getattr(expr,'_stats_joint',False):return set(expr.components)
+    if getattr(expr,'_stats_matrix',False):return {expr}
+    try:free = scalar(expr).free_symbols
+    except (ValueError,TypeError):free = getattr(expr,'free_symbols',set())
+    return {REGISTRY[v] for v in free if v in REGISTRY}
+
+
+def pspace(expr):
+    if getattr(expr,'_stats_joint',False) or getattr(expr,'_stats_matrix',False):return expr.pspace
+    variables = random_symbols(expr)
+    if not variables:raise ValueError('expression contains no random variables')
+    return PSpace(variables)
+
+
+def _truth(condition):
+    if condition is True or condition == S.true:return True
+    if condition is False or condition == S.false:return False
+    return None
+
+
+def _indicator(condition):
+    truth = _truth(condition)
+    return S.Integer(int(truth)) if truth is not None else S.Piecewise((1,condition),(0,True))
+
+
+def _finite_indicator(condition,mapping,variables):
+    result = condition.subs(mapping,simultaneous=True)
+    replacements = {}
+    for rv in variables:
+        model = rv.distribution
+        if model.kind == 'finite' and model._table is not None:
+            labels = [v for v in model.dict if v.is_Symbol]
+            for a in labels:
+                for b in labels:
+                    if a != b:replacements[S.Eq(a,b)] = S.false
+    return _indicator(result.xreplace(replacements) if replacements else result)
+
+
+def _groups(variables):
+    groups = defaultdict(list)
+    for rv in sorted(variables,key=lambda rv:rv.name):groups[rv.group].append(rv)
+    return groups
+
+
+def _worlds(variables):
+    choices = []
+    count = 1
+    for group,values in _groups(variables).items():
+        if hasattr(group,'finite_worlds'):
+            available = group.finite_worlds(values)
+            if available is None:return None
+            states = list(available)
+        elif len(values) == 1 and values[0].distribution.kind == 'finite' and values[0].distribution._table is not None:
+            rv = values[0]
+            states = [({rv._atom:value},probability) for value,probability in rv.distribution.dict.items()]
+        else:return None
+        count *= len(states)
+        if count > 1000000:raise RuntimeError('finite probability enumeration exceeds one million joint outcomes')
+        choices.append(states)
+    def states():
+        for combination in product(*choices):
+            values,weight = {},S.Integer(1)
+            for mapping,probability in combination:values.update(mapping);weight *= probability
+            yield values,weight
+    return states()
+
+
+def _bindings(condition):
+    if condition is None:return {}
+    parts = condition.args if getattr(condition,'class_name','') == 'And' else (condition,)
+    bindings = {}
+    for part in parts:
+        if getattr(part,'class_name','') == 'Equality':
+            a,b = part.lhs,part.rhs
+            if a in REGISTRY and not random_symbols(b):bindings[a] = b
+            elif b in REGISTRY and not random_symbols(a):bindings[b] = a
+    for atom,value in bindings.items():
+        rv = REGISTRY[atom];model = rv.distribution
+        if rv.process is not None or hasattr(rv.group,'joint_moment'):continue
+        if model.kind == 'continuous':check(S.And(value>=model.lower,value<=model.upper),'conditioned value is outside the distribution support')
+        elif model.kind == 'finite' and model._table is not None and value in model.dict:
+            check(model.dict[value] != 0,'conditioning event has zero probability')
+        else:check(model.bounded_pdf(value).is_zero is not True,'conditioned value is outside the distribution support')
+    return bindings
+
+
+def _joint_conditioning(expression,condition):
+    bindings = _bindings(condition)
+    if not bindings:return None
+    replacements = {}
+    for group,values in _groups(random_symbols(expression)|random_symbols(condition)).items():
+        if hasattr(group,'conditioned_replacements'):
+            mapping = group.conditioned_replacements(bindings)
+            if mapping:replacements.update(mapping)
+    if not replacements:return None
+    return scalar(expression).subs(replacements,simultaneous=True),condition.subs(replacements,simultaneous=True)
+
+
+def _condition_set(condition,rv):
+    model,x = rv.distribution,rv._atom
+    truth = _truth(condition)
+    if truth is not None:return model.set if truth else S.EmptySet
+    name = getattr(condition,'class_name','')
+    if name == 'And':return S.Intersection(model.set,*(_condition_set(part,rv) for part in condition.args))
+    if name == 'Or':return S.Union(*(_condition_set(part,rv) for part in condition.args))
+    if name == 'Not':return S.Complement(model.set,_condition_set(condition.args[0],rv))
+    if condition.is_Relational:
+        if condition.rel_op in ('==','!='):
+            solution = S.solveset(condition.lhs-condition.rhs,x,domain=S.Reals)
+            return S.Intersection(model.set,solution) if condition.rel_op == '==' else S.Complement(model.set,solution)
+        return S.Intersection(model.set,S.solve_univariate_inequality(condition,x,relational=False))
+    raise NotImplementedError('this event cannot be reduced to a univariate support set')
+
+
+def _measure(model,region):
+    if region == S.EmptySet:return S.Integer(0)
+    if region == model.set:return S.Integer(1)
+    if isinstance(region,S.Interval):
+        a,b = region.start,region.end
+        if model.kind == 'continuous':return S.simplify(model.cdf(b)-model.cdf(a))
+        lower = S.floor(a)+1 if region.left_open else S.ceiling(a)
+        upper = S.ceiling(b)-1 if region.right_open else S.floor(b)
+        return S.simplify(model.cdf(upper)-model.cdf(lower-1))
+    if isinstance(region,S.FiniteSet):
+        return S.Integer(0) if model.kind == 'continuous' else S.Add(*(model.bounded_pdf(v) for v in region.args))
+    if isinstance(region,S.Union):return S.Add(*(_measure(model,part) for part in region.args))
+    if isinstance(region,S.Complement):return _measure(model,region.args[0])-_measure(model,S.Intersection(*region.args))
+    if isinstance(region,S.Range):return model.cdf(region.stop-1)-model.cdf(region.start-1)
+    raise NotImplementedError('probability of this support-set form is not implemented')
+
+
+def _normal_linear(expr):
+    variables = random_symbols(expr)
+    if not variables:return None
+    if all(v.distribution.family == 'Normal' and v.process is None and not hasattr(v.group,'joint_moment') for v in variables):
+        atoms = [v._atom for v in variables]
+        try:poly = S.Poly(scalar(expr),*atoms)
+        except (TypeError,ValueError):return None
+        if poly.total_degree() > 1:return None
+        mean = scalar(expr).subs({v._atom:v.distribution.args[0] for v in variables},simultaneous=True)
+        var = S.Add(*(scalar(expr).diff(v._atom)**2*v.distribution.args[1]**2 for v in variables))
+        return mean,S.simplify(var)
+    groups = _groups(variables)
+    if len(groups) == 1:
+        group,values = next(iter(groups.items()))
+        if hasattr(group,'normal_linear'):return group.normal_linear(scalar(expr),values)
+    return None
+
+
+def _process_query(operation,expr,condition):
+    variables = random_symbols(expr)|random_symbols(condition) if condition is not None else random_symbols(expr)
+    processes = {v.process for v in variables if getattr(v,'process',None) is not None}
+    if len(processes) == 1:
+        return next(iter(processes)).query(operation,expr,condition)
+    return None
+
+
+def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
+    if not evaluate:
+        from ._symbolic import Probability
+        return Probability(condition,given_condition)
+    if numsamples is not None:
+        values = sample(condition,given_condition,size=(operator.index(numsamples),),**kwargs)
+        return S.Float(float(np.mean(values)))
+    condition = scalar(condition)
+    if given_condition is not None:given_condition = scalar(given_condition)
+    special = _process_query('P',condition,given_condition)
+    if special is not None:return special
+    truth = _truth(condition)
+    if truth is not None:return S.Integer(int(truth))
+    variables = random_symbols(condition)|random_symbols(given_condition)
+    if not variables:
+        if condition.free_symbols:
+            from ._symbolic import Probability
+            return Probability(condition,given_condition)
+        raise ValueError('probability requires a Boolean event')
+    worlds = _worlds(variables)
+    if worlds is not None:
+        numerator,denominator = S.Integer(0),S.Integer(0)
+        for mapping,weight in worlds:
+            gate = S.Integer(1) if given_condition is None else _finite_indicator(given_condition,mapping,variables)
+            denominator += weight*gate
+            numerator += weight*gate*_finite_indicator(condition,mapping,variables)
+        check(denominator != 0,'conditioning event has zero probability')
+        return S.simplify(numerator/denominator)
+    conditioned = _joint_conditioning(condition,given_condition)
+    if conditioned is not None:
+        event,gate = conditioned
+        return P(event,None if _truth(gate) is True else gate)
+    bindings = _bindings(given_condition)
+    if bindings:
+        condition = condition.subs(bindings,simultaneous=True)
+        given_condition = given_condition.subs(bindings,simultaneous=True)
+        if _truth(given_condition) is True:return P(condition)
+    if given_condition is not None:
+        denominator = P(given_condition)
+        check(denominator != 0,'conditioning event has zero probability')
+        return S.simplify(P(S.And(condition,given_condition))/denominator)
+    # Linear combinations of independent or jointly normal variables reduce
+    # to a single exact normal distribution before event integration.
+    if condition.is_Relational and len(variables)>1:
+        expression = condition.lhs-condition.rhs
+        normal = _normal_linear(expression)
+        if normal is not None:
+            from ._univariate import Normal
+            if normal[1] == 0:return _indicator(S.Rel(normal[0],0,condition.rel_op))
+            Z = Normal('_linear_event',normal[0],S.sqrt(normal[1]))
+            return P(S.Rel(Z,0,condition.rel_op))
+    if len(variables) == 1:
+        rv = next(iter(variables))
+        try:return S.simplify(_measure(rv.distribution,_condition_set(condition,rv)))
+        except NotImplementedError:pass
+    # A general event is a well-defined indicator expectation, not an
+    # unverified numerical probability or a guessed independence product.
+    return _expect(S.Piecewise((1,condition),(0,True)),variables)
+
+
+def _expect(expr,variables=None):
+    expr = scalar(expr)
+    variables = random_symbols(expr) if variables is None else set(variables)
+    if not variables:return expr
+    worlds = _worlds(variables)
+    if worlds is not None:return S.simplify(S.Add(*(weight*expr.subs(values,simultaneous=True) for values,weight in worlds)))
+    atoms = [v._atom for v in sorted(variables,key=lambda v:v.name)]
+    try:polynomial = S.Poly(expr,*atoms)
+    except (ValueError,TypeError):polynomial = None
+    if polynomial is not None:
+        terms = []
+        for powers,coefficient in polynomial.terms():
+            grouped = defaultdict(dict)
+            for atom,power in zip(atoms,powers):
+                if power:
+                    rv = REGISTRY[atom];grouped[rv.group][rv] = power
+            value = coefficient
+            for group,factors in grouped.items():
+                if hasattr(group,'joint_moment'):value *= group.joint_moment(factors)
+                elif len(factors) == 1:
+                    rv,power = next(iter(factors.items()));value *= rv.distribution.moment(S.Integer(power))
+                else:raise ValueError('dependent random variables need a joint probability model')
+            terms.append(value)
+        return S.simplify(S.Add(*terms))
+    if expr.is_Add:return S.Add(*(_expect(part) for part in expr.args))
+    groups = _groups(variables)
+    if len(groups) == 1:
+        group,values = next(iter(groups.items()))
+        if hasattr(group,'expectation'):return group.expectation(expr,values)
+    value = expr
+    for group,rvs in groups.items():
+        if len(rvs) != 1:raise NotImplementedError('nonpolynomial expectation over this dependent space is not implemented')
+        rv = rvs[0];model = rv.distribution
+        if model.kind == 'finite':value = S.Add(*(p*value.subs(rv._atom,k) for k,p in model.dict.items()))
+        else:
+            x = S.Dummy(rv.name,real=True)
+            value = value.subs(rv._atom,x)*model.pdf(x)
+            value = sum_expr(value,x,model.lower,model.upper) if model.kind == 'discrete' else integral(value,x,model.lower,model.upper)
+    return value
+
+
+def _truncated_moment(model,n,a,b):
+    family,args = model.family,model.args
+    if family == 'Normal':
+        mu,sigma = args;alpha,beta = (a-mu)/sigma,(b-mu)/sigma
+        phi = lambda x:S.Integer(0) if x in (S.oo,-S.oo) else S.exp(-x*x/2)/S.sqrt(2*S.pi)
+        sequence = [model.cdf(b)-model.cdf(a),phi(alpha)-phi(beta)]
+        for j in range(2,n+1):
+            boundary = (S.Integer(0) if alpha == -S.oo else alpha**(j-1)*phi(alpha))-(S.Integer(0) if beta == S.oo else beta**(j-1)*phi(beta))
+            sequence.append(boundary+(j-1)*sequence[j-2])
+        return S.Add(*(S.binomial(n,j)*mu**(n-j)*sigma**j*sequence[j] for j in range(n+1)))
+    if family == 'Uniform':return (b**(n+1)-a**(n+1))/((n+1)*(args[1]-args[0]))
+    if family == 'Beta':
+        alpha,beta = args
+        return S.beta(alpha+n,beta)/S.beta(alpha,beta)*S.betainc_regularized(alpha+n,beta,a,b)
+    if family in ('Gamma','Exponential','ChiSquared'):
+        if family == 'Gamma':k,theta = args
+        elif family == 'Exponential':k,theta = S.Integer(1),1/args[0]
+        else:k,theta = args[0]/2,S.Integer(2)
+        gamma_at = lambda x:S.gamma(k+n) if x == S.oo else S.lowergamma(k+n,x/theta)
+        return theta**n*(gamma_at(b)-gamma_at(a))/S.gamma(k)
+    x = S.Dummy('truncated_x',real=True)
+    return integral(x**n*model.pdf(x),x,a,b)
+
+
+def E(expr,condition=None,numsamples=None,evaluate=True,**kwargs):
+    if not evaluate:
+        from ._symbolic import Expectation
+        return Expectation(expr,condition)
+    if numsamples is not None:return S.Float(float(np.mean(sample(expr,condition,size=(operator.index(numsamples),),**kwargs))))
+    if getattr(expr,'_stats_matrix',False):return expr.mean()
+    if getattr(expr,'_stats_joint',False):return S.Matrix([E(v,condition) for v in expr.components])
+    if isinstance(expr,S.Matrix) or getattr(expr,'_symox_sparse',False):return expr.applyfunc(lambda value:E(value,condition,**kwargs))
+    expr = scalar(expr)
+    if condition is not None:condition = scalar(condition)
+    special = _process_query('E',expr,condition)
+    if special is not None:return special
+    if condition is None:return _expect(expr)
+    variables = random_symbols(expr)|random_symbols(condition)
+    worlds = _worlds(variables)
+    if worlds is not None:
+        numerator,denominator = S.Integer(0),S.Integer(0)
+        for values,weight in worlds:
+            gate = _finite_indicator(condition,values,variables)
+            denominator += weight*gate
+            numerator += weight*gate*expr.subs(values,simultaneous=True)
+        check(denominator != 0,'conditioning event has zero probability')
+        return S.simplify(numerator/denominator)
+    conditioned = _joint_conditioning(expr,condition)
+    if conditioned is not None:
+        value,gate = conditioned
+        return E(value,None if _truth(gate) is True else gate)
+    bindings = _bindings(condition)
+    if bindings:
+        reduced = condition.subs(bindings,simultaneous=True)
+        if _truth(reduced) is True:return E(expr.subs(bindings,simultaneous=True))
+    denominator = P(condition)
+    check(denominator != 0,'conditioning event has zero probability')
+    if len(variables) == 1:
+        rv = next(iter(variables));region = _condition_set(condition,rv)
+        intervals = region.args if isinstance(region,S.Union) else (region,)
+        try:poly = S.Poly(expr,rv._atom)
+        except ValueError:poly = None
+        total = S.Integer(0)
+        for interval in intervals:
+            if not isinstance(interval,S.Interval):break
+            if poly is not None and rv.distribution.kind == 'continuous':
+                total += S.Add(*(coefficient*_truncated_moment(rv.distribution,int(powers[0]),interval.start,interval.end) for powers,coefficient in poly.terms()))
+            else:
+                x = S.Dummy('conditional_x',real=True)
+                total += integral(expr.subs(rv._atom,x)*rv.distribution.pdf(x),x,interval.start,interval.end)
+        else:return S.simplify(total/denominator)
+    return S.simplify(_expect(expr*S.Piecewise((1,condition),(0,True)),variables)/denominator)
+
+
+def variance(X,condition=None,**kwargs):
+    if kwargs.pop('evaluate',True) is False:
+        from ._symbolic import Variance
+        return Variance(X,condition)
+    if getattr(X,'_stats_matrix',False):return X.variance()
+    mean = E(X,condition,**kwargs)
+    return S.simplify(E(scalar(X)**2,condition,**kwargs)-mean**2)
+
+
+def std(X,condition=None,**kwargs):return S.sqrt(variance(X,condition,**kwargs))
+def covariance(X,Y,condition=None,**kwargs):
+    if kwargs.pop('evaluate',True) is False:
+        from ._symbolic import Covariance
+        return Covariance(X,Y,condition)
+    return S.simplify(E(scalar(X)*scalar(Y),condition,**kwargs)-E(X,condition,**kwargs)*E(Y,condition,**kwargs))
+def correlation(X,Y,condition=None,**kwargs):return S.simplify(covariance(X,Y,condition,**kwargs)/(std(X,condition,**kwargs)*std(Y,condition,**kwargs)))
+
+
+def moment(X,n,c=0,condition=None,*,evaluate=True,**kwargs):
+    if not evaluate:
+        from ._symbolic import Moment
+        return Moment(X,n,c,condition)
+    n = scalar(n);check(S.And(n>=0,S.Contains(n,S.Integers)),'moment order must be a nonnegative integer')
+    return E((scalar(X)-scalar(c))**n,condition,**kwargs)
+
+
+def cmoment(X,n,condition=None,*,evaluate=True,**kwargs):
+    if not evaluate:
+        from ._symbolic import CentralMoment
+        return CentralMoment(X,n,condition)
+    return moment(X,n,E(X,condition),condition,**kwargs)
+
+
+def smoment(X,n,condition=None,**kwargs):return S.simplify(cmoment(X,n,condition,**kwargs)/std(X,condition,**kwargs)**scalar(n))
+def skewness(X,condition=None,**kwargs):return smoment(X,3,condition,**kwargs)
+def kurtosis(X,condition=None,**kwargs):return smoment(X,4,condition,**kwargs)
+
+
+def factorial_moment(X,n,condition=None,**kwargs):
+    n = operator.index(n)
+    if n < 0:raise ValueError('factorial moment order must be nonnegative')
+    return E(S.Mul(*(scalar(X)-i for i in range(n))),condition,**kwargs)
+
+
+def coskewness(X,Y,Z,condition=None,**kwargs):
+    numerator = E((scalar(X)-E(X,condition))*(scalar(Y)-E(Y,condition))*(scalar(Z)-E(Z,condition)),condition)
+    return S.simplify(numerator/(std(X,condition)*std(Y,condition)*std(Z,condition)))
+
+
+def independent(a,b):
+    left,right = random_symbols(a),random_symbols(b)
+    if not left or not right:return True
+    if not {v.group for v in left}&{v.group for v in right}:return True
+    if _normal_linear(a) is not None and _normal_linear(b) is not None:return covariance(a,b) == 0
+    if len(left) == len(right) == 1:
+        x,y = next(iter(left)),next(iter(right))
+        if x.group is y.group and hasattr(x.group,'independent_components'):return x.group.independent_components(x,y)
+    return False
+
+
+def dependent(a,b):return not independent(a,b)
+
+
+def density(expr,condition=None,evaluate=True,numsamples=None,**kwargs):
+    if numsamples is not None:return sampling_density(expr,condition,numsamples=numsamples,**kwargs)
+    if condition is not None:expr = given(expr,condition)
+    if isinstance(expr,RandomSymbol):return expr.distribution
+    if getattr(expr,'_stats_joint',False) or getattr(expr,'_stats_matrix',False):return expr.distribution
+    expression = scalar(expr);variables = random_symbols(expression)
+    worlds = _worlds(variables)
+    if worlds is not None:
+        table = {}
+        for values,weight in worlds:
+            value = expression.subs(values,simultaneous=True)
+            table[value] = table.get(value,S.Integer(0))+weight
+        return {value:S.simplify(weight) for value,weight in table.items()}
+    normal = _normal_linear(expression)
+    if normal is not None:
+        from ._univariate import continuous_model
+        if normal[1] == 0:return {normal[0]:S.Integer(1)}
+        return continuous_model('Normal',(normal[0],S.sqrt(normal[1])))
+    if len(variables) == 1:
+        rv = next(iter(variables));x,y = rv._atom,S.Dummy('density_value',real=True)
+        roots = S.solve(S.Eq(expression,y),x)
+        if roots:
+            terms = []
+            for root in roots:
+                jacobian = S.Abs(expression.diff(x).subs(x,root))
+                terms.append(S.Piecewise((rv.distribution.pdf(root)/jacobian,S.And(root>=rv.distribution.lower,root<=rv.distribution.upper)),(0,True)))
+            return S.Lambda(y,S.Add(*terms))
+    y = S.Dummy('density_value',real=True)
+    return S.Lambda(y,E(S.DiracDelta(y-expression)))
+
+
+def cdf(expr,condition=None,evaluate=True,**kwargs):
+    model = density(expr,condition,evaluate=evaluate)
+    if isinstance(model,dict):
+        total,table = S.Integer(0),{}
+        for value,p in sorted(model.items(),key=lambda pair:float(pair[0])):total += p;table[value] = S.simplify(total)
+        return table
+    if isinstance(model,Distribution) and model.kind == 'finite' and model._table is not None:
+        total,table = S.Integer(0),{}
+        for value,p in sorted(model.dict.items(),key=lambda pair:float(pair[0])):total += p;table[value] = S.simplify(total)
+        return table
+    x = S.Dummy('z',real=True)
+    if isinstance(model,Distribution):return S.Lambda(x,model.cdf(x))
+    t = S.Dummy('t',real=True)
+    return S.Lambda(x,integral(model(t),t,-S.oo,x))
+
+
+def quantile(expr,evaluate=True,**kwargs):
+    model = density(expr)
+    if isinstance(model,dict):
+        from ._univariate import FiniteDistributionHandmade
+        model = FiniteDistributionHandmade(model)
+    p = S.Dummy('p',real=True)
+    return S.Lambda(p,model.quantile(p))
+
+
+def median(X,evaluate=True,**kwargs):
+    model = density(X)
+    if isinstance(model,dict) or getattr(model,'kind',None) == 'finite':
+        table = model if isinstance(model,dict) else model.dict
+        total,values = S.Integer(0),[]
+        for value,probability in sorted(table.items(),key=lambda pair:float(pair[0])):
+            after = total+probability
+            if _truth(S.And(total<=HALF,after>=HALF)) is not False:values.append(value)
+            total = after
+        return S.FiniteSet(*values)
+    return S.FiniteSet(model.quantile(HALF))
+
+
+def moment_generating_function(expr,condition=None,evaluate=True,**kwargs):
+    model = density(expr,condition,evaluate=evaluate);t = S.Dummy('t',real=True)
+    if isinstance(model,dict):return S.Lambda(t,S.Add(*(p*S.exp(t*v) for v,p in model.items())))
+    if not isinstance(model,Distribution):
+        x = S.Dummy('mgf_x',real=True)
+        return S.Lambda(t,integral(S.exp(t*x)*model(x),x,-S.oo,S.oo))
+    return S.Lambda(t,model.mgf(t))
+
+
+def characteristic_function(expr,condition=None,evaluate=True,**kwargs):
+    model = density(expr,condition,evaluate=evaluate);t = S.Dummy('t',real=True)
+    if isinstance(model,dict):return S.Lambda(t,S.Add(*(p*S.exp(S.I*t*v) for v,p in model.items())))
+    if not isinstance(model,Distribution):
+        x = S.Dummy('cf_x',real=True)
+        return S.Lambda(t,integral(S.exp(S.I*t*x)*model(x),x,-S.oo,S.oo))
+    if model.family == 'Cauchy':mu,scale = model.args;value = S.exp(S.I*mu*t-scale*S.Abs(t))
+    elif model.family == 'Levy':mu,c = model.args;value = S.exp(S.I*mu*t-S.sqrt(-2*S.I*c*t))
+    elif model.family == 'StudentT':
+        nu, = model.args
+        value = S.Piecewise((1,S.Eq(t,0)),(2**(1-nu/2)*(S.sqrt(nu)*S.Abs(t))**(nu/2)*S.besselk(nu/2,S.sqrt(nu)*S.Abs(t))/S.gamma(nu/2),True))
+    else:value = model.mgf(S.I*t)
+    return S.Lambda(t,value)
+
+
+def entropy(expr,condition=None,**kwargs):
+    base = kwargs.pop('base',kwargs.pop('b',None))
+    if kwargs:raise TypeError('unknown entropy options')
+    model = density(expr,condition)
+    if isinstance(model,dict) or getattr(model,'kind',None) == 'finite':
+        table = model if isinstance(model,dict) else model.dict
+        result = -S.Add(*(p*S.log(p) for p in table.values() if p != 0))
+    elif not isinstance(model,Distribution):
+        x = S.Dummy('entropy_x',real=True);result = integral(-model(x)*S.log(model(x)),x,-S.oo,S.oo)
+    elif model._entropy is not None:result = model._entropy
+    else:
+        x = S.Dummy('entropy_x',real=True);body = -model.pdf(x)*S.log(model.pdf(x))
+        result = sum_expr(body,x,model.lower,model.upper) if model.kind == 'discrete' else integral(body,x,model.lower,model.upper)
+    return S.simplify(result if base is None else result/S.log(scalar(base)))
+
+
+H = entropy
+
+
+def where(condition,given_condition=None,**kwargs):
+    condition = scalar(condition)
+    if given_condition is not None:condition = S.And(condition,scalar(given_condition))
+    variables = sorted(random_symbols(condition),key=lambda rv:rv.name)
+    if len(variables) == 1:
+        rv = variables[0]
+        if rv.distribution.kind == 'finite' and rv.distribution._table is not None:
+            support = S.FiniteSet(*(value for value in rv.distribution.dict if _truth(condition.subs(rv._atom,value)) is True))
+        else:support = _condition_set(condition,rv)
+        return Domain(variables,support,condition)
+    worlds = _worlds(variables)
+    if worlds is not None:
+        support = S.FiniteSet(*(S.Tuple(*(values[v._atom] for v in variables)) for values,weight in worlds if _truth(condition.subs(values,simultaneous=True)) is True))
+        return Domain(variables,support,condition)
+    return Domain(variables,condition=condition)
+
+
+def given(expr,condition=None,**kwargs):
+    if condition is None:return expr
+    condition = scalar(condition)
+    expression = scalar(expr)
+    conditioned = _joint_conditioning(expression,condition)
+    if conditioned is not None:
+        value,gate = conditioned
+        return value if _truth(gate) is True else given(value,gate,**kwargs)
+    bindings = _bindings(condition)
+    if bindings and _truth(condition.subs(bindings,simultaneous=True)) is True:return expression.subs(bindings,simultaneous=True)
+    variables = random_symbols(expression)|random_symbols(condition)
+    if len(variables) != 1:raise NotImplementedError('conditional random-variable construction requires one scalar source')
+    source = next(iter(variables));model0 = source.distribution
+    if model0.kind == 'finite':
+        from ._univariate import FiniteRV
+        normalizer = P(condition);check(normalizer != 0,'conditioning event has zero probability')
+        table = {}
+        for value,weight in model0.dict.items():
+            outcome = expression.subs(source._atom,value)
+            probability = S.simplify(weight*_indicator(condition.subs(source._atom,value))/normalizer)
+            if probability != 0:table[outcome] = table.get(outcome,S.Integer(0))+probability
+        return FiniteRV(source.name+'|given',table)
+    normalizer = P(condition);check(normalizer != 0,'conditioning event has zero probability')
+    model = Distribution(source._atom,condition);model.family = 'Conditional';model.kind = model0.kind
+    model._bound_symbols = {source._atom}
+    model.lower,model.upper = model0.lower,model0.upper
+    model._pdf = lambda x:model0.pdf(x)*_indicator(condition.subs(source._atom,x))/normalizer
+    model._moment = lambda n:E(source._atom**n,condition)
+    model._sampler = lambda rng,size:_sample_values(source._atom,condition,size,rng)
+    model._support = _condition_set(condition,source)
+    result = variable(source.name+'|given',model)
+    return result if expression == source._atom else expression.subs(source._atom,scalar(result))
+
+
+def _sample_values(expr,condition,size,rng):
+    if condition is not None:
+        conditioned = _joint_conditioning(expr,condition)
+        if conditioned is not None:
+            value,gate = conditioned
+            return _sample_values(value,None if _truth(gate) is True else gate,size,rng)
+    variables = random_symbols(expr)|random_symbols(condition)
+    groups = _groups(variables)
+    bindings = _bindings(condition)
+    for atom,value in bindings.items():
+        rv = REGISTRY[atom]
+        if rv.process is None and not hasattr(rv.group,'joint_moment'):
+            check(rv.distribution.bounded_pdf(value).is_zero is not True,'conditioned value is outside the distribution support')
+    samples = []
+    count = int(np.prod(size)) if size else 1
+    for i in range(count):
+        for trial in range(100000):
+            mapping = {}
+            for group,rvs in groups.items():
+                if getattr(group,'_stats_process',False):mapping.update(group.sample_mapping(rng,rvs,condition=condition))
+                elif hasattr(group,'sample_mapping'):mapping.update(group.sample_mapping(rng,rvs))
+                else:
+                    for rv in rvs:mapping[rv._atom] = bindings.get(rv._atom) if rv._atom in bindings else scalar(rv.distribution.sample(rng,()))
+            if condition is not None and _finite_indicator(condition,mapping,variables) != 1:continue
+            result = scalar(expr).subs(mapping,simultaneous=True)
+            truth = _truth(result)
+            if truth is not None:samples.append(truth)
+            else:
+                try:samples.append(int(result) if result.is_Integer else float(result.evalf()))
+                except (ValueError,TypeError):samples.append(result)
+            break
+        else:raise RuntimeError('conditional sampler exceeded its rejection limit')
+    result = np.asarray(samples).reshape(size)
+    return result.item() if not size else result
+
+
+def sample_iter(expr,condition=None,size=(),library='scipy',numsamples=S.oo,seed=None,**kwargs):
+    if library not in ('numpy','scipy'):raise NotImplementedError('sampling supports the NumPy/scipy compatibility selectors')
+    if kwargs:raise TypeError('unknown sampling options')
+    if isinstance(size,int):size = (size,)
+    size = tuple(operator.index(n) for n in size)
+    if any(n < 0 for n in size):raise ValueError('sample dimensions must be nonnegative')
+    rng = seed if isinstance(seed,np.random.Generator) else np.random.default_rng(seed)
+    if condition is not None:condition = scalar(condition)
+    count = 0
+    while numsamples == S.oo or count < operator.index(numsamples):
+        if (getattr(expr,'_stats_joint',False) or getattr(expr,'_stats_matrix',False)) and condition is None:yield expr.sample(rng,size)
+        elif isinstance(expr,RandomSymbol) and condition is None and expr.process is None:yield expr.distribution.sample(rng,size)
+        else:yield _sample_values(expr,condition,size,rng)
+        count += 1
+
+
+def sample(expr,condition=None,size=(),library='scipy',numsamples=1,seed=None,**kwargs):
+    iterator = sample_iter(expr,condition,size,library,numsamples,seed,**kwargs)
+    return next(iterator) if numsamples == 1 else list(iterator)
+
+
+def sampling_density(expr,given_condition=None,library='scipy',numsamples=1,seed=None,**kwargs):
+    count = operator.index(numsamples)
+    if count < 1:raise ValueError('sampling density needs a positive sample count')
+    values = np.asarray(sample(expr,given_condition,size=(count,),library=library,seed=seed,**kwargs))
+    variables = random_symbols(expr)
+    if all(rv.distribution.kind != 'continuous' for rv in variables):
+        unique,counts = np.unique(values,return_counts=True)
+        return {scalar(v.item() if hasattr(v,'item') else v):S.Rational(int(n),count) for v,n in zip(unique,counts)}
+    x = S.Dummy('kde_x',real=True)
+    bandwidth = 1.06*float(np.std(values,ddof=1))*count**(-.2) if count>1 else 0
+    if bandwidth == 0:return S.Lambda(x,S.DiracDelta(x-scalar(float(values[0]))))
+    width = S.Float(bandwidth)
+    return S.Lambda(x,S.Add(*(S.exp(-(x-S.Float(float(v)))**2/(2*width**2)) for v in values))/(count*width*S.sqrt(2*S.pi)))
+
+
+__all__ = ['P','E','H','density','where','given','sample','cdf','median','characteristic_function',
+ 'pspace','sample_iter','variance','std','skewness','kurtosis','covariance','dependent','entropy',
+ 'independent','random_symbols','correlation','factorial_moment','moment','cmoment','sampling_density',
+ 'moment_generating_function','smoment','quantile','coskewness']

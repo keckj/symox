@@ -44,6 +44,7 @@ println!("{}", diff(&e, &x));
 - Local differential geometry, finite Cartan root systems and category diagrams.
 - Algebraic root objects, Hamilton quaternions, exact splines and variational calculus.
 - Classical ciphers, exact RSA/ElGamal protocols, Diffie-Hellman and finite-field LFSRs.
+- Symbolic probability, scalar/joint distributions, stochastic processes and random matrices.
 - Numerical compilation and code generation for NumPy, C/C++, Rust, Fortran,
   CUDA, PyTorch, JAX, Slang and SYCL.
 
@@ -174,7 +175,7 @@ The top-level export percentage covers only the package root.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| Statistics exports | 0 / 157 | 157 | 0.00% |
+| Statistics exports | 157 / 157 | 0 | 100.00% |
 
 </details>
 
@@ -260,6 +261,7 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Combinatorics](docs/combinatorics.md) | Finite groups, rankings, free words, polycyclic collection and polyhedra |
 | [Polar branches](docs/polar-branches.md) | Polar lifts, argument reduction and conservative projection |
 | [Cryptography](docs/cryptography.md) | Classical ciphers, RSA, ElGamal, key exchange, bit ciphers, Morse and feedback sequences |
+| [Statistics](docs/statistics.md) | Probability, conditioning, distributions, joint moments, processes, random matrices and sampling limits |
 | [Plotting](docs/plotting.md) | Native samples, Matplotlib figures, contours, grids and ASCII plots |
 | [Special functions](docs/special-functions.md) | Gamma products, hypergeometric functions, Bessel families and Mathieu identities |
 | [Structural sets](docs/symbolic-sets.md) | Power sets, disjoint unions, complex regions and ordinals |

@@ -6,7 +6,7 @@ Measured on 2026-10-18 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 
-All 311 resulting module paths are listed below. 174 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
+All 311 resulting module paths are listed below. 170 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
 
 Names come from `__all__`, or public callables defined in the module when `__all__` is absent, plus documented functions, classes and data actually bound in the installed reference module. Imported helper names are excluded unless explicitly exported or documented. Constants absent from these sources and individual class methods are outside this module export measure.
 
@@ -550,12 +550,12 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.stats](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats) | 0 / 157 | 157 | 0.00% | missing_module |
+| [sympy.stats](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats) | 157 / 157 | 0 | 100.00% | available |
 | [sympy.stats.crv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.crv) | 0 / 9 | 9 | 0.00% | missing_module |
-| [sympy.stats.crv_types](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.crv_types) | 0 / 54 | 54 | 0.00% | missing_module |
+| [sympy.stats.crv_types](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.crv_types) | 54 / 54 | 0 | 100.00% | available |
 | [sympy.stats.frv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.frv) | 0 / 9 | 9 | 0.00% | missing_module |
-| [sympy.stats.frv_types](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.frv_types) | 0 / 11 | 11 | 0.00% | missing_module |
-| [sympy.stats.rv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.rv) | 0 / 41 | 41 | 0.00% | missing_module |
+| [sympy.stats.frv_types](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.frv_types) | 11 / 11 | 0 | 100.00% | available |
+| [sympy.stats.rv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.rv) | 27 / 41 | 14 | 65.85% | available |
 
 </details>
 
