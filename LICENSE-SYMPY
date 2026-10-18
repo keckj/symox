@@ -1,6 +1,12 @@
 The assumptions predicates, generated facts, query pipeline, handlers and
 refinement rules in crates/symox-core/src/ask follow SymPy 1.14.
 
+The arbitrary-constant absorption and Lie-point-symmetry heuristics in
+python/symox/solvers/ode/_constants.py and lie_group.py adapt the corresponding
+SymPy 1.14 algorithms to native arithmetic, differentiation, integration and
+exact linear nullspaces. The PDE method interfaces and characteristic
+conventions in python/symox/solvers/pde.py follow the SymPy solver APIs.
+
 The public adapters in python/symox/_expr_methods.py (direction and matching
 semantics), python/symox/_matrix_decompositions.py (graph decomposition result
 construction) and python/symox/polys/matrices/domainmatrix.py (domain inference

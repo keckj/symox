@@ -24,7 +24,8 @@ These dictionaries are native data, not SymPy's internal solver instances.
 The hints in `symox.solvers.ode.allhints` can be passed explicitly to `dsolve`.
 The exact method constructs a potential function and returns an explicit
 solution when isolation succeeds, or an implicit equation otherwise. The
-default solver also tries this exact method when its original methods fail.
+default solver also tries this exact method and verified Lie point symmetries
+when its original methods fail.
 `checkodesol` supports explicit solutions, lists of solutions and implicit
 solutions whose total derivatives give a provably zero residual.
 
@@ -43,10 +44,51 @@ Unknown or ambiguous dependent functions require an explicit `func` argument.
 Generated integration constants avoid existing free symbol names. Structural
 inspection reads held derivative counts without enumerating their variables.
 Differential order is limited to 256 and inspection to 10,000 graph nodes.
-General Lie symmetries, power-series ODE solvers, implicit exact initial
-conditions and the full SymPy classifier/hint machinery remain unimplemented.
+Power-series ODE solvers, implicit exact initial conditions and the full SymPy
+classifier/hint machinery remain unimplemented.
 Classification records structural matches; integration or root isolation can
 still exceed the native algorithms for a matched equation.
+
+### Arbitrary constants and Lie point symmetries
+
+`symox.solvers.ode.constantsimp(expr, constants)` absorbs redundant arbitrary
+constants while retaining parameter symbols and correlations between repeated
+occurrences. It handles scalar expressions, equations and nested sequences.
+Only symbols listed in `constants` can be renamed or absorbed.
+
+`infinitesimals(eq, func, hint='default')` searches first-order point symmetry
+generators. The named searches are `abaco1_simple`, `abaco1_product`,
+`abaco2_similar`, `abaco2_unique_unknown`, `abaco2_unique_general`, `linear`,
+`function_sum`, `bivariate` and `chi`; `hint='all'` combines their results.
+Every returned generator satisfies its exact determining equation.
+`checkinfsol(eq, generators, func)` independently substitutes generators and
+returns `(is_valid, residual)` pairs, including nonzero residuals for invalid
+generators. Polynomial searches use exact nullspaces with degree at most six;
+the separated-polynomial fallback searches degrees up to three.
+
+`dsolve(..., hint='lie_group')` constructs a first integral by integrating the
+closed form `(dy - h*dx)/(eta - xi*h)` for `y' = h(x, y)`. It verifies both
+partial derivatives of that integral before returning a solution. Pass both
+`xi=` and `eta=` to supply a custom generator; invalid generators raise
+`ValueError`. Function-value initial conditions are supported. Solutions can
+be implicit and retain unevaluated integrals when native integration or root
+isolation cannot produce an explicit expression.
+
+```python
+from symox.solvers.ode import infinitesimals, checkinfsol, constantsimp
+
+equation = f.diff(x) - x**2*f
+generators = infinitesimals(equation, f)
+assert all(valid and residual == 0
+           for valid, residual in checkinfsol(equation, generators, f))
+solution = dsolve(equation, f, hint='lie_group')
+assert checkodesol(equation, solution, f) == (True, 0)
+```
+
+These are bounded first-order searches, not a complete classification of all
+Lie symmetries. A failed search raises `NotImplementedError` (or `ValueError`
+for an explicitly selected heuristic). Higher-order symmetry solving is not
+implemented. Generated constants also avoid names present in initial data.
 
 ## Linear systems
 
@@ -101,13 +143,29 @@ solution = pdsolve(equation, u)
 assert checkpdesol(equation, solution, u) == (True, 0)
 ```
 
+The compatible method entry points in `symox.solvers.pde` are
+`pde_1st_linear_constant_coeff_homogeneous`,
+`pde_1st_linear_constant_coeff` and `pde_1st_linear_variable_coeff`, with
+arguments `(eq, func, order, match, solvefun)`. `pdsolve` dispatches to these
+methods. They accept native coefficient dictionaries or SymPy-style Wild
+match dictionaries and reject coefficients inconsistent with the equation.
+The inhomogeneous constant-coefficient method retains its integral; ordinary
+`pdsolve` evaluates it unless the `_Integral` hint was requested. Isotropic
+complex directions, including `u_x + I*u_y`, use nondegenerate coordinates.
+
 Variable coefficients cover equations with only one derivative direction,
 diagonal dilation fields, independently separable transport speeds and
-supported shear fields. Classification can recognize other first-order
-linear variable-coefficient equations whose characteristics are not yet
-solvable; `pdsolve` then raises `NotImplementedError`. General characteristic
-systems, second-order PDE solvers, PDE boundary conditions and isotropic
-complex characteristic directions remain unsupported.
+supported shear fields. Other cases reduce to a native characteristic ODE,
+invert its first integral and integrate the forcing along the characteristic.
+Both coordinate directions are tried. This includes mixed fields such as
+`(x+y)*u_x + u_y` and variable zeroth-order terms such as
+`x*u_x - y*u_y + y**2*u - y**2`. Unknown forcing functions can retain held
+characteristic integrals without capturing their parameters.
+
+Classification can recognize first-order linear equations whose characteristic
+ODE or coordinate inversion is beyond the native solvers; `pdsolve` then
+raises `NotImplementedError`. General characteristic systems, second-order
+PDE solvers and PDE boundary conditions remain unsupported.
 
 `pde_separate`, `pde_separate_add` and `pde_separate_mul` apply an additive or
 multiplicative separated ansatz and isolate the first group of variables.

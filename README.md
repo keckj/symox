@@ -59,8 +59,8 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 | AlgebraicNumber methods | 103 / 103 | 0 | 100.00% |
 | Rational domain methods | 87 / 87 | 0 | 100.00% |
 | Geometry exports | 30 / 30 | 0 | 100.00% |
-| Ordinary differential equations exports | 8 / 11 | 3 | 72.73% |
-| Partial differential equations exports | 6 / 9 | 3 | 66.67% |
+| Ordinary differential equations exports | 11 / 11 | 0 | 100.00% |
+| Partial differential equations exports | 9 / 9 | 0 | 100.00% |
 | Equation solvers exports | 7 / 15 | 8 | 46.67% |
 | Inequalities exports | 8 / 8 | 0 | 100.00% |
 | Arrays exports | 13 / 16 | 3 | 81.25% |

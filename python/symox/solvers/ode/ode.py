@@ -1,8 +1,11 @@
 """Recognize implemented scalar ODE families using exact symbolic tests."""
 from .._differential import equation, dependent, nodes, linear_data, fresh_constant
 from ..deutils import ode_order
+from ._constants import constantsimp
+from .lie_group import infinitesimals, checkinfsol, solve_lie
 
 allhints = ('separable', '1st_exact', '1st_linear', 'Bernoulli',
+            'lie_group',
             'nth_linear_constant_coeff_homogeneous',
             'nth_linear_constant_coeff_undetermined_coefficients',
             'nth_linear_constant_coeff_variation_of_parameters',
@@ -31,8 +34,10 @@ def _data(eq, func=None):
 
 def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta=None, n=None, **kwargs):
     from ... import Dummy, diff, cancel, expand, separatevars, Add
-    if xi is not None or eta is not None or kwargs:
-        raise NotImplementedError('Custom Lie generators and classification options are not implemented')
+    if kwargs:
+        raise NotImplementedError('These ODE classification options are not implemented')
+    if (xi is None)!=(eta is None):
+        raise ValueError('Supply both xi and eta for a custom Lie generator')
     expr, func, x, order, coordinates = _data(eq, func)
     matches = {}
     linear = linear_data(expr, coordinates) if order else None
@@ -68,6 +73,12 @@ def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta
         a = polynomial.coeff(yp)
         b = expand(polynomial-a*yp)
         if not a.has(yp) and not b.has(yp) and not _zero(a):
+            matches['lie_group'] = {'xi':xi,'eta':eta}
+            if xi is not None:
+                from ... import Function
+                generator = {Function('xi')(x,func):xi,Function('eta')(x,func):eta}
+                if not checkinfsol(expr,[generator],func)[0][0]:
+                    raise ValueError('The supplied infinitesimals are not a symmetry of this ODE')
             slope = cancel(-b/a)
             separated = separatevars(slope, symbols=[x, y], dict=True)
             if separated is not None:
@@ -116,8 +127,11 @@ def _finite_forcing(value, x):
 
 def dsolve(eq, func=None, hint='default', simplify=True, ics=None, **kwargs):
     from ... import _core, Eq, Dummy, Derivative, integrate, diff, solve, cancel
+    xi,eta = kwargs.pop('xi',None),kwargs.pop('eta',None)
     if not simplify or kwargs:
         raise NotImplementedError('These dsolve options are not implemented')
+    if (xi is None)!=(eta is None):
+        raise ValueError('Supply both xi and eta for a custom Lie generator')
     if isinstance(eq,(list,tuple)):
         if hint != 'default':
             raise NotImplementedError('Named hints for ODE systems are not implemented')
@@ -136,10 +150,17 @@ def dsolve(eq, func=None, hint='default', simplify=True, ics=None, **kwargs):
                 return dsolve(expr, selected, hint='1st_exact', ics=ics)
             linear = linear_data(expr, coordinates)
             if linear is not None and not _zero(linear[0][-1]-1):
-                return _core.dsolve(cancel(expr/linear[0][-1]), selected, ics=ics)
+                try:
+                    return _core.dsolve(cancel(expr/linear[0][-1]), selected, ics=ics)
+                except NotImplementedError:
+                    pass
+            if 'lie_group' in hints:
+                return solve_lie(expr,selected,xi=xi,eta=eta,ics=ics)
             raise original
     if hint not in allhints:
         raise NotImplementedError('Unknown or unimplemented ODE hint: '+str(hint))
+    if hint == 'lie_group':
+        return solve_lie(eq,func,xi=xi,eta=eta,ics=ics)
     expr, func, x, order, coordinates = _data(eq, func)
     if hint not in classify_ode(expr, func):
         raise ValueError('The equation does not match hint '+hint)

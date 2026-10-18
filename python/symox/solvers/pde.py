@@ -76,6 +76,22 @@ def pdsolve(eq, func=None, hint='default', dict=False, solvefun=None, **kwargs):
         raise ValueError('Unrecognized PDE hint: '+str(hint))
     elif hint not in hints:
         raise ValueError('The equation does not match PDE hint '+hint)
+    solvefun = _arbitrary(expression,solvefun)
+    method = {
+        allhints[0]:pde_1st_linear_constant_coeff_homogeneous,
+        allhints[1]:pde_1st_linear_constant_coeff,
+        allhints[2]:pde_1st_linear_constant_coeff,
+        allhints[3]:pde_1st_linear_variable_coeff,
+    }[hint]
+    match = {'coefficients':tuple(linear[0]),'forcing':-linear[1]}
+    result = method(expression,func,order,match,solvefun)
+    if hint == allhints[1]:
+        result = Eq(func,result.rhs.doit())
+    return {func:result.rhs} if dict else result
+
+
+def _arbitrary(expression,solvefun):
+    from .. import Dummy, Function
     if solvefun is None:
         occupied = {getattr(node.func, '__name__', '') for node in nodes(expression)
                     if node.is_UndefinedFunction}
@@ -89,34 +105,89 @@ def pdsolve(eq, func=None, hint='default', dict=False, solvefun=None, **kwargs):
         raise TypeError('solvefun must be an undefined function head') from error
     if not getattr(probe, 'is_UndefinedFunction', False):
         raise TypeError('solvefun must be an undefined function head')
-    a, b, c = linear[0]
-    source = -linear[1]
-    x, y = func.args
-    if hint == allhints[3]:
-        value = _variable_solution(a, b, c, source, x, y, solvefun)
+    return solvefun
+
+
+def _method_data(eq,func,order,match):
+    from .. import sympify, simplify, diff
+    if order != 1:
+        raise ValueError('These PDE methods require differential order one')
+    expression,func,actual_order,linear = _data(eq,func)
+    if actual_order != 1 or linear is None:
+        raise ValueError('The equation is not a first-order linear PDE')
+    if 'coefficients' in match:
+        coefficients = tuple(sympify(value) for value in match['coefficients'])
+        if len(coefficients) != 3:
+            raise ValueError('A PDE match requires three linear coefficients')
+        source = sympify(match.get('forcing',0))
     else:
-        norm = cancel(a*a+b*b)
-        if _zero(norm):
-            raise NotImplementedError('Isotropic complex characteristic directions are not implemented')
-        t, invariant = Dummy('characteristic_time'), Dummy('characteristic_invariant')
+        # SymPy method dictionaries store both Wild -> value entries and
+        # string -> Wild labels. Accept that protocol as well as native data.
+        def coefficient(label):
+            marker = match.get(label,0)
+            return sympify(match.get(marker,marker))
+        coefficients = tuple(coefficient(label) for label in ('b','c','d'))
+        source = -coefficient('e')
+    original = linear[0]+[-linear[1]]
+    supplied = list(coefficients)+[source]
+    pivot = next((i for i in (0,1) if not _zero(original[i])),None)
+    if pivot is None or _zero(supplied[pivot]):
+        raise ValueError('The supplied PDE match has no matching characteristic direction')
+    ratio = supplied[pivot]/original[pivot]
+    if any(not _zero(left-ratio*right) for left,right in zip(supplied,original)):
+        raise ValueError('The supplied coefficients do not match this PDE')
+    return expression,func,(*coefficients,source)
+
+
+def _constant_solution(a,b,c,source,x,y,solvefun):
+    from .. import Dummy, Integral, exp, cancel, simplify, S
+    norm = cancel(a*a+b*b)
+    t,invariant = Dummy('characteristic_time'),Dummy('characteristic_invariant')
+    invariant_value = b*x-a*y
+    if not _zero(norm):
         time_value = a*x+b*y
-        invariant_value = b*x-a*y
         forcing = source.xreplace({x:(a*t+b*invariant)/norm, y:(b*t-a*invariant)/norm})
-        mu = exp(c*t/norm)
-        integrand = simplify(forcing*mu/norm)
-        if _zero(source):
-            particular = 0
-        elif hint.endswith('_Integral'):
-            # The one-bound integral is an antiderivative evaluated at the
-            # characteristic coordinate; its dummy cannot capture user names.
-            particular = Integral(integrand.xreplace({invariant:invariant_value}), (t, time_value))
-        else:
-            particular = integrate(integrand, t).xreplace({invariant:invariant_value})
-            if particular.has(t):
-                particular = Subs(particular, t, time_value).doit()
-        value = exp(-c*time_value/norm)*(solvefun(invariant_value)+particular)
-    result = Eq(func, value)
-    return {func:value} if dict else result
+        rate,scale = c/norm,1/norm
+    elif not _zero(a):
+        # Isotropic complex vectors have a*a+b*b=0. A coordinate along x
+        # still straightens the nonzero characteristic vector exactly.
+        time_value = x/a
+        forcing = source.xreplace({x:a*t,y:b*t-invariant/a})
+        rate,scale = c,S.One
+    else:
+        raise ValueError('A characteristic direction must be nonzero')
+    integrand = simplify(forcing*exp(rate*t)*scale)
+    particular = S.Zero if _zero(source) else Integral(
+        integrand.xreplace({invariant:invariant_value}),(t,time_value))
+    return exp(-rate*time_value)*(solvefun(invariant_value)+particular)
+
+
+def pde_1st_linear_constant_coeff_homogeneous(eq,func,order,match,solvefun):
+    """Solve the homogeneous constant-coefficient characteristic equation."""
+    from .. import Eq
+    expression,func,(a,b,c,source) = _method_data(eq,func,order,match)
+    if any(value.has(*func.args) for value in (a,b,c)) or not _zero(source):
+        raise ValueError('The homogeneous constant-coefficient PDE method does not match')
+    arbitrary = _arbitrary(expression,solvefun)
+    return Eq(func,_constant_solution(a,b,c,source,*func.args,arbitrary))
+
+
+def pde_1st_linear_constant_coeff(eq,func,order,match,solvefun):
+    """Return a characteristic integral for a constant-coefficient PDE."""
+    from .. import Eq
+    expression,func,(a,b,c,source) = _method_data(eq,func,order,match)
+    if any(value.has(*func.args) for value in (a,b,c)):
+        raise ValueError('The constant-coefficient PDE method does not match')
+    arbitrary = _arbitrary(expression,solvefun)
+    return Eq(func,_constant_solution(a,b,c,source,*func.args,arbitrary))
+
+
+def pde_1st_linear_variable_coeff(eq,func,order,match,solvefun):
+    """Solve a variable-coefficient PDE through a native characteristic ODE."""
+    from .. import Eq
+    expression,func,(a,b,c,source) = _method_data(eq,func,order,match)
+    arbitrary = _arbitrary(expression,solvefun)
+    return Eq(func,_variable_solution(a,b,c,source,*func.args,arbitrary))
 
 
 def _variable_solution(a, b, c, source, x, y, arbitrary):
@@ -138,7 +209,69 @@ def _variable_solution(a, b, c, source, x, y, arbitrary):
         return arbitrary(y-integrate(cancel(b/a), x))
     if not b.has(x, y) and not a.has(x) and _zero(c) and _zero(source):
         return arbitrary(x-integrate(cancel(a/b), y))
-    raise NotImplementedError('This variable-coefficient characteristic system is not implemented')
+    return _characteristic_solution(a,b,c,source,x,y,arbitrary)
+
+
+def _at(expression,time,point,parameters):
+    """Evaluate an antiderivative without capturing characteristic parameters."""
+    from .. import Integral
+    replacements = dict(parameters)
+    replacements[time] = point
+    for node in nodes(expression):
+        if not node.is_Integral:
+            continue
+        limits = tuple(tuple(limit) for limit in node.limits)
+        if not any(limit[0]==time for limit in limits):
+            continue
+        if any(limit[0]==time and len(limit)!=1 for limit in limits):
+            raise NotImplementedError('Nested characteristic endpoint integrals are not supported')
+        rebuilt = [(time,point) if limit[0]==time else tuple(value.xreplace(parameters) for value in limit)
+                   for limit in limits]
+        replacements[node] = Integral(node.function.xreplace(parameters),*rebuilt)
+    return expression.xreplace(replacements)
+
+
+def _characteristic_solution(a,b,c,source,x,y,arbitrary):
+    failures = []
+    for first,second,u,v in ((a,b,x,y),(b,a,y,x)):
+        try:
+            return _characteristic_direction(first,second,c,source,u,v,arbitrary)
+        except NotImplementedError as error:
+            failures.append(error)
+    raise NotImplementedError('Neither characteristic direction could be integrated and inverted') from failures[-1]
+
+
+def _characteristic_direction(a,b,c,source,x,y,arbitrary):
+    from .. import Function, Dummy, Derivative, solve, Equality, integrate, exp, cancel, simplify
+    from .ode import dsolve
+    slot = Dummy('characteristic_function')
+    unknown = Function('characteristic_'+str(slot.dummy_index))(x)
+    characteristic = Derivative(unknown,x)-(b/a).xreplace({y:unknown})
+    solutions = dsolve(characteristic,unknown)
+    solutions = solutions if isinstance(solutions,list) else [solutions]
+    for solution in solutions:
+        relation = (solution.lhs-solution.rhs).xreplace({unknown:y})
+        constants = relation.free_symbols-characteristic.free_symbols-{x,y}
+        if len(constants)!=1:
+            continue
+        roots = solve(relation,next(iter(constants)))
+        if not roots:
+            continue
+        invariant = roots[0]
+        if _zero(invariant.diff(y)):
+            continue
+        time,label = Dummy('characteristic_time'),Dummy('characteristic_label')
+        inverse = solve(invariant-label,y)
+        if not inverse:
+            continue
+        coordinates = {x:time,y:inverse[0].xreplace({x:time})}
+        rate = cancel((c/a).xreplace(coordinates))
+        forcing = cancel((source/a).xreplace(coordinates))
+        mu = exp(integrate(rate,time))
+        primitive = integrate(simplify(forcing*mu),time)
+        value = (arbitrary(label)+primitive)/mu
+        return _at(value,time,x,{label:invariant})
+    raise NotImplementedError('Cannot invert a native characteristic solution for this PDE')
 
 
 def checkpdesol(pde, sol, func=None, solve_for_func=True):
@@ -267,4 +400,6 @@ def pde_separate_mul(eq, fun, sep):
 
 
 __all__ = ['pdsolve', 'classify_pde', 'checkpdesol', 'pde_separate',
-           'pde_separate_add', 'pde_separate_mul']
+           'pde_separate_add', 'pde_separate_mul',
+           'pde_1st_linear_constant_coeff_homogeneous',
+           'pde_1st_linear_constant_coeff', 'pde_1st_linear_variable_coeff']
