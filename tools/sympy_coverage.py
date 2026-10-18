@@ -187,6 +187,65 @@ def percentage(result):
     return 'N/A' if value is None else f'{value:.2f}%'
 
 
+def surface_family(label):
+    name = label.removesuffix(' exports')
+    if name.startswith('Physics:'):
+        return 'Physics'
+    if name.startswith('Special functions:') or name == 'Complex functions and branches':
+        return 'Special functions and complex branches'
+    groups = {
+        'Core and package exports': ('SymPy top-level', 'Expr methods'),
+        'Polynomials, algebra and number theory': (
+            'Poly methods', 'AlgebraicNumber methods', 'Rational domain methods',
+            'Coefficient domains', 'Polynomial ring constructors',
+            'Fraction field constructors', 'Number fields', 'Number theory', 'Simplification'),
+        'Matrices, arrays and tensors': (
+            'Matrix methods', 'MatrixExpr methods', 'Arrays', 'Indexed tensor algebra'),
+        'Calculus and equation solvers': (
+            'Ordinary differential equations', 'Partial differential equations',
+            'Equation solvers', 'Inequalities', 'Series and limits', 'Sequences',
+            'Real analysis', 'Singularities and monotonicity', 'Integral transforms',
+            'Holonomic functions', 'Coordinate vector calculus'),
+        'Geometry and discrete mathematics': (
+            'Geometry', 'Differential geometry', 'Combinatorics', 'Symbolic sets',
+            'Lie algebras', 'Categories', 'Discrete transforms and convolutions'),
+        'Statistics': ('Statistics',),
+        'Cryptography': ('Cryptography',),
+        'Utilities, parsing, printing and plotting': (
+            'Iterable utilities', 'Expression parsing',
+            'Printing and code generation', 'Plotting'),
+    }
+    return next((family for family, names in groups.items() if name in names), 'Other APIs')
+
+
+def surfaces_markdown(surfaces):
+    groups = {}
+    for label, result in surfaces.items():
+        groups.setdefault(surface_family(label), []).append((label, result))
+    families = ('Core and package exports', 'Polynomials, algebra and number theory',
+                'Matrices, arrays and tensors', 'Calculus and equation solvers',
+                'Geometry and discrete mathematics', 'Special functions and complex branches',
+                'Physics', 'Statistics', 'Cryptography',
+                'Utilities, parsing, printing and plotting', 'Other APIs')
+    labels = ['SymPy top-level exports', 'Expr methods', 'Poly methods',
+              'Matrix methods', 'MatrixExpr methods', 'AlgebraicNumber methods',
+              'Rational domain methods']+[label+' exports' for label, _, _ in MODULES]
+    order = {label: index for index, label in enumerate(labels)}
+    lines = ['<!-- sympy-api-surfaces:start -->']
+    for family in families:
+        entries = groups.get(family)
+        if not entries:
+            continue
+        lines += ['', '<details>', f'<summary>{family}</summary>', '',
+                  '| Surface | Present | Missing | API presence |', '|---|---:|---:|---:|']
+        for label, result in sorted(entries, key=lambda entry: (order.get(entry[0], len(order)), entry[0])):
+            fraction = 'N/A' if result['total'] is None else f"{result['present']} / {result['total']}"
+            missing = 'N/A' if result['total'] is None else str(len(result['missing']))
+            lines.append(f"| {label} | {fraction} | {missing} | {percentage(result)} |")
+        lines += ['', '</details>']
+    return '\n'.join(lines+['', '<!-- sympy-api-surfaces:end -->', ''])
+
+
 def inventory_markdown(report):
     inventory = report['module_inventory']
     modules = report['documented_modules']
@@ -228,8 +287,11 @@ def inventory_markdown(report):
     for name, result in modules.items():
         current = name.split('.')[1] if '.' in name else 'root'
         if current != family:
+            if family is not None:
+                lines += ['', '</details>', '']
             family = current
-            lines += ['## '+family, '', '| Reference module | Present | Missing | API presence | Status |',
+            lines += ['<details>', f'<summary>{family}</summary>', '',
+                      '| Reference module | Present | Missing | API presence | Status |',
                       '|---|---:|---:|---:|---|']
         url = inventory['documentation_urls'].get(name)
         label = f'[{name}]({url})' if url else f'`{name}`'
@@ -237,6 +299,8 @@ def inventory_markdown(report):
         fraction = 'N/A' if total is None else f'{present} / {total}'
         missing = 'N/A' if total is None else str(len(result['missing']))
         lines.append(f"| {label} | {fraction} | {missing} | {percentage(result)} | {result['status']} |")
+    if family is not None:
+        lines += ['', '</details>', '']
     errors = [(name, result['error']) for name, result in modules.items() if result.get('error')]
     if errors:
         lines += ['', '## Import errors', '']
@@ -247,14 +311,16 @@ def inventory_markdown(report):
 def update_readme(report):
     path = ROOT/'README.md'
     contents = path.read_text()
-    start = contents.index('| Surface |')
-    end = contents.index('\nThese percentages', start)
-    rows = ['| Surface | Present | Missing | API presence |', '|---|---:|---:|---:|']
-    for label, result in report['surfaces'].items():
-        fraction = 'N/A' if result['total'] is None else f"{result['present']} / {result['total']}"
-        missing = 'N/A' if result['total'] is None else str(len(result['missing']))
-        rows.append(f"| {label} | {fraction} | {missing} | {percentage(result)} |")
-    path.write_text(contents[:start]+'\n'.join(rows)+'\n'+contents[end:])
+    marker = '<!-- sympy-api-surfaces:start -->'
+    if marker in contents:
+        start = contents.index(marker)
+        end_marker = '<!-- sympy-api-surfaces:end -->'
+        end = contents.index(end_marker, start)+len(end_marker)
+        end += int(contents[end:end+1] == '\n')
+    else:
+        start = contents.index('| Surface |')
+        end = contents.index('\nThese percentages', start)
+    path.write_text(contents[:start]+surfaces_markdown(report['surfaces'])+contents[end:])
     (ROOT/'docs/sympy-api.md').write_text(inventory_markdown(report))
 
 

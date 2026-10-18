@@ -24,22 +24,35 @@ python tools/sympy_coverage.py --corpus --json /tmp/symox-coverage.json --update
 
 The JSON includes missing names and import errors for every module.
 
-## root
+<details>
+<summary>root</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy](https://docs.sympy.org/latest/index.html#module-sympy) | 803 / 921 | 118 | 87.19% | available |
-## abc
+
+</details>
+
+<details>
+<summary>abc</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.abc](https://docs.sympy.org/latest/modules/abc.html#module-sympy.abc) | 0 / 0 | 0 | N/A | missing_module |
-## algebras
+
+</details>
+
+<details>
+<summary>algebras</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.algebras](https://docs.sympy.org/latest/modules/algebras.html#module-sympy.algebras) | 0 / 1 | 1 | 0.00% | missing_module |
-## assumptions
+
+</details>
+
+<details>
+<summary>assumptions</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -48,7 +61,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.assumptions.assume](https://docs.sympy.org/latest/modules/assumptions/assume.html#module-sympy.assumptions.assume) | 4 / 6 | 2 | 66.67% | available |
 | [sympy.assumptions.predicates](https://docs.sympy.org/latest/modules/assumptions/predicates.html#module-sympy.assumptions.predicates) | 0 / 0 | 0 | N/A | missing_module |
 | [sympy.assumptions.refine](https://docs.sympy.org/latest/modules/assumptions/refine.html#module-sympy.assumptions.refine) | 1 / 9 | 8 | 11.11% | available |
-## calculus
+
+</details>
+
+<details>
+<summary>calculus</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -57,13 +74,21 @@ The JSON includes missing names and import errors for every module.
 | [sympy.calculus.finite_diff](https://docs.sympy.org/latest/modules/calculus/index.html#module-sympy.calculus.finite_diff) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.calculus.singularities](https://docs.sympy.org/latest/modules/calculus/index.html#module-sympy.calculus.singularities) | 7 / 7 | 0 | 100.00% | available |
 | [sympy.calculus.util](https://docs.sympy.org/latest/modules/calculus/index.html#module-sympy.calculus.util) | 9 / 9 | 0 | 100.00% | available |
-## categories
+
+</details>
+
+<details>
+<summary>categories</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.categories](https://docs.sympy.org/latest/modules/categories.html#module-sympy.categories) | 0 / 11 | 11 | 0.00% | missing_module |
 | [sympy.categories.diagram_drawing](https://docs.sympy.org/latest/modules/categories.html#module-sympy.categories.diagram_drawing) | 0 / 5 | 5 | 0.00% | missing_module |
-## codegen
+
+</details>
+
+<details>
+<summary>codegen</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -80,7 +105,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.codegen.matrix_nodes](https://docs.sympy.org/latest/modules/codegen.html#module-sympy.codegen.matrix_nodes) | 0 / 1 | 1 | 0.00% | missing_module |
 | [sympy.codegen.pyutils](https://docs.sympy.org/latest/modules/codegen.html#module-sympy.codegen.pyutils) | 0 / 1 | 1 | 0.00% | missing_module |
 | [sympy.codegen.rewriting](https://docs.sympy.org/latest/modules/codegen.html#module-sympy.codegen.rewriting) | 0 / 18 | 18 | 0.00% | missing_module |
-## combinatorics
+
+</details>
+
+<details>
+<summary>combinatorics</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -100,7 +129,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.combinatorics.tensor_can](https://docs.sympy.org/latest/modules/combinatorics/tensor_can.html#module-sympy.combinatorics.tensor_can) | 0 / 12 | 12 | 0.00% | missing_module |
 | [sympy.combinatorics.testutil](https://docs.sympy.org/latest/modules/combinatorics/testutil.html#module-sympy.combinatorics.testutil) | 0 / 2 | 2 | 0.00% | missing_module |
 | [sympy.combinatorics.util](https://docs.sympy.org/latest/modules/combinatorics/util.html#module-sympy.combinatorics.util) | 0 / 0 | 0 | N/A | missing_module |
-## core
+
+</details>
+
+<details>
+<summary>core</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -127,25 +160,41 @@ The JSON includes missing names and import errors for every module.
 | [sympy.core.symbol](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.symbol) | 0 / 8 | 8 | 0.00% | missing_module |
 | [sympy.core.sympify](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.sympify) | 0 / 4 | 4 | 0.00% | missing_module |
 | [sympy.core.traversal](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.traversal) | 0 / 7 | 7 | 0.00% | missing_module |
-## crypto
+
+</details>
+
+<details>
+<summary>crypto</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | `sympy.crypto` | 0 / 56 | 56 | 0.00% | missing_module |
 | [sympy.crypto.crypto](https://docs.sympy.org/latest/modules/crypto.html#module-sympy.crypto.crypto) | 0 / 57 | 57 | 0.00% | missing_module |
-## diffgeom
+
+</details>
+
+<details>
+<summary>diffgeom</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.diffgeom](https://docs.sympy.org/latest/modules/diffgeom.html#module-sympy.diffgeom) | 0 / 24 | 24 | 0.00% | missing_module |
-## discrete
+
+</details>
+
+<details>
+<summary>discrete</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.discrete](https://docs.sympy.org/latest/modules/discrete.html#module-sympy.discrete) | 11 / 11 | 0 | 100.00% | available |
 | [sympy.discrete.convolutions](https://docs.sympy.org/latest/modules/discrete.html#module-sympy.discrete.convolutions) | 8 / 8 | 0 | 100.00% | available |
 | [sympy.discrete.transforms](https://docs.sympy.org/latest/modules/discrete.html#module-sympy.discrete.transforms) | 8 / 8 | 0 | 100.00% | available |
-## functions
+
+</details>
+
+<details>
+<summary>functions</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -163,7 +212,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.functions.special.polynomials](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.polynomials) | 0 / 14 | 14 | 0.00% | missing_module |
 | [sympy.functions.special.singularity_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.singularity_functions) | 0 / 1 | 1 | 0.00% | missing_module |
 | [sympy.functions.special.zeta_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.zeta_functions) | 0 / 6 | 6 | 0.00% | missing_module |
-## geometry
+
+</details>
+
+<details>
+<summary>geometry</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -176,12 +229,20 @@ The JSON includes missing names and import errors for every module.
 | [sympy.geometry.point](https://docs.sympy.org/latest/modules/geometry/points.html#module-sympy.geometry.point) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.geometry.polygon](https://docs.sympy.org/latest/modules/geometry/polygons.html#module-sympy.geometry.polygon) | 3 / 5 | 2 | 60.00% | available |
 | [sympy.geometry.util](https://docs.sympy.org/latest/modules/geometry/utils.html#module-sympy.geometry.util) | 7 / 9 | 2 | 77.78% | available |
-## holonomic
+
+</details>
+
+<details>
+<summary>holonomic</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.holonomic](https://docs.sympy.org/latest/modules/holonomic/index.html#module-sympy.holonomic) | 0 / 9 | 9 | 0.00% | missing_module |
-## integrals
+
+</details>
+
+<details>
+<summary>integrals</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -190,25 +251,41 @@ The JSON includes missing names and import errors for every module.
 | [sympy.integrals.meijerint](https://docs.sympy.org/latest/modules/integrals/g-functions.html#module-sympy.integrals.meijerint) | 0 / 3 | 3 | 0.00% | missing_module |
 | [sympy.integrals.meijerint_doc](https://docs.sympy.org/latest/modules/integrals/g-functions.html#module-sympy.integrals.meijerint_doc) | 0 / 0 | 0 | N/A | missing_module |
 | [sympy.integrals.transforms](https://docs.sympy.org/latest/modules/integrals/integrals.html#module-sympy.integrals.transforms) | 0 / 32 | 32 | 0.00% | missing_module |
-## interactive
+
+</details>
+
+<details>
+<summary>interactive</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.interactive](https://docs.sympy.org/latest/modules/interactive.html#module-sympy.interactive) | 0 / 3 | 3 | 0.00% | missing_module |
 | [sympy.interactive.printing](https://docs.sympy.org/latest/modules/interactive.html#module-sympy.interactive.printing) | 0 / 1 | 1 | 0.00% | missing_module |
 | [sympy.interactive.session](https://docs.sympy.org/latest/modules/interactive.html#module-sympy.interactive.session) | 0 / 6 | 6 | 0.00% | missing_module |
-## liealgebras
+
+</details>
+
+<details>
+<summary>liealgebras</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.liealgebras](https://docs.sympy.org/latest/modules/liealgebras/index.html#module-sympy.liealgebras) | 0 / 1 | 1 | 0.00% | missing_module |
-## logic
+
+</details>
+
+<details>
+<summary>logic</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.logic](https://docs.sympy.org/latest/modules/logic.html#module-sympy.logic) | 0 / 20 | 20 | 0.00% | missing_module |
 | [sympy.logic.inference](https://docs.sympy.org/latest/modules/logic.html#module-sympy.logic.inference) | 0 / 7 | 7 | 0.00% | missing_module |
-## matrices
+
+</details>
+
+<details>
+<summary>matrices</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -220,7 +297,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.matrices.matrixbase](https://docs.sympy.org/latest/modules/matrices/matrices.html#module-sympy.matrices.matrixbase) | 0 / 7 | 7 | 0.00% | missing_module |
 | [sympy.matrices.sparse](https://docs.sympy.org/latest/modules/matrices/sparse.html#module-sympy.matrices.sparse) | 0 / 3 | 3 | 0.00% | missing_module |
 | [sympy.matrices.sparsetools](https://docs.sympy.org/latest/modules/matrices/sparsetools.html#module-sympy.matrices.sparsetools) | 0 / 1 | 1 | 0.00% | missing_module |
-## ntheory
+
+</details>
+
+<details>
+<summary>ntheory</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -238,14 +319,22 @@ The JSON includes missing names and import errors for every module.
 | [sympy.ntheory.primetest](https://docs.sympy.org/latest/modules/ntheory.html#module-sympy.ntheory.primetest) | 12 / 12 | 0 | 100.00% | available |
 | [sympy.ntheory.qs](https://docs.sympy.org/latest/modules/ntheory.html#module-sympy.ntheory.qs) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.ntheory.residue_ntheory](https://docs.sympy.org/latest/modules/ntheory.html#module-sympy.ntheory.residue_ntheory) | 16 / 16 | 0 | 100.00% | available |
-## parsing
+
+</details>
+
+<details>
+<summary>parsing</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.parsing](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing) | 0 / 1 | 1 | 0.00% | missing_module |
 | [sympy.parsing.sym_expr](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing.sym_expr) | 0 / 1 | 1 | 0.00% | missing_module |
 | `sympy.parsing.sympy_parser` | 0 / 21 | 21 | 0.00% | missing_module |
-## physics
+
+</details>
+
+<details>
+<summary>physics</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -317,14 +406,22 @@ The JSON includes missing names and import errors for every module.
 | [sympy.physics.vector.functions](https://docs.sympy.org/latest/modules/physics/vector/api/kinematics.html#module-sympy.physics.vector.functions) | 0 / 14 | 14 | 0.00% | missing_module |
 | [sympy.physics.vector.point](https://docs.sympy.org/latest/modules/physics/vector/api/kinematics.html#module-sympy.physics.vector.point) | 0 / 1 | 1 | 0.00% | missing_module |
 | [sympy.physics.wigner](https://docs.sympy.org/latest/modules/physics/wigner.html#module-sympy.physics.wigner) | 0 / 11 | 11 | 0.00% | missing_module |
-## plotting
+
+</details>
+
+<details>
+<summary>plotting</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | `sympy.plotting` | 11 / 11 | 0 | 100.00% | available |
 | [sympy.plotting.plot](https://docs.sympy.org/latest/modules/plotting.html#module-sympy.plotting.plot) | 10 / 12 | 2 | 83.33% | available |
 | [sympy.plotting.pygletplot](https://docs.sympy.org/latest/modules/plotting.html#module-sympy.plotting.pygletplot) | 0 / 1 | 1 | 0.00% | missing_module |
-## polys
+
+</details>
+
+<details>
+<summary>polys</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -345,7 +442,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.polys.polyoptions](https://docs.sympy.org/latest/modules/polys/internals.html#module-sympy.polys.polyoptions) | 0 / 2 | 2 | 0.00% | missing_module |
 | `sympy.polys.rings` | 4 / 4 | 0 | 100.00% | available |
 | [sympy.polys.solvers](https://docs.sympy.org/latest/modules/polys/solvers.html#module-sympy.polys.solvers) | 0 / 5 | 5 | 0.00% | missing_module |
-## printing
+
+</details>
+
+<details>
+<summary>printing</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -380,13 +481,21 @@ The JSON includes missing names and import errors for every module.
 | [sympy.printing.smtlib](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.smtlib) | 0 / 2 | 2 | 0.00% | missing_module |
 | [sympy.printing.str](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.str) | 2 / 4 | 2 | 50.00% | available |
 | [sympy.printing.tree](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.tree) | 0 / 4 | 4 | 0.00% | missing_module |
-## series
+
+</details>
+
+<details>
+<summary>series</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | `sympy.series` | 18 / 18 | 0 | 100.00% | available |
 | `sympy.series.sequences` | 10 / 10 | 0 | 100.00% | available |
-## sets
+
+</details>
+
+<details>
+<summary>sets</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -395,7 +504,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.sets.fancysets](https://docs.sympy.org/latest/modules/sets.html#module-sympy.sets.fancysets) | 0 / 12 | 12 | 0.00% | missing_module |
 | [sympy.sets.powerset](https://docs.sympy.org/latest/modules/sets.html#module-sympy.sets.powerset) | 0 / 1 | 1 | 0.00% | missing_module |
 | [sympy.sets.sets](https://docs.sympy.org/latest/modules/sets.html#module-sympy.sets.sets) | 0 / 22 | 22 | 0.00% | missing_module |
-## simplify
+
+</details>
+
+<details>
+<summary>simplify</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -412,7 +525,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.simplify.simplify](https://docs.sympy.org/latest/explanation/gotchas.html#module-sympy.simplify.simplify) | 0 / 21 | 21 | 0.00% | missing_module |
 | [sympy.simplify.sqrtdenest](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.sqrtdenest) | 0 / 6 | 6 | 0.00% | missing_module |
 | [sympy.simplify.trigsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.trigsimp) | 0 / 5 | 5 | 0.00% | missing_module |
-## solvers
+
+</details>
+
+<details>
+<summary>solvers</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -425,7 +542,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.solvers.simplex](https://docs.sympy.org/latest/modules/solvers/solvers.html#module-sympy.solvers.simplex) | 0 / 6 | 6 | 0.00% | missing_module |
 | `sympy.solvers.solvers` | 15 / 15 | 0 | 100.00% | available |
 | [sympy.solvers.solveset](https://docs.sympy.org/latest/modules/solvers/solveset.html#module-sympy.solvers.solveset) | 5 / 14 | 9 | 35.71% | available |
-## stats
+
+</details>
+
+<details>
+<summary>stats</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -435,7 +556,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.stats.frv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.frv) | 0 / 9 | 9 | 0.00% | missing_module |
 | [sympy.stats.frv_types](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.frv_types) | 0 / 11 | 11 | 0.00% | missing_module |
 | [sympy.stats.rv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.rv) | 0 / 41 | 41 | 0.00% | missing_module |
-## tensor
+
+</details>
+
+<details>
+<summary>tensor</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -446,7 +571,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.tensor.indexed](https://docs.sympy.org/latest/modules/tensor/indexed.html#module-sympy.tensor.indexed) | 0 / 4 | 4 | 0.00% | missing_module |
 | [sympy.tensor.tensor](https://docs.sympy.org/latest/modules/tensor/tensor.html#module-sympy.tensor.tensor) | 35 / 35 | 0 | 100.00% | available |
 | [sympy.tensor.toperators](https://docs.sympy.org/latest/modules/tensor/toperators.html#module-sympy.tensor.toperators) | 0 / 1 | 1 | 0.00% | missing_module |
-## testing
+
+</details>
+
+<details>
+<summary>testing</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -454,7 +583,11 @@ The JSON includes missing names and import errors for every module.
 | [sympy.testing.pytest](https://docs.sympy.org/latest/modules/testing/pytest.html#module-sympy.testing.pytest) | 0 / 16 | 16 | 0.00% | missing_module |
 | [sympy.testing.randtest](https://docs.sympy.org/latest/modules/testing/randtest.html#module-sympy.testing.randtest) | 0 / 0 | 0 | N/A | missing_module |
 | [sympy.testing.runtests](https://docs.sympy.org/latest/modules/testing/runtests.html#module-sympy.testing.runtests) | 0 / 21 | 21 | 0.00% | missing_module |
-## utilities
+
+</details>
+
+<details>
+<summary>utilities</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
@@ -470,11 +603,18 @@ The JSON includes missing names and import errors for every module.
 | [sympy.utilities.misc](https://docs.sympy.org/latest/modules/utilities/misc.html#module-sympy.utilities.misc) | 0 / 13 | 13 | 0.00% | missing_module |
 | [sympy.utilities.source](https://docs.sympy.org/latest/modules/utilities/source.html#module-sympy.utilities.source) | 0 / 2 | 2 | 0.00% | missing_module |
 | [sympy.utilities.timeutils](https://docs.sympy.org/latest/modules/utilities/timeutils.html#module-sympy.utilities.timeutils) | 0 / 2 | 2 | 0.00% | missing_module |
-## vector
+
+</details>
+
+<details>
+<summary>vector</summary>
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.vector](https://docs.sympy.org/latest/modules/vector/index.html#module-sympy.vector) | 0 / 43 | 43 | 0.00% | missing_module |
+
+</details>
+
 
 ## Import errors
 

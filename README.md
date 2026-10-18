@@ -49,48 +49,104 @@ Supported cases and remaining limitations are detailed in the guides below.
 
 Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
-The table summarizes import surfaces, including the unimplemented families.
+The grouped tables summarize import surfaces, including the unimplemented families.
 The [full module inventory](docs/sympy-api.md) also lists every documented module
 and its parent packages, with missing paths and import failures shown explicitly.
 The top-level export percentage covers only the package root.
+
+<!-- sympy-api-surfaces:start -->
+
+<details>
+<summary>Core and package exports</summary>
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
 | SymPy top-level exports | 803 / 921 | 118 | 87.19% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
+
+</details>
+
+<details>
+<summary>Polynomials, algebra and number theory</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
 | Poly methods | 154 / 154 | 0 | 100.00% |
-| Matrix methods | 178 / 178 | 0 | 100.00% |
-| MatrixExpr methods | 105 / 105 | 0 | 100.00% |
 | AlgebraicNumber methods | 103 / 103 | 0 | 100.00% |
 | Rational domain methods | 87 / 87 | 0 | 100.00% |
-| Geometry exports | 30 / 30 | 0 | 100.00% |
-| Ordinary differential equations exports | 11 / 11 | 0 | 100.00% |
-| Partial differential equations exports | 9 / 9 | 0 | 100.00% |
-| Equation solvers exports | 15 / 15 | 0 | 100.00% |
-| Inequalities exports | 8 / 8 | 0 | 100.00% |
-| Arrays exports | 16 / 16 | 0 | 100.00% |
-| Indexed tensor algebra exports | 35 / 35 | 0 | 100.00% |
-| Series and limits exports | 18 / 18 | 0 | 100.00% |
-| Sequences exports | 10 / 10 | 0 | 100.00% |
-| Real analysis exports | 9 / 9 | 0 | 100.00% |
-| Singularities and monotonicity exports | 7 / 7 | 0 | 100.00% |
 | Coefficient domains exports | 32 / 32 | 0 | 100.00% |
 | Polynomial ring constructors exports | 4 / 4 | 0 | 100.00% |
 | Fraction field constructors exports | 4 / 4 | 0 | 100.00% |
 | Number fields exports | 10 / 10 | 0 | 100.00% |
+| Simplification exports | 32 / 32 | 0 | 100.00% |
+| Number theory exports | 73 / 73 | 0 | 100.00% |
+
+</details>
+
+<details>
+<summary>Matrices, arrays and tensors</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
+| Matrix methods | 178 / 178 | 0 | 100.00% |
+| MatrixExpr methods | 105 / 105 | 0 | 100.00% |
+| Arrays exports | 16 / 16 | 0 | 100.00% |
+| Indexed tensor algebra exports | 35 / 35 | 0 | 100.00% |
+
+</details>
+
+<details>
+<summary>Calculus and equation solvers</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
+| Ordinary differential equations exports | 11 / 11 | 0 | 100.00% |
+| Partial differential equations exports | 9 / 9 | 0 | 100.00% |
+| Equation solvers exports | 15 / 15 | 0 | 100.00% |
+| Inequalities exports | 8 / 8 | 0 | 100.00% |
+| Series and limits exports | 18 / 18 | 0 | 100.00% |
+| Sequences exports | 10 / 10 | 0 | 100.00% |
+| Real analysis exports | 9 / 9 | 0 | 100.00% |
+| Singularities and monotonicity exports | 7 / 7 | 0 | 100.00% |
+| Integral transforms exports | 26 / 26 | 0 | 100.00% |
+| Holonomic functions exports | 0 / 9 | 9 | 0.00% |
+| Coordinate vector calculus exports | 0 / 43 | 43 | 0.00% |
+
+</details>
+
+<details>
+<summary>Geometry and discrete mathematics</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
+| Geometry exports | 30 / 30 | 0 | 100.00% |
 | Combinatorics exports | 33 / 33 | 0 | 100.00% |
 | Symbolic sets exports | 26 / 26 | 0 | 100.00% |
-| Simplification exports | 32 / 32 | 0 | 100.00% |
-| Integral transforms exports | 26 / 26 | 0 | 100.00% |
+| Differential geometry exports | 0 / 24 | 24 | 0.00% |
+| Lie algebras exports | 0 / 1 | 1 | 0.00% |
+| Categories exports | 0 / 11 | 11 | 0.00% |
+| Discrete transforms and convolutions exports | 11 / 11 | 0 | 100.00% |
+
+</details>
+
+<details>
+<summary>Special functions and complex branches</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
 | Special functions: gamma exports | 9 / 9 | 0 | 100.00% |
 | Special functions: hypergeometric exports | 17 / 17 | 0 | 100.00% |
 | Special functions: Bessel exports | 21 / 21 | 0 | 100.00% |
 | Special functions: Mathieu exports | 5 / 5 | 0 | 100.00% |
 | Complex functions and branches exports | 14 / 14 | 0 | 100.00% |
-| Number theory exports | 73 / 73 | 0 | 100.00% |
-| Iterable utilities exports | 59 / 59 | 0 | 100.00% |
-| Printing and code generation exports | 6 / 41 | 35 | 14.63% |
-| Plotting exports | 11 / 11 | 0 | 100.00% |
+
+</details>
+
+<details>
+<summary>Physics</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
 | Physics: units exports | 0 / 361 | 361 | 0.00% |
 | Physics: vectors exports | 0 / 27 | 27 | 0.00% |
 | Physics: mechanics exports | 0 / 74 | 74 | 0.00% |
@@ -106,15 +162,40 @@ The top-level export percentage covers only the package root.
 | Physics: high energy exports | 0 / 5 | 5 | 0.00% |
 | Physics: Wigner symbols exports | 0 / 11 | 11 | 0.00% |
 | Physics: second quantization exports | 0 / 37 | 37 | 0.00% |
+
+</details>
+
+<details>
+<summary>Statistics</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
 | Statistics exports | 0 / 157 | 157 | 0.00% |
+
+</details>
+
+<details>
+<summary>Cryptography</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
 | Cryptography exports | 0 / 57 | 57 | 0.00% |
-| Holonomic functions exports | 0 / 9 | 9 | 0.00% |
-| Differential geometry exports | 0 / 24 | 24 | 0.00% |
-| Lie algebras exports | 0 / 1 | 1 | 0.00% |
-| Categories exports | 0 / 11 | 11 | 0.00% |
-| Discrete transforms and convolutions exports | 11 / 11 | 0 | 100.00% |
-| Coordinate vector calculus exports | 0 / 43 | 43 | 0.00% |
+
+</details>
+
+<details>
+<summary>Utilities, parsing, printing and plotting</summary>
+
+| Surface | Present | Missing | API presence |
+|---|---:|---:|---:|
+| Iterable utilities exports | 59 / 59 | 0 | 100.00% |
+| Printing and code generation exports | 6 / 41 | 35 | 14.63% |
+| Plotting exports | 11 / 11 | 0 | 100.00% |
 | Expression parsing exports | 0 / 21 | 21 | 0.00% |
+
+</details>
+
+<!-- sympy-api-surfaces:end -->
 
 These percentages count available names. They do not verify signatures,
 accepted domains or behavior, and there is no combined global parity score.
