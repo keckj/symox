@@ -98,3 +98,8 @@ class Subset:
 
     def next_lexicographic(self):return self._unrank_lex(self.rank_lexicographic+1)
     def prev_lexicographic(self):return self._unrank_lex(self.rank_lexicographic-1)
+
+
+def ksubsets(superset,k):
+    from itertools import combinations
+    return combinations(superset,operator.index(k))

@@ -173,3 +173,35 @@ class Cycle(dict):
 
     def __repr__(self):
         return str(Permutation(self.list()))
+
+Perm=Permutation
+
+
+class AppliedPermutation:
+    def __new__(cls,perm,x,evaluate=None):
+        from symox import sympify,Integer
+        if not isinstance(perm,Permutation):raise ValueError('a permutation application requires a permutation')
+        x=sympify(x)
+        if evaluate is not False and x.is_Integer:
+            index=int(x)
+            if not 0<=index<perm.size:raise IndexError('permutation argument out of range')
+            return Integer(perm(index))
+        result=object.__new__(cls);result.perm,result.x=perm,x;return result
+    args=property(lambda self:(self.perm,self.x))
+    free_symbols=property(lambda self:self.x.free_symbols)
+    def _symox_(self):
+        from symox import Piecewise,Eq,nan
+        return Piecewise(*[(self.perm(i),Eq(self.x,i)) for i in range(self.perm.size)],(nan,True))
+    def doit(self,**hints):return type(self)(self.perm,self.x)
+    def subs(self,*args,**kwargs):return type(self)(self.perm,self.x.subs(*args,**kwargs))
+    def __repr__(self):return 'AppliedPermutation(%r, %s)'%(self.perm,self.x)
+    def __eq__(self,other):return isinstance(other,AppliedPermutation) and self.args==other.args
+    def __hash__(self):return hash((type(self),self.args))
+    def __add__(self,other):return self._symox_()+other
+    __radd__=__add__
+    def __mul__(self,other):return self._symox_()*other
+    __rmul__=__mul__
+
+
+def _apply(self,index):return AppliedPermutation(self,index)
+Permutation.apply=_apply

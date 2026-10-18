@@ -1,7 +1,16 @@
 """Interned scalar kinds used by typed array metadata."""
 
 
-class Kind:
+class KindMeta(type):
+    def __new__(mcls,name,bases,namespace,**kwargs):
+        cls=super().__new__(mcls,name,bases,namespace,**kwargs);cls._kind_instances={};return cls
+    def __call__(cls,*args,**kwargs):
+        key=args,tuple(sorted(kwargs.items()))
+        if key not in cls._kind_instances:cls._kind_instances[key]=super().__call__(*args,**kwargs)
+        return cls._kind_instances[key]
+
+
+class Kind(metaclass=KindMeta):
     __slots__ = ()
 
 

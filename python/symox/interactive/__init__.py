@@ -39,8 +39,6 @@ def init_printing(pretty_print=True,order=None,use_unicode=None,use_latex=None,w
 def init_session(ipython=None,pretty_print=True,order=None,use_unicode=None,use_latex=None,
                  quiet=False,auto_symbols=False,auto_int_to_Integer=False,str_printer=None,
                  pretty_printer=None,latex_printer=None,argv=None):
-    if auto_symbols or auto_int_to_Integer:
-        raise NotImplementedError('automatic source transformations are not supported by the session console')
     import symox
     namespace = {name:getattr(symox,name) for name in symox.__all__}
     exec('x, y, z, t = symbols("x y z t")\nk, m, n = symbols("k m n", integer=True)\nf, g, h = symbols("f g h", cls=Function)',namespace)
@@ -48,11 +46,31 @@ def init_session(ipython=None,pretty_print=True,order=None,use_unicode=None,use_
                   pretty_printer=pretty_printer,latex_printer=latex_printer)
     banner = '' if quiet else 'Symox %s interactive session' % symox.__version__
     if ipython:
-        from IPython import start_ipython
-        start_ipython(argv=argv or [],user_ns=namespace)
+        from .session import init_ipython_session
+        shell = init_ipython_session(argv=argv,auto_symbols=auto_symbols,
+                                     auto_int_to_Integer=auto_int_to_Integer)
+        shell.user_ns.update(namespace)
+        shell.mainloop()
     else:
         import code
-        code.InteractiveConsole(namespace).interact(banner=banner)
+        if auto_symbols or auto_int_to_Integer:
+            import ast,builtins
+            from .session import int_to_Integer
+            class SymoxConsole(code.InteractiveConsole):
+                def runsource(self,source,filename='<input>',symbol='single'):
+                    try: tree=ast.parse(source)
+                    except SyntaxError: return super().runsource(source,filename,symbol)
+                    if auto_symbols:
+                        bound={part.id for part in ast.walk(tree) if isinstance(part,ast.Name) and isinstance(part.ctx,ast.Store)}
+                        for part in ast.walk(tree):
+                            if (isinstance(part,ast.Name) and isinstance(part.ctx,ast.Load) and part.id not in self.locals
+                                    and part.id not in vars(builtins) and part.id not in bound):
+                                self.locals[part.id]=symox.Symbol(part.id)
+                    if auto_int_to_Integer: source=int_to_Integer(source)
+                    return super().runsource(source,filename,symbol)
+            console=SymoxConsole(namespace)
+        else: console=code.InteractiveConsole(namespace)
+        console.interact(banner=banner)
 
 
 __all__ = ['init_printing','init_session']

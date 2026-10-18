@@ -383,3 +383,18 @@ def PygletPlot(*args,**kwargs):
     """
     dimensions=sum(_range(a) for a in args)
     return (plot3d if dimensions==2 else plot)(*args,**kwargs)
+
+
+def check_arguments(args,expr_len,nb_of_free_symbols):
+    if not args:return []
+    return [tuple(expressions)+tuple(ranges)+((label,) if label is not None else ()) for expressions,ranges,label in _groups(args,expr_len,nb_of_free_symbols)]
+
+
+def plot_factory(*args,**kwargs):
+    """Construct a backend-compatible plot container from existing series."""
+    backend=kwargs.pop('backend','default')
+    if isinstance(backend,str):
+        if backend not in ('default','matplotlib','text'):raise ValueError('unknown plot backend '+backend)
+        return Plot(*args,backend=backend,**kwargs)
+    if isinstance(backend,type) and issubclass(backend,Plot):return backend(*args,**kwargs)
+    raise TypeError('backend must be a known name or a Plot subclass')

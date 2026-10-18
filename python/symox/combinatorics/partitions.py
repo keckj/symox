@@ -132,3 +132,33 @@ class IntegerPartition:
         parts.extend([value]*(tail//value))
         if tail%value:parts.append(tail%value)
         return type(self)(parts)
+
+
+def RGS_generalized(m):
+    from symox import zeros
+    m=operator.index(m)
+    if m<0:raise ValueError('growth table order must be nonnegative')
+    if m>256:raise ValueError('growth table is limited to order 256')
+    table=zeros(m+1)
+    for j in range(m+1):table[0,j]=1
+    for i in range(1,m+1):
+        for j in range(m-i+1):table[i,j]=j*table[i-1,j]+table[i-1,j+1]
+    return table
+
+
+def random_integer_partition(n,seed=None):
+    from random import Random
+    from ..core.random import rng
+    n=operator.index(n)
+    if n<1:raise ValueError('partition size must be positive')
+    if isinstance(seed,(list,tuple)):
+        sequence=iter(seed)
+        def randint(a,b):
+            while True:
+                value=operator.index(next(sequence))
+                if a<=value<=b:return value
+    else:randint=rng.randint if seed is None else Random(seed).randint
+    result=[]
+    while n:
+        part=randint(1,n);count=randint(1,n//part);result.extend([part]*count);n-=part*count
+    return sorted(result,reverse=True)

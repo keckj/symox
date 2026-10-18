@@ -8,3 +8,5 @@ from .lie_group import infinitesimals, checkinfsol
 __all__ = ['allhints', 'classify_ode', 'dsolve', 'checkodesol', 'homogeneous_order']
 __all__ += ['linear_ode_to_matrix', 'canonical_odes', 'linodesolve']
 __all__ += ['constantsimp', 'infinitesimals', 'checkinfsol']
+from .ode import classify_sysode, solve_ics
+__all__ += ['classify_sysode', 'solve_ics']

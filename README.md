@@ -55,10 +55,13 @@ Supported cases and remaining limitations are detailed in the guides below.
 
 Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
-The grouped tables summarize import surfaces, including the unimplemented families.
+The grouped tables summarize the measured import surfaces.
 The [full module inventory](docs/sympy-api.md) also lists every documented module
 and its parent packages, with missing paths and import failures shown explicitly.
 The top-level export percentage covers only the package root.
+The current inventory has no missing names across its 301 measurable module paths;
+9 paths have no countable exports and 1 reference import remains unmeasurable.
+See [implementation limits](docs/api-implementation.md) for the supported behavior.
 
 <!-- sympy-api-surfaces:start -->
 
@@ -285,7 +288,7 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [SYCL / AdaptiveCpp](docs/codegen/sycl.md) | C++ kernels and asynchronous execution |
 | [Code generation compatibility](docs/codegen/compatibility.md) | SymPy-style constructors and printer extensions |
 | [New API implementations](docs/api-implementation.md) | Exact algorithms, compiled routines, structural arrays and remaining behavioral limits |
-| [API connection audit](docs/api-connections.md) | Section-by-section existing implementations, missing import paths and remaining API work |
+| [API connection audit](docs/api-connections.md) | Section-by-section implementations and behavioral limits |
 | [Full SymPy module inventory](docs/sympy-api.md) | Documented modules, missing import paths and unmeasurable references |
 | [Testing and coverage](docs/testing.md) | Differential tests, API measurement and fuzzing |
 | [Architecture](docs/architecture.md) | Rust modules and expression invariants |

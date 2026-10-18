@@ -6,7 +6,7 @@ Measured on 2026-10-18 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 
-All 311 resulting module paths are listed below. 19 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
+All 311 resulting module paths are listed below. 0 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
 
 Names come from `__all__`, or public callables defined in the module when `__all__` is absent, plus documented functions, classes and data actually bound in the installed reference module. Imported helper names are excluded unless explicitly exported or documented. Constants absent from these sources and individual class methods are outside this module export measure.
 
@@ -56,11 +56,11 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.assumptions](https://docs.sympy.org/latest/modules/assumptions/index.html#module-sympy.assumptions) | 10 / 12 | 2 | 83.33% | available |
-| [sympy.assumptions.ask](https://docs.sympy.org/latest/modules/assumptions/ask.html#module-sympy.assumptions.ask) | 4 / 6 | 2 | 66.67% | available |
-| [sympy.assumptions.assume](https://docs.sympy.org/latest/modules/assumptions/assume.html#module-sympy.assumptions.assume) | 4 / 6 | 2 | 66.67% | available |
-| [sympy.assumptions.predicates](https://docs.sympy.org/latest/modules/assumptions/predicates.html#module-sympy.assumptions.predicates) | 0 / 0 | 0 | N/A | missing_module |
-| [sympy.assumptions.refine](https://docs.sympy.org/latest/modules/assumptions/refine.html#module-sympy.assumptions.refine) | 1 / 9 | 8 | 11.11% | available |
+| [sympy.assumptions](https://docs.sympy.org/latest/modules/assumptions/index.html#module-sympy.assumptions) | 12 / 12 | 0 | 100.00% | available |
+| [sympy.assumptions.ask](https://docs.sympy.org/latest/modules/assumptions/ask.html#module-sympy.assumptions.ask) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.assumptions.assume](https://docs.sympy.org/latest/modules/assumptions/assume.html#module-sympy.assumptions.assume) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.assumptions.predicates](https://docs.sympy.org/latest/modules/assumptions/predicates.html#module-sympy.assumptions.predicates) | 0 / 0 | 0 | N/A | no_exports |
+| [sympy.assumptions.refine](https://docs.sympy.org/latest/modules/assumptions/refine.html#module-sympy.assumptions.refine) | 9 / 9 | 0 | 100.00% | available |
 
 </details>
 
@@ -114,21 +114,21 @@ The JSON includes missing names and import errors for every module.
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | `sympy.combinatorics` | 33 / 33 | 0 | 100.00% | available |
-| [sympy.combinatorics.galois](https://docs.sympy.org/latest/modules/combinatorics/galois.html#module-sympy.combinatorics.galois) | 4 / 21 | 17 | 19.05% | available |
-| [sympy.combinatorics.generators](https://docs.sympy.org/latest/modules/combinatorics/permutations.html#module-sympy.combinatorics.generators) | 4 / 6 | 2 | 66.67% | available |
-| [sympy.combinatorics.graycode](https://docs.sympy.org/latest/modules/combinatorics/graycode.html#module-sympy.combinatorics.graycode) | 1 / 6 | 5 | 16.67% | available |
+| [sympy.combinatorics.galois](https://docs.sympy.org/latest/modules/combinatorics/galois.html#module-sympy.combinatorics.galois) | 21 / 21 | 0 | 100.00% | available |
+| [sympy.combinatorics.generators](https://docs.sympy.org/latest/modules/combinatorics/permutations.html#module-sympy.combinatorics.generators) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.combinatorics.graycode](https://docs.sympy.org/latest/modules/combinatorics/graycode.html#module-sympy.combinatorics.graycode) | 6 / 6 | 0 | 100.00% | available |
 | [sympy.combinatorics.group_constructs](https://docs.sympy.org/latest/modules/combinatorics/group_constructs.html#module-sympy.combinatorics.group_constructs) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.combinatorics.group_numbers](https://docs.sympy.org/latest/modules/combinatorics/group_numbers.html#module-sympy.combinatorics.group_numbers) | 0 / 4 | 4 | 0.00% | missing_module |
-| [sympy.combinatorics.named_groups](https://docs.sympy.org/latest/modules/combinatorics/named_groups.html#module-sympy.combinatorics.named_groups) | 6 / 8 | 2 | 75.00% | available |
-| [sympy.combinatorics.partitions](https://docs.sympy.org/latest/modules/combinatorics/partitions.html#module-sympy.combinatorics.partitions) | 5 / 7 | 2 | 71.43% | available |
-| [sympy.combinatorics.perm_groups](https://docs.sympy.org/latest/modules/combinatorics/perm_groups.html#module-sympy.combinatorics.perm_groups) | 3 / 4 | 1 | 75.00% | available |
-| [sympy.combinatorics.permutations](https://docs.sympy.org/latest/modules/combinatorics/permutations.html#module-sympy.combinatorics.permutations) | 2 / 4 | 2 | 50.00% | available |
+| [sympy.combinatorics.group_numbers](https://docs.sympy.org/latest/modules/combinatorics/group_numbers.html#module-sympy.combinatorics.group_numbers) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.combinatorics.named_groups](https://docs.sympy.org/latest/modules/combinatorics/named_groups.html#module-sympy.combinatorics.named_groups) | 8 / 8 | 0 | 100.00% | available |
+| [sympy.combinatorics.partitions](https://docs.sympy.org/latest/modules/combinatorics/partitions.html#module-sympy.combinatorics.partitions) | 7 / 7 | 0 | 100.00% | available |
+| [sympy.combinatorics.perm_groups](https://docs.sympy.org/latest/modules/combinatorics/perm_groups.html#module-sympy.combinatorics.perm_groups) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.combinatorics.permutations](https://docs.sympy.org/latest/modules/combinatorics/permutations.html#module-sympy.combinatorics.permutations) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.combinatorics.polyhedron](https://docs.sympy.org/latest/modules/combinatorics/polyhedron.html#module-sympy.combinatorics.polyhedron) | 1 / 1 | 0 | 100.00% | available |
 | [sympy.combinatorics.prufer](https://docs.sympy.org/latest/modules/combinatorics/prufer.html#module-sympy.combinatorics.prufer) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.combinatorics.subsets](https://docs.sympy.org/latest/modules/combinatorics/subsets.html#module-sympy.combinatorics.subsets) | 1 / 2 | 1 | 50.00% | available |
-| [sympy.combinatorics.tensor_can](https://docs.sympy.org/latest/modules/combinatorics/tensor_can.html#module-sympy.combinatorics.tensor_can) | 0 / 12 | 12 | 0.00% | missing_module |
-| [sympy.combinatorics.testutil](https://docs.sympy.org/latest/modules/combinatorics/testutil.html#module-sympy.combinatorics.testutil) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.combinatorics.util](https://docs.sympy.org/latest/modules/combinatorics/util.html#module-sympy.combinatorics.util) | 0 / 0 | 0 | N/A | missing_module |
+| [sympy.combinatorics.subsets](https://docs.sympy.org/latest/modules/combinatorics/subsets.html#module-sympy.combinatorics.subsets) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.combinatorics.tensor_can](https://docs.sympy.org/latest/modules/combinatorics/tensor_can.html#module-sympy.combinatorics.tensor_can) | 12 / 12 | 0 | 100.00% | available |
+| [sympy.combinatorics.testutil](https://docs.sympy.org/latest/modules/combinatorics/testutil.html#module-sympy.combinatorics.testutil) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.combinatorics.util](https://docs.sympy.org/latest/modules/combinatorics/util.html#module-sympy.combinatorics.util) | 0 / 0 | 0 | N/A | no_exports |
 
 </details>
 
@@ -139,27 +139,27 @@ The JSON includes missing names and import errors for every module.
 |---|---:|---:|---:|---|
 | `sympy.core` | 101 / 101 | 0 | 100.00% | available |
 | [sympy.core.add](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.add) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.core.assumptions](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.assumptions) | 4 / 8 | 4 | 50.00% | available |
-| [sympy.core.basic](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.basic) | 2 / 3 | 1 | 66.67% | available |
-| [sympy.core.cache](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.cache) | 3 / 5 | 2 | 60.00% | available |
-| [sympy.core.containers](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.containers) | 2 / 5 | 3 | 40.00% | available |
-| [sympy.core.evalf](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.evalf) | 3 / 44 | 41 | 6.82% | available |
-| [sympy.core.expr](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.expr) | 4 / 6 | 2 | 66.67% | available |
-| [sympy.core.exprtools](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.exprtools) | 3 / 7 | 4 | 42.86% | available |
-| [sympy.core.function](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.function) | 22 / 28 | 6 | 78.57% | available |
-| [sympy.core.intfunc](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.intfunc) | 9 / 10 | 1 | 90.00% | available |
-| [sympy.core.kind](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.kind) | 1 / 3 | 2 | 33.33% | available |
+| [sympy.core.assumptions](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.assumptions) | 8 / 8 | 0 | 100.00% | available |
+| [sympy.core.basic](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.basic) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.core.cache](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.cache) | 5 / 5 | 0 | 100.00% | available |
+| [sympy.core.containers](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.containers) | 5 / 5 | 0 | 100.00% | available |
+| [sympy.core.evalf](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.evalf) | 44 / 44 | 0 | 100.00% | available |
+| [sympy.core.expr](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.expr) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.core.exprtools](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.exprtools) | 7 / 7 | 0 | 100.00% | available |
+| [sympy.core.function](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.function) | 28 / 28 | 0 | 100.00% | available |
+| [sympy.core.intfunc](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.intfunc) | 10 / 10 | 0 | 100.00% | available |
+| [sympy.core.kind](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.kind) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.core.mod](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.mod) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.core.mul](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.mul) | 2 / 4 | 2 | 50.00% | available |
-| [sympy.core.multidimensional](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.multidimensional) | 1 / 4 | 3 | 25.00% | available |
-| [sympy.core.numbers](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.numbers) | 14 / 34 | 20 | 41.18% | available |
+| [sympy.core.mul](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.mul) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.core.multidimensional](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.multidimensional) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.core.numbers](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.numbers) | 34 / 34 | 0 | 100.00% | available |
 | [sympy.core.power](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.power) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.core.random](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.random) | 0 / 4 | 4 | 0.00% | missing_module |
+| [sympy.core.random](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.random) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.core.relational](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.relational) | 14 / 14 | 0 | 100.00% | available |
-| [sympy.core.singleton](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.singleton) | 1 / 3 | 2 | 33.33% | available |
-| [sympy.core.symbol](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.symbol) | 5 / 8 | 3 | 62.50% | available |
-| [sympy.core.sympify](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.sympify) | 2 / 4 | 2 | 50.00% | available |
-| [sympy.core.traversal](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.traversal) | 4 / 7 | 3 | 57.14% | available |
+| [sympy.core.singleton](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.singleton) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.core.symbol](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.symbol) | 8 / 8 | 0 | 100.00% | available |
+| [sympy.core.sympify](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.sympify) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.core.traversal](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.traversal) | 7 / 7 | 0 | 100.00% | available |
 
 </details>
 
@@ -203,13 +203,13 @@ The JSON includes missing names and import errors for every module.
 | `sympy.functions.elementary.complexes` | 14 / 14 | 0 | 100.00% | available |
 | `sympy.functions.special` | 0 / 0 | 0 | N/A | no_exports |
 | [sympy.functions.special.bessel](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.bessel) | 21 / 21 | 0 | 100.00% | available |
-| [sympy.functions.special.beta_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.beta_functions) | 3 / 4 | 1 | 75.00% | available |
+| [sympy.functions.special.beta_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.beta_functions) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.functions.special.elliptic_integrals](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.elliptic_integrals) | 4 / 4 | 0 | 100.00% | available |
-| [sympy.functions.special.error_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.error_functions) | 18 / 21 | 3 | 85.71% | available |
+| [sympy.functions.special.error_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.error_functions) | 21 / 21 | 0 | 100.00% | available |
 | [sympy.functions.special.gamma_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.gamma_functions) | 9 / 9 | 0 | 100.00% | available |
 | `sympy.functions.special.hyper` | 17 / 17 | 0 | 100.00% | available |
 | [sympy.functions.special.mathieu_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.mathieu_functions) | 5 / 5 | 0 | 100.00% | available |
-| [sympy.functions.special.polynomials](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.polynomials) | 13 / 14 | 1 | 92.86% | available |
+| [sympy.functions.special.polynomials](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.polynomials) | 14 / 14 | 0 | 100.00% | available |
 | [sympy.functions.special.singularity_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.singularity_functions) | 1 / 1 | 0 | 100.00% | available |
 | [sympy.functions.special.zeta_functions](https://docs.sympy.org/latest/modules/functions/special.html#module-sympy.functions.special.zeta_functions) | 6 / 6 | 0 | 100.00% | available |
 
@@ -247,9 +247,9 @@ The JSON includes missing names and import errors for every module.
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.integrals](https://docs.sympy.org/latest/modules/integrals/integrals.html#module-sympy.integrals) | 30 / 30 | 0 | 100.00% | available |
-| [sympy.integrals.intpoly](https://docs.sympy.org/latest/modules/integrals/integrals.html#module-sympy.integrals.intpoly) | 0 / 22 | 22 | 0.00% | missing_module |
-| [sympy.integrals.meijerint](https://docs.sympy.org/latest/modules/integrals/g-functions.html#module-sympy.integrals.meijerint) | 0 / 3 | 3 | 0.00% | missing_module |
-| [sympy.integrals.meijerint_doc](https://docs.sympy.org/latest/modules/integrals/g-functions.html#module-sympy.integrals.meijerint_doc) | 0 / 0 | 0 | N/A | missing_module |
+| [sympy.integrals.intpoly](https://docs.sympy.org/latest/modules/integrals/integrals.html#module-sympy.integrals.intpoly) | 22 / 22 | 0 | 100.00% | available |
+| [sympy.integrals.meijerint](https://docs.sympy.org/latest/modules/integrals/g-functions.html#module-sympy.integrals.meijerint) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.integrals.meijerint_doc](https://docs.sympy.org/latest/modules/integrals/g-functions.html#module-sympy.integrals.meijerint_doc) | 0 / 0 | 0 | N/A | no_exports |
 | [sympy.integrals.transforms](https://docs.sympy.org/latest/modules/integrals/integrals.html#module-sympy.integrals.transforms) | 32 / 32 | 0 | 100.00% | available |
 
 </details>
@@ -261,7 +261,7 @@ The JSON includes missing names and import errors for every module.
 |---|---:|---:|---:|---|
 | [sympy.interactive](https://docs.sympy.org/latest/modules/interactive.html#module-sympy.interactive) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.interactive.printing](https://docs.sympy.org/latest/modules/interactive.html#module-sympy.interactive.printing) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.interactive.session](https://docs.sympy.org/latest/modules/interactive.html#module-sympy.interactive.session) | 1 / 6 | 5 | 16.67% | available |
+| [sympy.interactive.session](https://docs.sympy.org/latest/modules/interactive.html#module-sympy.interactive.session) | 6 / 6 | 0 | 100.00% | available |
 
 </details>
 
@@ -328,7 +328,7 @@ The JSON includes missing names and import errors for every module.
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | [sympy.parsing](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.parsing.sym_expr](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing.sym_expr) | 0 / 1 | 1 | 0.00% | missing_module |
+| [sympy.parsing.sym_expr](https://docs.sympy.org/latest/modules/parsing.html#module-sympy.parsing.sym_expr) | 1 / 1 | 0 | 100.00% | available |
 | `sympy.parsing.sympy_parser` | 21 / 21 | 0 | 100.00% | available |
 
 </details>
@@ -415,7 +415,7 @@ The JSON includes missing names and import errors for every module.
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | `sympy.plotting` | 11 / 11 | 0 | 100.00% | available |
-| [sympy.plotting.plot](https://docs.sympy.org/latest/modules/plotting.html#module-sympy.plotting.plot) | 10 / 12 | 2 | 83.33% | available |
+| [sympy.plotting.plot](https://docs.sympy.org/latest/modules/plotting.html#module-sympy.plotting.plot) | 12 / 12 | 0 | 100.00% | available |
 | [sympy.plotting.pygletplot](https://docs.sympy.org/latest/modules/plotting.html#module-sympy.plotting.pygletplot) | 1 / 1 | 0 | 100.00% | available |
 
 </details>
@@ -451,35 +451,35 @@ The JSON includes missing names and import errors for every module.
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
 | `sympy.printing` | 41 / 41 | 0 | 100.00% | available |
-| [sympy.printing.aesaracode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.aesaracode) | 0 / 4 | 4 | 0.00% | missing_module |
+| [sympy.printing.aesaracode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.aesaracode) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.printing.c](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.c) | 10 / 10 | 0 | 100.00% | available |
 | [sympy.printing.codeprinter](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.codeprinter) | 11 / 11 | 0 | 100.00% | available |
-| [sympy.printing.conventions](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.conventions) | 0 / 2 | 2 | 0.00% | missing_module |
+| [sympy.printing.conventions](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.conventions) | 2 / 2 | 0 | 100.00% | available |
 | [sympy.printing.cxx](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.cxx) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.printing.fortran](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.fortran) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.printing.gtk](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.gtk) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.printing.jscode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.jscode) | 3 / 4 | 1 | 75.00% | available |
-| [sympy.printing.julia](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.julia) | 2 / 5 | 3 | 40.00% | available |
+| [sympy.printing.jscode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.jscode) | 4 / 4 | 0 | 100.00% | available |
+| [sympy.printing.julia](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.julia) | 5 / 5 | 0 | 100.00% | available |
 | [sympy.printing.lambdarepr](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.lambdarepr) | 6 / 6 | 0 | 100.00% | available |
-| [sympy.printing.latex](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.latex) | 4 / 7 | 3 | 57.14% | available |
+| [sympy.printing.latex](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.latex) | 7 / 7 | 0 | 100.00% | available |
 | [sympy.printing.maple](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.maple) | 3 / 3 | 0 | 100.00% | available |
-| [sympy.printing.mathematica](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathematica) | 2 / 3 | 1 | 66.67% | available |
-| [sympy.printing.mathml](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathml) | 5 / 6 | 1 | 83.33% | available |
-| [sympy.printing.octave](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.octave) | 2 / 5 | 3 | 40.00% | available |
-| [sympy.printing.precedence](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.precedence) | 2 / 12 | 10 | 16.67% | available |
+| [sympy.printing.mathematica](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathematica) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.printing.mathml](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.mathml) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.printing.octave](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.octave) | 5 / 5 | 0 | 100.00% | available |
+| [sympy.printing.precedence](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.precedence) | 12 / 12 | 0 | 100.00% | available |
 | [sympy.printing.pretty](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty) | 6 / 6 | 0 | 100.00% | available |
-| [sympy.printing.pretty.pretty](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.pretty) | 7 / 19 | 12 | 36.84% | available |
-| [sympy.printing.pretty.pretty_symbology](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.pretty_symbology) | 0 / 25 | 25 | 0.00% | missing_module |
-| [sympy.printing.pretty.stringpict](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.stringpict) | 0 / 2 | 2 | 0.00% | missing_module |
+| [sympy.printing.pretty.pretty](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.pretty) | 19 / 19 | 0 | 100.00% | available |
+| [sympy.printing.pretty.pretty_symbology](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.pretty_symbology) | 25 / 25 | 0 | 100.00% | available |
+| [sympy.printing.pretty.stringpict](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pretty.stringpict) | 2 / 2 | 0 | 100.00% | available |
 | [sympy.printing.preview](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.preview) | 3 / 3 | 0 | 100.00% | available |
-| [sympy.printing.printer](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.printer) | 1 / 3 | 2 | 33.33% | available |
+| [sympy.printing.printer](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.printer) | 3 / 3 | 0 | 100.00% | available |
 | [sympy.printing.pycode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.pycode) | 7 / 7 | 0 | 100.00% | available |
-| [sympy.printing.python](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.python) | 2 / 3 | 1 | 66.67% | available |
-| [sympy.printing.rcode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.rcode) | 3 / 4 | 1 | 75.00% | available |
+| [sympy.printing.python](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.python) | 3 / 3 | 0 | 100.00% | available |
+| [sympy.printing.rcode](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.rcode) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.printing.repr](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.repr) | 2 / 2 | 0 | 100.00% | available |
 | [sympy.printing.rust](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.rust) | 5 / 5 | 0 | 100.00% | available |
 | [sympy.printing.smtlib](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.smtlib) | 2 / 2 | 0 | 100.00% | available |
-| [sympy.printing.str](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.str) | 3 / 4 | 1 | 75.00% | available |
+| [sympy.printing.str](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.str) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.printing.tree](https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.tree) | 4 / 4 | 0 | 100.00% | available |
 
 </details>
@@ -514,17 +514,17 @@ The JSON includes missing names and import errors for every module.
 |---|---:|---:|---:|---|
 | `sympy.simplify` | 32 / 32 | 0 | 100.00% | available |
 | [sympy.simplify.combsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.combsimp) | 1 / 1 | 0 | 100.00% | available |
-| [sympy.simplify.cse_main](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.cse_main) | 1 / 11 | 10 | 9.09% | available |
+| [sympy.simplify.cse_main](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.cse_main) | 11 / 11 | 0 | 100.00% | available |
 | [sympy.simplify.epathtools](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.epathtools) | 2 / 2 | 0 | 100.00% | available |
 | [sympy.simplify.fu](https://docs.sympy.org/latest/modules/simplify/fu.html#module-sympy.simplify.fu) | 31 / 31 | 0 | 100.00% | available |
-| [sympy.simplify.hyperexpand](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.hyperexpand) | 1 / 37 | 36 | 2.70% | available |
-| [sympy.simplify.hyperexpand_doc](https://docs.sympy.org/latest/modules/simplify/hyperexpand.html#module-sympy.simplify.hyperexpand_doc) | 0 / 0 | 0 | N/A | missing_module |
+| [sympy.simplify.hyperexpand](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.hyperexpand) | 37 / 37 | 0 | 100.00% | available |
+| [sympy.simplify.hyperexpand_doc](https://docs.sympy.org/latest/modules/simplify/hyperexpand.html#module-sympy.simplify.hyperexpand_doc) | 0 / 0 | 0 | N/A | no_exports |
 | [sympy.simplify.powsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.powsimp) | 2 / 2 | 0 | 100.00% | available |
-| [sympy.simplify.radsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.radsimp) | 7 / 17 | 10 | 41.18% | available |
+| [sympy.simplify.radsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.radsimp) | 17 / 17 | 0 | 100.00% | available |
 | [sympy.simplify.ratsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.ratsimp) | 2 / 2 | 0 | 100.00% | available |
-| [sympy.simplify.simplify](https://docs.sympy.org/latest/explanation/gotchas.html#module-sympy.simplify.simplify) | 10 / 21 | 11 | 47.62% | available |
-| [sympy.simplify.sqrtdenest](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.sqrtdenest) | 1 / 6 | 5 | 16.67% | available |
-| [sympy.simplify.trigsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.trigsimp) | 3 / 5 | 2 | 60.00% | available |
+| [sympy.simplify.simplify](https://docs.sympy.org/latest/explanation/gotchas.html#module-sympy.simplify.simplify) | 21 / 21 | 0 | 100.00% | available |
+| [sympy.simplify.sqrtdenest](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.sqrtdenest) | 6 / 6 | 0 | 100.00% | available |
+| [sympy.simplify.trigsimp](https://docs.sympy.org/latest/modules/simplify/simplify.html#module-sympy.simplify.trigsimp) | 5 / 5 | 0 | 100.00% | available |
 
 </details>
 
@@ -536,12 +536,12 @@ The JSON includes missing names and import errors for every module.
 | [sympy.solvers](https://docs.sympy.org/latest/modules/solvers/solvers.html#module-sympy.solvers) | 46 / 46 | 0 | 100.00% | available |
 | [sympy.solvers.inequalities](https://docs.sympy.org/latest/modules/solvers/inequalities.html#module-sympy.solvers.inequalities) | 8 / 8 | 0 | 100.00% | available |
 | [sympy.solvers.ode](https://docs.sympy.org/latest/modules/solvers/ode.html#module-sympy.solvers.ode) | 11 / 11 | 0 | 100.00% | available |
-| [sympy.solvers.ode.ode](https://docs.sympy.org/latest/modules/solvers/ode.html#module-sympy.solvers.ode.ode) | 5 / 23 | 18 | 21.74% | available |
+| [sympy.solvers.ode.ode](https://docs.sympy.org/latest/modules/solvers/ode.html#module-sympy.solvers.ode.ode) | 23 / 23 | 0 | 100.00% | available |
 | [sympy.solvers.pde](https://docs.sympy.org/latest/modules/solvers/pde.html#module-sympy.solvers.pde) | 9 / 9 | 0 | 100.00% | available |
 | [sympy.solvers.recurr](https://docs.sympy.org/latest/modules/solvers/solvers.html#module-sympy.solvers.recurr) | 4 / 4 | 0 | 100.00% | available |
 | [sympy.solvers.simplex](https://docs.sympy.org/latest/modules/solvers/solvers.html#module-sympy.solvers.simplex) | 6 / 6 | 0 | 100.00% | available |
 | `sympy.solvers.solvers` | 15 / 15 | 0 | 100.00% | available |
-| [sympy.solvers.solveset](https://docs.sympy.org/latest/modules/solvers/solveset.html#module-sympy.solvers.solveset) | 8 / 14 | 6 | 57.14% | available |
+| [sympy.solvers.solveset](https://docs.sympy.org/latest/modules/solvers/solveset.html#module-sympy.solvers.solveset) | 14 / 14 | 0 | 100.00% | available |
 
 </details>
 
@@ -555,7 +555,7 @@ The JSON includes missing names and import errors for every module.
 | [sympy.stats.crv_types](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.crv_types) | 54 / 54 | 0 | 100.00% | available |
 | [sympy.stats.frv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.frv) | 9 / 9 | 0 | 100.00% | available |
 | [sympy.stats.frv_types](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.frv_types) | 11 / 11 | 0 | 100.00% | available |
-| [sympy.stats.rv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.rv) | 39 / 41 | 2 | 95.12% | available |
+| [sympy.stats.rv](https://docs.sympy.org/latest/modules/stats.html#module-sympy.stats.rv) | 41 / 41 | 0 | 100.00% | available |
 
 </details>
 
@@ -579,10 +579,10 @@ The JSON includes missing names and import errors for every module.
 
 | Reference module | Present | Missing | API presence | Status |
 |---|---:|---:|---:|---|
-| [sympy.testing](https://docs.sympy.org/latest/modules/testing/index.html#module-sympy.testing) | 0 / 2 | 2 | 0.00% | missing_module |
-| [sympy.testing.pytest](https://docs.sympy.org/latest/modules/testing/pytest.html#module-sympy.testing.pytest) | 0 / 16 | 16 | 0.00% | missing_module |
-| [sympy.testing.randtest](https://docs.sympy.org/latest/modules/testing/randtest.html#module-sympy.testing.randtest) | 0 / 0 | 0 | N/A | missing_module |
-| [sympy.testing.runtests](https://docs.sympy.org/latest/modules/testing/runtests.html#module-sympy.testing.runtests) | 0 / 21 | 21 | 0.00% | missing_module |
+| [sympy.testing](https://docs.sympy.org/latest/modules/testing/index.html#module-sympy.testing) | 2 / 2 | 0 | 100.00% | available |
+| [sympy.testing.pytest](https://docs.sympy.org/latest/modules/testing/pytest.html#module-sympy.testing.pytest) | 16 / 16 | 0 | 100.00% | available |
+| [sympy.testing.randtest](https://docs.sympy.org/latest/modules/testing/randtest.html#module-sympy.testing.randtest) | 0 / 0 | 0 | N/A | no_exports |
+| [sympy.testing.runtests](https://docs.sympy.org/latest/modules/testing/runtests.html#module-sympy.testing.runtests) | 21 / 21 | 0 | 100.00% | available |
 
 </details>
 

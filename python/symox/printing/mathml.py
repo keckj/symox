@@ -112,3 +112,7 @@ def mathml(expr,printer='content',**settings):
 
 def print_mathml(expr,printer='content',**settings):
     print(mathml(expr,printer=printer,**settings))
+
+
+class MathMLPrinter(MathMLPrinterBase):
+    """Extensible content MathML renderer over native scalar expressions."""

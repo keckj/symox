@@ -127,7 +127,7 @@ class NodePrinter:
     def _print_using(self,node):return 'using '+str(node.alias)+' = '+self._print(node.type)+';'
     def _print_ArrayConstructor(self,node):return '['+', '.join(self._print(v) for v in node.elements)+']'
     def _print_Do(self,node):
-        return ('do concurrent (' if node.concurrent else 'do ')+self._print(node.counter)+(' = ')+self._print(node.first)+', '+self._print(node.last)+', '+self._print(node.step)+(')' if node.concurrent else '')+'\n'+indent(self._print(node.body))+'\nend do'
+        return ('do concurrent (' if node.concurrent else 'do ')+self._print(node.counter)+(' = ')+self._print(node.first)+(':' if node.concurrent else ', ')+self._print(node.last)+(':' if node.concurrent else ', ')+self._print(node.step)+(')' if node.concurrent else '')+'\n'+indent(self._print(node.body))+'\nend do'
     def _print_ImpliedDoLoop(self,node):return '('+self._print(node.expr)+', '+self._print(node.counter)+' = '+self._print(node.first)+', '+self._print(node.last)+', '+self._print(node.step)+')'
     def _print_FortranReturn(self,node):return 'return'+('' if _none(node.return_value) else ' '+self._print(node.return_value))
     def _print_GoTo(self,node):return 'go to '+('('+', '.join(map(str,node.labels))+'), '+self._print(node.expr) if not _none(node.expr) else str(node.labels[0]))

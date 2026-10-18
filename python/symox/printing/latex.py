@@ -34,3 +34,18 @@ def multiline_latex(lhs,rhs,terms_per_line=1,environment='align*',use_dots=False
         if start+terms_per_line<len(terms):suffix=(' \\dots' if use_dots else '')+('\\nonumber' if array else '')+r'\\'
         lines.append(prefix+' '.join(chunk)+suffix)
     return '\\begin{'+environment+'}'+('{rCl}' if environment=='IEEEeqnarray' else '')+'\n'+'\n'.join(lines)+'\n\\end{'+environment+'}'
+
+accepted_latex_functions='arcsin arccos arctan sin cos tan sinh cosh tanh sqrt ln log sec csc cot coth re im frac root arg'.split()
+
+
+def latex_escape(s):
+    replacements={'\\':r'\textbackslash','~':r'\textasciitilde','^':r'\textasciicircum'}
+    replacements.update({char:'\\'+char for char in '&%$#_{}'})
+    return ''.join(replacements.get(char,char) for char in str(s))
+
+
+def translate(s):
+    from symox import Symbol,_core
+    # Native symbol printing already handles the same Greek and modifier rules.
+    # Split super/subscripts elsewhere; this entry point translates one token.
+    return _core.latex(Symbol(str(s)))

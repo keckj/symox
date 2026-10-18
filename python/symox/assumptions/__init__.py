@@ -10,3 +10,5 @@ __all__ = ["Q", "Predicate", "AppliedPredicate", "AssumptionsContext",
 # Compatible imports reuse the existing native objects.
 from symox._api_exports import export as _export
 _export(globals(), 'symox._public_tools', 'register_handler remove_handler')
+from .relation import BinaryRelation,AppliedBinaryRelation
+__all__ += ['BinaryRelation','AppliedBinaryRelation']

@@ -221,8 +221,7 @@ def futrig(e, *, hyper=True, **kwargs):
 def trigsimp(expr, inverse=False, **opts):
     """Simplify trigonometric expressions (SymPy ``trigsimp``).
 
-    The methods 'matching' (default) and 'fu' are supported; 'groebner',
-    'combined' and the ``old=True`` path raise NotImplementedError.
+    Methods include native matching/Fu and polynomial Groebner reduction.
     """
     if hasattr(expr, "applyfunc") and not isinstance(expr, Expr):
         return expr.applyfunc(lambda x: trigsimp(x, inverse=inverse, **opts))
@@ -230,17 +229,27 @@ def trigsimp(expr, inverse=False, **opts):
     if getattr(expr, "is_Relational", False):
         return expr.func(trigsimp(expr.lhs, inverse=inverse, **opts),
                          trigsimp(expr.rhs, inverse=inverse, **opts))
-    if opts.pop("old", False):
-        raise NotImplementedError("trigsimp(old=True) is not implemented")
+    legacy = opts.pop("old", False)
     opts.pop("deep", None)
     opts.pop("recursive", None)
     method = opts.pop("method", "matching")
+    if legacy:method='old'
     if method == "fu":
         result = fu(expr, **opts)
     elif method == "matching":
         result = futrig(expr)
+        if result != 0:
+            from .simplify.trigsimp import _common_angles, trigsimp_groebner
+            if _common_angles(result) is not None:
+                try:result = trigsimp_groebner(result)
+                except (ValueError,NotImplementedError):pass
     elif method in ("groebner", "combined"):
-        raise NotImplementedError("trigsimp(method=%r) is not implemented" % method)
+        from .simplify.trigsimp import trigsimp_groebner
+        result=trigsimp_groebner(expr,**opts)
+        if method=='combined':result=futrig(result)
+    elif method=='old':
+        from .simplify.trigsimp import trigsimp_old
+        result=trigsimp_old(expr,**opts)
     else:
         raise KeyError(method)
     if inverse:

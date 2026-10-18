@@ -14,6 +14,8 @@ def precedence(item):
         return value
     name = getattr(item, "class_name", type(item).__name__)
     name = {"Half": "Rational", "Zero": "Integer", "One": "Integer", "NegativeOne": "Integer"}.get(name, name)
+    if name in globals().get('PRECEDENCE_FUNCTIONS',{}):return PRECEDENCE_FUNCTIONS[name](item)
+    if name in globals().get('PRECEDENCE_VALUES',{}):return PRECEDENCE_VALUES[name]
     if name == "UnevaluatedExpr":
         return precedence(item.args[0]) - 0.5
     if name in ("Integer", "Float", "Rational", "Mul"):
@@ -30,3 +32,22 @@ def precedence(item):
     if getattr(item, "is_Relational", False):
         return PRECEDENCE["Relational"]
     return PRECEDENCE.get(name, PRECEDENCE["Func"] if getattr(item, "is_Function", False) else PRECEDENCE["Atom"])
+
+
+def precedence_Integer(item):return PRECEDENCE['Add'] if item<0 else PRECEDENCE['Atom']
+def precedence_Float(item):return PRECEDENCE['Add'] if item<0 else PRECEDENCE['Atom']
+def precedence_Rational(item):return PRECEDENCE['Add'] if item.p<0 else PRECEDENCE['Mul']
+def precedence_Mul(item):return PRECEDENCE['Add'] if item.could_extract_minus_sign() else PRECEDENCE['Mul']
+def precedence_UnevaluatedExpr(item):return precedence(item.args[0])-.5
+def precedence_PolyElement(item):
+    if item.is_generator:return PRECEDENCE['Atom']
+    if item.is_ground:return precedence(item.as_expr())
+    return PRECEDENCE['Mul'] if item.is_term else PRECEDENCE['Add']
+def precedence_FracElement(item):return precedence_PolyElement(item.numer) if item.denom==1 else PRECEDENCE['Mul']
+PRECEDENCE_FUNCTIONS={name:globals()['precedence_'+name] for name in 'Integer Float Rational Mul UnevaluatedExpr PolyElement FracElement'.split()}
+PRECEDENCE_VALUES={**PRECEDENCE,'Equivalent':10,'Implies':10,'NegativeInfinity':40,'MatAdd':40,'MatPow':60,
+ 'MatMul':50,'MatrixSolve':50,'TensAdd':40,'TensMul':50,'HadamardProduct':50,'KroneckerProduct':50,'HadamardPower':60,'Mod':50}
+PRECEDENCE_TRADITIONAL={**PRECEDENCE_VALUES,**dict.fromkeys('Integral Sum Product Limit Derivative TensorProduct DotProduct'.split(),PRECEDENCE['Mul'])}
+PRECEDENCE_TRADITIONAL.update(dict.fromkeys('Union Intersection Complement SymmetricDifference ProductSet'.split(),PRECEDENCE['Xor']))
+
+def precedence_traditional(item):return PRECEDENCE_TRADITIONAL.get(getattr(item,'class_name',type(item).__name__),precedence(item))

@@ -130,3 +130,32 @@ def test_string_helpers_preserve_content():
     assert replace('foo',{'oo':'ar','f':'b'})=='bar'
     mapping={'abc':'x','a':'y'};assert translate('abc',mapping)=='x' and mapping=={'abc':'x','a':'y'}
     assert ordinal(11)=='11th' and ordinal(22)=='22nd'
+
+
+def test_typed_rust_integer_arithmetic_and_mixed_loop_compile(tmp_path):
+    from symox.printing.rust import RustCodePrinter
+    if not shutil.which('rustc'):pytest.skip('Rust compiler unavailable')
+    n,i,total=S.symbols('n i total')
+    integer_function=FunctionDefinition(integer,'square',(Variable(n,integer),),[Return(n*n+2)])
+    float_function=FunctionDefinition(real,'accumulate',(Variable(n,integer),),[
+        Declaration(Variable(total,real,S.Integer(0))),
+        For(i,S.Range(0,n),[aug_assign(total,'+',i)]),Return(total+1)])
+    printer=RustCodePrinter()
+    source=printer.doprint(integer_function)+'\n'+printer.doprint(float_function)
+    source+='\nfn main() { println!("{} {}", square(4), accumulate(5)); }\n'
+    path=tmp_path/'typed.rs';path.write_text(source)
+    result=subprocess.run(['rustc',str(path),'-o',str(tmp_path/'typed')],text=True,capture_output=True)
+    assert result.returncode==0,result.stderr+'\n'+source
+    assert subprocess.check_output([str(tmp_path/'typed')],text=True).split()==['18','11']
+
+
+def test_fortran_concurrent_do_compiles(tmp_path):
+    from symox.codegen.fnodes import Program,Do
+    from symox.printing.fortran import FCodePrinter
+    if not shutil.which('gfortran'):pytest.skip('Fortran compiler unavailable')
+    i=S.Symbol('i',integer=True)
+    program=Program('concurrent_demo',[Declaration(Variable(i,integer)),Do([],i,1,3,concurrent=True)])
+    source=FCodePrinter().doprint(program)
+    path=tmp_path/'concurrent.f90';path.write_text(source)
+    result=subprocess.run(['gfortran',str(path),'-o',str(tmp_path/'concurrent')],text=True,capture_output=True)
+    assert result.returncode==0,result.stderr+'\n'+source

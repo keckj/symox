@@ -98,3 +98,13 @@ def RubikGroup(n):
                     images[dest]=i
             gens.append(Permutation(images))
     return PermutationGroup(gens)
+
+
+def _set_named_properties(group,n,degree,alternating=False):
+    n=_degree(n);group.degree=_degree(degree)
+    group._is_abelian=n<(4 if alternating else 3)
+    group._is_nilpotent=group._is_abelian;group._is_solvable=n<5
+    group._is_transitive=True;group._is_dihedral=not alternating and n in (2,3)
+
+def set_alternating_group_properties(G,n,degree):_set_named_properties(G,n,degree,True)
+def set_symmetric_group_properties(G,n,degree):_set_named_properties(G,n,degree)

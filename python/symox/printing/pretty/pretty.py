@@ -43,3 +43,6 @@ def pprint_try_use_unicode():
 # Compatible imports reuse the existing native objects.
 from symox._api_exports import export as _export
 _export(globals(), 'symox.printing', 'pager_print')
+
+from .pretty_symbology import (U,annotated,center_pad,hobj,is_subscriptable_in_unicode,
+ pretty_atom,pretty_symbol,pretty_try_use_unicode,pretty_use_unicode,vobj,xobj,xsym)

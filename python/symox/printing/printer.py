@@ -56,3 +56,25 @@ class Printer:
 
     def emptyPrinter(self, expr):
         return str(expr)
+
+from contextlib import contextmanager
+
+@contextmanager
+def printer_context(printer,**kwargs):
+    original=dict(getattr(printer,'_context',{}))
+    printer._context={**original,**kwargs}
+    try:yield
+    finally:printer._context=original
+
+
+def print_function(print_cls):
+    def decorate(function):
+        import inspect
+        signature=inspect.signature(function)
+        parameters=[p for p in signature.parameters.values() if p.kind!=p.VAR_KEYWORD]
+        existing={p.name for p in parameters}
+        for name,default in print_cls._default_settings.items():
+            if name not in existing and name.isidentifier():parameters.append(inspect.Parameter(name,inspect.Parameter.KEYWORD_ONLY,default=default))
+        function.__signature__=signature.replace(parameters=parameters)
+        return function
+    return decorate

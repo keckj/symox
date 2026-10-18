@@ -5,6 +5,7 @@ from .. import _core
 
 class _PredicateType(type):
     def __instancecheck__(cls, value):
+        if cls in type(value).__mro__:return True
         return isinstance(value, _core.Expr) and (
             value.class_name.endswith("Predicate")
             and value.class_name != "AppliedPredicate")
@@ -19,6 +20,7 @@ class Predicate(metaclass=_PredicateType):
 
 class _AppliedType(type):
     def __instancecheck__(cls, value):
+        if cls in type(value).__mro__:return True
         return isinstance(value, _core.Expr) and value.class_name in (
             "AppliedPredicate", "AppliedBinaryRelation")
 
@@ -53,3 +55,9 @@ def assuming(*assumptions):
     finally:
         global_assumptions.clear()
         global_assumptions.update(previous)
+
+PredicateMeta=type(Predicate)
+
+class _UndefinedPredicateType(_PredicateType):
+    def __instancecheck__(cls,value):return isinstance(value,_core.Expr) and value.class_name=='UndefinedPredicate'
+class UndefinedPredicate(Predicate,metaclass=_UndefinedPredicateType):pass

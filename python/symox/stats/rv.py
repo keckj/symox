@@ -64,3 +64,56 @@ def sample_iter_subs(expr,condition=None,size=(),numsamples=S.oo,seed=None,**kwa
 
 __all__ += ['RandomDomain','SingleDomain','MatrixDomain','ProductDomain','ConditionalDomain','SinglePSpace',
  'ProductPSpace','IndependentProductPSpace','NamedArgsMixin','Density','sample_iter_lambdify','sample_iter_subs']
+
+
+class _UnspecifiedDistribution(Distribution):
+    kind='unspecified'
+    @property
+    def set(self):raise ValueError('the random variable has no probability model')
+    def pdf(self,*args):raise ValueError('the random variable has no probability model')
+    def moment(self,*args):raise ValueError('the random variable has no probability model')
+    def sample(self,*args,**kwargs):raise ValueError('the random variable has no probability model')
+
+
+class RandomIndexedSymbol(RandomSymbol):
+    def __init__(self,idx_obj,pspace=None):
+        self.indexed=idx_obj;self._bound_space=pspace
+        if pspace is None:super().__init__(str(idx_obj),_UnspecifiedDistribution())
+        else:
+            values=list(pspace.values)
+            matches=[value for value in values if value.symbol==idx_obj or str(value.symbol)==str(idx_obj)]
+            if not matches and len(values)==1:matches=values
+            if len(matches)!=1:raise ValueError('indexed symbol requires an unambiguous bound probability variable')
+            self.__dict__.update(matches[0].__dict__)
+        self.symbol=idx_obj;self.indexed=idx_obj;self._bound_space=pspace
+    @property
+    def pspace(self):
+        if self._bound_space is None:raise ValueError('unbound indexed random symbol')
+        return self._bound_space
+
+
+from ._matrix import MatrixRandomVariable,MATRIX_REGISTRY
+class RandomMatrixSymbol(MatrixRandomVariable):
+    def __init__(self,symbol,n,m,pspace=None):
+        self.name=str(symbol);self.shape=(n,m);self.rows,self.cols=n,m;self.symbol=S.MatrixSymbol(self.name,n,m)
+        self._bound_space=pspace
+        if pspace is not None:
+            models=[value for value in pspace.values if isinstance(value,MatrixRandomVariable) and value.shape==(n,m)]
+            if len(models)!=1:raise ValueError('a random matrix symbol requires a matching matrix probability model')
+            if self.name!=models[0].name:raise ValueError('bound random matrix symbol must name its probability variable')
+            self.__dict__.update(models[0].__dict__);self._bound_space=pspace
+        else:
+            self.group,self.process,self._entries=self,None,{}
+            self.distribution=_UnspecifiedDistribution()
+        MATRIX_REGISTRY[self.symbol]=self
+        from ._base import REGISTRY
+        REGISTRY[self.symbol]=self
+    @property
+    def pspace(self):
+        if self._bound_space is None:raise ValueError('unbound random matrix symbol')
+        return self._bound_space
+    def __getitem__(self,index):
+        if self._bound_space is None:raise ValueError('matrix components require a probability model')
+        return super().__getitem__(index)
+
+__all__ += ['RandomIndexedSymbol','RandomMatrixSymbol']

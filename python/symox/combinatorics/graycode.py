@@ -60,3 +60,29 @@ class GrayCode:
 
     def skip(self):
         self._skip=True
+
+
+def _bits(value):
+    value=''.join(map(str,value))
+    if not value or set(value)-{'0','1'}:raise ValueError('expected a nonempty binary string')
+    return value
+
+def bin_to_gray(bin_list):
+    bits=_bits(bin_list);return bits[0]+''.join(str(int(a)^int(b)) for a,b in zip(bits,bits[1:]))
+def gray_to_bin(gray_list):
+    bits=_bits(gray_list);result=[];bit=0
+    for value in bits:bit^=int(value);result.append(str(bit))
+    return ''.join(result)
+def random_bitstring(n):
+    from ..core.random import rng
+    n=operator.index(n)
+    if n<0:raise ValueError('bit string length must be nonnegative')
+    return ''.join(str(rng.randrange(2)) for _ in range(n))
+def get_subset_from_bitstring(super_set,bitstring):
+    values=list(super_set);bits=_bits(bitstring)
+    if len(values)!=len(bits):raise ValueError('bit string and superset lengths differ')
+    return [value for value,bit in zip(values,bits) if bit=='1']
+def graycode_subsets(gray_code_set):
+    values=list(gray_code_set)
+    if not values:yield [];return
+    for bits in GrayCode(len(values)).generate_gray():yield get_subset_from_bitstring(values,bits)

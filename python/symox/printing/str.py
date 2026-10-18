@@ -22,3 +22,14 @@ def sstr(expr, **settings):
 # Compatible imports reuse the existing native objects.
 from symox._api_exports import export as _export
 _export(globals(), 'symox.printing', 'sstrrepr')
+
+
+class StrReprPrinter(StrPrinter):
+    def emptyPrinter(self,expr):
+        if isinstance(expr,str):return repr(expr)
+        if isinstance(expr,list):return '['+', '.join(self._print(value) for value in expr)+']'
+        if isinstance(expr,tuple):return '('+', '.join(self._print(value) for value in expr)+(',' if len(expr)==1 else '')+')'
+        if isinstance(expr,dict):return '{'+', '.join(self._print(key)+': '+self._print(value) for key,value in expr.items())+'}'
+        return super().emptyPrinter(expr)
+
+__all__ += ['StrReprPrinter']

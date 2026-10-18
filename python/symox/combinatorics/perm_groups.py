@@ -58,15 +58,18 @@ class PermutationGroup:
     __contains__ = contains
 
     def is_transitive(self, strict=True):
+        if hasattr(self,'_is_transitive'):return self._is_transitive
         orbit = {g(0) for g in self._enumerate()} if self.degree else set()
         return len(orbit) == self.degree
 
     @property
     def is_abelian(self):
+        if hasattr(self,'_is_abelian'):return self._is_abelian
         return all(a*b == b*a for a in self._generators for b in self._generators)
 
     @property
     def is_solvable(self):
+        if hasattr(self,'_is_solvable'):return self._is_solvable
         group = self
         while group.order() != 1:
             if group.order() > 256:
@@ -130,3 +133,5 @@ class PermutationGroup:
 from symox._api_exports import export as _export
 _export(globals(), 'symox.combinatorics.coset', 'Coset')
 _export(globals(), 'symox.combinatorics.named_groups', 'SymmetricPermutationGroup')
+
+PermGroup=PermutationGroup

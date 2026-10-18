@@ -44,8 +44,14 @@ Unknown or ambiguous dependent functions require an explicit `func` argument.
 Generated integration constants avoid existing free symbol names. Structural
 inspection reads held derivative counts without enumerating their variables.
 Differential order is limited to 256 and inspection to 10,000 graph nodes.
-Power-series ODE solvers, implicit exact initial conditions and the full SymPy
-classifier/hint machinery remain unimplemented.
+Taylor and Frobenius series are available through the explicit hints
+`1st_power_series`, `2nd_power_series_ordinary` and `2nd_power_series_regular`,
+with `n` coefficients and expansion point `x0`. They use exact recurrences with
+at most 64 coefficients. Repeated indicial roots and resonances requiring
+logarithmic terms remain unsupported. Request series classification explicitly
+with `classify_ode(..., n=...)`; default classification lists exact families.
+Implicit exact initial conditions and the full SymPy classifier/hint machinery
+remain unimplemented.
 Classification records structural matches; integration or root isolation can
 still exceed the native algorithms for a matched equation.
 
@@ -120,8 +126,11 @@ solutions = dsolve([f.diff(t)-f-g, g.diff(t)-g], [f, g],
 Matrix extraction is limited to 64 equations/functions. Matrix-exponential
 solving is limited to eight functions and the native exact spectral models.
 Noncommuting time-dependent systems, singular differential-algebraic systems,
-general nonlinear system solving and alternate time-coordinate methods are
-not implemented by this interface.
+general coupled nonlinear system solving and alternate time-coordinate methods
+are not implemented by this interface. `dsolve` also reduces triangular
+nonlinear systems of two or three functions to scalar equations, substituting
+each explicit solution and keeping integration constants distinct. See the
+[API implementation guide](api-implementation.md) for the internal adapters.
 
 ## Partial differential equations
 

@@ -29,7 +29,17 @@ class ScalarCodePrinter(CXX17CodePrinter):
     target='javascript'
     def __init__(self,settings=None,**kwargs):
         super().__init__(settings,**kwargs)
-        self.known_functions=dict(self._settings.get('user_functions',{}))
+        self._user_functions=dict(self._settings.get('user_functions',{}))
+        self.known_functions={}
+        module_name={'javascript':'jscode','r':'rcode'}.get(self.target,self.target)
+        if module_name in ('jscode','rcode','julia','octave','mathematica'):
+            from importlib import import_module
+            module=import_module('symox.printing.'+module_name)
+            self.known_functions.update(getattr(module,'known_functions',{}))
+            self.known_functions.update({name:name for name in getattr(module,'known_fcns_src1',())})
+            self.known_functions.update(getattr(module,'known_fcns_src2',{}))
+        self.known_functions.update(self._user_functions)
+        if self.target=='julia' and 'atan2' not in self._user_functions:self.known_functions['atan2']='atan'
 
     def doprint(self,expr,assign_to=None):
         from symox import sympify
@@ -148,7 +158,7 @@ class ScalarCodePrinter(CXX17CodePrinter):
         if name in _CONSTANTS[self.target]:return _CONSTANTS[self.target][name]
         if not getattr(expr,'is_Function',False):
             raise NotImplementedError(f'{name} is unsupported by the {self.target} printer')
-        target=self.known_functions.get(name)
+        target=(self._user_functions if getattr(expr,'is_UndefinedFunction',False) else self.known_functions).get(name)
         if target is None and (getattr(expr,'is_UndefinedFunction',False) or name not in _COMMON|_EXTRA[self.target]):
             if name in ('cot','sec','csc') and self.target in ('javascript','glsl'):
                 fn={'cot':'tan','sec':'cos','csc':'sin'}[name]

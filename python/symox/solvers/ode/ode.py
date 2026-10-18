@@ -9,7 +9,8 @@ allhints = ('separable', '1st_exact', '1st_linear', 'Bernoulli',
             'nth_linear_constant_coeff_homogeneous',
             'nth_linear_constant_coeff_undetermined_coefficients',
             'nth_linear_constant_coeff_variation_of_parameters',
-            'nth_linear_euler_eq_homogeneous')
+            'nth_linear_euler_eq_homogeneous', '1st_power_series',
+            '2nd_power_series_ordinary', '2nd_power_series_regular')
 
 
 def _zero(value):
@@ -103,6 +104,25 @@ def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta
                 else:
                     if parts and len(set(parts)-{1}) == 1:
                         matches['Bernoulli'] = {'slope':slope}
+    if n is not None:
+        from ._series_api import _linear_second, _taylor
+        from ... import S, Dummy
+        count = int(n)
+        if not 2 <= count <= 64:raise ValueError('Series classification requires 2 to 64 terms')
+        if order == 1 and 'lie_group' in matches:
+            matches['1st_power_series'] = {'terms': count, 'f0': S.Zero}
+        if order == 2 and linear is not None:
+            h = Dummy('local_coordinate')
+            _, (p, q, rest) = _linear_second(expr,func)
+            try:
+                for value in (p,q,rest):_taylor(value,x,0,h,count)
+                matches['2nd_power_series_ordinary'] = {'terms':count,'x0':S.Zero}
+            except (ValueError,NotImplementedError,ZeroDivisionError):
+                if _zero(rest):
+                    try:
+                        _taylor(x*p,x,0,h,count);_taylor(x*x*q,x,0,h,count)
+                        matches['2nd_power_series_regular'] = {'terms':count,'x0':S.Zero}
+                    except (ValueError,NotImplementedError,ZeroDivisionError):pass
     hints = tuple(hint for hint in allhints if hint in matches)
     if not dict:
         return hints
@@ -127,6 +147,25 @@ def _finite_forcing(value, x):
 
 def dsolve(eq, func=None, hint='default', simplify=True, ics=None, **kwargs):
     from ... import _core, Eq, Dummy, Derivative, integrate, diff, solve, cancel
+    if hint in ('1st_power_series', '2nd_power_series_ordinary', '2nd_power_series_regular'):
+        point, count = kwargs.pop('x0', 0), kwargs.pop('n', 6)
+        if kwargs:
+            raise NotImplementedError('Unsupported series options')
+        expr, selected, x, order, coordinates = _data(eq, func)
+        match = {'x0': point, 'terms': count}
+        if ics and hint == '1st_power_series':
+            key = selected.func(point)
+            if set(ics) != {key}:
+                raise NotImplementedError('First-order series require one value at x0')
+            match['f0val'] = ics[key]
+        solver = {'1st_power_series': ode_1st_power_series,
+                  '2nd_power_series_ordinary': ode_2nd_power_series_ordinary,
+                  '2nd_power_series_regular': ode_2nd_power_series_regular}[hint]
+        result = solver(expr, selected, order, match)
+        if ics and order == 2:
+            constants = result.free_symbols-expr.free_symbols-{x}
+            result = result.subs(solve_ics([result], [selected], constants, ics))
+        return result
     xi,eta = kwargs.pop('xi',None),kwargs.pop('eta',None)
     if not simplify or kwargs:
         raise NotImplementedError('These dsolve options are not implemented')
@@ -135,8 +174,19 @@ def dsolve(eq, func=None, hint='default', simplify=True, ics=None, **kwargs):
     if isinstance(eq,(list,tuple)):
         if hint != 'default':
             raise NotImplementedError('Named hints for ODE systems are not implemented')
-        from .systems import dsolve_system
-        return dsolve_system(eq,func,ics=ics)
+        from .systems import dsolve_system, ODENonlinearError
+        try:return dsolve_system(eq,func,ics=ics)
+        except ODENonlinearError:
+            match = classify_sysode(eq,func)
+            if len(match['func']) not in (2,3):raise
+            result = (sysode_nonlinear_2eq_order1(match) if len(match['func']) == 2 else
+                      sysode_nonlinear_3eq_order1(match))
+            if ics:
+                symbols = set().union(*(item.free_symbols for item in result))
+                protected = set().union(*(item.free_symbols for item in match['eq']))
+                substitutions = solve_ics(result, match['func'], symbols-protected, ics)
+                result = [item.subs(substitutions) for item in result]
+            return result
     if hint == 'default':
         try:
             return _core.dsolve(eq, func, ics=ics)
@@ -232,3 +282,16 @@ __all__ = ['classify_ode', 'dsolve', 'checkodesol', 'allhints']
 # Compatible imports reuse the existing native objects.
 from symox._api_exports import export as _export
 _export(globals(), 'symox', 'homogeneous_order')
+
+from ._series_api import (get_numbered_constants, iter_numbered_constants, constant_renumber,
+    solve_ics, ode_sol_simplicity, odesimp, ode_1st_power_series,
+    ode_2nd_power_series_ordinary, ode_2nd_power_series_regular, classify_sysode,
+    check_linear_2eq_order1, check_nonlinear_2eq_order1, check_nonlinear_2eq_order2,
+    check_nonlinear_3eq_order1, check_nonlinear_3eq_order2, sysode_linear_2eq_order1,
+    sysode_nonlinear_2eq_order1, sysode_nonlinear_3eq_order1)
+__all__ += ['get_numbered_constants', 'iter_numbered_constants', 'constant_renumber',
+    'solve_ics', 'ode_sol_simplicity', 'odesimp', 'ode_1st_power_series',
+    'ode_2nd_power_series_ordinary', 'ode_2nd_power_series_regular', 'classify_sysode',
+    'check_linear_2eq_order1', 'check_nonlinear_2eq_order1', 'check_nonlinear_2eq_order2',
+    'check_nonlinear_3eq_order1', 'check_nonlinear_3eq_order2', 'sysode_linear_2eq_order1',
+    'sysode_nonlinear_2eq_order1', 'sysode_nonlinear_3eq_order1']

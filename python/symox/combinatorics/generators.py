@@ -37,3 +37,12 @@ def dihedral(n):
         for p in cyclic(n):
             yield p
             yield Permutation(p.array_form[::-1])
+
+
+def rubik(n):
+    from .named_groups import RubikGroup
+    return RubikGroup(n).generators
+
+def rubik_cube_generators():
+    from ._group_data import GENERATORS
+    return [Permutation(array) for array in GENERATORS['rubik_cube_generators']]

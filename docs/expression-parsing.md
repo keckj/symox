@@ -68,3 +68,13 @@ implicit transformations. These helpers have the same trusted-input scope as
 Held construction controls parsing; subsequent native transformations,
 substitutions and conversion to another engine can evaluate nodes. Not every
 SymPy constructor or constructor option is implemented by the native engine.
+
+## Numerical C and Fortran programs
+
+`symox.parsing.sym_expr.SymPyExpression(source, mode='c')` and `mode='f'`
+parse the supported numerical subset of C or Fortran into code generation nodes.
+The object can convert this AST to Python, C or Fortran. Declarations,
+assignments, functions and recognized loops are supported. This is a bounded
+parser for the [documented subset](api-implementation.md#intégration-polynomiale-et-analyse-de-programmes),
+with explicit errors for unsupported constructs; it does not implement a full
+compiler frontend or all source-language type rules.
