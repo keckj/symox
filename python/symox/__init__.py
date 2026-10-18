@@ -1928,4 +1928,16 @@ from .sets.ordinals import Ordinal, OmegaPower, ord0  # noqa: E402
 
 from .polys.numberfields import field_isomorphism, isolate, round_two, prime_decomp, prime_valuation  # noqa: E402
 
+from ._special_extensions import (
+    intlike, multigamma, TupleArg, TupleParametersBase, meijerg, appellf1,
+    BesselBase, SphericalBesselBase, SphericalHankelBase, AiryBase, assume_integer_order,
+    hn1, hn2, jn_zeros, marcumq, MathieuBase, mathieuc, mathieus, mathieucprime, mathieusprime,
+    HyperRep, HyperRep_power1, HyperRep_power2, HyperRep_log1, HyperRep_log2,
+    HyperRep_atanh, HyperRep_asin1, HyperRep_asin2, HyperRep_sqrts1, HyperRep_sqrts2,
+    HyperRep_cosasin, HyperRep_sinasin,
+)
+from . import _special_extensions
+_special_extensions.install()
+from . import functions  # noqa: E402
+
 __all__ = [n for n in dir() if not n.startswith("_")]

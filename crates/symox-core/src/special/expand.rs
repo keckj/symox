@@ -6,6 +6,18 @@ use crate::ops::{add, div, mul, mul2, neg, pow, sqrt, sub};
 use crate::traverse::map_children;
 
 fn rebuild(e: &Expr, f: &dyn Fn(&Expr) -> Option<Expr>) -> Expr {
+    // Meijer expansions retain the original function as their domain fallback.
+    // Expanding that fallback again would nest the same piecewise expression.
+    if let Kind::Piecewise(branches)=e.kind() {
+        let is_fallback=|value:&Expr,condition:&Expr|*condition==Expr::boolean(true)
+            && matches!(value.kind(),Kind::Func(Func::Special(SpecialFn::MeijerG),_));
+        if branches.iter().any(|(value,condition)|is_fallback(value,condition)) {
+            let mapped=branches.iter().map(|(value,condition)|{
+                (if is_fallback(value,condition){value.clone()}else{rebuild(value,f)},rebuild(condition,f))
+            }).collect();
+            return crate::relational::piecewise(mapped);
+        }
+    }
     let r = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| rebuild(c, f)) };
     match f(&r) {
         Some(v) => v,
@@ -136,6 +148,10 @@ fn expand_one(e: &Expr) -> Option<Expr> {
                 Some(add(&[t1, div(&mul2(&exp(&neg(z)), &add(&s)), &nf)]))
             }
             Jn | Yn => spherical_closed(*s, &a[0], &a[1]),
+            Hn1 | Hn2 => {
+                let j=super::jn(&a[0],&a[1]);let y=super::yn(&a[0],&a[1]);
+                Some(expand_func(&add(&[j,mul(&[Expr::i(),int(if *s==Hn1{1}else{-1}),y])])) )
+            },
             Ynm => {
                 let (n, m, th, ph) = (&a[0], &a[1], &a[2], &a[3]);
                 let pre = sqrt(&mul(&[
@@ -156,6 +172,7 @@ fn expand_one(e: &Expr) -> Option<Expr> {
                 Some(mul(&[pre, exp(&mul(&[Expr::i(), m.clone(), ph.clone()])), p]))
             }
             Hyper => hyperexpand_one(a),
+            MeijerG => super::advanced::meijer_expand(a),
             _ => None,
         },
         _ => None,
@@ -316,6 +333,7 @@ fn half_order(s: SpecialFn, nu: &Number, z: &Expr) -> Option<Expr> {
 pub fn hyperexpand(e: &Expr) -> Expr {
     rebuild(e, &|x| match x.kind() {
         Kind::Func(Func::Special(SpecialFn::Hyper), a) => hyperexpand_one(a),
+        Kind::Func(Func::Special(SpecialFn::MeijerG), a) => super::advanced::meijer_expand(a),
         _ => None,
     })
 }

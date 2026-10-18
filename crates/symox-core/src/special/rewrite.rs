@@ -355,6 +355,7 @@ fn method(e: &Expr, args: &[Expr], rule: &str) -> Option<Expr> {
 }
 
 fn func_method(f: &Func, orig: &[Expr], args: &[Expr], rule: &str, this: &Expr) -> Option<Expr> {
+    if let Func::Special(s)=f {if let Some(value)=super::advanced::rewrite(*s,args,rule){return Some(value);}}
     if args.len() == 1 {
         let a = &args[0];
         match f {

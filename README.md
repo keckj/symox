@@ -51,7 +51,7 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 
 | Surface | Present | Missing | API presence |
 |---|---:|---:|---:|
-| SymPy top-level exports | 779 / 921 | 142 | 84.58% |
+| SymPy top-level exports | 791 / 921 | 130 | 85.88% |
 | Expr methods | 97 / 97 | 0 | 100.00% |
 | Poly methods | 154 / 154 | 0 | 100.00% |
 | Matrix methods | 178 / 178 | 0 | 100.00% |
@@ -77,10 +77,10 @@ Measured on 2026-10-18 against SymPy 1.14.0 in the current development tree.
 | Symbolic sets exports | 26 / 26 | 0 | 100.00% |
 | Simplification exports | 32 / 32 | 0 | 100.00% |
 | Integral transforms exports | 26 / 26 | 0 | 100.00% |
-| Special functions: gamma exports | 7 / 9 | 2 | 77.78% |
-| Special functions: hypergeometric exports | 1 / 17 | 16 | 5.88% |
-| Special functions: Bessel exports | 12 / 21 | 9 | 57.14% |
-| Special functions: Mathieu exports | 0 / 5 | 5 | 0.00% |
+| Special functions: gamma exports | 9 / 9 | 0 | 100.00% |
+| Special functions: hypergeometric exports | 17 / 17 | 0 | 100.00% |
+| Special functions: Bessel exports | 21 / 21 | 0 | 100.00% |
+| Special functions: Mathieu exports | 5 / 5 | 0 | 100.00% |
 | Complex functions and branches exports | 8 / 14 | 6 | 57.14% |
 | Number theory exports | 73 / 73 | 0 | 100.00% |
 | Iterable utilities exports | 16 / 59 | 43 | 27.12% |
@@ -134,6 +134,7 @@ See [testing and benchmarks](docs/testing.md) for the Rust and Python test comma
 | [Coefficient domains](docs/domains.md) | Exact arithmetic, free modules, ideals and quotient rings |
 | [Sparse constructors and number fields](docs/polynomial-constructors.md) | Ring/field parents, embeddings, maximal orders and prime ideals |
 | [Combinatorics](docs/combinatorics.md) | Finite groups, rankings, free words, polycyclic collection and polyhedra |
+| [Special functions](docs/special-functions.md) | Gamma products, hypergeometric functions, Bessel families and Mathieu identities |
 | [Structural sets](docs/symbolic-sets.md) | Power sets, disjoint unions, complex regions and ordinals |
 | [Algebraic numbers](docs/algebraic-numbers.md) | Exact field coordinates, structural methods and scalar calculations |
 | [Symbolic matrices](docs/matrices.md) | Dense/sparse matrices, matrix expressions and decompositions |

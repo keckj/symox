@@ -602,6 +602,14 @@ pub(crate) fn conjugate(a: &Expr) -> Option<Expr> {
             | Func::Sign),
             args,
         ) if args.len() == 1 => Some(f::func(function.clone(), vec![c(&args[0])])),
+        Kind::Func(Func::Special(s), args) if matches!(s,
+            crate::special::SpecialFn::MathieuC|crate::special::SpecialFn::MathieuS|
+            crate::special::SpecialFn::MathieuCPrime|crate::special::SpecialFn::MathieuSPrime)=>
+            Some(f::func(Func::Special(*s),args.iter().map(c).collect())),
+        Kind::Func(Func::Special(s),args) if matches!(s,crate::special::SpecialFn::Hn1|crate::special::SpecialFn::Hn2)=>{
+            let other=if *s==crate::special::SpecialFn::Hn1{crate::special::SpecialFn::Hn2}else{crate::special::SpecialFn::Hn1};
+            Some(f::func(Func::Special(other),args.iter().map(c).collect()))
+        },
         Kind::Func(Func::Atan2, args) => Some(f::atan2(&c(&args[0]), &c(&args[1]))),
         Kind::Func(Func::Acos, args) => {
             let z = &args[0];

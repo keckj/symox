@@ -24,6 +24,7 @@ use crate::functions::func;
 use crate::number::Number;
 
 mod bessel;
+mod advanced;
 pub(crate) mod combinatorial;
 pub mod diff;
 pub mod elementary;
@@ -173,6 +174,26 @@ special_fns! {
     EllipticPi => "elliptic_pi" [2, 3] true;
     LambertW => "LambertW" [1, 2] true;
     Hyper => "hyper" [3] true;
+    Hn1 => "hn1" [2] true;
+    Hn2 => "hn2" [2] true;
+    MarcumQ => "marcumq" [3] true;
+    MathieuC => "mathieuc" [3] false;
+    MathieuS => "mathieus" [3] false;
+    MathieuCPrime => "mathieucprime" [3] false;
+    MathieuSPrime => "mathieusprime" [3] false;
+    AppellF1 => "appellf1" [6] true;
+    MeijerG => "meijerg" [3] false;
+    HyperRepPower1 => "HyperRep_power1" [2] false;
+    HyperRepPower2 => "HyperRep_power2" [2] false;
+    HyperRepLog1 => "HyperRep_log1" [1] false;
+    HyperRepLog2 => "HyperRep_log2" [1] false;
+    HyperRepAtanh => "HyperRep_atanh" [1] false;
+    HyperRepAsin1 => "HyperRep_asin1" [1] false;
+    HyperRepAsin2 => "HyperRep_asin2" [1] false;
+    HyperRepSqrts1 => "HyperRep_sqrts1" [2] false;
+    HyperRepSqrts2 => "HyperRep_sqrts2" [2] false;
+    HyperRepCosasin => "HyperRep_cosasin" [2] false;
+    HyperRepSinasin => "HyperRep_sinasin" [2] false;
     // orthogonal polynomials
     Legendre => "legendre" [2] true;
     AssocLegendre => "assoc_legendre" [3] true;
@@ -272,6 +293,7 @@ fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         | AiryAiPrime | AiryBiPrime => bessel::eval(s, a),
         EllipticK | EllipticE | EllipticF | EllipticPi | LambertW => elliptic::eval(s, a),
         Hyper => hyper::eval(a),
+        Hn1 | Hn2 | MarcumQ | MathieuC | MathieuS | MathieuCPrime | MathieuSPrime | AppellF1 | MeijerG | HyperRepPower1 | HyperRepPower2 | HyperRepLog1 | HyperRepLog2 | HyperRepAtanh | HyperRepAsin1 | HyperRepAsin2 | HyperRepSqrts1 | HyperRepSqrts2 | HyperRepCosasin | HyperRepSinasin => advanced::eval(s,a),
         Legendre | AssocLegendre | ChebyshevT | ChebyshevU | Hermite | Laguerre | AssocLaguerre
         | Jacobi | Gegenbauer | Ynm => orthopoly::eval(s, a),
         Mod | Rem | Sech | Csch | Asec | Acsc | Asech | Acsch | Acoth | Sinc | Frac | KroneckerDelta

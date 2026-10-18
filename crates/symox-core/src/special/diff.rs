@@ -245,6 +245,6 @@ pub fn partial(s: SpecialFn, a: &[Expr], i: usize) -> Option<Expr> {
             let x = &a[0];
             sub(&div(&cos(x), x), &div(&sin(x), &x.powi(2)))
         }
-        _ => return None,
+        _ => return super::advanced::partial(s,a,i),
     })
 }

@@ -305,3 +305,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+The hyper-representation analytic continuation formulas and helper interfaces in
+python/symox/_special_extensions.py adapt sympy/functions/special/hyper.py
+(SymPy 1.14), using symox scalar operations and native expression heads.

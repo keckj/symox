@@ -491,6 +491,7 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         PyTuple::new(py, args.iter().map(|a| expr_to_sympy(py, a)).collect::<PyResult<Vec<_>>>()?)
     };
     match e.kind() {
+        Kind::Func(Func::Special(s),args) if s.name().starts_with("HyperRep_")=>py.import("sympy.functions.special.hyper")?.getattr(s.name())?.call1(convert_args(args)?),
         Kind::Func(Func::Predicate(p),_)=>{
             if p.is_undefined(){sm.getattr("Predicate")?.call1((p.name(),))}
             else{sm.getattr("Q")?.getattr(p.name())}

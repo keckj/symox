@@ -6,6 +6,7 @@ use super::{tuple_items, SpecialFn};
 use crate::expr::{Expr, Func, Kind};
 
 pub mod bessel;
+mod advanced_numeric;
 pub mod dd;
 pub mod erf;
 pub mod gamma;
@@ -82,6 +83,15 @@ fn eval_c64_inner(s: SpecialFn, args: &[Expr]) -> Option<C64> {
         let bq: Option<Vec<C64>> = tuple_items(&args[1])?.iter().map(crate::evalf::eval_c64).collect();
         let z = crate::evalf::eval_c64(&args[2])?;
         return misc::hyper_c(&ap?, &bq?, z);
+    }
+    if s == SpecialFn::MeijerG {
+        let aa=tuple_items(&args[0])?;let bb=tuple_items(&args[1])?;
+        let p=tuple_items(&aa[0])?.len()+tuple_items(&aa[1])?.len();
+        let q=tuple_items(&bb[0])?.len()+tuple_items(&bb[1])?.len();
+        if p==q && (crate::evalf::eval_c64(&args[2])?.norm()-1.0).abs()<1e-14{return None;}
+        let expanded=super::advanced::meijer_expand(args)?;
+        if expanded==super::raw(s,args.to_vec()){return None;}
+        return crate::evalf::eval_c64(&expanded);
     }
     if s == SpecialFn::Bell {
         return None;
@@ -259,7 +269,11 @@ pub fn apply(s: SpecialFn, a: &[C64]) -> Option<C64> {
             };
             misc::lambertw_c(x, k)?
         }
-        Hyper => return None,
+        Hyper | MeijerG | MathieuC | MathieuS | MathieuCPrime | MathieuSPrime
+        | HyperRepPower1 | HyperRepPower2 | HyperRepLog1 | HyperRepLog2 | HyperRepAtanh | HyperRepAsin1 | HyperRepAsin2 | HyperRepSqrts1 | HyperRepSqrts2 | HyperRepCosasin | HyperRepSinasin => return None,
+        Hn1 | Hn2 => bessel::spherical_c(x,a[1],true)? + if s==Hn1 {C64::new(0.0,1.0)}else{C64::new(0.0,-1.0)}*bessel::spherical_c(x,a[1],false)?,
+        MarcumQ => advanced_numeric::marcumq(a)?,
+        AppellF1 => advanced_numeric::appellf1(a)?,
         Legendre => misc::legendre_c(x, a[1])?,
         AssocLegendre => misc::assoc_legendre_c(x, a[1], a[2])?,
         ChebyshevT => misc::chebyshev_c(true, x, a[1])?,

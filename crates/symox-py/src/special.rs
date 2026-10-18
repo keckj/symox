@@ -127,7 +127,17 @@ fn special_names() -> Vec<&'static str> {
     SpecialFn::ALL.iter().map(|s| s.name()).collect()
 }
 
+/// Partial derivative with respect to a special-function argument.
+#[pyfunction]
+fn _special_partial(e: &Bound<'_, PyAny>, index: usize) -> PyResult<Option<PyExpr>> {
+    let e=to_expr(e)?;
+    if let symox::expr::Kind::Func(symox::expr::Func::Special(s),args)=e.kind(){
+        Ok(sp::diff::partial(*s,args,index).map(wrap))
+    }else{Ok(None)}
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_special_partial, m)?)?;
     m.add_function(wrap_pyfunction!(stirling, m)?)?;
     m.add_function(wrap_pyfunction!(multinomial_coefficients, m)?)?;
     m.add_function(wrap_pyfunction!(expand_func, m)?)?;
