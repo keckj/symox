@@ -42,3 +42,25 @@ __all__ = ['Distribution','RandomSymbol','PSpace','cdf','characteristic_function
  'dependent','expectation','given','independent','is_random','moment_generating_function',
  'probability','pspace','pspace_independent','quantile','random_symbols','rs_swap','rv_subs',
  'sample','sample_iter','sample_stochastic_process','sampling_E','sampling_P','sampling_density','sumsets','where']
+
+from ._domains import RandomDomain,SingleDomain,MatrixDomain,ProductDomain,ConditionalDomain
+from ._spaces import SinglePSpace,ProductPSpace,IndependentProductPSpace
+
+class NamedArgsMixin:
+    _argnames=()
+    def __getattr__(self,name):
+        if name in self._argnames:return self.args[self._argnames.index(name)]
+        raise AttributeError(name)
+
+class Density:
+    def __init__(self,expr,condition=None):self.expr,self.condition=expr,condition;self.args=(expr,condition)
+    def doit(self,**kwargs):return density(self.expr,self.condition,**kwargs)
+
+
+def sample_iter_lambdify(expr,condition=None,size=(),numsamples=S.oo,seed=None,**kwargs):
+    return sample_iter(expr,condition,size=size,numsamples=numsamples,seed=seed,**kwargs)
+def sample_iter_subs(expr,condition=None,size=(),numsamples=S.oo,seed=None,**kwargs):
+    return sample_iter(expr,condition,size=size,numsamples=numsamples,seed=seed,**kwargs)
+
+__all__ += ['RandomDomain','SingleDomain','MatrixDomain','ProductDomain','ConditionalDomain','SinglePSpace',
+ 'ProductPSpace','IndependentProductPSpace','NamedArgsMixin','Density','sample_iter_lambdify','sample_iter_subs']

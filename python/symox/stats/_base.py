@@ -221,7 +221,9 @@ class RandomSymbol:
     @property
     def free_symbols(self):return {self}
     @property
-    def pspace(self):return PSpace((self,))
+    def pspace(self):
+        from ._spaces import make_space
+        return make_space((self,))
     @property
     def is_Finite(self):return self.distribution.is_Finite
     @property
@@ -258,7 +260,10 @@ def variable(name,distribution,group=None):
     return result
 
 
-class Domain:
+from ._domains import RandomDomain
+
+
+class Domain(RandomDomain):
     def __init__(self,variables,set=None,condition=None):
         self.symbols = frozenset(v.symbol for v in variables)
         self.variables = tuple(variables)

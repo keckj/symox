@@ -1764,6 +1764,10 @@ def lambdify(args, expr, modules=None, **kwargs):
         if len(candidates) != 1:
             raise NotImplementedError("CUDA lambdify requires a single module")
         return cuda_lambdify(args, expr, **kwargs)
+    from .utilities.lambdify import _compile_implemented
+    implemented = _compile_implemented(args, expr, modules, kwargs)
+    if implemented is not None:
+        return implemented
     return _native_lambdify(args, expr, modules=modules, **kwargs)
 
 from ._matrixexpr import (  # noqa: E402

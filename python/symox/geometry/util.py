@@ -164,3 +164,34 @@ def idiff(eq, y, x, n=1):
     for _ in range(n-1):
         value = cancel(diff(value, x)+diff(value, first)*slope)
     return value.xreplace({applied:original for original, applied in replacements.items()})
+
+
+def find(x,equation):
+    matches=[symbol for symbol in equation.free_symbols if (symbol.name if isinstance(x,str) else symbol)==x]
+    if len(matches)!=1:raise ValueError(('ambiguous ' if matches else 'could not find ')+str(x))
+    return matches[0]
+
+
+def are_coplanar(*entities):
+    from .point import Point3D
+    from .plane import Plane
+    from .line import LinearEntity
+    from .ellipse import Ellipse
+    points=[]
+    for entity in entities:
+        if isinstance(entity,Point):points.append(Point(entity,dim=3))
+        elif isinstance(entity,LinearEntity):points.extend(Point(p,dim=3) for p in entity.points)
+        elif isinstance(entity,Plane):
+            p=entity.p1;n=Point(entity.normal_vector,dim=3)
+            axis=Point(1,0,0) if not zero(n.y) or not zero(n.z) else Point(0,1,0)
+            u=n.cross(axis);points.extend([p,p+u,p+n.cross(u)])
+        elif isinstance(entity,Ellipse):
+            c=Point(entity.center,dim=3);points.extend([c,c+Point(entity.hradius,0,0),c+Point(0,entity.vradius,0)])
+        elif hasattr(entity,'vertices'):points.extend(Point(p,dim=3) for p in entity.vertices)
+        else:raise TypeError('unsupported coplanarity entity '+str(type(entity)))
+    points=unique(points)
+    if len(points)<3:return False
+    origin=points[0];direction=points[1]-origin
+    normal=next((direction.cross(p-origin) for p in points[2:] if not zero(abs(direction.cross(p-origin)))),None)
+    if normal is None:return False
+    return all(zero(normal.dot(p-origin)) for p in points)

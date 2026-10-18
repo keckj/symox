@@ -1,5 +1,5 @@
 """Exact affine lines, rays and closed segments in two and three dimensions."""
-from .entity import GeometryEntity, GeometryError, construct, scalar, clean, zero, sign, compare
+from .entity import GeometrySet, GeometryEntity, GeometryError, construct, scalar, clean, zero, sign, compare
 from .point import Point, Point2D, Point3D
 
 
@@ -7,7 +7,7 @@ def cross2(a, b):
     return clean(a[0]*b[1]-a[1]*b[0])
 
 
-class LinearEntity(GeometryEntity):
+class LinearEntity(GeometrySet):
     __slots__ = ()
     _kind = 'line'
 
@@ -295,6 +295,14 @@ class LinearEntity(GeometryEntity):
         return [Segment(start, self.p1+self.direction*high)]
 
 
+class LinearEntity2D(LinearEntity):
+    __slots__=()
+
+
+class LinearEntity3D(LinearEntity):
+    __slots__=()
+
+
 class Line(LinearEntity):
     __slots__ = ()
 
@@ -323,15 +331,15 @@ class Segment(LinearEntity):
         return line
 
 
-class Line2D(Line):
+class Line2D(Line, LinearEntity2D):
     __slots__ = ()
 
 
-class Line3D(Line):
+class Line3D(Line, LinearEntity3D):
     __slots__ = ()
 
 
-class Ray2D(Ray):
+class Ray2D(Ray, LinearEntity2D):
     __slots__ = ()
 
     @property
@@ -345,13 +353,13 @@ class Ray2D(Ray):
         return sign(self.direction.y)*oo if not zero(self.direction.y) else scalar(0)
 
 
-class Ray3D(Ray):
+class Ray3D(Ray, LinearEntity3D):
     __slots__ = ()
 
 
-class Segment2D(Segment):
+class Segment2D(Segment, LinearEntity2D):
     __slots__ = ()
 
 
-class Segment3D(Segment):
+class Segment3D(Segment, LinearEntity3D):
     __slots__ = ()

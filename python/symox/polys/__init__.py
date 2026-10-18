@@ -48,3 +48,5 @@ __all__ += [
 # Compatible imports reuse the existing native objects.
 from symox._api_exports import export as _export
 _export(globals(), 'symox', 'AlgebraicField CC CRootOf ComplexField ComplexRootOf Domain EX EXRAW ExpressionDomain FF FF_gmpy FF_python FiniteField FractionField GF GMPYFiniteField GMPYIntegerRing GMPYRationalField IntegerRing Options PolynomialRing PurePoly PythonFiniteField PythonIntegerRing PythonRational QQ QQ_I QQ_gmpy QQ_python RR RationalField RealField RootOf RootSum ZZ ZZ_I ZZ_gmpy ZZ_python apart cancel cofactors compose degree div exquo field field_isomorphism galois_group gcd_list gcdex half_gcdex invert is_zero_dimensional isolate lcm_list nroots pdiv pexquo poly pquo prem prime_decomp prime_valuation primitive quo rem ring rootof roots round_two sfield sqf sqf_part sring terms_gcd to_number_field together vfield vring xfield xring')
+from .appellseqs import bernoulli_poly, bernoulli_c_poly, euler_poly, genocchi_poly, andre_poly
+__all__ += ['bernoulli_poly','bernoulli_c_poly','euler_poly','genocchi_poly','andre_poly']

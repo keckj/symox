@@ -1,15 +1,196 @@
-"""Immutable code generation nodes understood by the C++ printer."""
+"""Immutable program nodes shared by the native expression code generators."""
+import symox as _S
+
+
+def _immutable(value):
+    if isinstance(value,(list,tuple)):return tuple(_immutable(v) for v in value)
+    return value
+
+
+class CodegenAST:
+    _fields=()
+    defaults={}
+    def __init__(self,*args,**kwargs):
+        if len(args)>len(self._fields):raise TypeError('too many arguments for '+type(self).__name__)
+        values=dict(zip(self._fields,args))
+        if set(values)&set(kwargs):raise TypeError('argument supplied twice')
+        values.update(kwargs)
+        if set(values)-set(self._fields):raise TypeError('unknown node fields: '+str(set(values)-set(self._fields)))
+        for field in self._fields:
+            if field in values:value=values[field]
+            elif field in self.defaults:value=self.defaults[field]
+            else:raise TypeError('missing field '+field)
+            value=self._coerce(field,value);object.__setattr__(self,field,_immutable(value))
+    def _coerce(self,field,value):
+        if field in ('body',) and isinstance(value,(tuple,list)):return CodeBlock(*value)
+        if field in ('name','text','message','label','namespace') and value is not None:return str(value)
+        if field in ('symbol','target','condition','counter','first','last','step','offset') and value is not None and not isinstance(value,(CodegenAST,range)):
+            return _S.Symbol(value) if isinstance(value,str) else _S.sympify(value)
+        return value
+    def __setattr__(self,name,value):raise AttributeError('code generation nodes are immutable')
+    @property
+    def args(self):return tuple(getattr(self,field) for field in self._fields)
+    @property
+    def func(self):return type(self)
+    @property
+    def free_symbols(self):
+        def free(v):
+            if isinstance(v,tuple):return set().union(*(free(x) for x in v))
+            return getattr(v,'free_symbols',set())
+        return set().union(*(free(v) for v in self.args))
+    def __hash__(self):return hash((type(self),self.args))
+    def __eq__(self,other):return type(self) is type(other) and self.args==other.args
+    def __repr__(self):return type(self).__name__+'('+', '.join(repr(v) for v in self.args)+')'
+    def subs(self,*args,**kwargs):
+        def replace(v):
+            if isinstance(v,tuple):return tuple(replace(x) for x in v)
+            return v.subs(*args,**kwargs) if hasattr(v,'subs') else v
+        return type(self)(*(replace(v) for v in self.args))
+    def xreplace(self,rule):
+        if self in rule:return rule[self]
+        def replace(v):
+            if isinstance(v,tuple):return tuple(replace(x) for x in v)
+            return v.xreplace(rule) if hasattr(v,'xreplace') else rule.get(v,v)
+        return type(self)(*(replace(v) for v in self.args))
+    def has(self,*patterns):return any(self==p or isinstance(p,type) and isinstance(self,p) for p in patterns) or any(getattr(v,'has',lambda *p:False)(*patterns) for v in self.args)
+
+
+class Node(CodegenAST):
+    _fields=('attrs',);defaults={'attrs':()}
+    def attr_params(self,name):
+        for attr in self.attrs:
+            if attr.name==str(name):return attr.parameters
+        return ()
+
+
+class _Expression:
+    def __add__(self,v):return self._symox_()+v
+    __radd__=__add__
+    def __sub__(self,v):return self._symox_()-v
+    def __rsub__(self,v):return v-self._symox_()
+    def __mul__(self,v):return self._symox_()*v
+    __rmul__=__mul__
+    def __truediv__(self,v):return self._symox_()/v
+    def __rtruediv__(self,v):return v/self._symox_()
+    def __pow__(self,v):return self._symox_()**v
+    def __neg__(self):return -self._symox_()
+
+
+class Token(CodegenAST):pass
+class NoneToken(Token):
+    def __bool__(self):return False
+class BreakToken(Token):pass
+class ContinueToken(Token):pass
+none=NoneToken();break_=BreakToken();continue_=ContinueToken()
+
+
+class String(Token):
+    _fields=('text',)
+    def __str__(self):return self.text
+class QuotedString(String):pass
+class Attribute(Token):
+    _fields=('name','parameters');defaults={'parameters':()}
+class Type(Token):
+    _fields=('name',)
+    def __str__(self):return str(self.name)
+    @classmethod
+    def from_expr(cls,expr):
+        value=_S.sympify(expr)
+        return integer if value.is_integer else real if value.is_real else complex_ if value.is_complex else untyped
+    def cast_check(self,value,rtol=None,atol=0,precision_targets=None):
+        import numpy as np
+        value=_S.sympify(value);name=str(self.name)
+        if name in ('integer','intc') or isinstance(self,IntBaseType):
+            if value.is_integer is not True:raise ValueError('value is not an exact integer')
+            result=int(value)
+            if hasattr(self,'nbits'):
+                low=0 if isinstance(self,UnsignedIntType) else -(1<<(int(self.nbits)-1));high=(1<<int(self.nbits))-1 if isinstance(self,UnsignedIntType) else (1<<(int(self.nbits)-1))-1
+                if not low<=result<=high:raise ValueError('integer does not fit target type')
+            return _S.Integer(result)
+        if isinstance(self,ComplexBaseType):return _S.sympify(complex(value.evalf()))
+        bits=int(getattr(self,'nbits',64));dtype=np.float32 if bits<=32 else np.float64 if bits<=64 else np.longdouble
+        numeric=float(value.evalf());converted=dtype(numeric)
+        if np.isfinite(numeric) and not np.isfinite(converted):raise ValueError('floating conversion overflows')
+        tolerance=float(rtol) if rtol is not None else float(np.finfo(dtype).eps)
+        if abs(float(converted)-numeric)>float(atol)+tolerance*abs(numeric):raise ValueError('floating conversion exceeds tolerance')
+        return _S.Float(str(converted))
+class IntBaseType(Type):pass
+class SignedIntType(IntBaseType):_fields=('name','nbits')
+class UnsignedIntType(IntBaseType):_fields=('name','nbits')
+class FloatBaseType(Type):pass
+class FloatType(FloatBaseType):_fields=('name','nbits','nmant','nexp')
+class ComplexBaseType(Type):pass
+class ComplexType(ComplexBaseType):_fields=('name','nbits','nmant','nexp')
+
+untyped=Type('untyped');integer=IntBaseType('integer');intc=SignedIntType('intc',32)
+real=FloatBaseType('real');float32=FloatType('float32',32,23,8);float64=FloatType('float64',64,52,11);float80=FloatType('float80',80,63,15)
+complex_=ComplexBaseType('complex');complex64=ComplexType('complex64',64,23,8);complex128=ComplexType('complex128',128,52,11)
+bool_=Type('bool');void=Type('void');int8=SignedIntType('int8',8);int16=SignedIntType('int16',16);int32=SignedIntType('int32',32);int64=SignedIntType('int64',64)
+uint8=UnsignedIntType('uint8',8);uint16=UnsignedIntType('uint16',16);uint32=UnsignedIntType('uint32',32);uint64=UnsignedIntType('uint64',64)
+value_const=Attribute('value_const');pointer_const=Attribute('pointer_const');restrict=Attribute('restrict');volatile=Attribute('volatile')
+
+
+class Variable(Node,_Expression):
+    _fields=('symbol','type','value','attrs');defaults={'type':untyped,'value':none,'attrs':()}
+    def _symox_(self):return self.symbol
+    @property
+    def free_symbols(self):return self.symbol.free_symbols
+    @classmethod
+    def deduced(cls,symbol,value=None,attrs=(),**kwargs):
+        if value is None:value=symbol
+        return cls(symbol,kwargs.get('type',Type.from_expr(value)),value,attrs)
+    def as_Declaration(self,**kwargs):
+        values=dict(zip(self._fields,self.args));values.update(kwargs);return Declaration(type(self)(**values))
+class Pointer(Variable):
+    def __getitem__(self,indices):return Element(self.symbol,(indices,) if not isinstance(indices,tuple) else indices)
+class Declaration(CodegenAST):_fields=('variable',)
+class Element(CodegenAST,_Expression):
+    _fields=('symbol','indices','strides','offset');defaults={'strides':none,'offset':none}
+    def _symox_(self):return _S.Symbol(str(self.symbol)+'['+', '.join(map(str,self.indices))+']')
+class FunctionCall(CodegenAST,_Expression):
+    _fields=('name','function_args')
+    def _symox_(self):return _S.Function(str(self.name))(*self.function_args)
+class FunctionPrototype(Node):
+    _fields=('return_type','name','parameters','attrs');defaults={'attrs':()}
+    @classmethod
+    def from_FunctionDefinition(cls,definition):return cls(definition.return_type,definition.name,definition.parameters,definition.attrs)
+class FunctionDefinition(FunctionPrototype):_fields=('return_type','name','parameters','body','attrs')
+class For(CodegenAST):_fields=('target','iterable','body')
+class While(CodegenAST):_fields=('condition','body')
+class Scope(CodegenAST):_fields=('body',)
+class Return(CodegenAST):
+    _fields=('return',)
+    return_=property(lambda self:getattr(self,'return'))
+class RuntimeError_(CodegenAST):_fields=('message',)
+class Raise(CodegenAST):_fields=('exception',)
+class Stream(CodegenAST):_fields=('name',)
+stdout=Stream('stdout');stderr=Stream('stderr')
+class Print(CodegenAST):
+    _fields=('print_args','format_string','file');defaults={'format_string':none,'file':none}
+class AssignmentBase(CodegenAST):
+    _fields=('lhs','rhs')
+    def __init__(self,lhs,rhs):super().__init__(_expression(lhs),_expression(rhs))
+class AugmentedAssignment(AssignmentBase):binop=''
+class AddAugmentedAssignment(AugmentedAssignment):binop='+'
+class SubAugmentedAssignment(AugmentedAssignment):binop='-'
+class MulAugmentedAssignment(AugmentedAssignment):binop='*'
+class DivAugmentedAssignment(AugmentedAssignment):binop='/'
+class ModAugmentedAssignment(AugmentedAssignment):binop='%'
+def aug_assign(lhs,op,rhs):
+    operators={'+':AddAugmentedAssignment,'-':SubAugmentedAssignment,'*':MulAugmentedAssignment,'/':DivAugmentedAssignment,'%':ModAugmentedAssignment}
+    if op not in operators:raise ValueError('unknown augmented assignment operator')
+    return operators[op](lhs,rhs)
 
 from dataclasses import dataclass
 
 
 def _expression(value):
     from symox import sympify
-    return value if isinstance(value, (Indexed, IndexedBase)) else sympify(value)
+    return value if isinstance(value, (Indexed, IndexedBase, CodegenAST)) else sympify(value)
 
 
 @dataclass(frozen=True, init=False)
-class Assignment:
+class Assignment(AssignmentBase):
     lhs: object
     rhs: object
 
@@ -27,11 +208,14 @@ class Assignment:
 
 
 @dataclass(frozen=True, init=False)
-class CodeBlock:
-    args: tuple
+class CodeBlock(CodegenAST):
+    _statements: tuple
 
     def __init__(self, *args):
-        object.__setattr__(self, "args", tuple(args))
+        object.__setattr__(self, "_statements", tuple(args))
+
+    @property
+    def args(self):return self._statements
 
     @property
     def free_symbols(self):
@@ -39,7 +223,7 @@ class CodeBlock:
 
 
 @dataclass(frozen=True)
-class Comment:
+class Comment(Token):
     text: str
 
     def __post_init__(self):
@@ -134,3 +318,6 @@ class Indexed(_IndexedArithmetic):
         from symox import Symbol
         from symox.printing.cxx import CXX17CodePrinter
         return Symbol(CXX17CodePrinter().doprint(self))
+
+__all__ = [name for name,value in globals().items() if not name.startswith("_") and (isinstance(value,type) and issubclass(value,CodegenAST) or name in ("aug_assign",))]
+__all__ += 'untyped integer intc real float32 float64 float80 complex_ complex64 complex128 bool_ void int8 int16 int32 int64 uint8 uint16 uint32 uint64 value_const pointer_const restrict volatile none break_ continue_ stdout stderr Indexed IndexedBase'.split()

@@ -1,10 +1,10 @@
 """Planar polygons, exact boundary intersections and triangle constructions."""
-from .entity import GeometryEntity, GeometryError, construct, scalar, clean, zero, sign, unique
+from .entity import GeometrySet, GeometryEntity, GeometryError, construct, scalar, clean, zero, sign, unique
 from .point import Point, Point2D
 from .line import Line, Segment, LinearEntity, cross2
 
 
-class Polygon(GeometryEntity):
+class Polygon(GeometrySet):
     __slots__ = ()
 
     def __new__(cls, *vertices, **kwargs):

@@ -319,3 +319,18 @@ class DomainMatrix(DomainMatrixAlgorithms):
 # Compatible imports reuse the existing native objects.
 from symox._api_exports import export as _export
 _export(globals(), 'symox.polys.matrices', 'DM')
+
+
+def _to_ddm(self):
+    from .ddm import DDM
+    return DDM(self.to_list(),self.shape,self.domain)
+def _to_sdm(self):
+    from .sdm import SDM
+    return SDM(self.to_dod(),self.shape,self.domain)
+def _to_dfm(self):
+    from ._dfm import DFM
+    return DFM(self.to_list(),self.shape,self.domain)
+DomainMatrix.to_ddm=_to_ddm
+DomainMatrix.to_sdm=_to_sdm
+DomainMatrix.to_dfm=_to_dfm
+DomainMatrix.rep=property(lambda self:self.to_ddm() if self._fmt=='dense' else self.to_sdm())

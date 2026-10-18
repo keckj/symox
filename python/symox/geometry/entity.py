@@ -48,7 +48,6 @@ def compare(left, right):
 
 
 class GeometryEntity:
-    __slots__ = ('_args',)
 
     def __init__(self, *args, **kwargs):
         pass
@@ -155,3 +154,42 @@ def unique(values):
         if value not in result:
             result.append(value)
     return result
+
+
+from .. import Set
+
+class GeometrySet(GeometryEntity, Set):
+    """A geometric locus with point membership and geometric intersection."""
+    def __new__(cls,*args,**kwargs):return object.__new__(cls)
+    is_empty=False
+    is_finite_set=False
+    is_iterable=False
+    def _symox_(self):
+        raise NotImplementedError('geometric loci have no native scalar set encoding')
+    def is_subset(self,other):
+        if self==other:return True
+        if isinstance(other,GeometrySet):
+            try:return other.contains(self)
+            except (TypeError,NotImplementedError,ValueError):return None
+        return False
+    issubset=is_subset
+    def isdisjoint(self,other):return not bool(self.intersection(other))
+    is_disjoint=isdisjoint
+
+
+def translate(x,y):
+    from .. import Matrix
+    return Matrix([[1,0,0],[0,1,0],[x,y,1]])
+
+def scale(x,y,pt=None):
+    from .. import diag
+    matrix=diag(x,y,1)
+    if pt is not None:
+        from .point import Point
+        p=Point(pt,dim=2)
+        matrix=translate(-p.x,-p.y)*matrix*translate(p.x,p.y)
+    return matrix
+
+def rotate(th):
+    from .. import Matrix,sin,cos
+    return Matrix([[cos(th),sin(th),0],[-sin(th),cos(th),0],[0,0,1]])

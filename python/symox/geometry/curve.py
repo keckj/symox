@@ -1,9 +1,9 @@
 """Finite-dimensional parametric curves."""
-from .entity import GeometryEntity, construct, scalar
+from .entity import GeometrySet, GeometryEntity, construct, scalar
 from .point import Point
 
 
-class Curve(GeometryEntity):
+class Curve(GeometrySet):
     __slots__ = ()
 
     def __new__(cls, function, limits, **kwargs):

@@ -21,7 +21,8 @@ def pspace(expr):
     if getattr(expr,'_stats_joint',False) or getattr(expr,'_stats_matrix',False):return expr.pspace
     variables = random_symbols(expr)
     if not variables:raise ValueError('expression contains no random variables')
-    return PSpace(variables)
+    from ._spaces import make_space
+    return make_space(variables)
 
 
 def _truth(condition):

@@ -1,7 +1,7 @@
 """Axis-aligned ellipses and exact circle intersections."""
 from functools import cmp_to_key
 
-from .entity import GeometryEntity, GeometryError, construct, scalar, clean, zero, sign, compare, unique
+from .entity import GeometrySet, GeometryEntity, GeometryError, construct, scalar, clean, zero, sign, compare, unique
 from .point import Point, Point2D
 from .line import LinearEntity, Line, Segment, Ray
 
@@ -21,7 +21,7 @@ def _sort_points(points):
     return sorted(unique(points), key=cmp_to_key(order))
 
 
-class Ellipse(GeometryEntity):
+class Ellipse(GeometrySet):
     __slots__ = ()
 
     def __new__(cls, center=None, hradius=None, vradius=None, eccentricity=None, **kwargs):

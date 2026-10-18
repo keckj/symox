@@ -30,3 +30,11 @@ class Options(_Options):
 
 
 __all__ = ['Options']
+
+
+def build_options(gens,args=None):
+    if args is None and isinstance(gens,dict):gens,args=(),gens
+    args={} if args is None else args
+    if not gens and len(args)==1 and isinstance(args.get('opt'),Options):return args['opt']
+    return Options(gens,args)
+__all__ += ['build_options']

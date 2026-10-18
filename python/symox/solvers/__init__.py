@@ -21,3 +21,5 @@ _export(globals(), 'symox', 'Complexes check_assumptions diophantine factor_syst
 
 # Load the homonymous package before binding the solver function.
 from .diophantine import diophantine
+from .simplex import linprog, lpmin, lpmax
+__all__ += ['linprog', 'lpmin', 'lpmax']
