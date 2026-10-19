@@ -1,6 +1,65 @@
 # Autonomous parity audit worklog
 
-## Superseding integration checkpoint — 2026-10-19
+## Function and numerical protocols checkpoint — 2026-10-19
+
+Production fixes: `eae7922a53332cb064c2cf0fec53e5d000889e40`. The rebuilt wheel and all
+native downstream runs are identified in `audits/downstream/candidate.json`.
+The complete internal Python suite passed 29,063 tests, with
+5 documented skips, no failures and no expected failures.
+All 383 optional-backend tests passed with required
+JAX/PyTorch CUDA, Slang runtime and AdaptiveCpp OpenMP execution. Rust checks
+on the same core source tree
+passed 505 unit tests and five doctests, with one ignored test;
+workspace compilation and correctness Clippy checks passed. Focused checks
+passed 819 cases on Python 3.10 and
+764 on Python 3.12. Another 1,047 regression cases cover
+restricted evaluation and scalar conversion; the audit configuration checks
+passed all 14 cases. Exact commands and compressed logs are indexed in
+`audits/downstream/validation.json`.
+
+The changes preserve held derivative constructor identity, undefined-function
+instance queries, escaped symbol names and Tuple reconstruction options.
+Lambda, predicate, differential-field and zero-tensor callability use specific
+native subtypes. Ordinary expressions remain non-callable after geometry
+imports. Field evaluation survives pickle reconstruction and identity
+operations through semantic atom registration. Native reconstruction reads
+the loaded facade without requiring the
+caller's import hook. Python float/complex conversion preserves adaptive
+precision and single-rounding literal conversion, and numeric evaluation
+memoizes shared DAG nodes by precision and refinement context. Numerical
+callables preserve complex arrays and foreign operand protocols without
+silently coercing them through float64; Fraction/Decimal exact arithmetic and
+arbitrary module overrides remain explicit open obligations.
+
+NRPyLaTeX now reproduces all 32 reference tests. ChemPy passes 561 of 573
+reference-passing cases; its twelve remaining failures require wildcard
+predicate support. The eight passing selections are NRPyLaTeX, Haarpy (1,107),
+SfePy (221), unyt (819), pyneqsys (19), pyodesys (45), the Spyder console
+selection (one), and the yt unit selection (one). Upstream skips and expected
+failures remain outside that evidence. Each successful selection reproduces
+every passing reference node ID, with installed reference SymPy execution
+blocked by the importer. The unqualified full Devito reference retains its
+previous candidate identity; no native run was eligible.
+
+TorchInductor's reference reports 236 collected tests and 146,621 successful
+subtests under pytest 9. Its reported call-phase pass count includes both;
+native collection still fails on unsupported core classes.
+
+Lcapy completes its entire unchanged 317-test selection: 193 pass and 124 fail.
+Both phases use native Python tracebacks, avoiding pytest's recursive local
+variable comparisons while formatting symbolic failures. Selected upstream
+test hashes are unchanged. No assertion was modified to obtain these results.
+
+The featured replacement gate remains false: 11 native integrations
+fail and 3 reference suites remain unqualified. Latexexpr exercises no
+symbolic integration. Remaining gaps include wildcard predicates, nominal
+symbolic subclasses and metadata, assumptions and Boolean hierarchy, physics
+state and units, numerical matrix functions and native runtime bridges.
+The versioned global parity snapshots below have not been re-certified for
+this candidate. Universal equivalence remains uncertified and the user's
+Symox >= SymPy requirement remains unmet.
+
+## Historical scalar and permutation checkpoint — 2026-10-19
 
 Production fixes: `2a0acc18867c1a57d09e95a9e72450f8c037b603`.
 The final candidate wheel and every native downstream run are identified by

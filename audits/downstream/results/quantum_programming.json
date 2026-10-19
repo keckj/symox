@@ -1,7 +1,7 @@
 {
   "candidate": {
-    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
-    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {},
   "harness_sha256": {
@@ -20,6 +20,6 @@
     "url": "https://digitalcommons.calpoly.edu/cgi/viewcontent.cgi?article=1072&context=physsp/"
   },
   "reference_version": "1.14.0",
-  "started_at": "2026-10-19T12:47:38.591906+00:00",
+  "started_at": "2026-10-19T17:09:34.262783+00:00",
   "status": "publication_not_a_testable_distribution"
 }

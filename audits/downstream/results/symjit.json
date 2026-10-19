@@ -1,17 +1,17 @@
 {
   "candidate": {
-    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
-    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/symjit/freeze.txt.gz": "88424ea93fc032cee89abeebc7f3d470a9249f614a6dbc1045f8999b87aebc6d",
-    "evidence/symjit/install.log.gz": "5540efa891721d344d6b2aed675203f147b9d0f47560d16f62853cb61514ca1a",
+    "evidence/symjit/freeze.txt.gz": "faa33accb3fbd3084bd6d8fc0839aaadb666a19d1c12daaf5d35d3be1e6e3684",
+    "evidence/symjit/install.log.gz": "1b90076041f3be8f61970191dc0d4d03c1ccea39c3da21b1ee21f55764f82c64",
     "evidence/symjit/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/symjit/reference-junit.xml.gz": "582335f524778fc7d8233e6c9d884ee7d29978d45948868a7cdf34a2d6ffafa1",
-    "evidence/symjit/reference-processes.jsonl.gz": "770838d10d32c76af65c302315c1bc19d137320440887bdf4a93a869f98cac81",
-    "evidence/symjit/reference-tests.json.gz": "22a33498e7851409770176a17793fa0596fc265b27a3c13fa55806788d073bb6",
-    "evidence/symjit/reference.log.gz": "b06d6797c66ed9c7444d9ee96ef8f231d413b76338558318809770597f17b39e",
-    "evidence/symjit/venv.log.gz": "0b369566573e0bb7a9cc2e41f59a91e99bb4c5ea911b465e4396f5a46353ae7c"
+    "evidence/symjit/reference-junit.xml.gz": "08236d942d4cb4d3bcbf9a996488048b34ef40917c2972dc7f2a2a75146923e0",
+    "evidence/symjit/reference-processes.jsonl.gz": "b78ed4fde1d3a43ffe97f60e470f748927b704f6940274d35d3506ff315de700",
+    "evidence/symjit/reference-tests.json.gz": "65322bb7b6a7c4db43ac7d5df00fcb5f21a763845386c3a1da82ba399026ea23",
+    "evidence/symjit/reference.log.gz": "19b3cc9cc1aded4be0ab1398ea9925d6154ca554063d09d343be0398e4d0c242",
+    "evidence/symjit/venv.log.gz": "07b3031e266b7d217f4d3317b287bf966c367067513a7895ecf33cda791ace62"
   },
   "freeze": {
     "command": [
@@ -19,12 +19,12 @@
       "pip",
       "freeze",
       "--python",
-      "/tmp/symox-featured/envs/symjit/bin/python"
+      "/home/keckj/.cache/symox-validation/featured/envs/symjit/bin/python"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/symjit/freeze.txt",
-    "seconds": 0.114,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/symjit\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nscipy==1.17.1\nsetuptools==84.0.0\nsortedcontainers==2.4.0\n-e file:///tmp/symox-featured/sources/symjit/symjit-2.27.0\nsymox @ file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/symjit/freeze.txt",
+    "seconds": 0.115,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/symjit\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nscipy==1.17.1\nsetuptools==84.0.0\nsortedcontainers==2.4.0\n-e file:///home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -41,9 +41,9 @@
       "pip",
       "install",
       "--python",
-      "/tmp/symox-featured/envs/symjit/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/symjit/bin/python",
       "--constraint",
-      "/tmp/symox-featured/constraints/symjit.txt",
+      "/home/keckj/.cache/symox-validation/featured/constraints/symjit.txt",
       "--reinstall-package",
       "symox",
       "sympy==1.14.0",
@@ -60,24 +60,24 @@
       "numpy",
       "scipy",
       "-e",
-      "/tmp/symox-featured/sources/symjit/symjit-2.27.0",
-      "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0",
+      "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/symjit/install.log",
-    "seconds": 1.117,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/symjit\nResolved 21 packages in 4ms\n   Building symjit @ file:///tmp/symox-featured/sources/symjit/symjit-2.27.0\n      Built symjit @ file:///tmp/symox-featured/sources/symjit/symjit-2.27.0\nPrepared 2 packages in 837ms\nUninstalled 2 packages in 27ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 93ms\n ~ symjit==2.27.0 (from file:///tmp/symox-featured/sources/symjit/symjit-2.27.0)\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/symjit/install.log",
+    "seconds": 12.457,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/symjit\nResolved 21 packages in 5ms\n   Building symjit @ file:///home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0\n      Built symjit @ file:///home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0\nPrepared 2 packages in 12.24s\nUninstalled 2 packages in 18ms\nInstalled 2 packages in 12ms\n ~ symjit==2.27.0 (from file:///home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads6-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "preflight": {
     "command": [
-      "/tmp/symox-featured/envs/symjit/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/symjit/bin/python",
       "-c",
       "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/symjit/preflight.log",
-    "seconds": 0.766,
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/symjit/preflight.log",
+    "seconds": 0.916,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -109,7 +109,7 @@
     "collection_errors": [],
     "collection_skips": [],
     "command": [
-      "/tmp/symox-featured/envs/symjit/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/symjit/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -117,7 +117,7 @@
       "-p",
       "audit_plugin",
       "--timeout=60",
-      "--junitxml=/tmp/symox-featured/logs/symjit/reference-junit.xml",
+      "--junitxml=/home/keckj/.cache/symox-validation/featured/logs/symjit/reference-junit.xml",
       "python/tests"
     ],
     "counts": {
@@ -133,14 +133,14 @@
     "first_failures": [
       {
         "detail": "self = <test_special_values.SpecialValues testMethod=test_unary_functions>\n\n    def test_unary_functions(self):\n        for name, (sym, ref) in special_unary().items():\n            if name == \"gamma\":\n                continue  # see test_gamma_at_zero\n>           self.check_unary(name, sym, ref)\n\npython/tests/test_special_values.py:104: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npython/tests/test_special_values.py:83: in check_unary\n    self.assertFalse(bad, f\"{name} {options} {kind}: \" + describe(bad, [points], got, want))\nE   AssertionError: [16, 17] is not false : asinh {} vectorized: f(1.7976931348623157e+308) = inf, expected 710.4758600739439; f(-1.7976931348623157e+308) = -inf, expected -710.4758600739439",
-        "duration": 0.029523799079470336,
+        "duration": 0.02592365400005292,
         "nodeid": "python/tests/test_special_values.py::SpecialValues::test_unary_functions",
         "outcome": "failed",
         "phase": "call",
         "wasxfail": null
       }
     ],
-    "log": "/tmp/symox-featured/logs/symjit/reference.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/symjit/reference.log",
     "process_provenance_artifact": "evidence/symjit/reference-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -153,40 +153,28 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 19.306,
-    "tail": "...............s....s...ssss....................x.x...xx..x...xxx.xF     [100%]\n=================================== FAILURES ===================================\n______________________ SpecialValues.test_unary_functions ______________________\n\nself = <test_special_values.SpecialValues testMethod=test_unary_functions>\n\n    def test_unary_functions(self):\n        for name, (sym, ref) in special_unary().items():\n            if name == \"gamma\":\n                continue  # see test_gamma_at_zero\n>           self.check_unary(name, sym, ref)\n\npython/tests/test_special_values.py:104: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npython/tests/test_special_values.py:83: in check_unary\n    self.assertFalse(bad, f\"{name} {options} {kind}: \" + describe(bad, [points], got, want))\nE   AssertionError: [16, 17] is not false : asinh {} vectorized: f(1.7976931348623157e+308) = inf, expected 710.4758600739439; f(-1.7976931348623157e+308) = -inf, expected -710.4758600739439\n--- generated xml file: /tmp/symox-featured/logs/symjit/reference-junit.xml ----\n=========================== short test summary info ============================\nSKIPPED [1] python/tests/test_disasm.py:189: needs capstone\nSKIPPED [1] python/tests/test_disasm.py:195: needs objdump and capstone\nSKIPPED [1] python/tests/test_disasm.py:247: needs symbolica\nSKIPPED [1] python/tests/test_disasm.py:260: needs capstone\nSKIPPED [1] python/tests/test_disasm.py:280: needs capstone\nSKIPPED [1] python/tests/test_disasm.py:271: needs capstone\nXFAIL python/tests/test_regressions.py::Regressions::test_nary_boolean\nXFAIL python/tests/test_regressions.py::Regressions::test_piecewise_without_final_true\nXFAIL python/tests/test_special_values.py::SpecialValues::test_gamma_at_zero\nXFAIL python/tests/test_special_values.py::SpecialValues::test_greater_than_with_nan\nXFAIL python/tests/test_special_values.py::SpecialValues::test_heaviside_nan\nXFAIL python/tests/test_special_values.py::SpecialValues::test_mod_infinite_divisor\nXFAIL python/tests/test_special_values.py::SpecialValues::test_mod_large_quotients\nXFAIL python/tests/test_special_values.py::SpecialValues::test_mod_result_range\nXFAIL python/tests/test_special_values.py::SpecialValues::test_sign_is_supported\nFAILED python/tests/test_special_values.py::SpecialValues::test_unary_functions\n1 failed, 52 passed, 6 skipped, 9 xfailed in 18.69s\n",
+    "seconds": 19.704,
+    "tail": "...............s....s...ssss....................x.x...xx..x...xxx.xF     [100%]\n=================================== FAILURES ===================================\n______________________ SpecialValues.test_unary_functions ______________________\n\nself = <test_special_values.SpecialValues testMethod=test_unary_functions>\n\n    def test_unary_functions(self):\n        for name, (sym, ref) in special_unary().items():\n            if name == \"gamma\":\n                continue  # see test_gamma_at_zero\n>           self.check_unary(name, sym, ref)\n\npython/tests/test_special_values.py:104: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npython/tests/test_special_values.py:83: in check_unary\n    self.assertFalse(bad, f\"{name} {options} {kind}: \" + describe(bad, [points], got, want))\nE   AssertionError: [16, 17] is not false : asinh {} vectorized: f(1.7976931348623157e+308) = inf, expected 710.4758600739439; f(-1.7976931348623157e+308) = -inf, expected -710.4758600739439\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/symjit/reference-junit.xml -\n=========================== short test summary info ============================\nSKIPPED [1] python/tests/test_disasm.py:189: needs capstone\nSKIPPED [1] python/tests/test_disasm.py:195: needs objdump and capstone\nSKIPPED [1] python/tests/test_disasm.py:247: needs symbolica\nSKIPPED [1] python/tests/test_disasm.py:260: needs capstone\nSKIPPED [1] python/tests/test_disasm.py:280: needs capstone\nSKIPPED [1] python/tests/test_disasm.py:271: needs capstone\nXFAIL python/tests/test_regressions.py::Regressions::test_nary_boolean\nXFAIL python/tests/test_regressions.py::Regressions::test_piecewise_without_final_true\nXFAIL python/tests/test_special_values.py::SpecialValues::test_gamma_at_zero\nXFAIL python/tests/test_special_values.py::SpecialValues::test_greater_than_with_nan\nXFAIL python/tests/test_special_values.py::SpecialValues::test_heaviside_nan\nXFAIL python/tests/test_special_values.py::SpecialValues::test_mod_infinite_divisor\nXFAIL python/tests/test_special_values.py::SpecialValues::test_mod_large_quotients\nXFAIL python/tests/test_special_values.py::SpecialValues::test_mod_result_range\nXFAIL python/tests/test_special_values.py::SpecialValues::test_sign_is_supported\nFAILED python/tests/test_special_values.py::SpecialValues::test_unary_functions\n1 failed, 52 passed, 6 skipped, 9 xfailed in 19.00s\n",
     "test_evidence": "evidence/symjit/reference-tests.json.gz",
-    "test_evidence_sha256": "22a33498e7851409770176a17793fa0596fc265b27a3c13fa55806788d073bb6",
+    "test_evidence_sha256": "65322bb7b6a7c4db43ac7d5df00fcb5f21a763845386c3a1da82ba399026ea23",
     "timed_out": false
   },
   "reference_qualified": false,
   "reference_version": "1.14.0",
   "selected_test_sha256": {
-    "/tmp/symox-featured/sources/symjit/symjit-2.27.0/python/tests/accuracy_cases.py": "1f512323b57794196b139e23d89d3653a60fe12dd23a53d5c0b502387d43af0c",
-    "/tmp/symox-featured/sources/symjit/symjit-2.27.0/python/tests/test_accuracy.py": "e4106bf57ba6ffce6dc577999ed5a8a76ecfff6bb1099dc01835d72ff819023c",
-    "/tmp/symox-featured/sources/symjit/symjit-2.27.0/python/tests/test_composer_fuzz.py": "ee16ce1e716016e2ce71c2ce00954958fb79692f90356c1ded2219b842292bf0",
-    "/tmp/symox-featured/sources/symjit/symjit-2.27.0/python/tests/test_disasm.py": "4fd25b18b4b4994bc3e4defd0991e94bc3cd23cfada4323385dcfe3940f07064",
-    "/tmp/symox-featured/sources/symjit/symjit-2.27.0/python/tests/test_fuzz.py": "0fa70ff18b82fd83e3267bb090ed5bce819577b5b46ebab7dda89e261b0b40bc",
-    "/tmp/symox-featured/sources/symjit/symjit-2.27.0/python/tests/test_regressions.py": "cf7a5558d9d08d53486ef14b121ac754b0004b345bff21bd096bb91528d515cf",
-    "/tmp/symox-featured/sources/symjit/symjit-2.27.0/python/tests/test_special_values.py": "598a906675ea58a32518010917d55b0b12aad74b79599357a07e8ab22e046dee"
+    "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0/python/tests/accuracy_cases.py": "1f512323b57794196b139e23d89d3653a60fe12dd23a53d5c0b502387d43af0c",
+    "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0/python/tests/test_accuracy.py": "e4106bf57ba6ffce6dc577999ed5a8a76ecfff6bb1099dc01835d72ff819023c",
+    "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0/python/tests/test_composer_fuzz.py": "ee16ce1e716016e2ce71c2ce00954958fb79692f90356c1ded2219b842292bf0",
+    "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0/python/tests/test_disasm.py": "4fd25b18b4b4994bc3e4defd0991e94bc3cd23cfada4323385dcfe3940f07064",
+    "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0/python/tests/test_fuzz.py": "0fa70ff18b82fd83e3267bb090ed5bce819577b5b46ebab7dda89e261b0b40bc",
+    "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0/python/tests/test_regressions.py": "cf7a5558d9d08d53486ef14b121ac754b0004b345bff21bd096bb91528d515cf",
+    "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0/python/tests/test_special_values.py": "598a906675ea58a32518010917d55b0b12aad74b79599357a07e8ab22e046dee"
   },
-  "source": "/tmp/symox-featured/sources/symjit/symjit-2.27.0",
+  "source": "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0",
   "source_identity": {
-    "configs": [
-      "pyproject.toml",
-      "setup.cfg"
-    ],
-    "count": 6,
-    "examples": [
-      "python/tests/test_regressions.py",
-      "python/tests/test_accuracy.py",
-      "python/tests/test_composer_fuzz.py",
-      "python/tests/test_fuzz.py",
-      "python/tests/test_disasm.py",
-      "python/tests/test_special_values.py"
-    ],
-    "root": "/tmp/symox-featured/sources/symjit/symjit-2.27.0"
+    "root": "/home/keckj/.cache/symox-validation/featured/sources/symjit/symjit-2.27.0",
+    "sha256": "5719cfc3465e63eccd59145d0ffa038a128b7f900cf2c19369b2717e98868e19"
   },
-  "started_at": "2026-10-19T12:48:00.674311+00:00",
+  "started_at": "2026-10-19T17:10:22.104372+00:00",
   "status": "reference_not_clean"
 }

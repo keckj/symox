@@ -1,21 +1,21 @@
 {
   "candidate": {
-    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
-    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/einsteinpy/freeze.txt.gz": "5fd69a37bc9960f8f498c0c11720711513346098fdf3b13246342551b4dc7511",
-    "evidence/einsteinpy/install.log.gz": "41d9f484ac53e5f4261db9a691443b3fb90ff521b53e044a5ac923f9574687e0",
-    "evidence/einsteinpy/native-junit.xml.gz": "0d62cababaab82c5c02416d4139ee634b4e773106066e4e7c0a95987c637b62e",
-    "evidence/einsteinpy/native-processes.jsonl.gz": "5cbeca79585679c3d084cbdd054cbcc303da700d541d785ee613d44c7c17c916",
+    "evidence/einsteinpy/freeze.txt.gz": "40cd256160f9cc16998ceec4b7104967cd9a38d4dae4e4e567a67312fcf16440",
+    "evidence/einsteinpy/install.log.gz": "58724afbe1273d13eb688161662d1340ffb6fbf17836fb8637950b0da51eecdd",
+    "evidence/einsteinpy/native-junit.xml.gz": "b7b15d525697c5c06141ea44560c10d5ab9d82d80ad9daebb93b2e2e7f3b3146",
+    "evidence/einsteinpy/native-processes.jsonl.gz": "b1e98e123ee7045c2ca15366e521c1e56db6e0c672e9771a898040d4a0cc1f1c",
     "evidence/einsteinpy/native-tests.json.gz": "08688a9cd35a34447e6458df211d7f8f9f718e71aabf4e476343dc40a1e1b3e8",
-    "evidence/einsteinpy/native.log.gz": "32e3a3a1ef132420a77dd61858cc1368e385c088efc0b64bfeb226930ecc795d",
+    "evidence/einsteinpy/native.log.gz": "72c944e651165d84564ef92d45725867d2d4b9529503d069e5ef52f15f654125",
     "evidence/einsteinpy/preflight.log.gz": "8c345abca9e881ba3f4143692e83e3c70823b11a757c6b40d2d4d822d18c5723",
-    "evidence/einsteinpy/reference-junit.xml.gz": "c088b60538f262e6c6dcc8a7cacbab43dbbd9d9ecf858cbe3c4a7528edfc45c5",
-    "evidence/einsteinpy/reference-processes.jsonl.gz": "339f392c855d9c5b1cef6362adff851f7f52b4e4834c6d1017f68c311443669d",
-    "evidence/einsteinpy/reference-tests.json.gz": "7ff2afc9e34fa73ea46d5433aab2d88a5b9e48589c4256491abd330bb0376307",
-    "evidence/einsteinpy/reference.log.gz": "dc6dffffc1fa8eec7002aef48cf46fc57f102b3447c194997a2e5402175c3fa7",
-    "evidence/einsteinpy/venv.log.gz": "8e069312d883a95fcb1c8ac24b21111c9096e84b5cbf4755c49da81bfc385c96"
+    "evidence/einsteinpy/reference-junit.xml.gz": "b928fe871510d83e622082023d5033d0f7d1cf02564e8ff3de72d16cf9276f77",
+    "evidence/einsteinpy/reference-processes.jsonl.gz": "297ef0ef6b2d89ac59cc8810161c2700e8d9bc60ada6910b3c2d66e4a9541a8d",
+    "evidence/einsteinpy/reference-tests.json.gz": "ab96ba13b957fee285825d3f7512513d7479eb1af61ea30f57ea35f7488bdc9c",
+    "evidence/einsteinpy/reference.log.gz": "11219f174bc5d7d2156e328fc69191592720d69b4279e456b0612b7fe6b82a56",
+    "evidence/einsteinpy/venv.log.gz": "b3b752344b674e6666fc609953d4a59dfb1057473fb5ee8c62a797ff1ea4611b"
   },
   "freeze": {
     "command": [
@@ -23,12 +23,12 @@
       "pip",
       "freeze",
       "--python",
-      "/tmp/symox-featured/envs/einsteinpy/bin/python"
+      "/home/keckj/.cache/symox-validation/featured/envs/einsteinpy/bin/python"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/einsteinpy/freeze.txt",
-    "seconds": 0.114,
-    "tail": "Using Python 3.10.12 environment at: /tmp/symox-featured/envs/einsteinpy\nastropy==5.3.4\ncontourpy==1.3.2\ncoverage==7.16.2\ncycler==0.12.1\n-e file:///tmp/symox-featured/git/einsteinpy\nexceptiongroup==1.3.1\nexecnet==2.1.2\nfonttools==4.65.0\nhypothesis==6.168.5\niniconfig==2.3.1\nkaleido==0.2.1\nkiwisolver==1.5.1\nllvmlite==0.50.0\nmatplotlib==3.10.9\nmpmath==1.3.0\nnumba==0.68.0\nnumpy==1.23.5\npackaging==26.3\npillow==12.3.0\nplotly==5.24.1\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.10.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntenacity==9.2.1\ntomli==2.5.0\ntyping-extensions==4.16.0\nwheel==0.48.0\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/einsteinpy/freeze.txt",
+    "seconds": 0.165,
+    "tail": "Using Python 3.10.12 environment at: /home/keckj/.cache/symox-validation/featured/envs/einsteinpy\nastropy==5.3.4\ncontourpy==1.3.2\ncoverage==7.16.2\ncycler==0.12.1\n-e file:///home/keckj/.cache/symox-validation/featured/git/einsteinpy\nexceptiongroup==1.3.1\nexecnet==2.1.2\nfonttools==4.65.0\nhypothesis==6.168.5\niniconfig==2.3.1\nkaleido==0.2.1\nkiwisolver==1.5.1\nllvmlite==0.50.0\nmatplotlib==3.10.9\nmpmath==1.3.0\nnumba==0.68.0\nnumpy==1.23.5\npackaging==26.3\npillow==12.3.0\nplotly==5.24.1\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.10.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntenacity==9.2.1\ntomli==2.5.0\ntyping-extensions==4.16.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -45,9 +45,9 @@
       "pip",
       "install",
       "--python",
-      "/tmp/symox-featured/envs/einsteinpy/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/einsteinpy/bin/python",
       "--constraint",
-      "/tmp/symox-featured/constraints/einsteinpy.txt",
+      "/home/keckj/.cache/symox-validation/featured/constraints/einsteinpy.txt",
       "--reinstall-package",
       "symox",
       "sympy==1.14.0",
@@ -67,13 +67,13 @@
       "plotly<6",
       "kaleido<0.3",
       "-e",
-      "/tmp/symox-featured/git/einsteinpy",
-      "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/featured/git/einsteinpy",
+      "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/einsteinpy/install.log",
-    "seconds": 1.368,
-    "tail": "Using Python 3.10.12 environment at: /tmp/symox-featured/envs/einsteinpy\nResolved 41 packages in 649ms\n   Building einsteinpy @ file:///tmp/symox-featured/git/einsteinpy\n      Built einsteinpy @ file:///tmp/symox-featured/git/einsteinpy\nPrepared 2 packages in 187ms\nUninstalled 2 packages in 19ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 139ms\n ~ einsteinpy==0.4.0 (from file:///tmp/symox-featured/git/einsteinpy)\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/einsteinpy/install.log",
+    "seconds": 1.471,
+    "tail": "Using Python 3.10.12 environment at: /home/keckj/.cache/symox-validation/featured/envs/einsteinpy\nResolved 41 packages in 919ms\n   Building einsteinpy @ file:///home/keckj/.cache/symox-validation/featured/git/einsteinpy\n      Built einsteinpy @ file:///home/keckj/.cache/symox-validation/featured/git/einsteinpy\nPrepared 2 packages in 231ms\nUninstalled 2 packages in 30ms\nInstalled 2 packages in 12ms\n ~ einsteinpy==0.4.0 (from file:///home/keckj/.cache/symox-validation/featured/git/einsteinpy)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads6-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -97,7 +97,7 @@
     ],
     "collection_skips": [],
     "command": [
-      "/tmp/symox-featured/envs/einsteinpy/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/einsteinpy/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -105,7 +105,7 @@
       "-p",
       "audit_plugin",
       "--timeout=60",
-      "--junitxml=/tmp/symox-featured/logs/einsteinpy/native-junit.xml",
+      "--junitxml=/home/keckj/.cache/symox-validation/featured/logs/einsteinpy/native-junit.xml",
       "tests"
     ],
     "counts": {
@@ -119,7 +119,7 @@
     },
     "exit_code": 2,
     "first_failures": [],
-    "log": "/tmp/symox-featured/logs/einsteinpy/native.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/einsteinpy/native.log",
     "process_provenance_artifact": "evidence/einsteinpy/native-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -432,21 +432,21 @@
         "tests/test_coordinates/test_conversions.py::test_BoyerLindquistToSphericalDifferential"
       ]
     },
-    "seconds": 1.617,
-    "tail": "\n==================================== ERRORS ====================================\n___________ ERROR collecting tests/test_symbolic/test_christoffel.py ___________\ntests/test_symbolic/test_christoffel.py:5: in <module>\n    from einsteinpy.symbolic import ChristoffelSymbols, MetricTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n____________ ERROR collecting tests/test_symbolic/test_constants.py ____________\ntests/test_symbolic/test_constants.py:1: in <module>\n    from einsteinpy.symbolic import constants, get_constant\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n____________ ERROR collecting tests/test_symbolic/test_einstein.py _____________\ntests/test_symbolic/test_einstein.py:6: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_helpers.py _____________\ntests/test_symbolic/test_helpers.py:6: in <module>\n    from einsteinpy.symbolic import TransformationMatrix, simplify_sympy_array\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_metric.py ______________\ntests/test_symbolic/test_metric.py:4: in <module>\n    from einsteinpy.symbolic import MetricTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_______ ERROR collecting tests/test_symbolic/test_predefined/test_all.py _______\ntests/test_symbolic/test_predefined/test_all.py:5: in <module>\n    from einsteinpy.symbolic import MetricTensor, simplify_sympy_array\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n______ ERROR collecting tests/test_symbolic/test_predefined/test_find.py _______\ntests/test_symbolic/test_predefined/test_find.py:3: in <module>\n    from einsteinpy.symbolic.predefined import find\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n______________ ERROR collecting tests/test_symbolic/test_ricci.py ______________\ntests/test_symbolic/test_ricci.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_riemann.py _____________\ntests/test_symbolic/test_riemann.py:4: in <module>\n    from einsteinpy.symbolic import ChristoffelSymbols, MetricTensor, RiemannCurvatureTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n____________ ERROR collecting tests/test_symbolic/test_schouten.py _____________\ntests/test_symbolic/test_schouten.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____ ERROR collecting tests/test_symbolic/test_stress_energy_momentum.py ______\ntests/test_symbolic/test_stress_energy_momentum.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_tensor.py ______________\ntests/test_symbolic/test_tensor.py:7: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_vector.py ______________\ntests/test_symbolic/test_vector.py:5: in <module>\n    from einsteinpy.symbolic import GenericVector, MetricTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n______________ ERROR collecting tests/test_symbolic/test_weyl.py _______________\ntests/test_symbolic/test_weyl.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n=============================== warnings summary ===============================\n../../envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474\n  /tmp/symox-featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning:\n  \n  Unknown config option: doctest_plus\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n--- generated xml file: /tmp/symox-featured/logs/einsteinpy/native-junit.xml ---\n=========================== short test summary info ============================\nERROR tests/test_symbolic/test_christoffel.py - AttributeError: 'symox._core....\nERROR tests/test_symbolic/test_constants.py - AttributeError: 'symox._core.Ex...\nERROR tests/test_symbolic/test_einstein.py - AttributeError: 'symox._core.Exp...\nERROR tests/test_symbolic/test_helpers.py - AttributeError: 'symox._core.Expr...\nERROR tests/test_symbolic/test_metric.py - AttributeError: 'symox._core.Expr'...\nERROR tests/test_symbolic/test_predefined/test_all.py - AttributeError: 'symo...\nERROR tests/test_symbolic/test_predefined/test_find.py - AttributeError: 'sym...\nERROR tests/test_symbolic/test_ricci.py - AttributeError: 'symox._core.Expr' ...\nERROR tests/test_symbolic/test_riemann.py - AttributeError: 'symox._core.Expr...\nERROR tests/test_symbolic/test_schouten.py - AttributeError: 'symox._core.Exp...\nERROR tests/test_symbolic/test_stress_energy_momentum.py - AttributeError: 's...\nERROR tests/test_symbolic/test_tensor.py - AttributeError: 'symox._core.Expr'...\nERROR tests/test_symbolic/test_vector.py - AttributeError: 'symox._core.Expr'...\nERROR tests/test_symbolic/test_weyl.py - AttributeError: 'symox._core.Expr' o...\n!!!!!!!!!!!!!!!!!!! Interrupted: 14 errors during collection !!!!!!!!!!!!!!!!!!!\n1 warning, 14 errors in 1.10s\n",
+    "seconds": 2.526,
+    "tail": "\n==================================== ERRORS ====================================\n___________ ERROR collecting tests/test_symbolic/test_christoffel.py ___________\ntests/test_symbolic/test_christoffel.py:5: in <module>\n    from einsteinpy.symbolic import ChristoffelSymbols, MetricTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n____________ ERROR collecting tests/test_symbolic/test_constants.py ____________\ntests/test_symbolic/test_constants.py:1: in <module>\n    from einsteinpy.symbolic import constants, get_constant\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n____________ ERROR collecting tests/test_symbolic/test_einstein.py _____________\ntests/test_symbolic/test_einstein.py:6: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_helpers.py _____________\ntests/test_symbolic/test_helpers.py:6: in <module>\n    from einsteinpy.symbolic import TransformationMatrix, simplify_sympy_array\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_metric.py ______________\ntests/test_symbolic/test_metric.py:4: in <module>\n    from einsteinpy.symbolic import MetricTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_______ ERROR collecting tests/test_symbolic/test_predefined/test_all.py _______\ntests/test_symbolic/test_predefined/test_all.py:5: in <module>\n    from einsteinpy.symbolic import MetricTensor, simplify_sympy_array\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n______ ERROR collecting tests/test_symbolic/test_predefined/test_find.py _______\ntests/test_symbolic/test_predefined/test_find.py:3: in <module>\n    from einsteinpy.symbolic.predefined import find\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n______________ ERROR collecting tests/test_symbolic/test_ricci.py ______________\ntests/test_symbolic/test_ricci.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_riemann.py _____________\ntests/test_symbolic/test_riemann.py:4: in <module>\n    from einsteinpy.symbolic import ChristoffelSymbols, MetricTensor, RiemannCurvatureTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n____________ ERROR collecting tests/test_symbolic/test_schouten.py _____________\ntests/test_symbolic/test_schouten.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____ ERROR collecting tests/test_symbolic/test_stress_energy_momentum.py ______\ntests/test_symbolic/test_stress_energy_momentum.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_tensor.py ______________\ntests/test_symbolic/test_tensor.py:7: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n_____________ ERROR collecting tests/test_symbolic/test_vector.py ______________\ntests/test_symbolic/test_vector.py:5: in <module>\n    from einsteinpy.symbolic import GenericVector, MetricTensor\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n______________ ERROR collecting tests/test_symbolic/test_weyl.py _______________\ntests/test_symbolic/test_weyl.py:5: in <module>\n    from einsteinpy.symbolic import (\nsrc/einsteinpy/symbolic/__init__.py:2: in <module>\n    from .constants import SymbolicConstant, get_constant\nsrc/einsteinpy/symbolic/constants.py:39: in <module>\n    c = SymbolicConstant(\"c\", \"Speed Of Light\")\nsrc/einsteinpy/symbolic/constants.py:27: in __new__\n    instance._descriptive_name = descriptive_name\nE   AttributeError: 'symox._core.Expr' object has no attribute '_descriptive_name'\n=============================== warnings summary ===============================\n../../envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474\n  /home/keckj/.cache/symox-validation/featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning:\n  \n  Unknown config option: doctest_plus\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/einsteinpy/native-junit.xml -\n=========================== short test summary info ============================\nERROR tests/test_symbolic/test_christoffel.py - AttributeError: 'symox._core....\nERROR tests/test_symbolic/test_constants.py - AttributeError: 'symox._core.Ex...\nERROR tests/test_symbolic/test_einstein.py - AttributeError: 'symox._core.Exp...\nERROR tests/test_symbolic/test_helpers.py - AttributeError: 'symox._core.Expr...\nERROR tests/test_symbolic/test_metric.py - AttributeError: 'symox._core.Expr'...\nERROR tests/test_symbolic/test_predefined/test_all.py - AttributeError: 'symo...\nERROR tests/test_symbolic/test_predefined/test_find.py - AttributeError: 'sym...\nERROR tests/test_symbolic/test_ricci.py - AttributeError: 'symox._core.Expr' ...\nERROR tests/test_symbolic/test_riemann.py - AttributeError: 'symox._core.Expr...\nERROR tests/test_symbolic/test_schouten.py - AttributeError: 'symox._core.Exp...\nERROR tests/test_symbolic/test_stress_energy_momentum.py - AttributeError: 's...\nERROR tests/test_symbolic/test_tensor.py - AttributeError: 'symox._core.Expr'...\nERROR tests/test_symbolic/test_vector.py - AttributeError: 'symox._core.Expr'...\nERROR tests/test_symbolic/test_weyl.py - AttributeError: 'symox._core.Expr' o...\n!!!!!!!!!!!!!!!!!!! Interrupted: 14 errors during collection !!!!!!!!!!!!!!!!!!!\n1 warning, 14 errors in 1.69s\n",
     "test_evidence": "evidence/einsteinpy/native-tests.json.gz",
     "test_evidence_sha256": "08688a9cd35a34447e6458df211d7f8f9f718e71aabf4e476343dc40a1e1b3e8",
     "timed_out": false
   },
   "preflight": {
     "command": [
-      "/tmp/symox-featured/envs/einsteinpy/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/einsteinpy/bin/python",
       "-c",
       "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/einsteinpy/preflight.log",
-    "seconds": 0.665,
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/einsteinpy/preflight.log",
+    "seconds": 1.069,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.23.5\"}\n",
     "timed_out": false
   },
@@ -484,7 +484,7 @@
     "collection_errors": [],
     "collection_skips": [],
     "command": [
-      "/tmp/symox-featured/envs/einsteinpy/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/einsteinpy/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -492,7 +492,7 @@
       "-p",
       "audit_plugin",
       "--timeout=60",
-      "--junitxml=/tmp/symox-featured/logs/einsteinpy/reference-junit.xml",
+      "--junitxml=/home/keckj/.cache/symox-validation/featured/logs/einsteinpy/reference-junit.xml",
       "tests"
     ],
     "counts": {
@@ -506,7 +506,7 @@
     },
     "exit_code": 0,
     "first_failures": [],
-    "log": "/tmp/symox-featured/logs/einsteinpy/reference.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/einsteinpy/reference.log",
     "process_provenance_artifact": "evidence/einsteinpy/reference-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -519,78 +519,61 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 59.133,
-    "tail": "........................................................................ [ 24%]\n........................................................................ [ 48%]\n.................................x...................................... [ 72%]\n..............................xxxxxx...x......x......................... [ 97%]\n........                                                                 [100%]\n=============================== warnings summary ===============================\n../../envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474\n  /tmp/symox-featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning:\n  \n  Unknown config option: doctest_plus\n\ntests/test_ijit/test_ijit_without_numba.py::test_decorator\n  /tmp/symox-featured/git/einsteinpy/src/einsteinpy/ijit.py:30: UserWarning:\n  \n  Could not import numba package. All einsteinpy functions will work properly but the CPU intensive algorithms will be slow. Consider installing numba to boost performance.\n\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\n  /tmp/symox-featured/envs/einsteinpy/lib/python3.10/site-packages/numba/core/consts.py:115: DeprecationWarning:\n  \n  `np.complex` is a deprecated alias for the builtin `complex`. To silence this warning, use `complex` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.complex128` here.\n  Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations\n\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\n  /tmp/symox-featured/envs/einsteinpy/lib/python3.10/site-packages/numba/core/ir_utils.py:2119: DeprecationWarning:\n  \n  `np.complex` is a deprecated alias for the builtin `complex`. To silence this warning, use `complex` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.complex128` here.\n  Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations\n\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\n  /tmp/symox-featured/envs/einsteinpy/lib/python3.10/site-packages/numba/core/typing/context.py:435: DeprecationWarning:\n  \n  `np.complex` is a deprecated alias for the builtin `complex`. To silence this warning, use `complex` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.complex128` here.\n  Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations\n\ntests/test_symbolic/test_christoffel.py::test_properties\n  /tmp/symox-featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/python.py:161: PytestReturnNotNoneWarning:\n  \n  Test functions should return None, but tests/test_symbolic/test_christoffel.py::test_properties returned <class 'bool'>.\n  Did you mean to use `assert` instead of `return`?\n  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.\n\ntests/test_symbolic/test_schouten.py::test_SchoutenTensor_with_arbritary_config\n  /tmp/symox-featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/python.py:161: PytestReturnNotNoneWarning:\n  \n  Test functions should return None, but tests/test_symbolic/test_schouten.py::test_SchoutenTensor_with_arbritary_config returned <class 'bool'>.\n  Did you mean to use `assert` instead of `return`?\n  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /tmp/symox-featured/logs/einsteinpy/reference-junit.xml --\n=========================== short test summary info ============================\nXFAIL tests/test_symbolic/test_helpers.py::test_TransformationMatrix_is_initializing[iterable1-old_coords1-new_coords1]\nXFAIL tests/test_symbolic/test_tensor.py::test_TypeError1\nXFAIL tests/test_symbolic/test_tensor.py::test_TypeError2\nXFAIL tests/test_symbolic/test_tensor.py::test_TypeError3\nXFAIL tests/test_symbolic/test_tensor.py::test_ValueError1\nXFAIL tests/test_symbolic/test_tensor.py::test_ValueError2\nXFAIL tests/test_symbolic/test_tensor.py::test_tensorproduct_ValueError\nXFAIL tests/test_symbolic/test_tensor.py::test_BaseRelativilyTensor_TypeError\nXFAIL tests/test_symbolic/test_vector.py::test_GenericVector_check_Metric\n287 passed, 9 xfailed, 12 warnings in 58.04s\n",
+    "seconds": 75.558,
+    "tail": "........................................................................ [ 24%]\n........................................................................ [ 48%]\n.................................x...................................... [ 72%]\n..............................xxxxxx...x......x......................... [ 97%]\n........                                                                 [100%]\n=============================== warnings summary ===============================\n../../envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474\n  /home/keckj/.cache/symox-validation/featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning:\n  \n  Unknown config option: doctest_plus\n\ntests/test_ijit/test_ijit_without_numba.py::test_decorator\n  /home/keckj/.cache/symox-validation/featured/git/einsteinpy/src/einsteinpy/ijit.py:30: UserWarning:\n  \n  Could not import numba package. All einsteinpy functions will work properly but the CPU intensive algorithms will be slow. Consider installing numba to boost performance.\n\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\n  /home/keckj/.cache/symox-validation/featured/envs/einsteinpy/lib/python3.10/site-packages/numba/core/consts.py:115: DeprecationWarning:\n  \n  `np.complex` is a deprecated alias for the builtin `complex`. To silence this warning, use `complex` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.complex128` here.\n  Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations\n\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\n  /home/keckj/.cache/symox-validation/featured/envs/einsteinpy/lib/python3.10/site-packages/numba/core/ir_utils.py:2119: DeprecationWarning:\n  \n  `np.complex` is a deprecated alias for the builtin `complex`. To silence this warning, use `complex` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.complex128` here.\n  Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations\n\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\ntests/test_plotting/test_fractal.py::test_fractal_shows_figure\n  /home/keckj/.cache/symox-validation/featured/envs/einsteinpy/lib/python3.10/site-packages/numba/core/typing/context.py:435: DeprecationWarning:\n  \n  `np.complex` is a deprecated alias for the builtin `complex`. To silence this warning, use `complex` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.complex128` here.\n  Deprecated in NumPy 1.20; for more details and guidance: https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations\n\ntests/test_symbolic/test_christoffel.py::test_properties\n  /home/keckj/.cache/symox-validation/featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/python.py:161: PytestReturnNotNoneWarning:\n  \n  Test functions should return None, but tests/test_symbolic/test_christoffel.py::test_properties returned <class 'bool'>.\n  Did you mean to use `assert` instead of `return`?\n  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.\n\ntests/test_symbolic/test_schouten.py::test_SchoutenTensor_with_arbritary_config\n  /home/keckj/.cache/symox-validation/featured/envs/einsteinpy/lib/python3.10/site-packages/_pytest/python.py:161: PytestReturnNotNoneWarning:\n  \n  Test functions should return None, but tests/test_symbolic/test_schouten.py::test_SchoutenTensor_with_arbritary_config returned <class 'bool'>.\n  Did you mean to use `assert` instead of `return`?\n  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/einsteinpy/reference-junit.xml -\n=========================== short test summary info ============================\nXFAIL tests/test_symbolic/test_helpers.py::test_TransformationMatrix_is_initializing[iterable1-old_coords1-new_coords1]\nXFAIL tests/test_symbolic/test_tensor.py::test_TypeError1\nXFAIL tests/test_symbolic/test_tensor.py::test_TypeError2\nXFAIL tests/test_symbolic/test_tensor.py::test_TypeError3\nXFAIL tests/test_symbolic/test_tensor.py::test_ValueError1\nXFAIL tests/test_symbolic/test_tensor.py::test_ValueError2\nXFAIL tests/test_symbolic/test_tensor.py::test_tensorproduct_ValueError\nXFAIL tests/test_symbolic/test_tensor.py::test_BaseRelativilyTensor_TypeError\nXFAIL tests/test_symbolic/test_vector.py::test_GenericVector_check_Metric\n287 passed, 9 xfailed, 12 warnings in 73.78s (0:01:13)\n",
     "test_evidence": "evidence/einsteinpy/reference-tests.json.gz",
-    "test_evidence_sha256": "7ff2afc9e34fa73ea46d5433aab2d88a5b9e48589c4256491abd330bb0376307",
+    "test_evidence_sha256": "ab96ba13b957fee285825d3f7512513d7479eb1af61ea30f57ea35f7488bdc9c",
     "timed_out": false
   },
   "reference_qualified": true,
   "reference_version": "1.14.0",
   "selected_test_sha256": {
-    "/tmp/symox-featured/git/einsteinpy/tests/test_bodies.py": "7a921a9d3d3963ebaf1e43b5795f75ffb5f6d13d39598c94f8c0ccdef752a6b4",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_constant.py": "b90a997cf8d160435fb2cb485fe9afcb20bbb07e27b9a8ee91564c2264883a84",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_coordinates/test_conversions.py": "d8da371eb10157795ec3a32def56974c6286c7d388b950863461e304b815f88d",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_coordinates/test_coord_transform.py": "deb3369339ad721e8802581b20416869bbb92be8e12f01149d5c18dafdf00e3e",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_coordinates/test_diff_transform.py": "6f53aba502cde472b322b7c1c1706ef7dd85a5cea8021c251c073676e1a1c480",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_coordinates/test_utils.py": "cf6c7654bd1371417b6f8ded064bc6330e7061bb29791cd30a19b447f477ddec",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_examples.py": "537c61ba6aaa5709f91534395fd9127428849f28d8dac89f7ecdf7529e476428",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_geodesic/test_geodesic.py": "151281ad72b8f34cf5e2d529aa858448b755f9e46c38b8049472e732683afac7",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_geodesic/test_geodesic_utils.py": "40aeca250f6f9499b1a40e6ec3cd456859a32fd5b2a21e4727b1322b811ba4b5",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_hypersurface/test_schwarzschildembedding.py": "5cb476eb523688d24b4a782b60179362990a93d5fe2bd776435f0aedc6d7d7a7",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_ijit/test_ijit_without_numba.py": "4e255913944d669938876aae88879f67eda1ad20d79e05476c2ea6cf751f481b",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_integrators/test_geod_int.py": "0e3e0da58d6ece8952a557959e65dbb491e1c03c393fd495cb8bc19caecc435d",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_integrators/test_runge_kutta.py": "b07ef3268360aedf73fe8afee86fdc8a9da5ab741a237859c148b82cc5b1ced5",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_metric/test_base_metric.py": "87f74d677ede4ea067518dcf029f69f225afd2779978483b9ef0ca1c06ab92a0",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_metric/test_kerr.py": "9cada96548d3214a555cd93078fb970e97dad66a90548c854955aab68a5c052f",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_metric/test_kerrnewman.py": "87e37b5cc7c3dcf82e556440534cb883a88b2bce736b06432d6e0f20f8f88f1c",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_metric/test_schwarzschild.py": "4033ed06839d689c5f192ed5c5f280a2f4f9323d1f04db642c4668fe67721ef6",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_plotting/test_fractal.py": "a9ee65566ba5ca2cfaa6bf1122ca874d276c7415f0e547fe25aba86294afb3eb",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_plotting/test_geodesic/test_interactive.py": "ad6471db02c115dd67104409063d3a338540ea19b59c47982f90450021d0a7b7",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_plotting/test_geodesic/test_static.py": "6ff5999e5d53bee8a79409d3d0c51ee7d061e253c40f033d899316fb093bde70",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_plotting/test_hypersurface.py": "09e90e2b431af68a3bdb2f3dcd57a8038075bbf7290e487b41e62528f7ddeb00",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_plotting/test_rays/test_shadow.py": "cbabb73a03213d36696643ba42643563f2a702b251d41cf6205fe46871613aa4",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_christoffel.py": "a4bd6fa45c0dac97b95c7dbd2cb3be3a97c943efda38a2d0c1767349a958af17",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_constants.py": "0f8c36f81487c3a91c0bc2add34359327247cfa20c8a6a9145eccd0bcc669e19",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_einstein.py": "b766f84fa756f52f2a1b1fba8f67d728331559fb1b374227b298fb1c330b6b0a",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_helpers.py": "1a4995160e49ff0584ce043a6ea3398c5b11ad50e0a71dc9e56f039b18ffb2b2",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_metric.py": "b20f1d5f6e38a53510c59b83b5a6c04208ddcf8982ce342ecc0b619d0e003cff",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_predefined/test_all.py": "2262f24a608093c895b13be867873cdb3effec644f7b99205a5739ed4dc64294",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_predefined/test_find.py": "cbb05efa5c46c47f60141714bd43cf22a42b45ee57fe49ac2ecb99158a36af77",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_ricci.py": "37ef07c544dc9fc685249370bfd995469ee4d79da4155331d57fa044a30f0005",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_riemann.py": "cb89cbc878bfef6bd3bc72166a8e4726591a09014092e28f1f6c6c5b420b877c",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_schouten.py": "a00ed031bd65c14a8d31576210df063e378b3edb1f6149e715249f77fb47fa35",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_stress_energy_momentum.py": "04c7a825daffe22176738959b95527e7311a23d631a3588ad75fd89fcac5f9f7",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_tensor.py": "de4ac36ee2a40c3235016d3bcc621b9b065ca29bd02aa065e759d98edcb1ec5e",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_vector.py": "94caf87a4ca323dd40e2eb181006b508f1ed9475bbf6fb323f1881b1b21cf856",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_symbolic/test_weyl.py": "275bfe6df0b4243a4addc3fb335675223735827d7e3e1269cc81bfd5001d2d60",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_units.py": "421f49a20c0cc6504a14dc793a6bb99bd73831171880ab5a566fbab24509b673",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_utils/test_dual.py": "72ea0e1cccf5be3d53c1ebb4ed2c84832ce9ff6431e5410e1f744e604f582116",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_utils/test_exceptions.py": "2c4a4d810dbfd320bae06e13834efe36161710c323bc185159e7b2d108ce9104",
-    "/tmp/symox-featured/git/einsteinpy/tests/test_utils/test_scalar_factor.py": "927e4ccbbd2f1fc967966309f0d343a7ad4695eeba81eb856078c7a51af1dec6"
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_bodies.py": "7a921a9d3d3963ebaf1e43b5795f75ffb5f6d13d39598c94f8c0ccdef752a6b4",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_constant.py": "b90a997cf8d160435fb2cb485fe9afcb20bbb07e27b9a8ee91564c2264883a84",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_coordinates/test_conversions.py": "d8da371eb10157795ec3a32def56974c6286c7d388b950863461e304b815f88d",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_coordinates/test_coord_transform.py": "deb3369339ad721e8802581b20416869bbb92be8e12f01149d5c18dafdf00e3e",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_coordinates/test_diff_transform.py": "6f53aba502cde472b322b7c1c1706ef7dd85a5cea8021c251c073676e1a1c480",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_coordinates/test_utils.py": "cf6c7654bd1371417b6f8ded064bc6330e7061bb29791cd30a19b447f477ddec",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_examples.py": "537c61ba6aaa5709f91534395fd9127428849f28d8dac89f7ecdf7529e476428",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_geodesic/test_geodesic.py": "151281ad72b8f34cf5e2d529aa858448b755f9e46c38b8049472e732683afac7",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_geodesic/test_geodesic_utils.py": "40aeca250f6f9499b1a40e6ec3cd456859a32fd5b2a21e4727b1322b811ba4b5",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_hypersurface/test_schwarzschildembedding.py": "5cb476eb523688d24b4a782b60179362990a93d5fe2bd776435f0aedc6d7d7a7",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_ijit/test_ijit_without_numba.py": "4e255913944d669938876aae88879f67eda1ad20d79e05476c2ea6cf751f481b",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_integrators/test_geod_int.py": "0e3e0da58d6ece8952a557959e65dbb491e1c03c393fd495cb8bc19caecc435d",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_integrators/test_runge_kutta.py": "b07ef3268360aedf73fe8afee86fdc8a9da5ab741a237859c148b82cc5b1ced5",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_metric/test_base_metric.py": "87f74d677ede4ea067518dcf029f69f225afd2779978483b9ef0ca1c06ab92a0",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_metric/test_kerr.py": "9cada96548d3214a555cd93078fb970e97dad66a90548c854955aab68a5c052f",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_metric/test_kerrnewman.py": "87e37b5cc7c3dcf82e556440534cb883a88b2bce736b06432d6e0f20f8f88f1c",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_metric/test_schwarzschild.py": "4033ed06839d689c5f192ed5c5f280a2f4f9323d1f04db642c4668fe67721ef6",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_plotting/test_fractal.py": "a9ee65566ba5ca2cfaa6bf1122ca874d276c7415f0e547fe25aba86294afb3eb",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_plotting/test_geodesic/test_interactive.py": "ad6471db02c115dd67104409063d3a338540ea19b59c47982f90450021d0a7b7",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_plotting/test_geodesic/test_static.py": "6ff5999e5d53bee8a79409d3d0c51ee7d061e253c40f033d899316fb093bde70",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_plotting/test_hypersurface.py": "09e90e2b431af68a3bdb2f3dcd57a8038075bbf7290e487b41e62528f7ddeb00",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_plotting/test_rays/test_shadow.py": "cbabb73a03213d36696643ba42643563f2a702b251d41cf6205fe46871613aa4",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_christoffel.py": "a4bd6fa45c0dac97b95c7dbd2cb3be3a97c943efda38a2d0c1767349a958af17",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_constants.py": "0f8c36f81487c3a91c0bc2add34359327247cfa20c8a6a9145eccd0bcc669e19",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_einstein.py": "b766f84fa756f52f2a1b1fba8f67d728331559fb1b374227b298fb1c330b6b0a",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_helpers.py": "1a4995160e49ff0584ce043a6ea3398c5b11ad50e0a71dc9e56f039b18ffb2b2",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_metric.py": "b20f1d5f6e38a53510c59b83b5a6c04208ddcf8982ce342ecc0b619d0e003cff",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_predefined/test_all.py": "2262f24a608093c895b13be867873cdb3effec644f7b99205a5739ed4dc64294",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_predefined/test_find.py": "cbb05efa5c46c47f60141714bd43cf22a42b45ee57fe49ac2ecb99158a36af77",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_ricci.py": "37ef07c544dc9fc685249370bfd995469ee4d79da4155331d57fa044a30f0005",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_riemann.py": "cb89cbc878bfef6bd3bc72166a8e4726591a09014092e28f1f6c6c5b420b877c",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_schouten.py": "a00ed031bd65c14a8d31576210df063e378b3edb1f6149e715249f77fb47fa35",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_stress_energy_momentum.py": "04c7a825daffe22176738959b95527e7311a23d631a3588ad75fd89fcac5f9f7",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_tensor.py": "de4ac36ee2a40c3235016d3bcc621b9b065ca29bd02aa065e759d98edcb1ec5e",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_vector.py": "94caf87a4ca323dd40e2eb181006b508f1ed9475bbf6fb323f1881b1b21cf856",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_symbolic/test_weyl.py": "275bfe6df0b4243a4addc3fb335675223735827d7e3e1269cc81bfd5001d2d60",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_units.py": "421f49a20c0cc6504a14dc793a6bb99bd73831171880ab5a566fbab24509b673",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_utils/test_dual.py": "72ea0e1cccf5be3d53c1ebb4ed2c84832ce9ff6431e5410e1f744e604f582116",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_utils/test_exceptions.py": "2c4a4d810dbfd320bae06e13834efe36161710c323bc185159e7b2d108ce9104",
+    "/home/keckj/.cache/symox-validation/featured/git/einsteinpy/tests/test_utils/test_scalar_factor.py": "927e4ccbbd2f1fc967966309f0d343a7ad4695eeba81eb856078c7a51af1dec6"
   },
-  "source": "/tmp/symox-featured/git/einsteinpy",
+  "source": "/home/keckj/.cache/symox-validation/featured/git/einsteinpy",
   "source_identity": {
     "commit": "555b51d63dcd9512aa7a04f445f5cb206e24e351",
-    "count": 41,
-    "examples": [
-      "tests/test_constant.py",
-      "tests/test_examples.py",
-      "tests/test_bodies.py",
-      "tests/test_units.py",
-      "tests/test_integrators/test_geod_int.py",
-      "tests/test_integrators/test_runge_kutta.py",
-      "tests/test_hypersurface/test_schwarzschildembedding.py",
-      "tests/test_geodesic/test_geodesic.py",
-      "tests/test_geodesic/test_geodesic_utils.py",
-      "tests/test_symbolic/test_schouten.py",
-      "tests/test_symbolic/test_weyl.py",
-      "tests/test_symbolic/test_metric.py"
-    ],
-    "root": "/tmp/symox-featured/git/einsteinpy",
-    "tag": "v0.4.0",
-    "url": "https://github.com/einsteinpy/einsteinpy"
+    "root": "/home/keckj/.cache/symox-validation/featured/git/einsteinpy"
   },
-  "started_at": "2026-10-19T12:44:15.562402+00:00",
+  "started_at": "2026-10-19T17:06:10.939830+00:00",
   "status": "native_failure"
 }

@@ -8,7 +8,6 @@
     "galgebra",
     "latexexpr",
     "lcapy",
-    "nrpylatex",
     "octsympy",
     "optlang",
     "pydy",
@@ -47,8 +46,8 @@
       "native": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 17,
-        "passed": 556,
+        "failed": 12,
+        "passed": 561,
         "skipped": 28,
         "xfailed": 0,
         "xpassed": 5
@@ -72,11 +71,11 @@
       "reference": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 4,
-        "passed": 3719,
+        "failed": 6,
+        "passed": 1975,
         "skipped": 5,
-        "xfailed": 4,
-        "xpassed": 1
+        "xfailed": 2,
+        "xpassed": 0
       },
       "result": "results/devito.json",
       "status": "reference_not_clean"
@@ -184,8 +183,8 @@
       "native": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 90,
-        "passed": 178,
+        "failed": 124,
+        "passed": 193,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -207,8 +206,8 @@
       "native": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 28,
-        "passed": 4,
+        "failed": 0,
+        "passed": 32,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -224,7 +223,7 @@
         "xpassed": 0
       },
       "result": "results/nrpylatex.json",
-      "status": "native_failure"
+      "status": "native_suite_passes"
     },
     {
       "native": {
@@ -484,7 +483,7 @@
         "collection_errors": 0,
         "errors": 0,
         "failed": 0,
-        "passed": 236,
+        "passed": 146857,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -541,8 +540,8 @@
   ],
   "statuses": {
     "excluded_reference_requirement": 1,
-    "native_failure": 12,
-    "native_suite_passes": 7,
+    "native_failure": 11,
+    "native_suite_passes": 8,
     "no_sympy_code_exercised": 1,
     "publication_not_a_testable_distribution": 2,
     "reference_not_clean": 3

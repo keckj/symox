@@ -18,15 +18,15 @@ Local regression checks, their exact scope and the production fix commit are rec
 | Project | Version | SymPy 1.14 reference | Native Symox | Outcome |
 |---|---|---|---|---|
 | [Cadabra](../audits/downstream/results/cadabra.json) | 2.6.0.dev | 1 pass | 0 pass, 1 error | Native incompatibility |
-| [ChemPy](../audits/downstream/results/chempy.json) | 0.10.2 | 573 pass, 28 skip, 5 xpass | 556 pass, 17 fail, 28 skip, 5 xpass | Native incompatibility |
-| [Devito](../audits/downstream/results/devito.json) | 4.8.23 | 3719 pass, 4 fail, 5 skip, 4 xfail, 1 xpass | not run/completed | Reference fails; native not run |
+| [ChemPy](../audits/downstream/results/chempy.json) | 0.10.2 | 573 pass, 28 skip, 5 xpass | 561 pass, 12 fail, 28 skip, 5 xpass | Native incompatibility |
+| [Devito](../audits/downstream/results/devito.json) | 4.8.23 | 1975 pass, 6 fail, 5 skip, 2 xfail | not run/completed | Reference fails; native not run |
 | [Devito (symbolic algorithms)](../audits/downstream/results/devito_symbolic.json) | 4.8.23 | 136 pass | startup failure (exit 4) | Native incompatibility |
 | [EinsteinPy](../audits/downstream/results/einsteinpy.json) | 0.4.0 | 287 pass, 9 xfail | 0 pass, 14 collection error | Native incompatibility |
 | [galgebra](../audits/downstream/results/galgebra.json) | 0.6.0 | 115 pass, 2 fail, 2 skip | not run/completed | Reference fails; native not run |
 | [Haarpy](../audits/downstream/results/haarpy.json) | 0.1.1 | 1107 pass | 1107 pass | Selected tests pass |
 | [LaTeX Expression](../audits/downstream/results/latexexpr.json) | 0.4.1 | 2 pass | 2 pass | No symbolic integration exercised |
-| [Lcapy](../audits/downstream/results/lcapy.json) | 1.26 | 317 pass | 178 pass, 90 fail | Native incompatibility |
-| [NRPyLaTeX](../audits/downstream/results/nrpylatex.json) | 1.4.0 | 32 pass | 4 pass, 28 fail | Native incompatibility |
+| [Lcapy](../audits/downstream/results/lcapy.json) | 1.26 | 317 pass | 193 pass, 124 fail | Native incompatibility |
+| [NRPyLaTeX](../audits/downstream/results/nrpylatex.json) | 1.4.0 | 32 pass | 32 pass | Selected tests pass |
 | [OctSymPy](../audits/downstream/results/octsympy.json) | 3.2.2+ | 131 pass | 0 pass, 1 error | Native incompatibility |
 | [Optlang](../audits/downstream/results/optlang.json) | 1.9.1 | 346 pass, 49 skip | 49 pass, 312 fail, 34 skip | Native incompatibility |
 | [PyDy](../audits/downstream/results/pydy.json) | 0.9.4 | 76 pass | 17 pass, 13 fail, 46 error | Native incompatibility |
@@ -40,7 +40,7 @@ Local regression checks, their exact scope and the production fix commit are rec
 | [Spyder](../audits/downstream/results/spyder.json) | 6.1.7 | 1 pass | 1 pass | Selected tests pass |
 | [Symbolic statistical modeling](../audits/downstream/results/symbolic_statistics.json) | — | not run/completed | not run/completed | Publication, not a package |
 | [symjit](../audits/downstream/results/symjit.json) | 2.27.0 | 52 pass, 1 fail, 6 skip, 9 xfail | not run/completed | Reference fails; native not run |
-| [PyTorch TorchInductor](../audits/downstream/results/torchinductor.json) | 2.14.1+cu130 | 236 pass | 0 pass, 1 collection error | Native incompatibility |
+| [PyTorch TorchInductor](../audits/downstream/results/torchinductor.json) | 2.14.1+cu130 | 146857 pass | 0 pass, 1 collection error | Native incompatibility |
 | [yt / unyt](../audits/downstream/results/yt.json) | 3.1.0 | 819 pass, 34 skip, 2 xfail | 819 pass, 34 skip, 2 xfail | Selected tests pass |
 | [yt (main package)](../audits/downstream/results/yt_main.json) | 4.4.3 | 1 pass | 1 pass | Selected tests pass |
 
@@ -65,22 +65,29 @@ Script ended execution due to an uncaught exception.
 Upstream test tree selected in the pinned manifest.
 
 ```text
-("sympy")
-    def test_binary_rev():
-        f = binary_rev(t, kf, kb, prod, major, minor, backend=sympy)
-        dfdt = f.diff(t)
-        num_dfdt = dfdt.subs(subsd)
-        ans = kf * (minor - f) * (major - f) - kb * f
-        # symbolic susbsitution fails:
->       assert abs(float(num_dfdt) - float(ans.subs(subsd))) < 2e-14
-E       assert 7.105427357600714e-14 < 2e-14
-E        +  where 7.105427357600714e-14 = abs((2.8721203367240307e-27 - 7.105427357601002e-14))
-E        +    where 2.8721203367240307e-27 = float(sqrt(1093)*(-79 + sqrt(1093))*(sqrt(1093)*(-79 - sqrt(1093)) + (-79 + sqrt(1093))*(sqrt(1093) + 79)*exp(-2*sqrt(1093))...)*(-79 + sqrt(1093))*(sqrt(1093) + 79)*exp(-2*sqrt(1093))/(6*((-79 + sqrt(1093))*exp(-2*sqrt(1093)) + sqrt(1093) + 79)))
-E        +    and   7.105427357601002e-14 = float(-7*(sqrt(1093)*(-79 - sqrt(1093)) + (-79 + sqrt(1093))*(sqrt(1093) + 79)*exp(-2*sqrt(1093)) + 79*sqrt(1093) + 6241)/(6...3) + 79)*exp(-2*sqrt(1093)) + 79*sqrt(1093) + 6241)/(6*((-79 + sqrt(1093))*exp(-2*sqrt(1093)) + sqrt(1093) + 79)) + 13))
-E        +      where -7*(sqrt(1093)*(-79 - sqrt(1093)) + (-79 + sqrt(1093))*(sqrt(1093) + 79)*exp(-2*sqrt(1093)) + 79*sqrt(1093) + 6241)/(6...3) + 79)*exp(-2*sqrt(1093)) + 79*sqrt(1093) + 6241)/(6*((-79 + sqrt(1093))*exp(-2*sqrt(1093)) + sqrt(1093) + 79)) + 13) = subs({t: 2, kf: 3, kb: 7, major: 11, ...})
-E        +        where subs = -kb*(sqrt(-4*kf*(kf*major*minor + kf*major*prod + kf*minor*prod + kf*prod**2) + (-kb - kf*major - kf*minor - 2*kf*prod...t(-4*kf*(kf*major*minor + kf*major*prod + kf*minor*prod + kf*prod**2) + (-kb - kf*major - kf*minor - 2*kf*prod)**2))))).subs
+@requires(parsing_library, units_library)
+    def test_Reaction__check_integral():
 
-chempy/kinetics/tests/test_integrated.py:57: AssertionError
+>       Reaction(*balance_stoichiometry({"H2", "O2"}, {"H2O"}))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+chempy/tests/test_chemistry.py:213:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+chempy/chemistry.py:1517: in balance_stoichiometry
+    wi = Wild("wi", properties=[lambda k: not k.has(Symbol)])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'symox._compat.Wild'>, name = 'wi', exclude = ()
+properties = [<function balance_stoichiometry.<locals>.<lambda> at 0x7f8ac2dba660>]
+assumptions = {}
+
+    def __new__(cls, name, exclude=(), properties=(), **assumptions):
+>       return _core.Wild(name,exclude,properties,**assumptions)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       NotImplementedError: Wildcard predicate properties are not implemented
+
+../../../envs/chempy/lib/python3.12/site-packages/symox/_compat.py:160: NotImplementedError
 ```
 
 ### Devito
@@ -112,14 +119,12 @@ E               Failed: <Function test_adjoint_F[(4, basic)-2]> failed in parall
 conftest.py:280: Failed
 ```
 
-The four MPI cases that failed in the full parallel reference run were rerun without pytest workers: 4 passed. The full-suite reference remains unqualified; this is not evidence of a Symox regression.
-
 ### Devito (symbolic algorithms)
 
 Complete upstream tests/test_symbolics.py, audited separately from the full suite with its four unstable parallel MPI cases
 
 ```text
-ImportError while loading conftest '/tmp/symox-featured/sources/devito/devito-4.8.23/conftest.py'.
+ImportError while loading conftest '/home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23/conftest.py'.
 conftest.py:10: in <module>
     from devito import Eq, Revolver, configuration  # noqa
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -131,7 +136,7 @@ devito/types/__init__.py:4: in <module>
     ^^^^^^^^^^^^^^^^^^^^
 devito/types/basic.py:11: in <module>
     from sympy.core.assumptions import _assume_rules
-E   ImportError: cannot import name '_assume_rules' from 'symox.core.assumptions' (/tmp/symox-featured/envs/devito_symbolic/lib/python3.12/site-packages/symox/core/assumptions.py)
+E   ImportError: cannot import name '_assume_rules' from 'symox.core.assumptions' (/home/keckj/.cache/symox-validation/featured/envs/devito_symbolic/lib/python3.12/site-packages/symox/core/assumptions.py)
 
 ```
 
@@ -210,86 +215,38 @@ Upstream test tree selected in the pinned manifest.
 Upstream test tree selected in the pinned manifest.
 
 ```text
-mp = new._decompose_timedomain_expr(value)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lcapy/superposition.py:453: in _decompose_timedomain_expr
-    sval = expr1.laplace()
-           ^^^^^^^^^^^^^^^
-lcapy/texpr.py:129: in laplace
-    return self.LT(evaluate=evaluate, zero_initial_conditions=zero_initial_conditions,
-lcapy/texpr.py:115: in LT
+nitial_conditions,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/texpr.py", line 115, in LT
     result = laplace_transform(
-lcapy/laplace.py:373: in laplace_transform
+             ^^^^^^^^^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 373, in laplace_transform
     return laplace_transformer.transform(expr, t, s,
-lcapy/transformer.py:82: in transform
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/transformer.py", line 82, in transform
     return self.doit(expr, var, conjvar, evaluate, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lcapy/transformer.py:196: in doit
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/transformer.py", line 196, in doit
     ret = self.term(sterm, var, conjvar, **kwargs)
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lcapy/laplace.py:363: in term
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 363, in term
     return self.integrate_0(expr, t, s) * const
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lcapy/laplace.py:85: in integrate_0
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 85, in integrate_0
     return self.integrate(expr, t, s, 0, sym.oo)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lcapy/laplace.py:65: in integrate
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 65, in integrate
     self.error('Integration failed')
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-self = <lcapy.laplace.LaplaceTransformer object at 0x7f007874e3c0>
-message = 'Integration failed'
-
-    def error(self, message=''):
-        if message == '':
-            raise ValueError('Could not compute %s for %s' %
-                             (self.name, self.expr))
->       raise ValueError('Could not compute %s for %s: %s' %
-                         (self.name, self.expr, message))
-E       ValueError: Could not compute Laplace transform for DiracDelta(t): Integration failed
-
-lcapy/transformer.py:34: ValueError
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/transformer.py", line 34, in error
+    raise ValueError('Could not compute %s for %s: %s' %
+ValueError: Could not compute Laplace transform for DiracDelta(t): Integration failed
 ```
 
 ### NRPyLaTeX
 
 Upstream test tree selected in the pinned manifest.
 
-```text
-'Constant')):
-                            return self._namespace[symbol]
-                    else: self._define_tensor(IndexedSymbol(function))
-                    return function
-                self.scanner.reset(prev_state); self.scanner.lex()
-            index = self._indexing_3()
-            indexing.extend(index)
-            symbol.extend(len(index) * ['U'])
-            if self.accept('UNDERSCORE'):
-                index, order = self._indexing_4()
-                covariant = ';' in index
-                for i in (',', ';'):
-                    if i in index: index.remove(i)
-                indexing.extend(index)
-                symbol.extend((len(index) - order) * ['D'])
-                if order > 0:
-                    sentence = self.scanner.sentence
-                    suffix = '_cd' if covariant else '_d'
-                    symbol.append(suffix + order * 'D')
-                    function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)
-                    old_latex = sentence[position:self.scanner.prev_state[0]]
-                    new_latex = IndexedSymbol(function).latex_format(function)
-                    self.scanner.sentence = sentence.replace(old_latex, new_latex)
-                    self.scanner.marker = position
-                    self.scanner.reset(sym_state)
-                    return self._operator()
-        symbol = ''.join(symbol)
-        if symbol in self._namespace:
->           if isinstance(self._namespace[symbol], Function('Constant')):
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E           TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
-
-nrpylatex/core/parser.py:885: TypeError
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### OctSymPy
 
@@ -298,13 +255,13 @@ Unmodified Octave BIST blocks in @sym/sym.m, diff.m, int.m and solve.m; not the 
 ```text
 Traceback (most recent call last):
   File "<stdin>", line 9, in <module>
-ImportError: cannot import name 'Boolean' from 'symox.logic.boolalg' (/tmp/symox-featured/envs/sage-octave/lib/python3.12/site-packages/symox/logic/boolalg.py)
+ImportError: cannot import name 'Boolean' from 'symox.logic.boolalg' (/home/keckj/.cache/symox-validation/featured/envs/sage-octave/lib/python3.12/site-packages/symox/logic/boolalg.py)
 Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
   File "<stdin>", line 11, in octoutput_drv
 NameError: name 'ET' is not defined
 
-error: Python exception: ImportError: cannot import name 'Boolean' from 'symox.logic.boolalg' (/tmp/symox-featured/envs/sage-octave/lib/python3.12/site-packages/symox/logic/boolalg.py)
+error: Python exception: ImportError: cannot import name 'Boolean' from 'symox.logic.boolalg' (/home/keckj/.cache/symox-validation/featured/envs/sage-octave/lib/python3.12/site-packages/symox/logic/boolalg.py)
     occurred in python_header import block.
     Try "sympref reset" and repeat your command?
     (consider filing an issue at https://github.com/gnu-octave/symbolic/issues)
@@ -331,7 +288,7 @@ self = <optlang.tests.test_container.ContainerTestCase testMethod=test_change_ob
 src/optlang/tests/test_container.py:190:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <optlang.interface.Model object at 0x7f3f135cfe30>, stuff = _blub
+self = <optlang.interface.Model object at 0x7fbdfd648f80>, stuff = _blub
 sloppy = False
 
     def add(self, stuff, sloppy=False):
@@ -369,7 +326,7 @@ src/optlang/interface.py:1399: TypeError
 Upstream test tree selected in the pinned manifest.
 
 ```text
-self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fbea7764fb0>
+self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7f9e51d59760>
 
     def setup_method(self):
 
@@ -391,7 +348,7 @@ pydy/system.py:653: in _Kane_constant_symbols
                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <pydy.system.System object at 0x7fbeb834b020>
+self = <pydy.system.System object at 0x7f9e51d7a030>
 
     def _Kane_inlist_insyms(self):
         """TODO temporary."""
@@ -425,15 +382,15 @@ Matrix([[1.00000000000000]])
 
 2x2 matrix
 Traceback (most recent call last):
-  File "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 241, in <module>
+  File "/home/keckj/.cache/symox-validation/featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 241, in <module>
     test_2x2()
-  File "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 152, in test_2x2
+  File "/home/keckj/.cache/symox-validation/featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 152, in test_2x2
     m2exp = exp(m2)
             ^^^^^^^
-  File "/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 98, in __call__
+  File "/home/keckj/.cache/symox-validation/featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 106, in __call__
     return self._factory(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 151, in f
+  File "/home/keckj/.cache/symox-validation/featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 159, in f
     return args[0].exp().as_immutable()
            ^^^^^^^^^^^^^
 NotImplementedError: Cannot construct an exact analytic matrix function: numerical eigenvalues of float matrices are not implemented
@@ -472,13 +429,13 @@ All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath tes
    1 of   3 in sage.interfaces.sympy.check_all
    1 of   3 in sage.interfaces.sympy.check_expression
    2 of   5 in sage.interfaces.sympy.sympy_init
-    [319 tests, 182 failures, 1.62s wall]
+    [319 tests, 182 failures, 3.34s wall]
 ----------------------------------------------------------------------
 python3 -m sage.doctest --warn-long 5.0 --random-seed=0 envs/sage-octave/lib/python3.12/site-packages/sage/interfaces/sympy.py  # 182 doctests failed
 ----------------------------------------------------------------------
-Total time for all tests: 1.7 seconds
-    cpu time: 1.6 seconds
-    cumulative wall time: 1.6 seconds
+Total time for all tests: 3.4 seconds
+    cpu time: 2.0 seconds
+    cumulative wall time: 3.3 seconds
 Features detected for doctesting:
 
 ```
@@ -530,25 +487,26 @@ E   AssertionError: [16, 17] is not false : asinh {} vectorized: f(1.79769313486
 Unmodified test/test_sympy_utils.py at the installed Torch commit; symbolic helpers used by TorchInductor, not the full PyTorch suite
 
 ```text
-j/Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py:18: in <module>
+ne_compile import (
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py:18: in <module>
     from torch._dynamo.aot_compile_types import BundledAOTAutogradSerializableCallable
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/__init__.py:13: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/__init__.py:13: in <module>
     from . import (
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py:17: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py:17: in <module>
     from torch._dynamo.convert_frame import GraphRuntimeEnv
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:62: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:62: in <module>
     from torch._dynamo.symbolic_convert import TensorifyState
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py:54: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py:54: in <module>
     from torch._dynamo.exc import (
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:72: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:72: in <module>
     from .utils import counters
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/utils.py:68: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/utils.py:68: in <module>
     import torch.fx.experimental.symbolic_shapes
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/fx/experimental/symbolic_shapes.py:80: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/fx/experimental/symbolic_shapes.py:80: in <module>
     from torch.utils._sympy.functions import (
-/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/utils/_sympy/functions.py:16: in <module>
+../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/utils/_sympy/functions.py:16: in <module>
     from sympy.core.operations import LatticeOp, ShortCircuit
-/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:105: in find_spec
+../../../Documents/symox/tools/downstream/sitecustomize.py:105: in find_spec
     raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',
 E   ModuleNotFoundError: sympy.core.operations requires missing native module symox.core.operations
 ```

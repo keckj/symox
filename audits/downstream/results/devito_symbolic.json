@@ -1,19 +1,19 @@
 {
   "candidate": {
-    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
-    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/devito_symbolic/freeze.txt.gz": "f03875537cac5202eb38093220ae9b430e9a441e0fdf3e9d7ab2e60600852fbb",
-    "evidence/devito_symbolic/install.log.gz": "69c4f752d77cc45bbe1bc6816d48c290b97d6c24bea17bbd3747bd9819a11198",
-    "evidence/devito_symbolic/native-processes.jsonl.gz": "563298b780eb8837b33664d40b15544cddf05c38c4c95ba817ae29c16a6f12aa",
-    "evidence/devito_symbolic/native.log.gz": "2114990d8228008dd950fb735bdb13ab9bcecbe121548883bb71353cffdb5a38",
+    "evidence/devito_symbolic/freeze.txt.gz": "731c724455c99669627c1b47c6c5c8927f9c45f668a0af33f3f0505b2807c37d",
+    "evidence/devito_symbolic/install.log.gz": "8e77184f8d68426e18d9684b1c5fc09ce7ba0659ccd20594adc2c99d20e39a63",
+    "evidence/devito_symbolic/native-processes.jsonl.gz": "3e979f2b0d4cbd4a1cb12f91edcd5e876ae841e4fab5eada749ea78e4c8d5059",
+    "evidence/devito_symbolic/native.log.gz": "80cbd8144772f1ded54bbaa9def0bea58f61fedb4356098e5070da55bb59f04a",
     "evidence/devito_symbolic/preflight.log.gz": "84d3232d7358f02efb6538a67acd42a76f1bbf79ba93b9a719efbefdb4b6914e",
-    "evidence/devito_symbolic/reference-junit.xml.gz": "0eba11194c602c0cf098ddb79d8557b2eb5bdcf507b59ada48a1bdf54fdb1eca",
-    "evidence/devito_symbolic/reference-processes.jsonl.gz": "74cd05be53f20ca5c29832e1208c0bff5ada392c7f8c6d04a9f2a42a50bdc173",
-    "evidence/devito_symbolic/reference-tests.json.gz": "20745c1f4c5a89fdd57721c48eccf21cbd174a027052c3b40902d4f77f792d8a",
-    "evidence/devito_symbolic/reference.log.gz": "671c8e059f629abe196951322fea3c32c4fc91d19da457d3f00eba886879d625",
-    "evidence/devito_symbolic/venv.log.gz": "6bf314e78d3d82a33fb60613d5a0749b31bf096d5e9f903eef8604025e599400"
+    "evidence/devito_symbolic/reference-junit.xml.gz": "94a77d71fa6817eaffab5c441631033d5c8e80927ad9cca71fec44131718856a",
+    "evidence/devito_symbolic/reference-processes.jsonl.gz": "d1ec639e48ba53555e5826c59b31b1944bb87556ac801c1ffa9873c759b26584",
+    "evidence/devito_symbolic/reference-tests.json.gz": "026fa436e072f7b77107e42428bb8133969b710216901112a1ab1f0b26727c42",
+    "evidence/devito_symbolic/reference.log.gz": "c71f1ae9a9380101d7c0f714ee06c4f9cb43a66f41de6a7af3d98e542e3f2c2c",
+    "evidence/devito_symbolic/venv.log.gz": "7586064407c64f8412623374a4227fdcb0e5bce3c7697b77f7c97aae3159912e"
   },
   "freeze": {
     "command": [
@@ -21,12 +21,12 @@
       "pip",
       "freeze",
       "--python",
-      "/tmp/symox-featured/envs/devito_symbolic/bin/python"
+      "/home/keckj/.cache/symox-validation/featured/envs/devito_symbolic/bin/python"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/devito_symbolic/freeze.txt",
-    "seconds": 0.114,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/devito_symbolic\nanytree==2.13.0\ncertifi==2026.10.18\ncgen==2025.1\ncharset-normalizer==3.5.2\nclick==8.5.0\ncloudpickle==3.1.2\ncodepy==2023.1\ncontexttimer==0.3.3\ncoverage==7.16.2\n-e file:///tmp/symox-featured/sources/devito/devito-4.8.23\nexecnet==2.1.2\nhypothesis==6.170.2\nidna==3.20\niniconfig==2.3.1\nmpi4py==4.1.2\nmpmath==1.3.0\nmultidict==6.2.0\nnumpy==2.4.3\npackaging==26.2\npip==26.2\nplatformdirs==4.13.5\npluggy==1.7.0\npooch==1.9.0\npsutil==7.2.2\npy-cpuinfo==9.0.0\npy-cpuinfo2==10.1.1\npygments==2.21.0\npyrevolve==2.2.8\npytest==8.4.2\npytest-benchmark==5.3.0\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npytools==2026.1.1\nrequests==2.34.2\nscipy==1.18.1\nsetuptools==84.0.0\nsiphash24==1.9\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntyping-extensions==4.16.0\nurllib3==2.8.0\nwheel==0.48.0\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/freeze.txt",
+    "seconds": 0.115,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/devito_symbolic\nanytree==2.13.0\ncertifi==2026.10.18\ncgen==2025.1\ncharset-normalizer==3.5.2\nclick==8.5.0\ncloudpickle==3.1.2\ncodepy==2023.1\ncontexttimer==0.3.3\ncoverage==7.16.2\n-e file:///home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23\nexecnet==2.1.2\nhypothesis==6.170.2\nidna==3.20\niniconfig==2.3.1\nmpi4py==4.1.2\nmpmath==1.3.0\nmultidict==6.2.0\nnumpy==2.4.3\npackaging==26.2\npip==26.2\nplatformdirs==4.13.5\npluggy==1.7.0\npooch==1.9.0\npsutil==7.2.2\npy-cpuinfo==9.0.0\npy-cpuinfo2==10.1.1\npygments==2.21.0\npyrevolve==2.2.8\npytest==8.4.2\npytest-benchmark==5.3.0\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npytools==2026.1.1\nrequests==2.34.2\nscipy==1.18.1\nsetuptools==84.0.0\nsiphash24==1.9\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntyping-extensions==4.16.0\nurllib3==2.8.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -43,9 +43,9 @@
       "pip",
       "install",
       "--python",
-      "/tmp/symox-featured/envs/devito_symbolic/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/devito_symbolic/bin/python",
       "--constraint",
-      "/tmp/symox-featured/constraints/devito_symbolic.txt",
+      "/home/keckj/.cache/symox-validation/featured/constraints/devito_symbolic.txt",
       "--reinstall-package",
       "symox",
       "sympy==1.14.0",
@@ -70,18 +70,18 @@
       "pooch",
       "mpi4py",
       "-e",
-      "/tmp/symox-featured/sources/devito/devito-4.8.23",
-      "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23",
+      "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/devito_symbolic/install.log",
-    "seconds": 1.467,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/devito_symbolic\nResolved 45 packages in 844ms\n   Building devito @ file:///tmp/symox-featured/sources/devito/devito-4.8.23\n      Built devito @ file:///tmp/symox-featured/sources/devito/devito-4.8.23\nPrepared 2 packages in 306ms\nUninstalled 2 packages in 21ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 95ms\n ~ devito==4.8.23 (from file:///tmp/symox-featured/sources/devito/devito-4.8.23)\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/install.log",
+    "seconds": 1.617,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/devito_symbolic\nResolved 45 packages in 1.05s\n   Building devito @ file:///home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23\n      Built devito @ file:///home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23\nPrepared 2 packages in 341ms\nUninstalled 2 packages in 28ms\nInstalled 2 packages in 12ms\n ~ devito==4.8.23 (from file:///home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads6-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
     "command": [
-      "/tmp/symox-featured/envs/devito_symbolic/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/devito_symbolic/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -89,11 +89,11 @@
       "-p",
       "audit_plugin",
       "--timeout=180",
-      "--junitxml=/tmp/symox-featured/logs/devito_symbolic/native-junit.xml",
+      "--junitxml=/home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/native-junit.xml",
       "tests/test_symbolics.py"
     ],
     "exit_code": 4,
-    "log": "/tmp/symox-featured/logs/devito_symbolic/native.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/native.log",
     "process_provenance_artifact": "evidence/devito_symbolic/native-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -368,19 +368,19 @@
         "sympy.utilities.traversal": "symox.utilities.traversal"
       }
     },
-    "seconds": 0.615,
-    "tail": "ImportError while loading conftest '/tmp/symox-featured/sources/devito/devito-4.8.23/conftest.py'.\nconftest.py:10: in <module>\n    from devito import Eq, Revolver, configuration  # noqa\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ndevito/__init__.py:11: in <module>\n    from devito.types import NODE, CELL, Buffer  # noqa\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ndevito/types/__init__.py:4: in <module>\n    from .basic import *  # noqa\n    ^^^^^^^^^^^^^^^^^^^^\ndevito/types/basic.py:11: in <module>\n    from sympy.core.assumptions import _assume_rules\nE   ImportError: cannot import name '_assume_rules' from 'symox.core.assumptions' (/tmp/symox-featured/envs/devito_symbolic/lib/python3.12/site-packages/symox/core/assumptions.py)\n",
+    "seconds": 0.665,
+    "tail": "ImportError while loading conftest '/home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23/conftest.py'.\nconftest.py:10: in <module>\n    from devito import Eq, Revolver, configuration  # noqa\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ndevito/__init__.py:11: in <module>\n    from devito.types import NODE, CELL, Buffer  # noqa\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ndevito/types/__init__.py:4: in <module>\n    from .basic import *  # noqa\n    ^^^^^^^^^^^^^^^^^^^^\ndevito/types/basic.py:11: in <module>\n    from sympy.core.assumptions import _assume_rules\nE   ImportError: cannot import name '_assume_rules' from 'symox.core.assumptions' (/home/keckj/.cache/symox-validation/featured/envs/devito_symbolic/lib/python3.12/site-packages/symox/core/assumptions.py)\n",
     "timed_out": false
   },
   "preflight": {
     "command": [
-      "/tmp/symox-featured/envs/devito_symbolic/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/devito_symbolic/bin/python",
       "-c",
       "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/devito_symbolic/preflight.log",
-    "seconds": 0.816,
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/preflight.log",
+    "seconds": 0.866,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"2.4.3\"}\n",
     "timed_out": false
   },
@@ -421,7 +421,7 @@
     "collection_errors": [],
     "collection_skips": [],
     "command": [
-      "/tmp/symox-featured/envs/devito_symbolic/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/devito_symbolic/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -429,7 +429,7 @@
       "-p",
       "audit_plugin",
       "--timeout=180",
-      "--junitxml=/tmp/symox-featured/logs/devito_symbolic/reference-junit.xml",
+      "--junitxml=/home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/reference-junit.xml",
       "tests/test_symbolics.py"
     ],
     "counts": {
@@ -443,7 +443,7 @@
     },
     "exit_code": 0,
     "first_failures": [],
-    "log": "/tmp/symox-featured/logs/devito_symbolic/reference.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/reference.log",
     "process_provenance_artifact": "evidence/devito_symbolic/reference-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -456,36 +456,22 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 4.023,
-    "tail": "........................................................................ [ 52%]\n................................................................         [100%]\n- generated xml file: /tmp/symox-featured/logs/devito_symbolic/reference-junit.xml -\n============================= slowest 20 durations =============================\n0.59s call     tests/test_symbolics.py::TestRelationsWithAssumptions::test_multibounds_op\n0.10s call     tests/test_symbolics.py::test_minmax_precision[float64-(fmax(, fmin()]\n0.10s call     tests/test_symbolics.py::test_safeinv\n0.10s call     tests/test_symbolics.py::test_minmax\n0.09s call     tests/test_symbolics.py::TestComplexParts::test_printing\n0.09s call     tests/test_symbolics.py::test_floatification_issue_1627[float32-const float r0 = 1.0F/h_x;]\n0.08s call     tests/test_symbolics.py::TestComplexParts::test_outer_deriv\n0.08s call     tests/test_symbolics.py::TestComplexParts::test_mul\n0.08s call     tests/test_symbolics.py::test_issue_2577b\n0.08s call     tests/test_symbolics.py::TestComplexParts::test_deriv\n0.07s call     tests/test_symbolics.py::test_floatification_issue_1627[float64-const double r0 = 1.0/h_x;]\n0.07s call     tests/test_symbolics.py::test_minmax_precision[float32-(fmaxf(, fminf()]\n0.06s call     tests/test_symbolics.py::TestComplexParts::test_trivial[complex128]\n0.06s call     tests/test_symbolics.py::TestComplexParts::test_trivial[complex64]\n0.06s call     tests/test_symbolics.py::TestComplexParts::test_trivial_imag[complex64]\n0.06s call     tests/test_symbolics.py::TestComplexParts::test_trivial_imag[complex128]\n0.06s call     tests/test_symbolics.py::test_roundup\n0.06s call     tests/test_symbolics.py::test_pow_precision[float32-powf(]\n0.06s call     tests/test_symbolics.py::test_pow_precision[float64-pow(]\n0.06s call     tests/test_symbolics.py::test_abs_precision[float64-fabs(]\n136 passed in 2.64s\n",
+    "seconds": 4.273,
+    "tail": "........................................................................ [ 52%]\n................................................................         [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/devito_symbolic/reference-junit.xml -\n============================= slowest 20 durations =============================\n0.62s call     tests/test_symbolics.py::TestRelationsWithAssumptions::test_multibounds_op\n0.11s call     tests/test_symbolics.py::test_safeinv\n0.10s call     tests/test_symbolics.py::test_minmax_precision[float64-(fmax(, fmin()]\n0.10s call     tests/test_symbolics.py::TestComplexParts::test_printing\n0.10s call     tests/test_symbolics.py::test_minmax\n0.09s call     tests/test_symbolics.py::test_floatification_issue_1627[float32-const float r0 = 1.0F/h_x;]\n0.08s call     tests/test_symbolics.py::TestComplexParts::test_outer_deriv\n0.08s call     tests/test_symbolics.py::TestComplexParts::test_mul\n0.08s call     tests/test_symbolics.py::test_issue_2577b\n0.08s call     tests/test_symbolics.py::TestComplexParts::test_deriv\n0.08s call     tests/test_symbolics.py::test_floatification_issue_1627[float64-const double r0 = 1.0/h_x;]\n0.07s call     tests/test_symbolics.py::test_minmax_precision[float32-(fmaxf(, fminf()]\n0.07s call     tests/test_symbolics.py::TestComplexParts::test_trivial_imag[complex64]\n0.07s call     tests/test_symbolics.py::TestComplexParts::test_trivial[complex128]\n0.07s call     tests/test_symbolics.py::TestComplexParts::test_trivial[complex64]\n0.07s call     tests/test_symbolics.py::TestComplexParts::test_trivial_imag[complex128]\n0.06s call     tests/test_symbolics.py::test_abs_precision[float32-fabsf(]\n0.06s call     tests/test_symbolics.py::test_abs_precision[float64-fabs(]\n0.06s call     tests/test_symbolics.py::test_roundup\n0.06s call     tests/test_symbolics.py::test_pow_precision[float64-pow(]\n136 passed in 2.79s\n",
     "test_evidence": "evidence/devito_symbolic/reference-tests.json.gz",
-    "test_evidence_sha256": "20745c1f4c5a89fdd57721c48eccf21cbd174a027052c3b40902d4f77f792d8a",
+    "test_evidence_sha256": "026fa436e072f7b77107e42428bb8133969b710216901112a1ab1f0b26727c42",
     "timed_out": false
   },
   "reference_qualified": true,
   "reference_version": "1.14.0",
   "selected_test_sha256": {
-    "/tmp/symox-featured/sources/devito/devito-4.8.23/tests/test_symbolics.py": "a8d076df637e10e38102d358d9eaaf5ef09343e78fb4d848f7ad2463ed6e00e1"
+    "/home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23/tests/test_symbolics.py": "a8d076df637e10e38102d358d9eaaf5ef09343e78fb4d848f7ad2463ed6e00e1"
   },
-  "source": "/tmp/symox-featured/sources/devito/devito-4.8.23",
+  "source": "/home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23",
   "source_identity": {
-    "configs": [
-      "pyproject.toml",
-      "setup.cfg"
-    ],
-    "count": 57,
-    "examples": [
-      "examples/seismic/test_seismic_utils.py",
-      "examples/seismic/self_adjoint/test_wavesolver_iso.py",
-      "examples/seismic/self_adjoint/test_utils.py",
-      "tests/test_iet.py",
-      "tests/test_builtins.py",
-      "tests/test_resample.py",
-      "tests/test_constant.py",
-      "tests/test_gradient.py"
-    ],
-    "root": "/tmp/symox-featured/sources/devito/devito-4.8.23"
+    "root": "/home/keckj/.cache/symox-validation/featured/sources/devito/devito-4.8.23",
+    "sha256": "9d14c6f22a98fa805d540bcaddb83bffa40f7c6f045b00e42784567e2440e43a"
   },
-  "started_at": "2026-10-19T12:48:24.661775+00:00",
+  "started_at": "2026-10-19T17:10:45.842477+00:00",
   "status": "native_failure"
 }

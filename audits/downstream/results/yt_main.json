@@ -1,21 +1,21 @@
 {
   "candidate": {
-    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
-    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/yt_main/freeze.txt.gz": "9d2ab4ef4d90e6ee0b41467df7a51c73368528cd011be59adcc1b3833b6ed074",
-    "evidence/yt_main/install.log.gz": "739e4b56d3920e23223c77dd157a54a6c6b93d1bc03bde9dd4f08048e8bef9a1",
-    "evidence/yt_main/native-junit.xml.gz": "5d5070b2f50ae6049ceff550fcf45bc1b70625909001c5310a3cc3d1877054ec",
-    "evidence/yt_main/native-processes.jsonl.gz": "ace948f208ba658d7c63b64a14e001bb679cda6aa19ef41c15b53ed2e4e6b29a",
-    "evidence/yt_main/native-tests.json.gz": "127626734676a4101fd79e3d898b4fc4315cfc1408467d1656a621aaac475779",
-    "evidence/yt_main/native.log.gz": "3eaea9ef4e387e008daf0edb60aea500a2a42a061e195e49e1f9963c1da272bf",
+    "evidence/yt_main/freeze.txt.gz": "fbc4365dd4997b603b0c62fd06c281b086ff491e4a2da1c289c4b458cec82b53",
+    "evidence/yt_main/install.log.gz": "039ab7e3b929b5f1260583473531274c459f7d0324430e4923808c8cbdb70b16",
+    "evidence/yt_main/native-junit.xml.gz": "b9408f7d08d53cf4129a12a3b9065e6051c92f4de4264fea58b9b9ad26245635",
+    "evidence/yt_main/native-processes.jsonl.gz": "7351d807b863b69d4fe366b18e33e3fc4c447b084c705695f21982fc30cfe080",
+    "evidence/yt_main/native-tests.json.gz": "2609bd4a516beb5db3a402d77be8e1b6a7ddf064e2891b54ef7d9230f776a260",
+    "evidence/yt_main/native.log.gz": "77f1ae5ca7453e750bdafc2c186f1bc3ab2e44330a3a9cd41bdb5333d1e33915",
     "evidence/yt_main/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/yt_main/reference-junit.xml.gz": "9874713c345872cef2812fb5f1325985d9513691aba04017c594e4e1bfa73c88",
-    "evidence/yt_main/reference-processes.jsonl.gz": "9c23f999338aa1f8365b54e10e94e412ad170961ae9c17df347204020d3a420b",
-    "evidence/yt_main/reference-tests.json.gz": "f60eff68ce59f6818f19fa49b30735fc7f76d5264af11e7a34a5068873829660",
-    "evidence/yt_main/reference.log.gz": "2bee1095fc4b4b5e90ece2e2e65933d30919c53dd7f6e957ac7377bc18041408",
-    "evidence/yt_main/venv.log.gz": "0988854fc62100910921a0f8b0d574cd820072461c001f213d203aee4f622f85"
+    "evidence/yt_main/reference-junit.xml.gz": "9eddc80f9cc2fd5ee8de67b9f84eb115108c584d8dd5f0e78d1a784b2213210e",
+    "evidence/yt_main/reference-processes.jsonl.gz": "cef1494f88bfd388b88c156df1c6d9b6c227d45a6f4554f343d442c337ba61c9",
+    "evidence/yt_main/reference-tests.json.gz": "823e37ac24720a4619fd8d801ad0ea47322e8956ab1460425686f43684bf3de2",
+    "evidence/yt_main/reference.log.gz": "2731664edc3eecbb7cc493ef6e31766f58ce40b44b05b265a6a65daaa352b544",
+    "evidence/yt_main/venv.log.gz": "16a2e51a4d6d136baf89cfa2270401fdffb5c6c994aebf183fd38ddfd9eb4c77"
   },
   "freeze": {
     "command": [
@@ -23,12 +23,12 @@
       "pip",
       "freeze",
       "--python",
-      "/tmp/symox-featured/envs/yt_main/bin/python"
+      "/home/keckj/.cache/symox-validation/featured/envs/yt_main/bin/python"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/yt_main/freeze.txt",
-    "seconds": 0.114,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/yt_main\nastropy==7.2.3\nastropy-iers-data==0.2026.10.19.0.52.1\ncmyt==2.0.4\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\newah-bool-utils==1.3.2\nexecnet==2.1.2\nfonttools==4.67.0\nh5py==3.16.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmore-itertools==11.2.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli-w==1.2.0\ntqdm==4.70.1\nunyt==3.1.0\nwheel==0.48.0\nyt==4.4.3\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/freeze.txt",
+    "seconds": 0.121,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nastropy==7.2.3\nastropy-iers-data==0.2026.10.19.0.52.1\ncmyt==2.0.4\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\newah-bool-utils==1.3.2\nexecnet==2.1.2\nfonttools==4.67.0\nh5py==3.16.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmore-itertools==11.2.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli-w==1.2.0\ntqdm==4.70.1\nunyt==3.2.0\nwheel==0.48.0\nyt==4.4.3\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -45,9 +45,9 @@
       "pip",
       "install",
       "--python",
-      "/tmp/symox-featured/envs/yt_main/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/yt_main/bin/python",
       "--constraint",
-      "/tmp/symox-featured/constraints/yt_main.txt",
+      "/home/keckj/.cache/symox-validation/featured/constraints/yt_main.txt",
       "--reinstall-package",
       "symox",
       "sympy==1.14.0",
@@ -67,12 +67,12 @@
       "h5py",
       "astropy",
       "yt==4.4.3",
-      "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/yt_main/install.log",
-    "seconds": 0.416,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/yt_main\nResolved 41 packages in 107ms\nPrepared 1 package in 0.21ms\nUninstalled 1 package in 17ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 1 package in 99ms\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/install.log",
+    "seconds": 0.515,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nResolved 41 packages in 294ms\nPrepared 1 package in 0.19ms\nUninstalled 1 package in 18ms\nInstalled 1 package in 12ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads6-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "installed_tests_match_pinned_source": true,
@@ -80,7 +80,7 @@
     "collection_errors": [],
     "collection_skips": [],
     "command": [
-      "/tmp/symox-featured/envs/yt_main/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/yt_main/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -89,8 +89,8 @@
       "audit_plugin",
       "--timeout=60",
       "--import-mode=importlib",
-      "--junitxml=/tmp/symox-featured/logs/yt_main/native-junit.xml",
-      "/tmp/symox-featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests"
+      "--junitxml=/home/keckj/.cache/symox-validation/featured/logs/yt_main/native-junit.xml",
+      "/home/keckj/.cache/symox-validation/featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests"
     ],
     "counts": {
       "collection_errors": 0,
@@ -103,7 +103,7 @@
     },
     "exit_code": 0,
     "first_failures": [],
-    "log": "/tmp/symox-featured/logs/yt_main/native.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/native.log",
     "process_provenance_artifact": "evidence/yt_main/native-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -383,21 +383,21 @@
       "count": 0,
       "examples": []
     },
-    "seconds": 1.417,
-    "tail": ".                                                                        [100%]\n---- generated xml file: /tmp/symox-featured/logs/yt_main/native-junit.xml -----\n1 passed in 0.87s\n",
+    "seconds": 1.467,
+    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/native-junit.xml -\n1 passed in 0.91s\n",
     "test_evidence": "evidence/yt_main/native-tests.json.gz",
-    "test_evidence_sha256": "127626734676a4101fd79e3d898b4fc4315cfc1408467d1656a621aaac475779",
+    "test_evidence_sha256": "2609bd4a516beb5db3a402d77be8e1b6a7ddf064e2891b54ef7d9230f776a260",
     "timed_out": false
   },
   "preflight": {
     "command": [
-      "/tmp/symox-featured/envs/yt_main/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/yt_main/bin/python",
       "-c",
       "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/yt_main/preflight.log",
-    "seconds": 0.815,
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/preflight.log",
+    "seconds": 0.865,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -427,7 +427,7 @@
     "collection_errors": [],
     "collection_skips": [],
     "command": [
-      "/tmp/symox-featured/envs/yt_main/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/yt_main/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -436,8 +436,8 @@
       "audit_plugin",
       "--timeout=60",
       "--import-mode=importlib",
-      "--junitxml=/tmp/symox-featured/logs/yt_main/reference-junit.xml",
-      "/tmp/symox-featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests"
+      "--junitxml=/home/keckj/.cache/symox-validation/featured/logs/yt_main/reference-junit.xml",
+      "/home/keckj/.cache/symox-validation/featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests"
     ],
     "counts": {
       "collection_errors": 0,
@@ -450,7 +450,7 @@
     },
     "exit_code": 0,
     "first_failures": [],
-    "log": "/tmp/symox-featured/logs/yt_main/reference.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/reference.log",
     "process_provenance_artifact": "evidence/yt_main/reference-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -463,23 +463,23 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 1.818,
-    "tail": ".                                                                        [100%]\n--- generated xml file: /tmp/symox-featured/logs/yt_main/reference-junit.xml ---\n1 passed in 1.24s\n",
+    "seconds": 1.918,
+    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/reference-junit.xml -\n1 passed in 1.25s\n",
     "test_evidence": "evidence/yt_main/reference-tests.json.gz",
-    "test_evidence_sha256": "f60eff68ce59f6818f19fa49b30735fc7f76d5264af11e7a34a5068873829660",
+    "test_evidence_sha256": "823e37ac24720a4619fd8d801ad0ea47322e8956ab1460425686f43684bf3de2",
     "timed_out": false
   },
   "reference_qualified": true,
   "reference_version": "1.14.0",
   "selected_test_sha256": {
-    "/tmp/symox-featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "/tmp/symox-featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests/test_magnetic_code_units.py": "5f041631358eb34264c9cbfe48516ffbad1ba999c4b10c9ee05fe4feed799b77"
+    "/home/keckj/.cache/symox-validation/featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/keckj/.cache/symox-validation/featured/envs/yt_main/lib/python3.12/site-packages/yt/units/tests/test_magnetic_code_units.py": "5f041631358eb34264c9cbfe48516ffbad1ba999c4b10c9ee05fe4feed799b77"
   },
-  "source": "/tmp/symox-featured/git/yt_main",
+  "source": "/home/keckj/.cache/symox-validation/featured/git/yt_main",
   "source_identity": {
     "commit": "b83aa6bb36b9a9cf7b44d50b37072ebe7dd29527",
-    "root": "/tmp/symox-featured/git/yt_main"
+    "root": "/home/keckj/.cache/symox-validation/featured/git/yt_main"
   },
-  "started_at": "2026-10-19T12:48:22.012694+00:00",
+  "started_at": "2026-10-19T17:10:40.917991+00:00",
   "status": "native_suite_passes"
 }

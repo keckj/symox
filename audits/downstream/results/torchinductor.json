@@ -1,18 +1,18 @@
 {
   "candidate": {
-    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
-    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/torchinductor/freeze.txt.gz": "2f4237f49d787ac07224bf6f375e3181869d5e3eb773308460c7c62e20c6a72f",
-    "evidence/torchinductor/install.log.gz": "54874c8ecb1e4defaaea02ffcab701ae2fe937b3a95a213c8dfc643e5846f2aa",
-    "evidence/torchinductor/native-processes.jsonl.gz": "b512c553403f88863d9488040fcbb14f2828f8072ce1c1a4f645779304dc161d",
-    "evidence/torchinductor/native-tests.json.gz": "2b7ecdbe229e5446ce22ac4516d2400f10cb89a80073cd58d1582382d567e7e9",
-    "evidence/torchinductor/native.log.gz": "800cd166849c0807f67e256db289c0b9dfb198f5b004170747ae952d7936feed",
+    "evidence/torchinductor/freeze.txt.gz": "00d94da3b270b871790891b2d47e394c4395faa912f7883099a23be97d8dd869",
+    "evidence/torchinductor/install.log.gz": "3b8d17a9bebbdc2fc3e1a2f6be3ce3f88a93e5a922c957dda5307cdf11e4daad",
+    "evidence/torchinductor/native-processes.jsonl.gz": "565eff8a7566d75723d2765c02a60222946d8934e2583ec05789f6ba687257bd",
+    "evidence/torchinductor/native-tests.json.gz": "33da16099d51fc98c2317b8d3ec00b0d8bb5230f56579de9879cd80a676bb791",
+    "evidence/torchinductor/native.log.gz": "7a0d55c83bb03f473c907ab1d87a9814cb26b3b23bfc7dcce9bab0a9af551ba9",
     "evidence/torchinductor/preflight.log.gz": "dd62cea595f00203c182542bb4b1d6d1ea75458ecf005bc99eec95d639a27659",
-    "evidence/torchinductor/reference-processes.jsonl.gz": "e10476813906a2c4272f5eeb43e4bf6908a56f7e402926810c99e05968c5846c",
-    "evidence/torchinductor/reference-tests.json.gz": "59302e2580bd998f86e5a339abe408a73f19c891b369fd6f8dc42d04a8e38861",
-    "evidence/torchinductor/reference.log.gz": "61842ceccb408e77ac1007cb5e4ac15359cde69b573fd2815f9da2adad568af6"
+    "evidence/torchinductor/reference-processes.jsonl.gz": "5720ffe63ea0f37e5c9f2c5cd8a2613d2ab6166b23595f862d5de504763e6d45",
+    "evidence/torchinductor/reference-tests.json.gz": "1b7f0a194fb5275b66897f72d89cd2a49dd73b723c1002fe827dd9b81f5c07fd",
+    "evidence/torchinductor/reference.log.gz": "be02b9e991225910429e21781d841ed307a613790afcfaed5ffd665dc61d1236"
   },
   "freeze": {
     "command": [
@@ -20,12 +20,12 @@
       "pip",
       "freeze",
       "--python",
-      "/tmp/symox-featured/envs/torchinductor/bin/python"
+      "/home/keckj/.cache/symox-validation/featured/envs/torchinductor/bin/python"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/torchinductor/freeze.txt",
-    "seconds": 0.167,
-    "tail": "Using Python 3.10.12 environment at: /tmp/symox-featured/envs/torchinductor\nexceptiongroup==1.3.1\nexpecttest==0.3.0\nhypothesis==6.168.5\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==2.2.6\npackaging==26.3\npluggy==1.7.0\npsutil==7.2.2\npygments==2.21.0\npytest==8.4.2\npytest-timeout==2.4.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli==2.5.0\ntyping-extensions==4.16.0\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/torchinductor/freeze.txt",
+    "seconds": 0.219,
+    "tail": "Using Python 3.10.12 environment at: /home/keckj/.cache/symox-validation/featured/envs/torchinductor\ncoverage==7.16.2\nexceptiongroup==1.3.1\nexecnet==2.1.2\nexpecttest==0.3.0\nhypothesis==6.168.5\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==2.2.6\npackaging==26.3\npluggy==1.7.0\npsutil==7.2.2\npygments==2.21.0\npytest==9.1.1\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli==2.5.0\ntyping-extensions==4.16.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -42,26 +42,26 @@
       "pip",
       "install",
       "--python",
-      "/tmp/symox-featured/envs/torchinductor/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/torchinductor/bin/python",
       "--reinstall-package",
       "symox",
-      "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/torchinductor/install.log",
-    "seconds": 0.615,
-    "tail": "Using Python 3.10.12 environment at: /tmp/symox-featured/envs/torchinductor\nResolved 3 packages in 77ms\nPrepared 1 package in 97ms\nUninstalled 1 package in 18ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 1 package in 223ms\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/torchinductor/install.log",
+    "seconds": 0.319,
+    "tail": "Using Python 3.10.12 environment at: /home/keckj/.cache/symox-validation/featured/envs/torchinductor\nResolved 3 packages in 18ms\nPrepared 1 package in 0.16ms\nUninstalled 1 package in 19ms\nInstalled 1 package in 14ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads6-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
     "collection_errors": [
       {
-        "detail": "ImportError while importing test module '/tmp/symox-featured/git/torch/test/test_sympy_utils.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:103: in find_spec\n    native = importlib.import_module(native_name)\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1004: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.operations'\n\nThe above exception was the direct cause of the following exception:\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\ngit/torch/test/test_sympy_utils.py:15: in <module>\n    from torch.testing._internal.common_device_type import skipIf\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/testing/_internal/common_device_type.py:20: in <module>\n    from torch._inductor.utils import GPU_TYPES\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/__init__.py:12: in <module>\n    from .standalone_compile import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py:18: in <module>\n    from torch._dynamo.aot_compile_types import BundledAOTAutogradSerializableCallable\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/__init__.py:13: in <module>\n    from . import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py:17: in <module>\n    from torch._dynamo.convert_frame import GraphRuntimeEnv\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:62: in <module>\n    from torch._dynamo.symbolic_convert import TensorifyState\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py:54: in <module>\n    from torch._dynamo.exc import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:72: in <module>\n    from .utils import counters\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/utils.py:68: in <module>\n    import torch.fx.experimental.symbolic_shapes\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/fx/experimental/symbolic_shapes.py:80: in <module>\n    from torch.utils._sympy.functions import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/utils/_sympy/functions.py:16: in <module>\n    from sympy.core.operations import LatticeOp, ShortCircuit\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:105: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.operations requires missing native module symox.core.operations",
+        "detail": "ImportError while importing test module '/home/keckj/.cache/symox-validation/featured/git/torch/test/test_sympy_utils.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n../../../Documents/symox/tools/downstream/sitecustomize.py:103: in find_spec\n    native = importlib.import_module(native_name)\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1004: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.operations'\n\nThe above exception was the direct cause of the following exception:\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\ngit/torch/test/test_sympy_utils.py:15: in <module>\n    from torch.testing._internal.common_device_type import skipIf\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/testing/_internal/common_device_type.py:20: in <module>\n    from torch._inductor.utils import GPU_TYPES\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/__init__.py:12: in <module>\n    from .standalone_compile import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py:18: in <module>\n    from torch._dynamo.aot_compile_types import BundledAOTAutogradSerializableCallable\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/__init__.py:13: in <module>\n    from . import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py:17: in <module>\n    from torch._dynamo.convert_frame import GraphRuntimeEnv\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:62: in <module>\n    from torch._dynamo.symbolic_convert import TensorifyState\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py:54: in <module>\n    from torch._dynamo.exc import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:72: in <module>\n    from .utils import counters\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/utils.py:68: in <module>\n    import torch.fx.experimental.symbolic_shapes\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/fx/experimental/symbolic_shapes.py:80: in <module>\n    from torch.utils._sympy.functions import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/utils/_sympy/functions.py:16: in <module>\n    from sympy.core.operations import LatticeOp, ShortCircuit\n../../../Documents/symox/tools/downstream/sitecustomize.py:105: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.operations requires missing native module symox.core.operations",
         "nodeid": "git/torch/test/test_sympy_utils.py"
       }
     ],
     "command": [
-      "/tmp/symox-featured/envs/torchinductor/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/torchinductor/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -69,7 +69,7 @@
       "-p",
       "audit_plugin",
       "--timeout=60",
-      "/tmp/symox-featured/git/torch/test/test_sympy_utils.py"
+      "/home/keckj/.cache/symox-validation/featured/git/torch/test/test_sympy_utils.py"
     ],
     "counts": {
       "collection_errors": 1,
@@ -82,7 +82,7 @@
     },
     "exit_code": 2,
     "first_failures": [],
-    "log": "/tmp/symox-featured/logs/torchinductor/native.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/torchinductor/native.log",
     "process_provenance_artifact": "evidence/torchinductor/native-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -329,19 +329,19 @@
       "git/torch/test/test_sympy_utils.py::TestValueRanges::test_unary_ref_range_fn_sqrt",
       "git/torch/test/test_sympy_utils.py::TestValueRanges::test_unary_ref_range_fn_square"
     ],
-    "seconds": 2.719,
-    "tail": "\n==================================== ERRORS ====================================\n_____________ ERROR collecting git/torch/test/test_sympy_utils.py ______________\nImportError while importing test module '/tmp/symox-featured/git/torch/test/test_sympy_utils.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:103: in find_spec\n    native = importlib.import_module(native_name)\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1004: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.operations'\n\nThe above exception was the direct cause of the following exception:\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\ngit/torch/test/test_sympy_utils.py:15: in <module>\n    from torch.testing._internal.common_device_type import skipIf\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/testing/_internal/common_device_type.py:20: in <module>\n    from torch._inductor.utils import GPU_TYPES\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/__init__.py:12: in <module>\n    from .standalone_compile import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py:18: in <module>\n    from torch._dynamo.aot_compile_types import BundledAOTAutogradSerializableCallable\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/__init__.py:13: in <module>\n    from . import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py:17: in <module>\n    from torch._dynamo.convert_frame import GraphRuntimeEnv\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:62: in <module>\n    from torch._dynamo.symbolic_convert import TensorifyState\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py:54: in <module>\n    from torch._dynamo.exc import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:72: in <module>\n    from .utils import counters\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/utils.py:68: in <module>\n    import torch.fx.experimental.symbolic_shapes\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/fx/experimental/symbolic_shapes.py:80: in <module>\n    from torch.utils._sympy.functions import (\n/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/utils/_sympy/functions.py:16: in <module>\n    from sympy.core.operations import LatticeOp, ShortCircuit\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:105: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.operations requires missing native module symox.core.operations\n=========================== short test summary info ============================\nERROR git/torch/test/test_sympy_utils.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 1.96s\n",
+    "seconds": 3.124,
+    "tail": "\n==================================== ERRORS ====================================\n_____________ ERROR collecting git/torch/test/test_sympy_utils.py ______________\nImportError while importing test module '/home/keckj/.cache/symox-validation/featured/git/torch/test/test_sympy_utils.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n../../../Documents/symox/tools/downstream/sitecustomize.py:103: in find_spec\n    native = importlib.import_module(native_name)\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n<frozen importlib._bootstrap>:1050: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1027: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1004: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.operations'\n\nThe above exception was the direct cause of the following exception:\n/usr/lib/python3.10/importlib/__init__.py:126: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\ngit/torch/test/test_sympy_utils.py:15: in <module>\n    from torch.testing._internal.common_device_type import skipIf\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/testing/_internal/common_device_type.py:20: in <module>\n    from torch._inductor.utils import GPU_TYPES\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/__init__.py:12: in <module>\n    from .standalone_compile import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py:18: in <module>\n    from torch._dynamo.aot_compile_types import BundledAOTAutogradSerializableCallable\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/__init__.py:13: in <module>\n    from . import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py:17: in <module>\n    from torch._dynamo.convert_frame import GraphRuntimeEnv\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:62: in <module>\n    from torch._dynamo.symbolic_convert import TensorifyState\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py:54: in <module>\n    from torch._dynamo.exc import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:72: in <module>\n    from .utils import counters\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/utils.py:68: in <module>\n    import torch.fx.experimental.symbolic_shapes\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/fx/experimental/symbolic_shapes.py:80: in <module>\n    from torch.utils._sympy.functions import (\n../../../Documents/symox/.venv/lib/python3.10/site-packages/torch/utils/_sympy/functions.py:16: in <module>\n    from sympy.core.operations import LatticeOp, ShortCircuit\n../../../Documents/symox/tools/downstream/sitecustomize.py:105: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.operations requires missing native module symox.core.operations\n=========================== short test summary info ============================\nERROR git/torch/test/test_sympy_utils.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 2.24s\n",
     "timed_out": false
   },
   "preflight": {
     "command": [
-      "/tmp/symox-featured/envs/torchinductor/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/torchinductor/bin/python",
       "-c",
       "import sympy,symox; assert sympy.__version__==\"1.14.0\"; print(sympy.__version__,symox.__version__)"
     ],
     "exit_code": 0,
-    "log": "/tmp/symox-featured/logs/torchinductor/preflight.log",
-    "seconds": 0.715,
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/torchinductor/preflight.log",
+    "seconds": 0.921,
     "tail": "1.14.0 0.1.1\n",
     "timed_out": false
   },
@@ -360,7 +360,7 @@
   "reference": {
     "collection_errors": [],
     "command": [
-      "/tmp/symox-featured/envs/torchinductor/bin/python",
+      "/home/keckj/.cache/symox-validation/featured/envs/torchinductor/bin/python",
       "-m",
       "pytest",
       "-q",
@@ -368,20 +368,20 @@
       "-p",
       "audit_plugin",
       "--timeout=60",
-      "/tmp/symox-featured/git/torch/test/test_sympy_utils.py"
+      "/home/keckj/.cache/symox-validation/featured/git/torch/test/test_sympy_utils.py"
     ],
     "counts": {
       "collection_errors": 0,
       "errors": 0,
       "failed": 0,
-      "passed": 236,
+      "passed": 146857,
       "skipped": 0,
       "xfailed": 0,
       "xpassed": 0
     },
     "exit_code": 0,
     "first_failures": [],
-    "log": "/tmp/symox-featured/logs/torchinductor/reference.log",
+    "log": "/home/keckj/.cache/symox-validation/featured/logs/torchinductor/reference.log",
     "process_provenance_artifact": "evidence/torchinductor/reference-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -390,16 +390,16 @@
       "blocked_reference_execution": 0,
       "processes": 1
     },
-    "seconds": 31.323,
-    "tail": "........................................................................ [ 30%]\n........................................................................ [ 61%]\n........................................................................ [ 91%]\n....................                                                     [100%]\n236 passed in 29.70s\n",
+    "seconds": 69.022,
+    "tail": "................... [  8%]\n.........................................................................................................................................................................................................................                        [100%]\n236 passed, 146621 subtests passed in 66.02s (0:01:06)\n",
     "timed_out": false
   },
   "reference_qualified": true,
   "reference_version": "1.14.0",
   "selected_tests": {
-    "/tmp/symox-featured/git/torch/test/test_sympy_utils.py": "682c4207a4a553683982a1bfd66f167016ce80097a2518b7746e05333a6d5a05"
+    "/home/keckj/.cache/symox-validation/featured/git/torch/test/test_sympy_utils.py": "682c4207a4a553683982a1bfd66f167016ce80097a2518b7746e05333a6d5a05"
   },
-  "started_at": "2026-10-19T12:42:43.813519+00:00",
+  "started_at": "2026-10-19T17:06:40.935038+00:00",
   "status": "native_failure",
   "test_kind": "pytest"
 }
