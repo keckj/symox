@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "601e12be5a2263c7c392a858c6f82717ca781ffadc706f420452df34d2be2377",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/nrpylatex/freeze.txt.gz": "7c6c941644c15ddc0d916ccb6c10e51317f4efa623f169c7b6f35ae19e2d9573",
-    "evidence/nrpylatex/install.log.gz": "52a24bd2ab5bf1516538f53aa5fa5b104f3d0d51238d5c3a4bce76294ea08214",
-    "evidence/nrpylatex/native-junit.xml.gz": "ffcd9aa17cf7244f67f027f6484c8b4bc1ee1a3ada4c1472f2092a268615cecd",
-    "evidence/nrpylatex/native-processes.jsonl.gz": "6ae24e7101543495d5d28bcda731b32cf418ce3bf817603e76a3ceaf8db1ce12",
-    "evidence/nrpylatex/native-tests.json.gz": "7fb04a9c5d02d4c2f78b2410e4244425ddccf817e920ed92569209fc84360e89",
-    "evidence/nrpylatex/native.log.gz": "1692ea3494972adcc0f2f6914a541b0f96bd1fa0067bd10bcff5ceb170ae9665",
+    "evidence/nrpylatex/freeze.txt.gz": "3f10a1914c420b903ccb69fa8972aae656402dbb0a8a1b5eff7d65f39ec350a4",
+    "evidence/nrpylatex/install.log.gz": "71570d9ded4391ca91660c425ebde9afa922fa5d27397f406cde8752e43d9557",
+    "evidence/nrpylatex/native-junit.xml.gz": "2ac4f05c5ce1094849707a0591353d1ac669c1e2b5bddeac62fef0974924c96a",
+    "evidence/nrpylatex/native-processes.jsonl.gz": "150c04e00b4b53e5a91d48d0cd559d269d8fa751676a3309937cff18b4ba6db6",
+    "evidence/nrpylatex/native-tests.json.gz": "dde6abcf1de791650cef019b7917d0b963aa077ee33479c00e29c3cd55102279",
+    "evidence/nrpylatex/native.log.gz": "da9334fd5fd0bc8db2ae319ca17ecd4ce64691972dee2b59d24fcca2eb7eab0a",
     "evidence/nrpylatex/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/nrpylatex/reference-junit.xml.gz": "de1709b93a5ef2cb38c08eb41feda517eb5317f51333b7815761a500e7b228bc",
-    "evidence/nrpylatex/reference-processes.jsonl.gz": "0113dfb851827d6032c2ca2a8fac87702f5fbb886b16905030a8909b775c09af",
-    "evidence/nrpylatex/reference-tests.json.gz": "0582e417ddd9e3adfa073afaa69c6d2eda7672bdce432e436188033ab25e69b6",
-    "evidence/nrpylatex/reference.log.gz": "e2f100e1d82bae0f93b60c4c723ca32dde453c64303bb9614f70672cf4eeb15e",
+    "evidence/nrpylatex/reference-junit.xml.gz": "796b5380c1a4522f3d6cabc268eade7a4d70703becf352fe805ad4ea158295f7",
+    "evidence/nrpylatex/reference-processes.jsonl.gz": "dd767606cfba5369a6731d700350bf1045a9653d78960207556d7047b718658c",
+    "evidence/nrpylatex/reference-tests.json.gz": "91b3f6ae38305169a26915ac8619423b2583e684df77af459eb807670d18e926",
+    "evidence/nrpylatex/reference.log.gz": "51b685121489fd322ae2cd4347d4dddb0632f958c71b99630abe2374d8b1f6c7",
     "evidence/nrpylatex/venv.log.gz": "22ad4cf6760730ea40a5b698c0e2c3faaa5fce3836da9c938f220e87937be61d"
   },
   "freeze": {
@@ -27,8 +27,8 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/nrpylatex/freeze.txt",
-    "seconds": 0.288,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/nrpylatex\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\n-e file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "seconds": 0.121,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/nrpylatex\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\n-e file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -64,12 +64,12 @@
       "numpy",
       "-e",
       "/home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0",
-      "/home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/nrpylatex/install.log",
-    "seconds": 1.223,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/nrpylatex\nResolved 20 packages in 700ms\n   Building nrpylatex @ file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0\n      Built nrpylatex @ file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0\nPrepared 2 packages in 219ms\nUninstalled 2 packages in 25ms\nInstalled 2 packages in 14ms\n ~ nrpylatex==1.4.0 (from file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads6-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/heads7-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 0.816,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/nrpylatex\nResolved 20 packages in 422ms\n   Building nrpylatex @ file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0\n      Built nrpylatex @ file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0\nPrepared 2 packages in 178ms\nUninstalled 2 packages in 25ms\nInstalled 2 packages in 17ms\n ~ nrpylatex==1.4.0 (from file:///home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -377,10 +377,10 @@
       "count": 0,
       "examples": []
     },
-    "seconds": 20.754,
-    "tail": "................................                                         [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/nrpylatex/native-junit.xml -\n32 passed in 20.29s\n",
+    "seconds": 20.01,
+    "tail": "................................                                         [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/nrpylatex/native-junit.xml -\n32 passed in 19.61s\n",
     "test_evidence": "evidence/nrpylatex/native-tests.json.gz",
-    "test_evidence_sha256": "7fb04a9c5d02d4c2f78b2410e4244425ddccf817e920ed92569209fc84360e89",
+    "test_evidence_sha256": "dde6abcf1de791650cef019b7917d0b963aa077ee33479c00e29c3cd55102279",
     "timed_out": false
   },
   "preflight": {
@@ -391,7 +391,7 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/nrpylatex/preflight.log",
-    "seconds": 1.418,
+    "seconds": 0.816,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -453,10 +453,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 36.326,
-    "tail": "................................                                         [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/nrpylatex/reference-junit.xml -\n32 passed in 35.55s\n",
+    "seconds": 33.036,
+    "tail": "................................                                         [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/nrpylatex/reference-junit.xml -\n32 passed in 32.45s\n",
     "test_evidence": "evidence/nrpylatex/reference-tests.json.gz",
-    "test_evidence_sha256": "0582e417ddd9e3adfa073afaa69c6d2eda7672bdce432e436188033ab25e69b6",
+    "test_evidence_sha256": "91b3f6ae38305169a26915ac8619423b2583e684df77af459eb807670d18e926",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -470,6 +470,6 @@
     "root": "/home/keckj/.cache/symox-validation/featured/sources/nrpylatex/nrpylatex-1.4.0",
     "sha256": "56685c58b62f90875bf7a75d0115f2b7b9154c2554f1e0968dee5786ac334b8c"
   },
-  "started_at": "2026-10-19T17:07:31.825294+00:00",
+  "started_at": "2026-10-19T18:27:09.056180+00:00",
   "status": "native_suite_passes"
 }

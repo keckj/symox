@@ -2,10 +2,10 @@
   "actual_symox_version": "0.1.1",
   "api_target_version_facade": "1.14.0",
   "artifact_purpose": "Local prerelease validation wheel; no release version or tag created",
-  "build_parent_commit": "5f7dfe7d0bfa772dc734d4b1b99972335146dd43",
-  "production_fix_commit": "eae7922a53332cb064c2cf0fec53e5d000889e40",
+  "build_parent_commit": "637e5b82d755e308910e1532a88013a125c7f249",
+  "production_fix_commit": "7b3c4137d0c9358b9a83dd8212dc9be1a4f26d88",
   "production_patch_scope": "git diff BUILD_PARENT PRODUCTION_FIX -- crates python",
-  "production_patch_sha256": "539898fc3e2a463b301dc188bc814e9e97f224aad7bfcd27431b943aad0efc03",
+  "production_patch_sha256": "fe263f7cfffb85e78f5f51067a789b1a122086dcd63d4af022626b2dcd108580",
   "reference_sympy": "1.14.0",
   "retained_reference_results": {
     "devito": "The full reference suite remains unqualified. Its previous immutable wheel identity is retained; no native run occurred."
@@ -20,7 +20,7 @@
     "symox/_compat.py": "550035e00c919085317f9a9634592efbc732db92edd1816e81eb3dca644c3640",
     "symox/_concrete.py": "bc6997361c0feb2574ca458d900843e9449858fea5cc8ade26ca0a3def2e9ba1",
     "symox/_constructor_methods.py": "af29c35888d82c93e34f7d64cc9602af4c41bf278061535e19f3cd129b7be6e9",
-    "symox/_core.abi3.so": "0f04a534de79e42faeb671636398ea3e5f75eaef2fb43298bc9f846621a47f88",
+    "symox/_core.abi3.so": "a3506c0628e77415f339e4620302964535bea4563c8b78df821aae5a6ab1370a",
     "symox/_cse_matrices.py": "fd3cab517ddbecf7c0372719d719418cd46509c043a126358b0bdc3f2ab8a686",
     "symox/_differentiation.py": "01243fa996e518d9ed5ce14767b385a39bda8bcdce6e521b1de5d19ebb322746",
     "symox/_dispatch_arguments.py": "15fb2a339bae0baebaa53a27f72b1f84c408bae0e2e60fed354d7bfe7382190b",
@@ -43,14 +43,14 @@
     "symox/_matrixexpr_algebra.py": "003f62e9956a36a6e430e906fc89c1f602bc3f4e141cf8db61bc7b619728a3a9",
     "symox/_matrixexpr_methods.py": "cdcb1941d6d3f84a1d2012f0bb45739e629a04e110a96938188fb29db2c7d3c2",
     "symox/_numeric_float.py": "b61eee787524252ead805fb81c90e42fa32f1e6adcd2b4e1c7d6e527cf4cad2e",
-    "symox/_numeric_recognition.py": "a65bb10b54d1e086ff4cf10e3f775be65b3617a3901475ba0abe7ca0b70a47a5",
+    "symox/_numeric_recognition.py": "977d3ede75a75d27ced7b1ea2535001c649d844fea9d9192804c75e8e34ffa9c",
     "symox/_operation_counts.py": "91ff402952222dea1dd99dba8339ec97d89eb8eb21f24a5f92eb19d6a4f7b51d",
     "symox/_ordered_keys.py": "067ad2561ecd9bbc80c005b8765d2ad6f15a57f2a7331d6f2430437c10843cc9",
     "symox/_polar.py": "1de02888f697e04a70bbd04e5036e5c972a1323a833e1a9f38e03533587db309",
     "symox/_poly_constructor.py": "2d2861d2abd77d690da3839930547be0a7fb3319ebe2e2e090d2b1777d886642",
     "symox/_polysolve.py": "b15687cae2bda69f040122da82afb4fdde7888baa3a887537e8a3282ec5ac865",
     "symox/_public_calculus.py": "068413c27dec1651060568e984c5b182c84a2bd9b81994fdc6f3ccc93d1dfb2f",
-    "symox/_public_core.py": "d416486c0ca52de8e61fa37e1ea12847d636b71cb5ad6900e96449a86c6665ee",
+    "symox/_public_core.py": "13e806dca6391a29eebdf81dab04039c1c3055b2e45426b1532700c8a2ecfaa3",
     "symox/_public_matrix.py": "1f6f0ecb8076b9ad2e952c4097ebad92bb632cfc1fbbf5231a319facecb0c6bc",
     "symox/_public_roots.py": "dbd3b80f863542bae58f86f1e6d1b6770384afc136a41113a7c41369b5c7dba4",
     "symox/_public_solvers.py": "411daef576f7a2258544134ba85f6991b93dbf8d5c8a5961c98a12f40649cb19",
@@ -67,7 +67,7 @@
     "symox/_sparse_structural.py": "1d6b770a579d6541b6cfc860f482e3bab2983eefd0ec80f442dfe88cc20610d4",
     "symox/_special_extensions.py": "4c64add58d81780192f7b3f24604bbcf20df50fa3ee99c6a7262d7476c10584a",
     "symox/_structural_queries.py": "d1a458372a6e13bcc781481acacb0df1546be455a813e2e6a2be759c416dfad7",
-    "symox/_sympify.py": "79ef8738694f2cdd0fcaab2c2a5e68e272e3803c2203f931f8502da4cd88926f",
+    "symox/_sympify.py": "ffebec6e2b5c75345efa5f6c2711bd36d7c3a39c1e8f336f145c23bd6837eb74",
     "symox/_transforms.py": "9d481f0c8ddb47b8b3739fefac83363aa31f3863c2625854265dc71e2d2dcb66",
     "symox/_tuple_protocol.py": "2770ca68edd2ac9ec34eee0356de24aacc2e0f6f97e8f65df743ed7e04ef27d4",
     "symox/abc.py": "d9dbacb23e2fdef855620aecc34d625770ceb2ff33df7fe7817eed45fc2f3b5a",
@@ -617,5 +617,5 @@
     "symox/vector/scalar.py": "bf41a3702fb641fd3a4cf3b8760e386a61f0a0c320dbb776500500e39d42cc16",
     "symox/vector/vector.py": "928e96192ec4cc7dda4d8dbd17d73557eaa36611e4853180866c2517c9d81e37"
   },
-  "wheel_sha256": "b30aece0c7a28c74ac54b3adbe4c2193c6dff322e190d2fdebf98386d0bef922"
+  "wheel_sha256": "601e12be5a2263c7c392a858c6f82717ca781ffadc706f420452df34d2be2377"
 }

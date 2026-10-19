@@ -1,7 +1,6 @@
 {
   "blockers": [
     "cadabra",
-    "chempy",
     "devito",
     "devito_symbolic",
     "einsteinpy",
@@ -20,8 +19,8 @@
   "reference_version": "1.14.0",
   "statuses": {
     "excluded_reference_requirement": 1,
-    "native_failure": 11,
-    "native_suite_passes": 8,
+    "native_failure": 10,
+    "native_suite_passes": 9,
     "no_sympy_code_exercised": 1,
     "publication_not_a_testable_distribution": 2,
     "reference_not_clean": 3

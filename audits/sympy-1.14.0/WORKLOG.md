@@ -1,5 +1,65 @@
 # Autonomous parity audit worklog
 
+## Wildcard predicates and ChemPy checkpoint — 2026-10-19
+
+Production fixes: `7b3c4137d0c9358b9a83dd8212dc9be1a4f26d88`. Candidate wheel identity,
+source hashes and exact validation commands are recorded in
+`audits/downstream/candidate.json` and `audits/downstream/validation.json`.
+
+ChemPy 0.10.2 now reproduces all **573 reference-passing cases** with native
+Symox. Both runs retain the same 28 upstream skips and five unexpected passes;
+the skips remain outside the demonstrated scope. No upstream assertion was
+modified. The isolated importer blocks execution of installed reference SymPy
+code, and every passing reference node ID is reproduced.
+
+Native Wild symbols own their ordered Python predicate tuples, use them in
+identity comparisons and retain them across expression and matrix pickle
+round trips. The Python constructor signature and exclusion metadata remain
+available. Predicates run after exclusions, before each new binding. Rejected
+candidates participate in backtracking rather than rejecting only the first
+completed match. Free commutative wildcards can absorb groups and neutral
+elements; canonical reciprocal coefficients use exact arithmetic. Callback
+exceptions propagate unchanged through match, matches, replace, find and
+collect. Non-callable predicates fail when evaluated, and unhashable predicate
+bindings retain Python hash errors. Commutative partitions can require
+exponential search. General matching completeness, comparative complexity,
+stateful predicates, exotic unhashable callable arithmetic and the nominal
+symbolic subclass hierarchy remain uncertified.
+
+ChemPy also required gcd/lcm sequence inputs to accept native symbolic Tuple
+containers. Reductions start with the first nonempty input, preserving single
+negative terms and rational LCM denominators; conversion errors propagate.
+Sequence options and general coefficient-domain coverage remain open.
+Symbolic Dict values retain mapping identity during sympification and expose
+atom traversal. nsimplify takes the exact rationalization path for expressions
+with free symbols, including mapping keys and values, before numerical
+recognition. Full irrational recognition and all container protocols remain
+separate parity obligations.
+
+The optimized complete internal suite passed **29,170 tests**,
+with 5 documented skips, no failures and no expected
+failures. All **383 extension tests** passed with required
+JAX/PyTorch CUDA, Slang runtime and AdaptiveCpp OpenMP execution. Fresh Rust
+checks passed **507 unit tests and five doctests**, with one
+existing ignored test; workspace compilation and correctness Clippy checks
+passed. Focused checks passed 1,004 cases on Python 3.10,
+949 on Python 3.12, 149
+predicate/container/legacy-matching regressions and
+1,047 restricted-evaluation and scalar protocol
+checks. Audit harness tests passed all 14 cases.
+
+All final native downstream runs use this same optimized wheel. The nine
+passing selections are chempy, haarpy, nrpylatex, pyneqsys, pyodesys, sfepy, spyder, yt, yt_main. Upstream skips and expected
+failures remain outside those results. Full Devito retains its previous
+unclean reference and original candidate identity; no full native Devito run
+is eligible. The featured replacement gate remains false: ten native
+integrations fail and three reference suites remain unqualified. Latexexpr
+exercises no symbolic integration. The remaining blockers are recorded in
+`audits/downstream/readiness.json` and `docs/downstream-integration.md`.
+Historical global parity snapshots are not recertified for this candidate.
+Universal equivalence remains uncertified, and the user's Symox >= SymPy
+requirement remains unmet.
+
 ## Function and numerical protocols checkpoint — 2026-10-19
 
 Production fixes: `eae7922a53332cb064c2cf0fec53e5d000889e40`. The rebuilt wheel and all

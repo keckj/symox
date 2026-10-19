@@ -18,7 +18,7 @@ Local regression checks, their exact scope and the production fix commit are rec
 | Project | Version | SymPy 1.14 reference | Native Symox | Outcome |
 |---|---|---|---|---|
 | [Cadabra](../audits/downstream/results/cadabra.json) | 2.6.0.dev | 1 pass | 0 pass, 1 error | Native incompatibility |
-| [ChemPy](../audits/downstream/results/chempy.json) | 0.10.2 | 573 pass, 28 skip, 5 xpass | 561 pass, 12 fail, 28 skip, 5 xpass | Native incompatibility |
+| [ChemPy](../audits/downstream/results/chempy.json) | 0.10.2 | 573 pass, 28 skip, 5 xpass | 573 pass, 28 skip, 5 xpass | Selected tests pass |
 | [Devito](../audits/downstream/results/devito.json) | 4.8.23 | 1975 pass, 6 fail, 5 skip, 2 xfail | not run/completed | Reference fails; native not run |
 | [Devito (symbolic algorithms)](../audits/downstream/results/devito_symbolic.json) | 4.8.23 | 136 pass | startup failure (exit 4) | Native incompatibility |
 | [EinsteinPy](../audits/downstream/results/einsteinpy.json) | 0.4.0 | 287 pass, 9 xfail | 0 pass, 14 collection error | Native incompatibility |
@@ -64,31 +64,7 @@ Script ended execution due to an uncaught exception.
 
 Upstream test tree selected in the pinned manifest.
 
-```text
-@requires(parsing_library, units_library)
-    def test_Reaction__check_integral():
-
->       Reaction(*balance_stoichiometry({"H2", "O2"}, {"H2O"}))
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-chempy/tests/test_chemistry.py:213:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-chempy/chemistry.py:1517: in balance_stoichiometry
-    wi = Wild("wi", properties=[lambda k: not k.has(Symbol)])
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-cls = <class 'symox._compat.Wild'>, name = 'wi', exclude = ()
-properties = [<function balance_stoichiometry.<locals>.<lambda> at 0x7f8ac2dba660>]
-assumptions = {}
-
-    def __new__(cls, name, exclude=(), properties=(), **assumptions):
->       return _core.Wild(name,exclude,properties,**assumptions)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       NotImplementedError: Wildcard predicate properties are not implemented
-
-../../../envs/chempy/lib/python3.12/site-packages/symox/_compat.py:160: NotImplementedError
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### Devito
 
@@ -288,7 +264,7 @@ self = <optlang.tests.test_container.ContainerTestCase testMethod=test_change_ob
 src/optlang/tests/test_container.py:190:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <optlang.interface.Model object at 0x7fbdfd648f80>, stuff = _blub
+self = <optlang.interface.Model object at 0x7fb2e40e50a0>, stuff = _blub
 sloppy = False
 
     def add(self, stuff, sloppy=False):
@@ -326,7 +302,7 @@ src/optlang/interface.py:1399: TypeError
 Upstream test tree selected in the pinned manifest.
 
 ```text
-self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7f9e51d59760>
+self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fa6a9ec54f0>
 
     def setup_method(self):
 
@@ -348,7 +324,7 @@ pydy/system.py:653: in _Kane_constant_symbols
                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <pydy.system.System object at 0x7f9e51d7a030>
+self = <pydy.system.System object at 0x7fa6aa62c230>
 
     def _Kane_inlist_insyms(self):
         """TODO temporary."""
@@ -429,13 +405,13 @@ All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath tes
    1 of   3 in sage.interfaces.sympy.check_all
    1 of   3 in sage.interfaces.sympy.check_expression
    2 of   5 in sage.interfaces.sympy.sympy_init
-    [319 tests, 182 failures, 3.34s wall]
+    [319 tests, 182 failures, 1.76s wall]
 ----------------------------------------------------------------------
 python3 -m sage.doctest --warn-long 5.0 --random-seed=0 envs/sage-octave/lib/python3.12/site-packages/sage/interfaces/sympy.py  # 182 doctests failed
 ----------------------------------------------------------------------
-Total time for all tests: 3.4 seconds
-    cpu time: 2.0 seconds
-    cumulative wall time: 3.3 seconds
+Total time for all tests: 1.8 seconds
+    cpu time: 1.8 seconds
+    cumulative wall time: 1.8 seconds
 Features detected for doctesting:
 
 ```
