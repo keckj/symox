@@ -1,8 +1,22 @@
 """Extensible Python, NumPy and arbitrary-precision expression printers."""
+import ast
 import keyword
 from .cxx import CXX17CodePrinter
 from .precedence import PRECEDENCE
 from ._nodes import NodePrinter
+
+
+def _indexed_symbol_name(name):
+    """Recognize the array references used by downstream symbolic printers."""
+    try:
+        expression=ast.parse(name, mode='eval').body
+    except (SyntaxError, ValueError):
+        return False
+    if not isinstance(expression, ast.Subscript):
+        return False
+    allowed=(ast.Subscript,ast.Name,ast.Load,ast.Tuple,ast.Constant,ast.Slice,
+             ast.UnaryOp,ast.USub,ast.UAdd)
+    return all(isinstance(node,allowed) for node in ast.walk(expression))
 
 
 class AbstractPythonCodePrinter(NodePrinter,CXX17CodePrinter):
@@ -12,13 +26,14 @@ class AbstractPythonCodePrinter(NodePrinter,CXX17CodePrinter):
         mapping=self._settings.get('symbol_names',{})
         if expr in mapping:return mapping[expr]
         name=expr.name
-        if not name.isidentifier() or keyword.iskeyword(name):raise ValueError('invalid Python identifier: '+name)
+        if (not name.isidentifier() or keyword.iskeyword(name)) and not _indexed_symbol_name(name):
+            raise ValueError('invalid Python identifier: '+name)
         return name
     def _print_Dummy(self,expr):return self._settings.get('symbol_names',{}).get(expr,expr.name+'_'+str(expr.dummy_index))
     def _print_Rational(self,expr):return '('+str(expr.p)+'/'+str(expr.q)+')'
     def _print_Float(self,expr):return str(expr)
     def _print_Pow(self,expr):
-        return '('+self._print(expr.base)+'**'+self._print(expr.exp)+')'
+        return '('+self.parenthesize(expr.base,PRECEDENCE['Pow'])+'**'+self.parenthesize(expr.exp,PRECEDENCE['Pow'])+')'
     def _print_BooleanTrue(self,expr):return 'True'
     def _print_BooleanFalse(self,expr):return 'False'
     def _print_ImaginaryUnit(self,expr):return '1j'

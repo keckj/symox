@@ -511,6 +511,8 @@ class _MutableMethod:
 
 def install(immutable_facade, sparse_base, mutable_sparse):
     namespace = globals()
+    Matrix.__array__ = _matrix_array
+    sparse_base.__array__ = _matrix_array
     for name in _INSTANCE:
         if not hasattr(Matrix, name):
             setattr(Matrix, name, namespace[name])
@@ -558,6 +560,13 @@ def list2numpy(l, dtype=object):
     for i, s in enumerate(l):
         a[i] = s
     return a
+
+
+def _matrix_array(self, dtype=object, copy=None):
+    """Expose explicit matrix shape and exact entries to NumPy consumers."""
+    if copy is not None and not copy:
+        raise TypeError("Cannot implement copy=False when converting Matrix to ndarray")
+    return matrix2numpy(self, dtype=dtype)
 
 
 def matrix2numpy(m, dtype=object):
