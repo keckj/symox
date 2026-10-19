@@ -2229,3 +2229,6 @@ from ._function_types import application_type as _function_application_type
 
 from ._distribution_methods import install as _install_distribution_methods
 _install_distribution_methods(globals())
+
+from ._matrix_subclasses import install as _install_matrix_subclasses
+_install_matrix_subclasses()
