@@ -1927,6 +1927,9 @@ def _expr_rewrite(self, *args, deep=True, **hints):
     pattern, rule = args[:-1], args[-1]
     if pattern and isinstance(pattern[0], (list, tuple, set, frozenset)):
         pattern = tuple(pattern[0])
+    if self.is_Piecewise and _rewrite_name(rule) == 'ITE' and (
+            not pattern or any(_rewrite_name(p) == 'Piecewise' for p in pattern)):
+        return _core._boolean_piecewise_to_ite(self)
     return _core._rewrite(self, [_rewrite_name(p) for p in pattern], _rewrite_name(rule), deep)
 
 

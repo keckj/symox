@@ -38,9 +38,10 @@ class _TupleView(tuple):
 class ExprCondPair(_TupleView):
     """Presentation pair for the native flat Piecewise argument storage."""
     def __new__(cls, expr, cond):
-        from . import sympify, true, false, Piecewise, piecewise_fold, ITE
+        from . import true, false, Piecewise, piecewise_fold, ITE
+        from .core.basic import as_Basic
         from .logic.boolalg import Boolean
-        expr = sympify(expr, strict=True)
+        expr = as_Basic(expr)
         if cond == True:
             cond = true
         elif cond == False:
@@ -50,7 +51,7 @@ class ExprCondPair(_TupleView):
             if isinstance(cond, Piecewise):
                 cond = cond.rewrite(ITE)
         if not isinstance(cond, Boolean):
-            raise TypeError('Second argument must be a Boolean, not `%s`' % type(cond).__name__)
+            raise TypeError('Second argument must be a Boolean, not `%s`' % getattr(cond, 'class_name', type(cond).__name__))
         return tuple.__new__(cls,(expr,cond))
 
     @property

@@ -622,6 +622,39 @@ pub fn equivalent(args: Vec<Expr>) -> Expr {
     eval_equivalent(args)
 }
 
+/// Native nodes belonging to the Boolean category (distinct from is_Boolean).
+pub fn is_boolean_category(expression: &Expr) -> bool {
+    matches!(expression.kind(), Kind::Sym(_) | Kind::Rel(..) | Kind::Bool(_)
+        | Kind::Func(Func::Logic(_) | Func::Predicate(_) | Func::AppliedPredicate
+            | Func::Set(crate::sets::SetOp::Contains), _))
+}
+
+/// Convert Boolean-valued Piecewise expressions with an explicit default.
+/// Missing coverage or unsupported branches retain the caller's fallback.
+pub fn boolean_piecewise_to_ite(expression: &Expr) -> Option<Expr> {
+    fn convert(expression: &Expr, depth: usize,
+        memo: &mut rustc_hash::FxHashMap<usize, Option<Expr>>) -> Option<Expr> {
+        if let Some(value) = memo.get(&expression.dag_id()) { return value.clone(); }
+        if depth > 128 || memo.len() >= 100_000 { return None; }
+        let result = if let Kind::Piecewise(pieces) = expression.kind() {
+            let last = pieces.iter().position(|(_, condition)| matches!(condition.kind(), Kind::Bool(true)))?;
+            let mut result = convert(&pieces[last].0, depth+1, memo)?;
+            for (value, condition) in pieces[..last].iter().rev() {
+                let value = convert(value, depth+1, memo)?;
+                let condition = convert(condition, depth+1, memo)?;
+                result = ite(&condition, &value, &result);
+            }
+            Some(result)
+        } else if is_boolean_category(expression) { Some(expression.clone()) } else { None };
+        memo.insert(expression.dag_id(), result.clone());
+        result
+    }
+    if !matches!(expression.kind(), Kind::Piecewise(_)) {
+        return is_boolean_category(expression).then(|| expression.clone());
+    }
+    convert(expression, 0, &mut rustc_hash::FxHashMap::default())
+}
+
 /// `ITE(c, t, e)`: if-then-else.
 pub fn ite(c: &Expr, t: &Expr, e: &Expr) -> Expr {
     match c.kind() {

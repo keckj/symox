@@ -162,7 +162,10 @@ def test_structural_identity_scalar_and_numpy_interop():
     same(a/2, sp.sqrt(2)/2)
     same(2/a, sp.sqrt(2))
     same(a**2, 2)
-    assert sm.sympify(a) == root
+    reference = sp.AlgebraicNumber(sp.sqrt(2))
+    assert sp.sympify(reference) is reference
+    assert sm.sympify(a) is a
+    assert sm.sympify(a).as_expr() == root
     assert sm.Poly(x+a,x,extension=a).degree() == 1
     same(np.dot(np.array([a,1],dtype=object),np.array([a,2],dtype=object)),4)
     zero=a.field_element([0])

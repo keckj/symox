@@ -104,6 +104,33 @@ def test_condition_pair_signature_pickle_and_native_structure():
     assert pair.xreplace({x: y}) == ExprCondPair(y, y > 0)
 
 
+@pytest.mark.parametrize('evaluate', [True, False])
+def test_boolean_piecewise_conditions_convert_without_losing_index_domains(evaluate):
+    i = sx.Symbol('i', integer=True)
+    j = sp.Symbol('i', integer=True)
+    condition = sx.Piecewise((sx.Eq(i+3, 0), i < 0), (sx.Eq(i, 0), True))
+    oracle = sp.Piecewise((sp.Eq(j+3, 0), j < 0), (sp.Eq(j, 0), True))
+    pair = ExprCondPair(2, condition)
+    assert isinstance(pair.cond, Boolean)
+    expected = RefPair(2, oracle)
+    for position in range(-8, 8):
+        assert pair.cond.subs(i, position).to_sympy() == expected.cond.subs(j, position)
+    outer = sx.Piecewise((2, condition), (0, True), evaluate=evaluate)
+    assert outer.func(*outer.args, evaluate=evaluate) == outer
+    assert condition.rewrite(sx.ITE) == pair.cond
+    with pytest.raises(TypeError):
+        sx.Piecewise((1, i > 0), (2, True)).rewrite(sx.ITE)
+
+
+@pytest.mark.parametrize('expr', ['x', [], None])
+def test_condition_pair_rejects_non_basic_values_with_reference_error_type(expr):
+    with pytest.raises(TypeError) as actual:
+        ExprCondPair(expr, True)
+    with pytest.raises(TypeError) as expected:
+        RefPair(expr, True)
+    assert type(actual.value) is type(expected.value)
+
+
 @pytest.mark.parametrize('value', ['x', [], None, 2, (1, 2)])
 def test_basic_conversion_is_strict(value):
     from sympy.core.basic import as_Basic as ref_as_basic

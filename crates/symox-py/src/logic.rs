@@ -35,6 +35,18 @@ fn exprs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     args.iter().map(|a| to_expr(&a)).collect()
 }
 
+#[pyfunction]
+fn _boolean_piecewise_to_ite(expression: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    let expression = to_expr(expression)?;
+    if let Kind::Piecewise(pieces) = expression.kind() {
+        if pieces.iter().any(|(value, _)| !lg::is_boolean_category(value) && !matches!(value.kind(), Kind::Piecewise(_))) {
+            return Err(PyTypeError::new_err("Expecting Boolean or bool branches in a Piecewise rewrite"));
+        }
+    }
+    lg::boolean_piecewise_to_ite(&expression).map(wrap).ok_or_else(||
+        PyNotImplementedError::new_err("Boolean Piecewise rewrite requires complete conditions and supported Boolean branches"))
+}
+
 fn boolean_arg(o: &Bound<'_, PyAny>) -> PyResult<Expr> {
     // Python ints 0/1 behave like False/True (SymPy's `as_Boolean`)
     if let Ok(i) = o.extract::<i64>() {
@@ -743,6 +755,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         wrap_pyfunction!(_sat_dimacs, m)?,
         wrap_pyfunction!(truth_table, m)?,
         wrap_pyfunction!(atoms_logic, m)?,
+        wrap_pyfunction!(_boolean_piecewise_to_ite, m)?,
         wrap_pyfunction!(py_interval, m)?,
         wrap_pyfunction!(py_finite_set, m)?,
         wrap_pyfunction!(py_union, m)?,

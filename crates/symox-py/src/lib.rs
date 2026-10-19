@@ -1459,9 +1459,7 @@ impl PyExprNode {
     }
     #[getter]
     fn _is_boolean_category(&self) -> bool {
-        matches!(self.e.kind(), Kind::Sym(_) | Kind::Rel(..) | Kind::Bool(_)
-            | Kind::Func(Func::Logic(_) | Func::Predicate(_) | Func::AppliedPredicate
-                | Func::Set(symox::sets::SetOp::Contains), _))
+        symox::logic::is_boolean_category(&self.e)
     }
     #[getter]
     fn is_Symbol(&self) -> bool {
@@ -3057,7 +3055,8 @@ fn py_piecewise(pieces: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<PyExpr>
         if t.len() != 2 {
             return Err(PyTypeError::new_err("Piecewise expects pairs of expression and condition"));
         }
-        v.push((t[0].clone(),t[1].clone()));
+        let condition = symox::logic::boolean_piecewise_to_ite(&t[1]).unwrap_or_else(|| t[1].clone());
+        v.push((t[0].clone(),condition));
     }
     Ok(wrap(if evaluate { relational::piecewise(v) } else { Expr::from_unevaluated_kind(Kind::Piecewise(v)) }))
 }

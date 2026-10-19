@@ -165,6 +165,7 @@ pub fn ge(a: &Expr, b: &Expr) -> Expr {
 pub fn piecewise(pieces: Vec<(Expr, Expr)>) -> Expr {
     let mut out: Vec<(Expr, Expr)> = Vec::with_capacity(pieces.len());
     for (e, c) in pieces {
+        let c = crate::logic::boolean_piecewise_to_ite(&c).unwrap_or(c);
         match c.kind() {
             Kind::Bool(false) => continue,
             Kind::Bool(true) => {

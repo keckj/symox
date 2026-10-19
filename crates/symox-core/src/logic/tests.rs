@@ -170,3 +170,22 @@ fn fast_ordering_agrees_with_sort_key() {
         }
     }
 }
+#[test]
+fn complete_boolean_piecewise_conditions_are_logical_nodes() {
+    let condition = crate::Expr::symbol("condition");
+    let yes = crate::Expr::symbol("yes");
+    let no = crate::Expr::symbol("no");
+    let piecewise = crate::relational::piecewise(vec![
+        (yes.clone(), condition.clone()), (no.clone(), crate::Expr::boolean(true)),
+    ]);
+    assert!(!super::is_boolean_category(&piecewise));
+    let expected = super::ite(&condition, &yes, &no);
+    assert_eq!(super::boolean_piecewise_to_ite(&piecewise), Some(expected.clone()));
+    let outer = crate::relational::piecewise(vec![
+        (crate::Expr::one(), piecewise), (crate::Expr::zero(), crate::Expr::boolean(true)),
+    ]);
+    let crate::Kind::Piecewise(branches) = outer.kind() else { panic!("held numeric branches expected"); };
+    assert_eq!(branches[0].1, expected);
+    let incomplete = crate::relational::piecewise(vec![(yes, condition)]);
+    assert_eq!(super::boolean_piecewise_to_ite(&incomplete), None);
+}

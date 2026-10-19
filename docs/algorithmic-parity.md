@@ -168,12 +168,17 @@ validate their expression/condition arguments and expose the reference
 `(expr, cond)` signature, typed equality, reconstruction and pickle behavior.
 `Basic` is now a structural container and category, rather than an alias for
 scalar `Expr`. Virtual registrations include native scalar nodes, symbolic
-matrices and immutable explicit matrices. These category checks do not change
-the concrete native Python MRO or certify every Basic method. Algebra involving
+matrices and immutable explicit matrices. Sympification retains an existing
+AlgebraicNumber's exact field metadata, as in the reference. These category
+checks do not change the concrete native Python MRO or certify every Basic
+method. Algebra involving
 direct formal Boolean/Basic applications remains unsupported by the scalar
 kernel; mixed simultaneous matrix/scalar substitution remains explicit
 `NotImplementedError`. General nominal inheritance, printer settings and
-matrix substitution patterns remain open.
+matrix substitution patterns remain open. Boolean-valued Piecewise conditions
+with an explicit default convert to ITE before native branch storage; scalar
+rewriting uses the same conversion. Exhaustiveness proofs without a default
+remain an open obligation.
 
 The explicit `NonElementaryIntegral` constructor builds a held native integral
 and retains its marker for reconstruction, pickle and the covered root
