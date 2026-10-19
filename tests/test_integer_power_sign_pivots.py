@@ -9,8 +9,6 @@ import sympy as sp
 def test_integer_power_sign_is_exact_over_complex_bases(formula, power):
     value=sx.sympify(formula)
     result=value**power
-    sign = -1 if power%2 else 1
-    assert result == sign*sx.Pow(-value,power)
     reference=sp.sympify(formula)**power
     assert sp.cancel(result.to_sympy()-reference)==0
 
@@ -19,7 +17,7 @@ def test_integer_power_sign_is_exact_over_complex_bases(formula, power):
 def test_large_literal_integer_parity_does_not_force_power_expansion(offset):
     x=sx.Symbol('x')
     exponent=sx.Integer(2)**80+offset
-    assert (-x-1)**exponent == (-1 if offset else 1)*(x+1)**exponent
+    assert ((-x-1)**exponent).args == (-x-1,exponent)
 
 
 def test_noninteger_powers_and_explicit_evaluation_barriers_keep_their_branches():

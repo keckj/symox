@@ -717,7 +717,28 @@ impl Polynomial {
             let(q,r)=recursive_division(&a.rep,&b.rep,0,&|c|c.is_integer());
             return Ok((a.with_rep(q).into(),a.with_rep(r).into()));
         }
-        let(q,r)=self.base.div(&o.base)?;Ok((q.into(),r.into()))
+        match self.base.div(&o.base) {
+            Ok((q,r))=>Ok((q.into(),r.into())),
+            Err(error) if auto && matches!(&error,PolyError::Unsupported(message) if message.contains("non-polynomial quotient"))=>{
+                // Inferred radical coefficients can live in the legacy
+                // polynomial view without an explicit extension=True request.
+                // Their quotient needs the existing exact number-field engine.
+                let mut parameters=self.base.domain_gens().to_vec();
+                for parameter in o.base.domain_gens() {
+                    if !parameters.contains(parameter) {parameters.push(parameter.clone());}
+                }
+                if parameters.is_empty() || parameters.iter().any(|p|!crate::traverse::free_symbols(p).is_empty()) {
+                    return Err(error);
+                }
+                let Ok(field)=super::algebraic::NumberField::from_generators(&parameters) else {return Err(error)};
+                let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
+                let a=super::algebraic::AlgebraicPoly::from_expr(&self.as_expr(),&gens,field.clone())?;
+                let b=super::algebraic::AlgebraicPoly::from_expr(&o.as_expr(),&gens,field)?;
+                let(q,r)=a.div(&b)?;
+                Ok((q.into(),r.into()))
+            },
+            Err(error)=>Err(error),
+        }
     }
     pub fn pdiv(&self,o:&Self)->PResult<(Self,Self)>{
         if let Some((a,b))=self.checked_algebraic_pair(o)?{

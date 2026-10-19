@@ -18,6 +18,16 @@ class DomainMatrixAlgorithms:
             numerator, denominator, pivots = self.rref_den(method='FF')
             return numerator.to_field() / denominator, pivots
         matrix = self.to_field()
+        if matrix.domain.is_EX or matrix.domain.is_EXRAW:
+            # The native expression kernel has three-valued zero tests and
+            # exact pivot simplification. Raw coefficient equality alone can
+            # miss an identity and divide by a zero symbolic pivot.
+            reduced,pivots=matrix.to_Matrix().rref(normalize_last=False)
+            rows=[[matrix.domain.convert(value) for value in row]
+                  for row in reduced.tolist()]
+            for index in range(len(pivots),self.shape[0]):
+                rows[index]=[matrix.domain.zero]*self.shape[1]
+            return type(self)(rows,self.shape,matrix.domain,fmt=self._fmt),pivots
         domain, rows = matrix.domain, matrix.to_list()
         m, n = self.shape
         pivots = []
