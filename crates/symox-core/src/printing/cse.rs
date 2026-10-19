@@ -17,15 +17,11 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
+use num_bigint::BigUint;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::expr::{Expr, Kind};
 use crate::ops::{add, mul, neg, pow};
-
-/// Sums/products with more arguments than this are processed in storage
-/// order instead of SymPy's `ordered()` order (only the numbering of the
-/// extracted symbols depends on it).
-const CANONICAL_ORDER_MAX_ARGS: usize = 64;
 
 /// Options of [`cse_with`].
 #[derive(Clone, Debug)]
@@ -41,11 +37,19 @@ pub struct CseOptions {
     /// Extra names the generated symbols must not take (e.g. function
     /// arguments that do not appear in the expressions).
     pub excluded_names: Vec<String>,
+    /// Sort rebuilt sums/products with the reference node-count/key order.
+    pub canonical_order: bool,
 }
 
 impl Default for CseOptions {
     fn default() -> Self {
-        CseOptions { symbol_prefix: "x".into(), optimizations: true, ignore: vec![], excluded_names: vec![] }
+        CseOptions {
+            symbol_prefix: "x".into(),
+            optimizations: true,
+            ignore: vec![],
+            excluded_names: vec![],
+            canonical_order: true,
+        }
     }
 }
 
@@ -56,7 +60,10 @@ pub fn cse(exprs: &[Expr]) -> (Vec<(Expr, Expr)>, Vec<Expr>) {
 
 /// `cse` with options.
 pub fn cse_with(exprs: &[Expr], opts: &CseOptions) -> (Vec<(Expr, Expr)>, Vec<Expr>) {
-    let mut st = Cse::default();
+    let mut st = Cse {
+        canonical_order: opts.canonical_order,
+        ..Default::default()
+    };
     if opts.optimizations {
         st.opt_cse(exprs);
     }
@@ -93,6 +100,8 @@ struct Cse {
     args_cache: FxHashMap<Expr, Rc<[Expr]>>,
     unevals: Vec<Uneval>,
     opt_subs: FxHashMap<Expr, usize>,
+    nodes: FxHashMap<Expr, BigUint>,
+    canonical_order: bool,
 }
 
 /// SymPy's `could_extract_minus_sign` (ties of a sum are broken with
@@ -156,7 +165,7 @@ impl Cse {
         }
         let a: Rc<[Expr]> = match e.kind() {
             Kind::Derivative(..) => Rc::from(Vec::new()),
-            _ => Rc::from(e.args()),
+            _ => Rc::from(crate::traverse::ordered_args(e)),
         };
         self.args_cache.insert(e.clone(), a.clone());
         a
@@ -451,25 +460,56 @@ impl Cse {
     fn ordered_children(&mut self, v: &Val) -> Vec<Val> {
         let mut ch = self.children(v);
         if let Val::E(e) = v {
-            // (very wide sums/products keep their storage order: the
-            // canonical order only affects the numbering of the symbols)
-            if ch.len() <= CANONICAL_ORDER_MAX_ARGS
+            if self.canonical_order
                 && !self.opt_subs.contains_key(e)
                 && matches!(e.kind(), Kind::Add(..) | Kind::Mul(..))
             {
-                // SymPy's `ordered(args)`: default_sort_key order
-                let mut keyed: Vec<(Rc<super::order::SortKey>, Val)> = ch
+                // ordered() first compares expanded node counts, then keys.
+                let mut keyed: Vec<(BigUint, Rc<super::order::SortKey>, Val)> = ch
                     .into_iter()
                     .map(|v| match &v {
-                        Val::E(x) => (self.keys.key(x), v),
+                        Val::E(x) => (self.node_size(x), self.keys.key(x), v),
                         Val::U(_) => unreachable!(),
                     })
                     .collect();
-                keyed.sort_by(|a, b| a.0.cmp(&b.0));
-                ch = keyed.into_iter().map(|(_, v)| v).collect();
+                keyed.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+                ch = keyed.into_iter().map(|(_, _, v)| v).collect();
             }
         }
         ch
+    }
+
+    // Count the mathematical tree using its DAG, with no depth/size cutoff.
+    // Big counts distinguish shared trees larger than a machine counter.
+    fn node_size(&mut self, expression: &Expr) -> BigUint {
+        let mut pending = vec![(expression.clone(), false)];
+        while let Some((node, expanded)) = pending.pop() {
+            if self.nodes.contains_key(&node) {
+                continue;
+            }
+            let children = match node.kind() {
+                Kind::Derivative(body, _) => vec![body.clone()],
+                _ => self.args(&node).to_vec(),
+            };
+            if !expanded {
+                pending.push((node, true));
+                pending.extend(children.into_iter().rev().map(|child| (child, false)));
+                continue;
+            }
+            let size = if let Kind::Derivative(body, variables) = node.kind() {
+                variables
+                    .iter()
+                    .fold(self.nodes[body].clone(), |size, (_, order)| {
+                        size + BigUint::from(*order)
+                    })
+            } else {
+                children
+                    .iter()
+                    .fold(BigUint::from(1u32), |size, child| size + &self.nodes[child])
+            };
+            self.nodes.insert(node, size);
+        }
+        self.nodes[expression].clone()
     }
 
 }
@@ -626,6 +666,24 @@ mod tests {
     use super::*;
     use crate::parser::parse_str;
     use crate::subs::xreplace;
+
+    #[test]
+    fn ordering_counts_shared_trees_beyond_machine_size() {
+        let head = crate::expr::Func::Undefined(crate::expr::UndefinedFunction::new(
+            "f",
+            crate::Assumptions::NONE,
+            None,
+        ));
+        let mut expression = Expr::symbol("x");
+        for _ in 0..80 {
+            expression = crate::functions::func(head.clone(), vec![expression.clone(), expression]);
+        }
+        let mut state = Cse::default();
+        assert_eq!(
+            state.node_size(&expression),
+            (BigUint::from(1u32) << 81usize) - BigUint::from(1u32)
+        );
+    }
 
     fn back(reps: &[(Expr, Expr)], e: &Expr) -> Expr {
         let mut r = e.clone();

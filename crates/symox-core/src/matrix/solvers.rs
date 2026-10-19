@@ -6,6 +6,118 @@ use crate::ops::{add, div, mul2, sub};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 impl Matrix {
+    /// A defined rational specialization of full column rank proves generic
+    /// full rank for a rational-function matrix. Failed probes prove nothing:
+    /// callers retain the original exact rank computation in that case.
+    fn full_rank_specialization(&self) -> bool {
+        use crate::expr::Kind;
+        let mut budget = super::functions::budget::Budget::new();
+        if budget.allocate(self.data().len()).is_err() {
+            return false;
+        }
+        let mut pending = self
+            .data()
+            .iter()
+            .cloned()
+            .map(|entry| (entry, false))
+            .collect::<Vec<_>>();
+        let mut seen = rustc_hash::FxHashSet::default();
+        let mut depths = rustc_hash::FxHashMap::default();
+        while let Some((entry, expanded)) = pending.pop() {
+            let children = super::functions::budget::raw_children(&entry);
+            if expanded {
+                let depth = 1 + children
+                    .iter()
+                    .map(|child| depths[&child.dag_id()])
+                    .max()
+                    .unwrap_or(0usize);
+                // The original rank algorithm remains the fallback for deep
+                // DAGs; do not enter recursive probe preflights on those DAGs.
+                if depth > 128 {
+                    return false;
+                }
+                depths.insert(entry.dag_id(), depth);
+                continue;
+            }
+            if !seen.insert(entry.dag_id()) {
+                continue;
+            }
+            if seen.len() > 100_000 {
+                return false;
+            }
+            let rational = match entry.kind() {
+                Kind::Num(number) => number.is_rational(),
+                Kind::Sym(symbol) => {
+                    symbol.facts().get("commutative") != Some(false)
+                        && symbol.facts().get("finite") != Some(false)
+                }
+                Kind::Add(constant, terms) => {
+                    constant.is_rational()
+                        && terms
+                            .iter()
+                            .all(|(_, coefficient)| coefficient.is_rational())
+                }
+                Kind::Mul(coefficient, factors) => {
+                    coefficient.is_rational()
+                        && factors.iter().all(|(_, power)| power.is_integer_number())
+                }
+                Kind::Pow(_, power) => power.is_integer_number(),
+                _ => false,
+            };
+            if !rational {
+                return false;
+            }
+            pending.push((entry, true));
+            pending.extend(children.into_iter().map(|child| (child, false)));
+        }
+        if budget.matrix(self).is_err() {
+            return false;
+        }
+        let symbols = self.free_symbols();
+        for attempt in 0..3u64 {
+            let mut seed = 0x9e3779b97f4a7c15u64.wrapping_add(attempt);
+            let mut replacements = rustc_hash::FxHashMap::default();
+            for symbol in &symbols {
+                seed = seed
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                let value =
+                    if crate::assumptions::exact_queries(|| crate::assumptions::is_zero(symbol))
+                        == Some(true)
+                    {
+                        0
+                    } else {
+                        1 + ((seed >> 32) % 13) as i64
+                    };
+                replacements.insert(symbol.clone(), Expr::int(value));
+            }
+            // Probe only when substitution cannot force enormous held powers.
+            // A local probe limit selects the original rank path, never an
+            // unsupported result or a claim of rank deficiency.
+            for entry in self.data() {
+                if budget
+                    .substitutions_preflight(entry, &replacements)
+                    .is_err()
+                {
+                    return false;
+                }
+            }
+            let specialized = self.applyfunc(|entry| crate::subs::xreplace(entry, &replacements));
+            let Ok(height) = budget.matrix(&specialized) else {
+                return false;
+            };
+            if budget.interpolation(self.cols(), height).is_err() {
+                return false;
+            }
+            if specialized.data().iter().all(Expr::is_rational_number)
+                && specialized.rank() == self.cols()
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     fn check_rhs(&self, rhs: &Matrix) -> MResult<()> {
         if self.rows() != rhs.rows() {
             return Err(MatrixError::Shape(
@@ -85,6 +197,10 @@ impl Matrix {
     }
 
     fn triangular_solve(&self, rhs: &Matrix, lower: bool) -> MResult<Matrix> {
+        self.triangular_solve_form(rhs, lower, true)
+    }
+
+    fn triangular_solve_form(&self, rhs: &Matrix, lower: bool, simplify: bool) -> MResult<Matrix> {
         if !self.is_square() {
             return Err(non_square());
         }
@@ -113,11 +229,8 @@ impl Matrix {
                 let terms: Vec<_> = indices
                     .map(|k| mul2(self.get(i, k), result.get(k, j)))
                     .collect();
-                result.set(
-                    i,
-                    j,
-                    dotprodsimp(&div(&sub(rhs.get(i, j), &add(&terms)), self.get(i, i))),
-                );
+                let value = div(&sub(rhs.get(i, j), &add(&terms)), self.get(i, i));
+                result.set(i, j, if simplify { dotprodsimp(&value) } else { value });
             }
         }
         Ok(result)
@@ -192,6 +305,10 @@ impl Matrix {
         if self.cols() == 0 {
             return Ok(Matrix::zeros(0, rhs.cols()));
         }
+        // Avoid an expanded symbolic RREF only after an exact full-rank
+        // specialization certifies that its generic rank cannot be deficient.
+        // Inconclusive probes retain the established rank/error path.
+        let compact = self.data().iter().any(|value| !value.is_rational_number());
         if !self.is_square() || (!self.is_symmetric() && self.is_hermitian() != Some(true)) {
             if reform {
                 return Err(MatrixError::NotImplemented(
@@ -200,13 +317,14 @@ impl Matrix {
                 ));
             }
             let h = self.adjoint();
-            let normal = h.matmul(self)?.cancel();
-            if normal.rank() < self.cols() {
+            let normal = h.matmul(self)?;
+            let normal = if compact { normal } else { normal.cancel() };
+            if !compact && normal.rank() < self.cols() {
                 return Err(non_invertible());
             }
             return normal.factor_solve(&h.matmul(rhs)?, ldl, true);
         }
-        if self.rank() < self.cols() {
+        if (!compact || !self.full_rank_specialization()) && self.rank() < self.cols() {
             return Err(non_invertible());
         }
         let hermitian = !self.is_symmetric();
@@ -219,11 +337,20 @@ impl Matrix {
             let diagonal = d.as_ref().unwrap_or(&l);
             let mut valid =
                 (0..diagonal.rows()).all(|i| is_zero_assume(diagonal.get(i, i)) != Some(true));
-            for entry in l.data().iter().chain(d.iter().flat_map(|m| m.data())) {
-                crate::traverse::preorder(entry, &mut |e| {
-                    valid &= !e.is_constant(crate::expr::Constant::NaN)
-                        && !e.is_constant(crate::expr::Constant::ComplexInfinity);
-                });
+            let mut pending = l
+                .data()
+                .iter()
+                .chain(d.iter().flat_map(|m| m.data()))
+                .cloned()
+                .collect::<Vec<_>>();
+            let mut visited = rustc_hash::FxHashSet::default();
+            while let Some(entry) = pending.pop() {
+                if !visited.insert(entry.dag_id()) {
+                    continue;
+                }
+                valid &= !entry.is_constant(crate::expr::Constant::NaN)
+                    && !entry.is_constant(crate::expr::Constant::ComplexInfinity);
+                pending.extend(entry.args());
             }
             if valid {
                 Ok((l, d))
@@ -237,10 +364,12 @@ impl Matrix {
             // factorization. Its Gram matrix does when it has full column rank.
             Err(_) if !reform => {
                 let h = self.adjoint();
-                return h
-                    .matmul(self)?
-                    .cancel()
-                    .factor_solve(&h.matmul(rhs)?, ldl, true);
+                let normal = h.matmul(self)?;
+                return (if compact { normal } else { normal.cancel() }).factor_solve(
+                    &h.matmul(rhs)?,
+                    ldl,
+                    true,
+                );
             }
             Err(e) => return Err(e),
         };
@@ -252,7 +381,7 @@ impl Matrix {
             // symbolic diagonal roots while retaining the same exact solve.
             return self.factor_solve(rhs, true, reform);
         }
-        let y = l.lower_triangular_solve(rhs)?;
+        let y = l.triangular_solve_form(rhs, true, !compact)?;
         let z = if let Some(d) = d {
             d.diagonal_solve(&y)?
         } else {
@@ -263,7 +392,8 @@ impl Matrix {
         } else {
             l.transpose()
         };
-        upper.upper_triangular_solve(&z).map(|m| m.cancel())
+        let solved = upper.triangular_solve_form(&z, false, !compact)?;
+        Ok(if compact { solved } else { solved.cancel() })
     }
 
     pub fn cholesky_solve(&self, rhs: &Matrix) -> MResult<Matrix> {

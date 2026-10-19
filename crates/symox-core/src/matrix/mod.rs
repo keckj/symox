@@ -552,7 +552,7 @@ impl Matrix {
     }
 
     pub fn neg(&self) -> Matrix {
-        self.applyfunc(neg)
+        self.applyfunc(|entry|if entry.is_zero(){Expr::zero()}else{neg(entry)})
     }
 
     /// `self * k` (entry * scalar).

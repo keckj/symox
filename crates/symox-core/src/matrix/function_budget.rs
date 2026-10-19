@@ -54,7 +54,12 @@ impl Budget{
     }
     /// Inspect raw DAGs before substitution can force held numeric powers.
     pub(in crate::matrix) fn scalar_preflight(&mut self,e:&Expr,replacement:Option<(&Expr,&Expr)>)->MResult<()> {
-        let mut memo=FxHashMap::default();inspect(e,replacement,self.bits,&mut memo)?;
+        let mut memo=FxHashMap::default();inspect(e,replacement.map(|(a,b)|Replacement::One(a,b)),self.bits,&mut memo)?;
+        self.work(memo.len() as u64)
+    }
+    /// Bound simultaneous substitutions before forcing numeric arithmetic.
+    pub(in crate::matrix) fn substitutions_preflight(&mut self,e:&Expr,replacements:&FxHashMap<Expr,Expr>)->MResult<()> {
+        let mut memo=FxHashMap::default();inspect(e,Some(Replacement::Many(replacements)),self.bits,&mut memo)?;
         self.work(memo.len() as u64)
     }
     pub(in crate::matrix) fn matrix(&mut self,m:&Matrix)->MResult<u64>{let mut height=0;for e in m.data(){height=height.max(self.expression(e)?);}Ok(height)}
@@ -215,10 +220,17 @@ impl Scalar {
     fn number(n:&Number)->Self{Self{numeric:true,bits:if n.is_zero()||n.is_one()||n.is_minus_one(){0}else{number_bits(n)},small:if n.is_zero(){Some(0)}else if n.is_one(){Some(1)}else if n.is_minus_one(){Some(-1)}else{n.to_i64()}}}
     fn unknown()->Self{Self{numeric:false,bits:0,small:None}}
 }
-fn inspect(e:&Expr,replacement:Option<(&Expr,&Expr)>,max:u64,memo:&mut FxHashMap<usize,(Expr,Scalar)>)->MResult<Scalar>{
+#[derive(Clone,Copy)]
+enum Replacement<'a>{One(&'a Expr,&'a Expr),Many(&'a FxHashMap<Expr,Expr>)}
+impl<'a> Replacement<'a>{
+    fn get(self,e:&Expr)->Option<&'a Expr>{match self{
+        Self::One(key,value)=>(e==key).then_some(value),Self::Many(values)=>values.get(e),
+    }}
+}
+fn inspect(e:&Expr,replacement:Option<Replacement<'_>>,max:u64,memo:&mut FxHashMap<usize,(Expr,Scalar)>)->MResult<Scalar>{
     if let Some((_,s))=memo.get(&e.dag_id()){return Ok(*s);}
     if memo.len()>=MAX_NODES{return Err(limit());}
-    if let Some((x,point))=replacement{if e==x{return inspect(point,None,max,&mut FxHashMap::default());}}
+    if let Some(point)=replacement.and_then(|rule|rule.get(e)){return inspect(point,None,max,&mut FxHashMap::default());}
     let mut child=|e:&Expr|inspect(e,replacement,max,memo);
     let value=match e.kind(){
         Kind::Num(n)=>Scalar::number(n),
@@ -247,7 +259,7 @@ fn inspect(e:&Expr,replacement:Option<(&Expr,&Expr)>,max:u64,memo:&mut FxHashMap
             // integers when substitution turns an argument into a number.
             if matches!(f,Func::Gamma|Func::Special(_)){
                 for a in args{let s=child(a)?;if s.numeric && s.small.is_none_or(|n|n.unsigned_abs()>10_000){
-                    let number=if let Some((x,p))=replacement{if a==x{p.as_number()}else{a.as_number()}}else{a.as_number()};
+                    let number=replacement.and_then(|rule|rule.get(a)).unwrap_or(a).as_number();
                     if number.is_none_or(|n|!n.to_f64().is_finite()||n.to_f64().abs()>10_000.0){return Err(limit());}
                 }}
             }v
@@ -305,6 +317,13 @@ mod tests{
         let f=Expr::from_unevaluated_kind(Kind::Pow(x.clone(),Expr::int(1_000_000_000)));
         assert!(Budget::new().scalar_preflight(&f,Some((&x,&Expr::int(2)))).is_err());
         for n in [-1,0,1]{assert!(Budget::new().scalar_preflight(&f,Some((&x,&Expr::int(n)))).is_ok());}
+        let y=Expr::symbol("y");
+        let joint=Expr::from_unevaluated_kind(Kind::Pow(crate::ops::mul2(&x,&y),Expr::int(8)));
+        let mut budget=Budget::new();budget.bits=64;
+        assert!(budget.scalar_preflight(&joint,Some((&x,&Expr::int(16)))).is_ok());
+        assert!(budget.scalar_preflight(&joint,Some((&y,&Expr::int(16)))).is_ok());
+        let replacements=FxHashMap::from_iter([(x.clone(),Expr::int(16)),(y,Expr::int(16))]);
+        assert!(budget.substitutions_preflight(&joint,&replacements).is_err());
         let shifted=crate::ops::add2(&x,&Expr::one());
         let big=Expr::from_unevaluated_kind(Kind::Pow(shifted,Expr::int(1_000_000_000)));
         assert!(Budget::new().cancel(&Matrix::new(1,1,vec![big]).unwrap()).is_err());

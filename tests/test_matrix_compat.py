@@ -188,15 +188,18 @@ def test_norm_preserves_symbol_assumptions():
         sx.Matrix([1, 2]).norm("fro")
 
 
-@pytest.mark.parametrize("operation", [
-    lambda m: m.evalf(50, maxn=200),
-    lambda m: m.eigenvals(chop=True),
-    lambda m: m.solve(sx.eye(2), method="unknown"),
-    lambda m: sx.diag(1, 2, rows=3),
+@pytest.mark.parametrize("operation, exception", [
+    (lambda m: m.evalf(50, maxn=200), NotImplementedError),
+    (lambda m: m.eigenvals(chop=True), NotImplementedError),
+    (lambda m: m.solve(sx.eye(2), method="unknown"), ValueError),
+    (lambda m: sx.diag(1, 2, rows=3), NotImplementedError),
 ])
-def test_unsupported_options_are_explicit(operation):
-    with pytest.raises(NotImplementedError):
+def test_unsupported_options_are_explicit(operation, exception):
+    with pytest.raises(exception):
         operation(sx.Matrix([[1, 2], [3, 4]]))
+    if exception is ValueError:
+        with pytest.raises(ValueError, match="Inversion method unrecognized"):
+            sp.Matrix([[1, 2], [3, 4]]).solve(sp.eye(2), method="unknown")
 
 
 def test_random_rational_linalg_matches_sympy():

@@ -133,11 +133,24 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
         if let Ok(fields)=module.getattr("_diffgeom_field_atoms") {
             for atom in traverse::free_symbols(&e) {
                 if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
-                    && fields.contains(Bound::new(py,PyExprNode{e:atom})?)? {
-                    let class=module.getattr("_diffgeom_callable_type")?;
-                    let value=Bound::new(py,PyExprNode{e})?;
-                    return Ok(class.call_method1("__new__",(&class,value))?.unbind());
+                    && fields.contains(Bound::new(py, PyExprNode { e: atom })?)?
+                {
+                    let class = module.getattr("_diffgeom_callable_type")?;
+                    let value = Bound::new(py, PyExprNode { e })?;
+                    return Ok(class.call_method1("__new__", (&class, value))?.unbind());
                 }
+            }
+        }
+    }
+    if let Kind::Func(Func::Undefined(head), _) = e.kind() {
+        if !head.internal {
+            if let Ok(factory) =
+                loaded_symox(py).and_then(|m| m.getattr("_function_application_type"))
+            {
+                let class =
+                    factory.call((head.name.as_ref(),), Some(&function_kwargs(py, head)?))?;
+                let value = Bound::new(py, PyExprNode { e })?;
+                return Ok(class.call_method1("__new__", (&class, value))?.unbind());
             }
         }
     }

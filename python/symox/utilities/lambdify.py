@@ -67,3 +67,52 @@ def _compile_object(args, expr):
     from ..printing.numpy import NumPyPrinter
     source = lambdastr(args, expr, printer=NumPyPrinter, dummify=True)
     return eval(source, {'numpy': numpy})
+
+
+def _compile_structured(args,expr,modules,options):
+    """Flatten native kernels once, then restore argument/output structure."""
+    from .._cse_matrices import is_concrete_matrix
+    if modules is not None and modules!='numpy':return None
+    def sequence(value):return isinstance(value,(list,tuple)) or getattr(value,'is_Tuple',False)
+    roots=list(args) if sequence(args) else [args]
+    if not (any(sequence(arg) for arg in roots) or sequence(expr) or is_concrete_matrix(expr)):
+        return None
+    arguments=[]
+    def argument_plan(value):
+        if sequence(value):return tuple(argument_plan(child) for child in value)
+        arguments.append(_S.sympify(value));return None
+    input_plans=[argument_plan(arg) for arg in roots]
+    expressions=[]
+    def output_plan(value):
+        if sequence(value):
+            plans=[output_plan(child) for child in value]
+            constructor=list if isinstance(value,list) else tuple
+            return lambda values:constructor(plan(values) for plan in plans)
+        if is_concrete_matrix(value):
+            import numpy
+            indices=[len(expressions)+i for i in range(len(value))]
+            expressions.extend(value)
+            def matrix(values):
+                if not indices:return numpy.empty(value.shape)
+                entries=numpy.asarray([values[index] for index in indices])
+                return entries.reshape(value.shape+entries.shape[1:])
+            return matrix
+        index=len(expressions);expressions.append(_S.sympify(value))
+        return lambda values:values[index]
+    restore=output_plan(expr)
+    parameters=[_S.Dummy('argument') for _ in arguments]
+    replacements=dict(zip(arguments,parameters))
+    expressions=[expression.xreplace(replacements) for expression in expressions]
+    evaluator=(_compile_implemented(parameters,expressions,modules,options)
+               or _S._native_lambdify(parameters,expressions,modules=modules,**options))
+    def call(*values):
+        if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))
+        flattened=[]
+        def unpack(plan,value):
+            if plan is None:flattened.append(value);return
+            children=tuple(value)
+            if len(children)!=len(plan):raise ValueError('nested numerical argument has incorrect length')
+            for child,entry in zip(plan,children):unpack(child,entry)
+        for plan,value in zip(input_plans,values):unpack(plan,value)
+        return restore(evaluator(*flattened))
+    return call

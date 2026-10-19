@@ -10,6 +10,8 @@ use crate::ops::mul2;
 #[path="function_budget.rs"]
 pub(in crate::matrix) mod budget;
 use budget::Budget;
+#[path="skew_exp.rs"]
+mod skew_exp;
 
 fn finite(e:&Expr,seen:&mut FxHashSet<usize>)->bool{
     if !seen.insert(e.dag_id()){return true;}
@@ -161,6 +163,11 @@ impl Matrix{
     /// never approximates unresolved eigenvalues or Jordan blocks numerically.
     pub fn exp(&self)->MResult<Matrix>{
         check_matrix(self)?;
+        // Diagonal matrices retain their existing scalar evaluation path,
+        // including precision ranges beyond the new rotation evaluator.
+        if !self.is_diagonal(){
+            if let Some(result)=skew_exp::evaluate(self)?{return Ok(result);}
+        }
         let x=Expr::dummy("_matrix_exp",crate::Assumptions::default());
         let result=self.analytic_func(&crate::functions::func(Func::Exp,vec![x.clone()]),&x)?;
         if crate::assumptions::exact_queries(||self.data().iter().all(|e|crate::assumptions::is_real(e)==Some(true))){

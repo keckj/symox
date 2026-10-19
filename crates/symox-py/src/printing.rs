@@ -135,16 +135,22 @@ fn pretty(
 // ----------------------------------------------------------------------
 
 #[pyfunction]
-#[pyo3(name = "_cse", signature = (exprs, optimizations=true, ignore=None, prefix="x"))]
+#[pyo3(name = "_cse", signature = (exprs, optimizations=true, ignore=None, prefix="x", order="canonical"))]
 fn py_cse<'py>(
     py: Python<'py>,
     exprs: &Bound<'py, PyAny>,
     optimizations: bool,
     ignore: Option<&Bound<'py, PyAny>>,
     prefix: &str,
+    order: &str,
 ) -> PyResult<(Bound<'py, PyList>, Bound<'py, PyList>)> {
     let (v, _) = expr_list(exprs)?;
-    let mut opts = CseOptions { symbol_prefix: prefix.to_string(), optimizations, ..Default::default() };
+    let mut opts = CseOptions {
+        symbol_prefix: prefix.to_string(),
+        optimizations,
+        canonical_order: order != "none",
+        ..Default::default()
+    };
     if let Some(ig) = ignore {
         for s in ig.try_iter()? {
             let e = to_expr(&s?)?;

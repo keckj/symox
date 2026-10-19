@@ -167,6 +167,17 @@ recognition options or arbitrary external object protocols. `exp` on a concrete
 matrix dispatches to the native matrix function and returns immutable output;
 general floating-point matrix eigenvalue support remains incomplete.
 
+Numeric real skew-symmetric matrices of size two and three now use Rodrigues'
+polynomial identity. Floating entries are lifted to their exact dyadic values
+before forming the squared angle, then evaluated by the native multiprecision
+engine and rounded to the input precision. The half-angle quadratic coefficient
+avoids subtracting nearly equal cosines. Working precision accounts for large
+and tiny inputs; rounded results must agree at two successive working
+precisions. Resource exhaustion raises `NotImplementedError`. This numerical
+stability check is not an interval accuracy certificate. Other matrices retain
+the existing exact spectral path. General floating matrix functions and global
+scalar trigonometric accuracy remain open obligations.
+
 Public builtin function heads now retain callable identity, symbolic spelling
 and serialization identity for structural replacement queries. Relational
 aliases share their constructor class and signature. Neither change supplies
@@ -185,6 +196,13 @@ reported as callable, including after importing differential geometry.
 For registered charts, symbolic atom identities preserve point evaluation
 after reconstruction and pickle round trips. The full nominal function and
 symbolic subclass hierarchy remain uncertified.
+Ordinary undefined applications now use native expression subclasses specific
+to their head, assumptions and arity, with an actual `UndefinedFunction`
+metaclass ancestry. Reconstruction, traversal and pickle restore these classes;
+application patterns remain distinct from constructor queries. The public
+`Function('f')` factory remains a separate object, so full function-class
+identity, `type(expr) is expr.func` and arbitrary symbolic subclasses remain
+uncertified.
 Tuple reconstruction accepts the reference keyword signature; raw
 `Tuple(sympify=False)` items outside the native expression representation
 remain unsupported.
@@ -208,6 +226,34 @@ Fraction and Decimal inputs still use the existing float64 numerical path;
 preserving their exact operand arithmetic remains an open obligation.
 Arbitrary module overrides and all numerical-callable domains remain separate
 parity obligations.
+
+The NumPy numerical-callable path also flattens nested formal arguments and
+restores nested list/tuple and concrete matrix results, including empty shapes.
+Applied functions and derivatives used as formal parameters are replaced
+simultaneously by independent native dummy arguments before compilation.
+Other module configurations retain their existing paths; arbitrary signatures,
+all vectorized mixed shapes and every lambdify option remain separate obligations.
+
+Downstream mechanics now exposes Kane's stored independent state vectors and
+honors explicit inverse-method choices. Dependent and auxiliary Kane coordinates
+remain explicitly unsupported. Matrix assignments lower to row-major scalar
+assignments through the existing printer hooks. Canonical CSE ordering compares
+expanded mathematical node counts and sort keys, with arbitrary-size counters
+and no former 64-argument ordering cutoff; `order='none'` keeps its unsorted
+traversal. These changes do not certify all printing or CSE options.
+
+Symbolic Cholesky/LDL solves preserve compact exact factorization expressions
+instead of expanding every intermediate fraction. A defined rational
+specialization of full column rank can certify generic full rank for a
+commutative rational-function matrix. Failed probes prove nothing and retain
+the original exact rank computation, including its singular-matrix errors;
+non-rational-function inputs also retain that rank path. Pivot and nonfinite
+checks and the normal-equation fallback remain;
+factor inspection visits shared physical nodes once. Rational matrices retain
+the existing rank and cancellation path. Regression checks specialize dense
+symbolic systems to exact rational and complex numerical inputs. These checks
+and the PyDy pendulum case establish specific correctness and expression-growth
+improvements, not comparative bit-complexity bounds for all matrix solvers.
 
 Polynomial `gcd` and `lcm` accept native symbolic tuples and finite sets as
 sequence inputs, preserving coefficient conversion errors. Nonempty reductions

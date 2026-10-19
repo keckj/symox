@@ -1471,9 +1471,11 @@ impl PyMatrix {
             "LDL" => self.m.ldl_solve(&b),
             "QR" => self.m.qr_solve(&b),
             "PINV" => self.m.pinv_solve(&b, None),
+            "CRAMER" => return self.cramer_solve(py, rhs, None),
             "ADJ" => self.m.inverse_adj().and_then(|i| i.matmul(&b)),
             "DM" | "DMNC" => self.m.inv().and_then(|i| i.matmul(&b)),
-            _ => return Err(PyNotImplementedError::new_err(format!("matrix solve method {method} is not implemented"))),
+            "BLOCK" => self.inverse_BLOCK(py, None)?.m.matmul(&b),
+            _ => return Err(PyValueError::new_err("Inversion method unrecognized")),
         };
         Ok(self.wrapped(r.py(py)?))
     }

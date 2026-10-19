@@ -35,6 +35,9 @@ class CXX17CodePrinter(Printer):
     def _print_Symbol(self, expr):
         return expr.name
 
+    def _print_MatrixSymbol(self, expr):
+        return self._print_Symbol(expr)
+
     def _print_Dummy(self, expr):
         from symox import _core
         return _core.cxxcode(expr)
@@ -117,7 +120,18 @@ class CXX17CodePrinter(Printer):
         return self._print(expr.args[0])
 
     def _print_Assignment(self, expr):
+        from symox import MatrixSymbol
+        from symox.codegen.ast import Assignment
+        if isinstance(expr.lhs,MatrixSymbol):
+            if expr.rhs.shape!=expr.lhs.shape:
+                raise ValueError('Dimensions of lhs and rhs do not align.')
+            return '\n'.join(self._print(Assignment(expr.lhs[i,j],expr.rhs[i,j]))
+                             for i,j in self._traverse_matrix_indices(expr.lhs))
         return f"{self._print(expr.lhs)} = {self._print(expr.rhs)};"
+
+    def _traverse_matrix_indices(self, matrix):
+        rows,columns=matrix.shape
+        return ((i,j) for i in range(rows) for j in range(columns))
 
     def _print_Comment(self, expr):
         return "/* " + expr.text + " */"

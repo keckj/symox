@@ -88,6 +88,8 @@ class ScalarCodePrinter(CXX17CodePrinter):
         from symox import Rational
         base,exponent=expr.args
         b=self._print(base);e=self._print(exponent)
+        if self.target=='octave' and exponent==-1:
+            return '1./'+self.parenthesize(base,PRECEDENCE['Pow'])
         if exponent==Rational(1,2) and self.target!='mathematica':
             return ('Math.' if self.target=='javascript' else '')+'sqrt('+b+')'
         if self.target=='javascript':return 'Math.pow('+b+', '+e+')'
@@ -101,18 +103,21 @@ class ScalarCodePrinter(CXX17CodePrinter):
         # Retain the native ordered numerator/denominator decomposition and
         # choose scalar or elementwise operators for each target.
         args=expr.as_ordered_factors() if self.order not in ('none','old') else expr.args
-        numerator=[];denominator=[]
+        numerator=[];denominator=[];sign=''
         for arg in args:
+            if self.target=='octave' and arg.is_Number and arg.is_negative:
+                sign='' if sign else '-';arg=-arg
+                if arg==1:continue
             if getattr(arg,'is_Pow',False) and arg.exp.is_Rational and arg.exp.is_negative:
                 denominator.append(arg.base**(-arg.exp))
             else:numerator.append(arg)
         multiply={'octave':'.*','julia':' .* '}.get(self.target,'*')
         divide={'octave':'./','julia':' ./ '}.get(self.target,'/')
         top=multiply.join(self.parenthesize(v,PRECEDENCE['Mul'],strict=True) for v in numerator) or '1'
-        if not denominator:return top
+        if not denominator:return sign+top
         bottom=multiply.join(self.parenthesize(v,PRECEDENCE['Mul'],strict=True) for v in denominator)
         if len(denominator)>1:bottom='('+bottom+')'
-        return top+divide+bottom
+        return sign+top+divide+bottom
 
     def _print_Assignment(self,expr):
         return self.doprint(expr.rhs,expr.lhs)

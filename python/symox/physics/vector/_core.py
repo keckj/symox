@@ -251,7 +251,6 @@ class ReferenceFrame:
     def orient_dcm(self,parent,dcm):
         if parent is self:raise ValueError('cannot orient a frame relative to itself')
         dcm = _matrix(dcm,3,3)
-        if all(v.is_number for v in dcm) and any(S.simplify(v)!=0 for v in dcm*dcm.T-S.eye(3)):raise ValueError('direction-cosine matrix must be orthogonal')
         self._dcm_dict[parent] = dcm;parent._dcm_dict[self] = dcm.T
         skew = dcm.T.diff(_TIME)*dcm
         self.set_ang_vel(parent,sum((skew[i,j]*parent._axes[k] for i,j,k in ((2,1,0),(0,2,1),(1,0,2))),Vector(0)).simplify())

@@ -191,7 +191,9 @@ class LagrangesMethod:
         return S.eye(n).row_join(S.zeros(n,n+m)).col_join(S.zeros(n,n).row_join(self._mass_matrix)).col_join(S.zeros(m,n).row_join(self._constraint_matrix).row_join(S.zeros(m,m)))
     @property
     def forcing_full(self):self._ensure();return self.u.col_join(self._forcing).col_join(self._constraint_forcing)
-    def rhs(self,inv_method=None):return _solve_linear(self.mass_matrix_full,self.forcing_full)
+    def rhs(self,inv_method=None):
+        if inv_method is None:return _solve_linear(self.mass_matrix_full,self.forcing_full)
+        return self.mass_matrix_full.inv(method=inv_method,try_block_diag=True)*self.forcing_full
     def solve_multipliers(self,op_point=None,sol_type='dict'):
         self._ensure();value = self.rhs().subs(op_point or {});mapping = {lam:value[2*self.q.rows+i] for i,lam in enumerate(self.lam_vec)}
         return mapping if sol_type=='dict' else S.Matrix(list(mapping.values()))
@@ -204,6 +206,9 @@ class KanesMethod:
         if any(v is not None and len(v) for v in (q_dependent,u_dependent,u_auxiliary)):
             raise NotImplementedError('dependent/auxiliary Kane coordinates require constraint elimination; use LagrangesMethod with constraints')
         self._inertial = frame;self.q,self.u = _column(q_ind),_column(u_ind)
+        self._q,self._u = self.q,self.u
+        self._qdot,self._udot = self.q.diff(_TIME),self.u.diff(_TIME)
+        self._qdep,self._udep,self._uaux = S.Matrix(),S.Matrix(),S.Matrix()
         self._kdes = _column(kd_eqs) if kd_eqs is not None else self.q.diff(_TIME)-self.u
         if self._kdes.rows != self.q.rows:raise ValueError('one kinematic differential equation is required per coordinate')
         solution = S.solve(list(self._kdes),list(self.q.diff(_TIME)),dict=True)
@@ -249,7 +254,10 @@ class KanesMethod:
     def mass_matrix_full(self):return S.eye(self.q.rows).row_join(S.zeros(self.q.rows,self.u.rows)).col_join(S.zeros(self.u.rows,self.q.rows).row_join(self.mass_matrix))
     @property
     def forcing_full(self):return self.forcing_kin.col_join(self.forcing)
-    def rhs(self,inv_method=None):return _solve_linear(self.mass_matrix_full,self.forcing_full)
+    def rhs(self,inv_method=None):
+        dynamic=(_solve_linear(self.mass_matrix,self.forcing) if inv_method is None else
+                 self.mass_matrix.inv(method=inv_method,try_block_diag=True)*self.forcing)
+        return self.forcing_kin.col_join(dynamic)
     def to_linearizer(self,**kwargs):return Linearizer.from_method(self)
     def linearize(self,**kwargs):return self.to_linearizer().linearize(**kwargs)
 

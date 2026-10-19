@@ -1771,7 +1771,8 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
     seq = [exprs] if single else exprs
     seq,restore=flatten(seq)
     opt = optimizations not in (False, "none")
-    reps, red = _core._cse(seq, opt, ignore or None)
+    reps, red = _core._cse(seq, opt, ignore or None,
+                         order='none' if order=='none' else 'canonical')
     if symbols is not None:
         it = iter(symbols)
         mapping = {}
@@ -1878,7 +1879,10 @@ def lambdify(args, expr, modules=None, **kwargs):
         if len(candidates) != 1:
             raise NotImplementedError("CUDA lambdify requires a single module")
         return extra.cuda_lambdify(args, expr, **kwargs)
-    from .utilities.lambdify import _compile_implemented
+    from .utilities.lambdify import _compile_implemented,_compile_structured
+    structured = _compile_structured(args,expr,modules,kwargs)
+    if structured is not None:
+        return structured
     implemented = _compile_implemented(args, expr, modules, kwargs)
     if implemented is not None:
         return implemented
@@ -2215,3 +2219,5 @@ _import_api_module('.core.expr', __name__)
 from .utilities.cache import CACHE as _public_caches
 from ._compat import _cached_symbol
 _public_caches.append(_cached_symbol)
+
+from ._function_types import application_type as _function_application_type
