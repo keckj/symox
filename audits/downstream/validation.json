@@ -1,6 +1,6 @@
 {
   "build_checks": {
-    "clippy": "cargo clippy -p symox -- -D warnings -A clippy::all -W clippy::correctness",
+    "clippy": "cargo clippy --workspace --all-targets -- -D clippy::correctness",
     "workspace": "cargo build --workspace --all-targets"
   },
   "core": {
@@ -18,8 +18,8 @@
       "OPENBLAS_NUM_THREADS": "2"
     },
     "failed": 0,
-    "passed": 29310,
-    "seconds": 577.64,
+    "passed": 29871,
+    "seconds": 567.45,
     "skipped": 5,
     "skipped_details": [
       {
@@ -35,9 +35,13 @@
     "xfailed": 0
   },
   "corrected_internal_expectations": [
-    "Raw Python integers retain literal representation in srepr, unlike native symbolic Integer objects.",
-    "sympify preserves existing AlgebraicNumber identity and exact field metadata."
+    "The typed-ring promotion regression now supplies auto=True explicitly; 144 differential cases separately verify defaults, overrides, domains and exact-quotient errors."
   ],
+  "curated_corpus": {
+    "confirmed": 273,
+    "scope": "Curated exact examples; not global parity coverage.",
+    "total": 273
+  },
   "environment": {
     "executable": "/home/keckj/Documents/symox/.venv/bin/python",
     "packages": {
@@ -63,19 +67,22 @@
   },
   "evidence": {
     "evidence/local-validation/acpp-version.log.gz": "67220e428cd04aa9305ed3e704ad824d89e26ad8ea27eb78675ab638f2f28d74",
-    "evidence/local-validation/clippy2.log.gz": "953ddea9343402aaa1f1e6bbb19567382556ac9b217e765d83387a77f87a6729",
-    "evidence/local-validation/commands.json.gz": "cc6a70b2450b7a99df5c1247992a9d45a94adc636cf6a49241a8854de442cb6e",
-    "evidence/local-validation/core.log.gz": "0c7895fbeb6d3f560972b0dd748b77585f8956b7de73f0b60c441db3fde1b327",
+    "evidence/local-validation/api-relative-worker.log.gz": "3508eb4a270ee52ba33b50c300a8b280c586d42d47573a0e8a87d0cc73e9c628",
+    "evidence/local-validation/clippy.log.gz": "b1ebd29c513f14136c0d471970acf6777daa69cd15ab8b19843e64904e2064ce",
+    "evidence/local-validation/commands.json.gz": "7c00969f1ec9fdf1c59ff70322e7ee58291f0cfd107dad77c95fff9990287d5d",
+    "evidence/local-validation/core.log.gz": "f5a1fee4541c8d040d757cf495b7d8b659011868fd92b2526629bf450bfe2664",
+    "evidence/local-validation/coverage.json.gz": "acf676e6689c24bd7fc30a1954c8d9b741cd2050a6a8cf6b049690bb25acc224",
+    "evidence/local-validation/coverage.log.gz": "a3dd698c7b5fc68833f5fcb5651856ee6e6f190d84996f4262ea19fb8ae9f58a",
     "evidence/local-validation/environment.json.gz": "d098892974268631a11e3703b4f869d55aee9e607218046ebcd51dba58877536",
-    "evidence/local-validation/extra.log.gz": "f2bdd6363a93955756129e775decfa072677e28f9701f7fdea154a196cfa8e0d",
-    "evidence/local-validation/focused.log.gz": "c2c924d6c925e7d958b5915d2d1ee699257edef749316c639075479990bf077c",
+    "evidence/local-validation/extra.log.gz": "3a9d8f35782afd102871a6d313ee2c45a67a4c68fbd5bb535f415d0d481e3d7c",
+    "evidence/local-validation/focused.log.gz": "fc930d1aeafc2409a402f78671c84711895ccd254e01cade90972217e7c7e746",
     "evidence/local-validation/freeze.txt.gz": "db97155e174d367880e32a3280eae87fa84423d0261bf90b008b05fe3fd93864",
-    "evidence/local-validation/pip-check.log.gz": "c443625b0325efb6b9801889a05947f02884e779ccebca97b555a185e1dc6228",
-    "evidence/local-validation/python312.log.gz": "237603a7c989259f8a4e1528a57fa4188e42bbad0d42aa02132ca7fd931d08b8",
-    "evidence/local-validation/release2.log.gz": "b8277f0dc05a2c0c95db9842a452ebee7317985e8f9a53d6b1196a9f303ad8cc",
-    "evidence/local-validation/rust2.log.gz": "3437046568e7574f404aaf9b7d20c1fa815a15abb2329ead5a6be9dc4cef0eaf",
-    "evidence/local-validation/wheel.json.gz": "0aaef878b9dcff891dd3414bde90bf403141807d361a1188fded1961e645192e",
-    "evidence/local-validation/workspace2.log.gz": "3307f563cda4325a6438ae466e525138a5e35bc5bb3ef81ce03dbe186ba950f3"
+    "evidence/local-validation/pip-check.log.gz": "6035bf1a425cac7f5b497c7015625f0057a1f3b79e459538ce50d08384315374",
+    "evidence/local-validation/python312.log.gz": "afabec8089bc48bad37ee09961cedbe222f1615b289642fc068bfe2f2d3f6100",
+    "evidence/local-validation/release.log.gz": "8fa99850156c4f4ccf3a372083ccf41b80979cb5b84c526b233b1e71e502080c",
+    "evidence/local-validation/rust.log.gz": "ba2631d07ca49b0aab5a48554016483c8381a20cd5936b0dc09e1baa61444ee1",
+    "evidence/local-validation/wheel.json.gz": "443ffe8ac5f02d3073734649a9a58c807ad64c5baa499249e2ec695d5f1d775d",
+    "evidence/local-validation/workspace.log.gz": "1b8d236fe41354c1384c9b929df2509578a2cf34159e35db722cb5f686792e0b"
   },
   "extra": {
     "argv": [
@@ -97,18 +104,33 @@
     },
     "failed": 0,
     "passed": 383,
-    "seconds": 107.22,
+    "seconds": 108.86,
     "skipped": 0,
     "skipped_details": [],
     "working_directory": "/home/keckj/Documents/symox",
     "xfailed": 0
   },
+  "intentional_reference_differences": [
+    "Symmetric half weight at finite origin endpoints, checked by translation and normalized Gaussian regularization.",
+    "Complete exact real support retained for DiracDelta(x**5-x-1), where reference radical-root expansion returns zero.",
+    "Exact symbolic pivot simplification rejects independently proved singular numeric matrices on default/DM/LU routes and computes a valid EXRAW inverse where reference raw elimination divides by an identically zero pivot."
+  ],
   "limitations": [
     "Upstream skips and expected failures are not certified passing behavior.",
+    "LaTeX symbol hooks and covered modes are qualified; arbitrary recursive subclass printing, matrix styles and all layout settings are not.",
+    "Distribution support is qualified only for the exact cases and endpoint convention in docs/algorithmic-parity.md.",
+    "Automatic radical-coefficient division is exact in the covered number fields; inferred output-domain metadata and general coefficient inference remain open.",
+    "General custom Function/Symbol inheritance, immutable/sparse subclasses, unqualified matrix operations and higher Dirac derivative integration remain open.",
     "The OctSymPy result covers the four pinned BIST files, not the full Octave package.",
     "Featured integration failures remain in readiness.json; this is not a release approval or universal parity certificate."
   ],
-  "production_commit": "2a6487cad48aa0b6c9d465056ece02bb5be52ed8",
+  "module_inventory": {
+    "native_import_errors": 0,
+    "paths": 310,
+    "reference_import_errors": 0,
+    "scope": "Name presence only; signatures and behavioral capability are separate obligations."
+  },
+  "production_commit": "d7e9ec03bfcba3a9abccb063b076f184c7dd3c51",
   "python312": {
     "argv": [
       "/home/keckj/.cache/symox-validation/featured/envs/qmcpack/bin/python",
@@ -116,6 +138,27 @@
       "pytest",
       "-q",
       "-ra",
+      "tests/compare_printing.py",
+      "tests/test_latex_symbol_subclass_protocol.py",
+      "tests/test_global_division_domain_defaults.py",
+      "tests/test_integer_power_sign_pivots.py",
+      "tests/test_numeric_assumption_refinement.py",
+      "tests/test_auto_division_radical_coefficients.py",
+      "tests/test_expression_domain_pivot_reduction.py",
+      "tests/test_simplify_options.py",
+      "tests/test_missing_simplification_exports.py",
+      "tests/test_general_simplify_controls.py",
+      "tests/test_complex_parts.py",
+      "tests/test_complex_power_branch_accuracy.py",
+      "tests/test_native_trig_shared_graph.py",
+      "tests/test_dense_matrix_subclasses.py",
+      "tests/test_containment_arithmetic_arguments.py",
+      "tests/test_dirac_expansion.py",
+      "tests/test_dirac_affine_integration.py",
+      "tests/test_expand_compat.py",
+      "tests/test_expand_function_hint_parity.py",
+      "tests/test_matrix_expand.py",
+      "tests/test_expand_complex.py",
       "tests/test_octave_native_protocols.py",
       "tests/test_remaining_printing_protocols.py",
       "tests/test_printing_completion.py",
@@ -130,20 +173,20 @@
       "PYTHONPATH": "/home/keckj/Documents/symox/python"
     },
     "failed": 0,
-    "passed": 429,
-    "seconds": 3.23,
+    "passed": 2636,
+    "seconds": 19.8,
     "skipped": 0,
     "skipped_details": [],
     "working_directory": "/home/keckj/Documents/symox",
     "xfailed": 0
   },
   "rust": {
-    "command": "CARGO_TARGET_DIR=/home/keckj/Documents/symox/target cargo test -p symox",
+    "command": "CARGO_TARGET_DIR=/home/keckj/Documents/symox/target cargo test --workspace",
     "doc_passed": 5,
     "failed": 0,
     "ignored": 1,
-    "passed": 510,
-    "source_tree": "57218fba721df8219989121c0f27d3a9fc319aa9"
+    "passed": 522,
+    "source_tree": "93128e54c0d371e7e730aaddcb4ad1b74fc59056"
   },
   "targeted": {
     "argv": [
@@ -152,6 +195,27 @@
       "pytest",
       "-q",
       "-ra",
+      "tests/compare_printing.py",
+      "tests/test_latex_symbol_subclass_protocol.py",
+      "tests/test_global_division_domain_defaults.py",
+      "tests/test_integer_power_sign_pivots.py",
+      "tests/test_numeric_assumption_refinement.py",
+      "tests/test_auto_division_radical_coefficients.py",
+      "tests/test_expression_domain_pivot_reduction.py",
+      "tests/test_simplify_options.py",
+      "tests/test_missing_simplification_exports.py",
+      "tests/test_general_simplify_controls.py",
+      "tests/test_complex_parts.py",
+      "tests/test_complex_power_branch_accuracy.py",
+      "tests/test_native_trig_shared_graph.py",
+      "tests/test_dense_matrix_subclasses.py",
+      "tests/test_containment_arithmetic_arguments.py",
+      "tests/test_dirac_expansion.py",
+      "tests/test_dirac_affine_integration.py",
+      "tests/test_expand_compat.py",
+      "tests/test_expand_function_hint_parity.py",
+      "tests/test_matrix_expand.py",
+      "tests/test_expand_complex.py",
       "tests/test_octave_native_protocols.py",
       "tests/test_remaining_printing_protocols.py",
       "tests/test_printing_completion.py",
@@ -165,14 +229,14 @@
       "OPENBLAS_NUM_THREADS": "2"
     },
     "failed": 0,
-    "passed": 429,
-    "seconds": 3.15,
+    "passed": 2636,
+    "seconds": 21.29,
     "skipped": 0,
     "skipped_details": [],
     "working_directory": "/home/keckj/Documents/symox",
     "xfailed": 0
   },
-  "test_tree": "81357ef78ba398894427cea3b3afa6feef05eee7",
+  "test_tree": "c5a14113371f6b843d27adedcab84017f1fe8a5c",
   "universal_parity_certified": false,
-  "wheel_sha256": "10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42"
+  "wheel_sha256": "bd3a1fbd9bfed23ef1a9787aafe989ead2842459a3b9db5081b3b453734638b0"
 }

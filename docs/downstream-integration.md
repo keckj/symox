@@ -25,7 +25,7 @@ Local regression checks, their exact scope and the production fix commit are rec
 | [galgebra](../audits/downstream/results/galgebra.json) | 0.6.0 | 115 pass, 2 fail, 2 skip | not run/completed | Reference fails; native not run |
 | [Haarpy](../audits/downstream/results/haarpy.json) | 0.1.1 | 1107 pass | 1107 pass | Selected tests pass |
 | [LaTeX Expression](../audits/downstream/results/latexexpr.json) | 0.4.1 | 2 pass | 2 pass | No symbolic integration exercised |
-| [Lcapy](../audits/downstream/results/lcapy.json) | 1.26 | 317 pass | 193 pass, 124 fail | Native incompatibility |
+| [Lcapy](../audits/downstream/results/lcapy.json) | 1.26 | 317 pass | 251 pass, 66 fail | Native incompatibility |
 | [NRPyLaTeX](../audits/downstream/results/nrpylatex.json) | 1.4.0 | 32 pass | 32 pass | Selected tests pass |
 | [OctSymPy](../audits/downstream/results/octsympy.json) | 3.2.2+ | 131 pass | 131 pass | Selected tests pass |
 | [Optlang](../audits/downstream/results/optlang.json) | 1.9.1 | 346 pass, 49 skip | 49 pass, 312 fail, 34 skip | Native incompatibility |
@@ -191,31 +191,36 @@ Upstream test tree selected in the pinned manifest.
 Upstream test tree selected in the pinned manifest.
 
 ```text
-nitial_conditions,
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/texpr.py", line 115, in LT
-    result = laplace_transform(
-             ^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 373, in laplace_transform
-    return laplace_transformer.transform(expr, t, s,
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/transformer.py", line 82, in transform
-    return self.doit(expr, var, conjvar, evaluate, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/transformer.py", line 196, in doit
-    ret = self.term(sterm, var, conjvar, **kwargs)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 363, in term
-    return self.integrate_0(expr, t, s) * const
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 85, in integrate_0
-    return self.integrate(expr, t, s, 0, sym.oo)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/laplace.py", line 65, in integrate
-    self.error('Integration failed')
-  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/transformer.py", line 34, in error
-    raise ValueError('Could not compute %s for %s: %s' %
-ValueError: Could not compute Laplace transform for DiracDelta(t): Integration failed
+^^^^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/mna.py", line 117, in __init__
+    elt._stamp(self)
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/mnacpts.py", line 2166, in _stamp
+    super(TPB, self)._stamp(mna)
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/mnacpts.py", line 2116, in _stamp
+    if cpt.V1a != 0 or cpt.I1a != 0:
+       ^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/twoport.py", line 1686, in V1a
+    return -self.A11 * self.V2b - LaplaceDomainVoltage(self.A12 * self.I2b)
+            ^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/twoport.py", line 336, in A11
+    return expr(self._A11)
+                ^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/twoport.py", line 184, in _A11
+    return self.Aparams[0, 0]
+           ^^^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/twoport.py", line 1641, in Aparams
+    return self._params.Aparams
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/twoport.py", line 892, in Aparams
+    return AMatrix(self.inv()).simplify()
+                   ^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/matrix.py", line 142, in inv
+    mat = self.sympy
+          ^^^^^^^^^^
+  File "/home/keckj/.cache/symox-validation/featured/git/lcapy/lcapy/matrix.py", line 232, in sympy
+    return sym.Matrix(self.rows, self.cols, [x.sympy for x in self])
+                                             ^^^^^^^
+AttributeError: 'symox._core.Expr' object has no attribute 'sympy'
 ```
 
 ### NRPyLaTeX
@@ -244,7 +249,7 @@ self = <optlang.tests.test_container.ContainerTestCase testMethod=test_change_ob
 src/optlang/tests/test_container.py:190:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <optlang.interface.Model object at 0x7fd29d3eb2c0>, stuff = _blub
+self = <optlang.interface.Model object at 0x7f867ccd0d40>, stuff = _blub
 sloppy = False
 
     def add(self, stuff, sloppy=False):
@@ -333,13 +338,13 @@ All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath tes
    1 of   3 in sage.interfaces.sympy.check_all
    1 of   3 in sage.interfaces.sympy.check_expression
    2 of   5 in sage.interfaces.sympy.sympy_init
-    [319 tests, 182 failures, 1.71s wall]
+    [319 tests, 182 failures, 2.14s wall]
 ----------------------------------------------------------------------
 python3 -m sage.doctest --warn-long 5.0 --random-seed=0 envs/sage-octave/lib/python3.12/site-packages/sage/interfaces/sympy.py  # 182 doctests failed
 ----------------------------------------------------------------------
-Total time for all tests: 1.8 seconds
-    cpu time: 1.7 seconds
-    cumulative wall time: 1.7 seconds
+Total time for all tests: 2.2 seconds
+    cpu time: 1.8 seconds
+    cumulative wall time: 2.1 seconds
 Features detected for doctesting:
 
 ```

@@ -195,6 +195,129 @@ requested variable is assigned, including dict/set output conventions. This
 interface result is distinct from a mathematical proof that the solution set
 is empty. Undecided parameter constraints retain their established core paths.
 
+Native distribution integration now has an exact rule for a single simple
+real affine Dirac delta multiplied by a locally analytic weight. It substitutes
+the exact support point in the weight and integrates through Heaviside, with
+the signed slope retained in the primitive. A substitution budget rejects
+expensive forced coefficient growth before evaluation. The new rule declines
+inexact input, singular or discontinuous weights, products of deltas and
+derivative orders; all established integration methods remain available.
+This does not certify general distribution integration or floating root
+precision. Direct Heaviside/DiracDelta constructors now validate provably
+nonreal arguments, and DiracDelta validates its derivative order. The same
+validation after arbitrary substitution and reconstruction remains open.
+
+The `diracdelta=True` expansion hint uses a complete-root guard for square-free
+rational polynomials: the native solver must supply as many distinct exact
+roots as the polynomial degree, and each root's reality must be decided before
+any support is discarded. Multiple roots and undecided domains retain the
+original delta. Affine expansion additionally requires a proved real nonzero
+slope and a real support point. Generic parameter strata, higher derivative
+orders and nonpolynomial root sets remain open. No new asymptotic superiority
+claim is made for root isolation or expression growth.
+
+Two distribution differences are intentional and are not reference matches.
+For `DiracDelta(x**5-x-1)`, SymPy 1.14's incomplete radical-root dictionary
+causes expansion to return zero. Symox retains the exact indexed real root;
+an independent Sturm count and minimal-polynomial check certify its support.
+Finite interval endpoints use the declared symmetric half-weight convention,
+including at the origin. SymPy returns zero for some weighted deltas at a
+finite origin endpoint while returning half weight after translation or at
+an infinite endpoint. Translation and a normalized Gaussian regularization
+are checked separately; this convention is not a universal definition of
+distribution integration at discontinuous boundaries.
+
+Scalar containment queries now visit explicit arithmetic arguments, including
+coefficients and additive constants. They exclude the exponent one stored
+implicitly in compact products, and accept `None` as a nonmatching scalar
+query. Other structural containment patterns still require separate audits.
+
+Mutable dense matrix subclasses now reconstruct real Python subclass instances
+after the qualified arithmetic, slicing, transpose, substitution and linear
+algebra operations. The `_new` protocol bypasses a custom public constructor.
+Result-class precedence preserves the reference distinction between addition
+and multiplication on equal-priority subclasses. Explicit mutability
+conversions keep their target category. This is scoped protocol work: custom
+Symbol/Function inheritance, immutable/sparse subclasses, subclass serialization
+and unqualified matrix methods remain open.
+
+The lightweight trigonometric engine used by native general simplification
+now memoizes shared subexpressions within each recursive transformation pass.
+Head discovery visits each distinct node once and combines the same head bits;
+rewrite rules, acceptance conditions and candidate ranking are retained. Local
+caches keep expression owners alive to prevent reuse of identity keys. Exact
+identity and unchanged-expression tests cover graphs whose expanded trees have
+more than `2**64` occurrences. Public traversal multiplicities are unchanged.
+This removes repeated work in these passes, not the inherent cost of expression
+growth or pattern matching. The separate public matching/Fu driver and the
+complexity of the complete `simplify` pipeline remain separate obligations.
+
+Expression-domain `DomainMatrix` Gauss-Jordan reduction now uses the native
+exact pivot simplifier. This exposes zero pivots such as
+`a - (-a)**2/a` before raw-domain elimination divides by them. Public power
+constructors retain their established forms, including interpolation formulas
+whose factors must cancel at their own nodes. Both EX and EXRAW retain their
+coefficient domain. The upstream Thevenin circuit regression reaches the
+correct result. SymPy 1.14 EXRAW can produce an invalid inverse for the
+regression matrix; the native result is checked against EX and the exact
+identity matrix product. This is an intentional mathematical correction.
+Matrix numeric zero queries use exact facts and symbolic pivot simplification,
+instead of accepting a fixed machine-precision residual as nonzero. Closed
+finite entries proved zero are canonicalized before default domain dispatch
+and in default RREF output. Explicit host predicates retain their callback
+path. Closed function values are not assumed to be independent polynomial
+generators during default inversion: trigonometric relations can make a matrix
+singular. Exact rank, RREF and inversion checks include scaled identities and
+both scalar and two-dimensional singular matrices.
+
+Scalar numerical assumption refinement now checks real/imaginary components
+at 160 and 320 bits, with relative stability and scale checks. Unresolved
+cancellation retains unknown; a rounded numerical zero is never itself a zero
+proof. The strict exact-query policy remains independent. Multiprecision
+inference shares precision-specific descendant values across each query, and
+held sums may collect identical finite terms with exact coefficients.
+Floating coefficients retain their established arithmetic evaluation path.
+Tiny sine evaluation now preserves relative precision instead of truncating
+the argument to an absolute fixed-point zero. Comparisons cover values as
+small as `sin(10**-1000)` at 60 requested decimal digits. General interval
+certification and all special-function accuracy contracts remain open.
+
+The rejection of a proved singular numeric matrix by default/DM and LU
+inversion is a separately recorded mathematical correction. SymPy 1.14's
+formal-domain paths return an inverse for some of the independently proved
+zero identities in these regressions. This is not a reference-output match.
+General functional relations, parameter strata and domain inference are still
+blocking obligations. Typed polynomial rings and fraction fields over Gaussian
+integer/rational ground domains remain unsupported, even though the covered
+scalar and matrix Gaussian computations are available.
+
+Automatic polynomial division now retries inferred closed algebraic
+coefficients with the existing exact number-field engine when the legacy
+coefficient view cannot represent the quotient. The original division and
+explicit domain paths remain available. Exact quotient/remainder identities
+cover radical sums and complex algebraic coefficients. Transcendental fields
+are not approximated by this fallback. Default inferred output-domain metadata
+can still differ from the reference EX domain; broader coefficient-domain
+inference remains an explicit gap. All four synthesis forms for the covered
+Lcapy radical-impedance circuit now terminate with the original impedance.
+
+Global `div`, `quo`, `rem` and `exquo` now respect the default disabling
+of automatic field extension when a coefficient domain or field choice is
+explicit. `auto=True` remains an explicit override, while `None` follows the
+reference's absent-option preprocessing. Differential checks cover integer,
+rational, polynomial-ring, finite and algebraic fields, including result-domain
+metadata and exact-quotient errors. The previously incorrect default-extension
+expectation in the ring regression is now requested explicitly with `auto=True`;
+separate default-option tests preserve the reference ring behavior.
+
+The LaTeX symbol printer now exposes the real parent `_print_Symbol` hook for
+subclass delegation, preserving its `style` argument, exact symbol-name overrides
+and super/subscript conventions. Token translation calls the existing Rust
+translator directly instead of reparsing each component as a complete symbol.
+Output modes wrap the final result once, retaining inline fraction defaults.
+This qualifies the tested symbol hooks and printer settings; arbitrary recursive
+printer overrides, matrix styles and every layout option remain separate gaps.
+
 Implicit external conversion never invokes a native object's reference exporter.
 Conversion chains are traversed iteratively, with retained owners and identity
 checks for cycles; reentrant hooks are guarded separately. Matrix `nsimplify`

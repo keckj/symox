@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "reference_version": "1.14.0",
-  "native_source_sha256": "61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a",
+  "native_source_sha256": "c6198033b800a80410459efc0220add61ad8a6868a9376220e56666c485b90d0",
   "evidence": "tests/test_permutation_algorithm_parity.py; tests/test_permutation_constructor_parity.py; tests/test_matrix_permutations.py",
   "limitations": "These closed-domain reviews do not certify arbitrary Python conversion/subclass protocols, every invalid argument shape, inherited Basic methods, all constructors or global SymPy parity. Complexity counts exact-integer operations separately from their bit costs.",
   "improvements": [

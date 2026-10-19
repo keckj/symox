@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "bd3a1fbd9bfed23ef1a9787aafe989ead2842459a3b9db5081b3b453734638b0",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/native-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/pyneqsys/freeze.txt.gz": "72bfff0feba644849c089078e33c6a905949a8a4db8a1de3408f8969ee1e9b71",
-    "evidence/pyneqsys/install.log.gz": "7356acf22ab1708357ea3f1c6fd8b9fdfaff3d9acc9ab17601f78a42f27d1ef9",
-    "evidence/pyneqsys/native-junit.xml.gz": "6ed30beee17fd9bd29ba460d1fa6e02ad03285fe44fa22bb6dbb84d3fc7b76ff",
-    "evidence/pyneqsys/native-processes.jsonl.gz": "b7a67855579f53fb7fc4e55e73d6b125f978ead6407ecea91eb1d98180b69116",
-    "evidence/pyneqsys/native-tests.json.gz": "3d98c96d75938832628a89643b76f058469974f7a9e2906c7dd4bd3507941acd",
-    "evidence/pyneqsys/native.log.gz": "2c1cba8e606a7a74d4ef9a1a14eafb9d05b08b3e6361606fcdd0f57125c6427e",
+    "evidence/pyneqsys/freeze.txt.gz": "1774886ae64cbb7508e2022d7c2a04c865868e67d8506d20a073699d9930ce31",
+    "evidence/pyneqsys/install.log.gz": "02486f8c7ce5e922e1778d481ea60761fba6f317fedfd6584a83fd8d745f1078",
+    "evidence/pyneqsys/native-junit.xml.gz": "de5e156594ec1607b90ec22ec64dbdbe276974111fd7b516d175d4f90dee2ddc",
+    "evidence/pyneqsys/native-processes.jsonl.gz": "fa8db58bb8976be669f72aa3c3bd823bdd8d8eca590972d81dfdc01853fcf269",
+    "evidence/pyneqsys/native-tests.json.gz": "b79f55a40164760311fad89ee4fa1f3de3a3e4f8a0d0dec6e314e8d7a5438aa8",
+    "evidence/pyneqsys/native.log.gz": "9ac93bfb7b9472027485d7308bc3ee323bbd2f501475871b0d192103019ae8e1",
     "evidence/pyneqsys/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/pyneqsys/reference-junit.xml.gz": "683e415cf50da706dd32f8001a74831883ae0adda4e5b6c6fb57e01e76f43489",
-    "evidence/pyneqsys/reference-processes.jsonl.gz": "da42e5e05708268e467b5836d58c8927e9f68d8e470da64b211c76562cea2ad4",
-    "evidence/pyneqsys/reference-tests.json.gz": "84b0debe6b20edd573d56612514396c1b67ce0109df79603d19b68d13534ed8c",
-    "evidence/pyneqsys/reference.log.gz": "8249ebc944d8b1c88c57c9ab89f53f970e668d10e895a292f70c9552bc81c074",
+    "evidence/pyneqsys/reference-junit.xml.gz": "e1dd0afcbd5930329b71c16cceb38097b963c33e990af6cc860051eea695217b",
+    "evidence/pyneqsys/reference-processes.jsonl.gz": "a8868fdb773c11a127e28fed0a22d2f61e19feb599c9998169184172b060e1d2",
+    "evidence/pyneqsys/reference-tests.json.gz": "c9f42ba378b3d0ce51c898ef01b5ded8f3224f9d6d297d9f7137c46d31c09772",
+    "evidence/pyneqsys/reference.log.gz": "ff92f69d920a0ed598f4d9496947cca1e6972faa6cc34b9b3aa79cdb59857299",
     "evidence/pyneqsys/venv.log.gz": "e334a7e02fbb3a401ebd87467e75da9943a7de7b3546d9f2d02811c7cb10f493"
   },
   "freeze": {
@@ -28,7 +28,7 @@
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/pyneqsys/freeze.txt",
     "seconds": 0.115,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pyneqsys\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\nexecnet==2.1.2\nfonttools==4.67.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npygments==2.21.0\n-e file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsym==0.3.7\nsymox @ file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pyneqsys\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\nexecnet==2.1.2\nfonttools==4.67.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npygments==2.21.0\n-e file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsym==0.3.7\nsymox @ file:///home/keckj/.cache/symox-validation/dist/native-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -64,12 +64,12 @@
       "numpy",
       "-e",
       "/home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7",
-      "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/native-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/pyneqsys/install.log",
-    "seconds": 0.866,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pyneqsys\nResolved 31 packages in 455ms\n   Building pyneqsys @ file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7\n      Built pyneqsys @ file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7\nPrepared 2 packages in 177ms\nUninstalled 2 packages in 22ms\nInstalled 2 packages in 12ms\n ~ pyneqsys==0.5.7 (from file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 0.816,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pyneqsys\nResolved 31 packages in 445ms\n   Building pyneqsys @ file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7\n      Built pyneqsys @ file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7\nPrepared 2 packages in 178ms\nUninstalled 2 packages in 15ms\nInstalled 2 packages in 11ms\n ~ pyneqsys==0.5.7 (from file:///home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/poly-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/native-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -120,6 +120,7 @@
         "sympy._core": "symox._core",
         "sympy._differentiation": "symox._differentiation",
         "sympy._dispatch_arguments": "symox._dispatch_arguments",
+        "sympy._distribution_methods": "symox._distribution_methods",
         "sympy._epath": "symox._epath",
         "sympy._expr_analysis": "symox._expr_analysis",
         "sympy._expr_leading": "symox._expr_leading",
@@ -135,6 +136,7 @@
         "sympy._matrix_decompositions": "symox._matrix_decompositions",
         "sympy._matrix_index_sums": "symox._matrix_index_sums",
         "sympy._matrix_permutations": "symox._matrix_permutations",
+        "sympy._matrix_subclasses": "symox._matrix_subclasses",
         "sympy._matrixexpr": "symox._matrixexpr",
         "sympy._matrixexpr_algebra": "symox._matrixexpr_algebra",
         "sympy._matrixexpr_methods": "symox._matrixexpr_methods",
@@ -381,10 +383,10 @@
       "count": 0,
       "examples": []
     },
-    "seconds": 0.916,
-    "tail": "sss...s.s........ssss.......                                             [100%]\n=============================== warnings summary ===============================\n../../../envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474\n  /home/keckj/.cache/symox-validation/featured/envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning: Unknown config option: flakes-ignore\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pyneqsys/native-junit.xml -\n=========================== short test summary info ============================\nSKIPPED [1] pyneqsys/tests/test_backends.py:26: pysym missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:37: symcxx missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:48: symengine missing\nSKIPPED [1] pyneqsys/tests/test_core.py:84: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_core.py:101: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_ipopt.py:14: ipopt package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:16: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:21: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:26: levmar package unavailable\n19 passed, 9 skipped, 1 warning in 0.55s\n",
+    "seconds": 0.966,
+    "tail": "sss...s.s........ssss.......                                             [100%]\n=============================== warnings summary ===============================\n../../../envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474\n  /home/keckj/.cache/symox-validation/featured/envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning: Unknown config option: flakes-ignore\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pyneqsys/native-junit.xml -\n=========================== short test summary info ============================\nSKIPPED [1] pyneqsys/tests/test_backends.py:26: pysym missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:37: symcxx missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:48: symengine missing\nSKIPPED [1] pyneqsys/tests/test_core.py:84: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_core.py:101: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_ipopt.py:14: ipopt package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:16: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:21: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:26: levmar package unavailable\n19 passed, 9 skipped, 1 warning in 0.57s\n",
     "test_evidence": "evidence/pyneqsys/native-tests.json.gz",
-    "test_evidence_sha256": "3d98c96d75938832628a89643b76f058469974f7a9e2906c7dd4bd3507941acd",
+    "test_evidence_sha256": "b79f55a40164760311fad89ee4fa1f3de3a3e4f8a0d0dec6e314e8d7a5438aa8",
     "timed_out": false
   },
   "preflight": {
@@ -457,10 +459,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 1.166,
-    "tail": "sss...s.s........ssss.......                                             [100%]\n=============================== warnings summary ===============================\n../../../envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474\n  /home/keckj/.cache/symox-validation/featured/envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning: Unknown config option: flakes-ignore\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pyneqsys/reference-junit.xml -\n=========================== short test summary info ============================\nSKIPPED [1] pyneqsys/tests/test_backends.py:26: pysym missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:37: symcxx missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:48: symengine missing\nSKIPPED [1] pyneqsys/tests/test_core.py:84: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_core.py:101: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_ipopt.py:14: ipopt package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:16: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:21: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:26: levmar package unavailable\n19 passed, 9 skipped, 1 warning in 0.74s\n",
+    "seconds": 1.267,
+    "tail": "sss...s.s........ssss.......                                             [100%]\n=============================== warnings summary ===============================\n../../../envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474\n  /home/keckj/.cache/symox-validation/featured/envs/pyneqsys/lib/python3.12/site-packages/_pytest/config/__init__.py:1474: PytestConfigWarning: Unknown config option: flakes-ignore\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pyneqsys/reference-junit.xml -\n=========================== short test summary info ============================\nSKIPPED [1] pyneqsys/tests/test_backends.py:26: pysym missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:37: symcxx missing\nSKIPPED [1] pyneqsys/tests/test_backends.py:48: symengine missing\nSKIPPED [1] pyneqsys/tests/test_core.py:84: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_core.py:101: pynleq2 not installed on system.\nSKIPPED [1] pyneqsys/tests/test_ipopt.py:14: ipopt package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:16: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:21: levmar package unavailable\nSKIPPED [1] pyneqsys/tests/test_levmar.py:26: levmar package unavailable\n19 passed, 9 skipped, 1 warning in 0.78s\n",
     "test_evidence": "evidence/pyneqsys/reference-tests.json.gz",
-    "test_evidence_sha256": "84b0debe6b20edd573d56612514396c1b67ce0109df79603d19b68d13534ed8c",
+    "test_evidence_sha256": "c9f42ba378b3d0ce51c898ef01b5ded8f3224f9d6d297d9f7137c46d31c09772",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -478,6 +480,6 @@
     "root": "/home/keckj/.cache/symox-validation/featured/sources/pyneqsys/pyneqsys-0.5.7",
     "sha256": "a4ef31b66895171ecab9677d2f36c757debafad450169a2ba0d4e23a7eff283a"
   },
-  "started_at": "2026-10-19T21:00:23.065851+00:00",
+  "started_at": "2026-10-19T23:28:29.954319+00:00",
   "status": "native_suite_passes"
 }

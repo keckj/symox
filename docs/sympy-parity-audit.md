@@ -15,15 +15,15 @@ automatically a mathematical error. Equal exceptions are recorded separately fro
 ## Evidence
 
 - Module paths: 310.
-- Export/method bindings, including aliases: 67753.
+- Export/method bindings, including aliases: 67547.
 - Distinct reference callables: 6077.
 - Documented objects replayed: 2916.
-- Matching example observations: 1549 objects.
-- Different observations to review: 1365 objects.
+- Matching example observations: 1551 objects.
+- Different observations to review: 1363 objects.
 - Incomplete replays: 0 objects.
 - Named-call objects replayed: 2916.
-- Matching named-call observations: 1487 objects.
-- Different named-call observations to review: 1427 objects.
+- Matching named-call observations: 1489 objects.
+- Different named-call observations to review: 1425 objects.
 - Incomplete named-call replays: 0 objects.
 
 Reference Python source fingerprint: `972084bcdf2aeda02be0f83a39ce771094bd7657efa5a0e81ac4d75cad8737a9`.
@@ -31,7 +31,7 @@ Installed source files matching distribution RECORD: 1533; mismatches: 0.
 The separate [published-wheel integrity record](../audits/sympy-1.14.0/reference-wheel-integrity.json)
 compares these sources with the [SymPy 1.14.0 PyPI release](https://pypi.org/project/sympy/1.14.0/#files), without modifying the reference installation.
 
-Catalog native fingerprint: `61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a`.
+Catalog native fingerprint: `c6198033b800a80410459efc0220add61ad8a6868a9376220e56666c485b90d0`.
 
 Example snapshot fingerprint: `mixed; consult each record`.
 
@@ -39,16 +39,16 @@ Named-call snapshot fingerprint: `mixed; consult each record`.
 
 Named-call replays use actual reference argument binding to move eligible positional inputs
 to their public keyword names, preserving positional-only and variadic calls. They record
-69903 reference calls and 68690 native calls, with
-69785 and 67920 successful calls respectively.
+69903 reference calls and 68692 native calls, with
+69785 and 67922 successful calls respectively.
 Cascading exceptions and repeated calls affect these counts; they are not a compliance percentage.
 
 These fingerprints may differ while fixes are being made. Each example record keeps its
 own fingerprint; stale evidence must be rerun before approving a changed implementation.
 Targeted supplementary runs replace older observations by reference callable identity,
 including aliases. Other records retain their original snapshots and stale status.
-Ordinary evidence files: `audits/sympy-1.14.0/seventh-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-examples.json.gz`, `audits/sympy-1.14.0/extra-isolation-examples.json.gz`.
-Named-call evidence files: `audits/sympy-1.14.0/fifth-keyword-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-keywords.json.gz`, `audits/sympy-1.14.0/extra-isolation-keywords.json.gz`.
+Ordinary evidence files: `audits/sympy-1.14.0/seventh-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-examples.json.gz`, `audits/sympy-1.14.0/extra-isolation-examples.json.gz`, `audits/sympy-1.14.0/native-protocol-examples.json.gz`.
+Named-call evidence files: `audits/sympy-1.14.0/fifth-keyword-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-keywords.json.gz`, `audits/sympy-1.14.0/extra-isolation-keywords.json.gz`, `audits/sympy-1.14.0/native-protocol-keywords.json.gz`.
 Scoped review source hashes are also checked against the working tree, so edited Rust
 cannot retain a fresh review merely because an older compiled extension is still installed.
 
@@ -76,7 +76,7 @@ an instance probe. This is not a claim that the method is absent on returned obj
 
 | Module | Exports | Method bindings | Binding gaps | Instance probes |
 | --- | ---: | ---: | ---: | ---: |
-| `sympy` | 921 | 28925 | 2299 | 21403 |
+| `sympy` | 921 | 28719 | 2285 | 21213 |
 | `sympy.abc` | 0 | 0 | 0 | 0 |
 | `sympy.algebras` | 1 | 0 | 0 | 0 |
 | `sympy.assumptions` | 12 | 65 | 2 | 62 |
@@ -104,7 +104,7 @@ an instance probe. This is not a claim that the method is absent on returned obj
 | `sympy.codegen.matrix_nodes` | 1 | 106 | 1 | 102 |
 | `sympy.codegen.pyutils` | 1 | 0 | 1 | 0 |
 | `sympy.codegen.rewriting` | 18 | 4 | 0 | 4 |
-| `sympy.combinatorics` | 33 | 421 | 1 | 301 |
+| `sympy.combinatorics` | 33 | 421 | 1 | 296 |
 | `sympy.combinatorics.galois` | 21 | 0 | 0 | 0 |
 | `sympy.combinatorics.generators` | 6 | 0 | 0 | 0 |
 | `sympy.combinatorics.graycode` | 6 | 0 | 0 | 0 |
@@ -120,12 +120,12 @@ an instance probe. This is not a claim that the method is absent on returned obj
 | `sympy.combinatorics.tensor_can` | 12 | 0 | 0 | 0 |
 | `sympy.combinatorics.testutil` | 2 | 0 | 0 | 0 |
 | `sympy.combinatorics.util` | 0 | 0 | 0 | 0 |
-| `sympy.core` | 101 | 0 | 15 | 0 |
+| `sympy.core` | 101 | 0 | 13 | 0 |
 | `sympy.core.add` | 1 | 0 | 1 | 0 |
 | `sympy.core.assumptions` | 8 | 13 | 1 | 0 |
-| `sympy.core.basic` | 3 | 0 | 2 | 0 |
+| `sympy.core.basic` | 3 | 0 | 1 | 0 |
 | `sympy.core.cache` | 5 | 0 | 0 | 0 |
-| `sympy.core.containers` | 5 | 9 | 1 | 2 |
+| `sympy.core.containers` | 5 | 9 | 0 | 2 |
 | `sympy.core.evalf` | 44 | 2 | 7 | 0 |
 | `sympy.core.expr` | 6 | 4 | 2 | 0 |
 | `sympy.core.exprtools` | 7 | 16 | 0 | 0 |
@@ -135,7 +135,7 @@ an instance probe. This is not a claim that the method is absent on returned obj
 | `sympy.core.mod` | 1 | 0 | 0 | 0 |
 | `sympy.core.mul` | 4 | 0 | 1 | 0 |
 | `sympy.core.multidimensional` | 4 | 0 | 0 | 0 |
-| `sympy.core.numbers` | 34 | 1692 | 736 | 77 |
+| `sympy.core.numbers` | 34 | 1692 | 736 | 71 |
 | `sympy.core.power` | 1 | 0 | 0 | 0 |
 | `sympy.core.random` | 4 | 0 | 0 | 0 |
 | `sympy.core.relational` | 14 | 0 | 0 | 0 |
@@ -266,10 +266,10 @@ an instance probe. This is not a claim that the method is absent on returned obj
 | `sympy.physics.quantum.tensorproduct` | 2 | 0 | 0 | 0 |
 | `sympy.physics.secondquant` | 37 | 1669 | 42 | 1519 |
 | `sympy.physics.sho` | 2 | 0 | 0 | 0 |
-| `sympy.physics.units` | 361 | 243 | 5 | 226 |
+| `sympy.physics.units` | 361 | 243 | 5 | 223 |
 | `sympy.physics.units.dimensions` | 2 | 0 | 0 | 0 |
 | `sympy.physics.units.prefixes` | 2 | 95 | 0 | 95 |
-| `sympy.physics.units.quantities` | 2 | 98 | 0 | 95 |
+| `sympy.physics.units.quantities` | 2 | 98 | 0 | 92 |
 | `sympy.physics.units.unitsystem` | 1 | 0 | 0 | 0 |
 | `sympy.physics.units.util` | 3 | 0 | 0 | 0 |
 | `sympy.physics.vector` | 27 | 0 | 2 | 0 |
@@ -399,7 +399,6 @@ all method signatures and concrete rejected-call witnesses. These rows are an op
 | `sympy.AlgebraicNumber` | `(expr, coeffs=None, alias=None, **args)` | `(expr, coeffs=None, alias=None, *, gen=None)` |
 | `sympy.Atom` | `(*args)` | `()` |
 | `sympy.AtomicExpr` | `(*args)` | `()` |
-| `sympy.Basic` | `(*args)` | `(obj)` |
 | `sympy.BlockMatrix` | `(*args, **kwargs)` | `(blocks)` |
 | `sympy.Circle` | `(*args, **kwargs)` | `(center, radius=None, third=None, **kwargs)` |
 | `sympy.Complement` | `(a, b, evaluate=True)` | `(a, b)` |
@@ -446,7 +445,6 @@ all method signatures and concrete rejected-call witnesses. These rows are an op
 | `sympy.SparseNDimArray` | `(*args, **kwargs)` | `(iterable=None, shape=None, **options)` |
 | `sympy.SymmetricDifference` | `(a, b, evaluate=True)` | `(a, b)` |
 | `sympy.Transpose` | `(*args, **kwargs)` | `(arg)` |
-| `sympy.Tuple` | `(*args, **kwargs)` | `(*items)` |
 | `sympy.Union` | `(*args, **kwargs)` | `(*args)` |
 | `sympy.WildFunction` | `(*args)` | `(name, **assumptions)` |
 | `sympy.ZeroMatrix` | `(m, n)` | `(n, m)` |
@@ -465,7 +463,6 @@ all method signatures and concrete rejected-call witnesses. These rows are an op
 | `sympy.nsolve` | `(*args, dict=False, **kwargs)` | `(f, x, x0=None, **_kwargs)` |
 | `sympy.ones` | `(*args, **kwargs)` | `(r, c=None, **_kwargs)` |
 | `sympy.product` | `(*args, **kwargs)` | `(f, *limits)` |
-| `sympy.srepr` | `(expr, *, order=None, perm_cyclic=True)` | `(obj)` |
 | `sympy.summation` | `(f, *symbols, **kwargs)` | `(f, *limits)` |
 | `sympy.together` | `(expr, deep=False, fraction=True)` | `(f, deep=False, **_kwargs)` |
 | `sympy.zeros` | `(*args, **kwargs)` | `(r, c=None, **_kwargs)` |

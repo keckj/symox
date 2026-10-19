@@ -1501,3 +1501,82 @@ and Arch documentation objects were replayed in ordinary and keyword modes:
 polar expansion, principal-branch simplification and sign numerical evaluation).
 Other historical example evidence remains explicitly stale. This checkpoint
 is not global algorithmic parity certification.
+
+
+## 2026-10-20 — Exact pivots, distribution guards and native downstream protocols
+
+The native integration work now includes an exact affine Dirac rule with a
+substitution budget, complete-root guards for rational-polynomial delta
+expansion, public arithmetic containment and actual mutable dense matrix
+subclass reconstruction. The lightweight trig engine memoizes shared DAG nodes
+without changing its rewrite rules or the public traversal multiplicities.
+These are scoped improvements; the limitations and mathematical differences
+are recorded in `docs/algorithmic-parity.md`.
+
+Expression-domain elimination now delegates exact pivot simplification to the
+native matrix kernel, retaining EX/EXRAW and public power forms. Three existing
+interpolation regressions exposed an overbroad global sign normalization; that
+normalization was removed instead of relaxing their expected formulas. Numeric
+matrix pivots no longer use a fixed binary64 residual threshold. Closed exact
+functional zero identities are normalized before default matrix-domain
+selection. Numerical assumptions use two multiprecision refinements, and tiny
+sine evaluation preserves relative precision at arguments as small as 10**-1000.
+
+Automatic division can use the existing exact algebraic engine for inferred
+closed radical coefficients. All four synthesis forms of the covered Lcapy
+impedance terminate and reproduce its impedance. A separate docstring replay
+exposed an incorrect default extension for explicit coefficient domains in
+`div`, `quo`, `rem` and `exquo`. A set of 144 differential cases checks absent,
+None, False and True auto options, exact-quotient errors and result domains.
+The older typed-ring promotion test now requests its intended field extension
+with explicit auto=True; default ring behavior has separate reference checks.
+
+The LaTeX parent symbol hook now composes through super(), preserves its style
+argument, and calls the existing Rust token translator without parsing a token
+as a complete symbol again. Output modes retain inline fraction defaults.
+987 focused division/printing checks passed on this source, followed by the
+Rust workspace tests and correctness Clippy check. A full native Lcapy
+prototype completed all 317 original pinned tests: 251 passed and 66 failed,
+versus 193 passed at the previously pushed checkpoint. The final optimized
+wheel qualification is recorded in `audits/downstream/validation.json`.
+
+The parity worker now resolves its script and package paths before entering
+its temporary directory. A relative-path replay reproduces the old launch
+failure and succeeds with the correction. Nine public docstrings are replayed
+in ordinary and named-call modes on the candidate; differing observations
+remain visible instead of becoming certificates. The catalog still has 6,077
+distinct reference callables. A reduction of 206 alias rows follows reuse of
+Eq/Equality and the five other relational aliases; no canonical callable was
+removed. Historical observations retain their own fingerprints and stale state.
+
+
+Final optimized candidate qualification:
+
+- 29,871 internal tests passed, with five documented exclusions and no failures
+  or expected failures. All 383 extra tests passed with the required JAX,
+  PyTorch, SlangPy and AdaptiveCpp execution paths enabled.
+- 2,636 focused tests passed separately on Python 3.10 and 3.12. The Rust
+  workspace passed 522 unit tests and five doctests; one existing timing
+  experiment remains ignored. Workspace builds and correctness Clippy passed.
+- Twelve pinned upstream selections pass, and seven native incompatibilities
+  remain. Lcapy reproduces the prototype's 251/317 result on the optimized
+  wheel. The other project statuses and qualification boundaries remain in
+  `docs/downstream-integration.md`.
+- All 608 package files match the wheel byte for byte. All 263 retained
+  compressed evidence artifacts passed checksum and decompression checks.
+  Source verification covers 26 records, including 22 unmodified pinned
+  upstream selections and the installed Sage runtime.
+- The 310-path module inventory has no native/reference import errors. The
+  curated 273-case expression corpus matches; this is not global coverage.
+  All 54 scoped review records are fresh. All 6,077 universal function-parity
+  flags remain false. Of the nine newly replayed docstrings, three match and
+  six retain observation differences in both ordinary and named-call modes.
+
+Wheel SHA256: `bd3a1fbd9bfed23ef1a9787aafe989ead2842459a3b9db5081b3b453734638b0`.
+
+Build source snapshot: `0e5683db4347406b0fc75d8437cf3821532159f9`.
+Qualified production source: `d7e9ec03bfcba3a9abccb063b076f184c7dd3c51`.
+The build snapshot is retained in the main ancestry with no additional
+production source changes, making its provenance available after push.
+The featured replacement gate and universal algorithmic-parity gate remain
+false; no release tag or package publication was created.

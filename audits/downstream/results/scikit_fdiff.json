@@ -1,7 +1,7 @@
 {
   "candidate": {
-    "sha256": "10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "bd3a1fbd9bfed23ef1a9787aafe989ead2842459a3b9db5081b3b453734638b0",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/native-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {},
   "harness_sha256": {
@@ -32,6 +32,6 @@
     "version": "0.7.0"
   },
   "reference_version": "1.14.0",
-  "started_at": "2026-10-19T21:00:34.306899+00:00",
+  "started_at": "2026-10-19T23:28:41.286283+00:00",
   "status": "excluded_reference_requirement"
 }

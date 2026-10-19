@@ -1,18 +1,18 @@
 {
   "schema": 1,
   "reference_version": "1.14.0",
-  "native_source_sha256": "61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a",
+  "native_source_sha256": "c6198033b800a80410459efc0220add61ad8a6868a9376220e56666c485b90d0",
   "records": [
     {
       "native_sources_sha256": {
-        "crates/symox-core/src/integrate.rs": "d12347e63ee47576a82283eba00477ce72bf49073f420743de92442b87f9bdd4",
-        "crates/symox-py/src/lib.rs": "105d6d006b7ecc5f9aa91781e68f0fa47f0042c97ed8d64da894a024cf4fa914",
-        "python/symox/_matrixexpr_methods.py": "cdcb1941d6d3f84a1d2012f0bb45739e629a04e110a96938188fb29db2c7d3c2",
+        "crates/symox-core/src/integrate.rs": "725a9b7461b2426dc676d62e5f6ea0fb8031a97e4722e0da3414b3efabb71f3e",
+        "crates/symox-py/src/lib.rs": "94692beb5c2e1e5e184d9c67dd22e4eacfdfe9e6f9e1d9a8d0db8f773e10a8db",
+        "python/symox/_matrixexpr_methods.py": "98eccdceca6a583a951af9416ffd6e92f8bc0c2b08b30e19a9f7850b1a4107d8",
         "python/symox/_public_calculus.py": "068413c27dec1651060568e984c5b182c84a2bd9b81994fdc6f3ccc93d1dfb2f",
         "python/symox/_expression_replace.py": "303f74898c35d9ea6bd821eb417e82120ae0e8985cb152f9b30cd73a84fbe484",
-        "python/symox/_compat.py": "afa81d2161535b5f6462c16bd57f505d1cccb5a9d9fe24d186fd886bd71f34e2",
+        "python/symox/_compat.py": "550035e00c919085317f9a9634592efbc732db92edd1816e81eb3dca644c3640",
         "python/symox/series/fourier.py": "e175c28be775cead969c7c47ab9adb9faf9103b72122fa8e3ab8b6f22c6fa60e",
-        "python/symox/__init__.py": "aa51d36141f852ceadc07898e8883683c1fc81e5bccab7ac745474b1520f7e40"
+        "python/symox/__init__.py": "0afaa77513f3293acdb7ed9b7c89625c4688cb16b03a3d2b7e8efe6592a0b9fb"
       },
       "proof_kind": "Human invariant argument with independent exact regressions; not machine-checked.",
       "universal_function_parity_certified": false,
@@ -28,14 +28,14 @@
     },
     {
       "native_sources_sha256": {
-        "crates/symox-core/src/integrate.rs": "d12347e63ee47576a82283eba00477ce72bf49073f420743de92442b87f9bdd4",
-        "crates/symox-py/src/lib.rs": "105d6d006b7ecc5f9aa91781e68f0fa47f0042c97ed8d64da894a024cf4fa914",
-        "python/symox/_matrixexpr_methods.py": "cdcb1941d6d3f84a1d2012f0bb45739e629a04e110a96938188fb29db2c7d3c2",
+        "crates/symox-core/src/integrate.rs": "725a9b7461b2426dc676d62e5f6ea0fb8031a97e4722e0da3414b3efabb71f3e",
+        "crates/symox-py/src/lib.rs": "94692beb5c2e1e5e184d9c67dd22e4eacfdfe9e6f9e1d9a8d0db8f773e10a8db",
+        "python/symox/_matrixexpr_methods.py": "98eccdceca6a583a951af9416ffd6e92f8bc0c2b08b30e19a9f7850b1a4107d8",
         "python/symox/_public_calculus.py": "068413c27dec1651060568e984c5b182c84a2bd9b81994fdc6f3ccc93d1dfb2f",
         "python/symox/_expression_replace.py": "303f74898c35d9ea6bd821eb417e82120ae0e8985cb152f9b30cd73a84fbe484",
-        "python/symox/_compat.py": "afa81d2161535b5f6462c16bd57f505d1cccb5a9d9fe24d186fd886bd71f34e2",
+        "python/symox/_compat.py": "550035e00c919085317f9a9634592efbc732db92edd1816e81eb3dca644c3640",
         "python/symox/series/fourier.py": "e175c28be775cead969c7c47ab9adb9faf9103b72122fa8e3ab8b6f22c6fa60e",
-        "python/symox/__init__.py": "aa51d36141f852ceadc07898e8883683c1fc81e5bccab7ac745474b1520f7e40"
+        "python/symox/__init__.py": "0afaa77513f3293acdb7ed9b7c89625c4688cb16b03a3d2b7e8efe6592a0b9fb"
       },
       "proof_kind": "Human invariant argument with independent exact regressions; not machine-checked.",
       "universal_function_parity_certified": false,
@@ -51,14 +51,14 @@
     },
     {
       "native_sources_sha256": {
-        "crates/symox-core/src/integrate.rs": "d12347e63ee47576a82283eba00477ce72bf49073f420743de92442b87f9bdd4",
-        "crates/symox-py/src/lib.rs": "105d6d006b7ecc5f9aa91781e68f0fa47f0042c97ed8d64da894a024cf4fa914",
-        "python/symox/_matrixexpr_methods.py": "cdcb1941d6d3f84a1d2012f0bb45739e629a04e110a96938188fb29db2c7d3c2",
+        "crates/symox-core/src/integrate.rs": "725a9b7461b2426dc676d62e5f6ea0fb8031a97e4722e0da3414b3efabb71f3e",
+        "crates/symox-py/src/lib.rs": "94692beb5c2e1e5e184d9c67dd22e4eacfdfe9e6f9e1d9a8d0db8f773e10a8db",
+        "python/symox/_matrixexpr_methods.py": "98eccdceca6a583a951af9416ffd6e92f8bc0c2b08b30e19a9f7850b1a4107d8",
         "python/symox/_public_calculus.py": "068413c27dec1651060568e984c5b182c84a2bd9b81994fdc6f3ccc93d1dfb2f",
         "python/symox/_expression_replace.py": "303f74898c35d9ea6bd821eb417e82120ae0e8985cb152f9b30cd73a84fbe484",
-        "python/symox/_compat.py": "afa81d2161535b5f6462c16bd57f505d1cccb5a9d9fe24d186fd886bd71f34e2",
+        "python/symox/_compat.py": "550035e00c919085317f9a9634592efbc732db92edd1816e81eb3dca644c3640",
         "python/symox/series/fourier.py": "e175c28be775cead969c7c47ab9adb9faf9103b72122fa8e3ab8b6f22c6fa60e",
-        "python/symox/__init__.py": "aa51d36141f852ceadc07898e8883683c1fc81e5bccab7ac745474b1520f7e40"
+        "python/symox/__init__.py": "0afaa77513f3293acdb7ed9b7c89625c4688cb16b03a3d2b7e8efe6592a0b9fb"
       },
       "proof_kind": "Human invariant argument with independent exact regressions; not machine-checked.",
       "universal_function_parity_certified": false,

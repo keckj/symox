@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "reference_version": "1.14.0",
-  "native_source_sha256": "61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a",
+  "native_source_sha256": "c6198033b800a80410459efc0220add61ad8a6868a9376220e56666c485b90d0",
   "evidence": "tests/test_schreier_group_parity.py; tests/test_schreier_slp_parity.py",
   "limitations": "Finite-group result invariants do not certify all constructor/conversion protocols, inherited Basic methods or every invalid input. Comparative complexity certification remains pending.",
   "records": [
