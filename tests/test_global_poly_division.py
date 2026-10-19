@@ -111,7 +111,7 @@ def test_ring_promotion_retraction_and_parameter_identity(op, order, auto):
             assert p.domain.symbols == (a,b) and p.domain.order == order
             assert all(c in p.domain for c in p.coeffs())
     if auto:
-        q,r=sm.div(f,g,x,domain=k,polys=True)
+        q,r=sm.div(f,g,x,domain=k,auto=True,polys=True)
         assert q.domain == r.domain == k.get_field()
         assert sm.rem(f,g,x,domain=k,polys=True).domain == k
 

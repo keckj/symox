@@ -66,6 +66,7 @@ impl<'py> Options<'py> {
             modulus: None,
             generators: gens_of(gens)?,
         };
+        let mut explicit_auto = false;
         if let Some(kw) = kw {
             for (key, value) in kw.iter() {
                 let key = key.extract::<String>()?;
@@ -76,7 +77,10 @@ impl<'py> Options<'py> {
                                 "'auto' flag is not allowed in this context",
                             ));
                         }
-                        out.auto = boolean(&value, "auto")?.unwrap_or(true);
+                        if let Some(auto) = boolean(&value, "auto")? {
+                            out.auto = auto;
+                            explicit_auto = true;
+                        }
                     }
                     "polys" => out.polys = boolean(&value, "polys")?,
                     "field" => out.field = boolean(&value, "field")?,
@@ -133,6 +137,15 @@ impl<'py> Options<'py> {
                     }
                 }
             }
+        }
+        // An explicit coefficient-domain or field choice disables automatic
+        // extension unless auto=True is actually supplied. None is an absent
+        // option, matching the reference Options preprocessing.
+        if !explicit_auto && (out.domain.is_some() || out.field.is_some()
+            || out.modulus.is_some()
+            || out.extension.as_ref().is_some_and(|value|
+                !(value.is_instance_of::<pyo3::types::PyBool>() && value.extract::<bool>().unwrap_or(false)))) {
+            out.auto = false;
         }
         if out.domain.is_some() && out.field.is_some() {
             return Err(OptionError::new_err(
