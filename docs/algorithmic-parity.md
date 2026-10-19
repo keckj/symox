@@ -181,8 +181,10 @@ Undefined function heads support instance queries that preserve their name,
 assumptions and arity; held derivatives expose the public constructor for
 reconstruction. Callable slots belong to native lambda, predicate and registered
 differential-field subtypes, so constants and ordinary expressions are not
-reported as callable, including after importing differential geometry. This does
-not certify the full nominal function or symbolic subclass hierarchy.
+reported as callable, including after importing differential geometry.
+For registered charts, symbolic atom identities preserve point evaluation
+after reconstruction and pickle round trips. The full nominal function and
+symbolic subclass hierarchy remain uncertified.
 Tuple reconstruction accepts the reference keyword signature; raw
 `Tuple(sympify=False)` items outside the native expression representation
 remain unsupported.

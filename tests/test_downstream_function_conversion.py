@@ -129,6 +129,20 @@ def test_callable_slots_are_confined_to_lambdas_and_predicates():
     assert not callable(sx.S.Zero)
 
 
+@pytest.mark.parametrize('power',[1,2,3])
+def test_differential_field_callability_survives_pickle_and_identity_operations(power):
+    from symox.diffgeom.rn import R2_r
+    field=R2_r.base_scalar(0)
+    point=R2_r.point([2,3])
+    value=field**power
+    assert callable(value) and value(point)==2**power
+    clone=pickle.loads(pickle.dumps(value))
+    assert callable(clone) and clone(point)==2**power
+    assert (clone+1)(point)==2**power+1
+    assert (-clone)(point)==-(2**power)
+    assert not callable(sx.Dummy('ordinary_dummy')**2)
+
+
 def test_native_scalar_reconstruction_does_not_require_caller_imports():
     from symox.diffgeom.rn import R2_r
     x = sx.Symbol('restricted_x')

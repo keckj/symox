@@ -8,7 +8,7 @@ _charts = {}
 _fields = {}
 _coordinates = {}
 _atoms = {}
-_field_atom_ids = set()
+_field_atoms = set()
 
 
 def _native(value):
@@ -160,9 +160,11 @@ class BaseScalarField(_ScalarAtom):
             source = coord_sys._input_symbols[index]
             obj._name = source.name
             obj._atom = Dummy(source.name,**source.assumptions0)
+            from .. import Expr,_diffgeom_callable_type
+            obj._atom = Expr.__new__(_diffgeom_callable_type,obj._atom)
             _fields[key] = obj
             _atoms[obj._atom] = obj
-            _field_atom_ids.add(obj._atom._dag_id)
+            _field_atoms.add(obj._atom)
         return _fields[key]
 
     def __init__(self,*args,**kwargs):

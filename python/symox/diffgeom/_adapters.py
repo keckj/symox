@@ -10,7 +10,7 @@ def install():
     Expr = symox.Expr
     if getattr(Expr,'_diffgeom_dispatch_installed',False):
         return
-    from ._coordinates import _field_atom_ids
+    from ._coordinates import _field_atoms
     class FieldExpression(Expr):
         __slots__ = ()
         def __call__(self,*args,**kwargs):
@@ -18,7 +18,7 @@ def install():
                 return _scalar_at(self,args[0])
             raise TypeError('scalar fields are evaluated at differential-geometric points')
     symox._diffgeom_callable_type=FieldExpression
-    symox._diffgeom_field_atom_ids=_field_atom_ids
+    symox._diffgeom_field_atoms=_field_atoms
     for name in ('__add__','__sub__','__mul__','__truediv__'):
         original = getattr(Expr,name)
         def arithmetic(original,name):

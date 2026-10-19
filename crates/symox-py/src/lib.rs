@@ -129,10 +129,10 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     // dedicated subtype. Importing diffgeom must not make all scalars callable.
     if e.mask()!=0 {
         let module=loaded_symox(py)?;
-        if let Ok(fields)=module.getattr("_diffgeom_field_atom_ids") {
+        if let Ok(fields)=module.getattr("_diffgeom_field_atoms") {
             for atom in traverse::free_symbols(&e) {
                 if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
-                    && fields.contains(atom.dag_id())? {
+                    && fields.contains(Bound::new(py,PyExprNode{e:atom})?)? {
                     let class=module.getattr("_diffgeom_callable_type")?;
                     let value=Bound::new(py,PyExprNode{e})?;
                     return Ok(class.call_method1("__new__",(&class,value))?.unbind());
