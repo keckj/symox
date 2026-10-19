@@ -3,9 +3,57 @@ from .printer import Printer
 
 class LatexPrinter(Printer):
     printmethod='_latex'
+    _default_settings = dict(Printer._default_settings,
+                             symbol_names={}, disable_split_super_sub=False)
+
+    def _print_Symbol(self, expr, style='plain'):
+        name = self._settings['symbol_names'].get(expr)
+        if name is not None:
+            return name
+        return self._deal_with_super_sub(expr.name, style=style)
+
+    _print_RandomSymbol = _print_Symbol
+
+    def _split_super_sub(self, name):
+        from .conventions import split_super_sub
+        if name is None or '{' in name:
+            return name, [], []
+        if self._settings['disable_split_super_sub']:
+            name, supers, subs = name.replace('_', r'\_').replace('^', r'\^'), [], []
+        else:
+            name, supers, subs = split_super_sub(name)
+        return translate(name), [translate(s) for s in supers], [translate(s) for s in subs]
+
+    def _deal_with_super_sub(self, string, style='plain'):
+        name, supers, subs = self._split_super_sub(string)
+        if style == 'bold':
+            name = r'\mathbf{' + name + '}'
+        if supers:
+            name += '^{' + ' '.join(supers) + '}'
+        if subs:
+            name += '_{' + ' '.join(subs) + '}'
+        return name
+
     def emptyPrinter(self,expr):
         from symox import _core
-        return _core.latex(expr,**self._settings)
+        settings = dict(self._settings, mode='plain')
+        if settings.get('fold_short_frac') is None:
+            settings['fold_short_frac'] = self._settings.get('mode') == 'inline'
+        return _core.latex(expr, **settings)
+
+    def doprint(self, expr):
+        mode = self._settings.get('mode', 'plain')
+        if mode not in ('plain', 'inline', 'equation', 'equation*'):
+            raise ValueError("'mode' must be one of 'inline', 'plain', 'equation' or 'equation*'")
+        result = self._print(expr)
+        if mode == 'plain':
+            return result
+        if mode == 'inline':
+            return '$' + result + '$'
+        if self._settings.get('itex', False):
+            return '$$' + result + '$$'
+        return r'\begin{' + mode + '}' + result + r'\end{' + mode + '}'
+
 
 def latex(expr,**settings):
     return LatexPrinter(settings).doprint(expr)
@@ -45,7 +93,6 @@ def latex_escape(s):
 
 
 def translate(s):
-    from symox import Symbol,_core
-    # Native symbol printing already handles the same Greek and modifier rules.
-    # Split super/subscripts elsewhere; this entry point translates one token.
-    return _core.latex(Symbol(str(s)))
+    from symox import _core
+    # Translate a single token without applying symbol subscript grammar twice.
+    return _core._latex_translate(str(s))

@@ -180,7 +180,7 @@ const MODIFIERS: &[(&str, &str, &str)] = &[
 ];
 
 /// `sympy.printing.latex.translate`.
-pub(crate) fn translate(s: &str) -> String {
+pub fn translate(s: &str) -> String {
     if let Some(t) = tex_greek(s) {
         return t.to_string();
     }
