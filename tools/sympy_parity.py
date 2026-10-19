@@ -478,10 +478,11 @@ def worker(payload, timeout, package_root=None, audit_script=None):
     env = dict(os.environ, MPLBACKEND='Agg', PYTHONHASHSEED='0',
                DISPLAY='', WAYLAND_DISPLAY='')
     if package_root:
-        env['PYTHONPATH'] = str(package_root)
+        env['PYTHONPATH'] = str(Path(package_root).resolve())
+    script = Path(audit_script).resolve() if audit_script else Path(__file__).resolve()
     with tempfile.TemporaryDirectory(prefix='symox-parity-') as cwd:
         try:
-            result = subprocess.run([sys.executable, str(audit_script or Path(__file__).resolve()), '_worker'],
+            result = subprocess.run([sys.executable, str(script), '_worker'],
                 input=json.dumps(payload), text=True, capture_output=True, timeout=timeout,
                 cwd=cwd, env=env)
         except subprocess.TimeoutExpired:
