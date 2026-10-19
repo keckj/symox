@@ -284,9 +284,14 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
                     return true;
                 }
             }
-            terms.iter().any(|(t, _)| has(t, s))
+            // Visit the public structural arguments, including the additive
+            // constant and each term's explicit coefficient. Internal storage
+            // keeps these numbers apart from the term bases.
+            e.args().iter().any(|a| has(a, s))
         }
-        Kind::Mul(_, facs) => facs.iter().any(|(b, x)| has(b, s) || has(x, s)),
+        // The public arguments include an explicit coefficient, but exclude
+        // the implicit exponent one in the compact factor representation.
+        Kind::Mul(..) => e.args().iter().any(|a| has(a, s)),
         _ => e.args().iter().any(|a| has(a, s)),
     }
 }
@@ -345,6 +350,20 @@ mod tests {
         assert!(!has(&parse("x+y"), &parse("x+y+1")));
         assert!(!has(&parse("x-y"), &parse("y-x")));
         assert!(!has(&parse("2*x+2*y"), &parse("x+y")));
+    }
+
+    #[test]
+    fn containment_visits_explicit_arithmetic_arguments() {
+        let parse = |s| crate::parser::parse_str(s).unwrap();
+        for text in ["3*x", "x+3", "3*x+y", "x+3*y"] {
+            assert!(has(&parse(text), &Expr::int(3)), "{text}");
+        }
+        for text in ["x*y", "3*x", "x+y", "x**2"] {
+            assert!(!has(&parse(text), &Expr::one()), "{text}");
+        }
+        assert!(has(&parse("x+1"), &Expr::one()));
+        assert!(has(&parse("x**3"), &Expr::int(3)));
+        assert!(!has(&parse("x/3"), &Expr::int(3)));
     }
 }
 

@@ -162,6 +162,10 @@ def has(self, *patterns):
     from ._structural_queries import matcher
     literals,tests=[],[]
     for pattern in patterns:
+        # Scalar native expressions cannot contain None. SymPy accepts it as
+        # a query and returns False rather than trying to coerce it to Expr.
+        if pattern is None:
+            continue
         foreign_undefined=isinstance(pattern,type) and any(
             base.__name__=='UndefinedFunction' and base.__module__.startswith('sympy.')
             for base in type(pattern).__mro__)
