@@ -21,6 +21,19 @@ use crate::binders::depends_on as has;
 const MAX_DEPTH: u32 = 10;
 
 mod rational_definite;
+mod dirac;
+
+/// Exact absolute value at a distribution support point. None means the
+/// arithmetic probe was inconclusive or exceeded its local resource budget.
+pub fn distribution_abs_at(expression: &Expr, variable: &Expr, point: &Expr) -> Option<Expr> {
+    if !crate::matrix::functions::scalar_substitution_preflight(expression, variable, point) {
+        return None;
+    }
+    crate::assumptions::exact_queries(|| {
+        let value = subs1(expression, variable, point);
+        if has_bad(&value) { None } else { Some(abs(&value)) }
+    })
+}
 
 /// Indefinite integral of `f` with respect to `x`. Returns an unevaluated
 /// `Integral(f, x)` when no rule applies.
@@ -227,8 +240,10 @@ pub fn integral_definite_unevaluated(f:&Expr,x:&Expr,a:&Expr,b:&Expr)->Expr {
 
 /// Antiderivative, or `None` if the integrator gives up.
 pub fn try_integrate(f: &Expr, x: &Expr) -> Option<Expr> {
-    let mut seen = FxHashSet::default();
-    integ(f, x, 0, &mut seen)
+    dirac::with_input(f, || {
+        let mut seen = FxHashSet::default();
+        integ(f, x, 0, &mut seen)
+    })
 }
 
 #[inline]
@@ -399,6 +414,9 @@ fn integ(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Option<E
 }
 
 fn integ_inner(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Option<Expr> {
+    if let Some(value) = dirac::antiderivative(f, x) {
+        return Some(value);
+    }
     // polynomials: integrate the expanded form term by term
     if let Some(c) = poly_coeffs(f, x) {
         let terms: Vec<Expr> = c

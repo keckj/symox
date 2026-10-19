@@ -13,6 +13,22 @@ use budget::Budget;
 #[path="skew_exp.rs"]
 mod skew_exp;
 
+/// Reuse the exact arithmetic preflight for local scalar rule probes. A
+/// failed probe selects the caller's existing fallback without substitution.
+pub(crate) fn scalar_substitution_preflight(expression: &Expr, old: &Expr, point: &Expr) -> bool {
+    let mut depths = FxHashMap::default();
+    let mut pending = vec![(expression.clone(), 0usize), (point.clone(), 0usize)];
+    let mut visits = 0usize;
+    while let Some((node, depth)) = pending.pop() {
+        visits += 1;
+        if depth > 128 || visits > 100_000 { return false; }
+        if depths.get(&node.dag_id()).is_some_and(|previous| *previous >= depth) { continue; }
+        depths.insert(node.dag_id(), depth);
+        pending.extend(budget::raw_children(&node).into_iter().map(|child| (child, depth+1)));
+    }
+    Budget::new().scalar_preflight(expression, Some((old, point))).is_ok()
+}
+
 fn finite(e:&Expr,seen:&mut FxHashSet<usize>)->bool{
     if !seen.insert(e.dag_id()){return true;}
     match e.kind(){

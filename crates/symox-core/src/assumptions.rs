@@ -188,6 +188,16 @@ pub(crate) fn exact_queries<R>(query: impl FnOnce() -> R) -> R {
     query()
 }
 
+/// Decide zero by structural proofs, preserving None when unresolved.
+pub fn is_zero_exact(expression: &Expr) -> Option<bool> {
+    exact_queries(|| is_zero(expression))
+}
+
+/// Query a named assumption using structural proofs only.
+pub fn fact_exact(expression: &Expr, name: &str) -> Option<bool> {
+    exact_queries(|| fact(expression, name))
+}
+
 /// Possible signs of a real quantity, as a set: bit 0 = negative,
 /// bit 1 = zero, bit 2 = positive.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

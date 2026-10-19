@@ -24,7 +24,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     // Complex log(0) is zoo for exact and floating zeros. Handle it before
     // numerical evaluation, which cannot represent complex infinity.
     if matches!(f,Func::Log)&&args.len()==1&&args[0].as_number().is_some_and(Number::is_zero){return Expr::zoo();}
-    if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
+    if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_) | Func::Heaviside) {
         return Expr::nan();
     }
     if matches!(f, Func::Sign) && args.len()==1 && crate::assumptions::is_real(&args[0])==Some(true) {
@@ -106,11 +106,14 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ => None,
         },
         Func::Heaviside => match args[0].kind() {
+            Kind::Const(Constant::Infinity) => Some(Expr::one()),
+            Kind::Const(Constant::NegInfinity) => Some(Expr::zero()),
+            Kind::Const(Constant::NaN) => Some(Expr::nan()),
             Kind::Num(n) if n.is_positive() => Some(Expr::one()),
             Kind::Num(n) if n.is_negative() => Some(Expr::zero()),
-            Kind::Num(_) => Some(Expr::rational(1, 2)),
-            _ if crate::assumptions::is_positive(&args[0]) == Some(true) => Some(Expr::one()),
-            _ if crate::assumptions::is_negative(&args[0]) == Some(true) => Some(Expr::zero()),
+            Kind::Num(_) => Some(args.get(1).cloned().unwrap_or_else(|| Expr::rational(1, 2))),
+            _ if crate::assumptions::fact(&args[0], "extended_positive") == Some(true) => Some(Expr::one()),
+            _ if crate::assumptions::fact(&args[0], "extended_negative") == Some(true) => Some(Expr::zero()),
             _ => None,
         },
         Func::DiracDelta => match args[0].kind() {
@@ -118,6 +121,15 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             _ if crate::assumptions::is_real(&args[0]) == Some(true)
                 && crate::assumptions::is_nonzero(&args[0]) == Some(true) => Some(Expr::zero()),
             _ if args.len() == 2 && args[1].is_zero() => Some(func(Func::DiracDelta, vec![args[0].clone()])),
+            Kind::Mul(coefficient, _) if coefficient.is_negative()
+                && (args.len() == 1 || args[1].as_number().is_some_and(|n| n.is_integer() && !n.is_negative())) => {
+                let mut positive = args.to_vec();
+                positive[0] = neg(&positive[0]);
+                let value = func(Func::DiracDelta, positive);
+                Some(if args.len() == 2 && crate::assumptions::is_odd(&args[1]) == Some(true) {
+                    neg(&value)
+                } else { value })
+            },
             _ => None,
         },
         Func::Max | Func::Min => return eval_minmax(&f, args),

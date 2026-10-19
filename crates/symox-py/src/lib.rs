@@ -3024,6 +3024,18 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<P
                     return Err(PyTypeError::new_err(format!("{name} takes exactly {n} argument(s)")));
                 }
             }
+            if evaluate && matches!(f, Func::DiracDelta | Func::Heaviside) {
+                if matches!(f, Func::DiracDelta) && v.len() == 2
+                    && !v[1].as_number().is_some_and(|n| n.is_integer() && !n.is_negative()) {
+                    return Err(PyValueError::new_err("The second argument of DiracDelta must be a non-negative integer"));
+                }
+                if let Some(argument) = v.first() {
+                    let imaginary = fx::im(argument);
+                    if symox::assumptions::is_zero_exact(&imaginary) == Some(false) {
+                        return Err(PyValueError::new_err("Function defined only for real values"));
+                    }
+                }
+            }
             Ok(wrap(if evaluate { fx::func(f, v) } else { Expr::from_unevaluated_kind(Kind::Func(f, v)) }))
         }
         None => Ok(wrap(fx::undefined(name, v))),
@@ -3065,6 +3077,16 @@ fn py_piecewise(pieces: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<PyExpr>
 #[pyo3(name = "free_symbols")]
 fn py_free_symbols<'py>(py: Python<'py>, e: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PySet>> {
     PySet::new(py, traverse::free_symbols(&to_expr(e)?).into_iter().map(wrap))
+}
+
+#[pyfunction]
+fn _exact_assumption(e: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<bool>> {
+    Ok(symox::assumptions::fact_exact(&to_expr(e)?, name))
+}
+
+#[pyfunction]
+fn _distribution_abs_at(e: &Bound<'_, PyAny>, variable: &Bound<'_, PyAny>, point: &Bound<'_, PyAny>) -> PyResult<Option<PyExpr>> {
+    Ok(symox::integrate::distribution_abs_at(&to_expr(e)?, &to_expr(variable)?, &to_expr(point)?).map(wrap))
 }
 
 #[pyfunction]
@@ -3303,6 +3325,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_rel, m)?)?;
     m.add_function(wrap_pyfunction!(py_piecewise, m)?)?;
     m.add_function(wrap_pyfunction!(py_free_symbols, m)?)?;
+    m.add_function(wrap_pyfunction!(_exact_assumption, m)?)?;
+    m.add_function(wrap_pyfunction!(_distribution_abs_at, m)?)?;
     m.add_function(wrap_pyfunction!(py_constant, m)?)?;
     m.add_function(wrap_pyfunction!(py_lambdify, m)?)?;
     matrices::register(m)?;

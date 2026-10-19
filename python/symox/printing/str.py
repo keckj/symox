@@ -15,6 +15,17 @@ class StrPrinter(Printer):
     def _print_UnevaluatedExpr(self, expr):
         return self._print(expr.args[0])
 
+    def _print_Symbol(self, expr):
+        return expr.name
+
+    def _print_Dummy(self, expr):
+        return '_' + expr.name
+
+    def _print_Wild(self, expr):
+        return expr.name + '_'
+
+    _print_MatrixSymbol = _print_Symbol
+
 
 def sstr(expr, **settings):
     return StrPrinter(settings).doprint(expr)

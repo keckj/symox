@@ -2226,3 +2226,6 @@ from ._compat import _cached_symbol
 _public_caches.append(_cached_symbol)
 
 from ._function_types import application_type as _function_application_type
+
+from ._distribution_methods import install as _install_distribution_methods
+_install_distribution_methods(globals())
