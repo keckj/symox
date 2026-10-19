@@ -53,6 +53,12 @@ def _matrix_like(value):
     return hasattr(value, 'rows') and hasattr(value, 'cols') and hasattr(value, '__getitem__')
 
 
+def _array_operand(matrix, value):
+    if not _matrix_like(value) and hasattr(value, 'tolist') and len(getattr(value, 'shape', ())) == 2:
+        return type(matrix)(value)
+    return value
+
+
 def _entries(value):
     if isinstance(value, _SparseBase):
         return dict(value._data)
@@ -302,6 +308,7 @@ class _SparseBase:
         return result
 
     def _add(self, other, sign):
+        other = _array_operand(self, other)
         if not _matrix_like(other): return NotImplemented
         if self.shape != (int(other.rows),int(other.cols)): raise ShapeError('Matrix size mismatch')
         if not isinstance(other, _SparseBase):
@@ -320,6 +327,7 @@ class _SparseBase:
     def __pos__(self): return self.copy()
 
     def __mul__(self, other):
+        other = _array_operand(self, other)
         if _matrix_like(other):
             if self.cols != int(other.rows): raise ShapeError('Matrix size mismatch')
             if not isinstance(other, _SparseBase): return self.as_dense() * other
@@ -349,13 +357,19 @@ class _SparseBase:
         if _ZERO*scalar != 0: return self.applyfunc(lambda value:value*scalar)
         return self._new(self.rows,self.cols,{k:v*scalar for k,v in self._data.items() if v*scalar != 0})
     def __rmul__(self, other):
+        other = _array_operand(self, other)
+        if isinstance(other, _SparseBase): return other * self
         if _matrix_like(other): return other * self.as_dense()
         try: scalar = sympify(other)
         except (TypeError,ValueError): return NotImplemented
         if scalar*_ZERO != 0: return self.applyfunc(lambda value:scalar*value)
         return self._new(self.rows,self.cols,{k:scalar*v for k,v in self._data.items() if scalar*v != 0})
-    def __matmul__(self, other): return self * other if _matrix_like(other) else NotImplemented
-    def __rmatmul__(self, other): return self.__rmul__(other) if _matrix_like(other) else NotImplemented
+    def __matmul__(self, other):
+        other = _array_operand(self, other)
+        return self * other if _matrix_like(other) else NotImplemented
+    def __rmatmul__(self, other):
+        other = _array_operand(self, other)
+        return self.__rmul__(other) if _matrix_like(other) else NotImplemented
     def __truediv__(self, other):
         if _matrix_like(other): return NotImplemented
         scalar = sympify(other)

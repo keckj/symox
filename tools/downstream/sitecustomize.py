@@ -80,6 +80,16 @@ if BACKEND == 'symox':
             return self.native
 
         def exec_module(self, module):
+            if self.fullname == 'sympy':
+                # The native root has already initialized some child packages
+                # and restored homonymous public callables (e.g. simplify).
+                # Mirror those completed imports before routing later imports;
+                # otherwise importlib rebinds the facade's callable to a module.
+                for name, child in list(sys.modules.items()):
+                    if name.startswith('symox.') and name != 'symox.release' and child is not None:
+                        alias = 'sympy'+name[5:]
+                        sys.modules.setdefault(alias, child)
+                        ROUTED[alias] = name
             ROUTED[self.fullname] = self.native.__name__
             save()
 

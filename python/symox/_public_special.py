@@ -221,7 +221,8 @@ def install(namespace):
         if arg == 0:return H0
         if arg.is_nonzero is True:return native_heaviside(arg,evaluate=evaluate)
         return Piecewise((H0,Eq(arg,0)),(native_heaviside(arg,evaluate=evaluate),True))
-    namespace['Heaviside'] = Heaviside
+    from . import _BuiltinFunctionHead
+    namespace['Heaviside'] = _BuiltinFunctionHead('Heaviside', Heaviside)
     old_evalf,old_diff,old_doit,old_rewrite = Expr.evalf,Expr.diff,Expr.doit,Expr.rewrite
     @wraps(old_evalf)
     def evalf(self,n=15,*args,**kwargs):

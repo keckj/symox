@@ -364,6 +364,14 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
         let poly = match Poly::from_expr(&base, gens) {
             Ok(p) => p,
             Err(_) => {
+                // Cancellation may remove every polynomial generator. Keep
+                // the resulting scalar, rather than the unfactored original
+                // sum, when selecting the non-polynomial fallback.
+                let scalar = expand(&base);
+                if is_pure_complex(&scalar) {
+                    coeff = mul(&[coeff, pow(&scalar, &exp)]);
+                    continue;
+                }
                 factors.push((FItem::E(base), exp));
                 continue;
             }

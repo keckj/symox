@@ -38,7 +38,7 @@ fn exprs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
 fn boolean_arg(o: &Bound<'_, PyAny>) -> PyResult<Expr> {
     // Python ints 0/1 behave like False/True (SymPy's `as_Boolean`)
     if let Ok(i) = o.extract::<i64>() {
-        if !o.is_instance_of::<PyExpr>() && (i == 0 || i == 1) {
+        if !o.is_instance_of::<crate::PyExprNode>() && (i == 0 || i == 1) {
             return Ok(Expr::boolean(i == 1));
         }
     }

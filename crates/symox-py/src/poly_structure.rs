@@ -145,7 +145,7 @@ pub(super) fn reordered(
                         if s.trim_end().ends_with(','){return Err(division::OptionError::new_err("Bad input: missing parameter."));}
                         s.split(|c:char|c==','||c.is_whitespace()).filter(|s|!s.is_empty()).map(|s|Priority::Name(s.to_owned())).collect()
                     }else if let Some(xs)=values(&value)?{xs.into_iter().map(|v|priority(&v)).collect::<PyResult<_>>()?}
-                    else if value.downcast::<crate::PyExpr>().is_ok(){vec![priority(&value)?]}
+                    else if value.downcast::<crate::PyExprNode>().is_ok(){vec![priority(&value)?]}
                     else{return Err(division::OptionError::new_err("invalid argument for 'wrt' option"));};
                 },
                 "order" if !value.is_none()=>{

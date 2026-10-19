@@ -62,6 +62,16 @@ def _rationalize(expression, tolerance, conversion):
     return expression.xreplace(replacements) if replacements else expression
 
 
+def _limit_denominator(self, max_denominator=1000000):
+    """Choose the nearest bounded-denominator fraction with exact arithmetic."""
+    from fractions import Fraction
+    from . import Rational
+    if not self.is_Rational:
+        raise AttributeError('limit_denominator is defined only for rational numbers')
+    fraction = Fraction(self.p, self.q)
+    return Rational(fraction.limit_denominator(Fraction(int(max_denominator))))
+
+
 def nsimplify(expr, constants=(), tolerance=None, full=False, rational=None,
               rational_conversion='base10'):
     from . import sympify
@@ -71,6 +81,10 @@ def nsimplify(expr, constants=(), tolerance=None, full=False, rational=None,
         raise TypeError('rational must be True, False or None')
     tol=None if tolerance is None else _tolerance(tolerance)
     expression=sympify(expr)
+    if getattr(expression,'is_Matrix',False):
+        matrix_constants=tuple(constants)
+        return expression.applyfunc(lambda entry: nsimplify(entry,constants=matrix_constants,
+            tolerance=tolerance,full=full,rational=rational,rational_conversion=rational_conversion))
     if rational is True:
         return _rationalize(expression,tol,rational_conversion)
     if tol is not None:

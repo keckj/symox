@@ -207,6 +207,69 @@ class PermutationGroup:
         for element in self._chain().generate():
             yield list(element) if af else Permutation(element)
 
+    def generate(self, method='coset', af=False):
+        """Iterate group elements by stabilizer cosets or Dimino's algorithm."""
+        if method == 'coset':
+            return self.generate_schreier_sims(af)
+        if method == 'dimino':
+            return self.generate_dimino(af)
+        raise NotImplementedError('No generation defined for %s' % method)
+
+    def generate_dimino(self, af=False):
+        """Enumerate incremental subgroup cosets with Dimino's algorithm."""
+        identity = tuple(range(self.degree))
+        elements, seen = [identity], {identity}
+        yield list(identity) if af else Permutation(identity)
+        generators = [g._images for g in self._generators]
+        for index in range(len(generators)):
+            subgroup = elements.copy()
+            pending = [identity]
+            while pending:
+                frontier, pending = pending, []
+                for representative in frontier:
+                    for generator in generators[:index+1]:
+                        coset = multiply(generator, representative)
+                        if coset in seen:
+                            continue
+                        for element in subgroup:
+                            image = multiply(coset, element)
+                            seen.add(image)
+                            elements.append(image)
+                            pending.append(image)
+                            yield list(image) if af else Permutation(image)
+        self._order = len(elements)
+
+    def random(self, af=False):
+        """Sample uniformly from the unique stabilizer-transversal products."""
+        element = tuple(range(self.degree))
+        for transversal in self._chain().transversals:
+            element = multiply(random.choice(tuple(transversal.values())), element)
+        return list(element) if af else Permutation(element)
+
+    def conjugacy_class(self, x):
+        """Find the conjugation orbit without enumerating the entire group."""
+        result, pending = {x}, deque([x])
+        conjugators = [(g, ~g) for g in self._generators]
+        while pending:
+            element = pending.popleft()
+            for generator, inverse_generator in conjugators:
+                image = generator*element*inverse_generator
+                if image not in result:
+                    result.add(image)
+                    pending.append(image)
+        return result
+
+    def conjugacy_classes(self):
+        """Partition the group into conjugation orbits, identity first."""
+        seen = {self.identity}
+        classes = [seen.copy()]
+        for element in self.generate():
+            if element not in seen:
+                orbit = self.conjugacy_class(element)
+                classes.append(orbit)
+                seen.update(orbit)
+        return classes
+
     def _orbit_transversal(self,alpha):
         alpha=operator.index(alpha)
         if not 0<=alpha<self.degree:raise IndexError('point outside the permutation domain')

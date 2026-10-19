@@ -181,11 +181,18 @@ def install(namespace):
     Expr.is_Equality=property(lambda self:self.is_Relational and self.rel_op=='==')
     operations = ('__add__','__radd__','__sub__','__rsub__','__mul__','__rmul__',
                   '__truediv__','__rtruediv__','__pow__','__rpow__')
+    Expr._op_priority = 10.0
     for name in operations:
         original = getattr(Expr,name)
         def arithmetic(original,name):
             @wraps(original)
             def operation(self,other,*args):
+                priority = getattr(other,'_op_priority',None)
+                if priority is not None and priority > self._op_priority:
+                    reflected = '__'+name[3:] if name.startswith('__r') else '__r'+name[2:]
+                    handler = getattr(other,reflected,None)
+                    if handler is not None:
+                        return handler(self,*args)
                 scalar = isinstance(other,(Expr,int,float,complex))
                 if scalar and name in ('__truediv__','__rtruediv__') and _divide_error.get() and self == 0 and other == 0:
                     raise ValueError('indeterminate 0/0')

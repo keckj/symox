@@ -512,6 +512,7 @@ class _MutableMethod:
 def install(immutable_facade, sparse_base, mutable_sparse):
     namespace = globals()
     Matrix.__array__ = _matrix_array
+    Matrix.__array_priority__ = 11
     sparse_base.__array__ = _matrix_array
     for name in _INSTANCE:
         if not hasattr(Matrix, name):

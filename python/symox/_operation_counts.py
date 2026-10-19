@@ -7,7 +7,8 @@ def count_ops(expression, visual=False):
     from ._matrixexpr_methods import _children
 
     relations={'Rel(==)':'EQ','Rel(!=)':'NE','Rel(<)':'LT','Rel(<=)':'LE',
-               'Rel(>)':'GT','Rel(>=)':'GE'}
+               'Rel(>)':'GT','Rel(>=)':'GE','Equality':'EQ','Unequality':'NE',
+               'StrictLessThan':'LT','LessThan':'LE','StrictGreaterThan':'GT','GreaterThan':'GE'}
     booleans={'And','Or','Not','Xor','Implies','Equivalent','Nand','Nor','ITE','Contains'}
     product_sizes={}
 

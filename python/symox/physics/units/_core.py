@@ -135,6 +135,21 @@ class Quantity:
     def args(self):return self.name,self.abbrev
     @property
     def free_symbols(self):return {self._atom}
+    def has(self, *patterns):
+        # Quantity is a named atom with public name/abbreviation arguments.
+        # Its dimensional scale is metadata, not a structural child.
+        for pattern in patterns:
+            if isinstance(pattern,type) and isinstance(self,pattern):return True
+            if isinstance(pattern,Quantity) and self == pattern:return True
+            if any(argument.has(pattern) for argument in self.args):return True
+        return False
+    def as_ordered_factors(self, order=None):return [self]
+    def replace(self, query, value, map=False, simultaneous=True, exact=None):
+        result = self._atom.replace(query,value,map=map,simultaneous=simultaneous,exact=exact)
+        if map:
+            expression,changes = result
+            return (self if expression == self._atom else expression,changes)
+        return self if result == self._atom else result
     @property
     def dimension(self):return self._dimension
     @property

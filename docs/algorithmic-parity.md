@@ -132,6 +132,63 @@ This audit covers the cases it names. It is not a global parity certificate.
 
 ## Remaining blocking gaps
 
+The versioned per-function ledger retains its own native snapshot. The
+downstream candidate does not renew those historical certificates. Current
+upstream and regression results are recorded separately in the
+[integration report](downstream-integration.md) and its candidate-specific
+validation evidence.
+
+The downstream fixes also cover exact Python `Fraction` conversion of native
+integers and rationals, two-dimensional NumPy/matrix arithmetic, external
+`_sympy_` conversion hooks, and relational constructor identity and instance
+checks. Cyclic conversion hooks raise an exception before exhausting the native
+stack. These protocols do not establish general Python subclass compatibility:
+custom symbolic subclasses, their metadata and container type predicates remain
+open obligations. Dense matrix subclasses can be constructed and override Python
+methods; preservation of those subclasses across every matrix operation is not
+yet certified.
+
+Rational bounded-denominator approximation uses the same exact standard-library
+`Fraction.limit_denominator` kernel as the reference, including its tie breaking
+and integer conversion of the bound. Scalar arithmetic and expansion preserve
+the canonical Python objects for zero, one, negative one and one half. Scalar
+`Iterable` and `Sized` predicates distinguish tuples from ordinary expressions.
+Tuple results use a native-expression subtype with sequence slots, including
+results of substitution, evaluation and serialization. Tuple indexing and
+length use constant-time native access; iteration materializes arguments once,
+then visits them in linear time. Scalar iteration raises immediately. Other
+container protocols and general symbolic subclass preservation remain open.
+
+Implicit external conversion never invokes a native object's reference exporter.
+Conversion chains are traversed iteratively, with retained owners and identity
+checks for cycles; reentrant hooks are guarded separately. Matrix `nsimplify`
+applies scalar recognition entrywise. These changes do not certify all
+recognition options or arbitrary external object protocols. `exp` on a concrete
+matrix dispatches to the native matrix function and returns immutable output;
+general floating-point matrix eigenvalue support remains incomplete.
+
+Public builtin function heads now retain callable identity, symbolic spelling
+and serialization identity for structural replacement queries. Relational
+aliases share their constructor class and signature. Neither change supplies
+the complete nominal `FunctionClass` hierarchy required by some downstream
+subclass declarations. Higher-priority external operands keep control of their
+arithmetic before scalar conversion, preserving wrapper metadata such as units.
+Finite permutation and scalar protocol tests are scoped differential checks;
+the downstream report records the upstream suites that actually reproduce
+their passing SymPy 1.14 reference cases.
+
+Permutation groups now expose `generate`, `generate_dimino`, `random`,
+`conjugacy_class` and `conjugacy_classes`. Dimino generation builds incremental
+subgroup cosets, retaining output-sized storage. A conjugacy class is an orbit
+under generator conjugation and does not enumerate unrelated group elements.
+Uniform sampling chooses one representative independently from each exact
+stabilizer transversal; the unique transversal product is a bijection with the
+group. Sampling therefore does not enumerate a factorial-sized group. Tests
+compare generated sets, Dimino order for identical generators and conjugacy
+partitions with the reference, and exhaust all transversal choices on a small
+group. They do not certify all permutation-group methods or a comparative bound
+for constructing every stabilizer chain.
+
 - The integration engine does not implement the full collection of Risch,
   heurisch and Meijer G methods available in SymPy.
   Gamma moments `c*x**a*exp(delta-beta*x**q)` on `(0, infinity)` now retain the

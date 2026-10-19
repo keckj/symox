@@ -141,7 +141,7 @@ impl<T> IntoPy<T> for Result<T, MatrixError> {
 }
 
 /// A mutable dense symbolic matrix.
-#[pyclass(name = "Matrix", module = "symox._core", weakref)]
+#[pyclass(name = "Matrix", module = "symox._core", weakref, subclass)]
 #[derive(Clone)]
 pub struct PyMatrix {
     pub m: Matrix,
@@ -349,8 +349,13 @@ fn scalar_or_matrix(o: &Bound<'_, PyAny>) -> PyResult<Result<Matrix, Expr>> {
     if is_seq(o) {
         return Ok(Ok(from_nested(o)?));
     }
-    if is_sympy_obj(o) && o.hasattr("shape")? && o.hasattr("tolist")? {
-        return Ok(Ok(to_matrix(o)?));
+    if o.hasattr("shape")? && o.hasattr("tolist")? {
+        // Two-dimensional array operands denote matrices. Other ranks retain
+        // NumPy's scalar/broadcast dispatch instead of becoming column vectors.
+        let shape = o.getattr("shape")?;
+        if is_sympy_obj(o) || shape.extract::<(usize, usize)>().is_ok() {
+            return Ok(Ok(to_matrix(o)?));
+        }
     }
     Ok(Err(scalar_matrix_entry(o)?))
 }

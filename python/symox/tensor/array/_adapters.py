@@ -43,6 +43,9 @@ def _entrywise(original):
             expression,rest,options=first.split(args,options)
             return expression.applyfunc(lambda entry: original(entry, *rest, **options))
         return original(*args, **options)
+    from ... import _BuiltinFunctionHead
+    if isinstance(original, _BuiltinFunctionHead):
+        return _BuiltinFunctionHead(original.__name__, operation)
     return operation
 
 

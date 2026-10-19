@@ -1709,6 +1709,7 @@ fn poly_result(py: Python<'_>, e: Expr, as_poly: bool, gens: &[Expr]) -> PyResul
     Ok(w(e).into_pyobject(py)?.into_any().unbind())
 }
 
+/// Compute the greatest common divisor of expressions or polynomials.
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
@@ -1817,7 +1818,7 @@ fn collect(expr:&Bound<'_,PyAny>,syms:&Bound<'_,PyAny>,func:Option<&Bound<'_,PyA
     use symox::poly::collect::{self,Collection,Error,Options};
     if let Some(kwargs)=_kwargs{if let Some((key,_))=kwargs.iter().next(){return Err(PyTypeError::new_err(format!("collect() got an unexpected keyword argument '{}'",key.extract::<String>()?)));}}
     let e=to_expr(expr)?;
-    let patterns=if let Ok(native)=syms.downcast::<PyExpr>(){
+    let patterns=if let Ok(native)=syms.downcast::<crate::PyExprNode>(){
         if let Some(items)=symox::special::tuple_items(&native.get().e){items.to_vec()}else{vec![native.get().e.clone()]}
     }else if !syms.is_instance_of::<pyo3::types::PyString>(){
         if let Ok(items)=syms.try_iter(){items.map(|value|to_expr(&value?)).collect::<PyResult<Vec<_>>>()?}else{vec![to_expr(syms)?]}

@@ -20,7 +20,7 @@ impl PySliceSpec{
 }
 fn slice_object<'py>(py:Python<'py>,spec:&SliceSpec)->PyResult<Bound<'py,PyAny>>{py.import("symox._matrixexpr")?.getattr("_SliceTuple")?.call1((PySliceSpec{spec:spec.clone()},))}
 fn slice_index(value:&Bound<'_,PyAny>)->PyResult<Expr>{
-    if value.is_instance_of::<PyExpr>()||value.get_type().module().is_ok_and(|m|m.to_string().starts_with("sympy")){return to_expr(value);}
+    if value.is_instance_of::<crate::PyExprNode>()||value.get_type().module().is_ok_and(|m|m.to_string().starts_with("sympy")){return to_expr(value);}
     to_expr(&value.py().import("operator")?.getattr("index")?.call1((value,))?)
 }
 fn slice_spec(value:&Bound<'_,PyAny>,size:&Expr)->PyResult<SliceSpec>{
@@ -550,7 +550,7 @@ impl PyMatrixExpr{
 fn _block_collapse(value:&Bound<'_,PyAny>)->PyResult<PyObject>{
     let py=value.py();
     if let Ok(matrix)=value.downcast::<PyMatrixExpr>(){return Ok(wrap_matrixexpr(matrix.get().m.block_collapse().map_err(|e|error(py,e))?).into_pyobject(py)?.into_any().unbind());}
-    if let Ok(expression)=value.downcast::<PyExpr>(){return crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression.get().e).map_err(|e|error(py,e))?);}
+    if let Ok(expression)=value.downcast::<crate::PyExprNode>(){return crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression.get().e).map_err(|e|error(py,e))?);}
     if value.downcast::<crate::matrices::PyMatrix>().is_ok(){return Ok(value.clone().unbind());}
     if value.is_instance_of::<PyBlockGrid>(){return Err(PyTypeError::new_err("Block grids require a BlockMatrix wrapper before collapse"));}
     let expression=to_expr(value)?;crate::expr_object(py,symox::matrixexpr::block_collapse_scalar(&expression).map_err(|e|error(py,e))?)

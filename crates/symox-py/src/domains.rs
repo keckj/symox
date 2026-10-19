@@ -972,7 +972,7 @@ impl PyDomainElement {
             return Ok(other.py().NotImplemented());
         }
         if other
-            .extract::<PyRef<'_, PyExpr>>()
+            .extract::<PyRef<'_, crate::PyExprNode>>()
             .is_ok_and(|e| !e.e.is_number())
             && matches!(
                 self.value.domain,
@@ -1334,9 +1334,9 @@ fn _restore_domain(
     py: Python<'_>,
     kind: &str,
     prime: Option<u64>,
-    parameters: Vec<PyRef<'_, PyExpr>>,
-    generator: Option<PyRef<'_, PyExpr>>,
-    alias: Option<PyRef<'_, PyExpr>>,
+    parameters: Vec<PyRef<'_, crate::PyExprNode>>,
+    generator: Option<PyRef<'_, crate::PyExprNode>>,
+    alias: Option<PyRef<'_, crate::PyExprNode>>,
     integral: bool,
     ring: bool,
     order: &str,

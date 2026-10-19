@@ -588,7 +588,7 @@ fn cuda_device_function(
 }
 
 /// `Expr._repr_latex_`: `$\displaystyle ...$` like SymPy.
-pub(crate) fn repr_latex(e: &PyExpr) -> String {
+pub(crate) fn repr_latex(e: &crate::PyExprNode) -> String {
     format!("$\\displaystyle {}$", pr::latex(&e.e))
 }
 

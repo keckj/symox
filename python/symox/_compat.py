@@ -8,6 +8,7 @@ coefficients still use these native expression nodes.
 """
 
 from fractions import Fraction
+from functools import lru_cache
 
 from . import _core
 
@@ -72,6 +73,13 @@ class Integer(Rational):
         return _core.Integer(int(i))
 
 
+# Native nodes expose these logical numeric classes through __class__.
+# Only genuine rational/integer values satisfy the corresponding Python ABC.
+from numbers import Integral as _IntegralABC, Rational as _RationalABC
+_RationalABC.register(Rational)
+_IntegralABC.register(Integer)
+
+
 class Float(Number):
     _matches = staticmethod(lambda e: e.is_Float)
 
@@ -118,11 +126,24 @@ class Float(Number):
         return _core.Float(num, dps, precision=precision)
 
 
+@lru_cache(maxsize=1000, typed=True)
+def _cached_symbol(cls, name, assumptions):
+    return _core.Symbol(name, **dict(assumptions))
+
+
 class Symbol(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Symbol)
 
     def __new__(cls, name, **assumptions):
-        return _core.Symbol(name, **assumptions)
+        commutative = assumptions.get('commutative', True)
+        if commutative is None or commutative not in (True, False):
+            raise ValueError('Symbol commutativity must be True or False')
+        given = tuple((key, bool(value)) for key,value in assumptions.items() if value is not None)
+        try:
+            hash((cls, name, given))
+        except TypeError:
+            return _core.Symbol(name, **dict(given))
+        return _cached_symbol(cls, name, given)
 
 
 class Dummy(Symbol):
@@ -145,6 +166,7 @@ def _evaluation_state(value=None):
 
 
 class Add(metaclass=_ExprType):
+    """Construct a symbolic sum, optionally preserving its unevaluated terms."""
     _matches = staticmethod(lambda e: e.is_Add)
 
     def __new__(cls, *args, evaluate=None):
@@ -165,6 +187,7 @@ class Add(metaclass=_ExprType):
 
 
 class Mul(metaclass=_ExprType):
+    """Construct a symbolic product with exact native scalar arithmetic."""
     _matches = staticmethod(lambda e: e.is_Mul)
 
     def __new__(cls, *args, evaluate=None):
@@ -185,6 +208,7 @@ class Mul(metaclass=_ExprType):
 
 
 class Pow(metaclass=_ExprType):
+    """Construct a symbolic power, preserving the requested evaluation mode."""
     _matches = staticmethod(lambda e: e.is_Pow)
 
     def __new__(cls, b, e, evaluate=None):
@@ -195,12 +219,37 @@ class Pow(metaclass=_ExprType):
         return _core._node("Pow", (b, e), evaluate)
 
 
-class Tuple(metaclass=_ExprType):
+class Tuple(_core.Expr, metaclass=_ExprType):
     """An immutable tuple of native symbolic objects."""
     _matches = staticmethod(lambda e: e.is_Tuple)
 
+    @classmethod
+    def fromiter(cls, args, **assumptions):
+        return cls(*tuple(args), **assumptions)
+
+    @classmethod
+    def class_key(cls):
+        return (5, 0, cls.__name__)
+
     def __new__(cls, *items):
-        return _core._apply("Tuple", *(Tuple(*item) if isinstance(item, (tuple, list)) else item for item in items))
+        native = _core._apply("Tuple", *(Tuple(*item) if isinstance(item, (tuple, list)) else item for item in items))
+        return cls._from_native(native)
+
+    @classmethod
+    def _from_native(cls, native):
+        if type(native) is cls:
+            return native
+        return _core.Expr.__new__(cls, native)
+
+    def subs(self, *args, **kwargs):
+        return _tuple_result(super().subs(*args, **kwargs))
+
+    def xreplace(self, rule):
+        return _tuple_result(super().xreplace(rule))
+
+
+def _tuple_result(value):
+    return Tuple._from_native(value) if isinstance(value,_core.Expr) and value.is_Tuple else value
 
 
 class UnevaluatedExpr(metaclass=_ExprType):
@@ -266,6 +315,23 @@ StrictGreaterThan = _relation_class("StrictGreaterThan", "``lhs > rhs`` (``Gt``)
 StrictLessThan = _relation_class("StrictLessThan", "``lhs < rhs`` (``Lt``).")
 
 
+def _install_relation_classes(namespace):
+    """Share constructor and instance-check protocols between relation aliases."""
+    import inspect
+    def constructor(factory):
+        def __new__(cls, *args, **options):
+            return factory(*args, **options)
+        return staticmethod(__new__)
+    for short, long in [('Eq', 'Equality'), ('Ne', 'Unequality'),
+                        ('Ge', 'GreaterThan'), ('Le', 'LessThan'),
+                        ('Gt', 'StrictGreaterThan'), ('Lt', 'StrictLessThan')]:
+        factory, cls = namespace[short], namespace[long]
+        cls.__new__ = constructor(factory)
+        cls.__signature__ = inspect.signature(factory)
+        cls.__doc__ = factory.__doc__
+        namespace[short] = cls
+
+
 class _SingletonRegistry:
     Half = Rational(1, 2)
     Zero = Integer(0)
@@ -298,9 +364,17 @@ class _SingletonRegistry:
             "TribonacciConstant": "TribonacciConstant",
         }
         if name == "NegativeInfinity":
-            return -_core.constant("oo")
+            value = -_core.constant("oo")
+            setattr(self, name, value)
+            return value
         try:
-            return _core.constant(names[name])
+            from . import __dict__ as namespace
+            public = names[name]
+            value = namespace.get(public)
+            if value is None:
+                value = _core.constant(public)
+            setattr(self, name, value)
+            return value
         except KeyError:
             raise AttributeError(name) from None
 

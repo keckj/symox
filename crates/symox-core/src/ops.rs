@@ -1080,6 +1080,18 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
         }
         Kind::Mul(c, facs) => {
             if e.is_integer_number() {
+                // A held positive numeric product can collect to a unit.
+                // Keep its power as a multiplicative boundary: multiplying
+                // another held product by it must perform active collection,
+                // while multiplication by a literal 1 preserves that operand.
+                if !b.is_canonical() && c.is_positive() && facs.iter().all(|(base, exponent)|
+                    exponent.is_one() && base.as_number().is_some_and(Number::is_positive)) {
+                    let coefficient = facs.iter().fold(c.clone(), |value, (base, _)|
+                        value.mul(base.as_number().unwrap()));
+                    if coefficient.is_one() {
+                        return Expr::from_unevaluated_kind(Kind::Pow(Expr::one(), e.clone()));
+                    }
+                }
                 let mut v = Vec::with_capacity(facs.len() + 1);
                 v.push(num_pow(c, e.as_number().unwrap()));
                 for (fb, fe) in facs {

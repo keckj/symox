@@ -100,6 +100,7 @@ class ElementwiseApplyFunction(MatrixExpr):
 
 
 class MatAdd(MatrixExpr):
+    """Represent a shape-checked sum of symbolic matrices."""
     _kinds = ('MatAdd',)
 
     def __new__(cls, *args, evaluate=False, **options):
@@ -109,6 +110,7 @@ class MatAdd(MatrixExpr):
 
 
 class MatMul(MatrixExpr):
+    """Represent an ordered product of matrix and scalar operands."""
     _kinds = ('MatMul',)
 
     def __new__(cls, *args, evaluate=False, **options):

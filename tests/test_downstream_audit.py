@@ -57,6 +57,22 @@ import sympy.core.logic
     assert 'sympy.core.logic' not in proofs[0]['loaded_symbolic_modules']
 
 
+def test_preloaded_package_aliases_preserve_public_simplify_callable(tmp_path):
+    process, proofs = run_backend(tmp_path, 'symox', '''
+import sympy, symox
+import importlib
+for name in ['sympy.simplify', 'sympy.simplify.simplify', 'sympy.core.expr']:
+    importlib.import_module(name)
+assert sympy.simplify is symox.simplify
+assert callable(sympy.simplify)
+x = sympy.Symbol('x')
+assert sympy.simplify((x+1)**2-x*x-2*x) == 1
+''')
+    assert process.returncode == 0, process.stderr
+    assert proofs[0]['routed_modules']['sympy.simplify'] == 'symox.simplify'
+    assert not proofs[0]['blocked_reference_execution']
+
+
 def test_reference_code_execution_is_blocked_even_without_an_import(tmp_path):
     process, proofs = run_backend(tmp_path, 'symox', "exec(compile('x=1', '/env/site-packages/sympy/core/basic.py', 'exec'))")
     assert process.returncode != 0

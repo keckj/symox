@@ -7,12 +7,12 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use num_bigint::BigInt;
-use num_traits::{Signed,Zero};
+use num_traits::{Signed,Zero,ToPrimitive};
 use numpy::{PyArray1, PyArrayMethods, PyReadonlyArray1};
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
 use pyo3::types::{PyComplex, PyDict, PyFloat, PyInt, PyList, PySet, PyString, PyTuple};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 mod series;
 mod python_hash;
@@ -43,10 +43,39 @@ mod recurrences;
 mod transforms;
 
 /// A symbolic expression.
-#[pyclass(name = "Expr", module = "symox._core", frozen, weakref)]
+#[pyclass(name = "Expr", module = "symox._core", frozen, weakref, subclass)]
+#[derive(Clone)]
+pub struct PyExprNode {
+    pub e: Expr,
+}
+
 #[derive(Clone)]
 pub struct PyExpr {
     pub e: Expr,
+}
+
+impl<'py> IntoPyObject<'py> for PyExpr {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+    type Error = PyErr;
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
+        scalar_object(py, self.e).map(|value| value.into_bound(py))
+    }
+}
+
+impl<'py> IntoPyObject<'py> for &PyExpr {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+    type Error = PyErr;
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
+        scalar_object(py, self.e.clone()).map(|value| value.into_bound(py))
+    }
+}
+
+impl<'py> FromPyObject<'py> for PyExpr {
+    fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<Self> {
+        Ok(wrap(value.downcast::<PyExprNode>()?.get().e.clone()))
+    }
 }
 
 pub(crate) fn wrap(e: Expr) -> PyExpr {
@@ -57,7 +86,42 @@ pub(crate) fn expr_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     if let Kind::Func(Func::MatrixProxy(parent), _) = e.kind() {
         return Ok(matrixexpr::wrap_matrixexpr((**parent).clone()).into_pyobject(py)?.into_any().unbind());
     }
-    Ok(wrap(e).into_pyobject(py)?.into_any().unbind())
+    scalar_object(py, e)
+}
+
+fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    if matches!(e.kind(), Kind::Func(Func::Undefined(head), _) if head.is_internal("Tuple")) {
+        if let Ok(class) = py.import("symox").and_then(|m| m.getattr("Tuple")) {
+            if class.downcast::<pyo3::types::PyType>().is_ok() {
+                let value = Bound::new(py, PyExprNode { e })?;
+                return Ok(class.call_method1("_from_native", (value,))?.unbind());
+            }
+        }
+    }
+    let singleton = if e.is_rational_number() {
+        if e.is_zero() { Some("Zero") } else if e.is_one() { Some("One") }
+        else if e.is_minus_one() { Some("NegativeOne") }
+        else if e == Expr::rational(1, 2) { Some("Half") } else { None }
+    } else { None };
+    if let Some(name) = singleton {
+        // The registry is unavailable during its own bootstrap. Once
+        // initialized it owns the canonical Python objects for these atoms.
+        if let Ok(value) = py.import("symox").and_then(|m| m.getattr("S"))
+            .and_then(|s| s.getattr(name)) {
+            return Ok(value.unbind());
+        }
+    }
+    Ok(Bound::new(py, PyExprNode { e })?.into_any().unbind())
+}
+
+fn arithmetic_object(slf: &PyRef<'_, crate::PyExprNode>, other: &Bound<'_, PyAny>, e: Expr) -> PyResult<PyObject> {
+    if e.ptr_eq(&slf.e) {
+        return Ok(slf.into_pyobject(slf.py())?.to_owned().into_any().unbind());
+    }
+    if other.downcast::<crate::PyExprNode>().is_ok_and(|other| e.ptr_eq(&other.get().e)) {
+        return Ok(other.clone().unbind());
+    }
+    expr_object(slf.py(), e)
 }
 
 fn matrix_proxy(parent: symox::matrixexpr::MatrixExpr) -> Expr {
@@ -213,9 +277,72 @@ fn undefined_head<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)-
     py.import("symox")?.getattr("Function")?.call((function.name.as_ref(),),Some(&function_kwargs(py,function)?))
 }
 
+thread_local! {
+    static ACTIVE_CONVERSIONS: std::cell::RefCell<Vec<usize>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn direct_conversion_hook<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    if obj.downcast::<crate::PyExprNode>().is_ok() { return Ok(None); }
+    if let Ok(hook) = obj.getattr("_symox_") { return Ok(Some(hook)); }
+    let ty = obj.get_type();
+    let module = ty.module().map(|value| value.to_string()).unwrap_or_default();
+    // Native interoperability exporters must never be implicit conversion
+    // hooks. Reference objects retain the established structural conversion.
+    if module == "symox" || module.starts_with("symox.") { return Ok(None); }
+    for base in ty.getattr("__mro__")?.try_iter()? {
+        let module = base?.getattr("__module__")?.extract::<String>().unwrap_or_default();
+        if module == "sympy" || module.starts_with("sympy.") { return Ok(None); }
+    }
+    Ok(obj.getattr("_sympy_").ok())
+}
+
+fn conversion_hook(obj: &Bound<'_, PyAny>, hook: &Bound<'_, PyAny>) -> PyResult<Expr> {
+    struct RecursionGuard;
+    impl Drop for RecursionGuard {
+        fn drop(&mut self) {
+            // The Bound input keeps this conversion inside an attached Python
+            // call, including when a user hook raises an exception.
+            unsafe { pyo3::ffi::Py_LeaveRecursiveCall() };
+            ACTIVE_CONVERSIONS.with(|active| { active.borrow_mut().pop(); });
+        }
+    }
+    let py = obj.py();
+    let identifier = obj.as_ptr() as usize;
+    if ACTIVE_CONVERSIONS.with(|active| active.borrow().contains(&identifier)) {
+        return Err(pyo3::exceptions::PyRecursionError::new_err("cyclic symbolic conversion hook"));
+    }
+    // Hook calls return before recursive conversion, so Python's ordinary
+    // frame counter alone cannot protect cycles between converted objects.
+    if unsafe { pyo3::ffi::Py_EnterRecursiveCall(b" while converting a symbolic object\0".as_ptr().cast()) } != 0 {
+        return Err(PyErr::fetch(py));
+    }
+    ACTIVE_CONVERSIONS.with(|active| active.borrow_mut().push(identifier));
+    let _guard = RecursionGuard;
+    let limit: usize = py.import("sys")?.call_method0("getrecursionlimit")?.extract()?;
+    let mut seen = FxHashSet::default();
+    seen.insert(identifier);
+    let mut owners = vec![obj.clone()];
+    let mut converted = hook.call0()?;
+    loop {
+        if converted.is(owners.last().unwrap()) {
+            return Err(PyTypeError::new_err("symbolic conversion hook returned its input"));
+        }
+        if !seen.insert(converted.as_ptr() as usize) || owners.len() >= limit {
+            return Err(pyo3::exceptions::PyRecursionError::new_err("cyclic or unbounded symbolic conversion hooks"));
+        }
+        // Retain owners so addresses cannot be recycled during cycle checks.
+        owners.push(converted.clone());
+        if let Some(hook) = direct_conversion_hook(&converted)? {
+            converted = hook.call0()?;
+        } else {
+            return to_expr(&converted);
+        }
+    }
+}
+
 /// Convert any supported Python object into an expression.
 pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
-    if let Ok(p) = obj.downcast::<PyExpr>() {
+    if let Ok(p) = obj.downcast::<crate::PyExprNode>() {
         return Ok(p.get().e.clone());
     }
     if let Ok(element) = obj.extract::<PyRef<'_, poly::domains::PyDomainElement>>() {
@@ -281,7 +408,7 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     }
     // SymPy objects (and anything with a _symox_ hook)
     if let Ok(hook) = obj.getattr("_symox_") {
-        return to_expr(&hook.call0()?);
+        return conversion_hook(obj, &hook);
     }
     // Applied undefined SymPy functions can have __module__ = None (or a
     // user module). Identify their SymPy ancestry without importing SymPy
@@ -408,6 +535,13 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             PyValueError::new_err(format!("cannot convert SymPy object {s}: {e}"))
         });
     }
+    // External scalar libraries expose the established SymPy conversion
+    // protocol. Builtin reference objects above retain their structural path.
+    if module != "symox" && !module.starts_with("symox.") {
+        if let Ok(hook) = obj.getattr("_sympy_") {
+            return conversion_hook(obj, &hook);
+        }
+    }
     Err(PyTypeError::new_err(format!(
         "cannot convert object of type {tname} to a symox expression"
     )))
@@ -450,7 +584,7 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
             match key.as_str() {
                 "chop"=>{
                     let flag=if value.is_instance_of::<pyo3::types::PyBool>() {Some(value.extract::<bool>()?)}
-                        else if let Ok(expression)=value.extract::<PyRef<'_,PyExpr>>() {
+                        else if let Ok(expression)=value.extract::<PyRef<'_, crate::PyExprNode>>() {
                             if let Kind::Bool(value)=expression.e.kind(){Some(*value)}else{None}
                         } else {None};
                     if let Some(flag)=flag {chop=flag.then_some(-(precision as i64));continue;}
@@ -885,14 +1019,14 @@ pub(crate) fn checked_subs(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],s
 }
 
 #[pymethods]
-impl PyExpr {
+impl PyExprNode {
     /// Live node identity for Python graph adapters preserving public binders.
     #[getter]
     fn _dag_id(&self) -> usize { self.e.dag_id() }
 
     #[new]
     fn py_new(obj: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(wrap(to_expr(obj)?))
+        Ok(PyExprNode { e: to_expr(obj)? })
     }
 
     fn __str__(&self) -> String {
@@ -975,41 +1109,49 @@ impl PyExpr {
 
     // arithmetic -------------------------------------------------------
 
-    fn __add__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    fn __add__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
-        expr_object(o.py(), ops::add2(&self.e, &scalar_expr(o)?))
+        arithmetic_object(&slf, o, ops::add2(&slf.e, &scalar_expr(o)?))
     }
-    fn __radd__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    fn __radd__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
-        expr_object(o.py(), ops::add2(&scalar_expr(o)?, &self.e))
+        arithmetic_object(&slf, o, ops::add2(&scalar_expr(o)?, &slf.e))
     }
-    fn __sub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    fn __sub__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
-        expr_object(o.py(), ops::sub(&self.e, &scalar_expr(o)?))
+        arithmetic_object(&slf, o, ops::sub(&slf.e, &scalar_expr(o)?))
     }
-    fn __rsub__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    fn __rsub__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
-        expr_object(o.py(), ops::sub(&scalar_expr(o)?, &self.e))
+        arithmetic_object(&slf, o, ops::sub(&scalar_expr(o)?, &slf.e))
     }
-    fn __mul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    fn __mul__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
         let py = o.py();
+        if slf.e.is_integer_number() && (o.is_instance_of::<PyTuple>() || o.is_instance_of::<PyList>()
+            || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
+            return Ok(py.NotImplemented());
+        }
         if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
             // let Matrix.__rmul__ handle scalar * matrix
             return Ok(py.NotImplemented());
         }
-        Ok(wrap(ops::mul2(&self.e, &scalar_expr(o)?)).into_pyobject(py)?.into_any().unbind())
+        arithmetic_object(&slf, o, ops::mul2(&slf.e, &scalar_expr(o)?))
     }
-    fn __rmul__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    fn __rmul__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if slf.e.is_integer_number() && (o.is_instance_of::<PyTuple>() || o.is_instance_of::<PyList>()
+            || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
+            return Ok(o.py().NotImplemented());
+        }
         if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
             return Ok(o.py().NotImplemented());
         }
-        Ok(wrap(ops::mul2(&scalar_expr(o)?, &self.e)).into_pyobject(o.py())?.into_any().unbind())
+        arithmetic_object(&slf, o, ops::mul2(&scalar_expr(o)?, &slf.e))
     }
-    fn __truediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::div(&self.e, &scalar_expr(o)?)))
+    fn __truediv__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        arithmetic_object(&slf, o, ops::div(&slf.e, &scalar_expr(o)?))
     }
-    fn __rtruediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(ops::div(&scalar_expr(o)?, &self.e)))
+    fn __rtruediv__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        arithmetic_object(&slf, o, ops::div(&scalar_expr(o)?, &slf.e))
     }
     fn __mod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(wrap(checked_mod("Mod", &self.e, &scalar_expr(o)?)?))
@@ -1031,26 +1173,27 @@ impl PyExpr {
         let p = scalar_expr(o)?;
         Ok((wrap(floor_div(&p, &self.e)?), wrap(checked_mod("Mod", &p, &self.e)?)))
     }
-    fn __pow__(&self, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
+    fn __pow__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         if m.is_some_and(|m| !m.is_none()) {
             return Err(PyTypeError::new_err("modular pow is not supported"));
         }
-        Ok(wrap(ops::pow(&self.e, &scalar_expr(o)?)))
+        arithmetic_object(&slf, o, ops::pow(&slf.e, &scalar_expr(o)?))
     }
-    fn __rpow__(&self, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
+    fn __rpow__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
         if m.is_some_and(|m| !m.is_none()) {
             return Err(PyTypeError::new_err("modular pow is not supported"));
         }
-        Ok(wrap(ops::pow(&scalar_expr(o)?, &self.e)))
+        arithmetic_object(&slf, o, ops::pow(&scalar_expr(o)?, &slf.e))
     }
-    fn __neg__(&self) -> PyExpr {
-        wrap(ops::neg(&self.e))
+    fn __neg__(&self, py: Python<'_>) -> PyResult<PyObject> {
+        expr_object(py, ops::neg(&self.e))
     }
-    fn __pos__(&self) -> PyExpr {
-        self.clone()
+    fn __pos__(slf: PyRef<'_, Self>) -> PyResult<PyObject> {
+        let py = slf.py();
+        Ok(slf.into_pyobject(py)?.into_any().unbind())
     }
-    fn __abs__(&self) -> PyExpr {
-        wrap(fx::abs(&self.e))
+    fn __abs__(&self, py: Python<'_>) -> PyResult<PyObject> {
+        expr_object(py, fx::abs(&self.e))
     }
 
     fn __float__(&self) -> PyResult<f64> {
@@ -1170,6 +1313,26 @@ impl PyExpr {
         if let Some(name) = name {
             return Ok(py.import("symox._compat")?.getattr(name)?.unbind());
         }
+        if let Kind::Func(function, _) = self.e.kind() {
+            if !matches!(function, Func::Undefined(_)) {
+                if let Ok(public) = py.import("symox")?.getattr(function.name()) {
+                    // Native builtin function wrappers carry this marker.
+                    // Return their actual identity for expr.func comparisons,
+                    // preserving dedicated heads for internal/custom nodes.
+                    if public.getattr("_symox_head_name").is_ok_and(|name|
+                        name.extract::<String>().is_ok_and(|name| name == function.name())) {
+                        return Ok(public.unbind());
+                    }
+                }
+            }
+        }
+        if let Kind::Rel(op, _, _) = self.e.kind() {
+            let name = match op {
+                RelOp::Eq => "Eq", RelOp::Ne => "Ne", RelOp::Lt => "Lt",
+                RelOp::Le => "Le", RelOp::Gt => "Gt", RelOp::Ge => "Ge",
+            };
+            return Ok(py.import("symox")?.getattr(name)?.unbind());
+        }
         let head = Head::of(&self.e);
         Ok(Py::new(py, head)?.into_any())
     }
@@ -1253,6 +1416,34 @@ impl PyExpr {
         self.e.is_rational_number()
     }
     #[getter]
+    fn __class__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        // ABC protocols consult __class__. Expose the existing public numeric
+        // facades only for actual rational nodes; registering Expr itself
+        // would incorrectly classify symbols and transcendental expressions.
+        if self.is_Tuple() {
+            let class = py.import("symox")?.getattr("Tuple")?;
+            if class.downcast::<pyo3::types::PyType>().is_ok() {
+                return Ok(class);
+            }
+        }
+        if self.e.is_rational_number() {
+            let name = if self.is_Integer() { "Integer" } else { "Rational" };
+            let class = py.import("symox")?.getattr(name)?;
+            if class.downcast::<pyo3::types::PyType>().is_ok() {
+                return Ok(class);
+            }
+        }
+        Ok(py.get_type::<PyExprNode>().into_any())
+    }
+    #[getter]
+    fn numerator(&self) -> PyResult<BigInt> {
+        self.p()
+    }
+    #[getter]
+    fn denominator(&self) -> PyResult<BigInt> {
+        self.q()
+    }
+    #[getter]
     fn is_Float(&self) -> bool {
         self.e.as_number().is_some_and(Number::is_float)
     }
@@ -1290,6 +1481,24 @@ impl PyExpr {
     fn is_Limit(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Limit,_))}
     #[getter]
     fn is_Tuple(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(head),_) if head.is_internal("Tuple"))}
+    fn _tuple_len(&self) -> PyResult<usize> {
+        match self.e.kind() {
+            Kind::Func(Func::Undefined(head), arguments) if head.is_internal("Tuple") => Ok(arguments.len()),
+            _ => Err(PyTypeError::new_err("only Tuple expressions have sequence length")),
+        }
+    }
+    fn _tuple_item(&self, py: Python<'_>, index: BigInt) -> PyResult<PyObject> {
+        let Kind::Func(Func::Undefined(head), arguments) = self.e.kind() else {
+            return Err(PyTypeError::new_err("only Tuple expressions support indexing"));
+        };
+        if !head.is_internal("Tuple") {
+            return Err(PyTypeError::new_err("only Tuple expressions support indexing"));
+        }
+        let index = if index.is_negative() { index+BigInt::from(arguments.len()) } else { index };
+        let argument = index.to_usize().and_then(|index| arguments.get(index))
+            .ok_or_else(|| pyo3::exceptions::PyIndexError::new_err("tuple index out of range"))?;
+        expr_object(py, argument.clone())
+    }
     #[getter]
     fn is_Lambda(&self)->bool{symox::sets::lambda_signature(&self.e).is_some()}
     #[getter]
@@ -1311,7 +1520,7 @@ impl PyExpr {
     #[getter]
     fn _lambda_body(&self)->PyResult<PyExpr>{symox::sets::lambda_parts(&self.e).map(|(_,body)|wrap(body)).ok_or_else(||pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))}
     #[getter]
-    fn _e(&self)->PyResult<PyExpr>{if self.is_Lambda(){Ok(self.clone())}else{Err(pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))}}
+    fn _e(&self)->PyResult<PyExpr>{if self.is_Lambda(){Ok(wrap(self.e.clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))}}
     #[pyo3(signature=(*args))]
     fn __call__(&self,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{
         if let Some(p)=symox::ask::as_predicate(&self.e){
@@ -1621,7 +1830,7 @@ impl PyExpr {
     fn doit(&self, py: Python<'_>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
         if symox::transforms::as_held(&self.e).is_some() {
             // integral transforms: SymPy's hints and (result, plane, cond) tuples
-            return Ok(py.import("symox._transforms")?.getattr("_doit")?.call((self.clone(), deep), hints)?.unbind());
+            return Ok(py.import("symox._transforms")?.getattr("_doit")?.call((wrap(self.e.clone()), deep), hints)?.unbind());
         }
         if let Some(hints)=hints {for (name,value) in hints.iter(){
             if matches!(self.e.kind(),Kind::Func(Func::MatrixDotProduct(_,_),_))&&name.extract::<String>()?=="expand" {
@@ -1635,8 +1844,8 @@ impl PyExpr {
     }
 
     #[pyo3(signature = (deep=true, **hints))]
-    fn expand(&self, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-        Ok(wrap(expand_hints(&self.e, deep, hints)?))
+    fn expand(&self, py: Python<'_>, deep: bool, hints: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+        expr_object(py, expand_hints(&self.e, deep, hints)?)
     }
 
     fn trigsimp(&self) -> PyExpr {
@@ -1903,7 +2112,7 @@ impl PyExpr {
             let key = wrap(t);
             let prev = d.get_item(key.clone())?;
             let val = match prev {
-                Some(p) => ops::add2(&p.downcast::<PyExpr>()?.get().e, &Expr::num(k)),
+                Some(p) => ops::add2(&p.downcast::<crate::PyExprNode>()?.get().e, &Expr::num(k)),
                 None => Expr::num(k),
             };
             d.set_item(key, wrap(val))
@@ -2274,17 +2483,18 @@ fn sympify(obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 
 #[pyfunction]
 #[pyo3(name = "Integer")]
-fn py_integer(obj: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+fn py_integer(obj: &Bound<'_, PyAny>) -> PyResult<PyObject> {
     let e = to_expr(obj)?;
     if !e.as_number().is_some_and(|n|n.is_integer()) {
         return Err(PyValueError::new_err(format!("{e} is not an integer")));
     }
-    Ok(wrap(e))
+    expr_object(obj.py(), e)
 }
 
 #[pyfunction]
 #[pyo3(name = "Rational", signature = (p, q=None))]
-fn py_rational(p: &Bound<'_, PyAny>, q: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
+fn py_rational(p: &Bound<'_, PyAny>, q: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+    let py = p.py();
     let p = to_expr(p)?;
     let r = match q {
         Some(q) => {
@@ -2296,7 +2506,7 @@ fn py_rational(p: &Bound<'_, PyAny>, q: Option<&Bound<'_, PyAny>>) -> PyResult<P
         }
         None => p,
     };
-    Ok(wrap(r))
+    expr_object(py, r)
 }
 
 fn float_mpf_parts(payload:&Bound<'_,PyAny>,precision:u32)->PyResult<Expr>{
@@ -2354,7 +2564,7 @@ fn py_float(obj: &Bound<'_, PyAny>, dps: Option<i64>, precision: Option<u32>) ->
         return Ok(wrap(Expr::num(Number::mp_float(value, p))));
     }
     if obj.downcast::<PyTuple>().is_ok(){return Ok(wrap(float_mpf_parts(obj,p)?));}
-    if obj.downcast::<PyExpr>().is_err()&&!obj.is_instance_of::<PyInt>()&&!obj.is_instance_of::<PyFloat>(){
+    if obj.downcast::<crate::PyExprNode>().is_err()&&!obj.is_instance_of::<PyInt>()&&!obj.is_instance_of::<PyFloat>(){
         match obj.getattr("_mpf_"){
             Ok(parts)=>{
                 if dps.is_none()&&precision.is_none(){
@@ -2394,6 +2604,7 @@ fn _materialize_matrix_scalars(obj: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
     fx::materialize_matrix_scalars(&e).map(wrap).map_err(|error| matrices::err(obj.py(),error))
 }
 
+/// Differentiate an expression with respect to the requested variables.
 #[pyfunction]
 #[pyo3(name = "diff", signature = (f, *args))]
 fn py_diff(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
@@ -2441,7 +2652,7 @@ fn integration_limit(value:&Bound<'_,PyAny>)->PyResult<Option<Vec<Expr>>>{
     if value.is_instance_of::<PyTuple>()||value.is_instance_of::<PyList>(){
         return Ok(Some(value.try_iter()?.map(|item|to_expr(&item?)).collect::<PyResult<Vec<_>>>()?));
     }
-    if let Ok(value)=value.extract::<PyRef<'_,PyExpr>>(){
+    if let Ok(value)=value.extract::<PyRef<'_, crate::PyExprNode>>(){
         if let Kind::Func(Func::Undefined(name),arguments)=value.e.kind(){
             if name.is_internal("Tuple"){return Ok(Some(arguments.clone()));}
         }
@@ -2546,6 +2757,7 @@ fn py_bernoulli(n: usize) -> PyExpr {
     wrap(symox::summation::bernoulli(n))
 }
 
+/// Compute an indefinite or definite symbolic integral using native algorithms.
 #[pyfunction]
 #[pyo3(name = "integrate", signature = (f, *args, **_kwargs))]
 fn py_integrate(py:Python<'_>,f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
@@ -2918,7 +3130,7 @@ fn py_lambdify(
 
 #[pymodule]
 fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<PyExpr>()?;
+    m.add_class::<PyExprNode>()?;
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;

@@ -63,9 +63,9 @@ pub(crate) fn not_a_transform(name: &str) -> PyErr {
 }
 
 /// Attributes implemented by the Python glue (`symox._transforms`).
-pub(crate) fn python_attribute(py: Python<'_>, e: &PyExpr, name: &str) -> PyResult<PyObject> {
+pub(crate) fn python_attribute(py: Python<'_>, e: &crate::PyExprNode, name: &str) -> PyResult<PyObject> {
     if symox::transforms::as_held(&e.e).is_none() {
         return Err(not_a_transform(name));
     }
-    Ok(py.import("symox._transforms")?.getattr("_attribute")?.call1((e.clone(), name))?.unbind())
+    Ok(py.import("symox._transforms")?.getattr("_attribute")?.call1((wrap(e.e.clone()), name))?.unbind())
 }

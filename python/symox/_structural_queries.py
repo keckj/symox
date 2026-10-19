@@ -9,7 +9,8 @@ _SPECIAL_HEADS={'log','Derivative','Piecewise','Order','Contains','And','Or',
 _NON_FUNCTIONS={'Max','Min','Lambda','Order','And','Or','Not','Xor','Implies',
     'Equivalent','Nand','Nor','ITE','Contains','AppliedPredicate','Predicate'}
 _NON_EXPR_HEADS=set(_RELATIONS.values())|(_NON_FUNCTIONS-{'Max','Min','Lambda','Order'})|{
-    'BooleanTrue','BooleanFalse','true','false'}
+    'BooleanTrue','BooleanFalse','true','false','Equality','Unequality',
+    'LessThan','GreaterThan','StrictLessThan','StrictGreaterThan'}
 
 
 def _head(value):

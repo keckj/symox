@@ -11,7 +11,6 @@ _export(globals(), 'symox', 'AlgebraicNumber Atom AtomicExpr BooleanKind Catalan
 
 from importlib import import_module as _import_module
 # Complete homonymous child imports before restoring callable package exports.
-_import_module('.evalf', __name__)
 _import_module('.sympify', __name__)
 from symox import sympify
 from .assumptions import assumptions, common_assumptions

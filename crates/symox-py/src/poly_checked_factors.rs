@@ -82,7 +82,27 @@ fn prepare<'py>(
         let args = PyTuple::new(f.py(), [w(generator)])?;
         return division::prepare_unary(f, &args, Some(&kw));
     }
-    division::prepare_unary(f, gens, Some(&kw))
+    match division::prepare_unary(f, gens, Some(&kw)) {
+        Err(error) if !part && !expression.is_number()
+            && f.downcast::<PyPoly>().is_err()
+            && division::option_generators(gens, Some(&kw))?.is_empty()
+            && error.is_instance_of::<pyo3::exceptions::PyValueError>(f.py()) => {
+            // Expansion can cancel every inferred generator. This is a
+            // failed polynomial conversion, not a factorization failure;
+            // callers use PolificationFailed to select a scalar fallback.
+            let expanded = symox::poly::factor_budget::Session::new(Limits::default())
+                .run(|| Ok(symox::expand::expand(&expression))).map_err(err)?;
+            if !expanded.is_number() { return Err(error); }
+            let py = f.py();
+            let options = py.import("symox.polys.polyoptions")?.getattr("Options")?
+                .call1((gens, &kw))?;
+            let value = w(expanded).into_pyobject(py)?;
+            let exception = py.import("symox.polys.polyerrors")?
+                .getattr("PolificationFailed")?.call1((options, &value, &value))?;
+            Err(PyErr::from_value(exception))
+        }
+        result => result,
+    }
 }
 pub(super) fn global_list<'py>(
     f: &Bound<'py, PyAny>,

@@ -15,7 +15,7 @@ use symox::matrix::{DetMethod, MResult, Matrix, MatrixError};
 /// without importing their libraries or treating arbitrary integers as bools.
 pub fn boolean_scalar(value:&Bound<'_,PyAny>)->PyResult<Option<bool>> {
     if value.is_instance_of::<PyBool>() {return Ok(Some(value.extract()?));}
-    if let Ok(expression)=value.extract::<PyRef<'_,crate::PyExpr>>() {
+    if let Ok(expression)=value.extract::<PyRef<'_, crate::PyExprNode>>() {
         if let symox::expr::Kind::Bool(value)=expression.e.kind() {return Ok(Some(*value));}
     }
     if value.hasattr("item")? {
@@ -73,7 +73,7 @@ impl Callbacks {
 pub(super) fn checked_callback<'a,'py>(callback:Option<&'a Bound<'py,PyAny>>,name:&str)->PyResult<Option<&'a Bound<'py,PyAny>>> {
     let callback=callback.filter(|value|!value.is_none());
     let valid=|value:&Bound<'py,PyAny>| {
-        if let Ok(expression)=value.extract::<PyRef<'_,crate::PyExpr>>() {
+        if let Ok(expression)=value.extract::<PyRef<'_, crate::PyExprNode>>() {
             matches!(expression.e.kind(),symox::expr::Kind::Func(symox::expr::Func::Set(symox::sets::SetOp::Lambda|symox::sets::SetOp::IdentityFunction),_))
         } else {value.is_callable()}
     };

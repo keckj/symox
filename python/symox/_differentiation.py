@@ -39,6 +39,7 @@ def matrix_diff(self, *symbols, evaluate=True, **options):
 
 
 def diff(f, *symbols, evaluate=True, **options):
+    """Differentiate scalar or matrix expressions, optionally holding evaluation."""
     _options(evaluate,options)
     if isinstance(f,_core.Matrix):
         return matrix_diff(f,*symbols,evaluate=evaluate,**options)

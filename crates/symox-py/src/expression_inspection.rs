@@ -4,7 +4,7 @@ use pyo3::types::{PySet, PyTuple, PyType};
 use pyo3::exceptions::PyNotImplementedError;
 
 use symox::expr::{Expr, Func, Kind};
-use crate::{PyExpr, Head, expr_object, to_expr};
+use crate::{Head, expr_object, to_expr};
 
 pub(crate) fn classify(e:&Expr, syms:&Bound<'_,PyTuple>, kind:symox::inspection::PolynomialKind)->PyResult<Option<bool>>{
     if e.has_matrix(){
@@ -42,7 +42,7 @@ fn function_node(e:&Expr)->bool{
     }
 }
 fn filter(py:Python<'_>,value:&Bound<'_,PyAny>)->PyResult<Filter>{
-    if let Ok(atom)=value.extract::<PyRef<'_,PyExpr>>(){
+    if let Ok(atom)=value.extract::<PyRef<'_, crate::PyExprNode>>(){
         return Ok(match atom.e.kind(){
             Kind::Func(function,_) if function_node(&atom.e)=>Filter::Function(function.clone()),
             _=>Filter::Class(atom.e.class_name().into()),

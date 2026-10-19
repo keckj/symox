@@ -84,6 +84,35 @@ def _matrix_part(name, M):
     return ImmutableMatrix(value)
 
 
+class _BuiltinFunctionHead:
+    """Stable public callable identity and symbolic spelling for native heads."""
+    def __init__(self, name, factory):
+        import inspect
+        self.__name__ = self.__qualname__ = self._symox_head_name = name
+        self.__doc__ = factory.__doc__
+        self.__module__ = factory.__module__
+        self.__signature__ = inspect.signature(factory)
+        self._factory = factory
+
+    def __call__(self, *args, **kwargs):
+        return self._factory(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._factory, name)
+
+    def __repr__(self):
+        return self.__name__
+
+    __str__ = __repr__
+
+    def __reduce__(self):
+        return _public_function_head, (self.__name__,)
+
+
+def _public_function_head(name):
+    return globals()[name]
+
+
 def _make(name):
     from ._function_signatures import signature as _head_signature,bind as _bind_head
     _contract=_head_signature(name)
@@ -117,6 +146,9 @@ def _make(name):
             if name == "conjugate":
                 return args[0].conjugate()
             raise NotImplementedError(f"{name} of abstract matrices is not implemented")
+        if (name == 'exp' and len(args) == 1 and evaluate
+                and (isinstance(args[0], _core.Matrix) or getattr(args[0], '_symox_sparse', False))):
+            return args[0].exp().as_immutable()
         if (len(args) == 1 and name in ("re", "im", "conjugate", "Abs")
                 and not isinstance(args[0], _core.Expr) and hasattr(args[0], "applyfunc")
                 and hasattr(args[0], "as_real_imag")):
@@ -132,7 +164,7 @@ def _make(name):
         _parameters=list(_contract.parameters.values())
         _parameters.append(_inspect.Parameter('evaluate',_inspect.Parameter.KEYWORD_ONLY,default=None))
         f.__signature__=_contract.replace(parameters=_parameters)
-    return f
+    return _BuiltinFunctionHead(name, f)
 
 
 _FUNCS = [
@@ -376,7 +408,8 @@ def special_nstr(e, dps=15):
 # ---------------------------------------------------------------------------
 
 
-def Eq(lhs, rhs=0, **options):
+def Eq(lhs, rhs, **options):
+    """Construct a symbolic equality, evaluating it when requested."""
     from ._public_core import _evaluation
     evaluate=options.pop('evaluate',None)
     return _core.Rel("==", lhs, rhs, evaluate=_evaluation.get() if evaluate is None else evaluate)
@@ -393,22 +426,27 @@ def _ordered_relation(op,lhs,rhs,options):
 
 
 def Ne(lhs, rhs, **options):
+    """Construct a symbolic inequality between two expressions."""
     return _ordered_relation('!=',lhs,rhs,options)
 
 
 def Lt(lhs, rhs, **options):
+    """Construct a strict less-than relation."""
     return _ordered_relation('<',lhs,rhs,options)
 
 
 def Le(lhs, rhs, **options):
+    """Construct a less-than-or-equal relation."""
     return _ordered_relation('<=',lhs,rhs,options)
 
 
 def Gt(lhs, rhs, **options):
+    """Construct a strict greater-than relation."""
     return _ordered_relation('>',lhs,rhs,options)
 
 
 def Ge(lhs, rhs, **options):
+    """Construct a greater-than-or-equal relation."""
     return _ordered_relation('>=',lhs,rhs,options)
 
 
@@ -1744,6 +1782,8 @@ from ._compat import (  # noqa: E402
     Atom, AtomicExpr, Relational, Rel, Equality, Unequality, GreaterThan, LessThan,
     StrictGreaterThan, StrictLessThan,
 )
+from ._compat import _install_relation_classes
+_install_relation_classes(globals())
 Id = S.IdentityFunction
 from .codegen.ast import Indexed, IndexedBase  # noqa: E402
 from .printing.str import StrPrinter  # noqa: E402
@@ -1928,6 +1968,8 @@ from ._transforms import (  # noqa: E402
 from ._differentiation import diff, install as _install_differentiation  # noqa: E402
 _install_differentiation()
 from ._numeric_recognition import nsimplify  # noqa: E402
+from ._numeric_recognition import _limit_denominator
+_core.Expr.limit_denominator = _limit_denominator
 from .solvers.inequalities import (  # noqa: E402
     solve_poly_inequality, solve_rational_inequalities,
     reduce_abs_inequality, reduce_abs_inequalities,
@@ -2068,6 +2110,7 @@ class _PiecewiseConstructorMeta(_PiecewiseBaseMeta):
     def class_key(cls):return (4,0,cls.__name__)
 
 class Piecewise(metaclass=_PiecewiseConstructorMeta):
+    """Construct ordered conditional branches with an explicit evaluation mode."""
     _matches=staticmethod(lambda expression:expression.is_Piecewise)
     is_Piecewise=True
     def __new__(cls,*pieces,evaluate=None):
@@ -2115,7 +2158,8 @@ for _context_name in ('sqrt','cbrt','log'):
             def f(arg,evaluate=None):
                 return apply((arg,),evaluate)
         f.__name__ = name
-        return f
+        f.__doc__ = original.__doc__ or 'Construct symbolic '+name+'.'
+        return _BuiltinFunctionHead(name, f)
     globals()[_context_name] = _context_function(_context_name,globals()[_context_name])
 ln = log
 
@@ -2140,3 +2184,12 @@ from importlib import import_module as _import_api_module
 _simplify_callable = simplify
 _import_api_module('.simplify', __name__)
 simplify = _simplify_callable
+
+# SymPy exposes its already initialized core namespace from a root import.
+# These are the native modules, so downstream type checks retain identity.
+_import_api_module('.core', __name__)
+_import_api_module('.core.expr', __name__)
+
+from .utilities.cache import CACHE as _public_caches
+from ._compat import _cached_symbol
+_public_caches.append(_cached_symbol)
