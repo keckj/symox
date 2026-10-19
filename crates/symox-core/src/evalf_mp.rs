@@ -36,6 +36,12 @@ impl Drop for NumericScope {
     });}
 }
 
+/// Share precision-specific values across one outer inference operation.
+pub(crate) fn with_numeric_cache<R>(calculation: impl FnOnce() -> R) -> R {
+    let _scope=NumericScope::enter();
+    calculation()
+}
+
 impl MpComplex {
     fn sqrt(&self,p:u32)->Option<MpComplex>{
         if self.is_real(){
@@ -364,6 +370,22 @@ fn ev_uncached(e: &Expr, p: u32) -> Option<MpComplex> {
 /// Increase working precision when large terms nearly cancel. A fixed guard
 /// budget would incorrectly turn sqrt(10**100 + 1) - 10**50 into exact zero.
 fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precision: u32) -> Option<MpComplex> {
+    // Evaluation may collect identical finite operands even when construction
+    // was deliberately held. This proves a-a without chasing a numerical zero
+    // through ever increasing precisions on each shared-graph prefix.
+    if !matches!(constant,Number::Float(value) if !value.is_finite()) {
+        let cancelled=crate::assumptions::exact_queries(|| {
+            let mut coefficients=rustc_hash::FxHashMap::<usize,Number>::default();
+            for (term,coefficient) in terms {
+                if coefficient.is_float()
+                    || crate::assumptions::is_finite(term)!=Some(true) { return false; }
+                let sum=coefficients.entry(term.dag_id()).or_insert(Number::ZERO);
+                *sum=sum.add(coefficient);
+            }
+            coefficients.values().all(Number::is_zero)
+        });
+        if cancelled {return Some(MpComplex::real(number(constant,precision)));}
+    }
     let known_real=crate::assumptions::exact_queries(||crate::assumptions::is_real(expression))==Some(true);
     if known_real&&crate::assumptions::exact_queries(||crate::assumptions::is_zero(expression))==Some(true){
         return Some(MpComplex::real(BigFloat::zero()));
@@ -705,6 +727,34 @@ mod tests {
         let high=ev(&sine,200).unwrap();
         assert_ne!(low.re,high.re);
         assert_eq!(high.re,ev_uncached(&sine,200).unwrap().re);
+    }
+
+    #[test]
+    fn assumption_refinements_share_precision_specific_descendants() {
+        let mut value=Expr::one();
+        for _ in 0..80 {
+            value=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![
+                (value.clone(),Number::ONE),(value,Number::MINUS_ONE)]));
+        }
+        EVALUATIONS.with(|count|count.set(0));
+        assert_eq!(crate::assumptions::is_positive(&value),None);
+        let visits=EVALUATIONS.with(|count|count.get());
+        assert!(visits>0 && visits<=4*80,"{visits} evaluations");
+        NUMERIC_MEMO.with(|memo|{let memo=memo.borrow();assert_eq!(memo.depth,0);assert!(memo.values.is_none());});
+    }
+
+    #[test]
+    fn held_sum_does_not_collect_inexact_coefficients_at_machine_precision() {
+        let term=Expr::pi();
+        let expression=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![
+            (term.clone(),Number::float(1e16)),(term.clone(),Number::ONE),
+            (term,Number::float(-1e16))]));
+        let actual=eval_mp(&expression,200).unwrap();
+        assert!(actual.re.sub(&pi(220),220).abs().mag() < -190);
+        let infinity=Expr::from_unevaluated_kind(Kind::Func(Func::Log,vec![Expr::zero()]));
+        let undefined=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![
+            (infinity.clone(),Number::ONE),(infinity,Number::MINUS_ONE)]));
+        assert!(eval_mp(&undefined,200).is_none());
     }
     use super::*;
     use crate::bigfloat::dps_to_prec;

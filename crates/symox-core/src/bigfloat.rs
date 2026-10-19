@@ -518,6 +518,12 @@ impl BigFloat {
         if self.is_zero() {
             return (BigFloat::zero(), BigFloat::one());
         }
+        // |sin(x)/x-1| <= x^2/6 and |cos(x)-1| <= x^2/2. In this
+        // range these errors are far below the requested relative precision.
+        // Avoid an absolute fixed-point grid rounding a tiny argument to zero.
+        if self.mag() < -(prec as i64+20) {
+            return (self.round_to(prec),BigFloat::one());
+        }
         let mag = self.mag().max(0) as u32;
         let wp = prec + 30 + mag;
         // reduce modulo pi/2
@@ -528,7 +534,8 @@ impl BigFloat {
         // r in [-pi/4, pi/4]; halve s times, use cos double angle
         let s = ((wp as f64).sqrt() as i64 / 2).max(1);
         let rs = r.ldexp(-s);
-        let wp2 = wp + 2 * s as u32;
+        let relative_guard=if rs.is_zero(){0}else{(-rs.mag()).max(0) as u32};
+        let wp2 = wp + 2 * s as u32 + relative_guard;
         let (mut sn, mut cs) = taylor_sin_cos(&rs, wp2);
         for _ in 0..s {
             // sin 2a = 2 sin a cos a, cos 2a = 1 - 2 sin^2 a

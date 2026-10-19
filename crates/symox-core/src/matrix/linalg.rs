@@ -899,6 +899,9 @@ impl Matrix {
         if n == 0 {
             return Ok(self.clone());
         }
+        if let Some(normalized)=self.canonical_numeric_zeros() {
+            return normalized.inv();
+        }
         // A formal polynomial-domain conversion may treat transcendental
         // atoms as independent generators. Do not invert a scalar entry
         // that the exact expression zero test has already proved zero.
@@ -1061,11 +1064,34 @@ impl Matrix {
 
     /// Reduced row echelon form and the pivot columns.
     pub fn rref(&self) -> (Matrix, Vec<usize>) {
+        if let Some(normalized)=self.canonical_numeric_zeros() {
+            return normalized.rref();
+        }
         if let Some(r) = RatMat::from_matrix(self) {
             let (m, p) = r.rref();
             return (m.to_matrix(), p);
         }
-        self.rref_generic(true)
+        let (reduced,pivots)=self.rref_generic(true);
+        (reduced.canonical_numeric_zeros().unwrap_or(reduced),pivots)
+    }
+
+    /// Canonicalize closed finite entries whose exact zero proof succeeds
+    /// before choosing a formal coefficient domain. Explicit host predicates
+    /// use row_reduce_with and retain their separate callback semantics.
+    fn canonical_numeric_zeros(&self)->Option<Matrix> {
+        let mut data:Option<Vec<Expr>>=None;
+        let mut seen=rustc_hash::FxHashMap::default();
+        for (index,value) in self.data.iter().enumerate() {
+            if value.is_atom() || value.mask()!=0 {continue;}
+            let zero=*seen.entry(value.dag_id()).or_insert_with(||
+                crate::functions::is_numeric_value(value)
+                && crate::assumptions::exact_queries(||crate::assumptions::is_finite(value))==Some(true)
+                && is_zero_assume(value)==Some(true));
+            if zero {
+                data.get_or_insert_with(||self.data.clone())[index]=Expr::zero();
+            }
+        }
+        data.map(|values|Matrix::new_unchecked(self.rows,self.cols,values))
     }
 
     fn rref_generic(&self, simp: bool) -> (Matrix, Vec<usize>) {

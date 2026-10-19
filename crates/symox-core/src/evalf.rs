@@ -490,7 +490,7 @@ mod dag_cache_tests {
         });
     }
     #[test]
-    fn ambiguous_numeric_assumptions_share_all_descendant_refinements() {
+    fn ambiguous_numeric_assumptions_do_not_use_machine_refinement() {
         let mut value=Expr::one();
         for _ in 0..80 {
             value=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![
@@ -499,8 +499,8 @@ mod dag_cache_tests {
         }
         EVALUATIONS.with(|count|count.set(0));
         assert_eq!(crate::assumptions::is_positive(&value),None);
-        // Every prefix needs refinement, but all prefixes share one memo.
-        assert_eq!(EVALUATIONS.with(|count|count.get()),80);
+        // Assumptions now require increasing multiprecision evaluations.
+        assert_eq!(EVALUATIONS.with(|count|count.get()),0);
         NUMERIC_MEMO.with(|memo|{let memo=memo.borrow();assert_eq!(memo.depth,0);assert!(memo.values.is_none());});
     }
 

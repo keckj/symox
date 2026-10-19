@@ -128,6 +128,12 @@ pub fn construct_domain(items: &[Expr]) -> Domain {
         if fs.is_empty() && is_algebraic_number(g) {
             return Domain::EX;
         }
+        // Closed function values need not be algebraically independent:
+        // sin(3)^2 + cos(3)^2 = 1. A formal polynomial field can invert an
+        // identically singular matrix unless expression pivots see this relation.
+        if fs.is_empty() && matches!(g.kind(),Kind::Func(..)) {
+            return Domain::EX;
+        }
         for s in fs {
             if syms.contains(&s) {
                 return Domain::EX;

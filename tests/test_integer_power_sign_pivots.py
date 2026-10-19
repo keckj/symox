@@ -64,6 +64,7 @@ def test_scaled_exact_trig_zero_is_not_declared_nonzero_from_a_machine_residual(
         matrix=lib.Matrix([[value]])
         reduced,pivots=matrix.rref()
         assert pivots == ()
+        assert reduced == lib.zeros(1)
         assert all(sp.simplify(v.to_sympy() if lib is sx else v)==0 for v in reduced)
         assert matrix.rank() == 0
         for method in ['GE','ADJ']:

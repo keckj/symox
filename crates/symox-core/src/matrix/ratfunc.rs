@@ -866,7 +866,7 @@ fn numeric_zero_exact(e: &Expr) -> Option<bool> {
         return Some(answer);
     }
     if e.float_info().max_precision.is_some() { return None; }
-    let simplified = super::linalg::pivot_simp(e);
+    let simplified = crate::assumptions::exact_queries(||super::linalg::pivot_simp(e));
     if simplified.is_zero() { return Some(true); }
     crate::assumptions::is_zero_exact(&simplified)
 }

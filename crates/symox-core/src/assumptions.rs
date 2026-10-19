@@ -169,7 +169,7 @@ fn cached_bool(e:&Expr,query:Query,compute:fn(&Expr)->Option<bool>)->Option<bool
     let shift=query as u32*2+if mode{BANK_BITS}else{0};
     match e.cached_assumption(shift,2){1=>return None,2=>return Some(false),3=>return Some(true),_=>{}}
     calculation();
-    let answer=if mode{crate::evalf::with_numeric_cache(||compute(e))}else{compute(e)};
+    let answer=if mode{crate::evalf::with_numeric_cache(||crate::evalf_mp::with_numeric_cache(||compute(e)))}else{compute(e)};
     let encoded=match answer{None=>1,Some(false)=>2,Some(true)=>3};
     // No marker for an in-progress recursion is ever published.
     e.remember_assumption(shift,2,encoded);
@@ -310,7 +310,7 @@ pub fn real_signs(e:&Expr)->Option<Signs>{
     let mode=numeric_refinement_enabled();let shift=SIGNS_OFFSET+if mode{BANK_BITS}else{0};
     let cached=e.cached_assumption(shift,4);
     if cached==8{return None;}else if cached!=0{return Some(Signs(cached));}
-    calculation();let answer=if mode{crate::evalf::with_numeric_cache(||real_signs_uncached(e))}else{real_signs_uncached(e)};
+    calculation();let answer=if mode{crate::evalf::with_numeric_cache(||crate::evalf_mp::with_numeric_cache(||real_signs_uncached(e)))}else{real_signs_uncached(e)};
     e.remember_assumption(shift,4,answer.map_or(8,|signs|signs.0));answer
 }
 fn real_signs_uncached(e: &Expr) -> Option<Signs> {
@@ -376,16 +376,43 @@ fn real_signs_uncached(e: &Expr) -> Option<Signs> {
     }
 }
 
-/// Refine an unknown sign of a numeric expression by evaluating it.
+/// Numerical refinement is checked at two increasing multiprecisions. It
+/// never declares an exact zero from numerical cancellation. The exact-query
+/// policy remains separate and does not enter this path.
+fn numeric_samples(e: &Expr) -> Option<(crate::evalf_mp::MpComplex, crate::evalf_mp::MpComplex, crate::bigfloat::BigFloat)> {
+    exact_queries(|| {
+        let first = crate::evalf_mp::eval_mp(e,160)?;
+        let last = crate::evalf_mp::eval_mp(e,320)?;
+        let mut scale = first.abs(320);
+        let magnitude = last.abs(320);
+        if magnitude.cmp(&scale).is_gt() { scale=magnitude; }
+        if e.is_add() {
+            for term in e.args() {
+                let magnitude=crate::evalf_mp::eval_mp(&term,320)?.abs(320);
+                if magnitude.cmp(&scale).is_gt() { scale=magnitude; }
+            }
+        }
+        Some((first,last,scale))
+    })
+}
+
+fn stable_component(first:&crate::bigfloat::BigFloat,last:&crate::bigfloat::BigFloat,scale:&crate::bigfloat::BigFloat)->bool {
+    !last.is_zero() && first.sign()==last.sign()
+        && last.abs().cmp(&scale.ldexp(-96)).is_gt()
+        && first.sub(last,320).abs().cmp(&last.abs().ldexp(-64)).is_le()
+}
+
+/// Refine an unknown sign only when its real component is stable.
 fn numeric_refine(e: &Expr, s: Signs) -> Option<Signs> {
     if s != Signs::ANY || !numeric_refinement_enabled() || !crate::functions::is_numeric_value(e) {
         return Some(s);
     }
-    match crate::evalf::eval_f64(e) {
-        Some(v) if v > 1e-12 * (1.0 + v.abs()) => Some(Signs::POS),
-        Some(v) if v < -1e-12 * (1.0 + v.abs()) => Some(Signs::NEG),
-        _ => Some(s),
+    if let Some((first,last,scale))=numeric_samples(e) {
+        if first.im.is_zero() && last.im.is_zero() && stable_component(&first.re,&last.re,&scale) {
+            return Some(if last.re.sign()>0 {Signs::POS} else {Signs::NEG});
+        }
     }
+    Some(s)
 }
 
 fn pow_signs(b: &Expr, x: &Expr) -> Option<Signs> {
@@ -567,8 +594,8 @@ fn is_real_uncached(e: &Expr) -> Option<bool> {
         }
         _ => {
             if numeric_refinement_enabled() && crate::functions::is_numeric_value(e) {
-                if let Some(z) = crate::evalf::eval_c64(e) {
-                    if z.im.abs() > 1e-10 * (1.0 + z.re.abs()) {
+                if let Some((first,last,scale)) = numeric_samples(e) {
+                    if stable_component(&first.im,&last.im,&scale) {
                         return Some(false);
                     }
                 }
@@ -664,8 +691,8 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
         }
     }
     if numeric_refinement_enabled() && crate::functions::is_numeric_value(e) {
-        if let Some(z) = crate::evalf::eval_c64(e) {
-            if z.norm() > 1e-10 {
+        if let Some((first,last,scale)) = numeric_samples(e) {
+            if stable_component(&first.re,&last.re,&scale) || stable_component(&first.im,&last.im,&scale) {
                 return Some(false);
             }
         }
@@ -1115,5 +1142,22 @@ mod dag_cache_tests {
         assert!(crate::functions::is_numeric_value(&e));assert_eq!(e.cached_assumption(60,2),3);
         assert_eq!(crate::evalf::eval_f64(&e),Some(0.0));
         assert_eq!(exact_queries(||real_signs(&e)),Some(Signs::ANY));
+    }
+
+    #[test]
+    fn scaled_cancellation_does_not_acquire_false_numeric_facts(){
+        let value=crate::parser::parse_str("10**100*(sin(3)**2+cos(3)**2-1)").unwrap();
+        assert_eq!(is_zero(&value),None);
+        assert_eq!(is_positive(&value),None);
+        assert_eq!(is_negative(&value),None);
+        assert_eq!(exact_queries(||is_zero(&value)),None);
+    }
+
+    #[test]
+    fn tiny_numeric_sign_refinement_does_not_underflow(){
+        let value=crate::parser::parse_str("sin(1/10**400)").unwrap();
+        assert_eq!(is_positive(&value),Some(true));
+        assert_eq!(is_zero(&value),Some(false));
+        assert_eq!(is_negative(&value),Some(false));
     }
 }
