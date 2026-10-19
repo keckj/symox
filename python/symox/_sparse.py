@@ -554,3 +554,6 @@ class ImmutableSparseMatrix(_SparseBase):
 
 
 SparseMatrix = MutableSparseMatrix
+
+from ._basic import Basic
+Basic.register(ImmutableSparseMatrix)

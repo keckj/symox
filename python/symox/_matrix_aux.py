@@ -772,3 +772,21 @@ class _MatrixBaseMeta(type):
 
 class MatrixBase(metaclass=_MatrixBaseMeta):
     """Abstract base of explicit matrices, for ``isinstance`` checks."""
+
+    @classmethod
+    def _new(cls, *args, **kwargs):
+        raise NotImplementedError('Subclasses must implement this.')
+
+    @classmethod
+    def hstack(cls, *args):
+        from functools import reduce
+        if not args:
+            return cls._new()
+        return reduce(type(args[0]).row_join, args)
+
+    @classmethod
+    def vstack(cls, *args):
+        from functools import reduce
+        if not args:
+            return cls._new()
+        return reduce(type(args[0]).col_join, args)

@@ -1,5 +1,6 @@
 """Structural protocols for the native, noncommutative matrix DAG."""
 from collections import Counter, defaultdict
+from ._basic import Basic
 
 _native_has = None
 
@@ -34,10 +35,23 @@ class _TupleView(tuple):
         return Tuple(*(a.to_sympy() if hasattr(a, 'to_sympy') else a for a in self))
 
 
-class _ExprCondPairView(_TupleView):
+class ExprCondPair(_TupleView):
     """Presentation pair for the native flat Piecewise argument storage."""
-    def __new__(cls, expression, condition):
-        return tuple.__new__(cls,(expression,condition))
+    def __new__(cls, expr, cond):
+        from . import sympify, true, false, Piecewise, piecewise_fold, ITE
+        from .logic.boolalg import Boolean
+        expr = sympify(expr, strict=True)
+        if cond == True:
+            cond = true
+        elif cond == False:
+            cond = false
+        elif getattr(cond, 'has', lambda *_: False)(Piecewise):
+            cond = piecewise_fold(cond)
+            if isinstance(cond, Piecewise):
+                cond = cond.rewrite(ITE)
+        if not isinstance(cond, Boolean):
+            raise TypeError('Second argument must be a Boolean, not `%s`' % type(cond).__name__)
+        return tuple.__new__(cls,(expr,cond))
 
     @property
     def func(self):return type(self)
@@ -48,9 +62,35 @@ class _ExprCondPairView(_TupleView):
     @property
     def cond(self):return self[1]
 
+    @property
+    def is_commutative(self):return self.expr.is_commutative
+
+    free_symbols = Basic.free_symbols
+    subs = Basic.subs
+    xreplace = Basic.xreplace
+    has = Basic.has
+    atoms = Basic.atoms
+    doit = Basic.doit
+
+    def __eq__(self, other):
+        return isinstance(other, ExprCondPair) and tuple.__eq__(self, other)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(('ExprCondPair', self.expr, self.cond))
+
+    def __getnewargs__(self):return self.expr, self.cond
+
     def to_sympy(self):
         from sympy.functions.elementary.piecewise import ExprCondPair
         return ExprCondPair(*(value.to_sympy() if hasattr(value,'to_sympy') else value for value in self))
+
+
+_ExprCondPairView = ExprCondPair
+Basic.register(ExprCondPair)
+ExprCondPair.__module__ = 'symox.functions.elementary.piecewise'
 
 
 def _children(value):

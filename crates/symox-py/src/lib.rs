@@ -1450,6 +1450,20 @@ impl PyExprNode {
         self.e.is_atom()
     }
     #[getter]
+    fn is_Matrix(&self) -> bool {
+        false
+    }
+    #[getter]
+    fn is_Boolean(&self) -> bool {
+        matches!(self.e.kind(), Kind::Bool(_) | Kind::Func(Func::Logic(_), _))
+    }
+    #[getter]
+    fn _is_boolean_category(&self) -> bool {
+        matches!(self.e.kind(), Kind::Sym(_) | Kind::Rel(..) | Kind::Bool(_)
+            | Kind::Func(Func::Logic(_) | Func::Predicate(_) | Func::AppliedPredicate
+                | Func::Set(symox::sets::SetOp::Contains), _))
+    }
+    #[getter]
     fn is_Symbol(&self) -> bool {
         self.e.is_symbol()
     }
@@ -1763,6 +1777,17 @@ impl PyExprNode {
             for (name,value) in s.facts().iter(){d.set_item(name,value)?;}
         }
         Ok(d)
+    }
+    /// Explicit Symbol assumptions, without the inferred closure.
+    #[getter]
+    fn _assumptions_orig<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let symbol = self.e.as_sym().ok_or_else(||
+            pyo3::exceptions::PyAttributeError::new_err("only symbols have original assumptions"))?;
+        let result = PyDict::new(py);
+        for (name, value) in symbol.given_facts().iter() {
+            result.set_item(name, value)?;
+        }
+        Ok(result)
     }
     /// Left/right hand sides of a relational.
     #[getter]
@@ -2824,6 +2849,10 @@ fn py_bernoulli(n: usize) -> PyExpr {
 #[pyfunction]
 #[pyo3(name = "integrate", signature = (f, *args, **_kwargs))]
 fn py_integrate(py:Python<'_>,f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    if f.extract::<PyRef<'_, matrices::PyMatrix>>().is_ok()
+        || f.getattr("_symox_sparse").is_ok_and(|value| value.is_truthy().unwrap_or(false)) {
+        return Ok(f.call_method("integrate", args, _kwargs)?.call_method0("as_immutable")?.unbind());
+    }
     integrate_result(py,&to_expr(f)?,args,_kwargs)
 }
 

@@ -49,7 +49,7 @@ from ._core import (
 
 from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, FlagError, UnificationFailed
 
-Basic = Expr
+from ._basic import Basic
 S = sympify
 
 
@@ -2201,6 +2201,8 @@ _install_general_simplify(globals())
 
 from ._solve_relations import install as _install_solve_relations
 _install_solve_relations(globals())
+
+from .printing.repr import srepr
 
 __all__ = [n for n in dir() if not n.startswith("_")]
 

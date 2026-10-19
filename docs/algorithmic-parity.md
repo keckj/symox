@@ -159,6 +159,37 @@ length use constant-time native access; iteration materializes arguments once,
 then visits them in linear time. Scalar iteration raises immediately. Other
 container protocols and general symbolic subclass preservation remain open.
 
+The OctSymPy bridge now has native Boolean category queries, original Symbol
+assumptions, explicit matrix representations, MatrixBase stacking, entrywise
+global integration and simultaneous scalar substitution in matrix dimensions
+and coefficients. Global matrix integration returns immutable output, while
+the matrix method retains the receiver's mutability. Public condition pairs
+validate their expression/condition arguments and expose the reference
+`(expr, cond)` signature, typed equality, reconstruction and pickle behavior.
+`Basic` is now a structural container and category, rather than an alias for
+scalar `Expr`. Virtual registrations include native scalar nodes, symbolic
+matrices and immutable explicit matrices. These category checks do not change
+the concrete native Python MRO or certify every Basic method. Algebra involving
+direct formal Boolean/Basic applications remains unsupported by the scalar
+kernel; mixed simultaneous matrix/scalar substitution remains explicit
+`NotImplementedError`. General nominal inheritance, printer settings and
+matrix substitution patterns remain open.
+
+The explicit `NonElementaryIntegral` constructor builds a held native integral
+and retains its marker for reconstruction, pickle and the covered root
+structural operations. Constructing this marker does not prove that its
+integrand is non-elementary. The integration engine does not automatically use
+it to label unsupported computations: the complete Risch decision procedure
+remains unimplemented. Preserving that marker inside every composite native
+expression remains a separate obligation.
+
+Boolean system constraints are converted to their equation meaning before
+linear solving: true is an identity, and false proves inconsistency. The public
+`solve` interface reports an empty assignment list for an identity or when no
+requested variable is assigned, including dict/set output conventions. This
+interface result is distinct from a mathematical proof that the solution set
+is empty. Undecided parameter constraints retain their established core paths.
+
 Implicit external conversion never invokes a native object's reference exporter.
 Conversion chains are traversed iteratively, with retained owners and identity
 checks for cycles; reentrant hooks are guarded separately. Matrix `nsimplify`

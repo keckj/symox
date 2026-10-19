@@ -119,7 +119,6 @@ fn pretty(
     use_unicode_sqrt_char: bool,
     _settings: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<String> {
-    let e = to_expr(expr)?;
     let s = PrettySettings {
         use_unicode: use_unicode.unwrap_or(true),
         wrap_line,
@@ -127,6 +126,10 @@ fn pretty(
         root_notation,
         use_unicode_sqrt_char,
     };
+    if let Ok(matrix) = expr.extract::<PyRef<'_, crate::matrices::PyMatrix>>() {
+        return Ok(pr::pretty::pretty_matrix_with(&matrix.m, &s));
+    }
+    let e = to_expr(expr)?;
     Ok(pr::pretty_with(&e, &s))
 }
 

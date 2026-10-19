@@ -3,8 +3,23 @@ from .printer import Printer
 
 class ReprPrinter(Printer):
     printmethod='_sympyrepr'
+
+    def _print_Matrix(self, expr):
+        if expr.shape == (0, 0):
+            arguments = '[]'
+        elif not expr.rows or not expr.cols:
+            arguments = '%s, %s, []' % expr.shape
+        else:
+            arguments = '[' + ', '.join('[' + ', '.join(
+                self._print(expr[i, j]) for j in range(expr.cols)) + ']'
+                for i in range(expr.rows)) + ']'
+        name = 'ImmutableDenseMatrix' if expr._immutable else 'MutableDenseMatrix'
+        return name + '(' + arguments + ')'
+
     def emptyPrinter(self,expr):
         from symox import _core
+        if expr is None or isinstance(expr, (bool, int, float, complex)):
+            return repr(expr)
         if isinstance(expr,(list,tuple,set,frozenset)):
             items=', '.join(self._print(item) for item in expr)
             if isinstance(expr,list):return '['+items+']'

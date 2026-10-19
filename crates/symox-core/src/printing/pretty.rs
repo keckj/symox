@@ -51,6 +51,40 @@ pub fn pretty_with(e: &Expr, s: &PrettySettings) -> String {
     pict.render(s)
 }
 
+/// Render explicit matrix cells using the scalar printer's baseline-aware boxes.
+pub fn pretty_matrix_with(matrix: &crate::matrix::Matrix, s: &PrettySettings) -> String {
+    let _session = super::order::session();
+    let _ascii = AsciiGuard::set(!s.use_unicode);
+    let printer = PrettyPrinter { s };
+    if matrix.rows() == 0 || matrix.cols() == 0 {
+        return "[]".to_owned();
+    }
+    let cells: Vec<Vec<Pict>> = (0..matrix.rows()).map(|i|
+        (0..matrix.cols()).map(|j| printer.print(matrix.get(i, j))).collect()
+    ).collect();
+    let widths: Vec<usize> = (0..matrix.cols()).map(|j|
+        cells.iter().map(|row| row[j].width()).max().unwrap_or(0)
+    ).collect();
+    let mut lines = Vec::new();
+    for row in cells {
+        let mut parts = Vec::new();
+        for (j, mut cell) in row.into_iter().enumerate() {
+            if j != 0 { parts.push(Pict::new("  ")); }
+            cell.lines = cell.lines.iter().map(|line| center(line, widths[j])).collect();
+            parts.push(cell);
+        }
+        if !lines.is_empty() { lines.push(String::new()); }
+        lines.extend(Pict::next(&parts).lines);
+    }
+    let width = lines.iter().map(|line| line_width(line)).max().unwrap_or(0);
+    let baseline = (lines.len() / 2) as isize;
+    let body = Pict {
+        lines: lines.iter().map(|line| center(line, width)).collect(),
+        baseline, binding: Binding::Atom, func: None,
+    };
+    body.parens("[", "]").render(s)
+}
+
 /// `pprint(expr)`: print the pretty form to stdout.
 pub fn pprint(e: &Expr) {
     println!("{}", pretty(e));

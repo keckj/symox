@@ -4,8 +4,9 @@ _export(globals(), 'symox', 'Atom Basic')
 
 
 def as_Basic(expr):
-    from symox import sympify,Basic
-    result=sympify(expr)
-    if not isinstance(result,Basic):raise TypeError('expected a symbolic Basic object')
-    return result
+    from symox import sympify, SympifyError
+    try:
+        return sympify(expr, strict=True)
+    except SympifyError:
+        raise TypeError('Argument must be a Basic object, not `%s`' % type(expr).__name__) from None
 __all__.append('as_Basic')

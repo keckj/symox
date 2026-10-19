@@ -22,6 +22,7 @@ pub(crate) mod lambert;
 pub fn as_expr(eq: &Expr) -> Expr {
     match eq.kind() {
         Kind::Rel(RelOp::Eq, a, b) => sub(a, b),
+        Kind::Bool(value) => if *value { Expr::zero() } else { Expr::one() },
         _ => eq.clone(),
     }
 }
@@ -1080,5 +1081,18 @@ mod tests {
         assert_eq!(rows.len(),2);
         assert!(rows.contains(&vec![Expr::one(),Expr::int(3)]));
         assert!(rows.contains(&vec![Expr::int(2),Expr::int(2)]));
+    }
+
+    #[test]
+    fn boolean_system_constraints_are_equations_not_discarded_atoms() {
+        let x = Expr::symbol("x");
+        let equation = sub(&x, &Expr::int(2));
+        assert!(matches!(solve_system(&[equation.clone(), Expr::boolean(false)], &[x.clone()]),
+            Some(SystemSolution::NoSolution)));
+        let Some(SystemSolution::Map(assignments)) = solve_system(
+            &[equation, Expr::boolean(true)], &[x.clone()]) else { panic!("x = 2 expected"); };
+        assert_eq!(assignments, vec![(x, Expr::int(2))]);
+        assert!(as_expr(&Expr::boolean(true)).is_zero());
+        assert!(as_expr(&Expr::boolean(false)).is_one());
     }
 }

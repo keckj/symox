@@ -120,6 +120,16 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
         if as_set { return set_result(py, &vars, vec![]); }
         return Ok(PyList::empty(py).into_any().unbind());
     }
+    if eqs.iter().any(|equation| matches!(equation.kind(), symox::Kind::Bool(false))) {
+        if as_set { return set_result(py, &[], vec![]); }
+        return Ok(PyList::empty(py).into_any().unbind());
+    }
+    // The public solve interface reports an empty list of assignments for an
+    // identity. This is not the mathematical claim that the zero set is empty.
+    if eqs.iter().all(|equation| sv::as_expr(equation).is_zero()) {
+        if as_set { return set_result(py, &vars, vec![]); }
+        return Ok(PyList::empty(py).into_any().unbind());
+    }
     if !is_system && eqs.len() == 1 && vars.len() == 1 {
         let x = &vars[0];
         let sols = symox::poly::roots::with_radical_options(root_options,||
@@ -154,6 +164,10 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
         SystemSolution::NoSolution if as_set => set_result(py, &vars, vec![]),
         SystemSolution::NoSolution => Ok(PyList::empty(py).into_any().unbind()),
         SystemSolution::Map(m) => {
+            if m.is_empty() {
+                if as_set { return set_result(py, &vars, vec![]); }
+                return Ok(PyList::empty(py).into_any().unbind());
+            }
             if as_set {
                 if inferred_symbols||unordered_symbols{
                     return set_result(py,&m.iter().map(|(key,_)|key.clone()).collect::<Vec<_>>(),

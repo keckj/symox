@@ -11,3 +11,48 @@ def gateinputcount(expr):
     if expr.class_name not in gates:return 0
     return len(expr.args)+sum(gateinputcount(a) for a in expr.args)
 __all__ += ['gateinputcount']
+
+
+from symox._basic import Basic, _BasicMeta
+
+
+class _BooleanType(_BasicMeta):
+    def __instancecheck__(cls, value):
+        if type.__instancecheck__(cls, value):
+            return True
+        from symox import _core
+        if cls not in (Boolean, BooleanFunction) or not isinstance(value, _core.Expr):
+            return False
+        if cls is BooleanFunction:
+            return value.is_Boolean and value.is_Function
+        return value._is_boolean_category
+
+
+class Boolean(Basic, metaclass=_BooleanType):
+    """Boolean category and formal Basic container.
+
+    Native gate, relation and Boolean-atom operations remain in the native
+    kernel. Algebra involving a directly constructed formal base container
+    is not yet implemented by that kernel.
+    """
+    __slots__ = ()
+    is_Boolean = False
+    is_Function = False
+    is_Atom = False
+    is_Symbol = False
+    is_Number = False
+    is_Relational = False
+
+
+
+class BooleanFunction(Boolean):
+    """Category for native gates and formal Boolean function applications."""
+    is_Boolean = True
+    is_Function = True
+
+    def __new__(cls, *args):
+        from symox import sympify
+        return Boolean.__new__(cls, *(sympify(arg) for arg in args))
+
+
+__all__ += ['Boolean', 'BooleanFunction']

@@ -65,7 +65,7 @@ def test_symbolic_python_program_and_representations():
     assert namespace['e']==expression
     assert p.srepr(x+1)==sx.srepr(x+1)
     assert p.sstrrepr('hello')=="'hello'"
-    assert p.srepr([x,1])=="[Symbol('x'), Integer(1)]"
+    assert p.srepr([x,1])==sp.srepr([sp.Symbol('x'),1])
 
 
 @pytest.mark.parametrize('headings',[None,'automatic',[['a','b'],['c','d']]])
