@@ -45,6 +45,11 @@ fn float_type(dtype: &str) -> PyResult<FloatType> {
 // latex / pretty
 // ----------------------------------------------------------------------
 
+#[pyfunction(name = "_latex_translate")]
+fn py_latex_translate(text: &str) -> String {
+    pr::latex::translate(text)
+}
+
 #[pyfunction]
 #[pyo3(signature = (expr, **settings))]
 fn latex(expr: &Bound<'_, PyAny>, settings: Option<&Bound<'_, PyDict>>) -> PyResult<String> {
@@ -603,6 +608,7 @@ pub(crate) fn repr_latex(e: &crate::PyExprNode) -> String {
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(latex, m)?)?;
+    m.add_function(wrap_pyfunction!(py_latex_translate, m)?)?;
     m.add_function(wrap_pyfunction!(pretty, m)?)?;
     m.add_function(wrap_pyfunction!(py_cse, m)?)?;
     m.add_function(wrap_pyfunction!(ccode, m)?)?;
