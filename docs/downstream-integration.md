@@ -18,31 +18,31 @@ Local regression checks, their exact scope and the production fix commit are rec
 | Project | Version | SymPy 1.14 reference | Native Symox | Outcome |
 |---|---|---|---|---|
 | [Cadabra](../audits/downstream/results/cadabra.json) | 2.6.0.dev | 1 pass | 0 pass, 1 error | Native incompatibility |
-| [ChemPy](../audits/downstream/results/chempy.json) | 0.10.2 | 573 pass, 28 skip, 5 xpass | 555 pass, 18 fail, 28 skip, 5 xpass | Native incompatibility |
+| [ChemPy](../audits/downstream/results/chempy.json) | 0.10.2 | 573 pass, 28 skip, 5 xpass | 556 pass, 17 fail, 28 skip, 5 xpass | Native incompatibility |
 | [Devito](../audits/downstream/results/devito.json) | 4.8.23 | 3719 pass, 4 fail, 5 skip, 4 xfail, 1 xpass | not run/completed | Reference fails; native not run |
 | [Devito (symbolic algorithms)](../audits/downstream/results/devito_symbolic.json) | 4.8.23 | 136 pass | startup failure (exit 4) | Native incompatibility |
 | [EinsteinPy](../audits/downstream/results/einsteinpy.json) | 0.4.0 | 287 pass, 9 xfail | 0 pass, 14 collection error | Native incompatibility |
 | [galgebra](../audits/downstream/results/galgebra.json) | 0.6.0 | 115 pass, 2 fail, 2 skip | not run/completed | Reference fails; native not run |
-| [Haarpy](../audits/downstream/results/haarpy.json) | 0.1.1 | 1107 pass | 729 pass, 378 fail | Native incompatibility |
+| [Haarpy](../audits/downstream/results/haarpy.json) | 0.1.1 | 1107 pass | 1107 pass | Selected tests pass |
 | [LaTeX Expression](../audits/downstream/results/latexexpr.json) | 0.4.1 | 2 pass | 2 pass | No symbolic integration exercised |
-| [Lcapy](../audits/downstream/results/lcapy.json) | 1.26 | 317 pass | 0 pass, 37 collection error | Native incompatibility |
+| [Lcapy](../audits/downstream/results/lcapy.json) | 1.26 | 317 pass | 178 pass, 90 fail | Native incompatibility |
 | [NRPyLaTeX](../audits/downstream/results/nrpylatex.json) | 1.4.0 | 32 pass | 4 pass, 28 fail | Native incompatibility |
 | [OctSymPy](../audits/downstream/results/octsympy.json) | 3.2.2+ | 131 pass | 0 pass, 1 error | Native incompatibility |
-| [Optlang](../audits/downstream/results/optlang.json) | 1.9.1 | 346 pass, 49 skip | 0 pass, 17 collection error | Native incompatibility |
+| [Optlang](../audits/downstream/results/optlang.json) | 1.9.1 | 346 pass, 49 skip | 49 pass, 312 fail, 34 skip | Native incompatibility |
 | [PyDy](../audits/downstream/results/pydy.json) | 0.9.4 | 76 pass | 17 pass, 13 fail, 46 error | Native incompatibility |
 | [pyneqsys](../audits/downstream/results/pyneqsys.json) | 0.5.7 | 19 pass, 9 skip | 19 pass, 9 skip | Selected tests pass |
 | [pyodesys](../audits/downstream/results/pyodesys.json) | 0.14.7 | 45 pass, 238 skip | 45 pass, 238 skip | Selected tests pass |
 | [QMCPACK](../audits/downstream/results/qmcpack.json) | 4.4.9.dev | 1 pass | 0 pass, 1 error | Native incompatibility |
 | [Quantum Programming in Python](../audits/downstream/results/quantum_programming.json) | — | not run/completed | not run/completed | Publication, not a package |
-| [SageMath](../audits/downstream/results/sagemath.json) | 10.9 | 319 pass | 127 pass, 192 fail | Native incompatibility |
+| [SageMath](../audits/downstream/results/sagemath.json) | 10.9 | 319 pass | 137 pass, 182 fail | Native incompatibility |
 | [Scikit-fdiff](../audits/downstream/results/scikit_fdiff.json) | 0.7.0 | not run/completed | not run/completed | Requires an older SymPy |
-| [SfePy](../audits/downstream/results/sfepy.json) | 2026.3 | 221 pass | 220 pass, 1 fail | Native incompatibility |
+| [SfePy](../audits/downstream/results/sfepy.json) | 2026.3 | 221 pass | 221 pass | Selected tests pass |
 | [Spyder](../audits/downstream/results/spyder.json) | 6.1.7 | 1 pass | 1 pass | Selected tests pass |
 | [Symbolic statistical modeling](../audits/downstream/results/symbolic_statistics.json) | — | not run/completed | not run/completed | Publication, not a package |
 | [symjit](../audits/downstream/results/symjit.json) | 2.27.0 | 52 pass, 1 fail, 6 skip, 9 xfail | not run/completed | Reference fails; native not run |
 | [PyTorch TorchInductor](../audits/downstream/results/torchinductor.json) | 2.14.1+cu130 | 236 pass | 0 pass, 1 collection error | Native incompatibility |
-| [yt / unyt](../audits/downstream/results/yt.json) | 3.1.0 | 819 pass, 34 skip, 2 xfail | 0 pass, 12 collection error | Native incompatibility |
-| [yt (main package)](../audits/downstream/results/yt_main.json) | 4.4.3 | 1 pass | 0 pass, 1 collection error | Native incompatibility |
+| [yt / unyt](../audits/downstream/results/yt.json) | 3.1.0 | 819 pass, 34 skip, 2 xfail | 819 pass, 34 skip, 2 xfail | Selected tests pass |
+| [yt (main package)](../audits/downstream/results/yt_main.json) | 4.4.3 | 1 pass | 1 pass | Selected tests pass |
 
 ## Scope and first blockers
 
@@ -54,7 +54,7 @@ One unmodified upstream tests/sympy_cdb.cdb scalar bridge script, including all 
 Traceback (most recent call last):
   File "<string>", line 15, in <module>
   File "<string>", line 9, in test01
-TypeError: cannot convert object of type ExNode to a symox expression
+RuntimeError: SympyBridge::convert: do not know (yet) how to handle <class 'symox._core.Expr'>
 Script ended execution due to an uncaught exception.
 3x + (x)**2 + a (x)**2 + b x
 
@@ -199,22 +199,7 @@ galgebra/lt.py:369: TypeError
 
 Upstream test tree selected in the pinned manifest.
 
-```text
-half_degree = 1
-
-    @pytest.mark.parametrize("half_degree", range(1, 3))
-    def test_weingarten_circular_orthogonal_hyperoctahedral_symbolic(half_degree):
-        """Symbolic validation of COE Weingarten function against results shown in
-        `Matsumoto. Weingarten calculus for matrix ensembles associated with compact symmetric spaces:
-        <https://arxiv.org/abs/1301.5401>`_
-        """
-        if half_degree == 1:
->           for permutation in SymmetricGroup(2 * half_degree).generate():
-                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E           AttributeError: 'PermutationGroup' object has no attribute 'generate'. Did you mean: '_enumerate'?
-
-haarpy/tests/test_circular_ensembles.py:55: AttributeError
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### LaTeX Expression
 
@@ -225,38 +210,45 @@ Upstream test tree selected in the pinned manifest.
 Upstream test tree selected in the pinned manifest.
 
 ```text
-eatured/git/lcapy/lcapy/tests/test_approximate.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec
-    native = importlib.import_module(native_name)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<frozen importlib._bootstrap>:1387: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1360: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked
-    ???
-E   ModuleNotFoundError: No module named 'symox.core.logic'
+mp = new._decompose_timedomain_expr(value)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+lcapy/superposition.py:453: in _decompose_timedomain_expr
+    sval = expr1.laplace()
+           ^^^^^^^^^^^^^^^
+lcapy/texpr.py:129: in laplace
+    return self.LT(evaluate=evaluate, zero_initial_conditions=zero_initial_conditions,
+lcapy/texpr.py:115: in LT
+    result = laplace_transform(
+lcapy/laplace.py:373: in laplace_transform
+    return laplace_transformer.transform(expr, t, s,
+lcapy/transformer.py:82: in transform
+    return self.doit(expr, var, conjvar, evaluate, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+lcapy/transformer.py:196: in doit
+    ret = self.term(sterm, var, conjvar, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+lcapy/laplace.py:363: in term
+    return self.integrate_0(expr, t, s) * const
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+lcapy/laplace.py:85: in integrate_0
+    return self.integrate(expr, t, s, 0, sym.oo)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+lcapy/laplace.py:65: in integrate
+    self.error('Integration failed')
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-The above exception was the direct cause of the following exception:
-/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-lcapy/tests/test_approximate.py:1: in <module>
-    from lcapy import *
-lcapy/__init__.py:18: in <module>
-    from .functions import *
-lcapy/functions.py:23: in <module>
-    from .extrafunctions import Degrees as Degrees1
-lcapy/extrafunctions.py:11: in <module>
-    from sympy.core.logic import fuzzy_not
-/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec
-    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',
-E   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic
+self = <lcapy.laplace.LaplaceTransformer object at 0x7f007874e3c0>
+message = 'Integration failed'
+
+    def error(self, message=''):
+        if message == '':
+            raise ValueError('Could not compute %s for %s' %
+                             (self.name, self.expr))
+>       raise ValueError('Could not compute %s for %s: %s' %
+                         (self.name, self.expr, message))
+E       ValueError: Could not compute Laplace transform for DiracDelta(t): Integration failed
+
+lcapy/transformer.py:34: ValueError
 ```
 
 ### NRPyLaTeX
@@ -330,48 +322,46 @@ error: called from
 Upstream test tree selected in the pinned manifest.
 
 ```text
-/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<frozen importlib._bootstrap>:1387: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1360: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
-    ???
-<frozen importlib._bootstrap>:488: in _call_with_frames_removed
-    ???
-<frozen importlib._bootstrap>:1387: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1360: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
-    ???
-<frozen importlib._bootstrap>:488: in _call_with_frames_removed
-    ???
-<frozen importlib._bootstrap>:1387: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1360: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
-    ???
-<frozen importlib._bootstrap>:935: in _load_unlocked
-    ???
-<frozen importlib._bootstrap_external>:999: in exec_module
-    ???
-<frozen importlib._bootstrap>:488: in _call_with_frames_removed
-    ???
-src/optlang/__init__.py:19: in <module>
-    from optlang.util import list_available_solvers
-src/optlang/util.py:27: in <module>
-    from optlang import symbolics
-src/optlang/symbolics.py:112: in <module>
-    Expr = sympy.core.expr.Expr
-           ^^^^^^^^^^
-/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:76: in <lambda>
-    facade.__getattr__ = lambda name: getattr(self.native, name)
-                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   AttributeError: module 'symox' has no attribute 'core'
+self = <optlang.tests.test_container.ContainerTestCase testMethod=test_change_object_name>
+
+    def test_change_object_name(self):
+        var = Variable('blub')
+>       self.model.add(var)
+
+src/optlang/tests/test_container.py:190:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <optlang.interface.Model object at 0x7f3f135cfe30>, stuff = _blub
+sloppy = False
+
+    def add(self, stuff, sloppy=False):
+        """Add variables and constraints.
+
+        Parameters
+        ----------
+        stuff : iterable, Variable, Constraint
+            Either an iterable containing variables and constraints or a single variable or constraint.
+
+        sloppy : bool
+            Check constraints for variables that are not part of the model yet.
+
+        Returns
+        -------
+        None
+        """
+        if self._pending_modifications.toggle == 'remove':
+            self.update()
+            self._pending_modifications.toggle = 'add'
+        if isinstance(stuff, Iterable):
+            for elem in stuff:
+                self.add(elem, sloppy=sloppy)
+        elif isinstance(stuff, Variable):
+            if stuff.__module__ != self.__module__:
+>               raise TypeError("Cannot add Variable %s of interface type %s to model of type %s." % (
+                    stuff, stuff.__module__, self.__module__))
+E               TypeError: Cannot add Variable _blub of interface type symox._core to model of type optlang.interface.
+
+src/optlang/interface.py:1399: TypeError
 ```
 
 ### PyDy
@@ -379,7 +369,7 @@ E   AttributeError: module 'symox' has no attribute 'core'
 Upstream test tree selected in the pinned manifest.
 
 ```text
-self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fed10e59280>
+self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fbea7764fb0>
 
     def setup_method(self):
 
@@ -401,7 +391,7 @@ pydy/system.py:653: in _Kane_constant_symbols
                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <pydy.system.System object at 0x7fed10e590a0>
+self = <pydy.system.System object at 0x7fbeb834b020>
 
     def _Kane_inlist_insyms(self):
         """TODO temporary."""
@@ -431,16 +421,22 @@ Execute the real src/QMCWaveFunctions/tests/gen_matrix_ops.py reference generato
 
 ```text
 1x1 matrix
+Matrix([[1.00000000000000]])
+
+2x2 matrix
 Traceback (most recent call last):
-  File "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 240, in <module>
-    test_1x1()
-  File "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 143, in test_1x1
-    m1exp = exp(-m1)
-            ^^^^^^^^
-  File "/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 124, in f
-    return _core._apply(name, *args) if evaluate else _core._apply(name, *args, evaluate=False)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: cannot convert object of type Matrix to a symox expression
+  File "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 241, in <module>
+    test_2x2()
+  File "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 152, in test_2x2
+    m2exp = exp(m2)
+            ^^^^^^^
+  File "/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 98, in __call__
+    return self._factory(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 151, in f
+    return args[0].exp().as_immutable()
+           ^^^^^^^^^^^^^
+NotImplementedError: Cannot construct an exact analytic matrix function: numerical eigenvalues of float matrices are not implemented
 
 ```
 
@@ -457,16 +453,16 @@ All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath tes
    3 of   4 in sage.interfaces.sympy._sympysage_ninfty
    2 of   5 in sage.interfaces.sympy._sympysage_order
    3 of   4 in sage.interfaces.sympy._sympysage_pi
-   4 of   9 in sage.interfaces.sympy._sympysage_piecewise
+   3 of   9 in sage.interfaces.sympy._sympysage_piecewise
    3 of   4 in sage.interfaces.sympy._sympysage_pinfty
    5 of   9 in sage.interfaces.sympy._sympysage_polygamma
-  10 of  14 in sage.interfaces.sympy._sympysage_polynomial
+   7 of  14 in sage.interfaces.sympy._sympysage_polynomial
    4 of   8 in sage.interfaces.sympy._sympysage_polynomial_ring
    2 of   5 in sage.interfaces.sympy._sympysage_pow
    2 of   4 in sage.interfaces.sympy._sympysage_rational
    1 of   3 in sage.interfaces.sympy._sympysage_rational_field
    2 of   4 in sage.interfaces.sympy._sympysage_re
-   5 of   9 in sage.interfaces.sympy._sympysage_real_interval
+   4 of   9 in sage.interfaces.sympy._sympysage_real_interval
   12 of  15 in sage.interfaces.sympy._sympysage_relational
    2 of   6 in sage.interfaces.sympy._sympysage_rf
    2 of   4 in sage.interfaces.sympy._sympysage_symbol
@@ -476,13 +472,13 @@ All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath tes
    1 of   3 in sage.interfaces.sympy.check_all
    1 of   3 in sage.interfaces.sympy.check_expression
    2 of   5 in sage.interfaces.sympy.sympy_init
-    [319 tests, 192 failures, 2.98s wall]
+    [319 tests, 182 failures, 1.62s wall]
 ----------------------------------------------------------------------
-python3 -m sage.doctest --warn-long 5.0 --random-seed=0 envs/sage-octave/lib/python3.12/site-packages/sage/interfaces/sympy.py  # 192 doctests failed
+python3 -m sage.doctest --warn-long 5.0 --random-seed=0 envs/sage-octave/lib/python3.12/site-packages/sage/interfaces/sympy.py  # 182 doctests failed
 ----------------------------------------------------------------------
-Total time for all tests: 3.1 seconds
-    cpu time: 1.7 seconds
-    cumulative wall time: 3.0 seconds
+Total time for all tests: 1.7 seconds
+    cpu time: 1.6 seconds
+    cumulative wall time: 1.6 seconds
 Features detected for doctesting:
 
 ```
@@ -497,44 +493,7 @@ Excluded before native testing: sympy (<1.6).
 
 Full unmodified test tree shipped in the compiled wheel, matched against the pinned source archive; slow gradient tests have a 600-second per-test budget in both backends
 
-```text
-y:684: in __init__
-    sol = sm.solve(eqs)
-          ^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-f = array([[1.0*u0 - 1.0*u1]], dtype=object), symbols = (), flags = {}
-Tuple = <class 'symox._compat.Tuple'>
-reduce_inequalities = <function reduce_inequalities at 0x7fac01ace8e0>
-sympify = <function make_sympify.<locals>.sympify at 0x7fac0094fec0>
-sequences = (<class 'list'>, <class 'tuple'>, <class 'set'>, <class 'frozenset'>, <class 'symox._compat.Tuple'>)
-equations = (array([[1.0*u0 - 1.0*u1]], dtype=object),)
-prepared = [array([[1.0*u0 - 1.0*u1]], dtype=object)], relational = False
-equation = array([[1.0*u0 - 1.0*u1]], dtype=object)
-value = array([[1.0*u0 - 1.0*u1]], dtype=object)
-
-    @wraps(native)
-    def solve(f, *symbols, **flags):
-        from . import Tuple, reduce_inequalities, sympify
-        sequences=(list,tuple,set,frozenset,Tuple)
-        if hasattr(f,'__next__'):
-            f=list(f)
-        equations=f if isinstance(f,sequences) else (f,)
-        prepared=[];relational=False
-        for equation in equations:
-            value=sympify(equation) if isinstance(equation,str) else equation
-            prepared.append(value)
-            if getattr(value,'is_Relational',False) and value.rel_op!='==':
-                relational=True
-        if relational:
-            targets=symbols[0] if len(symbols)==1 else symbols
-            return reduce_inequalities(prepared,targets)
->       return native(f,*symbols,**flags)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       TypeError: cannot convert object of type ndarray to a symox expression
-
-envs/sfepy/lib/python3.12/site-packages/symox/_solve_relations.py:25: TypeError
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### Spyder
 
@@ -571,99 +530,40 @@ E   AssertionError: [16, 17] is not false : asinh {} vectorized: f(1.79769313486
 Unmodified test/test_sympy_utils.py at the installed Torch commit; symbolic helpers used by TorchInductor, not the full PyTorch suite
 
 ```text
-ImportError while importing test module '/tmp/symox-featured/git/torch/test/test_sympy_utils.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-/usr/lib/python3.10/importlib/__init__.py:126: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-git/torch/test/test_sympy_utils.py:14: in <module>
-    from sympy.core.relational import is_ge, is_gt, is_le, is_lt
-E   ImportError: cannot import name 'is_ge' from 'symox.core.relational' (/tmp/symox-featured/envs/torchinductor/lib/python3.10/site-packages/symox/core/relational.py)
+j/Documents/symox/.venv/lib/python3.10/site-packages/torch/_inductor/standalone_compile.py:18: in <module>
+    from torch._dynamo.aot_compile_types import BundledAOTAutogradSerializableCallable
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/__init__.py:13: in <module>
+    from . import (
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/aot_compile.py:17: in <module>
+    from torch._dynamo.convert_frame import GraphRuntimeEnv
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/convert_frame.py:62: in <module>
+    from torch._dynamo.symbolic_convert import TensorifyState
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/symbolic_convert.py:54: in <module>
+    from torch._dynamo.exc import (
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/exc.py:72: in <module>
+    from .utils import counters
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/_dynamo/utils.py:68: in <module>
+    import torch.fx.experimental.symbolic_shapes
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/fx/experimental/symbolic_shapes.py:80: in <module>
+    from torch.utils._sympy.functions import (
+/home/keckj/Documents/symox/.venv/lib/python3.10/site-packages/torch/utils/_sympy/functions.py:16: in <module>
+    from sympy.core.operations import LatticeOp, ShortCircuit
+/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:105: in find_spec
+    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',
+E   ModuleNotFoundError: sympy.core.operations requires missing native module symox.core.operations
 ```
 
 ### yt / unyt
 
 Full unyt unit-system test suite, the SymPy-consuming component identified by the featured list
 
-```text
-tlib._bootstrap>:488: in _call_with_frames_removed
-    ???
-<frozen importlib._bootstrap>:1387: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1360: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:1310: in _find_and_load_unlocked
-    ???
-<frozen importlib._bootstrap>:488: in _call_with_frames_removed
-    ???
-<frozen importlib._bootstrap>:1387: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1360: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:1331: in _find_and_load_unlocked
-    ???
-<frozen importlib._bootstrap>:935: in _load_unlocked
-    ???
-<frozen importlib._bootstrap_external>:999: in exec_module
-    ???
-<frozen importlib._bootstrap>:488: in _call_with_frames_removed
-    ???
-unyt/__init__.py:38: in <module>
-    from unyt import physical_constants, unit_symbols
-unyt/physical_constants.py:22: in <module>
-    _add_constants(globals(), registry=_default_unit_registry)
-unyt/unit_systems.py:91: in add_constants
-    namespace[name] = quan.in_base(unit_system=registry.unit_system)
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-unyt/array.py:1123: in in_base
-    to_units = self.units.get_base_equivalent(unit_system)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-unyt/unit_object.py:636: in get_base_equivalent
-    new_units = unit_system[self.dimensions]
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-unyt/unit_systems.py:256: in __getitem__
-    units = _get_system_unit_string(key, self.units_map)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-unyt/unit_systems.py:137: in _get_system_unit_string
-    dim = list(factor.free_symbols)[0]
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   IndexError: list index out of range
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### yt (main package)
 
 Upstream yt/units/tests in addition to the separately audited full unyt suite; not the entire yt analysis suite
 
-```text
-<frozen importlib._bootstrap_external>:999: in exec_module
-    ???
-<frozen importlib._bootstrap>:488: in _call_with_frames_removed
-    ???
-envs/yt_main/lib/python3.12/site-packages/yt/__init__.py:12: in <module>
-    import yt.units as units
-envs/yt_main/lib/python3.12/site-packages/yt/units/__init__.py:1: in <module>
-    from unyt.array import (
-envs/yt_main/lib/python3.12/site-packages/unyt/__init__.py:38: in <module>
-    from unyt import physical_constants, unit_symbols
-envs/yt_main/lib/python3.12/site-packages/unyt/physical_constants.py:22: in <module>
-    _add_constants(globals(), registry=_default_unit_registry)
-envs/yt_main/lib/python3.12/site-packages/unyt/unit_systems.py:91: in add_constants
-    namespace[name] = quan.in_base(unit_system=registry.unit_system)
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-envs/yt_main/lib/python3.12/site-packages/unyt/array.py:1123: in in_base
-    to_units = self.units.get_base_equivalent(unit_system)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-envs/yt_main/lib/python3.12/site-packages/unyt/unit_object.py:636: in get_base_equivalent
-    new_units = unit_system[self.dimensions]
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-envs/yt_main/lib/python3.12/site-packages/unyt/unit_systems.py:256: in __getitem__
-    units = _get_system_unit_string(key, self.units_map)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-envs/yt_main/lib/python3.12/site-packages/unyt/unit_systems.py:137: in _get_system_unit_string
-    dim = list(factor.free_symbols)[0]
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   IndexError: list index out of range
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ## Reproduction
 

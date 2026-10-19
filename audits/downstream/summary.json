@@ -6,7 +6,6 @@
     "devito_symbolic",
     "einsteinpy",
     "galgebra",
-    "haarpy",
     "latexexpr",
     "lcapy",
     "nrpylatex",
@@ -15,11 +14,8 @@
     "pydy",
     "qmcpack",
     "sagemath",
-    "sfepy",
     "symjit",
-    "torchinductor",
-    "yt",
-    "yt_main"
+    "torchinductor"
   ],
   "featured_drop_in_ready": false,
   "reference_version": "1.14.0",
@@ -51,8 +47,8 @@
       "native": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 18,
-        "passed": 555,
+        "failed": 17,
+        "passed": 556,
         "skipped": 28,
         "xfailed": 0,
         "xpassed": 5
@@ -142,8 +138,8 @@
       "native": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 378,
-        "passed": 729,
+        "failed": 0,
+        "passed": 1107,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -159,7 +155,7 @@
         "xpassed": 0
       },
       "result": "results/haarpy.json",
-      "status": "native_failure"
+      "status": "native_suite_passes"
     },
     {
       "native": {
@@ -186,10 +182,10 @@
     },
     {
       "native": {
-        "collection_errors": 37,
+        "collection_errors": 0,
         "errors": 0,
-        "failed": 0,
-        "passed": 0,
+        "failed": 90,
+        "passed": 178,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -255,11 +251,11 @@
     },
     {
       "native": {
-        "collection_errors": 17,
+        "collection_errors": 0,
         "errors": 0,
-        "failed": 0,
-        "passed": 0,
-        "skipped": 0,
+        "failed": 312,
+        "passed": 49,
+        "skipped": 34,
         "xfailed": 0,
         "xpassed": 0
       },
@@ -379,8 +375,8 @@
       "native": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 192,
-        "passed": 127,
+        "failed": 182,
+        "passed": 137,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -409,8 +405,8 @@
       "native": {
         "collection_errors": 0,
         "errors": 0,
-        "failed": 1,
-        "passed": 220,
+        "failed": 0,
+        "passed": 221,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -426,7 +422,7 @@
         "xpassed": 0
       },
       "result": "results/sfepy.json",
-      "status": "native_failure"
+      "status": "native_suite_passes"
     },
     {
       "native": {
@@ -498,12 +494,12 @@
     },
     {
       "native": {
-        "collection_errors": 12,
+        "collection_errors": 0,
         "errors": 0,
         "failed": 0,
-        "passed": 0,
-        "skipped": 0,
-        "xfailed": 0,
+        "passed": 819,
+        "skipped": 34,
+        "xfailed": 2,
         "xpassed": 0
       },
       "project": "yt",
@@ -517,14 +513,14 @@
         "xpassed": 0
       },
       "result": "results/yt.json",
-      "status": "native_failure"
+      "status": "native_suite_passes"
     },
     {
       "native": {
-        "collection_errors": 1,
+        "collection_errors": 0,
         "errors": 0,
         "failed": 0,
-        "passed": 0,
+        "passed": 1,
         "skipped": 0,
         "xfailed": 0,
         "xpassed": 0
@@ -540,13 +536,13 @@
         "xpassed": 0
       },
       "result": "results/yt_main.json",
-      "status": "native_failure"
+      "status": "native_suite_passes"
     }
   ],
   "statuses": {
     "excluded_reference_requirement": 1,
-    "native_failure": 16,
-    "native_suite_passes": 3,
+    "native_failure": 12,
+    "native_suite_passes": 7,
     "no_sympy_code_exercised": 1,
     "publication_not_a_testable_distribution": 2,
     "reference_not_clean": 3

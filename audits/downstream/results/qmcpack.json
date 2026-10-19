@@ -1,15 +1,15 @@
 {
   "candidate": {
-    "sha256": "b862ab30ef3e89791fbf5617074b270109732de73d7b400980e745f30d2fd41d",
-    "wheel": "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
+    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/qmcpack/freeze.txt.gz": "b6ceb8b6c62b28bef2820587b4998f56644fe28c241c90d921835b30c23b09e8",
-    "evidence/qmcpack/install.log.gz": "3ce80a575b5b10695e06d2b6d469dfd426d4267c9d1db08c7c3704305413ecc9",
-    "evidence/qmcpack/native-processes.jsonl.gz": "56c50addc1a3b02f76e4f77a3ed902ad27eba0cb5541c99508381593c7be3acc",
-    "evidence/qmcpack/native.log.gz": "91442c9d28fdf558ec1999e3a750e6c176285e2d40e3df8a23ffd8d409f71ad6",
+    "evidence/qmcpack/freeze.txt.gz": "f756710f5061cb4e030f2681e026350f1d8febe6f41f945b0c245af720416e18",
+    "evidence/qmcpack/install.log.gz": "63a33f9a6f27938b60fe1f13a3aaba1a27e2cafd56e1d3cbba83cb7b5ef4b44c",
+    "evidence/qmcpack/native-processes.jsonl.gz": "11411aac0e8c36e014a3dae58f285c7c8296ea85344c9b6399f591468b61fca9",
+    "evidence/qmcpack/native.log.gz": "217df08eeaa645351037535581f2be9aae374e8d79b8cd163c8ba8bc19d40743",
     "evidence/qmcpack/preflight.log.gz": "dd62cea595f00203c182542bb4b1d6d1ea75458ecf005bc99eec95d639a27659",
-    "evidence/qmcpack/reference-processes.jsonl.gz": "aec4a92d6a7177b0343b18440a1263a863ef2334e2934a7ee778f32ec35e3eee",
+    "evidence/qmcpack/reference-processes.jsonl.gz": "35128c3f53ef1bb72451b333e98c8f104333192b38c456cf5ba2b5b1b903d845",
     "evidence/qmcpack/reference.log.gz": "aefb6951b71a06ab4089e37dc6f47ac9cfc7a1747212b8c60dde82e0cf932995"
   },
   "freeze": {
@@ -22,15 +22,17 @@
     ],
     "exit_code": 0,
     "log": "/tmp/symox-featured/logs/qmcpack/freeze.txt",
-    "seconds": 0.383,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/qmcpack\nmpmath==1.3.0\nnumpy==2.5.4\nscipy==1.18.1\nsymox @ file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\n",
+    "seconds": 0.165,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/qmcpack\nmpmath==1.3.0\nnumpy==2.5.4\nscipy==1.18.1\nsymox @ file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\n",
     "timed_out": false
   },
   "harness_sha256": {
-    "audit.py": "c6c2adbeff2494de483467494d3c4a7a1f4485142af39fde8c2a3cf3a308feb6",
+    "audit.py": "508a341d2d13ba8dec7ff3620c86a520f897928f4c480358ac9839fe62f52959",
     "audit_plugin.py": "048e044cefb16051347b79790aa7cbd5728bb301084ee60087eb73b13deab355",
     "external.py": "1c463ef2e94b8f915393a64259233dc8f59a2bf04cc3ad69e22d13d94f7edf4e",
-    "sitecustomize.py": "274e281653de1d381282accef700272d3b88f73a9b1d8f8121386ee05e8d1b7b"
+    "pack_evidence.py": "fcbf1779fc1073cd433d7763ca43da21ee474989aed19fb67de1eb8a7e16b24b",
+    "sitecustomize.py": "bb82711e6d41834125325e034e7d6c5b54028428ba123162e22345bb645a42db",
+    "verify_sources.py": "8896df592b88c0e4c32474f5a0db9a15eadc13298e9f32202d665a13779caa60"
   },
   "install": {
     "command": [
@@ -41,12 +43,12 @@
       "/tmp/symox-featured/envs/qmcpack/bin/python",
       "--reinstall-package",
       "symox",
-      "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/tmp/symox-featured/logs/qmcpack/install.log",
-    "seconds": 0.834,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/qmcpack\nResolved 3 packages in 76ms\nPrepared 1 package in 25ms\nUninstalled 1 package in 28ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 1 package in 162ms\n ~ symox==0.1.1 (from file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 0.62,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/qmcpack\nResolved 3 packages in 78ms\nPrepared 1 package in 73ms\nUninstalled 1 package in 18ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 1 package in 217ms\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -65,7 +67,7 @@
     },
     "exit_code": 1,
     "log": "/tmp/symox-featured/logs/qmcpack/native.log",
-    "output_sha256": "5fee6b86e44dad4012f459b524b51ebcfda87f96c31586fd1c0e883f05c6d1ef",
+    "output_sha256": "10c4a5a03296d18b2352cb2e85781318b32b9720b24482e472291d68a7f107d0",
     "process_provenance_artifact": "evidence/qmcpack/native-processes.jsonl.gz",
     "process_provenance_summary": {
       "backends": {
@@ -75,8 +77,8 @@
       "processes": 1
     },
     "reference_output_reproduced": false,
-    "seconds": 0.572,
-    "tail": "1x1 matrix\nTraceback (most recent call last):\n  File \"/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py\", line 240, in <module>\n    test_1x1()\n  File \"/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py\", line 143, in test_1x1\n    m1exp = exp(-m1)\n            ^^^^^^^^\n  File \"/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py\", line 124, in f\n    return _core._apply(name, *args) if evaluate else _core._apply(name, *args, evaluate=False)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: cannot convert object of type Matrix to a symox expression\n",
+    "seconds": 0.416,
+    "tail": "1x1 matrix\nMatrix([[1.00000000000000]])\n\n2x2 matrix\nTraceback (most recent call last):\n  File \"/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py\", line 241, in <module>\n    test_2x2()\n  File \"/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py\", line 152, in test_2x2\n    m2exp = exp(m2)\n            ^^^^^^^\n  File \"/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py\", line 98, in __call__\n    return self._factory(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/symox-featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py\", line 151, in f\n    return args[0].exp().as_immutable()\n           ^^^^^^^^^^^^^\nNotImplementedError: Cannot construct an exact analytic matrix function: numerical eigenvalues of float matrices are not implemented\n",
     "timed_out": false
   },
   "preflight": {
@@ -87,7 +89,7 @@
     ],
     "exit_code": 0,
     "log": "/tmp/symox-featured/logs/qmcpack/preflight.log",
-    "seconds": 1.598,
+    "seconds": 0.867,
     "tail": "1.14.0 0.1.1\n",
     "timed_out": false
   },
@@ -128,7 +130,7 @@
       "blocked_reference_execution": 0,
       "processes": 1
     },
-    "seconds": 1.371,
+    "seconds": 0.965,
     "tail": "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py:226: DeprecationWarning: Calling expm with arguments of dtype=object (a.dtype.char = 'O') is deprecated in SciPy 1.18.0 and will be removed in SciPy 1.20.0. Please cast array inputs to one of np.float{32,64} or np.complex{64,128} manually.\n  print_matrix_as_initializer_list(scipy.linalg.expm(m3old).T)\n/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py:228: DeprecationWarning: Calling expm with arguments of dtype=object (a.dtype.char = 'O') is deprecated in SciPy 1.18.0 and will be removed in SciPy 1.20.0. Please cast array inputs to one of np.float{32,64} or np.complex{64,128} manually.\n  m3new = np.dot(scipy.linalg.expm(m3next).T, scipy.linalg.expm(m3old).T)\n1x1 matrix\nMatrix([[1]])\n\n2x2 matrix\nInput\n{                  0,               -0.1,\n                 0.1,                  0 };\n\nExp(Input)\n{  0.995004165278026, -0.0998334166468282,\n  0.0998334166468282,  0.995004165278026 };\n\n3x3 matrix\nInput\n{                  0,               -0.3,               -0.1,\n                 0.3,                  0,               -0.2,\n                 0.1,                0.2,                  0 };\n\nExp(Input)\n{  0.950580617906091, -0.302932713402637,  -0.06803131640494,\n   0.283164960565074,  0.935754803277919, -0.210191705950743,\n    0.12733457491763,  0.180540076694398,  0.975290308953046 };\n\n3x3 complex\nInput\n{ cmplx_t(           0,           0), cmplx_t(         0.3,         0.1), cmplx_t(         0.1,        -0.3),\n  cmplx_t(        -0.3,         0.1), cmplx_t(           0,           0), cmplx_t(         0.2,        0.01),\n  cmplx_t(        -0.1,        -0.3), cmplx_t(        -0.2,        0.01), cmplx_t(           0           0) };\n\nExp(Input)\n{ cmplx_t( 0.901982693,-0.00652118091), cmplx_t( 0.279991039, 0.125454229), cmplx_t( 0.124476055,-0.277049927),\n  cmplx_t(-0.296325574,0.0666491117), cmplx_t( 0.931338217,-0.00654092043), cmplx_t( 0.192141492,0.0582841267),\n  cmplx_t( -0.06763124,-0.299265368), cmplx_t(-0.192108689,-0.039074913), cmplx_t( 0.931338217-0.00654092043) };\n\n\n4x4 rotation matrix in 'RotatedSPOs construct delta matrix' test\n\nNew rotation matrix\n{ -0.371126931484737,  0.491586564957394, -0.784780958819798, 0.0687480658200082,\n  -0.373372784561548,   0.66111547793048,  0.610450337985578,  0.225542620014052,\n   0.751270334458895,  0.566737323353515, -0.0297901110611425, -0.336918744155142,\n   0.398058348785074, 0.00881931472604945, -0.102867783149713,  0.911531672428406 };\nCorresponding antisymmetric matrix\n[[ 8.51044962e-17  9.54251330e-01 -1.68139650e+00 -3.62356425e-01]\n [-9.54251330e-01 -4.41215697e-16  5.48654445e-02  2.05744729e-01]\n [ 1.68139650e+00 -5.48654445e-02 -1.10769224e-15 -2.74977889e-01]\n [ 3.62356425e-01 -2.05744729e-01  2.74977889e-01 -2.89711474e-16]]\nExtracted parameters (Reminder: ordering differs from QMCPACK)\n(np.float64(-0.954251330287307), np.float64(1.6813965019790473), np.float64(0.3623564254653288), np.float64(-0.05486544454559905), np.float64(-0.20574472941408442), np.float64(0.274977889099118))\n\n3x3 rotation matrix in 'Rotated LCAO global rotation consistency' test\n\nOriginal rotation matrix\n{  0.975103993210479, 0.0991687475215628,  0.198337495043126,\n  -0.0991687475215628,  0.995020798642096, -0.00995840271580824,\n  -0.198337495043126, -0.00995840271580824,  0.980083194568384 };\nAfter second rotation\n{  0.862374825309137,   0.38511734273482,  0.328624851461217,\n  -0.377403929117215,   0.92168910800781, -0.0897522281988318,\n  -0.337455085840952, -0.046624248032951,  0.940186281826872 };\nExtracted parameters after second rotation\n(np.float64(0.39980990176769104), np.float64(0.3492431806596023), np.float64(0.02261313113492488))\n",
     "timed_out": false
   },
@@ -137,7 +139,7 @@
   "selected_tests": {
     "/tmp/symox-featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py": "8d31ddbe542e6ca4c278c965433ef6a49622a63976b64f8703edc297c64d109f"
   },
-  "started_at": "2026-10-19T10:17:37.962690+00:00",
+  "started_at": "2026-10-19T12:42:43.813521+00:00",
   "status": "native_failure",
   "test_kind": "generator"
 }

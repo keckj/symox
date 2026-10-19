@@ -1,37 +1,102 @@
 {
+  "build_checks": {
+    "clippy": "cargo clippy -p symox -- -D warnings -A clippy::all -W clippy::correctness",
+    "workspace": "cargo build --workspace --all-targets"
+  },
   "ci_gate": {
     "latexexpr_exit_code": 1,
     "pyneqsys_exit_code": 0
   },
   "core": {
-    "command": "OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 .venv/bin/python -m pytest -q tests --ignore=tests/extra",
-    "passed": 28838,
-    "seconds": 816.6,
+    "command": "OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 .venv/bin/python -m pytest -q -ra tests --ignore=tests/extra",
+    "failed": 0,
+    "passed": 29012,
+    "seconds": 564.93,
     "skipped": 5,
+    "skipped_details": [
+      {
+        "count": 1,
+        "detail": "tests/test_compare.py:20: pytest-style module, collected on its own"
+      },
+      {
+        "count": 4,
+        "detail": "tests/test_trigonometric_solution_lattices.py:50: reference returns nan/infinite pseudo-roots; independently checked below"
+      }
+    ],
     "xfailed": 0
   },
+  "environment": {
+    "packages": {
+      "AdaptiveCpp": null,
+      "jax": "0.6.2",
+      "jaxlib": "0.6.2",
+      "numpy": "2.2.6",
+      "pytest": "9.1.1",
+      "slangpy": "0.43.1",
+      "symox": "0.1.1",
+      "sympy": "1.14.0",
+      "torch": "2.14.1"
+    },
+    "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+    "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]"
+  },
   "evidence": {
-    "evidence/local-validation/core-final.log.gz": "e0795c36b05d0e953836edde6e91f9764358ab7b1b279f278af0d4758da080b4",
-    "evidence/local-validation/extras-final.log.gz": "3fc5ba6a38358b8d20f9c8a9144d2699da1e4ce718dcccbdb5da967df8ec7c0c",
-    "evidence/local-validation/final-targeted.log.gz": "7f33612edb4b0b302646cbd9b51cec9af2090e8ed33d64338ee09264a5b88b33",
-    "evidence/local-validation/final-targeted2.log.gz": "0a733d4324085dea3c1edb9eda0ba8c4e119d138e2f1fe1dda227c21dd8cea7e",
-    "evidence/local-validation/final-targeted3.log.gz": "bc77b5f565690c007d2956faf980a332e6d922df782a638961a1f0bb59b0f09f",
-    "evidence/local-validation/final-wheel.log.gz": "6ae0d1bc63fc5d6e3c34fa87f4ce599ae2a372aec0df1d85e5c8d04f1ab4dc27",
-    "evidence/local-validation/gate-latexexpr.log.gz": "03e63ec9b0ce688b0804263081c33e34dce1701ba97101ff2198d03c6dd22d3d",
-    "evidence/local-validation/gate-pyneqsys.log.gz": "54ef551a4b3c0341439d3cb0365cad46f0dee2c0351e352fd5dfbc520a0e3532"
+    "evidence/local-validation/protocol-rust-final.log.gz": "63617c1d811ab7b744cceef49ffcd5e4c77c5dac27a985569230cd65377d72b2",
+    "evidence/local-validation/uniform-acpp-version.log.gz": "67220e428cd04aa9305ed3e704ad824d89e26ad8ea27eb78675ab638f2f28d74",
+    "evidence/local-validation/uniform-clippy-final.log.gz": "ffc9c6530806ab0001fe5a4da56fe491209596e3583d7facf88ce83cf043ce0e",
+    "evidence/local-validation/uniform-environment.json.gz": "714a0674f9746a2aa036a9cc7272ef93da4e290500ca31214aaba908edac0b6d",
+    "evidence/local-validation/uniform-workspace-build-final.log.gz": "2d615e73d69d54c60c38fe29a51126df1975b6167fce2608a3650953f8c0ede6",
+    "evidence/local-validation/uniform2-core-final.log.gz": "eba39aef858b53646196b2aeb0124d25217c898ad48d468c61d6774a4d66b6d0",
+    "evidence/local-validation/uniform2-extra-final.log.gz": "21e74b6b53b910e2402402dd04bad299102c97a4c5754d2164417a90dcb52cad",
+    "evidence/local-validation/uniform2-gate-latexexpr.log.gz": "03e63ec9b0ce688b0804263081c33e34dce1701ba97101ff2198d03c6dd22d3d",
+    "evidence/local-validation/uniform2-gate-pyneqsys.log.gz": "54ef551a4b3c0341439d3cb0365cad46f0dee2c0351e352fd5dfbc520a0e3532",
+    "evidence/local-validation/uniform2-py312-targeted.log.gz": "7800b1fbc8f6402fbb6a3ee4d4132fb96680e3473a53831b48812d8fec325969",
+    "evidence/local-validation/uniform2-targeted-final.log.gz": "7d325bd427ff9c7cdf29e1c31837873ee770d5e9b74c16882c8e82664c66c21f",
+    "evidence/local-validation/uniform2-wheel-final.log.gz": "9d267617c253a441c30ee3d2c56e1970cae58af3114efe8d030472ffc64ec6dd"
   },
   "extra": {
     "command": "SYMOX_ACPP_TARGETS=omp SYMOX_ACPP_REQUIRE_RUNTIME=1 SYMOX_SLANG_REQUIRE_RUNTIME=1 SYMOX_CUDA_REQUIRE_RUNTIME=1 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 XLA_PYTHON_CLIENT_PREALLOCATE=false .venv/bin/python -m pytest -q tests/extra",
+    "failed": 0,
     "passed": 383,
-    "seconds": 213.86,
-    "skipped": 0
+    "seconds": 101.42,
+    "skipped": 0,
+    "xfailed": 0
   },
-  "production_commit": "5f0c63d803b0949e5b75972f6848a9f7eef43991",
+  "extra_runtimes": {
+    "adaptivecpp": "25.10.0+git.31db2e83.20261016.branch.HEAD",
+    "adaptivecpp_target": "OpenMP CPU",
+    "jax": "CUDA required",
+    "slangpy": "runtime required",
+    "torch": "CUDA required"
+  },
+  "limitations": [
+    "Upstream skips and expected failures are not certified passing behavior.",
+    "Featured integration failures remain in readiness.json; this is not a release approval or universal parity certificate."
+  ],
+  "production_commit": "2a0acc18867c1a57d09e95a9e72450f8c037b603",
+  "python312": {
+    "command": "PYTHONPATH=/home/keckj/Documents/symox/python /tmp/symox-featured/envs/haarpy/bin/python -m pytest -q tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py",
+    "failed": 0,
+    "passed": 557,
+    "seconds": 8.05,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "rust": {
+    "command": "CARGO_TARGET_DIR=SHARED_TARGET cargo test -p symox --release",
+    "doc_passed": 5,
+    "ignored": 1,
+    "passed": 504,
+    "scope": "Native core source; Python bindings are covered by the complete Python suites.",
+    "source_tree": "d150c3509fe431238bc84a0034ecaabeddb6df99"
+  },
   "targeted": {
-    "command": ".venv/bin/python -m pytest -q tests/test_downstream_audit.py tests/test_numpy_indexed_symbol_printing.py",
-    "note": "Includes the source-integrity and stale-candidate guard tests added after the full core run collected its tests",
-    "passed": 41,
-    "seconds": 1.23,
-    "skipped": 0
-  }
+    "command": ".venv/bin/python -m pytest -q tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_downstream_audit.py tests/test_numpy_indexed_symbol_printing.py tests/test_documented_signature_regressions.py tests/test_holonomic_completion.py tests/test_matrix_log.py tests/test_nsolve_mp.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py",
+    "failed": 0,
+    "passed": 800,
+    "seconds": 13.26,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "wheel_sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde"
 }

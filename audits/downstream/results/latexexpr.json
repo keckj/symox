@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "b862ab30ef3e89791fbf5617074b270109732de73d7b400980e745f30d2fd41d",
-    "wheel": "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
+    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/latexexpr/freeze.txt.gz": "fb2b17019a5236d7fcf5b2693d320deb03058858a8c50273a140d0c55d0b6a72",
-    "evidence/latexexpr/install.log.gz": "ee66f7515ec175c52d79459a6f3aa685f7f5f85122896584fe8d2667e585cb22",
-    "evidence/latexexpr/native-junit.xml.gz": "a4fde3666695c55008a4ffdaac1583d2cd1faa43aaec601a685b2d6a2dc00c76",
-    "evidence/latexexpr/native-processes.jsonl.gz": "d484f61701ac4faa7bfec4d3e3a37d18d19860151e449dcaad59b9241dc2e643",
-    "evidence/latexexpr/native-tests.json.gz": "45a6c64e8b86c9fc8eebf25627f50711fc52e91c58761de929c243137f1fce4c",
-    "evidence/latexexpr/native.log.gz": "f33fec21a72ddc742feca8b6e2d2b4f565721e234a430888f40df792a32d9881",
+    "evidence/latexexpr/freeze.txt.gz": "7cb475046d9c254654e563b0b76796f8f0342094d431e922f048171126ac788b",
+    "evidence/latexexpr/install.log.gz": "b861b74b8fd439a0c6ccece0357836f1068591af0d7be430cd5ac9bf2ab80910",
+    "evidence/latexexpr/native-junit.xml.gz": "63d2c64659d8a1f50d0b0f515a9e632e58e3716e4bf1b017e374cddc6d543175",
+    "evidence/latexexpr/native-processes.jsonl.gz": "64caaa91f608113c4297a9552f2afd5f972e58b1c3a42e4678b3de464e48d000",
+    "evidence/latexexpr/native-tests.json.gz": "bb30d3d4a0cfa4d0ecd696e6e61aeb85320aae55a6969bf2d1d2d9f9fdd923f1",
+    "evidence/latexexpr/native.log.gz": "9edcd9e2b14014177d5198398c3707858a92a5facbe9c5e8b7c03de20776a20d",
     "evidence/latexexpr/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/latexexpr/reference-junit.xml.gz": "d4c5c256538e1506eaba774c9cd08255a5d149a6ff8d912761ce85cbf3153fa5",
-    "evidence/latexexpr/reference-processes.jsonl.gz": "709ee334829aa8bb0fae3f747955e49879954b0047752d672357014090b3191b",
-    "evidence/latexexpr/reference-tests.json.gz": "14dc5018592a246e6df8698e7be9e4ba84f0eda195a0d82e0518c572c5bb1737",
-    "evidence/latexexpr/reference.log.gz": "102d33399929eae691e459c533ba832fc3cc514a26c501461431020cb497c336",
+    "evidence/latexexpr/reference-junit.xml.gz": "214017577f30c676d367c5501bc1b59592604465345cd8f6545fefb52a85cf85",
+    "evidence/latexexpr/reference-processes.jsonl.gz": "fd075644d8b7decd2d98d017cf4d44e7dc0af261a8b5f0a6eafb6d65d7df2707",
+    "evidence/latexexpr/reference-tests.json.gz": "01afb4763d705449162dd135a06fa4bb8f91f89ac1362a48d87de20c6e34aae9",
+    "evidence/latexexpr/reference.log.gz": "137198e03700c8c313213725c3e6b3dd352676caf387dbd3b54b067a78facb66",
     "evidence/latexexpr/venv.log.gz": "8e106da3228eff0f42f722c48e2aac48eb0d394cc0f23a8f2da3f0e211b748cd"
   },
   "freeze": {
@@ -27,15 +27,17 @@
     ],
     "exit_code": 0,
     "log": "/tmp/symox-featured/logs/latexexpr/freeze.txt",
-    "seconds": 0.378,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/latexexpr\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\n-e file:///tmp/symox-featured/git/latexexpr\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "seconds": 0.114,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/latexexpr\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\n-e file:///tmp/symox-featured/git/latexexpr\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
-    "audit.py": "e55d0cb175a56dc8a6b888d166f5e29959843b3e0a7d2a4e7371f146a13c6d69",
+    "audit.py": "508a341d2d13ba8dec7ff3620c86a520f897928f4c480358ac9839fe62f52959",
     "audit_plugin.py": "048e044cefb16051347b79790aa7cbd5728bb301084ee60087eb73b13deab355",
     "external.py": "1c463ef2e94b8f915393a64259233dc8f59a2bf04cc3ad69e22d13d94f7edf4e",
-    "sitecustomize.py": "274e281653de1d381282accef700272d3b88f73a9b1d8f8121386ee05e8d1b7b"
+    "pack_evidence.py": "fcbf1779fc1073cd433d7763ca43da21ee474989aed19fb67de1eb8a7e16b24b",
+    "sitecustomize.py": "bb82711e6d41834125325e034e7d6c5b54028428ba123162e22345bb645a42db",
+    "verify_sources.py": "8896df592b88c0e4c32474f5a0db9a15eadc13298e9f32202d665a13779caa60"
   },
   "install": {
     "command": [
@@ -62,12 +64,12 @@
       "numpy",
       "-e",
       "/tmp/symox-featured/git/latexexpr",
-      "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/tmp/symox-featured/logs/latexexpr/install.log",
-    "seconds": 2.316,
-    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/latexexpr\nResolved 20 packages in 1.04s\n   Building latexexpr @ file:///tmp/symox-featured/git/latexexpr\n      Built latexexpr @ file:///tmp/symox-featured/git/latexexpr\nPrepared 2 packages in 383ms\nUninstalled 2 packages in 31ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 160ms\n ~ latexexpr==0.4.1 (from file:///tmp/symox-featured/git/latexexpr)\n ~ symox==0.1.1 (from file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 0.916,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/latexexpr\nResolved 20 packages in 450ms\n   Building latexexpr @ file:///tmp/symox-featured/git/latexexpr\n      Built latexexpr @ file:///tmp/symox-featured/git/latexexpr\nPrepared 2 packages in 179ms\nUninstalled 2 packages in 17ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 96ms\n ~ latexexpr==0.4.1 (from file:///tmp/symox-featured/git/latexexpr)\n ~ symox==0.1.1 (from file:///tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -113,10 +115,10 @@
       "count": 0,
       "examples": []
     },
-    "seconds": 0.585,
-    "tail": "..                                                                       [100%]\n--- generated xml file: /tmp/symox-featured/logs/latexexpr/native-junit.xml ----\n2 passed in 0.13s\n",
+    "seconds": 0.415,
+    "tail": "..                                                                       [100%]\n--- generated xml file: /tmp/symox-featured/logs/latexexpr/native-junit.xml ----\n2 passed in 0.10s\n",
     "test_evidence": "evidence/latexexpr/native-tests.json.gz",
-    "test_evidence_sha256": "45a6c64e8b86c9fc8eebf25627f50711fc52e91c58761de929c243137f1fce4c",
+    "test_evidence_sha256": "bb30d3d4a0cfa4d0ecd696e6e61aeb85320aae55a6969bf2d1d2d9f9fdd923f1",
     "timed_out": false
   },
   "preflight": {
@@ -127,7 +129,7 @@
     ],
     "exit_code": 0,
     "log": "/tmp/symox-featured/logs/latexexpr/preflight.log",
-    "seconds": 1.781,
+    "seconds": 0.866,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -193,10 +195,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 0.67,
-    "tail": "..                                                                       [100%]\n-- generated xml file: /tmp/symox-featured/logs/latexexpr/reference-junit.xml --\n2 passed in 0.23s\n",
+    "seconds": 0.365,
+    "tail": "..                                                                       [100%]\n-- generated xml file: /tmp/symox-featured/logs/latexexpr/reference-junit.xml --\n2 passed in 0.10s\n",
     "test_evidence": "evidence/latexexpr/reference-tests.json.gz",
-    "test_evidence_sha256": "14dc5018592a246e6df8698e7be9e4ba84f0eda195a0d82e0518c572c5bb1737",
+    "test_evidence_sha256": "01afb4763d705449162dd135a06fa4bb8f91f89ac1362a48d87de20c6e34aae9",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -215,6 +217,6 @@
     "tag": null,
     "url": "https://github.com/kajusK/latexexpr"
   },
-  "started_at": "2026-10-19T10:18:09.787750+00:00",
+  "started_at": "2026-10-19T12:48:51.716511+00:00",
   "status": "no_sympy_code_exercised"
 }

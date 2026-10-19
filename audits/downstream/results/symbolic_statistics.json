@@ -1,12 +1,25 @@
 {
+  "candidate": {
+    "sha256": "41d35ea5f24ed8c17f9efdcc083cba45f1d34144c9b8130062b0041f364d2bde",
+    "wheel": "/tmp/symox-featured/dist/uniform-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+  },
   "evidence": {},
+  "harness_sha256": {
+    "audit.py": "508a341d2d13ba8dec7ff3620c86a520f897928f4c480358ac9839fe62f52959",
+    "audit_plugin.py": "048e044cefb16051347b79790aa7cbd5728bb301084ee60087eb73b13deab355",
+    "external.py": "1c463ef2e94b8f915393a64259233dc8f59a2bf04cc3ad69e22d13d94f7edf4e",
+    "pack_evidence.py": "fcbf1779fc1073cd433d7763ca43da21ee474989aed19fb67de1eb8a7e16b24b",
+    "sitecustomize.py": "bb82711e6d41834125325e034e7d6c5b54028428ba123162e22345bb645a42db",
+    "verify_sources.py": "8896df592b88c0e4c32474f5a0db9a15eadc13298e9f32202d665a13779caa60"
+  },
   "project": {
     "id": "symbolic_statistics",
     "kind": "publication",
     "name": "Symbolic statistical modeling",
+    "scope": "The featured link is the 2012 Symbolic Statistics with SymPy paper, not a separate package/test distribution",
     "url": "https://www.researchgate.net/publication/260585491_Symbolic_Statistics_with_SymPy/"
   },
   "reference_version": "1.14.0",
-  "started_at": "2026-10-19T09:39:40.608579+00:00",
+  "started_at": "2026-10-19T12:48:00.656706+00:00",
   "status": "publication_not_a_testable_distribution"
 }

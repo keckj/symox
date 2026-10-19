@@ -6,7 +6,6 @@
     "devito_symbolic",
     "einsteinpy",
     "galgebra",
-    "haarpy",
     "latexexpr",
     "lcapy",
     "nrpylatex",
@@ -15,18 +14,15 @@
     "pydy",
     "qmcpack",
     "sagemath",
-    "sfepy",
     "symjit",
-    "torchinductor",
-    "yt",
-    "yt_main"
+    "torchinductor"
   ],
   "featured_drop_in_ready": false,
   "reference_version": "1.14.0",
   "statuses": {
     "excluded_reference_requirement": 1,
-    "native_failure": 16,
-    "native_suite_passes": 3,
+    "native_failure": 12,
+    "native_suite_passes": 7,
     "no_sympy_code_exercised": 1,
     "publication_not_a_testable_distribution": 2,
     "reference_not_clean": 3

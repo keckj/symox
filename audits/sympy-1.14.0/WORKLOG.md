@@ -1,4 +1,35 @@
-# Autonomous parity audit — 2026-10-18
+# Autonomous parity audit worklog
+
+## Superseding integration checkpoint — 2026-10-19
+
+Production fixes: `2a0acc18867c1a57d09e95a9e72450f8c037b603`.
+The final candidate wheel and every native downstream run are identified by
+`audits/downstream/candidate.json`. The full Python suite passed 29,012 tests
+with five documented skips and no failures or expected failures. Optional
+backends passed all 383 tests, with required JAX/PyTorch CUDA, Slang runtime
+and AdaptiveCpp OpenMP execution. Rust core checks passed 504 unit tests and
+five doctests, with one ignored test; workspace compilation and correctness
+Clippy checks passed. Focused checks passed 800 cases on Python 3.10 and
+557 on Python 3.12. Exact commands and compressed logs are indexed in
+`audits/downstream/validation.json`.
+
+The final upstream rerun passes Haarpy (1,107 tests), SfePy (221), unyt (819),
+pyneqsys (19), pyodesys (45), the Spyder console selection (one), and the yt
+unit selection (one). Existing upstream skips and expected failures remain
+outside that evidence. Upstream assertions are unchanged, every eligible
+native run reproduces its passing SymPy 1.14 reference cases, and the importer
+blocks execution of installed reference SymPy code.
+
+The featured replacement gate remains false: twelve native integrations fail,
+three reference suites are unqualified, and latexexpr does not exercise SymPy.
+The report retains all those outcomes. Remaining work includes nominal
+Symbol/Function subclass compatibility, assumptions and Boolean hierarchy,
+physics state and units protocols, numerical matrix functions, and native
+runtime conversion bridges. The historical global parity snapshots below
+have not been re-certified for this candidate. Universal parity is still
+uncertified; the user's global Symox >= SymPy requirement remains unmet.
+
+## Historical parity audit — 2026-10-18
 
 User requirement: traverse every function in `docs/sympy-api.md`, including
 signatures, and attain at least SymPy's mathematical capability. Continue
