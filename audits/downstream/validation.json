@@ -3,7 +3,7 @@
     "command": ".venv/bin/python -m pytest -q tests/test_downstream_audit.py",
     "failed": 0,
     "passed": 14,
-    "seconds": 1.79,
+    "seconds": 1.74,
     "skipped": 0,
     "xfailed": 0
   },
@@ -14,8 +14,8 @@
   "core": {
     "command": "OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 .venv/bin/python -m pytest -q -ra tests --ignore=tests/extra",
     "failed": 0,
-    "passed": 29170,
-    "seconds": 557.28,
+    "passed": 29218,
+    "seconds": 526.73,
     "skipped": 5,
     "skipped_details": [
       {
@@ -46,25 +46,28 @@
   },
   "evidence": {
     "evidence/local-validation/acpp-version.log.gz": "67220e428cd04aa9305ed3e704ad824d89e26ad8ea27eb78675ab638f2f28d74",
-    "evidence/local-validation/audit-config.log.gz": "44a417462da20f206f1ccc3b99aa74e4efb80481a41c6336f9e4e390a02ed2f5",
-    "evidence/local-validation/build-release.log.gz": "f65c4205765286fedb16176dccd4ec7193876ad9a8facbb9559f494cf6739f16",
-    "evidence/local-validation/clippy-final.log.gz": "fc249296b49e3b525c660345f98262d79491df7c34a6633c2843e01fbcb7d5c1",
-    "evidence/local-validation/core-final.log.gz": "8d72f8f9ca711db892e986905b34fddc7a7a5ab00ca8c20f94063a83c6abe74f",
-    "evidence/local-validation/environment.json.gz": "fbd1ed5cb5367f0807409926d0c51da2f431fce56a221d164ad4e6d376b6481a",
-    "evidence/local-validation/extra-final.log.gz": "05e4bf11c24071dc7197cc83f3dbf94984408104051461e5048de114558d6388",
-    "evidence/local-validation/predicate-regression.log.gz": "9f8801d56f67b75dfb1afb39968fe9a12fca38337f02bff55ca55559f6cec6f2",
-    "evidence/local-validation/py312-targeted.log.gz": "a9ffb8960d47b203598dfd75fc1100aa435160dff8741484eadd9a5143ffc95f",
-    "evidence/local-validation/restricted-eval.log.gz": "5505eef78c982ae96a7de04819259217298a40f7bc2e455c3fb2d75ed3f33180",
-    "evidence/local-validation/rust.log.gz": "74ad1828720a645620c9e3610f4a301c18731f430544da39b5117ea389eaefaa",
-    "evidence/local-validation/targeted-final.log.gz": "fef66615e6c2ce03e34c1c2582537df95a27c7f4537b7bcef9e847b896a3eb75",
-    "evidence/local-validation/wheel-final.log.gz": "32566c1cb9317817beeb1d4b34ee977b70fa2eb140021fc4a397e9e75014538f",
-    "evidence/local-validation/workspace-build-final.log.gz": "29bb5fd77a7c4d94a207657ce55f3a2b94a60dbf7cbd88232af4ed6b0384513b"
+    "evidence/local-validation/audit-config.log.gz": "3f38032f436836b37af4fa75ea027b53b5dd6c6fc4e9ed1ecb41f5c9d74f0146",
+    "evidence/local-validation/build-release.log.gz": "b7e1ff7ea9970360739960d071e1e2de5dea27b74273fb3ef0a480ba300ccf18",
+    "evidence/local-validation/clippy-final.log.gz": "2d7969f2b2985d37e6be8e8102e710efe4f02e52779e05f1af7815517e19acdb",
+    "evidence/local-validation/core-final.log.gz": "fae75eac3e4161b4dfb8e7a9c1a5dfa4fc63551be52f392741f191894385bb4d",
+    "evidence/local-validation/environment.json.gz": "7bab58ffce35edc2d6c06abf38b5e2095e3c245d578530efc2471ac59cb16a8d",
+    "evidence/local-validation/extra-final.log.gz": "1d58723e3fc32d0b32d6e8f5cf8cec4c944d5ba22a27f403a30af89964fa7bba",
+    "evidence/local-validation/matrix-compat-final.log.gz": "b30423ca6334709a7446f2fdc58d57c1a8af190ed01207c3d722ae54635996b9",
+    "evidence/local-validation/mechanics-regression.log.gz": "f96e3a468f78dcce25fb734aef419514410265f23ddcd049653c593b197023ae",
+    "evidence/local-validation/pip-check.log.gz": "cac4f0717e5b68b63c7376bcc07dfc607a5589b09374b45251bdcf31a6bece75",
+    "evidence/local-validation/predicate-regression.log.gz": "0225912652ea9c8099fac4bd2b4c9f0c3b1be4413272441c5d6977e7eae6e4e7",
+    "evidence/local-validation/py312-targeted.log.gz": "b94df988b9907e054793985438c3a93748d822c67ae69a9bd2a3752c115bd6ba",
+    "evidence/local-validation/restricted-eval.log.gz": "2e6685feeb0a653ebae7d2e7cdd1f9bccedcdd61481028e0cd9b69b11ccda454",
+    "evidence/local-validation/rust-final.log.gz": "87b16b8cf858daff152a9466a066e9188e4f619079a592b11797288acabec961",
+    "evidence/local-validation/targeted-final.log.gz": "7ea4c813fa67dcbda4c86221cce2104e38ff5cc660a056d94a088f2d96adfd3c",
+    "evidence/local-validation/wheel-final.log.gz": "e3483bf1c3c8933090875f7f974aa072e1e88db004693eef457b160861eb03bd",
+    "evidence/local-validation/workspace-build-final.log.gz": "3097177a41820d279b625c8f5496fc5f5915c8bf8e7c4fcd0d9e4790816f9bde"
   },
   "extra": {
     "command": "SYMOX_ACPP_TARGETS=omp SYMOX_ACPP_REQUIRE_RUNTIME=1 SYMOX_SLANG_REQUIRE_RUNTIME=1 SYMOX_CUDA_REQUIRE_RUNTIME=1 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 XLA_PYTHON_CLIENT_PREALLOCATE=false .venv/bin/python -m pytest -q tests/extra",
     "failed": 0,
     "passed": 383,
-    "seconds": 105.86,
+    "seconds": 117.14,
     "skipped": 0,
     "xfailed": 0
   },
@@ -79,20 +82,36 @@
     "Upstream skips and expected failures are not certified passing behavior.",
     "Featured integration failures remain in readiness.json; this is not a release approval or universal parity certificate."
   ],
+  "matrix_compatibility": {
+    "command": ".venv/bin/python -m pytest -q tests/test_matrix_compat.py",
+    "failed": 0,
+    "passed": 66,
+    "seconds": 0.53,
+    "skipped": 0,
+    "xfailed": 0
+  },
+  "mechanics_regressions": {
+    "command": ".venv/bin/python -m pytest -q tests/test_downstream_mechanics_state.py tests/test_downstream_matrix_assignment.py tests/test_downstream_structured_lambdify.py tests/test_downstream_function_types.py tests/test_cse_canonical_order.py tests/test_matrix_compact_factor_solve.py tests/test_matrix_skew_exponential.py  tests/test_matrix_functions.py tests/test_matrix_solvers.py",
+    "failed": 0,
+    "passed": 174,
+    "seconds": 18.21,
+    "skipped": 0,
+    "xfailed": 0
+  },
   "predicate_regressions": {
     "command": ".venv/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_expr_legacy_matching.py tests/test_algebraic_number_matching_options.py",
     "failed": 0,
     "passed": 149,
-    "seconds": 1.71,
+    "seconds": 1.64,
     "skipped": 0,
     "xfailed": 0
   },
-  "production_commit": "7b3c4137d0c9358b9a83dd8212dc9be1a4f26d88",
+  "production_commit": "e44c34c178a2209397b0e4aa0cc150d9ce9a3c71",
   "python312": {
-    "command": "PYTHONPATH=/home/keckj/Documents/symox/python /home/keckj/.cache/symox-validation/featured/envs/qmcpack/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_nsimplify_rational_options.py tests/test_downstream_function_conversion.py tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py tests/test_lambda_compat.py tests/test_lambda_pickle.py tests/test_lambda_numeric_evaluation.py tests/test_assumption_dag_cache.py tests/test_precision.py tests/test_diffgeom_completion.py",
+    "command": "PYTHONPATH=/home/keckj/Documents/symox/python /home/keckj/.cache/symox-validation/featured/envs/qmcpack/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_nsimplify_rational_options.py tests/test_downstream_function_conversion.py tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py tests/test_lambda_compat.py tests/test_lambda_pickle.py tests/test_lambda_numeric_evaluation.py tests/test_assumption_dag_cache.py tests/test_precision.py tests/test_diffgeom_completion.py tests/test_downstream_mechanics_state.py tests/test_downstream_matrix_assignment.py tests/test_downstream_structured_lambdify.py tests/test_downstream_function_types.py tests/test_cse_canonical_order.py tests/test_matrix_compact_factor_solve.py tests/test_matrix_skew_exponential.py ",
     "failed": 0,
-    "passed": 949,
-    "seconds": 16.64,
+    "passed": 997,
+    "seconds": 30.35,
     "skipped": 0,
     "xfailed": 0
   },
@@ -100,7 +119,7 @@
     "command": ".venv/bin/python -m pytest -q tests/test_active_products.py tests/test_complex_eval.py tests/test_factor_inspection.py tests/test_held_scalar_ordering.py tests/test_symbolic_number.py tests/test_downstream_function_conversion.py",
     "failed": 0,
     "passed": 1047,
-    "seconds": 4.66,
+    "seconds": 5.06,
     "skipped": 0,
     "xfailed": 0
   },
@@ -108,17 +127,17 @@
     "command": "CARGO_TARGET_DIR=/home/keckj/Documents/symox/target cargo test -p symox",
     "doc_passed": 5,
     "ignored": 1,
-    "passed": 507,
-    "scope": "Fresh native-core unit and documentation checks on this source tree, including predicate partitioning and error propagation.",
-    "source_tree": "f339ca23ce984fef5d848abb90632df8cdd812e0"
+    "passed": 508,
+    "scope": "Fresh native-core unit and documentation checks on this source tree, including arbitrary-size CSE ordering and compact symbolic factorizations.",
+    "source_tree": "0cd45ebc888913599469f264f8e67913c6fec7de"
   },
   "targeted": {
-    "command": ".venv/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_nsimplify_rational_options.py tests/test_downstream_function_conversion.py tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_downstream_audit.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py tests/test_holonomic_completion.py tests/test_lambda_compat.py tests/test_lambda_pickle.py tests/test_lambda_numeric_evaluation.py tests/test_assumption_dag_cache.py tests/test_precision.py tests/test_diffgeom_completion.py",
+    "command": ".venv/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_nsimplify_rational_options.py tests/test_downstream_function_conversion.py tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_downstream_audit.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py tests/test_holonomic_completion.py tests/test_lambda_compat.py tests/test_lambda_pickle.py tests/test_lambda_numeric_evaluation.py tests/test_assumption_dag_cache.py tests/test_precision.py tests/test_diffgeom_completion.py tests/test_downstream_mechanics_state.py tests/test_downstream_matrix_assignment.py tests/test_downstream_structured_lambdify.py tests/test_downstream_function_types.py tests/test_cse_canonical_order.py tests/test_matrix_compact_factor_solve.py tests/test_matrix_skew_exponential.py ",
     "failed": 0,
-    "passed": 1004,
-    "seconds": 20.39,
+    "passed": 1052,
+    "seconds": 34.48,
     "skipped": 0,
     "xfailed": 0
   },
-  "wheel_sha256": "601e12be5a2263c7c392a858c6f82717ca781ffadc706f420452df34d2be2377"
+  "wheel_sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2"
 }

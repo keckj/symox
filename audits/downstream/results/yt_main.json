@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "601e12be5a2263c7c392a858c6f82717ca781ffadc706f420452df34d2be2377",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/yt_main/freeze.txt.gz": "f9e0def793a1a6663d4b5c9eb7e9c6c6604792fe22473d46320800511da77284",
-    "evidence/yt_main/install.log.gz": "1f8d28e9cb294e5d62476e77b3746f07b1344ce77d67c5ad831eb52bf817ebc9",
-    "evidence/yt_main/native-junit.xml.gz": "31f268870549caecc575442970900b9e76e8266fe313463073adfbe537b4d938",
-    "evidence/yt_main/native-processes.jsonl.gz": "0b38697eaed8f0b5481610212c0ed0ab083350fbbece610897ada6fc01172d9d",
-    "evidence/yt_main/native-tests.json.gz": "3d3559250abc1e07500797390d3f234bd2d7700ef24d9da7a698a17181d2fd62",
-    "evidence/yt_main/native.log.gz": "77f1ae5ca7453e750bdafc2c186f1bc3ab2e44330a3a9cd41bdb5333d1e33915",
+    "evidence/yt_main/freeze.txt.gz": "e74be0328e2329fc1061de3e5c3c75ae6ec08b10536ffdf1b868cce36cfe8397",
+    "evidence/yt_main/install.log.gz": "a4c0ebaf2e41ca7a8c7fb37e6fcb41d69e8569d1c4b4be3e382fbefd305113c7",
+    "evidence/yt_main/native-junit.xml.gz": "3caf69bd331add6948b3da4b69636814f72e4def685420259919a3d2312b6ef9",
+    "evidence/yt_main/native-processes.jsonl.gz": "2c6f34e42f36474263d2f1183b133e5c8b31cb77c3f0a1414b6511e8ea0bddb0",
+    "evidence/yt_main/native-tests.json.gz": "709dbce4e138db7fd703a5c2752038c62184d621abc5100603d5e05db6467a53",
+    "evidence/yt_main/native.log.gz": "ca82b3f6a65199372a3ffafe3877d15cabb2b77a7e06d4cd30f862884962c2d6",
     "evidence/yt_main/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/yt_main/reference-junit.xml.gz": "7c5cc6009e4276c641e54bdd984dbea344847daec6ec657c36dd88c866fc72c2",
-    "evidence/yt_main/reference-processes.jsonl.gz": "6913171f849f9153761408de57b4e85554c9c10c4c5a9f299f5b7d7e1dbe8923",
-    "evidence/yt_main/reference-tests.json.gz": "ac6894d4742875faa30045770b7460ae91378685c6241e7277374ef8b526b63b",
-    "evidence/yt_main/reference.log.gz": "e709322613c42bbf3028af5abc16079379f0a40fd59ac0ca0bdcf3f4ea75966a",
+    "evidence/yt_main/reference-junit.xml.gz": "883d333a7da43e77ef8d15f0b11d4e7a945dc74338df32b9bd3032e48c014242",
+    "evidence/yt_main/reference-processes.jsonl.gz": "58a6f06d0ef1b75c12e048770fb3f51c8f4db5f572031c2169f762c5c9203df5",
+    "evidence/yt_main/reference-tests.json.gz": "4ab9be564301062d88566ba2e23539e5df1d1c1536648c5e0ff9bb2683a621d2",
+    "evidence/yt_main/reference.log.gz": "d73d22fb7bcb389cc26dd9ba939b0b5c931be3ed1b2cc379ce104b33ba9ef1d5",
     "evidence/yt_main/venv.log.gz": "16a2e51a4d6d136baf89cfa2270401fdffb5c6c994aebf183fd38ddfd9eb4c77"
   },
   "freeze": {
@@ -27,8 +27,8 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/freeze.txt",
-    "seconds": 0.114,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nastropy==7.2.3\nastropy-iers-data==0.2026.10.19.0.52.1\ncmyt==2.0.4\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\newah-bool-utils==1.3.2\nexecnet==2.1.2\nfonttools==4.67.0\nh5py==3.16.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmore-itertools==11.2.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli-w==1.2.0\ntqdm==4.70.1\nunyt==3.2.0\nwheel==0.48.0\nyt==4.4.3\n",
+    "seconds": 0.121,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nastropy==7.2.3\nastropy-iers-data==0.2026.10.19.0.52.1\ncmyt==2.0.4\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\newah-bool-utils==1.3.2\nexecnet==2.1.2\nfonttools==4.67.0\nh5py==3.16.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmore-itertools==11.2.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli-w==1.2.0\ntqdm==4.70.1\nunyt==3.2.0\nwheel==0.48.0\nyt==4.4.3\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -67,12 +67,12 @@
       "h5py",
       "astropy",
       "yt==4.4.3",
-      "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/install.log",
-    "seconds": 0.214,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nResolved 41 packages in 14ms\nPrepared 1 package in 0.16ms\nUninstalled 1 package in 19ms\nInstalled 1 package in 14ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 0.515,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nResolved 41 packages in 283ms\nPrepared 1 package in 0.24ms\nUninstalled 1 package in 51ms\nInstalled 1 package in 12ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "installed_tests_match_pinned_source": true,
@@ -130,6 +130,7 @@
         "sympy._expr_methods": "symox._expr_methods",
         "sympy._expression_replace": "symox._expression_replace",
         "sympy._function_signatures": "symox._function_signatures",
+        "sympy._function_types": "symox._function_types",
         "sympy._general_simplify": "symox._general_simplify",
         "sympy._kind": "symox._kind",
         "sympy._linear": "symox._linear",
@@ -206,6 +207,7 @@
         "sympy.core": "symox.core",
         "sympy.core.assumptions": "symox.core.assumptions",
         "sympy.core.expr": "symox.core.expr",
+        "sympy.core.function": "symox.core.function",
         "sympy.core.numbers": "symox.core.numbers",
         "sympy.core.sympify": "symox.core.sympify",
         "sympy.discrete": "symox.discrete",
@@ -384,9 +386,9 @@
       "examples": []
     },
     "seconds": 1.417,
-    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/native-junit.xml -\n1 passed in 0.91s\n",
+    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/native-junit.xml -\n1 passed in 0.89s\n",
     "test_evidence": "evidence/yt_main/native-tests.json.gz",
-    "test_evidence_sha256": "3d3559250abc1e07500797390d3f234bd2d7700ef24d9da7a698a17181d2fd62",
+    "test_evidence_sha256": "709dbce4e138db7fd703a5c2752038c62184d621abc5100603d5e05db6467a53",
     "timed_out": false
   },
   "preflight": {
@@ -397,7 +399,7 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/preflight.log",
-    "seconds": 0.867,
+    "seconds": 1.016,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -463,10 +465,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 1.867,
-    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/reference-junit.xml -\n1 passed in 1.24s\n",
+    "seconds": 2.168,
+    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/reference-junit.xml -\n1 passed in 1.49s\n",
     "test_evidence": "evidence/yt_main/reference-tests.json.gz",
-    "test_evidence_sha256": "ac6894d4742875faa30045770b7460ae91378685c6241e7277374ef8b526b63b",
+    "test_evidence_sha256": "4ab9be564301062d88566ba2e23539e5df1d1c1536648c5e0ff9bb2683a621d2",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -480,6 +482,6 @@
     "commit": "b83aa6bb36b9a9cf7b44d50b37072ebe7dd29527",
     "root": "/home/keckj/.cache/symox-validation/featured/git/yt_main"
   },
-  "started_at": "2026-10-19T18:30:05.379410+00:00",
+  "started_at": "2026-10-19T19:51:33.861619+00:00",
   "status": "native_suite_passes"
 }

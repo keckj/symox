@@ -1,7 +1,7 @@
 {
   "candidate": {
-    "sha256": "601e12be5a2263c7c392a858c6f82717ca781ffadc706f420452df34d2be2377",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {},
   "harness_sha256": {
@@ -20,6 +20,6 @@
     "url": "https://www.researchgate.net/publication/260585491_Symbolic_Statistics_with_SymPy/"
   },
   "reference_version": "1.14.0",
-  "started_at": "2026-10-19T18:29:50.223299+00:00",
+  "started_at": "2026-10-19T19:51:17.953048+00:00",
   "status": "publication_not_a_testable_distribution"
 }

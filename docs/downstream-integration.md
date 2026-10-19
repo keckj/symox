@@ -29,10 +29,10 @@ Local regression checks, their exact scope and the production fix commit are rec
 | [NRPyLaTeX](../audits/downstream/results/nrpylatex.json) | 1.4.0 | 32 pass | 32 pass | Selected tests pass |
 | [OctSymPy](../audits/downstream/results/octsympy.json) | 3.2.2+ | 131 pass | 0 pass, 1 error | Native incompatibility |
 | [Optlang](../audits/downstream/results/optlang.json) | 1.9.1 | 346 pass, 49 skip | 49 pass, 312 fail, 34 skip | Native incompatibility |
-| [PyDy](../audits/downstream/results/pydy.json) | 0.9.4 | 76 pass | 17 pass, 13 fail, 46 error | Native incompatibility |
+| [PyDy](../audits/downstream/results/pydy.json) | 0.9.4 | 76 pass | 76 pass | Selected tests pass |
 | [pyneqsys](../audits/downstream/results/pyneqsys.json) | 0.5.7 | 19 pass, 9 skip | 19 pass, 9 skip | Selected tests pass |
 | [pyodesys](../audits/downstream/results/pyodesys.json) | 0.14.7 | 45 pass, 238 skip | 45 pass, 238 skip | Selected tests pass |
-| [QMCPACK](../audits/downstream/results/qmcpack.json) | 4.4.9.dev | 1 pass | 0 pass, 1 error | Native incompatibility |
+| [QMCPACK](../audits/downstream/results/qmcpack.json) | 4.4.9.dev | 1 pass | 1 pass | Selected tests pass |
 | [Quantum Programming in Python](../audits/downstream/results/quantum_programming.json) | — | not run/completed | not run/completed | Publication, not a package |
 | [SageMath](../audits/downstream/results/sagemath.json) | 10.9 | 319 pass | 137 pass, 182 fail | Native incompatibility |
 | [Scikit-fdiff](../audits/downstream/results/scikit_fdiff.json) | 0.7.0 | not run/completed | not run/completed | Requires an older SymPy |
@@ -264,7 +264,7 @@ self = <optlang.tests.test_container.ContainerTestCase testMethod=test_change_ob
 src/optlang/tests/test_container.py:190:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <optlang.interface.Model object at 0x7fb2e40e50a0>, stuff = _blub
+self = <optlang.interface.Model object at 0x7fcc3387dc40>, stuff = _blub
 sloppy = False
 
     def add(self, stuff, sloppy=False):
@@ -301,40 +301,7 @@ src/optlang/interface.py:1399: TypeError
 
 Upstream test tree selected in the pinned manifest.
 
-```text
-self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fa6a9ec54f0>
-
-    def setup_method(self):
-
-        self.prefix = 'boogly_bee'
-
->       sys = multi_mass_spring_damper(6, True, True)
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-pydy/codegen/tests/test_c_code.py:22:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-pydy/models.py:113: in multi_mass_spring_damper
-    return System(kane)
-           ^^^^^^^^^^^^
-pydy/system.py:104: in __init__
-    self._constants_symbols = self._Kane_constant_symbols()
-                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-pydy/system.py:653: in _Kane_constant_symbols
-    from_eoms, from_sym_lists = self._Kane_inlist_insyms()
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
-self = <pydy.system.System object at 0x7fa6aa62c230>
-
-    def _Kane_inlist_insyms(self):
-        """TODO temporary."""
-
->       uaux = self.eom_method._uaux[:]
-               ^^^^^^^^^^^^^^^^^^^^^
-E       AttributeError: 'KanesMethod' object has no attribute '_uaux'
-
-pydy/system.py:607: AttributeError
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### pyneqsys
 
@@ -352,26 +319,7 @@ All passing reference node IDs were reproduced. The skip/xfail counts above rema
 
 Execute the real src/QMCWaveFunctions/tests/gen_matrix_ops.py reference generator and compare output; not the QMCPACK C++ or Monte Carlo suite
 
-```text
-1x1 matrix
-Matrix([[1.00000000000000]])
-
-2x2 matrix
-Traceback (most recent call last):
-  File "/home/keckj/.cache/symox-validation/featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 241, in <module>
-    test_2x2()
-  File "/home/keckj/.cache/symox-validation/featured/git/qmcpack/src/QMCWaveFunctions/tests/gen_matrix_ops.py", line 152, in test_2x2
-    m2exp = exp(m2)
-            ^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 106, in __call__
-    return self._factory(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/keckj/.cache/symox-validation/featured/envs/qmcpack/lib/python3.12/site-packages/symox/__init__.py", line 159, in f
-    return args[0].exp().as_immutable()
-           ^^^^^^^^^^^^^
-NotImplementedError: Cannot construct an exact analytic matrix function: numerical eigenvalues of float matrices are not implemented
-
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### Quantum Programming in Python
 
@@ -405,7 +353,7 @@ All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath tes
    1 of   3 in sage.interfaces.sympy.check_all
    1 of   3 in sage.interfaces.sympy.check_expression
    2 of   5 in sage.interfaces.sympy.sympy_init
-    [319 tests, 182 failures, 1.76s wall]
+    [319 tests, 182 failures, 1.80s wall]
 ----------------------------------------------------------------------
 python3 -m sage.doctest --warn-long 5.0 --random-seed=0 envs/sage-octave/lib/python3.12/site-packages/sage/interfaces/sympy.py  # 182 doctests failed
 ----------------------------------------------------------------------

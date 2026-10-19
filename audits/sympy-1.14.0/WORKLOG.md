@@ -1,5 +1,73 @@
 # Autonomous parity audit worklog
 
+## PyDy code generation and QMCPACK checkpoint — 2026-10-19
+
+Production fixes: `e44c34c178a2209397b0e4aa0cc150d9ce9a3c71`. Candidate identity, package
+hashes and exact validation commands are recorded in
+`audits/downstream/candidate.json` and `audits/downstream/validation.json`.
+
+PyDy 0.9.4 reproduces all **76 reference-passing tests** with native Symox,
+including compiled Cython evaluation of the five-link pendulum with symbolic
+Cholesky solves. Both runs use the same configured optional dependencies;
+optional generators absent from that environment are outside this result.
+QMCPACK's real `gen_matrix_ops.py` generator completes and reproduces the
+reference output byte for byte. This is one generator selection, not the
+QMCPACK C++ or Monte Carlo suite. No upstream assertion was changed, and native
+processes retain the reference-execution block.
+
+Kane's stored independent state vectors, matrix assignment lowering, printer
+inheritance and nested NumPy numerical signatures now support these consumers.
+Explicit inverse-method choices and invalid-method errors propagate. Ordinary
+undefined applications use per-head native expression subclasses with an actual
+UndefinedFunction metaclass ancestry; reconstruction, serialization and wildcard
+patterns retain their native behavior. The public function factory is still
+separate from the application class. General nominal hierarchy, dependent and
+auxiliary Kane coordinates and all lambdify configurations remain open.
+
+Canonical CSE now follows mathematical node counts and sort keys, including
+wide sums. Counts use arbitrary-size integers over shared DAGs rather than a
+64-argument cutoff. The unsorted traversal is retained for order='none'.
+Symbolic Cholesky/LDL factorization keeps compact exact expressions. A defined,
+full-rank rational specialization proves generic full rank only for eligible
+commutative rational-function inputs. Failed or resource-limited probes retain
+the original exact rank computation, including polynomial singularity errors.
+Probe preflights inspect simultaneous substitutions before enormous powers can
+be forced. Rational rank/cancellation paths and normal-equation fallbacks remain.
+These are scoped expression-growth improvements, not universal solver
+bit-complexity or parameter-stratum certification.
+
+Numeric real skew matrices of size two and three use Rodrigues' exact
+polynomial identity. Input floats are lifted to exact dyadic values, then the
+result is evaluated at native multiprecision and rounded to the input
+precision. Half-angle coefficients avoid cosine subtraction. Large and tiny
+angles and cancellation near pi are checked against an independent matrix
+power-series oracle. Working-precision agreement is numerical evidence, not
+an interval certificate. Diagonal matrices keep their original scalar path,
+including a reference comparison at 600,000 bits. General floating matrix
+functions and global scalar trigonometric accuracy remain open.
+
+The optimized complete internal suite passed **29,218 tests**,
+with 5 documented skips, zero failures and zero xfails.
+All **383 extension tests** passed with required JAX/PyTorch
+CUDA, Slang runtime and AdaptiveCpp OpenMP execution. Rust passed
+**508 unit tests and 5 doctests**,
+with one existing ignored test; workspace compilation and correctness Clippy
+checks passed. Focused validation passed 1,052 cases on
+Python 3.10 and 997 on Python 3.12, plus
+174 mechanics/matrix regressions,
+149 matching/container regressions and
+1,047 restricted-evaluation checks.
+
+All final downstream native runs use the same optimized wheel. The eleven
+passing selections are chempy, haarpy, nrpylatex, pydy, pyneqsys, pyodesys, qmcpack, sfepy, spyder, yt, yt_main. Eight native integrations still
+fail and three reference suites remain unqualified. Full Devito retains its
+previous unclean reference and immutable candidate identity; no full native
+Devito run is eligible. Upstream skips and xfails and latexexpr's nonsymbolic
+tests remain outside the demonstrated scope. The featured replacement gate
+and universal parity certificate remain false. Historical function-parity
+snapshots are not recertified by this checkpoint. The user's Symox >= SymPy
+requirement remains unmet.
+
 ## Wildcard predicates and ChemPy checkpoint — 2026-10-19
 
 Production fixes: `7b3c4137d0c9358b9a83dd8212dc9be1a4f26d88`. Candidate wheel identity,

@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "601e12be5a2263c7c392a858c6f82717ca781ffadc706f420452df34d2be2377",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/latexexpr/freeze.txt.gz": "3bd213410bd1d945d9fb83595872f1d57624be4e3f3d16a6b77dddcccd264c9b",
-    "evidence/latexexpr/install.log.gz": "42782556636f8561bcc61fd9788dca48ee4c797dcf4b78c81e68eef08a53a1c9",
-    "evidence/latexexpr/native-junit.xml.gz": "16e6e36304c90020c7c3f268aec37c80637ab3d1e397705b6550d1578fd6e523",
-    "evidence/latexexpr/native-processes.jsonl.gz": "d31d5ba0b02b29d8185d189025ab7b9fd6d1f2ed48fee0f1ea1a5f81759fb8d1",
-    "evidence/latexexpr/native-tests.json.gz": "d4f13a60ea163ff86bf0bd06f5316bb7545c9757ddd15702845d09d560014824",
-    "evidence/latexexpr/native.log.gz": "414a1c708f0b776b739b55050cabf0a6ff9ba896bf61490ba852169b1b3563ad",
+    "evidence/latexexpr/freeze.txt.gz": "be723f9b923704c13fb953a66c1080ba35ccc6ca459caffbb8af5e25f087b25a",
+    "evidence/latexexpr/install.log.gz": "b8c9089875f62f33e01d54ef5359eff0f742d72db2263f1c596ff6bbbe7d17d7",
+    "evidence/latexexpr/native-junit.xml.gz": "5b7ac550fd0aa1c7f7116b8d2f9203bdbf32e047d8ef8010cc7200bbb5a5d5c0",
+    "evidence/latexexpr/native-processes.jsonl.gz": "4ee93ebb28459341cdecabcbb188ba0a9179763155ae555ac90c3f47a7b12bc7",
+    "evidence/latexexpr/native-tests.json.gz": "7cac7489ca2ff764e18714680f4d197ea1430e401ea9097e6eceff810786909f",
+    "evidence/latexexpr/native.log.gz": "0a8b72afef747a968d4e19a9451373c95c14a8d046c74cd472f789e7838660e0",
     "evidence/latexexpr/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/latexexpr/reference-junit.xml.gz": "a23691107a5b83284e90ecd3b2358b3afae7089d77840ee16530df5cfb932b24",
-    "evidence/latexexpr/reference-processes.jsonl.gz": "608b61d6a5fc4f7da363199fcee0aa952e5f829715fa5186b84907a79e5f9245",
-    "evidence/latexexpr/reference-tests.json.gz": "0267ab71e64f0c753ec4a346e5ca7d19ba9e9985eecfb3f7a278f6f1e43785e2",
-    "evidence/latexexpr/reference.log.gz": "6e304e93e7d6aef4ea57099976e414c68ccbb45d02b18482caf17e932ea75877",
+    "evidence/latexexpr/reference-junit.xml.gz": "3fd03191b5ae28e628def2de7db86066f2572bb77416034b1b2e4f8e364a0201",
+    "evidence/latexexpr/reference-processes.jsonl.gz": "dee50eaae356e4d5dda2d966d51079c30f632310a80668369a05facc21a5f27a",
+    "evidence/latexexpr/reference-tests.json.gz": "4b8be39d5c7f7505369115a46a6cee0f6626d0181c6bf23f02ab39ab6026ea2c",
+    "evidence/latexexpr/reference.log.gz": "eadc1a21d5efc6adb2c51fe5dca156bb3c6866679d29b86ab9255acba7ef00ff",
     "evidence/latexexpr/venv.log.gz": "ab722c1b6a28fe316e1d2f722ed46c812d3ff7b11338f047854252baa31adf46"
   },
   "freeze": {
@@ -27,8 +27,8 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/latexexpr/freeze.txt",
-    "seconds": 0.121,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/latexexpr\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\n-e file:///home/keckj/.cache/symox-validation/featured/git/latexexpr\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "seconds": 0.33,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/latexexpr\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\n-e file:///home/keckj/.cache/symox-validation/featured/git/latexexpr\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -64,12 +64,12 @@
       "numpy",
       "-e",
       "/home/keckj/.cache/symox-validation/featured/git/latexexpr",
-      "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/latexexpr/install.log",
-    "seconds": 0.816,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/latexexpr\nResolved 20 packages in 414ms\n   Building latexexpr @ file:///home/keckj/.cache/symox-validation/featured/git/latexexpr\n      Built latexexpr @ file:///home/keckj/.cache/symox-validation/featured/git/latexexpr\nPrepared 2 packages in 176ms\nUninstalled 2 packages in 26ms\nInstalled 2 packages in 11ms\n ~ latexexpr==0.4.1 (from file:///home/keckj/.cache/symox-validation/featured/git/latexexpr)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 1.247,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/latexexpr\nResolved 20 packages in 500ms\n   Building latexexpr @ file:///home/keckj/.cache/symox-validation/featured/git/latexexpr\n      Built latexexpr @ file:///home/keckj/.cache/symox-validation/featured/git/latexexpr\nPrepared 2 packages in 197ms\nUninstalled 2 packages in 18ms\nInstalled 2 packages in 24ms\n ~ latexexpr==0.4.1 (from file:///home/keckj/.cache/symox-validation/featured/git/latexexpr)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -115,10 +115,10 @@
       "count": 0,
       "examples": []
     },
-    "seconds": 0.365,
-    "tail": "..                                                                       [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/latexexpr/native-junit.xml -\n2 passed in 0.10s\n",
+    "seconds": 0.468,
+    "tail": "..                                                                       [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/latexexpr/native-junit.xml -\n2 passed in 0.12s\n",
     "test_evidence": "evidence/latexexpr/native-tests.json.gz",
-    "test_evidence_sha256": "d4f13a60ea163ff86bf0bd06f5316bb7545c9757ddd15702845d09d560014824",
+    "test_evidence_sha256": "7cac7489ca2ff764e18714680f4d197ea1430e401ea9097e6eceff810786909f",
     "timed_out": false
   },
   "preflight": {
@@ -129,7 +129,7 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/latexexpr/preflight.log",
-    "seconds": 0.816,
+    "seconds": 0.979,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -195,10 +195,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 0.364,
-    "tail": "..                                                                       [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/latexexpr/reference-junit.xml -\n2 passed in 0.10s\n",
+    "seconds": 0.486,
+    "tail": "..                                                                       [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/latexexpr/reference-junit.xml -\n2 passed in 0.11s\n",
     "test_evidence": "evidence/latexexpr/reference-tests.json.gz",
-    "test_evidence_sha256": "0267ab71e64f0c753ec4a346e5ca7d19ba9e9985eecfb3f7a278f6f1e43785e2",
+    "test_evidence_sha256": "4b8be39d5c7f7505369115a46a6cee0f6626d0181c6bf23f02ab39ab6026ea2c",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -211,6 +211,6 @@
     "commit": "0e6a732264cf3047548555eaa57c3e9d3a304e3a",
     "root": "/home/keckj/.cache/symox-validation/featured/git/latexexpr"
   },
-  "started_at": "2026-10-19T18:26:29.131751+00:00",
+  "started_at": "2026-10-19T19:47:28.277232+00:00",
   "status": "no_sympy_code_exercised"
 }

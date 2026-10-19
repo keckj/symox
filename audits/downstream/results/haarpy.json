@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "601e12be5a2263c7c392a858c6f82717ca781ffadc706f420452df34d2be2377",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/haarpy/freeze.txt.gz": "95b43cff5227a2eca56f6e6b4b57c895f39f6f7c58347073abb26a1197f8334b",
-    "evidence/haarpy/install.log.gz": "613d74ad97a8af5d51c0d4fbeba36eea7feaf7d946d94f0a1f951943addab0f0",
-    "evidence/haarpy/native-junit.xml.gz": "d58e8c3d0a5bf9006120a0af7e5c85f72fc7349642380f5fc8279296b939f72b",
-    "evidence/haarpy/native-processes.jsonl.gz": "2012a82078573fab6f3d5e2d21e42b80d68a49c15b2154adabf59795f03916ad",
-    "evidence/haarpy/native-tests.json.gz": "3d3f69f34845ef5275b8840a883b809ce3cde49291b98c7e3a80e1af4a566691",
-    "evidence/haarpy/native.log.gz": "bca1bc30fc1f1026a1a8e3c1b5e2f5fed718556f57137ca10754d75c747efab7",
+    "evidence/haarpy/freeze.txt.gz": "9ff1c2a9e393253b85b8517ef0685c7de2377aef61ff8e1ed7e1c676c7e230d8",
+    "evidence/haarpy/install.log.gz": "ccc098f96d03a2ed27a5971cda675d6101867f545f4118b4bb1cbd813cd05c72",
+    "evidence/haarpy/native-junit.xml.gz": "70e7aff893ad51133b70275d92c6c50521019e24a47a6e7861e6953c72645fb4",
+    "evidence/haarpy/native-processes.jsonl.gz": "2f32e8882a259834c7e9658fd4154a6a6de02a31963d13da3d82271dd2b98e6d",
+    "evidence/haarpy/native-tests.json.gz": "2a98d816c650ec4fd67955b3b8a8c79a734981eeb874d5dbde34aa540ffbfad7",
+    "evidence/haarpy/native.log.gz": "db1c616ca9ecd1227cca274b391b5ed19258d85ccd55ec2d4b68c289c97e2da3",
     "evidence/haarpy/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/haarpy/reference-junit.xml.gz": "eba337d9ab9c084789016bb0da6e320ae08fdf9da9a780e050d60e9d16e67905",
-    "evidence/haarpy/reference-processes.jsonl.gz": "6b023ee76a532125171f5176a2440e6edc3729def22ab97645e116181cec03bd",
-    "evidence/haarpy/reference-tests.json.gz": "4aee7470cda7764f80e1c7a85ceeade45ba11b15e3864977c0d629ad6189887d",
-    "evidence/haarpy/reference.log.gz": "7d65c531e828df6b59fec4e4cae9163d766aaf0004946f1473a47ea61ebc34ed",
+    "evidence/haarpy/reference-junit.xml.gz": "f70ac27da84c4ed2cbc7a3e449c52de6ba60e16b0c7ecb765a109bbb7664bffa",
+    "evidence/haarpy/reference-processes.jsonl.gz": "a00c6cbde4bd691cf4c7c8df6ecc019ada90aaea9e37d5992932f94e058f2efd",
+    "evidence/haarpy/reference-tests.json.gz": "ccc4a54b883c3bb0716efe032b8ce686b2c4159a4ba96cd7b4970a0b30c8a33e",
+    "evidence/haarpy/reference.log.gz": "52d6794021abfae5f3af7c60582b735c63f202d233e95da1e57f57bd771e7837",
     "evidence/haarpy/venv.log.gz": "7cce0d105a81409a032b8d5d5faa9c9f4dd8fa0fa8dcc57bddd61252e33a2408"
   },
   "freeze": {
@@ -27,8 +27,8 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/haarpy/freeze.txt",
-    "seconds": 0.114,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/haarpy\ncoverage==7.16.2\nexecnet==2.1.2\n-e file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "seconds": 0.165,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/haarpy\ncoverage==7.16.2\nexecnet==2.1.2\n-e file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -64,12 +64,12 @@
       "numpy",
       "-e",
       "/home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1",
-      "/home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/haarpy/install.log",
-    "seconds": 1.018,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/haarpy\nResolved 20 packages in 471ms\n   Building haarpy @ file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1\n      Built haarpy @ file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1\nPrepared 2 packages in 180ms\nUninstalled 2 packages in 38ms\nInstalled 2 packages in 11ms\n ~ haarpy==0.1.1 (from file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 1.491,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/haarpy\nResolved 20 packages in 597ms\n   Building haarpy @ file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1\n      Built haarpy @ file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1\nPrepared 2 packages in 340ms\nUninstalled 2 packages in 15ms\nInstalled 2 packages in 21ms\n ~ haarpy==0.1.1 (from file:///home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -125,6 +125,7 @@
         "sympy._expr_methods": "symox._expr_methods",
         "sympy._expression_replace": "symox._expression_replace",
         "sympy._function_signatures": "symox._function_signatures",
+        "sympy._function_types": "symox._function_types",
         "sympy._general_simplify": "symox._general_simplify",
         "sympy._kind": "symox._kind",
         "sympy._linear": "symox._linear",
@@ -201,6 +202,7 @@
         "sympy.core": "symox.core",
         "sympy.core.assumptions": "symox.core.assumptions",
         "sympy.core.expr": "symox.core.expr",
+        "sympy.core.function": "symox.core.function",
         "sympy.core.numbers": "symox.core.numbers",
         "sympy.core.sympify": "symox.core.sympify",
         "sympy.discrete": "symox.discrete",
@@ -378,10 +380,10 @@
       "count": 0,
       "examples": []
     },
-    "seconds": 105.689,
-    "tail": "........................................................................ [  6%]\n........................................................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 26%]\n........................................................................ [ 32%]\n........................................................................ [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 58%]\n........................................................................ [ 65%]\n........................................................................ [ 71%]\n........................................................................ [ 78%]\n........................................................................ [ 84%]\n........................................................................ [ 91%]\n........................................................................ [ 97%]\n...........................                                              [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/haarpy/native-junit.xml -\n1107 passed in 105.18s (0:01:45)\n",
+    "seconds": 108.394,
+    "tail": "........................................................................ [  6%]\n........................................................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 26%]\n........................................................................ [ 32%]\n........................................................................ [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 58%]\n........................................................................ [ 65%]\n........................................................................ [ 71%]\n........................................................................ [ 78%]\n........................................................................ [ 84%]\n........................................................................ [ 91%]\n........................................................................ [ 97%]\n...........................                                              [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/haarpy/native-junit.xml -\n1107 passed in 107.83s (0:01:47)\n",
     "test_evidence": "evidence/haarpy/native-tests.json.gz",
-    "test_evidence_sha256": "3d3f69f34845ef5275b8840a883b809ce3cde49291b98c7e3a80e1af4a566691",
+    "test_evidence_sha256": "2a98d816c650ec4fd67955b3b8a8c79a734981eeb874d5dbde34aa540ffbfad7",
     "timed_out": false
   },
   "preflight": {
@@ -392,7 +394,7 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/haarpy/preflight.log",
-    "seconds": 0.866,
+    "seconds": 0.979,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -453,10 +455,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 101.786,
-    "tail": "........................................................................ [  6%]\n........................................................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 26%]\n........................................................................ [ 32%]\n........................................................................ [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 58%]\n........................................................................ [ 65%]\n........................................................................ [ 71%]\n........................................................................ [ 78%]\n........................................................................ [ 84%]\n........................................................................ [ 91%]\n........................................................................ [ 97%]\n...........................                                              [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/haarpy/reference-junit.xml -\n1107 passed in 100.94s (0:01:40)\n",
+    "seconds": 107.491,
+    "tail": "........................................................................ [  6%]\n........................................................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 26%]\n........................................................................ [ 32%]\n........................................................................ [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 58%]\n........................................................................ [ 65%]\n........................................................................ [ 71%]\n........................................................................ [ 78%]\n........................................................................ [ 84%]\n........................................................................ [ 91%]\n........................................................................ [ 97%]\n...........................                                              [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/haarpy/reference-junit.xml -\n1107 passed in 106.64s (0:01:46)\n",
     "test_evidence": "evidence/haarpy/reference-tests.json.gz",
-    "test_evidence_sha256": "4aee7470cda7764f80e1c7a85ceeade45ba11b15e3864977c0d629ad6189887d",
+    "test_evidence_sha256": "ccc4a54b883c3bb0716efe032b8ce686b2c4159a4ba96cd7b4970a0b30c8a33e",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -479,6 +481,6 @@
     "root": "/home/keckj/.cache/symox-validation/featured/sources/haarpy/haarpy-0.1.1",
     "sha256": "aa6a803f167eb3189d9f859c85b79dbc92a9bdd10fa15b1098c7bb65e40feab6"
   },
-  "started_at": "2026-10-19T18:26:22.397700+00:00",
+  "started_at": "2026-10-19T19:47:22.531353+00:00",
   "status": "native_suite_passes"
 }
