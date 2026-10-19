@@ -1,0 +1,25 @@
+{
+  "evidence": {},
+  "project": {
+    "distribution": "scikit-fdiff",
+    "id": "scikit_fdiff",
+    "name": "Scikit-fdiff",
+    "reference_incompatible": "sympy (<1.6)",
+    "source_artifact": {
+      "digests": {
+        "blake2b_256": "6e2fdf50533f936336ed31cb609f78f331153526518a7e516eff047da9f5882f",
+        "md5": "90931cb9ec9bdca2cd8f65472d414206",
+        "sha256": "05d39e607c553cbc3b3ec328b84a6f2665291cd095ef94ae8479819ad4fbe3ec"
+      },
+      "filename": "scikit-fdiff-0.7.0.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/6e/2f/df50533f936336ed31cb609f78f331153526518a7e516eff047da9f5882f/scikit-fdiff-0.7.0.tar.gz"
+    },
+    "tests": [
+      "tests"
+    ],
+    "version": "0.7.0"
+  },
+  "reference_version": "1.14.0",
+  "started_at": "2026-10-19T09:39:23.956622+00:00",
+  "status": "excluded_reference_requirement"
+}

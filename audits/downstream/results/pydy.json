@@ -1,0 +1,326 @@
+{
+  "candidate": {
+    "sha256": "b862ab30ef3e89791fbf5617074b270109732de73d7b400980e745f30d2fd41d",
+    "wheel": "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+  },
+  "evidence": {
+    "evidence/pydy/freeze.txt.gz": "e8cbc47eec02f9a9626de3138271f3922a774ba11989f3206338920ebc51c590",
+    "evidence/pydy/install.log.gz": "f3fc053823266e8bd4d457d1d07d003f1af3fcc41d91f8534b99387adc1fd6d5",
+    "evidence/pydy/native-junit.xml.gz": "bd7bed0bda2ceedd836e6765e69fe5bc8d640a6eb4817d3a9f2bfff7099dc049",
+    "evidence/pydy/native-processes.jsonl.gz": "c12d1a650a0f5682d8814f1a26faa47ad04b53d92d2d3d97f3b3ba0a75e37fb5",
+    "evidence/pydy/native-tests.json.gz": "629450e390ec705b7e4cf8f04d7118c2be9f7051ec35eed857f4f6bd767af279",
+    "evidence/pydy/native.log.gz": "c90929be44f20cf7e2375ba841e6f6fdbc63f5005b4cc657959a40d04af075b2",
+    "evidence/pydy/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
+    "evidence/pydy/reference-junit.xml.gz": "35026f33fec1d427f5494715fd9835cdd71ef2693a78c1770f82e9806bf85126",
+    "evidence/pydy/reference-processes.jsonl.gz": "47ad358524ec73d4fd8b122b3b0e90f77c4b9d3096ba812360dd4863c2637ef2",
+    "evidence/pydy/reference-tests.json.gz": "e0014bbc9e1a3f3d9c9d7479b189df4ccb81dbcda49456af1b85e89178a84a6f",
+    "evidence/pydy/reference.log.gz": "12411aaf007fa34633290d806ec3517ab91d171423cb1a28e3049f13d271f0b7",
+    "evidence/pydy/venv.log.gz": "0fa6ac81a44aff4d46d9522b1d3c2f49ce51094c123fdc6a9943b9ac46283975"
+  },
+  "freeze": {
+    "command": [
+      "uv",
+      "pip",
+      "freeze",
+      "--python",
+      "/tmp/symox-featured/envs/pydy/bin/python"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/pydy/freeze.txt",
+    "seconds": 0.216,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/pydy\ncoverage==7.16.2\ncython==3.3.0\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\n-e file:///tmp/symox-featured/sources/pydy/pydy-0.9.4\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nscipy==1.17.1\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "timed_out": false
+  },
+  "harness_sha256": {
+    "audit.py": "1f4397b1448d63aeaf183421d084704fd7050020d37833ccbfe51dc8e41d5ac7",
+    "audit_plugin.py": "3550d2e33686b9172f462d05400a45de6f509dffe1e0dd1c7871f788268e41fb",
+    "external.py": "6469cffb96db123fa3f9dda96ff6047cdaf2df4d93d6c996ae069881b4d43a5a",
+    "sitecustomize.py": "274e281653de1d381282accef700272d3b88f73a9b1d8f8121386ee05e8d1b7b"
+  },
+  "install": {
+    "command": [
+      "uv",
+      "pip",
+      "install",
+      "--python",
+      "/tmp/symox-featured/envs/pydy/bin/python",
+      "--constraint",
+      "/tmp/symox-featured/constraints/pydy.txt",
+      "--reinstall-package",
+      "symox",
+      "sympy==1.14.0",
+      "pytest>=8,<9",
+      "pytest-cov",
+      "pytest-timeout",
+      "pytest-xdist",
+      "pytest-mock",
+      "hypothesis",
+      "packaging",
+      "setuptools",
+      "wheel",
+      "mpmath",
+      "numpy",
+      "Cython",
+      "-e",
+      "/tmp/symox-featured/sources/pydy/pydy-0.9.4",
+      "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/pydy/install.log",
+    "seconds": 1.919,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/pydy\nResolved 22 packages in 1.11s\n   Building pydy @ file:///tmp/symox-featured/sources/pydy/pydy-0.9.4\n      Built pydy @ file:///tmp/symox-featured/sources/pydy/pydy-0.9.4\nPrepared 2 packages in 403ms\nUninstalled 2 packages in 37ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 143ms\n ~ pydy==0.9.4 (from file:///tmp/symox-featured/sources/pydy/pydy-0.9.4)\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "timed_out": false
+  },
+  "native": {
+    "collection_errors": [],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/pydy/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/pydy/native-junit.xml",
+      "pydy"
+    ],
+    "counts": {
+      "collection_errors": 0,
+      "errors": 46,
+      "failed": 13,
+      "passed": 17,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 1,
+    "first_failures": [
+      {
+        "detail": "self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fed10e59280>\n\n    def setup_method(self):\n    \n        self.prefix = 'boogly_bee'\n    \n>       sys = multi_mass_spring_damper(6, True, True)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\npydy/codegen/tests/test_c_code.py:22: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/models.py:113: in multi_mass_spring_damper\n    return System(kane)\n           ^^^^^^^^^^^^\npydy/system.py:104: in __init__\n    self._constants_symbols = self._Kane_constant_symbols()\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydy/system.py:653: in _Kane_constant_symbols\n    from_eoms, from_sym_lists = self._Kane_inlist_insyms()\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.system.System object at 0x7fed10e590a0>\n\n    def _Kane_inlist_insyms(self):\n        \"\"\"TODO temporary.\"\"\"\n    \n>       uaux = self.eom_method._uaux[:]\n               ^^^^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'KanesMethod' object has no attribute '_uaux'\n\npydy/system.py:607: AttributeError",
+        "duration": 0.03151791694108397,
+        "nodeid": "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_init",
+        "outcome": "failed",
+        "phase": "setup",
+        "wasxfail": null
+      },
+      {
+        "detail": "self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fed10dbbf50>\n\n    def setup_method(self):\n    \n        self.prefix = 'boogly_bee'\n    \n>       sys = multi_mass_spring_damper(6, True, True)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\npydy/codegen/tests/test_c_code.py:22: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/models.py:113: in multi_mass_spring_damper\n    return System(kane)\n           ^^^^^^^^^^^^\npydy/system.py:104: in __init__\n    self._constants_symbols = self._Kane_constant_symbols()\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydy/system.py:653: in _Kane_constant_symbols\n    from_eoms, from_sym_lists = self._Kane_inlist_insyms()\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.system.System object at 0x7fed1091f980>\n\n    def _Kane_inlist_insyms(self):\n        \"\"\"TODO temporary.\"\"\"\n    \n>       uaux = self.eom_method._uaux[:]\n               ^^^^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'KanesMethod' object has no attribute '_uaux'\n\npydy/system.py:607: AttributeError",
+        "duration": 0.029777692048810422,
+        "nodeid": "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_cse",
+        "outcome": "failed",
+        "phase": "setup",
+        "wasxfail": null
+      },
+      {
+        "detail": "self = <pydy.codegen.tests.test_c_code.TestCMatrixGenerator object at 0x7fed10debfb0>\n\n    def setup_method(self):\n    \n        self.prefix = 'boogly_bee'\n    \n>       sys = multi_mass_spring_damper(6, True, True)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\npydy/codegen/tests/test_c_code.py:22: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/models.py:113: in multi_mass_spring_damper\n    return System(kane)\n           ^^^^^^^^^^^^\npydy/system.py:104: in __init__\n    self._constants_symbols = self._Kane_constant_symbols()\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydy/system.py:653: in _Kane_constant_symbols\n    from_eoms, from_sym_lists = self._Kane_inlist_insyms()\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.system.System object at 0x7fed1065ab10>\n\n    def _Kane_inlist_insyms(self):\n        \"\"\"TODO temporary.\"\"\"\n    \n>       uaux = self.eom_method._uaux[:]\n               ^^^^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'KanesMethod' object has no attribute '_uaux'\n\npydy/system.py:607: AttributeError",
+        "duration": 0.030690689920447767,
+        "nodeid": "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_skip_cse",
+        "outcome": "failed",
+        "phase": "setup",
+        "wasxfail": null
+      }
+    ],
+    "log": "/tmp/symox-featured/logs/pydy/native.log",
+    "process_provenance_artifact": "evidence/pydy/native-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "symox": 1
+      },
+      "blocked_reference_execution": 0,
+      "processes": 1
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {
+        "sympy": "symox",
+        "sympy.core": "symox.core",
+        "sympy.core.function": "symox.core.function",
+        "sympy.matrices": "symox.matrices",
+        "sympy.matrices.expressions": "symox.matrices.expressions",
+        "sympy.physics": "symox.physics",
+        "sympy.physics.mechanics": "symox.physics.mechanics",
+        "sympy.printing": "symox.printing",
+        "sympy.printing.c": "symox.printing.c",
+        "sympy.printing.codeprinter": "symox.printing.codeprinter",
+        "sympy.printing.octave": "symox.printing.octave"
+      }
+    },
+    "reference_passes_not_reproduced": {
+      "count": 59,
+      "examples": [
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_doprint",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_code_blocks",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_code_blocks_without_cse",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_comma_lists",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_cse",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_pydy_printer",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_init",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_skip_cse",
+        "pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_write",
+        "pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_compile",
+        "pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_doprint",
+        "pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_generate_code_blocks",
+        "pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_write",
+        "pydy/codegen/tests/test_cython_code.py::test_lusolve_generator",
+        "pydy/codegen/tests/test_cython_code.py::test_pi_windows",
+        "pydy/codegen/tests/test_octave_code.py::test_OctaveMatrixGenerator",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_init_full_mass_matrix",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_init_full_rhs",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_init_min_mass_matrix",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_no_constants",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_set_linear_system_solver",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_full_mass_matrix",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_full_rhs",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_min_mass_matrix",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_with_specifieds",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_init_doc",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_rhs_args",
+        "pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_rhs_docstring",
+        "pydy/codegen/tests/test_ode_function_generator.py::test_ccontiguous",
+        "pydy/codegen/tests/test_ode_function_generator.py::test_cse_same_numerical_results"
+      ]
+    },
+    "seconds": 6.443,
+    "tail": "/system.py:607: AttributeError\n________________________ test_multi_mass_spring_damper _________________________\n\n    def test_multi_mass_spring_damper():\n    \n        k0, m0, g, c0 = sm.symbols('k0, m0, g, c0')\n        x0, v0, f0 = me.dynamicsymbols('x0, v0, f0')\n    \n>       sys = multi_mass_spring_damper()\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\npydy/tests/test_models.py:17: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/models.py:113: in multi_mass_spring_damper\n    return System(kane)\n           ^^^^^^^^^^^^\npydy/system.py:104: in __init__\n    self._constants_symbols = self._Kane_constant_symbols()\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydy/system.py:653: in _Kane_constant_symbols\n    from_eoms, from_sym_lists = self._Kane_inlist_insyms()\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.system.System object at 0x7fed10ad0a70>\n\n    def _Kane_inlist_insyms(self):\n        \"\"\"TODO temporary.\"\"\"\n    \n>       uaux = self.eom_method._uaux[:]\n               ^^^^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'KanesMethod' object has no attribute '_uaux'\n\npydy/system.py:607: AttributeError\n__________________ test_multi_mass_spring_damper_with_forces ___________________\n\n    def test_multi_mass_spring_damper_with_forces():\n    \n        k0, m0, g, c0 = sm.symbols('k0, m0, g, c0')\n        x0, v0, f0 = me.dynamicsymbols('x0, v0, f0')\n    \n>       sys = multi_mass_spring_damper(apply_gravity=True,\n                                       apply_external_forces=True)\n\npydy/tests/test_models.py:40: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/models.py:113: in multi_mass_spring_damper\n    return System(kane)\n           ^^^^^^^^^^^^\npydy/system.py:104: in __init__\n    self._constants_symbols = self._Kane_constant_symbols()\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydy/system.py:653: in _Kane_constant_symbols\n    from_eoms, from_sym_lists = self._Kane_inlist_insyms()\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.system.System object at 0x7fed2185ade0>\n\n    def _Kane_inlist_insyms(self):\n        \"\"\"TODO temporary.\"\"\"\n    \n>       uaux = self.eom_method._uaux[:]\n               ^^^^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'KanesMethod' object has no attribute '_uaux'\n\npydy/system.py:607: AttributeError\n_____________________ test_multi_mass_spring_damper_double _____________________\n\n    def test_multi_mass_spring_damper_double():\n    \n        m0, m1, c0, c1, k0, k1, g = sm.symbols('m0, m1, c0, c1, k0, k1, g')\n        x0, x1, v0, v1, f0, f1 = me.dynamicsymbols('x0, x1, v0, v1, f0, f1')\n    \n>       sys = multi_mass_spring_damper(2, True, True)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\npydy/tests/test_models.py:64: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/models.py:113: in multi_mass_spring_damper\n    return System(kane)\n           ^^^^^^^^^^^^\npydy/system.py:104: in __init__\n    self._constants_symbols = self._Kane_constant_symbols()\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydy/system.py:653: in _Kane_constant_symbols\n    from_eoms, from_sym_lists = self._Kane_inlist_insyms()\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.system.System object at 0x7fed104aecf0>\n\n    def _Kane_inlist_insyms(self):\n        \"\"\"TODO temporary.\"\"\"\n    \n>       uaux = self.eom_method._uaux[:]\n               ^^^^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'KanesMethod' object has no attribute '_uaux'\n\npydy/system.py:607: AttributeError\n_____________________ test_specifying_coordinate_issue_339 _____________________\n\n    def test_specifying_coordinate_issue_339():\n        \"\"\"This test ensures that you can use derivatives as specified values.\"\"\"\n    \n        # beta will be a specified angle\n        beta = me.dynamicsymbols('beta')\n        q1, q2, q3, q4 = me.dynamicsymbols('q1, q2, q3, q4')\n        u1, u2, u3, u4 = me.dynamicsymbols('u1, u2, u3, u4')\n    \n        N = me.ReferenceFrame('N')\n        A = N.orientnew('A', 'Axis', (q1, N.x))\n        B = A.orientnew('B', 'Axis', (beta, A.y))\n    \n        No = me.Point('No')\n        Ao = No.locatenew('Ao', q2 * N.x + q3 * N.y + q4 * N.z)\n        Bo = Ao.locatenew('Bo', 10 * A.x + 10 * A.y + 10 * A.z)\n    \n        A.set_ang_vel(N, u1 * N.x)\n        B.ang_vel_in(N)  # compute it automatically\n    \n        No.set_vel(N, 0)\n        Ao.set_vel(N, u2 * N.x + u3 * N.y + u4 * N.z)\n        Bo.v2pt_theory(Ao, N, B)\n    \n        body_A = me.RigidBody('A', Ao, A, 1.0, (me.inertia(A, 1, 2, 3), Ao))\n        body_B = me.RigidBody('B', Bo, B, 1.0, (me.inertia(A, 3, 2, 1), Bo))\n    \n        bodies = [body_A, body_B]\n        # TODO : This should be able to be simple an empty iterable.\n        loads = [(No, 0 * N.x)]\n    \n        kdes = [u1 - q1.diff(),\n                u2 - q2.diff(),\n                u3 - q3.diff(),\n                u4 - q4.diff()]\n    \n        kane = me.KanesMethod(N, q_ind=[q1, q2, q3, q4],\n                              u_ind=[u1, u2, u3, u4], kd_eqs=kdes)\n    \n        fr, frstar = kane.kanes_equations(bodies, loads)\n    \n>       sys = System(kane)\n              ^^^^^^^^^^^^\n\npydy/tests/test_system.py:520: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/system.py:104: in __init__\n    self._constants_symbols = self._Kane_constant_symbols()\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydy/system.py:653: in _Kane_constant_symbols\n    from_eoms, from_sym_lists = self._Kane_inlist_insyms()\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.system.System object at 0x7fed104f91f0>\n\n    def _Kane_inlist_insyms(self):\n        \"\"\"TODO temporary.\"\"\"\n    \n>       uaux = self.eom_method._uaux[:]\n               ^^^^^^^^^^^^^^^^^^^^^\nE       AttributeError: 'KanesMethod' object has no attribute '_uaux'\n\npydy/system.py:607: AttributeError\n____________________________ test_codegen_linewrap _____________________________\n\n    def test_codegen_linewrap():\n    \n        # Generated can result in long expressions with no obvious place to insert a\n        # newline. Refer to https://github.com/pydy/pydy/issues/263.\n        x, y, z = dynamicsymbols('x y z')\n        expr = (x*y*z*cos(x)*sin(x)*tan(x)*sqrt(x)*cos(y)*sin(y)*tan(y)*\n                sqrt(y)*cos(z)*sin(z)*tan(z)*sqrt(z)*cos(x*y)*sin(x*y)*tan(x*y)*\n                sqrt(x*y)* cos(y*z)*sin(y*z)*tan(y*z)*sqrt(y*z)*cos(z*x)*\n                sin(z*x)*tan(z*x)*sqrt(z*x)*3)/8\n        mat_expr = Matrix([expr])\n    \n        q = [x, y, z]\n        # Don't raise an error with this line.\n>       gen = CythonMatrixGenerator([q], [mat_expr])\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\npydy/tests/test_utils.py:39: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \npydy/codegen/cython_code.py:93: in __init__\n    self.c_matrix_generator = CMatrixGenerator(arguments, matrices,\npydy/codegen/matrix_generator.py:75: in __init__\n    self._generate_code_blocks()\npydy/codegen/c_code.py:89: in _generate_code_blocks\n    code_str = printer.doprint(output, lhs)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n../../../envs/pydy/lib/python3.12/site-packages/symox/printing/cxx.py:28: in doprint\n    return self._print(expr)\n           ^^^^^^^^^^^^^^^^^\n../../../envs/pydy/lib/python3.12/site-packages/symox/printing/printer.py:37: in _print\n    return method(expr, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^\n../../../envs/pydy/lib/python3.12/site-packages/symox/printing/cxx.py:120: in _print_Assignment\n    return f\"{self._print(expr.lhs)} = {self._print(expr.rhs)};\"\n              ^^^^^^^^^^^^^^^^^^^^^\n../../../envs/pydy/lib/python3.12/site-packages/symox/printing/printer.py:52: in _print\n    return self.emptyPrinter(expr)\n           ^^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <pydy.codegen.matrix_generator.MatrixGenerator._generate_pydy_printer.<locals>.PyDyCodePrinter object at 0x7fed10531070>\nexpr = output_0\n\n    def emptyPrinter(self,expr):\n        if getattr(expr,'is_Function',False):\n            name=expr.class_name;function=self.known_functions.get(name)\n            if function is None:\n                if getattr(expr,'is_UndefinedFunction',False):raise PrintMethodNotImplementedError('unknown function '+name+' requires user_functions')\n                function={'Abs':'fabs','ceiling':'ceil','Max':'fmax','Min':'fmin'}.get(name,name)\n            if not isinstance(function,str):function=next((value for condition,value in function if condition(*expr.args)),name)\n            return function+'('+', '.join(self._print(a) for a in expr.args)+')'\n        from symox import _core\n>       return _core.ccode(expr)\n               ^^^^^^^^^^^^^^^^^\nE       NotImplementedError: Unsupported by the code printer: a matrix expression used as a scalar\n\n../../../envs/pydy/lib/python3.12/site-packages/symox/printing/codeprinter.py:43: NotImplementedError\n=============================== warnings summary ===============================\npydy/codegen/tests/test_ode_function_generator.py:535\n  /tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:535: PyDyImportWarning: Theano was not found so the related tests are being skipped.\n    warnings.warn(\"Theano was not found so the related tests are being\"\n\npydy/codegen/tests/test_ode_function_generator.py:545\n  /tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:545: PyDyImportWarning: Symjit was not found so the related tests are being skipped.\n    warnings.warn(\"Symjit was not found so the related tests are being\"\n\npydy/viz/tests/test_visualization_frame_scene.py:18\n  /tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_visualization_frame_scene.py:18: PytestCollectionWarning: cannot collect test class 'TestVisualizationFrameScene' because it has a __init__ constructor (from: pydy/viz/tests/test_visualization_frame_scene.py)\n    class TestVisualizationFrameScene(object):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n------ generated xml file: /tmp/symox-featured/logs/pydy/native-junit.xml ------\n=========================== short test summary info ============================\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_init - At...\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_cse\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_skip_cse\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_pydy_printer\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_comma_lists\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_code_blocks\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_generate_code_blocks_without_cse\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_doprint\nERROR pydy/codegen/tests/test_c_code.py::TestCMatrixGenerator::test_write - A...\nERROR pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_generate_code_blocks\nERROR pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_doprint\nERROR pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_write\nERROR pydy/codegen/tests/test_cython_code.py::TestCythonMatrixGenerator::test_compile\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_init_full_rhs\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_init_full_mass_matrix\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_init_min_mass_matrix\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_set_linear_system_solver\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGenerator::test_no_constants\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_init_doc\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_full_rhs\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_full_mass_matrix\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_min_mass_matrix\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_generate_with_specifieds\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_rhs_args\nERROR pydy/codegen/tests/test_ode_function_generator.py::TestODEFunctionGeneratorSubclasses::test_rhs_docstring\nERROR pydy/tests/test_system.py::TestSystem::test_init - AttributeError: 'Kan...\nERROR pydy/tests/test_system.py::TestSystem::test_coordinates - AttributeErro...\nERROR pydy/tests/test_system.py::TestSystem::test_speeds - AttributeError: 'K...\nERROR pydy/tests/test_system.py::TestSystem::test_states - AttributeError: 'K...\nERROR pydy/tests/test_system.py::TestSystem::test_constants - AttributeError:...\nERROR pydy/tests/test_system.py::TestSystem::test_specifieds - AttributeError...\nERROR pydy/tests/test_system.py::TestSystem::test_times - AttributeError: 'Ka...\nERROR pydy/tests/test_system.py::TestSystem::test_ode_solver - AttributeError...\nERROR pydy/tests/test_system.py::TestSystem::test_initial_conditions - Attrib...\nERROR pydy/tests/test_system.py::TestSystem::test_generate_ode_function - Att...\nERROR pydy/tests/test_system.py::TestSystem::test_evaluate_ode - AttributeErr...\nERROR pydy/tests/test_system.py::TestSystem::test_integrate - AttributeError:...\nERROR pydy/tests/test_system.py::TestSystem::test_c_contiguous - AttributeErr...\nERROR pydy/viz/tests/test_scene.py::TestScene::test_init - AttributeError: 'K...\nERROR pydy/viz/tests/test_scene.py::TestScene::test_setting_incompatible_attrs\nERROR pydy/viz/tests/test_scene.py::TestScene::test_clear_trajectories - Attr...\nERROR pydy/viz/tests/test_scene.py::TestScene::test_generate_simulation_dict\nERROR pydy/viz/tests/test_scene.py::TestScene::test_generate_scene_dict - Att...\nERROR pydy/viz/tests/test_scene.py::TestScene::test_custom_camera - Attribute...\nERROR pydy/viz/tests/test_scene.py::TestScene::test_create_static_html - Attr...\nERROR pydy/viz/tests/test_scene.py::TestScene::test_generate_visualization_json_system\nFAILED pydy/codegen/tests/test_cython_code.py::test_pi_windows - NotImplement...\nFAILED pydy/codegen/tests/test_cython_code.py::test_lusolve_generator - Attri...\nFAILED pydy/codegen/tests/test_octave_code.py::test_OctaveMatrixGenerator - A...\nFAILED pydy/codegen/tests/test_ode_function_generator.py::test_ccontiguous - ...\nFAILED pydy/codegen/tests/test_ode_function_generator.py::test_rhs_arg_order\nFAILED pydy/codegen/tests/test_ode_function_generator.py::test_symbolic_linear_solve_full_mass_matrix\nFAILED pydy/codegen/tests/test_ode_function_generator.py::test_symbolic_linear_solve_min_mass_matrix\nFAILED pydy/codegen/tests/test_ode_function_generator.py::test_cse_same_numerical_results\nFAILED pydy/tests/test_models.py::test_multi_mass_spring_damper - AttributeEr...\nFAILED pydy/tests/test_models.py::test_multi_mass_spring_damper_with_forces\nFAILED pydy/tests/test_models.py::test_multi_mass_spring_damper_double - Attr...\nFAILED pydy/tests/test_system.py::test_specifying_coordinate_issue_339 - Attr...\nFAILED pydy/tests/test_utils.py::test_codegen_linewrap - NotImplementedError:...\n13 failed, 17 passed, 3 warnings, 46 errors in 5.82s\n",
+    "test_evidence": "evidence/pydy/native-tests.json.gz",
+    "test_evidence_sha256": "629450e390ec705b7e4cf8f04d7118c2be9f7051ec35eed857f4f6bd767af279",
+    "timed_out": false
+  },
+  "preflight": {
+    "command": [
+      "/tmp/symox-featured/envs/pydy/bin/python",
+      "-c",
+      "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/pydy/preflight.log",
+    "seconds": 1.373,
+    "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
+    "timed_out": false
+  },
+  "project": {
+    "distribution": "pydy",
+    "extra_dependencies": [
+      "Cython"
+    ],
+    "id": "pydy",
+    "name": "PyDy",
+    "source_artifact": {
+      "digests": {
+        "blake2b_256": "a58c4186638d7d04cbf7f06dc48da304c5275f629e4469e7553f2fe451f9ae43",
+        "md5": "15e8bfbf144f2996da09ac731cc674a3",
+        "sha256": "c09fe6c68715d7686cb10a9829a48366d2d06c3124a3f6ed0f30a65dfd6524ea"
+      },
+      "filename": "pydy-0.9.4.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/a5/8c/4186638d7d04cbf7f06dc48da304c5275f629e4469e7553f2fe451f9ae43/pydy-0.9.4.tar.gz"
+    },
+    "tests": [
+      "pydy"
+    ],
+    "version": "0.9.4"
+  },
+  "reference": {
+    "collection_errors": [],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/pydy/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/pydy/reference-junit.xml",
+      "pydy"
+    ],
+    "counts": {
+      "collection_errors": 0,
+      "errors": 0,
+      "failed": 0,
+      "passed": 76,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 0,
+    "first_failures": [],
+    "log": "/tmp/symox-featured/logs/pydy/reference.log",
+    "process_provenance_artifact": "evidence/pydy/reference-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "sympy": 21
+      },
+      "blocked_reference_execution": 0,
+      "processes": 21
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {}
+    },
+    "seconds": 54.607,
+    "tail": "........................................................................ [ 94%]\n....                                                                     [100%]\n=============================== warnings summary ===============================\npydy/codegen/tests/test_ode_function_generator.py:535\n  /tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:535: PyDyImportWarning: Theano was not found so the related tests are being skipped.\n    warnings.warn(\"Theano was not found so the related tests are being\"\n\npydy/codegen/tests/test_ode_function_generator.py:545\n  /tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:545: PyDyImportWarning: Symjit was not found so the related tests are being skipped.\n    warnings.warn(\"Symjit was not found so the related tests are being\"\n\npydy/viz/tests/test_visualization_frame_scene.py:18\n  /tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_visualization_frame_scene.py:18: PytestCollectionWarning: cannot collect test class 'TestVisualizationFrameScene' because it has a __init__ constructor (from: pydy/viz/tests/test_visualization_frame_scene.py)\n    class TestVisualizationFrameScene(object):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n---- generated xml file: /tmp/symox-featured/logs/pydy/reference-junit.xml -----\n76 passed, 3 warnings in 53.56s\n",
+    "test_evidence": "evidence/pydy/reference-tests.json.gz",
+    "test_evidence_sha256": "e0014bbc9e1a3f3d9c9d7479b189df4ccb81dbcda49456af1b85e89178a84a6f",
+    "timed_out": false
+  },
+  "reference_qualified": true,
+  "reference_version": "1.14.0",
+  "selected_test_sha256": {
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/__init__.py": "b7331177a53d73137032166cd794c129a24e442b5612fe427c25922fd4840c78",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/__init__.py": "20c8e430ededc2143396e553a3c67aac4ec483ef54efdfcb18a31cb162ca0646",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/c_code.py": "733098786c87c037ebb2dd6994a04bd3749be676a8290112057fd20ad2541a74",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/cython_code.py": "b9fe07641968439c58750d298c9a24d1894f3ef6ab7c374cbe7719186b1da369",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/matrix_generator.py": "cde2fd5b3d0ef89313f1a4cd85bde4beaee7e527319bd3fad05d571260d7277f",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/octave_code.py": "32b88ae67ffe6f0e3fb0bc1e0d6347e99c49fb7c697163a0f0853103f35145c5",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/ode_function_generators.py": "6d90976a46a57af21f9582ffa02c56072f94964361af3c611d28b93f79e05c0d",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_c_code.py": "7aec866de486b962c3ca8cbfe7e2f812b6bb75aaf6f76e7c986367ba16537e24",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_cython_code.py": "666d9329bffc13d2e88c2b8246f22a5a99a79d7cd6c3c2b35409637110b61489",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_octave_code.py": "5858ad7996d046d0fbaf6cc8883a2851ee773067a240dc2193048e45ca76d182",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py": "3e0426da25bb9e5064e7afb97d1ffbec30a65563ee62487ac30533e9aa65344a",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/models.py": "727e60425c4fa37570fee519bee001951a810c97d7eb5ae8601b5ffc5ea65948",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/system.py": "0a33f6f5d9c075ae8a0cb8d9ab60be1d9366fa281e4df2e538260b25949f53ab",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/tests/test_models.py": "67a465995accd1db9bae913f7ac4fab85e56eef991fc189398ca16417f8bd3c3",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/tests/test_system.py": "1ed0629cf5c75053f3e01b3b7bd9bff641ffd0b408f44bbf6db0cdd12a9d3426",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/tests/test_utils.py": "9815abe0961063c4a499627b98f13782f82f721aeef87f118d6639b5772f7d27",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/utils.py": "7a75471011b520ac35ae6a6c3e9b4d62c1d7535ac3ba2c6acf962f5dcc542e16",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/version.py": "bd71246c78e5aed03cf44f950ee8742217be29668f6e69065d54db7398515a3a",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/__init__.py": "95afb2b916b6c7f287f1d8859c15f89c1054a64b77ec32725587f1f8cf7ca2db",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/camera.py": "decf7792174af43ed0a94bb33456e766694cdb85f1a809a5ca363b5df228aac0",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/light.py": "decf344c1377d2938d2325972205a83c03492e47b84ecf076a10b36522e9a57d",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/scene.py": "fcfa1ac7054d7e292c061bbb8bd4aa9dff3a6b5a45326bac17b6e8f18e13148c",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/server.py": "c2c6649fe9eb4d02723151d962913d8ede7ce4b03c95c78c82d226bc81f6c5c6",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/shapes.py": "ada0d6bd5eb78a5a1c7d6c02d41a48042d8fedf4d0d9ae65312c354daad327f7",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_scene.py": "de3ccfd03e0dd211e55a37c22579fd1f0f975d750de2556987c8998b8b3fbd69",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_shapes.py": "6d411792c91aa8be0bb5ef98a6eb69f3aad574915e2b1119af82075701eace12",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_visualization_frame_scene.py": "6d2b460723b9adbd20588c6308442833835559757658b4279237c88d6c35cf69",
+    "/tmp/symox-featured/sources/pydy/pydy-0.9.4/pydy/viz/visualization_frame.py": "e2fd24c24fcb42f1f9e167ef0a98cc3285471f85de877c2a8814acd870b85f59"
+  },
+  "source": "/tmp/symox-featured/sources/pydy/pydy-0.9.4",
+  "source_identity": {
+    "configs": [
+      "pyproject.toml",
+      "setup.py",
+      "setup.cfg"
+    ],
+    "count": 10,
+    "examples": [
+      "pydy/codegen/tests/test_octave_code.py",
+      "pydy/codegen/tests/test_cython_code.py",
+      "pydy/codegen/tests/test_ode_function_generator.py",
+      "pydy/codegen/tests/test_c_code.py",
+      "pydy/viz/tests/test_scene.py",
+      "pydy/viz/tests/test_shapes.py",
+      "pydy/viz/tests/test_visualization_frame_scene.py",
+      "pydy/tests/test_system.py"
+    ],
+    "root": "/tmp/symox-featured/sources/pydy/pydy-0.9.4"
+  },
+  "started_at": "2026-10-19T10:11:11.329171+00:00",
+  "status": "native_failure"
+}

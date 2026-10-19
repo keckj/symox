@@ -1,0 +1,298 @@
+{
+  "candidate": {
+    "sha256": "b862ab30ef3e89791fbf5617074b270109732de73d7b400980e745f30d2fd41d",
+    "wheel": "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+  },
+  "evidence": {
+    "evidence/haarpy/freeze.txt.gz": "91599baa7e0dd12da4db9b8dcc46e2a259f604300551ea3dbc8c0fb6e6188a76",
+    "evidence/haarpy/install.log.gz": "6af9731e0876df86447044aa3e1f3c82a69f6728b09d0393bb61460081975b13",
+    "evidence/haarpy/native-junit.xml.gz": "0415ec2c321a18aef5191154e2b4cdb5008f86f3ab2c25d7d20cfc52e029073f",
+    "evidence/haarpy/native-processes.jsonl.gz": "6322753182cd874a97794b7cc123f55a71613b5f2217a0c5723bc91e5b766482",
+    "evidence/haarpy/native-tests.json.gz": "fbb589acfbb2b401105dedef0ab6b8244e6d03ec9e39f15cca77f125bb8ec8d5",
+    "evidence/haarpy/native.log.gz": "cd70d0a09713330bd635da889b2b59fb215b62ac30a309e4b0c5463d942877ae",
+    "evidence/haarpy/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
+    "evidence/haarpy/reference-junit.xml.gz": "fc65c5729b65e15313ea0b282e01183f7b8361fb8664cc4836636442582e9be9",
+    "evidence/haarpy/reference-processes.jsonl.gz": "02a7de0b5099b2f404be6bf847280f543027d734841722a706f531f2a4585f5f",
+    "evidence/haarpy/reference-tests.json.gz": "66947f4047df919ba8eb43158eb036946e7a4ecfd54e099ccf2fb4c09126a603",
+    "evidence/haarpy/reference.log.gz": "6281e746bbcca7e620c84b8df5b757615ec4582ae7d7f82484b431b75f7675b8",
+    "evidence/haarpy/venv.log.gz": "9a2691f9bb141514a2385054400606ffd25792724fffcdd05a59c274722fa056"
+  },
+  "freeze": {
+    "command": [
+      "uv",
+      "pip",
+      "freeze",
+      "--python",
+      "/tmp/symox-featured/envs/haarpy/bin/python"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/haarpy/freeze.txt",
+    "seconds": 0.218,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/haarpy\ncoverage==7.16.2\nexecnet==2.1.2\n-e file:///tmp/symox-featured/sources/haarpy/haarpy-0.1.1\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "timed_out": false
+  },
+  "harness_sha256": {
+    "audit.py": "1f4397b1448d63aeaf183421d084704fd7050020d37833ccbfe51dc8e41d5ac7",
+    "audit_plugin.py": "3550d2e33686b9172f462d05400a45de6f509dffe1e0dd1c7871f788268e41fb",
+    "external.py": "6469cffb96db123fa3f9dda96ff6047cdaf2df4d93d6c996ae069881b4d43a5a",
+    "sitecustomize.py": "274e281653de1d381282accef700272d3b88f73a9b1d8f8121386ee05e8d1b7b"
+  },
+  "install": {
+    "command": [
+      "uv",
+      "pip",
+      "install",
+      "--python",
+      "/tmp/symox-featured/envs/haarpy/bin/python",
+      "--constraint",
+      "/tmp/symox-featured/constraints/haarpy.txt",
+      "--reinstall-package",
+      "symox",
+      "sympy==1.14.0",
+      "pytest>=8,<9",
+      "pytest-cov",
+      "pytest-timeout",
+      "pytest-xdist",
+      "pytest-mock",
+      "hypothesis",
+      "packaging",
+      "setuptools",
+      "wheel",
+      "mpmath",
+      "numpy",
+      "-e",
+      "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1",
+      "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/haarpy/install.log",
+    "seconds": 1.476,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/haarpy\nResolved 20 packages in 669ms\n   Building haarpy @ file:///tmp/symox-featured/sources/haarpy/haarpy-0.1.1\n      Built haarpy @ file:///tmp/symox-featured/sources/haarpy/haarpy-0.1.1\nPrepared 2 packages in 250ms\nUninstalled 2 packages in 31ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 154ms\n ~ haarpy==0.1.1 (from file:///tmp/symox-featured/sources/haarpy/haarpy-0.1.1)\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "timed_out": false
+  },
+  "native": {
+    "collection_errors": [],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/haarpy/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/haarpy/native-junit.xml",
+      "haarpy/tests"
+    ],
+    "counts": {
+      "collection_errors": 0,
+      "errors": 0,
+      "failed": 378,
+      "passed": 729,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 1,
+    "first_failures": [
+      {
+        "detail": "half_degree = 1\n\n    @pytest.mark.parametrize(\"half_degree\", range(1, 3))\n    def test_weingarten_circular_orthogonal_hyperoctahedral_symbolic(half_degree):\n        \"\"\"Symbolic validation of COE Weingarten function against results shown in\n        `Matsumoto. Weingarten calculus for matrix ensembles associated with compact symmetric spaces:\n        <https://arxiv.org/abs/1301.5401>`_\n        \"\"\"\n        if half_degree == 1:\n>           for permutation in SymmetricGroup(2 * half_degree).generate():\n                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           AttributeError: 'PermutationGroup' object has no attribute 'generate'. Did you mean: '_enumerate'?\n\nhaarpy/tests/test_circular_ensembles.py:55: AttributeError",
+        "duration": 0.00019525899551808834,
+        "nodeid": "haarpy/tests/test_circular_ensembles.py::test_weingarten_circular_orthogonal_hyperoctahedral_symbolic[1]",
+        "outcome": "failed",
+        "phase": "call",
+        "wasxfail": null
+      },
+      {
+        "detail": "half_degree = 2\n\n    @pytest.mark.parametrize(\"half_degree\", range(1, 3))\n    def test_weingarten_circular_orthogonal_hyperoctahedral_symbolic(half_degree):\n        \"\"\"Symbolic validation of COE Weingarten function against results shown in\n        `Matsumoto. Weingarten calculus for matrix ensembles associated with compact symmetric spaces:\n        <https://arxiv.org/abs/1301.5401>`_\n        \"\"\"\n        if half_degree == 1:\n            for permutation in SymmetricGroup(2 * half_degree).generate():\n                assert ap.weingarten_circular_orthogonal(permutation, d) == 1 / (d + 1)\n        else:\n>           for permutation in SymmetricGroup(2 * half_degree).generate():\n                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           AttributeError: 'PermutationGroup' object has no attribute 'generate'. Did you mean: '_enumerate'?\n\nhaarpy/tests/test_circular_ensembles.py:58: AttributeError",
+        "duration": 0.00022533093579113483,
+        "nodeid": "haarpy/tests/test_circular_ensembles.py::test_weingarten_circular_orthogonal_hyperoctahedral_symbolic[2]",
+        "outcome": "failed",
+        "phase": "call",
+        "wasxfail": null
+      },
+      {
+        "detail": "half_degree = 1\n\n    @pytest.mark.parametrize(\"half_degree\", range(1, 3))\n    def test_weingarten_circular_orthogonal_hyperoctahedral_numeric(half_degree):\n        \"\"\"Symbolic validation of COE Weingarten function against results shown in\n        `Matsumoto. Weingarten calculus for matrix ensembles associated with compact symmetric spaces:\n        <https://arxiv.org/abs/1301.5401>`_\n        \"\"\"\n        if half_degree == 1:\n>           for permutation in SymmetricGroup(2 * half_degree).generate():\n                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           AttributeError: 'PermutationGroup' object has no attribute 'generate'. Did you mean: '_enumerate'?\n\nhaarpy/tests/test_circular_ensembles.py:73: AttributeError",
+        "duration": 0.00016957602929323912,
+        "nodeid": "haarpy/tests/test_circular_ensembles.py::test_weingarten_circular_orthogonal_hyperoctahedral_numeric[1]",
+        "outcome": "failed",
+        "phase": "call",
+        "wasxfail": null
+      }
+    ],
+    "log": "/tmp/symox-featured/logs/haarpy/native.log",
+    "process_provenance_artifact": "evidence/haarpy/native-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "symox": 1
+      },
+      "blocked_reference_execution": 0,
+      "processes": 1
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {
+        "sympy": "symox",
+        "sympy.combinatorics": "symox.combinatorics",
+        "sympy.combinatorics.named_groups": "symox.combinatorics.named_groups",
+        "sympy.core": "symox.core",
+        "sympy.core.numbers": "symox.core.numbers",
+        "sympy.utilities": "symox.utilities",
+        "sympy.utilities.iterables": "symox.utilities.iterables"
+      }
+    },
+    "reference_passes_not_reproduced": {
+      "count": 378,
+      "examples": [
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i0-seq_j0-1]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i1-seq_j1-1]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i10-seq_j10-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i11-seq_j11-4]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i2-seq_j2-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i3-seq_j3-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i4-seq_j4-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i5-seq_j5-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i6-seq_j6-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i7-seq_j7-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i8-seq_j8-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_numeric[seq_i9-seq_j9-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i0-seq_j0-1]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i1-seq_j1-1]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i10-seq_j10-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i11-seq_j11-4]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i2-seq_j2-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i3-seq_j3-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i4-seq_j4-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i5-seq_j5-2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i6-seq_j6-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i7-seq_j7-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i8-seq_j8-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_circular_symplectic_monte_carlo_symbolic[seq_i9-seq_j9-3]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_coe_diagonal_entry[2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_coe_diagonal_entry[4]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_coe_diagonal_entry[6]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_coe_diagonal_entry_numeric[2]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_coe_diagonal_entry_numeric[4]",
+        "haarpy/tests/test_circular_ensembles.py::test_haar_integral_coe_off_diagonal_entry[2]"
+      ]
+    },
+    "seconds": 82.55,
+    "tail": "_zero[sequences0]\nFAILED haarpy/tests/test_quantum.py::test_free_symmetric_none_zero[sequences1]\nFAILED haarpy/tests/test_quantum.py::test_free_symmetric_none_zero[sequences2]\nFAILED haarpy/tests/test_quantum.py::test_free_symmetric_none_zero[sequences3]\nFAILED haarpy/tests/test_quantum.py::test_free_symmetric_none_zero[sequences4]\nFAILED haarpy/tests/test_quantum.py::test_free_symmetric_none_zero[sequences5]\nFAILED haarpy/tests/test_quantum.py::test_free_symmetric_none_zero[sequences6]\nFAILED haarpy/tests/test_quantum.py::test_free_symmetric_none_zero[sequences7]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_trivially_zero[sequences0]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_trivially_zero[sequences1]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_trivially_zero[sequences2]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_trivially_zero[sequences3]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_trivially_zero[sequences4]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_trivially_zero[sequences5]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_trivially_zero[sequences6]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_none_zero[sequences0]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_none_zero[sequences1]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_none_zero[sequences2]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_none_zero[sequences3]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_none_zero[sequences4]\nFAILED haarpy/tests/test_quantum.py::test_free_orthogonal_none_zero[sequences5]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences0]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences1]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences2]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences3]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences4]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences5]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences6]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences7]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences8]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences9]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences10]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences11]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences12]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences13]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences14]\nFAILED haarpy/tests/test_quantum.py::test_free_quantum_relation[sequences15]\nFAILED haarpy/tests/test_symmetric.py::test_young_subgroup_stabilizer[2] - At...\nFAILED haarpy/tests/test_symmetric.py::test_young_subgroup_stabilizer[3] - At...\nFAILED haarpy/tests/test_symmetric.py::test_young_subgroup_stabilizer[4] - At...\nFAILED haarpy/tests/test_symmetric.py::test_young_subgroup_stabilizer[5] - At...\nFAILED haarpy/tests/test_symmetric.py::test_young_subgroup_stabilizer[6] - At...\nFAILED haarpy/tests/test_symmetric.py::test_young_subgroup_stabilizer[7] - At...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_size[2] - Attrib...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_size[3] - Attrib...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_size[4] - Attrib...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_size[5] - Attrib...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_permutation[2]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_permutation[3]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_permutation[4]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_permutation[5]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_permutation[6]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_permutation[7]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_brute_force[2]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_brute_force[3]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_brute_force[4]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_brute_force[5]\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_single[2] - Attr...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_single[3] - Attr...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_single[4] - Attr...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_single[5] - Attr...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_single[6] - Attr...\nFAILED haarpy/tests/test_symmetric.py::test_stabilizer_coset_single[7] - Attr...\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition0]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition1]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition2]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition3]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition4]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition5]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition6]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_image[partition7]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation0-partition10-partition20]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation1-partition11-partition21]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation2-partition12-partition22]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation3-partition13-partition23]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation4-partition14-partition24]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation5-partition15-partition25]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation6-partition16-partition26]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation7-partition17-partition27]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation8-partition18-partition28]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation9-partition19-partition29]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation10-partition110-partition210]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation11-partition111-partition211]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation12-partition112-partition212]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation13-partition113-partition213]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_zero[permutation14-partition114-partition214]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation0-partition0]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation1-partition1]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation2-partition2]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation3-partition3]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation4-partition4]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation5-partition5]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation6-partition6]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation7-partition7]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation8-partition8]\nFAILED haarpy/tests/test_symplectic.py::test_twisted_spherical_orthogonality_transversal_none_zero[permutation9-partition9]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_hyperoctahedral_symbolic[1]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_hyperoctahedral_symbolic[2]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_hyperoctahedral_numeric[1]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_hyperoctahedral_numeric[2]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation0]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation1]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation2]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation3]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation4]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation5]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation6]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation7]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation8]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation9]\nFAILED haarpy/tests/test_symplectic.py::test_weingarten_symplectic_orthogonal_relation[permutation10]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i0-seq_j0-2]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i1-seq_j1-2]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i2-seq_j2-3]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i3-seq_j3-3]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i4-seq_j4-3]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i5-seq_j5-4]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i6-seq_j6-4]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_symbolic_numeric[seq_i7-seq_j7-4]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_zero_cases[sequences3-dimension3]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_zero_cases[sequences4-dimension4]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_zero_cases[sequences5-dimension5]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_weingarten_reconciliation[1]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_weingarten_reconciliation[2]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_weingarten_reconciliation[3]\nFAILED haarpy/tests/test_symplectic.py::test_haar_integral_symplectic_weingarten_reconciliation[4]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle0]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle1]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle2]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle3]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle4]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle5]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle6]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle7]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle8]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle9]\nFAILED haarpy/tests/test_unitary.py::test_weingarten_reconciliation_symbolic[cycle10]\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_elements[2] - Ty...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_elements[3] - Ty...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_elements[4] - Ty...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[2] - Att...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[3] - Att...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[4] - Att...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[5] - Att...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[6] - Att...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[7] - Att...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[8] - Att...\nFAILED haarpy/tests/test_unitary.py::test_gram_orthogonality_classes[9] - Att...\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences0-weingarten_map0]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences1-weingarten_map1]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences2-weingarten_map2]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences3-weingarten_map3]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences4-weingarten_map4]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences5-weingarten_map5]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences6-weingarten_map6]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences7-weingarten_map7]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences8-weingarten_map8]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences9-weingarten_map9]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences10-weingarten_map10]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_hand[sequences11-weingarten_map11]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial1-monomial_conj1-sequences]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial2-monomial_conj2-sequences]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial3-monomial_conj3-sequences]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial4-monomial_conj4-matrix]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial5-monomial_conj5-matrix]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial6-monomial_conj6-matrix]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial7-monomial_conj7-matrix]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial8-monomial_conj8-matrix]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial9-monomial_conj9-matrix]\nFAILED haarpy/tests/test_unitary.py::test_haar_integral_unitary_gorin_collins_reconcile[monomial10-monomial_conj10-matrix]\n378 failed, 729 passed in 81.88s (0:01:21)\n",
+    "test_evidence": "evidence/haarpy/native-tests.json.gz",
+    "test_evidence_sha256": "fbb589acfbb2b401105dedef0ab6b8244e6d03ec9e39f15cca77f125bb8ec8d5",
+    "timed_out": false
+  },
+  "preflight": {
+    "command": [
+      "/tmp/symox-featured/envs/haarpy/bin/python",
+      "-c",
+      "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/haarpy/preflight.log",
+    "seconds": 1.559,
+    "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
+    "timed_out": false
+  },
+  "project": {
+    "distribution": "haarpy",
+    "id": "haarpy",
+    "name": "Haarpy",
+    "source_artifact": {
+      "digests": {
+        "blake2b_256": "2e6cfa48c1d4e4d022495472f82a4f4f459fe2f14e665bd9483035987c4eb7ba",
+        "md5": "532daf4ce4e6f7985403d2ad2c9d3800",
+        "sha256": "aa6a803f167eb3189d9f859c85b79dbc92a9bdd10fa15b1098c7bb65e40feab6"
+      },
+      "filename": "haarpy-0.1.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/2e/6c/fa48c1d4e4d022495472f82a4f4f459fe2f14e665bd9483035987c4eb7ba/haarpy-0.1.1.tar.gz"
+    },
+    "tests": [
+      "haarpy/tests"
+    ],
+    "version": "0.1.1"
+  },
+  "reference": {
+    "collection_errors": [],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/haarpy/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/haarpy/reference-junit.xml",
+      "haarpy/tests"
+    ],
+    "counts": {
+      "collection_errors": 0,
+      "errors": 0,
+      "failed": 0,
+      "passed": 1107,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 0,
+    "first_failures": [],
+    "log": "/tmp/symox-featured/logs/haarpy/reference.log",
+    "process_provenance_artifact": "evidence/haarpy/reference-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "sympy": 1
+      },
+      "blocked_reference_execution": 0,
+      "processes": 1
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {}
+    },
+    "seconds": 130.203,
+    "tail": "........................................................................ [  6%]\n........................................................................ [ 13%]\n........................................................................ [ 19%]\n........................................................................ [ 26%]\n........................................................................ [ 32%]\n........................................................................ [ 39%]\n........................................................................ [ 45%]\n........................................................................ [ 52%]\n........................................................................ [ 58%]\n........................................................................ [ 65%]\n........................................................................ [ 71%]\n........................................................................ [ 78%]\n........................................................................ [ 84%]\n........................................................................ [ 91%]\n........................................................................ [ 97%]\n...........................                                              [100%]\n--- generated xml file: /tmp/symox-featured/logs/haarpy/reference-junit.xml ----\n1107 passed in 129.06s (0:02:09)\n",
+    "test_evidence": "evidence/haarpy/reference-tests.json.gz",
+    "test_evidence_sha256": "66947f4047df919ba8eb43158eb036946e7a4ecfd54e099ccf2fb4c09126a603",
+    "timed_out": false
+  },
+  "reference_qualified": true,
+  "reference_version": "1.14.0",
+  "selected_test_sha256": {
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_about.py": "18d63815ca4326ab124c434477509f2349208dbeea7b105dc6c266613ac44176",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_circular_ensembles.py": "7fdfc69b89b5ec2ed184909f232c06902496301152eaf4418c2a26f5656cf73d",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_orthogonal.py": "4126122c87048d0d3a901f0f67d3ba77f30417e0a8fd3eb578e00d452c852e0b",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_partition.py": "a1d2d1a06c9b3a1df018042aee92fd3773672cf82d96375b6897f5fbea9f2213",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_permutation.py": "eb2b317a0fff112d819415adf19f8207c2e8d211eec4cd237fa647369bcbef62",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_quantum.py": "9d97881c7ce8931d2e001fca5f2ae30527fdb4e59ee9dfac803fbe5671ea510e",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_symmetric.py": "7a3b0af376cf47078a7597936011516471662d849cb22e9f8530cc7b6320964b",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_symplectic.py": "8746f575ad48d58fe01f11c21e24738ecc6fb78db0e37393fcf3a95f9a01e274",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_unitary.py": "36dbbbfe7fd319d6e08de513cf0ad70e5c25ccd5ae4283a68357b446cd9656ec",
+    "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1/haarpy/tests/test_utils.py": "5d877d11cc38c00f124a99e751b11d062ca7d0bdc2fa75896e0e937341bb8628"
+  },
+  "source": "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1",
+  "source_identity": {
+    "configs": [
+      "pyproject.toml",
+      "setup.py",
+      "setup.cfg"
+    ],
+    "count": 10,
+    "examples": [
+      "haarpy/tests/test_quantum.py",
+      "haarpy/tests/test_orthogonal.py",
+      "haarpy/tests/test_about.py",
+      "haarpy/tests/test_partition.py",
+      "haarpy/tests/test_symmetric.py",
+      "haarpy/tests/test_unitary.py",
+      "haarpy/tests/test_permutation.py",
+      "haarpy/tests/test_circular_ensembles.py"
+    ],
+    "root": "/tmp/symox-featured/sources/haarpy/haarpy-0.1.1"
+  },
+  "started_at": "2026-10-19T10:09:47.593799+00:00",
+  "status": "native_failure"
+}

@@ -1,0 +1,306 @@
+{
+  "candidate": {
+    "sha256": "b862ab30ef3e89791fbf5617074b270109732de73d7b400980e745f30d2fd41d",
+    "wheel": "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+  },
+  "evidence": {
+    "evidence/lcapy/freeze.txt.gz": "ce7e7c44ace512fd2e3ff5c6b731403246f29b3585ada7e4a93598a9c19754f5",
+    "evidence/lcapy/install.log.gz": "3943665f45c596947550e449f66791962c8bf8ddaebf1e6817fc7b61d776b2a6",
+    "evidence/lcapy/native-junit.xml.gz": "974e67d3b963cbd88b01f863aed423e63ff8807b5f13b3180ae9e686a91428fb",
+    "evidence/lcapy/native-processes.jsonl.gz": "aada8bb16fff578f822178aba57dc16088aa2beddf2065fc1380fdaab3f67989",
+    "evidence/lcapy/native-tests.json.gz": "6822f7fd0ebadfcec7d9e6c5a9036ccd0627544286db518f4b1e9d7f216b5cad",
+    "evidence/lcapy/native.log.gz": "4fe72dee8aef19a98cff68969223cf49b4d2ed251e042d934f620c4e86e9eb77",
+    "evidence/lcapy/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
+    "evidence/lcapy/reference-junit.xml.gz": "ab9d54197d2a55f4dd333682bf5c566aeb5af1514a4555fa670d9295f9d21d95",
+    "evidence/lcapy/reference-processes.jsonl.gz": "b2de91682f740bed85251c76d03fb1da9331dc8839dc04296d6ae1602e5c7a43",
+    "evidence/lcapy/reference-tests.json.gz": "3f8335d45b48adae61ecddd7522c0e0332ff0186f890f3cd0cf374d17f259594",
+    "evidence/lcapy/reference.log.gz": "927cb3a1c897f9bf046ee458b7f6689ea583879869ca42a0c72de85d1604fdc4",
+    "evidence/lcapy/venv.log.gz": "ec273e1eeeab5918a35014258732d4164a72740ccbb7378fe44c0c810795d311"
+  },
+  "freeze": {
+    "command": [
+      "uv",
+      "pip",
+      "freeze",
+      "--python",
+      "/tmp/symox-featured/envs/lcapy/bin/python"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/lcapy/freeze.txt",
+    "seconds": 0.221,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/lcapy\nasttokens==3.0.2\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\nexecnet==2.1.2\nexecuting==2.3.0\nfonttools==4.67.0\nhypothesis==6.170.2\nimportlib==1.0.4\niniconfig==2.3.1\nipython==9.17.1\nipython-pygments-lexers==1.1.1\njedi==0.20.1\nkiwisolver==1.5.1\n-e file:///tmp/symox-featured/git/lcapy\nmatplotlib==3.11.2\nmatplotlib-inline==0.2.2\nmpmath==1.3.0\nnetworkx==3.7\nnumpy==1.26.4\npackaging==26.3\nparso==0.8.7\npexpect==4.9.0\npillow==13.0.0\npluggy==1.7.0\nprompt-toolkit==3.0.53\nproperty-cached==1.6.4\npsutil==7.2.2\nptyprocess==0.7.0\npure-eval==0.2.4\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nstack-data==0.6.3\nsymox @ file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntraitlets==5.16.1\nwcwidth==0.9.2\nwheel==0.48.0\n",
+    "timed_out": false
+  },
+  "harness_sha256": {
+    "audit.py": "1f4397b1448d63aeaf183421d084704fd7050020d37833ccbfe51dc8e41d5ac7",
+    "audit_plugin.py": "3550d2e33686b9172f462d05400a45de6f509dffe1e0dd1c7871f788268e41fb",
+    "external.py": "6469cffb96db123fa3f9dda96ff6047cdaf2df4d93d6c996ae069881b4d43a5a",
+    "sitecustomize.py": "274e281653de1d381282accef700272d3b88f73a9b1d8f8121386ee05e8d1b7b"
+  },
+  "install": {
+    "command": [
+      "uv",
+      "pip",
+      "install",
+      "--python",
+      "/tmp/symox-featured/envs/lcapy/bin/python",
+      "--constraint",
+      "/tmp/symox-featured/constraints/lcapy.txt",
+      "--reinstall-package",
+      "symox",
+      "sympy==1.14.0",
+      "pytest>=8,<9",
+      "pytest-cov",
+      "pytest-timeout",
+      "pytest-xdist",
+      "pytest-mock",
+      "hypothesis",
+      "packaging",
+      "setuptools",
+      "wheel",
+      "mpmath",
+      "numpy",
+      "-e",
+      "/tmp/symox-featured/git/lcapy",
+      "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/lcapy/install.log",
+    "seconds": 2.072,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/lcapy\nResolved 48 packages in 1.17s\n   Building lcapy @ file:///tmp/symox-featured/git/lcapy\n      Built lcapy @ file:///tmp/symox-featured/git/lcapy\nPrepared 2 packages in 361ms\nUninstalled 2 packages in 33ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 132ms\n ~ lcapy==1.26 (from file:///tmp/symox-featured/git/lcapy)\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "timed_out": false
+  },
+  "native": {
+    "collection_errors": [
+      {
+        "detail": "ImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_approximate.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_approximate.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic",
+        "nodeid": "lcapy/tests/test_approximate.py"
+      },
+      {
+        "detail": "ImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_circuitgraph.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_circuitgraph.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic",
+        "nodeid": "lcapy/tests/test_circuitgraph.py"
+      },
+      {
+        "detail": "ImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_circuits.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_circuits.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic",
+        "nodeid": "lcapy/tests/test_circuits.py"
+      },
+      {
+        "detail": "ImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_core.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_core.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic",
+        "nodeid": "lcapy/tests/test_core.py"
+      }
+    ],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/lcapy/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/lcapy/native-junit.xml",
+      "lcapy/tests"
+    ],
+    "counts": {
+      "collection_errors": 37,
+      "errors": 0,
+      "failed": 0,
+      "passed": 0,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 2,
+    "first_failures": [],
+    "log": "/tmp/symox-featured/logs/lcapy/native.log",
+    "process_provenance_artifact": "evidence/lcapy/native-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "symox": 1
+      },
+      "blocked_reference_execution": 0,
+      "processes": 1
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {
+        "sympy": "symox",
+        "sympy.core": "symox.core",
+        "sympy.core.sympify": "symox.core.sympify",
+        "sympy.physics": "symox.physics",
+        "sympy.physics.units": "symox.physics.units",
+        "sympy.physics.units.systems": "symox.physics.units.systems",
+        "sympy.physics.units.systems.si": "symox.physics.units.systems.si"
+      }
+    },
+    "reference_passes_not_reproduced": {
+      "count": 317,
+      "examples": [
+        "lcapy/tests/test_approximate.py::LcapyTester::test_approximate_cosh",
+        "lcapy/tests/test_approximate.py::LcapyTester::test_approximate_exp",
+        "lcapy/tests/test_approximate.py::LcapyTester::test_approximate_sinh",
+        "lcapy/tests/test_circuitgraph.py::LcapyTester::test_circuitgraph",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_AM",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_CCCS1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_CCVS1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_CCVS2",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_IR1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_IV_parallel",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_IV_series",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_K",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_RC1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_RC_ivp",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_RL_ivp",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_R_simplify",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_TF",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_TP",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_TVtriode",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_V1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VCCS1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VCVS1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VR1_ac2",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VRC1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VRC2",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VRC_ivp",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VRL1",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VRL1_ac",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VRL1_ac2",
+        "lcapy/tests/test_circuits.py::LcapyTester::test_VRL1_dc"
+      ]
+    },
+    "seconds": 2.574,
+    "tail": "int: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_simulation.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n_______________ ERROR collecting lcapy/tests/test_statespace.py ________________\nImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_statespace.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_statespace.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n__________________ ERROR collecting lcapy/tests/test_super.py __________________\nImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_super.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_super.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n________________ ERROR collecting lcapy/tests/test_synthesis.py ________________\nImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_synthesis.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_synthesis.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n________________ ERROR collecting lcapy/tests/test_transform.py ________________\nImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_transform.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_transform.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n_________________ ERROR collecting lcapy/tests/test_twoport.py _________________\nImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_twoport.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_twoport.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n__________________ ERROR collecting lcapy/tests/test_units.py __________________\nImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_units.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_units.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n_______________ ERROR collecting lcapy/tests/test_ztransform.py ________________\nImportError while importing test module '/tmp/symox-featured/git/lcapy/lcapy/tests/test_ztransform.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:93: in find_spec\n    native = importlib.import_module(native_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n<frozen importlib._bootstrap>:1387: in _gcd_import\n    ???\n<frozen importlib._bootstrap>:1360: in _find_and_load\n    ???\n<frozen importlib._bootstrap>:1324: in _find_and_load_unlocked\n    ???\nE   ModuleNotFoundError: No module named 'symox.core.logic'\n\nThe above exception was the direct cause of the following exception:\n/home/keckj/.local/share/uv/python/cpython-3.12.9-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nlcapy/tests/test_ztransform.py:1: in <module>\n    from lcapy import *\nlcapy/__init__.py:18: in <module>\n    from .functions import *\nlcapy/functions.py:23: in <module>\n    from .extrafunctions import Degrees as Degrees1\nlcapy/extrafunctions.py:11: in <module>\n    from sympy.core.logic import fuzzy_not\n/home/keckj/Documents/symox/tools/downstream/sitecustomize.py:95: in find_spec\n    raise ModuleNotFoundError(f'{fullname} requires missing native module {native_name}',\nE   ModuleNotFoundError: sympy.core.logic requires missing native module symox.core.logic\n----- generated xml file: /tmp/symox-featured/logs/lcapy/native-junit.xml ------\n=========================== short test summary info ============================\nERROR lcapy/tests/test_approximate.py\nERROR lcapy/tests/test_circuitgraph.py\nERROR lcapy/tests/test_circuits.py\nERROR lcapy/tests/test_core.py\nERROR lcapy/tests/test_dft.py\nERROR lcapy/tests/test_discretetime.py\nERROR lcapy/tests/test_dltifilter.py\nERROR lcapy/tests/test_dtft.py\nERROR lcapy/tests/test_dtstatespace.py\nERROR lcapy/tests/test_estimate.py\nERROR lcapy/tests/test_fourier.py\nERROR lcapy/tests/test_functions.py\nERROR lcapy/tests/test_hilbert.py\nERROR lcapy/tests/test_immitance.py\nERROR lcapy/tests/test_jomega.py\nERROR lcapy/tests/test_laplace.py\nERROR lcapy/tests/test_latex.py\nERROR lcapy/tests/test_loop_analysis.py\nERROR lcapy/tests/test_networks.py\nERROR lcapy/tests/test_nodal_analysis.py\nERROR lcapy/tests/test_noise.py\nERROR lcapy/tests/test_oneport.py\nERROR lcapy/tests/test_ops.py\nERROR lcapy/tests/test_parser.py\nERROR lcapy/tests/test_phasor.py\nERROR lcapy/tests/test_plot.py\nERROR lcapy/tests/test_polyphase.py\nERROR lcapy/tests/test_schematic.py\nERROR lcapy/tests/test_simplify.py\nERROR lcapy/tests/test_simulation.py\nERROR lcapy/tests/test_statespace.py\nERROR lcapy/tests/test_super.py\nERROR lcapy/tests/test_synthesis.py\nERROR lcapy/tests/test_transform.py\nERROR lcapy/tests/test_twoport.py\nERROR lcapy/tests/test_units.py\nERROR lcapy/tests/test_ztransform.py\n!!!!!!!!!!!!!!!!!!! Interrupted: 37 errors during collection !!!!!!!!!!!!!!!!!!!\n37 errors in 2.04s\n",
+    "test_evidence": "evidence/lcapy/native-tests.json.gz",
+    "test_evidence_sha256": "6822f7fd0ebadfcec7d9e6c5a9036ccd0627544286db518f4b1e9d7f216b5cad",
+    "timed_out": false
+  },
+  "preflight": {
+    "command": [
+      "/tmp/symox-featured/envs/lcapy/bin/python",
+      "-c",
+      "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/lcapy/preflight.log",
+    "seconds": 1.118,
+    "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
+    "timed_out": false
+  },
+  "project": {
+    "distribution": "lcapy",
+    "id": "lcapy",
+    "name": "Lcapy",
+    "source_artifact": {
+      "digests": {
+        "blake2b_256": "706ee7498864d5dfc7d6d7fbe6fda81b24c5caf74e6202cfa762fe9eeb34d0c8",
+        "md5": "54112bb8f446b2fa15924135b7c01676",
+        "sha256": "edfc9635cc1ac62351038efc48b01e2f55620154115b19d22e36c4f8655e9220"
+      },
+      "filename": "lcapy-1.26.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/70/6e/e7498864d5dfc7d6d7fbe6fda81b24c5caf74e6202cfa762fe9eeb34d0c8/lcapy-1.26.tar.gz"
+    },
+    "source_git": {
+      "commit": "d8fe8ddb3e1fd4ec68ede3343b49100b79dc678f",
+      "url": "https://github.com/mph-/lcapy"
+    },
+    "tests": [
+      "lcapy/tests",
+      "tests"
+    ],
+    "version": "1.26"
+  },
+  "reference": {
+    "collection_errors": [],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/lcapy/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/lcapy/reference-junit.xml",
+      "lcapy/tests"
+    ],
+    "counts": {
+      "collection_errors": 0,
+      "errors": 0,
+      "failed": 0,
+      "passed": 317,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 0,
+    "first_failures": [],
+    "log": "/tmp/symox-featured/logs/lcapy/reference.log",
+    "process_provenance_artifact": "evidence/lcapy/reference-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "sympy": 1
+      },
+      "blocked_reference_execution": 0,
+      "processes": 1
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {}
+    },
+    "seconds": 67.31,
+    "tail": "........................................................................ [ 22%]\n........................................................................ [ 45%]\n........................................................................ [ 68%]\n........................................................................ [ 90%]\n.............................                                            [100%]\n=============================== warnings summary ===============================\nlcapy/tests/test_circuits.py::LcapyTester::test_IV_parallel\nlcapy/tests/test_circuits.py::LcapyTester::test_IV_series\n  /tmp/symox-featured/git/lcapy/lcapy/oneport.py:2150: UserWarning: Current I is being considered as the imaginary number\n    warn('Current I is being considered as the imaginary number')\n\nlcapy/tests/test_circuits.py::LcapyTester::test_IV_parallel\nlcapy/tests/test_circuits.py::LcapyTester::test_IV_series\n  /tmp/symox-featured/git/lcapy/lcapy/oneport.py:2116: UserWarning: Current I is being considered as the imaginary number\n    warn('Current I is being considered as the imaginary number')\n\nlcapy/tests/test_circuits.py::LcapyTester::test_RC1\nlcapy/tests/test_circuits.py::LcapyTester::test_sub\n  /tmp/symox-featured/git/lcapy/lcapy/netlist.py:121: UserWarning: Netlist has no sources\n    warn('Netlist has no sources')\n\nlcapy/tests/test_circuits.py::LcapyTester::test_TP\n  /tmp/symox-featured/git/lcapy/lcapy/netlistmixin.py:173: UserWarning: Assuming V2' = V1' for TPanon1\n    warn(\"Assuming V2' = V1' for %s\" % elt.name)\n\nlcapy/tests/test_core.py::LcapyCoreTester::test_auto_quantity\n  /tmp/symox-featured/git/lcapy/lcapy/expr.py:4249: UserWarning: This may be deprecated since the units may not be what you expect\n    warn('This may be deprecated since the units may not be what you expect')\n\nlcapy/tests/test_core.py::LcapyCoreTester::test_types\nlcapy/tests/test_ops.py::LcapyTester::test_mixed_mul\nlcapy/tests/test_super.py::LcapyTester::test_super_op_phasor\nlcapy/tests/test_super.py::LcapyTester::test_super_printing\n  /tmp/symox-featured/git/lcapy/lcapy/state.py:139: UserWarning: Converting omega times t to t-domain\n    warn(message)\n\nlcapy/tests/test_core.py::LcapyCoreTester::test_types\nlcapy/tests/test_ops.py::LcapyTester::test_mixed_mul\n  /tmp/symox-featured/git/lcapy/lcapy/state.py:139: UserWarning: Converting t times omega to t-domain\n    warn(message)\n\nlcapy/tests/test_dft.py::LcapyTester::test_DFT\n  /tmp/symox-featured/git/lcapy/lcapy/dft.py:50: UserWarning: DFT of delta, assuming 1 is in interval [0, N - 1]\n    warn('DFT of %s, assuming %s is in interval [%s, %s]' %\n\nlcapy/tests/test_dft.py::LcapyTester::test_DFT\n  /tmp/symox-featured/git/lcapy/lcapy/dft.py:50: UserWarning: DFT of delta, assuming 2 is in interval [0, N - 1]\n    warn('DFT of %s, assuming %s is in interval [%s, %s]' %\n\nlcapy/tests/test_simulation.py::LcapyTester::test_sim\n  /tmp/symox-featured/git/lcapy/lcapy/simulator.py:363: UserWarning: Initial conditions for L1 ignored\n    warn('Initial conditions for %s ignored' % elt.name)\n\nlcapy/tests/test_super.py::LcapyTester::test_super_op_phasor\n  /tmp/symox-featured/git/lcapy/lcapy/state.py:139: UserWarning: Converting -5/omega times cos(omega*t) to t-domain\n    warn(message)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n---- generated xml file: /tmp/symox-featured/logs/lcapy/reference-junit.xml ----\n317 passed, 18 warnings in 65.51s (0:01:05)\n",
+    "test_evidence": "evidence/lcapy/reference-tests.json.gz",
+    "test_evidence_sha256": "3f8335d45b48adae61ecddd7522c0e0332ff0186f890f3cd0cf374d17f259594",
+    "timed_out": false
+  },
+  "reference_qualified": true,
+  "reference_version": "1.14.0",
+  "selected_test_sha256": {
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_approximate.py": "d6699dd75473411fea719b83989a0647069ae681b75d4a582da2353f765d0653",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_circuitgraph.py": "6d61bedc15adf517cafedcd058d552b925cf9987d7566c52ad64aaca8c26ca6c",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_circuits.py": "d350cf6a886b1ed6069de55724b72fcbe03c5fd24e2cca9d60b1e940e1c82497",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_core.py": "3642b6a18579c5e7b242f2b1fe62b498b7b3b97d71dd0b842b1768ed051619a9",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_dft.py": "5a325f36266f6d811c00dc30a68004fce133eea8f2c05884a66d4a9a26116cef",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_discretetime.py": "241a97f8bc602cb27750f714bc2d12b9a383d5095a31085b84bba351001ebe80",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_dltifilter.py": "95ed0030f5780123a82fbda2898c8a89afdd070a6c82130a3e253f5b078a8a61",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_dtft.py": "79262a1271f767fe27bdc16047e62a08c53c18e7a26cfdd45d1a6a11c1885aae",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_dtstatespace.py": "851b8ffd49ffa3c203438da3433d7242fcc22a8c49fe7051fa59180717144f95",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_estimate.py": "f00ea5e127a8bbaf7b9c088acfa69fabc73db91171344f8d97fe06afcb6e19b9",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_fourier.py": "ae9bd584d30e49790b36d4af29c1fc8218983b2788626b4272836cd3a27f0cdd",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_functions.py": "5114984c5a0393cfc20d25dd5536b480f3e3b119aee5251328e031f28b7dad69",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_hilbert.py": "a23a780798bac673490dbeabfbfb2ca82f6708d9ede50cbe9dba9c50a7933ef8",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_immitance.py": "25449127cf1a3ead224f50fd3e961e4d28d79b809c91c9820dedd2d96d67e827",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_jomega.py": "b29e1d60bb7e0aa847fafcda7b8ef29bc37fe8fbd6d5125fd7d484a91fa63b2e",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_laplace.py": "14656df0ff4ca6a3104162d2a1571859ae90753961b99de1c83e02eb1fdbf067",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_latex.py": "6e3b2fb785a133e2894fb2c3e6ea3dc898979269c24bd3d7d6eee1eb54be0800",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_loop_analysis.py": "34b49ea09e4f20a9dbfdf4e73ba962cb95ff827bdd72d1b35507f71a6259fb3b",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_networks.py": "770d6b1d2479948c2c3bee646b3c1ffe709ab1ed5bc3d4bd685aee29bb7f0e27",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_nodal_analysis.py": "fc8e5a1b4806fd6f1c816e6e3fb7db768c256d63afc1d3c9554b6f3bf2a8a734",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_noise.py": "b54c3a425519ef7c820ff09c52f895902e214ea83b59c5285745bafea00b5626",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_oneport.py": "3e57d3440ae3b0e2d1e8bc6fa1d9fa813a009275ee2d14ab79562e6eff51202f",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_ops.py": "ae591b8d25094300298d035f35236370fcb7de6ac74ed63400e5ae43272dce73",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_parser.py": "e3e75e6e996a1ce525a0b3b4b4a6a1cb773ee3a13f4ef583eecd9d9614cf5f2c",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_phasor.py": "281249c71d0c90d2b83e66b95fee07b5a993914c5be96fbb1ac0cf9af50fccb0",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_plot.py": "1d3fb9f842a3b0787551dee356a6fe1707e2dd20fa5c30222c759ed8361f09ac",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_polyphase.py": "1a65462210d12de8cb75eb551d6f5997b217b6a13a377289cdf0d1fe080f263b",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_schematic.py": "195e000a1d16b84907e9c01da5e8a2d06001c573eee5d4bfd843ebc403a26a15",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_simplify.py": "976545a97a0d1534839bf007da442564445f4d47730ce7bdd24467c39f2ce2ba",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_simulation.py": "fd94d3509e2c81bb849154df0095a709d23a6ef0783433143a0776f13a5f322f",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_statespace.py": "f138a9fb893bbae5d63133e4cf1abf21d86e7da631aefcaff755dfb6e8bd1439",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_super.py": "d0ad5a39c64426a7a3f1e01d083a8770b7ba911e370b55aece4954049c6fcc4e",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_synthesis.py": "123d3d2361da5d5dc8e352b5bc747b7078c0d042466b9beb031c5ace096b6cac",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_transform.py": "c7966e9ce5ba76f5ee8551f26f4dcabdec27361aa1fa6578f17bef973a5661d4",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_twoport.py": "e6706db05aafd3befeaa53a4a72349408f72f64a05a5d219f593e4b0e660229d",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_units.py": "b91dcd819dd8ddbc6a733b217de4dfbf815190dbe4786d3e4ca85a911cec669a",
+    "/tmp/symox-featured/git/lcapy/lcapy/tests/test_ztransform.py": "91b2693e40204bf79fc11c903459200d3d8f0874e975e7ced4b5c11d7ad6d8fe"
+  },
+  "source": "/tmp/symox-featured/git/lcapy",
+  "source_identity": {
+    "commit": "d8fe8ddb3e1fd4ec68ede3343b49100b79dc678f",
+    "root": "/tmp/symox-featured/git/lcapy"
+  },
+  "started_at": "2026-10-19T10:09:51.789422+00:00",
+  "status": "native_failure"
+}

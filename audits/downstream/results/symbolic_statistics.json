@@ -1,0 +1,12 @@
+{
+  "evidence": {},
+  "project": {
+    "id": "symbolic_statistics",
+    "kind": "publication",
+    "name": "Symbolic statistical modeling",
+    "url": "https://www.researchgate.net/publication/260585491_Symbolic_Statistics_with_SymPy/"
+  },
+  "reference_version": "1.14.0",
+  "started_at": "2026-10-19T09:39:40.608579+00:00",
+  "status": "publication_not_a_testable_distribution"
+}

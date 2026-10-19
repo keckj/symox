@@ -121,3 +121,12 @@ with `SYMOX_SLANG_TEST_BACKENDS=cuda,vulkan`. CUDA-specific PyTorch tests requir
 CUDA hardware; JAX device-transfer tests require both CPU and GPU devices.
 On CPU CI these hardware-specific cases remain explicit skips. Missing optional
 libraries skip the corresponding extension tests, never the core SymPy suite.
+
+## Featured-project integrations
+
+The [downstream audit](downstream-integration.md) runs real upstream tests with
+SymPy 1.14.0 before attempting native Symox imports. It records reference failures,
+optional dependency skips, native incompatibilities and the exact tested scope.
+See [the harness instructions](../tools/downstream/README.md) for isolated runtime
+setup and the `--require-native-pass` CI gate. Passing a selected integration does
+not establish global API or mathematical parity.

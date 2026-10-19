@@ -1,0 +1,37 @@
+{
+  "ci_gate": {
+    "latexexpr_exit_code": 1,
+    "pyneqsys_exit_code": 0
+  },
+  "core": {
+    "command": "OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 .venv/bin/python -m pytest -q tests --ignore=tests/extra",
+    "passed": 28838,
+    "seconds": 816.6,
+    "skipped": 5,
+    "xfailed": 0
+  },
+  "evidence": {
+    "evidence/local-validation/core-final.log.gz": "e0795c36b05d0e953836edde6e91f9764358ab7b1b279f278af0d4758da080b4",
+    "evidence/local-validation/extras-final.log.gz": "3fc5ba6a38358b8d20f9c8a9144d2699da1e4ce718dcccbdb5da967df8ec7c0c",
+    "evidence/local-validation/final-targeted.log.gz": "7f33612edb4b0b302646cbd9b51cec9af2090e8ed33d64338ee09264a5b88b33",
+    "evidence/local-validation/final-targeted2.log.gz": "0a733d4324085dea3c1edb9eda0ba8c4e119d138e2f1fe1dda227c21dd8cea7e",
+    "evidence/local-validation/final-targeted3.log.gz": "bc77b5f565690c007d2956faf980a332e6d922df782a638961a1f0bb59b0f09f",
+    "evidence/local-validation/final-wheel.log.gz": "6ae0d1bc63fc5d6e3c34fa87f4ce599ae2a372aec0df1d85e5c8d04f1ab4dc27",
+    "evidence/local-validation/gate-latexexpr.log.gz": "03e63ec9b0ce688b0804263081c33e34dce1701ba97101ff2198d03c6dd22d3d",
+    "evidence/local-validation/gate-pyneqsys.log.gz": "54ef551a4b3c0341439d3cb0365cad46f0dee2c0351e352fd5dfbc520a0e3532"
+  },
+  "extra": {
+    "command": "SYMOX_ACPP_TARGETS=omp SYMOX_ACPP_REQUIRE_RUNTIME=1 SYMOX_SLANG_REQUIRE_RUNTIME=1 SYMOX_CUDA_REQUIRE_RUNTIME=1 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 XLA_PYTHON_CLIENT_PREALLOCATE=false .venv/bin/python -m pytest -q tests/extra",
+    "passed": 383,
+    "seconds": 213.86,
+    "skipped": 0
+  },
+  "production_commit": "5f0c63d803b0949e5b75972f6848a9f7eef43991",
+  "targeted": {
+    "command": ".venv/bin/python -m pytest -q tests/test_downstream_audit.py tests/test_numpy_indexed_symbol_printing.py",
+    "note": "Includes the source-integrity and stale-candidate guard tests added after the full core run collected its tests",
+    "passed": 41,
+    "seconds": 1.23,
+    "skipped": 0
+  }
+}

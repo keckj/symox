@@ -1,0 +1,12 @@
+{
+  "evidence": {},
+  "project": {
+    "id": "quantum_programming",
+    "kind": "publication",
+    "name": "Quantum Programming in Python",
+    "url": "https://digitalcommons.calpoly.edu/cgi/viewcontent.cgi?article=1072&context=physsp/"
+  },
+  "reference_version": "1.14.0",
+  "started_at": "2026-10-19T09:39:23.956278+00:00",
+  "status": "publication_not_a_testable_distribution"
+}

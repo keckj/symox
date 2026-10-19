@@ -246,6 +246,7 @@ pinned AdaptiveCpp compiler and separate core/extension suites.
 |---|---|
 | [SymPy compatibility](docs/compatibility.md) | Expressions, precision, assumptions, calculus, logic and sets |
 | [Algorithmic parity](docs/algorithmic-parity.md) | Mathematical acceptance criteria, solver audit and remaining capability gaps |
+| [Downstream integrations](docs/downstream-integration.md) | Real featured-project tests with a SymPy 1.14.0 reference gate |
 | [Public core and utilities](docs/public-interfaces.md) | Evaluation contexts, import interfaces, dispatch, assumptions and sessions |
 | [Algebraic roots and quaternions](docs/algebraic-roots-quaternions.md) | Exact root objects, symmetric sums, Hamilton algebra and rotations |
 | [Splines and integer equations](docs/splines-variations-integer-equations.md) | Piecewise folding, B-splines, Euler equations, singularity integrals and integer parametrizations |

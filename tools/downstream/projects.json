@@ -1,0 +1,542 @@
+{
+  "schema": 1,
+  "reference_version": "1.14.0",
+  "featured_source": "https://www.sympy.org/en/index.html",
+  "projects": [
+    {
+      "id": "cadabra",
+      "name": "Cadabra",
+      "repository": "https://github.com/kpeeters/cadabra2",
+      "kind": "native",
+      "source_git": {
+        "url": "https://github.com/kpeeters/cadabra2",
+        "commit": "67cdebce798dbb2e230ae3246221ca3302a03129"
+      },
+      "version": "2.6.0.dev",
+      "scope": "One unmodified upstream tests/sympy_cdb.cdb scalar bridge script, including all assertions (12 printed success markers plus the final unmarked assertion); not the entire tensor/C++ suite"
+    },
+    {
+      "id": "chempy",
+      "name": "ChemPy",
+      "distribution": "chempy",
+      "tests": [
+        "chempy"
+      ],
+      "extra_dependencies": [
+        "quantities",
+        "pyneqsys",
+        "pyodesys",
+        "pulp<4",
+        "scipy",
+        "matplotlib"
+      ],
+      "version": "0.10.2",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/9e/2f/428deec3b0819552ff7c0da49721a7de5a5866751da265f1bc4421fec2b8/chempy-0.10.2.tar.gz",
+        "filename": "chempy-0.10.2.tar.gz",
+        "digests": {
+          "blake2b_256": "9e2f428deec3b0819552ff7c0da49721a7de5a5866751da265f1bc4421fec2b8",
+          "md5": "1339a34e02dc93207e39fdb25e71d525",
+          "sha256": "999eef252386732e2b908192faa2d590eb0fa11576fcb52556e0fbe7d1f0ca12"
+        }
+      }
+    },
+    {
+      "id": "devito",
+      "name": "Devito",
+      "distribution": "devito",
+      "tests": [
+        "tests"
+      ],
+      "numpy_constraint": null,
+      "version": "4.8.23",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/4e/6f/712e42686d7279af28f844236ff3b7a6599ba3c5793a02cf0ffca30143af/devito-4.8.23.tar.gz",
+        "filename": "devito-4.8.23.tar.gz",
+        "digests": {
+          "blake2b_256": "4e6f712e42686d7279af28f844236ff3b7a6599ba3c5793a02cf0ffca30143af",
+          "md5": "826eb63c827c157bf0a683e00da08c76",
+          "sha256": "9d14c6f22a98fa805d540bcaddb83bffa40f7c6f045b00e42784567e2440e43a"
+        }
+      },
+      "extra_dependencies": [
+        "scipy",
+        "codepy",
+        "pyrevolve",
+        "psutil",
+        "pytest-benchmark",
+        "click",
+        "cloudpickle",
+        "pooch",
+        "mpi4py"
+      ],
+      "pytest_args": [
+        "-n",
+        "4"
+      ],
+      "scope": "Full published tests with four pytest workers, including MPI subprocess tests; original upstream maxfail policy retained"
+    },
+    {
+      "id": "einsteinpy",
+      "name": "EinsteinPy",
+      "distribution": "einsteinpy",
+      "tests": [
+        "tests"
+      ],
+      "version": "0.4.0",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/ac/11/d8b39a538932e339971a374233d9bb69ac02059695c90123c0ffc501a387/einsteinpy-0.4.0.tar.gz",
+        "filename": "einsteinpy-0.4.0.tar.gz",
+        "digests": {
+          "blake2b_256": "ac11d8b39a538932e339971a374233d9bb69ac02059695c90123c0ffc501a387",
+          "md5": "b6de4fa4af7f60b46b5f34b1457e8ed6",
+          "sha256": "9fbe5a7be0d99b0a78cb11899809d4788855a9f55a40f608db509f420c8454e6"
+        }
+      },
+      "source_git": {
+        "url": "https://github.com/einsteinpy/einsteinpy",
+        "commit": "555b51d63dcd9512aa7a04f445f5cb206e24e351"
+      },
+      "python": "/usr/bin/python3.10",
+      "numpy_constraint": "numpy<1.24",
+      "extra_dependencies": [
+        "scipy<1.11",
+        "astropy<6",
+        "plotly<6",
+        "kaleido<0.3"
+      ]
+    },
+    {
+      "id": "galgebra",
+      "name": "galgebra",
+      "distribution": "galgebra",
+      "tests": [
+        "test"
+      ],
+      "version": "0.6.0",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/de/f8/32e61f3ce0446eef026e9c457ad9d1f03584e8a0db24d218f8eecdfec43a/galgebra-0.6.0.tar.gz",
+        "filename": "galgebra-0.6.0.tar.gz",
+        "digests": {
+          "blake2b_256": "def832e61f3ce0446eef026e9c457ad9d1f03584e8a0db24d218f8eecdfec43a",
+          "md5": "f6bd1a266acf7ca6425d88b7bf3c86c7",
+          "sha256": "2e8db0172286bcb7ff6d37c4d7e99476ffe178570dea78a2345d34cc78da10f1"
+        }
+      },
+      "extra_dependencies": [
+        "IPython"
+      ]
+    },
+    {
+      "id": "haarpy",
+      "name": "Haarpy",
+      "distribution": "haarpy",
+      "tests": [
+        "haarpy/tests"
+      ],
+      "version": "0.1.1",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/2e/6c/fa48c1d4e4d022495472f82a4f4f459fe2f14e665bd9483035987c4eb7ba/haarpy-0.1.1.tar.gz",
+        "filename": "haarpy-0.1.1.tar.gz",
+        "digests": {
+          "blake2b_256": "2e6cfa48c1d4e4d022495472f82a4f4f459fe2f14e665bd9483035987c4eb7ba",
+          "md5": "532daf4ce4e6f7985403d2ad2c9d3800",
+          "sha256": "aa6a803f167eb3189d9f859c85b79dbc92a9bdd10fa15b1098c7bb65e40feab6"
+        }
+      }
+    },
+    {
+      "id": "latexexpr",
+      "name": "LaTeX Expression",
+      "distribution": "latexexpr",
+      "tests": [
+        "test",
+        "tests"
+      ],
+      "version": "0.4.1",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/d0/9e/8b8405087da7244d086b2b04a002fda07dc768d05d140a4260f36b9a2a1c/latexexpr-0.4.1.tar.gz",
+        "filename": "latexexpr-0.4.1.tar.gz",
+        "digests": {
+          "blake2b_256": "d09e8b8405087da7244d086b2b04a002fda07dc768d05d140a4260f36b9a2a1c",
+          "md5": "89207076da49ee47e06b426f01bb2913",
+          "sha256": "d0988e1922a7325d0e2f8d679816cec5b07a976d5e147363c2125e6725f068d5"
+        }
+      },
+      "source_git": {
+        "url": "https://github.com/kajusK/latexexpr",
+        "commit": "0e6a732264cf3047548555eaa57c3e9d3a304e3a"
+      }
+    },
+    {
+      "id": "lcapy",
+      "name": "Lcapy",
+      "distribution": "lcapy",
+      "tests": [
+        "lcapy/tests",
+        "tests"
+      ],
+      "version": "1.26",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/70/6e/e7498864d5dfc7d6d7fbe6fda81b24c5caf74e6202cfa762fe9eeb34d0c8/lcapy-1.26.tar.gz",
+        "filename": "lcapy-1.26.tar.gz",
+        "digests": {
+          "blake2b_256": "706ee7498864d5dfc7d6d7fbe6fda81b24c5caf74e6202cfa762fe9eeb34d0c8",
+          "md5": "54112bb8f446b2fa15924135b7c01676",
+          "sha256": "edfc9635cc1ac62351038efc48b01e2f55620154115b19d22e36c4f8655e9220"
+        }
+      },
+      "source_git": {
+        "url": "https://github.com/mph-/lcapy",
+        "commit": "d8fe8ddb3e1fd4ec68ede3343b49100b79dc678f"
+      }
+    },
+    {
+      "id": "nrpylatex",
+      "name": "NRPyLaTeX",
+      "distribution": "nrpylatex",
+      "tests": [
+        "nrpylatex/tests",
+        "tests"
+      ],
+      "version": "1.4.0",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/d5/7b/f374701590597a4b0a983599ba4db53dbfdc923b7ac48bc6f8492981ac04/nrpylatex-1.4.0.tar.gz",
+        "filename": "nrpylatex-1.4.0.tar.gz",
+        "digests": {
+          "blake2b_256": "d57bf374701590597a4b0a983599ba4db53dbfdc923b7ac48bc6f8492981ac04",
+          "md5": "100f730cd3bed713dd2d7689c327a50d",
+          "sha256": "56685c58b62f90875bf7a75d0115f2b7b9154c2554f1e0968dee5786ac334b8c"
+        }
+      }
+    },
+    {
+      "id": "octsympy",
+      "name": "OctSymPy",
+      "repository": "https://github.com/cbm755/octsympy",
+      "kind": "native",
+      "source_git": {
+        "url": "https://github.com/cbm755/octsympy",
+        "commit": "ca94dce1a7a5a13788e64f26d3bdadf8f04bbceb"
+      },
+      "version": "3.2.2+",
+      "scope": "Unmodified Octave BIST blocks in @sym/sym.m, diff.m, int.m and solve.m; not the complete Octave package"
+    },
+    {
+      "id": "optlang",
+      "name": "Optlang",
+      "distribution": "optlang",
+      "tests": [
+        "src/optlang/tests",
+        "optlang/tests"
+      ],
+      "extra_dependencies": [
+        "swiglpk",
+        "scipy",
+        "jsonschema"
+      ],
+      "version": "1.9.1",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/98/9c/a9d91bf33b7a68f201f7c4b9686378dfbe04dde54f8b9b8056c01fd740bd/optlang-1.9.1.tar.gz",
+        "filename": "optlang-1.9.1.tar.gz",
+        "digests": {
+          "blake2b_256": "989ca9d91bf33b7a68f201f7c4b9686378dfbe04dde54f8b9b8056c01fd740bd",
+          "md5": "66902007c377d7cab19ce7540e1f3b7a",
+          "sha256": "7807e14f9fa7183fca6b97769f5ab3f930048140324f3ba7e4a02febaf8c6178"
+        }
+      },
+      "source_git": {
+        "url": "https://github.com/opencobra/optlang",
+        "commit": "903a1a6e5aed40e7985c5d0c6e013bae08789d54"
+      }
+    },
+    {
+      "id": "pydy",
+      "name": "PyDy",
+      "distribution": "pydy",
+      "tests": [
+        "pydy"
+      ],
+      "extra_dependencies": [
+        "Cython"
+      ],
+      "version": "0.9.4",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/a5/8c/4186638d7d04cbf7f06dc48da304c5275f629e4469e7553f2fe451f9ae43/pydy-0.9.4.tar.gz",
+        "filename": "pydy-0.9.4.tar.gz",
+        "digests": {
+          "blake2b_256": "a58c4186638d7d04cbf7f06dc48da304c5275f629e4469e7553f2fe451f9ae43",
+          "md5": "15e8bfbf144f2996da09ac731cc674a3",
+          "sha256": "c09fe6c68715d7686cb10a9829a48366d2d06c3124a3f6ed0f30a65dfd6524ea"
+        }
+      }
+    },
+    {
+      "id": "pyneqsys",
+      "name": "pyneqsys",
+      "distribution": "pyneqsys",
+      "tests": [
+        "pyneqsys/tests"
+      ],
+      "version": "0.5.7",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/32/2e/e462e8565f1472cc46bebf7a0bca7dc8a452a29dc73c341e4b3f70eaea86/pyneqsys-0.5.7.tar.gz",
+        "filename": "pyneqsys-0.5.7.tar.gz",
+        "digests": {
+          "blake2b_256": "322ee462e8565f1472cc46bebf7a0bca7dc8a452a29dc73c341e4b3f70eaea86",
+          "md5": "147ffe5e3f2822b138c049fa492ec39c",
+          "sha256": "a4ef31b66895171ecab9677d2f36c757debafad450169a2ba0d4e23a7eff283a"
+        }
+      },
+      "scope": "Complete published Python test tree; optional solver backend skips retained identically"
+    },
+    {
+      "id": "pyodesys",
+      "name": "pyodesys",
+      "distribution": "pyodesys",
+      "tests": [
+        "pyodesys"
+      ],
+      "version": "0.14.7",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/73/5b/31f12520cea838a4c63b469e61d2c4d384e30b961119ad50bf54577b436e/pyodesys-0.14.7.tar.gz",
+        "filename": "pyodesys-0.14.7.tar.gz",
+        "digests": {
+          "blake2b_256": "735b31f12520cea838a4c63b469e61d2c4d384e30b961119ad50bf54577b436e",
+          "md5": "57de7ee264a9c9081df070c4ed0e2c42",
+          "sha256": "120230647ed04a166809a17ddafe58733cad1bca210a3cec7e70c18628357c09"
+        }
+      },
+      "scope": "Complete published Python test tree; optional pycvodes/pygslodeiv2/pyodeint backends unavailable and explicitly skipped in both runs"
+    },
+    {
+      "id": "torchinductor",
+      "name": "PyTorch TorchInductor",
+      "repository": "https://github.com/pytorch/pytorch",
+      "kind": "torch",
+      "version": "2.14.1+cu130",
+      "scope": "Unmodified test/test_sympy_utils.py at the installed Torch commit; symbolic helpers used by TorchInductor, not the full PyTorch suite",
+      "source_git": {
+        "url": "https://github.com/pytorch/pytorch",
+        "commit": "5c4886908584029761b579af026dcfb627c84070"
+      }
+    },
+    {
+      "id": "qmcpack",
+      "name": "QMCPACK",
+      "repository": "https://github.com/QMCPACK/qmcpack",
+      "kind": "native",
+      "source_git": {
+        "url": "https://github.com/QMCPACK/qmcpack",
+        "commit": "a929651b6fc26b5716de112c358444b832341cf8"
+      },
+      "version": "4.4.9.dev",
+      "scope": "Execute the real src/QMCWaveFunctions/tests/gen_matrix_ops.py reference generator and compare output; not the QMCPACK C++ or Monte Carlo suite"
+    },
+    {
+      "id": "quantum_programming",
+      "name": "Quantum Programming in Python",
+      "kind": "publication",
+      "url": "https://digitalcommons.calpoly.edu/cgi/viewcontent.cgi?article=1072&context=physsp/",
+      "scope": "The featured link is a student thesis PDF, not an identifiable installable package/test distribution"
+    },
+    {
+      "id": "sagemath",
+      "name": "SageMath",
+      "repository": "https://github.com/sagemath/sage",
+      "kind": "native",
+      "version": "10.9",
+      "scope": "All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath test suite"
+    },
+    {
+      "id": "scikit_fdiff",
+      "name": "Scikit-fdiff",
+      "distribution": "scikit-fdiff",
+      "tests": [
+        "tests"
+      ],
+      "version": "0.7.0",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/6e/2f/df50533f936336ed31cb609f78f331153526518a7e516eff047da9f5882f/scikit-fdiff-0.7.0.tar.gz",
+        "filename": "scikit-fdiff-0.7.0.tar.gz",
+        "digests": {
+          "blake2b_256": "6e2fdf50533f936336ed31cb609f78f331153526518a7e516eff047da9f5882f",
+          "md5": "90931cb9ec9bdca2cd8f65472d414206",
+          "sha256": "05d39e607c553cbc3b3ec328b84a6f2665291cd095ef94ae8479819ad4fbe3ec"
+        }
+      },
+      "reference_incompatible": "sympy (<1.6)"
+    },
+    {
+      "id": "sfepy",
+      "name": "SfePy",
+      "distribution": "sfepy",
+      "tests": [
+        "sfepy/tests"
+      ],
+      "version": "2026.3",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/94/08/78bb254b867c57299c89252b5e84f31e03b925d913eede5a6c58cd5742c9/sfepy-2026.3.tar.gz",
+        "filename": "sfepy-2026.3.tar.gz",
+        "digests": {
+          "blake2b_256": "940878bb254b867c57299c89252b5e84f31e03b925d913eede5a6c58cd5742c9",
+          "md5": "0bba28c3e8e6a8bf1d7c9de0ec6dcb94",
+          "sha256": "baa669c5f65f78ffeb9003478907fa3337922ee4ba84a98a756e8d1227f1111c"
+        }
+      },
+      "install_mode": "wheel",
+      "installed_test_package": "sfepy",
+      "per_test_timeout": 600,
+      "scope": "Full unmodified test tree shipped in the compiled wheel, matched against the pinned source archive; slow gradient tests have a 600-second per-test budget in both backends"
+    },
+    {
+      "id": "spyder",
+      "name": "Spyder",
+      "distribution": "spyder",
+      "tests": [
+        "spyder/plugins/ipythonconsole/tests"
+      ],
+      "pytest_args": [
+        "-k",
+        "sympy"
+      ],
+      "scope": "Upstream IPython console SymPy integration tests; not the full GUI suite",
+      "extra_dependencies": [
+        "pytest-qt",
+        "pytest-mock",
+        "flaky",
+        "qtpy",
+        "PyQt5"
+      ],
+      "version": "6.1.7",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/b2/c6/1ca8d6cac39a1f79e048855dd41606cba059012a7741dab26a154fd36f92/spyder-6.1.7.tar.gz",
+        "filename": "spyder-6.1.7.tar.gz",
+        "digests": {
+          "blake2b_256": "b2c61ca8d6cac39a1f79e048855dd41606cba059012a7741dab26a154fd36f92",
+          "md5": "8426bdc62fbf1816a5b553b8d746afb9",
+          "sha256": "c7a4f7278198dac44fe0cb680d7b8b124014d49c87c0b760421744d7f0329d32"
+        }
+      },
+      "source_git": {
+        "url": "https://github.com/spyder-ide/spyder",
+        "commit": "2f0d13efda2e0fc6ef1defd6462ac0613dc77426"
+      }
+    },
+    {
+      "id": "symbolic_statistics",
+      "name": "Symbolic statistical modeling",
+      "kind": "publication",
+      "url": "https://www.researchgate.net/publication/260585491_Symbolic_Statistics_with_SymPy/",
+      "scope": "The featured link is the 2012 Symbolic Statistics with SymPy paper, not a separate package/test distribution"
+    },
+    {
+      "id": "symjit",
+      "name": "symjit",
+      "distribution": "symjit",
+      "tests": [
+        "python/tests"
+      ],
+      "version": "2.27.0",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/66/c4/dd6b27286471e4420dd191f1ddbd3ab99c8d1e603b4f6a9c734672f74487/symjit-2.27.0.tar.gz",
+        "filename": "symjit-2.27.0.tar.gz",
+        "digests": {
+          "blake2b_256": "66c4dd6b27286471e4420dd191f1ddbd3ab99c8d1e603b4f6a9c734672f74487",
+          "md5": "c8a1c97586e15b625cf0fa89655e8bc8",
+          "sha256": "5719cfc3465e63eccd59145d0ffa038a128b7f900cf2c19369b2717e98868e19"
+        }
+      },
+      "environment": {
+        "RUSTUP_TOOLCHAIN": "1.90.0"
+      },
+      "extra_dependencies": [
+        "scipy"
+      ]
+    },
+    {
+      "id": "yt",
+      "name": "yt / unyt",
+      "distribution": "unyt",
+      "tests": [
+        "unyt/tests"
+      ],
+      "repository": "https://github.com/yt-project/unyt",
+      "scope": "Full unyt unit-system test suite, the SymPy-consuming component identified by the featured list",
+      "version": "3.1.0",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/2e/27/3020d6cff4586dea10f1004f5bdf6f1b18a639485cfe8a24db29bb2f3847/unyt-3.1.0.tar.gz",
+        "filename": "unyt-3.1.0.tar.gz",
+        "digests": {
+          "blake2b_256": "2e273020d6cff4586dea10f1004f5bdf6f1b18a639485cfe8a24db29bb2f3847",
+          "md5": "be2064a320cce2b7be2e0784c43e6b25",
+          "sha256": "771582a87f1e521c9b62f7ca269b1965c0f77b479f7a063a51e8cef8b4cae51d"
+        }
+      },
+      "extra_dependencies": [
+        "matplotlib",
+        "astropy",
+        "pint",
+        "h5py",
+        "dask[array]==2024.12.1",
+        "scipy",
+        "jinja2"
+      ]
+    },
+    {
+      "id": "yt_main",
+      "name": "yt (main package)",
+      "distribution": "yt",
+      "version": "4.4.3",
+      "source_git": {
+        "url": "https://github.com/yt-project/yt",
+        "commit": "b83aa6bb36b9a9cf7b44d50b37072ebe7dd29527"
+      },
+      "tests": [
+        "yt/units/tests"
+      ],
+      "install_mode": "wheel",
+      "installed_test_package": "yt",
+      "extra_dependencies": [
+        "scipy",
+        "matplotlib",
+        "h5py",
+        "astropy"
+      ],
+      "scope": "Upstream yt/units/tests in addition to the separately audited full unyt suite; not the entire yt analysis suite"
+    },
+    {
+      "id": "devito_symbolic",
+      "name": "Devito (symbolic algorithms)",
+      "distribution": "devito",
+      "tests": [
+        "tests/test_symbolics.py"
+      ],
+      "numpy_constraint": null,
+      "version": "4.8.23",
+      "source_artifact": {
+        "url": "https://files.pythonhosted.org/packages/4e/6f/712e42686d7279af28f844236ff3b7a6599ba3c5793a02cf0ffca30143af/devito-4.8.23.tar.gz",
+        "filename": "devito-4.8.23.tar.gz",
+        "digests": {
+          "blake2b_256": "4e6f712e42686d7279af28f844236ff3b7a6599ba3c5793a02cf0ffca30143af",
+          "md5": "826eb63c827c157bf0a683e00da08c76",
+          "sha256": "9d14c6f22a98fa805d540bcaddb83bffa40f7c6f045b00e42784567e2440e43a"
+        }
+      },
+      "extra_dependencies": [
+        "scipy",
+        "codepy",
+        "pyrevolve",
+        "psutil",
+        "pytest-benchmark",
+        "click",
+        "cloudpickle",
+        "pooch",
+        "mpi4py"
+      ],
+      "pytest_args": [],
+      "scope": "Complete upstream tests/test_symbolics.py, audited separately from the full suite with its four unstable parallel MPI cases",
+      "per_test_timeout": 180
+    }
+  ]
+}

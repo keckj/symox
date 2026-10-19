@@ -1,0 +1,273 @@
+{
+  "candidate": {
+    "sha256": "b862ab30ef3e89791fbf5617074b270109732de73d7b400980e745f30d2fd41d",
+    "wheel": "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+  },
+  "evidence": {
+    "evidence/nrpylatex/freeze.txt.gz": "241ae9f6eeeda55989df63d8fcb11518ed0f6a6ad75720a93d09675e699a7e57",
+    "evidence/nrpylatex/install.log.gz": "1207420e8cda25b6fc4ea400b95972849a16d82b94f0e30fc56fc5907cd02e56",
+    "evidence/nrpylatex/native-junit.xml.gz": "3c649bd84fcaea5c73015690544fce273ed1dfcb8c605d7f3b2e654bb874b727",
+    "evidence/nrpylatex/native-processes.jsonl.gz": "6dfc6e068f0b0c3e8ed35eaa2ac8e4866e24c0a1a3faed3d29751e8036f4bffd",
+    "evidence/nrpylatex/native-tests.json.gz": "baeb708eeb07b8f82f68a4c7d033f5f94eedc94e78449c06b808767216d625f1",
+    "evidence/nrpylatex/native.log.gz": "270dfec134574ddb54540a4b746c0bfb4970f19f0857fa5fe36d44efb7be0fca",
+    "evidence/nrpylatex/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
+    "evidence/nrpylatex/reference-junit.xml.gz": "38fedcb8ac1dd6d176f385da7bae6f6b07cbcac871e0683cf891033f49ef0f1a",
+    "evidence/nrpylatex/reference-processes.jsonl.gz": "665beff61d66dcc45e53c1e7de799a531798569a5b2a4984d3986dff409cbf3b",
+    "evidence/nrpylatex/reference-tests.json.gz": "d4e5c81b16e810e0809f58c2fe8c14dc30f58606b5a8bd6046974587cf430919",
+    "evidence/nrpylatex/reference.log.gz": "22d6c5397b35391417ffdb7b549e54b8546c454adc0e9312f843a79f0de42fc0",
+    "evidence/nrpylatex/venv.log.gz": "06fff4caf056c5e7573ac8972cc95bef26a1117d8ba9fbd79431b35ee007215d"
+  },
+  "freeze": {
+    "command": [
+      "uv",
+      "pip",
+      "freeze",
+      "--python",
+      "/tmp/symox-featured/envs/nrpylatex/bin/python"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/nrpylatex/freeze.txt",
+    "seconds": 0.422,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/nrpylatex\ncoverage==7.16.2\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\n-e file:///tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "timed_out": false
+  },
+  "harness_sha256": {
+    "audit.py": "1f4397b1448d63aeaf183421d084704fd7050020d37833ccbfe51dc8e41d5ac7",
+    "audit_plugin.py": "3550d2e33686b9172f462d05400a45de6f509dffe1e0dd1c7871f788268e41fb",
+    "external.py": "6469cffb96db123fa3f9dda96ff6047cdaf2df4d93d6c996ae069881b4d43a5a",
+    "sitecustomize.py": "274e281653de1d381282accef700272d3b88f73a9b1d8f8121386ee05e8d1b7b"
+  },
+  "install": {
+    "command": [
+      "uv",
+      "pip",
+      "install",
+      "--python",
+      "/tmp/symox-featured/envs/nrpylatex/bin/python",
+      "--constraint",
+      "/tmp/symox-featured/constraints/nrpylatex.txt",
+      "--reinstall-package",
+      "symox",
+      "sympy==1.14.0",
+      "pytest>=8,<9",
+      "pytest-cov",
+      "pytest-timeout",
+      "pytest-xdist",
+      "pytest-mock",
+      "hypothesis",
+      "packaging",
+      "setuptools",
+      "wheel",
+      "mpmath",
+      "numpy",
+      "-e",
+      "/tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0",
+      "/tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/nrpylatex/install.log",
+    "seconds": 2.596,
+    "tail": "Using Python 3.12.9 environment at: /tmp/symox-featured/envs/nrpylatex\nResolved 20 packages in 1.35s\n   Building nrpylatex @ file:///tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0\n      Built nrpylatex @ file:///tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0\nPrepared 2 packages in 453ms\nUninstalled 2 packages in 35ms\nwarning: Failed to hardlink files; falling back to full copy. This may lead to degraded performance.\n         If the cache and target directories are on different filesystems, hardlinking may not be supported.\n         If this is intentional, set `export UV_LINK_MODE=copy` or use `--link-mode=copy` to suppress this warning.\nInstalled 2 packages in 158ms\n ~ nrpylatex==1.4.0 (from file:///tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0)\n - symox==0.1.1 (from file:///tmp/symox-featured/dist/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///tmp/symox-featured/dist/final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "timed_out": false
+  },
+  "native": {
+    "collection_errors": [],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/nrpylatex/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/nrpylatex/native-junit.xml",
+      "nrpylatex/tests"
+    ],
+    "counts": {
+      "collection_errors": 0,
+      "errors": 0,
+      "failed": 28,
+      "passed": 4,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 1,
+    "first_failures": [
+      {
+        "detail": "self = <nrpylatex.tests.test_parse_latex.TestParser testMethod=test_annotation_noimpsum>\n\n    def test_annotation_noimpsum(self):\n        self.assertEqual(\n>           set(parse_latex(r\"\"\"\n                % declare coord r theta phi\n                % declare vD --zeros --dim 3\n                % v_0 = 1\n                % v_1 = r\n                % v_2 = r \\sin{\\theta}\n                % R_{ij} = v_i v_j\n                % declare metric gammahatDD --zeros --dim 3\n                % \\hat{\\gamma}_{ii} = R_{ii} % noimpsum\n                % declare hDD gammabarDD --dim 3 --suffix dD\n                % \\bar{\\gamma}_{ij} = h_{ij} R_{ij} + \\hat{\\gamma}_{ij} % noimpsum\n                T_{ijk} = \\partial_k \\bar{\\gamma}_{ij}\n            \"\"\")),\n            {'gammabarDD_dD', 'RDD', 'r', 'vD', 'theta', 'gammahatDD', 'TDDD', 'hDD', 'gammabarDD', 'hDD_dD'}\n        )\n\nnrpylatex/tests/test_parse_latex.py:316: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nnrpylatex/tests/test_parse_latex.py:7: in <lambda>\n    parse_latex = lambda sentence: nl.parse_latex(sentence, reset=True)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/parse_latex.py:37: in parse_latex\n    namespace = Parser(debug).parse_latex(sentence)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:89: in parse_latex\n    expression = self._latex()\n                 ^^^^^^^^^^^^^\nnrpylatex/core/parser.py:101: in _latex\n    else: self._assignment()\n          ^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:386: in _assignment\n    function = self._operator('LHS')\n               ^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:683: in _operator\n    tensor = self._tensor(location)\n             ^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <nrpylatex.core.parser.Parser object at 0x7f46d06d51c0>, location = 'LHS'\n\n    def _tensor(self, location='RHS'):\n        prev_state = self.scanner.prev_state\n        sentence, (position, _) = self.scanner.sentence, prev_state\n        indexing = []\n        symbol = list(self._strip(self._symbol()))\n        if self.accept('UNDERSCORE'):\n            index, order = self._indexing_4()\n            covariant = ';' in index\n            for i in (',', ';'):\n                if i in index: index.remove(i)\n            indexing.extend(index)\n            symbol.extend((len(index) - order) * ['D'])\n            if order > 0:\n                sentence = self.scanner.sentence\n                suffix = '_cd' if covariant else '_d'\n                symbol.append(suffix + order * 'D')\n                function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                old_latex = sentence[position:self.scanner.prev_state[0]]\n                new_latex = IndexedSymbol(function).latex_format(function)\n                self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                self.scanner.marker = position\n                self.scanner.reset(prev_state)\n                return self._operator()\n        sym_state, prev_state = prev_state, self.scanner.prev_state\n        if self.accept('CARET'):\n            if self.accept('LBRACE'):\n                if self.accept('LBRACE'):\n                    self.scanner.reset(prev_state)\n                    symbol = ''.join(symbol)\n                    function = Function('Tensor')(Symbol(symbol, real=True))\n                    if symbol in self._namespace:\n                        if isinstance(self._namespace[symbol], Function('Constant')):\n                            return self._namespace[symbol]\n                    else: self._define_tensor(IndexedSymbol(function))\n                    return function\n                self.scanner.reset(prev_state); self.scanner.lex()\n            index = self._indexing_3()\n            indexing.extend(index)\n            symbol.extend(len(index) * ['U'])\n            if self.accept('UNDERSCORE'):\n                index, order = self._indexing_4()\n                covariant = ';' in index\n                for i in (',', ';'):\n                    if i in index: index.remove(i)\n                indexing.extend(index)\n                symbol.extend((len(index) - order) * ['D'])\n                if order > 0:\n                    sentence = self.scanner.sentence\n                    suffix = '_cd' if covariant else '_d'\n                    symbol.append(suffix + order * 'D')\n                    function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                    old_latex = sentence[position:self.scanner.prev_state[0]]\n                    new_latex = IndexedSymbol(function).latex_format(function)\n                    self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                    self.scanner.marker = position\n                    self.scanner.reset(sym_state)\n                    return self._operator()\n        symbol = ''.join(symbol)\n        if symbol in self._namespace:\n>           if isinstance(self._namespace[symbol], Function('Constant')):\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union\n\nnrpylatex/core/parser.py:885: TypeError",
+        "duration": 0.03825665602926165,
+        "nodeid": "nrpylatex/tests/test_parse_latex.py::TestParser::test_annotation_noimpsum",
+        "outcome": "failed",
+        "phase": "call",
+        "wasxfail": null
+      },
+      {
+        "detail": "self = <nrpylatex.tests.test_parse_latex.TestParser testMethod=test_diagonal_contraction>\n\n    def test_diagonal_contraction(self):\n        self.assertEqual(\n>           set(parse_latex(r\"\"\"\n                % declare hUD --dim 4\n                h = h^\\mu{}_\\mu\n            \"\"\")),\n            {'hUD', 'h'}\n        )\n\nnrpylatex/tests/test_parse_latex.py:340: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nnrpylatex/tests/test_parse_latex.py:7: in <lambda>\n    parse_latex = lambda sentence: nl.parse_latex(sentence, reset=True)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/parse_latex.py:37: in parse_latex\n    namespace = Parser(debug).parse_latex(sentence)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:89: in parse_latex\n    expression = self._latex()\n                 ^^^^^^^^^^^^^\nnrpylatex/core/parser.py:103: in _latex\n    self._assignment()\nnrpylatex/core/parser.py:390: in _assignment\n    tree = ExprTree(self._expression())\n                    ^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:432: in _expression\n    expr = self._term()\n           ^^^^^^^^^^^^\nnrpylatex/core/parser.py:442: in _term\n    expr = self._factor()\n           ^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:461: in _factor\n    return sign * self._atom()\n                  ^^^^^^^^^^^^\nnrpylatex/core/parser.py:465: in _atom\n    stack = [self._base()]\n             ^^^^^^^^^^^^\nnrpylatex/core/parser.py:496: in _base\n    return self._operator()\n           ^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:683: in _operator\n    tensor = self._tensor(location)\n             ^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <nrpylatex.core.parser.Parser object at 0x7f46d06bc4a0>, location = 'RHS'\n\n    def _tensor(self, location='RHS'):\n        prev_state = self.scanner.prev_state\n        sentence, (position, _) = self.scanner.sentence, prev_state\n        indexing = []\n        symbol = list(self._strip(self._symbol()))\n        if self.accept('UNDERSCORE'):\n            index, order = self._indexing_4()\n            covariant = ';' in index\n            for i in (',', ';'):\n                if i in index: index.remove(i)\n            indexing.extend(index)\n            symbol.extend((len(index) - order) * ['D'])\n            if order > 0:\n                sentence = self.scanner.sentence\n                suffix = '_cd' if covariant else '_d'\n                symbol.append(suffix + order * 'D')\n                function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                old_latex = sentence[position:self.scanner.prev_state[0]]\n                new_latex = IndexedSymbol(function).latex_format(function)\n                self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                self.scanner.marker = position\n                self.scanner.reset(prev_state)\n                return self._operator()\n        sym_state, prev_state = prev_state, self.scanner.prev_state\n        if self.accept('CARET'):\n            if self.accept('LBRACE'):\n                if self.accept('LBRACE'):\n                    self.scanner.reset(prev_state)\n                    symbol = ''.join(symbol)\n                    function = Function('Tensor')(Symbol(symbol, real=True))\n                    if symbol in self._namespace:\n                        if isinstance(self._namespace[symbol], Function('Constant')):\n                            return self._namespace[symbol]\n                    else: self._define_tensor(IndexedSymbol(function))\n                    return function\n                self.scanner.reset(prev_state); self.scanner.lex()\n            index = self._indexing_3()\n            indexing.extend(index)\n            symbol.extend(len(index) * ['U'])\n            if self.accept('UNDERSCORE'):\n                index, order = self._indexing_4()\n                covariant = ';' in index\n                for i in (',', ';'):\n                    if i in index: index.remove(i)\n                indexing.extend(index)\n                symbol.extend((len(index) - order) * ['D'])\n                if order > 0:\n                    sentence = self.scanner.sentence\n                    suffix = '_cd' if covariant else '_d'\n                    symbol.append(suffix + order * 'D')\n                    function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                    old_latex = sentence[position:self.scanner.prev_state[0]]\n                    new_latex = IndexedSymbol(function).latex_format(function)\n                    self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                    self.scanner.marker = position\n                    self.scanner.reset(sym_state)\n                    return self._operator()\n        symbol = ''.join(symbol)\n        if symbol in self._namespace:\n>           if isinstance(self._namespace[symbol], Function('Constant')):\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union\n\nnrpylatex/core/parser.py:885: TypeError",
+        "duration": 0.0017243080073967576,
+        "nodeid": "nrpylatex/tests/test_parse_latex.py::TestParser::test_diagonal_contraction",
+        "outcome": "failed",
+        "phase": "call",
+        "wasxfail": null
+      },
+      {
+        "detail": "self = <nrpylatex.tests.test_parse_latex.TestParser testMethod=test_dimension_reduction>\n\n    def test_dimension_reduction(self):\n        self.assertEqual(\n>           set(parse_latex(r\"\"\"\n                % declare gDD --dim 4 --sym sym01\n                \\gamma_{ij} = g_{ij}\n            \"\"\")),\n            {'gDD', 'gammaDD'}\n        )\n\nnrpylatex/tests/test_parse_latex.py:239: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nnrpylatex/tests/test_parse_latex.py:7: in <lambda>\n    parse_latex = lambda sentence: nl.parse_latex(sentence, reset=True)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/parse_latex.py:37: in parse_latex\n    namespace = Parser(debug).parse_latex(sentence)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:89: in parse_latex\n    expression = self._latex()\n                 ^^^^^^^^^^^^^\nnrpylatex/core/parser.py:103: in _latex\n    self._assignment()\nnrpylatex/core/parser.py:390: in _assignment\n    tree = ExprTree(self._expression())\n                    ^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:432: in _expression\n    expr = self._term()\n           ^^^^^^^^^^^^\nnrpylatex/core/parser.py:442: in _term\n    expr = self._factor()\n           ^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:461: in _factor\n    return sign * self._atom()\n                  ^^^^^^^^^^^^\nnrpylatex/core/parser.py:465: in _atom\n    stack = [self._base()]\n             ^^^^^^^^^^^^\nnrpylatex/core/parser.py:496: in _base\n    return self._operator()\n           ^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:683: in _operator\n    tensor = self._tensor(location)\n             ^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <nrpylatex.core.parser.Parser object at 0x7f46cffd1490>, location = 'RHS'\n\n    def _tensor(self, location='RHS'):\n        prev_state = self.scanner.prev_state\n        sentence, (position, _) = self.scanner.sentence, prev_state\n        indexing = []\n        symbol = list(self._strip(self._symbol()))\n        if self.accept('UNDERSCORE'):\n            index, order = self._indexing_4()\n            covariant = ';' in index\n            for i in (',', ';'):\n                if i in index: index.remove(i)\n            indexing.extend(index)\n            symbol.extend((len(index) - order) * ['D'])\n            if order > 0:\n                sentence = self.scanner.sentence\n                suffix = '_cd' if covariant else '_d'\n                symbol.append(suffix + order * 'D')\n                function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                old_latex = sentence[position:self.scanner.prev_state[0]]\n                new_latex = IndexedSymbol(function).latex_format(function)\n                self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                self.scanner.marker = position\n                self.scanner.reset(prev_state)\n                return self._operator()\n        sym_state, prev_state = prev_state, self.scanner.prev_state\n        if self.accept('CARET'):\n            if self.accept('LBRACE'):\n                if self.accept('LBRACE'):\n                    self.scanner.reset(prev_state)\n                    symbol = ''.join(symbol)\n                    function = Function('Tensor')(Symbol(symbol, real=True))\n                    if symbol in self._namespace:\n                        if isinstance(self._namespace[symbol], Function('Constant')):\n                            return self._namespace[symbol]\n                    else: self._define_tensor(IndexedSymbol(function))\n                    return function\n                self.scanner.reset(prev_state); self.scanner.lex()\n            index = self._indexing_3()\n            indexing.extend(index)\n            symbol.extend(len(index) * ['U'])\n            if self.accept('UNDERSCORE'):\n                index, order = self._indexing_4()\n                covariant = ';' in index\n                for i in (',', ';'):\n                    if i in index: index.remove(i)\n                indexing.extend(index)\n                symbol.extend((len(index) - order) * ['D'])\n                if order > 0:\n                    sentence = self.scanner.sentence\n                    suffix = '_cd' if covariant else '_d'\n                    symbol.append(suffix + order * 'D')\n                    function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                    old_latex = sentence[position:self.scanner.prev_state[0]]\n                    new_latex = IndexedSymbol(function).latex_format(function)\n                    self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                    self.scanner.marker = position\n                    self.scanner.reset(sym_state)\n                    return self._operator()\n        symbol = ''.join(symbol)\n        if symbol in self._namespace:\n>           if isinstance(self._namespace[symbol], Function('Constant')):\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union\n\nnrpylatex/core/parser.py:885: TypeError",
+        "duration": 0.0006869350327178836,
+        "nodeid": "nrpylatex/tests/test_parse_latex.py::TestParser::test_dimension_reduction",
+        "outcome": "failed",
+        "phase": "call",
+        "wasxfail": null
+      }
+    ],
+    "log": "/tmp/symox-featured/logs/nrpylatex/native.log",
+    "process_provenance_artifact": "evidence/nrpylatex/native-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "symox": 1
+      },
+      "blocked_reference_execution": 0,
+      "processes": 1
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {
+        "sympy": "symox"
+      }
+    },
+    "reference_passes_not_reproduced": {
+      "count": 28,
+      "examples": [
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_annotation_noimpsum",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_diagonal_contraction",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_dimension_reduction",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_expression_derivative",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_expression_exponential",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_extrinsic_curvature",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_generation_nested_covdrv",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_hamiltonian_momentum_contraint",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_indexing_component",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_indexing_coordinate",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_indexing_metric",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_covdrv",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_indexing",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_levi_civita",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_pardrv",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_inverse_contravariant",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_inverse_covariant",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_multiple_metric",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_notation_covdrv",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_notation_pardrv",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_product_rule",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_recursive_replacement",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_replacement_rule",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_schwarzschild_kretschmann",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_schwarzschild_metric",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_spatial_contraction",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_spherical_riemann",
+        "nrpylatex/tests/test_parse_latex.py::TestParser::test_upwind_suffix"
+      ]
+    },
+    "seconds": 6.311,
+    "tail": "ate)\n                    symbol = ''.join(symbol)\n                    function = Function('Tensor')(Symbol(symbol, real=True))\n                    if symbol in self._namespace:\n                        if isinstance(self._namespace[symbol], Function('Constant')):\n                            return self._namespace[symbol]\n                    else: self._define_tensor(IndexedSymbol(function))\n                    return function\n                self.scanner.reset(prev_state); self.scanner.lex()\n            index = self._indexing_3()\n            indexing.extend(index)\n            symbol.extend(len(index) * ['U'])\n            if self.accept('UNDERSCORE'):\n                index, order = self._indexing_4()\n                covariant = ';' in index\n                for i in (',', ';'):\n                    if i in index: index.remove(i)\n                indexing.extend(index)\n                symbol.extend((len(index) - order) * ['D'])\n                if order > 0:\n                    sentence = self.scanner.sentence\n                    suffix = '_cd' if covariant else '_d'\n                    symbol.append(suffix + order * 'D')\n                    function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                    old_latex = sentence[position:self.scanner.prev_state[0]]\n                    new_latex = IndexedSymbol(function).latex_format(function)\n                    self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                    self.scanner.marker = position\n                    self.scanner.reset(sym_state)\n                    return self._operator()\n        symbol = ''.join(symbol)\n        if symbol in self._namespace:\n>           if isinstance(self._namespace[symbol], Function('Constant')):\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union\n\nnrpylatex/core/parser.py:885: TypeError\n______________________ TestParser.test_spherical_riemann _______________________\n\nself = <nrpylatex.tests.test_parse_latex.TestParser testMethod=test_spherical_riemann>\n\n    def test_spherical_riemann(self):\n>       parse_latex(r\"\"\"\n            % declare coord theta phi\n            % declare index latin --dim 2\n            % declare index greek --dim 2\n            % declare metric gDD --zeros --dim 2\n            % declare r --const\n            % g_{0 0} = r^2 \\\\\n            % g_{1 1} = r^2 \\sin^2{\\theta} \\\\\n            % ignore \"\\begin{align*}\" \"\\end{align*}\"\n            \\begin{align*}\n                R^\\alpha_{\\beta\\mu\\nu} &= \\partial_\\mu \\Gamma^\\alpha_{\\beta\\nu} - \\partial_\\nu \\Gamma^\\alpha_{\\beta\\mu} + \\Gamma^\\alpha_{\\mu\\gamma}\\Gamma^\\gamma_{\\beta\\nu} - \\Gamma^\\alpha_{\\nu\\sigma}\\Gamma^\\sigma_{\\beta\\mu} \\\\\n                R_{\\alpha\\beta\\mu\\nu} &= g_{\\alpha a} R^a_{\\beta\\mu\\nu} \\\\\n                R_{\\beta\\nu} &= R^\\alpha_{\\beta\\alpha\\nu} \\\\\n                R &= g^{\\beta\\nu} R_{\\beta\\nu}\n            \\end{align*}\n        \"\"\")\n\nnrpylatex/tests/test_parse_latex.py:200: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nnrpylatex/tests/test_parse_latex.py:7: in <lambda>\n    parse_latex = lambda sentence: nl.parse_latex(sentence, reset=True)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/parse_latex.py:37: in parse_latex\n    namespace = Parser(debug).parse_latex(sentence)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:89: in parse_latex\n    expression = self._latex()\n                 ^^^^^^^^^^^^^\nnrpylatex/core/parser.py:101: in _latex\n    else: self._assignment()\n          ^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:386: in _assignment\n    function = self._operator('LHS')\n               ^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:683: in _operator\n    tensor = self._tensor(location)\n             ^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <nrpylatex.core.parser.Parser object at 0x7f46cff0bad0>, location = 'LHS'\n\n    def _tensor(self, location='RHS'):\n        prev_state = self.scanner.prev_state\n        sentence, (position, _) = self.scanner.sentence, prev_state\n        indexing = []\n        symbol = list(self._strip(self._symbol()))\n        if self.accept('UNDERSCORE'):\n            index, order = self._indexing_4()\n            covariant = ';' in index\n            for i in (',', ';'):\n                if i in index: index.remove(i)\n            indexing.extend(index)\n            symbol.extend((len(index) - order) * ['D'])\n            if order > 0:\n                sentence = self.scanner.sentence\n                suffix = '_cd' if covariant else '_d'\n                symbol.append(suffix + order * 'D')\n                function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                old_latex = sentence[position:self.scanner.prev_state[0]]\n                new_latex = IndexedSymbol(function).latex_format(function)\n                self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                self.scanner.marker = position\n                self.scanner.reset(prev_state)\n                return self._operator()\n        sym_state, prev_state = prev_state, self.scanner.prev_state\n        if self.accept('CARET'):\n            if self.accept('LBRACE'):\n                if self.accept('LBRACE'):\n                    self.scanner.reset(prev_state)\n                    symbol = ''.join(symbol)\n                    function = Function('Tensor')(Symbol(symbol, real=True))\n                    if symbol in self._namespace:\n                        if isinstance(self._namespace[symbol], Function('Constant')):\n                            return self._namespace[symbol]\n                    else: self._define_tensor(IndexedSymbol(function))\n                    return function\n                self.scanner.reset(prev_state); self.scanner.lex()\n            index = self._indexing_3()\n            indexing.extend(index)\n            symbol.extend(len(index) * ['U'])\n            if self.accept('UNDERSCORE'):\n                index, order = self._indexing_4()\n                covariant = ';' in index\n                for i in (',', ';'):\n                    if i in index: index.remove(i)\n                indexing.extend(index)\n                symbol.extend((len(index) - order) * ['D'])\n                if order > 0:\n                    sentence = self.scanner.sentence\n                    suffix = '_cd' if covariant else '_d'\n                    symbol.append(suffix + order * 'D')\n                    function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                    old_latex = sentence[position:self.scanner.prev_state[0]]\n                    new_latex = IndexedSymbol(function).latex_format(function)\n                    self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                    self.scanner.marker = position\n                    self.scanner.reset(sym_state)\n                    return self._operator()\n        symbol = ''.join(symbol)\n        if symbol in self._namespace:\n>           if isinstance(self._namespace[symbol], Function('Constant')):\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union\n\nnrpylatex/core/parser.py:885: TypeError\n________________________ TestParser.test_upwind_suffix _________________________\n\nself = <nrpylatex.tests.test_parse_latex.TestParser testMethod=test_upwind_suffix>\n\n    def test_upwind_suffix(self):\n        self.assertEqual(\n>           set(parse_latex(r\"\"\"\n                % declare index latin --dim 2\n                % declare vU --dim 2 --suffix dD\n                % declare w --const\n                T^a_c = % suffix dupD\n                \\partial_c (v^a w)\n            \"\"\")),\n            {'w', 'vU', 'vU_dupD', 'TUD'}\n        )\n\nnrpylatex/tests/test_parse_latex.py:144: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \nnrpylatex/tests/test_parse_latex.py:7: in <lambda>\n    parse_latex = lambda sentence: nl.parse_latex(sentence, reset=True)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/parse_latex.py:37: in parse_latex\n    namespace = Parser(debug).parse_latex(sentence)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:89: in parse_latex\n    expression = self._latex()\n                 ^^^^^^^^^^^^^\nnrpylatex/core/parser.py:103: in _latex\n    self._assignment()\nnrpylatex/core/parser.py:390: in _assignment\n    tree = ExprTree(self._expression())\n                    ^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:432: in _expression\n    expr = self._term()\n           ^^^^^^^^^^^^\nnrpylatex/core/parser.py:442: in _term\n    expr = self._factor()\n           ^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:461: in _factor\n    return sign * self._atom()\n                  ^^^^^^^^^^^^\nnrpylatex/core/parser.py:465: in _atom\n    stack = [self._base()]\n             ^^^^^^^^^^^^\nnrpylatex/core/parser.py:515: in _base\n    return self._operator()\n           ^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:660: in _operator\n    pardrv = self._pardrv(location)\n             ^^^^^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:696: in _pardrv\n    subexpr = self._subexpr()\n              ^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:535: in _subexpr\n    expr = self._expression()\n           ^^^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:432: in _expression\n    expr = self._term()\n           ^^^^^^^^^^^^\nnrpylatex/core/parser.py:442: in _term\n    expr = self._factor()\n           ^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:461: in _factor\n    return sign * self._atom()\n                  ^^^^^^^^^^^^\nnrpylatex/core/parser.py:465: in _atom\n    stack = [self._base()]\n             ^^^^^^^^^^^^\nnrpylatex/core/parser.py:496: in _base\n    return self._operator()\n           ^^^^^^^^^^^^^^^^\nnrpylatex/core/parser.py:683: in _operator\n    tensor = self._tensor(location)\n             ^^^^^^^^^^^^^^^^^^^^^^\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nself = <nrpylatex.core.parser.Parser object at 0x7f46cff5d220>, location = 'RHS'\n\n    def _tensor(self, location='RHS'):\n        prev_state = self.scanner.prev_state\n        sentence, (position, _) = self.scanner.sentence, prev_state\n        indexing = []\n        symbol = list(self._strip(self._symbol()))\n        if self.accept('UNDERSCORE'):\n            index, order = self._indexing_4()\n            covariant = ';' in index\n            for i in (',', ';'):\n                if i in index: index.remove(i)\n            indexing.extend(index)\n            symbol.extend((len(index) - order) * ['D'])\n            if order > 0:\n                sentence = self.scanner.sentence\n                suffix = '_cd' if covariant else '_d'\n                symbol.append(suffix + order * 'D')\n                function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                old_latex = sentence[position:self.scanner.prev_state[0]]\n                new_latex = IndexedSymbol(function).latex_format(function)\n                self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                self.scanner.marker = position\n                self.scanner.reset(prev_state)\n                return self._operator()\n        sym_state, prev_state = prev_state, self.scanner.prev_state\n        if self.accept('CARET'):\n            if self.accept('LBRACE'):\n                if self.accept('LBRACE'):\n                    self.scanner.reset(prev_state)\n                    symbol = ''.join(symbol)\n                    function = Function('Tensor')(Symbol(symbol, real=True))\n                    if symbol in self._namespace:\n                        if isinstance(self._namespace[symbol], Function('Constant')):\n                            return self._namespace[symbol]\n                    else: self._define_tensor(IndexedSymbol(function))\n                    return function\n                self.scanner.reset(prev_state); self.scanner.lex()\n            index = self._indexing_3()\n            indexing.extend(index)\n            symbol.extend(len(index) * ['U'])\n            if self.accept('UNDERSCORE'):\n                index, order = self._indexing_4()\n                covariant = ';' in index\n                for i in (',', ';'):\n                    if i in index: index.remove(i)\n                indexing.extend(index)\n                symbol.extend((len(index) - order) * ['D'])\n                if order > 0:\n                    sentence = self.scanner.sentence\n                    suffix = '_cd' if covariant else '_d'\n                    symbol.append(suffix + order * 'D')\n                    function = Function('Tensor')(Symbol(''.join(symbol)), *indexing)\n                    old_latex = sentence[position:self.scanner.prev_state[0]]\n                    new_latex = IndexedSymbol(function).latex_format(function)\n                    self.scanner.sentence = sentence.replace(old_latex, new_latex)\n                    self.scanner.marker = position\n                    self.scanner.reset(sym_state)\n                    return self._operator()\n        symbol = ''.join(symbol)\n        if symbol in self._namespace:\n>           if isinstance(self._namespace[symbol], Function('Constant')):\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE           TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union\n\nnrpylatex/core/parser.py:885: TypeError\n--- generated xml file: /tmp/symox-featured/logs/nrpylatex/native-junit.xml ----\n=========================== short test summary info ============================\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_annotation_noimpsum\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_diagonal_contraction\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_dimension_reduction\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_expression_derivative\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_expression_exponential\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_extrinsic_curvature\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_generation_nested_covdrv\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_hamiltonian_momentum_contraint\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_indexing_component\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_indexing_coordinate\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_indexing_metric\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_covdrv\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_indexing\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_levi_civita\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_inference_pardrv\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_inverse_contravariant\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_inverse_covariant\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_multiple_metric\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_notation_covdrv\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_notation_pardrv\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_product_rule - T...\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_recursive_replacement\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_replacement_rule\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_schwarzschild_kretschmann\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_schwarzschild_metric\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_spatial_contraction\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_spherical_riemann\nFAILED nrpylatex/tests/test_parse_latex.py::TestParser::test_upwind_suffix - ...\n28 failed, 4 passed in 5.76s\n",
+    "test_evidence": "evidence/nrpylatex/native-tests.json.gz",
+    "test_evidence_sha256": "baeb708eeb07b8f82f68a4c7d033f5f94eedc94e78449c06b808767216d625f1",
+    "timed_out": false
+  },
+  "preflight": {
+    "command": [
+      "/tmp/symox-featured/envs/nrpylatex/bin/python",
+      "-c",
+      "import json,sympy,symox; from importlib.metadata import version; assert sympy.__version__==\"1.14.0\"; print(json.dumps({\"sympy\":sympy.__version__,\"symox\":symox.__version__,\"numpy\":version(\"numpy\")}))"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/symox-featured/logs/nrpylatex/preflight.log",
+    "seconds": 2.261,
+    "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
+    "timed_out": false
+  },
+  "project": {
+    "distribution": "nrpylatex",
+    "id": "nrpylatex",
+    "name": "NRPyLaTeX",
+    "source_artifact": {
+      "digests": {
+        "blake2b_256": "d57bf374701590597a4b0a983599ba4db53dbfdc923b7ac48bc6f8492981ac04",
+        "md5": "100f730cd3bed713dd2d7689c327a50d",
+        "sha256": "56685c58b62f90875bf7a75d0115f2b7b9154c2554f1e0968dee5786ac334b8c"
+      },
+      "filename": "nrpylatex-1.4.0.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/d5/7b/f374701590597a4b0a983599ba4db53dbfdc923b7ac48bc6f8492981ac04/nrpylatex-1.4.0.tar.gz"
+    },
+    "tests": [
+      "nrpylatex/tests",
+      "tests"
+    ],
+    "version": "1.4.0"
+  },
+  "reference": {
+    "collection_errors": [],
+    "collection_skips": [],
+    "command": [
+      "/tmp/symox-featured/envs/nrpylatex/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "-p",
+      "audit_plugin",
+      "--timeout=60",
+      "--junitxml=/tmp/symox-featured/logs/nrpylatex/reference-junit.xml",
+      "nrpylatex/tests"
+    ],
+    "counts": {
+      "collection_errors": 0,
+      "errors": 0,
+      "failed": 0,
+      "passed": 32,
+      "skipped": 0,
+      "xfailed": 0,
+      "xpassed": 0
+    },
+    "exit_code": 0,
+    "first_failures": [],
+    "log": "/tmp/symox-featured/logs/nrpylatex/reference.log",
+    "process_provenance_artifact": "evidence/nrpylatex/reference-processes.jsonl.gz",
+    "process_provenance_summary": {
+      "backends": {
+        "sympy": 1
+      },
+      "blocked_reference_execution": 0,
+      "processes": 1
+    },
+    "provenance": {
+      "blocked_reference_execution": [],
+      "routed_modules": {}
+    },
+    "seconds": 46.339,
+    "tail": "................................                                         [100%]\n-- generated xml file: /tmp/symox-featured/logs/nrpylatex/reference-junit.xml --\n32 passed in 45.35s\n",
+    "test_evidence": "evidence/nrpylatex/reference-tests.json.gz",
+    "test_evidence_sha256": "d4e5c81b16e810e0809f58c2fe8c14dc30f58606b5a8bd6046974587cf430919",
+    "timed_out": false
+  },
+  "reference_qualified": true,
+  "reference_version": "1.14.0",
+  "selected_test_sha256": {
+    "/tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0/nrpylatex/tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0/nrpylatex/tests/test_parse_latex.py": "6d154fee00737a658490b103e16eee38bcaf294eb965665c8aab40aa16fa7510"
+  },
+  "source": "/tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0",
+  "source_identity": {
+    "configs": [
+      "pyproject.toml"
+    ],
+    "count": 1,
+    "examples": [
+      "nrpylatex/tests/test_parse_latex.py"
+    ],
+    "root": "/tmp/symox-featured/sources/nrpylatex/nrpylatex-1.4.0"
+  },
+  "started_at": "2026-10-19T10:10:13.313957+00:00",
+  "status": "native_failure"
+}

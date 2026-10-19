@@ -1,0 +1,130 @@
+{
+  "cadabra": {
+    "mismatches": [],
+    "selected_files": 1,
+    "status": "pinned_upstream_tests_match"
+  },
+  "chempy": {
+    "mismatches": [],
+    "selected_files": 125,
+    "status": "pinned_upstream_tests_match"
+  },
+  "devito": {
+    "mismatches": [],
+    "selected_files": 54,
+    "status": "pinned_upstream_tests_match"
+  },
+  "devito_symbolic": {
+    "mismatches": [],
+    "selected_files": 1,
+    "status": "pinned_upstream_tests_match"
+  },
+  "einsteinpy": {
+    "mismatches": [],
+    "selected_files": 40,
+    "status": "pinned_upstream_tests_match"
+  },
+  "galgebra": {
+    "mismatches": [],
+    "selected_files": 10,
+    "status": "pinned_upstream_tests_match"
+  },
+  "haarpy": {
+    "mismatches": [],
+    "selected_files": 11,
+    "status": "pinned_upstream_tests_match"
+  },
+  "latexexpr": {
+    "mismatches": [],
+    "selected_files": 1,
+    "status": "pinned_upstream_tests_match"
+  },
+  "lcapy": {
+    "mismatches": [],
+    "selected_files": 37,
+    "status": "pinned_upstream_tests_match"
+  },
+  "nrpylatex": {
+    "mismatches": [],
+    "selected_files": 2,
+    "status": "pinned_upstream_tests_match"
+  },
+  "octsympy": {
+    "mismatches": [],
+    "selected_files": 4,
+    "status": "pinned_upstream_tests_match"
+  },
+  "optlang": {
+    "mismatches": [],
+    "selected_files": 21,
+    "status": "pinned_upstream_tests_match"
+  },
+  "pydy": {
+    "mismatches": [],
+    "selected_files": 31,
+    "status": "pinned_upstream_tests_match"
+  },
+  "pyneqsys": {
+    "mismatches": [],
+    "selected_files": 6,
+    "status": "pinned_upstream_tests_match"
+  },
+  "pyodesys": {
+    "mismatches": [],
+    "selected_files": 32,
+    "status": "pinned_upstream_tests_match"
+  },
+  "qmcpack": {
+    "mismatches": [],
+    "selected_files": 1,
+    "status": "pinned_upstream_tests_match"
+  },
+  "quantum_programming": {
+    "selected_files": 0,
+    "status": "no_selected_test_hashes"
+  },
+  "sagemath": {
+    "mismatches": [],
+    "note": "Runtime source is identified by the recorded Conda explicit package list",
+    "selected_files": 1,
+    "status": "installed_runtime_hashes_match"
+  },
+  "scikit_fdiff": {
+    "selected_files": 0,
+    "status": "no_selected_test_hashes"
+  },
+  "sfepy": {
+    "mismatches": [],
+    "selected_files": 51,
+    "status": "pinned_upstream_tests_match"
+  },
+  "spyder": {
+    "mismatches": [],
+    "selected_files": 4,
+    "status": "pinned_upstream_tests_match"
+  },
+  "symbolic_statistics": {
+    "selected_files": 0,
+    "status": "no_selected_test_hashes"
+  },
+  "symjit": {
+    "mismatches": [],
+    "selected_files": 7,
+    "status": "pinned_upstream_tests_match"
+  },
+  "torchinductor": {
+    "mismatches": [],
+    "selected_files": 1,
+    "status": "pinned_upstream_tests_match"
+  },
+  "yt": {
+    "mismatches": [],
+    "selected_files": 15,
+    "status": "pinned_upstream_tests_match"
+  },
+  "yt_main": {
+    "mismatches": [],
+    "selected_files": 2,
+    "status": "pinned_upstream_tests_match"
+  }
+}

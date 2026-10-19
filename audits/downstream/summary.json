@@ -1,0 +1,555 @@
+{
+  "blockers": [
+    "cadabra",
+    "chempy",
+    "devito",
+    "devito_symbolic",
+    "einsteinpy",
+    "galgebra",
+    "haarpy",
+    "latexexpr",
+    "lcapy",
+    "nrpylatex",
+    "octsympy",
+    "optlang",
+    "pydy",
+    "qmcpack",
+    "sagemath",
+    "sfepy",
+    "symjit",
+    "torchinductor",
+    "yt",
+    "yt_main"
+  ],
+  "featured_drop_in_ready": false,
+  "reference_version": "1.14.0",
+  "results": [
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 1,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "cadabra",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/cadabra.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 18,
+        "passed": 555,
+        "skipped": 28,
+        "xfailed": 0,
+        "xpassed": 5
+      },
+      "project": "chempy",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 573,
+        "skipped": 28,
+        "xfailed": 0,
+        "xpassed": 5
+      },
+      "result": "results/chempy.json",
+      "status": "native_failure"
+    },
+    {
+      "native": null,
+      "project": "devito",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 4,
+        "passed": 3719,
+        "skipped": 5,
+        "xfailed": 4,
+        "xpassed": 1
+      },
+      "result": "results/devito.json",
+      "status": "reference_not_clean"
+    },
+    {
+      "native": null,
+      "project": "devito_symbolic",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 136,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/devito_symbolic.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 14,
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "einsteinpy",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 287,
+        "skipped": 0,
+        "xfailed": 9,
+        "xpassed": 0
+      },
+      "result": "results/einsteinpy.json",
+      "status": "native_failure"
+    },
+    {
+      "native": null,
+      "project": "galgebra",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 2,
+        "passed": 115,
+        "skipped": 2,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/galgebra.json",
+      "status": "reference_not_clean"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 378,
+        "passed": 729,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "haarpy",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1107,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/haarpy.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "latexexpr",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 2,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/latexexpr.json",
+      "status": "no_sympy_code_exercised"
+    },
+    {
+      "native": {
+        "collection_errors": 37,
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "lcapy",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 317,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/lcapy.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 28,
+        "passed": 4,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "nrpylatex",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 32,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/nrpylatex.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 1,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "octsympy",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 131,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/octsympy.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 17,
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "optlang",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 346,
+        "skipped": 49,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/optlang.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 46,
+        "failed": 13,
+        "passed": 17,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "pydy",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 76,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/pydy.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 19,
+        "skipped": 9,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "pyneqsys",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 19,
+        "skipped": 9,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/pyneqsys.json",
+      "status": "native_suite_passes"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 45,
+        "skipped": 238,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "pyodesys",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 45,
+        "skipped": 238,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/pyodesys.json",
+      "status": "native_suite_passes"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 1,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "qmcpack",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/qmcpack.json",
+      "status": "native_failure"
+    },
+    {
+      "native": null,
+      "project": "quantum_programming",
+      "reference": null,
+      "result": "results/quantum_programming.json",
+      "status": "publication_not_a_testable_distribution"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 192,
+        "passed": 127,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "sagemath",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 319,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/sagemath.json",
+      "status": "native_failure"
+    },
+    {
+      "native": null,
+      "project": "scikit_fdiff",
+      "reference": null,
+      "result": "results/scikit_fdiff.json",
+      "status": "excluded_reference_requirement"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 1,
+        "passed": 220,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "sfepy",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 221,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/sfepy.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "spyder",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/spyder.json",
+      "status": "native_suite_passes"
+    },
+    {
+      "native": null,
+      "project": "symbolic_statistics",
+      "reference": null,
+      "result": "results/symbolic_statistics.json",
+      "status": "publication_not_a_testable_distribution"
+    },
+    {
+      "native": null,
+      "project": "symjit",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 1,
+        "passed": 52,
+        "skipped": 6,
+        "xfailed": 9,
+        "xpassed": 0
+      },
+      "result": "results/symjit.json",
+      "status": "reference_not_clean"
+    },
+    {
+      "native": {
+        "collection_errors": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "torchinductor",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 236,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/torchinductor.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 12,
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "yt",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 819,
+        "skipped": 34,
+        "xfailed": 2,
+        "xpassed": 0
+      },
+      "result": "results/yt.json",
+      "status": "native_failure"
+    },
+    {
+      "native": {
+        "collection_errors": 1,
+        "errors": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "project": "yt_main",
+      "reference": {
+        "collection_errors": 0,
+        "errors": 0,
+        "failed": 0,
+        "passed": 1,
+        "skipped": 0,
+        "xfailed": 0,
+        "xpassed": 0
+      },
+      "result": "results/yt_main.json",
+      "status": "native_failure"
+    }
+  ],
+  "statuses": {
+    "excluded_reference_requirement": 1,
+    "native_failure": 16,
+    "native_suite_passes": 3,
+    "no_sympy_code_exercised": 1,
+    "publication_not_a_testable_distribution": 2,
+    "reference_not_clean": 3
+  },
+  "universal_parity_certified": false
+}
