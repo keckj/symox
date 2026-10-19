@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/pydy/freeze.txt.gz": "82781380d4434a9373369b708a2134bb2af133f1bf984c820f7771034fa33d47",
-    "evidence/pydy/install.log.gz": "daa4e86815ce4a08974609f040cfc3a4f26ffcb3e30e1a9aeecce54b0d1923f8",
-    "evidence/pydy/native-junit.xml.gz": "6dd1a9491a8c190e25b431a99fdfc9d2da6b0161bed800f49693189473f8fcf4",
-    "evidence/pydy/native-processes.jsonl.gz": "c1bd2aa51a439c63b644e75c8b3541f549cc4f169af0d67fd5416dc7c08dec86",
-    "evidence/pydy/native-tests.json.gz": "7f968519df376143fa8f3cdc27b105d0ee80e766f39be21a96084a6686fc880b",
-    "evidence/pydy/native.log.gz": "968da20bee12cb37ed706ea1f5fe9c18424614f64e7199324611c1165779dc86",
+    "evidence/pydy/freeze.txt.gz": "39cd70e29cea013b42c1fed5e4dc905c22591335d6418d4488dae94e2457f563",
+    "evidence/pydy/install.log.gz": "4f0f5e330e62d259ace909a0e65e483f2e8100375ce5aa455d84314158118633",
+    "evidence/pydy/native-junit.xml.gz": "7939b70e89c102bcb60283f669ca6dd412d48be264865d3e832eb2cdec33927c",
+    "evidence/pydy/native-processes.jsonl.gz": "82e0cbbcd849e8182076d62f6c27b06da4a679053324c6ca9d54d2886023c427",
+    "evidence/pydy/native-tests.json.gz": "880fbb17febdc81f066b890540856bbaeae22422dbd94dfadc7233c7728550a0",
+    "evidence/pydy/native.log.gz": "94986d3ebea6dfb66cbb7c455356f1c801d27ca3277fdd9cad33323deed90dc7",
     "evidence/pydy/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/pydy/reference-junit.xml.gz": "7d9a1e9ee63280067c1777608e4ceaef08bc3ffe02700080faffdfd5f02b6842",
-    "evidence/pydy/reference-processes.jsonl.gz": "f130e962b97556a97370f6440219307ccec47a1a6eb975ad6a5934ab42d00c16",
-    "evidence/pydy/reference-tests.json.gz": "80fe5bab3de0b761faeecf16a9829767eaf3900f818f11f8ebf17e5c797a8efe",
-    "evidence/pydy/reference.log.gz": "610ecdeab79ab1416a55861eeb7d89988b9072002044f46a150679ad0e452d6e",
+    "evidence/pydy/reference-junit.xml.gz": "989807e5bd2f97d63967e5f5081c7164762d881a85dcc193c7213e16b5726f82",
+    "evidence/pydy/reference-processes.jsonl.gz": "6a5d1e0903165ad243b261d8882083394dbdf93d8ca9be7a2cb0460a8c6cca29",
+    "evidence/pydy/reference-tests.json.gz": "5c44620d67ee9fbd504283d890bde82b23cbe4c6947e3ff92be794421b2c02fb",
+    "evidence/pydy/reference.log.gz": "ba6ddcd8ad49f9ac14f606b0c6baf4f4bf1398efd12f48642c6b09216214fb4c",
     "evidence/pydy/venv.log.gz": "95408409f0a40c1c3446e819ec593d9ca5d9772913d5006654dac0b82f3a28ca"
   },
   "freeze": {
@@ -27,8 +27,8 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/pydy/freeze.txt",
-    "seconds": 0.122,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pydy\ncoverage==7.16.2\ncython==3.3.0\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\n-e file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nscipy==1.17.1\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
+    "seconds": 0.115,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pydy\ncoverage==7.16.2\ncython==3.3.0\nexecnet==2.1.2\nhypothesis==6.170.2\niniconfig==2.3.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npluggy==1.7.0\n-e file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4\npygments==2.21.0\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\nscipy==1.17.1\nsetuptools==84.0.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -65,12 +65,12 @@
       "Cython",
       "-e",
       "/home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4",
-      "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/pydy/install.log",
-    "seconds": 0.966,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pydy\nResolved 22 packages in 545ms\n   Building pydy @ file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4\n      Built pydy @ file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4\nPrepared 2 packages in 201ms\nUninstalled 2 packages in 15ms\nInstalled 2 packages in 12ms\n ~ pydy==0.9.4 (from file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 1.016,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/pydy\nResolved 22 packages in 567ms\n   Building pydy @ file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4\n      Built pydy @ file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4\nPrepared 2 packages in 205ms\nUninstalled 2 packages in 24ms\nInstalled 2 packages in 12ms\n ~ pydy==0.9.4 (from file:///home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4)\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -114,6 +114,7 @@
         "sympy": "symox",
         "sympy._algebraic_number_methods": "symox._algebraic_number_methods",
         "sympy._api_exports": "symox._api_exports",
+        "sympy._basic": "symox._basic",
         "sympy._boolean_operators": "symox._boolean_operators",
         "sympy._compat": "symox._compat",
         "sympy._concrete": "symox._concrete",
@@ -382,10 +383,10 @@
       "count": 0,
       "examples": []
     },
-    "seconds": 48.977,
-    "tail": "........................................................................ [ 94%]\n....                                                                     [100%]\n=============================== warnings summary ===============================\npydy/codegen/tests/test_ode_function_generator.py:535\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:535: PyDyImportWarning: Theano was not found so the related tests are being skipped.\n    warnings.warn(\"Theano was not found so the related tests are being\"\n\npydy/codegen/tests/test_ode_function_generator.py:545\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:545: PyDyImportWarning: Symjit was not found so the related tests are being skipped.\n    warnings.warn(\"Symjit was not found so the related tests are being\"\n\npydy/viz/tests/test_visualization_frame_scene.py:18\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_visualization_frame_scene.py:18: PytestCollectionWarning: cannot collect test class 'TestVisualizationFrameScene' because it has a __init__ constructor (from: pydy/viz/tests/test_visualization_frame_scene.py)\n    class TestVisualizationFrameScene(object):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pydy/native-junit.xml -\n76 passed, 3 warnings in 48.45s\n",
+    "seconds": 49.868,
+    "tail": "........................................................................ [ 94%]\n....                                                                     [100%]\n=============================== warnings summary ===============================\npydy/codegen/tests/test_ode_function_generator.py:535\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:535: PyDyImportWarning: Theano was not found so the related tests are being skipped.\n    warnings.warn(\"Theano was not found so the related tests are being\"\n\npydy/codegen/tests/test_ode_function_generator.py:545\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:545: PyDyImportWarning: Symjit was not found so the related tests are being skipped.\n    warnings.warn(\"Symjit was not found so the related tests are being\"\n\npydy/viz/tests/test_visualization_frame_scene.py:18\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_visualization_frame_scene.py:18: PytestCollectionWarning: cannot collect test class 'TestVisualizationFrameScene' because it has a __init__ constructor (from: pydy/viz/tests/test_visualization_frame_scene.py)\n    class TestVisualizationFrameScene(object):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pydy/native-junit.xml -\n76 passed, 3 warnings in 49.36s\n",
     "test_evidence": "evidence/pydy/native-tests.json.gz",
-    "test_evidence_sha256": "7f968519df376143fa8f3cdc27b105d0ee80e766f39be21a96084a6686fc880b",
+    "test_evidence_sha256": "880fbb17febdc81f066b890540856bbaeae22422dbd94dfadc7233c7728550a0",
     "timed_out": false
   },
   "preflight": {
@@ -396,7 +397,7 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/pydy/preflight.log",
-    "seconds": 0.866,
+    "seconds": 0.916,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -460,10 +461,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 47.764,
-    "tail": "........................................................................ [ 94%]\n....                                                                     [100%]\n=============================== warnings summary ===============================\npydy/codegen/tests/test_ode_function_generator.py:535\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:535: PyDyImportWarning: Theano was not found so the related tests are being skipped.\n    warnings.warn(\"Theano was not found so the related tests are being\"\n\npydy/codegen/tests/test_ode_function_generator.py:545\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:545: PyDyImportWarning: Symjit was not found so the related tests are being skipped.\n    warnings.warn(\"Symjit was not found so the related tests are being\"\n\npydy/viz/tests/test_visualization_frame_scene.py:18\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_visualization_frame_scene.py:18: PytestCollectionWarning: cannot collect test class 'TestVisualizationFrameScene' because it has a __init__ constructor (from: pydy/viz/tests/test_visualization_frame_scene.py)\n    class TestVisualizationFrameScene(object):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pydy/reference-junit.xml -\n76 passed, 3 warnings in 47.01s\n",
+    "seconds": 48.119,
+    "tail": "........................................................................ [ 94%]\n....                                                                     [100%]\n=============================== warnings summary ===============================\npydy/codegen/tests/test_ode_function_generator.py:535\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:535: PyDyImportWarning: Theano was not found so the related tests are being skipped.\n    warnings.warn(\"Theano was not found so the related tests are being\"\n\npydy/codegen/tests/test_ode_function_generator.py:545\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/codegen/tests/test_ode_function_generator.py:545: PyDyImportWarning: Symjit was not found so the related tests are being skipped.\n    warnings.warn(\"Symjit was not found so the related tests are being\"\n\npydy/viz/tests/test_visualization_frame_scene.py:18\n  /home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4/pydy/viz/tests/test_visualization_frame_scene.py:18: PytestCollectionWarning: cannot collect test class 'TestVisualizationFrameScene' because it has a __init__ constructor (from: pydy/viz/tests/test_visualization_frame_scene.py)\n    class TestVisualizationFrameScene(object):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/pydy/reference-junit.xml -\n76 passed, 3 warnings in 47.39s\n",
     "test_evidence": "evidence/pydy/reference-tests.json.gz",
-    "test_evidence_sha256": "80fe5bab3de0b761faeecf16a9829767eaf3900f818f11f8ebf17e5c797a8efe",
+    "test_evidence_sha256": "5c44620d67ee9fbd504283d890bde82b23cbe4c6947e3ff92be794421b2c02fb",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -506,6 +507,6 @@
     "root": "/home/keckj/.cache/symox-validation/featured/sources/pydy/pydy-0.9.4",
     "sha256": "c09fe6c68715d7686cb10a9829a48366d2d06c3124a3f6ed0f30a65dfd6524ea"
   },
-  "started_at": "2026-10-19T19:49:39.198586+00:00",
+  "started_at": "2026-10-19T21:00:10.673361+00:00",
   "status": "native_suite_passes"
 }

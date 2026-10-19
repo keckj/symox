@@ -1,20 +1,20 @@
 {
   "candidate": {
-    "sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "evidence": {
-    "evidence/yt_main/freeze.txt.gz": "e74be0328e2329fc1061de3e5c3c75ae6ec08b10536ffdf1b868cce36cfe8397",
-    "evidence/yt_main/install.log.gz": "a4c0ebaf2e41ca7a8c7fb37e6fcb41d69e8569d1c4b4be3e382fbefd305113c7",
-    "evidence/yt_main/native-junit.xml.gz": "3caf69bd331add6948b3da4b69636814f72e4def685420259919a3d2312b6ef9",
-    "evidence/yt_main/native-processes.jsonl.gz": "2c6f34e42f36474263d2f1183b133e5c8b31cb77c3f0a1414b6511e8ea0bddb0",
-    "evidence/yt_main/native-tests.json.gz": "709dbce4e138db7fd703a5c2752038c62184d621abc5100603d5e05db6467a53",
+    "evidence/yt_main/freeze.txt.gz": "89200673aa26db3ebd0dca5712636c669eead3187cf3cbfb52ec4035a29235da",
+    "evidence/yt_main/install.log.gz": "7a3d706c9febde660c5e4bee8e51f8cd45c15f371093a7c8ea9459a46d69db4a",
+    "evidence/yt_main/native-junit.xml.gz": "97cc5395022bff1664873581b9511af22ea7b02c1ddfbfe12171c1dc3607b144",
+    "evidence/yt_main/native-processes.jsonl.gz": "d867f1668c4006936c15d28aa9dd3b9357625b40b3907ab864e7475f7f0a9e3b",
+    "evidence/yt_main/native-tests.json.gz": "eb4cdf84bb4622b140d9ce0a8f2ed60d9171040b57e7ff42a548c929c362159a",
     "evidence/yt_main/native.log.gz": "ca82b3f6a65199372a3ffafe3877d15cabb2b77a7e06d4cd30f862884962c2d6",
     "evidence/yt_main/preflight.log.gz": "eb382bd2c6925098ec03873b8db02b573e787d80935dd128c03dba92912a4a01",
-    "evidence/yt_main/reference-junit.xml.gz": "883d333a7da43e77ef8d15f0b11d4e7a945dc74338df32b9bd3032e48c014242",
-    "evidence/yt_main/reference-processes.jsonl.gz": "58a6f06d0ef1b75c12e048770fb3f51c8f4db5f572031c2169f762c5c9203df5",
-    "evidence/yt_main/reference-tests.json.gz": "4ab9be564301062d88566ba2e23539e5df1d1c1536648c5e0ff9bb2683a621d2",
-    "evidence/yt_main/reference.log.gz": "d73d22fb7bcb389cc26dd9ba939b0b5c931be3ed1b2cc379ce104b33ba9ef1d5",
+    "evidence/yt_main/reference-junit.xml.gz": "ff9a91a439bbd69e93b45f67989cd0a2ff950a498edbbfa2e64ced48e2116415",
+    "evidence/yt_main/reference-processes.jsonl.gz": "ca730e440e697166058ae1d38560a2b1aa7163b126befd6f155c020445963a02",
+    "evidence/yt_main/reference-tests.json.gz": "8753cf30664ed71a9b86b4ba8db28966a535c25474f9bb292cea7a156f402956",
+    "evidence/yt_main/reference.log.gz": "2731664edc3eecbb7cc493ef6e31766f58ce40b44b05b265a6a65daaa352b544",
     "evidence/yt_main/venv.log.gz": "16a2e51a4d6d136baf89cfa2270401fdffb5c6c994aebf183fd38ddfd9eb4c77"
   },
   "freeze": {
@@ -28,7 +28,7 @@
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/freeze.txt",
     "seconds": 0.121,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nastropy==7.2.3\nastropy-iers-data==0.2026.10.19.0.52.1\ncmyt==2.0.4\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\newah-bool-utils==1.3.2\nexecnet==2.1.2\nfonttools==4.67.0\nh5py==3.16.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmore-itertools==11.2.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli-w==1.2.0\ntqdm==4.70.1\nunyt==3.2.0\nwheel==0.48.0\nyt==4.4.3\n",
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nastropy==7.2.3\nastropy-iers-data==0.2026.10.19.0.52.1\ncmyt==2.0.4\ncontourpy==1.3.3\ncoverage==7.16.2\ncycler==0.12.1\newah-bool-utils==1.3.2\nexecnet==2.1.2\nfonttools==4.67.0\nh5py==3.16.0\nhypothesis==6.170.2\niniconfig==2.3.1\nkiwisolver==1.5.1\nmatplotlib==3.11.2\nmore-itertools==11.2.1\nmpmath==1.3.0\nnumpy==1.26.4\npackaging==26.3\npillow==13.0.0\npluggy==1.7.0\npyerfa==2.0.1.5\npygments==2.21.0\npyparsing==3.3.3\npytest==8.4.2\npytest-cov==7.1.0\npytest-mock==3.17.0\npytest-timeout==2.4.0\npytest-xdist==3.8.0\npython-dateutil==2.9.0.post0\npyyaml==6.0.3\nscipy==1.17.1\nsetuptools==84.0.0\nsix==1.17.0\nsortedcontainers==2.4.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy==1.14.0\ntomli-w==1.2.0\ntqdm==4.70.1\nunyt==3.2.0\nwheel==0.48.0\nyt==4.4.3\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -67,12 +67,12 @@
       "h5py",
       "astropy",
       "yt==4.4.3",
-      "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/install.log",
-    "seconds": 0.515,
-    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nResolved 41 packages in 283ms\nPrepared 1 package in 0.24ms\nUninstalled 1 package in 51ms\nInstalled 1 package in 12ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/wild-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 0.465,
+    "tail": "Using Python 3.12.9 environment at: /home/keckj/.cache/symox-validation/featured/envs/yt_main\nResolved 41 packages in 262ms\nPrepared 1 package in 0.23ms\nUninstalled 1 package in 20ms\nInstalled 1 package in 12ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "installed_tests_match_pinned_source": true,
@@ -118,6 +118,7 @@
         "sympy": "symox",
         "sympy._algebraic_number_methods": "symox._algebraic_number_methods",
         "sympy._api_exports": "symox._api_exports",
+        "sympy._basic": "symox._basic",
         "sympy._boolean_operators": "symox._boolean_operators",
         "sympy._compat": "symox._compat",
         "sympy._concrete": "symox._concrete",
@@ -388,7 +389,7 @@
     "seconds": 1.417,
     "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/native-junit.xml -\n1 passed in 0.89s\n",
     "test_evidence": "evidence/yt_main/native-tests.json.gz",
-    "test_evidence_sha256": "709dbce4e138db7fd703a5c2752038c62184d621abc5100603d5e05db6467a53",
+    "test_evidence_sha256": "eb4cdf84bb4622b140d9ce0a8f2ed60d9171040b57e7ff42a548c929c362159a",
     "timed_out": false
   },
   "preflight": {
@@ -399,7 +400,7 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/yt_main/preflight.log",
-    "seconds": 1.016,
+    "seconds": 0.866,
     "tail": "{\"sympy\": \"1.14.0\", \"symox\": \"0.1.1\", \"numpy\": \"1.26.4\"}\n",
     "timed_out": false
   },
@@ -465,10 +466,10 @@
       "blocked_reference_execution": [],
       "routed_modules": {}
     },
-    "seconds": 2.168,
-    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/reference-junit.xml -\n1 passed in 1.49s\n",
+    "seconds": 1.868,
+    "tail": ".                                                                        [100%]\n- generated xml file: /home/keckj/.cache/symox-validation/featured/logs/yt_main/reference-junit.xml -\n1 passed in 1.25s\n",
     "test_evidence": "evidence/yt_main/reference-tests.json.gz",
-    "test_evidence_sha256": "4ab9be564301062d88566ba2e23539e5df1d1c1536648c5e0ff9bb2683a621d2",
+    "test_evidence_sha256": "8753cf30664ed71a9b86b4ba8db28966a535c25474f9bb292cea7a156f402956",
     "timed_out": false
   },
   "reference_qualified": true,
@@ -482,6 +483,6 @@
     "commit": "b83aa6bb36b9a9cf7b44d50b37072ebe7dd29527",
     "root": "/home/keckj/.cache/symox-validation/featured/git/yt_main"
   },
-  "started_at": "2026-10-19T19:51:33.861619+00:00",
+  "started_at": "2026-10-19T21:02:03.935779+00:00",
   "status": "native_suite_passes"
 }

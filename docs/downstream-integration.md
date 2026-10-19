@@ -27,7 +27,7 @@ Local regression checks, their exact scope and the production fix commit are rec
 | [LaTeX Expression](../audits/downstream/results/latexexpr.json) | 0.4.1 | 2 pass | 2 pass | No symbolic integration exercised |
 | [Lcapy](../audits/downstream/results/lcapy.json) | 1.26 | 317 pass | 193 pass, 124 fail | Native incompatibility |
 | [NRPyLaTeX](../audits/downstream/results/nrpylatex.json) | 1.4.0 | 32 pass | 32 pass | Selected tests pass |
-| [OctSymPy](../audits/downstream/results/octsympy.json) | 3.2.2+ | 131 pass | 0 pass, 1 error | Native incompatibility |
+| [OctSymPy](../audits/downstream/results/octsympy.json) | 3.2.2+ | 131 pass | 131 pass | Selected tests pass |
 | [Optlang](../audits/downstream/results/optlang.json) | 1.9.1 | 346 pass, 49 skip | 49 pass, 312 fail, 34 skip | Native incompatibility |
 | [PyDy](../audits/downstream/results/pydy.json) | 0.9.4 | 76 pass | 76 pass | Selected tests pass |
 | [pyneqsys](../audits/downstream/results/pyneqsys.json) | 0.5.7 | 19 pass, 9 skip | 19 pass, 9 skip | Selected tests pass |
@@ -228,27 +228,7 @@ All passing reference node IDs were reproduced. The skip/xfail counts above rema
 
 Unmodified Octave BIST blocks in @sym/sym.m, diff.m, int.m and solve.m; not the complete Octave package
 
-```text
-Traceback (most recent call last):
-  File "<stdin>", line 9, in <module>
-ImportError: cannot import name 'Boolean' from 'symox.logic.boolalg' (/home/keckj/.cache/symox-validation/featured/envs/sage-octave/lib/python3.12/site-packages/symox/logic/boolalg.py)
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-  File "<stdin>", line 11, in octoutput_drv
-NameError: name 'ET' is not defined
-
-error: Python exception: ImportError: cannot import name 'Boolean' from 'symox.logic.boolalg' (/home/keckj/.cache/symox-validation/featured/envs/sage-octave/lib/python3.12/site-packages/symox/logic/boolalg.py)
-    occurred in python_header import block.
-    Try "sympref reset" and repeat your command?
-    (consider filing an issue at https://github.com/gnu-octave/symbolic/issues)
-error: called from
-    pycall_sympy__ at line 192 column 5
-    valid_sym_assumptions at line 38 column 5
-    assumptions at line 82 column 5
-    syms at line 140 column 3
-    /home/keckj/Documents/symox/tools/downstream/octave_bist.m at line 5 column 1
-
-```
+All passing reference node IDs were reproduced. The skip/xfail counts above remain outside the proven scope.
 
 ### Optlang
 
@@ -264,7 +244,7 @@ self = <optlang.tests.test_container.ContainerTestCase testMethod=test_change_ob
 src/optlang/tests/test_container.py:190:
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
-self = <optlang.interface.Model object at 0x7fcc3387dc40>, stuff = _blub
+self = <optlang.interface.Model object at 0x7fd29d3eb2c0>, stuff = _blub
 sloppy = False
 
     def add(self, stuff, sloppy=False):
@@ -353,13 +333,13 @@ All 319 upstream doctests in sage/interfaces/sympy.py; not the full SageMath tes
    1 of   3 in sage.interfaces.sympy.check_all
    1 of   3 in sage.interfaces.sympy.check_expression
    2 of   5 in sage.interfaces.sympy.sympy_init
-    [319 tests, 182 failures, 1.80s wall]
+    [319 tests, 182 failures, 1.71s wall]
 ----------------------------------------------------------------------
 python3 -m sage.doctest --warn-long 5.0 --random-seed=0 envs/sage-octave/lib/python3.12/site-packages/sage/interfaces/sympy.py  # 182 doctests failed
 ----------------------------------------------------------------------
 Total time for all tests: 1.8 seconds
-    cpu time: 1.8 seconds
-    cumulative wall time: 1.8 seconds
+    cpu time: 1.7 seconds
+    cumulative wall time: 1.7 seconds
 Features detected for doctesting:
 
 ```

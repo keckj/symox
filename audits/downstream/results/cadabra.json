@@ -1,7 +1,7 @@
 {
   "candidate": {
-    "sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2",
-    "wheel": "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+    "sha256": "10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42",
+    "wheel": "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
   },
   "conda_explicit": {
     "command": [
@@ -13,18 +13,18 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/cadabra/conda-explicit.txt",
-    "seconds": 0.528,
+    "seconds": 0.444,
     "tail": "List of packages in environment: \"/home/keckj/.cache/symox-validation/featured/envs/cadabra-build\"\n\nhttps://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/binutils_impl_linux-64-2.46.1-default_hfdba357_103.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-hda65f42_10.conda\nhttps://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.18-hbd8a1cb_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/conda-gcc-specs-15.3.0-h8846f6e_7.conda\nhttps://conda.anaconda.org/conda-forge/noarch/cpython-3.12.15-py312hd8ed1ab_2.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/cxx-compiler-2.0.0-hdab9b82_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/gcc-15.3.0-hc6a0c74_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/gcc_impl_linux-64-15.3.0-h6ad849d_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/glib-2.90.0-h5e3c387_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/glib-tools-2.90.0-h3d503d9_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/glibmm-2.66.3-ha770c72_0.tar.bz2\nhttps://conda.anaconda.org/conda-forge/linux-64/glibmm-2.4-2.66.3-h87e66e5_0.tar.bz2\nhttps://conda.anaconda.org/conda-forge/linux-64/gmp-6.3.0-hfd2156b_3.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/gmpy2-2.3.2-py312h04c1168_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/gxx-15.3.0-hc6a0c74_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/gxx_impl_linux-64-15.3.0-h90d9265_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/icu-78.3-py310h44b86e0_2.conda\nhttps://conda.anaconda.org/conda-forge/noarch/kernel-headers_linux-64-5.14.0-he073ed8_3.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/ld_impl_linux-64-2.46.1-default_hbd61a6d_103.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libboost-1.92.0-h1101c1b_3.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libboost-devel-1.92.0-hdab9b82_3.conda\nhttps://conda.anaconda.org/conda-forge/noarch/libboost-headers-1.92.0-h707e725_3.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libexpat-2.8.5-hd2095e1_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libffi-3.7.0-h81df57d_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libgcc-16.2.0-ha9f2e26_7.conda\nhttps://conda.anaconda.org/conda-forge/noarch/libgcc-devel_linux-64-15.3.0-h2b852eb_107.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libgcc-ng-16.2.0-h69a702a_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libglib-2.90.0-h569388d_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libgomp-16.2.0-he0feb66_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libiconv-1.18-h0cb94f2_3.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/liblzma-5.8.3-hb03c661_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/liblzma-devel-5.8.3-hb03c661_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libnsl-2.0.1-hb9d3cd8_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libpython-3.12.15-ha57cdbe_2_cpython.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libsanitizer-15.3.0-h54950a5_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libsqlite-3.54.1-h13e7031_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libstdcxx-16.2.0-h934c35e_7.conda\nhttps://conda.anaconda.org/conda-forge/noarch/libstdcxx-devel_linux-64-15.3.0-hb2c5482_107.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libstdcxx-ng-16.2.0-hdf11a46_7.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libuuid-2.42.4-hcfc3c73_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libxcrypt-4.4.38-h280c20c_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.2-h25fd6f3_3.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/mpc-1.4.0-ha2cb11d_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/mpfr-4.2.2-ha2cb11d_1.conda\nhttps://conda.anaconda.org/conda-forge/noarch/mpmath-1.4.1-pyhd8ed1ab_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/ncurses-6.6-hdb14827_1.conda\n\nhttps://conda.anaconda.org/conda-forge/linux-64/openssl-3.6.5-h781a0a9_0.conda\nhttps://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/pcre2-10.47-h8b3dc9c_1.conda\nhttps://conda.anaconda.org/conda-forge/noarch/pip-26.2.1-pyh8b19718_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/pkg-config-0.29.2-h1114479_1013.conda\nhttps://conda.anaconda.org/conda-forge/noarch/pybind11-3.1.0-pyh293190f_0.conda\nhttps://conda.anaconda.org/conda-forge/noarch/pybind11-global-3.1.0-pyh648e204_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/python-3.12.15-h5f976f7_2_cpython.conda\nhttps://conda.anaconda.org/conda-forge/noarch/python_abi-3.12-9_cp312.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/readline-8.3-hd6e31c0_1.conda\nhttps://conda.anaconda.org/conda-forge/noarch/setuptools-84.0.0-pyh332efcf_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/sigcpp-2.0-2.10.8-h27087fc_0.tar.bz2\nhttps://conda.anaconda.org/conda-forge/linux-64/sqlite-3.54.1-h9ffa6c4_0.conda\n\nhttps://conda.anaconda.org/conda-forge/noarch/sympy-1.14.0-pyh2585a3b_106.conda\nhttps://conda.anaconda.org/conda-forge/noarch/sysroot_linux-64-2.34-h087de78_3.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h1df4ec4_4.conda\nhttps://conda.anaconda.org/conda-forge/noarch/tzdata-2026c-h151e31d_0.conda\nhttps://conda.anaconda.org/conda-forge/noarch/wheel-0.48.0-pyhd8ed1ab_0.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/xz-5.8.3-ha02ee65_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/xz-gpl-tools-5.8.3-ha02ee65_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/xz-tools-5.8.3-hb03c661_1.conda\nhttps://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_7.conda\n",
     "timed_out": false
   },
   "evidence": {
     "evidence/cadabra/conda-explicit.txt.gz": "2820683bb0d26ca11f1da8877b1d2af064bde6dab9b22df510197138745fb40d",
-    "evidence/cadabra/freeze.txt.gz": "bd9a7bb5bea64e55481bd4227f79d731177597d71191f85e3d3417d96201bad4",
-    "evidence/cadabra/install.log.gz": "889111feedfa13a9ad68096900d8c931eb767d814627cfb1f77fc12b86e06345",
-    "evidence/cadabra/native-processes.jsonl.gz": "a21e9709e2204b42450a6865b3bcdafd3e3f255ad37d450eb75528a1d76a6cb0",
+    "evidence/cadabra/freeze.txt.gz": "ed95acfddace2166f3df1a970cec7d2bfad4245d13a2c889dbc2731439c497ca",
+    "evidence/cadabra/install.log.gz": "aa0815e57c49c9997cc4f70ed39771c9110febcb356c6fe744484ec167b75a70",
+    "evidence/cadabra/native-processes.jsonl.gz": "3a99e429938e361bbf9737bc36bd7b3fa2e8fbc72eb2a16d4204bd4c435ce1e6",
     "evidence/cadabra/native.log.gz": "82ef6951a153ba6a29c74962d612b961ea430936dee91d1a45f6f5b544e86781",
     "evidence/cadabra/preflight.log.gz": "dd62cea595f00203c182542bb4b1d6d1ea75458ecf005bc99eec95d639a27659",
-    "evidence/cadabra/reference-processes.jsonl.gz": "dc9c3bfde0e40a3866245447b20ffd362af2ff0c24495f7a4a9f1c8e33eef712",
+    "evidence/cadabra/reference-processes.jsonl.gz": "5755e239a16a4dac7aac11b7dec6c19dc750fc1617135f474c4c312271f75b1a",
     "evidence/cadabra/reference.log.gz": "7ec36d571ce1a6f6c7555f9168b7d29d6e6641d104e145517f5f29d826e75d30"
   },
   "freeze": {
@@ -37,8 +37,8 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/cadabra/freeze.txt",
-    "seconds": 0.218,
-    "tail": "Using Python 3.12.15 environment at: /home/keckj/.cache/symox-validation/featured/envs/cadabra-build\ngmpy2 @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_gmpy2_1791166959/work\nmpmath @ file:///home/conda/feedstock_root/build_artifacts/mpmath_1773661943568/work\nnumpy==2.5.4\npackaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1785888127/work\npip @ file:///home/conda/feedstock_root/build_artifacts/pip_1785914405025/work\npybind11 @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pybind11_1786200320/work\npybind11-global @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pybind11-global_1786200320/work\nsetuptools==84.0.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy @ file:///home/conda/feedstock_root/build_artifacts/sympy_1771952240620/work\nwheel==0.48.0\n",
+    "seconds": 0.166,
+    "tail": "Using Python 3.12.15 environment at: /home/keckj/.cache/symox-validation/featured/envs/cadabra-build\ngmpy2 @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_gmpy2_1791166959/work\nmpmath @ file:///home/conda/feedstock_root/build_artifacts/mpmath_1773661943568/work\nnumpy==2.5.4\npackaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1785888127/work\npip @ file:///home/conda/feedstock_root/build_artifacts/pip_1785914405025/work\npybind11 @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pybind11_1786200320/work\npybind11-global @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pybind11-global_1786200320/work\nsetuptools==84.0.0\nsymox @ file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl\nsympy @ file:///home/conda/feedstock_root/build_artifacts/sympy_1771952240620/work\nwheel==0.48.0\n",
     "timed_out": false
   },
   "harness_sha256": {
@@ -58,12 +58,12 @@
       "/home/keckj/.cache/symox-validation/featured/envs/cadabra-build/bin/python",
       "--reinstall-package",
       "symox",
-      "/home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
+      "/home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl"
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/cadabra/install.log",
-    "seconds": 0.62,
-    "tail": "Using Python 3.12.15 environment at: /home/keckj/.cache/symox-validation/featured/envs/cadabra-build\nResolved 3 packages in 92ms\nPrepared 1 package in 107ms\nUninstalled 1 package in 29ms\nInstalled 1 package in 47ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/mechanics-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
+    "seconds": 0.473,
+    "tail": "Using Python 3.12.15 environment at: /home/keckj/.cache/symox-validation/featured/envs/cadabra-build\nResolved 3 packages in 85ms\nPrepared 1 package in 83ms\nUninstalled 1 package in 16ms\nInstalled 1 package in 18ms\n - symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n + symox==0.1.1 (from file:///home/keckj/.cache/symox-validation/dist/octave-final2/symox-0.1.1-cp39-abi3-manylinux_2_35_x86_64.whl)\n",
     "timed_out": false
   },
   "native": {
@@ -94,7 +94,7 @@
       "blocked_reference_execution": 0,
       "processes": 1
     },
-    "seconds": 0.566,
+    "seconds": 0.366,
     "tail": "\u001b[31mTraceback (most recent call last):\n  File \"<string>\", line 15, in <module>\n  File \"<string>\", line 9, in test01\nRuntimeError: SympyBridge::convert: do not know (yet) how to handle <class 'symox._core.Expr'>\n\u001b[0mScript ended execution due to an uncaught exception.\n3x + (x)**2 + a (x)**2 + b x\n",
     "timed_out": false,
     "upstream_pass_markers": 0
@@ -111,7 +111,7 @@
     ],
     "exit_code": 0,
     "log": "/home/keckj/.cache/symox-validation/featured/logs/cadabra/preflight.log",
-    "seconds": 1.323,
+    "seconds": 1.018,
     "tail": "1.14.0 0.1.1\n",
     "timed_out": false
   },
@@ -155,7 +155,7 @@
       "blocked_reference_execution": 0,
       "processes": 1
     },
-    "seconds": 1.289,
+    "seconds": 0.968,
     "tail": "3x + (x)**2 + a (x)**2 + b x\n0\nTest 01 passed\nf A\n\\partial_{r}((f + (sin(r))**4))\n0\nTest 02 passed\n\\partial(r)\n\\partial(r)\n0\nTest 03a passed\n\\partial(\\partial(r))\n0\nTest 03b passed\n1-(-1)**2\nTest 04 passed\n\\exp(-x)\nTest 05 passed\n\\partial_{r}(\u03b8)\nTest 06a passed\n\\partial_{r}(\u03b8)\nTest 06b passed\n3\\partial_{r}(f)\n0\nTest 07 passed\nProperty AntiCommuting attached to {M, N}.\nTest08 passed\nsin(x)\n-cos(x)\n0\nTest 09 passed\n{(x)**2 = y + z, z = x-3}\n{{x \u2192 z + 3, y \u2192 (z)**2 + 5z + 9}}\nTest 10 passed\nProperty Coordinate attached to \u03c4.\nProperty Derivative attached to \\dot{#}.\nProperty Depends attached to X.\n\\dot(\\dot(X)) + (m)**2 X = 0\n0\n",
     "timed_out": false,
     "upstream_pass_markers": 12
@@ -165,7 +165,7 @@
   "selected_tests": {
     "/home/keckj/.cache/symox-validation/featured/git/cadabra/tests/sympy_cdb.cdb": "e1946039989c4f4aef4faf533f192c0c05747ba92543b2dce67c8d7eb8c8a500"
   },
-  "started_at": "2026-10-19T19:47:01.507432+00:00",
+  "started_at": "2026-10-19T20:57:32.196652+00:00",
   "status": "native_failure",
   "test_kind": "cadabra"
 }

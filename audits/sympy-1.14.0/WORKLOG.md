@@ -1,5 +1,55 @@
 # Autonomous parity audit worklog
 
+## Native OctSymPy checkpoint — 2026-10-19
+
+Production fixes: `2a6487cad48aa0b6c9d465056ece02bb5be52ed8` (including
+`0c24818212865ebba4d997bc028ef67febf92ea7`). The optimized validation wheel is
+identified by SHA256
+`10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42`.
+All 606 package files match the production workspace. The equivalent source
+snapshot used in the isolated build and the exact commands are recorded in
+`audits/downstream/candidate.json` and `audits/downstream/validation.json`.
+
+OctSymPy reproduces all **131 reference-passing BIST cases** in the pinned
+`sym`, `diff`, `int` and `solve` files: 87, 10, 10 and 24 respectively. This is
+that four-file selection, not the entire Octave symbolic package. The other
+11 passing downstream selections remain passing on the same new wheel.
+There are now **12 passing selections and seven native incompatibilities**:
+Cadabra, Devito symbolic algorithms, EinsteinPy, Lcapy, Optlang, SageMath and
+TorchInductor. The three unclean reference suites remain unqualified. Full
+Devito retains its previous immutable reference-only identity.
+
+The bridge changes implement structural Boolean queries, original Symbol
+assumptions, matrix representations and stacking, immutable output from global
+matrix integration and simultaneous scalar substitution in matrix expressions.
+Boolean-valued Piecewise conditions with an explicit default become ITE nodes
+before branch storage. This preserves negative/positive symbolic index domains
+in arrays and permutations under the stricter public condition-pair validation.
+Structural Basic containers and native category registration do not supply the
+complete nominal SymPy MRO. Formal Boolean algebra, mixed simultaneous matrix
+and scalar replacement and exhaustive Piecewise coverage proofs without a
+default remain open. The explicit NonElementaryIntegral marker does not certify
+non-elementarity; the complete Risch decision procedure remains open.
+
+Explicit false equations retain their contradiction meaning. Empty public
+solve assignment output for identities or unrelated requested variables is
+kept distinct from a mathematical proof of an empty solution set. Sympification
+preserves existing AlgebraicNumber identity and exact field metadata. Two old
+internal expectations were replaced by explicit reference checks: raw Python
+integers in srepr and AlgebraicNumber sympification. Upstream assertions were
+not edited; all 26 source-integrity records validate their stated provenance.
+
+Final local validation on this wheel: **29,310 internal tests passed**, five
+existing documented skips, no failures or xfails; **383 extension tests passed**
+with required CUDA, JAX, PyTorch, Slang runtime and AdaptiveCpp OpenMP execution;
+**429 focused tests passed on both Python 3.10 and Python 3.12**, without skips.
+The native core has **510 passing unit tests and five passing doctests**, with
+one existing ignored timing test. Workspace all-target builds and correctness
+Clippy checks pass. All **260 evidence artifacts** pass digest and decompression
+verification. The featured replacement gate and universal parity certificate
+remain false. None of these scoped results renews the historical per-function
+API audit certificates.
+
 ## PyDy code generation and QMCPACK checkpoint — 2026-10-19
 
 Production fixes: `e44c34c178a2209397b0e4aa0cc150d9ce9a3c71`. Candidate identity, package

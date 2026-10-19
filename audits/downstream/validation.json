@@ -1,21 +1,25 @@
 {
-  "audit_config": {
-    "command": ".venv/bin/python -m pytest -q tests/test_downstream_audit.py",
-    "failed": 0,
-    "passed": 14,
-    "seconds": 1.74,
-    "skipped": 0,
-    "xfailed": 0
-  },
   "build_checks": {
     "clippy": "cargo clippy -p symox -- -D warnings -A clippy::all -W clippy::correctness",
     "workspace": "cargo build --workspace --all-targets"
   },
   "core": {
-    "command": "OPENBLAS_NUM_THREADS=2 OMP_NUM_THREADS=2 .venv/bin/python -m pytest -q -ra tests --ignore=tests/extra",
+    "argv": [
+      "/home/keckj/Documents/symox/.venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "tests",
+      "--ignore=tests/extra"
+    ],
+    "environment_overrides": {
+      "OMP_NUM_THREADS": "2",
+      "OPENBLAS_NUM_THREADS": "2"
+    },
     "failed": 0,
-    "passed": 29218,
-    "seconds": 526.73,
+    "passed": 29310,
+    "seconds": 577.64,
     "skipped": 5,
     "skipped_details": [
       {
@@ -27,117 +31,148 @@
         "detail": "tests/test_trigonometric_solution_lattices.py:50: reference returns nan/infinite pseudo-roots; independently checked below"
       }
     ],
+    "working_directory": "/home/keckj/Documents/symox",
     "xfailed": 0
   },
+  "corrected_internal_expectations": [
+    "Raw Python integers retain literal representation in srepr, unlike native symbolic Integer objects.",
+    "sympify preserves existing AlgebraicNumber identity and exact field metadata."
+  ],
   "environment": {
+    "executable": "/home/keckj/Documents/symox/.venv/bin/python",
     "packages": {
-      "AdaptiveCpp": null,
       "jax": "0.6.2",
       "jaxlib": "0.6.2",
+      "mpmath": "1.3.0",
       "numpy": "2.2.6",
       "pytest": "9.1.1",
       "slangpy": "0.43.1",
       "symox": "0.1.1",
       "sympy": "1.14.0",
-      "torch": "2.14.1"
+      "torch": "2.14.1",
+      "z3-solver": "5.3.1.0"
     },
     "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
-    "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]"
+    "python": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+    "runtime_requirements": {
+      "adaptivecpp": "OpenMP CPU execution required by tests",
+      "jax": "CUDA required by tests",
+      "slangpy": "runtime required by tests",
+      "torch": "CUDA required by tests"
+    }
   },
   "evidence": {
     "evidence/local-validation/acpp-version.log.gz": "67220e428cd04aa9305ed3e704ad824d89e26ad8ea27eb78675ab638f2f28d74",
-    "evidence/local-validation/audit-config.log.gz": "3f38032f436836b37af4fa75ea027b53b5dd6c6fc4e9ed1ecb41f5c9d74f0146",
-    "evidence/local-validation/build-release.log.gz": "b7e1ff7ea9970360739960d071e1e2de5dea27b74273fb3ef0a480ba300ccf18",
-    "evidence/local-validation/clippy-final.log.gz": "2d7969f2b2985d37e6be8e8102e710efe4f02e52779e05f1af7815517e19acdb",
-    "evidence/local-validation/core-final.log.gz": "fae75eac3e4161b4dfb8e7a9c1a5dfa4fc63551be52f392741f191894385bb4d",
-    "evidence/local-validation/environment.json.gz": "7bab58ffce35edc2d6c06abf38b5e2095e3c245d578530efc2471ac59cb16a8d",
-    "evidence/local-validation/extra-final.log.gz": "1d58723e3fc32d0b32d6e8f5cf8cec4c944d5ba22a27f403a30af89964fa7bba",
-    "evidence/local-validation/matrix-compat-final.log.gz": "b30423ca6334709a7446f2fdc58d57c1a8af190ed01207c3d722ae54635996b9",
-    "evidence/local-validation/mechanics-regression.log.gz": "f96e3a468f78dcce25fb734aef419514410265f23ddcd049653c593b197023ae",
-    "evidence/local-validation/pip-check.log.gz": "cac4f0717e5b68b63c7376bcc07dfc607a5589b09374b45251bdcf31a6bece75",
-    "evidence/local-validation/predicate-regression.log.gz": "0225912652ea9c8099fac4bd2b4c9f0c3b1be4413272441c5d6977e7eae6e4e7",
-    "evidence/local-validation/py312-targeted.log.gz": "b94df988b9907e054793985438c3a93748d822c67ae69a9bd2a3752c115bd6ba",
-    "evidence/local-validation/restricted-eval.log.gz": "2e6685feeb0a653ebae7d2e7cdd1f9bccedcdd61481028e0cd9b69b11ccda454",
-    "evidence/local-validation/rust-final.log.gz": "87b16b8cf858daff152a9466a066e9188e4f619079a592b11797288acabec961",
-    "evidence/local-validation/targeted-final.log.gz": "7ea4c813fa67dcbda4c86221cce2104e38ff5cc660a056d94a088f2d96adfd3c",
-    "evidence/local-validation/wheel-final.log.gz": "e3483bf1c3c8933090875f7f974aa072e1e88db004693eef457b160861eb03bd",
-    "evidence/local-validation/workspace-build-final.log.gz": "3097177a41820d279b625c8f5496fc5f5915c8bf8e7c4fcd0d9e4790816f9bde"
+    "evidence/local-validation/clippy2.log.gz": "953ddea9343402aaa1f1e6bbb19567382556ac9b217e765d83387a77f87a6729",
+    "evidence/local-validation/commands.json.gz": "cc6a70b2450b7a99df5c1247992a9d45a94adc636cf6a49241a8854de442cb6e",
+    "evidence/local-validation/core.log.gz": "0c7895fbeb6d3f560972b0dd748b77585f8956b7de73f0b60c441db3fde1b327",
+    "evidence/local-validation/environment.json.gz": "d098892974268631a11e3703b4f869d55aee9e607218046ebcd51dba58877536",
+    "evidence/local-validation/extra.log.gz": "f2bdd6363a93955756129e775decfa072677e28f9701f7fdea154a196cfa8e0d",
+    "evidence/local-validation/focused.log.gz": "c2c924d6c925e7d958b5915d2d1ee699257edef749316c639075479990bf077c",
+    "evidence/local-validation/freeze.txt.gz": "db97155e174d367880e32a3280eae87fa84423d0261bf90b008b05fe3fd93864",
+    "evidence/local-validation/pip-check.log.gz": "c443625b0325efb6b9801889a05947f02884e779ccebca97b555a185e1dc6228",
+    "evidence/local-validation/python312.log.gz": "237603a7c989259f8a4e1528a57fa4188e42bbad0d42aa02132ca7fd931d08b8",
+    "evidence/local-validation/release2.log.gz": "b8277f0dc05a2c0c95db9842a452ebee7317985e8f9a53d6b1196a9f303ad8cc",
+    "evidence/local-validation/rust2.log.gz": "3437046568e7574f404aaf9b7d20c1fa815a15abb2329ead5a6be9dc4cef0eaf",
+    "evidence/local-validation/wheel.json.gz": "0aaef878b9dcff891dd3414bde90bf403141807d361a1188fded1961e645192e",
+    "evidence/local-validation/workspace2.log.gz": "3307f563cda4325a6438ae466e525138a5e35bc5bb3ef81ce03dbe186ba950f3"
   },
   "extra": {
-    "command": "SYMOX_ACPP_TARGETS=omp SYMOX_ACPP_REQUIRE_RUNTIME=1 SYMOX_SLANG_REQUIRE_RUNTIME=1 SYMOX_CUDA_REQUIRE_RUNTIME=1 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 XLA_PYTHON_CLIENT_PREALLOCATE=false .venv/bin/python -m pytest -q tests/extra",
+    "argv": [
+      "/home/keckj/Documents/symox/.venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "tests/extra"
+    ],
+    "environment_overrides": {
+      "OMP_NUM_THREADS": "2",
+      "OPENBLAS_NUM_THREADS": "2",
+      "SYMOX_ACPP_REQUIRE_RUNTIME": "1",
+      "SYMOX_ACPP_TARGETS": "omp",
+      "SYMOX_CUDA_REQUIRE_RUNTIME": "1",
+      "SYMOX_SLANG_REQUIRE_RUNTIME": "1",
+      "XLA_PYTHON_CLIENT_PREALLOCATE": "false"
+    },
     "failed": 0,
     "passed": 383,
-    "seconds": 117.14,
+    "seconds": 107.22,
     "skipped": 0,
+    "skipped_details": [],
+    "working_directory": "/home/keckj/Documents/symox",
     "xfailed": 0
-  },
-  "extra_runtimes": {
-    "adaptivecpp": "25.10.0+git.31db2e83.20261016.branch.HEAD",
-    "adaptivecpp_target": "OpenMP CPU",
-    "jax": "CUDA required",
-    "slangpy": "runtime required",
-    "torch": "CUDA required"
   },
   "limitations": [
     "Upstream skips and expected failures are not certified passing behavior.",
+    "The OctSymPy result covers the four pinned BIST files, not the full Octave package.",
     "Featured integration failures remain in readiness.json; this is not a release approval or universal parity certificate."
   ],
-  "matrix_compatibility": {
-    "command": ".venv/bin/python -m pytest -q tests/test_matrix_compat.py",
-    "failed": 0,
-    "passed": 66,
-    "seconds": 0.53,
-    "skipped": 0,
-    "xfailed": 0
-  },
-  "mechanics_regressions": {
-    "command": ".venv/bin/python -m pytest -q tests/test_downstream_mechanics_state.py tests/test_downstream_matrix_assignment.py tests/test_downstream_structured_lambdify.py tests/test_downstream_function_types.py tests/test_cse_canonical_order.py tests/test_matrix_compact_factor_solve.py tests/test_matrix_skew_exponential.py  tests/test_matrix_functions.py tests/test_matrix_solvers.py",
-    "failed": 0,
-    "passed": 174,
-    "seconds": 18.21,
-    "skipped": 0,
-    "xfailed": 0
-  },
-  "predicate_regressions": {
-    "command": ".venv/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_expr_legacy_matching.py tests/test_algebraic_number_matching_options.py",
-    "failed": 0,
-    "passed": 149,
-    "seconds": 1.64,
-    "skipped": 0,
-    "xfailed": 0
-  },
-  "production_commit": "e44c34c178a2209397b0e4aa0cc150d9ce9a3c71",
+  "production_commit": "2a6487cad48aa0b6c9d465056ece02bb5be52ed8",
   "python312": {
-    "command": "PYTHONPATH=/home/keckj/Documents/symox/python /home/keckj/.cache/symox-validation/featured/envs/qmcpack/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_nsimplify_rational_options.py tests/test_downstream_function_conversion.py tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py tests/test_lambda_compat.py tests/test_lambda_pickle.py tests/test_lambda_numeric_evaluation.py tests/test_assumption_dag_cache.py tests/test_precision.py tests/test_diffgeom_completion.py tests/test_downstream_mechanics_state.py tests/test_downstream_matrix_assignment.py tests/test_downstream_structured_lambdify.py tests/test_downstream_function_types.py tests/test_cse_canonical_order.py tests/test_matrix_compact_factor_solve.py tests/test_matrix_skew_exponential.py ",
+    "argv": [
+      "/home/keckj/.cache/symox-validation/featured/envs/qmcpack/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "tests/test_octave_native_protocols.py",
+      "tests/test_remaining_printing_protocols.py",
+      "tests/test_printing_completion.py",
+      "tests/test_piecewise_branch_protocol.py",
+      "tests/test_substitution_keyword_parity.py",
+      "tests/test_matrixexpr.py",
+      "tests/test_matrixexpr_protocols.py"
+    ],
+    "environment_overrides": {
+      "OMP_NUM_THREADS": "2",
+      "OPENBLAS_NUM_THREADS": "2",
+      "PYTHONPATH": "/home/keckj/Documents/symox/python"
+    },
     "failed": 0,
-    "passed": 997,
-    "seconds": 30.35,
+    "passed": 429,
+    "seconds": 3.23,
     "skipped": 0,
-    "xfailed": 0
-  },
-  "restricted_eval": {
-    "command": ".venv/bin/python -m pytest -q tests/test_active_products.py tests/test_complex_eval.py tests/test_factor_inspection.py tests/test_held_scalar_ordering.py tests/test_symbolic_number.py tests/test_downstream_function_conversion.py",
-    "failed": 0,
-    "passed": 1047,
-    "seconds": 5.06,
-    "skipped": 0,
+    "skipped_details": [],
+    "working_directory": "/home/keckj/Documents/symox",
     "xfailed": 0
   },
   "rust": {
     "command": "CARGO_TARGET_DIR=/home/keckj/Documents/symox/target cargo test -p symox",
     "doc_passed": 5,
+    "failed": 0,
     "ignored": 1,
-    "passed": 508,
-    "scope": "Fresh native-core unit and documentation checks on this source tree, including arbitrary-size CSE ordering and compact symbolic factorizations.",
-    "source_tree": "0cd45ebc888913599469f264f8e67913c6fec7de"
+    "passed": 510,
+    "source_tree": "57218fba721df8219989121c0f27d3a9fc319aa9"
   },
   "targeted": {
-    "command": ".venv/bin/python -m pytest -q tests/test_wildcard_predicates.py tests/test_wildcard_protocols.py tests/test_poly_sequence_gcd.py tests/test_dict_numeric_recognition.py tests/test_nsimplify_rational_options.py tests/test_downstream_function_conversion.py tests/test_downstream_scalar_protocols.py tests/test_downstream_permutation_protocols.py tests/test_downstream_audit.py tests/test_expr_remaining.py tests/test_expression_keys_add_coefficients.py tests/test_holonomic_completion.py tests/test_lambda_compat.py tests/test_lambda_pickle.py tests/test_lambda_numeric_evaluation.py tests/test_assumption_dag_cache.py tests/test_precision.py tests/test_diffgeom_completion.py tests/test_downstream_mechanics_state.py tests/test_downstream_matrix_assignment.py tests/test_downstream_structured_lambdify.py tests/test_downstream_function_types.py tests/test_cse_canonical_order.py tests/test_matrix_compact_factor_solve.py tests/test_matrix_skew_exponential.py ",
+    "argv": [
+      "/home/keckj/Documents/symox/.venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "-ra",
+      "tests/test_octave_native_protocols.py",
+      "tests/test_remaining_printing_protocols.py",
+      "tests/test_printing_completion.py",
+      "tests/test_piecewise_branch_protocol.py",
+      "tests/test_substitution_keyword_parity.py",
+      "tests/test_matrixexpr.py",
+      "tests/test_matrixexpr_protocols.py"
+    ],
+    "environment_overrides": {
+      "OMP_NUM_THREADS": "2",
+      "OPENBLAS_NUM_THREADS": "2"
+    },
     "failed": 0,
-    "passed": 1052,
-    "seconds": 34.48,
+    "passed": 429,
+    "seconds": 3.15,
     "skipped": 0,
+    "skipped_details": [],
+    "working_directory": "/home/keckj/Documents/symox",
     "xfailed": 0
   },
-  "wheel_sha256": "2bf519c383f33d3be72fd5db4af30c3a3d7ab1001f2ae2d48be8e56a9324acd2"
+  "test_tree": "81357ef78ba398894427cea3b3afa6feef05eee7",
+  "universal_parity_certified": false,
+  "wheel_sha256": "10c7933e73eb3ef32f0ffed6e96b3ff87d286d6291de0449b5359ff75417ed42"
 }
