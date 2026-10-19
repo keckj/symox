@@ -52,6 +52,14 @@ from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFaile
 Basic = Expr
 S = sympify
 
+
+class _CallableExpr(Expr):
+    """Native lambda and predicate nodes own the callable protocol."""
+    __slots__ = ()
+
+    def __call__(self, *args):
+        return self._call_symbolic(*args)
+
 # ---------------------------------------------------------------------------
 # constants
 # ---------------------------------------------------------------------------
@@ -206,6 +214,10 @@ class Function:
 
     def __call__(self, *args, evaluate=True):
         return _core._undefined_function(self.name, args, self._assumptions, self._nargs)
+
+    def __instancecheck__(self, instance):
+        return (isinstance(instance, _core.Expr) and instance.is_UndefinedFunction
+                and instance.func == self)
 
     def __repr__(self):
         return self.name
@@ -489,12 +501,22 @@ def _symbols(names, *, seq=False, cls=None, **assumptions):
     """Create symbols like ``sympy.symbols`` (``"x y"``, ``"x,y"``, ``"x:3"``)."""
     if not isinstance(names, str):
         return type(names)(symbols(n, cls=cls, **assumptions) for n in names)
+    literals = {}
+    for escape in (r'\,', r'\:', r'\ '):
+        if escape in names:
+            marker = '\0'
+            while marker in names or marker in literals or marker.isspace() or marker.isalnum() or marker in ',:\\()':
+                marker = chr(ord(marker)+1)
+            literals[marker] = escape[1:]
+            names = names.replace(escape, marker)
     parts = [p for p in _re.split(r"[\s,]+", names.strip()) if p]
     constructor=Symbol if cls is None else cls
     if not callable(constructor):raise TypeError('Symbol constructor must be callable')
     out = []
     for p in parts:
         for n in _expand_range(p):
+            for marker, literal in literals.items():
+                n = n.replace(marker, literal)
             out.append(constructor(n,**assumptions))
     if len(out) == 1 and not seq and "," not in names and ":" not in names:
         return out[0]

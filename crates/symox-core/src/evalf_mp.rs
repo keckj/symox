@@ -14,6 +14,28 @@ pub struct MpComplex {
     pub im: BigFloat,
 }
 
+// Precision is part of the key: cancellation refinement can revisit the same
+// physical node at several working precisions. Owners prevent address reuse.
+struct NumericMemo {
+    depth: usize,
+    values: Option<rustc_hash::FxHashMap<(usize,u32,bool),(Expr,Option<MpComplex>)>>,
+}
+thread_local! {
+    static NUMERIC_MEMO:std::cell::RefCell<NumericMemo> = const {
+        std::cell::RefCell::new(NumericMemo{depth:0,values:None})
+    };
+    #[cfg(test)] static EVALUATIONS:std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+struct NumericScope;
+impl NumericScope {
+    fn enter()->Self{NUMERIC_MEMO.with(|memo|memo.borrow_mut().depth+=1);Self}
+}
+impl Drop for NumericScope {
+    fn drop(&mut self){NUMERIC_MEMO.with(|memo|{
+        let mut memo=memo.borrow_mut();memo.depth-=1;if memo.depth==0{memo.values=None;}
+    });}
+}
+
 impl MpComplex {
     fn sqrt(&self,p:u32)->Option<MpComplex>{
         if self.is_real(){
@@ -292,6 +314,21 @@ pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i64)->Expr {
 }
 
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
+    if e.is_atom(){return ev_uncached(e,p);}
+    let _scope=NumericScope::enter();
+    let key=(e.dag_id(),p,crate::assumptions::numeric_refinement_enabled());
+    if let Some(value)=NUMERIC_MEMO.with(|memo|memo.borrow().values.as_ref()
+        .and_then(|values|values.get(&key).map(|(_,value)|value.clone()))) {
+        return value;
+    }
+    #[cfg(test)] EVALUATIONS.with(|count|count.set(count.get()+1));
+    let result=ev_uncached(e,p);
+    NUMERIC_MEMO.with(|memo|memo.borrow_mut().values
+        .get_or_insert_with(rustc_hash::FxHashMap::default).insert(key,(e.clone(),result.clone())));
+    result
+}
+
+fn ev_uncached(e: &Expr, p: u32) -> Option<MpComplex> {
     if e.has_wide_exponent()&&matches!(e.kind(),Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){
         return None;
     }
@@ -650,6 +687,25 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn shared_dag_evaluation_is_linear_and_precision_specific() {
+        use super::*;
+        let mut expression=Expr::one();
+        for _ in 0..80 {
+            expression=Expr::from_unevaluated_kind(Kind::Mul(Number::Int(1),vec![
+                (expression.clone(),Expr::one()),(expression,Expr::one())]));
+        }
+        EVALUATIONS.with(|count|count.set(0));
+        assert_eq!(eval_mp(&expression,100).unwrap().re,BigFloat::one());
+        assert!(EVALUATIONS.with(|count|count.get())<=80);
+
+        let _scope=NumericScope::enter();
+        let sine=crate::functions::func(Func::Sin,vec![Expr::one()]);
+        let low=ev(&sine,53).unwrap();
+        let high=ev(&sine,200).unwrap();
+        assert_ne!(low.re,high.re);
+        assert_eq!(high.re,ev_uncached(&sine,200).unwrap().re);
+    }
     use super::*;
     use crate::bigfloat::dps_to_prec;
     use crate::prelude::*;

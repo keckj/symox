@@ -208,7 +208,12 @@ def install(namespace):
                     if 'div' in name:
                         return _core._node('Mul',(a,_core._node('Pow',(b,-1),False)),False)
                     return _core._node('Pow',(a,b),False)
-                return original(self,other,*args)
+                try:
+                    return original(self,other,*args)
+                except TypeError as error:
+                    if getattr(error,'_symox_unsupported_conversion',False):
+                        return NotImplemented
+                    raise
             return operation
         setattr(Expr,name,arithmetic(original,name))
     original_match = Expr.match

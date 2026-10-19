@@ -231,8 +231,10 @@ class Tuple(_core.Expr, metaclass=_ExprType):
     def class_key(cls):
         return (5, 0, cls.__name__)
 
-    def __new__(cls, *items):
-        native = _core._apply("Tuple", *(Tuple(*item) if isinstance(item, (tuple, list)) else item for item in items))
+    def __new__(cls, *args, **kwargs):
+        if not kwargs.get('sympify', True) and any(not isinstance(item, _core.Expr) for item in args):
+            raise NotImplementedError('Tuple(sympify=False) with non-symbolic items is not implemented')
+        native = _core._apply("Tuple", *(Tuple(*item) if isinstance(item, (tuple, list)) else item for item in args))
         return cls._from_native(native)
 
     @classmethod

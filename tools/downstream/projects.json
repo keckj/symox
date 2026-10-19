@@ -172,6 +172,7 @@
       "id": "lcapy",
       "name": "Lcapy",
       "distribution": "lcapy",
+      "pytest_args": ["--tb=native"],
       "tests": [
         "lcapy/tests",
         "tests"

@@ -177,6 +177,36 @@ Finite permutation and scalar protocol tests are scoped differential checks;
 the downstream report records the upstream suites that actually reproduce
 their passing SymPy 1.14 reference cases.
 
+Undefined function heads support instance queries that preserve their name,
+assumptions and arity; held derivatives expose the public constructor for
+reconstruction. Callable slots belong to native lambda, predicate and registered
+differential-field subtypes, so constants and ordinary expressions are not
+reported as callable, including after importing differential geometry. This does
+not certify the full nominal function or symbolic subclass hierarchy.
+Tuple reconstruction accepts the reference keyword signature; raw
+`Tuple(sympify=False)` items outside the native expression representation
+remain unsupported.
+
+Python `float` and `complex` conversion now prefer the existing adaptive native
+precision evaluator before rounding to binary64. Float conversion rejects
+genuine small imaginary components instead of treating them as rounding noise.
+Exact numeric literals retain their direct single-rounding conversion, including
+subnormal ties. Numerical evaluation memoizes shared physical nodes by working
+precision and refinement context; repeated DAG branches are not expanded into
+repeated evaluations at the same precision.
+Functions outside that evaluator retain the existing binary64 numerical path;
+this is not a certificate of all special-function precision behavior.
+The default compiled numerical callable preserves its float64 numeric path and
+uses generated native NumPy source for foreign operand protocols and complex
+arrays. Array subclasses can retain units or masks through their own arithmetic.
+Unsupported scalar conversions return `NotImplemented` from arithmetic so
+foreign reflected operators can run; errors raised by conversion hooks still
+propagate to callers.
+Fraction and Decimal inputs still use the existing float64 numerical path;
+preserving their exact operand arithmetic remains an open obligation.
+Arbitrary module overrides and all numerical-callable domains remain separate
+parity obligations.
+
 Permutation groups now expose `generate`, `generate_dimino`, `random`,
 `conjugacy_class` and `conjugacy_classes`. Dimino generation builds incremental
 subgroup cosets, retaining output-sized storage. A conjugacy class is an orbit
@@ -220,6 +250,10 @@ for constructing every stabilizer chain.
   distinctions and full set-valued solution-family coverage still need a
   versioned behavioral audit. Supported Lambert families do not establish parity
   for arbitrary mixtures of powers, exponentials and logarithms.
+- Wildcard matching does not yet accept the reference `Wild(properties=...)`
+  predicates used by ChemPy. Predicate checks must preserve valid alternatives
+  during matching; ignoring them or rejecting only the first completed match
+  would not establish equivalent behavior.
 - Retaining an undecidable exact residual preserves possible solutions but is
   not an exact proof that the candidate is valid. A general exact algebraic and
   branch-aware verification engine remains necessary.

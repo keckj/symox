@@ -59,3 +59,11 @@ def _compile_implemented(args,expr,modules,options):
         return evaluate
     return plan(expr)
 __all__ += ['implemented_function','lambdastr']
+
+
+def _compile_object(args, expr):
+    """Preserve Python/NumPy operand protocols outside the float64 fast path."""
+    import numpy
+    from ..printing.numpy import NumPyPrinter
+    source = lambdastr(args, expr, printer=NumPyPrinter, dummify=True)
+    return eval(source, {'numpy': numpy})

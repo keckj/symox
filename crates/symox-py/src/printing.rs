@@ -10,7 +10,7 @@ use symox::printing::{
     InvTrigStyle, LatexMode, LatexSettings, Lang, PrettySettings,
 };
 
-use crate::{to_expr, wrap, PyExpr};
+use crate::{to_expr, wrap};
 
 fn code_err(e: CodeError) -> PyErr {
     match e {

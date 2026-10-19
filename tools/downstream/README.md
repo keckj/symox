@@ -18,6 +18,12 @@ Requirements: Python 3.10+ for the controller, `uv` on PATH, network access,
 and the native compilers required by each upstream project. Data and environments
 stay under `--cache`; they do not enter the Symox development environment.
 
+For runs that must survive a reboot, use a persistent directory such as
+`--cache "$HOME/.cache/symox-validation/featured"` for the controller, native
+adapters and source verifier. Keep candidate wheels and build logs outside
+`/tmp` too. The result files identify the wheel used by each completed run;
+retained results must not be attributed to a rebuilt candidate.
+
 ```bash
 maturin build --release -o /tmp/symox-candidate
 python tools/downstream/audit.py \
@@ -31,6 +37,11 @@ separately recorded adapter results, or report that their adapter has not run.
 Use `--require-native-pass` to make CI fail unless every selected integration
 reproduces every passing reference test. The default exit code describes whether
 evidence collection completed; negative compatibility results are valid evidence.
+
+Lcapy uses native Python tracebacks in both phases. Pytest's recursive-frame
+comparison can invoke Lcapy's symbolic equality while formatting a failure and
+abort the run. The traceback setting preserves the full test selection and
+assertions while allowing the remaining failures to be recorded.
 
 The candidate is force reinstalled even when its version number is unchanged.
 Each result records its wheel SHA-256, source identity, selected test hashes,

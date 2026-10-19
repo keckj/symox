@@ -89,9 +89,23 @@ pub(crate) fn expr_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     scalar_object(py, e)
 }
 
+fn loaded_symox(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
+    // The facade is already loaded. Looking it up must not invoke the caller's
+    // __import__: expressions also work inside eval with restricted builtins.
+    let modules = unsafe { Bound::from_borrowed_ptr(py, pyo3::ffi::PyImport_GetModuleDict()) }
+        .downcast_into::<PyDict>()?;
+    modules.get_item("symox")?.ok_or_else(|| PyTypeError::new_err("symox facade is not loaded"))
+}
+
 fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    if matches!(e.kind(), Kind::Func(Func::Predicate(_) | Func::Set(symox::sets::SetOp::Lambda | symox::sets::SetOp::IdentityFunction), _)) {
+        if let Ok(class) = loaded_symox(py).and_then(|module| module.getattr("_CallableExpr")) {
+            let value = Bound::new(py, PyExprNode { e })?;
+            return Ok(class.call_method1("__new__", (&class, value))?.unbind());
+        }
+    }
     if matches!(e.kind(), Kind::Func(Func::Undefined(head), _) if head.is_internal("Tuple")) {
-        if let Ok(class) = py.import("symox").and_then(|m| m.getattr("Tuple")) {
+        if let Ok(class) = loaded_symox(py).and_then(|m| m.getattr("Tuple")) {
             if class.downcast::<pyo3::types::PyType>().is_ok() {
                 let value = Bound::new(py, PyExprNode { e })?;
                 return Ok(class.call_method1("_from_native", (value,))?.unbind());
@@ -106,9 +120,24 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     if let Some(name) = singleton {
         // The registry is unavailable during its own bootstrap. Once
         // initialized it owns the canonical Python objects for these atoms.
-        if let Ok(value) = py.import("symox").and_then(|m| m.getattr("S"))
+        if let Ok(value) = loaded_symox(py).and_then(|m| m.getattr("S"))
             .and_then(|s| s.getattr(name)) {
             return Ok(value.unbind());
+        }
+    }
+    // Differential scalar fields keep their point-evaluation extension on a
+    // dedicated subtype. Importing diffgeom must not make all scalars callable.
+    if e.mask()!=0 {
+        let module=loaded_symox(py)?;
+        if let Ok(fields)=module.getattr("_diffgeom_field_atom_ids") {
+            for atom in traverse::free_symbols(&e) {
+                if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
+                    && fields.contains(atom.dag_id())? {
+                    let class=module.getattr("_diffgeom_callable_type")?;
+                    let value=Bound::new(py,PyExprNode{e})?;
+                    return Ok(class.call_method1("__new__",(&class,value))?.unbind());
+                }
+            }
         }
     }
     Ok(Bound::new(py, PyExprNode { e })?.into_any().unbind())
@@ -542,9 +571,11 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             return conversion_hook(obj, &hook);
         }
     }
-    Err(PyTypeError::new_err(format!(
+    let error = PyTypeError::new_err(format!(
         "cannot convert object of type {tname} to a symox expression"
-    )))
+    ));
+    error.value(obj.py()).setattr("_symox_unsupported_conversion", true)?;
+    Err(error)
 }
 
 fn num_complex_c64(re: f64, im: f64) -> num_complex::Complex64 {
@@ -1197,10 +1228,32 @@ impl PyExprNode {
     }
 
     fn __float__(&self) -> PyResult<f64> {
-        evalf::eval_f64(&self.e).ok_or_else(|| PyTypeError::new_err(format!("cannot convert {} to float", self.e)))
+        // Number::to_f64 rounds exact rationals directly, including ties in
+        // the subnormal range. Rounding to an MP significand first can round twice.
+        if let Some(number)=self.e.as_number(){return Ok(number.to_f64());}
+        if matches!(self.e.kind(), Kind::Const(Constant::NaN)) { return Ok(f64::NAN); }
+        if let Some(value) = symox::evalf_mp::eval_mp(&self.e, 53) {
+            return if value.im.is_zero() { Ok(value.re.to_f64()) }
+                else { Err(PyTypeError::new_err("cannot convert a complex value to float")) };
+        }
+        // Preserve numerical support outside the MP evaluator, without
+        // discarding a genuine imaginary component through a tolerance.
+        evalf::eval_c64(&self.e).filter(|value| value.im == 0.0).map(|value| value.re)
+            .ok_or_else(|| PyTypeError::new_err(format!("cannot convert {} to float", self.e)))
     }
 
     fn __complex__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyComplex>> {
+        if let Some((real,imaginary))=symox::complex_parts::literal_parts(&self.e) {
+            if let (Some(real),Some(imaginary))=(real.as_number(),imaginary.as_number()) {
+                return Ok(PyComplex::from_doubles(py,real.to_f64(),imaginary.to_f64()));
+            }
+        }
+        if matches!(self.e.kind(), Kind::Const(Constant::NaN | Constant::ComplexInfinity)) {
+            return Ok(PyComplex::from_doubles(py, f64::NAN, f64::NAN));
+        }
+        if let Some(value) = symox::evalf_mp::eval_mp(&self.e, 53) {
+            return Ok(PyComplex::from_doubles(py, value.re.to_f64(), value.im.to_f64()));
+        }
         let z = evalf::eval_c64(&self.e)
             .ok_or_else(|| PyTypeError::new_err(format!("cannot convert {} to complex", self.e)))?;
         Ok(PyComplex::from_doubles(py, z.re, z.im))
@@ -1279,6 +1332,9 @@ impl PyExprNode {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if matches!(self.e.kind(), Kind::Derivative(..)) {
+            return Ok(loaded_symox(py)?.getattr("Derivative")?.unbind());
+        }
         if matches!(self.e.kind(),Kind::Piecewise(_)){
             return Ok(py.import("symox")?.getattr("Piecewise")?.unbind());
         }
@@ -1522,7 +1578,7 @@ impl PyExprNode {
     #[getter]
     fn _e(&self)->PyResult<PyExpr>{if self.is_Lambda(){Ok(wrap(self.e.clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("not a Lambda"))}}
     #[pyo3(signature=(*args))]
-    fn __call__(&self,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{
+    fn _call_symbolic(&self,args:&Bound<'_,PyTuple>)->PyResult<PyExpr>{
         if let Some(p)=symox::ask::as_predicate(&self.e){
             return symox::ask::applied(p,args.iter().map(|a|replacement_expr(&a)).collect::<PyResult<_>>()?).map(wrap).map_err(ask::error);
         }
@@ -3007,6 +3063,30 @@ pub struct PyCompiled {
     scalar_out: bool,
     // Printed on demand: rendering large expressions costs more than compiling them.
     exprs: Vec<Expr>,
+    arguments: Vec<Expr>,
+    object_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
+}
+
+fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if value.is_instance_of::<PyFloat>() || value.is_instance_of::<PyInt>()
+        || value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
+        return Ok(false);
+    }
+    if let Ok(node) = value.downcast::<PyExprNode>() {
+        return Ok(!node.get().e.is_number());
+    }
+    let module = value.get_type().module()?.to_string();
+    if module == "fractions" || module == "decimal" { return Ok(false); }
+    if module == "numpy" {
+        let kind = value.getattr("dtype")?.getattr("kind")?.extract::<String>()?;
+        if kind == "O" {
+            for item in value.call_method0("ravel")?.try_iter()? {
+                if needs_object_evaluation(&item?)? { return Ok(true); }
+            }
+        }
+        return Ok(kind == "c");
+    }
+    Ok(true)
 }
 
 #[pymethods]
@@ -3033,6 +3113,18 @@ impl PyCompiled {
             } else {
                 Ok(PyList::new(py, out)?.into_any().unbind())
             };
+        }
+        // NumPy subclasses, complex/object arrays and external scalars own
+        // arithmetic protocols that a float64 buffer would erase.
+        if args.iter().map(|value| needs_object_evaluation(&value)).collect::<PyResult<Vec<_>>>()?.into_iter().any(|value| value) {
+            let evaluator = self.object_evaluator.get_or_try_init(py, || {
+                let arguments = PyList::new(py, self.arguments.iter().cloned().map(wrap))?;
+                let expressions = PyList::new(py, self.exprs.iter().cloned().map(wrap))?;
+                let expression = if self.scalar_out { expressions.get_item(0)? } else { expressions.into_any() };
+                Ok::<_, PyErr>(py.import("symox.utilities.lambdify")?
+                    .getattr("_compile_object")?.call1((arguments, expression))?.unbind())
+            })?;
+            return Ok(evaluator.bind(py).call(args, None)?.unbind());
         }
         // vectorised path: broadcast scalars against 1-d arrays
         let np = py.import("numpy")?;
@@ -3077,7 +3169,13 @@ impl PyCompiled {
             let mut out_slices: Vec<&mut [f64]> = outs.iter_mut().map(|v| v.as_mut_slice()).collect();
             py.allow_threads(|| self.c.call_many(&arg_slices, &mut out_slices));
         }
-        let shape = shape.unwrap();
+        let Some(shape) = shape else {
+            return if self.scalar_out {
+                Ok(outs[0][0].into_pyobject(py)?.into_any().unbind())
+            } else {
+                Ok(PyList::new(py, outs.into_iter().map(|values| values[0]))?.into_any().unbind())
+            };
+        };
         let mut results = Vec::new();
         for o in outs {
             let a = PyArray1::from_vec(py, o);
@@ -3125,7 +3223,8 @@ fn py_lambdify(
     };
     let exprs: Vec<Expr> = exprs.iter().map(unwrap_unevaluated).collect();
     let c = Compiled::new(&arg_list, &exprs).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    Ok(PyCompiled { c, scalar_out, exprs })
+    Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
+        object_evaluator: pyo3::sync::GILOnceCell::new() })
 }
 
 #[pymodule]

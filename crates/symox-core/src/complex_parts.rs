@@ -984,7 +984,8 @@ fn scalar(e: &Expr) -> Result<()> {
         Ok(())
     }
 }
-pub(crate) fn literal_parts(e: &Expr) -> Option<Parts> {
+/// Split a literal finite numeric complex value without rounding or evaluation.
+pub fn literal_parts(e: &Expr) -> Option<Parts> {
     let finite = |n: &Number| !matches!(n, Number::Float(value) if !value.is_finite());
     if !e.is_canonical() { return None; }
     match e.kind() {

@@ -8,6 +8,7 @@ _charts = {}
 _fields = {}
 _coordinates = {}
 _atoms = {}
+_field_atom_ids = set()
 
 
 def _native(value):
@@ -161,6 +162,7 @@ class BaseScalarField(_ScalarAtom):
             obj._atom = Dummy(source.name,**source.assumptions0)
             _fields[key] = obj
             _atoms[obj._atom] = obj
+            _field_atom_ids.add(obj._atom._dag_id)
         return _fields[key]
 
     def __init__(self,*args,**kwargs):

@@ -4,7 +4,7 @@ from itertools import product,permutations
 import math
 import operator
 
-from .. import Integer,Rational,simplify,sympify,trigsimp,expand_trig
+from .. import Expr,Integer,Rational,simplify,sympify,trigsimp,expand_trig
 from ._coordinates import (_native,_scalar_in_chart,_scalar_at,_field_charts,
                            BaseScalarField,CoordSystem,Point)
 
@@ -20,6 +20,23 @@ class _Slot:
         return ('e_' if self.variance == 1 else 'd')+name
 
 
+class _TensorZero(Expr):
+    """A callable zero tensor, distinct from the ordinary scalar singleton."""
+    __slots__ = ()
+
+    def __call__(self,*fields):
+        return self
+
+    rcall = __call__
+
+    def __reduce__(self):
+        return _tensor_zero, ()
+
+
+def _tensor_zero():
+    return Expr.__new__(_TensorZero,Integer(0))
+
+
 def _tensor(components,variance,cls=None,**metadata):
     combined = {}
     for slots,coefficient in components.items():
@@ -29,7 +46,7 @@ def _tensor(components,variance,cls=None,**metadata):
     if not variance:
         return combined.get((),Integer(0))
     if not combined:
-        return Integer(0)
+        return _tensor_zero()
     cls = cls or (_VectorField if tuple(variance) == (1,) else _Tensor)
     obj = object.__new__(cls)
     obj._components,obj.variance = combined,tuple(variance)
@@ -282,12 +299,12 @@ class WedgeProduct(TensorProduct):
 class Differential(_Tensor):
     def __new__(cls,form_field):
         if isinstance(form_field,Differential):
-            return Integer(0)
+            return _tensor_zero()
         if not isinstance(form_field,_Tensor):
             scalar = _native(form_field)
             charts = _field_charts(scalar)
             if not charts:
-                return Integer(0)
+                return _tensor_zero()
             chart = sorted(charts,key=lambda c:(c.name,repr(c._key)))[0]
             scalar = _scalar_in_chart(scalar,chart)
             components = {(_Slot(-1,chart,i),):scalar.diff(_native(field)) for i,field in enumerate(chart.base_scalars())}
@@ -305,7 +322,7 @@ class Differential(_Tensor):
                         raise ValueError('exterior differentiation of higher tensors requires an alternating form')
         components = {}
         if degree >= chart.dim:
-            return Integer(0)
+            return _tensor_zero()
         for indices in product(range(chart.dim),repeat=degree+1):
             if len(set(indices)) != len(indices):
                 continue
@@ -334,10 +351,10 @@ class Commutator(_VectorField):
                 _vector(v2)
             elif _native(v2) != 0:
                 raise ValueError('expected a vector field')
-            return Integer(0)
+            return _tensor_zero()
         if not isinstance(v2,_Tensor) and _native(v2) == 0:
             _vector(v1)
-            return Integer(0)
+            return _tensor_zero()
         v1,v2 = _vector(v1),_vector(v2)
         chart = _chart(v1)
         left,right = _express(v1,chart,True),_express(v2,chart,True)
