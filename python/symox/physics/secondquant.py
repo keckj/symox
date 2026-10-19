@@ -96,7 +96,7 @@ class FockStateFermionBra(FockStateBra):
 BBra=FockStateBosonBra;BKet=FockStateBosonKet;FBra=FockStateFermionBra;FKet=FockStateFermionKet
 B=AnnihilateBoson;Bd=CreateBoson;F=AnnihilateFermion;Fd=CreateFermion
 
-def apply_operators(expression):return qapply(expression)
+def apply_operators(e):return qapply(e)
 
 
 class Commutator:
@@ -157,10 +157,10 @@ def _fully_contracted(word):
             result+=sign*factor*_fully_contracted(word[1:j]+word[j+1:])
     return result
 
-def wicks(expression,**kwargs):
-    if isinstance(expression,NO):return expression.doit()
+def wicks(e,**kwargs):
+    if isinstance(e,NO):return e.doit()
     result=S.Integer(0)
-    for word,coefficient in _terms(expression).items():
+    for word,coefficient in _terms(e).items():
         if any(not isinstance(a,_LADDER) for a in word):raise TypeError('Wick expansion accepts ladder-operator polynomials')
         value=_fully_contracted(word) if kwargs.get('keep_only_fully_contracted',False) else _normal_word(word,True)
         result+=coefficient*value
@@ -183,27 +183,27 @@ class FixedBosonicBasis(BosonicBasis):
         for occupied in combinations_with_replacement(range(n_levels),n_particles):states.append(BKet([occupied.count(i) for i in range(n_levels)]))
         super().__init__(states)
 
-def matrix_rep(operator,basis):
+def matrix_rep(op,basis):
     basis=list(basis);result=S.zeros(len(basis))
     for j,ket in enumerate(basis):
-        applied=apply_operators(operator*ket)
+        applied=apply_operators(op*ket)
         for i,bra in enumerate(map(Dagger,basis)):result[i,j]=apply_operators(bra*applied)
     return result
 
 
-def evaluate_deltas(expression):
-    if isinstance(expression,OperatorExpr):return OperatorExpr._make({w:evaluate_deltas(c) for w,c in expression._terms.items()})
-    expression=S.expand(expression)
-    if expression.is_Add:return S.Add(*(evaluate_deltas(t) for t in expression.args))
-    deltas=[n for n in S.preorder_traversal(expression) if getattr(n,'class_name','')=='KroneckerDelta']
+def evaluate_deltas(e):
+    if isinstance(e,OperatorExpr):return OperatorExpr._make({w:evaluate_deltas(c) for w,c in e._terms.items()})
+    e=S.expand(e)
+    if e.is_Add:return S.Add(*(evaluate_deltas(t) for t in e.args))
+    deltas=[n for n in S.preorder_traversal(e) if getattr(n,'class_name','')=='KroneckerDelta']
     for delta in deltas:
         a,b=delta.args[:2]
-        if a==b:expression=expression.xreplace({delta:S.Integer(1)});continue
+        if a==b:e=e.xreplace({delta:S.Integer(1)});continue
         # Only eliminate a delta when the eliminated index appears elsewhere.
-        rest=S.simplify(expression/delta)
-        if a.is_Symbol and rest.has(a):expression=delta*rest.subs(a,b)
-        elif b.is_Symbol and rest.has(b):expression=delta*rest.subs(b,a)
-    return expression
+        rest=S.simplify(e/delta)
+        if a.is_Symbol and rest.has(a):e=delta*rest.subs(a,b)
+        elif b.is_Symbol and rest.has(b):e=delta*rest.subs(b,a)
+    return e
 
 def _antisym_sort(values):
     values=tuple(map(S.sympify,values))
@@ -229,14 +229,14 @@ class PermutationOperator(Atom):
     def get_permuted(self,expression):return expression-expression.xreplace({self.i:self.j,self.j:self.i})
     def doit(self,**hints):return self
 
-def simplify_index_permutations(expression,permutation_operators):
+def simplify_index_permutations(expr,permutation_operators):
     # Factor f(i,j)-f(j,i) against each requested antisymmetrizer.
     for p in permutation_operators:
-        if isinstance(expression,OperatorExpr):continue
-        for term in S.Add.make_args(S.expand(expression)):
+        if isinstance(expr,OperatorExpr):continue
+        for term in S.Add.make_args(S.expand(expr)):
             swapped=term.xreplace({p.i:p.j,p.j:p.i})
-            if S.expand(expression).has(-swapped):
-                expression=p*term+(expression-term+swapped);break
-    return expression
+            if S.expand(expr).has(-swapped):
+                expr=p*term+(expr-term+swapped);break
+    return expr
 
 __all__=['Dagger','KroneckerDelta','BosonicOperator','AnnihilateBoson','CreateBoson','AnnihilateFermion','CreateFermion','FockState','FockStateBra','FockStateKet','FockStateBosonKet','FockStateBosonBra','FockStateFermionKet','FockStateFermionBra','BBra','BKet','FBra','FKet','F','Fd','B','Bd','apply_operators','InnerProduct','BosonicBasis','VarBosonicBasis','FixedBosonicBasis','Commutator','matrix_rep','contraction','wicks','NO','evaluate_deltas','AntiSymmetricTensor','substitute_dummies','PermutationOperator','simplify_index_permutations']

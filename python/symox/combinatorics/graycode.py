@@ -69,8 +69,8 @@ def _bits(value):
 
 def bin_to_gray(bin_list):
     bits=_bits(bin_list);return bits[0]+''.join(str(int(a)^int(b)) for a,b in zip(bits,bits[1:]))
-def gray_to_bin(gray_list):
-    bits=_bits(gray_list);result=[];bit=0
+def gray_to_bin(bin_list):
+    bits=_bits(bin_list);result=[];bit=0
     for value in bits:bit^=int(value);result.append(str(bit))
     return ''.join(result)
 def random_bitstring(n):

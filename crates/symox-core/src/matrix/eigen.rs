@@ -282,9 +282,28 @@ fn factor_list(p: &UPoly) -> MResult<Vec<Factor>> {
             0 => {}
             2 | 3 => out.push(Factor { coeffs: primitive_int(&rest), mult: m }),
             _ => {
-                return Err(MatrixError::NotImplemented(
-                    "eigenvalues of characteristic polynomials with irreducible factors of degree > 2 are not implemented".into(),
-                ))
+                // Split the rational-root-free part over Z (e.g. into two
+                // quadratics); factor_roots handles what stays irreducible.
+                let x = Expr::symbol("_lambda");
+                let ip = primitive_int(&rest);
+                let n = ip.len() - 1;
+                let e = add(&ip.iter().enumerate().map(|(i, c)| mul2(&int_expr(c), &x.powi((n - i) as i64))).collect::<Vec<_>>());
+                let unsupported = || MatrixError::NotImplemented(
+                    "eigenvalues of characteristic polynomials with irreducible factors of degree > 4 are not implemented".into());
+                let (_, factors) = crate::poly::api::factor_list(&e).map_err(|_| unsupported())?;
+                for (f, k) in factors {
+                    let c = crate::integrate::poly_coeffs(&f, &x).ok_or_else(unsupported)?;
+                    let mut coeffs: Vec<Int> = c.iter().rev()
+                        .map(|c| c.as_number().and_then(Rat::from_number).map(|r| r.num))
+                        .collect::<Option<_>>().ok_or_else(unsupported)?;
+                    if coeffs[0].is_negative() {
+                        coeffs = coeffs.iter().map(|c| c.neg()).collect();
+                    }
+                    if coeffs.len() > 5 {
+                        return Err(unsupported());
+                    }
+                    out.push(Factor { coeffs, mult: m * k.as_i64().ok_or_else(unsupported)? as usize });
+                }
             }
         }
     }
@@ -412,7 +431,17 @@ fn factor_roots(f: &[Int]) -> MResult<Vec<Expr>> {
     if n == 3 {
         return roots_cubic(f);
     }
-    Err(MatrixError::NotImplemented("roots of factors of degree > 3".into()))
+    // Quartics (Ferrari/Euler) and decomposable higher degrees go through the
+    // polynomial `roots`, which is what SymPy's eigenvals calls as well.
+    let x = Expr::symbol("_lambda");
+    let poly = add(&f.iter().enumerate().map(|(i, c)| mul2(&int_expr(c), &x.powi((n - i) as i64))).collect::<Vec<_>>());
+    if let Ok(rs) = crate::poly::roots::roots(&poly, &[x]) {
+        let found: Vec<Expr> = rs.into_iter().flat_map(|(r, k)| std::iter::repeat_n(r, k as usize)).collect();
+        if found.len() == n {
+            return Ok(found);
+        }
+    }
+    Err(MatrixError::NotImplemented("roots of factors of degree > 4".into()))
 }
 
 /// SymPy's `roots_cubic` (Cardano) for rational coefficients.

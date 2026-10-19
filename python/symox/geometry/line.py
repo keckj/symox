@@ -147,23 +147,23 @@ class LinearEntity(GeometrySet):
         from .. import acos, Abs
         return acos(Abs(clean(self.direction.dot(other.direction)/(abs(self.direction)*abs(other.direction)))))
 
-    def parallel_line(self, point):
-        point = Point(point, dim=self.ambient_dimension)
-        return Line(point, point+self.direction)
+    def parallel_line(self, p):
+        p = Point(p, dim=self.ambient_dimension)
+        return Line(p, p+self.direction)
 
-    def perpendicular_line(self, point):
-        point = Point(point, dim=self.ambient_dimension)
-        projection = self.projection(point)
-        if point.equals(projection):
+    def perpendicular_line(self, p):
+        p = Point(p, dim=self.ambient_dimension)
+        projection = self.projection(p)
+        if p.equals(projection):
             if self.ambient_dimension != 2:
                 raise NotImplementedError('A spatial perpendicular through an incident point is not unique')
             dx, dy = self.direction
-            projection = point+Point(-dy, dx)
-        return Line(point, projection)
+            projection = p+Point(-dy, dx)
+        return Line(p, projection)
 
-    def perpendicular_segment(self, point):
-        point = Point(point, dim=self.ambient_dimension)
-        return Segment(point, self.projection(point))
+    def perpendicular_segment(self, p):
+        p = Point(p, dim=self.ambient_dimension)
+        return Segment(p, self.projection(p))
 
     def projection(self, other):
         if isinstance(other, LinearEntity):
@@ -324,10 +324,10 @@ class Segment(LinearEntity):
     def midpoint(self):
         return self.p1.midpoint(self.p2)
 
-    def perpendicular_bisector(self, point=None):
+    def perpendicular_bisector(self, p=None):
         line = Line(self.p1, self.p2).perpendicular_line(self.midpoint)
-        if point is not None and line.contains(Point(point)):
-            return Segment(self.midpoint, Point(point))
+        if p is not None and line.contains(Point(p)):
+            return Segment(self.midpoint, Point(p))
         return line
 
 

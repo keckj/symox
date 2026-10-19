@@ -590,7 +590,7 @@ impl AlgebraicPoly {
             .collect()
     }
     pub fn legacy(&self) -> Poly {
-        Poly::from_expr(&self.as_expr(), &self.gens).expect("algebraic polynomial view")
+        Poly::from_coefficient_terms(self.terms(),&self.gens).expect("algebraic polynomial metadata view")
     }
     pub fn add(&self, o: &Self) -> Self {
         let _s = AlgebraicScope::new(self.number_field.clone());

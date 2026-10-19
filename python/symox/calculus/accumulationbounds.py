@@ -54,7 +54,41 @@ class AccumulationBounds:
     def __rtruediv__(self,other):return other*self**-1
     def __pow__(self,exponent):
         from .. import sympify,Min,Max,oo,S
+        if isinstance(exponent,AccumulationBounds):
+            if self.min.is_positive is True or (self.min.is_nonnegative is True and exponent.min.is_nonnegative is True):
+                values=[self**bound for bound in exponent.args]
+                endpoints=[endpoint for value in values for endpoint in (value.args if isinstance(value,AccumulationBounds) else (value,))]
+                return type(self)(Min(*endpoints),Max(*endpoints))
+            raise NotImplementedError('Interval exponents require a nonnegative base domain')
         exponent=sympify(exponent)
+        if exponent==oo:
+            if self.min.is_extended_nonnegative is True:
+                if self.max<1:return S.Zero
+                if self.min>1:return oo
+                return type(self)(0,oo)
+            if self.max.is_extended_negative is True:
+                if self.min>-1:return S.Zero
+                if self.max<-1:return S.ComplexInfinity
+                return S.NaN
+            if self.min>-1:
+                if self.max<1:return S.Zero
+                return type(self)(0,oo)
+            return type(self)(-oo,oo)
+        if exponent==-oo:
+            return (self**-1)**oo
+        if exponent.is_zero is True:return S.One
+        def endpoint(value):
+            # Preserve exact fixed points with inexact exponents. The native
+            # scalar Pow dispatcher currently promotes 0/1 in this case.
+            if value==S.One:return value
+            if value==S.Zero and exponent.is_positive is True:return value
+            return value**exponent
+        if self.min.is_nonnegative is True and exponent.is_nonnegative is True:
+            return type(self)(endpoint(self.min),endpoint(self.max))
+        if self.min.is_positive is True and exponent.is_negative is True:
+            return type(self)(endpoint(self.max),endpoint(self.min))
+        if self.min==0 and self.max.is_positive is True and exponent.is_negative is True:
+            return type(self)(endpoint(self.max),oo)
         if not exponent.is_Integer:
             raise NotImplementedError('Accumulation interval powers require an integer exponent')
         power=int(exponent)
@@ -73,8 +107,8 @@ class AccumulationBounds:
             minimum=S.Zero
         return type(self)(minimum,Max(lower,upper))
     def subs(self,*args,**kwargs):return type(self)(*(value.subs(*args,**kwargs) for value in self.args))
-    def xreplace(self,mapping):
-        return mapping[self] if self in mapping else type(self)(*(value.xreplace(mapping) for value in self.args))
+    def xreplace(self,rule):
+        return rule[self] if self in rule else type(self)(*(value.xreplace(rule) for value in self.args))
     def to_sympy(self):
         from sympy import AccumBounds
         return AccumBounds(self.min.to_sympy(),self.max.to_sympy())

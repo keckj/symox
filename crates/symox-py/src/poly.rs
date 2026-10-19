@@ -652,9 +652,9 @@ fn groebner(
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, *gens, order="lex", domain=None, modulus=None, method=None, extension=None))]
+#[pyo3(signature = (F, *gens, order="lex", domain=None, modulus=None, method=None, extension=None))]
 fn is_zero_dimensional(
-    f: &Bound<'_, PyAny>,
+    F: &Bound<'_, PyAny>,
     gens: &Bound<'_, PyTuple>,
     order: &str,
     domain: Option<&Bound<'_,PyAny>>,
@@ -663,7 +663,7 @@ fn is_zero_dimensional(
     extension: Option<&Bound<'_,PyAny>>,
 ) -> PyResult<bool> {
     Ok(
-        PyGroebnerBasis::build(f, gens, order, domain, modulus, method, None, extension)?
+        PyGroebnerBasis::build(F, gens, order, domain, modulus, method, None, extension)?
             .is_zero_dimensional(),
     )
 }
@@ -680,7 +680,7 @@ fn _solve_poly_system(f: &Bound<'_,PyAny>, symbols: &Bound<'_,PyAny>) -> PyResul
 }
 
 /// A polynomial with explicit generators (SymPy's `Poly`).
-#[pyclass(name = "Poly", module = "symox._core", frozen)]
+#[pyclass(name = "Poly", module = "symox._core", frozen, subclass)]
 #[derive(Clone)]
 pub struct PyPoly {
     pub p: PolyValue,
@@ -757,11 +757,8 @@ impl PyPoly {
             for f in [self.p.field.as_ref(),q.field.as_ref()].into_iter().flatten() {
                 if gens.iter().any(|g|f.parameters.contains(g)) || q.modulus.is_some() || self.p.modulus.is_some(){return None;}
             }
-            if let Some(prototype)=self.p.field.as_ref().or(q.field.as_ref()) {
-                let expressions=[self.p.as_expr(),q.as_expr()];
-                let mut parameters=prototype.parameters.clone();
-                for p in symox::poly::fraction::infer_parameters(&expressions,&gens){if !parameters.contains(&p){parameters.push(p);}}
-                for e in &expressions {FractionPoly::from_expr(e,&gens,&parameters,&prototype.display).ok()?;}
+            if self.p.field.is_some()||q.field.is_some() {
+                self.p.checked_fraction_pair(q).ok()??;
             }
             return Some(q.clone());
         }
@@ -826,8 +823,18 @@ fn degree_obj(py: Python<'_>, d: Option<u32>) -> PyResult<PyObject> {
 #[pymethods]
 impl PyPoly {
     #[new]
-    #[pyo3(signature = (expr, *gens, domain=None, modulus=None, extension=None, **_kwargs))]
-    fn py_new(expr: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, extension:Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+    #[pyo3(signature = (rep, *gens, domain=None, modulus=None, extension=None, **_kwargs))]
+    fn py_new(rep: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, extension:Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        let normalized=rep.py().import("symox._poly_constructor")?.getattr("construct")?
+            .call1((rep,gens,domain,modulus,extension,_kwargs))?;
+        Ok(normalized.extract::<PyRef<'_,Self>>()?.clone())
+    }
+
+    /// Backend constructor used after public option/input normalization.
+    #[staticmethod]
+    #[pyo3(signature=(rep,gens,domain=None,modulus=None,extension=None))]
+    fn _from_normalized(rep:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,domain:Option<&Bound<'_,PyAny>>,modulus:Option<u64>,extension:Option<&Bound<'_,PyAny>>)->PyResult<Self>{
+        let expr=rep;
         if expr.getattr("is_Matrix").is_ok_and(|flag|flag.is_truthy().unwrap_or(false)) {
             return Err(PyTypeError::new_err("a noncommutative matrix cannot be a scalar polynomial"));
         }
@@ -838,8 +845,8 @@ impl PyPoly {
             let same_set=wanted.len()==src.p.true_gens().len()&&wanted.iter().all(|g|src.p.true_gens().contains(g));
             if wanted.is_empty(){return Ok(Self{p:src.p.clone()});}
             if same_set{
-                if let Some(m)=src.p.modulus{return Self::py_new(expr,gens,None,Some(m),None,None);}
-                if let Ok(d)=src.domain_descriptor(){let d=d.into_pyobject(expr.py())?.into_any();return Self::py_new(expr,gens,Some(&d),None,None,None);}
+                if let Some(m)=src.p.modulus{return Self::_from_normalized(expr,gens,None,Some(m),None);}
+                if let Ok(d)=src.domain_descriptor(){let d=d.into_pyobject(expr.py())?.into_any();return Self::_from_normalized(expr,gens,Some(&d),None,None);}
             }
         }}
         // A coefficient list is a dense polynomial in the single given
@@ -849,7 +856,7 @@ impl PyPoly {
             if !gen.is_symbol(){
                 let slot=Expr::dummy("x",Default::default());
                 let slots=PyTuple::new(expr.py(),[w(slot)])?;
-                let built=Self::py_new(l.as_any(),&slots,domain,modulus,extension,None)?;
+                let built=Self::_from_normalized(l.as_any(),&slots,domain,modulus,extension)?;
                 match symox::poly::structure::rename_gens(&built.p,&[gen]){
                     Ok(p)=>return Ok(Self{p}),
                     // Structured coefficient domains keep symbol generators;
@@ -862,7 +869,7 @@ impl PyPoly {
         if let (Ok(l),1)=(expr.downcast::<PyList>(),gens.len()){
             let (e,_)=coeff_list_in(l,&to_expr(&gens.get_item(0)?)?)?;
             let e=w(e).into_pyobject(expr.py())?.into_any();
-            return Self::py_new(&e,gens,domain,modulus,extension,None);
+            return Self::_from_normalized(&e,gens,domain,modulus,extension);
         }
         let selected=domains::Selection::new(domain,modulus,extension)?;
         let(e,g2)=expr_or_coeff_list(expr)?;
@@ -939,7 +946,7 @@ impl PyPoly {
         if let Some(d)=selected.native{return Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?});}
         let py=domain.py();let gens=PyTuple::new(py,self.p.true_gens().iter().cloned().map(w))?;
         let expr=w(self.p.as_expr()).into_pyobject(py)?.into_any();
-        Self::py_new(&expr,&gens,Some(domain),None,None,None)
+        Self::_from_normalized(&expr,&gens,Some(domain),None,None)
     }
     fn to_field(&self)->PyResult<Self>{let d=self.domain_descriptor()?.get_field();Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
     fn to_ring(&self)->PyResult<Self>{let d=self.domain_descriptor()?.get_ring()?;Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?})}
@@ -976,7 +983,7 @@ impl PyPoly {
     }
 
     fn total_degree(&self, py: Python<'_>) -> PyResult<PyObject> {
-        degree_obj(py, self.p.total_degree())
+        degree_obj(py, Some(self.p.total_degree().unwrap_or(0)))
     }
 
     fn coeffs(&self) -> Vec<PyExpr> {
@@ -1503,20 +1510,13 @@ impl PyPoly {
         self.all_coeffs(py)
     }
 
-    #[pyo3(signature = (*args))]
-    fn subs(&self, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+    #[pyo3(signature = (*args, **kwargs))]
+    fn subs(&self, args: &Bound<'_, PyTuple>,kwargs:Option<&Bound<'_,PyDict>>) -> PyResult<PyObject> {
+        let (args,options)=crate::substitution_arguments(args,kwargs)?;
         let py = args.py();
         let e = self.p.as_expr();
-        let pairs: Vec<(Expr, Expr)> = if args.len() == 2 {
-            vec![(to_expr(&args.get_item(0)?)?, to_expr(&args.get_item(1)?)?)]
-        } else if args.len() == 1 {
-            let d = args.get_item(0)?;
-            let d = d.downcast::<PyDict>()?;
-            d.iter().map(|(k, v)| Ok((to_expr(&k)?, to_expr(&v)?))).collect::<PyResult<_>>()?
-        } else {
-            return Err(PyTypeError::new_err("subs expects (old, new) or a dict"));
-        };
-        let r = symox::expand::expand(&symox::subs::subs(&e, &pairs));
+        let pairs=crate::subs_pairs(&args)?;
+        let r = symox::expand::expand(&crate::checked_subs(py,&e,&pairs,crate::substitution_options(options.as_ref())?)?);
         if let Some(field)=&self.p.algebraic {return poly_obj(py,field.convert(&r).map_err(err)?);}
         if let Some(field)=&self.p.field {return poly_obj(py,field.convert(&r).map_err(err)?);}
         if let Ok(p) = Poly::from_expr(&r, self.p.true_gens()) {
@@ -1816,7 +1816,6 @@ fn apart(f: &Bound<'_, PyAny>, x: Option<&Bound<'_, PyAny>>, full: bool, _kwargs
 fn collect(expr:&Bound<'_,PyAny>,syms:&Bound<'_,PyAny>,func:Option<&Bound<'_,PyAny>>,evaluate:Option<bool>,exact:Option<bool>,distribute_order_term:bool,_kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
     use symox::poly::collect::{self,Collection,Error,Options};
     if let Some(kwargs)=_kwargs{if let Some((key,_))=kwargs.iter().next(){return Err(PyTypeError::new_err(format!("collect() got an unexpected keyword argument '{}'",key.extract::<String>()?)));}}
-    let exact=exact.ok_or_else(||PyNotImplementedError::new_err("collect(exact=None) is not implemented; use exact=True or exact=False"))?;
     let e=to_expr(expr)?;
     let patterns=if let Ok(native)=syms.downcast::<PyExpr>(){
         if let Some(items)=symox::special::tuple_items(&native.get().e){items.to_vec()}else{vec![native.get().e.clone()]}
@@ -1827,7 +1826,7 @@ fn collect(expr:&Bound<'_,PyAny>,syms:&Bound<'_,PyAny>,func:Option<&Bound<'_,PyA
     if func.is_some_and(|value|!value.is_callable()){return Err(PyTypeError::new_err("collect func must be callable"));}
     let mut callback=|value:&Expr|->PyResult<Expr>{to_expr(&func.unwrap().call1((w(value.clone()),))?)};
     let callback=if func.is_some(){Some(&mut callback as &mut dyn FnMut(&Expr)->PyResult<Expr>)}else{None};
-    let result=collect::run(&e,&patterns,Options{exact,distribute_order_term},evaluate.unwrap_or(true),callback).map_err(|error|match error{Error::Unsupported(message)=>PyNotImplementedError::new_err(message),Error::Callback(error)=>error})?;
+    let result=collect::run(&e,&patterns,Options{exact:exact.unwrap_or(false),discover:exact.is_none(),distribute_order_term},evaluate.unwrap_or(true),callback).map_err(|error|match error{Error::Unsupported(message)=>PyNotImplementedError::new_err(message),Error::Callback(error)=>error})?;
     let py=expr.py();
     match result{
         Collection::Expression(value)=>Ok(w(value).into_pyobject(py)?.into_any().unbind()),
@@ -1844,8 +1843,9 @@ fn py_div<'py>(f: &Bound<'py, PyAny>, g: &Bound<'py, PyAny>, gens: &Bound<'py, P
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, g, *gens, order="lex", domain=None, modulus=None, polys=None, auto=None, extension=None, **_kwargs))]
-fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, polys: Option<bool>, auto: Option<bool>, extension: Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+#[pyo3(signature = (f, G, *gens, order="lex", domain=None, modulus=None, polys=None, auto=None, extension=None, **_kwargs))]
+fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, G: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, order: &str, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, polys: Option<bool>, auto: Option<bool>, extension: Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    let g=G;
     let explicit_domain=domain.is_some_and(|d|!d.is_none());
     let mut selected=domains::Selection::new(domain,modulus,extension)?;
     let domain=selected.legacy.as_deref();
@@ -2075,16 +2075,55 @@ fn degree(py: Python<'_>, f: &Bound<'_, PyAny>, gen: Option<&Bound<'_, PyAny>>) 
 fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multiple: bool, filter: Option<&str>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let (e, g2) = expr_or_coeff_list(f)?;
     let gv = gens_of(gens)?;
+    if f.downcast::<PyList>().is_ok()&&!gv.is_empty(){return Err(PyValueError::new_err("redundant generators given"));}
     let gv = if gv.is_empty() { g2 } else { gv };
-    let mut rs = proots::roots(&e, &gv).map_err(err)?;
+    let mut options=proots::RadicalOptions::default();let mut strict=false;let mut predicate=None;
+    if let Some(kwargs)=_kwargs{
+        for (key,value) in kwargs{
+            let key=key.extract::<String>()?;
+            match key.as_str(){
+                "cubics"=>options.cubics=value.is_truthy()?,
+                "quartics"=>options.quartics=value.is_truthy()?,
+                "strict"=>strict=value.is_truthy()?,
+                "predicate" if !value.is_none()=>predicate=Some(value),
+                _=>{},
+            }
+        }
+    }
+    if let Some(flt)=filter{if !matches!(flt,"Z"|"Q"|"R"|"I"|"C"){return Err(PyValueError::new_err(format!("Invalid filter: {flt}")));}}
+    let prepared=f.downcast::<PyPoly>().ok().filter(|p|p.get().p.true_gens()==gv.as_slice());
+    let mut rs = proots::with_radical_options(options,||match prepared{
+        Some(p)=>proots::roots_poly(&p.get().p.base),
+        None=>proots::roots(&e,&gv),
+    }).map_err(err)?;
     if let Some(flt) = filter {
-        rs.retain(|(r, _)| match flt {
+        rs.retain(|(r, _)| r.is_zero()||match flt {
             "Z" => r.is_integer_number(),
             "Q" => r.is_rational_number(),
             "R" => r.mask() == 0 && symox::evalf::eval_c64(r).is_some_and(|z| z.im == 0.0) && !symox::traverse::has(r, &Expr::i()),
             "I" => r.mask() == 0 && symox::evalf::eval_c64(r).is_some_and(|z| z.re.abs() < 1e-300 && z.im != 0.0),
             _ => true,
         });
+    }
+    if let Some(predicate)=predicate{
+        let mut selected=Vec::new();
+        for (root,multiplicity) in rs{
+            // Reference adds zero roots after its predicate/filter stage.
+            if root.is_zero()||predicate.call1((w(root.clone()),))?.is_truthy()?{
+                selected.push((root,multiplicity));
+            }
+        }
+        rs=selected;
+    }
+    if strict{
+        let degree=prepared.map(|p|p.get().p.degree(0).unwrap_or(0))
+            .or_else(||Poly::from_expr(&e,&gv).ok().map(|p|p.degree(0).unwrap_or(0)));
+        if let Some(degree)=degree{
+            if rs.iter().map(|(_,multiplicity)|*multiplicity).sum::<u32>()<degree{
+                return Err(structural::polynomial_error(py,"UnsolvableFactorError",
+                    "Strict mode: some factors cannot be solved in radicals, so a complete list of solutions cannot be returned. Call roots with strict=False to get solutions expressible in radicals (if there are any).".to_string()));
+            }
+        }
     }
     if multiple {
         // SymPy: ordered(result)

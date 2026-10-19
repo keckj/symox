@@ -54,17 +54,17 @@ def bc_inverse(expr):
     return blockinverse_2x2(expr)
 
 
-def deblock(expr):
-    if not isinstance(expr,BlockMatrix):return expr
-    grid=expr.blocks;rows=[]
+def deblock(B):
+    if not isinstance(B,BlockMatrix):return B
+    grid=B.blocks;rows=[]
     for i in range(grid.rows):
         items=[grid[i,j] for j in range(grid.cols)]
         nested=[item if isinstance(item,BlockMatrix) else BlockMatrix([[item]]) for item in items]
-        if len({item.blockshape[0] for item in nested})!=1:return expr
+        if len({item.blockshape[0] for item in nested})!=1:return B
         for k in range(nested[0].blockshape[0]):
             rows.append([item.blocks[k,j] for item in nested for j in range(item.blockshape[1])])
     try:return BlockMatrix(rows)
-    except (ValueError,TypeError):return expr
+    except (ValueError,TypeError):return B
 
 
 def reblock_2x2(expr):

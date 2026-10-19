@@ -55,6 +55,20 @@ class Curve(GeometrySet):
         from .. import Symbol
         return [Symbol(parameter, real=True) if isinstance(parameter, str) else scalar(parameter), *self.limits[1:]]
 
+    def subs(self,*args,**kwargs):
+        from collections.abc import Mapping
+        from .. import sympify
+        if len(args)==2:
+            if args[0]==self:return args[1]
+            pairs=[args]
+        elif len(args)==1:
+            pairs=list(args[0].items()) if isinstance(args[0],Mapping) else list(args[0])
+        else:
+            return super().subs(*args,**kwargs)
+        if any(sympify(old)==self.parameter for old,new in pairs):
+            return Point(*(function.subs(*args,**kwargs) for function in self.functions))
+        return super().subs(*args,**kwargs)
+
     def translate(self, x=0, y=0, z=0):
         return Curve(Point(*self.functions).translate(x, y, z).args, self.limits)
 

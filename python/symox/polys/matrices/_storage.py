@@ -49,8 +49,8 @@ class MatrixStorage:
     def vstack(self,*others):return type(self)._from_dm(self._dm().vstack(*(o._dm() for o in others)))
     def extract(self,rows,cols):return type(self)._from_dm(self._dm().extract(rows,cols))
     def extract_slice(self,rowslice,colslice):return self.extract(list(range(self.rows))[rowslice],list(range(self.cols))[colslice])
-    def applyfunc(self,function,domain):
-        return type(self).from_list([[function(v) for v in row] for row in self.to_list()],self.shape,domain)
+    def applyfunc(self,func,domain):
+        return type(self).from_list([[func(v) for v in row] for row in self.to_list()],self.shape,domain)
     def rref(self):
         result,pivots=self._dm().rref();return type(self)._from_dm(result),list(pivots)
     def rref_den(self):

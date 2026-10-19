@@ -291,6 +291,9 @@ pub fn real_signs(e:&Expr)->Option<Signs>{
 }
 fn real_signs_uncached(e: &Expr) -> Option<Signs> {
     if !declared(e).is_empty(){return declared_signs(declared(e));}
+    if let Some(sign)=exact::cardano_sign(e){
+        return Some(match sign{-1=>Signs::NEG,0=>Signs::ZERO,_=>Signs::POS});
+    }
     match e.kind() {
         Kind::Num(n) => Some(number_sign(n)),
         Kind::Const(c) => match c {
@@ -412,6 +415,18 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             Some(Signs::POS)
         }
         Func::Special(h) => {
+            if *h == crate::special::SpecialFn::LambertW {
+                let branch = args.get(1).map_or(Some(0), Expr::as_i64)?;
+                if crate::special::lambert::real(a, branch) != Some(true) { return None; }
+                return Some(if branch == -1 { Signs::NEG } else {
+                    match real_signs(a)? {
+                        Signs::POS => Signs::POS,
+                        Signs::NEG => Signs::NEG,
+                        Signs::ZERO => Signs::ZERO,
+                        _ => Signs::ANY,
+                    }
+                });
+            }
             if let Some(s) = crate::special::elementary::signs(*h, args) {
                 return Some(s);
             }
@@ -486,6 +501,8 @@ fn is_real_uncached(e: &Expr) -> Option<bool> {
     match e.kind() {
         Kind::Pow(base,exponent) if exact::rational_power(base,exponent).and_then(|f| f.real).is_some() => exact::rational_power(base,exponent).and_then(|f| f.real),
         Kind::Const(Constant::I) => Some(false),
+        Kind::Func(Func::Special(crate::special::SpecialFn::LambertW), args) =>
+            crate::special::lambert::real(&args[0], args.get(1).map_or(Some(0), Expr::as_i64)?),
         Kind::Const(Constant::NaN)=>None,
         Kind::Const(c) if c.is_infinite()=>Some(false),
         Kind::Sym(s) if s.assumptions().has(A::NOT_REAL) => Some(false),
@@ -494,7 +511,15 @@ fn is_real_uncached(e: &Expr) -> Option<bool> {
         }
         Kind::Add(_,terms) => {
             let mut nonreal=0;
-            for (term,_) in terms { match is_real(term) {Some(true)=>{},Some(false)=>nonreal+=1,None=>return None} }
+            let mut paired:Option<Vec<bool>>=None;
+            for (index,(term,_)) in terms.iter().enumerate(){
+                if paired.as_ref().is_some_and(|flags|flags[index]){continue;}
+                let answer=is_real(term);
+                if answer!=Some(true)&&matches!(term.kind(),Kind::Pow(..)|Kind::Mul(..)){
+                    if paired.get_or_insert_with(||exact::paired_conjugate_terms(terms))[index]{continue;}
+                }
+                match answer{Some(true)=>{},Some(false)=>nonreal+=1,None=>return None}
+            }
             if nonreal==1 {Some(false)} else if nonreal==0 {Some(true)} else {None}
         }
         Kind::Mul(_,factors) => {

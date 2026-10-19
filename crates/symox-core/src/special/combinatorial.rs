@@ -139,6 +139,13 @@ fn eval_binomial(n: &Expr, k: &Expr) -> Option<Expr> {
         if crate::functions::is_numeric_value(n) {
             let kk = as_int(k)?;
             if let Some(nn) = as_int(n) {
+                let positive_n = if nn.is_negative() { &kk - &nn - 1 } else { nn.clone() };
+                if kk <= positive_n {
+                    // With min(k,n-k)>u64::MAX the exact output already needs
+                    // more than u64::MAX bits. Preserve the symbolic binomial;
+                    // modular evaluation can still compute a small exact result.
+                    std::cmp::min(kk.clone(), &positive_n - &kk).to_u64()?;
+                }
                 return Some(num(ints::binomial(&nn, &kk)));
             }
             // non integer number: falling product / k!

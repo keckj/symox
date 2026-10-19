@@ -57,9 +57,9 @@ class CodegenAST:
 
 class Node(CodegenAST):
     _fields=('attrs',);defaults={'attrs':()}
-    def attr_params(self,name):
+    def attr_params(self,looking_for):
         for attr in self.attrs:
-            if attr.name==str(name):return attr.parameters
+            if attr.name==str(looking_for):return attr.parameters
         return ()
 
 

@@ -5,14 +5,14 @@ from .point import Point
 from .line import Segment, cross2
 
 
-def rad(degrees):
+def rad(d):
     from .. import pi
-    return scalar(degrees)*pi/180
+    return scalar(d)*pi/180
 
 
-def deg(radians):
+def deg(r):
     from .. import pi
-    return 180*scalar(radians)/pi
+    return 180*scalar(r)/pi
 
 
 def intersection(*entities, pairwise=False, **kwargs):
@@ -32,10 +32,10 @@ def intersection(*entities, pairwise=False, **kwargs):
     return result
 
 
-def are_similar(first, second):
-    if hasattr(first, 'is_similar'):
-        return first.is_similar(second)
-    if isinstance(first, Point) and isinstance(second, Point):
+def are_similar(e1, e2):
+    if hasattr(e1, 'is_similar'):
+        return e1.is_similar(e2)
+    if isinstance(e1, Point) and isinstance(e2, Point):
         return True
     raise NotImplementedError('Similarity is not implemented for these geometry types')
 

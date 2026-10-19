@@ -87,7 +87,8 @@ def construct_domain(obj, **args):
     if extension is not None and extension is not True:
         raise NotImplementedError('construct_domain currently supports extension=True')
     mapping = isinstance(obj, dict)
-    sequence = not mapping and not isinstance(obj, str) and hasattr(obj, '__iter__')
+    from ..utilities.iterables import iterable
+    sequence = not mapping and iterable(obj)
     original = list(obj.values()) if mapping else list(obj) if sequence else [obj]
     coefficients = [sympify(value) for value in original]
     if composite is False and any(value.free_symbols for value in coefficients):

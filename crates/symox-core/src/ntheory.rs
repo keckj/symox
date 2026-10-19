@@ -291,7 +291,9 @@ pub fn isprime(n: &BigInt) -> bool {
     sprp(n, &BigInt::from(2)) && strong_lucas(n)
 }
 
-fn pollard_brent_big(n: &BigInt) -> BigInt {
+/// Pollard–Brent rho on a composite `n`; gives up (`None`) once the cycle
+/// length passes `max_r` (`None` = never).
+fn pollard_brent_big(n: &BigInt, max_r: Option<u64>) -> Option<BigInt> {
     let mut c = BigInt::one();
     loop {
         let f = |x: &BigInt| (x * x + &c).mod_floor(n);
@@ -320,6 +322,9 @@ fn pollard_brent_big(n: &BigInt) -> BigInt {
             if !g.is_one() {
                 break;
             }
+            if max_r.is_some_and(|mr| r > mr) {
+                return None;
+            }
         }
         if g == *n {
             loop {
@@ -331,10 +336,27 @@ fn pollard_brent_big(n: &BigInt) -> BigInt {
             }
         }
         if g != *n {
-            return g;
+            return Some(g);
         }
         c += 1;
     }
+}
+
+/// A non-trivial factor of a composite, non-power `n`: a short rho run
+/// for small factors, then ECM with growing bounds (SymPy's schedule).
+fn split_big(n: &BigInt) -> BigInt {
+    if let Some(d) = pollard_brent_big(n, Some(1 << 16)) {
+        return d;
+    }
+    let seed = BigInt::from(1234);
+    let mut b1 = 10_000u64;
+    while b1 <= 50_000_000 {
+        if let Ok(Some(d)) = ecm::one_factor(n, b1, 100 * b1, 50, &seed) {
+            return d;
+        }
+        b1 *= 5;
+    }
+    pollard_brent_big(n, None).unwrap()
 }
 
 /// Prime factorisation `{p: e}` of `|n|` (`n != 0`).
@@ -392,7 +414,7 @@ pub fn factorint(n: &BigInt) -> BTreeMap<BigInt, u32> {
         if split {
             continue;
         }
-        let d = pollard_brent_big(&m);
+        let d = split_big(&m);
         stack.push(&m / &d);
         stack.push(d);
     }
@@ -702,10 +724,21 @@ pub fn binomial(n: &BigInt, k: &BigInt) -> BigInt {
         return BigInt::zero();
     }
     let k = if (n - k) < *k { n - k } else { k.clone() };
-    let kk = k.to_u64().unwrap_or(0);
     let mut r = BigInt::one();
-    for i in 0..kk {
-        r = r * (n - i) / (i + 1);
+    if let Some(kk) = k.to_u64() {
+        for i in 0..kk {
+            r = r * (n - i) / (i + 1);
+        }
+    } else {
+        // An unrepresentable loop bound must never be mistaken for zero
+        // iterations (which returned the false exact answer 1). Symbolic
+        // callers retain such enormous outputs unevaluated before entering
+        // this low-level exact integer routine.
+        let mut i = BigInt::zero();
+        while i < k {
+            r = r * (n - &i) / (&i + 1);
+            i += 1;
+        }
     }
     r
 }

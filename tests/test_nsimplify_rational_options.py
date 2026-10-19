@@ -63,7 +63,7 @@ def test_rational_flag_selects_conversion_instead_of_irrational_recognition():
         assert sx.nsimplify(exact,rational=True)==exact
 
 
-def test_invalid_options_and_conversion_resource_bounds():
+def test_invalid_options_and_large_conversion_exponents():
     value=sx.Float('.5')
     for tolerance in [0,-1,float('nan'),float('inf'),sx.I,sx.Symbol('epsilon')]:
         with pytest.raises(ValueError):sx.nsimplify(value,rational=True,tolerance=tolerance)
@@ -72,8 +72,20 @@ def test_invalid_options_and_conversion_resource_bounds():
     with pytest.raises(NotImplementedError):sx.nsimplify(value,rational=False,tolerance=.01)
     with pytest.raises(NotImplementedError):sx.nsimplify(value,full=True)
     huge_exponent=sx.Float('1e-1000000',20)
-    with pytest.raises(NotImplementedError):sx.nsimplify(huge_exponent,rational=True)
-    with pytest.raises(NotImplementedError):sx.nsimplify(huge_exponent,rational=True,rational_conversion='exact')
+    assert sx.nsimplify(huge_exponent,rational=True)==sx.Rational(1,10**1000000)
+    exact=sx.nsimplify(huge_exponent,rational=True,rational_conversion='exact')
+    assert exact.to_sympy()==sp.Rational(huge_exponent.to_sympy())
+
+
+@pytest.mark.parametrize('precision',[100001,200003])
+@pytest.mark.parametrize('conversion',['base10','exact'])
+def test_rational_conversion_preserves_precision_beyond_former_cap(precision,conversion):
+    value=sx.Float('0.125',precision=precision)
+    assert sx.nsimplify(value,rational=True,rational_conversion=conversion)==sx.Rational(1,8)
+    value=sx.Float('1.234567890123456789012345678901234567890123456789',precision=precision)
+    result=sx.nsimplify(value,rational=True,rational_conversion=conversion)
+    if conversion=='exact':assert result.to_sympy()==sp.Rational(value.to_sympy())
+    else:assert sx.Float(result,precision=precision)==value
 
 
 def test_rationalization_does_not_import_sympy():

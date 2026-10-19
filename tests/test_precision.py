@@ -147,9 +147,8 @@ def test_exact_rational_float_conversion_has_no_double_rounding():
 
 
 def test_unsupported_precision_options_are_explicit():
-    for n in [0, 10001]:
-        with pytest.raises(ValueError):
-            sm.N(sm.pi, n)
+    for n in [0, -1, 10001]:
+        assert sm.N(sm.Rational(1,3), n).to_sympy() == sp.N(sp.Rational(1,3), n)
     with pytest.raises(ValueError):
         sm.Float("1.2", 20, precision=80)
     assert sm.pi.evalf(40, chop=True) == sm.N(sm.pi, 40)

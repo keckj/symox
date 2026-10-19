@@ -518,9 +518,16 @@ pub fn rationalize_real(e:&Expr, precision:u32, limit:bool)->PResult<Rat> {
     use num_rational::BigRational;
     let value=crate::evalf_mp::eval_mp(e,precision).ok_or_else(||failure("expected a finite numerical value"))?;
     if !value.is_real(){return Err(failure("a nonreal value has no rational conversion"));}
+    // Compact literals can now be evaluated beyond the transcendental engine's
+    // former magnitude guard. Retain that pre-existing output allocation
+    // budget for a materialized integer ratio; widening it is a separate task.
+    if !value.re.is_zero()&&value.re.mag().unsigned_abs()>3_321_930{
+        return Err(failure("exact rational output exceeds the current conversion resource budget"));
+    }
     let exact=value.re.to_ratio_exact();
+    if !limit{return Ok(Rat::from_number(&crate::number::Number::from_ratio(exact)).unwrap());}
     let max_denominator=((BigInt::from(1)<<precision as usize)/BigInt::from(200)).max(BigInt::from(99));
-    let result=if !limit || exact.denom()<=&max_denominator {exact} else {
+    let result=if exact.denom()<=&max_denominator {exact} else {
         let negative=exact.numer().sign()==Sign::Minus;
         let mut n=if negative {-exact.numer()} else {exact.numer().clone()};
         let mut d=exact.denom().clone();

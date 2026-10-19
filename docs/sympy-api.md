@@ -16,6 +16,11 @@ The native column measures the corresponding `symox.*` module path. An API avail
 
 These are name-presence measurements. They do not check signatures, domains, algorithms or behavior. Modules overlap; rows must not be added together. This inventory is bounded by the documented modules and listed parents, not a claim to enumerate every internal SymPy module.
 
+The separate [versioned parity audit](sympy-parity-audit.md) traverses these
+modules, constructor and method signatures, and reference documentation
+examples. Its per-binding catalog and resumable results track open gaps;
+the presence percentages below are not capability certificates.
+
 Reproduce offline after installing the pinned reference version:
 
 ```bash

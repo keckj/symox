@@ -17,6 +17,8 @@ def install(matrix):
         domain_matrix = self.to_DM()
         coefficients = [sympify(simplify(domain_matrix.domain.to_sympy(value)))
                         for value in domain_matrix.charpoly()]
+        if not all(isinstance(value,Expr) for value in coefficients):
+            raise TypeError('simplify must return scalar expressions')
         while len(coefficients) > 1 and coefficients[0] == 0:
             coefficients.pop(0)
         domain, _ = construct_domain(coefficients)

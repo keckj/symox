@@ -118,9 +118,16 @@ class Feedback(_Connection):
         sys1=_tf(sys1);sys2=TransferFunction(1,1,sys1.var) if sys2 is None else _tf(sys2)
         if sign not in (-1,1):raise ValueError('feedback sign must be -1 or 1')
         super().__init__(sys1,sys2);self.sys1,self.sys2,self.sign=sys1,sys2,sign
-    def doit(self,**kwargs):
+    def doit(self,cancel=False,expand=False,**hints):
+        # SymPy's layout: F_n / (1 -+ sys2*sys1) with the parallel connection unexpanded
         a,b=self.systems
-        return TransferFunction(a.num*b.den,a.den*b.den-self.sign*a.num*b.num,self.var)
+        loop=Series(b,a).doit()
+        if self.sign==1:loop=-loop
+        F_d=Parallel(TransferFunction(1,1,self.var),loop).doit()
+        result=TransferFunction(a.num*F_d.den,a.den*F_d.num,self.var)
+        if cancel:result=result.simplify()
+        if expand:result=result.expand()
+        return result
     @property
     def sensitivity(self):return 1/(1-self.sign*self.sys1.to_expr()*self.sys2.to_expr())
 

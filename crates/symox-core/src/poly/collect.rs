@@ -8,8 +8,8 @@ use crate::ops::{add,as_coeff_mul,div,mul,neg,pow};
 use crate::traverse::{map_children,ordered_args};
 
 #[derive(Clone,Copy,Debug)]
-pub struct Options { pub exact:bool, pub distribute_order_term:bool }
-impl Default for Options {fn default()->Self{Self{exact:false,distribute_order_term:true}}}
+pub struct Options { pub exact:bool, pub discover:bool, pub distribute_order_term:bool }
+impl Default for Options {fn default()->Self{Self{exact:false,discover:false,distribute_order_term:true}}}
 
 #[derive(Clone,Debug)]
 pub enum Collection { Expression(Expr), Dictionary(Vec<(Expr,Expr)>) }
@@ -54,7 +54,6 @@ fn derived_assumptions(e:&Expr)->crate::Assumptions {
 
 fn check_pattern(e:&Expr,seen:&mut FxHashMap<usize,Expr>)->Result<(),String>{
     if seen.insert(e.dag_id(),e.clone()).is_some(){return Ok(());}
-    if e.as_sym().is_some_and(|s|s.is_wild()){return Err("collect with Wild patterns is not implemented".into());}
     if matches!(e.kind(),Kind::Func(Func::MatrixProxy(_),_)){return Err("collect requires scalar patterns".into());}
     for arg in e.args(){check_pattern(&arg,seen)?;}Ok(())
 }
@@ -115,7 +114,7 @@ impl Collector {
         let mut restore=FxHashMap::default();let mut replacements:Vec<(Expr,Expr)>=Vec::new();let mut normalized=Vec::new();
         for pattern in patterns{
             check_pattern(pattern,&mut FxHashMap::default())?;
-            if pattern.is_symbol()||neg(pattern).is_symbol(){normalized.push(pattern.clone());}
+            if pattern.is_symbol()||neg(pattern).is_symbol()||crate::pattern::has_wild(pattern){normalized.push(pattern.clone());}
             else if let Some((_,dummy))=replacements.iter().find(|(old,_)|old==pattern){normalized.push(dummy.clone());}
             else{
                 let dummy=Expr::dummy("collect",derived_assumptions(pattern));
@@ -128,12 +127,47 @@ impl Collector {
         }));
         let mut expression=expression.clone();
         for(old,new)in replacements{expression=replace_pattern(&expression,&old,&new)?;}
+        let mut options=options;
+        if options.discover {
+            options.discover=false;
+            // Basic.has_free on a normalized symbol must respect bound
+            // variables. Composite non-Wild patterns have already become
+            // fresh symbols, with their assumptions and restoration retained.
+            let depends=|e:&Expr|{
+                let free=crate::traverse::free_symbols(e);
+                normalized.iter().any(|p|if p.is_symbol(){free.contains(p)}else{
+                    let positive=neg(p);
+                    if positive.is_symbol(){free.contains(&positive)&&crate::traverse::has(e,p)}
+                    else{crate::traverse::has(e,p)}
+                })
+            };
+            let terms=if expression.is_add(){ordered_args(&expression)}else{vec![expression.clone()]};
+            let mut extra=FxHashMap::default();
+            for term in terms {
+                if normalized.contains(&term)||!depends(&term){continue;}
+                let generator=if term.is_mul(){mul(&ordered_args(&term).into_iter().filter(&depends).collect::<Vec<_>>())}else{term};
+                if !normalized.contains(&generator){extra.insert(generator,());}
+            }
+            let mut extra=extra.into_keys().collect::<Vec<_>>();
+            extra.sort_by_cached_key(crate::sortkey::sort_key);
+            let simple=extra.iter().all(|p|matches!(p.kind(),Kind::Pow(base,_) if normalized.contains(base)));
+            normalized.extend(extra);
+            if !simple {
+                let (mut nested,expression)=Self::prepare(&expression,&normalized,options)?;
+                for value in nested.restore.values_mut(){*value=crate::subs::xreplace(value,&restore);}
+                nested.restore.extend(restore);
+                return Ok((nested,expression));
+            }
+            // In the simple-power case exact=None compares each discovered
+            // exponent exactly, without the integer-power dummy replacement.
+            options.exact=true;
+        }
         Ok((Self{patterns:normalized,restore,options,cache:FxHashMap::default(),power_cache:crate::expand::ExpandBudget::default()},expression))
     }
 
     fn power_base(&mut self,e:&Expr)->Result<Expr,String>{
         if !e.is_pow(){return Ok(e.clone());}
-        let options=crate::expand::ExpandOptions{deep:false,basic:false,mul:false,multinomial:false,power_base:true,power_exp:false,log:false,trig:false,force:false};
+        let options=crate::expand::ExpandOptions{deep:false,basic:false,mul:false,multinomial:false,power_base:true,power_exp:false,log:false,trig:false,func:false,force:false};
         crate::expand::expand_with_options(e,&options,&mut self.power_cache).map_err(|e|e.to_string())
     }
 
@@ -175,9 +209,13 @@ impl Collector {
             let parsed=factors.iter().map(parse_factor).collect::<Result<Vec<_>,_>>()?;
             let mut matched=None;
             for pattern in &self.patterns{
+                if crate::pattern::has_wild(pattern)||!pattern.is_symbol()&&!neg(pattern).is_symbol(){
+                    if let Some((key,coefficient))=match_factors(&factors,&parsed,pattern,self.options.exact)?{matched=Some((key,coefficient));break;}
+                    continue;
+                }
                 let symbol=if pattern.is_symbol(){pattern.clone()}else{neg(pattern)};
                 for(index,factor)in parsed.iter().enumerate(){
-                    if factor.base==symbol && !factor.symbolic && (!self.options.exact || factor.exponent.is_one() && !factor.derivative){
+                    if factor.base==symbol && factor.symbolic.is_none() && (!self.options.exact || factor.exponent.is_one() && factor.derivative.is_none()){
                         let key=factors[index].clone();
                         let coefficient=mul(&factors.iter().enumerate().filter(|(i,_)|*i!=index).map(|(_,e)|e.clone()).collect::<Vec<_>>());
                         matched=Some((key,coefficient));break;
@@ -197,14 +235,37 @@ impl Collector {
     }
 }
 
-struct ParsedFactor {base:Expr,exponent:Expr,symbolic:bool,derivative:bool}
+struct ParsedFactor {base:Expr,exponent:Expr,symbolic:Option<Expr>,derivative:Option<(Expr,u32)>}
 fn parse_factor(e:&Expr)->Result<ParsedFactor,String>{
     let(base,exponent)=match e.kind(){Kind::Pow(base,exponent)=>(base.clone(),exponent.clone()),_=>(e.clone(),Expr::one())};
     let derivative=derivative_parts(&base)?;
     let base=derivative.as_ref().map(|(body,_,_)|body.clone()).unwrap_or(base);
-    let symbolic=exponent.as_number().is_none();
-    let exponent=if symbolic{Expr::num(as_coeff_mul(&exponent).0)}else{exponent};
-    Ok(ParsedFactor{base,exponent,symbolic,derivative:derivative.is_some()})
+    let (exponent,symbolic)=if exponent.as_number().is_none(){let(coefficient,tail)=as_coeff_mul(&exponent);(Expr::num(coefficient),Some(tail))}else{(exponent,None)};
+    Ok(ParsedFactor{base,exponent,symbolic,derivative:derivative.map(|(_,variable,order)|(variable,order))})
+}
+
+/// Match product factors without substituting Wilds into the expression.
+/// Each factor comparison has its own bindings, as in reference collect;
+/// the actual matched factors, not the pattern, become the dictionary key.
+fn match_factors(factors:&[Expr],parsed:&[ParsedFactor],pattern:&Expr,exact:bool)->Result<Option<(Expr,Expr)>,String>{
+    let patterns=if pattern.is_mul(){ordered_args(pattern)}else{vec![pattern.clone()]};
+    if parsed.len()<patterns.len(){return Ok(None);}
+    let mut taken=vec![false;parsed.len()];
+    for pattern in patterns{
+        let pattern=parse_factor(&pattern)?;
+        if pattern.base.is_number()&&pattern.exponent.is_one()&&pattern.symbolic.is_none(){continue;}
+        let found=parsed.iter().enumerate().position(|(index,term)|{
+            if taken[index]||crate::pattern::pattern_match(&term.base,&pattern.base).is_none(){return false;}
+            let symbolic=match (&term.symbolic,&pattern.symbolic){
+                (None,None)=>true,(Some(a),Some(b))=>crate::pattern::pattern_match(a,b).is_some(),_=>false,
+            };
+            symbolic&&(!exact||term.exponent==pattern.exponent&&term.derivative==pattern.derivative)
+        });
+        let Some(index)=found else{return Ok(None)};
+        taken[index]=true;
+    }
+    Ok(Some((mul(&factors.iter().zip(&taken).filter(|(_,taken)|**taken).map(|(factor,_)|factor.clone()).collect::<Vec<_>>()),
+             mul(&factors.iter().zip(&taken).filter(|(_,taken)|!**taken).map(|(factor,_)|factor.clone()).collect::<Vec<_>>()))))
 }
 
 #[cfg(test)]
@@ -229,6 +290,35 @@ mod tests{
         assert!(facts.has(crate::Assumptions::REAL));
         // Restoring the query context must keep structural proofs enabled.
         assert!(derived_assumptions(&p("exp(2)")).has(crate::Assumptions::POSITIVE));
+    }
+    #[test]
+    fn discover_compound_generators_and_exact_simple_powers(){
+        for(source,patterns,expected)in [
+            ("x*exp(x)+y*sin(x)+2*sin(x)+3*x",vec!["x"],"x*exp(x)+3*x+(y+2)*sin(x)"),
+            ("a*x*y+x*y+b*x+x",vec!["x","y"],"x*y*(a+1)+x*(b+1)"),
+            ("a*x**2+b*x**2+c*x**3+d*x**3",vec!["x"],"x**2*(a+b)+x**3*(c+d)"),
+            ("a*sqrt(x)+b*sqrt(x)+c*x+d*x",vec!["x"],"sqrt(x)*(a+b)+x*(c+d)"),
+        ]{
+            let patterns=patterns.iter().map(|text|p(text)).collect::<Vec<_>>();
+            let result=run::<Infallible>(&p(source),&patterns,Options{discover:true,..Options::default()},true,None).unwrap();
+            let Collection::Expression(result)=result else{unreachable!()};
+            assert_eq!(result,p(expected),"{source}");
+        }
+    }
+    #[test]
+    fn wild_factor_patterns_keep_concrete_keys_and_exclusions(){
+        let wild=Expr::wild("w",Vec::new());
+        let pattern=pow(&wild,&p("y"));
+        let source=p("a*x**y-b*x**y");
+        let result=run::<Infallible>(&source,&[pattern],Options::default(),false,None).unwrap();
+        let Collection::Dictionary(result)=result else{unreachable!()};
+        assert_eq!(result,vec![(p("x**y"),p("a-b"))]);
+        let wild=Expr::wild("w",vec![p("z")]);
+        let pattern=pow(&wild,&p("y"));
+        let result=run::<Infallible>(&p("a*x**y+b*x**y+c*z**y"),&[pattern],Options::default(),false,None).unwrap();
+        let Collection::Dictionary(result)=result else{unreachable!()};
+        assert!(result.contains(&(p("x**y"),p("a+b"))));
+        assert!(result.contains(&(Expr::one(),p("c*z**y"))));
     }
     #[test]
     fn partitions_reconstruct_and_preserve_exact_flag(){

@@ -76,7 +76,7 @@ fn empty_range(n: &BigInt) -> String {
     format!("empty range for randrange() (6, {}, {})", n, n - 6)
 }
 
-fn one_factor(n: &BigInt, b1: u64, b2: u64, max_curve: u64, seed: &BigInt) -> Result<Option<BigInt>, String> {
+pub(crate) fn one_factor(n: &BigInt, b1: u64, b2: u64, max_curve: u64, seed: &BigInt) -> Result<Option<BigInt>, String> {
     let mut rng = PyRandom::new(seed);
     if n - 1 < BigInt::from(6) {
         return Err(empty_range(n));

@@ -85,7 +85,22 @@ def _matrix_part(name, M):
 
 
 def _make(name):
-    def f(*args, evaluate=None):
+    from ._function_signatures import signature as _head_signature,bind as _bind_head
+    _contract=_head_signature(name)
+    if _contract is not None:
+        _fields=list(_contract.parameters.values())
+        _required=sum(field.default is field.empty and field.kind!=field.VAR_POSITIONAL for field in _fields)
+        _maximum=None if any(field.kind==field.VAR_POSITIONAL for field in _fields) else len(_fields)
+        _nullable=tuple(index for index,field in enumerate(_fields) if field.default is None)
+    def f(*args, evaluate=None, **kwargs):
+        if kwargs:
+            if _contract is None:raise TypeError(name+' does not accept these keyword arguments')
+            args=_bind_head(_contract,args,kwargs)
+        elif _contract is not None:
+            if len(args)<_required or _maximum is not None and len(args)>_maximum:
+                _contract.bind(*args)  # Raise a Python argument error before entering native code.
+            if any(index<len(args) and args[index] is None for index in _nullable):
+                args=_bind_head(_contract,args,{})
         from ._public_core import _evaluation
         evaluate = _evaluation.get() if evaluate is None else evaluate
         if name in ('Min','Max'):
@@ -112,6 +127,11 @@ def _make(name):
     f.__qualname__ = name
     f.__doc__ = f"symbolic {name}"
     f._symox_head_name = name
+    if _contract is not None:
+        import inspect as _inspect
+        _parameters=list(_contract.parameters.values())
+        _parameters.append(_inspect.Parameter('evaluate',_inspect.Parameter.KEYWORD_ONLY,default=None))
+        f.__signature__=_contract.replace(parameters=_parameters)
     return f
 
 
@@ -183,6 +203,12 @@ def _restore_function(name, assumptions, nargs):
 
 
 class _CalculusMeta(type):
+    def __getattr__(cls,name):
+        from ._constructor_methods import instance_method
+        return instance_method(_core.Expr,name)
+
+    def class_key(cls):return (5,0,cls.__name__)
+
     def __instancecheck__(cls, value):
         return isinstance(value, Expr) and getattr(value, 'is_'+cls.__name__, False)
 
@@ -214,14 +240,14 @@ class Product(metaclass=_CalculusMeta):
 from ._concrete import ReorderError  # noqa: E402
 
 
-class _SubsMeta(type):
+class _SubsMeta(_CalculusMeta):
     def __instancecheck__(cls, value):
         return isinstance(value, Expr) and value.is_Subs
 
 
 class Subs(metaclass=_SubsMeta):
     """Held substitution with explicit bound variables and evaluation points."""
-    def __new__(cls, expr, variables, point):
+    def __new__(cls, expr, variables, point, **assumptions):
         return _core._subs(expr, variables, point)
 
 
@@ -350,34 +376,40 @@ def special_nstr(e, dps=15):
 # ---------------------------------------------------------------------------
 
 
-def Eq(a, b=0, *, evaluate=None):
+def Eq(lhs, rhs=0, **options):
     from ._public_core import _evaluation
-    return _core.Rel("==", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
+    evaluate=options.pop('evaluate',None)
+    return _core.Rel("==", lhs, rhs, evaluate=_evaluation.get() if evaluate is None else evaluate)
 
 
-def Ne(a, b, *, evaluate=None):
+def _ordered_relation(op,lhs,rhs,options):
     from ._public_core import _evaluation
-    return _core.Rel("!=", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
+    evaluate=options.pop('evaluate',None)
+    state=_evaluation.get() if evaluate is None else evaluate
+    if not state and options:
+        name=next(iter(options))
+        raise TypeError("unexpected keyword argument %r" % name)
+    return _core.Rel(op,lhs,rhs,evaluate=state)
 
 
-def Lt(a, b, *, evaluate=None):
-    from ._public_core import _evaluation
-    return _core.Rel("<", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
+def Ne(lhs, rhs, **options):
+    return _ordered_relation('!=',lhs,rhs,options)
 
 
-def Le(a, b, *, evaluate=None):
-    from ._public_core import _evaluation
-    return _core.Rel("<=", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
+def Lt(lhs, rhs, **options):
+    return _ordered_relation('<',lhs,rhs,options)
 
 
-def Gt(a, b, *, evaluate=None):
-    from ._public_core import _evaluation
-    return _core.Rel(">", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
+def Le(lhs, rhs, **options):
+    return _ordered_relation('<=',lhs,rhs,options)
 
 
-def Ge(a, b, *, evaluate=None):
-    from ._public_core import _evaluation
-    return _core.Rel(">=", a, b, evaluate=_evaluation.get() if evaluate is None else evaluate)
+def Gt(lhs, rhs, **options):
+    return _ordered_relation('>',lhs,rhs,options)
+
+
+def Ge(lhs, rhs, **options):
+    return _ordered_relation('>=',lhs,rhs,options)
 
 
 # ---------------------------------------------------------------------------
@@ -471,6 +503,10 @@ from ._core import Matrix, diag, eye, hessian, jacobian, ones, wronskian, zeros 
 MutableDenseMatrix = Matrix
 DenseMatrix = Matrix
 class _ImmutableMatrixMeta(type):
+    def __getattr__(cls,name):
+        from ._constructor_methods import instance_method
+        return instance_method(Matrix,name)
+
     def __instancecheck__(cls, obj):
         return isinstance(obj, Matrix) and obj._immutable
 
@@ -529,8 +565,8 @@ class NonPositiveDefiniteMatrixError(ValueError, MatrixError):
     """The matrix is not positive-definite."""
 
 
-class PurePoly:
-    """Minimal ``PurePoly`` returned by ``Matrix.charpoly``."""
+class _CharPolyData:
+    """Characteristic-polynomial data for coefficient backends still pending."""
 
     __slots__ = ("_coeffs", "_gen", "_domain", "_expr")
 
@@ -581,7 +617,7 @@ class PurePoly:
 
     def __eq__(self, other):
         if isinstance(other, PurePoly):
-            return self._coeffs == other._coeffs and str(self._domain) == str(other._domain)
+            return self.all_coeffs() == other.all_coeffs() and str(self.domain) == str(other.domain)
         return False
 
     def __hash__(self):
@@ -622,8 +658,12 @@ class PurePoly:
     __repr__ = __str__
 
 
-def det(M, **kwargs):
+from ._purepoly import PurePoly  # noqa: E402
+
+
+def det(matexpr, **kwargs):
     """Determinant of a matrix."""
+    M=matexpr
     if getattr(M, "_symox_matrixexpr", False):
         if kwargs:
             raise NotImplementedError("Custom abstract determinant options are not implemented")
@@ -631,25 +671,25 @@ def det(M, **kwargs):
     return Matrix(M).det(**kwargs)
 
 
-def trace(M):
-    if getattr(M, "_symox_matrixexpr", False):
-        return M.trace()
-    return Matrix(M).trace()
+def trace(expr):
+    if getattr(expr, "_symox_matrixexpr", False):
+        return expr.trace()
+    return Matrix(expr).trace()
 
 
-def adjoint(M):
-    if not hasattr(M, "adjoint"):
-        M = sympify(M)
-    return M.adjoint()
+def adjoint(arg):
+    if not hasattr(arg, "adjoint"):
+        arg = sympify(arg)
+    return arg.adjoint()
 
 
-def transpose(M):
-    if getattr(M, "_symox_matrixexpr", False):
-        return M.transpose()
-    if isinstance(M, (_core.Expr, int, float, complex)):
+def transpose(arg):
+    if getattr(arg, "_symox_matrixexpr", False):
+        return arg.transpose()
+    if isinstance(arg, (_core.Expr, int, float, complex)):
         # the transpose of a commutative scalar is the scalar itself
-        return sympify(M)
-    return Matrix(M).T
+        return sympify(arg)
+    return Matrix(arg).T
 
 
 # --- end matrices ---
@@ -717,7 +757,13 @@ def _wrap_set(e):
 
 
 def _unwrap(o):
-    return o._e if isinstance(o, Set) else o
+    if isinstance(o, Set):
+        return o._e
+    if isinstance(o, (set, frozenset)):
+        return _core.FiniteSet(*(_unwrap(item) for item in o))
+    if isinstance(o, tuple):
+        return _core._apply('Tuple', *(_unwrap(item) for item in o))
+    return o
 
 
 class Set:
@@ -945,7 +991,7 @@ class Set:
 
     @property
     def is_iterable(self):
-        return isinstance(self, (FiniteSet, Range)) or self.class_name in ("Integers", "Naturals", "Naturals0")
+        return isinstance(self, (FiniteSet, Range)) or self.class_name in ("Integers", "Naturals", "Naturals0", "Rationals")
 
     @property
     def is_open(self):
@@ -1245,13 +1291,16 @@ Naturals0 = _named("Naturals0")
 Complexes = _named("Complexes")
 Rationals = _named("Rationals")
 
+from ._set_iteration import install as _install_set_iteration
+_install_set_iteration(globals())
+
 
 def Contains(x, s):
     """Membership ``x in s`` as a boolean expression."""
     return _core.Contains(_unwrap(x), _unwrap(s))
 
 
-def solveset(f, symbol=None, domain=None):
+def solveset(f, symbol=None, domain=Complexes):
     """Solve ``f == 0`` (or an (in)equality) for ``symbol`` as a set."""
     return _wrap_set(_core.solveset(f, symbol, None if domain is None else _unwrap(domain)))
 
@@ -1264,7 +1313,7 @@ def solveset_complex(f, symbol):
     return solveset(f, symbol, Complexes)
 
 
-def solve_univariate_inequality(expr, gen, relational=True, domain=None, continuous=False):
+def solve_univariate_inequality(expr, gen, relational=True, domain=Reals, continuous=False):
     def absolute_result():
         condition=sympify(expr)
         if not condition.is_Relational or not condition.has(Abs):
@@ -1378,12 +1427,23 @@ def primitive(f, *gens, **args):
 
 
 def _install_poly_methods():
+    def as_poly(self,*gens,**kw):
+        try:
+            return Poly(self,*gens,**kw)
+        except PolynomialError:
+            return None
+        except ValueError as error:
+            # The native constructor still reports this conversion failure as
+            # ValueError. Do not swallow invalid options or duplicate gens.
+            if 'contains an element of the set of generators' in str(error):
+                return None
+            raise
     methods = {
         "factor": lambda self, *gens, **kw: factor(self, *gens, **kw),
         "cancel": lambda self, *gens, **kw: cancel(self, *gens, **kw),
         "apart": lambda self, x=None, **kw: apart(self, x, **kw),
         "collect": lambda self, syms, **kw: collect(self, syms, **kw),
-        "as_poly": lambda self, *gens, **kw: Poly(self, *gens, **kw),
+        "as_poly": as_poly,
         "together": lambda self, *a, **kw: together(self, *a, **kw),
     }
     for name, fn in methods.items():
@@ -1410,6 +1470,8 @@ from .polys import _poly_methods  # noqa: E402
 _poly_methods.install()
 from .polys import _evaluation as _poly_evaluation  # noqa: E402
 _poly_evaluation.install()
+from ._purepoly import install as _install_purepoly_methods  # noqa: E402
+_install_purepoly_methods()
 from .polys.numberfields.galoisgroups import galois_group  # noqa: E402
 from .polys.constructor import construct_domain  # noqa: E402
 from .polys.polytools import (  # noqa: E402
@@ -1643,12 +1705,14 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
     Returns ``(replacements, reduced_exprs)`` where ``replacements`` is a
     list of ``(Symbol, expr)`` pairs in evaluation order.
     """
-    single = isinstance(exprs, (Expr, int, float, str))
+    from ._cse_matrices import is_concrete_matrix,flatten
+    single = isinstance(exprs, (Expr, int, float, str)) or is_concrete_matrix(exprs)
     if isinstance(exprs, dict):
         keys = _builtins.list(exprs)
         reps, red = cse([exprs[k] for k in keys], symbols, optimizations, postprocess, order, ignore)
         return reps, dict(zip(keys, red))
     seq = [exprs] if single else exprs
+    seq,restore=flatten(seq)
     opt = optimizations not in (False, "none")
     reps, red = _core._cse(seq, opt, ignore or None)
     if symbols is not None:
@@ -1662,6 +1726,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
             new_reps.append((t, v))
         reps = new_reps
         red = [r.xreplace(mapping) for r in red] if mapping else red
+    red=restore(red)
     if postprocess is not None:
         return postprocess(reps, red)
     if single and not list:
@@ -1719,8 +1784,8 @@ _native_N = N
 def N(expr, n=15, **kwargs):
     """Evaluate to ``n`` decimal digits using the native precision engine.
 
-    Supports expressions and matrices. Decimal precision is 1 through 10000;
-    unsupported evaluation options raise an explicit error.
+    Supports expressions and matrices, with precision retained in native numbers.
+    Unsupported evaluation options raise an explicit error.
     """
     if getattr(expr, "_symox_matrixexpr", False):
         raise NotImplementedError("Materialize abstract matrices with as_explicit() before numerical evaluation")
@@ -2003,14 +2068,50 @@ _public_core.install(globals())
 _public_matrix.install(globals())
 _public_roots.install()
 _public_special.install(globals())
+from ._tuple_protocol import install as _install_tuple_protocol
+_install_tuple_protocol(Expr)
+from ._boolean_operators import install as _install_boolean_operators
+_install_boolean_operators()
 _native_piecewise = Piecewise
 
-def Piecewise(*pieces,evaluate=None):
-    return _native_piecewise(*pieces,evaluate=_public_core._evaluation.get() if evaluate is None else evaluate)
+from ._compat import _ExprType as _PiecewiseBaseMeta
+class _PiecewiseConstructorMeta(_PiecewiseBaseMeta):
+    def __repr__(cls):return cls.__name__
+    __str__=__repr__
+    def class_key(cls):return (4,0,cls.__name__)
+
+class Piecewise(metaclass=_PiecewiseConstructorMeta):
+    _matches=staticmethod(lambda expression:expression.is_Piecewise)
+    is_Piecewise=True
+    def __new__(cls,*pieces,evaluate=None):
+        if not pieces:raise TypeError('At least one (expr, cond) pair expected.')
+        state=_public_core._evaluation.get() if evaluate is None else evaluate
+        if state:
+            return _native_piecewise(*pieces,evaluate=True)
+        # Even held Piecewise constructors discard false branches and stop
+        # at the first true branch, as required by the branch protocol.
+        held=_native_piecewise(*pieces,evaluate=False)
+        branches=[]
+        for pair in held.args:
+            if pair.cond==false:
+                continue
+            branches.append(pair)
+            if pair.cond==true:
+                break
+        if len(branches)==1 and branches[0].cond==true:
+            return branches[0].expr
+        return _native_piecewise(*branches,evaluate=False)
+
+import sys as _piecewise_sys
+for _piecewise_module_name,_piecewise_module in tuple(_piecewise_sys.modules.items()):
+    if (_piecewise_module_name.startswith('symox.') and _piecewise_module is not None
+            and _piecewise_module.__dict__.get('Piecewise') is _native_piecewise):
+        _piecewise_module.Piecewise=Piecewise
+
 
 for _context_name in ('sqrt','cbrt','log'):
     def _context_function(name,original):
-        def f(*args,evaluate=None):
+        def apply(args,evaluate):
             state = _public_core._evaluation.get() if evaluate is None else evaluate
             if state:return original(*args)
             if name in ('sqrt','cbrt'):
@@ -2019,12 +2120,30 @@ for _context_name in ('sqrt','cbrt','log'):
                 return _core._undefined_function('log',args,{},(1,2))
             return _core._apply(name,*args,evaluate=False)
         if name == 'log':
+            def f(arg,base=None,*,evaluate=None):
+                return apply((arg,) if base is None else (arg,base),evaluate)
             f._symox_head_name = name
             f._nargs = (1,2)
+        else:
+            def f(arg,evaluate=None):
+                return apply((arg,),evaluate)
         f.__name__ = name
         return f
     globals()[_context_name] = _context_function(_context_name,globals()[_context_name])
 ln = log
+
+def root(arg,n,k=0,evaluate=None):
+    n = sympify(n)
+    principal = Pow(arg,S.One/n,evaluate=evaluate)
+    if k:
+        return Mul(principal,S.NegativeOne**(2*k/n),evaluate=evaluate)
+    return principal
+
+from ._general_simplify import install as _install_general_simplify
+_install_general_simplify(globals())
+
+from ._solve_relations import install as _install_solve_relations
+_install_solve_relations(globals())
 
 __all__ = [n for n in dir() if not n.startswith("_")]
 

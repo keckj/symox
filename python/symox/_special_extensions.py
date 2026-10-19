@@ -340,6 +340,13 @@ def _period(expr):
     return _s().oo if None in selected else 2*_s().pi*math.lcm(*selected)
 
 
+def _is_simple(expr,x):
+    if expr.class_name!='DiracDelta':
+        raise AttributeError('is_simple is available for DiracDelta')
+    polynomial=expr.args[0].as_poly(x)
+    return polynomial is not None and polynomial.degree()==1
+
+
 def install():
     s=_s();Expr=_core.Expr
     for name in ('order','argument','an','aother','bm','bother','ap','bq','nu','delta','eta'):
@@ -351,6 +358,7 @@ def install():
                 raise
         setattr(Expr,name,property(getter))
     Expr.fdiff=_fdiff;Expr.integrand=_integrand;Expr.get_period=_period
+    Expr.is_simple=_is_simple
     old_rewrite=Expr.rewrite
     def rewrite(expr,*args,deep=True,**kwargs):
         if not args:

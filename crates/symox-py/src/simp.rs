@@ -8,61 +8,62 @@ use symox::simp;
 use crate::{to_expr, wrap, PyExpr};
 
 #[pyfunction]
-fn trigsimp(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(simp::trigsimp(&to_expr(e)?)))
+fn trigsimp(expr: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    Ok(wrap(simp::trigsimp(&to_expr(expr)?)))
 }
 
 #[pyfunction]
-fn expand_trig(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(simp::expand_trig(&to_expr(e)?)))
+#[pyo3(signature = (expr, deep=true))]
+fn expand_trig(expr: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
+    Ok(wrap(simp::expand_trig_deep(&to_expr(expr)?, deep)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (e, deep=true, combine="all", force=false))]
-fn powsimp(e: &Bound<'_, PyAny>, deep: bool, combine: &str, force: bool) -> PyResult<PyExpr> {
+#[pyo3(signature = (expr, deep=true, combine="all", force=false))]
+fn powsimp(expr: &Bound<'_, PyAny>, deep: bool, combine: &str, force: bool) -> PyResult<PyExpr> {
     match combine {
         "all" | "exp" => {},
         "base" => return Err(PyNotImplementedError::new_err("powsimp combine='base' is not implemented")),
         _ => return Err(PyValueError::new_err("combine must be 'all', 'exp' or 'base'")),
     }
     if force { return Err(PyNotImplementedError::new_err("powsimp force=True is not implemented")); }
-    Ok(wrap(simp::powsimp_deep(&to_expr(e)?, deep)))
+    Ok(wrap(simp::powsimp_deep(&to_expr(expr)?, deep)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (e, deep=true, force=false))]
-fn expand_log(e: &Bound<'_, PyAny>, deep: bool, force: bool) -> PyResult<PyExpr> {
-    Ok(wrap(simp::expand_log_deep(&to_expr(e)?, force, deep)))
+#[pyo3(signature = (expr, deep=true, force=false))]
+fn expand_log(expr: &Bound<'_, PyAny>, deep: bool, force: bool) -> PyResult<PyExpr> {
+    Ok(wrap(simp::expand_log_deep(&to_expr(expr)?, force, deep)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (e, force=false))]
-fn logcombine(e: &Bound<'_, PyAny>, force: bool) -> PyResult<PyExpr> {
-    Ok(wrap(simp::logcombine(&to_expr(e)?, force)))
+#[pyo3(signature = (expr, force=false))]
+fn logcombine(expr: &Bound<'_, PyAny>, force: bool) -> PyResult<PyExpr> {
+    Ok(wrap(simp::logcombine(&to_expr(expr)?, force)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (e, deep=true, force=false))]
-fn expand_power_base(e: &Bound<'_, PyAny>, deep: bool, force: bool) -> PyResult<PyExpr> {
-    Ok(wrap(simp::expand_power_base_deep(&to_expr(e)?, force, deep)))
+#[pyo3(signature = (expr, deep=true, force=false))]
+fn expand_power_base(expr: &Bound<'_, PyAny>, deep: bool, force: bool) -> PyResult<PyExpr> {
+    Ok(wrap(simp::expand_power_base_deep(&to_expr(expr)?, force, deep)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (e, deep=true))]
-fn expand_power_exp(e: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
-    Ok(wrap(simp::expand_power_exp_deep(&to_expr(e)?, deep)))
+#[pyo3(signature = (expr, deep=true))]
+fn expand_power_exp(expr: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
+    Ok(wrap(simp::expand_power_exp_deep(&to_expr(expr)?, deep)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (e, deep=true))]
-fn expand_mul(e: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
-    Ok(wrap(simp::expand_mul_deep(&to_expr(e)?, deep)))
+#[pyo3(signature = (expr, deep=true))]
+fn expand_mul(expr: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
+    Ok(wrap(simp::expand_mul_deep(&to_expr(expr)?, deep)))
 }
 
 #[pyfunction]
-#[pyo3(signature = (e, constants=None, tolerance=None, full=false, rational=None))]
+#[pyo3(signature = (expr, constants=None, tolerance=None, full=false, rational=None))]
 fn nsimplify(
-    e: &Bound<'_, PyAny>,
+    expr: &Bound<'_, PyAny>,
     constants: Option<&Bound<'_, PyAny>>,
     tolerance: Option<f64>,
     full: bool,
@@ -82,7 +83,7 @@ fn nsimplify(
             cs.push(to_expr(&x?)?);
         }
     }
-    Ok(wrap(simp::nsimplify(&to_expr(e)?, &cs)))
+    Ok(wrap(simp::nsimplify(&to_expr(expr)?, &cs)))
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {

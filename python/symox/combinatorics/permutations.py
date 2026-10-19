@@ -1,14 +1,10 @@
-"""Finite permutations in array form, used by exact Galois group results."""
+"""Finite permutations in array and cycle notation."""
 import math
 import operator
 
 
 class Permutation:
-    """A bijection of range(size), constructed from its array of images.
-
-    Array construction is supported; SymPy's positional cycle constructor is
-    not part of this subset. Multiplication applies the left factor first.
-    """
+    """A bijection of range(size). Multiplication applies the left factor first."""
     args = ()
     is_Atom = True
     is_Number = is_Symbol = is_Add = is_Mul = is_Pow = is_Function = False
@@ -35,16 +31,61 @@ class Permutation:
 
     _sympy_ = to_sympy
 
-    def __init__(self, images, *, size=None):
+    def __init__(self, *args, size=None, **kwargs):
+        # Reference construction accepts historical/extension keywords without
+        # using them. Validation and the explicit size control still apply.
+        self._rank=None
+        self._parity_cache=None
+        self._cycle_structure_cache=None
+        if size is not None:
+            size = int(size)
+        if not args:
+            self._images = tuple(range(size or 0))
+            return
+        if len(args) > 1:
+            self._images = tuple(Cycle(*args).list(size))
+            return
+        images = args[0]
         if isinstance(images, Cycle):
-            images = images.list()
+            self._images = tuple(images.list(size))
+            return
         if isinstance(images, Permutation):
             images = images.array_form
-        images = tuple(operator.index(i) for i in images)
-        if sorted(images) != list(range(len(images))):
+        else:
+            try:
+                images = list(images)
+            except TypeError:
+                maximum = operator.index(images)
+                if size is not None and maximum + 1 > size:
+                    raise ValueError('size is too small for the maximum index')
+                self._images = tuple(range(maximum + 1))
+                return
+        nested = [isinstance(i, (list, tuple, range)) for i in images]
+        if any(nested):
+            if not all(nested):
+                raise ValueError('mixed array and cycle notation')
+            cycles = [[int(i) for i in cycle] for cycle in images]
+            for cycle in cycles:
+                if any(i < 0 for i in cycle) or len(set(cycle)) != len(cycle):
+                    raise ValueError('invalid cycle indices')
+            degree = max((max(cycle, default=-1) for cycle in cycles), default=-1) + 1
+            degree = max(degree, size or 0)
+            # Maintain inverse positions so overlapping cycles compose in
+            # O(degree + number of supplied cycle entries), without rescanning
+            # the entire image array for each cycle.
+            images = list(range(degree))
+            inverse = images.copy()
+            for cycle in cycles:
+                positions = [inverse[i] for i in cycle]
+                for position, target in zip(positions, cycle[1:] + cycle[:1]):
+                    images[position] = target
+                    inverse[target] = position
+            self._images = tuple(images)
+            return
+        images = tuple(int(i) for i in images)
+        if set(images) != set(range(len(images))):
             raise ValueError('Array must contain each index exactly once')
         if size is not None:
-            size = operator.index(size)
             if size < len(images):
                 raise ValueError('size cannot shrink a permutation')
             images += tuple(range(len(images), size))
@@ -58,8 +99,21 @@ class Permutation:
     def size(self):
         return len(self._images)
 
-    def __call__(self, index):
-        return self._images[operator.index(index)]
+    def __call__(self, *indices):
+        if len(indices) != 1:
+            return self * type(self)(Cycle(*indices), size=self.size)
+        value = indices[0]
+        try:
+            index = operator.index(value)
+        except TypeError:
+            if not hasattr(value, '__iter__'):
+                raise TypeError('permutation index must be an integer') from None
+            if len(value) != self.size:
+                raise TypeError('sequence must have the permutation size')
+            return [value[i] for i in self._images]
+        if index < 0 or index > self.size:
+            raise TypeError('permutation index out of range')
+        return self._images[index]
 
     def __mul__(self, other):
         if not isinstance(other, Permutation):
@@ -75,17 +129,14 @@ class Permutation:
             inverse[image] = i
         return type(self)(inverse)
 
-    def __pow__(self, exponent):
-        exponent = operator.index(exponent)
-        base = self if exponent >= 0 else ~self
-        exponent = abs(exponent)
-        result = type(self)(range(self.size))
-        while exponent:
-            if exponent & 1:
-                result = result * base
-            base = base * base
-            exponent >>= 1
-        return result
+    def __pow__(self, n):
+        exponent = operator.index(n)
+        images = list(range(self.size))
+        for cycle in self.cyclic_form:
+            shift = exponent % len(cycle)
+            for index,value in enumerate(cycle):
+                images[value] = cycle[(index+shift)%len(cycle)]
+        return type(self)(images)
 
     @property
     def cyclic_form(self):
@@ -164,8 +215,12 @@ class Cycle(dict):
         return Cycle({i:other[self[i]] for i in keys})
 
     def list(self,size=None):
-        size=self.size if size is None else operator.index(size)
-        if size<self.size:raise ValueError('cycle size cannot be reduced')
+        if size is None:
+            if not self:raise ValueError('must give size for empty Cycle')
+            size=self.size
+        else:
+            largest_moved=max((i for i in self if self[i]!=i),default=0)
+            size=max(operator.index(size),largest_moved+1)
         return [self[i] for i in range(size)]
 
     def copy(self):
@@ -205,3 +260,6 @@ class AppliedPermutation:
 
 def _apply(self,index):return AppliedPermutation(self,index)
 Permutation.apply=_apply
+
+from ._permutation_algorithms import install as _install_algorithms
+_install_algorithms(Permutation)

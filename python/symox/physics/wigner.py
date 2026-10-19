@@ -81,8 +81,8 @@ def gaunt(l_1,l_2,l_3,m_1,m_2,m_3,prec=None):
     return value.evalf(prec) if prec else value
 
 
-def real_gaunt(l_1,l_2,l_3,m_1,m_2,m_3,prec=None):
-    degrees = tuple(map(S.sympify,(l_1,l_2,l_3)));orders = tuple(map(S.sympify,(m_1,m_2,m_3)))
+def real_gaunt(l_1,l_2,l_3,mu_1,mu_2,mu_3,prec=None):
+    degrees = tuple(map(S.sympify,(l_1,l_2,l_3)));orders = tuple(map(S.sympify,(mu_1,mu_2,mu_3)))
     if any(not v.is_Integer for v in degrees+orders):raise ValueError('real Gaunt indices must be integers')
     def basis(m):
         if m==0:return [(0,S.Integer(1))]

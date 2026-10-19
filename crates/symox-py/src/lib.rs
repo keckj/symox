@@ -7,6 +7,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use num_bigint::BigInt;
+use num_traits::{Signed,Zero};
 use numpy::{PyArray1, PyArrayMethods, PyReadonlyArray1};
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
@@ -296,6 +297,14 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if module.starts_with("sympy") || inherited_sympy {
         let py = obj.py();
         let head: String = obj.getattr("func")?.getattr("__name__")?.extract()?;
+        if head == "ComplexRootOf" && obj.hasattr("poly")? {
+            let polynomial = obj.getattr("poly")?;
+            let expression = to_expr(&polynomial.call_method0("as_expr")?)?;
+            let generator = to_expr(&polynomial.getattr("gen")?)?;
+            let index: i64 = obj.getattr("index")?.extract()?;
+            let root = py.import("symox")?.getattr("CRootOf")?.call1((wrap(expression), wrap(generator), index))?;
+            return to_expr(&root);
+        }
         let applied_undefined=obj.get_type().getattr("__mro__").is_ok_and(|mro|mro.try_iter().is_ok_and(|bases|bases.filter_map(Result::ok).any(|base|base.getattr("__name__").is_ok_and(|name|name.extract::<String>().is_ok_and(|name|name=="AppliedUndef")))));
         if applied_undefined {
             let spec=sympy_function_spec(&obj.getattr("func")?)?;
@@ -412,11 +421,25 @@ fn opt_expr(obj: &Bound<'_, PyAny>) -> Option<Expr> {
     to_expr(obj).ok()
 }
 
-pub(crate) fn decimal_precision(n: u32) -> PyResult<u32> {
-    if !(1..=10_000).contains(&n) {
-        return Err(PyValueError::new_err("decimal precision must lie between 1 and 10000"));
+// Native working precisions use u32. Leave room for doubled-precision
+// refinement and guard bits, instead of imposing a decimal-digit policy cap.
+pub(crate) const MAX_REQUESTED_PRECISION: u32 = (u32::MAX - 65_536) / 2;
+
+pub(crate) fn bit_precision(precision: u32) -> PyResult<u32> {
+    if precision == 0 {
+        return Err(PyValueError::new_err("bit precision must be positive"));
     }
-    Ok(symox::bigfloat::dps_to_prec(n))
+    if precision > MAX_REQUESTED_PRECISION {
+        return Err(PyValueError::new_err("precision exceeds the native 32-bit working-precision range"));
+    }
+    Ok(precision)
+}
+
+pub(crate) fn decimal_precision(n: impl Into<i64>) -> PyResult<u32> {
+    let n=n.into();
+    if n<0 {return Ok(1);}
+    let n=u32::try_from(n).map_err(|_|PyValueError::new_err("precision exceeds the native 32-bit working-precision range"))?;
+    bit_precision(symox::bigfloat::dps_to_prec(n))
 }
 
 pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) -> PyResult<Option<i64>> {
@@ -453,7 +476,7 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
     Ok(chop)
 }
 
-pub(crate) fn evalf_expr(e: &Expr, n: u32, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
+pub(crate) fn evalf_expr(e: &Expr, n: i64, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
     let precision = decimal_precision(n)?;
     let chop=evalf_options(kwargs,precision)?;
     evalf_prepared(e,precision,replacements,chop)
@@ -463,26 +486,35 @@ pub(crate) fn evalf_prepared(e:&Expr,precision:u32,replacements:Option<&Bound<'_
     let e = match replacements {
         Some(mapping) => {
             let pairs = mapping.iter().map(|(old, new)| Ok((to_expr(&old)?, to_expr(&new)?))).collect::<PyResult<Vec<_>>>()?;
-            symox::subs::subs(e, &pairs)
+            symox::evalf_mp::substitute_for_evalf(e, &pairs)
         }
         None => e.clone(),
     };
     Ok(match chop {Some(cutoff)=>symox::evalf_mp::evalf_chop(&e,precision,cutoff),None=>symox::evalf_mp::evalf(&e, precision)})
 }
 
-fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum IntegrationConditions{Piecewise,None,Separate}
+
+fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<IntegrationConditions> {
+    let mut conditions=IntegrationConditions::Piecewise;
     if let Some(kwargs) = kwargs {
         for (key, value) in kwargs {
             let key: String = key.extract()?;
             match key.as_str() {
                 "meijerg" | "risch" | "heurisch" | "manual" if value.is_none() => {},
-                "conds" if value.extract::<String>().is_ok_and(|s| s == "piecewise") => {},
-                "meijerg" | "risch" | "heurisch" | "manual" | "conds" => return Err(PyNotImplementedError::new_err(format!("integration option {key} is not implemented"))),
+                "conds"=>conditions=match value.extract::<String>().ok().as_deref(){
+                    Some("piecewise")=>IntegrationConditions::Piecewise,
+                    Some("none")=>IntegrationConditions::None,
+                    Some("separate")=>IntegrationConditions::Separate,
+                    _=>return Err(PyValueError::new_err("conds must be one of separate, piecewise, none")),
+                },
+                "meijerg" | "risch" | "heurisch" | "manual" => return Err(PyNotImplementedError::new_err(format!("integration option {key} is not implemented"))),
                 _ => return Err(PyTypeError::new_err(format!("unexpected integration option {key}"))),
             }
         }
     }
-    Ok(())
+    Ok(conditions)
 }
 
 fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
@@ -491,6 +523,23 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         PyTuple::new(py, args.iter().map(|a| expr_to_sympy(py, a)).collect::<PyResult<Vec<_>>>()?)
     };
     match e.kind() {
+        Kind::Num(number) => match number {
+            Number::Int(value) => sm.getattr("Integer")?.call1((*value,)),
+            Number::BigInt(value) => sm.getattr("Integer")?.call1((value.clone(),)),
+            Number::Rational(value) => sm.getattr("Rational")?.call1((value.numer().clone(),value.denom().clone())),
+            Number::Float(value) => sm.getattr("Float")?.call1((*value,)),
+            Number::MpFloat(value,precision) => {
+                // Binary transfer avoids decimal round trips and Python's
+                // configurable limit on decimal integer-string conversion.
+                let mpf=(u8::from(value.man.is_negative()),value.man.abs(),value.exp,value.man.bits());
+                let kwargs=PyDict::new(py);
+                kwargs.set_item("precision",*precision)?;
+                // SymPy's mpf-tuple constructor canonicalizes zero to Integer(0).
+                // Its ordinary numeric constructor preserves Float and precision.
+                if value.man.is_zero(){sm.getattr("Float")?.call((0,),Some(&kwargs))}
+                else{sm.getattr("Float")?.call((mpf,),Some(&kwargs))}
+            },
+        },
         Kind::Func(Func::Special(s),args) if s.name().starts_with("HyperRep_")=>py.import("sympy.functions.special.hyper")?.getattr(s.name())?.call1(convert_args(args)?),
         Kind::Func(Func::Predicate(p),_)=>{
             if p.is_undefined(){sm.getattr("Predicate")?.call1((p.name(),))}
@@ -523,6 +572,14 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             sm.getattr(e.class_name())?.call(args, Some(&kwargs))
         }
         Kind::Func(Func::Undefined(name), args) if name.is_internal("Tuple") => sm.getattr("Tuple")?.call1(convert_args(args)?),
+        Kind::Func(Func::Undefined(name), args)
+            if name.name.as_ref() == "ComplexRootOf" && args.len() == 2
+                && name.facts().get("algebraic") == Some(true) => {
+            let coefficients = convert_args(&args[0].args())?;
+            let generator = sm.getattr("Dummy")?.call1(("x",))?;
+            let polynomial = sm.getattr("Poly")?.getattr("from_list")?.call1((coefficients, generator))?;
+            sm.getattr("CRootOf")?.call1((polynomial, expr_to_sympy(py, &args[1])?))
+        }
         Kind::Func(Func::Undefined(name), args) if !name.is_internal("UnevaluatedExpr") => {
             let kwargs=function_kwargs(py,name)?;
             sm.getattr("Function")?.call((name.as_ref(),),Some(&kwargs))?.call1(convert_args(args)?)
@@ -536,7 +593,11 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
         Kind::Func(Func::Set(symox::sets::SetOp::IdentityFunction),_)=>sm.getattr("S")?.getattr("IdentityFunction"),
         Kind::Func(Func::Set(op), args) if op.is_named() && args.is_empty() => sm.getattr(op.name()),
         Kind::Func(f, args) => sm.getattr(f.name())?.call1(convert_args(args)?),
-        Kind::Rel(..) => sm.getattr(e.class_name())?.call1(convert_args(&e.args())?),
+        Kind::Rel(..) => {
+            let kwargs=PyDict::new(py);
+            kwargs.set_item("evaluate",e.is_canonical())?;
+            sm.getattr(e.class_name())?.call(convert_args(&e.args())?,Some(&kwargs))
+        },
         Kind::Piecewise(pairs) => {
             let args = pairs.iter().map(|(value, condition)| {
                 PyTuple::new(py, [expr_to_sympy(py, value)?, expr_to_sympy(py, condition)?])
@@ -634,12 +695,19 @@ fn operation_count(e: &Expr) -> BigInt {
 }
 
 fn unwrap_unevaluated(e: &Expr) -> Expr {
-    if let Kind::Func(Func::Undefined(name), args) = e.kind() {
-        if name.is_internal("UnevaluatedExpr") {
-            return unwrap_unevaluated(&args[0]);
-        }
+    // Memoized per DAG node: shared subtrees (Lagrangian equations, LU
+    // solutions) would otherwise be walked once per path.
+    fn walk(e: &Expr, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+        if e.is_atom() { return e.clone(); }
+        if let Some((_, r)) = memo.get(&e.dag_id()) { return r.clone(); }
+        let r = match e.kind() {
+            Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") => walk(&args[0], memo),
+            _ => traverse::map_children(e, &mut |c| walk(c, memo)),
+        };
+        memo.insert(e.dag_id(), (e.clone(), r.clone()));
+        r
     }
-    if e.is_atom() { e.clone() } else { traverse::map_children(e, &mut unwrap_unevaluated) }
+    walk(e, &mut FxHashMap::default())
 }
 
 /// Parse the variable list of `diff(expr, x, y, (z, 2), x, 3)`.
@@ -713,6 +781,26 @@ fn do_diff(e: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
         };
     }
     Ok(diff::diff_many(e, &vars))
+}
+
+/// Bind Basic.subs' public argument names before dispatching to each native type.
+/// In the reference contract arg2=None selects the mapping/pair-sequence form.
+pub(crate) fn substitution_arguments<'py>(args:&Bound<'py,PyTuple>,kwargs:Option<&Bound<'py,PyDict>>)->PyResult<(Bound<'py,PyTuple>,Option<Bound<'py,PyDict>>)> {
+    if args.len()>2{return Err(PyTypeError::new_err("subs expects 1 or 2 arguments"));}
+    let options=kwargs.map(|d|d.copy()).transpose()?;
+    let mut values=args.iter().collect::<Vec<_>>();
+    for (index,name) in ["arg1","arg2"].iter().enumerate(){
+        let named=if let Some(options)=&options{options.get_item(name)?}else{None};
+        if let Some(value)=named{
+            if args.len()>index{return Err(PyTypeError::new_err(format!("subs() got multiple values for argument '{name}'")));}
+            if values.len()!=index{return Err(PyTypeError::new_err("subs() missing required argument 'arg1'"));}
+            values.push(value);
+            options.as_ref().unwrap().del_item(name)?;
+        }
+    }
+    if values.is_empty(){return Err(PyTypeError::new_err("subs() missing required argument 'arg1'"));}
+    if values.len()==2 && values[1].is_none(){values.pop();}
+    Ok((PyTuple::new(args.py(),values)?,options))
 }
 
 pub(crate) fn subs_pairs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, Expr)>> {
@@ -976,23 +1064,29 @@ impl PyExpr {
     }
 
     fn __int__(&self) -> PyResult<BigInt> {
-        match self.e.kind() {
-            Kind::Num(Number::MpFloat(value, _)) => Ok(value.to_int_trunc()),
-            Kind::Num(n) => {
-                if let Some(b) = n.to_bigint() {
-                    return Ok(b);
-                }
-                let f = n.to_f64().trunc();
-                if let Some((num, den)) = n.numer_denom() {
-                    return Ok(&num / &den);
-                }
-                Ok(BigInt::from(f as i64))
+        if let Some(integer) = fx::integer_trunc(&self.e) { return Ok(integer); }
+        // Keep the established numerical fallback for functions outside the
+        // rational enclosure engine, at native MP precision rather than f64.
+        // Stability is numerical evidence; it is not an interval certificate.
+        let mut precision = symox::evalf_mp::max_precision(&self.e).unwrap_or(0).saturating_add(64).max(128);
+        while precision <= 80_000 {
+            let value = symox::evalf_mp::eval_mp(&self.e, precision)
+                .ok_or_else(|| PyTypeError::new_err("cannot convert this expression to an integer"))?;
+            if !value.is_real() { return Err(PyTypeError::new_err("cannot convert a complex value to an integer")); }
+            if !value.re.is_zero() && value.re.mag() > precision as i64 - 64 {
+                let required = value.re.mag().saturating_add(128);
+                if required > 80_000 { break; }
+                precision = required as u32;
+                continue;
             }
-            _ => {
-                let f = self.__float__()?;
-                Ok(BigInt::from(f.trunc() as i64))
+            let refined = symox::evalf_mp::eval_mp(&self.e, precision * 2)
+                .ok_or_else(|| PyTypeError::new_err("cannot refine the expression's integer part"))?;
+            if refined.is_real() && value.re.to_int_trunc() == refined.re.to_int_trunc() {
+                return Ok(refined.re.to_int_trunc());
             }
+            precision *= 2;
         }
+        Err(PyValueError::new_err("integer part could not be resolved within the numerical precision budget"))
     }
 
     fn __index__(&self) -> PyResult<BigInt> {
@@ -1013,6 +1107,12 @@ impl PyExpr {
 
     #[getter]
     fn args<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if let Kind::Piecewise(branches)=self.e.kind(){
+            let pair=py.import("symox._matrixexpr_methods")?.getattr("_ExprCondPairView")?;
+            let arguments=branches.iter().map(|(value,condition)|pair.call1((
+                expr_object(py,value.clone())?,expr_object(py,condition.clone())?))).collect::<PyResult<Vec<_>>>()?;
+            return PyTuple::new(py,arguments);
+        }
         if !self.e.has_matrix() { return PyTuple::new(py,python_args(&self.e).into_iter().map(wrap)); }
         if let Kind::Func(Func::MatrixDotProduct(a,b),_)=self.e.kind(){return PyTuple::new(py,[matrixexpr::matrix_object(py,a)?,matrixexpr::matrix_object(py,b)?]);}
         if let Kind::Func(Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), _) = self.e.kind() {
@@ -1036,6 +1136,9 @@ impl PyExpr {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if matches!(self.e.kind(),Kind::Piecewise(_)){
+            return Ok(py.import("symox")?.getattr("Piecewise")?.unbind());
+        }
         if matches!(self.e.kind(),Kind::Func(Func::AppliedPredicate,_)){
             return Ok(py.import("symox.assumptions")?.getattr("AppliedPredicate")?.unbind());
         }
@@ -1411,8 +1514,9 @@ impl PyExpr {
 
     #[pyo3(signature = (*args, **_kwargs))]
     fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-        let pairs = subs_pairs(args)?;
-        Ok(wrap(checked_subs(args.py(),&self.e,&pairs,substitution_options(_kwargs)?)?))
+        let (args,options)=substitution_arguments(args,_kwargs)?;
+        let pairs = subs_pairs(&args)?;
+        Ok(wrap(checked_subs(args.py(),&self.e,&pairs,substitution_options(options.as_ref())?)?))
     }
 
     /// `expr.match(pattern)`: dict of wildcard bindings or None.
@@ -1550,7 +1654,7 @@ impl PyExpr {
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
     fn evalf(
         &self,
-        n: u32,
+        n: i64,
         subs: Option<&Bound<'_, PyDict>>,
         _kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<PyExpr> {
@@ -1560,7 +1664,7 @@ impl PyExpr {
     #[pyo3(signature = (n=15, subs=None, **kwargs))]
     fn n(
         &self,
-        n: u32,
+        n: i64,
         subs: Option<&Bound<'_, PyDict>>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<PyExpr> {
@@ -1572,9 +1676,8 @@ impl PyExpr {
     }
 
     #[pyo3(signature = (*args, **_kwargs))]
-    fn integrate(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-        integrate_options(_kwargs)?;
-        Ok(wrap(do_integrate(&self.e, args)?))
+    fn integrate(&self, py:Python<'_>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+        integrate_result(py,&self.e,args,_kwargs)
     }
 
     fn together(&self) -> PyExpr {
@@ -2196,14 +2299,43 @@ fn py_rational(p: &Bound<'_, PyAny>, q: Option<&Bound<'_, PyAny>>) -> PyResult<P
     Ok(wrap(r))
 }
 
+fn float_mpf_parts(payload:&Bound<'_,PyAny>,precision:u32)->PyResult<Expr>{
+    let parts=payload.downcast::<PyTuple>().map_err(|_|PyValueError::new_err("malformed mpf tuple"))?;
+    if parts.len()!=3&&parts.len()!=4{return Err(PyValueError::new_err("mpf tuples need three or four entries"));}
+    let sign=parts.get_item(0)?.extract::<u8>()?;
+    if sign>1{return Err(PyValueError::new_err("mpf sign must be zero or one"));}
+    let source=parts.get_item(1)?;
+    let hexadecimal=source.is_instance_of::<PyString>();
+    let mut mantissa=if hexadecimal{
+        let text=source.extract::<String>()?;
+        BigInt::parse_bytes(text.trim_start_matches("0x").trim_end_matches('L').as_bytes(),16)
+            .ok_or_else(||PyValueError::new_err("invalid hexadecimal mpf mantissa"))?
+    }else{source.extract::<BigInt>()?};
+    if mantissa.is_negative(){return Err(PyValueError::new_err("mpf mantissa must be nonnegative"));}
+    let exponent=parts.get_item(2)?.extract::<i64>()?;
+    if parts.len()==4&&mantissa.is_zero(){
+        let count=parts.get_item(3)?.extract::<i64>()?;
+        match (sign,exponent,count){
+            (0,-456,-2)=>return Ok(Expr::oo()),
+            (1,-789,-3)=>return Ok(Expr::constant(Constant::NegInfinity)),
+            (0,-123,-1)=>return Ok(Expr::nan()),
+            _=>{},
+        }
+    }
+    if mantissa.is_zero()&&!hexadecimal{return Ok(Expr::zero());}
+    if sign==1{mantissa=-mantissa;}
+    let value=symox::bigfloat::BigFloat{man:mantissa,exp:exponent}.checked_round_to(precision)
+        .ok_or_else(||PyValueError::new_err("mpf value exceeds the native binary exponent counter"))?;
+    Ok(Expr::num(Number::mp_float(value,precision)))
+}
+
 #[pyfunction]
 #[pyo3(name = "Float", signature = (obj, dps=None, *, precision=None))]
-fn py_float(obj: &Bound<'_, PyAny>, dps: Option<u32>, precision: Option<u32>) -> PyResult<PyExpr> {
+fn py_float(obj: &Bound<'_, PyAny>, dps: Option<i64>, precision: Option<u32>) -> PyResult<PyExpr> {
     if dps.is_some() && precision.is_some() { return Err(PyValueError::new_err("specify decimal digits or bit precision, not both")); }
-    let p = match (dps, precision) {
+    let mut p = match (dps, precision) {
         (Some(n), _) => decimal_precision(n)?,
-        (_, Some(p)) if (2..=40_000).contains(&p) => p,
-        (_, Some(_)) => return Err(PyValueError::new_err("bit precision must lie between 2 and 40000")),
+        (_, Some(p)) => bit_precision(p)?,
         _ => 53,
     };
     let ty = obj.get_type();
@@ -2220,6 +2352,22 @@ fn py_float(obj: &Bound<'_, PyAny>, dps: Option<u32>, precision: Option<u32>) ->
         if let Some(e) = special { return Ok(wrap(e)); }
         let value = symox::bigfloat::BigFloat::from_decimal(&source, p).map_err(PyValueError::new_err)?;
         return Ok(wrap(Expr::num(Number::mp_float(value, p))));
+    }
+    if obj.downcast::<PyTuple>().is_ok(){return Ok(wrap(float_mpf_parts(obj,p)?));}
+    if obj.downcast::<PyExpr>().is_err()&&!obj.is_instance_of::<PyInt>()&&!obj.is_instance_of::<PyFloat>(){
+        match obj.getattr("_mpf_"){
+            Ok(parts)=>{
+                if dps.is_none()&&precision.is_none(){
+                    let mpmath=obj.py().import("sys")?.getattr("modules")?.call_method1("get",("mpmath",))?;
+                    if !mpmath.is_none()&&obj.is_instance(&mpmath.getattr("mpf")?)?{
+                        p=bit_precision(obj.getattr("context")?.getattr("prec")?.extract()?)?;
+                    }
+                }
+                return Ok(wrap(float_mpf_parts(&parts,p)?));
+            },
+            Err(error) if error.is_instance_of::<pyo3::exceptions::PyAttributeError>(obj.py())=>{},
+            Err(error)=>return Err(error),
+        }
     }
     let e = to_expr(obj)?;
     if matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN)) { return Ok(wrap(e)); }
@@ -2289,7 +2437,27 @@ fn _subs(expr:&Bound<'_,PyAny>,variables:&Bound<'_,PyAny>,points:&Bound<'_,PyAny
 }
 
 /// `integrate(f, x)`, `integrate(f, (x, a, b))`, several variables in turn.
-fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
+fn integration_limit(value:&Bound<'_,PyAny>)->PyResult<Option<Vec<Expr>>>{
+    if value.is_instance_of::<PyTuple>()||value.is_instance_of::<PyList>(){
+        return Ok(Some(value.try_iter()?.map(|item|to_expr(&item?)).collect::<PyResult<Vec<_>>>()?));
+    }
+    if let Ok(value)=value.extract::<PyRef<'_,PyExpr>>(){
+        if let Kind::Func(Func::Undefined(name),arguments)=value.e.kind(){
+            if name.is_internal("Tuple"){return Ok(Some(arguments.clone()));}
+        }
+    }
+    Ok(None)
+}
+
+fn gamma_integral_conditions(f:&Expr,x:&Expr,lo:&Expr,hi:&Expr)->Option<(Expr,Expr)>{
+    symox::integrate::gamma_moment_conditions(f,x,lo,hi).or_else(||{
+        if *lo==Expr::oo()&&(hi.is_zero()||*hi==Expr::neg_oo()){
+            symox::integrate::gamma_moment_conditions(f,x,hi,lo).map(|(value,condition)|(ops::neg(&value),condition))
+        }else{None}
+    })
+}
+
+fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationConditions) -> PyResult<Expr> {
     let mut r = f.clone();
     if args.is_empty() {
         let fs = traverse::free_symbols(f);
@@ -2299,20 +2467,22 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
         return Ok(symox::integrate::integrate(f, &fs[0]));
     }
     for a in args.iter() {
-        if let Ok(t) = a.downcast::<PyTuple>() {
+        if let Some(t) = integration_limit(&a)? {
             if !(1..=3).contains(&t.len()){return Err(PyValueError::new_err("expected (x,), (x,b), or (x,a,b)"));}
-            let x = to_expr(&t.get_item(0)?)?;
+            let x = t[0].clone();
             if !x.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
             match t.len() {
                 1 => r = symox::integrate::integrate(&r, &x),
-                2 => {let upper=to_expr(&t.get_item(1)?)?;
+                2 => {let upper=t[1].clone();
                     let held=symox::binders::held(Func::Integral,&r,vec![vec![x,upper]]).map_err(PyValueError::new_err)?;
                     r=fx::doit(&held,true);
                 },
                 3 => {
-                    let lo = to_expr(&t.get_item(1)?)?;
-                    let hi = to_expr(&t.get_item(2)?)?;
-                    r = symox::integrate::integrate_definite(&r, &x, &lo, &hi);
+                    let lo = &t[1];let hi=&t[2];
+                    r = if conditions==IntegrationConditions::None{
+                        gamma_integral_conditions(&r,&x,lo,hi).map(|(value,_)|value)
+                            .unwrap_or_else(||symox::integrate::integrate_definite(&r,&x,lo,hi))
+                    }else{symox::integrate::integrate_definite(&r,&x,lo,hi)};
                 }
                 _ => return Err(PyValueError::new_err("expected (x,) or (x, a, b)")),
             }
@@ -2323,6 +2493,32 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>) -> PyResult<Expr> {
         }
     }
     Ok(r)
+}
+
+fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
+    let conditions=integrate_options(kwargs)?;
+    if conditions==IntegrationConditions::Separate&&args.len()>1{
+        return Err(PyValueError::new_err("conds=separate not supported in multiple integrals"));
+    }
+    let mut infinite=false;
+    if conditions==IntegrationConditions::Separate&&args.len()==1{
+        if let Some(limit)=integration_limit(&args.get_item(0)?)?{
+            if limit.len()==3{
+                if !limit[0].is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
+                if let Some((value,condition))=gamma_integral_conditions(f,&limit[0],&limit[1],&limit[2]){
+                    return Ok((wrap(value),wrap(condition)).into_pyobject(py)?.into_any().unbind());
+                }
+                infinite=limit[1..].iter().any(|bound|matches!(bound.kind(),Kind::Const(c) if c.is_infinite()));
+            }
+        }
+    }
+    let value=do_integrate(f,args,conditions)?;
+    if infinite&&!f.is_zero()&&symox::assumptions::is_finite(&value)==Some(true){
+        let mut held=false;
+        traverse::preorder(&value,&mut |node|{if matches!(node.kind(),Kind::Func(Func::Integral,_)){held=true;}});
+        if !held{return Ok((wrap(value),wrap(Expr::boolean(true))).into_pyobject(py)?.into_any().unbind());}
+    }
+    Ok(wrap(value).into_pyobject(py)?.into_any().unbind())
 }
 
 #[pyfunction]
@@ -2352,9 +2548,8 @@ fn py_bernoulli(n: usize) -> PyExpr {
 
 #[pyfunction]
 #[pyo3(name = "integrate", signature = (f, *args, **_kwargs))]
-fn py_integrate(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
-    integrate_options(_kwargs)?;
-    Ok(wrap(do_integrate(&to_expr(f)?, args)?))
+fn py_integrate(py:Python<'_>,f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    integrate_result(py,&to_expr(f)?,args,_kwargs)
 }
 
 /// Parse the common scalar and matrix expansion options once.
@@ -2373,7 +2568,7 @@ pub(crate) fn parse_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->P
             let slot=match name.as_str(){
                 "basic"=>&mut options.basic,"mul"=>&mut options.mul,"multinomial"=>&mut options.multinomial,
                 "power_base"=>&mut options.power_base,"power_exp"=>&mut options.power_exp,"log"=>&mut options.log,
-                "trig"=>&mut options.trig,"force"=>&mut options.force,
+                "trig"=>&mut options.trig,"func"=>&mut options.func,"force"=>&mut options.force,
                 _=>return Err(PyNotImplementedError::new_err(format!("expand hint '{name}' is not implemented"))),
             };
             *slot=value.is_truthy()?;
@@ -2441,7 +2636,7 @@ fn py_radsimp(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
 
 #[pyfunction]
 #[pyo3(name = "N", signature = (e, n=15, subs=None, **kwargs))]
-fn py_n(e: &Bound<'_, PyAny>, n: u32, subs: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+fn py_n(e: &Bound<'_, PyAny>, n: i64, subs: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
     Ok(wrap(evalf_expr(&to_expr(e)?, n, subs, kwargs)?))
 }
 
@@ -2554,13 +2749,11 @@ fn py_rel(op: &str, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>, evaluate: bool) 
 fn py_piecewise(pieces: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<PyExpr> {
     let mut v = Vec::new();
     for p in pieces.iter() {
-        let t = p
-            .downcast::<PyTuple>()
-            .map_err(|_| PyTypeError::new_err("Piecewise expects (expr, cond) tuples"))?;
+        let t = integration_limit(&p)?.ok_or_else(||PyTypeError::new_err("Piecewise expects (expr, cond) tuples"))?;
         if t.len() != 2 {
             return Err(PyTypeError::new_err("Piecewise expects pairs of expression and condition"));
         }
-        v.push((to_expr(&t.get_item(0)?)?, to_expr(&t.get_item(1)?)?));
+        v.push((t[0].clone(),t[1].clone()));
     }
     Ok(wrap(if evaluate { relational::piecewise(v) } else { Expr::from_unevaluated_kind(Kind::Piecewise(v)) }))
 }
@@ -2600,7 +2793,8 @@ fn py_constant(name: &str) -> PyResult<PyExpr> {
 pub struct PyCompiled {
     c: Compiled,
     scalar_out: bool,
-    text: String,
+    // Printed on demand: rendering large expressions costs more than compiling them.
+    exprs: Vec<Expr>,
 }
 
 #[pymethods]
@@ -2688,7 +2882,8 @@ impl PyCompiled {
     }
 
     fn __repr__(&self) -> String {
-        format!("<compiled {}>", self.text)
+        let text = self.exprs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
+        format!("<compiled {}>", text)
     }
 
     #[getter]
@@ -2718,8 +2913,7 @@ fn py_lambdify(
     };
     let exprs: Vec<Expr> = exprs.iter().map(unwrap_unevaluated).collect();
     let c = Compiled::new(&arg_list, &exprs).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let text = exprs.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ");
-    Ok(PyCompiled { c, scalar_out, text })
+    Ok(PyCompiled { c, scalar_out, exprs })
 }
 
 #[pymodule]

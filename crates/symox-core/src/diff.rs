@@ -242,7 +242,9 @@ fn d_func(
         return if evaluated!=*e{d(&evaluated,x,cache)}else{derivative_unevaluated(e,vec![(x.clone(),1)])};
     }
     if let Func::Undefined(function) = f {
-        if function.internal || args.iter().all(|arg|arg.is_symbol()) {
+        // A non-symbol variable (g(t), Derivative(g(t), t)) goes through the
+        // chain rule below, where symbol arguments contribute zero, as in SymPy.
+        if function.internal || (x.is_symbol() && args.iter().all(|arg|arg.is_symbol())) {
             // The bloom mask is only a negative shortcut. Dummy identities
             // can collide with an unrelated differentiation symbol's bit.
             if x.is_symbol() && !crate::traverse::free_symbols(e).contains(x) {

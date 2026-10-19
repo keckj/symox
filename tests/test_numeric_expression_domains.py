@@ -81,9 +81,11 @@ def test_numerical_equality_and_hash_contract():
 @pytest.mark.parametrize('constructor', [sx.RealField, sx.ComplexField])
 def test_numerical_constructor_options(constructor):
     assert constructor(dps=50).precision == sp.RealField(dps=50).precision
-    for precision in [0, 1, -1, 40001]:
+    for precision in [0, -1]:
         with pytest.raises(ValueError):
             constructor(precision)
+    for precision in [1,40001]:
+        assert constructor(precision).precision==precision
     with pytest.raises(TypeError):
         constructor(53, dps=20)
     with pytest.raises(TypeError):
@@ -131,7 +133,7 @@ def test_expression_sign_conventions_and_numerical_unification():
     assert sx.RealField(100).unify(sx.RR) == sx.RealField(100)
     assert sx.RealField(200).unify(sx.CC) == sx.ComplexField(200)
     assert sx.EX.unify(sx.RR) == sx.EX
-    assert sx.EXRAW.unify(sx.EX) == sx.EX
+    assert sx.EXRAW.unify(sx.EX) == sx.EXRAW
     with pytest.raises(sx.DomainError):
         sx.RR.unify(sx.GF(5))
     with pytest.raises(NotImplementedError):

@@ -71,6 +71,10 @@ pub fn bernoulli_number(n: usize) -> BigRational {
         return BigRational::zero();
     }
     let mut c = bernoulli_cache().lock().unwrap();
+    if n >= 120 && n > 2 * c.len() {
+        // isolated large index: the zeta formula beats rebuilding the table
+        return crate::summation::bernoulli_rational(n);
+    }
     if c.len() <= n {
         // recompute with headroom (Akiyama-Tanigawa on even indices is
         // not simpler, use the full table)

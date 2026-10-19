@@ -18,6 +18,14 @@ pub trait Ring: Clone + PartialEq {
     /// Exact division (`o` divides `self`).
     fn exquo(&self, o: &Self) -> Self;
     /// `(self*a - o*b) / d`.
+    /// `sum a_i * b_i` over the pairs.
+    fn sum_products(pairs: &[(&Self, &Self)], zero: &Self) -> Self {
+        let mut acc = zero.clone();
+        for (x, y) in pairs {
+            acc = acc.add(&x.mul(y));
+        }
+        acc
+    }
     fn mul_sub_div(&self, a: &Self, o: &Self, b: &Self, d: &Self) -> Self {
         let r = self.mul(a).sub(&o.mul(b));
         if d.is_one() {
@@ -88,6 +96,9 @@ impl Ring for MPoly {
     }
     fn exquo(&self, o: &MPoly) -> MPoly {
         self.divexact(o).expect("inexact division in fraction-free elimination")
+    }
+    fn sum_products(pairs: &[(&MPoly, &MPoly)], zero: &MPoly) -> MPoly {
+        MPoly::sum_products(pairs, zero.nvars)
     }
 }
 
@@ -208,15 +219,11 @@ pub fn berkowitz<R: Ring>(a: &[R], n: usize, one: &R) -> Vec<R> {
                 // x = A_k x
                 let mut y = Vec::with_capacity(k);
                 for row in 0..k {
-                    let mut acc = zero.clone();
-                    for col in 0..k {
-                        let e = &a[row * n + col];
-                        if e.is_zero() || x[col].is_zero() {
-                            continue;
-                        }
-                        acc = acc.add(&e.mul(&x[col]));
-                    }
-                    y.push(acc);
+                    let pairs: Vec<(&R, &R)> = (0..k)
+                        .map(|col| (&a[row * n + col], &x[col]))
+                        .filter(|(e, xc)| !e.is_zero() && !xc.is_zero())
+                        .collect();
+                    y.push(R::sum_products(&pairs, &zero));
                 }
                 x = y;
             }
@@ -224,17 +231,12 @@ pub fn berkowitz<R: Ring>(a: &[R], n: usize, one: &R) -> Vec<R> {
         // new vector = T * v, T lower triangular Toeplitz (k+2) x (k+1)
         let mut nv: Vec<R> = Vec::with_capacity(k + 2);
         for i in 0..k + 2 {
-            let mut acc = zero.clone();
-            for j in 0..=i.min(k) {
-                if i - j < t.len() {
-                    let tt = &t[i - j];
-                    if tt.is_zero() || v[j].is_zero() {
-                        continue;
-                    }
-                    acc = acc.add(&tt.mul(&v[j]));
-                }
-            }
-            nv.push(acc);
+            let pairs: Vec<(&R, &R)> = (0..=i.min(k))
+                .filter(|&j| i - j < t.len())
+                .map(|j| (&t[i - j], &v[j]))
+                .filter(|(tt, vj)| !tt.is_zero() && !vj.is_zero())
+                .collect();
+            nv.push(R::sum_products(&pairs, &zero));
         }
         v = nv;
     }
@@ -242,14 +244,8 @@ pub fn berkowitz<R: Ring>(a: &[R], n: usize, one: &R) -> Vec<R> {
 }
 
 fn dot<R: Ring>(a: &[R], b: &[R], zero: &R) -> R {
-    let mut acc = zero.clone();
-    for (x, y) in a.iter().zip(b) {
-        if x.is_zero() || y.is_zero() {
-            continue;
-        }
-        acc = acc.add(&x.mul(y));
-    }
-    acc
+    let pairs: Vec<(&R, &R)> = a.iter().zip(b).filter(|(x, y)| !x.is_zero() && !y.is_zero()).collect();
+    R::sum_products(&pairs, zero)
 }
 
 #[cfg(test)]

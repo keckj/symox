@@ -32,7 +32,7 @@ class SymPyDocTestRunner(_doctest.DocTestRunner):
 def get_sympy_dir():
     """Return the local Symox source directory for compatible test clients."""
     return str(Path(__file__).resolve().parents[1])
-def convert_to_native_paths(paths):return [os.path.normpath(path) for path in paths]
+def convert_to_native_paths(lst):return [os.path.normpath(path) for path in lst]
 def setup_pprint(disable_line_wrap=True):
     from ..interactive import init_printing
     init_printing(no_global=True,wrap_line=not disable_line_wrap)

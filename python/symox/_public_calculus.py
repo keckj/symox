@@ -5,7 +5,9 @@ import operator
 
 
 def _pairs(expr):
-    return tuple(zip(expr.args[::2],expr.args[1::2]))
+    arguments=expr.args
+    if arguments and isinstance(arguments[0],(tuple,list)):return arguments
+    return tuple(zip(arguments[::2],arguments[1::2]))
 
 
 def piecewise_fold(expr,evaluate=True):

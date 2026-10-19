@@ -35,7 +35,7 @@ fn read_number(value:&Bound<'_,PyAny>)->PyResult<Number>{
         ("bigint",2)=>Number::from_bigint(p.get_item(1)?.extract()?),
         ("rational",3)=>Number::rational(p.get_item(1)?.extract()?,p.get_item(2)?.extract()?).ok_or_else(||invalid("zero rational denominator"))?,
         ("float",2)=>Number::Float(f64::from_bits(p.get_item(1)?.extract()?)),
-        ("mpfloat",4)=>{let precision:u32=p.get_item(3)?.extract()?;if precision<2{return Err(invalid("invalid floating point precision"));}Number::MpFloat(symox::bigfloat::BigFloat{man:p.get_item(1)?.extract()?,exp:p.get_item(2)?.extract()?},precision)},
+        ("mpfloat",4)=>{let precision:u32=p.get_item(3)?.extract()?;if precision<1||precision>crate::MAX_REQUESTED_PRECISION{return Err(invalid("invalid floating point precision"));}Number::MpFloat(symox::bigfloat::BigFloat{man:p.get_item(1)?.extract()?,exp:p.get_item(2)?.extract()?},precision)},
         _=>return Err(invalid("unknown number record")),
     })
 }

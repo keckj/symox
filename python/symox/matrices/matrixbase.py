@@ -3,9 +3,9 @@ from symox._api_exports import export as _export
 _export(globals(), 'symox', 'DeferredVector MatrixBase MatrixError NonSquareMatrixError ShapeError')
 
 
-def a2idx(value,n=None):
+def a2idx(j,n=None):
     import operator
-    index=operator.index(value)
+    index=operator.index(j)
     if n is not None:
         if index<0:index+=n
         if not 0<=index<n:raise IndexError('matrix index out of range')

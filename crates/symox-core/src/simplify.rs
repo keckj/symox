@@ -164,18 +164,42 @@ fn release_unevaluated(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
 pub fn simplify(e: &Expr) -> Expr {
     let evaluated = release_unevaluated(e, &mut FxHashMap::default());
     let e = &evaluated;
+    if e.is_atom() {
+        return e.clone();
+    }
     let t = crate::simp::trigsimp(e);
+    // Zero is already the smallest possible result. In particular, do not
+    // run polynomial conversion and Fu after proving a trig identity.
+    if t.is_zero() {
+        return t;
+    }
     // Prefer the cancelled rational form when equally small, including
     // its deterministic positive leading denominator coefficient.
     let mut candidates = poly_candidates(e);
+    if candidates.iter().any(Expr::is_zero) {
+        return Expr::zero();
+    }
+    let expanded = expand(e);
+    if expanded.is_zero() {
+        return expanded;
+    }
+    let expanded_trig = if expanded == *e { t.clone() } else { crate::simp::trigsimp(&expanded) };
+    if expanded_trig.is_zero() {
+        return expanded_trig;
+    }
     candidates.extend([
         e.clone(),
-        expand(e),
+        expanded,
         together(e),
         crate::simp::powsimp(e),
         t.clone(),
-        crate::simp::trigsimp(&expand(e)),
+        expanded_trig,
     ]);
+    if crate::simp::has_trig(e) {
+        // SymPy's simplify also tries the Fu-based trigsimp, which rewrites
+        // tan/cot/sec/csc through sin and cos (tan(x)*cos(x) -> sin(x)).
+        candidates.push(crate::simptools::trigsimp::futrig(e, true));
+    }
     let selected = candidates
         .into_iter()
         .min_by_key(|c| crate::traverse::node_count(c))

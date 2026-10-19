@@ -1,5 +1,6 @@
 """Dispatch native scalar operations when an indexed tensor is encountered."""
 from functools import wraps
+from .._dispatch_arguments import FirstArgument
 
 
 def install(namespace):
@@ -20,12 +21,15 @@ def install(namespace):
     for name in ('__add__','__sub__','__mul__','__truediv__'):
         setattr(Expr,name,arithmetic(getattr(Expr,name),name))
     def transform(original,name):
+        first=FirstArgument(original)
         @wraps(original)
-        def operation(expression,*args,**kwargs):
+        def operation(*args,**kwargs):
+            expression=first.get(args,kwargs)
             if isinstance(expression,TensExpr):
-                if args:raise TypeError('Tensor transformations accept keyword options only')
-                return expression.expand(**kwargs) if name=='expand' else expression.simplify(**kwargs)
-            return original(expression,*args,**kwargs)
+                expression,rest,options=first.split(args,kwargs)
+                if rest:raise TypeError('Tensor transformations accept keyword options only')
+                return expression.expand(**options) if name=='expand' else expression.simplify(**options)
+            return original(*args,**kwargs)
         return operation
     for name in ('simplify','expand'):
         namespace[name]=transform(namespace[name],name)

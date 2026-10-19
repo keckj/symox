@@ -27,10 +27,10 @@ def _trace(indices):
         result += (-1)**(j+1)*_metric(indices[0],indices[j])*_trace(indices[1:j]+indices[j+1:])
     return result
 
-def gamma_trace(expression):
-    if isinstance(expression, S.Matrix):return expression.trace()
-    if isinstance(expression, TensAdd):return sum((gamma_trace(term) for term in expression.args),S.Integer(0))
-    coefficient, factors = _parts(expression)
+def gamma_trace(t):
+    if isinstance(t, S.Matrix):return t.trace()
+    if isinstance(t, TensAdd):return sum((gamma_trace(term) for term in t.args),S.Integer(0))
+    coefficient, factors = _parts(t)
     indices = [f.indices[0] for f in factors if f.component==GammaMatrix]
     other = [f for f in factors if f.component!=GammaMatrix]
     result = _product(coefficient, other)*_trace(indices)
@@ -65,10 +65,10 @@ def kahane_simplify(expression):
 
 def simplify_gamma_expression(expression):return kahane_simplify(expression)
 
-def simplify_gpgp(expression, sort=True):
+def simplify_gpgp(ex, sort=True):
     """Reduce adjacent equal slashed-vector pairs; retain other ordered factors."""
-    if isinstance(expression,TensAdd):return sum((simplify_gpgp(t,sort) for t in expression.args),S.Integer(0))
-    coefficient,factors=_parts(expression)
+    if isinstance(ex,TensAdd):return sum((simplify_gpgp(t,sort) for t in ex.args),S.Integer(0))
+    coefficient,factors=_parts(ex)
     gamma=[f for f in factors if f.component==GammaMatrix]
     vectors=[f for f in factors if f.component!=GammaMatrix]
     if len(gamma)==2 and len(vectors)==2 and vectors[0].component==vectors[1].component and vectors[0].component.rank==1:
@@ -77,6 +77,6 @@ def simplify_gpgp(expression, sort=True):
             from ...tensor.tensor import TensorIndex
             i=TensorIndex('p',LorentzIndex);head=vectors[0].component
             return coefficient*head(i)*head(-i)
-    return _reduce(expression)
+    return _reduce(ex)
 
 __all__=['extract_type_tens','gamma_trace','kahane_simplify','simplify_gamma_expression','simplify_gpgp']

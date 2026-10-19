@@ -38,14 +38,14 @@ def matrix_diff(self, *symbols, evaluate=True, **options):
     return _native_matrix_diff(self,*symbols)
 
 
-def diff(expression, *symbols, evaluate=True, **options):
+def diff(f, *symbols, evaluate=True, **options):
     _options(evaluate,options)
-    if isinstance(expression,_core.Matrix):
-        return matrix_diff(expression,*symbols,evaluate=evaluate,**options)
-    if getattr(expression,'_symox_sparse',False):
-        return matrix_diff(expression,*symbols,evaluate=evaluate,**options)
-    if not evaluate:return _core.Derivative(expression,*symbols,evaluate=False)
-    return _native_diff(expression,*symbols)
+    if isinstance(f,_core.Matrix):
+        return matrix_diff(f,*symbols,evaluate=evaluate,**options)
+    if getattr(f,'_symox_sparse',False):
+        return matrix_diff(f,*symbols,evaluate=evaluate,**options)
+    if not evaluate:return _core.Derivative(f,*symbols,evaluate=False)
+    return _native_diff(f,*symbols)
 
 
 def install():

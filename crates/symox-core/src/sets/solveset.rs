@@ -25,6 +25,14 @@ fn linear(u: &Expr, x: &Expr) -> Option<(Expr, Expr)> {
     Some((a, b))
 }
 
+fn proved_nonzero(value:&Expr)->bool{
+    if crate::assumptions::exact_queries(||crate::assumptions::is_zero(value))==Some(false){return true;}
+    if let Ok(Some((real,imaginary)))=crate::complex_parts::as_real_imag(value,false,None){
+        return [real,imaginary].iter().any(|part|matches!(crate::special::lambert::real_sign(part),Some(-1|1)));
+    }
+    false
+}
+
 fn is_real_domain(domain: &Expr) -> bool {
     is_subset(domain, &reals()) == Some(true)
 }
@@ -68,7 +76,7 @@ fn single_generator(f: &Expr, x: &Expr) -> Option<Expr> {
     }
     let g = v.pop().unwrap();
     let Kind::Func(fun, a) = g.kind() else { return None };
-    if !matches!(fun, Func::Sin | Func::Cos | Func::Tan | Func::Exp
+    if !matches!(fun, Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc | Func::Exp
         | Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth) || a.len() != 1 {
         return None;
     }
@@ -86,20 +94,60 @@ fn has_periodic_in(e: &Expr, x: &Expr) -> bool {
     }
 }
 
-/// Reduce `c` modulo `p` into `[0, p)` (numerically decided).
+/// Prefer a certified representative in `[0,p)`. An unnormalized center
+/// defines the same integer lattice, so failure to normalize loses no roots.
 fn reduce_mod(c: &Expr, p: &Expr) -> Option<Expr> {
-    let cv = crate::evalf::eval_f64(c)?;
-    let pv = crate::evalf::eval_f64(p)?;
-    let k = (cv / pv + 1e-12).floor();
-    if k == 0.0 {
-        return Some(c.clone());
+    let ratio=div(c,p);
+    let integer=if let Some(number)=ratio.as_number(){
+        Some(number.floor())
+    }else{crate::special::lambert::integer_round(&ratio,-1).map(crate::number::Number::from_bigint)};
+    Some(match integer {
+        Some(integer)=>crate::expand::expand(&sub(c,&mul2(&Expr::num(integer),p))),
+        None=>c.clone(),
+    })
+}
+
+#[cfg(test)]
+mod periodic_normalization_tests{
+    use super::*;
+    #[test]
+    fn integer_lattice_normalization_has_no_machine_integer_cutoff(){
+        let integer=num_bigint::BigInt::from(10u32).pow(100);
+        let c=mul2(&add2(&Expr::num(crate::number::Number::from_bigint(integer)),&Expr::rational(1,3)),&Expr::pi());
+        assert_eq!(reduce_mod(&c,&mul2(&Expr::int(2),&Expr::pi())),Some(div(&Expr::pi(),&Expr::int(3))));
+        assert_eq!(reduce_mod(&Expr::i(),&Expr::pi()),Some(Expr::i()));
     }
-    Some(crate::expand::expand(&sub(c, &mul2(&Expr::int(k as i64), p))))
 }
 
 fn image(period: &Expr, c: &Expr, context: &SolveContext) -> Expr {
     let n = context.periodic_variable();
     image_set(&lambda(n, &add2(&mul2(period, n), c)), &integers())
+}
+
+/// Intersect an entire complex lattice with a real domain by its imaginary
+/// component, retaining the exact intersection whenever the index is undecided.
+fn restricted_image(period:&Expr,c:&Expr,domain:&Expr,context:&SolveContext)->Expr{
+    let lattice=image(period,c,context);
+    if !is_real_domain(domain){return lattice;}
+    let fallback=||intersection(vec![lattice.clone(),domain.clone()]);
+    let (Ok(Some((_,step))),Ok(Some((_,offset))))=(
+        crate::complex_parts::as_real_imag(period,false,None),
+        crate::complex_parts::as_real_imag(c,false,None)) else{return fallback()};
+    let zero=|value:&Expr|crate::assumptions::exact_queries(||crate::assumptions::is_zero(value));
+    if zero(&step)==Some(true){
+        if zero(&offset)==Some(true){
+            return if is_op(domain,SetOp::Reals){lattice}else{fallback()};
+        }
+        if proved_nonzero(&offset){return empty_set();}
+    }else if proved_nonzero(&step){
+        let index=div(&neg(&offset),&step);
+        match crate::assumptions::exact_queries(||crate::assumptions::is_integer(&index)){
+            Some(true)=>return filter_domain(vec![crate::expand::expand(&add2(&mul2(period,&index),c))],domain),
+            Some(false)=>return empty_set(),
+            _=>{},
+        }
+    }
+    fallback()
 }
 
 /// Periodic solutions of `trig(a*x + b) = k` / `exp(a*x + b) = k`.
@@ -110,31 +158,40 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
         return None;
     }
     let (a, b) = linear(&args[0], x)?;
+    if !proved_nonzero(&a){return None;}
     if has(k, x) {
         return None;
     }
     let pi = Expr::pi();
     let two_pi = mul2(&Expr::int(2), &pi);
     let real = is_real_domain(domain);
+    let real_argument=real&&crate::assumptions::exact_queries(||crate::assumptions::is_real(&a))==Some(true)
+        &&crate::assumptions::exact_queries(||crate::assumptions::is_real(&b))==Some(true);
+    if matches!(f,Func::Sec|Func::Csc|Func::Cot){
+        if k.is_zero(){
+            if !matches!(f,Func::Cot){return Some(empty_set());}
+            return periodic(&crate::functions::func(Func::Cos,args.clone()),k,x,domain,context);
+        }
+        if !proved_nonzero(k){return None;}
+        let head=match f{Func::Sec=>Func::Cos,Func::Csc=>Func::Sin,_=>Func::Tan};
+        return periodic(&crate::functions::func(head,args.clone()),&div(&Expr::one(),k),x,domain,context);
+    }
     if matches!(f, Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth) {
         // A real affine argument admits the real inverse branches. For
         // complex arguments retain the full imaginary period lattice.
-        if real && crate::assumptions::is_real(&a)==Some(true)
-            && crate::assumptions::is_real(&b)==Some(true) {
-            if crate::assumptions::is_real(k)==Some(false) {
+        if real_argument {
+            if crate::assumptions::exact_queries(||crate::assumptions::is_real(k))==Some(false) {
                 return Some(empty_set());
             }
-            if matches!(f,Func::Cosh) && cmp3(k,&Expr::one())==Some(Ordering::Less) {
+            if matches!(f,Func::Cosh) && crate::special::lambert::real_sign(&sub(k,&Expr::one()))==Some(-1) {
                 return Some(empty_set());
             }
-            if matches!(f,Func::Tanh) && (cmp3(k,&Expr::minus_one())==Some(Ordering::Less)
-                || cmp3(k,&Expr::minus_one())==Some(Ordering::Equal)
-                || cmp3(k,&Expr::one())==Some(Ordering::Greater)
-                || cmp3(k,&Expr::one())==Some(Ordering::Equal)) {
+            if matches!(f,Func::Tanh) && (matches!(crate::special::lambert::real_sign(&add2(k,&Expr::one())),Some(-1|0))
+                || matches!(crate::special::lambert::real_sign(&sub(k,&Expr::one())),Some(0|1))) {
                 return Some(empty_set());
             }
-            if matches!(f,Func::Coth) && cmp3(k,&Expr::minus_one()).is_some_and(|c|c!=Ordering::Less)
-                && cmp3(k,&Expr::one()).is_some_and(|c|c!=Ordering::Greater) {
+            if matches!(f,Func::Coth) && matches!(crate::special::lambert::real_sign(&add2(k,&Expr::one())),Some(0|1))
+                && matches!(crate::special::lambert::real_sign(&sub(k,&Expr::one())),Some(-1|0)) {
                 return Some(empty_set());
             }
             let inverse=match f {Func::Sinh=>asinh(k),Func::Cosh=>acosh(k),
@@ -162,9 +219,8 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
             _=>{let v=atanh(k);(vec![v],imaginary_pi)},
         };
         let period=div(&base_period,&a);
-        let images=union(centers.iter().map(|center|image(&period,
-            &crate::expand::expand(&div(&sub(center,&b),&a)),context)).collect());
-        let images=if real {intersection(vec![images,domain.clone()])} else {images};
+        let images=union(centers.iter().map(|center|restricted_image(&period,
+            &crate::expand::expand(&div(&sub(center,&b),&a)),domain,context)).collect());
         if matches!(f,Func::Tanh | Func::Coth) && !is_numeric_value(k) {
             let condition=crate::logic::and(vec![crate::relational::ne(k,&Expr::one()),
                 crate::relational::ne(k,&Expr::minus_one())]);
@@ -199,12 +255,13 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
                 ]);
                 return Some(condition_set(x, &cond, &union(imgs)));
             }
-            let kv = crate::evalf::eval_c64(k)?;
-            if kv.im.abs() > 1e-12 {
-                return if real { Some(empty_set()) } else { None };
-            }
-            if kv.re.abs() > 1.0 + 1e-12 {
-                return if real { Some(empty_set()) } else { None };
+            if real_argument {
+                if crate::assumptions::exact_queries(||crate::assumptions::is_real(k))==Some(false){
+                    return Some(empty_set());
+                }
+                let above=crate::special::lambert::real_sign(&sub(k,&Expr::one()));
+                let below=crate::special::lambert::real_sign(&add2(k,&Expr::one()));
+                if above==Some(1)||below==Some(-1){return Some(empty_set());}
             }
             let (t1, t2) = if matches!(f, Func::Sin) {
                 let s = asin(k);
@@ -217,23 +274,25 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
             base_period = two_pi.clone();
         }
         Func::Tan => {
-            if !is_numeric_value(k) || crate::assumptions::is_real(k) != Some(true) {
-                return None;
-            }
+            if !is_numeric_value(k){return None;}
+            if k==&Expr::i()||k==&neg(&Expr::i()){return Some(empty_set());}
+            if real_argument&&crate::assumptions::exact_queries(||crate::assumptions::is_real(k))==Some(false){return Some(empty_set());}
             thetas = vec![atan(k)];
             base_period = pi.clone();
         }
         Func::Exp => {
-            if real {
+            if real_argument {
                 // a*x + b = log(k) for k > 0
                 if is_numeric_value(k) {
-                    return Some(match cmp3(k, &Expr::zero()) {
-                        Some(Ordering::Greater) => finite_set(vec![crate::expand::expand(&div(&sub(&log(k), &b), &a))]),
-                        Some(_) => empty_set(),
-                        None => return None,
-                    });
+                    if crate::assumptions::exact_queries(||crate::assumptions::is_real(k))==Some(false){return Some(empty_set());}
+                    match crate::special::lambert::real_sign(k){
+                        Some(1)=>return Some(filter_domain(vec![crate::expand::expand(&div(&sub(&log(k),&b),&a))],domain)),
+                        Some(0|-1)=>return Some(empty_set()),
+                        _=>{},
+                    }
+                }else{
+                    return Some(filter_domain(vec![crate::expand::expand(&div(&sub(&log(k), &b), &a))], domain));
                 }
-                return Some(filter_domain(vec![crate::expand::expand(&div(&sub(&log(k), &b), &a))], domain));
             }
             if k.is_zero() {
                 return Some(empty_set());
@@ -241,12 +300,12 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
             // a*x + b = log(k) + 2*n*pi*I
             let period = div(&mul2(&two_pi, &Expr::i()), &a);
             let c = crate::expand::expand(&div(&sub(&log(k), &b), &a));
-            return Some(image(&period, &c, context));
+            return Some(restricted_image(&period,&c,domain,context));
         }
         _ => return None,
     }
     let period = div(&base_period, &a);
-    let period = if crate::evalf::eval_f64(&period)? < 0.0 { neg(&period) } else { period };
+    let period = if crate::special::lambert::real_sign(&period)==Some(-1){neg(&period)}else{period};
     let mut cs: Vec<Expr> = Vec::new();
     for t in thetas {
         let t = reduce_mod(&t, &base_period)?;
@@ -256,7 +315,7 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
             cs.push(c);
         }
     }
-    Some(union(cs.iter().map(|c| image(&period, c, context)).collect()))
+    Some(union(cs.iter().map(|c|restricted_image(&period,c,domain,context)).collect()))
 }
 
 /// Solutions of `f == 0` restricted to `domain`, as a set.
@@ -309,6 +368,14 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         if let Some(r) = solve_abs(&num, x, domain, context) {
             return Some(exclude_poles(r, &den, x, domain, context));
         }
+    }
+    // solve() intentionally returns finite Lambert representatives. These are
+    // not a complete complex solution set, even if W simplifies away (W(E)=1).
+    // Symbolic parameter cases also need domain/branch stratification before
+    // a finite real set can be certified. Preserve ConditionSet in these cases.
+    if (!real || crate::traverse::free_symbols(&num).iter().any(|s| s != x))
+        && crate::solve::lambert::solve(&num, x).is_some() {
+        return None;
     }
     let sols = crate::solve::solve(f, x)?;
     Some(filter_domain(sols, domain))

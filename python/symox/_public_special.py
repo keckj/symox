@@ -75,9 +75,9 @@ def hermite_prob(n,x):
     return _held('hermite_prob',n,x)
 
 
-def jacobi_normalized(n,alpha,beta,x):
+def jacobi_normalized(n,a,b,x):
     from . import jacobi,gamma,sqrt,factorial,sympify
-    n,a,b,x = map(sympify,(n,alpha,beta,x))
+    n,a,b,x = map(sympify,(n,a,b,x))
     norm = 2**(a+b+1)*gamma(n+a+1)*gamma(n+b+1)/((2*n+a+b+1)*gamma(n+a+b+1)*factorial(n))
     return jacobi(n,a,b,x)/sqrt(norm)
 
@@ -226,7 +226,14 @@ def install(namespace):
     @wraps(old_evalf)
     def evalf(self,n=15,*args,**kwargs):
         value = self
-        substitutions = kwargs.get('subs')
+        substitutions = args[0] if args else kwargs.get('subs')
+        # Ordinary scalar evaluation must reach the native substitution path
+        # before arithmetic can round the replacement values. Keep the special
+        # adapter when a special node is present or inserted by the mapping.
+        if not _special_nodes(value) and not (
+                isinstance(substitutions,dict) and
+                any(_special_nodes(v) for v in substitutions.values())):
+            return old_evalf(value,n,*args,**kwargs)
         if substitutions:value = value.subs(substitutions)
         replacements = {}
         for node in reversed(_special_nodes(value)):
@@ -305,10 +312,15 @@ def install(namespace):
         return original_fdiff(self,argindex)
     Expr.fdiff = fdiff
     old_root_diff = namespace['diff']
+    from ._dispatch_arguments import FirstArgument
+    first_diff=FirstArgument(old_root_diff)
     @wraps(old_root_diff)
-    def diff(expr,*args,**kwargs):
-        if isinstance(expr,Expr) and _special_nodes(expr):return expr.diff(*args,**kwargs)
-        return old_root_diff(expr,*args,**kwargs)
+    def diff(*args,**kwargs):
+        expr=first_diff.get(args,kwargs)
+        if isinstance(expr,Expr) and _special_nodes(expr):
+            expr,rest,options=first_diff.split(args,kwargs)
+            return expr.diff(*rest,**options)
+        return old_root_diff(*args,**kwargs)
     namespace['diff'] = diff
     @wraps(old_doit)
     def doit(self,*args,**kwargs):
@@ -363,10 +375,10 @@ def install(namespace):
         return reevaluate(result) if _special_nodes(self) else result
     Expr.subs,Expr.xreplace = subs,xreplace
     old_N = namespace['N']
-    def N(expr,n=15,**kwargs):
+    def N(x,n=15,**kwargs):
         from . import sympify
-        if not isinstance(expr,Expr) and hasattr(expr,'applyfunc'):
-            return expr.applyfunc(lambda entry:N(entry,n,**kwargs))
-        value = sympify(expr)
-        return value.evalf(n,**kwargs) if any(v.class_name in _NUMERIC|{'ComplexRootOf'} for v in _special_nodes(value)) else old_N(expr,n,**kwargs)
+        if not isinstance(x,Expr) and hasattr(x,'applyfunc'):
+            return x.applyfunc(lambda entry:N(entry,n,**kwargs))
+        value = sympify(x)
+        return value.evalf(n,**kwargs) if any(v.class_name in _NUMERIC|{'ComplexRootOf'} for v in _special_nodes(value)) else old_N(x,n,**kwargs)
     namespace['N'] = N

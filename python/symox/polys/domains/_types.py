@@ -37,12 +37,9 @@ def _numerical(prec, dps, tol, complex):
         raise NotImplementedError('custom numerical domain tolerance is not implemented')
     if prec is not None:
         prec = operator.index(prec)
-        if not 2 <= prec <= 40000:
-            raise ValueError('bit precision must lie between 2 and 40000')
+        if prec<1:raise ValueError('bit precision must be positive')
     if dps is not None:
         dps = operator.index(dps)
-        if not 1 <= dps <= 10000:
-            raise ValueError('decimal precision must lie between 1 and 10000')
     return _core._numeric_field(prec=prec, dps=dps, complex=complex)
 
 

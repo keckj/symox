@@ -111,9 +111,9 @@ class PowerBasis(Module):
         values=[sympify(v)/denom for v in coeffs]
         if len(values)>self.n:raise ValueError('too many power basis coefficients')
         return PowerBasisElement(self,values+[Integer(0)]*(self.n-len(values)))
-    def element_from_poly(self,poly):
-        poly=Poly(poly,self.T.gens[0],domain=QQ).rem(self.T)
-        return self([poly.nth(i) for i in range(self.n)])
+    def element_from_poly(self,f):
+        f=Poly(f,self.T.gens[0],domain=QQ).rem(self.T)
+        return self([f.nth(i) for i in range(self.n)])
     def one(self):return self([1])
     def basis_elements(self):return [self([0]*i+[1]) for i in range(self.n)]
     def whole_submodule(self):return Submodule(self,eye(self.n))
@@ -176,9 +176,9 @@ class Submodule(Module):
     def basis_elements(self):return [self.parent(list(self._matrix[:,j]),self.denom) for j in range(self.n)]
     @cached_property
     def _inverse(self):return (self._matrix/self.denom).inv()
-    def represent(self,element):
-        if element.module!=self.parent:raise ValueError('element belongs to another power basis')
-        vector=self._inverse*Matrix(element._vector)
+    def represent(self,elt):
+        if elt.module!=self.parent:raise ValueError('element belongs to another power basis')
+        vector=self._inverse*Matrix(elt._vector)
         if any(not v.is_Integer for v in vector):raise ValueError('element is outside the module')
         return vector
     def contains(self,element):

@@ -43,7 +43,8 @@ def normalize_permutation(perm, size, orientation='rows', direction='forward'):
         values = _bounded_list(iter(perm))
     except TypeError:
         raise ValueError('perm must be a list, a list of lists, or a permutation object') from None
-    cycles = bool(values) and not isinstance(values[0], (str, bytes)) and hasattr(values[0], '__iter__')
+    from .utilities.iterables import iterable
+    cycles = bool(values) and iterable(values[0], exclude=(str, bytes))
     if cycles:
         normalized = []
         total = 0

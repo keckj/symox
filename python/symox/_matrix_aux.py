@@ -40,7 +40,8 @@ def _a2idx(j, n=None):
 
 
 def _is_sequence(value):
-    return hasattr(value, '__getitem__') and hasattr(value, '__iter__') and not isinstance(value, str)
+    from .utilities.iterables import is_sequence
+    return is_sequence(value)
 
 
 def _convert(cls, value):
@@ -748,6 +749,10 @@ builtin_max = max
 
 
 class _MatrixBaseMeta(type):
+    def __getattr__(cls,name):
+        from ._constructor_methods import instance_method
+        return instance_method(Matrix,name)
+
     def __instancecheck__(cls, obj):
         return isinstance(obj, Matrix) or _is_sparse(obj)
 

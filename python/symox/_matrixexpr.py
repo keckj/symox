@@ -3,6 +3,10 @@ from . import _core
 
 
 class _MatrixType(type):
+    def __getattr__(cls,name):
+        from ._constructor_methods import instance_method
+        return instance_method(_core._MatrixExpr,name)
+
     def __instancecheck__(cls, value):
         return isinstance(value, _core._MatrixExpr) and (cls._kinds is None or value.kind in cls._kinds)
 
@@ -123,10 +127,10 @@ class MatPow(MatrixExpr):
 class Inverse(MatPow):
     _kinds = ('Inverse',)
 
-    def __new__(cls, arg, exp=-1):
+    def __new__(cls, mat, exp=-1):
         if exp != -1:
             raise ValueError('Inverse exponent must be -1')
-        return _core._matrixexpr_node('Inverse',(arg,))
+        return _core._matrixexpr_node('Inverse',(mat,))
 
 
 class Transpose(MatrixExpr):
@@ -167,8 +171,8 @@ class ZeroMatrix(MatrixExpr):
 class OneMatrix(MatrixExpr):
     _kinds = ('OneMatrix',)
 
-    def __new__(cls, n, m):
-        return _core._matrixexpr_node('OneMatrix', (n, m))
+    def __new__(cls, m, n, evaluate=False):
+        return _core._matrixexpr_node('OneMatrix', (m, n), evaluate)
 
 
 class HadamardProduct(MatrixExpr):
@@ -307,13 +311,13 @@ class _ScalarMatrixType(type):
 
 
 class Trace(metaclass=_ScalarMatrixType):
-    def __new__(cls, arg, evaluate=False):
-        return _core._matrix_trace(arg, evaluate)
+    def __new__(cls, mat, evaluate=False):
+        return _core._matrix_trace(mat, evaluate)
 
 
 class Determinant(metaclass=_ScalarMatrixType):
-    def __new__(cls, arg, evaluate=False):
-        return _core._matrix_determinant(arg, evaluate)
+    def __new__(cls, mat, evaluate=False):
+        return _core._matrix_determinant(mat, evaluate)
 
 
 class DotProduct(metaclass=_ScalarMatrixType):

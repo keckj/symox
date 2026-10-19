@@ -217,10 +217,10 @@ def TensorProduct(*args):
     return result
 
 
-def tensor_product_simp(expr,**hints):
-    if not isinstance(expr,OperatorExpr):return expr
+def tensor_product_simp(e,**hints):
+    if not isinstance(e,OperatorExpr):return e
     result=S.Integer(0)
-    for word,c in expr._terms.items():
+    for word,c in e._terms.items():
         factors=[]
         for item in word:
             if factors and isinstance(factors[-1],TensorProductAtom) and isinstance(item,TensorProductAtom) and len(factors[-1].factors)==len(item.factors):
@@ -232,10 +232,10 @@ def tensor_product_simp(expr,**hints):
     return result
 
 
-def qapply(expr,**options):
-    if not isinstance(expr,OperatorExpr):return expr
+def qapply(e,**options):
+    if not isinstance(e,OperatorExpr):return e
     result=S.Integer(0)
-    for word,coefficient in expr._terms.items():
+    for word,coefficient in e._terms.items():
         value=coefficient;remaining=list(word)
         for _ in range(10000):
             changed=False
@@ -247,7 +247,7 @@ def qapply(expr,**options):
                 for atom in remaining[:index]:prefix=prefix*atom
                 term=prefix*action
                 for atom in remaining[index+2:]:term=term*atom
-                result+=qapply(term,**options) if isinstance(term,OperatorExpr) and term!=expr else term
+                result+=qapply(term,**options) if isinstance(term,OperatorExpr) and term!=e else term
                 changed=True;break
             if changed:break
             for atom in remaining:value=value*atom

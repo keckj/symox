@@ -3,9 +3,9 @@ import symox as S
 from ._core import Vector,Dyadic,ReferenceFrame,Point,_TIME,_COORDINATES,_vector,dynamicsymbols
 
 
-def dot(first,second):return first.dot(second)
-def cross(first,second):return first.cross(second)
-def outer(first,second):return first.outer(second)
+def dot(vec1,vec2):return vec1.dot(vec2)
+def cross(vec1,vec2):return vec1.cross(vec2)
+def outer(vec1,vec2):return vec1.outer(vec2)
 
 
 def express(expr,frame,frame2=None,variables=False):
@@ -27,8 +27,8 @@ def time_derivative(expr,frame,order=1):
 def partial_velocity(vel_vecs,gen_speeds,frame):return [[velocity.diff(speed,frame) for speed in gen_speeds] for velocity in vel_vecs]
 
 
-def gradient(scalar_field,frame):
-    expression = express(scalar_field,frame)
+def gradient(scalar,frame):
+    expression = express(scalar,frame)
     return sum((S.diff(expression,x)*axis for x,axis in zip(frame.varlist,frame._axes)),Vector(0))
 
 

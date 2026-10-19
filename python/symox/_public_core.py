@@ -23,6 +23,17 @@ class PrecisionExhausted(ArithmeticError):
     """A requested numerical accuracy could not be attained."""
 
 
+class Derivative(metaclass=_ExprType):
+    """Held native derivative, with the reference constructor keyword schema."""
+    _matches=staticmethod(lambda expr:expr.is_Derivative)
+
+    def __new__(cls,expr,*variables,**kwargs):
+        evaluate=kwargs.get('evaluate',False)
+        if evaluate and not kwargs.get('simplify',True):
+            raise NotImplementedError('evaluated derivatives use native canonical simplification')
+        return _core.Derivative(expr,*variables,evaluate=bool(evaluate))
+
+
 class evaluate:
     def __init__(self,x):
         if not isinstance(x,bool):
@@ -124,6 +135,16 @@ class Dict(Mapping):
     def xreplace(self,rule):
         return Dict(*((k.xreplace(rule),v.xreplace(rule)) for k,v in self._data.items()))
 
+    def has(self,*patterns):
+        return any(pattern is Dict or pattern == self for pattern in patterns) or any(
+            key.has(*patterns) or value.has(*patterns) for key,value in self._data.items())
+
+    def to_sympy(self):
+        from sympy import Dict as ReferenceDict
+        return ReferenceDict({key.to_sympy():value.to_sympy() for key,value in self._data.items()})
+
+    _sympy_=to_sympy
+
 
 def evalf(x,prec,options):
     """Low-level binary-precision evaluation returning mpmath mpf tuples."""
@@ -153,14 +174,11 @@ def install(namespace):
     if getattr(Expr,'_public_core_installed',False):
         return
     original_sympify = namespace['sympify']
-    @wraps(original_sympify)
-    def sympify(expr,*args,**kwargs):
-        try:
-            return original_sympify(expr,*args,**kwargs)
-        except (ValueError,TypeError) as error:
-            if type(error) not in (ValueError,TypeError):raise
-            raise SympifyError(expr,error) from error
-    namespace['sympify'] = sympify
+    from ._sympify import make_sympify
+    namespace['sympify'] = make_sympify(original_sympify)
+    namespace['Derivative'] = Derivative
+    Expr._args=property(lambda self:self.args)
+    Expr.is_Equality=property(lambda self:self.is_Relational and self.rel_op=='==')
     operations = ('__add__','__radd__','__sub__','__rsub__','__mul__','__rmul__',
                   '__truediv__','__rtruediv__','__pow__','__rpow__')
     for name in operations:

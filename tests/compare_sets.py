@@ -469,6 +469,10 @@ reduce_inequalities(x**2 + x + 1 < 0, x)
 
 # Deliberate deviations (documented in the report).
 KNOWN_DEVIATIONS = {
+    # Native exact conjugacy resolves all three real Cardano roots where
+    # reference 1.14 refuses this inequality. The ENTIRE interval union is
+    # independently proved in test_cubic_conjugate_accuracy.py.
+    "solve_univariate_inequality(x**3 - 3*x + 1 > 0, x, relational=False)",
     # SymPy's CRootOf is not implemented in symox
     "solveset(x**5 - x - 1, x, S.Reals)",
     # SymPy raises; symox returns a ConditionSet

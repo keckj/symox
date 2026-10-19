@@ -16,6 +16,111 @@ pub(crate) struct Facts {
     pub imaginary: Option<bool>,
 }
 
+/// Principal cube-root conjugate pair: if |z|^2=c^3, c>0, then for
+/// u=z^(1/3), c/u=conjugate(u). t=u+c/u is the largest real root of
+/// t^3-3*c*t-2*Re(z), in [sqrt(c),2*sqrt(c)]. That cubic is increasing
+/// above sqrt(c), so its exact value at a rational threshold certifies
+/// the sign of every rational affine expression in t.
+pub(super) fn cardano_sign(e:&Expr)->Option<i8>{
+    let Kind::Add(constant,terms)=e.kind() else{return None};
+    if terms.len()!=2||!constant.is_rational()||terms.iter().any(|(_,c)|!c.is_rational()){return None;}
+    let power=|e:&Expr|match e.kind(){
+        Kind::Pow(base,exponent) if *exponent==Expr::rational(1,3)=>Some((base.clone(),true)),
+        Kind::Pow(base,exponent) if *exponent==Expr::rational(-1,3)=>Some((base.clone(),false)),
+        _=>None,
+    };
+    let (base,positive)=power(&terms[0].0)?;
+    let (other,other_positive)=power(&terms[1].0)?;
+    if base!=other||positive==other_positive{return None;}
+    let (a,b)=if positive{(&terms[0].1,&terms[1].1)}else{(&terms[1].1,&terms[0].1)};
+    if a.is_zero(){return None;}
+    let c=a.inv()?.mul(b);
+    if !c.is_positive(){return None;}
+    let (real,imaginary)=super::exact_queries(||crate::complex_parts::as_real_imag(&base,false,None)).ok()??;
+    let norm=crate::ops::add2(&real.powi(2),&imaginary.powi(2));
+    let expected=Expr::num(c.clone()).powi(3);
+    if !norm.is_rational_number()||norm!=expected{return None;}
+    let real=real.as_number().filter(|value|value.is_rational())?;
+    let threshold=constant.neg().div(a)?;
+    let square=threshold.mul(&threshold);
+    if !threshold.is_positive()||square.cmp_value(&c)==Some(std::cmp::Ordering::Less){
+        return Some(if a.is_positive(){1}else{-1});
+    }
+    let polynomial=square.mul(&threshold).sub(&c.mul(&threshold).mul(&crate::number::Number::Int(3)))
+        .sub(&real.mul(&crate::number::Number::Int(2)));
+    let sign=if polynomial.is_positive(){1}else if polynomial.is_negative(){-1}else{0};
+    Some(if a.is_positive(){-sign}else{sign})
+}
+
+/// Rational powers/products with reciprocal exponent vectors. No expression
+/// expansion is needed to look for a matching pair; integer additive factors
+/// may have their rational content normalized.
+fn reciprocal_factors(term:&Expr)->Option<(Vec<(Expr,Expr)>,crate::number::Number)>{
+    let (mut factors,mut scale)=match term.kind(){
+        Kind::Pow(base,exponent)=>(vec![(base.clone(),exponent.clone())],crate::number::Number::ONE),
+        Kind::Mul(coefficient,factors) if coefficient.is_rational()=>(factors.clone(),coefficient.clone()),
+        _=>return None,
+    };
+    if !factors.iter().all(|(_,exponent)|exponent.is_rational_number()){return None;}
+    for (base,exponent) in &mut factors{
+        // Canonical input may distribute a rational into an additive base.
+        // Pull it back out only for small INTEGER powers, where this is
+        // branch-independent and cannot construct an enormous new integer.
+        if !matches!(exponent.as_i64(),Some(-2|-1|1|2)){continue;}
+        let Kind::Add(constant,terms)=base.kind() else{continue;};
+        if constant.is_zero()||!constant.is_rational()||terms.iter().any(|(_,c)|!c.is_rational()){continue;}
+        let powered=crate::ops::pow(&Expr::num(constant.clone()),exponent);
+        scale=scale.mul(powered.as_number()?);
+        *base=Expr::from_kind(Kind::Add(crate::number::Number::ONE,
+            terms.iter().map(|(term,c)|(term.clone(),c.div(constant).unwrap())).collect()));
+    }
+    // Native product display order depends on exponents; reciprocal vectors
+    // need a common base order for equality/hash matching.
+    factors.sort_by(|a,b|a.0.cmp(&b.0));
+    Some((factors,scale))
+}
+
+/// If every factor has an exactly rational squared modulus after its rational
+/// power, so does their product. Principal powers obey |z^r|²=(|z|²)^r for
+/// real r and nonzero finite z, independently of which side of a cut z lies.
+fn rational_modulus_squared(factors:&[(Expr,Expr)])->Option<crate::number::Number>{
+    let mut product=crate::number::Number::ONE;
+    for (base,exponent) in factors{
+        let (real,imaginary)=super::exact_queries(||crate::complex_parts::as_real_imag(base,false,None)).ok()??;
+        let norm=crate::ops::add2(&real.powi(2),&imaginary.powi(2));
+        let norm=norm.as_number().filter(|n|n.is_rational()&&n.is_positive())?;
+        let powered=crate::ops::pow(&Expr::num(norm.clone()),exponent);
+        let powered=powered.as_number().filter(|n|n.is_rational()&&n.is_positive())?;
+        product=product.mul(powered);
+    }
+    Some(product)
+}
+
+/// Identify a*T+b/T pairs with rational a,b and b/a=|T|²>0. They are
+/// a*(T+conjugate(T)), hence real. Unlike the narrower Cardano sign theorem,
+/// this also covers root-of-unity multiples and arbitrary rational powers.
+/// Hash matching avoids an all-pairs term scan. Each product signature needs
+/// its factors sorted; other addends still require their own real proofs.
+pub(super) fn paired_conjugate_terms(terms:&[(Expr,crate::number::Number)])->Vec<bool>{
+    let mut signatures:rustc_hash::FxHashMap<Vec<(Expr,Expr)>,(usize,crate::number::Number)>=Default::default();
+    let mut paired=vec![false;terms.len()];
+    for (index,(term,coefficient)) in terms.iter().enumerate(){
+        if !coefficient.is_rational()||coefficient.is_zero(){continue;}
+        let Some((factors,scale))=reciprocal_factors(term) else{continue;};
+        let coefficient=coefficient.mul(&scale);
+        let inverse:Vec<_>=factors.iter().map(|(base,exponent)|
+            (base.clone(),Expr::num(exponent.as_number().unwrap().neg()))).collect();
+        if let Some((other,other_coefficient))=signatures.get(&inverse){
+            let ratio=coefficient.inv().unwrap().mul(other_coefficient);
+            if ratio.is_positive()&&rational_modulus_squared(&factors)==Some(ratio){
+                paired[index]=true;paired[*other]=true;
+            }
+        }
+        signatures.insert(factors,(index,coefficient));
+    }
+    paired
+}
+
 pub(super) fn rational_power(base: &Expr, exponent: &Expr) -> Option<Facts> {
     let (n,d)=base.as_number()?.numer_denom()?;
     let (p,q)=exponent.as_number()?.numer_denom()?;
@@ -118,4 +223,47 @@ pub(crate) fn quadratic_facts(e:&Expr)->Option<Facts> {
         });
     }
     Some(facts)
+}
+
+#[cfg(test)]
+mod cardano_tests{
+    use super::*;
+    #[test]
+    fn exact_norm_and_monotone_cubic_certify_real_signs(){
+        let z=crate::parser::parse_str("(3+4*I)/5").unwrap();
+        let u=crate::ops::pow(&z,&Expr::rational(1,3));
+        let t=crate::ops::add2(&u,&crate::ops::div(&Expr::one(),&u));
+        for (shift,scale,expected) in [(0,1,1),(-1,1,1),(-2,1,-1),(1,-1,-1),(2,-1,1)]{
+            let value=crate::ops::add2(&Expr::int(shift),&crate::ops::mul2(&Expr::int(scale),&t));
+            assert_eq!(cardano_sign(&value),Some(expected));
+            assert_eq!(crate::assumptions::exact_queries(||crate::assumptions::is_real(&value)),Some(true));
+        }
+        let perturbed=crate::ops::add2(&z,&crate::ops::mul2(&Expr::i(),&Expr::rational(1,1000)));
+        let u=crate::ops::pow(&perturbed,&Expr::rational(1,3));
+        let unproved=crate::ops::add2(&u,&crate::ops::div(&Expr::one(),&u));
+        assert_eq!(cardano_sign(&unproved),None);
+    }
+    #[test]
+    fn reciprocal_product_pairs_are_real_only_with_the_exact_modulus(){
+        let omega="(-1/2+sqrt(3)*I/2)";
+        let z="(-1/2+sqrt(4035)*I/18)";
+        for source in [
+            format!("{omega}^(4/3)+{omega}^(-4/3)"),
+            format!("{omega}^(7/3)+{omega}^(-7/3)+sqrt(2)"),
+            format!("{omega}*{z}^(1/3)+7/(3*{omega}*{z}^(1/3))"),
+            format!("{omega}^2*{z}^(1/3)+7/(3*{omega}^2*{z}^(1/3))"),
+            format!("-{omega}*{z}^(1/3)-7/(3*{omega}*{z}^(1/3))"),
+        ]{
+            let value=crate::parser::parse_str(&source).unwrap();
+            assert_eq!(crate::assumptions::exact_queries(||crate::assumptions::is_real(&value)),Some(true),"{source}");
+        }
+        for source in [
+            format!("{omega}*{z}^(1/3)+1/({omega}*{z}^(1/3))"),
+            format!("{omega}*{z}^(1/3)-7/(3*{omega}*{z}^(1/3))"),
+            format!("({omega}+I/1000)^(4/3)+({omega}+I/1000)^(-4/3)"),
+        ]{
+            let value=crate::parser::parse_str(&source).unwrap();
+            assert_ne!(crate::assumptions::exact_queries(||crate::assumptions::is_real(&value)),Some(true),"{source}");
+        }
+    }
 }

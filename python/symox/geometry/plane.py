@@ -53,44 +53,44 @@ class Plane(GeometryEntity):
             return False
         return zero((point-self.p1).dot(self._normal))
 
-    def equals(self, other):
-        return isinstance(other, Plane) and self.is_parallel(other) and self.contains(other.p1)
+    def equals(self, o):
+        return isinstance(o, Plane) and self.is_parallel(o) and self.contains(o.p1)
 
-    def is_parallel(self, other):
-        if isinstance(other, Plane):
-            return all(zero(value) for value in self._normal.cross(other._normal))
-        if isinstance(other, LinearEntity):
-            return zero(self._normal.dot(Point(other.direction, dim=3)))
+    def is_parallel(self, l):
+        if isinstance(l, Plane):
+            return all(zero(value) for value in self._normal.cross(l._normal))
+        if isinstance(l, LinearEntity):
+            return zero(self._normal.dot(Point(l.direction, dim=3)))
         raise TypeError('Plane parallelism requires a plane or linear entity')
 
-    def is_perpendicular(self, other):
-        if isinstance(other, Plane):
-            return zero(self._normal.dot(other._normal))
-        if isinstance(other, LinearEntity):
-            return all(zero(value) for value in self._normal.cross(Point(other.direction, dim=3)))
+    def is_perpendicular(self, l):
+        if isinstance(l, Plane):
+            return zero(self._normal.dot(l._normal))
+        if isinstance(l, LinearEntity):
+            return all(zero(value) for value in self._normal.cross(Point(l.direction, dim=3)))
         raise TypeError('Plane perpendicularity requires a plane or linear entity')
 
-    def distance(self, other):
+    def distance(self, o):
         from .. import Abs
-        if isinstance(other, Plane):
-            return self.distance(other.p1) if self.is_parallel(other) else scalar(0)
-        if isinstance(other, LinearEntity):
-            if self.intersection(other):
+        if isinstance(o, Plane):
+            return self.distance(o.p1) if self.is_parallel(o) else scalar(0)
+        if isinstance(o, LinearEntity):
+            if self.intersection(o):
                 return scalar(0)
-            if self.is_parallel(other):
-                return self.distance(other.p1)
+            if self.is_parallel(o):
+                return self.distance(o.p1)
             from .. import Min
-            candidates = [self.distance(other.p1)]
-            if other._kind == 'segment':
-                candidates.append(self.distance(other.p2))
+            candidates = [self.distance(o.p1)]
+            if o._kind == 'segment':
+                candidates.append(self.distance(o.p2))
             return Min(*candidates)
-        point = Point(other, dim=3)
+        point = Point(o, dim=3)
         return clean(Abs((point-self.p1).dot(self._normal))/abs(self._normal))
 
-    def projection(self, point):
-        point = Point(point, dim=3)
+    def projection(self, pt):
+        pt = Point(pt, dim=3)
         normal = self._normal
-        return point-normal*clean((point-self.p1).dot(normal)/normal.dot(normal))
+        return pt-normal*clean((pt-self.p1).dot(normal)/normal.dot(normal))
 
     def projection_line(self, line):
         if not isinstance(line, LinearEntity):
@@ -98,36 +98,36 @@ class Plane(GeometryEntity):
         a, b = self.projection(line.p1), self.projection(line.p2)
         return a if a.equals(b) else line.func(a, b)
 
-    def perpendicular_line(self, point):
-        point = Point(point, dim=3)
-        return Line(point, point+self._normal)
+    def perpendicular_line(self, pt):
+        pt = Point(pt, dim=3)
+        return Line(pt, pt+self._normal)
 
-    def angle_between(self, other):
+    def angle_between(self, o):
         from .. import acos, asin, Abs
-        if isinstance(other, Plane):
-            return acos(clean(self._normal.dot(other._normal)/(abs(self._normal)*abs(other._normal))))
-        if isinstance(other, LinearEntity):
-            return asin(Abs(clean(self._normal.dot(other.direction)/(abs(self._normal)*abs(other.direction)))))
+        if isinstance(o, Plane):
+            return acos(clean(self._normal.dot(o._normal)/(abs(self._normal)*abs(o._normal))))
+        if isinstance(o, LinearEntity):
+            return asin(Abs(clean(self._normal.dot(o.direction)/(abs(self._normal)*abs(o.direction)))))
         raise TypeError('Expected a plane or a line')
 
-    def intersection(self, other):
-        if isinstance(other, Point):
-            return [other] if self.contains(other) else []
-        if isinstance(other, LinearEntity):
-            if other.ambient_dimension != 3:
+    def intersection(self, o):
+        if isinstance(o, Point):
+            return [o] if self.contains(o) else []
+        if isinstance(o, LinearEntity):
+            if o.ambient_dimension != 3:
                 raise ValueError('Plane intersections require spatial lines')
-            denominator = self._normal.dot(other.direction)
+            denominator = self._normal.dot(o.direction)
             if zero(denominator):
-                return [other] if self.contains(other.p1) else []
-            t = clean(self._normal.dot(self.p1-other.p1)/denominator)
-            return [other.p1+other.direction*t] if other._accept(t) else []
-        if not isinstance(other, Plane):
+                return [o] if self.contains(o.p1) else []
+            t = clean(self._normal.dot(self.p1-o.p1)/denominator)
+            return [o.p1+o.direction*t] if o._accept(t) else []
+        if not isinstance(o, Plane):
             raise TypeError('Plane intersections accept points, lines and planes')
-        normal, second = self._normal, other._normal
+        normal, second = self._normal, o._normal
         direction = normal.cross(second)
         if all(zero(value) for value in direction):
-            return [self] if self.contains(other.p1) else []
-        rhs1, rhs2 = self.p1.dot(normal), other.p1.dot(second)
+            return [self] if self.contains(o.p1) else []
+        rhs1, rhs2 = self.p1.dot(normal), o.p1.dot(second)
         for i in range(3):
             for j in range(i+1, 3):
                 determinant = normal[i]*second[j]-normal[j]*second[i]

@@ -19,28 +19,92 @@ use crate::relational::{eq, lt, piecewise};
 use crate::subs::subs1;
 use crate::binders::depends_on as has;
 
+/// Tangent numbers `T_0 .. T_half` (Brent-Harvey): only products of
+/// integers by small factors, no rational arithmetic.
+fn tangent_numbers(half: usize) -> Vec<BigInt> {
+    let mut t: Vec<BigInt> = vec![BigInt::zero(); half + 1];
+    if half >= 1 {
+        t[1] = BigInt::one();
+    }
+    for k in 2..=half {
+        t[k] = &t[k - 1] * (k as u64 - 1);
+    }
+    for k in 2..=half {
+        for j in k..=half {
+            let carry = &t[j - 1] * ((j - k) as u64);
+            t[j] *= (j - k + 2) as u64;
+            t[j] += carry;
+        }
+    }
+    t
+}
+
+/// `B_m` (with `B_1 = -1/2`) from the tangent numbers:
+/// `B_2k = (-1)^(k-1) 2k T_k / (4^k (4^k - 1))`.
+fn bernoulli_from_tangent(m: usize, t: &[BigInt]) -> BigRational {
+    match m {
+        0 => BigRational::one(),
+        1 => BigRational::new(-BigInt::one(), BigInt::from(2)),
+        _ if m % 2 == 1 => BigRational::zero(),
+        _ => {
+            let k = m / 2;
+            let four_k = BigInt::one() << (2 * k);
+            let r = BigRational::new(&t[k] * (2 * k as u64), &four_k * (&four_k - BigInt::one()));
+            if k % 2 == 0 { -r } else { r }
+        }
+    }
+}
+
+/// `B_n` for a large even `n` like mpmath's `bernfrac`: the denominator
+/// is known exactly (von Staudt-Clausen) and the numerator is the rounding
+/// of `D * 2 n! zeta(n) / (2 pi)^n`, evaluated with enough bits to be exact.
+fn bernoulli_zeta(n: usize) -> Option<BigRational> {
+    use crate::bigfloat::{pi, BigFloat};
+    let is_prime = |p: usize| p >= 2 && (2..).take_while(|d| d * d <= p).all(|d| p % d != 0);
+    let mut den = BigInt::one();
+    for d in (1..=n).filter(|d| n % d == 0) {
+        if is_prime(d + 1) {
+            den *= (d + 1) as u64;
+        }
+    }
+    let nf = n as f64;
+    let log2_fact = (1..=n).map(|k| (k as f64).log2()).sum::<f64>();
+    let bits = log2_fact + 1.0 - nf*(2.0*std::f64::consts::PI).log2() + den.bits() as f64;
+    let prec = bits.max(0.0) as u32 + 64 + 2*(64 - (n as u64).leading_zeros());
+    // zeta(n) = sum k^-n, truncated once k^-n is below the working precision
+    let terms = (2f64.powf((prec as f64 + 8.0)/nf)).ceil() as u64 + 1;
+    let mut zeta = BigFloat::one();
+    for k in 2..=terms {
+        let power = num_traits::pow(BigInt::from(k), n);
+        zeta = zeta.add(&BigFloat::from_ratio(&BigInt::one(), &power, prec), prec);
+    }
+    let fact: BigInt = (2..=n as u64).map(BigInt::from).product();
+    let two_pi_n = pi(prec).mul_i64(2, prec).powi(n as i64, prec)?;
+    let value = BigFloat::from_int(&(fact*&den*2u32)).mul(&zeta, prec).div(&two_pi_n, prec)?;
+    let num = value.to_int_round();
+    Some(BigRational::new(if n % 4 == 0 { -num } else { num }, den))
+}
+
 /// Bernoulli numbers `B_0 .. B_n` (with `B_1 = -1/2`).
 pub fn bernoulli_numbers(n: usize) -> Vec<BigRational> {
-    // Akiyama–Tanigawa gives B_n^+ (B_1 = +1/2)
-    let mut a: Vec<BigRational> = Vec::with_capacity(n + 1);
-    let mut out = Vec::with_capacity(n + 1);
-    for m in 0..=n {
-        a.push(BigRational::new(BigInt::one(), BigInt::from(m as u64 + 1)));
-        for j in (1..=m).rev() {
-            let t = (&a[j - 1] - &a[j]) * BigRational::from_integer(BigInt::from(j as u64));
-            a[j - 1] = t;
-        }
-        out.push(a[0].clone());
+    let t = tangent_numbers(n / 2);
+    (0..=n).map(|m| bernoulli_from_tangent(m, &t)).collect()
+}
+
+/// Bernoulli number `B_n` (with `B_1 = -1/2`).
+pub fn bernoulli_rational(n: usize) -> BigRational {
+    if n > 1 && n % 2 == 1 {
+        BigRational::zero()
+    } else if n >= 120 {
+        bernoulli_zeta(n).unwrap_or_else(|| bernoulli_from_tangent(n, &tangent_numbers(n / 2)))
+    } else {
+        bernoulli_from_tangent(n, &tangent_numbers(n / 2))
     }
-    if n >= 1 {
-        out[1] = -out[1].clone();
-    }
-    out
 }
 
 /// Bernoulli number `B_n` as an expression.
 pub fn bernoulli(n: usize) -> Expr {
-    Expr::num(Number::from_ratio(bernoulli_numbers(n).pop().unwrap()))
+    Expr::num(Number::from_ratio(bernoulli_rational(n)))
 }
 
 fn binom(n: u64, k: u64) -> BigInt {
@@ -347,7 +411,73 @@ fn infinite_sum(f: &Expr, k: &Expr, a: &Expr) -> Option<Expr> {
             }
         }
     }
-    None
+    rational_infinite(f, k, a)
+}
+
+/// `Σ_{k=a}^oo R(k)` for a convergent rational `R` whose partial fractions
+/// have rational poles at integer distances: the simple poles telescope to
+/// a finite sum and the higher ones reduce to `zeta(m)` minus a head.
+fn rational_infinite(f: &Expr, k: &Expr, a: &Expr) -> Option<Expr> {
+    let start = a.as_i64()?;
+    let (num, den) = crate::simplify::numer_denom(&crate::simplify::together(f));
+    let (pn, pd) = (poly_coeffs(&num, k)?, poly_coeffs(&den, k)?);
+    if pd.len() < pn.len() + 2 {
+        return None;
+    }
+    let parts = crate::poly::api::apart(f, Some(k)).ok()?;
+    let terms = match parts.kind() {
+        Kind::Add(..) => parts.args(),
+        _ => vec![parts.clone()],
+    };
+    // (coefficient, pole shift r, order m) for c/(k + r)^m
+    let mut poles: Vec<(Expr, BigRational, usize)> = Vec::new();
+    for t in terms {
+        let (n, d) = crate::simplify::numer_denom(&t);
+        let c = poly_coeffs(&d, k)?;
+        let m = c.len() - 1;
+        if m == 0 || has(&n, k) {
+            return None;
+        }
+        let lead = &c[m];
+        let r = div(&c[m - 1], &mul2(&Expr::int(m as i64), lead));
+        let r = r.as_number()?.to_ratio()?;
+        let shifted = pow(&add2(k, &Expr::num(Number::from_ratio(r.clone()))), &Expr::int(m as i64));
+        if !expand(&sub(&d, &mul2(lead, &shifted))).is_zero() {
+            return None;
+        }
+        // a pole inside the summation range makes the sum meaningless
+        let at = BigRational::from_integer(BigInt::from(start)) + &r;
+        if at.is_integer() && at <= BigRational::zero() {
+            return None;
+        }
+        poles.push((div(&n, lead), r, m));
+    }
+    let mut out = Vec::new();
+    let simple: Vec<&(Expr, BigRational, usize)> = poles.iter().filter(|p| p.2 == 1).collect();
+    if let Some(r0) = simple.iter().map(|p| p.1.clone()).min() {
+        for (c, r, _) in &simple {
+            let shift = r - &r0;
+            if !shift.is_integer() {
+                return None;
+            }
+            let shift = i64::try_from(shift.to_integer()).ok()?;
+            for j in 0..shift {
+                let at = add(&[a.clone(), Expr::num(Number::from_ratio(r0.clone())), Expr::int(j)]);
+                out.push(neg(&div(c, &at)));
+            }
+        }
+    }
+    for (c, r, m) in poles.iter().filter(|p| p.2 > 1) {
+        let n0 = BigRational::from_integer(BigInt::from(start)) + r;
+        if !n0.is_integer() {
+            return None;
+        }
+        let n0 = i64::try_from(n0.to_integer()).ok().filter(|n| *n >= 1)?;
+        let zeta = infinite_sum(&pow(k, &Expr::int(-(*m as i64))), k, &Expr::one())?;
+        let head: Vec<Expr> = (1..n0).map(|j| pow(&Expr::int(j), &Expr::int(-(*m as i64)))).collect();
+        out.push(mul2(c, &sub(&zeta, &add(&head))));
+    }
+    Some(tidy(&add(&out)))
 }
 
 #[cfg(test)]

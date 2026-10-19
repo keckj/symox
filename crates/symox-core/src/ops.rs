@@ -131,7 +131,45 @@ fn normalized_sum(expression:&Expr,cache:&mut ArithmeticMemo)->Expr{
     cache.insert(expression.dag_id(),(expression.clone(),value.clone()));value
 }
 
+/// Preserve exact arithmetic when a compact float's exponent cannot fit the
+/// native counter. Ordinary expressions use only a cached feature-bit check.
+fn wide_arithmetic(args:&[Expr],product:bool)->Option<Expr>{
+    if !args.iter().any(Expr::has_wide_exponent){return None;}
+    if args.len()==1{return Some(args[0].clone());}
+    let mut coefficient=if product{Number::ONE}else{Number::ZERO};
+    let complete=args.iter().all(|e|if let Some(number)=e.as_number(){
+        let next=if product{coefficient.checked_mul(number)}else{coefficient.checked_add(number)};
+        if let Some(next)=next{coefficient=next;true}else{false}
+    }else{false});
+    if complete{return Some(Expr::num(coefficient));}
+    // Literal complex values also have a compact, checked coefficient path.
+    // In particular a huge finite coefficient times I must remain usable as a
+    // numerical-field value, rather than needing general symbolic expansion.
+    let mut real=if product{Number::ONE}else{Number::ZERO};let mut imaginary=Number::ZERO;
+    let literal=args.iter().all(|argument|{
+        let Some((re,im))=crate::complex_parts::literal_parts(argument)else{return false;};
+        let (re,im)=(re.as_number().unwrap(),im.as_number().unwrap());
+        let next=if product{(||{
+            let r=real.checked_mul(re)?.checked_add(&imaginary.checked_mul(im)?.neg())?;
+            let i=real.checked_mul(im)?.checked_add(&imaginary.checked_mul(re)?)?;
+            Some((r,i))
+        })()}else{real.checked_add(re).zip(imaginary.checked_add(im))};
+        if let Some((r,i))=next{real=r;imaginary=i;true}else{false}
+    });
+    if literal{
+        return Some(if imaginary.is_zero(){Expr::num(real)}else if real.is_zero(){
+            if imaginary.is_one(){Expr::i()}else{Expr::from_kind(Kind::Mul(imaginary,vec![(Expr::i(),Expr::one())]))}
+        }else{Expr::from_kind(Kind::Add(real,vec![(Expr::i(),imaginary)]))});
+    }
+    Some(Expr::from_unevaluated_kind(if product{
+        Kind::Mul(Number::ONE,args.iter().cloned().map(|e|(e,Expr::one())).collect())
+    }else{
+        Kind::Add(Number::ZERO,args.iter().cloned().map(|e|(e,Number::ONE)).collect())
+    }))
+}
+
 fn add_with_cache(args:&[Expr],cache:&mut ArithmeticMemo)->Expr{
+    if let Some(result)=wide_arithmetic(args,false){return result;}
     match args.len() {
         0 => return Expr::zero(),
         1 => return args[0].clone(),
@@ -182,6 +220,7 @@ fn add_with_cache(args:&[Expr],cache:&mut ArithmeticMemo)->Expr{
 
 /// Fast binary addition.
 pub fn add2(a: &Expr, b: &Expr) -> Expr {
+    if a.has_wide_exponent()||b.has_wide_exponent(){return wide_arithmetic(&[a.clone(),b.clone()],false).unwrap();}
     if a.is_zero() {
         return b.clone();
     }
@@ -426,6 +465,7 @@ pub fn mul(args: &[Expr]) -> Expr {
     mul_with_cache(args, 0, &mut ProductMemo::default())
 }
 fn mul_with_cache(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
+    if let Some(result)=wide_arithmetic(args,true){return result;}
     // Removing exact identity factors must not evaluate the surviving operand.
     let mut nontrivial = args.iter().filter(|argument| !argument.is_one());
     let Some(first) = nontrivial.next() else { return Expr::one(); };
@@ -486,6 +526,7 @@ fn mul_with_cache(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
 
 /// Fast binary multiplication.
 pub fn mul2(a: &Expr, b: &Expr) -> Expr {
+    if a.has_wide_exponent()||b.has_wide_exponent(){return wide_arithmetic(&[a.clone(),b.clone()],true).unwrap();}
     if a.is_one() {
         return b.clone();
     }
@@ -1132,6 +1173,10 @@ fn i_pow(k: i64) -> Expr {
 
 /// Power of two numbers (exact radicals are simplified like SymPy).
 pub fn num_pow(b: &Number, e: &Number) -> Expr {
+    if b.is_rational() && (b.is_zero() || b.is_one()) {
+        if e.is_zero() || b.is_one() { return Expr::one(); }
+        return if e.is_positive() { Expr::zero() } else { Expr::zoo() };
+    }
     if e.is_zero() && e.is_rational() {
         return Expr::one();
     }
@@ -1364,6 +1409,9 @@ pub fn sub(a: &Expr, b: &Expr) -> Expr {
 }
 
 pub fn div(a: &Expr, b: &Expr) -> Expr {
+    if let (Some(numerator),Some(denominator))=(a.as_number(),b.as_number()){
+        if !denominator.is_zero(){if let Some(value)=numerator.div(denominator){return Expr::num(value);}}
+    }
     mul2(a, &pow(b, &Expr::minus_one()))
 }
 

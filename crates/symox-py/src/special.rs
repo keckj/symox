@@ -45,8 +45,9 @@ fn multinomial_coefficients<'py>(py: Python<'py>, m: usize, n: u64) -> PyResult<
 }
 
 #[pyfunction]
-fn expand_func(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(sp::expand_func(&to_expr(e)?)))
+#[pyo3(signature = (expr, deep=true))]
+fn expand_func(expr: &Bound<'_, PyAny>, deep: bool) -> PyResult<PyExpr> {
+    Ok(wrap(sp::expand_func_deep(&to_expr(expr)?, deep)))
 }
 
 /// Native engine behind `Expr.rewrite(*patterns, rule, deep=True)`.
@@ -57,8 +58,8 @@ fn _rewrite(e: &Bound<'_, PyAny>, patterns: Vec<String>, rule: &str, deep: bool)
 }
 
 #[pyfunction]
-fn besselsimp(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(sp::besselsimp(&to_expr(e)?)))
+fn besselsimp(expr: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+    Ok(wrap(sp::besselsimp(&to_expr(expr)?)))
 }
 
 #[pyfunction]

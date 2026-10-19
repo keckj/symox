@@ -13,6 +13,7 @@ import random as _random
 import re as _re
 from string import ascii_uppercase as _UPPER, digits as _DIGITS, printable as _PRINTABLE
 import warnings as _warnings
+_NON_UPPER = _re.compile("[^A-Z]+")
 
 __all__ = [
     'AZ','NonInvertibleCipherWarning','bg_private_key','bg_public_key',
@@ -45,7 +46,7 @@ def _integer(value):
 def AZ(s=None):
     """Uppercase and retain A-Z; without an argument return that alphabet."""
     if not s:return _UPPER
-    def clean(text):return ''.join(c for c in text.upper() if c in _UPPER)
+    def clean(text):return _NON_UPPER.sub('',text.upper())
     return clean(s) if isinstance(s,str) else [clean(text) for text in s]
 
 
@@ -57,7 +58,7 @@ def check_and_join(phrase,symbols=None,filter=None):
     invalid = set(text)-allowed
     if invalid and not filter:
         raise ValueError('characters in phrase but not symbols: "%s"' % ''.join(sorted(invalid)))
-    return ''.join(c for c in text if c in allowed)
+    return text.translate(dict.fromkeys(map(ord,invalid))) if invalid else text
 
 
 def _alphabet(symbols):
@@ -145,8 +146,14 @@ def _vigenere(msg,key,symbols,inverse):
     text,key,alphabet = _prepare(msg,key,symbols)
     if not key:raise ValueError('Vigenere requires a nonempty key in the alphabet')
     positions = {c:i for i,c in enumerate(alphabet)}
-    shifts = [positions[c] for c in key]
-    return ''.join(alphabet[(positions[c]+inverse*shifts[i%len(shifts)])%len(alphabet)] for i,c in enumerate(text))
+    n,period = len(alphabet),len(key)
+    out = [''] * len(text)
+    # one translation table per key letter, applied to each residue class
+    for j,c in enumerate(key):
+        shift = inverse*positions[c]
+        table = str.maketrans(alphabet,''.join(alphabet[(i+shift)%n] for i in range(n)))
+        out[j::period] = text[j::period].translate(table)
+    return ''.join(out)
 
 
 def encipher_vigenere(msg,key,symbols=None):return _vigenere(msg,key,symbols,1)
@@ -202,14 +209,16 @@ def _bifid_setup(msg,key,symbols):
 def encipher_bifid(msg,key,symbols=None):
     """Fractionate square-table coordinates, joining all rows before columns."""
     text,table,width = _bifid_setup(msg,key,symbols)
-    indices = [table.index(c) for c in text]
+    where = {c:i for i,c in enumerate(table)}
+    indices = [where[c] for c in text]
     coordinates = [i//width for i in indices]+[i%width for i in indices]
     return ''.join(table[width*a+b] for a,b in zip(coordinates[::2],coordinates[1::2]))
 
 
 def decipher_bifid(msg,key,symbols=None):
     text,table,width = _bifid_setup(msg,key,symbols)
-    coordinates = [coordinate for c in text for coordinate in divmod(table.index(c),width)]
+    where = {c:i for i,c in enumerate(table)}
+    coordinates = [coordinate for c in text for coordinate in divmod(where[c],width)]
     return ''.join(table[width*a+b] for a,b in zip(coordinates[:len(text)],coordinates[len(text):]))
 
 

@@ -46,7 +46,8 @@ def replace(self, query, value, map=False, simultaneous=True, exact=None):
                 from . import _core
                 node=_core._BlockGrid(original.rows,original.cols,args)
             elif getattr(original,'is_Piecewise',False):
-                node=original.func(*(item for pair in args for item in pair))
+                from . import Piecewise
+                node=Piecewise(*args)
             elif getattr(original,'is_Order',False):
                 node=original.func(args[0],*(item for pair in args[1:] for item in pair))
             elif getattr(original,'func',None) is not None:

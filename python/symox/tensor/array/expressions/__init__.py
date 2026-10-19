@@ -210,10 +210,10 @@ class _ArrayDerivative(_ArrayExpr):
         return _entry(self.expr,output).diff(_entry(self.variable,deriving) if rank else self.variable)
 
 
-def array_derive(expr,variable):
-    if not _shape(variable):
-        return ArrayElementwiseApplyFunc(lambda value:value.diff(variable),expr) if _shape(expr) else S.diff(expr,variable)
-    return _ArrayDerivative(expr,variable)
+def array_derive(expr,x):
+    if not _shape(x):
+        return ArrayElementwiseApplyFunc(lambda value:value.diff(x),expr) if _shape(expr) else S.diff(expr,x)
+    return _ArrayDerivative(expr,x)
 
 
 def convert_array_to_indexed(expr,indices):

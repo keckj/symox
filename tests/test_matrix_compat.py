@@ -173,7 +173,8 @@ def test_multiple_eigenvalues_and_polynomial_equality():
     p = sx.eye(2).charpoly(x)
     q = sx.eye(2).charpoly(y)
     assert p == q and hash(p) == hash(q)
-    assert p != p.as_expr()
+    reference=sp.eye(2).charpoly()
+    assert (p == p.as_expr()) == (reference == reference.as_expr())
 
 
 def test_norm_preserves_symbol_assumptions():

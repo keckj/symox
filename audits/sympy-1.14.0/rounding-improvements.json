@@ -1,0 +1,61 @@
+{
+  "reference_version": "1.14.0",
+  "records": [
+    {
+      "operation": "int",
+      "expression": "sqrt(10**200+1)",
+      "native": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected": "10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "reference": {
+        "value": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "proof": "N^2 < N^2+1 < (N+1)^2 for N=10^100, hence N < sqrt(N^2+1) < N+1.",
+      "scope": "This exact input family; no universal int/evalf certificate."
+    },
+    {
+      "operation": "int",
+      "expression": "-sqrt(10**200+1)",
+      "native": "-10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected": "-10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "reference": {
+        "value": "-9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "proof": "Negating N < sqrt(N^2+1) < N+1 and truncating toward zero gives -N.",
+      "scope": "This exact input family; no universal int/evalf certificate."
+    },
+    {
+      "operation": "int",
+      "expression": "exp(10**(-1000))",
+      "native": "1",
+      "expected": "1",
+      "reference": {
+        "error": "TypeError",
+        "message": "cannot compute int value accurately"
+      },
+      "proof": "For epsilon=10^-1000, 0 < epsilon < 1/2 < log(2); therefore 1 < exp(epsilon) < 2.",
+      "scope": "This exact input family; no universal int/evalf certificate."
+    },
+    {
+      "operation": "int",
+      "expression": "exp(-10**(-1000))",
+      "native": "0",
+      "expected": "0",
+      "reference": {
+        "error": "TypeError",
+        "message": "cannot compute int value accurately"
+      },
+      "proof": "The same epsilon gives 1/2 < exp(-epsilon) < 1; truncation toward zero is zero.",
+      "scope": "This exact input family; no universal int/evalf certificate."
+    },
+    {
+      "operation": "Float",
+      "expression": "1_234.567_890_123_456_789",
+      "decimal_precision": 40,
+      "native": "1234.567890123456789000000000000000000000",
+      "reference": "0.1234567890123456789000000000000000000000",
+      "expected": "1234.567890123456789000000000000000000000",
+      "proof": "Underscores separate digits and do not change the decimal exponent. The canonical literal is 1234.567890123456789.",
+      "scope": "Decimal separators with explicit precision; no global Float certificate."
+    }
+  ]
+}

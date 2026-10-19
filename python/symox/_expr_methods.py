@@ -17,7 +17,7 @@ def coeff(self, x, n=1, right=False, _first=True):
     if not isinstance(x,_core.Expr):return S.Zero
     if isinstance(n,bool):raise ValueError('Coefficient power must be an integer')
     power=sympify(n)
-    if power.is_Integer is not True:raise ValueError('Coefficient power must be an integer')
+    if getattr(power,'is_Integer',False) is not True:raise ValueError('Coefficient power must be an integer')
     n=int(power)
     if x==0:return S.Zero
     if x==self:return S.One if n==1 else S.Zero

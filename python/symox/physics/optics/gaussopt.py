@@ -105,7 +105,7 @@ class BeamParameter:
 
 def geometric_conj_ab(a,b):return 1/(1/S.sympify(a)+1/S.sympify(b))
 def geometric_conj_af(a,f):return S.sympify(a)*S.sympify(f)/(S.sympify(a)-S.sympify(f))
-def geometric_conj_bf(b,f):return geometric_conj_af(b,f)
+def geometric_conj_bf(a,f):return geometric_conj_af(a,f)
 
 
 def gaussian_conj(s_in,z_r_in,f):

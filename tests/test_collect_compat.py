@@ -136,8 +136,7 @@ def test_iterable_patterns_and_defaults_are_explicit():
     assert sx.collect(expression, x, func=None) == sx.collect(expression, x)
     with pytest.raises(TypeError, match='unexpected keyword'):
         sx.collect(expression, x, mystery=True)
-    with pytest.raises(NotImplementedError, match='exact=None'):
-        sx.collect(expression, x, exact=None)
+    assert converted(sx.collect(expression,x,exact=None))==sp.collect(oracle('a*x+b*x+a*y+b*y'),oracle('x'),exact=None)
     with pytest.raises(TypeError, match='callable'):
         sx.collect(expression, x, func=object())
     with pytest.raises(TypeError):
@@ -154,10 +153,9 @@ def test_method_positional_options(evaluate,exact):
     assert expression.collect(x,transform,evaluate,exact,False)==expected
 
 
-def test_unsupported_matching_is_rejected_instead_of_silently_ignored():
+def test_wild_matching_and_multivariate_derivative_gap_are_explicit():
     x, y, a, b = sx.symbols('x y a b')
-    with pytest.raises(NotImplementedError, match='Wild'):
-        sx.collect(a*x+b*x, sx.Wild('w'))
+    assert converted(sx.collect(a*x+b*x, sx.Wild('w')))==sp.collect(oracle('a*x+b*x'),sp.Wild('w'))
     mixed = sx.Derivative(sx.Function('f')(x, y), x, y, evaluate=False)
     with pytest.raises(NotImplementedError, match='multivariate derivatives'):
         sx.collect(a*mixed+b*mixed, sx.Function('f')(x, y))

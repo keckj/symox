@@ -1,0 +1,30 @@
+{
+  "reference_version": "1.14.0",
+  "reference_python_source_sha256": "972084bcdf2aeda02be0f83a39ce771094bd7657efa5a0e81ac4d75cad8737a9",
+  "installed_record_sha256": "36cedcb9a0cc59cec21285ad90b11b3f829eea487ae1ce8ba9077ba56e9286cf",
+  "manifest_matching_python_files": 1533,
+  "manifest_mismatches": [],
+  "unhashed_python_files": [],
+  "python_version": "3.10.12 (main, Mar  3 2026, 11:56:32) [GCC 11.4.0]",
+  "mpmath_version": "1.3.0",
+  "sympy_ground_types": "python",
+  "mpmath_backend": "python",
+  "scope": "Installed Python sources verified against their distribution RECORD; not a signature over an external wheel or a universal parity certificate.",
+  "published_wheel_integrity": {
+    "reference_version": "1.14.0",
+    "pypi_release_page": "https://pypi.org/project/sympy/1.14.0/#files",
+    "pypi_json": "https://pypi.org/pypi/sympy/1.14.0/json",
+    "wheel_url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
+    "wheel_filename": "sympy-1.14.0-py3-none-any.whl",
+    "wheel_sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+    "wheel_size": 6299353,
+    "package_files_matching_wheel": 1561,
+    "python_sources_matching_wheel": 1533,
+    "mismatches": [],
+    "reference_python_source_sha256": "972084bcdf2aeda02be0f83a39ce771094bd7657efa5a0e81ac4d75cad8737a9",
+    "scope": "Bytes of installed sympy package files compared with the published PyPI wheel, whose SHA256 matches PyPI release metadata; no reference files were modified or installed.",
+    "additional_python_entrypoints": [
+      "isympy.py"
+    ]
+  }
+}

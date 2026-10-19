@@ -110,11 +110,18 @@ def test_undecidable_substitution_and_shared_undefined_arguments_remain_finite()
 
 def test_invalid_precision_and_cyclic_containers_raise():
     with pytest.raises(TypeError):sx.nfloat(1,2.5)
-    with pytest.raises(ValueError):sx.nfloat(1,-1)
-    with pytest.raises(ValueError):sx.nfloat(1,0)
-    with pytest.raises(NotImplementedError):sx.nfloat(1,10001)
+    for digits in [-1,0,10001]:
+        assert sx.nfloat(sx.Rational(1,3),digits).to_sympy()==sp.nfloat(sp.Rational(1,3),digits)
     value=[];value.append(value)
     with pytest.raises(ValueError):sx.nfloat(value)
+
+
+@pytest.mark.parametrize('digits',[-1,0,5,15,40,12001])
+def test_float_zero_interchange_retains_numeric_type_and_precision(digits):
+    actual=sx.nfloat(0,digits).to_sympy()
+    expected=sp.nfloat(0,digits)
+    assert type(actual) is type(expected)
+    assert actual._prec==expected._prec
 
 
 def test_nfloat_does_not_import_sympy():

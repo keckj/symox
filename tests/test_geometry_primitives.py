@@ -209,8 +209,7 @@ def test_ambiguous_real_intersections_fail_instead_of_inventing_points():
         sx.Circle((0,0),1).intersection(sx.Line((0,a),(1,a)))
     with pytest.raises(ValueError):
         sx.Line((0,0),(0,0))
-    with pytest.raises(sx.GeometryError):
-        sx.Circle((0,0),(1,1),(2,2))
+    assert sx.Circle((0,0),(1,1),(2,2)) == sx.Segment((0,0),(2,2))
     with pytest.raises(ValueError):
         sx.Point(sx.I,0)
 

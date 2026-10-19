@@ -272,6 +272,36 @@ impl MPoly {
         MPoly { nvars: self.nvars, terms: t }
     }
 
+    /// `sum a_i * b_i`, accumulated in one table instead of a chain of merges.
+    pub fn sum_products(pairs: &[(&MPoly, &MPoly)], nvars: usize) -> MPoly {
+        let size: usize = pairs.iter().map(|(a, b)| a.terms.len() * b.terms.len()).sum();
+        if pairs.len() < 2 || size <= 256 {
+            let mut acc = MPoly::zero(nvars);
+            for (a, b) in pairs {
+                acc = acc.add(&a.mul(b));
+            }
+            return acc;
+        }
+        let mut map: FxHashMap<Mono, Int> = FxHashMap::with_capacity_and_hasher(size, Default::default());
+        for (a, b) in pairs {
+            for (ma, ca) in &a.terms {
+                for (mb, cb) in &b.terms {
+                    let m = mono_mul(ma, mb);
+                    let p = ca.mul(cb);
+                    match map.get_mut(&m) {
+                        Some(v) => *v = v.add(&p),
+                        None => {
+                            map.insert(m, p);
+                        }
+                    }
+                }
+            }
+        }
+        let mut t: Vec<(Mono, Int)> = map.into_iter().filter(|(_, c)| !c.is_zero()).collect();
+        t.sort_unstable_by(|a, b| lex(&b.0, &a.0));
+        MPoly { nvars, terms: t }
+    }
+
     pub fn pow(&self, n: u32) -> MPoly {
         let mut r = MPoly::one(self.nvars);
         let mut b = self.clone();

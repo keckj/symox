@@ -12,6 +12,8 @@ use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
+mod decimal;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BigFloat {
     /// Signed mantissa; zero is represented by `man == 0, exp == 0`.
@@ -130,33 +132,7 @@ impl BigFloat {
 
     /// Parse a decimal without an intermediate machine float.
     pub fn from_decimal(s: &str, prec: u32) -> Result<BigFloat, String> {
-        let s = s.trim();
-        let (mantissa, exponent) = match s.find(['e', 'E']) {
-            Some(i) => (&s[..i], s[i + 1..].parse::<i64>().map_err(|_| "invalid decimal exponent")?),
-            None => (s, 0),
-        };
-        let (negative, mantissa) = match mantissa.as_bytes().first() {
-            Some(b'-') => (true, &mantissa[1..]),
-            Some(b'+') => (false, &mantissa[1..]),
-            _ => (false, mantissa),
-        };
-        let mut digits = String::new();
-        let mut fractional = None;
-        for c in mantissa.chars() {
-            if c == '.' && fractional.is_none() { fractional = Some(0i64); }
-            else if c.is_ascii_digit() {
-                digits.push(c);
-                if let Some(ref mut count) = fractional { *count += 1; }
-            } else { return Err("invalid decimal literal".into()); }
-        }
-        if digits.is_empty() { return Err("invalid decimal literal".into()); }
-        let power = exponent.checked_sub(fractional.unwrap_or(0)).ok_or("decimal exponent overflow")?;
-        if power.unsigned_abs() > 1_000_000 { return Err("decimal exponent exceeds supported magnitude (1000000)".into()); }
-        let mut n: BigInt = digits.parse().map_err(|_| "invalid decimal literal")?;
-        if negative { n = -n; }
-        let ten = num_traits::pow::Pow::pow(BigInt::from(10), power.unsigned_abs());
-        Ok(if power >= 0 { BigFloat::from_int(&(n * ten)).round_to(prec) }
-            else { BigFloat::from_ratio(&n, &ten, prec) })
+        decimal::from_decimal(s,prec)
     }
 
     pub fn to_ratio_exact(&self) -> num_rational::BigRational {
@@ -209,9 +185,14 @@ impl BigFloat {
         if self.is_zero() {
             i64::MIN / 4
         } else {
-            self.exp + bitlen(&self.man)
+            self.exp.saturating_add(bitlen(&self.man))
         }
     }
+
+    /// Round a stored literal, returning None when the exponent cannot fit.
+    pub fn checked_round_to(&self,precision:u32)->Option<BigFloat>{decimal::checked_round(self,precision)}
+    pub fn checked_mul(&self,other:&BigFloat,precision:u32)->Option<BigFloat>{decimal::checked_product(self,other,precision)}
+    pub fn checked_add(&self,other:&BigFloat,precision:u32)->Option<BigFloat>{decimal::checked_sum(self,other,precision)}
 
     pub fn add(&self, o: &BigFloat, prec: u32) -> BigFloat {
         if self.is_zero() {
@@ -254,6 +235,9 @@ impl BigFloat {
     }
 
     pub fn div(&self, o: &BigFloat, prec: u32) -> Option<BigFloat> {
+        if self.exp.unsigned_abs()>(i64::MAX/8) as u64||o.exp.unsigned_abs()>(i64::MAX/8) as u64{
+            return decimal::checked_quotient(self,o,prec);
+        }
         if o.is_zero() {
             return None;
         }
@@ -344,6 +328,7 @@ impl BigFloat {
     /// Decimal representation with `dps` significant digits, SymPy style
     /// (fixed notation for moderate exponents, `e` notation otherwise).
     pub fn to_string_dps(&self, dps: u32, strip_zeros: bool) -> String {
+        let dps=dps.max(1);
         if self.is_zero() {
             return if strip_zeros { "0.0".into() } else { "0.".to_string() + &"0".repeat(dps.saturating_sub(1) as usize) };
         }
@@ -354,7 +339,8 @@ impl BigFloat {
             s.push('-');
         }
         // digits d1 d2 ... with value 0.d1d2... * 10**(e10+1) i.e. d1.d2... * 10**e10
-        let fixed = (-5..15).contains(&e10) || (dps > 15 && e10 >= -5 && e10 < dps as i64);
+        let minimum=(-(dps as i64/3)).min(-5);
+        let fixed=minimum<e10 && e10<dps as i64;
         if strip_zeros {
             while digits.len() > 1 && digits.ends_with('0') {
                 digits.pop();
@@ -397,32 +383,7 @@ impl BigFloat {
 
     /// `(negative, dps digits, decimal exponent of the first digit)`.
     fn decimal_digits(&self, dps: u32) -> (bool, String, i64) {
-        let neg = self.is_negative();
-        let a = self.abs();
-        // estimate decimal exponent
-        let mut e10 = ((a.mag() - 1) as f64 * std::f64::consts::LOG10_2).floor() as i64;
-        loop {
-            // scaled = a * 10**(dps - 1 - e10), rounded to integer
-            let k = dps as i64 - 1 - e10;
-            let prec = (a.mag().unsigned_abs() as f64 + (k.unsigned_abs() as f64) * 3.33 + 64.0) as u32 + dps * 4;
-            let scaled = if k >= 0 {
-                a.mul(&BigFloat::from_int(&num_traits::pow::Pow::pow(BigInt::from(10), k as u64)), prec)
-            } else {
-                a.div(&BigFloat::from_int(&num_traits::pow::Pow::pow(BigInt::from(10), (-k) as u64)), prec)
-                    .unwrap()
-            };
-            let n = scaled.to_int_round();
-            let s = n.to_string();
-            if s.len() as u32 > dps {
-                e10 += 1;
-                continue;
-            }
-            if (s.len() as u32) < dps {
-                e10 -= 1;
-                continue;
-            }
-            return (neg, s, e10);
-        }
+        decimal::digits(self,dps)
     }
 }
 
@@ -685,28 +646,7 @@ impl BigFloat {
 
     /// x**n for an integer n.
     pub fn powi(&self, n: i64, prec: u32) -> Option<BigFloat> {
-        let wp = prec + 10 + 64 - (n.unsigned_abs().leading_zeros()) ;
-        let mut base = self.clone();
-        let mut e = n.unsigned_abs();
-        let mut acc = BigFloat::one();
-        while e > 0 {
-            if e & 1 == 1 {
-                acc.exp.checked_add(base.exp)?;
-                acc = acc.mul(&base, wp);
-                if !acc.is_zero() && acc.mag().unsigned_abs() > 3_321_930 { return None; }
-            }
-            e >>= 1;
-            if e > 0 {
-                base.exp.checked_add(base.exp)?;
-                base = base.mul(&base, wp);
-                if !base.is_zero() && base.mag().unsigned_abs() > 3_321_930 { return None; }
-            }
-        }
-        if n < 0 {
-            BigFloat::one().div(&acc, prec)
-        } else {
-            Some(acc.round_to(prec))
-        }
+        decimal::checked_integer_power(self,n,prec)
     }
 }
 

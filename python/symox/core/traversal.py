@@ -18,8 +18,8 @@ def iterfreeargs(expr,_first=True):
         new_bound=bound|frozenset(getattr(value,'bound_symbols',()))
         for arg in getattr(value,'args',()):queue.append((arg,new_bound))
 
-def walk(expr,*target):
-    if isinstance(expr,target):
-        yield expr
-        for arg in expr.args:yield from walk(arg,*target)
+def walk(e,*target):
+    if isinstance(e,target):
+        yield e
+        for arg in e.args:yield from walk(arg,*target)
 __all__ += ['iterargs','iterfreeargs','walk']

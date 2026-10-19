@@ -1,26 +1,25 @@
 """Rational conversion of native floats without a machine-precision detour."""
 from fractions import Fraction
-import re
+from decimal import Decimal
+import math
 
 from . import _core
 
-MAX_PRECISION=100000
-MAX_DECIMAL_EXPONENT=100000
-
-
 def _decimal_fraction(value):
-    if value._prec>MAX_PRECISION:
-        raise NotImplementedError('Float rationalization exceeds 100000 bits of precision')
-    text=str(value)
-    exponent=re.search(r'[eE]([+-]?\d+)$',text)
-    if exponent and abs(int(exponent.group(1)))>MAX_DECIMAL_EXPONENT:
-        raise NotImplementedError('Float rationalization exceeds decimal exponent magnitude 100000')
-    return Fraction(text)
+    # Decimal's exact string constructor and integer-ratio protocol avoid
+    # Python's decimal integer-string limit without changing process globals.
+    decimal=Decimal(str(value))
+    # The Float itself has compact storage even for enormous exponents. An
+    # explicit rational has exponent-sized integer storage. Preserve the old
+    # native numeric-engine allocation range while removing the smaller
+    # rationalization-specific precision and exponent restrictions.
+    if abs(decimal.adjusted())>1000000:
+        raise NotImplementedError('Exact rational output exceeds the current conversion resource budget')
+    return Fraction(decimal)
 
 
 def _exact_fraction(value):
     from . import RealField
-    _decimal_fraction(value)  # Check exponent/precision before allocating an exact denominator.
     domain=RealField(prec=value._prec)
     numerator,denominator=domain.to_rational(domain.convert(value),limit=False)
     return Fraction(numerator,denominator)
@@ -78,4 +77,26 @@ def nsimplify(expr, constants=(), tolerance=None, full=False, rational=None,
         raise NotImplementedError('Explicit tolerance for irrational recognition is not implemented')
     if full:
         raise NotImplementedError('Full irrational recognition search is not implemented')
+    constants=tuple(constants)
+    # The original recognition kernel handles IEEE floats. Use it only to
+    # propose a candidate for an MP atom, and validate that candidate at the
+    # original precision before changing any value. Double under/overflow
+    # must never turn a nonzero native MP value into zero or infinity.
+    from . import Float, Rational, Abs, S
+    replacements={}
+    for atom in expression.atoms(Float):
+        approximate=float(atom)
+        if not math.isfinite(approximate) or approximate==0 and atom.is_zero is not True:
+            continue
+        proposal=_core.nsimplify(_core.Float(approximate),constants=constants)
+        if proposal.is_Float:
+            continue
+        digits=max(30,math.ceil(atom._prec*math.log10(2))+10)
+        original=atom.evalf(digits)
+        candidate=proposal.evalf(digits)
+        tolerance_digits=max(1,min(15,round(atom._prec*math.log10(2)-1)))
+        threshold=Rational(1,10**tolerance_digits)*Abs(original)
+        if (Abs(candidate-original)<=threshold)==S.true:
+            replacements[atom]=proposal
+    expression=expression.xreplace(replacements) if replacements else expression
     return _core.nsimplify(expression,constants=constants)

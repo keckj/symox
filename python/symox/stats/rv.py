@@ -10,7 +10,7 @@ probability = P
 expectation = E
 
 
-def is_random(expr):return bool(random_symbols(expr))
+def is_random(x):return bool(random_symbols(x))
 
 
 def pspace_independent(a,b):

@@ -98,21 +98,21 @@ class Point(GeometryEntity):
             raise ZeroDivisionError('Cannot divide a point by zero')
         return self * (1/divisor)
 
-    def dot(self, other):
-        other = Point(other, dim=len(self))
-        return clean(sum((a*b for a, b in zip(self, other)), scalar(0)))
+    def dot(self, p):
+        p = Point(p, dim=len(self))
+        return clean(sum((a*b for a, b in zip(self, p)), scalar(0)))
 
     def distance(self, other):
         if isinstance(other, GeometryEntity) and not isinstance(other, Point):
             return other.distance(self)
         return abs(self - Point(other))
 
-    def taxicab_distance(self, other):
+    def taxicab_distance(self, p):
         from .. import Abs
-        return sum((Abs(v) for v in self-Point(other)), scalar(0))
+        return sum((Abs(v) for v in self-Point(p)), scalar(0))
 
-    def midpoint(self, other):
-        return (self + Point(other))/2
+    def midpoint(self, p):
+        return (self + Point(p))/2
 
     @property
     def unit(self):

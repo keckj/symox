@@ -30,6 +30,7 @@ pub mod linalg;
 pub mod lll;
 pub mod modular;
 pub mod mpoly;
+mod packed;
 pub mod ratfunc;
 pub mod symeigen;
 pub mod solvers;

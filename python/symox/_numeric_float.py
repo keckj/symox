@@ -18,8 +18,6 @@ def nfloat(expr, n=15, exponent=False, dkeys=False):
     from ._structural_queries import _graph, _NON_FUNCTIONS
     if isinstance(n,bool):raise TypeError('Floating precision must be an integer')
     digits=operator.index(n)
-    if digits<1:raise ValueError('Floating precision must be positive')
-    if digits>10000:raise NotImplementedError('Floating conversion is limited to 10000 decimal digits')
     cache={}
     active=set()
     def convert(value):

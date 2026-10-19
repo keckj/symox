@@ -12,7 +12,7 @@ use super::mpoly::{gcd, MPoly, Mono};
 use crate::expand::expand;
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
-use crate::ops::{add, could_extract_minus_sign, div, mul, mul_factor, neg, pow};
+use crate::ops::{add, add_from_terms, could_extract_minus_sign, div, mul, mul_factor, neg, pow};
 use crate::printer::to_str;
 
 // ----------------------------------------------------------------------
@@ -173,6 +173,27 @@ impl PolyCtx {
 
     /// Expression of `p / den`.
     pub fn to_expr_scaled(&self, p: &MPoly, den: &Int) -> Expr {
+        if self.gens.iter().all(Expr::is_symbol) {
+            // Distinct exponent vectors over distinct symbols give distinct
+            // coefficient-free monomials: the sum can skip collection.
+            let mut constant = Number::ZERO;
+            let mut terms: Vec<(Expr, Number)> = Vec::with_capacity(p.terms.len());
+            for (m, c) in &p.terms {
+                let coeff = if den.is_one() { c.to_number() } else { Rat::new(c.clone(), den.clone()).to_number() };
+                let fs: Vec<Expr> = m
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, e)| **e > 0)
+                    .map(|(i, e)| if *e == 1 { self.gens[i].clone() } else { pow(&self.gens[i], &Expr::int(*e as i64)) })
+                    .collect();
+                if fs.is_empty() {
+                    constant = coeff;
+                } else {
+                    terms.push((mul(&fs), coeff));
+                }
+            }
+            return add_from_terms(constant, terms);
+        }
         let mut terms: Vec<Expr> = Vec::with_capacity(p.terms.len());
         for (m, c) in &p.terms {
             let coeff = if den.is_one() {

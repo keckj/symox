@@ -22,6 +22,18 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
     if a == b {
         return Some(matches!(op, RelOp::Eq | RelOp::Le | RelOp::Ge));
     }
+    if matches!(op, RelOp::Eq | RelOp::Ne) {
+        // Boolean atoms are distinct from arithmetic 0/1. Symbols retain the
+        // reference's undecided Boolean/arithmetic role; numerical coercion
+        // must not turn a mixed-domain equality into a subtraction of booleans.
+        let boolean = |e: &Expr| matches!(e.kind(), Kind::Bool(_) | Kind::Rel(..)
+            | Kind::Func(crate::Func::Logic(_) | crate::Func::AppliedPredicate
+                | crate::Func::Set(crate::sets::SetOp::Contains), _));
+        if matches!((a.kind(), b.kind()), (Kind::Bool(_), Kind::Bool(_)))
+            || (!a.is_symbol() && !b.is_symbol() && boolean(a) != boolean(b)) {
+            return Some(op == RelOp::Ne);
+        }
+    }
     if let (Some(a), Some(b)) = (a.as_number(), b.as_number()) {
         return Some(cmp_holds(op, a.cmp_value(b)?));
     }
@@ -110,6 +122,31 @@ pub fn eq(a: &Expr, b: &Expr) -> Expr {
 }
 pub fn ne(a: &Expr, b: &Expr) -> Expr {
     rel(RelOp::Ne, a, b)
+}
+
+#[cfg(test)]
+mod boolean_equality_tests {
+    use super::*;
+
+    #[test]
+    fn boolean_atoms_do_not_equal_arithmetic_integers() {
+        for boolean in [false, true] {
+            for number in [-1, 0, 1, 2] {
+                let boolean = Expr::boolean(boolean);
+                let number = Expr::int(number);
+                assert_eq!(eq(&boolean, &number), Expr::boolean(false));
+                assert_eq!(eq(&number, &boolean), Expr::boolean(false));
+                assert_eq!(ne(&boolean, &number), Expr::boolean(true));
+            }
+        }
+        assert_eq!(eq(&Expr::boolean(false), &Expr::boolean(true)), Expr::boolean(false));
+    }
+
+    #[test]
+    fn symbols_can_still_represent_boolean_variables() {
+        let x = Expr::symbol("x");
+        assert!(matches!(eq(&x, &Expr::boolean(true)).kind(), Kind::Rel(RelOp::Eq, ..)));
+    }
 }
 pub fn lt(a: &Expr, b: &Expr) -> Expr {
     rel(RelOp::Lt, a, b)

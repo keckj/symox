@@ -43,6 +43,9 @@ fn boolean_arg(o: &Bound<'_, PyAny>) -> PyResult<Expr> {
         }
     }
     let e = to_expr(o)?;
+    if e.is_integer_number() && (e.is_zero() || e.is_one()) {
+        return Ok(Expr::boolean(e.is_one()));
+    }
     if !lg::is_boolean(&e) {
         return Err(PyTypeError::new_err(format!("expecting bool or Boolean, not `{e}`.")));
     }
@@ -53,6 +56,20 @@ fn bool_args(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     args.iter().map(|a| boolean_arg(&a)).collect()
 }
 
+fn truth_arg(o: &Bound<'_, PyAny>) -> PyResult<Expr> {
+    let e = to_expr(o)?;
+    match e.kind() {
+        Kind::Num(n) => Ok(Expr::boolean(!n.is_zero())),
+        Kind::Const(symox::expr::Constant::Infinity | symox::expr::Constant::NegInfinity
+            | symox::expr::Constant::NaN | symox::expr::Constant::ComplexInfinity) => Ok(Expr::boolean(true)),
+        _ => Ok(e),
+    }
+}
+
+fn truth_args(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
+    args.iter().map(|a| truth_arg(&a)).collect()
+}
+
 fn exact(name: &str, v: &[Expr], n: usize) -> PyResult<()> {
     if v.len() != n {
         return Err(PyTypeError::new_err(format!("{name} expects {n} arguments, got {}", v.len())));
@@ -61,33 +78,33 @@ fn exact(name: &str, v: &[Expr], n: usize) -> PyResult<()> {
 }
 
 macro_rules! variadic {
-    ($fname:ident, $py:literal, $f:path) => {
+    ($fname:ident, $py:literal, $f:path, $arguments:path) => {
         #[pyfunction]
         #[pyo3(name = $py, signature = (*args))]
         fn $fname(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
-            Ok(wrap($f(bool_args(args)?)))
+            Ok(wrap($f($arguments(args)?)))
         }
     };
 }
 
-variadic!(py_and, "And", lg::and);
-variadic!(py_or, "Or", lg::or);
-variadic!(py_xor, "Xor", lg::xor);
-variadic!(py_nand, "Nand", lg::nand);
-variadic!(py_nor, "Nor", lg::nor);
-variadic!(py_xnor, "Xnor", lg::xnor);
-variadic!(py_equivalent, "Equivalent", lg::equivalent);
+variadic!(py_and, "And", lg::and, bool_args);
+variadic!(py_or, "Or", lg::or, bool_args);
+variadic!(py_xor, "Xor", lg::xor, truth_args);
+variadic!(py_nand, "Nand", lg::nand, bool_args);
+variadic!(py_nor, "Nor", lg::nor, bool_args);
+variadic!(py_xnor, "Xnor", lg::xnor, truth_args);
+variadic!(py_equivalent, "Equivalent", lg::equivalent, truth_args);
 
 #[pyfunction]
 #[pyo3(name = "Not")]
 fn py_not(a: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(lg::not(&boolean_arg(a)?)))
+    Ok(wrap(lg::not(&truth_arg(a)?)))
 }
 
 #[pyfunction]
 #[pyo3(name = "Implies", signature = (*args))]
 fn py_implies(args: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
-    let v = bool_args(args)?;
+    let v = truth_args(args)?;
     exact("Implies", &v, 2)?;
     Ok(wrap(lg::implies(&v[0], &v[1])))
 }

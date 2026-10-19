@@ -19,6 +19,14 @@ def _matrix_operand(value):
 
 
 class _ExprType(type):
+    def __getattr__(cls, name):
+        # Constructors return native Expr instances, so inherited unbound
+        # methods must be accessible through the public constructor as well.
+        value = getattr(_core.Expr, name)
+        if callable(value):
+            return value
+        raise AttributeError(name)
+
     def fromiter(cls, args, **assumptions):
         return cls(*tuple(args), **assumptions)
 
@@ -60,17 +68,54 @@ class Rational(Number):
 class Integer(Rational):
     _matches = staticmethod(lambda e: e.is_Integer)
 
-    def __new__(cls, value=0):
-        if isinstance(value, (float, str, Fraction)):
-            value = int(value)
-        return _core.Integer(value)
+    def __new__(cls, i=0):
+        return _core.Integer(int(i))
 
 
 class Float(Number):
     _matches = staticmethod(lambda e: e.is_Float)
 
-    def __new__(cls, value=0, dps=None, precision=None):
-        return _core.Float(value, dps, precision=precision)
+    def __new__(cls, num=0, dps=None, precision=None):
+        if dps is not None and precision is not None:
+            raise ValueError('Supply decimal digits or binary precision, not both')
+        infer = (dps is None and precision is None) or dps == '' or precision == ''
+        exact_digits = dps == '' or precision == ''
+        if (isinstance(num,int) and not isinstance(num,bool)) or getattr(num,'is_Integer',False):
+            if infer:
+                from decimal import Decimal
+                digits=len(Decimal(int(num)).as_tuple().digits)
+                dps=digits if exact_digits else max(15,digits)
+                precision=None
+            return _core.Float(num,dps,precision=precision)
+        if isinstance(num, str):
+            from decimal import Decimal, InvalidOperation
+            source = num.strip().replace(' ', '_').lower()
+            # Validate Python-style separators before removing them for the
+            # native decimal parser. This conversion never supplies the value.
+            try:
+                float(source)
+            except ValueError:
+                raise ValueError('string-float not recognized: ' + num) from None
+            try:
+                decimal=Decimal(source)
+            except InvalidOperation:
+                if exact_digits:raise ValueError('string-float not recognized by Decimal: '+num) from None
+                # Decimal's exponent range is narrower than the native binary
+                # representation. The reference uses its default precision
+                # when decimal-based inference is unavailable.
+                return _core.Float(source.replace('_',''),15 if infer else dps,precision=precision)
+            num = source.replace('_', '')
+            if not decimal.is_finite():
+                return _core.Float('nan' if decimal.is_nan() else '-inf' if decimal.is_signed() else 'inf')
+            if infer and decimal.is_finite():
+                digits = len(decimal.as_tuple().digits)
+                if '.' not in source:
+                    digits = max(digits, decimal.adjusted() + 1)
+                dps = digits if exact_digits else max(15, digits)
+                precision = None
+        elif exact_digits:
+            raise ValueError('Automatic exact precision requires a string or integer')
+        return _core.Float(num, dps, precision=precision)
 
 
 class Symbol(metaclass=_ExprType):
@@ -142,12 +187,12 @@ class Mul(metaclass=_ExprType):
 class Pow(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Pow)
 
-    def __new__(cls, base, exp, evaluate=None):
+    def __new__(cls, b, e, evaluate=None):
         evaluate = _evaluation_state(evaluate)
-        if _matrix_operand(base):
+        if _matrix_operand(b):
             from ._matrixexpr import MatPow
-            return MatPow(base,exp,evaluate=evaluate)
-        return _core._node("Pow", (base, exp), evaluate)
+            return MatPow(b,e,evaluate=evaluate)
+        return _core._node("Pow", (b, e), evaluate)
 
 
 class Tuple(metaclass=_ExprType):
@@ -161,8 +206,11 @@ class Tuple(metaclass=_ExprType):
 class UnevaluatedExpr(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.class_name == "UnevaluatedExpr")
 
-    def __new__(cls, expr):
-        return _core._node("UnevaluatedExpr", (expr,))
+    def __new__(cls, arg, **kwargs):
+        from . import sympify
+        arg=sympify(arg,strict=True)
+        if kwargs:raise TypeError('UnevaluatedExpr does not accept expression options')
+        return _core._node("UnevaluatedExpr", (arg,))
 
 
 class Atom(metaclass=_ExprType):
@@ -224,8 +272,12 @@ class _SingletonRegistry:
     One = Integer(1)
     NegativeOne = Integer(-1)
 
-    def __call__(self, value):
-        return _core.sympify(value)
+    def __call__(self,a,locals=None,convert_xor=True,strict=False,rational=False,evaluate=None):
+        from . import sympify
+        if locals is None and convert_xor and not strict and not rational and evaluate is None:
+            return sympify(a)
+        return sympify(a,locals=locals,convert_xor=convert_xor,strict=strict,
+                       rational=rational,evaluate=evaluate)
 
     def __getattr__(self, name):
         if name == 'EmptySequence':
@@ -261,29 +313,29 @@ def count_ops(expr, visual=False):
     return implementation(expr,visual=visual)
 
 
-def default_sort_key(expr, order=None):
+def default_sort_key(item, order=None):
     from . import Set
-    if isinstance(expr,Set):return expr._e.sort_key(order=order)
-    if isinstance(expr,_core.AlgebraicNumber):
-        return expr.sort_key(order=order)
-    if isinstance(expr,(_core.Expr,_core._MatrixExpr)):
-        return expr.sort_key(order=order)
-    if callable(getattr(expr,'sort_key',None)):
-        return expr.sort_key(order=order)
-    if not isinstance(expr,str):
+    if isinstance(item,Set):return item._e.sort_key(order=order)
+    if isinstance(item,_core.AlgebraicNumber):
+        return item.sort_key(order=order)
+    if isinstance(item,(_core.Expr,_core._MatrixExpr)):
+        return item.sort_key(order=order)
+    if callable(getattr(item,'sort_key',None)):
+        return item.sort_key(order=order)
+    if not isinstance(item,str):
         try:
-            children=expr.items() if isinstance(expr,dict) else iter(expr)
+            children=item.items() if isinstance(item,dict) else iter(item)
         except TypeError:
             try:
-                return _core.sympify(expr).sort_key(order=order)
+                return _core.sympify(item).sort_key(order=order)
             except (TypeError,ValueError):
                 pass
         else:
             args=[default_sort_key(child,order) for child in children]
-            if isinstance(expr,(dict,set,frozenset)):
+            if isinstance(item,(dict,set,frozenset)):
                 args.sort()
-            return ((10,0,type(expr).__name__),(len(args),tuple(args)),S.One.sort_key(),S.One)
-    return ((0,0,type(expr).__name__),(1,(str(expr),)),S.One.sort_key(),S.One)
+            return ((10,0,type(item).__name__),(len(args),tuple(args)),S.One.sort_key(),S.One)
+    return ((0,0,type(item).__name__),(1,(str(item),)),S.One.sort_key(),S.One)
 
 
 def _restore_atom(name, value):
@@ -307,5 +359,7 @@ def _restore_expr(name, args, evaluate=True):
     if name == "Derivative":
         return _core.Derivative(*args)
     if name == "Piecewise":
+        if args and all(isinstance(arg,(tuple,list)) or getattr(arg,'is_Tuple',False) for arg in args):
+            return _core.Piecewise(*args,evaluate=evaluate)
         return _core.Piecewise(*zip(args[::2], args[1::2]))
     return _core._apply(name, *args)

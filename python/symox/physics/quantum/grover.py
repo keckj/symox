@@ -28,7 +28,7 @@ def superposition_basis(nqubits):
     if nqubits<1:raise ValueError('qubit count must be positive')
     return sum((Qubit(format(i,'0%db'%nqubits)) for i in range(2**nqubits)),S.Integer(0))/S.sqrt(2**nqubits)
 
-def grover_iteration(q,oracle):return qapply(WGate(oracle.nqubits)*oracle*q)
+def grover_iteration(qstate,oracle):return qapply(WGate(oracle.nqubits)*oracle*qstate)
 
 def apply_grover(oracle,nqubits,iterations=None):
     oracle=oracle if isinstance(oracle,OracleGate) else OracleGate(nqubits,oracle)

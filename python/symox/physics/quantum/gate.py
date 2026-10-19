@@ -105,14 +105,14 @@ class CGate(Gate):
 class CGateS(CGate):pass
 
 
-def CPHASE(control,target):return CGate((control,),PhaseGate(target))
+def CPHASE(a,b):return CGate((a,),PhaseGate(b))
 
-def normalized(state):
-    matrix=qubit_to_matrix(state);norm=E.sqrt((matrix.conjugate().T*matrix)[0]);return state/norm
+def normalized(normalize):
+    matrix=qubit_to_matrix(normalize);norm=E.sqrt((matrix.conjugate().T*matrix)[0]);return normalize/norm
 
-def gate_simp(expr):return expr.simplify() if isinstance(expr,OperatorExpr) else expr
+def gate_simp(circuit):return circuit.simplify() if isinstance(circuit,OperatorExpr) else circuit
 
-def gate_sort(expr):return gate_simp(expr)
+def gate_sort(circuit):return gate_simp(circuit)
 
 def random_circuit(ngates,nqubits,gate_space=(XGate,YGate,ZGate,HadamardGate,PhaseGate,TGate),seed=None):
     rng=np.random.default_rng(seed);result=E.Integer(1)

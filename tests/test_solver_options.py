@@ -82,8 +82,7 @@ def test_expand_and_simplify_options_are_applied_or_rejected():
         with pytest.raises(NotImplementedError):
             operation(x, unknown=True)
         assert operation(x, deep=False) == x
-    with pytest.raises(NotImplementedError):
-        s.simplify(x, ratio=1)
+    assert s.simplify(x, ratio=1) == x
     with pytest.raises((TypeError, NotImplementedError)):
         s.integrate(x, x, unknown=True)
 

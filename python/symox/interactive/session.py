@@ -3,10 +3,10 @@ from symox._api_exports import export as _export
 _export(globals(), 'symox.interactive', 'init_session')
 
 
-def int_to_Integer(source):
+def int_to_Integer(s):
     import io,tokenize
     tokens=[]
-    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+    for token in tokenize.generate_tokens(io.StringIO(s).readline):
         kind,text=token.type,token.string
         if kind==tokenize.NUMBER:
             try:int(text.replace('_',''),0)

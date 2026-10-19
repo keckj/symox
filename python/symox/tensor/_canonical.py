@@ -20,14 +20,14 @@ def _lex(factors):
                  for factor in factors)
 
 
-def canon_bp(expression):
+def canon_bp(p):
     from .. import S
-    if not isinstance(expression,TensExpr):return expression
-    if expression.is_canon_bp:return expression
-    if isinstance(expression,TensAdd):return TensAdd(*(canon_bp(arg) for arg in expression.args))
-    if not isinstance(expression,(Tensor,TensMul)):
+    if not isinstance(p,TensExpr):return p
+    if p.is_canon_bp:return p
+    if isinstance(p,TensAdd):return TensAdd(*(canon_bp(arg) for arg in p.args))
+    if not isinstance(p,(Tensor,TensMul)):
         raise NotImplementedError('Canonicalization requires tensors, their sums or their products')
-    coefficient,factors=_split(expression)
+    coefficient,factors=_split(p)
     factors,key=_state(factors);seen={key:1};queue=[(factors,1)]
     best=factors;best_key=_lex(factors);best_sign=1
     for state,sign in queue:
@@ -62,13 +62,13 @@ def canon_bp(expression):
     return _product(coefficient*best_sign,list(best),canonical=True)
 
 
-def contract_metric(expression,g):
-    if not isinstance(expression,TensExpr):return expression
-    if isinstance(expression,TensAdd):return TensAdd(*(contract_metric(term,g) for term in expression.args))
+def contract_metric(t,g):
+    if not isinstance(t,TensExpr):return t
+    if isinstance(t,TensAdd):return TensAdd(*(contract_metric(term,g) for term in t.args))
     if g.rank!=2 or g.index_types[0]!=g.index_types[1]:raise ValueError('Metric contraction requires a rank-two head of one index type')
     if g.symmetry not in (TensorSymmetry.fully_symmetric(2),TensorSymmetry.fully_symmetric(-2)):
         raise NotImplementedError('Automatic metric contraction requires a symmetric or antisymmetric metric')
-    coefficient,factors=_split(expression)
+    coefficient,factors=_split(t)
     antisymmetric=g.symmetry==TensorSymmetry.fully_symmetric(-2)
     while True:
         changed=False
@@ -95,10 +95,10 @@ def contract_metric(expression,g):
     return _product(coefficient,factors)
 
 
-def substitute_indices(expression,*pairs):
-    if not isinstance(expression,TensExpr):return expression
-    if isinstance(expression,TensAdd):return TensAdd(*(substitute_indices(term,*pairs) for term in expression.args))
-    if not isinstance(expression,(Tensor,TensMul)):
+def substitute_indices(t,*pairs):
+    if not isinstance(t,TensExpr):return t
+    if isinstance(t,TensAdd):return TensAdd(*(substitute_indices(term,*pairs) for term in t.args))
+    if not isinstance(t,(Tensor,TensMul)):
         raise NotImplementedError('Index substitution on selected components is not implemented')
     mapping={}
     for old,new in pairs:
@@ -106,7 +106,7 @@ def substitute_indices(expression,*pairs):
         if old.tensor_index_type!=new.tensor_index_type:raise ValueError('An index substitution must preserve its type')
         if old in mapping and mapping[old]!=new:raise ValueError('Conflicting index substitutions')
         mapping[old]=new;mapping[-old]=-new
-    indices=expression.get_indices();structure=_IndexStructure(indices)
+    indices=t.get_indices();structure=_IndexStructure(indices)
     target_names={_name_key(i) for i in mapping.values()};old_names={_name_key(i) for i in mapping}
     occupied={_name_key(i) for i in indices}|target_names;rename={}
     for upper,lower in structure.dum:
@@ -117,7 +117,7 @@ def substitute_indices(expression,*pairs):
             new=TensorIndex('_tensor_subst_'+str(counter),index.tensor_index_type);occupied.add(_name_key(new))
             rename[index]=new;rename[-index]=-new
     indices=[rename.get(index,index) for index in indices]
-    return expression._set_indices(*(mapping.get(index,index) for index in indices))
+    return t._set_indices(*(mapping.get(index,index) for index in indices))
 
 
 def riemann_cyclic_replace(t_r):
@@ -129,9 +129,9 @@ def riemann_cyclic_replace(t_r):
                    TensMul(Rational(1,3),head(a,c,b,d)))
 
 
-def riemann_cyclic(expression):
-    if not isinstance(expression,TensExpr):return expression
-    if isinstance(expression,TensAdd):return canon_bp(TensAdd(*(riemann_cyclic(term) for term in expression.args)))
-    coefficient,factors=_split(expression)
+def riemann_cyclic(t2):
+    if not isinstance(t2,TensExpr):return t2
+    if isinstance(t2,TensAdd):return canon_bp(TensAdd(*(riemann_cyclic(term) for term in t2.args)))
+    coefficient,factors=_split(t2)
     replaced=[riemann_cyclic_replace(factor) if factor.component.symmetry==TensorSymmetry.riemann() else factor for factor in factors]
     return canon_bp(TensMul(coefficient,*replaced))

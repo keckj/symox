@@ -104,8 +104,9 @@ def reshape(seq, how):
 
 
 def group(seq, multiple=True):
-    groups=[list(values) for _,values in itertools.groupby(seq)]
-    return groups if multiple else [(values[0],len(values)) for values in groups]
+    if multiple:
+        return [list(values) for _,values in itertools.groupby(seq)]
+    return [(key,len(list(values))) for key,values in itertools.groupby(seq)]
 
 
 def subsets(seq, k=None, repetition=False):
@@ -125,13 +126,15 @@ cartes=itertools.product
 
 
 def prefixes(seq):
-    for i in range(1,len(seq)+1):
-        yield seq[:i]
+    n=len(seq)
+    for i in range(n):
+        yield seq[:i+1]
 
 
 def postfixes(seq):
-    for i in range(1,len(seq)+1):
-        yield seq[-i:]
+    n=len(seq)
+    for i in range(n):
+        yield seq[n-i-1:]
 
 
 def rotations(s, dir=1):
@@ -168,7 +171,7 @@ def has_variety(seq):
 
 
 def take(iter, n):
-    return [value for _,value in zip(range(operator.index(n)),iter)]
+    return [value for _,value in zip(range(n),iter)]
 
 
 def prod(a, start=1):

@@ -130,27 +130,27 @@ class JyBraCoupled(JzBraCoupled):axis='y'
 _COUPLED_KET={'x':JxKetCoupled,'y':JyKetCoupled,'z':JzKetCoupled};_COUPLED_BRA={'x':JxBraCoupled,'y':JyBraCoupled,'z':JzBraCoupled}
 
 
-def uncouple(expression,jn=None,jcoupling=None):
-    if isinstance(expression,JzKetCoupled):
-        j1,j2=expression.jn;result=S.Integer(0)
+def uncouple(expr,jn=None,jcoupling_list=None):
+    if isinstance(expr,JzKetCoupled):
+        j1,j2=expr.jn;result=S.Integer(0)
         for m1 in m_values(j1)[1]:
-            m2=expression.m-m1
+            m2=expr.m-m1
             if m2 not in m_values(j2)[1]:continue
-            coefficient=clebsch_gordan(j1,j2,expression.j,m1,m2,expression.m)
-            if coefficient:result+=coefficient*TensorProduct(_KET[expression.axis](j1,m1),_KET[expression.axis](j2,m2))
+            coefficient=clebsch_gordan(j1,j2,expr.j,m1,m2,expr.m)
+            if coefficient:result+=coefficient*TensorProduct(_KET[expr.axis](j1,m1),_KET[expr.axis](j2,m2))
         return result
-    if isinstance(expression,OperatorExpr):return sum((c*_uncouple_word(w) for w,c in expression._terms.items()),S.Integer(0))
-    return expression
+    if isinstance(expr,OperatorExpr):return sum((c*_uncouple_word(w) for w,c in expr._terms.items()),S.Integer(0))
+    return expr
 
 def _uncouple_word(word):
     result=S.Integer(1)
     for atom in word:result=result*uncouple(atom) if isinstance(atom,JzKetCoupled) else result*atom
     return result
 
-def couple(expression,jcoupling_list=None):
-    if isinstance(expression,TensorProductAtom):
-        if len(expression.factors)!=2 or any(not isinstance(k,JzKet) for k in expression.factors):raise NotImplementedError('coupling requires a tensor product of two spin kets')
-        a,b=expression.factors
+def couple(expr,jcoupling_list=None):
+    if isinstance(expr,TensorProductAtom):
+        if len(expr.factors)!=2 or any(not isinstance(k,JzKet) for k in expr.factors):raise NotImplementedError('coupling requires a tensor product of two spin kets')
+        a,b=expr.factors
         if a.axis!=b.axis:raise ValueError('coupled spins must use a common quantization axis')
         m=a.m+b.m;minimum=abs(a.j-b.j);maximum=a.j+b.j;result=S.Integer(0)
         for n in range(int(maximum-minimum)+1):
@@ -159,13 +159,13 @@ def couple(expression,jcoupling_list=None):
             coefficient=clebsch_gordan(a.j,b.j,j,a.m,b.m,m)
             if coefficient:result+=coefficient*_COUPLED_KET[a.axis](j,m,(a.j,b.j))
         return result
-    if isinstance(expression,OperatorExpr):
+    if isinstance(expr,OperatorExpr):
         result=S.Integer(0)
-        for word,c in expression._terms.items():
+        for word,c in expr._terms.items():
             term=c
             for atom in word:term=term*couple(atom) if isinstance(atom,TensorProductAtom) else term*atom
             result+=term
         return result
-    return expression
+    return expr
 
 __all__=['m_values','Jplus','Jminus','Jx','Jy','Jz','J2','Rotation','WignerD','JxKet','JxBra','JyKet','JyBra','JzKet','JzBra','JzOp','J2Op','JxKetCoupled','JxBraCoupled','JyKetCoupled','JyBraCoupled','JzKetCoupled','JzBraCoupled','couple','uncouple']

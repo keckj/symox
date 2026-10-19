@@ -323,6 +323,13 @@ pub fn negated_rel(r: &Expr) -> Expr {
 
 /// Evaluate `op(args)` (entry point used by [`crate::functions::func`]).
 pub fn eval(op: LogicOp, args: Vec<Expr>) -> Expr {
+    // Substitution can introduce integer 0/1 after Python's boolean argument
+    // conversion. Rebuilding the connective must apply the same identities.
+    let args = args.into_iter().map(|a| {
+        if a.is_integer_number() && (a.is_zero() || a.is_one()) {
+            Expr::boolean(a.is_one())
+        } else { a }
+    }).collect();
     match op {
         LogicOp::And => lattice(true, args),
         LogicOp::Or => lattice(false, args),

@@ -13,6 +13,11 @@ use crate::simplify::{numer_denom, together};
 use crate::subs::{subs, subs1};
 use crate::traverse::{free_symbols, has};
 
+mod algebraic;
+mod recast;
+pub use recast::{solve_atom,solve_atom_system};
+pub(crate) mod lambert;
+
 /// `lhs - rhs` for an equation (`Eq`) or the expression itself.
 pub fn as_expr(eq: &Expr) -> Expr {
     match eq.kind() {
@@ -45,12 +50,16 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
         return if *b { None } else { Some(vec![]) };
     }
     let mut sols = solve_rec(&f, x, 0)?;
+    // Infinities reached by log(0), for example, are limiting values rather
+    // than finite solutions. This restriction also applies with check=False.
+    sols.retain(|s| !matches!(s.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN));
     if check {
         // drop solutions where the original expression is undefined
         let (_, den) = numer_denom(&together(&f));
         sols.retain(|s| {
             let d = expand(&subs1(&den, x, s));
-            !(d.is_zero() || matches!(d.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)))
+            !(d.is_zero() || algebraic::polynomial_zero(&den, x, s) == Some(true)
+                || matches!(d.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)))
                 && matches_assumptions(x, s)
         });
         // Numerical substitution only verifies the original equation; it is
@@ -110,17 +119,56 @@ fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
 }
 
 fn verify(f: &Expr, x: &Expr, s: &Expr) -> bool {
-    let v = subs1(f, x, s);
-    if !crate::functions::is_numeric_value(&v) {
-        return true;
+    if let Some(zero) = algebraic::polynomial_zero(f, x, s) {
+        return zero;
     }
-    match crate::evalf::eval_c64(&v) {
-        Some(z) => {
-            let scale = crate::evalf::eval_c64(s).map(|w| w.norm()).unwrap_or(1.0).max(1.0);
-            z.norm() < 1e-8 * scale.max(1.0) * 10.0
+    verify_equation(f, &[(x.clone(), s.clone())])
+}
+
+/// Check exact identities first. A numerical rejection of an exact candidate
+/// requires a stable residual at two increasing multiprecision evaluations,
+/// well above equation-scaled rounding error. Undecidable cases are retained.
+/// Approximate data uses its declared precision and an equation-relative scale.
+fn verify_equation(f: &Expr, assignments: &[(Expr, Expr)]) -> bool {
+    let v = subs(f, assignments);
+    if v.is_zero() { return true; }
+    if matches!(v.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)) { return false; }
+    let precision = assignments.iter().filter_map(|(_, value)| crate::evalf_mp::max_precision(value))
+        .chain(crate::evalf_mp::max_precision(f)).max();
+    let Some(precision) = precision else {
+        if let Some(zero) = crate::assumptions::exact_queries(|| crate::assumptions::is_zero(&v)) {
+            return zero;
         }
-        None => true,
+        if !crate::functions::is_numeric_value(&v) { return true; }
+        let mut previous = None;
+        for bits in [160, 320] {
+            let Some(value) = crate::evalf_mp::eval_mp(&v, bits) else { return true; };
+            let scale = residual_scale(f, assignments, bits);
+            let magnitude = value.abs(bits);
+            if magnitude.cmp(&scale.ldexp(24 - bits as i64)).is_le() { return true; }
+            if let Some(prior) = previous {
+                let change = value.sub(&prior, bits).abs(bits);
+                if change.cmp(&magnitude.ldexp(-24)).is_le() { return false; }
+            }
+            previous = Some(value);
+        }
+        return true;
+    };
+    let working = precision + 64;
+    let Some(residual) = crate::evalf_mp::eval_mp(&v, working) else { return true; };
+    let scale = residual_scale(f, assignments, working);
+    residual.abs(working).cmp(&scale.ldexp(8 - precision as i64)).is_le()
+}
+
+fn residual_scale(f: &Expr, assignments: &[(Expr, Expr)], working: u32) -> crate::bigfloat::BigFloat {
+    let mut scale = crate::bigfloat::BigFloat::one();
+    for term in if f.is_add() { f.args() } else { vec![f.clone()] } {
+        if let Some(value) = crate::evalf_mp::eval_mp(&subs(&term, assignments), working) {
+            let magnitude = value.abs(working);
+            if magnitude.cmp(&scale).is_gt() { scale = magnitude; }
+        }
     }
+    scale
 }
 
 fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
@@ -134,7 +182,8 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     let num = if has(&num, x) { num } else { return Some(vec![]) };
     // polynomial in x
     if let Some(c) = poly_coeffs(&num, x) {
-        return poly_roots(&c);
+        return poly_roots(&c).or_else(|| complete_roots(&num, x, &c))
+            .or_else(|| algebraic::roots(&num, x));
     }
     // product = 0 -> union of the factors' solutions
     if let Kind::Mul(_, facs) = num.kind() {
@@ -158,6 +207,9 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if let Some(r) = invert(&num, x, depth) {
         return Some(r);
     }
+    if let Some(r) = lambert::solve(&num, x) {
+        return Some(r);
+    }
     // several logarithms: combine them (log(a) - log(b) = log(a/b))
     let lc = crate::simp::logcombine(&num, true);
     if lc != num {
@@ -170,6 +222,15 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         return solve_rec(&ex, x, depth + 1);
     }
     None
+}
+
+/// The full `roots` machinery (quartics, decomposition such as x**8 in
+/// x**2, factorisation), accepted only when it finds every root: SymPy's
+/// `roots` may return an incomplete set, which `solve` must not report.
+fn complete_roots(num: &Expr, x: &Expr, c: &[Expr]) -> Option<Vec<Expr>> {
+    let deg = c.iter().rposition(|t| !t.is_zero())? as u32;
+    let rs = crate::poly::roots::roots(num, std::slice::from_ref(x)).ok()?;
+    (rs.iter().map(|r| r.1).sum::<u32>() == deg).then(|| rs.into_iter().map(|r| r.0).collect())
 }
 
 /// Roots of a polynomial given by its dense coefficients (low degree
@@ -238,13 +299,13 @@ pub fn poly_roots(c: &[Expr]) -> Option<Vec<Expr>> {
             return Some(out);
         }
         // closed forms for cubics
-        if rem.len() == 4 {
+        if rem.len() == 4 && crate::poly::roots::radical_options().cubics {
             out.extend(cubic(&rem)?);
             return Some(out);
         }
         return None;
     }
-    if deg == 3 {
+    if deg == 3 && crate::poly::roots::radical_options().cubics {
         out.extend(cubic(&c)?);
         return Some(out);
     }
@@ -403,7 +464,7 @@ fn generators(e: &Expr, x: &Expr, out: &mut Vec<Expr>) {
 }
 
 fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
-    let u = Expr::symbol("_u");
+    let u = Expr::dummy("_u", crate::Assumptions::NONE);
     // exp(k*x + c): write as exp(c) * U**(k*q) with U = exp(x/q)
     let mut gens = Vec::new();
     generators(f, x, &mut gens);
@@ -590,6 +651,48 @@ pub fn solve_system_with_check(eqs: &[Expr], vars: &[Expr], check: bool) -> Opti
         let result = linear_system(&eqs, vars)?;
         return Some(if check { check_system_solution(result, &original, vars) } else { result });
     }
+    // A product vanishes on the UNION of its factor zero sets. Solving only
+    // for one pivot divides by the other factors and loses whole components
+    // when those factors contain another unknown. Preserve supplied factors
+    // before expansion, branching on every positive integral factor. Unknown
+    // parameter-only factors cannot be discarded as nonzero.
+    for (index,equation) in original.iter().enumerate(){
+        // Recover expanded components only when a pivot could divide by
+        // another unknown. Ordinary equations with a proved nonzero linear
+        // pivot need no factorization: that pivot already parametrizes all
+        // solutions without a singular denominator.
+        let recovered=if equation.is_add(){
+            let coefficients:Vec<_>=vars.iter().filter_map(|v|poly_coeffs(equation,v)).collect();
+            let regular_linear=coefficients.iter().any(|c|c.len()==2&&
+                crate::assumptions::exact_queries(||crate::assumptions::is_zero(&c[1]))==Some(false));
+            let singular_pivot=coefficients.iter().any(|c|c.len()>1&&vars.iter().any(|v|has(c.last().unwrap(),v)));
+            if !regular_linear&&singular_pivot{crate::poly::api::factor(equation).ok()}else{None}
+        }else{None};
+        let equation=recovered.as_ref().unwrap_or(equation);
+        let Kind::Mul(coefficient,factors)=equation.kind() else{continue;};
+        if !coefficient.is_rational()||coefficient.is_zero()
+            ||factors.iter().any(|(_,exponent)|!exponent.as_i64().is_some_and(|n|n>0)){continue;}
+        let mut dependent=Vec::new();let mut supported=true;
+        for (base,_) in factors{
+            if vars.iter().any(|variable|has(base,variable)){dependent.push(base.clone());}
+            else if crate::assumptions::exact_queries(||crate::assumptions::is_zero(base))!=Some(false){supported=false;break;}
+        }
+        if !supported||dependent.len()<2{continue;}
+        let mut rows=Vec::new();
+        for factor in dependent{
+            let mut branch=original.clone();branch[index]=factor;
+            match solve_system_with_check(&branch,vars,check)?{
+                SystemSolution::NoSolution=>{},
+                SystemSolution::Map(assignments)=>rows.push(vars.iter().map(|variable|
+                    assignments.iter().find(|(key,_)|key==variable).map(|(_,value)|value.clone()).unwrap_or_else(||variable.clone())).collect()),
+                SystemSolution::Tuples(mut branch_rows)=>rows.append(&mut branch_rows),
+            }
+        }
+        rows.sort_by_cached_key(|row:&Vec<Expr>|row.iter().map(crate::sortkey::sort_key).collect::<Vec<_>>());
+        rows.dedup();
+        let result=if rows.is_empty(){SystemSolution::NoSolution}else{SystemSolution::Tuples(rows)};
+        return Some(if check{check_system_solution(result,&original,vars)}else{result});
+    }
     // nonlinear: successive substitution
     let sols = substitute_solve(&eqs, vars, 0, check)?;
     if sols.is_empty() {
@@ -614,8 +717,7 @@ fn check_system_solution(result: SystemSolution, equations: &[Expr], variables: 
             if denominator.is_zero() || matches!(denominator.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)) { return false; }
             let residual = subs(equation, assignments);
             if matches!(residual.kind(), Kind::Const(Constant::ComplexInfinity | Constant::NaN)) { return false; }
-            if !crate::functions::is_numeric_value(&residual) { return true; }
-            crate::evalf::eval_c64(&residual).is_none_or(|value| value.norm() < 1e-7)
+            verify_equation(equation, assignments)
         })
     };
     match result {
@@ -636,21 +738,33 @@ fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32, check: bool) -> Opt
     if eqs.is_empty() {
         return Some(vec![FxHashMap::default()]);
     }
-    if eqs.iter().any(|e| vars.iter().all(|v| !has(e, v))) {
-        // a constant non-zero equation: inconsistent
+    if eqs.iter().any(|e| vars.iter().all(|v| !has(e, v))
+        &&crate::assumptions::exact_queries(||crate::assumptions::is_zero(e))==Some(false)) {
+        // Only a PROVED nonzero equation independent of the remaining
+        // unknowns proves inconsistency. An unresolved parameter constraint
+        // is retained by the original-equation verification, as in solve's
+        // generic conditional-candidate convention.
         return Some(vec![]);
     }
+    let eqs:Vec<_>=eqs.into_iter().filter(|e|vars.iter().any(|v|has(e,v))).collect();
+    if eqs.is_empty(){return Some(vec![FxHashMap::default()]);}
     // choose the (equation, variable) pair that is simplest to solve:
-    // prefer degree 1
-    let mut best: Option<(usize, usize, usize)> = None;
+    // Prefer degree 1, then a coefficient proved nonzero. This avoids
+    // introducing a spurious exceptional parameter slice when a regular
+    // pivot (for example z in x*y-z) already covers the entire graph.
+    let mut best: Option<(usize, usize, (usize,bool))> = None;
     for (i, e) in eqs.iter().enumerate() {
         for (j, v) in vars.iter().enumerate() {
             if !has(e, v) {
                 continue;
             }
-            let deg = poly_coeffs(e, v).map(|c| c.len() - 1).unwrap_or(100);
-            if best.is_none_or(|(_, _, d)| deg < d) {
-                best = Some((i, j, deg));
+            let coefficients=poly_coeffs(e,v);
+            let deg=coefficients.as_ref().map(|c|c.len()-1).unwrap_or(100);
+            let singular=coefficients.as_ref().and_then(|c|c.last()).is_none_or(|leading|
+                crate::assumptions::exact_queries(||crate::assumptions::is_zero(leading))!=Some(false));
+            let score=(deg,singular);
+            if best.is_none_or(|(_, _, d)| score < d) {
+                best = Some((i, j, score));
             }
         }
     }
@@ -694,7 +808,7 @@ fn linear_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
         rows.swap(r, p);
         let piv = rows[r][col].clone();
         for k in 0..=n {
-            rows[r][k] = together(&expand(&div(&rows[r][k], &piv)));
+            rows[r][k] = reduce_entry(&div(&rows[r][k], &piv));
         }
         for i in 0..rows.len() {
             if i == r {
@@ -706,7 +820,7 @@ fn linear_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
             }
             for k in 0..=n {
                 let v = sub(&rows[i][k], &mul2(&f, &rows[r][k]));
-                rows[i][k] = together(&expand(&v));
+                rows[i][k] = reduce_entry(&v);
             }
         }
         pivots.push((r, col));
@@ -717,7 +831,8 @@ fn linear_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
     }
     // inconsistent rows 0 = c
     for row in rows.iter().skip(r) {
-        if row[..n].iter().all(|c| c.is_zero()) && !row[n].is_zero() {
+        if row[..n].iter().all(|c| c.is_zero())
+            &&crate::assumptions::exact_queries(||crate::assumptions::is_zero(&row[n]))==Some(false) {
             return Some(SystemSolution::NoSolution);
         }
     }
@@ -729,9 +844,20 @@ fn linear_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
                 val = sub(&val, &mul2(&rows[i][k], &vars[k]));
             }
         }
-        out.push((vars[col].clone(), expand(&val)));
+        // Like SymPy, keep a parametric value as one cancelled fraction:
+        // expanding it would distribute the shared denominator over every
+        // numerator term.
+        let numeric = rows[i].iter().all(|c| crate::matrix::ratfunc::as_numer_denom(c).1.is_number());
+        out.push((vars[col].clone(), if numeric { expand(&val) } else { val }));
     }
     Some(SystemSolution::Map(out))
+}
+
+/// Normalise an elimination entry, cancelling common polynomial factors so
+/// fraction-free growth does not pile up (a**9/a**8 ...).
+fn reduce_entry(v: &Expr) -> Expr {
+    let c = crate::matrix::ratfunc::cancel_opts(v, true);
+    if &c == v { together(&expand(v)) } else { c }
 }
 
 // ----------------------------------------------------------------------
@@ -940,5 +1066,19 @@ mod tests {
         }
         let r = nsolve(&[parse_str("cos(x) - x").unwrap()], &[x], &[1.0]).unwrap();
         assert!((r[0] - 0.739_085_133_215_160_6).abs() < 1e-14);
+    }
+
+    #[test]
+    fn product_system_preserves_every_factor_component(){
+        let x=Expr::symbol("x");let y=Expr::symbol("y");
+        let equation=parse_str("(x-1)*(y-2)").unwrap();
+        let SystemSolution::Tuples(rows)=solve_system(&[equation.clone()],&[x.clone(),y.clone()]).unwrap() else{panic!("component union expected");};
+        assert_eq!(rows.len(),2);
+        assert!(rows.contains(&vec![Expr::one(),y.clone()]));
+        assert!(rows.contains(&vec![x.clone(),Expr::int(2)]));
+        let SystemSolution::Tuples(rows)=solve_system(&[equation,parse_str("x+y-4").unwrap()],&[x,y]).unwrap() else{panic!("both branches expected");};
+        assert_eq!(rows.len(),2);
+        assert!(rows.contains(&vec![Expr::one(),Expr::int(3)]));
+        assert!(rows.contains(&vec![Expr::int(2),Expr::int(2)]));
     }
 }

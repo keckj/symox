@@ -89,11 +89,14 @@ def test_native_lambda_and_zero_polynomial():
     assert polynomial.all_coeffs()==[0] and polynomial.degree()==-sx.oo
 
 
-def test_pure_polynomial_equality_and_hash_retain_coefficient_domain():
+def test_pure_polynomial_equality_unifies_exact_coefficient_domains():
     rational=sx.Matrix([[sx.Rational(1,2),sx.Rational(1,2)],[sx.Rational(1,2),sx.Rational(1,2)]]).charpoly()
     integer=sx.diag(0,1).charpoly()
     assert rational.all_coeffs()==integer.all_coeffs()
-    assert rational!=integer and len({rational,integer})==2
+    reference_rational=sp.Matrix([[sp.Rational(1,2)]*2]*2).charpoly()
+    reference_integer=sp.diag(0,1).charpoly()
+    assert (rational==integer)==(reference_rational==reference_integer)
+    assert hash(rational)==hash(integer) and len({rational,integer})==1
     x,y=sx.symbols('x y')
     assert sx.eye(2).charpoly(x)==sx.eye(2).charpoly(y)
     assert hash(sx.eye(2).charpoly(x))==hash(sx.eye(2).charpoly(y))

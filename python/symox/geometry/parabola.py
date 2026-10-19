@@ -75,18 +75,18 @@ class Parabola(GeometryEntity):
         return clean((point-self.directrix.p1).dot(normal)**2/normal.dot(normal)
                      -(point-self.focus).dot(point-self.focus))
 
-    def contains(self, point):
-        point = Point(point, dim=2)
-        return zero(self.equation(*point))
+    def contains(self, other):
+        other = Point(other, dim=2)
+        return zero(self.equation(*other))
 
-    def intersection(self, other):
+    def intersection(self, o):
         from .. import Dummy, solve
-        if isinstance(other, Point):
-            return [other] if self.contains(other) else []
-        if not isinstance(other, LinearEntity) or other.ambient_dimension != 2:
+        if isinstance(o, Point):
+            return [o] if self.contains(o) else []
+        if not isinstance(o, LinearEntity) or o.ambient_dimension != 2:
             raise NotImplementedError('Parabola intersections currently accept points and planar linear entities')
         parameter = Dummy('parabola_line_parameter', real=True)
-        point = other.arbitrary_point(parameter)
+        point = o.arbitrary_point(parameter)
         roots = solve(self.equation(*point), parameter)
         result = []
         for root in roots:
@@ -94,7 +94,7 @@ class Parabola(GeometryEntity):
                 continue
             if root.is_real is not True:
                 raise NotImplementedError('Parabola intersection reality is undecidable')
-            if other._accept(root):
-                result.append(other.p1+other.direction*root)
+            if o._accept(root):
+                result.append(o.p1+o.direction*root)
         from .ellipse import _sort_points
         return _sort_points(result)

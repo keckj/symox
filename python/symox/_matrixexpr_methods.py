@@ -42,6 +42,12 @@ class _ExprCondPairView(_TupleView):
     @property
     def func(self):return type(self)
 
+    @property
+    def expr(self):return self[0]
+
+    @property
+    def cond(self):return self[1]
+
     def to_sympy(self):
         from sympy.functions.elementary.piecewise import ExprCondPair
         return ExprCondPair(*(value.to_sympy() if hasattr(value,'to_sympy') else value for value in self))
@@ -54,6 +60,7 @@ def _children(value):
         return tuple(value)
     if getattr(value,'is_Piecewise',False):
         arguments=value.args
+        if arguments and isinstance(arguments[0],_ExprCondPairView):return arguments
         return tuple(_ExprCondPairView(*arguments[i:i+2]) for i in range(0,len(arguments),2))
     if getattr(value,'is_Order',False):
         arguments=value.args
@@ -153,21 +160,21 @@ def has_free(self, *patterns):
     return False
 
 
-def has_xfree(self, patterns):
-    if not isinstance(patterns, set):
+def has_xfree(self, s):
+    if not isinstance(s, set):
         raise TypeError('has_xfree requires a set')
     from . import Expr
-    if self in patterns:
+    if self in s:
         return True
     for child in _children(self):
         if isinstance(child, Expr):
-            scalar = {p for p in patterns if not getattr(p, 'is_Matrix', False)}
+            scalar = {p for p in s if not getattr(p, 'is_Matrix', False)}
             if child.has_xfree(scalar):
                 return True
         elif hasattr(child, 'has_xfree'):
-            if child.has_xfree(patterns):
+            if child.has_xfree(s):
                 return True
-        elif any(v in patterns for v in _walk(child)):
+        elif any(v in s for v in _walk(child)):
             return True
     return False
 
@@ -665,11 +672,27 @@ def is_constant(self, *wrt, **flags):
     return None
 
 
+def _diagonal_length(self):
+    if self.kind=='DiagonalOf':
+        return self.shape[0]
+    if self.kind!='DiagonalMatrix':
+        raise AttributeError('diagonal_length is available for diagonal matrix expressions')
+    rows,cols=self.shape
+    if rows.is_Integer and cols.is_Integer:
+        return min(rows,cols)
+    if rows.is_Integer:return rows
+    if cols.is_Integer:return cols
+    if rows==cols:return rows
+    try:return min(rows,cols)
+    except TypeError:return None
+
+
 def install():
     from . import _core
     global _native_has
     if _native_has is None:
         _native_has = _core._MatrixExpr.has
+    _core._MatrixExpr.diagonal_length=property(_diagonal_length)
     methods = {
         'atoms': atoms, 'find': find, 'count': count, 'has': has,
         'has_free': has_free, 'has_xfree': has_xfree, 'copy': copy,

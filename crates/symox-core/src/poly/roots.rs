@@ -20,6 +20,22 @@ use crate::expr::{Expr, Kind};
 use crate::functions::{cos, sin};
 use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
 
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct RadicalOptions{pub cubics:bool,pub quartics:bool}
+impl Default for RadicalOptions{fn default()->Self{Self{cubics:true,quartics:true}}}
+thread_local!{static RADICAL_OPTIONS:std::cell::Cell<RadicalOptions>=std::cell::Cell::new(RadicalOptions{cubics:true,quartics:true});}
+
+pub fn radical_options()->RadicalOptions{RADICAL_OPTIONS.with(std::cell::Cell::get)}
+
+/// Lexical native computation only: options cannot leak across calls, threads
+/// or unwinding, and callers leave the scope before invoking Python callbacks.
+pub fn with_radical_options<T>(options:RadicalOptions,compute:impl FnOnce()->T)->T{
+    struct Restore(RadicalOptions);
+    impl Drop for Restore{fn drop(&mut self){RADICAL_OPTIONS.with(|slot|slot.set(self.0));}}
+    let _restore=Restore(RADICAL_OPTIONS.with(|slot|slot.replace(options)));
+    compute()
+}
+
 fn is_neg(e: &Expr) -> bool {
     match e.as_number() {
         Some(n) => n.is_negative(),
@@ -628,10 +644,11 @@ fn try_heuristics(f: &UPoly) -> Vec<Expr> {
         }
     }) {
         result.extend(roots_cyclotomic(idx));
-    } else if n == 3 {
+    } else if n == 3 && radical_options().cubics {
         result.extend(roots_cubic(&f));
-    } else if n == 4 {
-        result.extend(roots_quartic(&f));
+    } else if n == 4 && radical_options().quartics {
+        // Enabling a quartic formula includes its internal cubic resolvent.
+        result.extend(with_radical_options(RadicalOptions::default(),||roots_quartic(&f)));
     }
     result
 }
@@ -1110,6 +1127,26 @@ mod tests {
     use super::*;
     use crate::parser::parse_str;
     use crate::printer::to_str;
+
+    #[test]
+    fn radical_controls_preserve_complete_solve_fallback_and_restore_context(){
+        let disabled=RadicalOptions{cubics:false,quartics:false};
+        let x=Expr::symbol("x");let cubic=parse_str("x^3-x+1").unwrap();
+        with_radical_options(disabled,||{
+            assert!(roots(&cubic,&[x.clone()]).unwrap().is_empty());
+            let complete=crate::solve::solve(&cubic,&x).unwrap();
+            assert_eq!(complete.len(),3);
+            assert!(complete.iter().all(|root|root.class_name()=="ComplexRootOf"));
+            assert_eq!(roots(&parse_str("x^4+1").unwrap(),&[x.clone()]).unwrap().len(),4);
+            with_radical_options(RadicalOptions::default(),||assert_eq!(roots(&cubic,&[x.clone()]).unwrap().len(),3));
+            assert_eq!(radical_options(),disabled);
+            assert_eq!(std::thread::spawn(radical_options).join().unwrap(),RadicalOptions::default());
+        });
+        assert_eq!(radical_options(),RadicalOptions::default());
+        let panic=std::panic::catch_unwind(||with_radical_options(disabled,||panic!("scope test")));
+        assert!(panic.is_err());
+        assert_eq!(radical_options(),RadicalOptions::default());
+    }
 
     fn r(s: &str) -> String {
         let rs = roots(&parse_str(s).unwrap(), &[]).unwrap();

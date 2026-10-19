@@ -43,6 +43,10 @@ pub fn expand_func(e: &Expr) -> Expr {
     rebuild(e, &expand_one)
 }
 
+pub fn expand_func_deep(e: &Expr, deep: bool) -> Expr {
+    if deep { expand_func(e) } else { expand_one(e).unwrap_or_else(|| e.clone()) }
+}
+
 fn expand_one(e: &Expr) -> Option<Expr> {
     use SpecialFn::*;
     if let Kind::Const(c) = e.kind() {

@@ -16,14 +16,22 @@ def SymmetricGroup(n):
     gens=[_cycle(n,range(n))]
     if n>1:
         gens.append(_cycle(n,[0,1]))
-    return PermutationGroup(gens)
+    group=PermutationGroup(gens)
+    from math import factorial
+    group._order=factorial(n);group._is_symmetric=True
+    _set_named_properties(group,n,n)
+    return group
 
 
 def AlternatingGroup(n):
     n=_degree(n)
     if n<3:
         return PermutationGroup(Permutation([0]))
-    return PermutationGroup([_cycle(n,[0,1,i]) for i in range(2,n)] or [Permutation(range(n))])
+    group=PermutationGroup([_cycle(n,[0,1,i]) for i in range(2,n)] or [Permutation(range(n))])
+    from math import factorial
+    group._order=factorial(n)//2;group._is_alternating=True
+    _set_named_properties(group,n,n,True)
+    return group
 
 
 def CyclicGroup(n):
@@ -65,7 +73,8 @@ class SymmetricPermutationGroup(PermutationGroup):
         from math import factorial
         return factorial(self.degree)
 
-    def contains(self,permutation,strict=True):
+    def contains(self,g,strict=True):
+        permutation=g
         return isinstance(permutation,Permutation) and (permutation.size==self.degree or not strict and permutation.size<self.degree)
 
     __contains__ = contains

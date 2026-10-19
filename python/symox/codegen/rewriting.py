@@ -9,8 +9,6 @@ class Optimization:
 class ReplaceOptim(Optimization):
     def __init__(self,query,value,**kwargs):super().__init__(**kwargs);self.query,self.value=query,value
     def __call__(self,expr):
-        if callable(self.query) and not isinstance(self.query,type) and not hasattr(self.query,'_symox_head_name'):
-            return S.bottom_up(expr,lambda node:self.value(*node.args) if self.query(node) else node)
         return expr.replace(self.query,self.value)
 class _Transform(Optimization):
     def __init__(self,transform,**kwargs):super().__init__(**kwargs);self.transform=transform
@@ -54,8 +52,8 @@ def create_expand_pow_optimization(limit,*,base_req=lambda base:True):
 
 expm1_opt=FuncMinusOneOptim(S.exp,expm1)
 cosm1_opt=FuncMinusOneOptim(S.cos,lambda x:-2*S.sin(x/2)**2)
-exp2_opt=ReplaceOptim(lambda e:e.is_Pow and e.base==2,lambda base,exp:exp2(exp))
-log1p_opt=ReplaceOptim(lambda e:_head(e,'log') and len(e.args)==1 and e.args[0].is_Add and S.Integer(1) in e.args[0].args,lambda arg:log1p(arg-1))
+exp2_opt=ReplaceOptim(lambda e:e.is_Pow and e.base==2,lambda expr:exp2(expr.exp))
+log1p_opt=ReplaceOptim(lambda e:_head(e,'log') and len(e.args)==1 and e.args[0].is_Add and S.Integer(1) in e.args[0].args,lambda expr:log1p(expr.args[0]-1))
 
 def _log2(expr):
     def visit(e):

@@ -1,5 +1,6 @@
 """Native expression dispatch for differential tensors and point evaluation."""
 from functools import wraps
+from .._dispatch_arguments import FirstArgument
 
 
 def install():
@@ -50,11 +51,14 @@ def install():
     for name in ('diff','simplify','expand'):
         original = getattr(symox,name)
         def transform(original,name):
+            first=FirstArgument(original)
             @wraps(original)
-            def operation(expression,*args,**kwargs):
+            def operation(*args,**kwargs):
+                expression=first.get(args,kwargs)
                 if isinstance(expression,_Tensor):
-                    return getattr(expression,name)(*args,**kwargs)
-                return original(expression,*args,**kwargs)
+                    expression,rest,options=first.split(args,kwargs)
+                    return getattr(expression,name)(*rest,**options)
+                return original(*args,**kwargs)
             return operation
         setattr(symox,name,transform(original,name))
     Expr._diffgeom_dispatch_installed = True

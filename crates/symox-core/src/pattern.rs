@@ -20,15 +20,16 @@ fn is_wild(e: &Expr) -> bool {
 
 /// Does the pattern contain wildcards?
 pub fn has_wild(p: &Expr) -> bool {
-    if p.mask() == 0 {
-        return false;
+    fn visit(p:&Expr,seen:&mut rustc_hash::FxHashSet<usize>)->bool{
+        if p.mask()==0||!seen.insert(p.dag_id()){return false;}
+        match p.kind(){
+            Kind::Sym(s)=>s.is_wild(),
+            Kind::Add(_,terms)=>terms.iter().any(|(t,_)|visit(t,seen)),
+            Kind::Mul(_,factors)=>factors.iter().any(|(b,e)|visit(b,seen)||visit(e,seen)),
+            _=>p.args().iter().any(|arg|visit(arg,seen)),
+        }
     }
-    match p.kind() {
-        Kind::Sym(s) => s.is_wild(),
-        Kind::Add(_, terms) => terms.iter().any(|(t, _)| has_wild(t)),
-        Kind::Mul(_, facs) => facs.iter().any(|(b, e)| has_wild(b) || has_wild(e)),
-        _ => p.args().iter().any(has_wild),
-    }
+    visit(p,&mut rustc_hash::FxHashSet::default())
 }
 
 fn lookup<'a>(b: &'a Bindings, w: &Expr) -> Option<&'a Expr> {

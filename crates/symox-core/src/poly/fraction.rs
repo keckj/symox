@@ -222,8 +222,8 @@ impl FractionPoly {
             .collect()
     }
     pub fn legacy(&self) -> Poly {
-        Poly::from_expr(&self.as_expr(), &self.gens)
-            .expect("field polynomial is polynomial in its generators")
+        Poly::from_coefficient_terms(self.terms(),&self.gens)
+            .expect("field coefficients have a polynomial metadata view")
     }
     pub fn convert(&self, e: &Expr) -> PResult<Self> {
         Self::from_expr(e, &self.gens, &self.parameters, &self.display).map(|mut p| {p.coefficient_domain=self.coefficient_domain.clone();p})
@@ -581,17 +581,27 @@ impl Polynomial {
         }else{prototype.number_field.clone()};
         let convert=|p:&Self| {
             if let Some(a)=&p.algebraic {if a.number_field==field && a.gens==gens {return Ok(a.clone());}}
-            super::algebraic::AlgebraicPoly::from_expr(&p.as_expr(),&gens,field.clone())
+            let _scope=super::algebraic::AlgebraicScope::new(field.clone());
+            let positions:Vec<_>=p.true_gens().iter().map(|g|gens.iter().position(|candidate|candidate==g).unwrap()).collect();
+            let terms=p.terms().into_iter().map(|(powers,coefficient)|{
+                let mut remapped=vec![0;gens.len()];
+                for (index,exponent) in positions.iter().zip(powers){remapped[*index]=exponent;}
+                Ok((remapped,super::algebraic::AN::from_expr(&coefficient,field.clone())?))
+            }).collect::<PResult<Vec<_>>>()?;
+            Ok(super::algebraic::AlgebraicPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),number_field:field.clone()})
         };
         Ok(Some((convert(self)?,convert(o)?)))
     }
     fn algebraic_pair(&self,o:&Self)->Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)> {
         self.checked_algebraic_pair(o).expect("compatible algebraic fields")
     }
-    pub(crate) fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {
+    pub fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {
         let Some(prototype)=self.field.as_ref().or(o.field.as_ref()) else{return Ok(None)};
         if self.modulus.is_some()||o.modulus.is_some()||self.algebraic.is_some()||o.algebraic.is_some(){return Err(PolyError::Unsupported("cannot combine rational-function, algebraic, and finite coefficient fields".into()));}
         if let(Some(a),Some(b))=(&self.field,&o.field){if let(super::domains::ExactDomain::Functions{order:a,..},super::domains::ExactDomain::Functions{order:b,..})=(&a.coefficient_domain,&b.coefficient_domain){if a!=b{return Err(PolyError::Unsupported("cannot unify coefficient rings with different monomial orders".into()));}}}
+        if let(Some(a),Some(b))=(&self.field,&o.field){
+            if a.coefficient_domain==b.coefficient_domain&&a.gens==b.gens{return Ok(Some((a.clone(),b.clone())));}
+        }
         let mut gens = super::polyobj::unify_gens(self.true_gens(), o.true_gens());
         if gens.is_empty() {
             gens = prototype.gens.clone();
@@ -611,7 +621,8 @@ impl Polynomial {
                 }
             }
         }
-        for p in infer_parameters(&[self.as_expr(), o.as_expr()], &gens) {
+        let coefficients:Vec<_>=[self,o].iter().flat_map(|p|p.terms().into_iter().map(|(_,c)|c)).collect();
+        for p in infer_parameters(&coefficients, &gens) {
             if !parameters.contains(&p) {
                 parameters.push(p);
             }
@@ -624,10 +635,18 @@ impl Polynomial {
         let order=if let super::domains::ExactDomain::Functions{order,..}=&prototype.coefficient_domain{order.as_str()}else{"lex"};
         let descriptor=super::domains::ExactDomain::functions(integral,ring,parameters.clone(),order)?;
         let display=descriptor.to_string();
-        let mut a = FractionPoly::from_expr(&self.as_expr(), &gens, &parameters, &display)?;
-        let mut b = FractionPoly::from_expr(&o.as_expr(), &gens, &parameters, &display)?;
-        a.coefficient_domain=descriptor.clone();b.coefficient_domain=descriptor;
-        Ok(Some((a, b)))
+        if parameters.iter().any(|p|gens.contains(p)){return Err(PolyError::Failed("polynomial generators and coefficient parameters must be disjoint".into()));}
+        let _scope=Scope::new(parameters.len());
+        let convert=|p:&Self|{
+            let positions:Vec<_>=p.true_gens().iter().map(|g|gens.iter().position(|candidate|candidate==g).unwrap()).collect();
+            let terms=p.terms().into_iter().map(|(powers,c)|{
+                let mut remapped=vec![0;gens.len()];
+                for (index,exponent) in positions.iter().zip(powers){remapped[*index]=exponent;}
+                Ok((remapped,coefficient(&c,&parameters)?))
+            }).collect::<PResult<Vec<_>>>()?;
+            Ok(FractionPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),parameters:parameters.clone(),display:display.clone(),coefficient_domain:descriptor.clone()})
+        };
+        Ok(Some((convert(self)?,convert(o)?)))
     }
     fn pair(&self,o:&Self)->Option<(FractionPoly,FractionPoly)>{self.checked_fraction_pair(o).expect("compatible fraction coefficient domains")}
 
@@ -984,6 +1003,24 @@ mod functional_decomposition {
             let rebuilt=parts[0].algebraic.as_ref().unwrap().compose(parts[1].algebraic.as_ref().unwrap());
             assert_eq!(rebuilt.rep,polynomial.algebraic.unwrap().rep);
         }
+    }
+
+    #[test]
+    fn coefficient_unification_preserves_formal_composite_generator_slots(){
+        let x=Expr::symbol("x");let a=Expr::symbol("a");
+        let source:Polynomial=FractionPoly::from_expr(&parse_str("a*x+1").unwrap(),&[x.clone()],&[a.clone()],"ZZ[a]").unwrap().into();
+        let generator=parse_str("y+1").unwrap();
+        let p=super::super::structure::rename_gens(&source,&[generator.clone()]).unwrap();
+        let square=p.mul(&p);
+        assert_eq!(square.true_gens(),&[generator]);
+        assert_eq!(square.domain_str(),"ZZ[a]");
+        assert_eq!(square.terms(),vec![(vec![2],parse_str("a^2").unwrap()),(vec![1],parse_str("2*a").unwrap()),(vec![0],Expr::one())]);
+        let other:Polynomial=FractionPoly::from_expr(&parse_str("a*x+2").unwrap(),&[x],&[a],"QQ(a)").unwrap().into();
+        let other=super::super::structure::rename_gens(&other,&[parse_str("z+1").unwrap()]).unwrap();
+        let product=p.mul(&other);
+        assert_eq!(product.domain_str(),"QQ(a)");
+        assert_eq!(product.terms().len(),4);
+        assert_eq!(product.true_gens(),&[parse_str("y+1").unwrap(),parse_str("z+1").unwrap()]);
     }
 
     #[test]

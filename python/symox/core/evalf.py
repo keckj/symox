@@ -16,17 +16,17 @@ def _context(prec):
 
 def bitcount(n):return abs(int(n)).bit_length()
 def fastlog(x):return MINUS_INF if not x or iszero(x) else x[2]+x[3]
-def iszero(value,scaled=False):
-    if scaled:return bool(value and isinstance(value[0],list) and value[1]==value[-1]==1)
-    return not value or value[1]==0 and value[-1]==0
+def iszero(mpf,scaled=False):
+    if scaled:return bool(mpf and isinstance(mpf[0],list) and mpf[1]==mpf[-1]==1)
+    return not mpf or mpf[1]==0 and mpf[-1]==0
 
 def scaled_zero(mag,sign=1):
     if isinstance(mag,tuple) and iszero(mag,scaled=True):return (mag[0][0],*mag[1:])
     if not isinstance(mag,int) or sign not in (-1,1):raise ValueError('scaled zero requires an integer magnitude and sign +/-1')
     return ([int(sign<0)],1,mag,1),-1
 
-def pure_complex(expr,or_real=False):
-    expr=S.sympify(expr);a,b=expr.as_real_imag()
+def pure_complex(v,or_real=False):
+    v=S.sympify(v);a,b=v.as_real_imag()
     if (a.is_Number or a==0) and (b.is_Number or b==0) and (b!=0 or or_real):return a,b
     return None
 
@@ -35,13 +35,13 @@ def quad_to_mpmath(q,ctx=None):
     context=ctx or mpmath.mp;real,imag,_,_=q
     return context.make_mpc((real or fzero,imag)) if imag else context.make_mpf(real or fzero)
 
-def finalize_complex(real,imag,prec):
-    real=None if real==fzero else real;imag=None if imag==fzero else imag
-    if real is None and imag is None:raise ValueError('complex zero has unknown relative accuracy')
-    if real is None:return None,imag,None,prec
-    if imag is None:return real,None,prec,None
-    delta=fastlog(real)-fastlog(imag)
-    return real,imag,prec+min(delta,0),prec+min(-delta,0)
+def finalize_complex(re,im,prec):
+    re=None if re==fzero else re;im=None if im==fzero else im
+    if re is None and im is None:raise ValueError('complex zero has unknown relative accuracy')
+    if re is None:return None,im,None,prec
+    if im is None:return re,None,prec,None
+    delta=fastlog(re)-fastlog(im)
+    return re,im,prec+min(delta,0),prec+min(-delta,0)
 
 def complex_accuracy(result):
     if result==S.zoo:return INF
@@ -84,13 +84,13 @@ def _quad(value,prec):
     b=None if not imag else mpf_pos(imag._mpf_,prec)
     return a,b,prec if a is not None else None,prec if b is not None else None
 
-def evalf(expr,prec,options):
-    value=S.sympify(expr)
+def evalf(x,prec,options):
+    value=S.sympify(x)
     if value==S.zoo:return value
     result=_quad(_numeric(value,prec,dict(options)),prec)
     return chop_parts(result,prec) if options.get('chop') else result
 
-def as_mpmath(expr,prec,options):return quad_to_mpmath(evalf(expr,prec,options),_context(prec))
+def as_mpmath(x,prec,options):return quad_to_mpmath(evalf(x,prec,options),_context(prec))
 def evalf_subs(prec,subs):
     return {symbol:value.evalf(prec_to_dps(prec)+5) if hasattr(value,'evalf') else value for symbol,value in subs.items()}
 def get_abs(expr,prec,options):return evalf(S.Abs(expr),prec,options)

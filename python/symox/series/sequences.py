@@ -168,10 +168,10 @@ class SeqBase:
         name='EmptySequence' if self is EmptySequence else type(self).__name__
         return (5,0,name),(len(self.args),tuple(key(arg) for arg in self.args)),S.One.sort_key(),S.One
 
-    def xreplace(self, mapping):
-        if self in mapping:
-            return mapping[self]
-        return self._transform(lambda value:value.xreplace(mapping),replace_index=True,mapping=mapping)
+    def xreplace(self, rule):
+        if self in rule:
+            return rule[self]
+        return self._transform(lambda value:value.xreplace(rule),replace_index=True,mapping=rule)
 
     def subs(self, *args, **options):
         # The index is bound in the generating expression. Its appearances
@@ -405,12 +405,12 @@ class SeqExprOp(SeqBase):
         result=S.One
         for value in values:result*=value
         return result
-    def coeff_mul(self, coeff):
-        if isinstance(self,SeqAdd):return SeqAdd(*(arg.coeff_mul(coeff) for arg in self.args))
-        return SeqMul(self.args[0].coeff_mul(coeff),*self.args[1:])
+    def coeff_mul(self, other):
+        if isinstance(self,SeqAdd):return SeqAdd(*(arg.coeff_mul(other) for arg in self.args))
+        return SeqMul(self.args[0].coeff_mul(other),*self.args[1:])
     def subs(self, *args, **options):return type(self)(*(arg.subs(*args,**options) for arg in self.args))
-    def xreplace(self, mapping):
-        return mapping[self] if self in mapping else type(self)(*(arg.xreplace(mapping) for arg in self.args))
+    def xreplace(self, rule):
+        return rule[self] if self in rule else type(self)(*(arg.xreplace(rule) for arg in self.args))
     def _transform(self, function, **options):
         return type(self)(*(arg._transform(function,**options) for arg in self.args))
     def to_sympy(self):

@@ -45,6 +45,9 @@ pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
         rational_definite::Analysis::NotRational => f.clone(),
     };
     let f = &checked;
+    if let Some(value) = gamma_moments(f, x, a, b) {
+        return value;
+    }
     match try_integrate(f, x) {
         Some(big_f) => {
             // evaluate the antiderivative at the bounds, through limits when
@@ -67,6 +70,132 @@ pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
             expand_if_numeric(&sub(&fb, &fa))
         }
         None => integral_definite_unevaluated(f,x,a,b),
+    }
+}
+
+/// `∫ P(x) exp(-α x^q) dx` over `(0, oo)` or `(-oo, oo)` through
+/// `∫_0^oo x^p exp(-α x^q) dx = Γ((p+1)/q) / (|q| α^((p+1)/q))`
+/// for proved finite signed-real q and the appropriate convergence side; the
+/// antiderivatives (erf, incomplete gamma) are out of the rule set's reach.
+fn gamma_moments(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    let (value,condition)=gamma_moment_conditions(f,x,a,b)?;
+    Some(piecewise(vec![(value,condition),(integral_definite_unevaluated(f,x,a,b),Expr::boolean(true))]))
+}
+
+/// Gamma moments together with the sufficient convergence condition, before
+/// presentation as Piecewise or the public conds='none'/'separate' forms.
+/// The exponential rate must lie provably in the open right half-plane.
+/// A false convergence condition never licenses analytic continuation as an
+/// integral value, even when the caller suppresses displayed conditions.
+pub fn gamma_moment_conditions(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<(Expr,Expr)> {
+    if *b != Expr::oo() {
+        return None;
+    }
+    let whole = *a == Expr::neg_oo();
+    if !whole && !a.is_zero() {
+        return None;
+    }
+    let ex = expand(f);
+    let terms = match ex.kind() {
+        Kind::Add(..) => ex.args(),
+        _ => vec![ex.clone()],
+    };
+    let mut out = Vec::with_capacity(terms.len());
+    let mut conditions=Vec::with_capacity(terms.len());
+    for t in terms {
+        let factors: Vec<Expr> = match t.kind() {
+            Kind::Mul(c, facs) => std::iter::once(Expr::num(c.clone()))
+                .chain(facs.iter().map(|(b, e)| crate::ops::mul_factor(b, e)))
+                .collect(),
+            _ => vec![t.clone()],
+        };
+        let (mut coeff, mut p, mut args) = (Vec::new(), Expr::zero(), Vec::new());
+        for g in factors {
+            if free(&g, x) {
+                coeff.push(g);
+            } else if g == *x {
+                p = add2(&p, &Expr::one());
+            } else {
+                match g.kind() {
+                    Kind::Pow(base, e) if base == x && free(e,x) => p = add2(&p, e),
+                    Kind::Func(Func::Exp, u) => args.push(u[0].clone()),
+                    _ => return None,
+                }
+            }
+        }
+        let phase=expand(&add(&args));
+        let (q,c,offset)=if let Some((q,c))=moment_degree(&phase,x){(q,c,Expr::zero())}
+        else{
+            // A complex coefficient or a free phase offset can distribute
+            // into several additive terms. Group their common degree
+            // sparsely: a large x^q must not allocate a dense q-entry array.
+            let Kind::Add(..)=phase.kind() else{return None;};
+            let mut degree=None;let mut coefficients=Vec::new();let mut offsets=Vec::new();
+            for term in phase.args(){
+                let (q,c)=moment_degree(&term,x)?;
+                if q.is_zero(){offsets.push(c);}
+                else{
+                    if degree.as_ref().is_some_and(|previous|*previous!=q){return None;}
+                    degree=Some(q);coefficients.push(c);
+                }
+            }
+            (degree?,add(&coefficients),add(&offsets))
+        };
+        if !offset.is_zero(){coeff.push(exp(&offset));}
+        let alpha = neg(&c);
+        if q.is_zero() || crate::assumptions::is_finite(&q)==Some(false)
+            || crate::assumptions::is_finite(&alpha)==Some(false)
+            || crate::assumptions::exact_queries(||crate::assumptions::is_positive(&re(&alpha))) != Some(true) {
+            return None;
+        }
+        let positive=crate::assumptions::exact_queries(||crate::assumptions::is_positive(&q))==Some(true);
+        if !positive&&crate::assumptions::exact_queries(||crate::assumptions::is_negative(&q))!=Some(true){return None;}
+        let absolute_q=if positive{q.clone()}else{neg(&q)};
+        let condition=if positive{crate::relational::gt(&re(&p),&Expr::int(-1))}
+            else{crate::relational::lt(&re(&p),&Expr::int(-1))};
+        if matches!(condition.kind(),Kind::Bool(false)){return None;}
+        conditions.push(condition);
+        let s = div(&add2(&p, &Expr::one()), &q);
+        let half = div(&gamma(&s), &mul2(&absolute_q, &pow(&alpha, &s)));
+        let value = if !whole {
+            half
+        } else {
+            if crate::assumptions::exact_queries(||crate::assumptions::is_even(&q))!=Some(true){
+                return None;
+            }
+            if crate::assumptions::exact_queries(||crate::assumptions::is_odd(&p))==Some(true){Expr::zero()}
+            else if crate::assumptions::exact_queries(||crate::assumptions::is_even(&p))==Some(true){mul2(&Expr::int(2),&half)}
+            else{return None;}
+        };
+        out.push(mul2(&mul(&coeff), &value));
+    }
+    // Keep one fallback for the ORIGINAL sum. Splitting a convergent sum into
+    // individually divergent integrals would give invalid infinity arithmetic.
+    Some((add(&out),crate::logic::and(conditions)))
+}
+
+/// A sparse monomial view for Mellin moments. Its degree is an expression,
+/// so rational, signed-real symbolic and arbitrarily large integer powers do
+/// not pass through a machine-sized polynomial-degree counter. Signs and the
+/// real-axis domain are proved separately before using the gamma formula.
+fn moment_degree(term:&Expr,x:&Expr)->Option<(Expr,Expr)>{
+    if free(term,x){return Some((Expr::zero(),term.clone()));}
+    if term==x{return Some((Expr::one(),Expr::one()));}
+    match term.kind(){
+        Kind::Pow(base,exponent) if base==x&&free(exponent,x)=>Some((exponent.clone(),Expr::one())),
+        Kind::Mul(coefficient,factors)=>{
+            let mut degree=Expr::zero();let mut coefficients=vec![Expr::num(coefficient.clone())];
+            for (base,exponent) in factors{
+                if base==x&&free(exponent,x){degree=add2(&degree,exponent);}
+                else{
+                    let factor=crate::ops::mul_factor(base,exponent);
+                    if !free(&factor,x){return None;}
+                    coefficients.push(factor);
+                }
+            }
+            Some((degree,mul(&coefficients)))
+        }
+        _=>None,
     }
 }
 
@@ -324,6 +453,9 @@ fn integ_inner(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Op
     if let Some(r) = usub(f, x, depth, seen) {
         return Some(r);
     }
+    if let Some(r) = poly_exp_trig(f, x) {
+        return Some(r);
+    }
     if let Some(r) = parts(f, x, depth, seen) {
         return Some(r);
     }
@@ -339,9 +471,95 @@ fn integ_inner(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Op
     }
     let ex = expand(f);
     if ex != *f {
-        return integ(&ex, x, depth + 1, seen);
+        if let Some(r) = integ(&ex, x, depth + 1, seen) {
+            return Some(r);
+        }
+    }
+    // products and powers of sin/cos: turn them into sums of single terms
+    if has_head(f, &[Func::Sin, Func::Cos]) {
+        let lin = expand(&crate::simptools::fu::tr8(f, false));
+        if lin != *f && lin != ex {
+            if let Some(r) = integ(&lin, x, depth + 1, seen) {
+                return Some(r);
+            }
+        }
+    }
+    // hyperbolic functions: integrate the exponential form
+    if has_head(f, &[Func::Sinh, Func::Cosh]) {
+        let ef = expand(&crate::simptools::trigsimp::rewrite_exp(f));
+        if ef != *f {
+            return integ(&ef, x, depth + 1, seen);
+        }
     }
     None
+}
+
+fn has_head(e: &Expr, heads: &[Func]) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |s| {
+        if let Kind::Func(g, _) = s.kind() {
+            found |= heads.contains(g);
+        }
+    });
+    found
+}
+
+/// `P(x) * exp(a x + c) * {cos, sin}(b x + d)` in closed form, any factor
+/// but `P` optional: the antiderivative is `exp(..) * (A cos + B sin)` with
+/// polynomials `A`, `B` of the degree of `P`, solved from the top degree down
+/// (`a A + b B + A' = P_cos`, `a B - b A + B' = P_sin`).
+fn poly_exp_trig(f: &Expr, x: &Expr) -> Option<Expr> {
+    let factors = match f.kind() {
+        Kind::Mul(..) => f.args(),
+        _ => vec![f.clone()],
+    };
+    let (mut ex, mut tr): (Option<Expr>, Option<(bool, Expr)>) = (None, None);
+    let mut poly = Vec::new();
+    for t in factors {
+        match t.kind() {
+            Kind::Func(Func::Exp, a) if ex.is_none() && linear(&a[0], x).is_some() => ex = Some(a[0].clone()),
+            Kind::Func(g @ (Func::Sin | Func::Cos), a) if tr.is_none() && linear(&a[0], x).is_some() => {
+                tr = Some((*g == Func::Sin, a[0].clone()))
+            }
+            _ => poly.push(t),
+        }
+    }
+    // a lone exp or trig factor is the table's job, and two factors without
+    // a polynomial are the cyclic rule's
+    let p = poly_coeffs(&mul(&poly), x)?;
+    let p = trim(p);
+    if p.len() < 2 && (ex.is_none() || tr.is_none()) {
+        return None;
+    }
+    let (a, ea) = match &ex {
+        Some(u) => (linear(u, x)?.0, exp(u)),
+        None => (Expr::zero(), Expr::one()),
+    };
+    let (b, is_sin, c, s) = match &tr {
+        Some((is_sin, u)) => (linear(u, x)?.0, *is_sin, cos(u), sin(u)),
+        None => (Expr::zero(), false, Expr::one(), Expr::zero()),
+    };
+    let det = expand(&add2(&a.powi(2), &b.powi(2)));
+    if det.is_zero() {
+        return None;
+    }
+    let n = p.len();
+    let (mut ac, mut bc) = (vec![Expr::zero(); n + 1], vec![Expr::zero(); n + 1]);
+    for k in (0..n).rev() {
+        let k1 = Expr::int(k as i64 + 1);
+        let (pc, ps) = if is_sin { (Expr::zero(), p[k].clone()) } else { (p[k].clone(), Expr::zero()) };
+        let r1 = sub(&pc, &mul2(&k1, &ac[k + 1]));
+        let r2 = sub(&ps, &mul2(&k1, &bc[k + 1]));
+        ac[k] = expand(&div(&sub(&mul2(&a, &r1), &mul2(&b, &r2)), &det));
+        bc[k] = expand(&div(&add2(&mul2(&b, &r1), &mul2(&a, &r2)), &det));
+    }
+    let pa = from_coeffs(&ac[..n], x);
+    let pb = from_coeffs(&bc[..n], x);
+    if tr.is_none() {
+        // polynomial * exp: SymPy keeps the exponential factored out
+        return Some(mul2(&pa, &ea));
+    }
+    Some(expand(&mul2(&ea, &add2(&mul2(&pa, &c), &mul2(&pb, &s)))))
 }
 
 fn rewrite_trig(e: &Expr) -> Expr {
@@ -606,12 +824,59 @@ fn rational(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Optio
             }
         }
         _ => {
-            // a polynomial denominator of higher degree: needs full
-            // factorisation (provided by the poly module once available)
-            return None;
+            let rem = from_coeffs(&r, x);
+            let piece = match quadratic_power(&rem, &den, x, depth, seen) {
+                Some(v) => v,
+                None => {
+                    // partial fractions over Q, each piece has a linear or
+                    // quadratic denominator (or a power of one)
+                    let pf = crate::poly::api::apart(&div(&rem, &den), Some(x)).ok()?;
+                    if !pf.is_add() {
+                        return None;
+                    }
+                    let mut v = Vec::new();
+                    for t in pf.args() {
+                        v.push(integ(&t, x, depth + 1, seen)?);
+                    }
+                    add(&v)
+                }
+            };
+            parts.push(piece);
         }
     }
     Some(add(&parts))
+}
+
+/// `(p x + q) / Q^n` with `Q = a x^2 + b x + c`, `n >= 2`, by the reduction
+/// `I_n = (2a x + b) / ((n-1) D Q^(n-1)) + 2 (2n-3) a / ((n-1) D) I_(n-1)`,
+/// `D = 4ac - b^2`.
+fn quadratic_power(num: &Expr, den: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Option<Expr> {
+    let Kind::Pow(q, k) = den.kind() else { return None };
+    let n = k.as_i64().filter(|n| *n >= 2)?;
+    let qc = trim(poly_coeffs(q, x)?);
+    let pc = trim(poly_coeffs(num, x)?);
+    if qc.len() != 3 || pc.len() > 2 {
+        return None;
+    }
+    let (c, b, a) = (&qc[0], &qc[1], &qc[2]);
+    let dd = expand(&sub(&mul(&[Expr::int(4), a.clone(), c.clone()]), &b.powi(2)));
+    if dd.is_zero() {
+        return None;
+    }
+    let p = pc.get(1).cloned().unwrap_or_else(Expr::zero);
+    let two_a = mul2(&Expr::int(2), a);
+    // num = p/(2a) Q' + (q0 - p b/(2a))
+    let k0 = sub(&pc[0], &div(&mul2(&p, b), &two_a));
+    let mut i = integ(&div(&Expr::one(), q), x, depth + 1, seen)?;
+    let lin = add2(&mul2(&two_a, x), b);
+    for m in 2..=n {
+        let m1 = Expr::int(m - 1);
+        let head = div(&lin, &mul(&[m1.clone(), dd.clone(), pow(q, &Expr::int(m - 1))]));
+        let tail = mul2(&div(&mul(&[Expr::int(2), Expr::int(2 * m - 3), a.clone()]), &mul2(&m1, &dd)), &i);
+        i = add2(&head, &tail);
+    }
+    let log_part = mul2(&div(&p, &mul2(&two_a, &Expr::int(1 - n))), &pow(q, &Expr::int(1 - n)));
+    Some(add2(&log_part, &expand(&mul2(&k0, &i))))
 }
 
 /// sin(u)^m cos(u)^n with u linear.

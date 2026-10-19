@@ -330,11 +330,32 @@ impl Number {
         }
     }
 
+    pub(crate) fn has_wide_exponent(&self)->bool{
+        matches!(self,MpFloat(value,_) if value.exp.unsigned_abs()>(i64::MAX/8) as u64)
+    }
+    pub(crate) fn checked_mul(&self,other:&Number)->Option<Number>{
+        if self.has_wide_exponent()||other.has_wide_exponent(){
+            let p=self.mixed_precision(other);
+            return self.to_bigfloat(p).checked_mul(&other.to_bigfloat(p),p).map(|v|Self::mp_result(v,p));
+        }
+        Some(self.mul(other))
+    }
+    pub(crate) fn checked_add(&self,other:&Number)->Option<Number>{
+        if self.has_wide_exponent()||other.has_wide_exponent(){
+            let p=self.mixed_precision(other);
+            return self.to_bigfloat(p).checked_add(&other.to_bigfloat(p),p).map(|v|Self::mp_result(v,p));
+        }
+        Some(self.add(other))
+    }
+
     /// Division. Returns `None` when dividing an exact number by exact zero.
     pub fn div(&self, o: &Number) -> Option<Number> {
         if matches!(self, MpFloat(..)) || matches!(o, MpFloat(..)) {
             let p = self.mixed_precision(o);
             return self.to_bigfloat(p).div(&o.to_bigfloat(p), p).map(|v| Self::mp_result(v, p));
+        }
+        if matches!(self,Int(1)|Int(-1))&&matches!(o,Int(_)|BigInt(_)|Rational(_)){
+            return o.inv().map(|value|if self.is_negative(){value.neg()}else{value});
         }
         match (self, o) {
             (Float(a), _) => Some(Self::float_result(a / o.to_f64())),
@@ -348,7 +369,19 @@ impl Number {
     }
 
     pub fn inv(&self) -> Option<Number> {
-        Int(1).div(self)
+        match self{
+            Int(value)=>Self::rational_i64(1,*value),
+            BigInt(value)=>{
+                if value.is_zero(){return None;}
+                Some(Self::from_ratio(BigRational::new_raw(BigInt::from(if value.is_negative(){-1}else{1}),value.abs())))
+            },
+            Rational(value)=>{
+                if value.is_zero(){return None;}
+                let numerator=if value.is_negative(){-value.denom()}else{value.denom().clone()};
+                Some(Self::from_ratio(BigRational::new_raw(numerator,value.numer().abs())))
+            },
+            _=>Int(1).div(self),
+        }
     }
 
     /// `self ** n` for an integer exponent.
@@ -393,7 +426,13 @@ impl Number {
     pub fn floor(&self) -> Number {
         match self {
             Rational(r) => Self::from_bigint(r.floor().to_integer()),
-            Float(f) => Self::float(f.floor()),
+            Float(f) if f.is_finite() => {
+                let value = crate::bigfloat::BigFloat::from_f64(*f);
+                let mut integer = value.to_int_trunc();
+                if value.is_negative() && crate::bigfloat::BigFloat::from_int(&integer) != value { integer -= 1; }
+                Self::from_bigint(integer)
+            }
+            Float(_) => self.clone(),
             MpFloat(value, _) => {
                 let mut integer = value.to_int_trunc();
                 if value.is_negative() && crate::bigfloat::BigFloat::from_int(&integer) != *value { integer -= 1; }

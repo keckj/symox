@@ -84,8 +84,8 @@ class DomainMatrix(DomainMatrixAlgorithms):
     def to_list_flat(self):
         return [v for row in self.to_list() for v in row]
 
-    def convert_to(self, domain):
-        return type(self)(self._data, self.shape, domain, fmt=self._fmt)
+    def convert_to(self, K):
+        return type(self)(self._data, self.shape, K, fmt=self._fmt)
 
     def to_field(self):
         return self.convert_to(self.domain.get_field())

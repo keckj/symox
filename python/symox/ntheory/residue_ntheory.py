@@ -7,6 +7,7 @@ SymPy's order.
 
 from .. import _core
 from ._intfunc import as_int
+import operator
 
 
 def n_order(a, n):
@@ -161,7 +162,11 @@ def binomial_mod(n, m, k):
     """``binomial(n, m) % k`` (Lucas, Granville and the CRT)."""
     if k < 1:
         raise ValueError('k is required to be positive')
-    return int(_core.nt_binomial_mod(int(n), int(m), int(k)))
+    if n < 0 or m < 0 or m > n:return 0
+    k=as_int(k)
+    if k==1:return 0
+    # Do not silently truncate nonintegral data into a different problem.
+    return int(_core.nt_binomial_mod(operator.index(n),operator.index(m),k))
 
 
 def _head(name):

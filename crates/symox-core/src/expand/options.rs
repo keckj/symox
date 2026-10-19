@@ -12,6 +12,7 @@ pub struct ExpandOptions {
     pub power_exp: bool,
     pub log: bool,
     pub trig: bool,
+    pub func: bool,
     pub force: bool,
 }
 impl Default for ExpandOptions {
@@ -25,6 +26,7 @@ impl Default for ExpandOptions {
             power_exp: true,
             log: true,
             trig: false,
+            func: false,
             force: false,
         }
     }
@@ -408,6 +410,9 @@ pub fn expand_with_options(
         return Ok(value.clone());
     }
     let mut value = e.clone();
+    if options.func {
+        value = crate::special::expand_func_deep(&value, options.deep);
+    }
     for (enabled, hint) in [
         (options.log, Hint::Log),
         (options.power_base, Hint::PowerBase),
@@ -459,6 +464,20 @@ pub fn expand_with_options(
 mod tests {
     use super::*;
     use crate::parser::parse_str;
+    #[test]
+    fn functional_hint_respects_depth_and_arithmetic_controls() {
+        for (source, deep, wanted) in [
+            ("gamma(x+2)", true, "x*(x+1)*gamma(x)"),
+            ("gamma(x+2)", false, "x*(x+1)*gamma(x)"),
+            ("sin(gamma(x+2))", true, "sin(x*(x+1)*gamma(x))"),
+            ("sin(gamma(x+2))", false, "sin(gamma(x+2))"),
+        ] {
+            let options = ExpandOptions { func: true, deep, mul: false, ..Default::default() };
+            let value = expand_with_options(&parse_str(source).unwrap(), &options,
+                &mut ExpandBudget::default()).unwrap();
+            assert_eq!(value, parse_str(wanted).unwrap());
+        }
+    }
     #[test]
     fn shallow_and_independent_arithmetic_hints() {
         for (source, options, wanted) in [

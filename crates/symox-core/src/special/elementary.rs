@@ -18,6 +18,7 @@ use crate::functions::{acos, acosh, acot, asin, asinh, atanh, cosh, floor, im, l
 use crate::number::Number;
 use crate::ops::{add, add2, as_coeff_mul, div, inv, mul, mul2, neg, sqrt, sub};
 use num_bigint::BigInt;
+use num_integer::Integer;
 use num_rational::BigRational;
 use num_traits::{One, Signed, Zero};
 use std::cell::Cell;
@@ -242,7 +243,63 @@ fn factorial_mod(p: &Expr, q: &Expr) -> Option<Expr> {
             return Some(Expr::zero());
         }
     }
+    if let (Some(n), Some(modulus)) = (super::as_int(n), super::as_int(q)) {
+        let positive_modulus = modulus.abs();
+        let gap = &positive_modulus - &n;
+        let residue = if &gap - 1 < n && crate::ntheory::isprime(&positive_modulus) {
+            let complement = crate::ntheory::congruence::factorial_mod(&(&gap - 1), &positive_modulus)?;
+            let inverse = crate::ntheory::mod_inverse(&complement, &positive_modulus)?;
+            if gap.is_odd() { -inverse } else { inverse }
+        } else {
+            crate::ntheory::congruence::factorial_mod(&n, &positive_modulus)?
+        };
+        return Some(Expr::num(Number::from_bigint(residue.mod_floor(&modulus))));
+    }
     None
+}
+
+fn binomial_mod(p: &Expr, q: &Expr) -> Option<Expr> {
+    let Kind::Func(Func::Special(SpecialFn::Binomial), args) = p.kind() else { return None };
+    let (n, k, modulus) = (super::as_int(&args[0])?, super::as_int(&args[1])?, super::as_int(q)?);
+    if modulus.is_zero() { return None; }
+    if k.is_negative() { return Some(Expr::zero()); }
+    let negative = n.is_negative() && k.is_odd();
+    let n = if n.is_negative() { &k - n - 1 } else { n };
+    let mut residue = crate::ntheory::congruence::binomial_mod(&n, &k, &modulus.abs()).ok()?;
+    if negative { residue = -residue; }
+    Some(Expr::num(Number::from_bigint(residue.mod_floor(&modulus))))
+}
+
+#[cfg(test)]
+mod modular_combinatorial_tests {
+    use super::*;
+
+    fn held(head: SpecialFn, args: Vec<Expr>) -> Expr {
+        Expr::from_unevaluated_kind(Kind::Func(Func::Special(head), args))
+    }
+
+    #[test]
+    fn held_binomials_use_modular_arithmetic_with_signed_arguments() {
+        for n in -8..20 {
+            for k in -2..25 {
+                let value = held(SpecialFn::Binomial, vec![Expr::int(n), Expr::int(k)]);
+                let exact = crate::ntheory::binomial(&n.into(), &k.into());
+                for modulus in [-25, -12, -7, -1, 1, 7, 12, 25] {
+                    let expected = exact.mod_floor(&modulus.into());
+                    assert_eq!(eval_mod(&value, &Expr::int(modulus)),
+                        Some(Expr::num(Number::from_bigint(expected))), "{n} {k} {modulus}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn huge_held_combinatorial_examples_do_not_expand_integer_results() {
+        let factorial = held(SpecialFn::Factorial, vec![Expr::int(1_000_000_000)]);
+        assert_eq!(eval_mod(&factorial, &Expr::int(1_000_000_009)), Some(Expr::int(712_524_808)));
+        let binomial = held(SpecialFn::Binomial, vec![Expr::int(1_000_000_000_000_000_000), Expr::int(1_000_000_000_000)]);
+        assert_eq!(eval_mod(&binomial, &Expr::int(10_000_600_009)), Some(Expr::int(3_744_312_326)));
+    }
 }
 
 /// SymPy's `Mod.eval.number_eval`. `None` also stands for a zero divisor
@@ -274,7 +331,7 @@ fn mod_number_eval(p: &Expr, q: &Expr) -> Option<Expr> {
             }
         }
     }
-    if let Some(v) = pow_mod(p, q).or_else(|| factorial_mod(p, q)) {
+    if let Some(v) = pow_mod(p, q).or_else(|| factorial_mod(p, q)).or_else(|| binomial_mod(p, q)) {
         return Some(v);
     }
     let r = div(p, q);

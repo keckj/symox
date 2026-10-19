@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-18",
+  "cpu": "Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz",
+  "baseline": "Pre-optimization release binary retained from the v4 session (2026-10-18 20:39), using the same Python package for before and after.",
+  "optimized": "Current workspace release build (opt-level=3, thin LTO, codegen-units=1).",
+  "method": "Median of per-process minima; three fresh processes per version, eleven timed calls after one warm-up call per case. Versions alternated on CPU 2.",
+  "verification": {
+    "exact_checks": 49,
+    "status": "passed"
+  },
+  "cases": {
+    "simplify_identity": {
+      "before_seconds": 0.0017595699755474925,
+      "after_seconds": 0.0005342100048437715,
+      "speedup": 3.293779524144395
+    },
+    "simplify_tangent": {
+      "before_seconds": 0.0002888758899644017,
+      "after_seconds": 0.00019080808851867914,
+      "speedup": 1.513960399724471
+    },
+    "simplify_rational": {
+      "before_seconds": 3.7088990211486816e-05,
+      "after_seconds": 3.284798003733158e-05,
+      "speedup": 1.1291102274579852
+    },
+    "charpoly_generic6": {
+      "before_seconds": 0.006050813011825085,
+      "after_seconds": 0.0022645629942417145,
+      "speedup": 2.6719561465991326
+    },
+    "charpoly_shared4": {
+      "before_seconds": 0.00010445201769471169,
+      "after_seconds": 8.457200601696968e-05,
+      "speedup": 1.2350661006403585
+    }
+  }
+}

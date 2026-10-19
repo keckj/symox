@@ -1,0 +1,351 @@
+{
+  "reference": "1.14.0",
+  "symox": "0.1.1",
+  "checks": [
+    {
+      "name": "quintic",
+      "status": "passed",
+      "seconds": 0.0970984339946881
+    },
+    {
+      "name": "septic",
+      "status": "passed",
+      "seconds": 0.11178758798632771
+    },
+    {
+      "name": "quintic real",
+      "status": "passed",
+      "seconds": 0.09764409495983273
+    },
+    {
+      "name": "quintic positive",
+      "status": "passed",
+      "seconds": 0.022233203053474426
+    },
+    {
+      "name": "quintic negative",
+      "status": "passed",
+      "seconds": 0.014129409100860357
+    },
+    {
+      "name": "quintic integer",
+      "status": "passed",
+      "comparison": "proved_stronger_domain_filter",
+      "proof": "No solution modulo 2, hence no integer solution.",
+      "reference_count": 1,
+      "seconds": 0.010434121009893715
+    },
+    {
+      "name": "multiple real roots",
+      "status": "passed",
+      "seconds": 0.13945301598869264
+    },
+    {
+      "name": "repeated factors",
+      "status": "passed",
+      "seconds": 0.03250155795831233
+    },
+    {
+      "name": "mixed radicals and root objects",
+      "status": "passed",
+      "seconds": 0.11994078301358968
+    },
+    {
+      "name": "rational polynomial",
+      "status": "passed",
+      "seconds": 0.020823788014240563
+    },
+    {
+      "name": "exact quadratic cancellation",
+      "status": "passed",
+      "seconds": 0.024014893919229507
+    },
+    {
+      "name": "radical exclusion",
+      "status": "passed",
+      "seconds": 0.027024760958738625
+    },
+    {
+      "name": "principal logarithm exclusion",
+      "status": "passed",
+      "seconds": 0.03579289105255157
+    },
+    {
+      "name": "principal arcsine exclusion",
+      "status": "passed",
+      "seconds": 0.036561305983923376
+    },
+    {
+      "name": "principal logarithm valid value",
+      "status": "passed",
+      "seconds": 0.03141074604354799
+    },
+    {
+      "name": "Lambert positive",
+      "status": "passed",
+      "seconds": 0.22310890699736774
+    },
+    {
+      "name": "Lambert two real branches",
+      "status": "passed",
+      "seconds": 0.40452903194818646
+    },
+    {
+      "name": "Lambert complex",
+      "status": "passed",
+      "seconds": 0.5443851520540193
+    },
+    {
+      "name": "Lambert no real roots",
+      "status": "passed",
+      "seconds": 0.04393099097069353
+    },
+    {
+      "name": "Lambert affine",
+      "status": "passed",
+      "seconds": 0.21382293198257685
+    },
+    {
+      "name": "Lambert power two",
+      "status": "passed",
+      "seconds": 0.5320119939278811
+    },
+    {
+      "name": "Lambert power extra real branch",
+      "status": "passed",
+      "seconds": 0.767169876024127
+    },
+    {
+      "name": "Lambert power three",
+      "status": "passed",
+      "comparison": "proved_additional_solutions",
+      "proof": "W identity and exact cube roots of 1/27.",
+      "additional_count": 2,
+      "seconds": 0.621647628955543
+    },
+    {
+      "name": "Lambert exponential plus linear",
+      "status": "passed",
+      "seconds": 0.18642077292315662
+    },
+    {
+      "name": "Lambert logarithm",
+      "status": "passed",
+      "seconds": 0.8183019569842145
+    },
+    {
+      "name": "Lambert affine logarithm",
+      "status": "passed",
+      "seconds": 1.0666043580276892
+    },
+    {
+      "name": "Lambert shifted logarithm",
+      "status": "passed",
+      "seconds": 1.9188659889623523
+    },
+    {
+      "name": "Lambert complex logarithm",
+      "status": "passed",
+      "seconds": 1.2532664010068402
+    },
+    {
+      "name": "Lambert float input",
+      "status": "passed",
+      "seconds": 0.03311347006820142
+    },
+    {
+      "name": "finite solutions only",
+      "status": "passed",
+      "seconds": 0.0061827790923416615
+    },
+    {
+      "name": "exponential has no zero",
+      "status": "passed",
+      "seconds": 0.004408834967762232
+    },
+    {
+      "name": "root identity, facts, pickle and SymPy interchange",
+      "status": "passed",
+      "seconds": 0.019978867028839886
+    },
+    {
+      "name": "all quintic roots at 60 digits",
+      "status": "passed",
+      "seconds": 19.573213180992752
+    },
+    {
+      "name": "quintic in triangular system and output flags",
+      "status": "passed",
+      "seconds": 0.004207158926874399
+    },
+    {
+      "name": "algebraic poles excluded exactly",
+      "status": "passed",
+      "seconds": 37.725698171998374
+    },
+    {
+      "name": "symbolic parameter and temporary-symbol collision",
+      "status": "passed",
+      "seconds": 0.05324997706338763
+    },
+    {
+      "name": "LambertW(1,0) at 50 digits",
+      "status": "passed",
+      "seconds": 0.0018729509320110083
+    },
+    {
+      "name": "LambertW(-1/10,0) at 50 digits",
+      "status": "passed",
+      "seconds": 0.0014264410128816962
+    },
+    {
+      "name": "LambertW(-1/10,-1) at 50 digits",
+      "status": "passed",
+      "seconds": 0.0015559459570795298
+    },
+    {
+      "name": "LambertW(-1,0) at 50 digits",
+      "status": "passed",
+      "seconds": 0.010762769961729646
+    },
+    {
+      "name": "LambertW(-1,-1) at 50 digits",
+      "status": "passed",
+      "seconds": 0.0063332379795610905
+    },
+    {
+      "name": "LambertW(1,2) at 50 digits",
+      "status": "passed",
+      "seconds": 0.010437323013320565
+    },
+    {
+      "name": "LambertW(1,0) at 100 digits",
+      "status": "passed",
+      "seconds": 0.002168589038774371
+    },
+    {
+      "name": "LambertW(-1/10,0) at 100 digits",
+      "status": "passed",
+      "seconds": 0.0016502829967066646
+    },
+    {
+      "name": "LambertW(-1/10,-1) at 100 digits",
+      "status": "passed",
+      "seconds": 0.002038224949501455
+    },
+    {
+      "name": "LambertW(-1,0) at 100 digits",
+      "status": "passed",
+      "seconds": 0.01134605600964278
+    },
+    {
+      "name": "LambertW(-1,-1) at 100 digits",
+      "status": "passed",
+      "seconds": 0.00706700305454433
+    },
+    {
+      "name": "LambertW(1,2) at 100 digits",
+      "status": "passed",
+      "seconds": 0.009837285033427179
+    },
+    {
+      "name": "LambertW(1,0) at 300 digits",
+      "status": "passed",
+      "seconds": 0.004432323039509356
+    },
+    {
+      "name": "LambertW(-1/10,0) at 300 digits",
+      "status": "passed",
+      "seconds": 0.003669939935207367
+    },
+    {
+      "name": "LambertW(-1/10,-1) at 300 digits",
+      "status": "passed",
+      "seconds": 0.005486331996507943
+    },
+    {
+      "name": "LambertW(-1,0) at 300 digits",
+      "status": "passed",
+      "seconds": 0.015802879934199154
+    },
+    {
+      "name": "LambertW(-1,-1) at 300 digits",
+      "status": "passed",
+      "seconds": 0.01053711399435997
+    },
+    {
+      "name": "LambertW(1,2) at 300 digits",
+      "status": "passed",
+      "seconds": 0.013585842913016677
+    },
+    {
+      "name": "branch/scale stress LambertW(1/2+I/10**20,0)",
+      "status": "passed",
+      "seconds": 0.005109585938043892
+    },
+    {
+      "name": "branch/scale stress LambertW(-3/10+I/10**20,0)",
+      "status": "passed",
+      "seconds": 0.005053951987065375
+    },
+    {
+      "name": "branch/scale stress LambertW(-3/10-I/10**20,0)",
+      "status": "passed",
+      "seconds": 0.004644065978936851
+    },
+    {
+      "name": "branch/scale stress LambertW(-1/5+I/5,0)",
+      "status": "passed",
+      "seconds": 0.004406570922583342
+    },
+    {
+      "name": "branch/scale stress LambertW(-3/10+I/10**20,-1)",
+      "status": "passed",
+      "seconds": 0.004698691074736416
+    },
+    {
+      "name": "branch/scale stress LambertW(-3/10-I/10**20,-1)",
+      "status": "passed",
+      "seconds": 0.004894362995401025
+    },
+    {
+      "name": "branch/scale stress LambertW(-exp(-1)+1/10**80,0)",
+      "status": "passed",
+      "seconds": 0.004235917003825307
+    },
+    {
+      "name": "branch/scale stress LambertW(-exp(-1)-1/10**80,0)",
+      "status": "passed",
+      "seconds": 0.005855728988535702
+    },
+    {
+      "name": "branch/scale stress LambertW(-exp(-1)+1/10**80,-1)",
+      "status": "passed",
+      "seconds": 0.003513926058076322
+    },
+    {
+      "name": "branch/scale stress LambertW(-exp(-1)-1/10**80,-1)",
+      "status": "passed",
+      "seconds": 0.005267052911221981
+    },
+    {
+      "name": "branch/scale stress LambertW(10**1000,0)",
+      "status": "passed",
+      "seconds": 0.0030149349477142096
+    },
+    {
+      "name": "branch/scale stress LambertW(-1/10**1000,-1)",
+      "status": "passed",
+      "seconds": 0.002607756992802024
+    },
+    {
+      "name": "solveset never reports partial Lambert families as complete",
+      "status": "passed",
+      "seconds": 0.3487306389724836
+    }
+  ],
+  "passed": 67,
+  "failed": 0,
+  "scope": "66 solver/root/numerical checks on the release binary; one focused solveset check after adding the final completeness guard. Two intentional mathematical improvements are identified with exact proofs.",
+  "build": "Release, opt-level=3, thin LTO, codegen-units=1; installed in the project Python environment."
+}

@@ -20,12 +20,12 @@ def raises(expectedException,code=None,**kwargs):
     if not callable(code):raise TypeError('raises requires a callable or a context manager')
     return _pytest.raises(expectedException,code,**kwargs)
 
-def skip(message):return _pytest.skip(message)
+def skip(str):return _pytest.skip(str)
 def SKIP(reason):return _pytest.mark.skip(reason=reason)
-def XFAIL(function):return _pytest.mark.xfail(function)
-def slow(function):function._slow=True;return function
-def tooslow(function):function._tooslow=True;return function
-def nocache_fail(function):function._nocache_fail=True;return function
+def XFAIL(func):return _pytest.mark.xfail(func)
+def slow(func):func._slow=True;return func
+def tooslow(func):func._tooslow=True;return func
+def nocache_fail(func):func._nocache_fail=True;return func
 def skip_under_pyodide(message=None):
     reason=message if isinstance(message,str) else 'unavailable on Pyodide'
     decorator=_pytest.mark.skipif(sys.platform=='emscripten',reason=reason)

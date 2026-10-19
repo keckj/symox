@@ -1,5 +1,6 @@
 """Dispatch native scalar arithmetic and public transforms for vector objects."""
 from functools import wraps
+from .._dispatch_arguments import FirstArgument
 
 
 def install():
@@ -27,11 +28,14 @@ def install():
     for name in ('diff','integrate','simplify','expand','trigsimp'):
         original = getattr(symox,name)
         def transform(original,name):
+            first=FirstArgument(original)
             @wraps(original)
-            def operation(expression,*args,**kwargs):
+            def operation(*args,**kwargs):
+                expression=first.get(args,kwargs)
                 if isinstance(expression,_BasisDependent):
-                    return getattr(expression,name)(*args,**kwargs)
-                return original(expression,*args,**kwargs)
+                    expression,rest,options=first.split(args,kwargs)
+                    return getattr(expression,name)(*rest,**options)
+                return original(*args,**kwargs)
             return operation
         setattr(symox,name,transform(original,name))
     Expr._coordinate_vector_dispatch_installed = True

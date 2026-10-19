@@ -58,10 +58,10 @@ def set_mul(x,y):
     return _set_operation(x,y,lambda a,b:a*b)
 def set_div(x,y):return _set_operation(x,y,lambda a,b:a/b)
 def set_pow(x,y):return _set_operation(x,y,lambda a,b:a**b)
-def set_function(function,x):
+def set_function(f,x):
     from symox import Dummy,Lambda,imageset
     variable=Dummy('x')
-    return imageset(Lambda(variable,function(variable)),x) if isinstance(x,Set) else function(x)
+    return imageset(Lambda(variable,f(variable)),x) if isinstance(x,Set) else f(x)
 def simplify_union(args):return Union(*args)
 def simplify_intersection(args):return Intersection(*args)
 def is_function_invertible_in_set(func,setv):

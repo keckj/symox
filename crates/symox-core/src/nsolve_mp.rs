@@ -173,6 +173,46 @@ pub fn newton(equations: &[Expr], variables: &[Expr], starts: &[MpComplex], opti
     Ok(values.iter().map(|value| value.round_to(options.precision)).collect())
 }
 
+/// Derivative-free scalar secant iteration, including complex starting points.
+/// A single point uses the same exact quarter-unit perturbation as the
+/// reference solver. No coefficient or iterate is converted through f64.
+pub fn secant(equation_expr: &Expr, variable: &Expr, starts: &[MpComplex], options: &Options) -> Result<MpComplex, String> {
+    let minimum = check(options)?;
+    if starts.is_empty() || starts.len() > 2 {
+        return Err("secant requires one or two initial points".into());
+    }
+    let start_precision = starts.iter().map(|v| v.re.man.bits().max(v.im.man.bits()) as u32).max().unwrap_or(0);
+    let precision = minimum.max(evalf_mp::max_precision(equation_expr).unwrap_or(0) + 64).max(start_precision + 64);
+    let expressions = vec![equation(equation_expr)?];
+    let variables = vec![variable.clone()];
+    let at = |point: &MpComplex| -> Result<MpComplex, String> {
+        Ok(evaluate(&expressions, &variables, std::slice::from_ref(point), precision)?[0].clone())
+    };
+    let mut previous = starts[0].round_to(precision);
+    let mut current = starts.get(1).map(|v| v.round_to(precision)).unwrap_or_else(||
+        previous.add(&MpComplex::real(BigFloat::one().ldexp(-2)), precision));
+    let mut previous_value = at(&previous)?;
+    if previous_value.re.is_zero() && previous_value.im.is_zero() {
+        return Ok(previous.round_to(options.precision));
+    }
+    let mut current_value = at(&current)?;
+    for _ in 0..options.maxsteps {
+        if current_value.abs(precision).cmp(&options.tolerance) != Ordering::Greater { break; }
+        let denominator = current_value.sub(&previous_value, precision);
+        let correction = current_value.mul(&current.sub(&previous, precision), precision)
+            .div(&denominator, precision).ok_or("Could not find root: equal residuals in secant iteration")?;
+        let next = current.sub(&correction, precision);
+        let threshold = options.tolerance.mul(&next.abs(precision).add(&BigFloat::one(), precision), precision);
+        previous = current;
+        previous_value = current_value;
+        current = next;
+        current_value = at(&current)?;
+        if correction.abs(precision).cmp(&threshold) != Ordering::Greater { break; }
+    }
+    verify(&expressions, &variables, std::slice::from_ref(&current), options, precision)?;
+    Ok(current.round_to(options.precision))
+}
+
 pub fn bisect(equation_expr: &Expr, variable: &Expr, a: &MpComplex, b: &MpComplex, options: &Options) -> Result<MpComplex, String> {
     let precision = check(options)?.max(evalf_mp::max_precision(equation_expr).unwrap_or(0) + 64)
         .max(a.re.man.bits().max(b.re.man.bits()) as u32 + 64);
@@ -213,6 +253,20 @@ mod tests {
     fn options() -> Options {
         let precision = crate::bigfloat::dps_to_prec(80);
         Options { precision, tolerance: BigFloat::one().ldexp(-(precision as i64) - 8), maxsteps: 100, verify: true }
+    }
+
+    #[test]
+    fn secant_uses_brackets_and_complex_values_without_derivatives() {
+        let x = Expr::symbol("x");
+        let options = options();
+        let starts = [MpComplex::real(BigFloat::one()), MpComplex::real(BigFloat::from_i64(2))];
+        let root = secant(&expression("x**2 - 2"), &x, &starts, &options).unwrap();
+        assert!(root.re.to_string_dps(60, false).starts_with("1.41421356237309504880168872420969807856967187537694807317668"));
+        let start = MpComplex { re: BigFloat::one(), im: BigFloat::one() };
+        let root = secant(&expression("x**2 + 1"), &x, &[start], &options).unwrap();
+        assert!(root.re.abs().mag() < -(options.precision as i64));
+        assert!(root.im.sub(&BigFloat::one(), options.precision).abs().mag() < -(options.precision as i64));
+        assert!(secant(&expression("x**2 + 1"), &x, &starts, &options).is_err());
     }
 
     #[test]

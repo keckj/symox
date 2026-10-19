@@ -16,6 +16,11 @@ def _interval_pieces(expression, x, start, stop):
     """Split real affine Abs/sign/Piecewise boundaries before native integration."""
     from functools import cmp_to_key
     from .. import Add, S, integrate
+    from .._public_calculus import _pairs
+    def scalar_arguments(node):
+        if node.is_Piecewise:
+            return tuple(item for pair in _pairs(node) for item in pair)
+        return node.args
     cuts, pending, seen = {start, stop}, [expression], set()
     while pending:
         node = pending.pop()
@@ -40,7 +45,7 @@ def _interval_pieces(expression, x, start, stop):
                 cuts.add(root)
             elif root not in (start,stop) and after_start is not False and before_stop is not False:
                 raise NotImplementedError('Cannot locate a symbolic Fourier branch boundary')
-        pending.extend(node.args)
+        pending.extend(scalar_arguments(node))
     if len(cuts) > 128:
         raise NotImplementedError('Fourier branch splitting limit exceeded')
 
@@ -62,7 +67,7 @@ def _interval_pieces(expression, x, start, stop):
         def branch(node):
             if node in memo:
                 return memo[node]
-            replacements = {arg: branch(arg) for arg in node.args if arg.args}
+            replacements = {arg: branch(arg) for arg in scalar_arguments(node) if arg.args}
             replacements = {a: b for a, b in replacements.items() if a != b}
             value = node.xreplace(replacements) if replacements else node
             if value.is_Function and not value.is_UndefinedFunction and value.name in ('Abs', 'sign', 'Heaviside'):
@@ -73,7 +78,7 @@ def _interval_pieces(expression, x, start, stop):
                 elif sample.is_negative is True:
                     value = -argument if value.name == 'Abs' else (-S.One if value.name == 'sign' else S.Zero)
             elif value.is_Piecewise:
-                for term, condition in zip(value.args[::2], value.args[1::2]):
+                for term, condition in _pairs(value):
                     decision = condition.subs(x, midpoint)
                     if decision == S.true:
                         value = term

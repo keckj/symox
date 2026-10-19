@@ -1,6 +1,7 @@
 //! Arbitrary precision numerical evaluation of expressions.
 
 use num_bigint::BigInt;
+use num_traits::ToPrimitive;
 
 use crate::bigfloat::{ln2, pi, BigFloat};
 use crate::expr::{Constant, Expr, Func, Kind};
@@ -14,6 +15,21 @@ pub struct MpComplex {
 }
 
 impl MpComplex {
+    fn sqrt(&self,p:u32)->Option<MpComplex>{
+        if self.is_real(){
+            return Some(if self.re.sign()<0{
+                MpComplex{re:BigFloat::zero(),im:self.re.neg().sqrt(p)?}
+            }else{MpComplex::real(self.re.sqrt(p)?)});
+        }
+        let working=p+20;
+        // The large component uses a sum; recover the small component from
+        // 2*Re(sqrt(z))*Im(sqrt(z))=Im(z), avoiding cancellation near a cut.
+        let large=self.abs(working).add(&self.re.abs(),working).ldexp(-1).sqrt(working)?;
+        let small=self.im.div(&large.ldexp(1),working)?;
+        Some(if self.re.sign()<0{
+            MpComplex{re:small.abs().round_to(p),im:if self.im.sign()<0{large.neg()}else{large}.round_to(p)}
+        }else{MpComplex{re:large.round_to(p),im:small.round_to(p)}})
+    }
     pub fn real(re: BigFloat) -> MpComplex {
         MpComplex { re, im: BigFloat::zero() }
     }
@@ -82,7 +98,7 @@ impl MpComplex {
         BigFloat::atan2(&self.im, &self.re, p)
     }
 
-    fn exp(&self, p: u32) -> Option<MpComplex> {
+    pub(crate) fn exp(&self, p: u32) -> Option<MpComplex> {
         // Keep exponential results inside a decimal exponent magnitude of
         // one million, matching the native decimal constructor's bound.
         if self.re.abs().cmp(&BigFloat::from_i64(2_000_000)) == std::cmp::Ordering::Greater { return None; }
@@ -94,7 +110,7 @@ impl MpComplex {
         Some(MpComplex { re: r.mul(&c, p), im: r.mul(&s, p) })
     }
 
-    fn ln(&self, p: u32) -> Option<MpComplex> {
+    pub(crate) fn ln(&self, p: u32) -> Option<MpComplex> {
         if self.is_real() && self.re.sign() > 0 {
             return Some(MpComplex::real(self.re.ln(p)?));
         }
@@ -164,9 +180,62 @@ pub fn has_mp(e: &Expr) -> bool {
     e.float_info().has_mp
 }
 
+/// Insert scalar symbol values without prematurely rounding their arithmetic.
+/// Sequential mapping semantics are retained, including substitutions into an
+/// earlier replacement value. Binding and matrix expressions use the existing
+/// algebraic substitution implementation rather than this scalar traversal.
+pub fn substitute_for_evalf(e: &Expr, pairs: &[(Expr, Expr)]) -> Expr {
+    use rustc_hash::FxHashMap;
+    fn scalar(e: &Expr, seen: &mut FxHashMap<usize, Expr>) -> bool {
+        if seen.insert(e.dag_id(), e.clone()).is_some() { return true; }
+        if e.has_matrix() { return false; }
+        match e.kind() {
+            Kind::Derivative(..) | Kind::Rel(..) | Kind::Piecewise(..) | Kind::Bool(..) => false,
+            Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product
+                | Func::Set(..) | Func::Logic(..), _) => false,
+            _ => crate::inspection::scalar_children(e).iter().all(|child| scalar(child, seen)),
+        }
+    }
+    fn replace(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+        if e == old { return new.clone(); }
+        if e.is_atom() { return e.clone(); }
+        if let Some((_, value)) = cache.get(&e.dag_id()) { return value.clone(); }
+        let mut child = |value: &Expr| replace(value, old, new, cache);
+        let kind = match e.kind() {
+            Kind::Add(c, terms) => Kind::Add(c.clone(), terms.iter().map(|(t, k)| (child(t), k.clone())).collect()),
+            Kind::Mul(c, factors) => Kind::Mul(c.clone(), factors.iter().map(|(b, p)| (child(b), child(p))).collect()),
+            Kind::Pow(b, p) => Kind::Pow(child(b), child(p)),
+            Kind::Func(f, args) => Kind::Func(f.clone(), args.iter().map(&mut child).collect()),
+            Kind::Rel(op, a, b) => Kind::Rel(*op, child(a), child(b)),
+            Kind::Piecewise(branches) => Kind::Piecewise(branches.iter().map(|(v, c)| (child(v), child(c))).collect()),
+            _ => return e.clone(),
+        };
+        let result = Expr::from_unevaluated_kind(kind);
+        let result = if result == *e { e.clone() } else { result };
+        // Retain source nodes as well as results: a pointer-key cache must not
+        // outlive its original node during this transformation.
+        cache.insert(e.dag_id(), (e.clone(), result.clone()));
+        result
+    }
+    if pairs.is_empty() { return e.clone(); }
+    let mut seen = FxHashMap::default();
+    if pairs.iter().any(|(old, _)| !old.is_symbol()) || !scalar(e, &mut seen)
+        || pairs.iter().any(|(_, value)| !scalar(value, &mut seen)) {
+        return crate::subs::subs(e, pairs);
+    }
+    pairs.iter().fold(e.clone(), |current, (old, new)| replace(&current, old, new, &mut FxHashMap::default()))
+}
+
 /// Evaluate a numeric expression to `prec` bits. Returns `None` when the
 /// expression has free symbols or uses an unsupported function.
 pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
+    if let Some((re,im))=crate::complex_parts::literal_parts(e){
+        let component=|e:&Expr|match e.as_number()?{
+            Number::MpFloat(value,_)=>value.checked_round_to(prec),
+            n=>number(n,prec).checked_round_to(prec),
+        };
+        return Some(MpComplex{re:component(&re)?,im:component(&im)?});
+    }
     if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){return eval_mp(&crate::matrixcontraction::dot_product(a,b,true).ok()?,prec);}
     if matches!(e.kind(),Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product,_)){
         let evaluated=crate::functions::doit(e,true);
@@ -223,6 +292,9 @@ pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i64)->Expr {
 }
 
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
+    if e.has_wide_exponent()&&matches!(e.kind(),Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){
+        return None;
+    }
     Some(match e.kind() {
         Kind::Num(n) => MpComplex::real(number(n, p)),
         Kind::Const(c) => match c {
@@ -235,7 +307,7 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
             Constant::TribonacciConstant => MpComplex::real(tribonacci_constant(p)),
             _ => return None,
         },
-        Kind::Add(c, terms) => eval_sum(c, terms, p)?,
+        Kind::Add(c, terms) => eval_sum(e,c, terms, p)?,
         Kind::Mul(c, facs) => {
             let mut acc = MpComplex::real(number(c, p));
             for (b, x) in facs {
@@ -254,23 +326,34 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
 
 /// Increase working precision when large terms nearly cancel. A fixed guard
 /// budget would incorrectly turn sqrt(10**100 + 1) - 10**50 into exact zero.
-fn eval_sum(constant: &Number, terms: &[(Expr, Number)], precision: u32) -> Option<MpComplex> {
+fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precision: u32) -> Option<MpComplex> {
+    let known_real=crate::assumptions::exact_queries(||crate::assumptions::is_real(expression))==Some(true);
+    if known_real&&crate::assumptions::exact_queries(||crate::assumptions::is_zero(expression))==Some(true){
+        return Some(MpComplex::real(BigFloat::zero()));
+    }
     let mut working = precision + 32;
     loop {
         let mut sum = MpComplex::real(number(constant, working));
-        let mut largest = sum.re.mag();
+        let mut largest_real = sum.re.mag();
+        let mut largest_imaginary=sum.im.mag();
         for (term, coefficient) in terms {
             let value = ev(term, working)?;
             let value = if coefficient.is_one() { value } else { value.scale(&number(coefficient, working), working) };
-            largest = largest.max(value.re.mag()).max(value.im.mag());
+            largest_real=largest_real.max(value.re.mag());
+            largest_imaginary=largest_imaginary.max(value.im.mag());
             sum = sum.add(&value, working);
         }
-        let magnitude = sum.re.mag().max(sum.im.mag());
-        let cancellation = largest.saturating_sub(magnitude).max(0) as u64;
+        if known_real{sum.im=BigFloat::zero();}
+        // A large real component must not hide cancellation of a tiny
+        // imaginary component (or vice versa), especially near a branch cut.
+        let real_loss=largest_real.saturating_sub(sum.re.mag()).max(0);
+        let imaginary_loss=if known_real{0}else{largest_imaginary.saturating_sub(sum.im.mag()).max(0)};
+        let cancellation = real_loss.max(imaginary_loss) as u64;
         let required = precision as u64 + cancellation + 24;
         if required <= working as u64 { return Some(sum); }
         if working >= precision + 4096 { return None; }
-        working = if magnitude < i64::MIN / 8 {
+        working = if (sum.re.is_zero()&&largest_real>i64::MIN/8)
+            ||(!known_real&&sum.im.is_zero()&&largest_imaginary>i64::MIN/8) {
             (working + (working - precision).max(32)).min(precision + 4096)
         } else {
             (required.min((precision + 4096) as u64)) as u32
@@ -279,12 +362,20 @@ fn eval_sum(constant: &Number, terms: &[(Expr, Number)], precision: u32) -> Opti
 }
 
 fn pow_of(b: &Expr, x: &Expr, p: u32) -> Option<MpComplex> {
-    let bv = ev(b, p)?;
+    let mut bv = ev(b, p)?;
+    // A structurally certified real expression must not acquire a different
+    // square-root branch from rounding noise in a cancelling imaginary part.
+    // Genuine tiny imaginary inputs are retained: this is not numeric chop.
+    if !bv.is_real()&&crate::assumptions::exact_queries(||crate::assumptions::is_real(b))==Some(true){
+        bv.im=BigFloat::zero();
+    }
     if let Some(k) = x.as_i64() {
         return bv.powi(k, p);
     }
-    if *x == Expr::rational(1, 2) && bv.is_real() && bv.re.sign() >= 0 {
-        return Some(MpComplex::real(bv.re.sqrt(p)?));
+    if let Some((numerator,denominator))=x.as_number().and_then(Number::numer_denom){
+        if denominator==2.into(){
+            if let Some(n)=numerator.to_i64(){return bv.sqrt(p+16)?.powi(n,p);}
+        }
     }
     let xv = ev(x, p)?;
     bv.pow(&xv, p)
@@ -562,6 +653,48 @@ mod tests {
     use super::*;
     use crate::bigfloat::dps_to_prec;
     use crate::prelude::*;
+
+    #[test]
+    fn numerical_symbol_substitution_preserves_cancellation_and_sequential_values() {
+        let x=Expr::symbol("x"); let y=Expr::symbol("y"); let z=Expr::symbol("z");
+        let expression=add(&[x.clone(),y.clone(),mul(&[Expr::int(-1),z.clone()])]);
+        for large in [Expr::num(Number::float(1e16)),
+            Expr::num(Number::mp_float(BigFloat::from_decimal("1e100",70).unwrap(),70)),
+            Expr::num(Number::mp_float(BigFloat::from_decimal("1e1000",70).unwrap(),70))] {
+            let pairs=vec![(x.clone(),large.clone()),(y.clone(),Expr::one()),(z.clone(),large)];
+            assert!(crate::subs::subs(&expression,&pairs).is_zero());
+            let held=substitute_for_evalf(&expression,&pairs);
+            assert_eq!(eval_mp(&held,200).unwrap().re,BigFloat::one(),"held {held}; kind {:?}",held.kind());
+            assert_eq!(super::evalf(&held,200),to_expr(MpComplex::real(BigFloat::one()),200));
+        }
+        let sequential=substitute_for_evalf(&add(&[x.clone(),y.clone()]),&[(x,y.clone()),(y,Expr::int(2))]);
+        assert_eq!(eval_mp(&sequential,200).unwrap().re,BigFloat::from_i64(4));
+    }
+
+    #[test]
+    fn numerical_substitution_preserves_binding_and_algebraic_fallbacks() {
+        let parse=|s| crate::parser::parse_str(s).unwrap();
+        for expression in [parse("Integral(x,(x,0,1))"),parse("Derivative(f(x),x)"),parse("x**4-2"),parse("Piecewise((x,x>0),(0,True))")] {
+            let pairs=if expression.is_pow() || expression.is_add() {vec![(parse("x**2"),Expr::int(3))]}
+                else {vec![(parse("x"),Expr::int(2))]};
+            assert_eq!(substitute_for_evalf(&expression,&pairs),crate::subs::subs(&expression,&pairs));
+        }
+    }
+
+    #[test]
+    fn complex_square_root_keeps_tiny_genuine_branch_components(){
+        let precision=200;
+        let tiny=BigFloat{man:BigInt::from(1),exp:-4000};
+        for sign in [-1,1]{
+            let z=MpComplex{re:BigFloat::from_i64(-1),im:if sign<0{tiny.neg()}else{tiny.clone()}};
+            let root=z.sqrt(precision).unwrap();
+            assert!(root.re.sign()>0);
+            assert_eq!(root.im.sign(),sign);
+            let recovered=root.mul(&root,precision);
+            assert_eq!(recovered.re,BigFloat::from_i64(-1));
+            assert!(recovered.im.sub(&z.im,precision).abs().mag()<tiny.mag()-precision as i64+4);
+        }
+    }
 
     #[test]
     fn chopping_uses_native_component_magnitudes_without_machine_underflow() {

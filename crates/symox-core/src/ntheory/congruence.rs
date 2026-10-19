@@ -1,6 +1,6 @@
 //! Polynomial congruences and binomials modulo composites, ported from
 //! SymPy's `residue_ntheory.polynomial_congruence` (`gf_csolve`) and
-//! `residue_ntheory.binomial_mod`.
+//! `residue_ntheory.binomial_mod` (BSD-3-Clause, see LICENSE-SYMPY).
 
 use std::collections::BTreeSet;
 
@@ -244,17 +244,142 @@ fn binomial_mod_prime(n: &BigInt, m: &BigInt, p: &BigInt) -> BigInt {
     r
 }
 
-/// Product of the integers in `[1, x]` coprime to `p`, modulo `q = p**e`.
-struct CoprimeFactorial {
+fn signed_modpow(base: &BigInt, exponent: &BigInt, modulus: &BigInt) -> BigInt {
+    if exponent.is_negative() {
+        mod_inverse(base, modulus).expect("unit factorial is invertible")
+            .modpow(&(-exponent), modulus)
+    } else {
+        base.modpow(exponent, modulus)
+    }
+}
+
+/// Integer-valued Lagrange weights for nodes 0,1,...,degree or their squares.
+fn interpolation_weight(u: &BigInt, j: u32, degree: u32, squared: bool) -> BigInt {
+    let (mut numerator, mut denominator) = (u.clone(), BigInt::from(j));
+    let (u_node, j_node) = if squared {
+        (u * u, BigInt::from(j) * j)
+    } else {
+        (u.clone(), BigInt::from(j))
+    };
+    for i in 1..=degree {
+        if i == j { continue; }
+        let node = if squared { BigInt::from(i) * i } else { BigInt::from(i) };
+        numerator *= &u_node - &node;
+        denominator *= &j_node - node;
+    }
+    debug_assert!((&numerator % &denominator).is_zero());
+    numerator / denominator
+}
+
+/// Granville's prime-power unit-factorial interpolation, following the pinned
+/// reference algorithm. Work is polynomial in the exponent and linear in p,
+/// rather than linear in p**e. Extra p-adic precision handles exceptional
+/// Bernoulli denominators and the sign correction for p=2.
+struct GranvilleFactorial {
     p: BigInt,
     q: BigInt,
+    exponent: u32,
+    half: u32,
+    working_modulus: BigInt,
+    block_factorials: Vec<BigInt>,
+    factorials: Vec<BigInt>,
+}
+
+impl GranvilleFactorial {
+    fn new(p: &BigInt, q: &BigInt, exponent: u32) -> Self {
+        let mut half = exponent / 2;
+        let exceptional = (half == 1 && *p == b(2))
+            || BigInt::from(2 * half + 1) == *p
+            || BigInt::from(2 * half + 1) == p * p;
+        let working_exponent = if exceptional {
+            if exponent % 2 == 1 { half += 1; }
+            2 * half
+        } else { 2 * half + 1 };
+        let working_modulus = p.pow(working_exponent);
+        let mut block_factorials = Vec::new();
+        let mut product = BigInt::one();
+        for j in 1..=half {
+            let mut value: BigInt = BigInt::from(j - 1) * p + 1;
+            let end = BigInt::from(j) * p;
+            while value < end {
+                product = (product * &value).mod_floor(&working_modulus);
+                value += 1;
+            }
+            block_factorials.push(product.clone());
+        }
+        Self { p: p.clone(), q: q.clone(), exponent, half, working_modulus,
+            block_factorials, factorials: vec![BigInt::one()] }
+    }
+
+    fn factorial(&mut self, n: &BigInt) -> BigInt {
+        if let Some(index) = n.to_usize() {
+            while self.factorials.len() <= index {
+                let next = self.factorials.len();
+                self.factorials.push((&self.factorials[next - 1] * next).mod_floor(&self.q));
+            }
+            return self.factorials[index].clone();
+        }
+        // No narrowing conversion or false result for enormous integer inputs.
+        let (mut product, mut value) = (BigInt::one(), BigInt::one());
+        while &value <= n {
+            product = (product * &value).mod_floor(&self.q);
+            value += 1;
+        }
+        product
+    }
+
+    fn full_blocks(&self, u: &BigInt) -> BigInt {
+        let mut product = BigInt::one();
+        let mut sign: BigInt = u / 2;
+        for (index, factorial) in self.block_factorials.iter().enumerate() {
+            let j = index as u32 + 1;
+            let exponent = interpolation_weight(u, j, self.half, true);
+            product = (product * signed_modpow(factorial, &exponent, &self.working_modulus))
+                .mod_floor(&self.working_modulus);
+            if self.p == b(2) { sign += &exponent * (j / 2); }
+        }
+        if self.p == b(2) && sign.is_odd() { product = -product; }
+        product.mod_floor(&self.q)
+    }
+
+    fn partial_block(&self, u: &BigInt, v: &BigInt, factorial: &BigInt) -> BigInt {
+        if v.is_zero() { return BigInt::one(); }
+        let inverse = mod_inverse(factorial, &self.q).expect("v < p");
+        let mut product = BigInt::one();
+        for j in 1..self.exponent {
+            let mut coefficient = inverse.clone();
+            let start = BigInt::from(j) * &self.p;
+            let mut value = BigInt::one();
+            while &value <= v {
+                coefficient = (coefficient * (&start + &value)).mod_floor(&self.q);
+                value += 1;
+            }
+            let exponent = interpolation_weight(u, j, self.exponent - 1, false);
+            product = (product * signed_modpow(&coefficient, &exponent, &self.q)).mod_floor(&self.q);
+        }
+        product
+    }
+
+    fn eval(&mut self, n: &BigInt) -> BigInt {
+        let (u, v) = n.div_mod_floor(&self.p);
+        let factorial = self.factorial(&v);
+        if u.is_zero() { return factorial; }
+        (&factorial * self.full_blocks(&u) * self.partial_block(&u, &v, &factorial)).mod_floor(&self.q)
+    }
+}
+
+/// Product of the integers in `[1, x]` coprime to `p`, modulo `q = p**e`.
+struct CoprimeFactorial {
+    q: BigInt,
     table: Option<Vec<u64>>,
+    granville: Option<GranvilleFactorial>,
     full: BigInt,
 }
 
 impl CoprimeFactorial {
-    fn new(p: &BigInt, q: &BigInt) -> Self {
-        let mut s = CoprimeFactorial { p: p.clone(), q: q.clone(), table: None, full: BigInt::zero() };
+    fn new(p: &BigInt, q: &BigInt, exponent: u32) -> Self {
+        let mut s = CoprimeFactorial { q: q.clone(), table: None, granville: None,
+            full: if *p == b(2) && exponent >= 3 { BigInt::one() } else { q - 1 } };
         if let (Some(qq), Some(pp)) = (q.to_u64(), p.to_u64()) {
             if qq <= 1 << 22 {
                 let mut t = Vec::with_capacity(qq as usize + 1);
@@ -269,28 +394,21 @@ impl CoprimeFactorial {
                 s.table = Some(t);
             }
         }
-        s.full = s.partial(q);
+        if s.table.is_none() { s.granville = Some(GranvilleFactorial::new(p, q, exponent)); }
         s
     }
 
-    fn partial(&self, x: &BigInt) -> BigInt {
+    fn partial(&mut self, x: &BigInt) -> BigInt {
         if let Some(t) = &self.table {
             return BigInt::from(t[x.to_usize().unwrap()]);
         }
-        let mut acc = BigInt::one();
-        let mut i = BigInt::one();
-        while &i <= x {
-            if !(&i % &self.p).is_zero() {
-                acc = (acc * &i) % &self.q;
-            }
-            i += 1;
-        }
-        acc
+        self.granville.as_mut().expect("table or interpolation").eval(x)
     }
 
-    fn eval(&self, x: &BigInt) -> BigInt {
+    fn eval(&mut self, x: &BigInt) -> BigInt {
         let (d, r) = x.div_mod_floor(&self.q);
-        (self.full.modpow(&d, &self.q) * self.partial(&r)).mod_floor(&self.q)
+        let sign = if self.full.is_one() || d.is_even() { BigInt::one() } else { self.full.clone() };
+        (sign * self.partial(&r)).mod_floor(&self.q)
     }
 }
 
@@ -315,7 +433,7 @@ fn binomial_mod_prime_power(n: &BigInt, m: &BigInt, p: &BigInt, e: u32) -> BigIn
     if v >= e as u64 {
         return BigInt::zero();
     }
-    let f = CoprimeFactorial::new(p, &q);
+    let mut f = CoprimeFactorial::new(p, &q, e);
     let (mut nn, mut mm, mut rr) = (n.clone(), m.clone(), r0);
     let (mut num, mut den) = (BigInt::one(), BigInt::one());
     while !nn.is_zero() {
@@ -347,12 +465,77 @@ pub fn binomial_mod(n: &BigInt, m: &BigInt, k: &BigInt) -> Result<BigInt, String
     Ok(x)
 }
 
+/// Exact n! modulo a positive modulus, grouping primes with equal valuations.
+/// This follows the reference factorial._facmod strategy rather than creating
+/// the factorial, whose bit length can dwarf the modulus and final result.
+pub(crate) fn factorial_mod(n: &BigInt, modulus: &BigInt) -> Option<BigInt> {
+    let n = n.to_u64()?;
+    let root = num_integer::Roots::sqrt(&n);
+    let mut grouped = std::collections::BTreeMap::<u64, BigInt>::new();
+    let mut result = BigInt::one();
+    for prime in super::primerange(2, n.checked_add(1)?) {
+        let (mut valuation, mut quotient) = (0u64, n / prime);
+        while quotient != 0 { valuation += quotient; quotient /= prime; }
+        if valuation < root {
+            let product = grouped.entry(valuation).or_insert_with(BigInt::one);
+            *product = (&*product * prime).mod_floor(modulus);
+        } else {
+            result = (result * BigInt::from(prime).modpow(&valuation.into(), modulus)).mod_floor(modulus);
+        }
+    }
+    for (exponent, base) in grouped {
+        if base.is_zero() { return Some(BigInt::zero()); }
+        result = (result * base.modpow(&exponent.into(), modulus)).mod_floor(modulus);
+    }
+    Some(result.mod_floor(modulus))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn binom(n: u64, k: u64) -> BigInt {
         (0..k).fold(BigInt::one(), |acc, i| acc * (n - i) / (i + 1))
+    }
+
+    #[test]
+    fn granville_unit_factorials_match_independent_products() {
+        for prime in [2, 3, 5, 7, 11, 19] {
+            let p = b(prime);
+            for exponent in 2..=10 {
+                let q = p.pow(exponent);
+                let mut factorial = GranvilleFactorial::new(&p, &q, exponent);
+                let mut exact = BigInt::one();
+                for n in 0..=100 {
+                    if n % prime != 0 { exact = (exact * n).mod_floor(&q); }
+                    assert_eq!(factorial.eval(&b(n)), exact, "p={prime} e={exponent} n={n}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn huge_binomials_mod_prime_powers_without_materialization() {
+        for (n, k, modulus, expected) in [
+            ("1000000000000000000", "1000000000000", "10000600009", "3744312326"),
+            ("1000000000000000000000000000000", "1000000000000000", "4294967296", "4194304000"),
+            ("100000000000000000099", "1000000001", "3486784401", "39051072"),
+            ("100000000000000000999", "10000000000", "244140625", "9765625"),
+        ] {
+            let parse = |s: &str| s.parse::<BigInt>().unwrap();
+            assert_eq!(binomial_mod(&parse(n), &parse(k), &parse(modulus)).unwrap(), parse(expected));
+        }
+    }
+
+    #[test]
+    fn modular_factorials_match_exact_small_factorials() {
+        let mut exact = BigInt::one();
+        for n in 0..100 {
+            if n > 0 { exact *= n; }
+            for modulus in [1, 2, 3, 4, 7, 24, 97, 100003] {
+                assert_eq!(factorial_mod(&b(n), &b(modulus)).unwrap(), exact.mod_floor(&b(modulus)));
+            }
+        }
     }
 
     #[test]

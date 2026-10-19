@@ -32,10 +32,10 @@ class CMod(Gate):
     def _represent(self,**options):return self._local_matrix()
     def _subs_parameters(self,mapping,**kwargs):return self
 
-def ratioize(values,N):
+def ratioize(list,N):
     """Evaluate a continued fraction, keeping convergent denominators at most N."""
     p0,p1,q0,q1=0,1,1,0;result=Fraction(0)
-    for a in values:
+    for a in list:
         p0,p1=p1,int(a)*p1+p0;q0,q1=q1,int(a)*q1+q0
         if q1>int(N):break
         result=Fraction(p1,q1)

@@ -11,7 +11,6 @@ use crate::functions::*;
 use crate::number::Number;
 use crate::ops::{add, add2, div, mul, mul2, mul_factor, neg, pow, sqrt, sub};
 use crate::parser::parse_str;
-use crate::pattern::replace_with;
 use crate::subs::xreplace;
 use crate::traverse::{map_children, node_count};
 
@@ -131,6 +130,8 @@ fn mul_from(facs: &[(Expr, Expr)]) -> Expr {
 struct Rule {
     pat: Expr,
     rep: Expr,
+    /// Trigonometric heads of `pat` (see `head_bit`).
+    heads: u8,
 }
 
 fn wilds() -> FxHashMap<&'static str, Expr> {
@@ -147,7 +148,8 @@ fn rule(p: &str, r: &str, w: &FxHashMap<&'static str, Expr>) -> Rule {
         let map: FxHashMap<Expr, Expr> = w.iter().map(|(k, v)| (Expr::symbol(k), v.clone())).collect();
         xreplace(&e, &map)
     };
-    Rule { pat: sub_w(p), rep: sub_w(r) }
+    let pat = sub_w(p);
+    Rule { heads: heads(&pat), pat, rep: sub_w(r) }
 }
 
 fn trig_rules() -> &'static Vec<Rule> {
@@ -180,12 +182,59 @@ fn trig_rules() -> &'static Vec<Rule> {
     })
 }
 
+/// Bit of a trigonometric head in the `heads` masks below.
+fn head_bit(e: &Expr) -> u8 {
+    match e.kind() {
+        Kind::Func(Func::Sin, _) => 1,
+        Kind::Func(Func::Cos, _) => 2,
+        Kind::Func(Func::Tan, _) => 4,
+        Kind::Func(Func::Sinh, _) => 8,
+        Kind::Func(Func::Cosh, _) => 16,
+        _ => 0,
+    }
+}
+
+/// Trigonometric heads occurring anywhere in `e`.
+fn heads(e: &Expr) -> u8 {
+    let mut h = 0;
+    crate::traverse::preorder(e, &mut |s| h |= head_bit(s));
+    h
+}
+
+/// `replace_with` for one trig rule, skipping the sub-expressions that lack
+/// one of the rule's function heads: every function of a pattern has to
+/// match a function of the same head inside the expression, so those nodes
+/// cannot match and the result is unchanged. Returns the heads of the result.
+fn rewrite(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>) -> (Expr, u8) {
+    if e.is_atom() {
+        return (e.clone(), 0);
+    }
+    let mut h = head_bit(e);
+    let rebuilt = map_children(e, &mut |c| {
+        let (nc, hc) = rewrite(c, r, accept);
+        h |= hc;
+        nc
+    });
+    if h & r.heads == r.heads {
+        if let Some(bind) = crate::pattern::pattern_match(&rebuilt, &r.pat) {
+            if let Some(v) = accept(&bind, &rebuilt) {
+                let hv = heads(&v);
+                return (v, hv);
+            }
+        }
+    }
+    (rebuilt, h)
+}
+
 fn apply_rules(e: &Expr) -> Expr {
     let mut cur = e.clone();
     for _ in 0..16 {
         let mut changed = false;
         for r in trig_rules() {
-            let next = replace_with(&cur, &r.pat, &mut |bind, orig| {
+            if heads(&cur) & r.heads != r.heads {
+                continue;
+            }
+            let (next, _) = rewrite(&cur, r, &mut |bind, orig| {
                 let v = xreplace(&r.rep, bind);
                 if node_count(&v) < node_count(orig) || (node_count(&v) == node_count(orig) && v != *orig) {
                     Some(v)
@@ -222,7 +271,7 @@ fn rewrite_squares(e: &Expr, to_cos: bool) -> Expr {
     e2
 }
 
-fn has_trig(e: &Expr) -> bool {
+pub(crate) fn has_trig(e: &Expr) -> bool {
     match e.kind() {
         Kind::Func(Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc | Func::Sinh | Func::Cosh | Func::Tanh, _) => true,
         _ => e.args().iter().any(has_trig),

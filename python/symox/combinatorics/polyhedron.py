@@ -2,6 +2,7 @@
 import copy
 from .permutations import Permutation
 from .perm_groups import PermutationGroup
+from ..utilities.iterables import minlex
 
 
 def _face(face):

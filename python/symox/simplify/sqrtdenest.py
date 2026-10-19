@@ -7,7 +7,7 @@ import symox as S
 class SqrtdenestStopIteration(Exception):pass
 
 def is_sqrt(expr):return getattr(expr,'is_Pow',False) and expr.exp==S.Rational(1,2)
-def is_algebraic(expr):return S.sympify(expr).is_algebraic is True
+def is_algebraic(p):return S.sympify(p).is_algebraic is True
 
 def sqrt_depth(p):
     p=S.sympify(p)

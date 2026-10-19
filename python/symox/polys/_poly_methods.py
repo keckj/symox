@@ -25,8 +25,18 @@ Poly = _core.Poly
 _native = {name: getattr(Poly, name) for name in (
     "terms", "coeffs", "monoms", "LC", "LM", "as_list", "all_roots", "__eq__",
 )}
+_native_reduce=Poly.__reduce__
 
 _SAME = object()
+
+
+def _restore_polynomial(cls,terms,gens,domain):return cls(terms,*gens,domain=domain)
+
+
+def _reduce_polynomial(f):
+    try:domain=f.domain
+    except NotImplementedError:return _native_reduce(f)
+    return _restore_polynomial,(type(f),f.as_dict(),f.gens,domain)
 
 
 def _S():
@@ -371,41 +381,22 @@ def _options(gens, args):
 
 def from_dict(cls, rep, *gens, **args):
     """Construct a polynomial from a ``{monom: coeff}`` dictionary."""
-    gens, kwargs = _options(gens, args)
-    if not gens:
-        raise GeneratorsNeeded("Cannot initialize from 'dict' without generators")
-    terms = {}
-    for monom, coeff in dict(rep).items():
-        if not isinstance(monom, tuple):
-            monom = (monom,)
-        if len(monom) != len(gens):
-            raise PolynomialError("invalid monomial %s for generators %s" % (monom, gens))
-        terms[tuple(int(e) for e in monom)] = _sympify(coeff)
-    return Poly(_expr_from_dict(terms, gens), *gens, **kwargs)
+    return cls(dict(rep),*gens,**args)
 
 
 def from_list(cls, rep, *gens, **args):
     """Construct a univariate polynomial from dense coefficients."""
-    gens, kwargs = _options(gens, args)
-    if not gens:
-        raise GeneratorsNeeded("Cannot initialize from 'list' without generators")
-    if len(gens) != 1:
-        raise MultivariatePolynomialError("'list' representation not supported")
-    rep = list(rep)
-    n = len(rep)
-    return from_dict(cls, {(n - 1 - i,): c for i, c in enumerate(rep)}, *gens, **kwargs)
+    return cls(list(rep),*gens,**args)
 
 
 def from_poly(cls, rep, *gens, **args):
     """Construct a polynomial from another polynomial."""
-    gens, kwargs = _options(gens, args)
-    return Poly(rep, *gens, **kwargs)
+    return cls(rep,*gens,**args)
 
 
 def from_expr(cls, rep, *gens, **args):
     """Construct a polynomial from an expression."""
-    gens, kwargs = _options(gens, args)
-    return Poly(_sympify(rep), *gens, **kwargs)
+    return cls(_sympify(rep),*gens,**args)
 
 
 def new(cls, rep, *gens):
@@ -1247,15 +1238,30 @@ def _subs_one(f, old, new):
     return f.as_expr().subs(old, new)
 
 
-def subs(f, *args, **kwargs):
+def subs(f, arg1, arg2=None, **kwargs):
     """Substitute like ``Basic.subs``: generators are evaluated or renamed."""
-    if len(args) == 1:
-        seq = args[0]
-        items = list(seq.items()) if isinstance(seq, dict) else list(seq)
-    elif len(args) == 2:
-        items = [args]
+    if arg2 is None:
+        if hasattr(arg1,'items'):
+            from .. import default_sort_key
+            from ..utilities.sorting import _nodes
+            items=list(arg1.items())
+            items.sort(key=lambda pair:(-_nodes(_sympify(pair[0])),default_sort_key(pair[0])))
+        else:
+            try:items=list(arg1)
+            except TypeError:raise ValueError('subs requires a mapping or an iterable of pairs') from None
     else:
-        raise ValueError("subs accepts either 1 or 2 arguments")
+        items=[(arg1,arg2)]
+    if kwargs.get('simultaneous',False):
+        from .. import Dummy
+        multiplier=Dummy('subs_m');replacements={multiplier:_S().One};rv=f
+        for old,new in items:
+            old,new=_sympify(old),_sympify(new)
+            if old==new:continue
+            commutative=getattr(new,'is_commutative',True)
+            dummy=Dummy('subs_d',commutative=True if commutative is None else commutative)
+            rv=_subs_one(rv,old,dummy*multiplier) if _is_poly(rv) else rv.subs(old,dummy*multiplier)
+            replacements[dummy]=new
+        return rv.xreplace(replacements)
     rv = f
     for old, new in items:
         old, new = _sympify(old), _sympify(new)
@@ -1289,6 +1295,7 @@ def install():
         "terms": terms, "coeffs": coeffs, "monoms": monoms,
         "LC": LC, "EC": EC, "LM": LM, "EM": EM, "LT": LT, "ET": ET,
         "as_list": as_list,
+        "__reduce__": _reduce_polynomial,
         "add_ground": add_ground, "sub_ground": sub_ground,
         "mul_ground": mul_ground, "quo_ground": quo_ground,
         "exquo_ground": exquo_ground, "abs": abs_, "__abs__": _abs, "neg": neg,

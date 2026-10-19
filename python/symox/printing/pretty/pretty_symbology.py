@@ -10,9 +10,9 @@ def U(name):
     try:return unicodedata.lookup(name)
     except KeyError:return None
 
-def g(letter):return U('GREEK SMALL LETTER '+letter.upper())
-def G(letter):return U('GREEK CAPITAL LETTER '+letter.upper())
-def VF(text):return U('VULGAR FRACTION '+text)
+def g(l):return U('GREEK SMALL LETTER '+l.upper())
+def G(l):return U('GREEK CAPITAL LETTER '+l.upper())
+def VF(txt):return U('VULGAR FRACTION '+txt)
 def xstr(*args):return str(*args)
 def line_width(text):return sum(0 if unicodedata.combining(c) else 2 if unicodedata.east_asian_width(c) in ('W','F') else 1 for c in str(text))
 def center_pad(wstring,wtarget,fillchar=' '):

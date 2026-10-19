@@ -16,6 +16,9 @@ pub fn eval(s: SpecialFn, args: &[Expr], prec: u32) -> Option<MpComplex> {
     if !s.nargs().contains(&args.len()) {
         return None;
     }
+    if s == SpecialFn::LambertW {
+        return super::lambert::mp(args, prec);
+    }
     let x = &args[0];
     let one = Expr::one();
     let plus_one = |a: &Expr| add2(a, &one);

@@ -4,14 +4,14 @@ from functools import lru_cache, wraps
 CACHE=[]
 
 
-def cacheit(function):
-    cached=lru_cache(maxsize=1000,typed=True)(function)
-    @wraps(function)
+def cacheit(func):
+    cached=lru_cache(maxsize=1000,typed=True)(func)
+    @wraps(func)
     def wrapper(*args,**kwargs):
         try:
             hash((args,tuple(kwargs.items())))
         except TypeError:
-            return function(*args,**kwargs)
+            return func(*args,**kwargs)
         return cached(*args,**kwargs)
     wrapper.cache_info=cached.cache_info
     wrapper.cache_clear=cached.cache_clear

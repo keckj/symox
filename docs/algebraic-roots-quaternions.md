@@ -26,6 +26,11 @@ r.free_symbols                     # set()
 available. `CRootOf` retains nonrational roots as exact symbolic objects.
 Rational roots are returned directly. A root's coefficients and index live in
 the native expression, so the root is independent of the polynomial generator.
+The native `solve` pipeline uses these objects when a rational-coefficient
+polynomial cannot be solved completely in radicals. For example,
+`solve(x**5-x-1, x)` returns all five indexed roots. Repeated factors are
+deduplicated, and real/sign/rational assumptions are checked using exact root
+isolation facts. The numerical limitations below still apply.
 The `poly` and `index` properties recover its defining data. The printed
 coefficient-tuple representation differs from SymPy's polynomial representation.
 

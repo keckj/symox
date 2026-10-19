@@ -409,8 +409,8 @@ pub fn rename_gens(p: &Polynomial, gens: &[Expr]) -> PResult<Polynomial> {
             gens.len()
         )));
     }
-    if gens.iter().enumerate().any(|(j, g)| gens[..j].contains(g) || g.is_number()) {
-        return Err(PolyError::Failed("generators must be distinct non-numeric expressions".into()));
+    if gens.iter().enumerate().any(|(j, g)| gens[..j].contains(g)) {
+        return Err(PolyError::Failed("generators must be distinct expressions".into()));
     }
     let parameters: &[Expr] = if let Some(f) = &p.field {
         &f.parameters
@@ -422,12 +422,8 @@ pub fn rename_gens(p: &Polynomial, gens: &[Expr]) -> PResult<Polynomial> {
     if gens.iter().any(|g| parameters.contains(g)) {
         return Err(PolyError::Failed("a generator also occurs in the coefficient domain".into()));
     }
-    let structured = p.field.is_some() || p.algebraic.is_some();
-    if structured && gens.iter().any(|g| g.as_symbol().is_none()) {
-        return Err(PolyError::Unsupported(
-            "non-symbol generators over this coefficient domain".into(),
-        ));
-    }
+    // Generator descriptors label exponent-vector slots. Renaming does not
+    // reinterpret coefficients or require those labels to be bare symbols.
     remap(p, gens.to_vec(), |e| Some(e.to_vec()))
 }
 

@@ -466,7 +466,7 @@ impl PyAlgebraicNumber {
         Ok(w(ops::pow(&self.value.as_expr(), &to_expr(exponent)?)))
     }
     #[pyo3(signature=(n=15,**kwargs))]
-    fn evalf(&self, n: u32, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    fn evalf(&self, n: i64, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
         Ok(w(crate::evalf_expr(
             &self.value.as_expr(),
             n,
@@ -475,7 +475,7 @@ impl PyAlgebraicNumber {
         )?))
     }
     #[pyo3(signature=(n=15,**kwargs))]
-    fn n(&self, n: u32, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    fn n(&self, n: i64, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
         self.evalf(n, kwargs)
     }
     fn __complex__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyComplex>> {

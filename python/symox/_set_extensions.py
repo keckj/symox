@@ -235,18 +235,18 @@ class ComplexRegion(_StructuralSet):
                     seen.add(value)
                     yield value
 
-    def contains(self,value):
-        value=sympify(value)
-        if value.is_number and value.is_finite is False:
+    def contains(self,other):
+        other=sympify(other)
+        if other.is_number and other.is_finite is False:
             return S.false
         if not self.polar:
-            return Or(*(And(a.contains(re(value)),b.contains(im(value))) for a,b in (s.args for s in self.psets)))
-        angle=arg(value)
+            return Or(*(And(a.contains(re(other)),b.contains(im(other))) for a,b in (s.args for s in self.psets)))
+        angle=arg(other)
         if angle.is_negative is True:
             angle+=2*pi
-        if angle.is_nonnegative is not True and value!=0:
+        if angle.is_nonnegative is not True and other!=0:
             raise NotImplementedError('the principal angle could not be normalized')
-        return Or(*(And(a.contains(Abs(value)),Or(b.contains(angle),b.contains(angle+2*pi))) if value!=0 else a.contains(0) for a,b in (s.args for s in self.psets)))
+        return Or(*(And(a.contains(Abs(other)),Or(b.contains(angle),b.contains(angle+2*pi))) if other!=0 else a.contains(0) for a,b in (s.args for s in self.psets)))
 
     @property
     def measure(self):

@@ -984,8 +984,30 @@ fn scalar(e: &Expr) -> Result<()> {
         Ok(())
     }
 }
+pub(crate) fn literal_parts(e: &Expr) -> Option<Parts> {
+    let finite = |n: &Number| !matches!(n, Number::Float(value) if !value.is_finite());
+    if !e.is_canonical() { return None; }
+    match e.kind() {
+        Kind::Num(n) if finite(n) => Some((e.clone(), Expr::zero())),
+        Kind::Const(Constant::I) => Some((Expr::zero(), Expr::one())),
+        Kind::Mul(c, factors) if finite(c) && factors.len() == 1
+            && factors[0].0 == Expr::i() && factors[0].1.is_one() => {
+                Some((Expr::zero(), Expr::num(c.clone())))
+            },
+        Kind::Add(c, terms) if finite(c) && terms.len() == 1
+            && terms[0].0 == Expr::i() && finite(&terms[0].1) => {
+                Some((Expr::num(c.clone()), Expr::num(terms[0].1.clone())))
+            },
+        _ => None,
+    }
+}
+
 pub fn as_real_imag(e: &Expr, deep: bool, ignore: Option<&Expr>) -> Result<Option<Parts>> {
     scalar(e)?;
+    if let Some(parts) = literal_parts(e) {
+        if e.is_atom() { return Ok(if ignore == Some(e) { None } else { Some(parts) }); }
+        if ignore.is_none() { return Ok(Some(parts)); }
+    }
     inspect(e, &mut FxHashMap::default(), 0)?;
     crate::assumptions::exact_queries(|| {
         let mut context = Context::new();
@@ -1012,6 +1034,7 @@ pub fn as_real_imag(e: &Expr, deep: bool, ignore: Option<&Expr>) -> Result<Optio
 /// `expand_complex` disables all of them.
 pub fn expand_complex(e: &Expr, options: &ExpandOptions) -> Result<Expr> {
     scalar(e)?;
+    if literal_parts(e).is_some() { return Ok(e.clone()); }
     inspect(e, &mut FxHashMap::default(), 0)?;
     crate::assumptions::exact_queries(|| {
         Context::with_hints(*options).expand_full(e, options.deep)
@@ -1021,17 +1044,37 @@ pub fn as_real_imag_many(values: &[Expr], deep: bool) -> Result<Vec<Parts>> {
     let mut seen = FxHashMap::default();
     for value in values {
         scalar(value)?;
-        inspect(value, &mut seen, 0)?;
+        if literal_parts(value).is_none() { inspect(value, &mut seen, 0)?; }
     }
     crate::assumptions::exact_queries(|| {
         let mut context = Context::new();
-        values.iter().map(|e| context.split(e, deep)).collect()
+        values.iter().map(|e| match literal_parts(e) {
+            Some(parts) => Ok(parts), None => context.split(e, deep),
+        }).collect()
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn numeric_literals_split_without_expanding_precision_or_exponents() {
+        for exponent in [i64::MIN, i64::MAX] {
+            let value = Expr::num(Number::MpFloat(crate::bigfloat::BigFloat {
+                man: BigInt::one(), exp: exponent,
+            }, 65_536));
+            assert_eq!(as_real_imag(&value, true, None).unwrap(), Some((value.clone(), Expr::zero())));
+            assert_eq!(as_real_imag(&value, true, Some(&value)).unwrap(), None);
+            assert_eq!(expand_complex(&value, &ExpandOptions::default()).unwrap(), value);
+        }
+        let real = Number::MpFloat(crate::bigfloat::BigFloat::from_ratio(&1.into(), &3.into(), 65_536), 65_536);
+        let imaginary = Number::MpFloat(crate::bigfloat::BigFloat::from_ratio(&1.into(), &5.into(), 65_536), 65_536);
+        let value = Expr::from_kind(Kind::Add(real.clone(), vec![(Expr::i(), imaginary.clone())]));
+        let wanted = (Expr::num(real), Expr::num(imaginary));
+        assert_eq!(as_real_imag(&value, true, None).unwrap(), Some(wanted.clone()));
+        assert_eq!(as_real_imag_many(&[value.clone()], true).unwrap(), vec![wanted]);
+        assert_eq!(expand_complex(&value, &ExpandOptions::default()).unwrap(), value);
+    }
     #[test]
     fn exact_polynomial_reconstruction_and_opaque_product_grouping() {
         let r = Expr::symbol_with("r", crate::Assumptions::REAL);

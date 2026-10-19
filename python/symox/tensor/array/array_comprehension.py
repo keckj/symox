@@ -90,10 +90,10 @@ class ArrayComprehension:
         if not self.is_shape_numeric or self.rank()!=2:
             raise ValueError('Matrix conversion requires a concrete rank-two comprehension')
         return self.doit().tomatrix()
-    def xreplace(self,mapping):
-        if self in mapping:return mapping[self]
-        function = self.function if isinstance(self,ArrayComprehensionMap) else self.function.xreplace(mapping)
-        limits = [tuple(value.xreplace(mapping) for value in limit) for limit in self.limits]
+    def xreplace(self,rule):
+        if self in rule:return rule[self]
+        function = self.function if isinstance(self,ArrayComprehensionMap) else self.function.xreplace(rule)
+        limits = [tuple(value.xreplace(rule) for value in limit) for limit in self.limits]
         return type(self)(function,*limits)
     def subs(self,*args,**options):
         from ... import Dummy,Symbol,sympify

@@ -5,7 +5,7 @@ use crate::{to_expr, PyExpr};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError, PyZeroDivisionError};
 use pyo3::prelude::*;
-use pyo3::types::{PySlice, PyTuple};
+use pyo3::types::{PySlice, PyTuple,PyDict};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use symox::poly::domains::{DomainElement, ElementValue, ExactDomain};
@@ -28,6 +28,17 @@ fn coercion(e: impl std::fmt::Display) -> PyErr {
 fn domain_error(e: impl std::fmt::Display) -> PyErr {
     DomainError::new_err(e.to_string())
 }
+fn conversion_argument<'py>(args:&Bound<'py,PyTuple>,kwargs:Option<&Bound<'py,PyDict>>,alias:&str)->PyResult<Bound<'py,PyAny>> {
+    if args.len()>1{return Err(PyTypeError::new_err("domain conversion takes exactly one argument"));}
+    let mut result=args.get_item(0).ok();
+    if let Some(kwargs)=kwargs{for (key,value) in kwargs.iter(){
+        let key:String=key.extract()?;
+        if key!="a" && key!=alias && key!="element"{return Err(PyTypeError::new_err(format!("domain conversion got an unexpected keyword argument '{key}'")));}
+        if result.is_some(){return Err(PyTypeError::new_err("domain conversion got multiple values for its element"));}
+        result=Some(value);
+    }}
+    result.ok_or_else(||PyTypeError::new_err("domain conversion requires an element"))
+}
 fn hashed<T: Hash>(v: &T) -> isize {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     v.hash(&mut h);
@@ -38,16 +49,22 @@ fn hashed<T: Hash>(v: &T) -> isize {
         x
     }
 }
-fn exact_numeric_parts(e:&Expr)->Option<(num_rational::BigRational,num_rational::BigRational)> {
-    fn ratio(e:&Expr)->Option<num_rational::BigRational> {
+fn exact_numeric_parts(e:&Expr)->Option<(symox::number::Number,symox::number::Number)> {
+    fn number(e:&Expr)->Option<symox::number::Number> {
         match e.as_number()? {
-            symox::number::Number::Float(value) if value.is_finite()=>Some(symox::bigfloat::BigFloat::from_f64(*value).to_ratio_exact()),
-            symox::number::Number::MpFloat(value,_)=>Some(value.to_ratio_exact()),
-            number=>number.to_ratio(),
+            symox::number::Number::Float(value) if !value.is_finite()=>None,
+            number=>Some(number.clone()),
         }
     }
     let (re,im)=symox::complex_parts::as_real_imag(e,true,None).ok()??;
-    Some((ratio(&re)?,ratio(&im)?))
+    Some((number(&re)?,number(&im)?))
+}
+fn numeric_hash(number:&symox::number::Number)->Option<isize> {
+    match number {
+        symox::number::Number::Float(value) if value.is_finite()=>crate::python_hash::exact_hash(
+            &symox::number::Number::MpFloat(symox::bigfloat::BigFloat::from_f64(*value),53)),
+        number=>crate::python_hash::exact_hash(number),
+    }
 }
 
 #[pyclass(name = "Domain", module = "symox._core", frozen)]
@@ -399,11 +416,13 @@ impl PyDomain {
     ) -> PyResult<PyDomainElement> {
         self.element(element, base)
     }
-    fn from_sympy(&self, element: &Bound<'_, PyAny>) -> PyResult<PyDomainElement> {
-        self.element(element, None)
+    #[pyo3(signature=(*args,**kwargs))]
+    fn from_sympy(&self, args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>) -> PyResult<PyDomainElement> {
+        self.element(&conversion_argument(args,kwargs,"expr")?, None)
     }
-    fn to_sympy(&self, element: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(w(self.element(element, None)?.value.as_expr()))
+    #[pyo3(signature=(*args,**kwargs))]
+    fn to_sympy(&self, args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>) -> PyResult<PyExpr> {
+        Ok(w(self.element(&conversion_argument(args,kwargs,"element")?, None)?.value.as_expr()))
     }
     fn of_type(&self, element: &Bound<'_, PyAny>) -> bool {
         self.__instancecheck__(element)
@@ -717,8 +736,16 @@ impl PyDomain {
             PyDomainElement { value: g },
         ))
     }
-    fn unify(&self, other: PyRef<'_, Self>) -> PyResult<Self> {
-        unify_native(&self.inner, &other.inner).map(|inner| Self { inner })
+    #[pyo3(signature=(K1,symbols=None))]
+    fn unify(&self, K1: PyRef<'_, Self>,symbols:Option<&Bound<'_,PyAny>>) -> PyResult<Self> {
+        if let Some(symbols)=symbols.filter(|v|!v.is_none()){
+            let symbols=symbols.try_iter()?.map(|v|to_expr(&v?)).collect::<PyResult<Vec<_>>>()?;
+            if [&self.inner,&K1.inner].iter().any(|domain|matches!(domain,ExactDomain::Functions{parameters,..} if parameters.iter().any(|p|symbols.contains(p)))){
+                let error=K1.py().import("symox")?.getattr("UnificationFailed")?.call1(("domain generators overlap polynomial generators",))?;
+                return Err(PyErr::from_value(error));
+            }
+        }
+        unify_native(&self.inner, &K1.inner).map(|inner| Self { inner })
     }
     fn is_zero(&self, a: &Bound<'_, PyAny>) -> PyResult<bool> {
         Ok(self.element(a, None)?.value.is_zero())
@@ -1059,8 +1086,8 @@ impl PyDomainElement {
     fn __hash__(&self) -> isize {
         if matches!(self.value.value,ElementValue::Inexact(_)) {
             if let Some((real,imag))=exact_numeric_parts(&self.value.as_expr()) {
-                let re=crate::python_hash::exact_hash(&symox::number::Number::from_ratio(real)).unwrap();
-                let im=crate::python_hash::exact_hash(&symox::number::Number::from_ratio(imag)).unwrap();
+                let re=numeric_hash(&real).unwrap();
+                let im=numeric_hash(&imag).unwrap();
                 let hash=re.wrapping_add(im.wrapping_mul(1_000_003));
                 return if hash== -1 {-2} else {hash};
             }
@@ -1202,12 +1229,14 @@ impl PyDomainElement {
                 if !matches!(value.value.value,ElementValue::Inexact(_)|ElementValue::Rational(_)) {None} else {Some(value.value.as_expr())}
             } else {to_expr(o).ok()};
             if let Some((a,b))=exact_numeric_parts(&self.value.as_expr()).zip(other.as_ref().and_then(exact_numeric_parts)) {
-                let equal=a==b;
+                let real=a.0.cmp_value(&b.0);
+                let equal=real==Some(std::cmp::Ordering::Equal)&&a.1.cmp_value(&b.1)==Some(std::cmp::Ordering::Equal);
                 let answer=match op {
                     CompareOp::Eq=>equal, CompareOp::Ne=>!equal,
                     _=>{
-                        if self.value.domain.is_complex()||a.1!=num_rational::BigRational::from_integer(0.into())||b.1!=num_rational::BigRational::from_integer(0.into()) {return Ok(py.NotImplemented());}
-                        match op {CompareOp::Lt=>a.0<b.0,CompareOp::Le=>a.0<=b.0,CompareOp::Gt=>a.0>b.0,CompareOp::Ge=>a.0>=b.0,_=>unreachable!()}
+                        if self.value.domain.is_complex()||!a.1.is_zero()||!b.1.is_zero() {return Ok(py.NotImplemented());}
+                        let Some(ordering)=real else{return Ok(py.NotImplemented());};
+                        match op {CompareOp::Lt=>ordering.is_lt(),CompareOp::Le=>ordering.is_le(),CompareOp::Gt=>ordering.is_gt(),CompareOp::Ge=>ordering.is_ge(),_=>unreachable!()}
                     }
                 };
                 return Ok(answer.into_pyobject(py)?.to_owned().into_any().unbind());
@@ -1294,10 +1323,10 @@ fn GF(modulus: u64, symmetric: bool) -> PyResult<PyDomain> {
 }
 #[pyfunction]
 #[pyo3(signature=(prec=None,dps=None,complex=false))]
-fn _numeric_field(prec:Option<u32>,dps:Option<u32>,complex:bool)->PyResult<PyDomain> {
+fn _numeric_field(prec:Option<u32>,dps:Option<i64>,complex:bool)->PyResult<PyDomain> {
     if prec.is_some()&&dps.is_some(){return Err(PyTypeError::new_err("specify precision in bits or decimal digits, not both"));}
     let precision=if let Some(dps)=dps {crate::decimal_precision(dps)?} else {prec.unwrap_or(53)};
-    if !(2..=40_000).contains(&precision){return Err(PyValueError::new_err("bit precision must lie between 2 and 40000"));}
+    let precision=crate::bit_precision(precision)?;
     Ok(PyDomain{inner:if precision==53&&!complex {ExactDomain::RR} else {ExactDomain::Inexact{precision,complex}}})
 }
 #[pyfunction]
@@ -1320,7 +1349,7 @@ fn _restore_domain(
         "EXRAW" => ExactDomain::Expression {raw:true},
         "ZZ_I" => ExactDomain::Gaussian{integral:true},
         "QQ_I" => ExactDomain::Gaussian{integral:false},
-        "Real"|"Complex" => ExactDomain::Inexact{precision:prime.and_then(|p|u32::try_from(p).ok()).filter(|p|(2..=40_000).contains(p)).ok_or_else(||domain_error("invalid numerical precision"))?,complex:kind=="Complex"},
+        "Real"|"Complex" => ExactDomain::Inexact{precision:prime.and_then(|p|u32::try_from(p).ok()).filter(|p|(1..=crate::MAX_REQUESTED_PRECISION).contains(p)).ok_or_else(||domain_error("invalid numerical precision"))?,complex:kind=="Complex"},
         "GF" => ExactDomain::finite(prime.ok_or_else(|| domain_error("missing characteristic"))?)
             .map_err(domain_error)?,
         "RF" => ExactDomain::functions(
@@ -1391,7 +1420,7 @@ pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
         return Ok(a.clone());
     }
     let inner = match (a, b) {
-        (ExactDomain::Expression {raw:a},ExactDomain::Expression {raw:b}) => ExactDomain::Expression {raw:*a && *b},
+        (ExactDomain::Expression {raw:a},ExactDomain::Expression {raw:b}) => ExactDomain::Expression {raw:*a || *b},
         (ExactDomain::Expression {raw}, other) | (other, ExactDomain::Expression {raw}) if other.characteristic()==0 => ExactDomain::Expression {raw:*raw},
         (a,b) if a.inexact_precision().is_some()||b.inexact_precision().is_some() => {
             if a.characteristic()!=0||b.characteristic()!=0||matches!(a,ExactDomain::Functions{..})||matches!(b,ExactDomain::Functions{..}) {

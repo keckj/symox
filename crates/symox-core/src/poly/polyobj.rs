@@ -84,6 +84,28 @@ pub fn unify_gens(f: &[Expr], g: &[Expr]) -> Vec<Expr> {
 }
 
 impl Poly {
+    /// A metadata view retaining the formal main-variable exponent slots.
+    /// Only coefficient expressions are converted; a generator such as y+1
+    /// must never be expanded while recovering degrees, support or flags.
+    pub fn from_coefficient_terms(terms:Vec<(Vec<u32>,Expr)>,gens:&[Expr])->PResult<Poly>{
+        if terms.iter().any(|(powers,_)|powers.len()!=gens.len()){
+            return Err(PolyError::Failed("coefficient term has an invalid exponent vector".into()));
+        }
+        let coefficients:Vec<_>=terms.iter().map(|(_,c)|c.clone()).collect();
+        let converted=from_exprs(&coefficients)?;
+        let mut variables=gens.to_vec();variables.extend(converted.gens);
+        let mut output=Vec::new();
+        for ((powers,_),coefficient) in terms.into_iter().zip(converted.polys){
+            for (coefficient_powers,value) in coefficient.iter(){
+                let mut exponents=powers.clone();exponents.extend_from_slice(coefficient_powers);
+                output.push((exponents,value.clone()));
+            }
+        }
+        let rep=MPoly::from_terms(variables.len(),output);
+        let domain=natural_domain(&rep,converted.float);
+        Ok(Self::new(rep,variables,gens.len(),domain))
+    }
+
     pub fn new(rep: MPoly<Rat>, gens: Vec<Expr>, ngens: usize, domain: Domain) -> Poly {
         debug_assert_eq!(rep.nvars, gens.len());
         Poly { rep, gens, ngens, domain, modulus: None }

@@ -9,8 +9,8 @@ class OrderedSet(MutableSet):
     def __contains__(self,value):return value in self._data
     def __iter__(self):return iter(self._data)
     def __len__(self):return len(self._data)
-    def add(self,value):self._data[value]=None
-    def discard(self,value):self._data.pop(value,None)
+    def add(self,key):self._data[key]=None
+    def discard(self,key):self._data.pop(key,None)
     def update(self,iterable):self._data.update(dict.fromkeys(iterable))
     def pop(self,last=True):
         if not self._data:raise KeyError('pop from empty OrderedSet')
@@ -25,9 +25,9 @@ class TupleKind(Kind):
         return cls._instances[element_kind]
     def __repr__(self):return 'TupleKind('+', '.join(map(str,self.element_kind))+')'
 
-def tuple_wrapper(function):
+def tuple_wrapper(method):
     from functools import wraps
-    @wraps(function)
-    def wrapped(*args,**kwargs):return function(*(Tuple(*arg) if isinstance(arg,(tuple,list)) else arg for arg in args),**kwargs)
+    @wraps(method)
+    def wrapped(*args,**kwargs):return method(*(Tuple(*arg) if isinstance(arg,(tuple,list)) else arg for arg in args),**kwargs)
     return wrapped
 __all__ += ['OrderedSet','TupleKind','tuple_wrapper']

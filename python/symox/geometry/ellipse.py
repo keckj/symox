@@ -110,22 +110,22 @@ class Ellipse(GeometrySet):
         y = Symbol(y, real=True) if isinstance(y, str) else scalar(y)
         return (x-self.center.x)**2/self.hradius**2+(y-self.center.y)**2/self.vradius**2-1
 
-    def contains(self, point):
-        if isinstance(point, Ellipse):
-            return self.equals(point)
+    def contains(self, other):
+        if isinstance(other, Ellipse):
+            return self.equals(other)
         try:
-            point = Point(point, dim=2)
+            other = Point(other, dim=2)
         except (ValueError, TypeError):
             return False
-        return zero(self.equation(point.x, point.y))
+        return zero(self.equation(other.x, other.y))
 
-    def equals(self, other):
-        return (isinstance(other, Ellipse) and self.center.equals(other.center)
-                and zero(self.hradius**2-other.hradius**2) and zero(self.vradius**2-other.vradius**2))
+    def equals(self, o):
+        return (isinstance(o, Ellipse) and self.center.equals(o.center)
+                and zero(self.hradius**2-o.hradius**2) and zero(self.vradius**2-o.vradius**2))
 
-    def encloses_point(self, point):
-        point = Point(point, dim=2)
-        return sign(self.equation(point.x, point.y)) < 0
+    def encloses_point(self, p):
+        p = Point(p, dim=2)
+        return sign(self.equation(p.x, p.y)) < 0
 
     def arbitrary_point(self, parameter='t'):
         from .. import Symbol, cos, sin
@@ -134,26 +134,26 @@ class Ellipse(GeometrySet):
             raise ValueError('Parameter conflicts with a coordinate symbol')
         return self.center+Point(self.hradius*cos(parameter), self.vradius*sin(parameter))
 
-    def tangent_lines(self, point):
+    def tangent_lines(self, p):
         from .. import sqrt
-        point = Point(point, dim=2)
-        level = clean(self.equation(point.x, point.y))
+        p = Point(p, dim=2)
+        level = clean(self.equation(p.x, p.y))
         relation = sign(level)
         if relation < 0:
             return []
-        dx, dy = point-self.center
+        dx, dy = p-self.center
         if relation == 0:
-            return [Line(point, point+Point(-dy/self.vradius**2, dx/self.hradius**2))]
+            return [Line(p, p+Point(-dy/self.vradius**2, dx/self.hradius**2))]
         # Normalize to a unit circle and recover its two contact points.
         u, v = dx/self.hradius, dy/self.vradius
         norm = clean(u*u+v*v)
         root = sqrt(norm-1)
         contacts = [self.center+Point(self.hradius*(u-s*v*root)/norm,
                                      self.vradius*(v+s*u*root)/norm) for s in (-1, 1)]
-        return [Line(point, contact) for contact in _sort_points(contacts)]
+        return [Line(p, contact) for contact in _sort_points(contacts)]
 
-    def is_tangent(self, other):
-        result = self.intersection(other)
+    def is_tangent(self, o):
+        result = self.intersection(o)
         return len(result) == 1 and isinstance(result[0], Point)
 
     def distance(self, other):
@@ -164,14 +164,14 @@ class Ellipse(GeometrySet):
             return False
         return zero(self.major*other.minor-self.minor*other.major)
 
-    def intersection(self, other):
+    def intersection(self, o):
         from .. import sqrt, S
-        if isinstance(other, Point):
-            return [other] if self.contains(other) else []
-        if isinstance(other, LinearEntity):
-            if other.ambient_dimension != 2:
+        if isinstance(o, Point):
+            return [o] if self.contains(o) else []
+        if isinstance(o, LinearEntity):
+            if o.ambient_dimension != 2:
                 raise ValueError('Ellipse intersections require planar lines')
-            p, d = other.p1-self.center, other.direction
+            p, d = o.p1-self.center, o.direction
             a = clean(d.x**2/self.hradius**2+d.y**2/self.vradius**2)
             b = clean(2*(p.x*d.x/self.hradius**2+p.y*d.y/self.vradius**2))
             c = clean(p.x**2/self.hradius**2+p.y**2/self.vradius**2-1)
@@ -179,13 +179,13 @@ class Ellipse(GeometrySet):
             if sign(disc) < 0:
                 return []
             roots = unique([clean((-b-sqrt(disc))/(2*a)), clean((-b+sqrt(disc))/(2*a))])
-            return _sort_points([other.p1+d*t for t in roots if other._accept(t)])
-        if self.equals(other):
+            return _sort_points([o.p1+d*t for t in roots if o._accept(t)])
+        if self.equals(o):
             return [self]
-        if isinstance(other, Ellipse):
+        if isinstance(o, Ellipse):
             raise NotImplementedError('General ellipse-ellipse intersections require isolated algebraic roots')
-        if hasattr(other, 'intersection'):
-            return other.intersection(self)
+        if hasattr(o, 'intersection'):
+            return o.intersection(self)
         raise TypeError('Intersection requires a geometric entity')
 
     def scale(self, x=1, y=1, pt=None):
@@ -205,15 +205,33 @@ class Circle(Ellipse):
     __slots__ = ()
 
     def __new__(cls, center, radius=None, third=None, **kwargs):
-        from .. import sqrt
+        from .. import sqrt,Expr,Poly
         kwargs.pop('evaluate', None)
+        x,y=kwargs.pop('x','x'),kwargs.pop('y','y')
         if kwargs:
             raise TypeError('Unknown circle options')
+        if radius is None and third is None and isinstance(center,Expr):
+            from .util import find
+            equation=center.expand()
+            if equation.is_Equality:equation=equation.lhs-equation.rhs
+            x,y=find(x,equation),find(y,equation)
+            try:
+                polynomial=Poly(equation,x,y)
+                a,b=polynomial.coeff_monomial(x*x),polynomial.coeff_monomial(y*y)
+                if polynomial.total_degree()>2 or not zero(polynomial.coeff_monomial(x*y)) or zero(a) or a!=b:
+                    raise GeometryError('The given equation is not that of a circle')
+                c,d,e=(polynomial.coeff_monomial(term) for term in (x,y,1))
+            except (TypeError,ValueError) as error:
+                raise GeometryError('The given equation is not that of a circle') from error
+            center_x,center_y=clean(-c/(2*a)),clean(-d/(2*b))
+            radius=sqrt(clean(center_x**2+center_y**2-e/a))
+            center=Point(center_x,center_y)
         if third is not None:
             a, b, c = Point(center, dim=2), Point(radius, dim=2), Point(third, dim=2)
             determinant = 2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y))
             if zero(determinant):
-                raise GeometryError('Three collinear points do not determine a circle')
+                from .polygon import Triangle
+                return Triangle(a,b,c)
             aa, bb, cc = a.dot(a), b.dot(b), c.dot(c)
             center = Point(clean((aa*(b.y-c.y)+bb*(c.y-a.y)+cc*(a.y-b.y))/determinant),
                            clean((aa*(c.x-b.x)+bb*(a.x-c.x)+cc*(b.x-a.x))/determinant))
@@ -224,7 +242,7 @@ class Circle(Ellipse):
                 raise ValueError('A circle requires a radius')
             radius = scalar(radius)
         if radius.is_real is False or radius.is_finite is False:
-            raise ValueError('Circle radius must be finite and real')
+            raise GeometryError('Circle radius must be finite and real')
         if zero(radius):
             return center
         return construct(cls, (center, radius))
@@ -266,13 +284,13 @@ class Circle(Ellipse):
             return Abs(self.center.distance(Point(other, dim=2))-Abs(self.radius))
         raise NotImplementedError('Circle distance currently accepts points')
 
-    def intersection(self, other):
+    def intersection(self, o):
         from .. import sqrt, Abs
-        if not isinstance(other, Circle):
-            return super().intersection(other)
-        offset = other.center-self.center
+        if not isinstance(o, Circle):
+            return super().intersection(o)
+        offset = o.center-self.center
         dist_squared = offset.dot(offset)
-        r1, r2 = Abs(self.radius), Abs(other.radius)
+        r1, r2 = Abs(self.radius), Abs(o.radius)
         if zero(dist_squared):
             return [self] if zero(r1-r2) else []
         along = clean((r1*r1-r2*r2+dist_squared)/(2*dist_squared))

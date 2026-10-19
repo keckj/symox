@@ -32,6 +32,7 @@ pub mod elementary;
 pub(crate) mod trig_eval;
 pub mod rewrite;
 mod elliptic;
+pub(crate) mod lambert;
 mod error;
 pub mod expand;
 mod gamma;
@@ -44,7 +45,7 @@ pub mod numtheory;
 pub(crate) mod orthopoly;
 mod zeta;
 
-pub use expand::{besselsimp, expand_func, hyperexpand};
+pub use expand::{besselsimp, expand_func, expand_func_deep, hyperexpand};
 pub use integers::{bell_number, multinomial_coefficients, partition_number, stirling};
 
 macro_rules! special_fns {

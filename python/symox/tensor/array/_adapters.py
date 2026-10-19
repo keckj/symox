@@ -2,6 +2,7 @@
 from functools import wraps
 
 from ... import _core
+from ..._dispatch_arguments import FirstArgument
 from ._array import NDimArray
 from .arrayop import derive_by_array
 
@@ -17,24 +18,31 @@ def _check_derivative_options(options):
 
 
 def _diff_dispatch(original):
+    first=FirstArgument(original)
     @wraps(original)
-    def diff(expression, *variables, **options):
+    def diff(*args,**options):
+        expression=first.get(args,options)
         if isinstance(expression, NDimArray):
-            return expression.diff(*variables, **options)
+            expression,variables,options=first.split(args,options)
+            return expression.diff(*variables,**options)
+        variables=args[1:]
         if len(variables) == 1 and _array_variable(variables[0]):
             _check_derivative_options(options)
             return derive_by_array(expression, variables[0])
-        return original(expression, *variables, **options)
+        return original(*args, **options)
     return diff
 
 
 def _entrywise(original):
+    first=FirstArgument(original)
     @wraps(original)
-    def operation(expression, *args, **options):
+    def operation(*args, **options):
+        expression=first.get(args,options)
         if (isinstance(expression, (NDimArray, _core.Matrix))
                 or getattr(expression, '_symox_sparse', False)):
-            return expression.applyfunc(lambda entry: original(entry, *args, **options))
-        return original(expression, *args, **options)
+            expression,rest,options=first.split(args,options)
+            return expression.applyfunc(lambda entry: original(entry, *rest, **options))
+        return original(*args, **options)
     return operation
 
 

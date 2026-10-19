@@ -106,14 +106,14 @@ class Polygon(GeometrySet):
             return False
         return any(side.contains(point) for side in self.sides)
 
-    def encloses_point(self, point):
-        point = Point(point, dim=2)
-        if self.contains(point):
+    def encloses_point(self, p):
+        p = Point(p, dim=2)
+        if self.contains(p):
             return False
         # Winding number avoids floating rays and retains exact endpoints.
         winding = 0
         for side in self.sides:
-            a, b = side.p1-point, side.p2-point
+            a, b = side.p1-p, side.p2-p
             ay, by = sign(a.y), sign(b.y)
             if ay <= 0 < by and sign(cross2(a, b)) > 0:
                 winding += 1
@@ -121,38 +121,38 @@ class Polygon(GeometrySet):
                 winding -= 1
         return winding != 0
 
-    def encloses(self, other):
-        if isinstance(other, Point):
-            return self.encloses_point(other)
-        if isinstance(other, (Segment, Polygon)):
-            points = other.points if isinstance(other, Segment) else other.vertices
-            return all(self.encloses_point(point) for point in points) and not self.intersection(other)
+    def encloses(self, o):
+        if isinstance(o, Point):
+            return self.encloses_point(o)
+        if isinstance(o, (Segment, Polygon)):
+            points = o.points if isinstance(o, Segment) else o.vertices
+            return all(self.encloses_point(point) for point in points) and not self.intersection(o)
         raise NotImplementedError('Polygon enclosure currently accepts points, segments and polygons')
 
-    def distance(self, other):
+    def distance(self, o):
         from .. import Min
-        if not isinstance(other, GeometryEntity):
-            other = Point(other, dim=2)
-        if isinstance(other, Point):
-            return Min(*(side.distance(other) for side in self.sides))
-        if isinstance(other, Polygon):
-            return Min(*(side.distance(edge) for side in self.sides for edge in other.sides))
-        if isinstance(other, LinearEntity):
-            return Min(*(side.distance(other) for side in self.sides))
+        if not isinstance(o, GeometryEntity):
+            o = Point(o, dim=2)
+        if isinstance(o, Point):
+            return Min(*(side.distance(o) for side in self.sides))
+        if isinstance(o, Polygon):
+            return Min(*(side.distance(edge) for side in self.sides for edge in o.sides))
+        if isinstance(o, LinearEntity):
+            return Min(*(side.distance(o) for side in self.sides))
         raise NotImplementedError('This polygon distance is not implemented')
 
-    def intersection(self, other):
-        if isinstance(other, Point):
-            return [other] if self.contains(other) else []
-        edges = other.sides if isinstance(other, Polygon) else [other]
+    def intersection(self, o):
+        if isinstance(o, Point):
+            return [o] if self.contains(o) else []
+        edges = o.sides if isinstance(o, Polygon) else [o]
         result = unique(item for side in self.sides for edge in edges for item in side.intersection(edge))
         segments = [item for item in result if isinstance(item, Segment)]
         return [item for item in result if not isinstance(item, Point) or not any(side.contains(item) for side in segments)]
 
-    def equals(self, other):
-        if not isinstance(other, Polygon) or len(self.vertices) != len(other.vertices):
+    def equals(self, o):
+        if not isinstance(o, Polygon) or len(self.vertices) != len(o.vertices):
             return False
-        a, b = self.vertices, other.vertices
+        a, b = self.vertices, o.vertices
         for oriented in (b, list(reversed(b))):
             for index in range(len(a)):
                 if all(left.equals(oriented[(index+i) % len(a)]) for i, left in enumerate(a)):
@@ -266,8 +266,8 @@ class Triangle(Polygon):
 class RegularPolygon(Polygon):
     __slots__ = ()
 
-    def __new__(cls, center, radius, n, rot=0, **kwargs):
-        center, radius, n, rot = Point(center, dim=2), scalar(radius), scalar(n), scalar(rot)
+    def __new__(cls, c, r, n, rot=0, **kwargs):
+        center, radius, n, rot = Point(c, dim=2), scalar(r), scalar(n), scalar(rot)
         if n.is_integer is not True or n.is_number is not True or int(n) < 3:
             raise ValueError('A regular polygon requires an integer vertex count of at least three')
         if int(n) > 4096:

@@ -474,18 +474,18 @@ class NDimArray:
         scalar=_scalar(scalar)
         return self.applyfunc(lambda entry: entry/scalar)
 
-    def applyfunc(self, function):
+    def applyfunc(self, f):
         from ... import S
-        if not callable(function):
+        if not callable(f):
             raise TypeError('applyfunc requires a callable')
         if not len(self):
             return type(self)({},self.shape)
         if self._sparse:
-            zero=_scalar(function(S.Zero))
+            zero=_scalar(f(S.Zero))
             if zero==S.Zero:
-                return type(self)({i:function(v) for i,v in self._items()},self.shape)
+                return type(self)({i:f(v) for i,v in self._items()},self.shape)
             self._materialize_limit()
-        return type(self)((function(v) for v in self._flat_values()),self.shape)
+        return type(self)((f(v) for v in self._flat_values()),self.shape)
 
     def diff(self, *variables, **options):
         if options.get('evaluate',True) is False:
@@ -528,12 +528,12 @@ class NDimArray:
     def subs(self, *args, **options):
         return self.applyfunc(lambda entry: entry.subs(*args,**options))
 
-    def xreplace(self, mapping):
-        for old,new in mapping.items():
+    def xreplace(self, rule):
+        for old,new in rule.items():
             if isinstance(old,NDimArray) and self==old:
                 return new
-        mapping={k:v for k,v in mapping.items() if not isinstance(k,NDimArray)}
-        return self.applyfunc(lambda entry: entry.xreplace(mapping))
+        rule={k:v for k,v in rule.items() if not isinstance(k,NDimArray)}
+        return self.applyfunc(lambda entry: entry.xreplace(rule))
 
     def evalf(self, n=15, **options):
         return self.applyfunc(lambda entry: entry.evalf(n,**options))

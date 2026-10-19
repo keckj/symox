@@ -58,10 +58,10 @@ def matrix_to_qubit(matrix):
     return sum((matrix[i]*Qubit(format(i,'0%db'%n)) for i in range(matrix.rows) if matrix[i]!=0),S.Integer(0))
 
 
-def matrix_to_density(matrix):
+def matrix_to_density(mat):
     from .density import Density
-    if isinstance(matrix,S.Matrix) and matrix.cols!=1:raise ValueError('matrix_to_density requires a state vector')
-    return Density((matrix_to_qubit(S.Matrix(matrix)),1))
+    if isinstance(mat,S.Matrix) and mat.cols!=1:raise ValueError('matrix_to_density requires a state vector')
+    return Density((matrix_to_qubit(S.Matrix(mat)),1))
 
 
 def _state_probabilities(state):

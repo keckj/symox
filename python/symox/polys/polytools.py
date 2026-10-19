@@ -15,13 +15,20 @@ from .polyerrors import (
 )
 
 __all__ = [
-    'Poly', 'GroebnerBasis', 'groebner', 'reduced', 'factor', 'factor_list',
+    'Poly', 'PurePoly', 'GroebnerBasis', 'groebner', 'reduced', 'factor', 'factor_list',
     'sqf_list', 'gcd', 'lcm', 'resultant', 'subresultants', 'discriminant',
     'sturm', 'count_roots', 'intervals', 'refine_root', 'ground_roots', 'gff_list',
     'poly_from_expr', 'parallel_poly_from_expr', 'degree_list', 'total_degree',
     'trunc', 'monic', 'content', 'gff', 'sqf_norm', 'all_roots', 'real_roots',
     'nth_power_roots_poly', 'LC', 'LM', 'LT', 'decompose',
 ]
+
+
+def __getattr__(name):
+    if name=='PurePoly':
+        from .. import PurePoly
+        return PurePoly
+    raise AttributeError(name)
 
 _FLAGS = ('auto', 'frac', 'formal', 'polys', 'include', 'all', 'gen', 'series', 'symbols', 'method')
 _DEFAULTS = {

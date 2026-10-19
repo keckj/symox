@@ -24,11 +24,11 @@ class ExprBuilder:
         self.args.append(arg)
         if check:self.validate()
     def __getitem__(self,index):return self.op if index==0 else self.args[index-1]
-    def search_element(self,element):
+    def search_element(self,elem):
         for i,arg in enumerate(self.args):
-            if arg is element:return (i,)
+            if arg is elem:return (i,)
             if isinstance(arg,ExprBuilder):
-                index=arg.search_element(element)
+                index=arg.search_element(elem)
                 if index is not None:return (i,)+index
         return None
     def __repr__(self):return str(self.build())

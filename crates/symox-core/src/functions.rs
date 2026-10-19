@@ -27,7 +27,12 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     if args.iter().any(|a| a.is_constant(Constant::NaN)) && !matches!(f, Func::Undefined(_)) {
         return Expr::nan();
     }
-    if args.iter().any(crate::evalf_mp::has_mp) {
+    if matches!(f, Func::Sign) && args.len()==1 && crate::assumptions::is_real(&args[0])==Some(true) {
+        if let Some(value)=crate::complex_parts::evaluate::sign(&args[0]) { return value; }
+    }
+    if args.iter().any(crate::evalf_mp::has_mp)
+        && !matches!(f, Func::Floor | Func::Ceiling | Func::Min | Func::Max | Func::Heaviside | Func::DiracDelta)
+        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number)) {
         let precision = args.iter().filter_map(crate::evalf_mp::max_precision).max().unwrap();
         if args.iter().all(is_numeric_value) {
             let raw = Expr::from_kind(Kind::Func(f, args));
@@ -47,7 +52,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     // numeric evaluation when an argument is a float
     // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
     // arg of a real float is exact (0, pi or nan) as in SymPy
-    if !matches!(f, Func::Undefined(_) | Func::ExpPolar | Func::Max | Func::Min | Func::Floor | Func::Ceiling)
+    if !matches!(f, Func::Undefined(_) | Func::ExpPolar | Func::Max | Func::Min | Func::Floor | Func::Ceiling | Func::Heaviside | Func::DiracDelta)
         && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number))
         && !args.is_empty()
         && args.iter().all(is_numeric_value)
@@ -104,10 +109,14 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             Kind::Num(n) if n.is_positive() => Some(Expr::one()),
             Kind::Num(n) if n.is_negative() => Some(Expr::zero()),
             Kind::Num(_) => Some(Expr::rational(1, 2)),
+            _ if crate::assumptions::is_positive(&args[0]) == Some(true) => Some(Expr::one()),
+            _ if crate::assumptions::is_negative(&args[0]) == Some(true) => Some(Expr::zero()),
             _ => None,
         },
         Func::DiracDelta => match args[0].kind() {
             Kind::Num(n) if !n.is_zero() => Some(Expr::zero()),
+            _ if crate::assumptions::is_real(&args[0]) == Some(true)
+                && crate::assumptions::is_nonzero(&args[0]) == Some(true) => Some(Expr::zero()),
             _ if args.len() == 2 && args[1].is_zero() => Some(func(Func::DiracDelta, vec![args[0].clone()])),
             _ => None,
         },
@@ -434,23 +443,34 @@ fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
     }
     match a.kind() {
         Kind::Num(n) => {
-            let fl = match n {
-                Number::Float(x) => {
-                    let v = if ceil { x.ceil() } else { x.floor() };
-                    if v.abs() < 9.0e15 {
-                        return Some(Expr::int(v as i64));
-                    }
-                    return Some(Expr::float(v));
-                }
-                _ => n.floor(),
-            };
-            if ceil && fl != *n {
+            let fl = n.floor();
+            if ceil && fl.cmp_value(n) != Some(std::cmp::Ordering::Equal) {
                 Some(Expr::num(fl.add(&Number::ONE)))
             } else {
                 Some(Expr::num(fl))
             }
         }
         _ => {
+            if matches!(a.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::ComplexInfinity)) {
+                return Some(a.clone());
+            }
+            if a.is_add() {
+                let (integers, remainder): (Vec<_>, Vec<_>) = a.args().into_iter()
+                    .partition(|term| crate::assumptions::is_integer(term) == Some(true));
+                if !integers.is_empty() {
+                    return Some(add(&[add(&integers), func(f.clone(), vec![add(&remainder)])]));
+                }
+            }
+            if crate::traverse::has(a, &Expr::i()) {
+                if let Ok(Some((real, imaginary))) = crate::complex_parts::as_real_imag(a, false, None) {
+                    if !imaginary.is_zero() {
+                        return Some(add(&[func(f.clone(), vec![real]), mul2(&Expr::i(), &func(f.clone(), vec![imaginary]))]));
+                    }
+                }
+            }
+            if let Some(integer) = crate::special::lambert::integer_round(a, if ceil { 1 } else { -1 }) {
+                return Some(Expr::num(Number::from_bigint(integer)));
+            }
             if crate::functions::is_numeric_value(a) {
                 // evaluate numerically with a safety margin
                 let v = crate::evalf::eval_f64(a)?;
@@ -461,6 +481,55 @@ fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
             }
             None
         }
+    }
+}
+
+/// Certified integer truncation for exact rational, dyadic and supported
+/// rationally enclosed real expressions. No f64-to-i64 saturation is involved.
+pub fn integer_trunc(a: &Expr) -> Option<num_bigint::BigInt> {
+    if let Some(n) = a.as_number() {
+        return match n {
+            Number::Float(f) if f.is_finite() => Some(crate::bigfloat::BigFloat::from_f64(*f).to_int_trunc()),
+            Number::MpFloat(value, _) => Some(value.to_int_trunc()),
+            _ => { let (p,q) = n.numer_denom()?; Some(p/q) },
+        };
+    }
+    crate::special::lambert::integer_round(a, 0)
+}
+
+#[cfg(test)]
+mod certified_integer_tests {
+    use super::*;
+    fn expression(source: &str) -> Expr { crate::parser::parse_str(source).unwrap() }
+
+    #[test]
+    fn integer_parts_are_not_saturated_at_machine_word_size() {
+        let huge = num_bigint::BigInt::from(10).pow(100);
+        let x = expression("10**100 + sqrt(2)");
+        assert_eq!(integer_trunc(&x), Some(&huge + 1));
+        assert_eq!(integer_trunc(&neg(&x)), Some(-(&huge + 1_u32)));
+        assert_eq!(func(Func::Floor, vec![x.clone()]), Expr::num(Number::from_bigint(&huge + 1)));
+        assert_eq!(func(Func::Ceiling, vec![x]), Expr::num(Number::from_bigint(&huge + 2)));
+        let point = Expr::float(1e100);
+        assert!(func(Func::Floor, vec![point.clone()]).is_integer_number());
+        assert_eq!(integer_trunc(&point), Some(crate::bigfloat::BigFloat::from_f64(1e100).to_int_trunc()));
+    }
+
+    #[test]
+    fn floor_and_ceiling_prove_very_close_integer_boundaries() {
+        let below = expression("1 - 10**(-1000)");
+        assert_eq!(integer_trunc(&below), Some(0.into()));
+        let huge = num_bigint::BigInt::from(10).pow(100);
+        let near = expression("sqrt(10**200 + 1)");
+        assert_eq!(func(Func::Floor, vec![near.clone()]), Expr::num(Number::from_bigint(huge.clone())));
+        assert_eq!(func(Func::Ceiling, vec![near]), Expr::num(Number::from_bigint(huge + 1)));
+        assert_eq!(func(Func::Floor, vec![expression("exp(-10**(-1000))")]), Expr::zero());
+        assert_eq!(func(Func::Ceiling, vec![expression("exp(10**(-1000))")]), Expr::int(2));
+        assert_eq!(integer_trunc(&Expr::pi()), Some(3.into()));
+        assert_eq!(func(Func::Floor, vec![Expr::pi()]), Expr::int(3));
+        assert_eq!(func(Func::Ceiling, vec![Expr::pi()]), Expr::int(4));
+        assert_eq!(func(Func::Floor, vec![Expr::i()]), Expr::i());
+        assert_eq!(func(Func::Floor, vec![expression("3/2 + 7*I/3")]), expression("1 + 2*I"));
     }
 }
 

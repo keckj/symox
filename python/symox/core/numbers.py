@@ -83,14 +83,14 @@ def all_close(expr1,expr2,rtol=1e-5,atol=1e-8):
 def mpf_norm(mpf,prec):
     from mpmath.libmp import mpf_pos
     return mpf_pos(mpf,prec)
-def sympify_fractions(value):return Rational(value.numerator,value.denominator)
-def sympify_complex(value):return _sympify(value.real)+_S.ImaginaryUnit*_sympify(value.imag)
-def sympify_mpmath(value):
+def sympify_fractions(f):return Rational(f.numerator,f.denominator)
+def sympify_complex(a):return _sympify(a.real)+_S.ImaginaryUnit*_sympify(a.imag)
+def sympify_mpmath(x):
     from mpmath.libmp import prec_to_dps,to_str
-    prec=value.context.prec
-    if hasattr(value,'_mpc_'):
-        a,b=value._mpc_;return Float(to_str(a,prec_to_dps(prec)+3),precision=prec)+_S.ImaginaryUnit*Float(to_str(b,prec_to_dps(prec)+3),precision=prec)
-    return Float(to_str(value._mpf_,prec_to_dps(prec)+3),precision=prec)
+    prec=x.context.prec
+    if hasattr(x,'_mpc_'):
+        a,b=x._mpc_;return Float(to_str(a,prec_to_dps(prec)+3),precision=prec)+_S.ImaginaryUnit*Float(to_str(b,prec_to_dps(prec)+3),precision=prec)
+    return Float(to_str(x._mpf_,prec_to_dps(prec)+3),precision=prec)
 
 __all__ += ['IntegerConstant','RationalConstant','Zero','One','NegativeOne','Half','Infinity','NegativeInfinity',
  'ComplexInfinity','NaN','ImaginaryUnit','Pi','Exp1','int_valued','equal_valued','all_close','mpf_norm',

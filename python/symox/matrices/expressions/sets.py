@@ -19,14 +19,14 @@ class MatrixSet(_StructuralSet):
         from ..kind import MatrixKind
         from ...sets.sets import SetKind
         return SetKind(MatrixKind())
-    def contains(self,matrix):
-        if not hasattr(matrix,'shape'):raise TypeError('matrix membership requires a matrix')
-        conditions=[Eq(a,b) for a,b in zip(self.shape,matrix.shape)]
+    def contains(self,other):
+        if not hasattr(other,'shape'):raise TypeError('matrix membership requires a matrix')
+        conditions=[Eq(a,b) for a,b in zip(self.shape,other.shape)]
         if false in conditions:return false
-        if hasattr(matrix,'as_explicit'):
-            try:matrix=matrix.as_explicit()
+        if hasattr(other,'as_explicit'):
+            try:other=other.as_explicit()
             except (TypeError,ValueError,NotImplementedError):return None
-        try:return And(*conditions,*(self.set.contains(entry) for entry in matrix))
+        try:return And(*conditions,*(self.set.contains(entry) for entry in other))
         except TypeError:return None
     def __contains__(self,matrix):
         answer=self.contains(matrix)

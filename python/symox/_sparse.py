@@ -386,9 +386,9 @@ class _SparseBase:
         return sum((v for (i,j),v in self._data.items() if i == j),_ZERO)
     def row(self, i): return self[_index(i,self.rows),:]
     def col(self, j): return self[:,_index(j,self.cols)]
-    def extract(self, rows, cols):
-        rows,cols=list(rows),list(cols)
-        ri,cj=[_index(i,self.rows) for i in rows],[_index(j,self.cols) for j in cols]
+    def extract(self, rowsList, colsList):
+        rowsList,colsList=list(rowsList),list(colsList)
+        ri,cj=[_index(i,self.rows) for i in rowsList],[_index(j,self.cols) for j in colsList]
         return self._new(len(ri),len(cj),{(i,j):self._data[r,c] for i,r in enumerate(ri) for j,c in enumerate(cj) if (r,c) in self._data})
     def reshape(self, rows, cols):
         rows,cols=_dimension(rows),_dimension(cols)
@@ -406,12 +406,20 @@ class _SparseBase:
         return (self._new(self.rows, self.cols, {k:v for k,v in zip(keys, real) if v != 0}),
                 self._new(self.rows, self.cols, {k:v for k,v in zip(keys, imag) if v != 0}))
 
-    def applyfunc(self, function):
-        zero = sympify(function(_ZERO))
+    def applyfunc(self, f):
+        zero = sympify(f(_ZERO))
         if zero != 0:
-            return self._new(self.rows,self.cols,{(i,j):function(self[i,j]) for i in range(self.rows) for j in range(self.cols)})
-        return self._new(self.rows,self.cols,{k:result for k,v in self._data.items() if (result := sympify(function(v))) != 0})
+            return self._new(self.rows,self.cols,{(i,j):f(self[i,j]) for i in range(self.rows) for j in range(self.cols)})
+        return self._new(self.rows,self.cols,{k:result for k,v in self._data.items() if (result := sympify(f(v))) != 0})
     def subs(self, *args, **kwargs):
+        if 'arg2' in kwargs and len(args)==1:
+            kwargs=dict(kwargs)
+            args=(*args,kwargs.pop('arg2'))
+        if not args and 'arg1' in kwargs:
+            kwargs=dict(kwargs)
+            args=(kwargs.pop('arg1'),)
+            if kwargs.get('arg2') is not None:args=(*args,kwargs.pop('arg2'))
+            else:kwargs.pop('arg2',None)
         if not self.rows or not self.cols:return self.copy()
         if len(args)==1:
             mapping=args[0]
@@ -451,12 +459,12 @@ class _SparseBase:
     def col_swap(self, i, j):
         self._mutable(); i,j=_index(i,self.cols),_index(j,self.cols)
         self._data = {(r,j if c==i else i if c==j else c):v for (r,c),v in self._data.items()}
-    def row_del(self, i):
-        self._mutable(); i=_index(i,self.rows)
-        self._data = {(r-(r>i),c):v for (r,c),v in self._data.items() if r != i}; self._rows -= 1
-    def col_del(self, j):
-        self._mutable(); j=_index(j,self.cols)
-        self._data = {(r,c-(c>j)):v for (r,c),v in self._data.items() if c != j}; self._cols -= 1
+    def row_del(self, row):
+        self._mutable(); row=_index(row,self.rows)
+        self._data = {(r-(r>row),c):v for (r,c),v in self._data.items() if r != row}; self._rows -= 1
+    def col_del(self, col):
+        self._mutable(); col=_index(col,self.cols)
+        self._data = {(r,c-(c>col)):v for (r,c),v in self._data.items() if c != col}; self._cols -= 1
     def row_join(self, other): return self.hstack(self,other)
     def col_join(self, other): return self.vstack(self,other)
 

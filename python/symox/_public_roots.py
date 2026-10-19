@@ -61,6 +61,9 @@ def _mp_roots(polynomial,digits):
 
 class ComplexRootOf(metaclass=_ExprType):
     _matches = staticmethod(lambda expr:expr.class_name == 'ComplexRootOf')
+    @classmethod
+    def clear_cache(cls):
+        _roots.clear()
     def __new__(cls,f,x,index=None,radicals=False,expand=True):
         if index is None:index,x = x,None
         index = operator.index(index)
@@ -79,11 +82,15 @@ class ComplexRootOf(metaclass=_ExprType):
         if candidates is not None and (radicals or candidates[index].is_Rational):return candidates[index]
         intervals = p.intervals()
         real_count,position = sum(m for bounds,m in intervals),0
+        facts = {'algebraic':True,'real':index < real_count,'rational':False}
         for (a,b),multiplicity in intervals:
-            if position <= index < position+multiplicity and a == b:return a
+            if position <= index < position+multiplicity:
+                if a == b:return a
+                if a >= 0:facts['positive'] = True
+                if b <= 0:facts['negative'] = True
             position += multiplicity
         node = _core._undefined_function('ComplexRootOf',(Tuple(*p.monic().all_coeffs()),Integer(index)),
-                                        {'real':True,'algebraic':True} if index < real_count else {'algebraic':True},None)
+                                        facts,None)
         _roots[node] = (p,index)
         return node
 

@@ -8,6 +8,7 @@ from ._base import REGISTRY,RandomSymbol,Distribution,Domain,PSpace,HALF,scalar,
 
 
 def random_symbols(expr):
+    if expr is None:return set()
     if isinstance(expr,RandomSymbol):return {expr}
     if isinstance(expr,(list,tuple,set)):return set().union(*(random_symbols(v) for v in expr))
     if getattr(expr,'_stats_joint',False):return set(expr.components)

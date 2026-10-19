@@ -39,7 +39,7 @@ class Factors:
         for base,power in other.factors.items():factors[base]=factors.get(base,0)+power
         return type(self)(factors)
     def quo(self,other):return self.mul(other.pow(-1))
-    def pow(self,exponent):return type(self)({base:power*exponent for base,power in self.factors.items()})
+    def pow(self,other):return type(self)({base:power*other for base,power in self.factors.items()})
     def gcd(self,other):return type(self)({base:min(self.factors.get(base,0),other.factors.get(base,0)) for base in self.gens|other.gens})
     def lcm(self,other):return type(self)({base:max(self.factors.get(base,0),other.factors.get(base,0)) for base in self.gens|other.gens})
     def normal(self,other):
@@ -69,7 +69,7 @@ class Term:
         return type(self)(self.coeff*other.coeff,a,b)
     def inv(self):return type(self)(1/self.coeff,self.denom,self.numer)
     def quo(self,other):return self.mul(other.inv())
-    def pow(self,n):return type(self)(self.coeff**n,self.numer.pow(n),self.denom.pow(n)) if n>=0 else self.inv().pow(-n)
+    def pow(self,other):return type(self)(self.coeff**other,self.numer.pow(other),self.denom.pow(other)) if other>=0 else self.inv().pow(-other)
     def gcd(self,other):return type(self)(_S.gcd(self.coeff,other.coeff),self.numer.gcd(other.numer),self.denom.gcd(other.denom))
     def lcm(self,other):return type(self)(_S.lcm(self.coeff,other.coeff),self.numer.lcm(other.numer),self.denom.lcm(other.denom))
     __mul__=mul

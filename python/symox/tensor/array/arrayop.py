@@ -123,13 +123,13 @@ def tensordiagonal(array, *diagonal_axes):
     return type(array)(data,shape)
 
 
-def permutedims(array, perm=None, index_order_old=None, index_order_new=None):
-    array=_array(array)
+def permutedims(expr, perm=None, index_order_old=None, index_order_new=None):
+    expr=_array(expr)
     if index_order_old is not None or index_order_new is not None:
         if perm is not None or index_order_old is None or index_order_new is None:
             raise ValueError('Specify a permutation or both index orders')
         old,new=tuple(index_order_old),tuple(index_order_new)
-        if len(old)!=array.rank() or len(set(old))!=len(old) or set(old)!=set(new) or len(old)!=len(new):
+        if len(old)!=expr.rank() or len(set(old))!=len(old) or set(old)!=set(new) or len(old)!=len(new):
             raise ValueError('Index orders must be bijections of the array axes')
         perm=tuple(old.index(index) for index in new)
     if hasattr(perm,'array_form'):
@@ -137,41 +137,41 @@ def permutedims(array, perm=None, index_order_old=None, index_order_new=None):
     if perm is None:
         raise ValueError('Permutation is not defined')
     perm=tuple(operator.index(axis) for axis in perm)
-    if sorted(perm)!=list(range(array.rank())):
+    if sorted(perm)!=list(range(expr.rank())):
         raise ValueError('Permutation must contain each array axis once')
-    shape=tuple(array.shape[axis] for axis in perm)
+    shape=tuple(expr.shape[axis] for axis in perm)
     data={}
-    for index,value in array._items():
-        position=_unravel(index,array.shape)
+    for index,value in expr._items():
+        position=_unravel(index,expr.shape)
         data[_ravel(tuple(position[axis] for axis in perm),shape)]=value
-    return type(array)(data,shape)
+    return type(expr)(data,shape)
 
 
-def derive_by_array(expression, variables):
+def derive_by_array(expr, dx):
     from ... import S
-    expression=_tensor_argument(expression)
-    variables=_tensor_argument(variables)
-    if not isinstance(variables,NDimArray):
-        variables=_validate_variable(variables)
-        return (_derivative(expression,variables) if not isinstance(expression,NDimArray)
-                else expression.applyfunc(lambda value:_derivative(value,variables)).as_immutable())
-    variables._materialize_limit()
-    entries=list(variables._flat_values())
+    expr=_tensor_argument(expr)
+    dx=_tensor_argument(dx)
+    if not isinstance(dx,NDimArray):
+        dx=_validate_variable(dx)
+        return (_derivative(expr,dx) if not isinstance(expr,NDimArray)
+                else expr.applyfunc(lambda value:_derivative(value,dx)).as_immutable())
+    dx._materialize_limit()
+    entries=list(dx._flat_values())
     for variable in entries:
         # Even an all-zero source must reject an invalid differentiation variable.
         _validate_variable(variable)
-    if not isinstance(expression,NDimArray):
-        return Array((_derivative(expression,variable) for variable in entries),variables.shape)
-    shape=_shape_tuple(variables.shape+expression.shape)
-    sparse=expression._sparse
+    if not isinstance(expr,NDimArray):
+        return Array((_derivative(expr,variable) for variable in entries),dx.shape)
+    shape=_shape_tuple(dx.shape+expr.shape)
+    sparse=expr._sparse
     if not sparse and math.prod(shape)>MAX_ENTRIES:
         raise ValueError('Array derivative exceeds 100000 entries')
     data={}
     for i,variable in enumerate(entries):
-        for j,value in expression._items():
+        for j,value in expr._items():
             derivative=_derivative(value,variable)
             if derivative!=S.Zero:
-                data[i*len(expression)+j]=derivative
+                data[i*len(expr)+j]=derivative
                 if len(data)>MAX_ENTRIES:
                     raise ValueError('Array derivative exceeds 100000 stored entries')
     return _array_class(sparse)(data,shape)

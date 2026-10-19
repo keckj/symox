@@ -568,6 +568,15 @@ def parse_expr(s: str, local_dict: DICT | None=None, transformations: tuple[TRAN
                 global_dict[name] = obj
         global_dict['max'] = Max
         global_dict['min'] = Min
+        # Native srepr includes constructors for immutable metadata which are
+        # intentionally not root exports. They must reconstruct their typed
+        # payloads instead of becoming undefined mathematical functions.
+        from symox._matrixexpr import NormalizedSlice
+        from symox._matrixexpr_methods import _NameAtom
+        from symox.combinatorics import Permutation
+        from symox.assumptions.assume import AppliedPredicate
+        global_dict.update(NormalizedSlice=NormalizedSlice,Permutation=Permutation,
+                           AppliedBinaryRelation=AppliedPredicate,Str=_NameAtom)
     elif not isinstance(global_dict, dict):
         raise TypeError('expecting global_dict to be a dict')
     transformations = transformations or ()

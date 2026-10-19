@@ -573,6 +573,11 @@ impl Expr {
             || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite())
             || matches!(&kind,Kind::Sym(symbol) if symbol.facts().get("finite")==Some(false))
             || matches!(&kind,Kind::Func(Func::Undefined(head),_) if !head.internal && head.facts().get("finite")==Some(false)){features|=32;}
+        if match &kind{
+            Kind::Num(n)|Kind::Mul(n,_)=>n.has_wide_exponent(),
+            Kind::Add(n,terms)=>n.has_wide_exponent()||terms.iter().any(|(_,n)|n.has_wide_exponent()),
+            _=>false,
+        }{features|=64;}
         kind.rank().hash(&mut h);
         match &kind {
             Kind::Num(n) => n.hash(&mut h),
@@ -757,6 +762,7 @@ impl Expr {
     /// Whether a scalar descendant preserves explicitly held arithmetic.
     pub fn has_held_arithmetic(&self)->bool {self.0.features & 16 != 0}
     pub fn has_nonfinite(&self)->bool {self.0.features & 32 != 0}
+    pub(crate) fn has_wide_exponent(&self)->bool {self.0.features & 64 != 0}
     pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
 
     /// Conservative unchanged-child check for transforms preserving public args.

@@ -1351,7 +1351,7 @@ fn poly_charpoly(m: &Matrix, ctx: &PolyCtx) -> Option<Vec<Expr>> {
     }
     let b: Vec<MPoly> = qs.iter().map(|q| q.p.mul_int(&d.divexact(&q.den))).collect();
     let one = MPoly::one(ctx.nvars());
-    let cp = berkowitz(&b, n, &one);
+    let cp = super::packed::charpoly(&b, n).unwrap_or_else(|| berkowitz(&b, n, &one));
     let mut dk = Int::ONE;
     let mut out = Vec::with_capacity(n + 1);
     for c in cp {

@@ -24,24 +24,24 @@ def _level(polynomial, generator):
     return index % count
 
 
-def as_expr(polynomial, *generators):
-    if not generators:
-        return _native_as_expr(polynomial)
+def as_expr(f, *gens):
+    if not gens:
+        return _native_as_expr(f)
     from .. import sympify
     from .polyerrors import GeneratorsError
     from ._poly_methods import _expr_from_dict
-    if len(generators) == 1 and isinstance(generators[0], dict):
-        replacements = list(polynomial.gens)
-        for old, new in generators[0].items():
+    if len(gens) == 1 and isinstance(gens[0], dict):
+        replacements = list(f.gens)
+        for old, new in gens[0].items():
             old = sympify(old)
-            if old not in polynomial.gens:
+            if old not in f.gens:
                 raise GeneratorsError('Not a polynomial generator: %s' % old)
-            replacements[polynomial.gens.index(old)] = sympify(new)
+            replacements[f.gens.index(old)] = sympify(new)
     else:
-        if len(generators) != len(polynomial.gens):
+        if len(gens) != len(f.gens):
             raise GeneratorsError('An expression value is required for every generator')
-        replacements = [sympify(g) for g in generators]
-    return _expr_from_dict(polynomial.as_dict(), replacements)
+        replacements = [sympify(g) for g in gens]
+    return _expr_from_dict(f.as_dict(), replacements)
 
 
 def _one(polynomial, index, value, auto):

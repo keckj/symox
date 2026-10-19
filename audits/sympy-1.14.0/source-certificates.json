@@ -1,0 +1,634 @@
+{
+  "schema": 1,
+  "native_source_sha256": "a7240761319c254b4ffaaa16e5d0aee100985b66f9cc7cd60ec5ae8c0bf001a8",
+  "records": [
+    {
+      "id": "sympy.utilities.iterables.dict_merge",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(*dicts)",
+      "normalized_ast_sha256": "0c2d8dab9c142ddc76d7869446ed290211fbc57877af7a16c1a3d67a3d147820",
+      "reference_source_sha256": "5dcf8e740ecc89d461ba058efef4d5950b66b4d4b7e531bccb0486a832e04b61",
+      "native_source_sha256": "72626d63cdf5d44dbe89a6b50a58b07e299cae3e16a30743acaff13409f71f20",
+      "native_file": "python/symox/utilities/iterables.py",
+      "local_alpha_renames": {
+        "mapping": "dict"
+      },
+      "scope": "Same Python runtime and input protocols: matching signatures, control flow, exact object preservation, error propagation and asymptotic time/space. Symbolic input-type protocols need their own certificates.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.group",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(seq, multiple=True)",
+      "normalized_ast_sha256": "696eff142718d22d9cff72cc79d1d286397cb6c0d5329d171a22573d215d36cd",
+      "reference_source_sha256": "98bfd38555d2ae4f3aee7203f27d01e9eac05e47af27cdc20a7f602658586e7c",
+      "native_source_sha256": "355c453caf49f2a34d0ff46cc2db67360de88b47cb0d0bb39b983a805d0d09b2",
+      "native_file": "python/symox/utilities/iterables.py",
+      "local_alpha_renames": {
+        "values": "g",
+        "key": "k"
+      },
+      "scope": "Same Python runtime and input protocols: matching signatures, control flow, exact object preservation, error propagation and asymptotic time/space. Symbolic input-type protocols need their own certificates.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.take",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(iter, n)",
+      "normalized_ast_sha256": "5ff4e7a005db6f9fa2101b3816464fa4502e60e7bc08d16f042805cb1612131b",
+      "reference_source_sha256": "07f0a37f13331760c6e10e2ef4863e7c5da84a10b34dbfcbe869af68075fe263",
+      "native_source_sha256": "c8beaf4e4888068f6d63b8103e593ba7a212b811098bd1bfa3872ddf44737876",
+      "native_file": "python/symox/utilities/iterables.py",
+      "local_alpha_renames": {},
+      "scope": "Same Python runtime and input protocols: matching signatures, control flow, exact object preservation, error propagation and asymptotic time/space. Symbolic input-type protocols need their own certificates.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.prefixes",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(seq)",
+      "normalized_ast_sha256": "1dcf565a6cd2a5889519568a1939dc245d209ae87458d29f3d8bf1d8eef2f6a6",
+      "reference_source_sha256": "c14b45bac3f5d247a729339819d88a85bcb79846da9fe03b36559df6f977f411",
+      "native_source_sha256": "bffeb504609bbf71c68cf82033bb3c7cf7d610be59dcc13c18b577e14713c8a4",
+      "native_file": "python/symox/utilities/iterables.py",
+      "local_alpha_renames": {},
+      "scope": "Same Python runtime and input protocols: matching signatures, control flow, exact object preservation, error propagation and asymptotic time/space. Symbolic input-type protocols need their own certificates.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.postfixes",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(seq)",
+      "normalized_ast_sha256": "ced2c7b07a741e441f1773200cef10938da085f350baa345a690d5b0e0cdde14",
+      "reference_source_sha256": "5b9821047efe4ed29d504a1c0996519a2023b5d6b96b76fafd64b1ec3bf5afcf",
+      "native_source_sha256": "cd8598d7857e35ddac8a3575324cf4fae334e1cb4f609e5ba70a01b46ea7062a",
+      "native_file": "python/symox/utilities/iterables.py",
+      "local_alpha_renames": {},
+      "scope": "Same Python runtime and input protocols: matching signatures, control flow, exact object preservation, error propagation and asymptotic time/space. Symbolic input-type protocols need their own certificates.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.prod",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(a, start=1)",
+      "normalized_ast_sha256": "4224ed1be68b6e6361fe0d3e7b56cad67e765cccf6e6c2352e4b2b4af414b5ca",
+      "reference_source_sha256": "80632e6785c973d25d7afd484631b7defc1ce45c86a04e6f730c4250c5c196fc",
+      "native_source_sha256": "0491fcff1a08b66ee25076df51d7b4429e15590c120d27d8768361abc123c3ae",
+      "native_file": "python/symox/utilities/iterables.py",
+      "dependency_evidence": [
+        {
+          "name": "operator",
+          "kind": "identical_standard_library_object",
+          "origin": "operator"
+        },
+        {
+          "name": "reduce",
+          "kind": "identical_standard_library_object",
+          "origin": "_functools"
+        },
+        {
+          "name": "prod",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "4224ed1be68b6e6361fe0d3e7b56cad67e765cccf6e6c2352e4b2b4af414b5ca",
+          "reference_source_sha256": "80632e6785c973d25d7afd484631b7defc1ce45c86a04e6f730c4250c5c196fc",
+          "native_source_sha256": "0491fcff1a08b66ee25076df51d7b4429e15590c120d27d8768361abc123c3ae"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.ntheory.modular.symmetric_residue",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(a, m)",
+      "normalized_ast_sha256": "de9c25f0e7d9c58344365fdc798aef1c5a7773abd79c947e644e38f2a75b5efb",
+      "reference_source_sha256": "85d09c99d2f7bca061e8f7cb089a3fc389a912dcd6bb970b1de3f12868f4384a",
+      "native_source_sha256": "e322abd6777a81700c8fe3db94db72706d3cef3ad148ed432c77fb6452414835",
+      "native_file": "python/symox/ntheory/modular.py",
+      "dependency_evidence": [
+        {
+          "name": "symmetric_residue",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "de9c25f0e7d9c58344365fdc798aef1c5a7773abd79c947e644e38f2a75b5efb",
+          "reference_source_sha256": "85d09c99d2f7bca061e8f7cb089a3fc389a912dcd6bb970b1de3f12868f4384a",
+          "native_source_sha256": "e322abd6777a81700c8fe3db94db72706d3cef3ad148ed432c77fb6452414835"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.rotate_left",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(x, y)",
+      "normalized_ast_sha256": "a42d242bf6beeac5feaa7cea86a38813b8653f8eb741c985ed4e48d5dd4512b4",
+      "reference_source_sha256": "ff12b44f27d3e4aec0aa00f02f5d04f904052995bc163e99fa7147ca0399a72c",
+      "native_source_sha256": "b58455e8e2b9b88a800a91a348d756e2fcf651e047f084c1bf6588acb04b4470",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "rotate_left",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "a42d242bf6beeac5feaa7cea86a38813b8653f8eb741c985ed4e48d5dd4512b4",
+          "reference_source_sha256": "ff12b44f27d3e4aec0aa00f02f5d04f904052995bc163e99fa7147ca0399a72c",
+          "native_source_sha256": "b58455e8e2b9b88a800a91a348d756e2fcf651e047f084c1bf6588acb04b4470"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.rotate_right",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(x, y)",
+      "normalized_ast_sha256": "cfc327144e185b951a2bb8c46757484bd0443171341f8235994f12a562fff69d",
+      "reference_source_sha256": "235d963d269367ceca54ee42757e9710c5bd5443ab534dd5ce5b8a1b1deacfc6",
+      "native_source_sha256": "787e90d9fc50256e5826bae50eff60f3045f56d278261410056abf80bc3bb107",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "rotate_right",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "cfc327144e185b951a2bb8c46757484bd0443171341f8235994f12a562fff69d",
+          "reference_source_sha256": "235d963d269367ceca54ee42757e9710c5bd5443ab534dd5ce5b8a1b1deacfc6",
+          "native_source_sha256": "787e90d9fc50256e5826bae50eff60f3045f56d278261410056abf80bc3bb107"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.common_prefix",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(*seqs)",
+      "normalized_ast_sha256": "26f85d35717f606ba8c29d8821cf03d52098b2725d5da4f70954b450d4cf2d21",
+      "reference_source_sha256": "5fa999dfbba756f368996ee0dd74cd7b0d9d788316f1a262bf01478d9b12df6d",
+      "native_source_sha256": "bab4e161b13efa31a8601ef25d54f319f1b5559b6ce5407a97b81f0cdf6b03ef",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "all",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "min",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "range",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "common_prefix",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "26f85d35717f606ba8c29d8821cf03d52098b2725d5da4f70954b450d4cf2d21",
+          "reference_source_sha256": "5fa999dfbba756f368996ee0dd74cd7b0d9d788316f1a262bf01478d9b12df6d",
+          "native_source_sha256": "bab4e161b13efa31a8601ef25d54f319f1b5559b6ce5407a97b81f0cdf6b03ef"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.common_suffix",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(*seqs)",
+      "normalized_ast_sha256": "67e174027e5a0609774b5b01e404fdc7a9be6fb3d879f47215ddfe4c45127cbe",
+      "reference_source_sha256": "88ee691db09ff350ce64dfa9ea80ede9d9111b242406662337c4cccd837672b8",
+      "native_source_sha256": "96d2ea04f4528eae38bf6a3a4963a43fbe48393fe57ff2c018d665bd4e11d876",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "all",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "min",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "range",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "common_suffix",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "67e174027e5a0609774b5b01e404fdc7a9be6fb3d879f47215ddfe4c45127cbe",
+          "reference_source_sha256": "88ee691db09ff350ce64dfa9ea80ede9d9111b242406662337c4cccd837672b8",
+          "native_source_sha256": "96d2ea04f4528eae38bf6a3a4963a43fbe48393fe57ff2c018d665bd4e11d876"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.is_palindromic",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(s, i=0, j=None)",
+      "normalized_ast_sha256": "e2fd03d94a4a18bcbed813157751ede68e4653d97d8ada1dd6acf5488ae7a93a",
+      "reference_source_sha256": "807bfb23bc6c0aa6f0eb55d8b85db7e914235d2ae9fe8dcc329aa55a3b79e0eb",
+      "native_source_sha256": "25593dd459f3ce049c36da75e2567cdfd6896ca22451792612d1819436c51382",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "all",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "range",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "slice",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "is_palindromic",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "e2fd03d94a4a18bcbed813157751ede68e4653d97d8ada1dd6acf5488ae7a93a",
+          "reference_source_sha256": "807bfb23bc6c0aa6f0eb55d8b85db7e914235d2ae9fe8dcc329aa55a3b79e0eb",
+          "native_source_sha256": "25593dd459f3ce049c36da75e2567cdfd6896ca22451792612d1819436c51382"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.roundrobin",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(*iterables)",
+      "normalized_ast_sha256": "0dbd00d7b18f35ae119e284453d3ee1e4aae63f9254eeaf8bfbe266f0654be18",
+      "reference_source_sha256": "3415491c0f69be14057bce8dc0da4f0f47c4cf525b5af8de47d3d6e6c56dffd9",
+      "native_source_sha256": "f8d4d9aad721e620e8327da2583c73fb9434f2bd1341de35bca110bab8d9e951",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "StopIteration",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "cycle",
+          "kind": "identical_standard_library_object",
+          "origin": "itertools"
+        },
+        {
+          "name": "islice",
+          "kind": "identical_standard_library_object",
+          "origin": "itertools"
+        },
+        {
+          "name": "iter",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "roundrobin",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "0dbd00d7b18f35ae119e284453d3ee1e4aae63f9254eeaf8bfbe266f0654be18",
+          "reference_source_sha256": "3415491c0f69be14057bce8dc0da4f0f47c4cf525b5af8de47d3d6e6c56dffd9",
+          "native_source_sha256": "f8d4d9aad721e620e8327da2583c73fb9434f2bd1341de35bca110bab8d9e951"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.filter_symbols",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(iterator, exclude)",
+      "normalized_ast_sha256": "63a67c6f91728ec975a79e5971e72276db8f29b802c187dc43e004e4dd894dd9",
+      "reference_source_sha256": "4e1920f2dfc214a81afae1f11cb64e2c467b22a14c28b3ad4b21cba7eeafc68a",
+      "native_source_sha256": "79e65ab7be227d581d0cf9d7431c290e14ebe350cd07e1075dc00bdde9cc6724",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "set",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "filter_symbols",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "63a67c6f91728ec975a79e5971e72276db8f29b802c187dc43e004e4dd894dd9",
+          "reference_source_sha256": "4e1920f2dfc214a81afae1f11cb64e2c467b22a14c28b3ad4b21cba7eeafc68a",
+          "native_source_sha256": "79e65ab7be227d581d0cf9d7431c290e14ebe350cd07e1075dc00bdde9cc6724"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.necklaces",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(n, k, free=False)",
+      "normalized_ast_sha256": "2148aa95f8e9ce1aaa321b5cd31e047b71c7eb65587029ce2f79289d47b83942",
+      "reference_source_sha256": "1ca8dce12aff55cfba464f9e418c31f75cb729b61776ad45e9ca7678f9024ec1",
+      "native_source_sha256": "96e96821994b24c3b8abe4cb05f639b0e0f8e83bb940d3823f9bba93f8814383",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "all",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "range",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "tuple",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "necklaces",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "2148aa95f8e9ce1aaa321b5cd31e047b71c7eb65587029ce2f79289d47b83942",
+          "reference_source_sha256": "1ca8dce12aff55cfba464f9e418c31f75cb729b61776ad45e9ca7678f9024ec1",
+          "native_source_sha256": "96e96821994b24c3b8abe4cb05f639b0e0f8e83bb940d3823f9bba93f8814383"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.bracelets",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(n, k)",
+      "normalized_ast_sha256": "90299d4e7cbd8b56174937f6aa7d4003dd8ceeab70e9c8f953bf1be5d627d63a",
+      "reference_source_sha256": "4cab549087100a369b3d6a7aa693af9ce8ad11529c62acca09bd5fbab78dd868",
+      "native_source_sha256": "4cab549087100a369b3d6a7aa693af9ce8ad11529c62acca09bd5fbab78dd868",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "all",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "range",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "tuple",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "necklaces",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "2148aa95f8e9ce1aaa321b5cd31e047b71c7eb65587029ce2f79289d47b83942",
+          "reference_source_sha256": "1ca8dce12aff55cfba464f9e418c31f75cb729b61776ad45e9ca7678f9024ec1",
+          "native_source_sha256": "96e96821994b24c3b8abe4cb05f639b0e0f8e83bb940d3823f9bba93f8814383"
+        },
+        {
+          "name": "bracelets",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "90299d4e7cbd8b56174937f6aa7d4003dd8ceeab70e9c8f953bf1be5d627d63a",
+          "reference_source_sha256": "4cab549087100a369b3d6a7aa693af9ce8ad11529c62acca09bd5fbab78dd868",
+          "native_source_sha256": "4cab549087100a369b3d6a7aa693af9ce8ad11529c62acca09bd5fbab78dd868"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.multiset",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(seq)",
+      "normalized_ast_sha256": "abfd8158c2b4816872b1b550c51bad5c49297faa6259a90653084f1187f89799",
+      "reference_source_sha256": "a137bec1a5ed43c042756758bfa6cec86e76ef352ae7f1fc0e302bb972e30cd2",
+      "native_source_sha256": "d26f53631953e4c1557979a11e15cf40ba1493c0b0b3e9ca46f1d67392fd9918",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "Counter",
+          "kind": "identical_standard_library_object",
+          "origin": "collections"
+        },
+        {
+          "name": "dict",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "multiset",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "abfd8158c2b4816872b1b550c51bad5c49297faa6259a90653084f1187f89799",
+          "reference_source_sha256": "a137bec1a5ed43c042756758bfa6cec86e76ef352ae7f1fc0e302bb972e30cd2",
+          "native_source_sha256": "d26f53631953e4c1557979a11e15cf40ba1493c0b0b3e9ca46f1d67392fd9918"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.ordered_partitions",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(n, m=None, sort=True)",
+      "normalized_ast_sha256": "9773ef1dd23a3a5c231fee909c1528b2a79e59e7456853bc6bd83937635de230",
+      "reference_source_sha256": "d40643297e980a5de03a5cf8c5ed8b547a65340d59092862ebe777b4f52b7d76",
+      "native_source_sha256": "fc965c63069fb44934136c3551f58c7c618fe18244f839392838db75c2020af2",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "range",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "ordered_partitions",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "9773ef1dd23a3a5c231fee909c1528b2a79e59e7456853bc6bd83937635de230",
+          "reference_source_sha256": "d40643297e980a5de03a5cf8c5ed8b547a65340d59092862ebe777b4f52b7d76",
+          "native_source_sha256": "fc965c63069fb44934136c3551f58c7c618fe18244f839392838db75c2020af2"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.runs",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(seq, op=<built-in function gt>)",
+      "normalized_ast_sha256": "705994767481d02ee9f27dfd2b9224c247ea44e335123e633e56e41609933458",
+      "reference_source_sha256": "5b022d353df7a869f06877e4e4057069579e11a054f3b7a444c629c4f99248be",
+      "native_source_sha256": "93c34562c067eda11d0d3dfde8ed48a626a8575e1c9bf663dc344c650182ac57",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "StopIteration",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "iter",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "next",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "runs",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "705994767481d02ee9f27dfd2b9224c247ea44e335123e633e56e41609933458",
+          "reference_source_sha256": "5b022d353df7a869f06877e4e4057069579e11a054f3b7a444c629c4f99248be",
+          "native_source_sha256": "93c34562c067eda11d0d3dfde8ed48a626a8575e1c9bf663dc344c650182ac57"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.uniq",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(seq, result=None)",
+      "normalized_ast_sha256": "bf9e72e0b0cf3de08dfbac84ef6844bcc99ced27d596c7d1425ef5c7dde65d8d",
+      "reference_source_sha256": "c25c6f3659b637086e7ff0d1cc905124ff08e346b0fb1eebe52b01fcc5e00abb",
+      "native_source_sha256": "5bfc9e839da4d53aa5b3c9fa41c6473ee94a1f7368175c624d34459bd2c518fd",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "RuntimeError",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "TypeError",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "enumerate",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "hasattr",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "set",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "uniq",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "bf9e72e0b0cf3de08dfbac84ef6844bcc99ced27d596c7d1425ef5c7dde65d8d",
+          "reference_source_sha256": "c25c6f3659b637086e7ff0d1cc905124ff08e346b0fb1eebe52b01fcc5e00abb",
+          "native_source_sha256": "5bfc9e839da4d53aa5b3c9fa41c6473ee94a1f7368175c624d34459bd2c518fd"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    },
+    {
+      "id": "sympy.utilities.iterables.binary_partitions",
+      "reference_version": "1.14.0",
+      "status": "source_equivalent",
+      "signature": "(n)",
+      "normalized_ast_sha256": "3d58d392dd8333780e391b74ec3fd03377bca5f7a00a596da4d7c19a9bf7a883",
+      "reference_source_sha256": "3333ca8c7e409be19515b4d50a68528abf3d8f660a0ba2967a1fe070e81153ea",
+      "native_source_sha256": "a165be62d181140ea6ce5a6bedf4251353df61f8237d578b2e8c03fe28e09070",
+      "native_file": "python/symox/utilities/_iterable_extensions.py",
+      "dependency_evidence": [
+        {
+          "name": "int",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "len",
+          "kind": "identical_standard_library_object",
+          "origin": "builtins"
+        },
+        {
+          "name": "binary_partitions",
+          "kind": "equivalent_python_helper",
+          "normalized_ast_sha256": "3d58d392dd8333780e391b74ec3fd03377bca5f7a00a596da4d7c19a9bf7a883",
+          "reference_source_sha256": "3333ca8c7e409be19515b4d50a68528abf3d8f660a0ba2967a1fe070e81153ea",
+          "native_source_sha256": "a165be62d181140ea6ce5a6bedf4251353df61f8237d578b2e8c03fe28e09070"
+        }
+      ],
+      "scope": "Same Python runtime and compatible input protocols; identical control flow, signatures, recursively verified helper bodies and shared standard-library operations. Preserves exact objects, exception operations, laziness, state transitions and asymptotic time/space. Does not certify symbolic operand protocols or inherited class APIs.",
+      "global_sympy_parity_certified": false
+    }
+  ]
+}

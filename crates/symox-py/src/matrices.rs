@@ -629,15 +629,15 @@ impl PyMatrix {
         Ok(self.wrapped(self.m.reshape(rows, cols).py(py)?))
     }
 
-    fn row_del(&mut self, py: Python<'_>, i: isize) -> PyResult<()> {
+    fn row_del(&mut self, py: Python<'_>, row: isize) -> PyResult<()> {
         self.require_mutable()?;
-        let i = norm_index(i, self.m.rows())?;
+        let i = norm_index(row, self.m.rows())?;
         self.m.row_del(i).py(py)
     }
 
-    fn col_del(&mut self, py: Python<'_>, j: isize) -> PyResult<()> {
+    fn col_del(&mut self, py: Python<'_>, col: isize) -> PyResult<()> {
         self.require_mutable()?;
-        let j = norm_index(j, self.m.cols())?;
+        let j = norm_index(col, self.m.cols())?;
         self.m.col_del(j).py(py)
     }
 
@@ -1081,8 +1081,9 @@ impl PyMatrix {
     #[pyo3(signature = (*args, **_kwargs))]
     fn subs(&self, args: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         if self.m.is_empty() {return Ok(self.wrapped(self.m.clone()));}
-        let pairs = subs_pairs(args)?;
-        let simultaneous=crate::substitution_options(_kwargs)?;
+        let (args,options)=crate::substitution_arguments(args,_kwargs)?;
+        let pairs = subs_pairs(&args)?;
+        let simultaneous=crate::substitution_options(options.as_ref())?;
         Ok(self.wrapped(self.m.try_applyfunc(|entry|crate::checked_subs(args.py(),entry,&pairs,simultaneous))?))
     }
 
@@ -1108,14 +1109,14 @@ impl PyMatrix {
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
-    fn evalf(&self, n: u32, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn evalf(&self, n: i64, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         let precision=crate::decimal_precision(n)?;
         let chop=crate::evalf_options(_kwargs,precision)?;
         Ok(self.wrapped(self.m.try_applyfunc(|e| crate::evalf_prepared(e,precision,subs,chop))?))
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
-    fn n(&self, n: u32, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn n(&self, n: i64, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         self.evalf(n, subs, _kwargs)
     }
 

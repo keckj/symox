@@ -523,7 +523,8 @@ impl PyMatrixExpr{
     fn xreplace(&self,rule:&Bound<'_,PyDict>)->PyResult<Self>{let mut matrices=Vec::new();let mut scalars=FxHashMap::default();for (a,b) in rule.iter(){if is_matrix(&a){matrices.push((to_matrixexpr(&a)?,to_matrixexpr(&b)?));}else{scalars.insert(to_expr(&a)?,to_expr(&b)?);}}Ok(wrap_matrixexpr(self.m.xreplace(&matrices,&scalars).map_err(|e|error(rule.py(),e))?))}
     #[pyo3(signature=(*args,**kwargs))]
     fn subs(&self,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{
-        if kwargs.is_some_and(|d|!d.is_empty()){return Err(PyNotImplementedError::new_err("MatrixExpr subs options are unsupported"));}
+        let (args,kwargs)=crate::substitution_arguments(args,kwargs)?;
+        if kwargs.as_ref().is_some_and(|d|!d.is_empty()){return Err(PyNotImplementedError::new_err("MatrixExpr subs options are unsupported"));}
         let mut pairs=Vec::new();if args.len()==2{pairs.push((args.get_item(0)?,args.get_item(1)?));}else if args.len()==1{let rule=args.get_item(0)?;if let Ok(d)=rule.downcast::<PyDict>(){pairs.extend(d.iter());}else{for pair in rule.try_iter()?{let pair=pair?;let a=pair.get_item(0)?;let b=pair.get_item(1)?;pairs.push((a,b));}}}else{return Err(PyTypeError::new_err("subs expects a mapping, pairs or (old,new)"));}
         let mut result=self.m.clone();for (a,b) in pairs{result=if is_matrix(&a){result.xreplace(&[(to_matrixexpr(&a)?,to_matrixexpr(&b)?)],&FxHashMap::default())}else{let old=to_expr(&a)?;let new=to_expr(&b)?;result.scalar_map(&mut |e|symox::subs::subs(e,&[(old.clone(),new.clone())]))}.map_err(|e|error(args.py(),e))?;}Ok(wrap_matrixexpr(result))
     }
