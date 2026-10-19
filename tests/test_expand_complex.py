@@ -32,16 +32,9 @@ MODES = {
     'partial_hints': lambda m, e: e.expand(complex=True, mul=False, multinomial=False),
 }
 
-# SymPy evaluates log(1+I) to log(sqrt(2)) + I*pi/4 on construction; symox keeps
-# log(1+I), so the shallow expansion sees a different tree.
-KNOWN = {('log(1+I)', 'method_shallow')}
-
-
 @pytest.mark.parametrize('mode', list(MODES))
 @pytest.mark.parametrize('source', SOURCES + EXTRA)
 def test_complex_expansion_matches_sympy(source, mode):
-    if (source, mode) in KNOWN:
-        pytest.xfail('construction-time evaluation difference')
     expected = sp.sympify(eval(source, {'__builtins__': {}}, env(sp)))
     actual = sx.sympify(eval(source, {'__builtins__': {}}, env(sx)))
     try:
