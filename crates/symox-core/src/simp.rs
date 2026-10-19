@@ -197,7 +197,13 @@ fn head_bit(e: &Expr) -> u8 {
 /// Trigonometric heads occurring anywhere in `e`.
 fn heads(e: &Expr) -> u8 {
     let mut h = 0;
-    crate::traverse::preorder(e, &mut |s| h |= head_bit(s));
+    let mut pending = vec![e.clone()];
+    let mut seen = FxHashMap::default();
+    while let Some(node) = pending.pop() {
+        if seen.insert(node.dag_id(), node.clone()).is_some() { continue; }
+        h |= head_bit(&node);
+        pending.extend(node.args());
+    }
     h
 }
 
@@ -206,12 +212,25 @@ fn heads(e: &Expr) -> u8 {
 /// match a function of the same head inside the expression, so those nodes
 /// cannot match and the result is unchanged. Returns the heads of the result.
 fn rewrite(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>) -> (Expr, u8) {
+    rewrite_cached(e, r, accept, &mut FxHashMap::default())
+}
+
+fn rewrite_cached(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>, memo: &mut FxHashMap<usize, (Expr, Expr, u8)>) -> (Expr, u8) {
+    if let Some((_, result, heads)) = memo.get(&e.dag_id()) {
+        return (result.clone(), *heads);
+    }
+    let result = rewrite_uncached(e, r, accept, memo);
+    memo.insert(e.dag_id(), (e.clone(), result.0.clone(), result.1));
+    result
+}
+
+fn rewrite_uncached(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>, memo: &mut FxHashMap<usize, (Expr, Expr, u8)>) -> (Expr, u8) {
     if e.is_atom() {
         return (e.clone(), 0);
     }
     let mut h = head_bit(e);
     let rebuilt = map_children(e, &mut |c| {
-        let (nc, hc) = rewrite(c, r, accept);
+        let (nc, hc) = rewrite_cached(c, r, accept, memo);
         h |= hc;
         nc
     });
@@ -257,7 +276,18 @@ fn apply_rules(e: &Expr) -> Expr {
 
 /// sin(u)**2 -> 1 - cos(u)**2 (or the reverse) everywhere.
 fn rewrite_squares(e: &Expr, to_cos: bool) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| rewrite_squares(c, to_cos)) };
+    rewrite_squares_cached(e, to_cos, &mut FxHashMap::default())
+}
+
+fn rewrite_squares_cached(e: &Expr, to_cos: bool, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+    if let Some((_, result)) = memo.get(&e.dag_id()) { return result.clone(); }
+    let result = rewrite_squares_uncached(e, to_cos, memo);
+    memo.insert(e.dag_id(), (e.clone(), result.clone()));
+    result
+}
+
+fn rewrite_squares_uncached(e: &Expr, to_cos: bool, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| rewrite_squares_cached(c, to_cos, memo)) };
     if let Kind::Pow(b, x) = e2.kind() {
         if let (Kind::Func(f, a), Some(k)) = (b.kind(), x.as_i64()) {
             if k >= 2 && k % 2 == 0 {
@@ -273,19 +303,36 @@ fn rewrite_squares(e: &Expr, to_cos: bool) -> Expr {
 }
 
 pub(crate) fn has_trig(e: &Expr) -> bool {
-    match e.kind() {
-        Kind::Func(Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc | Func::Sinh | Func::Cosh | Func::Tanh, _) => true,
-        _ => e.args().iter().any(has_trig),
+    let mut pending = vec![e.clone()];
+    let mut seen = FxHashMap::default();
+    while let Some(node) = pending.pop() {
+        if seen.insert(node.dag_id(), node.clone()).is_some() { continue; }
+        if matches!(node.kind(), Kind::Func(Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc | Func::Sinh | Func::Cosh | Func::Tanh, _)) {
+            return true;
+        }
+        pending.extend(node.args());
     }
+    false
 }
 
 /// Simplify trigonometric expressions using identities.
 pub fn trigsimp(e: &Expr) -> Expr {
+    trigsimp_cached(e, &mut FxHashMap::default())
+}
+
+fn trigsimp_cached(e: &Expr, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+    if let Some((_, result)) = memo.get(&e.dag_id()) { return result.clone(); }
+    let result = trigsimp_uncached(e, memo);
+    memo.insert(e.dag_id(), (e.clone(), result.clone()));
+    result
+}
+
+fn trigsimp_uncached(e: &Expr, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
     if !has_trig(e) {
         return e.clone();
     }
     // simplify inside first
-    let e1 = if e.is_atom() { e.clone() } else { map_children(e, &mut trigsimp) };
+    let e1 = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| trigsimp_cached(c, memo)) };
     let mut best = apply_rules(&e1);
     let mut cands = vec![];
     let ex = expand(&e1);
@@ -642,6 +689,32 @@ mod tests {
         assert_eq!(t(trigsimp, "sin(x)*cos(y)+cos(x)*sin(y)"), "sin(x + y)");
         assert_eq!(t(trigsimp, "cosh(x)**2-sinh(x)**2"), "1");
         assert_eq!(t(trigsimp, "x*sin(y)**2 + x*cos(y)**2"), "x");
+    }
+
+    #[test]
+    fn trig_passes_visit_shared_subexpressions_once_per_pass() {
+        let x = Expr::symbol("x");
+        let mut expression = sin(&x);
+        for _ in 0..64 {
+            expression = undefined("shared", vec![expression.clone(), expression]);
+        }
+        assert_eq!(heads(&expression), 1);
+        assert!(has_trig(&expression));
+        assert_eq!(trigsimp(&expression), expression);
+    }
+
+    #[test]
+    fn shared_rewrites_keep_every_occurrence_and_exact_identity() {
+        let x = Expr::symbol("x");
+        let mut expression = add2(&sin(&x).powi(2), &cos(&x).powi(2));
+        let mut expected = Expr::one();
+        for _ in 0..64 {
+            expression = undefined("shared", vec![expression.clone(), expression]);
+            expected = undefined("shared", vec![expected.clone(), expected]);
+        }
+        assert_eq!(trigsimp(&expression), expected);
+        assert_eq!(heads(&expected), 0);
+        assert!(!has_trig(&expected));
     }
 
     #[test]
