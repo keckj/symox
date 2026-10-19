@@ -899,6 +899,12 @@ impl Matrix {
         if n == 0 {
             return Ok(self.clone());
         }
+        // A formal polynomial-domain conversion may treat transcendental
+        // atoms as independent generators. Do not invert a scalar entry
+        // that the exact expression zero test has already proved zero.
+        if n == 1 && is_zero_assume(self.get(0,0)) == Some(true) {
+            return Err(non_invertible());
+        }
         if let Some(r) = RatMat::from_matrix(self) {
             return r.inv().map(|x| x.to_matrix()).ok_or_else(non_invertible);
         }

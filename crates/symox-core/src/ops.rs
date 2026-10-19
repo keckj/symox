@@ -1060,6 +1060,19 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 return if en.is_positive() { Expr::zoo() } else { Expr::zero() };
             }
         }
+        Kind::Add(..) if b.is_canonical() && e.is_integer_number()
+            && could_extract_minus_sign(b) => {
+            // Integer powers have no branch ambiguity over complex bases.
+            // Normalize the sign before collecting reciprocal factors, so
+            // (-a)**2/a is a rather than a hidden zero pivot in elimination.
+            let positive = neg(b);
+            let value = pow(&positive, e);
+            return if crate::assumptions::is_odd(e) == Some(true) {
+                neg(&value)
+            } else {
+                value
+            };
+        }
         Kind::Pow(bb, be) => {
             if e.is_integer_number() {
                 return pow(bb, &mul2(be, e));
@@ -1709,5 +1722,16 @@ mod active_product_tests {
         assert_eq!(cache.parts.len(),80);
         assert_eq!(cache.parts.values().map(|(_,parts)|parts.factors.len()).sum::<usize>(),80);
         assert!(!value.is_canonical());
+    }
+
+    #[test]
+    fn integer_power_sign_exposes_zero_complex_pivots() {
+        let a=p("2*I*x+1/3");
+        let opposite=neg(&a);
+        assert_eq!(pow(&opposite,&Expr::int(2)),pow(&a,&Expr::int(2)));
+        assert_eq!(sub(&a,&div(&pow(&opposite,&Expr::int(2)),&a)),Expr::zero());
+        assert_eq!(pow(&opposite,&Expr::int(-3)),neg(&pow(&a,&Expr::int(-3))));
+        let large=Expr::num(Number::from_bigint((BigInt::one()<<80)+BigInt::one()));
+        assert_eq!(pow(&opposite,&large),neg(&pow(&a,&large)));
     }
 }

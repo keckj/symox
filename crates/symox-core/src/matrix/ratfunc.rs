@@ -808,12 +808,12 @@ pub fn is_zero_assume(e: &Expr) -> Option<bool> {
                 }
             }
             if e.mask() == 0 {
-                return numeric_nonzero(e);
+                return numeric_zero_exact(e);
             }
             None
         }
         Kind::Add(constant,terms)=>{
-            if e.mask()==0 {return numeric_nonzero(e);}
+            if e.mask()==0 {return numeric_zero_exact(e);}
             if matches!(constant,Number::Float(value) if !value.is_finite()) {return None;}
             let mut nonzero=usize::from(!constant.is_zero());
             for (term,coefficient) in terms {
@@ -846,7 +846,7 @@ pub fn is_zero_assume(e: &Expr) -> Option<bool> {
         }
         _ => {
             if e.mask() == 0 {
-                numeric_nonzero(e)
+                numeric_zero_exact(e)
             } else {
                 None
             }
@@ -854,19 +854,21 @@ pub fn is_zero_assume(e: &Expr) -> Option<bool> {
     }
 }
 
-fn numeric_nonzero(e: &Expr) -> Option<bool> {
+fn numeric_zero_exact(e: &Expr) -> Option<bool> {
     if !crate::functions::is_numeric_value(e) {
         return None;
     }
-    let z = crate::evalf::eval_c64(e)?;
-    if !z.re.is_finite() || !z.im.is_finite() {
-        return None;
+    // A machine residual is not a proof that an exact pivot is nonzero.
+    // Scaling a trig identity by a large integer amplifies rounding error
+    // beyond any fixed threshold. Try the existing exact pivot simplifier
+    // and retain None whenever no proof decides the query.
+    if let Some(answer) = crate::assumptions::is_zero_exact(e) {
+        return Some(answer);
     }
-    if z.norm() > 1e-12 {
-        Some(false)
-    } else {
-        None
-    }
+    if e.float_info().max_precision.is_some() { return None; }
+    let simplified = super::linalg::pivot_simp(e);
+    if simplified.is_zero() { return Some(true); }
+    crate::assumptions::is_zero_exact(&simplified)
 }
 
 /// SymPy's `_is_zero_after_expand_mul`.
@@ -910,5 +912,18 @@ mod tests {
     fn ops_count() {
         assert_eq!(count_ops_alg(&p("1 + 1/x")).0, 2);
         assert!(count_ops_alg(&p("1 + 1/x")).1);
+    }
+
+    #[test]
+    fn scaled_exact_trig_identity_is_a_zero_pivot() {
+        for scale in [0,20,100,500] {
+            let value=p(&format!("10**{scale}*(sin(3)**2+cos(3)**2-1)"));
+            assert_eq!(is_zero_assume(&value),Some(true));
+            let matrix=crate::matrix::Matrix::new(1,1,vec![value]).unwrap();
+            assert_eq!(matrix.rank(),0);
+            assert!(matrix.inv().is_err());
+            assert!(matrix.inverse_ge().is_err());
+            assert!(matrix.inverse_lu().is_err());
+        }
     }
 }
