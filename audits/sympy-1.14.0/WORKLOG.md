@@ -1155,3 +1155,81 @@ passing name/signature probe or a few examples into a universal certificate.
 
 Existing unrelated/user changes in the worktree must be preserved. Do not
 commit, push or publish without authorization.
+
+## 2026-10-19 — optional backends, complex regressions and English documentation
+
+The custom PyTorch, JAX, Slang, SYCL/AdaptiveCpp and CUDA APIs now live in
+`python/symox/extra`, with execution tests in `tests/extra`. Genuine compatible
+entry points remain available, including root `lambdify(..., modules='jax')`
+and `printing.pytorch.TorchPrinter` / `torch_code`. Optional runtime libraries
+remain unloaded when importing Symox or generating source. Benchmarks, CI and
+code-generation examples use the new paths. Core and extension CI suites run
+separately against the pinned SymPy 1.14.0 reference.
+
+The development Python 3.10 environment now contains PyTorch 2.14.1+cu130,
+JAX/JAXlib 0.6.2 with CUDA 12 plugins, and SlangPy 0.43.1. NVIDIA RTX 5090
+execution works for PyTorch, JAX, native CUDA and Slang CUDA/Vulkan. AdaptiveCpp
+commit `31db2e83903c1db9f50b03b620eb0a09224cd0eb` is installed with its OpenMP CPU
+profile. `tools/install_adaptivecpp.py` reproduces that pinned compiler build;
+it does not establish AdaptiveCpp GPU coverage. `pip check` reports no broken
+requirements. Project extras `extra` and `test-extra` declare the Python
+execution dependencies.
+
+The first complete core run exposed 33 remaining dynamic test lookups of
+old root extension names and one f2py build failure with setuptools 84. Those
+lookups now use `symox.extra`. Default f2py builds select Meson when installed
+with NumPy >=1.26, retaining explicit flags and the legacy path otherwise.
+The compiler subprocess discovers scripts from the active Python environment.
+Meson 1.12.1 and Ninja 1.13.2 are installed, declared in the test dependencies,
+and documented; PyTorch's setuptools requirement remains satisfied. All 60
+focused source-export, dummy-identity and compiled-wrapper tests pass. The
+complete core and extension suites were restarted on this final frozen source.
+
+Both remaining complex-evaluation xfails are ordinary passing tests. Projection
+range facts no longer imply finiteness for an unconstrained argument:
+`Abs(x+oo)` remains held and substitution of `x=-oo` yields `nan`. Negative
+real half-integer powers have an exact imaginary-domain proof, and `im`
+retains the reference public product form. Infinite numeric terms print as
+constant terms. Additional regressions cover assumptions, substitutions and
+positive/negative half-integer exponents. The focused check passed 1,332 tests.
+
+Installing the optional dependencies exposed two further issues. Older JAX
+requires its JIT device option to preserve CPU placement of differentiated
+executables when a GPU is the default backend. Gradients, Hessians, vmap,
+constant outputs and transfers between devices now pass. The standalone Torch
+source test keeps its import guard around generated execution and restores
+normal imports before invoking Torch's assertion helpers, which lazily import
+NumPy through DTensor in the installed Torch version.
+
+The optimized extension suite passed **383 tests, zero skips, zero failures**
+in 98.95 seconds on the final frozen source. This includes actual AdaptiveCpp compilation/execution and
+Slang CUDA/Vulkan execution. Rust passed **504 unit tests and 5 doctests**, with
+one existing ignored unit test. The final complete core Python run passed
+**28,799 tests, zero failures and zero xfails** in 533.22 seconds. Its five
+skips comprise four invalid SymPy nan/infinite pseudo-root oracle cases
+(with separate independent checks) and one pytest-style comparison module
+collected separately. Combined core/extension validation passed 29,182 tests.
+
+All 60 tracked Markdown files were checked for English prose, current extension
+paths and local links. The two remaining French guides are translated. Outdated
+capability descriptions were corrected against current implementations, and the
+103 Python documentation blocks compile. Historical work-log counts remain
+attached to their original snapshots.
+
+The upstream Sphinx inventory incorrectly labels the `Arch` class as a module.
+Its importable module is `sympy.physics.continuum_mechanics.arch`, and Symox
+exports `Arch` there. The correction is recorded in the inventory metadata;
+there are now **310 measured module paths**, 301 with measurable exports and
+9 without, with zero native or reference import errors. No algorithmic gap was
+resolved by hiding an import failure.
+
+Installed native fingerprint:
+`61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a`.
+The catalog, function ledger, scoped review fingerprints and generated report
+were refreshed. The 54 scoped reviews retain their scope limitations; all
+6,077 universal function-parity flags remain false. Fifteen complex-function
+and Arch documentation objects were replayed in ordinary and keyword modes:
+11 match, four retain explicit observation differences (Abs runtime class,
+polar expansion, principal-branch simplification and sign numerical evaluation).
+Other historical example evidence remains explicitly stale. This checkpoint
+is not global algorithmic parity certification.

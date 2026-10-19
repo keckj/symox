@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -11,55 +12,55 @@ import symox as sm
 
 
 def test_source_export_needs_no_optional_runtime():
-    subprocess.run([sys.executable, "-c", "import sys; import symox as s; x=s.Symbol('x'); assert 'sycl::sin' in s.syclcode(s.sin(x)); assert s.adaptivecppcode(x)==s.syclcode(x); assert not {'slangpy', 'torch', 'jax', 'sympy'}.intersection(sys.modules)"],
+    subprocess.run([sys.executable, "-c", "import sys; import symox as s; x=s.Symbol('x'); assert 'sycl::sin' in s.extra.syclcode(s.sin(x)); assert s.extra.adaptivecppcode(x)==s.extra.syclcode(x); assert not {'slangpy', 'torch', 'jax', 'sympy'}.intersection(sys.modules)"],
                    check=True, capture_output=True, text=True)
 
 
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 def test_native_printer_math_and_literals(dtype):
     x = sm.Symbol("x")
-    source = sm.syclcode(sm.sin(x)+sm.sqrt(x)+sm.Rational(1, 3), dtype=dtype)
+    source = sm.extra.syclcode(sm.sin(x)+sm.sqrt(x)+sm.Rational(1, 3), dtype=dtype)
     assert "sycl::sin" in source and "sycl::sqrt" in source
     assert "std::" not in source and "1/3" not in source
     assert "float('" not in source and "torch" not in source
-    assert "numeric_limits" in sm.syclcode(sm.oo, dtype=dtype)
-    assert "replacement" in sm.syclcode(x, symbol_names={x: "replacement"})
-    assert "sycl::cos" in sm.syclcode(sm.Function("custom")(x), user_functions={"custom": "sycl::cos"})
+    assert "numeric_limits" in sm.extra.syclcode(sm.oo, dtype=dtype)
+    assert "replacement" in sm.extra.syclcode(x, symbol_names={x: "replacement"})
+    assert "sycl::cos" in sm.extra.syclcode(sm.Function("custom")(x), user_functions={"custom": "sycl::cos"})
     with pytest.raises((ValueError, NotImplementedError)):
-        sm.syclcode(sm.I*x)
+        sm.extra.syclcode(sm.I*x)
     with pytest.raises((ValueError, NotImplementedError)):
-        sm.syclcode(sm.Function("unknown")(x))
+        sm.extra.syclcode(sm.Function("unknown")(x))
 
 
 @pytest.mark.parametrize("name", ["class", "bad-name", "_sx_hidden", "__reserved", "_Upper", "a::b"])
 def test_invalid_export_identifiers(name):
     x = sm.Symbol("x")
     with pytest.raises((ValueError, NotImplementedError)):
-        sm.syclcode_function(name, x, x)
+        sm.extra.syclcode_function(name, x, x)
 
 
 def test_export_cse_types_identifiers_and_asynchronous_contract():
     x, y = sm.Symbol("lambda"), sm.Symbol("α")
     shared = sm.sin(x+y) + sm.exp(x*y)
-    source = sm.syclcode_function("exported", (x, y), (shared**2, shared**3, x > y))
-    assert source == sm.adaptivecppcode_function("exported", (x, y), (shared**2, shared**3, x > y))
+    source = sm.extra.syclcode_function("exported", (x, y), (shared**2, shared**3, x > y))
+    assert source == sm.extra.adaptivecppcode_function("exported", (x, y), (shared**2, shared**3, x > y))
     assert source.count("sycl::sin") == 1
     assert "bool _sx_o_2" in source
     assert "lambda" not in source and "α" not in source
-    kernel = sm.sycl_kernel("exported", (x, y), shared)
+    kernel = sm.extra.sycl_kernel("exported", (x, y), shared)
     for expected in ["sycl::event", "sycl::queue&", "depends_on", "parallel_for", "aspect::fp64", "single_task"]:
         assert expected in kernel
     assert ".wait(" not in kernel and ".wait_and_throw(" not in kernel
     assert "malloc" not in kernel
-    assert kernel == sm.adaptivecpp_kernel("exported", (x, y), shared)
-    assert "aspect::fp64" not in sm.sycl_kernel("float_kernel", x, x, dtype="float32")
+    assert kernel == sm.extra.adaptivecpp_kernel("exported", (x, y), shared)
+    assert "aspect::fp64" not in sm.extra.sycl_kernel("float_kernel", x, x, dtype="float32")
     for args, expr in [((x, x), x), ((x,), x+y)]:
         with pytest.raises(ValueError):
-            sm.syclcode_function("f", args, expr)
+            sm.extra.syclcode_function("f", args, expr)
 
 
 def test_printer_nested_subclass_hooks():
-    class Custom(sm.SYCLCodePrinter):
+    class Custom(sm.extra.SYCLCodePrinter):
         def _print_Symbol(self, expr):
             return "v_" + expr.name
 
@@ -73,14 +74,18 @@ def test_printer_nested_subclass_hooks():
 def test_cse_boolean_and_piecewise_domains():
     x = sm.Symbol("x")
     condition = x > 0
-    source = sm.syclcode_function("condition", x, (condition, sm.And(condition, x < 1), condition))
+    source = sm.extra.syclcode_function("condition", x, (condition, sm.And(condition, x < 1), condition))
     assert "bool _sx_t_" in source
     expr = sm.Piecewise((sm.log(x)+1/x, x > 0), (x*x, True))
-    assert sm.syclcode_function("guarded", x, expr, cse=True) == sm.syclcode_function("guarded", x, expr, cse=False)
+    assert sm.extra.syclcode_function("guarded", x, expr, cse=True) == sm.extra.syclcode_function("guarded", x, expr, cse=False)
 
 
 def _compiler():
     compiler = os.environ.get("SYMOX_ACPP") or shutil.which("acpp")
+    if not compiler:
+        candidate = Path(sys.executable).parent / "acpp"
+        if candidate.is_file():
+            compiler = str(candidate)
     if not compiler:
         if os.environ.get("SYMOX_ACPP_REQUIRE_RUNTIME") == "1":
             pytest.fail("Required AdaptiveCpp compiler is unavailable")
@@ -93,11 +98,11 @@ def test_compile_and_execute_scalar_and_asynchronous_kernels(tmp_path):
     x, y = sm.symbols("x y")
     expressions = [sm.Piecewise((sm.log(x)+1/x, x > 0), (x*x, True)),
                    sm.sin(x)+sm.sqrt(1+y*y), x > 0, x**3, sm.Rational(1, 3)]
-    source = sm.sycl_kernel("evaluate", (x, y), expressions)
-    source += sm.syclcode_function("single_float", (x, y), sm.sin(x)+sm.sqrt(1+y*y), dtype="float32")
+    source = sm.extra.sycl_kernel("evaluate", (x, y), expressions)
+    source += sm.extra.syclcode_function("single_float", (x, y), sm.sin(x)+sm.sqrt(1+y*y), dtype="float32")
     a, b = sm.Symbol("same", positive=True), sm.Symbol("same", negative=True)
-    source += sm.syclcode_function("assumptions", (a, b), a+2*b)
-    source += sm.syclcode_function("empty", (), sm.Matrix(0, 0, []))
+    source += sm.extra.syclcode_function("assumptions", (a, b), a+2*b)
+    source += sm.extra.syclcode_function("empty", (), sm.Matrix(0, 0, []))
     source += r'''
 #include <iostream>
 #include <iomanip>

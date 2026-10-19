@@ -236,6 +236,9 @@ maturin develop --release
 ```
 
 See [testing and benchmarks](docs/testing.md) for the Rust and Python test commands.
+Optional tensor and GPU APIs live in `symox.extra`; install their Python execution
+libraries with `pip install 'symox[extra]'`. The test guide also covers the
+pinned AdaptiveCpp compiler and separate core/extension suites.
 
 ## Documentation
 

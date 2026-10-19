@@ -604,6 +604,14 @@ impl KeyCache {
         gens: &mut FxHashMap<Expr, usize>,
         gen_list: &mut Vec<Expr>,
     ) {
+        // Real infinities are numeric coefficients, not generators of the
+        // monomial ordering (x + oo prints with the constant last).
+        if matches!(f.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity)) {
+            let value = if f.is_constant(Constant::Infinity) { f64::INFINITY } else { f64::NEG_INFINITY };
+            z.re *= value;
+            if z.im != 0.0 { z.im *= value; }
+            return;
+        }
         if super::is_numeric(&f) {
             if let Some(v) = crate::evalf::eval_c64(&f) {
                 if v.re.is_finite() && v.im.is_finite() {

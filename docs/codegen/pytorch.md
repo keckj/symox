@@ -17,7 +17,7 @@ xv = torch.linspace(0, 1, 1024, requires_grad=True)
 result = f(xv, 0.3)                      # shape: (1024, 2, 1)
 result.sum().backward()
 
-compiled = sm.torch_lambdify(
+compiled = sm.extra.torch_lambdify(
     (x, y), expression, compile=True,
     compile_options={"fullgraph": True},  # default backend: Inductor
 )
@@ -38,7 +38,7 @@ Constant complex scalar and matrix outputs also support CUDA Inductor with
 Python module that needs only PyTorch at runtime. Generated callables expose
 the full module through `__source__`; `inspect.getsource` retrieves the function
 definition. `torchcode` and
-`symox.printing.pytorch.PyTorchPrinter` provide lower-level expression printing;
+`symox.extra.printing.pytorch.PyTorchPrinter` provide lower-level expression printing;
 these expression snippets use the `_sx_tensor` helper included in exported
 modules. Custom functions can be supplied through `user_functions`; source
 export requires qualified import paths, whereas `torch_lambdify` also accepts

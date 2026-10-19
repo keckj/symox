@@ -49,7 +49,7 @@ def benchmark(device, batch, repeats, warmup, backward, backend, dtype, piecewis
     for mode, cse, compile_ in [("eager", False, False), ("eager_cse", True, False),
                                 ("compiled_cse", True, True)]:
         start = time.perf_counter()
-        function = sm.torch_lambdify(args, expression, cse=cse, compile=compile_,
+        function = sm.extra.torch_lambdify(args, expression, cse=cse, compile=compile_,
                                      compile_options={"backend": backend, "fullgraph": True}
                                      if compile_ else None)
         codegen_ms = (time.perf_counter()-start)*1000

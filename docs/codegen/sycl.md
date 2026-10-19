@@ -2,13 +2,13 @@
 
 [README](../../README.md) · [Code generation](overview.md)
 
-`syclcode` / `SYCLCodePrinter` print standard SYCL 2020 math in C++17.
+`symox.extra.syclcode` / `symox.extra.SYCLCodePrinter` print standard SYCL 2020 math in C++17.
 `syclcode_function` exports an inline scalar function, using the same flattened
 result-struct convention as Slang. `sycl_kernel` exports a scalar `name_eval`
 function and an asynchronous `name` launcher:
 
 ```python
-source = sm.sycl_kernel("evaluate", (x, y), expr, dtype="float64")
+source = sm.extra.sycl_kernel("evaluate", (x, y), expr, dtype="float64")
 with open("evaluate.hpp", "w") as generated:
     generated.write(source)
 ```
@@ -36,7 +36,7 @@ validate AdaptiveCpp GPU execution or its generic JIT configuration. A full SDK
 and appropriate drivers are needed for those routes. To run SDK integration tests:
 
 ```bash
-SYMOX_ACPP=/path/to/acpp SYMOX_ACPP_TARGETS=omp python -m pytest tests/test_sycl_codegen.py
+SYMOX_ACPP=/path/to/acpp SYMOX_ACPP_TARGETS=omp python -m pytest tests/extra/test_sycl_codegen.py
 ```
 
 See AdaptiveCpp's [compilation model](https://adaptivecpp.github.io/AdaptiveCpp/compilation/)

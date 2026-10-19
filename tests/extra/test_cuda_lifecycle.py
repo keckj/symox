@@ -5,7 +5,7 @@ import threading
 import numpy as np
 import pytest
 import symox as s
-from symox.codegen import cuda
+from symox.extra.codegen import cuda
 
 
 class FakeDriver:

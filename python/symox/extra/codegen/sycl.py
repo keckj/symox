@@ -23,7 +23,7 @@ _DTYPES = {"float32": "float", "float": "float", "float64": "double", "double": 
 
 def _generate(name, args, exprs, dtype, cse, user_functions):
     from symox import Symbol, _core
-    from symox.printing.sycl import _is_sycl_identifier
+    from symox.extra.printing.sycl import _is_sycl_identifier
 
     if not _is_sycl_identifier(name) or name.startswith("_sx_"):
         raise ValueError("Function name must be a C++ identifier outside the reserved '_sx_' namespace")
@@ -115,7 +115,7 @@ def sycl_kernel(name, args, exprs, *, dtype="float64", cse=True, user_functions=
     The returned event covers dependency execution even when the count is zero.
     Float64 execution checks the queue device's ``aspect::fp64`` before launch.
     """
-    from symox.printing.sycl import _is_sycl_identifier
+    from symox.extra.printing.sycl import _is_sycl_identifier
 
     if not _is_sycl_identifier(name) or name.startswith("_sx_"):
         raise ValueError("Kernel name must be a C++ identifier outside the reserved '_sx_' namespace")

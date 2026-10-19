@@ -105,8 +105,8 @@ import symox as sm
 A, B = sm.MatrixSymbol("A", 2, 3), sm.MatrixSymbol("B", 3, 2)
 (A*B).shape                      # (2, 2)
 (A*B)[0, 0]                      # finite scalar contraction
-f = sm.torch_lambdify((A, B), A*B, compile=True)
-g = sm.jax_lambdify((A, B), A*B, jit=True)
+f = sm.extra.torch_lambdify((A, B), A*B, compile=True)
+g = sm.extra.jax_lambdify((A, B), A*B, jit=True)
 ```
 
 PyTorch and JAX functions accept nonempty `MatrixSymbol` inputs with concrete

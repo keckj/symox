@@ -552,7 +552,7 @@ def compare_codegen(verbose=True):
                 print(f"[C cse={use_cse!s:5s} {'ok' if ok else 'BAD'}] {case}")
     if CXX is not None:
         for dtype, fast, tol in (("double", False, 1e-10), ("float", False, 2e-4), ("float", True, 2e-3)):
-            src = CUDA_SHIM + symox.cuda_kernel("f", [xs, ys], exprs, dtype=dtype, fast_math=fast)
+            src = CUDA_SHIM + symox.extra.cuda_kernel("f", [xs, ys], exprs, dtype=dtype, fast_math=fast)
             npd = np.float64 if dtype == "double" else np.float32
             outs = _compile_and_run(src, "cuda", len(exprs), x, y, dtype=npd, compiler=CXX)
             for case, o, r in zip(CODEGEN_CASES, outs, refs):

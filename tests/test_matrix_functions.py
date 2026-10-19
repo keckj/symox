@@ -167,7 +167,7 @@ def test_finite_codegen_uses_existing_scalar_printers_without_matrix_runtime():
     for point in [-.3, 0., .8]:
         actual = eval(source, {'numpy': np, 't': point})
         np.testing.assert_allclose(actual, np.exp(point)*np.asarray([[1., point], [0., 1.]]), rtol=1e-13)
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         source = generate('matrix_exponential', t, result)
         ast.parse(source)
         assert 'symox' not in source and 'sympy' not in source

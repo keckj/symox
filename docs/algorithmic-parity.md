@@ -7,7 +7,7 @@ least equivalent to that reference is a project requirement. Import availability
 and benchmarks on selected examples do not establish this equivalence.
 
 The [versioned API audit](sympy-parity-audit.md) records the traversal of all
-311 module paths, including constructor and public method signatures. Run its
+310 module paths, including constructor and public method signatures. Run its
 resumable driver rather than treating name coverage as behavioral evidence.
 
 ## Acceptance criteria

@@ -34,9 +34,9 @@ Implemented:
   and supported set-based equation solving
 * LaTeX and pretty printing, common subexpression elimination, native code
   printers and extensible C++17 generation
-* optional PyTorch and JAX code generation, standalone source export, automatic
+* optional PyTorch and JAX code generation in `symox.extra`, standalone source export, automatic
   differentiation and opt-in compilation with `torch.compile` / `jax.jit`
-* portable Slang source and optional SlangPy execution; standard SYCL C++ source
+* portable Slang source and optional SlangPy execution in `symox.extra`; standard SYCL C++ source
   and asynchronous kernels for AdaptiveCpp
 * isolated differential fuzzing, seeded replay, shrinking and triage
 
@@ -91,7 +91,7 @@ without floating-point tolerances. Unquoted Unicode symbol names are accepted.
 rejected, and explicit false facts survive reconstruction, hashing, pickling
 and SymPy interchange. Public argument ordering compares the complete inferred
 symbol content. Noncommutative symbols and custom facts are explicitly
-unsupported. Undefined-function heads retain their existing assumption subset.
+unsupported. Undefined-function heads also retain all 31 standard facts.
 `AlgebraicNumber.is_nonzero` follows the same real-nonzero meaning as its
 scalar expression view.
 `Q` predicates and `ask(proposition, assumptions=True, context=...)` query
@@ -107,9 +107,9 @@ absolute values, real/imaginary parts, arguments, supported powers, signs,
 `atan2` quadrants and Boolean predicates. Unsupported rewrites remain symbolic.
 Predicate applications preserve structure, substitutions, matrix arguments,
 pickles and SymPy interchange. `Predicate(name)` creates a distinct undefined
-predicate that can participate in Boolean assumptions. Python handler
-registration and linear real arithmetic inference across inequalities are not
-implemented; queries requiring those algorithms may return `None`.
+predicate that can participate in Boolean assumptions. Custom binary relations can register Python handlers. General linear real
+arithmetic inference across inequalities remains incomplete; undecidable
+queries may return `None`.
 
 Numeric expressions follow Python's hash contract for equal built-in numbers
 and `fractions.Fraction` values, so mixed dictionaries and sets work correctly.
@@ -250,11 +250,13 @@ equivalence. Known differences and remaining gaps:
 * Simplification: `trigsimp` (methods `matching` and `fu`, `inverse=True`),
   `futrig`, `exptrigsimp`, `fu` with a custom `measure`, and the `TR0` ...
   `TR22`, `TRmorrie`, `TRpower` rules of `sympy.simplify.fu` are native ports.
-  `trigsimp(method='groebner'|'combined')`, `trigsimp(old=True)`,
-  noncommutative arguments and `sech`/`csch` raise or are unsupported.
-  `simplify()` is still a lighter pipeline than SymPy's: it does not call
-  `exptrigsimp`, `hyperexpand`, `besselsimp` or the `fu` trigonometric
-  rules, and its keyword options raise `NotImplementedError`.
+  Bounded Gröbner reduction and legacy adapters are also available; advanced
+  strategy options and noncommutative inputs do not establish full parity.
+  See [internal API limitations](api-implementation.md#ode-series-and-simplification).
+  `simplify()` implements ratio selection, custom measures, rationalization,
+  inverse combination and `doit` controls. Its candidate search remains smaller
+  than SymPy's; abstract-matrix custom controls and full strategy equivalence
+  remain open obligations.
 
 * Integral transforms (`laplace_transform`, `inverse_laplace_transform`,
   `fourier_transform`, `sine_transform`, `cosine_transform`,
@@ -286,9 +288,11 @@ linear in the index collapse to a `Piecewise`. `real_root`, `Id`, `Atom`,
 `AtomicExpr` and the relational classes (`Relational`/`Rel`, `Equality`,
 `Unequality`, `GreaterThan`, `LessThan`, `StrictGreaterThan`,
 `StrictLessThan`) are available for `isinstance` checks and construction;
-the function heads themselves are callables, not classes. `frac(oo)` stays
-unevaluated because `AccumBounds` is not implemented, and `Dict`,
-`FunctionClass` and `WildFunction` are not provided.
+the function heads themselves are callables, not classes. `frac(oo)` currently
+stays unevaluated. `AccumBounds`, `Dict`,
+`FunctionClass` and `WildFunction` are available; their protocols and limits
+are described in the [public interface guide](public-interfaces.md) and
+[real analysis guide](real-analysis.md).
 
 The trigonometric, hyperbolic and inverse functions, `atan2`, `exp`, `log`
 (including `log(x, b)`), `LambertW` and `sinc` evaluate at special values
@@ -300,13 +304,11 @@ functions rewrite to `exp`, each other, `sincos`, `Pow`, `besselj` and
 Fermat-prime denominators 3, 5 and 17), inverse functions rewrite to `log`
 and to each other, and `exp`, `Pow`, `E`, `re`, `im`, `arg`, `sign`, `Abs`,
 `Heaviside`, `DiracDelta`, `Max`, `Min`, `floor`, `ceiling`, `frac`, `Mod`
-and `Piecewise` (to `KroneckerDelta`) have their SymPy rules. Not yet
-covered: `AccumBounds` (`sin(oo)`, `atan(zoo)` stay unevaluated), radicals
-for denominators divisible by 257, the special-function rewrite rules
-(`gamma`, `factorial`, ...), two-argument `Heaviside(x, H0)`, `Piecewise`
-condition canonicalisation (`Ne(2*x, 0)` is not reduced to `Ne(x, 0)`),
-evalf of inverse functions off their real domain (`asin(3).evalf()`), and
-SymPy's rule that an `Add` with a float term stays symbolic.
+and `Piecewise` (to `KroneckerDelta`) have their SymPy rules. Supported
+rewrites and accumulation-bound behavior remain family-specific.
+Special-function, Piecewise, branch and numerical coverage must be assessed
+against the [versioned behavioral audit](sympy-parity-audit.md); available
+function names do not establish complete rewrite parity.
 
 `Expr.as_real_imag(deep=True)` expands complex parts natively, including sums,
 products, principal rational powers and common exponential, logarithmic,
@@ -327,9 +329,9 @@ Expansion has conservative resource limits, including 20,000 distinct nodes,
 budget. Oscillatory
 values at infinity that require `AccumBounds` are explicitly unsupported.
 `expand_complex` raises `NotImplementedError` for `Derivative`, `Piecewise`,
-relational, `Integral`/`Sum`/`Limit` and matrix-expression nodes, and
-`polar_lift`, `principal_branch`, `periodic_argument` and
-`unbranched_argument` are not provided.
+relational, `Integral`/`Sum`/`Limit` and matrix-expression nodes.
+Polar branch constructors and conversions are available separately;
+see [complex branches and polar conversions](polar-branches.md).
 `re`, `im`, `arg`, `Abs`, `sign` and `conjugate` evaluate natively with
 SymPy's rules: the `as_coefficient(I)` split of sums, `as_real_imag`
 fallbacks, exact `arg` via `atan2` for numbers, `Abs` of products, powers,
@@ -337,10 +339,12 @@ fallbacks, exact `arg` via `atan2` for numbers, `Abs` of products, powers,
 through `exp`, trigonometric, hyperbolic, `gamma`, `erf`, `atan2` and powers.
 `Abs(r)**k` with real `r` and odd `k` gives `r**(k-1)*Abs(r)`, `arg(z).diff(x)`
 follows SymPy, and `re`/`im`/`conjugate`/`Abs` of matrices work entrywise.
-Remaining gaps: `.rewrite` between these functions, `sech`/`csch`, and
-`factor_terms` inside `arg` (`arg(x*y+x*z)` stays unchanged). `re(x)` and
-`im(x)` are treated as finite, so `Abs(x+oo)` evaluates to `oo`, and facts such
-as `re(x).is_real` answer `True` where SymPy answers `None`.
+Unconstrained `re(x)`, `im(x)` and `Abs(x)` retain unknown finiteness and
+realness while preserving their extended-real ranges. `Abs(x+oo)` remains
+symbolic; substituting `x=-oo` gives `nan`. Principal half-integer powers of
+a strictly negative real argument have a provable imaginary part; for
+example, `im(sqrt(n))` retains `-I*sqrt(n)` for negative `n`. These corrections
+do not certify every complex rewrite or branch protocol.
 
 ## Boolean logic and sets
 

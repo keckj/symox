@@ -110,10 +110,7 @@ EXTRA = [
     'arg(x).diff(x)', 'conjugate(x).diff(x)',
 ]
 
-# Known differences, kept strict so a fix is noticed:
-# - symox treats re(x) as finite, so Abs(x+oo) evaluates to oo;
-# - im(sqrt(n)) is the equal value sqrt(-n) because of Mul canonicalization;
-KNOWN = ['Abs(x+oo)', 'im(sqrt(n))']
+CASES += ['Abs(x+oo)', 'im(sqrt(n))']
 
 
 @pytest.mark.parametrize('source', CASES + EXTRA)
@@ -123,12 +120,6 @@ def test_evaluator_matches_sympy(source):
     assert str(actual) == str(expected)
     if isinstance(expected, sp.Expr) and not isinstance(expected, sp.MatrixBase):
         assert sx.to_sympy(actual) == expected
-
-
-@pytest.mark.parametrize('source', KNOWN)
-@pytest.mark.xfail(strict=True, reason='documented difference')
-def test_known_differences(source):
-    assert str(evaluate(sx, source)) == str(evaluate(sp, source))
 
 
 @pytest.mark.parametrize('k', [-5, -3, -2, 2, 3, 4, 5])
@@ -154,3 +145,31 @@ def test_arg_and_abs_numeric_values(point):
     assert abs(complex(sx.Abs(value).evalf()) - abs(point)) < 1e-12
     assert abs(complex(sx.re(value).evalf()) - point.real) < 1e-12
     assert abs(complex(sx.im(value).evalf()) - point.imag) < 1e-12
+
+
+@pytest.mark.parametrize('flags', [{}, {'finite': True}, {'complex': True}, {'real': True}])
+@pytest.mark.parametrize('name', ['re', 'im', 'Abs'])
+def test_projections_do_not_invent_finiteness(flags, name):
+    native = getattr(sx, name)(sx.Symbol('x', **flags))
+    reference = getattr(sp, name)(sp.Symbol('x', **flags))
+    for fact in ['is_real', 'is_finite', 'is_extended_real', 'is_extended_nonnegative']:
+        assert getattr(native, fact) == getattr(reference, fact)
+
+
+@pytest.mark.parametrize('point', ['-oo', 'oo', '0', 'I'])
+def test_infinite_shift_keeps_substitution_domain(point):
+    actual = sx.Abs(sx.Symbol('x')+sx.oo).subs(sx.Symbol('x'), evaluate(sx, point))
+    expected = sp.Abs(sp.Symbol('x')+sp.oo).subs(sp.Symbol('x'), evaluate(sp, point))
+    assert sx.to_sympy(actual) == expected
+
+
+@pytest.mark.parametrize('numerator', [-5, -3, -1, 1, 3, 5])
+def test_negative_real_half_powers_keep_principal_imaginary_part(numerator):
+    n, N = sx.Symbol('n', negative=True), sp.Symbol('n', negative=True)
+    power, POWER = n**sx.Rational(numerator, 2), N**sp.Rational(numerator, 2)
+    assert power.is_imaginary == POWER.is_imaginary
+    value, reference = sx.im(power), sp.im(POWER)
+    assert str(value) == str(reference)
+    assert sx.to_sympy(value) == reference
+    for point in [-1, -4, -9]:
+        assert sx.to_sympy(value.subs(n, point)) == reference.subs(N, point)

@@ -199,7 +199,7 @@ def test_zero_dimensional_matrix_inputs_remain_explicitly_unsupported_in_codegen
     a, b = sx.MatrixSymbol('a', 1, 0), sx.MatrixSymbol('b', 0, 1)
     value = sx.DotProduct(a, b)
     assert value.doit() == 0
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         with pytest.raises(NotImplementedError, match='nonempty'):
             generate('empty_contract', (a, b), value)
 
@@ -212,7 +212,7 @@ def test_finite_numpy_and_tensor_codegen_sources_lower_typed_parents():
     av, bv = np.asarray([[1+2j, 3, -1j]]), np.asarray([[2-1j], [1j], [4]])
     actual = eval(source, {'numpy': np, 'a': av, 'b': bv, 't': .3})
     np.testing.assert_allclose(actual, .3*np.dot(av.reshape(-1), bv.reshape(-1)))
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         source = generate('contract', (a, b, t), value)
         ast.parse(source)
         assert 'DotProduct' not in source and 'symox' not in source and 'sympy' not in source

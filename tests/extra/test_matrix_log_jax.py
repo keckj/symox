@@ -15,7 +15,7 @@ def test_matrix_log_complex_jordan_batch_derivative_reconstruction_and_gradients
     eigenvalue = -t if negative else t+sx.I
     matrix = sx.ImmutableMatrix([[eigenvalue, 2, 0], [0, eigenvalue, -sx.I], [0, 0, eigenvalue]])
     logarithm = matrix.log()
-    function = sx.jax_lambdify(t, (logarithm, logarithm.diff(t)), jit=jit)
+    function = sx.extra.jax_lambdify(t, (logarithm, logarithm.diff(t)), jit=jit)
     value = jnp.asarray([[.25, .75, 1.], [1.4, 2., 4.]], dtype=jnp.float32)
     nil = jnp.asarray([[0, 2, 0], [0, 0, -1j], [0, 0, 0]], dtype=jnp.complex64)
     identity = jnp.eye(3, dtype=jnp.complex64)

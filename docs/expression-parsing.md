@@ -75,6 +75,6 @@ SymPy constructor or constructor option is implemented by the native engine.
 parse the supported numerical subset of C or Fortran into code generation nodes.
 The object can convert this AST to Python, C or Fortran. Declarations,
 assignments, functions and recognized loops are supported. This is a bounded
-parser for the [documented subset](api-implementation.md#intégration-polynomiale-et-analyse-de-programmes),
+parser for the [documented subset](api-implementation.md#polynomial-integration-and-program-parsing),
 with explicit errors for unsupported constructs; it does not implement a full
 compiler frontend or all source-language type rules.

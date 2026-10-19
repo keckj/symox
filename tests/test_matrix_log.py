@@ -254,7 +254,7 @@ def test_finite_scalar_printers_produce_independent_numpy_source():
         nil = np.asarray([[0, 2, 0], [0, 0, 1j], [0, 0, 0]])
         expected = np.log(point)*np.eye(3)+nil/point-(nil@nil)/(2*point**2)
         np.testing.assert_allclose(actual, expected, rtol=1e-13, atol=1e-13)
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         source = generate('exact_log', t, result)
         ast.parse(source)
         assert 'symox' not in source and 'sympy' not in source

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "reference_version": "1.14.0",
-  "native_source_sha256": "a7240761319c254b4ffaaa16e5d0aee100985b66f9cc7cd60ec5ae8c0bf001a8",
+  "native_source_sha256": "61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a",
   "evidence": "tests/test_trigonometric_solution_lattices.py",
   "limitations": "Elementary-family result invariants only. Not a proof of all solve/solveset inputs, parameter strata, all domains or comparative bit complexity.",
   "records": [

@@ -2,7 +2,7 @@
 
 [README](../../README.md) · [Code generation](overview.md)
 
-`cuda_lambdify` compiles native CUDA source and executes it through the CUDA
+`symox.extra.cuda_lambdify` compiles native CUDA source and executes it through the CUDA
 Driver API. It requires the NVIDIA driver and NVRTC shared libraries, with no
 PyTorch, JAX, CuPy or CUDA Python package dependency. Library loading is lazy.
 
@@ -11,7 +11,7 @@ import numpy as np
 import symox as sm
 
 x, y = sm.symbols("x y")
-f = sm.cuda_lambdify((x, y), sm.sin(x) + y, dtype="float64")
+f = sm.extra.cuda_lambdify((x, y), sm.sin(x) + y, dtype="float64")
 result = f(np.arange(3.0)[:, None], np.arange(2.0))  # shape (3, 2)
 f.close()
 ```
@@ -35,5 +35,5 @@ disable disk caching. Compilation errors include the NVRTC log.
 
 `SYMOX_CUDA_LIBRARY` and `SYMOX_NVRTC_LIBRARY` can select library paths.
 Run GPU integration tests with
-`SYMOX_CUDA_REQUIRE_RUNTIME=1 python -m pytest tests/test_cuda_runtime.py`.
+`SYMOX_CUDA_REQUIRE_RUNTIME=1 python -m pytest tests/extra/test_cuda_runtime.py`.
 See the [NVRTC documentation](https://docs.nvidia.com/cuda/nvrtc/).

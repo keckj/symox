@@ -5,6 +5,7 @@ is imported, and failed compiler commands report their captured diagnostics.
 """
 import importlib.util
 import itertools
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -17,8 +18,8 @@ from .lambdify import implemented_function
 class CodeWrapError(RuntimeError):pass
 _counter=itertools.count()
 
-def _run(command,cwd,verbose=False):
-    result=subprocess.run(command,cwd=cwd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+def _run(command,cwd,verbose=False,env=None):
+    result=subprocess.run(command,cwd=cwd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,env=env)
     if verbose:print(result.stdout)
     if result.returncode:raise CodeWrapError(' '.join(map(str,command))+'\n'+result.stdout)
 
@@ -52,7 +53,16 @@ class DummyWrapper(CodeWrapper):
 
 class F2PyCodeWrapper(CodeWrapper):
     def _compile(self,routine,directory):
-        _run([sys.executable,'-m','numpy.f2py','-c','-m',self.module_name,self.filename+'.f90',*self.flags],directory,self.verbose)
+        import numpy as np
+        flags=list(self.flags)
+        # Modern f2py supports Meson, avoiding numpy.distutils' incompatibility
+        # with current setuptools. Preserve explicit flags/backend selections
+        # and the legacy path for older NumPy or environments without Meson.
+        if not flags and np.lib.NumpyVersion(np.__version__) >= '1.26.0' and importlib.util.find_spec('mesonbuild') is not None:
+            flags=['--backend','meson']
+        environment=os.environ.copy()
+        environment['PATH']=sysconfig.get_path('scripts')+os.pathsep+environment.get('PATH','')
+        _run([sys.executable,'-m','numpy.f2py','-c','-m',self.module_name,self.filename+'.f90',*flags],directory,self.verbose,env=environment)
         module=_load(self.module_name,directory)
         return getattr(module,routine.name.lower())
 

@@ -1,105 +1,107 @@
-# API internes ajoutées : comportements et limites
+# Internal APIs: behavior and limitations
 
-[Inventaire complet](sympy-api.md) · [État par section](api-connections.md) · [README](../README.md)
+[Full inventory](sympy-api.md) · [Status by section](api-connections.md) · [README](../README.md)
 
-Ces implémentations utilisent les expressions natives de Symox. Elles n’importent pas SymPy pour effectuer leurs calculs. La présence d’un nom dans l’inventaire ne garantit pas toute la compatibilité de son protocole avec SymPy.
+These implementations use Symox's native expressions. They do not import SymPy to perform calculations. A name in the inventory does not establish full compatibility with its SymPy protocol. The [algorithmic parity contract](algorithmic-parity.md) and [versioned audit](sympy-parity-audit.md) track behavioral evidence separately.
 
-## Programmation linéaire et logique
+## Linear programming and logic
 
-`solvers.simplex` implémente un simplexe exact à deux phases avec pivots de Bland. `linprog` accepte les inégalités, égalités et bornes ; `lpmin` et `lpmax` convertissent les relations symboliques et traitent les variables libres. Les problèmes infaisables ou non bornés lèvent les exceptions correspondantes. Les coefficients doivent permettre les comparaisons exactes nécessaires aux pivots ; ce n’est pas un solveur de contraintes à paramètres symboliques indécidables.
+`solvers.simplex` implements an exact two-phase simplex method with Bland pivoting. `linprog` accepts inequalities, equalities and bounds; `lpmin` and `lpmax` convert symbolic relations and handle free variables. Infeasible and unbounded problems raise the corresponding exceptions. Coefficients must support the exact comparisons required for pivoting; this is not a constraint solver for undecidable symbolic parameters.
 
-`PropKB` conserve les clauses CNF et utilise le solveur SAT local pour les requêtes. `pl_true` gère aussi les affectations partielles. Ces opérations concernent la logique propositionnelle.
+`PropKB` stores CNF clauses and queries the local SAT solver. `pl_true` also handles partial assignments. These operations concern propositional logic.
 
-## Polynômes et matrices de domaines
+## Polynomials and domain matrices
 
-Les cinq familles de polynômes d’Appell sont construites exactement, avec retour facultatif d’un `Poly`. DDM, SDM et les fonctions `ddm_*`/`sdm_*` effectuent des opérations sur leurs véritables représentations denses ou creuses et réutilisent `DomainMatrix` pour les algorithmes exacts.
+All five Appell polynomial families are constructed exactly, with an optional `Poly` result. DDM, SDM and the `ddm_*`/`sdm_*` functions operate on actual dense or sparse representations and reuse `DomainMatrix` for exact algorithms.
 
-**DFM utilise le moteur Symox, sans FLINT.** L’existence de ce conteneur ne signifie pas la disponibilité des optimisations ou de tous les protocoles du backend FLINT de SymPy. Les algorithmes de corps et d’anneaux restent distincts ; les méthodes de stockage non inventoriées ne sont pas toutes adaptées.
+**DFM uses the Symox engine without FLINT.** This container does not provide all optimizations or protocols of SymPy's FLINT backend. Field and ring algorithms remain distinct; not every storage method outside the inventory has been adapted.
 
-`polyconfig` fournit une configuration isolée par contexte, des valeurs par défaut et des surcharges temporaires. Les sélecteurs d’algorithmes ne contrôlent pas tous les chemins de calcul du moteur Rust.
+`polyconfig` provides context-local configuration, defaults and temporary overrides. Algorithm selectors do not control every computation path in the Rust engine.
 
-Les morphismes de modules utilisent des matrices exactes pour leurs images, noyaux et compositions ; le calcul de polynôme minimal repose sur les puissances de Krylov. Les recherches finies modulo un entier sont bornées. Ces interfaces ne remplacent pas tous les algorithmes d’idéaux ou de modules de rang quelconque de SymPy.
+Module morphisms use exact matrices for images, kernels and composition; minimal polynomials use Krylov powers. Finite searches modulo an integer are bounded. These interfaces do not replace all of SymPy's ideal algorithms or arbitrary-rank module algorithms.
 
-## Géométrie, matrices et ensembles
+## Geometry, matrices and sets
 
-Les lieux géométriques concernés héritent de `GeometrySet` et de `Set`. Les classes de lignes 2D/3D ont leurs intermédiaires dédiés. Les opérations géométriques utilisent les méthodes exactes existantes ; leur appartenance à `Set` n’ajoute pas une algèbre générale de tous les ensembles géométriques dans le moteur natif.
+The relevant geometric loci inherit from `GeometrySet` and `Set`. The 2D/3D line classes have dedicated intermediate classes. Geometric operations use existing exact methods; inheriting from `Set` does not add a general algebra for every geometric set to the native engine.
 
-`CompanionMatrix` construit la matrice compagnon d’un polynôme monique univarié. `MatrixSet` vérifie les dimensions et l’appartenance de chaque coefficient. `MatrixKind` et `SetKind` fournissent des métadonnées internées ; les anciens discriminants internes du graphe matriciel natif gardent leur représentation actuelle.
+`CompanionMatrix` constructs the companion matrix of a monic univariate polynomial. `MatrixSet` checks dimensions and membership of each entry. `MatrixKind` and `SetKind` provide interned metadata; the native matrix graph retains its existing internal discriminants.
 
-Les helpers de matrices par blocs réutilisent les simplifications natives et des compléments de Schur. L’arithmétique des ensembles distingue les opérations élément par élément de l’union et de l’intersection. Elle énumère les ensembles finis, applique les règles d’intervalles prises en charge et conserve autrement une image symbolique.
+Block matrix helpers reuse native simplifications and Schur complements. Set arithmetic distinguishes elementwise operations from union and intersection. It enumerates finite sets, applies supported interval rules and otherwise preserves a symbolic image.
 
-## Génération de code et compilation
+## Code generation and compilation
 
-L’AST comprend types, variables, déclarations, affectations, boucles, appels, fonctions et retours, ainsi que des nœuds propres à C et Fortran. Les printers et `utilities.codegen` produisent du code pour C, Fortran, Python, Rust, Julia et Octave sur les constructions prises en charge. Les tests compilent et exécutent des routines C, Fortran et Rust, et exécutent le Python produit.
+The AST includes types, variables, declarations, assignments, loops, calls, functions and returns, plus C- and Fortran-specific nodes. Printers and `utilities.codegen` emit C, Fortran, Python, Rust, Julia and Octave for supported constructs. Tests compile and execute C, Fortran and Rust routines, and execute generated Python.
 
-Les optimisations numériques incluent `expm1`, `log1p`, les puissances et des transformations de sommes d’exponentielles. Les intrinsics symboliques conservent leur intention pour le printer ; leurs dérivées et réécritures ne reproduisent pas tous les protocoles internes de SymPy. Les approximations polynomiales restent soumises aux bornes et vérifications prévues par leurs méthodes.
+Numerical optimizations include `expm1`, `log1p`, powers and transformations of exponential sums. Symbolic intrinsics retain their intent for the printer; their derivatives and rewrites do not reproduce every internal SymPy protocol. Polynomial approximations remain subject to their methods' bounds and checks.
 
-`autowrap(..., backend='f2py')` compile une extension avec NumPy f2py et un compilateur Fortran. Le backend Cython nécessite l’installation optionnelle de Cython. `ufuncify` compile une extension C fournissant une véritable `numpy.ufunc`, avec diffusion NumPy et plusieurs sorties, en double précision. Les signatures scalaires prises en charge ne constituent pas une adaptation générale des tableaux indexés et des types complexes. Les erreurs de compilation incluent les diagnostics du compilateur.
+`autowrap(..., backend='f2py')` compiles an extension with NumPy f2py and a Fortran compiler. Default builds use Meson when installed with a compatible NumPy; explicit compiler/backend flags remain delegated to f2py. The Cython backend requires an optional Cython installation. `ufuncify` compiles a C extension providing a real `numpy.ufunc`, with NumPy broadcasting and multiple outputs in double precision. Supported scalar signatures do not provide a general adaptation of indexed arrays and complex types. Compilation errors include compiler diagnostics.
 
-`implemented_function` peut combiner des fonctions Python avec les expressions numériques natives, y compris les appels imbriqués. `lambdastr` produit des lambdas exécutables avec arguments imbriqués. Les fonctions personnalisées doivent fournir une implémentation compatible avec le backend numérique choisi.
+`implemented_function` combines Python functions with native numerical expressions, including nested calls. `lambdastr` produces executable lambdas with nested arguments. Custom functions must provide an implementation compatible with the selected numerical backend.
 
-## Tableaux abstraits et dérivées tensorielles
+Symox-specific PyTorch, JAX, Slang, SYCL/AdaptiveCpp and CUDA extensions live in `symox.extra`. Their source printers do not require execution libraries. Compatible SymPy entry points remain available; see [code generation](codegen/overview.md) and [test environments](testing.md).
 
-`ArraySymbol`, les produits tensoriels, contractions, diagonales, permutations, sommes et changements de forme conservent leurs dimensions sans matérialiser les entrées. Les opérations explicites réutilisent les tableaux natifs et leur limite de 100 000 entrées. Les contractions de taille symbolique restent des sommes exactes.
+## Abstract arrays and tensor derivatives
 
-Les entrées abstraites utilisent des applications symboliques `ArrayElement` pour conserver la dépendance envers les indices dans les calculs natifs. Leur représentation interne diffère des objets `Indexed` de SymPy. Les conversions couvrent les sommes et produits matriciels reconnus, les transpositions, produits de Kronecker et accès indexés directs ; elles ne reconnaissent pas toute expression d’Einstein arbitraire.
+`ArraySymbol`, tensor products, contractions, diagonals, permutations, sums and reshapes retain dimensions without materializing entries. Explicit operations reuse native arrays and their 100,000-entry limit. Contractions of symbolic size remain exact sums.
 
-`PartialDerivative` calcule les indices libres et contractés et évalue les dérivées à partir des composantes fournies. Les composantes de dérivation doivent être des coordonnées différentiables ; l’algèbre symbolique de produits contenant ces nouveaux objets n’est pas entièrement adaptée.
+Abstract entries use symbolic `ArrayElement` applications to retain index dependencies in native calculations. Their internal representation differs from SymPy's `Indexed` objects. Conversions cover recognized matrix sums and products, transposes, Kronecker products and direct indexed accesses; they do not recognize every arbitrary Einstein expression.
 
-## Espaces de probabilité
+`PartialDerivative` computes free and contracted indices and evaluates derivatives from supplied components. Differentiation components must be differentiable coordinates; symbolic product algebra involving these new objects is not fully adapted.
 
-Les domaines sont séparés de leurs mesures. Les domaines simples, produits et conditionnels finis ou continus fournissent des prédicats et des intégrations ou énumérations exactes. `pspace` retourne les espaces spécialisés pour les variables scalaires prises en charge.
+## Probability spaces
 
-Les espaces finis généraux conservent leurs poids joints pour les probabilités, espérances et tirages. Les espaces continus généraux utilisent leur densité jointe et peuvent garder des intégrales non évaluées. L’échantillonnage conditionnel par inversion peut être coûteux ; il demande des supports en intervalles et des paramètres numériques. Les restrictions générales décrites dans le [guide Statistics](statistics.md) restent applicables.
+Domains are separate from their measures. Simple, product and conditional finite or continuous domains provide predicates and exact integration or enumeration. `pspace` returns specialized spaces for supported scalar random variables.
 
-## Noyau, hypothèses et évaluation numérique
+General finite spaces retain joint weights for probabilities, expectations and sampling. General continuous spaces use their joint density and can retain unevaluated integrals. Conditional sampling by inversion can be expensive; it requires interval supports and numerical parameters. The general restrictions in the [statistics guide](statistics.md) still apply.
 
-Les classes de nombres, types de fonctions, métadonnées de `Kind`, singletons et conteneurs identifient ou construisent les objets natifs correspondants. `StdFactKB` déduit les hypothèses via le moteur natif ; les relations binaires personnalisées peuvent enregistrer des handlers pour `ask`. Les helpers de facteurs, de parcours, de symboles et de cache opèrent sur les expressions locales.
+## Core, assumptions and numerical evaluation
 
-Les helpers de `core.evalf` exposent le protocole de tuples mpmath à précision exprimée en bits. L’évaluation, les sommes et les quadratures utilisent les moteurs numériques disponibles. Les champs de précision sont des estimations de travail, sans certification générale d’erreur par intervalles. L’égalité exacte des `Float` tient compte de leur valeur binaire ; `all_close` fournit une comparaison à tolérance distincte.
+Number classes, function types, `Kind` metadata, singletons and containers identify or construct the corresponding native objects. `StdFactKB` derives assumptions through the native engine; custom binary relations can register `ask` handlers. Factor, traversal, symbol and cache helpers operate on local expressions.
 
-## Combinaisons, groupes et tenseurs
+The `core.evalf` helpers expose mpmath's tuple protocol with precision in bits. Evaluation, sums and quadrature use the available numerical engines. Precision fields are working estimates, not general interval error certificates. Exact `Float` equality accounts for binary values; `all_close` provides a separate tolerance comparison.
 
-Les groupes transitifs standards de degrés 5 et 6, les générateurs du Rubik’s Cube, les codes de Gray et les rangs RGS disposent de représentations effectives. Les tables de permutations et de glyphes sont des données statiques ; SymPy n’est pas chargé pour les utiliser. `find_transitive_subgroups_of_S6` vérifie les groupes du catalogue, sans reproduire une recherche aléatoire exhaustive.
+Real and imaginary projections retain unknown finiteness for unconstrained arguments. `Abs(x+oo)` therefore remains symbolic until assumptions or substitution justify evaluation. Principal half-integer powers of strictly negative real arguments have a provable imaginary part.
 
-`tensor_can` explore les orbites signées des symétries d’emplacements et des indices muets. Il détecte les annulations dues aux signes opposés et choisit un représentant canonique. L’exploration est limitée à 100 000 états ; ce n’est pas une implantation de l’algorithme optimisé Butler–Portugal. `canonicalize_naive` utilise le même moteur d’orbites. Le certificat de graphe utilise une recherche exhaustive bornée et son format diffère du certificat tensoriel de SymPy.
+## Combinatorics, groups and tensors
 
-Les critères arithmétiques pour compter les groupes cycliques, abéliens ou nilpotents sont exacts. Le nombre général de groupes reste limité aux ordres couverts par les formules et tables disponibles ; les autres cas sont refusés.
+Standard transitive groups of degrees 5 and 6, Rubik's Cube generators, Gray codes and RGS ranks have concrete representations. Permutation and glyph tables are static data; using them does not load SymPy. `find_transitive_subgroups_of_S6` checks catalog groups without reproducing an exhaustive randomized search.
 
-## Séries d’ODE et simplification
+`tensor_can` explores signed orbits of slot symmetries and dummy indices. It detects cancellation from opposite signs and selects a canonical representative. Exploration is limited to 100,000 states; this is not the optimized Butler–Portugal algorithm. `canonicalize_naive` uses the same orbit engine. The graph certificate uses bounded exhaustive search and differs in format from SymPy's tensor certificate.
 
-`dsolve` accepte les séries de Taylor de premier ordre, les séries ordinaires linéaires du second ordre et les séries de Frobenius homogènes dont les deux branches se calculent par récurrence. Les calculs sont limités à 64 coefficients. Les racines indicielles répétées et les résonances nécessitant un logarithme lèvent `NotImplementedError`. Les conditions initiales prises en charge sont substituées dans les solutions et résolues pour les constantes. `classify_ode(..., n=...)` demande explicitement la classification des séries ; la classification par défaut conserve les familles de solutions exactes.
+Arithmetic criteria for counting cyclic, abelian or nilpotent groups are exact. General group counts remain limited to orders covered by available formulas and tables; other cases are rejected.
 
-Les systèmes non linéaires triangulaires de deux ou trois fonctions sont réduits à des ODE scalaires, avec substitution des solutions et constantes distinctes. Les systèmes non linéaires couplés généraux restent hors de ce solveur. Les inspecteurs internes du second ordre ne reconnaissent aucune famille non linéaire, comme leurs homologues de référence.
+## ODE series and simplification
 
-Les helpers CSE ordonnent les dépendances, suivent les arguments communs et libèrent les temporaires après leur dernière utilisation. Les combinaisons de sommes et produits traitent les limites identiques ou adjacentes. `nthroot` accepte une simplification algébrique candidate après vérification exacte de sa puissance. `inversecombine` est une transformation formelle qui ignore volontairement les restrictions de branches.
+`dsolve` accepts first-order Taylor series, ordinary second-order linear series and homogeneous Frobenius series whose two branches can be computed by recurrence. Calculations are limited to 64 coefficients. Repeated indicial roots and resonances requiring logarithms raise `NotImplementedError`. Supported initial conditions are substituted into solutions and solved for constants. `classify_ode(..., n=...)` explicitly requests series classification; default classification retains exact solution families.
 
-La réduction trigonométrique par Gröbner utilise les relations polynomiales de sinus/cosinus ou sinh/cosh et compare deux ordres de générateurs, avec au plus huit arguments distincts. Les angles commensurables sont ramenés à une variable commune avant réduction lorsque leurs multiplicateurs entiers ne dépassent pas 16. Les options avancées `hints` et `polynomial` ne pilotent pas encore une stratégie équivalente à celle de SymPy.
+Triangular nonlinear systems of two or three functions reduce to scalar ODEs, with solution substitution and distinct constants. General coupled nonlinear systems remain outside this solver. Internal second-order inspectors recognize no nonlinear families, like their reference counterparts.
 
-Les opérateurs contigus hypergéométriques et Meijer sont de vrais polynômes en l’opérateur d’Euler. Les décalages inverses proviennent de la division par l’opérateur affine dans l’équation différentielle ; les annulations singulières sont refusées. Les plans hypergéométriques recherchent un chemin monotone évitant ces singularités, dans une borne de 256 pas et 10 000 états. Les paramètres de chaque groupe sont limités à huit pour leur appariement.
+CSE helpers order dependencies, track common arguments and release temporaries after their last use. Sum and product combination handles identical or adjacent limits. `nthroot` accepts a candidate algebraic simplification after exactly verifying its power. `inversecombine` is a formal transformation that deliberately ignores branch restrictions.
 
-`Formula` construit une base différentielle et sa matrice compagnon. Les classes de formules sont des adaptateurs Python, sans toute la hiérarchie `Expr` de SymPy. Le catalogue élémentaire et la reconnaissance Lerch sont restreints ; la recherche utilise aussi les développements déjà connus du moteur natif. Les séries terminées et certains décalages de sommes sont calculés exactement. La présence de ces classes ne signifie pas que tout le catalogue hypergéométrique de SymPy a été porté.
+The Gröbner trigonometric reduction uses polynomial relations for sin/cos or sinh/cosh and compares two generator orders, with at most eight distinct arguments. Commensurable angles reduce to a common variable when their integer multipliers do not exceed 16. Advanced `hints` and `polynomial` options do not yet select a strategy equivalent to SymPy's.
 
-## Intégration polynomiale et analyse de programmes
+Hypergeometric and Meijer contiguous operators are actual polynomials in the Euler operator. Inverse shifts come from division by the affine operator in the differential equation; singular cancellations are rejected. Hypergeometric plans search for a monotone path avoiding these singularities, bounded by 256 steps and 10,000 states. Each parameter group has at most eight parameters for matching.
 
-`polytope_integrate` calcule les moments par intégrales de frontière et triangulation de facettes, avec arithmétique exacte en dimensions deux et trois. Il accepte les polygones orientés, les polyèdres à facettes et les demi-espaces bornés du plan. Le degré maximal est 64. L’orientation détermine le signe ; les entrées doivent décrire un domaine et des facettes cohérents.
+`Formula` constructs a differential basis and its companion matrix. Formula classes are Python adapters without SymPy's full `Expr` hierarchy. The elementary catalog and Lerch recognition are limited; search also uses expansions already known to the native engine. Terminating series and some sum shifts are computed exactly. These classes do not imply that SymPy's full hypergeometric catalog has been ported.
 
-Les adaptateurs `meijerint` appellent l’intégration native. Un résultat non résolu retourne `None` ; les conditions connues restent explicites. Ils ne constituent pas un second moteur général d’intégration par Meijer G.
+## Polynomial integration and program parsing
 
-`SymPyExpression` analyse un sous-ensemble numérique de C et Fortran : déclarations, affectations, expressions, fonctions et boucles reconnues. L’AST peut produire du C, du Fortran ou du Python. Ce parseur n’implémente pas les grammaires complètes, le préprocesseur, l’édition de liens ni toutes les règles de types et de portée de ces langages. Les programmes hors du sous-ensemble doivent être adaptés ou traités par un compilateur spécialisé.
+`polytope_integrate` computes moments through boundary integrals and facet triangulation, using exact arithmetic in two and three dimensions. It accepts oriented polygons, faceted polyhedra and bounded planar half-space intersections. Maximum degree is 64. Orientation determines the sign; inputs must describe a consistent domain and facets.
 
-## Affichage, sessions et runners
+The `meijerint` adapters call native integration. An unresolved result returns `None`; known conditions remain explicit. They are not a second general Meijer G integration engine.
 
-Les conventions de noms, tables de précédence, dispositions pretty avec ligne de base et mappings de langages sont reliés aux printers. Les expressions symboliques gardent les limites de rendu propres à chaque backend. Le printer Rust traite les déclarations et calculs scalaires entiers, les plages de boucles et les conversions d’entiers vers flottants dans les fonctions testées ; il ne remplace pas un vérificateur de types Rust général.
+`SymPyExpression` parses a numerical subset of C and Fortran: recognized declarations, assignments, expressions, functions and loops. The AST can emit C, Fortran or Python. This parser does not implement the full grammars, preprocessor, linker, or all typing and scoping rules. Programs outside the subset must be adapted or processed by a dedicated compiler.
 
-Les sessions Python peuvent transformer les littéraux entiers et créer les symboles chargés inconnus. Les sessions IPython utilisent leurs hooks de transformation lorsque la dépendance est installée. `AesaraPrinter` construit des graphes Aesara si le paquet compatible est disponible ; il n’installe pas ce paquet et échoue explicitement sinon.
+## Printing, sessions and test runners
 
-`testing` réutilise pytest et les doctests Python. Les interfaces exécutent réellement les tests, gèrent les assertions, avertissements et sous-processus pris en charge, sans embarquer le moteur de collecte et de réécriture propre à SymPy. Les sélecteurs et événements internes non adaptés ne donnent pas accès à toutes les fonctions du runner SymPy.
+Naming conventions, precedence tables, baseline-aware pretty layouts and language mappings connect to the printers. Symbolic expressions retain each backend's rendering limitations. The Rust printer handles integer scalar declarations and calculations, loop ranges and integer-to-float conversions in tested functions; it is not a general Rust type checker.
+
+Python sessions can transform integer literals and create unknown loaded symbols automatically. IPython sessions use transformation hooks when IPython is installed. `AesaraPrinter` builds Aesara graphs when a compatible package is available; it does not install that package and otherwise fails explicitly.
+
+`testing` reuses pytest and Python doctests. These interfaces execute real tests and handle supported assertions, warnings and subprocesses without embedding SymPy's own collection and rewriting engine. Unadapted internal selectors and events do not expose every feature of the SymPy runner.
 
 ## Validation
 
-Les fichiers `tests/test_remaining_*` vérifient les résultats exacts, les dépendances et dimensions, les erreurs, les valeurs numériques indépendantes des opérateurs spéciaux et l’exécution du code généré. Les tests de code compilent des programmes C, Fortran et Rust ; certains dépendent des outils optionnels installés.
+The `tests/test_remaining_*` files check exact results, dependencies and dimensions, errors, independent numerical values of special operators and generated code execution. Code tests compile C, Fortran and Rust programs; some require optional tools.
 
-Le corpus différentiel de 273 expressions demeure un indicateur distinct de la présence des API. Le tableau généré ne mesure ni toutes les signatures ni tous les comportements de SymPy.
-
-La suite complète de cette passe donne **26 874 tests réussis, aucun échec**, sur 26 927 cas collectés et répartis en quatre lots disjoints. Les cas conditionnels sautés et les échecs attendus restent signalés par pytest. Un processus bloquant tout import de SymPy charge également les 310 chemins natifs importables et exécute des calculs des nouvelles interfaces.
+The curated 273-expression differential corpus remains separate from API name presence. The generated inventory measures neither every signature nor every SymPy behavior. Current test results and immutable audit checkpoints are recorded in the [work log](../audits/sympy-1.14.0/WORKLOG.md); previous counts describe their own snapshots and are not current parity certificates.

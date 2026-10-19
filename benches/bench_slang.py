@@ -60,10 +60,10 @@ def benchmark(backend, batch, repeats, warmup, dtype, torch_baseline=False, piec
     reference = None
     for cse in (False, True):
         start = time.perf_counter()
-        source = sm.slangcode_function("optical", arguments, expression, dtype=dtype, cse=cse)
+        source = sm.extra.slangcode_function("optical", arguments, expression, dtype=dtype, cse=cse)
         source_ms = (time.perf_counter()-start)*1000
         start = time.perf_counter()
-        function = sm.slang_lambdify(arguments, expression, device=device, dtype=dtype, cse=cse)
+        function = sm.extra.slang_lambdify(arguments, expression, device=device, dtype=dtype, cse=cse)
         load_ms = (time.perf_counter()-start)*1000
         result, first_ms = _timed_call(lambda: function(*uploaded), device.wait)
         actual = result.to_numpy()
@@ -92,7 +92,7 @@ def benchmark(backend, batch, repeats, warmup, dtype, torch_baseline=False, piec
         torch_inputs = tuple(torch.from_numpy(value).cuda() for value in inputs)
         sync = torch.cuda.synchronize
         start = time.perf_counter()
-        function = sm.torch_lambdify(arguments, expression, compile=True,
+        function = sm.extra.torch_lambdify(arguments, expression, compile=True,
                                      compile_options={"fullgraph": True})
         generation_ms = (time.perf_counter()-start)*1000
         result, first_ms = _timed_call(lambda: function(*torch_inputs), sync)

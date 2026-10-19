@@ -2,11 +2,11 @@
 
 [README](../README.md)
 
-Measured on 2026-10-18 against SymPy 1.14.0.
+Measured on 2026-10-19 against SymPy 1.14.0.
 
 Source: [official Sphinx module inventory](https://docs.sympy.org/latest/objects.inv) (282 documented modules), extended with parent packages and the README import surfaces.
 
-All 311 resulting module paths are listed below. 0 native module paths are missing; 0 native imports failed; 1 reference imports could not be measured.
+All 310 resulting module paths are listed below. 0 native module paths are missing; 0 native imports failed; 0 reference imports could not be measured.
 
 Names come from `__all__`, or public callables defined in the module when `__all__` is absent, plus documented functions, classes and data actually bound in the installed reference module. Imported helper names are excluded unless explicitly exported or documented. Constants absent from these sources and individual class methods are outside this module export measure.
 
@@ -14,12 +14,9 @@ The native column measures the corresponding `symox.*` module path. An API avail
 
 `missing_module` means the module or a parent package is absent. `native_import_error` means an import failed for another reason. `reference_import_error` means the reference requires an unavailable dependency or the upstream documentation names an unimportable module. `no_exports` has no countable names under the stated rule. N/A is never treated as 100%.
 
-These are name-presence measurements. They do not check signatures, domains, algorithms or behavior. Modules overlap; rows must not be added together. This inventory is bounded by the documented modules and listed parents, not a claim to enumerate every internal SymPy module.
+Known documentation inventory corrections are recorded in `tools/sympy_public_modules.json`: `Arch` is a class exported by `sympy.physics.continuum_mechanics.arch`, not a module named `Arch`.
 
-The separate [versioned parity audit](sympy-parity-audit.md) traverses these
-modules, constructor and method signatures, and reference documentation
-examples. Its per-binding catalog and resumable results track open gaps;
-the presence percentages below are not capability certificates.
+These are name-presence measurements. They do not check signatures, domains, algorithms or behavior. Modules overlap; rows must not be added together. This inventory is bounded by the documented modules and listed parents, not a claim to enumerate every internal SymPy module.
 
 Reproduce offline after installing the pinned reference version:
 
@@ -349,8 +346,7 @@ The JSON includes missing names and import errors for every module.
 | [sympy.physics.biomechanics.curve](https://docs.sympy.org/latest/modules/physics/biomechanics/api/curve.html#module-sympy.physics.biomechanics.curve) | 9 / 9 | 0 | 100.00% | available |
 | [sympy.physics.biomechanics.musculotendon](https://docs.sympy.org/latest/modules/physics/biomechanics/api/musculotendon.html#module-sympy.physics.biomechanics.musculotendon) | 3 / 3 | 0 | 100.00% | available |
 | `sympy.physics.continuum_mechanics` | 4 / 4 | 0 | 100.00% | available |
-| [sympy.physics.continuum_mechanics.Arch](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/arches.html#module-sympy.physics.continuum_mechanics.Arch) | N/A | N/A | N/A | reference_import_error |
-| `sympy.physics.continuum_mechanics.arch` | 1 / 1 | 0 | 100.00% | available |
+| [sympy.physics.continuum_mechanics.arch](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/arches.html) | 1 / 1 | 0 | 100.00% | available |
 | [sympy.physics.continuum_mechanics.beam](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/beam.html#module-sympy.physics.continuum_mechanics.beam) | 2 / 2 | 0 | 100.00% | available |
 | [sympy.physics.continuum_mechanics.cable](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/cable.html#module-sympy.physics.continuum_mechanics.cable) | 1 / 1 | 0 | 100.00% | available |
 | [sympy.physics.continuum_mechanics.truss](https://docs.sympy.org/latest/modules/physics/continuum_mechanics/truss.html#module-sympy.physics.continuum_mechanics.truss) | 1 / 1 | 0 | 100.00% | available |
@@ -619,8 +615,3 @@ The JSON includes missing names and import errors for every module.
 | [sympy.vector](https://docs.sympy.org/latest/modules/vector/index.html#module-sympy.vector) | 43 / 43 | 0 | 100.00% | available |
 
 </details>
-
-
-## Import errors
-
-- `sympy.physics.continuum_mechanics.Arch`: `ModuleNotFoundError: No module named 'sympy.physics.continuum_mechanics.Arch'`

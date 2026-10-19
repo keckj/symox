@@ -2,7 +2,7 @@
 
 [README](../../README.md) · [Code generation](overview.md)
 
-`slangcode` and the extensible `SlangCodePrinter` print real scalar expressions.
+`symox.extra.slangcode` and the extensible `symox.extra.SlangCodePrinter` print real scalar expressions.
 `slangcode_function` exports a complete Slang function with shared CSE. Scalar
 results return directly; lists, tuples, matrices and arrays return a generated
 struct whose `_sx_o_0`, `_sx_o_1`, ... fields follow depth-first row-major order.
@@ -13,7 +13,7 @@ import symox as sm
 
 x, y = sm.symbols("x y")
 expr = sm.Matrix([[sm.sin(x*y)], [sm.sqrt(1+x*x+y*y)]])
-source = sm.slangcode_function("evaluate", (x, y), expr, dtype="float32")
+source = sm.extra.slangcode_function("evaluate", (x, y), expr, dtype="float32")
 ```
 
 For optional Python execution, install `symox[slang]`. SlangPy compiles and

@@ -15,7 +15,7 @@ def test_matrix_log_complex_jordan_batch_derivative_reconstruction_and_gradients
     eigenvalue = -t if negative else t+sx.I
     matrix = sx.ImmutableMatrix([[eigenvalue, 2, 0], [0, eigenvalue, -sx.I], [0, 0, eigenvalue]])
     logarithm = matrix.log()
-    function = sx.torch_lambdify(t, (logarithm, logarithm.diff(t)), compile=compiled,
+    function = sx.extra.torch_lambdify(t, (logarithm, logarithm.diff(t)), compile=compiled,
         compile_options={'backend': 'inductor', 'fullgraph': True} if compiled else None)
     value = torch.tensor([[.25, .75, 1.], [1.4, 2., 4.]], device=device, dtype=dtype, requires_grad=True)
     complex_dtype = torch.complex128 if dtype == torch.float64 else torch.complex64

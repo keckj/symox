@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 import functools
 import itertools
+import inspect
 import keyword
 import linecache
 
@@ -215,7 +216,16 @@ def jax_lambdify(args, exprs, *, cse=True, jit=False, jit_options=None, user_fun
                     raise ValueError("device conflicts with jit_options device")
                 # Output sharding determines the executable's device assignment,
                 # including when inputs are Python scalars or there are no inputs.
-                if specific.get("out_shardings") is None:
+                output_shardings = specific.get("out_shardings")
+                if ("device" in inspect.signature(jax.jit).parameters
+                        and not jax.tree_util.tree_leaves(output_shardings)):
+                    # Older JAX versions lose CPU memory placement in the
+                    # transpose of an output-only sharding constraint when
+                    # the default backend is a GPU. Their device argument
+                    # also pins the differentiated executable correctly.
+                    specific.pop("out_shardings", None)
+                    specific["device"] = device
+                elif output_shardings is None:
                     specific["out_shardings"] = jax.sharding.SingleDeviceSharding(device)
                 else:
                     for sharding in jax.tree_util.tree_leaves(specific["out_shardings"]):

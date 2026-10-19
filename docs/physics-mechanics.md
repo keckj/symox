@@ -94,6 +94,9 @@ These cases raise explicitly rather than producing incomplete equations.
 - `Arch`: three-hinged parabolic arches, point and uniform distributed loads,
   support reactions and internal bending, shear and axial forces.
 
+Import the arch class with `from symox.physics.continuum_mechanics.arch import Arch`.
+The module name is lowercase `arch`; `Arch` is the class name.
+
 ```python
 from symox import Rational
 from symox.physics.continuum_mechanics import Beam

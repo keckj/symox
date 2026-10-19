@@ -51,3 +51,16 @@ def test_missing_parent_and_internal_import_error_are_distinct(monkeypatch):
     actual,status,error=coverage['native_module']('symox.physics.units')
     assert actual is None and status=='native_import_error'
     assert 'missing dependency' in error
+
+
+def test_arch_inventory_measures_the_class_in_its_importable_module():
+    import importlib
+    inventory = coverage['load_inventory']('1.14.0')
+    path = 'sympy.physics.continuum_mechanics.arch'
+    assert path in inventory['modules']
+    assert 'sympy.physics.continuum_mechanics.Arch' not in inventory['modules']
+    reference = importlib.import_module(path)
+    actual = importlib.import_module(path.replace('sympy', 'symox', 1))
+    names = coverage['exports'](reference, inventory['documented_exports'][path])
+    assert 'Arch' in names
+    assert coverage['surface'](reference, actual, names)['missing'] == []

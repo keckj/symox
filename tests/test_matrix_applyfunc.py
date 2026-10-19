@@ -218,7 +218,7 @@ def test_numpy_source_and_existing_tensor_codegen_lower_applications_to_entries(
     source = 'numpy.array([' + ','.join('['+','.join(sx.numpycode(entries[r, c]) for c in range(3))+']' for r in range(2))+'])'
     data = np.arange(6.).reshape(2, 3)
     np.testing.assert_allclose(eval(source, {'numpy': np, 't': .25, 'A': data}), (.25*data)**2+np.sin(.25))
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         source = generate('applied_matrix', (A, t), value)
         ast.parse(source)
         assert 'ElementwiseApplyFunction' not in source and 'Lambda' not in source

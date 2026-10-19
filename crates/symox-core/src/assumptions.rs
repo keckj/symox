@@ -98,6 +98,11 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
         Kind::Const(Constant::GoldenRatio|Constant::TribonacciConstant)=>seed.extend([("real",true),("positive",true),("irrational",true),("algebraic",true)]),
         Kind::Const(Constant::NaN)=>{},
         _=>{
+            match e.kind() {
+                Kind::Func(Func::Re | Func::Im, _) => seed.push(("extended_real",true)),
+                Kind::Func(Func::Abs, _) => seed.push(("extended_nonnegative",true)),
+                _ => {},
+            }
             if let Kind::Func(Func::Special(h),args)=e.kind(){
                 if crate::special::numtheory::not_prime(*h){seed.push(("prime",false));}
                 if let Some(integer)=crate::special::numtheory::integer_fact(*h,args){seed.push(("integer",integer));}
@@ -120,6 +125,15 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
             }
             if need_imaginary{
                 if let Some(imaginary)=quadratic.and_then(|f|f.imaginary){seed.push(("imaginary",imaginary));}
+                // A reduced rational with denominator two has odd numerator.
+                // Its principal power of a strictly negative finite real is
+                // purely imaginary, including negative half-integer powers.
+                if let Kind::Pow(base,exponent)=e.kind(){
+                    if exponent.as_number().and_then(Number::numer_denom).is_some_and(|(_,q)|q==2.into())
+                        && exact_queries(||is_negative(base))==Some(true){
+                        seed.push(("imaginary",true));
+                    }
+                }
             }
         },
     }
@@ -447,6 +461,7 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             Some(Signs(bits))
         }
         Func::Abs => {
+            if is_finite(a)!=Some(true) { return None; }
             let s = if is_zero(a) == Some(false) { Signs::POS } else { Signs::NONNEG };
             Some(s)
         }
@@ -470,7 +485,10 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             Some(Signs::POS)
         }
         Func::Floor | Func::Ceiling => real_signs(a).map(|_| Signs::ANY),
-        Func::Re | Func::Im | Func::Arg => Some(Signs::ANY),
+        // These range signs include possible infinities. The finite-real
+        // queries below require a separate proof for projections.
+        Func::Re | Func::Im => Some(Signs::ANY),
+        Func::Arg => Some(Signs::ANY),
         Func::Gamma => {
             if real_signs(a)? == Signs::POS {
                 Some(Signs::POS)
@@ -494,6 +512,9 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
 #[inline]
 pub fn is_real(e:&Expr)->Option<bool>{cached_bool(e,Query::Real,is_real_uncached)}
 fn is_real_uncached(e: &Expr) -> Option<bool> {
+    if let Kind::Func(Func::Re | Func::Im | Func::Abs,args)=e.kind() {
+        return is_finite(&args[0]).filter(|finite|*finite);
+    }
     if real_signs(e).is_some() {
         return Some(true);
     }
@@ -886,6 +907,7 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
         }
         // sign takes values in {0} and the unit circle
         Kind::Func(Func::Sign, _) => Some(true),
+        Kind::Func(Func::Re | Func::Im | Func::Abs, args) => is_finite(&args[0]).filter(|finite|*finite),
         _ => {
             if real_signs(e).is_some() {
                 Some(true)

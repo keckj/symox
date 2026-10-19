@@ -21,7 +21,7 @@ batched = jax.vmap(f, in_axes=(0, None))(jnp.linspace(0, 1, 1024), 0.3)
 
 `jax_lambdify` accepts `cse`, `user_functions`, `jit` and `jit_options`.
 `jaxcode_function` exports a module importing only JAX; `jaxcode` and
-`symox.printing.jax.JaxPrinter` expose expression printing. Generated functions
+`symox.extra.printing.jax.JaxPrinter` expose expression printing. Generated functions
 accept `dtype=` and `device=` (a JAX Device or a backend name such as `"cpu"`);
 these keywords are static when JIT is enabled. Dtypes obey JAX's configuration,
 including its default disabling of 64-bit arithmetic. No global configuration
@@ -29,6 +29,12 @@ is changed. `Piecewise` uses the same masking precautions as PyTorch, with CSE
 disabled for conditional graphs. Use `block_until_ready` when timing JAX work.
 `python benches/bench_jax.py --help` describes the reproducible JAX benchmark,
 with compilation time and warm execution reported separately.
+
+Explicit placement transfers inputs before compilation, including transfers
+between CPU and GPU. Gradients, Hessians and vectorization retain the requested
+placement. Older JAX releases use their supported JIT device option to preserve
+placement during differentiation; releases without that option use output
+sharding constraints. See JAX's [data placement guide](https://docs.jax.dev/en/latest/201/placement.html).
 
 Both backends support elementary functions, relations, Boolean operations and
 selected special functions. In particular, `loggamma` requires a provably

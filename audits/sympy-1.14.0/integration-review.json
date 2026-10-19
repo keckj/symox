@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "reference_version": "1.14.0",
-  "native_source_sha256": "a7240761319c254b4ffaaa16e5d0aee100985b66f9cc7cd60ec5ae8c0bf001a8",
+  "native_source_sha256": "61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a",
   "records": [
     {
       "native_sources_sha256": {
@@ -12,7 +12,7 @@
         "python/symox/_expression_replace.py": "303f74898c35d9ea6bd821eb417e82120ae0e8985cb152f9b30cd73a84fbe484",
         "python/symox/_compat.py": "afa81d2161535b5f6462c16bd57f505d1cccb5a9d9fe24d186fd886bd71f34e2",
         "python/symox/series/fourier.py": "e175c28be775cead969c7c47ab9adb9faf9103b72122fa8e3ab8b6f22c6fa60e",
-        "python/symox/__init__.py": "f2a9bbc064647eca0f106bca9e2d5ae55694b18a9467a55c981d684c39916894"
+        "python/symox/__init__.py": "aa51d36141f852ceadc07898e8883683c1fc81e5bccab7ac745474b1520f7e40"
       },
       "proof_kind": "Human invariant argument with independent exact regressions; not machine-checked.",
       "universal_function_parity_certified": false,
@@ -35,7 +35,7 @@
         "python/symox/_expression_replace.py": "303f74898c35d9ea6bd821eb417e82120ae0e8985cb152f9b30cd73a84fbe484",
         "python/symox/_compat.py": "afa81d2161535b5f6462c16bd57f505d1cccb5a9d9fe24d186fd886bd71f34e2",
         "python/symox/series/fourier.py": "e175c28be775cead969c7c47ab9adb9faf9103b72122fa8e3ab8b6f22c6fa60e",
-        "python/symox/__init__.py": "f2a9bbc064647eca0f106bca9e2d5ae55694b18a9467a55c981d684c39916894"
+        "python/symox/__init__.py": "aa51d36141f852ceadc07898e8883683c1fc81e5bccab7ac745474b1520f7e40"
       },
       "proof_kind": "Human invariant argument with independent exact regressions; not machine-checked.",
       "universal_function_parity_certified": false,
@@ -58,7 +58,7 @@
         "python/symox/_expression_replace.py": "303f74898c35d9ea6bd821eb417e82120ae0e8985cb152f9b30cd73a84fbe484",
         "python/symox/_compat.py": "afa81d2161535b5f6462c16bd57f505d1cccb5a9d9fe24d186fd886bd71f34e2",
         "python/symox/series/fourier.py": "e175c28be775cead969c7c47ab9adb9faf9103b72122fa8e3ab8b6f22c6fa60e",
-        "python/symox/__init__.py": "f2a9bbc064647eca0f106bca9e2d5ae55694b18a9467a55c981d684c39916894"
+        "python/symox/__init__.py": "aa51d36141f852ceadc07898e8883683c1fc81e5bccab7ac745474b1520f7e40"
       },
       "proof_kind": "Human invariant argument with independent exact regressions; not machine-checked.",
       "universal_function_parity_certified": false,

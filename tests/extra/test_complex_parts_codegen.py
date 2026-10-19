@@ -18,7 +18,7 @@ def test_torch_complex_parts_principal_values_jit_and_gradients(device, compiled
     if device == 'cuda' and not torch.cuda.is_available():
         pytest.skip('CUDA is unavailable')
     args, outputs = parts()
-    function = sx.torch_lambdify(args, outputs, compile=compiled,
+    function = sx.extra.torch_lambdify(args, outputs, compile=compiled,
         compile_options={'backend': 'inductor', 'fullgraph': True} if compiled else None)
     r = torch.tensor([[.4], [1.3]], device=device, dtype=torch.float64, requires_grad=True)
     t = torch.tensor([[-.9, .2, 1.1]], device=device, dtype=torch.float64, requires_grad=True)
@@ -41,7 +41,7 @@ def test_jax_complex_parts_principal_values_jit_and_gradients(jit):
     jnp = pytest.importorskip('jax.numpy')
     import numpy as np
     args, outputs = parts()
-    function = sx.jax_lambdify(args, outputs, jit=jit)
+    function = sx.extra.jax_lambdify(args, outputs, jit=jit)
     r = jnp.asarray([[.4], [1.3]])
     t = jnp.asarray([[-.9, .2, 1.1]])
 

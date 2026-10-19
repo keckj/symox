@@ -275,6 +275,9 @@ def inventory_markdown(report):
         'dependency or the upstream documentation names an unimportable module. '
         '`no_exports` has no countable names under the stated rule. '
         'N/A is never treated as 100%.', '',
+        'Known documentation inventory corrections are recorded in '
+        '`tools/sympy_public_modules.json`: `Arch` is a class exported by '
+        '`sympy.physics.continuum_mechanics.arch`, not a module named `Arch`.', '',
         'These are name-presence measurements. They do not check signatures, '
         'domains, algorithms or behavior. Modules overlap; rows must not be added '
         'together. This inventory is bounded by the documented modules and listed '
@@ -305,7 +308,7 @@ def inventory_markdown(report):
     if errors:
         lines += ['', '## Import errors', '']
         lines += [f'- `{name}`: `{error.replace(chr(10), " ").replace("`", chr(39))}`' for name, error in errors]
-    return '\n'.join(lines)+'\n'
+    return '\n'.join(lines).rstrip()+'\n'
 
 
 def update_readme(report):

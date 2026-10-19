@@ -185,13 +185,13 @@ def test_functionmatrix_codegen_uses_scalar_entries_and_existing_tensor_output_l
     value = sx.FunctionMatrix(2, 3, sx.Lambda((i, j), sx.sin(t)+i+2*j))
     entries = value.as_explicit()
     for scalar in entries:
-        for print_expression in [sx.numpycode, sx.cxxcode, sx.cudacode, sx.rust_code, sx.torchcode, sx.jaxcode]:
+        for print_expression in [sx.numpycode, sx.cxxcode, sx.extra.cudacode, sx.rust_code, sx.extra.torchcode, sx.extra.jaxcode]:
             source = print_expression(scalar)
             assert 'Lambda' not in source and 'FunctionMatrix' not in source
     source = 'numpy.array([' + ','.join('['+','.join(sx.numpycode(entries[r, c]) for c in range(3))+']' for r in range(2))+'])'
     expected = np.array([[np.sin(0.25)+r+2*c for c in range(3)] for r in range(2)])
     np.testing.assert_allclose(eval(source, {'numpy': np, 't': 0.25}), expected)
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         source = generate('function_matrix', (t,), value)
         ast.parse(source)
         assert 'FunctionMatrix' not in source and 'Lambda' not in source

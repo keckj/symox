@@ -301,7 +301,8 @@ def compile_cuda(source, name, **settings):
 
 
 def _generate(args, exprs, dtype, cse, fast_math):
-    from symox import Symbol, I, zoo, _core, cudacode
+    from symox import Symbol, I, zoo, _core
+    from symox.extra import cudacode
     if dtype not in ("float32", "float64"):
         raise ValueError("CUDA dtype must be 'float32' or 'float64'")
     if not isinstance(cse, bool) or not isinstance(fast_math, bool):

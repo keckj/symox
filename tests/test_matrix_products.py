@@ -202,7 +202,7 @@ def test_numpy_expression_source_and_tensor_source_generation(mode):
     source='numpy.array(['+','.join('['+','.join(sx.numpycode(explicit[i,j]) for j in range(cols))+']' for i in range(rows))+'])'
     actual=eval(source,{'numpy':np,**values})
     np.testing.assert_allclose(actual,expected)
-    for generate in [sx.torchcode_function,sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function,sx.extra.jaxcode_function]:
         source=generate('matrix_product',(A,B),expression)
         ast.parse(source)
         assert 'Hadamard' not in source and 'Kronecker' not in source

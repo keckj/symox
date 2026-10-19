@@ -19,7 +19,7 @@ def test_torch_matrix_functions_exact_codegen_complex_batch_and_gradients(device
     if device == 'cuda' and not torch.cuda.is_available():
         pytest.skip('CUDA is unavailable')
     t, outputs = expressions()
-    function = sx.torch_lambdify(t, outputs, compile=compiled,
+    function = sx.extra.torch_lambdify(t, outputs, compile=compiled,
         compile_options={'backend': 'inductor', 'fullgraph': True} if compiled else None)
     value = torch.tensor([[-.3, 0., .2], [.4, .6, .8]], device=device, dtype=torch.float64, requires_grad=True)
     lam = (1+1j)*value
@@ -43,7 +43,7 @@ def test_jax_matrix_functions_exact_codegen_complex_batch_and_gradients(jit):
     jax = pytest.importorskip('jax')
     jnp = pytest.importorskip('jax.numpy')
     t, outputs = expressions()
-    function = sx.jax_lambdify(t, outputs, jit=jit)
+    function = sx.extra.jax_lambdify(t, outputs, jit=jit)
     value = jnp.asarray([[-.3, 0., .2], [.4, .6, .8]])
     def reference(v):
         lam = (1+1j)*v
@@ -74,7 +74,7 @@ def test_torch_matrix_functions_svd_certificates_and_reconstruction_gradient(dev
     if device == 'cuda' and not torch.cuda.is_available():
         pytest.skip('CUDA is unavailable')
     p, outputs = svd_expressions()
-    function = sx.torch_lambdify(p, outputs, compile=compiled,
+    function = sx.extra.torch_lambdify(p, outputs, compile=compiled,
         compile_options={'backend': 'inductor', 'fullgraph': True} if compiled else None)
     point = torch.tensor([[.1, .4, 1.], [1.2, 2., 3.]], dtype=torch.float64,
                          device=device, requires_grad=True)
@@ -99,7 +99,7 @@ def test_jax_matrix_functions_svd_certificates_and_reconstruction_gradient(jit):
     jax = pytest.importorskip('jax')
     jnp = pytest.importorskip('jax.numpy')
     p, outputs = svd_expressions()
-    function = sx.jax_lambdify(p, outputs, jit=jit)
+    function = sx.extra.jax_lambdify(p, outputs, jit=jit)
     point = jnp.asarray([[.1, .4, 1.], [1.2, 2., 3.]])
     base = jnp.asarray([[1, 1j, 2], [1j, 1, 0]])
     def reconstruct(value):

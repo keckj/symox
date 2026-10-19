@@ -26,7 +26,7 @@ def _dtype(dtype):
 
 def _generate(name, args, exprs, dtype, cse, user_functions):
     from symox import Symbol, _core
-    from symox.printing.slang import _is_slang_identifier
+    from symox.extra.printing.slang import _is_slang_identifier
 
     if not _is_slang_identifier(name) or name.startswith("_sx_"):
         raise ValueError("Function name must be a Slang identifier outside the reserved '_sx_' namespace")

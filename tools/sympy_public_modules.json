@@ -1,4 +1,11 @@
 {
+  "documentation_corrections": {
+    "sympy.physics.continuum_mechanics.Arch": {
+      "export": "Arch",
+      "module": "sympy.physics.continuum_mechanics.arch",
+      "reason": "The Sphinx inventory incorrectly identifies the Arch class as a module. The importable module is arch."
+    }
+  },
   "documentation_urls": {
     "sympy": "https://docs.sympy.org/latest/index.html#module-sympy",
     "sympy.abc": "https://docs.sympy.org/latest/modules/abc.html#module-sympy.abc",
@@ -127,7 +134,7 @@
     "sympy.physics.biomechanics.activation": "https://docs.sympy.org/latest/modules/physics/biomechanics/api/activation.html#module-sympy.physics.biomechanics.activation",
     "sympy.physics.biomechanics.curve": "https://docs.sympy.org/latest/modules/physics/biomechanics/api/curve.html#module-sympy.physics.biomechanics.curve",
     "sympy.physics.biomechanics.musculotendon": "https://docs.sympy.org/latest/modules/physics/biomechanics/api/musculotendon.html#module-sympy.physics.biomechanics.musculotendon",
-    "sympy.physics.continuum_mechanics.Arch": "https://docs.sympy.org/latest/modules/physics/continuum_mechanics/arches.html#module-sympy.physics.continuum_mechanics.Arch",
+    "sympy.physics.continuum_mechanics.arch": "https://docs.sympy.org/latest/modules/physics/continuum_mechanics/arches.html",
     "sympy.physics.continuum_mechanics.beam": "https://docs.sympy.org/latest/modules/physics/continuum_mechanics/beam.html#module-sympy.physics.continuum_mechanics.beam",
     "sympy.physics.continuum_mechanics.cable": "https://docs.sympy.org/latest/modules/physics/continuum_mechanics/cable.html#module-sympy.physics.continuum_mechanics.cable",
     "sympy.physics.continuum_mechanics.truss": "https://docs.sympy.org/latest/modules/physics/continuum_mechanics/truss.html#module-sympy.physics.continuum_mechanics.truss",
@@ -1156,6 +1163,9 @@
       "MusculotendonBase",
       "MusculotendonDeGroote2016",
       "MusculotendonFormulation"
+    ],
+    "sympy.physics.continuum_mechanics.arch": [
+      "Arch"
     ],
     "sympy.physics.continuum_mechanics.beam": [
       "Beam",
@@ -2457,7 +2467,7 @@
     "sympy.physics.biomechanics.activation",
     "sympy.physics.biomechanics.curve",
     "sympy.physics.biomechanics.musculotendon",
-    "sympy.physics.continuum_mechanics.Arch",
+    "sympy.physics.continuum_mechanics.arch",
     "sympy.physics.continuum_mechanics.beam",
     "sympy.physics.continuum_mechanics.cable",
     "sympy.physics.continuum_mechanics.truss",

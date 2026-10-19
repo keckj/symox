@@ -14,7 +14,7 @@ automatically a mathematical error. Equal exceptions are recorded separately fro
 
 ## Evidence
 
-- Module paths: 311.
+- Module paths: 310.
 - Export/method bindings, including aliases: 67753.
 - Distinct reference callables: 6077.
 - Documented objects replayed: 2916.
@@ -31,7 +31,7 @@ Installed source files matching distribution RECORD: 1533; mismatches: 0.
 The separate [published-wheel integrity record](../audits/sympy-1.14.0/reference-wheel-integrity.json)
 compares these sources with the [SymPy 1.14.0 PyPI release](https://pypi.org/project/sympy/1.14.0/#files), without modifying the reference installation.
 
-Catalog native fingerprint: `a7240761319c254b4ffaaa16e5d0aee100985b66f9cc7cd60ec5ae8c0bf001a8`.
+Catalog native fingerprint: `61be54459967a4a22a7e2ed49b804023f02f1d79adbeabc251dac8630ed19c0a`.
 
 Example snapshot fingerprint: `mixed; consult each record`.
 
@@ -47,8 +47,8 @@ These fingerprints may differ while fixes are being made. Each example record ke
 own fingerprint; stale evidence must be rerun before approving a changed implementation.
 Targeted supplementary runs replace older observations by reference callable identity,
 including aliases. Other records retain their original snapshots and stale status.
-Ordinary evidence files: `audits/sympy-1.14.0/seventh-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-examples.json.gz`.
-Named-call evidence files: `audits/sympy-1.14.0/fifth-keyword-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-keywords.json.gz`.
+Ordinary evidence files: `audits/sympy-1.14.0/seventh-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-examples.json.gz`, `audits/sympy-1.14.0/extra-isolation-examples.json.gz`.
+Named-call evidence files: `audits/sympy-1.14.0/fifth-keyword-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-keywords.json.gz`, `audits/sympy-1.14.0/extra-isolation-keywords.json.gz`.
 Scoped review source hashes are also checked against the working tree, so edited Rust
 cannot retain a fresh review merely because an older compiled extension is still installed.
 
@@ -215,7 +215,6 @@ an instance probe. This is not a claim that the method is absent on returned obj
 | `sympy.physics.biomechanics.curve` | 9 | 0 | 8 | 0 |
 | `sympy.physics.biomechanics.musculotendon` | 3 | 0 | 0 | 0 |
 | `sympy.physics.continuum_mechanics` | 4 | 60 | 5 | 24 |
-| `sympy.physics.continuum_mechanics.Arch` | reference_import_error | — | — | — |
 | `sympy.physics.continuum_mechanics.arch` | 1 | 0 | 0 | 0 |
 | `sympy.physics.continuum_mechanics.beam` | 2 | 38 | 1 | 29 |
 | `sympy.physics.continuum_mechanics.cable` | 1 | 0 | 0 | 0 |

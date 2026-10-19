@@ -5,7 +5,8 @@
 All 921 names in SymPy 1.14.0's root `__all__` are exposed by symox. This is an
 import-surface measurement. It does not mean every signature, class hierarchy,
 method, mathematical domain or algorithm is compatible. The
-[full inventory](sympy-api.md) continues to show incomplete and absent modules.
+[full inventory](sympy-api.md) records all measured module paths and exports;
+behavioral gaps are tracked in the [versioned audit](sympy-parity-audit.md).
 
 ## Core interfaces
 

@@ -9,7 +9,7 @@ Run commands from the repository root in the development environment.
 ```bash
 python -m pip install pytest sympy
 cargo test
-python -m pytest -q tests
+python -m pytest -q tests --ignore=tests/extra
 ```
 
 Optional backend dependencies and execution tests are described in the [code generation guides](codegen/overview.md).
@@ -80,3 +80,44 @@ errors. Reference import failures and modules without countable exports use N/A.
 This module inventory checks import paths and exported names, rather than every
 class method or behavior. Its scope differs from the existing root-mapped README
 rows; neither is a global compatibility percentage.
+
+## Optional extension environment
+
+The SymPy API suite runs separately from Symox's optional tensor/GPU extensions:
+
+```bash
+python -m pip install -e '.[test]'
+python -m pytest -q tests --ignore=tests/extra
+```
+
+The test dependencies include Meson and Ninja for modern NumPy f2py builds.
+A Fortran compiler is still required to compile Fortran routines. Default f2py
+wrapper builds select Meson when it is installed and NumPy supports it, avoiding
+legacy numpy.distutils incompatibilities with current setuptools. Explicit
+compiler flags retain NumPy's requested/default backend behavior. See the
+[NumPy f2py build-system guide](https://numpy.org/doc/stable/f2py/buildtools/index.html).
+
+The complete extension environment adds PyTorch, JAX and SlangPy. Select CUDA
+builds of PyTorch and JAX appropriate for your driver when testing on NVIDIA;
+the default packages also support CPU execution. SymPy 1.14.0 is pinned for
+this differential test environment.
+
+```bash
+python -m pip install -e '.[test-extra]'
+python tools/install_adaptivecpp.py --prefix "$VIRTUAL_ENV" --jobs 2
+SYMOX_ACPP_TARGETS=omp SYMOX_ACPP_REQUIRE_RUNTIME=1 OMP_NUM_THREADS=2 \
+  XLA_PYTHON_CLIENT_PREALLOCATE=false python -m pytest -q tests/extra
+```
+
+The AdaptiveCpp installer builds a pinned OpenMP CPU SDK. It needs Git, CMake,
+Ninja, a C++ compiler, Boost and NUMA development headers. The tests discover
+`acpp` next to the active Python executable, on `PATH`, or through `SYMOX_ACPP`.
+AdaptiveCpp GPU execution requires a separately configured full compiler SDK;
+the CPU build does not establish GPU coverage.
+
+`SYMOX_SLANG_REQUIRE_RUNTIME=1` and `SYMOX_CUDA_REQUIRE_RUNTIME=1` make an
+unavailable requested runtime fail the test run. Slang devices can be selected
+with `SYMOX_SLANG_TEST_BACKENDS=cuda,vulkan`. CUDA-specific PyTorch tests require
+CUDA hardware; JAX device-transfer tests require both CPU and GPU devices.
+On CPU CI these hardware-specific cases remain explicit skips. Missing optional
+libraries skip the corresponding extension tests, never the core SymPy suite.

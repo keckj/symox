@@ -45,7 +45,7 @@ def benchmark(device, batch, repeats, warmup, backward, dtype, piecewise=False):
     for mode, cse, jit in [("eager", False, False), ("eager_cse", True, False),
                             ("jitted_cse", True, True)]:
         start = time.perf_counter()
-        function = sm.jax_lambdify(args, expression, cse=cse, jit=jit)
+        function = sm.extra.jax_lambdify(args, expression, cse=cse, jit=jit)
         if backward:
             def loss(*values):
                 output = function(*values)

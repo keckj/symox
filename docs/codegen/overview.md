@@ -9,6 +9,17 @@
 - [SYCL and AdaptiveCpp code generation](sycl.md)
 - [Symbolic code generation compatibility](compatibility.md)
 
+Custom tensor and GPU APIs live in `symox.extra`, for example
+`from symox.extra import torch_lambdify, jax_lambdify, slang_kernel, sycl_kernel`.
+Their implementation modules are `symox.extra.codegen.*` and
+`symox.extra.printing.*`. Importing them does not load execution libraries.
+The SymPy entry points `lambdify(..., modules="jax")` and
+`printing.pytorch.TorchPrinter` / `torch_code` remain available.
+
+Install the optional execution libraries with `pip install 'symox[extra]'`.
+See [the extension test environment](../testing.md) for CPU/GPU validation and
+the pinned AdaptiveCpp SDK.
+
 **symox aims to be the most complete symbolic engine for code generation across
 heterogeneous targets.** One symbolic model feeds native code and array frameworks
 across CPUs and GPUs. CUDA alone is reachable through native CUDA source compiled

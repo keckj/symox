@@ -21,7 +21,7 @@ def test_raw_nvrtc_kernel_keeps_torch_context_and_resident_buffers(dtype, tmp_pa
     with torch.cuda.stream(stream):
         values = torch.arange(65, device="cuda", dtype=dtype)
     try:
-        kernel = s.compile_cuda(source, "twice", device=values.device.index, cache_dir=tmp_path)
+        kernel = s.extra.compile_cuda(source, "twice", device=values.device.index, cache_dir=tmp_path)
     except ImportError as error:
         if os.environ.get("SYMOX_CUDA_REQUIRE_RUNTIME") == "1":
             raise

@@ -174,7 +174,7 @@ def test_numpy_source_and_tensor_source_lowering(mode):
     rows, cols = entries.shape
     source = 'numpy.array([' + ','.join('[' + ','.join(sx.numpycode(entries[i, j]) for j in range(cols)) + ']' for i in range(rows)) + '])'
     np.testing.assert_allclose(eval(source, {'numpy': np, **values}), expected)
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         source = generate('matrix_view', (A, B), expression)
         ast.parse(source)
         assert 'BlockDiagMatrix' not in source and 'MatrixSlice' not in source

@@ -132,7 +132,7 @@ BENCHES.append(
     (
         "cuda_kernel(jacobian, cse)",
         (
-            lambda: symox.cuda_kernel("k", xs4, jx, cse=True),
+            lambda: symox.extra.cuda_kernel("k", xs4, jx, cse=True),
             lambda: [sympy.ccode(v) for v in sympy.cse(js)[1]],
         ),
     )

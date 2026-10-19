@@ -52,9 +52,9 @@ def test_matrix_entries_native_and_subclassable_code_printers():
     assert s.cxxcode(entry) == "A[4*i + j]"
     assert CXX17CodePrinter().doprint(entry) == "A[4*i + j]"
     assert s.numpycode(entry) == "A[i, j]"
-    assert s.torchcode(entry) == "A[i, j]"
-    assert s.jaxcode(entry) == "A[i, j]"
-    for printer in (s.slangcode, s.syclcode):
+    assert s.extra.torchcode(entry) == "A[i, j]"
+    assert s.extra.jaxcode(entry) == "A[i, j]"
+    for printer in (s.extra.slangcode, s.extra.syclcode):
         with pytest.raises(NotImplementedError, match="matrix"):
             printer(entry)
 

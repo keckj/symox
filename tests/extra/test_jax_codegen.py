@@ -19,7 +19,7 @@ def test_function_matrix_native_lambda_batching_jit_and_gradients(jit):
     a,b=sm.symbols('a b')
     matrix=sm.FunctionMatrix(2,3,sm.Lambda((i,j),a*(i+1)+b*j*j+a*b))
     outputs=(matrix,matrix[::-1,::2],matrix.diff(a),sm.MatrixElement(matrix,0,2))
-    function=sm.jax_lambdify((a,b),outputs,jit=jit)
+    function=sm.extra.jax_lambdify((a,b),outputs,jit=jit)
     av=jnp.asarray([[1.],[2.]])
     bv=jnp.asarray([[2.,3.,4.]])
 
@@ -46,7 +46,7 @@ def test_matrix_applyfunc_free_parameter_total_derivative_and_gradients(jit):
     applied = (t*matrix).applyfunc(sm.Lambda(z, z*z+t*z+t*t))
     outputs = (applied, applied.diff(t), applied.T,
                applied[::-1, ::2], sm.MatrixElement(applied, 0, 2))
-    function = sm.jax_lambdify((matrix, t), outputs, jit=jit)
+    function = sm.extra.jax_lambdify((matrix, t), outputs, jit=jit)
     av = jnp.linspace(-.8, 1.2, 36).reshape(2, 3, 2, 3)
     tv = jnp.asarray([[.3], [.8]])
 
@@ -68,7 +68,7 @@ def test_matrix_applyfunc_free_parameter_total_derivative_and_gradients(jit):
 
 def test_distinct_dummy_inputs_jit_and_gradients():
     first, second = sm.Dummy('x'), sm.Dummy('x')
-    function = sm.jax_lambdify((first, second), first**2 + 2*second, jit=True)
+    function = sm.extra.jax_lambdify((first, second), first**2 + 2*second, jit=True)
     a, b = jnp.asarray([1., 2.]), jnp.asarray([3., 4.])
     np.testing.assert_allclose(function(a, b), a**2+2*b)
     da, db = jax.grad(lambda x, y: jnp.sum(function(x, y)), argnums=(0, 1))(a, b)
@@ -81,7 +81,7 @@ def test_strided_reverse_composed_and_empty_matrix_slices(jit):
     matrix = sm.MatrixSymbol('A', 5, 6)
     outputs = (matrix[::-1, ::-2], matrix[::2, 1::2], matrix[4:1:-2, 5:0:-2],
                matrix[::2, ::-1][::-1, 1::2], matrix[1:1, ::-1], matrix[::-1, 10:20])
-    function = sm.jax_lambdify(matrix, outputs, jit=jit)
+    function = sm.extra.jax_lambdify(matrix, outputs, jit=jit)
     a = jnp.arange(180., dtype=jnp.float32).reshape(2, 3, 5, 6)
 
     def reference(value):
@@ -100,7 +100,7 @@ def test_strided_reverse_composed_and_empty_matrix_slices(jit):
 @pytest.mark.parametrize("jit", [False, True])
 def test_diagonal_maps_broadcast_and_gradients(jit):
     vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)
-    function = sm.jax_lambdify((vector, matrix),
+    function = sm.extra.jax_lambdify((vector, matrix),
                               (sm.DiagMatrix(vector), sm.DiagonalOf(matrix),
                                sm.DiagonalMatrix(matrix)), jit=jit)
     v, a = jnp.arange(6.).reshape(2, 1, 3, 1), jnp.arange(18.).reshape(1, 3, 2, 3)
@@ -123,7 +123,7 @@ def test_diagonal_maps_broadcast_and_gradients(jit):
 @pytest.mark.parametrize("jit", [False, True])
 def test_diagonal_maps_complex_adjoint(jit):
     vector, matrix = sm.MatrixSymbol('v', 3, 1), sm.MatrixSymbol('A', 2, 3)
-    function = sm.jax_lambdify((vector, matrix),
+    function = sm.extra.jax_lambdify((vector, matrix),
                               (sm.DiagMatrix(vector).H, sm.DiagonalOf(matrix).H,
                                sm.DiagonalMatrix(matrix).H), jit=jit)
     v = jnp.asarray([[1+2j], [3-1j], [2j]])
@@ -140,7 +140,7 @@ def test_empty_diagonal_outputs_keep_batch_shape_and_dtype(jit):
     x = sm.Symbol('x')
     outputs = (sm.DiagMatrix(sm.ZeroMatrix(0, 1)), sm.DiagonalOf(sm.ZeroMatrix(0, 4)),
                sm.DiagonalMatrix(sm.ZeroMatrix(0, 4)))
-    function = sm.jax_lambdify(x, outputs, jit=jit)
+    function = sm.extra.jax_lambdify(x, outputs, jit=jit)
     value = jnp.ones((2, 3), dtype=jnp.float32)
     for result, shape in zip(function(value), [(0, 0), (0, 1), (0, 4)]):
         assert result.shape == (2, 3) + shape
@@ -152,7 +152,7 @@ def test_block_matrix_broadcast_products_and_gradients(jit):
     a, b, d = (sm.MatrixSymbol('A', 2, 2), sm.MatrixSymbol('B', 2, 1),
                sm.MatrixSymbol('D', 1, 1))
     matrix = sm.BlockMatrix([[a, b], [b.T, d]])
-    function = sm.jax_lambdify((a, b, d),
+    function = sm.extra.jax_lambdify((a, b, d),
                               (matrix, matrix.T, sm.block_collapse(matrix*matrix)), jit=jit)
     av = jnp.arange(8.).reshape(2, 1, 2, 2)
     bv = jnp.arange(6.).reshape(1, 3, 2, 1)
@@ -178,7 +178,7 @@ def test_block_matrix_broadcast_products_and_gradients(jit):
 @pytest.mark.parametrize("jit", [False, True])
 def test_rectangular_block_diagonal_and_slice_batched_gradients(jit):
     a, b = sm.MatrixSymbol('A', 2, 3), sm.MatrixSymbol('B', 3, 2)
-    function = sm.jax_lambdify((a, b), (sm.BlockDiagMatrix(a, b), a[:, 1:3]), jit=jit)
+    function = sm.extra.jax_lambdify((a, b), (sm.BlockDiagMatrix(a, b), a[:, 1:3]), jit=jit)
     av = jnp.arange(12.).reshape(2, 1, 2, 3)
     bv = jnp.arange(18.).reshape(1, 3, 3, 2)
 
@@ -201,7 +201,7 @@ def test_hadamard_kronecker_batched_codegen_and_grad(jit):
     a, b = [sm.MatrixSymbol(name, 2, 2) for name in ('A', 'B')]
     outputs = (sm.HadamardProduct(a, b), sm.HadamardPower(a, 2),
                sm.HadamardPower(2, a), sm.HadamardPower(a, b), sm.KroneckerProduct(a, b))
-    function = sm.jax_lambdify((a, b), outputs, jit=jit)
+    function = sm.extra.jax_lambdify((a, b), outputs, jit=jit)
     av = jnp.arange(8.).reshape(2, 1, 2, 2)/10+1
     bv = jnp.arange(12.).reshape(1, 3, 2, 2)/10+1
 
@@ -221,7 +221,7 @@ def test_hadamard_kronecker_batched_codegen_and_grad(jit):
 @pytest.mark.parametrize("jit",[False,True])
 def test_matrix_trace_determinant_codegen_and_gradient(jit):
     a=sm.MatrixSymbol("A",2,2)
-    function=sm.jax_lambdify(a,sm.Trace(a)+sm.Determinant(a),jit=jit)
+    function=sm.extra.jax_lambdify(a,sm.Trace(a)+sm.Determinant(a),jit=jit)
     value=jnp.asarray([[[1.,2.],[3.,4.]],[[2.,1.],[0.,3.]]])
     expected=lambda x:jnp.trace(x,axis1=-2,axis2=-1)+jnp.linalg.det(x)
     np.testing.assert_allclose(function(value),expected(value),rtol=1e-6,atol=1e-6)
@@ -233,7 +233,7 @@ def test_matrix_trace_determinant_codegen_and_gradient(jit):
 @pytest.mark.parametrize("jit", [False, True])
 def test_matrix_symbols_batch_codegen_and_grad(jit):
     a, b = sm.MatrixSymbol("A", 2, 3), sm.MatrixSymbol("B", 3, 2)
-    f = sm.jax_lambdify((a, b), a*b, jit=jit)
+    f = sm.extra.jax_lambdify((a, b), a*b, jit=jit)
     ta = jnp.arange(12.).reshape(2, 2, 3)
     tb = jnp.arange(6.).reshape(3, 2)
     np.testing.assert_allclose(f(ta, tb), ta @ tb)
@@ -262,7 +262,7 @@ def _enable_x64(enabled=True):
 def test_broadcast_matrix_and_structured_outputs(jit, cse):
     x, y = sm.symbols("x y")
     expression = sm.Matrix([[sm.sin(x+y), 1], [x*y, sm.Rational(1, 2)]])
-    f = sm.jax_lambdify((x, y), (expression, [x > y, sm.I*x]), jit=jit, cse=cse)
+    f = sm.extra.jax_lambdify((x, y), (expression, [x > y, sm.I*x]), jit=jit, cse=cse)
     tx, ty = jnp.arange(4.0).reshape(4, 1), jnp.arange(3.0).reshape(1, 3)
     bx, by = jnp.broadcast_arrays(tx, ty)
     actual = f(tx, ty)
@@ -278,10 +278,10 @@ def test_broadcast_matrix_and_structured_outputs(jit, cse):
 def test_grad_hessian_vmap_and_symbolic_gradient(jit):
     x, y = sm.symbols("x y")
     expr = sm.sin(x*y) + sm.exp(x)/(1+y*y) + sm.sqrt(x+2)
-    f = sm.jax_lambdify((x, y), expr, jit=jit)
+    f = sm.extra.jax_lambdify((x, y), expr, jit=jit)
     reference = lambda a, b: jnp.sin(a*b) + jnp.exp(a)/(1+b*b) + jnp.sqrt(a+2)
     point = (jnp.asarray(.2), jnp.asarray(.3))
-    symbolic = sm.jax_lambdify((x, y), [sm.diff(expr, x), sm.diff(expr, y)])(*point)
+    symbolic = sm.extra.jax_lambdify((x, y), [sm.diff(expr, x), sm.diff(expr, y)])(*point)
     gradient = jax.grad(f, argnums=(0, 1))(*point)
     for actual, expected in zip(gradient, symbolic):
         np.testing.assert_allclose(actual, expected, rtol=2e-6)
@@ -297,7 +297,7 @@ def test_inactive_piecewise_domains_and_second_derivatives(operation, jit):
     x = sm.Symbol("x")
     branch = {"reciprocal": 1/x, "sqrt": sm.sqrt(x), "log": sm.log(x)}[operation]
     expr = sm.Piecewise((branch, x > 0), (x*x, True))
-    f = sm.jax_lambdify(x, expr, jit=jit)
+    f = sm.extra.jax_lambdify(x, expr, jit=jit)
 
     def reference(value):
         safe = jnp.where(value > 0, value, 1)
@@ -318,10 +318,10 @@ def test_inactive_piecewise_domains_and_second_derivatives(operation, jit):
 
 def test_empty_batches_constants_and_numpy_output():
     x = sm.Symbol("x")
-    f = sm.jax_lambdify(x, np.array([[x, 1], [sm.pi, sm.Rational(1, 2)]], dtype=object), jit=True)
+    f = sm.extra.jax_lambdify(x, np.array([[x, 1], [sm.pi, sm.Rational(1, 2)]], dtype=object), jit=True)
     assert f(jnp.empty((2, 0, 3))).shape == (2, 0, 3, 2, 2)
-    np.testing.assert_allclose(sm.jax_lambdify((), sm.pi, jit=True)(), np.pi, rtol=1e-6)
-    np.testing.assert_allclose(sm.jax_lambdify(x, sm.sqrt(x))(jnp.array([1, 4, 9])), [1, 2, 3])
+    np.testing.assert_allclose(sm.extra.jax_lambdify((), sm.pi, jit=True)(), np.pi, rtol=1e-6)
+    np.testing.assert_allclose(sm.extra.jax_lambdify(x, sm.sqrt(x))(jnp.array([1, 4, 9])), [1, 2, 3])
 
 
 @pytest.mark.parametrize("module", ["jax", jax])
@@ -336,20 +336,20 @@ def test_lambdify_route_and_source_inspection(module):
 def test_nested_arguments_identifiers_and_distinct_assumptions():
     x, y = sm.Symbol("lambda"), sm.Symbol("α")
     a, b = sm.Symbol("same", positive=True), sm.Symbol("same", negative=True)
-    f = sm.jax_lambdify(((x, y), a, b), x+2*y+3*a+4*b, jit=True)
+    f = sm.extra.jax_lambdify(((x, y), a, b), x+2*y+3*a+4*b, jit=True)
     np.testing.assert_allclose(f((1., 2.), 3., -4.), -2.)
     with pytest.raises(ValueError, match="[Dd]uplicate"):
-        sm.jax_lambdify((a, a), a)
+        sm.extra.jax_lambdify((a, a), a)
     with pytest.raises(ValueError, match="[Ss]ymbol|[Uu]nbound"):
-        sm.jax_lambdify(x, x+y)
+        sm.extra.jax_lambdify(x, x+y)
 
 
 def test_custom_functions_and_standalone_source(tmp_path):
     x = sm.Symbol("x")
     special = sm.Function("custom")(x)
-    f = sm.jax_lambdify(x, special, user_functions={"custom": jnp.sin}, jit=True)
+    f = sm.extra.jax_lambdify(x, special, user_functions={"custom": jnp.sin}, jit=True)
     np.testing.assert_allclose(f(jnp.arange(3.)), jnp.sin(jnp.arange(3.)))
-    source = sm.jaxcode_function("generated", x, (special, x*x),
+    source = sm.extra.jaxcode_function("generated", x, (special, x*x),
                                  user_functions={"custom": "jax.numpy.sin"})
     script = tmp_path / "jax_export.py"
     script.write_text("import jax\nimport builtins\n"
@@ -370,19 +370,19 @@ def test_optional_import_and_generation_errors():
                    check=True, capture_output=True, text=True)
     x = sm.Symbol("x")
     with pytest.raises((TypeError, ValueError)):
-        sm.jaxcode_function("invalid name", x, x)
+        sm.extra.jaxcode_function("invalid name", x, x)
     with pytest.raises((ValueError, NotImplementedError)):
-        sm.jax_lambdify(x, sm.besselj(3, x))
+        sm.extra.jax_lambdify(x, sm.besselj(3, x))
     with pytest.raises((TypeError, ValueError)):
-        sm.jax_lambdify(x, x, jit_options={"invalid": True})
+        sm.extra.jax_lambdify(x, x, jit_options={"invalid": True})
 
 
 def test_low_level_printer():
     x = sm.Symbol("x")
-    source = sm.jaxcode(sm.sin(x)+x*x)
+    source = sm.extra.jaxcode(sm.sin(x)+x*x)
     assert "jnp.sin" in source and "torch" not in source
     with pytest.raises((ValueError, NotImplementedError)):
-        sm.jaxcode(sm.Function("unknown")(x))
+        sm.extra.jaxcode(sm.Function("unknown")(x))
 
 
 @pytest.mark.parametrize("name,module,function,values", [
@@ -415,7 +415,7 @@ def test_elementary_function_values(name, module, function, values):
     x = sm.Symbol("x", positive=True) if name == "loggamma" else sm.Symbol("x")
     inputs = jnp.asarray(values)
     expected = getattr(jnp if module == "numpy" else jsp, function)(inputs)
-    actual = sm.jax_lambdify(x, getattr(sm, name)(x), jit=True)(inputs)
+    actual = sm.extra.jax_lambdify(x, getattr(sm, name)(x), jit=True)(inputs)
     np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=1e-7)
 
 
@@ -433,7 +433,7 @@ def test_min_max_heaviside_and_all_logical_operators():
                 jnp.minimum(jnp.minimum(inputs, other), -1), jnp.heaviside(inputs, .5),
                 a & b, a | b, ~a, a ^ b, (~a) | b, a == b, a & b,
                 inputs == 0, inputs != 0, jnp.arctan2(inputs, other)]
-    for actual, reference in zip(sm.jax_lambdify((x, y), expressions, jit=True)(inputs, other), expected):
+    for actual, reference in zip(sm.extra.jax_lambdify((x, y), expressions, jit=True)(inputs, other), expected):
         np.testing.assert_allclose(actual, reference, rtol=2e-6)
 
 
@@ -443,7 +443,7 @@ def test_complex_values_and_real_output_dtypes():
     expressions = [sm.sin(x), sm.exp(x), sm.re(x), sm.im(x), sm.conjugate(x), sm.arg(x), sm.Abs(x)]
     expected = [jnp.sin(inputs), jnp.exp(inputs), inputs.real, inputs.imag,
                 inputs.conj(), jnp.angle(inputs), jnp.abs(inputs)]
-    for actual, reference in zip(sm.jax_lambdify(x, expressions, jit=True)(inputs), expected):
+    for actual, reference in zip(sm.extra.jax_lambdify(x, expressions, jit=True)(inputs), expected):
         assert actual.dtype == reference.dtype
         np.testing.assert_allclose(actual, reference, rtol=2e-6)
 
@@ -457,17 +457,17 @@ def test_supported_special_functions():
     expected = [jsp.gamma(inputs), jsp.polygamma(2, inputs), jsp.polygamma(1, inputs),
                 jsp.zeta(inputs+2, jnp.ones_like(inputs)), jsp.erfinv(1-inputs/3),
                 jsp.i0(inputs), jsp.i1(inputs)]
-    for actual, reference in zip(sm.jax_lambdify(x, expressions, jit=True)(inputs), expected):
+    for actual, reference in zip(sm.extra.jax_lambdify(x, expressions, jit=True)(inputs), expected):
         np.testing.assert_allclose(actual, reference, rtol=2e-6, atol=1e-7)
     for unsupported in [sm.besselj(0, x), sm.bessely(1, x), sm.besselk(0, x)]:
         with pytest.raises((ValueError, NotImplementedError)):
-            sm.jax_lambdify(x, unsupported)
+            sm.extra.jax_lambdify(x, unsupported)
 
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_dtype_inference_respects_local_x64_configuration(enabled):
     x, y = sm.symbols("x y")
-    f = sm.jax_lambdify((x, y), [x+y, sm.pi, sm.I*x, x > y], jit=True)
+    f = sm.extra.jax_lambdify((x, y), [x+y, sm.pi, sm.I*x, x > y], jit=True)
     original = jax.config.x64_enabled
     with _enable_x64(enabled):
         float_dtype = jnp.float64 if enabled else jnp.float32
@@ -485,7 +485,7 @@ def test_dtype_inference_respects_local_x64_configuration(enabled):
 @pytest.mark.parametrize("jit", [False, True])
 def test_explicit_device_and_dtype_for_python_scalars(as_string, jit):
     x = sm.Symbol("x")
-    f = sm.jax_lambdify(x, [sm.sin(x), sm.Rational(1, 3)], jit=jit)
+    f = sm.extra.jax_lambdify(x, [sm.sin(x), sm.Rational(1, 3)], jit=jit)
     device = jax.devices("cpu")[0]
     with _enable_x64():
         results = f(.5, dtype=jnp.float64, device="cpu" if as_string else device)
@@ -498,7 +498,7 @@ def test_explicit_device_and_dtype_for_python_scalars(as_string, jit):
 @pytest.mark.parametrize("jit_options", [None, {"out_shardings": (None, None)}])
 def test_explicit_device_compiles_constants_on_requested_backend(jit_options):
     device = jax.devices("cpu")[0]
-    f = sm.jax_lambdify((), (sm.pi, sm.Rational(1, 3)), jit=True, jit_options=jit_options)
+    f = sm.extra.jax_lambdify((), (sm.pi, sm.Rational(1, 3)), jit=True, jit_options=jit_options)
     compiled = f.lower(device="cpu").compile()
     assert compiled.runtime_executable().local_devices() == [device]
     for result, expected in zip(f(device="cpu"), (np.pi, 1/3)):
@@ -515,7 +515,7 @@ def test_explicit_device_moves_inputs_before_compilation(target_backend):
     cpu = jax.devices("cpu")[0]
     target, origin = (cpu, gpu) if target_backend == "cpu" else (gpu, cpu)
     x, y = sm.symbols("x y")
-    f = sm.jax_lambdify(((x, y),), (sm.sin(x)+y*y, [sm.pi, x > y]), jit=True)
+    f = sm.extra.jax_lambdify(((x, y),), (sm.sin(x)+y*y, [sm.pi, x > y]), jit=True)
     inputs = tuple(jax.device_put(np.array([.25, .5], dtype=np.float32)+shift, origin)
                    for shift in (0., .1))
     compiled = f.lower(inputs, device=target).compile()
@@ -534,7 +534,7 @@ def test_explicit_device_moves_inputs_before_compilation(target_backend):
 def test_explicit_device_preserves_nested_autodiff_and_jit_options():
     x, y = sm.symbols("x y")
     cpu = jax.devices("cpu")[0]
-    f = sm.jax_lambdify(((x, y),), sm.sin(x)+y*y, jit=True,
+    f = sm.extra.jax_lambdify(((x, y),), sm.sin(x)+y*y, jit=True,
                         jit_options={"inline": True})
     wrapped = lambda value: f((value, .3), device="cpu")
     with _enable_x64():
@@ -553,16 +553,16 @@ def test_explicit_device_preserves_nested_autodiff_and_jit_options():
 def test_loggamma_preserves_assumptions_and_rejects_ambiguous_domains():
     for x in [sm.Symbol("x"), sm.Symbol("x", negative=True)]:
         with pytest.raises((ValueError, NotImplementedError), match="loggamma|positive|domain"):
-            sm.jax_lambdify(x, sm.loggamma(x))
+            sm.extra.jax_lambdify(x, sm.loggamma(x))
     x = sm.Symbol("x", positive=True)
-    f = sm.jax_lambdify(x, sm.loggamma(x), jit=True)
+    f = sm.extra.jax_lambdify(x, sm.loggamma(x), jit=True)
     np.testing.assert_allclose(f(jnp.asarray(2.5)), .28468287, rtol=2e-6)
 
 
 def test_boolean_input_preserves_numeric_constant_and_boolean_outputs():
     x = sm.Symbol("x")
     inputs = jnp.asarray([False, True])
-    constants, truth, values = sm.jax_lambdify(x, (2, sm.true, x), jit=True)(inputs)
+    constants, truth, values = sm.extra.jax_lambdify(x, (2, sm.true, x), jit=True)(inputs)
     assert jnp.issubdtype(constants.dtype, jnp.number) and constants.dtype != jnp.bool_
     assert truth.dtype == values.dtype == jnp.bool_
     np.testing.assert_array_equal(constants, [2, 2])
@@ -573,7 +573,7 @@ def test_boolean_input_preserves_numeric_constant_and_boolean_outputs():
 def test_cse_retains_assumptions_for_domain_sensitive_functions():
     import jax.scipy.special as jsp
     x, y = sm.symbols("x y", positive=True)
-    f = sm.jax_lambdify((x, y), [sm.loggamma(x+y), sm.sin(x+y)], cse=True, jit=True)
+    f = sm.extra.jax_lambdify((x, y), [sm.loggamma(x+y), sm.sin(x+y)], cse=True, jit=True)
     assert "_sx_t_0 = " in f.__source__
     inputs = (jnp.asarray([.5, 1.]), jnp.asarray([1., 2.]))
     result = f(*inputs)
@@ -585,8 +585,8 @@ def test_joint_cse_is_emitted_and_preserves_gradients():
     x, y = sm.symbols("x y")
     shared = sm.sin(x+y) + sm.exp(x*y)
     outputs = (shared**2, shared**3+x)
-    cse = sm.jax_lambdify((x, y), outputs, cse=True, jit=True)
-    direct = sm.jax_lambdify((x, y), outputs, cse=False, jit=True)
+    cse = sm.extra.jax_lambdify((x, y), outputs, cse=True, jit=True)
+    direct = sm.extra.jax_lambdify((x, y), outputs, cse=False, jit=True)
     assert "_sx_t_0 = " in cse.__source__
     assert "_sx_t_0 = " not in direct.__source__
     inputs = (jnp.asarray(.2), jnp.asarray(.4))
@@ -601,15 +601,15 @@ def test_piecewise_first_match_default_nan_and_empty_dense():
     x = sm.Symbol("x")
     inputs = jnp.asarray([-1., 0., 1., 2.])
     expression = sm.Piecewise((1, x < 1), (2, x < 2), (3, True))
-    np.testing.assert_array_equal(sm.jax_lambdify(x, expression, jit=True)(inputs), [1, 1, 2, 3])
-    partial = sm.jax_lambdify(x, sm.Piecewise((x*x, x > 0)), jit=True)
+    np.testing.assert_array_equal(sm.extra.jax_lambdify(x, expression, jit=True)(inputs), [1, 1, 2, 3])
+    partial = sm.extra.jax_lambdify(x, sm.Piecewise((x*x, x > 0)), jit=True)
     np.testing.assert_allclose(partial(inputs), [np.nan, np.nan, 1, 4], equal_nan=True)
-    empty = sm.jax_lambdify(x, np.empty((2, 0), dtype=object), jit=True)(inputs)
+    empty = sm.extra.jax_lambdify(x, np.empty((2, 0), dtype=object), jit=True)(inputs)
     assert empty.shape == (4, 2, 0)
 
 
 def test_nested_printer_symbol_and_function_override():
-    from symox.printing.jax import JaxPrinter
+    from symox.extra.printing.jax import JaxPrinter
     x = sm.Symbol("x")
 
     class Renamed(JaxPrinter):
@@ -654,7 +654,7 @@ def _check_block_schur_rectangular_complex(jit, pivot):
         d = sm.ImmutableMatrix([[3+sm.I+t, 0], [0, 4-2*sm.I+t]])
     matrix = sm.BlockMatrix([[a, b], [c, d]])
     factors = matrix.LDUdecomposition() if pivot == "A" else matrix.UDLdecomposition()
-    function = sm.jax_lambdify(t, (matrix.schur(pivot), *factors), jit=jit)
+    function = sm.extra.jax_lambdify(t, (matrix.schur(pivot), *factors), jit=jit)
     tv = jnp.asarray([[-.3, .2], [.4, .8]])
 
     def reference(value):
@@ -707,7 +707,7 @@ def test_dotproduct_complex_mixed_vector_orientation_batching_total_derivative_a
     t = sm.Symbol('t', real=True)
     parent = (t*a).conjugate() if conjugated else t*a
     value = sm.DotProduct(parent, b)
-    function = sm.jax_lambdify((a, b, t), (value, value.diff(t)), jit=jit)
+    function = sm.extra.jax_lambdify((a, b, t), (value, value.diff(t)), jit=jit)
     real_a = jnp.arange(6, dtype=jnp.float32).reshape(2, 1, 3)
     real_b = jnp.arange(9, dtype=jnp.float32).reshape(1, 3, 3)
     av = .1+.2*real_a+1j*(-.3+.1*real_a)
@@ -743,7 +743,7 @@ def test_analytic_matrix_exponential_defective_complex_batching_and_gradients(ji
     t = sm.Symbol("t", real=True)
     generator = sm.ImmutableMatrix([[1+sm.I, 2, 0], [0, 1+sm.I, -sm.I], [0, 0, 1+sm.I]])
     exponential = (t*generator).exp()
-    function = sm.jax_lambdify(t, (exponential, exponential.diff(t)), jit=jit)
+    function = sm.extra.jax_lambdify(t, (exponential, exponential.diff(t)), jit=jit)
     value = jnp.asarray([[-.3, 0., .1], [.4, .7, .9]], dtype=jnp.float32)
     dense_generator = jnp.asarray([[1+1j, 2, 0], [0, 1+1j, -1j], [0, 0, 1+1j]], dtype=jnp.complex64)
     def reference(argument):

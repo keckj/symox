@@ -1,14 +1,14 @@
-# Implémentation de l’API SymPy, section par section
+# SymPy API implementation by section
 
-[Inventaire mesuré](sympy-api.md) · [Comportements et limites des nouveaux modules](api-implementation.md) · [README](../README.md)
+[Measured inventory](sympy-api.md) · [Module behavior and limitations](api-implementation.md) · [README](../README.md)
 
-Mesure du 2026-10-18 contre SymPy 1.14.0. L’audit initial reste disponible dans le commit `e2a1816`.
+Measured on 2026-10-19 against SymPy 1.14.0. The initial audit remains available in commit `e2a1816`.
 
-311 chemins : 301 importables avec des exports mesurables, 0 manquants, 9 sans exports mesurables et 1 erreur dans la référence. 0 lignes ont encore des noms absents.
+310 module paths: 301 importable with measurable exports, 0 missing, 9 without measurable exports and 0 reference import errors. No measured rows have missing names. The incorrect upstream `Arch` module entry is recorded as a documentation correction and measured as the `Arch` class in `continuum_mechanics.arch`.
 
-Les nombres mesurent la présence des noms. Ils ne vérifient ni les signatures ni les comportements. Les lignes se recouvrent : leurs nombres ne s’additionnent pas en une couverture globale. Les chemins sans exports et les erreurs de référence restent visibles.
+These counts measure name presence. They do not verify signatures or behavior. Rows overlap and cannot be added into global coverage. Paths without exports and genuine reference errors remain explicit. See the [algorithmic parity contract](algorithmic-parity.md) for the stronger acceptance criteria.
 
-| Section | Chemins | Chemins absents | Lignes avec noms absents |
+| Section | Paths | Missing paths | Rows with missing names |
 |---|---:|---:|---:|
 | [root](#root) | 1 | 0 | 0 |
 | [abc](#abc) | 1 | 0 | 0 |
@@ -32,7 +32,7 @@ Les nombres mesurent la présence des noms. Ils ne vérifient ni les signatures 
 | [matrices](#matrices) | 8 | 0 | 0 |
 | [ntheory](#ntheory) | 14 | 0 | 0 |
 | [parsing](#parsing) | 3 | 0 | 0 |
-| [physics](#physics) | 68 | 0 | 0 |
+| [physics](#physics) | 67 | 0 | 0 |
 | [plotting](#plotting) | 3 | 0 | 0 |
 | [polys](#polys) | 17 | 0 | 0 |
 | [printing](#printing) | 31 | 0 | 0 |
@@ -50,9 +50,9 @@ Les nombres mesurent la présence des noms. Ils ne vérifient ni les signatures 
 <details>
 <summary>root</summary>
 
-Les 921 exports de premier niveau sont présents. Ce résultat ne garantit pas leurs signatures ni leurs comportements.
+All 921 top-level exports are present. This does not guarantee compatible signatures or behavior.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -60,9 +60,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>abc</summary>
 
-Le module fournit les 76 symboles latins/grecs préconstruits et les dictionnaires _clash. Le compteur 0/0 ne mesure pas ces constantes : le chemin existe désormais, mais N/A reste N/A.
+The module provides 76 predefined Latin/Greek symbols and the `_clash` dictionaries. The 0/0 count does not measure these constants: the path exists, but N/A remains N/A.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -70,9 +70,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>algebras</summary>
 
-Aucun raccordement manquant dans la surface inventoriée.
+No missing connections in the inventoried surface.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -80,9 +80,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>assumptions</summary>
 
-Prédicats et relations binaires extensibles, faits CNF et helpers refine sont reliés au moteur natif. Les règles disponibles restent celles du moteur et des handlers enregistrés.
+Extensible predicates and binary relations, CNF facts and refine helpers connect to the native engine. Available rules remain those of the engine and registered handlers.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -90,9 +90,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>calculus</summary>
 
-Les 17 exports mesurés sont raccordés, dont AccumBounds et euler_equations. Les sous-modules mesurés sont également complets en noms.
+All 17 measured exports are connected, including `AccumBounds` and `euler_equations`. Measured submodules also have complete name presence.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -100,9 +100,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>categories</summary>
 
-Aucun raccordement manquant dans les deux chemins mesurés.
+No missing connections in the two measured paths.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -110,9 +110,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>codegen</summary>
 
-AST de programmes, types, déclarations, boucles, fonctions et nœuds C/Fortran ajoutés. Réécritures numériques, méthode de Newton et générateurs C, Fortran, Python, Rust, Julia et Octave présents. Voir le guide des comportements et limites.
+Program ASTs, types, declarations, loops, functions and C/Fortran nodes are available. Numerical rewrites, Newton methods and C, Fortran, Python, Rust, Julia and Octave generators are connected. See the behavior and limitations guide. Custom tensor/GPU extensions live in `symox.extra`.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -120,9 +120,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>combinatorics</summary>
 
-Constructeurs de groupes transitifs de degrés 5 et 6, nombres de groupes, Gray/RGS et helpers de stabilisateurs ajoutés. La canonisation tensorielle effectue une exploration exacte bornée des orbites signées.
+Transitive group constructors of degrees 5 and 6, group counts, Gray/RGS and stabilizer helpers are available. Tensor canonicalization uses bounded exact exploration of signed orbits.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -130,9 +130,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>core</summary>
 
-Types et métadonnées, hypothèses, singletons, facteurs, parcours et helpers numériques sont ajoutés. Les tuples de précision evalf adaptent le moteur natif ; ils ne constituent pas une certification par intervalles.
+Types and metadata, assumptions, singletons, factors, traversal and numerical helpers are connected. The evalf precision tuples adapt the native engine; they are not interval certificates.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -140,9 +140,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>crypto</summary>
 
-Aucun raccordement manquant dans les deux chemins mesurés.
+No missing connections in the two measured paths.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -150,9 +150,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>diffgeom</summary>
 
-Aucun raccordement manquant dans la surface inventoriée.
+No missing connections in the inventoried surface.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -160,9 +160,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>discrete</summary>
 
-Aucun raccordement manquant dans les trois chemins mesurés.
+No missing connections in the three measured paths.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -170,9 +170,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>functions</summary>
 
-Classes de familles de fonctions reliées aux expressions natives, décomposition réelle des fonctions prises en charge et corrections numériques de bêta incomplète.
+Function-family classes connect to native expressions, with real decomposition for supported functions and numerical incomplete-beta corrections.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -180,9 +180,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>geometry</summary>
 
-GeometrySet et les classes intermédiaires LinearEntity2D/3D sont intégrés à la hiérarchie. Matrices de rotation, translation et mise à l’échelle, recherche de symbole et coplanarité sont implémentées.
+`GeometrySet` and the intermediate `LinearEntity2D`/`LinearEntity3D` classes are integrated into the hierarchy. Rotation, translation and scaling matrices, symbol lookup and coplanarity are implemented.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -190,9 +190,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>holonomic</summary>
 
-Aucun raccordement manquant dans la surface inventoriée.
+No missing connections in the inventoried surface.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -200,9 +200,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>integrals</summary>
 
-Intégration exacte des polynômes sur polygones et polyèdres, moments et helpers de facettes ajoutés. Les adaptateurs Meijer utilisent l’intégration native et conservent les échecs ou conditions non résolus.
+Exact polynomial integration over polygons and polyhedra, moments and facet helpers are available. Meijer adapters use native integration and preserve unresolved failures or conditions.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -210,9 +210,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>interactive</summary>
 
-Transformation des entiers et création automatique de symboles reliées aux sessions Python/IPython. Les hooks IPython nécessitent son installation.
+Integer transformation and automatic symbol creation connect to Python/IPython sessions. IPython hooks require its optional installation.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -220,9 +220,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>liealgebras</summary>
 
-Aucun raccordement manquant dans la surface inventoriée.
+No missing connections in the inventoried surface.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -230,9 +230,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>logic</summary>
 
-Les bases de connaissances propositionnelles utilisent la mise en forme CNF et le solveur SAT local. gateinputcount et les évaluations logiques partielles sont ajoutés.
+Propositional knowledge bases use CNF conversion and the local SAT solver. `gateinputcount` and partial logical evaluation are available.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -240,9 +240,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>matrices</summary>
 
-MatrixKind, MatrixSet, CompanionMatrix et les réécritures de matrices par blocs sont ajoutés. Les classes de représentation adaptent les matrices natives ; les nouveaux objets ne remplacent pas le moteur natif.
+`MatrixKind`, `MatrixSet`, `CompanionMatrix` and block matrix rewrites are connected. Representation classes adapt native matrices; the new objects do not replace the native engine.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -250,9 +250,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>ntheory</summary>
 
-digits est raccordé à ntheory.factor_. Aucun nom manquant dans les chemins mesurés.
+`digits` connects to `ntheory.factor_`. No names are missing in measured paths.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -260,9 +260,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>parsing</summary>
 
-SymPyExpression analyse un sous-ensemble explicite des programmes numériques C et Fortran et génère un AST exécutable. Les constructions hors grammaire sont rejetées.
+`SymPyExpression` parses an explicit subset of numerical C and Fortran programs and generates an executable AST. Unsupported grammar constructs are rejected.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -270,9 +270,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>physics</summary>
 
-Aucun nom manquant dans les chemins importables mesurés. Le chemin amont continuum_mechanics.Arch avec une majuscule échoue dans SymPy lui-même ; conserver N/A, ne pas inventer un faux export. La présence des noms ne supprime pas les limites du guide Physics.
+No names are missing in the measured importable paths. The upstream inventory incorrectly labels the `Arch` class as a module. Its correct path is `symox.physics.continuum_mechanics.arch.Arch`, which is available. Name presence does not remove the limitations described in the physics guide.
 
-- `symox.physics.continuum_mechanics.Arch` : N/A, import en échec dans la référence.
+No missing names in the measured paths.
 
 </details>
 
@@ -280,9 +280,9 @@ Aucun nom manquant dans les chemins importables mesurés. Le chemin amont contin
 <details>
 <summary>plotting</summary>
 
-Validation des arguments et fabrique de tracés reliées aux objets Plot existants. Les dépendances graphiques restent optionnelles.
+Argument validation and plot construction connect to existing Plot objects. Graphics dependencies remain optional.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -290,9 +290,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>polys</summary>
 
-Polynômes d’Appell exacts, configuration locale de contexte, stockage DDM/SDM/DFM, noyaux de calcul dense/creux, systèmes linéaires polynomiaux et morphismes de modules ajoutés. DFM utilise le moteur Symox : aucun backend FLINT n’est revendiqué.
+Exact Appell polynomials, context-local configuration, DDM/SDM/DFM storage, dense/sparse computation kernels, polynomial linear systems and module morphisms are connected. DFM uses the Symox engine; no FLINT backend is claimed.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -300,9 +300,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>printing</summary>
 
-Printers Python/NumPy/mpmath, C89/C99/C11, Fortran et Rust ajoutés avec rendu des nœuds de programme. Protocoles pretty, conventions, précédences et mappings des autres langages sont reliés aux printers. Le backend Aesara demande son installation optionnelle.
+Python/NumPy/mpmath, C89/C99/C11, Fortran and Rust printers include program-node rendering. Pretty protocols, conventions, precedence and other language mappings connect to the printers. Aesara requires its optional package. Custom backend printers live in `symox.extra.printing`; compatible SymPy printing paths remain available.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -310,9 +310,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>series</summary>
 
-Aucun raccordement manquant dans les deux chemins inventoriés. Le rapport ne couvre pas tous les sous-modules internes.
+No missing connections in the two inventoried paths. The report does not cover every internal submodule.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -320,9 +320,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>sets</summary>
 
-SetKind, les régions complexes cartésiennes/polaires et la normalisation angulaire sont ajoutés. L’arithmétique élément par élément utilise des règles d’intervalles, l’énumération finie ou des images symboliques.
+`SetKind`, Cartesian/polar complex regions and angle normalization are available. Elementwise arithmetic uses interval rules, finite enumeration or symbolic images.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -330,9 +330,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>simplify</summary>
 
-Helpers CSE, combinaisons de sommes/produits, radicaux et réduction trigonométrique par Gröbner ajoutés. Les opérateurs hypergéométriques et Meijer utilisent de véritables polynômes différentiels ; le catalogue de formules reste limité.
+CSE helpers, sum/product combination, radicals and Gröbner trigonometric reduction are connected. Hypergeometric and Meijer operators use actual differential polynomials; the formula catalog remains limited.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -340,9 +340,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>solvers</summary>
 
-Solveur linéaire exact à deux phases, avec contraintes d’égalité, bornes et variables libres, ajouté dans simplex. Helpers de solveset, constantes et conditions initiales, récurrences de séries ODE et résolution de systèmes non linéaires triangulaires sont reliés aux API. Les limites des séries de Frobenius et des systèmes couplés sont documentées.
+An exact two-phase linear programming solver supports equality constraints, bounds and free variables in `simplex`. Solveset helpers, constants and initial conditions, ODE series recurrences and triangular nonlinear systems connect to the APIs. Frobenius series and coupled-system limitations are documented.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -350,9 +350,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>stats</summary>
 
-Domaines et espaces de probabilité finis/continus ajoutés, reliés à pspace et aux moteurs d’espérance/probabilité. Les lois jointes finies gardent leur dépendance pendant les calculs et l’échantillonnage. Les limites de Statistics restent applicables.
+Finite/continuous domains and probability spaces connect to `pspace` and expectation/probability engines. Finite joint distributions retain dependencies during calculations and sampling. The statistics guide limitations still apply.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -360,9 +360,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>tensor</summary>
 
-Expressions abstraites de tableaux, conversions matricielles/indexées, opérations d’axes et dérivation par composantes ajoutées. Les tailles symboliques restent paresseuses ; la matérialisation est bornée. Les conversions indexées générales restent limitées.
+Abstract array expressions, matrix/indexed conversions, axis operations and component derivatives are connected. Symbolic sizes remain lazy; materialization is bounded. General indexed conversions remain limited.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -370,9 +370,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>testing</summary>
 
-Adaptateurs pytest, doctest et tests aléatoires exécutables. Ils utilisent les runners Python disponibles et ne reproduisent pas toute l’infrastructure interne de tests SymPy.
+Executable pytest, doctest and randomized-test adapters use the available Python runners. They do not reproduce SymPy's entire internal testing infrastructure.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -380,9 +380,9 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>utilities</summary>
 
-Mémoïsation, avertissements, utilitaires de source et de chaînes ajoutés. lambdastr et implemented_function sont reliés aux calculs numériques. codegen, autowrap/f2py et ufuncify NumPy compilent de véritables routines ; Cython reste une dépendance optionnelle.
+Memoization, warnings, source and string utilities are connected. `lambdastr` and `implemented_function` connect to numerical calculations. `codegen`, `autowrap`/f2py and NumPy `ufuncify` compile real routines; Cython remains optional.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>
 
@@ -390,8 +390,8 @@ Aucun nom absent dans les chemins mesurés.
 <details>
 <summary>vector</summary>
 
-Aucun raccordement manquant dans la surface inventoriée.
+No missing connections in the inventoried surface.
 
-Aucun nom absent dans les chemins mesurés.
+No missing names in the measured paths.
 
 </details>

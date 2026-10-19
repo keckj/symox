@@ -133,6 +133,13 @@ pub(crate) fn re_im(a: &Expr, want_re: bool) -> Option<Expr> {
         return Some(if want_re { a.clone() } else { Expr::zero() });
     }
     if holds(a, "imaginary") || holds(&i_times(a), "extended_real") {
+        if !want_re && matches!(a.kind(),Kind::Pow(..)) {
+            // Keep the principal imaginary power as an argument, matching
+            // im(z)=-I*z. Canonical multiplication would rewrite sqrt(n) to
+            // sqrt(-n) for negative n and change the public expression tree.
+            return Some(Expr::from_unevaluated_kind(Kind::Mul(Number::MINUS_ONE,
+                vec![(Expr::i(),Expr::one()),(a.clone(),Expr::one())])));
+        }
         return Some(if want_re { Expr::zero() } else { minus_i_times(a) });
     }
     if let Kind::Func(Func::Conjugate, args) = a.kind() {

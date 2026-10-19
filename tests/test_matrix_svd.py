@@ -145,7 +145,7 @@ def test_finite_scalar_codegen_and_independent_numpy_reconstruction():
     p = sx.Symbol('p', positive=True)
     matrix = p*sx.ImmutableMatrix([[1, sx.I, 2], [sx.I, 1, 0]])
     u, sigma, v = matrix.singular_value_decomposition()
-    for generate in [sx.torchcode_function, sx.jaxcode_function]:
+    for generate in [sx.extra.torchcode_function, sx.extra.jaxcode_function]:
         source = generate('exact_svd', p, (u, sigma, v))
         ast.parse(source)
         assert 'symox' not in source and 'sympy' not in source
