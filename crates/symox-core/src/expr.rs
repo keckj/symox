@@ -582,6 +582,7 @@ impl Expr {
         match &kind {
             Kind::Num(n) => n.hash(&mut h),
             Kind::Sym(s) => {
+                if s.wild_properties().is_some()||s.exclude().iter().any(Expr::has_wild_properties){features|=128;}
                 s.hash(&mut h);
                 mask = if s.is_dummy() { 1u64 << (h.finish() % 64) } else { sym_bit(s.name()) };
             }
@@ -763,6 +764,7 @@ impl Expr {
     pub fn has_held_arithmetic(&self)->bool {self.0.features & 16 != 0}
     pub fn has_nonfinite(&self)->bool {self.0.features & 32 != 0}
     pub(crate) fn has_wide_exponent(&self)->bool {self.0.features & 64 != 0}
+    pub fn has_wild_properties(&self)->bool {self.0.features & 128 != 0}
     pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
 
     /// Conservative unchanged-child check for transforms preserving public args.

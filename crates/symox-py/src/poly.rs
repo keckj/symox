@@ -1690,15 +1690,26 @@ fn sqf_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Opt
     checked_factor_views::global_list(f,gens,modulus,_kwargs,true)
 }
 
-fn list_items(f: &Bound<'_, PyAny>) -> Option<Vec<Expr>> {
-    if f.downcast::<PyList>().is_ok() || f.downcast::<PyTuple>().is_ok() {
-        let mut v = Vec::new();
-        for x in f.try_iter().ok()? {
-            v.push(to_expr(&x.ok()?).ok()?);
-        }
-        return Some(v);
+fn list_items(f: &Bound<'_, PyAny>) -> PyResult<Option<Vec<Expr>>> {
+    if f.is_instance_of::<PyList>() || f.is_instance_of::<PyTuple>()
+        || f.is_instance_of::<pyo3::types::PySet>() || f.is_instance_of::<pyo3::types::PyFrozenSet>() {
+        return f.try_iter()?.map(|x| to_expr(&x?)).collect::<PyResult<Vec<_>>>().map(Some);
     }
-    None
+    if let Ok(value)=f.downcast::<crate::PyExprNode>() {
+        return Ok(match value.get().e.kind() {
+            symox::Kind::Func(symox::Func::Undefined(head),items) if head.is_internal("Tuple")=>Some(items.to_vec()),
+            _=>None,
+        });
+    }
+    // Read the already loaded reference container through the conversion
+    // protocol; this does not import or execute reference polynomial code.
+    let ty=f.get_type();
+    let module=ty.module()?.to_string();let name=ty.name()?.to_string();
+    if (module.starts_with("sympy.") && matches!(name.as_str(),"Tuple"|"FiniteSet"|"EmptySet"))
+        || (module=="symox" && matches!(name.as_str(),"FiniteSet"|"EmptySetSet")) {
+        return f.getattr("args")?.try_iter()?.map(|x|to_expr(&x?)).collect::<PyResult<Vec<_>>>().map(Some);
+    }
+    Ok(None)
 }
 
 fn poly_result(py: Python<'_>, e: Expr, as_poly: bool, gens: &[Expr]) -> PyResult<PyObject> {
@@ -1728,11 +1739,12 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
     }
     let as_poly = f.downcast::<PyPoly>().is_ok();
     let mut gv = gens_of(gens)?;
-    if let Some(items) = list_items(f) {
+    if let Some(items) = list_items(f)? {
         if let Some(g) = g {
             gv.insert(0, to_expr(g)?);
         }
-        let mut acc = Expr::zero();
+        let mut items=items.into_iter();
+        let mut acc = items.next().unwrap_or_else(Expr::zero);
         for x in items {
             acc = api::gcd(&acc, &x, &gv).map_err(err)?;
         }
@@ -1764,11 +1776,12 @@ fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
     }
     let as_poly = f.downcast::<PyPoly>().is_ok();
     let mut gv = gens_of(gens)?;
-    if let Some(items) = list_items(f) {
+    if let Some(items) = list_items(f)? {
         if let Some(g) = g {
             gv.insert(0, to_expr(g)?);
         }
-        let mut acc = Expr::one();
+        let mut items=items.into_iter();
+        let mut acc = items.next().unwrap_or_else(Expr::one);
         for x in items {
             acc = api::lcm(&acc, &x, &gv).map_err(err)?;
         }
@@ -1827,7 +1840,7 @@ fn collect(expr:&Bound<'_,PyAny>,syms:&Bound<'_,PyAny>,func:Option<&Bound<'_,PyA
     if func.is_some_and(|value|!value.is_callable()){return Err(PyTypeError::new_err("collect func must be callable"));}
     let mut callback=|value:&Expr|->PyResult<Expr>{to_expr(&func.unwrap().call1((w(value.clone()),))?)};
     let callback=if func.is_some(){Some(&mut callback as &mut dyn FnMut(&Expr)->PyResult<Expr>)}else{None};
-    let result=collect::run(&e,&patterns,Options{exact:exact.unwrap_or(false),discover:exact.is_none(),distribute_order_term},evaluate.unwrap_or(true),callback).map_err(|error|match error{Error::Unsupported(message)=>PyNotImplementedError::new_err(message),Error::Callback(error)=>error})?;
+    let result=collect::run(&e,&patterns,Options{exact:exact.unwrap_or(false),discover:exact.is_none(),distribute_order_term},evaluate.unwrap_or(true),callback).map_err(|error|match error{Error::Unsupported(message)=>PyNotImplementedError::new_err(message),Error::Callback(error)=>error,Error::Pattern(error)=>crate::wildcards::to_python_error(error)})?;
     let py=expr.py();
     match result{
         Collection::Expression(value)=>Ok(w(value).into_pyobject(py)?.into_any().unbind()),

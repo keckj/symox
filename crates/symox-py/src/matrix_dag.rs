@@ -115,6 +115,7 @@ impl<'py> Encoder<'py>{
                 Kind::Num(n)=>("s.number",vec![number(py,n)?]),
                 Kind::Sym(s)=>match s.dummy_index(){
                     Some(index)=>("s.dummy.facts",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,index.clone())?]),
+                    None if s.wild_properties().is_some()=>("s.wild.properties",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,self.scalars(s.exclude()))?,crate::wildcards::properties(py,s)?.into_any().unbind()]),
                     None=>("s.symbol.facts",vec![obj(py,s.name())?,obj(py,s.given_facts().bits())?,obj(py,s.is_wild())?,obj(py,self.scalars(s.exclude()))?]),
                 },
                 Kind::Const(c)=>("s.constant",vec![obj(py,c.name())?]),
@@ -192,6 +193,16 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
                 "s.number"=>{arity(1)?;Kind::Num(read_number(&f.get_item(0)?)?)},
                 "s.symbol"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let given=assumptions(f.get_item(1)?.extract()?)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}Kind::Sym(if wild{Symbol::wild_with_facts(&name,exclude,Symbol::with_assumptions(&name,given).given_facts()).map_err(invalid)?}else{Symbol::with_assumptions(&name,given)})},
                 "s.dummy"=>{arity(3)?;Kind::Sym(Symbol::dummy_with_index(&f.get_item(0)?.extract::<String>()?,assumptions(f.get_item(1)?.extract()?)?,f.get_item(2)?.extract()?))},
+                "s.wild.properties"=>{
+                    arity(4)?;let name:String=f.get_item(0)?.extract()?;
+                    let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;
+                    let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;
+                    let exclude=ss(2)?;let values=f.get_item(3)?.downcast_into::<PyTuple>().map_err(|_|invalid("wildcard properties must be a tuple"))?;
+                    Kind::Sym(match crate::wildcards::intern(&values)?{
+                        Some(properties)=>Symbol::wild_with_properties(&name,exclude,given,properties).map_err(invalid)?,
+                        None=>Symbol::wild_with_facts(&name,exclude,given).map_err(invalid)?,
+                    })
+                },
                 "s.symbol.facts"=>{arity(4)?;let name:String=f.get_item(0)?.extract()?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;let wild:bool=f.get_item(2)?.extract()?;let exclude=ss(3)?;if !wild&&!exclude.is_empty(){return Err(invalid("ordinary symbol cannot have wildcard exclusions"));}Kind::Sym(if wild{Symbol::wild_with_facts(&name,exclude,given).map_err(invalid)?}else{Symbol::with_facts(&name,given).map_err(invalid)?})},
                 "s.dummy.facts"=>{arity(3)?;let(known,truth):(u32,u32)=f.get_item(1)?.extract()?;let given=symox::assumption_facts::FactSet::from_bits(known,truth).map_err(invalid)?;Kind::Sym(Symbol::dummy_with_facts(&f.get_item(0)?.extract::<String>()?,given,Some(f.get_item(2)?.extract()?)).map_err(invalid)?)},
                 "s.constant"=>{arity(1)?;Kind::Const(constant(&f.get_item(0)?.extract::<String>()?)?)},

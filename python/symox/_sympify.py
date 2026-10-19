@@ -21,8 +21,8 @@ def _unicode_space(source):
 
 def make_sympify(original):
     def sympify(a,locals=None,convert_xor=True,strict=False,rational=False,evaluate=None):
-        from ._public_core import SympifyError,_evaluation
-        if isinstance(a,_core.Expr):return a
+        from ._public_core import SympifyError,_evaluation,Dict
+        if isinstance(a,(_core.Expr,Dict)):return a
         for cls in type(a).__mro__:
             conversion=converter.get(cls)
             if conversion is not None:return conversion(a)

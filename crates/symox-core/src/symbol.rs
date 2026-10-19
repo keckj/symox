@@ -239,6 +239,15 @@ fn next_dummy_index(reserve: Option<&BigInt>) -> BigInt {
     })
 }
 
+/// Errors raised by a wildcard's host-language predicates remain distinguishable
+/// from a failed match. Implementations own their predicates and immutable ID.
+pub type WildcardError = Box<dyn std::error::Error + Send + Sync>;
+pub trait WildcardProperties: Send + Sync + fmt::Debug {
+    fn identity(&self) -> u64;
+    fn evaluate(&self, candidate: &crate::expr::Expr) -> Result<bool, WildcardError>;
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
 /// A symbol: a name plus assumptions. Dereferences to its name.
 ///
 /// Identity uses the name, closed assumptions, and optional Dummy index.
@@ -255,6 +264,7 @@ pub struct Symbol {
     hash_extra: Option<crate::assumption_facts::FactSet>,
     /// `Some(exclude)` for pattern wildcards (`Wild('a', exclude=[x])`).
     wild: Option<Arc<Vec<crate::expr::Expr>>>,
+    wild_properties: Option<Arc<dyn WildcardProperties>>,
     /// Explicit identity of a Dummy; ordinary symbols never infer this from a name.
     dummy_index: Option<Arc<BigInt>>,
 }
@@ -273,7 +283,7 @@ impl Symbol {
         let facts=given_facts.closure()?;
         let known=facts.legacy();
         let hash_extra=(crate::assumption_facts::FactSet::from_legacy(known).closure()?!=facts).then_some(facts);
-        Ok(Self{name:Arc::from(name),given:given_facts.legacy(),known,given_facts,facts,hash_extra,wild:None,dummy_index:None})
+        Ok(Self{name:Arc::from(name),given:given_facts.legacy(),known,given_facts,facts,hash_extra,wild:None,wild_properties:None,dummy_index:None})
     }
     pub fn facts(&self)->crate::assumption_facts::FactSet{self.facts}
     pub fn given_facts(&self)->crate::assumption_facts::FactSet{self.given_facts}
@@ -283,6 +293,7 @@ impl Symbol {
             .then_with(||self.facts.iter().cmp(other.facts.iter()))
             .then_with(||self.dummy_index.cmp(&other.dummy_index))
             .then_with(||self.wild.cmp(&other.wild))
+            .then_with(||self.properties_identity().cmp(&other.properties_identity()))
     }
     pub fn dummy_with_facts(name:&str,given:crate::assumption_facts::FactSet,index:Option<BigInt>)->Result<Self,String>{
         let mut symbol=Self::with_facts(name,given)?;
@@ -346,6 +357,16 @@ impl Symbol {
         Ok(symbol)
     }
 
+    pub fn wild_with_properties(name: &str, exclude: Vec<crate::expr::Expr>, given: crate::assumption_facts::FactSet,
+        properties: Arc<dyn WildcardProperties>) -> Result<Symbol,String> {
+        let mut symbol=Self::wild_with_facts(name,exclude,given)?;
+        symbol.wild_properties=Some(properties);
+        Ok(symbol)
+    }
+
+    pub fn wild_properties(&self) -> Option<&Arc<dyn WildcardProperties>> { self.wild_properties.as_ref() }
+    fn properties_identity(&self) -> Option<u64> { self.wild_properties.as_ref().map(|p|p.identity()) }
+
     #[inline]
     pub fn is_wild(&self) -> bool {
         self.wild.is_some()
@@ -382,6 +403,7 @@ impl PartialEq for Symbol {
         self.name == o.name
             && self.facts == o.facts
             && self.dummy_index == o.dummy_index
+            && self.properties_identity() == o.properties_identity()
             && match (&self.wild, &o.wild) {
                 (None, None) => true,
                 (Some(a), Some(b)) => a == b,
@@ -404,6 +426,7 @@ impl Ord for Symbol {
             .then(self.facts.cmp(&o.facts))
             .then(self.dummy_index.cmp(&o.dummy_index))
             .then_with(|| self.wild.cmp(&o.wild))
+            .then_with(|| self.properties_identity().cmp(&o.properties_identity()))
     }
 }
 
@@ -420,6 +443,7 @@ impl Hash for Symbol {
             0xa11du16.hash(h);
             w.len().hash(h);
         }
+        if let Some(properties)=&self.wild_properties { properties.identity().hash(h); }
     }
 }
 

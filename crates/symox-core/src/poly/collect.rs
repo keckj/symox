@@ -14,8 +14,9 @@ impl Default for Options {fn default()->Self{Self{exact:false,discover:false,dis
 #[derive(Clone,Debug)]
 pub enum Collection { Expression(Expr), Dictionary(Vec<(Expr,Expr)>) }
 #[derive(Debug)]
-pub enum Error<E>{Unsupported(String),Callback(E)}
+pub enum Error<E>{Unsupported(String),Callback(E),Pattern(crate::pattern::MatchError)}
 impl<E> From<String> for Error<E>{fn from(message:String)->Self{Self::Unsupported(message)}}
+impl<E> From<crate::pattern::MatchError> for Error<E>{fn from(error:crate::pattern::MatchError)->Self{Self::Pattern(error)}}
 
 type Callback<'a,E>=Option<&'a mut dyn FnMut(&Expr)->Result<Expr,E>>;
 
@@ -198,7 +199,7 @@ impl Collector {
         Ok(pairs)
     }
 
-    fn partition(&mut self,e:&Expr)->Result<Vec<(Expr,Expr)>,String>{
+    fn partition<E>(&mut self,e:&Expr)->Result<Vec<(Expr,Expr)>,Error<E>>{
         let order=if self.options.distribute_order_term{crate::series::get_o(e).filter(|o|!self.patterns.iter().any(|p|crate::traverse::has(o,p)))}else{None};
         let expression=if order.is_some(){crate::series::remove_o(e)}else{e.clone()};
         let terms=if expression.is_add(){ordered_args(&expression)}else{vec![expression]};
@@ -247,20 +248,21 @@ fn parse_factor(e:&Expr)->Result<ParsedFactor,String>{
 /// Match product factors without substituting Wilds into the expression.
 /// Each factor comparison has its own bindings, as in reference collect;
 /// the actual matched factors, not the pattern, become the dictionary key.
-fn match_factors(factors:&[Expr],parsed:&[ParsedFactor],pattern:&Expr,exact:bool)->Result<Option<(Expr,Expr)>,String>{
+fn match_factors<E>(factors:&[Expr],parsed:&[ParsedFactor],pattern:&Expr,exact:bool)->Result<Option<(Expr,Expr)>,Error<E>>{
     let patterns=if pattern.is_mul(){ordered_args(pattern)}else{vec![pattern.clone()]};
     if parsed.len()<patterns.len(){return Ok(None);}
     let mut taken=vec![false;parsed.len()];
     for pattern in patterns{
         let pattern=parse_factor(&pattern)?;
         if pattern.base.is_number()&&pattern.exponent.is_one()&&pattern.symbolic.is_none(){continue;}
-        let found=parsed.iter().enumerate().position(|(index,term)|{
-            if taken[index]||crate::pattern::pattern_match(&term.base,&pattern.base).is_none(){return false;}
+        let mut found=None;
+        for(index,term)in parsed.iter().enumerate(){
+            if taken[index]||crate::pattern::pattern_match(&term.base,&pattern.base)?.is_none(){continue;}
             let symbolic=match (&term.symbolic,&pattern.symbolic){
-                (None,None)=>true,(Some(a),Some(b))=>crate::pattern::pattern_match(a,b).is_some(),_=>false,
+                (None,None)=>true,(Some(a),Some(b))=>crate::pattern::pattern_match(a,b)?.is_some(),_=>false,
             };
-            symbolic&&(!exact||term.exponent==pattern.exponent&&term.derivative==pattern.derivative)
-        });
+            if symbolic&&(!exact||term.exponent==pattern.exponent&&term.derivative==pattern.derivative){found=Some(index);break;}
+        }
         let Some(index)=found else{return Ok(None)};
         taken[index]=true;
     }

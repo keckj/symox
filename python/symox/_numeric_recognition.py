@@ -85,8 +85,12 @@ def nsimplify(expr, constants=(), tolerance=None, full=False, rational=None,
         matrix_constants=tuple(constants)
         return expression.applyfunc(lambda entry: nsimplify(entry,constants=matrix_constants,
             tolerance=tolerance,full=full,rational=rational,rational_conversion=rational_conversion))
-    if rational is True:
+    if rational is True or expression.free_symbols:
         return _rationalize(expression,tol,rational_conversion)
+    # Numeric recognition requires the reference evalf protocol. A container
+    # without it must not become an unrelated held scalar through _symox_.
+    if not hasattr(expression,'evalf'):
+        raise AttributeError("'%s' object has no attribute 'evalf'" % type(expression).__name__)
     if tol is not None:
         raise NotImplementedError('Explicit tolerance for irrational recognition is not implemented')
     if full:

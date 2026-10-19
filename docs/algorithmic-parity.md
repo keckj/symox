@@ -209,6 +209,16 @@ preserving their exact operand arithmetic remains an open obligation.
 Arbitrary module overrides and all numerical-callable domains remain separate
 parity obligations.
 
+Polynomial `gcd` and `lcm` accept native symbolic tuples and finite sets as
+sequence inputs, preserving coefficient conversion errors. Nonempty reductions
+start with the first input, so single negative terms and rational LCMs retain
+the reference normalization. Sequence options and all coefficient domains still
+require their own behavioral audit. Symbolic `Dict` values retain their mapping
+identity during sympification and expose atom traversal. `nsimplify` takes the
+exact rationalization path for expressions with free symbols, including mapping
+keys and values, before attempting numerical recognition. General container
+protocols and full irrational recognition remain separate obligations.
+
 Permutation groups now expose `generate`, `generate_dimino`, `random`,
 `conjugacy_class` and `conjugacy_classes`. Dimino generation builds incremental
 subgroup cosets, retaining output-sized storage. A conjugacy class is an orbit
@@ -252,10 +262,17 @@ for constructing every stabilizer chain.
   distinctions and full set-valued solution-family coverage still need a
   versioned behavioral audit. Supported Lambert families do not establish parity
   for arbitrary mixtures of powers, exponentials and logarithms.
-- Wildcard matching does not yet accept the reference `Wild(properties=...)`
-  predicates used by ChemPy. Predicate checks must preserve valid alternatives
-  during matching; ignoring them or rejecting only the first completed match
-  would not establish equivalent behavior.
+- Native `Wild(properties=...)` now checks ordered Python predicates at binding
+  time, after exclusions, and continues commutative backtracking on rejection.
+  Free wildcards can absorb groups or neutral elements; canonical reciprocal
+  coefficients are matched without a floating-point conversion. Predicate
+  errors propagate through matching, replacement, discovery and collection.
+  Owned predicate tuples participate in symbol identity and survive native
+  expression and matrix serialization. This covers ChemPy's scalar coefficient
+  constraint, not a global matching certificate. General commutative matching
+  can require exponential partition search; comparative complexity, repeated
+  side-effectful predicates, exotic unhashable callable arithmetic and the
+  complete nominal subclass hierarchy remain uncertified.
 - Retaining an undecidable exact residual preserves possible solutions but is
   not an exact proof that the candidate is valid. A general exact algebraic and
   branch-aware verification engine remains necessary.

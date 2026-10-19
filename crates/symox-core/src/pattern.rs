@@ -13,6 +13,9 @@ use crate::subs::xreplace;
 use crate::traverse::{has, map_children};
 
 pub type Bindings = Vec<(Expr, Expr)>;
+pub type MatchError = crate::symbol::WildcardError;
+#[derive(Default)]
+struct Context { error: Option<MatchError> }
 
 fn is_wild(e: &Expr) -> bool {
     e.as_sym().is_some_and(|s| s.is_wild())
@@ -36,7 +39,7 @@ fn lookup<'a>(b: &'a Bindings, w: &Expr) -> Option<&'a Expr> {
     b.iter().find(|(k, _)| k == w).map(|(_, v)| v)
 }
 
-fn bind(w: &Expr, e: &Expr, b: &mut Bindings) -> bool {
+fn bind(w: &Expr, e: &Expr, b: &mut Bindings, context: &mut Context) -> bool {
     if let Some(v) = lookup(b, w) {
         return v == e;
     }
@@ -44,51 +47,64 @@ fn bind(w: &Expr, e: &Expr, b: &mut Bindings) -> bool {
     if s.exclude().iter().any(|x| has(e, x)) {
         return false;
     }
+    if let Some(properties)=s.wild_properties() {
+        match properties.evaluate(e) {
+            Ok(true)=>{}, Ok(false)=>return false,
+            Err(error)=>{context.error=Some(error);return false;},
+        }
+    }
     b.push((w.clone(), e.clone()));
     true
 }
 
 /// Match `e` against pattern `p`; returns the wildcard bindings.
-pub fn pattern_match(e: &Expr, p: &Expr) -> Option<FxHashMap<Expr, Expr>> {
+pub fn pattern_match(e: &Expr, p: &Expr) -> Result<Option<FxHashMap<Expr, Expr>>,MatchError> {
     let mut b = Bindings::new();
-    if m(e, p, &mut b) {
-        Some(b.into_iter().collect())
-    } else {
-        None
-    }
+    let mut context=Context::default();
+    let matched=m(e,p,&mut b,&mut context);
+    if let Some(error)=context.error { return Err(error); }
+    Ok(matched.then(||b.into_iter().collect()))
 }
 
-fn m(e: &Expr, p: &Expr, b: &mut Bindings) -> bool {
+fn m(e: &Expr, p: &Expr, b: &mut Bindings, context: &mut Context) -> bool {
+    if context.error.is_some(){return false;}
     if !has_wild(p) {
         return e == p;
     }
     if is_wild(p) {
-        return bind(p, e, b);
+        return bind(p, e, b, context);
     }
     match p.kind() {
-        Kind::Add(..) => match_add(e, p, b),
-        Kind::Mul(..) => match_mul(e, p, b),
+        Kind::Add(..) => match_add(e, p, b, context),
+        Kind::Mul(..) => match_mul(e, p, b, context),
         Kind::Pow(pb, pe) => {
             if let Kind::Pow(eb, ee) = e.kind() {
                 let save = b.len();
-                if m(eb, pb, b) && m(ee, pe, b) {
+                if m(eb, pb, b, context) && m(ee, pe, b, context) {
                     return true;
                 }
                 b.truncate(save);
             }
             // x matches x**a with a = 1
             let save = b.len();
-            if m(e, pb, b) && m(&Expr::one(), pe, b) {
+            if (has_wild(pe)||pe.is_one()) && m(e, pb, b, context) && m(&Expr::one(), pe, b, context) {
                 return true;
             }
             b.truncate(save);
+            // Canonical numeric reciprocals are numbers rather than Pow nodes.
+            // Zero has no reciprocal match in the reference convention.
+            if pe.is_minus_one()&&!e.is_zero(){
+                let inverse=crate::ops::inv(e);
+                if m(&inverse,pb,b,context){return true;}
+                b.truncate(save);
+            }
             false
         }
         Kind::Func(f, pargs) => match e.kind() {
             Kind::Func(g, eargs) if f == g && pargs.len() == eargs.len() => {
                 let save = b.len();
                 for (x, y) in eargs.iter().zip(pargs) {
-                    if !m(x, y, b) {
+                    if !m(x, y, b, context) {
                         b.truncate(save);
                         return false;
                     }
@@ -104,7 +120,7 @@ fn m(e: &Expr, p: &Expr, b: &mut Bindings) -> bool {
             }
             let save = b.len();
             for (x, y) in ea.iter().zip(&pa) {
-                if !m(x, y, b) {
+                if !m(x, y, b, context) {
                     b.truncate(save);
                     return false;
                 }
@@ -124,15 +140,18 @@ fn assign(
     neutral: &Expr,
     combine: &dyn Fn(&[Expr]) -> Expr,
     b: &mut Bindings,
+    context: &mut Context,
 ) -> bool {
+    if context.error.is_some(){return false;}
     if let Some((p0, prest)) = pats.split_first() {
         for i in 0..items.len() {
+            if context.error.is_some(){return false;}
             if used[i] {
                 continue;
             }
             let save = b.len();
             used[i] = true;
-            if m(&items[i], p0, b) && assign(items, used, prest, lone, neutral, combine, b) {
+            if m(&items[i], p0, b, context) && assign(items, used, prest, lone, neutral, combine, b, context) {
                 return true;
             }
             used[i] = false;
@@ -140,7 +159,7 @@ fn assign(
         }
         // the pattern item may match the neutral element (0 or 1)
         let save = b.len();
-        if m(neutral, p0, b) && assign(items, used, prest, lone, neutral, combine, b) {
+        if m(neutral, p0, b, context) && assign(items, used, prest, lone, neutral, combine, b, context) {
             return true;
         }
         b.truncate(save);
@@ -167,26 +186,62 @@ fn assign(
         Some((last, firsts)) => {
             // all but the last free wildcard take one item each
             if firsts.is_empty() {
-                return m(&combine(&left), last, b);
+                return m(&combine(&left), last, b, context);
             }
             let save = b.len();
             for i in 0..left.len() {
-                if m(&left[i], &firsts[0], b) {
+                if context.error.is_some(){return false;}
+                if m(&left[i], &firsts[0], b, context) {
                     let mut rest = left.clone();
                     rest.remove(i);
                     let mut used2 = vec![false; rest.len()];
-                    if assign(&rest, &mut used2, &[], &unbound[1..], neutral, combine, b) {
+                    if assign(&rest, &mut used2, &[], &unbound[1..], neutral, combine, b, context) {
                         return true;
                     }
                 }
                 b.truncate(save);
+            }
+            if m(neutral,&firsts[0],b,context) {
+                let mut used=vec![false;left.len()];
+                if assign(&left,&mut used,&[],&unbound[1..],neutral,combine,b,context){return true;}
+            }
+            b.truncate(save);
+            // A constrained wildcard can need a group of terms, rather than
+            // a singleton. Enumerate subsets lazily without a size cutoff.
+            for size in 2..=left.len(){
+                let mut chosen=Vec::with_capacity(size);
+                if assign_group(&left,&unbound,size,0,&mut chosen,neutral,combine,b,context){return true;}
+                if context.error.is_some(){return false;}
             }
             false
         }
     }
 }
 
-fn match_add(e: &Expr, p: &Expr, b: &mut Bindings) -> bool {
+fn assign_group(items:&[Expr],wilds:&[Expr],remaining:usize,start:usize,chosen:&mut Vec<usize>,neutral:&Expr,
+    combine:&dyn Fn(&[Expr])->Expr,b:&mut Bindings,context:&mut Context)->bool {
+    if context.error.is_some(){return false;}
+    if remaining==0 {
+        let selected=chosen.iter().map(|&i|items[i].clone()).collect::<Vec<_>>();
+        let save=b.len();
+        if m(&combine(&selected),&wilds[0],b,context){
+            let rest=items.iter().enumerate().filter(|(i,_)|chosen.binary_search(i).is_err()).map(|(_,e)|e.clone()).collect::<Vec<_>>();
+            let mut used=vec![false;rest.len()];
+            if assign(&rest,&mut used,&[],&wilds[1..],neutral,combine,b,context){return true;}
+        }
+        b.truncate(save);return false;
+    }
+    for index in start..=items.len()-remaining {
+        chosen.push(index);
+        if assign_group(items,wilds,remaining-1,index+1,chosen,neutral,combine,b,context){return true;}
+        chosen.pop();
+        if context.error.is_some(){return false;}
+    }
+    false
+}
+
+fn match_add(e: &Expr, p: &Expr, b: &mut Bindings, context: &mut Context) -> bool {
+    if context.error.is_some(){return false;}
     let items: Vec<Expr> = match e.kind() {
         Kind::Add(..) => e.args(),
         _ => vec![e.clone()],
@@ -206,14 +261,15 @@ fn match_add(e: &Expr, p: &Expr, b: &mut Bindings) -> bool {
     let (lone, pats): (Vec<Expr>, Vec<Expr>) = wilds.into_iter().partition(is_wild);
     let mut used = vec![false; items.len()];
     let save = b.len();
-    let ok = assign(&items, &mut used, &pats, &lone, &Expr::zero(), &|v: &[Expr]| add(v), b);
+    let ok = assign(&items, &mut used, &pats, &lone, &Expr::zero(), &|v: &[Expr]| add(v), b, context);
     if !ok {
         b.truncate(save);
     }
     ok
 }
 
-fn match_mul(e: &Expr, p: &Expr, b: &mut Bindings) -> bool {
+fn match_mul(e: &Expr, p: &Expr, b: &mut Bindings, context: &mut Context) -> bool {
+    if context.error.is_some(){return false;}
     let pargs = p.args();
     let (fixed, wilds): (Vec<Expr>, Vec<Expr>) = pargs.into_iter().partition(|t| !has_wild(t));
     // divide out the fixed factors; they must actually be present
@@ -258,7 +314,7 @@ fn match_mul(e: &Expr, p: &Expr, b: &mut Bindings) -> bool {
     let (lone, pats): (Vec<Expr>, Vec<Expr>) = wilds.into_iter().partition(is_wild);
     let mut used = vec![false; items.len()];
     let save = b.len();
-    let ok = assign(&items, &mut used, &pats, &lone, &Expr::one(), &|v: &[Expr]| mul(v), b);
+    let ok = assign(&items, &mut used, &pats, &lone, &Expr::one(), &|v: &[Expr]| mul(v), b, context);
     if !ok {
         b.truncate(save);
     }
@@ -267,44 +323,100 @@ fn match_mul(e: &Expr, p: &Expr, b: &mut Bindings) -> bool {
 
 /// Replace every sub-expression matching `pattern` (bottom-up) by
 /// `f(bindings)`.
-pub fn replace_with(e: &Expr, pattern: &Expr, f: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>) -> Expr {
+pub fn replace_with(e: &Expr, pattern: &Expr, f: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Result<Option<Expr>,MatchError>) -> Result<Expr,MatchError> {
+    let mut error=None;
     let rebuilt = if e.is_atom() {
         e.clone()
     } else {
-        map_children(e, &mut |c| replace_with(c, pattern, f))
+        map_children(e, &mut |c| {
+            if error.is_some(){return c.clone();}
+            match replace_with(c,pattern,f){Ok(value)=>value,Err(value)=>{error=Some(value);c.clone()}}
+        })
     };
-    if let Some(bind) = pattern_match(&rebuilt, pattern) {
-        if let Some(r) = f(&bind, &rebuilt) {
-            return r;
+    if let Some(error)=error{return Err(error);}
+    if let Some(bind) = pattern_match(&rebuilt, pattern)? {
+        if let Some(r) = f(&bind, &rebuilt)? {
+            return Ok(r);
         }
     }
-    rebuilt
+    Ok(rebuilt)
 }
 
 /// `expr.replace(pattern, template)`: substitute the bindings into the
 /// template.
-pub fn replace(e: &Expr, pattern: &Expr, template: &Expr) -> Expr {
+pub fn replace(e: &Expr, pattern: &Expr, template: &Expr) -> Result<Expr,MatchError> {
     if !has_wild(pattern) {
-        return crate::subs::subs1(e, pattern, template);
+        return Ok(crate::subs::subs1(e, pattern, template));
     }
-    replace_with(e, pattern, &mut |bind, _| Some(xreplace(template, bind)))
+    replace_with(e, pattern, &mut |bind, _| Ok(Some(xreplace(template, bind))))
 }
 
 /// All sub-expressions matching `pattern`.
-pub fn find(e: &Expr, pattern: &Expr) -> Vec<Expr> {
+pub fn find(e: &Expr, pattern: &Expr) -> Result<Vec<Expr>,MatchError> {
     let mut out: Vec<Expr> = Vec::new();
-    crate::traverse::preorder(e, &mut |s| {
-        if pattern_match(s, pattern).is_some() && !out.contains(s) {
-            out.push(s.clone());
-        }
-    });
-    out
+    let mut pending=vec![e.clone()];
+    let mut seen=rustc_hash::FxHashSet::default();
+    while let Some(node)=pending.pop(){
+        if !seen.insert(node.dag_id()){continue;}
+        if pattern_match(&node,pattern)?.is_some()&&!out.contains(&node){out.push(node.clone());}
+        pending.extend(node.args().into_iter().rev());
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::prelude::*;
+
+    #[derive(Debug)]
+    struct Predicate {
+        id: u64,
+        check: fn(&Expr) -> Result<bool, MatchError>,
+    }
+
+    impl crate::symbol::WildcardProperties for Predicate {
+        fn identity(&self) -> u64 { self.id }
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn evaluate(&self, value: &Expr) -> Result<bool, MatchError> { (self.check)(value) }
+    }
+
+    fn constrained(name: &str, id: u64, check: fn(&Expr) -> Result<bool, MatchError>) -> Expr {
+        Expr::from_kind(Kind::Sym(crate::symbol::Symbol::wild_with_properties(
+            name, vec![], crate::assumption_facts::FactSet::EMPTY,
+            std::sync::Arc::new(Predicate { id, check }),
+        ).unwrap()))
+    }
+
+    #[test]
+    fn constrained_commutative_partitions_and_neutral_elements() {
+        let a = constrained("a", 1, |v| Ok(has(v, &Expr::symbol("x")) && has(v, &Expr::symbol("y"))));
+        let b = constrained("b", 2, |v| Ok(v.is_number()));
+        let grouped = parse_str("x+y+1").unwrap();
+        let bindings = pattern_match(&grouped, &add(&[a.clone(), b.clone()])).unwrap().unwrap();
+        assert_eq!(bindings[&a], parse_str("x+y").unwrap());
+        assert_eq!(bindings[&b], Expr::one());
+        let grouped = parse_str("3*x*y").unwrap();
+        let bindings = pattern_match(&grouped, &mul(&[a.clone(), b.clone()])).unwrap().unwrap();
+        assert_eq!(bindings[&a], parse_str("x*y").unwrap());
+        assert_eq!(bindings[&b], Expr::int(3));
+
+        let zero = constrained("a", 3, |v| Ok(v.is_zero()));
+        let rest = Expr::wild("z", vec![]);
+        let value = parse_str("x+y").unwrap();
+        let bindings = pattern_match(&value, &add(&[zero.clone(), rest.clone()])).unwrap().unwrap();
+        assert_eq!(bindings[&zero], Expr::zero());
+        assert_eq!(bindings[&rest], value);
+    }
+
+    #[test]
+    fn predicate_errors_survive_matching_and_traversal() {
+        let a = constrained("a", 4, |_| Err(std::io::Error::other("predicate sentinel").into()));
+        let value = parse_str("sin(x)+2").unwrap();
+        assert_eq!(pattern_match(&value, &a).unwrap_err().to_string(), "predicate sentinel");
+        assert_eq!(find(&value, &a).unwrap_err().to_string(), "predicate sentinel");
+        assert_eq!(replace(&value, &a, &Expr::zero()).unwrap_err().to_string(), "predicate sentinel");
+    }
 
     fn mm(e: &str, p: &str) -> String {
         let a = Expr::wild("a", vec![]);
@@ -317,7 +429,7 @@ mod tests {
         for (n, w) in &env {
             pe = subs(&pe, &[(Expr::symbol(n), w.clone())]);
         }
-        let r = pattern_match(&parse_str(e).unwrap(), &pe);
+        let r = pattern_match(&parse_str(e).unwrap(), &pe).unwrap();
         match r {
             None => "None".into(),
             Some(m) => {

@@ -17,6 +17,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 mod series;
 mod python_hash;
 mod expression_inspection;
+mod wildcards;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -539,7 +540,7 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
                 let index: BigInt = obj.getattr("dummy_index")?.extract()?;
                 Ok(py_dummy(Some(&name), Some(index), assumptions)?.e)
             } else if head == "Wild" {
-                Ok(py_wild(&name,Some(&obj.getattr("exclude")?),Some(&obj.getattr("properties")?),assumptions)?.e)
+                Ok(py_wild(obj.py(),&name,Some(&obj.getattr("exclude")?),Some(&obj.getattr("properties")?),assumptions)?.e)
             } else { Ok(py_symbol(&name, assumptions)?.e) };
         }
         if matches!(head.as_str(), "Add" | "Mul" | "Pow" | "UnevaluatedExpr") {
@@ -727,7 +728,10 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
                 if let Some((key, value)) = keyword.split_once('=') { kwargs.set_item(key, value == "True")?; }
             }
             if let Some(index) = s.dummy_index() { kwargs.set_item("dummy_index", index)?; }
-            if s.is_wild() { kwargs.set_item("exclude", convert_args(s.exclude())?)?; }
+            if s.is_wild() {
+                kwargs.set_item("exclude", convert_args(s.exclude())?)?;
+                kwargs.set_item("properties",wildcards::properties(py,s)?)?;
+            }
             sm.getattr(if s.is_dummy() { "Dummy" } else if s.is_wild() { "Wild" } else { "Symbol" })?.call((s.name(),), Some(&kwargs))
         }
         Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) => {
@@ -1077,6 +1081,7 @@ impl PyExprNode {
     }
 
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
+        if self.e.has_wild_properties(){wildcards::check_hashable(py,&self.e)?;}
         match self.e.kind() {
             Kind::Num(Number::Float(value)) => return value.into_pyobject(py)?.hash(),
             Kind::Num(number) => if let Some(hash) = python_hash::exact_hash(number) { return Ok(hash); },
@@ -1452,7 +1457,7 @@ impl PyExprNode {
         if !self.e.as_sym().is_some_and(|s|s.is_wild()) {
             return Err(pyo3::exceptions::PyAttributeError::new_err("only wildcards have properties"));
         }
-        Ok(PyTuple::empty(py))
+        wildcards::properties(py,self.e.as_sym().unwrap())
     }
     #[getter]
     fn dummy_index(&self) -> PyResult<BigInt> {
@@ -1788,7 +1793,7 @@ impl PyExprNode {
     #[pyo3(name = "match")]
     fn py_match<'py>(&self, py: Python<'py>, pattern: &Bound<'py, PyAny>) -> PyResult<Option<Bound<'py, PyDict>>> {
         let p = to_expr(pattern)?;
-        match symox::pattern::pattern_match(&self.e, &p) {
+        match symox::pattern::pattern_match(&self.e, &p).map_err(wildcards::to_python_error)? {
             None => Ok(None),
             Some(m) => {
                 let d = PyDict::new(py);
@@ -1808,31 +1813,19 @@ impl PyExprNode {
         match pat {
             Ok(p) => {
                 if let Ok(v) = to_expr(value) {
-                    return Ok(wrap(symox::pattern::replace(&self.e, &p, &v)));
+                    return Ok(wrap(symox::pattern::replace(&self.e, &p, &v).map_err(wildcards::to_python_error)?));
                 }
                 if !value.is_callable() {
                     return Err(PyTypeError::new_err("replacement must be an expression or a callable"));
                 }
-                let mut err: Option<PyErr> = None;
                 let r = symox::pattern::replace_with(&self.e, &p, &mut |bind, _| {
                     let kw = PyDict::new(py);
                     for (k, v) in bind {
                         let name = k.as_sym().map(|s| s.name().to_string()).unwrap_or_default();
-                        if kw.set_item(name, wrap(v.clone())).is_err() {
-                            return None;
-                        }
+                        kw.set_item(name, wrap(v.clone()))?;
                     }
-                    match value.call((), Some(&kw)).and_then(|r| to_expr(&r)) {
-                        Ok(e) => Some(e),
-                        Err(e) => {
-                            err = Some(e);
-                            None
-                        }
-                    }
-                });
-                if let Some(e) = err {
-                    return Err(e);
-                }
+                    Ok(Some(to_expr(&value.call((), Some(&kw))?)?))
+                }).map_err(wildcards::to_python_error)?;
                 Ok(wrap(r))
             }
             Err(_) => {
@@ -1866,7 +1859,7 @@ impl PyExprNode {
     /// Sub-expressions matching a pattern.
     fn find<'py>(&self, py: Python<'py>, pattern: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PySet>> {
         let p = to_expr(pattern)?;
-        PySet::new(py, symox::pattern::find(&self.e, &p).into_iter().map(wrap))
+        PySet::new(py, symox::pattern::find(&self.e, &p).map_err(wildcards::to_python_error)?.into_iter().map(wrap))
     }
 
     fn xreplace(&self, rule: &Bound<'_, PyDict>) -> PyResult<PyExpr> {
@@ -2516,12 +2509,9 @@ fn py_dummy(name: Option<&str>, dummy_index: Option<BigInt>, assumptions: Option
 
 #[pyfunction]
 #[pyo3(name = "Wild", signature = (name, exclude=None, properties=None, **assumptions))]
-fn py_wild(name: &str, exclude: Option<&Bound<'_, PyAny>>, properties: Option<&Bound<'_, PyAny>>, assumptions:Option<&Bound<'_,PyDict>>) -> PyResult<PyExpr> {
-    if let Some(properties)=properties {
-        if properties.try_iter()?.next().transpose()?.is_some() {
-            return Err(PyNotImplementedError::new_err("Wildcard predicate properties are not implemented"));
-        }
-    }
+fn py_wild(py:Python<'_>,name: &str, exclude: Option<&Bound<'_, PyAny>>, properties: Option<&Bound<'_, PyAny>>, assumptions:Option<&Bound<'_,PyDict>>) -> PyResult<PyExpr> {
+    let predicates=if let Some(values)=properties{PyTuple::new(py,values.try_iter()?.collect::<PyResult<Vec<_>>>()?)?}else{PyTuple::empty(py)};
+    let predicates=wildcards::intern(&predicates)?;
     let mut ex = Vec::new();
     if let Some(it) = exclude {
         for x in it.try_iter()? {
@@ -2529,7 +2519,11 @@ fn py_wild(name: &str, exclude: Option<&Bound<'_, PyAny>>, properties: Option<&B
         }
     }
     let given=py_symbol("",assumptions)?.e.as_sym().unwrap().given_facts();
-    Ok(wrap(Expr::from_kind(Kind::Sym(symox::Symbol::wild_with_facts(name,ex,given).map_err(PyValueError::new_err)?))))
+    let symbol=match predicates {
+        Some(properties)=>symox::Symbol::wild_with_properties(name,ex,given,properties),
+        None=>symox::Symbol::wild_with_facts(name,ex,given),
+    }.map_err(PyValueError::new_err)?;
+    Ok(wrap(Expr::from_kind(Kind::Sym(symbol))))
 }
 
 #[pyfunction]

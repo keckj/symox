@@ -82,11 +82,11 @@ def test_symbols_honors_wild_and_custom_constructors():
     with pytest.raises(TypeError):sx.symbols('x',cls=object())
 
 
-def test_unsupported_predicate_properties_raise_instead_of_being_ignored():
-    with pytest.raises(NotImplementedError,match='properties'):
-        sx.Wild('a',properties=[lambda value:value.is_positive])
-    with pytest.raises(NotImplementedError,match='properties'):
-        sx.sympify(sp.Wild('a',properties=[lambda value:value.is_positive]))
+def test_predicate_properties_are_enforced_in_native_and_foreign_patterns():
+    for a in [sx.Wild('a',properties=[lambda value:value.is_positive]),
+              sx.sympify(sp.Wild('a',properties=[lambda value:value.is_positive]))]:
+        assert sx.Integer(2).match(a)=={a:sx.Integer(2)}
+        assert sx.Integer(-2).match(a) is None
     assert sx.Wild('a',properties=[]).properties==()
     with pytest.raises(AttributeError):_ = sx.Symbol('x').exclude
 
@@ -106,5 +106,11 @@ assert (3*x).match(a*x)=={a:Integer(3)}
 assert (a+x).find(Wild)=={a}
 assert pickle.loads(pickle.dumps(a))==a
 assert sympify("Wild('a',exclude=[Symbol('x')],positive=True)")==a
+def integer_value(value):return value.is_integer
+a=Wild('constrained',properties=[integer_value])
+assert Integer(3).match(a)=={a:Integer(3)}
+assert Rational(1,2).match(a) is None
+assert pickle.loads(pickle.dumps(a)).properties==(integer_value,)
+assert gcd(Tuple(6,9))==3 and lcm(Tuple(6,9))==18
 '''
     subprocess.run([sys.executable,'-c',source],check=True)

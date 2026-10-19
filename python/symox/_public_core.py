@@ -126,6 +126,13 @@ class Dict(Mapping):
     def free_symbols(self):
         return set().union(*(k.free_symbols | v.free_symbols for k,v in self._data.items()))
 
+    def atoms(self,*types):
+        from ._expr_methods import _structural_nodes
+        from ._structural_queries import matcher
+        selectors=[matcher(t if isinstance(t,type) else type(t),matching=False) for t in types]
+        return {node for node in _structural_nodes(self)
+                if (any(select(node) for select in selectors) if types else not getattr(node,'args',()))}
+
     def _symox_(self):
         return _core._apply('Dict',*self.args)
 

@@ -216,7 +216,8 @@ fn rewrite(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &E
         nc
     });
     if h & r.heads == r.heads {
-        if let Some(bind) = crate::pattern::pattern_match(&rebuilt, &r.pat) {
+        if let Some(bind) = crate::pattern::pattern_match(&rebuilt, &r.pat)
+            .expect("built-in trigonometric patterns have no host predicates") {
             if let Some(v) = accept(&bind, &rebuilt) {
                 let hv = heads(&v);
                 return (v, hv);
