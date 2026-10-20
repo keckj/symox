@@ -120,6 +120,7 @@ def _from_terms(terms,gens,domain,modulus,extension):
 def _data(rep,gens,domain,modulus,extension):
     from . import sympify
     from ._core import DomainElement,Domain
+    from ._node_types import is_native_node
     def coefficient(value):
         # Domain elements deliberately reject implicit scalar/float coercion.
         # Their parent provides the exact expression embedding.
@@ -141,7 +142,9 @@ def _data(rep,gens,domain,modulus,extension):
         values=[coefficient(value) for value in rep]
         if (modulus is None and extension is None and
                 (domain is None or isinstance(domain,(str,Domain)) and str(domain) in ('ZZ','QQ')) and
-                all(value.is_Rational for value in values)):
+                all(is_native_node(value) and value.is_Rational for value in values)):
+            # Only native rationals take the dense constructor: host objects
+            # that forward ``is_Rational`` keep the general expression path.
             return Poly._from_dense_rational(values,gens[0],None if domain is None else str(domain))
         terms={(len(values)-1-i,):value for i,value in enumerate(values)}
     return _from_terms(terms,gens,domain,modulus,extension)

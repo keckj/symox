@@ -124,3 +124,26 @@ def test_nominal_classes_take_the_reuse_paths():
     assert _core._exact_expr_key(hosted) is None
     assert _core._exact_expr_key((2*Colored('c'), x)) is None
     assert not _core._exact_expr_args(hosted)
+
+
+def _forwarding_wrapper(module):
+    class Wrapped:
+        # A host wrapper that forwards every attribute to the expression it
+        # holds, like Lcapy's expressions; ``sympify`` returns it unchanged.
+        def __init__(self, value):
+            self.sympy = module.Integer(value)
+
+        def __getattr__(self, attr):
+            return getattr(self.sympy, attr)
+
+    return Wrapped
+
+
+def test_dense_polynomial_construction_keeps_forwarding_wrappers_on_the_general_path():
+    results = []
+    for module in (sympy, sx):
+        Wrapped = _forwarding_wrapper(module)
+        x = module.Symbol('x')
+        poly = module.Poly(module.sympify([Wrapped(1), Wrapped(2), Wrapped(3)]), x)
+        results.append((str(poly.as_expr()), str(poly.domain), poly.all_coeffs()))
+    assert str(results[0]) == str(results[1])

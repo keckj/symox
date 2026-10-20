@@ -349,13 +349,14 @@ classes have remaining gaps:
   sympifies the string, where the reference raises `TypeError`.
 - The strict-mode error message of the code printers names `_core.Matrix` for
   explicit matrices.
-- Measured on 2026-10-20: Devito's `tests/test_symbolics.py` passes 24 of 136
-  tests (before: none, the import failed); most remaining failures need
-  instance attributes on `Relational` and `Add` subclasses (`_subdomain`, `.d`)
-  and the items above. Torch's `test/test_sympy_utils.py` has 37 failures
-  (reference: none): 33 are the `exp(2**63)` gap above, 4 need user
-  `_eval_is_integer`, `SingletonInt._eval_Eq` and the `expand` hint
-  `identity`.
+- Measured on 2026-10-20 after integrating the subclass, host-hook,
+  performance and singleton-class work: Devito's `tests/test_symbolics.py`
+  passes 27 of 136 tests (before: none, the import failed); most remaining
+  failures need instance attributes on `Relational` and `Add` subclasses
+  (`_subdomain`, `.d`) and the items above. Torch's `test/test_sympy_utils.py`
+  has 34 failures (reference: none): 33 are the `exp(2**63)` gap above and 1
+  needs the user `SingletonInt._eval_Eq` hook (`Eq(SingletonInt(1),
+  SingletonInt(2))` stays unevaluated instead of `False`).
 
 N-dimensional array subclasses follow the reference construction protocol
 (`__new__` through `cls._new`, then `__init__`, with `_array`, `_shape`,
