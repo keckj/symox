@@ -1,6 +1,6 @@
 """Native printing helpers adapted from SymPy 1.14; see LICENSE-SYMPY."""
 from symox import Basic
-from symox import Expr
+from symox._expr_facade import Expr
 from symox import Symbol
 from symox import Integer, Rational, Float
 from symox.printing.repr import srepr

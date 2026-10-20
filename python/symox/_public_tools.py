@@ -35,7 +35,8 @@ def public(obj):
 def _threaded(func,use_add):
     @wraps(func)
     def operation(expr,*args,**kwargs):
-        from . import Expr,Add,sympify
+        from . import Add, sympify
+        from ._core import Expr
         if hasattr(expr,'applyfunc') and not isinstance(expr,Expr):
             return expr.applyfunc(lambda e:func(e,*args,**kwargs))
         if isinstance(expr,(list,tuple,set,frozenset)):

@@ -355,6 +355,10 @@ fn method(e: &Expr, args: &[Expr], rule: &str) -> Option<Expr> {
 }
 
 fn func_method(f: &Func, orig: &[Expr], args: &[Expr], rule: &str, this: &Expr) -> Option<Expr> {
+    // ITE._eval_rewrite_as_Piecewise
+    if matches!(f, Func::Logic(LogicOp::ITE)) && rule == "Piecewise" && args.len() == 3 {
+        return Some(pw(vec![(args[1].clone(), args[0].clone()), (args[2].clone(), Expr::boolean(true))]));
+    }
     if let Func::Special(s)=f {if let Some(value)=super::advanced::rewrite(*s,args,rule){return Some(value);}}
     if args.len() == 1 {
         let a = &args[0];

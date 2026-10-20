@@ -11,7 +11,7 @@ from .str import StrPrinter
 
 class PythonPrinter(StrPrinter):
     printmethod='_pythoncode'
-    def __init__(self,settings=None,**kwargs):super().__init__(settings,**kwargs);self.symbols=[];self.functions=[]
+    def __init__(self,settings=None):super().__init__(settings);self.symbols=[];self.functions=[]
     def _print_Symbol(self,expr):
         if expr not in self.symbols:self.symbols.append(expr)
         return expr.name

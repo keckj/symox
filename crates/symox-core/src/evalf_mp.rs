@@ -128,9 +128,11 @@ impl MpComplex {
     }
 
     pub(crate) fn exp(&self, p: u32) -> Option<MpComplex> {
-        // Keep exponential results inside a decimal exponent magnitude of
-        // one million, matching the native decimal constructor's bound.
-        if self.re.abs().cmp(&BigFloat::from_i64(2_000_000)) == std::cmp::Ordering::Greater { return None; }
+        // Evaluate real parts up to 2**40 in magnitude, a binary result
+        // exponent near 1.6e12. Products and powers of such results stay far
+        // inside the i64 exponent range. mpmath exponents are unbounded, so
+        // SymPy also evaluates exp(2**63); that remains a documented gap.
+        if self.re.abs().cmp(&BigFloat::from_i64(1 << 40)) == std::cmp::Ordering::Greater { return None; }
         let r = self.re.checked_exp(p + 10)?;
         if self.im.is_zero() {
             return Some(MpComplex::real(r.round_to(p)));
@@ -258,6 +260,17 @@ pub fn substitute_for_evalf(e: &Expr, pairs: &[(Expr, Expr)]) -> Expr {
 /// Evaluate a numeric expression to `prec` bits. Returns `None` when the
 /// expression has free symbols or uses an unsupported function.
 pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
+    eval_mp_bounded(e, prec, true)
+}
+
+/// `eval_mp` for callers that only inspect signs and magnitudes: values
+/// beyond the decimal bound of materialized Floats are kept, as mpmath keeps
+/// them when SymPy compares `exp(16777216)` with a number.
+pub(crate) fn eval_mp_unbounded(e: &Expr, prec: u32) -> Option<MpComplex> {
+    eval_mp_bounded(e, prec, false)
+}
+
+fn eval_mp_bounded(e: &Expr, prec: u32, bounded: bool) -> Option<MpComplex> {
     if let Some((re,im))=crate::complex_parts::literal_parts(e){
         let component=|e:&Expr|match e.as_number()?{
             Number::MpFloat(value,_)=>value.checked_round_to(prec),
@@ -265,15 +278,15 @@ pub fn eval_mp(e: &Expr, prec: u32) -> Option<MpComplex> {
         };
         return Some(MpComplex{re:component(&re)?,im:component(&im)?});
     }
-    if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){return eval_mp(&crate::matrixcontraction::dot_product(a,b,true).ok()?,prec);}
+    if let Kind::Func(Func::MatrixDotProduct(a,b),_)=e.kind(){return eval_mp_bounded(&crate::matrixcontraction::dot_product(a,b,true).ok()?,prec,bounded);}
     if matches!(e.kind(),Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product,_)){
         let evaluated=crate::functions::doit(e,true);
         if evaluated==*e{return None;}
-        return eval_mp(&evaluated,prec);
+        return eval_mp_bounded(&evaluated,prec,bounded);
     }
     let wp = prec + 20;
     let r = ev(e, wp)?;
-    if !supported_magnitude(&r) { return None; }
+    if bounded && !supported_magnitude(&r) { return None; }
     Some(MpComplex { re: r.re.round_to(prec), im: r.im.round_to(prec) })
 }
 
@@ -915,9 +928,13 @@ mod tests {
         let expression = crate::ops::pow(&Expr::int(10), &exponent);
         assert!(matches!(expression.kind(), Kind::Pow(..)));
         assert_eq!(super::evalf(&expression, p), expression);
-        let boundary = Expr::from_kind(Kind::Func(Func::Exp, vec![Expr::int(2_000_000)]));
-        assert!(eval_mp(&boundary, p).is_some());
-        let outside = Expr::from_kind(Kind::Func(Func::Exp, vec![Expr::int(2_000_001)]));
-        assert!(eval_mp(&outside, p).is_none());
+        // Materialized values stay below 10**1000000; signs and magnitudes
+        // are evaluated up to exp(2**40).
+        let exp = |n: i64| Expr::from_kind(Kind::Func(Func::Exp, vec![Expr::int(n)]));
+        assert!(eval_mp(&exp(2_302_000), p).is_some());
+        assert!(eval_mp(&exp(2_303_000), p).is_none());
+        assert!(super::eval_mp_unbounded(&exp(2_303_000), p).is_some());
+        assert!(super::eval_mp_unbounded(&exp(-(1 << 40)), p).is_some_and(|v| v.re.sign() > 0));
+        assert!(super::eval_mp_unbounded(&exp((1 << 40) + 1), p).is_none());
     }
 }

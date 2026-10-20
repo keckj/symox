@@ -1,6 +1,6 @@
 """Content and presentation MathML emitted directly from native expression trees."""
 from xml.etree.ElementTree import Element,SubElement,tostring
-from .printer import Printer
+from ._legacy import LegacyPrinter as Printer
 
 
 def _tag(name,*children,text=None,**attributes):

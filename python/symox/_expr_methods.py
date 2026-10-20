@@ -132,7 +132,8 @@ def nsimplify(self, constants=(), tolerance=None, full=False):
 
 def _structural_nodes(expression):
     from ._matrixexpr_methods import _children, _TupleView
-    from . import Expr, Set, _wrap_set
+    from . import Set, _wrap_set
+    from ._core import Expr
     pending=[expression]
     seen={}
     while pending:

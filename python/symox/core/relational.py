@@ -3,11 +3,19 @@ from symox._api_exports import export as _export
 _export(globals(), 'symox', 'Eq Equality Ge GreaterThan Gt Le LessThan Lt Ne Rel Relational StrictGreaterThan StrictLessThan Unequality')
 
 
+from symox._relational_protocol import (_eval_is_ge, _n2,  # noqa: E402,F401
+                                        host_inequality as _host_inequality)
+
+
 def is_ge(lhs, rhs, assumptions=None):
     """Return a three-valued extended-real comparison without coercing inputs."""
-    from symox import Expr, Ge, Q, ask, true, false, nan
+    from symox import Ge, Q, ask, true, false, nan
+    from symox._expr_facade import Expr
     if not isinstance(lhs, Expr) or not isinstance(rhs, Expr):
         raise TypeError('Can only compare inequalities with Expr')
+    retval = _eval_is_ge(lhs, rhs)
+    if retval is not None:
+        return retval
     if lhs == nan or rhs == nan:
         return None
     def fact(value, name):

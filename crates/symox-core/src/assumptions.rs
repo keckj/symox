@@ -411,14 +411,14 @@ fn real_signs_uncached(e: &Expr) -> Option<Signs> {
 /// policy remains separate and does not enter this path.
 fn numeric_samples(e: &Expr) -> Option<(crate::evalf_mp::MpComplex, crate::evalf_mp::MpComplex, crate::bigfloat::BigFloat)> {
     exact_queries(|| {
-        let first = crate::evalf_mp::eval_mp(e,160)?;
-        let last = crate::evalf_mp::eval_mp(e,320)?;
+        let first = crate::evalf_mp::eval_mp_unbounded(e,160)?;
+        let last = crate::evalf_mp::eval_mp_unbounded(e,320)?;
         let mut scale = first.abs(320);
         let magnitude = last.abs(320);
         if magnitude.cmp(&scale).is_gt() { scale=magnitude; }
         if e.is_add() {
             for term in e.args() {
-                let magnitude=crate::evalf_mp::eval_mp(&term,320)?.abs(320);
+                let magnitude=crate::evalf_mp::eval_mp_unbounded(&term,320)?.abs(320);
                 if magnitude.cmp(&scale).is_gt() { scale=magnitude; }
             }
         }
@@ -977,6 +977,12 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
         // sign takes values in {0} and the unit circle
         Kind::Func(Func::Sign, _) => Some(true),
         Kind::Func(Func::Re | Func::Im | Func::Abs, args) => is_finite(&args[0]).filter(|finite|*finite),
+        // Sums and products of finite terms are finite (SymPy's
+        // ``Add._eval_is_finite`` and ``Mul._eval_is_finite``), whether or
+        // not they are real: 1 + I is finite, hence not extended real.
+        Kind::Add(_, terms) if terms.iter().all(|(term, _)| is_finite(term) == Some(true)) => Some(true),
+        Kind::Mul(_, factors) if factors.iter().all(|(base, exponent)| finite_power(base, exponent)) => Some(true),
+        Kind::Pow(base, exponent) if finite_power(base, exponent) => Some(true),
         _ => {
             if real_signs(e).is_some() {
                 Some(true)
@@ -985,6 +991,13 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
             }
         }
     }
+}
+
+/// A power of a finite base to a finite exponent that is nonnegative, or of
+/// a nonzero base, is finite (SymPy's ``Pow._eval_is_finite``).
+fn finite_power(base: &Expr, exponent: &Expr) -> bool {
+    is_finite(base) == Some(true) && is_finite(exponent) == Some(true)
+        && (is_nonnegative(exponent) == Some(true) || is_nonzero(base) == Some(true))
 }
 
 #[cfg(test)]

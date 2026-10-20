@@ -6,7 +6,8 @@ def init_printing(pretty_print=True,order=None,use_unicode=None,use_latex=None,w
                   num_columns=None,no_global=False,ip=None,euler=False,forecolor=None,backcolor=None,
                   fontsize=None,latex_mode='plain',print_builtin=True,str_printer=None,
                   pretty_printer=None,latex_printer=None,scale=1.0,**settings):
-    from .. import Expr,pretty,sstr,latex
+    from .. import pretty, sstr, latex
+    from .._core import Expr
     plain = str_printer or sstr
     prettify = pretty_printer or pretty
     latexify = latex_printer or latex

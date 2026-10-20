@@ -6,7 +6,7 @@ __all__ = ['fcode']
 from symox._api_exports import export as _export
 _export(globals(), 'symox.printing', 'print_fcode')
 
-from .codeprinter import CodePrinter
+from ._legacy import LegacyCodePrinter as CodePrinter
 class FCodePrinter(CodePrinter):
     language='Fortran';printmethod='_fcode';_style='fortran'
     def _print_Pow(self,expr):return '('+self._print(expr.base)+'**'+self._print(expr.exp)+')'

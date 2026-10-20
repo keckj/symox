@@ -27,8 +27,9 @@ _LIMITS = frozenset({'Integral', 'Sum', 'Product'})
 
 def function_class(value):
     """Whether ``value`` is a SymPy function class such as ``sin`` or ``Function('f')``."""
-    from . import _BuiltinFunctionHead, _is_function_head
-    if isinstance(value, _BuiltinFunctionHead):
+    from . import _is_function_head
+    from ._function_heads import is_builtin_head
+    if is_builtin_head(value):
         return value.__name__ not in _PLAIN
     return _is_function_head(value)
 
@@ -50,8 +51,8 @@ def _function_like(value):
 
 
 def _accepts(new, count):
-    from . import _BuiltinFunctionHead
-    if isinstance(new, _BuiltinFunctionHead):
+    from ._function_heads import is_builtin_head
+    if is_builtin_head(new):
         if new.__name__ in _NARGS:
             return count in _NARGS[new.__name__]
         try:

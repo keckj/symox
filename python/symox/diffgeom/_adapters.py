@@ -7,7 +7,7 @@ def install():
     import symox
     from ._tensors import _Tensor
     from ._coordinates import Point,_scalar_at,_atoms,BaseScalarField,CoordinateSymbol
-    Expr = symox.Expr
+    Expr = symox._core.Expr
     if getattr(Expr,'_diffgeom_dispatch_installed',False):
         return
     from ._coordinates import _field_atoms

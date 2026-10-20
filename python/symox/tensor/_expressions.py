@@ -7,7 +7,8 @@ from ._indexing import (_Object,TensorIndexType,TensorIndex,TensorSymmetry,
 
 
 def _scalar(value):
-    from .. import sympify,Expr
+    from .. import sympify
+    from .._core import Expr
     value=sympify(value)
     if not isinstance(value,Expr) or value.is_commutative is not True:
         raise TypeError('Tensor coefficients must be commutative native scalars')

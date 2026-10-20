@@ -11,7 +11,8 @@ def _pairs(expr):
 
 
 def piecewise_fold(expr,evaluate=True):
-    from . import Expr,Piecewise,And,Or,sympify,true
+    from . import Piecewise, And, Or, sympify, true
+    from ._core import Expr
     expr = sympify(expr)
     def visit(node):
         if not isinstance(node,Expr) or not node.args:
@@ -37,7 +38,8 @@ def piecewise_fold(expr,evaluate=True):
 
 
 def piecewise_exclusive(expr,*,skip_nan=False,deep=True):
-    from . import Expr,Piecewise,And,Or,Not,sympify,false,nan,simplify_logic
+    from . import Piecewise, And, Or, Not, sympify, false, nan, simplify_logic
+    from ._core import Expr
     expr = sympify(expr)
     def visit(node):
         if not isinstance(node,Expr) or not node.args:
@@ -152,7 +154,8 @@ def line_integrate(field,curve,vars):
 
 
 def euler_equations(L,funcs=(),vars=()):
-    from . import sympify,Expr,Dummy,Symbol,Eq,simplify
+    from . import sympify, Dummy, Symbol, Eq, simplify
+    from ._core import Expr
     L = sympify(L)
     def sequence(values):
         if isinstance(values,(tuple,list)):

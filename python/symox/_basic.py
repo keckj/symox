@@ -6,9 +6,22 @@ MRO; nominal hierarchy compatibility remains a separate obligation.
 """
 from abc import ABCMeta
 from . import _core
+from ._sympy_classes import CLASSES as _SYMPY_CLASSES
+
+
+def nominal_hash(cls):
+    """The hash of a class: classes named after a SymPy class hash by that
+    name, so that a public symox class and the nominal class of its native
+    nodes, which compare equal, hash alike (see ``_node_types``)."""
+    name = type.__dict__['__name__'].__get__(cls)
+    if name in _SYMPY_CLASSES:
+        return hash(('symox nominal class', name))
+    return type.__hash__(cls)
 
 
 class _BasicMeta(ABCMeta):
+    __hash__ = nominal_hash
+
     def __instancecheck__(cls, value):
         if cls is Basic and isinstance(value, _core.Matrix):
             return value._immutable

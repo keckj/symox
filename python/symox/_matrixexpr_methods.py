@@ -1,6 +1,7 @@
 """Structural protocols for the native, noncommutative matrix DAG."""
 from collections import Counter, defaultdict
 from ._basic import Basic
+from ._kind import matrix_tag
 
 _native_has = None
 
@@ -106,7 +107,7 @@ def _children(value):
     if getattr(value,'is_Order',False):
         arguments=value.args
         return (arguments[0],)+tuple(_TupleView(arguments[i:i+2]) for i in range(1,len(arguments),2))
-    if getattr(value, 'kind', None) == 'MatrixSymbol':
+    if matrix_tag(value) == 'MatrixSymbol':
         name, rows, cols = value.args
         return _NameAtom(name), rows, cols
     return getattr(value, 'args', ())
@@ -157,7 +158,8 @@ def _fragment(value, pattern):
 
 
 def has(self, *patterns):
-    from . import MatrixExpr, Expr, AlgebraicNumber
+    from . import MatrixExpr, AlgebraicNumber
+    from ._core import Expr
     from .combinatorics import Permutation
     from ._simptools import _head_name
     for pattern in patterns:
@@ -177,7 +179,7 @@ def has(self, *patterns):
 
 
 def has_free(self, *patterns):
-    from . import Expr
+    from ._core import Expr
     from .combinatorics import Permutation
     permutations = tuple(p for p in patterns if isinstance(p, Permutation))
     if permutations:
@@ -204,7 +206,7 @@ def has_free(self, *patterns):
 def has_xfree(self, s):
     if not isinstance(s, set):
         raise TypeError('has_xfree requires a set')
-    from . import Expr
+    from ._core import Expr
     if self in s:
         return True
     for child in _children(self):
@@ -225,7 +227,8 @@ def copy(self):
 
 
 def is_same(self, other, approx=None):
-    from . import Expr, MatrixExpr
+    from . import MatrixExpr
+    from ._core import Expr
     def same(a, b):
         if isinstance(a, MatrixExpr) or isinstance(b, MatrixExpr):
             return (isinstance(a, MatrixExpr) and isinstance(b, MatrixExpr) and
@@ -245,7 +248,8 @@ def compare(self, other):
 
 
 def _map_scalars(value, transform, memo=None, preserve_indices=False):
-    from . import Expr, MatrixExpr
+    from . import MatrixExpr
+    from ._core import Expr
     from . import _core
     if memo is None:
         memo = {}
@@ -303,7 +307,8 @@ def dummy_eq(self, other, symbol=None):
 
 
 def matches(self, expr, repl_dict=None, old=False):
-    from . import Expr, MatrixExpr
+    from . import MatrixExpr
+    from ._core import Expr
     bindings = dict(repl_dict or {})
     budget = 10000
     def visit(pattern, value):
@@ -475,7 +480,8 @@ def could_extract_minus_sign(self):
 
 
 def valid_index(self, i, j):
-    from . import sympify, Expr
+    from . import sympify
+    from ._core import Expr
     try:
         i, j = sympify(i), sympify(j)
     except (TypeError, ValueError):
@@ -639,7 +645,8 @@ def dir_(self, x, cdir):
 
 
 def integrate(self, *args, **kwargs):
-    from . import integrate as scalar_integrate, MatAdd, MatMul, FunctionMatrix, Lambda, Symbol, Expr
+    from . import integrate as scalar_integrate, MatAdd, MatMul, FunctionMatrix, Lambda, Symbol
+    from ._core import Expr
     if not args:
         candidates = {v for v in self.free_symbols if isinstance(v, Symbol)}
         if len(candidates) != 1:

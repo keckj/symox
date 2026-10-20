@@ -2,7 +2,8 @@
 
 
 def replace(self, query, value, map=False, simultaneous=True, exact=None):
-    from . import Expr, MatrixExpr, AlgebraicNumber, sympify, _is_function_head
+    from . import MatrixExpr, AlgebraicNumber, sympify, _is_function_head
+    from ._core import Expr
     from ._core import Head
     from ._matrixexpr_methods import _TupleView, _ExprCondPairView
     from ._structural_queries import _graph, matcher, _SPECIAL_HEADS, _RELATIONS

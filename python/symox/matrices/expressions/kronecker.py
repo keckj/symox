@@ -1,11 +1,12 @@
 from ..._matrixexpr import KroneckerProduct, kronecker_product
+from ..._kind import matrix_tag
 
 __all__ = ['KroneckerProduct', 'kronecker_product']
 
 
 def combine_kronecker(expr):
     from symox import MatMul,MatAdd
-    kind=getattr(expr,'kind',None)
+    kind=matrix_tag(expr)
     if kind not in ('MatMul','MatAdd'):return expr
     args=list(expr.args)
     if kind=='MatMul':

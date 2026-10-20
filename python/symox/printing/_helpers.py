@@ -19,7 +19,7 @@ from .glsl import glsl_code
 from .str import sstr
 from .pretty import pretty,pprint,pretty_print
 from .pretty.pretty import pprint_use_unicode,pprint_try_use_unicode
-from symox._core import cxxcode
+from .codeprinter import cxxcode
 from .c import ccode
 from .fortran import fcode
 from .pycode import pycode

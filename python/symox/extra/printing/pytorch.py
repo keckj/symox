@@ -10,7 +10,7 @@ optional reference tensor's device and dtype (booleans retain their dtype).
 An expression printed without ``reference=`` uses ``None`` as its reference.
 """
 
-from ...printing.printer import Printer
+from ...printing._legacy import LegacyPrinter as Printer
 
 
 class PyTorchPrinter(Printer):

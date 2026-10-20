@@ -4,7 +4,8 @@ import math
 
 
 def denoms(eq,*symbols):
-    from .. import sympify,Mul,Expr
+    from .. import sympify, Mul
+    from .._core import Expr
     from ._differential import nodes
     if len(symbols)==1 and isinstance(symbols[0],(list,tuple,set,frozenset)):
         symbols=tuple(symbols[0])
@@ -21,7 +22,8 @@ def denoms(eq,*symbols):
 
 
 def recast_to_symbols(eqs,symbols):
-    from .. import Dummy,sympify,Expr,default_sort_key
+    from .. import Dummy, sympify, default_sort_key
+    from .._core import Expr
     if isinstance(eqs,Expr) or isinstance(symbols,Expr):
         raise ValueError('Equations and symbols must both be iterable')
     equations=list(eqs);symbols=list(map(sympify,symbols))
@@ -164,8 +166,8 @@ def unrad(eq,*syms,**flags):
     change of variable retains a low-degree polynomial when possible. Root
     candidates still require substitution into the original equation.
     """
-    from .. import (sympify,Expr,Equality,Dummy,S,resultant,Poly,cancel,solve,
-                    powsimp)
+    from .. import sympify, Equality, Dummy, S, resultant, Poly, cancel, solve, powsimp
+    from .._core import Expr
     from ._differential import nodes
     take=flags.pop('take',None)
     if flags:raise NotImplementedError('Internal unrad recursion options are not supported')

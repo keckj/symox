@@ -39,7 +39,7 @@ class EPath:
 
     @staticmethod
     def _children(expr):
-        from . import Expr
+        from ._core import Expr
         if isinstance(expr, Expr):
             if expr.is_Add:
                 return list(expr.as_ordered_terms())

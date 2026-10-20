@@ -2,13 +2,14 @@
 
 
 def _children(value):
-    from ... import Expr
+    from ..._core import Expr
     from ..._matrixexpr_methods import _children as children
     return [item for item in children(value) if isinstance(item,Expr)]
 
 
 def _constant_parts(expression, constants):
-    from ... import Add, Mul, Expr
+    from ... import Add, Mul
+    from ..._core import Expr
     pending, seen, result = [expression], set(), []
     while pending:
         value = pending.pop()
@@ -99,7 +100,8 @@ def constantsimp(expr, constants):
     ``constants`` are retained. Lists and tuples follow the reference API's
     elementwise convention.
     """
-    from ... import sympify, Expr, Symbol, cse
+    from ... import sympify, Symbol, cse
+    from ..._core import Expr
     if isinstance(expr,(list,tuple,set,frozenset)):
         constants = tuple(constants)
         # SymPy's vectorized interface materializes nested sequences as lists.

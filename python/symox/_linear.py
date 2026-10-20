@@ -4,7 +4,8 @@ import itertools
 
 
 def _symbols(values, count=None):
-    from . import Expr, Matrix, sympify
+    from . import Matrix, sympify
+    from ._core import Expr
 
     if len(values) == 1 and not isinstance(values[0], Expr):
         source = values[0]
@@ -21,7 +22,8 @@ def _symbols(values, count=None):
 
 
 def _equations(value):
-    from . import Expr, Matrix, sympify
+    from . import Matrix, sympify
+    from ._core import Expr
 
     if isinstance(value, (Expr, str, int, float)):
         return [sympify(value)]

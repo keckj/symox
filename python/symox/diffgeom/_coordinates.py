@@ -160,7 +160,8 @@ class BaseScalarField(_ScalarAtom):
             source = coord_sys._input_symbols[index]
             obj._name = source.name
             obj._atom = Dummy(source.name,**source.assumptions0)
-            from .. import Expr,_diffgeom_callable_type
+            from .. import _diffgeom_callable_type
+            from .._core import Expr
             obj._atom = Expr.__new__(_diffgeom_callable_type,obj._atom)
             _fields[key] = obj
             _atoms[obj._atom] = obj

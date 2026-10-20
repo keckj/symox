@@ -4,7 +4,8 @@ from itertools import product,permutations
 import math
 import operator
 
-from .. import Expr,Integer,Rational,simplify,sympify,trigsimp,expand_trig
+from .._core import Expr
+from .. import Integer,Rational,simplify,sympify,trigsimp,expand_trig
 from ._coordinates import (_native,_scalar_in_chart,_scalar_at,_field_charts,
                            BaseScalarField,CoordSystem,Point)
 

@@ -1,6 +1,7 @@
 """Structural sets whose membership is evaluated with native scalar predicates."""
 from itertools import combinations, product
-from . import (Set, Expr, FiniteSet, EmptySet, ProductSet, Union, ImageSet,
+from ._core import Expr
+from . import (Set, FiniteSet, EmptySet, ProductSet, Union, ImageSet,
                Lambda, Interval, S, sympify, And, Or, Eq, I, re, im, Abs, arg, pi)
 
 

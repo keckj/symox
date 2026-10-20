@@ -54,7 +54,9 @@ def test_doit_releases_held_scalar_arithmetic():
 def test_native_matrix_scalar_code_and_torch_jax_sources():
     a=sm.MatrixSymbol("A",2,2)
     expr=sm.Trace(a)+sm.Determinant(a)
-    assert "Trace" not in sm.cxxcode(expr)
+    # As in SymPy, the C++ printer does not support matrix scalars.
+    with pytest.raises(NotImplementedError, match="Unsupported by .*Determinant"):
+        sm.cxxcode(expr)
     for exporter in (sm.extra.torchcode_function,sm.extra.jaxcode_function):
         source=exporter("matrix_scalar",a,expr)
         assert "Trace(" not in source and "Determinant(" not in source

@@ -11,8 +11,8 @@ def nfloat(expr, n=15, exponent=False, dkeys=False):
     dictionary keys are preserved by default. Native matrices and arrays are
     transformed entrywise; symbolic matrix dimensions and indices stay exact.
     """
-    from . import (Expr, MatrixExpr, AlgebraicNumber, Set, Interval, S, Float,
-                  Dummy, Pow, sympify, _wrap_set)
+    from . import MatrixExpr, AlgebraicNumber, Set, Interval, S, Float, Dummy, Pow, sympify, _wrap_set
+    from ._core import Expr
     from .tensor.array import NDimArray
     from ._matrixexpr_methods import _map_scalars
     from ._structural_queries import _graph, _NON_FUNCTIONS

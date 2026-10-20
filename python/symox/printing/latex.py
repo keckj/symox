@@ -1,5 +1,5 @@
 """LaTeX output using the native printer, including custom _latex hooks."""
-from .printer import Printer
+from ._legacy import LegacyPrinter as Printer
 
 class LatexPrinter(Printer):
     printmethod='_latex'

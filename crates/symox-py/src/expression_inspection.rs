@@ -21,6 +21,9 @@ pub(crate) fn classify(e:&Expr, syms:&Bound<'_,PyTuple>, kind:symox::inspection:
 
 enum Filter {
     Class(String), Function(Func), Functions, Python(PyObject),
+    // A builtin head class: its native nodes, and instances of user classes
+    // derived from it (SymPy's atoms selects subclass instances).
+    Head(Func, PyObject),
 }
 fn class_matches(e:&Expr,name:&str)->bool{
     match name{
@@ -66,7 +69,13 @@ fn filter(py:Python<'_>,value:&Bound<'_,PyAny>)->PyResult<Filter>{
     }
     if value.is_callable(){
         if let Ok(name)=value.getattr("__name__").and_then(|name|name.extract::<String>()){
-            if let Some(function)=Func::from_name(&name){return Ok(Filter::Function(function));}
+            // The public Expr class is a category checked by isinstance, not
+            // the generic expression head of the same name.
+            let category=name=="Expr"&&value.is_instance_of::<PyType>();
+            if let Some(function)=Func::from_name(&name).filter(|_|!category){
+                if value.is_instance_of::<PyType>(){return Ok(Filter::Head(function,value.clone().unbind()));}
+                return Ok(Filter::Function(function));
+            }
             if crate::defining_module(&value).starts_with("sympy."){
                 if matches!(name.as_str(),"Number"|"NumberSymbol"|"Integer"|"Rational"|"Float"|"Symbol"|"Dummy"|"Wild"|"Zero"|"One"|"NegativeOne"|"Half"|"Add"|"Mul"|"Pow"|"Tuple"){
                     return Ok(Filter::Class(name));
@@ -93,6 +102,10 @@ pub(crate) fn atoms(py:Python<'_>, e:&Expr, types:&Bound<'_,PyTuple>)->PyResult<
                 Filter::Class(name)=>class_matches(&node,name),
                 Filter::Function(function)=>matches!(node.kind(),Kind::Func(actual,_) if actual==function),
                 Filter::Functions=>function_node(&node),
+                Filter::Head(function,class)=>if node.is_host(){
+                    let value=object.get_or_insert(expr_object(py,node.clone())?);
+                    value.bind(py).is_instance(class.bind(py))?
+                }else{matches!(node.kind(),Kind::Func(actual,_) if actual==function)},
                 Filter::Python(class)=>{
                     let value=object.get_or_insert(expr_object(py,node.clone())?);
                     value.bind(py).is_instance(class.bind(py))?

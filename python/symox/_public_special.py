@@ -223,6 +223,16 @@ def install(namespace):
         return Piecewise((H0,Eq(arg,0)),(native_heaviside(arg,evaluate=evaluate),True))
     from . import _BuiltinFunctionHead
     namespace['Heaviside'] = _BuiltinFunctionHead('Heaviside', Heaviside)
+    from . import _node_types
+
+    def pargs(self):
+        # SymPy's Heaviside.pargs: the args without a default H0 of 1/2.
+        args = self.args
+        if len(args) > 1 and args[1] == Rational(1, 2):
+            args = args[:1]
+        return args
+    from . import Rational
+    type.__setattr__(_node_types.node_class('Heaviside'), 'pargs', property(pargs))
     old_evalf,old_diff,old_doit,old_rewrite = Expr.evalf,Expr.diff,Expr.doit,Expr.rewrite
     @wraps(old_evalf)
     def evalf(self,n=15,*args,**kwargs):

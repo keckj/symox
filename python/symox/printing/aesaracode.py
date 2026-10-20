@@ -5,7 +5,8 @@ compatible with the active NumPy version.
 """
 from functools import reduce
 import math
-from .printer import Printer
+from ._legacy import LegacyPrinter as Printer
+from .._kind import matrix_tag
 _global_cache={}
 
 
@@ -33,8 +34,8 @@ class AesaraPrinter(Printer):
         t=self.tensor
         if isinstance(expr,(list,tuple)):return [self._print(value) for value in expr]
         if isinstance(expr,S.Matrix):return t.stack([t.stack([self._print(value) for value in row]) for row in expr.tolist()])
-        if getattr(expr,'kind',None)=='MatrixSymbol' or getattr(expr,'is_Symbol',False):return self._symbol(expr)
-        kind=getattr(expr,'kind',None)
+        kind=matrix_tag(expr)
+        if kind=='MatrixSymbol' or getattr(expr,'is_Symbol',False):return self._symbol(expr)
         if not isinstance(kind,str):kind=getattr(expr,'class_name',type(expr).__name__)
         if kind=='MatMul':return reduce(t.dot,[self._print(value) for value in expr.args])
         if kind=='Inverse':return t.nlinalg.matrix_inverse(self._print(expr.args[0]))

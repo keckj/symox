@@ -11,6 +11,7 @@ import pytest
 import symox as sm
 from symox.codegen.ast import Assignment, CodeBlock, Comment, Indexed, IndexedBase
 from symox.printing.cxx import CXX17CodePrinter
+from symox.tensor.indexed import IndexException
 from symox.printing.precedence import PRECEDENCE, precedence
 from symox.printing.pretty import PrettyPrinter
 from symox.printing.str import StrPrinter
@@ -113,7 +114,9 @@ def test_indexed_references():
     assert isinstance(a[1, 2], Indexed)
     assert a[1, 2] == Indexed(a, 1, 2)
     assert CXX17CodePrinter().doprint(a[1, 2]) == "a[5]"
-    assert CXX17CodePrinter().doprint(Assignment(IndexedBase("out")[0], x)) == "out[0] = x;"
+    # As in SymPy, an unshaped base with constant indices has no range.
+    with pytest.raises(IndexException, match="Range is not defined"):
+        CXX17CodePrinter().doprint(Assignment(IndexedBase("out")[0], x))
     with pytest.raises(ValueError, match="Rank"):
         a[0]
 

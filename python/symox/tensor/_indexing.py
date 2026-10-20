@@ -45,7 +45,7 @@ class _Object:
         from .. import S
         return (5,0,type(self).__name__),(1,(str(self),)),S.One.sort_key(),S.One
     def xreplace(self,mapping):
-        from .. import Expr
+        from .._core import Expr
         if self in mapping:return mapping[self]
         def replace(value):
             if isinstance(value,tuple):return tuple(map(replace,value))

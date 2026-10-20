@@ -256,7 +256,8 @@ def matches(self, expr, repl_dict=None, old=False):
 
 
 def match(self, pattern, old=False):
-    from . import AlgebraicNumber, Expr
+    from . import AlgebraicNumber
+    from ._core import Expr
     if isinstance(pattern, AlgebraicNumber):
         return pattern.matches(self, old=old)
     if isinstance(pattern, Expr) and pattern.is_Symbol and str(pattern) == pattern.name+'_':
@@ -268,7 +269,7 @@ def match(self, pattern, old=False):
 
 def _kernel(name):
     def method(self, *args, **kwargs):
-        from . import Expr
+        from ._core import Expr
         original = self.as_expr()
         result = getattr(original, name)(*args, **kwargs)
         # Preserve the defining field and alias when the scalar operation

@@ -566,7 +566,9 @@ def _expression_kind(cls):
     kinds = _abstract_kinds()
     for base in cls.__mro__:
         if base is not object and not _is_user(base):
-            return kinds.get(base)
+            # Symox expression classes evaluated in Python (Max, Min) are
+            # expression storage for their user subclasses.
+            return kinds.get(base, getattr(base, '_symox_expression_kind', None))
     return None
 
 
