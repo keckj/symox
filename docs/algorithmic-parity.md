@@ -132,6 +132,34 @@ This audit covers the cases it names. It is not a global parity certificate.
 
 ## Remaining blocking gaps
 
+The [public performance runner](../benches/README.md) checks accuracy and result
+quality before ranking timings. Performance work on 2026-10-20 corrected
+`nroots`' formerly ignored precision: rational-coefficient roots now use native
+arbitrary-precision Aberth corrections after exact square-free decomposition.
+The public function and `Poly.nroots` accept positional/keyword `maxsteps` and
+`cleanup`; exhausted iteration raises mpmath's `NoConvergence` rather than
+silently returning machine-precision estimates. Starting guesses may use
+machine arithmetic; the computed answers do not. A Newton-polygon initializer
+also covers root magnitudes outside binary64. Tests cover 15–100 digits,
+all roots of the selected polynomials, multiplicities, zero roots and extreme
+scales. These tests do not certify every condition number or coefficient domain.
+General algebraic, transcendental and complex coefficient domains in `nroots`,
+all argument/error edge cases, certified complex enclosures and comparative
+worst-case convergence remain open obligations.
+
+The same work corrects an overly conservative expansion bound for univariate
+polynomials: the degree-plus-one support bound replaces exponential counts of
+distributive products when the input grammar establishes that bound. Other
+grammars retain their existing checked fallback. Reuse of completed expansion,
+substitution and numerical calculations is bounded and includes the relevant
+precision, options, physical binding identities and numeric-query policy.
+Cached expansion replays its work reservation and retains distinct term limits.
+Exact number-theory caches clone returned factor maps; public mutations cannot
+alter cached answers. Rational dense polynomial construction avoids an
+expression round trip, retaining exact domains and the established fallback
+for other coefficient domains. These are scoped preservation arguments, not a
+refresh of the separate full API or downstream qualification records.
+
 The versioned per-function ledger retains its own native snapshot. The
 downstream candidate does not renew those historical certificates. Current
 upstream and regression results are recorded separately in the

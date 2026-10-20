@@ -130,3 +130,10 @@ def test_repeated_number_theory_keeps_exact_answers_and_independent_factor_dicts
         assert sx.perfect_power(value,big=big) == sp.perfect_power(value,big=big)
     for candidates in [[2],[3],[4],[5],None]:
         assert sx.perfect_power(value,candidates=candidates) == sp.perfect_power(value,candidates=candidates)
+
+
+@pytest.mark.parametrize("digits", [2,5,15,30,50,100,300])
+def test_faster_logarithm_constant_preserves_requested_accuracy(digits):
+    actual = sx.log(2).evalf(digits).to_sympy()
+    expected = sp.log(2).evalf(digits+30)
+    assert abs(sp.N(actual-expected,digits+20)) < sp.Rational(1,10**digits)
