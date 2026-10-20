@@ -16,6 +16,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 mod series;
 mod python_hash;
+mod numpy_vector;
 mod expression_inspection;
 mod wildcards;
 
@@ -3122,6 +3123,8 @@ pub struct PyCompiled {
     exprs: Vec<Expr>,
     arguments: Vec<Expr>,
     object_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
+    numpy_vectors: bool,
+    numpy_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
 }
 
 fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -3182,6 +3185,12 @@ impl PyCompiled {
                     .getattr("_compile_object")?.call1((arguments, expression))?.unbind())
             })?;
             return Ok(evaluator.bind(py).call(args, None)?.unbind());
+        }
+        if self.numpy_vectors {
+            let evaluator=self.numpy_evaluator.get_or_try_init(py,||
+                numpy_vector::dispatcher(py,&self.arguments,&self.exprs[0]))?;
+            let result=evaluator.bind(py).call(args,None)?;
+            if !result.is(py.NotImplemented().bind(py)){return Ok(result.unbind());}
         }
         // vectorised path: broadcast scalars against 1-d arrays
         let np = py.import("numpy")?;
@@ -3267,7 +3276,6 @@ fn py_lambdify(
     modules: Option<&Bound<'_, PyAny>>,
     _kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<PyCompiled> {
-    let _ = modules;
     let arg_list: Vec<Expr> = if let Ok(e) = to_expr(args) {
         vec![e]
     } else {
@@ -3280,8 +3288,12 @@ fn py_lambdify(
     };
     let exprs: Vec<Expr> = exprs.iter().map(unwrap_unevaluated).collect();
     let c = Compiled::new(&arg_list, &exprs).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let numpy_vectors=scalar_out&&modules.is_some_and(|value|
+        value.extract::<String>().is_ok_and(|name|name=="numpy"))
+        &&numpy_vector::supports(&exprs[0]);
     Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
-        object_evaluator: pyo3::sync::GILOnceCell::new() })
+        object_evaluator: pyo3::sync::GILOnceCell::new(),numpy_vectors,
+        numpy_evaluator:pyo3::sync::GILOnceCell::new() })
 }
 
 #[pymodule]
