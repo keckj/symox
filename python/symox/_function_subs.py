@@ -23,15 +23,33 @@ _NARGS = {
 # SymPy spells these as plain Python functions rather than classes.
 _PLAIN = frozenset({'E1', 'Eijk', 'cbrt', 'sqrt', 'udivisor_sigma'})
 _LIMITS = frozenset({'Integral', 'Sum', 'Product'})
+# Classes whose own _eval_subs never replaces their head by a class.
+_KEEP_HEAD = frozenset({'cot', 'CRootOf', 'ComplexRootOf', 'And', 'Or', 'Xor', 'Piecewise'})
+# SymPy's nargs for the native Application classes that are not
+# Naturals0.
+_CLASS_NARGS = {
+    'Not': (1,), 'BesselBase': (2,), 'SphericalBesselBase': (2,),
+    'SphericalHankelBase': (2,),
+}
+
+
+def _Application():
+    from ._function_heads import Application
+    return Application
 
 
 def function_class(value):
     """Whether ``value`` is a SymPy function class such as ``sin`` or ``Function('f')``."""
     from . import _is_function_head
     from ._function_heads import is_builtin_head
+    from ._function_heads import Application
     if is_builtin_head(value):
         return value.__name__ not in _PLAIN
-    return _is_function_head(value)
+    if _is_function_head(value):
+        return True
+    # SymPy's FunctionClass is the metaclass of every Application
+    # subclass, such as Max, And or Piecewise.
+    return isinstance(value, type) and issubclass(value, Application)
 
 
 def function_class_name(value):
@@ -61,6 +79,16 @@ def _accepts(new, count):
             return False
         return True
     nargs = getattr(new, 'nargs', None)
+    if isinstance(new, type) and (nargs is None or isinstance(nargs, property)):
+        # A native class such as Max or Not has no class-level nargs;
+        # SymPy's FunctionClass derives it from ``eval`` (Naturals0 for
+        # ``*args``).
+        if not issubclass(new, _Application()):
+            return False
+        for base in new.__mro__:
+            if base.__name__ in _CLASS_NARGS:
+                return count in _CLASS_NARGS[base.__name__]
+        return True
     if nargs is None:
         return False
     try:
@@ -83,9 +111,9 @@ def substitute(expr, old, new):
         # ExprWithLimits._eval_subs intersects the free symbols of the
         # limits with ``old.free_symbols``, a property of the class.
         raise TypeError('function-class substitution into Integral, Sum or Product is not supported')
-    name = getattr(old, '__name__', None)
-    if name in ('cot', 'CRootOf', 'ComplexRootOf') and function_class(old):
-        # cot and CRootOf override _eval_subs and keep their head.
+    bases = getattr(old, '__mro__', None) or (old,)
+    if function_class(old) and any(getattr(base, '__name__', None) in _KEEP_HEAD for base in bases):
+        # These classes override _eval_subs and keep their head.
         return expr
     if _function_like(new):
         def query(node):

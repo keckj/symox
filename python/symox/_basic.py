@@ -19,13 +19,31 @@ def nominal_hash(cls):
     return type.__hash__(cls)
 
 
+_UNDEFINED_HEAD = []
+
+
+def _undefined_head_type():
+    if not _UNDEFINED_HEAD:
+        import sys
+        package = sys.modules.get('symox')
+        head = getattr(package, 'Function', None) if package is not None else None
+        if head is None:
+            return None
+        _UNDEFINED_HEAD.append(head)
+    return _UNDEFINED_HEAD[0]
+
+
 class _BasicMeta(ABCMeta):
     __hash__ = nominal_hash
 
     def __instancecheck__(cls, value):
         if cls is Basic and isinstance(value, _core.Matrix):
             return value._immutable
-        return super().__instancecheck__(value)
+        if not super().__instancecheck__(value):
+            return False
+        # An undefined head ``Function('f')`` is a class in the reference,
+        # not a Basic instance, although ``Function`` is a Basic subclass.
+        return type(value) is not _undefined_head_type()
 
     # SymPy's Basic is the base of every native node's nominal class, so
     # attributes patched onto it after import (SageMath's ``_sage_``) must

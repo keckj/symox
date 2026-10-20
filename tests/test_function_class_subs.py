@@ -41,6 +41,11 @@ CASES = {
     'max min': lambda m, x, y, f, g, h: m.Max(x, y).subs(m.Max, m.Min),
     'max sin': lambda m, x, y, f, g, h: m.Max(x, y).subs(m.Max, m.sin),
     'two arguments': lambda m, x, y, f, g, h: (m.atan2(y, x)+m.Max(x, 1)).subs({m.atan2: f, m.Max: m.Min}),
+    'and keeps head': lambda m, x, y, f, g, h: m.Or(m.And(x, y), m.Eq(f(x), 0)).subs({m.And: m.Or, f: g}),
+    'xor keeps head': lambda m, x, y, f, g, h: m.Xor(x, y).subs(m.Xor, m.And),
+    'not to undefined': lambda m, x, y, f, g, h: m.Not(x).subs(m.Not, g),
+    'undefined to not': lambda m, x, y, f, g, h: m.Tuple(f(x), f(x, y)).subs(f, m.Not),
+    'piecewise head': lambda m, x, y, f, g, h: m.Piecewise((x, y > 0), (1, True)).subs(m.Piecewise, g),
     'log': lambda m, x, y, f, g, h: (m.log(x)+m.log(x, 2)).subs(m.log, f),
     'exp head': lambda m, x, y, f, g, h: (m.exp(x)+m.exp(2*y)).subs(m.exp, m.cos),
     'sin to exp': lambda m, x, y, f, g, h: (m.sin(x)**2).subs(m.sin, m.exp),
@@ -124,3 +129,13 @@ def test_as_numer_denom_matches_sympy(source):
     actual = eval(source, names).as_numer_denom()
     expected = eval(source, reference).as_numer_denom()
     assert tuple(map(str, actual)) == tuple(map(str, expected))
+
+
+def test_undefined_function_is_not_a_basic_instance_like_sympy():
+    for module in (sx, sp):
+        x = module.Symbol('x')
+        f = module.Function('f')
+        assert not isinstance(f, module.Basic)
+        assert isinstance(f(x), module.Basic)
+        assert module.default_sort_key(f)[0] == (0, 0, 'UndefinedFunction')
+        assert module.default_sort_key(module.And)[0] == (0, 0, 'FunctionClass')

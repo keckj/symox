@@ -987,7 +987,11 @@ def iterable(i, exclude=(str, dict, NotIterable)):
     True also indicates that the iterator is finite, e.g. you can
     call list(...) on the instance."""
     if hasattr(i, '_iterable'):
-        return i._iterable
+        flag = i._iterable
+        # On a class such as ``sin`` the instance property itself is found;
+        # like the reference, a class is then iterable only if iter() works.
+        if not (isinstance(i, type) and isinstance(flag, property)):
+            return flag
     try:
         iter(i)
     except TypeError:
