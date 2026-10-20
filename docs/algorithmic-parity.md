@@ -170,12 +170,55 @@ queries, `_eval_subs`, overridden `func`/`free_symbols` and nested Python
 `_print_<Class>` printer methods are not consulted by native algorithms; the
 reference treats `is_commutative = None` as noncommutative (which changes
 `Add`/`Mul` ordering), while native nodes are commutative; `Wild` subclasses
-are not hosted; `And`/`Max` are not classes, so `singledispatch` registration
-and `LatticeOp.make_args` on them remain unsupported; native operators on a
-tree that already contains such a `Number` do not refold its coefficient
-(`(w*x)*3`), and native results equal to `oo`, `-oo`, `nan` or `zoo` are not
-the `S` singleton objects, so identity tests such as `-oo is S.NegativeInfinity`
-fail.
+are not hosted; native operators on a tree that already contains such a
+`Number` do not refold its coefficient (`(w*x)*3`).
+
+Native nodes are instances of nominal classes that follow the reference
+hierarchy. Native results equal to `oo`, `-oo`, `nan`, `zoo`, the Boolean atoms
+and the small rationals are the `S` singleton objects. Function heads such as
+`sin` and `Abs`, the Boolean gates and `Max`/`Min` are classes. They support
+`isinstance`, `issubclass`, `singledispatch` registration, `LatticeOp`
+`make_args`/`zero`/`identity`, pickling and user subclasses that evaluate,
+differentiate and substitute. The abstract bases are importable from their
+reference modules, for example `TrigonometricFunction`, `HyperbolicFunction`,
+`ExpBase` and `MinMaxBase`. Relations have `reversed`, `reversedsign`,
+`negated`, `canonical`, `weak`, `strict`, `lts` and `gts`. Boolean atoms have
+`negated`, `canonical` and `_op_priority`. Arithmetic on a Boolean atom
+raises the reference `TypeError`. Arithmetic and ordering on another non-`Expr`
+operand (a relation, a Boolean function, a predicate, a set or a tuple) are
+not supported, as in the reference. Evaluated inequalities reject non-real,
+NaN and non-`Expr` sides with the reference messages. Sign facts decide an
+ordering only when the difference is extended real. Sums, products and powers
+of finite terms are finite, so `1 + I` is not extended real. Scalar and matrix
+`kind` follow the reference rules, and `srepr` of a `Float` names its
+precision. The `kind` of a tree with shared subexpressions is computed once
+for each distinct node. A nominal class compares equal to its public class
+and hashes like it, so `type(expr) == Eq` holds and dictionaries keyed by
+public classes find `type(expr)`. `exp(x).exp` is `x` and `exp(x).base` is
+`E`. Applications of user `Function` subclasses to numbers are numbers, as in
+the reference, while `Function('f')(1)` is not. The `Basic` class flags such
+as `is_symbol`, `is_NumberSymbol`, `is_Not` and `is_scalar` are defined. These
+classes have remaining gaps:
+
+- Head constructors expose an `evaluate` keyword in their signature, which the
+  reference does not show.
+- A user subclass of `sin` evaluates at a `Float` argument (`S2(1.0)`), where
+  the reference keeps it unevaluated.
+- The private kind classes are `_ScalarKind` instances, not the reference
+  `_NumberKind` and `_BooleanKind` classes. Set kinds are not implemented.
+- `is_complex` of a finite non-real sum such as `1 + I` is unknown. The
+  finiteness of `exp(f)` for finite `f`, and of `I**(1/3)`, are unknown.
+- Noncommutative symbols are not implemented.
+- `Mul.is_polar` of nonpolar factors is unknown. The reference gives False.
+- Numerical sign decisions evaluate `exp(x)` only for `|x| <= 2**40`, and
+  evalf results stay symbolic beyond `10**1000000` in magnitude. The reference
+  evaluates and prints `exp(2**63)` (Torch value ranges compare
+  `exp(9223372036854775807)`). Binary exponents are `i64` values, and decimal
+  conversion of huge exponents computes exact powers of ten.
+- `Eijk` is a class, whereas the reference `Eijk` is a function that returns
+  a `LeviCivita` node.
+- Devito's import stops at `C99CodePrinter.type_mappings`. Code generation is
+  deferred.
 
 Rational bounded-denominator approximation uses the same exact standard-library
 `Fraction.limit_denominator` kernel as the reference, including its tie breaking
