@@ -93,3 +93,34 @@ def test_numpy_kernels_keep_host_functions_on_the_reference_path():
     expr = sx.sin(x) + Colored('x') ** 2
     hosted = sx.lambdify([x, Colored('x')], expr, 'numpy')
     assert np.allclose(hosted(values, values), np.sin(values) + values ** 2)
+
+
+def _expansion_hooks(sp):
+    x = sp.Symbol('x')
+
+    class Doubled(sp.Function):
+        def _eval_expand_double(self, **hints):
+            return 2*self.args[0]
+
+    expr = Doubled(x) + x
+    return [str(sp.expand(expr, double=True)), str(sp.expand(expr, double=True)),
+            str(expr.expand(double=True)), str(sp.expand((x + 1)**2))]
+
+
+def test_expansion_hooks_survive_the_native_node_fast_path():
+    assert _expansion_hooks(sx) == _expansion_hooks(sympy)
+
+
+def test_nominal_classes_take_the_reuse_paths():
+    from symox import _core
+    from symox._node_types import is_native_node
+    x = sx.Symbol('x')
+    plain = (x, 2*x, x**2, sx.Integer(3))
+    assert all(is_native_node(term) for term in plain)
+    assert _core._exact_expr_key(plain) is not None
+    assert _core._exact_expr_args(plain)
+    hosted = (Colored('c'), 2*x)
+    assert not is_native_node(hosted[0])
+    assert _core._exact_expr_key(hosted) is None
+    assert _core._exact_expr_key((2*Colored('c'), x)) is None
+    assert not _core._exact_expr_args(hosted)

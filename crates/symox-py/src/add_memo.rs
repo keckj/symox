@@ -33,23 +33,44 @@ fn monomial(e:&Expr)->bool{
     }
 }
 
-/// The native expression of a plain node object: exactly the base node type
-/// or the nominal SymPy class native wrapping gives that node. User
+/// Plain node objects: exactly the base node type or the nominal SymPy
+/// class native wrapping gives that node, with no host node inside. User
 /// subclasses, host trees and other wrappers keep full constructor dispatch.
-fn plain_node(value:&Bound<'_,PyAny>)->Option<Expr>{
-    let node=value.downcast::<crate::PyExprNode>().ok()?;
-    let e=&node.get().e;
-    if e.has_host(){return None;}
-    let class=value.get_type();
-    if class.is(&value.py().get_type::<crate::PyExprNode>())
-        || crate::node_type(value.py(),e).is_some_and(|nominal|class.is(&nominal)) {
-        Some(e.clone())
-    } else {None}
+/// A nominal class is only ever allocated for its own nodes, so each class
+/// needs a single nominal lookup per argument tuple.
+struct PlainNodes<'py>{
+    base:Bound<'py,pyo3::types::PyType>,
+    verified:Vec<*mut pyo3::ffi::PyTypeObject>,
+}
+
+impl<'py> PlainNodes<'py>{
+    fn new(py:Python<'py>)->Self{
+        PlainNodes{base:py.get_type::<crate::PyExprNode>(),verified:Vec::new()}
+    }
+
+    fn node<'a>(&mut self,value:&'a Bound<'py,PyAny>)->Option<&'a Expr>{
+        let pointer=unsafe{pyo3::ffi::Py_TYPE(value.as_ptr())};
+        if pointer==self.base.as_type_ptr()||self.verified.contains(&pointer){
+            // SAFETY: the base node type and the verified nominal classes
+            // are PyExprNode types.
+            let e=&unsafe{value.downcast_unchecked::<crate::PyExprNode>()}.get().e;
+            return (!e.has_host()).then_some(e);
+        }
+        let node=value.downcast::<crate::PyExprNode>().ok()?;
+        let e=&node.get().e;
+        if e.has_host(){return None;}
+        let class=value.get_type();
+        if crate::node_type(value.py(),e).is_some_and(|nominal|class.is(&nominal)){
+            if self.verified.len()<8{self.verified.push(pointer);}
+            Some(e)
+        } else {None}
+    }
 }
 
 #[pyfunction]
 pub(crate) fn _exact_expr_args(args:&Bound<'_,PyTuple>)->bool{
-    args.iter().all(|value|plain_node(&value).is_some())
+    let mut plain=PlainNodes::new(args.py());
+    args.iter().all(|value|plain.node(&value).is_some())
 }
 
 /// An injective identity key, with no Python hashing or conversion hooks.
@@ -58,8 +79,9 @@ pub(crate) fn _exact_expr_args(args:&Bound<'_,PyTuple>)->bool{
 pub(crate) fn _exact_expr_key<'py>(args:&Bound<'py,PyTuple>)->Option<Bound<'py,PyBytes>>{
     if !(2..=1024).contains(&args.len()){return None;}
     let mut key=Vec::with_capacity(args.len()*std::mem::size_of::<usize>());
+    let mut plain=PlainNodes::new(args.py());
     for value in args.iter(){
-        plain_node(&value)?;
+        plain.node(&value)?;
         key.extend_from_slice(&(value.as_ptr() as usize).to_ne_bytes());
     }
     Some(PyBytes::new(args.py(),&key))
@@ -69,10 +91,11 @@ pub(crate) fn _exact_expr_key<'py>(args:&Bound<'py,PyTuple>)->Option<Bound<'py,P
 pub(crate) fn _monomial_add(args:&Bound<'_,PyTuple>)->PyResult<Option<crate::PyExpr>>{
     if !(2..=1024).contains(&args.len()){return Ok(None);}
     let mut values=Vec::with_capacity(args.len());
+    let mut plain=PlainNodes::new(args.py());
     for value in args.iter(){
-        let Some(value)=plain_node(&value) else {return Ok(None);};
-        if !monomial(&value){return Ok(None);}
-        values.push(value);
+        let Some(value)=plain.node(&value) else {return Ok(None);};
+        if !monomial(value){return Ok(None);}
+        values.push(value.clone());
     }
     Ok(Some(crate::wrap(symox::ops::add(&values))))
 }

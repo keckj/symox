@@ -40,6 +40,9 @@ def _Application():
 
 def function_class(value):
     """Whether ``value`` is a SymPy function class such as ``sin`` or ``Function('f')``."""
+    if isinstance(value, (_core.Expr, str, int)):
+        # Expression nodes, names and numbers are never classes.
+        return False
     from . import _is_function_head
     from ._function_heads import is_builtin_head
     from ._function_heads import Application
@@ -246,8 +249,20 @@ def install():
     from . import _core as core
     expr_subs, expr_xreplace = core.Expr.subs, core.Expr.xreplace
 
+    plain = (_core.Expr, str, int, float)
+
     @wraps(expr_subs)
     def subs_method(self, *args, **kwargs):
+        if len(args) == 1 and type(args[0]) is dict:
+            # A plain dict whose keys and values are expressions, names or
+            # numbers holds no function class.
+            for key, value in args[0].items():
+                if not (isinstance(key, plain) and isinstance(value, plain)):
+                    break
+            else:
+                return expr_subs(self, *args, **kwargs)
+        elif len(args) == 2 and isinstance(args[0], plain) and isinstance(args[1], plain):
+            return expr_subs(self, *args, **kwargs)
         args = prepared(args)
         if _involves_function_class(args):
             return subs(expr_subs, self, args, kwargs)

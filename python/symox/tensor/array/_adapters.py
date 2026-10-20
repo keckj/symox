@@ -3,6 +3,7 @@ from functools import wraps
 
 from ... import _core
 from ..._dispatch_arguments import FirstArgument
+from ..._node_types import is_native_node
 from ._array import NDimArray
 from .arrayop import derive_by_array
 
@@ -37,7 +38,7 @@ def _entrywise(original):
     first=FirstArgument(original)
     @wraps(original)
     def operation(*args, **options):
-        if args and type(args[0]) is _core.Expr:
+        if args and is_native_node(args[0]):
             return original(*args, **options)
         expression=first.get(args,options)
         if (isinstance(expression, (NDimArray, _core.Matrix))

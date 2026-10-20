@@ -23,8 +23,8 @@ from ._compat import _ExprType
 from ._expr_facade import Expr
 
 
-def _own(cls):
-    return type.__dict__['__dict__'].__get__(cls)
+# The class's own namespace, without attribute lookup through its MRO.
+_own = type.__dict__['__dict__'].__get__
 
 
 def head_of(cls):

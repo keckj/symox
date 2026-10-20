@@ -80,6 +80,14 @@ class NodeType(type):
         return constructor(*args, **kwargs)
 
 
+def is_native_node(value):
+    """Whether ``value`` is a native expression node of symox's own class:
+    the base node type or the nominal class it was created with, never a
+    user subclass, a host class or a wrapper with its own dispatch."""
+    kind = type(value)
+    return kind is _core.Expr or type(kind) is NodeType
+
+
 def native_module(cls):
     """The module recorded in the class dictionary, ignoring the facade."""
     return type.__dict__['__module__'].__get__(cls)

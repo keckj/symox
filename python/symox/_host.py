@@ -931,6 +931,8 @@ def install_expand(namespace):
                 return result
         return method(self, deep=deep, **hints)
 
+    # The native method, for callers that check ``_hooks['expand']`` first.
+    expand_method._symox_native_expand = method
     _core.Expr.expand = expand_method
     replaced = {}
     root = namespace['expand']

@@ -89,8 +89,12 @@ def _expand_deltas(expression, wrt, deep, max_terms):
 
 
 def install(namespace):
+    from ._node_types import NodeType
+    from ._host import _hooks as hooks
+    native_type = _core.Expr
     original_root = namespace['expand']
     original_method = _core.Expr.expand
+    native_method = getattr(original_method, '_symox_native_expand', original_method)
 
     def options(hints):
         hints = dict(hints)
@@ -102,7 +106,13 @@ def install(namespace):
     def expand(e, deep=True, **hints):
         # A concrete native scalar has neither array nor tensor dispatch.
         # Its method uses the same native options/budget implementation.
-        target = original_method if type(e) is _core.Expr else original_root
+        kind = type(e)
+        if kind is native_type or type(kind) is NodeType:
+            # is_native_node, inlined on this hot path.
+            # Without expansion hooks the host layer calls the native method.
+            target = original_method if hooks['expand'] else native_method
+        else:
+            target = original_root
         if not hints:
             return target(e, deep=deep)
         rest, enabled, wrt = options(hints)
