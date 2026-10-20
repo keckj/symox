@@ -362,6 +362,11 @@ fn ev_uncached(e: &Expr, p: u32) -> Option<MpComplex> {
         Kind::Pow(b, x) => pow_of(b, x, p)?,
         Kind::Func(Func::MatrixDotProduct(a,b),_)=>ev(&crate::matrixcontraction::dot_product(a,b,true).ok()?,p)?,
         Kind::Func(Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product,_)=>{let evaluated=crate::functions::doit(e,true);if evaluated==*e{return None;}ev(&evaluated,p)?},
+        Kind::Func(Func::Undefined(head),_) if head.host().is_some_and(|host| host.evaluates_numerically()) => {
+            // SymPy evalf falls back to the class's _eval_evalf.
+            let value=head.host()?.evalf(e,p)?;
+            ev(&value,p)?
+        },
         Kind::Func(f, args) => func(f, args, p)?,
         _ => return None,
     })

@@ -593,7 +593,11 @@ impl KeyCache {
         re: f64,
         im: f64,
         cpart: Vec<(usize, i64)>,
+        // Factors that may not commute, in order (SymPy's ncpart).
+        ncpart: Vec<Expr>,
     }
+    let noncommutative = e.has_noncommutative_host();
+    let commutes = |f: &Expr| !noncommutative || crate::decompose::commutativity(f) == Some(true);
     let mut gens: FxHashMap<Expr, usize> = FxHashMap::default();
     let mut gen_list: Vec<Expr> = Vec::new();
     let mut decomposed: Vec<Term> = Vec::with_capacity(all.len());
@@ -643,21 +647,26 @@ impl KeyCache {
         };
         let mut z = num_complex::Complex64::new(coeff.to_f64(), 0.0);
         let mut cpart: Vec<(usize, i64)> = Vec::with_capacity(facs.len().max(1));
+        let mut ncpart = Vec::new();
         if matches!(t.kind(), Kind::Num(_)) {
+        } else if facs.is_empty() && !commutes(&t) {
+            ncpart.push(t.clone());
         } else if facs.is_empty() {
             general(t.clone(), &mut z, &mut cpart, &mut gens, &mut gen_list);
         } else {
             for (b, x) in facs {
                 // fast path: symbol ** integer
-                if let (Kind::Sym(_), Kind::Num(Number::Int(d))) = (b.kind(), x.kind()) {
+                if let (false, Kind::Sym(_), Kind::Num(Number::Int(d))) = (noncommutative, b.kind(), x.kind()) {
                     let g = gen_index(b.clone(), &mut gens, &mut gen_list);
                     cpart.push((g, *d));
                     continue;
                 }
-                general(mul_factor(b, x), &mut z, &mut cpart, &mut gens, &mut gen_list);
+                let factor = mul_factor(b, x);
+                if !commutes(&factor) { ncpart.push(factor); continue; }
+                general(factor, &mut z, &mut cpart, &mut gens, &mut gen_list);
             }
         }
-        decomposed.push(Term { expr: t, re: z.re, im: z.im, cpart });
+        decomposed.push(Term { expr: t, re: z.re, im: z.im, cpart, ncpart });
     }
     // sort the generators with default_sort_key
     let mut order: Vec<usize> = (0..gen_list.len()).collect();
@@ -679,6 +688,13 @@ impl KeyCache {
         .collect();
     keyed.sort_by(|(ma, ta), (mb, tb)| {
         cmp_lex(mb, ma)
+            .then_with(|| {
+                if ta.ncpart.is_empty() && tb.ncpart.is_empty() { return Ordering::Equal; }
+                let mut keys = KeyCache::default();
+                let a: Vec<Rc<SortKey>> = ta.ncpart.iter().map(|f| keys.key(f)).collect();
+                let b: Vec<Rc<SortKey>> = tb.ncpart.iter().map(|f| keys.key(f)).collect();
+                a.cmp(&b)
+            })
             .then_with(|| (ta.im != 0.0).cmp(&(tb.im != 0.0)))
             .then_with(|| cmp_f64(ta.im, tb.im))
             .then_with(|| cmp_f64(ta.re, tb.re))

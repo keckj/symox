@@ -248,6 +248,11 @@ fn d_func(
             if !crate::traverse::has(e, x) { return Expr::zero(); }
             return host.derivative(e, x).unwrap_or_else(|| derivative_unevaluated(e, vec![(x.clone(), 1)]));
         }
+        if let Some(host) = function.host().filter(|host| host.differentiates()) {
+            // An overridden Function._eval_derivative replaces the chain rule.
+            if !crate::traverse::has(e, x) { return Expr::zero(); }
+            return host.derivative(e, x).unwrap_or_else(|| derivative_unevaluated(e, vec![(x.clone(), 1)]));
+        }
         if let Some(host) = function.host() {
             // SymPy's Function._eval_derivative: the chain rule over fdiff.
             // An argument without a host partial keeps the default form.

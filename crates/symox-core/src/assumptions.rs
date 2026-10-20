@@ -52,6 +52,8 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
 /// An exact declared fact, or a conservative native proof for a scalar value.
 /// Additional Symbol facts never fall back to numerical refinement.
 pub fn fact(e:&Expr,name:&str)->Option<bool>{
+    if name=="commutative" && e.has_noncommutative_host(){return crate::decompose::commutativity(e);}
+    if let Some(answer)=crate::host::fact(e,name){return answer;}
     if name=="polar" && crate::special::polar::is_polar(e){return Some(true);}
     if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
     // Float zero has a known integer value, but SymPy deliberately keeps its
@@ -145,8 +147,20 @@ thread_local!{static COMPUTATIONS:std::cell::Cell<usize>=const{std::cell::Cell::
 #[inline]
 fn calculation(){#[cfg(test)] COMPUTATIONS.with(|count|count.set(count.get()+1));}
 
+fn query_name(query:Query)->&'static str {
+    match query{
+        Query::Real=>"real",Query::Positive=>"positive",Query::Negative=>"negative",
+        Query::Nonnegative=>"nonnegative",Query::Nonpositive=>"nonpositive",Query::Zero=>"zero",
+        Query::Nonzero=>"nonzero",Query::Integer=>"integer",Query::Rational=>"rational",
+        Query::Finite=>"finite",Query::Parity=>"even",
+    }
+}
+
 #[inline]
 fn cached_bool(e:&Expr,query:Query,compute:fn(&Expr)->Option<bool>)->Option<bool>{
+    if e.is_host() && !matches!(query,Query::Parity) {
+        if let Some(answer)=crate::host::fact(e,query_name(query)){return answer;}
+    }
     if let Kind::Sym(symbol)=e.kind(){
         if !matches!(query,Query::Parity){return symbol.facts().get(match query{
             Query::Real=>"real",Query::Positive=>"positive",Query::Negative=>"negative",
@@ -170,6 +184,8 @@ fn cached_bool(e:&Expr,query:Query,compute:fn(&Expr)->Option<bool>)->Option<bool
     match e.cached_assumption(shift,2){1=>return None,2=>return Some(false),3=>return Some(true),_=>{}}
     calculation();
     let answer=if mode{crate::evalf::with_numeric_cache(||crate::evalf_mp::with_numeric_cache(||compute(e)))}else{compute(e)};
+    // An answer derived while a host hook failed is not remembered.
+    if e.has_host() && crate::host::failure_pending(){return answer;}
     let encoded=match answer{None=>1,Some(false)=>2,Some(true)=>3};
     // No marker for an in-progress recursion is ever published.
     e.remember_assumption(shift,2,encoded);
@@ -311,9 +327,23 @@ pub fn real_signs(e:&Expr)->Option<Signs>{
     let cached=e.cached_assumption(shift,4);
     if cached==8{return None;}else if cached!=0{return Some(Signs(cached));}
     calculation();let answer=if mode{crate::evalf::with_numeric_cache(||crate::evalf_mp::with_numeric_cache(||real_signs_uncached(e)))}else{real_signs_uncached(e)};
+    if e.has_host() && crate::host::failure_pending(){return answer;}
     e.remember_assumption(shift,4,answer.map_or(8,|signs|signs.0));answer
 }
+/// The sign set of a host atom or application, from the host's answers to
+/// its sign queries; `None` when the host keeps the native facts.
+fn host_signs(e:&Expr)->Option<Option<Signs>>{
+    if crate::host::fact(e,"real")?!=Some(true){return Some(None);}
+    let ask=|name:&str|crate::host::fact(e,name).flatten();
+    Some(Some(if ask("zero")==Some(true){Signs::ZERO}else if ask("positive")==Some(true){Signs::POS}
+        else if ask("negative")==Some(true){Signs::NEG}else if ask("nonnegative")==Some(true){
+            if ask("nonzero")==Some(true){Signs::POS}else{Signs::NONNEG}
+        }else if ask("nonpositive")==Some(true){
+            if ask("nonzero")==Some(true){Signs::NEG}else{Signs::NONPOS}
+        }else if ask("nonzero")==Some(true){Signs::NONZERO}else{Signs::ANY}))
+}
 fn real_signs_uncached(e: &Expr) -> Option<Signs> {
+    if e.is_host(){if let Some(signs)=host_signs(e){return signs;}}
     if !declared(e).is_empty(){return declared_signs(declared(e));}
     if let Some(sign)=exact::cardano_sign(e){
         return Some(match sign{-1=>Signs::NEG,0=>Signs::ZERO,_=>Signs::POS});
@@ -911,6 +941,7 @@ fn parity_even_uncached(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_even(e: &Expr) -> Option<bool> {
+    if let Some(answer)=crate::host::fact(e,"even"){return answer;}
     if let Some(symbol)=e.as_sym(){return symbol.facts().get("even");}
     if let Kind::Func(Func::Undefined(head),_)=e.kind(){if !head.internal{return head.facts().get("even");}}
     if is_integer(e)==Some(false){return Some(false);}
@@ -918,6 +949,7 @@ pub fn is_even(e: &Expr) -> Option<bool> {
 }
 
 pub fn is_odd(e: &Expr) -> Option<bool> {
+    if let Some(answer)=crate::host::fact(e,"odd"){return answer;}
     if let Some(symbol)=e.as_sym(){return symbol.facts().get("odd");}
     if let Kind::Func(Func::Undefined(head),_)=e.kind(){if !head.internal{return head.facts().get("odd");}}
     if is_integer(e)==Some(false){return Some(false);}

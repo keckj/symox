@@ -465,6 +465,58 @@ pub fn mul(args: &[Expr]) -> Expr {
     mul_with_cache(args, 0, &mut ProductMemo::default())
 }
 fn mul_with_cache(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
+    if args.iter().any(Expr::has_noncommutative_host) {
+        if let Some(result) = mul_noncommutative(args, depth, cache) { return result; }
+    }
+    mul_commutative(args, depth, cache)
+}
+
+/// SymPy's `Mul.flatten` over factors of host classes that may not commute:
+/// a factor whose `is_commutative` is not True keeps its position after the
+/// commutative part, and only adjacent powers of one base combine, unless
+/// their exponents add to a sum. `None` when every factor commutes.
+fn mul_noncommutative(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Option<Expr> {
+    use crate::decompose::commutativity;
+    if args.iter().all(|argument| !argument.has_noncommutative_host() || commutativity(argument) == Some(true)) {
+        return None;
+    }
+    fn push(factor: Expr, commutative: &mut Vec<Expr>, ordered: &mut Vec<Expr>) {
+        let mut pending = std::collections::VecDeque::from([factor]);
+        while let Some(factor) = pending.pop_front() {
+            let Some(last) = ordered.pop() else { ordered.push(factor); continue };
+            let ((b1, e1), (b2, e2)) = (crate::decompose::as_base_exp(&last), crate::decompose::as_base_exp(&factor));
+            let exponent = add2(&e1, &e2);
+            if b1 == b2 && !exponent.is_add() {
+                let combined = pow(&b1, &exponent);
+                if crate::decompose::commutativity(&combined) == Some(true) { commutative.push(combined); }
+                else { pending.push_front(combined); }
+            } else { ordered.push(last); ordered.push(factor); }
+        }
+    }
+    let (mut commutative, mut ordered) = (Vec::with_capacity(args.len()), Vec::new());
+    for argument in args {
+        if commutativity(argument) == Some(true) { commutative.push(argument.clone()); }
+        else if argument.is_mul() {
+            for factor in argument.args() {
+                if commutativity(&factor) == Some(true) { commutative.push(factor); }
+                else { push(factor, &mut commutative, &mut ordered); }
+            }
+        } else { push(argument.clone(), &mut commutative, &mut ordered); }
+    }
+    let scalar = mul_commutative(&commutative, depth, cache);
+    if ordered.is_empty() || scalar.is_zero() || scalar.is_constant(Constant::NaN)
+        || scalar.as_number().is_some_and(Number::is_nan) { return Some(scalar); }
+    let (coefficient, mut factors) = match scalar.kind() {
+        Kind::Num(number) => (number.clone(), Vec::new()),
+        Kind::Mul(coefficient, factors) => (coefficient.clone(), factors.clone()),
+        _ => (Number::ONE, vec![as_base_exp(&scalar)]),
+    };
+    if coefficient.is_one() && factors.is_empty() && ordered.len() == 1 { return ordered.pop(); }
+    factors.extend(ordered.iter().map(as_base_exp));
+    Some(Expr::from_kind(Kind::Mul(coefficient, factors)))
+}
+
+fn mul_commutative(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
     if let Some(result)=wide_arithmetic(args,true){return result;}
     // Removing exact identity factors must not evaluate the surviving operand.
     let mut nontrivial = args.iter().filter(|argument| !argument.is_one());
@@ -543,7 +595,7 @@ pub fn mul2(a: &Expr, b: &Expr) -> Expr {
         }
         _ => {}
     }
-    if a.may_have_order() || b.may_have_order() {
+    if a.may_have_order() || b.may_have_order() || a.has_noncommutative_host() || b.has_noncommutative_host() {
         return mul(&[a.clone(), b.clone()]);
     }
     if let Some(r) = mul2_fast(a, b).or_else(|| mul2_fast(b, a)) {
@@ -1078,6 +1130,9 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 return pow(&crate::functions::abs(bb), &mul2(be, e));
             }
         }
+        Kind::Mul(..) if b.has_noncommutative_host() && crate::decompose::commutativity(b) != Some(true) => {
+            return noncommutative_product_power(b, e);
+        }
         Kind::Mul(c, facs) => {
             if e.is_integer_number() {
                 // A held positive numeric product can collect to a unit.
@@ -1164,6 +1219,24 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
 }
 
 /// `b ** e` without simplification beyond trivial exponents.
+/// SymPy's `Mul._eval_power` of a product that does not commute: an
+/// integer power distributes over the commutative factors only, a rational
+/// power over its nonnegative commutative factors (`expand_power_base`),
+/// and the noncommutative product keeps its power.
+fn noncommutative_product_power(b: &Expr, e: &Expr) -> Expr {
+    let (commutative, ordered) = crate::decompose::args_cnc(b, false);
+    let integer = e.is_integer_number();
+    if !integer && !e.is_rational_number() { return Expr::from_kind(Kind::Pow(b.clone(), e.clone())); }
+    let (mut outside, mut inside) = (Vec::new(), Vec::new());
+    for factor in commutative {
+        if integer || crate::assumptions::is_nonnegative(&factor) == Some(true) { outside.push(pow(&factor, e)); }
+        else { inside.push(factor); }
+    }
+    inside.extend(ordered);
+    outside.push(Expr::from_kind(Kind::Pow(mul(&inside), e.clone())));
+    mul(&outside)
+}
+
 fn pow_raw(b: &Expr, e: &Expr) -> Expr {
     if e.is_one() {
         return b.clone();

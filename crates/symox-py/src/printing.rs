@@ -109,7 +109,7 @@ fn latex(expr: &Bound<'_, PyAny>, settings: Option<&Bound<'_, PyDict>>) -> PyRes
             }
         }
     }
-    Ok(pr::latex_with(&e, &s))
+    crate::host::checked(pr::latex_with(&e, &s))
 }
 
 #[pyfunction]
@@ -135,7 +135,7 @@ fn pretty(
         return Ok(pr::pretty::pretty_matrix_with(&matrix.m, &s));
     }
     let e = to_expr(expr)?;
-    Ok(pr::pretty_with(&e, &s))
+    crate::host::checked(pr::pretty_with(&e, &s))
 }
 
 // ----------------------------------------------------------------------

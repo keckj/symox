@@ -8,7 +8,7 @@ from ._compat import count_ops
 
 
 def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=True,**kwargs):
-    from . import sympify,Expr,Float,nfloat,nsimplify
+    from . import sympify,Expr,Float,nfloat,nsimplify,S
     options=dict(ratio=ratio,measure=measure,rational=rational,inverse=inverse,doit=doit)
     if getattr(expr,'_symox_sparse',False):
         return expr.applyfunc(lambda entry:simplify(entry,**options))
@@ -23,6 +23,13 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         method=getattr(expression,'simplify',None)
         if method is not None:return method(**options)
         return _core.simplify(expression)
+    from ._host import simplify_hook
+    hook=simplify_hook(expression)
+    if hook is not None:
+        # SymPy's simplify returns the class's own simplification at once,
+        # after the zero test of every Expr.
+        if expression.is_zero:return S.Zero if not expression.is_Number else expression
+        return hook(**options)
     if not expression.args:return expression
     original=expression
     if inverse:

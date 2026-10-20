@@ -569,6 +569,10 @@ fn has_multi_denominator(t: &Expr) -> bool {
 
 /// Expand a product of already expanded factors.
 pub fn expand_product(factors: &[Expr]) -> Expr {
+    if factors.iter().any(Expr::has_noncommutative_host)
+        && factors.iter().any(|factor| crate::decompose::commutativity(factor) != Some(true)) {
+        return noncommutative_product(factors);
+    }
     let mut gens = Gens::new();
     let raws: Vec<Vec<RawTerm>> = factors.iter().map(|f| raw_terms(f, &mut gens)).collect();
     let n = gens.list.len();
@@ -589,8 +593,22 @@ pub fn expand_product(factors: &[Expr]) -> Expr {
     }
 }
 
+/// Distribute a product whose factors may not commute, keeping the order
+/// of the factors in every term (SymPy's `Mul._eval_expand_mul`).
+fn noncommutative_product(factors: &[Expr]) -> Expr {
+    let mut terms = vec![Expr::one()];
+    for factor in factors {
+        let summands = if factor.is_add() { factor.args() } else { vec![factor.clone()] };
+        terms = terms.iter().flat_map(|term| summands.iter().map(move |summand| crate::ops::mul2(term, summand))).collect();
+    }
+    add(&terms)
+}
+
 /// Expand `b**n` for a sum `b` and positive integer `n`.
 pub fn power_poly(b: &Expr, n: u32) -> Expr {
+    if b.has_noncommutative_host() && crate::decompose::commutativity(b) != Some(true) {
+        return noncommutative_product(&vec![b.clone(); n as usize]);
+    }
     let mut gens = Gens::new();
     let raw = raw_terms(b, &mut gens);
     let p = to_poly(raw, gens.list.len());

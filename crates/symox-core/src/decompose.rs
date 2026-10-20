@@ -92,6 +92,10 @@ pub fn as_powers_dict(e:&Expr)->Vec<(Expr,Expr)>{
 pub fn commutativity(e:&Expr)->Option<bool>{
     fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Option<bool>)>)->Option<bool>{
         if let Some((_,value))=cache.get(&e.dag_id()){return *value;}
+        if e.has_noncommutative_host(){
+            let value=host_commutativity(e,cache);
+            cache.insert(e.dag_id(),(e.clone(),value));return value;
+        }
         let value=match e.kind(){
             Kind::Func(crate::expr::Func::Limit,_)=>None,
             Kind::Func(crate::expr::Func::MatrixDotProduct(..),_)=>None,
@@ -108,6 +112,32 @@ pub fn commutativity(e:&Expr)->Option<bool>{
             _=>Some(true),
         };
         cache.insert(e.dag_id(),(e.clone(),value));value
+    }
+    /// SymPy's `is_commutative` below a host node that may not commute:
+    /// the class declaration or handler of a host node, `fuzzy_and` over
+    /// the arguments of functions (`Function._eval_is_commutative`) and the
+    /// base and exponent of powers, and True for Add and Mul only when all
+    /// their arguments commute (`AssocOp`).
+    fn host_commutativity(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Option<bool>)>)->Option<bool>{
+        let all=|values:&mut dyn Iterator<Item=Option<bool>>|{
+            let mut unknown=false;
+            for value in values {match value{Some(false)=>return Some(false),None=>unknown=true,_=>{}}}
+            if unknown{None}else{Some(true)}
+        };
+        if let Some(host)=e.host_handle(){
+            if let Some(answer)=host.commutative(e){return answer;}
+            if let Some(symbol)=e.as_sym(){return symbol.facts().get("commutative").or(Some(true));}
+        }
+        match e.kind(){
+            Kind::Func(crate::expr::Func::Undefined(head),arguments) if !head.internal=>head.facts().get("commutative")
+                .or_else(||all(&mut arguments.iter().map(|argument|visit(argument,cache)))),
+            Kind::Add(..)|Kind::Mul(..)=>Some(args(e).iter().all(|a|visit(a,cache)==Some(true))),
+            Kind::Pow(base,exponent)=>all(&mut [base,exponent].into_iter().map(|part|visit(part,cache))),
+            Kind::Func(crate::expr::Func::Limit|crate::expr::Func::MatrixDotProduct(..),_)=>None,
+            Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")||head.is_internal("Tuple")=>None,
+            Kind::Func(_,arguments)=>all(&mut arguments.iter().map(|argument|visit(argument,cache))),
+            _=>Some(true),
+        }
     }
     visit(e,&mut FxHashMap::default())
 }

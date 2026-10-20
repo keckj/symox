@@ -2341,6 +2341,10 @@ _public_caches.append(_cached_symbol)
 
 from ._function_types import application_type as _function_application_type
 
+# Expansion hooks of user classes (SymPy's _eval_expand_<hint> dispatch).
+from ._host import install_expand as _install_host_expand
+_install_host_expand(globals())
+
 from ._distribution_methods import install as _install_distribution_methods
 _install_distribution_methods(globals())
 
