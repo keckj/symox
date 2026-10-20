@@ -160,6 +160,15 @@ expression round trip, retaining exact domains and the established fallback
 for other coefficient domains. These are scoped preservation arguments, not a
 refresh of the separate full API or downstream qualification records.
 
+The small integer response caches for `primepi` and `partition` apply only to
+one positional built-in Python integer in `[-10**6,10**6]` while evaluation is
+enabled. This is cache eligibility, not a mathematical domain limit: larger
+inputs, other accepted types, keywords and held evaluation retain the original
+factory. Existing public head objects, aliases, signatures and pickle identity
+are preserved. Each cache holds at most 32 immutable computed results; separate
+thread-local evaluation contexts cannot retrieve an evaluated value while
+requesting held output.
+
 The versioned per-function ledger retains its own native snapshot. The
 downstream candidate does not renew those historical certificates. Current
 upstream and regression results are recorded separately in the
