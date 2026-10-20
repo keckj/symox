@@ -23,10 +23,11 @@ class _ExprType(type):
     def __getattr__(cls, name):
         # Attributes patched onto the class, and SymPy's own class-level
         # placeholders, live on the nominal node class of the same name.
-        try:
-            return _node_types.class_attribute(cls.__name__, name)
-        except AttributeError:
-            pass
+        if _node_types.is_symox_class(cls):
+            try:
+                return _node_types.class_attribute(cls.__name__, name)
+            except AttributeError:
+                pass
         # Constructors return native Expr instances, so inherited unbound
         # methods must be accessible through the public constructor as well.
         value = getattr(_core.Expr, name)
@@ -37,15 +38,48 @@ class _ExprType(type):
     def fromiter(cls, args, **assumptions):
         return cls(*tuple(args), **assumptions)
 
+    def __new__(metaclass, name, bases, namespace, **kwargs):
+        # User subclasses of Symbol and Dummy are real native subclasses
+        # whose instances keep their class and attributes (see _host).
+        # User subclasses of Atom, AtomicExpr, Number and NumberSymbol are
+        # native expression classes.
+        module = namespace.get('__module__', '')
+        if module != __name__ and _host_atom_bases(bases):
+            from ._host import atom_class
+            return atom_class(metaclass, name, bases, namespace, **kwargs)
+        if module != 'symox' and not module.startswith('symox.'):
+            from ._host import expression_bases
+            bases = expression_bases(bases)
+            return super().__new__(metaclass, name, bases, namespace, **kwargs)
+        cls = super().__new__(metaclass, name, bases, namespace, **kwargs)
+        # The public expression classes are Basic subclasses, as in SymPy.
+        from ._basic import Basic
+        Basic.register(cls)
+        return cls
+
     def __instancecheck__(cls, value):
-        return isinstance(value, _core.Expr) and bool(cls._matches(value))
+        namespace = cls.__dict__
+        if '_symox_host' in namespace or '_symox_head' in namespace:
+            # User classes are nominal: native nodes are never instances.
+            return type.__instancecheck__(cls, value)
+        if not isinstance(value, _core.Expr):
+            return False
+        if type(value) is not _core.Expr and type.__subclasscheck__(cls, type(value)):
+            # Instances of user expression classes (see _host).
+            return True
+        try:
+            matches = cls._matches
+        except AttributeError:
+            return False
+        return bool(matches(value))
 
     def __subclasscheck__(cls, subclass):
         # Native nodes are instances of SymPy's nominal classes, so a class
         # dispatch keyed by this public class must accept their types.
         if type.__subclasscheck__(cls, subclass):
             return True
-        nominal = _node_types.node_class(cls.__name__) if isinstance(subclass, _node_types.NodeType) else None
+        nominal = (_node_types.node_class(cls.__name__)
+                   if isinstance(subclass, _node_types.NodeType) and _node_types.is_symox_class(cls) else None)
         return nominal is not None and issubclass(subclass, nominal)
 
     def __setattr__(cls, name, value):
@@ -57,7 +91,7 @@ class _ExprType(type):
         _node_types.forward_delattr(cls, cls.__name__, name)
 
     def __repr__(cls):
-        if _node_types._facade_active():
+        if _node_types._facade_active() and _node_types.is_symox_class(cls):
             return _node_types.sympy_class_repr(cls) or type.__repr__(cls)
         return type.__repr__(cls)
 
@@ -76,6 +110,34 @@ class _ExprType(type):
 
 class Number(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Number)
+
+    def __new__(cls, *obj):
+        # SymPy's Number constructor dispatches on the Python value type.
+        import decimal
+        if len(obj) == 1:
+            obj = obj[0]
+        if isinstance(obj, Number):
+            return obj
+        if isinstance(obj, int) or type(obj).__name__ in ('mpz', 'MPZ'):
+            return Integer(obj)
+        if isinstance(obj, tuple) and len(obj) == 2:
+            return Rational(*obj)
+        if isinstance(obj, (float, decimal.Decimal)) or type(obj).__name__ == 'mpf':
+            return Float(obj)
+        if isinstance(obj, str):
+            from . import S, sympify
+            lowered = obj.lower()
+            if lowered == 'nan':
+                return S.NaN
+            if lowered in ('inf', '+inf'):
+                return S.Infinity
+            if lowered == '-inf':
+                return S.NegativeInfinity
+            value = sympify(obj)
+            if isinstance(value, Number):
+                return value
+            raise ValueError('String "%s" does not denote a Number' % obj)
+        raise TypeError('expected str|int|long|float|Decimal|Number object but got %r' % obj.__class__.__name__)
 
 
 class NumberSymbol(metaclass=_ExprType):
@@ -161,31 +223,61 @@ class Float(Number):
         return _core.Float(num, dps, precision=precision)
 
 
+def _host_atom_bases(bases):
+    symbol = globals().get('Symbol')
+    return symbol is not None and any(
+        isinstance(base, type) and issubclass(base, symbol) and not issubclass(base, Wild)
+        for base in bases)
+
+
+def _symbol_instance(cls, symbol):
+    if '_symox_host' not in cls.__dict__:
+        return symbol
+    from ._host import host_atom
+    return host_atom(cls, symbol)
+
+
 @lru_cache(maxsize=1000, typed=True)
 def _cached_symbol(cls, name, assumptions):
-    return _core.Symbol(name, **dict(assumptions))
+    return _symbol_instance(cls, _core.Symbol(name, **dict(assumptions)))
+
+
+def _symbol_assumptions(assumptions):
+    commutative = assumptions.get('commutative', True)
+    if commutative is None or commutative not in (True, False):
+        raise ValueError('Symbol commutativity must be True or False')
+    return tuple((key, bool(value)) for key,value in assumptions.items() if value is not None)
 
 
 class Symbol(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Symbol)
 
     def __new__(cls, name, **assumptions):
-        commutative = assumptions.get('commutative', True)
-        if commutative is None or commutative not in (True, False):
-            raise ValueError('Symbol commutativity must be True or False')
-        given = tuple((key, bool(value)) for key,value in assumptions.items() if value is not None)
+        given = _symbol_assumptions(assumptions)
         try:
             hash((cls, name, given))
         except TypeError:
-            return _core.Symbol(name, **dict(given))
+            return _symbol_instance(cls, _core.Symbol(name, **dict(given)))
         return _cached_symbol(cls, name, given)
+
+    @staticmethod
+    def __xnew__(cls, name, **assumptions):
+        """SymPy's uncached construction of a symbol of class ``cls``."""
+        if not isinstance(name, str):
+            raise TypeError('name should be a string, not %s' % repr(type(name)))
+        return _symbol_instance(cls, _core.Symbol(name, **dict(_symbol_assumptions(assumptions))))
+
+    @staticmethod
+    def __xnew_cached_(cls, name, **assumptions):
+        """SymPy's cached construction of a symbol of class ``cls``."""
+        return Symbol.__new__(cls, name, **assumptions)
 
 
 class Dummy(Symbol):
     _matches = staticmethod(lambda e: e.is_Dummy)
 
     def __new__(cls, name=None, dummy_index=None, **assumptions):
-        return _core.Dummy(name, dummy_index, **assumptions)
+        return _symbol_instance(cls, _core.Dummy(name, dummy_index, **assumptions))
 
 
 class Wild(Symbol):
@@ -193,6 +285,10 @@ class Wild(Symbol):
 
     def __new__(cls, name, exclude=(), properties=(), **assumptions):
         return _core.Wild(name,exclude,properties,**assumptions)
+
+
+# Set once a Number class with its own arithmetic exists (see _host).
+_arithmetic_numbers = [False]
 
 
 def _evaluation_state(value=None):
@@ -214,6 +310,13 @@ class Add(metaclass=_ExprType):
         if any(_matrix_operand(arg) for arg in args):
             from ._matrixexpr import MatAdd
             return MatAdd(*args,evaluate=evaluate)
+        if _arithmetic_numbers[0] and evaluate and any(getattr(arg,'_symox_arith',False) for arg in args):
+            # Number classes with their own arithmetic fold the coefficient.
+            from ._host import fold_numbers
+            coeff, terms = fold_numbers("Add", args)
+            if not terms:
+                return coeff
+            args = (coeff, *terms)
         return _core._node("Add", args, evaluate)
 
     @staticmethod
@@ -247,6 +350,13 @@ class Mul(metaclass=_ExprType):
         if any(_matrix_operand(arg) for arg in args):
             from ._matrixexpr import MatMul
             return MatMul(*args,evaluate=evaluate)
+        if _arithmetic_numbers[0] and evaluate and any(getattr(arg,'_symox_arith',False) for arg in args):
+            # Number classes with their own arithmetic fold the coefficient.
+            from ._host import fold_numbers
+            coeff, terms = fold_numbers("Mul", args)
+            if not terms:
+                return coeff
+            args = (coeff, *terms)
         return _core._node("Mul", args, evaluate)
 
     @staticmethod
@@ -275,7 +385,11 @@ class Pow(metaclass=_ExprType):
         if _matrix_operand(b):
             from ._matrixexpr import MatPow
             return MatPow(b,e,evaluate=evaluate)
-        return _core._node("Pow", (b, e), evaluate)
+        native = _core._node("Pow", (b, e), evaluate)
+        if evaluate and '_symox_head' in type(b).__dict__ and hasattr(b, '_eval_power'):
+            from ._host import eval_power
+            return eval_power(b, e, native)
+        return native
 
 
 class Tuple(_core.Expr, metaclass=_ExprType):
@@ -325,6 +439,12 @@ class UnevaluatedExpr(metaclass=_ExprType):
 
 class Atom(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Atom)
+
+    def __new__(cls, *args):
+        # SymPy's Basic.__new__ for user expression classes (see _host).
+        if issubclass(cls, _core.Expr):
+            return _core.Expr.__new__(cls, *args)
+        return object.__new__(cls, *args)
 
 
 class AtomicExpr(Atom):

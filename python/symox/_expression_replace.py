@@ -2,7 +2,7 @@
 
 
 def replace(self, query, value, map=False, simultaneous=True, exact=None):
-    from . import Expr, MatrixExpr, AlgebraicNumber, Function, sympify
+    from . import Expr, MatrixExpr, AlgebraicNumber, sympify, _is_function_head
     from ._core import Head
     from ._matrixexpr_methods import _TupleView, _ExprCondPairView
     from ._structural_queries import _graph, matcher, _SPECIAL_HEADS, _RELATIONS
@@ -16,7 +16,7 @@ def replace(self, query, value, map=False, simultaneous=True, exact=None):
     if not callable(value) and not isinstance(value,expressions):
         value=sympify(value)
 
-    constructor=(isinstance(query,(type,Head,Function))
+    constructor=(isinstance(query,(type,Head)) or _is_function_head(query)
                  or bool(getattr(query,'_symox_head_name',None))
                  or (getattr(query,'__name__',None) in _SPECIAL_HEADS|_RELATIONS.keys()
                      and namespace.get(query.__name__) is query))

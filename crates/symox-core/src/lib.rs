@@ -26,6 +26,7 @@ pub mod evalf_mp;
 pub mod expand;
 pub mod expr;
 pub mod functions;
+pub mod host;
 pub mod integrate;
 pub mod inspection;
 pub mod lambdify;

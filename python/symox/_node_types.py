@@ -17,6 +17,7 @@ import numbers
 import sys
 
 from . import _core
+from ._host import HostTree
 from ._sympy_classes import CLASSES
 
 _classes = {}
@@ -62,6 +63,18 @@ class NodeType(type):
 def native_module(cls):
     """The module recorded in the class dictionary, ignoring the facade."""
     return type.__dict__['__module__'].__get__(cls)
+
+
+def is_symox_class(cls):
+    """Whether ``cls`` is defined by symox itself.
+
+    Only symox's own public classes stand for the nominal class of their
+    name: a user class reusing a SymPy name (Torch's ``Max``, Devito's
+    ``Derivative``) must not see that node class's attributes, accept its
+    node types or report its SymPy path.
+    """
+    module = native_module(cls) if isinstance(cls, type) else getattr(cls, '__module__', None)
+    return isinstance(module, str) and (module == 'symox' or module.startswith('symox.'))
 
 
 def _class_module(cls):
@@ -158,7 +171,9 @@ def node_class(name):
     if cls is not None or name not in CLASSES:
         return cls
     module, base_names = CLASSES[name]
-    bases = tuple(node_class(base) for base in base_names) or (_core.Expr,)
+    # HostTree is the root: a tree containing user subclass instances keeps
+    # them alive in its slot while reporting its SymPy class.
+    bases = tuple(node_class(base) for base in base_names) or (HostTree,)
     namespace = {'__module__': 'symox'+module[len('sympy'):], '__qualname__': name,
                  '__slots__': ()}
     if name == 'Basic':
@@ -230,8 +245,7 @@ def forward_delattr(owner, name, attribute):
 def _forward_target(owner, name, attribute):
     if not _patchable(attribute) or name not in CLASSES:
         return None
-    module = native_module(owner) if isinstance(owner, type) else getattr(owner, '__module__', '')
-    if not str(module or '').startswith('symox'):
+    if not is_symox_class(owner):
         return None
     # Native attributes stay authoritative: symox installs its own Python
     # methods on several facades and those must not shadow Rust methods.

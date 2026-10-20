@@ -56,8 +56,10 @@ def seterr(divide=False):
 
 class _FunctionClassType(type):
     def __instancecheck__(cls,value):
-        from . import Function
-        return value is Function or isinstance(value,Function) or hasattr(value,'_symox_head_name') or hasattr(value,'_heads')
+        from . import Function,_is_function_head
+        from ._host import is_host_function_class
+        return (value is Function or _is_function_head(value) or is_host_function_class(value)
+                or hasattr(value,'_symox_head_name') or hasattr(value,'_heads'))
 
 
 class FunctionClass(type,metaclass=_FunctionClassType):

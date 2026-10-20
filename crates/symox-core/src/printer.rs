@@ -78,11 +78,17 @@ fn paren(e: &Expr, p: u8, strict: bool, out: &mut String) {
 }
 
 pub(crate) fn write_expr(e: &Expr, out: &mut String) {
+    if e.has_host() {
+        if let Some(text) = crate::host::print(e, crate::host::HostFormat::Str) {
+            out.push_str(&text);
+            return;
+        }
+    }
     match e.kind() {
         Kind::Num(n) => out.push_str(&n.to_string()),
         Kind::Sym(s) => {
             if s.is_dummy() { out.push('_'); }
-            out.push_str(s);
+            out.push_str(&crate::host::atom_name(e, s));
             if s.is_wild() {
                 out.push('_');
             }
@@ -410,8 +416,9 @@ fn write_srepr(e: &Expr, out: &mut String) {
             )),
         },
         Kind::Sym(s) => {
-            let name=s.name().replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
-            out.push_str(&format!("{}('{name}'", if s.is_dummy() {"Dummy"} else if s.is_wild() {"Wild"} else {"Symbol"}));
+            let name=crate::host::atom_name(e,s).replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
+            let class=crate::host::class_name(e).unwrap_or(if s.is_dummy() {"Dummy"} else if s.is_wild() {"Wild"} else {"Symbol"});
+            out.push_str(&format!("{class}('{name}'"));
             for keyword in s.given_facts().keywords() { out.push_str(", "); out.push_str(&keyword); }
             if let Some(index)=s.dummy_index() { out.push_str(&format!(", dummy_index={index}")); }
             out.push(')');
@@ -423,6 +430,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Pow(..) => list("Pow", &e.args(), out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => list("UnevaluatedExpr", args, out),
+        Kind::Func(Func::Undefined(n), args) if n.host().is_some() => list(crate::host::class_name(e).unwrap_or(&n.name), args, out),
         Kind::Func(Func::Undefined(n), args) => {
             let escaped=n.name.replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
             let mut head=format!("Function('{escaped}'");

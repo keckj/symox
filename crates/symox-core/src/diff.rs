@@ -242,6 +242,31 @@ fn d_func(
         return if evaluated!=*e{d(&evaluated,x,cache)}else{derivative_unevaluated(e,vec![(x.clone(),1)])};
     }
     if let Func::Undefined(function) = f {
+        if let Some(host) = function.host().filter(|host| host.expression()) {
+            // An Expr subclass without a chain rule: its _eval_derivative,
+            // otherwise the derivative is held (Expr._eval_derivative_n_times).
+            if !crate::traverse::has(e, x) { return Expr::zero(); }
+            return host.derivative(e, x).unwrap_or_else(|| derivative_unevaluated(e, vec![(x.clone(), 1)]));
+        }
+        if let Some(host) = function.host() {
+            // SymPy's Function._eval_derivative: the chain rule over fdiff.
+            // An argument without a host partial keeps the default form.
+            let mut terms=Vec::new();
+            let mut defined=true;
+            let mut partials=Vec::with_capacity(args.len());
+            for (i,arg) in args.iter().enumerate(){
+                let derivative=d(arg,x,cache);
+                if derivative.is_zero(){partials.push(None);continue;}
+                match host.fdiff(e,i+1){
+                    Some(partial)=>partials.push(Some((derivative,partial))),
+                    None=>{defined=false;break;}
+                }
+            }
+            if defined {
+                for (derivative,partial) in partials.into_iter().flatten(){terms.push(mul(&[partial,derivative]));}
+                return add(&terms);
+            }
+        }
         // A non-symbol variable (g(t), Derivative(g(t), t)) goes through the
         // chain rule below, where symbol arguments contribute zero, as in SymPy.
         if function.internal || (x.is_symbol() && args.iter().all(|arg|arg.is_symbol())) {

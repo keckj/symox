@@ -18,6 +18,7 @@ mod series;
 mod python_hash;
 mod expression_inspection;
 mod wildcards;
+mod host;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -163,17 +164,24 @@ fn node_type<'py>(py: Python<'py>, e: &Expr) -> Option<Bound<'py, pyo3::types::P
 
 fn node_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     match node_type(py, &e) {
+        // The nominal classes derive from HostTree, so a tree containing
+        // host nodes keeps their live instances in its slot.
+        Some(class) if e.has_host() => host::instance_of(py, &class, e),
         Some(class) => unsafe {
             use pyo3::impl_::pyclass_init::PyObjectInit;
             let object = PyClassInitializer::from(PyExprNode { e })
                 .into_new_object(py, class.as_type_ptr())?;
             Ok(PyObject::from_owned_ptr(py, object))
         },
+        None if e.has_host() => host::tree_object(py, e),
         None => Ok(Bound::new(py, PyExprNode { e })?.into_any().unbind()),
     }
 }
 
 fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    if e.has_host() {
+        if let Some(value) = host::object(py, &e)? { return Ok(value); }
+    }
     if matches!(e.kind(), Kind::Func(Func::Predicate(_) | Func::Set(symox::sets::SetOp::Lambda | symox::sets::SetOp::IdentityFunction), _)) {
         if let Ok(class) = loaded_symox(py).and_then(|module| module.getattr("_CallableExpr")) {
             let value = Bound::new(py, PyExprNode { e })?;
@@ -1144,9 +1152,28 @@ impl PyExprNode {
     #[getter]
     fn _dag_id(&self) -> usize { self.e.dag_id() }
 
+    /// `Expr(value)` converts a value. For a Python expression class,
+    /// `Expr.__new__(cls, *args)` is SymPy's `Basic.__new__`: an unevaluated
+    /// instance of `cls` with these arguments.
     #[new]
-    fn py_new(obj: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(PyExprNode { e: to_expr(obj)? })
+    #[classmethod]
+    #[pyo3(signature = (*args, **kwargs))]
+    fn py_new(cls: &Bound<'_, pyo3::types::PyType>, args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyClassInitializer<Self>> {
+        let py = cls.py();
+        if let Some(kwargs) = kwargs.filter(|kwargs| !kwargs.is_empty()) {
+            let names = kwargs.keys().iter().map(|key| key.str().map(|key| key.to_string())).collect::<PyResult<Vec<_>>>()?;
+            return Err(PyTypeError::new_err(format!("{}.__new__() got unexpected keyword arguments {}", cls.name()?, names.join(", "))));
+        }
+        if !cls.is(&py.get_type::<PyExprNode>()) {
+            if let Some(head) = host::class_head(cls)? {
+                let value = host::apply(py, &head, args)?;
+                return Ok(PyClassInitializer::from(value.downcast_into::<PyExprNode>()?));
+            }
+        }
+        if args.len() != 1 {
+            return Err(PyTypeError::new_err(format!("{}() takes exactly one argument ({} given)", cls.name()?, args.len())));
+        }
+        Ok(PyExprNode { e: to_expr(&args.get_item(0)?)? }.into())
     }
 
     fn __str__(&self) -> String {
@@ -1422,6 +1449,9 @@ impl PyExprNode {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if self.e.has_host() {
+            if let Some(class) = host::class_of(py, &self.e) { return Ok(class.into_any().unbind()); }
+        }
         if matches!(self.e.kind(), Kind::Derivative(..)) {
             return Ok(loaded_symox(py)?.getattr("Derivative")?.unbind());
         }
@@ -1577,10 +1607,11 @@ impl PyExprNode {
     #[getter]
     fn __class__<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
         // Nodes allocated with their nominal SymPy class report it, as do
-        // public subclasses such as Tuple.
+        // host subclasses and public subclasses such as Tuple. A plain host
+        // tree without a nominal class reports like a plain node.
         let py = slf.py();
         let class = slf.get_type();
-        if !class.is(&py.get_type::<PyExprNode>()) {
+        if !class.is(&py.get_type::<PyExprNode>()) && !host::is_tree_type(py, &class) {
             return Ok(class.into_any());
         }
         let this = slf.get();
@@ -1637,7 +1668,7 @@ impl PyExprNode {
         matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::GenericExpr | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)) && !matches!(f,Func::Undefined(head) if head.is_internal("Tuple")))
     }
     #[getter]
-    fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal)}
+    fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal && f.host().is_none())}
     #[getter]
     fn is_Derivative(&self) -> bool {
         matches!(self.e.kind(), Kind::Derivative(..))
@@ -3388,6 +3419,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(_undefined_function, m)?)?;
+    host::register(m)?;
     m.add_function(wrap_pyfunction!(_function_facts, m)?)?;
     m.add_function(wrap_pyfunction!(_as_real_imag_many, m)?)?;
     m.add_function(wrap_pyfunction!(_subs, m)?)?;
