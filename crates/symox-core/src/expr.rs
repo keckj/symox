@@ -589,6 +589,10 @@ impl Expr {
         let mut features:u16=if binding_identity.is_some(){1}else{0};
         if matches!(&kind,Kind::Sym(symbol) if symbol.host().is_some())
             || matches!(&kind,Kind::Func(Func::Undefined(head),_) if head.host().is_some()){features|=256;}
+        if matches!(&kind,Kind::Sym(symbol) if symbol.host().is_some_and(|host|host.substitutes()))
+            || matches!(&kind,Kind::Func(Func::Undefined(head),_) if head.host().is_some_and(|host|host.substitutes())){features|=512;}
+        if matches!(&kind,Kind::Sym(symbol) if symbol.host().is_some_and(|host|host.may_not_commute()))
+            || matches!(&kind,Kind::Func(Func::Undefined(head),_) if head.host().is_some_and(|host|host.may_not_commute())){features|=1024;}
         if !canonical && matches!(kind,Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){features|=16;}
         if matches!(&kind,Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN))
             || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite())
@@ -799,6 +803,42 @@ impl Expr {
         }
     }
     pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
+    /// The host handle of a host atom or application.
+    pub fn host_handle(&self)->Option<&Arc<dyn crate::host::HostClass>> {
+        if !self.has_host() {return None;}
+        match &self.0.kind {
+            Kind::Sym(s)=>s.host(),
+            Kind::Func(Func::Undefined(head),_)=>head.host(),
+            _=>None,
+        }
+    }
+    /// Whether a host node below intercepts substitution (`_eval_subs`), so
+    /// that `subs` must visit it even where the replaced pattern is absent.
+    pub fn has_host_subs(&self)->bool {self.0.features & 512 != 0}
+    /// Whether a host node below may fail to commute (SymPy
+    /// `is_commutative` not True), so products must keep its order.
+    #[inline]
+    pub fn has_noncommutative_host(&self)->bool {self.0.features & 1024 != 0}
+    /// The number of strong references to this node.
+    pub fn strong_count(&self)->usize {Arc::strong_count(&self.0)}
+    /// Visit the nodes this node references strongly through its scalar
+    /// payload and its derived caches, once per reference. References held
+    /// by other payload (matrix parents, binding keys, atom metadata) are not
+    /// reported, so a caller counting owners sees an over-approximation of
+    /// the external references of a node, never an under-approximation.
+    pub fn for_each_owned<'a>(&'a self, f:&mut dyn FnMut(&'a Expr)) {
+        match &self.0.kind {
+            Kind::Num(_)|Kind::Sym(_)|Kind::Const(_)|Kind::Bool(_)=>{},
+            Kind::Add(_,terms)=>for (t,_) in terms {f(t)},
+            Kind::Mul(_,factors)=>for (b,e) in factors {f(b);f(e)},
+            Kind::Pow(b,e)|Kind::Rel(_,b,e)=>{f(b);f(e)},
+            Kind::Func(_,args)=>for a in args {f(a)},
+            Kind::Derivative(e,vars)=>{f(e);for (v,_) in vars {f(v)}},
+            Kind::Piecewise(pieces)=>for (e,c) in pieces {f(e);f(c)},
+        }
+        if let Some(symbols)=self.0.free_symbols.get() {for s in symbols {f(s)}}
+        if let Some(args)=self.0.ordered_args.get() {for a in args {f(a)}}
+    }
 
     /// Conservative unchanged-child check for transforms preserving public args.
     pub fn same_presentation(&self,other:&Expr)->bool {

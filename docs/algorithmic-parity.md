@@ -161,21 +161,54 @@ uses the reference `__getnewargs__`/`__reduce_ex__` protocol. A class
 `_eval_power` is consulted by `**` and `Pow` once the generic exponent rules
 leave the power unevaluated; `Add` and `Mul` fold their `Number` terms through
 the arithmetic of a `Number` class that defines it, in the reference flatten
-order, and `_as_mpf_val` gives `float()`. Remaining gaps:
-an instance that is no longer referenced by any Python object is rebuilt
-without its instance attributes (constructor results produced inside a native
-operation are retained for a bounded window); `Basic.__new__` sympifies its
-arguments, whereas the reference stores raw Python values; native assumption
-queries, `_eval_subs`, overridden `func`/`free_symbols` and nested Python
-`_print_<Class>` printer methods are not consulted by native algorithms; the
-reference treats `is_commutative = None` as noncommutative (which changes
-`Add`/`Mul` ordering), while native nodes are commutative; `Wild` subclasses
-are not hosted; `And`/`Max` are not classes, so `singledispatch` registration
+order, and `_as_mpf_val` gives `float()` and, as the reference
+`Number._eval_evalf`, `evalf` (an infinite or undefined value evaluates to the
+`oo`, `-oo` or `nan` singleton).
+
+Native algorithms dispatch to the class hooks where the reference does:
+`_eval_subs` (before the native rewrite of the node), `_eval_is_*` assumption
+handlers (combined with the native deduction rules for `Add`, `Mul`, `Pow`,
+`Abs` and the fact closure, and not cached after a raise), `fdiff` and
+`_eval_derivative`, `_eval_evalf`, `_eval_rewrite_as_*`, `_eval_expand_*`
+including user hints, `_eval_simplify`, overridden `func` and `free_symbols`,
+`_eval_power` and `_op_priority`. An exception raised by a hook propagates as
+the original exception object. Canonical argument order compares host class
+names as the reference `ordering_of_classes` does. A class with
+`is_commutative = None` (or a false or undetermined commutativity handler) is
+noncommutative: `Mul` keeps such factors after the commutative part in their
+written order, `Add` and printers keep the reference order, and powers,
+expansion, substitution and differentiation respect it. Expressions without
+such nodes take the unchanged native path. `Wild` subclasses are hosted and
+keep their class through matching. Host instances stay alive exactly while an
+expression or a Python object references them, reference cycles through
+instance attributes are collected, and nodes rebuilt by a native operation go
+through the class constructor again.
+
+Remaining gaps: hook exceptions raised inside a native algorithm are reported
+when the algorithm returns to Python rather than at the raising point, so
+partial work of that call is discarded instead of interrupted; the
+`frac`, `numer`, `denom` and `modulus` expand hints use the native expansion;
+polynomial-based simplification (`cancel`, `together`, `factor`, `ratsimp`,
+`radsimp`, `simplify` and `nc_simplify`) treats noncommutative host factors as
+commuting; native `subs` does not match a pattern against a noncommutative
+subsequence of a product; native tree hashes do not include a host
+`_hashable_content` (this only causes hash collisions, equality is exact);
+the reference shares one fact base between symbols with equal assumptions,
+which can hide a `Symbol` subclass `_eval_is_*` handler after a plain-symbol
+query, and caches `Function` applications so `super().__new__` may return a
+shared object - neither aliasing is reproduced; a `Wild` subclass `matches`
+override is not consulted by the native matcher; `Basic.__new__` sympifies its
+arguments, whereas the reference stores raw Python values; nested Python
+`_print_<Class>` printer methods are not consulted by native printers;
+`And`/`Max` are not classes, so `singledispatch` registration
 and `LatticeOp.make_args` on them remain unsupported; native operators on a
 tree that already contains such a `Number` do not refold its coefficient
 (`(w*x)*3`), and native results equal to `oo`, `-oo`, `nan` or `zoo` are not
 the `S` singleton objects, so identity tests such as `-oo is S.NegativeInfinity`
-fail.
+fail; orderings of a host `Number` (Torch `int_oo`) are not decided through
+the reference `is_ge` protocol (`_n2`, `_eval_is_ge`, the Python comparison
+operators used by `Min`/`Max` connectivity), so `Integer(-1) >= -int_oo`
+stays unevaluated, and native expressions have no `is_comparable`.
 
 N-dimensional array subclasses follow the reference construction protocol
 (`__new__` through `cls._new`, then `__init__`, with `_array`, `_shape`,

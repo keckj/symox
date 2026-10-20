@@ -26,11 +26,49 @@ from . import _core
 # Hook flags understood by the native host handles.
 _STR, _LATEX, _RENAMES, _EVAL, _FDIFF = 1, 2, 4, 8, 16
 _EXPR, _ATOM, _DERIV, _HASHABLE = 32, 64, 128, 256
+_SUBS, _ASSUME, _EVALF, _FUNC = 512, 1024, 2048, 4096
+_NONCOMMUTATIVE, _UNCOMMUTED, _COMMUTATIVE_HOOK = 8192, 16384, 32768
+
+# Hooks dispatched by the Python facades, enabled once a class defines one.
+_hooks = {'expand': False, 'free_symbols': False}
 
 
 class HostTree(_core.Expr):
-    """Expression object holding the live instances of its host nodes."""
-    __slots__ = ('_symox_hosts',)
+    """Expression object whose node contains host nodes. The nodes own their
+    Python instances; the native type reports them to the collector."""
+    __slots__ = ()
+
+    def _hashable_content(self):
+        return _native_hashable_content(self)
+
+
+def _float_mpf(value):
+    import mpmath
+    from mpmath.libmp import prec_to_dps
+    context = mpmath.mp.clone()
+    context.prec = value._prec
+    return context.mpf(str(value.evalf(prec_to_dps(value._prec) + 12)))._mpf_
+
+
+def _native_hashable_content(self):
+    """``_hashable_content`` of the SymPy class of a native node, which the
+    overrides of user subclasses extend through ``super()``."""
+    if self.is_Symbol:
+        content = (self.name,) + tuple(sorted(self.assumptions0.items()))
+        if self.is_Dummy:
+            return content + (self.dummy_index,)
+        if self.is_Wild:
+            return content + (self.exclude, self.properties)
+        return content
+    if self.is_Float:
+        return (_float_mpf(self), self._prec)
+    if self.is_Rational:
+        return (self.p, self.q)
+    if self.class_name == 'Subs':
+        from .core.sorting import ordered
+        return (self.expr.xreplace(self.canonical_variables),) + tuple(ordered(
+            [(v, p) for v, p in zip(self.variables, self.point) if not self.expr.has(v)]))
+    return tuple(self.args)
 
 
 _core._host_register(HostTree)
@@ -134,6 +172,10 @@ class _HostAtom:
         args = (self.name, self.dummy_index) if self.is_Dummy else (self.name,)
         return args, dict(self._assumptions_orig)
 
+    def __getnewargs__(self):
+        # Basic.__getnewargs__ returns the (empty) args; Wild its options.
+        return (self.name, self.exclude, self.properties) if self.is_Wild else ()
+
     def __getstate__(self):
         return None
 
@@ -151,16 +193,25 @@ def atom_class(metaclass, name, bases, namespace, **kwargs):
     if not any(issubclass(base, _core.Expr) for base in bases if isinstance(base, type)):
         bases = tuple(bases) + (_HostAtom, HostTree)
     cls = type.__new__(metaclass, name, bases, namespace, **kwargs)
-    flags = _hashable_flag(cls)
+    flags = _hook_flags(cls)
+    flags |= _commutative_flags(cls, True)
     if _defines(cls, '_sympystr') or _printer_kind(cls) != ('Dummy' if _is_dummy_class(cls) else 'Symbol'):
         flags |= _STR
     if _defines(cls, '_latex'):
         flags |= _LATEX
     if _defines(cls, 'name'):
         flags |= _RENAMES
+    _install_content_hash(cls)
     cls._symox_host = _core._host_class(cls, flags)
     _defined[0] = True
     return cls
+
+
+def _install_content_hash(cls):
+    # Basic.__hash__ hashes the class name and _hashable_content(); a class
+    # that also defines __eq__ without __hash__ stays unhashable.
+    if _defines(cls, '_hashable_content') and not _defines(cls, '__hash__'):
+        cls.__hash__ = _content_hash
 
 
 def _is_dummy_class(cls):
@@ -170,6 +221,97 @@ def _is_dummy_class(cls):
 
 def _hashable_flag(cls):
     return _HASHABLE if _defines(cls, '_hashable_content') else 0
+
+
+def _assumption_handlers(cls):
+    """The ``_eval_is_<fact>`` handlers that user classes define."""
+    from .core.assumptions import _assume_defined
+    return {fact: getattr(cls, '_eval_is_' + fact) for fact in sorted(_assume_defined)
+            if _defines(cls, '_eval_is_' + fact)}
+
+
+def _hook_flags(cls):
+    """Flags of the hooks native algorithms consult, as SymPy's own code
+    dispatches them: ``_eval_subs`` in ``Basic._subs``, ``_eval_is_<fact>``
+    in ``_ask``, ``_eval_evalf`` in ``evalf`` and an overridden ``func`` in
+    the rebuilds of ``xreplace`` and ``subs``."""
+    flags = _hashable_flag(cls)
+    if _defines(cls, '_eval_subs'):
+        flags |= _SUBS
+    cls._symox_handlers = _assumption_handlers(cls)
+    if cls._symox_handlers:
+        flags |= _ASSUME
+    if _defines(cls, '_eval_evalf'):
+        flags |= _EVALF
+    if _defines(cls, 'func'):
+        flags |= _FUNC
+    if any(name.startswith('_eval_expand_') and _defines(cls, name) for name in dir(cls)):
+        _hooks['expand'] = True
+    if _defines(cls, 'free_symbols'):
+        _install_free_symbols()
+    return flags
+
+
+def _commutative_flags(cls, default):
+    """How instances of ``cls`` decide SymPy's ``is_commutative``: an
+    ``is_commutative`` class attribute (False or None), an
+    ``_eval_is_commutative`` handler, or the default of the SymPy base
+    class: True for symbols and numbers, None for ``Expr``, ``Atom`` and
+    ``Basic`` subclasses (``default`` None), and the arguments of a
+    ``Function`` (``default`` 'arguments')."""
+    for base in _user_classes(cls):
+        if 'is_commutative' in base.__dict__:
+            value = base.__dict__['is_commutative']
+            if value is None:
+                return _UNCOMMUTED
+            if isinstance(value, (bool, int)):
+                return 0 if value else _NONCOMMUTATIVE
+            break
+    if 'commutative' in cls._symox_handlers:
+        return _COMMUTATIVE_HOOK
+    return _UNCOMMUTED if default is None else 0
+
+
+def _seed_facts(obj):
+    facts = dict(_class_facts(type(obj)))
+    if getattr(obj, 'is_Symbol', False):
+        facts.update(getattr(obj, '_assumptions_orig', None) or {})
+    return facts
+
+
+def ask(obj, fact):
+    """SymPy's ``_ask(fact, obj)`` over the ``_eval_is_<fact>`` handlers of
+    a host instance. Every value found is deduced into the facts of the
+    instance; None leaves the query to the native facts of its node."""
+    from .core.assumptions import StdFactKB, _assume_rules
+    handlers = type(obj)._symox_handlers
+    namespace = getattr(obj, '__dict__', None)
+    facts = None if namespace is None else namespace.get('_symox_facts')
+    if facts is None:
+        facts = StdFactKB(_seed_facts(obj))
+        if namespace is not None:
+            namespace['_symox_facts'] = facts
+    if fact in facts:
+        return facts[fact]
+    queue, queued = [fact], {fact}
+    for current in queue:
+        if current in facts:
+            continue
+        handler = handlers.get(current)
+        if handler is not None:
+            value = handler(obj)
+            if value is not None:
+                facts.deduce_all_facts(((current, bool(value)),))
+        value = facts.get(fact)
+        if value is not None:
+            return value
+        new = sorted(_assume_rules.prereq[current] - queued)
+        queue.extend(new)
+        queued.update(new)
+    if fact in facts:
+        return facts[fact]
+    facts._tell(fact, None)
+    return None
 
 
 def host_atom(cls, atom):
@@ -231,16 +373,6 @@ def _class_facts(cls):
     return facts
 
 
-def _assumption_property(fact, evaluator):
-    native = getattr(_core.Expr, 'is_' + fact)
-
-    def query(self):
-        value = getattr(self, evaluator)()
-        return native.__get__(self) if value is None else bool(value)
-    query.__name__ = 'is_' + fact
-    return property(query)
-
-
 class _HostFunctionType(type):
     """Metaclass of user Function subclasses (SymPy's FunctionClass)."""
 
@@ -257,21 +389,19 @@ class _HostFunctionType(type):
             nargs = next((base.__dict__['_nargs'] for base in cls.__mro__[1:]
                           if '_nargs' in base.__dict__), None)
         cls._nargs = nargs
-        for base in _user_classes(cls):
-            for key in list(base.__dict__):
-                fact = key[len('_eval_is_'):]
-                if (key.startswith('_eval_is_') and 'is_' + fact not in cls.__dict__
-                        and hasattr(_core.Expr, 'is_' + fact)):
-                    setattr(cls, 'is_' + fact, _assumption_property(fact, key))
-        flags = _hashable_flag(cls)
+        flags = _hook_flags(cls)
+        flags |= _commutative_flags(cls, 'arguments')
         if _defines(cls, 'eval') or _defines(cls, '__new__'):
             flags |= _EVAL
         if _defines(cls, 'fdiff'):
             flags |= _FDIFF
+        if _defines(cls, '_eval_derivative'):
+            flags |= _DERIV
         if _defines(cls, '_sympystr'):
             flags |= _STR
         if _defines(cls, '_latex'):
             flags |= _LATEX
+        _install_content_hash(cls)
         host = _core._host_class(cls, flags)
         cls._symox_head = _core._host_head(host, name, _class_facts(cls), nargs)
         _defined[0] = True
@@ -532,6 +662,20 @@ def _number_float(self):
     return to_float(self._as_mpf_val(53))
 
 
+def _number_eval_evalf(self, prec):
+    # Reference Number._eval_evalf: Float._new(self._as_mpf_val(prec), prec),
+    # which maps the special values to the singletons.
+    import mpmath
+    from mpmath.libmp import finf, fnan, fninf, fzero
+    from . import Float, S
+    value = self._as_mpf_val(prec)
+    special = {fzero: S.Zero, fnan: S.NaN, finf: S.Infinity, fninf: S.NegativeInfinity}
+    if value in special:
+        return special[value]
+    with mpmath.workprec(prec):
+        return Float(mpmath.mpf(value), precision=prec)
+
+
 def fold_numbers(op, args):
     """Fold the Number terms of an evaluated Add or Mul in the order of the
     reference ``AssocOp.flatten``, so that the arithmetic of a Number class
@@ -601,8 +745,9 @@ def expression_class(cls):
     if kind == 'number':
         defaults['is_Number'] = True
         if _defines(cls, '_as_mpf_val'):
-            # Reference Number.__float__.
+            # Reference Number.__float__ and Number._eval_evalf.
             defaults['__float__'] = _number_float
+            defaults['_eval_evalf'] = _number_eval_evalf
     if issubclass(cls, Basic):
         for name in _NATIVE_BASIC:
             if name not in defaults and name in _core.Expr.__dict__:
@@ -620,7 +765,11 @@ def expression_class(cls):
     for name in installed:
         setattr(cls, name, defaults[name])
     cls._symox_defaults = frozenset(installed)
-    flags = _EXPR | (_ATOM if atomic else 0) | (_HASHABLE if hashable else 0)
+    flags = _EXPR | (_ATOM if atomic else 0) | _hook_flags(cls)
+    if '_eval_evalf' in installed:
+        flags |= _EVALF
+    from ._compat import NumberSymbol
+    flags |= _commutative_flags(cls, True if kind == 'number' or issubclass(cls, NumberSymbol) else None)
     if _defines(cls, '__new__') or _defines(cls, '__init__'):
         flags |= _EVAL
     if _defines(cls, '_eval_derivative'):
@@ -641,3 +790,187 @@ def _init_subclass(cls, **kwargs):
 
 
 _core.Expr.__init_subclass__ = classmethod(_init_subclass)
+
+
+# --- hooks dispatched by the Python facades ---------------------------------
+
+def _tree_free_symbols(self):
+    # Basic.free_symbols: the union over the arguments, so that a host class
+    # overriding free_symbols decides for its own nodes. Binding nodes keep
+    # their native rules (bound variables).
+    native = _core.Expr.free_symbols.__get__(self)
+    if not _core._host_contains(self)[0] or self.is_Atom or not (
+            self.is_Add or self.is_Mul or self.is_Pow or self.is_Function or self.is_Relational):
+        return native
+    return set().union(*[arg.free_symbols for arg in self.args])
+
+
+def _install_free_symbols():
+    if not _hooks['free_symbols']:
+        _hooks['free_symbols'] = True
+        HostTree.free_symbols = property(_tree_free_symbols)
+
+
+def simplify_hook(expr):
+    """The ``_eval_simplify`` method of a host instance whose class defines
+    one, which SymPy's ``simplify`` returns at once, or None."""
+    if not _defined[0] or not isinstance(expr, HostTree) or not _core._host_contains(expr)[1]:
+        return None
+    if not _defines(type(expr), '_eval_simplify'):
+        return None
+    return expr._eval_simplify
+
+
+# Hints the native expansion implements, and SymPy's default hints.
+_NATIVE_HINTS = frozenset(('basic', 'mul', 'multinomial', 'power_base', 'power_exp', 'log',
+                           'trig', 'func', 'complex'))
+_DEFAULT_HINTS = ('power_base', 'power_exp', 'mul', 'log', 'multinomial', 'basic')
+_OPTIONS = frozenset(('force', 'max_terms', 'factor'))
+
+
+def _expand_node(expr, hint, hints, native):
+    # SymPy's ``getattr(expr, '_eval_expand_' + hint)(**hints)`` for one node.
+    if _core._host_contains(expr)[1]:
+        method = getattr(expr, '_eval_expand_' + hint, None)
+        return None if method is None else method(**hints)
+    if hint not in _NATIVE_HINTS:
+        return None
+    single = {name: False for name in _DEFAULT_HINTS}
+    single[hint] = True
+    for name in ('force', 'max_terms'):
+        if name in hints:
+            single[name] = hints[name]
+    return native(expr, False, single)
+
+
+def _expand_hint(expr, hint, deep, hints, native):
+    # SymPy's Expr._expand_hint. Subtrees without host nodes expand natively.
+    if not _core._host_contains(expr)[0]:
+        if hint not in _NATIVE_HINTS:
+            return expr, False
+        single = {name: False for name in _DEFAULT_HINTS}
+        single[hint] = True
+        for name in ('force', 'max_terms'):
+            if name in hints:
+                single[name] = hints[name]
+        result = native(expr, deep, single)
+        return result, result != expr
+    hit = False
+    if deep and expr.args and not expr.is_Atom:
+        args = []
+        for arg in expr.args:
+            arg, arg_hit = _expand_hint(arg, hint, True, hints, native)
+            hit |= arg_hit
+            args.append(arg)
+        if hit:
+            expr = expr.func(*args)
+    result = _expand_node(expr, hint, hints, native)
+    if result is not None and result != expr:
+        return result, True
+    return expr, hit
+
+
+def expand(expr, deep, hints, native):
+    """SymPy's ``Expr.expand`` for a tree containing host nodes, when a host
+    class defines ``_eval_expand_<hint>`` methods; ``native(expr, deep,
+    hints)`` expands nodes without host nodes. Returns None to leave the
+    expansion to ``native``."""
+    if not _hooks['expand'] or not isinstance(expr, _core.Expr) or not _core._host_contains(expr)[0]:
+        return None
+    hints = dict(hints)
+    if any(hints.get(name) for name in ('frac', 'numer', 'denom')) or hints.get('modulus') is not None:
+        return None
+    hints.pop('modulus', None)
+    for name in ('frac', 'numer', 'denom'):
+        hints.pop(name, None)
+    for name in _DEFAULT_HINTS:
+        hints.setdefault(name, True)
+    # Hints apply once each, multinomial before mul, then mul, multinomial
+    # and log repeat until nothing changes.
+    for hint in sorted(hints, key=lambda name: 'mulz' if name == 'mul' else name):
+        if hints[hint] and hint not in _OPTIONS:
+            expr, _ = _expand_hint(expr, hint, deep, hints, native)
+    while True:
+        was = expr
+        for hint in ('multinomial', 'mul', 'log'):
+            if hints.get(hint):
+                expr, _ = _expand_hint(expr, hint, deep, hints, native)
+        if expr == was:
+            return expr
+
+
+# SymPy's expand_<hint> functions: the hints each one enables.
+_EXPAND_FUNCTIONS = {
+    'expand_func': {'func': True},
+    'expand_mul': {'mul': True},
+    'expand_multinomial': {'multinomial': True},
+    'expand_log': {'log': True},
+    'expand_trig': {'trig': True},
+    'expand_power_base': {'power_base': True},
+    'expand_power_exp': {'power_exp': True},
+}
+
+
+def install_expand(namespace):
+    """Route ``Expr.expand``, ``expand`` and the ``expand_<hint>`` functions
+    of ``namespace`` through ``expand`` for trees with expansion hooks."""
+    import functools
+    import sys
+    method = _core.Expr.expand
+
+    def native(expr, deep, hints):
+        return method(expr, deep=deep, **hints)
+
+    @functools.wraps(method)
+    def expand_method(self, deep=True, **hints):
+        if _hooks['expand']:
+            result = expand(self, deep, hints, native)
+            if result is not None:
+                return result
+        return method(self, deep=deep, **hints)
+
+    _core.Expr.expand = expand_method
+    replaced = {}
+    root = namespace['expand']
+
+    @functools.wraps(root)
+    def expand_function(e, deep=True, **hints):
+        if _hooks['expand']:
+            from . import sympify
+            value = sympify(e)
+            if isinstance(value, _core.Expr):
+                result = expand(value, deep, hints, native)
+                if result is not None:
+                    return result
+        return root(e, deep=deep, **hints)
+
+    replaced[id(root)] = ('expand', root, expand_function)
+    for name, enabled in _EXPAND_FUNCTIONS.items():
+        original = namespace.get(name)
+        if original is None:
+            continue
+
+        def make(original, enabled):
+            @functools.wraps(original)
+            def function(expr, deep=True, **options):
+                if _hooks['expand']:
+                    from . import sympify
+                    value = sympify(expr)
+                    if isinstance(value, _core.Expr):
+                        hints = {hint: False for hint in _DEFAULT_HINTS}
+                        hints.update(enabled)
+                        hints.update(options)
+                        result = expand(value, deep, hints, native)
+                        if result is not None:
+                            return result
+                return original(expr, deep=deep, **options)
+            return function
+        replaced[id(original)] = (name, original, make(original, enabled))
+    for name, original, wrapper in replaced.values():
+        namespace[name] = wrapper
+    for module_name, module in tuple(sys.modules.items()):
+        if not module_name.startswith('symox.') or module_name == 'symox._core' or module is None:
+            continue
+        for name, original, wrapper in replaced.values():
+            if module.__dict__.get(name) is original:
+                setattr(module, name, wrapper)

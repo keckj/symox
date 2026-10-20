@@ -67,3 +67,13 @@ def test_named_mapping_retains_simultaneous_substitution(kind):
     actual=build(sx,kind).subs(arg1={x:y,y:x},simultaneous=True)
     expected=build(sp,kind).subs(arg1={a:b,b:a},simultaneous=True)
     equal(actual,expected)
+
+
+@pytest.mark.parametrize('kind',['scalar','derivative','poly','abstract','Matrix','SparseMatrix'])
+def test_unused_substitution_hints_are_ignored(kind):
+    # The reference forwards extra keywords to `_subs`, which ignores them
+    # (Lcapy passes `safe=` and `causal=`).
+    x,y=sx.symbols('x y');a,b=sp.symbols('x y')
+    actual=build(sx,kind).subs(x,y+1,safe=True,causal=False)
+    expected=build(sp,kind).subs(a,b+1,safe=True,causal=False)
+    equal(actual,expected)

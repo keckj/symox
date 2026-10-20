@@ -225,8 +225,7 @@ class Float(Number):
 def _host_atom_bases(bases):
     symbol = globals().get('Symbol')
     return symbol is not None and any(
-        isinstance(base, type) and issubclass(base, symbol) and not issubclass(base, Wild)
-        for base in bases)
+        isinstance(base, type) and issubclass(base, symbol) for base in bases)
 
 
 def _symbol_instance(cls, symbol):
@@ -283,7 +282,7 @@ class Wild(Symbol):
     _matches = staticmethod(lambda e: e.is_Wild)
 
     def __new__(cls, name, exclude=(), properties=(), **assumptions):
-        return _core.Wild(name,exclude,properties,**assumptions)
+        return _symbol_instance(cls, _core.Wild(name,exclude,properties,**assumptions))
 
 
 # Set once a Number class with its own arithmetic exists (see _host).

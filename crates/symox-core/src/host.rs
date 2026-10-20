@@ -56,12 +56,44 @@ pub trait HostClass: Send + Sync + fmt::Debug {
     /// The first two fields of the class `class_key()`, when they differ
     /// from those of a function head.
     fn class_key(&self) -> Option<(u8, u32)> { None }
-    /// `_eval_derivative` of an application of an expression class, or
-    /// `None` to hold the derivative.
+    /// `_eval_derivative` of an application of an expression class, or of
+    /// a function class that `differentiates`; `None` holds the derivative.
     fn derivative(&self, _expr: &Expr, _x: &Expr) -> Option<Expr> { None }
     /// A total order of handles of one class that are not `same`, so that
     /// native ordering stays consistent with equality.
     fn order(&self, _other: &dyn HostClass) -> std::cmp::Ordering { std::cmp::Ordering::Equal }
+    /// A fresh handle of this class for a new application of this head
+    /// built natively, so that each application binds its own host object.
+    fn applied(&self) -> Option<std::sync::Arc<dyn HostClass>> { None }
+    /// Whether `subs` must consult `subs` on this node (SymPy `_eval_subs`),
+    /// including where the replaced pattern does not occur.
+    fn substitutes(&self) -> bool { false }
+    /// SymPy `_eval_subs(old, new)` of this atom or application; `None`
+    /// falls back to native substitution of its arguments.
+    fn subs(&self, _expr: &Expr, _old: &Expr, _new: &Expr) -> Option<Expr> { None }
+    /// The host's answer to the assumption `name` of this atom or
+    /// application (SymPy `_ask` over its `_eval_is_<fact>` handlers):
+    /// `Some(answer)` when the host decides the query, `None` to keep the
+    /// native facts of its class.
+    fn fact(&self, _expr: &Expr, _name: &str) -> Option<Option<bool>> { None }
+    /// Whether applications of a function head differentiate through
+    /// `derivative` (an overridden SymPy `_eval_derivative`) instead of the
+    /// chain rule over `fdiff`.
+    fn differentiates(&self) -> bool { false }
+    /// Whether numerical evaluation consults `evalf` (SymPy `_eval_evalf`).
+    fn evaluates_numerically(&self) -> bool { false }
+    /// SymPy `_eval_evalf(prec)` of an application, at binary precision
+    /// `precision`: a numerical value, or `None` to keep it unevaluated.
+    fn evalf(&self, _expr: &Expr, _precision: u32) -> Option<Expr> { None }
+    /// Whether instances of this class may fail to commute: the class
+    /// declares `is_commutative` False or None, has no commutative default
+    /// (SymPy `Expr`, `Atom` and `Basic` subclasses), or decides it with an
+    /// `_eval_is_commutative` handler.
+    fn may_not_commute(&self) -> bool { false }
+    /// SymPy `is_commutative` of this atom or application when its class
+    /// decides it, `None` when it follows from the native facts and, for a
+    /// function, from the arguments.
+    fn commutative(&self, _expr: &Expr) -> Option<Option<bool>> { None }
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
@@ -117,4 +149,24 @@ pub fn class_name(e: &Expr) -> Option<&str> {
         crate::expr::Kind::Func(crate::expr::Func::Undefined(head), _) => head.host().map(|host| host.class_name()),
         _ => None,
     }
+}
+
+thread_local! {
+    static FAILED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Record that a host callback raised. Results derived while a failure is
+/// pending are returned to the host, which reports the failure, but are not
+/// cached by native nodes.
+pub fn note_failure() { FAILED.with(|failed| failed.set(true)); }
+/// Whether a host failure is pending on this thread.
+pub fn failure_pending() -> bool { FAILED.with(|failed| failed.get()) }
+/// Clear the pending host failure of this thread.
+pub fn clear_failure() { FAILED.with(|failed| failed.set(false)); }
+
+/// The host's answer to assumption `name` of a host atom or application.
+#[inline]
+pub fn fact(e: &Expr, name: &str) -> Option<Option<bool>> {
+    if !e.is_host() { return None; }
+    e.host_handle()?.fact(e, name)
 }

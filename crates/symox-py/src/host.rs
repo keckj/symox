@@ -5,24 +5,21 @@
 //! handle to its class, so every expression rebuilt by native code returns
 //! instances of that class again.
 //!
-//! Handles keep a weak reference to the Python instance of their node: the
-//! instance owns the native node, and a strong back reference would form a
-//! cycle the collector cannot see. Instead every Python expression object
-//! containing host nodes holds strong, collector-visible references to their
-//! live instances (`_symox_hosts`), as SymPy expressions hold their
-//! arguments. Native containers that are not Python expression objects
-//! (matrices, tuples, applications of plain undefined functions) do not hold
-//! them: when an instance has been collected while its node lives on there
-//! only, a fresh instance of the same class is created without the collected
-//! attributes.
+//! Each node owns the Python instance bound to it: its handle holds a strong
+//! reference, so the instance (identity and attributes) lives exactly as
+//! long as some expression, Python object or native container references
+//! the node. The instance itself owns its node, so this forms a reference
+//! cycle that the collector sees through `traverse`: a Python expression
+//! object reports the instances of the host nodes that are reachable only
+//! through it, and `clear` releases them.
 use std::cmp::Ordering as Order;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use pyo3::impl_::pyclass_init::PyObjectInit;
 use pyo3::prelude::*;
 use pyo3::sync::GILOnceCell;
-use pyo3::types::{PyDict, PyString, PyTuple, PyType, PyWeakrefMethods, PyWeakrefReference};
+use pyo3::types::{PyDict, PyTuple, PyType};
 use symox::expr::{Expr, Func, Kind, UndefinedFunction, WeakExpr};
 use symox::host::{HostClass, HostFormat};
 
@@ -37,31 +34,21 @@ const EXPR: u32 = 32;
 const ATOM: u32 = 64;
 const DERIV: u32 = 128;
 const HASHABLE: u32 = 256;
+const SUBS: u32 = 512;
+const ASSUME: u32 = 1024;
+const EVALF: u32 = 2048;
+const FUNC: u32 = 4096;
+const NONCOMMUTATIVE: u32 = 8192;
+const UNCOMMUTED: u32 = 16384;
+const COMMUTATIVE_HOOK: u32 = 32768;
+
+fn may_not_commute(flags: u32) -> bool { flags & (NONCOMMUTATIVE | UNCOMMUTED | COMMUTATIVE_HOOK) != 0 }
 
 static NEXT_CLASS: AtomicU64 = AtomicU64::new(1);
 static NEXT_HANDLE: AtomicU64 = AtomicU64::new(1);
 
 /// The Python `HostTree` type: plain expression objects owning host nodes.
 static HOST_TREE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
-
-// Instances returned by Python constructors during a native operation (an
-// evaluated `subs` result) are only weakly bound to their nodes until a
-// Python object holds them. The most recent ones are kept alive so that their
-// instance attributes survive until the operation's result is wrapped.
-const RECENT_CAPACITY: usize = 1024;
-static RECENT: Mutex<std::collections::VecDeque<Py<PyAny>>> = Mutex::new(std::collections::VecDeque::new());
-
-fn keep_recent(value: &Bound<'_, PyAny>) {
-    let evicted = match RECENT.lock() {
-        Ok(mut recent) => {
-            recent.push_back(value.clone().unbind());
-            if recent.len() > RECENT_CAPACITY { recent.pop_front() } else { None }
-        }
-        Err(_) => None,
-    };
-    // Dropped outside the lock: finalizers may create expressions.
-    drop(evicted);
-}
 
 #[derive(Debug)]
 struct ClassInfo {
@@ -90,30 +77,32 @@ pub(crate) struct PyHostHead {
     head: UndefinedFunction,
 }
 
-/// The handle of one host atom, shared by every node of that atom.
+/// A Python instance bound to a node it owns. `contents` is the address of
+/// the instance's native payload, which identifies it during collection.
+#[derive(Debug)]
+struct Binding {
+    node: WeakExpr,
+    instance: Py<PyAny>,
+    contents: usize,
+}
+
+/// The handle of one host atom, shared by every node of that atom: they all
+/// denote one Python instance.
 #[derive(Debug)]
 struct AtomHost {
     class: Arc<ClassInfo>,
     serial: u64,
-    node: OnceLock<WeakExpr>,
-    instance: Mutex<Option<Py<PyWeakrefReference>>>,
+    bound: Mutex<Option<Binding>>,
 }
 
-/// The node of an application and its live Python instance.
-#[derive(Debug)]
-struct Application {
-    node: WeakExpr,
-    instance: Py<PyWeakrefReference>,
-}
-
-/// The handle of a host head. The head registered by the class has no
-/// application; every application built from Python gets its own handle,
-/// bound to its node and instance.
+/// The handle of a host head. The head registered by the class binds no
+/// instance; every application gets its own handle, bound to the instance
+/// of its node.
 #[derive(Debug)]
 struct HeadHost {
     class: Arc<ClassInfo>,
     serial: u64,
-    application: Mutex<Option<Application>>,
+    bound: Mutex<Option<Binding>>,
 }
 
 /// The registered Python `HostTree` type.
@@ -127,67 +116,112 @@ fn _host_register(py: Python<'_>, tree: &Bound<'_, PyType>) -> PyResult<()> {
 }
 
 /// A new instance of `class` owning `e`, created without calling the class
-/// constructor (which may evaluate or reset attributes). The instance holds
-/// the live instances of the host nodes below it.
+/// constructor (which may evaluate or reset attributes).
 fn instantiate<'py>(py: Python<'py>, class: &Bound<'py, PyType>, e: Expr) -> PyResult<Bound<'py, PyAny>> {
     if !class.is_subclass_of::<PyExprNode>()? {
         return Err(pyo3::exceptions::PyTypeError::new_err(format!(
             "{} is not a subtype of the native Expr type", class.name()?)));
     }
-    let mut hosts = Vec::new();
-    if e.has_host() {
-        let mut seen = Vec::new();
-        for arg in e.args() { collect(py, &arg, &mut hosts, &mut seen)?; }
-    }
     // SAFETY: `class` is a subtype of the native Expr type, whose layout
     // the initializer fills; the new reference is owned by the result.
-    let value = unsafe {
+    unsafe {
         let object = PyClassInitializer::from(PyExprNode { e }).into_new_object(py, class.as_type_ptr())?;
-        Bound::from_owned_ptr(py, object)
-    };
-    if !hosts.is_empty() { hold(py, &value, hosts); }
-    Ok(value)
-}
-
-/// Store `hosts` in the `_symox_hosts` slot (or instance dictionary) of
-/// `value`, bypassing class `__setattr__` overrides. Classes without either
-/// storage do not hold their host nodes.
-fn hold(py: Python<'_>, value: &Bound<'_, PyAny>, hosts: Vec<PyObject>) {
-    let stored = PyTuple::new(py, hosts).and_then(|hosts| {
-        let name = PyString::intern(py, "_symox_hosts");
-        // SAFETY: all pointers are valid, borrowed references.
-        let status = unsafe { pyo3::ffi::PyObject_GenericSetAttr(value.as_ptr(), name.as_ptr(), hosts.as_ptr()) };
-        if status < 0 { Err(PyErr::fetch(py)) } else { Ok(()) }
-    });
-    drop(stored);
-}
-
-/// The live instances of the outermost host nodes occurring in `e`; host
-/// atoms are revived when needed.
-fn collect(py: Python<'_>, e: &Expr, hosts: &mut Vec<PyObject>, seen: &mut Vec<usize>) -> PyResult<()> {
-    if !e.has_host() { return Ok(()); }
-    let mut push = |value: Bound<'_, PyAny>, hosts: &mut Vec<PyObject>| {
-        let key = value.as_ptr() as usize;
-        if !seen.contains(&key) { seen.push(key); hosts.push(value.unbind()); }
-    };
-    match e.kind() {
-        Kind::Sym(symbol) => {
-            if let Some(host) = symbol.host().and_then(|host| host.as_any().downcast_ref::<AtomHost>()) {
-                push(host.object(py, e)?, hosts);
-            }
-            return Ok(());
-        }
-        Kind::Func(Func::Undefined(head), _) => {
-            if let Some(value) = head.host().and_then(|host| host.as_any().downcast_ref::<HeadHost>())
-                .and_then(|host| host.live(py, e)) {
-                push(value, hosts);
-                return Ok(());
-            }
-        }
-        _ => {}
+        Ok(Bound::from_owned_ptr(py, object))
     }
-    for arg in e.args() { collect(py, &arg, hosts, seen)?; }
+}
+
+/// The instance bound in `slot`, when its node is `e` (any node for atoms).
+fn bound_instance<'py>(py: Python<'py>, slot: &Mutex<Option<Binding>>, e: Option<&Expr>) -> Option<Bound<'py, PyAny>> {
+    let guard = slot.lock().ok()?;
+    let binding = guard.as_ref().filter(|binding| e.is_none_or(|e| binding.node.is(e)))?;
+    Some(binding.instance.bind(py).clone())
+}
+
+/// Bind `value`, a new instance owning node `e`, in `slot` unless an
+/// instance is bound already. Returns the instance of `e`: the one bound
+/// before when it denotes `e` (always for atoms), else `value`.
+fn bind<'py>(slot: &Mutex<Option<Binding>>, e: &Expr, value: Bound<'py, PyAny>, atom: bool) -> Bound<'py, PyAny> {
+    let py = value.py();
+    let contents = match value.downcast::<PyExprNode>() {
+        Ok(native) => native.get() as *const PyExprNode as usize,
+        Err(_) => return value,
+    };
+    // No Python object is created or released while the slot is locked.
+    let previous = {
+        let Ok(mut guard) = slot.lock() else { return value };
+        match guard.as_ref() {
+            Some(binding) if atom || binding.node.is(e) => Some(binding.instance.bind(py).clone()),
+            Some(_) => None,
+            None => {
+                *guard = Some(Binding { node: e.downgrade(), instance: value.clone().unbind(), contents });
+                None
+            }
+        }
+    };
+    previous.unwrap_or(value)
+}
+
+/// The binding slot of a host handle of this module.
+fn slot(handle: &Arc<dyn HostClass>) -> Option<&Mutex<Option<Binding>>> {
+    let handle = handle.as_any();
+    handle.downcast_ref::<AtomHost>().map(|host| &host.bound)
+        .or_else(|| handle.downcast_ref::<HeadHost>().map(|host| &host.bound))
+}
+
+/// The handles whose bound instances are reachable only through the Python
+/// expression object with payload address `me`, which owns `root`.
+///
+/// A node belongs to the region of that object when every strong reference
+/// to it comes from the object or from nodes of the region, except for the
+/// reference held by its own bound instance (when that is another object).
+/// A handle belongs to it when every reference to the handle comes from
+/// nodes of the region. References this walk cannot attribute (native
+/// containers, caches, other objects) keep instances out of the region, so
+/// the collector may defer, never break, a live binding.
+fn exclusive(me: usize, root: &Expr) -> Vec<&Arc<dyn HostClass>> {
+    let extra = |e: &Expr| -> usize {
+        e.host_handle().and_then(slot).and_then(|slot| slot.try_lock().ok())
+            .is_some_and(|guard| guard.as_ref().is_some_and(|binding| binding.node.is(e) && binding.contents != me))
+            as usize
+    };
+    let mut handles: Vec<&Arc<dyn HostClass>> = Vec::new();
+    let mut holders: rustc_hash::FxHashMap<usize, usize> = Default::default();
+    let mut owners: rustc_hash::FxHashMap<usize, usize> = Default::default();
+    let mut stack = Vec::new();
+    if root.strong_count() == 1 + extra(root) { stack.push(root); }
+    while let Some(node) = stack.pop() {
+        if let Some(handle) = node.host_handle() {
+            let held = holders.entry(Arc::as_ptr(handle) as *const () as usize).or_insert(0);
+            *held += 1;
+            if *held == Arc::strong_count(handle) { handles.push(handle); }
+        }
+        node.for_each_owned(&mut |child| {
+            if !child.has_host() { return; }
+            let owned = owners.entry(child.dag_id()).or_insert(0);
+            *owned += 1;
+            if *owned + extra(child) == child.strong_count() { stack.push(child); }
+        });
+    }
+    handles
+}
+
+/// Report to the collector the host instances reachable only through the
+/// Python expression object with payload address `me`.
+pub(crate) fn traverse(me: usize, root: &Expr, visit: &pyo3::PyVisit<'_>) -> Result<(), pyo3::PyTraverseError> {
+    for handle in exclusive(me, root) {
+        let Some(guard) = slot(handle).and_then(|slot| slot.try_lock().ok()) else { continue };
+        if let Some(binding) = guard.as_ref() { visit.call(&binding.instance)?; }
+    }
     Ok(())
+}
+
+/// Release the instances reported by `traverse`: the collector found them
+/// unreachable together with this object.
+pub(crate) fn clear(me: usize, root: &Expr) {
+    let released = exclusive(me, root).into_iter()
+        .filter_map(|handle| slot(handle)?.try_lock().ok()?.take())
+        .collect::<Vec<_>>();
+    drop(released);
 }
 
 /// The object of `e`, which contains host nodes, as an instance of the
@@ -209,10 +243,42 @@ pub(crate) fn tree_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     }
 }
 
-fn report(py: Python<'_>, error: PyErr, context: Option<&Bound<'_, PyAny>>) {
-    // Native rebuilds cannot propagate exceptions. Report them like
-    // exceptions raised in destructors and keep the native result.
-    error.write_unraisable(py, context);
+thread_local! {
+    /// The first exception raised by a host callback of this thread that
+    /// was not yet raised to the caller.
+    static PENDING: std::cell::RefCell<Option<PyErr>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Record an exception raised by a host callback. Native algorithms cannot
+/// unwind through their callers, so they continue with the native fallback
+/// and the exception is raised when the result returns to Python (see
+/// `raise_pending`), as the reference raises it out of the computation.
+fn report(_py: Python<'_>, error: PyErr, _context: Option<&Bound<'_, PyAny>>) {
+    let extra = PENDING.with(|pending| {
+        let mut pending = pending.borrow_mut();
+        if pending.is_none() { *pending = Some(error); None } else { Some(error) }
+    });
+    symox::host::note_failure();
+    drop(extra);
+}
+
+/// Raise the exception of a host callback that failed during the native
+/// computation now returning to Python.
+#[inline]
+pub(crate) fn raise_pending() -> PyResult<()> {
+    if !symox::host::failure_pending() { return Ok(()); }
+    symox::host::clear_failure();
+    match PENDING.with(|pending| pending.borrow_mut().take()) {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
+/// `value`, unless a host callback failed while computing it.
+#[inline]
+pub(crate) fn checked<T>(value: T) -> PyResult<T> {
+    raise_pending()?;
+    Ok(value)
 }
 
 /// Whether the current thread holds the GIL. Native workers comparing host
@@ -224,84 +290,49 @@ fn holds_gil() -> bool {
 }
 
 impl AtomHost {
-    fn live<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
-        self.instance.lock().ok()?.as_ref().and_then(|reference| reference.bind(py).upgrade())
-    }
-
-    fn object<'py>(&self, py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
-        if let Some(value) = self.live(py) { return Ok(value); }
-        let value = instantiate(py, self.class.class.bind(py), e.clone())?;
-        self.attach(&value)?;
-        Ok(value)
-    }
-
-    fn attach(&self, value: &Bound<'_, PyAny>) -> PyResult<()> {
-        let reference = PyWeakrefReference::new(value)?.unbind();
-        let previous = self.instance.lock().ok().and_then(|mut slot| slot.replace(reference));
-        drop(previous);
-        Ok(())
-    }
-
-    /// The instance of this atom, live or revived from its node.
+    /// The instance of this atom, when one is bound.
     fn instance<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
-        if let Some(value) = self.live(py) { return Some(value); }
-        let node = self.node.get()?.upgrade()?;
-        self.object(py, &node).ok()
+        bound_instance(py, &self.bound, None)
+    }
+
+    /// The instance of this atom, created for node `e` when none is bound.
+    fn object<'py>(&self, py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
+        if let Some(value) = self.instance(py) { return Ok(value); }
+        let value = instantiate(py, self.class.class.bind(py), e.clone())?;
+        Ok(bind(&self.bound, e, value, true))
     }
 }
 
 impl HeadHost {
-    fn applied(&self) -> HeadHost {
-        HeadHost { class: self.class.clone(), serial: NEXT_HANDLE.fetch_add(1, Ordering::Relaxed), application: Mutex::new(None) }
+    fn fresh(&self) -> HeadHost {
+        HeadHost { class: self.class.clone(), serial: NEXT_HANDLE.fetch_add(1, Ordering::Relaxed), bound: Mutex::new(None) }
     }
 
-    /// The live instance bound to node `e`.
-    fn live<'py>(&self, py: Python<'py>, e: &Expr) -> Option<Bound<'py, PyAny>> {
-        let application = self.application.lock().ok()?;
-        let application = application.as_ref().filter(|application| application.node.is(e))?;
-        application.instance.bind(py).upgrade()
-    }
-
-    /// Bind `value` as the instance of node `e`, unless this handle is
-    /// bound to another live node.
-    fn bind(&self, e: &Expr, value: &Bound<'_, PyAny>) -> PyResult<()> {
-        let reference = PyWeakrefReference::new(value)?.unbind();
-        let previous = match self.application.lock() {
-            Ok(mut slot) => {
-                let free = slot.as_ref().is_none_or(|application| application.node.is(e) || application.node.upgrade().is_none());
-                if free { slot.replace(Application { node: e.downgrade(), instance: reference }) } else { None }
-            }
-            Err(_) => None,
-        };
-        drop(previous);
-        Ok(())
-    }
-
-    fn object<'py>(&self, py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
-        if let Some(value) = self.live(py, e) { return Ok(value); }
-        let value = instantiate(py, self.class.class.bind(py), e.clone())?;
-        self.bind(e, &value)?;
-        Ok(value)
-    }
-
-    /// The instance of the node bound to this handle, live or revived.
+    /// The instance bound to this handle.
     fn instance<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
-        let node = self.application.lock().ok()?.as_ref()?.node.upgrade()?;
-        self.object(py, &node).ok()
+        bound_instance(py, &self.bound, None)
+    }
+
+    /// The instance of node `e`. A node sharing the handle of another bound
+    /// node gets a new, unbound instance.
+    fn object<'py>(&self, py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
+        if let Some(value) = bound_instance(py, &self.bound, Some(e)) { return Ok(value); }
+        let value = instantiate(py, self.class.class.bind(py), e.clone())?;
+        Ok(bind(&self.bound, e, value, false))
     }
 }
 
 /// `_hashable_content()` of the instances of two handles of one class, or
-/// `None` when either is unavailable.
+/// `None` when either is unavailable or raised (the error is reported).
 fn contents<'py>(py: Python<'py>, a: Option<Bound<'py, PyAny>>, b: Option<Bound<'py, PyAny>>) -> Option<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
-    let content = |value: Bound<'py, PyAny>| value.call_method0("_hashable_content").map_err(|error| drop(error)).ok();
-    let _ = py;
+    let content = |value: Bound<'py, PyAny>| value.call_method0("_hashable_content")
+        .map_err(|error| report(py, error, Some(&value))).ok();
     Some((content(a?)?, content(b?)?))
 }
 
 /// SymPy equality of two instances of a class defining `_hashable_content`.
 fn same_content<'py>(py: Python<'py>, a: Option<Bound<'py, PyAny>>, b: Option<Bound<'py, PyAny>>) -> bool {
-    contents(py, a, b).is_some_and(|(a, b)| a.eq(&b).unwrap_or(false))
+    contents(py, a, b).is_some_and(|(a, b)| a.eq(&b).unwrap_or_else(|error| { report(py, error, None); false }))
 }
 
 /// A total order of instances that are not equal: their contents when
@@ -334,6 +365,44 @@ fn wants(flags: u32, format: HostFormat) -> bool {
     }
 }
 
+/// An optional expression returned by a host hook (`None` declines).
+fn optional_expr(value: Bound<'_, PyAny>) -> PyResult<Option<Expr>> {
+    if value.is_none() { Ok(None) } else { to_expr(&value).map(Some) }
+}
+
+/// SymPy `_eval_subs(old, new)` of the instance `value`.
+fn call_subs(py: Python<'_>, value: &Bound<'_, PyAny>, old: &Expr, new: &Expr) -> Option<Expr> {
+    let result = crate::scalar_object(py, old.clone())
+        .and_then(|old| Ok((old, crate::scalar_object(py, new.clone())?)))
+        .and_then(|(old, new)| value.call_method1(pyo3::intern!(py, "_eval_subs"), (old, new)))
+        .and_then(optional_expr);
+    match result {
+        Ok(value) => value,
+        Err(error) => { report(py, error, Some(value)); None }
+    }
+}
+
+/// The answer of the `_eval_is_<fact>` handlers of the instance `value`
+/// (SymPy `_ask`), or `None` to keep the native facts.
+fn call_fact(py: Python<'_>, value: &Bound<'_, PyAny>, name: &str) -> Option<Option<bool>> {
+    let result = py.import("symox._host").and_then(|module| module.getattr("ask")?.call1((value, name)))
+        .and_then(|answer| answer.extract::<Option<bool>>());
+    match result {
+        Ok(Some(answer)) => Some(Some(answer)),
+        Ok(None) => None,
+        Err(error) => { report(py, error, Some(value)); None }
+    }
+}
+
+/// SymPy `_eval_evalf(prec)` of the instance `value` of node `e`.
+fn call_evalf(py: Python<'_>, value: &Bound<'_, PyAny>, e: &Expr, precision: u32) -> Option<Expr> {
+    match value.call_method1(pyo3::intern!(py, "_eval_evalf"), (precision,)).and_then(optional_expr) {
+        // A hook returning its own node cannot be evaluated further.
+        Ok(result) => result.filter(|result| result != e),
+        Err(error) => { report(py, error, Some(value)); None }
+    }
+}
+
 impl HostClass for AtomHost {
     fn identity(&self) -> u64 { self.class.id }
     fn class_name(&self) -> &str { &self.class.name }
@@ -341,7 +410,7 @@ impl HostClass for AtomHost {
         if self.class.flags & RENAMES == 0 { return None; }
         let Kind::Sym(symbol) = atom.kind() else { return None };
         Python::with_gil(|py| {
-            let value = self.live(py)?;
+            let value = self.instance(py)?;
             match value.getattr("name").and_then(|name| name.extract::<String>()) {
                 Ok(name) if name != symbol.name() => Some(name),
                 Ok(_) => None,
@@ -368,6 +437,29 @@ impl HostClass for AtomHost {
         if !holds_gil() { return serials.0.cmp(&serials.1); }
         Python::with_gil(|py| order_content(py, self.instance(py), other.instance(py), serials))
     }
+    fn substitutes(&self) -> bool { self.class.flags & SUBS != 0 }
+    fn subs(&self, expr: &Expr, old: &Expr, new: &Expr) -> Option<Expr> {
+        if self.class.flags & SUBS == 0 { return None; }
+        Python::with_gil(|py| match self.object(py, expr) {
+            Ok(value) => call_subs(py, &value, old, new),
+            Err(error) => { report(py, error, None); None }
+        })
+    }
+    fn fact(&self, expr: &Expr, name: &str) -> Option<Option<bool>> {
+        if self.class.flags & ASSUME == 0 { return None; }
+        Python::with_gil(|py| match self.object(py, expr) {
+            Ok(value) => call_fact(py, &value, name),
+            Err(error) => { report(py, error, None); None }
+        })
+    }
+    fn may_not_commute(&self) -> bool { may_not_commute(self.class.flags) }
+    fn commutative(&self, expr: &Expr) -> Option<Option<bool>> {
+        let flags = self.class.flags;
+        if flags & NONCOMMUTATIVE != 0 { return Some(Some(false)); }
+        if flags & UNCOMMUTED != 0 { return Some(None); }
+        if flags & COMMUTATIVE_HOOK == 0 { return None; }
+        Some(self.fact(expr, "commutative").flatten())
+    }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
@@ -382,16 +474,27 @@ impl HostClass for HeadHost {
         })
     }
     fn evaluate(&self, args: &[Expr]) -> Option<Expr> {
-        if self.class.flags & EVAL == 0 { return None; }
+        if self.class.flags & (EVAL | FUNC) == 0 { return None; }
         Python::with_gil(|py| {
-            let class = self.class.class.bind(py);
+            // A rebuild calls `self.func(*args)` as SymPy's xreplace and
+            // subs do: an overridden `func` of the instance rebuilt, else
+            // the class, whose constructor evaluates.
+            let class = self.class.class.bind(py).clone().into_any();
+            let callee = match self.instance(py) {
+                Some(instance) if self.class.flags & FUNC != 0 => match instance.getattr(pyo3::intern!(py, "func")) {
+                    Ok(callee) => callee,
+                    Err(error) => { report(py, error, Some(&instance)); return None; }
+                },
+                _ if self.class.flags & EVAL == 0 => return None,
+                _ => class,
+            };
             let result = args.iter().map(|arg| crate::scalar_object(py, arg.clone())).collect::<PyResult<Vec<_>>>()
                 .and_then(|args| PyTuple::new(py, args))
-                .and_then(|args| class.call1(args))
-                .and_then(|value| { keep_recent(&value); to_expr(&value) });
+                .and_then(|args| callee.call1(args))
+                .and_then(|value| to_expr(&value));
             match result {
                 Ok(value) => Some(value),
-                Err(error) => { report(py, error, Some(class.as_any())); None }
+                Err(error) => { report(py, error, Some(&callee)); None }
             }
         })
     }
@@ -428,6 +531,7 @@ impl HostClass for HeadHost {
         if !holds_gil() { return serials.0.cmp(&serials.1); }
         Python::with_gil(|py| order_content(py, self.instance(py), other.instance(py), serials))
     }
+    fn applied(&self) -> Option<Arc<dyn HostClass>> { Some(Arc::new(self.fresh())) }
     fn expression(&self) -> bool { self.class.flags & EXPR != 0 }
     fn atomic(&self) -> bool { self.class.flags & ATOM != 0 }
     fn class_key(&self) -> Option<(u8, u32)> { self.class.class_key }
@@ -445,6 +549,38 @@ impl HostClass for HeadHost {
                 Ok(partial) => partial,
                 Err(error) => { report(py, error, Some(&value)); None }
             }
+        })
+    }
+    fn differentiates(&self) -> bool { self.class.flags & DERIV != 0 }
+    fn substitutes(&self) -> bool { self.class.flags & SUBS != 0 }
+    fn subs(&self, expr: &Expr, old: &Expr, new: &Expr) -> Option<Expr> {
+        if self.class.flags & SUBS == 0 { return None; }
+        Python::with_gil(|py| match self.object(py, expr) {
+            Ok(value) => call_subs(py, &value, old, new),
+            Err(error) => { report(py, error, None); None }
+        })
+    }
+    fn fact(&self, expr: &Expr, name: &str) -> Option<Option<bool>> {
+        if self.class.flags & ASSUME == 0 { return None; }
+        Python::with_gil(|py| match self.object(py, expr) {
+            Ok(value) => call_fact(py, &value, name),
+            Err(error) => { report(py, error, None); None }
+        })
+    }
+    fn may_not_commute(&self) -> bool { may_not_commute(self.class.flags) }
+    fn commutative(&self, expr: &Expr) -> Option<Option<bool>> {
+        let flags = self.class.flags;
+        if flags & NONCOMMUTATIVE != 0 { return Some(Some(false)); }
+        if flags & UNCOMMUTED != 0 { return Some(None); }
+        if flags & COMMUTATIVE_HOOK == 0 { return None; }
+        Some(self.fact(expr, "commutative").flatten())
+    }
+    fn evaluates_numerically(&self) -> bool { self.class.flags & EVALF != 0 }
+    fn evalf(&self, expr: &Expr, precision: u32) -> Option<Expr> {
+        if self.class.flags & EVALF == 0 { return None; }
+        Python::with_gil(|py| match self.object(py, expr) {
+            Ok(value) => call_evalf(py, &value, expr, precision),
+            Err(error) => { report(py, error, None); None }
         })
     }
     fn as_any(&self) -> &dyn std::any::Any { self }
@@ -496,14 +632,10 @@ pub(crate) fn apply<'py>(py: Python<'py>, head: &UndefinedFunction, args: &Bound
         return Err(pyo3::exceptions::PyTypeError::new_err("not a host head"));
     };
     let class = host.class.class.bind(py).clone();
-    let head = head.clone().with_host(Arc::new(host.applied()));
-    let e = Expr::from_kind(Kind::Func(Func::Undefined(head), args));
+    let handle = Arc::new(host.fresh());
+    let e = Expr::from_kind(Kind::Func(Func::Undefined(head.clone().with_host(handle.clone())), args));
     let value = instantiate(py, &class, e.clone())?;
-    // Bind the handle actually present in the node.
-    if let Kind::Func(Func::Undefined(head), _) = e.kind() {
-        if let Some(host) = head.host().and_then(|host| host.as_any().downcast_ref::<HeadHost>()) { host.bind(&e, &value)?; }
-    }
-    Ok(value)
+    Ok(bind(&handle.bound, &e, value, false))
 }
 
 /// Register `cls` as a native host class with the given hook flags and,
@@ -523,21 +655,18 @@ fn _host_atom(py: Python<'_>, host: &PyHostClass, atom: &Bound<'_, PyAny>) -> Py
         return Err(pyo3::exceptions::PyTypeError::new_err("host atoms must be symbols"));
     };
     let handle = Arc::new(AtomHost {
-        class: host.info.clone(), serial: NEXT_HANDLE.fetch_add(1, Ordering::Relaxed),
-        node: OnceLock::new(), instance: Mutex::new(None),
+        class: host.info.clone(), serial: NEXT_HANDLE.fetch_add(1, Ordering::Relaxed), bound: Mutex::new(None),
     });
     let e = Expr::from_kind(Kind::Sym(symbol.with_host(handle.clone())));
-    let _ = handle.node.set(e.downgrade());
-    let value = instantiate(py, host.info.class.bind(py), e)?;
-    handle.attach(&value)?;
-    Ok(value.unbind())
+    let value = instantiate(py, host.info.class.bind(py), e.clone())?;
+    Ok(bind(&handle.bound, &e, value, true).unbind())
 }
 
 /// The native head defined by a host function or expression class.
 #[pyfunction]
 #[pyo3(signature = (host, name, assumptions, nargs=None))]
 fn _host_head(host: &PyHostClass, name: &str, assumptions: &Bound<'_, PyDict>, nargs: Option<Vec<usize>>) -> PyResult<PyHostHead> {
-    let handle = HeadHost { class: host.info.clone(), serial: 0, application: Mutex::new(None) };
+    let handle = HeadHost { class: host.info.clone(), serial: 0, bound: Mutex::new(None) };
     let head = crate::function_spec(name, assumptions, nargs)?.with_host(Arc::new(handle));
     Ok(PyHostHead { head })
 }

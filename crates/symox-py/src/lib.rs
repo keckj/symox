@@ -179,6 +179,7 @@ fn node_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
 }
 
 fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    host::raise_pending()?;
     if e.has_host() {
         if let Some(value) = host::object(py, &e)? { return Ok(value); }
     }
@@ -1129,11 +1130,10 @@ pub(crate) fn substitution_options(kwargs:Option<&Bound<'_,PyDict>>)->PyResult<b
             let key:String=key.extract()?;
             match key.as_str() {
                 "simultaneous"=>simultaneous=value.is_truthy()?,
-                // SymPy forwards other options as hints that only its
-                // internal two-argument Mul hack reads; it ignores the rest.
-                "hack2"=>if value.is_truthy()? {
-                    return Err(PyNotImplementedError::new_err(format!("subs option '{key}' is not implemented")));
-                },
+                // SymPy forwards other keywords to `_subs` and only reads
+                // `hack2` (the sympify 2-arg Mul rule), so they are no-ops.
+                "hack2" if value.is_truthy()? =>
+                    return Err(PyNotImplementedError::new_err("subs option 'hack2' is not implemented")),
                 _=>{}
             }
         }
@@ -1168,6 +1168,17 @@ impl PyExprNode {
     #[getter]
     fn _dag_id(&self) -> usize { self.e.dag_id() }
 
+    // Host instances are owned by their nodes (see host.rs): report and
+    // release those reachable only through this object.
+    fn __traverse__(&self, visit: pyo3::PyVisit<'_>) -> Result<(), pyo3::PyTraverseError> {
+        if !self.e.has_host() { return Ok(()); }
+        host::traverse(self as *const Self as usize, &self.e, &visit)
+    }
+
+    fn __clear__(&self) {
+        if self.e.has_host() { host::clear(self as *const Self as usize, &self.e); }
+    }
+
     /// `Expr(value)` converts a value. For a Python expression class,
     /// `Expr.__new__(cls, *args)` is SymPy's `Basic.__new__`: an unevaluated
     /// instance of `cls` with these arguments.
@@ -1192,12 +1203,12 @@ impl PyExprNode {
         Ok(PyExprNode { e: to_expr(&args.get_item(0)?)? }.into())
     }
 
-    fn __str__(&self) -> String {
-        printer::to_str(&self.e)
+    fn __str__(&self) -> PyResult<String> {
+        host::checked(printer::to_str(&self.e))
     }
 
-    fn __repr__(&self) -> String {
-        printer::to_str(&self.e)
+    fn __repr__(&self) -> PyResult<String> {
+        host::checked(printer::to_str(&self.e))
     }
 
     fn _repr_latex_(&self) -> String {
@@ -1252,7 +1263,7 @@ impl PyExprNode {
                 _ => py.NotImplemented(),
             });
         };
-        Ok(match op {
+        host::checked(match op {
             Eq => (self.e == o).into_pyobject(py)?.to_owned().into_any().unbind(),
             Ne => (self.e != o).into_pyobject(py)?.to_owned().into_any().unbind(),
             Lt => wrap(relational::lt(&self.e, &o)).into_pyobject(py)?.into_any().unbind(),
@@ -1810,91 +1821,91 @@ impl PyExprNode {
         symox::symbolic_number::is_symbolic_number(&self.e)
     }
     #[getter]
-    fn is_zero(&self) -> Option<bool> {
-        symox::assumptions::is_zero(&self.e)
+    fn is_zero(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_zero(&self.e))
     }
     #[getter]
-    fn is_nonzero(&self) -> Option<bool> {
-        symox::assumptions::is_nonzero(&self.e)
+    fn is_nonzero(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_nonzero(&self.e))
     }
     #[getter]
-    fn is_integer(&self) -> Option<bool> {
-        symox::assumptions::is_integer(&self.e)
+    fn is_integer(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_integer(&self.e))
     }
     #[getter]
-    fn is_rational(&self) -> Option<bool> {
-        symox::assumptions::is_rational(&self.e)
+    fn is_rational(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_rational(&self.e))
     }
     #[getter]
-    fn is_real(&self) -> Option<bool> {
-        symox::assumptions::is_real(&self.e)
+    fn is_real(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_real(&self.e))
     }
     #[getter]
-    fn is_positive(&self) -> Option<bool> {
-        symox::assumptions::is_positive(&self.e)
+    fn is_positive(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_positive(&self.e))
     }
     #[getter]
-    fn is_negative(&self) -> Option<bool> {
-        symox::assumptions::is_negative(&self.e)
+    fn is_negative(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_negative(&self.e))
     }
     #[getter]
-    fn is_nonnegative(&self) -> Option<bool> {
-        symox::assumptions::is_nonnegative(&self.e)
+    fn is_nonnegative(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_nonnegative(&self.e))
     }
     #[getter]
-    fn is_nonpositive(&self) -> Option<bool> {
-        symox::assumptions::is_nonpositive(&self.e)
+    fn is_nonpositive(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_nonpositive(&self.e))
     }
     #[getter]
-    fn is_even(&self) -> Option<bool> {
-        symox::assumptions::is_even(&self.e)
+    fn is_even(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_even(&self.e))
     }
     #[getter]
-    fn is_odd(&self) -> Option<bool> {
-        symox::assumptions::is_odd(&self.e)
+    fn is_odd(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_odd(&self.e))
     }
     #[getter]
-    fn is_finite(&self) -> Option<bool> {
-        symox::assumptions::is_finite(&self.e)
+    fn is_finite(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::is_finite(&self.e))
     }
     #[getter]
-    fn is_complex(&self) -> Option<bool> {
-        symox::assumptions::fact(&self.e,"complex")
+    fn is_complex(&self) -> PyResult<Option<bool>> {
+        host::checked(symox::assumptions::fact(&self.e,"complex"))
     }
     #[getter]
-    fn is_algebraic(&self)->Option<bool>{symox::assumptions::fact(&self.e,"algebraic")}
+    fn is_algebraic(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"algebraic"))}
     #[getter]
-    fn is_antihermitian(&self)->Option<bool>{symox::assumptions::fact(&self.e,"antihermitian")}
+    fn is_antihermitian(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"antihermitian"))}
     #[getter]
-    fn is_composite(&self)->Option<bool>{symox::assumptions::fact(&self.e,"composite")}
+    fn is_composite(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"composite"))}
     #[getter]
-    fn is_extended_negative(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_negative")}
+    fn is_extended_negative(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"extended_negative"))}
     #[getter]
-    fn is_extended_nonnegative(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_nonnegative")}
+    fn is_extended_nonnegative(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"extended_nonnegative"))}
     #[getter]
-    fn is_extended_nonpositive(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_nonpositive")}
+    fn is_extended_nonpositive(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"extended_nonpositive"))}
     #[getter]
-    fn is_extended_nonzero(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_nonzero")}
+    fn is_extended_nonzero(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"extended_nonzero"))}
     #[getter]
-    fn is_extended_positive(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_positive")}
+    fn is_extended_positive(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"extended_positive"))}
     #[getter]
-    fn is_extended_real(&self)->Option<bool>{symox::assumptions::fact(&self.e,"extended_real")}
+    fn is_extended_real(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"extended_real"))}
     #[getter]
-    fn is_hermitian(&self)->Option<bool>{symox::assumptions::fact(&self.e,"hermitian")}
+    fn is_hermitian(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"hermitian"))}
     #[getter]
-    fn is_imaginary(&self)->Option<bool>{symox::assumptions::fact(&self.e,"imaginary")}
+    fn is_imaginary(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"imaginary"))}
     #[getter]
-    fn is_infinite(&self)->Option<bool>{symox::assumptions::fact(&self.e,"infinite")}
+    fn is_infinite(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"infinite"))}
     #[getter]
-    fn is_irrational(&self)->Option<bool>{symox::assumptions::fact(&self.e,"irrational")}
+    fn is_irrational(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"irrational"))}
     #[getter]
-    fn is_noninteger(&self)->Option<bool>{symox::assumptions::fact(&self.e,"noninteger")}
+    fn is_noninteger(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"noninteger"))}
     #[getter]
-    fn is_polar(&self)->Option<bool>{symox::assumptions::fact(&self.e,"polar")}
+    fn is_polar(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"polar"))}
     #[getter]
-    fn is_prime(&self)->Option<bool>{symox::assumptions::fact(&self.e,"prime")}
+    fn is_prime(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"prime"))}
     #[getter]
-    fn is_transcendental(&self)->Option<bool>{symox::assumptions::fact(&self.e,"transcendental")}
+    fn is_transcendental(&self)-> PyResult<Option<bool>> {host::checked(symox::assumptions::fact(&self.e,"transcendental"))}
     /// The assumptions of a symbol as a dict (SymPy's `assumptions0`).
     #[getter]
     fn assumptions0<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {

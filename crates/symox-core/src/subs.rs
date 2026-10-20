@@ -99,7 +99,7 @@ pub fn held_subs(e:&Expr, variables:Vec<Expr>,points:Vec<Expr>)->Expr {
 /// variables by routing them through the same held-Subs rules as subs1.
 pub fn simultaneous(e:&Expr,pairs:&[(Expr,Expr)])->Expr {
     if pairs.is_empty(){return e.clone();}
-    if pairs.iter().any(|(old,_)|!old.is_symbol()) {
+    if e.has_host_subs() || pairs.iter().any(|(old,_)|!old.is_symbol()) {
         // Mask algebraic patterns before inserting any replacement value.
         // A common marker protects zero/pole interactions while masking.
         let marker=Expr::dummy("subs_m",Default::default());
@@ -143,11 +143,23 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     if e == old {
         return new.clone();
     }
-    if e.is_atom() || (!old.has_binding_identity() && old.mask() & !e.mask() != 0) {
+    // SymPy's Basic._subs consults _eval_subs on every node before falling
+    // back to its arguments, so a host hook below defeats the mask filter.
+    let hooked = e.has_host_subs();
+    if !hooked && (e.is_atom() || (!old.has_binding_identity() && old.mask() & !e.mask() != 0)) {
         return e.clone();
     }
     if let Some((_,v)) = cache.get(&e.dag_id()) {
         return v.clone();
+    }
+    if hooked {
+        if let Some(host) = e.host_handle().filter(|host| host.substitutes()) {
+            if let Some(value) = host.subs(e, old, new) {
+                cache.insert(e.dag_id(), (e.clone(), value.clone()));
+                return value;
+            }
+        }
+        if e.is_atom() { return e.clone(); }
     }
     if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum|Func::Product,_)) {
         return crate::binders::substitute(e,&[(old.clone(),new.clone())],false);

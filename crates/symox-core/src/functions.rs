@@ -14,6 +14,11 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     if let Func::Undefined(head) = &f {
         if let Some(host) = head.host() {
             if let Some(value) = host.evaluate(&args) { return value; }
+            // A new application gets its own handle, which binds the Python
+            // instance of this node only.
+            if let Some(handle) = host.applied() {
+                return Expr::from_kind(Kind::Func(Func::Undefined(head.clone().with_host(handle)), args));
+            }
             return Expr::from_kind(Kind::Func(f, args));
         }
     }

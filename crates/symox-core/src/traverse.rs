@@ -386,7 +386,8 @@ pub(crate) fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
             "Chebyshev", "Chebyshev2", "Function", "WildFunction", "Lambda", "Order",
             "Equality", "Unequality", "StrictGreaterThan", "StrictLessThan", "GreaterThan", "LessThan",
         ];
-        let name = e.class_name();
+        // SymPy ranks type(self).__name__, the host class of a host node.
+        let name = if e.is_host() { crate::host::class_name(e).unwrap_or(e.class_name()) } else { e.class_name() };
         (CLASSES.iter().position(|class| *class == name).unwrap_or(CLASSES.len()), name)
     }
     let ordering = rank(a).cmp(&rank(b));
@@ -417,7 +418,12 @@ pub fn ordered_args(e: &Expr) -> Vec<Expr> {
         }
         let mut args = e.args();
         let canonical = e.is_canonical() && (e.is_add() || e.is_mul());
-        if canonical { args.sort_by(args_cmp); }
+        if canonical && e.is_mul() && e.has_noncommutative_host() {
+            // Factors that may not commute keep their order after the
+            // sorted commutative part, as in SymPy's Mul._from_args.
+            let boundary = args.iter().position(|factor| crate::decompose::commutativity(factor) != Some(true)).unwrap_or(args.len());
+            args[..boundary].sort_by(args_cmp);
+        } else if canonical { args.sort_by(args_cmp); }
         args
     })
 }
