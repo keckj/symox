@@ -151,3 +151,39 @@ def test_characteristic_polynomial_fallback_keeps_context_independent_conversion
     with sx.evaluate(False):
         result = sx.PurePoly._from_coeffs(coefficients,t,'EX').as_expr().to_sympy()
     assert result == baseline
+
+
+@pytest.mark.parametrize("name,argument", [("primepi",100000),("partition",200)])
+def test_integer_head_reuse_keeps_signatures_aliases_and_contexts(name,argument):
+    import inspect
+    import pickle
+    import symox.functions.combinatorial.numbers as aliases
+    head = getattr(sx,name)
+    assert getattr(aliases,name) is head
+    assert pickle.loads(pickle.dumps(head)) is head
+    assert head(argument).to_sympy() == getattr(sp,name)(argument)
+    assert head(argument).to_sympy() == getattr(sp,name)(argument)
+    assert head(n=argument).to_sympy() == getattr(sp,name)(argument)
+    assert "evaluate" in inspect.signature(head).parameters
+    with sx.evaluate(False):
+        assert head(argument).func == head
+        assert head(argument,evaluate=True).to_sympy() == getattr(sp,name)(argument)
+        with sx.evaluate(True):
+            assert head(argument).to_sympy() == getattr(sp,name)(argument)
+        assert head(argument).func == head
+    assert head(argument,evaluate=False).func == head
+    with pytest.raises(TypeError):head(argument,unknown=True)
+
+
+def test_integer_head_cache_does_not_cross_thread_evaluation_contexts():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    barrier = Barrier(2)
+    def call(enabled):
+        with sx.evaluate(enabled):
+            barrier.wait(timeout=5)
+            return sx.primepi(100000).is_Integer
+    with ThreadPoolExecutor(2) as pool:
+        a,b = pool.submit(call,False),pool.submit(call,True)
+        assert a.result(timeout=10) is False
+        assert b.result(timeout=10) is True

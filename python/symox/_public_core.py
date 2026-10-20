@@ -243,4 +243,6 @@ def install(namespace):
             return Naturals0 if counts is None else FiniteSet(*counts)
         return previous.__get__(self,Expr)
     Expr.nargs = property(nargs)
+    from ._integer_head_cache import install as install_integer_head_cache
+    install_integer_head_cache(namespace,_evaluation)
     Expr._public_core_installed = True
