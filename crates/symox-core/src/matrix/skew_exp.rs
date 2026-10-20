@@ -60,7 +60,7 @@ pub(super) fn evaluate(matrix: &Matrix) -> MResult<Option<Matrix>> {
             }
             Number::MpFloat(value, bits) => {
                 // Check before allocating a dyadic denominator or numerator.
-                if value.exp.unsigned_abs().saturating_add(value.man.bits()) > 1_000_000 {
+                if value.exp.unsigned_abs().saturating_add(u128::from(value.man.bits())) > 1_000_000 {
                     return Err(MatrixError::NotImplemented(
                         "Exact matrix function resource limit exceeded".into(),
                     ));
@@ -130,7 +130,7 @@ pub(super) fn evaluate(matrix: &Matrix) -> MResult<Option<Matrix>> {
         .iter()
         .filter_map(Expr::as_number)
         .filter(|number| !number.is_zero())
-        .map(|number| number.to_bigfloat(64).mag().unsigned_abs())
+        .map(|number| u64::try_from(number.to_bigfloat(64).mag().unsigned_abs()).unwrap_or(u64::MAX))
         .max()
         .unwrap_or(0);
     let working = 2 * u64::from(precision)

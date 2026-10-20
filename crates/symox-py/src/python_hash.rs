@@ -37,7 +37,7 @@ pub fn exact_hash(n: &Number) -> Option<isize> {
         Number::MpFloat(value, _) => {
             // Reducing the binary exponent avoids constructing a denominator
             // proportional to its magnitude, including subnormal values.
-            let exponent = value.exp.rem_euclid((MODULUS - 1) as i64) as u64;
+            let exponent = value.exp.rem_euclid((MODULUS - 1) as i128) as u64;
             let h = ((remainder(&value.man) as u128 * modpow(2, exponent) as u128) % MODULUS as u128) as u64;
             signed(h, value.is_negative())
         }

@@ -313,11 +313,16 @@ classes have remaining gaps:
   finiteness of `exp(f)` for finite `f`, and of `I**(1/3)`, are unknown.
 - Noncommutative symbols are not implemented.
 - `Mul.is_polar` of nonpolar factors is unknown. The reference gives False.
-- Numerical sign decisions evaluate `exp(x)` only for `|x| <= 2**40`, and
-  evalf results stay symbolic beyond `10**1000000` in magnitude. The reference
-  evaluates and prints `exp(2**63)` (Torch value ranges compare
-  `exp(9223372036854775807)`). Binary exponents are `i64` values, and decimal
-  conversion of huge exponents computes exact powers of ten.
+- Binary float exponents are `i128` values bounded by `2**100`, so
+  `exp(2**63)`, `exp(-2**63)`, `exp(2**70)` and `Float('1e999999999999999999')**3`
+  evaluate, compare and print as in the reference (Torch value ranges compare
+  `exp(9223372036854775807)`). Decimal conversion of huge exponents uses a
+  200-bit logarithm estimate instead of exact powers of ten. Doubles that
+  overflow or underflow (`exp(Float(710))`, `cosh(Float(1000))`) are
+  re-evaluated with multiprecision, and `Max`/`Min` compare such values at 96
+  bits. Beyond `2**100` (for example `exp(Float('1e100'))`, which the
+  reference evaluates) results stay symbolic, and the argument reduction of
+  `sin`/`cos` is not attempted above `2**(2**30)`.
 - `Eijk` is a class, whereas the reference `Eijk` is a function that returns
   a `LeviCivita` node.
 - `printer`, `str`, `precedence`, `codeprinter`, `c` and `cxx` are ports of
@@ -354,9 +359,10 @@ classes have remaining gaps:
   passes 27 of 136 tests (before: none, the import failed); most remaining
   failures need instance attributes on `Relational` and `Add` subclasses
   (`_subdomain`, `.d`) and the items above. Torch's `test/test_sympy_utils.py`
-  has 34 failures (reference: none): 33 are the `exp(2**63)` gap above and 1
-  needs the user `SingletonInt._eval_Eq` hook (`Eq(SingletonInt(1),
-  SingletonInt(2))` stays unevaluated instead of `False`).
+  had 34 failures (reference: none): 33 were the `exp(2**63)` exponent range,
+  now closed (1 failure, 235 passed, 146621 subtests), and 1 needs the user
+  `SingletonInt._eval_Eq` hook (`Eq(SingletonInt(1), SingletonInt(2))` stays
+  unevaluated instead of `False`).
 
 N-dimensional array subclasses follow the reference construction protocol
 (`__new__` through `cls._new`, then `__init__`, with `_array`, `_shape`,
@@ -768,11 +774,25 @@ for constructing every stabilizer chain.
   families remain separate obligations.
   The [scoped integration review](../audits/sympy-1.14.0/integration-review.json)
   records the Mellin/contour argument and sparse phase handling.
-- `evalf(strict=True)`, user-controlled `maxn` and the full set of numerical
-  evaluation options are not implemented. The former 10,000-decimal-digit cap
-  has been removed; native precision still uses a bounded machine counter with
-  space reserved for working precision. Binary exponents also use a bounded
-  native counter; out-of-range arithmetic must retain an exact expression
+- `evalf(strict=True)` raises `PrecisionExhausted` with the reference message
+  when a cancelling sum cannot be distinguished from zero. `maxn` bounds the
+  extra working precision of each sum by `max(prec, int(maxn*log2(10)))` bits
+  with SymPy's restart schedule (the extra precision is bounded by
+  `min(maxprec, 2*working)` before each restart, and the last restart may
+  overshoot by the missing accuracy, at most `2**20` bits in total). Without
+  `strict` an explicit `maxn` returns the sum at the accuracy it reached, as a
+  Float of lower precision. Remaining divergences: an exhausted sum with no
+  correct bit (an exact zero, or `exp(300)+1-exp(300)` with `maxn=10`) stays
+  unevaluated instead of becoming SymPy's precision-1 noise Float such as
+  `-0.e-124`; evalf without options keeps the native 4096-bit budget and
+  resolves cancellations that SymPy's default `maxn=100` reports as noise;
+  the accuracy estimate is a rigorous rounding bound rather than SymPy's
+  `add_terms` estimate, so achieved precisions can differ by a few bits;
+  `verbose` prints nothing; `quad` is ignored without an Integral (as in
+  SymPy) and refused with `NotImplementedError` for an Integral. The former
+  10,000-decimal-digit cap has been removed; native precision still uses a bounded machine counter with
+  space reserved for working precision. Binary exponents use an `i128`
+  counter bounded by `2**100`; out-of-range arithmetic must retain an exact expression
   rather than wrap to an unrelated number. Explicit rational output retains
   allocation budgets even though Float literals have compact storage at much
   larger exponents. Removing policy caps does not certify all numerical

@@ -52,13 +52,13 @@ fn horner(c: &[BigFloat], z: &MpComplex, precision: u32) -> (MpComplex, MpComple
 /// approximately 2**(-slope). This keeps seeds representable for coefficients
 /// and roots far outside the machine-float exponent range.
 fn polygon_seeds(c: &[BigFloat], phase: f64, precision: u32) -> Vec<MpComplex> {
-    let mut hull: Vec<(usize, i64)> = Vec::new();
+    let mut hull: Vec<(usize, i128)> = Vec::new();
     for (i, coefficient) in c.iter().enumerate().filter(|(_,a)| !a.is_zero()) {
         let point = (i, coefficient.mag());
         while hull.len() >= 2 {
             let (a,b) = (hull[hull.len()-2], hull[hull.len()-1]);
-            let left = (b.1-a.1) as i128 * (point.0-b.0) as i128;
-            let right = (point.1-b.1) as i128 * (b.0-a.0) as i128;
+            let left = (b.1-a.1) * (point.0-b.0) as i128;
+            let right = (point.1-b.1) * (b.0-a.0) as i128;
             if left > right { break; }
             hull.pop();
         }
@@ -68,7 +68,7 @@ fn polygon_seeds(c: &[BigFloat], phase: f64, precision: u32) -> Vec<MpComplex> {
     for segment in hull.windows(2) {
         let (a,b) = (segment[0],segment[1]);
         let count = b.0-a.0;
-        let exponent = (a.1-b.1).div_euclid(count as i64);
+        let exponent = (a.1-b.1).div_euclid(count as i128);
         let radius = BigFloat::one().ldexp(exponent);
         for i in 0..count {
             let angle = std::f64::consts::TAU * (i as f64 + phase) / count as f64;
@@ -115,7 +115,7 @@ fn simple_roots(c: &[Int], precision: u32, maxsteps: u32, cleanup: bool) -> Opti
             for z in &mut values {
                 // Scale cleanup to the root, so a genuine 1e-1000*I root is
                 // never erased merely because the requested precision is 60.
-                let cutoff = z.re.mag().max(z.im.mag()) - precision as i64 - 8;
+                let cutoff = z.re.mag().max(z.im.mag()) - precision as i128 - 8;
                 if z.im.mag() < cutoff { z.im = BigFloat::zero(); }
                 if !z.im.is_zero() && z.re.mag() < cutoff { z.re = BigFloat::zero(); }
             }
@@ -133,7 +133,7 @@ fn iterate(c: &[BigFloat], roots: &mut [MpComplex], target: u32, wp: u32, maxste
             let (value,derivative) = horner(c,&roots[i],wp);
             let Some(ratio) = value.div(&derivative,wp) else { return false; };
             let mut sum = MpComplex::real(BigFloat::zero());
-            let mut separation = i64::MAX;
+            let mut separation = i128::MAX;
             for j in 0..roots.len() {
                 if i == j { continue; }
                 let difference = roots[i].sub(&roots[j],wp);
@@ -145,7 +145,7 @@ fn iterate(c: &[BigFloat], roots: &mut [MpComplex], target: u32, wp: u32, maxste
             roots[i] = roots[i].sub(&step,wp);
             let error = step.re.mag().max(step.im.mag());
             let magnitude = roots[i].re.mag().max(roots[i].im.mag());
-            if error > magnitude - target as i64 - 8 || error > separation - 12 { converged = false; }
+            if error > magnitude - target as i128 - 8 || error > separation - 12 { converged = false; }
         }
         if converged { return true; }
     }
@@ -174,7 +174,7 @@ mod tests {
                 let z = eval_mp(&root,precision+60).unwrap();
                 let (residual,derivative) = horner(&coeffs,&z,precision+60);
                 let correction = residual.div(&derivative,precision+40).unwrap();
-                assert!(correction.abs(precision+20).mag() <= z.abs(precision+20).mag()-precision as i64+4);
+                assert!(correction.abs(precision+20).mag() <= z.abs(precision+20).mag()-precision as i128+4);
             }
         }
     }

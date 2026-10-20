@@ -305,7 +305,7 @@ fn number_integer(n:&Number)->Option<bool>{
     let integral=match n{
         Number::Float(value) if value.is_finite()=>value.fract()==0.0,
         Number::Float(_)=>return None,
-        Number::MpFloat(value,_)=>value.exp>=0||value.man.trailing_zeros().is_some_and(|zeros|zeros>=value.exp.unsigned_abs()),
+        Number::MpFloat(value,_)=>value.exp>=0||value.man.trailing_zeros().is_some_and(|zeros|u128::from(zeros)>=value.exp.unsigned_abs()),
         _=>unreachable!(),
     };
     if integral{None}else{Some(false)}
@@ -1009,7 +1009,7 @@ mod numeric_literal_tests {
     #[test]
     fn dyadic_integer_queries_never_materialize_extreme_exponents(){
         for exp in [1_000_000_000,i64::MAX]{
-            let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(3),exp},200));
+            let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(3),exp:exp.into()},200));
             assert_eq!(is_integer(&value),None);
             assert_eq!(is_even(&value),None);
             assert_eq!(is_odd(&value),None);
@@ -1017,7 +1017,7 @@ mod numeric_literal_tests {
             assert_eq!(is_rational(&value),None);
         }
         for exp in [-1_000_000_000,i64::MIN]{
-            let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(3),exp},200));
+            let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(3),exp:exp.into()},200));
             assert_eq!(is_integer(&value),Some(false));
             assert_eq!(is_even(&value),Some(false));
             assert_eq!(is_odd(&value),Some(false));
@@ -1025,7 +1025,7 @@ mod numeric_literal_tests {
         }
         let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(4),exp:-2},200));
         assert_eq!(is_integer(&value),None);
-        let zero=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(0),exp:i64::MIN},200));
+        let zero=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(0),exp:i64::MIN.into()},200));
         assert_eq!(is_integer(&zero),Some(true));
         assert_eq!(is_even(&zero),Some(true));
         assert_eq!(is_odd(&zero),Some(false));

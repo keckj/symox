@@ -26,6 +26,78 @@ thread_local! {
         std::cell::RefCell::new(NumericMemo{depth:0,values:None})
     };
     #[cfg(test)] static EVALUATIONS:std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static OPTIONS:std::cell::Cell<EvalfOptions> = const { std::cell::Cell::new(EvalfOptions{chop:None,budget:None,partial:false}) };
+    static ACHIEVED:std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
+    static EXHAUSTED:std::cell::RefCell<Option<Expr>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Options of one public numerical evaluation, as in SymPy's `evalf`.
+///
+/// `budget` is the number of bits a cancelling sum may add to its target
+/// precision (SymPy's `maxprec = max(prec, int(maxn*LG10))`). Without it, a
+/// sum may add up to `DEFAULT_CANCELLATION_BUDGET` bits. `chop` is the binary
+/// magnitude below which a numerical component is removed; inside a sum it
+/// also accepts a component whose rounding error is below that magnitude.
+/// With `partial`, a sum that exhausts its budget with at least one correct
+/// bit is returned at the accuracy it reached, as SymPy returns a Float of
+/// lower precision for an explicit `maxn`; otherwise it stays unevaluated.
+#[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
+pub struct EvalfOptions { pub chop:Option<i128>, pub budget:Option<u32>, pub partial:bool }
+
+pub const DEFAULT_CANCELLATION_BUDGET:u32=4096;
+/// SymPy's last restart may overshoot the budget by the missing accuracy;
+/// this bounds that overshoot so a huge cancelling term cannot exhaust memory.
+const EXPLICIT_WORKING_LIMIT:u32=1<<20;
+
+/// Restores the previous evaluation options when an evaluation ends.
+struct OptionsScope(EvalfOptions,Option<Expr>,Option<u32>);
+impl OptionsScope {
+    fn enter(options:EvalfOptions)->Self{
+        Self(OPTIONS.with(|cell|cell.replace(options)),EXHAUSTED.with(|cell|cell.borrow_mut().take()),ACHIEVED.with(|cell|cell.take()))
+    }
+}
+impl Drop for OptionsScope {
+    fn drop(&mut self){
+        OPTIONS.with(|cell|cell.set(self.0));
+        ACHIEVED.with(|cell|cell.set(self.2));
+        let previous=self.1.take();
+        EXHAUSTED.with(|cell|*cell.borrow_mut()=previous);
+    }
+}
+
+/// Evaluate `e` with explicit options. The second component is the first sum
+/// whose cancellation could not be resolved within the budget, when that
+/// left the result incompletely evaluated (SymPy's strict mode raises
+/// `PrecisionExhausted` for it).
+pub fn evalf_with_options(e:&Expr,prec:u32,options:EvalfOptions)->(Expr,Option<Expr>){
+    let _scope=OptionsScope::enter(options);
+    let mut value=eval_mp(e,prec);
+    let complete=value.is_some();
+    let mut prec=prec;
+    if let (Some(achieved),Some(value))=(ACHIEVED.with(|cell|cell.get()),value.as_mut()) {
+        if achieved<prec {
+            prec=achieved;
+            *value=MpComplex{re:value.re.round_to(prec),im:value.im.round_to(prec)};
+        }
+    }
+    let result=match (value,options.chop) {
+        (Some(mut value),Some(cutoff))=>{
+            if !value.re.is_zero() && value.re.mag()<cutoff {value.re=BigFloat::zero();}
+            if !value.im.is_zero() && value.im.mag()<cutoff {value.im=BigFloat::zero();}
+            to_expr(value,prec)
+        },
+        (Some(value),None)=>to_expr(value,prec),
+        (None,_)=>evalf(e,prec),
+    };
+    let exhausted=if complete {None} else {EXHAUSTED.with(|cell|cell.borrow_mut().take())};
+    (result,exhausted)
+}
+
+/// Evaluate with the default options, independently of an enclosing
+/// evaluation's options. Sign and magnitude decisions use this.
+pub fn eval_mp_default(e:&Expr,prec:u32)->Option<MpComplex>{
+    let _scope=OptionsScope::enter(EvalfOptions::default());
+    eval_mp(e,prec)
 }
 struct NumericScope;
 impl NumericScope {
@@ -128,11 +200,10 @@ impl MpComplex {
     }
 
     pub(crate) fn exp(&self, p: u32) -> Option<MpComplex> {
-        // Evaluate real parts up to 2**40 in magnitude, a binary result
-        // exponent near 1.6e12. Products and powers of such results stay far
-        // inside the i64 exponent range. mpmath exponents are unbounded, so
-        // SymPy also evaluates exp(2**63); that remains a documented gap.
-        if self.re.abs().cmp(&BigFloat::from_i64(1 << 40)) == std::cmp::Ordering::Greater { return None; }
+        // mpmath exponents are unbounded. Binary exponents here are i128
+        // values bounded by MAX_EXPONENT, which covers exp(2**63) (Torch
+        // value ranges compare exp(9223372036854775807)); beyond it the
+        // value stays symbolic.
         let r = self.re.checked_exp(p + 10)?;
         if self.im.is_zero() {
             return Some(MpComplex::real(r.round_to(p)));
@@ -156,6 +227,7 @@ impl MpComplex {
         if self.is_real() && e.is_real() && self.re.sign() > 0 {
             return Some(MpComplex::real(self.re.powf(&e.re, p)?));
         }
+        if e.re.mag() > 1 << 20 || e.im.mag() > 1 << 20 { return None; }
         let wp = p + 20 + e.re.mag().max(0) as u32 + e.im.mag().max(0) as u32;
         let l = self.ln(wp)?;
         l.mul(e, wp).exp(p)
@@ -189,7 +261,7 @@ impl MpComplex {
 }
 
 fn supported_magnitude(value: &MpComplex) -> bool {
-    [&value.re, &value.im].iter().all(|v| v.is_zero() || v.mag().unsigned_abs() <= 3_321_930)
+    [&value.re, &value.im].iter().all(|v| v.is_zero() || v.mag().unsigned_abs() <= crate::bigfloat::MAX_EXPONENT as u128)
 }
 
 fn number(n: &Number, p: u32) -> BigFloat {
@@ -305,10 +377,11 @@ pub fn to_expr(value: MpComplex, prec: u32) -> Expr {
 /// exact, as in SymPy's partial evalf.
 pub fn evalf(e: &Expr, prec: u32) -> Expr {
     if e.is_zero() { return Expr::zero(); }
-    if let Some(value) = memo::get(e,prec) { return value; }
+    let memoized=OPTIONS.with(|cell|cell.get())==EvalfOptions::default();
+    if memoized { if let Some(value) = memo::get(e,prec) { return value; } }
     if let Some(value) = eval_mp(e, prec) {
         let value=to_expr(value,prec);
-        memo::insert(e,&value,prec);
+        if memoized {memo::insert(e,&value,prec);}
         return value;
     }
     if crate::functions::is_numeric_value(e) { return e.clone(); }
@@ -339,11 +412,8 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
 
 /// Remove absolutely small real/imaginary numerical components by binary
 /// magnitude. Partial symbolic coefficients retain ordinary evalf semantics.
-pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i64)->Expr {
-    let Some(mut value)=eval_mp(e,prec) else {return evalf(e,prec)};
-    if !value.re.is_zero() && value.re.mag()<cutoff {value.re=BigFloat::zero();}
-    if !value.im.is_zero() && value.im.mag()<cutoff {value.im=BigFloat::zero();}
-    to_expr(value,prec)
+pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i128)->Expr {
+    evalf_with_options(e,prec,EvalfOptions{chop:Some(cutoff),budget:None,partial:false}).0
 }
 
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
@@ -422,7 +492,18 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
     if known_real&&crate::assumptions::exact_queries(||crate::assumptions::is_zero(expression))==Some(true){
         return Some(MpComplex::real(BigFloat::zero()));
     }
-    let mut working = precision + 32;
+    let options=OPTIONS.with(|cell|cell.get());
+    let budget=options.budget.unwrap_or(DEFAULT_CANCELLATION_BUDGET);
+    let ceiling=precision.saturating_add(budget);
+    // Absolute rounding error of the computed sum, as a binary exponent.
+    let error_bound=|largest:i128,working:u32|largest.saturating_add(3+(usize::BITS-terms.len().leading_zeros()) as i128)-working as i128;
+    // An explicit budget follows SymPy's schedule: terms start at ten guard
+    // bits, each restart adds what the accuracy estimate lacks, and the loop
+    // stops once the working precision exceeds the target by
+    // min(budget, 2*working) bits.
+    let explicit=options.budget.is_some();
+    let mut working = if explicit {precision+10} else {precision + 32};
+    let mut restarts=0u32;
     loop {
         let mut sum = MpComplex::real(number(constant, working));
         let mut largest_real = sum.re.mag();
@@ -435,19 +516,69 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
             sum = sum.add(&value, working);
         }
         if known_real{sum.im=BigFloat::zero();}
+        // Under chop, a component known to lie below the cutoff is zero, as
+        // SymPy's chop_parts removes it at each level of evaluation.
+        let mut real_chopped=false;let mut imaginary_chopped=false;
+        if let Some(cutoff)=options.chop {
+            if largest_real>i128::MIN/8 && (sum.re.is_zero()||sum.re.mag()<cutoff) && error_bound(largest_real,working)<cutoff {
+                sum.re=BigFloat::zero();real_chopped=true;
+            }
+            if largest_imaginary>i128::MIN/8 && (sum.im.is_zero()||sum.im.mag()<cutoff) && error_bound(largest_imaginary,working)<cutoff {
+                sum.im=BigFloat::zero();imaginary_chopped=true;
+            }
+        }
         // A large real component must not hide cancellation of a tiny
         // imaginary component (or vice versa), especially near a branch cut.
-        let real_loss=largest_real.saturating_sub(sum.re.mag()).max(0);
-        let imaginary_loss=if known_real{0}else{largest_imaginary.saturating_sub(sum.im.mag()).max(0)};
-        let cancellation = real_loss.max(imaginary_loss) as u64;
+        if let Some(budget)=options.budget {
+            let real_part=!real_chopped&&largest_real>i128::MIN/8;
+            let imaginary_part=!known_real&&!imaginary_chopped&&largest_imaginary>i128::MIN/8;
+            // As SymPy's complex_accuracy, the error of either part is
+            // measured against the larger part; an unresolved zero alone
+            // has accuracy -1.
+            let resolved_re=real_part&&!sum.re.is_zero();
+            let resolved_im=imaginary_part&&!sum.im.is_zero();
+            let accuracy=if !real_part&&!imaginary_part {i128::MAX}
+            else if !resolved_re&&!resolved_im {-1}
+            else {
+                let size=|value:&BigFloat,part:bool|if part&&!value.is_zero(){value.mag()}else{i128::MIN/4};
+                let error=|part:bool,largest:i128|if part{error_bound(largest,working)}else{i128::MIN/4};
+                let largest_size=size(&sum.re,real_part).max(size(&sum.im,imaginary_part));
+                largest_size.saturating_sub(error(real_part,largest_real).max(error(imaginary_part,largest_imaginary)))
+            };
+            if accuracy>=precision as i128 {return Some(sum);}
+            if working-precision>budget.min(working.saturating_mul(2)) {
+                if options.partial&&accuracy>=1 {
+                    let achieved=u32::try_from(accuracy).unwrap_or(u32::MAX);
+                    ACHIEVED.with(|cell|cell.set(Some(cell.get().map_or(achieved,|current|current.min(achieved)))));
+                    return Some(sum);
+                }
+                EXHAUSTED.with(|cell|{let mut cell=cell.borrow_mut();if cell.is_none(){*cell=Some(expression.clone());}});
+                return None;
+            }
+            let step=(precision as i128).saturating_sub(accuracy).max(10+(1i128<<restarts.min(60)));
+            let next=i128::from(working).saturating_add(step);
+            if next>i128::from(EXPLICIT_WORKING_LIMIT) {
+                EXHAUSTED.with(|cell|{let mut cell=cell.borrow_mut();if cell.is_none(){*cell=Some(expression.clone());}});
+                return None;
+            }
+            working=next as u32;
+            restarts+=1;
+            continue;
+        }
+        let real_loss=if real_chopped{0}else{largest_real.saturating_sub(sum.re.mag()).max(0)};
+        let imaginary_loss=if known_real||imaginary_chopped{0}else{largest_imaginary.saturating_sub(sum.im.mag()).max(0)};
+        let cancellation = u64::try_from(real_loss.max(imaginary_loss)).unwrap_or(u64::MAX/4).min(u64::MAX/4);
         let required = precision as u64 + cancellation + 24;
         if required <= working as u64 { return Some(sum); }
-        if working >= precision + 4096 { return None; }
-        working = if (sum.re.is_zero()&&largest_real>i64::MIN/8)
-            ||(!known_real&&sum.im.is_zero()&&largest_imaginary>i64::MIN/8) {
-            (working + (working - precision).max(32)).min(precision + 4096)
+        if working >= ceiling {
+            EXHAUSTED.with(|cell|{let mut cell=cell.borrow_mut();if cell.is_none(){*cell=Some(expression.clone());}});
+            return None;
+        }
+        working = if (sum.re.is_zero()&&!real_chopped&&largest_real>i128::MIN/8)
+            ||(!known_real&&!imaginary_chopped&&sum.im.is_zero()&&largest_imaginary>i128::MIN/8) {
+            working.saturating_add((working - precision).max(32)).min(ceiling)
         } else {
-            (required.min((precision + 4096) as u64)) as u32
+            (required.min(ceiling as u64)) as u32
         };
     }
 }
@@ -493,6 +624,10 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         Func::Exp => a.exp(p)?,
         Func::Log => a.ln(p)?,
         Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc if a.is_real() => {
+            // Reduction modulo pi needs as many bits as the argument has
+            // integer bits; beyond 2**30 the 32-bit precision counter cannot
+            // describe that work.
+            if a.re.mag() > 1 << 30 { return None; }
             let (s, c) = a.re.sin_cos(wp);
             MpComplex::real(match f {
                 Func::Sin => s,
@@ -524,7 +659,6 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         Func::Atan if a.is_real() => MpComplex::real(a.re.atan(p)),
         Func::Acot if a.is_real() => MpComplex::real(BigFloat::one().div(&a.re, wp)?.atan(p)),
         Func::Sinh | Func::Cosh | Func::Tanh if a.is_real() => {
-            if a.re.abs().cmp(&BigFloat::from_i64(2_000_000)) == std::cmp::Ordering::Greater { return None; }
             let e1 = a.re.checked_exp(wp)?;
             let e2 = BigFloat::one().div(&e1, wp)?;
             let sh = e1.sub(&e2, wp).ldexp(-1);
@@ -586,7 +720,7 @@ pub fn euler_gamma(prec: u32) -> BigFloat {
     let one = BigInt::from(1) << (wp as usize);
     let ln_n = BigFloat::from_i64(n as i64).ln(wp).unwrap();
     let ln_n_fx = {
-        let s = ln_n.exp + wp as i64;
+        let s = ln_n.exp + wp as i128;
         if s >= 0 {
             &ln_n.man << (s as usize)
         } else {
@@ -634,7 +768,7 @@ pub fn catalan(prec: u32) -> BigFloat {
         r = (&r * BigInt::from(n + 1)) / BigInt::from(2 * (2 * n + 1));
         n += 1;
     }
-    let series = BigFloat::round(sum, -(wp as i64), wp).mul_i64(3, wp).ldexp(-3);
+    let series = BigFloat::round(sum, -(wp as i128), wp).mul_i64(3, wp).ldexp(-3);
     let three = BigFloat::from_i64(3).sqrt(wp).unwrap();
     let lg = BigFloat::from_i64(2).add(&three, wp).ln(wp).unwrap();
     pi(wp).mul(&lg, wp).ldexp(-3).add(&series, wp).round_to(prec)
@@ -657,7 +791,7 @@ pub fn tribonacci_constant(prec: u32) -> BigFloat {
         let df = x2.mul_i64(3, wp).sub(&x.mul_i64(2, wp), wp).sub(&BigFloat::one(), wp);
         let step = f.div(&df, wp).unwrap();
         x = x.sub(&step, wp);
-        if step.is_zero() || step.mag() < -(wp as i64) {
+        if step.is_zero() || step.mag() < -(wp as i128) {
             break;
         }
     }
@@ -679,7 +813,7 @@ fn erf_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     loop {
         term = term.mul(&x2, wp).neg().div_i64(n, wp);
         let t = term.div_i64(2 * n + 1, wp);
-        if t.is_zero() || t.mag() < sum.mag() - wp as i64 - 4 {
+        if t.is_zero() || t.mag() < sum.mag() - wp as i128 - 4 {
             break;
         }
         sum = sum.add(&t, wp);
@@ -830,7 +964,7 @@ mod tests {
             assert_eq!(root.im.sign(),sign);
             let recovered=root.mul(&root,precision);
             assert_eq!(recovered.re,BigFloat::from_i64(-1));
-            assert!(recovered.im.sub(&z.im,precision).abs().mag()<tiny.mag()-precision as i64+4);
+            assert!(recovered.im.sub(&z.im,precision).abs().mag()<tiny.mag()-precision as i128+4);
         }
     }
 
@@ -838,11 +972,11 @@ mod tests {
     fn chopping_uses_native_component_magnitudes_without_machine_underflow() {
         let precision=dps_to_prec(80);
         let tiny=Expr::num(Number::mp_float(BigFloat::from_decimal("1e-1000",precision).unwrap(),precision));
-        assert!(evalf_chop(&tiny,precision,-(precision as i64)).is_zero());
+        assert!(evalf_chop(&tiny,precision,-(precision as i128)).is_zero());
         let expression=add(&[Expr::one(),mul(&[Expr::i(),tiny.clone()])]);
-        assert_eq!(evalf_chop(&expression,precision,-(precision as i64)),super::evalf(&Expr::one(),precision));
+        assert_eq!(evalf_chop(&expression,precision,-(precision as i128)),super::evalf(&Expr::one(),precision));
         let symbolic=add(&[Expr::symbol("x"),tiny]);
-        assert_eq!(evalf_chop(&symbolic,precision,-(precision as i64)),super::evalf(&symbolic,precision));
+        assert_eq!(evalf_chop(&symbolic,precision,-(precision as i128)),super::evalf(&symbolic,precision));
     }
 
     fn s(e: &Expr, dps: u32) -> String {
@@ -924,17 +1058,16 @@ mod tests {
                 assert_eq!(super::evalf(&expression, p), expression);
             }
         }
-        let exponent = crate::parser::parse_str("Float('1000001', 60)").unwrap();
-        let expression = crate::ops::pow(&Expr::int(10), &exponent);
-        assert!(matches!(expression.kind(), Kind::Pow(..)));
-        assert_eq!(super::evalf(&expression, p), expression);
-        // Materialized values stay below 10**1000000; signs and magnitudes
-        // are evaluated up to exp(2**40).
-        let exp = |n: i64| Expr::from_kind(Kind::Func(Func::Exp, vec![Expr::int(n)]));
-        assert!(eval_mp(&exp(2_302_000), p).is_some());
-        assert!(eval_mp(&exp(2_303_000), p).is_none());
-        assert!(super::eval_mp_unbounded(&exp(2_303_000), p).is_some());
-        assert!(super::eval_mp_unbounded(&exp(-(1 << 40)), p).is_some_and(|v| v.re.sign() > 0));
-        assert!(super::eval_mp_unbounded(&exp((1 << 40) + 1), p).is_none());
+        // mpmath exponents are unbounded; binary exponents up to
+        // MAX_EXPONENT are materialized, so exp(2**63) evaluates as in the
+        // reference, while exp(2**110) stays symbolic.
+        let exp = |n: Expr| Expr::from_kind(Kind::Func(Func::Exp, vec![n]));
+        let power = |k: u32| Expr::num(Number::from_bigint(num_bigint::BigInt::from(1) << k as usize));
+        assert!(eval_mp(&exp(Expr::int(2_303_000)), p).is_some());
+        let value = eval_mp(&exp(Expr::int(i64::MAX)), p).unwrap();
+        assert_eq!(value.re.to_string_dps(19, false), "7.375865886842630054e+4005659580146785380");
+        assert!(eval_mp(&exp(crate::ops::neg(&power(63))), p).is_some_and(|v| v.re.sign() > 0));
+        assert!(eval_mp(&exp(power(110)), p).is_none());
+        assert_eq!(super::evalf(&exp(power(110)), p), exp(power(110)));
     }
 }

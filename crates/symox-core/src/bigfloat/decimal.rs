@@ -56,7 +56,10 @@ impl Positive {
         integer
     }
     fn bigfloat(self)->Result<BigFloat,String>{
-        let exp=i64::try_from(self.exp).map_err(|_|"decimal value exceeds the native binary exponent counter")?;
+        let exp=self.exp;
+        if exp.unsigned_abs().saturating_add(u128::from(self.man.bits()))>super::MAX_EXPONENT as u128{
+            return Err("decimal value exceeds the native binary exponent counter".into());
+        }
         Ok(BigFloat{man:self.man,exp})
     }
 }
@@ -128,14 +131,14 @@ mod tests{
     fn decimal_digits_have_independently_rounded_exact_values(){
         for mantissa in [1u64,3,5,15,125,123456789,987654321]{
             for exponent in [-2000i64,-200,-3,0,3,200,2000]{
-                let value=BigFloat{man:mantissa.into(),exp:exponent};
+                let value=BigFloat{man:mantissa.into(),exp:exponent.into()};
                 for requested in [1u32,2,3,15,30,60]{
                     let (negative,text,decimal_exp)=digits(&value,requested);
                     assert!(!negative);assert_eq!(text.len(),requested as usize);
                     assert_ne!(text.as_bytes()[0],b'0');
                     let mut rational=value.to_ratio_exact();
-                    let power=requested as i64-1-decimal_exp;
-                    let ten=num_traits::pow::Pow::pow(BigInt::from(10),power.unsigned_abs());
+                    let power=requested as i128-1-decimal_exp;
+                    let ten=num_traits::pow::Pow::pow(BigInt::from(10),power.unsigned_abs() as u64);
                     if power>=0{rational*=BigRational::from_integer(ten);}else{rational/=BigRational::from_integer(ten);}
                     let (mut integer,remainder)=rational.numer().div_rem(rational.denom());
                     let comparison=(&remainder<<1usize).cmp(rational.denom());
@@ -150,7 +153,7 @@ mod tests{
     fn integer_powers_match_independent_exact_ratios(){
         for mantissa in [-257i64,-31,-7,-3,-1,1,3,7,31,257]{
             for exponent in [-40i64,-1,0,1,40]{
-                let value=BigFloat{man:mantissa.into(),exp:exponent};
+                let value=BigFloat{man:mantissa.into(),exp:exponent.into()};
                 for power in [-31i32,-3,-2,-1,0,1,2,3,31]{
                     let exact=value.to_ratio_exact().pow(power);
                     for precision in [1u32,3,53,167]{
@@ -166,9 +169,14 @@ mod tests{
     fn exponent_counter_overflow_is_held_instead_of_wrapping(){
         let value=BigFloat::from_decimal("1e999999999999999999",70).unwrap();
         let value=crate::Expr::num(crate::number::Number::mp_float(value,70));
-        let square=crate::ops::mul2(&value,&value);
+        // Binary exponents are i128 values bounded by MAX_EXPONENT. Squaring
+        // reaches that bound after a few dozen steps.
+        let mut square=crate::ops::mul2(&value,&value);
+        while crate::ops::mul2(&square,&square).as_number().is_some(){
+            square=crate::ops::mul2(&square,&square);
+        }
         assert!(square.as_number().is_some());
-        let cube=crate::ops::mul2(&square,&value);
+        let cube=crate::ops::mul2(&square,&square);
         assert!(cube.is_mul());assert!(!cube.is_canonical());
         assert!(cube.has_wide_exponent());
         assert!(crate::evalf_mp::eval_mp(&cube,100).is_none());
@@ -184,10 +192,17 @@ mod tests{
             let value=from_decimal(&literal,53).unwrap();
             assert!(value.man.bits()<=53);
             let (_,text,decimal_exp)=digits(&value,15);
+            assert_eq!(text,"100000000000000");assert_eq!(decimal_exp,i128::from(exponent));
+        }
+        // Decimal exponents beyond i64, as SymPy's Float('1e100000000000000000000').
+        for exponent in [-100_000_000_000_000_000_000i128,100_000_000_000_000_000_000,123_456_789_012_345_678_901_234_567]{
+            let value=from_decimal(&format!("1e{exponent}"),53).unwrap();
+            let (_,text,decimal_exp)=digits(&value,15);
             assert_eq!(text,"100000000000000");assert_eq!(decimal_exp,exponent);
         }
+        assert!(from_decimal("1e1000000000000000000000000000000000",53).is_err());
         for exponent in [i64::MIN,i64::MAX]{
-            let value=BigFloat{man:3.into(),exp:exponent};
+            let value=BigFloat{man:3.into(),exp:exponent.into()};
             assert_eq!(digits(&value,30).1.len(),30);
         }
     }
@@ -207,7 +222,7 @@ impl Interval {
     }
 }
 
-fn scale(man:&BigInt,exp:i128,decimal_power:i64,bits:u64)->Interval{
+fn scale(man:&BigInt,exp:i128,decimal_power:i128,bits:u64)->Interval{
     let mut power=Interval::point(BigInt::one(),0,bits);
     let mut base=Interval::point(BigInt::from(10),0,bits);
     let mut exponent=decimal_power.unsigned_abs();
@@ -220,8 +235,8 @@ fn scale(man:&BigInt,exp:i128,decimal_power:i64,bits:u64)->Interval{
     if decimal_power<0{value.quotient(&power,bits)}else{value.product(&power,bits)}
 }
 
-fn initial_bits(target:u64,power:i64)->u64{
-    target+64+(64-power.unsigned_abs().leading_zeros()) as u64
+fn initial_bits(target:u64,power:i128)->u64{
+    target+64+(128-power.unsigned_abs().leading_zeros()) as u64
 }
 
 /// Integer powers have the same enclosure proof as decimal scaling. Positive
@@ -231,7 +246,7 @@ pub(super) fn checked_integer_power(value:&BigFloat,exponent:i64,precision:u32)-
     if exponent==0{return Some(BigFloat::one());}
     if value.is_zero(){return if exponent>0{Some(BigFloat::zero())}else{None};}
     let negative=value.is_negative()&&exponent.unsigned_abs()&1!=0;
-    let mut bits=initial_bits(precision as u64,exponent);
+    let mut bits=initial_bits(precision as u64,exponent.into());
     loop{
         let mut power=Interval::point(BigInt::one(),0,bits);
         let mut base=Interval::point(value.man.abs(),value.exp as i128,bits);
@@ -250,9 +265,9 @@ pub(super) fn checked_integer_power(value:&BigFloat,exponent:i64,precision:u32)-
 
 /// The exact path handles possible decimal/binary rounding ties with integers
 /// whose sizes are bounded by the input mantissa and requested output size.
-fn exact_scaled_integer(value:&BigFloat,power:i64)->BigInt{
-    let five=num_traits::pow::Pow::pow(BigInt::from(5),power.unsigned_abs());
-    let exp=value.exp as i128+power as i128;
+fn exact_scaled_integer(value:&BigFloat,power:i128)->BigInt{
+    let five=num_traits::pow::Pow::pow(BigInt::from(5),u64::try_from(power.unsigned_abs()).expect("exact decimal scale exceeds addressable storage"));
+    let exp=value.exp+power;
     if power>=0{return Positive::new(value.man.abs()*five,exp).nearest_integer();}
     let mut numerator=value.man.abs();let mut denominator=five;
     if exp>=0{numerator<<=usize::try_from(exp).unwrap();}
@@ -269,7 +284,7 @@ fn exact_scaled_integer(value:&BigFloat,power:i64)->BigInt{
 pub(super) fn from_decimal(text:&str,precision:u32)->Result<BigFloat,String>{
     let text=text.trim();
     let (mantissa,exponent)=match text.find(['e','E']){
-        Some(i)=>(&text[..i],text[i+1..].parse::<i64>().map_err(|_|"invalid decimal exponent")?),
+        Some(i)=>(&text[..i],text[i+1..].parse::<i128>().map_err(|_|"invalid decimal exponent")?),
         None=>(text,0),
     };
     let (negative,mantissa)=match mantissa.as_bytes().first(){
@@ -277,7 +292,7 @@ pub(super) fn from_decimal(text:&str,precision:u32)->Result<BigFloat,String>{
     };
     let mut digits=String::new();let mut fractional=None;
     for character in mantissa.chars(){
-        if character=='.'&&fractional.is_none(){fractional=Some(0i64);}
+        if character=='.'&&fractional.is_none(){fractional=Some(0i128);}
         else if character.is_ascii_digit(){digits.push(character);if let Some(ref mut n)=fractional{*n+=1;}}
         else{return Err("invalid decimal literal".into());}
     }
@@ -285,8 +300,8 @@ pub(super) fn from_decimal(text:&str,precision:u32)->Result<BigFloat,String>{
     let power=exponent.checked_sub(fractional.unwrap_or(0)).ok_or("decimal exponent overflow")?;
     let mut mantissa:BigInt=digits.parse().map_err(|_|"invalid decimal literal")?;
     if mantissa.is_zero(){return Ok(BigFloat::zero());}
-    if power.unsigned_abs()<=mantissa.bits()+precision as u64+64{
-        let ten=num_traits::pow::Pow::pow(BigInt::from(10),power.unsigned_abs());
+    if power.unsigned_abs()<=u128::from(mantissa.bits()+precision as u64+64){
+        let ten=num_traits::pow::Pow::pow(BigInt::from(10),power.unsigned_abs() as u64);
         if negative{mantissa=-mantissa;}
         let result=if power>=0{BigFloat::from_int(&(mantissa*ten)).round_to(precision)}
                    else{BigFloat::from_ratio(&mantissa,&ten,precision)};
@@ -301,13 +316,22 @@ pub(super) fn from_decimal(text:&str,precision:u32)->Result<BigFloat,String>{
     }
 }
 
-pub(super) fn digits(value:&BigFloat,digits:u32)->(bool,String,i64){
+/// floor(n*log10(2)) up to one unit, without the 53-bit error of an f64
+/// estimate at binary exponents beyond 2**53.
+fn decimal_exponent_estimate(n:i128)->i128{
+    if n.unsigned_abs()<1<<50{return ((n as f64)*std::f64::consts::LOG10_2).floor() as i128;}
+    let ratio=super::ln2(200).div(&BigFloat::from_i64(10).ln(200).unwrap(),200).unwrap();
+    let estimate=BigFloat::norm(BigInt::from(n),0).mul(&ratio,200).to_int_trunc();
+    num_traits::ToPrimitive::to_i128(&estimate).unwrap_or(if n<0{i128::MIN/2}else{i128::MAX/2})
+}
+
+pub(super) fn digits(value:&BigFloat,digits:u32)->(bool,String,i128){
     let digits=digits.max(1);
-    let magnitude=value.exp as i128+value.man.bits() as i128;
-    let mut exponent=(((magnitude-1) as f64)*std::f64::consts::LOG10_2).floor() as i64;
+    let magnitude=value.exp+value.man.bits() as i128;
+    let mut exponent=decimal_exponent_estimate(magnitude-1);
     loop{
-        let power=digits as i64-1-exponent;
-        let exact=power.unsigned_abs()<=value.man.bits()+4*digits as u64+64;
+        let power=digits as i128-1-exponent;
+        let exact=power.unsigned_abs()<=u128::from(value.man.bits()+4*digits as u64+64);
         let (integer,scaled_magnitude)=if exact{(exact_scaled_integer(value,power),None)}else{
             let mut bits=initial_bits(4*digits as u64,power);
             loop{
@@ -318,16 +342,16 @@ pub(super) fn digits(value:&BigFloat,digits:u32)->(bool,String,i64){
             }
         };
         let text=integer.to_string();
-        if text.len() as u64>digits as u64{exponent+=text.len() as i64-digits as i64;continue;}
+        if text.len() as u64>digits as u64{exponent+=text.len() as i128-digits as i128;continue;}
         if (text.len() as u64)<digits as u64||integer.is_zero(){
             if integer.is_zero(){
                 // A floating exponent estimate can be several hundred off
                 // near i64 boundaries. Its only role is choosing a scale;
                 // the final digit count and integer rounding are certified.
                 let binary=scaled_magnitude.map(|m|m-1).unwrap_or_else(||magnitude-1+(power as f64*std::f64::consts::LOG2_10).floor() as i128);
-                let correction=((binary as f64)*std::f64::consts::LOG10_2).floor() as i64-digits as i64+1;
+                let correction=decimal_exponent_estimate(binary)-digits as i128+1;
                 exponent+=correction.min(-1);
-            }else{exponent-=digits as i64-text.len() as i64;}
+            }else{exponent-=digits as i128-text.len() as i128;}
             continue;
         }
         return (value.is_negative(),text,exponent);

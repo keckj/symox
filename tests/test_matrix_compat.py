@@ -189,7 +189,6 @@ def test_norm_preserves_symbol_assumptions():
 
 
 @pytest.mark.parametrize("operation, exception", [
-    (lambda m: m.evalf(50, maxn=200), NotImplementedError),
     (lambda m: m.eigenvals(chop=True), NotImplementedError),
     (lambda m: m.solve(sx.eye(2), method="unknown"), ValueError),
     (lambda m: sx.diag(1, 2, rows=3), NotImplementedError),
@@ -200,6 +199,16 @@ def test_unsupported_options_are_explicit(operation, exception):
     if exception is ValueError:
         with pytest.raises(ValueError, match="Inversion method unrecognized"):
             sp.Matrix([[1, 2], [3, 4]]).solve(sp.eye(2), method="unknown")
+
+
+def test_matrix_evalf_accepts_maxn_and_strict():
+    source = [[1, 2], [3, 4]]
+    actual = sx.Matrix(source).evalf(50, maxn=200, strict=True)
+    expected = sp.Matrix(source).evalf(50, maxn=200, strict=True)
+    assert [str(entry) for entry in actual] == [str(entry) for entry in expected]
+    cancelling = sx.Add(sx.sin(1) ** 2, sx.cos(1) ** 2, -1, evaluate=False)
+    with pytest.raises(sx.PrecisionExhausted):
+        sx.Matrix([[cancelling, 1]]).evalf(15, strict=True)
 
 
 def test_random_rational_linalg_matches_sympy():

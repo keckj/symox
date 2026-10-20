@@ -521,7 +521,7 @@ pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototyp
 }
 fn guard_symbolic_factor_work(e:&Expr,limits:super::factor_budget::Limits)->PResult<()> {
     let mut stack=vec![(e.clone(),0usize,1u64)];let mut visits=0usize;let mut bits=0u64;
-    let size=|n:&Number|->u64{match n{Number::Int(n)=>if n.unsigned_abs()<=1{0}else{64-n.unsigned_abs().leading_zeros() as u64},Number::BigInt(n)=>n.bits(),Number::Rational(n)=>n.numer().bits()+n.denom().bits(),Number::Float(_)=>1075,Number::MpFloat(n,_)=>n.man.bits().saturating_add(n.exp.unsigned_abs())}};
+    let size=|n:&Number|->u64{match n{Number::Int(n)=>if n.unsigned_abs()<=1{0}else{64-n.unsigned_abs().leading_zeros() as u64},Number::BigInt(n)=>n.bits(),Number::Rational(n)=>n.numer().bits()+n.denom().bits(),Number::Float(_)=>1075,Number::MpFloat(n,_)=>n.man.bits().saturating_add(u64::try_from(n.exp.unsigned_abs()).unwrap_or(u64::MAX))}};
     while let Some((e,depth,weight))=stack.pop(){
         visits=visits.saturating_add(1);
         if visits>limits.terms||depth>256{return Err(PolyError::Unsupported("factorization resource limit: symbolic component traversal".into()));}

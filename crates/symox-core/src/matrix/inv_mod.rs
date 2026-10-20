@@ -189,7 +189,7 @@ impl Budget {
         if number.exp < 0 {
             self.scratch(number.man.bits())?;
             self.claim(words(number.man.bits()))?;
-            let shift = number.exp.unsigned_abs();
+            let shift = u64::try_from(number.exp.unsigned_abs()).unwrap_or(u64::MAX);
             if number.man.trailing_zeros().unwrap_or(0) < shift {
                 return Err(domain_error());
             }
@@ -417,7 +417,7 @@ mod tests {
         let extreme = Expr::num(Number::MpFloat(
             BigFloat {
                 man: BigInt::one(),
-                exp: i64::MAX,
+                exp: i64::MAX.into(),
             },
             80,
         ));

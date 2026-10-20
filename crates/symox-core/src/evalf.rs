@@ -245,7 +245,19 @@ pub fn eval_func_numeric(f:&Func,args:&[Expr])->Option<Expr>{
 }
 fn eval_func_numeric_inner(f: &Func, args: &[Expr]) -> Option<Expr> {
     let a: Option<Vec<C64>> = args.iter().map(eval_c64).collect();
-    let z = apply_c64(f, &a?)?;
+    let z = apply_c64(f, &a?);
+    // mpmath evaluates machine-precision Floats with unbounded exponents, so
+    // exp(1000.0) and erfc(30.0) are finite nonzero Floats in the reference.
+    // A double result that overflowed, underflowed or lost its exponent range
+    // is recomputed at 53 bits instead of being returned or dropped.
+    let outside=|x:f64|!x.is_finite()||(x!=0.0&&x.abs()<f64::MIN_POSITIVE);
+    if z.is_none_or(|z|outside(z.re)||outside(z.im)||(z.re==0.0&&z.im==0.0)) {
+        let raw=Expr::from_kind(Kind::Func(f.clone(),args.to_vec()));
+        if let Some(value)=crate::evalf_mp::eval_mp(&raw,53).filter(|v|!(v.re.is_zero()&&v.im.is_zero())) {
+            return Some(crate::evalf_mp::to_expr(value,53));
+        }
+    }
+    let z=z?;
     if !z.re.is_finite() || !z.im.is_finite() {
         return None;
     }

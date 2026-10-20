@@ -164,10 +164,14 @@ def test_unrepresentable_exponential_and_power_results_remain_symbolic():
             expression = function(argument)
             assert expression.is_Function
             assert expression.evalf(60) == expression
-    for exponent in [huge, -huge, sm.Integer(2)**63 - 1]:
+    for exponent in [huge, -huge]:
         expression = sm.Float("10", 60)**exponent
         assert expression.is_Pow
         assert expression.evalf(60) == expression
+    # Binary exponents are bounded by 2**100, not by a 64-bit counter.
+    power = sm.Float("10", 60)**(sm.Integer(2)**63 - 1)
+    assert power.is_Float
+    assert power.to_sympy() == sp.Float("10", 60)**(sp.Integer(2)**63 - 1)
     assert (sm.Float("0", 60)**2).is_zero is True
     assert_close(sm.exp(sm.Float("1000", 60)), sp.exp(sp.Float("1000", 60)), 60)
 

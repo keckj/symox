@@ -715,7 +715,17 @@ fn eval_minmax(f: &Func, args: Vec<Expr>) -> Expr {
                             let separation = 1e-12*x.abs().max(y.abs()).max(1.0);
                             if is_max { gap > separation } else { gap < -separation }
                         }
-                        _ => false,
+                        // Outside the double range the reference still
+                        // compares mpmath values (Max(3, exp(710)) is exp(710)).
+                        _ => match (crate::evalf_mp::eval_mp_default(a,96),crate::evalf_mp::eval_mp_default(b,96)) {
+                            (Some(x),Some(y)) if x.is_real() && y.is_real() => {
+                                let gap=if is_max {x.re.sub(&y.re,96)} else {y.re.sub(&x.re,96)};
+                                let scale=if x.re.abs().cmp(&y.re.abs()).is_ge() {x.re.abs()} else {y.re.abs()};
+                                let scale=if scale.cmp(&crate::bigfloat::BigFloat::one()).is_ge() {scale} else {crate::bigfloat::BigFloat::one()};
+                                gap.sign()>0 && gap.cmp(&scale.ldexp(-40)).is_gt()
+                            }
+                            _ => false,
+                        },
                     }
                 } else { false }
             }

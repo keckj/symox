@@ -25,7 +25,7 @@ fn number_bits(n: &Number) -> u64 {
         Number::BigInt(n) => n.bits(),
         Number::Rational(n) => n.numer().bits().max(n.denom().bits()),
         Number::Float(_) => 1075,
-        Number::MpFloat(n, _) => n.man.bits().saturating_add(n.exp.unsigned_abs()),
+        Number::MpFloat(n, _) => n.man.bits().saturating_add(u64::try_from(n.exp.unsigned_abs()).unwrap_or(u64::MAX)),
     }
 }
 fn children(e: &Expr) -> Vec<Expr> {
