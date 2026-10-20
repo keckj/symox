@@ -17,6 +17,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 mod series;
 mod python_hash;
 mod numpy_vector;
+mod add_memo;
 mod expression_inspection;
 mod wildcards;
 
@@ -3308,6 +3309,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
+    m.add_function(wrap_pyfunction!(add_memo::_exact_expr_args,m)?)?;
+    m.add_function(wrap_pyfunction!(add_memo::_monomial_add,m)?)?;
     ask::register(m)?;
     m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;
     m.add_function(wrap_pyfunction!(_restore_logic, m)?)?;

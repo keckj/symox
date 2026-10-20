@@ -171,6 +171,10 @@ class Add(metaclass=_ExprType):
 
     def __new__(cls, *args, evaluate=None):
         evaluate = _evaluation_state(evaluate)
+        if cls is Add and evaluate is True:
+            from ._add_memo import add
+            cached=add(args)
+            if cached is not None:return cached
         if any(getattr(arg,'_symox_tensexpr',False) for arg in args):
             from .tensor.tensor import TensAdd
             return TensAdd(*args,evaluate=evaluate)
