@@ -194,13 +194,13 @@ def install(namespace):
         def arithmetic(original,name):
             reflected = '__'+name[3:] if name.startswith('__r') else '__r'+name[2:]
             division = name in ('__truediv__','__rtruediv__')
-            plain_numbers = (int,float,complex)
             scalars = (Expr,int,float,complex)
             @wraps(original)
             def operation(self,other,*args):
                 # Exact built-in numeric types have no symbolic priority or
                 # foreign conversion hooks. Subclasses keep full dispatch.
-                plain_number = type(other) in plain_numbers
+                other_type = type(other)
+                plain_number = other_type is int or other_type is float or other_type is complex
                 priority = None if plain_number else getattr(other,'_op_priority',None)
                 if priority is not None and priority > self._op_priority:
                     handler = getattr(other,reflected,None)
