@@ -397,10 +397,20 @@ def orthogonalize(cls, *vecs, normalize=False, rankcheck=False):
     return [_convert(cls, q) for q in Matrix._orthogonalize(dense, normalize, rankcheck)]
 
 
+def __abs__(self):
+    """Returns a new matrix with entry-wise absolute values."""
+    from . import Abs
+    return self.applyfunc(Abs)
+
+
+def __mod__(self, other):
+    return self.applyfunc(lambda x: x % other)
+
+
 _INSTANCE = ('iter_items iter_values todok todod key2bounds key2ij table print_nonzero atoms doit '
              'integrate limit replace refine as_real_imag add rmultiply pow vech project LUdecompositionFF '
              'berkowitz_det det_bareis det_LU_decomposition berkowitz_charpoly berkowitz_eigenvals '
-             'cofactorMatrix minorEntry minorMatrix left_eigenvects jordan_cell').split()
+             'cofactorMatrix minorEntry minorMatrix left_eigenvects jordan_cell __abs__ __mod__').split()
 _MUTATORS = 'copyin_matrix copyin_list fill row_add row_mult'.split()
 _CLASS = 'from_dok jordan_block companion wilkinson irregular orthogonalize'.split()
 # Native dense kernels reached by sparse matrices through densification.
@@ -509,8 +519,22 @@ class _MutableMethod:
         return self.function.__get__(instance, owner)
 
 
+def _getitem_iter(self):
+    # SymPy matrices define no __iter__: iteration uses __getitem__ with flat
+    # indices, so an overridden __getitem__ also controls iteration.
+    for index in range(len(self)):
+        yield self[index]
+
+
+def _matrix_init_subclass(cls, **kwargs):
+    super(Matrix, cls).__init_subclass__(**kwargs)
+    if '__getitem__' in cls.__dict__ and '__iter__' not in cls.__dict__:
+        cls.__iter__ = _getitem_iter
+
+
 def install(immutable_facade, sparse_base, mutable_sparse):
     namespace = globals()
+    Matrix.__init_subclass__ = classmethod(_matrix_init_subclass)
     Matrix.__array__ = _matrix_array
     Matrix.__array_priority__ = 11
     sparse_base.__array__ = _matrix_array
