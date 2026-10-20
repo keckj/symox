@@ -72,3 +72,6 @@ prove a native algorithm incorrect.
 After a weak path is patched, run its behavioral regressions and remeasure it.
 Preserve domains, exact arithmetic, requested precision, options and explicit
 failures. See the [parity contract](../docs/algorithmic-parity.md).
+
+The [performance fix report](../docs/algorithm-performance.md) describes the
+2026-10-20 patches, retained evidence and remaining weak paths.

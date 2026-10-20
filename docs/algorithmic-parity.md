@@ -175,6 +175,15 @@ upstream and regression results are recorded separately in the
 [integration report](downstream-integration.md) and its candidate-specific
 validation evidence.
 
+The [performance fix report](algorithm-performance.md) also records exact
+Mersenne perfect-power rejection, bounded reuse of canonical exact monomial
+`Add` inputs and a NumPy float64 elementary-expression path. These fast paths
+retain their established fallback for inputs outside their eligibility rules.
+NumPy compilation is charged to `lambdify`, array results remain independent of
+their inputs, and unsupported printer output keeps the native evaluator.
+Matching selected NumPy results or reusing identical exact computations does
+not establish comparative complexity or full backend/API parity.
+
 The downstream fixes also cover exact Python `Fraction` conversion of native
 integers and rationals, two-dimensional NumPy/matrix arithmetic, external
 `_sympy_` conversion hooks, and relational constructor identity and instance
