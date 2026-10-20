@@ -217,8 +217,42 @@ classes have remaining gaps:
   conversion of huge exponents computes exact powers of ten.
 - `Eijk` is a class, whereas the reference `Eijk` is a function that returns
   a `LeviCivita` node.
-- Devito's import stops at `C99CodePrinter.type_mappings`. Code generation is
-  deferred.
+- `printer`, `str`, `precedence`, `codeprinter`, `c` and `cxx` are ports of
+  the reference modules, so downstream subclasses of `C99CodePrinter` and
+  `CXX11CodePrinter` (Devito's) override `_print_<Class>`, `type_mappings` and
+  precedence as in the reference. The other code printers keep the earlier
+  implementation and are not subclasses of the ported `CodePrinter`; `fcode`
+  and `rust_code` print natively. Those printers reject the augmented
+  assignment statements (`x *= y`) that the reference prints. The C printers
+  extend the reference in one case: a `DotProduct` of vectors with integer
+  lengths prints as the sum of element products, where the reference raises.
+  Float digits come from a port of mpmath's `to_str`, without importing
+  mpmath.
+- `codegen.ast` nodes are not `Basic`: their equality, hashing and `func`
+  follow the reference, but `atoms`, `xreplace` and pattern matching on
+  statement trees do not.
+- `IndexedBase`, `Indexed` and `Idx` are not `Basic` and become symbols in
+  arithmetic, so `Idx` ranges are lost, `assign_to` does not generate
+  contraction loops over repeated indices, and Devito's
+  `IndexedBase.__new__(cls, ...)` subclasses fail.
+- The public `Add`, `Mul`, `Basic`, `Symbol`, `Function` and `Eq` are routing
+  classes distinct from the nominal node classes, so `cls.__base__` of a user
+  subclass differs from the reference (Devito recurses through
+  `cls.__base__.__new__`).
+- `Heaviside(x)` stores no `H0` argument (the reference args are
+  `(x, 1/2)`), and `Heaviside(x, H0)` for another `H0` evaluates to
+  `Piecewise((H0, Eq(x, 0)), (Heaviside(x), True))`, so its printed code is a
+  nested conditional with the same values. Arithmetic with a string operand
+  sympifies the string, where the reference raises `TypeError`.
+- The strict-mode error message of the code printers names `_core.Matrix` for
+  explicit matrices.
+- Measured on 2026-10-20: Devito's `tests/test_symbolics.py` passes 24 of 136
+  tests (before: none, the import failed); most remaining failures need
+  instance attributes on `Relational` and `Add` subclasses (`_subdomain`, `.d`)
+  and the items above. Torch's `test/test_sympy_utils.py` has 37 failures
+  (reference: none): 33 are the `exp(2**63)` gap above, 4 need user
+  `_eval_is_integer`, `SingletonInt._eval_Eq` and the `expand` hint
+  `identity`.
 
 Rational bounded-denominator approximation uses the same exact standard-library
 `Fraction.limit_denominator` kernel as the reference, including its tie breaking
