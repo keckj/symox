@@ -425,22 +425,31 @@ pub fn pi(prec: u32) -> BigFloat {
     num.div(&BigFloat::from_int(&t), wp).unwrap().round_to(prec)
 }
 
-/// ln(2) to `prec` bits: ln 2 = sum 1/(k 2^k).
+/// ln(2) to `prec` bits, using 2*atanh(1/3).
+///
+/// The ratio 1/9 needs about three times fewer terms than the former 1/2
+/// series. Fixed-point summands are exact floors, so the omitted fractions
+/// and geometric tail give an explicit enclosure. Retry if its endpoints
+/// do not yet round to the same target value.
 pub fn ln2(prec: u32) -> BigFloat {
-    let wp = prec + 20;
-    // fixed point: ln2 = sum_{k>=1} 2^(wp-k)/k
-    let one = BigInt::one() << (wp as usize);
-    let mut s = BigInt::zero();
-    let mut k = 1u64;
+    let mut wp = prec + 32 + (u32::BITS-prec.max(1).leading_zeros());
     loop {
-        let term = (&one >> (k as usize)) / BigInt::from(k);
-        if term.is_zero() {
-            break;
+        let mut power = (BigInt::one() << wp as usize) / 3u32;
+        let mut sum = BigInt::zero();
+        let mut terms = 0u64;
+        while !power.is_zero() {
+            sum += &power / (2*terms+1);
+            power /= 9u32;
+            terms += 1;
         }
-        s += term;
-        k += 1;
+        let lower = sum * 2u32;
+        // Each included summand loses <1 unit. At the first omitted power,
+        // the remaining unscaled geometric tail is <9/8 units.
+        let upper = &lower + BigInt::from(2*terms+3);
+        let rounded = BigFloat::round(lower,-(wp as i64),prec);
+        if rounded == BigFloat::round(upper,-(wp as i64),prec) { return rounded; }
+        wp += 32;
     }
-    BigFloat::round(s, -(wp as i64), prec)
 }
 
 impl BigFloat {

@@ -843,6 +843,30 @@ impl PyPoly {
         Ok(normalized.extract::<PyRef<'_,Self>>()?.clone())
     }
 
+    /// Dense exact ground coefficients need no expression round trip.
+    #[staticmethod]
+    fn _from_dense_rational(coeffs:Vec<PyExpr>,gen:PyExpr,domain:Option<&str>)->PyResult<Self>{
+        use symox::poly::mpoly::MPoly;
+        if !matches!(domain,None|Some("ZZ"|"QQ")){
+            return Err(PyNotImplementedError::new_err("dense rational construction requires ZZ or QQ"));
+        }
+        let coefficients=coeffs.iter().map(|coefficient|
+            coefficient.e.as_number().and_then(Rat::from_number)
+                .ok_or_else(||PyTypeError::new_err("expected exact rational coefficients")))
+            .collect::<PyResult<Vec<_>>>()?;
+        let integral=coefficients.iter().all(|c|c.d.is_one());
+        if domain==Some("ZZ")&&!integral{
+            return Err(domains::CoercionFailed::new_err("coefficient does not belong to ZZ"));
+        }
+        let selected=if domain==Some("QQ")||!integral{Domain::QQ}else{Domain::ZZ};
+        let length=coefficients.len();
+        let terms=coefficients.into_iter().enumerate().map(|(i,c)|{
+            let exponent=u32::try_from(length-1-i).map_err(|_|PyValueError::new_err("polynomial degree limit exceeded"))?;
+            Ok((vec![exponent],c))
+        }).collect::<PyResult<Vec<_>>>()?;
+        Ok(Self{p:Poly::new(MPoly::from_terms(1,terms),vec![gen.e],1,selected).into()})
+    }
+
     /// Backend constructor used after public option/input normalization.
     #[staticmethod]
     #[pyo3(signature=(rep,gens,domain=None,modulus=None,extension=None))]

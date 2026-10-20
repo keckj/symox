@@ -13,6 +13,12 @@ pub mod mt;
 pub mod primetest;
 pub mod qs;
 pub mod residue;
+mod memo;
+
+thread_local! {
+    static FACTOR_MEMO: std::cell::RefCell<memo::Memo<BigInt,BTreeMap<BigInt,u32>>> = std::cell::RefCell::new(memo::Memo::new());
+    static PRIMEPI_MEMO: std::cell::RefCell<memo::Memo<u64,u64>> = std::cell::RefCell::new(memo::Memo::new());
+}
 
 use num_bigint::{BigInt, Sign};
 use num_integer::Integer;
@@ -361,6 +367,14 @@ fn split_big(n: &BigInt) -> BigInt {
 
 /// Prime factorisation `{p: e}` of `|n|` (`n != 0`).
 pub fn factorint(n: &BigInt) -> BTreeMap<BigInt, u32> {
+    let key = n.abs();
+    if let Some(value) = FACTOR_MEMO.with(|memo|memo.borrow().get(&key)) { return value; }
+    let result = factorint_uncached(&key);
+    if key.bits() <= 4096 { FACTOR_MEMO.with(|memo|memo.borrow_mut().insert(key,result.clone())); }
+    result
+}
+
+fn factorint_uncached(n: &BigInt) -> BTreeMap<BigInt,u32> {
     let mut out: BTreeMap<BigInt, u32> = BTreeMap::new();
     let n = n.abs();
     if n.is_zero() || n.is_one() {
@@ -513,6 +527,13 @@ pub fn prime(n: u64) -> u64 {
 
 /// Number of primes <= n (Lucy Hedgehog's O(n^(3/4)) algorithm).
 pub fn primepi(n: u64) -> u64 {
+    if let Some(value) = PRIMEPI_MEMO.with(|memo|memo.borrow().get(&n)) { return value; }
+    let value = primepi_uncached(n);
+    PRIMEPI_MEMO.with(|memo|memo.borrow_mut().insert(n,value));
+    value
+}
+
+fn primepi_uncached(n: u64) -> u64 {
     if n < 2 {
         return 0;
     }

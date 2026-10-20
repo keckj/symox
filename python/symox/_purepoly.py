@@ -43,19 +43,26 @@ class PurePoly(_Poly,metaclass=_PurePolyType):
         return _Poly.__new__(cls,rep,*gens,**args)
 
     @classmethod
-    def _from_coeffs(cls,coeffs,gen,domain,expr):
+    def _from_coeffs(cls,coeffs,gen,domain,expr=None):
         # Preserve the existing charpoly data representation for coefficient
         # domains which do not yet have a native Poly backend. Their algorithms
         # remain an explicit parity gap rather than a mislabeled typed domain.
         from . import _CharPolyData
+        def fallback():
+            expression=expr
+            if expression is None:
+                from . import Add
+                expression=Add(*(coefficient*gen**(len(coeffs)-i-1)
+                                 for i,coefficient in enumerate(coeffs)))
+            return _CharPolyData._from_coeffs(coeffs,gen,domain,expression)
         if str(domain) in ('EX','EXRAW'):
-            return _CharPolyData._from_coeffs(coeffs,gen,domain,expr)
+            return fallback()
         try:
             result=_Poly.__new__(cls,list(coeffs),gen,domain=domain)
             result.domain
             return result
         except (NotImplementedError,ValueError,TypeError):
-            return _CharPolyData._from_coeffs(coeffs,gen,domain,expr)
+            return fallback()
 
     def _with_gens(self,*gens):return _wrap(_Poly._with_gens(self,*gens),type(self))
 

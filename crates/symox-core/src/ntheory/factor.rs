@@ -333,6 +333,16 @@ fn smallest_prime_factor(e: u64) -> u64 {
 
 /// Largest power decomposition `n = b**e` (`e >= 2` maximal) for `n > 0`.
 pub(crate) fn perfect_power_big(n: &BigInt) -> Option<(BigInt, u64)> {
+    thread_local! {
+        static MEMO: std::cell::RefCell<super::memo::Memo<BigInt,Option<(BigInt,u64)>>> = std::cell::RefCell::new(super::memo::Memo::new());
+    }
+    if let Some(value) = MEMO.with(|memo|memo.borrow().get(n)) { return value; }
+    let value = perfect_power_big_uncached(n);
+    if n.bits() <= 4096 { MEMO.with(|memo|memo.borrow_mut().insert(n.clone(),value.clone())); }
+    value
+}
+
+fn perfect_power_big_uncached(n: &BigInt) -> Option<(BigInt,u64)> {
     if n <= &BigInt::from(3) {
         return None;
     }

@@ -119,24 +119,54 @@ class Permutation:
         if not isinstance(other, Permutation):
             return NotImplemented
         size = max(self.size, other.size)
-        left = self._images + tuple(range(self.size, size))
-        right = other._images + tuple(range(other.size, size))
-        return type(self)([right[left[i]] for i in range(size)])
+        left = self._images if self.size == size else self._images + tuple(range(self.size, size))
+        right = other._images if other.size == size else other._images + tuple(range(other.size, size))
+        return type(self)._from_images([right[index] for index in left])
+
+    @classmethod
+    def _from_images(cls, images):
+        """Internal construction from a bijection established by an algorithm.
+
+        Public input still goes through all constructor checks. Subclasses keep
+        their constructor behavior; only this concrete class uses the shortcut.
+        """
+        if cls is not Permutation:
+            return cls(images)
+        result = object.__new__(cls)
+        result._images = tuple(images)
+        result._rank = result._parity_cache = result._cycle_structure_cache = None
+        return result
 
     def __invert__(self):
         inverse = [0]*self.size
         for i, image in enumerate(self._images):
             inverse[image] = i
-        return type(self)(inverse)
+        return type(self)._from_images(inverse)
 
     def __pow__(self, n):
         exponent = operator.index(n)
+        # Small powers need only a few array-composition passes. Cycle
+        # decomposition remains linear in degree for arbitrarily large powers.
+        if abs(exponent) <= 64:
+            base = list((~self)._images if exponent < 0 else self._images)
+            remaining = abs(exponent)
+            result = None
+            while remaining:
+                if remaining & 1:
+                    result = base if result is None else [base[i] for i in result]
+                remaining >>= 1
+                if remaining >= 2 and not remaining & 1:
+                    base = [base[base[base[i]]] for i in base]
+                    remaining >>= 1
+                elif remaining:
+                    base = [base[i] for i in base]
+            return type(self)._from_images(range(self.size) if result is None else result)
         images = list(range(self.size))
         for cycle in self.cyclic_form:
             shift = exponent % len(cycle)
             for index,value in enumerate(cycle):
                 images[value] = cycle[(index+shift)%len(cycle)]
-        return type(self)(images)
+        return type(self)._from_images(images)
 
     @property
     def cyclic_form(self):

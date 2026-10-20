@@ -14,6 +14,7 @@ use crate::number::Number;
 use crate::ops::{add, add_from_terms, mul, mul_factor, pow};
 
 mod options;
+mod memo;
 pub use options::{expand_with_options, ExpandBudget, ExpandError, ExpandOptions};
 
 type Mono = SmallVec<[i64; 8]>;

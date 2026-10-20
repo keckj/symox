@@ -118,7 +118,7 @@ def _from_terms(terms,gens,domain,modulus,extension):
 
 def _data(rep,gens,domain,modulus,extension):
     from . import sympify
-    from ._core import DomainElement
+    from ._core import DomainElement,Domain
     def coefficient(value):
         # Domain elements deliberately reject implicit scalar/float coercion.
         # Their parent provides the exact expression embedding.
@@ -137,8 +137,12 @@ def _data(rep,gens,domain,modulus,extension):
             terms[monomial]=coefficient(value)
     else:
         if len(gens)!=1:raise MultivariatePolynomialError("'list' representation not supported")
-        values=list(rep)
-        terms={(len(values)-1-i,):coefficient(value) for i,value in enumerate(values)}
+        values=[coefficient(value) for value in rep]
+        if (modulus is None and extension is None and
+                (domain is None or isinstance(domain,(str,Domain)) and str(domain) in ('ZZ','QQ')) and
+                all(value.is_Rational for value in values)):
+            return Poly._from_dense_rational(values,gens[0],None if domain is None else str(domain))
+        terms={(len(values)-1-i,):value for i,value in enumerate(values)}
     return _from_terms(terms,gens,domain,modulus,extension)
 
 
