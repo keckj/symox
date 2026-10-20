@@ -100,12 +100,19 @@ def install(namespace):
 
     @wraps(original_root)
     def expand(e, deep=True, **hints):
+        # A concrete native scalar has neither array nor tensor dispatch.
+        # Its method uses the same native options/budget implementation.
+        target = original_method if type(e) is _core.Expr else original_root
+        if not hints:
+            return target(e, deep=deep)
         rest, enabled, wrt = options(hints)
-        result = original_root(e, deep=deep, **rest)
+        result = target(e, deep=deep, **rest)
         return _expand_deltas(result, wrt, deep, rest.get('max_terms', 100_000)) if enabled else result
 
     @wraps(original_method)
     def method(self, deep=True, **hints):
+        if not hints:
+            return original_method(self, deep=deep)
         rest, enabled, wrt = options(hints)
         result = original_method(self, deep=deep, **rest)
         return _expand_deltas(result, wrt, deep, rest.get('max_terms', 100_000)) if enabled else result

@@ -333,17 +333,29 @@ fn smallest_prime_factor(e: u64) -> u64 {
 
 /// Largest power decomposition `n = b**e` (`e >= 2` maximal) for `n > 0`.
 pub(crate) fn perfect_power_big(n: &BigInt) -> Option<(BigInt, u64)> {
+    thread_local! {
+        static MEMO: std::cell::RefCell<super::memo::Memo<BigInt,Option<(BigInt,u64)>>> = std::cell::RefCell::new(super::memo::Memo::new());
+    }
+    if let Some(value) = MEMO.with(|memo|memo.borrow().get(n)) { return value; }
+    let value = perfect_power_big_uncached(n);
+    if n.bits() <= 4096 { MEMO.with(|memo|memo.borrow_mut().insert(n.clone(),value.clone())); }
+    value
+}
+
+fn perfect_power_big_uncached(n: &BigInt) -> Option<(BigInt,u64)> {
     if n <= &BigInt::from(3) {
         return None;
     }
     let mut b = n.clone();
     let mut e = 1u64;
     let mut p = 2u32;
+    if is_mersenne_nonpower(&b) { return None; }
     while b.bits() as u32 >= p {
         let (r, exact) = iroot(&b, p);
         if exact && r > BigInt::one() {
             b = r;
             e *= p as u64;
+            if is_mersenne_nonpower(&b) { break; }
             continue;
         }
         p += 1;
@@ -356,6 +368,16 @@ pub(crate) fn perfect_power_big(n: &BigInt) -> Option<(BigInt, u64)> {
     } else {
         None
     }
+}
+
+/// A positive 2**k-1 (k>=2) is never a nontrivial perfect power. Even
+/// powers of odd numbers are 1 modulo 8, rather than 7 (k=2 gives 3).
+/// For an odd prime q, a**q+1 has the odd factor
+/// a**(q-1)-a**(q-2)+...-a+1 > 1, so cannot be a power of two.
+/// The caller supplies n>1. This is an exact bit test, not a probable-prime
+/// shortcut; composite Mersenne numbers satisfy the same argument.
+fn is_mersenne_nonpower(n:&BigInt)->bool{
+    n.magnitude().trailing_ones()==n.bits()
 }
 
 /// SymPy's `perfect_power(n, candidates, big)` for integers.  Returns
@@ -444,6 +466,17 @@ fn smallest_odd_prime_factor(e: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mersenne_bases_keep_complete_maximal_power_decompositions(){
+        for bits in 2..=128 {
+            let base=(BigInt::one()<<bits)-1u32;
+            assert_eq!(perfect_power_big_uncached(&base),None);
+            for exponent in [2,3,6,12,25] {
+                assert_eq!(perfect_power_big_uncached(&base.pow(exponent)),Some((base.clone(),exponent as u64)));
+            }
+        }
+    }
 
     fn b(n: i64) -> BigInt {
         BigInt::from(n)

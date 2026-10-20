@@ -6,6 +6,7 @@ use num_traits::ToPrimitive;
 use crate::bigfloat::{ln2, pi, BigFloat};
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
+mod memo;
 
 /// A complex number with arbitrary precision parts.
 #[derive(Clone, Debug)]
@@ -291,7 +292,12 @@ pub fn to_expr(value: MpComplex, prec: u32) -> Expr {
 /// exact, as in SymPy's partial evalf.
 pub fn evalf(e: &Expr, prec: u32) -> Expr {
     if e.is_zero() { return Expr::zero(); }
-    if let Some(value) = eval_mp(e, prec) { return to_expr(value, prec); }
+    if let Some(value) = memo::get(e,prec) { return value; }
+    if let Some(value) = eval_mp(e, prec) {
+        let value=to_expr(value,prec);
+        memo::insert(e,&value,prec);
+        return value;
+    }
     if crate::functions::is_numeric_value(e) { return e.clone(); }
     match e.kind() {
         Kind::Add(..) => crate::ops::add(&e.args().iter().map(|a| evalf(a, prec)).collect::<Vec<_>>()),

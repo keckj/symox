@@ -194,16 +194,27 @@ def install(namespace):
     for name in operations:
         original = getattr(Expr,name)
         def arithmetic(original,name):
+            operand_dispatch=getattr(original,'_symox_operand_dispatch',None)
+            if operand_dispatch is None:
+                tensor_type,tensor_operation,normal_operation=None,None,original
+            else:
+                tensor_type,tensor_operation,normal_operation=operand_dispatch
+            reflected = '__'+name[3:] if name.startswith('__r') else '__r'+name[2:]
+            division = name in ('__truediv__','__rtruediv__')
+            scalars = (Expr,int,float,complex)
             @wraps(original)
             def operation(self,other,*args):
-                priority = getattr(other,'_op_priority',None)
+                # Exact built-in numeric types have no symbolic priority or
+                # foreign conversion hooks. Subclasses keep full dispatch.
+                other_type = type(other)
+                plain_number = other_type is int or other_type is float or other_type is complex
+                priority = None if plain_number else getattr(other,'_op_priority',None)
                 if priority is not None and priority > self._op_priority:
-                    reflected = '__'+name[3:] if name.startswith('__r') else '__r'+name[2:]
                     handler = getattr(other,reflected,None)
                     if handler is not None:
                         return handler(self,*args)
-                scalar = isinstance(other,(Expr,int,float,complex))
-                if scalar and name in ('__truediv__','__rtruediv__') and _divide_error.get() and self == 0 and other == 0:
+                scalar = plain_number or isinstance(other,scalars)
+                if scalar and division and _divide_error.get() and self == 0 and other == 0:
                     raise ValueError('indeterminate 0/0')
                 if scalar and not _evaluation.get() and not args:
                     value = _core.sympify(other)
@@ -218,11 +229,16 @@ def install(namespace):
                         return _core._node('Mul',(a,_core._node('Pow',(b,-1),False)),False)
                     return _core._node('Pow',(a,b),False)
                 try:
-                    return original(self,other,*args)
+                    if tensor_operation is not None and isinstance(other,tensor_type):
+                        return tensor_operation(self,other,*args)
+                    return normal_operation(self,other,*args)
                 except TypeError as error:
                     if getattr(error,'_symox_unsupported_conversion',False):
                         return NotImplemented
                     raise
+            # This wrapper owns priority/context logic and cannot advertise a
+            # bypass of that logic to another consumer of dispatch metadata.
+            operation.__dict__.pop('_symox_operand_dispatch',None)
             return operation
         setattr(Expr,name,arithmetic(original,name))
     original_match = Expr.match
@@ -245,4 +261,6 @@ def install(namespace):
             return Naturals0 if counts is None else FiniteSet(*counts)
         return previous.__get__(self,Expr)
     Expr.nargs = property(nargs)
+    from ._integer_head_cache import install as install_integer_head_cache
+    install_integer_head_cache(namespace,_evaluation)
     Expr._public_core_installed = True

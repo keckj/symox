@@ -31,6 +31,7 @@ pub mod api;
 pub mod collect;
 pub mod resultant;
 pub mod roots;
+mod nroots_mp;
 pub mod modgcd;
 pub mod ratfunc;
 pub mod groebner;

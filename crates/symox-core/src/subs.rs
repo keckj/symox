@@ -8,6 +8,7 @@ use crate::expr::{Expr, Func, Kind};
 use crate::number::Number;
 use crate::ops::{add, add_from_terms, div, mul, mul2, mul_factor, pow};
 use crate::traverse::map_children;
+mod memo;
 
 /// Simultaneous exact structural replacement.
 pub fn xreplace(e: &Expr, map: &FxHashMap<Expr, Expr>) -> Expr {
@@ -135,8 +136,11 @@ pub fn subs_doit(e:&Expr,variables:&[Expr],points:&[Expr])->Expr {
 /// Substitute a single `old -> new` (with algebraic matching of sums,
 /// products and powers).
 pub fn subs1(e: &Expr, old: &Expr, new: &Expr) -> Expr {
+    if let Some(value) = memo::get(e,old,new) { return value; }
     let mut cache = FxHashMap::default();
-    s1(e, old, new, &mut cache)
+    let value = s1(e, old, new, &mut cache);
+    memo::insert(e,old,new,&value);
+    value
 }
 
 fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {

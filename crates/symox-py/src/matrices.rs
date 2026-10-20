@@ -1548,14 +1548,13 @@ impl PyMatrix {
         };
         let cp = self.m.charpoly(&name).py(py)?;
         let coeffs = exprs_list(py, &cp.coeffs)?;
-        let (var, expr) = match gen {
+        let var = match gen {
             Some(g) if cp.var.as_sym().unwrap().name() == g.as_sym().unwrap().name() =>
-                (g.clone(), symox::subs::subs1(&cp.as_expr(), &cp.var, &g)),
-            Some(_) => (cp.var.clone(), cp.as_expr()),
-            None => (cp.var.clone(), cp.as_expr()),
+                g,
+            _ => cp.var.clone(),
         };
         let cls = py.import("symox")?.getattr("PurePoly")?;
-        cls.call_method1("_from_coeffs", (coeffs, wrap(var), cp.domain.clone(), wrap(expr)))
+        cls.call_method1("_from_coeffs", (coeffs, wrap(var), cp.domain.clone()))
     }
 
     #[pyo3(signature = (error_when_incomplete=true, multiple=false, **_flags))]

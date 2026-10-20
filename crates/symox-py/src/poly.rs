@@ -74,6 +74,19 @@ fn err(e: PolyError) -> PyErr {
     }
 }
 
+fn nroots_error(py: Python<'_>, error: PolyError) -> PyErr {
+    let message = error.to_string();
+    if message.starts_with("convergence to root failed") {
+        return match py.import("mpmath.libmp.libhyper")
+            .and_then(|module| module.getattr("NoConvergence"))
+            .and_then(|class| class.call1((message,))) {
+                Ok(exception) => PyErr::from_value(exception),
+                Err(error) => error,
+            };
+    }
+    err(error)
+}
+
 fn gens_of(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     let mut v = Vec::new();
     for a in args.iter() {
@@ -830,6 +843,30 @@ impl PyPoly {
         Ok(normalized.extract::<PyRef<'_,Self>>()?.clone())
     }
 
+    /// Dense exact ground coefficients need no expression round trip.
+    #[staticmethod]
+    fn _from_dense_rational(coeffs:Vec<PyExpr>,gen:PyExpr,domain:Option<&str>)->PyResult<Self>{
+        use symox::poly::mpoly::MPoly;
+        if !matches!(domain,None|Some("ZZ"|"QQ")){
+            return Err(PyNotImplementedError::new_err("dense rational construction requires ZZ or QQ"));
+        }
+        let coefficients=coeffs.iter().map(|coefficient|
+            coefficient.e.as_number().and_then(Rat::from_number)
+                .ok_or_else(||PyTypeError::new_err("expected exact rational coefficients")))
+            .collect::<PyResult<Vec<_>>>()?;
+        let integral=coefficients.iter().all(|c|c.d.is_one());
+        if domain==Some("ZZ")&&!integral{
+            return Err(domains::CoercionFailed::new_err("coefficient does not belong to ZZ"));
+        }
+        let selected=if domain==Some("QQ")||!integral{Domain::QQ}else{Domain::ZZ};
+        let length=coefficients.len();
+        let terms=coefficients.into_iter().enumerate().map(|(i,c)|{
+            let exponent=u32::try_from(length-1-i).map_err(|_|PyValueError::new_err("polynomial degree limit exceeded"))?;
+            Ok((vec![exponent],c))
+        }).collect::<PyResult<Vec<_>>>()?;
+        Ok(Self{p:Poly::new(MPoly::from_terms(1,terms),vec![gen.e],1,selected).into()})
+    }
+
     /// Backend constructor used after public option/input normalization.
     #[staticmethod]
     #[pyo3(signature=(rep,gens,domain=None,modulus=None,extension=None))]
@@ -1389,9 +1426,10 @@ impl PyPoly {
         Ok(w(symox::expand::expand(&symox::subs::subs(&self.p.as_expr(), &pairs))))
     }
 
-    #[pyo3(signature = (n=15, **_kwargs))]
-    fn nroots(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<PyExpr>> {
-        Ok(proots::nroots_poly(&self.p, n).map_err(err)?.into_iter().map(w).collect())
+    #[pyo3(signature = (n=15, maxsteps=50, cleanup=true))]
+    fn nroots(&self, py: Python<'_>, n: u32, maxsteps: u32, cleanup: bool) -> PyResult<Vec<PyExpr>> {
+        Ok(proots::nroots_poly_options(&self.p, n, maxsteps, cleanup)
+            .map_err(|error| nroots_error(py,error))?.into_iter().map(w).collect())
     }
 
     fn all_roots(&self) -> PyResult<Vec<PyExpr>> {
@@ -2158,10 +2196,11 @@ fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multip
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, n=15, **_kwargs))]
-fn nroots(f: &Bound<'_, PyAny>, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<PyExpr>> {
+#[pyo3(signature = (f, n=15, maxsteps=50, cleanup=true))]
+fn nroots(py: Python<'_>, f: &Bound<'_, PyAny>, n: u32, maxsteps: u32, cleanup: bool) -> PyResult<Vec<PyExpr>> {
     let (e, g2) = expr_or_coeff_list(f)?;
-    Ok(proots::nroots(&e, &g2, n).map_err(err)?.into_iter().map(w).collect())
+    Ok(proots::nroots_options(&e, &g2, n, maxsteps, cleanup)
+        .map_err(|error| nroots_error(py,error))?.into_iter().map(w).collect())
 }
 
 #[pyfunction]

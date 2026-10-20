@@ -9,14 +9,19 @@ def install(namespace):
     from ._expressions import TensExpr,TensAdd,TensMul
     Expr=namespace['Expr']
     def arithmetic(original,name):
+        def tensor_operation(self,other):
+            if name=='__add__':return TensAdd(self,other)
+            if name=='__sub__':return TensAdd(self,-other)
+            if name=='__mul__':return TensMul(self,other)
+            raise ValueError('Division by an indexed tensor is undefined')
         @wraps(original)
         def operation(self,other):
             if isinstance(other,TensExpr):
-                if name=='__add__':return TensAdd(self,other)
-                if name=='__sub__':return TensAdd(self,-other)
-                if name=='__mul__':return TensMul(self,other)
-                if name=='__truediv__':raise ValueError('Division by an indexed tensor is undefined')
+                return tensor_operation(self,other)
             return original(self,other)
+        # The public priority/context wrapper can perform this same predicate
+        # and invoke the selected handler without a second Python frame.
+        operation._symox_operand_dispatch=(TensExpr,tensor_operation,original)
         return operation
     for name in ('__add__','__sub__','__mul__','__truediv__'):
         setattr(Expr,name,arithmetic(getattr(Expr,name),name))

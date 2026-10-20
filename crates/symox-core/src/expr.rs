@@ -21,6 +21,8 @@ use std::cell::RefCell;
 use crate::number::Number;
 #[path="binding_identity.rs"]
 mod binding_identity;
+#[path="expr/algebra.rs"]
+mod algebra;
 
 // A comparison may cross scalar/matrix metadata several times. Keep its
 // physical-pair memo for the whole call, rather than resetting it at each
@@ -511,6 +513,7 @@ pub struct Node {
     canonical: bool,
     has_matrix: bool,
     features: u16,
+    exact_algebra_weight: u16,
     binding_identity: Option<Arc<binding_identity::Key>>,
     free_symbols: OnceLock<Vec<Expr>>,
     ordered_args: OnceLock<Vec<Expr>>,
@@ -716,6 +719,7 @@ impl Expr {
         Expr(Arc::new(Node {
             hash: h.finish(),
             mask,
+            exact_algebra_weight: algebra::weight(&kind,canonical),
             kind,
             canonical,
             has_matrix,
@@ -737,6 +741,11 @@ impl Expr {
     pub fn dag_id(&self) -> usize { Arc::as_ptr(&self.0) as usize }
     /// A non-owning reference to this node.
     pub fn downgrade(&self) -> WeakExpr { WeakExpr(Arc::downgrade(&self.0)) }
+
+    /// Nonzero only for bounded canonical exact scalar polynomials over
+    /// ordinary commuting symbols. This is cache eligibility, not a domain cap.
+    #[inline]
+    pub(crate) fn exact_algebra_weight(&self)->u16 {self.0.exact_algebra_weight}
 
     /// Each shared node is inspected once. Compact coefficients and matrix
     /// metadata are visited directly, without synthesizing public arguments.

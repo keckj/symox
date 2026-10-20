@@ -1,0 +1,20 @@
+{
+  "README.md": "05193451ce87b585166cbf3bb9f5c4edc827f57fb2bc31749d4f18f931e8eca8",
+  "after-package.json": "d0dddc3de81d683569a7f9f900f4157ffcd3e645f10490ca6c19fa1a3b67cda3",
+  "after-summary.json": "48e90c3c36211b3b0b3fb358735c375e1215321eaf5df3da162e66f200dc4a98",
+  "after.json.gz": "f980162303191edde516a63513cb88a57716d238a4db6591612fcfba1b7549e2",
+  "after.md": "46da24db0817667357c001c2a8e109da0eafbdc1ea3a0fde8ff6ac9ae312dcbb",
+  "before-add-package.json": "49dc32e65a13b0f518dad7138318584d311f97486d5b4ed3e4d460c810e85fa1",
+  "before-add.json.gz": "97b6a5ac966b4ef261ea39e661c446bcaa211fcbb27cb12ff48fd454d56e86c7",
+  "before-package.json": "1f1c70fb8979158ab2938fb8459589735870b5b0522e6a2e6ff7fdbcc9302e83",
+  "before.json.gz": "fdcdda6a17f07da9efcb2082b347f4a15cbb3233213dcfe64180262a0f43017c",
+  "comparison.json": "d54c4ac1e48830c45fc1de8f080bcfccab99e2971dd39124456b62dda80a1b60",
+  "mersenne-seven-processes.json.gz": "633e6328d4fe5d8a298d768ba9528c68329ccf90f4e9a54d25077a39b9f3e7c3",
+  "nroots-permutations-seven-processes.json.gz": "868e01ff926a899badea5a9d540f5274432c00c84efd745dc30088dcd344cc6a",
+  "qualified-build.log.gz": "8bd3c5e8cfbf43d3b1d8c63da12ba54e01983a98f1cccbb6023fd51804d5be7a",
+  "qualified-core.log.gz": "ff6a6ccd69c46b09747b6a1ddbea45ed0274c81a97feb818b706cb98bb139d47",
+  "qualified-refinement.log.gz": "b0a5ae3f0d30c10e327bf02e7f9b7f320dabdf5986494c6c88bbab999b7e0a04",
+  "qualified-regressions.log.gz": "327389f02b1d39dfbb982a34ce9cd75b51d52733dc68336c5c17e5d6f0d2c8b6",
+  "qualified-screening.log.gz": "b6335ab5a4b8345b54daa2fd7b0fe4296dce59ad22a956b9b11be7a6683cc856",
+  "rust-mersenne.log.gz": "2da3677776eec444fd92a7b720dec6e262d42d1d45d074ed73189a914f567668"
+}

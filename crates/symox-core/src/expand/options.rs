@@ -104,7 +104,7 @@ impl ExpandBudget {
         self.remaining_work -= work;
         Ok(())
     }
-    fn power_terms(&mut self, terms: usize, exponent: u64) -> Result<usize> {
+    fn power_terms(&mut self, terms: usize, exponent: u64, support_cap: Option<usize>) -> Result<usize> {
         if terms <= 1 || exponent == 0 {
             return Ok(1);
         }
@@ -120,6 +120,10 @@ impl ExpandBudget {
                 .checked_mul((n - k + i) as u128)
                 .ok_or_else(|| ExpandError("expansion term limit exceeded".into()))?
                 / (i as u128);
+            if support_cap.is_some_and(|cap| count >= cap as u128) {
+                count = support_cap.unwrap() as u128;
+                break;
+            }
             if count > self.max_terms as u128 {
                 return Err(ExpandError(format!(
                     "expansion term limit exceeded (maximum {})",
@@ -138,6 +142,51 @@ impl ExpandBudget {
         )?;
         Ok(count)
     }
+}
+
+/// A polynomial in one physical symbol has at most degree+1 monomials,
+/// regardless of how many distributive products combine into each coefficient.
+/// Reject other grammars conservatively; they retain the existing estimator.
+fn univariate_support_cap(e: &Expr) -> Option<usize> {
+    fn merge(a: &mut Option<Expr>, b: Option<Expr>) -> Option<()> {
+        if let Some(b) = b {
+            if let Some(a) = a { if !a.same_presentation(&b) { return None; } }
+            else { *a = Some(b); }
+        }
+        Some(())
+    }
+    fn degree(e: &Expr) -> Option<(Option<Expr>,usize)> {
+        match e.kind() {
+            Kind::Num(_) => Some((None,0)),
+            Kind::Sym(_) if crate::decompose::commutativity(e) != Some(false) => Some((Some(e.clone()),1)),
+            Kind::Add(_,terms) => {
+                let mut variable = None; let mut maximum = 0;
+                for (term,_) in terms {
+                    let (symbol,power) = degree(term)?;
+                    merge(&mut variable,symbol)?; maximum = maximum.max(power);
+                }
+                Some((variable,maximum))
+            }
+            Kind::Mul(_,factors) => {
+                let mut variable = None; let mut sum = 0usize;
+                for (base,exponent) in factors {
+                    if !exponent.is_integer_number() { return None; }
+                    let exponent = usize::try_from(exponent.as_number()?.to_i64()?).ok()?;
+                    let (symbol,power) = degree(base)?;
+                    merge(&mut variable,symbol)?; sum = sum.checked_add(power.checked_mul(exponent)?)?;
+                }
+                Some((variable,sum))
+            }
+            Kind::Pow(base,exponent) => {
+                if !exponent.is_integer_number() { return None; }
+                let exponent = usize::try_from(exponent.as_number()?.to_i64()?).ok()?;
+                let (symbol,power) = degree(base)?;
+                Some((symbol,power.checked_mul(exponent)?))
+            }
+            _ => None,
+        }
+    }
+    degree(e)?.1.checked_add(1)
 }
 
 /// Check a conservative sparse-polynomial bound before the arithmetic pass.
@@ -169,6 +218,7 @@ fn reserve_arithmetic(
             count.max(1)
         }
         Kind::Mul(..) => {
+            let support_cap = univariate_support_cap(e);
             let counts = e
                 .args()
                 .iter()
@@ -178,9 +228,8 @@ fn reserve_arithmetic(
                 let mut count = 1usize;
                 for next in counts {
                     budget.claim_product(count, next)?;
-                    count = count
-                        .checked_mul(next)
-                        .ok_or_else(|| ExpandError("expansion term limit exceeded".into()))?;
+                    count = count.checked_mul(next).unwrap_or(usize::MAX)
+                        .min(support_cap.unwrap_or(usize::MAX));
                     budget.claim_terms(count)?;
                 }
                 count
@@ -196,7 +245,7 @@ fn reserve_arithmetic(
                     let integer = n.floor().to_i64();
                     if let Some(k) = integer {
                         if k != 0 {
-                            let count = budget.power_terms(terms, k.unsigned_abs())?;
+                            let count = budget.power_terms(terms, k.unsigned_abs(), univariate_support_cap(e))?;
                             if k > 0 {
                                 count
                             } else {
@@ -409,6 +458,18 @@ pub fn expand_with_options(
     if let Some((_, value)) = budget.scalar_cache.get(&key) {
         return Ok(value.clone());
     }
+    // A fresh top-level budget has a reproducible work cost. Nested calls can
+    // share matrix/scalar reservations, so they use only the per-call cache.
+    let fresh = budget.scalar_cache.is_empty() && budget.matrix_cache.is_empty()
+        && budget.remaining_work == 5_000_000;
+    if fresh {
+        if let Some((value,work)) = super::memo::get(e,options,budget.max_terms) {
+            budget.claim_product(1,work)?;
+            budget.scalar_cache.insert(key,(e.clone(),value.clone()));
+            return Ok(value);
+        }
+    }
+    let initial_work = budget.remaining_work;
     let mut value = e.clone();
     if options.func {
         value = crate::special::expand_func_deep(&value, options.deep);
@@ -457,6 +518,9 @@ pub fn expand_with_options(
         )?;
     }
     budget.scalar_cache.insert(key, (e.clone(), value.clone()));
+    if fresh {
+        super::memo::insert(e,&value,options,budget.max_terms,initial_work-budget.remaining_work);
+    }
     Ok(value)
 }
 
@@ -464,6 +528,20 @@ pub fn expand_with_options(
 mod tests {
     use super::*;
     use crate::parser::parse_str;
+    #[test]
+    fn reused_expansions_replay_work_and_keep_distinct_limits() {
+        let expression = parse_str("(x+1)*(x+2)*(x+3)*(x+4)*(x+5)").unwrap();
+        let options = ExpandOptions::default();
+        let mut first = ExpandBudget::new(6);
+        let expected = expand_with_options(&expression,&options,&mut first).unwrap();
+        let mut repeated = ExpandBudget::new(6);
+        assert_eq!(expand_with_options(&expression,&options,&mut repeated).unwrap(),expected);
+        assert_eq!(first.remaining_work,repeated.remaining_work);
+        assert!(first.remaining_work < 5_000_000);
+        assert!(expand_with_options(&expression,&options,&mut ExpandBudget::new(5)).is_err());
+        let mut shallow = options; shallow.mul = false;
+        assert_eq!(expand_with_options(&expression,&shallow,&mut ExpandBudget::default()).unwrap(),expression);
+    }
     #[test]
     fn functional_hint_respects_depth_and_arithmetic_controls() {
         for (source, deep, wanted) in [

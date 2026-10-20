@@ -16,6 +16,8 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 mod series;
 mod python_hash;
+mod numpy_vector;
+mod add_memo;
 mod expression_inspection;
 mod wildcards;
 mod host;
@@ -214,14 +216,16 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     // dedicated subtype. Importing diffgeom must not make all scalars callable.
     if e.mask()!=0 {
         let module=loaded_symox(py)?;
-        if let Ok(fields)=module.getattr("_diffgeom_field_atoms") {
-            for atom in traverse::free_symbols(&e) {
-                if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
-                    && fields.contains(Bound::new(py, PyExprNode { e: atom })?)?
-                {
-                    let class = module.getattr("_diffgeom_callable_type")?;
-                    let value = Bound::new(py, PyExprNode { e })?;
-                    return Ok(class.call_method1("__new__", (&class, value))?.unbind());
+        if let Some(fields)=module.downcast::<pyo3::types::PyModule>()?.dict().get_item("_diffgeom_field_atoms")? {
+            if fields.len()? != 0 {
+                for atom in traverse::free_symbols(&e) {
+                    if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
+                        && fields.contains(Bound::new(py, PyExprNode { e: atom })?)?
+                    {
+                        let class = module.getattr("_diffgeom_callable_type")?;
+                        let value = Bound::new(py, PyExprNode { e })?;
+                        return Ok(class.call_method1("__new__", (&class, value))?.unbind());
+                    }
                 }
             }
         }
@@ -472,6 +476,23 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(p) = obj.downcast::<crate::PyExprNode>() {
         return Ok(p.get().e.clone());
     }
+    if obj.is_instance_of::<pyo3::types::PyBool>() {
+        return Ok(Expr::boolean(obj.extract::<bool>()?));
+    }
+    if obj.is_instance_of::<PyInt>() {
+        if let Ok(i) = obj.extract::<i64>() {
+            return Ok(Expr::int(i));
+        }
+        let b: BigInt = obj.extract()?;
+        return Ok(Expr::num(Number::from_bigint(b)));
+    }
+    if obj.is_instance_of::<PyFloat>() {
+        return Ok(Expr::float(obj.extract::<f64>()?));
+    }
+    if let Ok(c) = obj.downcast::<PyComplex>() {
+        let (re, im) = (c.real(), c.imag());
+        return Ok(evalf::c64_to_expr(num_complex_c64(re, im)));
+    }
     if let Ok(element) = obj.extract::<PyRef<'_, poly::domains::PyDomainElement>>() {
         use symox::poly::domains::{ElementValue, ExactDomain};
         use symox::poly::int::Coeff;
@@ -489,23 +510,6 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     }
     if let Ok(p) = obj.downcast::<matrixexpr::PyMatrixExpr>() {
         return Ok(matrix_proxy(p.get().m.clone()));
-    }
-    if obj.is_instance_of::<pyo3::types::PyBool>() {
-        return Ok(Expr::boolean(obj.extract::<bool>()?));
-    }
-    if obj.is_instance_of::<PyInt>() {
-        if let Ok(i) = obj.extract::<i64>() {
-            return Ok(Expr::int(i));
-        }
-        let b: BigInt = obj.extract()?;
-        return Ok(Expr::num(Number::from_bigint(b)));
-    }
-    if obj.is_instance_of::<PyFloat>() {
-        return Ok(Expr::float(obj.extract::<f64>()?));
-    }
-    if let Ok(c) = obj.downcast::<PyComplex>() {
-        let (re, im) = (c.real(), c.imag());
-        return Ok(evalf::c64_to_expr(num_complex_c64(re, im)));
     }
     if obj.is_instance_of::<PyString>() {
         let s: String = obj.extract()?;
@@ -1306,7 +1310,7 @@ impl PyExprNode {
             || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
             return Ok(py.NotImplemented());
         }
-        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || (!o.is_exact_instance_of::<PyInt>() && !o.is_exact_instance_of::<PyFloat>() && !o.is_exact_instance_of::<PyComplex>() && o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false))) {
             // let Matrix.__rmul__ handle scalar * matrix
             return Ok(py.NotImplemented());
         }
@@ -1317,7 +1321,7 @@ impl PyExprNode {
             || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
             return Ok(o.py().NotImplemented());
         }
-        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || (!o.is_exact_instance_of::<PyInt>() && !o.is_exact_instance_of::<PyFloat>() && !o.is_exact_instance_of::<PyComplex>() && o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false))) {
             return Ok(o.py().NotImplemented());
         }
         arithmetic_object(&slf, o, ops::mul2(&scalar_expr(o)?, &slf.e))
@@ -3261,6 +3265,8 @@ pub struct PyCompiled {
     exprs: Vec<Expr>,
     arguments: Vec<Expr>,
     object_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
+    numpy_vectors: bool,
+    numpy_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
 }
 
 fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -3321,6 +3327,12 @@ impl PyCompiled {
                     .getattr("_compile_object")?.call1((arguments, expression))?.unbind())
             })?;
             return Ok(evaluator.bind(py).call(args, None)?.unbind());
+        }
+        if self.numpy_vectors {
+            let evaluator=self.numpy_evaluator.get_or_try_init(py,||
+                numpy_vector::dispatcher(py,&self.arguments,&self.exprs[0]))?;
+            let result=evaluator.bind(py).call(args,None)?;
+            if !result.is(py.NotImplemented().bind(py)){return Ok(result.unbind());}
         }
         // vectorised path: broadcast scalars against 1-d arrays
         let np = py.import("numpy")?;
@@ -3406,7 +3418,6 @@ fn py_lambdify(
     modules: Option<&Bound<'_, PyAny>>,
     _kwargs: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<PyCompiled> {
-    let _ = modules;
     let arg_list: Vec<Expr> = if let Ok(e) = to_expr(args) {
         vec![e]
     } else {
@@ -3419,8 +3430,18 @@ fn py_lambdify(
     };
     let exprs: Vec<Expr> = exprs.iter().map(unwrap_unevaluated).collect();
     let c = Compiled::new(&arg_list, &exprs).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let numpy_vectors=scalar_out&&modules.is_some_and(|value|
+        value.extract::<String>().is_ok_and(|name|name=="numpy"))
+        &&arg_list.iter().all(|argument|argument.as_symbol().is_some_and(|name|name.len()<=256))
+        &&numpy_vector::supports(&exprs[0]);
+    let numpy_evaluator=pyo3::sync::GILOnceCell::new();
+    if numpy_vectors {
+        let evaluator=numpy_vector::dispatcher(args.py(),&arg_list,&exprs[0])?;
+        let _=numpy_evaluator.set(args.py(),evaluator);
+    }
     Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
-        object_evaluator: pyo3::sync::GILOnceCell::new() })
+        object_evaluator: pyo3::sync::GILOnceCell::new(),numpy_vectors,
+        numpy_evaluator })
 }
 
 #[pymodule]
@@ -3430,6 +3451,9 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
     m.add_function(wrap_pyfunction!(_register_node_types, m)?)?;
+    m.add_function(wrap_pyfunction!(add_memo::_exact_expr_args,m)?)?;
+    m.add_function(wrap_pyfunction!(add_memo::_exact_expr_key,m)?)?;
+    m.add_function(wrap_pyfunction!(add_memo::_monomial_add,m)?)?;
     ask::register(m)?;
     m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;
     m.add_function(wrap_pyfunction!(_restore_logic, m)?)?;

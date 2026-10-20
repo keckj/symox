@@ -1,0 +1,7 @@
+{
+  "probe": "Symbol('noncommutative_probe', commutative=False)",
+  "error_type": "ValueError",
+  "error": "noncommutative symbols are not implemented",
+  "snapshot": "predecessor f301412",
+  "package_manifest": "audits/performance/2026-10-20-weak-cases/after-package.json"
+}

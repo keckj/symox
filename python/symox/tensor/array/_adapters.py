@@ -37,6 +37,8 @@ def _entrywise(original):
     first=FirstArgument(original)
     @wraps(original)
     def operation(*args, **options):
+        if args and type(args[0]) is _core.Expr:
+            return original(*args, **options)
         expression=first.get(args,options)
         if (isinstance(expression, (NDimArray, _core.Matrix))
                 or getattr(expression, '_symox_sparse', False)):

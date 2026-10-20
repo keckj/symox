@@ -13,6 +13,8 @@ use num_traits::{One, ToPrimitive};
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::{exact_root, trial_factor, Number};
 
+mod memo;
+
 // ----------------------------------------------------------------------
 // helpers on the internal representation
 // ----------------------------------------------------------------------
@@ -230,6 +232,10 @@ pub fn add2(a: &Expr, b: &Expr) -> Expr {
     if let (Kind::Num(x), Kind::Num(y)) = (a.kind(), b.kind()) {
         return Expr::num(x.add(y));
     }
+    memo::apply(memo::Operation::Add,a,b,||add2_nontrivial(a,b))
+}
+
+fn add2_nontrivial(a:&Expr,b:&Expr)->Expr{
     // fast path: merge already sorted term lists in linear time
     if let Some(r) = add2_merge(a, b) {
         return r;
@@ -598,6 +604,10 @@ pub fn mul2(a: &Expr, b: &Expr) -> Expr {
     if a.may_have_order() || b.may_have_order() || a.has_noncommutative_host() || b.has_noncommutative_host() {
         return mul(&[a.clone(), b.clone()]);
     }
+    memo::apply(memo::Operation::Multiply,a,b,||mul2_nontrivial(a,b))
+}
+
+fn mul2_nontrivial(a:&Expr,b:&Expr)->Expr{
     if let Some(r) = mul2_fast(a, b).or_else(|| mul2_fast(b, a)) {
         return r;
     }
@@ -1222,7 +1232,7 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
         }
         _ => {}
     }
-    pow_raw(b, e)
+    memo::apply(memo::Operation::Power,b,e,||pow_raw(b,e))
 }
 
 /// `b ** e` without simplification beyond trivial exponents.
