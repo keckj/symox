@@ -2170,7 +2170,7 @@ impl PyExprNode {
     }
 
     fn as_numer_denom<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        let (n, d) = simplify::numer_denom(&self.e);
+        let (n, d) = symox::simptools::as_numer_denom(&self.e);
         PyTuple::new(py, [wrap(n), wrap(d)])
     }
 
