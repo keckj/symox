@@ -3,7 +3,7 @@
 use super::{Expr,Kind};
 use crate::number::Number;
 
-const LIMIT: u16 = 1024;
+const LIMIT: u32 = 1024;
 
 fn number(value:&Number)->Option<u16>{
     match value{
@@ -26,8 +26,10 @@ fn exponent(value:&Expr)->Option<u16>{
     number(n)
 }
 
-fn add(total:&mut u16,weight:u16)->Option<()>{
-    *total=total.checked_add(weight)?;
+fn add(total:&mut u32,weight:u32)->Option<()>{
+    // Each previous partial sum is at most LIMIT and each child is at most
+    // LIMIT. Use a wider accumulator and one bound check per payload entry.
+    *total+=weight;
     (*total<=LIMIT).then_some(())
 }
 
@@ -42,26 +44,23 @@ pub(super) fn weight(kind:&Kind,canonical:bool)->u16{
                 &&s.facts().get("finite")!=Some(false)=>
                 return Some(1+(s.name().len()/8) as u16),
             Kind::Add(c,terms)=>{
-                add(&mut total,number(c)?)?;
+                add(&mut total,u32::from(number(c)?))?;
                 for (term,c) in terms{
-                    add(&mut total,child(term)?)?;
-                    add(&mut total,number(c)?)?;
+                    add(&mut total,u32::from(child(term)?)+u32::from(number(c)?))?;
                 }
             }
             Kind::Mul(c,factors)=>{
-                add(&mut total,number(c)?)?;
+                add(&mut total,u32::from(number(c)?))?;
                 for (base,power) in factors{
-                    add(&mut total,child(base)?)?;
-                    add(&mut total,exponent(power)?)?;
+                    add(&mut total,u32::from(child(base)?)+u32::from(exponent(power)?))?;
                 }
             }
             Kind::Pow(base,power)=>{
-                add(&mut total,child(base)?)?;
-                add(&mut total,exponent(power)?)?;
+                add(&mut total,u32::from(child(base)?)+u32::from(exponent(power)?))?;
             }
             _=>return None,
         }
-        Some(total)
+        Some(total as u16)
     }
     compute(kind).unwrap_or(0)
 }

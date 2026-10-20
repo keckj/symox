@@ -7,8 +7,8 @@ use std::hash::{Hash,Hasher};
 use rustc_hash::FxHashMap;
 use crate::Expr;
 
-const MAX_ENTRIES:usize=512;
-const MAX_WEIGHT:usize=65_536;
+const MAX_ENTRIES:usize=2048;
+const MAX_WEIGHT:usize=524_288;
 
 #[derive(Clone,Copy,PartialEq,Eq,Hash)]
 pub(super) enum Operation {Add,Multiply,Power}
@@ -79,13 +79,13 @@ mod tests{
     fn exact_sum_survives_cache_eviction_and_outgrows_cache_eligibility(){
         let x=Expr::symbol("bounded_binary_sum");
         let mut sum=Expr::zero();
-        for i in 1..=400{
+        for i in 1..=1400{
             let term=crate::ops::mul2(&Expr::int(i),&crate::ops::pow(&x,&Expr::int(i)));
             sum=crate::ops::add2(&sum,&term);
         }
         let value=crate::subs::subs1(&sum,&x,&Expr::int(2));
         // sum(i*2**i, i=1..n) = (n-1)*2**(n+1)+2, exactly.
-        let expected=(num_bigint::BigInt::from(399)<<401usize)+2;
+        let expected=(num_bigint::BigInt::from(1399)<<1401usize)+2;
         assert_eq!(value,Expr::num(crate::number::Number::from_bigint(expected)));
         MEMO.with(|memo|{
             let memo=memo.borrow();
