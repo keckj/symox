@@ -661,6 +661,17 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     // External scalar libraries expose the established SymPy conversion
     // protocol. Builtin reference objects above retain their structural path.
     if module != "symox" && !module.starts_with("symox.") {
+        // A proxy forwarding attribute access to a native expression stands
+        // for it, as SymPy algorithms see such proxies through its attributes.
+        if let Ok(marker) = obj.getattr("_symox_forwarded_") {
+            if let Ok(marker) = marker.downcast::<PyTuple>() {
+                if marker.len() == 1 {
+                    if let Ok(expression) = marker.get_item(0)?.downcast::<crate::PyExprNode>() {
+                        return Ok(expression.get().e.clone());
+                    }
+                }
+            }
+        }
         if let Ok(hook) = obj.getattr("_sympy_") {
             return conversion_hook(obj, &hook);
         }
