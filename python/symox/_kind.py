@@ -1,5 +1,7 @@
 """Interned scalar kinds used by typed array metadata."""
 
+from . import _core
+
 
 class KindMeta(type):
     def __new__(mcls,name,bases,namespace,**kwargs):
@@ -194,7 +196,6 @@ def matrix_tag(value):
     Scalar nodes have SymPy kinds rather than tags, so their kind, which
     walks the whole tree, is not computed by tag tests.
     """
-    from . import _core
     if isinstance(value, _core.Expr) and getattr(type(value), 'kind', None) is _PROPERTY:
         return None
     return getattr(value, 'kind', None)

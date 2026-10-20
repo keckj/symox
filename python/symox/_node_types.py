@@ -62,8 +62,10 @@ class NodeType(type):
     def __eq__(cls, other):
         if cls is other:
             return True
-        if isinstance(other, type) and not isinstance(other, NodeType) and other is public_class(cls) \
-                and hash(other) == hash(cls):
+        # The hashes are compared first: they differ for nearly every other
+        # class and are much cheaper than resolving the public class.
+        if isinstance(other, type) and not isinstance(other, NodeType) and hash(other) == hash(cls) \
+                and other is public_class(cls):
             return True
         return NotImplemented
 

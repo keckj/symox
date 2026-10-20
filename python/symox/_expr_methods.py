@@ -138,7 +138,8 @@ def _structural_nodes(expression):
     seen={}
     while pending:
         node=pending.pop()
-        if type(node) in (tuple,list):
+        kind=type(node)
+        if kind is tuple or kind is list:
             pending.extend(node)
             continue
         if isinstance(node,int):
