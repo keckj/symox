@@ -42,10 +42,40 @@ def _user_namespace(modules):
             table.update((name,value) for name,value in module.items() if isinstance(name,str) and callable(value))
     return table
 
+def _module_present(name,modules):
+    # SymPy's lambdify._module_present over the module list.
+    candidates=modules if isinstance(modules,(list,tuple)) else [modules]
+    for module in candidates:
+        if module==name if isinstance(module,str) else getattr(module,'__name__',None)==name:return True
+    return False
+
+
+def _normalized_sinc(modules):
+    # SymPy's NumPy-family printers (selected unless mpmath is present) print
+    # sinc(x) as a call of the normalized sinc on x/pi; a namespace entry
+    # named ``sinc`` receives that argument.
+    if _module_present('mpmath',modules):return False
+    return any(_module_present(name,modules) for name in ('scipy','numpy','cupy','jax'))
+
+
 def _compile_implemented(args,expr,modules,options):
     from .._host import is_host_function_class
     namespace=_user_namespace(modules)
+    normalized_sinc=_normalized_sinc(modules)
+    root=namespace.get('sqrt')
+    def square_root(node):
+        # SymPy's _hprint_Pow prints b**(1/2) as sqrt(b) and, for a
+        # commutative power, b**(-1/2) as 1/sqrt(b); the unqualified name
+        # resolves to a namespace entry called ``sqrt``.
+        if root is None or not getattr(node,'is_Pow',False):return 0
+        exponent=node.args[1]
+        if exponent==_S.Rational(1,2):return 1
+        if exponent==_S.Rational(-1,2) and node.is_commutative:return -1
+        return 0
+    def reciprocal_root(value):return 1/root(value)
     def implementation(node):
+        kind=square_root(node)
+        if kind:return root if kind>0 else reciprocal_root
         if is_host_function_class(type(node)):
             # A Function subclass: a namespace entry, else its _imp_.
             found=namespace.get(type(node).__name__)
@@ -78,7 +108,12 @@ def _compile_implemented(args,expr,modules,options):
         temporary=[_S.Dummy('implemented') for _ in outer]
         body=_S.sympify(value).xreplace(dict(zip(outer,temporary)))
         evaluator=_S._native_lambdify(arguments+temporary,body,modules=modules,**options)
-        subplans=[(implementation(node),[plan(a) for a in node.args]) for node in outer]
+        def operands(node):
+            if square_root(node):return [node.args[0]]
+            if normalized_sinc and not is_host_function_class(type(node)) and getattr(node,'class_name','')=='sinc':
+                return [node.args[0]/_S.pi]
+            return node.args
+        subplans=[(implementation(node),[plan(a) for a in operands(node)]) for node in outer]
         def evaluate(*values):return evaluator(*values,*(function(*(p(*values) for p in children)) for function,children in subplans))
         return evaluate
     return plan(expr)
@@ -93,17 +128,38 @@ def _compile_object(args, expr):
     return eval(source, {'numpy': numpy})
 
 
+def _numpy_modules(modules):
+    """Whether ``modules`` selects SymPy's NumPy-based printers only."""
+    candidates=modules if isinstance(modules,(list,tuple)) else [modules]
+    if not candidates:return False
+    for module in candidates:
+        if module is None or isinstance(module,dict):continue
+        name=module if isinstance(module,str) else getattr(module,'__name__',None)
+        if name not in ('numpy','scipy'):return False
+    return True
+
+
 def _compile_structured(args,expr,modules,options):
     """Flatten native kernels once, then restore argument/output structure."""
     from .._cse_matrices import is_concrete_matrix
-    if modules is not None and modules!='numpy':return None
+    from ..tensor.array import NDimArray
     def sequence(value):return isinstance(value,(list,tuple)) or getattr(value,'is_Tuple',False)
+    def contains_array(value):
+        if isinstance(value,NDimArray):return True
+        return sequence(value) and any(contains_array(child) for child in value)
+    arrays=contains_array(expr) or contains_array(args)
+    if not _numpy_modules(modules):
+        if arrays:
+            # SymPy prints arrays only with its NumPy-based printers.
+            raise NotImplementedError('Unsupported by the %r lambdify modules: N-dim arrays require NumPy'%(modules,))
+        return None
     roots=list(args) if sequence(args) else [args]
-    if not (any(sequence(arg) for arg in roots) or sequence(expr) or is_concrete_matrix(expr)):
+    if not (arrays or any(sequence(arg) for arg in roots) or sequence(expr) or is_concrete_matrix(expr)):
         return None
     arguments=[]
     def argument_plan(value):
-        if sequence(value):return tuple(argument_plan(child) for child in value)
+        # SymPy unpacks an array argument like the nested list it iterates as.
+        if sequence(value) or isinstance(value,NDimArray):return tuple(argument_plan(child) for child in value)
         arguments.append(_S.sympify(value));return None
     input_plans=[argument_plan(arg) for arg in roots]
     expressions=[]
@@ -112,6 +168,21 @@ def _compile_structured(args,expr,modules,options):
             plans=[output_plan(child) for child in value]
             constructor=list if isinstance(value,list) else tuple
             return lambda values:constructor(plan(values) for plan in plans)
+        if isinstance(value,NDimArray):
+            if value._mutable:
+                raise NotImplementedError('unhandled type: %s'%type(value))
+            # SymPy's NumPy printer emits numpy.array of the nested entries,
+            # or numpy.zeros(shape) for an array without entries.
+            import numpy
+            value._materialize_limit()
+            shape=tuple(value.shape)
+            indices=[len(expressions)+i for i in range(len(value))]
+            expressions.extend(_S.sympify(entry) for entry in value._flat_values())
+            def array(values):
+                if not indices:return numpy.zeros(shape)
+                entries=numpy.asarray([values[index] for index in indices])
+                return entries.reshape(shape+entries.shape[1:])
+            return array
         if is_concrete_matrix(value):
             import numpy
             indices=[len(expressions)+i for i in range(len(value))]
