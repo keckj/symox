@@ -192,6 +192,11 @@ def install(namespace):
     for name in operations:
         original = getattr(Expr,name)
         def arithmetic(original,name):
+            operand_dispatch=getattr(original,'_symox_operand_dispatch',None)
+            if operand_dispatch is None:
+                tensor_type,tensor_operation,normal_operation=None,None,original
+            else:
+                tensor_type,tensor_operation,normal_operation=operand_dispatch
             reflected = '__'+name[3:] if name.startswith('__r') else '__r'+name[2:]
             division = name in ('__truediv__','__rtruediv__')
             scalars = (Expr,int,float,complex)
@@ -222,11 +227,16 @@ def install(namespace):
                         return _core._node('Mul',(a,_core._node('Pow',(b,-1),False)),False)
                     return _core._node('Pow',(a,b),False)
                 try:
-                    return original(self,other,*args)
+                    if tensor_operation is not None and isinstance(other,tensor_type):
+                        return tensor_operation(self,other,*args)
+                    return normal_operation(self,other,*args)
                 except TypeError as error:
                     if getattr(error,'_symox_unsupported_conversion',False):
                         return NotImplemented
                     raise
+            # This wrapper owns priority/context logic and cannot advertise a
+            # bypass of that logic to another consumer of dispatch metadata.
+            operation.__dict__.pop('_symox_operand_dispatch',None)
             return operation
         setattr(Expr,name,arithmetic(original,name))
     original_match = Expr.match

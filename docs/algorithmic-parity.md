@@ -132,6 +132,13 @@ This audit covers the cases it names. It is not a global parity certificate.
 
 ## Remaining blocking gaps
 
+General noncommutative scalar algebra remains unsupported in this snapshot:
+`Symbol('a', commutative=False)` raises `ValueError` in the declaration layer.
+Dedicated tensor or quantum object protocols do not establish a general
+noncommutative scalar engine. Exact arithmetic reuse is restricted to ordinary
+commuting symbols and does not change this pre-existing rejection. This gap
+must be resolved before certifying general `Symbol` and scalar algebra parity.
+
 The [public performance runner](../benches/README.md) checks accuracy and result
 quality before ranking timings. Performance work on 2026-10-20 corrected
 `nroots`' formerly ignored precision: rational-coefficient roots now use native
