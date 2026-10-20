@@ -589,7 +589,9 @@ def default_sort_key(item, order=None):
             if isinstance(item,(dict,set,frozenset)):
                 args.sort()
             return ((10,0,type(item).__name__),(len(args),tuple(args)),S.One.sort_key(),S.One)
-    return ((0,0,type(item).__name__),(1,(str(item),)),S.One.sort_key(),S.One)
+    from ._function_subs import function_class_name
+    name=function_class_name(item) or type(item).__name__
+    return ((0,0,name),(1,(str(item),)),S.One.sort_key(),S.One)
 
 
 def _restore_atom(name, value):
