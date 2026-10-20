@@ -104,7 +104,10 @@ def test_simultaneous_symbol_substitution_preserves_rhs_and_poles():
     assert (x+y).subs([(x,y),(y,2)],simultaneous=True)==y+2
     assert (x+y).subs([(x,y),(y,2)])==4
     assert (x*x).subs({x*x:y},simultaneous=True) == y
-    with pytest.raises(NotImplementedError): x.subs({x:y},unrecognized=True)
+    # The reference ignores unused hints; only its sympify-time `hack2`
+    # rule changes results, and that rule is not implemented natively.
+    assert x.subs({x:y},unrecognized=True)==y
+    with pytest.raises(NotImplementedError): (2*x).subs({x:y},hack2=True)
 
 
 def test_simultaneous_substitution_preserves_bound_operators():

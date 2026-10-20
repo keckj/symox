@@ -203,8 +203,8 @@ def test_matrix_substitution_simultaneous_and_sequential_are_distinct():
     x, y = sx.symbols('x y')
     base = sx.MatrixSymbol('B', 2, 2)
     assert (x*y*base).subs([(x, y), (y, x)], simultaneous=True) == x*y*base
-    with pytest.raises(NotImplementedError):
-        actual.subs(rules, unknown_option=True)
+    # Unused hints are ignored by the reference substitution.
+    assert actual.subs(rules, unknown_option=True).to_sympy() == expected.subs(oracle_rules, unknown_option=True)
 
 
 @pytest.mark.parametrize('method', ['hstack', 'vstack'])
