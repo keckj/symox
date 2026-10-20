@@ -77,7 +77,7 @@ pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
             };
             let fb = at(b, crate::limits::Dir::Minus);
             let fa = at(a, crate::limits::Dir::Plus);
-            if has_bad(&fb) || has_bad(&fa) {
+            if has_bad(&fb) || has_bad(&fa) || !settled_bound_value(&fb) || !settled_bound_value(&fa) {
                 return integral_definite_unevaluated(f,x,a,b);
             }
             expand_if_numeric(&sub(&fb, &fa))
@@ -209,6 +209,25 @@ fn moment_degree(term:&Expr,x:&Expr)->Option<(Expr,Expr)>{
             Some((degree,mul(&coefficients)))
         }
         _=>None,
+    }
+}
+
+/// A bound value of the antiderivative is usable only when it is either a
+/// signed infinity (a proved divergence) or free of every infinity. A
+/// residual infinity inside an expression, such as exp(-oo*s), cos(oo) or
+/// oo**(s+1), means the limit was not decided for all parameter values and
+/// must not be presented as the value of the integral.
+fn settled_bound_value(e: &Expr) -> bool {
+    if matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity)) {
+        return true;
+    }
+    !has_infinity(e)
+}
+
+fn has_infinity(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Const(c) => c.is_infinite() || matches!(c, Constant::NaN),
+        _ => e.args().iter().any(has_infinity),
     }
 }
 
