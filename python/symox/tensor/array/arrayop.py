@@ -174,7 +174,8 @@ def derive_by_array(expr, dx):
                 data[i*len(expr)+j]=derivative
                 if len(data)>MAX_ENTRIES:
                     raise ValueError('Array derivative exceeds 100000 stored entries')
-    return _array_class(sparse)(data,shape)
+    # SymPy builds the result with the type of the immutable source.
+    return type(expr.as_immutable())(data,shape)
 
 
 def _validate_variable(variable):

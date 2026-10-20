@@ -41,6 +41,10 @@ def _entrywise(original):
         if (isinstance(expression, (NDimArray, _core.Matrix))
                 or getattr(expression, '_symox_sparse', False)):
             expression,rest,options=first.split(args,options)
+            if isinstance(expression, NDimArray):
+                # SymPy sympifies the argument first: mutable arrays become
+                # their immutable counterpart.
+                expression=expression.as_immutable()
             return expression.applyfunc(lambda entry: original(entry, *rest, **options))
         return original(*args, **options)
     from ... import _BuiltinFunctionHead

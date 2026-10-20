@@ -61,6 +61,9 @@ def make_sympify(original):
                                   rational=rational,evaluate=evaluate) for value in a)
         if isinstance(a,_core.Matrix) or getattr(a,'_symox_sparse',False):
             return ImmutableMatrix(a)
+        if getattr(a,'is_NDimArray',False) and getattr(a,'_mutable',False):
+            # SymPy converts mutable arrays to their immutable counterpart.
+            return a.as_immutable()
         try:
             return original(a)
         except (ValueError,TypeError) as error:
