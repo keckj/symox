@@ -103,7 +103,11 @@ def equivalent(a,b):
         return (isinstance(a,sp.Equality) and isinstance(b,sp.Equality) and
                 equivalent(a.lhs,b.lhs) and equivalent(a.rhs,b.rhs))
     if isinstance(a,sp.Set) or isinstance(b,sp.Set):
-        return isinstance(a,sp.Set) and isinstance(b,sp.Set) and sp.simplify(sp.SymmetricDifference(a,b))==sp.EmptySet
+        if not isinstance(a,sp.Set) or not isinstance(b,sp.Set):return False
+        # Lambda-bound Dummy identities differ between independent processes.
+        # Canonicalize only bound variables; free parameters remain significant.
+        if a.as_dummy()==b.as_dummy():return True
+        return sp.simplify(sp.SymmetricDifference(a,b))==sp.EmptySet
     difference=a-b
     if difference==0:return True
     # Exact checks only. Numerical substitution is never used to prove identity.
