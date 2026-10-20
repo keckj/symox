@@ -638,6 +638,16 @@ class MutableNDimArray(NDimArray):
 class ImmutableNDimArray(NDimArray):
     __slots__ = ()
 
+    def atoms(self, *types):
+        # SymPy's Basic.atoms over the stored arguments: the flat entries
+        # (a Dict of the nonzero entries when sparse) and the shape.
+        from ... import Dict, Tuple
+        entries = Dict(dict(self._items())) if self._sparse else Tuple(*self._flat_values())
+        found = entries.atoms(*types) | Tuple(*self.shape).atoms(*types)
+        if isinstance(self, tuple(t for t in types if isinstance(t, type))):
+            found.add(self)
+        return found
+
 
 class ImmutableDenseNDimArray(DenseNDimArray,ImmutableNDimArray):
     __slots__ = ()

@@ -9,6 +9,14 @@ use crate::ops::{
 /// Apply function `f` to `args`, performing automatic simplifications.
 pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     use crate::special::trig_eval as te;
+    // A host-defined head evaluates only through its own class, as SymPy's
+    // Function.__new__ calls cls.eval for each rebuilt application.
+    if let Func::Undefined(head) = &f {
+        if let Some(host) = head.host() {
+            if let Some(value) = host.evaluate(&args) { return value; }
+            return Expr::from_kind(Kind::Func(f, args));
+        }
+    }
     match f {
         Func::Logic(op) => return crate::logic::eval(op, args),
         Func::Set(op) => return crate::sets::eval(op, args),

@@ -148,6 +148,35 @@ open obligations. Dense matrix subclasses can be constructed and override Python
 methods; preservation of those subclasses across every matrix operation is not
 yet certified.
 
+Python subclasses of `Symbol`, `Dummy`, `Function`, `Expr`, `AtomicExpr`,
+`Number`, `Basic` mixed with `Expr`, and `Singleton` classes are now real
+subclasses of the native expression type. Each instance is a native node whose
+host handle names its class and is weakly bound to the Python instance;
+expressions containing such nodes keep those instances alive, so instance
+attributes survive `args`, `free_symbols`, `subs`, `xreplace`, arithmetic and
+matrices. Equality and hashing follow `_hashable_content` when a class defines
+it, construction through `Expr.__new__(cls, *args)`, `Basic.__new__`,
+`Symbol.__xnew__` and Singleton registration follow the reference, and pickling
+uses the reference `__getnewargs__`/`__reduce_ex__` protocol. A class
+`_eval_power` is consulted by `**` and `Pow` once the generic exponent rules
+leave the power unevaluated; `Add` and `Mul` fold their `Number` terms through
+the arithmetic of a `Number` class that defines it, in the reference flatten
+order, and `_as_mpf_val` gives `float()`. Remaining gaps:
+an instance that is no longer referenced by any Python object is rebuilt
+without its instance attributes (constructor results produced inside a native
+operation are retained for a bounded window); `Basic.__new__` sympifies its
+arguments, whereas the reference stores raw Python values; native assumption
+queries, `_eval_subs`, overridden `func`/`free_symbols` and nested Python
+`_print_<Class>` printer methods are not consulted by native algorithms; the
+reference treats `is_commutative = None` as noncommutative (which changes
+`Add`/`Mul` ordering), while native nodes are commutative; `Wild` subclasses
+are not hosted; `And`/`Max` are not classes, so `singledispatch` registration
+and `LatticeOp.make_args` on them remain unsupported; native operators on a
+tree that already contains such a `Number` do not refold its coefficient
+(`(w*x)*3`), and native results equal to `oo`, `-oo`, `nan` or `zoo` are not
+the `S` singleton objects, so identity tests such as `-oo is S.NegativeInfinity`
+fail.
+
 Rational bounded-denominator approximation uses the same exact standard-library
 `Fraction.limit_denominator` kernel as the reference, including its tie breaking
 and integer conversion of the bound. Scalar arithmetic and expansion preserve

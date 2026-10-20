@@ -101,7 +101,7 @@ impl Ord for SortKey {
 /// `Function.class_key` ordinals of the known functions.
 fn func_ordinal(f: &Func) -> u32 {
     match f {
-        Func::Undefined(head) => crate::sortkey::undefined_ordinal(&head.name),
+        Func::Undefined(head) => crate::sortkey::undefined_ordinal(head),
         Func::Exp => 10,
         Func::Log => 11,
         Func::Sin => 20,
@@ -134,7 +134,7 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
             Constant::TribonacciConstant => (2, 0, Cow::Borrowed("TribonacciConstant")),
             Constant::ComplexInfinity => (2, 0, Cow::Borrowed("ComplexInfinity")),
         },
-        Kind::Sym(_) => (2, 0, Cow::Owned(e.class_name().into())),
+        Kind::Sym(_) => (2, 0, Cow::Owned(crate::host::class_name(e).unwrap_or(e.class_name()).into())),
         Kind::Mul(..) => (3, 0, Cow::Borrowed("Mul")),
         Kind::Add(..) => (3, 1, Cow::Borrowed("Add")),
         Kind::Pow(..) => (3, 2, Cow::Borrowed("Pow")),
@@ -142,6 +142,10 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
         Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product), _) => (5, 0, Cow::Owned(f.name().into())),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
+        Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
+            let (a, b) = head.host().and_then(|host| host.class_key()).unwrap();
+            (a, b, Cow::Owned(head.name.to_string()))
+        }
         Kind::Func(f, _) => (4, func_ordinal(f), Cow::Owned(f.name().to_string())),
         Kind::Piecewise(_) => (4, 0, Cow::Borrowed("Piecewise")),
         Kind::Derivative(..) => (5, 0, Cow::Borrowed("Derivative")),
@@ -156,10 +160,11 @@ fn one_key() -> SortKey {
 
 fn atom_args(e: &Expr) -> KArgs {
     if let Kind::Sym(symbol) = e.kind() {
+        let name = crate::host::atom_name(e, symbol);
         if let Some(index) = symbol.dummy_index() {
-            return KArgs::Dummy(symbol.name().into(), index.clone());
+            return KArgs::Dummy(name.into(), index.clone());
         }
-        return KArgs::Atom(symbol.name().into());
+        return KArgs::Atom(name.into());
     }
     KArgs::Atom(crate::printer::to_str(e))
 }
@@ -287,6 +292,9 @@ impl KeyCache {
                     Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => {
                         atom_args(&expr)
                     }
+                    _ if crate::host::expression_head(&expr).is_some_and(|host| host.atomic()) => {
+                        KArgs::Atom(crate::printer::to_str(&expr))
+                    }
                     Kind::Add(..) => {
                         let t = self.ordered_terms(&expr);
                         KArgs::List(t.iter().map(|a| self.key(a)).collect())
@@ -340,7 +348,7 @@ struct Simple<'a> {
 
 fn atom_class(e: &Expr) -> Option<(u8, &'static str, &str)> {
     match e.kind() {
-        Kind::Sym(s) if !s.is_dummy() => Some((2, if s.is_wild() { "Wild" } else { "Symbol" }, s)),
+        Kind::Sym(s) if !s.is_dummy() && s.host().is_none() => Some((2, if s.is_wild() { "Wild" } else { "Symbol" }, s)),
         Kind::Const(Constant::Pi) => Some((2, "Pi", "pi")),
         Kind::Const(Constant::E) => Some((2, "Exp1", "E")),
         Kind::Const(Constant::I) => Some((2, "ImaginaryUnit", "I")),

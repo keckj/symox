@@ -32,7 +32,7 @@ def _is_function(value):
 
 def matcher(query, matching=True):
     from . import (Expr, Function, Atom, AtomicExpr, Tuple, AlgebraicNumber,
-                  sympify, __dict__ as namespace)
+                  sympify, _is_function_head, __dict__ as namespace)
     from . import _core
     from .combinatorics import Permutation
     from ._matrixexpr_methods import _NameAtom, _TupleView
@@ -46,7 +46,7 @@ def matcher(query, matching=True):
         query=Function(query.__name__,nargs=nargs,**dict(query._kwargs))
     elif foreign and query.__name__ in namespace:
         query=namespace[query.__name__]
-    if isinstance(query,Function):
+    if _is_function_head(query):
         return lambda value:bool(getattr(value,'is_UndefinedFunction',False)) and value.func==query
     if isinstance(query,Permutation):return lambda value:isinstance(value,Permutation) and value==query
     if isinstance(query,AlgebraicNumber):return lambda value:isinstance(value,AlgebraicNumber) and value==query

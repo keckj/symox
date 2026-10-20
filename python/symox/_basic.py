@@ -17,12 +17,17 @@ class _BasicMeta(ABCMeta):
 
 class Basic(metaclass=_BasicMeta):
     """Immutable, reconstructible structural container for symbolic arguments."""
-    __slots__ = ('_args',)
+    # No instance slots: classes deriving from Basic and from the native
+    # Expr type (Devito's Pointer) need a layout compatible with both.
     is_Atom = is_Symbol = is_Number = is_Add = is_Mul = is_Pow = False
     is_Function = is_Relational = is_Matrix = is_Boolean = False
     is_commutative = None
 
     def __new__(cls, *args):
+        if issubclass(cls, _core.Expr):
+            # An expression class: SymPy's Basic.__new__ builds the native
+            # unevaluated node of this class (see _host.expression_class).
+            return _core.Expr.__new__(cls, *args)
         result = object.__new__(cls)
         result._args = args
         return result
@@ -52,11 +57,17 @@ class Basic(metaclass=_BasicMeta):
 
     __str__ = __repr__
 
+    def _hashable_content(self):
+        return self._args
+
     def __eq__(self, other):
-        return type(self) is type(other) and self.args == other.args
+        return type(self) is type(other) and self._hashable_content() == other._hashable_content()
+
+    def __ne__(self, other):
+        return not self == other
 
     def __hash__(self):
-        return hash((type(self).__name__,) + self.args)
+        return hash((type(self).__name__,) + tuple(self._hashable_content()))
 
     def __getnewargs__(self):
         return self.args

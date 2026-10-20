@@ -76,6 +76,8 @@ pub struct UndefinedFunction {
     pub nargs: Option<Vec<usize>>,
     pub internal: bool,
     facts: Arc<FunctionFacts>,
+    /// Host-language class defining this head, part of its identity.
+    host: Option<Arc<dyn crate::host::HostClass>>,
 }
 impl UndefinedFunction {
     pub fn new(name:&str, assumptions:crate::symbol::Assumptions,nargs:Option<Vec<usize>>)->Self {
@@ -91,7 +93,7 @@ impl UndefinedFunction {
         static DEFAULT:OnceLock<Arc<FunctionFacts>>=OnceLock::new();
         if given.is_empty(){
             let facts=DEFAULT.get_or_init(||Arc::new(FunctionFacts{head:FactSet::EMPTY,applied:FactSet::EMPTY,hash_extra:false})).clone();
-            return Ok(Self{name:Arc::from(name),assumptions:crate::Assumptions::NONE,nargs,internal:false,facts});
+            return Ok(Self{name:Arc::from(name),assumptions:crate::Assumptions::NONE,nargs,internal:false,facts,host:None});
         }
         // SymPy closes through Symbol, then removes implicit commutativity from
         // the head's _kwargs. An explicit True remains part of head identity.
@@ -102,17 +104,22 @@ impl UndefinedFunction {
         let old=FactSet::from_legacy(assumptions).closure()?.without("commutative");
         let hash_extra=head!=old;
         let facts=Arc::new(FunctionFacts{head,applied,hash_extra});
-        Ok(Self{name:Arc::from(name),assumptions,nargs,internal:false,facts})
+        Ok(Self{name:Arc::from(name),assumptions,nargs,internal:false,facts,host:None})
     }
     pub fn head_facts(&self)->crate::assumption_facts::FactSet{self.facts.head}
     pub fn facts(&self)->crate::assumption_facts::FactSet{self.facts.applied}
     pub fn is_internal(&self,name:&str)->bool {self.internal && self.name.as_ref()==name}
     pub fn accepts(&self,n:usize)->bool {self.nargs.as_ref().is_none_or(|v|v.contains(&n))}
+    /// The same head defined by a host-language class.
+    pub fn with_host(mut self,host:Arc<dyn crate::host::HostClass>)->Self{self.host=Some(host);self}
+    pub fn host(&self)->Option<&Arc<dyn crate::host::HostClass>>{self.host.as_ref()}
+    fn host_key(&self)->Option<(&str,u64)>{self.host.as_ref().map(|h|(h.class_name(),h.identity()))}
 }
 impl PartialEq for UndefinedFunction {
     fn eq(&self,other:&Self)->bool{
         self.name==other.name && self.assumptions==other.assumptions && self.nargs==other.nargs && self.internal==other.internal
             && (Arc::ptr_eq(&self.facts,&other.facts)||self.head_facts()==other.head_facts())
+            && crate::host::same(self.host.as_ref(),other.host.as_ref())
     }
 }
 impl Eq for UndefinedFunction {}
@@ -121,6 +128,7 @@ impl Hash for UndefinedFunction {
         // Preserve the old head hash for facts representable by the legacy flags.
         self.name.hash(state);self.assumptions.hash(state);self.nargs.hash(state);self.internal.hash(state);
         if self.facts.hash_extra{self.head_facts().hash(state);}
+        if let Some(host)=&self.host{0x4057u16.hash(state);host.identity().hash(state);}
     }
 }
 impl Ord for UndefinedFunction {
@@ -128,6 +136,8 @@ impl Ord for UndefinedFunction {
         self.name.cmp(&other.name).then_with(||self.assumptions.cmp(&other.assumptions))
             .then_with(||self.head_facts().cmp(&other.head_facts()))
             .then_with(||self.nargs.cmp(&other.nargs)).then_with(||self.internal.cmp(&other.internal))
+            .then_with(||self.host_key().cmp(&other.host_key()))
+            .then_with(||crate::host::order(self.host.as_ref(),other.host.as_ref()))
     }
 }
 impl PartialOrd for UndefinedFunction {fn partial_cmp(&self,other:&Self)->Option<Ordering>{Some(self.cmp(other))}}
@@ -500,7 +510,7 @@ pub struct Node {
     kind: Kind,
     canonical: bool,
     has_matrix: bool,
-    features: u8,
+    features: u16,
     binding_identity: Option<Arc<binding_identity::Key>>,
     free_symbols: OnceLock<Vec<Expr>>,
     ordered_args: OnceLock<Vec<Expr>>,
@@ -527,6 +537,15 @@ impl FloatInfo {
 /// A symbolic expression.
 #[derive(Clone)]
 pub struct Expr(Arc<Node>);
+
+/// A non-owning reference to a node, which identifies it while it is alive.
+#[derive(Clone, Debug)]
+pub struct WeakExpr(std::sync::Weak<Node>);
+impl WeakExpr {
+    /// Whether this reference denotes the live node `e`.
+    pub fn is(&self, e: &Expr) -> bool { std::ptr::eq(self.0.as_ptr(), Arc::as_ptr(&e.0)) && self.0.strong_count() > 0 }
+    pub fn upgrade(&self) -> Option<Expr> { self.0.upgrade().map(Expr) }
+}
 
 /// Extra bit set in the mask of `Order` nodes (and so of every expression
 /// containing one): lets `add`/`mul` detect order terms in O(1).
@@ -567,7 +586,9 @@ impl Expr {
         let mut mask = 0u64;
         let mut has_matrix = false;
         let binding_identity=match &kind {Kind::Func(Func::Subs,args)=>binding_identity::build(args),_=>None};
-        let mut features=if binding_identity.is_some(){1}else{0};
+        let mut features:u16=if binding_identity.is_some(){1}else{0};
+        if matches!(&kind,Kind::Sym(symbol) if symbol.host().is_some())
+            || matches!(&kind,Kind::Func(Func::Undefined(head),_) if head.host().is_some()){features|=256;}
         if !canonical && matches!(kind,Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){features|=16;}
         if matches!(&kind,Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity|Constant::NaN))
             || matches!(&kind,Kind::Num(Number::Float(value)) if !value.is_finite())
@@ -710,6 +731,8 @@ impl Expr {
 
     /// Identity of this live immutable allocation, for graph codecs/memoization.
     pub fn dag_id(&self) -> usize { Arc::as_ptr(&self.0) as usize }
+    /// A non-owning reference to this node.
+    pub fn downgrade(&self) -> WeakExpr { WeakExpr(Arc::downgrade(&self.0)) }
 
     /// Each shared node is inspected once. Compact coefficients and matrix
     /// metadata are visited directly, without synthesizing public arguments.
@@ -765,6 +788,16 @@ impl Expr {
     pub fn has_nonfinite(&self)->bool {self.0.features & 32 != 0}
     pub(crate) fn has_wide_exponent(&self)->bool {self.0.features & 64 != 0}
     pub fn has_wild_properties(&self)->bool {self.0.features & 128 != 0}
+    /// Whether an atom or function head of a host-language subclass occurs.
+    pub fn has_host(&self)->bool {self.0.features & 256 != 0}
+    /// Whether this node itself is an atom or application of a host class.
+    pub fn is_host(&self)->bool {
+        self.has_host() && match &self.0.kind {
+            Kind::Sym(s)=>s.host().is_some(),
+            Kind::Func(Func::Undefined(head),_)=>head.host().is_some(),
+            _=>false,
+        }
+    }
     pub fn has_limit(&self)->bool {self.0.features & 2 != 0}
 
     /// Conservative unchanged-child check for transforms preserving public args.

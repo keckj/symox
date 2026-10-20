@@ -233,12 +233,15 @@ fn share_key(key: Key) -> Key {
     }
 }
 
-pub(crate) fn undefined_ordinal(name: &str) -> u32 {
-    match name {
+/// SymPy `Function.class_key` ordinal of an undefined head: the known names
+/// first, then 0 for any argument count (`Naturals0`) and 10000 otherwise.
+pub(crate) fn undefined_ordinal(head: &crate::expr::UndefinedFunction) -> u32 {
+    match &*head.name {
         "exp" => 10, "log" => 11,
         "sin" => 20, "cos" => 21, "tan" => 22, "cot" => 23,
         "sinh" => 30, "cosh" => 31, "tanh" => 32, "coth" => 33,
         "conjugate" => 40, "re" => 41, "im" => 42, "arg" => 43,
+        _ if head.nargs.is_some() => 10000,
         _ => 0,
     }
 }
@@ -253,7 +256,8 @@ pub fn class_key(e: &Expr) -> Key {
             }
             _ => (2, 0, e.class_name().into()),
         },
-        Kind::Sym(_) => (2, 0, e.class_name().into()),
+        // Atom.class_key: the class name, which a host subclass replaces.
+        Kind::Sym(_) => (2, 0, crate::host::class_name(e).unwrap_or(e.class_name()).into()),
         Kind::Bool(_) => (5, 0, e.class_name().into()),
         Kind::Pow(..) => (3, 2, "Pow".into()),
         Kind::Mul(..) => (3, 0, "Mul".into()),
@@ -261,6 +265,11 @@ pub fn class_key(e: &Expr) -> Key {
         Kind::Func(f @ (Func::MatrixElement(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..)),_)=>(5,0,f.name().into()),
         Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
+        // An Expr or Atom subclass that is not a Function keeps its class_key.
+        Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
+            let (a, b) = head.host().and_then(|host| host.class_key()).unwrap();
+            (a.into(), b.into(), head.name.to_string())
+        }
         Kind::Func(f, _) => {
             let i = match f {
                 Func::Exp => 10,
@@ -277,7 +286,7 @@ pub fn class_key(e: &Expr) -> Key {
                 Func::Re => 41,
                 Func::Im => 42,
                 Func::Arg => 43,
-                Func::Undefined(head) => undefined_ordinal(&head.name).into(),
+                Func::Undefined(head) => undefined_ordinal(head).into(),
                 Func::Max | Func::Min => 0,
                 _ => 10000,
             };
@@ -420,10 +429,10 @@ impl SortKeyCache {
             // Dummy.sort_key has its own atomic representation, whereas
             // Expr.sort_key wraps a Dummy base in its complete atomic key.
             Some(_) if !e.is_symbol() => vec![self.key(&base)],
-            Some(index) => vec![Key::Str(symbol.name().into()), Key::Index(index.clone())],
-            None => vec![Key::Str(symbol.name().to_owned())],
+            Some(index) => vec![Key::Str(crate::host::atom_name(&base, symbol).into_owned()), Key::Index(index.clone())],
+            None => vec![Key::Str(crate::host::atom_name(&base, symbol).into_owned())],
         }
-    } else if base.is_atom() {
+    } else if base.is_atom() || crate::host::expression_head(&base).is_some_and(|host| host.atomic()) {
         vec![Key::Str(crate::printer::to_str(&base))]
     } else {
         match base.kind() {

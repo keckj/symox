@@ -723,7 +723,7 @@ impl PrettyPrinter<'_> {
     fn print(&self, e: &Expr) -> Pict {
         match e.kind() {
             Kind::Num(n) => self.print_number(n),
-            Kind::Sym(s) => Pict::new(&pretty_symbol(s)),
+            Kind::Sym(s) => Pict::new(&pretty_symbol(&crate::host::atom_name(e, s))),
             Kind::Const(c) => Pict::new(match c {
                 Constant::Pi => xsym("π", "pi"),
                 Constant::E => xsym("ℯ", "e"),

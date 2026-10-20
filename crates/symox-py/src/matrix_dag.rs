@@ -59,6 +59,8 @@ impl Node{
                     _=>{},
                 }out
             },
+            // A host object pickles its own children.
+            Self::S(e) if e.is_host()=>Vec::new(),
             Self::S(e)=>{
                 let mut out=Vec::new();match e.kind(){
                     Kind::Sym(s)=>out.extend(s.exclude().iter().cloned().map(Self::S)),
@@ -111,6 +113,8 @@ impl<'py> Encoder<'py>{
                 MatrixKind::HadamardPower(a,b)=>{let operand=|a:&MatrixOperand|match a{MatrixOperand::Matrix(m)=>(true,self.matrix(m)),MatrixOperand::Scalar(s)=>(false,self.scalar(s))};vec![obj(py,operand(a))?,obj(py,operand(b))?]},
                 MatrixKind::Slice(parent,rows,cols)=>{tag="m.slice";vec![obj(py,self.matrix(parent))?,obj(py,self.scalars(&rows.fields()))?,obj(py,rows.stop_is_omitted)?,obj(py,self.scalars(&cols.fields()))?,obj(py,cols.stop_is_omitted)?]},
             };(tag,false,fields)},
+            // Host subclasses pickle through their own Python protocol.
+            Node::S(e) if e.is_host()=>("s.host",e.is_canonical(),vec![crate::expr_object(py,e.clone())?]),
             Node::S(e)=>{let(tag,fields)=match e.kind(){
                 Kind::Num(n)=>("s.number",vec![number(py,n)?]),
                 Kind::Sym(s)=>match s.dummy_index(){
@@ -188,6 +192,7 @@ fn _restore_matrix_dag(py:Python<'_>,version:u32,records:&Bound<'_,PyList>,root:
         let arity=|n:usize|->PyResult<()>{if f.len()==n{Ok(())}else{Err(invalid(format!("{tag} expects {n} fields")))}};
         let s=|i|reader.scalar(f.get_item(i)?.extract()?);let m=|i|reader.matrix(f.get_item(i)?.extract()?);
         let ss=|i|reader.scalars(f.get_item(i)?.extract()?);let mm=|i|reader.matrices(f.get_item(i)?.extract()?);
+        if tag=="s.host"{arity(1)?;reader.nodes.push(Decoded::S(crate::scalar_expr(&f.get_item(0)?)?));continue;}
         let node=if tag.starts_with("s."){
             let kind=match tag.as_str(){
                 "s.number"=>{arity(1)?;Kind::Num(read_number(&f.get_item(0)?)?)},

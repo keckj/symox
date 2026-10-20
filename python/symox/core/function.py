@@ -28,7 +28,9 @@ class DefinedFunction(Application):
 class AppliedUndef(Application):_matches=staticmethod(lambda e:e.is_UndefinedFunction)
 
 class _UndefinedFunctionType(type):
-    def __instancecheck__(cls,value):return type.__instancecheck__(cls,value) or isinstance(value,Function)
+    def __instancecheck__(cls,value):
+        from .. import _is_function_head
+        return type.__instancecheck__(cls,value) or _is_function_head(value)
 class UndefinedFunction(type,metaclass=_UndefinedFunctionType):
     def __new__(mcls,name,bases=(),namespace=None,**kwargs):
         return Function(name,**kwargs)

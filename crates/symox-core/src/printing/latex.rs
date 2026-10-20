@@ -371,11 +371,17 @@ impl<'a> LatexPrinter<'a> {
     }
 
     fn print(&self, e: &Expr) -> String {
+        if e.has_host() {
+            if let Some(text) = crate::host::print(e, crate::host::HostFormat::Latex) { return text; }
+        }
         match e.kind() {
             Kind::Num(n) => self.print_number(n),
-            Kind::Sym(name) => match self.s.symbol_names.get(&**name) {
-                Some(t) => t.clone(),
-                None => deal_with_super_sub(name),
+            Kind::Sym(symbol) => {
+                let name = crate::host::atom_name(e, symbol);
+                match self.s.symbol_names.get(&*name) {
+                    Some(t) => t.clone(),
+                    None => deal_with_super_sub(&name),
+                }
             },
             Kind::Const(c) => match c {
                 Constant::Pi => r"\pi".into(),
@@ -701,6 +707,17 @@ impl<'a> LatexPrinter<'a> {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        if let (Some(_), Func::Undefined(head)) = (crate::host::expression_head(e), f) {
+            // SymPy's _print_Basic for an Expr subclass that is not a Function.
+            let name = deal_with_super_sub(&head.name);
+            let body = if args.is_empty() {
+                format!("\\text{{{name}}}")
+            } else {
+                let args = args.iter().map(|arg| self.print(arg)).collect::<Vec<_>>().join(", ");
+                format!("\\operatorname{{{name}}}\\left({args}\\right)")
+            };
+            return match exp { Some(exp) => format!("{body}^{{{exp}}}"), None => body };
+        }
         if let Func::Predicate(p) = f {
             return format!("\\operatorname{{Q}}_{{\\text{{{}}}}}", p.name().replace('_', "\\_"));
         }

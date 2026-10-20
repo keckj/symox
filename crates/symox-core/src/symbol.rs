@@ -267,6 +267,8 @@ pub struct Symbol {
     wild_properties: Option<Arc<dyn WildcardProperties>>,
     /// Explicit identity of a Dummy; ordinary symbols never infer this from a name.
     dummy_index: Option<Arc<BigInt>>,
+    /// Host-language subclass of this atom, part of its identity.
+    host: Option<Arc<dyn crate::host::HostClass>>,
 }
 
 impl Symbol {
@@ -283,7 +285,7 @@ impl Symbol {
         let facts=given_facts.closure()?;
         let known=facts.legacy();
         let hash_extra=(crate::assumption_facts::FactSet::from_legacy(known).closure()?!=facts).then_some(facts);
-        Ok(Self{name:Arc::from(name),given:given_facts.legacy(),known,given_facts,facts,hash_extra,wild:None,wild_properties:None,dummy_index:None})
+        Ok(Self{name:Arc::from(name),given:given_facts.legacy(),known,given_facts,facts,hash_extra,wild:None,wild_properties:None,dummy_index:None,host:None})
     }
     pub fn facts(&self)->crate::assumption_facts::FactSet{self.facts}
     pub fn given_facts(&self)->crate::assumption_facts::FactSet{self.given_facts}
@@ -294,6 +296,8 @@ impl Symbol {
             .then_with(||self.dummy_index.cmp(&other.dummy_index))
             .then_with(||self.wild.cmp(&other.wild))
             .then_with(||self.properties_identity().cmp(&other.properties_identity()))
+            .then_with(||self.host_key().cmp(&other.host_key()))
+            .then_with(||crate::host::order(self.host.as_ref(),other.host.as_ref()))
     }
     pub fn dummy_with_facts(name:&str,given:crate::assumption_facts::FactSet,index:Option<BigInt>)->Result<Self,String>{
         let mut symbol=Self::with_facts(name,given)?;
@@ -367,6 +371,13 @@ impl Symbol {
     pub fn wild_properties(&self) -> Option<&Arc<dyn WildcardProperties>> { self.wild_properties.as_ref() }
     fn properties_identity(&self) -> Option<u64> { self.wild_properties.as_ref().map(|p|p.identity()) }
 
+    /// The same atom owned by a host-language subclass.
+    pub fn with_host(mut self, host: Arc<dyn crate::host::HostClass>) -> Symbol {
+        self.host=Some(host);self
+    }
+    pub fn host(&self) -> Option<&Arc<dyn crate::host::HostClass>> { self.host.as_ref() }
+    fn host_key(&self) -> Option<(&str,u64)> { self.host.as_ref().map(|h|(h.class_name(),h.identity())) }
+
     #[inline]
     pub fn is_wild(&self) -> bool {
         self.wild.is_some()
@@ -404,6 +415,7 @@ impl PartialEq for Symbol {
             && self.facts == o.facts
             && self.dummy_index == o.dummy_index
             && self.properties_identity() == o.properties_identity()
+            && crate::host::same(self.host.as_ref(), o.host.as_ref())
             && match (&self.wild, &o.wild) {
                 (None, None) => true,
                 (Some(a), Some(b)) => a == b,
@@ -427,6 +439,8 @@ impl Ord for Symbol {
             .then(self.dummy_index.cmp(&o.dummy_index))
             .then_with(|| self.wild.cmp(&o.wild))
             .then_with(|| self.properties_identity().cmp(&o.properties_identity()))
+            .then_with(|| self.host_key().cmp(&o.host_key()))
+            .then_with(|| crate::host::order(self.host.as_ref(), o.host.as_ref()))
     }
 }
 
@@ -444,6 +458,7 @@ impl Hash for Symbol {
             w.len().hash(h);
         }
         if let Some(properties)=&self.wild_properties { properties.identity().hash(h); }
+        if let Some(host)=&self.host { 0x4057u16.hash(h); host.identity().hash(h); }
     }
 }
 

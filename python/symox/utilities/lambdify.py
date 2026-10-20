@@ -32,10 +32,34 @@ def lambdastr(args,expr,printer=None,dummify=None):
         body=emitter.doprint(expr)
     return 'lambda '+', '.join(parameters)+': ('+body+')'
 
+def _user_namespace(modules):
+    # SymPy's lambdify namespace: name mappings of the given modules, the
+    # first module taking precedence.
+    table={}
+    candidates=modules if isinstance(modules,(list,tuple)) else [modules]
+    for module in reversed(candidates):
+        if isinstance(module,dict):
+            table.update((name,value) for name,value in module.items() if isinstance(name,str) and callable(value))
+    return table
+
 def _compile_implemented(args,expr,modules,options):
-    if not _implemented:return None
+    from .._host import is_host_function_class
+    namespace=_user_namespace(modules)
+    def implementation(node):
+        if is_host_function_class(type(node)):
+            # A Function subclass: a namespace entry, else its _imp_.
+            found=namespace.get(type(node).__name__)
+            return found if found is not None else getattr(type(node),'_imp_',None)
+        if not getattr(node,'is_Function',False):
+            return None
+        name=getattr(node,'class_name','')
+        found=namespace.get(name)
+        if found is None and getattr(node,'is_UndefinedFunction',False):
+            found=_implemented.get(name)
+        return found
+    if not namespace and not _implemented and not _S._host.host_classes_defined():return None
     arguments=[args] if isinstance(args,_S.Expr) else list(args)
-    def matches(node):return (getattr(node,'is_UndefinedFunction',False) and getattr(node,'class_name','') in _implemented)
+    def matches(node):return implementation(node) is not None
     def calls(value):
         stack=[value];result=[]
         while stack:
@@ -54,7 +78,7 @@ def _compile_implemented(args,expr,modules,options):
         temporary=[_S.Dummy('implemented') for _ in outer]
         body=_S.sympify(value).xreplace(dict(zip(outer,temporary)))
         evaluator=_S._native_lambdify(arguments+temporary,body,modules=modules,**options)
-        subplans=[( _implemented[node.class_name],[plan(a) for a in node.args]) for node in outer]
+        subplans=[(implementation(node),[plan(a) for a in node.args]) for node in outer]
         def evaluate(*values):return evaluator(*values,*(function(*(p(*values) for p in children)) for function,children in subplans))
         return evaluate
     return plan(expr)

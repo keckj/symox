@@ -113,6 +113,10 @@ class _BuiltinFunctionHead:
 
     __str__ = __repr__
 
+    def __instancecheck__(self, value):
+        # SymPy function heads are classes: isinstance(f(x), f).
+        return isinstance(value, _core.Expr) and value.func is self
+
     def __reduce__(self):
         return _public_function_head, (self.__name__,)
 
@@ -187,7 +191,36 @@ ln = log
 Abs = globals()["Abs"]
 
 
-class Function:
+class _FunctionType(type):
+    """Metaclass of Function: ``class F(Function)`` defines a native function class."""
+
+    def __new__(metaclass, name, bases, namespace, **kwargs):
+        if "Function" in globals() and any(base is Function for base in bases):
+            from ._host import function_class
+            return function_class(name, bases, namespace, **kwargs)
+        return super().__new__(metaclass, name, bases, namespace, **kwargs)
+
+    def __instancecheck__(cls, value):
+        # Applications of Function subclasses are Function instances, as in
+        # SymPy; undefined heads keep their nominal class.
+        if type.__instancecheck__(cls, value):
+            return True
+        from ._host import is_host_function_class
+        return cls is Function and is_host_function_class(type(value))
+
+    def __subclasscheck__(cls, subclass):
+        if type.__subclasscheck__(cls, subclass):
+            return True
+        from ._host import is_host_function_class
+        return cls is Function and is_host_function_class(subclass)
+
+
+def _is_function_head(value):
+    """Whether ``value`` is an undefined-function head such as Function('f')."""
+    return type.__instancecheck__(Function, value)
+
+
+class Function(metaclass=_FunctionType):
     """Undefined function: ``f = Function('f'); f(x)``."""
 
     def __init__(self, name: str, *, nargs=None, **assumptions):
@@ -223,7 +256,7 @@ class Function:
         return self.name
 
     def __eq__(self, other):
-        return (isinstance(other, Function) and other.name == self.name
+        return (_is_function_head(other) and other.name == self.name
                 and other._assumptions == self._assumptions and other._nargs == self._nargs)
 
     def __hash__(self):
@@ -1919,6 +1952,9 @@ def _rewrite_name(r):
     return n if n is not None else type(r).__name__
 
 
+from . import _host  # noqa: E402
+
+
 def _expr_rewrite(self, *args, deep=True, **hints):
     """Rewrite in terms of ``args[-1]``, restricted to instances of
     ``args[:-1]`` when given (SymPy's ``Basic.rewrite``)."""
@@ -1930,7 +1966,16 @@ def _expr_rewrite(self, *args, deep=True, **hints):
     if self.is_Piecewise and _rewrite_name(rule) == 'ITE' and (
             not pattern or any(_rewrite_name(p) == 'Piecewise' for p in pattern)):
         return _core._boolean_piecewise_to_ite(self)
-    return _core._rewrite(self, [_rewrite_name(p) for p in pattern], _rewrite_name(rule), deep)
+    names = [_rewrite_name(p) for p in pattern]
+    rule_name = _rewrite_name(rule)
+    if _host.host_classes_defined() and _core._host_contains(self)[0]:
+        if pattern:
+            pattern = tuple(p for p in pattern if self.has(p))
+            if not pattern:
+                return self
+        return _host.rewrite(self, pattern, rule, '_eval_rewrite_as_' + rule_name,
+                             lambda e, d: _core._rewrite(e, names, rule_name, d), deep, hints)
+    return _core._rewrite(self, names, rule_name, deep)
 
 
 Expr.rewrite = _expr_rewrite

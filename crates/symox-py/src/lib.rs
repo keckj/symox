@@ -18,6 +18,7 @@ mod series;
 mod python_hash;
 mod expression_inspection;
 mod wildcards;
+mod host;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -99,6 +100,9 @@ fn loaded_symox(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
 }
 
 fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    if e.has_host() {
+        if let Some(value) = host::object(py, &e)? { return Ok(value); }
+    }
     if matches!(e.kind(), Kind::Func(Func::Predicate(_) | Func::Set(symox::sets::SetOp::Lambda | symox::sets::SetOp::IdentityFunction), _)) {
         if let Ok(class) = loaded_symox(py).and_then(|module| module.getattr("_CallableExpr")) {
             let value = Bound::new(py, PyExprNode { e })?;
@@ -154,6 +158,7 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
             }
         }
     }
+    if e.has_host() { return host::tree_object(py, e); }
     Ok(Bound::new(py, PyExprNode { e })?.into_any().unbind())
 }
 
@@ -1072,9 +1077,28 @@ impl PyExprNode {
     #[getter]
     fn _dag_id(&self) -> usize { self.e.dag_id() }
 
+    /// `Expr(value)` converts a value. For a Python expression class,
+    /// `Expr.__new__(cls, *args)` is SymPy's `Basic.__new__`: an unevaluated
+    /// instance of `cls` with these arguments.
     #[new]
-    fn py_new(obj: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(PyExprNode { e: to_expr(obj)? })
+    #[classmethod]
+    #[pyo3(signature = (*args, **kwargs))]
+    fn py_new(cls: &Bound<'_, pyo3::types::PyType>, args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyClassInitializer<Self>> {
+        let py = cls.py();
+        if let Some(kwargs) = kwargs.filter(|kwargs| !kwargs.is_empty()) {
+            let names = kwargs.keys().iter().map(|key| key.str().map(|key| key.to_string())).collect::<PyResult<Vec<_>>>()?;
+            return Err(PyTypeError::new_err(format!("{}.__new__() got unexpected keyword arguments {}", cls.name()?, names.join(", "))));
+        }
+        if !cls.is(&py.get_type::<PyExprNode>()) {
+            if let Some(head) = host::class_head(cls)? {
+                let value = host::apply(py, &head, args)?;
+                return Ok(PyClassInitializer::from(value.downcast_into::<PyExprNode>()?));
+            }
+        }
+        if args.len() != 1 {
+            return Err(PyTypeError::new_err(format!("{}() takes exactly one argument ({} given)", cls.name()?, args.len())));
+        }
+        Ok(PyExprNode { e: to_expr(&args.get_item(0)?)? }.into())
     }
 
     fn __str__(&self) -> String {
@@ -1350,6 +1374,9 @@ impl PyExprNode {
     /// The head of the expression as a callable rebuilding it from args.
     #[getter]
     fn func(&self, py: Python<'_>) -> PyResult<PyObject> {
+        if self.e.has_host() {
+            if let Some(class) = host::class_of(py, &self.e) { return Ok(class.into_any().unbind()); }
+        }
         if matches!(self.e.kind(), Kind::Derivative(..)) {
             return Ok(loaded_symox(py)?.getattr("Derivative")?.unbind());
         }
@@ -1502,18 +1529,22 @@ impl PyExprNode {
         self.e.is_rational_number()
     }
     #[getter]
-    fn __class__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn __class__<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        let py = slf.py();
+        // Host subclasses are the actual classes of their instances.
+        if slf.get().e.is_host() { return Ok(slf.get_type().into_any()); }
+        let this = slf.get();
         // ABC protocols consult __class__. Expose the existing public numeric
         // facades only for actual rational nodes; registering Expr itself
         // would incorrectly classify symbols and transcendental expressions.
-        if self.is_Tuple() {
+        if this.is_Tuple() {
             let class = py.import("symox")?.getattr("Tuple")?;
             if class.downcast::<pyo3::types::PyType>().is_ok() {
                 return Ok(class);
             }
         }
-        if self.e.is_rational_number() {
-            let name = if self.is_Integer() { "Integer" } else { "Rational" };
+        if this.e.is_rational_number() {
+            let name = if this.is_Integer() { "Integer" } else { "Rational" };
             let class = py.import("symox")?.getattr(name)?;
             if class.downcast::<pyo3::types::PyType>().is_ok() {
                 return Ok(class);
@@ -1556,7 +1587,7 @@ impl PyExprNode {
         matches!(self.e.kind(), Kind::Func(f, _) if !matches!(f, Func::GenericExpr | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _)) && !matches!(f,Func::Undefined(head) if head.is_internal("Tuple")))
     }
     #[getter]
-    fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal)}
+    fn is_UndefinedFunction(&self)->bool{matches!(self.e.kind(),Kind::Func(Func::Undefined(f),_) if !f.internal && f.host().is_none())}
     #[getter]
     fn is_Derivative(&self) -> bool {
         matches!(self.e.kind(), Kind::Derivative(..))
@@ -3306,6 +3337,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_diff, m)?)?;
     m.add_function(wrap_pyfunction!(py_derivative, m)?)?;
     m.add_function(wrap_pyfunction!(_undefined_function, m)?)?;
+    host::register(m)?;
     m.add_function(wrap_pyfunction!(_function_facts, m)?)?;
     m.add_function(wrap_pyfunction!(_as_real_imag_many, m)?)?;
     m.add_function(wrap_pyfunction!(_subs, m)?)?;
