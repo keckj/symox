@@ -177,6 +177,64 @@ tree that already contains such a `Number` do not refold its coefficient
 the `S` singleton objects, so identity tests such as `-oo is S.NegativeInfinity`
 fail.
 
+N-dimensional array subclasses follow the reference construction protocol
+(`__new__` through `cls._new`, then `__init__`, with `_array`, `_shape`,
+`_rank`, `_loop_size` and `_handle_ndarray_creation_inputs`), and arithmetic,
+slicing, `applyfunc`, `diff`, `reshape`, `transpose` and the array operations
+keep the subclass. Dense matrix subclasses select result classes with the
+reference `classof` and `_class_priority` rules for joins, stacking, element
+products, solvers, inserts and arithmetic. `subs` and `xreplace` accept
+function classes as in `Function._eval_subs`: applications whose argument
+count is accepted by the replacement are rebuilt bottom up, `exp` replaced by a
+non-function becomes a power, `cot` and `CRootOf` keep their head, unordered
+rules use the reference node-count ordering, and `xreplace` ignores
+function-class keys. Unknown `subs` options are ignored hints, as in the
+reference; only `hack2=True` remains explicitly unsupported. A proxy object
+forwarding attribute access to an expression is returned by `sympify`
+unchanged and converts to that expression in native operations. In
+`lambdify`, a user namespace `sinc` receives the argument printed by the
+selected reference printer (`x/pi` for the NumPy family) and a namespace
+`sqrt` evaluates `b**(1/2)` and `1/b**(1/2)`, as the reference prints them.
+A power of a power with a real inner exponent of magnitude below one combines
+(`sqrt(sqrt(t))` is `t**(1/4)`), as in `Pow._eval_power`. Remaining gaps:
+the other branches of `Pow._eval_power` (an inner exponent `-1` on a negative
+base, an even inner exponent on an imaginary base, a base with nonnegative
+real part and inner exponent below two in magnitude, and the branch factor of
+a half-integer outer exponent) are not reproduced, so
+`(1/n)**(1/2)`, `(n**(3/2))**(1/2)` for negative `n` and
+`((1 + I*r)**(3/2))**y` stay nested; `lambdify` with `math` or `mpmath` evaluates natively, so complex
+arguments to `math` functions do not raise and `mpmath` results are double
+precision values rather than `mpc`/`mpf`; array `shape` is a Python tuple rather than `Tuple`; `Derivative`,
+`integrate` and `Indexed` on arrays, symbolic array indices (a native
+`Piecewise` rather than `Indexed`) and array plus matrix arithmetic (accepted
+natively, rejected by the reference) differ; lambdify of integer arrays and
+matrices returns float64 where the reference keeps int64; global
+`transpose`/`adjoint`/`conjugate` and `QRsolve` return mutable matrices where
+the reference returns immutable ones; `ImmutableMatrix` subclasses are not
+preserved; `Matrix.D` is missing; function-class substitution into
+`Integral`, `Sum` and `Product` raises a `TypeError` with a different message;
+simultaneous substitution with a `Lambda` replacement succeeds where the
+reference raises `IndexError`; `Heaviside(x).args` omits the reference
+`1/2` default; `Lambda.nargs` is a raw native set node. SymPy 1.14 builds a
+dense array from a sparse one out of its stored flat positions; symox keeps
+the entries.
+
+Physical quantities print through `StrPrinter`: its `abbrev` setting, and the
+class default `StrPrinter._default_settings['abbrev']` that Lcapy sets, print
+`V` instead of `volt` in `str`, `repr` and `sstr`, as in the reference.
+`StrPrinter` has its own `_default_settings`. `has(Quantity)`,
+`atoms(Quantity)` and `isinstance` recognise the atom that represents a
+quantity inside an expression, and `get_dimensional_dependencies` of a
+dimension name expression (`'length/time'`) returns the reference powers.
+Remaining gaps: a quantity is represented by a positive `Symbol` of the same
+name, so a user `Symbol('volt', positive=True)` is also recognised as a
+quantity; when two quantities in one expression share an abbreviation, or an
+abbreviation equals another symbol's name, the full name is printed; quantities
+sort with ordinary symbols (`V*volt` where the reference prints `volt*V`, and
+`volt/ampere` has its arguments in another order); `get_dimensional_expr`
+returns base dimensions rather than the named dimensions; `base_dims` order and
+`Dimension` symbols differ.
+
 Rational bounded-denominator approximation uses the same exact standard-library
 `Fraction.limit_denominator` kernel as the reference, including its tie breaking
 and integer conversion of the bound. Scalar arithmetic and expansion preserve
