@@ -51,9 +51,13 @@ class PurePoly(_Poly,metaclass=_PurePolyType):
         def fallback():
             expression=expr
             if expression is None:
-                from . import Add
-                expression=Add(*(coefficient*gen**(len(coeffs)-i-1)
-                                 for i,coefficient in enumerate(coeffs)))
+                from . import _core
+                # Match the previous native CharPoly.as_expr conversion even
+                # inside Python's evaluate(False) context.
+                terms=tuple(_core._node('Mul',(coefficient,
+                    _core._node('Pow',(gen,len(coeffs)-i-1),True)),True)
+                    for i,coefficient in enumerate(coeffs))
+                expression=_core._node('Add',terms,True)
             return _CharPolyData._from_coeffs(coeffs,gen,domain,expression)
         if str(domain) in ('EX','EXRAW'):
             return fallback()

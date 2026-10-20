@@ -137,3 +137,17 @@ def test_faster_logarithm_constant_preserves_requested_accuracy(digits):
     actual = sx.log(2).evalf(digits).to_sympy()
     expected = sp.log(2).evalf(digits+30)
     assert abs(sp.N(actual-expected,digits+20)) < sp.Rational(1,10**digits)
+
+
+def test_characteristic_polynomial_fallback_keeps_context_independent_conversion():
+    x,t = sx.symbols("x t")
+    matrix = sx.Matrix([[sx.sin(x),1],[0,sx.log(x)]])
+    expected = matrix.charpoly(t).as_expr().to_sympy()
+    with sx.evaluate(False):
+        actual = matrix.charpoly(t).as_expr().to_sympy()
+    assert actual == expected
+    coefficients = [sx.Integer(1),-sx.sin(x),sx.Integer(0)]
+    baseline = sx.PurePoly._from_coeffs(coefficients,t,'EX').as_expr().to_sympy()
+    with sx.evaluate(False):
+        result = sx.PurePoly._from_coeffs(coefficients,t,'EX').as_expr().to_sympy()
+    assert result == baseline
