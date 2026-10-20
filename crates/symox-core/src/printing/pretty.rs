@@ -1012,6 +1012,12 @@ impl PrettyPrinter<'_> {
 
     fn print_func(&self, f: &Func, args: &[Expr]) -> Pict {
         if *f == Func::Product { return self.print_product(args); }
+        if let Func::Undefined(head) = f {
+            if crate::poly::rootof::is_rootof_head(head, args.len()) {
+                // The reference's _print_ComplexRootOf: an atom.
+                return Pict::next(&[Pict::new("CRootOf"), self.seq(args).paren()]);
+            }
+        }
         if matches!(f,Func::Predicate(_) | Func::AppliedPredicate | Func::Subs | Func::Limit | Func::Integral | Func::Sum){return Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(),args.to_vec()))));}
         if let Func::MatrixElement(parent) = f {
             return Pict::new(&format!("{}[{}, {}]",parent.to_str(),args[0],args[1]));

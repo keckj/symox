@@ -714,30 +714,18 @@ def shift_list(f, a):
     return Poly(f.as_expr().xreplace(rule), *f.gens, **_domain_kwargs(f))
 
 
-def _numeric_key(r):
-    from .. import N, re
-    return (re(N(r, 50)),)
-
-
-def _is_real_root(r):
-    if r.is_real is not None:
-        return bool(r.is_real)
-    from .. import N, im
-    return abs(im(N(r, 50))) < 1e-40
-
-
 def real_roots(f, multiple=True, radicals=True):
     """Real roots of ``f`` in increasing order (grouped when ``multiple`` is False)."""
-    roots = sorted(_core.real_roots(f), key=_numeric_key)
-    return roots if multiple else _group(roots)
+    from .._public_roots import CRootOf
+    reals = CRootOf.real_roots(f, radicals=radicals)
+    return reals if multiple else _group(reals)
 
 
 def all_roots(f, multiple=True, radicals=True):
     """All complex roots of ``f``: sorted real roots, then the non-real roots
     factor by factor (grouped when ``multiple`` is False)."""
-    roots = _native["all_roots"](f)
-    reals = sorted([r for r in roots if _is_real_root(r)], key=_numeric_key)
-    roots = reals + [r for r in roots if not _is_real_root(r)]
+    from .._public_roots import CRootOf
+    roots = CRootOf.all_roots(f, radicals=radicals)
     return roots if multiple else _group(roots)
 
 
@@ -753,7 +741,8 @@ def _group(roots):
 
 def root(f, index, radicals=True):
     """The ``index``-th root of ``f`` in the order of ``all_roots``."""
-    return f.all_roots()[index]
+    from .._public_roots import rootof
+    return rootof(f, index, radicals=radicals)
 
 
 def same_root(f, a, b):

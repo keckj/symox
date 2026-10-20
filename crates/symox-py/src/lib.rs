@@ -681,6 +681,9 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
             let expression = to_expr(&polynomial.call_method0("as_expr")?)?;
             let generator = to_expr(&polynomial.getattr("gen")?)?;
             let index: i64 = obj.getattr("index")?.extract()?;
+            if let Some(root) = usize::try_from(index).ok().and_then(|i| symox::poly::rootof::complex_root(&expression, i)) {
+                return Ok(root);
+            }
             let root = py.import("symox")?.getattr("CRootOf")?.call1((wrap(expression), wrap(generator), index))?;
             return to_expr(&root);
         }
@@ -974,13 +977,8 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             sm.getattr(e.class_name())?.call(args, Some(&kwargs))
         }
         Kind::Func(Func::Undefined(name), args) if name.is_internal("Tuple") => sm.getattr("Tuple")?.call1(convert_args(args)?),
-        Kind::Func(Func::Undefined(name), args)
-            if name.name.as_ref() == "ComplexRootOf" && args.len() == 2
-                && name.facts().get("algebraic") == Some(true) => {
-            let coefficients = convert_args(&args[0].args())?;
-            let generator = sm.getattr("Dummy")?.call1(("x",))?;
-            let polynomial = sm.getattr("Poly")?.getattr("from_list")?.call1((coefficients, generator))?;
-            sm.getattr("CRootOf")?.call1((polynomial, expr_to_sympy(py, &args[1])?))
+        Kind::Func(Func::Undefined(name), args) if symox::poly::rootof::is_rootof_head(name, args.len()) => {
+            sm.getattr("CRootOf")?.call1((expr_to_sympy(py, &args[0])?, expr_to_sympy(py, &args[1])?))
         }
         Kind::Func(Func::Undefined(name), args) if !name.is_internal("UnevaluatedExpr") => {
             let kwargs=function_kwargs(py,name)?;
@@ -2397,7 +2395,7 @@ impl PyExprNode {
                 }
                 if contains(&self.e,&target){return Ok(true);}continue;
             }
-            if traverse::has(&self.e, &to_expr(&p)?) {
+            if traverse::has_structural(&self.e, &to_expr(&p)?) {
                 return Ok(true);
             }
         }

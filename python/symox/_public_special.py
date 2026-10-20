@@ -252,11 +252,18 @@ def install(namespace):
             if node.class_name in _NUMERIC and not replaced.free_symbols:
                 replacements[node] = _numeric_value(replaced,int(n))
             elif node.class_name == 'ComplexRootOf':
-                from ._public_roots import numeric_root
-                replacements[node] = numeric_root(node,int(n))
+                # The reference evaluates a root at the working precision:
+                # four guard bits for the root alone, as Expr.evalf adds,
+                # and more inside an expression whose operations can cancel.
+                from ._public_roots import root_float
+                from mpmath.libmp.libmpf import dps_to_prec
+                prec = dps_to_prec(int(n)) + (4 if node is value or node == value else 64)
+                replacements[node] = root_float(node,prec)
         if replacements:value = value.xreplace(replacements)
         return old_evalf(value,n,*args,**kwargs)
     Expr.evalf = evalf
+    # ``n`` is the reference's alias of ``evalf``.
+    Expr.n = evalf
     @wraps(old_diff)
     def derivative(self,*symbols,**kwargs):
         if not any(node.class_name not in ('ComplexRootOf','Permanent','RootSum') for node in _special_nodes(self)):

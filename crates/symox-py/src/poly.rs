@@ -70,6 +70,8 @@ fn err(e: PolyError) -> PyErr {
         PolyError::ExactQuotientFailed(message)=>domains::ExactQuotientFailed::new_err(message.clone()),
         PolyError::NotInvertible(message)=>an_rational::NotInvertible::new_err(message.clone()),
         PolyError::Unsupported(s) if s.contains("division by zero") || s.contains("modulo by zero") => PyZeroDivisionError::new_err(s.clone()),
+        // The reference raises PolynomialError, a ValueError subclass here.
+        PolyError::Generator(message) => Python::with_gil(|py| structural::polynomial_error(py, "PolynomialError", message.clone())),
         _ => PyValueError::new_err(e.to_string()),
     }
 }

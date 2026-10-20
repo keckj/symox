@@ -328,6 +328,35 @@ impl PyDomain {
     fn is_PolynomialRing(&self) -> bool {
         matches!(self.inner, ExactDomain::Functions { ring: true, .. })
     }
+    // The reference's alias flags.
+    #[getter]
+    fn is_Poly(&self) -> bool {
+        self.is_PolynomialRing()
+    }
+    #[getter]
+    fn is_Frac(&self) -> bool {
+        self.is_FractionField()
+    }
+    #[getter]
+    fn is_IntegerRing(&self) -> bool {
+        self.is_ZZ()
+    }
+    #[getter]
+    fn is_RationalField(&self) -> bool {
+        self.is_QQ()
+    }
+    #[getter]
+    fn is_Algebraic(&self) -> bool {
+        self.is_AlgebraicField()
+    }
+    #[getter]
+    fn is_SymbolicDomain(&self) -> bool {
+        self.is_EX()
+    }
+    #[getter]
+    fn is_SymbolicRawDomain(&self) -> bool {
+        self.is_EXRAW()
+    }
     #[getter]
     fn is_Field(&self) -> bool {
         self.inner.is_field()
@@ -1016,6 +1045,15 @@ impl PyDomainElement {
 impl PyDomainElement {
     #[getter]
     fn ex(&self)->PyExpr {self.as_expr()}
+    /// The reference's ``PolyElement.is_term``: at most one term. Only
+    /// polynomial ring elements define it.
+    #[getter]
+    fn is_term(&self)->PyResult<bool> {
+        match (&self.value.domain,&self.value.value) {
+            (ExactDomain::Functions{ring:true,..},ElementValue::Function(f))=>Ok(f.n.len()<=1),
+            _=>Err(pyo3::exceptions::PyAttributeError::new_err(format!("'{}' object has no attribute 'is_term'",self.value.domain))),
+        }
+    }
     #[getter]
     fn x(&self)->PyResult<Self> {self.gaussian_coordinate(false)}
     #[getter]

@@ -101,6 +101,13 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => {
             write_expr(&args[0], out);
         }
+        Kind::Func(Func::Undefined(n), args) if crate::poly::rootof::is_rootof_head(n, args.len()) => {
+            out.push_str("CRootOf(");
+            write_expr(&args[0], out);
+            out.push_str(", ");
+            write_expr(&args[1], out);
+            out.push(')');
+        }
         Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => {
             out.push('(');
             for (i, a) in args.iter().enumerate() {
@@ -430,6 +437,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
         Kind::Mul(..) => list("Mul", &crate::sortkey::ordered_factors(e), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
+        Kind::Func(Func::Undefined(n), args) if crate::poly::rootof::is_rootof_head(n, args.len()) => list("ComplexRootOf", args, out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) if n.host().is_some() => list(crate::host::class_name(e).unwrap_or(&n.name), args, out),

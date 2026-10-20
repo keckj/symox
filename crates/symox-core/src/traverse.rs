@@ -244,18 +244,32 @@ fn collect_free_symbols(e: &Expr) -> Vec<Expr> {
     out
 }
 
-/// Does `e` contain the sub-expression `s` (structurally)?
+/// Does `e` contain the sub-expression `s` (structurally)? The generator
+/// of a root object is bound: algorithms that ask for dependence do not see
+/// it. `has_structural` also visits it, as the reference's `Basic.has`.
 pub fn has(e: &Expr, s: &Expr) -> bool {
-    if !s.has_binding_identity() && s.mask() & !e.mask() != 0 {
+    has_in(e, s, false)
+}
+
+/// `has` that also visits the bound polynomial argument of a root object.
+pub fn has_structural(e: &Expr, s: &Expr) -> bool {
+    has_in(e, s, true)
+}
+
+fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
+    if !s.has_binding_identity() && !(structural && e.has_bound_generator()) && s.mask() & !e.mask() != 0 {
         return false;
     }
     if e == s {
         return true;
     }
+    if !structural && crate::poly::rootof::is_rootof(e) {
+        return false;
+    }
     match e.kind() {
-        Kind::Derivative(body,variables)=>has(body,s) || variables.iter().any(|(variable,count)|
-            has(&crate::special::tuple(vec![variable.clone(),Expr::int(*count as i64)]),s)),
-        Kind::Func(Func::MatrixDotProduct(a,b),_)=>[a,b].iter().any(|parent|has(&Expr::from_kind(Kind::Func(Func::MatrixProxy((*parent).clone()),vec![])),s)),
+        Kind::Derivative(body,variables)=>has_in(body,s,structural) || variables.iter().any(|(variable,count)|
+            has_in(&crate::special::tuple(vec![variable.clone(),Expr::int(*count as i64)]),s,structural)),
+        Kind::Func(Func::MatrixDotProduct(a,b),_)=>[a,b].iter().any(|parent|has_in(&Expr::from_kind(Kind::Func(Func::MatrixProxy((*parent).clone()),vec![])),s,structural)),
         Kind::Func(Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent), args) => {
             let matrix_match = if let Kind::Func(Func::MatrixProxy(target), _) = s.kind() {
                 let mut pending = vec![parent.as_ref().clone()];
@@ -271,7 +285,7 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
             if matrix_match { return true; }
             let mut fields = Vec::new();
             parent.scalar_fields(&mut fields);
-            fields.iter().any(|scalar| has(scalar, s)) || args.iter().any(|a| has(a, s))
+            fields.iter().any(|scalar| has_in(scalar, s, structural)) || args.iter().any(|a| has_in(a, s, structural))
         }
         Kind::Add(c, terms) => {
             if let Kind::Add(sc, subterms) = s.kind() {
@@ -287,12 +301,12 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
             // Visit the public structural arguments, including the additive
             // constant and each term's explicit coefficient. Internal storage
             // keeps these numbers apart from the term bases.
-            e.args().iter().any(|a| has(a, s))
+            e.args().iter().any(|a| has_in(a, s, structural))
         }
         // The public arguments include an explicit coefficient, but exclude
         // the implicit exponent one in the compact factor representation.
-        Kind::Mul(..) => e.args().iter().any(|a| has(a, s)),
-        _ => e.args().iter().any(|a| has(a, s)),
+        Kind::Mul(..) => e.args().iter().any(|a| has_in(a, s, structural)),
+        _ => e.args().iter().any(|a| has_in(a, s, structural)),
     }
 }
 

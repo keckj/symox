@@ -551,6 +551,9 @@ pub(crate) fn conjugate(a: &Expr) -> Option<Expr> {
             None
         }
     };
+    if crate::poly::rootof::is_rootof(a) {
+        return crate::poly::rootof::conjugate(a);
+    }
     match a.kind() {
         Kind::Num(_) | Kind::Const(Constant::NaN) => Some(a.clone()),
         Kind::Const(Constant::I) => Some(neg(a)),

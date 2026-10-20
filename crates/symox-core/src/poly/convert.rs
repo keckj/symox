@@ -381,7 +381,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
                     mono[i] += kk as u32;
                     continue;
                 }
-                if gens.iter().any(|g| crate::traverse::has(f, g)) {
+                if gens.iter().any(|g| crate::traverse::has_structural(f, g)) {
                     return Err(PolyError::Generator(format!(
                         "{} contains an element of the set of generators.",
                         to_str(f)

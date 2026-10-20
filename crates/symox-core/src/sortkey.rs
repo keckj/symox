@@ -264,6 +264,7 @@ pub fn class_key(e: &Expr) -> Key {
         Kind::Add(..) => (3, 1, "Add".into()),
         Kind::Func(f @ (Func::MatrixElement(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..)),_)=>(5,0,f.name().into()),
         Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order), _) => (5, 0, f.name().into()),
+        Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, "ComplexRootOf".into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         // An Expr or Atom subclass that is not a Function keeps its class_key.
         Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {

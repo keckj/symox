@@ -9,6 +9,7 @@ refines by bisection. Both states and their refinement are native and exact.
 # Module-level imports: the routing facade rebinds ``__spec__`` of aliased
 # modules, so relative imports inside functions would warn.
 from .. import _core
+from .polyerrors import DomainError as _DomainError
 
 _RealIsolation = _core.RealIsolation
 _ComplexIsolation = _core.ComplexIsolation
@@ -385,6 +386,102 @@ class ComplexInterval:
     def refine(self):
         """Perform one step of complex root refinement algorithm. """
         return self._inner_refine()
+
+
+def _bound(K, value):
+    """``(numerator, denominator)`` of an optional bound, as the field of
+    ``K`` converts it."""
+    if value is None:
+        return None
+    from .. import sympify
+    F = K.get_field() if not K.is_Field else K
+    try:
+        value = F.convert(value)
+    except Exception:
+        value = F.from_sympy(sympify(value))
+    return _pair(value)
+
+
+def _degree(f):
+    k = 0
+    for c in f:
+        if c:
+            break
+        k += 1
+    return len(f) - k - 1 if k < len(f) else -1
+
+
+def _integer_coeffs(f, K):
+    """The coefficients of ``f`` over ZZ, cleared of denominators over QQ."""
+    if K.is_QQ:
+        pairs = [_pair(c) for c in f]
+        from math import lcm
+        common = 1
+        for _, q in pairs:
+            common = lcm(common, q)
+        return [p*(common//q) for p, q in pairs], K.get_ring()
+    return [int(c) for c in f], K
+
+
+def dup_isolate_real_roots_sqf(f, K, eps=None, inf=None, sup=None, fast=False, blackbox=False):
+    """Isolate real roots of a square-free polynomial using the Vincent-Akritas-Strzebonski (VAS) CF approach. """
+    if not (K.is_QQ or K.is_ZZ):
+        raise _DomainError("isolation of real roots not supported over %s" % K)
+    f, R = _integer_coeffs(f, K)
+    if _degree(f) <= 0:
+        return []
+    F = R.get_field()
+    states = _core.isolate_real_roots_sqf_state(
+        f, _bound(R, eps), _bound(R, inf), _bound(R, sup), bool(fast))
+    if not blackbox:
+        return [(_qq(F, state.a()), _qq(F, state.b())) for state in states]
+    return [RealInterval._from_state(state, R) for state in states]
+
+
+def dup_isolate_complex_roots_sqf(f, K, eps=None, inf=None, sup=None, blackbox=False):
+    """Isolate complex roots of a square-free polynomial using Collins-Krandick algorithm. """
+    if not K.is_ZZ and not K.is_QQ:
+        raise _DomainError("isolation of complex roots is not supported over %s" % K)
+    F = K.get_field() if K.is_ZZ else K
+    if _degree([F.convert(c, K) for c in f]) <= 0:
+        return []
+    coeffs = [_pair(F.convert(c, K)) for c in f]
+    states = _core.isolate_complex_roots_sqf_state(
+        coeffs, _bound(F, eps), _bound(F, inf), _bound(F, sup))
+    roots = [ComplexInterval._from_state(state, F) for state in states]
+    if blackbox:
+        return roots
+    return [r.as_tuple() for r in roots]
+
+
+def dup_isolate_all_roots_sqf(f, K, eps=None, inf=None, sup=None, fast=False, blackbox=False):
+    """Isolate real and complex roots of a square-free polynomial ``f``. """
+    return (
+        dup_isolate_real_roots_sqf( f, K, eps=eps, inf=inf, sup=sup, fast=fast, blackbox=blackbox),
+        dup_isolate_complex_roots_sqf(f, K, eps=eps, inf=inf, sup=sup, blackbox=blackbox))
+
+
+def dup_isolate_all_roots(f, K, eps=None, inf=None, sup=None, fast=False):
+    """Isolate real and complex roots of a non-square-free polynomial ``f``. """
+    if not K.is_ZZ and not K.is_QQ:
+        raise _DomainError("isolation of real and complex roots is not supported over %s" % K)
+
+    from .. import Dummy, Poly
+    x = Dummy('x')
+    _, factors = Poly(f, x, domain=K).sqf_list()
+
+    if len(factors) == 1:
+        (g, k), = factors
+
+        real_part, complex_part = dup_isolate_all_roots_sqf(
+            g.rep.to_list(), K, eps=eps, inf=inf, sup=sup, fast=fast)
+
+        real_part = [ ((a, b), k) for (a, b) in real_part ]
+        complex_part = [ ((a, b), k) for (a, b) in complex_part ]
+
+        return real_part, complex_part
+    else:
+        raise NotImplementedError( "only trivial square-free polynomials are supported")
 
 
 __all__ = ['RealInterval', 'ComplexInterval']

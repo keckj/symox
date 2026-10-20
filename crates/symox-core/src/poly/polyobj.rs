@@ -683,7 +683,8 @@ impl Poly {
 
     /// Render ordered main-generator terms with the selected coefficient label.
     pub fn to_sympy_string_with_domain(&self, coefficient_domain:&str) -> String {
-        let atom = |g: &Expr| matches!(g.kind(), Kind::Sym(_) | Kind::Const(_));
+        // The reference parenthesizes each generator below atom precedence.
+        let atom = |g: &Expr| crate::printing::precedence(g) >= crate::printing::PREC_ATOM;
         let gens_s: Vec<String> = self
             .true_gens()
             .iter()

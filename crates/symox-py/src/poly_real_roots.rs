@@ -551,12 +551,23 @@ impl PyComplexIsolation {
 
 /// Blackbox real isolating intervals of a square-free `f` over ZZ.
 #[pyfunction]
-fn isolate_real_roots_sqf_state(f: Vec<BigInt>) -> PyResult<Vec<PyRealIsolation>> {
-    Ok(iso::isolate_real_boxes_sqf(&ints(&f))
-        .map_err(iso_error)?
-        .into_iter()
-        .map(|state| PyRealIsolation { state })
-        .collect())
+#[pyo3(signature=(f, eps=None, inf=None, sup=None, fast=false))]
+fn isolate_real_roots_sqf_state(
+    f: Vec<BigInt>,
+    eps: Option<(BigInt, BigInt)>,
+    inf: Option<(BigInt, BigInt)>,
+    sup: Option<(BigInt, BigInt)>,
+    fast: bool,
+) -> PyResult<Vec<PyRealIsolation>> {
+    let eps = eps.as_ref().map(big_rat).transpose()?;
+    let inf = inf.as_ref().map(big_rat).transpose()?;
+    let sup = sup.as_ref().map(big_rat).transpose()?;
+    let (intervals, g) =
+        iso::isolate_real_roots_sqf(&ints(&f), eps.as_ref(), inf.as_ref(), sup.as_ref(), fast).map_err(iso_error)?;
+    intervals
+        .iter()
+        .map(|(s, t)| RealBox::from_interval(&g, s, t).map(|state| PyRealIsolation { state }).map_err(iso_error))
+        .collect()
 }
 /// Blackbox complex isolating rectangles of a square-free `f` over QQ.
 #[pyfunction]
@@ -729,6 +740,24 @@ fn refine_root(
 ) -> PyResult<(PyExpr, PyExpr)> {
     refine_method(&unary_symbol(f, true, "Cannot refine a root of")?, s, t, eps, steps, fast, check_sqf)
 }
+/// The root object of index `index` of `expr`, an irreducible polynomial
+/// over ZZ in one symbol. `kind`, when known to the caller from its
+/// isolating intervals, is `(real, negative, imaginary)`.
+#[pyfunction]
+#[pyo3(signature=(expr, index, kind=None))]
+fn complex_root_node(expr: &Bound<'_, PyAny>, index: usize, kind: Option<(bool, bool, bool)>) -> PyResult<PyExpr> {
+    use symox::poly::rootof;
+    let expression = to_expr(expr)?;
+    let root = match kind {
+        Some((real, negative, imaginary)) => {
+            let kind = rootof::RootKind { real, negative, imaginary, lower: false, nreal: 0 };
+            rootof::node(expression, index, &rootof::root_facts(&kind))
+        }
+        None => rootof::complex_root(&expression, index),
+    };
+    root.map(w).ok_or_else(|| PyValueError::new_err("not an indexed root of an irreducible integer polynomial"))
+}
+
 pub(super) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("RefinementFailed", m.py().get_type::<RefinementFailed>())?;
     m.add_function(wrap_pyfunction!(sturm, m)?)?;
@@ -740,5 +769,6 @@ pub(super) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(isolate_real_roots_sqf_state, m)?)?;
     m.add_function(wrap_pyfunction!(isolate_complex_roots_sqf_state, m)?)?;
     m.add_function(wrap_pyfunction!(count_complex_roots_state, m)?)?;
+    m.add_function(wrap_pyfunction!(complex_root_node, m)?)?;
     Ok(())
 }
