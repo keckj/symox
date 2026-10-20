@@ -282,3 +282,67 @@ def test_domain_elements_follow_sage_conversion_protocol(monkeypatch):
         s.ZZ(3)._polynomial_(_Ring())
     with pytest.raises(TypeError):
         ring.from_sympy(x)._rational_()
+
+
+def test_trees_of_user_instances_keep_nominal_class_and_instances():
+    class Tagged(s.Symbol):
+        pass
+
+    x = s.Symbol('x')
+    t = Tagged('t')
+    t.tag = 'kept'
+    expr = s.sin(t) + x
+    assert type(expr) is node_class('Add') and type(expr.args[1]) is node_class('sin')
+    del t
+    (inner,) = [a for a in expr.atoms(s.Symbol) if a.name == 't']
+    assert type(inner) is Tagged and inner.tag == 'kept'
+    class G(s.Function):
+        pass
+
+    # User classes inherit patches of their SymPy ancestors, as in SymPy.
+    s.Basic.symox_probe = lambda self: 'basic'
+    s.Function.symox_function_probe = lambda self: 'function'
+    try:
+        assert expr.symox_probe() == 'basic' and inner.symox_probe() == 'basic'
+        assert Tagged.symox_probe(inner) == 'basic' and G(x).symox_probe() == 'basic'
+        assert G(x).symox_function_probe() == 'function'
+    finally:
+        del s.Basic.symox_probe
+        del s.Function.symox_function_probe
+    assert not hasattr(inner, 'symox_probe') and not hasattr(G(x), 'symox_function_probe')
+
+
+def test_user_classes_reusing_sympy_names_stay_distinct(facade):
+    x, y = s.symbols('x y')
+    s.Max.symox_probe = 'native'
+    s.Derivative.symox_probe = 'native'
+    try:
+        class Max(s.Expr):
+            pass
+
+        class Derivative(s.Expr):
+            pass
+
+        for cls in (Max, Derivative):
+            assert not hasattr(cls, 'symox_probe')
+            assert repr(cls) == type.__repr__(cls)
+        assert s.Max(x, y).symox_probe == 'native'
+        assert not issubclass(type(s.Max(x, y)), Max)
+        assert not isinstance(s.Max(x, y), Max)
+        f = s.Function('f')
+        assert not issubclass(type(s.Derivative(f(x), x)), Derivative)
+    finally:
+        del s.Max.symox_probe
+        del s.Derivative.symox_probe
+
+
+def test_boolean_atom_patches_reach_the_native_singletons():
+    from symox.logic.boolalg import BooleanAtom, BooleanFalse, BooleanTrue
+    BooleanTrue._sage_ = lambda self: 'sage-true'
+    try:
+        assert s.true._sage_() == 'sage-true'
+        assert issubclass(type(s.true), BooleanTrue) and issubclass(type(s.false), BooleanAtom)
+        assert not issubclass(type(s.false), BooleanTrue) and issubclass(type(s.false), BooleanFalse)
+    finally:
+        del BooleanTrue._sage_
+    assert s.true._sage_.__func__ is node_class('Basic').__dict__['_sage_']

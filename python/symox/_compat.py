@@ -23,11 +23,10 @@ class _ExprType(type):
     def __getattr__(cls, name):
         # Attributes patched onto the class, and SymPy's own class-level
         # placeholders, live on the nominal node class of the same name.
-        if _node_types.is_symox_class(cls):
-            try:
-                return _node_types.class_attribute(cls.__name__, name)
-            except AttributeError:
-                pass
+        try:
+            return _node_types.anchored_class_attribute(cls, name)
+        except AttributeError:
+            pass
         # Constructors return native Expr instances, so inherited unbound
         # methods must be accessible through the public constructor as well.
         value = getattr(_core.Expr, name)

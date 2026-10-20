@@ -333,11 +333,10 @@ def _restore_function(name, assumptions, nargs):
 
 class _CalculusMeta(type):
     def __getattr__(cls,name):
-        if _node_types.is_symox_class(cls):
-            try:
-                return _node_types.class_attribute(cls.__name__,name)
-            except AttributeError:
-                pass
+        try:
+            return _node_types.anchored_class_attribute(cls,name)
+        except AttributeError:
+            pass
         from ._constructor_methods import instance_method
         return instance_method(_core.Expr,name)
 

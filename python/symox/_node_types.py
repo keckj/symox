@@ -15,6 +15,7 @@ import copyreg
 import importlib
 import numbers
 import sys
+import weakref
 
 from . import _core
 from ._host import HostTree
@@ -219,6 +220,68 @@ def class_attribute(name, attribute):
             getter = getattr(type(value), '__get__', None)
             return value if getter is None else getter(value, None, cls)
     raise AttributeError(attribute)
+
+
+_anchors = weakref.WeakKeyDictionary()
+
+
+def nominal_anchor(cls):
+    """The nominal class standing for ``cls`` in SymPy's MRO, or None.
+
+    A symox class stands for the nominal class of its own name. A class
+    defined outside symox (a user subclass of ``Symbol``, ``Function`` or
+    ``Expr``) inherits, as in SymPy, the attributes of its nearest symox
+    ancestor that has a SymPy counterpart: patches of ``Basic`` or
+    ``Symbol`` reach it, those of an unrelated class of the same name do not.
+    """
+    try:
+        return _anchors[cls]
+    except (KeyError, TypeError):
+        pass
+    anchor = None
+    if is_symox_class(cls):
+        anchor = node_class(cls.__name__)
+    else:
+        for base in cls.__mro__:
+            if base is object or isinstance(base, NodeType) or not is_symox_class(base):
+                continue
+            name = base.__dict__.get('_symox_nominal', base.__name__)
+            if name in CLASSES:
+                anchor = node_class(name)
+                break
+    try:
+        _anchors[cls] = anchor
+    except TypeError:
+        pass
+    return anchor
+
+
+def _anchor_attribute(cls, attribute, instance):
+    anchor = nominal_anchor(cls) if _patchable(attribute) else None
+    if anchor is None:
+        raise AttributeError(attribute)
+    for base in anchor.__mro__:
+        if base is HostTree:
+            break
+        if attribute in base.__dict__:
+            value = base.__dict__[attribute]
+            getter = getattr(type(value), '__get__', None)
+            return value if getter is None else getter(value, instance, cls)
+    raise AttributeError(attribute)
+
+
+def anchored_class_attribute(cls, attribute):
+    """Class-level lookup of ``attribute`` on the nominal anchor of ``cls``."""
+    return _anchor_attribute(cls, attribute, None)
+
+
+def anchored_instance_attribute(obj, attribute):
+    """Instance-level lookup of ``attribute`` for instances of classes
+    defined outside symox, whose MRO does not contain nominal classes."""
+    try:
+        return _anchor_attribute(type(obj), attribute, obj)
+    except AttributeError:
+        raise AttributeError("'%s' object has no attribute '%s'" % (type(obj).__name__, attribute)) from None
 
 
 def has_class_attribute(name, attribute):

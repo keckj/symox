@@ -254,7 +254,9 @@ tree type of user subclasses (described above), so an expression containing
 user subclass instances reports its SymPy class and keeps those instances
 alive. Nominal classes stand only for symox's own public classes: a user
 class reusing a SymPy name (Torch's `Max`, Devito's `Derivative`) does not
-see the attributes patched onto the node class of that name.
+see the attributes patched onto the node class of that name; user subclasses
+see those patched onto their nearest SymPy ancestor (`Symbol`, `Function`,
+`Expr`) and its bases, as their SymPy MRO would give.
 
 The explicit `NonElementaryIntegral` constructor builds a held native integral
 and retains its marker for reconstruction, pickle and the covered root

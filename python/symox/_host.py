@@ -39,7 +39,12 @@ _PRINTER_KINDS = ('Symbol', 'Dummy', 'Wild')
 
 
 def _is_user(cls):
-    module = cls.__module__
+    # The module recorded in the class dictionary: under the routing facade
+    # the nominal node and set classes report SymPy's module, and the native
+    # application classes of undefined heads record none.
+    module = type.__dict__['__module__'].__get__(cls)
+    if not isinstance(module, str):
+        return False
     return not module.startswith('symox.') and module != 'symox'
 
 
@@ -107,9 +112,19 @@ def _setstate(self, state):
         setattr(self, name, value)
 
 
+def _anchored_getattr(self, name):
+    # User classes are not subclasses of the nominal node classes, so the
+    # attributes patched onto SymPy's classes after import (``Basic``,
+    # ``Symbol``, ``Function``...) are looked up on their nominal anchor.
+    from ._node_types import anchored_instance_attribute
+    return anchored_instance_attribute(self, name)
+
+
 class _HostAtom:
     """Pickling protocol of SymPy's Symbol for native host atoms."""
     __slots__ = ()
+
+    __getattr__ = _anchored_getattr
 
     __reduce_ex__ = _reduce
     __reduce__ = _default_reduce
@@ -278,6 +293,8 @@ def _function_class_key(cls):
 class _HostFunction(HostTree, metaclass=_HostFunctionType):
     """Base of user Function subclasses, mirroring SymPy's Function."""
     _symox_host_base = True
+    _symox_nominal = 'Function'
+    __getattr__ = _anchored_getattr
     _nargs = None
 
     def __new__(cls, *args, **options):
@@ -579,6 +596,7 @@ def expression_class(cls):
         '__setstate__': _setstate,
         '_hashable_content': _hashable_args,
         '__setattr__': _expression_setattr,
+        '__getattr__': _anchored_getattr,
     }
     if kind == 'number':
         defaults['is_Number'] = True
