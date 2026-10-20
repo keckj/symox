@@ -407,12 +407,14 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Num(n) => match n {
             Number::Int(_) | Number::BigInt(_) => out.push_str(&format!("Integer({n})")),
             Number::Rational(r) => out.push_str(&format!("Rational({}, {})", r.numer(), r.denom())),
-            // Seventeen significant digits recover every finite f64. The
-            // human-readable str formatter intentionally rounds to 15.
-            Number::Float(f) => out.push_str(&format!("Float('{f:.16e}', precision=53)")),
+            // ``repr_dps(53)`` is seventeen significant digits, which recover
+            // every finite f64; mpmath's ``to_str`` strips trailing zeros.
+            // The human-readable str formatter intentionally rounds to 15.
+            Number::Float(f) => out.push_str(&format!("Float('{}', precision=53)", crate::printing::mpf_to_str(*f, 17, true))),
             Number::MpFloat(value, precision) => out.push_str(&format!(
                 "Float('{}', precision={precision})",
-                value.to_string_dps(crate::bigfloat::prec_to_dps(*precision) + 3, true),
+                // mpmath's ``repr_dps``
+                value.to_string_dps(match crate::bigfloat::prec_to_dps(*precision) { 15 => 17, dps => dps + 3 }, true),
             )),
         },
         Kind::Sym(s) => {
