@@ -187,3 +187,14 @@ def test_integer_head_cache_does_not_cross_thread_evaluation_contexts():
         a,b = pool.submit(call,False),pool.submit(call,True)
         assert a.result(timeout=10) is False
         assert b.result(timeout=10) is True
+
+
+@pytest.mark.parametrize("bits", [2,3,5,11,31,127])
+@pytest.mark.parametrize("exponent", [2,3,6,12,25])
+def test_mersenne_power_shortcut_keeps_signed_maximal_and_minimal_answers(bits,exponent):
+    value=(2**bits-1)**exponent
+    for sign in [-1,1]:
+        for big in [False,True]:
+            assert sx.perfect_power(sign*value,big=big) == sp.perfect_power(sign*value,big=big)
+        for candidates in [[2,3,6,12,25],[2],[3],[5]]:
+            assert sx.perfect_power(sign*value,candidates=candidates) == sp.perfect_power(sign*value,candidates=candidates)
