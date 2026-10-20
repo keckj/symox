@@ -1,0 +1,109 @@
+{
+  "cases": [
+    {
+      "case": "construction.incremental_sum.100",
+      "comparable": true,
+      "first": {
+        "bootstrap_95_percent": [
+          101.32610500716821,
+          104.72871554411878
+        ],
+        "native_seconds": 0.000643118,
+        "reference_seconds": 0.065916076,
+        "speedup": 103.13087840618829
+      },
+      "statuses": [
+        "verified"
+      ],
+      "trials": 7,
+      "warm": {
+        "bootstrap_95_percent": [
+          1.7473062556696681,
+          1.8406825139302658
+        ],
+        "native_seconds": 0.00020344571875000002,
+        "reference_seconds": 0.00036581025,
+        "speedup": 1.8036004266442718
+      }
+    },
+    {
+      "case": "construction.incremental_sum.500",
+      "comparable": true,
+      "first": {
+        "bootstrap_95_percent": [
+          103.51290042693148,
+          106.16653384633588
+        ],
+        "native_seconds": 0.005984158000000001,
+        "reference_seconds": 0.626261729,
+        "speedup": 104.63803226649254
+      },
+      "statuses": [
+        "verified"
+      ],
+      "trials": 7,
+      "warm": {
+        "bootstrap_95_percent": [
+          140.7309478368816,
+          148.58839680995104
+        ],
+        "native_seconds": 0.003770822,
+        "reference_seconds": 0.5420771910000001,
+        "speedup": 141.3021895491222
+      }
+    },
+    {
+      "case": "expansion.univariate.30",
+      "comparable": true,
+      "first": {
+        "bootstrap_95_percent": [
+          73.13320923871751,
+          78.6520271380228
+        ],
+        "native_seconds": 0.000127038,
+        "reference_seconds": 0.009505759,
+        "speedup": 73.65985839642664
+      },
+      "statuses": [
+        "verified"
+      ],
+      "trials": 7,
+      "warm": {
+        "bootstrap_95_percent": [
+          2.367287921893352,
+          2.4281717910284453
+        ],
+        "native_seconds": 5.745562744140625e-07,
+        "reference_seconds": 1.3768176269531252e-06,
+        "speedup": 2.395741458246478
+      }
+    },
+    {
+      "case": "parsing.sympify.50",
+      "comparable": true,
+      "first": {
+        "bootstrap_95_percent": [
+          10.593897538481471,
+          10.943304523829815
+        ],
+        "native_seconds": 0.004973568,
+        "reference_seconds": 0.053547526000000005,
+        "speedup": 10.707493694667491
+      },
+      "statuses": [
+        "verified"
+      ],
+      "trials": 7,
+      "warm": {
+        "bootstrap_95_percent": [
+          1.4718308625395957,
+          1.5183964307987206
+        ],
+        "native_seconds": 0.002968142,
+        "reference_seconds": 0.004385882000000001,
+        "speedup": 1.4981709593641792
+      }
+    }
+  ],
+  "threshold": 1.5
+}

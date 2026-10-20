@@ -1,0 +1,335 @@
+{
+  "schema": 1,
+  "before_path": "cost-before.json.gz",
+  "after_path": "cost-after.json.gz",
+  "before_sha256": "8c000faffb8008d1fbbe0d4c5aae0daef31a3c55a524effbfe679f4491985f69",
+  "after_sha256": "0a3d370a8a60ccb5b4bacd85844a97075eb5b76910f24446394d84acc93820e6",
+  "protocol_checks": {
+    "cases": true,
+    "timing_sources": true,
+    "configuration": true,
+    "reference_package_fingerprint": true
+  },
+  "cases": [
+    {
+      "case": "matrices.charpoly_generic.6",
+      "before": {
+        "case": "matrices.charpoly_generic.6",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            2.326515782872707,
+            2.5634890244011603
+          ],
+          "native_seconds": 0.025471739,
+          "reference_seconds": 0.064398685,
+          "speedup": 2.5262838552169526
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            2.6717944395658835,
+            2.7298088614949654
+          ],
+          "native_seconds": 0.022269772,
+          "reference_seconds": 0.060576620000000005,
+          "speedup": 2.7078654511211293
+        }
+      },
+      "after": {
+        "case": "matrices.charpoly_generic.6",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            1.520955802629228,
+            2.4528435363696564
+          ],
+          "native_seconds": 0.026315980000000003,
+          "reference_seconds": 0.064309555,
+          "speedup": 2.4375160364654533
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            2.5541844649829493,
+            2.628530572161869
+          ],
+          "native_seconds": 0.023280059000000002,
+          "reference_seconds": 0.060608564000000004,
+          "speedup": 2.581562830231659
+        }
+      },
+      "native_after_over_before": {
+        "first": 1.0331442230936805,
+        "warm": 1.0453658438891966
+      },
+      "reference_after_over_before": {
+        "first": 0.9986159655278677,
+        "warm": 1.0005273321621444
+      }
+    },
+    {
+      "case": "matrices.jacobian.16",
+      "before": {
+        "case": "matrices.jacobian.16",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            608.9222368837435,
+            638.416716891356
+          ],
+          "native_seconds": 0.00015918,
+          "reference_seconds": 0.09961022200000001,
+          "speedup": 619.2959868433489
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            73.15340405509963,
+            74.61592794842123
+          ],
+          "native_seconds": 0.000109732484375,
+          "reference_seconds": 0.008088711,
+          "speedup": 73.71300345627485
+        }
+      },
+      "after": {
+        "case": "matrices.jacobian.16",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            572.5780185686293,
+            597.7437185636769
+          ],
+          "native_seconds": 0.000171511,
+          "reference_seconds": 0.099625553,
+          "speedup": 578.559375738128
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            69.61836360131744,
+            71.26407054428613
+          ],
+          "native_seconds": 0.00011559415625,
+          "reference_seconds": 0.008111847,
+          "speedup": 69.99530226692171
+        }
+      },
+      "native_after_over_before": {
+        "first": 1.0774657620304058,
+        "warm": 1.0534178361894033
+      },
+      "reference_after_over_before": {
+        "first": 1.0001539099069572,
+        "warm": 1.002860282682865
+      }
+    },
+    {
+      "case": "ode.harmonic",
+      "before": {
+        "case": "ode.harmonic",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            117.00351939695094,
+            124.907939331402
+          ],
+          "native_seconds": 0.000239356,
+          "reference_seconds": 0.029111254000000003,
+          "speedup": 123.29780744999081
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            200.06488132933993,
+            202.62277532037317
+          ],
+          "native_seconds": 8.84484375e-05,
+          "reference_seconds": 0.017793058,
+          "speedup": 201.4783994123141
+        }
+      },
+      "after": {
+        "case": "ode.harmonic",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            108.16937750780617,
+            117.6811440721114
+          ],
+          "native_seconds": 0.00025926700000000004,
+          "reference_seconds": 0.029136415000000002,
+          "speedup": 110.27969622049855
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            172.3017408123791,
+            174.14343227550597
+          ],
+          "native_seconds": 0.00010309614062500001,
+          "reference_seconds": 0.017814129,
+          "speedup": 172.61346781478954
+        }
+      },
+      "native_after_over_before": {
+        "first": 1.083185715001922,
+        "warm": 1.1656072570530147
+      },
+      "reference_after_over_before": {
+        "first": 1.0008643049179538,
+        "warm": 1.0011842258930421
+      }
+    },
+    {
+      "case": "printing.str.8",
+      "before": {
+        "case": "printing.str.8",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            24.727684483468547,
+            25.921524171485675
+          ],
+          "native_seconds": 0.0006121340000000001,
+          "reference_seconds": 0.015606265000000001,
+          "speedup": 25.49485080064169
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            21.216823049771342,
+            21.861387461169254
+          ],
+          "native_seconds": 0.0005753554375,
+          "reference_seconds": 0.012387710000000001,
+          "speedup": 21.45663566445394
+        }
+      },
+      "after": {
+        "case": "printing.str.8",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            24.06143631394469,
+            24.464716356608626
+          ],
+          "native_seconds": 0.000644348,
+          "reference_seconds": 0.01559693,
+          "speedup": 24.28916051574615
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            20.963886442142435,
+            21.115584534979345
+          ],
+          "native_seconds": 0.0005934958125,
+          "reference_seconds": 0.012464422000000001,
+          "speedup": 21.035570503471774
+        }
+      },
+      "native_after_over_before": {
+        "first": 1.0526257322743058,
+        "warm": 1.0315289885480572
+      },
+      "reference_after_over_before": {
+        "first": 0.9994018427855735,
+        "warm": 1.0061925892679116
+      }
+    },
+    {
+      "case": "solvers.nonlinear_system",
+      "before": {
+        "case": "solvers.nonlinear_system",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            378.24404201326695,
+            420.3263860165143
+          ],
+          "native_seconds": 0.000275358,
+          "reference_seconds": 0.10975058200000001,
+          "speedup": 396.2495987042323
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            35.769409767949746,
+            36.24759344152467
+          ],
+          "native_seconds": 0.00010216528125000001,
+          "reference_seconds": 0.0036697745000000004,
+          "speedup": 35.99732149247862
+        }
+      },
+      "after": {
+        "case": "solvers.nonlinear_system",
+        "comparable": true,
+        "first": {
+          "bootstrap_95_percent": [
+            319.3545261466047,
+            375.05661511502336
+          ],
+          "native_seconds": 0.00029949500000000005,
+          "reference_seconds": 0.110464697,
+          "speedup": 368.8365314946827
+        },
+        "statuses": [
+          "verified"
+        ],
+        "trials": 7,
+        "warm": {
+          "bootstrap_95_percent": [
+            36.765741951310076,
+            38.1051837654175
+          ],
+          "native_seconds": 0.00010006626562500001,
+          "reference_seconds": 0.0036945355000000003,
+          "speedup": 37.29006082633544
+        }
+      },
+      "native_after_over_before": {
+        "first": 1.0876567958802723,
+        "warm": 0.9794547071243931
+      },
+      "reference_after_over_before": {
+        "first": 1.0065067080919898,
+        "warm": 1.0067472810659075
+      }
+    }
+  ],
+  "limitations": [
+    "Two consecutive seven-process screenings on the same CPU; native versions are not interleaved.",
+    "The shared host is not isolated. Reference medians change by less than one percent in these controls.",
+    "This follow-up preserves the original full screening instead of replacing its samples."
+  ]
+}

@@ -149,6 +149,75 @@ NumPy evaluation and some first numerical calls also remain marginal. The
 [full follow-up report](../audits/performance/2026-10-20-weak-cases/after.md)
 keeps their timings, intervals and remaining comparison limitations.
 
+## Binary arithmetic follow-up
+
+Incremental sums repeatedly rebuilt canonical expressions and crossed nested
+Python arithmetic wrappers. The next patch reuses completed exact binary
+addition, multiplication and canonical powers, and combines indexed-tensor
+operand selection with the existing priority/evaluation wrapper. Foreign
+conversion hooks, reflected priority and tensor type checks still run.
+
+A bounded eligibility weight is computed when each native node is created.
+It does not change mathematical identity, serialization or accepted inputs.
+Only ordinary canonical exact scalar algebra is eligible; floating-point,
+held, dummy/wild, binder, matrix and unsupported forms retain their original
+arithmetic. Non-numerical keys retain physical operand owners to preserve even
+equal symbols' original declarations. Exact numerical keys retain exact values;
+identity outputs project onto the current operand. Numerical policy is part of
+the key. Each thread retains at most 2,048 entries and 524,288 size units;
+this is additional bounded retention per thread, not a global memory bound.
+
+The [binary arithmetic evidence](../audits/performance/2026-10-20-binary-arithmetic/README.md)
+retains the initial cache trial separately from the tuned build. The initial
+trial exposed first-call overhead and medium-size eviction. The final build
+reduces eligibility scanning overhead and increases the bounded retention
+budget. Repeated-work reuse does not change the underlying first-call algorithm
+or prove better worst-case complexity.
+
+The full rerun retains 132 verified workloads and the same five exclusions.
+It contains 585 paired trials, with 45 workloads extended to seven fresh
+processes. Sixteen cases have a first-call or repeated-call speedup at most
+1.5, compared with seventeen in the predecessor. This includes modest native
+wins and near ties; it is not a count of mathematical failures. The
+[full report](../audits/performance/2026-10-20-binary-arithmetic/after.md)
+keeps all timings and exclusions.
+
+Seven-process focused measurements use the same inputs and timing protocol as
+the predecessor (seven prior trials for 100 terms, three for 500). Both answers
+pass the independent checks in every trial, and the package/dependency
+environment remains unchanged. Times below are native
+medians in microseconds; the last column is the median paired SymPy/Symox ratio.
+
+| Workload | Previous first | Final first | Previous repeated | Final repeated | Final repeated vs SymPy |
+|---|---:|---:|---:|---:|---:|
+| Incremental sum, 100 terms | 431 | 643 | 373 | 203 | 1.80× |
+| Incremental sum, 500 terms | 4,707 | 5,984 | 4,497 | 3,771 | 141× |
+
+The 100-term repeated case now exceeds the reference speed, but its first call
+costs about 49% more than the predecessor; the 500-term first call costs about
+27% more. Both first calls remain about 100× faster than SymPy in this focus
+run. The gain comes from completed-work reuse and shorter dispatch, with extra
+bounded retention; it is not an
+asymptotic improvement. The 500-term repeated result also improves over the
+predecessor after tuning the cache budget. Shared-host variation still limits
+interpretation of small differences.
+
+The complete historical comparison also shows regressions outside construction.
+[Same-session cost checks](../audits/performance/2026-10-20-binary-arithmetic/cost-controls.md)
+remeasure five affected workloads with seven processes per package after the
+Python suite finishes. Generic 6×6 `charpoly` repeated calls cost about 4.5%
+more (versus about 21% in the historical comparison); harmonic ODE repeated
+calls cost about 17% more. Reference medians change by less than 1% in these
+checks. Both package environments remain unchanged and every answer verifies.
+The native versions run in consecutive screenings, not interleaved; the shared
+host remains unisolated. These costs are retained alongside the targeted gain.
+
+The investigation also exposed a pre-existing mathematical gap:
+`Symbol(..., commutative=False)` raises `ValueError`. The predecessor reproduces
+it, and the [parity contract](algorithmic-parity.md) now explicitly tracks it as
+a blocking gap. These performance results do not certify general
+noncommutative scalar algebra.
+
 ## Evidence and remaining work
 
 The first patch round's versioned evidence is stored in
@@ -157,10 +226,10 @@ It includes full retained answers, per-process samples, validation statuses,
 package/source fingerprints and regression logs. Baseline precision failures,
 setup errors and inconclusive checks remain visible.
 
-The latest source snapshot passes 30,045 core Python tests with five documented
-skips and no failures or xfails, including the local Trisplyne integrations.
-The follow-up focused regressions pass 1,618 tests. The unchanged Rust core passes 528
-tests, with its pre-existing series timing experiment ignored. The optional
+The binary arithmetic snapshot passes 30,058 core Python tests with five
+documented skips and no failures or xfails, including the local Trisplyne
+integrations. Its focused regressions pass 1,385 tests. The Rust core passes
+529 tests, with its pre-existing series timing experiment ignored. The optional
 extra backend and downstream package suites were not rerun for this patch
 branch; their older qualification results do not qualify the new artifact.
 
@@ -170,8 +239,8 @@ and verification are outside timing. SymPy imports are blocked during native
 measurement. The shared host can still affect timings, so small differences
 need repeated trials and are not treated as decisive wins.
 
-Incremental expression construction and several microsecond-scale public
-dispatch paths still need work. Some repeated cached calls remain slower
+First-call incremental expression construction and several microsecond-scale
+public dispatch paths still need work. Some repeated cached calls remain slower
 than the reference even when the first calculation is much faster. The
 assumption check, large derivative validation and reference integration/series
 timeouts excluded from ranking require separate investigation. The independent
