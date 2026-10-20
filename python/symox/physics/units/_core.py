@@ -101,7 +101,14 @@ class DimensionSystem:
         return _analyze(value,UnitSystem.get_default_unit_system())[1]
     def get_dimensional_dependencies(self,dimension,mark_dimensionless=False):
         if isinstance(dimension,Dimension):result = self._name_dependencies(dimension.name)
-        else:result = _analyze(_native(dimension),UnitSystem.get_default_unit_system(),dimension_system=self)[1]
+        else:
+            value = S.Symbol(dimension) if isinstance(dimension,str) else _native(dimension)
+            if any(symbol in _QUANTITIES for symbol in value.free_symbols):
+                result = _analyze(value,UnitSystem.get_default_unit_system(),dimension_system=self)[1]
+            else:
+                # SymPy reads any other argument as a dimension name
+                # expression, such as get_dimensional_expr's result.
+                result = self._name_dependencies(value)
         return {Dimension(n):p for n,p in result.items()} if result else ({Dimension(1):S.Integer(1)} if mark_dimensionless else {})
     def equivalent_dims(self,first,second):return self.get_dimensional_dependencies(first)==self.get_dimensional_dependencies(second)
     def is_dimensionless(self,dimension):return not self.get_dimensional_dependencies(dimension)
@@ -116,7 +123,19 @@ class DimensionSystem:
     def __repr__(self):return 'DimensionSystem(%s)'%(self.base_dims,)
 
 
-class Quantity:
+class _QuantityType(type):
+    # Inside expressions a quantity is represented by its registered atom;
+    # SymPy's args are Quantity instances, so isinstance, has(Quantity) and
+    # atoms(Quantity) recognise the atom as the quantity it stands for.
+    def __instancecheck__(cls, value):
+        if type.__instancecheck__(cls, value):return True
+        if not getattr(value, 'is_Symbol', False):return False
+        try:quantity = _QUANTITIES.get(value)
+        except TypeError:return False
+        return quantity is not None and type.__instancecheck__(cls, quantity)
+
+
+class Quantity(metaclass=_QuantityType):
     is_commutative = True
     is_positive = True
     is_real = True
@@ -128,9 +147,13 @@ class Quantity:
         self._latex_repr = latex_repr
         _QUANTITIES[self._atom] = self
     def _symox_(self):return self._atom
-    def __repr__(self):return str(self.name)
+    def __repr__(self):
+        # SymPy prints a quantity through StrPrinter, whose ``abbrev``
+        # setting selects the abbreviation.
+        from ...printing.str import abbreviate_units
+        return str(self.abbrev if abbreviate_units() else self.name)
     def __hash__(self):return hash(self._atom)
-    def __eq__(self,other):return self._atom == (other._atom if isinstance(other,Quantity) else other)
+    def __eq__(self,other):return self._atom == getattr(other,'_atom',other)
     @property
     def args(self):return self.name,self.abbrev
     @property
@@ -140,7 +163,8 @@ class Quantity:
         # Its dimensional scale is metadata, not a structural child.
         for pattern in patterns:
             if isinstance(pattern,type) and isinstance(self,pattern):return True
-            if isinstance(pattern,Quantity) and self == pattern:return True
+            # A plain Symbol equal to the atom is not this quantity.
+            if type.__instancecheck__(Quantity,pattern) and self == pattern:return True
             if any(argument.has(pattern) for argument in self.args):return True
         return False
     def as_ordered_factors(self, order=None):return [self]
@@ -343,3 +367,53 @@ def prefix_unit(unit,prefixes):
         quantity = Quantity(str(prefix.name)+str(unit.name),str(prefix.abbrev)+str(unit.abbrev),is_prefixed=True)
         quantity.set_global_relative_scale_factor(prefix.scale_factor,unit);result.append(quantity)
     return result
+
+
+def _abbreviated(expr):
+    """``expr`` with quantity atoms renamed to their abbreviations.
+
+    An abbreviation shared by two quantities of ``expr`` or equal to the name
+    of another free symbol keeps the full name, since a renamed atom would
+    then combine with a different one."""
+    try:
+        symbols = expr.free_symbols
+    except Exception:
+        return expr
+    quantities = [symbol for symbol in symbols if symbol in _QUANTITIES]
+    if not quantities:
+        return expr
+    abbreviations = [str(_QUANTITIES[symbol].abbrev) for symbol in quantities]
+    names = {getattr(symbol, "name", None) for symbol in symbols}
+    rule = {}
+    for symbol, abbreviation in zip(quantities, abbreviations):
+        if abbreviation == symbol.name or abbreviations.count(abbreviation) > 1 or abbreviation in names:
+            continue
+        rule[symbol] = S.Symbol(abbreviation, positive=True)
+    return expr.xreplace(rule) if rule else expr
+
+
+def _install_abbreviated_printing():
+    # Quantities are native positive symbols; Basic.__str__ prints them
+    # through StrPrinter, so the ``abbrev`` setting reaches every expression.
+    from functools import wraps
+    from ... import _core
+    from ...printing.str import abbreviate_units
+    if getattr(_core.Expr.__str__, '_symox_quantities', False):
+        return
+    native_str, native_repr = _core.Expr.__str__, _core.Expr.__repr__
+
+    def wrap(native):
+        @wraps(native)
+        def method(self):
+            if abbreviate_units():
+                renamed = _abbreviated(self)
+                if renamed is not self:
+                    return native(renamed)
+            return native(self)
+        method._symox_quantities = True
+        return method
+
+    _core.Expr.__str__, _core.Expr.__repr__ = wrap(native_str), wrap(native_repr)
+
+
+_install_abbreviated_printing()
