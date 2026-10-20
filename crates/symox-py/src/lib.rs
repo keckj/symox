@@ -84,6 +84,16 @@ pub(crate) fn wrap(e: Expr) -> PyExpr {
     PyExpr { e }
 }
 
+/// A part of a ``MatrixElement`` node: its matrix, row or column.
+fn matrix_element_part(e: &Expr, py: Python<'_>, index: usize, name: &str) -> PyResult<PyObject> {
+    let Kind::Func(Func::MatrixElement(parent), args) = e.kind() else {
+        return Err(pyo3::exceptions::PyAttributeError::new_err(
+            format!("'{}' object has no attribute '{}'", e.class_name(), name)));
+    };
+    if index == 0 { return expr_object(py, matrix_proxy((**parent).clone())); }
+    expr_object(py, args[index - 1].clone())
+}
+
 pub(crate) fn expr_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     if let Kind::Func(Func::MatrixProxy(parent), _) = e.kind() {
         return Ok(matrixexpr::wrap_matrixexpr((**parent).clone()).into_pyobject(py)?.into_any().unbind());
@@ -1338,6 +1348,15 @@ impl PyExprNode {
                 return Ok(py.NotImplemented());
             }
         }
+        // SymPy compares through the strict _sympify, which rejects strings:
+        // a string is never equal to an expression and has no ordering.
+        if other.is_instance_of::<pyo3::types::PyString>() {
+            return Ok(match op {
+                Eq => false.into_pyobject(py)?.to_owned().into_any().unbind(),
+                Ne => true.into_pyobject(py)?.to_owned().into_any().unbind(),
+                _ => py.NotImplemented(),
+            });
+        }
         // AlgebraicNumber retains its defining field and alias as identity.
         // Its _symox_ conversion is for arithmetic, not structural equality.
         if other.downcast::<poly::algebraic_number::PyAlgebraicNumber>().is_ok() {
@@ -1589,6 +1608,16 @@ impl PyExprNode {
         PyTuple::new(py, python_args(&self.e).into_iter().map(|e|expr_object(py,e)).collect::<PyResult<Vec<_>>>()?)
     }
 
+    /// The matrix of a ``MatrixElement`` and its row and column indices.
+    #[getter]
+    fn parent(&self, py: Python<'_>) -> PyResult<PyObject> { matrix_element_part(&self.e, py, 0, "parent") }
+
+    #[getter]
+    fn i(&self, py: Python<'_>) -> PyResult<PyObject> { matrix_element_part(&self.e, py, 1, "i") }
+
+    #[getter]
+    fn j(&self, py: Python<'_>) -> PyResult<PyObject> { matrix_element_part(&self.e, py, 2, "j") }
+
     /// SymPy class name of the node (`Add`, `Mul`, `Symbol`, `sin`, ...).
     #[getter]
     fn class_name(&self) -> String {
@@ -1804,6 +1833,37 @@ impl PyExprNode {
     #[getter]
     fn is_Float(&self) -> bool {
         self.e.as_number().is_some_and(Number::is_float)
+    }
+
+    /// The normalized mpmath tuple ``(sign, man, exp, bc)`` of a Float:
+    /// an odd mantissa, or ``(0, 0, 0, 0)`` for zero, as SymPy's ``_mpf_``.
+    #[getter]
+    fn _mpf_(&self) -> PyResult<(u8, BigInt, i64, i64)> {
+        let (sign, man, exp) = match self.e.as_number() {
+            Some(Number::Float(value)) => {
+                let bits = value.to_bits();
+                let biased = ((bits >> 52) & 0x7ff) as i64;
+                let fraction = bits & ((1u64 << 52) - 1);
+                if value.is_nan() {
+                    return Ok((0, BigInt::from(0), -123, -1));
+                }
+                if value.is_infinite() {
+                    // mpmath's finf and fninf.
+                    return Ok(if bits >> 63 == 0 { (0, BigInt::from(0), -456, -2) } else { (1, BigInt::from(0), -789, -3) });
+                }
+                let (man, exp) = if biased == 0 { (fraction, -1074) } else { (fraction | (1u64 << 52), biased - 1075) };
+                ((bits >> 63) as u8, BigInt::from(man), exp)
+            }
+            Some(Number::MpFloat(value, _)) => (u8::from(value.man.is_negative()), value.man.abs(), value.exp),
+            _ => return Err(pyo3::exceptions::PyAttributeError::new_err("only Float numbers have an mpf value")),
+        };
+        if man.is_zero() {
+            return Ok((0, BigInt::from(0), 0, 0));
+        }
+        let shift = man.trailing_zeros().unwrap_or(0);
+        let man = man >> shift;
+        let bc = man.bits() as i64;
+        Ok((sign, man, exp + shift as i64, bc))
     }
 
     #[getter]
