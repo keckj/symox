@@ -3290,10 +3290,16 @@ fn py_lambdify(
     let c = Compiled::new(&arg_list, &exprs).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let numpy_vectors=scalar_out&&modules.is_some_and(|value|
         value.extract::<String>().is_ok_and(|name|name=="numpy"))
+        &&arg_list.iter().all(|argument|argument.as_symbol().is_some_and(|name|name.len()<=256))
         &&numpy_vector::supports(&exprs[0]);
+    let numpy_evaluator=pyo3::sync::GILOnceCell::new();
+    if numpy_vectors {
+        let evaluator=numpy_vector::dispatcher(args.py(),&arg_list,&exprs[0])?;
+        let _=numpy_evaluator.set(args.py(),evaluator);
+    }
     Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
         object_evaluator: pyo3::sync::GILOnceCell::new(),numpy_vectors,
-        numpy_evaluator:pyo3::sync::GILOnceCell::new() })
+        numpy_evaluator })
 }
 
 #[pymodule]

@@ -1,15 +1,21 @@
 """NumPy ufunc evaluation with the native real-array result conventions."""
 import numpy as np
+from functools import lru_cache
+
+
+@lru_cache(maxsize=32)
+def _evaluator(arguments,expression):
+    from .utilities.lambdify import _compile_object
+    return _compile_object(arguments,expression)
 
 
 def compile(arguments,expression):
-    evaluator = None
-    unavailable = False
+    try:
+        evaluator = _evaluator(tuple(arguments),expression)
+    except (NotImplementedError,TypeError,ValueError,SyntaxError,AttributeError):
+        return lambda *values:NotImplemented
 
     def evaluate(*values):
-        nonlocal evaluator,unavailable
-        if unavailable:
-            return NotImplemented
         arrays = []
         for value in values:
             if type(value) is np.ndarray:
@@ -27,13 +33,6 @@ def compile(arguments,expression):
         except ValueError:
             # Keep the VM's established equal-flat-size behavior as well.
             return NotImplemented
-        if evaluator is None:
-            from .utilities.lambdify import _compile_object
-            try:
-                evaluator = _compile_object(arguments,expression)
-            except (NotImplementedError,TypeError,ValueError,SyntaxError,AttributeError):
-                unavailable = True
-                return NotImplemented
         try:
             # Scalar operands must use the same IEEE float64 rules as the VM,
             # rather than Python integer powers/division at singular points.
