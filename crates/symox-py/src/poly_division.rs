@@ -42,13 +42,15 @@ pub(super) fn boolean(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<b
     if let Ok(v) = value.extract::<bool>() {
         return Ok(Some(v));
     }
-    if let Ok(v) = value.extract::<i64>() {
-        if v == 0 || v == 1 {
-            return Ok(Some(v != 0));
+    // The reference accepts `value in [True, False]`, an equality test.
+    for v in [true, false] {
+        if value.eq(v).unwrap_or(false) {
+            return Ok(Some(v));
         }
     }
     Err(OptionError::new_err(format!(
-        "'{name}' must have a boolean value"
+        "'{name}' must have a boolean value assigned, got {}",
+        value.str()?
     )))
 }
 impl<'py> Options<'py> {

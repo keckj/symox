@@ -1,25 +1,35 @@
 """Isolation intervals of polynomial roots.
 
-``RealInterval`` and ``ComplexInterval`` have SymPy's public interface:
-endpoints in the fraction field of ``dom``, widths, centers, disjointness
-tests and refinement. Endpoints come from native Sturm isolation, so they are
-valid isolating intervals but are not always SymPy's continued-fraction
-intervals, and ``args`` stores the endpoints instead of a Mobius transform.
-Complex root isolation is not implemented natively; complex intervals can
-be built and inspected but not refined.
+``RealInterval`` and ``ComplexInterval`` follow SymPy's classes: a real
+interval stores a Mobius transform and the transformed polynomial over ZZ,
+and refines by continued fractions; a complex interval stores an isolating
+rectangle with its edge roots, quadrant sequences and edge polynomials, and
+refines by bisection. Both states and their refinement are native and exact.
 """
 # Module-level imports: the routing facade rebinds ``__spec__`` of aliased
 # modules, so relative imports inside functions would warn.
-from .. import Dummy, Poly, Rational
+from .. import _core
+
+_RealIsolation = _core.RealIsolation
+_ComplexIsolation = _core.ComplexIsolation
 
 
-def _field_element(field, value):
-    value = Rational(value)
-    return field(int(value.p), int(value.q))
+def _pair(value):
+    """``(numerator, denominator)`` of a rational domain element or number."""
+    numerator = getattr(value, 'numerator', None)
+    if numerator is None:
+        numerator, denominator = value.p, value.q
+    else:
+        denominator = value.denominator
+    return int(numerator), int(denominator)
 
 
-def _rational(value):
-    return Rational(int(value.numerator), int(value.denominator))
+def _ring(dom):
+    return dom.get_ring() if dom.is_Field else dom
+
+
+def _qq(dom, pair):
+    return dom.get_field()(*pair)
 
 
 class RealInterval:
@@ -27,14 +37,27 @@ class RealInterval:
 
     def __init__(self, data, f, dom):
         """Initialize new real interval with complete information. """
-        if len(data) != 2:
-            raise NotImplementedError('Mobius interval data is not supported; pass (s, t)')
-        field = dom.get_field()
-        s, t = (_field_element(field, value) for value in data)
-        if t < s:
-            raise ValueError('invalid isolation interval (%s, %s)' % (s, t))
-        self.f, self.dom = list(f), dom
-        self._bounds = (s, t)
+        if len(data) == 2:
+            s, t = data
+            state = _RealIsolation.from_interval(
+                [int(c) for c in f], _pair(s), _pair(t))
+        else:
+            state = _RealIsolation.from_mobius(
+                [int(c) for c in f], tuple(int(c) for c in data[:-1]), bool(data[-1]))
+        self._set(state, dom)
+
+    @classmethod
+    def _from_state(cls, state, dom):
+        obj = cls.__new__(cls)
+        obj._set(state, dom)
+        return obj
+
+    def _set(self, state, dom):
+        self._state, self.dom = state, dom
+        ring = _ring(dom)
+        self.mobius = tuple(ring(c) for c in state.mobius)
+        self.neg = state.neg
+        self.f = [ring(c) for c in state.f]
 
     @property
     def func(self):
@@ -42,7 +65,8 @@ class RealInterval:
 
     @property
     def args(self):
-        return (self._bounds, self.f, self.dom)
+        i = self
+        return (i.mobius + (i.neg,), i.f, i.dom)
 
     def __eq__(self, other):
         if type(other) is not type(self):
@@ -52,12 +76,12 @@ class RealInterval:
     @property
     def a(self):
         """Return the position of the left end. """
-        return self._bounds[0]
+        return _qq(self.dom, self._state.a())
 
     @property
     def b(self):
         """Return the position of the right end. """
-        return self._bounds[1]
+        return _qq(self.dom, self._state.b())
 
     @property
     def dx(self):
@@ -82,7 +106,17 @@ class RealInterval:
         return "(%s, %s)" % (self.a, self.b)
 
     def __contains__(self, item):
-        """Say whether a complex number, or a pair (re, im), belongs to this interval. """
+        """
+        Say whether a complex number belongs to this real interval.
+
+        Parameters
+        ==========
+
+        item : pair (re, im) or number re
+            Either a pair giving the real and imaginary parts of the number,
+            or else a real number.
+
+        """
         if isinstance(item, tuple):
             re, im = item
         else:
@@ -97,17 +131,9 @@ class RealInterval:
         return (self.b < other.ax or other.bx < self.a
             or other.ay*other.by > 0)
 
-    def _poly(self):
-        x = Dummy('x')
-        degree = len(self.f) - 1
-        return Poly(sum((_rational(c)*x**(degree - i) for i, c in enumerate(self.f)), 0), x)
-
     def _inner_refine(self):
         """Internal one step real root refinement procedure. """
-        if self.a == self.b:
-            return self
-        s, t = self._poly().refine_root(_rational(self.a), _rational(self.b), steps=1)
-        return RealInterval((s, t), self.f, self.dom)
+        return RealInterval._from_state(self._state.refine(), self.dom)
 
     def refine_disjoint(self, other):
         """Refine an isolating interval until it is disjoint with another one. """
@@ -140,22 +166,82 @@ class RealInterval:
 
 class ComplexInterval:
     """A fully qualified representation of a complex isolation interval.
+    The printed form is shown as (ax, bx) x (ay, by) where (ax, ay)
+    and (bx, by) are the coordinates of the southwest and northeast
+    corners of the interval's rectangle, respectively.
 
-    The printed form is ``(ax, bx) x (ay, by)``, where ``(ax, ay)`` and
-    ``(bx, by)`` are the southwest and northeast corners of the rectangle.
-    ``conj`` marks the conjugate root, whose rectangle is mirrored.
+    The rectangle is stored in the upper half plane; ``conj`` marks the
+    conjugate root, whose rectangle is the mirror image.
     """
 
     def __init__(self, a, b, I, Q, F1, F2, f1, f2, dom, conj=False):
         """Initialize new complex interval with complete information. """
-        self.a, self.b = a, b  # the southwest and northeast corner: (x1, y1), (x2, y2)
-        self.I, self.Q = I, Q
+        if any(part is None for part in (I, Q, F1, F2, f1, f2)):
+            # Incomplete data, as the reference stores it: the rectangle is
+            # usable, refinement is not.
+            self._state, self.dom, self.conj = None, dom, conj
+            self.a, self.b = tuple(a), tuple(b)
+            self.Q = Q
+            self._parts = (I, F1, F2, f1, f2)
+            return
+        field = dom.get_field() if not dom.is_Field else dom
+        edges = [[((_pair(s), _pair(t)), dict(indices), [int(c) for c in h])
+                  for (s, t), indices, h in edge] for edge in I]
+        quadrants = [[str(q) for q in qs] for qs in Q]
+        dense = lambda polys: [[_pair(field.convert(c)) for c in g] for g in polys]
+        f = [_pair(field.convert(c[-1])) if c else (0, 1) for c in f1]
+        state = _ComplexIsolation.from_parts(
+            (_pair(a[0]), _pair(a[1])), (_pair(b[0]), _pair(b[1])),
+            edges, quadrants, dense(F1), dense(F2), f, bool(conj))
+        self._set(state, dom)
 
-        self.f1, self.F1 = f1, F1
-        self.f2, self.F2 = f2, F2
+    @classmethod
+    def _from_state(cls, state, dom):
+        obj = cls.__new__(cls)
+        obj._set(state, dom)
+        return obj
 
-        self.dom = dom
-        self.conj = conj
+    def _set(self, state, dom):
+        self._state, self.dom = state, dom
+        self.conj = state.conj
+        u, v, s, t = (_qq(dom, c) for c in state.corners())
+        self.a, self.b = (u, v), (s, t)
+        self.Q = [list(q) for q in state.quadrants()]
+        self._parts = None
+
+    def _rebuild(self):
+        if self._parts is None:
+            dom = self.dom
+            field = dom.get_field() if not dom.is_Field else dom
+            ring = field.get_ring()
+            I = [[((_qq(dom, s), _qq(dom, t)), indices, [ring(c) for c in h])
+                  for (s, t), indices, h in edge] for edge in self._state.edges()]
+            F1, F2 = ([[_qq(dom, c) for c in g] for g in polys]
+                      for polys in self._state.edge_polys())
+            f1, f2 = ([[_qq(dom, c) for c in g] for g in polys]
+                      for polys in self._state.real_imag())
+            self._parts = (I, F1, F2, f1, f2)
+        return self._parts
+
+    @property
+    def I(self):
+        return self._rebuild()[0]
+
+    @property
+    def F1(self):
+        return self._rebuild()[1]
+
+    @property
+    def F2(self):
+        return self._rebuild()[2]
+
+    @property
+    def f1(self):
+        return self._rebuild()[3]
+
+    @property
+    def f2(self):
+        return self._rebuild()[4]
 
     @property
     def func(self):
@@ -228,11 +314,24 @@ class ComplexInterval:
 
     def conjugate(self):
         """This complex interval really is located in lower half-plane. """
-        return ComplexInterval(self.a, self.b, self.I, self.Q,
-            self.F1, self.F2, self.f1, self.f2, self.dom, conj=True)
+        if self._state is None:
+            return ComplexInterval(self.a, self.b, self.I, self.Q, self.F1,
+                                   self.F2, self.f1, self.f2, self.dom, not self.conj)
+        return ComplexInterval._from_state(self._state.conjugate(), self.dom)
 
     def __contains__(self, item):
-        """Say whether a complex number, or a pair (re, im), belongs to this rectangle. """
+        """
+        Say whether a complex number belongs to this complex rectangular
+        region.
+
+        Parameters
+        ==========
+
+        item : pair (re, im) or number re
+            Either a pair giving the real and imaginary parts of the number,
+            or else a real number.
+
+        """
         if isinstance(item, tuple):
             re, im = item
         else:
@@ -252,7 +351,10 @@ class ComplexInterval:
         return im_distinct
 
     def _inner_refine(self):
-        raise NotImplementedError('complex root isolation is not implemented natively')
+        """Internal one step complex root refinement procedure. """
+        if self._state is None:
+            raise TypeError("complex interval refinement needs its edge data")
+        return ComplexInterval._from_state(self._state.refine(), self.dom)
 
     def refine_disjoint(self, other):
         """Refine an isolating interval until it is disjoint with another one. """

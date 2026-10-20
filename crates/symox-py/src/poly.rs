@@ -745,7 +745,16 @@ impl PyPoly {
                 return Ok(Self {p:p.into()});
             }
         }
-        let p=Poly::from_expr(&e,&generators).map_err(err)?;
+        let p=match Poly::from_expr(&e,&generators){
+            Ok(p)=>p,
+            // The reference's constructor reports a constant without
+            // generators as `GeneratorsNeeded` from its dict representation.
+            Err(PolyError::Failed(m)) if generators.is_empty() && m.starts_with("can't initialize from")=>{
+                let py=expr.py();
+                return Err(structural::polynomial_error(py,"GeneratorsNeeded","Cannot initialize from 'dict' without generators".into()));
+            }
+            Err(e)=>return Err(err(e)),
+        };
         let fractions=p.domain_gens().iter().any(|g| matches!(g.kind(),symox::Kind::Pow(_,e) if e.as_number().is_some_and(|n|n.is_negative())) && !symox::traverse::free_symbols(g).is_empty());
         if domain.is_none() && fractions {
             let parameters=infer_parameters(std::slice::from_ref(&e),p.true_gens());
@@ -1618,9 +1627,9 @@ impl PyPoly {
         Ok(self.p.subresultants(&q).map_err(err)?.into_iter().map(|p|PyPoly{p}).collect())
     }
     #[pyo3(signature=(auto=true))]
-    fn sturm(&self,auto:bool)->PyResult<Vec<PyPoly>>{root_analysis::sturm_method(&self.p,auto)}
+    fn sturm(&self,py:Python<'_>,auto:bool)->PyResult<Vec<PyPoly>>{root_analysis::sturm_method(py,&self.p,auto)}
     #[pyo3(signature=(inf=None,sup=None))]
-    fn count_roots(&self,inf:Option<&Bound<'_,PyAny>>,sup:Option<&Bound<'_,PyAny>>)->PyResult<PyExpr>{root_analysis::count_method(&self.p,inf,sup)}
+    fn count_roots(&self,py:Python<'_>,inf:Option<&Bound<'_,PyAny>>,sup:Option<&Bound<'_,PyAny>>)->PyResult<PyExpr>{root_analysis::count_method(py,&self.p,inf,sup)}
     #[pyo3(signature=(all=false,eps=None,inf=None,sup=None,fast=false,sqf=false))]
     fn intervals(&self,py:Python<'_>,all:bool,eps:Option<&Bound<'_,PyAny>>,inf:Option<&Bound<'_,PyAny>>,sup:Option<&Bound<'_,PyAny>>,fast:bool,sqf:bool)->PyResult<PyObject>{root_analysis::intervals_method(py,&self.p,all,eps,inf,sup,fast,sqf)}
     #[pyo3(signature=(s,t,eps=None,steps=None,fast=false,check_sqf=false))]

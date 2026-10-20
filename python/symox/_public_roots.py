@@ -145,6 +145,9 @@ def numeric_root(node,digits):
     from . import Float,Rational,I
     p,index = _metadata(node)
     intervals = p.intervals()
+    # Isolating intervals separate distinct roots: refinement needs the
+    # square-free part, which has exactly one root in each of them.
+    p = p.sqf_part()
     position = 0
     for bounds,multiplicity in intervals:
         if position <= index < position+multiplicity:

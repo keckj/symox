@@ -1,4 +1,4 @@
-"""Exact real-root certificates, without numerical root classification."""
+"""Exact real-root counting, isolation and refinement, compared with SymPy."""
 import pickle
 import subprocess
 import sys
@@ -66,71 +66,67 @@ def test_closed_counts_match_exact_oracle_and_ignore_multiplicity(source,domain,
         assert sm.count_roots(p.as_expr(),a,b)==expected
 
 
-def certificate_intervals(p,oracle,actual,epsilon=None,sqf=False,lower=None,upper=None):
+def outcome(module, call):
+    """The printed result of ``call(module)``, or its exception class and text."""
+    try:
+        value = call(module)
+    except Exception as error:  # noqa: BLE001 - both outcomes are compared
+        return ('raises', type(error).__name__, str(error))
+    return ('returns', str(value))
+
+
+def same_as_reference(call):
     import sympy as sy
-    intervals = [(value,1) for value in actual] if sqf else actual
-    expected_total=oracle.count_roots(None if lower is None else sm.to_sympy(lower),None if upper is None else sm.to_sympy(upper))
-    assert len(intervals)==expected_total
-    previous=None
-    for (a,b),multiplicity in intervals:
-        assert isinstance(a,sm.Expr) and isinstance(b,sm.Expr) and a.is_Rational and b.is_Rational
-        assert a<=b
-        if previous is not None:assert previous<a
-        previous=b
-        assert p.count_roots(a,b)==1==oracle.count_roots(sm.to_sympy(a),sm.to_sympy(b))
-        if lower is not None:assert a>=lower
-        if upper is not None:assert b<=upper
-        if epsilon is not None:assert sm.to_sympy(b-a)<sy.Rational(sm.to_sympy(epsilon))
-        if not sqf:
-            matched=[m for factor,m in oracle.sqf_list()[1] if factor.count_roots(sm.to_sympy(a),sm.to_sympy(b))]
-            assert matched==[multiplicity]
+    expected = outcome(sy, call)
+    assert outcome(sm, call) == expected
+    return expected
+
+
+def poly(module, source, domain='ZZ', symbol='x'):
+    x = module.Symbol(symbol, real=True)
+    expr = module.sympify(source, locals={'x': x})
+    return module.Poly(expr, x, domain=domain)
 
 
 @pytest.mark.parametrize('source',CASES)
-@pytest.mark.parametrize('domain',[sm.ZZ,sm.QQ])
+@pytest.mark.parametrize('domain',['ZZ','QQ'])
 @pytest.mark.parametrize('fast',[False,True])
 @pytest.mark.parametrize('sqf',[False,True])
-def test_isolation_is_complete_sorted_disjoint_and_has_exact_multiplicities(source,domain,fast,sqf):
-    p,oracle=pair(source,domain)
-    options={'fast':fast,'sqf':sqf,'eps':sm.Rational(1,1000)}
-    actual=p.intervals(**options)
-    certificate_intervals(p,oracle,actual,epsilon=sm.Rational(1,1000),sqf=sqf)
-    assert sm.intervals(p,**options)==actual
-    if not p.is_zero and int(p.degree())>0:
-        assert sm.intervals(p.as_expr(),**options)==actual
+def test_isolation_matches_reference(source,domain,fast,sqf):
+    eps = lambda m: m.Rational(1,1000)
+    same_as_reference(lambda m: poly(m,source,domain).intervals(fast=fast,sqf=sqf,eps=eps(m)))
+    same_as_reference(lambda m: m.intervals(poly(m,source,domain),fast=fast,sqf=sqf,eps=eps(m)))
+    same_as_reference(lambda m: m.intervals(poly(m,source,domain).as_expr(),fast=fast,sqf=sqf,eps=eps(m)))
 
 
-@pytest.mark.parametrize('bounds',[(-2,1),(1,1),(sm.Rational(1,3),2),(None,0),(0,None),(10,20)])
+@pytest.mark.parametrize('bounds',[(-2,1),(1,1),((1,3),2),(None,0),(0,None),(10,20),(1,0),(2,-2)])
 @pytest.mark.parametrize('fast',[False,True])
-def test_isolation_respects_closed_bounds(bounds,fast):
-    p,oracle=pair('(x-1)**3*(x+2)**2*(x*x-2)',sm.ZZ)
+def test_isolation_bounds_match_reference(bounds,fast):
+    def bound(m, b):
+        return m.Rational(*b) if isinstance(b,tuple) else b
     lower,upper=bounds
-    actual=p.intervals(inf=lower,sup=upper,fast=fast)
-    certificate_intervals(p,oracle,actual,lower=lower,upper=upper)
+    same_as_reference(lambda m: poly(m,'(x-1)**3*(x+2)**2*(x*x-2)').intervals(
+        inf=bound(m,lower),sup=bound(m,upper),fast=fast))
 
 
 def test_rational_singletons_and_irrational_high_degree_root():
-    p,_=pair('(3*x-1)*(3*x+1)*(1000000*x-1)*(1000000*x-2)',sm.QQ)
-    assert p.intervals()==[((sm.Rational(-1,3),sm.Rational(-1,3)),1),((sm.Rational(1,1000000),sm.Rational(1,1000000)),1),((sm.Rational(1,500000),sm.Rational(1,500000)),1),((sm.Rational(1,3),sm.Rational(1,3)),1)]
-    p,oracle=pair('x**5-x-1',sm.ZZ)
-    roots=p.intervals(eps=sm.Rational(1,2**150))
-    certificate_intervals(p,oracle,roots,epsilon=sm.Rational(1,2**150))
-    assert roots[0][0][0]>1 and roots[0][0][1]<2
-    assert sm.intervals(0)==[]==sm.intervals(7)
+    same_as_reference(lambda m: poly(m,'(3*x-1)*(3*x+1)*(1000000*x-1)*(1000000*x-2)','QQ').intervals())
+    same_as_reference(lambda m: poly(m,'x**5-x-1').intervals(eps=m.Rational(1,2**150)))
+    same_as_reference(lambda m: (m.intervals(0), m.intervals(7)))
 
 
-@pytest.mark.parametrize('source,bounds',[('x*x-2',(1,2)),('x*x-2',(-2,-1)),('x**5-x-1',(1,2)),('(x-1)**3',(0,2)),('3*x-1',(sm.Rational(1,3),sm.Rational(1,3)))])
-@pytest.mark.parametrize('options',[{}, {'steps':0}, {'steps':3}, {'eps':sm.Rational(1,10**10)}, {'eps':sm.Rational(1,2**150),'fast':True}, {'eps':sm.Rational(1,2**150),'steps':1}, {'steps':3,'fast':True}])
-def test_refinement_keeps_one_root_and_obeys_precision_or_iteration_limit(source,bounds,options):
-    p,oracle=pair(source,sm.QQ)
-    lower,upper=bounds
-    a,b=p.refine_root(lower,upper,**options)
-    assert lower<=a<=b<=upper
-    assert p.count_roots(a,b)==1==oracle.count_roots(sm.to_sympy(a),sm.to_sympy(b))
-    if options.get('steps')==0:assert (a,b)==bounds
-    if 'eps' in options and 'steps' not in options:assert b-a<options['eps']
-    assert sm.refine_root(p,lower,upper,**options)==(a,b)
-    assert sm.refine_root(p.as_expr(),lower,upper,**options)==(a,b)
+@pytest.mark.parametrize('source,bounds',[('x*x-2',(1,2)),('x*x-2',(-2,-1)),('x**5-x-1',(1,2)),('(x-1)**3',(0,2)),('3*x-1',((1,3),(1,3)))])
+@pytest.mark.parametrize('options',[{}, {'steps':0}, {'steps':3}, {'eps':(1,10**10)}, {'eps':(1,2**150),'fast':True}, {'eps':(1,2**150),'steps':1}, {'steps':3,'fast':True}])
+def test_refinement_matches_reference(source,bounds,options):
+    def value(m, b):
+        return m.Rational(*b) if isinstance(b,tuple) else b
+    def call(m, f):
+        kwargs={k: value(m,v) for k,v in options.items()}
+        lower,upper=(value(m,b) for b in bounds)
+        return f(m)(lower,upper,**kwargs)
+    same_as_reference(lambda m: call(m, lambda m: poly(m,source,'QQ').refine_root))
+    same_as_reference(lambda m: call(m, lambda m: lambda a,b,**k: m.refine_root(poly(m,source,'QQ'),a,b,**k)))
+    same_as_reference(lambda m: call(m, lambda m: lambda a,b,**k: m.refine_root(poly(m,source,'QQ').as_expr(),a,b,**k)))
 
 
 def test_refinement_with_float_precision_and_sub_float_resolution():
@@ -142,6 +138,7 @@ def test_refinement_with_float_precision_and_sub_float_resolution():
     assert p.count_roots(a,b)==1 and b-a<sm.Rational(1,2**250)
     assert float(a)==float(b)
     assert p.count_roots(sm.Rational(1,10),sm.Rational(2,10))==0
+    same_as_reference(lambda m: m.Poly(m.Symbol('x')**2-2).refine_root(1,2,eps=1e-8))
 
 
 def test_closed_count_additivity_with_shared_rational_root():
@@ -151,39 +148,95 @@ def test_closed_count_additivity_with_shared_rational_root():
 
 
 @pytest.mark.parametrize('source', ['0','7','x*x-2'])
-def test_invalid_intervals_fail_instead_of_guessing_or_copying_oracle_bugs(source):
-    p,_=pair(source,sm.ZZ)
-    with pytest.raises(ValueError,match='increasing order'):p.count_roots(1,0)
-    with pytest.raises(ValueError,match='increasing order'):p.intervals(inf=1,sup=0)
-    with pytest.raises(ValueError,match='increasing order'):p.refine_root(1,0)
-    for epsilon in [0,-1]:
-        with pytest.raises(ValueError,match='positive rational'):p.intervals(eps=epsilon)
-        with pytest.raises(ValueError,match='positive rational'):p.refine_root(0,2,eps=epsilon)
-    with pytest.raises(sm.RefinementFailed) as failure:p.refine_root(1,1)
+@pytest.mark.parametrize('call', [
+    lambda p, m: p.count_roots(1,0),
+    lambda p, m: p.intervals(inf=1,sup=0),
+    lambda p, m: p.refine_root(1,0),
+    lambda p, m: p.refine_root(2,1),
+    lambda p, m: p.intervals(eps=0),
+    lambda p, m: p.intervals(eps=-1),
+    lambda p, m: p.refine_root(0,2,eps=0),
+    lambda p, m: p.refine_root(0,2,eps=-1),
+    lambda p, m: p.refine_root(1,1),
+])
+def test_degenerate_intervals_match_reference(source,call):
+    same_as_reference(lambda m: call(poly(m,source),m))
+
+
+def test_refinement_failure_pickles():
+    p,_=pair('x*x-2',sm.ZZ)
+    with pytest.raises(sm.RefinementFailed) as failure:p.refine_root(2,3)
     assert type(pickle.loads(pickle.dumps(failure.value))) is sm.RefinementFailed
 
 
-def test_refinement_requires_a_unique_root_and_squarefree_when_requested():
-    p,_=pair('x*x-2',sm.QQ)
-    with pytest.raises(sm.RefinementFailed):p.refine_root(-2,2)
-    with pytest.raises(sm.RefinementFailed):p.refine_root(2,3)
-    p,_=pair('(x-1)**3',sm.QQ)
-    with pytest.raises(sm.RefinementFailed):p.refine_root(0,2,check_sqf=True)
-    assert p.refine_root(1,1)==(1,1)
+@pytest.mark.parametrize('call', [
+    lambda m: poly(m,'x*x-2','QQ').refine_root(-2,2),
+    lambda m: poly(m,'x*x-2','QQ').refine_root(2,3),
+    lambda m: poly(m,'(x-1)**3','QQ').refine_root(0,2,check_sqf=True),
+    lambda m: poly(m,'(x-1)**3','QQ').refine_root(0,2),
+    lambda m: poly(m,'(x-1)**3','QQ').refine_root(1,1),
+])
+def test_refinement_uniqueness_matches_reference(call):
+    same_as_reference(call)
 
 
-@pytest.mark.parametrize('method', ['sturm','count_roots','intervals','refine_root'])
-def test_unsupported_domains_and_complex_options_are_explicit(method):
-    x,a,y=sm.symbols('x a y')
+def _polys(m):
+    x,a,y=m.symbols('x a y')
+    return [m.Poly(x*x+1,x,modulus=5),
+            m.Poly(x*x+1,x,domain=m.QQ.algebraic_field(m.sqrt(2))),
+            m.Poly(x*x-2,x,domain=m.QQ.algebraic_field(m.sqrt(2))),
+            m.Poly(x*x+a,x,domain=m.QQ.frac_field(a)),
+            m.Poly(x*y+1,x,y),
+            m.Poly(x*x+m.sin(a),x),
+            m.Poly(0.5*x+1,x),
+            m.Poly(0.5*x*x-1,x)]
+
+
+COMPOSITE_GAP = pytest.mark.xfail(strict=True, reason='ZZ[sin(a)] has no typed composite domain yet')
+
+
+@pytest.mark.parametrize('method,index', [
+    pytest.param(method, index, marks=COMPOSITE_GAP) if index == 5 and method in ('sturm', 'count_roots')
+    else (method, index)
+    for method in ['sturm','count_roots','intervals','refine_root'] for index in range(8)])
+def test_restricted_domains_match_reference(index,method):
     args=(1,2) if method=='refine_root' else ()
-    for p in [sm.Poly(x*x+1,x,modulus=5),sm.Poly(x*x+1,x,domain=sm.QQ.algebraic_field(sm.sqrt(2))),sm.Poly(x*x+a,x,domain=sm.QQ.frac_field(a)),sm.Poly(x*y+1,x,y),sm.Poly(x*x+sm.sin(a),x),sm.Poly(0.5*x+1,x)]:
-        with pytest.raises(sm.DomainError):getattr(p,method)(*args)
-    p=sm.Poly(x*x+1,x)
-    with pytest.raises(NotImplementedError):p.intervals(all=True)
-    with pytest.raises(NotImplementedError):sm.intervals([x*x+1,x*x-2])
-    with pytest.raises(NotImplementedError):sm.intervals(x*x+1,strict=True)
-    with pytest.raises(NotImplementedError):p.count_roots(0,1+sm.I)
-    with pytest.raises(sm.CoercionFailed):p.count_roots(sm.sqrt(2),2)
+    same_as_reference(lambda m: getattr(_polys(m)[index],method)(*args))
+
+
+@pytest.mark.parametrize('call', [
+    lambda m, x: m.Poly(x*x+1,x).intervals(all=True),
+    lambda m, x: m.Poly(x**3-x+1,x).intervals(all=True,eps=m.Rational(1,100)),
+    lambda m, x: m.intervals([x*x+1,x*x-2]),
+    lambda m, x: m.intervals(x*x+1,strict=True),
+    lambda m, x: m.Poly(x*x+1,x).count_roots(0,1+m.I),
+    lambda m, x: m.Poly(x*x+1,x).count_roots(-m.I,m.I),
+    lambda m, x: m.Poly(x*x-2,x).count_roots(m.sqrt(2),2),
+    lambda m, x: m.Poly(x*x-2,x).count_roots(m.Rational(1,10),0.5),
+    lambda m, x: m.Poly(x*x-2,x).count_roots(m.oo,2),
+])
+def test_complex_and_list_options_match_reference(call):
+    same_as_reference(lambda m: call(m, m.Symbol('x')))
+
+
+@pytest.mark.parametrize('auto', [True, False])
+@pytest.mark.parametrize('build', [
+    lambda m, x: m.Poly((x-1)**5*(x+2),x,modulus=5),
+    lambda m, x: m.Poly(x**10-1,x,modulus=5),
+    lambda m, x: m.Poly(0,x,modulus=5),
+    lambda m, x: m.Poly((x*x-2)**2*(x-1),x,domain=m.QQ.algebraic_field(m.sqrt(2))),
+    lambda m, x: m.Poly(x**3+m.Symbol('a')*x,x,domain=m.QQ[m.Symbol('a')]),
+    lambda m, x: m.Poly(x*m.Symbol('y')+1,x,m.Symbol('y'),domain='QQ'),
+    lambda m, x: m.Poly(0.1*x**3-0.7*x+0.3,x),
+    lambda m, x: m.Poly((0.1*x-0.3)**2*(x+0.7),x),
+    lambda m, x: m.Poly(m.Float(1,30)*x**3/3-x+1,x),
+    lambda m, x: m.Poly(0,x),
+    lambda m, x: m.Poly(7,x),
+    lambda m, x: m.Poly(7,x,domain='QQ'),
+])
+def test_sturm_matches_reference(build,auto):
+    same_as_reference(lambda m: build(m, m.Symbol('x')).sturm(auto=auto))
+    same_as_reference(lambda m: m.sturm(build(m, m.Symbol('x')), auto=auto))
 
 
 def test_sturm_options_and_metadata_are_applied():
@@ -191,19 +244,21 @@ def test_sturm_options_and_metadata_are_applied():
     p=sm.Poly((x-1)**2*(x+2),x,domain=sm.ZZ)
     assert all(v.gens==(x,) and v.domain is sm.QQ for v in p.sturm())
     assert all(v.domain is sm.QQ for v in sm.sturm(p,domain=sm.QQ,polys=True,auto=False))
-    with pytest.raises(sm.OptionError):sm.sturm(p,bogus=True)
-    with pytest.raises(sm.OptionError):sm.sturm(p,auto='bad')
-    with pytest.raises(sm.DomainError):sm.sturm(p,modulus=5)
-    with pytest.raises(TypeError):p.count_roots(eps=sm.Rational(1,10))
+    for call in [lambda m, p: m.sturm(p,bogus=True), lambda m, p: m.sturm(p,auto='bad'),
+                 lambda m, p: m.sturm(p,auto=1), lambda m, p: m.sturm(p,modulus=5),
+                 lambda m, p: p.count_roots(eps=m.Rational(1,10))]:
+        same_as_reference(lambda m: call(m, m.Poly((m.Symbol('x')-1)**2*(m.Symbol('x')+2),domain='ZZ')))
 
 
 def test_degree_and_coefficient_limits_reject_before_large_allocations():
     x=sm.Symbol('x')
     p=sm.Poly(x**1_000_000_000+1,x)
+    # The reference would allocate a dense list of a billion coefficients.
     for method,args in [('sturm',()),('count_roots',()),('intervals',()),('refine_root',(0,2))]:
         with pytest.raises(ValueError,match='resource limit'):getattr(p,method)(*args)
+    # Large coefficients are computed exactly, as in the reference.
     p=sm.Poly(sm.Integer(1<<262144)*x+1,x)
-    with pytest.raises(ValueError,match='resource limit'):p.count_roots()
+    assert p.count_roots()==1
 
 
 def test_root_analysis_without_sympy_runtime():
@@ -222,9 +277,10 @@ assert sorted(m for _,m in roots)==[1,1,2,3]
 for (a,b),m in roots:assert p.count_roots(a,b)==1 and b-a<s.Rational(1,1000)
 q=s.Poly(x**5-x-1,x);a,b=q.refine_root(1,2,eps=s.Rational(1,2**150))
 assert s.count_roots(q,a,b)==1 and b-a<s.Rational(1,2**150)
-try:q.refine_root(1,1)
+assert q.refine_root(1,1)==(1,1)
+try:q.refine_root(2,3)
 except s.RefinementFailed as e:assert type(pickle.loads(pickle.dumps(e))) is s.RefinementFailed
-else:raise AssertionError('invalid singleton accepted')
+else:raise AssertionError('interval without a root accepted')
 assert not any(n=='sympy' or n.startswith('sympy.') for n in sys.modules)
 '''
     result=subprocess.run([sys.executable,'-c',code],text=True,capture_output=True)

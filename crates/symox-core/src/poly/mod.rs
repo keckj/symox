@@ -56,6 +56,7 @@ pub(crate) mod pseudo;
 pub(crate) mod prs;
 mod typed_prs;
 pub mod real_roots;
+pub mod rootisolation;
 pub mod factor_budget;
 pub mod checked_factors;
 pub mod factorial;
