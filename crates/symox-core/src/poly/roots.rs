@@ -4,8 +4,8 @@
 //! shortcuts, factorisation over `QQ`, functional decomposition, and the
 //! closed forms for quadratics, cubics (Cardano), quartics (Euler /
 //! Ferrari) and cyclotomic factors. [`nroots`] computes all complex roots
-//! numerically (Aberth–Ehrlich iteration followed by Newton polishing in
-//! double-double arithmetic).
+//! numerically using precision-preserving Aberth–Ehrlich iteration. The
+//! machine-float helper remains available for internal numerical estimates.
 
 use num_complex::Complex64 as C64;
 
@@ -1018,6 +1018,10 @@ fn horner_real_dd(c: &[DD], x: DD) -> (DD, DD) {
 
 /// Aberth–Ehrlich simultaneous iteration (monic coefficients, low -> high).
 fn aberth(c: &[f64]) -> Vec<C64> {
+    aberth_steps(c, 500)
+}
+
+pub(super) fn aberth_steps(c: &[f64], maxsteps: usize) -> Vec<C64> {
     let n = c.len() - 1;
     if n == 1 {
         return vec![C64::new(-c[0], 0.0)];
@@ -1040,7 +1044,7 @@ fn aberth(c: &[f64]) -> Vec<C64> {
         }
         (p, dp)
     };
-    for _ in 0..500 {
+    for _ in 0..maxsteps {
         let mut maxstep: f64 = 0.0;
         for i in 0..n {
             let (p, dp) = eval(z[i]);
@@ -1072,54 +1076,24 @@ fn aberth(c: &[f64]) -> Vec<C64> {
 
 /// `nroots(f)` as expressions.
 pub fn nroots(e: &Expr, gens: &[Expr], n: u32) -> PResult<Vec<Expr>> {
+    nroots_options(e, gens, n, 50, true)
+}
+
+pub fn nroots_options(e: &Expr, gens: &[Expr], n: u32, maxsteps: u32, cleanup: bool) -> PResult<Vec<Expr>> {
     let p = Poly::from_expr(e, gens)?;
-    nroots_poly(&p, n)
+    nroots_poly_options(&p, n, maxsteps, cleanup)
 }
 
-/// Numerical roots with multiplicities resolved through the square-free
-/// decomposition (multiple roots are computed as simple roots).
-fn nroots_sqf(c: &[Rat]) -> Vec<C64> {
-    let (_, z) = dense::clear_denoms(c);
-    let mut z = z;
-    dense::trim(&mut z);
-    if z.len() <= 1 {
-        return vec![];
-    }
-    let zeros = z.iter().take_while(|x| x.is_zero()).count();
-    let z: Vec<Int> = z[zeros..].to_vec();
-    let mut out: Vec<C64> = vec![C64::new(0.0, 0.0); zeros];
-    if z.len() > 1 {
-        let (_, parts) = super::sqf::sqf_list_zx(&z);
-        for (a, k) in parts {
-            let rs = nroots_rat(&dense::to_rat(&a));
-            for r in rs {
-                for _ in 0..k {
-                    out.push(r);
-                }
-            }
-        }
-    }
-    sort_roots(out)
+pub fn nroots_poly(p: &Poly, n: u32) -> PResult<Vec<Expr>> {
+    nroots_poly_options(p, n, 50, true)
 }
 
-pub fn nroots_poly(p: &Poly, _n: u32) -> PResult<Vec<Expr>> {
+pub fn nroots_poly_options(p: &Poly, n: u32, maxsteps: u32, cleanup: bool) -> PResult<Vec<Expr>> {
     if p.ngens != 1 || p.has_domain_gens() {
         return Err(PolyError::Unsupported("can't compute numerical roots of a multivariate or symbolic polynomial".into()));
     }
     let c = dense::from_mpoly(&p.rep, 0);
-    let rs = nroots_sqf(&c);
-    Ok(rs
-        .into_iter()
-        .map(|z| {
-            if z.im == 0.0 {
-                Expr::float(z.re)
-            } else if z.re == 0.0 {
-                mul(&[Expr::float(z.im), Expr::i()])
-            } else {
-                add(&[Expr::float(z.re), mul(&[Expr::float(z.im), Expr::i()])])
-            }
-        })
-        .collect())
+    super::nroots_mp::rational_roots(&c, n, maxsteps, cleanup)
 }
 
 #[cfg(test)]

@@ -74,6 +74,19 @@ fn err(e: PolyError) -> PyErr {
     }
 }
 
+fn nroots_error(py: Python<'_>, error: PolyError) -> PyErr {
+    let message = error.to_string();
+    if message.starts_with("convergence to root failed") {
+        return match py.import("mpmath.libmp.libhyper")
+            .and_then(|module| module.getattr("NoConvergence"))
+            .and_then(|class| class.call1((message,))) {
+                Ok(exception) => PyErr::from_value(exception),
+                Err(error) => error,
+            };
+    }
+    err(error)
+}
+
 fn gens_of(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     let mut v = Vec::new();
     for a in args.iter() {
@@ -1389,9 +1402,10 @@ impl PyPoly {
         Ok(w(symox::expand::expand(&symox::subs::subs(&self.p.as_expr(), &pairs))))
     }
 
-    #[pyo3(signature = (n=15, **_kwargs))]
-    fn nroots(&self, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<PyExpr>> {
-        Ok(proots::nroots_poly(&self.p, n).map_err(err)?.into_iter().map(w).collect())
+    #[pyo3(signature = (n=15, maxsteps=50, cleanup=true))]
+    fn nroots(&self, py: Python<'_>, n: u32, maxsteps: u32, cleanup: bool) -> PyResult<Vec<PyExpr>> {
+        Ok(proots::nroots_poly_options(&self.p, n, maxsteps, cleanup)
+            .map_err(|error| nroots_error(py,error))?.into_iter().map(w).collect())
     }
 
     fn all_roots(&self) -> PyResult<Vec<PyExpr>> {
@@ -2158,10 +2172,11 @@ fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multip
 }
 
 #[pyfunction]
-#[pyo3(signature = (f, n=15, **_kwargs))]
-fn nroots(f: &Bound<'_, PyAny>, n: u32, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<PyExpr>> {
+#[pyo3(signature = (f, n=15, maxsteps=50, cleanup=true))]
+fn nroots(py: Python<'_>, f: &Bound<'_, PyAny>, n: u32, maxsteps: u32, cleanup: bool) -> PyResult<Vec<PyExpr>> {
     let (e, g2) = expr_or_coeff_list(f)?;
-    Ok(proots::nroots(&e, &g2, n).map_err(err)?.into_iter().map(w).collect())
+    Ok(proots::nroots_options(&e, &g2, n, maxsteps, cleanup)
+        .map_err(|error| nroots_error(py,error))?.into_iter().map(w).collect())
 }
 
 #[pyfunction]
