@@ -667,8 +667,8 @@ class _ImmutableMatrixMeta(type):
     def __instancecheck__(cls, obj):
         return isinstance(obj, Matrix) and obj._immutable
 
-    def __call__(cls, *args):
-        return Matrix(*args).as_immutable()
+    def __call__(cls, *args, **kwargs):
+        return Matrix(*args, **kwargs).as_immutable()
 
 
 class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
