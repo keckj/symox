@@ -1,5 +1,5 @@
 """Native constructor representation and recursive container formatting."""
-from .printer import Printer
+from ._legacy import LegacyPrinter as Printer
 
 class ReprPrinter(Printer):
     printmethod='_sympyrepr'

@@ -1891,9 +1891,6 @@ from ._compat import _install_relation_classes
 _install_relation_classes(globals())
 Id = S.IdentityFunction
 from .codegen.ast import Indexed, IndexedBase  # noqa: E402
-from .printing.str import StrPrinter  # noqa: E402
-from .printing.pretty import PrettyPrinter  # noqa: E402
-from . import extra  # noqa: E402
 from ._sparse import SparseMatrix, MutableSparseMatrix, ImmutableSparseMatrix  # noqa: E402
 from . import _matrix_aux, _sparse as _sparse_module  # noqa: E402
 from ._matrix_aux import (  # noqa: E402
@@ -2181,14 +2178,6 @@ _special_extensions.install()
 from . import functions  # noqa: E402
 
 from .parsing.sympy_parser import parse_expr  # noqa: E402
-from .printing import (  # noqa: E402
-    TableForm, dotprint, glsl_code, jscode, julia_code, latex, maple_code,
-    mathematica_code, mathml, multiline_latex, octave_code, pager_print,
-    pprint, pretty, pretty_print, pprint_try_use_unicode, pprint_use_unicode,
-    preview, print_fcode, print_glsl, print_gtk, print_jscode, print_latex,
-    print_maple_code, print_mathml, print_python, print_rcode, print_tree,
-    python, rcode, smtlib_code, sstr, sstrrepr,
-)
 
 # Complete the public surface with native-backed implementations.
 from . import algebras, concrete, external, interactive, multipledispatch, release, strategies
@@ -2301,6 +2290,19 @@ _install_general_simplify(globals())
 from ._solve_relations import install as _install_solve_relations
 _install_solve_relations(globals())
 
+# The printers are SymPy's Python printers, which import symox.core
+# and its final constructors.
+from .printing.str import StrPrinter  # noqa: E402
+from .printing.pretty import PrettyPrinter  # noqa: E402
+from . import extra  # noqa: E402
+from .printing import (  # noqa: E402
+    TableForm, dotprint, glsl_code, jscode, julia_code, latex, maple_code,
+    mathematica_code, mathml, multiline_latex, octave_code, pager_print,
+    pprint, pretty, pretty_print, pprint_try_use_unicode, pprint_use_unicode,
+    preview, print_fcode, print_glsl, print_gtk, print_jscode, print_latex,
+    print_maple_code, print_mathml, print_python, print_rcode, print_tree,
+    python, rcode, smtlib_code, sstr, sstrrepr, ccode, cxxcode,
+)
 from .printing.repr import srepr
 
 __all__ = [n for n in dir() if not n.startswith("_")]

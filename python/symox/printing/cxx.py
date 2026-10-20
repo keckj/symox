@@ -1,188 +1,181 @@
-"""Extensible C++ printers using the SymPy ``_print_Class`` protocol.
-
-The native printers remain available as ``symox.cxxcode``.  This layer
-walks expressions in Python so subclasses can customize every child node.
+"""
+C++ code printer
 """
 
-from .precedence import PRECEDENCE, precedence
-from .printer import Printer
+from itertools import chain
+from symox.codegen.ast import Type, none
+from .codeprinter import requires
+from .c import C89CodePrinter, C99CodePrinter
+
+# These are defined in the other file so we can avoid importing sympy.codegen
+# from the top-level 'import sympy'. Export them here as well.
+from symox.printing.codeprinter import cxxcode # noqa:F401
+
+# from https://en.cppreference.com/w/cpp/keyword
+reserved = {
+    'C++98': [
+        'and', 'and_eq', 'asm', 'auto', 'bitand', 'bitor', 'bool', 'break',
+        'case', 'catch,', 'char', 'class', 'compl', 'const', 'const_cast',
+        'continue', 'default', 'delete', 'do', 'double', 'dynamic_cast',
+        'else', 'enum', 'explicit', 'export', 'extern', 'false', 'float',
+        'for', 'friend', 'goto', 'if', 'inline', 'int', 'long', 'mutable',
+        'namespace', 'new', 'not', 'not_eq', 'operator', 'or', 'or_eq',
+        'private', 'protected', 'public', 'register', 'reinterpret_cast',
+        'return', 'short', 'signed', 'sizeof', 'static', 'static_cast',
+        'struct', 'switch', 'template', 'this', 'throw', 'true', 'try',
+        'typedef', 'typeid', 'typename', 'union', 'unsigned', 'using',
+        'virtual', 'void', 'volatile', 'wchar_t', 'while', 'xor', 'xor_eq'
+    ]
+}
+
+reserved['C++11'] = reserved['C++98'][:] + [
+    'alignas', 'alignof', 'char16_t', 'char32_t', 'constexpr', 'decltype',
+    'noexcept', 'nullptr', 'static_assert', 'thread_local'
+]
+reserved['C++17'] = reserved['C++11'][:]
+reserved['C++17'].remove('register')
+# TM TS: atomic_cancel, atomic_commit, atomic_noexcept, synchronized
+# concepts TS: concept, requires
+# module TS: import, module
 
 
-class CXX17CodePrinter(Printer):
-    standard = "C++17"
-    language = "C++"
+_math_functions = {
+    'C++98': {
+        'Mod': 'fmod',
+        'ceiling': 'ceil',
+    },
+    'C++11': {
+        'gamma': 'tgamma',
+    },
+    'C++17': {
+        'beta': 'beta',
+        'Ei': 'expint',
+        'zeta': 'riemann_zeta',
+    }
+}
+
+# from https://en.cppreference.com/w/cpp/header/cmath
+for k in ('Abs', 'exp', 'log', 'log10', 'sqrt', 'sin', 'cos', 'tan',  # 'Pow'
+          'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'floor'):
+    _math_functions['C++98'][k] = k.lower()
+
+
+for k in ('asinh', 'acosh', 'atanh', 'erf', 'erfc'):
+    _math_functions['C++11'][k] = k.lower()
+
+
+def _attach_print_method(cls, sympy_name, func_name):
+    meth_name = '_print_%s' % sympy_name
+    if hasattr(cls, meth_name):
+        raise ValueError("Edit method (or subclass) instead of overwriting.")
+    def _print_method(self, expr):
+        return '{}{}({})'.format(self._ns, func_name, ', '.join(map(self._print, expr.args)))
+    _print_method.__doc__ = "Prints code for %s" % k
+    setattr(cls, meth_name, _print_method)
+
+
+def _attach_print_methods(cls, cont):
+    for sympy_name, cxx_name in cont[cls.standard].items():
+        _attach_print_method(cls, sympy_name, cxx_name)
+
+
+class _CXXCodePrinterBase:
     printmethod = "_cxxcode"
-    _default_settings = {"order": None, "precision": 17, "user_functions": {}, "strict": True}
+    language = 'C++'
+    _ns = 'std::'  # namespace
 
-    def __init__(self, settings=None, **kwargs):
-        super().__init__(settings, **kwargs)
-        self.known_functions = dict(self._settings.get("user_functions", {}))
+    def __init__(self, settings=None):
+        super().__init__(settings or {})
 
-    def doprint(self, expr, assign_to=None):
-        from symox import sympify
-        from symox.codegen.ast import Assignment
-        if assign_to is not None:
-            expr = Assignment(assign_to, expr)
-        if not hasattr(expr, "args"):
-            expr = sympify(expr)
-        return self._print(expr)
+    @requires(headers={'algorithm'})
+    def _print_Max(self, expr):
+        from symox.functions.elementary.miscellaneous import Max
+        if len(expr.args) == 1:
+            return self._print(expr.args[0])
+        return "%smax(%s, %s)" % (self._ns, self._print(expr.args[0]),
+                                  self._print(Max(*expr.args[1:])))
 
-    def parenthesize(self, item, level, strict=False):
-        value = self._print(item)
-        p = precedence(item)
-        return f"({value})" if p < level or (not strict and p == level) else value
+    @requires(headers={'algorithm'})
+    def _print_Min(self, expr):
+        from symox.functions.elementary.miscellaneous import Min
+        if len(expr.args) == 1:
+            return self._print(expr.args[0])
+        return "%smin(%s, %s)" % (self._ns, self._print(expr.args[0]),
+                                  self._print(Min(*expr.args[1:])))
 
-    def _print_Symbol(self, expr):
-        return expr.name
-
-    def _print_MatrixSymbol(self, expr):
-        return self._print_Symbol(expr)
-
-    def _print_Dummy(self, expr):
-        from symox import _core
-        return _core.cxxcode(expr)
-
-    def _print_MatrixElement(self, expr):
-        parent, row, column = expr.args
-        if getattr(parent, "kind", None) in ("FunctionMatrix", "ElementwiseApplyFunction"):
-            return self._print(parent[row, column])
-        if getattr(parent, "kind", None) != "MatrixSymbol":
-            raise NotImplementedError("Materialize the matrix operation before printing a scalar entry")
-        return f"{parent.name}[{self._print(row * parent.cols + column)}]"
-
-    def _print_Integer(self, expr):
-        return str(int(expr))
-
-    def _print_Rational(self, expr):
-        return f"{expr.p}.0/{expr.q}.0"
-
-    def _print_Float(self, expr):
-        from symox import _core
-        return _core.cxxcode(expr)
-
-    def _print_Add(self, expr):
-        args = expr.args
-        if self.order not in ("none", "old"):
-            args = expr.as_ordered_terms()
-        parts = []
-        for term in args:
-            printed = self._print(term)
-            if printed.startswith("-"):
-                parts.append((" - " if parts else "-") + printed[1:])
-            else:
-                parts.append((" + " if parts else "") + printed)
-        return "".join(parts)
-
-    def _print_Mul(self, expr):
-        from symox import Integer
-        args = expr.args
-        if self.order not in ("none", "old"):
-            args = expr.as_ordered_factors()
-        numerator, denominator = [], []
-        sign = ""
-        for item in args:
-            if getattr(item, "is_Number", False) and item.is_negative:
-                sign = "" if sign else "-"
-                item = -item
-                if item == 1:
-                    continue
-            if (item.is_commutative and item.is_Pow and item.exp.is_Rational
-                    and item.exp.is_negative):
-                denominator.append(item.args[0] ** (-item.exp))
-            else:
-                numerator.append(item)
-        if not numerator:
-            numerator = [Integer(1)]
-        level = precedence(expr)
-        if len(numerator) == 1 and sign:
-            top = self.parenthesize(numerator[0], (PRECEDENCE["Mul"] + PRECEDENCE["Pow"]) / 2)
+    def _print_using(self, expr):
+        if expr.alias == none:
+            return 'using %s' % expr.type
         else:
-            top = "*".join(self.parenthesize(item, level) for item in numerator)
-        if not denominator:
-            return sign + top
-        bottom = "*".join(self.parenthesize(item, level) for item in denominator)
-        if len(denominator) > 1:
-            bottom = f"({bottom})"
-        return sign + top + "/" + bottom
+            raise ValueError("C++98 does not support type aliases")
 
-    def _print_Pow(self, expr):
-        base, exponent = expr.args
-        if exponent == -1:
-            return "1.0/" + self.parenthesize(base, PRECEDENCE["Pow"])
-        from symox import Rational
-        if exponent == Rational(1, 2):
-            return f"std::sqrt({self._print(base)})"
-        if exponent == Rational(1, 3):
-            return f"std::cbrt({self._print(base)})"
-        return f"std::pow({self._print(base)}, {self._print(exponent)})"
+    def _print_Raise(self, rs):
+        arg, = rs.args
+        return 'throw %s' % self._print(arg)
 
-    def _print_UnevaluatedExpr(self, expr):
-        return self._print(expr.args[0])
+    @requires(headers={'stdexcept'})
+    def _print_RuntimeError_(self, re):
+        message, = re.args
+        return "%sruntime_error(%s)" % (self._ns, self._print(message))
 
-    def _print_Assignment(self, expr):
-        from symox import MatrixSymbol
-        from symox.codegen.ast import Assignment
-        if isinstance(expr.lhs,MatrixSymbol):
-            if expr.rhs.shape!=expr.lhs.shape:
-                raise ValueError('Dimensions of lhs and rhs do not align.')
-            return '\n'.join(self._print(Assignment(expr.lhs[i,j],expr.rhs[i,j]))
-                             for i,j in self._traverse_matrix_indices(expr.lhs))
-        return f"{self._print(expr.lhs)} = {self._print(expr.rhs)};"
 
-    def _traverse_matrix_indices(self, matrix):
-        rows,columns=matrix.shape
-        return ((i,j) for i in range(rows) for j in range(columns))
+class CXX98CodePrinter(_CXXCodePrinterBase, C89CodePrinter):
+    standard = 'C++98'
+    reserved_words = set(reserved['C++98'])
 
-    def _print_Comment(self, expr):
-        return "/* " + expr.text + " */"
 
-    def _print_CodeBlock(self, expr):
-        # SymPy's block printer terminates comments as statements, too.
-        return "\n".join(self._print(arg).rstrip(";") + ";" for arg in expr.args)
+# _attach_print_methods(CXX98CodePrinter, _math_functions)
 
-    def _print_IndexedBase(self, expr):
-        return self._print(expr.label)
 
-    def _print_Indexed(self, expr):
-        from symox import Integer
-        if len(expr.indices) == 1:
-            index = expr.indices[0]
-        elif expr.base.shape is not None:
-            index = Integer(0)
-            stride = Integer(1)
-            for idx, size in zip(reversed(expr.indices), reversed(expr.base.shape)):
-                index += idx * stride
-                stride *= size
+class CXX11CodePrinter(_CXXCodePrinterBase, C99CodePrinter):
+    standard = 'C++11'
+    reserved_words = set(reserved['C++11'])
+    type_mappings = dict(chain(
+        CXX98CodePrinter.type_mappings.items(),
+        {
+            Type('int8'): ('int8_t', {'cstdint'}),
+            Type('int16'): ('int16_t', {'cstdint'}),
+            Type('int32'): ('int32_t', {'cstdint'}),
+            Type('int64'): ('int64_t', {'cstdint'}),
+            Type('uint8'): ('uint8_t', {'cstdint'}),
+            Type('uint16'): ('uint16_t', {'cstdint'}),
+            Type('uint32'): ('uint32_t', {'cstdint'}),
+            Type('uint64'): ('uint64_t', {'cstdint'}),
+            Type('complex64'): ('std::complex<float>', {'complex'}),
+            Type('complex128'): ('std::complex<double>', {'complex'}),
+            Type('bool'): ('bool', None),
+        }.items()
+    ))
+
+    def _print_using(self, expr):
+        if expr.alias == none:
+            return super()._print_using(expr)
         else:
-            raise ValueError("Multidimensional indexed references need a shape")
-        return f"{self._print(expr.base)}[{self._print(index)}]"
+            return 'using %(alias)s = %(type)s' % expr.kwargs(apply=self._print)
 
-    def emptyPrinter(self, expr):
-        name = getattr(expr, "class_name", type(expr).__name__)
-        if getattr(expr, "is_Function", False):
-            function = self.known_functions.get(name)
-            if function is None:
-                if (getattr(expr, "is_UndefinedFunction", False)
-                        or any(cls.__name__ == "AppliedUndef" for cls in type(expr).__mro__)):
-                    raise TypeError(f"Undefined function {name} needs an explicit user_functions mapping")
-                function = {"Abs": "std::fabs", "ceiling": "std::ceil"}.get(name, "std::" + name)
-            if not isinstance(function, str):
-                function = next((f for test, f in function if test(*expr.args)), name)
-            return f"{function}({', '.join(self._print(a) for a in expr.args)})"
-        # Constants and less common nodes use the existing Rust code printer.
-        from symox import _core
-        try:
-            return _core.cxxcode(expr)
-        except (TypeError, ValueError):
-            if self._settings.get("strict", True):
-                raise TypeError(f"Unsupported expression in C++ printer: {name}") from None
-            return str(expr)
+# _attach_print_methods(CXX11CodePrinter, _math_functions)
 
 
-# The supported expression subset shares its formatting across standards.
-CXX11CodePrinter = CXX17CodePrinter
-CXX98CodePrinter = CXX17CodePrinter
+class CXX17CodePrinter(_CXXCodePrinterBase, C99CodePrinter):
+    standard = 'C++17'
+    reserved_words = set(reserved['C++17'])
+
+    _kf = dict(C99CodePrinter._kf, **_math_functions['C++17'])
+
+    def _print_beta(self, expr):
+        return self._print_math_func(expr)
+
+    def _print_Ei(self, expr):
+        return self._print_math_func(expr)
+
+    def _print_zeta(self, expr):
+        return self._print_math_func(expr)
 
 
-def cxxcode(expr, assign_to=None, standard="c++11", **settings):
-    return CXX17CodePrinter(settings).doprint(expr, assign_to)
+# _attach_print_methods(CXX17CodePrinter, _math_functions)
+
+cxx_code_printers = {
+    'c++98': CXX98CodePrinter,
+    'c++11': CXX11CodePrinter,
+    'c++17': CXX17CodePrinter
+}

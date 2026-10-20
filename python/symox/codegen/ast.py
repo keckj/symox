@@ -52,6 +52,16 @@ class CodegenAST:
             if isinstance(v,tuple):return tuple(replace(x) for x in v)
             return v.xreplace(rule) if hasattr(v,'xreplace') else rule.get(v,v)
         return type(self)(*(replace(v) for v in self.args))
+    def replace(self,query,value,**kwargs):
+        def replace(v):
+            if isinstance(v,tuple):return tuple(replace(x) for x in v)
+            return v.replace(query,value,**kwargs) if hasattr(v,'replace') and not isinstance(v,str) else v
+        return type(self)(*(replace(v) for v in self.args))
+    def kwargs(self,exclude=(),apply=None):
+        """The fields as a dictionary, SymPy's ``Token.kwargs``."""
+        kwargs={k:getattr(self,k) for k in self._fields if k not in exclude}
+        if apply is not None:return {k:apply(v) for k,v in kwargs.items()}
+        return kwargs
     def has(self,*patterns):return any(self==p or isinstance(p,type) and isinstance(self,p) for p in patterns) or any(getattr(v,'has',lambda *p:False)(*patterns) for v in self.args)
 
 
@@ -78,7 +88,11 @@ class _Expression:
 
 class Token(CodegenAST):pass
 class NoneToken(Token):
+    # SymPy's NoneToken compares equal to None.
     def __bool__(self):return False
+    def __eq__(self,other):return other is None or isinstance(other,NoneToken)
+    def __hash__(self):return hash(())
+    def __str__(self):return 'None'
 class BreakToken(Token):pass
 class ContinueToken(Token):pass
 none=NoneToken();break_=BreakToken();continue_=ContinueToken()
@@ -118,9 +132,50 @@ class IntBaseType(Type):pass
 class SignedIntType(IntBaseType):_fields=('name','nbits')
 class UnsignedIntType(IntBaseType):_fields=('name','nbits')
 class FloatBaseType(Type):pass
-class FloatType(FloatBaseType):_fields=('name','nbits','nmant','nexp')
+
+
+class _FloatLimits:
+    """The derived limits of SymPy's ``FloatType``."""
+    @property
+    def max_exponent(self):
+        return _S.Integer(2)**(int(self.nexp) - 1)
+
+    @property
+    def min_exponent(self):
+        return 3 - self.max_exponent
+
+    @property
+    def max(self):
+        two = _S.Integer(2)
+        return (1 - two**-(int(self.nmant) + 1))*two**self.max_exponent
+
+    @property
+    def tiny(self):
+        return _S.Integer(2)**(self.min_exponent - 1)
+
+    @property
+    def eps(self):
+        return _S.Integer(2)**(-int(self.nmant))
+
+    @property
+    def dig(self):
+        return _S.floor(int(self.nmant)*_S.log(2)/_S.log(10))
+
+    @property
+    def decimal_dig(self):
+        return _S.ceiling((int(self.nmant) + 1)*_S.log(2)/_S.log(10) + 1)
+
+    def cast_nocheck(self, value):
+        if value == _S.oo:
+            return float('inf')
+        elif value == -_S.oo:
+            return float('-inf')
+        return _S.Float(str(_S.sympify(value).evalf(self.decimal_dig)), self.decimal_dig)
+
+
+class FloatType(_FloatLimits,FloatBaseType):_fields=('name','nbits','nmant','nexp')
 class ComplexBaseType(Type):pass
-class ComplexType(ComplexBaseType):_fields=('name','nbits','nmant','nexp')
+class ComplexType(_FloatLimits,ComplexBaseType):_fields=('name','nbits','nmant','nexp')
 
 untyped=Type('untyped');integer=IntBaseType('integer');intc=SignedIntType('intc',32)
 real=FloatBaseType('real');float32=FloatType('float32',32,23,8);float64=FloatType('float64',64,52,11);float80=FloatType('float80',80,63,15)
@@ -167,10 +222,23 @@ class Stream(CodegenAST):_fields=('name',)
 stdout=Stream('stdout');stderr=Stream('stderr')
 class Print(CodegenAST):
     _fields=('print_args','format_string','file');defaults={'format_string':none,'file':none}
+def _check_assignment(lhs,rhs):
+    """The matrix structure checks of SymPy's ``AssignmentBase._check_args``."""
+    lhs_is_mat=hasattr(lhs,'shape') and not isinstance(lhs,Indexed)
+    rhs_is_mat=hasattr(rhs,'shape') and not isinstance(rhs,Indexed)
+    if lhs_is_mat:
+        if not rhs_is_mat:raise ValueError("Cannot assign a scalar to a matrix.")
+        elif lhs.shape!=rhs.shape:raise ValueError("Dimensions of lhs and rhs do not align.")
+    elif rhs_is_mat and not lhs_is_mat:raise ValueError("Cannot assign a matrix to a scalar.")
 class AssignmentBase(CodegenAST):
     _fields=('lhs','rhs')
-    def __init__(self,lhs,rhs):super().__init__(_expression(lhs),_expression(rhs))
-class AugmentedAssignment(AssignmentBase):binop=''
+    def __init__(self,lhs,rhs):
+        lhs,rhs=_expression(lhs),_expression(rhs);_check_assignment(lhs,rhs)
+        super().__init__(lhs,rhs)
+class AugmentedAssignment(AssignmentBase):
+    binop=''
+    @property
+    def op(self):return self.binop+'='
 class AddAugmentedAssignment(AugmentedAssignment):binop='+'
 class SubAugmentedAssignment(AugmentedAssignment):binop='-'
 class MulAugmentedAssignment(AugmentedAssignment):binop='*'
@@ -193,10 +261,13 @@ def _expression(value):
 class Assignment(AssignmentBase):
     lhs: object
     rhs: object
+    op = ':='
 
     def __init__(self, lhs, rhs):
-        object.__setattr__(self, "lhs", _expression(lhs))
-        object.__setattr__(self, "rhs", _expression(rhs))
+        lhs, rhs = _expression(lhs), _expression(rhs)
+        _check_assignment(lhs, rhs)
+        object.__setattr__(self, "lhs", lhs)
+        object.__setattr__(self, "rhs", rhs)
 
     @property
     def args(self):
@@ -229,6 +300,9 @@ class Comment(Token):
     def __post_init__(self):
         object.__setattr__(self, "text", str(self.text))
 
+    def __str__(self):
+        return self.text
+
     @property
     def args(self):
         return (self.text,)
@@ -241,12 +315,24 @@ class _IndexedArithmetic:
     is_Number = False
     is_negative = None
     is_Pow = False
+    is_Matrix = False
     is_Atom = True
     is_commutative = True
 
     def _symox_(self):
         from symox import Symbol
         return Symbol(str(self))
+
+    def has(self, *patterns):
+        return any(self == p or isinstance(p, type) and isinstance(self, p) for p in patterns) or any(
+            getattr(a, 'has', lambda *p: False)(*patterns) for a in self.args)
+
+    def atoms(self, *types):
+        found = {self} if not types or isinstance(self, types) else set()
+        for a in self.args:
+            if hasattr(a, 'atoms'):
+                found |= a.atoms(*types)
+        return found
 
     def __add__(self, other): return self._symox_() + other
     def __radd__(self, other): return other + self._symox_()
@@ -312,12 +398,37 @@ class Indexed(_IndexedArithmetic):
     def __str__(self):
         return f"{self.base}[{', '.join(map(str, self.indices))}]"
 
+    @property
+    def rank(self):
+        return len(self.indices)
+
+    @property
+    def shape(self):
+        """The base shape, or else the ranges of the indices, as SymPy's
+        ``Indexed.shape``."""
+        if self.base.shape:
+            return self.base.shape
+        from symox import Tuple
+        from symox.tensor.indexed import IndexException
+        sizes = []
+        for i in self.indices:
+            upper = getattr(i, 'upper', None)
+            lower = getattr(i, 'lower', None)
+            if None in (upper, lower):
+                raise IndexException("Range is not defined for all indices in: %s" % self)
+            try:
+                size = upper - lower + 1
+            except TypeError:
+                raise IndexException("Shape cannot be inferred from Idx with undefined range: %s" % self)
+            sizes.append(size)
+        return Tuple(*sizes)
+
     def _symox_(self):
         # Flatten multidimensional references consistently when they enter
         # native scalar arithmetic (whose atoms are scalar symbols).
         from symox import Symbol
-        from symox.printing.cxx import CXX17CodePrinter
-        return Symbol(CXX17CodePrinter().doprint(self))
+        from symox.printing._legacy import LegacyCXX17CodePrinter
+        return Symbol(LegacyCXX17CodePrinter().doprint(self))
 
 __all__ = [name for name,value in globals().items() if not name.startswith("_") and (isinstance(value,type) and issubclass(value,CodegenAST) or name in ("aug_assign",))]
 __all__ += 'untyped integer intc real float32 float64 float80 complex_ complex64 complex128 bool_ void int8 int16 int32 int64 uint8 uint16 uint32 uint64 value_const pointer_const restrict volatile none break_ continue_ stdout stderr Indexed IndexedBase'.split()

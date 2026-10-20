@@ -1,6 +1,6 @@
 """Debug pretty printing using the existing native layout engine."""
 
-from ..printer import Printer
+from .._legacy import LegacyPrinter as Printer
 
 
 _use_unicode=True

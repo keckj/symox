@@ -5,7 +5,7 @@ compatible with the active NumPy version.
 """
 from functools import reduce
 import math
-from .printer import Printer
+from ._legacy import LegacyPrinter as Printer
 from .._kind import matrix_tag
 _global_cache={}
 

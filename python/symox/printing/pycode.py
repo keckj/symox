@@ -1,7 +1,7 @@
 """Extensible Python, NumPy and arbitrary-precision expression printers."""
 import ast
 import keyword
-from .cxx import CXX17CodePrinter
+from ._legacy import LegacyCXX17CodePrinter as CXX17CodePrinter
 from .precedence import PRECEDENCE
 from ._nodes import NodePrinter
 

@@ -1,6 +1,6 @@
 """Typed SMT-LIB expressions and declarations for native scalar constraints."""
 import re
-from .printer import Printer
+from ._legacy import LegacyPrinter as Printer
 
 
 class SMTLibPrinter(Printer):

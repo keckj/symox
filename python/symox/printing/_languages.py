@@ -1,5 +1,5 @@
 """Scalar expression emitters for JavaScript, Julia, Octave, R and CAS targets."""
-from .cxx import CXX17CodePrinter
+from ._legacy import LegacyCXX17CodePrinter as CXX17CodePrinter
 from .precedence import PRECEDENCE
 
 _CONSTANTS={

@@ -1,5 +1,5 @@
 """C language statements, aggregates and side-effecting expressions."""
-from .ast import CodegenAST,Token,none,_Expression
+from .ast import CodegenAST,Token,none,_Expression,restrict,volatile
 import symox as S
 
 class _Unary(CodegenAST,_Expression):
@@ -21,4 +21,4 @@ class sizeof(Token,_Expression):
 class alignof(sizeof):pass
 class struct(Token):_fields=('name','declarations');defaults={'name':none}
 class union(struct):pass
-__all__=['PreIncrement','PreDecrement','PostIncrement','PostDecrement','CommaOperator','Label','goto','sizeof','alignof','struct','union']
+__all__=['restrict','volatile','PreIncrement','PreDecrement','PostIncrement','PostDecrement','CommaOperator','Label','goto','sizeof','alignof','struct','union']

@@ -2,7 +2,7 @@
 from symox._core import rust_code
 __all__ = ['rust_code']
 
-from .codeprinter import CodePrinter
+from ._legacy import LegacyCodePrinter as CodePrinter
 class RustCodePrinter(CodePrinter):
     language='Rust';printmethod='_rust_code';_style='rust'
     def __init__(self,*args,**kwargs):
