@@ -151,7 +151,8 @@ def _common_period(periods):
 
 def periodicity(f, symbol, check=False):
     """Find a real period; return None when this structural search finds none."""
-    from .. import S, Dummy, Expr, pi, Abs, im, simplify, trigsimp
+    from .. import S, Dummy, pi, Abs, im, simplify, trigsimp
+    from .._core import Expr
     f=scalar(f)
     symbol=variable(symbol)
     # Periodicity is with respect to a real independent variable. This

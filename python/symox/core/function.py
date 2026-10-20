@@ -10,21 +10,7 @@ from .._compat import _ExprType
 class ArgumentIndexError(ValueError):
     def __init__(self,function,index):self.function,self.index=function,index;super().__init__('invalid argument index %s for %s'%(index,function))
 
-class Application(metaclass=_ExprType):
-    _matches=staticmethod(lambda e:e.is_Function)
-    def __new__(cls,*args):
-        if cls is Application:raise TypeError('instantiate a concrete function application')
-        return Function(cls.__name__)(*args)
-class DefinedFunction(Application):
-    _matches=staticmethod(lambda e:e.is_Function and not e.is_UndefinedFunction)
-    def __new__(cls,*args):
-        from symox import sympify
-        values=tuple(sympify(a) for a in args)
-        evaluator=getattr(cls,'eval',None)
-        if evaluator:
-            result=evaluator(*values)
-            if result is not None:return sympify(result)
-        return Function(cls.__name__)(*values)
+from .._function_heads import Application, DefinedFunction  # noqa: E402
 class AppliedUndef(Application):_matches=staticmethod(lambda e:e.is_UndefinedFunction)
 
 class _UndefinedFunctionType(type):

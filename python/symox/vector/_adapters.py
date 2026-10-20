@@ -6,7 +6,7 @@ from .._dispatch_arguments import FirstArgument
 def install():
     import symox
     from ._basis import _BasisDependent
-    Expr = symox.Expr
+    Expr = symox._core.Expr
     if getattr(Expr,'_coordinate_vector_dispatch_installed',False):
         return
     for name in ('__add__','__sub__','__mul__','__truediv__'):

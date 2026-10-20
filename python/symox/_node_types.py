@@ -18,6 +18,7 @@ import sys
 import weakref
 
 from . import _core
+from ._basic import nominal_hash
 from ._host import HostTree
 from ._sympy_classes import CLASSES
 
@@ -51,6 +52,24 @@ class NodeType(type):
         if _is_function_class(cls):
             return cls.__name__
         return sympy_class_repr(cls) or type.__repr__(cls)
+
+    # SymPy's public class of a node is its type: ``type(expr) == Eq``,
+    # ``type(expr) in (Eq, Ne)`` and lookups of ``type(expr)`` in a dictionary
+    # keyed by public classes hold. The public symox class compares equal to
+    # the nominal class of its nodes, and both hash by name.
+    __hash__ = nominal_hash
+
+    def __eq__(cls, other):
+        if cls is other:
+            return True
+        if isinstance(other, type) and not isinstance(other, NodeType) and other is public_class(cls) \
+                and hash(other) == hash(cls):
+            return True
+        return NotImplemented
+
+    def __ne__(cls, other):
+        equal = NodeType.__eq__(cls, other)
+        return equal if equal is NotImplemented else not equal
 
     def __call__(cls, *args, **kwargs):
         # ``type(expr)(*args)`` rebuilds a node in SymPy. Native nodes are
@@ -156,6 +175,20 @@ def _public_constructor(name):
     return None
 
 
+def public_class(cls):
+    """The public symox class of a nominal class, from loaded modules only."""
+    name = type.__dict__['__name__'].__get__(cls)
+    entry = CLASSES.get(name)
+    if entry is None:
+        return None
+    for module_name in ('symox'+entry[0][len('sympy'):], 'symox'):
+        module = sys.modules.get(module_name)
+        value = getattr(module, '__dict__', {}).get(name)
+        if isinstance(value, type) and not isinstance(value, NodeType):
+            return value
+    return None
+
+
 def _restore_class(name):
     cls = node_class(name)
     if cls is None:
@@ -199,8 +232,9 @@ _sage_placeholder.__name__ = _sage_placeholder.__qualname__ = '_sage_'
 
 
 def _patchable(name):
+    # ABCMeta stores its registry on the class it initialises.
     return not (name.startswith('__') and name.endswith('__')) and not name.startswith('_symox') \
-        and name != '_matches'
+        and not name.startswith('_abc_') and name != '_matches'
 
 
 def class_attribute(name, attribute):

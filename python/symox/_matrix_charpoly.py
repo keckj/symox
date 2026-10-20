@@ -7,7 +7,8 @@ def install(matrix):
     def charpoly(self, x=None, simplify=None):
         if simplify is None:
             return native(self, x)
-        from . import Add, Expr, PurePoly, construct_domain, sympify
+        from . import Add, PurePoly, construct_domain, sympify
+        from ._core import Expr
         if not callable(simplify) or isinstance(simplify, Expr) and not simplify.is_Lambda:
             raise TypeError('simplify must be callable or None')
         # The native constructor handles generator identity and coefficient

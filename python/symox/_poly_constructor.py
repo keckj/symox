@@ -61,7 +61,8 @@ def _options(gens,domain,modulus,extension,kwargs):
     if 'extension' in args and args['extension'] is False:
         raise OptionError("'False' is an invalid argument for 'extension'")
     if args.get('extension')==1:args['extension']=True
-    from . import Expr,sympify
+    from . import sympify
+    from ._core import Expr
     wanted=gens or args.get('gens',())
     if isinstance(wanted,Expr):wanted=(wanted,)
     elif len(wanted)==1 and isinstance(wanted[0],(list,tuple)):wanted=wanted[0]
@@ -80,7 +81,7 @@ def _sort(gens,args):
     elif hasattr(sort,'__getitem__'):sort=list(map(str,sort))
     else:raise OptionError("invalid argument for 'sort' option")
     wrt=args.get('wrt',())
-    from . import Expr
+    from ._core import Expr
     if isinstance(wrt,Expr):wrt=[str(wrt)]
     elif isinstance(wrt,str):
         if wrt.strip().endswith(','):raise OptionError('Bad input: missing parameter.')

@@ -18,7 +18,8 @@ def _head(value):
 
 
 def _is_expr(value):
-    from . import Expr, MatrixExpr, Tuple
+    from . import MatrixExpr, Tuple
+    from ._core import Expr
     if isinstance(value,MatrixExpr):return True
     if not isinstance(value,Expr) or isinstance(value,Tuple):return False
     if getattr(value,'is_UndefinedFunction',False):return True
@@ -31,8 +32,8 @@ def _is_function(value):
 
 
 def matcher(query, matching=True):
-    from . import (Expr, Function, Atom, AtomicExpr, Tuple, AlgebraicNumber,
-                  sympify, _is_function_head, __dict__ as namespace)
+    from . import (Function, Atom, AtomicExpr, Tuple, AlgebraicNumber, sympify, _is_function_head, __dict__ as namespace)
+    from ._core import Expr
     from . import _core
     from ._node_types import native_module
     from .combinatorics import Permutation
@@ -53,7 +54,7 @@ def matcher(query, matching=True):
     if isinstance(query,Permutation):return lambda value:isinstance(value,Permutation) and value==query
     if isinstance(query,AlgebraicNumber):return lambda value:isinstance(value,AlgebraicNumber) and value==query
     if isinstance(query,_core.Head):return lambda value:getattr(value,'func',None)==query
-    if query is Expr:return _is_expr
+    if query is Expr or (isinstance(query,type) and '_symox_expr_facade' in query.__dict__):return _is_expr
     if query is Function:return _is_function
     if query is Atom:return lambda value:bool(getattr(value,'is_Atom',False)) and _head(value) not in {
         'BooleanTrue','BooleanFalse','true','false'}
@@ -79,7 +80,8 @@ def matcher(query, matching=True):
 
 
 def _graph(expression):
-    from . import Expr, Set, _wrap_set, sympify
+    from . import Set, _wrap_set, sympify
+    from ._core import Expr
     from ._matrixexpr_methods import _children, _TupleView
     owners={}
     def normalize(value):

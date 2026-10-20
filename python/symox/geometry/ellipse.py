@@ -205,7 +205,8 @@ class Circle(Ellipse):
     __slots__ = ()
 
     def __new__(cls, center, radius=None, third=None, **kwargs):
-        from .. import sqrt,Expr,Poly
+        from .. import sqrt, Poly
+        from .._core import Expr
         kwargs.pop('evaluate', None)
         x,y=kwargs.pop('x','x'),kwargs.pop('y','y')
         if kwargs:

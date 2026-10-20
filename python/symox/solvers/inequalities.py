@@ -128,7 +128,8 @@ def reduce_rational_inequalities(exprs,gen,relational=True):
 
 
 def _abs_domain(expr,rel,gen):
-    from .. import Expr,Symbol,Dummy,S,Union,sympify
+    from .. import Symbol, Dummy, S, Union, sympify
+    from .._core import Expr
     gen=sympify(gen);expression=sympify(expr)
     if not isinstance(gen,Symbol):raise TypeError('The inequality variable must be a symbol')
     if gen.is_extended_real is False:raise TypeError('Absolute-value inequalities require a real variable')
@@ -192,7 +193,8 @@ def reduce_abs_inequalities(exprs,gen):
 
 
 def _reduce_abs_system(inequalities,symbols):
-    from .. import Abs,Expr,Eq,S,Symbol,solve_univariate_inequality,sympify
+    from .. import Abs, Eq, S, Symbol, solve_univariate_inequality, sympify
+    from .._core import Expr
     conditions=[sympify(condition) for condition in inequalities] if isinstance(inequalities,(list,tuple,set)) else [sympify(inequalities)]
     if not any(condition.has(Abs) for condition in conditions):
         raise NotImplementedError('This is not an absolute-value inequality system')

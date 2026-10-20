@@ -10,7 +10,8 @@ class ArrayComprehension:
     __slots__ = ('_function','_limits')
 
     def __new__(cls,function,*symbols,**assumptions):
-        from ... import sympify,Expr
+        from ... import sympify
+        from ..._core import Expr
         if assumptions:
             raise TypeError('Array comprehensions do not accept assumptions')
         result = object.__new__(cls)

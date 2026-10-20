@@ -95,49 +95,9 @@ def _matrix_part(name, M):
     return ImmutableMatrix(value)
 
 
-class _BuiltinFunctionHead:
-    """Stable public callable identity and symbolic spelling for native heads."""
-    def __init__(self, name, factory):
-        import inspect
-        self.__name__ = self.__qualname__ = self._symox_head_name = name
-        self.__doc__ = factory.__doc__
-        self.__module__ = factory.__module__
-        self.__signature__ = inspect.signature(factory)
-        self._factory = factory
-
-    def __call__(self, *args, **kwargs):
-        return self._factory(*args, **kwargs)
-
-    def __getattr__(self, name):
-        if name == '_factory':
-            raise AttributeError(name)
-        # SymPy heads are classes: attributes patched onto them or onto a
-        # base class such as Function are visible on the head itself.
-        try:
-            return _node_types.class_attribute(self.__name__, name)
-        except AttributeError:
-            return getattr(self._factory, name)
-
-    def __setattr__(self, name, value):
-        object.__setattr__(self, name, value)
-        if '_factory' in self.__dict__:
-            _node_types.forward_setattr(self, self.__name__, name, value)
-
-    def __delattr__(self, name):
-        object.__delattr__(self, name)
-        _node_types.forward_delattr(self, self.__name__, name)
-
-    def __repr__(self):
-        return self.__name__
-
-    __str__ = __repr__
-
-    def __instancecheck__(self, value):
-        # SymPy function heads are classes: isinstance(f(x), f).
-        return isinstance(value, _core.Expr) and value.func is self
-
-    def __reduce__(self):
-        return _public_function_head, (self.__name__,)
+# Public heads of the native functions: classes for SymPy's function classes
+# (see _function_heads).
+from ._function_heads import builtin_head as _BuiltinFunctionHead  # noqa: E402
 
 
 def _public_function_head(name):
@@ -210,6 +170,15 @@ ln = log
 Abs = globals()["Abs"]
 
 
+def _nominal_function(cls):
+    # SymPy's applied function classes (sin, the classes of undefined
+    # applications, user classes derived from them) derive from Function.
+    if not isinstance(cls, type) or cls is _core.Expr:
+        return False
+    nominal = cls if isinstance(cls, _node_types.NodeType) else _node_types.nominal_anchor(cls)
+    return nominal is not None and issubclass(nominal, _node_types.node_class('Function'))
+
+
 class _FunctionType(type):
     """Metaclass of Function: ``class F(Function)`` defines a native function class."""
 
@@ -225,13 +194,14 @@ class _FunctionType(type):
         if type.__instancecheck__(cls, value):
             return True
         from ._host import is_host_function_class
-        return cls is Function and is_host_function_class(type(value))
+        return cls is Function and (is_host_function_class(type(value)) or (
+            isinstance(value, _core.Expr) and _nominal_function(type(value))))
 
     def __subclasscheck__(cls, subclass):
         if type.__subclasscheck__(cls, subclass):
             return True
         from ._host import is_host_function_class
-        return cls is Function and is_host_function_class(subclass)
+        return cls is Function and (is_host_function_class(subclass) or _nominal_function(subclass))
 
     # SymPy's Function is the base class of every applied head. Patches of
     # it live on its nominal node class, so that undefined heads (instances
@@ -343,7 +313,7 @@ class _CalculusMeta(type):
     def class_key(cls):return (5,0,cls.__name__)
 
     def __instancecheck__(cls, value):
-        return isinstance(value, Expr) and getattr(value, 'is_'+cls.__name__, False)
+        return isinstance(value, _core.Expr) and getattr(value, 'is_'+cls.__name__, False)
 
     __subclasscheck__ = _ExprType.__subclasscheck__
     __setattr__ = _ExprType.__setattr__
@@ -380,7 +350,7 @@ from ._concrete import ReorderError  # noqa: E402
 
 class _SubsMeta(_CalculusMeta):
     def __instancecheck__(cls, value):
-        return isinstance(value, Expr) and value.is_Subs
+        return isinstance(value, _core.Expr) and value.is_Subs
 
 
 class Subs(metaclass=_SubsMeta):
@@ -900,12 +870,18 @@ Expr.__rlshift__ = lambda a, b: Implies(a, b)
 # sets ------------------------------------------------------------------------
 
 _SET_CLASSES = {}
+_NAMED_SETS = {}
 
 
 def _wrap_set(e):
     """Wrap a core expression into the matching Set class (if it is a set)."""
-    if isinstance(e, Expr):
-        cls = _SET_CLASSES.get(e.class_name)
+    if isinstance(e, _core.Expr):
+        name = e.class_name
+        # The named sets (EmptySet, Reals, ...) are singletons, as in SymPy.
+        single = _NAMED_SETS.get(name)
+        if single is not None:
+            return single
+        cls = _SET_CLASSES.get(name)
         if cls is not None:
             obj = object.__new__(cls)
             obj._e = e
@@ -927,6 +903,7 @@ class Set(metaclass=_node_types.WrapperType):
     """Base class of sets (wraps a core expression)."""
 
     __slots__ = ("_e",)
+    is_Set = True
     is_Interval = False
     is_FiniteSet = False
     is_Union = False
@@ -1249,7 +1226,7 @@ class Union(Set):
     is_Union = True
 
     def __new__(cls, *args):
-        if len(args) == 1 and not isinstance(args[0], (Set, Expr)):
+        if len(args) == 1 and not isinstance(args[0], (Set, _core.Expr)):
             args = tuple(args[0])
         return _wrap_set(_core.Union(*[_unwrap(a) for a in args]))
 
@@ -1259,7 +1236,7 @@ class Intersection(Set):
     is_Intersection = True
 
     def __new__(cls, *args):
-        if len(args) == 1 and not isinstance(args[0], (Set, Expr)):
+        if len(args) == 1 and not isinstance(args[0], (Set, _core.Expr)):
             args = tuple(args[0])
         return _wrap_set(_core.Intersection(*[_unwrap(a) for a in args]))
 
@@ -1312,7 +1289,7 @@ class _LambdaMeta(type):
     def __instancecheck__(cls, value):
         if type(value) is Lambda or type(value) is IdentityFunction:
             return cls is Lambda or value._e.is_IdentityFunction
-        return isinstance(value, Expr) and (value.is_IdentityFunction if cls is IdentityFunction else value.is_Lambda)
+        return isinstance(value, _core.Expr) and (value.is_IdentityFunction if cls is IdentityFunction else value.is_Lambda)
 
 
 def _restore_lambda(value):
@@ -1427,11 +1404,16 @@ class Range(Set):
 class _NamedSet(Set):
     __slots__ = ()
 
+    def __new__(cls):
+        # The named sets are singletons: calling the class returns it.
+        return _NAMED_SETS[cls.__name__]
+
 
 def _named(name, **flags):
     cls = type(_NamedSet)(name, (_NamedSet,), {"__slots__": (), **flags})
     _SET_CLASSES[name] = cls
-    return _wrap_set(_core._named_set(name))
+    single = _NAMED_SETS[name] = _wrap_set(_core._named_set(name))
+    return single
 
 
 for _c in (Interval, FiniteSet, Union, Intersection, Complement, ProductSet, ImageSet,
@@ -1605,7 +1587,7 @@ def _install_poly_methods():
     }
     for name, fn in methods.items():
         try:
-            setattr(Expr, name, fn)
+            setattr(_core.Expr, name, fn)
         except (TypeError, AttributeError):  # immutable extension type
             pass
     try:
@@ -1789,7 +1771,7 @@ Expr.dir = property(lambda self: str(self.args[3]) if self.is_Limit else (_ for 
 
 class _LimitMeta(type):
     def __instancecheck__(cls, value):
-        return isinstance(value, Expr) and value.is_Limit
+        return isinstance(value, _core.Expr) and value.is_Limit
 
 
 class Limit(metaclass=_LimitMeta):
@@ -1863,7 +1845,7 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
     list of ``(Symbol, expr)`` pairs in evaluation order.
     """
     from ._cse_matrices import is_concrete_matrix,flatten
-    single = isinstance(exprs, (Expr, int, float, str)) or is_concrete_matrix(exprs)
+    single = isinstance(exprs, (_core.Expr, int, float, str)) or is_concrete_matrix(exprs)
     if isinstance(exprs, dict):
         keys = _builtins.list(exprs)
         reps, red = cse([exprs[k] for k in keys], symbols, optimizations, postprocess, order, ignore)
@@ -2334,6 +2316,8 @@ simplify = _simplify_callable
 # These are the native modules, so downstream type checks retain identity.
 _import_api_module('.core', __name__)
 _import_api_module('.core.expr', __name__)
+# SymPy's root import also initializes its subpackages as attributes.
+from ._root_modules import install as _install_root_modules
 
 from .utilities.cache import CACHE as _public_caches
 from ._compat import _cached_symbol
@@ -2346,3 +2330,24 @@ _install_distribution_methods(globals())
 
 from ._matrix_subclasses import install as _install_matrix_subclasses
 _install_matrix_subclasses()
+
+# The public Expr class is SymPy's expression category; the native storage
+# type, shared by Boolean and Basic nodes, stays the internal base.
+from ._expr_facade import Expr, _install as _install_expr_facade  # noqa: E402,F811
+_install_expr_facade()
+from ._relational_protocol import install as _install_relational_protocol  # noqa: E402
+_install_relational_protocol()
+from ._relational_properties import install as _install_relational_properties  # noqa: E402
+_install_relational_properties()
+from ._kind import install as _install_kinds  # noqa: E402
+_install_kinds()
+
+_install_root_modules(__name__)
+
+# SymPy's logic gates and Max/Min are classes (logic.boolalg and
+# functions.elementary.miscellaneous); bind them in place of the native
+# constructors captured while the package initialized.
+from ._head_classes import install as _install_head_classes  # noqa: E402
+_install_head_classes(globals())
+from ._fact_cache import install as _install_fact_cache  # noqa: E402
+_install_fact_cache()

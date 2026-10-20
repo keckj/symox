@@ -11,6 +11,7 @@ from fractions import Fraction
 from functools import lru_cache
 
 from . import _core, _node_types
+from ._basic import _BasicMeta
 
 
 def _matrix_operand(value):
@@ -19,7 +20,75 @@ def _matrix_operand(value):
             or getattr(value, '_symox_sparse', False))
 
 
-class _ExprType(type):
+def _is_facade(cls):
+    # The public Expr class (see _expr_facade).
+    return '_symox_expr_facade' in type.__dict__['__dict__'].__get__(cls)
+
+
+def _storage_bases(metaclass, name, bases, namespace, kwargs):
+    """Replace the public Expr class by the native storage type in the bases
+    of a user class; return the class when another metaclass now applies."""
+    if not any(isinstance(base, _ExprType) and _is_facade(base) for base in bases):
+        return bases, None
+    bases = tuple(_core.Expr if isinstance(base, _ExprType) and _is_facade(base) else base
+                  for base in bases)
+    if metaclass is not _ExprType:
+        return bases, None
+    winner = type
+    for base in bases:
+        candidate = type(base)
+        if issubclass(candidate, winner):
+            winner = candidate
+        elif not issubclass(winner, candidate):
+            raise TypeError('metaclass conflict: the metaclass of a derived class must be '
+                            'a (non-strict) subclass of the metaclasses of all its bases')
+    if issubclass(winner, _ExprType):
+        return bases, None
+    return bases, winner(name, bases, namespace, **kwargs)
+
+
+_FACADE_OWN = frozenset(('__doc__', '__module__', '__qualname__', '__name__', '__slots__',
+                         '__annotations__', '__abstractmethods__', '__init_subclass__',
+                         '__class_getitem__', '__dict__', '__weakref__'))
+
+
+def _facade_target(name):
+    # SymPy patches of Expr reach every expression class, so they are
+    # stored on the nominal Expr class, ahead of the native methods.
+    if name in _FACADE_OWN or name.startswith('_symox') or name.startswith('_abc_'):
+        return None
+    return _node_types.node_class('Expr')
+
+
+def _facade_setattr(name, value):
+    target = _facade_target(name)
+    if target is not None:
+        type.__setattr__(target, name, value)
+
+
+def _facade_delattr(name):
+    target = _facade_target(name)
+    if target is not None and name in target.__dict__:
+        type.__delattr__(target, name)
+
+
+def _nominal_subclass(cls, subclass):
+    # Whether SymPy's class standing for ``subclass`` (its nominal class, or
+    # that of the symox class it stands for or derives from) derives from
+    # the SymPy class this symox class stands for.
+    if not _node_types.is_symox_class(cls):
+        return False
+    if isinstance(subclass, _node_types.NodeType):
+        sub = subclass
+    else:
+        sub = _node_types.nominal_anchor(subclass)
+        if sub is None:
+            return False
+    nominal = _node_types.node_class(cls.__name__)
+    return nominal is not None and issubclass(sub, nominal)
+
+
+class _ExprType(_BasicMeta):
     def __getattr__(cls, name):
         # Attributes patched onto the class, and SymPy's own class-level
         # placeholders, live on the nominal node class of the same name.
@@ -43,6 +112,10 @@ class _ExprType(type):
         # User subclasses of Atom, AtomicExpr, Number and NumberSymbol are
         # native expression classes.
         module = namespace.get('__module__', '')
+        if module != 'symox' and not module.startswith('symox.'):
+            bases, created = _storage_bases(metaclass, name, bases, namespace, kwargs)
+            if created is not None:
+                return created
         if module != __name__ and _host_atom_bases(bases):
             from ._host import atom_class
             return atom_class(metaclass, name, bases, namespace, **kwargs)
@@ -58,18 +131,32 @@ class _ExprType(type):
 
     def __instancecheck__(cls, value):
         namespace = cls.__dict__
+        if '_symox_expr_facade' in namespace:
+            from ._expr_facade import is_expr
+            return is_expr(value)
         if '_symox_host' in namespace or '_symox_head' in namespace:
             # User classes are nominal: native nodes are never instances.
             return type.__instancecheck__(cls, value)
         if not isinstance(value, _core.Expr):
             return False
-        if type(value) is not _core.Expr and type.__subclasscheck__(cls, type(value)):
+        kind = type(value)
+        if kind is not _core.Expr and type.__subclasscheck__(cls, kind):
             # Instances of user expression classes (see _host).
+            return True
+        if kind is not _core.Expr and not isinstance(kind, _node_types.NodeType) \
+                and _nominal_subclass(cls, kind):
+            # Instances of user classes derived from a symox class that
+            # SymPy derives from this one (a user subclass of ``sin`` is a
+            # TrigonometricFunction).
             return True
         try:
             matches = cls._matches
         except AttributeError:
-            return False
+            matches = None
+        if matches is None:
+            # Classes without a structural test (SymPy's abstract classes
+            # such as TrigonometricFunction) follow the nominal classes.
+            return isinstance(kind, _node_types.NodeType) and _nominal_subclass(cls, kind)
         return bool(matches(value))
 
     def __subclasscheck__(cls, subclass):
@@ -77,17 +164,24 @@ class _ExprType(type):
         # dispatch keyed by this public class must accept their types.
         if type.__subclasscheck__(cls, subclass):
             return True
-        nominal = (_node_types.node_class(cls.__name__)
-                   if isinstance(subclass, _node_types.NodeType) and _node_types.is_symox_class(cls) else None)
-        return nominal is not None and issubclass(subclass, nominal)
+        if '_symox_expr_facade' in cls.__dict__:
+            from ._expr_facade import is_expr_class
+            return isinstance(subclass, type) and is_expr_class(subclass)
+        return isinstance(subclass, type) and _nominal_subclass(cls, subclass)
 
     def __setattr__(cls, name, value):
         type.__setattr__(cls, name, value)
-        _node_types.forward_setattr(cls, cls.__name__, name, value)
+        if '_symox_expr_facade' in cls.__dict__:
+            _facade_setattr(name, value)
+        else:
+            _node_types.forward_setattr(cls, cls.__name__, name, value)
 
     def __delattr__(cls, name):
         type.__delattr__(cls, name)
-        _node_types.forward_delattr(cls, cls.__name__, name)
+        if '_symox_expr_facade' in cls.__dict__:
+            _facade_delattr(name)
+        else:
+            _node_types.forward_delattr(cls, cls.__name__, name)
 
     def __repr__(cls):
         if _node_types._facade_active() and _node_types.is_symox_class(cls):

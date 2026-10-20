@@ -209,6 +209,9 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
             return Ok(value.unbind());
         }
     }
+    if matches!(e.kind(), Kind::Const(_) | Kind::Bool(_)) {
+        return singleton_atom(py, e);
+    }
     // Differential scalar fields keep their point-evaluation extension on a
     // dedicated subtype. Importing diffgeom must not make all scalars callable.
     if e.mask()!=0 {
@@ -240,6 +243,30 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     node_object(py, e)
 }
 
+// SymPy's other singleton atoms (S.Infinity, S.Pi, S.true, ...) are unique
+// objects as well. The first object created for each once the nominal node
+// classes are registered is the canonical one: every later native result
+// equal to that atom is that very object.
+static SINGLETONS: std::sync::Mutex<Option<FxHashMap<String, PyObject>>> = std::sync::Mutex::new(None);
+
+fn singleton_atom(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    let name = e.class_name().to_string();
+    let cached = SINGLETONS.lock().ok()
+        .and_then(|table| table.as_ref().and_then(|table| table.get(&name).map(|value| value.clone_ref(py))));
+    if let Some(value) = cached {
+        return Ok(value);
+    }
+    let resolved = node_type(py, &e).is_some();
+    let value = node_object(py, e)?;
+    if resolved {
+        if let Ok(mut table) = SINGLETONS.lock() {
+            let table = table.get_or_insert_with(FxHashMap::default);
+            return Ok(table.entry(name).or_insert(value).clone_ref(py));
+        }
+    }
+    Ok(value)
+}
+
 fn arithmetic_object(slf: &PyRef<'_, crate::PyExprNode>, other: &Bound<'_, PyAny>, e: Expr) -> PyResult<PyObject> {
     if e.ptr_eq(&slf.e) {
         return Ok(slf.into_pyobject(slf.py())?.to_owned().into_any().unbind());
@@ -252,6 +279,93 @@ fn arithmetic_object(slf: &PyRef<'_, crate::PyExprNode>, other: &Bound<'_, PyAny
 
 fn matrix_proxy(parent: symox::matrixexpr::MatrixExpr) -> Expr {
     Expr::from_kind(Kind::Func(Func::MatrixProxy(std::sync::Arc::new(parent)), vec![]))
+}
+
+/// SymPy's Boolean nodes other than symbols are not ``Expr``: arithmetic
+/// and ordering operators reject them.
+#[derive(Clone, Copy, PartialEq)]
+enum NonExpr {
+    /// ``true``/``false``: BooleanAtom raises for the arithmetic operators.
+    Atom,
+    /// BooleanFunction (And, Or, Not, ...): it raises for ordering.
+    Function,
+    /// Relational, Predicate, AppliedPredicate, Contains.
+    Other,
+}
+
+fn non_expr(e: &Expr) -> Option<NonExpr> {
+    match e.kind() {
+        Kind::Bool(_) => Some(NonExpr::Atom),
+        Kind::Func(Func::Logic(_), _) => Some(NonExpr::Function),
+        Kind::Rel(..) | Kind::Func(Func::AppliedPredicate | Func::Predicate(_), _) => Some(NonExpr::Other),
+        // Sets and Contains; Lambda is an expression.
+        Kind::Func(Func::Set(op), _) if !matches!(op, symox::sets::SetOp::Lambda
+            | symox::sets::SetOp::IdentityFunction) => Some(NonExpr::Other),
+        Kind::Func(Func::Undefined(head), _) if head.is_internal("Tuple") => Some(NonExpr::Other),
+        _ => None,
+    }
+}
+
+fn non_expr_operand(o: &Bound<'_, PyAny>) -> Option<NonExpr> {
+    if let Ok(node) = o.downcast::<crate::PyExprNode>() {
+        return non_expr(&node.get().e);
+    }
+    if o.is_instance_of::<PyInt>() || o.is_instance_of::<PyFloat>() || o.is_instance_of::<PyComplex>() {
+        return None;
+    }
+    // symox's Python set classes hold native set nodes.
+    o.getattr("is_Set").is_ok_and(|value| value.is_truthy().unwrap_or(false)).then_some(NonExpr::Other)
+}
+
+const BOOLEAN_ATOM_CONTEXT: &str = "BooleanAtom not allowed in this context.";
+const BOOLEAN_ORDERING: &str = "\nA Boolean argument can only be used in Eq and Ne; all other\nrelationals expect real expressions.";
+
+/// The result of an arithmetic operator on a Boolean operand, as SymPy's
+/// ``Expr`` operators (``NotImplemented`` for a non-Expr operand) and
+/// ``BooleanAtom._noop`` give it. ``atom_raises`` is whether BooleanAtom
+/// defines the operator.
+fn non_expr_arithmetic(slf: &Expr, o: &Bound<'_, PyAny>, atom_raises: bool) -> PyResult<Option<PyObject>> {
+    match non_expr(slf) {
+        Some(NonExpr::Atom) if atom_raises => Err(PyTypeError::new_err(BOOLEAN_ATOM_CONTEXT)),
+        Some(_) => Ok(Some(o.py().NotImplemented())),
+        None if non_expr_operand(o).is_some() => Ok(Some(o.py().NotImplemented())),
+        None => Ok(None),
+    }
+}
+
+fn non_expr_unary(slf: &Bound<'_, PyAny>, e: &Expr, operator: &str) -> PyResult<()> {
+    if non_expr(e).is_some() {
+        let name = slf.get_type().name()?;
+        return Err(PyTypeError::new_err(format!("bad operand type for {operator}: '{name}'")));
+    }
+    Ok(())
+}
+
+/// SymPy's evaluated inequality checks (``_Inequality.__new__`` and
+/// ``is_ge``): non-real and NaN sides, then non-Expr sides, are errors.
+fn check_inequality_sides(py: Python<'_>, a: &Expr, b: &Expr) -> PyResult<()> {
+    for side in [a, b] {
+        if non_expr(side).is_some() {
+            continue;
+        }
+        let real = if side.has_host() {
+            let value = expr_object(py, side.clone())?.into_bound(py).getattr("is_extended_real")?;
+            if value.is_none() { None } else { Some(value.is_truthy()?) }
+        } else {
+            symox::assumptions::fact(side, "extended_real")
+        };
+        if real == Some(false) {
+            let text = expr_object(py, side.clone())?.into_bound(py).str()?.to_string();
+            return Err(PyTypeError::new_err(format!("Invalid comparison of non-real {text}")));
+        }
+        if side.is_constant(Constant::NaN) {
+            return Err(PyTypeError::new_err("Invalid NaN comparison"));
+        }
+    }
+    if non_expr(a).is_some() || non_expr(b).is_some() {
+        return Err(PyTypeError::new_err("Can only compare inequalities with Expr"));
+    }
+    Ok(())
 }
 
 fn scalar_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
@@ -1211,6 +1325,19 @@ impl PyExprNode {
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {
         let py = other.py();
         use pyo3::basic::CompareOp::*;
+        if !matches!(op, Eq | Ne) {
+            // SymPy's Expr orderings return NotImplemented for a Boolean
+            // operand; BooleanAtom and BooleanFunction then raise.
+            let raises = |kind: Option<NonExpr>| matches!(kind, Some(NonExpr::Atom | NonExpr::Function));
+            let own = non_expr(&self.e);
+            let operand = non_expr_operand(other);
+            if raises(own) || (own.is_none() && raises(operand)) {
+                return Err(PyTypeError::new_err(BOOLEAN_ORDERING));
+            }
+            if own.is_some() || operand.is_some() {
+                return Ok(py.NotImplemented());
+            }
+        }
         // AlgebraicNumber retains its defining field and alias as identity.
         // Its _symox_ conversion is for arithmetic, not structural equality.
         if other.downcast::<poly::algebraic_number::PyAlgebraicNumber>().is_ok() {
@@ -1239,10 +1366,10 @@ impl PyExprNode {
         Ok(match op {
             Eq => (self.e == o).into_pyobject(py)?.to_owned().into_any().unbind(),
             Ne => (self.e != o).into_pyobject(py)?.to_owned().into_any().unbind(),
-            Lt => wrap(relational::lt(&self.e, &o)).into_pyobject(py)?.into_any().unbind(),
-            Le => wrap(relational::le(&self.e, &o)).into_pyobject(py)?.into_any().unbind(),
-            Gt => wrap(relational::gt(&self.e, &o)).into_pyobject(py)?.into_any().unbind(),
-            Ge => wrap(relational::ge(&self.e, &o)).into_pyobject(py)?.into_any().unbind(),
+            Lt => wrap(ordered_relation(py, RelOp::Lt, &self.e, &o)?).into_pyobject(py)?.into_any().unbind(),
+            Le => wrap(ordered_relation(py, RelOp::Le, &self.e, &o)?).into_pyobject(py)?.into_any().unbind(),
+            Gt => wrap(ordered_relation(py, RelOp::Gt, &self.e, &o)?).into_pyobject(py)?.into_any().unbind(),
+            Ge => wrap(ordered_relation(py, RelOp::Ge, &self.e, &o)?).into_pyobject(py)?.into_any().unbind(),
         })
     }
 
@@ -1258,22 +1385,27 @@ impl PyExprNode {
     // arithmetic -------------------------------------------------------
 
     fn __add__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
         arithmetic_object(&slf, o, ops::add2(&slf.e, &scalar_expr(o)?))
     }
     fn __radd__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
         arithmetic_object(&slf, o, ops::add2(&scalar_expr(o)?, &slf.e))
     }
     fn __sub__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
         arithmetic_object(&slf, o, ops::sub(&slf.e, &scalar_expr(o)?))
     }
     fn __rsub__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         if o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() { return Ok(o.py().NotImplemented()); }
         arithmetic_object(&slf, o, ops::sub(&scalar_expr(o)?, &slf.e))
     }
     fn __mul__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         let py = o.py();
         if slf.e.is_integer_number() && (o.is_instance_of::<PyTuple>() || o.is_instance_of::<PyList>()
             || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
@@ -1286,6 +1418,7 @@ impl PyExprNode {
         arithmetic_object(&slf, o, ops::mul2(&slf.e, &scalar_expr(o)?))
     }
     fn __rmul__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         if slf.e.is_integer_number() && (o.is_instance_of::<PyTuple>() || o.is_instance_of::<PyList>()
             || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
             return Ok(o.py().NotImplemented());
@@ -1296,52 +1429,68 @@ impl PyExprNode {
         arithmetic_object(&slf, o, ops::mul2(&scalar_expr(o)?, &slf.e))
     }
     fn __truediv__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         arithmetic_object(&slf, o, ops::div(&slf.e, &scalar_expr(o)?))
     }
     fn __rtruediv__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         arithmetic_object(&slf, o, ops::div(&scalar_expr(o)?, &slf.e))
     }
-    fn __mod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(checked_mod("Mod", &self.e, &scalar_expr(o)?)?))
+    fn __mod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&self.e, o, true)? { return Ok(result); }
+        expr_object(o.py(), checked_mod("Mod", &self.e, &scalar_expr(o)?)?)
     }
-    fn __rmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        Ok(wrap(checked_mod("Mod", &scalar_expr(o)?, &self.e)?))
+    fn __rmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&self.e, o, true)? { return Ok(result); }
+        expr_object(o.py(), checked_mod("Mod", &scalar_expr(o)?, &self.e)?)
     }
-    fn __floordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        floor_div(&self.e, &scalar_expr(o)?).map(wrap)
+    fn __floordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&self.e, o, false)? { return Ok(result); }
+        expr_object(o.py(), floor_div(&self.e, &scalar_expr(o)?)?)
     }
-    fn __rfloordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-        floor_div(&scalar_expr(o)?, &self.e).map(wrap)
+    fn __rfloordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&self.e, o, false)? { return Ok(result); }
+        expr_object(o.py(), floor_div(&scalar_expr(o)?, &self.e)?)
     }
-    fn __divmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<(PyExpr, PyExpr)> {
+    fn __divmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let py = o.py();
+        if let Some(result) = non_expr_arithmetic(&self.e, o, false)? { return Ok(result); }
         let q = scalar_expr(o)?;
-        Ok((wrap(floor_div(&self.e, &q)?), wrap(checked_mod("Mod", &self.e, &q)?)))
+        Ok((wrap(floor_div(&self.e, &q)?), wrap(checked_mod("Mod", &self.e, &q)?)).into_pyobject(py)?.into_any().unbind())
     }
-    fn __rdivmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<(PyExpr, PyExpr)> {
+    fn __rdivmod__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        let py = o.py();
+        if let Some(result) = non_expr_arithmetic(&self.e, o, false)? { return Ok(result); }
         let p = scalar_expr(o)?;
-        Ok((wrap(floor_div(&p, &self.e)?), wrap(checked_mod("Mod", &p, &self.e)?)))
+        Ok((wrap(floor_div(&p, &self.e)?), wrap(checked_mod("Mod", &p, &self.e)?)).into_pyobject(py)?.into_any().unbind())
     }
     fn __pow__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         if m.is_some_and(|m| !m.is_none()) {
             return Err(PyTypeError::new_err("modular pow is not supported"));
         }
         arithmetic_object(&slf, o, ops::pow(&slf.e, &scalar_expr(o)?))
     }
     fn __rpow__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>) -> PyResult<PyObject> {
+        if let Some(result) = non_expr_arithmetic(&slf.e, o, true)? { return Ok(result); }
         if m.is_some_and(|m| !m.is_none()) {
             return Err(PyTypeError::new_err("modular pow is not supported"));
         }
         arithmetic_object(&slf, o, ops::pow(&scalar_expr(o)?, &slf.e))
     }
-    fn __neg__(&self, py: Python<'_>) -> PyResult<PyObject> {
-        expr_object(py, ops::neg(&self.e))
+    fn __neg__(slf: &Bound<'_, Self>) -> PyResult<PyObject> {
+        let e = &slf.get().e;
+        non_expr_unary(slf.as_any(), e, "unary -")?;
+        expr_object(slf.py(), ops::neg(e))
     }
-    fn __pos__(slf: PyRef<'_, Self>) -> PyResult<PyObject> {
-        let py = slf.py();
-        Ok(slf.into_pyobject(py)?.into_any().unbind())
+    fn __pos__(slf: &Bound<'_, Self>) -> PyResult<PyObject> {
+        non_expr_unary(slf.as_any(), &slf.get().e, "unary +")?;
+        Ok(slf.clone().into_any().unbind())
     }
-    fn __abs__(&self, py: Python<'_>) -> PyResult<PyObject> {
-        expr_object(py, fx::abs(&self.e))
+    fn __abs__(slf: &Bound<'_, Self>) -> PyResult<PyObject> {
+        let e = &slf.get().e;
+        non_expr_unary(slf.as_any(), e, "abs()")?;
+        expr_object(slf.py(), fx::abs(e))
     }
 
     fn __float__(&self) -> PyResult<f64> {
@@ -1474,6 +1623,17 @@ impl PyExprNode {
         }
         if matches!(self.e.kind(), Kind::Func(Func::MatrixElement(_), _)) {
             return Ok(py.import("symox._matrixexpr")?.getattr("MatrixElement")?.unbind());
+        }
+        // Singleton atoms are instances of their own classes (Zero, Half,
+        // Infinity, Pi, BooleanTrue...), which return the singleton.
+        let singleton_module = match self.e.kind() {
+            Kind::Num(_) if matches!(self.e.class_name(), "Zero" | "One" | "NegativeOne" | "Half") => Some("symox.core.numbers"),
+            Kind::Const(_) => Some("symox.core.numbers"),
+            Kind::Bool(_) => Some("symox.logic.boolalg"),
+            _ => None,
+        };
+        if let Some(module) = singleton_module {
+            return Ok(py.import(module)?.getattr(self.e.class_name())?.unbind());
         }
         let name = match self.e.kind() {
             Kind::Add(..) => Some("Add"),
@@ -2275,6 +2435,8 @@ impl PyExprNode {
     fn base(&self) -> PyResult<PyExpr> {
         match self.e.kind() {
             Kind::Pow(base, _) => Ok(wrap(base.clone())),
+            // SymPy's ``exp.base`` is E.
+            Kind::Func(Func::Exp, _) => Ok(wrap(Expr::e())),
             _ => Err(pyo3::exceptions::PyAttributeError::new_err("expression has no base")),
         }
     }
@@ -2283,6 +2445,8 @@ impl PyExprNode {
     fn exp(&self) -> PyResult<PyExpr> {
         match self.e.kind() {
             Kind::Pow(_, exponent) => Ok(wrap(exponent.clone())),
+            // SymPy's ``ExpBase.exp`` is the argument of exp and exp_polar.
+            Kind::Func(Func::Exp | Func::ExpPolar, args) => Ok(wrap(args[0].clone())),
             _ => Err(pyo3::exceptions::PyAttributeError::new_err("expression has no exp")),
         }
     }
@@ -3166,8 +3330,34 @@ fn py_rel(op: &str, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>, evaluate: bool) 
         ">=" => RelOp::Ge,
         _ => return Err(PyValueError::new_err(format!("unknown relational {op}"))),
     };
+    let py=a.py();
     let (a,b)=(to_expr(a)?,to_expr(b)?);
+    if evaluate && !matches!(op, RelOp::Eq | RelOp::Ne) {
+        return Ok(wrap(ordered_relation(py, op, &a, &b)?));
+    }
     Ok(wrap(if evaluate { relational::rel(op,&a,&b) } else { Expr::from_unevaluated_kind(Kind::Rel(op,a,b)) }))
+}
+
+/// Evaluated ordering relation. Operands containing instances of user
+/// classes (Torch's ``int_oo``) are decided by SymPy's ``is_ge`` protocol
+/// when the native kernel leaves the relation unevaluated: their facts,
+/// numeric values and ``_eval_is_ge`` registrations live in Python.
+fn ordered_relation(py: Python<'_>, op: RelOp, a: &Expr, b: &Expr) -> PyResult<Expr> {
+    check_inequality_sides(py, a, b)?;
+    let native = relational::rel(op, a, b);
+    if !(a.has_host() || b.has_host()) || !matches!(native.kind(), Kind::Rel(..)) {
+        return Ok(native);
+    }
+    let modules = unsafe { Bound::from_borrowed_ptr(py, pyo3::ffi::PyImport_GetModuleDict()) }
+        .downcast_into::<PyDict>()?;
+    let Some(module) = modules.get_item("symox.core.relational")? else { return Ok(native) };
+    let symbol = match op { RelOp::Lt => "<", RelOp::Le => "<=", RelOp::Gt => ">", _ => ">=" };
+    let decided = module.getattr("_host_inequality")?
+        .call1((symbol, expr_object(py, a.clone())?, expr_object(py, b.clone())?))?;
+    if decided.is_none() {
+        return Ok(native);
+    }
+    Ok(Expr::boolean(decided.is_truthy()?))
 }
 
 #[pyfunction]

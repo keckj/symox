@@ -25,6 +25,12 @@ def selected(module):
             and '.tests' not in module and 'benchmarks' not in module)
 
 
+def public_name(cls):
+    # sympy.physics.quantum renames the adjoint class to Dagger on import;
+    # the qualified name keeps the name the class is defined with.
+    return cls.__qualname__
+
+
 def main():
     for info in pkgutil.walk_packages(sympy.__path__, 'sympy.'):
         if selected(info.name):
@@ -41,14 +47,14 @@ def main():
     walk(sympy.Basic)
     by_name = collections.defaultdict(list)
     for cls in seen:
-        if selected(cls.__module__) and cls.__qualname__ == cls.__name__:
-            by_name[cls.__name__].append(cls)
+        if selected(cls.__module__) and '.' not in cls.__qualname__:
+            by_name[public_name(cls)].append(cls)
     def rank(cls):
         return PACKAGES.index(cls.__module__.split('.')[1]), len(cls.__module__)
     chosen = {name: min(classes, key=rank) for name, classes in by_name.items()}
     needed = {base for cls in chosen.values() for base in cls.__mro__
               if (base.__module__ or '').startswith('sympy.')}
-    names = collections.Counter(cls.__name__ for cls in needed)
+    names = collections.Counter(public_name(cls) for cls in needed)
     duplicates = [name for name, count in names.items() if count > 1]
     if duplicates:
         raise SystemExit('ambiguous class names: '+', '.join(sorted(duplicates)))
@@ -58,9 +64,9 @@ def main():
     print('"""')
     print()
     print('CLASSES = {')
-    for cls in sorted(needed, key=lambda cls: cls.__name__):
-        bases = tuple(base.__name__ for base in cls.__bases__ if base in needed)
-        print(f'    {cls.__name__!r}: ({cls.__module__!r}, {bases!r}),')
+    for cls in sorted(needed, key=public_name):
+        bases = tuple(public_name(base) for base in cls.__bases__ if base in needed)
+        print(f'    {public_name(cls)!r}: ({cls.__module__!r}, {bases!r}),')
     print('}')
 
 

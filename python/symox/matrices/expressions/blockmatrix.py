@@ -1,5 +1,6 @@
 """Native block diagonal matrices and their typed block grids."""
 from ..._matrixexpr import BlockDiagMatrix, BlockMatrix, block_collapse
+from ..._kind import matrix_tag
 
 __all__ = ["BlockDiagMatrix", "BlockMatrix", "block_collapse"]
 
@@ -19,7 +20,7 @@ def bc_unpack(expr):
 
 
 def _collapse_kind(expr,kinds):
-    return block_collapse(expr) if getattr(expr,'kind',None) in kinds else expr
+    return block_collapse(expr) if matrix_tag(expr) in kinds else expr
 
 def bc_matadd(expr):return _collapse_kind(expr,('MatAdd',))
 def bc_block_plus_ident(expr):return _collapse_kind(expr,('MatAdd',))

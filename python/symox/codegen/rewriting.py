@@ -1,6 +1,7 @@
 """Cost-directed expression optimizations for stable numerical code generation."""
 import symox as S
 from .cfunctions import exp2,expm1,log2,log1p
+from .._kind import matrix_tag
 
 
 class Optimization:
@@ -105,9 +106,9 @@ sinc_opt1=_Transform(_sinc);sinc_opt2=_Transform(_sinc)
 
 def _matinv(expr):
     from .matrix_nodes import MatrixSolve
-    if getattr(expr,'kind',None)=='MatMul':
+    if matrix_tag(expr)=='MatMul':
         args=expr.args
-        if len(args)==2 and getattr(args[0],'kind',None)=='Inverse':return MatrixSolve(args[0].args[0],args[1])
+        if len(args)==2 and matrix_tag(args[0])=='Inverse':return MatrixSolve(args[0].args[0],args[1])
     return expr
 matinv_opt=_Transform(_matinv)
 __all__=['Optimization','ReplaceOptim','FuncMinusOneOptim','optimize','create_expand_pow_optimization',

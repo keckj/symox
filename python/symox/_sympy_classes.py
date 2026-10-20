@@ -333,6 +333,7 @@ CLASSES = {
     'acoth': ('sympy.functions.elementary.hyperbolic', ('InverseHyperbolicFunction',)),
     'acsc': ('sympy.functions.elementary.trigonometric', ('InverseTrigonometricFunction',)),
     'acsch': ('sympy.functions.elementary.hyperbolic', ('InverseHyperbolicFunction',)),
+    'adjoint': ('sympy.functions.elementary.complexes', ('DefinedFunction',)),
     'airyai': ('sympy.functions.special.bessel', ('AiryBase',)),
     'airyaiprime': ('sympy.functions.special.bessel', ('AiryBase',)),
     'airybi': ('sympy.functions.special.bessel', ('AiryBase',)),

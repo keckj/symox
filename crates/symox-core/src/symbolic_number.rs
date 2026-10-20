@@ -33,8 +33,14 @@ pub fn is_symbolic_number(e: &Expr) -> bool {
         Kind::Pow(base, exponent) => is_symbolic_number(base) && is_symbolic_number(exponent),
         Kind::Func(Func::Integral | Func::Sum | Func::Product, _) => ClosedQuery::default().closed(e, 0),
         Kind::Func(Func::Set(SetOp::IdentityFunction), _) => true,
+        // A class-defined function (a Function subclass) is a number when its
+        // arguments are, as SymPy's ``Expr.is_number``; an undefined function
+        // (AppliedUndef) never is. Other host classes (atoms, Basic and Expr
+        // subclasses) keep their own Python answer.
         Kind::Func(Func::Undefined(head), args) => {
-            head.is_internal("UnevaluatedExpr") && args.iter().all(is_symbolic_number)
+            let function = head.host().is_some_and(|host| !host.expression() && !host.atomic());
+            (head.is_internal("UnevaluatedExpr") || (function && !args.is_empty()))
+                && args.iter().all(is_symbolic_number)
         }
         // Tuple-valued arguments are Basic objects with is_number=False. The
         // typed forms below contain such arguments, or a matrix argument.

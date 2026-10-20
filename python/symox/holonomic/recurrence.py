@@ -209,7 +209,7 @@ class HolonomicSequence:
 
 
 def _install_scalar_dispatch():
-    from .. import Expr
+    from .._core import Expr
     from functools import wraps
     if getattr(Expr, '_ore_dispatch_installed', False):
         return

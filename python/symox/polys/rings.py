@@ -7,7 +7,8 @@ __all__ = ['ring', 'xring', 'vring', 'sring']
 
 
 def _symbols(value):
-    from .. import Expr, symbols, sympify
+    from .. import symbols, sympify
+    from .._core import Expr
     if isinstance(value, str):
         return tuple(symbols(value, seq=True)) if value else ()
     if isinstance(value, Expr):
@@ -311,7 +312,8 @@ def vring(symbols, domain, order=lex):
 
 
 def _inferred(exprs, symbols, options, fractions=False):
-    from .. import Expr, Poly, ZZ, QQ, sympify
+    from .. import Poly, ZZ, QQ, sympify
+    from .._core import Expr
     single = isinstance(exprs,(Expr,str,int,float)) or not hasattr(exprs,'__iter__')
     values=[sympify(exprs)] if single else [sympify(e) for e in exprs]
     options=dict(options)

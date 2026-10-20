@@ -44,7 +44,8 @@ def _entrywise(original):
             return expression.applyfunc(lambda entry: original(entry, *rest, **options))
         return original(*args, **options)
     from ... import _BuiltinFunctionHead
-    if isinstance(original, _BuiltinFunctionHead):
+    from ..._function_heads import is_builtin_head
+    if is_builtin_head(original):
         return _BuiltinFunctionHead(original.__name__, operation)
     return operation
 

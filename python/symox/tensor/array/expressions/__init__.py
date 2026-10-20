@@ -8,6 +8,7 @@ from math import prod
 import operator
 import symox as S
 from .. import Array,NDimArray
+from ...._kind import matrix_tag
 
 
 def _shape(value):return tuple(S.sympify(n) for n in value.shape) if hasattr(value,'shape') else ()
@@ -222,7 +223,7 @@ def convert_array_to_indexed(expr,indices):
 
 
 def convert_matrix_to_array(expr):
-    kind=getattr(expr,'kind',None)
+    kind=matrix_tag(expr)
     if kind=='MatrixSymbol':return ArraySymbol(expr.name,expr.shape)
     if kind=='MatAdd':return ArrayAdd(*(convert_matrix_to_array(a) for a in expr.args))
     if kind=='Transpose':return PermuteDims(convert_matrix_to_array(expr.args[0]),(1,0))

@@ -8,7 +8,8 @@ from ._compat import count_ops
 
 
 def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=True,**kwargs):
-    from . import sympify,Expr,Float,nfloat,nsimplify
+    from . import sympify, Float, nfloat, nsimplify
+    from ._core import Expr
     options=dict(ratio=ratio,measure=measure,rational=rational,inverse=inverse,doit=doit)
     if getattr(expr,'_symox_sparse',False):
         return expr.applyfunc(lambda entry:simplify(entry,**options))

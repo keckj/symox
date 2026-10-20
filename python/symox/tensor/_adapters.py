@@ -7,7 +7,8 @@ def install(namespace):
     if namespace.get('_indexed_tensor_adapters_installed',False):return
     namespace['_indexed_tensor_adapters_installed']=True
     from ._expressions import TensExpr,TensAdd,TensMul
-    Expr=namespace['Expr']
+    from .. import _core
+    Expr=_core.Expr
     def arithmetic(original,name):
         @wraps(original)
         def operation(self,other):

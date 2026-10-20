@@ -67,6 +67,11 @@ class _OperationCategory(_ExprType):
         category = cls.__dict__.get('_category')
         if category is None or not isinstance(sub, type):
             return False
+        from symox._node_types import NodeType
+        if isinstance(sub, NodeType):
+            # The nominal classes of native nodes (class dispatch keyed by
+            # LatticeOp or Max accepts ``type(Max(x, y))``).
+            return _ExprType.__subclasscheck__(cls, sub)
         return any(sub is c or type.__subclasscheck__(c, sub)
                    for c in _resolve(category[1]))
 
