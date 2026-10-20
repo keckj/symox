@@ -54,11 +54,22 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
     let d = sub(a, b);
     if !d.is_number() {
         use crate::assumptions as asm;
+        // A sign fact that fails, or the complementary one, decides an
+        // ordering only for an extended-real difference: a non-real one is
+        // neither nonnegative nor negative (SymPy's ``is_ge`` requires
+        // extended-real sides).
+        let real = || asm::fact(&d, "extended_real") == Some(true);
+        let sign = |holds: Option<bool>, opposite: &dyn Fn() -> Option<bool>| match holds {
+            Some(true) => Some(true),
+            _ if !real() => None,
+            Some(false) => Some(false),
+            None => opposite().map(|b| !b),
+        };
         let r = match op {
-            RelOp::Gt => asm::is_positive(&d).or(asm::is_nonpositive(&d).map(|b| !b)),
-            RelOp::Ge => asm::is_nonnegative(&d).or(asm::is_negative(&d).map(|b| !b)),
-            RelOp::Lt => asm::is_negative(&d).or(asm::is_nonnegative(&d).map(|b| !b)),
-            RelOp::Le => asm::is_nonpositive(&d).or(asm::is_positive(&d).map(|b| !b)),
+            RelOp::Gt => sign(asm::is_positive(&d), &|| asm::is_nonpositive(&d)),
+            RelOp::Ge => sign(asm::is_nonnegative(&d), &|| asm::is_negative(&d)),
+            RelOp::Lt => sign(asm::is_negative(&d), &|| asm::is_nonnegative(&d)),
+            RelOp::Le => sign(asm::is_nonpositive(&d), &|| asm::is_positive(&d)),
             RelOp::Eq => asm::is_zero(&d),
             RelOp::Ne => asm::is_zero(&d).map(|b| !b),
         };
