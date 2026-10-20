@@ -367,11 +367,37 @@ fn scalar_matrix_entry(value: &Bound<'_, PyAny>) -> PyResult<Expr> {
     to_expr(value)
 }
 
+fn has_matrix_entry(obj: &Bound<'_, PyAny>, depth: usize) -> bool {
+    let is_matrix = |v: &Bound<'_, PyAny>| v.getattr("is_Matrix").is_ok_and(|m| m.is_truthy().unwrap_or(false))
+        || v.getattr("is_MatrixExpr").is_ok_and(|m| m.is_truthy().unwrap_or(false));
+    if !is_seq(obj) { return false; }
+    obj.try_iter().map(|items| items.flatten().any(|item| is_matrix(&item) || (depth > 0 && has_matrix_entry(&item, depth - 1))))
+        .unwrap_or(false)
+}
+
+/// SymPy forwards constructor keywords to ``_handle_creation_inputs``: only
+/// ``evaluate`` and ``copy`` have meaning there and other keywords are ignored.
+pub(crate) fn matrix_creation_options(args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
+    let Some(kwargs) = kwargs else { return Ok(()) };
+    if let Some(copy) = kwargs.get_item("copy")? {
+        if !copy.is_truthy()? && args.len() != 3 {
+            return Err(PyTypeError::new_err("'copy=False' requires a matrix be initialized as rows,cols,[list]"));
+        }
+    }
+    if let Some(evaluate) = kwargs.get_item("evaluate")? {
+        if !evaluate.is_truthy()? && args.len() == 1 && has_matrix_entry(&args.get_item(0)?, 1) {
+            return Err(PyNotImplementedError::new_err("Matrix(..., evaluate=False) with matrix entries is not implemented"));
+        }
+    }
+    Ok(())
+}
+
 #[pymethods]
 impl PyMatrix {
     #[new]
-    #[pyo3(signature = (*args))]
-    fn py_new(py: Python<'_>, args: &Bound<'_, PyTuple>) -> PyResult<Self> {
+    #[pyo3(signature = (*args, **kwargs))]
+    fn py_new(py: Python<'_>, args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        matrix_creation_options(args, kwargs)?;
         match args.len() {
             0 => Ok(wrapm(Matrix::zeros(0, 0))),
             1 => Ok(wrapm(to_matrix(&args.get_item(0)?)?)),

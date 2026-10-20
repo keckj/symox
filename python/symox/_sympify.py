@@ -20,6 +20,21 @@ def _unicode_space(source):
     return text
 
 
+def _reference_object(a):
+    # Objects of the reference library keep their native conversion path.
+    for cls in type(a).__mro__:
+        module=native_module(cls)
+        if isinstance(module,str) and (module=='sympy' or module.startswith('sympy.')):return True
+    return False
+
+
+def _forwarded_expression(a):
+    try:marker=getattr(a,'_symox_forwarded_',None)
+    except Exception:return None
+    if isinstance(marker,tuple) and len(marker)==1 and isinstance(marker[0],_core.Expr):return marker[0]
+    return None
+
+
 def make_sympify(original):
     def sympify(a,locals=None,convert_xor=True,strict=False,rational=False,evaluate=None):
         from ._public_core import SympifyError,_evaluation,Dict
@@ -61,6 +76,13 @@ def make_sympify(original):
                                   rational=rational,evaluate=evaluate) for value in a)
         if isinstance(a,_core.Matrix) or getattr(a,'_symox_sparse',False):
             return ImmutableMatrix(a)
+        if getattr(a,'is_NDimArray',False) and getattr(a,'_mutable',False):
+            # SymPy converts mutable arrays to their immutable counterpart.
+            return a.as_immutable()
+        if not isinstance(a,type) and not _reference_object(a) and _forwarded_expression(a) is not None:
+            # SymPy returns proxies forwarding attribute access to one of its
+            # expressions unchanged (they expose its ``__sympy__`` marker).
+            return a
         try:
             return original(a)
         except (ValueError,TypeError) as error:

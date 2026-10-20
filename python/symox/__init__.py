@@ -667,8 +667,8 @@ class _ImmutableMatrixMeta(type):
     def __instancecheck__(cls, obj):
         return isinstance(obj, Matrix) and obj._immutable
 
-    def __call__(cls, *args):
-        return Matrix(*args).as_immutable()
+    def __call__(cls, *args, **kwargs):
+        return Matrix(*args, **kwargs).as_immutable()
 
 
 class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
@@ -2238,6 +2238,8 @@ _public_core.install(globals())
 _public_matrix.install(globals())
 _public_roots.install()
 _public_special.install(globals())
+from . import _function_subs  # noqa: E402
+_function_subs.install()
 from . import _combinatorial_rewrites  # noqa: E402
 _combinatorial_rewrites.install()
 from ._tuple_protocol import install as _install_tuple_protocol

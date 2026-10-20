@@ -34,6 +34,47 @@ class LatexPrinter(Printer):
             name += '_{' + ' '.join(subs) + '}'
         return name
 
+    def _print_NDimArray(self, expr):
+        # SymPy's LaTeX layout of N-dim arrays: nested matrix blocks.
+        import itertools
+        if expr.rank() == 0:
+            return self._print(expr[()])
+        settings = self._settings
+        mat_str = settings.get('mat_str')
+        if mat_str is None:
+            if settings.get('mode', 'plain') == 'inline':
+                mat_str = 'smallmatrix'
+            elif expr.shape[-1] <= 10:
+                mat_str = 'matrix'
+            else:
+                mat_str = 'array'
+        block_str = r'\begin{%MATSTR%}%s\end{%MATSTR%}'.replace('%MATSTR%', mat_str)
+        if mat_str == 'array':
+            block_str = block_str.replace('%s', '{' + 'c'*expr.shape[0] + '}%s')
+        left_delim = settings.get('mat_delim', '[')
+        if left_delim:
+            right_delim = {'(': ')', '[': ']'}[left_delim]
+            block_str = r'\left' + left_delim + block_str + r'\right' + right_delim
+        level_str = [[] for i in range(expr.rank() + 1)]
+        for outer_i in itertools.product(*(range(i) for i in expr.shape)):
+            level_str[-1].append(self._print(expr[outer_i]))
+            even = True
+            for back_outer_i in range(expr.rank()-1, -1, -1):
+                if len(level_str[back_outer_i+1]) < expr.shape[back_outer_i]:
+                    break
+                if even:
+                    level_str[back_outer_i].append(r' & '.join(level_str[back_outer_i+1]))
+                else:
+                    level_str[back_outer_i].append(block_str % (r'\\'.join(level_str[back_outer_i+1])))
+                    if len(level_str[back_outer_i+1]) == 1:
+                        level_str[back_outer_i][-1] = r'\left[' + level_str[back_outer_i][-1] + r'\right]'
+                even = not even
+                level_str[back_outer_i+1] = []
+        out_str = level_str[0][0]
+        if expr.rank() % 2 == 1:
+            out_str = block_str % out_str
+        return out_str
+
     def emptyPrinter(self,expr):
         from symox import _core
         settings = dict(self._settings, mode='plain')

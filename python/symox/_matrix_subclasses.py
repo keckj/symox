@@ -37,9 +37,21 @@ def install():
         return value
 
     arithmetic = {'__add__', '__sub__', '__mul__', '__matmul__'}
+    right_class = {'LUsolve'}
+
+    def priority(value):
+        # Immutable dense matrices are a flag of the native class; the
+        # reference gives ImmutableDenseMatrix priority 8.
+        return 8 if value._immutable else value._class_priority
+
+    def classof(self, other):
+        # The reference classof: the right operand wins ties.
+        return self if priority(self) > priority(other) else other
     reflected = {'__radd__', '__rsub__', '__rmul__', '__rmatmul__'}
 
     def result_class(self, args, name):
+        if name in right_class and args and isinstance(args[0], matrix):
+            return type(args[0]) if mutable_dense(args[0]) else matrix
         if not mutable_dense(self):
             return matrix
         cls = type(self)
@@ -57,6 +69,13 @@ def install():
         @wraps(original)
         def method(self, *args, **kwargs):
             result = original(self, *args, **kwargs)
+            if name == 'multiply_elementwise' and args and isinstance(args[0], matrix) and isinstance(result, matrix):
+                winner = classof(self, args[0])
+                result = result.as_immutable() if winner._immutable else result.as_mutable()
+                return reconstruct(result, type(winner) if mutable_dense(winner) else matrix)
+            if name in right_class and args and isinstance(args[0], matrix) and isinstance(result, matrix):
+                # The operand's class also decides mutability here.
+                result = result.as_immutable() if args[0]._immutable else result.as_mutable()
             return reconstruct(result, result_class(self, args, name))
         return method
 
@@ -65,9 +84,53 @@ def install():
     names = arithmetic | reflected | {'__pow__','__neg__','__pos__',
         '__truediv__','__getitem__','transpose','conjugate','adjoint','extract',
         'reshape','row','col','applyfunc','subs','xreplace','copy','inv','rref',
-        'cholesky'}
+        'cholesky',
+        # The reference builds these results with self._new or with the
+        # class unifying self and a matrix operand.
+        'expand','evalf','n','adjugate','jacobian','cofactor_matrix','exp','log',
+        'analytic_func','col_insert','row_insert','col_join','row_join',
+        'diagonal','upper_triangular','lower_triangular','minor_submatrix',
+        'cross','normalized','pinv','gauss_jordan_solve','solve','rot90',
+        'permute','vec','vech','as_real_imag','multiply_elementwise',
+        'nullspace','columnspace','rowspace','eigenvects','left_eigenvects',
+        'diagonalize','LUdecomposition','QRdecomposition','jordan_form',
+        'inverse_ADJ','inverse_LU','inverse_GE','echelon_form','LUsolve',
+        'lower_triangular_solve','upper_triangular_solve',
+        'cholesky_solve','LDLsolve','LDLdecomposition',
+        'singular_value_decomposition','elementary_row_op','elementary_col_op'}
     for name in names:
         setattr(matrix, name, wrap(name, matrix.__dict__[name]))
+
+    original_rank_decomposition = matrix.__dict__['rank_decomposition']
+
+    @wraps(original_rank_decomposition)
+    def rank_decomposition(self, *args, **kwargs):
+        # The reference builds C from the input class and F from rref,
+        # whose result is a plain mutable dense matrix.
+        C, F = original_rank_decomposition(self, *args, **kwargs)
+        return reconstruct(C, result_class(self, args, 'rank_decomposition')), F
+    matrix.rank_decomposition = rank_decomposition
+
+    def constructor(name):
+        original = matrix.__dict__[name].__func__
+        @wraps(original)
+        def build(klass, /, *args, **kwargs):
+            if name == 'diag' and 'cls' in kwargs:
+                # The reference builds the result with the requested class.
+                target = kwargs.pop('cls')
+                result = original(*args, **kwargs)
+                return reconstruct(result, target) if isinstance(target, type) and issubclass(target, matrix) else target(result)
+            result = original(*args, **kwargs)
+            if name in {'hstack', 'vstack'}:
+                # The reference reduces with type(args[0]).row_join.
+                target = type(args[0]) if args and mutable_dense(args[0]) else (klass if not args else matrix)
+            else:
+                target = klass
+            return reconstruct(result, target) if isinstance(target, type) and issubclass(target, matrix) else result
+        return classmethod(build)
+
+    for name in ('zeros', 'eye', 'ones', 'diag', 'hstack', 'vstack'):
+        setattr(matrix, name, constructor(name))
     for name in ['T', 'H', 'C']:
         descriptor = matrix.__dict__[name]
         setattr(matrix, name, property(wrap(name, descriptor.__get__)))

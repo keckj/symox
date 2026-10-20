@@ -30,7 +30,8 @@ def test_constructor_shapes_and_ownership(kind,shape,source):
     if source=='flat':
         array=kind(values,shape)
     elif source=='nested':
-        array=kind(Array(values,shape).tolist())
+        # SymPy's rank-0 tolist raises IndexError; a scalar is its own nesting.
+        array=kind(Array(values,shape).tolist() if shape else values[0])
     elif source=='numpy':
         array=kind(np.array(list(range(size))).reshape(shape))
     else:
@@ -155,7 +156,9 @@ def test_empty_axes_and_scalar_tensors_have_consistent_shapes(kind):
     assert kind.zeros(2,0).tolist()==[[],[]]
     assert kind.zeros(0,2).tolist()==[]
     scalar=kind([3],())
-    assert scalar[()]==3 and scalar.tolist()==3 and list(scalar)==[sx.Integer(3)]
+    assert scalar[()]==3 and list(scalar)==[sx.Integer(3)]
+    with pytest.raises(IndexError):
+        scalar.tolist()
     assert kind.zeros()[()]==0 and kind.ones()[()]==1
 
 

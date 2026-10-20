@@ -661,6 +661,17 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     // External scalar libraries expose the established SymPy conversion
     // protocol. Builtin reference objects above retain their structural path.
     if module != "symox" && !module.starts_with("symox.") {
+        // A proxy forwarding attribute access to a native expression stands
+        // for it, as SymPy algorithms see such proxies through its attributes.
+        if let Ok(marker) = obj.getattr("_symox_forwarded_") {
+            if let Ok(marker) = marker.downcast::<PyTuple>() {
+                if marker.len() == 1 {
+                    if let Ok(expression) = marker.get_item(0)?.downcast::<crate::PyExprNode>() {
+                        return Ok(expression.get().e.clone());
+                    }
+                }
+            }
+        }
         if let Ok(hook) = obj.getattr("_sympy_") {
             return conversion_hook(obj, &hook);
         }
@@ -1118,7 +1129,12 @@ pub(crate) fn substitution_options(kwargs:Option<&Bound<'_,PyDict>>)->PyResult<b
             let key:String=key.extract()?;
             match key.as_str() {
                 "simultaneous"=>simultaneous=value.is_truthy()?,
-                _=>return Err(PyNotImplementedError::new_err(format!("subs option '{key}' is not implemented"))),
+                // SymPy forwards other options as hints that only its
+                // internal two-argument Mul hack reads; it ignores the rest.
+                "hack2"=>if value.is_truthy()? {
+                    return Err(PyNotImplementedError::new_err(format!("subs option '{key}' is not implemented")));
+                },
+                _=>{}
             }
         }
     }
@@ -2154,7 +2170,7 @@ impl PyExprNode {
     }
 
     fn as_numer_denom<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        let (n, d) = simplify::numer_denom(&self.e);
+        let (n, d) = symox::simptools::as_numer_denom(&self.e);
         PyTuple::new(py, [wrap(n), wrap(d)])
     }
 

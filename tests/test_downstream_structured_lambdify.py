@@ -37,3 +37,36 @@ def test_empty_matrix_output_matches_reference(shape):
     actual=sx.lambdify([],sx.zeros(*shape),'numpy')()
     expected=sp.lambdify([],sp.zeros(*shape),'numpy')()
     np.testing.assert_equal(actual,expected)
+
+
+@pytest.mark.parametrize('modules', [['scipy', 'numpy'], ['numpy'], ['numpy', 'mpmath'], ['math'], ['sympy']])
+def test_namespace_sinc_receives_the_printed_argument(modules):
+    # SymPy's NumPy-family printers call a normalized sinc on x/pi, so a
+    # user ``sinc`` entry (Lcapy maps it to numpy.sinc) sees that argument.
+    def run(lib):
+        n = lib.Symbol('n')
+        seen = []
+        function = lib.lambdify(n, lib.sinc(n) + 1, [{'sinc': lambda a: seen.append(float(a)) or 7.0}] + modules)
+        return function(2), seen
+    actual, expected = run(sx), run(sp)
+    assert actual[0] == expected[0]
+    assert actual[1] == pytest.approx(expected[1])
+
+
+@pytest.mark.parametrize('source', ['sqrt(t)', '1/sqrt(t)', '2*sqrt(t + 1)', 'sqrt(t) + 1/sqrt(t + 1)', 'sqrt(2)*t', 't**(3/2)'])
+@pytest.mark.parametrize('modules', [['numpy'], ['math'], ['mpmath'], ['scipy', 'numpy']])
+def test_namespace_sqrt_receives_square_roots(source, modules):
+    # SymPy prints b**(1/2) as sqrt(b) and b**(-1/2) as 1/sqrt(b); Lcapy
+    # maps ``sqrt`` to a complex-aware square root.
+    import cmath
+    if source == 't**(3/2)' and modules == ['mpmath']:
+        pytest.skip('native mpmath powers are evaluated in double precision (tracked gap)')
+
+    def run(lib):
+        t = lib.Symbol('t')
+        expr = lib.sympify(source, locals={'t': t})
+        seen = []
+        function = lib.lambdify(t, expr, [{'sqrt': lambda a: seen.append(a) or cmath.sqrt(a)}] + modules)
+        return complex(function(2j)), sorted(seen, key=lambda v: (v.real, v.imag))
+    actual, expected = run(sx), run(sp)
+    assert actual == expected

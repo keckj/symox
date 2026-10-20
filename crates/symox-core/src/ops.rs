@@ -1064,6 +1064,13 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             if e.is_integer_number() {
                 return pow(bb, &mul2(be, e));
             }
+            // Pow._eval_power: the branch factor is 1 for a real exponent
+            // a with |a| < 1, so (b**a)**e = b**(a*e) for every b and e.
+            if let Kind::Num(a) = be.kind() {
+                if a.abs().cmp_value(&Number::ONE) == Some(std::cmp::Ordering::Less) {
+                    return pow(bb, &mul2(be, e));
+                }
+            }
             // (b**a)**e = b**(a*e) when b >= 0 and a is real
             if crate::assumptions::is_nonnegative(bb) == Some(true)
                 && crate::assumptions::is_real(be) == Some(true)
@@ -1717,5 +1724,29 @@ mod active_product_tests {
         let opposite=neg(&a);
         let candidate=sub(&a,&div(&pow(&opposite,&Expr::int(2)),&a));
         assert_eq!(crate::matrix::linalg::pivot_simp(&candidate),Expr::zero());
+    }
+}
+
+#[cfg(test)]
+mod power_of_power_tests {
+    use super::*;
+    fn p(source: &str) -> Expr { crate::parser::parse_str(source).unwrap() }
+    fn raw_pow(base: &str, exponent: &str) -> Expr {
+        Expr::from_unevaluated_kind(Kind::Pow(p(base), p(exponent)))
+    }
+    #[test]
+    fn exponents_below_one_in_magnitude_combine_like_sympy() {
+        // Pow._eval_power: a real inner exponent a with |a| < 1 has no
+        // branch correction, so (b**a)**e = b**(a*e).
+        assert_eq!(pow(&raw_pow("t", "1/2"), &p("1/2")), p("t**(1/4)"));
+        assert_eq!(pow(&raw_pow("t", "1/2"), &p("y")), p("t**(y/2)"));
+        assert_eq!(pow(&raw_pow("t", "2/3"), &p("1/2")), p("t**(1/3)"));
+        assert_eq!(pow(&raw_pow("t", "-1/2"), &p("1/3")), p("t**(-1/6)"));
+        assert_eq!(pow(&raw_pow("x+1", "1/2"), &p("1/3")), p("(x+1)**(1/6)"));
+        // |a| >= 1 keeps the nested power for a base of unknown sign.
+        for (base, exponent) in [("t", "2"), ("t", "3/2"), ("t", "-1"), ("t", "y")] {
+            let inner = raw_pow(base, exponent);
+            assert!(matches!(pow(&inner, &p("1/2")).kind(), Kind::Pow(b, _) if matches!(b.kind(), Kind::Pow(..))));
+        }
     }
 }

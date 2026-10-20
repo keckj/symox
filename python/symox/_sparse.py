@@ -161,9 +161,16 @@ class _SparseBase:
     __array_priority__ = 10000
     __hash__ = None
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         if getattr(self, '_frozen', False):
             raise TypeError('Cannot reinitialize an immutable sparse matrix')
+        # SymPy forwards keywords to its creation handler, which only reads
+        # ``evaluate``; other keywords are ignored.
+        if not kwargs.get('evaluate', True) and len(args) == 1 and isinstance(args[0], (list, tuple)) and any(
+                getattr(item, 'is_Matrix', False) or getattr(item, 'is_MatrixExpr', False)
+                or (isinstance(item, (list, tuple)) and any(getattr(v, 'is_Matrix', False) or getattr(v, 'is_MatrixExpr', False) for v in item))
+                for item in args[0]):
+            raise NotImplementedError('SparseMatrix(..., evaluate=False) with matrix entries is not implemented')
         rows, cols, data = _creation(args)
         object.__setattr__(self, '_rows', rows)
         object.__setattr__(self, '_cols', cols)

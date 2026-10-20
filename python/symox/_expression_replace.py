@@ -22,7 +22,8 @@ def replace(self, query, value, map=False, simultaneous=True, exact=None):
                      and namespace.get(query.__name__) is query))
     pattern=isinstance(query,expressions)
     if constructor or not pattern:
-        if not callable(value) or isinstance(value,expressions):
+        # Callable expressions such as Lambda are valid replacements.
+        if not callable(value):
             raise TypeError('A type or predicate query requires a callable replacement')
         test=matcher(query,matching=False)
     if pattern and exact is None:

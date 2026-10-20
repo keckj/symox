@@ -4,8 +4,34 @@ from .precedence import precedence
 from .printer import Printer
 
 
+import threading
+
+# The ``abbrev`` setting of the printer currently delegating to ``str``;
+# None outside a printer, where StrPrinter's defaults apply (as for SymPy's
+# ``Basic.__str__``, which prints through ``sstr``).
+_active = threading.local()
+
+
+def abbreviate_units():
+    """Whether quantities print by their abbreviation in the current context."""
+    abbrev = getattr(_active, 'abbrev', None)
+    return bool(StrPrinter._default_settings.get('abbrev') if abbrev is None else abbrev)
+
+
 class StrPrinter(Printer):
     printmethod = "_sympystr"
+    _default_settings = {
+        "order": None, "full_prec": "auto", "sympy_integers": False, "abbrev": False,
+        "perm_cyclic": True, "min": None, "max": None, "dps": None,
+    }
+
+    def emptyPrinter(self, expr):
+        previous = getattr(_active, 'abbrev', None)
+        _active.abbrev = bool(self._settings.get('abbrev'))
+        try:
+            return super().emptyPrinter(expr)
+        finally:
+            _active.abbrev = previous
 
     def parenthesize(self, item, level, strict=False):
         value = self._print(item)

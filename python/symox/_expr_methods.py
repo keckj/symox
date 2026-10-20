@@ -286,6 +286,13 @@ class _Direction:
 def install():
     from ._ordered_keys import install as install_ordered_keys
     install_ordered_keys()
+    # SymPy's sympify returns objects carrying its ``__sympy__`` marker
+    # unchanged, so proxies forwarding attribute access to an expression
+    # behave as that expression. Exposing ``__sympy__`` itself would make the
+    # reference library keep native objects unconverted; this tuple-valued
+    # marker survives attribute forwarding (non-callable, non-Expr values are
+    # returned as is) and names the forwarded expression.
+    _core.Expr._symox_forwarded_ = property(lambda self: (self,))
     _core.Expr.has = has
     _core.Expr.as_coefficients_dict = as_coefficients_dict
     _core.Expr.coeff = coeff

@@ -379,6 +379,7 @@ def install(namespace):
     def N(x,n=15,**kwargs):
         from . import sympify
         if not isinstance(x,Expr) and hasattr(x,'applyfunc'):
+            if getattr(x,'is_NDimArray',False):x=x.as_immutable()
             return x.applyfunc(lambda entry:N(entry,n,**kwargs))
         value = sympify(x)
         return value.evalf(n,**kwargs) if any(v.class_name in _NUMERIC|{'ComplexRootOf'} for v in _special_nodes(value)) else old_N(x,n,**kwargs)

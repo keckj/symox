@@ -27,7 +27,9 @@ def test_scalar_operations_dispatch_entrywise(name,kind):
     array=kind([sx.sin(x)**2+sx.cos(x)**2,(x*x-1)/(x-1),sx.sqrt(2)])
     operation=getattr(sx,name)
     assert operation(array)==array.applyfunc(operation)
-    assert isinstance(operation(array),kind)
+    # SymPy sympifies a mutable array to its immutable counterpart first.
+    expected=sx.ImmutableDenseNDimArray if kind is sx.MutableDenseNDimArray else kind
+    assert isinstance(operation(array),expected)
     assert operation(x).to_sympy()==getattr(sp,name)(sp.Symbol('x'))
 
 
