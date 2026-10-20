@@ -285,6 +285,12 @@ pub(crate) fn arg(a: &Expr) -> Option<Expr> {
             }
         }
     }
+    if let Kind::Func(Func::ExpPolar, _) = a.kind() {
+        return Some(crate::functions::func(
+            Func::Special(crate::special::SpecialFn::PeriodicArgument),
+            vec![a.clone(), Expr::oo()],
+        ));
+    }
     if let Kind::Func(Func::Exp, args) = a.kind() {
         let imaginary = f::im(&args[0]);
         if comparable(&imaginary) {
@@ -330,6 +336,14 @@ pub(crate) fn arg(a: &Expr) -> Option<Expr> {
     applied_undefined(&reduced, &mut undefined);
     if undefined.iter().any(|u| fact(u, "extended_positive").is_none()) {
         return None;
+    }
+    // exp_polar(z).as_real_imag() is that of exp(z): atan2 then gives the
+    // principal angle, not the winding kept by arg(exp_polar(z)) itself.
+    if let Kind::Func(Func::ExpPolar, w) = reduced.kind() {
+        let value = arg(&f::exp(&w[0]));
+        if let Some(value) = value.filter(|v| f::is_numeric_value(v)) {
+            return Some(value);
+        }
     }
     if let Some(Some((x, y))) = parts(&reduced, None) {
         if let Some(value) = atan2(&y, &x) {

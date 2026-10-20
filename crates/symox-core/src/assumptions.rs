@@ -55,6 +55,15 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
     if name=="commutative" && e.has_noncommutative_host(){return crate::decompose::commutativity(e);}
     if let Some(answer)=crate::host::fact(e,name){return answer;}
     if name=="polar" && crate::special::polar::is_polar(e){return Some(true);}
+    // Mul._eval_is_polar always settles (any/all over the factors), and
+    // Pow defers to its base.
+    if name=="polar"{
+        match e.kind(){
+            Kind::Mul(..)=>return Some(false),
+            Kind::Pow(b,_)=>return fact(b,"polar"),
+            _=>{}
+        }
+    }
     if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
     // Float zero has a known integer value, but SymPy deliberately keeps its
     // rationality/irrationality queries unknown, as for other approximate values.

@@ -58,9 +58,25 @@ def polarify(eq, subs=True, lift=False):
     return result.xreplace(mapping), {v:k for k,v in mapping.items()}
 
 
-_UNBRANCHED = {'exp','sin','cos','tan','cot','sec','csc','sinh','cosh','tanh',
-               'coth','sech','csch','gamma','erf','erfc','erfi','Abs','re','im',
-               'conjugate','sign','floor','ceiling'}
+# Heads SymPy marks ``unbranched``: re, im, Abs, ExpBase, the trigonometric,
+# hyperbolic, airy, error, Fresnel, gamma, beta and Mathieu families.
+_UNBRANCHED = {'exp','exp_polar','sin','cos','tan','cot','sec','csc','sinc',
+               'sinh','cosh','tanh','coth','sech','csch','gamma','multigamma',
+               'erf','erfc','erfi','fresnels','fresnelc','Abs','re','im',
+               'airyai','airybi','airyaiprime','airybiprime','beta','betainc',
+               'betainc_regularized','mathieus','mathieuc','mathieusprime',
+               'mathieucprime'}
+
+
+def _projects_children(value):
+    """Add, Mul, Boolean and the relations SymPy's _unpolarify recurses into."""
+    if value.is_Add or value.is_Mul or getattr(value, 'is_Boolean', False):
+        return True
+    if getattr(value, 'is_Relational', False):
+        if value.rel_op in ('==', '!='):
+            return any(a == 0 for a in value.args)
+        return True
+    return False
 
 
 def unpolarify(eq, subs=None, exponents_only=False):
@@ -73,8 +89,11 @@ def unpolarify(eq, subs=None, exponents_only=False):
     if isinstance(eq, bool):
         return eq
     expr = s.sympify(eq)
-    if subs:
+    if subs is not None:
+        # The reference recurses as unpolarify(eq.subs(subs)): the
+        # substitution drops exponents_only.
         expr = expr.subs(subs)
+        exponents_only = False
     def visit(value, pause):
         name = value.class_name
         if not pause:
@@ -92,7 +111,7 @@ def unpolarify(eq, subs=None, exponents_only=False):
             return value.func(visit(base, pause or exponent.is_integer is not True), exponent)
         if name in _UNBRANCHED:
             child_pause = bool(exponents_only)
-        elif not pause and (value.is_Add or value.is_Mul or name in ('And','Or','Not','Eq','Ne','Lt','Le','Gt','Ge')):
+        elif not pause and _projects_children(value):
             child_pause = False
         else:
             child_pause = True
