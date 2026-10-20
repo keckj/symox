@@ -311,7 +311,9 @@ pub(crate) fn retention_weight(expressions:&[&Expr],limit:usize)->Option<usize>{
         };
         1usize.saturating_add(usize::try_from(bits.saturating_add(511)/512).unwrap_or(usize::MAX))
     }
-    if expressions.iter().any(|e|e.has_matrix()||e.has_wild_properties()){return None;}
+    // Host nodes dispatch user hooks (`_eval_subs`, `_eval_evalf`...) on
+    // every call and own Python instances that must stay collectable.
+    if expressions.iter().any(|e|e.has_matrix()||e.has_wild_properties()||e.has_host()){return None;}
     let mut stack=expressions.to_vec();
     let mut seen=FxHashSet::default();
     let mut weight=0usize;

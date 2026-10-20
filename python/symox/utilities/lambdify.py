@@ -91,9 +91,15 @@ def _compile_implemented(args,expr,modules,options):
     arguments=[args] if isinstance(args,_S.Expr) else list(args)
     def matches(node):return implementation(node) is not None
     def calls(value):
-        stack=[value];result=[]
+        # Visit each distinct subexpression once: shared subgraphs would
+        # otherwise make the walk exponential in the expression depth.
+        stack=[value];result=[];seen=set()
         while stack:
             node=stack.pop()
+            try:
+                if node in seen:continue
+                seen.add(node)
+            except TypeError:pass
             if matches(node):result.append(node)
             else:stack.extend(getattr(node,'args',()))
         return list(dict.fromkeys(result))

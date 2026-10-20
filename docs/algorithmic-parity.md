@@ -135,9 +135,20 @@ This audit covers the cases it names. It is not a global parity certificate.
 General noncommutative scalar algebra remains unsupported in this snapshot:
 `Symbol('a', commutative=False)` raises `ValueError` in the declaration layer.
 Dedicated tensor or quantum object protocols do not establish a general
-noncommutative scalar engine. Exact arithmetic reuse is restricted to ordinary
+noncommutative scalar engine; neither do user classes with
+`is_commutative = None`, whose products keep their written order (see the
+paragraph on user subclasses below). Exact arithmetic reuse is restricted to ordinary
 commuting symbols and does not change this pre-existing rejection. This gap
 must be resolved before certifying general `Symbol` and scalar algebra parity.
+
+None of the cross-call reuse paths below (exact arithmetic, monomial `Add`
+construction, substitution, expansion, numerical evaluation and the NumPy
+float64 kernels) accepts an expression containing a host node of a user
+class: such nodes dispatch their hooks (`_eval_subs`, `_eval_evalf`,
+`_eval_power`, assumption handlers...) on every call and own Python instances
+that must stay collectable. Monomial `Add` reuse also requires each argument
+to be exactly the nominal SymPy class native wrapping gives its node, so user
+subclasses and other wrappers keep full constructor dispatch.
 
 The [public performance runner](../benches/README.md) checks accuracy and result
 quality before ranking timings. Performance work on 2026-10-20 corrected

@@ -29,7 +29,8 @@ pub(crate) fn supports(e:&Expr)->bool{
         };
         memo.insert(e.dag_id(),value);value
     }
-    !e.has_held_arithmetic()&&!e.has_matrix()&&!e.has_wild_properties()
+    // Host classes keep their own printing and evaluation hooks.
+    !e.has_held_arithmetic()&&!e.has_matrix()&&!e.has_wild_properties()&&!e.has_host()
         &&walk(e,&mut rustc_hash::FxHashMap::default())
         &&symox::traverse::node_count(e)<=4096
 }

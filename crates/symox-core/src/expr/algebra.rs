@@ -39,7 +39,9 @@ pub(super) fn weight(kind:&Kind,canonical:bool)->u16{
         let mut total=1;
         match kind{
             Kind::Num(n)=>return number(n),
-            Kind::Sym(s) if !s.is_dummy()&&!s.is_wild()&&s.name().len()<=256
+            // Host atoms dispatch user hooks and own Python instances: they
+            // never enter cross-call arithmetic reuse.
+            Kind::Sym(s) if s.host().is_none()&&!s.is_dummy()&&!s.is_wild()&&s.name().len()<=256
                 &&s.facts().get("commutative")==Some(true)
                 &&s.facts().get("finite")!=Some(false)=>
                 return Some(1+(s.name().len()/8) as u16),

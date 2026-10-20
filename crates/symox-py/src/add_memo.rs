@@ -33,10 +33,23 @@ fn monomial(e:&Expr)->bool{
     }
 }
 
+/// The native expression of a plain node object: exactly the base node type
+/// or the nominal SymPy class native wrapping gives that node. User
+/// subclasses, host trees and other wrappers keep full constructor dispatch.
+fn plain_node(value:&Bound<'_,PyAny>)->Option<Expr>{
+    let node=value.downcast::<crate::PyExprNode>().ok()?;
+    let e=&node.get().e;
+    if e.has_host(){return None;}
+    let class=value.get_type();
+    if class.is(&value.py().get_type::<crate::PyExprNode>())
+        || crate::node_type(value.py(),e).is_some_and(|nominal|class.is(&nominal)) {
+        Some(e.clone())
+    } else {None}
+}
+
 #[pyfunction]
 pub(crate) fn _exact_expr_args(args:&Bound<'_,PyTuple>)->bool{
-    let kind=args.py().get_type::<crate::PyExprNode>();
-    args.iter().all(|value|value.get_type().is(&kind))
+    args.iter().all(|value|plain_node(&value).is_some())
 }
 
 /// An injective identity key, with no Python hashing or conversion hooks.
@@ -44,10 +57,9 @@ pub(crate) fn _exact_expr_args(args:&Bound<'_,PyTuple>)->bool{
 #[pyfunction]
 pub(crate) fn _exact_expr_key<'py>(args:&Bound<'py,PyTuple>)->Option<Bound<'py,PyBytes>>{
     if !(2..=1024).contains(&args.len()){return None;}
-    let kind=args.py().get_type::<crate::PyExprNode>();
     let mut key=Vec::with_capacity(args.len()*std::mem::size_of::<usize>());
     for value in args.iter(){
-        if !value.get_type().is(&kind){return None;}
+        plain_node(&value)?;
         key.extend_from_slice(&(value.as_ptr() as usize).to_ne_bytes());
     }
     Some(PyBytes::new(args.py(),&key))
@@ -57,12 +69,10 @@ pub(crate) fn _exact_expr_key<'py>(args:&Bound<'py,PyTuple>)->Option<Bound<'py,P
 pub(crate) fn _monomial_add(args:&Bound<'_,PyTuple>)->PyResult<Option<crate::PyExpr>>{
     if !(2..=1024).contains(&args.len()){return Ok(None);}
     let mut values=Vec::with_capacity(args.len());
-    let kind=args.py().get_type::<crate::PyExprNode>();
     for value in args.iter(){
-        if !value.get_type().is(&kind){return Ok(None);}
-        let value=value.extract::<PyRef<'_,crate::PyExprNode>>()?;
-        if !monomial(&value.e){return Ok(None);}
-        values.push(value.e.clone());
+        let Some(value)=plain_node(&value) else {return Ok(None);};
+        if !monomial(&value){return Ok(None);}
+        values.push(value);
     }
     Ok(Some(crate::wrap(symox::ops::add(&values))))
 }
