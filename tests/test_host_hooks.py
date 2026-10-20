@@ -207,6 +207,59 @@ def eval_evalf_numeric_argument(sp):
     return str(V2(1).evalf()), str((V2(1) * 2 + sp.pi).evalf(5))
 
 
+def _mpf_numbers(sp):
+    from mpmath.libmp import finf, from_rational
+
+    class Half(sp.Number):
+        is_comparable = True
+        is_extended_real = True
+
+        def __new__(cls):
+            return sp.Expr.__new__(cls)
+
+        def _as_mpf_val(self, prec):
+            return from_rational(1, 2, prec)
+
+        def __hash__(self):
+            return 17
+
+    class Huge(sp.Number):
+        is_comparable = True
+        is_extended_real = True
+
+        def __new__(cls):
+            return sp.Expr.__new__(cls)
+
+        def _as_mpf_val(self, prec):
+            return finf
+
+        def __hash__(self):
+            return 19
+    return Half(), Huge()
+
+
+@case
+def number_evalf_from_mpf_value(sp):
+    # Number._eval_evalf: Float._new(self._as_mpf_val(prec), prec).
+    half, huge = _mpf_numbers(sp)
+    # (SymPy's Number arithmetic recurses for classes without it.)
+    return half.evalf(2), sp.N(half, 30), huge.evalf(2), sp.N(huge), float(half), float(huge)
+
+
+@case
+def number_evalf_raising_mpf_value(sp):
+    class Broken(sp.Number):
+        def __new__(cls):
+            return sp.Expr.__new__(cls)
+
+        def _as_mpf_val(self, prec):
+            raise ArithmeticError('no value')
+
+        def __hash__(self):
+            return 23
+    return Broken().evalf()
+
+
 # _eval_rewrite_as_*, _eval_expand_*, _eval_simplify
 
 @case

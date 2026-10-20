@@ -662,6 +662,20 @@ def _number_float(self):
     return to_float(self._as_mpf_val(53))
 
 
+def _number_eval_evalf(self, prec):
+    # Reference Number._eval_evalf: Float._new(self._as_mpf_val(prec), prec),
+    # which maps the special values to the singletons.
+    import mpmath
+    from mpmath.libmp import finf, fnan, fninf, fzero
+    from . import Float, S
+    value = self._as_mpf_val(prec)
+    special = {fzero: S.Zero, fnan: S.NaN, finf: S.Infinity, fninf: S.NegativeInfinity}
+    if value in special:
+        return special[value]
+    with mpmath.workprec(prec):
+        return Float(mpmath.mpf(value), precision=prec)
+
+
 def fold_numbers(op, args):
     """Fold the Number terms of an evaluated Add or Mul in the order of the
     reference ``AssocOp.flatten``, so that the arithmetic of a Number class
@@ -731,8 +745,9 @@ def expression_class(cls):
     if kind == 'number':
         defaults['is_Number'] = True
         if _defines(cls, '_as_mpf_val'):
-            # Reference Number.__float__.
+            # Reference Number.__float__ and Number._eval_evalf.
             defaults['__float__'] = _number_float
+            defaults['_eval_evalf'] = _number_eval_evalf
     if issubclass(cls, Basic):
         for name in _NATIVE_BASIC:
             if name not in defaults and name in _core.Expr.__dict__:
@@ -751,6 +766,8 @@ def expression_class(cls):
         setattr(cls, name, defaults[name])
     cls._symox_defaults = frozenset(installed)
     flags = _EXPR | (_ATOM if atomic else 0) | _hook_flags(cls)
+    if '_eval_evalf' in installed:
+        flags |= _EVALF
     from ._compat import NumberSymbol
     flags |= _commutative_flags(cls, True if kind == 'number' or issubclass(cls, NumberSymbol) else None)
     if _defines(cls, '__new__') or _defines(cls, '__init__'):

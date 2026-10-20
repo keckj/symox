@@ -161,7 +161,9 @@ uses the reference `__getnewargs__`/`__reduce_ex__` protocol. A class
 `_eval_power` is consulted by `**` and `Pow` once the generic exponent rules
 leave the power unevaluated; `Add` and `Mul` fold their `Number` terms through
 the arithmetic of a `Number` class that defines it, in the reference flatten
-order, and `_as_mpf_val` gives `float()`.
+order, and `_as_mpf_val` gives `float()` and, as the reference
+`Number._eval_evalf`, `evalf` (an infinite or undefined value evaluates to the
+`oo`, `-oo` or `nan` singleton).
 
 Native algorithms dispatch to the class hooks where the reference does:
 `_eval_subs` (before the native rewrite of the node), `_eval_is_*` assumption
@@ -203,7 +205,10 @@ and `LatticeOp.make_args` on them remain unsupported; native operators on a
 tree that already contains such a `Number` do not refold its coefficient
 (`(w*x)*3`), and native results equal to `oo`, `-oo`, `nan` or `zoo` are not
 the `S` singleton objects, so identity tests such as `-oo is S.NegativeInfinity`
-fail.
+fail; orderings of a host `Number` (Torch `int_oo`) are not decided through
+the reference `is_ge` protocol (`_n2`, `_eval_is_ge`, the Python comparison
+operators used by `Min`/`Max` connectivity), so `Integer(-1) >= -int_oo`
+stays unevaluated, and native expressions have no `is_comparable`.
 
 Rational bounded-denominator approximation uses the same exact standard-library
 `Fraction.limit_denominator` kernel as the reference, including its tie breaking

@@ -306,6 +306,14 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
         ),
         Kind::Func(Func::Set(crate::sets::SetOp::Lambda),arguments) if arguments.len()==2 =>
             crate::sets::lambda(&arguments[0],&evalf(&arguments[1],prec)),
+        // SymPy evalf returns a non-numerical `_eval_evalf` result (such as
+        // oo for a Number class whose `_as_mpf_val` is infinite) as it is.
+        Kind::Func(Func::Undefined(head),_) if head.host().is_some_and(|host| host.evaluates_numerically()) =>
+            match head.host().and_then(|host| host.evalf(e, prec)) {
+                Some(value) if !crate::traverse::has(&value, e) => evalf(&value, prec),
+                Some(value) => value,
+                None => e.clone(),
+            },
         _ => e.clone(),
     }
 }
