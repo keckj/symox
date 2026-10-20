@@ -205,8 +205,9 @@ def xreplace(self, rule):
 def subs(self, *args, **kwargs):
     from . import AlgebraicNumber, sympify
     simultaneous = kwargs.pop('simultaneous', False)
-    if kwargs:
-        raise TypeError('unsupported substitution options: '+', '.join(kwargs))
+    # SymPy forwards the remaining options to `_subs` as hints; the native
+    # substitution of the arguments ignores unused ones like the reference.
+    hints = kwargs
     if len(args) == 2:
         pairs = [args]
     elif len(args) == 1:
@@ -224,16 +225,16 @@ def subs(self, *args, **kwargs):
             if self == old:
                 return new if isinstance(new, AlgebraicNumber) else sympify(new)
         scalar = [(old, new) for old, new in pairs if not isinstance(old, AlgebraicNumber)]
-        return _map_arguments(self, lambda a: a.subs(scalar, simultaneous=True))
+        return _map_arguments(self, lambda a: a.subs(scalar, simultaneous=True, **hints))
     result = self
     for old, new in pairs:
         if result == old:
             result = new if isinstance(new, AlgebraicNumber) else sympify(new)
         elif isinstance(result, AlgebraicNumber):
             if not isinstance(old, AlgebraicNumber):
-                result = _map_arguments(result, lambda a: a.subs(old, new))
+                result = _map_arguments(result, lambda a: a.subs(old, new, **hints))
         else:
-            result = result.subs(old, new)
+            result = result.subs(old, new, **hints)
     return result
 
 

@@ -77,3 +77,11 @@ def test_unused_substitution_hints_are_ignored(kind):
     actual=build(sx,kind).subs(x,y+1,safe=True,causal=False)
     expected=build(sp,kind).subs(a,b+1,safe=True,causal=False)
     equal(actual,expected)
+
+
+def test_algebraic_number_substitution_ignores_unused_hints():
+    def result(module):
+        x=module.Symbol('x');value=module.AlgebraicNumber(module.sqrt(2))
+        return (value.subs(x,1,unknown_option=True),
+                value.subs({x:2},simultaneous=True,safe=False))
+    assert [r.to_sympy() for r in result(sx)]==list(result(sp))
