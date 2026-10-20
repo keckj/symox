@@ -89,6 +89,10 @@ def test_opaque_special_functions_and_large_shared_graphs_keep_native_evaluation
     for _ in range(40):expression=sx.sin(expression)+sx.cos(expression)
     f=sx.lambdify(x,expression,"numpy");baseline=sx._native_lambdify(x,expression)
     np.testing.assert_array_equal(f(values),baseline(values))
+    expression=x
+    for _ in range(350):expression=sx.sin(expression)
+    f=sx.lambdify(x,expression,"numpy");baseline=sx._native_lambdify(x,expression)
+    np.testing.assert_array_equal(f(values),baseline(values))
 
 
 def test_numpy_codegen_never_imports_reference():

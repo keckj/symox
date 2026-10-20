@@ -12,7 +12,7 @@ def _evaluator(arguments,expression):
 def compile(arguments,expression):
     try:
         evaluator = _evaluator(tuple(arguments),expression)
-    except (NotImplementedError,TypeError,ValueError,SyntaxError,AttributeError):
+    except (NotImplementedError,TypeError,ValueError,SyntaxError,AttributeError,RecursionError):
         return lambda *values:NotImplemented
 
     def evaluate(*values):
