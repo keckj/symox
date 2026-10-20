@@ -20,7 +20,7 @@ impl PySliceSpec{
 }
 fn slice_object<'py>(py:Python<'py>,spec:&SliceSpec)->PyResult<Bound<'py,PyAny>>{py.import("symox._matrixexpr")?.getattr("_SliceTuple")?.call1((PySliceSpec{spec:spec.clone()},))}
 fn slice_index(value:&Bound<'_,PyAny>)->PyResult<Expr>{
-    if value.is_instance_of::<crate::PyExprNode>()||value.get_type().module().is_ok_and(|m|m.to_string().starts_with("sympy")){return to_expr(value);}
+    if value.is_instance_of::<crate::PyExprNode>()||crate::defining_module(value.get_type().as_any()).starts_with("sympy"){return to_expr(value);}
     to_expr(&value.py().import("operator")?.getattr("index")?.call1((value,))?)
 }
 fn slice_spec(value:&Bound<'_,PyAny>,size:&Expr)->PyResult<SliceSpec>{
@@ -299,7 +299,7 @@ impl PyMatrixExpr{
     #[getter] fn cols(&self)->PyExpr{wrap(self.m.cols().clone())}
     #[getter] fn shape(&self)->(PyExpr,PyExpr){(self.rows(),self.cols())}
     #[getter] fn is_square(&self)->Option<bool>{if self.m.rows()==self.m.cols(){Some(true)}else{symox::matrix::ratfunc::is_zero_assume(&symox::ops::sub(self.m.rows(),self.m.cols()))}}
-    #[getter] fn name(&self)->PyResult<String>{if let MatrixKind::Symbol(name)=self.m.kind(){Ok(name.clone())}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only MatrixSymbol has a name"))}}
+    #[getter] fn name(&self,py:Python<'_>)->PyResult<PyObject>{if let MatrixKind::Symbol(name)=self.m.kind(){crate::persistent_name(py,name)}else{Err(pyo3::exceptions::PyAttributeError::new_err("Only MatrixSymbol has a name"))}}
     #[getter] fn base(&self,py:Python<'_>)->PyResult<PyObject>{match self.m.kind(){MatrixKind::Pow(b,_)|MatrixKind::Inverse(b)|MatrixKind::HadamardPower(MatrixOperand::Matrix(b),_)=>Ok(matrix_object(py,b)?.unbind()),MatrixKind::HadamardPower(MatrixOperand::Scalar(e),_)=>Ok(wrap(e.clone()).into_pyobject(py)?.into_any().unbind()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("Only matrix powers have a base"))}}
     #[getter] fn exp(&self,py:Python<'_>)->PyResult<PyObject>{match self.m.kind(){MatrixKind::Pow(_,e)|MatrixKind::HadamardPower(_,MatrixOperand::Scalar(e))=>Ok(wrap(e.clone()).into_pyobject(py)?.into_any().unbind()),MatrixKind::Inverse(_)=>Ok(wrap(Expr::minus_one()).into_pyobject(py)?.into_any().unbind()),MatrixKind::HadamardPower(_,MatrixOperand::Matrix(m))=>Ok(matrix_object(py,m)?.unbind()),_=>Err(pyo3::exceptions::PyAttributeError::new_err("Only matrix powers have an exponent"))}}
     #[getter] fn arg(&self)->PyResult<PyMatrixExpr>{let c=self.m.children();if c.len()==1{Ok(wrap_matrixexpr(c[0].clone()))}else{Err(pyo3::exceptions::PyAttributeError::new_err("Matrix expression does not have one matrix argument"))}}

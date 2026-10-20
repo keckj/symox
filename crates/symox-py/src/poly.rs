@@ -1704,9 +1704,9 @@ fn list_items(f: &Bound<'_, PyAny>) -> PyResult<Option<Vec<Expr>>> {
     // Read the already loaded reference container through the conversion
     // protocol; this does not import or execute reference polynomial code.
     let ty=f.get_type();
-    let module=ty.module()?.to_string();let name=ty.name()?.to_string();
+    let module=crate::defining_module(ty.as_any());let name=ty.name()?.to_string();
     if (module.starts_with("sympy.") && matches!(name.as_str(),"Tuple"|"FiniteSet"|"EmptySet"))
-        || (module=="symox" && matches!(name.as_str(),"FiniteSet"|"EmptySetSet")) {
+        || (module=="symox" && matches!(name.as_str(),"FiniteSet"|"EmptySet")) {
         return f.getattr("args")?.try_iter()?.map(|x|to_expr(&x?)).collect::<PyResult<Vec<_>>>().map(Some);
     }
     Ok(None)

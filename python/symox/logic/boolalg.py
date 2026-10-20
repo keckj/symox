@@ -32,6 +32,34 @@ class _BooleanType(_BasicMeta):
             return value.is_Boolean and value.is_Function
         return value._is_boolean_category
 
+    # The Boolean atoms are the nominal classes of the native singletons:
+    # class dispatch on them accepts those node types, and attributes patched
+    # onto them after import (SageMath's ``_sage_``) reach ``true``/``false``.
+    def _native_counterpart(cls):
+        if '_native_names' not in cls.__dict__ or globals().get(cls.__name__) is not cls:
+            return None
+        from symox._node_types import node_class
+        return node_class(cls.__name__)
+
+    def __subclasscheck__(cls, subclass):
+        if super().__subclasscheck__(subclass):
+            return True
+        from symox._node_types import NodeType
+        nominal = cls._native_counterpart() if isinstance(subclass, NodeType) else None
+        return nominal is not None and issubclass(subclass, nominal)
+
+    def __setattr__(cls, name, value):
+        super().__setattr__(name, value)
+        if cls._native_counterpart() is not None:
+            from symox._node_types import forward_setattr
+            forward_setattr(cls, cls.__name__, name, value)
+
+    def __delattr__(cls, name):
+        super().__delattr__(name)
+        if cls._native_counterpart() is not None:
+            from symox._node_types import forward_delattr
+            forward_delattr(cls, cls.__name__, name)
+
 
 class Boolean(Basic, metaclass=_BooleanType):
     """Boolean category and formal Basic container.

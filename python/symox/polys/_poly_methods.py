@@ -1289,6 +1289,12 @@ _NONE_FLAGS = (
 )
 
 
+def _rep(f):
+    """SymPy's ``Poly.rep``: the dense representation over ``f.domain``."""
+    from .polyclasses import DMP
+    return DMP.from_poly(f)
+
+
 def install():
     """Attach the SymPy-compatible methods to the native ``Poly`` class."""
     methods = {
@@ -1329,7 +1335,7 @@ def install():
                      "from_poly": from_poly, "from_expr": from_expr,
                      "new": new, "class_key": class_key, "fromiter": fromiter}.items():
         setattr(Poly, name, classmethod(fn))
-    for name, fn in {"args": _args, "func": _func, "one": one, "zero": zero,
+    for name, fn in {"args": _args, "func": _func, "one": one, "zero": zero, "rep": _rep,
                      "free_symbols_in_domain": free_symbols_in_domain,
                      "is_primitive": is_primitive,
                      "is_cyclotomic": is_cyclotomic}.items():

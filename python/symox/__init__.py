@@ -50,6 +50,9 @@ from ._core import (
 from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, FlagError, UnificationFailed
 
 from ._basic import Basic
+from . import _node_types
+from ._compat import _ExprType
+type.__setattr__(Basic, '_sage_', _node_types._sage_placeholder)
 S = sympify
 
 
@@ -106,7 +109,23 @@ class _BuiltinFunctionHead:
         return self._factory(*args, **kwargs)
 
     def __getattr__(self, name):
-        return getattr(self._factory, name)
+        if name == '_factory':
+            raise AttributeError(name)
+        # SymPy heads are classes: attributes patched onto them or onto a
+        # base class such as Function are visible on the head itself.
+        try:
+            return _node_types.class_attribute(self.__name__, name)
+        except AttributeError:
+            return getattr(self._factory, name)
+
+    def __setattr__(self, name, value):
+        object.__setattr__(self, name, value)
+        if '_factory' in self.__dict__:
+            _node_types.forward_setattr(self, self.__name__, name, value)
+
+    def __delattr__(self, name):
+        object.__delattr__(self, name)
+        _node_types.forward_delattr(self, self.__name__, name)
 
     def __repr__(self):
         return self.__name__
@@ -187,7 +206,32 @@ ln = log
 Abs = globals()["Abs"]
 
 
-class Function:
+class _FunctionType(type):
+    # SymPy's Function is the base class of every applied head. Patches of
+    # it live on its nominal node class, so that undefined heads (instances
+    # here, classes in SymPy) and applied nodes resolve them through the MRO.
+    def __getattr__(cls, name):
+        if cls is Function:
+            return _node_types.class_attribute('Function', name)
+        raise AttributeError(name)
+
+    def __setattr__(cls, name, value):
+        if cls is Function and _node_types._forward_target(cls, 'Function', name) is not None:
+            _node_types.forward_setattr(cls, 'Function', name, value)
+        else:
+            type.__setattr__(cls, name, value)
+
+    def __delattr__(cls, name):
+        if cls is Function and name not in cls.__dict__:
+            if _node_types._forward_target(cls, 'Function', name) is not None:
+                if name not in _node_types.node_class('Function').__dict__:
+                    raise AttributeError(name)
+                _node_types.forward_delattr(cls, 'Function', name)
+                return
+        type.__delattr__(cls, name)
+
+
+class Function(metaclass=_FunctionType):
     """Undefined function: ``f = Function('f'); f(x)``."""
 
     def __init__(self, name: str, *, nargs=None, **assumptions):
@@ -214,6 +258,16 @@ class Function:
 
     def __call__(self, *args, evaluate=True):
         return _core._undefined_function(self.name, args, self._assumptions, self._nargs)
+
+    def __getattr__(self, name):
+        # In SymPy an undefined head is the class of its applications, so
+        # class attributes such as SageMath's ``_sage_`` resolve on it.
+        if _node_types._patchable(name) and 'name' in self.__dict__:
+            from ._function_types import application_type
+            cls = application_type(self.name, nargs=self._nargs, **self._assumptions)
+            if name in cls.__dict__ or _node_types.has_class_attribute('AppliedUndef', name):
+                return getattr(cls, name)
+        raise AttributeError("'Function' object has no attribute '%s'" % name)
 
     def __instancecheck__(self, instance):
         return (isinstance(instance, _core.Expr) and instance.is_UndefinedFunction
@@ -248,6 +302,10 @@ def _restore_function(name, assumptions, nargs):
 
 class _CalculusMeta(type):
     def __getattr__(cls,name):
+        try:
+            return _node_types.class_attribute(cls.__name__,name)
+        except AttributeError:
+            pass
         from ._constructor_methods import instance_method
         return instance_method(_core.Expr,name)
 
@@ -255,6 +313,11 @@ class _CalculusMeta(type):
 
     def __instancecheck__(cls, value):
         return isinstance(value, Expr) and getattr(value, 'is_'+cls.__name__, False)
+
+    __subclasscheck__ = _ExprType.__subclasscheck__
+    __setattr__ = _ExprType.__setattr__
+    __delattr__ = _ExprType.__delattr__
+    __repr__ = _ExprType.__repr__
 
 
 class Integral(metaclass=_CalculusMeta):
@@ -398,6 +461,9 @@ def _tuple(items):
 def hyper(ap, bq, z):
     """Generalised hypergeometric function ``hyper(ap, bq, z)``."""
     return _core._apply("hyper", _tuple(ap), _tuple(bq), z)
+
+
+hyper = _BuiltinFunctionHead("hyper", hyper)
 
 
 def bell(n, k_sym=None, symbols=None):
@@ -826,7 +892,7 @@ def _unwrap(o):
     return o
 
 
-class Set:
+class Set(metaclass=_node_types.WrapperType):
     """Base class of sets (wraps a core expression)."""
 
     __slots__ = ("_e",)
@@ -1332,7 +1398,7 @@ class _NamedSet(Set):
 
 
 def _named(name, **flags):
-    cls = type(name + "Set", (_NamedSet,), {"__slots__": (), **flags})
+    cls = type(_NamedSet)(name, (_NamedSet,), {"__slots__": (), **flags})
     _SET_CLASSES[name] = cls
     return _wrap_set(_core._named_set(name))
 
@@ -1577,9 +1643,12 @@ def series(expr, x=None, x0=0, n=6, dir="+"):
     return _series_call(expr, x, x0, n, dir)
 
 
-def Order(expr, *args, **kwargs):
+class Order(metaclass=_ExprType):
     """Landau order term ``O(expr, (x, x0), ...)``."""
-    return _core._order(expr, *args)
+    _matches = staticmethod(lambda expr: expr.class_name == "Order")
+
+    def __new__(cls, expr, *args, **kwargs):
+        return _core._order(expr, *args)
 
 
 O = Order
@@ -2126,6 +2195,8 @@ _public_core.install(globals())
 _public_matrix.install(globals())
 _public_roots.install()
 _public_special.install(globals())
+from . import _combinatorial_rewrites  # noqa: E402
+_combinatorial_rewrites.install()
 from ._tuple_protocol import install as _install_tuple_protocol
 _install_tuple_protocol(Expr)
 from ._boolean_operators import install as _install_boolean_operators

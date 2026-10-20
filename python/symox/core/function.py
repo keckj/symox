@@ -34,7 +34,16 @@ class UndefinedFunction(type,metaclass=_UndefinedFunctionType):
         return Function(name,**kwargs)
 
 class UndefSageHelper:
-    def __init__(self,function):self.function=function
-    def __call__(self,*args):return self.function(*args)
+    """Helper to facilitate Sage conversion of undefined functions."""
+    def __get__(self,ins,typ):
+        import sage.all as sage
+        if ins is None:
+            return lambda:sage.function(typ.__name__)
+        else:
+            args=[arg._sage_() for arg in ins.args]
+            return lambda:sage.function(ins.__class__.__name__)(*args)
+
+# Applied undefined-function classes read this at creation, as in SymPy.
+_undef_sage_helper=UndefSageHelper()
 
 __all__ += ['Application','DefinedFunction','AppliedUndef','UndefinedFunction','ArgumentIndexError','UndefSageHelper']

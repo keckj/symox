@@ -10,7 +10,7 @@ coefficients still use these native expression nodes.
 from fractions import Fraction
 from functools import lru_cache
 
-from . import _core
+from . import _core, _node_types
 
 
 def _matrix_operand(value):
@@ -21,6 +21,12 @@ def _matrix_operand(value):
 
 class _ExprType(type):
     def __getattr__(cls, name):
+        # Attributes patched onto the class, and SymPy's own class-level
+        # placeholders, live on the nominal node class of the same name.
+        try:
+            return _node_types.class_attribute(cls.__name__, name)
+        except AttributeError:
+            pass
         # Constructors return native Expr instances, so inherited unbound
         # methods must be accessible through the public constructor as well.
         value = getattr(_core.Expr, name)
@@ -33,6 +39,27 @@ class _ExprType(type):
 
     def __instancecheck__(cls, value):
         return isinstance(value, _core.Expr) and bool(cls._matches(value))
+
+    def __subclasscheck__(cls, subclass):
+        # Native nodes are instances of SymPy's nominal classes, so a class
+        # dispatch keyed by this public class must accept their types.
+        if type.__subclasscheck__(cls, subclass):
+            return True
+        nominal = _node_types.node_class(cls.__name__) if isinstance(subclass, _node_types.NodeType) else None
+        return nominal is not None and issubclass(subclass, nominal)
+
+    def __setattr__(cls, name, value):
+        type.__setattr__(cls, name, value)
+        _node_types.forward_setattr(cls, cls.__name__, name, value)
+
+    def __delattr__(cls, name):
+        type.__delattr__(cls, name)
+        _node_types.forward_delattr(cls, cls.__name__, name)
+
+    def __repr__(cls):
+        if _node_types._facade_active():
+            return _node_types.sympy_class_repr(cls) or type.__repr__(cls)
+        return type.__repr__(cls)
 
     def class_key(cls):
         name = cls.__name__
@@ -123,6 +150,14 @@ class Float(Number):
                 precision = None
         elif exact_digits:
             raise ValueError('Automatic exact precision requires a string or integer')
+        elif (not isinstance(num, (float, tuple, _core.Expr)) and not hasattr(num, '_mpf_')
+              and hasattr(num, '_mpmath_')):
+            # SymPy converts foreign numbers through mpmath, never through
+            # their _sympy_ hook (which may itself call Float).
+            import mpmath
+            from mpmath.libmp import dps_to_prec
+            bits = int(precision) if precision is not None else dps_to_prec(15 if dps is None else int(dps))
+            return _core.Float(mpmath.mpf(num, prec=bits), precision=bits)
         return _core.Float(num, dps, precision=precision)
 
 

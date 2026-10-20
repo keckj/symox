@@ -98,6 +98,81 @@ fn loaded_symox(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
     modules.get_item("symox")?.ok_or_else(|| PyTypeError::new_err("symox facade is not loaded"))
 }
 
+// SymPy's nominal class of each native node, resolved once per class name by
+// the Python layer. Instances of these heap subtypes carry no extra state,
+// so attribute patches on the classes are seen through the ordinary MRO.
+static NODE_TYPE_RESOLVER: pyo3::sync::GILOnceCell<PyObject> = pyo3::sync::GILOnceCell::new();
+static NODE_TYPES: std::sync::Mutex<Option<FxHashMap<String, Option<Py<pyo3::types::PyType>>>>> =
+    std::sync::Mutex::new(None);
+
+// Under the routing facade the nominal node and set classes report SymPy's
+// module through ``__module__`` (protocols such as SageMath's coercion test
+// it). Native dispatch must still tell them from reference SymPy classes, so
+// it reads the module recorded in the class dictionary.
+static NAMES: pyo3::sync::GILOnceCell<Py<PyDict>> = pyo3::sync::GILOnceCell::new();
+/// One str object per name, as SymPy's ``name`` slot holds: ``x.name is
+/// x.name``. C extensions (Cadabra's bridge) keep borrowed handles to it.
+pub(crate) fn persistent_name(py: Python<'_>, name: &str) -> PyResult<PyObject> {
+    let names = NAMES.get_or_init(py, || PyDict::new(py).unbind()).bind(py);
+    let key = pyo3::types::PyString::new(py, name);
+    Ok(names.call_method1("setdefault", (&key, &key))?.unbind())
+}
+
+static TYPE_MODULE: pyo3::sync::GILOnceCell<PyObject> = pyo3::sync::GILOnceCell::new();
+
+/// The defining module of a class (or the ``__module__`` of another object).
+pub(crate) fn defining_module(value: &Bound<'_, PyAny>) -> String {
+    let py = value.py();
+    let module = if value.is_instance_of::<pyo3::types::PyType>() {
+        TYPE_MODULE
+            .get_or_try_init(py, || -> PyResult<PyObject> {
+                Ok(py.get_type::<pyo3::types::PyType>().getattr("__dict__")?.get_item("__module__")?.unbind())
+            })
+            .and_then(|descriptor| descriptor.bind(py).call_method1("__get__", (value,)))
+    } else {
+        value.getattr("__module__")
+    };
+    module.and_then(|module| module.extract::<String>()).unwrap_or_default()
+}
+
+#[pyfunction]
+fn _register_node_types(py: Python<'_>, resolver: PyObject) -> PyResult<()> {
+    NODE_TYPE_RESOLVER
+        .set(py, resolver)
+        .map_err(|_| PyValueError::new_err("native node types are already registered"))
+}
+
+fn node_type<'py>(py: Python<'py>, e: &Expr) -> Option<Bound<'py, pyo3::types::PyType>> {
+    let resolver = NODE_TYPE_RESOLVER.get(py)?;
+    let name = e.class_name();
+    if let Some(entry) = NODE_TYPES.lock().ok()?.as_ref().and_then(|types| types.get(name)) {
+        return entry.as_ref().map(|class| class.bind(py).clone());
+    }
+    // The resolver runs Python code that may itself build expressions, so the
+    // cache lock is never held across the call. Failures are not cached: they
+    // only occur while the facade itself is still importing.
+    let resolved = resolver.call1(py, (name,)).ok()?.into_bound(py);
+    let class = if resolved.is_none() { None } else {
+        let class = resolved.downcast_into::<pyo3::types::PyType>().ok()?;
+        class.is_subclass_of::<PyExprNode>().ok()?.then_some(class)
+    };
+    NODE_TYPES.lock().ok()?.get_or_insert_with(FxHashMap::default)
+        .insert(name.to_string(), class.as_ref().map(|class| class.clone().unbind()));
+    class
+}
+
+fn node_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
+    match node_type(py, &e) {
+        Some(class) => unsafe {
+            use pyo3::impl_::pyclass_init::PyObjectInit;
+            let object = PyClassInitializer::from(PyExprNode { e })
+                .into_new_object(py, class.as_type_ptr())?;
+            Ok(PyObject::from_owned_ptr(py, object))
+        },
+        None => Ok(Bound::new(py, PyExprNode { e })?.into_any().unbind()),
+    }
+}
+
 fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     if matches!(e.kind(), Kind::Func(Func::Predicate(_) | Func::Set(symox::sets::SetOp::Lambda | symox::sets::SetOp::IdentityFunction), _)) {
         if let Ok(class) = loaded_symox(py).and_then(|module| module.getattr("_CallableExpr")) {
@@ -154,7 +229,7 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
             }
         }
     }
-    Ok(Bound::new(py, PyExprNode { e })?.into_any().unbind())
+    node_object(py, e)
 }
 
 fn arithmetic_object(slf: &PyRef<'_, crate::PyExprNode>, other: &Bound<'_, PyAny>, e: Expr) -> PyResult<PyObject> {
@@ -311,7 +386,7 @@ pub(crate) fn function_head(value:&Bound<'_,PyAny>)->PyResult<Option<symox::expr
     }
     let sympy_head=value.get_type().getattr("__mro__").is_ok_and(|mro|mro.try_iter().is_ok_and(|bases|bases.filter_map(Result::ok).any(|base|{
         base.getattr("__name__").is_ok_and(|name|name.extract::<String>().is_ok_and(|name|name=="UndefinedFunction"))
-            &&base.getattr("__module__").is_ok_and(|module|module.extract::<String>().is_ok_and(|module|module.starts_with("sympy.")))
+            &&defining_module(&base).starts_with("sympy.")
     })));
     if sympy_head{sympy_function_spec(value).map(Some)}else{Ok(None)}
 }
@@ -328,12 +403,12 @@ fn direct_conversion_hook<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Option<Bound
     if obj.downcast::<crate::PyExprNode>().is_ok() { return Ok(None); }
     if let Ok(hook) = obj.getattr("_symox_") { return Ok(Some(hook)); }
     let ty = obj.get_type();
-    let module = ty.module().map(|value| value.to_string()).unwrap_or_default();
+    let module = defining_module(ty.as_any());
     // Native interoperability exporters must never be implicit conversion
     // hooks. Reference objects retain the established structural conversion.
     if module == "symox" || module.starts_with("symox.") { return Ok(None); }
     for base in ty.getattr("__mro__")?.try_iter()? {
-        let module = base?.getattr("__module__")?.extract::<String>().unwrap_or_default();
+        let module = defining_module(&base?);
         if module == "sympy" || module.starts_with("sympy.") { return Ok(None); }
     }
     Ok(obj.getattr("_sympy_").ok())
@@ -430,7 +505,7 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     // fractions.Fraction
     let ty = obj.get_type();
     let tname = ty.name()?.to_string();
-    let module = ty.module().map(|m| m.to_string()).unwrap_or_default();
+    let module = defining_module(ty.as_any());
     if tname == "Fraction" {
         let n: BigInt = obj.getattr("numerator")?.extract()?;
         let d: BigInt = obj.getattr("denominator")?.extract()?;
@@ -459,10 +534,7 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     let inherited_sympy = if module.starts_with("sympy") {
         false
     } else if let Ok(mro) = ty.getattr("__mro__") {
-        mro.try_iter()?.filter_map(Result::ok).any(|base| {
-            base.getattr("__module__").and_then(|m| m.extract::<String>())
-                .is_ok_and(|module| module.starts_with("sympy"))
-        })
+        mro.try_iter()?.filter_map(Result::ok).any(|base| defining_module(&base).starts_with("sympy"))
     } else { false };
     if module.starts_with("sympy") || inherited_sympy {
         let py = obj.py();
@@ -1412,13 +1484,14 @@ impl PyExprNode {
     }
 
     #[getter]
-    fn name(&self) -> PyResult<String> {
-        match self.e.kind() {
-            Kind::Sym(s) => Ok(s.to_string()),
-            Kind::Func(Func::Predicate(p), _) => Ok(p.name().to_string()),
-            Kind::Func(f, _) => Ok(f.name().to_string()),
-            _ => Err(pyo3::exceptions::PyAttributeError::new_err("expression has no name")),
-        }
+    fn name(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let name = match self.e.kind() {
+            Kind::Sym(s) => s.to_string(),
+            Kind::Func(Func::Predicate(p), _) => p.name().to_string(),
+            Kind::Func(f, _) => f.name().to_string(),
+            _ => return Err(pyo3::exceptions::PyAttributeError::new_err("expression has no name")),
+        };
+        persistent_name(py, &name)
     }
 
     #[getter]
@@ -1502,18 +1575,26 @@ impl PyExprNode {
         self.e.is_rational_number()
     }
     #[getter]
-    fn __class__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn __class__<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        // Nodes allocated with their nominal SymPy class report it, as do
+        // public subclasses such as Tuple.
+        let py = slf.py();
+        let class = slf.get_type();
+        if !class.is(&py.get_type::<PyExprNode>()) {
+            return Ok(class.into_any());
+        }
+        let this = slf.get();
         // ABC protocols consult __class__. Expose the existing public numeric
         // facades only for actual rational nodes; registering Expr itself
         // would incorrectly classify symbols and transcendental expressions.
-        if self.is_Tuple() {
+        if this.is_Tuple() {
             let class = py.import("symox")?.getattr("Tuple")?;
             if class.downcast::<pyo3::types::PyType>().is_ok() {
                 return Ok(class);
             }
         }
-        if self.e.is_rational_number() {
-            let name = if self.is_Integer() { "Integer" } else { "Rational" };
+        if this.e.is_rational_number() {
+            let name = if this.is_Integer() { "Integer" } else { "Rational" };
             let class = py.import("symox")?.getattr(name)?;
             if class.downcast::<pyo3::types::PyType>().is_ok() {
                 return Ok(class);
@@ -3290,6 +3371,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
+    m.add_function(wrap_pyfunction!(_register_node_types, m)?)?;
     ask::register(m)?;
     m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;
     m.add_function(wrap_pyfunction!(_restore_logic, m)?)?;

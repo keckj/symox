@@ -9,6 +9,7 @@ from ._compat import _ExprType
 
 _roots = {}
 _sums = {}
+_intervals = {}
 
 
 def _polynomial(f,x=None):
@@ -64,6 +65,7 @@ class ComplexRootOf(metaclass=_ExprType):
     @classmethod
     def clear_cache(cls):
         _roots.clear()
+        _intervals.clear()
     def __new__(cls,f,x,index=None,radicals=False,expand=True):
         if index is None:index,x = x,None
         index = operator.index(index)
@@ -115,6 +117,28 @@ def _metadata(node):
     coefficients = coefficients.args
     p = Poly(Add(*(c*x**(len(coefficients)-i-1) for i,c in enumerate(coefficients))),x)
     return p,int(index)
+
+
+def _get_interval(self):
+    """Internal function for retrieving isolation interval from cache. """
+    if self in _intervals:return _intervals[self]
+    from .polys.domains import ZZ
+    from .polys.rootisolation import RealInterval
+    p,index = _metadata(self)
+    position = 0
+    for bounds,multiplicity in p.intervals():
+        if position <= index < position+multiplicity:
+            f = p.clear_denoms()[1].sqf_part().all_coeffs()
+            interval = RealInterval(bounds,[ZZ(int(c)) for c in f],ZZ)
+            _intervals[self] = interval
+            return interval
+        position += multiplicity
+    raise NotImplementedError('complex root isolation is not implemented natively')
+
+
+def _set_interval(self,interval):
+    """Internal function for updating isolation interval in cache. """
+    _intervals[self] = interval
 
 
 def numeric_root(node,digits):
@@ -188,6 +212,9 @@ def root_sum_doit(node):
 
 
 def install():
+    from ._node_types import node_class
+    for method in (_get_interval,_set_interval):
+        type.__setattr__(node_class('ComplexRootOf'),method.__name__,method)
     Expr = _core.Expr
     original_is_number = Expr.is_number
     Expr.is_number = property(lambda self:True if self.class_name == 'ComplexRootOf' else original_is_number.__get__(self,Expr))

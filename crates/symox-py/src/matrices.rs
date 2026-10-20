@@ -141,7 +141,9 @@ impl<T> IntoPy<T> for Result<T, MatrixError> {
 }
 
 /// A mutable dense symbolic matrix.
-#[pyclass(name = "Matrix", module = "symox._core", weakref, subclass)]
+/// Instances carry a `__dict__` like SymPy matrices (downstream caches such as
+/// SageMath's `_sage_object` are stored on the matrix).
+#[pyclass(name = "Matrix", module = "symox._core", weakref, subclass, dict)]
 #[derive(Clone)]
 pub struct PyMatrix {
     pub m: Matrix,
@@ -205,10 +207,7 @@ fn exprs_list<'py>(py: Python<'py>, v: &[Expr]) -> PyResult<Bound<'py, PyList>> 
 }
 
 fn is_sympy_obj(obj: &Bound<'_, PyAny>) -> bool {
-    obj.get_type()
-        .module()
-        .map(|m| m.to_string().starts_with("sympy"))
-        .unwrap_or(false)
+    crate::defining_module(obj.get_type().as_any()).starts_with("sympy")
 }
 
 /// Convert a Python object to a matrix (symox/SymPy matrices, nested

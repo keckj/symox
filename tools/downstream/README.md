@@ -132,7 +132,12 @@ The root facade advertises API **target** version 1.14.0 for upstream version
 gates, while keeping the actual Symox version and wheel digest in the evidence.
 Installed SymPy distribution metadata remains available to dependency checkers.
 This facade does not certify 1.14 compatibility and is not a production drop-in
-installer. A passing selection establishes only the selected tests' behavior,
+installer. Like SymPy's package namespace, the facade's `__dict__` holds the
+native public names, for callers that read it directly (SageMath's
+`check_all` runs `from sympy import __dict__`). While the facade is active,
+native node and set classes report SymPy's module paths in `repr` and
+`__module__`; their class dictionaries keep the defining `symox.*` module,
+which native dispatch reads. A passing selection establishes only the selected tests' behavior,
 including their explicit dependency skips and expected failures.
 
 `audit_plugin.py` records pytest setup, call, teardown and collection outcomes.

@@ -56,8 +56,45 @@ class Printer:
     def doprint(self, expr):
         return self._print(expr)
 
+    def _as_ordered_terms(self, expr, order=None):
+        """A compatibility function for ordering terms in Add. """
+        order = order or self.order
+        if order == 'old':
+            from functools import cmp_to_key
+            from .. import Add
+            return sorted(Add.make_args(expr), key=cmp_to_key(_compare_pretty))
+        elif order == 'none':
+            return list(expr.args)
+        else:
+            return expr.as_ordered_terms(order=order)
+
     def emptyPrinter(self, expr):
         return str(expr)
+
+
+def _compare_pretty(a, b):
+    """SymPy's ``Basic._compare_pretty``: the ``order='old'`` comparison."""
+    from .. import Order, Wild
+    if isinstance(a, Order) and not isinstance(b, Order):
+        return 1
+    if not isinstance(a, Order) and isinstance(b, Order):
+        return -1
+    if a.is_Rational and b.is_Rational:
+        l = a.p * b.q
+        r = b.p * a.q
+        return (l > r) - (l < r)
+    else:
+        p1, p2, p3 = Wild("p1"), Wild("p2"), Wild("p3")
+        r_a = a.match(p1 * p2**p3)
+        if r_a and p3 in r_a:
+            a3 = r_a[p3]
+            r_b = b.match(p1 * p2**p3)
+            if r_b and p3 in r_b:
+                b3 = r_b[p3]
+                c = a3.compare(b3)
+                if c != 0:
+                    return c
+    return a.compare(b)
 
 from contextlib import contextmanager
 

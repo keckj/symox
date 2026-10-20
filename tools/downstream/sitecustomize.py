@@ -76,6 +76,11 @@ if BACKEND == 'symox':
                 facade.__getattr__ = lambda name: getattr(self.native, name)
                 facade.__all__ = getattr(self.native, '__all__',
                     [name for name in vars(self.native) if not name.startswith('_')])
+                # Like SymPy's package namespace, the facade's __dict__ holds
+                # the public names (``from sympy import __dict__`` callers).
+                for name, value in vars(self.native).items():
+                    if not name.startswith('_'):
+                        facade.__dict__.setdefault(name, value)
                 return facade
             return self.native
 

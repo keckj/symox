@@ -385,9 +385,56 @@ def _conversion_hook(name):
     return from_domain
 
 
+# SageMath's element conversion protocol. SymPy's ZZ and QQ elements are
+# gmpy2 or Python integers and rationals, which SageMath's Integer and
+# Rational constructors read directly; SageMath asks other objects for
+# ``_integer_`` and ``_rational_``, and polynomial rings for ``_polynomial_``.
+# SageMath is imported only when it makes these calls.
+
+def _rational_parts(element):
+    domain = element.parent()
+    if not (domain.is_ZZ or domain.is_QQ):
+        raise TypeError('unable to convert %r to a rational' % (element,))
+    return int(element.numerator), int(element.denominator)
+
+
+def _integer_(self, Z=None):
+    p, q = _rational_parts(self)
+    if q != 1:
+        raise TypeError('unable to convert %r to an integer' % (self,))
+    if Z is None:
+        from sage.rings.integer_ring import ZZ as Z
+    return Z(p)
+
+
+def _rational_(self):
+    p, q = _rational_parts(self)
+    from sage.rings.rational_field import QQ
+    return QQ((p, q))
+
+
+def _polynomial_(self, R):
+    domain = self.parent()
+    if not domain.is_PolynomialRing:
+        raise TypeError('unable to convert %r to a polynomial' % (self,))
+    from ... import Poly
+    poly = Poly(domain.to_sympy(self), *domain.symbols, domain=domain.domain)
+    gens = [R(str(symbol)) for symbol in domain.symbols]
+    base = R.base_ring()
+    result = R.zero()
+    for monom, coeff in poly.rep.terms():
+        term = R(base(coeff))
+        for gen, exponent in zip(gens, monom):
+            term *= gen**exponent
+        result += term
+    return result
+
+
 def install():
     from ... import Domain
     from ... import _core
+    for function in (_integer_, _rational_, _polynomial_):
+        setattr(_core.DomainElement, function.__name__, function)
     global _native_convert, _native_invert
     if _native_convert is None:
         _native_convert, _native_invert = Domain.convert, Domain.invert
