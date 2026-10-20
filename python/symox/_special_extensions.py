@@ -175,7 +175,7 @@ class _MeijerMeta(_HeadMeta):
         for a in an:
             for b in bm:
                 delta=a-b
-                if delta.is_Integer and delta>0:raise ValueError('upper and lower poles must not overlap')
+                if delta.is_Integer and delta>0:raise ValueError('no parameter a1, ..., an may differ from any b1, ..., bm by a positive integer')
         s=_s()
         return _core._apply('meijerg',s._tuple([s._tuple(an),s._tuple(ao)]),s._tuple([s._tuple(bm),s._tuple(bo)]),z)
 

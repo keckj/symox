@@ -1307,7 +1307,16 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
         return Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
     }
     if b.is_float() || e.is_float() {
-        if matches!(b, Number::MpFloat(..)) || matches!(e, Number::MpFloat(..)) {
+        // SymPy's Float._eval_power: a negative float to 1/q with q odd keeps
+        // the principal root of -1 symbolic.
+        if b.is_float() && b.is_negative() && e.is_rational() && e.numer().is_one()
+            && e.denom().to_bigint().is_some_and(|q| q.is_odd()) {
+            return mul2(&Expr::from_kind(Kind::Pow(Expr::minus_one(), Expr::num(e.clone()))), &num_pow(&b.neg(), e));
+        }
+        if matches!(b, Number::MpFloat(..)) || matches!(e, Number::MpFloat(..)) || (b.is_negative() && !b.is_zero()) {
+            // A complex result of a negative base is mpmath's mpc_pow at the
+            // float precision; double precision trigonometry would leave a
+            // spurious real part.
             let precision = b.float_precision().unwrap_or(0).max(e.float_precision().unwrap_or(0));
             let raw = Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
             return crate::evalf_mp::eval_mp(&raw, precision)

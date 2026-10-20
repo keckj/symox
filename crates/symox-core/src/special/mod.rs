@@ -273,11 +273,28 @@ pub fn apply(s: SpecialFn, args: Vec<Expr>) -> Expr {
         return v;
     }
     if s.auto_evalf() && should_evalf(&args) {
-        if let Some(v) = numeric::eval_exprs(s, &args) {
-            return v;
+        // SymPy evaluates at the largest argument precision through mpmath;
+        // the double precision kernels serve only without a host evaluator.
+        if crate::evalf_mp::has_special_host() {
+            let prec = args.iter().filter_map(float_precision).max().unwrap_or(53);
+            let node = raw(s, args);
+            return crate::evalf_mp::eval_number(&node, prec).unwrap_or(node);
+        }
+        if args.iter().all(|arg| float_precision(arg).is_none_or(|p| p <= 53)) {
+            if let Some(v) = numeric::eval_exprs(s, &args) {
+                return v;
+            }
         }
     }
     raw(s, args)
+}
+
+pub fn float_precision(e: &Expr) -> Option<u32> {
+    match e.kind() {
+        Kind::Num(n) => n.float_precision(),
+        Kind::Add(c, t) => c.float_precision().max(t.first().and_then(|(_, k)| k.float_precision())),
+        _ => None,
+    }
 }
 
 fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
@@ -331,21 +348,20 @@ pub(crate) fn eval_erf(a: &Expr) -> Option<Expr> {
     error::eval_erf(a)
 }
 
-/// SymPy's `Function._should_evalf`: every argument is a float or a
-/// complex number with float parts.
-pub(crate) fn should_evalf(args: &[Expr]) -> bool {
+/// SymPy's `Function._should_evalf`: every argument is a float, or a sum
+/// `a + b*I` of numbers with at least one float part (a pure imaginary
+/// product `b*I` does not qualify).
+pub fn should_evalf(args: &[Expr]) -> bool {
     !args.is_empty() && args.iter().all(is_float_like)
 }
 
 fn is_float_like(e: &Expr) -> bool {
     match e.kind() {
-        Kind::Num(Number::Float(_)) => true,
-        Kind::Mul(c, f) => c.is_float() && f.len() == 1 && f[0].0.is_constant(Constant::I) && f[0].1.is_one(),
+        Kind::Num(n) => n.is_float(),
         Kind::Add(c, t) => {
-            c.is_float()
-                && t.len() == 1
+            t.len() == 1
                 && t[0].0.is_constant(Constant::I)
-                && t[0].1.is_float()
+                && (c.is_float() || t[0].1.is_float())
         }
         _ => false,
     }

@@ -797,6 +797,27 @@ for constructing every stabilizer chain.
   allocation budgets even though Float literals have compact storage at much
   larger exponents. Removing policy caps does not certify all numerical
   algorithms, counter ranges or precision options.
+- Special functions that SymPy evaluates through mpmath (Bessel, Airy,
+  gamma family, error and exponential integrals, zeta family, elliptic
+  integrals, Lambert W, `hyper`, `appellf1`, `meijerg`, orthogonal
+  polynomials and the non-integer Bernoulli/harmonic/Euler extensions)
+  now evaluate at any precision through the same mpmath functions, with
+  certified agreement between two guard precisions (up to `2*prec + 512`
+  bits); see [the special-function guide](special-functions.md#multiprecision-evaluation).
+  `meijerg([[],[]],[[1/3],[]],2/3).evalf(50)` gives 50 correct digits, and
+  `exp_polar` branches follow SymPy's `meijerg._eval_evalf`. mpmath errors
+  (`erfinv(2.7)`, `zeta(1.0)`, `loggamma(-2.0)`) propagate as `ValueError`;
+  assumption queries do not raise. Float arguments auto-evaluate under
+  SymPy's `_should_evalf` rule at the largest argument precision, and negative
+  Float bases with fractional exponents follow `Float._eval_power`
+  (`(-1.3)**(1/3)` keeps a `(-1)**(1/3)` factor; `sqrt(-1.3)` has no real
+  noise). Remaining divergences: digits are certified, so ill-conditioned
+  arguments can be more accurate than SymPy (`elliptic_k(1 - 10**-30)`,
+  `(-1.3)**(-1/3)` in the last digit) and slowly converging mpmath cases such
+  as `hyper([2,3,4],[1],1/2)` take a few times longer; a non-finite mpmath
+  result stays unevaluated instead of becoming `oo`/`nan`; the bare Rust
+  library without the Python package keeps double precision kernels for these
+  families; `marcumq` stays double precision (SymPy has no kernel).
 - Complex algebraic roots do not yet have certified complex isolating boxes;
   complex root ordering and numerical refinement retain the limitations
   described in [the root guide](algebraic-roots-quaternions.md).

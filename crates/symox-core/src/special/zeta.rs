@@ -119,6 +119,10 @@ fn eval_polylog(s: &Expr, z: &Expr) -> Option<Expr> {
             }
         }
     }
+    // SymPy's `z.equals(1)` also accepts a float one.
+    if z.as_number().is_some_and(|n| n.is_float() && n.sub(&crate::number::Number::int(1)).is_zero()) {
+        return Some(super::zeta(s));
+    }
     if s.is_zero() {
         return Some(div(z, &sub(&Expr::one(), z)));
     }

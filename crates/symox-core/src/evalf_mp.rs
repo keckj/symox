@@ -97,6 +97,7 @@ pub fn evalf_with_options(e:&Expr,prec:u32,options:EvalfOptions)->(Expr,Option<E
 /// evaluation's options. Sign and magnitude decisions use this.
 pub fn eval_mp_default(e:&Expr,prec:u32)->Option<MpComplex>{
     let _scope=OptionsScope::enter(EvalfOptions::default());
+    let _errors=HostErrorScope::enter(false);
     eval_mp(e,prec)
 }
 struct NumericScope;
@@ -364,6 +365,11 @@ fn eval_mp_bounded(e: &Expr, prec: u32, bounded: bool) -> Option<MpComplex> {
 
 /// Convert a computed value back to native expression numbers, retaining the
 /// declared precision. Exact zero components stay exact zero.
+/// The numerical value of `e` at `prec` bits as a Float expression.
+pub fn eval_number(e: &Expr, prec: u32) -> Option<Expr> {
+    eval_mp(e, prec).map(|value| to_expr(value, prec))
+}
+
 pub fn to_expr(value: MpComplex, prec: u32) -> Expr {
     let re = if value.re.is_zero() { Expr::zero() } else { Expr::num(Number::mp_float(value.re, prec)) };
     if value.im.is_zero() { return re; }
@@ -599,14 +605,221 @@ fn pow_of(b: &Expr, x: &Expr, p: u32) -> Option<MpComplex> {
             if let Some(n)=numerator.to_i64(){return bv.sqrt(p+16)?.powi(n,p);}
         }
     }
+    // mpmath's mpc_pow_mpf: an integer or half-integer float exponent is an
+    // integer power, of the square root for a half-integer.
+    if let Some(n) = x.as_number().filter(|n| n.is_float() && !n.is_zero()) {
+        let twice = n.to_bigfloat(n.float_precision()?).ldexp(1);
+        let t = twice.to_int_trunc();
+        if BigFloat::from_int(&t) == twice {
+            if let Some(t) = t.to_i64() {
+                return if t % 2 == 0 { bv.powi(t / 2, p) } else { bv.sqrt(p + 16)?.powi(t, p) };
+            }
+        }
+    }
     let xv = ev(x, p)?;
     bv.pow(&xv, p)
+}
+
+/// One argument of a host special-function evaluation: a number, or a
+/// (possibly nested) parameter tuple.
+#[derive(Clone, Debug)]
+pub enum HostArg {
+    Number(MpComplex),
+    Tuple(Vec<HostArg>),
+}
+
+/// An exception raised by the host evaluator, kept for the caller that
+/// requested errors (SymPy propagates mpmath's errors from `evalf`).
+pub struct HostError(pub Box<dyn std::any::Any + Send>);
+
+/// Host evaluator of a special function head at a binary precision. It
+/// returns `Ok(None)` when the value is unavailable; it must never return a
+/// value with fewer correct bits than requested.
+pub type SpecialHost = fn(&str, &[HostArg], u32) -> Result<Option<MpComplex>, HostError>;
+
+static SPECIAL_HOST: std::sync::OnceLock<SpecialHost> = std::sync::OnceLock::new();
+
+thread_local! {
+    static HOST_ERRORS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static HOST_ERROR: std::cell::RefCell<Option<HostError>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Install the multiprecision evaluator used for special functions without a
+/// native kernel (the Python bindings install mpmath, as SymPy uses it).
+pub fn register_special_host(host: SpecialHost) {
+    let _ = SPECIAL_HOST.set(host);
+}
+
+/// Is a host evaluator installed?
+pub fn has_special_host() -> bool {
+    SPECIAL_HOST.get().is_some()
+}
+
+/// While alive, the first host error is kept for [`take_host_error`];
+/// a nested disabled scope (sign and magnitude decisions) discards them,
+/// as SymPy's assumption queries catch evaluation errors.
+pub struct HostErrorScope(bool);
+impl HostErrorScope {
+    pub fn enter(enabled: bool) -> Self {
+        let previous = HOST_ERRORS.with(|cell| cell.replace(enabled));
+        if enabled && !previous {
+            HOST_ERROR.with(|cell| cell.borrow_mut().take());
+        }
+        Self(previous)
+    }
+}
+impl Drop for HostErrorScope {
+    fn drop(&mut self) {
+        HOST_ERRORS.with(|cell| cell.set(self.0));
+    }
+}
+
+/// The first host error raised inside the current enabled scope.
+pub fn take_host_error() -> Option<HostError> {
+    HOST_ERROR.with(|cell| cell.borrow_mut().take())
+}
+
+fn call_host(host: SpecialHost, name: &str, args: &[HostArg], p: u32, report: bool) -> Option<MpComplex> {
+    match host(name, args, p) {
+        Ok(value) => value,
+        Err(error) => {
+            if report && HOST_ERRORS.with(|cell| cell.get()) {
+                HOST_ERROR.with(|cell| { cell.borrow_mut().get_or_insert(error); });
+            }
+            None
+        }
+    }
+}
+
+// Argument guard bits; SymPy converts arguments at prec + 5, and polygamma
+// works at prec + 12.
+const HOST_ARGUMENT_GUARD: u32 = 12;
+
+fn host_arg(e: &Expr, p: u32) -> Option<HostArg> {
+    if let Some(items) = crate::special::tuple_items(e) {
+        return items.iter().map(|item| host_arg(item, p)).collect::<Option<Vec<_>>>().map(HostArg::Tuple);
+    }
+    ev(e, p).map(HostArg::Number)
+}
+
+fn host_eval(name: &str, args: &[Expr], p: u32) -> Option<MpComplex> {
+    let host = *SPECIAL_HOST.get()?;
+    refined(p, |q, first| {
+        let values = args.iter().map(|arg| host_arg(arg, q + HOST_ARGUMENT_GUARD)).collect::<Option<Vec<_>>>()?;
+        call_host(host, name, &values, q, first)
+    })
+}
+
+/// Do two values agree to `p` bits, relative to the larger part of `b`?
+fn agrees(a: &MpComplex, b: &MpComplex, p: u32) -> bool {
+    let size = [&b.re, &b.im].into_iter().filter(|part| !part.is_zero()).map(BigFloat::mag).max();
+    let Some(size) = size else { return a.re.is_zero() && a.im.is_zero() };
+    let wp = p + 16;
+    [a.re.sub(&b.re, wp), a.im.sub(&b.im, wp)].iter().all(|d| d.is_zero() || d.mag() < size - p as i128 - 1)
+}
+
+// SymPy evaluates a special function once at the target precision; the
+// result then carries the conditioning error of the rounded arguments and
+// any loss inside mpmath. Evaluating again with more argument and working
+// bits until two values agree certifies the returned bits. Values that keep
+// disagreeing are not returned; a failure above the first precision returns
+// the first value, as SymPy does.
+fn refined(p: u32, evaluate: impl Fn(u32, bool) -> Option<MpComplex>) -> Option<MpComplex> {
+    let limit = p.saturating_mul(2).saturating_add(512);
+    let mut extra = 10u32;
+    let mut previous = evaluate(p + extra, true)?;
+    loop {
+        extra = extra * 2 + 10;
+        if extra > limit {
+            return None;
+        }
+        let Some(current) = evaluate(p + extra, false) else {
+            return Some(previous.round_to(p));
+        };
+        if agrees(&previous, &current, p) {
+            return Some(current.round_to(p));
+        }
+        previous = current;
+    }
+}
+
+/// Whether `exp_polar(w)` is on the principal sheet, `im(w)` in `(-pi, pi]`,
+/// where SymPy evaluates it as `exp(w)`. `None` when undecided.
+fn exp_polar_principal(w: &Expr, p: u32) -> Option<bool> {
+    let ratio = crate::ops::div(w, &crate::ops::mul2(&Expr::i(), &Expr::pi()));
+    if let Some(n) = ratio.as_number().filter(|n| n.is_rational()) {
+        return Some(n.add(&Number::int(1)).is_positive() && !n.sub(&Number::int(1)).is_positive());
+    }
+    let wp = p + 20;
+    let value = ev(w, wp)?;
+    let half_turn = pi(wp);
+    let upper = value.im.sub(&half_turn, wp);
+    let lower = value.im.add(&half_turn, wp);
+    let unresolved = |d: &BigFloat| d.is_zero() || d.mag() < half_turn.mag() - wp as i128 + 8;
+    if unresolved(&upper) || unresolved(&lower) {
+        return None;
+    }
+    Some(upper.sign() < 0 && lower.sign() > 0)
+}
+
+/// SymPy's `meijerg._eval_evalf`: one non-principal `exp_polar` factor of
+/// the argument is passed separately so that the host can evaluate on its
+/// sheet through mpmath's `r` parameter.
+fn meijerg_host(args: &[Expr], p: u32) -> Option<MpComplex> {
+    let host = *SPECIAL_HOST.get()?;
+    let [a, b, z] = args else { return None };
+    let polar_exponent = |e: &Expr| match e.kind() {
+        Kind::Func(Func::ExpPolar, w) if w.len() == 1 && exp_polar_principal(&w[0], p) == Some(false) => Some(Some(w[0].clone())),
+        Kind::Func(Func::ExpPolar, w) if w.len() == 1 && exp_polar_principal(&w[0], p).is_none() => None,
+        _ => Some(None),
+    };
+    let (rest, branch) = match z.kind() {
+        Kind::Mul(coefficient, factors) => {
+            let mut branch = None;
+            let mut rest = vec![Expr::num(coefficient.clone())];
+            for (base, exponent) in factors {
+                let factor = crate::ops::pow(base, exponent);
+                match polar_exponent(&factor)? {
+                    Some(w) if branch.is_none() => branch = Some(w),
+                    Some(_) => return None,
+                    None => rest.push(factor),
+                }
+            }
+            (crate::ops::mul(&rest), branch)
+        }
+        _ => match polar_exponent(z)? {
+            Some(w) => (Expr::one(), Some(w)),
+            None => (z.clone(), None),
+        },
+    };
+    refined(p, |q, first| {
+        let wp = q + HOST_ARGUMENT_GUARD;
+        let polar = match &branch {
+            Some(w) => ev(w, wp)?,
+            None => MpComplex::real(BigFloat::zero()),
+        };
+        let values = vec![host_arg(a, wp)?, host_arg(b, wp)?, HostArg::Number(ev(&rest, wp)?), HostArg::Number(polar)];
+        call_host(host, "meijerg", &values, q, first)
+    })
 }
 
 fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
     let wp = p + 10;
     if let Func::Special(s) = f {
-        return crate::special::mp::eval(*s, args, p);
+        if *s == crate::special::SpecialFn::MeijerG {
+            return meijerg_host(args, p);
+        }
+        return crate::special::mp::eval(*s, args, p).or_else(|| host_eval(s.name(), args, p));
+    }
+    if let Func::ExpPolar = f {
+        let w = args.first()?;
+        if !exp_polar_principal(w, p)? {
+            return None;
+        }
+        let value = ev(w, wp)?.exp(p)?;
+        // On the boundary im(w) = pi SymPy keeps the real part.
+        let ratio = crate::ops::div(w, &crate::ops::mul2(&Expr::i(), &Expr::pi()));
+        return Some(if ratio.as_number().is_some_and(|n| n.is_one()) { MpComplex::real(value.re) } else { value });
     }
     if matches!(f, Func::Undefined(name) if name.is_internal("UnevaluatedExpr")) {
         return ev(args.first()?, p);
@@ -703,9 +916,22 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             };
             MpComplex::real(BigFloat::from_int(&v))
         }
-        Func::Erf if a.is_real() => MpComplex::real(erf_mp(&a.re, p)?),
-        Func::Erfc if a.is_real() => MpComplex::real(BigFloat::one().sub(&erf_mp(&a.re, wp)?, p)),
-        Func::Gamma if a.is_real() => MpComplex::real(gamma_mp(&a.re, p)?),
+        Func::Erf if a.is_real() => match erf_mp(&a.re, p) {
+            Some(value) => MpComplex::real(value),
+            None => return host_eval("erf", args, p),
+        },
+        Func::Erfc if a.is_real() => match erfc_mp(&a.re, p) {
+            Some(value) => MpComplex::real(value),
+            None => return host_eval("erfc", args, p),
+        },
+        Func::Gamma if a.is_real() => match gamma_mp(&a.re, p) {
+            Some(value) => MpComplex::real(value),
+            None => return host_eval("gamma", args, p),
+        },
+        Func::Erf => return host_eval("erf", args, p),
+        Func::Erfc => return host_eval("erfc", args, p),
+        Func::Gamma => return host_eval("gamma", args, p),
+        Func::LogGamma => return host_eval("loggamma", args, p),
         _ => return None,
     })
 }
@@ -798,12 +1024,20 @@ pub fn tribonacci_constant(prec: u32) -> BigFloat {
     x.round_to(prec)
 }
 
+// The power series of erf cancels about x**2*log2(e) bits; beyond this
+// square the native kernel defers to the host evaluator.
+const ERF_SERIES_LIMIT: f64 = 4096.0;
+
 fn erf_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     // erf x = 2/sqrt(pi) * sum (-1)^n x^(2n+1) / (n! (2n+1)); fine for
     // moderate |x| with enough guard bits (cancellation ~ x^2 / ln 2 bits)
     let x2f = x.to_f64() * x.to_f64();
-    if x2f > 1e6 {
+    // 1 - |erf x| < exp(-x**2): the value rounds to +-1 at this precision.
+    if x2f * std::f64::consts::LOG2_E > prec as f64 + 8.0 {
         return Some(BigFloat::from_i64(x.sign() as i64));
+    }
+    if x2f > ERF_SERIES_LIMIT {
+        return None;
     }
     let wp = prec + 20 + (x2f * 1.5) as u32;
     let x2 = x.mul(x, wp);
@@ -821,6 +1055,26 @@ fn erf_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     }
     let c = BigFloat::from_i64(2).div(&pi(wp).sqrt(wp)?, wp)?;
     Some(sum.mul(&c, prec))
+}
+
+/// erfc x, accurate to `prec` bits: `1 - erf x` loses about x**2*log2(e)
+/// bits for positive x, which are added to the working precision.
+fn erfc_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
+    let x2f = x.to_f64() * x.to_f64();
+    if x.sign() <= 0 || x2f <= 1.0 {
+        return Some(BigFloat::one().sub(&erf_mp(x, prec + 10)?, prec));
+    }
+    if x2f > ERF_SERIES_LIMIT {
+        return None;
+    }
+    let loss = (x2f * std::f64::consts::LOG2_E).ceil() as u32;
+    let wp = prec + loss + 16;
+    let erf = erf_mp(x, wp)?;
+    let value = BigFloat::one().sub(&erf, wp);
+    if value.is_zero() {
+        return None;
+    }
+    Some(value.round_to(prec))
 }
 
 fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {

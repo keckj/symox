@@ -50,9 +50,12 @@ def test_special_arbitrary_precision(name, ratios, reference):
         assert abs(mp.mpf(value) - want) < mp.mpf("1e-58") * max(1, abs(want))
 
 
-def test_unsupported_arbitrary_precision_is_explicit():
-    # There is no 53-bit fallback pretending to deliver 60 significant digits.
-    assert sx.special_nstr(sx.besselj(0, sx.Rational(1, 3)), 60) is None
+def test_arbitrary_precision_bessel_digits_are_certified():
+    # The digits come from a multiprecision evaluation, not a 53-bit fallback.
+    value = sx.special_nstr(sx.besselj(0, sx.Rational(1, 3)), 60)
+    with mp.workdps(80):
+        want = mp.besselj(0, mp.mpf(1) / 3)
+        assert abs(mp.mpf(value) - want) < mp.mpf("1e-58") * abs(want)
 
 
 def test_binary_function_cannot_be_used_as_unary_numeric_helper():

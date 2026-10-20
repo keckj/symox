@@ -902,6 +902,10 @@ pub(crate) fn evalf_expr(e: &Expr, n: i64, replacements: Option<&Bound<'_, PyDic
 }
 
 pub(crate) fn evalf_prepared(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,settings:EvalfSettings)->PyResult<Expr> {
+    special::with_host_errors(||evalf_checked(e,precision,replacements,settings))
+}
+
+fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,settings:EvalfSettings)->PyResult<Expr> {
     let e = match replacements {
         Some(mapping) => {
             let pairs = mapping.iter().map(|(old, new)| Ok((to_expr(&old)?, to_expr(&new)?))).collect::<PyResult<Vec<_>>>()?;
@@ -3434,6 +3438,11 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<P
                         return Err(PyValueError::new_err("Function defined only for real values"));
                     }
                 }
+            }
+            if evaluate && (matches!(f, Func::Special(s) if s.auto_evalf()) || matches!(f, Func::Gamma | Func::LogGamma | Func::Erf | Func::Erfc))
+                && symox::special::should_evalf(&v) {
+                // Float arguments evaluate through mpmath, whose errors propagate.
+                return special::with_host_errors(|| Ok(wrap(fx::func(f, v))));
             }
             Ok(wrap(if evaluate { fx::func(f, v) } else { Expr::from_unevaluated_kind(Kind::Func(f, v)) }))
         }

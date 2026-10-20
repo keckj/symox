@@ -346,3 +346,7 @@ python/symox/utilities/sorting.py, the Add/Mul construction helpers in
 python/symox/core/add.py and python/symox/core/mul.py and the evalf handler
 table in python/symox/core/evalf.py adapt the corresponding SymPy 1.14 code to
 native Symox expressions.
+
+The mpmath evaluation adapters in python/symox/_mpmath_special.py follow the
+numerical evaluation methods (_eval_evalf) of the SymPy 1.14 special-function
+classes, including the Meijer G branch handling of sympy/functions/special/hyper.py.

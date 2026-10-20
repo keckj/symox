@@ -43,7 +43,10 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     if matches!(f, Func::Sign) && args.len()==1 && crate::assumptions::is_real(&args[0])==Some(true) {
         if let Some(value)=crate::complex_parts::evaluate::sign(&args[0]) { return value; }
     }
+    // Special functions and gamma, loggamma, erf and erfc follow SymPy's
+    // _should_evalf rule below: every argument must be a Float.
     if args.iter().any(crate::evalf_mp::has_mp)
+        && !matches!(f, Func::Special(_) | Func::Gamma | Func::LogGamma | Func::Erf | Func::Erfc)
         && !matches!(f, Func::Floor | Func::Ceiling | Func::Min | Func::Max | Func::Heaviside | Func::DiracDelta)
         && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number)) {
         let precision = args.iter().filter_map(crate::evalf_mp::max_precision).max().unwrap();
@@ -62,6 +65,20 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             return v;
         }
     }
+    // gamma, loggamma, erf and erfc have no float rule in their eval: like
+    // SymPy's Function they evaluate only float or float complex arguments,
+    // at the largest argument precision.
+    let auto_evalf = matches!(f, Func::Gamma | Func::LogGamma | Func::Erf | Func::Erfc);
+    if auto_evalf && crate::special::should_evalf(&args) {
+        let prec = args.iter().filter_map(crate::special::float_precision).max().unwrap_or(53);
+        let node = Expr::from_kind(Kind::Func(f.clone(), args.clone()));
+        if let Some(value) = crate::evalf_mp::eval_number(&node, prec) {
+            return value;
+        }
+        if crate::evalf_mp::has_special_host() || prec > 53 {
+            return node;
+        }
+    }
     // numeric evaluation when an argument is a float
     // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
     // arg of a real float is exact (0, pi or nan) as in SymPy
@@ -70,6 +87,7 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         && !args.is_empty()
         && args.iter().all(is_numeric_value)
         && args.iter().any(has_float)
+        && (!auto_evalf || crate::special::should_evalf(&args))
     {
         if let Some(v) = crate::evalf::eval_func_numeric(&f, &args) {
             return v;
