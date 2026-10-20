@@ -184,6 +184,15 @@ their inputs, and unsupported printer output keeps the native evaluator.
 Matching selected NumPy results or reusing identical exact computations does
 not establish comparative complexity or full backend/API parity.
 
+Follow-up frontend optimizations reuse bounded immutable lexical tokens rather
+than evaluated expressions: namespaces, user transformations, callbacks and
+evaluation options remain active on every parse. Scalar expansion retains the
+native option and budget checks while bypassing unrelated container dispatch.
+The exact involution shortcut for permutation powers first verifies every
+image, applies to arbitrary signed integer exponents and retains subclass
+constructor/inversion behavior. These are scoped preservation arguments;
+timings remain separate from the open mathematical parity obligations below.
+
 The downstream fixes also cover exact Python `Fraction` conversion of native
 integers and rationals, two-dimensional NumPy/matrix arithmetic, external
 `_sympy_` conversion hooks, and relational constructor identity and instance

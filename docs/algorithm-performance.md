@@ -70,9 +70,9 @@ Cache improvements apply to repeated identical work. They do not prove a better
 asymptotic algorithm on fresh inputs. First and repeated calls are reported
 separately, with both libraries' caches enabled.
 
-## Measured results
+## Initial measured results
 
-The final run verifies 132 of 137 workloads; five remain excluded. The baseline
+The first patch round verifies 132 of 137 workloads; five remain excluded. The baseline
 verified 129, with two precision failures and one expansion setup error in
 addition to those five exclusions. Cases with a first-call or repeated-call
 speedup at most 1.5 decrease from 34 to 24. The final run contains 501 paired
@@ -100,17 +100,66 @@ evaluation remains close to the reference and is not a decisive performance
 win. The 100-term repeated `Add` case also remains slightly slower despite its
 substantial improvement over the baseline.
 
+## Weak-case follow-up
+
+The follow-up targets the remaining slow frontend and public dispatch paths.
+It avoids a second tokenization for ordinary whitespace, skips inactive token
+rewrites, and reuses only lexical tokens for sixteen short sources. Namespace
+lookup, transformations, user callbacks and mathematical evaluation still run
+on every parse. Each transformation receives a fresh token list; quoted unusual
+whitespace retains the token-aware normalization path.
+
+Concrete native scalar expansion now calls the native method with the same
+options and budgets, avoiding unrelated array/tensor dispatch. Numeric binding
+conversion and scalar result wrapping also avoid failed coefficient/attribute
+lookups in ordinary calls. Foreign operands, numeric subclasses, evaluation
+contexts and registered differential fields retain their established behavior.
+
+Repeated exact `Add` calls build their identity key in one native pass without
+allocating a Python integer per argument address. Owners remain retained and
+the eligibility and cache limits are unchanged. Concrete permutations satisfying
+`p[p[i]] == i` reduce arbitrary signed integer powers by parity after checking
+every image. Other permutations and subclasses retain the existing algorithms.
+
+The [follow-up evidence](../audits/performance/2026-10-20-weak-cases/README.md)
+keeps its own wheel fingerprint, complete answers, before/after comparison and
+fresh-process timings, separately from the first patch round.
+
+This follow-up retains 132 verified workloads and the same five exclusions.
+There are now 17 cases at most 1.5× faster than SymPy in either timing mode,
+compared with 24 in the predecessor. That threshold includes modest native wins
+and near ties. The run contains 589 paired trials; 46 workloads, including the
+corrected cases below, have seven fresh-process trials each.
+
+Repeated-call medians in microseconds:
+
+| Workload | Predecessor, µs | Follow-up, µs | Follow-up vs SymPy |
+|---|---:|---:|---:|
+| Parsing, 50 terms | 6,702 | 2,942 | 1.44× |
+| Exact `Add`, 100 terms | 9.73 | 3.89 | 2.06× |
+| Exact `Add`, 1,000 terms | 69.6 | 16.5 | 4.83× |
+| Univariate expansion, degree 30 | 2.32 | 0.559 | 2.47× |
+| Incremental sum, 100 terms | 653 | 373 | 0.936× |
+| Permutation operations, size 100 | 18.2 | 10.6 | 2.15× |
+| Permutation operations, size 1,000 | 147 | 92.8 | 1.95× |
+
+The small incremental-sum case improves substantially but remains slightly
+slower on repeated calls. Small cached integer-head responses, near-equal
+NumPy evaluation and some first numerical calls also remain marginal. The
+[full follow-up report](../audits/performance/2026-10-20-weak-cases/after.md)
+keeps their timings, intervals and remaining comparison limitations.
+
 ## Evidence and remaining work
 
-The versioned evidence is stored in
+The first patch round's versioned evidence is stored in
 [`audits/performance/2026-10-20`](../audits/performance/2026-10-20/).
 It includes full retained answers, per-process samples, validation statuses,
 package/source fingerprints and regression logs. Baseline precision failures,
 setup errors and inconclusive checks remain visible.
 
-The final source snapshot passes 29,974 core Python tests with five documented
+The latest source snapshot passes 30,045 core Python tests with five documented
 skips and no failures or xfails, including the local Trisplyne integrations.
-The focused regressions pass 159 tests. The unchanged Rust core passes 528
+The follow-up focused regressions pass 1,618 tests. The unchanged Rust core passes 528
 tests, with its pre-existing series timing experiment ignored. The optional
 extra backend and downstream package suites were not rerun for this patch
 branch; their older qualification results do not qualify the new artifact.
@@ -121,8 +170,8 @@ and verification are outside timing. SymPy imports are blocked during native
 measurement. The shared host can still affect timings, so small differences
 need repeated trials and are not treated as decisive wins.
 
-Incremental expression construction, parsing and several microsecond-scale
-public dispatch paths still need work. Some repeated cached calls remain slower
+Incremental expression construction and several microsecond-scale public
+dispatch paths still need work. Some repeated cached calls remain slower
 than the reference even when the first calculation is much faster. The
 assumption check, large derivative validation and reference integration/series
 timeouts excluded from ranking require separate investigation. The independent

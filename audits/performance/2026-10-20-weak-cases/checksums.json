@@ -1,0 +1,14 @@
+{
+  "README.md": "5fce6efb19fe8f70253befcde85f22a9c6bbd917948ab83795b3c05d960fcdcf",
+  "after-package.json": "7bf31403ddeb61260f10da6e2d6eb473ff1992819a0c91a029c437dc18738bab",
+  "after-summary.json": "c37b7f1ac44ada11ea60b4f1febf30fe2c2f6f2af5501523be6cc284bb0c7bee",
+  "after.json.gz": "4cab3167680afa6cb4807d15598fc13714cc766b4c9fbec1cd5d558cb7acd79e",
+  "after.md": "69cc224be92502a5f2422c4ef20112e187cc53d09d83f76ccd37adbd00cbfacd",
+  "comparison.json": "ccb5a456746d2e5df90ebb16468a06c99367fdb02fec8d17c66e8d4d17396ff3",
+  "weak-build.log.gz": "60cf85b294384d5f05e536039895bcfbd9d366e5bfa76b17668522c3b9c4f112",
+  "weak-core.log.gz": "550d32bfbbfbcb06f407fa9c05253da4add378f8cd1158943bc119c8033391c4",
+  "weak-refinement.log.gz": "c6175ec927b7a77d928fe585e270956ed2fb01d2f38373b5857b86c158cd5861",
+  "weak-regressions-final.log.gz": "72efab478bb75bcc4d6384dfa040e0eab43df151b0131b26c5cba906a732cbcf",
+  "weak-regressions.log.gz": "d002be6379c00978fe279ab50cede2f010065c05145d3befc299fc54f758edf9",
+  "weak-screening.log.gz": "b6335ab5a4b8345b54daa2fd7b0fe4296dce59ad22a956b9b11be7a6683cc856"
+}
