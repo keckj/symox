@@ -13,7 +13,7 @@ fn coefficient(n:&Number)->bool{
     }
 }
 fn symbol(e:&Expr)->bool{
-    e.as_sym().is_some_and(|s|!s.is_wild()&&s.name().len()<=256)
+    e.as_sym().is_some_and(|s|!s.is_wild()&&!s.is_dummy()&&s.name().len()<=256)
 }
 fn exponent(e:&Expr)->bool{
     match e.as_number(){
@@ -40,7 +40,7 @@ pub(crate) fn _exact_expr_args(args:&Bound<'_,PyTuple>)->bool{
 }
 
 #[pyfunction]
-pub(crate) fn _monomial_add(args:&Bound<'_,PyTuple>)->PyResult<Option<crate::PyExprNode>>{
+pub(crate) fn _monomial_add(args:&Bound<'_,PyTuple>)->PyResult<Option<crate::PyExpr>>{
     if !(2..=1024).contains(&args.len()){return Ok(None);}
     let mut values=Vec::with_capacity(args.len());
     let kind=args.py().get_type::<crate::PyExprNode>();
