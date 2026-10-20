@@ -192,16 +192,22 @@ def install(namespace):
     for name in operations:
         original = getattr(Expr,name)
         def arithmetic(original,name):
+            reflected = '__'+name[3:] if name.startswith('__r') else '__r'+name[2:]
+            division = name in ('__truediv__','__rtruediv__')
+            plain_numbers = (int,float,complex)
+            scalars = (Expr,int,float,complex)
             @wraps(original)
             def operation(self,other,*args):
-                priority = getattr(other,'_op_priority',None)
+                # Exact built-in numeric types have no symbolic priority or
+                # foreign conversion hooks. Subclasses keep full dispatch.
+                plain_number = type(other) in plain_numbers
+                priority = None if plain_number else getattr(other,'_op_priority',None)
                 if priority is not None and priority > self._op_priority:
-                    reflected = '__'+name[3:] if name.startswith('__r') else '__r'+name[2:]
                     handler = getattr(other,reflected,None)
                     if handler is not None:
                         return handler(self,*args)
-                scalar = isinstance(other,(Expr,int,float,complex))
-                if scalar and name in ('__truediv__','__rtruediv__') and _divide_error.get() and self == 0 and other == 0:
+                scalar = plain_number or isinstance(other,scalars)
+                if scalar and division and _divide_error.get() and self == 0 and other == 0:
                     raise ValueError('indeterminate 0/0')
                 if scalar and not _evaluation.get() and not args:
                     value = _core.sympify(other)

@@ -145,6 +145,13 @@ class Permutation:
 
     def __pow__(self, n):
         exponent = operator.index(n)
+        # Products of disjoint transpositions (including the identity) satisfy
+        # p**2 = id. One exact image pass handles every signed exponent without
+        # repeated composition or cycle allocation. Subclasses retain their
+        # existing constructor and inversion callbacks.
+        if (type(self) is Permutation and abs(exponent) >= 8
+                and all(self._images[image] == i for i, image in enumerate(self._images))):
+            return type(self)._from_images(self._images if exponent % 2 else range(self.size))
         # Small powers need only a few array-composition passes. Cycle
         # decomposition remains linear in degree for arbitrarily large powers.
         if abs(exponent) <= 64:

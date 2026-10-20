@@ -2,15 +2,22 @@
 from . import _core
 import io
 import tokenize
+import re
 
 # User converters take precedence over the built-in container conversions.
 converter={}
+_unusual_space = re.compile(r'[^\S \t\f]')
 
 
 def _unicode_space(source):
     # Retain the Rust parser's support for Unicode whitespace, while leaving
     # whitespace inside quoted strings untouched.
     text=source.replace('\n','')
+    # Python's tokenizer already handles ordinary spaces, tabs and form feeds.
+    # Only inspect token positions when some other whitespace needs replacing;
+    # quoted Unicode/ASCII whitespace must still remain untouched.
+    if _unusual_space.search(text) is None:
+        return text
     try:
         positions=[token.start[1] for token in tokenize.generate_tokens(io.StringIO(text).readline)
                    if token.type==tokenize.ERRORTOKEN and token.string.isspace()]

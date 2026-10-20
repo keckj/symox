@@ -8,9 +8,11 @@ _arguments=0
 
 def add(args):
     global _arguments
-    if not 2<=len(args)<=1024 or not _core._exact_expr_args(args):
+    if not 2<=len(args)<=1024:
         return None
-    key=tuple(map(id,args))
+    key=_core._exact_expr_key(args)
+    if key is None:
+        return None
     if key in _values:
         _values.move_to_end(key)
         return _values[key][1]

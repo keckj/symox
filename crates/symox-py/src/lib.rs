@@ -132,14 +132,16 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     // dedicated subtype. Importing diffgeom must not make all scalars callable.
     if e.mask()!=0 {
         let module=loaded_symox(py)?;
-        if let Ok(fields)=module.getattr("_diffgeom_field_atoms") {
-            for atom in traverse::free_symbols(&e) {
-                if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
-                    && fields.contains(Bound::new(py, PyExprNode { e: atom })?)?
-                {
-                    let class = module.getattr("_diffgeom_callable_type")?;
-                    let value = Bound::new(py, PyExprNode { e })?;
-                    return Ok(class.call_method1("__new__", (&class, value))?.unbind());
+        if let Some(fields)=module.downcast::<pyo3::types::PyModule>()?.dict().get_item("_diffgeom_field_atoms")? {
+            if fields.len()? != 0 {
+                for atom in traverse::free_symbols(&e) {
+                    if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
+                        && fields.contains(Bound::new(py, PyExprNode { e: atom })?)?
+                    {
+                        let class = module.getattr("_diffgeom_callable_type")?;
+                        let value = Bound::new(py, PyExprNode { e })?;
+                        return Ok(class.call_method1("__new__", (&class, value))?.unbind());
+                    }
                 }
             }
         }
@@ -390,6 +392,23 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     if let Ok(p) = obj.downcast::<crate::PyExprNode>() {
         return Ok(p.get().e.clone());
     }
+    if obj.is_instance_of::<pyo3::types::PyBool>() {
+        return Ok(Expr::boolean(obj.extract::<bool>()?));
+    }
+    if obj.is_instance_of::<PyInt>() {
+        if let Ok(i) = obj.extract::<i64>() {
+            return Ok(Expr::int(i));
+        }
+        let b: BigInt = obj.extract()?;
+        return Ok(Expr::num(Number::from_bigint(b)));
+    }
+    if obj.is_instance_of::<PyFloat>() {
+        return Ok(Expr::float(obj.extract::<f64>()?));
+    }
+    if let Ok(c) = obj.downcast::<PyComplex>() {
+        let (re, im) = (c.real(), c.imag());
+        return Ok(evalf::c64_to_expr(num_complex_c64(re, im)));
+    }
     if let Ok(element) = obj.extract::<PyRef<'_, poly::domains::PyDomainElement>>() {
         use symox::poly::domains::{ElementValue, ExactDomain};
         use symox::poly::int::Coeff;
@@ -407,23 +426,6 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
     }
     if let Ok(p) = obj.downcast::<matrixexpr::PyMatrixExpr>() {
         return Ok(matrix_proxy(p.get().m.clone()));
-    }
-    if obj.is_instance_of::<pyo3::types::PyBool>() {
-        return Ok(Expr::boolean(obj.extract::<bool>()?));
-    }
-    if obj.is_instance_of::<PyInt>() {
-        if let Ok(i) = obj.extract::<i64>() {
-            return Ok(Expr::int(i));
-        }
-        let b: BigInt = obj.extract()?;
-        return Ok(Expr::num(Number::from_bigint(b)));
-    }
-    if obj.is_instance_of::<PyFloat>() {
-        return Ok(Expr::float(obj.extract::<f64>()?));
-    }
-    if let Ok(c) = obj.downcast::<PyComplex>() {
-        let (re, im) = (c.real(), c.imag());
-        return Ok(evalf::c64_to_expr(num_complex_c64(re, im)));
     }
     if obj.is_instance_of::<PyString>() {
         let s: String = obj.extract()?;
@@ -1182,7 +1184,7 @@ impl PyExprNode {
             || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
             return Ok(py.NotImplemented());
         }
-        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || (!o.is_exact_instance_of::<PyInt>() && !o.is_exact_instance_of::<PyFloat>() && !o.is_exact_instance_of::<PyComplex>() && o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false))) {
             // let Matrix.__rmul__ handle scalar * matrix
             return Ok(py.NotImplemented());
         }
@@ -1193,7 +1195,7 @@ impl PyExprNode {
             || o.is_instance_of::<PyString>() || o.is_instance_of::<pyo3::types::PyBytes>()) {
             return Ok(o.py().NotImplemented());
         }
-        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false)) {
+        if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || (!o.is_exact_instance_of::<PyInt>() && !o.is_exact_instance_of::<PyFloat>() && !o.is_exact_instance_of::<PyComplex>() && o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false))) {
             return Ok(o.py().NotImplemented());
         }
         arithmetic_object(&slf, o, ops::mul2(&scalar_expr(o)?, &slf.e))
@@ -3310,6 +3312,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_args,m)?)?;
+    m.add_function(wrap_pyfunction!(add_memo::_exact_expr_key,m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_monomial_add,m)?)?;
     ask::register(m)?;
     m.add_function(wrap_pyfunction!(_restore_arithmetic, m)?)?;

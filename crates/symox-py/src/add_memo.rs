@@ -1,6 +1,6 @@
 //! Recognize bounded exact monomials before ordinary scalar Add dispatch.
 use pyo3::prelude::*;
-use pyo3::types::PyTuple;
+use pyo3::types::{PyBytes,PyTuple};
 use symox::{Expr,Kind};
 use symox::number::Number;
 
@@ -37,6 +37,20 @@ fn monomial(e:&Expr)->bool{
 pub(crate) fn _exact_expr_args(args:&Bound<'_,PyTuple>)->bool{
     let kind=args.py().get_type::<crate::PyExprNode>();
     args.iter().all(|value|value.get_type().is(&kind))
+}
+
+/// An injective identity key, with no Python hashing or conversion hooks.
+/// Owners are retained by the bounded Python cache until this key is evicted.
+#[pyfunction]
+pub(crate) fn _exact_expr_key<'py>(args:&Bound<'py,PyTuple>)->Option<Bound<'py,PyBytes>>{
+    if !(2..=1024).contains(&args.len()){return None;}
+    let kind=args.py().get_type::<crate::PyExprNode>();
+    let mut key=Vec::with_capacity(args.len()*std::mem::size_of::<usize>());
+    for value in args.iter(){
+        if !value.get_type().is(&kind){return None;}
+        key.extend_from_slice(&(value.as_ptr() as usize).to_ne_bytes());
+    }
+    Some(PyBytes::new(args.py(),&key))
 }
 
 #[pyfunction]

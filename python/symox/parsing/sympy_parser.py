@@ -13,6 +13,7 @@ import builtins
 import types
 from typing import Any, Callable
 from functools import reduce
+from functools import lru_cache
 from symox.assumptions.ask import AssumptionKeys
 from symox import Basic
 from symox import Symbol
@@ -393,6 +394,8 @@ def lambda_notation(tokens: list[TOKEN], local_dict: DICT, global_dict: DICT):
 
 def factorial_notation(tokens: list[TOKEN], local_dict: DICT, global_dict: DICT):
     """Allows standard notation for factorial."""
+    if (OP, '!') not in tokens and not any(kind == ERRORTOKEN for kind, _ in tokens):
+        return tokens.copy()
     result: list[TOKEN] = []
     nfactorial = 0
     for (toknum, tokval) in tokens:
@@ -418,6 +421,8 @@ def factorial_notation(tokens: list[TOKEN], local_dict: DICT, global_dict: DICT)
 
 def convert_xor(tokens: list[TOKEN], local_dict: DICT, global_dict: DICT):
     """Treats XOR, ``^``, as exponentiation, ``**``."""
+    if (OP, '^') not in tokens:
+        return tokens.copy()
     result: list[TOKEN] = []
     for (toknum, tokval) in tokens:
         if toknum == OP:
@@ -431,6 +436,8 @@ def convert_xor(tokens: list[TOKEN], local_dict: DICT, global_dict: DICT):
 
 def repeated_decimals(tokens: list[TOKEN], local_dict: DICT, global_dict: DICT):
     """Allows 0.2[1] notation to represent the repeated decimal 0.2111... (19/90)"""
+    if (OP, '[') not in tokens:
+        return tokens.copy()
     result: list[TOKEN] = []
 
     def is_digit(s):
@@ -536,12 +543,20 @@ def convert_equals_signs(tokens: list[TOKEN], local_dict: DICT, global_dict: DIC
     return result
 standard_transformations: tuple[TRANS, ...] = (lambda_notation, auto_symbol, repeated_decimals, auto_number, factorial_notation)
 
+def _lex(s):
+    return tuple((kind, value) for kind, value, _, _, _ in
+                 generate_tokens(StringIO(s).readline))
+
+_short_lex = lru_cache(maxsize=16)(_lex)
+
 def stringify_expr(s: str, local_dict: DICT, global_dict: DICT, transformations: tuple[TRANS, ...]) -> str:
     """Converts the string ``s`` to Python code, in ``local_dict``"""
-    tokens = []
-    input_code = StringIO(s.strip())
-    for (toknum, tokval, _, _, _) in generate_tokens(input_code.readline):
-        tokens.append((toknum, tokval))
+    source = s.strip()
+    # Lexing depends only on the source, never on namespaces or evaluation.
+    # Every call gets a fresh list: transformations may mutate their input.
+    # Long sources retain the same parser without entering the bounded cache.
+    tokens = list(_short_lex(source) if type(source) is str and len(source) <= 4096
+                  else _lex(source))
     for transform in transformations:
         tokens = transform(tokens, local_dict, global_dict)
     return untokenize(tokens)
