@@ -232,9 +232,17 @@ fn simplify_exp_log(e: &Expr) -> Expr {
 
 /// Characteristic roots with multiplicities.
 fn char_roots(a: &[Expr]) -> Option<Vec<(Expr, usize)>> {
-    let roots = poly_roots(a)?;
     let r = Expr::symbol("_r");
     let p = add(&a.iter().enumerate().map(|(i, c)| mul2(c, &r.powi(i as i64))).collect::<Vec<_>>());
+    // SymPy's ``roots(chareq, multiple=True)``: exact multiplicities and its
+    // radical forms (``sqrt(-m**2)`` is returned as ``I*m``).
+    let degree = a.iter().rposition(|c| !c.is_zero()).unwrap_or(0);
+    if let Ok(found) = crate::poly::roots::roots(&p, std::slice::from_ref(&r)) {
+        if found.iter().map(|(_, m)| *m as usize).sum::<usize>() == degree {
+            return Some(found.into_iter().map(|(root, m)| (root, m as usize)).collect());
+        }
+    }
+    let roots = poly_roots(a)?;
     let mut out = Vec::new();
     for root in roots {
         // multiplicity: number of derivatives vanishing at the root

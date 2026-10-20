@@ -56,3 +56,32 @@ class BooleanFunction(Boolean):
 
 
 __all__ += ['Boolean', 'BooleanFunction']
+
+
+from symox._compat import _ExprType
+
+
+class BooleanAtom(metaclass=_ExprType):
+    """Category of the native Boolean singletons ``true`` and ``false``."""
+    _matches = staticmethod(lambda expr: expr.class_name in ('BooleanTrue', 'BooleanFalse'))
+
+
+class BooleanTrue(BooleanAtom):
+    """Class of ``S.true``; instantiation returns that singleton."""
+    _matches = staticmethod(lambda expr: expr.class_name == 'BooleanTrue')
+
+    def __new__(cls):
+        from symox import true
+        return true
+
+
+class BooleanFalse(BooleanAtom):
+    """Class of ``S.false``; instantiation returns that singleton."""
+    _matches = staticmethod(lambda expr: expr.class_name == 'BooleanFalse')
+
+    def __new__(cls):
+        from symox import false
+        return false
+
+
+__all__ += ['BooleanAtom', 'BooleanTrue', 'BooleanFalse']

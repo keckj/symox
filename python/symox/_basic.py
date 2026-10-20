@@ -14,6 +14,21 @@ class _BasicMeta(ABCMeta):
             return value._immutable
         return super().__instancecheck__(value)
 
+    # SymPy's Basic is the base of every native node's nominal class, so
+    # attributes patched onto it after import (SageMath's ``_sage_``) must
+    # reach native nodes as well as structural Basic subclasses.
+    def __setattr__(cls, name, value):
+        super().__setattr__(name, value)
+        if globals().get('Basic') is cls:
+            from ._node_types import forward_setattr
+            forward_setattr(cls, 'Basic', name, value)
+
+    def __delattr__(cls, name):
+        super().__delattr__(name)
+        if globals().get('Basic') is cls:
+            from ._node_types import forward_delattr
+            forward_delattr(cls, 'Basic', name)
+
 
 class Basic(metaclass=_BasicMeta):
     """Immutable, reconstructible structural container for symbolic arguments."""

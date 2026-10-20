@@ -180,6 +180,49 @@ with an explicit default convert to ITE before native branch storage; scalar
 rewriting uses the same conversion. Exhaustiveness proofs without a default
 remain an open obligation.
 
+Native scalar nodes are now instances of nominal classes named after their
+SymPy classes (`Add`, `Integer`, `sin`, `Derivative`...), generated from the
+reference class graph with the same names and MRO. These classes carry no
+state and are subtypes of the native expression type. Downstream converters
+that dispatch on `type(expr)`, its string, or MRO base names (SageMath's
+`_sage_` methods, Cadabra's `SympyBridge`) therefore see SymPy's classes.
+Under the downstream routing facade they also report SymPy's module paths.
+Attributes patched onto public classes after import, including `Basic`, are
+forwarded to these classes, so later patches follow the MRO with no stale
+cache. Native-written attributes stay authoritative. The same work adds
+`Poly.rep` as a dense `DMP` view, SageMath's
+`_integer_`/`_rational_`/`_polynomial_` element hooks for ZZ, QQ and
+polynomial-ring domain elements, `RealInterval`/`ComplexInterval` with
+`CRootOf._get_interval`, `Printer._as_ordered_terms`, and a persistent
+`Symbol.name` string (`x.name is x.name`, as in SymPy). Constant-coefficient
+linear ODEs take their characteristic roots from exact `roots`, as SymPy does
+(`X'' + m**2*X = 0` gives `exp(+-I*m*tau)`, not `exp(+-sqrt(-m**2)*tau)`).
+The gamma, beta, harmonic and combinatorial families (`gamma`, `lowergamma`,
+`uppergamma`, `polygamma`, `loggamma`, `digamma`, `trigamma`, `factorial`,
+`subfactorial`, `factorial2`, `rf`, `ff`, `binomial`, `beta`, `harmonic`) now
+rewrite with SymPy's rules, conditions and hints (`piecewise`, `limitvar`),
+following SymPy's bottom-up traversal and pattern selection.
+
+Measured with the routing facade against the unmodified upstream selections:
+SageMath's `sage/interfaces/sympy.py` doctests went from 182 to 8 failures out
+of 319, and Cadabra's `tests/sympy_cdb.cdb` passes with all 12 success
+markers. The remaining SageMath failures are open gaps: complex root
+isolation (3), polynomial-ring domains over polynomial rings such as
+`ZZ[x][y]` (2), `CRootOf` arguments stored as a coefficient tuple instead of
+SymPy's `(PurePoly, index)` (2, also visible in `str` and `srepr`), and the
+Fresnel (Meijer G) integral of `sin(x**2)` (1). Related rewrite gaps remain:
+`subfactorial(x).rewrite('factorial')` keeps an unevaluated `Sum` because the
+alternating `summation` with a symbolic bound is not closed, and the error
+function family (`erf` to `uppergamma`, `expint` or `tractable`) is not
+rewritten. Other
+differences found along the way: `sstr(expr, order=...)` ignores the order
+setting, the matcher can choose a different valid assignment for ambiguous
+patterns, `Poly.intervals` uses Sturm isolation rather than continued
+fractions, and numeric evaluation of complex `CRootOf` stays unevaluated.
+Tuples, sets, matrices, `Poly`, matrix expressions and `Lambda` are not yet
+instances of nominal SymPy classes, and user subclasses of native classes are
+not preserved (a separate subclass-fidelity obligation).
+
 The explicit `NonElementaryIntegral` constructor builds a held native integral
 and retains its marker for reconstruction, pickle and the covered root
 structural operations. Constructing this marker does not prove that its

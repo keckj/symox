@@ -4,9 +4,44 @@ import operator
 from ... import _core
 
 
+class _DomainAttribute:
+    """Attribute patched onto a domain class, as seen by native domains.
+
+    All domains share the native Domain type. Patching ``IntegerRing.attr``
+    in SymPy affects ``ZZ`` only, so lookup selects the most derived domain
+    class that both matches the domain and defines the attribute.
+    """
+    __slots__ = ('name',)
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, domain, owner=None):
+        if domain is not None:
+            for cls in sorted(_DomainType._classes, key=lambda cls: -len(cls.__mro__)):
+                if self.name in cls.__dict__ and isinstance(domain, cls):
+                    value = cls.__dict__[self.name]
+                    getter = getattr(type(value), '__get__', None)
+                    return value if getter is None else getter(value, domain, type(domain))
+        raise AttributeError(self.name)
+
+
 class _DomainType(type):
+    _classes = []
+
+    def __init__(cls, name, bases, namespace):
+        super().__init__(name, bases, namespace)
+        _DomainType._classes.append(cls)
+
     def __instancecheck__(cls, value):
         return isinstance(value, _core.Domain) and bool(getattr(value, cls._flag, False))
+
+    def __setattr__(cls, name, value):
+        type.__setattr__(cls, name, value)
+        if not (name.startswith('__') and name.endswith('__')) and name != '_flag':
+            current = _core.Domain.__dict__.get(name)
+            if current is None and not hasattr(_core.Domain, name):
+                type.__setattr__(_core.Domain, name, _DomainAttribute(name))
 
 
 class IntegerRing(metaclass=_DomainType):

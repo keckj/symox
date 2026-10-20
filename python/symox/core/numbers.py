@@ -3,7 +3,7 @@ __all__ = ['Number','NumberSymbol','Integer','Rational','Float','RealNumber','co
 
 # Compatible imports reuse the existing native objects.
 from symox._api_exports import export as _export
-_export(globals(), 'symox', 'AlgebraicNumber Catalan EulerGamma GoldenRatio TribonacciConstant mod_inverse')
+_export(globals(), 'symox', 'AlgebraicNumber mod_inverse oo zoo nan E pi I')
 
 from .. import S as _S, sympify as _sympify
 
@@ -28,6 +28,10 @@ NaN=_constant_class('NaN',Number,_S.NaN)
 ImaginaryUnit=_constant_class('ImaginaryUnit',Number,_S.ImaginaryUnit)
 Pi=_constant_class('Pi',NumberSymbol,_S.Pi)
 Exp1=_constant_class('Exp1',NumberSymbol,_S.Exp1)
+GoldenRatio=_constant_class('GoldenRatio',NumberSymbol,_S.GoldenRatio)
+EulerGamma=_constant_class('EulerGamma',NumberSymbol,_S.EulerGamma)
+Catalan=_constant_class('Catalan',NumberSymbol,_S.Catalan)
+TribonacciConstant=_constant_class('TribonacciConstant',NumberSymbol,_S.TribonacciConstant)
 
 
 def int_valued(x):
@@ -93,5 +97,5 @@ def sympify_mpmath(x):
     return Float(to_str(x._mpf_,prec_to_dps(prec)+3),precision=prec)
 
 __all__ += ['IntegerConstant','RationalConstant','Zero','One','NegativeOne','Half','Infinity','NegativeInfinity',
- 'ComplexInfinity','NaN','ImaginaryUnit','Pi','Exp1','int_valued','equal_valued','all_close','mpf_norm',
+ 'ComplexInfinity','NaN','ImaginaryUnit','Pi','Exp1','GoldenRatio','EulerGamma','Catalan','TribonacciConstant','int_valued','equal_valued','all_close','mpf_norm',
  'sympify_fractions','sympify_complex','sympify_mpmath']

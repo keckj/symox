@@ -34,10 +34,12 @@ def matcher(query, matching=True):
     from . import (Expr, Function, Atom, AtomicExpr, Tuple, AlgebraicNumber,
                   sympify, __dict__ as namespace)
     from . import _core
+    from ._node_types import native_module
     from .combinatorics import Permutation
     from ._matrixexpr_methods import _NameAtom, _TupleView
     if type(query) is str:query=sympify(query)
-    foreign=isinstance(query,type) and str(getattr(query,'__module__','')).startswith('sympy.')
+    # The defining module: native classes report SymPy's under the facade.
+    foreign=isinstance(query,type) and str(native_module(query) or '').startswith('sympy.')
     undefined=isinstance(query,type) and any(base.__name__=='UndefinedFunction'
         and base.__module__.startswith('sympy.') for base in type(query).__mro__)
     if undefined:

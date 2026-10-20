@@ -1,5 +1,6 @@
 """Public sympification options and container protocols, without SymPy."""
 from . import _core
+from ._node_types import native_module
 import io
 import tokenize
 
@@ -63,7 +64,7 @@ def make_sympify(original):
         try:
             return original(a)
         except (ValueError,TypeError) as error:
-            module=getattr(type(a),'__module__','') or ''
+            module=native_module(type(a)) or ''
             if (module=='symox' or module.startswith('symox.')) and (hasattr(a,'args') or callable(a)):
                 # Respect explicit _symox_ conversions first (units and
                 # algebraic coefficient wrappers rely on them). Structural
@@ -77,7 +78,10 @@ def make_sympify(original):
             hook=getattr(a,'_sympy_',None)
             if hook is not None:
                 result=hook()
-                return result if isinstance(result,_core.Expr) else original(result)
+                # SymPy returns the hook result unchanged, whatever its type;
+                # a hook returning its input keeps the native cycle error.
+                if result is a:raise
+                return result
             if hasattr(a,'__float__'):return Float(float(a))
             if hasattr(a,'__int__'):return Integer(int(a))
             if type(error) not in (ValueError,TypeError):raise
