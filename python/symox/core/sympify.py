@@ -10,3 +10,13 @@ def kernS(s):
     return parse_expr(s,evaluate=False) if isinstance(s,str) else sympify(s)
 __all__ += ['CantSympify','kernS']
 __all__ += ['converter']
+
+
+def _sympify(a):
+    """Short version of sympify for internal usage: ``sympify(a, strict=True)``.
+
+    Only objects with a registered or implicit symbolic conversion are
+    accepted; strings and other non-Basic objects raise SympifyError.
+    """
+    return sympify(a, strict=True)
+__all__ += ['_sympify']

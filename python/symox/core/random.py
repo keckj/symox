@@ -4,8 +4,12 @@ import symox as S
 rng=_random.Random()
 choice=rng.choice;random=rng.random;randint=rng.randint;randrange=rng.randrange
 sample=rng.sample;shuffle=rng.shuffle;uniform=rng.uniform
+# Assumption queries shuffle prerequisite facts with their own seeded generator.
+_assumptions_rng=_random.Random()
+_assumptions_shuffle=_assumptions_rng.shuffle
 
-def seed(a=None,version=2):rng.seed(a,version=version)
+def seed(a=None,version=2):
+    rng.seed(a,version=version);_assumptions_rng.seed(a,version=version)
 def random_complex_number(a=2,b=-1,c=3,d=1,rational=False,tolerance=None):
     real,imag=uniform(float(a),float(c)),uniform(float(b),float(d))
     if rational:

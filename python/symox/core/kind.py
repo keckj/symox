@@ -2,7 +2,7 @@
 from symox._api_exports import export as _export
 _export(globals(), 'symox._kind', 'Kind')
 
-from .._kind import UndefinedKind
+from .._kind import UndefinedKind, NumberKind, BooleanKind
 
 from .._kind import KindMeta
 
@@ -25,4 +25,4 @@ class KindDispatcher:
         for kind in kinds[1:]:result=self._pair(result,kind)
         return result
     def __repr__(self):return '<dispatched '+self.name+'>'
-__all__ += ['KindMeta','KindDispatcher']
+__all__ += ['KindMeta','KindDispatcher','UndefinedKind','NumberKind','BooleanKind']

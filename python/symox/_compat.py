@@ -168,6 +168,8 @@ def _evaluation_state(value=None):
 class Add(metaclass=_ExprType):
     """Construct a symbolic sum, optionally preserving its unevaluated terms."""
     _matches = staticmethod(lambda e: e.is_Add)
+    identity = _core.Integer(0)
+    _op_priority = 10.0
 
     def __new__(cls, *args, evaluate=None):
         evaluate = _evaluation_state(evaluate)
@@ -185,10 +187,22 @@ class Add(metaclass=_ExprType):
         expr = _core.sympify(expr)
         return expr.args if expr.is_Add else (expr,)
 
+    @classmethod
+    def _from_args(cls, args, is_commutative=None):
+        # Reference AssocOp._from_args: keep already processed args exactly.
+        # Native nodes derive commutativity from their args.
+        if len(args) == 0:
+            return cls.identity
+        if len(args) == 1:
+            return args[0]
+        return cls(*args, evaluate=False)
+
 
 class Mul(metaclass=_ExprType):
     """Construct a symbolic product with exact native scalar arithmetic."""
     _matches = staticmethod(lambda e: e.is_Mul)
+    identity = _core.Integer(1)
+    _op_priority = 10.0
 
     def __new__(cls, *args, evaluate=None):
         evaluate = _evaluation_state(evaluate)
@@ -205,6 +219,16 @@ class Mul(metaclass=_ExprType):
         if getattr(expr,'_symox_tensexpr',False):return (expr,)
         expr = _core.sympify(expr)
         return expr.args if expr.is_Mul else (expr,)
+
+    @classmethod
+    def _from_args(cls, args, is_commutative=None):
+        # Reference AssocOp._from_args: keep already processed args exactly.
+        # Native nodes derive commutativity from their args.
+        if len(args) == 0:
+            return cls.identity
+        if len(args) == 1:
+            return args[0]
+        return cls(*args, evaluate=False)
 
 
 class Pow(metaclass=_ExprType):

@@ -24,10 +24,20 @@ __all__ = [
 ]
 
 
+# Remaining reference polytools functions, implemented by the public layer.
+_PUBLIC_FUNCTIONS = frozenset((
+    'degree', 'pdiv', 'prem', 'pquo', 'pexquo', 'div', 'rem', 'quo', 'exquo',
+    'half_gcdex', 'gcdex', 'invert', 'cofactors', 'gcd_list', 'lcm_list',
+    'terms_gcd', 'primitive', 'compose', 'sqf_part', 'sqf', 'nroots', 'cancel',
+    'is_zero_dimensional', 'poly',
+))
+__all__ += sorted(_PUBLIC_FUNCTIONS)
+
+
 def __getattr__(name):
-    if name=='PurePoly':
-        from .. import PurePoly
-        return PurePoly
+    if name=='PurePoly' or name in _PUBLIC_FUNCTIONS:
+        import symox
+        return getattr(symox, name)
     raise AttributeError(name)
 
 _FLAGS = ('auto', 'frac', 'formal', 'polys', 'include', 'all', 'gen', 'series', 'symbols', 'method')

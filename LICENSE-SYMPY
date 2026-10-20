@@ -331,3 +331,18 @@ SOFTWARE.
 The hyper-representation analytic continuation formulas and helper interfaces in
 python/symox/_special_extensions.py adapt sympy/functions/special/hyper.py
 (SymPy 1.14), using symox scalar operations and native expression heads.
+
+The fact-rule engine and pre-generated assumption tables in
+python/symox/core/facts.py and python/symox/core/assumptions_generated.py are
+copied from sympy/core/facts.py and sympy/core/assumptions_generated.py
+(SymPy 1.14). The assumption rule objects, StdFactKB, _ask and class
+assumption preparation in python/symox/core/assumptions.py, the Logic classes
+in python/symox/core/logic.py, the decorators in python/symox/core/decorators.py,
+AssocOp, LatticeOp and ShortCircuit in python/symox/core/operations.py, the
+global parameters in python/symox/core/parameters.py, the Registry class in
+python/symox/core/core.py, the class ordering and comparison helpers in
+python/symox/core/basic.py, the node counting in
+python/symox/utilities/sorting.py, the Add/Mul construction helpers in
+python/symox/core/add.py and python/symox/core/mul.py and the evalf handler
+table in python/symox/core/evalf.py adapt the corresponding SymPy 1.14 code to
+native Symox expressions.

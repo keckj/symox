@@ -1,21 +1,51 @@
 """Deterministic ordering with lazy, successive tie-breaking keys."""
 from collections import defaultdict
-from collections.abc import Mapping
 
 
-def _nodes(value):
-    if getattr(value,'is_Derivative',False):
-        return _nodes(value.expr)+sum(count for _,count in value.variable_count)
-    if isinstance(value,Mapping):
-        return 1+sum(_nodes(k)+_nodes(v) for k,v in value.items())
-    if hasattr(value,'args'):
-        return 1+sum(_nodes(child) for child in value.args)
-    if not isinstance(value,(str,bytes)):
-        try:
-            return 1+sum(_nodes(child) for child in value)
-        except TypeError:
-            pass
-    return 1
+def _node_count(e):
+    # this not only counts nodes, it affirms that the
+    # args are Basic (i.e. have an args property).
+    if getattr(e, 'is_Float', False):
+        return 0.5
+    args = getattr(e, 'args', None)
+    if args is None:
+        args = _immutable_matrix_args(e)
+    return 1 + sum(map(_node_count, args))
+
+
+def _immutable_matrix_args(e):
+    # Reference immutable matrices are Basic with args (rows, cols, entries):
+    # a Tuple of the flat entries, or a Dict of the nonzero entries if sparse.
+    from .. import _core, Dict, Integer, Tuple
+    rows, cols = e.shape
+    if isinstance(e, _core.Matrix):
+        entries = Tuple(*e.flat())
+    else:
+        entries = Dict(e.todok())
+    return (Integer(rows), Integer(cols), entries)
+
+
+def _nodes(e):
+    """
+    A helper for ordered() which returns the node count of ``e`` which
+    for Basic objects is the number of Basic nodes in the expression tree
+    but for other objects is 1 (unless the object is an iterable or dict
+    for which the sum of nodes is returned).
+    """
+    from .._basic import Basic
+    from ._iterable_extensions import iterable
+    if isinstance(e, Basic):
+        if getattr(e, 'is_Derivative', False):
+            # Native variable counts may be plain Python integers.
+            return _nodes(e.expr) + sum(i[1] if isinstance(i[1], int) or i[1].is_Number
+                else _nodes(i[1]) for i in e.variable_count)
+        return _node_count(e)
+    elif iterable(e):
+        return 1 + sum(_nodes(ei) for ei in e)
+    elif isinstance(e, dict):
+        return 1 + sum(_nodes(k) + _nodes(v) for k, v in e.items())
+    else:
+        return 1
 
 
 def ordered(seq, keys=None, default=True, warn=False):

@@ -15,3 +15,5 @@ _import_module('.sympify', __name__)
 from symox import sympify
 from .assumptions import assumptions, common_assumptions
 __all__ += ['assumptions', 'common_assumptions']
+# Install the reference Basic.compare used by downstream canonical sorting.
+_import_module('.basic', __name__)

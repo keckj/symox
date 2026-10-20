@@ -43,9 +43,15 @@ def test_core_fact_database_and_managed_properties():
     facts=StdFactKB({'integer':True,'positive':True})
     assert facts['rational'] and facts['real'] and facts['nonzero'] and not facts['negative']
     with pytest.raises(ValueError):facts.deduce_all_facts({'integer':False})
-    class Example(metaclass=ManagedProperties):
-        def _eval_is_integer(self):return True
-    value=Example()
+    # Reference: the deprecated metaclass prepares the class assumptions; the
+    # instance storage ``_assumptions`` is what Basic.__new__ provides.
+    with pytest.warns(S.utilities.exceptions.SymPyDeprecationWarning):
+        class Example(metaclass=ManagedProperties):
+            def _eval_is_integer(self):return True
+        class Stored(Example):
+            def __init__(self):self._assumptions=type(self).default_assumptions
+    with pytest.raises(AttributeError):Example().is_rational
+    value=Stored()
     assert value.is_rational and value.is_real
 
 

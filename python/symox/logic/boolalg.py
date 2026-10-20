@@ -21,7 +21,12 @@ class _BooleanType(_BasicMeta):
         if type.__instancecheck__(cls, value):
             return True
         from symox import _core
-        if cls not in (Boolean, BooleanFunction) or not isinstance(value, _core.Expr):
+        if not isinstance(value, _core.Expr):
+            return False
+        native_names = cls.__dict__.get('_native_names')
+        if native_names is not None:
+            return value.class_name in native_names
+        if cls not in (Boolean, BooleanFunction):
             return False
         if cls is BooleanFunction:
             return value.is_Boolean and value.is_Function
@@ -55,4 +60,33 @@ class BooleanFunction(Boolean):
         return Boolean.__new__(cls, *(sympify(arg) for arg in args))
 
 
-__all__ += ['Boolean', 'BooleanFunction']
+class BooleanAtom(Boolean):
+    """Base class of :py:class:`~.BooleanTrue` and :py:class:`~.BooleanFalse`.
+
+    The two atoms are the native singletons ``true`` and ``false``.
+    """
+    _native_names = ('BooleanTrue', 'BooleanFalse')
+    is_Boolean = True
+    is_Atom = True
+    _op_priority = 11  # higher than Expr
+
+
+class BooleanTrue(BooleanAtom):
+    """SymPy version of ``True``, a singleton that can be accessed via ``S.true``."""
+    _native_names = ('BooleanTrue',)
+
+    def __new__(cls):
+        from symox import true
+        return true
+
+
+class BooleanFalse(BooleanAtom):
+    """SymPy version of ``False``, a singleton that can be accessed via ``S.false``."""
+    _native_names = ('BooleanFalse',)
+
+    def __new__(cls):
+        from symox import false
+        return false
+
+
+__all__ += ['Boolean', 'BooleanFunction', 'BooleanAtom', 'BooleanTrue', 'BooleanFalse']

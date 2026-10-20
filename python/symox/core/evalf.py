@@ -170,3 +170,67 @@ __all__=['PrecisionExhausted','N','evalf','EvalfMixin','add_terms','as_mpmath','
  'check_target','chop_parts','complex_accuracy','do_integral','evalf_subs','fastlog','finalize_complex','get_abs',
  'get_complex_part','get_integer_part','hypsum','iszero','pure_complex','quad_to_mpmath','scaled_zero']
 __all__ += ['evalf_'+name for name in 'abs add alg_num atan ceiling exp float floor im integer integral log mul piecewise pow prod rational re sum symbol trig'.split()]
+
+
+def _create_evalf_table():
+    """Build the class to evalf-handler table of sympy/core/evalf.py.
+
+    Native expressions are evaluated by the native evaluator whatever their
+    class; the table keeps the reference keys and handlers so that code which
+    reads it or registers aliases of existing entries sees the same mapping.
+    """
+    global evalf_table
+    from mpmath.libmp import fhalf, fnone, mpf_e, mpf_pi
+    from symox import (Abs, Add, Dummy, Integral, Mul, Piecewise, Pow, Product,
+                       Sum, Symbol, atan, ceiling, cos, exp, floor, im, log, re,
+                       sin, tan)
+    from .numbers import (AlgebraicNumber, ComplexInfinity, Exp1, Float, Half,
+                          ImaginaryUnit, Integer, NaN, NegativeOne, One, Pi,
+                          Rational, Zero)
+    evalf_table = {
+        Symbol: evalf_symbol,
+        Dummy: evalf_symbol,
+        Float: evalf_float,
+        Rational: evalf_rational,
+        Integer: evalf_integer,
+        Zero: lambda x, prec, options: (None, None, prec, None),
+        One: lambda x, prec, options: (fone, None, prec, None),
+        Half: lambda x, prec, options: (fhalf, None, prec, None),
+        Pi: lambda x, prec, options: (mpf_pi(prec), None, prec, None),
+        Exp1: lambda x, prec, options: (mpf_e(prec), None, prec, None),
+        ImaginaryUnit: lambda x, prec, options: (None, fone, None, prec),
+        NegativeOne: lambda x, prec, options: (fnone, None, prec, None),
+        ComplexInfinity: lambda x, prec, options: S.S.ComplexInfinity,
+        NaN: lambda x, prec, options: (fnan, None, prec, None),
+
+        exp: evalf_exp,
+
+        cos: evalf_trig,
+        sin: evalf_trig,
+        tan: evalf_trig,
+
+        Add: evalf_add,
+        Mul: evalf_mul,
+        Pow: evalf_pow,
+
+        log: evalf_log,
+        atan: evalf_atan,
+        Abs: evalf_abs,
+
+        re: evalf_re,
+        im: evalf_im,
+        floor: evalf_floor,
+        ceiling: evalf_ceiling,
+
+        Integral: evalf_integral,
+        Sum: evalf_sum,
+        Product: evalf_prod,
+        Piecewise: evalf_piecewise,
+
+        AlgebraicNumber: evalf_alg_num,
+    }
+
+
+evalf_table = {}
+_create_evalf_table()
+__all__ += ['evalf_table']
