@@ -30,8 +30,7 @@ pub(super) fn get(e: &Expr, options: &ExpandOptions, max_terms: usize) -> Option
 }
 
 pub(super) fn insert(e: &Expr, output: &Expr, options: &ExpandOptions, max_terms: usize, work: usize) {
-    let weight = crate::traverse::node_count(e).saturating_add(crate::traverse::node_count(output));
-    if weight > MAX_WEIGHT { return; }
+    let Some(weight)=crate::traverse::retention_weight(&[e,output],MAX_WEIGHT) else{return;};
     let entry = Entry { input:e.clone(), output:output.clone(), options:*options, max_terms,
         numeric_refinement:crate::assumptions::numeric_refinement_enabled(), work, weight };
     MEMO.with(|memo| {

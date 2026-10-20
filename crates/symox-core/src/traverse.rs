@@ -296,6 +296,64 @@ pub fn has(e: &Expr, s: &Expr) -> bool {
     }
 }
 
+/// Estimate cache retention from the native DAG, without constructing
+/// public Add terms or Mul powers. Physical nodes and their backing vectors
+/// are counted once, including large integer/rational/Float mantissas. Opaque
+/// matrix graphs and Python wildcard callbacks bypass cross-call caches.
+pub(crate) fn retention_weight(expressions:&[&Expr],limit:usize)->Option<usize>{
+    use crate::number::Number;
+    fn number(n:&Number)->usize{
+        let bits=match n{
+            Number::BigInt(n)=>n.bits(),
+            Number::Rational(n)=>n.numer().bits().saturating_add(n.denom().bits()),
+            Number::MpFloat(n,_)=>n.man.bits(),
+            _=>0,
+        };
+        1usize.saturating_add(usize::try_from(bits.saturating_add(511)/512).unwrap_or(usize::MAX))
+    }
+    if expressions.iter().any(|e|e.has_matrix()||e.has_wild_properties()){return None;}
+    let mut stack=expressions.to_vec();
+    let mut seen=FxHashSet::default();
+    let mut weight=0usize;
+    while let Some(e)=stack.pop(){
+        if !seen.insert(e.dag_id()){continue;}
+        weight=weight.saturating_add(2);
+        match e.kind(){
+            Kind::Num(n)=>weight=weight.saturating_add(number(n)),
+            Kind::Sym(s)=>weight=weight.saturating_add(s.name().len()/64+1),
+            Kind::Add(c,terms)=>{
+                weight=weight.saturating_add(number(c)).saturating_add(terms.len());
+                if weight>limit{return None;}
+                for(term,c)in terms{weight=weight.saturating_add(number(c));stack.push(term);}
+            },
+            Kind::Mul(c,factors)=>{
+                weight=weight.saturating_add(number(c)).saturating_add(factors.len()/4+1);
+                if weight>limit{return None;}
+                for(base,exponent)in factors{stack.extend([base,exponent]);}
+            },
+            Kind::Pow(a,b)|Kind::Rel(_,a,b)=>stack.extend([a,b]),
+            Kind::Func(head,args)=>{
+                weight=weight.saturating_add(head.name().len()/64+1).saturating_add(args.len()/8+1);
+                if weight>limit{return None;}
+                stack.extend(args);
+            },
+            Kind::Derivative(body,variables)=>{
+                weight=weight.saturating_add(variables.len()/4+1);
+                if weight>limit{return None;}
+                stack.push(body);stack.extend(variables.iter().map(|(v,_)|v));
+            },
+            Kind::Piecewise(pairs)=>{
+                weight=weight.saturating_add(pairs.len()/4+1);
+                if weight>limit{return None;}
+                for(value,condition)in pairs{stack.extend([value,condition]);}
+            },
+            Kind::Const(_)|Kind::Bool(_)=>{},
+        }
+        if weight>limit{return None;}
+    }
+    Some(weight)
+}
+
 /// Number of nodes (SymPy's `count_ops`-like size measure).
 pub fn node_count(e: &Expr) -> usize {
     fn count(e:&Expr,depth:usize,memo:&mut rustc_hash::FxHashMap<usize,(Expr,usize)>)->usize {
@@ -317,6 +375,17 @@ pub fn node_count(e: &Expr) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn retention_accounting_is_bounded_by_the_physical_graph_and_literal_size(){
+        let mut value=Expr::symbol("x");
+        for _ in 0..80{value=crate::functions::undefined("pair",vec![value.clone(),value]);}
+        assert!(retention_weight(&[&value],1024).is_some());
+        assert!(retention_weight(&[&value],10).is_none());
+        let wide=Expr::num(crate::number::Number::from_bigint(num_bigint::BigInt::from(1)<<1_000_000usize));
+        assert!(retention_weight(&[&wide],128).is_none());
+        assert!(retention_weight(&[&Expr::one()],128).is_some());
+    }
 
     #[test]
     fn node_size_memoizes_shared_graphs_and_compact_derivatives() {

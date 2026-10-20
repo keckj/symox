@@ -17,8 +17,7 @@ pub(super) fn get(input:&Expr,old:&Expr,new:&Expr)->Option<Expr>{
 }
 
 pub(super) fn insert(input:&Expr,old:&Expr,new:&Expr,output:&Expr){
-    let weight = [input,old,new,output].iter().fold(0usize,|n,e|n.saturating_add(crate::traverse::node_count(e)));
-    if weight>MAX_WEIGHT {return;}
+    let Some(weight)=crate::traverse::retention_weight(&[input,old,new,output],MAX_WEIGHT) else{return;};
     let entry = Entry {input:input.clone(),old:old.clone(),new:new.clone(),output:output.clone(),
         policy:crate::assumptions::numeric_refinement_enabled(),weight};
     MEMO.with(|memo|{
