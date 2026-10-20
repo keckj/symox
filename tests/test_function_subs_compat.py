@@ -104,7 +104,11 @@ def test_simultaneous_symbol_substitution_preserves_rhs_and_poles():
     assert (x+y).subs([(x,y),(y,2)],simultaneous=True)==y+2
     assert (x+y).subs([(x,y),(y,2)])==4
     assert (x*x).subs({x*x:y},simultaneous=True) == y
-    with pytest.raises(NotImplementedError): x.subs({x:y},unrecognized=True)
+    # SymPy forwards unknown options as ignored hints.
+    assert x.subs({x:y},unrecognized=True)==y
+    assert (x*y).subs(x,2,causal=True,safe=False)==2*y
+    # The internal two-argument Mul hint changes evaluation; it stays explicit.
+    with pytest.raises(NotImplementedError): (x*y).subs(x,1,hack2=True)
 
 
 def test_simultaneous_substitution_preserves_bound_operators():

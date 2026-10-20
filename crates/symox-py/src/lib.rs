@@ -1118,7 +1118,12 @@ pub(crate) fn substitution_options(kwargs:Option<&Bound<'_,PyDict>>)->PyResult<b
             let key:String=key.extract()?;
             match key.as_str() {
                 "simultaneous"=>simultaneous=value.is_truthy()?,
-                _=>return Err(PyNotImplementedError::new_err(format!("subs option '{key}' is not implemented"))),
+                // SymPy forwards other options as hints that only its
+                // internal two-argument Mul hack reads; it ignores the rest.
+                "hack2"=>if value.is_truthy()? {
+                    return Err(PyNotImplementedError::new_err(format!("subs option '{key}' is not implemented")));
+                },
+                _=>{}
             }
         }
     }
