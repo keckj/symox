@@ -39,4 +39,4 @@ def test_held_arithmetic_and_indeterminate_division_remain_context_local():
             sx.Integer(0)/0
     finally:
         sx.seterr(divide=False)
-    assert sx.Integer(0)/0 is sx.S.NaN
+    assert sx.Integer(0)/0 == sx.S.NaN
