@@ -591,6 +591,16 @@ fn algebraic_zero(e:&Expr)->bool {
     fn has_function(e:&Expr)->bool {
         matches!(e.kind(),Kind::Func(..))||e.args().iter().any(has_function)
     }
+    // A sum whose identical terms cancel has the generator as minimal
+    // polynomial. The check compares shared terms by identity, so it stays
+    // linear on a shared graph.
+    if let Kind::Add(c,terms)=e.kind() {
+        if c.is_zero() && !terms.is_empty() && terms.iter().all(|(t,_)|{
+            let mut sum=Number::ZERO;
+            for (u,k) in terms { if u==t { sum=sum.add(k); } }
+            sum.is_zero()
+        }) {return true;}
+    }
     // The tree walks below are not shared-DAG aware: a graph whose
     // expanded size is huge is left undecided.
     if crate::traverse::node_count(e)>4096 || has_function(e) {return false;}
@@ -1388,7 +1398,9 @@ mod dag_cache_tests {
     fn closed_numeric_shared_add_keeps_classification_and_refinement_linear(){
         let value=shared_mul(Expr::one(),80);
         let e=Expr::from_unevaluated_kind(Kind::Add(Number::ZERO,vec![(value.clone(),Number::ONE),(value,Number::Int(-1))]));
-        assert_eq!(real_signs(&e),Some(Signs::ANY));
+        // The identical terms cancel: zero, as the minimal polynomial of the
+        // reference proves on a small graph.
+        assert_eq!(real_signs(&e),Some(Signs::ZERO));
         assert!(crate::functions::is_numeric_value(&e));assert_eq!(e.cached_assumption(60,2),3);
         assert_eq!(crate::evalf::eval_f64(&e),Some(0.0));
         assert_eq!(exact_queries(||real_signs(&e)),Some(Signs::ANY));

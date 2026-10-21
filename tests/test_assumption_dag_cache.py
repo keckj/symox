@@ -112,12 +112,12 @@ assert float(closed)==1.0 and complex(closed)==complex(1.0,0.0)
 assert closed.is_real is True and closed.is_positive is True
 # Gating numeric_refine must itself share the DAG, before evaluation starts.
 zero=s._core._restore_arithmetic('Add',s.Integer(0),[(closed,one),(closed,s.Integer(-1))],False)
-assert zero.is_positive is None
+assert zero.is_positive is False and zero.is_zero is True
 assert float(zero)==0.0
 ambiguous=one
 for _ in range(80):
     ambiguous=s._core._restore_arithmetic('Add',s.Integer(0),[(ambiguous,one),(ambiguous,s.Integer(-1))],False)
-assert ambiguous.is_positive is None and float(ambiguous)==0.0
+assert ambiguous.is_positive is False and ambiguous.is_zero is True and float(ambiguous)==0.0
 before=value.__reduce__()[1]
 for _ in range(3):
     restored=pickle.loads(pickle.dumps(value))
