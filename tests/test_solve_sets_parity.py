@@ -200,3 +200,38 @@ def test_matrix_equations_are_split_before_the_float_and_hyperbolic_rewrites():
         '[(log(-1 + sqrt(2)) + I*pi,), (log(1 + sqrt(2)),)]')
     assert str(sx.solve(sx.Matrix([x - 1]), x)) == '{x: 1}'
     assert str(sx.solve(sx.Matrix([x**2 - 1]), x, dict=True)) == '[{x: -1}, {x: 1}]'
+
+
+class _ForeignExpression:
+    """Imitates a Sage symbolic expression: convertible through _sympy_, but
+    its own comparison and has refuse symox arguments."""
+
+    def __init__(self, source):
+        self.source = source
+
+    def _sympy_(self):
+        x = sx.Symbol('x')
+        return eval(self.source, {'x': x, 'sinh': sx.sinh})
+
+    def __eq__(self, other):
+        raise TypeError('no canonical coercion to Symbolic Ring')
+
+    __hash__ = object.__hash__
+
+    def has(self, *patterns):
+        raise TypeError('no canonical coercion to Symbolic Ring')
+
+    def replace(self, *args):
+        raise TypeError('no canonical coercion to Symbolic Ring')
+
+
+def test_foreign_equations_are_sympified_before_they_are_inspected():
+    x = sx.Symbol('x')
+    assert str(sx.solve(_ForeignExpression('x**6 + x + 1'), x)) == (
+        '[CRootOf(x**6 + x + 1, 0), CRootOf(x**6 + x + 1, 1), '
+        'CRootOf(x**6 + x + 1, 2), CRootOf(x**6 + x + 1, 3), '
+        'CRootOf(x**6 + x + 1, 4), CRootOf(x**6 + x + 1, 5)]')
+    assert str(sx.solve(_ForeignExpression('2.0*x - 1'), x)) == '[0.500000000000000]'
+    assert str(sx.solve(_ForeignExpression('sinh(x) - 1'), x)) == (
+        '[log(-1 + sqrt(2)) + I*pi, log(1 + sqrt(2))]')
+    assert str(sx.solve([_ForeignExpression('x - 1')], x)) == '{x: 1}'

@@ -17,12 +17,19 @@ def install(namespace):
             # SymPy solves for no unknown when given an empty collection
             return []
         equations=f if isinstance(f,sequences) else (f,)
+        # SymPy sympifies every equation before inspecting it, so foreign
+        # objects (Sage expressions) only reach symox methods
+        from .core.sympify import SympifyError
         prepared=[];relational=False
         for equation in equations:
-            value=sympify(equation) if isinstance(equation,str) else equation
+            try:
+                value=sympify(equation)
+            except SympifyError:
+                value=equation
             prepared.append(value)
             if getattr(value,'is_Relational',False) and value.rel_op!='==':
                 relational=True
+        f=prepared if isinstance(f,sequences) else prepared[0]
         if relational:
             targets=symbols[0] if len(symbols)==1 else symbols
             return reduce_inequalities(prepared,targets)
