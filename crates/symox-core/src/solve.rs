@@ -53,7 +53,8 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
     // The reference `_solve` solves each factor of a product on its own (so
     // each factor keeps its own root forms), then rejects the solutions that
     // make a denominator of the product zero.
-    let mut sols = if f.is_mul() && has(&f, x) {
+    let product = f.is_mul() && has(&f, x);
+    let mut sols = if product {
         let mut sols = Vec::new();
         for factor in f.args() {
             if matches!(factor.kind(), Kind::Const(c) if c.is_infinite()) {
@@ -70,7 +71,14 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
     // Infinities reached by log(0), for example, are limiting values rather
     // than finite solutions. This restriction also applies with check=False.
     sols.retain(|s| !matches!(s.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN));
-    if check {
+    if check && product {
+        // Each factor's solutions were checked against that factor. Like the
+        // reference, the union is then only filtered by the denominators of
+        // every subexpression (`_simple_dens`), not checked against the whole
+        // product: `x*log(x)` keeps `0`, where `log` is undefined.
+        let dens = simple_dens(&f, x);
+        sols.retain(|s| !dens.iter().any(|d| denominator_vanishes(d, x, s)) && matches_assumptions(x, s));
+    } else if check {
         // drop solutions where the original expression is undefined
         let (_, den) = numer_denom(&together(&f));
         sols.retain(|s| {
@@ -85,6 +93,55 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
     }
     sort_solutions(&mut sols);
     Some(sols)
+}
+
+/// The reference `_simple_dens(f, symbols)`: the denominator factors of
+/// every subexpression of `f` that depend on `x`, with a power of numeric
+/// exponent replaced by its base (and `foo**0` dropped).
+fn simple_dens(f: &Expr, x: &Expr) -> Vec<Expr> {
+    let mut out: Vec<Expr> = Vec::new();
+    crate::traverse::preorder(f, &mut |s| {
+        if matches!(s.kind(), Kind::Rel(..) | Kind::Bool(_) | Kind::Func(Func::Logic(_), _)) {
+            return;
+        }
+        let (_, d) = crate::simptools::radsimp::fraction(s, false);
+        if d.is_one() {
+            return;
+        }
+        for factor in crate::simptools::mul_args(&d) {
+            if !has(&factor, x) {
+                continue;
+            }
+            let factor = match factor.kind() {
+                Kind::Pow(base, exponent) if exponent.is_number() => {
+                    if exponent.is_zero() { continue; }
+                    base.clone()
+                }
+                _ => factor,
+            };
+            if !out.contains(&factor) {
+                out.push(factor);
+            }
+        }
+    });
+    out
+}
+
+/// `checksol(den, {x: s})` is true: the denominator provably vanishes at
+/// the candidate. An undecided value keeps the candidate, as in the
+/// reference.
+fn denominator_vanishes(den: &Expr, x: &Expr, s: &Expr) -> bool {
+    let d = expand(&subs1(den, x, s));
+    if d.is_zero() || algebraic::polynomial_zero(den, x, s) == Some(true) {
+        return true;
+    }
+    if has(&d, x) || !crate::functions::is_numeric_value(&d) {
+        return false;
+    }
+    if let Some(zero) = crate::assumptions::exact_queries(|| crate::assumptions::is_zero(&d)) {
+        return zero;
+    }
+    crate::evalf_mp::eval_mp(&d, 64).is_some_and(|v| v.abs(64).cmp(&crate::bigfloat::BigFloat::one().ldexp(-30)).is_lt())
 }
 
 fn matches_assumptions(variable: &Expr, value: &Expr) -> bool {
@@ -222,7 +279,8 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         // reported by the reference as a partial solution list; the closed
         // forms below are tried before the solver declares it unsupported.
         return poly_roots(&c).or_else(|| complete_roots(&num, x, &c))
-            .or_else(|| algebraic::all_roots(&num, x));
+            .or_else(|| algebraic::all_roots(&num, x))
+            .or_else(|| partial_roots(&num, x));
     }
     // product = 0 -> union of the factors' solutions
     if let Kind::Mul(_, facs) = num.kind() {
@@ -349,6 +407,28 @@ fn complete_roots(num: &Expr, x: &Expr, c: &[Expr]) -> Option<Vec<Expr>> {
     let deg = c.iter().rposition(|t| !t.is_zero())? as u32;
     let rs = crate::poly::roots::roots(num, std::slice::from_ref(x)).ok()?;
     (rs.iter().map(|r| r.1).sum::<u32>() == deg).then(|| rs.into_iter().map(|r| r.0).collect())
+}
+
+/// The reference `_solve` with `incomplete=True` (its default): when `roots`
+/// misses some roots and `Poly.all_roots` raises `NotImplementedError`
+/// (symbolic coefficients), the roots that were found are the solutions,
+/// e.g. none for `x**5 + a*x + 1`. This is a partial answer, not a proof
+/// that the other roots do not exist.
+fn partial_roots(num: &Expr, x: &Expr) -> Option<Vec<Expr>> {
+    if !crate::poly::roots::radical_options().incomplete || crate::evalf_mp::max_precision(num).is_some() {
+        return None;
+    }
+    // `all_roots` supports the rational and Gaussian rational domains (and
+    // floats); only the other coefficient domains give a partial answer.
+    let gaussian = |c: &Expr| {
+        let c = expand(c);
+        c.is_rational_number() || (re(&c).is_rational_number() && im(&c).is_rational_number())
+    };
+    if poly_coeffs(num, x)?.iter().all(gaussian) {
+        return None;
+    }
+    let found = crate::poly::roots::roots(num, std::slice::from_ref(x)).ok()?;
+    Some(found.into_iter().map(|r| r.0).collect())
 }
 
 /// Roots of a polynomial given by its dense coefficients (low degree
@@ -635,6 +715,12 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if gens.is_empty() {
         return None;
     }
+    let rewritten = perfect_power_bases(f, x, &gens);
+    let f = rewritten.as_ref().unwrap_or(f);
+    if rewritten.is_some() {
+        gens.clear();
+        generators(f, x, &mut gens);
+    }
     // `exp(a)` or `b**a` with one base `b` free of x for every generator:
     // the reference's `decompose_power` takes them all as powers of one
     // generator (`2**(2*x) - 3*2**x + 2` is a quadratic in `2**x`).
@@ -710,6 +796,77 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     invert_generator(g, roots, x, depth)
 }
 
+/// `b = p**k` for a positive rational base `b`: an integer perfect power
+/// (`4 = 2**2`) or the reciprocal of an integer (`1/4 = 2**(-2)`,
+/// `1/3 = 3**(-1)`), with `p` the smallest integer root. `None` otherwise.
+fn power_of_integer_base(b: &Expr) -> Option<(Expr, Expr)> {
+    let (numerator, denominator) = b.as_number().filter(|n| n.is_rational())?.numer_denom()?;
+    let one = num_bigint::BigInt::from(1);
+    let (n, sign) = if denominator == one && numerator > one {
+        (numerator, 1i64)
+    } else if numerator == one && denominator > one {
+        (denominator, -1i64)
+    } else {
+        return None;
+    };
+    let (p, k) = crate::ntheory::factor::perfect_power(&n, None, true)
+        .map(|(p, k)| (p, k as i64))
+        .unwrap_or((n, 1));
+    if sign == 1 && k == 1 {
+        return None;
+    }
+    Some((Expr::num(Number::from_bigint(p)), Expr::int(sign * k)))
+}
+
+/// The reference solves `b**g = r` (with `r` not a power of `b` itself)
+/// through `exp(g*log(b)) - r`, and its polynomial conversion expands
+/// `log(b)`: a perfect power base is taken as a power of its root
+/// (`4**x - 8` is a quadratic in `2**x`, with the solutions `3/2` and
+/// `3/2 + I*pi/log(2)`), and `(1/4)**x` is the reference `4**(-x)`.
+/// Generators with such bases are rewritten as powers of the root, which
+/// also gives a common base to `4**x + 2**x - 6`. When the equation is
+/// linear in a single such generator and `r` has the base `b`, the
+/// reference solves the exponents directly (`4**x - 4` gives `[1]`), and the
+/// generator is left unchanged.
+fn perfect_power_bases(f: &Expr, x: &Expr, gens: &[Expr]) -> Option<Expr> {
+    let mut replacements = Vec::new();
+    for g in gens {
+        let Kind::Pow(base, exponent) = g.kind() else { continue };
+        if has(base, x) || !has(exponent, x) {
+            continue;
+        }
+        if let Some((root, power)) = power_of_integer_base(base) {
+            replacements.push((g.clone(), pow(&root, &expand(&mul2(&power, exponent)))));
+        }
+    }
+    if replacements.is_empty() {
+        return None;
+    }
+    if let ([g], Kind::Pow(base, _)) = (gens, gens[0].kind()) {
+        let u = Expr::dummy("_u", crate::Assumptions::NONE);
+        let fu = subs1(f, g, &u);
+        if let Some(c) = poly_coeffs(&fu, &u).filter(|c| c.len() == 2 && !has(&fu, x)) {
+            let rhs = neg(&div(&c[0], &c[1]));
+            // `(1/n)**g = r` is the reference `n**(-g) = r`, which it
+            // inverts to `n**g = 1/r`.
+            let (reference_base, rhs) = match base.as_number().and_then(|n| n.numer_denom()) {
+                Some((p, q)) if p == num_bigint::BigInt::from(1) => {
+                    (Expr::num(Number::from_bigint(q)), div(&Expr::one(), &rhs))
+                }
+                _ => (base.clone(), rhs),
+            };
+            let rhs_base = match rhs.kind() {
+                Kind::Pow(b, _) => b.clone(),
+                _ => rhs.clone(),
+            };
+            if rhs_base == reference_base {
+                return None;
+            }
+        }
+    }
+    Some(subs(f, &replacements))
+}
+
 /// The reference inverts a generator `g` once for a symbol `t`
 /// (`_vsolve(g - t, x)`) and substitutes each root of the polynomial in `g`
 /// into that inverse. Root by root inversion is the fallback when the
@@ -743,6 +900,10 @@ fn invert_generator(g: &Expr, roots: Vec<Expr>, x: &Expr, depth: u32) -> Option<
     let inverse = solve_rec(&sub(g, &t), x, depth + 1)
         .filter(|inverse| !inverse.is_empty() && inverse.iter().all(|i| has(i, &t)));
     let rational_base = matches!(g.kind(), Kind::Pow(..));
+    // The reference simplifies the substituted inverses of `exp` when there
+    // are at most two of them; a power of another base is solved through
+    // `_tsolve`, whose results the top-level `_solve` always simplifies.
+    let simplify_logs = rational_base || roots.len() <= 2;
     let mut out = Vec::new();
     for r in roots {
         if rational_base && crate::evalf::eval_f64(&r).is_some_and(|v| v > 0.0) {
@@ -754,11 +915,37 @@ fn invert_generator(g: &Expr, roots: Vec<Expr>, x: &Expr, depth: u32) -> Option<
             }
         }
         match &inverse {
-            Some(inverse) => out.extend(inverse.iter().map(|i| subs1(i, &t, &r))),
+            Some(inverse) => out.extend(inverse.iter().map(|i| {
+                let value = subs1(i, &t, &r);
+                if simplify_logs { expanded_log_root(&value) } else { value }
+            })),
             None => out.extend(solve_rec(&sub(g, &r), x, depth + 1)?),
         }
     }
     Some(out)
+}
+
+/// The part of the reference simplify that the native simplify lacks for
+/// the inverse of an exponential generator: `expand_log` takes the
+/// logarithm of a radical root apart (`log(2*sqrt(2))` is `3*log(2)/2`), and
+/// the quotient is distributed when that cancels a term to a rational
+/// (`(log(sqrt(3)) + I*pi)/log(3)` is `1/2 + I*pi/log(3)`, while
+/// `(log(3)/2 + I*pi)/log(2)` is kept).
+fn expanded_log_root(value: &Expr) -> Expr {
+    if !has_log(value) {
+        return value.clone();
+    }
+    let separated = crate::simp::expand_log(value, false);
+    let distributed = expand(&separated);
+    let cancels = distributed.is_rational_number()
+        || distributed.is_add() && distributed.args().iter().any(|t| t.is_rational_number());
+    if cancels { distributed } else { separated }
+}
+
+fn has_log(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |s| found |= matches!(s.kind(), Kind::Func(Func::Log, _)));
+    found
 }
 /// The reference's polynomial generator of `exp(r*t + c)`, for a rational
 /// `r = p/q` with `|p| > 1` and `c` free of the unknown, is `exp(t/q)`: the

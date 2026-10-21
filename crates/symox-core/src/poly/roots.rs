@@ -21,9 +21,13 @@ use crate::functions::{cos, sin};
 use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct RadicalOptions{pub cubics:bool,pub quartics:bool}
-impl Default for RadicalOptions{fn default()->Self{Self{cubics:true,quartics:true}}}
-thread_local!{static RADICAL_OPTIONS:std::cell::Cell<RadicalOptions>=std::cell::Cell::new(RadicalOptions{cubics:true,quartics:true});}
+/// `incomplete` is the reference `solve(..., incomplete=True)` flag: a
+/// polynomial whose `roots` are incomplete and whose `all_roots` is not
+/// supported (symbolic coefficients) yields the partial `roots` result. It is
+/// off outside a public `solve` call, so internal callers still see `None`.
+pub struct RadicalOptions{pub cubics:bool,pub quartics:bool,pub incomplete:bool}
+impl Default for RadicalOptions{fn default()->Self{Self{cubics:true,quartics:true,incomplete:false}}}
+thread_local!{static RADICAL_OPTIONS:std::cell::Cell<RadicalOptions>=std::cell::Cell::new(RadicalOptions{cubics:true,quartics:true,incomplete:false});}
 
 pub fn radical_options()->RadicalOptions{RADICAL_OPTIONS.with(std::cell::Cell::get)}
 
@@ -1519,7 +1523,7 @@ mod tests {
 
     #[test]
     fn radical_controls_preserve_complete_solve_fallback_and_restore_context(){
-        let disabled=RadicalOptions{cubics:false,quartics:false};
+        let disabled=RadicalOptions{cubics:false,quartics:false,incomplete:false};
         let x=Expr::symbol("x");let cubic=parse_str("x^3-x+1").unwrap();
         with_radical_options(disabled,||{
             assert!(roots(&cubic,&[x.clone()]).unwrap().is_empty());
