@@ -194,6 +194,78 @@ fn distribute_hollow_mul(e: &Expr) -> Expr {
     }
 }
 
+/// The expression the reference `simplify` holds when it applies
+/// `factor_terms(expr, sign=False)` unconditionally: the shortest of
+/// `together(expr, deep=True)`, the cancelled forms and the
+/// content-primitive input. When the native selection factors to the same
+/// expression, both searches are in the same state and the factored form is
+/// kept although it has more operations, as
+/// `2*sqrt(T)*sqrt(k)*sqrt(R1 + R2)` for `sqrt(4*R1*T*k + 4*R2*T*k)` with
+/// positive symbols. `None` when a step fails.
+fn reference_factored_state(e: &Expr) -> Option<Expr> {
+    use crate::simptools::methods::count_ops;
+    let shorter = |choices: &[Expr]| -> Expr {
+        let mut best = choices[0].clone();
+        let mut best_ops = count_ops(&best);
+        for c in &choices[1..] {
+            let ops = count_ops(c);
+            if ops < best_ops {
+                best = c.clone();
+                best_ops = ops;
+            }
+        }
+        best
+    };
+    let start = crate::simptools::misc::signsimp(e, true);
+    let start = crate::simptools::bottom_up(&start, &mut |w| crate::simptools::normal(w));
+    let (content, primitive) =
+        crate::decompose::as_content_primitive(&crate::simptools::powsimp::powsimp(&start, &Default::default()), false, false).ok()?;
+    let start = mul(&[Expr::num(content), primitive]);
+    let cancelled = crate::poly::api::reference_cancel(&start).ok()?;
+    let expanded = crate::poly::api::reference_cancel(&crate::simptools::mexpand(&cancelled)).ok()?;
+    let expr1 = shorter(&[cancelled, expanded]);
+    let expr2 = shorter(&[crate::poly::api::together(&start), crate::poly::api::together(&expr1)]);
+    let state = shorter(&[expr2, expr1, start]);
+    let factored = distribute_hollow_mul(&crate::simptools::exprtools::factor_terms(&state, false, false, false, false));
+    // The later shorter steps (cancel, factor_terms and
+    // expand_power_exp(expand_mul)) undo a factorization that has more
+    // operations than its expansion: n**3 - n stays expanded.
+    let short = shorter(&[factored.clone(), crate::poly::api::reference_cancel(&factored).ok()?]);
+    let short = shorter(&[
+        short.clone(),
+        crate::simptools::exprtools::factor_terms(&short, false, false, false, true),
+        crate::simp::expand_power_exp(&crate::simp::expand_mul(&short)),
+    ]);
+    (short == factored).then_some(factored)
+}
+
+/// `expr.has(TrigonometricFunction, HyperbolicFunction, ExpBase, exp)`.
+fn has_exp_or_trig(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |x| {
+        if !found {
+            found = matches!(
+                x.kind(),
+                Kind::Func(
+                    Func::Exp
+                        | Func::Sin
+                        | Func::Cos
+                        | Func::Tan
+                        | Func::Cot
+                        | Func::Sec
+                        | Func::Csc
+                        | Func::Sinh
+                        | Func::Cosh
+                        | Func::Tanh
+                        | Func::Coth,
+                    _
+                )
+            );
+        }
+    });
+    found
+}
+
 /// A light general purpose simplifier (to be extended).
 pub fn simplify(e: &Expr) -> Expr {
     let evaluated = release_unevaluated(e, &mut FxHashMap::default());
@@ -284,7 +356,8 @@ pub fn simplify(e: &Expr) -> Expr {
             || crate::assumptions::is_real(&selected) != Some(true)
             || crate::assumptions::is_real(&factored) == Some(true)
     };
-    let selected = if crate::simptools::methods::count_ops(&factored) <= crate::simptools::methods::count_ops(&selected)
+    let selected = if (crate::simptools::methods::count_ops(&factored) <= crate::simptools::methods::count_ops(&selected)
+        || (factored != selected && reference_factored_state(e).as_ref() == Some(&factored)))
         && keeps_realness()
     {
         factored
@@ -307,6 +380,13 @@ pub fn simplify(e: &Expr) -> Expr {
         if combined != selected && ops(&combined) < ops(&selected) {
             selected = combined;
         }
+    }
+    // SymPy then applies exptrigsimp, without a size comparison, when the
+    // shortest form has trigonometric, hyperbolic or exponential functions:
+    // im(exp(2*I)/(1 - exp(4*I))) becomes 1/(2*sin(2)). Its final ratio test
+    // against the input is applied by the public wrapper.
+    if has_exp_or_trig(&selected) {
+        selected = crate::simptools::trigsimp::exptrigsimp(&selected);
     }
     // SymPy reaches its sign through two steps. The input first passes
     // through signsimp, which negates a sum with more negative terms (else

@@ -2515,6 +2515,12 @@ fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Boun
             }
         }
     }
+    if f.downcast::<PyPoly>().is_err()&&_kwargs.is_none_or(|k|k.is_empty()){
+        let e=to_expr(f)?;
+        if !rational_function_blocker(&e){
+            return Ok(w(api::reference_cancel(&e).map_err(err)?).into_pyobject(py)?.into_any().unbind());
+        }
+    }
     Ok(w(api::cancel(&to_expr(f)?).map_err(err)?).into_pyobject(py)?.into_any().unbind())
 }
 
