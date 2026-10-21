@@ -223,5 +223,12 @@ def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
         else:result=Poly._from_normalized(rep,gens,domain,modulus,extension)
         if not gens and ('sort' in args or 'wrt' in args):
             result=result.reorder(*_sort(result.gens,args))
+    if (args.get('composite') is False and domain is None and modulus is None
+            and extension is None and not args.get('gaussian')):
+        # The reference ``construct_domain`` skips ``_construct_composite``
+        # when ``composite=False``: symbolic coefficients land in ``EX``.
+        ground=result.domain
+        if getattr(ground,'is_PolynomialRing',False) or getattr(ground,'is_FractionField',False):
+            result=result.set_domain('EX')
     if args.get('field'):result=result.to_field()
     return result

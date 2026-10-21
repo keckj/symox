@@ -561,12 +561,41 @@ fn numeric_refine(e: &Expr, s: Signs) -> Option<Signs> {
     if s != Signs::ANY || !numeric_refinement_enabled() || !crate::functions::is_numeric_value(e) {
         return Some(s);
     }
-    if let Some((first,last,scale))=numeric_samples(e) {
-        if first.im.is_zero() && last.im.is_zero() && stable_component(&first.re,&last.re,&scale) {
-            return Some(if last.re.sign()>0 {Signs::POS} else {Signs::NEG});
+    // An evaluation without significance (a cancellation exhausting the
+    // precision budget, or a null value) of an algebraic number is settled
+    // by its minimal polynomial, as in the reference.
+    let null=match numeric_samples(e) {
+        Some((first,last,scale)) => {
+            if first.im.is_zero() && last.im.is_zero() && stable_component(&first.re,&last.re,&scale) {
+                return Some(if last.re.sign()>0 {Signs::POS} else {Signs::NEG});
+            }
+            numerically_null(&first,&last,&scale)
         }
+        None => true,
+    };
+    if null && algebraic_zero(e) {
+        return Some(Signs::ZERO);
     }
     Some(s)
+}
+
+fn numerically_null(first:&crate::evalf_mp::MpComplex,last:&crate::evalf_mp::MpComplex,scale:&crate::bigfloat::BigFloat)->bool {
+    let tiny=|v:&crate::bigfloat::BigFloat|v.is_zero()||v.abs().cmp(&scale.ldexp(-96)).is_le();
+    tiny(&first.re)&&tiny(&first.im)&&tiny(&last.re)&&tiny(&last.im)
+}
+
+/// The reference `Expr._eval_is_extended_positive_negative`: a number
+/// whose evaluation has no significance, which is algebraic and free of
+/// functions, is exactly zero when its minimal polynomial is the generator.
+fn algebraic_zero(e:&Expr)->bool {
+    fn has_function(e:&Expr)->bool {
+        matches!(e.kind(),Kind::Func(..))||e.args().iter().any(has_function)
+    }
+    if has_function(e) {return false;}
+    exact_queries(||{
+        if algebraic_proof(e)!=Some(true) {return false;}
+        matches!(crate::poly::minpoly::minimal_polynomial_qq(e),Ok(p) if p.len()==2&&p[0].is_zero()&&p[1].is_one())
+    })
 }
 
 fn pow_signs(b: &Expr, x: &Expr) -> Option<Signs> {
@@ -1202,6 +1231,19 @@ mod numeric_literal_tests {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cancelling_algebraic_numbers_are_zero_by_minimal_polynomial(){
+        // Expr._eval_is_extended_positive_negative: no numerical
+        // significance and a minimal polynomial equal to the generator.
+        for text in ["-3*sqrt(93)/62 - 1/(3*sqrt(93)/2 + 31/2) + 1/2","sqrt(2)+sqrt(3)-sqrt(5+2*sqrt(6))"]{
+            let e=crate::parser::parse_str(text).unwrap();
+            assert_eq!(is_zero(&e),Some(true),"{text}");
+            assert_eq!(is_positive(&e),Some(false),"{text}");
+        }
+        let e=crate::parser::parse_str("sqrt(2)+sqrt(3)-sqrt(5+2*sqrt(6))+1").unwrap();
+        assert_eq!(is_zero(&e),Some(false));
+    }
+
     use super::*;
     use crate::prelude::*;
     use crate::symbol::Assumptions;

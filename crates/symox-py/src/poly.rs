@@ -991,7 +991,12 @@ impl PyPoly {
     fn expression_selection(e:&Expr,generators:&[Expr])->PyResult<Option<Self>>{
         use symox::poly::expression_domain::{ExpressionPoly,construct_selects_expression};
         let Ok(p)=ExpressionPoly::from_expr(e,generators) else{return Ok(None)};
-        let coefficients:Vec<Expr>=p.terms().into_iter().map(|(_,c)|c).collect();
+        // `construct_domain` reads every dictionary coefficient, including
+        // those the EX representation then strips as zero.
+        let coefficients:Vec<Expr>=match symox::poly::expression_domain::dict_from_expr(e,generators){
+            Ok(terms)=>terms.into_iter().map(|(_,c)|c).collect(),
+            Err(_)=>p.terms().into_iter().map(|(_,c)|c).collect(),
+        };
         match construct_selects_expression(&coefficients){
             Ok(true)=>Ok(Some(Self{p:p.into()})),
             _=>Ok(None),
@@ -1778,7 +1783,7 @@ impl PyPoly {
             return PyTuple::new(py,[w(if self.p.is_zero(){Expr::zero()}else{Expr::one()}).into_pyobject(py)?.into_any(),self.clone().into_pyobject(py)?.into_any()]);
         }
         if let Some(f)=&self.p.field {
-            let(c,p)=if f.coefficient_domain.is_field(){f.reference_primitive()}else{f.primitive()};let c=symox::poly::fraction::coefficient_expr(&c,&f.parameters);
+            let(c,p)=f.reference_primitive();let c=symox::poly::fraction::coefficient_expr(&c,&f.parameters);
             return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),poly_obj(py,p)?.into_bound(py)]);
         }
         if self.p.base.has_domain_gens() && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ) {
@@ -1793,7 +1798,7 @@ impl PyPoly {
         if let Some((f,g))=self.gg(){return Ok(w(g.content(f).map_err(err)?));}
         if let Some(f)=self.ex(){return Ok(w(f.content()));}
         if let Some(a)=&self.p.algebraic{if a.gaussian.is_some(){return Ok(w(a.primitive().0.as_expr()));}return Ok(w(if self.p.is_zero(){Expr::zero()}else{Expr::one()}));}
-        if let Some(f)=&self.p.field {return Ok(w(symox::poly::fraction::coefficient_expr(&if f.coefficient_domain.is_field(){f.reference_content()}else{f.primitive().0},&f.parameters)));}
+        if let Some(f)=&self.p.field {return Ok(w(symox::poly::fraction::coefficient_expr(&f.reference_content(),&f.parameters)));}
         if self.p.base.has_domain_gens() && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ) {
             return Ok(w(self.p.base.ground_primitive().0.as_expr()));
         }
