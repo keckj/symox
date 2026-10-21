@@ -9,17 +9,17 @@ Elements retain their parent domain through arithmetic, conversion and pickling.
 All operations below run without importing SymPy.
 
 `construct_domain` accepts a scalar, iterable or dictionary of coefficients
-and returns their inferred native domain and converted elements. It supports
-`field=True`, `extension=True` and `composite=False`; dictionaries retain their
-keys and other iterables return lists. Unlike the raw expression fallback of
-matrix inference, the general constructor uses `EX`. Composite domain generators
-currently must be native Symbols: expressions such as `sin(x)` and constants
-such as `pi` stay in `EX`. Explicit `composite=True` rejects cases requiring
-these unsupported generators. Algebraic inference retains the supported native
-field-model limits; explicit extension lists in this constructor are not yet
-supported. Composite numerical or Gaussian coefficient towers also remain
-unsupported and use the expression fallback unless a composite domain is
-explicitly required.
+and returns their inferred native domain and converted elements, with the
+reference options (`field`, `extension`, `composite`, and the other `Poly`
+options, which are validated and otherwise ignored); dictionaries retain
+their keys and other iterables return lists. Unlike the raw expression
+fallback of matrix inference, the general constructor uses `EX`. Only
+`extension=True` enables algebraic inference, as in the reference. Composite
+generators may be Symbols or other non-algebraic expressions (`ZZ[pi]`,
+`ZZ[y,sin(x)]`, `ZZ(x,pi)`), and their elements print like the reference
+`PolyElement`. Floats with a generator give `EX` where the reference builds
+`RR[x]` or `RR[pi]`: composite domains over `RR` and `CC` are not
+implemented.
 
 Constructor facades include `IntegerRing`, `RationalField`, `FiniteField`,
 `RealField`, `ComplexField`, Gaussian and expression domains, `PolynomialRing`,
@@ -138,7 +138,7 @@ field and identify the matching factor in the same certified way.
 
 `RR` and `CC` use 53-bit native arbitrary precision arithmetic by default.
 `RealField(200)` and `ComplexField(dps=60)` select a precision. Supported limits
-are 2–40,000 bits or 1–10,000 decimal digits. Custom tolerance constructor
+are 2-40,000 bits or 1-10,000 decimal digits. Custom tolerance constructor
 options are explicitly unsupported.
 
 Decimal strings, including decimal literals in compound numerical expressions,
