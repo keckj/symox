@@ -1,15 +1,17 @@
 """Polynomials over RR[y], CC[y] and RR(y) (SymPy 1.14 reference outputs)."""
 import pytest
 
-from symox import *  # noqa: F401,F403
-from symox.polys.domains import RR, CC  # noqa: F401
+import symox
+from symox.polys.domains import RR, CC
 
-x, y, z = symbols('x y z')
+NAMESPACE = {name: getattr(symox, name) for name in dir(symox) if not name.startswith('_')}
+NAMESPACE.update(RR=RR, CC=CC)
+NAMESPACE.update(zip(('x', 'y', 'z'), symox.symbols('x y z')))
 
 
 def _run(source):
     try:
-        return repr(eval(source))
+        return repr(eval(source, dict(NAMESPACE)))
     except Exception as error:  # the reference error class and message
         return 'EXC %s %s' % (type(error).__name__, str(error)[:150])
 
