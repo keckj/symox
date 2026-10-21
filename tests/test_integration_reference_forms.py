@@ -11,6 +11,9 @@ import symox
 from symox import *
 from symox.integrals.meijerint import meijerint_indefinite
 
+# the star import brings the library test runner, which is not a test here
+del test
+
 x, y = symbols('x y')
 a, b = symbols('a b')
 r = Symbol('r', real=True)
