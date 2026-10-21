@@ -1152,7 +1152,24 @@ and the native integrator calls them in the reference order of
   `manual=False`), then the native term rules;
 - the undone result is `Integral(f, x).factor()`, so
   `integrate(y*exp(x)/log(x), x)` is `y*NonElementaryIntegral(exp(x)/log(x),
-  x)` as in the reference;
+  x)` as in the reference; a limit `(x, b)` with one bound is factored the
+  same way, so `Integral(c*g, (x, b)).doit()` gives `c*Integral(g, (x, b))`
+  and integrals that differ by a constant factor share one held integral.
+  Gap: the reference then factors that product again
+  (`factored_function = function.factor()`), and its `factor` expands the
+  held integral over the terms of its integrand
+  (`AddWithLimits._eval_expand_basic`): for
+  `Integral(3*(3*f(x) - 2*g(x))*exp(x)/13, x).doit()` the reference returns
+  `3*(Integral(3*f(x)*exp(x), x) + Integral(-2*g(x)*exp(x), x))/13` where
+  symox keeps one held integral of the factored integrand; symox
+  `Integral.expand` does not split the integrand yet;
+- `Derivative.doit` does its result again when it changed and still holds
+  a derivative, as the reference, so the integrals created by
+  differentiating under the integral sign are done (and factored). The
+  substituted PDE of `checkpdesol` with the `1st_linear_constant_coeff_Integral`
+  hint then cancels in `simplify` as in the reference, but that `doit`
+  runs `manualintegrate` on held integrands of `Subs` derivatives, about
+  8 s per check in both libraries (SymPy 1.14: 7.5 s);
 - an `Integral` integrand (not a `NonElementaryIntegral`) is denested into
   the limits, as the reference constructor does: `integrate(Integral(y, x),
   x)` is `x**2*y/2`, and `risch=True` raises ValueError for an inner definite
