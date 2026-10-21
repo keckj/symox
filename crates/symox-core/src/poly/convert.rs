@@ -475,7 +475,14 @@ pub fn rat_to_expr(c: &Rat) -> Expr {
 
 pub fn rat_to_expr_float(c: &Rat, float: bool) -> Expr {
     if float {
-        Expr::float(c.to_f64())
+        let f = c.to_f64();
+        if f.is_finite() && (f != 0.0 || c.is_zero()) {
+            return Expr::float(f);
+        }
+        // outside the double range: a 53-bit float with a wider exponent,
+        // as the reference RR domain keeps it
+        let value = crate::bigfloat::BigFloat::from_ratio(&c.n.to_big(), &c.d.to_big(), 53);
+        Expr::num(crate::number::Number::mp_float(value, 53))
     } else {
         rat_to_expr(c)
     }

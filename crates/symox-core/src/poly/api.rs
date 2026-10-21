@@ -1202,6 +1202,14 @@ pub fn cancel_polys(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) 
     (pp, qq)
 }
 
+/// Whether every coefficient of `p` converts to a finite nonzero double.
+fn float_representable(p: &MPoly<Rat>) -> bool {
+    p.iter().all(|(_, c)| {
+        let f = c.to_f64();
+        f.is_finite() && f != 0.0
+    })
+}
+
 /// `cancel(expr)`.
 pub fn cancel(e: &Expr) -> PResult<Expr> {
     match e.kind() {
@@ -1234,7 +1242,15 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
     if c.ngens == 0 {
         return Ok(expand(e));
     }
-    let (pp, qq) = cancel_polys(&c.polys[0], &c.polys[1]);
+    let (mut pp, mut qq) = cancel_polys(&c.polys[0], &c.polys[1]);
+    // The integer cofactors of float input may lie outside the double range
+    // (1e-300*u gives u/2**1049): take the scale into the numerator then,
+    // so that no coefficient overflows to oo or underflows to 0.
+    if c.float && !(float_representable(&pp) && float_representable(&qq)) {
+        let lc = qq.lc().inv();
+        pp = pp.scale(&lc);
+        qq = qq.scale(&lc);
+    }
     let pe = super::convert::to_expr_f(&pp, &c.gens, c.float);
     let qe = super::convert::to_expr_f(&qq, &c.gens, c.float);
     Ok(div(&pe, &qe))

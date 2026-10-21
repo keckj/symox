@@ -1328,6 +1328,20 @@ def install():
     }
     for name, fn in methods.items():
         setattr(Poly, name, fn)
+    native_as_poly = Poly.as_poly
+
+    def as_poly(self, *gens, **args):
+        """``Basic.as_poly``: the polynomial in new generators, or None when
+        it is not a polynomial in them."""
+        if not gens and not args:
+            return native_as_poly(self)
+        from .polyerrors import PolynomialError, GeneratorsNeeded
+        try:
+            poly = Poly(self, *gens, **args)
+        except (PolynomialError, GeneratorsNeeded):
+            return None
+        return poly if poly.is_Poly else None
+    Poly.as_poly = as_poly
     from .numberfields.galoisgroups import _poly_galois_group
     Poly.galois_group = _poly_galois_group
     for name, fn in {"from_dict": from_dict, "from_list": from_list,

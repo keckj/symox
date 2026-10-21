@@ -18,7 +18,7 @@ from ._compat import _ExprType
 _sums = {}
 
 
-def _polynomial(f,x=None):
+def _polynomial(f,x=None,rational=True):
     from . import Poly,Symbol,sympify
     if isinstance(f,Poly):
         if x is None:x = f.gens[0]
@@ -31,9 +31,14 @@ def _polynomial(f,x=None):
     x = sympify(x)
     polynomial = Poly(f,x)
     if len(polynomial.gens) != 1 or polynomial.degree() < 1:raise ValueError('polynomial degree must be positive')
+    if rational:
+        _require_rational(polynomial)
+    return polynomial
+
+
+def _require_rational(polynomial):
     if any(c.is_Rational is not True for c in polynomial.all_coeffs()):
         raise NotImplementedError('algebraic root isolation currently requires rational coefficients')
-    return polynomial
 
 
 class _pure_key_dict:
@@ -900,7 +905,9 @@ class RootSum(metaclass=_ExprType):
     _matches = staticmethod(lambda expr:expr.class_name == 'RootSum')
     def __new__(cls,expr,func=None,x=None,auto=True,quadratic=False):
         from . import Lambda,Dummy,Tuple,Matrix,eye,zeros,sympify
-        p = _polynomial(expr,x)
+        # the factors of a polynomial with symbolic coefficients split as
+        # in the reference; only the remaining RootSum needs rational ones
+        p = _polynomial(expr,x,rational=False)
         variable = p.gens[0]
         if func is None:func = Lambda(variable,variable)
         if not isinstance(func,Lambda):raise ValueError('root sum requires a univariate Lambda')
@@ -909,6 +916,10 @@ class RootSum(metaclass=_ExprType):
         if len(variables) != 1:raise ValueError('root sum requires one bound variable')
         t = variables[0]
         body = func.expr
+        split = _split_root_sum(p, t, body, auto, quadratic)
+        if split is not None:
+            return split
+        _require_rational(p)
         if auto:
             # The trace of r(C), C the companion matrix, equals sum r(root).
             numerator,denominator = body.as_numer_denom()
@@ -930,6 +941,42 @@ class RootSum(metaclass=_ExprType):
         node = _core._apply('RootSum',Tuple(*p.monic().all_coeffs()),func,evaluate=False)
         _sums[node] = p,func
         return node
+
+
+def _split_root_sum(p, t, body, auto, quadratic):
+    """The reference ``RootSum.__new__`` over the factors of ``p``: a linear
+    factor contributes ``func`` at its root, the others a ``RootSum`` each.
+    ``None`` when ``p`` is irreducible and not linear."""
+    from . import Lambda, Add, S
+    deg = int(p.degree())
+    if not body.has(t):
+        return deg*body
+    try:
+        factors = p.factor_list()[1]
+    except Exception:
+        return None
+    if len(factors) == 1 and factors[0][1] == 1 and factors[0][0].degree() > 1:
+        if not (quadratic and factors[0][0].degree() == 2):
+            return None
+    if body.is_Add:
+        add_const, body = body.as_independent(t)
+    else:
+        add_const = S.Zero
+    if body.is_Mul:
+        mul_const, body = body.as_independent(t)
+    else:
+        mul_const = S.One
+    terms = []
+    for q, k in factors:
+        if q.degree() == 1:
+            term = body.subs(t, -q.nth(0)/q.nth(1))
+        elif quadratic and q.degree() == 2:
+            from .polys.polyroots import roots_quadratic
+            term = Add(*(body.subs(t, r) for r in roots_quadratic(q)))
+        else:
+            term = RootSum(q.as_expr(), Lambda(t, body), q.gens[0], auto=auto)
+        terms.append(k*term)
+    return mul_const*Add(*terms) + deg*add_const
 
 
 def root_sum_doit(node):

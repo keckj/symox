@@ -115,6 +115,8 @@ def _poly_kwargs(opt):
     out = {k: opt[k] for k in ('domain', 'modulus', 'extension') if k in opt and opt[k] is not None}
     if 'expand' in opt and opt['expand'] is False:
         out['expand'] = False
+    if opt.get('field') and 'domain' not in out:
+        out['field'] = True
     if isinstance(out.get('extension'), set):
         ext = sorted(out['extension'], key=lambda e: e.sort_key())
         out['extension'] = ext[0] if len(ext) == 1 else ext
@@ -231,10 +233,15 @@ def parallel_poly_from_expr(exprs, *gens, **args):
         if domain is not None:
             polys = [Poly(e, *all_gens, domain=domain) for e in converted]
     opt['gens'] = all_gens
-    try:
-        opt['domain'] = polys[0].domain
-    except NotImplementedError:
-        opt['domain'] = polys[0].domain_descriptor
+    if not polys:
+        # The reference reports the default ground domain of no polynomials.
+        from .domains import QQ, ZZ
+        opt['domain'] = QQ if opt.get('field') else ZZ
+    else:
+        try:
+            opt['domain'] = polys[0].domain
+        except NotImplementedError:
+            opt['domain'] = polys[0].domain_descriptor
     if 'polys' not in opt:
         opt['polys'] = have_polys
     return polys, opt

@@ -24,6 +24,7 @@ mod rational_definite;
 mod dirac;
 pub(crate) mod meijerint;
 pub(crate) mod piecewise;
+pub mod host_methods;
 
 /// Stage probe of the Meijer G definite integration (testing only).
 pub fn meijerint_debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
@@ -53,7 +54,39 @@ pub fn integrate(f: &Expr, x: &Expr) -> Expr {
 /// other rules fail.
 pub fn integrate_hint(f: &Expr, x: &Expr, meijerg: Option<bool>) -> Expr {
     let g = piecewise::doit_rewrite(f, x, None);
-    doit_indefinite(&g, x, meijerg).unwrap_or_else(|| integral_unevaluated(&g, x))
+    doit_indefinite(&g, x, meijerg).unwrap_or_else(|| factor_undone(&integral_unevaluated(&g, x)))
+}
+
+/// `Integral(function, xab).factor()`, as `Integral.doit` leaves an undone
+/// limit: the integrand is factored (`AddWithLimits._eval_factor`) and the
+/// commutative factors free of the variable are taken out, unless the
+/// factored integrand is not a product. A recorded non-elementary integral
+/// stays recorded.
+pub(crate) fn factor_undone(e: &Expr) -> Expr {
+    let Kind::Func(Func::Integral, args) = e.kind() else { return e.clone() };
+    let limits = crate::binders::limits(args);
+    if limits.len() != 1 {
+        return e.clone();
+    }
+    let Ok(summand) = crate::poly::api::factor(&args[0]) else { return e.clone() };
+    if !summand.is_mul() {
+        return e.clone();
+    }
+    let x = &limits[0][0];
+    let (mut out, mut inside) = (Vec::new(), Vec::new());
+    for w in crate::simptools::mul_args(&summand) {
+        if crate::assumptions::fact(&w, "commutative") == Some(true) && !has(&w, x) {
+            out.push(w);
+        } else {
+            inside.push(w);
+        }
+    }
+    let Ok(held) = crate::binders::held(Func::Integral, &mul(&inside), limits) else { return e.clone() };
+    if host_methods::is_nonelementary(e) {
+        host_methods::mark_nonelementary(&held);
+    }
+    out.push(held);
+    mul(&out)
 }
 
 /// One indefinite limit of `Integral.doit` on the rewritten integrand: a
@@ -114,6 +147,11 @@ fn has_piecewise_or_minmax(e: &Expr) -> bool {
 /// convergence condition is kept, so a parameter range where the integral
 /// diverges never receives the analytic continuation as its value.
 pub fn integrate_definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg: Option<bool>) -> (Expr, Option<Expr>) {
+    let (value, cond) = definite_conds(f, x, a, b, conds, meijerg);
+    (factor_undone(&value), cond)
+}
+
+fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg: Option<bool>) -> (Expr, Option<Expr>) {
     use crate::assumptions::{is_nonnegative, is_nonpositive, is_real};
     use crate::symbol::Assumptions;
     if f.is_zero() || a == b {
@@ -142,9 +180,9 @@ pub fn integrate_definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: C
             let rep = |e: &Expr, from: &Expr, to: &Expr| {
                 let mut m = rustc_hash::FxHashMap::default();
                 m.insert(from.clone(), to.clone());
-                crate::subs::xreplace(e, &m)
+                host_methods::xreplace_marked(e, &m)
             };
-            let (v, c) = integrate_definite_conds(&rep(f, x, &d), &d, &rep(a, x, &d), &rep(b, x, &d), conds, meijerg);
+            let (v, c) = definite_conds(&rep(f, x, &d), &d, &rep(a, x, &d), &rep(b, x, &d), conds, meijerg);
             return (rep(&v, &d, x), c.map(|c| rep(&c, &d, x)));
         }
     }
@@ -224,8 +262,55 @@ fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Op
         return value;
     }
     try_integrate_hint(f, x, meijerg)
-        .and_then(|big_f| eval_antiderivative(&big_f, f, x, a, b))
+        .and_then(|big_f| eval_with_integrals(&big_f, f, x, a, b))
         .unwrap_or_else(|| integral_definite_unevaluated(f, x, a, b))
+}
+
+/// `_eval_interval` of an antiderivative as `Integral.doit` takes it: the
+/// terms holding an indefinite integral in `x` (a proven non-elementary
+/// part) become that integral over `[a, b]`, keeping its class, and the
+/// other terms are evaluated between the bounds.
+fn eval_with_integrals(big_f: &Expr, f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    if !has_indefinite_integral(big_f, x) {
+        return eval_antiderivative(big_f, f, x, a, b);
+    }
+    let mut integrals = Vec::new();
+    let mut others = Vec::new();
+    for term in crate::simptools::add_args(big_f) {
+        let factors = crate::simptools::mul_args(&term);
+        if factors.iter().any(|g| indefinite_integrand(g, x).is_some()) {
+            let factors: Vec<Expr> = factors.iter().map(|g| match indefinite_integrand(g, x) {
+                Some(body) => {
+                    let definite = integral_definite_unevaluated(&body, x, a, b);
+                    if host_methods::is_nonelementary(g) {
+                        host_methods::mark_nonelementary(&definite);
+                    }
+                    definite
+                }
+                None => g.clone(),
+            }).collect();
+            integrals.push(mul(&factors));
+        } else {
+            others.push(term);
+        }
+    }
+    if integrals.is_empty() {
+        return eval_antiderivative(big_f, f, x, a, b);
+    }
+    let evalued = if others.is_empty() { Expr::zero() } else { eval_antiderivative(&add(&others), f, x, a, b)? };
+    Some(add2(&add(&integrals), &evalued))
+}
+
+fn has_indefinite_integral(e: &Expr, x: &Expr) -> bool {
+    crate::simptools::add_args(e).iter().any(|t| crate::simptools::mul_args(t).iter().any(|g| indefinite_integrand(g, x).is_some()))
+}
+
+/// The integrand of `Integral(g, x)` with the single limit `(x,)`.
+fn indefinite_integrand(e: &Expr, x: &Expr) -> Option<Expr> {
+    match e.kind() {
+        Kind::Func(Func::Integral, args) if args.len() == 2 && args[1].args() == [x.clone()] => Some(args[0].clone()),
+        _ => None,
+    }
 }
 
 /// The antiderivative `big_f` of `f` between the bounds, through limits
@@ -519,21 +604,104 @@ fn native_antiderivative(f: &Expr, x: &Expr) -> Option<Expr> {
 /// integrated by `meijerint_indefinite` unless `meijerg=False`.
 /// `meijerg=True` integrates only by Meijer G-functions.
 pub fn try_integrate_hint(f: &Expr, x: &Expr, meijerg: Option<bool>) -> Option<Expr> {
+    if let Some(method) = host_methods::selected() {
+        // `risch=True`, `manual=True` or `heurisch=True`: that method alone
+        return selected_method(method, f, x);
+    }
     if meijerg == Some(true) {
         if free(f, x) {
             return Some(mul2(f, x));
         }
         return meijer_terms(f, x, true);
     }
-    let native = native_antiderivative(f, x);
-    if native.is_some() || meijerg == Some(false) {
-        return native;
+    if let Some(native) = native_antiderivative(f, x) {
+        return Some(native);
     }
-    meijer_terms(f, x, false)
+    // `risch_integrate` on the whole integrand, as the reference tries it
+    // before its term loop, unless `risch=False`.
+    let risch = risch_enabled(f, x);
+    if risch {
+        if let Some(r) = risch_stage(f, x) {
+            return Some(r);
+        }
+    }
+    term_loop(f, x, meijerg != Some(false), false)
+}
+
+/// Whether the host Risch method applies to `f` in the current options.
+fn risch_enabled(f: &Expr, x: &Expr) -> bool {
+    host_methods::methods().risch != Some(false) && host_methods::host().is_some() && !free(f, x)
+        && !matches!(f.kind(), Kind::Piecewise(_)) && !has_piecewise_or_minmax(f)
+}
+
+/// `risch_integrate(f, x, separate_integral=True)` in `_eval_integral`: an
+/// elementary antiderivative, or the elementary part plus the integral of
+/// the proven non-elementary part, which is integrated with `risch=False`
+/// and kept as a `NonElementaryIntegral` when no other method applies.
+fn risch_stage(f: &Expr, x: &Expr) -> Option<Expr> {
+    use host_methods::HostOutcome;
+    let host = host_methods::host()?;
+    match host(host_methods::HostMethod::Risch, f, x, host_methods::conds()) {
+        HostOutcome::Unavailable => None,
+        HostOutcome::Value(value) => Some(value),
+        HostOutcome::NonElementary(elementary, integrand) => {
+            // `NonElementaryIntegral(f, x).doit(risch=False)` when no part was
+            // integrated (the original integrand, not the rewritten one),
+            // else `result + i.doit(risch=False)`
+            let integrand = if elementary.is_zero() { f.clone() } else { integrand };
+            let rest = host_methods::doit_without_risch(|| if elementary.is_zero() {
+                // the native rules already failed on the whole of `f`
+                term_loop(f, x, true, false)
+            } else {
+                try_integrate_hint(&integrand, x, None)
+            });
+            // the undone `doit` factors the integral it returns
+            let rest = rest.unwrap_or_else(|| factor_undone(&host_methods::nonelementary_integral(&integrand, x)));
+            Some(add2(&elementary, &rest))
+        }
+    }
+}
+
+/// `_eval_integral` with one method selected. `risch=True` returns
+/// `risch_integrate(f, x)`, holding a proven non-elementary part as a
+/// `NonElementaryIntegral`; `None` when the method raised
+/// NotImplementedError or gave no antiderivative.
+fn selected_method(method: host_methods::HostMethod, f: &Expr, x: &Expr) -> Option<Expr> {
+    use host_methods::HostOutcome;
+    let host = host_methods::host()?;
+    match host(method, f, x, host_methods::conds()) {
+        HostOutcome::Unavailable => None,
+        HostOutcome::Value(value) => Some(value),
+        HostOutcome::NonElementary(elementary, integrand) => {
+            Some(add2(&elementary, &host_methods::nonelementary_integral(&integrand, x)))
+        }
+    }
+}
+
+/// A term-loop stage of the host (`heurisch` or `manualintegrate`): only an
+/// antiderivative counts.
+fn host_stage(method: host_methods::HostMethod, g: &Expr, x: &Expr) -> Option<Expr> {
+    let host = host_methods::host()?;
+    match host(method, g, x, host_methods::conds()) {
+        host_methods::HostOutcome::Value(value) => Some(value),
+        _ => None,
+    }
 }
 
 /// The term loop of `_eval_integral` from the Meijer G stage on.
 fn meijer_terms(f: &Expr, x: &Expr, only: bool) -> Option<Expr> {
+    term_loop(f, x, true, only)
+}
+
+/// The term loop of `_eval_integral`: for each term the host runs the
+/// reference stages before the Meijer G method (the linear power shortcut,
+/// `ratint`, `trigintegrate`, `deltaintegrate`, `singularityintegrate`,
+/// `risch_integrate` and `heurisch`, the last two unless their option is
+/// False), then the Meijer G method unless `meijer` is false, then
+/// `manualintegrate` unless `manual=False`. Without a host the native rules
+/// stand in for the first stages. `skip_native` is the `meijerg=True` loop,
+/// which runs only the Meijer G method.
+fn term_loop(f: &Expr, x: &Expr, meijer: bool, skip_native: bool) -> Option<Expr> {
     // `Piecewise._eval_integral` and the order terms have their own paths
     if matches!(f.kind(), Kind::Piecewise(_)) || has_piecewise_or_minmax(f) {
         return None;
@@ -542,22 +710,45 @@ fn meijer_terms(f: &Expr, x: &Expr, only: bool) -> Option<Expr> {
     let mut parts = Vec::new();
     for t in &terms {
         let (coeff, g) = crate::decompose::as_independent(t, std::slice::from_ref(x), None);
-        if !only {
-            if let Some(h) = native_antiderivative(&g, x) {
+        let hosted = !skip_native && host_methods::host().is_some();
+        if !skip_native {
+            // the reference stages up to heurisch run in the host; without
+            // one the native rules stand in for them
+            let h = if hosted {
+                host_stage(host_methods::HostMethod::Term, &g, x)
+            } else {
+                native_antiderivative(&g, x)
+            };
+            if let Some(h) = h {
                 parts.push(mul2(&coeff, &h));
                 continue;
             }
         }
-        if let Some(h) = meijerint::meijerint_indefinite(&g, x) {
-            parts.push(mul2(&coeff, &h));
-            continue;
+        if meijer {
+            if let Some(h) = meijerint::meijerint_indefinite(&g, x) {
+                parts.push(mul2(&coeff, &h));
+                continue;
+            }
+        }
+        if hosted {
+            if host_methods::methods().manual != Some(false) {
+                if let Some(h) = host_stage(host_methods::HostMethod::Manual, &g, x) {
+                    parts.push(mul2(&coeff, &h));
+                    continue;
+                }
+            }
+            // beyond the reference: the native rules on the term
+            if let Some(h) = native_antiderivative(&g, x) {
+                parts.push(mul2(&coeff, &h));
+                continue;
+            }
         }
         if terms.len() == 1 {
             let e = crate::simptools::fu::sincos_to_sum(f);
             let options = crate::expand::ExpandOptions { deep: false, ..Default::default() };
             let e = crate::expand::expand_with_options(&e, &options, &mut crate::expand::ExpandBudget::default()).unwrap_or(e);
             if e.is_add() {
-                return meijer_terms(&e, x, only);
+                return term_loop(&e, x, meijer, skip_native);
             }
         }
         return None;

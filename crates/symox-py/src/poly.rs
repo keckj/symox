@@ -2808,8 +2808,13 @@ fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multip
         rs.retain(|(r, _)| r.is_zero()||match flt {
             "Z" => r.is_integer_number(),
             "Q" => r.is_rational_number(),
-            "R" => r.mask() == 0 && symox::evalf::eval_c64(r).is_some_and(|z| z.im == 0.0) && !symox::traverse::has(r, &Expr::i()),
-            "I" => r.mask() == 0 && symox::evalf::eval_c64(r).is_some_and(|z| z.re.abs() < 1e-300 && z.im != 0.0),
+            // the reference queries: `all(a.is_real for a in r.as_numer_denom())`
+            // and `r.is_imaginary`, which hold for symbolic roots too
+            "R" => {
+                let (n, d) = symox::simptools::as_numer_denom(r);
+                symox::assumptions::is_real(&n) == Some(true) && symox::assumptions::is_real(&d) == Some(true)
+            },
+            "I" => symox::assumptions::fact(r, "imaginary") == Some(true),
             _ => true,
         });
     }

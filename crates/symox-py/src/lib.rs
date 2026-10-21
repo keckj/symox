@@ -21,6 +21,7 @@ mod add_memo;
 mod expression_inspection;
 mod wildcards;
 mod host;
+mod integration_methods;
 
 use symox::expr::{Constant, Expr, Func, Kind, RelOp};
 use symox::lambdify::Compiled;
@@ -200,6 +201,9 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
             let value = Bound::new(py, PyExprNode { e })?;
             return Ok(class.call_method1("__new__", (&class, value))?.unbind());
         }
+    }
+    if let Some(value) = integration_methods::nonelementary_object(py, &e)? {
+        return Ok(value);
     }
     if matches!(e.kind(), Kind::Func(Func::Undefined(head), _) if head.is_internal("Tuple")) {
         if let Ok(class) = loaded_symox(py).and_then(|m| m.getattr("Tuple")) {
@@ -933,23 +937,32 @@ fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,se
 
 type IntegrationConditions=symox::integrate::Conds;
 
-/// The `integrate`/`Integral.doit` hints: `conds` and the `meijerg` switch.
-/// `risch`, `heurisch` and `manual` other than None are not implemented.
-fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(IntegrationConditions,Option<bool>)> {
+type IntegrationMethods=symox::integrate::host_methods::Methods;
+
+/// The `integrate`/`Integral.doit` hints: `conds`, the `meijerg` switch and
+/// the `risch`, `heurisch` and `manual` switches.
+fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(IntegrationConditions,Option<bool>,IntegrationMethods)> {
     let mut conditions=IntegrationConditions::Piecewise;
     let mut meijerg=None;
+    let mut others=IntegrationMethods::default();
     let mut methods=0;
-    let mut unsupported=None;
     if let Some(kwargs) = kwargs {
         for (key, value) in kwargs {
             let key: String = key.extract()?;
             match key.as_str() {
                 "meijerg" | "risch" | "heurisch" | "manual" => {
                     if value.is_none(){continue;}
-                    if value.is_truthy()?{methods+=1;}
-                    if key=="meijerg"{meijerg=Some(value.is_truthy()?);}
-                    else if unsupported.is_none(){unsupported=Some(key);}
+                    let on=value.is_truthy()?;
+                    if on{methods+=1;}
+                    match key.as_str(){
+                        "meijerg"=>meijerg=Some(on),
+                        "risch"=>others.risch=Some(on),
+                        "heurisch"=>others.heurisch=Some(on),
+                        _=>others.manual=Some(on),
+                    }
                 },
+                // the tan-in-atan correction is applied in any case
+                "final"=>{},
                 "conds"=>conditions=match value.extract::<String>().ok().as_deref(){
                     Some("piecewise")=>IntegrationConditions::Piecewise,
                     Some("none")=>IntegrationConditions::None,
@@ -961,10 +974,15 @@ fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(Integratio
         }
     }
     if methods>1{return Err(PyValueError::new_err("At most one of manual, meijerg, risch, heurisch can be True"));}
-    if let Some(key)=unsupported{return Err(PyNotImplementedError::new_err(format!("integration option {key} is not implemented")));}
     // meijerg=True turns the other methods off, so the reference integrates
     // only through the Meijer G-function algorithm.
-    Ok((conditions,meijerg))
+    // a True method turns the other ones off, as in `Integral.doit`
+    let off=Some(false);
+    if meijerg==Some(true){others=IntegrationMethods{risch:off,manual:off,heurisch:off};}
+    else if others.manual==Some(true){meijerg=off;others.risch=off;others.heurisch=off;}
+    else if others.risch==Some(true){meijerg=off;others.manual=off;others.heurisch=off;}
+    else if others.heurisch==Some(true){meijerg=off;others.manual=off;others.risch=off;}
+    Ok((conditions,meijerg,others))
 }
 
 fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
@@ -2327,7 +2345,7 @@ impl PyExprNode {
             return Ok(py.import("symox._transforms")?.getattr("_doit")?.call((wrap(self.e.clone()), deep), hints)?.unbind());
         }
         if let (Some(hints),Kind::Func(Func::Integral,args))=(hints,self.e.kind()){
-            let integration_hint=|name:&Bound<'_,PyAny>|name.extract::<String>().is_ok_and(|n|matches!(n.as_str(),"meijerg"|"risch"|"heurisch"|"manual"|"conds"));
+            let integration_hint=|name:&Bound<'_,PyAny>|name.extract::<String>().is_ok_and(|n|matches!(n.as_str(),"meijerg"|"risch"|"heurisch"|"manual"|"conds"|"final"));
             if !hints.is_empty()&&hints.keys().iter().all(|name|integration_hint(&name)){
                 // `Integral.doit(meijerg=..., conds=...)`: the hints of
                 // `integrate`, the integrand evaluated first when deep
@@ -2346,7 +2364,9 @@ impl PyExprNode {
             }else{return Err(PyNotImplementedError::new_err("custom doit hints are not implemented"));}
         }}
         symox::limits::check_doit(&self.e,deep).map_err(|error|PyValueError::new_err(error.to_string()))?;
-        Ok(wrap(fx::doit(&self.e, deep)).into_pyobject(py)?.into_any().unbind())
+        let value=fx::doit(&self.e, deep);
+        host::raise_pending()?;
+        Ok(wrap(value).into_pyobject(py)?.into_any().unbind())
     }
 
     #[pyo3(signature = (deep=true, **hints))]
@@ -3235,7 +3255,20 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
 }
 
 fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
-    let (conditions,meijerg)=integrate_options(kwargs)?;
+    let (conditions,meijerg,methods)=integrate_options(kwargs)?;
+    if methods.risch==Some(true){
+        for arg in args.iter(){
+            if integration_limit(&arg)?.is_some_and(|limit|limit.len()>1){
+                return Err(PyValueError::new_err("risch=True is only allowed for indefinite integrals."));
+            }
+        }
+    }
+    let result=symox::integrate::host_methods::with_methods(methods,conditions,||integrate_native(py,f,args,conditions,meijerg));
+    host::raise_pending()?;
+    result
+}
+
+fn integrate_native(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,conditions:IntegrationConditions,meijerg:Option<bool>)->PyResult<PyObject>{
     if conditions==IntegrationConditions::Separate&&args.len()==1&&meijerg.is_none(){
         if let Some(limit)=integration_limit(&args.get_item(0)?)?{
             if limit.len()==3{
@@ -3791,6 +3824,10 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
     m.add_function(wrap_pyfunction!(_meijerint_debug, m)?)?;
+    m.add_function(wrap_pyfunction!(integration_methods::_mark_nonelementary, m)?)?;
+    m.add_function(wrap_pyfunction!(integration_methods::_is_nonelementary, m)?)?;
+    m.add_function(wrap_pyfunction!(integration_methods::_integration_methods, m)?)?;
+    integration_methods::register();
     m.add_function(wrap_pyfunction!(_register_node_types, m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_args,m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_key,m)?)?;
