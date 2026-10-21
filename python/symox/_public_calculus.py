@@ -10,31 +10,82 @@ def _pairs(expr):
     return tuple(zip(arguments[::2],arguments[1::2]))
 
 
-def piecewise_fold(expr,evaluate=True):
-    from . import Piecewise, And, Or, sympify, true
+def piecewise_fold(expr, evaluate=True):
+    """SymPy's ``piecewise_fold``: move Piecewise outward through the
+    surrounding function, collecting branches with identical conditions."""
+    from . import Piecewise, And, ITE, sympify, true, simplify_logic
     from ._core import Expr
+    from .core.sorting import ordered
+    from .utilities.iterables import sift, common_prefix
     expr = sympify(expr)
-    def visit(node):
-        if not isinstance(node,Expr) or not node.args:
-            return node
-        if node.is_Piecewise:
-            pieces = []
-            for value,condition in _pairs(node):
-                value,condition = visit(value),visit(condition)
-                if condition.is_Piecewise:
-                    condition = Or(*(And(c,v) for v,c in _pairs(condition)))
-                if value.is_Piecewise:
-                    pieces.extend((v,And(condition,c)) for v,c in _pairs(value))
-                else:
-                    pieces.append((value,condition))
-            return Piecewise(*pieces,evaluate=evaluate)
-        args = tuple(visit(a) for a in node.args)
-        choices = [_pairs(a) if isinstance(a,Expr) and a.is_Piecewise else ((a,true),) for a in args]
-        if any(isinstance(a,Expr) and a.is_Piecewise for a in args):
-            return Piecewise(*((node.func(*(v for v,c in combination)),And(*(c for v,c in combination)))
-                               for combination in product(*choices)),evaluate=evaluate)
-        return node if args == node.args else node.func(*args)
-    return visit(expr)
+    if not isinstance(expr, Expr) or not expr.has(Piecewise):
+        return expr
+    # an unevaluated Piecewise keeps duplicate conditions
+    held = evaluate if evaluate is not None else False
+    new_args = []
+    if expr.is_Piecewise or type(expr).__name__ == 'ExprCondPair':
+        for e, c in _pairs(expr):
+            if not e.is_Piecewise:
+                e = piecewise_fold(e)
+            if isinstance(c, ITE):
+                c = c.to_nnf()
+                c = simplify_logic(c, form='cnf')
+            if e.is_Piecewise:
+                new_args.extend([(piecewise_fold(ei), And(ci, c))
+                    for ei, ci in _pairs(e)])
+            else:
+                new_args.append((e, c))
+    else:
+        # f(P1, P2) with branch conditions in common keeps them as the
+        # leading conditions when f is a commutative Add or Mul
+        if expr.is_Add or expr.is_Mul and expr.is_commutative:
+            p, args = sift(expr.args, lambda x: x.is_Piecewise, binary=True)
+            pc = sift(p, lambda x: tuple([c for e, c in _pairs(x)]))
+            for c in list(ordered(pc)):
+                if len(pc[c]) > 1:
+                    pargs = [list(_pairs(i)) for i in pc[c]]
+                    com = common_prefix(*[
+                        [cond for _, cond in j] for j in pargs])
+                    n = len(com)
+                    collected = []
+                    for i in range(n):
+                        collected.append((
+                            expr.func(*[ai[i][0] for ai in pargs]),
+                            com[i]))
+                    remains = []
+                    for a in pargs:
+                        if n == len(a):
+                            continue
+                        if a[n][1] == True:  # noqa: E712
+                            remains.append(a[n][0])
+                        else:
+                            remains.append(
+                                Piecewise(*a[n:], evaluate=False))
+                    if remains:
+                        collected.append((expr.func(*remains), True))
+                    args.append(Piecewise(*collected, evaluate=False))
+                    continue
+                args.extend(pc[c])
+        else:
+            args = expr.args
+        folded = list(map(piecewise_fold, args))
+        for ec in product(*[
+                (_pairs(i) if isinstance(i, Expr) and i.is_Piecewise else
+                 [(i, true)]) for i in folded]):
+            e, c = zip(*ec)
+            new_args.append((expr.func(*e), And(*c)))
+    if evaluate is None:
+        # don't return duplicate conditions, otherwise don't evaluate
+        new_args = list(reversed([(e, c) for c, e in {
+            c: e for e, c in reversed(new_args)}.items()]))
+    rv = Piecewise(*new_args, evaluate=held)
+    if evaluate is None and len(rv.args) == 1 and _pairs(rv)[0][1] == True:  # noqa: E712
+        return _pairs(rv)[0][0]
+    if not (isinstance(rv, Expr) and rv.is_Piecewise):
+        return rv
+    if any(e.has(Piecewise) for q in rv.atoms(Piecewise) for e, _ in _pairs(q)):
+        return piecewise_fold(rv)
+    return rv
 
 
 def piecewise_exclusive(expr,*,skip_nan=False,deep=True):
@@ -208,11 +259,43 @@ def _piecewise_integrate(self, x, **kwargs):
     return Piecewise(*[(integrate(e, x, **kwargs), c) for e, c in _pairs(self)])
 
 
+def _as_expr_set_pairs(self, domain=None):
+    """``Piecewise.as_expr_set_pairs``: each expression with the part of
+    ``domain`` (the reals by default) where its condition first holds."""
+    from . import S, Eq, Ne
+    from .core.relational import Relational
+    from ._public_tools import filldedent
+    if domain is None:
+        domain = S.Reals
+    exp_sets = []
+    U = domain
+    complex = not domain.is_subset(S.Reals)
+    cond_free = set()
+    for expr, cond in _pairs(self):
+        cond_free |= cond.free_symbols
+        if len(cond_free) > 1:
+            raise NotImplementedError(filldedent('''
+                multivariate conditions are not handled.'''))
+        if complex:
+            for i in cond.atoms(Relational):
+                if not isinstance(i, (Eq, Ne)):
+                    raise ValueError(filldedent('''
+                        Inequalities in the complex domain are
+                        not supported. Try the real domain by
+                        setting domain=S.Reals'''))
+        cond_int = U.intersect(cond.as_set())
+        U = U - cond_int
+        if cond_int != S.EmptySet:
+            exp_sets.append((expr, cond_int))
+    return exp_sets
+
+
 def _install_piecewise_methods():
     from ._node_types import node_class
     cls = node_class('Piecewise')
     if cls is not None:
         type.__setattr__(cls, 'piecewise_integrate', _piecewise_integrate)
+        type.__setattr__(cls, 'as_expr_set_pairs', _as_expr_set_pairs)
 
 
 _install_piecewise_methods()

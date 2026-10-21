@@ -133,6 +133,41 @@ pub fn subs_doit(e:&Expr,variables:&[Expr],points:&[Expr])->Expr {
     subs(e,&active)
 }
 
+/// SymPy's `Order._eval_subs` for a substituted order variable: the limit
+/// point follows the substitution (`O(x).subs(x, x - 2)` is
+/// `O(x - 2, (x, 2))`). Moving points are solved for affine replacements
+/// only; `None` falls back to substitution in the arguments.
+fn order_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Option<Expr> {
+    let (inner, vars) = crate::series::order::order_parts(e)?;
+    let i = vars.iter().position(|(v, _)| v == old)?;
+    let new_expr = s1(&inner, old, new, cache);
+    let mut vars = vars;
+    if new.is_symbol() {
+        vars[i].0 = new.clone();
+    } else {
+        let syms = crate::traverse::free_symbols(new);
+        let contains_old = syms.contains(old);
+        if syms.len() == 1 || contains_old {
+            let var = if contains_old { vars[i].0.clone() } else { syms[0].clone() };
+            let start = vars[i].1.clone();
+            let mut point = subs1(new, &var, &start);
+            if point != start {
+                // solve old = new(d) for d, then evaluate at old = start
+                let slope = crate::diff::diff(new, &var);
+                if slope.is_zero() || crate::traverse::has(&slope, &var) || !start.is_number() {
+                    return None;
+                }
+                let intercept = subs1(new, &var, &Expr::zero());
+                point = div(&crate::ops::sub(&start, &intercept), &slope);
+            }
+            vars[i] = (var, point);
+        } else {
+            vars.remove(i);
+        }
+    }
+    Some(crate::series::order::order(&new_expr, &vars))
+}
+
 /// Substitute a single `old -> new` (with algebraic matching of sums,
 /// products and powers).
 pub fn subs1(e: &Expr, old: &Expr, new: &Expr) -> Expr {
@@ -167,6 +202,11 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     }
     if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum|Func::Product,_)) {
         return crate::binders::substitute(e,&[(old.clone(),new.clone())],false);
+    }
+    if matches!(e.kind(),Kind::Func(Func::Order,_)) {
+        if let Some(value)=order_subs(e,old,new,cache) {
+            return value;
+        }
     }
     if let Kind::Func(Func::Subs,args)=e.kind(){
         let variables=args[1].args();

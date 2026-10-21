@@ -35,22 +35,43 @@ def polarify(eq, subs=True, lift=False):
     """
     s = _s()
     expr = s.sympify(eq)
+    from symox.core.expr import Expr
+
     def visit(value, pause=False):
-        if value.is_polar is True:
+        # SymPy's _polarify
+        if type(value).__name__ == 'ExprCondPair':
+            # a Tuple: the condition is not an Expr
+            return value.func(visit(value.args[0], pause), value.args[1])
+        if value.is_polar:
             return value
-        if not pause and (value.is_number or (lift and value.is_Symbol)):
+        if value.is_number and not pause:
             return polar_lift(value)
-        if not value.args:
+        if value.is_Symbol and not pause and lift:
+            return polar_lift(value)
+        if value.is_Atom:
             return value
         if value.is_Add:
             result = value.func(*(visit(a, True) for a in value.args))
             return polar_lift(result) if lift else result
-        if value.class_name in ('Integral', 'Sum', 'Product'):
-            limits = [tuple([bound.args[0]]+[visit(a) for a in bound.args[1:]]) for bound in value.args[1:]]
-            return value.func(visit(value.args[0]), *limits)
-        if value.is_Function or (value.is_Pow and value.args[0] == s.E):
-            pause = False
-        return value.func(*(visit(a, pause) for a in value.args))
+        if value.is_Pow and value.args[0] == s.E:
+            return value.func(s.E, visit(value.args[1]))
+        # Piecewise is a Function in SymPy
+        if value.is_Function or value.is_Piecewise:
+            return value.func(*(visit(a) for a in value.args))
+        if value.class_name == 'Integral':
+            # the integration variable is not lifted
+            function = visit(value.args[0], pause)
+            limits = []
+            for limit in value.args[1:]:
+                var = limit.args[0]
+                if var.is_number and not pause:
+                    var = polar_lift(var)
+                rest = visit(s.Tuple(*limit.args[1:]), pause)
+                limits.append((var,) + tuple(rest))
+            return s.Integral(function, *limits)
+        # Only Expr arguments are visited: the parameter tuples of meijerg
+        # and the conditions of Piecewise are kept.
+        return value.func(*(visit(a, pause) if isinstance(a, Expr) else a for a in value.args))
     result = visit(expr)
     if not subs or lift:
         return result
