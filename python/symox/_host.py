@@ -267,6 +267,23 @@ def _commutative_flags(cls, default):
             if isinstance(value, (bool, int)):
                 return 0 if value else _NONCOMMUTATIVE
             break
+    # Other class facts imply it as in SymPy's default assumptions:
+    # ``is_extended_positive = True`` makes the class commutative.
+    from .core.assumptions import StdFactKB, _assume_defined
+    declared = {}
+    for base in reversed(_user_classes(cls)):
+        defaults = base.__dict__.get('_symox_defaults', ())
+        for fact in _assume_defined:
+            value = base.__dict__.get('is_' + fact)
+            if isinstance(value, bool) and 'is_' + fact not in defaults:
+                declared[fact] = value
+    if declared:
+        try:
+            implied = StdFactKB(declared).get('commutative')
+        except Exception:
+            implied = None
+        if implied is not None:
+            return 0 if implied else _NONCOMMUTATIVE
     if 'commutative' in cls._symox_handlers:
         return _COMMUTATIVE_HOOK
     return _UNCOMMUTED if default is None else 0
