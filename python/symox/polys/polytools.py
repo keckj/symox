@@ -190,6 +190,20 @@ def _ordered_gens(gens):
     return tuple(sorted(gens, key=lambda g: g.sort_key()))
 
 
+def _joint_domain(exprs, gens, kwargs):
+    """The domain inferred from the coefficients of all ``exprs`` together.
+
+    A fresh generator separates the expressions in one carrier polynomial,
+    whose coefficients in ``gens`` are exactly their union.
+    """
+    from .. import Add, Dummy
+    t = Dummy('t')
+    try:
+        return Poly(Add(*[e*t**i for i, e in enumerate(exprs)]), t, *gens, **kwargs).domain
+    except (NotImplementedError, ValueError, TypeError):
+        return None
+
+
 def parallel_poly_from_expr(exprs, *gens, **args):
     """Construct polynomials over common generators and a common domain."""
     from .. import sympify
@@ -221,6 +235,17 @@ def parallel_poly_from_expr(exprs, *gens, **args):
             raise PolificationFailed(opt, origs, converted, True)
         all_gens = _ordered_gens(found)
     polys = [Poly(e, *all_gens, **kwargs) for e in converted]
+    if kwargs.get('extension') is True and len(polys) > 1:
+        # The reference infers one domain from the union of all
+        # coefficients; separately inferred domains may not unify to it
+        # (QQ<sqrt(2)> and ZZ[y] jointly give EX in x).
+        joint = _joint_domain(converted, all_gens, kwargs)
+        if joint is not None:
+            rest = {k: v for k, v in kwargs.items() if k != 'extension'}
+            try:
+                polys = [Poly(e, *all_gens, domain=joint, **rest) for e in converted]
+            except (NotImplementedError, ValueError, TypeError):
+                pass
     if not kwargs:
         domain = None
         try:

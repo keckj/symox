@@ -23,10 +23,25 @@ fn element_error(e: symox::poly::convert::PolyError) -> PyErr {
     }
 }
 fn coercion(e: impl std::fmt::Display) -> PyErr {
-    CoercionFailed::new_err(e.to_string())
+    let message = e.to_string();
+    // A descriptor without an element backend (a fraction field over an
+    // algebraic ground) is unsupported, not a failed coercion.
+    if message.starts_with("fraction fields over ") && message.ends_with(" are not implemented") {
+        return PyNotImplementedError::new_err(message);
+    }
+    CoercionFailed::new_err(message)
 }
 fn domain_error(e: impl std::fmt::Display) -> PyErr {
     DomainError::new_err(e.to_string())
+}
+/// Errors from building a composite domain: shared generators are the
+/// reference `GeneratorsError`, unimplemented grounds stay unsupported.
+fn composite_error(e: symox::poly::convert::PolyError) -> PyErr {
+    match e {
+        symox::poly::convert::PolyError::Generator(message) => Python::with_gil(|py| crate::poly::reference_error(py, "GeneratorsError", &message)),
+        symox::poly::convert::PolyError::Unsupported(message) => PyNotImplementedError::new_err(message),
+        other => domain_error(other),
+    }
 }
 fn conversion_argument<'py>(args:&Bound<'py,PyTuple>,kwargs:Option<&Bound<'py,PyDict>>,alias:&str)->PyResult<Bound<'py,PyAny>> {
     if args.len()>1{return Err(PyTypeError::new_err("domain conversion takes exactly one argument"));}
@@ -145,6 +160,22 @@ impl PyDomain {
             ExactDomain::Algebraic(field) => AlgebraicPoly::from_expr(e, gens, field.clone())
                 .map(Into::into)
                 .map_err(coercion),
+            ExactDomain::Composite { .. } => {
+                // Nested rings over ZZ or QQ are stored over their flattened
+                // generators (outermost first); the descriptor keeps the
+                // nesting. Other composites have no polynomial backend yet.
+                let Some(flat) = self.inner.flat_domain() else {
+                    return Err(PyNotImplementedError::new_err(format!("polynomials over {} are not implemented", self.inner)));
+                };
+                let ExactDomain::Functions { parameters, integral, ring, .. } = &flat else { unreachable!() };
+                let mut p = FractionPoly::from_expr(e, gens, parameters, &flat.to_string()).map_err(coercion)?;
+                if *ring && p.rep.coeffs().iter().any(|c| !symox::poly::fraction::coefficient_in_ring(c, *integral)) {
+                    return Err(coercion("coefficient outside selected ring"));
+                }
+                p.display = self.inner.to_string();
+                p.coefficient_domain = self.inner.clone();
+                Ok(p.into())
+            }
             ExactDomain::Functions {
                 parameters,
                 ring,
@@ -277,11 +308,13 @@ impl PyDomain {
         coercion(error)
     }
     fn factory(&self, gens: &Bound<'_, PyTuple>, order: &str, ring: bool) -> PyResult<Self> {
-        let integral=match self.inner{ExactDomain::ZZ=>true,ExactDomain::QQ=>false,_=>return Err(PyNotImplementedError::new_err("polynomial rings and fraction fields currently require ZZ or QQ ground coefficients"))};
         let parameters = super::gens_of(gens)?;
-        ExactDomain::functions(integral, ring, parameters, order)
+        if !matches!(self.inner,ExactDomain::ZZ|ExactDomain::QQ|ExactDomain::Functions{..}|ExactDomain::Composite{..}|ExactDomain::Gaussian{..}|ExactDomain::Algebraic(_)) {
+            return Err(PyNotImplementedError::new_err(format!("polynomial rings and fraction fields over {} are not implemented", self.inner)));
+        }
+        ExactDomain::composite(&self.inner, ring, parameters, order)
             .map(|inner| Self { inner })
-            .map_err(domain_error)
+            .map_err(composite_error)
     }
 }
 #[pymethods]
@@ -364,11 +397,11 @@ impl PyDomain {
     }
     #[getter]
     fn is_FractionField(&self) -> bool {
-        matches!(self.inner, ExactDomain::Functions { ring: false, .. })
+        matches!(self.inner, ExactDomain::Functions { ring: false, .. } | ExactDomain::Composite { ring: false, .. })
     }
     #[getter]
     fn is_PolynomialRing(&self) -> bool {
-        matches!(self.inner, ExactDomain::Functions { ring: true, .. })
+        matches!(self.inner, ExactDomain::Functions { ring: true, .. } | ExactDomain::Composite { ring: true, .. })
     }
     // The reference's alias flags.
     #[getter]
@@ -413,7 +446,7 @@ impl PyDomain {
     }
     #[getter]
     fn is_Numerical(&self) -> bool {
-        !matches!(self.inner, ExactDomain::Functions { .. } | ExactDomain::Expression { .. })
+        !matches!(self.inner, ExactDomain::Functions { .. } | ExactDomain::Composite { .. } | ExactDomain::Expression { .. })
     }
     #[getter]
     fn is_EX(&self)->bool {matches!(self.inner,ExactDomain::Expression{raw:false})}
@@ -425,7 +458,7 @@ impl PyDomain {
     }
     #[getter]
     fn is_Composite(&self) -> bool {
-        matches!(self.inner, ExactDomain::Functions { .. })
+        matches!(self.inner, ExactDomain::Functions { .. } | ExactDomain::Composite { .. })
     }
     #[getter]
     fn is_PID(&self) -> bool {
@@ -538,6 +571,7 @@ impl PyDomain {
                 inner: ExactDomain::QQ,
             }),
             ExactDomain::Gaussian {integral} => Ok(Self{inner:if integral {ExactDomain::ZZ} else {ExactDomain::QQ}}),
+            ExactDomain::Composite { ref ground, .. } => Ok(Self { inner: (**ground).clone() }),
             _ => Err(domain_error(
                 "ground domains do not have a coefficient domain",
             )),
@@ -550,14 +584,14 @@ impl PyDomain {
     #[getter]
     fn order(&self) -> Option<String> {
         match &self.inner {
-            ExactDomain::Functions { order, .. } => Some(order.clone()),
+            ExactDomain::Functions { order, .. } | ExactDomain::Composite { order, .. } => Some(order.clone()),
             _ => None,
         }
     }
     #[getter]
     fn symbols(&self, py: Python<'_>) -> PyResult<PyObject> {
         match &self.inner {
-            ExactDomain::Functions { parameters, .. } => {
+            ExactDomain::Functions { parameters, .. } | ExactDomain::Composite { parameters, .. } => {
                 Ok(PyTuple::new(py, parameters.iter().cloned().map(w))?
                     .into_any()
                     .unbind())
@@ -569,7 +603,7 @@ impl PyDomain {
     #[getter]
     fn gens(&self, py: Python<'_>) -> PyResult<PyObject> {
         match &self.inner {
-            ExactDomain::Functions { parameters, .. } => Ok(PyTuple::new(
+            ExactDomain::Functions { parameters, .. } | ExactDomain::Composite { parameters, .. } => Ok(PyTuple::new(
                 py,
                 parameters
                     .iter()
@@ -585,7 +619,7 @@ impl PyDomain {
     #[getter]
     fn ngens(&self) -> usize {
         match &self.inner {
-            ExactDomain::Functions { parameters, .. } => parameters.len(),
+            ExactDomain::Functions { parameters, .. } | ExactDomain::Composite { parameters, .. } => parameters.len(),
             ExactDomain::Algebraic(_) => 1,
             _ => 0,
         }
@@ -859,6 +893,15 @@ impl PyDomain {
         Ok(a.value.pow(-1).is_ok())
     }
     fn __reduce__(&self, py: Python<'_>) -> PyResult<(PyObject, PyObject)> {
+        if let ExactDomain::Composite { ground, ring, parameters, order } = &self.inner {
+            // Rebuilt from its ground domain's factory, like the reference.
+            let ground = Self { inner: (**ground).clone() }.object(py)?;
+            let factory = ground.bind(py).getattr(if *ring { "poly_ring" } else { "frac_field" })?;
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("order", order)?;
+            let partial = py.import("functools")?.getattr("partial")?.call((factory,), Some(&kwargs))?;
+            return Ok((partial.unbind(), PyTuple::new(py, parameters.iter().cloned().map(w))?.into_any().unbind()));
+        }
         let (kind, prime, parameters, generator, alias, integral, ring, order) = match &self.inner {
             ExactDomain::Expression {raw} => (if *raw {"EXRAW"} else {"EX"},None,vec![],None,None,false,false,"lex".to_string()),
             ExactDomain::Inexact {precision,complex} => (if *complex {"Complex"} else {"Real"},Some(*precision as u64),vec![],None,None,false,false,"lex".to_string()),
@@ -913,6 +956,7 @@ impl PyDomain {
                 false,
                 "lex".to_string(),
             ),
+            ExactDomain::Composite { .. } => unreachable!("composite domains are reduced above"),
             ExactDomain::Functions {
                 integral,
                 ring,
@@ -970,7 +1014,7 @@ impl PyDomainElement {
             return Ok(Self{value:if denominator {d}else{n}});
         }
         let (domain, e) = match (&self.value.domain, &self.value.value) {
-            (ExactDomain::Functions { ring: true, .. }, _) => {
+            (ExactDomain::Functions { ring: true, .. } | ExactDomain::Composite { ring: true, .. }, _) => {
                 return if denominator {
                     self.value
                         .domain
@@ -1003,6 +1047,10 @@ impl PyDomainElement {
                     if denominator { &r.d } else { &r.n },
                     parameters,
                 ),
+            ),
+            (domain @ ExactDomain::Composite { ring: false, .. }, ElementValue::Function(r)) => (
+                domain.ring().map_err(err)?,
+                symox::poly::convert::to_expr_int(if denominator { &r.d } else { &r.n }, &domain.flat_parameters()),
             ),
             (_, _) => (
                 self.value.domain.clone(),
@@ -1041,7 +1089,7 @@ impl PyDomainElement {
     ) -> PyResult<PyObject> {
         if !matches!(
             self.value.domain,
-            ExactDomain::ZZ | ExactDomain::Functions { ring: true, .. } | ExactDomain::Gaussian {integral:true}
+            ExactDomain::ZZ | ExactDomain::Functions { ring: true, .. } | ExactDomain::Gaussian {integral:true} | ExactDomain::Composite { ring: true, .. }
         ) {
             return Ok(other.py().NotImplemented());
         }
@@ -1182,9 +1230,16 @@ impl PyDomainElement {
         w(self.value.as_expr())
     }
     fn __str__(&self) -> String {
+        if let Some(text) = symox::poly::domain_print::composite_str(&self.value) {
+            return text;
+        }
         self.value.as_expr().to_string()
     }
     fn __repr__(&self) -> String {
+        // Composite elements print like the reference `PolyElement`.
+        if let Some(text) = symox::poly::domain_print::composite_str(&self.value) {
+            return text;
+        }
         // The reference GaussianElement repr: `ZZ_I(x, y)`.
         if matches!(self.value.domain,ExactDomain::Gaussian{..}) {
             if let Some((x,y))=exact_numeric_parts(&self.value.as_expr()) {
@@ -1546,9 +1601,56 @@ pub fn require_expression_generators(domain: Option<&Bound<'_, PyAny>>, generato
     Ok(())
 }
 
+/// The ground, generators, ring flag and order of a polynomial ring or
+/// fraction field descriptor.
+fn composite_parts(d: &ExactDomain) -> Option<(ExactDomain, Vec<Expr>, bool, String)> {
+    match d {
+        ExactDomain::Functions { integral, ring, parameters, order } => Some((if *integral { ExactDomain::ZZ } else { ExactDomain::QQ }, parameters.clone(), *ring, order.clone())),
+        ExactDomain::Composite { ground, ring, parameters, order } => Some(((**ground).clone(), parameters.clone(), *ring, order.clone())),
+        _ => None,
+    }
+}
+
+/// The reference `Domain.unify` for composite domains: the grounds are
+/// unified, the generators merged (receiver's order first), and a fraction
+/// field met with a ring over a non-field ground keeps the ground's ring.
+fn unify_composite(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
+    let pa = composite_parts(a);
+    let pb = composite_parts(b);
+    let (ga, sa) = pa.as_ref().map_or((a.clone(), vec![]), |(g, s, _, _)| (g.clone(), s.clone()));
+    let (gb, sb) = pb.as_ref().map_or((b.clone(), vec![]), |(g, s, _, _)| (g.clone(), s.clone()));
+    let mut domain = unify_native(&ga, &gb)?;
+    let symbols = symox::poly::polyobj::unify_gens(&sa, &sb);
+    let order = pa.as_ref().or(pb.as_ref()).map(|(_, _, _, o)| o.clone()).unwrap_or_else(|| "lex".into());
+    let fa = pa.as_ref().map(|p| !p.2);
+    let fb = pb.as_ref().map(|p| !p.2);
+    let mixed = (fa == Some(true) && fb == Some(false)) || (fb == Some(true) && fa == Some(false));
+    if mixed && (!ga.is_field() || !gb.is_field()) && domain.is_field() && !matches!(domain, ExactDomain::Algebraic(_)) {
+        if let Ok(ring) = domain.ring() {
+            domain = ring;
+        }
+    }
+    let ring = match (&pa, &pb) {
+        (Some((_, _, ra, _)), Some((_, _, rb, _))) => if !ra || *rb { *ra } else { *rb },
+        (Some((_, _, ra, _)), None) => *ra,
+        (None, Some((_, _, rb, _))) => *rb,
+        (None, None) => unreachable!("composite unification needs a composite operand"),
+    };
+    ExactDomain::composite(&domain, ring, symbols, &order).map_err(composite_error)
+}
+
 pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
     if a == b {
         return Ok(a.clone());
+    }
+    let composite_ground = |d: &ExactDomain| matches!(d, ExactDomain::Composite { .. } | ExactDomain::Gaussian { .. } | ExactDomain::Algebraic(_));
+    if (matches!(a, ExactDomain::Composite { .. }) || matches!(b, ExactDomain::Composite { .. }))
+        || (matches!(a, ExactDomain::Functions { .. }) && composite_ground(b))
+        || (matches!(b, ExactDomain::Functions { .. }) && composite_ground(a))
+    {
+        if !matches!(a, ExactDomain::Expression { .. }) && !matches!(b, ExactDomain::Expression { .. }) && a.inexact_precision().is_none() && b.inexact_precision().is_none() {
+            return unify_composite(a, b);
+        }
     }
     let inner = match (a, b) {
         (ExactDomain::Expression {raw:a},ExactDomain::Expression {raw:b}) => ExactDomain::Expression {raw:*a || *b},
@@ -1567,6 +1669,10 @@ pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
         (ExactDomain::Algebraic(k), ExactDomain::ZZ | ExactDomain::QQ)
         | (ExactDomain::ZZ | ExactDomain::QQ, ExactDomain::Algebraic(k)) => {
             ExactDomain::Algebraic(k.clone())
+        }
+        (ExactDomain::Algebraic(k), ExactDomain::Gaussian { .. }) | (ExactDomain::Gaussian { .. }, ExactDomain::Algebraic(k)) => {
+            let generators = if matches!(a, ExactDomain::Algebraic(_)) { [k.generator.clone(), Expr::i()] } else { [Expr::i(), k.generator.clone()] };
+            ExactDomain::Algebraic(NumberField::from_generators(&generators).map_err(err)?)
         }
         (ExactDomain::Algebraic(a), ExactDomain::Algebraic(b)) => {
             ExactDomain::Algebraic(if a.same_embedding(b) {
@@ -1734,6 +1840,14 @@ impl Selection {
             return Ok(Self::from_native(ExactDomain::Gaussian {
                 integral: text == "ZZ_I",
             }));
+        }
+        // The reference `ZZ_I[x,y]` / `QQ_I[x,y]` domain strings.
+        for (prefix, integral) in [("ZZ_I[", true), ("QQ_I[", false)] {
+            if let Some(body) = text.strip_prefix(prefix).and_then(|t| t.strip_suffix(']')) {
+                let gens = body.split(',').map(|g| symox::parser::parse_str(g.trim()).map_err(|e| PyValueError::new_err(e.to_string()))).collect::<PyResult<Vec<_>>>()?;
+                let inner = ExactDomain::composite(&ExactDomain::Gaussian { integral }, true, gens, "lex").map_err(composite_error)?;
+                return Ok(Self::from_native(inner));
+            }
         }
         if text.starts_with("GF(") && text.ends_with(')') {
             let prime = text[3..text.len() - 1]

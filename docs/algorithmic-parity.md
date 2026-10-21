@@ -178,19 +178,50 @@ Differential tests: `tests/test_composite_domain_parity.py`,
 `test_algebraic_fields.py` and `test_implicit_domain_rings.py`. SageMath's
 `sage/interfaces/sympy.py` doctests now have 3 failures out of 319 (311
 passing before this work): the 2 `ZZ[x][y]` cases and the Fresnel integral.
+The `ZZ[x][y]` `_sage_` path (`domain`, `gens`, class hook) now matches the
+reference; the doctests were not rerun in Sage for this change.
 
 Remaining gaps in this area:
 
-- Nested polynomial rings such as `PolynomialRing(ZZ[x], 'y')` or `ZZ[x][y]`,
-  and typed ring or fraction-field factories over `ZZ_I`, `QQ_I` or algebraic
-  fields (`ZZ_I[x]`, `QQ<sqrt(2)>[x]`) raise `NotImplementedError`.
-- `resultant` and `discriminant` with `extension=True` and parameter
-  coefficients, e.g. `resultant(x**2 - sqrt(2)*y, x - y, x, extension=True)`,
-  raise `CoercionFailed`: `parallel_poly_from_expr` does not unify `EX` with
-  `ZZ[y]` into the common reference domain.
-- `RR[pi]` raises `NotImplementedError`; `RR.invert(4, 0)` raises
-  `ZeroDivisionError` where SymPy returns `0.25`; `EXRAW.convert('x+1')`
-  converts a string that SymPy rejects with `CoercionFailed`.
+- Nested polynomial rings (`PolynomialRing(ZZ[x], 'y')`, `ZZ[x][y]`) and
+  ring factories over `ZZ_I`, `QQ_I` and algebraic fields (`ZZ_I[x]`,
+  `QQ_I[x]`, `QQ<sqrt(2)>[x]`) are implemented with the reference
+  construction, element arithmetic, conversion, printing and `unify`, and
+  `Poly` over nested rings such as `ZZ[x][y]` (differential tests in
+  `tests/test_nested_rings_parity.py`). Remaining differences: domains and
+  elements are `Domain`/`DomainElement` instances (they pass `isinstance`
+  checks against `PolynomialRing` but `type(...).__name__` differs, and
+  `.ring` and `has_assoc_Field` are missing); invalid elements raise
+  `CoercionFailed` where the reference raises `ValueError`;
+  `ZZ[x][y].convert(ZZ[x](x))` and `set_domain` between `ZZ[x][y]` and
+  `ZZ[x,y]` convert where the reference raises `CoercionFailed`;
+  `Poly` over `ZZ_I[x]`, `QQ_I[x]` or `QQ<sqrt(2)>[x]` raises
+  `NotImplementedError`; expression-level `factor` or `gcd` with a
+  polynomial-ring `domain=` (e.g. `ZZ[x]`, `ZZ[x][y]`) raise
+  `NotImplementedError` (the `Poly` methods work); adding a `ZZ[x][y]` and a
+  `ZZ[x]` polynomial raises `TypeError` instead of `GeneratorsError`;
+  `ZZ_I[x].is_unit(I)` is `True` (reference `False`);
+  `QQ<sqrt(2)>(sqrt(2))` is accepted where the reference rejects it; inferred
+  domains with `I` and parameters stay `ZZ[y,I]` where the reference infers
+  `ZZ_I[y]` (resultants agree); fraction fields over `ZZ_I`, `QQ_I` or
+  algebraic fields are descriptor-only and raise `NotImplementedError` on
+  element construction.
+- `resultant`, `subresultants`, `discriminant`, `gcd`, `lcm` and `cancel`
+  with `extension=True` and parameter coefficients follow the reference: the
+  option is ignored when a coefficient is not an algebraic number, and
+  `parallel_poly_from_expr` infers one joint domain (`EX` for
+  `[x**2 - sqrt(2)*y, x - y]`). Only error messages differ for an explicit
+  `extension=sqrt(2)` with parameters.
+- `RR.invert` reduces `1/a` modulo `b` with the reference `mpf_mod` rule
+  (`RR.invert(4, 0)` is `0.25`, `RR.invert(-2, 0)` raises
+  `ZeroDivisionError`); `Domain.convert` rejects strings, `None`, bytes and
+  sequences with `CoercionFailed`, and `nan`/`oo`/`zoo` outside `EXRAW`.
+  Remaining: `RR[pi]` raises `NotImplementedError`; `QQ`, `QQ(x)` and
+  `QQ<sqrt(2)>` reject `convert(2.5)` that the reference converts exactly;
+  `QQ_I.convert(1j)` fails; sets and dicts raise `AttributeError` or are
+  accepted where some reference domains raise `CoercionFailed`;
+  `CC.invert` raises `NotImplementedError` (reference `TypeError`);
+  `EXRAW` elements are wrapped and do not compare equal to the raw `Expr`.
 - `(-2)**(1/6)` with `extension=True` yields the larger field
   `QQ<2**(1/6) + (-1)**(1/6)>` because core power canonicalization splits the
   base; results stay exact but the field is not the reference one.

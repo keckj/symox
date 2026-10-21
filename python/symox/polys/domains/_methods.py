@@ -7,6 +7,7 @@ from math import isqrt
 
 _native_convert = None
 _native_invert = None
+_native_from_sympy = None
 
 
 def _gaussian(domain):
@@ -281,10 +282,41 @@ def convert_from(self, element, base):
     return self.convert(element, base)
 
 
+def _not_a_coeff(element):
+    # The reference ``_not_a_coeff``: NaN and the infinities.
+    import math
+    if isinstance(element, float):
+        return math.isnan(element) or math.isinf(element)
+    from ... import Basic, S
+    return isinstance(element, Basic) and any(
+        element is value or element == value
+        for value in (S.NaN, S.Infinity, S.NegativeInfinity, S.ComplexInfinity))
+
+
 def convert(self, element, base=None):
+    from ... import CoercionFailed, Expr
+    # EXRAW accepts every Expr before the coefficient check (``of_type``).
+    raw = getattr(self, 'is_EXRAW', False) and base is None and isinstance(element, Expr)
+    if not raw and _not_a_coeff(element):
+        raise CoercionFailed('%s is not in any domain' % (element,))
+    if base is None and (element is None or isinstance(
+            element, (str, bytes, bytearray, list, tuple, set, frozenset, dict))):
+        # The reference reads only strict sympify input: no strings, and
+        # no sequences.
+        raise CoercionFailed("Cannot convert %s of type %s to %s" % (element, type(element), self))
     if getattr(base, '_symox_monogenic_extension', False):
         return convert_from(self, element, base)
     return _native_convert(self, element, base)
+
+
+def from_sympy(self, *args, **kwargs):
+    if getattr(self, 'is_EXRAW', False) and len(args) + len(kwargs) == 1:
+        # The reference EXRAW keeps any Expr unchanged and nothing else.
+        from ... import CoercionFailed, Expr
+        a = args[0] if args else next(iter(kwargs.values()))
+        if not isinstance(a, Expr):
+            raise CoercionFailed('Expecting an Expr instance but found: %s' % type(a).__name__)
+    return _native_from_sympy(self, *args, **kwargs)
 
 
 def from_MonogenicFiniteExtension(self, a, K0):
@@ -317,18 +349,24 @@ def invert(self, a, b):
         # The reference ground types have no ``%`` (PythonMPQ, Expression).
         name = 'PythonMPQ' if self.is_QQ else 'Expression'
         raise TypeError("unsupported operand type(s) for %%: '%s' and '%s'" % (name, name))
+    if self.is_RR:
+        # The reference ``s % b`` is mpmath's ``mpf_mod``: it returns ``s``
+        # unchanged when ``b`` (even zero) has the same sign and a larger
+        # exponent, so ``RR.invert(4, 0)`` is 0.25 while ``RR.invert(-2, 0)``
+        # divides by zero.
+        import mpmath
+        from mpmath.libmp import mpf_mod, round_nearest
+        from ... import Float
+        x, m = self.to_sympy(s)._mpf_, self.to_sympy(self.convert(b))._mpf_
+        return self.convert(Float(mpmath.mpf(mpf_mod(x, m, self.precision, round_nearest)),
+                                  precision=self.precision))
     if not b:
         raise ZeroDivisionError('integer modulo by zero' if self.is_ZZ else 'modulo by zero')
     if getattr(self, 'is_ZZ_I', False):
         return self.rem(s, b)
     if self.is_Field:
-        # Gaussian rationals reduce to zero; real floats keep Python's
-        # floored remainder.
-        if not self.is_RR:
-            return self.zero
-        from ... import floor
-        x, m = self.to_sympy(s), self.to_sympy(b)
-        return self.convert(x - m*floor(x/m))
+        # Gaussian rationals reduce to zero.
+        return self.zero
     x, m = int(self.to_sympy(s)), int(self.to_sympy(b))
     return self.convert(x % m)
 
@@ -452,9 +490,10 @@ def install():
     from ... import _core
     for function in (_integer_, _rational_, _polynomial_):
         setattr(_core.DomainElement, function.__name__, function)
-    global _native_convert, _native_invert
+    global _native_convert, _native_invert, _native_from_sympy
     if _native_convert is None:
         _native_convert, _native_invert = Domain.convert, Domain.invert
+        _native_from_sympy = Domain.from_sympy
     for name, function in {
         'is_positive': is_positive, 'is_negative': is_negative,
         'is_nonnegative': is_nonnegative, 'is_nonpositive': is_nonpositive,
@@ -481,6 +520,7 @@ def install():
     if hasattr(_core, 'EX'):
         Domain.convert = convert
         Domain.invert = invert
+        Domain.from_sympy = from_sympy
         Domain.from_MonogenicFiniteExtension = from_MonogenicFiniteExtension
         for source in ('ComplexField', 'RealField', 'ExpressionDomain', 'ExpressionRawDomain',
                        'GaussianRationalField', 'GeneralizedPolynomialRing', 'GlobalPolynomialRing'):

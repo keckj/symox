@@ -24,6 +24,23 @@ pub enum ExactDomain {
     Expression { raw: bool },
     Inexact { precision: u32, complex: bool },
     Gaussian { integral: bool },
+    /// A polynomial ring (`ring`) or fraction field over a ground domain
+    /// other than ZZ/QQ, as the reference `ZZ[x][y]`, `QQ(x)[y]`, `ZZ_I[x]`
+    /// or `QQ<sqrt(2)>[x]`. Elements are stored flattened over
+    /// `flat_parameters()`, outermost generators first, so the lex order of
+    /// the flat representation is the recursive order of the reference.
+    Composite {
+        ground: Arc<ExactDomain>,
+        ring: bool,
+        parameters: Vec<Expr>,
+        order: String,
+    },
+}
+/// The innermost coefficients of a composite domain.
+#[derive(Clone, Debug)]
+pub enum CompositeBase {
+    Rational { integral: bool },
+    Algebraic { field: Arc<NumberField>, gaussian: Option<bool> },
 }
 impl std::fmt::Display for ExactDomain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -53,6 +70,14 @@ impl std::fmt::Display for ExactDomain {
             Self::Expression { raw } => write!(f,"{}",if *raw {"EXRAW"} else {"EX"}),
             Self::Inexact {complex,..} => write!(f,"{}",if *complex {"CC"} else {"RR"}),
             Self::Gaussian {integral} => write!(f,"{}",if *integral {"ZZ_I"} else {"QQ_I"}),
+            Self::Composite { ground, ring, parameters, .. } => write!(
+                f,
+                "{}{}{}{}",
+                ground,
+                if *ring { "[" } else { "(" },
+                parameters.iter().map(crate::printer::to_str).collect::<Vec<_>>().join(","),
+                if *ring { "]" } else { ")" }
+            ),
         }
     }
 }
@@ -92,12 +117,124 @@ impl ExactDomain {
             order: order.into(),
         })
     }
+    /// The reference `ground.poly_ring(*parameters)` (`ring`) or
+    /// `ground.frac_field(*parameters)`.
+    pub fn composite(ground: &Self, ring: bool, parameters: Vec<Expr>, order: &str) -> PResult<Self> {
+        match ground {
+            Self::ZZ | Self::QQ => return Self::functions(matches!(ground, Self::ZZ), ring, parameters, order),
+            Self::Functions { .. } | Self::Composite { .. } | Self::Gaussian { .. } | Self::Algebraic(_) => {}
+            _ => return Err(PolyError::Unsupported(
+                "polynomial rings and fraction fields over this ground domain are not implemented".into(),
+            )),
+        }
+        let Self::Functions { parameters, order, .. } = Self::functions(true, ring, parameters, order)? else {
+            unreachable!()
+        };
+        let inner = ground.flat_parameters();
+        if parameters.iter().any(|p| inner.contains(p)) {
+            return Err(PolyError::Generator("polynomial ring and it's ground domain share generators".into()));
+        }
+        Ok(Self::Composite { ground: Arc::new(ground.clone()), ring, parameters, order })
+    }
+    /// The variables of the flattened element representation: the
+    /// generators of every composite level, outermost first.
+    pub fn flat_parameters(&self) -> Vec<Expr> {
+        match self {
+            Self::Functions { parameters, .. } => parameters.clone(),
+            Self::Composite { ground, parameters, .. } => {
+                let mut all = parameters.clone();
+                all.extend(ground.flat_parameters());
+                all
+            }
+            _ => Vec::new(),
+        }
+    }
+    pub fn composite_base(&self) -> Option<CompositeBase> {
+        match self {
+            Self::Functions { integral, .. } => Some(CompositeBase::Rational { integral: *integral }),
+            Self::Composite { ground, .. } => ground.composite_base(),
+            Self::Gaussian { integral } => Some(CompositeBase::Algebraic {
+                field: super::gaussian::field(),
+                gaussian: Some(*integral),
+            }),
+            Self::Algebraic(k) => Some(CompositeBase::Algebraic { field: k.clone(), gaussian: None }),
+            _ => None,
+        }
+    }
+    /// Whether every level of a composite domain is a polynomial ring.
+    pub fn all_rings(&self) -> bool {
+        match self {
+            Self::Functions { ring, .. } => *ring,
+            Self::Composite { ground, ring, .. } => *ring && ground.all_rings(),
+            Self::Gaussian { .. } | Self::Algebraic(_) => true,
+            _ => false,
+        }
+    }
+    /// The flat domain with the same elements as an all-ring composite over
+    /// ZZ or QQ: `ZZ[x][y]` computes in `ZZ[y,x]`.
+    pub fn flat_ring(&self) -> Option<Self> {
+        match (self, self.composite_base()?) {
+            (Self::Composite { .. }, CompositeBase::Rational { integral }) if self.all_rings() => {
+                Some(Self::Functions { integral, ring: true, parameters: self.flat_parameters(), order: "lex".into() })
+            }
+            _ => None,
+        }
+    }
+    /// The flat domain with the same elements as a composite over ZZ or QQ
+    /// whose levels below the outermost one are polynomial rings:
+    /// `ZZ[x][y]` is `ZZ[y,x]` and `ZZ[x](y)` is `ZZ(y,x)`.
+    pub fn flat_domain(&self) -> Option<Self> {
+        match (self, self.composite_base()?) {
+            (Self::Composite { ground, ring, .. }, CompositeBase::Rational { integral }) if ground.all_rings() => {
+                Some(Self::Functions { integral, ring: *ring, parameters: self.flat_parameters(), order: "lex".into() })
+            }
+            _ => None,
+        }
+    }
+    /// The same composite over QQ instead of ZZ.
+    pub fn with_rational_field(&self) -> Self {
+        match self {
+            Self::ZZ => Self::QQ,
+            Self::Functions { ring, parameters, order, .. } => Self::Functions { integral: false, ring: *ring, parameters: parameters.clone(), order: order.clone() },
+            Self::Composite { ground, ring, parameters, order } => Self::Composite { ground: Arc::new(ground.with_rational_field()), ring: *ring, parameters: parameters.clone(), order: order.clone() },
+            Self::Gaussian { .. } => Self::Gaussian { integral: false },
+            other => other.clone(),
+        }
+    }
+    /// Membership of a flattened rational function: each polynomial level
+    /// above the innermost fraction field keeps its generators out of the
+    /// reduced denominator.
+    fn rational_member(&self, r: &RF, offset: usize) -> bool {
+        match self {
+            Self::Functions { integral, ring, .. } => !ring || coefficient_in_ring(r, *integral),
+            Self::Composite { ground, ring, parameters, .. } => {
+                if !ring {
+                    return true;
+                }
+                let k = parameters.len();
+                if r.d.iter().any(|(e, _)| e[offset..offset + k].iter().any(|&p| p != 0)) {
+                    return false;
+                }
+                ground.rational_member(r, offset + k)
+            }
+            _ => false,
+        }
+    }
+    fn composite_member(&self, value: &ElementValue) -> bool {
+        match (self.composite_base(), value) {
+            (Some(CompositeBase::Rational { .. }), ElementValue::Function(r)) => self.rational_member(r, 0),
+            (Some(CompositeBase::Algebraic { gaussian, .. }), ElementValue::AlgebraicPoly(p)) => {
+                gaussian != Some(true) || super::gaussian::poly_is_integral(p)
+            }
+            _ => false,
+        }
+    }
     pub fn finite(prime: u64) -> PResult<Self> {
         Fp::from_rat(&Rat::zero(), prime)?;
         Ok(Self::GF(prime))
     }
     pub fn is_field(&self) -> bool {
-        !matches!(self, Self::ZZ | Self::Functions { ring: true, .. } | Self::Gaussian {integral:true})
+        !matches!(self, Self::ZZ | Self::Functions { ring: true, .. } | Self::Gaussian {integral:true} | Self::Composite { ring: true, .. })
     }
     pub fn characteristic(&self) -> u64 {
         if let Self::GF(p) = self {
@@ -121,6 +258,12 @@ impl ExactDomain {
                 parameters: parameters.clone(),
                 order: order.clone(),
             },
+            Self::Composite { ground, parameters, order, .. } => Self::Composite {
+                ground: ground.clone(),
+                ring: false,
+                parameters: parameters.clone(),
+                order: order.clone(),
+            },
             _ => self.clone(),
         }
     }
@@ -136,6 +279,12 @@ impl ExactDomain {
                 ..
             } => Ok(Self::Functions {
                 integral: *integral,
+                ring: true,
+                parameters: parameters.clone(),
+                order: order.clone(),
+            }),
+            Self::Composite { ground, parameters, order, .. } => Ok(Self::Composite {
+                ground: ground.clone(),
                 ring: true,
                 parameters: parameters.clone(),
                 order: order.clone(),
@@ -177,6 +326,31 @@ impl ExactDomain {
                 }
                 ElementValue::Expression(if *raw {e.clone()} else {crate::simplify::simplify(e)})
             },
+            Self::Composite { .. } => {
+                let parameters = self.flat_parameters();
+                let value = match self.composite_base() {
+                    Some(CompositeBase::Rational { .. }) => {
+                        let _scope = Scope::new(parameters.len());
+                        ElementValue::Function(coefficient(e, &parameters)?)
+                    }
+                    Some(CompositeBase::Algebraic { field, .. }) => {
+                        if !self.all_rings() {
+                            return Err(PolyError::Unsupported(
+                                "fraction fields over algebraic ground domains are not implemented".into(),
+                            ));
+                        }
+                        ElementValue::AlgebraicPoly(super::algebraic::AlgebraicPoly::from_expr(e, &parameters, field)?.rep)
+                    }
+                    None => unreachable!(),
+                };
+                if !self.composite_member(&value) {
+                    return Err(failure(format!(
+                        "expected an expression convertible to a polynomial in {self}, got {}",
+                        crate::printer::to_str(e)
+                    )));
+                }
+                value
+            }
         };
         Ok(DomainElement {
             domain: self.clone(),
@@ -192,6 +366,8 @@ pub enum ElementValue {
     Function(RF),
     Expression(Expr),
     Inexact(Expr),
+    /// A flattened polynomial over a Gaussian or algebraic base field.
+    AlgebraicPoly(super::MPoly<AN>),
 }
 #[derive(Clone, Debug)]
 pub struct DomainElement {
@@ -235,11 +411,18 @@ impl DomainElement {
             ElementValue::Rational(r) => Expr::num(r.to_number()),
             ElementValue::Finite(f) => Expr::num(f.to_rat().to_number()),
             ElementValue::Algebraic(a) => a.as_expr(),
-            ElementValue::Function(r) => {
-                let ExactDomain::Functions { parameters, .. } = &self.domain else {
-                    unreachable!()
-                };
-                coefficient_expr(r, parameters)
+            ElementValue::Function(r) => coefficient_expr(r, &self.domain.flat_parameters()),
+            ElementValue::AlgebraicPoly(p) => {
+                let parameters = self.domain.flat_parameters();
+                crate::ops::add(&p.iter().map(|(e, c)| {
+                    let mut factors = vec![c.as_expr()];
+                    for (g, &k) in parameters.iter().zip(e) {
+                        if k != 0 {
+                            factors.push(crate::ops::pow(g, &Expr::int(k as i64)));
+                        }
+                    }
+                    crate::ops::mul(&factors)
+                }).collect::<Vec<_>>())
             }
             // The reference real field returns the Float `0.0` for its zero.
             ElementValue::Inexact(e) if e.is_zero() && !self.domain.is_complex() => {
@@ -255,6 +438,7 @@ impl DomainElement {
             ElementValue::Finite(r) => r.is_zero(),
             ElementValue::Algebraic(r) => r.is_zero(),
             ElementValue::Function(r) => r.is_zero(),
+            ElementValue::AlgebraicPoly(p) => p.is_zero(),
             ElementValue::Expression(e) | ElementValue::Inexact(e) => e.is_zero(),
         }
     }
@@ -290,6 +474,19 @@ impl DomainElement {
         }
         if other.is_zero() {
             return Err(PolyError::Unsupported("division by zero".into()));
+        }
+        if let Some((a, b)) = self.flat_operands(other) {
+            let (q, r) = a.div_rem(&b)?;
+            return Ok((self.unflatten(q)?, self.unflatten(r)?));
+        }
+        if let Some((a, b)) = self.algebraic_operands(other) {
+            let (q, r) = a.ring_div(&b)?;
+            return Ok((self.unflatten_algebraic(q.rep)?, self.unflatten_algebraic(r.rep)?));
+        }
+        if matches!(self.domain, ExactDomain::Composite { ring: true, .. }) {
+            return Err(PolyError::Unsupported(
+                "division in a polynomial ring over a fraction field is not implemented".into(),
+            ));
         }
         if matches!(self.domain,ExactDomain::Gaussian{integral:true}) {
             let (ElementValue::Algebraic(a),ElementValue::Algebraic(b))=(&self.value,&other.value) else {unreachable!()};
@@ -402,7 +599,7 @@ impl DomainElement {
         }
     }
     pub fn binary(&self, other: &Self, op: char) -> PResult<Self> {
-        if op == '/' && matches!(self.domain, ExactDomain::Functions { ring: true, .. } | ExactDomain::Gaussian {integral:true}) {
+        if op == '/' && matches!(self.domain, ExactDomain::Functions { ring: true, .. } | ExactDomain::Gaussian {integral:true} | ExactDomain::Composite { ring: true, .. }) {
             return self.exquo(other);
         }
         if !self.compatible_embedding(other) {
@@ -432,11 +629,20 @@ impl DomainElement {
                 ElementValue::Algebraic(calc!(a, b))
             }
             (ElementValue::Function(a), ElementValue::Function(b)) => {
-                let ExactDomain::Functions { parameters, .. } = &self.domain else {
+                let _scope = Scope::new(self.domain.flat_parameters().len());
+                ElementValue::Function(calc!(a, b))
+            }
+            (ElementValue::AlgebraicPoly(a), ElementValue::AlgebraicPoly(b)) => {
+                let Some(CompositeBase::Algebraic { field, .. }) = self.domain.composite_base() else {
                     unreachable!()
                 };
-                let _scope = Scope::new(parameters.len());
-                ElementValue::Function(calc!(a, b))
+                let _scope = AlgebraicScope::new(field);
+                ElementValue::AlgebraicPoly(match op {
+                    '+' => a.add(b),
+                    '-' => a.sub(b),
+                    '*' => a.mul(b),
+                    _ => return Err(failure("unknown coefficient operation")),
+                })
             }
             (ElementValue::Expression(a),ElementValue::Expression(b)) |
             (ElementValue::Inexact(a),ElementValue::Inexact(b)) => {
@@ -466,6 +672,9 @@ impl DomainElement {
                 },
                 ElementValue::Function(r),
             ) if !coefficient_in_ring(r, *integral) => {
+                return Err(failure("non-exact division in polynomial ring"))
+            }
+            (ExactDomain::Composite { .. }, value) if !self.domain.composite_member(value) => {
                 return Err(failure("non-exact division in polynomial ring"))
             }
             _ => {}
@@ -562,9 +771,62 @@ pub fn rationalize_real(e:&Expr, precision:u32, limit:bool)->PResult<Rat> {
 }
 
 impl DomainElement {
+    /// The operands of an all-ring composite over ZZ/QQ in its flat ring.
+    fn flat_operands(&self, other: &Self) -> Option<(Self, Self)> {
+        let flat = self.domain.flat_ring()?;
+        let wrap = |e: &Self| Self { domain: flat.clone(), value: e.value.clone() };
+        Some((wrap(self), wrap(other)))
+    }
+    fn unflatten(&self, flat: Self) -> PResult<Self> {
+        if !self.domain.composite_member(&flat.value) {
+            return Err(failure("result is outside the selected polynomial ring"));
+        }
+        Ok(Self { domain: self.domain.clone(), value: flat.value })
+    }
+    /// The operands of a composite over a Gaussian or algebraic field as
+    /// native algebraic polynomials over the flat generators.
+    fn algebraic_operands(&self, other: &Self) -> Option<(super::algebraic::AlgebraicPoly, super::algebraic::AlgebraicPoly)> {
+        let Some(CompositeBase::Algebraic { field, gaussian }) = self.domain.composite_base() else {
+            return None;
+        };
+        let (ElementValue::AlgebraicPoly(a), ElementValue::AlgebraicPoly(b)) = (&self.value, &other.value) else {
+            return None;
+        };
+        let wrap = |rep: &super::MPoly<AN>| super::algebraic::AlgebraicPoly {
+            rep: rep.clone(),
+            gens: self.domain.flat_parameters(),
+            number_field: field.clone(),
+            gaussian,
+        };
+        Some((wrap(a), wrap(b)))
+    }
+    fn unflatten_algebraic(&self, rep: super::MPoly<AN>) -> PResult<Self> {
+        let value = ElementValue::AlgebraicPoly(rep);
+        if !self.domain.composite_member(&value) {
+            return Err(failure("result is outside the selected polynomial ring"));
+        }
+        Ok(Self { domain: self.domain.clone(), value })
+    }
     pub fn gcd(&self, other: &Self) -> PResult<Self> {
         if !self.compatible_embedding(other) {
             return Err(failure("incompatible coefficient domains"));
+        }
+        if let Some((a, b)) = self.flat_operands(other) {
+            return self.unflatten(a.gcd(&b)?);
+        }
+        if let Some((a, b)) = self.algebraic_operands(other) {
+            return self.unflatten_algebraic(a.gcd(&b).rep);
+        }
+        if let ExactDomain::Composite { ring, .. } = &self.domain {
+            if *ring || !matches!(self.domain.composite_base(), Some(CompositeBase::Rational { .. })) {
+                return Err(PolyError::Unsupported(
+                    "gcd in this composite domain is not implemented".into(),
+                ));
+            }
+            let flat = Self::wrap_flat_field(&self.domain);
+            let a = Self { domain: flat.clone(), value: self.value.clone() };
+            let b = Self { domain: flat, value: other.value.clone() };
+            return Ok(Self { domain: self.domain.clone(), value: a.gcd(&b)?.value });
         }
         if matches!(self.domain,ExactDomain::Gaussian{integral:true}) {return self.gcdex(other).map(|(_,_,g)|g);}
         if matches!(self.domain,ExactDomain::Gaussian{integral:false}) {
@@ -672,9 +934,33 @@ impl DomainElement {
             value,
         })
     }
+    fn wrap_flat_field(domain: &ExactDomain) -> ExactDomain {
+        let Some(CompositeBase::Rational { integral }) = domain.composite_base() else { unreachable!() };
+        ExactDomain::Functions { integral, ring: false, parameters: domain.flat_parameters(), order: "lex".into() }
+    }
     pub fn lcm(&self, other: &Self) -> PResult<Self> {
         if !self.compatible_embedding(other) {
             return Err(failure("incompatible coefficient domains"));
+        }
+        if let Some((a, b)) = self.flat_operands(other) {
+            return self.unflatten(a.lcm(&b)?);
+        }
+        if let Some((a, b)) = self.algebraic_operands(other) {
+            if a.rep.is_zero() || b.rep.is_zero() {
+                return self.domain.convert(&Expr::zero());
+            }
+            return self.unflatten_algebraic(a.lcm(&b).rep);
+        }
+        if let ExactDomain::Composite { ring, .. } = &self.domain {
+            if *ring || !matches!(self.domain.composite_base(), Some(CompositeBase::Rational { .. })) {
+                return Err(PolyError::Unsupported(
+                    "lcm in this composite domain is not implemented".into(),
+                ));
+            }
+            let flat = Self::wrap_flat_field(&self.domain);
+            let a = Self { domain: flat.clone(), value: self.value.clone() };
+            let b = Self { domain: flat, value: other.value.clone() };
+            return Ok(Self { domain: self.domain.clone(), value: a.lcm(&b)?.value });
         }
         if self.is_zero() || other.is_zero() {
             return self.domain.convert(&Expr::zero());
