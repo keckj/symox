@@ -165,7 +165,8 @@ pub fn doit(f:&Func,args:&[Expr],deep:bool)->Expr {
             1=>crate::integrate::integrate(&value,&limit[0]),
             2=>match crate::integrate::try_integrate(&value,&limit[0]) {
                 Some(antiderivative)=>crate::subs::subs1(&antiderivative,&limit[0],&limit[1]),
-                None=>held(Func::Integral,&value,vec![limit]).unwrap(),
+                // the undone limit is factored as `Integral.doit` does
+                None=>crate::integrate::factor_undone(&held(Func::Integral,&value,vec![limit]).unwrap()),
             },
             _=>crate::integrate::integrate_definite(&value,&limit[0],&limit[1],&limit[2]),
         }};

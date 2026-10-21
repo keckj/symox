@@ -186,7 +186,14 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
             let args: Vec<Expr> = args.iter().map(child).collect();
             crate::transforms::doit_default(*s, &args).unwrap_or_else(|| crate::special::apply(*s, args))
         }
-        Kind::Derivative(inner, variables) => crate::diff::diff_many(&child(inner), variables),
+        Kind::Derivative(inner, variables) => {
+            // Derivative.doit: a changed result that still holds a derivative
+            // is done again, so the integrals it creates are done too.
+            let rv = crate::diff::diff_many(&child(inner), variables);
+            let mut held = false;
+            crate::traverse::preorder(&rv, &mut |s| if matches!(s.kind(), Kind::Derivative(..)) { held = true; });
+            if rv != *e && held { doit(&rv, deep) } else { rv }
+        }
         Kind::Func(Func::Subs,args)=>crate::subs::subs_doit(&doit(&args[0],deep),&args[1].args(),&args[2].args()),
         Kind::Func(Func::Limit,args)=>{
             let body=child(&args[0]);

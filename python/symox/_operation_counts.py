@@ -2,7 +2,32 @@
 from collections import Counter, defaultdict
 
 
+# Plain counts of native expressions, keyed by the expression and its class.
+# Expressions are immutable and compare structurally (assumptions and dummy
+# identities included), so a stored count is the count of every equal input.
+# Pattern matching compares the same expressions again and again.
+_COUNTS = {}
+_COUNTS_LIMIT = 4096
+
+
 def count_ops(expression, visual=False):
+    from ._core import Expr
+    if visual or not isinstance(expression, Expr):
+        return _count_ops(expression, visual)
+    try:
+        cache_key = (type(expression), expression)
+        cached = _COUNTS.get(cache_key)
+    except TypeError:
+        return _count_ops(expression, visual)
+    if cached is None:
+        cached = _count_ops(expression, visual)
+        if len(_COUNTS) >= _COUNTS_LIMIT:
+            _COUNTS.clear()
+        _COUNTS[cache_key] = cached
+    return cached
+
+
+def _count_ops(expression, visual=False):
     from . import S, Symbol, Add, fraction, MatrixExpr, Matrix, Set, sympify
     from ._core import Expr
     from ._matrixexpr_methods import _children

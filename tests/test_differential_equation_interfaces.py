@@ -256,3 +256,18 @@ assert solution[0].rhs.subs(x,0)==1
 assert solution[1].rhs.subs(x,0)==2
 '''
     subprocess.run([sys.executable,'-c',source],check=True)
+
+
+def test_held_integral_forms_follow_reference_doit():
+    # Integral.doit factors an undone (x, b) limit, and Derivative.doit is done
+    # again when its result still holds a derivative.
+    for module in (sx, sp):
+        x, y = module.symbols('x y')
+        f, g = module.Function('f'), module.Function('g')
+        held = module.Integral(3*(3*f(x)-2*g(x))*module.exp(x)/13, (x, 2*y)).doit()
+        assert held.as_coeff_Mul()[0] == module.Rational(3, 13)
+    x, y = sx.symbols('x y')
+    u, forcing = sx.Function('u')(x,y), sx.Function('G')(x,y)
+    equation = 2*u.diff(x)+3*u.diff(y)+4*u-forcing
+    solution = sx.pdsolve(equation, u, hint='1st_linear_constant_coeff_Integral')
+    assert sx.simplify(equation.subs(u, solution.rhs).doit()) == 0
