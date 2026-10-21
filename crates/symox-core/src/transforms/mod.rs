@@ -25,8 +25,10 @@ mod laplace_integration;
 mod integral_backend;
 pub mod inverse_laplace;
 mod ilt_irrational;
+mod ilt_integration;
 pub mod fourier;
 pub mod mellin;
+mod inverse_mellin;
 pub mod hankel;
 
 pub use fourier::{FourierKind, fourier_type_transform};
@@ -39,6 +41,17 @@ pub use mellin::{inverse_mellin_transform, mellin_transform};
 /// (SymPy uses a `Dummy('None')`).
 pub fn none_plane() -> Expr {
     Expr::symbol("_None")
+}
+
+/// The message of an error that is not an `IntegralTransformError`: the
+/// Python binding raises `kind(msg)` instead of falling back.
+pub(crate) fn fatal(kind: &str, msg: &str) -> String {
+    format!("\u{1}{kind}\u{1}{msg}")
+}
+
+/// Is `msg` a fatal error (see `fatal`)?
+pub(crate) fn is_fatal(msg: &str) -> bool {
+    msg.starts_with('\u{1}')
 }
 
 /// Held transform node `name(args...)`.
@@ -73,6 +86,11 @@ pub fn doit_default(s: SpecialFn, args: &[Expr]) -> Option<Expr> {
 /// SymPy's `IntegralTransformError`.
 fn direct(s: SpecialFn, args: &[Expr], simplify: bool) -> Result<Vec<Expr>, String> {
     use SpecialFn::*;
+    if s == InverseMellinTransform {
+        return inverse_mellin::compute(&args[0], &args[1], &args[2], &args[3], &args[4])
+            .map(|(f, c)| vec![f, c])
+            .map_err(inverse_mellin::ImtError::message);
+    }
     if let Some(v) = direct_table(s, args, simplify) {
         return Ok(v);
     }
@@ -165,8 +183,10 @@ pub fn transform_doit(s: SpecialFn, args: &[Expr], simplify: Option<bool>, neede
         _ => {}
     }
     let simp = simplify.unwrap_or(true);
-    if let Ok(v) = direct(s, args, simp) {
-        return Ok(v);
+    match direct(s, args, simp) {
+        Ok(v) => return Ok(v),
+        Err(m) if is_fatal(&m) => return Err(m),
+        Err(_) => {}
     }
     let x = &args[1];
     let f = if args[0].is_add() { args[0].clone() } else { crate::simp::expand_mul(&args[0]) };

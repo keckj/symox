@@ -19,7 +19,10 @@ use crate::special::{tuple, tuple_items, SpecialFn};
 use crate::{Expr, Func, Kind};
 
 mod conds;
+mod inversion;
 mod table;
+
+pub(crate) use inversion::meijerint_inversion;
 
 
 /// A Meijer G-function `G^{m,n}_{p,q}(an, ao; bm, bo | z)`.
@@ -775,6 +778,7 @@ pub(crate) fn debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
         ("check_antecedents", [g1, g2, x]) => {
             Some(vec![conds::check_antecedents(&G::from_expr(g1)?, &G::from_expr(g2)?, x)?])
         }
+        ("inversion", [f, x, t]) => Some(vec![meijerint_inversion(f, x, t)?]),
         ("powdenest_polar", [e]) => Some(vec![powdenest_polar(e)]),
         ("polarify", [e]) => Some(vec![polarify(e, false)]),
         ("condsimp", [c]) => Some(vec![conds::condsimp(c, true)]),

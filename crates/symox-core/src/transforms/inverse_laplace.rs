@@ -65,6 +65,15 @@ pub(crate) fn ilt(f: &Expr, s: &Expr, t: &Expr, plane: &Expr, dorational: bool, 
             .or_else(|| super::ilt_irrational::irrational(&g, s, t))
             .or_else(|| expand_rule(&g, s, t, plane, depth))
             .or_else(|| prog(&g, s, t, plane, depth))
+            .or_else(|| {
+                // the reference skips the integration for undefined
+                // functions of s
+                if super::laplace_integration::has_applied_undef_in(&g, s) {
+                    None
+                } else {
+                    super::ilt_integration::integration(&g, s, t, false)
+                }
+            })
             .unwrap_or_else(|| held_ilt(&g, s, t, plane));
         out.push(mul(&[k, r.0]));
         conds.push(r.1);
