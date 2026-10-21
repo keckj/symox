@@ -22,7 +22,7 @@ const MAX_DEPTH: u32 = 10;
 
 mod rational_definite;
 mod dirac;
-mod meijerint;
+pub(crate) mod meijerint;
 
 /// Stage probe of the Meijer G definite integration (testing only).
 pub fn meijerint_debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
@@ -50,11 +50,111 @@ pub fn integrate(f: &Expr, x: &Expr) -> Expr {
     }
 }
 
-/// Definite integral of `f` over `[a, b]` (via the antiderivative).
+/// How `integrate(..., conds=...)` presents the convergence conditions of a
+/// Meijer G definite integral.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Conds {
+    Piecewise,
+    Separate,
+    None,
+}
+
+/// Definite integral of `f` over `[a, b]` with `conds='piecewise'`.
 pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
+    integrate_definite_conds(f, x, a, b, Conds::Piecewise, None).0
+}
+
+fn has_oo(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Const(Constant::Infinity | Constant::NegInfinity) => true,
+        _ => e.args().iter().any(has_oo),
+    }
+}
+
+fn has_piecewise_or_minmax(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |s| {
+        if matches!(s.kind(), Kind::Piecewise(..) | Kind::Func(Func::Min | Func::Max, _)) {
+            found = true;
+        }
+    });
+    found
+}
+
+/// One `(x, a, b)` limit of `Integral.doit` with the `conds` and `meijerg`
+/// hints. The second component is the separate condition, present only
+/// when `conds='separate'` and the Meijer G method gave the value.
+///
+/// As in the reference, the variable is first replaced by a dummy carrying
+/// the sign the bounds imply, and an improper integral over extended real
+/// bounds tries `meijerint_definite` before any antiderivative. Its
+/// convergence condition is kept, so a parameter range where the integral
+/// diverges never receives the analytic continuation as its value.
+pub fn integrate_definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg: Option<bool>) -> (Expr, Option<Expr>) {
+    use crate::assumptions::{is_nonnegative, is_nonpositive, is_real};
+    use crate::symbol::Assumptions;
+    if f.is_zero() || a == b {
+        return (Expr::zero(), None);
+    }
+    let both = |p: &dyn Fn(&Expr) -> Option<bool>| p(a) == Some(true) && p(b) == Some(true);
+    // A signed dummy would evaluate DiracDelta(x) to zero and lose the half
+    // weight of a delta at a finite endpoint, which the native distribution
+    // rules keep (a documented difference from the reference, which returns
+    // zero there): only realness is attached in that case.
+    let mut dirac = false;
+    crate::traverse::preorder(f, &mut |s| dirac |= matches!(s.kind(), Kind::Func(Func::DiracDelta, _)));
+    let sign = if dirac {
+        None
+    } else if both(&is_nonnegative) && is_nonnegative(x) != Some(true) {
+        Some(Assumptions::POSITIVE)
+    } else if both(&is_nonpositive) && is_nonpositive(x) != Some(true) {
+        Some(Assumptions::NEGATIVE)
+    } else {
+        None
+    };
+    let sign = sign.or_else(|| (both(&is_real) && is_real(x) != Some(true)).then_some(Assumptions::REAL));
+    if let Some(sign) = sign {
+        if x.is_symbol() {
+            let d = Expr::dummy("x", sign);
+            let rep = |e: &Expr, from: &Expr, to: &Expr| {
+                let mut m = rustc_hash::FxHashMap::default();
+                m.insert(from.clone(), to.clone());
+                crate::subs::xreplace(e, &m)
+            };
+            let (v, c) = integrate_definite_conds(&rep(f, x, &d), &d, &rep(a, x, &d), &rep(b, x, &d), conds, meijerg);
+            return (rep(&v, &d, x), c.map(|c| rep(&c, &d, x)));
+        }
+    }
+    let extended_real = |e: &Expr| crate::assumptions::fact(e, "extended_real") == Some(true);
+    let improper = extended_real(a) && extended_real(b) && (has_oo(a) || has_oo(b));
+    if meijerg != Some(false) && !has_piecewise_or_minmax(f) && (improper || meijerg == Some(true)) {
+        if let Some((value, cond)) = meijerint::meijerint_definite(f, x, a, b) {
+            return match conds {
+                Conds::Piecewise if matches!(cond.kind(), Kind::Bool(true)) => (value, None),
+                Conds::Piecewise => (
+                    Expr::from_kind(Kind::Piecewise(vec![
+                        (value, cond),
+                        (integral_definite_unevaluated(f, x, a, b), Expr::boolean(true)),
+                    ])),
+                    None,
+                ),
+                Conds::Separate => (value, Some(cond)),
+                Conds::None => (value, None),
+            };
+        }
+    }
+    if meijerg == Some(true) {
+        return (integral_definite_unevaluated(f, x, a, b), None);
+    }
+    (integrate_definite_native(f, x, a, b), None)
+}
+
+/// Definite integral of `f` over `[a, b]` through the native rules and the
+/// antiderivative.
+fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
     if a == b { return Expr::zero(); }
     if rational_definite::compare(a,b) == Some(std::cmp::Ordering::Greater) {
-        return neg(&integrate_definite(f,x,b,a));
+        return neg(&integrate_definite_native(f,x,b,a));
     }
     let unevaluated = || integral_definite_unevaluated(f,x,a,b);
     let checked = match rational_definite::analyze(f,x,a,b) {
@@ -86,10 +186,78 @@ pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
             if has_bad(&fb) || has_bad(&fa) || !settled_bound_value(&fb) || !settled_bound_value(&fa) {
                 return integral_definite_unevaluated(f,x,a,b);
             }
-            expand_if_numeric(&sub(&fb, &fa))
+            match interval_singularities(&big_f, x, a, b, sub(&fb, &fa)) {
+                Some(value) => expand_if_numeric(&value),
+                None => integral_definite_unevaluated(f,x,a,b),
+            }
         }
         None => integral_definite_unevaluated(f,x,a,b),
     }
+}
+
+/// `Expr._eval_interval`: a jump of the antiderivative at a pole or a log
+/// branch point strictly inside comparable bounds is removed through the
+/// one-sided limits there, so `tan` over `(0, pi)` gives nan as in the
+/// reference instead of the endpoint difference. `None` when such a limit
+/// is undecided.
+fn interval_singularities(big_f: &Expr, x: &Expr, a: &Expr, b: &Expr, value: Expr) -> Option<Expr> {
+    let comparable = |e: &Expr| {
+        matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity))
+            || (crate::functions::is_numeric_value(e) && crate::evalf::eval_f64(e).is_some())
+    };
+    if !comparable(a) || !comparable(b) {
+        return Some(value);
+    }
+    let mut logs = Vec::new();
+    crate::traverse::preorder(big_f, &mut |s| {
+        if let Kind::Func(Func::Log, args) = s.kind() {
+            if has(s, x) && !logs.contains(&args[0]) {
+                logs.push(args[0].clone());
+            }
+        }
+    });
+    let cancelled = crate::poly::api::cancel(big_f).unwrap_or_else(|_| big_f.clone());
+    let den = numer_denom(&cancelled).1;
+    if !has(&den, x) && logs.is_empty() {
+        return Some(value);
+    }
+    let domain = crate::sets::interval(a, b, false, false);
+    let mut points: Vec<Expr> = Vec::new();
+    for g in std::iter::once(den).chain(logs) {
+        if !has(&g, x) {
+            continue;
+        }
+        let Ok(set) = crate::sets::solveset(&g, x, &domain) else { return Some(value) };
+        if crate::sets::is_empty_set(&set) {
+            continue;
+        }
+        // An infinite or unsolved set is not iterable: the reference skips
+        // the whole correction (its TypeError is caught).
+        let Some(found) = crate::sets::finite_elements(&set) else { return Some(value) };
+        for p in found {
+            if !points.contains(p) {
+                points.push(p.clone());
+            }
+        }
+    }
+    let mut value = value;
+    for p in points {
+        if value.is_constant(Constant::NaN) {
+            break;
+        }
+        if !comparable(&p) {
+            continue;
+        }
+        let inside = crate::sets::cmp3(a, &p) == Some(std::cmp::Ordering::Less)
+            && crate::sets::cmp3(&p, b) == Some(std::cmp::Ordering::Less);
+        if !inside {
+            continue;
+        }
+        let right = crate::limits::limit(big_f, x, &p, crate::limits::Dir::Plus).ok()?;
+        let left = crate::limits::limit(big_f, x, &p, crate::limits::Dir::Minus).ok()?;
+        value = add(&[value, neg(&right), left]);
+    }
+    Some(value)
 }
 
 /// `∫ P(x) exp(-α x^q) dx` over `(0, oo)` or `(-oo, oo)` through

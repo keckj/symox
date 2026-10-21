@@ -252,17 +252,19 @@ pub fn ge(a: &Expr, b: &Expr) -> Expr {
     rel(RelOp::Ge, a, b)
 }
 
-/// `Piecewise((e1, c1), (e2, c2), ...)`.
+/// `Piecewise((e1, c1), (e2, c2), ...)`: `Piecewise.__new__` followed by
+/// `Piecewise.eval` (`_piecewise_collapse_arguments`).
 pub fn piecewise(pieces: Vec<(Expr, Expr)>) -> Expr {
+    piecewise_depth(pieces, 0)
+}
+
+fn piecewise_depth(pieces: Vec<(Expr, Expr)>, depth: usize) -> Expr {
     let mut out: Vec<(Expr, Expr)> = Vec::with_capacity(pieces.len());
     for (e, c) in pieces {
         let c = crate::logic::boolean_piecewise_to_ite(&c).unwrap_or(c);
         match c.kind() {
             Kind::Bool(false) => continue,
             Kind::Bool(true) => {
-                if out.is_empty() {
-                    return e;
-                }
                 out.push((e, c));
                 break;
             }
@@ -272,5 +274,116 @@ pub fn piecewise(pieces: Vec<(Expr, Expr)>) -> Expr {
     if out.is_empty() {
         return Expr::nan();
     }
+    if out.len() == 1 && matches!(out[0].1.kind(), Kind::Bool(true)) {
+        return out.pop().unwrap().0;
+    }
+    let collapsed = collapse_arguments(&out);
+    if collapsed.is_empty() {
+        return Expr::nan();
+    }
+    if collapsed != out && depth < 16 {
+        return piecewise_depth(collapsed, depth + 1);
+    }
     Expr::from_kind(Kind::Piecewise(out))
+}
+
+/// `cond.replace(lambda _: _.is_Relational, _canonical_coeff)`.
+fn canonical_conditions(c: &Expr) -> Expr {
+    use crate::expr::Func;
+    match c.kind() {
+        Kind::Rel(..) => crate::summation::canonical_coeff(c),
+        Kind::Func(Func::Logic(op), args) => {
+            let new: Vec<Expr> = args.iter().map(canonical_conditions).collect();
+            if new == *args {
+                c.clone()
+            } else {
+                crate::logic::eval(*op, new)
+            }
+        }
+        _ => c.clone(),
+    }
+}
+
+/// SymPy's `_piecewise_collapse_arguments`.
+fn collapse_arguments(args: &[(Expr, Expr)]) -> Vec<(Expr, Expr)> {
+    use crate::expr::Func;
+    use crate::logic::LogicOp;
+    let is_true = |c: &Expr| matches!(c.kind(), Kind::Bool(true));
+    let mut newargs: Vec<(Expr, Expr)> = Vec::with_capacity(args.len());
+    let mut current: rustc_hash::FxHashSet<Expr> = rustc_hash::FxHashSet::default();
+    for (expr, cond) in args {
+        let mut cond = canonical_conditions(cond);
+        let mut expr = expr.clone();
+        if let Kind::Piecewise(inner) = expr.kind() {
+            let inner = inner.clone();
+            let mut unmatching: Vec<(Expr, Expr)> = Vec::new();
+            for (e, c) in inner {
+                if current.contains(&c) {
+                    continue;
+                }
+                if c == cond {
+                    if !is_true(&c) {
+                        expr = if unmatching.is_empty() {
+                            e
+                        } else {
+                            unmatching.push((e, c));
+                            piecewise(unmatching)
+                        };
+                    }
+                    break;
+                }
+                unmatching.push((e, c));
+            }
+        }
+        let and_args: Vec<Expr> = match cond.kind() {
+            Kind::Func(Func::Logic(LogicOp::And), a) => a.clone(),
+            _ => Vec::new(),
+        };
+        if current.contains(&cond) || and_args.iter().any(|a| current.contains(a)) {
+            continue;
+        }
+        if !and_args.is_empty() {
+            let mut nonredundant = Vec::with_capacity(and_args.len());
+            let mut falsified = false;
+            for c in and_args {
+                if let Kind::Rel(op, a, b) = c.kind() {
+                    if current.contains(&crate::logic::canonical(&crate::logic::negated_rel(&c))) {
+                        continue;
+                    }
+                    let weak = match op {
+                        RelOp::Lt => Some(RelOp::Le),
+                        RelOp::Gt => Some(RelOp::Ge),
+                        _ => None,
+                    };
+                    if let Some(w) = weak {
+                        if current.contains(&rel(w, a, b)) {
+                            falsified = true;
+                            break;
+                        }
+                    }
+                }
+                nonredundant.push(c);
+            }
+            cond = if falsified { Expr::boolean(false) } else { crate::logic::and(nonredundant) };
+        } else if matches!(cond.kind(), Kind::Rel(..))
+            && current.contains(&crate::logic::canonical(&crate::logic::negated_rel(&cond)))
+        {
+            cond = Expr::boolean(true);
+        }
+        current.insert(cond.clone());
+        if let Some(last) = newargs.last_mut() {
+            if last.0 == expr {
+                let mut orcond = crate::logic::or2(&cond, &last.1);
+                if matches!(orcond.kind(), Kind::Func(Func::Logic(LogicOp::And | LogicOp::Or), _)) {
+                    orcond = crate::logic::distribute_and_over_or(&orcond);
+                }
+                last.1 = orcond;
+                continue;
+            } else if last.1 == cond {
+                continue;
+            }
+        }
+        newargs.push((expr, cond));
+    }
+    newargs
 }

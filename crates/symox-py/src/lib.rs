@@ -892,28 +892,40 @@ pub(crate) fn evalf_prepared(e:&Expr,precision:u32,replacements:Option<&Bound<'_
     Ok(match chop {Some(cutoff)=>symox::evalf_mp::evalf_chop(&e,precision,cutoff),None=>symox::evalf_mp::evalf(&e, precision)})
 }
 
-#[derive(Clone,Copy,PartialEq,Eq)]
-enum IntegrationConditions{Piecewise,None,Separate}
+type IntegrationConditions=symox::integrate::Conds;
 
-fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<IntegrationConditions> {
+/// The `integrate`/`Integral.doit` hints: `conds` and the `meijerg` switch.
+/// `risch`, `heurisch` and `manual` other than None are not implemented.
+fn integrate_options(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<(IntegrationConditions,Option<bool>)> {
     let mut conditions=IntegrationConditions::Piecewise;
+    let mut meijerg=None;
+    let mut methods=0;
+    let mut unsupported=None;
     if let Some(kwargs) = kwargs {
         for (key, value) in kwargs {
             let key: String = key.extract()?;
             match key.as_str() {
-                "meijerg" | "risch" | "heurisch" | "manual" if value.is_none() => {},
+                "meijerg" | "risch" | "heurisch" | "manual" => {
+                    if value.is_none(){continue;}
+                    if value.is_truthy()?{methods+=1;}
+                    if key=="meijerg"{meijerg=Some(value.is_truthy()?);}
+                    else if unsupported.is_none(){unsupported=Some(key);}
+                },
                 "conds"=>conditions=match value.extract::<String>().ok().as_deref(){
                     Some("piecewise")=>IntegrationConditions::Piecewise,
                     Some("none")=>IntegrationConditions::None,
                     Some("separate")=>IntegrationConditions::Separate,
-                    _=>return Err(PyValueError::new_err("conds must be one of separate, piecewise, none")),
+                    _=>return Err(PyValueError::new_err(format!("conds must be one of \"separate\", \"piecewise\", \"none\", got: {}",value.str()?))),
                 },
-                "meijerg" | "risch" | "heurisch" | "manual" => return Err(PyNotImplementedError::new_err(format!("integration option {key} is not implemented"))),
                 _ => return Err(PyTypeError::new_err(format!("unexpected integration option {key}"))),
             }
         }
     }
-    Ok(conditions)
+    if methods>1{return Err(PyValueError::new_err("At most one of manual, meijerg, risch, heurisch can be True"));}
+    if let Some(key)=unsupported{return Err(PyNotImplementedError::new_err(format!("integration option {key} is not implemented")));}
+    // meijerg=True turns the other methods off, so the reference integrates
+    // only through the Meijer G-function algorithm.
+    Ok((conditions,meijerg))
 }
 
 fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> {
@@ -3121,14 +3133,15 @@ fn gamma_integral_conditions(f:&Expr,x:&Expr,lo:&Expr,hi:&Expr)->Option<(Expr,Ex
     })
 }
 
-fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationConditions) -> PyResult<Expr> {
+fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationConditions, meijerg:Option<bool>) -> PyResult<(Expr,Option<Expr>)> {
     let mut r = f.clone();
+    let mut separate=None;
     if args.is_empty() {
         let fs = traverse::free_symbols(f);
         if fs.len() != 1 {
             return Err(PyValueError::new_err("specify the integration variable"));
         }
-        return Ok(symox::integrate::integrate(f, &fs[0]));
+        return Ok((symox::integrate::integrate(f, &fs[0]),None));
     }
     for a in args.iter() {
         if let Some(t) = integration_limit(&a)? {
@@ -3143,10 +3156,14 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
                 },
                 3 => {
                     let lo = &t[1];let hi=&t[2];
-                    r = if conditions==IntegrationConditions::None{
-                        gamma_integral_conditions(&r,&x,lo,hi).map(|(value,_)|value)
-                            .unwrap_or_else(||symox::integrate::integrate_definite(&r,&x,lo,hi))
-                    }else{symox::integrate::integrate_definite(&r,&x,lo,hi)};
+                    let (value,condition)=symox::integrate::integrate_definite_conds(&r,&x,lo,hi,conditions,meijerg);
+                    if condition.is_some()&&args.len()!=1{
+                        return Err(PyValueError::new_err("\nconds=separate not supported in multiple integrals"));
+                    }
+                    r=if condition.is_none()&&conditions==IntegrationConditions::None&&meijerg.is_none(){
+                        gamma_integral_conditions(&r,&x,lo,hi).map(|(value,_)|value).unwrap_or(value)
+                    }else{value};
+                    separate=condition;
                 }
                 _ => return Err(PyValueError::new_err("expected (x,) or (x, a, b)")),
             }
@@ -3156,31 +3173,31 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
             r = symox::integrate::integrate(&r, &variable);
         }
     }
-    Ok(r)
+    Ok((r,separate))
 }
 
 fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
-    let conditions=integrate_options(kwargs)?;
-    if conditions==IntegrationConditions::Separate&&args.len()>1{
-        return Err(PyValueError::new_err("conds=separate not supported in multiple integrals"));
-    }
-    let mut infinite=false;
-    if conditions==IntegrationConditions::Separate&&args.len()==1{
+    let (conditions,meijerg)=integrate_options(kwargs)?;
+    if conditions==IntegrationConditions::Separate&&args.len()==1&&meijerg.is_none(){
         if let Some(limit)=integration_limit(&args.get_item(0)?)?{
             if limit.len()==3{
                 if !limit[0].is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
+                let (value,condition)=symox::integrate::integrate_definite_conds(f,&limit[0],&limit[1],&limit[2],conditions,meijerg);
+                if let Some(condition)=condition{
+                    return Ok((wrap(value),wrap(condition)).into_pyobject(py)?.into_any().unbind());
+                }
+                // Gamma moments certify their own condition when the Meijer
+                // G method does not apply.
                 if let Some((value,condition))=gamma_integral_conditions(f,&limit[0],&limit[1],&limit[2]){
                     return Ok((wrap(value),wrap(condition)).into_pyobject(py)?.into_any().unbind());
                 }
-                infinite=limit[1..].iter().any(|bound|matches!(bound.kind(),Kind::Const(c) if c.is_infinite()));
+                return Ok(wrap(value).into_pyobject(py)?.into_any().unbind());
             }
         }
     }
-    let value=do_integrate(f,args,conditions)?;
-    if infinite&&!f.is_zero()&&symox::assumptions::is_finite(&value)==Some(true){
-        let mut held=false;
-        traverse::preorder(&value,&mut |node|{if matches!(node.kind(),Kind::Func(Func::Integral,_)){held=true;}});
-        if !held{return Ok((wrap(value),wrap(Expr::boolean(true))).into_pyobject(py)?.into_any().unbind());}
+    let (value,condition)=do_integrate(f,args,conditions,meijerg)?;
+    if let Some(condition)=condition{
+        return Ok((wrap(value),wrap(condition)).into_pyobject(py)?.into_any().unbind());
     }
     Ok(wrap(value).into_pyobject(py)?.into_any().unbind())
 }

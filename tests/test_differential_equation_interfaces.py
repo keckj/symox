@@ -152,7 +152,11 @@ def test_pde_arbitrary_functions_and_characteristic_coordinates_do_not_capture()
     equation = u.diff(x)+u.diff(y)+xi*u-eta
     solution = sx.pdsolve(equation, u, solvefun=sx.Function('H'))
     assert solution.has(sx.Function('H'))
-    assert sx.checkpdesol(equation, solution, u) == (True, 0)
+    # The antiderivative of eta*exp(xi*t) keeps the xi = 0 branch, as the
+    # reference does, so each branch of the solution is checked separately.
+    assert solution.has(sx.Piecewise)
+    for value in (sx.Integer(0), sx.Integer(3), sx.Symbol('k', nonzero=True)):
+        assert sx.checkpdesol(equation.subs(xi, value), solution.subs(xi, value), u) == (True, 0)
     forcing = u.diff(x)+u.diff(y)-F(x-y)
     solution = sx.pdsolve(forcing, u)
     assert solution.has(sx.Function('F_'))
