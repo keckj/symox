@@ -7,9 +7,8 @@
 //! bindings are polarified exactly like the reference before the Meijer G
 //! parameters, the coefficient and the condition are built.
 //!
-//! Not ported (never reached by the corpus; such factors give `None`): the
-//! entries `(t**a - b**a)/(t - b)` and the eight radical forms of sections
-//! 12 and 13, and the recursive Mellin-transform rewrite.
+//! Not ported (such factors give `None`): the recursive Mellin-transform
+//! rewrite.
 
 use super::{get_coeff_exp, has_infinity, has_x, is_false, G};
 use crate::ops::{add, div, mul, mul2, neg, pow, sub};
@@ -178,6 +177,8 @@ fn candidates(f: &Expr, x: &Expr) -> Vec<Entry> {
                     });
                 }
             }
+            quotient_entry(f, x, &mut out);
+            radical_entries(f, x, &mut out);
         }
         [Func::Heaviside] => heaviside_entries(f, x, &mut out),
         [Func::Abs] => {
@@ -225,6 +226,150 @@ fn candidates(f: &Expr, x: &Expr) -> Vec<Entry> {
         _ => {}
     }
     out
+}
+
+/// `(t**a - b**a)/(t - b)`.
+fn quotient_entry(f: &Expr, x: &Expr, out: &mut Vec<Entry>) {
+    let factors = crate::simptools::mul_args(f);
+    let [n0, n1] = factors.as_slice() else { return };
+    for (num, den) in [(n0, n1), (n1, n0)] {
+        let Kind::Pow(d, k) = den.kind() else { continue };
+        if !k.is_minus_one() {
+            continue;
+        }
+        let Some((p, q, c)) = match_add_t(d, x) else { continue };
+        let b = neg(&c);
+        // the numerator `(p*x**q)**a - b**a`
+        let terms = crate::simptools::add_args(num);
+        let (dep, rest): (Vec<Expr>, Vec<Expr>) = terms.into_iter().partition(|t| has_x(t, x));
+        let [tx] = dep.as_slice() else { continue };
+        let Some((_, e)) = get_coeff_exp(tx, x) else { continue };
+        if e.is_zero() {
+            continue;
+        }
+        let a = div(&e, &q);
+        let t = mul2(&p, &pow(x, &q));
+        if super::expand_power_base(&pow(&t, &a)) != super::expand_power_base(tx) || add(&rest) != neg(&pow(&b, &a)) {
+            continue;
+        }
+        let (p, q, a, b) = (pol(&p), pol(&q), pol(&a), pol(&b));
+        let t = mul2(&p, &pow(x, &q));
+        let fac = div(&mul(&[pow(&b, &sub(&a, &Expr::one())), crate::functions::sin(&mul2(&a, &Expr::pi()))]), &Expr::pi());
+        out.push(simple(fac, g(vec![int(0), a.clone()], vec![], vec![int(0), a], vec![], div(&t, &b))));
+        return;
+    }
+}
+
+/// `A1(r, sign, nu)` of the section 12 and 13 radicals.
+fn radical_a1(r: &Expr, sgn: i64, nu: &Expr) -> Expr {
+    let base = neg(&div(&mul2(&int(sgn), nu), &int(2)));
+    mul2(&pow(&Expr::pi(), &Expr::rational(-1, 2)), &pow(&base, &sub(&Expr::one(), &mul2(&int(2), r))))
+}
+
+/// `(X**b, Y)` readings of `f` as `X**b/Y**r`: for `r = 0` the whole `f`,
+/// for `r = 1/2` a product of exactly two factors one of which is
+/// `Y**(-1/2)`.
+fn radical_shapes(f: &Expr, half: bool) -> Vec<(Expr, Expr, Option<Expr>)> {
+    if !half {
+        let (base, k) = base_exp(f);
+        return vec![(base, k, None)];
+    }
+    let factors = crate::simptools::mul_args(f);
+    let [f0, f1] = factors.as_slice() else { return vec![] };
+    let mut out = Vec::new();
+    for (xb, yr) in [(f0, f1), (f1, f0)] {
+        if let Kind::Pow(y, k) = yr.kind() {
+            if *k == Expr::rational(-1, 2) {
+                let (base, b) = base_exp(xb);
+                out.push((base, b, Some(y.clone())));
+            }
+        }
+    }
+    out
+}
+
+/// The radicals of sections 12 and 13:
+/// `(sqrt(a**2 + t) + sgn*a)**b/(a**2 + t)**r` and
+/// `(sqrt(a + p*z**q) + sgn*sqrt(p)*z**(q/2))**b/(a + p*z**q)**r`,
+/// `r` in `(0, 1/2)`, `sgn` in `(1, -1)`, in table order. As in the
+/// reference matcher, `a` of section 12 is read off the constant term of
+/// the base, and `a**2 + t` must then be the radicand.
+fn radical_entries(f: &Expr, x: &Expr, out: &mut Vec<Entry>) {
+    let rs = [(Expr::zero(), false), (h(), true)];
+    // the base `sqrt(Y) + rest`: each square root term with its radicand
+    let split = |base: &Expr| -> Vec<(Expr, Expr)> {
+        if !base.is_add() {
+            return vec![];
+        }
+        let terms = crate::simptools::add_args(base);
+        let mut v = Vec::new();
+        for (i, t) in terms.iter().enumerate() {
+            if let Kind::Pow(y, k) = t.kind() {
+                if *k == h() && has_x(y, x) {
+                    let rest: Vec<Expr> = terms.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, t)| t.clone()).collect();
+                    v.push((y.clone(), add(&rest)));
+                }
+            }
+        }
+        v
+    };
+    // section 12
+    for (r, half) in &rs {
+        for sgn in [1, -1] {
+            for (base, b, yr) in radical_shapes(f, *half) {
+                if b.is_zero() || has_x(&b, x) {
+                    continue;
+                }
+                for (y, rest) in split(&base) {
+                    if has_x(&rest, x) || rest.is_zero() || yr.as_ref().is_some_and(|yr| *yr != y) {
+                        continue;
+                    }
+                    let a = mul2(&int(sgn), &rest);
+                    let Some((p, q, c)) = match_add_t(&y, x) else { continue };
+                    if c != pow(&a, &int(2)) {
+                        continue;
+                    }
+                    let (p, q, a, b) = (pol(&p), pol(&q), pol(&a), pol(&b));
+                    let t = mul2(&p, &pow(x, &q));
+                    let two_r = mul2(&int(2), r);
+                    let fac = mul2(&pow(&a, &sub(&b, &two_r)), &radical_a1(r, sgn, &b));
+                    let an = vec![div(&add(&[Expr::one(), b.clone()]), &int(2)), add(&[Expr::one(), neg(&two_r), div(&b, &int(2))])];
+                    let bm = vec![div(&sub(&b, &mul2(&int(sgn), &b)), &int(2))];
+                    let bo = vec![div(&add(&[b.clone(), mul2(&int(sgn), &b)]), &int(2))];
+                    out.push(simple(fac, g(an, vec![], bm, bo, div(&t, &pow(&a, &int(2))))));
+                }
+            }
+        }
+    }
+    // section 13
+    for (r, half) in &rs {
+        for sgn in [1, -1] {
+            for (base, b, yr) in radical_shapes(f, *half) {
+                if b.is_zero() || has_x(&b, x) {
+                    continue;
+                }
+                for (y, rest) in split(&base) {
+                    if !has_x(&rest, x) || yr.as_ref().is_some_and(|yr| *yr != y) {
+                        continue;
+                    }
+                    let Some((p, q, a)) = match_add_t(&y, x) else { continue };
+                    let lin = mul(&[int(sgn), crate::ops::sqrt(&p), pow(x, &div(&q, &int(2)))]);
+                    if super::expand_power_base(&lin) != super::expand_power_base(&rest) {
+                        continue;
+                    }
+                    let (p, q, a, b) = (pol(&p), pol(&q), pol(&a), pol(&b));
+                    let t = mul2(&p, &pow(x, &q));
+                    let one_r = sub(&Expr::one(), r);
+                    let sb = div(&mul2(&int(sgn), &b), &int(2));
+                    let fac = mul2(&pow(&a, &sub(&div(&b, &int(2)), r)), &radical_a1(r, sgn, &b));
+                    out.push(simple(
+                        fac,
+                        g(vec![add(&[one_r.clone(), sb.clone()])], vec![sub(&one_r, &sb)], vec![int(0), h()], vec![], div(&t, &a)),
+                    ));
+                }
+            }
+        }
+    }
 }
 
 /// Entries for `F(t)` and `F(a, t)` with a single function head.
