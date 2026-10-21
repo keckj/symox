@@ -182,9 +182,14 @@ their native presentation. Both provide closed expression arithmetic and an
 conventions. `ZZ_I`, `QQ_I` and `EX` are polynomial coefficient backends
 with the reference ring algorithms (division, GCD, square-free and complete
 factorization, roots). Custom numerical domain objects are not; unsupported
-selections are rejected explicitly. Ring/fraction factories still retain their
-`ZZ`/`QQ` ground-domain restriction, so `ZZ_I[x]`, `QQ<sqrt(2)>[x]` and nested
-rings such as `ZZ[x][y]` raise `NotImplementedError`.
+selections are rejected explicitly. Ring factories accept `ZZ_I`, `QQ_I`, algebraic
+fields and polynomial rings as ground domains (`ZZ_I[x]`, `QQ<sqrt(2)>[x]`,
+`ZZ[x][y]`), with reference printing, conversion and `unify`; `Poly` works
+over nested rational rings such as `ZZ[x][y]` but raises
+`NotImplementedError` over `ZZ_I[x]`, `QQ_I[x]` and `QQ<sqrt(2)>[x]`.
+Fraction fields over Gaussian or algebraic grounds are descriptor-only and
+raise `NotImplementedError` when elements are built. See
+[the parity gaps](algorithmic-parity.md) for the remaining differences.
 
 ## Monogenic finite extensions
 
