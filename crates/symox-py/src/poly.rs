@@ -2332,9 +2332,40 @@ fn rational_function_blocker(e:&Expr)->bool{
 }
 
 /// Compute the greatest common divisor of expressions or polynomials.
+/// The reference `construct_domain(..., extension=True)` proceeds exactly
+/// as without the option when a coefficient in the generators is not an
+/// algebraic number (`-sqrt(2)*y` in `x`). The options without it are
+/// returned then; `None` keeps the given options.
+fn inapplicable_extension<'py>(py:Python<'py>,f:&Bound<'py,PyAny>,g:Option<&Bound<'py,PyAny>>,gens:&Bound<'py,PyTuple>,kwargs:Option<&Bound<'py,PyDict>>)->PyResult<Option<Bound<'py,PyDict>>>{
+    let Some(k)=kwargs else{return Ok(None)};
+    let Some(e)=k.get_item("extension")? else{return Ok(None)};
+    if !e.is_instance_of::<pyo3::types::PyBool>()||!e.extract::<bool>()?{return Ok(None);}
+    if k.get_item("domain")?.is_some_and(|d|!d.is_none())||division::gaussian_option(k)?.is_some()
+        ||k.get_item("modulus")?.is_some_and(|m|!m.is_none()){return Ok(None);}
+    let mut generators=gens_of(gens)?;
+    let mut exprs=Vec::new();
+    if let Some(items)=if f.downcast::<PyPoly>().is_err(){list_items(f)?}else{None} {
+        if let Some(g)=g{generators.insert(0,to_expr(g)?);}
+        exprs=items;
+    } else {
+        for x in [Some(f),g].into_iter().flatten() {
+            let(e,g2)=expr_or_coeff_list(x)?;
+            if gens.is_empty()&&x.downcast::<PyPoly>().is_ok(){for v in g2{if !generators.contains(&v){generators.push(v);}}}
+            let(n,d)=api::as_numer_denom(&e);
+            exprs.push(n);exprs.push(d);
+        }
+    }
+    if generators.is_empty(){return Ok(None);}
+    if !matches!(symox::poly::algebraic::infer_selection_in(&exprs,&generators).map_err(err)?,symox::poly::algebraic::ExtensionSelection::Unchanged){return Ok(None);}
+    let copy=PyDict::new(py);
+    for(key,value)in k.iter(){if key.extract::<String>().ok().as_deref()!=Some("extension"){copy.set_item(key,value)?;}}
+    Ok(Some(copy))
+}
+
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some();
         if special(&p.get().p)||q.downcast::<PyPoly>().is_ok_and(|q|special(&q.get().p)){return poly_obj(py,p.get().gcd(q)?.p);}
@@ -2386,6 +2417,7 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
         let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some();
         if special(&p.get().p)||q.downcast::<PyPoly>().is_ok_and(|q|special(&q.get().p)){return poly_obj(py,p.get().lcm(q)?.p);}
@@ -2448,6 +2480,7 @@ fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, g
 #[pyo3(signature = (f, *gens, **_kwargs))]
 fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let py=f.py();
+    let stripped=if f.downcast::<PyTuple>().is_err(){inapplicable_extension(py,f,None,gens,_kwargs)?}else{None};let _kwargs=stripped.as_ref().or(_kwargs);
     if f.downcast::<PyPoly>().is_err()&&f.downcast::<PyTuple>().is_err()&&domains::selects_expression(_kwargs.map(|k|k.get_item("domain")).transpose()?.flatten().as_ref())&&_kwargs.is_some_and(|k|k.len()==1){
         domains::require_expression_generators(Some(&_kwargs.unwrap().get_item("domain")?.unwrap()),!gens.is_empty())?;
         let e=symox::simptools::misc::signsimp(&to_expr(f)?,true);

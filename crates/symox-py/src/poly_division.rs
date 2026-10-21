@@ -250,7 +250,10 @@ fn compatible(a: &PolyValue, b: &PolyValue) -> PyResult<()> {
         a.checked_algebraic_pair(b)
             .map_err(|e| UnificationFailed::new_err(e.to_string()))?;
     }
-    if let Some(prototype) = a.field.as_ref().or(b.field.as_ref()) {
+    // EX absorbs every other exact coefficient domain, as the reference
+    // `EX.unify(K)`; the rational-function check only concerns two fields.
+    let opaque = a.expression.is_some() || b.expression.is_some();
+    if let Some(prototype) = a.field.as_ref().or(b.field.as_ref()).filter(|_| !opaque) {
         let gens = symox::poly::polyobj::unify_gens(a.true_gens(), b.true_gens());
         let expressions = [a.as_expr(), b.as_expr()];
         let mut parameters = prototype.parameters.clone();
@@ -439,8 +442,18 @@ impl Inputs {
                 _ => None,
             };
         }
+        // `extension=True` is an inference request over the coefficients in
+        // the generators. When one of them is not an algebraic number the
+        // reference construct_domain proceeds exactly as without it.
+        let mut extension = opts.extension.as_ref();
         if inherited.is_none() && selection.gaussian().is_none() {
-            if let Some(field) = selection.algebraic(opts.extension.as_ref(), &expressions)? {
+            let field = selection.algebraic_in(extension, &expressions, &opts.generators)?;
+            if field.is_none() && selection.native.is_none() && extension.is_some_and(|e| {
+                e.is_instance_of::<pyo3::types::PyBool>() && e.extract::<bool>().unwrap_or(false)
+            }) {
+                extension = None;
+            }
+            if let Some(field) = field {
                 selected = Some(domains::PyDomain {
                     inner: ExactDomain::Algebraic(field),
                 });
@@ -477,7 +490,7 @@ impl Inputs {
         }
         if selected.is_none()
             && opts.domain.is_none()
-            && opts.extension.is_none()
+            && extension.is_none()
             && opts.modulus.is_none()
             && !opts.generators.is_empty()
         {
@@ -502,7 +515,7 @@ impl Inputs {
         // selects ZZ_I or QQ_I when it is the only nonrational atom.
         if selected.is_none()
             && opts.domain.is_none()
-            && opts.extension.is_none()
+            && extension.is_none()
             && opts.modulus.is_none()
             && [f, g].iter().all(|x| {
                 x.downcast::<PyPoly>()
@@ -533,7 +546,7 @@ impl Inputs {
         }
         if selected.is_none()
             && opts.domain.is_none()
-            && opts.extension.is_none()
+            && extension.is_none()
             && opts.modulus.is_none()
             && !opts.generators.is_empty()
         {
@@ -567,6 +580,23 @@ impl Inputs {
         let ge = w(expressions[1].clone()).into_pyobject(py)?.into_any();
         let a = PyPoly::py_new(&fe, &args, opts.domain.as_ref(), None, None, None)?.p;
         let b = PyPoly::py_new(&ge, &args, opts.domain.as_ref(), None, None, None)?.p;
+        // Separately inferred domains are joined as parallel_poly_from_expr
+        // does, so that `EX` or a wider parameter ring holds both operands.
+        if opts.domain.is_none() && opts.modulus.is_none() {
+            if let (Ok(da), Ok(db)) = (domains::PyDomain::of(&a), domains::PyDomain::of(&b)) {
+                if da.inner != db.inner {
+                    if let Ok(inner) = common_domain(&da, &db) {
+                        let domain = domains::PyDomain { inner };
+                        if let (Ok(ja), Ok(jb)) = (
+                            domain.poly(&expressions[0], &generators),
+                            domain.poly(&expressions[1], &generators),
+                        ) {
+                            return Ok((ja, jb));
+                        }
+                    }
+                }
+            }
+        }
         Ok((a, b))
     }
     fn render(&self, py: Python<'_>, p: PolyValue) -> PyResult<PyObject> {
