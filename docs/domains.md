@@ -17,9 +17,33 @@ fallback of matrix inference, the general constructor uses `EX`. Only
 `extension=True` enables algebraic inference, as in the reference. Composite
 generators may be Symbols or other non-algebraic expressions (`ZZ[pi]`,
 `ZZ[y,sin(x)]`, `ZZ(x,pi)`), and their elements print like the reference
-`PolyElement`. Floats with a generator give `EX` where the reference builds
-`RR[x]` or `RR[pi]`: composite domains over `RR` and `CC` are not
-implemented.
+`PolyElement`.
+
+Composite domains over `RR` and `CC` follow the `ZZ_I[y]` composite-ground
+design: a univariate `Poly` whose coefficients contain Floats and other
+symbols is inferred over `RR[y]`, `CC[y]` (when `I` occurs) or `RR(y)` (when a
+symbol occurs in a denominator), at the largest Float precision found
+(`RealField(prec)`; the domain still prints `RR[y]`). Ground elements are
+insertion-ordered sparse dictionaries of `mpf`/`mpc` coefficients rounded as
+in mpmath (`mpc_mul`, `mpc_div` at `prec + 10`, `mpf_pow_int`), and the dense
+`dup_*` algorithms are ports of the reference (`dup_ff_div` strips the
+rounding-created leading term; `gcd` of ground elements rationalizes with
+`max_denom = max(2**prec // 200, 99)` as `RR.to_rational`). `div`/`rem`/`quo`/
+`exquo` with `auto=True` run in `RR(y)` and retract to `RR[y]` when every
+coefficient divides; `monic`, `integrate`, `half_gcdex`, `gcdex` and `invert`
+move to the field. `factor_list`, `abs`, `max_norm`, `l1_norm` and `nroots`
+raise the reference errors (`TypeError` on `PolyElement` products and
+`abs`, `DomainError` for `nroots`). The string domain `RR[y]` builds the same
+domain; `RR(y)` is rejected with the reference `OptionError`. Remaining:
+several generators (`Poly(1.5*x*y + 2, x, z)`) keep the legacy `RR[y]`
+representation (whose `factor_list` returns factors where the reference
+raises); `construct_domain` and `composite=True` still give `EX` for Floats
+with a non-number generator; `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
+factors (the reference `together` result differs); `ground_roots` and
+`apart` return results where the reference raises `TypeError`; the
+`to_ring` `CoercionFailed` message names the expression instead of the
+`FracElement`; the `div` remainder of near-cancelling Float inputs can differ
+in the last bits (`2.78e-17` against `8.67e-17`).
 
 Constructor facades include `IntegerRing`, `RationalField`, `FiniteField`,
 `RealField`, `ComplexField`, Gaussian and expression domains, `PolynomialRing`,

@@ -924,6 +924,12 @@ impl PyPoly {
         let mut available: Vec<_> = symox::traverse::free_symbols(&e).into_iter().collect();
         for g in &generators {if !available.contains(g) {available.push(g.clone());}}
         if let Some(d)=domain {
+            // `_re_polynomial` over RR or CC: `RR[y]`, `CC[y,z]`.
+            if let Some((head,inner))=d.strip_suffix(']').and_then(|s|s.split_once('[')).filter(|(h,_)|matches!(*h,"R"|"RR"|"C"|"CC")) {
+                let symbols:Vec<Expr>=inner.split(',').map(str::trim).map(|n|available.iter().find(|s|symox::printer::to_str(s)==n).cloned().unwrap_or_else(||Expr::symbol(n))).collect();
+                let ground=symox::poly::gaussian_ground::GaussianGround{integral:false,ring:true,symbols,inexact:Some(symox::poly::inexact_ground::Inexact{precision:53,complex:head.starts_with('C')})};
+                if !generators.is_empty(){return Ok(Self{p:ground.convert_expr(&e,&generators).map_err(err)?.into()});}
+            }
             if let Some(parameters)=parse_domain(d,&available).map_err(err)? {
                 if generators.is_empty() {generators=infer_parameters(std::slice::from_ref(&e),&parameters);}
                 let p=FractionPoly::from_expr(&e,&generators,&parameters,d).map_err(err)?;
@@ -949,6 +955,14 @@ impl PyPoly {
             // `_construct_composite` over a Gaussian ground: ZZ_I[y], QQ_I(y), ...
             if let Some(ground)=symox::poly::gaussian_ground::infer(&e,&generators,false) {
                 if let Ok(p)=ground.convert_expr(&e,&generators){return Ok(Self{p:p.into()});}
+            }
+            // `_construct_composite` over RR or CC: RR[y], CC(y), ...
+            // (univariate polynomials; several generators keep the legacy
+            // representation)
+            if generators.len()==1 {
+                if let Some(ground)=symox::poly::inexact_ground::infer(&e,&generators,false) {
+                    if let Ok(p)=ground.convert_expr(&e,&generators){return Ok(Self{p:p.into()});}
+                }
             }
             // `_construct_composite` builds a fraction field when a
             // coefficient denominator involves a generator, as for `1/pi`.
@@ -1057,6 +1071,11 @@ impl PyPoly {
     /// The `EX` representation and its composite Gaussian ground, when marked.
     fn gg(&self)->Option<(&ExpressionPoly,&symox::poly::gaussian_ground::GaussianGround)>{let e=self.p.expression.as_ref()?;Some((e,e.ground.as_ref()?))}
     /// The unified `EX` pair, when either side is over `EX`.
+    /// Univariate operands over `RR[y]`, `CC(y)`, ...
+    fn inexact_ops(&self,o:&Bound<'_,PyAny>)->PyResult<Option<(ExpressionPoly,ExpressionPoly)>>{
+        let Some((a,b))=self.ex_pair(o)? else {return Ok(None)};
+        Ok(a.inexact_pair(&b).filter(|(a,_)|a.gens.len()==1))
+    }
     fn ex_pair(&self,o:&Bound<'_,PyAny>)->PyResult<Option<(ExpressionPoly,ExpressionPoly)>>{
         let other_ex=o.downcast::<PyPoly>().is_ok_and(|q|q.get().p.expression.is_some());
         if self.p.expression.is_none()&&!other_ex{return Ok(None);}
@@ -1364,7 +1383,9 @@ impl PyPoly {
     }
 
     fn deflate<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyTuple>,Self)>{let(j,p)=symox::poly::structure::deflate(&self.p).map_err(err)?;Ok((PyTuple::new(py,j)?,Self{p}))}
-    fn terms_gcd<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyTuple>,Self)>{let(j,p)=symox::poly::structure::terms_gcd(&self.p).map_err(err)?;Ok((PyTuple::new(py,j)?,Self{p}))}
+    fn terms_gcd<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyTuple>,Self)>{let(j,mut p)=symox::poly::structure::terms_gcd(&self.p).map_err(err)?;
+        if let (Some((_,g)),Some(e))=(self.gg(),p.expression.as_ref()){p=g.convert_poly(e).map_err(err)?.into();}
+        Ok((PyTuple::new(py,j)?,Self{p}))}
     fn exclude(&self)->PyResult<Self>{Ok(Self{p:symox::poly::structure::exclude(&self.p).map_err(err)?})}
     #[pyo3(signature=(*gens,**kwargs))]
     fn reorder(&self,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Self>{Ok(Self{p:structural::reordered(&self.p,gens,kwargs)?})}
@@ -1600,19 +1621,21 @@ impl PyPoly {
 
     #[pyo3(signature=(o,auto=true))]
     fn div<'py>(&self, py: Python<'py>, o: &Bound<'_, PyAny>, auto:bool) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some((a,b))=self.inexact_ops(o)?{let(q,r)=symox::poly::inexact_ground::div(&a,&b,auto).map_err(err)?;return PyTuple::new(py,[PyPoly{p:q.into()},PyPoly{p:r.into()}]);}
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         let (a, b) = self.p.div_with_options(&q,auto).map_err(err)?;
         PyTuple::new(py, [PyPoly { p: (a).into() }, PyPoly { p: (b).into() }])
     }
 
     #[pyo3(signature=(o,auto=true))]
-    fn rem(&self,o:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly>{let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;Ok(PyPoly{p:self.p.rem_with_options(&q,auto).map_err(err)?})}
+    fn rem(&self,o:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly>{if let Some((a,b))=self.inexact_ops(o)?{return Ok(PyPoly{p:symox::poly::inexact_ground::div_part(&a,&b,auto,false).map_err(err)?.into()});}let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;Ok(PyPoly{p:self.p.rem_with_options(&q,auto).map_err(err)?})}
 
     #[pyo3(signature=(o,auto=true))]
-    fn quo(&self,o:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly>{let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;Ok(PyPoly{p:self.p.quo_with_options(&q,auto).map_err(err)?})}
+    fn quo(&self,o:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly>{if let Some((a,b))=self.inexact_ops(o)?{return Ok(PyPoly{p:symox::poly::inexact_ground::div_part(&a,&b,auto,true).map_err(err)?.into()});}let q=self.other(o).ok_or_else(||PyTypeError::new_err("expected a polynomial"))?;Ok(PyPoly{p:self.p.quo_with_options(&q,auto).map_err(err)?})}
 
     #[pyo3(signature=(o,auto=true))]
     fn exquo(&self, o: &Bound<'_, PyAny>, auto:bool) -> PyResult<PyPoly> {
+        if let Some((a,b))=self.inexact_ops(o)?{return Ok(PyPoly{p:symox::poly::inexact_ground::exquo(&a,&b,auto).map_err(err)?.into()});}
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: (self.p.exquo_with_options(&q,auto).map_err(err)?).into() })
     }
@@ -1627,6 +1650,7 @@ impl PyPoly {
 
     #[pyo3(signature=(g,auto=true))]
     fn gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
+        if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};let(s,t,h)=symox::poly::inexact_ground::gcdex(&a,&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         if let Some((a,b))=self.ex_pair(g)?{let(s,t,h)=a.gcdex(&b).map_err(err)?;
             if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let c=|p:&ExpressionPoly|f.convert_poly(p).map_err(err);let(s,t,h)=(c(&s)?,c(&t)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
             return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
@@ -1636,6 +1660,7 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,auto=true))]
     fn half_gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
+        if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};let(s,h)=symox::poly::inexact_ground::half_gcdex(&a,&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         if let Some((a,b))=self.ex_pair(g)?{let(s,h)=a.half_gcdex(&b).map_err(err)?;
             if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let(s,h)=(f.convert_poly(&s).map_err(err)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
             return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
@@ -1645,6 +1670,7 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,auto=true))]
     fn invert(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly> {
+        if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};return Ok(PyPoly{p:symox::poly::inexact_ground::invert(&a,&b).map_err(err)?.into()});}
         if let Some((a,b))=self.ex_pair(g)?{
             if let Some(gr)=a.ground.clone().filter(|_|auto){return Ok(PyPoly{p:gr.to_field().convert_poly(&a.invert(&b).map_err(err)?).map_err(err)?.into()});}
             return Ok(PyPoly{p:a.invert(&b).map_err(err)?.into()});
@@ -1905,7 +1931,7 @@ impl PyPoly {
                 ExpressionPoly::from_expr(&self.p.as_expr(), self.p.true_gens()).map_err(err)?
             }
         };
-        let domain = if self.ex().is_some() { "EX".to_string() } else { self.domain_descriptor().map_or_else(|_| "EX".to_string(), |d| d.inner.to_string()) };
+        let domain = if self.ex().is_some() && self.gg().is_none() { "EX".to_string() } else { self.domain_descriptor().map_or_else(|_| "EX".to_string(), |d| d.inner.to_string()) };
         Ok(proots::expression_nroots(&expression, &domain, n, maxsteps, cleanup)
             .map_err(|error| nroots_error(py, error))?.into_iter().map(w).collect())
     }
@@ -1950,6 +1976,12 @@ impl PyPoly {
 
     #[pyo3(signature = (*gens, auto=true))]
     fn integrate(&self, gens: &Bound<'_, PyTuple>, auto:bool) -> PyResult<PyPoly> {
+        if let Some(f)=self.ex().filter(|f|symox::poly::inexact_ground::is_inexact(f)&&f.gens.len()==1){
+            let mut f=f.clone();
+            let count=if gens.is_empty(){1}else{let mut n=0;for spec in gens.iter(){let c=if let Ok(t)=spec.downcast::<PyTuple>(){if t.len()!=2{return Err(PyValueError::new_err("integration specification must be (generator, order)"));}t.get_item(1)?.extract::<i64>()?}else{1};n+=c.max(0) as usize;}n};
+            f=symox::poly::inexact_ground::integrate(&f,count,auto).map_err(err)?;
+            return Ok(PyPoly{p:f.into()});
+        }
         let mut p=if self.ex().is_some(){self.p.clone()}else{self.p.integration_domain(auto)};
         if gens.is_empty(){return Ok(PyPoly{p:p.integrate_checked(0,false).map_err(err)?});}
         for spec in gens.iter(){
@@ -2016,7 +2048,7 @@ impl PyPoly {
     }
 
     fn max_norm(&self) -> PyResult<PyExpr> {
-        if let Some(f)=self.ex(){return Ok(w(f.max_norm()));}
+        if let Some(f)=self.ex(){if symox::poly::inexact_ground::is_inexact(f){return Err(err(symox::poly::inexact_ground::abs_error()));}return Ok(w(f.max_norm()));}
         if self.p.field.is_some()||self.p.algebraic.is_some(){return Err(PyTypeError::new_err("rational function coefficients have no ordered absolute norm"));}
         Ok(w(rat_expr(&self.p.max_norm())))
     }

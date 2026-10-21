@@ -31,6 +31,9 @@ pub struct GaussianGround {
     pub integral: bool,
     pub ring: bool,
     pub symbols: Vec<Expr>,
+    /// `RealField(p)`/`ComplexField(p)` in place of the Gaussian ground
+    /// (`integral` is then false).
+    pub inexact: Option<super::inexact_ground::Inexact>,
 }
 
 fn scope() -> AlgebraicScope {
@@ -67,7 +70,7 @@ pub fn gaussian_poly(e: &Expr, vars: &[Expr]) -> PResult<P> {
 }
 
 /// The reference class of an expression, for `CoercionFailed` messages.
-fn class_path(e: &Expr) -> &'static str {
+pub(crate) fn class_path(e: &Expr) -> &'static str {
     use crate::expr::Kind;
     match e.kind() {
         Kind::Num(n) if n.is_integer() => "sympy.core.numbers.Integer",
@@ -136,8 +139,13 @@ fn lc_ground(p: &P, k: usize) -> P {
 
 impl GaussianGround {
     pub fn domain(&self) -> ExactDomain {
+        let ground = match self.inexact {
+            Some(k) if k.precision == 53 && !k.complex => ExactDomain::RR,
+            Some(k) => ExactDomain::Inexact { precision: k.precision, complex: k.complex },
+            None => ExactDomain::Gaussian { integral: self.integral },
+        };
         ExactDomain::Composite {
-            ground: Arc::new(ExactDomain::Gaussian { integral: self.integral }),
+            ground: Arc::new(ground),
             ring: self.ring,
             parameters: self.symbols.clone(),
             order: "lex".into(),
@@ -154,14 +162,25 @@ impl GaussianGround {
     }
     pub fn from_domain(d: &ExactDomain) -> Option<Self> {
         let ExactDomain::Composite { ground, ring, parameters, .. } = d else { return None };
-        let ExactDomain::Gaussian { integral } = ground.as_ref() else { return None };
         if parameters.is_empty() {
             return None;
         }
-        Some(Self { integral: *integral, ring: *ring, symbols: parameters.clone() })
+        let inexact = match ground.as_ref() {
+            ExactDomain::RR => Some(super::inexact_ground::Inexact { precision: 53, complex: false }),
+            ExactDomain::Inexact { precision, complex } => Some(super::inexact_ground::Inexact { precision: *precision, complex: *complex }),
+            _ => None,
+        };
+        if let Some(k) = inexact {
+            return Some(Self { integral: false, ring: *ring, symbols: parameters.clone(), inexact: Some(k) });
+        }
+        let ExactDomain::Gaussian { integral } = ground.as_ref() else { return None };
+        Some(Self { integral: *integral, ring: *ring, symbols: parameters.clone(), inexact: None })
     }
     fn m(&self) -> usize {
         self.symbols.len()
+    }
+    pub(crate) fn coercion_error(&self, e: &Expr) -> PolyError {
+        self.coercion(e)
     }
     fn coercion(&self, e: &Expr) -> PolyError {
         PolyError::Reference {
@@ -214,6 +233,9 @@ impl GaussianGround {
     /// Convert every coefficient of `p` into this ground, failing with the
     /// reference `CoercionFailed`.
     pub fn convert_poly(&self, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::convert_poly(self, p);
+        }
         let mut terms = Vec::new();
         for (m, c) in p.terms() {
             let (a, b) = self.element(&c)?;
@@ -420,10 +442,16 @@ impl GaussianGround {
     }
     /// `dmp_ground_monic` through `EX`, renormalized in the fraction field.
     pub fn monic(&self, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::monic(&self.marked(p));
+        }
         let field = self.to_field();
         field.convert_poly(&p.monic()?)
     }
     pub fn gcd(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::gcd(&self.marked(f), &self.marked(g));
+        }
         let k = f.gens.len();
         let (nf, _) = self.flatten(f)?;
         let (ng, _) = self.flatten(g)?;
@@ -445,6 +473,9 @@ impl GaussianGround {
         self.monic(&self.eject(&h, &one, &f.gens)?)
     }
     pub fn lcm(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::lcm(&self.marked(f), &self.marked(g));
+        }
         let k = f.gens.len();
         let (nf, _) = self.flatten(f)?;
         let (ng, _) = self.flatten(g)?;
@@ -460,6 +491,9 @@ impl GaussianGround {
         self.monic(&self.eject(&h, &one, &f.gens)?)
     }
     pub fn cofactors(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionPoly, ExpressionPoly, ExpressionPoly)> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::cofactors(&self.marked(f), &self.marked(g));
+        }
         let h = self.gcd(f, g)?;
         if h.is_zero() {
             return Ok((h, self.marked(f), self.marked(g)));
@@ -470,6 +504,9 @@ impl GaussianGround {
     }
     /// `dmp_ground_content` over the ground domain, as an expression.
     pub fn content(&self, p: &ExpressionPoly) -> PResult<Expr> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::content(&self.marked(p));
+        }
         let k = p.gens.len();
         let m = self.m();
         if self.ring {
@@ -506,6 +543,9 @@ impl GaussianGround {
         Ok(cont)
     }
     pub fn primitive(&self, p: &ExpressionPoly) -> PResult<(Expr, ExpressionPoly)> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::primitive(&self.marked(p));
+        }
         let c = self.content(p)?;
         if p.is_zero() || c.is_one() {
             return Ok((c, self.marked(p)));
@@ -515,6 +555,9 @@ impl GaussianGround {
     }
     /// `Poly.clear_denoms()`.
     pub fn clear_denoms(&self, p: &ExpressionPoly) -> PResult<(Expr, ExpressionPoly)> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::clear_denoms(&self.marked(p));
+        }
         if self.ring {
             return Ok((Expr::one(), self.marked(p)));
         }
@@ -531,6 +574,9 @@ impl GaussianGround {
     }
     /// `dmp_factor_list` over the composite ground.
     pub fn factor_list(&self, p: &ExpressionPoly) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+        if self.inexact.is_some() {
+            return Err(super::inexact_ground::factor_error(self));
+        }
         let k = p.gens.len();
         let m = self.m();
         let (num, den) = self.flatten(p)?;
@@ -571,6 +617,9 @@ impl GaussianGround {
     }
     /// `dup_sqf_list` over the composite ground.
     pub fn sqf_list(&self, p: &ExpressionPoly, all: bool) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::sqf_list(&self.marked(p), all);
+        }
         if p.gens.len() != 1 {
             return Err(PolyError::Unsupported(format!(
                 "multivariate square-free decomposition over {} is not implemented",
@@ -609,6 +658,9 @@ impl GaussianGround {
     }
     /// `dmp_cancel(include=False)`: `(cp, cq, p, q)` with `f/g = cp/cq * p/q`.
     pub fn cancel(&self, f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(Expr, Expr, ExpressionPoly, ExpressionPoly)> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::cancel(&self.marked(f), &self.marked(g));
+        }
         if self.ring {
             let (_, p, q) = self.cofactors(f, g)?;
             return Ok((Expr::one(), Expr::one(), p, q));
@@ -631,6 +683,9 @@ impl GaussianGround {
     }
     /// `dup_sqf_part`/`dmp_sqf_part`.
     pub fn sqf_part(&self, p: &ExpressionPoly) -> PResult<ExpressionPoly> {
+        if self.inexact.is_some() {
+            return super::inexact_ground::sqf_part(&self.marked(p));
+        }
         if p.is_zero() {
             return Ok(self.marked(p));
         }
@@ -717,14 +772,22 @@ pub struct Descriptor {
     pub integral: bool,
     pub ring: bool,
     pub symbols: Vec<Expr>,
+    /// An inexact ground (`RR`/`CC` at some precision).
+    pub inexact: Option<super::inexact_ground::Inexact>,
 }
 
 pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
     if let Some(e) = &p.expression {
-        return e.ground.as_ref().map(|g| Descriptor { gaussian: true, integral: g.integral, ring: g.ring, symbols: g.symbols.clone() });
+        return e.ground.as_ref().map(|g| Descriptor {
+            gaussian: g.inexact.is_none(),
+            integral: g.integral,
+            ring: g.ring,
+            symbols: g.symbols.clone(),
+            inexact: g.inexact,
+        });
     }
     if let Some(a) = &p.algebraic {
-        return a.gaussian.map(|integral| Descriptor { gaussian: true, integral, ring: true, symbols: Vec::new() });
+        return a.gaussian.map(|integral| Descriptor { gaussian: true, integral, ring: true, symbols: Vec::new(), inexact: None });
     }
     if p.modulus.is_some() {
         return None;
@@ -732,28 +795,56 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
     if let Some(f) = &p.field {
         return match &f.coefficient_domain {
             ExactDomain::Functions { integral, ring, parameters, .. } => {
-                Some(Descriptor { gaussian: false, integral: *integral, ring: *ring, symbols: parameters.clone() })
+                Some(Descriptor { gaussian: false, integral: *integral, ring: *ring, symbols: parameters.clone(), inexact: None })
             }
-            ExactDomain::ZZ => Some(Descriptor { gaussian: false, integral: true, ring: true, symbols: Vec::new() }),
-            ExactDomain::QQ => Some(Descriptor { gaussian: false, integral: false, ring: true, symbols: Vec::new() }),
+            ExactDomain::ZZ => Some(Descriptor { gaussian: false, integral: true, ring: true, symbols: Vec::new(), inexact: None }),
+            ExactDomain::QQ => Some(Descriptor { gaussian: false, integral: false, ring: true, symbols: Vec::new(), inexact: None }),
+            ExactDomain::RR => Some(Descriptor {
+                gaussian: false,
+                integral: false,
+                ring: true,
+                symbols: Vec::new(),
+                inexact: Some(super::inexact_ground::Inexact { precision: 53, complex: false }),
+            }),
+            ExactDomain::Inexact { precision, complex } => Some(Descriptor {
+                gaussian: false,
+                integral: false,
+                ring: true,
+                symbols: Vec::new(),
+                inexact: Some(super::inexact_ground::Inexact { precision: *precision, complex: *complex }),
+            }),
             _ => None,
         };
     }
     let integral = match p.base.domain {
         super::polyobj::Domain::ZZ => true,
         super::polyobj::Domain::QQ => false,
-        super::polyobj::Domain::RR => return None,
+        super::polyobj::Domain::RR => {
+            let symbols = p.base.domain_gens().to_vec();
+            if symbols.iter().any(|s| *s == Expr::i() || (s.is_number() && s.is_pow())) {
+                return None;
+            }
+            return Some(Descriptor {
+                gaussian: false,
+                integral: false,
+                ring: true,
+                symbols,
+                inexact: Some(super::inexact_ground::Inexact { precision: 53, complex: false }),
+            });
+        }
     };
     let symbols = p.base.domain_gens().to_vec();
     // radicals select `EX` (or an algebraic field) in the reference
     if symbols.iter().any(|s| *s == Expr::i() || (s.is_number() && s.is_pow())) {
         return None;
     }
-    Some(Descriptor { gaussian: false, integral, ring: true, symbols })
+    Some(Descriptor { gaussian: false, integral, ring: true, symbols, inexact: None })
 }
 
 fn descriptor_display(d: &Descriptor) -> String {
     let ground = match (d.gaussian, d.integral) {
+        _ if d.inexact.is_some_and(|k| k.complex) => "CC",
+        _ if d.inexact.is_some() => "RR",
         (true, true) => "ZZ_I",
         (true, false) => "QQ_I",
         (false, true) => "ZZ",
@@ -773,7 +864,7 @@ fn descriptor_display(d: &Descriptor) -> String {
 /// The reference `Domain.unify_with_symbols` when one side has a Gaussian
 /// ground: `None` when neither does.
 pub fn unify(a: &Descriptor, b: &Descriptor, gens: &[Expr]) -> PResult<Option<GaussianGround>> {
-    if !a.gaussian && !b.gaussian {
+    if !a.gaussian && !b.gaussian && a.inexact.is_none() && b.inexact.is_none() {
         return Ok(None);
     }
     for d in [a, b] {
@@ -797,13 +888,19 @@ pub fn unify(a: &Descriptor, b: &Descriptor, gens: &[Expr]) -> PResult<Option<Ga
     if symbols.is_empty() {
         return Ok(None);
     }
-    Ok(Some(GaussianGround { integral, ring: !frac, symbols }))
+    if a.inexact.is_some() || b.inexact.is_some() {
+        let precision = [a, b].iter().filter_map(|d| d.inexact.map(|k| k.precision)).max().unwrap_or(53);
+        let complex = [a, b].iter().any(|d| d.gaussian || d.inexact.is_some_and(|k| k.complex));
+        let inexact = Some(super::inexact_ground::Inexact { precision, complex });
+        return Ok(Some(GaussianGround { integral: false, ring: !frac, symbols, inexact }));
+    }
+    Ok(Some(GaussianGround { integral, ring: !frac, symbols, inexact: None }))
 }
 
 /// Whether `e` is an algebraic number in the reference sense of
 /// `is_number and is_algebraic`, for the expressions built from numbers,
 /// `I` and rational powers; anything else counts as transcendental.
-fn is_algebraic_number(e: &Expr) -> bool {
+pub(crate) fn is_algebraic_number(e: &Expr) -> bool {
     use crate::expr::Kind;
     match e.kind() {
         Kind::Num(n) => !n.is_float(),
@@ -866,5 +963,5 @@ pub fn infer_coefficients(coefficients: &[Expr], field: bool) -> Option<Gaussian
     } else {
         polys[..k].iter().zip(&polys[k..]).all(|(n, d)| gi::poly_is_integral(&n.scale(&d.lc().inv())))
     };
-    Some(GaussianGround { integral, ring: !fractions, symbols })
+    Some(GaussianGround { integral, ring: !fractions, symbols, inexact: None })
 }

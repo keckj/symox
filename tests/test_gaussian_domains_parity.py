@@ -310,6 +310,8 @@ REFERENCE = [
      "(1, Poly(I, x, domain='ZZ_I[y]'), Poly(I*x, x, domain='ZZ_I[y]'))"),
     ('ZZ[x].canonical_unit(ZZ[x](-x))',
      '-1'),
+    ('Poly(I*x*y + 1.5, x)',
+     "Poly(1.0*I*y*x + 1.5, x, domain='CC[y]')"),
 ]
 
 # Reference outputs that symox does not reproduce yet; see the remaining gaps
@@ -325,8 +327,6 @@ GAPS = [
      '(ZZ_I(y), [(0 + 1*I)*y/(1 + 0*I)])'),
     ('construct_domain([I*y, 1.5])',
      '(CC[y], [(0.0 + 1.0j)*y, (1.5 + 0.0j)])'),
-    ('Poly(I*x*y + 1.5, x)',
-     "Poly(1.0*I*y*x + 1.5, x, domain='CC[y]')"),
 ]
 
 

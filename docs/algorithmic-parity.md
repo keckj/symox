@@ -226,9 +226,7 @@ Remaining gaps in this area:
   (`ZZ_I.frac_field(x)(...)` and `ZZ_I.frac_field(x).is_unit(...)` raise
   `NotImplementedError`), so `construct_domain` gives `EX` for `[I/y]`,
   `[-2*I*pi/N]` and `[I*y]` with `field=True` where the reference gives
-  `ZZ_I(y)` or `ZZ_I(N,pi)` (the `Poly` path is not affected); mixed float and
-  `I` coefficients with parameters (`Poly(I*x*y + 1.5, x)`) are not inferred
-  as `CC[y]`; `quo_ground`/`exquo_ground` with a non-divisible ground
+  `ZZ_I(y)` or `ZZ_I(N,pi)` (the `Poly` path is not affected); `quo_ground`/`exquo_ground` with a non-divisible ground
   element and the `QQ_I` `gcd` scaling of some multivariate inputs differ;
   `sqf_list` of a multivariate polynomial over a composite Gaussian ground
   raises `NotImplementedError`; `.rep` prints as an `EX` representation
@@ -270,9 +268,12 @@ Remaining gaps in this area:
   sets and dicts in `RR`, `CC` and the Gaussian domains; `EX` sympifies a
   set or dict and `EXRAW` refuses non-`Expr` objects (`Interval`,
   `FiniteSet`) with `Expecting an Expr instance but found: ...`.
-  Remaining: polynomial rings and fraction fields over `RR` or `CC`
-  (`RR[pi]`, `RR[x]`, `CC[x]`) raise `NotImplementedError` (this needs a
-  new inexact composite element type and `Poly` support);
+  Univariate `Poly` objects over `RR[y]`, `CC[y]` and `RR(y)` are inferred
+  and computed like the reference (see `docs/domains.md`, composite domains
+  over `RR` and `CC`, for the ported algorithms and the remaining gaps:
+  several generators, `construct_domain`/`composite=True`, `factor`,
+  `ground_roots`, `apart` and the `to_ring` message).
+  Remaining:
   `ZZ.convert_from(QQ(1, 2), QQ)` keeps the message `expected an integer`;
   ground elements print as `ZZ(2)`, `QQ(5/2)`, `RR(2.50000000000000)` or
   `QQ<sqrt(2)>(sqrt(2))` where the reference prints the raw `2`,
@@ -293,7 +294,8 @@ Remaining gaps in this area:
   like the reference `PolyElement` (`pi`, `x*pi + 1`, `y*(sin(x))`,
   `-x/(y - 1)`). Remaining: Floats with a non-number generator, where the
   reference builds `RR[x]` or `RR[pi]`, give `EX` (exact, no evaluation of
-  `pi`), and raise `NotImplementedError` with `composite=True`.
+  `pi`), and raise `NotImplementedError` with `composite=True` (the `Poly`
+  path infers `RR[y]`, `CC[y]` and `RR(y)` for univariate polynomials).
 - `EX` root forms and `nroots` digits can differ from the reference (symox
   can be more accurate); exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.

@@ -319,7 +319,7 @@ impl PyDomain {
     }
     fn factory(&self, gens: &Bound<'_, PyTuple>, order: &str, ring: bool) -> PyResult<Self> {
         let parameters = super::gens_of(gens)?;
-        if !matches!(self.inner,ExactDomain::ZZ|ExactDomain::QQ|ExactDomain::Functions{..}|ExactDomain::Composite{..}|ExactDomain::Gaussian{..}|ExactDomain::Algebraic(_)) {
+        if !matches!(self.inner,ExactDomain::ZZ|ExactDomain::QQ|ExactDomain::Functions{..}|ExactDomain::Composite{..}|ExactDomain::Gaussian{..}|ExactDomain::Algebraic(_)|ExactDomain::RR|ExactDomain::Inexact{..}) {
             return Err(PyNotImplementedError::new_err(format!("polynomial rings and fraction fields over {} are not implemented", self.inner)));
         }
         ExactDomain::composite(&self.inner, ring, parameters, order)
