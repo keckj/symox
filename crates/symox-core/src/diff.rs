@@ -4,7 +4,7 @@ use rustc_hash::FxHashMap;
 
 use crate::expr::{Expr, Func, Kind};
 use crate::functions::*;
-use crate::ops::{add, div, mul, mul_factor, neg, pow, sqrt, sub};
+use crate::ops::{add, div, mul, mul2, mul_factor, neg, pow, sqrt, sub};
 
 pub fn is_valid_variable(variable: &Expr) -> bool {
     match variable.kind() {
@@ -134,15 +134,13 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
             let db = d(b, x, cache);
             let dn = d(n, x, cache);
             if dn.is_zero() {
-                // n * b**(n-1) * b'
+                // SymPy's Pow._eval_derivative, self*(b'*n/b), built with
+                // the same binary products: 1/b splits a product base, so
+                // sqrt(-x)' is sqrt(-x)/(2*x).
                 if db.is_zero() {
                     Expr::zero()
-                } else if n.is_number() {
-                    mul(&[n.clone(), pow(b, &sub(n, &Expr::one())), db])
                 } else {
-                    // SymPy's Pow._eval_derivative, self*(b'*n/b): a
-                    // symbolic exponent stays on the power (n*x**n/x).
-                    mul(&[e.clone(), db, n.clone(), pow(b, &Expr::minus_one())])
+                    mul2(e, &mul2(&mul2(&db, n), &pow(b, &Expr::minus_one())))
                 }
             } else if db.is_zero() {
                 // b**n * log(b) * n'
