@@ -8,6 +8,8 @@
 //! reported without its condition, and a condition that simplifies to False
 //! makes the method give up instead of returning a value.
 //!
+//! Indefinite integrals follow `meijerint_indefinite` (`indefinite`).
+//!
 //! When the table has no entry for a factor, `_rewrite_single` computes
 //! its Mellin transform with Meijer G integration and reads the inverse
 //! transform as a G-function (`recursive`).
@@ -20,10 +22,12 @@ use crate::special::{tuple, tuple_items, SpecialFn};
 use crate::{Expr, Func, Kind};
 
 mod conds;
+mod indefinite;
 mod inversion;
 mod recursive;
 mod table;
 
+pub(crate) use indefinite::meijerint_indefinite;
 pub(crate) use inversion::meijerint_inversion;
 
 
@@ -806,6 +810,11 @@ pub(crate) fn debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
             Some(vec![conds::check_antecedents(&G::from_expr(g1)?, &G::from_expr(g2)?, x)?])
         }
         ("inversion", [f, x, t]) => Some(vec![meijerint_inversion(f, x, t)?]),
+        ("indefinite", [f, x]) => Some(vec![meijerint_indefinite(f, x)?]),
+        ("piecewise_fold", [e]) => Some(vec![crate::integrate::piecewise::piecewise_fold(e, Some(true))]),
+        ("piecewise", pieces) => Some(vec![crate::relational::piecewise(
+            pieces.chunks(2).map(|p| (p[0].clone(), p[1].clone())).collect(),
+        )]),
         ("powdenest_polar", [e]) => Some(vec![powdenest_polar(e)]),
         ("polarify", [e]) => Some(vec![polarify(e, false)]),
         ("condsimp", [c]) => Some(vec![conds::condsimp(c, true)]),

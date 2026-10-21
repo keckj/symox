@@ -200,3 +200,19 @@ def euler_equations(L,funcs=(),vars=()):
         if equation.is_Relational:
             equations.append(equation)
     return equations
+
+
+def _piecewise_integrate(self, x, **kwargs):
+    """``Piecewise.piecewise_integrate``: each piece integrated on its own."""
+    from . import Piecewise, integrate
+    return Piecewise(*[(integrate(e, x, **kwargs), c) for e, c in _pairs(self)])
+
+
+def _install_piecewise_methods():
+    from ._node_types import node_class
+    cls = node_class('Piecewise')
+    if cls is not None:
+        type.__setattr__(cls, 'piecewise_integrate', _piecewise_integrate)
+
+
+_install_piecewise_methods()

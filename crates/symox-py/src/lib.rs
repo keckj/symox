@@ -2292,6 +2292,18 @@ impl PyExprNode {
             // integral transforms: SymPy's hints and (result, plane, cond) tuples
             return Ok(py.import("symox._transforms")?.getattr("_doit")?.call((wrap(self.e.clone()), deep), hints)?.unbind());
         }
+        if let (Some(hints),Kind::Func(Func::Integral,args))=(hints,self.e.kind()){
+            let integration_hint=|name:&Bound<'_,PyAny>|name.extract::<String>().is_ok_and(|n|matches!(n.as_str(),"meijerg"|"risch"|"heurisch"|"manual"|"conds"));
+            if !hints.is_empty()&&hints.keys().iter().all(|name|integration_hint(&name)){
+                // `Integral.doit(meijerg=..., conds=...)`: the hints of
+                // `integrate`, the integrand evaluated first when deep
+                let body=if deep{fx::doit(&args[0],true)}else{args[0].clone()};
+                let limits=symox::binders::limits(args).into_iter()
+                    .map(|l|PyTuple::new(py,l.into_iter().map(wrap)))
+                    .collect::<PyResult<Vec<_>>>()?;
+                return integrate_result(py,&body,&PyTuple::new(py,limits)?,Some(hints));
+            }
+        }
         if let Some(hints)=hints {for (name,value) in hints.iter(){
             if matches!(self.e.kind(),Kind::Func(Func::MatrixDotProduct(_,_),_))&&name.extract::<String>()?=="expand" {
                 // SymPy DotProduct accepts this compatibility argument without
@@ -3141,7 +3153,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
         if fs.len() != 1 {
             return Err(PyValueError::new_err("specify the integration variable"));
         }
-        return Ok((symox::integrate::integrate(f, &fs[0]),None));
+        return Ok((symox::integrate::integrate_hint(f, &fs[0], meijerg),None));
     }
     for a in args.iter() {
         if let Some(t) = integration_limit(&a)? {
@@ -3149,7 +3161,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
             let x = t[0].clone();
             if !x.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
             match t.len() {
-                1 => r = symox::integrate::integrate(&r, &x),
+                1 => r = symox::integrate::integrate_hint(&r, &x, meijerg),
                 2 => {let upper=t[1].clone();
                     let held=symox::binders::held(Func::Integral,&r,vec![vec![x,upper]]).map_err(PyValueError::new_err)?;
                     r=fx::doit(&held,true);
@@ -3170,7 +3182,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
         } else {
             let variable=to_expr(&a)?;
             if !variable.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
-            r = symox::integrate::integrate(&r, &variable);
+            r = symox::integrate::integrate_hint(&r, &variable, meijerg);
         }
     }
     Ok((r,separate))
