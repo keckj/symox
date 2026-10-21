@@ -2133,27 +2133,55 @@ impl ExpressionPoly {
             .collect();
         Ok(Self { rep: dmp_from_dict(&dict, gens.len() - 1), gens: gens.to_vec(), ground: self.ground.clone() })
     }
+    /// Both operands over the inexact composite ground of either, when
+    /// one of them has one.
+    pub fn inexact_pair(&self, o: &Self) -> Option<(Self, Self)> {
+        let g = [self, o].into_iter().find_map(|p| p.ground.clone().filter(|g| g.inexact.is_some()))?;
+        let mark = |p: &Self| Self { ground: Some(g.clone()), ..p.clone() };
+        Some((mark(self), mark(o)))
+    }
     pub fn add(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o) {
+            return super::inexact_ground::add(&a, &b);
+        }
         Ok(self.with_rep(dmp_add(&self.rep, &o.rep, self.u())?))
     }
     pub fn sub(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o) {
+            return super::inexact_ground::sub(&a, &b);
+        }
         Ok(self.with_rep(dmp_sub(&self.rep, &o.rep, self.u())?))
     }
     pub fn mul(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o) {
+            return super::inexact_ground::mul(&a, &b);
+        }
         Ok(self.with_rep(dmp_mul(&self.rep, &o.rep, self.u())?))
     }
     pub fn neg(&self) -> Self {
+        if super::inexact_ground::is_inexact(self) {
+            return super::inexact_ground::neg(self).expect("inexact negation");
+        }
         self.with_rep(dmp_neg(&self.rep, self.u()))
     }
     pub fn pow(&self, n: u32) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) {
+            return super::inexact_ground::pow(self, n);
+        }
         Ok(self.with_rep(dmp_pow(&self.rep, n, self.u())?))
     }
     pub fn div(&self, o: &Self) -> PResult<(Self, Self)> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::div(&a, &b, false);
+        }
         let (q, r) = dmp_div(&self.rep, &o.rep, self.u())?;
         Ok((self.with_rep(q), self.with_rep(r)))
     }
     /// `Poly.exquo`: a failure is re-raised with the `as_expr` forms.
     pub fn exquo(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::exquo(&a, &b, false);
+        }
         match dmp_exquo(&self.rep, &o.rep, self.u()) {
             Ok(q) => Ok(self.with_rep(q)),
             Err(PolyError::Reference { kind: "ExactQuotientFailed", .. }) => Err(self.exquo_failed(o)),
@@ -2164,10 +2192,16 @@ impl ExpressionPoly {
         reference("ExactQuotientFailed", format!("{} does not divide {}", o.as_expr(), self.as_expr()))
     }
     pub fn pdiv(&self, o: &Self) -> PResult<(Self, Self)> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::pdiv(&a, &b);
+        }
         let (q, r) = dmp_pdiv(&self.rep, &o.rep, self.u())?;
         Ok((self.with_rep(q), self.with_rep(r)))
     }
     pub fn pexquo(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::pexquo(&a, &b);
+        }
         let (q, r) = self.pdiv(o)?;
         if r.is_zero() {
             Ok(q)
@@ -2176,16 +2210,28 @@ impl ExpressionPoly {
         }
     }
     pub fn gcd(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::gcd(&a, &b);
+        }
         Ok(self.with_rep(dmp_gcd(&self.rep, &o.rep, self.u())?))
     }
     pub fn lcm(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::lcm(&a, &b);
+        }
         Ok(self.with_rep(dmp_lcm(&self.rep, &o.rep, self.u())?))
     }
     pub fn cofactors(&self, o: &Self) -> PResult<(Self, Self, Self)> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::cofactors(&a, &b);
+        }
         let (h, a, b) = dmp_inner_gcd(&self.rep, &o.rep, self.u())?;
         Ok((self.with_rep(h), self.with_rep(a), self.with_rep(b)))
     }
     pub fn cancel(&self, o: &Self) -> PResult<(Expr, Expr, Self, Self)> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::cancel(&a, &b);
+        }
         let (cp, cq, p, q) = dmp_cancel(&self.rep, &o.rep, self.u())?;
         Ok((cp.0, cq.0, self.with_rep(p), self.with_rep(q)))
     }
@@ -2210,26 +2256,44 @@ impl ExpressionPoly {
         }
     }
     pub fn half_gcdex(&self, o: &Self) -> PResult<(Self, Self)> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::half_gcdex(&a, &b);
+        }
         self.univariate()?;
         let (s, h) = dup_half_gcdex(&self.rep, &o.rep)?;
         Ok((self.with_rep(s), self.with_rep(h)))
     }
     pub fn gcdex(&self, o: &Self) -> PResult<(Self, Self, Self)> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::gcdex(&a, &b);
+        }
         self.univariate()?;
         let (s, t, h) = dup_gcdex(&self.rep, &o.rep)?;
         Ok((self.with_rep(s), self.with_rep(t), self.with_rep(h)))
     }
     pub fn invert(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::invert(&a, &b);
+        }
         self.univariate()?;
         Ok(self.with_rep(dup_invert(&self.rep, &o.rep)?))
     }
     pub fn diff(&self, m: usize, j: usize) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::diff(self, m);
+        }
         Ok(self.with_rep(dmp_diff_in(&self.rep, m, j, self.u())?))
     }
     pub fn integrate(&self, m: usize, j: usize) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::integrate(self, m, false);
+        }
         Ok(self.with_rep(dmp_integrate_in(&self.rep, m, j, self.u())?))
     }
     pub fn monic(&self) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::monic(self);
+        }
         Ok(self.with_rep(dmp_ground_monic(&self.rep, self.u())?))
     }
     pub fn lc(&self) -> Expr {
@@ -2239,9 +2303,15 @@ impl ExpressionPoly {
         dmp_ground_tc(&self.rep, self.u()).0
     }
     pub fn content(&self) -> Expr {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::content(self).expect("inexact content");
+        }
         dmp_ground_content(&self.rep, self.u()).0
     }
     pub fn primitive(&self) -> PResult<(Expr, Self)> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::primitive(self);
+        }
         let (c, p) = dmp_ground_primitive(&self.rep, self.u())?;
         Ok((c.0, self.with_rep(p)))
     }
@@ -2249,15 +2319,27 @@ impl ExpressionPoly {
         dmp_max_norm(&self.rep, self.u()).0
     }
     pub fn l1_norm(&self) -> PResult<Expr> {
+        if super::inexact_ground::is_inexact(self) {
+            return Err(super::inexact_ground::abs_error());
+        }
         Ok(dmp_l1_norm(&self.rep, self.u())?.0)
     }
     pub fn mul_ground(&self, c: &Expr) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) {
+            return super::inexact_ground::mul_ground(self, c);
+        }
         Ok(self.with_rep(dmp_mul_ground(&self.rep, &EX(c.clone()), self.u())?))
     }
     pub fn quo_ground(&self, c: &Expr) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::quo_ground(self, c);
+        }
         Ok(self.with_rep(dmp_quo_ground(&self.rep, &EX(c.clone()), self.u())?))
     }
     pub fn exquo_ground(&self, c: &Expr) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::exquo_ground(self, c);
+        }
         Ok(self.with_rep(dmp_exquo_ground(&self.rep, &EX(c.clone()), self.u())?))
     }
     /// `dmp_abs`: `Expression.__abs__` on every coefficient.
@@ -2273,6 +2355,9 @@ impl ExpressionPoly {
     /// `resultant(includePRS=True)`: the resultant and the subresultant
     /// polynomial remainder sequence.
     pub fn resultant_prs(&self, o: &Self) -> PResult<(Result<Expr, Self>, Vec<Self>)> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return { let (r, prs) = super::inexact_ground::resultant_prs(&a, &b)?; Ok((Ok(r), prs)) };
+        }
         let (r, prs) = dmp_prs_resultant(&self.rep, &o.rep, self.u())?;
         Ok((self.drop_main(r)?, prs.into_iter().map(|p| self.with_rep(p)).collect()))
     }
@@ -2284,10 +2369,16 @@ impl ExpressionPoly {
         Ok(dup_decompose(self.rep.l())?.into_iter().map(|f| self.with_rep(Dmp::L(f))).collect())
     }
     pub fn clear_denoms(&self) -> PResult<(Expr, Self)> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::clear_denoms(self);
+        }
         let (c, p) = dmp_clear_denoms(&self.rep, self.u())?;
         Ok((c.0, self.with_rep(p)))
     }
     pub fn compose(&self, o: &Self) -> PResult<Self> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::compose(&a, &b);
+        }
         Ok(self.with_rep(dmp_compose(&self.rep, &o.rep, self.u())?))
     }
     pub fn shift(&self, a: &Expr) -> PResult<Self> {
@@ -2295,16 +2386,28 @@ impl ExpressionPoly {
         Ok(self.with_rep(dup_shift(&self.rep, &EX(a.clone()))?))
     }
     pub fn sqf_p(&self) -> PResult<bool> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::sqf_p(self);
+        }
         dmp_sqf_p(&self.rep, self.u())
     }
     pub fn sqf_part(&self) -> PResult<Self> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::sqf_part(self);
+        }
         Ok(self.with_rep(dmp_sqf_part(&self.rep, self.u())?))
     }
     pub fn sqf_list(&self, all: bool) -> PResult<(Expr, Vec<(Self, usize)>)> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::sqf_list(self, all);
+        }
         let (c, f) = dmp_sqf_list(&self.rep, self.u(), all)?;
         Ok((c.0, f.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect()))
     }
     pub fn sqf_list_include(&self, all: bool) -> PResult<Vec<(Self, usize)>> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return super::inexact_ground::sqf_list_include(self, all);
+        }
         Ok(dmp_sqf_list_include(&self.rep, self.u(), all)?.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect())
     }
     pub fn gff_list(&self) -> PResult<Vec<(Self, usize)>> {
@@ -2320,15 +2423,24 @@ impl ExpressionPoly {
         (j, self.with_rep(p))
     }
     pub fn subresultants(&self, o: &Self) -> PResult<Vec<Self>> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return super::inexact_ground::subresultants(&a, &b);
+        }
         Ok(dmp_subresultants(&self.rep, &o.rep, self.u())?.into_iter().map(|p| self.with_rep(p)).collect())
     }
     /// The resultant: a ground expression for a univariate input, a
     /// polynomial in the remaining generators otherwise.
     pub fn resultant(&self, o: &Self) -> PResult<Result<Expr, Self>> {
+        if let Some((a, b)) = self.inexact_pair(o).filter(|_| self.gens.len() == 1) {
+            return Ok(Ok(super::inexact_ground::resultant(&a, &b)?));
+        }
         let r = dmp_resultant(&self.rep, &o.rep, self.u())?;
         self.drop_main(r)
     }
     pub fn discriminant(&self) -> PResult<Result<Expr, Self>> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return Ok(Ok(super::inexact_ground::discriminant(self)?));
+        }
         let r = dmp_discriminant(&self.rep, self.u())?;
         self.drop_main(r)
     }
@@ -2358,6 +2470,9 @@ impl ExpressionPoly {
     /// `Poly.eval(gens[j], a)`: a ground expression or a polynomial in the
     /// remaining generators.
     pub fn eval(&self, j: usize, a: &Expr) -> PResult<Result<Expr, Self>> {
+        if super::inexact_ground::is_inexact(self) && self.gens.len() == 1 {
+            return Ok(Ok(super::inexact_ground::eval(self, a)?));
+        }
         let a = EX(a.clone());
         if self.u() == 0 {
             return Ok(Ok(dup_eval_ground(&self.rep, &a)?.0));

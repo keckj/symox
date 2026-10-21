@@ -122,7 +122,7 @@ impl ExactDomain {
     pub fn composite(ground: &Self, ring: bool, parameters: Vec<Expr>, order: &str) -> PResult<Self> {
         match ground {
             Self::ZZ | Self::QQ => return Self::functions(matches!(ground, Self::ZZ), ring, parameters, order),
-            Self::Functions { .. } | Self::Composite { .. } | Self::Gaussian { .. } | Self::Algebraic(_) => {}
+            Self::Functions { .. } | Self::Composite { .. } | Self::Gaussian { .. } | Self::Algebraic(_) | Self::RR | Self::Inexact { .. } => {}
             _ => return Err(PolyError::Unsupported(
                 "polynomial rings and fraction fields over this ground domain are not implemented".into(),
             )),
@@ -219,6 +219,13 @@ impl ExactDomain {
             }
             _ => false,
         }
+    }
+    /// The `RR[y]`/`CC(y)` composite ground of this domain, if any.
+    pub(crate) fn inexact_ground(&self) -> Option<super::gaussian_ground::GaussianGround> {
+        if !matches!(self, Self::Composite { .. }) {
+            return None;
+        }
+        super::gaussian_ground::GaussianGround::from_domain(self).filter(|g| g.inexact.is_some())
     }
     fn composite_member(&self, value: &ElementValue) -> bool {
         match (self.composite_base(), value) {
@@ -326,6 +333,10 @@ impl ExactDomain {
                 }
                 ElementValue::Expression(if *raw {e.clone()} else {crate::simplify::simplify(e)})
             },
+            Self::Composite { .. } if self.inexact_ground().is_some() => {
+                let g = self.inexact_ground().unwrap();
+                ElementValue::Inexact(super::inexact_ground::element_expr(&g, e)?)
+            }
             Self::Composite { .. } => {
                 let parameters = self.flat_parameters();
                 let value = match self.composite_base() {
@@ -401,6 +412,15 @@ impl std::hash::Hash for DomainElement {
     }
 }
 impl DomainElement {
+    /// Element operations of `RR[y]`, `CC(y)`, ... (see `inexact_ground`).
+    fn inexact_op(&self, other: &Self, op: &str) -> Option<PResult<Self>> {
+        let g = self.domain.inexact_ground()?;
+        if self.domain != other.domain {
+            return None;
+        }
+        let (ElementValue::Inexact(a), ElementValue::Inexact(b)) = (&self.value, &other.value) else { return None };
+        Some(super::inexact_ground::element_op(&g, a, b, op).map(|e| Self { domain: self.domain.clone(), value: ElementValue::Inexact(e) }))
+    }
     pub fn compatible_embedding(&self, other: &Self) -> bool {
         if self.domain!=other.domain&&(matches!(self.domain,ExactDomain::Gaussian{..})||matches!(other.domain,ExactDomain::Gaussian{..})) {return false;}
         self.domain == other.domain
@@ -425,7 +445,7 @@ impl DomainElement {
                 }).collect::<Vec<_>>())
             }
             // The reference real field returns the Float `0.0` for its zero.
-            ElementValue::Inexact(e) if e.is_zero() && !self.domain.is_complex() => {
+            ElementValue::Inexact(e) if e.is_zero() && !self.domain.is_complex() && !matches!(self.domain, ExactDomain::Composite { .. }) => {
                 let precision = self.domain.inexact_precision().unwrap_or(53);
                 Expr::num(crate::number::Number::mp_float(crate::bigfloat::BigFloat::zero(), precision))
             }
@@ -469,6 +489,12 @@ impl DomainElement {
         Ok(r.n.to_rat().scale(&Rat::new(super::Int::one(), r.d.lc())))
     }
     pub fn div_rem(&self, other: &Self) -> PResult<(Self, Self)> {
+        if self.inexact_op(other, "+").is_some() {
+            if other.is_zero() {
+                return Err(PolyError::Unsupported("division by zero".into()));
+            }
+            return Ok((self.inexact_op(other, "quo").unwrap()?, self.inexact_op(other, "rem").unwrap()?));
+        }
         if !self.compatible_embedding(other) {
             return Err(failure("incompatible coefficient domains"));
         }
@@ -599,6 +625,9 @@ impl DomainElement {
         }
     }
     pub fn binary(&self, other: &Self, op: char) -> PResult<Self> {
+        if let Some(r) = self.inexact_op(other, &op.to_string()) {
+            return r;
+        }
         if op == '/' && matches!(self.domain, ExactDomain::Functions { ring: true, .. } | ExactDomain::Gaussian {integral:true} | ExactDomain::Composite { ring: true, .. }) {
             return self.exquo(other);
         }
@@ -808,6 +837,9 @@ impl DomainElement {
         Ok(Self { domain: self.domain.clone(), value })
     }
     pub fn gcd(&self, other: &Self) -> PResult<Self> {
+        if let Some(r) = self.inexact_op(other, "gcd") {
+            return r;
+        }
         if !self.compatible_embedding(other) {
             return Err(failure("incompatible coefficient domains"));
         }
@@ -939,6 +971,9 @@ impl DomainElement {
         ExactDomain::Functions { integral, ring: false, parameters: domain.flat_parameters(), order: "lex".into() }
     }
     pub fn lcm(&self, other: &Self) -> PResult<Self> {
+        if let Some(r) = self.inexact_op(other, "lcm") {
+            return r;
+        }
         if !self.compatible_embedding(other) {
             return Err(failure("incompatible coefficient domains"));
         }
