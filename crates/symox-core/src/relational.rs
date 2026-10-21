@@ -141,6 +141,15 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
             }
         }
     }
+    // A numeric difference of symbolic sides orders them only when both are
+    // extended real (SymPy's is_ge): s < s + 1 stays unevaluated for a
+    // complex s.
+    if !matches!(op, RelOp::Eq | RelOp::Ne) && !(a.is_number() && b.is_number()) {
+        let real = |e: &Expr| crate::assumptions::fact(e, "extended_real") == Some(true);
+        if !(real(a) && real(b)) {
+            return None;
+        }
+    }
     if let Kind::Num(n) = d.kind() {
         let c = n.cmp_value(&crate::number::Number::ZERO)?;
         return Some(cmp_holds(op, c));

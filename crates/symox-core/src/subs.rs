@@ -185,6 +185,20 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     // SymPy's Basic._subs consults _eval_subs on every node before falling
     // back to its arguments, so a host hook below defeats the mask filter.
     let hooked = e.has_host_subs();
+    // Symbol._eval_subs: a symbol is the power y**1 for an old power of it,
+    // so (y).subs(1/y, u) is 1/u.
+    let symbol_power = match old.kind() {
+        Kind::Pow(b, _) if b.is_symbol() => Some(b),
+        _ => None,
+    };
+    if !hooked && e.is_symbol() {
+        if symbol_power == Some(e) {
+            if let Some(value) = power_subs(e, &Expr::one(), false, old, new, cache) {
+                return value;
+            }
+        }
+        return e.clone();
+    }
     if !hooked && (e.is_atom() || (!old.has_binding_identity() && old.mask() & !e.mask() != 0)) {
         return e.clone();
     }
@@ -250,6 +264,38 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
         if crate::traverse::has(e,old) && vars.iter().any(|(v,_)|
             crate::traverse::has(new,v) && !crate::traverse::has(old,v) && crate::traverse::has(inner,v)) {
             return held_subs(e,vec![old.clone()],vec![new.clone()]);
+        }
+        // A variable that is not old can still change, as y in
+        // (Derivative(f(y), y)).subs(1/y, u). SymPy's case (2): the new
+        // variable may not already be in the expression; case (3): a new
+        // variable that is not a valid differentiation variable is held as
+        // Subs(Derivative(..., xi_i), xi_i, value).
+        let changed:Vec<(Expr,u32)>=vars.iter().map(|(v,n)|(s1(v,old,new,cache),*n)).collect();
+        if changed.iter().zip(vars.iter()).any(|(a,b)|a.0!=b.0) {
+            if changed.iter().zip(vars.iter()).any(|(a,b)|a.0!=b.0&&a.0.is_symbol()&&crate::traverse::has(inner,&a.0)) {
+                return held_subs(e,vec![old.clone()],vec![new.clone()]);
+            }
+            let mut body=inner.clone();
+            let mut wrt=Vec::new();
+            let mut dummies=Vec::new();
+            let mut points=Vec::new();
+            for (i,((value,count),(variable,_))) in changed.iter().zip(vars.iter()).enumerate() {
+                if value.is_symbol()||crate::binders::is_function_variable(value)||matches!(value.kind(),Kind::Derivative(..)) {
+                    wrt.push((value.clone(),*count));
+                    continue;
+                }
+                let xi=Expr::dummy(&format!("xi_{i}"),crate::symbol::Assumptions::NONE);
+                let mut m=FxHashMap::default();
+                m.insert(variable.clone(),xi.clone());
+                body=xreplace(&body,&m);
+                wrt.push((xi.clone(),*count));
+                dummies.push(xi);
+                points.push(value.clone());
+            }
+            if !dummies.is_empty() {
+                let body=s1(&body,old,new,cache);
+                return held_subs(&crate::diff::derivative_unevaluated(&body,wrt),dummies,points);
+            }
         }
     }
     let r = match (e.kind(), old.kind()) {

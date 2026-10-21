@@ -423,8 +423,11 @@ fn hint_pass(
             crate::Func::Sin
             | crate::Func::Cos
             | crate::Func::Tan
+            | crate::Func::Cot
             | crate::Func::Sinh
-            | crate::Func::Cosh,
+            | crate::Func::Cosh
+            | crate::Func::Tanh
+            | crate::Func::Coth,
             args,
         ) = mapped.kind()
         {

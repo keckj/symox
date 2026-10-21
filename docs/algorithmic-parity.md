@@ -298,6 +298,33 @@ Remaining gaps in this area:
   can be more accurate); exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.
 
+The ports of the integration methods also rely on these reference rules of
+the polynomial layer:
+- an expression is expanded deeply before it becomes a polynomial: function
+  arguments are expanded and `exp` of a sum splits, so `Poly(exp(x*(x + 1)))`
+  has the generators `exp(x)` and `exp(x**2)` and
+  `cancel(exp(-x**2/(2*(2 - I)**2)))` is `exp(-3*x**2/50)*exp(-2*I*x**2/25)`;
+  the factor named by "contains an element of the set of generators" is the
+  first one in the argument order of its term
+  (`tests/test_poly_deep_expansion.py`);
+- `Poly` has the reference operator priority, so `expr op poly` reaches the
+  reflected methods of `Poly`;
+- a quotient over a legacy ring `ZZ[c]` that is not a polynomial is computed
+  in `ZZ(c)` and retracted, `sqf_list_include` and `factor_list_include`
+  accept `RR` and the legacy `ZZ[c]` domains, and domain strings such as
+  `ZZ[pi]` or `QQ(log(x))` are parsed;
+- `primitive` and `content` over a transcendental coefficient ring follow
+  `dmp_ground_primitive`;
+- `factor_list` and `sqf_list` of an expression with symbolic multiplicities
+  keep the `int` or `Integer` type of each multiplicity and the `Mul.args`
+  order of the reference (`tests/test_symbolic_multiplicity_factor_lists.py`).
+Remaining differences: the order of the factors in the TypeError message
+of `sqf_list` on non-integer symbolic exponents depends on the hash seed in
+the reference; `ground_roots` over `RR` or `ZZ[sin(y)]` raises ValueError
+(reference `{}` for `x**2 - 2.0` and `{1: 1, -1: 1}` for
+`sin(y)*x**2 - sin(y)`); the ExactQuotientFailed message of `exquo` over
+`ZZ[y]` differs in text.
+
 ## Frobenius series on 2026-10-21
 
 `dsolve(..., hint='2nd_power_series_regular')` was audited against SymPy
@@ -732,7 +759,9 @@ raises the reference `TypeError`. Arithmetic and ordering on another non-`Expr`
 operand (a relation, a Boolean function, a predicate, a set or a tuple) are
 not supported, as in the reference. Evaluated inequalities reject non-real,
 NaN and non-`Expr` sides with the reference messages. Sign facts decide an
-ordering only when the difference is extended real. Sums, products and powers
+ordering only when the difference is extended real, and a numeric difference
+of symbolic sides orders them only when both sides are extended real, so
+`s < s + 1` stays unevaluated for a complex `s` (`is_ge`). Sums, products and powers
 of finite terms are finite, so `1 + I` is not extended real. Scalar and matrix
 `kind` follow the reference rules, and `srepr` of a `Float` names its
 precision. The `kind` of a tree with shared subexpressions is computed once
@@ -948,10 +977,14 @@ see those patched onto their nearest SymPy ancestor (`Symbol`, `Function`,
 The explicit `NonElementaryIntegral` constructor builds a held native integral
 and retains its marker for reconstruction, pickle and the covered root
 structural operations. Constructing this marker does not prove that its
-integrand is non-elementary. The integration engine does not automatically use
-it to label unsupported computations: the complete Risch decision procedure
-remains unimplemented. Preserving that marker inside every composite native
-expression remains a separate obligation.
+integrand is non-elementary. `integrate` produces it only from a completed
+proof of the ported `risch_integrate` (exp and log towers, as in the
+reference): with `risch=True`, in the Risch stage of the default chain on
+the whole integrand, and in the Risch stage of the term loop. A computation
+that no method decides stays a plain `Integral`. The marker is kept by node
+identity: an equal `Integral` built elsewhere is not marked, the dummy
+substitution of a definite integral keeps it, and other rebuilds of a
+composite native expression may drop it.
 
 Boolean system constraints are converted to their equation meaning before
 linear solving: true is an identity, and false proves inconsistency. The public
@@ -1010,9 +1043,9 @@ returns `Piecewise((value, cond), (Integral, True))`, `'separate'` returns
 the pair and `'none'` drops it. A parameter range where the integral
 diverges therefore never receives the analytic continuation as its value.
 `meijerg=True` integrates only through Meijer G (an unevaluated Integral
-otherwise) and `meijerg=False` skips it. `risch`, `heurisch` and `manual`
-other than None still raise NotImplementedError: the native engine does not
-separate those methods, so it cannot honor them faithfully. An improper
+otherwise) and `meijerg=False` skips it. The `risch`, `heurisch` and `manual`
+options follow the reference `_eval_integral` (see the integration methods
+paragraph below). An improper
 bound limit that is not settled keeps the Integral unevaluated. An
 antiderivative jump at an interior pole or log branch point is removed
 through one-sided limits (`Expr._eval_interval`), so for example `tan` over
@@ -1040,6 +1073,162 @@ differences:
   (`test_piecewise_integrate1ca/cb`, `test_piecewise_integrate2`,
   issue 6900), and the Python `piecewise_fold` is not the native port (it
   orders the folded pieces differently).
+
+Integration methods. `risch_integrate` (with `prde`, `rde`),
+`manualintegrate`, `heurisch`/`heurisch_wrapper`, `ratint`,
+`trigintegrate` and `deltaintegrate` are ports of the reference modules,
+and the native integrator calls them in the reference order of
+`_eval_integral`:
+- `risch=True` runs only `risch_integrate`: a proven non-elementary part is
+  a `NonElementaryIntegral`, NotImplementedError (algebraic or trigonometric
+  integrands) leaves the factored `Integral`, as `Integral.doit` gives it,
+  and a definite integral raises ValueError, as in the reference;
+- `manual=True` and `heurisch=True` run `_eval_integral` with only that
+  method (the reference port, including the `Order` terms, `Piecewise`
+  and `sincos_to_sum` recursion); a True option turns the others off, two
+  True options raise ValueError;
+- a False option removes the method from the default chain: after the
+  native rules, `risch_integrate` on the whole integrand
+  (`result + i.doit(risch=False)`, or `NonElementaryIntegral(f).doit(
+  risch=False)` when nothing was integrated), then per term the linear power
+  shortcut, `ratint`, `trigintegrate`, `deltaintegrate`,
+  `singularityintegrate`, `risch_integrate`, `heurisch`, `meijerint` and
+  `manualintegrate` (whose leftover integrals are done with
+  `manual=False`), then the native term rules;
+- the undone result is `Integral(f, x).factor()`, so
+  `integrate(y*exp(x)/log(x), x)` is `y*NonElementaryIntegral(exp(x)/log(x),
+  x)` as in the reference;
+- an `Integral` integrand (not a `NonElementaryIntegral`) is denested into
+  the limits, as the reference constructor does: `integrate(Integral(y, x),
+  x)` is `x**2*y/2`, and `risch=True` raises ValueError for an inner definite
+  limit;
+- with a True option, the exceptions of the selected port (ValueError,
+  PolynomialError, TypeError, ...) reach the caller as in the reference.
+The ports rely on these core rules of the reference, which are also
+followed: a symbol is the power `y**1` for an old power of it in `subs`, so
+`y.subs(1/y, u)` is `1/u` (manualintegrate finds `u = 1/y` with it); a
+`Derivative` whose variable is replaced by a non-symbol is held in
+`Subs(Derivative(f(_xi_0), _xi_0), _xi_0, value)`, and one whose new
+variable is already present is held in `Subs(expr, old, new)`
+(`tests/test_subs_symbol_powers.py`); the first derivative of a power is
+`self*(b'*n/b)` built with binary products, so `diff(sqrt(-x), x)` is
+`sqrt(-x)/(2*x)`; heurisch keeps the repeated unknowns of the reference
+`poly_coeffs` (the reference ring maps each to its last generator).
+`log(a).is_zero` is `(a - 1).is_zero` as in `log._eval_is_zero`, so
+`(y + 1)**x` with a zero `y` integrates to `x` in every method.
+The expansion rules used by the ports follow the reference:
+`expand(trig=True)` and `expand_trig` expand `sec`, `csc`, `sech` and `csch`
+through their partner (`1/cos(...)` expanded), `tan`, `cot`, `tanh` and
+`coth` of sums and integer multiples with the symmetric-function and
+binomial formulas, `sinh` and `cosh` with the sum formula, and
+`expand_mul` rebuilds `n/d` after splitting a fraction, so
+`expand(x**2*y/(2*x*(x*y/2 + x - y/(2*x))))` is `x*y/(x*y + 2*x - y/x)`
+(`tests/test_expand_trig_reference.py`).
+Differential corpus: the 294 integration examples of `test_risch.py`,
+`test_manual.py` and `test_heurisch.py`, run with SymPy 1.14 and symox as
+the literal test call and as `integrate` in the default, `risch=True`,
+`manual=True` and `heurisch=True` modes (1470 runs, 20 s each, the
+timeouts rerun in a fresh process). The printed form is identical in 1339
+runs and equal by differentiation or simplification in 90; no symox result
+fails the derivative check where the reference passes it, and the 10
+`NonElementaryIntegral` results are proven in both libraries (none in only
+one). The agreeing fast cases are `tests/test_integrate_methods_corpus.py`
+(1072 cases; `heurisch(sin(x)*cos(x))` is left out, its reference form
+depends on the hash seed), and the hand-picked ones are
+`tests/test_integrate_methods.py`. Two corpus inputs are right here and
+wrong in the reference: `integrate(f(z), z)` with `z = z(t)` (the reference
+treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
+`Integral`) and `x*exp(a*x + 1)` (below). Remaining gaps:
+- slower than the reference beyond 20 s (no wrong result, the computation
+  is not finished): the default chain on `atan(x)*log(x)`
+  (`test_issue_2850`, reference 8 s) and on `sqrt(x - y)*log(z/x)` and its
+  real-symbol variant (`test_issue_10847`, reference 0.5 s),
+  `heurisch=True` on `cos(n*(x - phi))*cos(n*x)` (`test_issue_6799`,
+  indefinite and over `(-pi, pi)`, reference 2 s) and on
+  `x**(4/3)*log(x)` (`test_heurisch_issue_26930`, also the literal
+  `heurisch` call, reference 2 to 4 s), and the literal `manualintegrate`
+  of the rational function of `test_issue_10847_slow` (reference 10 s);
+- `integrate(exp(10*x)*sin(exp(x)), x)` finishes here and times out in the
+  reference;
+- the definite integral of the float Piecewise of `test_issue_15498` stays
+  unevaluated (reference a `Piecewise` with `Min(0.5, t)` bounds);
+- `manual=True` on `atan(x)*log(x)` and on the rational function of case
+  153 leaves an `Integral` where the reference finishes (manualintegrate
+  leftovers);
+- the native rules also run under the reference `risch_integrate` base
+  case (`integrate(..., risch=False)`), so rational parts keep the native
+  partial-fraction form: `risch=True` on
+  `(4*x**4 + ...)/(x**6 + ...)` gives `8*x/(4*x**2 + 4) + 3*atan(x) -
+  1/(x**2 + 1) - 3/(x + 1)` (reference `(-x**2 + x - 4)/(x**3 + x**2 + x +
+  1) + 3*atan(x)`), and `exp(x)/(1 + exp(2*x))` gives `atan(exp(x))` in the
+  default chain (reference a `RootSum`);
+- a `RootSum` is stored with the monic coefficient tuple, so it prints
+  `RootSum((1, 0, 1/4), Lambda(...))` (reference `RootSum(4*_z**2 + 1,
+  Lambda(...))`);
+- an unevaluated sum is kept as one integral: `(f(x) - f(-x))/x` gives
+  `-Integral((f(-x) - f(x))/x, x)` (reference `-Integral(f(-x)/x, x) -
+  Integral(-f(x)/x, x)`), likewise for a Bessel sum with `risch=True`, and the
+  `NonElementaryIntegral` of `(exp(x) - exp(-x))/x` holds
+  `(exp(2*x) - 1)*exp(-x)/x` (reference `(1 - exp(-2*x))*exp(x)/x`);
+- held radicands are factored: `risch=True` on `1/sqrt(4 - 4*x**2)` gives
+  `Integral(1/sqrt(-(x - 1)*(x + 1)), x)/2` (reference
+  `Integral(1/sqrt(1 - x**2), x)/2`), likewise `3/sqrt(1 - 9*x**2)`,
+  `1/sqrt(4*x**2 - 4)` and `heurisch(1/sqrt(3*x**2 - 4), x, hints=[])`;
+- `1/(cos(x) + 2)` lacks the `floor` correction term of the reference
+  (`heurisch=True` and the default chain);
+- the variable order of a held mixed `Derivative` under `risch=True` and
+  `heurisch=True` on `f(x, y).diff(y).diff(x)` differs;
+- `1/(x*(1 + log(x)**2))` gives `atan(log(x))` (reference a `RootSum`),
+  `sqrt(a*x + b)/(x + c)` with real symbols gives an unsimplified
+  equivalent form, and `exp(-I*x**2/2)` over `(0, 1)` gives
+  `sqrt(2)*sqrt(pi)*exp(-I*pi/4)*erf(sqrt(2)*exp(I*pi/4)/2)/2` (reference
+  `(1 - I)*sqrt(pi)*erf(1/2 + I/2)/2` expanded), equal values;
+- `ratint(1/(x**3 + x + 1), x)` raises PolynomialDivisionFailed over the
+  `EX` domain of the explicit cubic roots (reference a sum of logarithms
+  with radical coefficients), and `ratint(1/(x**3 + x + a), x)` raises
+  NotImplementedError (algebraic root isolation needs rational
+  coefficients) where the reference gives a `RootSum`;
+- `test_issue_6799` over `(-pi, pi)` gives `pi*cos(n*phi)` in the default
+  chain (reference the unsimplified sum
+  `-(-pi*n*cos(n*phi)/2 - sin(n*phi)/2)/n + (pi*n*cos(n*phi)/2 -
+  sin(n*phi)/2)/n`, equal value);
+- the native rules run before the reference chain, so an integrand they
+  integrate keeps the native form: `x*exp(x) + exp(x**2)` gives
+  `(x - 1)*exp(x) + sqrt(pi)*erfi(x)/2` (reference `x*exp(x) - exp(x) +
+  ...`), and a definite integral that stays unevaluated is not split into
+  the reference sum of one-sided integrals
+  (`y*Integral((x - 1)*(x + 1)*exp(x)/log(x), (x, 1, 2))`);
+- `integrate(x + 1/log(x), (x, 1, 2))` gives `li(2) + oo` (reference `oo`):
+  numeric values of special functions such as `li(2)` have no sign here,
+  where the reference decides it by evaluation;
+- an exception other than NotImplementedError inside a ported method makes
+  that stage give no result in the default chain, where the reference lets
+  some of them out of `integrate`;
+- `deltaintegrate` is not used on the terms of the default chain that hold
+  a `DiracDelta`: the native delta rules (above) stand in for it, so the
+  singular products the reference assigns a value (`DiracDelta(x)/x` gives
+  `zoo*Heaviside(x)`) stay unevaluated; `heurisch=True` keeps the reference
+  stage;
+- after the reference chain fails, the native term rules can still find an
+  antiderivative the reference does not give;
+- `final=False` is accepted and ignored, and with `manual=True` or
+  `heurisch=True` the native definite stages (rational antiderivatives,
+  gamma moments) are still tried before the antiderivative;
+- `ratint(1/(x**5 + x + 1))` and similar `RootSum` results are slow (also
+  in the reference), and `RootSum` printing can differ;
+- a derivative of total order above one is not passed through the
+  reference `factor_terms(signsimp(...))`, and a product is differentiated
+  n times by repetition instead of the general Leibniz rule of
+  `Mul._eval_derivative_n_times`: `diff(x**n, x, 2)` is
+  `n**2*x**n/x**2 - n*x**n/x**2` (reference `n*x**n*(n - 1)/x**2`), equal
+  values in another form;
+- `heurisch_wrapper(sqrt(x**2/((y - x)*(y + x))), x)` gives the reference
+  antiderivative with the radicand written `x**2/(-x**2 + y**2)` (reference
+  `-x**2/(x**2 - y**2)`).
+The ports depend on `cancel`: float coefficients outside the double range
+(`1e-300*u`) no longer underflow to zero or overflow to `oo`, but the forms of
+float `cancel` results still differ from the reference RR domain
+(`1/(0.2*x + 0.4)` is printed with scaled integer coefficients).
 
 `meijerint_indefinite` is ported (`_meijerint_indefinite_1`, the splitting
 points, the hyperbolic rewrite and the choice of the simplest result) and
@@ -1506,10 +1695,10 @@ for constructing every stabilizer chain.
   heurisch and Meijer G methods available in SymPy. Meijer G definite
   integration, its convergence conditions and `hyperexpand` are ported (see
   above), and so are the Meijer G indefinite integrals and the Piecewise
-  integration of `Integral.doit`. The `risch`, `heurisch` and `manual`
-  method selections and `NonElementaryIntegral` results (which need a Risch
-  proof) remain open: those options still raise NotImplementedError, and
-  results the reference only reaches through heurisch can differ in form.
+  integration of `Integral.doit`, and so are the `risch`, `heurisch` and
+  `manual` methods with their options and the `NonElementaryIntegral`
+  results of a Risch proof (see the integration methods paragraph for the
+  remaining gaps).
   The integration corpus (`tools/integration_corpus.py`) now reports 1033
   identical and 89 equivalent results, against 988 and 93 before the
   Piecewise and Meijer G indefinite ports; 54 cases stay unevaluated where

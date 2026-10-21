@@ -26,7 +26,32 @@ def test_default_division_with_inferred_algebraic_coefficients_is_exact(formula,
     assert all(sp.simplify(a.as_expr().to_sympy()-b.as_expr())==0 for a,b in zip(actual,expected))
 
 
-def test_unavailable_transcendental_coefficient_field_is_not_faked():
-    x=sx.Symbol('x')
-    with pytest.raises(ValueError,match='non-polynomial quotient'):
-        sx.Poly(x+1,x).div(sx.Poly((sx.pi+1)*x+1,x))
+@pytest.mark.parametrize('coefficient',['pi','log(a)','sin(y)'])
+@pytest.mark.parametrize('method',['div','quo','rem'])
+def test_transcendental_coefficients_divide_in_the_fraction_field(coefficient,method):
+    # As the reference: over ZZ[c] a non-polynomial quotient is computed in
+    # ZZ(c) and each result is retracted to the ring when possible.
+    def run(lib):
+        x=lib.Symbol('x')
+        c=lib.sympify(coefficient)
+        result=getattr(lib.Poly(x+1,x),method)(lib.Poly((c+1)*x+1,x))
+        values=result if isinstance(result,tuple) else (result,)
+        return [(str(v),str(v.domain)) for v in values]
+    assert run(sx)==run(sp)
+
+
+@pytest.mark.parametrize('formula,gens',[
+    ('a**s*y + a**s','y'), ('exp(s)*y + exp(s)','y'), ('2*a**s*y + 4*a**s','y'),
+    ('a**s*y**2 + a**(2*s)','y'), ('-a**s*y - a**s','y'), ('-2*a**s*y + 4*a**(2*s)','y'),
+    ('(a**s + 1)*y + a**(2*s) - 1','y'), ('3*y*a**s/2 + a**s','y'),
+    ('a**s*exp(b)*y + a**s*exp(b)','y'), ('(a**s*y*z + a**s*y)/3 + 2*a**(2*s)*z/5','y z'),
+    ('3*a**s*y/2 + a**(2*s)*y/3 + a**s','y'), ('(a**(2*s) + 2*a**s + 1)*y + a**(2*s) - 1','y'),
+])
+def test_primitive_over_a_transcendental_coefficient_ring(formula,gens):
+    # As the reference dmp_ground_primitive: the content is the gcd in the
+    # coefficient ring ZZ[a**s] (or QQ[a**s]) of the coefficients.
+    def run(lib):
+        p=lib.Poly(lib.sympify(formula),*lib.symbols(gens,seq=True))
+        c,q=p.primitive()
+        return str(p.domain),str(c),str(q),str(p.content())
+    assert run(sx)==run(sp)

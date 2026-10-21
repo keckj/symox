@@ -84,21 +84,22 @@ pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr
                 "ambiguous parameter assumptions for {name}"
             )));
         }
-        let value = candidates
-            .first()
-            .map(|s| (*s).clone())
-            .unwrap_or_else(|| Expr::symbol(name));
-        if !matches!(value.kind(), Kind::Sym(_)) || parameters.contains(&value) {
-            return Err(PolyError::Failed(
-                "fraction field parameters must be distinct symbols".into(),
-            ));
-        }
-        // A parsed name must itself be a symbol, not a hidden expression.
         let parsed = crate::parser::parse_str(name)
             .map_err(|_| PolyError::Failed("invalid fraction field parameter".into()))?;
-        if !matches!(parsed.kind(), Kind::Sym(_)) {
+        // As the reference sympifies each name, `ZZ[pi]`, `ZZ[2**pi]` or
+        // `QQ(log(x))` name generator expressions; a plain name keeps the
+        // assumptions of a matching symbol of the expression.
+        let value = if matches!(parsed.kind(), Kind::Sym(_)) {
+            candidates
+                .first()
+                .map(|s| (*s).clone())
+                .unwrap_or_else(|| Expr::symbol(name))
+        } else {
+            parsed
+        };
+        if value.as_number().is_some() || parameters.contains(&value) {
             return Err(PolyError::Failed(
-                "fraction field parameters must be symbols".into(),
+                "fraction field parameters must be distinct nonnumeric expressions".into(),
             ));
         }
         parameters.push(value);
@@ -140,17 +141,22 @@ pub fn coefficient_expr(c: &RF, parameters: &[Expr]) -> Expr {
 pub fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
     let together = crate::simplify::together(value);
     let (num, den) = crate::simplify::numer_denom(&together);
-    let mut converted = from_exprs_gens(&[num, den], parameters)?;
-    if !converted.float && converted.gens.len() != parameters.len() {
-        // A generator such as `exp(a)` reads `exp(-a)` as `1/exp(a)` only
-        // through the reference `as_numer_denom`.
-        let (num, den) = super::api::as_numer_denom(value);
-        if let Ok(retry) = from_exprs_gens(&[num, den], parameters) {
-            if !retry.float && retry.gens.len() == parameters.len() {
-                converted = retry;
+    let first = from_exprs_gens(&[num, den], parameters);
+    let complete = |c: &super::convert::Converted| !c.float && c.gens.len() == parameters.len();
+    let converted = match first {
+        Ok(c) if c.float || complete(&c) => c,
+        first => {
+            // A generator such as `exp(a)` reads `exp(-a)` as `1/exp(a)`
+            // only through the reference `as_numer_denom`; without it
+            // `exp(-s*log(a))` is an unknown factor containing the
+            // parameter `log(a)`.
+            let (num, den) = super::api::as_numer_denom(value);
+            match from_exprs_gens(&[num, den], parameters) {
+                Ok(retry) if complete(&retry) => retry,
+                _ => first?,
             }
         }
-    }
+    };
     if converted.float || converted.gens.len() != parameters.len() {
         return Err(PolyError::Unsupported(
             "coefficients must be exact rational functions of the declared parameters".into(),
@@ -1006,10 +1012,17 @@ impl Polynomial {
                 for parameter in o.base.domain_gens() {
                     if !parameters.contains(parameter) {parameters.push(parameter.clone());}
                 }
-                if parameters.is_empty() || parameters.iter().any(|p|!crate::traverse::free_symbols(p).is_empty()) {
+                if parameters.is_empty() {
                     return Err(error);
                 }
-                let Ok(field)=super::algebraic::NumberField::from_generators(&parameters) else {return Err(error)};
+                let number_field=if parameters.iter().any(|p|!crate::traverse::free_symbols(p).is_empty()) {None} else {super::algebraic::NumberField::from_generators(&parameters).ok()};
+                let Some(field)=number_field else {
+                    // `Poly.div(auto=True)` over `ZZ[log(a)]`: the division
+                    // runs over the fraction field `ZZ(log(a))`, and both
+                    // results return to the ring when they belong to it.
+                    let Some((a,b))=self.legacy_ring_pair(o,&parameters)? else {return Err(error)};
+                    return a.div_with_options(&b,auto);
+                };
                 let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
                 let a=super::algebraic::AlgebraicPoly::from_expr(&self.as_expr(),&gens,field.clone())?;
                 let b=super::algebraic::AlgebraicPoly::from_expr(&o.as_expr(),&gens,field)?;
@@ -1043,6 +1056,23 @@ impl Polynomial {
     pub fn pexquo(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.pexquo(&b)?.into());}let(q,r)=self.pdiv(o)?;if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("pseudo-division has a nonzero remainder".into()));}Ok(q)}
     pub fn rem(&self,o:&Self)->PResult<Self>{self.rem_with_options(o,true)}
     pub fn quo(&self,o:&Self)->PResult<Self>{self.quo_with_options(o,true)}
+    /// `self` and `o`, two polynomials of the legacy view over coefficient
+    /// generators such as `ZZ[log(a)]`, as polynomials over the typed ring
+    /// of `parameters`.
+    fn legacy_ring_pair(&self,o:&Self,parameters:&[Expr])->PResult<Option<(Self,Self)>>{
+        let legacy=|p:&Self|p.field.is_none()&&p.algebraic.is_none()&&p.expression.is_none()&&p.modulus.is_none()&&p.base.domain!=super::polyobj::Domain::RR;
+        if !legacy(self)||!legacy(o){return Ok(None);}
+        let integral=self.base.domain.max(o.base.domain)==super::polyobj::Domain::ZZ;
+        let descriptor=super::domains::ExactDomain::functions(integral,true,parameters.to_vec(),"lex")?;
+        let display=descriptor.to_string();
+        let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
+        let convert=|p:&Self|->PResult<Self>{
+            let mut f=FractionPoly::from_expr(&p.as_expr(),&gens,parameters,&display)?;
+            f.coefficient_domain=descriptor.clone();
+            Ok(f.into())
+        };
+        Ok(Some((convert(self)?,convert(o)?)))
+    }
     fn retract_division_component(&self,o:&Self,mut result:Self)->Self{
         if result.expression.is_some(){return result;}
         if let (Some(p),Ok(Some((a,_))))=(result.algebraic.as_ref(),self.checked_algebraic_pair(o)){
@@ -1051,6 +1081,16 @@ impl Polynomial {
         }
         if let Some((a,_))=self.pair(o){
             if a.display.ends_with(']') {if let Some(p)=result.field.as_mut(){if p.rep.coeffs().iter().all(|c|coefficient_in_ring(c,a.display.starts_with("ZZ"))){p.display=a.display;p.coefficient_domain=a.coefficient_domain;}}}
+        }else if let Some(p)=result.field.as_mut(){
+            // legacy `ZZ[log(a)]` operands divided over `ZZ(log(a))`
+            if let super::domains::ExactDomain::Functions{integral,ring:false,parameters,order}=&p.coefficient_domain {
+                if p.rep.coeffs().iter().all(|c|coefficient_in_ring(c,*integral)) {
+                    if let Ok(ring)=super::domains::ExactDomain::functions(*integral,true,parameters.clone(),order) {
+                        p.display=ring.to_string();
+                        p.coefficient_domain=ring;
+                    }
+                }
+            }
         }else if self.algebraic.is_none()&&o.algebraic.is_none()&&self.modulus.is_none()&&o.modulus.is_none()&&self.domain.max(o.domain)==super::polyobj::Domain::ZZ&&result.base.rep.is_integral(){result.base.domain=super::polyobj::Domain::ZZ;}
         result
     }

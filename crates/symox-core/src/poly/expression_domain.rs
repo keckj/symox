@@ -2033,7 +2033,7 @@ pub fn dict_from_expr(e: &Expr, gens: &[Expr]) -> PResult<Vec<(Vec<u32>, Expr)>>
             if gens.iter().any(|g| crate::traverse::has_structural(f, g)) {
                 return Err(PolyError::Generator(format!(
                     "{} contains an element of the set of generators.",
-                    crate::printer::to_str(f)
+                    crate::printer::to_str(super::convert::generator_clash(&t.factors, gens).unwrap_or(f))
                 )));
             }
             coeff.push(f.clone());

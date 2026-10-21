@@ -337,7 +337,25 @@ class Integral(metaclass=_CalculusMeta):
     def __new__(cls, function, *limits, **kwargs):
         if kwargs:
             raise NotImplementedError("Integral constructor options are not implemented")
+        # a sequence limit is flattened, as the reference `_process_limits`
+        # does: `Integral(f, ((x,),))` is `Integral(f, (x,))`
+        limits = tuple(_flatten_limit(limit) for limit in limits)
         return _core._calculus("Integral", function, limits)
+
+
+def _flatten_limit(limit):
+    if not isinstance(limit, (tuple, list)) or not any(
+            isinstance(item, (tuple, list)) or getattr(item, 'is_Tuple', False) for item in limit):
+        return limit
+    flat = []
+    def walk(items):
+        for item in items:
+            if isinstance(item, (tuple, list)) or getattr(item, 'is_Tuple', False):
+                walk(tuple(item))
+            else:
+                flat.append(item)
+    walk(limit)
+    return tuple(flat)
 
 
 class Sum(metaclass=_CalculusMeta):

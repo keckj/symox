@@ -1550,6 +1550,15 @@ impl PyPoly {
     fn __truediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(w(symox::ops::div(&self.p.as_expr(), &to_expr(o)?)))
     }
+    fn __rtruediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        Ok(w(symox::ops::div(&to_expr(o)?, &self.p.as_expr())))
+    }
+    /// Above the 10.0 of `Expr`, so that `expr op poly` dispatches to the
+    /// reflected method of the polynomial, as in the reference.
+    #[classattr]
+    fn _op_priority() -> f64 {
+        10.001
+    }
     fn __floordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: (self.p.quo(&q).map_err(err)?).into() })
@@ -1772,6 +1781,10 @@ impl PyPoly {
             let(c,p)=if f.coefficient_domain.is_field(){f.reference_primitive()}else{f.primitive()};let c=symox::poly::fraction::coefficient_expr(&c,&f.parameters);
             return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),poly_obj(py,p)?.into_bound(py)]);
         }
+        if self.p.base.has_domain_gens() && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ) {
+            let (c, p) = self.p.base.ground_primitive();
+            return PyTuple::new(py, [w(c.as_expr()).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()]);
+        }
         let (c, p) = self.p.primitive();
         PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()])
     }
@@ -1781,6 +1794,9 @@ impl PyPoly {
         if let Some(f)=self.ex(){return Ok(w(f.content()));}
         if let Some(a)=&self.p.algebraic{if a.gaussian.is_some(){return Ok(w(a.primitive().0.as_expr()));}return Ok(w(if self.p.is_zero(){Expr::zero()}else{Expr::one()}));}
         if let Some(f)=&self.p.field {return Ok(w(symox::poly::fraction::coefficient_expr(&if f.coefficient_domain.is_field(){f.reference_content()}else{f.primitive().0},&f.parameters)));}
+        if self.p.base.has_domain_gens() && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ) {
+            return Ok(w(self.p.base.ground_primitive().0.as_expr()));
+        }
         Ok(w(rat_expr(&self.p.primitive().0)))
     }
 
@@ -2915,8 +2931,13 @@ fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multip
         rs.retain(|(r, _)| r.is_zero()||match flt {
             "Z" => r.is_integer_number(),
             "Q" => r.is_rational_number(),
-            "R" => r.mask() == 0 && symox::evalf::eval_c64(r).is_some_and(|z| z.im == 0.0) && !symox::traverse::has(r, &Expr::i()),
-            "I" => r.mask() == 0 && symox::evalf::eval_c64(r).is_some_and(|z| z.re.abs() < 1e-300 && z.im != 0.0),
+            // the reference queries: `all(a.is_real for a in r.as_numer_denom())`
+            // and `r.is_imaginary`, which hold for symbolic roots too
+            "R" => {
+                let (n, d) = symox::simptools::as_numer_denom(r);
+                symox::assumptions::is_real(&n) == Some(true) && symox::assumptions::is_real(&d) == Some(true)
+            },
+            "I" => symox::assumptions::fact(r, "imaginary") == Some(true),
             _ => true,
         });
     }
