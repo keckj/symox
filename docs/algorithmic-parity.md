@@ -818,6 +818,52 @@ for constructing every stabilizer chain.
   result stays unevaluated instead of becoming `oo`/`nan`; the bare Rust
   library without the Python package keeps double precision kernels for these
   families; `marcumq` stays double precision (SymPy has no kernel).
+- Elementary functions (exponential, logarithm, trigonometric, hyperbolic
+  and their inverses) evaluate each component of a value at the requested
+  relative accuracy for an exact argument, including near their zeros, on
+  and near branch cuts and under cancellation (`log1p` forms, products such
+  as `(1 - x)*(1 + x)`, the Hull, Fairgrieve and Tang complex `asin` and
+  `acos`). Branch cut values follow mpmath, through which SymPy evaluates
+  them, and the argument is evaluated with as many bits as the condition of
+  the function demands. A Float argument is evaluated only after the
+  function's exact rules return nothing, as in `Function.__new__`. The
+  remaining exponent limit is the bounded `i128` counter above. Analytic
+  continuation is that of mpmath for numerical values and of SymPy's
+  `exp_polar`/`unpolarify` rules for symbolic ones; there is no audit of
+  every multivalued function's continuation outside these paths.
+- Ordinary differential equations, ODE systems and first-order PDEs run
+  SymPy 1.14's own methods (`ode.py`, `single.py`, `riccati.py`,
+  `nonhomogeneous.py`, `hypergeometric.py`, `systems.py`, `pde.py`) on the
+  native algorithms, with every hint, option, `ics` handling and the
+  Airy/Bessel families; see
+  [the differential equation guide](differential-equations.md). The native
+  solvers run only when every reference method raises `NotImplementedError`,
+  and their bounds (64 series coefficients, 64 functions in a system, eight
+  in a matrix exponential) apply only to that fallback. On 315 equations
+  drawn from SymPy's ODE tests, classification output matches for 295, the
+  test's hint for 237 and the default solution for 245 (string comparison).
+  The differences come from equivalent candidates chosen by `simplify`,
+  `integrate` and `factor`, from Gaussian polynomial domains (`ZZ_I`/`QQ_I`
+  inference) and from integrals that remain unevaluated. The native
+  `simplify` is a candidate search followed by SymPy's
+  `factor_terms(sign=False)` and `hollow_mul` steps, not SymPy's whole
+  sequence of rewrites, so its form can differ. SymPy applies
+  `factor_terms` unconditionally; the native step keeps it only when it is
+  not larger and keeps a provably real Cardano root provably real. The
+  `factorable` hint depends on that form (two corpus classifications).
+  SymPy's `cancel(expand_log(expr, deep=True))` step is used only to
+  recognize zero (`log(100)` against `2*log(10)`), not to choose a form.
+  Orders above `10**6` raise `NotImplementedError` in `classify_ode`
+  (SymPy does not return for them). It is also much slower
+  than SymPy on the large expressions of the Lie group heuristic
+  `abaco2_unique_general`, so a default `dsolve` that reaches it (SymPy
+  raises after about 80 s) can take far longer. Deliberate
+  extensions are the logarithmic Frobenius basis for repeated or resonant
+  indicial roots, `ics` that name the generated constants, exact
+  characteristic multiplicities in the fallback, the native PDE
+  characteristic fallback, and `pdsolve` names that do not capture the
+  equation's `xi`, `eta` or `F`. Nonlinear first-order PDEs, Charpit's
+  method and second-order PDEs are not implemented, as in SymPy.
 - Complex algebraic roots do not yet have certified complex isolating boxes;
   complex root ordering and numerical refinement retain the limitations
   described in [the root guide](algebraic-roots-quaternions.md).
