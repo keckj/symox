@@ -12,7 +12,7 @@ use std::fmt;
 
 use num_bigint::BigInt;
 use num_traits::One;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use super::int::{Int, Rat};
 use super::mpoly::MPoly;
@@ -296,7 +296,7 @@ pub struct Converted {
     pub float: bool,
 }
 
-fn factor_needs_expand(b: &Expr, x: &Expr) -> bool {
+fn factor_needs_expand(b: &Expr, x: &Expr, seen: &mut FxHashSet<usize>) -> bool {
     if b.is_add() {
         return true;
     }
@@ -304,20 +304,39 @@ fn factor_needs_expand(b: &Expr, x: &Expr) -> bool {
         return true;
     }
     match b.kind() {
-        Kind::Func(Func::Exp, a) => a[0].is_add(),
         Kind::Mul(..) => true,
-        _ => false,
+        _ => function_needs_expand(b, seen) || needs_expand_in(x, seen),
+    }
+}
+
+/// The reference expands deeply before building a polynomial: the
+/// arguments of a function are expanded, and `exp` of a sum splits, so
+/// `exp(x*(x + 1))` gives the generators `exp(x)` and `exp(x**2)`. `seen`
+/// holds the function nodes already found not to need it (shared
+/// subexpressions are visited once).
+fn function_needs_expand(e: &Expr, seen: &mut FxHashSet<usize>) -> bool {
+    let Kind::Func(head, args) = e.kind() else { return false };
+    if !seen.insert(e.dag_id()) {
+        return false;
+    }
+    match head {
+        Func::Exp => args[0].is_add() || needs_expand_in(&args[0], seen),
+        _ => args.iter().any(|a| needs_expand_in(a, seen)),
     }
 }
 
 /// Is `expand(e)` possibly different from `e` (as far as the polynomial
 /// structure is concerned)?
 pub fn needs_expand(e: &Expr) -> bool {
-    let term = |t: &Expr| -> bool {
+    needs_expand_in(e, &mut FxHashSet::default())
+}
+
+fn needs_expand_in(e: &Expr, seen: &mut FxHashSet<usize>) -> bool {
+    let mut term = |t: &Expr| -> bool {
         match t.kind() {
-            Kind::Mul(_, facs) => facs.iter().any(|(b, x)| factor_needs_expand(b, x)),
-            Kind::Pow(b, x) => factor_needs_expand(b, x),
-            Kind::Func(Func::Exp, a) => a[0].is_add(),
+            Kind::Mul(_, facs) => facs.iter().any(|(b, x)| factor_needs_expand(b, x, seen)),
+            Kind::Pow(b, x) => factor_needs_expand(b, x, seen),
+            Kind::Func(..) => function_needs_expand(t, seen),
             _ => false,
         }
     };
@@ -333,6 +352,16 @@ pub(crate) fn expand_if_needed(e: &Expr) -> Expr {
     } else {
         e.clone()
     }
+}
+
+/// The factor of a term that the reference names when it contains a
+/// generator without being a power of one: the first such factor in the
+/// order of the arguments of the term.
+pub(crate) fn generator_clash<'a>(factors: &'a [Expr], gens: &[Expr]) -> Option<&'a Expr> {
+    factors
+        .iter()
+        .filter(|f| !gens.contains(&decompose_factor(f).0) && gens.iter().any(|g| crate::traverse::has_structural(f, g)))
+        .min_by(|a, b| crate::traverse::args_cmp(a, b))
 }
 
 /// Convert expressions with automatic generator detection.
@@ -426,7 +455,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
                 if gens.iter().any(|g| crate::traverse::has_structural(f, g)) {
                     return Err(PolyError::Generator(format!(
                         "{} contains an element of the set of generators.",
-                        to_str(f)
+                        to_str(generator_clash(&t.factors, gens).unwrap_or(f))
                     )));
                 }
                 let id = *dom_index.entry(b.clone()).or_insert_with(|| {
