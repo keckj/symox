@@ -97,7 +97,9 @@ def checksol(f, symbol, sol=None, **flags):
         if value.is_Rational:return False
         if numerical and value.is_number:
             try:
-                numeric=value.evalf(30)
+                # The reference evaluates val.n(18).n(12, chop=True): the
+                # chop resolves an exactly cancelling component.
+                numeric=value.n(18).n(12,chop=True)
                 if _illegal(numeric):return False
                 return bool(Abs(numeric)<S('1e-9'))
             except (TypeError,ValueError,NotImplementedError):

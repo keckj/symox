@@ -159,6 +159,62 @@ fn exp(q: &Q, bits: u32) -> Option<Interval> {
     None
 }
 
+/// Outward enclosure of atanh(t) for a rational |t| <= 1/3 from the series
+/// sum t^(2n+1)/(2n+1); after the last term the remainder is at most
+/// |t|^(2n+1)/((2n+1)(1 - t^2)). Partial sums are rounded outward.
+fn atanh_small(t: &Q, bits: u32) -> Option<Interval> {
+    let working = bits + 32;
+    let square = t * t;
+    let complement = Q::one() - &square;
+    let threshold = Q::new(BigInt::one(), BigInt::one() << (bits + 8));
+    let mut power = Interval::point(t.clone());
+    let mut sum = Interval::point(Q::zero());
+    for n in 0u32..1_000_000 {
+        let divisor = Interval::point(Q::new(BigInt::one(), BigInt::from(2 * n + 1)));
+        sum = sum.add(&power.mul(&divisor)).round(working);
+        power = power.mul(&Interval::point(square.clone())).round(working);
+        let magnitude = power.lo.abs().max(power.hi.abs());
+        let tail = magnitude / (Q::from_integer(BigInt::from(2 * n + 3)) * &complement);
+        if tail < threshold {
+            return Some(Interval { lo: &sum.lo - &tail, hi: &sum.hi + &tail }.round(bits));
+        }
+    }
+    None
+}
+
+/// Outward enclosure of log(q) for a positive rational, as k*log(2) plus
+/// 2*atanh((m - 1)/(m + 1)) with q = 2^k*m and m in [2/3, 4/3].
+fn log_point(q: &Q, bits: u32) -> Option<Interval> {
+    if *q <= Q::zero() {
+        return None;
+    }
+    let working = bits + 16;
+    let shift = q.numer().bits() as i64 - q.denom().bits() as i64;
+    let mut k = shift;
+    let mut m = if shift >= 0 {
+        q / Q::from_integer(BigInt::one() << shift as usize)
+    } else {
+        q * Q::from_integer(BigInt::one() << shift.unsigned_abs() as usize)
+    };
+    let (upper, lower) = (Q::new(4.into(), 3.into()), Q::new(2.into(), 3.into()));
+    while m > upper {
+        m /= Q::from_integer(2.into());
+        k += 1;
+    }
+    while m < lower {
+        m *= Q::from_integer(2.into());
+        k -= 1;
+    }
+    let two = Interval::point(Q::from_integer(2.into()));
+    let t = (&m - Q::one()) / (&m + Q::one());
+    let mut result = atanh_small(&t, working)?.mul(&two);
+    if k != 0 {
+        let log2 = atanh_small(&Q::new(BigInt::one(), 3.into()), working + 64)?.mul(&two);
+        result = result.add(&log2.mul(&Interval::point(Q::from_integer(k.into()))));
+    }
+    Some(result.round(bits))
+}
+
 /// Binary splitting of the exact arctan hypergeometric sum. Return P,Q,T
 /// with product of term ratios P/Q and partial sum T/Q. Integer products
 /// are balanced instead of performing a large division for every term.
@@ -252,6 +308,16 @@ fn enclosure(e: &Expr, bits: u32, depth: u32) -> Option<Interval> {
             Interval {
                 lo: exp(&argument.lo, bits)?.lo,
                 hi: exp(&argument.hi, bits)?.hi,
+            }
+        }
+        Kind::Func(Func::Log, args) if args.len() == 1 => {
+            let argument = recurse(&args[0])?;
+            if argument.lo <= Q::zero() {
+                return None;
+            }
+            Interval {
+                lo: log_point(&argument.lo, bits)?.lo,
+                hi: log_point(&argument.hi, bits)?.hi,
             }
         }
         _ => return None,
@@ -448,6 +514,21 @@ mod enclosure_tests {
                 assert!(result.hi - result.lo <= Q::new(2.into(), BigInt::one() << bits));
             }
         }
+    }
+
+    #[test]
+    fn log_enclosure_contains_the_value_and_decides_the_lambert_domain() {
+        for (q, value) in [(Q::from_integer(4.into()), 4f64.ln()), (Q::new(1.into(), 27.into()), (1.0f64 / 27.0).ln()),
+                           (Q::new(5.into(), 7.into()), (5.0f64 / 7.0).ln()), (Q::from_integer(1000.into()), 1000f64.ln())] {
+            let enclosure = log_point(&q, 80).unwrap();
+            assert!(enclosure.lo.to_f64().unwrap() <= value + 1e-15 && enclosure.hi.to_f64().unwrap() >= value - 1e-15);
+            assert!((&enclosure.hi - &enclosure.lo) < Q::new(BigInt::one(), BigInt::one() << 70));
+        }
+        let minus_log4 = crate::ops::neg(&crate::functions::log(&Expr::int(4)));
+        assert_eq!(real(&minus_log4, 0), Some(false));
+        assert_eq!(real(&minus_log4, -1), Some(false));
+        let quarter_log2 = crate::ops::div(&crate::functions::log(&Expr::int(2)), &Expr::int(-4));
+        assert_eq!(real(&quarter_log2, -1), Some(true));
     }
 
     #[test]

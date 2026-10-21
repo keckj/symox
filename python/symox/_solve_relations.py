@@ -26,6 +26,40 @@ def install(namespace):
         if relational:
             targets=symbols[0] if len(symbols)==1 else symbols
             return reduce_inequalities(prepared,targets)
+        # SymPy's solve rewrites the hyperbolic functions of the unknowns in
+        # terms of exp before solving (sinh(x) - 1 has two solutions).
+        unknowns=[s for group in symbols
+                  for s in (group if isinstance(group,sequences) else (group,))]
+        if unknowns:
+            from . import exp
+            from .functions.elementary.hyperbolic import HyperbolicFunction
+            hyperbolic=lambda w:isinstance(w,HyperbolicFunction) and w.has_free(*unknowns)
+            if any(hasattr(value,'replace') and value.has(HyperbolicFunction)
+                   and any(hyperbolic(w) for w in value.atoms(HyperbolicFunction))
+                   for value in prepared):
+                rewritten=[value.replace(hyperbolic,lambda w:w.rewrite(exp))
+                           if hasattr(value,'replace') else value for value in prepared]
+                target=rewritten if isinstance(f,sequences) else rewritten[0]
+                return solve(target,*symbols,**flags)
+        # SymPy's solve rationalizes the Floats of the equations unless
+        # rational=False, and with rational=None (the default) it returns
+        # the solutions through nfloat(..., exponent=False).
+        rational=flags.get('rational',None)
+        if rational is not False:
+            from . import Float,nsimplify
+            converted=[]
+            floats=False
+            for value in prepared:
+                if hasattr(value,'has') and value.has(Float):
+                    floats=True
+                    value=nsimplify(value,rational=True)
+                converted.append(value)
+            if floats:
+                inner={k:v for k,v in flags.items() if k!='rational'}
+                target=converted if isinstance(f,sequences) else converted[0]
+                result=solve(target,*symbols,**inner)
+                return _restore_floats(result) if rational is None else result
+            flags={k:v for k,v in flags.items() if k!='rational'}
         if not isinstance(f,sequences) and len(symbols)==1:
             linear=_linear_solution(prepared[0],symbols[0],flags)
             if linear is not None:
@@ -63,6 +97,32 @@ def install(namespace):
         if (name.startswith('symox.') and name!='symox._core' and module is not None
                 and module.__dict__.get('solve') is native):
             module.solve=solve
+
+
+def _restore_floats(result):
+    """SymPy's nfloat(solution, exponent=False) after a rationalized solve,
+    then the removal of the duplicates it reveals and the canonical order."""
+    from . import default_sort_key,nfloat
+    def convert(item):
+        if isinstance(item,dict):
+            return {k:nfloat(v,exponent=False) for k,v in item.items()}
+        if isinstance(item,tuple):
+            return tuple(nfloat(v,exponent=False) for v in item)
+        return nfloat(item,exponent=False)
+    if isinstance(result,tuple) and len(result)==2 and isinstance(result[1],set):
+        return result[0],{convert(row) for row in result[1]}
+    if isinstance(result,dict):
+        return convert(result)
+    if not isinstance(result,list):
+        return result
+    found=[]
+    for item in result:
+        item=convert(item)
+        if item not in found:
+            found.append(item)
+    if all(isinstance(item,dict) for item in found) or all(hasattr(item,'free_symbols') for item in found):
+        found.sort(key=default_sort_key)
+    return found
 
 
 # force only affects _tsolve and rational only Float arguments, which the

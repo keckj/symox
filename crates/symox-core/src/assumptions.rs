@@ -672,6 +672,14 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             if s != Signs::POS {
                 return None;
             }
+            // log._eval_is_extended_positive and _nonnegative: the sign of a
+            // positive argument minus one, decided without numerical
+            // refinement (log(2) is positive, log(1/3) negative).
+            if let Some(shifted) = real_signs(&crate::ops::add2(a, &Expr::int(-1))) {
+                if shifted != Signs::ANY {
+                    return Some(shifted);
+                }
+            }
             if crate::functions::is_numeric_value(a) {
                 return numeric_refine(&crate::functions::log(a), Signs::ANY);
             }

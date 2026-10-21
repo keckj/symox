@@ -1021,7 +1021,7 @@ pub fn expand_mul_deep(e: &Expr, deep: bool) -> Expr {
 // ----------------------------------------------------------------------
 
 /// Best rational approximation of `x` with denominator <= `max_den`.
-fn rational_approx(x: f64, max_den: i64, tol: f64) -> Option<(i64, i64)> {
+pub(crate) fn rational_approx(x: f64, max_den: i64, tol: f64) -> Option<(i64, i64)> {
     let (mut h0, mut h1, mut k0, mut k1) = (0i64, 1i64, 1i64, 0i64);
     let mut v = x;
     for _ in 0..64 {
