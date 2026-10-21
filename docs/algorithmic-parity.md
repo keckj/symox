@@ -708,32 +708,68 @@ separately. Two form differences remain: the native solver does not use the
 in form from the reference, already on main), and it solves a product as a
 whole where the reference solves and simplifies each factor (equal values).
 
-Laplace, Fourier, sine, cosine, Hankel and Mellin transforms fall back to the
-reference integration backends (`_laplace_transform`, `_fourier_transform`,
-`_sine_cosine_transform`, `_hankel_transform`, `_mellin_transform`) when no
-table rule applies. They read the half plane, the strip and the auxiliary
+Laplace and Mellin transforms fall back to the reference integration
+backends (`_laplace_transform`, `_mellin_transform`) when no table rule
+applies. The Fourier, sine and cosine transforms, the Hankel transform and
+all their inverses are computed like the reference: first through the
+integral (`_fourier_transform`, `_sine_cosine_transform`,
+`_hankel_transform`), whose first Piecewise condition is the returned
+convergence condition (`Eq(Abs(arg(w)), 0)`, `Abs(arg(a)) < pi/2`, `k > 0`,
+...). The native closed form tables are used only when the native integral
+is not computed. They read the half plane, the strip and the auxiliary
 conditions from the conditions of the Meijer G integral, and they keep the
-reference error behavior. The transform stays unevaluated when the integral
-does not converge. A Fourier transform also stays unevaluated when the
-function is not integrable on the real axis. A Mellin transform with no
-admissible strip stays unevaluated as well. Examples that now match the
-reference: `laplace_transform(cos(sqrt(t)), t, s)` (an equivalent form),
+reference error behavior: `needeval=True` raises `IntegralTransformError`,
+the Hankel transforms raise it instead of holding the result, and the
+`noconds`/`simplify` defaults and the returned tuples are those of the
+reference. The transform stays unevaluated when the integral does not
+converge. A Fourier transform also stays unevaluated when the function is not
+integrable on the real axis. A Mellin transform with no admissible strip
+stays unevaluated as well. Examples that now match the reference:
+`laplace_transform(cos(sqrt(t)), t, s)` (an equivalent form),
 `exp(-a*t**2)` with `Abs(arg(a)) <= pi/2`, `erfc(sqrt(t))`, the Fourier
 transform of `exp(-x**4)`, Hankel transforms of `exp(-a*x)/x`, and Mellin
 transforms of `exp(-x)*log(x)`, `cos(x)*exp(-x)` and `log(x)/(1+x)`. The
-`simplify=True` result step is `simplify(powdenest(e, polar=True))`, with the
-reference's `gammasimp` step for gamma functions of non-integer argument.
+results and conditions of the reference transform tests (sine and cosine
+transforms of `t**(-a)`, `exp(-a*t)`, `1/(a**2+t**2)`,
+`exp(-a*sqrt(t))*cos(a*sqrt(t))`, the Meijer G inverses, the Fourier
+transforms of Gaussians, boxes and one sided exponentials, the Hankel
+transforms of `1/r**m` and `r**nu*exp(-a*r)`) are matched;
+`tests/test_transforms_remaining_parity.py` holds the reference outputs.
+The `simplify=True` result step is `simplify(powdenest(piecewise_fold(e),
+polar=True))`. Because the native `simplify` is lighter, the steps of the
+reference `simplify` that matter for these results are applied as well: the
+`expand_log`/`logcombine` step, the `gammasimp` step for gamma functions of
+non-integer argument and the final `exptrigsimp` step (`cosh(a*t) -
+sinh(a*t)` is `exp(-a*t)`).
 
-Remaining transform differences are kept on purpose:
-- Table rules return `True` conditions with `Abs(k)` values, where the
-  reference returns `Eq(Abs(arg(k)), 0)` or `k > 0`. For the Fourier transform
-  of `1/(1+x**2)`, the reference value is wrong for `k < 0`.
-- Native returns a value with `re(a) > 0` for the Fourier transform of
-  `exp(-a*x**2)`, where the reference holds it.
-- Exponential rate conditions are `re(a) > 0`, where the reference has
-  `Abs(arg(a)) < pi/2`.
-- The Hankel transform of `1/(x**2+1)` is `besselk(0, k)`, numerically equal
-  to the reference Meijer G form.
+Remaining transform differences:
+- Equal values printed differently, because the native `simplify` is not
+  the reference one: `sine_transform(log(t)/t)` (`-log(w**2)/4 -
+  EulerGamma/2` inside the product), sums such as `exp(-t) + 1/sqrt(t)` or
+  `exp(-t) + f(t)` (not put over one denominator),
+  `cosine_transform(1/(a+t))` (the sign of the `Si` factor),
+  `fourier_transform(x*exp(-a*x)*Heaviside(x))` (`1/(a**2*(1 +
+  2*I*pi*k/a)**2)`), the indicator of `[0, 1]` (one fraction), the `2**(1 -
+  m)` factor of `hankel_transform(1/r**m, r, k, nu)` and the arrangement of
+  `laplace_transform(cos(sqrt(t)))`.
+- Piecewise results keep `Abs(w**2) < 1` where the reference `simplify`
+  rewrites it as `(w > -1) & (w < 1)` (sine and cosine transforms of
+  `besselj(0, t)` and `sin(t)/t`, the inverse Fourier transform of
+  `sin(k)/k`). The reference rewrite assumes a real `w`. The nested
+  Piecewise of the cosine transform of `sin(t)/t` is folded.
+- The native definite integral of `exp(-a*x)*sin(b*x)*Heaviside(x)` over the
+  real line is not computed. The table gives the reference value with the
+  condition `True` instead of the reference half plane condition.
+- `fourier_transform(exp(-a*x**2), x, k)` with an unrestricted `a`: the
+  reference holds it (the integral of the function is not computed), the
+  native table returns the value with the condition `re(a) > 0`.
+- `hankel_transform(1, r, k, 0)` diverges: native raises
+  `IntegralTransformError`, where the reference returns a Piecewise with
+  `nan` and `oo` pieces.
+- Laplace table rules return `True` conditions with `Abs(k)` values, where
+  the reference integral gives `Eq(Abs(arg(k)), 0)` or `k > 0`.
+- Exponential rate conditions of the Laplace rules are `re(a) > 0`, where
+  the reference has `Abs(arg(a)) < pi/2`.
 - Some Laplace rule results differ where SymPy 1.14 is wrong:
   `1/(t+1)`, `exp(-t)/(t+1)` and `Heaviside(t-1)*sqrt(t)`.
 
@@ -764,7 +800,6 @@ Not yet ported:
   transform and `meijerint_inversion`). Inputs that only it handles stay
   unevaluated, for example `a**b*(s+sqrt(s**2-a**2))**(-b)/sqrt(s**2-a**2)`;
 - the `cos` patterns of the Mellin `process_conds`;
-- `piecewise_fold` in the transform `_simplify` step;
 - the `hyperexpand` step of the reference `simplify`.
 
 Scalar containment queries now visit explicit arithmetic arguments, including
