@@ -4,6 +4,7 @@ use super::*;
 use crate::functions::{cos, cosh, erf, exp, gamma, log, sin, sinh};
 use crate::ops::{add, div, mul, mul2, neg, pow, sqrt, sub};
 use crate::traverse::map_children;
+use rustc_hash::FxHashMap;
 
 fn rebuild(e: &Expr, f: &dyn Fn(&Expr) -> Option<Expr>) -> Expr {
     // Meijer expansions retain the original function as their domain fallback.
@@ -80,6 +81,10 @@ fn expand_one(e: &Expr) -> Option<Expr> {
             }
         }
         Func::Special(s) => match s {
+            BesselJ | BesselY | BesselI | BesselK if a.len() == 2 => {
+                let v = bessel_expand(*s, &a[0], &a[1], &mut FxHashMap::default(), 0);
+                (v != *e).then_some(v)
+            }
             Binomial => {
                 let k = as_small(&a[1])?;
                 if !(0..=1000).contains(&k) {
@@ -216,19 +221,229 @@ fn spherical_closed(s: SpecialFn, n: &Expr, z: &Expr) -> Option<Expr> {
     })
 }
 
-/// Rewrite Bessel functions of half integer order in elementary terms.
+/// A `BesselBase` node: the Bessel, Hankel and spherical Bessel functions.
+pub(crate) fn is_bessel_base(e: &Expr) -> bool {
+    use SpecialFn::*;
+    matches!(e.kind(), Kind::Func(Func::Special(BesselJ | BesselY | BesselI | BesselK | Hankel1 | Hankel2 | Jn | Yn), _))
+}
+
+/// Whether `e` contains a `BesselBase` function.
+pub(crate) fn has_bessel(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |x| {
+        if !found && is_bessel_base(x) {
+            found = true;
+        }
+    });
+    found
+}
+
+/// The `(_a, _b)` constants of the Bessel recurrences.
+fn bessel_ab(s: SpecialFn) -> (i64, i64) {
+    match s {
+        SpecialFn::BesselI => (-1, 1),
+        SpecialFn::BesselK => (1, -1),
+        _ => (1, 1),
+    }
+}
+
+/// `BesselBase._eval_expand_func`: the recurrence down to the orders of
+/// `(-1, 1]` (up from below `-1`), memoised by order.
+fn bessel_expand(s: SpecialFn, nu: &Expr, z: &Expr, memo: &mut FxHashMap<Expr, Expr>, depth: usize) -> Expr {
+    if let Some(v) = memo.get(nu) {
+        return v.clone();
+    }
+    let this = super::apply(s, vec![nu.clone(), z.clone()]);
+    if depth > 1000 || crate::assumptions::is_real(nu) != Some(true) {
+        return this;
+    }
+    let (a, b) = bessel_ab(s);
+    let (a, b) = (Expr::int(a), Expr::int(b));
+    let one = Expr::one();
+    let sub_expand = |k: Expr, memo: &mut FxHashMap<Expr, Expr>| {
+        let f = super::apply(s, vec![k.clone(), z.clone()]);
+        // the reference expands the evaluated node, which may no longer be
+        // this function of `z`
+        match f.kind() {
+            Kind::Func(Func::Special(h), args) if *h == s && args[1] == *z => bessel_expand(s, &args[0], z, memo, depth + 1),
+            _ => f,
+        }
+    };
+    let r = if crate::assumptions::is_positive(&sub(nu, &one)) == Some(true) {
+        let m2 = sub_expand(sub(nu, &Expr::int(2)), memo);
+        let m1 = sub_expand(sub(nu, &one), memo);
+        add(&[
+            mul(&[neg(&a), b.clone(), m2]),
+            div(&mul(&[Expr::int(2), a.clone(), sub(nu, &one), m1]), z),
+        ])
+    } else if crate::assumptions::is_negative(&add(&[nu.clone(), one.clone()])) == Some(true) {
+        let p1 = sub_expand(add(&[nu.clone(), one.clone()]), memo);
+        let p2 = sub_expand(add(&[nu.clone(), Expr::int(2)]), memo);
+        sub(&div(&mul(&[Expr::int(2), b.clone(), add(&[nu.clone(), one.clone()]), p1]), z), &mul(&[a, b, p2]))
+    } else {
+        this
+    };
+    memo.insert(nu.clone(), r.clone());
+    r
+}
+
+/// `Mul.make_args(z)` meets `factors`.
+fn has_factor(z: &Expr, factors: &[Expr]) -> bool {
+    crate::simptools::mul_args(z).iter().any(|f| factors.contains(f))
+}
+
+fn bessel_parts(e: &Expr, heads: &[SpecialFn]) -> Option<(SpecialFn, Expr, Expr)> {
+    match e.kind() {
+        Kind::Func(Func::Special(s), a) if heads.contains(s) && a.len() == 2 => Some((*s, a[0].clone(), a[1].clone())),
+        _ => None,
+    }
+}
+
+fn ipi(c: Expr) -> Expr {
+    mul(&[c, Expr::i(), Expr::pi()])
+}
+
+fn exp_polar(c: Expr) -> Expr {
+    crate::functions::func(Func::ExpPolar, vec![ipi(c)])
+}
+
+/// `_bessel_simp_recursion` for one head: `f(a)` is replaced by
+/// `2*(a + 1)/x*f(a + 1) - f(a + 2)` while both shifted terms occur.
+fn bessel_recursion(head: SpecialFn, mut expr: Expr) -> Expr {
+    for _ in 0..1000 {
+        let mut found: Vec<Expr> = Vec::new();
+        crate::traverse::preorder(&expr, &mut |x| {
+            if bessel_parts(x, &[head]).is_some() && !found.contains(x) {
+                found.push(x.clone());
+            }
+        });
+        // sorted by `re(order)`; an undecidable comparison ends the pass
+        let keys: Vec<Expr> = found.iter().map(|b| crate::functions::re(&b.args()[0])).collect();
+        let mut idx: Vec<usize> = (0..found.len()).collect();
+        let mut failed = false;
+        // insertion sort with the reference's `<`
+        for i in 1..idx.len() {
+            let mut j = i;
+            while j > 0 {
+                let lt = crate::relational::lt(&keys[idx[j]], &keys[idx[j - 1]]);
+                match lt.kind() {
+                    Kind::Bool(true) => {
+                        idx.swap(j, j - 1);
+                        j -= 1;
+                    }
+                    Kind::Bool(false) => break,
+                    _ => {
+                        failed = true;
+                        break;
+                    }
+                }
+            }
+            if failed {
+                break;
+            }
+        }
+        if failed {
+            return expr;
+        }
+        let mut changed = false;
+        for &i in &idx {
+            let ba = &found[i];
+            let (a, x) = (ba.args()[0].clone(), ba.args()[1].clone());
+            let a1 = add(&[a.clone(), Expr::one()]);
+            let bap1 = super::apply(head, vec![a1.clone(), x.clone()]);
+            let bap2 = super::apply(head, vec![add(&[a.clone(), Expr::int(2)]), x.clone()]);
+            if crate::traverse::has(&expr, &bap1) && crate::traverse::has(&expr, &bap2) {
+                let rep = sub(&div(&mul(&[Expr::int(2), a1, bap1]), &x), &bap2);
+                expr = crate::subs::subs1(&expr, ba, &rep);
+                changed = true;
+                break;
+            }
+        }
+        if !changed {
+            return expr;
+        }
+    }
+    expr
+}
+
+/// SymPy's `besselsimp`: factors `I` and `-1` (and their polar forms) are
+/// taken out of the arguments of `besselj` and `besseli`, half integer
+/// orders are written with elementary functions, integer orders above one
+/// are reduced by the recurrence, the `besselj`/`bessely` recursion is
+/// applied and a changed result is factored.
 pub fn besselsimp(e: &Expr) -> Expr {
-    rebuild(e, &|x| {
-        let Kind::Func(Func::Special(s), a) = x.kind() else { return None };
-        if !matches!(s, SpecialFn::BesselJ | SpecialFn::BesselY | SpecialFn::BesselI | SpecialFn::BesselK) {
-            return None;
+    use SpecialFn::{BesselI, BesselJ, BesselK, BesselY};
+    let orig = e.clone();
+    let half = Expr::rational(1, 2);
+    let ifactors = [Expr::i(), exp_polar(half.clone()), exp_polar(neg(&half))];
+    let minusfactors = [Expr::minus_one(), exp_polar(Expr::one())];
+    // besselj(nu, z).rewrite(besseli) and besseli(nu, z).rewrite(besselj)
+    let to_other = |head: SpecialFn| {
+        let ifactors = ifactors.clone();
+        move |x: &Expr| -> Option<Expr> {
+            let (_, nu, z) = bessel_parts(x, &[head])?;
+            if !has_factor(&z, &ifactors) {
+                return None;
+            }
+            let (other, sgn) = if head == BesselJ { (BesselI, 1) } else { (BesselJ, -1) };
+            let lift = super::apply(SpecialFn::PolarLift, vec![mul2(&Expr::int(-sgn), &Expr::i())]);
+            Some(mul2(
+                &crate::functions::exp(&ipi(div(&mul2(&Expr::int(sgn), &nu), &Expr::int(2)))),
+                &super::apply(other, vec![nu, mul2(&lift, &z)]),
+            ))
         }
-        let nu = as_exact(&a[0])?;
-        if nu.denom() != Number::int(2) {
-            return None;
+    };
+    let tominus = |head: SpecialFn| {
+        let minusfactors = minusfactors.clone();
+        move |x: &Expr| -> Option<Expr> {
+            let (_, nu, z) = bessel_parts(x, &[head])?;
+            if !has_factor(&z, &minusfactors) {
+                return None;
+            }
+            Some(mul2(
+                &crate::functions::exp(&ipi(nu.clone())),
+                &super::apply(head, vec![nu, mul2(&exp_polar(Expr::minus_one()), &z)]),
+            ))
         }
-        half_order(*s, nu, &a[1])
-    })
+    };
+    let mut expr = rebuild(e, &to_other(BesselJ));
+    expr = rebuild(&expr, &to_other(BesselI));
+    expr = rebuild(&expr, &tominus(BesselJ));
+    expr = rebuild(&expr, &tominus(BesselI));
+    for head in [BesselJ, BesselY, BesselI, BesselK] {
+        expr = rebuild(&expr, &|x| {
+            let (s, nu, z) = bessel_parts(x, &[head])?;
+            let n = as_exact(&nu)?;
+            if n.denom() == Number::int(2) {
+                return half_order(s, n, &z);
+            }
+            if n.is_integer() && n.to_i64().is_some_and(|k| k > 1) {
+                let v = bessel_expand(s, &nu, &z, &mut FxHashMap::default(), 0);
+                return Some(crate::expand::expand(&v));
+            }
+            None
+        });
+    }
+    for head in [BesselJ, BesselY] {
+        let present = bessel_head_present(&expr, head);
+        if present {
+            expr = bessel_recursion(head, expr);
+        }
+    }
+    if expr != orig {
+        expr = crate::poly::api::factor(&expr).unwrap_or(expr);
+    }
+    expr
+}
+
+fn bessel_head_present(e: &Expr, head: SpecialFn) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |x| {
+        if !found && bessel_parts(x, &[head]).is_some() {
+            found = true;
+        }
+    });
+    found
 }
 
 fn half_order(s: SpecialFn, nu: &Number, z: &Expr) -> Option<Expr> {

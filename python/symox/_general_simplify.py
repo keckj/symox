@@ -32,6 +32,12 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         if expression.is_zero:return S.Zero if not expression.is_Number else expression
         return hook(**options)
     if not expression.args:return expression
+    from . import besselj,bessely,besseli,besselk,hankel1,hankel2,jn,yn
+    if expression.func in (besselj,bessely,besseli,besselk,hankel1,hankel2,jn,yn):
+        # BesselBase._eval_simplify is besselsimp, without the ratio test.
+        if expression.is_zero:return S.Zero
+        from . import besselsimp
+        return besselsimp(expression)
     original=expression
     if inverse:
         from .simplify.simplify import inversecombine

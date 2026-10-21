@@ -160,9 +160,41 @@ fn release_unevaluated(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
     result
 }
 
+/// `expr.has(CombinatorialFunction, gamma)`.
+fn has_gamma_or_combinatorial(e: &Expr) -> bool {
+    use crate::special::SpecialFn::*;
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |x| {
+        if !found {
+            found = matches!(
+                x.kind(),
+                Kind::Func(Func::Gamma, _)
+                    | Kind::Func(
+                        Func::Special(Factorial | Factorial2 | Subfactorial | Binomial | RisingFactorial | FallingFactorial),
+                        _
+                    )
+            );
+        }
+    });
+    found
+}
+
 /// A light general purpose simplifier (to be extended).
 pub fn simplify(e: &Expr) -> Expr {
     let evaluated = release_unevaluated(e, &mut FxHashMap::default());
+    if evaluated.is_atom() {
+        return evaluated;
+    }
+    // `BesselBase._eval_simplify` is besselsimp; other expressions with
+    // Bessel functions pass through besselsimp before the final choice.
+    if crate::special::expand::is_bessel_base(&evaluated) {
+        return crate::special::besselsimp(&evaluated);
+    }
+    let evaluated = if crate::special::expand::has_bessel(&evaluated) {
+        crate::special::besselsimp(&evaluated)
+    } else {
+        evaluated
+    };
     let e = &evaluated;
     if e.is_atom() {
         return e.clone();
@@ -195,6 +227,11 @@ pub fn simplify(e: &Expr) -> Expr {
         t.clone(),
         expanded_trig,
     ]);
+    if has_gamma_or_combinatorial(e) {
+        // SymPy's simplify passes gamma and combinatorial functions through
+        // combsimp (the duplication and reflection formulas).
+        candidates.push(crate::simptools::gammasimp::combsimp(e));
+    }
     if crate::simp::has_trig(e) {
         // SymPy's simplify also tries the Fu-based trigsimp, which rewrites
         // tan/cot/sec/csc through sin and cos (tan(x)*cos(x) -> sin(x)).
