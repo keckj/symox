@@ -1090,25 +1090,37 @@ class Set(metaclass=_node_types.WrapperType):
         return _core._set_as_relational(self._e, symbol)
 
     def is_subset(self, other):
-        return _core._set_is_subset(self._e, _unwrap(other))
+        from ._set_subset import is_subset
+        return is_subset(self, other)
+
+    def _eval_is_subset(self, other):
+        from ._set_subset import eval_is_subset
+        return eval_is_subset(self, other)
+
+    def _eval_is_superset(self, other):
+        from ._set_subset import eval_is_superset
+        return eval_is_superset(self, other)
 
     def issubset(self, other):
         return self.is_subset(other)
 
     def is_superset(self, other):
-        return _core._set_is_subset(_unwrap(other), self._e)
+        if isinstance(other, Set):
+            return other.is_subset(self)
+        raise ValueError("Unknown argument '%s'" % other)
 
-    issuperset = is_superset
+    def issuperset(self, other):
+        return self.is_superset(other)
 
     def is_proper_subset(self, other):
-        if self == other:
-            return False
-        return self.is_subset(other)
+        if isinstance(other, Set):
+            return self != other and self.is_subset(other)
+        raise ValueError("Unknown argument '%s'" % other)
 
     def is_proper_superset(self, other):
-        if self == other:
-            return False
-        return self.is_superset(other)
+        if isinstance(other, Set):
+            return self != other and self.is_superset(other)
+        raise ValueError("Unknown argument '%s'" % other)
 
     def isdisjoint(self, other):
         return Intersection(self, other) == EmptySet
@@ -1142,26 +1154,13 @@ class Set(metaclass=_node_types.WrapperType):
 
     @property
     def is_empty(self):
-        if self.is_EmptySet:
-            return True
-        if isinstance(self, Range):
-            if self.start == self.stop:
-                return True
-            if all(v.is_Integer for v in self._e.args):
-                return False
-        if isinstance(self, (Interval, FiniteSet)) or self.class_name in (
-                "Reals", "Integers", "Naturals", "Naturals0", "Complexes", "Rationals", "UniversalSet"):
-            return False
-        return None
+        from ._set_subset import is_empty
+        return is_empty(self)
 
     @property
     def is_finite_set(self):
-        if isinstance(self, FiniteSet) or self.is_EmptySet:
-            return True
-        if isinstance(self, Interval) or self.class_name in (
-                "Reals", "Integers", "Naturals", "Naturals0", "Complexes", "Rationals"):
-            return False
-        return None
+        from ._set_subset import is_finite_set
+        return is_finite_set(self)
 
     @property
     def is_iterable(self):

@@ -74,7 +74,8 @@ def test_parameter_signs_and_inference_retain_uncertainty():
     assert sx.is_strictly_decreasing(-p*x,symbol=x) is True
     assert sx.is_increasing(a*x,symbol=x) is None
     assert sx.is_decreasing(a*x,symbol=x) is None
-    assert sx.is_monotonic(a*x,symbol=x) is None
+    # Reference: no turning point of a*x in the reals, hence monotonic.
+    assert sx.is_monotonic(a*x,symbol=x) is True
     assert sx.is_strictly_increasing(x+a,symbol=x) is True
     assert sx.is_strictly_increasing(sx.exp(x)) is True
     positive_x=sx.Symbol('positive_x',positive=True)
@@ -88,13 +89,17 @@ def test_standard_module_aliases_and_unsupported_proofs_are_explicit():
     assert is_strictly_increasing is sx.is_strictly_increasing
     x,y=sx.symbols('x y')
     with pytest.raises(NotImplementedError):sx.is_increasing(x+y)
-    with pytest.raises(NotImplementedError):sx.is_increasing(x+y,symbol=x)
+    # Values below are those of the reference monotonicity_helper:
+    # interval.is_subset(solveset(predicate(derivative), symbol, S.Reals)).
+    assert sx.is_increasing(x+y,symbol=x) is True
+    # The reference overflows the recursion limit here; an explicit
+    # NotImplementedError is kept instead of a crash.
     with pytest.raises(NotImplementedError):sx.is_increasing(sx.Function('f')(x),symbol=x)
-    with pytest.raises(NotImplementedError):sx.is_increasing(sx.sin(x),symbol=x)
-    with pytest.raises(NotImplementedError):sx.is_increasing(x,sx.S.Complexes,x)
-    with pytest.raises(NotImplementedError):sx.is_increasing(x,sx.FiniteSet(0,1),x)
-    with pytest.raises(NotImplementedError):sx.is_increasing(x,sx.Union(sx.Interval(0,1),sx.Interval(2,3)),x)
-    with pytest.raises(ValueError):sx.is_increasing(x,sx.Interval(0,x),x)
+    assert sx.is_increasing(sx.sin(x),symbol=x) is False
+    assert sx.is_increasing(x,sx.S.Complexes,x) is False
+    assert sx.is_increasing(x,sx.FiniteSet(0,1),x) is True
+    assert sx.is_increasing(x,sx.Union(sx.Interval(0,1),sx.Interval(2,3)),x) is True
+    assert sx.is_increasing(x,sx.Interval(0,x),x) is True
     with pytest.raises(ValueError):sx.is_increasing(x,symbol=x*x)
 
 

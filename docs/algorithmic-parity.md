@@ -525,6 +525,59 @@ Remaining gaps in this area:
 - `solve_univariate_inequality(x**2 + 2 > 0, x, relational=False)` gives
   `Interval(-oo, oo)` where SymPy gives `Reals`.
 
+## Set emptiness and the subset decision path on 2026-10-21
+
+A probe of 50 cases (`is_empty`, `is_finite_set`, `is_subset`,
+`is_superset`, `is_proper_subset` on unions, intervals, ranges and named
+sets, and monotonicity on disconnected domains) went from 29 to 49 outputs
+equal to SymPy 1.14.0. `tests/test_union_sets_parity.py` holds the
+reference values.
+
+- `Set.is_subset` is a port of the reference decision path in
+  `python/symox/_set_subset.py`: the trivial cases (equality, emptiness,
+  finiteness), the `_eval_is_subset`/`_eval_is_superset` hooks
+  (`FiniteSet`, and `Naturals`, `Naturals0`, `Integers` through
+  `Range(.., oo)`), the pairwise `is_subset_sets` rules (`Reals` counts as an
+  `Interval`, as in SymPy), then the `self.intersect(other) == self`
+  fallback. `Union.is_subset` is the fuzzy and of its components.
+  `is_superset`, `is_proper_subset` and `is_proper_superset` delegate as in
+  the reference and raise `ValueError` for a non-set argument.
+- `Union.is_empty` is the fuzzy and of its components and
+  `ProductSet.is_empty` the fuzzy or; `Interval.is_empty` is
+  `fuzzy_bool(start > end)` (`>=` when a bound is open), so a symbolic
+  `Interval(a, b)` is undecided instead of non-empty. `Intersection` and
+  `Complement` have no emptiness rule, as in the reference. `is_finite_set`
+  follows the reference for unions, intersections, complements, products,
+  intervals (`measure.is_zero`) and ranges.
+- `S.Reals.is_subset(Union(Interval(0, pi/2), Interval.Ropen(3*pi/2, 2*pi)))`
+  is now False, so `is_increasing(sin(x), symbol=x)` is False as in SymPy.
+- The interval intersection rule with `(-oo, oo)` returns the other
+  interval even when its bounds are not comparable
+  (`Interval(0, z).intersect(S.Reals)` is `Interval(0, z)`).
+- Monotonicity: when the native proof declines (disconnected or non-real
+  domain, parameters not known to be real, bounds depending on the
+  variable) or is undecided, the reference `monotonicity_helper`
+  (`interval.is_subset(solveset(predicate(derivative), x, S.Reals))`) and
+  the reference `is_monotonic` (no turning point in the interval) give the
+  answer. `is_increasing(x, FiniteSet(0, 1), x)`, on a union of intervals
+  and with `symbol=x` on `x + y` are True; on `S.Complexes` it is False;
+  `is_monotonic(a*x, symbol=x)` is True.
+
+Remaining gaps:
+
+- `Interval(a, b).is_subset(Interval(a, b + 1))` is True; SymPy gives None
+  because its intersection keeps `Min(b, b + 1)` unevaluated while the
+  native intersection simplifies it (the True answer is correct).
+- `Interval(-oo, oo)` is not canonicalized to `S.Reals` in the native
+  constructor.
+- `is_increasing(a*x, symbol=x)` with a real parameter `a` stays None;
+  SymPy gives False (its `solveset(a >= 0, x, S.Reals)` decides it).
+- `is_increasing(Function('f')(x), symbol=x)` raises `NotImplementedError`;
+  SymPy overflows the recursion limit.
+- The `Range`/`FiniteSet` rule does not handle a symbolic `Range` (no
+  symbolic `Range.size`), and the native union, intersection and
+  complement simplification still uses the approximate Rust `is_subset`.
+
 ## Remaining blocking gaps
 
 ### Noncommutative symbols
