@@ -739,7 +739,7 @@ _PERIODIC = ("sin", "cos", "tan", "cot", "sec", "csc")
 
 
 def _as_set(self):
-    from . import S, Intersection, Union, solve_univariate_inequality, ConditionSet
+    from . import S, Intersection, Union, solve_univariate_inequality, ConditionSet, Interval
     if self == S.true:
         return S.UniversalSet
     if self == S.false:
@@ -764,7 +764,28 @@ def _as_set(self):
         if not e.is_Relational:
             raise NotImplementedError("as_set is not implemented for %s" % e)
         if any(str(a.func) in _PERIODIC for a in _preorder(e)):
-            raise NotImplementedError("as_set is not implemented for relationals with periodic solutions")
+            from .calculus.util import periodicity
+            from ._public_tools import filldedent
+            try:
+                period = periodicity(e.lhs - e.rhs, x)
+            except (NotImplementedError, ValueError, TypeError):
+                period = None
+            if period not in (0, None):
+                # Boolean.as_set keeps a periodic relational only when it
+                # is never or always true
+                try:
+                    s = solve_univariate_inequality(e, x, relational=False)
+                except NotImplementedError:
+                    s = ConditionSet(x, e, S.Reals)
+                if s == S.Reals:
+                    # the reference substitutes Reals.as_relational(x)
+                    return Interval(S.NegativeInfinity, S.Infinity)
+                if s in (S.EmptySet, S.UniversalSet):
+                    return s
+                raise NotImplementedError(filldedent('''
+                    as_set is not implemented for relationals
+                    with periodic solutions
+                    '''))
         try:
             return solve_univariate_inequality(e, x, relational=False)
         except NotImplementedError:

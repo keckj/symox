@@ -764,6 +764,64 @@ fn has_periodic(e: &Expr) -> bool {
     }
 }
 
+/// Where a periodic inequality is being solved, which decides whether the
+/// one-period answer of SymPy's `solve_univariate_inequality` is valid.
+#[derive(Clone, Debug)]
+pub enum PeriodicWindow {
+    /// A direct call of `solveset`, `solve_univariate_inequality` or
+    /// `reduce_inequalities`: over `S.Reals`, the reference solves on one
+    /// period `[0, T)`.
+    Direct,
+    /// The answer must hold on the whole real line (an antiderivative, a
+    /// condition rewrite): only a range decision (always or never true) is
+    /// accepted.
+    Whole,
+    /// A definite integral over `[lo, hi]`: the one-period answer is used
+    /// when `[lo, hi]` lies in `[0, T]`.
+    Interval(Expr, Expr),
+}
+
+/// Host solver of the periodic branch of `solve_univariate_inequality`
+/// (`expr`, `gen`, `domain`, window). `None` keeps the native path.
+pub type PeriodicHost = fn(&Expr, &Expr, &Expr, &PeriodicWindow) -> Option<Result<Expr, String>>;
+
+static PERIODIC_HOST: std::sync::OnceLock<PeriodicHost> = std::sync::OnceLock::new();
+
+thread_local! {
+    static PERIODIC_WINDOW: std::cell::RefCell<PeriodicWindow> = const { std::cell::RefCell::new(PeriodicWindow::Whole) };
+}
+
+/// Install the periodic inequality solver (the Python bindings install the
+/// port of the reference branch).
+pub fn register_periodic_host(host: PeriodicHost) {
+    let _ = PERIODIC_HOST.set(host);
+}
+
+/// Run `f` with `window` as the periodic inequality context.
+pub fn with_periodic_window<T>(window: PeriodicWindow, f: impl FnOnce() -> T) -> T {
+    struct Restore(Option<PeriodicWindow>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            if let Some(w) = self.0.take() {
+                PERIODIC_WINDOW.with(|cell| *cell.borrow_mut() = w);
+            }
+        }
+    }
+    let previous = PERIODIC_WINDOW.with(|cell| std::mem::replace(&mut *cell.borrow_mut(), window));
+    let _restore = Restore(Some(previous));
+    f()
+}
+
+fn periodic_inequality(ineq: &Expr, x: &Expr, domain: &Expr) -> Option<Result<Expr, String>> {
+    let Kind::Rel(op, l, r) = ineq.kind() else { return None };
+    if matches!(op, RelOp::Eq) || !has_periodic(&sub(l, r)) {
+        return None;
+    }
+    let host = PERIODIC_HOST.get()?;
+    let window = PERIODIC_WINDOW.with(|cell| cell.borrow().clone());
+    host(ineq, x, domain, &window)
+}
+
 fn solve_univariate_inequality_set(ineq: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
     match ineq.kind() {
         Kind::Rel(RelOp::Eq, a, b) => return solveset(&sub(a, b), x, domain),
@@ -789,6 +847,9 @@ fn solve_univariate_inequality_set(ineq: &Expr, x: &Expr, domain: &Expr) -> Resu
             let reduced=crate::relational::rel(direction,base,&root);
             return solve_univariate_inequality_set(&reduced,x,domain);
         }
+    }
+    if let Some(result) = periodic_inequality(ineq, x, domain) {
+        return result;
     }
     sign_analysis(ineq, x, domain, true)
         .ok_or_else(|| format!("The inequality, {ineq}, cannot be solved using solve_univariate_inequality."))
@@ -866,6 +927,11 @@ pub fn reduce_inequalities(ineqs: &[Expr], x: Option<&Expr>) -> Result<Expr, Str
         return Ok(Expr::boolean(true));
     }
     let s = intersection(sets);
+    // the reference solves for a real dummy, for which the relational form
+    // of the whole real line is True
+    if is_op(&s, SetOp::Reals) {
+        return Ok(Expr::boolean(true));
+    }
     Ok(as_relational(&s, &gen))
 }
 

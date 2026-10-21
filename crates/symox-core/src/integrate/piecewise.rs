@@ -407,6 +407,17 @@ type Abei = (Expr, Expr, Expr, isize);
 
 /// `Piecewise._intervals(x)`; `Err` carries the reference message.
 fn intervals(pw: &Expr, x: &Expr) -> Result<Vec<Abei>, String> {
+    intervals_eq(pw, x, false)
+}
+
+/// `Piecewise._intervals(x, err_on_Eq)` for the conditions of a Piecewise
+/// valid on the whole real line (`piecewise_simplify`): a periodic
+/// condition is accepted only when it is never or always true.
+pub fn piecewise_intervals(pw: &Expr, x: &Expr, err_on_eq: bool) -> Result<Vec<(Expr, Expr, Expr, isize)>, String> {
+    crate::sets::with_periodic_window(crate::sets::PeriodicWindow::Whole, || intervals_eq(pw, x, err_on_eq))
+}
+
+fn intervals_eq(pw: &Expr, x: &Expr, err_on_eq: bool) -> Result<Vec<Abei>, String> {
     let Some(args) = pieces(pw) else { return Err("not a Piecewise".into()) };
     let mut reps = Vec::new();
     for r in relationals(pw) {
@@ -426,6 +437,9 @@ fn intervals(pw: &Expr, x: &Expr) -> Result<Vec<Abei>, String> {
             break;
         }
         if matches!(cond.kind(), Kind::Rel(RelOp::Eq, ..)) {
+            if err_on_eq {
+                return Err(format!("encountered Eq condition: {cond}"));
+            }
             continue; // zero width interval
         }
         let mut cond = crate::logic::to_cnf(cond, false, false)?;
@@ -457,6 +471,9 @@ fn intervals(pw: &Expr, x: &Expr) -> Result<Vec<Abei>, String> {
                     match op {
                         RelOp::Eq => {
                             lo = up.clone(); // ignore
+                            if err_on_eq {
+                                return Err("encountered secondary Eq condition".into());
+                            }
                             break;
                         }
                         RelOp::Ne => {
@@ -525,6 +542,9 @@ fn intervals(pw: &Expr, x: &Expr) -> Result<Vec<Abei>, String> {
             _ => return Err(format!("unrecognized condition: {cond}")),
         }
         let upper = crate::functions::max(vec![lower.clone(), upper]);
+        if err_on_eq && lower == upper {
+            return Err("encountered Eq condition".into());
+        }
         if !is_true(&crate::relational::ge(&lower, &upper)) {
             int_expr.push((lower, upper, expr, iarg));
         }
@@ -860,7 +880,10 @@ pub(crate) fn eval_interval(pw: &Expr, x: &Expr, lo: &Expr, hi: &Expr, first: bo
             return Ok(rv);
         }
     }
-    let Ok(abei) = intervals(pw, x) else {
+    // a periodic condition is solved on one period: valid when [lo, hi]
+    // lies in that period
+    let window = crate::sets::PeriodicWindow::Interval(lo.clone(), hi.clone());
+    let Ok(abei) = crate::sets::with_periodic_window(window, || intervals(pw, x)) else {
         return Ok(super::integral_definite_unevaluated(&crate::diff::diff(pw, x), x, lo, hi));
     };
     let done = cover(&abei, (lo.clone(), hi.clone()));
