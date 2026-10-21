@@ -969,6 +969,12 @@ impl PyPoly {
         let fractions=p.domain_gens().iter().any(|g| matches!(g.kind(),symox::Kind::Pow(_,e) if e.as_number().is_some_and(|n|n.is_negative())) && !symox::traverse::free_symbols(g).is_empty());
         if domain.is_none() && fractions {
             let parameters=infer_parameters(std::slice::from_ref(&e),p.true_gens());
+            // The reference builds ZZ_I(y) or QQ_I(y) here, whose fraction
+            // coefficients have no backend yet: the expression domain keeps
+            // the arithmetic exact instead of failing.
+            if p.domain_gens().iter().any(|g|g.is_constant(symox::expr::Constant::I)){
+                return Ok(Self{p:symox::poly::expression_domain::ExpressionPoly::from_expr(&e,p.true_gens()).map_err(err)?.into()});
+            }
             let display=domain_name(&parameters).replacen("QQ","ZZ",1);
             return Ok(Self {p:FractionPoly::from_expr(&e,p.true_gens(),&parameters,&display).map_err(err)?.into()});
         }
