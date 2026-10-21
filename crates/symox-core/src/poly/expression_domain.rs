@@ -1845,6 +1845,9 @@ pub fn dup_sturm(f: &Dmp) -> PResult<Vec<Dmp>> {
 pub struct ExpressionPoly {
     pub rep: Dmp,
     pub gens: Vec<Expr>,
+    /// A composite Gaussian ground (`ZZ_I[y]`, `QQ_I(y)`, ...) whose
+    /// coefficients this polynomial stores as expressions.
+    pub ground: Option<super::gaussian_ground::GaussianGround>,
 }
 
 fn dup_from_raw_dict(g: &BTreeMap<usize, EX>) -> Vec<EX> {
@@ -2050,7 +2053,7 @@ impl ExpressionPoly {
         self.gens.len() - 1
     }
     pub fn with_rep(&self, rep: Dmp) -> Self {
-        Self { rep, gens: self.gens.clone() }
+        Self { rep, gens: self.gens.clone(), ground: self.ground.clone() }
     }
     /// Coefficients become `EX` elements without simplification.
     pub fn from_terms(terms: Vec<(Vec<u32>, Expr)>, gens: &[Expr]) -> PResult<Self> {
@@ -2058,7 +2061,7 @@ impl ExpressionPoly {
             return Err(PolyError::Failed("can't initialize from 'dict' without generators".into()));
         }
         let dict: Vec<(Vec<u32>, EX)> = terms.into_iter().map(|(m, c)| (m, EX(c))).collect();
-        Ok(Self { rep: dmp_from_dict(&dict, gens.len() - 1), gens: gens.to_vec() })
+        Ok(Self { rep: dmp_from_dict(&dict, gens.len() - 1), gens: gens.to_vec(), ground: None })
     }
     /// `Poly.from_dict` after a monomial map: equal monomials are added in
     /// `EX`, which short-circuits on a structural zero.
@@ -2081,7 +2084,7 @@ impl ExpressionPoly {
         Self::from_terms(dict_from_expr(e, gens)?, gens)
     }
     pub fn zero(gens: &[Expr]) -> Self {
-        Self { rep: dmp_zero(gens.len() - 1), gens: gens.to_vec() }
+        Self { rep: dmp_zero(gens.len() - 1), gens: gens.to_vec(), ground: None }
     }
     /// `Poly.terms()`: lexicographically decreasing monomials.
     pub fn terms(&self) -> Vec<(Vec<u32>, Expr)> {
@@ -2128,7 +2131,7 @@ impl ExpressionPoly {
                 (n, c)
             })
             .collect();
-        Ok(Self { rep: dmp_from_dict(&dict, gens.len() - 1), gens: gens.to_vec() })
+        Ok(Self { rep: dmp_from_dict(&dict, gens.len() - 1), gens: gens.to_vec(), ground: self.ground.clone() })
     }
     pub fn add(&self, o: &Self) -> PResult<Self> {
         Ok(self.with_rep(dmp_add(&self.rep, &o.rep, self.u())?))
@@ -2350,7 +2353,7 @@ impl ExpressionPoly {
         if self.u() == 0 {
             return Ok(Ok(r.l().first().cloned().unwrap_or_else(EX::zero).0));
         }
-        Ok(Err(Self { rep: r, gens: self.gens[1..].to_vec() }))
+        Ok(Err(Self { rep: r, gens: self.gens[1..].to_vec(), ground: self.ground.clone() }))
     }
     /// `Poly.eval(gens[j], a)`: a ground expression or a polynomial in the
     /// remaining generators.
@@ -2362,7 +2365,7 @@ impl ExpressionPoly {
         let rep = dmp_eval_in(&self.rep, &a, j, self.u())?;
         let mut gens = self.gens.clone();
         gens.remove(j);
-        Ok(Err(Self { rep, gens }))
+        Ok(Err(Self { rep, gens, ground: self.ground.clone() }))
     }
     pub fn degree(&self, j: usize) -> i64 {
         dmp_degree_in(&self.rep, j, self.u())

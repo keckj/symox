@@ -56,6 +56,13 @@ pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr
     } else {
         ']'
     };
+    // The reference fraction-field pattern only admits ZZ and QQ grounds.
+    if closing == ')' && matches!(&domain[..open], "ZZ_I" | "QQ_I") {
+        return Err(PolyError::Reference {
+            kind: "OptionError",
+            message: format!("expected a valid domain specification, got {domain}"),
+        });
+    }
     if !matches!(&domain[..open], "QQ" | "ZZ") || !domain.ends_with(closing) {
         return Err(PolyError::Unsupported(format!(
             "unsupported coefficient domain {domain}"
@@ -662,7 +669,10 @@ impl From<super::algebraic::AlgebraicPoly> for Polynomial {
     fn from(p:super::algebraic::AlgebraicPoly)->Self {Self {base:p.legacy(),field:None,algebraic:Some(p),expression:None}}
 }
 impl From<super::expression_domain::ExpressionPoly> for Polynomial {
-    fn from(p:super::expression_domain::ExpressionPoly)->Self {Self {base:p.legacy(),field:None,algebraic:None,expression:Some(p)}}
+    fn from(p:super::expression_domain::ExpressionPoly)->Self {
+        let p=super::gaussian_ground::normalize_poly(p);
+        Self {base:p.legacy(),field:None,algebraic:None,expression:Some(p)}
+    }
 }
 impl std::ops::Deref for Polynomial {
     type Target = Poly;
@@ -704,7 +714,7 @@ impl Polynomial {
             .map_or_else(|| self.base.as_expr(), FractionPoly::as_expr)
     }
     pub fn domain_str(&self) -> String {
-        if self.expression.is_some() {return "EX".into();}
+        if let Some(p)=&self.expression {return p.ground.as_ref().map_or_else(||"EX".into(),|g|g.display());}
         if let Some(p)=&self.algebraic {
             return match p.gaussian {
                 Some(true) => "ZZ_I".into(),
@@ -887,11 +897,23 @@ impl Polynomial {
             return Err(PolyError::Reference{kind:"UnificationFailed",message});
         }
         let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
-        let convert=|p:&Self|->PResult<ExpressionPoly>{
-            match &p.expression {
-                Some(e)=>e.reorder(&gens),
-                None=>ExpressionPoly::from_terms(p.terms(),p.true_gens())?.reorder(&gens),
+        // A composite Gaussian ground unifies as the reference domains do.
+        if let (Some(a),Some(b))=(super::gaussian_ground::descriptor(self),super::gaussian_ground::descriptor(o)) {
+            if let Some(ground)=super::gaussian_ground::unify(&a,&b,&gens)? {
+                let convert=|p:&Self|->PResult<ExpressionPoly>{
+                    let e=match &p.expression {Some(e)=>e.reorder(&gens)?,None=>ExpressionPoly::from_terms(p.terms(),p.true_gens())?.reorder(&gens)?};
+                    ground.convert_poly(&e)
+                };
+                return Ok(Some((convert(self)?,convert(o)?)));
             }
+        }
+        let convert=|p:&Self|->PResult<ExpressionPoly>{
+            let mut e=match &p.expression {
+                Some(e)=>e.reorder(&gens)?,
+                None=>ExpressionPoly::from_terms(p.terms(),p.true_gens())?.reorder(&gens)?,
+            };
+            e.ground=None;
+            Ok(e)
         };
         Ok(Some((convert(self)?,convert(o)?)))
     }
@@ -1041,15 +1063,24 @@ impl Polynomial {
         if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("polynomial division is not exact in the selected coefficient domain".into()));}Ok(q)
     }
     pub fn checked_gcd(&self,o:&Self)->PResult<Self>{
-        if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.gcd(&b)?.into());}
+        if let Some((a,b))=self.checked_expression_pair(o)?{
+            if let Some(g)=gaussian_ground_of(&a,&b){return Ok(g.gcd(&a,&b)?.into());}
+            return Ok(a.gcd(&b)?.into());
+        }
         Ok(self.gcd(o))
     }
     pub fn checked_lcm(&self,o:&Self)->PResult<Self>{
-        if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.lcm(&b)?.into());}
+        if let Some((a,b))=self.checked_expression_pair(o)?{
+            if let Some(g)=gaussian_ground_of(&a,&b){return Ok(g.lcm(&a,&b)?.into());}
+            return Ok(a.lcm(&b)?.into());
+        }
         Ok(self.lcm(o))
     }
     pub fn checked_cofactors(&self,o:&Self)->PResult<(Self,Self,Self)>{
-        if let Some((a,b))=self.checked_expression_pair(o)?{let(h,p,q)=a.cofactors(&b)?;return Ok((h.into(),p.into(),q.into()));}
+        if let Some((a,b))=self.checked_expression_pair(o)?{
+            let(h,p,q)=match gaussian_ground_of(&a,&b){Some(g)=>g.cofactors(&a,&b)?,None=>a.cofactors(&b)?};
+            return Ok((h.into(),p.into(),q.into()));
+        }
         Ok(self.cofactors(o))
     }
     /// Arithmetic that reports `EX` normalization failures instead of
@@ -1059,7 +1090,10 @@ impl Polynomial {
     pub fn checked_mul(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.mul(&b)?.into());}Ok(self.mul(o))}
     pub fn checked_pow(&self,k:u32)->PResult<Self>{if let Some(p)=&self.expression{return Ok(p.pow(k)?.into());}Ok(self.pow(k))}
     pub fn gcd(&self, o: &Self) -> Self {
-        if let Some((a,b))=self.expression_pair(o){return a.gcd(&b).expect("EX arithmetic").into();}
+        if let Some((a,b))=self.expression_pair(o){
+            if let Some(g)=gaussian_ground_of(&a,&b){if let Ok(h)=g.gcd(&a,&b){return h.into();}}
+            return a.gcd(&b).expect("EX arithmetic").into();
+        }
         if let Some((a,b))=self.algebraic_pair(o){return a.gcd(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.gcd(&b).into()
@@ -1068,7 +1102,10 @@ impl Polynomial {
         }
     }
     pub fn lcm(&self, o: &Self) -> Self {
-        if let Some((a,b))=self.expression_pair(o){return a.lcm(&b).expect("EX arithmetic").into();}
+        if let Some((a,b))=self.expression_pair(o){
+            if let Some(g)=gaussian_ground_of(&a,&b){if let Ok(h)=g.lcm(&a,&b){return h.into();}}
+            return a.lcm(&b).expect("EX arithmetic").into();
+        }
         if let Some((a,b))=self.algebraic_pair(o){return a.lcm(&b).into();}
         if let Some((a,b))=self.pair(o){
             a.lcm(&b).into()
@@ -1077,7 +1114,10 @@ impl Polynomial {
         }
     }
     pub fn cofactors(&self, o: &Self) -> (Self, Self, Self) {
-        if let Some((a,b))=self.expression_pair(o){let(h,p,q)=a.cofactors(&b).expect("EX arithmetic");return (h.into(),p.into(),q.into());}
+        if let Some((a,b))=self.expression_pair(o){
+            if let Some(g)=gaussian_ground_of(&a,&b){if let Ok((h,p,q))=g.cofactors(&a,&b){return (h.into(),p.into(),q.into());}}
+            let(h,p,q)=a.cofactors(&b).expect("EX arithmetic");return (h.into(),p.into(),q.into());
+        }
         if let Some((a,b))=self.algebraic_pair(o){let(h,a,b)=a.cofactors(&b);return (h.into(),a.into(),b.into());}
         let g = self.gcd(o);
         if g.is_zero() {
@@ -1088,7 +1128,7 @@ impl Polynomial {
         (g, a, b)
     }
     pub fn to_sympy_string(&self) -> String {
-        if let Some(p)=&self.expression {return super::polyobj::format_poly(&p.gens,p.terms(),None,"EX");}
+        if let Some(p)=&self.expression {return super::polyobj::format_poly(&p.gens,p.terms(),None,&self.domain_str());}
         // Fraction-field coefficients print as one quotient, `(a**2 + 1)/a`.
         if let Some(f)=&self.field {return super::polyobj::format_poly(&f.gens,f.terms(),self.modulus,&self.domain_str());}
         self.base.to_sympy_string_with_domain(&self.domain_str())
@@ -1393,4 +1433,9 @@ mod reference_euclid_and_cancel {
         assert_eq!(coefficient_expr(&c, &parameters), parse_str("1/a").unwrap());
         assert_eq!(show(&primitive), "Poly(x**2 - a**2, x, domain='ZZ(a)')");
     }
+}
+
+/// The common composite Gaussian ground of a unified `EX` pair.
+fn gaussian_ground_of(a:&ExpressionPoly,b:&ExpressionPoly)->Option<super::gaussian_ground::GaussianGround>{
+    match (&a.ground,&b.ground) {(Some(x),Some(y)) if x==y=>Some(x.clone()),_=>None}
 }
