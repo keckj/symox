@@ -409,13 +409,94 @@ Remaining gaps in this area:
   SymPy, `O(x**3)` in Symox).
 - Only a top-level `Piecewise` takes the reference series path; a
   `Piecewise` inside an `Add` or `Mul` uses the native series.
-- `Piecewise((1, x < 0), (2, True))**p` stays a `Pow`: SymPy's
-  `Piecewise._eval_power` is not applied by the `Pow` constructor, so
-  `piecewise_fold` of such powers differs.
 - `Order.subs` solves the moving point only for an affine substitution.
 - The noncommutative branches of `piecewise_fold` are not audited.
 - The order of the `polarify` replacement mapping follows set iteration
   and may differ from SymPy's dict order; the mapping itself is equal.
+
+## Periodic inequalities and Piecewise simplification on 2026-10-21
+
+A probe of 90 cases (solveset, reduce_inequalities, `as_set`, Piecewise
+integrals, simplify, rewrites, powers and series) went from 42 to 79
+outputs equal to SymPy 1.14.0.
+
+Periodic inequalities:
+
+- `solve_univariate_inequality` has the reference periodic branch: over
+  `S.Reals` an inequality of a periodic expression is solved on one
+  period `[0, T)`, as SymPy does (`solveset(sin(x) > 0, x, S.Reals)` is
+  `Interval.open(0, pi)`). A decision by the function range gives the
+  whole domain or `EmptySet` (`reduce_inequalities(cos(x) + 2 > 0, x)` is
+  `True`). The branch is in `python/symox/solvers/_periodic_inequality.py`
+  and the native `solveset`, `solve_univariate_inequality` and
+  `reduce_inequalities` call it through a host hook.
+- `Relational.as_set` of a periodic relation raises the reference
+  `NotImplementedError` unless the range decides it; then it returns
+  `Interval(-oo, oo)` or `EmptySet` as SymPy does.
+- `Piecewise._intervals` has the `err_on_Eq` messages. `piecewise_simplify`,
+  `piecewise_simplify_arguments` and `piecewise_exclusive` are ports, and
+  `simplify` routes `Piecewise`, `BooleanFunction` (through
+  `simplify_univariate` and `simplify_logic`) and inequalities (the
+  linear canonical form of `Relational._eval_simplify`) as SymPy does.
+  An `Add` or `Mul` holding a `Piecewise` is folded and then simplified
+  with `piecewise_simplify(doit=False)`.
+- `Pow` of a `Piecewise` distributes over the branches
+  (`Piecewise._eval_power`).
+- `KroneckerDelta(i, j).rewrite(Piecewise)` is
+  `Piecewise((0, Ne(i, j)), (1, True))`.
+- `Piecewise.rewrite(ITE)` raises the reference `TypeError` with the
+  class name of the first non-Boolean value (`Integer`, `Half`, `Add`);
+  a value equal to 1 is accepted and the check stops at the first true
+  condition, as in SymPy.
+
+Deliberate divergences (SymPy's answer is wrong):
+
+- On a bounded domain that is not inside `[0, T)` the inequality is
+  solved on the domain itself. SymPy intersects the one-period answer
+  with the domain: `solveset(sin(x) > 0, x, Interval(2*pi, 3*pi))` is
+  `EmptySet` in SymPy and `Interval.open(2*pi, 3*pi)` here. On a
+  half-unbounded domain the answer is a `ConditionSet` (or the
+  `NotImplementedError` of `solve_univariate_inequality`), not a
+  one-period set.
+- `solveset(sin(x) >= 0, x, Interval(0, 2*pi))` includes `2*pi`, where
+  `sin` vanishes; SymPy gives `Interval(0, pi)`.
+- A periodic condition seen on the whole line (an antiderivative,
+  `piecewise_simplify`, `simplify`) is kept unless its range decides it.
+  SymPy rewrites `Piecewise((1, sin(x) > 0), (0, True)).simplify()` with
+  `0 < x < pi`, which is false at `x = 2*pi + 1`.
+- A definite integral with numeric limits solves a periodic condition on
+  the integration interval:
+  `integrate(Piecewise((1, sin(x) > 0), (0, True)), (x, 0, 4*pi))` is
+  `2*pi`; SymPy gives `pi`.
+- `simplify_univariate` tests each interval endpoint on the whole
+  condition. SymPy rebinds the condition in its loop and can drop an
+  endpoint; here `Or(x <= 0, x >= 1)` keeps `x = 0`.
+
+Differential tests: `tests/test_piecewise_periodic_parity.py` (hardcoded
+SymPy outputs; the divergence tests assert the correct values).
+
+Remaining gaps in this area:
+
+- `solvify` cannot solve `sin(x) + cos(x)` or `exp(sin(x))` on a period,
+  so `solveset(sin(x) + cos(x) > 0, x, Interval(0, 2*pi))` stays a
+  `ConditionSet`; SymPy gives the intervals.
+- `reduce_inequalities([sin(x) > 0, x > 0, x < 2*pi], x)` drops the
+  redundant `x < 2*pi` that SymPy keeps (form only).
+- `Heaviside(x, H0)` with `H0 != 1/2` is a `Piecewise` wrapper around
+  `Heaviside(x)` in Symox, so its `rewrite(Piecewise)` gives a nested,
+  equal but different `Piecewise`.
+- `series` of an `Add` or `Mul` that holds a `Piecewise` raises
+  `NotImplementedError`; SymPy expands each term with
+  `Piecewise._eval_nseries` and `_eval_as_leading_term`.
+- `Piecewise((x, x < 1), (x**5, True)).series(x, 0, 3)` gives `O(x**3)`
+  for the second branch; SymPy gives `O(x**5)`.
+- The pattern-based `And`/`Or` simplification of `BooleanFunction` is not
+  ported: `Or(x < 0, x < 1).simplify()` is `(x <= 0) | (x < 1)` instead of
+  `x < 1`, `Or(x > 0, x < 1)` is not reduced to `True`, `Or(x > 1, x < -1)`
+  is not rewritten as `Abs(x) > 1`, and the `Eq` substitution of
+  `And(Eq(x, 1), y > x)` into `y > 1` is missing.
+- `solve_univariate_inequality(x**2 + 2 > 0, x, relational=False)` gives
+  `Interval(-oo, oo)` where SymPy gives `Reals`.
 
 ## Remaining blocking gaps
 
