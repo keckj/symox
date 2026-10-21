@@ -33,7 +33,16 @@ fn powsimp(expr: &Bound<'_, PyAny>, deep: bool, combine: &str, force: bool) -> P
 #[pyfunction]
 #[pyo3(signature = (expr, deep=true, force=false))]
 fn expand_log(expr: &Bound<'_, PyAny>, deep: bool, force: bool) -> PyResult<PyExpr> {
-    Ok(wrap(simp::expand_log_deep(&to_expr(expr)?, force, deep)))
+    // the reference `expand` repeats the log hint until nothing changes
+    let mut value = to_expr(expr)?;
+    for _ in 0..16 {
+        let next = simp::expand_log_deep(&value, force, deep);
+        if next == value {
+            break;
+        }
+        value = next;
+    }
+    Ok(wrap(value))
 }
 
 #[pyfunction]

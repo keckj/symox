@@ -449,6 +449,14 @@ fn hint_pass(
     Ok(result)
 }
 
+/// Whether a logarithm occurs, each shared node visited once.
+fn has_log_node(e: &Expr, seen: &mut rustc_hash::FxHashSet<usize>) -> bool {
+    if !seen.insert(e.dag_id()) {
+        return false;
+    }
+    e.is_func(&crate::Func::Log) || e.args().iter().any(|a| has_log_node(a, seen))
+}
+
 pub fn expand_with_options(
     e: &Expr,
     options: &ExpandOptions,
@@ -507,6 +515,21 @@ pub fn expand_with_options(
         )?;
         reserve_arithmetic(&value, options, budget, &mut FxHashMap::default())?;
         value = arithmetic(&value, budget)?;
+    }
+    // the reference repeats the mul, multinomial and log hints until
+    // nothing changes: a logarithm produced by the first pass is expanded too
+    if options.log {
+        for _ in 0..16 {
+            if !has_log_node(&value, &mut rustc_hash::FxHashSet::default()) {
+                break;
+            }
+            let next = hint_pass(&value, options, Hint::Log, budget, &mut FxHashMap::default())?;
+            if next == value {
+                break;
+            }
+            reserve_arithmetic(&next, options, budget, &mut FxHashMap::default())?;
+            value = arithmetic(&next, budget)?;
+        }
     }
     if options.power_exp {
         value = hint_pass(

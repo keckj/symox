@@ -407,41 +407,64 @@ pub fn expand_log(e: &Expr, force: bool) -> Expr {
 
 pub fn expand_log_deep(e: &Expr, force: bool, deep: bool) -> Expr {
     let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_log_deep(c, force, deep)) };
-    let Kind::Func(Func::Log, a) = e2.kind() else { return e2 };
-    let ok = |x: &Expr| force || is_positive(x) == Some(true);
-    match a[0].kind() {
-        Kind::Mul(c, facs) => {
-            let mut parts = Vec::new();
-            let mut rest = vec![Expr::num(c.clone())];
-            for (b, x) in facs {
-                let f = mul_factor(b, x);
-                if ok(b) && is_real(x) == Some(true) || force {
-                    parts.push(expand_log(&log(&f), force));
+    match e2.kind() {
+        Kind::Func(Func::Log, a) if a.len() == 1 => expand_log_node(&a[0], force).unwrap_or_else(|| e2.clone()),
+        _ => e2,
+    }
+}
+
+/// The reference `log._eval_expand_log` at one node; `None` keeps the node.
+fn expand_log_node(arg: &Expr, force: bool) -> Option<Expr> {
+    use crate::assumptions::{fact, is_negative};
+    use crate::special::polar::is_polar;
+    let expand_one = |x: &Expr| {
+        let a = log(x);
+        match a.kind() {
+            Kind::Func(Func::Log, b) if b.len() == 1 => expand_log_node(&b[0], force).unwrap_or(a),
+            _ => a,
+        }
+    };
+    match arg.kind() {
+        Kind::Num(n) if n.is_integer() => {
+            // remove perfect powers
+            let (b, k) = crate::ntheory::factor::perfect_power(&n.to_bigint()?, None, true)?;
+            Some(mul2(&Expr::int(k as i64), &log(&Expr::num(Number::from_bigint(b)))))
+        }
+        Kind::Num(n) if n.is_rational() => {
+            let (p, q) = n.numer_denom()?;
+            Some(sub(&log(&Expr::num(Number::from_bigint(p))), &log(&Expr::num(Number::from_bigint(q)))))
+        }
+        Kind::Mul(..) => {
+            let mut terms = Vec::new();
+            let mut nonpos = Vec::new();
+            for x in arg.args() {
+                if force || is_positive(&x) == Some(true) || is_polar(&x) {
+                    terms.push(expand_one(&x));
+                } else if is_negative(&x) == Some(true) {
+                    terms.push(log(&neg(&x)));
+                    nonpos.push(Expr::int(-1));
                 } else {
-                    rest.push(f);
+                    nonpos.push(x);
                 }
             }
-            if parts.is_empty() {
-                return e2;
-            }
-            let r = mul(&rest);
-            if !r.is_one() {
-                parts.push(log(&r));
-            }
-            add(&parts)
+            terms.push(log(&mul(&nonpos)));
+            Some(add(&terms))
         }
-        // SymPy also accepts any base for real exponents in (-1, 1].
-        Kind::Pow(b, x)
-            if force
-                || (is_real(x) == Some(true)
-                    && (ok(b)
-                        || (is_positive(&add2(x, &Expr::one())) == Some(true)
-                            && crate::assumptions::fact(&sub(x, &Expr::one()), "nonpositive") == Some(true)))) =>
-        {
-            let a = log(b);
-            if a.is_func(&Func::Log) { mul2(x, &expand_log(&a, force)) } else { mul2(x, &a) }
+        Kind::Pow(..) | Kind::Func(Func::Exp | Func::ExpPolar, _) => {
+            let (b, x) = match arg.kind() {
+                Kind::Pow(b, x) => (b.clone(), x.clone()),
+                Kind::Func(_, a) => (Expr::constant(Constant::E), a[0].clone()),
+                _ => unreachable!(),
+            };
+            let ok = force
+                || (fact(&x, "extended_real") == Some(true)
+                    && (is_positive(&b) == Some(true)
+                        || (is_positive(&add2(&x, &Expr::one())) == Some(true)
+                            && fact(&sub(&x, &Expr::one()), "nonpositive") == Some(true))))
+                || is_polar(&b);
+            ok.then(|| mul2(&crate::special::polar::unpolarify(&x, false), &expand_one(&b)))
         }
-        _ => e2,
+        _ => None,
     }
 }
 
