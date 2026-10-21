@@ -84,6 +84,8 @@ def matches(pattern, expr, repl_dict=None, old=False):
         if _is_wild_function(pattern):
             return _wild_function(pattern, expr, repl_dict)
         return _wild(pattern, expr, repl_dict)
+    if not hasattr(pattern, 'is_Add'):
+        return _native_nonscalar(pattern, expr, repl_dict)
     if pattern.is_Add:
         return _commutative(pattern, expr, repl_dict, old)
     if pattern.is_Mul:
@@ -95,6 +97,20 @@ def matches(pattern, expr, repl_dict=None, old=False):
             return {} if repl_dict is None else dict(repl_dict)
         return None
     return _basic(pattern, expr, repl_dict, old)
+
+
+def _native_nonscalar(pattern, expr, repl_dict):
+    # Matrix expression patterns keep the native structural matcher.
+    from ._expr_methods import _native_match
+    try:
+        result = _native_match(expr, pattern)
+    except TypeError:
+        result = {} if expr == pattern else None
+    if result is None:
+        return None
+    bindings = {} if repl_dict is None else dict(repl_dict)
+    bindings.update(result)
+    return bindings
 
 
 def _custom_matches(pattern):
