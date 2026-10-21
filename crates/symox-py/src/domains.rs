@@ -105,7 +105,10 @@ impl PyDomain {
         }
     }
     pub fn of(p: &PolyValue) -> PyResult<Self> {
-        if p.expression.is_some() {
+        if let Some(e) = &p.expression {
+            if let Some(g) = &e.ground {
+                return Ok(Self{inner:g.domain()});
+            }
             return Ok(Self{inner:ExactDomain::Expression{raw:false}});
         }
         if p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && !p.base.domain_gens().is_empty() && p.domain != Domain::RR {
@@ -160,6 +163,13 @@ impl PyDomain {
             ExactDomain::Algebraic(field) => AlgebraicPoly::from_expr(e, gens, field.clone())
                 .map(Into::into)
                 .map_err(coercion),
+            ExactDomain::Composite { .. } if symox::poly::gaussian_ground::GaussianGround::from_domain(&self.inner).is_some() => {
+                let ground = symox::poly::gaussian_ground::GaussianGround::from_domain(&self.inner).unwrap();
+                if gens.is_empty() {
+                    return Err(PyNotImplementedError::new_err(format!("polynomials over {} require generators", self.inner)));
+                }
+                ground.convert_expr(e, gens).map(Into::into).map_err(crate::poly::err)
+            }
             ExactDomain::Composite { .. } => {
                 // Nested rings over ZZ or QQ are stored over their flattened
                 // generators (outermost first); the descriptor keeps the
@@ -886,9 +896,20 @@ impl PyDomain {
         Ok(self.element(a, None)?.value == self.one()?.value)
     }
     fn is_unit(&self, a: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let polynomial_ring = matches!(self.inner, ExactDomain::Composite { ring: true, .. });
+        // PolynomialRing.is_unit reads `a.is_ground` before converting.
+        if polynomial_ring && a.extract::<PyRef<'_, PyDomainElement>>().is_err() && !a.hasattr("is_ground")? {
+            return Err(pyo3::exceptions::PyAttributeError::new_err(format!(
+                "'{}' object has no attribute 'is_ground'",
+                a.get_type().name()?
+            )));
+        }
         let a = self.element(a, None)?;
         if self.is_Field() {
             return Ok(!a.value.is_zero());
+        }
+        if matches!(self.inner, ExactDomain::Composite { .. } | ExactDomain::Gaussian { .. }) {
+            return Ok(ring_unit(&self.inner, &a.value.as_expr()));
         }
         Ok(a.value.pow(-1).is_ok())
     }
@@ -1745,7 +1766,7 @@ pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
 /// Move exact implicit symbolic coefficients into the actual coefficient-ring
 /// backend. A descriptor never labels an unrelated QQ/ZZ polynomial as a ring.
 pub fn normalize_poly(p: PolyValue) -> PyResult<PolyValue> {
-    if p.field.is_some() || p.algebraic.is_some() || p.base.domain_gens().is_empty() {
+    if p.field.is_some() || p.algebraic.is_some() || p.expression.is_some() || p.base.domain_gens().is_empty() {
         return Ok(p);
     }
     if p.modulus.is_some() || p.domain == Domain::RR {
@@ -1922,5 +1943,20 @@ impl Selection {
         {
             p.coefficient_domain = domain.clone();
         }
+    }
+}
+
+/// `Ring.is_unit` through nested polynomial rings: a ground element whose
+/// innermost ring value is one or minus one (`Ring.revert`), or a nonzero
+/// element of an innermost field.
+fn ring_unit(domain: &ExactDomain, e: &Expr) -> bool {
+    let ground = |parameters: &[Expr]| !symox::traverse::free_symbols(e).iter().any(|s| parameters.contains(s));
+    match domain {
+        ExactDomain::Composite { ground: inner, ring: true, parameters, .. } => ground(parameters) && ring_unit(inner, e),
+        ExactDomain::Functions { ring: true, integral, parameters, .. } => {
+            ground(parameters) && (!*integral && !e.is_zero() || e.is_one() || symox::ops::neg(e).is_one())
+        }
+        d if d.is_field() => !e.is_zero(),
+        _ => e.is_one() || symox::ops::neg(e).is_one(),
     }
 }
