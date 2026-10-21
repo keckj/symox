@@ -319,7 +319,7 @@ fn quadratic(a: &Expr, b: &Expr, c: &Expr) -> Vec<Expr> {
     }
     if b.is_zero() {
         let r = neg(&div(c, a));
-        let s = sqrt(&r);
+        let s = sqrt_squares_out(&r);
         return vec![neg(&s), s];
     }
     let d = expand(&sub(&b.powi(2), &mul(&[Expr::int(4), a.clone(), c.clone()])));
@@ -332,8 +332,30 @@ fn quadratic(a: &Expr, b: &Expr, c: &Expr) -> Vec<Expr> {
         }
         return vec![sub(&bb, &dd), add2(&bb, &dd)];
     }
-    let s = sqrt(&d);
+    let s = sqrt_squares_out(&d);
     vec![div(&sub(&neg(b), &s), &two_a), div(&add2(&neg(b), &s), &two_a)]
+}
+
+/// The reference `roots_quadratic._sqrt`: even powers leave the square root,
+/// both signs being among the roots (`sqrt(-b**2)` gives `I*b`).
+fn sqrt_squares_out(d: &Expr) -> Expr {
+    let factors = match d.kind() {
+        Kind::Mul(..) => d.args(),
+        _ => vec![d.clone()],
+    };
+    let (mut co, mut other) = (Vec::new(), Vec::new());
+    for t in factors {
+        match t.kind() {
+            Kind::Pow(base, e) if e.as_i64().is_some_and(|n| n % 2 == 0) => {
+                co.push(pow(base, &div(e, &Expr::int(2))))
+            }
+            _ => other.push(t),
+        }
+    }
+    if co.is_empty() {
+        return sqrt(d);
+    }
+    mul2(&mul(&co), &sqrt(&mul(&other)))
 }
 
 /// Roots of a x^n + b.
