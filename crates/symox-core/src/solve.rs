@@ -720,7 +720,25 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
 /// does not reach these forms, so for a positive real root of a power with
 /// a base other than `E` the root is also inverted on its own, and the
 /// exact rational exponents found that way (`log_ratio`) are kept.
+///
+/// Only exponential generators (`exp(a)`, `b**a` with `b` free of x) are
+/// inverted this way. Other single generators of the native solver, such as
+/// `log((y - 1)/(y + 1))`, are not polynomial generators of the reference,
+/// which solves those equations by `_tsolve`; they are inverted root by root,
+/// whose forms are the reference's (`(-x**2 - exp(2*C1))/(x**2 - exp(2*C1))`).
 fn invert_generator(g: &Expr, roots: Vec<Expr>, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    let exponential = match g.kind() {
+        Kind::Func(Func::Exp, _) => true,
+        Kind::Pow(base, _) => !has(base, x),
+        _ => false,
+    };
+    if !exponential {
+        let mut out = Vec::new();
+        for r in roots {
+            out.extend(solve_rec(&sub(g, &r), x, depth + 1)?);
+        }
+        return Some(out);
+    }
     let t = Expr::dummy("_t", crate::Assumptions::NONE);
     let inverse = solve_rec(&sub(g, &t), x, depth + 1)
         .filter(|inverse| !inverse.is_empty() && inverse.iter().all(|i| has(i, &t)));

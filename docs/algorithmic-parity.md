@@ -754,7 +754,13 @@ product is not simplified again. Remaining differences:
 - the reference rewrites a perfect-power integer base before solving
   (`4**x - 8` and `(1/4)**x - 8` give two solutions, through `2**x`); the
   native solver keeps the base and gives one (`3/2`, `-3/2`). `6**x - 8`
-  gives `log(8)/log(6)` where the reference has `3*log(2)/log(6)`.
+  gives `log(8)/log(6)` where the reference has `3*log(2)/log(6)`;
+- a single logarithm of a rational function, `c - log(x) + log((y - 1)/(y +
+  1))/2`, gives `(-x**2 - exp(2*c))/(x**2 - exp(2*c))` where the reference
+  rewrites it to `1/tanh(c - log(x))` (equal value; this form predates the
+  generator inversion above, which applies the substituted inverse only to
+  `exp` and `b**a` generators and inverts other generators, such as
+  logarithms, root by root as before).
 
 Laplace, Fourier, sine, cosine, Hankel and Mellin transforms fall back to the
 reference integration backends (`_laplace_transform`, `_fourier_transform`,

@@ -149,3 +149,20 @@ def test_cubic_in_a_power_generator_gives_three_solutions():
     assert len(actual) == len(sp.solve(f, x)) == 3
     for value in printed(actual):
         assert abs(complex(f.subs(x, sp.sympify(value)).evalf(30))) < 1e-25
+
+
+@pytest.mark.parametrize('source', [
+    '2*c - 2*log(x) + log(y - 1) - log(y + 1)',
+    'c - log(x) + log(y - 1)/2 - log(y + 1)/2',
+])
+def test_logarithm_generator_is_inverted_root_by_root(source):
+    # A logarithm is not a polynomial generator of the reference, which
+    # inverts it by _tsolve; substituting a symbolic inverse would print
+    # (-x**2*exp(-2*c) - 1)/(x**2*exp(-2*c) - 1) instead.
+    names = 'x y c'
+
+    def solved(module):
+        x, y, c = module.symbols(names)
+        return module.solve(eval(source, {'x': x, 'y': y, 'c': c, 'log': module.log}), y)
+
+    assert printed(solved(sx)) == printed(solved(sp))
