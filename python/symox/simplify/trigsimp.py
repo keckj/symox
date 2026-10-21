@@ -16,7 +16,7 @@ def _common_angles(expr):
     from math import gcd, lcm
     groups={}
     for node in S.preorder_traversal(expr):
-        if node.class_name not in ('sin','cos','tan','cot','sec','csc','sinh','cosh'):
+        if getattr(node, 'class_name', None) not in ('sin','cos','tan','cot','sec','csc','sinh','cosh'):
             continue
         coefficient,base=node.args[0].as_coeff_Mul(rational=True)
         if coefficient.is_Rational and base!=1:

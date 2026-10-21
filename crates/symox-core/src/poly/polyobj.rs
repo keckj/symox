@@ -525,6 +525,22 @@ impl Poly {
         (Rat::new(c, d), self.with_rep(pp.to_rat()))
     }
 
+    /// The reference `dmp_ground_primitive` over a polynomial ring of the
+    /// domain generators (`ZZ[a**s]`, `QQ[exp(b)]`): the content is the gcd
+    /// in that ring of the coefficients, taken in the dense order with the
+    /// ring `gcd` of the reference (sign-normalised by `_gcd_zero`, the
+    /// monomial gcd for a one-term operand, and the primitive or monic gcd
+    /// otherwise). The content is a polynomial of the domain generators.
+    pub fn ground_primitive(&self) -> (Poly, Poly) {
+        let n = self.gens.len();
+        let content = self.with_rep(ground_content(&self.rep, self.ngens, 0, self.domain));
+        if self.rep.is_zero() || content.rep.is_one() {
+            return (content, self.clone());
+        }
+        let quotient = self.rep.div_exact(&content.rep).unwrap_or_else(|| MPoly::zero(n));
+        (content, self.with_rep(quotient))
+    }
+
     /// `(coefficient, [(factor, multiplicity)])` sorted like SymPy.
     pub fn factor_list(&self) -> (Rat, Vec<(Poly, u32)>) {
         if let Some(p) = self.modulus {
@@ -799,6 +815,72 @@ pub fn div_rec(f: &MPoly<Rat>, g: &MPoly<Rat>, v: usize) -> (MPoly<Rat>, MPoly<R
         }
     }
     (q, r)
+}
+
+/// `dmp_ground_content` at level `level` of the `ngens` polynomial
+/// generators, the coefficients being polynomials of the remaining (domain)
+/// generators.
+fn ground_content(f: &MPoly<Rat>, ngens: usize, level: usize, dom: Domain) -> MPoly<Rat> {
+    let n = f.nvars;
+    let mut cont = MPoly::zero(n);
+    if level == ngens {
+        return f.clone();
+    }
+    // the coefficients of the generator `level`, from the highest degree
+    let mut groups: Vec<(u32, Vec<(Vec<u32>, Rat)>)> = Vec::new();
+    for (e, c) in f.iter() {
+        let k = e[level];
+        let mut rest = e.to_vec();
+        rest[level] = 0;
+        match groups.iter_mut().find(|(d, _)| *d == k) {
+            Some((_, terms)) => terms.push((rest, c.clone())),
+            None => groups.push((k, vec![(rest, c.clone())])),
+        }
+    }
+    groups.sort_by(|a, b| b.0.cmp(&a.0));
+    for (_, terms) in groups {
+        let c = ground_content(&MPoly::from_terms(n, terms), ngens, level + 1, dom);
+        cont = ring_gcd(&cont, &c, dom);
+        if cont.is_one() {
+            break;
+        }
+    }
+    cont
+}
+
+/// `PolyElement.gcd` of the reference over `ZZ` or `QQ`.
+fn ring_gcd(f: &MPoly<Rat>, g: &MPoly<Rat>, dom: Domain) -> MPoly<Rat> {
+    fn zero_gcd(g: &MPoly<Rat>) -> MPoly<Rat> {
+        if g.lc().is_negative() { g.neg() } else { g.clone() }
+    }
+    fn monomial_gcd(f: &MPoly<Rat>, g: &MPoly<Rat>, dom: Domain) -> MPoly<Rat> {
+        let (mf, cf) = (f.exp(0).to_vec(), f.coeff(0).clone());
+        let (mut m, mut c) = (mf, cf);
+        for (e, cg) in g.iter() {
+            for (a, b) in m.iter_mut().zip(e) {
+                *a = (*a).min(*b);
+            }
+            c = if dom == Domain::ZZ {
+                Rat::new(c.n.gcd(&cg.n), Int::one())
+            } else {
+                Rat::new(c.n.gcd(&cg.n), c.d.lcm(&cg.d))
+            };
+        }
+        MPoly::monomial(&m, c)
+    }
+    if f.is_zero() && g.is_zero() {
+        MPoly::zero(f.nvars)
+    } else if f.is_zero() {
+        zero_gcd(g)
+    } else if g.is_zero() {
+        zero_gcd(f)
+    } else if f.len() == 1 {
+        monomial_gcd(f, g, dom)
+    } else if g.len() == 1 {
+        monomial_gcd(g, f, dom)
+    } else {
+        gcd_rep(f, g, dom)
+    }
 }
 
 pub fn gcd_rep(a: &MPoly<Rat>, b: &MPoly<Rat>, dom: Domain) -> MPoly<Rat> {

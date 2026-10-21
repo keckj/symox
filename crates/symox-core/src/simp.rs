@@ -52,8 +52,26 @@ pub fn expand_trig(e: &Expr) -> Expr { expand_trig_deep(e,true) }
 pub fn expand_trig_deep(e: &Expr,deep:bool) -> Expr {
     let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut expand_trig) };
     let Kind::Func(f, args) = e2.kind() else { return e2 };
-    if !matches!(f, Func::Sin | Func::Cos | Func::Tan | Func::Sinh | Func::Cosh) {
-        return e2;
+    use crate::special::SpecialFn;
+    // the reciprocal functions expand as the reciprocal of their partner
+    // (the reference `_calculate_reciprocal`)
+    let partner = match f {
+        Func::Sec => Some(cos(&args[0])),
+        Func::Csc => Some(sin(&args[0])),
+        Func::Special(SpecialFn::Sech) => Some(cosh(&args[0])),
+        Func::Special(SpecialFn::Csch) => Some(sinh(&args[0])),
+        _ => None,
+    };
+    if let Some(partner) = partner {
+        return pow(&expand_trig_deep(&partner, false), &Expr::minus_one());
+    }
+    match f {
+        Func::Tan | Func::Cot | Func::Tanh | Func::Coth => {
+            return expand_trig_ratio(&e2, f, &args[0]);
+        }
+        Func::Sinh | Func::Cosh => return expand_trig_hyperbolic(&e2, f, &args[0]),
+        Func::Sin | Func::Cos => {}
+        _ => return e2,
     }
     let u = &args[0];
     match u.kind() {
@@ -66,23 +84,10 @@ pub fn expand_trig_deep(e: &Expr,deep:bool) -> Expr {
                 expand_trig(&sin(&rest)),
                 expand_trig(&cos(&rest)),
             );
-            let r = match f {
+            match f {
                 Func::Sin => add2(&mul2(&sa, &cb), &mul2(&ca, &sb)),
-                Func::Cos => sub(&mul2(&ca, &cb), &mul2(&sa, &sb)),
-                Func::Tan => {
-                    let (ta, tb) = (expand_trig(&tan(&a)), expand_trig(&tan(&rest)));
-                    div(&add2(&ta, &tb), &sub(&Expr::one(), &mul2(&ta, &tb)))
-                }
-                Func::Sinh => {
-                    let (sa, ca, sb, cb) = (sinh(&a), cosh(&a), expand_trig(&sinh(&rest)), expand_trig(&cosh(&rest)));
-                    add2(&mul2(&sa, &cb), &mul2(&ca, &sb))
-                }
-                _ => {
-                    let (sa, ca, sb, cb) = (sinh(&a), cosh(&a), expand_trig(&sinh(&rest)), expand_trig(&cosh(&rest)));
-                    add2(&mul2(&ca, &cb), &mul2(&sa, &sb))
-                }
-            };
-            if matches!(f,Func::Sinh|Func::Cosh){expand(&r)}else{r}
+                _ => sub(&mul2(&ca, &cb), &mul2(&sa, &sb)),
+            }
         }
         Kind::Mul(c, facs) if c.is_integer() && c.is_positive() && !c.is_one() => {
             let n = c.to_i64().unwrap_or(1);
@@ -102,20 +107,152 @@ pub fn expand_trig_deep(e: &Expr,deep:bool) -> Expr {
                         expand(&mul(&[Expr::int(sign), cos(&x), cheb_u(n - 1, &s)]))
                     }
                 }
-                Func::Cos => expand(&cheb_t(n, &cos(&x))),
-                Func::Tan => {
-                    // tan(n x) through tan(a + b) recursion
-                    let t = tan(&x);
-                    let mut r = t.clone();
-                    for _ in 1..n {
-                        r = div(&add2(&r, &t), &sub(&Expr::one(), &mul2(&r, &t)));
-                    }
-                    crate::simplify::together(&r)
-                }
-                _ => e2,
+                _ => expand(&cheb_t(n, &cos(&x))),
             }
         }
         _ => e2,
+    }
+}
+
+/// `expr.expand(trig=True)` with the default hints, as the hyperbolic
+/// expansions of the reference call it on their sum formulas.
+fn expand_trig_full(e: &Expr) -> Expr {
+    let options = crate::expand::ExpandOptions { trig: true, ..Default::default() };
+    crate::expand::expand_with_options(e, &options, &mut Default::default())
+        .unwrap_or_else(|_| e.clone())
+}
+
+/// The reference `sinh._eval_expand_trig` and `cosh._eval_expand_trig`: a
+/// sum `x + y` (its first term and the rest) or `n*x` as `x + (n - 1)*x`
+/// through the sum formula, expanded again with `trig=True`.
+fn expand_trig_hyperbolic(e: &Expr, f: &Func, u: &Expr) -> Expr {
+    let (a, b) = match u.kind() {
+        Kind::Add(..) => {
+            let terms = crate::sortkey::ordered_terms(u);
+            (terms[0].clone(), add(&terms[1..]))
+        }
+        Kind::Mul(c, facs) if c.is_integer() && !c.is_one() => {
+            let x = crate::ops::add_term(&mul_from(facs), &Number::ONE);
+            let n = Expr::num(c.clone());
+            (x.clone(), mul2(&sub(&n, &Expr::one()), &x))
+        }
+        _ => return e.clone(),
+    };
+    let r = match f {
+        Func::Sinh => add2(&mul2(&sinh(&a), &cosh(&b)), &mul2(&sinh(&b), &cosh(&a))),
+        _ => add2(&mul2(&cosh(&a), &cosh(&b)), &mul2(&sinh(&a), &sinh(&b))),
+    };
+    expand_trig_full(&r)
+}
+
+/// Elementary symmetric polynomial `e_k` of `values`, as the reference
+/// `symmetric_poly` builds it: the sum of the products of the `k`-subsets.
+fn elementary_symmetric(k: usize, values: &[Expr]) -> Expr {
+    if k == 0 {
+        return Expr::one();
+    }
+    let n = values.len();
+    if k > n {
+        return Expr::zero();
+    }
+    let mut terms = Vec::new();
+    let mut index: Vec<usize> = (0..k).collect();
+    loop {
+        terms.push(mul(&index.iter().map(|&i| values[i].clone()).collect::<Vec<_>>()));
+        let mut i = k;
+        while i > 0 && index[i - 1] == n - k + i - 1 {
+            i -= 1;
+        }
+        if i == 0 {
+            break;
+        }
+        index[i - 1] += 1;
+        for j in i..k {
+            index[j] = index[j - 1] + 1;
+        }
+    }
+    add(&terms)
+}
+
+fn binomial_expr(n: u64, k: u64) -> Expr {
+    let mut value = num_bigint::BigInt::from(1u32);
+    for i in 0..k {
+        value = value * (n - i) / (i + 1);
+    }
+    Expr::num(Number::from_bigint(value))
+}
+
+/// The reference `_eval_expand_trig` of `tan`, `cot`, `tanh` and `coth`: a
+/// sum through the symmetric functions of the expanded terms, an integer
+/// multiple through the binomial coefficients.
+fn expand_trig_ratio(e: &Expr, f: &Func, u: &Expr) -> Expr {
+    let own = |a: &Expr| match f {
+        Func::Tan => tan(a),
+        Func::Cot => cot(a),
+        Func::Tanh => tanh(a),
+        _ => coth(a),
+    };
+    let sign = |i: usize| if (i % 4) / 2 == 0 { Expr::one() } else { Expr::minus_one() };
+    match u.kind() {
+        Kind::Add(..) => {
+            let values: Vec<Expr> =
+                u.args().iter().map(|a| expand_trig_deep(&own(a), false)).collect();
+            let n = values.len();
+            let (mut num, mut den) = (Vec::new(), Vec::new());
+            for i in 0..=n {
+                let e_i = elementary_symmetric(i, &values);
+                match f {
+                    // p[1 - i % 2] += (-1)**((i % 4)//2)*e_i
+                    Func::Tan => {
+                        let term = mul2(&sign(i), &e_i);
+                        if i % 2 == 1 { num.push(term) } else { den.push(term) }
+                    }
+                    // p[i % 2] += e_i, the numerator at odd i
+                    Func::Tanh => {
+                        if i % 2 == 1 { num.push(e_i) } else { den.push(e_i) }
+                    }
+                    // p[(n - i) % 2] += (-1)**(((n - i) % 4)//2)*e_i
+                    Func::Cot => {
+                        let term = mul2(&sign(n - i), &e_i);
+                        if (n - i) % 2 == 0 { num.push(term) } else { den.push(term) }
+                    }
+                    _ => {
+                        if (n - i) % 2 == 0 { num.push(e_i) } else { den.push(e_i) }
+                    }
+                }
+            }
+            div(&add(&num), &add(&den))
+        }
+        Kind::Mul(c, facs) if c.is_integer() && c.is_positive() && !c.is_one() => {
+            let Some(n) = c.to_i64().filter(|n| *n <= 64) else { return e.clone() };
+            let n = n as u64;
+            let x = crate::ops::add_term(&mul_from(facs), &Number::ONE);
+            let t = own(&x);
+            let (mut num, mut den) = (Vec::new(), Vec::new());
+            for k in 0..=n {
+                let term = mul2(&binomial_expr(n, k), &pow(&t, &Expr::int(k as i64)));
+                match f {
+                    // im((1 + I*t)**n)/re((1 + I*t)**n)
+                    Func::Tan => {
+                        let term = mul2(&sign(k as usize), &term);
+                        if k % 2 == 1 { num.push(term) } else { den.push(term) }
+                    }
+                    // re((t + I)**n)/im((t + I)**n)
+                    Func::Cot => {
+                        let term = mul2(&sign((n - k) as usize), &term);
+                        if (n - k) % 2 == 0 { num.push(term) } else { den.push(term) }
+                    }
+                    Func::Tanh => {
+                        if k % 2 == 1 { num.push(term) } else { den.push(term) }
+                    }
+                    _ => {
+                        if (n - k) % 2 == 0 { num.push(term) } else { den.push(term) }
+                    }
+                }
+            }
+            div(&add(&num), &add(&den))
+        }
+        _ => e.clone(),
     }
 }
 

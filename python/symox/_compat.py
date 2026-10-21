@@ -516,6 +516,10 @@ class Pow(metaclass=_ExprType):
 class Tuple(_core.Expr, metaclass=_ExprType):
     """An immutable tuple of native symbolic objects."""
     _matches = staticmethod(lambda e: e.is_Tuple)
+    # The class flags of the reference Basic that the native classes take
+    # from _relational_properties.
+    is_AlgebraicNumber = is_Indexed = is_MatAdd = is_MatMul = is_Not = False
+    is_NumberSymbol = is_Point = is_Poly = is_Vector = is_symbol = False
 
     @classmethod
     def fromiter(cls, args, **assumptions):

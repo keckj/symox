@@ -848,6 +848,10 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
         Kind::Func(Func::ExpPolar, a) => return Some(a[0].is_constant(Constant::NegInfinity)),
         // SymPy's exp._eval_is_zero: only exp(-oo) vanishes.
         Kind::Func(Func::Exp,args)=>return Some(matches!(args.first().map(Expr::kind),Some(Kind::Const(Constant::NegInfinity)))),
+        // log._eval_is_zero: (self.args[0] - 1).is_zero
+        Kind::Func(Func::Log,args) if args.len()==1=>{
+            if let Some(answer)=is_zero(&crate::ops::add2(&args[0],&Expr::int(-1))){return Some(answer);}
+        },
         Kind::Mul(c,factors) if !c.is_zero() && factors.iter().all(|(b,x)| exact_queries(||is_zero(&crate::ops::mul_factor(b,x)))==Some(false)) => return Some(false),
         Kind::Pow(base,exponent) => {
             if let Some(facts)=exact::rational_power(base,exponent) {if facts.zero.is_some(){return facts.zero;}}

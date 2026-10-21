@@ -259,5 +259,36 @@ def preprocess_roots(poly):
     return coeff, poly
 
 
+def root_factors(f, *gens, filter=None, **args):
+    """
+    Returns all factors of a univariate polynomial, as the reference
+    ``root_factors``: the linear factors of the closed-form roots, in
+    ``ordered`` order, and the cofactor of the roots not found.
+    """
+    from functools import reduce
+    from ..core.sorting import ordered
+    from .polytools import Poly
+    args = dict(args)
+    F = Poly(f, *gens, **args)
+    if not F.is_Poly:
+        return [f]
+    if F.is_multivariate:
+        raise ValueError('multivariate polynomials are not supported')
+    x = F.gens[0]
+    zeros = roots(F, filter=filter)
+    if not zeros:
+        factors = [F]
+    else:
+        factors, N = [], 0
+        for r, n in ordered(zeros.items()):
+            factors, N = factors + [Poly(x - r, x)]*n, N + n
+        if N < F.degree():
+            G = reduce(lambda p, q: p*q, factors)
+            factors.append(F.quo(G))
+    if not isinstance(f, Poly):
+        factors = [f.as_expr() for f in factors]
+    return factors
+
+
 __all__ = ['roots', 'roots_linear', 'roots_quadratic', 'roots_binomial',
-           'preprocess_roots']
+           'preprocess_roots', 'root_factors']

@@ -253,7 +253,7 @@ thread_local! {
 /// unwind through their callers, so they continue with the native fallback
 /// and the exception is raised when the result returns to Python (see
 /// `raise_pending`), as the reference raises it out of the computation.
-fn report(_py: Python<'_>, error: PyErr, _context: Option<&Bound<'_, PyAny>>) {
+pub(crate) fn report(_py: Python<'_>, error: PyErr, _context: Option<&Bound<'_, PyAny>>) {
     let extra = PENDING.with(|pending| {
         let mut pending = pending.borrow_mut();
         if pending.is_none() { *pending = Some(error); None } else { Some(error) }

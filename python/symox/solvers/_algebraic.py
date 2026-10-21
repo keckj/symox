@@ -4,7 +4,7 @@ import math
 
 
 def denoms(eq,*symbols):
-    from .. import sympify, Mul
+    from .. import sympify, Mul, fraction
     from .._core import Expr
     from ._differential import nodes
     if len(symbols)==1 and isinstance(symbols[0],(list,tuple,set,frozenset)):
@@ -15,7 +15,9 @@ def denoms(eq,*symbols):
     for expression in expressions:
         for node in nodes(sympify(expression)):
             if not isinstance(node,Expr):continue
-            denominator=node.as_numer_denom()[1]
+            # the reference `denom`: `fraction(node)[1]`, which keeps a sum
+            # over its own denominator (its terms are visited on their own)
+            denominator=fraction(node)[1]
             if denominator!=1:
                 result.update(Mul.make_args(denominator))
     return result if not symbols else {value for value in result if value.free_symbols&symbols}
