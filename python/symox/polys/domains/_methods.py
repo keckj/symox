@@ -459,12 +459,9 @@ def convert(self, element, base=None):
         raise CoercionFailed("Cannot convert %s of type %s to %s" % (element, type(element), self)) from None
 
 
-def _infinities():
-    from mpmath import libmp
-    return (libmp.finf, libmp.fninf)
-
-
-_INFINITIES = _infinities()
+# ``mpmath.libmp.finf`` and ``fninf``, spelled out so importing symox
+# does not import mpmath.
+_INFINITIES = ((0, 0, -456, -2), (1, 0, -789, -3))
 _native_call = None
 
 
