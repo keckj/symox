@@ -1228,8 +1228,20 @@ equation is `b**g = b**h` with the same base (`4**x - 4` gives `[1]`), so
 `8**x - 4`, `9**x - 3`, `4**x - 2**x` and `(1/4)**x - 4` give the
 reference solutions. The roots of a power of `exp` with at most two roots,
 and of a power of a rational base, have their logarithms expanded like the
-reference simplify (`exp(2*x) - 2` gives `log(2)/2`). Remaining
-differences:
+reference simplify (`exp(2*x) - 2` gives `log(2)/2`). When every
+generator is a power `b**g` of a base other than `E`, the equation is
+solved like the reference `_tsolve` fallback (the reference inversion of
+such a generator always fails on its Dummy right hand side): a single power
+term `c*b**g + d` with `-d/c = b**h` gives only `g = h` (`2**(2*x) - 2`
+gives `[1/2]`), and a sum is factored after `powdenest` and solved factor by
+factor (`4**(2*x) - 3*4**x + 2` gives `[0, 1/2, I*pi/log(2)]`, the three
+reference solutions; the fourth value `1/2 + I*pi/log(2)` is not returned
+by the reference). Floats are converted like the reference `solve`: unless
+`rational=False`, each equation is converted with `nsimplify(f,
+rational=True)` and, when `rational` is not given, the solutions are mapped
+through `nfloat(exponent=False)`, deduplicated and sorted
+(`4.0**x - 8` gives `[1.50000000000000, 1.5 + 4.53236014182719*I]`,
+`exp(2.0*x) - 3` gives two solutions). Remaining differences:
 - `simplify` lacks the reference step
   `shorter(expand_log(e, deep=True), logcombine(e))`, which is not
   idempotent: `4**x - 8` gives `[3/2, 3/2 + I*pi/log(2)]` where the
@@ -1245,13 +1257,6 @@ differences:
   reciprocal keeps another form: `(4/9)**x - 8` gives
   `3*log(2)/(2*(-log(3) + log(2)))` where the reference has
   `log(2**(3/log(4/9)))` (equal value);
-- `4**(2*x) - 3*4**x + 2` gives `[0, 1/2, I*pi/log(2), 1/2 + I*pi/log(2)]`,
-  where the reference gives the first three (the fourth is also a
-  solution);
-- a float base is not converted to a rational before solving like the
-  reference `nsimplify` of `_tsolve`: `4.0**x - 8` gives one solution,
-  `2.16404256133344*log(2)`, where the reference gives
-  `[1.50000000000000, 1.5 + 4.53236014182719*I]`;
 - `solve(x**3 - 3*x + 1, x, simplify=True)` differs in form: the native
   simplify search does not reach the reference forms of the Cardano roots
   (equal values);

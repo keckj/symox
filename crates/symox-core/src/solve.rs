@@ -715,6 +715,9 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if gens.is_empty() {
         return None;
     }
+    if let Some(r) = power_generator_tsolve(f, x, &gens, depth) {
+        return Some(r);
+    }
     let rewritten = perfect_power_bases(f, x, &gens);
     let f = rewritten.as_ref().unwrap_or(f);
     if rewritten.is_some() {
@@ -794,6 +797,74 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     }
     let roots = solve_rec(&fu, &u, depth + 1)?;
     invert_generator(g, roots, x, depth)
+}
+
+/// `b**g` with `b` free of the unknown and other than `E`.
+fn is_power_generator(g: &Expr, x: &Expr) -> bool {
+    matches!(g.kind(), Kind::Pow(b, e) if !has(b, x) && has(e, x) && *b != Expr::e())
+}
+
+/// The first steps of the reference `_tsolve` for an equation whose
+/// generators are powers `b**g` of bases other than `E`.
+///
+/// The reference cannot invert such a generator for a symbol (`_tsolve`
+/// raises for `2**x - t` with a Dummy `t`), so `_solve` discards the roots
+/// of the polynomial in the generator and calls `_tsolve` on the whole
+/// equation, which inverts the single dependent term first: `b**g = r` with
+/// `r = b**e` (as `as_base_exp` gives it) is solved as `g = e`, one branch
+/// only (`2**(2*x) - 2` gives `[1/2]`). With several dependent terms it
+/// solves `factor(powdenest(f))` factor by factor when that is a product,
+/// so `4**(2*x) - 3*4**x + 2`, which factors as
+/// `(2**x - 1)*(2**x + 1)*(2**(2*x) - 2)`, has the three solutions
+/// `0, I*pi/log(2), 1/2`. `None` when neither step applies; the native
+/// polynomial and inversion steps then emulate the remaining `_tsolve`
+/// steps (the rewrite through `exp`).
+fn power_generator_tsolve(f: &Expr, x: &Expr, gens: &[Expr], depth: u32) -> Option<Vec<Expr>> {
+    if !gens.iter().all(|g| is_power_generator(g, x)) {
+        return None;
+    }
+    let terms = if f.is_add() { f.args() } else { vec![f.clone()] };
+    let (dependent, independent): (Vec<Expr>, Vec<Expr>) = terms.into_iter().partition(|t| has(t, x));
+    if let [term] = dependent.as_slice() {
+        let (coefficients, powers): (Vec<Expr>, Vec<Expr>) = match term.kind() {
+            Kind::Mul(..) => term.args().into_iter().partition(|a| !has(a, x)),
+            _ => (vec![], vec![term.clone()]),
+        };
+        let [power] = powers.as_slice() else { return None };
+        if !is_power_generator(power, x) {
+            return None;
+        }
+        // The base is taken as it is: `(1/4)**x - 4` has two solutions.
+        let (base, exponent) = crate::ops::as_base_exp(power);
+        let rhs = div(&neg(&add(&independent)), &mul(&coefficients));
+        let (rhs_base, rhs_exponent) = crate::ops::as_base_exp(&rhs);
+        if rhs_base == base {
+            return solve_rec(&sub(&exponent, &rhs_exponent), x, depth + 1);
+        }
+        return None;
+    }
+    let factored = crate::poly::api::factor(&crate::simptools::powsimp::powdenest(f, false, false)).ok()?;
+    let Kind::Mul(..) = factored.kind() else { return None };
+    let factors: Vec<Expr> = factored.args().into_iter().filter(|a| has(a, x)).collect();
+    if factors.len() < 2 {
+        return None;
+    }
+    let mut out = Vec::new();
+    for factor in factors {
+        let (b, e) = crate::ops::as_base_exp(&factor);
+        let factor = if e.is_integer_number() && e.as_number().is_some_and(|n| n.is_positive()) { b } else { factor };
+        // `b**g = 0` has no solution for a nonzero base free of the unknown
+        // (the reference solves `b = 0`).
+        if is_power_generator(&factor, x) && matches!(factor.kind(), Kind::Pow(b, _) if !b.is_zero()) {
+            continue;
+        }
+        for s in solve_rec(&factor, x, depth + 1)? {
+            if !out.contains(&s) {
+                out.push(s);
+            }
+        }
+    }
+    Some(out)
 }
 
 /// `b = p**k` for a positive rational base `b`: an integer perfect power
