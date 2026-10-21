@@ -703,10 +703,58 @@ recurses and repeats until the expression is stable, as the reference does.
 Like the reference `_solve`, it leaves unsimplified the solutions of a
 polynomial in one generator of the unknown that has more than two roots,
 unless `simplify` is given; the roots of each factor of a product are decided
-separately. Two form differences remain: the native solver does not use the
-`roots` formulas for degree 3 and above (`solve(x**3 - 3*x + 1, x)` differs
-in form from the reference, already on main), and it solves a product as a
-whole where the reference solves and simplifies each factor (equal values).
+separately. For an exact polynomial of degree 3 and above in one generator
+the native solver takes the `roots` formulas (Cardano, Ferrari, binomial,
+with the `cubics`, `quartics` and `quintics` flags), and `all_roots` when they
+are incomplete: linear, quadratic and binomial factors give radicals
+(`CRootOf._roots_trivial`), the others give `CRootOf`. A non-real binomial
+root is expanded in complex form like `roots_binomial` (`x**6 + x**3 + 1`).
+The generator is inverted for every root through `solve(g - t)`, and, like
+the reference `decompose_power`, `exp(p*x/q + c)` with `|p| > 1` is a power
+of `exp(x/q)`, so `exp(2*x) - 2` and `exp(3*x + 1) - 2` give every branch
+(the `I*pi` solutions were missing); `b**(p*x/q + c)` with `b` free of the
+unknown is decomposed the same way, also with several such powers of one
+base (`2**(3*x) - 8` has three solutions, `2**(2*x) - 3*2**x + 2` gives
+`[0, 1]`, where the native solver found one solution or failed). A positive
+real root of a power of `b` is also inverted on its own so that an exact
+rational exponent is kept (`2**x - 8` gives `3`, as the reference simplify
+gives it). The sign analysis of `solve_univariate_inequality` takes the
+roots of the numerator as exact zeros: with the Cardano forms it no longer
+closes the intervals of `x**3 - 3*x + 1 > 0` at the roots (the reference
+raises `NotImplementedError` for this inequality). A product is solved factor by factor,
+each with its own simplification (`(x**3 - 2)*(x**2 - a**2/(a + 1))` gives
+`a*sqrt(1/(a + 1))`), the union is filtered by the denominators and the
+product is not simplified again. Remaining differences:
+- the native solver still checks the union against the whole product, so a
+  root of one factor where another factor is undefined is rejected:
+  `solve(x*log(x), x)` is `[1]` and `solve((x - 1)*log(x - 1), x)` is `[2]`,
+  where the reference returns `[0, 1]` and `[1, 2]`; the extra reference
+  values are not zeros of the expression;
+- `solve(x**5 + a*x + 1, x)` raises `NotImplementedError`, where the
+  reference returns the empty partial result of `roots` (its `all_roots`
+  does not support symbolic coefficients): no root was proven absent;
+- `simplify` lacks the reference step
+  `shorter(expand_log(e, deep=True), logcombine(e))`, so the roots of a
+  power of `exp` keep `log(sqrt(2))` where the reference has `log(2)/2`
+  (`exp(2*x) - 2`, `exp(-2*x) - 2`, `exp(2*x + 1) - 2`, `exp(2*a*x) - 3`,
+  `exp(x) - exp(2*x)/3 - 1`, `exp(2*x + a) - 1`);
+- `solve(x**3 - 3*x + 1, x, simplify=True)` differs in form: the native
+  simplify search does not reach the reference forms of the Cardano roots
+  (equal values);
+- the native Pow does not fold `sqrt(2**(1/3)/2)` to `2**(2/3)/2`, so
+  `exp(-3*x) - 2` gives `log(sqrt(2)*sqrt(2**(1/3))/2)` (equal value);
+- the native `log` takes `I*pi` out of a provably negative argument, so one
+  root of `exp(3*x) - 3*exp(x) + 1` prints `log(A) + I*pi` where the
+  reference keeps `log(-A)` (equal value);
+- for `2**(3*x) - 3*2**x + 1` the reference prints one solution with the
+  logarithm of an exactly negative number in a form that its evalf puts at
+  `-I*pi`; the native value is the principal one, `+I*pi`, so the two
+  solutions differ by `2*I*pi/log(2)` (both are solutions; the other
+  forms differ by the simplify gap above);
+- the reference rewrites a perfect-power integer base before solving
+  (`4**x - 8` and `(1/4)**x - 8` give two solutions, through `2**x`); the
+  native solver keeps the base and gives one (`3/2`, `-3/2`). `6**x - 8`
+  gives `log(8)/log(6)` where the reference has `3*log(2)/log(6)`.
 
 Laplace, Fourier, sine, cosine, Hankel and Mellin transforms fall back to the
 reference integration backends (`_laplace_transform`, `_fourier_transform`,

@@ -2,9 +2,13 @@
 use crate::expr::Expr;
 use crate::poly::{dense, int::{Int, Rat}, polyobj::Poly, rootof};
 
-/// Factoring separates repeated factors before indices are assigned. This
-/// returns every distinct root; multiplicities belong to roots(), not solve().
-pub(super) fn roots(f: &Expr, x: &Expr) -> Option<Vec<Expr>> {
+/// The reference `Poly.all_roots`, which `_solve` uses when `roots` is
+/// incomplete: linear, quadratic and binomial irreducible factors give
+/// radicals (`CRootOf._roots_trivial`), every other factor gives root
+/// objects, even when a radical formula exists for it. Factoring separates
+/// repeated factors before indices are assigned. This returns every distinct
+/// root; multiplicities belong to roots(), not solve().
+pub(super) fn all_roots(f: &Expr, x: &Expr) -> Option<Vec<Expr>> {
     if crate::evalf_mp::max_precision(f).is_some() {
         return None;
     }
@@ -15,11 +19,8 @@ pub(super) fn roots(f: &Expr, x: &Expr) -> Option<Vec<Expr>> {
     let (_, factors) = p.factor_list();
     let mut roots = Vec::new();
     for (factor, _) in factors {
-        let expression = factor.as_expr();
-        let coefficients = super::poly_coeffs(&expression, x)?;
-        if let Some(radicals) = super::poly_roots(&coefficients)
-            .or_else(|| super::complete_roots(&expression, x, &coefficients))
-        {
+        let coefficients = factor.all_coeffs().ok()?;
+        if let Some(radicals) = crate::poly::roots::roots_trivial(&coefficients) {
             roots.extend(radicals);
         } else {
             roots.extend(indexed_roots(&factor)?);
