@@ -173,10 +173,9 @@ def test_unsupported_options_and_invalid_inputs_are_explicit():
         sm.groebner([x], x, method="f4")
     with pytest.raises(NotImplementedError, match="exact rational"):
         sm.groebner([1.5*x], x)
-    with pytest.raises(NotImplementedError, match="extensions"):
-        sm.groebner([sm.sqrt(2)*x], x)
-    with pytest.raises(NotImplementedError, match="ZZ, QQ"):
-        sm.groebner([x], x, domain="EX")
+    # Algebraic coefficients without an extension use EX, like the reference.
+    assert str(sm.groebner([sm.sqrt(2)*x], x)) == "GroebnerBasis([x], x, domain='EX', order='lex')"
+    assert str(sm.groebner([x], x, domain="EX")) == "GroebnerBasis([x], x, domain='EX', order='lex')"
     with pytest.raises(ValueError, match="integers"):
         sm.groebner([x/2], x, domain="ZZ")
     with pytest.raises(ValueError, match="prime"):

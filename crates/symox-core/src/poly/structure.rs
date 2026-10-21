@@ -31,7 +31,10 @@ fn check<C: Coeff>(p: &MPoly<C>) -> PResult<()> {
     Ok(())
 }
 fn with_support<T>(p: &Polynomial, f: impl FnOnce(Vec<Vec<u32>>) -> T) -> PResult<T> {
-    let support = if let Some(a) = &p.algebraic {
+    let support = if let Some(a) = &p.expression {
+        expression_check(a)?;
+        a.terms().into_iter().map(|(e, _)| e).collect()
+    } else if let Some(a) = &p.algebraic {
         check(&a.rep)?;
         a.rep.iter().map(|(e, _)| e.to_vec()).collect()
     } else if let Some(a) = &p.field {
@@ -46,6 +49,13 @@ fn with_support<T>(p: &Polynomial, f: impl FnOnce(Vec<Vec<u32>>) -> T) -> PResul
             .collect()
     };
     Ok(f(support))
+}
+fn expression_check(p: &super::expression_domain::ExpressionPoly) -> PResult<()> {
+    let n = p.terms().len();
+    if n.checked_mul(p.gens.len().max(1)).is_none_or(|k| k > MAX_SLOTS) {
+        return Err(resource("exponent slots"));
+    }
+    Ok(())
 }
 fn changed<C: Coeff>(
     p: &MPoly<C>,
@@ -95,6 +105,21 @@ fn transform(
         ));
     }
     let gens: Vec<_> = indices.iter().map(|&i| p.true_gens()[i].clone()).collect();
+    if let Some(a) = &p.expression {
+        expression_check(a)?;
+        let terms = a.terms();
+        let mut output = Vec::with_capacity(terms.len());
+        for (e, c) in terms {
+            let t = map(&e);
+            if t.len() != indices.len() || inverse(&t) != e {
+                return Err(PolyError::Failed(
+                    "structural transform failed its exponent reconstruction certificate".into(),
+                ));
+            }
+            output.push((t, c));
+        }
+        return Ok(super::expression_domain::ExpressionPoly::from_terms(output, &gens)?.into());
+    }
     if let Some(a) = &p.algebraic {
         let mut result = a.with_rep(changed(&a.rep, a.gens.len(), indices, &map, &inverse)?);
         result.gens = gens;
@@ -249,6 +274,11 @@ fn remap(
     if width == 0 {
         return Err(PolyError::Failed("a polynomial needs at least one generator".into()));
     }
+    if let Some(a) = &p.expression {
+        expression_check(a)?;
+        let terms = a.terms().into_iter().filter_map(|(e, c)| map(&e).map(|t| (t, c))).collect();
+        return Ok(super::expression_domain::ExpressionPoly::from_summed_terms(terms, &gens)?.into());
+    }
     if let Some(a) = &p.algebraic {
         let mut result = a.with_rep(remapped(&a.rep, a.gens.len(), width, &map)?);
         result.gens = gens;
@@ -373,7 +403,9 @@ pub fn dense_terms(p: &Polynomial) -> PResult<Vec<(Vec<u32>, Expr)>> {
         ));
     }
     with_support(p, |_| ())?;
-    let degree = if let Some(f) = &p.field {
+    let degree = if let Some(f) = &p.expression {
+        f.degree(0)
+    } else if let Some(f) = &p.field {
         f.rep.degree(0)
     } else if let Some(f) = &p.algebraic {
         f.rep.degree(0)
@@ -414,7 +446,7 @@ pub fn rename_gens(p: &Polynomial, gens: &[Expr]) -> PResult<Polynomial> {
     }
     let parameters: &[Expr] = if let Some(f) = &p.field {
         &f.parameters
-    } else if p.algebraic.is_some() {
+    } else if p.algebraic.is_some() || p.expression.is_some() {
         &[]
     } else {
         p.domain_gens()
@@ -430,7 +462,7 @@ pub fn rename_gens(p: &Polynomial, gens: &[Expr]) -> PResult<Polynomial> {
 /// SymPy's `Poly.as_expr()`: every term is `Mul(coefficient, monomial)`, so
 /// composite coefficients of a `K[params]` domain stay grouped.
 pub fn sympy_expr(p: &Polynomial) -> Expr {
-    if p.field.is_some() || p.algebraic.is_some() || !p.base.has_domain_gens() {
+    if p.field.is_some() || p.algebraic.is_some() || p.expression.is_some() || !p.base.has_domain_gens() {
         return p.as_expr();
     }
     let gens = p.true_gens().to_vec();

@@ -30,12 +30,7 @@ def test_exact_and_numeric_inference(case,field,shape):
         obj,expected_obj = iter(obj),iter(expected_obj)
     domain,elements = construct_domain(obj,field=field)
     expected_domain,expected_elements = sp.construct_domain(expected_obj,field=field)
-    if case == 11:
-        # Native composite domains require Symbol generators. Constants such
-        # as pi stay formal rather than becoming an independent ring variable.
-        assert domain == sx.EX
-    else:
-        assert str(domain) == str(expected_domain)
+    assert str(domain) == str(expected_domain)
     if case in (8,9):
         assert domain.precision == expected_domain.precision
     if shape == 'dict':
@@ -55,7 +50,8 @@ def test_scalar_input_and_expression_fallback():
         domain,element = construct_domain(obj)
         assert element.parent() == domain
         assert sx.simplify(domain.to_sympy(element)-obj) == 0
-    assert construct_domain(sx.sin(x))[0] == sx.EX
+    # Transcendental generators give the reference composite ring.
+    assert str(construct_domain(sx.sin(x))[0]) == 'ZZ[sin(x)]'
     assert construct_domain(x,composite=False)[0] == sx.EX
     assert construct_domain([x,1],composite=True)[0] == sx.ZZ.poly_ring(x)
     assert construct_domain([]) == (sx.ZZ,[])
@@ -77,8 +73,7 @@ def test_invalid_options_and_no_silent_generator_independence():
     for options in [{'unknown':True},{'field':'yes'},{'composite':3},{'extension':False}]:
         with pytest.raises(OptionError):
             construct_domain([1],**options)
-    with pytest.raises(NotImplementedError):
-        construct_domain([sx.sin(x)],composite=True)
+    assert str(construct_domain([sx.sin(x)],composite=True)[0]) == 'ZZ[sin(x)]'
     with pytest.raises(NotImplementedError):
         construct_domain([1],extension=sx.sqrt(2))
 

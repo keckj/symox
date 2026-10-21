@@ -79,8 +79,10 @@ impl ExactDomain {
             return Err(failure("order must be lex, grlex, or grevlex"));
         }
         for (i, p) in parameters.iter().enumerate() {
-            if !p.is_symbol() || parameters[..i].contains(p) {
-                return Err(failure("domain generators must be distinct symbols"));
+            // The reference also accepts generator expressions such as
+            // `ZZ[pi]` or `ZZ(sqrt(a))`, but never numbers.
+            if p.as_number().is_some() || parameters[..i].contains(p) {
+                return Err(failure("domain generators must be distinct nonnumeric expressions"));
             }
         }
         Ok(Self::Functions {
@@ -238,6 +240,11 @@ impl DomainElement {
                     unreachable!()
                 };
                 coefficient_expr(r, parameters)
+            }
+            // The reference real field returns the Float `0.0` for its zero.
+            ElementValue::Inexact(e) if e.is_zero() && !self.domain.is_complex() => {
+                let precision = self.domain.inexact_precision().unwrap_or(53);
+                Expr::num(crate::number::Number::mp_float(crate::bigfloat::BigFloat::zero(), precision))
             }
             ElementValue::Expression(e) | ElementValue::Inexact(e) => e.clone(),
         }

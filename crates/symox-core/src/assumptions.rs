@@ -27,11 +27,56 @@ const SIGNS_OFFSET:u32=26;
 enum Query{Real,Positive,Negative,Nonnegative,Nonpositive,Zero,Nonzero,Integer,Rational,Parity,Finite}
 
 fn algebraic_proof(e:&Expr)->Option<bool>{
-    fn power(base:&Expr,exponent:&Expr,cache:&mut rustc_hash::FxHashMap<usize,(Expr,Option<bool>)>)->bool{
-        exponent.is_rational_number()&&walk(base,cache)==Some(true)
-            &&(exponent.as_number().is_some_and(|n|!n.is_negative())||exact_queries(||is_zero(base))==Some(false))
+    type Cache=rustc_hash::FxHashMap<usize,(Expr,Option<bool>)>;
+    // SymPy's `_fuzzy_group`: all True gives True, exactly one False with
+    // the others True gives False, anything else is unknown.
+    fn group(answers:impl Iterator<Item=Option<bool>>)->Option<bool>{
+        let mut saw_false=false;
+        for answer in answers{
+            match answer{
+                Some(true)=>{},
+                None=>return None,
+                Some(false) if saw_false=>return None,
+                Some(false)=>saw_false=true,
+            }
+        }
+        Some(!saw_false)
     }
-    fn walk(e:&Expr,cache:&mut rustc_hash::FxHashMap<usize,(Expr,Option<bool>)>)->Option<bool>{
+    // The reference decides `is_zero` of a number with its certified
+    // numerical evaluation, so the active refinement policy applies here.
+    fn nonzero(e:&Expr)->bool{is_zero(e)==Some(false)}
+    fn rational_value(e:&Expr)->bool{e.as_number().is_some_and(|n|!n.is_float())}
+    fn exponential(argument:&Expr,cache:&mut Cache)->Option<bool>{
+        // exp(r*I*pi) is a root of unity; exp of a nonzero algebraic number
+        // or of a nonzero rational multiple of pi is transcendental.
+        let quotient=crate::ops::mul2(argument,&crate::ops::pow(&crate::ops::mul2(&Expr::pi(),&Expr::i()),&Expr::int(-1)));
+        if rational_value(&quotient){return Some(true);}
+        if nonzero(argument){
+            if walk(argument,cache)==Some(true){return Some(false);}
+            let quotient=crate::ops::mul2(argument,&crate::ops::pow(&Expr::pi(),&Expr::int(-1)));
+            if rational_value(&quotient){return Some(false);}
+        }
+        None
+    }
+    fn power(base:&Expr,exponent:&Expr,cache:&mut Cache)->Option<bool>{
+        if base.is_zero()||base.is_one(){return Some(true);}
+        if base.is_constant(Constant::E){return exponential(exponent,cache);}
+        if let Some(n)=exponent.as_number().filter(|n|!n.is_float()){
+            let algebraic=walk(base,cache);
+            if algebraic==Some(false){return Some(n.is_zero());}
+            if nonzero(base){return if n.is_zero(){algebraic.filter(|a|*a)}else{algebraic};}
+            if n.is_positive(){return algebraic;}
+            return None;
+        }
+        if walk(base,cache)==Some(true)&&walk(exponent,cache)==Some(true){
+            let one=crate::ops::add2(base,&Expr::int(-1));
+            if (nonzero(base)&&nonzero(&one))||exact_queries(||is_integer(base))==Some(false){
+                return exact_queries(||is_rational(exponent));
+            }
+        }
+        None
+    }
+    fn walk(e:&Expr,cache:&mut Cache)->Option<bool>{
         if let Some((_,answer))=cache.get(&e.dag_id()){return *answer;}
         let answer=match e.kind(){
             Kind::Sym(symbol)=>symbol.facts().get("algebraic"),
@@ -39,9 +84,40 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
             Kind::Num(number) if !number.is_float()||number.is_zero()=>Some(true),
             Kind::Const(Constant::I|Constant::GoldenRatio|Constant::TribonacciConstant)=>Some(true),
             Kind::Const(Constant::Pi|Constant::E|Constant::Infinity|Constant::NegInfinity|Constant::ComplexInfinity)=>Some(false),
-            Kind::Pow(base,exponent) if power(base,exponent,cache)=>Some(true),
-            Kind::Add(c,terms) if !c.is_float()&&terms.iter().all(|(term,c)|!c.is_float()&&walk(term,cache)==Some(true))=>Some(true),
-            Kind::Mul(c,factors) if !c.is_float()&&factors.iter().all(|(base,exponent)|power(base,exponent,cache))=>Some(true),
+            Kind::Pow(base,exponent)=>power(base,exponent,cache),
+            Kind::Add(c,terms) if !c.is_float()&&terms.iter().all(|(_,c)|!c.is_float())=>{
+                let answers:Vec<_>=terms.iter().map(|(term,_)|walk(term,cache)).collect();
+                group(answers.into_iter())
+            },
+            Kind::Mul(c,factors) if !c.is_float()=>{
+                let answers:Vec<_>=factors.iter().map(|(base,exponent)|power(base,exponent,cache)).collect();
+                match group(answers.into_iter()){
+                    // One transcendental factor among nonzero algebraic ones.
+                    Some(false) if factors.iter().all(|(base,_)|nonzero(base))=>Some(false),
+                    Some(false)=>None,
+                    answer=>answer,
+                }
+            },
+            Kind::Func(Func::Exp,args) if args.len()==1=>exponential(&args[0],cache),
+            Kind::Func(Func::Sin|Func::Cos|Func::Tan|Func::Cot|Func::Sec|Func::Csc,args) if args.len()==1=>{
+                let argument=&args[0];
+                if nonzero(argument)&&walk(argument,cache)==Some(true){Some(false)}
+                else if crate::special::trig_eval::pi_coeff(argument).is_some_and(|c|rational_value(&c)){Some(true)}
+                else{None}
+            },
+            Kind::Func(Func::Log,args) if args.len()==1=>{
+                let shifted=crate::ops::add2(&args[0],&Expr::int(-1));
+                if shifted.is_zero(){Some(true)}
+                else if nonzero(&shifted)&&walk(&args[0],cache)==Some(true){Some(false)}
+                else{None}
+            },
+            Kind::Func(Func::Re|Func::Im|Func::Abs|Func::Conjugate,args) if args.len()==1=>walk(&args[0],cache),
+            Kind::Func(Func::Max|Func::Min,args)=>{
+                let answers:Vec<_>=args.iter().map(|a|walk(a,cache)).collect();
+                if answers.iter().all(|a|*a==Some(true)){Some(true)}
+                else if answers.iter().all(|a|*a==Some(false)){Some(false)}
+                else{None}
+            },
             _=>None,
         };
         cache.insert(e.dag_id(),(e.clone(),answer));answer

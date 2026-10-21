@@ -44,6 +44,13 @@ fn remove<C: Coeff>(p: &MPoly<C>) -> PResult<MPoly<C>> {
 
 impl Polynomial {
     fn subresultant_data(&self, other: &Self, discriminant: bool) -> PResult<(Self, Vec<Self>)> {
+        if let Some((a, b)) = self.checked_expression_pair(other)? {
+            if discriminant {
+                return Ok((a.retain_main(a.discriminant()?)?.into(), Vec::new()));
+            }
+            let (r, prs) = a.resultant_prs(&b)?;
+            return Ok((a.retain_main(r)?.into(), prs.into_iter().map(Into::into).collect()));
+        }
         if let Some((a, b)) = self.checked_algebraic_pair(other)? {
             let _scope = AlgebraicScope::new(a.number_field.clone());
             return calculate(&a.rep, &b.rep, discriminant, |r| Ok(a.with_rep(r).into()));
@@ -100,12 +107,18 @@ impl Polynomial {
 
     /// Subresultant PRS, with every original main generator retained.
     pub fn subresultants(&self, other: &Self) -> PResult<Vec<Self>> {
+        if let Some((a, b)) = self.checked_expression_pair(other)? {
+            return Ok(a.subresultants(&b)?.into_iter().map(Into::into).collect());
+        }
         Ok(self.subresultant_data(other, false)?.1)
     }
     /// Resultant and PRS, still represented with the eliminated variable at
     /// exponent zero. Public wrappers remove that variable only from the result.
     pub fn resultant_prs(&self, other: &Self) -> PResult<(Self, Vec<Self>)> {
         let (result, mut sequence) = self.subresultant_data(other, false)?;
+        if self.expression.is_some() || other.expression.is_some() {
+            return Ok((result, sequence));
+        }
         // A resultant involving zero uses the empty PRS convention, while
         // subresultants(0,g) independently returns [g].
         if sequence.len() < 2 {
@@ -123,6 +136,9 @@ impl Polynomial {
             return Err(PolyError::Failed(
                 "an expression represents a univariate elimination result".into(),
             ));
+        }
+        if let Some(a) = &self.expression {
+            return Ok(a.eliminate_first()?.into());
         }
         if let Some(a) = &self.algebraic {
             let mut result = a.with_rep(remove(&a.rep)?);

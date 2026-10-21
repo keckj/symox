@@ -154,14 +154,22 @@ def test_subfield_membership_is_not_guessed_from_an_annihilating_polynomial():
     same(p,sp.Symbol('x')+sp.I*sp.sqrt(2),sp.Symbol('x'))
 
 
-@pytest.mark.parametrize('generator',[
-    '2**(1/5)','(-2)**(1/3)','sqrt(1+sqrt(2))',
-    '2**(1/3)+sqrt(2)+sqrt(3)','sqrt(2)+sqrt(3)+sqrt(5)+sqrt(7)','pi',
+@pytest.mark.parametrize('generator,minimal',[
+    ('2**(1/5)','x**5-2'),('(-2)**(1/3)','x**3+2'),('sqrt(1+sqrt(2))','x**4-2*x**2-1'),
+    ('2**(1/3)+sqrt(2)+sqrt(3)','x**12-30*x**10-8*x**9+303*x**8-1036*x**6-1104*x**5+663*x**4+3488*x**3+1290*x**2+696*x-3863'),
+    ('sqrt(2)+sqrt(3)+sqrt(5)+sqrt(7)','x**16-136*x**14+6476*x**12-141912*x**10+1513334*x**8-7453176*x**6+13950764*x**4-5596840*x**2+46225'),
 ])
-def test_outside_supported_towers_fails_explicitly(generator):
+def test_general_towers_match_the_reference(generator,minimal):
     x=sm.Symbol('x');a=expr(generator)
-    with pytest.raises((ValueError,NotImplementedError)):sm.Poly(x+a,x,extension=a)
-    with pytest.raises((ValueError,NotImplementedError)):sm.minpoly(a,x)
+    p=sm.Poly(x+a,x,extension=a)
+    assert p.domain.is_Algebraic and str(p.domain).startswith('QQ<')
+    assert sm.minpoly(a,x)==expr(minimal)
+
+
+def test_transcendental_extension_is_not_algebraic():
+    x=sm.Symbol('x')
+    with pytest.raises(sm.polys.polyerrors.NotAlgebraic):sm.Poly(x+sm.pi,x,extension=sm.pi)
+    with pytest.raises(sm.polys.polyerrors.NotAlgebraic):sm.minpoly(sm.pi,x)
 
 
 def test_numberfield_import_paths_options_and_no_sympy_runtime():
@@ -172,8 +180,9 @@ def test_numberfield_import_paths_options_and_no_sympy_runtime():
     assert minimal_polynomial(a,x)==x**3-2
     assert primitive_element([sm.sqrt(2),sm.I],x)[0]==x**4-2*x*x+9
     assert Poly is sm.Poly
-    with pytest.raises(NotImplementedError):sm.minpoly(a,x,compose=False)
-    with pytest.raises(NotImplementedError):sm.minpoly(a,x,domain='QQ(a)')
+    assert sm.minpoly(a,x,compose=False)==x**3-2
+    assert sm.minpoly(a,x,domain=sm.QQ.algebraic_field(sm.sqrt(2)))==x**3-2
+    assert sm.minpoly(a,x,domain=sm.QQ.algebraic_field(a))==x-a
     with pytest.raises(ValueError):sm.minpoly(a,1)
     result=subprocess.run([sys.executable,'-c','''
 import sys

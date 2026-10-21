@@ -65,6 +65,30 @@ def _infer_domain(values, *, field=False, extension=False, **options):
     return EXRAW
 
 
+def _composite_domain(values, field):
+    """The reference composite domain when a generator is not a Symbol.
+
+    ``parallel_dict_from_basic`` also takes ``pi``, ``exp(a)`` or
+    ``sin(x)`` as generators, so ``[pi, 2]`` gives ``ZZ[pi]``. Symbol-only
+    generators keep the inference below, which certifies membership.
+    """
+    from .. import QQ, ZZ, Symbol, CoercionFailed
+    from .. import _core
+    found = _core._composite_generators(values)
+    if found is None or all(isinstance(g, Symbol) for g in found[0]):
+        return None
+    gens, fractions = found
+    for ground in (ZZ, QQ):
+        domain = ground.frac_field(*gens) if fractions or field else ground.poly_ring(*gens)
+        try:
+            for value in values:
+                domain.convert(value)
+        except CoercionFailed:
+            continue
+        return domain
+    return None
+
+
 def construct_domain(obj, **args):
     """Return a native domain and coefficients with the input container shape.
 
@@ -72,7 +96,7 @@ def construct_domain(obj, **args):
     polynomial rings and rational-function fields. General expressions use
     EX; ``extension=True`` enables the supported algebraic field models.
     """
-    from .. import EX, sympify
+    from .. import EX, sympify, _core
     from .polyerrors import OptionError
     unknown = args.keys() - {'field', 'extension', 'composite'}
     if unknown:
@@ -91,10 +115,15 @@ def construct_domain(obj, **args):
     sequence = not mapping and iterable(obj)
     original = list(obj.values()) if mapping else list(obj) if sequence else [obj]
     coefficients = [sympify(value) for value in original]
-    if composite is False and any(value.free_symbols for value in coefficients):
+    if composite is False and (any(value.free_symbols for value in coefficients)
+                               or _core._composite_generators(coefficients) is not None):
         domain = EX
     else:
-        domain = _infer_domain(coefficients, field=field, extension=extension is True)
+        domain = None
+        if extension is None:
+            domain = _composite_domain(coefficients, field)
+        if domain is None:
+            domain = _infer_domain(coefficients, field=field, extension=extension is True)
         if domain.is_EXRAW:
             if composite is True:
                 raise NotImplementedError('Composite inference requires supported coefficient rings over native Symbols')

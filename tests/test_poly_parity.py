@@ -686,9 +686,10 @@ def test_documented_deviations():
     # SymPy overflows on candidates whose value is exactly zero but the
     # count is too small (non-real roots); symox keeps the exact roots.
     assert symox.Poly(x**2 + 1).which_real_roots([symox.I, -symox.I]) == [symox.I, -symox.I]
-    # Parametric coefficient rings are not supported by the native cancel.
-    with pytest.raises(NotImplementedError):
-        symox.apart_list(a/(x - a)/(x + 1), x)
+    # Parametric coefficient rings follow the reference partial fractions.
+    assert str(symox.assemble_partfrac_list(symox.apart_list(a/(x - a)/(x + 1), x))) == (
+        '(-2*a/(a**2 + 2*a + 1) + (-a**2 + a)/(a**2 + 2*a + 1))/(x + 1)'
+        ' + (2*a**2/(a**2 + 2*a + 1) + (-a**2 + a)/(a**2 + 2*a + 1))/(-a + x)')
 
 
 def test_random_poly_bounds():

@@ -136,8 +136,7 @@ def test_expression_sign_conventions_and_numerical_unification():
     assert sx.EXRAW.unify(sx.EX) == sx.EXRAW
     with pytest.raises(sx.DomainError):
         sx.RR.unify(sx.GF(5))
-    with pytest.raises(NotImplementedError):
-        sx.Poly(x+1, x, domain=sx.EX)
+    assert str(sx.Poly(x+1, x, domain=sx.EX)) == str(sp.Poly(sp.Symbol('x')+1, sp.Symbol('x'), domain=sp.EX))
 
 
 def test_domain_constructor_facades():

@@ -24,15 +24,19 @@ def test_domains_minpoly_arithmetic_and_exact_norm(field,mode):
     x=sm.Symbol('x');sx=sp.Symbol('x');theta=sm.sympify(field);eta=sp.sympify(field)
     kwargs={'extension':theta} if mode=='explicit' else {'extension':True} if mode=='inferred' else {'domain':f'QQ<{theta}>'}
     p=sm.Poly(x-theta,x,**kwargs)
-    oracle=sp.Poly(sx-eta,sx,extension=eta)
+    # With extension=True the reference splits products into their
+    # radicals, so its field can strictly contain QQ(theta).
+    oracle=sp.Poly(sx-eta,sx,extension=True if mode=='inferred' else eta)
     assert p.domain.startswith('QQ<')
+    if mode=='inferred':assert str(p.domain)==str(oracle.domain)
     assert sm.minpoly(theta,x,polys=True).degree() == sp.degree(sp.minimal_polynomial(eta,sx))
     # SymPy's integral defining polynomial can be nonmonic; its norm()
     # retains that resultant scaling. Compare the mathematical field norm,
     # whose multiplication determinant is monic for x-theta.
     expected_norm=sp.Poly(oracle.norm().as_expr(),sx).monic().as_expr()
     same(p.norm().as_expr(),expected_norm,x)
-    same(p.norm().as_expr(),sp.Poly(sp.minimal_polynomial(eta,sx),sx).monic().as_expr(),x)
+    if mode!='inferred':
+        same(p.norm().as_expr(),sp.Poly(sp.minimal_polynomial(eta,sx),sx).monic().as_expr(),x)
     r=p*p+1
     quotient,remainder=r.div(p)
     same((quotient*p+remainder).as_expr(),r.as_expr(),x)
@@ -90,10 +94,16 @@ def test_canonical_products_dependencies_and_roundtrip(items,member,expected_deg
     '2**(1/3)+sqrt(2)+sqrt(3)','sqrt(2)+sqrt(3)+sqrt(5)+sqrt(7)',
     '2**(1/3)+3**(1/3)','sqrt(1+2**(1/3))','(-2)**(1/6)',
 ])
-def test_outside_families_explicitly_unsupported(field):
-    x=sm.Symbol('x');theta=sm.sympify(field)
-    with pytest.raises((ValueError,TypeError,NotImplementedError)):
-        sm.Poly(x+theta,x,extension=theta)
+def test_general_primitive_element_fields_match_reference(field):
+    x=sm.Symbol('x');sx=sp.Symbol('x');theta=sm.sympify(field);eta=sp.sympify(field)
+    p=sm.Poly(x+theta,x,extension=theta)
+    oracle=sp.Poly(sx+eta,sx,extension=eta)
+    if field!='(-2)**(1/6)':
+        # The native parser writes (-2)**(1/6) as (-1)**(1/6)*2**(1/6).
+        assert str(p.domain)==str(oracle.domain)
+    same(p.norm().as_expr(),sp.Poly(oracle.norm().as_expr(),sx).monic().as_expr(),x)
+    q,r=(p*p+1).div(p)
+    assert r.as_expr()==1 and q==p
 
 
 @pytest.mark.parametrize('field',FIELDS)
@@ -116,7 +126,11 @@ def test_inference_recombines_numeric_coefficients_without_splitting_the_field(c
     a=sm.sympify(coefficient)
     p=sm.Poly(a*x+x*x,x,extension=True)
     assert p.gens==(x,)
-    expected_degree=2 if coefficient=='sqrt(6)' else 6
+    # The reference splits the product into its radicals: QQ<2**(1/3) +
+    # sqrt(3) + I> has degree 12 although the coefficient has degree 6.
+    oracle=sp.Poly(sp.sympify(coefficient)*sp.Symbol('x',positive=True)+sp.Symbol('x',positive=True)**2,sp.Symbol('x',positive=True),extension=True)
+    assert str(p.domain)==str(oracle.domain)
+    expected_degree=2 if coefficient=='sqrt(6)' else 12
     assert sm.minpoly(sm.sympify(p.domain[3:-1]),sm.Symbol('t'),polys=True).degree()==expected_degree
     squared=p*p
     restored=sm.Poly(squared.as_expr(),x,extension=True)

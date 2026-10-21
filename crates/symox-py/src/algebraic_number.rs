@@ -200,12 +200,26 @@ impl PyAlgebraicNumber {
         let model = PrimitiveModel::build(&self.value.as_expr()).map_err(err)?;
         Ok(minimal_polynomial_value(&model, self.gen.clone()))
     }
+    /// The reference `as_expr`: the coordinate polynomial at `x` (the
+    /// root by default), expanded.
     fn represented(&self, x: Option<&Bound<'_, PyAny>>) -> PyResult<Expr> {
         let x = x
             .map(to_expr)
             .transpose()?
             .unwrap_or_else(|| self.value.field.generator.clone());
-        Ok(polynomial_expression(&self.value.coefficients, &x))
+        Ok(symox::expand::expand(&polynomial_expression(
+            &self.value.coefficients,
+            &x,
+        )))
+    }
+    /// A minimal polynomial with the reference class: `PurePoly` unless a
+    /// generator was given.
+    fn minimal_object(&self, py: Python<'_>, p: Poly) -> PyResult<PyObject> {
+        let poly = PyPoly { p: p.into() };
+        if self.gen != Expr::symbol("_x") {
+            return Ok(Py::new(py, poly)?.into_any());
+        }
+        Ok(py.import("symox")?.getattr("PurePoly")?.call1((poly,))?.unbind())
     }
 }
 #[pymethods]
@@ -229,10 +243,8 @@ impl PyAlgebraicNumber {
         self.alias.clone().map(w)
     }
     #[getter]
-    fn minpoly(&self) -> PyResult<PyPoly> {
-        Ok(PyPoly {
-            p: self.minpoly_value()?.into(),
-        })
+    fn minpoly(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.minimal_object(py, self.minpoly_value()?)
     }
     fn coeffs(&self) -> Vec<PyExpr> {
         self.coords().iter().map(|c| w(rat_expr(c))).collect()
@@ -295,10 +307,8 @@ impl PyAlgebraicNumber {
             gen: Expr::symbol("_x"),
         })
     }
-    fn minpoly_of_element(&self) -> PyResult<PyPoly> {
-        Ok(PyPoly {
-            p: self.actual_minpoly()?.into(),
-        })
+    fn minpoly_of_element(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.minimal_object(py, self.actual_minpoly()?)
     }
     #[pyo3(signature=(radicals=true,minpoly=None))]
     fn to_root(&self, radicals: bool, minpoly: Option<&Bound<'_, PyAny>>) -> PyResult<PyExpr> {
@@ -397,10 +407,13 @@ impl PyAlgebraicNumber {
         Ok(PyTuple::new(py, args)?.into_any().unbind())
     }
     fn __str__(&self) -> String {
-        symox::printer::to_str(&polynomial_expression(
-            &self.value.coefficients,
-            self.alias.as_ref().unwrap_or(&self.value.field.generator),
-        ))
+        symox::printer::to_str(&match &self.alias {
+            Some(alias) => polynomial_expression(&self.value.coefficients, alias),
+            None => symox::expand::expand(&polynomial_expression(
+                &self.value.coefficients,
+                &self.value.field.generator,
+            )),
+        })
     }
     fn __repr__(&self) -> String {
         self.__str__()
@@ -547,8 +560,16 @@ fn to_number_field(
             gen: variable(gen)?,
         }
     };
-    number.value = AN::from_expr(&root, number.value.field.clone()).map_err(|_| {
-        IsomorphismFailed::new_err("the algebraic number is not in the selected number field")
+    number.value = AN::from_expr(&root, number.value.field.clone()).map_err(|e| {
+        if symox::poly::embedding::is_absence(&e) {
+            IsomorphismFailed::new_err(format!(
+                "{} is not in a subfield of {}",
+                symox::printer::to_str(&root),
+                symox::printer::to_str(&number.value.field.generator)
+            ))
+        } else {
+            err(e)
+        }
     })?;
     Ok(number)
 }

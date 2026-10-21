@@ -41,6 +41,9 @@ pub mod radical_cert;
 pub mod fieldalg;
 pub mod fraction;
 pub mod algebraic;
+pub mod algebraic_multi;
+pub mod gaussian;
+pub mod expression_domain;
 
 pub mod f5b;
 
@@ -58,6 +61,9 @@ mod typed_prs;
 pub mod real_roots;
 pub mod rootisolation;
 pub mod rootof;
+pub mod enclosure;
+pub mod minpoly;
+pub mod embedding;
 pub mod factor_budget;
 pub mod checked_factors;
 pub mod factorial;

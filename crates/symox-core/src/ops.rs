@@ -1151,6 +1151,11 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             return noncommutative_product_power(b, e);
         }
         Kind::Mul(c, facs) => {
+            if facs.len() == 1 && facs[0].0.is_constant(Constant::I) && facs[0].1.is_one() && c.is_rational() {
+                if let Some(value) = imaginary_square_root_power(c, e) {
+                    return value;
+                }
+            }
             if e.is_integer_number() {
                 // A held positive numeric product can collect to a unit.
                 // Keep its power as a multiplicative boundary: multiplying
@@ -1194,6 +1199,13 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 }
             }
         }
+        Kind::Add(c, terms)
+            if terms.len() == 1 && terms[0].0.is_constant(Constant::I) && e.is_rational_number() =>
+        {
+            if let Some(value) = pure_complex_power(c, &terms[0].1, e.as_number().unwrap()) {
+                return value;
+            }
+        }
         Kind::Func(Func::Abs, args) => {
             // Abs(r)**(2k) = r**(2k) for real r
             if e.as_i64().is_some_and(|k| k % 2 == 0) && crate::assumptions::is_real(&args[0]) == Some(true) {
@@ -1233,6 +1245,71 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
         _ => {}
     }
     memo::apply(memo::Operation::Power,b,e,||pow_raw(b,e))
+}
+
+/// SymPy's `Add._eval_power` for a literal `r + i*I` with a rational
+/// exponent: the reciprocal is the held product `(r - i*I)/(r**2 + i**2)`,
+/// and a half-integer power of a Pythagorean base is its exact root.
+fn pure_complex_power(r: &Number, i: &Number, e: &Number) -> Option<Expr> {
+    let finite = |n: &Number| !n.is_nan() && (!n.is_float() || n.to_f64().is_finite());
+    if !finite(r) || !finite(i) {
+        return None;
+    }
+    let (p, q) = e.numer_denom()?;
+    if q == num_bigint::BigInt::from(2) && r.is_rational() && i.is_rational() {
+        let norm = r.mul(r).add(&i.mul(i));
+        let (n, d) = norm.numer_denom()?;
+        let (n, d) = (crate::number::exact_root(&n, 2)?, crate::number::exact_root(&d, 2)?);
+        let modulus = Number::rational(n, d)?;
+        let p = i64::try_from(&p).ok()?;
+        let half = modulus.sub(r).div(&Number::int(2))?;
+        let root = pow(&pow(&Expr::num(half), &Expr::num(Number::rational_i64(1, 2)?)), &Expr::int(p));
+        let a = modulus.add(r).div(&i.abs())?;
+        let b = if i.is_negative() { Number::MINUS_ONE } else { Number::ONE };
+        let (u, v) = gaussian_rational_power(&a, &b, p.unsigned_abs());
+        let expansion = if p < 0 {
+            gaussian_reciprocal(&u, &v)?
+        } else {
+            add(&[Expr::num(u), mul2(&Expr::num(v), &Expr::i())])
+        };
+        return Some(mul2(&root, &expansion));
+    }
+    if e.is_minus_one() {
+        return gaussian_reciprocal(r, i);
+    }
+    None
+}
+
+/// `1/(r + i*I)` as the reference's unevaluated `(r - i*I)*(1/(r**2+i**2))`.
+fn gaussian_reciprocal(r: &Number, i: &Number) -> Option<Expr> {
+    let norm = r.mul(r).add(&i.mul(i));
+    let conjugate = add(&[Expr::num(r.clone()), mul2(&Expr::num(i.neg()), &Expr::i())]);
+    Some(crate::simptools::unevaluated_mul(&[conjugate, Expr::num(norm.inv()?)]))
+}
+
+/// `(a + b*I)**k` with exact rational parts.
+fn gaussian_rational_power(a: &Number, b: &Number, k: u64) -> (Number, Number) {
+    let (mut u, mut v) = (Number::ONE, Number::ZERO);
+    for _ in 0..k {
+        let next = (u.mul(a).sub(&v.mul(b)), u.mul(b).add(&v.mul(a)));
+        u = next.0;
+        v = next.1;
+    }
+    (u, v)
+}
+
+/// SymPy's `Mul._eval_power` for `a*I` with `a` rational and a
+/// half-integer exponent: `(2*a*I)**(1/2)` with a square `|a|/2` is exact.
+fn imaginary_square_root_power(a: &Number, e: &Expr) -> Option<Expr> {
+    let (p, q) = e.as_number()?.numer_denom()?;
+    if q != num_bigint::BigInt::from(2) {
+        return None;
+    }
+    let (n, d) = a.abs().div(&Number::int(2))?.numer_denom()?;
+    let r = Number::rational(crate::number::exact_root(&n, 2)?, crate::number::exact_root(&d, 2)?)?;
+    let p = Expr::int(i64::try_from(&p).ok()?);
+    let unit = add(&[Expr::one(), if a.is_negative() { mul2(&Expr::minus_one(), &Expr::i()) } else { Expr::i() }]);
+    Some(crate::simptools::unevaluated_mul(&[pow(&Expr::num(r), &p), pow(&unit, &p)]))
 }
 
 /// `b ** e` without simplification beyond trivial exponents.

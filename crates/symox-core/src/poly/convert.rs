@@ -35,12 +35,16 @@ pub enum PolyError {
     NotInvertible(String),
     /// Division does not stay in the selected coefficient ring.
     ExactQuotientFailed(String),
+    /// A reference exception raised by the dense `EX` algorithms, named by
+    /// its class (`PolynomialDivisionFailed`, `ZeroDivisionError`, ...).
+    Reference { kind: &'static str, message: String },
 }
 
 impl fmt::Display for PolyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PolyError::Failed(s) | PolyError::Generator(s) | PolyError::Unsupported(s) | PolyError::NotInvertible(s) | PolyError::ExactQuotientFailed(s) => write!(f, "{s}"),
+            PolyError::Reference { message, .. } => write!(f, "{message}"),
         }
     }
 }
@@ -229,7 +233,7 @@ pub fn number_to_rat(n: &Number) -> Rat {
     }
 }
 
-fn check_number(e: &Expr) -> PResult<()> {
+pub(crate) fn check_number(e: &Expr) -> PResult<()> {
     match e.kind() {
         Kind::Const(c) if c.is_infinite() || *c == Constant::NaN => {
             Err(PolyError::Failed(format!("cannot build a polynomial from {}", to_str(e))))
@@ -285,7 +289,7 @@ pub fn needs_expand(e: &Expr) -> bool {
     }
 }
 
-fn expand_if_needed(e: &Expr) -> Expr {
+pub(crate) fn expand_if_needed(e: &Expr) -> Expr {
     if needs_expand(e) {
         expand(e)
     } else {

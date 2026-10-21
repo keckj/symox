@@ -134,6 +134,21 @@ fn sqrt_squares(d: &Expr) -> Expr {
     mul(&[mul(&co), sqrt(&mul(&other))])
 }
 
+/// The reference `expand_2arg`: distribute numeric coefficients over sums,
+/// bottom up, and nothing else.
+fn expand_2arg(e: &Expr) -> Expr {
+    crate::simptools::bottom_up(e, &mut |t: &Expr| {
+        if t.is_mul() {
+            let (c, r) = crate::ops::as_coeff_mul(t);
+            if r.is_add() {
+                let c = Expr::num(c);
+                return add(&r.args().iter().map(|x| mul(&[c.clone(), x.clone()])).collect::<Vec<_>>());
+            }
+        }
+        t.clone()
+    })
+}
+
 fn roots_quadratic(f: &UPoly) -> Vec<Expr> {
     let (a, b, c) = (f.c[0].clone(), f.c[1].clone(), f.c[2].clone());
     let num = f.numerical;
@@ -166,8 +181,8 @@ fn roots_quadratic(f: &UPoly) -> Vec<Expr> {
     if is_neg(&a) {
         std::mem::swap(&mut r0, &mut r1);
     } else if !num {
-        r0 = expand(&r0);
-        r1 = expand(&r1);
+        r0 = expand_2arg(&r0);
+        r1 = expand_2arg(&r1);
     }
     vec![r0, r1]
 }
@@ -670,6 +685,243 @@ fn try_decompose(f: &[Rat]) -> Vec<Expr> {
     roots
 }
 
+/// The reference `_integer_basis` of an integer polynomial given by its
+/// terms `(degree, coefficient)`, highest degree first.
+fn integer_basis(terms: &[(u32, num_bigint::BigInt)]) -> Option<num_bigint::BigInt> {
+    use num_integer::Integer;
+    use num_traits::{One, Signed, Zero};
+    let mut coeffs: Vec<num_bigint::BigInt> = terms.iter().map(|t| t.1.abs()).collect();
+    let mut monoms: Vec<u32> = terms.iter().map(|t| t.0).collect();
+    if coeffs[0] < coeffs[coeffs.len() - 1] {
+        coeffs.reverse();
+        let n = monoms[0];
+        monoms = monoms.iter().rev().map(|m| n - m).collect();
+    } else {
+        return None;
+    }
+    monoms.pop();
+    coeffs.pop();
+    if monoms.len() == 1 {
+        let (r, exact) = crate::ntheory::integer_nthroot(&coeffs[0], monoms[0]);
+        return exact.then_some(r);
+    }
+    let g = coeffs.iter().fold(num_bigint::BigInt::zero(), |acc, c| acc.gcd(c));
+    let mut divs = crate::ntheory::divisors(&g);
+    divs.sort();
+    divs.retain(|d| !d.is_one());
+    'outer: for div in divs.into_iter().rev() {
+        for (m, c) in monoms.iter().zip(&coeffs) {
+            if !(c % num_traits::pow(div.clone(), *m as usize)).is_zero() {
+                continue 'outer;
+            }
+        }
+        return Some(div);
+    }
+    None
+}
+
+/// The reference `preprocess_roots` over a polynomial coefficient ring:
+/// clear denominators, take the primitive part and, when every coefficient
+/// is a term, rescale `x = gen**ratio * y` for each generator whose
+/// exponents are proportional to the degrees.  Returns the root factor and
+/// the preprocessed polynomial.
+fn preprocess_symbolic(f: &UPoly) -> Option<(Expr, UPoly)> {
+    if super::expression_domain::construct_selects_expression(&f.c).ok()? {
+        return None;
+    }
+    let x = Expr::dummy("x", Default::default());
+    let n = f.deg();
+    let terms: Vec<Expr> = f.c.iter().enumerate().map(|(i, c)| mul(&[c.clone(), pow(&x, &Expr::int((n - i) as i64))])).collect();
+    let (numer, _) = super::api::as_numer_denom(&add(&terms));
+    let converted = super::convert::from_exprs(std::slice::from_ref(&numer)).ok()?;
+    if converted.float || converted.gens.len() < 2 {
+        return None;
+    }
+    let xi = converted.gens.iter().position(|g| *g == x)?;
+    let others: Vec<usize> = (0..converted.gens.len()).filter(|&i| i != xi).collect();
+    let poly = &converted.polys[0];
+    // Group the terms by degree in `x`, highest first.
+    let mut rows: Vec<(u32, Vec<(Vec<u32>, Rat)>)> = Vec::new();
+    for (e, c) in poly.iter() {
+        let rest: Vec<u32> = others.iter().map(|&i| e[i]).collect();
+        match rows.iter_mut().find(|r| r.0 == e[xi]) {
+            Some(r) => r.1.push((rest, c.clone())),
+            None => rows.push((e[xi], vec![(rest, c.clone())])),
+        }
+    }
+    rows.sort_by(|a, b| b.0.cmp(&a.0));
+    // Integer content.
+    let mut den = Int::one();
+    for r in &rows {
+        for (_, c) in &r.1 {
+            den = den.lcm(&c.d);
+        }
+    }
+    let mut content = Int::zero();
+    for r in &rows {
+        for (_, c) in &r.1 {
+            content = content.gcd(&c.n.mul(&den.div_exact_unchecked(&c.d)));
+        }
+    }
+    let scale = Rat::new(den, content);
+    let mut rows: Vec<(u32, Vec<(Vec<u32>, Rat)>)> = rows.into_iter().map(|(k, t)| (k, t.into_iter().map(|(e, c)| (e, c.mul(&scale))).collect())).collect();
+    let monomial = rows.iter().all(|r| r.1.len() == 1);
+    // Monomial content in the coefficient generators.
+    for j in 0..others.len() {
+        let low = rows.iter().flat_map(|r| r.1.iter().map(move |t| t.0[j])).min().unwrap_or(0);
+        for r in rows.iter_mut() {
+            for t in r.1.iter_mut() {
+                t.0[j] -= low;
+            }
+        }
+    }
+    let mut coeff = Expr::one();
+    if monomial {
+        let base: Vec<u32> = rows.iter().map(|r| r.0).collect();
+        let mut eliminated = vec![false; others.len()];
+        for j in 0..others.len() {
+            let mut strip: Vec<u32> = rows.iter().map(|r| r.1[0].0[j]).collect();
+            let reverse = strip[0] < strip[strip.len() - 1];
+            if reverse {
+                strip.reverse();
+            }
+            let mut ratio: Option<i64> = None;
+            let mut complete = true;
+            for (&a, &b) in base.iter().zip(&strip) {
+                if a == 0 && b == 0 {
+                    continue;
+                }
+                if a == 0 || b == 0 || b % a != 0 {
+                    complete = false;
+                    break;
+                }
+                let r = (b / a) as i64;
+                if ratio.is_some_and(|q| q != r) {
+                    complete = false;
+                    break;
+                }
+                ratio = Some(r);
+            }
+            if complete {
+                let Some(mut ratio) = ratio else { continue };
+                if reverse {
+                    ratio = -ratio;
+                }
+                eliminated[j] = true;
+                coeff = mul(&[coeff, pow(&converted.gens[others[j]], &Expr::int(-ratio))]);
+            }
+        }
+        for r in rows.iter_mut() {
+            for t in r.1.iter_mut() {
+                for j in 0..others.len() {
+                    if eliminated[j] {
+                        t.0[j] = 0;
+                    }
+                }
+            }
+        }
+    }
+    // The reference `_integer_basis` once the domain retracts to ZZ.
+    if rows.iter().all(|r| r.1.iter().all(|t| t.0.iter().all(|&d| d == 0))) {
+        let terms: Vec<(u32, num_bigint::BigInt)> = rows.iter().map(|r| (r.0, r.1.iter().fold(Int::zero(), |acc, t| acc.add(&t.1.n)).to_big())).filter(|t| !num_traits::Zero::is_zero(&t.1)).collect();
+        if let Some(basis) = integer_basis(&terms) {
+            let n = rows[0].0;
+            for r in rows.iter_mut() {
+                let power = num_traits::pow(basis.clone(), (n - r.0) as usize);
+                for t in r.1.iter_mut() {
+                    t.1 = Rat::new(Int::from_big(num_integer::Integer::div_floor(&t.1.n.to_big(), &power)), Int::one());
+                }
+            }
+            coeff = mul(&[coeff, Expr::num(Rat::new(Int::from_big(basis), Int::one()).to_number())]);
+        }
+    }
+    let mut c = vec![Expr::zero(); rows[0].0 as usize + 1];
+    let top = rows[0].0 as usize;
+    for (k, t) in &rows {
+        let parts: Vec<Expr> = t
+            .iter()
+            .map(|(e, q)| {
+                let mut factors = vec![Expr::num(q.to_number())];
+                for (j, &d) in e.iter().enumerate() {
+                    if d > 0 {
+                        factors.push(pow(&converted.gens[others[j]], &Expr::int(d as i64)));
+                    }
+                }
+                mul(&factors)
+            })
+            .collect();
+        c[top - *k as usize] = add(&parts);
+    }
+    let numerical = c.iter().all(|t| t.is_rational_number());
+    Some((coeff, UPoly { c, numerical }))
+}
+
+/// The reference `_try_decompose` over the rational-function field of the
+/// coefficients.
+fn try_decompose_symbolic(f: &UPoly) -> Vec<Expr> {
+    let Some(parts) = decompose_symbolic(f) else { return try_heuristics(f) };
+    let mut roots = try_heuristics(&parts[0]);
+    for h in &parts[1..] {
+        let prev = std::mem::take(&mut roots);
+        for r in prev {
+            let mut c = h.c.clone();
+            let last = c.len() - 1;
+            c[last] = sub(&c[last], &r);
+            roots.extend(try_heuristics(&UPoly { c, numerical: false }));
+        }
+    }
+    roots
+}
+
+fn decompose_symbolic(f: &UPoly) -> Option<Vec<UPoly>> {
+    decompose_preflight(1, f.deg() as i64).ok()?;
+    let parameters = super::convert::from_exprs(&f.c).ok()?.gens;
+    if parameters.is_empty() {
+        return None;
+    }
+    let x = Expr::dummy("x", Default::default());
+    let n = f.deg();
+    let terms: Vec<Expr> = f.c.iter().enumerate().map(|(i, c)| mul(&[c.clone(), pow(&x, &Expr::int((n - i) as i64))])).collect();
+    let p = super::fraction::FractionPoly::from_expr(&add(&terms), std::slice::from_ref(&x), &parameters, "ZZ(..)").ok()?;
+    let _scope = super::ratfunc::Scope::new(parameters.len());
+    let coefficients = dense::from_mpoly(&p.rep, 0);
+    let parts = decompose_field(&coefficients, &|_| true).ok()?;
+    Some(
+        parts
+            .iter()
+            .map(|part| UPoly {
+                c: part.iter().rev().map(|c| super::fraction::coefficient_expr(c, &parameters)).collect(),
+                numerical: false,
+            })
+            .collect(),
+    )
+}
+
+/// The factors in the variable of a polynomial with symbolic coefficients
+/// over a polynomial or rational-function domain, with the total number of
+/// factors of the cleared numerator (the reference `factor_list` length).
+fn symbolic_factors(f: &UPoly) -> Option<(usize, Vec<(UPoly, u32)>)> {
+    if super::expression_domain::construct_selects_expression(&f.c).ok()? {
+        return None;
+    }
+    let x = Expr::dummy("x", Default::default());
+    let n = f.deg();
+    let terms: Vec<Expr> = f.c.iter().enumerate().map(|(i, c)| mul(&[c.clone(), pow(&x, &Expr::int((n - i) as i64))])).collect();
+    let (numer, _) = super::api::as_numer_denom(&add(&terms));
+    let (_, factors) = super::api::factor_list(&numer).ok()?;
+    let count = factors.len();
+    let mut out = Vec::new();
+    for (g, k) in factors {
+        if !crate::traverse::has(&g, &x) {
+            continue;
+        }
+        let k = u32::try_from(k.as_i64()?).ok()?;
+        let c = Poly::from_expr(&g, std::slice::from_ref(&x)).ok()?.all_coeffs().ok()?;
+        out.push((UPoly { c, numerical: false }, k));
+    }
+    Some((count, out))
+}
+
 fn update(result: &mut Vec<(Expr, u32)>, zeros: &mut u32, r: Expr, k: u32) {
     if r.is_zero() {
         *zeros += k;
@@ -683,6 +935,10 @@ fn update(result: &mut Vec<(Expr, u32)>, zeros: &mut u32, r: Expr, k: u32) {
 
 /// Roots of a polynomial with expression coefficients (highest first).
 fn roots_of(f: &UPoly) -> Vec<(Expr, u32)> {
+    roots_of_with(f, true)
+}
+
+fn roots_of_with(f: &UPoly, preprocess: bool) -> Vec<(Expr, u32)> {
     let mut c = f.c.clone();
     while c.first().is_some_and(|x| x.is_zero()) {
         c.remove(0);
@@ -747,22 +1003,39 @@ fn roots_of(f: &UPoly) -> Vec<(Expr, u32)> {
                 }
             }
         }
+    } else if let Some((coeff, g)) = preprocess.then(|| preprocess_symbolic(&f)).flatten().filter(|(_, g)| g.c != f.c) {
+        for (r, k) in roots_of_with(&g, false) {
+            let r = if coeff.is_one() { r } else { mul(&[coeff.clone(), r]) };
+            update(&mut result, &mut zeros, r, k);
+        }
     } else {
         // symbolic coefficients
         let n = f.deg();
-        let rs = if n == 1 {
-            roots_linear(&f)
+        let parts = if n == 1 {
+            vec![(roots_linear(&f), 1)]
         } else if f.length() == 2 {
             if n == 2 {
-                roots_quadratic(&f)
+                vec![(roots_quadratic(&f), 1)]
             } else {
-                roots_binomial(&f)
+                vec![(roots_binomial(&f), 1)]
             }
         } else {
-            try_heuristics(&f)
+            match symbolic_factors(&f) {
+                // The reference factors `Poly(f.as_expr())` in every generator
+                // and applies the heuristics to each factor in the variable.
+                Some((count, factors)) if !(count == 1 && (n == 2 || factors.first().is_some_and(|g| g.1 == 1))) => factors
+                    .iter()
+                    .map(|(g, k)| (try_heuristics(g), *k))
+                    .collect(),
+                Some((1, _)) if n == 2 => vec![(roots_quadratic(&f), 1)],
+                Some((1, _)) => vec![(try_decompose_symbolic(&f), 1)],
+                _ => vec![(try_heuristics(&f), 1)],
+            }
         };
-        for r in rs {
-            update(&mut result, &mut zeros, r, 1);
+        for (rs, k) in parts {
+            for r in rs {
+                update(&mut result, &mut zeros, r, k);
+            }
         }
     }
     if zeros > 0 && !result.iter().any(|x| x.0.is_zero()) {
@@ -775,6 +1048,13 @@ fn roots_of(f: &UPoly) -> Vec<(Expr, u32)> {
 
 /// `roots(f, *gens)`: `[(root, multiplicity)]` in SymPy's dict order.
 pub fn roots(e: &Expr, gens: &[Expr]) -> PResult<Vec<(Expr, u32)>> {
+    // `I` is a ZZ_I coefficient, not a generator, by default.
+    let selected = if gens.is_empty() {
+        super::gaussian::default_selection(std::slice::from_ref(e), gens).map(|s| s.gens)
+    } else {
+        None
+    };
+    let gens = selected.as_deref().unwrap_or(gens);
     let p = match Poly::from_expr(e, gens) {
         Ok(p) => p,
         Err(PolyError::Failed(_)) => return Ok(vec![]),
@@ -1080,8 +1360,118 @@ pub fn nroots(e: &Expr, gens: &[Expr], n: u32) -> PResult<Vec<Expr>> {
 }
 
 pub fn nroots_options(e: &Expr, gens: &[Expr], n: u32, maxsteps: u32, cleanup: bool) -> PResult<Vec<Expr>> {
+    // `I` is a ZZ_I coefficient, not a generator, by default.
+    // With floats (the reference CC) the generators are those without `I`.
+    let selected = if gens.is_empty() && crate::traverse::has(e, &Expr::i()) {
+        super::convert::from_exprs(std::slice::from_ref(e)).ok().and_then(|c| {
+            let gens: Vec<Expr> = c.gens.iter().filter(|g| **g != Expr::i()).cloned().collect();
+            (gens.len() + 1 == c.gens.len() && !gens.is_empty()).then_some(gens)
+        })
+    } else {
+        None
+    };
+    let gens = selected.as_deref().unwrap_or(gens);
     let p = Poly::from_expr(e, gens)?;
     nroots_poly_options(&p, n, maxsteps, cleanup)
+}
+
+/// `nroots` over ZZ_I/QQ_I: the exact Gaussian square-free factors are
+/// solved numerically with complex coefficients.
+fn gaussian_nroots(p: &Poly, n: u32, maxsteps: u32, cleanup: bool) -> PResult<Vec<Expr>> {
+    use super::algebraic::{AlgebraicPoly, AlgebraicScope, AN};
+    use super::mpoly::MPoly;
+    let field = super::gaussian::field();
+    let _scope = AlgebraicScope::new(field.clone());
+    // The exact coefficients in x of the representation in (x, I); float
+    // inputs are their exact binary values, like the reference evaluation.
+    let mut terms: std::collections::BTreeMap<u32, (Rat, Rat)> = std::collections::BTreeMap::new();
+    for (e, c) in p.rep.iter() {
+        let (x, y) = match e[1] % 4 {
+            0 => (c.clone(), Rat::zero()),
+            1 => (Rat::zero(), c.clone()),
+            2 => (c.neg(), Rat::zero()),
+            _ => (Rat::zero(), c.neg()),
+        };
+        let entry = terms.entry(e[0]).or_insert_with(|| (Rat::zero(), Rat::zero()));
+        *entry = (entry.0.add(&x), entry.1.add(&y));
+    }
+    let terms: Vec<(Vec<u32>, AN)> = terms
+        .into_iter()
+        .map(|(k, (x, y))| (vec![k], super::gaussian::make(x, y)))
+        .filter(|(_, c)| !super::int::Coeff::is_zero(c))
+        .collect();
+    let a = AlgebraicPoly {
+        rep: MPoly::from_terms(1, terms),
+        gens: p.gens[..1].to_vec(),
+        number_field: field,
+        gaussian: Some(false),
+    };
+    let (_, factors) = a.sqf_list();
+    let factors: Vec<(Vec<(Rat, Rat)>, u32)> = factors
+        .into_iter()
+        .map(|(f, k)| {
+            let degree = f.rep.degree(0) as usize;
+            let mut c = vec![(Rat::zero(), Rat::zero()); degree + 1];
+            for (e, coefficient) in f.rep.iter() {
+                c[e[0] as usize] = super::gaussian::parts(coefficient);
+            }
+            (c, k)
+        })
+        .collect();
+    super::nroots_mp::gaussian_roots(&factors, n, maxsteps, cleanup)
+}
+
+/// `Poly.nroots` over EX. The multiplicities come from the exact square-free
+/// decomposition over EX; each square-free factor is then solved from
+/// Gaussian rational approximations of its coefficients. The reference
+/// evaluates the coefficients to `n` digits only; here the working precision
+/// is raised until two successive evaluations give the same rounded roots.
+/// `domain` names the coefficient domain in the reference error message.
+pub fn expression_nroots(p: &super::expression_domain::ExpressionPoly, domain: &str, n: u32, maxsteps: u32, cleanup: bool) -> PResult<Vec<Expr>> {
+    use crate::bigfloat::dps_to_prec;
+    if p.gens.len() != 1 {
+        return Err(PolyError::Unsupported("multivariate polynomial".into()));
+    }
+    if p.degree(0) <= 0 {
+        return Ok(vec![]);
+    }
+    let numeric = || PolyError::Reference { kind: "DomainError", message: format!("Numerical domain expected, got {domain}") };
+    for c in p.all_coeffs() {
+        if !crate::traverse::free_symbols(&c).is_empty() {
+            return Err(numeric());
+        }
+        if crate::evalf_mp::eval_mp(&c, 64).is_none() {
+            return Err(PolyError::Unsupported(format!("cannot evaluate the coefficient {} numerically", crate::printer::to_str(&c))));
+        }
+    }
+    let (_, factors) = p.sqf_list(false)?;
+    let rat = |b: &crate::bigfloat::BigFloat| {
+        let q = b.to_ratio_exact();
+        Rat::new(super::int::Int::from_big(q.numer().clone()), super::int::Int::from_big(q.denom().clone()))
+    };
+    let approximate = |wp: u32| -> PResult<Vec<Expr>> {
+        let mut parts = Vec::with_capacity(factors.len());
+        for (f, k) in &factors {
+            let mut c = Vec::new();
+            for e in f.all_coeffs().iter().rev() {
+                let z = crate::evalf_mp::eval_mp(e, wp).ok_or_else(numeric)?;
+                c.push((rat(&z.re), rat(&z.im)));
+            }
+            parts.push((c, *k as u32));
+        }
+        super::nroots_mp::gaussian_roots(&parts, n, maxsteps, cleanup)
+    };
+    let mut wp = dps_to_prec(n) + 64;
+    let mut previous = approximate(wp)?;
+    for _ in 0..4 {
+        wp = 2 * wp + 64;
+        let next = approximate(wp)?;
+        if next == previous {
+            return Ok(next);
+        }
+        previous = next;
+    }
+    Ok(previous)
 }
 
 pub fn nroots_poly(p: &Poly, n: u32) -> PResult<Vec<Expr>> {
@@ -1089,6 +1479,9 @@ pub fn nroots_poly(p: &Poly, n: u32) -> PResult<Vec<Expr>> {
 }
 
 pub fn nroots_poly_options(p: &Poly, n: u32, maxsteps: u32, cleanup: bool) -> PResult<Vec<Expr>> {
+    if p.ngens == 1 && p.gens[1..] == [Expr::i()] && p.modulus.is_none() {
+        return gaussian_nroots(p, n, maxsteps, cleanup);
+    }
     if p.ngens != 1 || p.has_domain_gens() {
         return Err(PolyError::Unsupported("can't compute numerical roots of a multivariate or symbolic polynomial".into()));
     }
@@ -1120,6 +1513,27 @@ mod tests {
         let panic=std::panic::catch_unwind(||with_radical_options(disabled,||panic!("scope test")));
         assert!(panic.is_err());
         assert_eq!(radical_options(),RadicalOptions::default());
+    }
+
+    fn symbolic(s: &str) -> Vec<String> {
+        let mut v: Vec<String> = roots(&parse_str(s).unwrap(), &[Expr::symbol("x")]).unwrap().iter().map(|(e, k)| format!("{}: {k}", to_str(e))).collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn symbolic_coefficients_follow_the_reference_preprocessing() {
+        // preprocess_roots rescales x -> a*x before the binomial solver.
+        assert_eq!(symbolic("a*x^4-16*a^5"), ["-2*I*a: 1", "-2*a: 1", "2*I*a: 1", "2*a: 1"]);
+        // factor_list over ZZ(a) splits the quadratic into linear factors.
+        assert_eq!(symbolic("x^2+(a+1/a)*x+1"), ["-1/a: 1", "-a: 1"]);
+        // A single irreducible quartic is decomposed over ZZ(a).
+        assert_eq!(symbolic("x^4-a^2*x^2-2*a^2-1"), [
+            "-sqrt(a**2/2 + sqrt(a**4 + 8*a**2 + 4)/2): 1",
+            "-sqrt(a**2/2 - sqrt(a**4 + 8*a**2 + 4)/2): 1",
+            "sqrt(a**2/2 + sqrt(a**4 + 8*a**2 + 4)/2): 1",
+            "sqrt(a**2/2 - sqrt(a**4 + 8*a**2 + 4)/2): 1",
+        ]);
     }
 
     fn r(s: &str) -> String {

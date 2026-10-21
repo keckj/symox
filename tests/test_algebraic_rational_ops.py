@@ -234,13 +234,27 @@ def test_coeff_monomial_expression_tuple_and_domains(domain):
             p.coeff_monomial(monomial)
 
 
-def test_domains_reject_incompatibility_without_rust_panics():
+def test_independent_fields_unify_and_incompatible_domains_raise():
     x=sm.Symbol('x');a=2**sm.Rational(1,3);b=3**sm.Rational(1,3)
+    sx=sp.Symbol('x');sa=2**sp.Rational(1,3);sb=3**sp.Rational(1,3)
     p=sm.Poly(x+a,x,extension=a);q=sm.Poly(x+b,x,extension=b)
-    calls=[lambda:p+q,lambda:p*q,lambda:p.div(q),lambda:p.gcdex(q),lambda:p.half_gcdex(q),lambda:p.invert(q),lambda:p.cancel(q),
-           lambda:sm.gcdex(p,q),lambda:sm.invert(p,q),lambda:sm.cancel((p,q))]
+    sp_p=sp.Poly(sx+sa,sx,extension=sa);sp_q=sp.Poly(sx+sb,sx,extension=sb)
+    # Like the reference, independent number fields unify to the field of
+    # a primitive element.
+    calls=[lambda m,f,g:f+g,lambda m,f,g:f*g,lambda m,f,g:f.div(g),lambda m,f,g:f.gcdex(g),lambda m,f,g:f.half_gcdex(g),
+           lambda m,f,g:f.invert(g),lambda m,f,g:f.cancel(g),lambda m,f,g:m.gcdex(f,g),lambda m,f,g:m.invert(f,g)]
     for call in calls:
-        with pytest.raises((ValueError,TypeError,NotImplementedError)):call()
+        actual=call(sm,p,q);expected=call(sp,sp_p,sp_q)
+        if not isinstance(actual,tuple):actual,expected=(actual,),(expected,)
+        assert len(actual)==len(expected)
+        for u,v in zip(actual,expected):
+            if isinstance(v,sp.Poly):
+                assert str(u.domain)==str(v.domain)
+                assert sp.expand(sp.sympify(str(u.as_expr()))-v.as_expr())==0
+            else:
+                assert sp.sympify(str(u))==v
+    # Gap: the reference unifies these to QQ<2**(1/3)>(a); the native
+    # backend has no algebraic rational-function field yet and says so.
     for domain in ['QQ(a)']:
         r=sm.Poly(x+sm.Symbol('a'),x,domain=domain)
         with pytest.raises((ValueError,TypeError,NotImplementedError)):p.gcdex(r)

@@ -305,7 +305,7 @@ def exquo_ground(f, coeff):
 def abs_(f):
     """Make all coefficients of ``f`` positive."""
     K = _domain(f)
-    if K is not None and not K.is_Numerical and not K.is_FiniteField:
+    if K is not None and not K.is_Numerical and not K.is_FiniteField and not K.is_EX:
         raise TypeError("bad operand type for abs(): 'PolyElement'")
     return _ground_result(f, {m: abs(v) for m, v in _items(f)})
 
@@ -619,7 +619,14 @@ def lift(f):
     """Convert algebraic coefficients to rationals (the norm of ``f``)."""
     K = _domain(f)
     ring = False
-    if K is None and _gaussian(f):
+    if K is not None and (getattr(K, "is_GaussianRing", False) or getattr(K, "is_GaussianField", False)):
+        # The reference dmp_lift converts ZZ_I/QQ_I to QQ<I>; the norm stays
+        # over ZZ for the ring.
+        from .. import I, QQ
+        ring = bool(getattr(K, "is_GaussianRing", False))
+        f = Poly(f.as_expr(), *f.gens, domain=QQ.algebraic_field(I))
+        K = f.domain
+    elif K is None and _gaussian(f):
         from .. import I
         ring = all(c.is_integer for c in sum(((c.as_real_imag()) for c in f.coeffs()), ()))
         f = Poly(f.as_expr(), *f.gens, extension=I)
@@ -786,7 +793,10 @@ def trunc(f, p):
     K = _domain(f)
     p = _convert_ground(f, p)
     if f.modulus is None and (K is None or not K.is_ZZ):
-        raise TypeError("unsupported operand type(s) for %%: '%s' and '%s'" % (K, K))
+        # The reference applies ``%`` to the domain elements; EX elements
+        # are ``Expression`` objects.
+        name = 'Expression' if K is not None and K.is_EX else K
+        raise TypeError("unsupported operand type(s) for %%: '%s' and '%s'" % (name, name))
     from .. import Integer
     p = int(p)
     rep = {}

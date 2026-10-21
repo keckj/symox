@@ -178,7 +178,7 @@ fn has_add(e: &Expr) -> bool {
 }
 
 fn minpoly_is_zero(e: &Expr) -> Option<bool> {
-    let model = crate::poly::algebraic_model::PrimitiveModel::build(e).ok()?;
+    let model = crate::poly::algebraic_model::PrimitiveModel::build_radical(e).ok()?;
     let (_, coefficients) = crate::poly::dense::clear_denoms(&model.minimal);
     if coefficients.len() == 2 {
         Some(coefficients.iter().any(|c| c.is_zero()))

@@ -90,6 +90,14 @@ impl PyDomain {
         }
     }
     pub fn of(p: &PolyValue) -> PyResult<Self> {
+        if p.expression.is_some() {
+            return Ok(Self{inner:ExactDomain::Expression{raw:false}});
+        }
+        if p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && !p.base.domain_gens().is_empty() && p.domain != Domain::RR {
+            // The legacy backend stores `ZZ[pi]` coefficients as extra
+            // polynomial generators, which is the reference polynomial ring.
+            return Ok(Self{inner:ExactDomain::Functions{integral:p.domain==Domain::ZZ,ring:true,parameters:p.base.domain_gens().to_vec(),order:"lex".into()}});
+        }
         if p.field.is_none() && p.algebraic.is_none() && !p.base.domain_gens().is_empty() {
             return Err(PyNotImplementedError::new_err(
                 "this legacy coefficient backend has no implemented typed Domain descriptor",
@@ -97,7 +105,10 @@ impl PyDomain {
         }
         Ok(Self {
             inner: if let Some(a) = &p.algebraic {
-                ExactDomain::Algebraic(a.number_field.clone())
+                match a.gaussian {
+                    Some(integral) => ExactDomain::Gaussian { integral },
+                    None => ExactDomain::Algebraic(a.number_field.clone()),
+                }
             } else if let Some(f) = &p.field {
                 f.coefficient_domain.clone()
             } else if let Some(p) = p.modulus {
@@ -113,7 +124,24 @@ impl PyDomain {
     }
     pub fn poly(&self, e: &Expr, gens: &[Expr]) -> PyResult<PolyValue> {
         match &self.inner {
-            ExactDomain::Expression { .. } | ExactDomain::Inexact {..} | ExactDomain::Gaussian {..} => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
+            ExactDomain::Expression { raw:false } => {
+                if gens.is_empty() {
+                    return Err(Python::with_gil(|py|crate::poly::reference_error(py,"GeneratorsError","you have to provide generators because EX domain was requested")));
+                }
+                symox::poly::expression_domain::ExpressionPoly::from_expr(e,gens).map(Into::into).map_err(crate::poly::err)
+            }
+            ExactDomain::Expression { .. } | ExactDomain::Inexact {..} => Err(PyNotImplementedError::new_err("this domain is not yet supported as a polynomial coefficient backend")),
+            ExactDomain::Gaussian { integral } => {
+                let mut p = AlgebraicPoly::from_expr(e, gens, symox::poly::gaussian::field())
+                    .map_err(coercion)?;
+                if *integral {
+                    if let Some(message) = symox::poly::gaussian::integrality_error(&p.rep) {
+                        return Err(coercion(message));
+                    }
+                }
+                p.gaussian = Some(*integral);
+                Ok(p.into())
+            }
             ExactDomain::Algebraic(field) => AlgebraicPoly::from_expr(e, gens, field.clone())
                 .map(Into::into)
                 .map_err(coercion),
@@ -232,7 +260,21 @@ impl PyDomain {
         self.inner
             .convert(&e)
             .map(|value| PyDomainElement { value })
-            .map_err(coercion)
+            .map_err(|error| self.conversion_failure(&e, error))
+    }
+    /// The reference coercion message for an element proven outside an
+    /// algebraic field; undecided memberships keep their own message.
+    fn conversion_failure(&self, e: &Expr, error: symox::poly::convert::PolyError) -> PyErr {
+        if matches!(self.inner, ExactDomain::Algebraic(_))
+            && symox::poly::embedding::is_absence(&error)
+        {
+            return coercion(format!(
+                "{} is not a valid algebraic number in {}",
+                symox::printer::to_str(e),
+                self.inner
+            ));
+        }
+        coercion(error)
     }
     fn factory(&self, gens: &Bound<'_, PyTuple>, order: &str, ring: bool) -> PyResult<Self> {
         let integral=match self.inner{ExactDomain::ZZ=>true,ExactDomain::QQ=>false,_=>return Err(PyNotImplementedError::new_err("polynomial rings and fraction fields currently require ZZ or QQ ground coefficients"))};
@@ -463,8 +505,13 @@ impl PyDomain {
         let rational=symox::poly::domains::rationalize_real(&a.value.as_expr(),precision,limit).map_err(coercion)?;
         Ok((rational.n.to_big(),rational.d.to_big()))
     }
-    fn __contains__(&self, element: &Bound<'_, PyAny>) -> bool {
-        self.element(element, None).is_ok()
+    fn __contains__(&self, element: &Bound<'_, PyAny>) -> PyResult<bool> {
+        match self.element(element, None) {
+            Ok(_) => Ok(true),
+            // An uncertified membership is not a proven absence.
+            Err(e) if e.to_string().contains("could not certify") => Err(PyNotImplementedError::new_err(e.to_string())),
+            Err(_) => Ok(false),
+        }
     }
     pub fn get_field(&self) -> Self {
         Self {
@@ -559,6 +606,12 @@ impl PyDomain {
             .call(&args, Some(&kwargs))?
             .unbind())
     }
+    /// The defining polynomial of an algebraic field, the representation
+    /// of the minimal polynomial of its primitive element.
+    #[getter]
+    fn r#mod(&self, py: Python<'_>) -> PyResult<PyObject> {
+        Ok(self.ext(py)?.bind(py).getattr("minpoly")?.getattr("rep")?.unbind())
+    }
     #[getter]
     fn unit(&self) -> PyResult<PyDomainElement> {
         let ExactDomain::Algebraic(k) = &self.inner else {
@@ -575,13 +628,25 @@ impl PyDomain {
         extension: &Bound<'_, PyTuple>,
         alias: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
-        if self.inner != ExactDomain::QQ {
-            return Err(PyNotImplementedError::new_err(
-                "algebraic fields currently require QQ as their ground field",
-            ));
+        let mut generators = super::gens_of(extension)?;
+        match &self.inner {
+            ExactDomain::QQ | ExactDomain::ZZ => {}
+            // The reference extends an algebraic field by its generator.
+            ExactDomain::Algebraic(k) => generators.insert(0, k.generator.clone()),
+            _ => {
+                return Err(PyNotImplementedError::new_err(
+                    "algebraic fields currently require QQ as their ground field",
+                ))
+            }
         }
-        let generators = super::gens_of(extension)?;
-        let field = NumberField::from_generators(&generators).map_err(err)?;
+        let field = NumberField::from_generators(&generators).map_err(|e| {
+            for g in &generators {
+                if let Err(m) = symox::poly::embedding::minimal_rational(g) {
+                    return super::minpoly_error(extension.py(), m);
+                }
+            }
+            err(e)
+        })?;
         let mut k = (*field).clone();
         if let Some(alias) = alias {
             if !alias.is_none() {
@@ -757,6 +822,10 @@ impl PyDomain {
                     .map_err(coercion)
             };
             return Ok((wrap(&s)?, wrap(&t)?, wrap(&g)?));
+        }
+        // The reference integer gcdex (gmpy `gcdext`) gives (0, 0, 0) at (0, 0).
+        if matches!(self.inner, ExactDomain::ZZ) && a.value.is_zero() && b.value.is_zero() {
+            return Ok((a.clone(), a.clone(), a));
         }
         let (s, t, g) = a.value.gcdex(&b.value).map_err(err)?;
         Ok((
@@ -1116,6 +1185,12 @@ impl PyDomainElement {
         self.value.as_expr().to_string()
     }
     fn __repr__(&self) -> String {
+        // The reference GaussianElement repr: `ZZ_I(x, y)`.
+        if matches!(self.value.domain,ExactDomain::Gaussian{..}) {
+            if let Some((x,y))=exact_numeric_parts(&self.value.as_expr()) {
+                return format!("{}({}, {})", self.value.domain, Expr::num(x), Expr::num(y));
+            }
+        }
         format!("{}({})", self.value.domain, self.value.as_expr())
     }
     fn __bool__(&self) -> bool {
@@ -1453,6 +1528,24 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+/// Whether a `domain` option is the reference EX (the domain object or the
+/// string "EX").
+pub fn selects_expression(domain: Option<&Bound<'_, PyAny>>) -> bool {
+    let Some(domain) = domain.filter(|d| !d.is_none()) else { return false };
+    if let Ok(d) = domain.extract::<PyRef<'_, PyDomain>>() {
+        return matches!(d.inner, ExactDomain::Expression { raw: false });
+    }
+    domain.extract::<String>().is_ok_and(|s| s == "EX")
+}
+
+/// The reference option postprocessing: an EX domain needs generators.
+pub fn require_expression_generators(domain: Option<&Bound<'_, PyAny>>, generators: bool) -> PyResult<()> {
+    if !generators && selects_expression(domain) {
+        return Err(Python::with_gil(|py| crate::poly::reference_error(py, "GeneratorsError", "you have to provide generators because EX domain was requested")));
+    }
+    Ok(())
+}
+
 pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
     if a == b {
         return Ok(a.clone());
@@ -1502,9 +1595,13 @@ pub fn unify_native(a: &ExactDomain, b: &ExactDomain) -> PyResult<ExactDomain> {
                     "cannot unify coefficient rings with different monomial orders",
                 ));
             }
-            let mut parameters = symox::poly::polyobj::unify_gens(pa, pb);
-            symox::poly::convert::sort_gens(&mut parameters);
-            ExactDomain::functions(*a && *b, *ra && *rb, parameters, oa).map_err(err)?
+            // SymPy's `Domain.unify`: the receiver's generator order is kept,
+            // and a fraction field unified with a ring over a non-field ground
+            // takes the ring of the unified ground (`QQ(a)` and `ZZ[b]` give
+            // `ZZ(a,b)`).
+            let parameters = symox::poly::polyobj::unify_gens(pa, pb);
+            let integral = (*a && *b) || (ra != rb && (*a || *b));
+            ExactDomain::functions(integral, *ra && *rb, parameters, oa).map_err(err)?
         }
         (
             ExactDomain::Functions {
@@ -1628,6 +1725,16 @@ impl Selection {
         let text = domain.extract::<String>().map_err(|_| {
             PyTypeError::new_err("domain must be a native Domain or a domain string")
         })?;
+        // The reference reads "EX" as the domain object; "EXRAW" is not a
+        // domain specification there.
+        if text == "EX" {
+            return Ok(Self::from_native(ExactDomain::Expression { raw: false }));
+        }
+        if text == "ZZ_I" || text == "QQ_I" {
+            return Ok(Self::from_native(ExactDomain::Gaussian {
+                integral: text == "ZZ_I",
+            }));
+        }
         if text.starts_with("GF(") && text.ends_with(')') {
             let prime = text[3..text.len() - 1]
                 .parse::<u64>()
@@ -1650,13 +1757,35 @@ impl Selection {
         extension: Option<&Bound<'_, PyAny>>,
         expressions: &[Expr],
     ) -> PyResult<Option<Arc<NumberField>>> {
+        self.algebraic_in(extension, expressions, &[])
+    }
+    /// The selected or inferred field; `extension=True` reads the
+    /// coefficients in `gens` when they are known.
+    pub fn algebraic_in(
+        &self,
+        extension: Option<&Bound<'_, PyAny>>,
+        expressions: &[Expr],
+        gens: &[Expr],
+    ) -> PyResult<Option<Arc<NumberField>>> {
         if let Some(PyDomain {
             inner: ExactDomain::Algebraic(field),
         }) = &self.native
         {
             return Ok(Some(field.clone()));
         }
-        super::algebraic_extension(extension, expressions, self.legacy.as_deref())
+        if self.gaussian().is_some() {
+            return Ok(Some(symox::poly::gaussian::field()));
+        }
+        super::algebraic_extension(extension, expressions, gens, self.legacy.as_deref())
+    }
+    /// `Some(true)` for a selected `ZZ_I`, `Some(false)` for `QQ_I`.
+    pub fn gaussian(&self) -> Option<bool> {
+        match &self.native {
+            Some(PyDomain {
+                inner: ExactDomain::Gaussian { integral },
+            }) => Some(*integral),
+            _ => None,
+        }
     }
     pub fn parameters(&self, available: &[Expr]) -> PyResult<Option<Vec<Expr>>> {
         if let Some(PyDomain {

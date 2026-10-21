@@ -192,13 +192,8 @@ def _polys(m):
             m.Poly(0.5*x*x-1,x)]
 
 
-COMPOSITE_GAP = pytest.mark.xfail(strict=True, reason='ZZ[sin(a)] has no typed composite domain yet')
-
-
 @pytest.mark.parametrize('method,index', [
-    pytest.param(method, index, marks=COMPOSITE_GAP) if index == 5 and method in ('sturm', 'count_roots')
-    else (method, index)
-    for method in ['sturm','count_roots','intervals','refine_root'] for index in range(8)])
+    (method, index) for method in ['sturm','count_roots','intervals','refine_root'] for index in range(8)])
 def test_restricted_domains_match_reference(index,method):
     args=(1,2) if method=='refine_root' else ()
     same_as_reference(lambda m: getattr(_polys(m)[index],method)(*args))

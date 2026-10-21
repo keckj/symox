@@ -36,6 +36,98 @@ fn render_list<'py>(
     }
     PyTuple::new(py, [unit, result.into_any()])
 }
+/// Convert one multiplicative component with the caller's options, as the
+/// reference `_poly_from_expr(base, opt)`; `None` is a polification failure.
+fn component_builder<'a, 'py>(
+    py: Python<'py>,
+    gens: &'a Bound<'py, PyTuple>,
+    kwargs: Option<&'a Bound<'py, PyDict>>,
+    failure: &'a std::cell::RefCell<Option<PyErr>>,
+) -> impl Fn(&symox::Expr) -> symox::poly::convert::PResult<Option<PolyValue>> + 'a
+where
+    'py: 'a,
+{
+    move |base: &symox::Expr| {
+        let attempt = || -> PyResult<Option<PolyValue>> {
+            let value = w(base.clone()).into_pyobject(py)?.into_any();
+            match prepare(&value, gens, None, kwargs, false) {
+                Ok((p, _)) => Ok(Some(p)),
+                Err(error) => {
+                    let failed = py
+                        .import("symox.polys.polyerrors")?
+                        .getattr("PolificationFailed")?;
+                    if error.is_instance(py, &failed) {
+                        Ok(None)
+                    } else {
+                        Err(error)
+                    }
+                }
+            }
+        };
+        attempt().map_err(|error| {
+            let message = error.to_string();
+            failure.borrow_mut().get_or_insert(error);
+            symox::poly::convert::PolyError::Failed(message)
+        })
+    }
+}
+fn with_failure<T>(
+    failure: std::cell::RefCell<Option<PyErr>>,
+    result: symox::poly::convert::PResult<T>,
+) -> PyResult<T> {
+    match (failure.into_inner(), result) {
+        (Some(error), Err(_)) => Err(error),
+        (_, result) => result.map_err(err),
+    }
+}
+/// The reference `_generic_factor_list` for expressions whose options select
+/// an algebraic coefficient domain: every multiplicative component of the
+/// expression is converted and factored on its own.
+fn domain_list<'py>(
+    f: &Bound<'py, PyAny>,
+    gens: &Bound<'py, PyTuple>,
+    kwargs: Option<&Bound<'py, PyDict>>,
+    squarefree: bool,
+    polys: bool,
+) -> PyResult<PyObject> {
+    let py = f.py();
+    let expression = crate::to_expr(f)?;
+    let failure = std::cell::RefCell::new(None);
+    let result = {
+        let build = component_builder(py, gens, kwargs, &failure);
+        symox::poly::api::domain_factor_list(&expression, squarefree, &build, Limits::default())
+    };
+    let (coefficient, factors) = with_failure(failure, result)?;
+    let list = pyo3::types::PyList::empty(py);
+    for (p, k) in factors {
+        let value = if polys {
+            PyPoly { p }.into_pyobject(py)?.into_any().unbind()
+        } else {
+            w(p.as_expr()).into_pyobject(py)?.into_any().unbind()
+        };
+        list.append(PyTuple::new(py, [value, k.into_pyobject(py)?.into_any().unbind()])?)?;
+    }
+    Ok(PyTuple::new(py, [w(coefficient).into_pyobject(py)?.into_any(), list.into_any()])?
+        .into_any()
+        .unbind())
+}
+/// The reference `_symbolic_factor` for expressions whose options select an
+/// algebraic coefficient domain.
+pub(super) fn domain_expression<'py>(
+    f: &Bound<'py, PyAny>,
+    gens: &Bound<'py, PyTuple>,
+    kwargs: Option<&Bound<'py, PyDict>>,
+    squarefree: bool,
+) -> PyResult<symox::Expr> {
+    let py = f.py();
+    let expression = crate::to_expr(f)?;
+    let failure = std::cell::RefCell::new(None);
+    let result = {
+        let build = component_builder(py, gens, kwargs, &failure);
+        symox::poly::api::domain_factor(&expression, squarefree, &build, Limits::default())
+    };
+    with_failure(failure, result)
+}
 pub(super) fn part(p: &PolyValue) -> PyResult<PyPoly> {
     Ok(PyPoly {
         p: native::squarefree_part(p, Limits::default()).map_err(err)?,
@@ -169,6 +261,9 @@ pub(super) fn global_list<'py>(
         return Err(pyo3::exceptions::PyValueError::new_err(
             "a polynomial expected; denominator factors require frac=True",
         ));
+    }
+    if (p.algebraic.is_some() || p.expression.is_some()) && f.downcast::<PyPoly>().is_err() && modulus.is_none() {
+        return domain_list(f, gens, kwargs, squarefree, polys);
     }
     if symbolic {
         if squarefree {

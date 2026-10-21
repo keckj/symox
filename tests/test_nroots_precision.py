@@ -45,7 +45,9 @@ def test_multiplicities_and_roots_outside_float_range(source, expected):
         value = root.to_sympy()
         closest = min(unmatched,key=lambda r: abs(sp.N(value-r,100)))
         if closest == 0:
-            assert value == sp.Float(0,80)
+            # The reference builds roots with Float._new, which maps an
+            # exact zero to S.Zero.
+            assert value is sp.S.Zero
         else:
             assert abs(sp.N((value-closest)/closest,100)) < sp.Rational(1,10**77)
         unmatched.remove(closest)

@@ -69,6 +69,25 @@ fn unary_symbol(f: &Bound<'_, PyAny>, greedy: bool, action: &str) -> PyResult<Po
     }
     Ok(poly.downcast::<PyPoly>()?.get().p.clone())
 }
+/// The reference module-level `nroots` polynomial: `Poly(f, greedy=False)`
+/// with a Symbol generator.
+pub(crate) fn numeric_root_poly<'py>(f: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    let py = f.py();
+    let options = PyDict::new(py);
+    options.set_item("greedy", false)?;
+    let poly = match py.import("symox")?.getattr("Poly")?.call((f,), Some(&options)) {
+        Ok(poly) => poly,
+        Err(e) if e.is_instance(py, &py.import("symox.polys.polyerrors")?.getattr("GeneratorsNeeded")?) => {
+            let message = format!("Cannot compute numerical roots of {}, not a polynomial", f.str()?);
+            return Err(super::structural::polynomial_error(py, "PolynomialError", message));
+        }
+        Err(e) => return Err(e),
+    };
+    if !poly.getattr("gen")?.getattr("is_Symbol")?.is_truthy()? {
+        return Err(super::structural::polynomial_error(py, "PolynomialError", "generator must be a Symbol".into()));
+    }
+    Ok(poly)
+}
 fn unary<'py>(f: &Bound<'py, PyAny>) -> PyResult<PolyValue> {
     let gens = PyTuple::empty(f.py());
     Ok(division::prepare_unary(f, &gens, None)?.0)
