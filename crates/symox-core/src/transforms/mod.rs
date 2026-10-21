@@ -91,8 +91,10 @@ fn direct(s: SpecialFn, args: &[Expr], simplify: bool) -> Result<Vec<Expr>, Stri
             .map(|(f, c)| vec![f, c])
             .map_err(inverse_mellin::ImtError::message);
     }
-    if let Some(v) = direct_table(s, args, simplify) {
-        return Ok(v);
+    if s == MellinTransform {
+        if let Some(v) = direct_table(s, args, simplify) {
+            return Ok(v);
+        }
     }
     let unsupported = || "could not compute integral".to_string();
     // the reference does not try the integral when the function contains an
@@ -100,6 +102,21 @@ fn direct(s: SpecialFn, args: &[Expr], simplify: bool) -> Result<Vec<Expr>, Stri
     if laplace_integration::has_applied_undef_in(&args[0], &args[1]) {
         return Err(unsupported());
     }
+    // The reference computes the Fourier type and Hankel transforms only
+    // through the integral, whose conditions are returned. The closed form
+    // tables are a fallback for the integrals that are not computed here.
+    match integral(s, args, simplify) {
+        Ok(v) => Ok(v),
+        Err(m) if is_fatal(&m) => Err(m),
+        Err(m) => direct_table(s, args, simplify).ok_or(m),
+    }
+}
+
+/// The integration backend of a transform (`_mellin_transform`,
+/// `_fourier_transform`, `_sine_cosine_transform`, `_hankel_transform`).
+fn integral(s: SpecialFn, args: &[Expr], simplify: bool) -> Result<Vec<Expr>, String> {
+    use SpecialFn::*;
+    let unsupported = || "could not compute integral".to_string();
     match s {
         MellinTransform => {
             let (f, (a, b), c) = integral_backend::mellin_integration(&args[0], &args[1], &args[2], simplify)?;

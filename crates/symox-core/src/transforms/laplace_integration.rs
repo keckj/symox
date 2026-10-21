@@ -347,28 +347,47 @@ fn simplify_conds(expr: &Expr, s: &Expr, a: &Expr) -> Expr {
     })
 }
 
-/// The transforms' `_simplify(expr, doit)`: `simplify(powdenest(expr,
-/// polar=True))`, including the gamma simplification step of the reference
-/// `simplify` (`combsimp` passes gamma functions of non-integer arguments to
-/// `gammasimp`).
+/// The transforms' `_simplify(expr, doit)`: `simplify(powdenest(
+/// piecewise_fold(expr), polar=True))`. The native `simplify` is lighter than
+/// the reference one, so the steps of the reference `simplify` that matter
+/// for transform results are applied here as well: the `expand_log` /
+/// `logcombine` step for logarithms, the `gammasimp` step for gamma functions
+/// of non-integer argument (`combsimp`) and the final `exptrigsimp` step.
 pub(super) fn simplify_result(e: &Expr, simplify: bool) -> Expr {
     if !simplify {
         return e.clone();
     }
-    let p = crate::integrate::meijerint::powdenest_polar(e);
-    let r = crate::simplify::simplify(&p);
+    let ops = |x: &Expr| crate::simptools::methods::count_ops(x);
+    let folded = crate::integrate::piecewise::piecewise_fold(e, Some(true));
+    let p = crate::integrate::meijerint::powdenest_polar(&folded);
+    let mut r = crate::simplify::simplify(&p);
+    if has_func(&r, &|g| matches!(g, Func::Log)) {
+        // `shorter(expand_log(expr, deep=True), logcombine(expr))`
+        let expanded = crate::simp::expand_log_deep(&r, false, true);
+        let combined = crate::simp::logcombine(&r, false);
+        let short = if ops(&combined) < ops(&expanded) { combined } else { expanded };
+        let l = crate::simplify::simplify(&short);
+        if ops(&l) < ops(&r) {
+            r = l;
+        }
+    }
     let mut gamma = false;
     crate::traverse::preorder(&r, &mut |n| {
         if let Kind::Func(Func::Gamma, a) = n.kind() {
             gamma |= crate::assumptions::is_integer(&a[0]) != Some(true);
         }
     });
-    if !gamma {
-        return r;
+    if gamma {
+        let g = crate::simplify::simplify(&crate::simptools::gammasimp::gammasimp(&r));
+        if ops(&g) <= ops(&r) {
+            r = g;
+        }
     }
-    let g = crate::simplify::simplify(&crate::simptools::gammasimp::gammasimp(&r));
-    let ops = |x: &Expr| crate::simptools::methods::count_ops(x);
-    if ops(&g) <= ops(&r) { g } else { r }
+    let x = crate::simptools::trigsimp::exptrigsimp(&r);
+    if x != r && ops(&x) <= ops(&r) {
+        r = x;
+    }
+    r
 }
 
 /// `_laplace_transform_integration(f, t, s_)`.
