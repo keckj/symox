@@ -125,3 +125,16 @@ assert held.doit()==-sin(x)
 assert Matrix([[x*x,1]]).applyfunc(lambda entry:entry.diff(x,evaluate=False))[0,0]==Derivative(x*x,x)
 '''
     subprocess.run([sys.executable,'-c',source],check=True)
+
+
+@pytest.mark.parametrize('source',['G(x,eta/x)','G(x,x*y)','G(y,x,x**2)','G(x,y)'])
+def test_symbol_slot_shared_with_another_argument_uses_subs(source):
+    # AppliedUndef.fdiff holds Derivative(G(...), x) only when no other
+    # argument depends on x; otherwise the slot goes through a Subs.
+    def derivative(module):
+        x,y,eta=module.symbols('x y eta')
+        expr=module.sympify(source,locals={'G':module.Function('G'),'x':x,'y':y,'eta':eta})
+        return module.srepr(expr.diff(x))
+    import re
+    strip=lambda text:re.sub(r'dummy_index=-?\d+','',text)
+    assert strip(derivative(sx))==strip(derivative(sp))
