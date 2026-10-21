@@ -240,8 +240,9 @@ impl FractionPoly {
         Self::from_expr(e, &self.gens, &self.parameters, &self.display).map(|mut p| {p.coefficient_domain=self.coefficient_domain.clone();p})
     }
     pub fn promote_field(&mut self) {
-        self.display=self.display.replace('[',"(").replace(']',")");
         self.coefficient_domain=self.coefficient_domain.field();
+        // A nested ring `ZZ[x][y]` has the field `ZZ[x](y)`.
+        self.display=if matches!(self.coefficient_domain,super::domains::ExactDomain::Composite{..}) {self.coefficient_domain.to_string()} else {self.display.replace('[',"(").replace(']',")")};
     }
     pub fn belongs_to_ring(&self) -> bool {
         self.rep
@@ -799,6 +800,7 @@ impl Polynomial {
         if gens.is_empty() {
             gens = prototype.gens.clone();
         }
+        if let Some(pair)=self.composite_pair(o,&gens)? {return Ok(Some(pair));}
         // The reference `_unify_gens` of both coefficient domains, the
         // receiver first, never sorted.
         let side = |p: &Self| -> Vec<Expr> {
@@ -837,6 +839,40 @@ impl Polynomial {
                 Ok((remapped,coefficient(&c,&parameters)?))
             }).collect::<PResult<Vec<_>>>()?;
             Ok(FractionPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),parameters:parameters.clone(),display:display.clone(),coefficient_domain:descriptor.clone()})
+        };
+        Ok(Some((convert(self)?,convert(o)?)))
+    }
+    /// Operands over a nested coefficient ring (`ZZ[x][y]`): a plain integer
+    /// or rational operand joins it (over `QQ[x][y]` for rationals), as the
+    /// reference `Domain.unify` does; other mixtures are not implemented.
+    fn composite_pair(&self,o:&Self,gens:&[Expr])->PResult<Option<(FractionPoly,FractionPoly)>> {
+        use super::domains::ExactDomain;
+        let composite_of=|p:&Self|p.field.as_ref().and_then(|f|matches!(f.coefficient_domain,ExactDomain::Composite{..}).then(||f.coefficient_domain.clone()));
+        let Some(mut target)=composite_of(self).or_else(||composite_of(o)) else {return Ok(None)};
+        for p in [self,o] {
+            if let Some(d)=composite_of(p) {
+                if d!=target {
+                    if d.with_rational_field()==target.with_rational_field() {target=target.with_rational_field();}
+                    else {return Err(PolyError::Unsupported(format!("cannot unify the nested coefficient domains {d} and {target}")));}
+                }
+            } else if p.field.is_none()&&p.base.domain_gens().is_empty()&&p.modulus.is_none()&&p.algebraic.is_none()&&p.expression.is_none()&&p.domain!=super::polyobj::Domain::RR {
+                if p.domain==super::polyobj::Domain::QQ {target=target.with_rational_field();}
+            } else {
+                return Err(PolyError::Unsupported(format!("cannot unify the nested coefficient domain {target} with another coefficient domain")));
+            }
+        }
+        let Some(ExactDomain::Functions{parameters,..})=target.flat_domain() else {return Err(PolyError::Unsupported(format!("polynomials over {target} are not implemented")))};
+        if parameters.iter().any(|p|gens.contains(p)){return Err(PolyError::Generator("polynomial ring and it's ground domain share generators".into()));}
+        let display=target.to_string();
+        let _scope=Scope::new(parameters.len());
+        let convert=|p:&Self|{
+            let positions:Vec<_>=p.true_gens().iter().map(|g|gens.iter().position(|candidate|candidate==g).unwrap()).collect();
+            let terms=p.terms().into_iter().map(|(powers,c)|{
+                let mut remapped=vec![0;gens.len()];
+                for (index,exponent) in positions.iter().zip(powers){remapped[*index]=exponent;}
+                Ok((remapped,coefficient(&c,&parameters)?))
+            }).collect::<PResult<Vec<_>>>()?;
+            Ok::<_,PolyError>(FractionPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.to_vec(),parameters:parameters.clone(),display:display.clone(),coefficient_domain:target.clone()})
         };
         Ok(Some((convert(self)?,convert(o)?)))
     }
