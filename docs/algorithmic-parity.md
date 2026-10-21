@@ -899,6 +899,20 @@ for constructing every stabilizer chain.
   method selections and `NonElementaryIntegral` results (which need a Risch
   proof) remain open: those options still raise NotImplementedError, and
   results the reference only reaches through heurisch can differ in form.
+  The integration corpus (`tools/integration_corpus.py`) now reports 1033
+  identical and 89 equivalent results, against 988 and 93 before the
+  Piecewise and Meijer G indefinite ports; 54 cases stay unevaluated where
+  the reference answers. Those open cases are oscillatory integrals on
+  `(0, oo)` that the reference returns as `AccumBounds`, divergent values
+  (`1/sin(x)` on `(0, pi)`, `x**a` on `(1, oo)`), `1/cosh(x)` over the real
+  line, and finite intervals with an unassumed parameter in a logarithmic,
+  `Heaviside` or `DiracDelta` integrand (`1/(x+a)`, `1/x` on `(a, 1)`,
+  `log(a*x)`). For the last group, some reference values such as `-log(a)`
+  for `1/x` on `(a, 1)` hold only when the interval avoids the pole, so the
+  native result stays held rather than copying them. The remaining
+  numerical differences are reference errors: `laplace_transform(1/(t+1))`
+  is `-exp(s)*Ei(-s)` (the reference gives `-exp(-s)*Ei(-s)`), and the
+  Fourier transform of `1/(1+x**2)` keeps `Abs(k)`.
   Gamma moments `c*x**a*exp(delta-beta*x**q)` on `(0, infinity)` now retain the
   exact `re(a)>-1` condition for provably positive real `q`, or `re(a)<-1`
   for provably negative real `q`, with `re(beta)>0`. This includes rational
