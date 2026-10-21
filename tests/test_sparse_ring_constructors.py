@@ -76,12 +76,19 @@ def test_constructor_shapes_inference_and_namespace_injection():
     assert namespace['fresh_r']==namespace['R'].gens[0]
     assert namespace['fresh_t']==namespace['F'].gens[0]
 
-@pytest.mark.parametrize("domain",[s.GF(7),s.QQ.algebraic_field(s.sqrt(2))])
-def test_composite_domain_backend_limits_are_explicit(domain):
-    with pytest.raises(NotImplementedError,match="ZZ or QQ"):
+def test_composite_domain_backend_limits_are_explicit():
+    domain=s.GF(7)
+    with pytest.raises(NotImplementedError,match="not implemented"):
         ring("x",domain)
-    with pytest.raises(NotImplementedError,match="ZZ or QQ"):
+    with pytest.raises(NotImplementedError,match="not implemented"):
         field("x",domain)
+    # The reference QQ<sqrt(2)>[x] is a supported nested ring; its fraction
+    # field has no element backend yet and says so.
+    R,x=ring("x",s.QQ.algebraic_field(s.sqrt(2)))
+    assert str(R)=="Polynomial ring in x over QQ<sqrt(2)> with lex order"
+    assert str(x**2+x)=="x**2 + x"
+    with pytest.raises(NotImplementedError,match="not implemented"):
+        field("x",s.QQ.algebraic_field(s.sqrt(2)))
 
 
 def test_constant_rings_and_empty_construction():

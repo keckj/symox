@@ -23,7 +23,13 @@ fn element_error(e: symox::poly::convert::PolyError) -> PyErr {
     }
 }
 fn coercion(e: impl std::fmt::Display) -> PyErr {
-    CoercionFailed::new_err(e.to_string())
+    let message = e.to_string();
+    // A descriptor without an element backend (a fraction field over an
+    // algebraic ground) is unsupported, not a failed coercion.
+    if message.starts_with("fraction fields over ") && message.ends_with(" are not implemented") {
+        return PyNotImplementedError::new_err(message);
+    }
+    CoercionFailed::new_err(message)
 }
 fn domain_error(e: impl std::fmt::Display) -> PyErr {
     DomainError::new_err(e.to_string())
