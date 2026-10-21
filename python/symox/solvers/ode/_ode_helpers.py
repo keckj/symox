@@ -71,10 +71,20 @@ def _preprocess(expr, func=None, hint='_Integral'):
     fvars = set(func.args)
     if hint is None:
         return expr, func
-    reps = [(d, d.doit()) for d in derivs if not hint.endswith('_Integral') or
-            d.has(func) or set(d.variables) & fvars]
+    reps = [(d, _doit_derivative(d)) for d in derivs if not hint.endswith('_Integral') or
+            d.has(func) or {v for v, _ in d.variable_count} & fvars]
     eq = expr.subs(reps)
     return eq, func
+
+
+def _doit_derivative(d):
+    # A derivative of an undefined function in its own arguments is already
+    # evaluated. The reference reaches the same result by differentiating
+    # once per order, which does not return for huge orders.
+    if isinstance(d.expr, AppliedUndef) and all(
+            v.is_Symbol and v in d.expr.args for v, _ in d.variable_count):
+        return d
+    return d.doit()
 
 
 def _desolve(eq, func=None, hint="default", ics=None, simplify=True, *, prep=True, **kwargs):

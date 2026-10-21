@@ -889,6 +889,9 @@ def solve_ics(sols, funcs, constants, ics):
 
     return solved_constants[0]
 
+_MAX_CLASSIFIED_ORDER = 10**6
+
+
 def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta=None, n=None, **kwargs):
     r"""
     Returns a tuple of possible :py:meth:`~sympy.solvers.ode.dsolve`
@@ -1038,6 +1041,12 @@ def classify_ode(eq, func=None, dict=False, ics=None, *, prep=True, xi=None, eta
     terms = 5 if n is None else n
 
     order = ode_order(eq, f(x))
+    if order > _MAX_CLASSIFIED_ORDER:
+        # SymPy does not return for such orders (its methods build one
+        # constant or one recurrence term per order); report the order as
+        # unsupported instead of exhausting memory.
+        raise NotImplementedError(
+            "classify_ode does not support differential order %s" % order)
     # hint:matchdict or hint:(tuple of matchdicts)
     # Also will contain "default":<default hint> and "order":order items.
     matching_hints = {"order": order}
