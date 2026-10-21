@@ -242,15 +242,43 @@ fn char_roots(a: &[Expr]) -> Option<Vec<(Expr, usize)>> {
             return Some(found.into_iter().map(|(root, m)| (root, m as usize)).collect());
         }
     }
+    // Exact multiplicities from the square-free decomposition over QQ: a
+    // numerical test of the derivatives could merge close simple roots and
+    // return a basis function that does not solve the equation.
+    if let Ok(poly) = crate::poly::polyobj::Poly::from_expr(&p, std::slice::from_ref(&r)) {
+        // Generators other than symbols (sqrt(2), exp(a)) can satisfy
+        // relations the polynomial ring does not know about.
+        let free = poly.gens.iter().all(|g| matches!(g.kind(), Kind::Sym(..)));
+        if free && !poly.is_float() {
+            let mut out = Vec::new();
+            let complete = poly.sqf_list().1.into_iter().all(|(factor, k)| {
+                let Ok(mut c) = factor.all_coeffs() else { return false };
+                c.reverse();
+                let Some(found) = poly_roots(&c) else { return false };
+                out.extend(found.into_iter().map(|root| (root, k as usize)));
+                true
+            });
+            if complete && out.iter().map(|(_, m)| *m).sum::<usize>() == degree {
+                return Some(out);
+            }
+        }
+    }
+    let floats = p.float_info().max_precision.is_some();
     let roots = poly_roots(a)?;
     let mut out = Vec::new();
     for root in roots {
-        // multiplicity: number of derivatives vanishing at the root
+        // multiplicity: number of derivatives vanishing at the root, exactly
+        // unless the coefficients are already floating point
         let mut m = 0;
         let mut d = p.clone();
         loop {
             let v = expand(&subs1(&d, &r, &root));
-            let zero = v.is_zero() || crate::evalf::eval_c64(&v).is_some_and(|z| z.norm() < 1e-12);
+            let zero = v.is_zero()
+                || if floats {
+                    crate::evalf::eval_c64(&v).is_some_and(|z| z.norm() < 1e-12)
+                } else {
+                    crate::simplify::simplify(&v).is_zero()
+                };
             if !zero {
                 break;
             }

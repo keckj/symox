@@ -236,8 +236,19 @@ class Function(metaclass=_FunctionType):
     """Undefined function: ``f = Function('f'); f(x)``."""
 
     def __init__(self, name: str, *, nargs=None, **assumptions):
+        if isinstance(name, _core.Expr) and name.is_Symbol:
+            # SymPy merges the symbol's assumptions with the given ones and
+            # uses its name (Symbol._merge).
+            base = dict(name.assumptions0)
+            for key in set(assumptions) & set(base):
+                if assumptions[key] != base[key]:
+                    raise ValueError(
+                        "non-matching assumptions for %s: existing value is %s "
+                        "and new value is %s" % (key, base[key], assumptions[key]))
+            base.update(assumptions)
+            assumptions, name = base, name.name
         if not isinstance(name, str):
-            raise TypeError("Function expects a string name")
+            raise TypeError("expecting string or Symbol for name")
         self.name = name
         self.__name__ = name
         self._assumptions = dict(_core._function_facts(assumptions))
@@ -1616,7 +1627,7 @@ from .polys.constructor import construct_domain  # noqa: E402
 from .polys.polytools import (  # noqa: E402
     LC, LM, LT, all_roots, content, decompose, degree_list, gff, monic,
     nth_power_roots_poly, parallel_poly_from_expr, poly_from_expr, real_roots,
-    sqf_norm, total_degree, trunc,
+    sqf_norm, terms_gcd, total_degree, trunc,
 )
 from .polys.polyfuncs import (  # noqa: E402
     horner, interpolate, rational_interpolate, symmetrize, viete,
@@ -2141,11 +2152,7 @@ from ._solver_checks import (  # noqa: E402
 from .solvers.decompogen import decompogen  # noqa: E402
 from .solvers.deutils import ode_order, homogeneous_order  # noqa: E402
 from ._numeric_float import nfloat  # noqa: E402
-from .solvers.ode import classify_ode, dsolve, checkodesol  # noqa: E402
 from .solvers.solvers import det_quick,inv_quick
-from .solvers.pde import (  # noqa: E402
-    pdsolve, classify_pde, checkpdesol, pde_separate, pde_separate_add, pde_separate_mul,
-)
 from .geometry import (  # noqa: E402
     Point, Point2D, Point3D, Line, Ray, Segment, Line2D, Ray2D, Segment2D,
     Line3D, Ray3D, Segment3D, Plane, Ellipse, Circle, Polygon, Triangle,
@@ -2351,6 +2358,16 @@ from ._kind import install as _install_kinds  # noqa: E402
 _install_kinds()
 
 _install_root_modules(__name__)
+# The ODE solvers need the complete public surface.
+from .solvers.ode import classify_ode, dsolve, checkodesol  # noqa: E402,F811
+from .solvers.pde import (  # noqa: E402
+    pdsolve, classify_pde, checkpdesol, pde_separate, pde_separate_add, pde_separate_mul,
+)
+for _name in ('classify_ode', 'pdsolve', 'classify_pde', 'checkpdesol', 'pde_separate',
+              'pde_separate_add', 'pde_separate_mul'):
+    if _name not in __all__:
+        __all__.append(_name)
+del _name
 
 # SymPy's logic gates and Max/Min are classes (logic.boolalg and
 # functions.elementary.miscellaneous); bind them in place of the native

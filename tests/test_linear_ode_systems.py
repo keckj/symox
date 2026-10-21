@@ -89,8 +89,8 @@ def test_noncommuting_time_coefficients_and_invalid_antiderivatives_are_rejected
     t = sx.Symbol('t')
     with pytest.raises(NotImplementedError):
         linodesolve(sx.Matrix([[0,t],[1,0]]),t)
-    with pytest.raises(ValueError):
-        linodesolve(sx.eye(2),t,B=sx.eye(2))
+    # SymPy does not check that a supplied B is an antiderivative of A.
+    assert len(linodesolve(sx.eye(2),t,B=sx.eye(2)))==2
     with pytest.raises(ValueError):
         linodesolve(sx.eye(2),t,b=sx.Matrix([[1,2]]))
 

@@ -16,11 +16,18 @@ def test_solve_set_and_dict_outputs():
     assert s.solve(x-1, x, check=True, simplify=True) == [1]
 
 
-@pytest.mark.parametrize("flags", [dict(manual=True), dict(simplify=False), dict(mispelled=True), dict(rational=False)])
+@pytest.mark.parametrize("flags", [dict(manual=True), dict(mispelled=True)])
 def test_solve_unimplemented_flags_are_explicit(flags):
     x = s.Symbol("x")
     with pytest.raises(NotImplementedError):
         s.solve(x-1, x, **flags)
+
+
+@pytest.mark.parametrize("flags", [dict(simplify=False), dict(rational=False)])
+def test_solve_reference_flags_are_applied(flags):
+    x = s.Symbol("x")
+    assert s.solve(x-1, x, **flags) == [1]
+    assert [r.to_sympy() for r in s.solve(x**2-2*x-1, x, **flags)] == sp.solve(sp.Symbol("x")**2-2*sp.Symbol("x")-1, sp.Symbol("x"), **flags)
 
 
 def test_nsolve_convergence_controls_and_real_bracketing():
@@ -62,10 +69,10 @@ def test_ode_unknown_hints_fail_explicitly():
     f = s.Function("f")(x)
     ode = s.diff(f, x)-f
     assert s.dsolve(ode, f, hint="default") == s.dsolve(ode, f)
-    with pytest.raises(NotImplementedError):
+    # SymPy's dsolve rejects an unknown hint with ValueError
+    with pytest.raises(ValueError, match="Hint not recognized: nonsense"):
         s.dsolve(ode, f, hint="nonsense")
-    with pytest.raises(NotImplementedError):
-        s.dsolve(ode, f, simplify=False)
+    assert s.dsolve(ode, f, simplify=False) == s.Eq(f, s.Symbol("C1")*s.exp(x))
 
 
 def test_expand_and_simplify_options_are_applied_or_rejected():
