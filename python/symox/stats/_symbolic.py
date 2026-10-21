@@ -147,7 +147,7 @@ def install():
                 if not isinstance(node,S.Expr) or node in seen:continue
                 seen.add(node)
                 if node in HELD:replacements[node] = HELD[node].doit(**kwargs)
-                else:stack.extend(node.args)
+                else:stack.extend(getattr(node,'args',()))
             if replacements:return original(self.xreplace(replacements),*args,**kwargs)
         return original(self,*args,**kwargs)
     S.Expr.doit = doit;S.Expr._stats_doit_installed = True

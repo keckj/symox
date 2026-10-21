@@ -244,3 +244,12 @@ a=s.MatrixSymbol('a',1,3);b=s.MatrixSymbol('b',3,1)
 assert s.DotProduct(a,b).doit()==sum(a[0,i]*b[i,0] for i in range(3))
 '''
     subprocess.run([sys.executable, '-c', code], check=True, timeout=20)
+
+
+def test_derivative_doit_after_stats_import():
+    import symox.stats  # noqa: F401  installs the held-distribution doit walker
+    t = sx.Symbol('t', real=True)
+    a = sx.MatrixExpr(sx.ImmutableMatrix([[1+t, 2*sx.I*t, t*t]]))
+    b = sx.MatrixExpr(sx.ImmutableMatrix([[t+sx.I], [3-t], [1+2*t]]))
+    expected = (1+t)*(t+sx.I)+(2*sx.I*t)*(3-t)+t*t*(1+2*t)
+    scalar_equal(sx.DotProduct(a, b).diff(t).doit(), expected.diff(t))
