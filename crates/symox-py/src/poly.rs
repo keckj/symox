@@ -2335,7 +2335,6 @@ fn rational_function_blocker(e:&Expr)->bool{
     found
 }
 
-/// Compute the greatest common divisor of expressions or polynomials.
 /// The reference `construct_domain(..., extension=True)` proceeds exactly
 /// as without the option when a coefficient in the generators is not an
 /// algebraic number (`-sqrt(2)*y` in `x`). The options without it are
@@ -2366,6 +2365,7 @@ fn inapplicable_extension<'py>(py:Python<'py>,f:&Bound<'py,PyAny>,g:Option<&Boun
     Ok(Some(copy))
 }
 
+/// Compute the greatest common divisor of expressions or polynomials.
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
