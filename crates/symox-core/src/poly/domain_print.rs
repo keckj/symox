@@ -295,9 +295,9 @@ fn number_field(domain: &ExactDomain, rep: &MPoly<AN>) -> std::sync::Arc<super::
 /// The reference string of an element of a composite domain, or `None`
 /// for the other domains.
 pub fn composite_str(element: &DomainElement) -> Option<String> {
-    let ExactDomain::Composite { .. } = &element.domain else {
+    if !matches!(&element.domain, ExactDomain::Composite { .. } | ExactDomain::Functions { .. }) {
         return None;
-    };
+    }
     Some(match &element.value {
         ElementValue::Function(r) => rational_node(&element.domain, &r.n, &r.d, 0).render(),
         ElementValue::AlgebraicPoly(rep) => algebraic_node(&element.domain, rep, 0).render(),
