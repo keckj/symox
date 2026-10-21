@@ -670,6 +670,15 @@ fn image_in_interval(img: &Expr, iv: &Expr) -> Option<Expr> {
 /// Simplify `a ∩ b` if a rule applies.
 fn intersect_pair(a: &Expr, b: &Expr) -> Option<Expr> {
     if let (Some((s1, e1, l1, r1)), Some((s2, e2, l2, r2))) = (interval_parts(a), interval_parts(b)) {
+        // (-oo, oo) with any interval gives that interval, even when its
+        // bounds are not comparable (reference Interval/Interval rule).
+        let whole = |s: &Expr, e: &Expr| *s == Expr::neg_oo() && *e == Expr::oo();
+        if whole(&s1, &e1) {
+            return Some(b.clone());
+        }
+        if whole(&s2, &e2) {
+            return Some(a.clone());
+        }
         let (start, lopen) = match cmp3(&s1, &s2)? {
             Ordering::Less => (s2, l2),
             Ordering::Greater => (s1, l1),
@@ -680,15 +689,6 @@ fn intersect_pair(a: &Expr, b: &Expr) -> Option<Expr> {
             Ordering::Greater => (e2, r2),
             Ordering::Equal => (e1, r1 || r2),
         };
-        if matches!((as_set(a), as_set(b)), (Some((SetOp::Reals, _)), Some((SetOp::Reals, _)))) {
-            return Some(a.clone());
-        }
-        if is_op(a, SetOp::Reals) {
-            return Some(b.clone());
-        }
-        if is_op(b, SetOp::Reals) {
-            return Some(a.clone());
-        }
         return Some(interval(&start, &end, lopen, ropen));
     }
     let (oa, ob) = (as_set(a)?.0, as_set(b)?.0);
