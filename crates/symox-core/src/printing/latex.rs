@@ -828,7 +828,7 @@ impl<'a> LatexPrinter<'a> {
             Func::Ceiling => return Self::sup(format!("\\left\\lceil{{{}}}\\right\\rceil", a0()), exp),
             Func::Max | Func::Min => {
                 let mut v = args.clone();
-                v.sort_by_cached_key(|a| (!a.is_number(), crate::printer::to_str(a)));
+                v.sort_by_cached_key(crate::sortkey::sort_key);
                 let texargs: Vec<String> = v.iter().map(|a| self.print(a)).collect();
                 let name = if *f == Func::Max { "max" } else { "min" };
                 return Self::sup(format!("\\{name}\\left({}\\right)", texargs.join(", ")), exp);

@@ -167,6 +167,20 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
                 out.push(')');
             }
         }
+        Kind::Func(f @ (Func::Max | Func::Min), args) => {
+            // SymPy's `_print_LatticeOp` sorts by `default_sort_key`.
+            let mut sorted = args.clone();
+            sorted.sort_by_cached_key(crate::sortkey::sort_key);
+            out.push_str(f.name());
+            out.push('(');
+            for (i, a) in sorted.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                write_expr(a, out);
+            }
+            out.push(')');
+        }
         Kind::Func(f, args) => {
             out.push_str(f.name());
             out.push('(');

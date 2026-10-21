@@ -296,6 +296,63 @@ Remaining gaps in this area:
   combinations of the two constants: it stays the Frobenius derivative
   itself, so `C2` may contain a multiple of the first series.
 
+## Min/Max, polarify, Piecewise and relationals on 2026-10-21
+
+Six small behaviors were compared against SymPy 1.14.0 and fixed:
+
+- `Min`/`Max` keep `ordered` args, as in SymPy. The str, latex and pretty
+  printers now sort the args by `default_sort_key`, as `_print_LatticeOp`
+  and `_hprint_variadic_function` do, so `Min(x**2, x, sin(x))` prints
+  `Min(x, x**2, sin(x))` while `.args` and `srepr` stay
+  `(x, sin(x), x**2)`. Their derivative is the reference Heaviside sum
+  (`Max(y, x).diff(x)` is `Heaviside(x - y)`), no longer an unevaluated
+  `Derivative`. Functions with neither `nargs` nor `eval` (`exp_polar`,
+  `meijerg`, `lerchphi`, `LeviCivita`, `carmichael`, the integral
+  transforms) and `Min`/`Max` get the reference class key `(4, 0, name)`,
+  which puts `exp_polar` first in products.
+- `polarify` is a port of `_polarify`: function args are always visited,
+  other nodes only visit their `Expr` args, so `meijerg` parameter tuples
+  and `Piecewise` conditions keep their exact values; Integral limits and
+  `ExprCondPair` follow the reference. `hyper` orders its parameters
+  before unpolarifying them, as `hyper.__new__` does.
+- `series` of a top-level `Piecewise` follows `Expr.series` with
+  `Piecewise._eval_nseries` (branch-wise expansion, the conditions in the
+  positive dummy, the `O` term added only when not absorbed), including
+  `x0 != 0` and `dir='-'`. `Order.subs` now moves the limit point like
+  `Order._eval_subs` (`O(x**3).subs(x, x - 2)` is
+  `O((x - 2)**3, (x, 2))`, `O(x**3).subs(x, -x)` is `O(x**3)`).
+- Strict and non-strict inequalities between identical sides are decided
+  only when the sides are extended real or comparable numbers: `y < y`
+  stays unevaluated for a plain or complex symbol, `r < r` is `False` for
+  a real one, and `I < I`, `zoo < zoo`, `nan < nan` raise the reference
+  `TypeError`.
+- `Piecewise.as_expr_set_pairs` is a port, including the complex-domain
+  `ValueError` and the multivariate `NotImplementedError` messages.
+- `piecewise_fold` is a port of the SymPy 1.14 function: condition
+  folding of nested `Piecewise` conditions through `ITE`/`to_nnf`/
+  `simplify_logic`, shared-prefix grouping in `Add`/`Mul`, and the
+  `evaluate=None` duplicate-branch merge.
+
+Differential tests: `tests/test_misc_wave2_parity.py` (hardcoded SymPy
+outputs).
+
+Remaining gaps in this area:
+
+- `Piecewise` series expands each branch with `series` semantics. SymPy's
+  `_eval_nseries` on a branch may give a different order term
+  (`Piecewise((x, x < 1), (x**5, True)).series(x, 0, 3)` is `O(x**5)` in
+  SymPy, `O(x**3)` in Symox).
+- Only a top-level `Piecewise` takes the reference series path; a
+  `Piecewise` inside an `Add` or `Mul` uses the native series.
+- `Piecewise((1, x < 0), (2, True))**p` stays a `Pow`: SymPy's
+  `Piecewise._eval_power` is not applied by the `Pow` constructor, so
+  `piecewise_fold` of such powers differs.
+- `Order.subs` solves the moving point only for an affine substitution.
+- Noncommutative symbols are not implemented, so the noncommutative
+  branches of `piecewise_fold` cannot be exercised.
+- The order of the `polarify` replacement mapping follows set iteration
+  and may differ from SymPy's dict order; the mapping itself is equal.
+
 ## Remaining blocking gaps
 
 General noncommutative scalar algebra remains unsupported in this snapshot:

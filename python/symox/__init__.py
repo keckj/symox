@@ -1652,7 +1652,53 @@ class PoleError(ValueError):
     """Raised when an expansion point is a singularity of the expression."""
 
 
+def _piecewise_nseries(expr, x, n):
+    """SymPy's ``Piecewise._eval_nseries``: expand each branch."""
+    return expr.func(*[(_series_call(e, x, 0, n, "+"), c) for e, c in expr.args])
+
+
+def _piecewise_series(expr, x, x0, n, dir):
+    """``Expr.series`` for a Piecewise: shift the origin, expand in a
+    positive variable, then expand the branches."""
+    from symox import Dummy, collect
+    x0 = sympify(x0)
+    if x0.is_infinite:
+        return None
+    if x0 or dir == "-":
+        if dir == "-":
+            rep, back = -x + x0, -x + x0
+        else:
+            rep, back = x + x0, x - x0
+        s = _series_call(expr.subs(x, rep), x, 0, n, "+")
+        return s.subs(x, back)
+    if (x.is_positive is None and x.is_negative is None) or not x.is_Symbol:
+        xpos = Dummy("x", positive=True)
+        return _series_call(expr.subs(x, xpos), xpos, 0, n, "+").subs(xpos, x)
+    s1 = _piecewise_nseries(expr, x, n)
+    if s1.has(Order):
+        # asymptotic expansion, returned as is
+        return s1
+    o = Order(x**n, x)
+    if (s1 + o).removeO() == s1:
+        return s1
+    return collect(s1, x) + o
+
+
 def _series_call(expr, x, x0, n, dir):
+    if getattr(expr, "is_Piecewise", False) and n is not None:
+        if x is None:
+            syms = expr.free_symbols
+            if not syms:
+                return expr
+            if len(syms) > 1:
+                raise ValueError("x must be given for multivariate functions.")
+            x = syms.pop()
+        x = sympify(x)
+        if x not in expr.free_symbols:
+            return expr
+        result = _piecewise_series(expr, x, x0, n, dir)
+        if result is not None:
+            return result
     try:
         return _core._series(expr, x, x0, n, dir)
     except ValueError as e:
@@ -1683,6 +1729,11 @@ def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
 
 
 def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
+    if getattr(self, "is_Piecewise", False) and x is not None and not x0 and dir == "+":
+        x = sympify(x)
+        if x not in self.free_symbols:
+            return self
+        return _piecewise_nseries(self, x, n)
     return _series_call(self, x, x0, n, dir)
 
 

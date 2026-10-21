@@ -311,7 +311,26 @@ fn d_func(
         );
     }
     if matches!(f, Func::Max | Func::Min) {
-        return derivative_unevaluated(e, vec![(x.clone(), 1)]);
+        // SymPy's `MinMaxBase._eval_derivative` with `Max.fdiff` and
+        // `Min.fdiff`: each argument contributes a Heaviside factor.
+        let is_max = matches!(f, Func::Max);
+        let n = args.len();
+        let mut terms = Vec::new();
+        for (i, a) in args.iter().enumerate() {
+            let da = d(a, x, cache);
+            if da.is_zero() {
+                continue;
+            }
+            let others = if n == 2 {
+                args[1 - i].clone()
+            } else {
+                let rest: Vec<Expr> = args.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, b)| b.clone()).collect();
+                if is_max { max(rest) } else { min(rest) }
+            };
+            let gap = if is_max { sub(a, &others) } else { sub(&others, a) };
+            terms.push(mul(&[heaviside(&gap), da]));
+        }
+        return add(&terms);
     }
     if let Func::Special(s) = f {
         if s.is_transform() {

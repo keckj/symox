@@ -288,7 +288,12 @@ pub fn class_key(e: &Expr) -> Key {
                 Func::Im => 42,
                 Func::Arg => 43,
                 Func::Undefined(head) => undefined_ordinal(head).into(),
-                Func::Max | Func::Min => 0,
+                // Classes with neither `nargs` nor `eval` take any number
+                // of arguments (`Naturals0`).
+                Func::Max | Func::Min | Func::ExpPolar => 0,
+                Func::Special(s) if s.is_transform() || matches!(s, crate::special::SpecialFn::MeijerG
+                    | crate::special::SpecialFn::Lerchphi | crate::special::SpecialFn::LeviCivita
+                    | crate::special::SpecialFn::Carmichael) => 0,
                 _ => 10000,
             };
             (4, i, f.name().into())

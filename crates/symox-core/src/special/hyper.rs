@@ -20,7 +20,8 @@ pub(super) fn eval(a: &[Expr]) -> Option<Expr> {
         }
     }
     for v in [&mut ap, &mut bq] {
-        v.sort_by(crate::sortkey::cmp_default);
+        // `ordered` (node count first) before `_prep_tuple` unpolarifies
+        crate::logic::ordered(v);
         for x in v.iter_mut() {
             *x = polar::unpolarify(x, false);
         }

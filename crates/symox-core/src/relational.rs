@@ -19,7 +19,11 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
     if a.is_constant(Constant::NaN) || b.is_constant(Constant::NaN) {
         return match op { RelOp::Eq=>Some(false),RelOp::Ne=>Some(true),_=>None };
     }
-    if a == b {
+    let equality = matches!(op, RelOp::Eq | RelOp::Ne);
+    // SymPy's is_ge decides an ordering of symbolic sides only when both
+    // are extended real (`y < y` stays unevaluated for a complex `y`).
+    let extended_real = |e: &Expr| crate::assumptions::fact(e, "extended_real") == Some(true);
+    if a == b && (equality || extended_real(a)) {
         return Some(matches!(op, RelOp::Eq | RelOp::Le | RelOp::Ge));
     }
     if matches!(op, RelOp::Eq | RelOp::Ne) {
@@ -50,6 +54,10 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
             return infinite_decision(swapped,sign,a);
         }
         (None,None)=>{},
+    }
+    // Otherwise `_n2` compares two comparable numbers numerically.
+    if !equality && !(extended_real(a) && extended_real(b)) && !(is_numeric_value(a) && is_numeric_value(b)) {
+        return None;
     }
     let d = sub(a, b);
     if !d.is_number() {

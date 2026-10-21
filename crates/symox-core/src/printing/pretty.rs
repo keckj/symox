@@ -1064,7 +1064,7 @@ impl PrettyPrinter<'_> {
             // Max/Min are not Functions in SymPy: printed with str()
             Func::Max | Func::Min => {
                 let mut v = args.to_vec();
-                v.sort_by_cached_key(|a| (!a.is_number(), crate::printer::to_str(a)));
+                v.sort_by_cached_key(crate::sortkey::sort_key);
                 Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(), v))))
             }
             _ => self.function(f.name(), args),
