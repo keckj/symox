@@ -17,7 +17,7 @@ fn set_result(py: Python<'_>, variables: &[Expr], solutions: Vec<Vec<Expr>>) -> 
 
 fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,symox::poly::roots::RadicalOptions)> {
     let (mut dict, mut set, mut check) = (false, false, true);
-    let mut cubics=true;let mut quartics=None;
+    let mut cubics=true;let mut quartics=None;let mut incomplete=true;
     if let Some(flags) = flags {
         for (key, value) in flags.iter() {
             let key: String = key.extract()?;
@@ -28,6 +28,7 @@ fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,
                 "cubics"=>cubics=value.is_truthy()?,
                 "quartics"=>quartics=Some(value.is_truthy()?),
                 "quintics"=>{},
+                "incomplete"=>incomplete=value.is_truthy()?,
                 // The native solutions are not post-simplified (the
                 // Python layer applies SymPy's linear-path simplify), so
                 // simplify=False keeps them as they are. force=True is the
@@ -41,7 +42,7 @@ fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,
             }
         }
     }
-    Ok((dict, set && !dict, check,symox::poly::roots::RadicalOptions{cubics,quartics:quartics.unwrap_or(cubics)}))
+    Ok((dict, set && !dict, check,symox::poly::roots::RadicalOptions{cubics,quartics:quartics.unwrap_or(cubics),incomplete}))
 }
 
 fn expr_list(o: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
@@ -157,6 +158,10 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
     }
     // Python coefficient collection is outside the lexical native radical
     // scope; nested native system calls establish and restore their own scope.
+    // The partial `roots` results of `incomplete` are only reported by the
+    // univariate path above; the native system solvers keep declaring an
+    // incomplete elimination unsupported.
+    let root_options=symox::poly::roots::RadicalOptions{incomplete:false,..root_options};
     let coefficients=if !is_system&&eqs.len()==1{
         undetermined_solution(py,&eqs[0],&vars,check,root_options)?
     }else{None};

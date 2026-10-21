@@ -125,19 +125,22 @@ def test_power_of_exponential_generator_gives_every_branch(source):
         assert cmath.isclose(residual, 0, abs_tol=1e-12)
 
 
-def test_root_at_an_undefined_point_is_rejected():
-    # The reference returns [0, 1]: it does not check the solutions of a
-    # factor against the whole product, and x*log(x) is undefined at 0.
+def test_product_solutions_are_checked_against_simple_denominators_only():
+    # The reference solves each factor of a product and only rejects the
+    # roots of a denominator, so x*log(x) keeps the limit point 0.
     x = sx.Symbol('x')
-    assert sx.solve(x*sx.log(x), x) == [1]
+    assert sx.solve(x*sx.log(x), x) == [0, 1]
+    assert sx.solve((x - 1)*sx.log(x - 1), x) == [1, 2]
 
 
-def test_incomplete_symbolic_quintic_is_not_reported_empty():
-    # The reference returns the empty partial result of roots(); no root
-    # was proven absent, so the native solver reports it as unsupported.
+def test_incomplete_symbolic_quintic_returns_the_partial_roots():
+    # With incomplete=True (the default) the reference returns the partial
+    # result of roots(), which is empty here; incomplete=False still raises
+    # because no root was proven absent.
     x, a = sx.symbols('x a')
+    assert sx.solve(x**5 + a*x + 1, x) == []
     with pytest.raises(NotImplementedError):
-        sx.solve(x**5 + a*x + 1, x)
+        sx.solve(x**5 + a*x + 1, x, incomplete=False)
 
 
 def test_cubic_in_a_power_generator_gives_three_solutions():

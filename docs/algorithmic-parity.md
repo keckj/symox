@@ -75,7 +75,11 @@ Polynomial `solve` and `roots` now honor cubic/quartic radical controls, includi
 independently enabled quartics. Disabling formulas in `solve` retains exact
 indexed roots for rational-coefficient polynomials. `roots(strict=True)` checks
 completeness after filters and predicates and raises when its retained radical
-subset is incomplete. These options do not establish all solver-option parity.
+subset is incomplete. The univariate `solve` flag `incomplete` (default `True`)
+returns the partial `roots` result when `all_roots` does not support the
+coefficient domain, and `incomplete=False` raises `NotImplementedError` there;
+systems always ask for complete roots. These options do not establish all
+solver-option parity.
 
 Multivariate polynomial product equations retain the union of all factor zero
 sets, with every other equation applied to each branch. This prevents pivot
@@ -755,20 +759,49 @@ closes the intervals of `x**3 - 3*x + 1 > 0` at the roots (the reference
 raises `NotImplementedError` for this inequality). A product is solved factor by factor,
 each with its own simplification (`(x**3 - 2)*(x**2 - a**2/(a + 1))` gives
 `a*sqrt(1/(a + 1))`), the union is filtered by the denominators and the
-product is not simplified again. Remaining differences:
-- the native solver still checks the union against the whole product, so a
-  root of one factor where another factor is undefined is rejected:
-  `solve(x*log(x), x)` is `[1]` and `solve((x - 1)*log(x - 1), x)` is `[2]`,
-  where the reference returns `[0, 1]` and `[1, 2]`; the extra reference
-  values are not zeros of the expression;
-- `solve(x**5 + a*x + 1, x)` raises `NotImplementedError`, where the
-  reference returns the empty partial result of `roots` (its `all_roots`
-  does not support symbolic coefficients): no root was proven absent;
+product is not simplified again. Like the reference `_solve`, the union is
+not checked against the whole product: only the roots of the simple
+denominators (`_simple_dens`, the base of a power with a numeric exponent)
+and the assumptions of the unknown are rejected, so `solve(x*log(x), x)` is
+`[0, 1]`, `solve((x - 1)*log(x - 1), x)` is `[1, 2]` and
+`solve(x*log(x)/(x - 1), x)` is `[0]`. Like the reference `roots` with
+`incomplete=True` (the default of `solve`), a polynomial whose roots are
+incomplete and whose domain `all_roots` does not support (symbolic,
+algebraic or transcendental coefficients) gives the partial result of
+`roots`: `solve(x**5 + a*x + 1, x)` is `[]` and
+`solve((x - 1)*(x**5 + a*x + 1), x)` is `[1]`; `incomplete=False` still
+raises `NotImplementedError`, since no root was proven absent, and a
+polynomial over `QQ` or the Gaussian rationals still gives `CRootOf`. Like
+the reference, a perfect-power rational base `n**k` or `1/n**k` of a
+generator is rewritten as a power of `n` before solving, unless the
+equation is `b**g = b**h` with the same base (`4**x - 4` gives `[1]`), so
+`8**x - 4`, `9**x - 3`, `4**x - 2**x` and `(1/4)**x - 4` give the
+reference solutions. The roots of a power of `exp` with at most two roots,
+and of a power of a rational base, have their logarithms expanded like the
+reference simplify (`exp(2*x) - 2` gives `log(2)/2`). Remaining
+differences:
 - `simplify` lacks the reference step
-  `shorter(expand_log(e, deep=True), logcombine(e))`, so the roots of a
-  power of `exp` keep `log(sqrt(2))` where the reference has `log(2)/2`
-  (`exp(2*x) - 2`, `exp(-2*x) - 2`, `exp(2*x + 1) - 2`, `exp(2*a*x) - 3`,
-  `exp(x) - exp(2*x)/3 - 1`, `exp(2*x + a) - 1`);
+  `shorter(expand_log(e, deep=True), logcombine(e))`, which is not
+  idempotent: `4**x - 8` gives `[3/2, 3/2 + I*pi/log(2)]` where the
+  reference prints `(log(8)/2 + I*pi)/log(2)` (also `(1/4)**x - 8`,
+  `4**(-x) - 8`, `4**(2*x) - 8`, `4**x - 16`, `4**x + 8`, `8**x - 2`,
+  `9**x - 27`, `2**(2*x) - 8`, `(1/4)**x - 16`, equal values in the same
+  order), and the roots of a power of `exp` with more than two roots keep
+  `log(sqrt(3))` where the reference has `log(3)/2`
+  (`exp(x) - exp(2*x)/3 - 1`); `exp(2*x + a) - 1` gives
+  `[log(exp(-a))/2, log(-exp(-a/2))]` where the reference has
+  `[log(-sqrt(exp(-a))), log(exp(-a))/2]`;
+- a rational base that is not a perfect power of an integer or of its
+  reciprocal keeps another form: `(4/9)**x - 8` gives
+  `3*log(2)/(2*(-log(3) + log(2)))` where the reference has
+  `log(2**(3/log(4/9)))` (equal value);
+- `4**(2*x) - 3*4**x + 2` gives `[0, 1/2, I*pi/log(2), 1/2 + I*pi/log(2)]`,
+  where the reference gives the first three (the fourth is also a
+  solution);
+- a float base is not converted to a rational before solving like the
+  reference `nsimplify` of `_tsolve`: `4.0**x - 8` gives one solution,
+  `2.16404256133344*log(2)`, where the reference gives
+  `[1.50000000000000, 1.5 + 4.53236014182719*I]`;
 - `solve(x**3 - 3*x + 1, x, simplify=True)` differs in form: the native
   simplify search does not reach the reference forms of the Cardano roots
   (equal values);
@@ -782,10 +815,6 @@ product is not simplified again. Remaining differences:
   `-I*pi`; the native value is the principal one, `+I*pi`, so the two
   solutions differ by `2*I*pi/log(2)` (both are solutions; the other
   forms differ by the simplify gap above);
-- the reference rewrites a perfect-power integer base before solving
-  (`4**x - 8` and `(1/4)**x - 8` give two solutions, through `2**x`); the
-  native solver keeps the base and gives one (`3/2`, `-3/2`). `6**x - 8`
-  gives `log(8)/log(6)` where the reference has `3*log(2)/log(6)`;
 - a single logarithm of a rational function, `c - log(x) + log((y - 1)/(y +
   1))/2`, gives `(-x**2 - exp(2*c))/(x**2 - exp(2*c))` where the reference
   rewrites it to `1/tanh(c - log(x))` (equal value; this form predates the
