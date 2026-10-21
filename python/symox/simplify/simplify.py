@@ -92,6 +92,9 @@ def inversecombine(expr):
 
 
 def nc_simplify(expr,deep=True):
+    if isinstance(expr,S.Expr) and not getattr(expr,'is_Matrix',False) and not getattr(expr,'_symox_matrixexpr',False):
+        from symox._noncommutative import nc_simplify as scalar_nc_simplify
+        return scalar_nc_simplify(expr,deep=deep)
     return S.bottom_up(expr,S.factor_nc) if deep else S.factor_nc(expr)
 
 
