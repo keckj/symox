@@ -78,9 +78,16 @@ incomplete one or fails:
   `d/dr[(x - x0)**r * sum(b_j(r)*(x - x0)**j)]` at the smaller root, with
   `b_j = (r - m)**k * a_j` (`k = 0` for a repeated root, `k = 1` at a
   resonance), so it carries a `log(x - x0)` term. SymPy 1.14 returns only
-  the first series in these cases. The series is expanded in `x - x0`, and
-  constant simplification keeps the `Order` term (SymPy's `cse` pass can
-  turn it into `O(1)` when a logarithm is present).
+  the first series in these cases. The reference expression is simplified
+  exactly as in SymPy and `C2` times the logarithmic solution is appended
+  afterwards, so `sol.subs(C2, 0)` is the SymPy output.
+- Non-polynomial coefficients `p`, `q` are expanded in `x - x0`. SymPy
+  1.14 calls `series(ser, x=x0, n=n+1)`, which does not expand them, and
+  returns series that do not solve the equation (`2F1(1, 2; 1/2; x)`
+  starts `1 - 4*x` there instead of `1 + 4*x`).
+- Irrational indicial roots return the reference's raw series, where
+  SymPy raises `NotImplementedError` from `Order.contains` during
+  constant simplification.
 - Characteristic roots in the native fallback take their multiplicities
   from an exact square-free decomposition, not a numerical derivative
   test that could merge close simple roots.

@@ -136,6 +136,10 @@ fn is_leaf(e: &Expr) -> bool {
     e.is_atom() || matches!(e.kind(), Kind::Derivative(..))
 }
 
+fn is_order(e: &Expr) -> bool {
+    crate::series::order::is_order(e)
+}
+
 fn rebuild_kind(e: &Expr, args: &[Expr]) -> Expr {
     match e.kind() {
         Kind::Add(..) => add(args),
@@ -190,7 +194,8 @@ impl Cse {
         for root in exprs {
             let mut stack: Vec<(Expr, bool)> = vec![(root.clone(), false)];
             while let Some((e, expanded)) = stack.pop() {
-                if is_leaf(&e) {
+                // SymPy's `_find_opts` stops at atoms and at `Order` terms.
+                if is_leaf(&e) || is_order(&e) {
                     continue;
                 }
                 if !expanded {
@@ -353,6 +358,13 @@ impl Cse {
                         if !matches!(e.kind(), Kind::Derivative(..)) {
                             continue;
                         }
+                    }
+                }
+                // SymPy's `_find_repeated` neither counts nor enters an
+                // `Order` term; the rebuild still substitutes inside it.
+                if let Val::E(e) = &v {
+                    if is_order(e) {
+                        continue;
                     }
                 }
                 // SymPy iterates over a Tuple (e.g. integration limits)

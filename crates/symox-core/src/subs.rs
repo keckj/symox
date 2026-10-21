@@ -221,15 +221,19 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
             None => subs_children(e, old, new, cache),
         },
         (Kind::Mul(..), Kind::Mul(..)) => match mul_contains(e, old) {
-            Some((count, rest)) => {
+            Some((count, residual, rest)) => {
                 let rest = s1(&rest, old, new, cache);
-                mul2(&pow(new, &Expr::int(count)), &rest)
+                // One product, as SymPy's Mul(new, *rest): the residual
+                // coefficient is not distributed over a remaining sum.
+                mul(&[Expr::num(residual), pow(new, &Expr::int(count)), rest])
             }
             None => {
                 // Canonical products store denominator factors with negative
                 // powers. Give a positive product in that denominator the
                 // same opportunity to match as a product in the numerator.
-                let (numerator, denominator) = crate::simplify::numer_denom(e);
+                // SymPy splits with `fraction`, which leaves sums alone: a
+                // substitution in (a/x + b)/7 must not combine it over x.
+                let (numerator, denominator) = crate::simptools::radsimp::fraction(e, false);
                 if !denominator.is_one() {
                     let n = s1(&numerator, old, new, cache);
                     let d = s1(&denominator, old, new, cache);
@@ -465,7 +469,7 @@ fn coefficient_copies(available: &Number, wanted: &Number, limit: i64) -> Option
 }
 
 /// Extract as many copies of `s` as occur in `e`, allowing larger powers.
-fn mul_contains(e: &Expr, s: &Expr) -> Option<(i64, Expr)> {
+fn mul_contains(e: &Expr, s: &Expr) -> Option<(i64, Number, Expr)> {
     let (Kind::Mul(ce, fe), Kind::Mul(cs, fs)) = (e.kind(), s.kind()) else {
         return None;
     };
@@ -490,7 +494,7 @@ fn mul_contains(e: &Expr, s: &Expr) -> Option<(i64, Expr)> {
     // Respect the sign when a negative pattern is extracted repeatedly.
     let residual = ce.div(&cs.pow_i64(count)?)?;
     let wanted: FxHashMap<&Expr, &Expr> = fs.iter().map(|(b, x)| (b, x)).collect();
-    let mut rest = vec![Expr::num(residual)];
+    let mut rest = Vec::with_capacity(fe.len());
     for (b, x) in fe {
         let exponent = match wanted.get(b) {
             Some(old_x) => crate::ops::sub(x, &mul2(&Expr::int(count), old_x)),
@@ -498,7 +502,7 @@ fn mul_contains(e: &Expr, s: &Expr) -> Option<(i64, Expr)> {
         };
         rest.push(mul_factor(b, &exponent));
     }
-    Some((count, mul(&rest)))
+    Some((count, residual, mul(&rest)))
 }
 
 #[cfg(test)]
@@ -543,6 +547,8 @@ mod tests {
             ("z/(x*y)", "x*y", "z/w"),
             ("z/(x**3*y**2)", "x*y", "z/(w**2*x)"),
             ("x*z/y", "x/y", "w*z"),
+            ("(3*a*b + c/x)/7", "3*a", "b*w/7 + c/(7*x)"),
+            ("3*a*(x + 5)/7", "3*a", "w*(x + 5)/7"),
         ] {
             assert_eq!(subs1(&s(expr), &s(old), &s("w")), s(expected), "{expr} subs {old}");
         }

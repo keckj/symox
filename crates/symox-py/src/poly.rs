@@ -1895,11 +1895,15 @@ impl PyPoly {
         // Rebuilding from the expression expands composite generators
         // ((C1 + C2*x)*exp(-x) with the generator C1 + C2*x); a ground
         // domain representation is already canonical.
-        let canonical = match domain.poly(&self.p.as_expr(),self.p.true_gens()) {
+        // Rebuilding would also merge dependent generators ((x, x - 1)
+        // from terms_gcd(..., expand=False)), so ZZ and QQ keep theirs.
+        let ground = self.p.field.is_none() && self.p.algebraic.is_none()
+            && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ);
+        let canonical = if ground { self.p.clone() } else { match domain.poly(&self.p.as_expr(),self.p.true_gens()) {
             Ok(p) => p,
             Err(_) if self.p.field.is_none() && self.p.algebraic.is_none() => self.p.clone(),
             Err(e) => return Err(e),
-        };
+        } };
         let (denominator, numerator) = if let Some(f) = &canonical.field {
             let ring = domain.inner.ring().map_err(err)?;
             let denominator = if matches!(&domain.inner,symox::poly::domains::ExactDomain::Functions{ring:true,..}) {
