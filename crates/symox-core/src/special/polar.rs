@@ -195,8 +195,30 @@ fn polarify_rec(e: &Expr, lift_all: bool, pause: bool) -> Expr {
             let r = add(&e.args().iter().map(|a| polarify_rec(a, lift_all, true)).collect::<Vec<_>>());
             if lift_all { lift(&r) } else { r }
         }
+        // the `hyper` and `meijerg` constructors unpolarify the parameters
+        // they are rebuilt with
+        Kind::Func(Func::Special(SpecialFn::Hyper | SpecialFn::MeijerG), args) => {
+            let last = args.len().saturating_sub(1);
+            let new: Vec<Expr> = args
+                .iter()
+                .enumerate()
+                .map(|(i, a)| if i == last { polarify_rec(a, lift_all, false) } else { unpolarify_params(&polarify_rec(a, lift_all, false)) })
+                .collect();
+            crate::simptools::rebuild(e, &new)
+        }
         Kind::Func(..) => crate::simptools::map_args(e, &mut |a| polarify_rec(a, lift_all, false)),
         _ => crate::simptools::map_args(e, &mut |a| polarify_rec(a, lift_all, pause)),
+    }
+}
+/// The parameter tuples (possibly nested) of `hyper`/`meijerg` with each
+/// parameter unpolarified.
+fn unpolarify_params(t: &Expr) -> Expr {
+    match super::tuple_items(t) {
+        Some(items) => {
+            let new: Vec<Expr> = items.iter().map(unpolarify_params).collect();
+            crate::simptools::rebuild(t, &new)
+        }
+        None => unpolarify(t, false),
     }
 }
 fn is_number_expr(e: &Expr) -> bool {

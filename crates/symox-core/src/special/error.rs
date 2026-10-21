@@ -75,7 +75,11 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
             if is_neg_inf(z) {
                 return Some(Expr::zero());
             }
-            None
+            let (nz, n) = super::hyperexpand::extract_branch_factor(z, false);
+            if n.is_zero() {
+                return None;
+            }
+            Some(crate::ops::add(&[super::ei(&nz), crate::ops::mul(&[Expr::int(2), Expr::i(), Expr::pi(), n])]))
         }
         Li => {
             if z.is_zero() {
@@ -285,15 +289,42 @@ fn extract_exact_factor(z: &Expr, c: &Expr) -> Option<Expr> {
 }
 
 fn eval_expint(nu: &Expr, z: &Expr) -> Option<Expr> {
-    let nq = as_exact(nu)?;
-    let int_nonpos = nq.is_integer() && !nq.is_positive();
-    let half = !nq.is_integer() && nq.mul(&Number::int(2)).is_integer();
-    if int_nonpos || half {
-        let v = mul2(
-            &pow(z, &sub(nu, &Expr::one())),
-            &super::uppergamma(&sub(&Expr::one(), nu), z),
-        );
-        return Some(crate::simp::expand_mul(&v));
+    let nu2 = super::polar::unpolarify(nu, false);
+    if nu2 != *nu {
+        return Some(super::expint(&nu2, z));
     }
-    None
+    if let Some(nq) = as_exact(nu) {
+        let int_nonpos = nq.is_integer() && !nq.is_positive();
+        let half = !nq.is_integer() && nq.mul(&Number::int(2)).is_integer();
+        if int_nonpos || half {
+            let v = mul2(
+                &pow(z, &sub(nu, &Expr::one())),
+                &super::uppergamma(&sub(&Expr::one(), nu), z),
+            );
+            return Some(super::polar::unpolarify(&crate::simp::expand_mul(&v), false));
+        }
+    }
+    // the branch information, as explained in `lowergamma.eval`
+    let (z, n) = super::hyperexpand::extract_branch_factor(z, false);
+    if n.is_zero() {
+        return None;
+    }
+    let two_pi_i_n = crate::ops::mul(&[Expr::int(2), Expr::pi(), Expr::i(), n]);
+    let nu1 = sub(nu, &Expr::one());
+    if crate::assumptions::fact(nu, "integer") == Some(true) {
+        // `not nu > 0` raises for an undetermined sign in the reference
+        if crate::assumptions::fact(nu, "positive") != Some(true) {
+            return None;
+        }
+        let c = div(
+            &crate::ops::mul(&[two_pi_i_n, pow(&Expr::minus_one(), &nu1), pow(&super::polar::unpolarify(&z, false), &nu1)]),
+            &super::factorial(&nu1),
+        );
+        return Some(sub(&super::expint(nu, &z), &c));
+    }
+    let e = crate::functions::exp(&mul2(&two_pi_i_n, nu));
+    Some(crate::ops::add(&[
+        crate::ops::mul(&[sub(&e, &Expr::one()), pow(&z, &nu1), crate::functions::gamma(&sub(&Expr::one(), nu))]),
+        super::expint(nu, &z),
+    ]))
 }
