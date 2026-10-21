@@ -515,6 +515,10 @@ fn expand_mul_node(m: &Expr) -> Expr {
         let n2 = if n.is_mul() { expand_mul_node(&n) } else { n };
         let d2 = expand_mul_node(&dm);
         crate::ops::div(&n2, &d2)
+    } else if den.len() >= 2 {
+        // the reference rebuilds `n/d` whatever `d` became: a number
+        // distributed over a sum denominator, `1/(2*(x/2 + 1))`, leaves one
+        crate::ops::div(&mul(&num), &dm)
     } else {
         m.clone()
     };
