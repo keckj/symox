@@ -1241,7 +1241,74 @@ by the reference). Floats are converted like the reference `solve`: unless
 rational=True)` and, when `rational` is not given, the solutions are mapped
 through `nfloat(exponent=False)`, deduplicated and sorted
 (`4.0**x - 8` gives `[1.50000000000000, 1.5 + 4.53236014182719*I]`,
-`exp(2.0*x) - 3` gives two solutions). Remaining differences:
+`exp(2.0*x) - 3` gives two solutions). Like the reference `solve`,
+hyperbolic functions of the unknowns are rewritten through `exp` before
+solving (`cosh(x) - 2` gives `[log(2 - sqrt(3)), log(sqrt(3) + 2)]`). The
+generator of `exp(a)` follows `ExpBase.as_numer_denom`: when `a` is
+negative, or could extract a minus sign while `-a` is not known negative,
+the numerator is taken with `exp(-a)` (`exp(-x) + 1` gives `[I*pi]`,
+`exp(-x/2) + 1` gives `[2*I*pi]`). The checksol numerical step evaluates
+`val.n(18).n(12, chop=True)` like the reference, so an exactly cancelling
+real part is chopped (`log(x) + log(x - 1)` gives `[1/2 + sqrt(5)/2]`), and
+`log(u)` is known positive or negative from the sign of `u - 1`, so
+solutions are filtered by the sign assumptions of the unknown. Two
+dependent terms in powers of different bases are combined like the
+reference `_invert` (`powsimp` of their quotient), and a dependent product
+of powers through `powsimp(powdenest(...))` (`3**x - 2**x` gives `[0]`,
+`exp(x)*2**x - 3` gives `[log(3)/(log(2) + 1)]`). The logarithmic Lambert
+form `k*(p*x + q)**n*log(c*x + d) = R` with `p*x + q` proportional to
+`c*x + d` gives `(exp(W(n*S)/n) - d)/c` with `S = R/(k*(p/c)**n)`, over the
+branches of the existing Lambert convention (`x**2*log(x) - 1` gives
+`[exp(LambertW(2)/2)]`, `x*log(x) + 1/4` gives both real branches), and
+`f(x)**g(x) = c` is solved like the reference `_tsolve`: the solutions of
+`g*log(f) - log(c)`, plus the checked candidates `f = +-r`, `g = k` for
+each exact rational `c = r**k` (`c = 1` gives `g = 0` and `f = +-1`), so
+`x**x - 4` gives `[2]` and `x**x - 1` gives `[0, 1]`. Like the reference,
+each Lambert solution is replaced by a simpler numeric form when it agrees
+with it (to 200 bits here): a rational, `exp(r)` or `sqrt(r)`, as
+`nsimplify` (mpmath `identify`) finds them (`x*exp(x) - 2*exp(2)` gives
+`[2]`, `x*log(x) - 3*exp(3)` gives `[exp(3)]`). The real-branch domain of
+`LambertW` is decided for arguments with logarithms of rationals by an
+outward rational enclosure of `log`, so `x*log(x) + log(4)` keeps the
+complex principal solution `exp(LambertW(-log(4)))`. Remaining
+differences:
+- symox keeps the `LambertW(z, -1)` branch, real for `-1/e < z < 0`, in
+  equations where the reference loses it through its `bivariate_type`
+  path with a symbolic `_u`, which it takes when the direct Lambert attempt
+  fails (an `Add` such as `exp(x) - x - 2`, where `log(exp(x))` does not
+  expand for complex `x`): `exp(x) - x - 2` gives
+  `[-2 - LambertW(-exp(-2)), -2 - LambertW(-exp(-2), -1)]` where the
+  reference has only the first solution (also `(x + 2)*exp(-x) - 1`,
+  `exp(x) - 3*x`, `x*exp(-x) - 1/4`, `exp(x)/x - 3`, `exp(x) - 2*x - 1`;
+  both values are solutions, so the reference set is incomplete);
+- the Lambert forms with a power of a non-`E` base, `2**x - 4*x` and
+  `x*2**x + 1/4`, still raise `NotImplementedError` where the reference
+  gives
+  `[-LambertW(-log(2)/4)/log(2)]` and `[-4, LambertW(-log(2)/4)/log(2)]`;
+- the reference splits a symbolic constant out of an `exp` generator
+  (`exp(a - x)` is a polynomial in `exp(-x)`), so `exp(a - x) + 1` gives
+  `[log(-exp(a))]` (`a + I*pi` for real `a`) where symox inverts the whole
+  generator and gives `[a - I*pi]`; both are solutions, but for real `a`
+  they are different values. `exp(-a - x) + 3` and `exp(a*x + b) - c` differ
+  only in form (`(-b + log(c))/a` against `log(c*exp(-b))/a`);
+- the Lambert log forms whose argument the reference simplify rewrites
+  through `shorter(expand_log, logcombine)` keep the unsimplified argument:
+  `x**(2*x) - 4` gives `exp(LambertW(log(4)/2))` where the reference has
+  `exp(LambertW(log(2)))` (also `x*log(x) - log(9)/2`,
+  `x*log(x) + 2*log(2)`, `x**x - sqrt(2)`; equal values); the nsimplify
+  emulation finds only rationals, `exp(r)` and `sqrt(r)`;
+- the dictionaries of a system solution list the unknowns in the order the
+  native solver assigns them: `solve([sinh(x) - 1, a - 1], [x, a],
+  dict=True)` gives `{x: ..., a: 1}` where the reference prints
+  `{a: 1, x: ...}` (equal dictionaries);
+- `pdsolve(x*u(x, y).diff(x) - y*u(x, y).diff(y) + y**2*u(x, y) - g(x, y))`
+  crashes the process: the rewritten first-order linear PDE path integrates
+  through `heurisch`, which differentiates `Derivative(g(x, eta/x), x)`,
+  and the native `diff` of a `Derivative` of an applied function with a
+  nested argument recurses without bound (also
+  `test_unknown_forcing_remains_outside_characteristic_dummy_scope`; the
+  same `diff` call crashes on
+  `main`, whose PDE path does not reach it);
 - `simplify` lacks the reference step
   `shorter(expand_log(e, deep=True), logcombine(e))`, which is not
   idempotent: `4**x - 8` gives `[3/2, 3/2 + I*pi/log(2)]` where the

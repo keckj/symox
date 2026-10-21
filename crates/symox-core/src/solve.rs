@@ -216,8 +216,14 @@ fn verify_equation(f: &Expr, assignments: &[(Expr, Expr)]) -> bool {
         if !crate::functions::is_numeric_value(&v) { return true; }
         let mut previous = None;
         for bits in [160, 320] {
-            let Some(value) = crate::evalf_mp::eval_mp(&v, bits) else { return true; };
             let scale = residual_scale(f, assignments, bits);
+            // An exactly cancelling component (the real part of
+            // `log(x) + log(x - 1)` at `1/2 - sqrt(5)/2`, whose residual is
+            // `2*I*pi`) is resolved by chopping it below the tolerance, as
+            // the reference `checksol` evaluates `val.n(18).n(12, chop=True)`.
+            let cutoff = scale.mag().saturating_add(24 - bits as i128);
+            let Some(value) = crate::evalf_mp::eval_mp(&v, bits)
+                .or_else(|| crate::evalf_mp::eval_mp_chopped(&v, bits, cutoff)) else { return true; };
             let magnitude = value.abs(bits);
             if magnitude.cmp(&scale.ldexp(24 - bits as i64)).is_le() { return true; }
             if let Some(prior) = previous {
@@ -310,7 +316,7 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         return Some(r);
     }
     if let Some(r) = lambert::solve(&num, x) {
-        return Some(r);
+        return Some(r.iter().map(lambert::simpler_rational).collect());
     }
     // several logarithms: combine them (log(a) - log(b) = log(a/b))
     let lc = crate::simp::logcombine(&num, true);
@@ -328,7 +334,77 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if let Some(cleared) = exp_denominators_cleared(&num, x) {
         return solve_rec(&cleared, x, depth + 1);
     }
+    if let Some(combined) = combined_powers(&num, x) {
+        return solve_rec(&combined, x, depth + 1);
+    }
     None
+}
+
+/// `exp(u)` or `b**u` with `u` depending on the unknown (the reference
+/// `_ispow` on a dependent part).
+fn is_dependent_power(e: &Expr, x: &Expr) -> bool {
+    match e.kind() {
+        Kind::Func(Func::Exp, _) => true,
+        Kind::Pow(_, exponent) => has(exponent, x),
+        _ => false,
+    }
+}
+
+/// The coefficient and the dependent part of a term (`as_independent`).
+fn split_term(t: &Expr, x: &Expr) -> (Expr, Expr) {
+    match t.kind() {
+        Kind::Mul(..) => {
+            let (cs, ds): (Vec<Expr>, Vec<Expr>) = t.args().into_iter().partition(|a| !has(a, x));
+            (mul(&cs), mul(&ds))
+        }
+        _ => (Expr::one(), t.clone()),
+    }
+}
+
+/// Powers of different bases combined like the reference `_invert`.
+///
+/// A sum of two dependent terms `ai*ad + bi*bd` (no independent part) whose
+/// parts are powers of different bases is written `powsimp(ad/bd) =
+/// -bi/ai` (`3**x - 2**x` gives `(3/2)**x = 1`, so `[0]`), and a single
+/// dependent product of powers is combined by `powsimp(powdenest(...))`
+/// (`2**x*3**x - 6` gives `6**x = 6`, so `[1]`). `None` when the combination
+/// leaves the parts unchanged.
+fn combined_powers(f: &Expr, x: &Expr) -> Option<Expr> {
+    let terms = if f.is_add() { f.args() } else { vec![f.clone()] };
+    let (dependent, independent): (Vec<Expr>, Vec<Expr>) = terms.into_iter().partition(|t| has(t, x));
+    let options = crate::simptools::powsimp::PowsimpOptions::default();
+    match dependent.as_slice() {
+        [first, second] if independent.is_empty() => {
+            let mut pair = vec![first.clone(), second.clone()];
+            crate::logic::ordered(&mut pair);
+            let (ai, ad) = split_term(&pair[0], x);
+            let (bi, bd) = split_term(&pair[1], x);
+            if !(is_dependent_power(&ad, x) || is_dependent_power(&bd, x)) {
+                return None;
+            }
+            if crate::ops::as_base_exp(&ad).0 == crate::ops::as_base_exp(&bd).0 {
+                return None;
+            }
+            let ratio = div(&ad, &bd);
+            let lhs = crate::simptools::powsimp::powsimp(&ratio, &options);
+            if lhs == ratio {
+                return None;
+            }
+            Some(sub(&lhs, &neg(&div(&bi, &ai))))
+        }
+        [term] => {
+            let (coefficient, part) = split_term(term, x);
+            if !matches!(part.kind(), Kind::Mul(..)) || !part.args().iter().any(|a| is_dependent_power(a, x)) {
+                return None;
+            }
+            let lhs = crate::simptools::powsimp::powsimp(&crate::simptools::powsimp::powdenest(&part, false, false), &options);
+            if lhs == part {
+                return None;
+            }
+            Some(sub(&lhs, &div(&neg(&add(&independent)), &coefficient)))
+        }
+        _ => None,
+    }
 }
 
 /// Whether a quadratic factors in `x` over its coefficient domain; an
@@ -785,6 +861,29 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         return None;
     }
     let g = &gens[0];
+    // The reference solves the numerator of `as_numer_denom`, which moves
+    // `exp(a)` to the denominator as `1/exp(-a)` when `a` is negative or,
+    // when `-a` is not known to be negative, when `a` could extract a minus
+    // sign (`ExpBase.as_numer_denom`). Its generator is then `exp(-a)`, so
+    // `exp(-x) + 1` gives `I*pi`, not `-I*pi`.
+    if let Kind::Func(Func::Exp, arguments) = g.kind() {
+        let a = &arguments[0];
+        let negated = neg(a);
+        let negative = crate::assumptions::is_negative(a) == Some(true)
+            || (crate::assumptions::is_negative(&negated) != Some(true)
+                && crate::decompose::could_extract_minus_sign(a));
+        if negative {
+            let generator = exp(&negated);
+            // `1/exp(-a)` evaluates back to `exp(a)`: clear it through a Dummy.
+            let numerator = numer_denom(&together(&subs1(f, g, &div(&Expr::one(), &u)))).0;
+            let numerator = subs1(&numerator, &u, &generator);
+            let mut moved = Vec::new();
+            generators(&numerator, x, &mut moved);
+            if moved == [generator] {
+                return solve_rec(&numerator, x, depth + 1);
+            }
+        }
+    }
     if let Some(r) = solve_exp_power(f, g, x, depth) {
         return Some(r);
     }
@@ -792,7 +891,18 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if has(&fu, x) {
         return None;
     }
-    if poly_coeffs(&fu, &u).is_none() {
+    let Some(coefficients) = poly_coeffs(&fu, &u) else {
+        return None;
+    };
+    // A generator that is not a power of a fixed base is inverted by solving
+    // `g - r` again, which for a linear `f` is `f` itself: the inversion
+    // steps below handle it directly instead of exhausting the depth.
+    let exponential = match g.kind() {
+        Kind::Func(Func::Exp, _) => true,
+        Kind::Pow(base, _) => !has(base, x),
+        _ => false,
+    };
+    if !exponential && coefficients.len() <= 2 {
         return None;
     }
     let roots = solve_rec(&fu, &u, depth + 1)?;
@@ -1078,6 +1188,11 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         _ => (Expr::one(), t.clone()),
     };
     let rhs = div(&neg(&add(&indep)), &c);
+    if let Kind::Pow(b, e) = h.kind() {
+        if has(b, x) && has(e, x) {
+            return self_power(f, b, e, &rhs, x, depth);
+        }
+    }
     let targets: Vec<(Expr, Expr)> = match h.kind() {
         Kind::Pow(b, e) if !has(e, x) => {
             let n = e.as_number()?;
@@ -1127,6 +1242,61 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         }
     }
     Some(out)
+}
+
+/// `b**e = rhs` with both `b` and `e` depending on the unknown, as the
+/// reference `_tsolve` handles `f(x)**g(x) == c`: the solutions of the log
+/// form `e*log(b) - log(rhs)`, plus the checked candidates `b = +-r`,
+/// `e = k` for each exact `rhs = r**k` (`rhs = 1` gives `e = 0` and
+/// `b = +-1`). With `rhs = 0` the solutions are the zeros of `b` where `e`
+/// does not vanish.
+fn self_power(f: &Expr, b: &Expr, e: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    if rhs.is_zero() {
+        let roots = solve_rec(b, x, depth + 1)?;
+        return Some(roots.into_iter().filter(|r| !subs1(e, x, r).is_zero()).collect());
+    }
+    let mut solutions = solve_rec(&sub(&mul2(e, &log(b)), &log(rhs)), x, depth + 1).unwrap_or_default();
+    let mut targets = Vec::new();
+    if rhs.is_one() {
+        targets.extend([e.clone(), sub(b, &Expr::one()), add(&[b.clone(), Expr::one()])]);
+    } else if let Some((p, q)) = rhs.as_number().filter(|n| n.is_rational()).and_then(|n| n.numer_denom()) {
+        let zero = num_bigint::BigInt::from(0);
+        if p > zero {
+            for d in crate::ntheory::divisors(&p) {
+                if d <= num_bigint::BigInt::from(1) {
+                    continue;
+                }
+                let (mut k, mut power) = (0u32, num_bigint::BigInt::from(1));
+                while &power * &d <= p {
+                    power *= &d;
+                    k += 1;
+                }
+                if power != p {
+                    continue;
+                }
+                for s in crate::ntheory::divisors(&num_traits::Signed::abs(&q)) {
+                    if num_traits::pow(s.clone(), k as usize) == q {
+                        let r = div(&Expr::num(Number::from_bigint(d.clone())), &Expr::num(Number::from_bigint(s)));
+                        targets.extend([sub(b, &r), add(&[b.clone(), r]), sub(e, &Expr::int(k as i64))]);
+                    }
+                }
+            }
+        }
+    }
+    for target in targets {
+        for candidate in solve_rec(&target, x, depth + 1).unwrap_or_default() {
+            if verify_equation(f, &[(x.clone(), candidate.clone())]) {
+                solutions.push(candidate);
+            }
+        }
+    }
+    let mut unique: Vec<Expr> = Vec::new();
+    for solution in solutions {
+        if !unique.contains(&solution) {
+            unique.push(solution);
+        }
+    }
+    Some(unique)
 }
 
 /// log(r)/log(b), simplified to an exact rational when r is a rational power

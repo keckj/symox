@@ -26,6 +26,21 @@ def install(namespace):
         if relational:
             targets=symbols[0] if len(symbols)==1 else symbols
             return reduce_inequalities(prepared,targets)
+        # SymPy's solve rewrites the hyperbolic functions of the unknowns in
+        # terms of exp before solving (sinh(x) - 1 has two solutions).
+        unknowns=[s for group in symbols
+                  for s in (group if isinstance(group,sequences) else (group,))]
+        if unknowns:
+            from . import exp
+            from .functions.elementary.hyperbolic import HyperbolicFunction
+            hyperbolic=lambda w:isinstance(w,HyperbolicFunction) and w.has_free(*unknowns)
+            if any(hasattr(value,'replace') and value.has(HyperbolicFunction)
+                   and any(hyperbolic(w) for w in value.atoms(HyperbolicFunction))
+                   for value in prepared):
+                rewritten=[value.replace(hyperbolic,lambda w:w.rewrite(exp))
+                           if hasattr(value,'replace') else value for value in prepared]
+                target=rewritten if isinstance(f,sequences) else rewritten[0]
+                return solve(target,*symbols,**flags)
         # SymPy's solve rationalizes the Floats of the equations unless
         # rational=False, and with rational=None (the default) it returns
         # the solutions through nfloat(..., exponent=False).

@@ -17,9 +17,11 @@ pub struct MpComplex {
 
 // Precision is part of the key: cancellation refinement can revisit the same
 // physical node at several working precisions. Owners prevent address reuse.
+// The options are part of the key as well: a chopped or budgeted evaluation
+// inside an enclosing numerical cache must not answer an unchopped query.
 struct NumericMemo {
     depth: usize,
-    values: Option<rustc_hash::FxHashMap<(usize,u32,bool),(Expr,Option<MpComplex>)>>,
+    values: Option<rustc_hash::FxHashMap<(usize,u32,bool,EvalfOptions),(Expr,Option<MpComplex>)>>,
 }
 thread_local! {
     static NUMERIC_MEMO:std::cell::RefCell<NumericMemo> = const {
@@ -41,7 +43,7 @@ thread_local! {
 /// With `partial`, a sum that exhausts its budget with at least one correct
 /// bit is returned at the accuracy it reached, as SymPy returns a Float of
 /// lower precision for an explicit `maxn`; otherwise it stays unevaluated.
-#[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
+#[derive(Clone,Copy,Debug,Default,PartialEq,Eq,Hash)]
 pub struct EvalfOptions { pub chop:Option<i128>, pub budget:Option<u32>, pub partial:bool }
 
 pub const DEFAULT_CANCELLATION_BUDGET:u32=4096;
@@ -415,6 +417,19 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
 
 /// Remove absolutely small real/imaginary numerical components by binary
 /// magnitude. Partial symbolic coefficients retain ordinary evalf semantics.
+/// The value of `e` at `prec` bits with numerical components below the
+/// binary magnitude `cutoff` removed, as SymPy's `n(chop=True)`. A sum whose
+/// component cancels exactly is resolved once its rounding error falls below
+/// the cutoff, where `eval_mp` keeps refining it until its budget is spent.
+pub fn eval_mp_chopped(e:&Expr,prec:u32,cutoff:i128)->Option<MpComplex>{
+    let _scope=OptionsScope::enter(EvalfOptions{chop:Some(cutoff),budget:None,partial:false});
+    let _errors=HostErrorScope::enter(false);
+    let mut value=eval_mp(e,prec)?;
+    if !value.re.is_zero() && value.re.mag()<cutoff {value.re=BigFloat::zero();}
+    if !value.im.is_zero() && value.im.mag()<cutoff {value.im=BigFloat::zero();}
+    Some(value)
+}
+
 pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i128)->Expr {
     evalf_with_options(e,prec,EvalfOptions{chop:Some(cutoff),budget:None,partial:false}).0
 }
@@ -422,7 +437,7 @@ pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i128)->Expr {
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
     if e.is_atom(){return ev_uncached(e,p);}
     let _scope=NumericScope::enter();
-    let key=(e.dag_id(),p,crate::assumptions::numeric_refinement_enabled());
+    let key=(e.dag_id(),p,crate::assumptions::numeric_refinement_enabled(),OPTIONS.with(|cell|cell.get()));
     if let Some(value)=NUMERIC_MEMO.with(|memo|memo.borrow().values.as_ref()
         .and_then(|values|values.get(&key).map(|(_,value)|value.clone()))) {
         return value;
