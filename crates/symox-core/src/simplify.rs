@@ -214,7 +214,8 @@ pub fn simplify(e: &Expr) -> Expr {
     if e.is_atom() {
         return e.clone();
     }
-    let t = crate::simp::trigsimp(e);
+    let mut trig_memo = crate::simp::TrigMemo::default();
+    let t = crate::simp::trigsimp_cached(e, &mut trig_memo);
     // Zero is already the smallest possible result. In particular, do not
     // run polynomial conversion and Fu after proving a trig identity.
     if t.is_zero() {
@@ -231,7 +232,7 @@ pub fn simplify(e: &Expr) -> Expr {
     if expanded.is_zero() {
         return expanded;
     }
-    let expanded_trig = if expanded == *e { t.clone() } else { crate::simp::trigsimp(&expanded) };
+    let expanded_trig = if expanded == *e { t.clone() } else { crate::simp::trigsimp_cached(&expanded, &mut trig_memo) };
     if expanded_trig.is_zero() {
         return expanded_trig;
     }

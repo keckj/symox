@@ -207,38 +207,174 @@ fn heads(e: &Expr) -> u8 {
     h
 }
 
+/// Memo tables shared by every pass of one trigsimp call. Each rewrite is a
+/// pure function of the rule and the expression, so results computed in one
+/// pass (or for a sub-expression in a nested call) stay valid for the
+/// whole search: a node that reappears unchanged is not matched again.
+/// Keys compare structurally; a hit is used only when the stored key has
+/// the same presentation (held arithmetic and bound variables compare equal
+/// to differently presented nodes).
+#[derive(Default)]
+pub(crate) struct TrigMemo {
+    /// (rule index, expression) -> (rewritten expression, its heads).
+    rewrite: FxHashMap<(usize, Expr), (Expr, u8)>,
+    /// apply_rules fixpoints.
+    rules: FxHashMap<Expr, Expr>,
+    /// trigsimp results.
+    trigsimp: FxHashMap<Expr, Expr>,
+    /// Node id -> (node, tree size, height), see `TrigMemo::node_count`.
+    sizes: NodeCache<(usize, usize)>,
+    /// Node id -> (node, trigonometric heads), see `TrigMemo::heads`.
+    head_sets: NodeCache<u8>,
+}
+
+/// Values attached to live nodes by identity. The weak reference keeps the
+/// node's allocation, so its address cannot be reused by another node while
+/// the entry exists, but not its children: the many rewrites tried and
+/// rejected on a large sum are freed, and their entries are pruned when the
+/// table has doubled. Atoms and nodes without another owner are not stored:
+/// `args()` builds the terms and powers of sums and products afresh, and
+/// those copies are never looked up again.
+struct NodeCache<T> {
+    entries: FxHashMap<usize, (crate::expr::WeakExpr, T)>,
+    prune_at: usize,
+}
+
+impl<T> Default for NodeCache<T> {
+    fn default() -> Self {
+        NodeCache { entries: FxHashMap::default(), prune_at: 1 << 16 }
+    }
+}
+
+impl<T: Copy> NodeCache<T> {
+    fn get(&self, e: &Expr) -> Option<T> {
+        self.entries.get(&e.dag_id()).filter(|(node, _)| node.is(e)).map(|(_, value)| *value)
+    }
+
+    fn insert(&mut self, e: &Expr, value: T) {
+        if self.entries.len() >= self.prune_at {
+            self.entries.retain(|_, (node, _)| node.upgrade().is_some());
+            self.prune_at = (2 * self.entries.len()).max(1 << 16);
+        }
+        self.entries.insert(e.dag_id(), (e.downgrade(), value));
+    }
+}
+
+/// Height bound of `traverse::node_count`: a node at this depth counts as
+/// `usize::MAX`.
+const NODE_COUNT_DEPTH: usize = 512;
+
+impl TrigMemo {
+    /// `node_count(e)`, reusing the sizes of the sub-expressions seen
+    /// earlier in the search: a rewritten sum shares almost all of its terms
+    /// with the previous one, so only its new nodes are visited. Each node
+    /// keeps its height, and the shared sizes are used only when no node
+    /// reaches node_count's depth bound; otherwise node_count itself runs,
+    /// so the result is always node_count's.
+    fn node_count(&mut self, e: &Expr) -> usize {
+        fn count(e: &Expr, depth: usize, sizes: &mut NodeCache<(usize, usize)>) -> Option<(usize, usize)> {
+            if e.is_atom() {
+                return (depth < NODE_COUNT_DEPTH).then_some((1, 0));
+            }
+            if let Some((size, height)) = sizes.get(e) {
+                return (depth + height < NODE_COUNT_DEPTH).then_some((size, height));
+            }
+            if depth >= NODE_COUNT_DEPTH {
+                return None;
+            }
+            let mut height = 0;
+            let mut child = |c: &Expr, size: usize, sizes: &mut NodeCache<(usize, usize)>| {
+                let (s, h) = count(c, depth + 1, sizes)?;
+                height = height.max(h + 1);
+                Some(size.saturating_add(s))
+            };
+            let size = if let Kind::Derivative(body, variables) = e.kind() {
+                let mut size = child(body, 1, sizes)?;
+                for (variable, _) in variables {
+                    size = child(variable, size, sizes)?.saturating_add(2);
+                }
+                size
+            } else {
+                let mut size = 1usize;
+                for c in e.args().iter() {
+                    size = child(c, size, sizes)?;
+                }
+                size
+            };
+            if e.strong_count() > 1 {
+                sizes.insert(e, (size, height));
+            }
+            Some((size, height))
+        }
+        match count(e, 0, &mut self.sizes) {
+            Some((size, _)) => size,
+            None => node_count(e),
+        }
+    }
+
+    /// `heads(e)`, reusing the heads of the sub-expressions seen earlier in
+    /// the search (the heads of a node are its own and those of its
+    /// children).
+    fn heads(&mut self, e: &Expr) -> u8 {
+        fn collect(e: &Expr, depth: usize, head_sets: &mut NodeCache<u8>) -> u8 {
+            if e.is_atom() {
+                return 0;
+            }
+            if let Some(h) = head_sets.get(e) {
+                return h;
+            }
+            // Deep chains go through the iterative walk instead of the stack.
+            let h = if depth >= NODE_COUNT_DEPTH {
+                heads(e)
+            } else {
+                e.args().iter().fold(head_bit(e), |h, c| h | collect(c, depth + 1, head_sets))
+            };
+            if e.strong_count() > 1 {
+                head_sets.insert(e, h);
+            }
+            h
+        }
+        collect(e, 0, &mut self.head_sets)
+    }
+}
+
 /// `replace_with` for one trig rule, skipping the sub-expressions that lack
 /// one of the rule's function heads: every function of a pattern has to
 /// match a function of the same head inside the expression, so those nodes
 /// cannot match and the result is unchanged. Returns the heads of the result.
-fn rewrite(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>) -> (Expr, u8) {
-    rewrite_cached(e, r, accept, &mut FxHashMap::default())
-}
-
-fn rewrite_cached(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>, memo: &mut FxHashMap<usize, (Expr, Expr, u8)>) -> (Expr, u8) {
-    if let Some((_, result, heads)) = memo.get(&e.dag_id()) {
-        return (result.clone(), *heads);
+fn rewrite_cached(e: &Expr, index: usize, r: &Rule, memo: &mut TrigMemo) -> (Expr, u8) {
+    let key = (index, e.clone());
+    let reusable = match memo.rewrite.get_key_value(&key) {
+        Some(((_, stored), (result, heads))) if stored.same_presentation(e) => return (result.clone(), *heads),
+        Some(_) => false,
+        None => true,
+    };
+    let result = rewrite_uncached(e, index, r, memo);
+    if reusable {
+        memo.rewrite.insert(key, result.clone());
     }
-    let result = rewrite_uncached(e, r, accept, memo);
-    memo.insert(e.dag_id(), (e.clone(), result.0.clone(), result.1));
     result
 }
 
-fn rewrite_uncached(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, Expr>, &Expr) -> Option<Expr>, memo: &mut FxHashMap<usize, (Expr, Expr, u8)>) -> (Expr, u8) {
+fn rewrite_uncached(e: &Expr, index: usize, r: &Rule, memo: &mut TrigMemo) -> (Expr, u8) {
     if e.is_atom() {
         return (e.clone(), 0);
     }
     let mut h = head_bit(e);
     let rebuilt = map_children(e, &mut |c| {
-        let (nc, hc) = rewrite_cached(c, r, accept, memo);
+        let (nc, hc) = rewrite_cached(c, index, r, memo);
         h |= hc;
         nc
     });
     if h & r.heads == r.heads {
         if let Some(bind) = crate::pattern::pattern_match(&rebuilt, &r.pat)
-            .expect("built-in trigonometric patterns have no host predicates") {
-            if let Some(v) = accept(&bind, &rebuilt) {
-                let hv = heads(&v);
+            .expect("built-in trigonometric patterns have no host predicates")
+        {
+            let v = xreplace(&r.rep, &bind);
+            let (new_size, old_size) = (memo.node_count(&v), memo.node_count(&rebuilt));
+            if new_size < old_size || (new_size == old_size && v != rebuilt) {
+                let v = share_terms(&v, &rebuilt);
+                let hv = memo.heads(&v);
                 return (v, hv);
             }
         }
@@ -246,30 +382,64 @@ fn rewrite_uncached(e: &Expr, r: &Rule, accept: &mut dyn FnMut(&FxHashMap<Expr, 
     (rebuilt, h)
 }
 
-fn apply_rules(e: &Expr) -> Expr {
+/// The sum `v` with each term that also occurs in the sum `old` taken from
+/// `old`. The rewritten sum gets the rest of its terms back through the
+/// pattern bindings, which rebuild them: without this every later rule
+/// would compare them in full against the memo keys of the original terms.
+/// Only terms with the same presentation are exchanged, so the result is
+/// the same expression.
+fn share_terms(v: &Expr, old: &Expr) -> Expr {
+    let (Kind::Add(c, terms), Kind::Add(_, old_terms)) = (v.kind(), old.kind()) else {
+        return v.clone();
+    };
+    if !v.is_canonical() {
+        return v.clone();
+    }
+    let originals: FxHashMap<&Expr, &Expr> = old_terms.iter().map(|(t, _)| (t, t)).collect();
+    let mut changed = false;
+    let shared: Vec<(Expr, Number)> = terms
+        .iter()
+        .map(|(t, k)| match originals.get(t) {
+            Some(&o) if !o.ptr_eq(t) && o.same_presentation(t) => {
+                changed = true;
+                (o.clone(), k.clone())
+            }
+            _ => (t.clone(), k.clone()),
+        })
+        .collect();
+    if !changed {
+        return v.clone();
+    }
+    Expr::from_kind(Kind::Add(c.clone(), shared))
+}
+
+fn apply_rules(e: &Expr, memo: &mut TrigMemo) -> Expr {
+    let reusable = match memo.rules.get_key_value(e) {
+        Some((stored, result)) if stored.same_presentation(e) => return result.clone(),
+        Some(_) => false,
+        None => true,
+    };
     let mut cur = e.clone();
+    let mut cur_heads = memo.heads(&cur);
     for _ in 0..16 {
         let mut changed = false;
-        for r in trig_rules() {
-            if heads(&cur) & r.heads != r.heads {
+        for (index, r) in trig_rules().iter().enumerate() {
+            if cur_heads & r.heads != r.heads {
                 continue;
             }
-            let (next, _) = rewrite(&cur, r, &mut |bind, orig| {
-                let v = xreplace(&r.rep, bind);
-                if node_count(&v) < node_count(orig) || (node_count(&v) == node_count(orig) && v != *orig) {
-                    Some(v)
-                } else {
-                    None
-                }
-            });
+            let (next, _) = rewrite_cached(&cur, index, r, memo);
             if next != cur {
                 cur = next;
+                cur_heads = memo.heads(&cur);
                 changed = true;
             }
         }
         if !changed {
             break;
         }
+    }
+    if reusable {
+        memo.rules.insert(e.clone(), cur.clone());
     }
     cur
 }
@@ -317,31 +487,38 @@ pub(crate) fn has_trig(e: &Expr) -> bool {
 
 /// Simplify trigonometric expressions using identities.
 pub fn trigsimp(e: &Expr) -> Expr {
-    trigsimp_cached(e, &mut FxHashMap::default())
+    trigsimp_cached(e, &mut TrigMemo::default())
 }
 
-fn trigsimp_cached(e: &Expr, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
-    if let Some((_, result)) = memo.get(&e.dag_id()) { return result.clone(); }
+/// `trigsimp` sharing its memo tables with other calls of one search.
+pub(crate) fn trigsimp_cached(e: &Expr, memo: &mut TrigMemo) -> Expr {
+    let reusable = match memo.trigsimp.get_key_value(e) {
+        Some((stored, result)) if stored.same_presentation(e) => return result.clone(),
+        Some(_) => false,
+        None => true,
+    };
     let result = trigsimp_uncached(e, memo);
-    memo.insert(e.dag_id(), (e.clone(), result.clone()));
+    if reusable {
+        memo.trigsimp.insert(e.clone(), result.clone());
+    }
     result
 }
 
-fn trigsimp_uncached(e: &Expr, memo: &mut FxHashMap<usize, (Expr, Expr)>) -> Expr {
+fn trigsimp_uncached(e: &Expr, memo: &mut TrigMemo) -> Expr {
     if !has_trig(e) {
         return e.clone();
     }
     // simplify inside first
     let e1 = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| trigsimp_cached(c, memo)) };
-    let mut best = apply_rules(&e1);
+    let mut best = apply_rules(&e1, memo);
     let mut cands = vec![];
     let ex = expand(&e1);
     if ex != e1 {
-        cands.push(apply_rules(&ex));
+        cands.push(apply_rules(&ex, memo));
     }
     for to_cos in [true, false] {
         let r = expand(&rewrite_squares(&e1, to_cos));
-        cands.push(apply_rules(&r));
+        cands.push(apply_rules(&r, memo));
     }
     for c in cands {
         if node_count(&c) < node_count(&best) {
