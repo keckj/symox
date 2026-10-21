@@ -137,8 +137,12 @@ fn d(e: &Expr, x: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Expr {
                 // n * b**(n-1) * b'
                 if db.is_zero() {
                     Expr::zero()
-                } else {
+                } else if n.is_number() {
                     mul(&[n.clone(), pow(b, &sub(n, &Expr::one())), db])
+                } else {
+                    // SymPy's Pow._eval_derivative, self*(b'*n/b): a
+                    // symbolic exponent stays on the power (n*x**n/x).
+                    mul(&[e.clone(), db, n.clone(), pow(b, &Expr::minus_one())])
                 }
             } else if db.is_zero() {
                 // b**n * log(b) * n'

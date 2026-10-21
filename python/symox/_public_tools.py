@@ -88,7 +88,7 @@ class vectorize:
                 def descend(item):
                     if getattr(item,'is_Tuple',False):
                         item = item.args
-                    if isinstance(item,(list,tuple)) or type(item).__module__.startswith('numpy') and hasattr(item,'__iter__'):
+                    if isinstance(item,(list,tuple)) or (getattr(type(item),'__module__',None) or '').startswith('numpy') and hasattr(item,'__iter__'):
                         return [descend(v) for v in item]
                     changed,updated = list(arguments),dict(options)
                     if isinstance(key,int):

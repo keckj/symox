@@ -787,7 +787,7 @@ pub fn roots_poly(p: &Poly) -> PResult<Vec<(Expr, u32)>> {
     if p.ngens != 1 {
         return Err(PolyError::Unsupported("multivariate polynomials are not supported".into()));
     }
-    if p.is_float() {
+    if p.is_float() && !p.has_domain_gens() {
         let rs = nroots_poly(p, 15)?;
         let mut out: Vec<(Expr, u32)> = Vec::new();
         for r in rs {

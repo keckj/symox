@@ -313,14 +313,16 @@ fn combine_exp(expr: &Expr, opts: &PowsimpOptions, y: &Expr) -> Expr {
         }
         if assumptions::is_positive(b).is_some() || assumptions::is_integer(e) == Some(true) {
             let moved = if assumptions::is_integer(e) == Some(true) || assumptions::is_negative(b) == Some(true) {
+                // Python's `c_powers[-b] += c_powers.pop(b)` reads the slot
+                // first, so -b == b (a sum of zoo terms) doubles it.
+                let old = cp.get_mut(&nb).unwrap().clone();
                 let v = cp.pop(b).unwrap();
-                let slot = cp.get_mut(&nb).unwrap();
-                *slot = ops::add(&[slot.clone(), v]);
+                cp.set(nb.clone(), ops::add(&[old, v]));
                 e.clone()
             } else {
                 let v = cp.pop(&nb).unwrap();
-                let slot = cp.get_mut(b).unwrap();
-                *slot = ops::add(&[slot.clone(), v.clone()]);
+                let old = cp.get_mut(b).map(|slot| slot.clone()).unwrap_or_else(|| v.clone());
+                cp.set(b.clone(), ops::add(&[old, v.clone()]));
                 v
             };
             if let Some(slot) = cp.get_mut(&n1) {
@@ -579,6 +581,22 @@ fn combine_base(expr: &Expr, opts: &PowsimpOptions, y: &Expr) -> Expr {
         for e in es {
             c_part.push(ops::pow(&b, &e));
         }
+    }
+    if c_part.len() + nc_part.len() > 1 {
+        // SymPy's Mul.flatten gathers each power's exponent as c*t from its
+        // as_coeff_Mul, which distributes the coefficient factor_terms
+        // pulled out above: 3*exp(3*(2*a + x**2)) becomes 3*exp(6*a + 3*x**2).
+        c_part = c_part.into_iter().map(|p| match p.kind() {
+            Kind::Func(Func::Exp, a) => match decompose::as_coeff_mul_head(&a[0], false) {
+                (c, t) if !c.is_one() && t.is_add() => crate::functions::exp(&ops::mul(&[c, t])),
+                _ => p.clone(),
+            },
+            Kind::Pow(b, e) => match decompose::as_coeff_mul_head(e, false) {
+                (c, t) if !c.is_one() && t.is_add() => ops::pow(b, &ops::mul(&[c, t])),
+                _ => p.clone(),
+            },
+            _ => p.clone(),
+        }).collect();
     }
     c_part.extend(nc_part);
     ops::mul(&c_part)

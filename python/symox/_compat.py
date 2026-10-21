@@ -376,7 +376,32 @@ class Wild(Symbol):
     _matches = staticmethod(lambda e: e.is_Wild)
 
     def __new__(cls, name, exclude=(), properties=(), **assumptions):
-        return _symbol_instance(cls, _core.Wild(name,exclude,properties,**assumptions))
+        # Function classes in exclude (Wild('a', exclude=[sin])) reject any
+        # expression containing them, as expr.has(sin) does in the reference.
+        expressions, heads = [], []
+        for item in exclude:
+            (heads if _is_exclusion_head(item) else expressions).append(item)
+        if heads:
+            properties = tuple(properties) + (_head_exclusion(tuple(heads)),)
+        return _symbol_instance(cls, _core.Wild(name,expressions,properties,**assumptions))
+
+
+def _is_exclusion_head(item):
+    if isinstance(item, _core.Expr):
+        return False
+    try:
+        _core.sympify(item)
+    except Exception:
+        return callable(item)
+    return False
+
+
+@lru_cache(maxsize=None)
+def _head_exclusion(heads):
+    def excluded(expr):
+        return not expr.has(*heads)
+    excluded.__name__ = 'excludes_' + '_'.join(getattr(h, '__name__', 'head') for h in heads)
+    return excluded
 
 
 # Set once a Number class with its own arithmetic exists (see _host).

@@ -66,6 +66,11 @@ class FunctionClass(type,metaclass=_FunctionClassType):
     """Metaclass interface for native function-head factories."""
 
 
+def _wild_function_value(expr):
+    # Marks a WildFunction: a distinct object from the Wild of the same name.
+    return bool(getattr(expr,'is_Function',False))
+
+
 class WildFunction(metaclass=_ExprType):
     _matches = staticmethod(lambda expr:expr in _wild_functions)
 
@@ -79,7 +84,7 @@ class WildFunction(metaclass=_ExprType):
             if not counts or any(n < 0 for n in counts):
                 raise ValueError('function argument counts must be nonnegative')
             counts = tuple(sorted(set(counts)))
-        node = _core.Wild(name,(),(),**assumptions)
+        node = _core.Wild(name,(),(_wild_function_value,),**assumptions)
         _wild_functions[node] = counts
         return node
 

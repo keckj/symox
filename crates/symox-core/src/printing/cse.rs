@@ -355,6 +355,16 @@ impl Cse {
                         }
                     }
                 }
+                // SymPy iterates over a Tuple (e.g. integration limits)
+                // without making it a candidate for elimination.
+                if let Val::E(e) = &v {
+                    if matches!(e.kind(), Kind::Func(crate::expr::Func::Undefined(head), _) if head.is_internal("Tuple")) {
+                        for c in self.children(&v).into_iter().rev() {
+                            stack.push(c);
+                        }
+                        continue;
+                    }
+                }
                 if seen.contains(&v) {
                     let ignored = !ignore.is_empty()
                         && match &v {

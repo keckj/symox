@@ -252,6 +252,18 @@ fn same(a: &Polynomial, b: &Polynomial) -> bool {
     if let (Some(a), Some(b)) = (&a.field, &b.field) {
         return a.rep == b.rep;
     }
+    if a.domain == Domain::RR || b.domain == Domain::RR {
+        // RR factors come from the bounded-denominator rational image of
+        // the coefficients (RR.to_rational) and are rounded back to floats,
+        // so the reconstruction is checked to a relative tolerance.
+        let (x, y) = (a.rep.iter().collect::<Vec<_>>(), b.rep.iter().collect::<Vec<_>>());
+        let close = |u: &Rat, v: &Rat| {
+            let (u, v) = (u.to_f64(), v.to_f64());
+            (u - v).abs() <= 1e-12 * u.abs().max(v.abs())
+        };
+        return x.len() == y.len()
+            && x.iter().zip(y.iter()).all(|((m, u), (n, v))| m == n && close(u, v));
+    }
     a.rep == b.rep
 }
 fn verify(p: &Polynomial, factorization: &Factorization) -> PResult<()> {
@@ -304,7 +316,7 @@ pub fn compatible_list(
             && p.algebraic.is_none()
             && (p.domain == Domain::RR || !p.domain_gens().is_empty());
         preflight_mode(p, limits, legacy)?;
-        let mut result = raw(p, if legacy { false } else { squarefree })?;
+        let mut result = raw(p, if legacy && p.domain != Domain::RR { false } else { squarefree })?;
         if legacy {
             let mut kept = Vec::new();
             let mut budget = Budget::new();

@@ -530,10 +530,33 @@ impl Poly {
         if let Some(p) = self.modulus {
             return self.gf_list(p, false);
         }
+        if self.is_float() {
+            return self.inexact_factor_list();
+        }
         let (d, z) = self.rep.clear_denoms();
         let (c, fs) = factor_list_mz(&z);
         let coeff = Rat::new(c, d);
         let mut out: Vec<(Poly, u32)> = fs.into_iter().map(|(f, k)| (self.with_rep(f.to_rat()), k)).collect();
+        sort_factors_poly(&mut out, self.ngens);
+        (coeff, out)
+    }
+
+    /// SymPy's `dmp_factor_list` over `RR`: the coefficients are converted
+    /// to `QQ` with the context's bounded denominators, the polynomial is
+    /// factored there, and every factor is divided by its max norm (that
+    /// norm moving into the coefficient) before going back to `RR`.
+    fn inexact_factor_list(&self) -> (Rat, Vec<(Poly, u32)>) {
+        let exact = self.rep.map_coeffs(convert::rr_limit_rational);
+        let (d, z) = exact.clear_denoms();
+        let (c, fs) = factor_list_mz(&z);
+        let mut coeff = Rat::new(c, d);
+        let mut out: Vec<(Poly, u32)> = Vec::new();
+        for (f, k) in fs {
+            let norm = Rat::from(f.max_norm());
+            let scaled = f.to_rat().div_coeff(&norm).unwrap_or_else(|| f.to_rat());
+            coeff = coeff.mul(&norm.pow(k));
+            out.push((self.with_rep(scaled), k));
+        }
         sort_factors_poly(&mut out, self.ngens);
         (coeff, out)
     }
@@ -555,6 +578,9 @@ impl Poly {
         if let Some(p) = self.modulus {
             return self.gf_list(p, true);
         }
+        if self.is_float() {
+            return self.inexact_sqf_list();
+        }
         let (d, z) = self.rep.clear_denoms();
         let (c, mut parts) = sqf_list_mz(&z);
         // powers of the variables are part of the decomposition in SymPy
@@ -564,6 +590,30 @@ impl Poly {
         let mut out: Vec<(Poly, u32)> = parts.into_iter().map(|(f, k)| (self.with_rep(f.to_rat()), k)).collect();
         sort_factors_poly(&mut out, self.ngens);
         (coeff, out)
+    }
+
+    /// SymPy's `dmp_sqf_list` over the field `RR`: the ground leading
+    /// coefficient is divided out in RR arithmetic (`dmp_ground_monic`) and
+    /// the square-free parts come from gcds on the exact `QQ` image, so they
+    /// are monic.
+    fn inexact_sqf_list(&self) -> (Rat, Vec<(Poly, u32)>) {
+        if self.rep.is_zero() {
+            return (Rat::zero(), Vec::new());
+        }
+        let lc = self.rep.lc();
+        let lcf = lc.to_f64();
+        let monic = self.rep.map_coeffs(|c| convert::rr_limit_rational(&convert::float_to_rat(c.to_f64() / lcf)));
+        let (_, z) = monic.clear_denoms();
+        let (_, mut parts) = sqf_list_mz(&z);
+        parts.retain(|(p, _)| !p.is_constant());
+        let mut out: Vec<(Poly, u32)> = Vec::new();
+        for (f, k) in parts {
+            let g = f.to_rat();
+            let l = g.lc();
+            out.push((self.with_rep(g.div_coeff(&l).unwrap_or(g)), k));
+        }
+        sort_factors_poly(&mut out, self.ngens);
+        (lc, out)
     }
 
     /// `f(g)` substituting `g` for the first generator.

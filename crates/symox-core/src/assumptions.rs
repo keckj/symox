@@ -705,6 +705,8 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
         Kind::Const(Constant::I) => return Some(false),
         Kind::Const(c) if c.is_number_symbol() => return Some(false),
         Kind::Const(c) if c.is_infinite()=>return Some(false),
+        // SymPy's exp._eval_is_zero: only exp(-oo) vanishes.
+        Kind::Func(Func::Exp,args)=>return Some(matches!(args.first().map(Expr::kind),Some(Kind::Const(Constant::NegInfinity)))),
         Kind::Mul(c,factors) if !c.is_zero() && factors.iter().all(|(b,x)| exact_queries(||is_zero(&crate::ops::mul_factor(b,x)))==Some(false)) => return Some(false),
         Kind::Pow(base,exponent) => {
             if let Some(facts)=exact::rational_power(base,exponent) {if facts.zero.is_some(){return facts.zero;}}

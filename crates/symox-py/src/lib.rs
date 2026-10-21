@@ -2421,7 +2421,10 @@ impl PyExprNode {
     #[pyo3(signature = (*patterns))]
     fn has(&self, patterns: &Bound<'_, PyTuple>) -> PyResult<bool> {
         for p in patterns.iter() {
-            if let Some(target)=function_head(&p)?{
+            // An applied function such as g(x) also exposes its head's name
+            // and nargs; only a head is a function-class query.
+            let head=if p.downcast::<PyExprNode>().is_ok() {None} else {function_head(&p)?};
+            if let Some(target)=head{
                 fn contains(e:&Expr,target:&symox::expr::UndefinedFunction)->bool{
                     let mut pending=vec![e.clone()];let mut seen=FxHashMap::default();
                     while let Some(node)=pending.pop() {
@@ -3157,6 +3160,13 @@ fn gamma_integral_conditions(f:&Expr,x:&Expr,lo:&Expr,hi:&Expr)->Option<(Expr,Ex
     })
 }
 
+/// SymPy integrates with respect to an applied undefined function f(x) by
+/// treating it as an independent variable.
+fn function_variable_integral(r:&Expr,limit:Vec<Expr>)->PyResult<Expr>{
+    let held=symox::binders::held(Func::Integral,r,vec![limit]).map_err(PyValueError::new_err)?;
+    Ok(fx::doit(&held,true))
+}
+
 fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationConditions) -> PyResult<Expr> {
     let mut r = f.clone();
     if args.is_empty() {
@@ -3170,6 +3180,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
         if let Some(t) = integration_limit(&a)? {
             if !(1..=3).contains(&t.len()){return Err(PyValueError::new_err("expected (x,), (x,b), or (x,a,b)"));}
             let x = t[0].clone();
+            if symox::binders::is_function_variable(&x){r=function_variable_integral(&r,t)?;continue;}
             if !x.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
             match t.len() {
                 1 => r = symox::integrate::integrate(&r, &x),
@@ -3188,6 +3199,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
             }
         } else {
             let variable=to_expr(&a)?;
+            if symox::binders::is_function_variable(&variable){r=function_variable_integral(&r,vec![variable])?;continue;}
             if !variable.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
             r = symox::integrate::integrate(&r, &variable);
         }

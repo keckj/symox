@@ -218,6 +218,44 @@ pub fn float_to_rat(f: f64) -> Rat {
     }
 }
 
+/// SymPy's `RR.to_rational(a)` (53-bit context, `limit=True`): the exact
+/// value when its denominator is at most `int(1/tol)` with
+/// `tol = 100*2**-52`, otherwise the closest fraction with a bounded
+/// denominator (mpmath's continued-fraction `limit_denominator`).
+pub fn rr_limit_rational(r: &Rat) -> Rat {
+    let max_denom = BigInt::from(45_035_996_273_704u64);
+    let (p, q) = (r.n.to_big(), r.d.to_big());
+    if q <= max_denom {
+        return r.clone();
+    }
+    let (mut p0, mut q0, mut p1, mut q1) = (BigInt::from(0), BigInt::from(1), BigInt::from(1), BigInt::from(0));
+    let (mut n, mut d) = (p.clone(), q.clone());
+    loop {
+        let a = num_integer::Integer::div_floor(&n, &d);
+        let q2 = &q0 + &a * &q1;
+        if q2 > max_denom {
+            break;
+        }
+        let p2 = &p0 + &a * &p1;
+        p0 = std::mem::replace(&mut p1, p2);
+        q0 = std::mem::replace(&mut q1, q2);
+        let rem = &n - &a * &d;
+        n = std::mem::replace(&mut d, rem);
+    }
+    let k = num_integer::Integer::div_floor(&(&max_denom - &q0), &q1);
+    let rat = |a: BigInt, b: BigInt| Rat::new(Int::from_big(a), Int::from_big(b));
+    let bound1 = rat(&p0 + &k * &p1, &q0 + &k * &q1);
+    let bound2 = rat(p1, q1);
+    if bound2.is_zero() || bound1.is_zero() {
+        return r.clone();
+    }
+    if bound2.sub(r).abs().sub(&bound1.sub(r).abs()).is_negative() || bound2.sub(r).abs() == bound1.sub(r).abs() {
+        bound2
+    } else {
+        bound1
+    }
+}
+
 pub fn number_to_rat(n: &Number) -> Rat {
     match n {
         Number::Float(f) => float_to_rat(*f),

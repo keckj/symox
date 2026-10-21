@@ -186,7 +186,29 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
             }
             return held_subs(e,vec![old.clone()],vec![new.clone()]);
         }
-        if crate::traverse::has(e,old) && vars.iter().any(|(v,_)|crate::traverse::has(new,v)) {
+        // SymPy: a derivative of the same expression with respect to a
+        // sub-multiset of the variables is replaced, leaving the remaining
+        // differentiations of new unevaluated.
+        if let (Kind::Derivative(inner,vars),Kind::Derivative(old_inner,old_vars))=(e.kind(),old.kind()) {
+            if inner==old_inner {
+                let count=|list:&[(Expr,u32)],v:&Expr|list.iter().filter(|(w,_)|w==v).map(|(_,n)|*n).sum::<u32>();
+                if old_vars.iter().all(|(v,_)|count(old_vars,v)<=count(vars,v)) {
+                    let mut rest:Vec<(Expr,u32)>=Vec::new();
+                    for (v,_) in vars.iter() {
+                        if rest.iter().any(|(w,_)|w==v) {continue;}
+                        let remaining=count(vars,v)-count(old_vars,v);
+                        if remaining>0 {rest.push((v.clone(),remaining));}
+                    }
+                    return crate::diff::derivative_unevaluated(new,rest);
+                }
+            }
+        }
+        // SymPy's case (1): the substitution may not introduce a
+        // differentiation variable into an expression that depends on it; a
+        // variable that old already contains is not introduced.
+        let Kind::Derivative(inner,_)=e.kind() else{unreachable!()};
+        if crate::traverse::has(e,old) && vars.iter().any(|(v,_)|
+            crate::traverse::has(new,v) && !crate::traverse::has(old,v) && crate::traverse::has(inner,v)) {
             return held_subs(e,vec![old.clone()],vec![new.clone()]);
         }
     }
@@ -221,24 +243,142 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
                 }
             }
         },
-        (Kind::Pow(b, x), _) => {
-            // x**4 subs x**2 -> y  gives y**2;  x**3 subs x -> y gives y**3
-            let (ob, ox) = crate::ops::as_base_exp(old);
-            if *b == ob && !old.is_symbol() {
-                let ratio = div(x, &ox);
-                let safe_fraction = ratio.is_rational_number() &&
-                    ((crate::assumptions::is_positive(b)==Some(true) && crate::assumptions::is_real(&ox)==Some(true)) ||
-                     (crate::assumptions::is_nonnegative(b)==Some(true) && crate::assumptions::is_nonnegative(&ox)==Some(true)));
-                if ratio.is_integer_number() || safe_fraction {
-                    return pow(new, &ratio);
-                }
-            }
-            subs_children(e, old, new, cache)
-        }
+        (Kind::Pow(b, x), _) => power_subs(b, x, false, old, new, cache)
+            .unwrap_or_else(|| subs_children(e, old, new, cache)),
+        // SymPy's exp._eval_subs views exp(z) and an old exp(w) as E**z and
+        // E**w and defers to Pow._eval_subs.
+        (Kind::Func(Func::Exp, a), Kind::Const(crate::expr::Constant::E)) => pow(new, &s1(&a[0], old, new, cache)),
+        (Kind::Func(Func::Exp, a), Kind::Func(Func::Exp, _)) => power_subs(&Expr::e(), &a[0], true, old, new, cache)
+            .unwrap_or_else(|| subs_children(e, old, new, cache)),
         _ => subs_children(e, old, new, cache),
     };
     cache.insert(e.dag_id(), (e.clone(),r.clone()));
     r
+}
+
+/// SymPy's Pow._eval_subs for `base**exponent`. `as_exp` marks the
+/// exp(z) view, in which an old exp(w) counts as the power E**w.
+fn power_subs(base: &Expr, exponent: &Expr, as_exp: bool, old: &Expr, new: &Expr,
+    cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Option<Expr> {
+    use crate::assumptions::{is_nonnegative, is_positive, is_real, real_signs};
+    if old == base {
+        return Some(pow(new, &s1(exponent, old, new, cache)));
+    }
+    // Pow._eval_subs._check for commutative objects: the exponent of old
+    // combines with pow when pow is an integer or (b**e)**f == b**(e*f).
+    let combine = |own: &Expr, other: &Expr| -> Option<Expr> {
+        if old.has_noncommutative_host() { return None; }
+        let ratio = div(own, other);
+        let integral = ratio.as_number().is_some_and(|n| n.is_integer()
+            || n.is_float() && n.to_f64().is_finite() && n.to_f64().fract() == 0.0);
+        if integral { return Some(ratio); }
+        let (b, e) = crate::decompose::as_base_exp(old);
+        let combines = is_positive(&b) == Some(true) && is_real(&e) == Some(true)
+            || is_nonnegative(&b) == Some(true) && is_nonnegative(&e) == Some(true);
+        combines.then_some(ratio)
+    };
+    let old_power = match old.kind() {
+        Kind::Pow(b, x) => Some((b.clone(), x.clone())),
+        Kind::Func(Func::Exp, a) if as_exp => Some((Expr::e(), a[0].clone())),
+        _ => None,
+    };
+    if let Some((old_base, old_exponent)) = &old_power {
+        // issue 10829: (4**x).subs(2**x, y) -> y**2 when log(4, 2) is a Number
+        if exponent == old_exponent {
+            if let Some(l) = rational_log(base, old_base) {
+                return Some(pow(new, &Expr::num(l)));
+            }
+        }
+        if base == old_base {
+            if !exponent.is_add() {
+                let (c1, t1) = symbol_independent(exponent);
+                let (c2, t2) = symbol_independent(old_exponent);
+                if t1 == t2 {
+                    if let Some(k) = combine(&c1, &c2) { return Some(pow(new, &k)); }
+                }
+            } else {
+                // b**(6*x + a).subs(b**(3*x), y) -> y**2 * b**a
+                let (c2, t2) = crate::decompose::as_coeff_mul(old_exponent, &[], false);
+                let mut factors = Vec::new();
+                let mut remaining = Vec::new();
+                for term in crate::traverse::ordered_args(exponent) {
+                    let term = s1(&term, old, new, cache);
+                    let (c1, t1) = crate::decompose::as_coeff_mul(&term, &[], false);
+                    if t1 == t2 {
+                        if let Some(k) = combine(&c1, &c2) { factors.push(pow(new, &k)); continue; }
+                    }
+                    remaining.push(term);
+                }
+                if !factors.is_empty() {
+                    let rest = add(&remaining);
+                    factors.push(if rest.is_one() { base.clone() } else { pow(base, &rest) });
+                    return Some(mul(&factors));
+                }
+            }
+        }
+    }
+    let old_exp = match old.kind() {
+        Kind::Func(Func::Exp, a) => Some(a[0].clone()),
+        Kind::Pow(b, x) if b.is_constant(crate::expr::Constant::E) => Some(x.clone()),
+        _ => None,
+    };
+    if let Some(old_exponent) = old_exp {
+        if real_signs(exponent).is_some() && is_positive(base) == Some(true) {
+            // (2**x).subs(exp(x*log(2)), z) -> z
+            let (c1, t1) = symbol_independent(&old_exponent);
+            let (c2, t2) = symbol_independent(&mul2(exponent, &crate::functions::log(base)));
+            if t1 == t2 {
+                if let Some(k) = combine(&c1, &c2) { return Some(pow(new, &k)); }
+            }
+        }
+    }
+    None
+}
+
+/// `e.as_independent(Symbol, as_Add=False)`.
+fn symbol_independent(e: &Expr) -> (Expr, Expr) {
+    let dependent = |term: &Expr| !crate::traverse::free_symbols(term).is_empty();
+    if !e.is_mul() {
+        return if dependent(e) { (Expr::one(), e.clone()) } else { (e.clone(), Expr::one()) };
+    }
+    let (with, without): (Vec<_>, Vec<_>) = crate::traverse::ordered_args(e).into_iter().partition(dependent);
+    (mul(&without), mul(&with))
+}
+
+/// `log(arg, base)` when SymPy evaluates it to a Number for positive
+/// rationals: multiplicity extracts the powers of the base, and the
+/// remaining quotient of logarithms is a Number only for equal integers.
+fn rational_log(arg: &Expr, base: &Expr) -> Option<Number> {
+    use num_bigint::BigInt;
+    let (an, ad) = arg.as_number().filter(|n| n.is_rational() && n.is_positive())?.numer_denom()?;
+    let (bn, bd) = base.as_number().filter(|n| n.is_rational() && n.is_positive())?.numer_denom()?;
+    if bn == bd { return None; }
+    fn count(p: &BigInt, n: &BigInt) -> Option<i64> {
+        if *p < BigInt::from(2) { return None; }
+        let (mut n, mut k) = (n.clone(), 0);
+        while n.is_multiple_of(p) { n /= p; k += 1; }
+        Some(k)
+    }
+    let one = BigInt::from(1);
+    let m = if bd == one {
+        if an == one { -count(&bn, &ad)? } else { count(&bn, &an)? - count(&bn, &ad)? }
+    } else if bn == one {
+        count(&bd, &ad)?
+    } else {
+        count(&bn, &an)?.min(count(&bd, &ad)?) - count(&bd, &an)?.min(count(&bn, &ad)?)
+    };
+    let a = Number::rational(an, ad)?;
+    let b = Number::rational(bn, bd)?;
+    let quotient = a.div(&b.pow_i64(m)?)?;
+    if quotient.is_one() { return Some(Number::Int(m)); }
+    // log(1/q) evaluates to -log(q); any other rational log stays held.
+    let normal = |r: &Number| -> (i64, Number) {
+        let (p, q) = r.numer_denom().unwrap();
+        if p == BigInt::from(1) { (-1, Number::from_bigint(q)) } else { (1, r.clone()) }
+    };
+    let (sq, iq) = normal(&quotient);
+    let (sb, ib) = normal(&b);
+    (iq == ib).then(|| Number::Int(m + sq * sb))
 }
 
 /// Substitution sees the public expression tree, including coefficients

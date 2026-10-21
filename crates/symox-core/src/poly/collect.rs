@@ -225,6 +225,7 @@ impl Collector {
                 if matched.is_some(){break;}
             }
             if let Some((key,coefficient))=matched{
+                let (key,coefficient)=(rebuild(&key),rebuild(&coefficient));
                 let index=if let Some(index)=indices.get(&key){*index}else{let index=groups.len();indices.insert(key.clone(),index);groups.push((key,Vec::new()));index};
                 groups[index].1.push(coefficient);
             }else{disliked.push(term);}
@@ -234,6 +235,20 @@ impl Collector {
         if let Some(order)=order{for(_,value)in &mut result{*value=add(&[value.clone(),order.clone()]);}}
         Ok(result)
     }
+}
+
+/// SymPy's collect rebuilds a matched term from its parsed factors, so a
+/// factor exp(c*t) with a rational c != 1 comes back as Pow(exp(t), c):
+/// exp(x/3) becomes exp(x)**(1/3) unless the power evaluates.
+fn rebuild(e:&Expr)->Expr{
+    let factor=|f:&Expr|->Expr{
+        let Kind::Func(Func::Exp,args)=f.kind() else{return f.clone()};
+        let Kind::Mul(coefficient,_)=args[0].kind() else{return f.clone()};
+        if !coefficient.is_rational()||coefficient.is_one(){return f.clone();}
+        let tail=div(&args[0],&Expr::num(coefficient.clone()));
+        pow(&crate::functions::func(Func::Exp,vec![tail]),&Expr::num(coefficient.clone()))
+    };
+    if e.is_mul(){mul(&ordered_args(e).iter().map(factor).collect::<Vec<_>>())}else{factor(e)}
 }
 
 struct ParsedFactor {base:Expr,exponent:Expr,symbolic:Option<Expr>,derivative:Option<(Expr,u32)>}

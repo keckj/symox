@@ -1184,7 +1184,7 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                     return mul(&v);
                 }
             }
-            if e.is_number() && !c.is_one() && c.is_rational() {
+            if e.is_number() && !c.is_one() && (c.is_rational() || c.is_float()) {
                 let rest = mul_from_factors(facs.clone());
                 if c.is_positive() {
                     return mul2(&num_pow(c, e.as_number().unwrap()), &pow_raw(&rest, e));
@@ -1226,13 +1226,30 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             }
         }
         Kind::Func(Func::Exp, args) => {
-            if e.is_integer_number() {
-                return crate::functions::exp(&mul2(&args[0], e));
-            }
+            if let Some(value) = exp_power(&args[0], e) { return value; }
         }
         _ => {}
     }
     memo::apply(memo::Operation::Power,b,e,||pow_raw(b,e))
+}
+
+/// SymPy's exp._eval_power, i.e. Pow._eval_power of E**z: exp(z)**w is
+/// exp(z*w) for an integer w or an extended real z; for a non-real z the
+/// branch factor exp(2*pi*I*w*floor(1/2 - im(z)/(2*pi))) must be +-1.
+fn exp_power(z: &Expr, w: &Expr) -> Option<Expr> {
+    use crate::assumptions::{exact_queries, is_integer, is_real, real_signs};
+    let product = || crate::functions::exp(&mul2(z, w));
+    if w.is_integer_number() || exact_queries(|| is_integer(w)) == Some(true) { return Some(product()); }
+    if real_signs(z).is_some() { return Some(product()); }
+    if exact_queries(|| is_real(z)) != Some(false) { return None; }
+    let imaginary = crate::functions::im(z);
+    if !crate::functions::is_numeric_value(&imaginary) { return None; }
+    let k = crate::functions::floor(&sub(&Expr::rational(1, 2), &div(&imaginary, &mul2(&Expr::int(2), &Expr::pi()))));
+    if !k.is_integer_number() { return None; }
+    if k.is_zero() { return Some(product()); }
+    let turns = mul(&[Expr::int(2), w.clone(), k]);
+    let (n, _) = turns.as_number().filter(|n| n.is_integer())?.numer_denom()?;
+    Some(if num_integer::Integer::is_even(&n) { product() } else { neg(&product()) })
 }
 
 /// `b ** e` without simplification beyond trivial exponents.

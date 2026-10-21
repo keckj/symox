@@ -300,8 +300,10 @@ fn write_mul(e: &Expr, out: &mut String) {
             _ => num.push(item.clone()),
         }
     }
+    // SymPy parenthesizes factors of Mul precedence (`strict=False`), which
+    // shows a product nested in an unevaluated product: `(I*exp(I*x))/8`.
     let write_factor = |f: &Expr, out: &mut String| {
-        paren(f, PREC_MUL, !negative && is_mod(f), out);
+        paren(f, PREC_MUL, (!negative && is_mod(f)) || matches!(f.kind(), Kind::Mul(..)), out);
     };
     let write_list = |v: &[Expr], out: &mut String| {
         for (i, f) in v.iter().enumerate() {

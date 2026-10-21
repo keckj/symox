@@ -47,9 +47,11 @@ def test_preexisting_bindings_are_copied_in_function_argument_matching():
     assert query.matches(f(x+1,2),bindings,old=True) is None
 
 
-def test_legacy_fallback_does_not_choose_nonlinear_roots():
+def test_legacy_fallback_matches_the_reference_on_nonlinear_patterns():
     a=sx.Wild('a')
-    assert sx.Integer(2).match(a*a,old=True) is None
+    # SymPy's Mul.matches turns a*a into a**2 and Pow.matches takes the
+    # principal root.
+    assert sx.Integer(2).match(a*a,old=True)=={a:sx.sqrt(2)}
     assert sx.Integer(2).match(sx.sin(a),old=True) is None
 
 

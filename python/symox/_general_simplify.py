@@ -55,6 +55,14 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
                 except (NotImplementedError,ValueError):continue
                 if candidate not in candidates:candidates.append(candidate)
         result=min(candidates,key=measure)
+    # SymPy's simplify rationalizes a denominator that is a sum of numeric
+    # radicals (max_terms=1, symbolic=False) before the final ratio test.
+    numer,denom=result.as_numer_denom()
+    if denom.is_Add:
+        from . import radsimp,fraction
+        n,d=fraction(radsimp(1/denom,symbolic=False,max_terms=1))
+        if n!=1:
+            result=(numer*n).expand()/d
     if not (measure is count_ops and result==original):
         if measure(result)>ratio*measure(original):result=original
     if floats and rational is None:result=nfloat(result,exponent=False)

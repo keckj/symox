@@ -988,6 +988,11 @@ fn cyclic(f: &Expr, x: &Expr) -> Option<Expr> {
     let (a, _) = linear(&ea, x)?;
     let (b, _) = linear(&ta, x)?;
     let den = add2(&a.powi(2), &b.powi(2));
+    // a = +-I*b (e.g. exp(I*x)*sin(x)) is resonant: the closed form divides
+    // by zero, so leave the integrand to the exponential rewriting rules.
+    if expand(&den).is_zero() {
+        return None;
+    }
     let ex = exp(&ea);
     let (s, co) = (sin(&ta), cos(&ta));
     let inner = if is_sin {

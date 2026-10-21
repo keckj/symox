@@ -4,7 +4,7 @@
 
 use rustc_hash::FxHashMap;
 
-use crate::assumptions::{is_positive, is_real};
+use crate::assumptions::is_positive;
 use crate::expand::expand;
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::functions::*;
@@ -408,83 +408,205 @@ pub fn expand_log(e: &Expr, force: bool) -> Expr {
 pub fn expand_log_deep(e: &Expr, force: bool, deep: bool) -> Expr {
     let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_log_deep(c, force, deep)) };
     let Kind::Func(Func::Log, a) = e2.kind() else { return e2 };
-    let ok = |x: &Expr| force || is_positive(x) == Some(true);
-    match a[0].kind() {
-        Kind::Mul(c, facs) => {
+    if a.len() != 1 {
+        return e2;
+    }
+    expand_log_arg(&a[0], force).unwrap_or(e2)
+}
+
+/// SymPy's `log._eval_expand_log` (without the `factor` hint); `None` keeps
+/// the logarithm unchanged.
+fn expand_log_arg(arg: &Expr, force: bool) -> Option<Expr> {
+    // the logarithm of a factor, expanded again when it stays a logarithm
+    let log_of = |x: &Expr| -> Expr {
+        let a = log(x);
+        match a.kind() {
+            Kind::Func(Func::Log, b) if b.len() == 1 => expand_log_arg(&b[0], force).unwrap_or(a),
+            _ => a,
+        }
+    };
+    let polar = |x: &Expr| crate::special::polar::is_polar(x);
+    match arg.kind() {
+        Kind::Num(n) if n.is_integer() => {
+            // remove perfect powers
+            let (p, _) = n.numer_denom()?;
+            let (base, k) = crate::ntheory::factor::perfect_power(&p, None, true)?;
+            Some(mul2(&Expr::int(k as i64), &log(&Expr::num(Number::from_bigint(base)))))
+        }
+        Kind::Num(n) if n.is_rational() => {
+            let (p, q) = n.numer_denom()?;
+            // SymPy's expand repeats the log hint to a fixed point.
+            Some(sub(&log_of(&Expr::num(Number::from_bigint(p))), &log_of(&Expr::num(Number::from_bigint(q)))))
+        }
+        Kind::Mul(..) => {
             let mut parts = Vec::new();
-            let mut rest = vec![Expr::num(c.clone())];
-            for (b, x) in facs {
-                let f = mul_factor(b, x);
-                if ok(b) && is_real(x) == Some(true) || force {
-                    parts.push(expand_log(&log(&f), force));
+            let mut nonpos = Vec::new();
+            for x in arg.args() {
+                if force || is_positive(&x) == Some(true) || polar(&x) {
+                    parts.push(log_of(&x));
+                } else if crate::assumptions::is_negative(&x) == Some(true) {
+                    parts.push(log(&neg(&x)));
+                    nonpos.push(Expr::minus_one());
                 } else {
-                    rest.push(f);
+                    nonpos.push(x);
                 }
             }
-            if parts.is_empty() {
-                return e2;
-            }
-            let r = mul(&rest);
-            if !r.is_one() {
-                parts.push(log(&r));
-            }
-            add(&parts)
+            parts.push(log(&mul(&nonpos)));
+            Some(add(&parts))
         }
-        // SymPy also accepts any base for real exponents in (-1, 1].
-        Kind::Pow(b, x)
-            if force
-                || (is_real(x) == Some(true)
-                    && (ok(b)
-                        || (is_positive(&add2(x, &Expr::one())) == Some(true)
-                            && crate::assumptions::fact(&sub(x, &Expr::one()), "nonpositive") == Some(true)))) =>
-        {
-            let a = log(b);
-            if a.is_func(&Func::Log) { mul2(x, &expand_log(&a, force)) } else { mul2(x, &a) }
-        }
-        _ => e2,
+        Kind::Pow(b, x) => expand_log_power(b, x, force, &log_of),
+        Kind::Func(Func::Exp, x) if x.len() == 1 => expand_log_power(&Expr::constant(Constant::E), &x[0], force, &log_of),
+        _ => None,
     }
 }
 
-/// Combine `a*log(x) + b*log(y)` into `log(x**a * y**b)` for positive
-/// arguments and real coefficients (or everything with `force`).
+fn expand_log_power(b: &Expr, x: &Expr, force: bool, log_of: &dyn Fn(&Expr) -> Expr) -> Option<Expr> {
+    let real = crate::assumptions::fact(x, "extended_real") == Some(true);
+    let near = || {
+        is_positive(&add2(x, &Expr::one())) == Some(true)
+            && crate::assumptions::fact(&sub(x, &Expr::one()), "nonpositive") == Some(true)
+    };
+    if force || (real && (is_positive(b) == Some(true) || near())) || crate::special::polar::is_polar(b) {
+        // SymPy unpolarifies the exponent; exponents here carry no polar parts.
+        return Some(mul2(x, &log_of(b)));
+    }
+    None
+}
+
+/// SymPy's `logcombine`: `a*log(x) + b*log(y) -> log(x**a * y**b)` for
+/// positive arguments and real coefficients (or everything with `force`).
+/// Ported from sympy/simplify/simplify.py (see LICENSE-SYMPY).
 pub fn logcombine(e: &Expr, force: bool) -> Expr {
-    let e2 = if e.is_atom() { e.clone() } else { map_children(e, &mut |c| logcombine(c, force)) };
-    let ok = |x: &Expr| force || is_positive(x) == Some(true);
-    let as_coeff_log = |t: &Expr| -> Option<(Expr, Expr)> {
-        match t.kind() {
-            Kind::Func(Func::Log, a) => Some((Expr::one(), a[0].clone())),
-            Kind::Mul(..) => {
-                let fs = t.args();
-                let i = fs.iter().position(|f| f.is_func(&Func::Log))?;
-                let Kind::Func(_, a) = fs[i].kind() else { return None };
-                let coeff = mul(&fs.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, f)| f.clone()).collect::<Vec<_>>());
-                Some((coeff, a[0].clone()))
-            }
-            _ => None,
+    crate::simptools::bottom_up(e, &mut |rv| logcombine_node(rv, force))
+}
+
+fn single_log(e: &Expr) -> Option<&Expr> {
+    match e.kind() {
+        Kind::Func(Func::Log, a) if a.len() == 1 => Some(&a[0]),
+        _ => None,
+    }
+}
+
+fn unevaluated_log(a: Expr) -> Expr {
+    Expr::from_unevaluated_kind(Kind::Func(Func::Log, vec![a]))
+}
+
+fn logcombine_node(rv: &Expr, force: bool) -> Expr {
+    use crate::assumptions::fact;
+    use crate::simptools::{add_args, args, ordered};
+    if !(rv.is_add() || rv.is_mul()) {
+        return rv.clone();
+    }
+    let gooda = |a: &Expr| {
+        !a.is_minus_one() && {
+            let real = fact(a, "extended_real");
+            real == Some(true) || (force && real != Some(false))
         }
     };
-    match e2.kind() {
-        Kind::Add(..) => {
-            let mut logs = Vec::new();
-            let mut rest = Vec::new();
-            for t in e2.args() {
-                match as_coeff_log(&t) {
-                    Some((c, a)) if ok(&a) && (force || is_real(&c) == Some(true)) => logs.push(pow(&a, &c)),
-                    _ => rest.push(t),
+    let goodlog = |l: &Expr| {
+        let a = single_log(l).unwrap();
+        is_positive(a) == Some(true) || (force && fact(a, "nonpositive") != Some(false))
+    };
+    // log1: insertion-ordered map from a tuple of "other" factors to
+    // (coefficients, log) pairs
+    let mut log1: Vec<(Vec<Expr>, Vec<(Vec<Expr>, Expr)>)> = Vec::new();
+    fn push(log1: &mut Vec<(Vec<Expr>, Vec<(Vec<Expr>, Expr)>)>, key: Vec<Expr>, item: (Vec<Expr>, Expr)) {
+        match log1.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, v)) => v.push(item),
+            None => log1.push((key, vec![item])),
+        }
+    }
+    let mut other: Vec<Expr> = Vec::new();
+    let mut logs: Vec<(Vec<Expr>, Vec<Expr>, Vec<Expr>)> = Vec::new();
+    for a in add_args(rv) {
+        if single_log(&a).is_some() && goodlog(&a) {
+            push(&mut log1, vec![], (vec![], a));
+        } else if !a.is_mul() {
+            other.push(a);
+        } else {
+            let (mut ot, mut co, mut lo) = (Vec::new(), Vec::new(), Vec::new());
+            for ai in args(&a) {
+                if matches!(ai.kind(), Kind::Num(n) if n.is_rational() && n.is_negative()) {
+                    ot.push(Expr::minus_one());
+                    co.push(neg(&ai));
+                } else if single_log(&ai).is_some() && goodlog(&ai) {
+                    lo.push(ai);
+                } else if gooda(&ai) {
+                    co.push(ai);
+                } else {
+                    ot.push(ai);
                 }
             }
-            if logs.len() < 2 && !(logs.len() == 1 && rest.is_empty()) {
-                return e2;
+            if lo.len() > 1 {
+                logs.push((ot, co, lo));
+            } else if let Some(l) = lo.pop() {
+                push(&mut log1, ot, (co, l));
+            } else {
+                other.push(a);
             }
-            rest.push(log(&mul(&logs)));
-            add(&rest)
         }
-        Kind::Mul(..) => match as_coeff_log(&e2) {
-            Some((c, a)) if !c.is_one() && ok(&a) && (force || is_real(&c) == Some(true)) => log(&pow(&a, &c)),
-            _ => e2,
-        },
-        _ => e2,
     }
+    // a single log in other joins the good logs
+    if other.len() == 1 && single_log(&other[0]).is_some() {
+        let l = other.pop().unwrap();
+        push(&mut log1, vec![], (vec![], l));
+    }
+    // SymPy compares the (coefficients, log) tuple with [], which never
+    // holds: only an absence of logs leaves the expression alone.
+    if logs.is_empty() && log1.is_empty() {
+        return rv.clone();
+    }
+    for (o, e, l) in logs {
+        let mut l = ordered(l);
+        let first = l.remove(0);
+        let mut combined = log(&pow(single_log(&first).unwrap(), &mul(&e)));
+        for li in l {
+            combined = log(&pow(single_log(&li).unwrap(), &combined));
+        }
+        let c = mul(&o);
+        if single_log(&combined).is_some() {
+            push(&mut log1, vec![c], (vec![], combined));
+        } else {
+            other.push(mul2(&c, &combined));
+        }
+    }
+    // logs with the same coefficient multiply
+    let mut merged: Vec<(Expr, Expr)> = Vec::new();
+    for (k, items) in log1 {
+        let product = mul(&items.iter().map(|(c, l)| pow(single_log(l).unwrap(), &mul(c))).collect::<Vec<_>>());
+        let value = unevaluated_log(logcombine(&product, force));
+        let key = mul(&k);
+        match merged.iter_mut().find(|(k2, _)| *k2 == key) {
+            Some(slot) => slot.1 = value,
+            None => merged.push((key, value)),
+        }
+    }
+    // logs with opposite coefficients divide
+    let keys = ordered(merged.iter().map(|(k, _)| k.clone()).collect());
+    let take = |merged: &mut Vec<(Expr, Expr)>, k: &Expr| -> Option<Expr> {
+        let i = merged.iter().position(|(k2, _)| k2 == k)?;
+        Some(merged.remove(i).1)
+    };
+    for k in keys {
+        if !merged.iter().any(|(k2, _)| *k2 == k) {
+            continue;
+        }
+        let nk = neg(&k);
+        if merged.iter().any(|(k2, _)| *k2 == nk) {
+            let (mut num, mut den) = (k.clone(), nk);
+            if crate::simptools::methods::count_ops(&num) > crate::simptools::methods::count_ops(&den) {
+                std::mem::swap(&mut num, &mut den);
+            }
+            let ln = take(&mut merged, &num).unwrap();
+            let ld = take(&mut merged, &den).unwrap();
+            let ratio = div(single_log(&ln).unwrap(), single_log(&ld).unwrap());
+            other.push(mul2(&num, &unevaluated_log(ratio)));
+        } else {
+            let l = take(&mut merged, &k).unwrap();
+            other.push(mul2(&k, &l));
+        }
+    }
+    add(&other)
 }
 
 /// `(x*y)**a -> x**a * y**a` (for positive factors, or with `force`).

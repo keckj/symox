@@ -160,6 +160,21 @@ fn release_unevaluated(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
     result
 }
 
+/// SymPy's `hollow_mul` transform: a two-argument product of a number and
+/// a sum is rebuilt with `Mul(*args)`, which distributes the number.
+fn distribute_hollow_mul(e: &Expr) -> Expr {
+    if e.is_atom() {
+        return e.clone();
+    }
+    let e = crate::traverse::map_children(e, &mut |child| distribute_hollow_mul(child));
+    match e.kind() {
+        Kind::Mul(k, facs) if !k.is_one() && facs.len() == 1 && facs[0].0.is_add() && facs[0].1.is_one() => {
+            mul(&[Expr::num(k.clone()), facs[0].0.clone()])
+        }
+        _ => e,
+    }
+}
+
 /// A light general purpose simplifier (to be extended).
 pub fn simplify(e: &Expr) -> Expr {
     let evaluated = release_unevaluated(e, &mut FxHashMap::default());
@@ -176,6 +191,7 @@ pub fn simplify(e: &Expr) -> Expr {
     // Prefer the cancelled rational form when equally small, including
     // its deterministic positive leading denominator coefficient.
     let mut candidates = poly_candidates(e);
+    let cancelled = candidates.first().cloned();
     if candidates.iter().any(Expr::is_zero) {
         return Expr::zero();
     }
@@ -202,23 +218,79 @@ pub fn simplify(e: &Expr) -> Expr {
     }
     let selected = candidates
         .into_iter()
-        .min_by_key(|c| crate::traverse::node_count(c))
+        // Ties in size go to SymPy's count_ops measure, which counts an
+        // n-factor product as n - 1 multiplications (3*exp(a)*exp(b) is
+        // larger than 3*exp(a + b)).
+        .min_by_key(|c| (crate::traverse::node_count(c), crate::simptools::methods::count_ops(c)))
         .unwrap();
-    // Sign normalization can add a numeric -1 node while keeping the same
-    // arithmetic cost. Apply it after choosing candidates, so that size
-    // comparisons cannot restore a negative-looking denominator.
+    // SymPy's shorter() keeps the cancelled fraction on a count_ops tie: a
+    // numerator sign pulled out (-(2*x + y)/d for (-2*x - y)/d) has fewer
+    // nodes but is not shorter.
+    let selected = match cancelled {
+        Some(c) if c != selected && crate::simptools::methods::count_ops(&c) <= crate::simptools::methods::count_ops(&selected) => {
+            let (n1, d1) = numer_denom(&selected);
+            let (n0, d0) = numer_denom(&c);
+            if d1 == d0 && d0.is_add() && expand(&n1) == expand(&n0) { c } else { selected }
+        }
+        _ => selected,
+    };
+    // SymPy then applies factor_terms(expr, sign=False) (x - x*y is
+    // x*(1 - y)); its final hollow_mul pass distributes a remaining
+    // number*(sum) product again. SymPy applies it unconditionally, but the
+    // native selection above is not SymPy's chain of rewrites, so the
+    // result is kept only when it is not larger and keeps a proven real
+    // value provable: factoring the radicals out of a Cardano conjugate pair
+    // z**(7/3) + z**(-7/3) would hide that the root is real.
+    let factored = distribute_hollow_mul(&crate::simptools::exprtools::factor_terms(&selected, false, false, false, false));
+    let keeps_realness = || {
+        !crate::functions::contains_i(&selected)
+            || crate::assumptions::is_real(&selected) != Some(true)
+            || crate::assumptions::is_real(&factored) == Some(true)
+    };
+    let selected = if crate::simptools::methods::count_ops(&factored) <= crate::simptools::methods::count_ops(&selected)
+        && keeps_realness()
+    {
+        factored
+    } else {
+        selected
+    };
+    // SymPy applies powsimp after its rational and expansion steps, so the
+    // powers in an expanded or cancelled form are combined as well.
+    let mut selected = selected;
+    // The light pass merges equal bases and exponentials; SymPy's full
+    // powsimp also merges equal exponents (sqrt(2)*sqrt(a + b) is
+    // sqrt(2*a + 2*b)).
+    for combined in [
+        crate::simp::powsimp(&selected),
+        crate::simptools::powsimp::powsimp(&selected, &Default::default()),
+    ] {
+        // SymPy compares these with count_ops alone: a negated combined
+        // power (-sqrt(2*a + 2*b)) has more nodes but fewer operations.
+        let ops = |c: &Expr| (crate::simptools::methods::count_ops(c), crate::traverse::node_count(c));
+        if combined != selected && ops(&combined) < ops(&selected) {
+            selected = combined;
+        }
+    }
+    // SymPy reaches its sign through two steps. The input first passes
+    // through signsimp, which negates a sum with more negative terms (else
+    // the canonical order of the sum and its negation decides). Its cancel
+    // candidate then makes the denominator's leading coefficient positive in
+    // the polynomial generator order (x, y, z before other names). The
+    // smaller of the two by count_ops wins, the signsimp form on a tie:
+    // b/(b*x - a*y) keeps its sign, e11/(e11*e20 - e10*e21) and x/(1 - x)
+    // flip, and (C1 + x)/(C1 - x) is kept although x leads C1.
     let (numerator, denominator) = numer_denom(&selected);
     if denominator.is_add() {
-        // Factor arrays use the arena's fast internal order. Polynomial
-        // conversion supplies a deterministic order of symbols and leading
-        // monomial, including names with Unicode subscripts.
-        let negative = crate::poly::convert::from_exprs(std::slice::from_ref(&denominator))
+        let flipped = || div(&neg(&numerator), &neg(&denominator));
+        let signsimp_form =
+            if crate::decompose::could_extract_minus_sign(&denominator) { flipped() } else { selected.clone() };
+        let cancel_negative = crate::poly::convert::from_exprs(std::slice::from_ref(&denominator))
             .ok()
             .map(|c| c.polys[0].lc().is_negative())
-            .unwrap_or_else(|| crate::ops::could_extract_minus_sign(&denominator));
-        if negative {
-            return div(&neg(&numerator), &neg(&denominator));
-        }
+            .unwrap_or(false);
+        let cancel_form = if cancel_negative { flipped() } else { selected.clone() };
+        let ops = crate::simptools::methods::count_ops;
+        return if ops(&cancel_form) < ops(&signsimp_form) { cancel_form } else { signsimp_form };
     }
     selected
 }
