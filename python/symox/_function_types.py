@@ -20,7 +20,7 @@ class _NativeFunctionType(UndefinedFunction,NodeType):
 
 
 _types=WeakValueDictionary()
-_NODE_HEADS=frozenset({'ComplexRootOf'})
+_NODE_HEADS=frozenset({'ComplexRootOf','RootSum'})
 
 
 def application_type(name,*,nargs=None,**assumptions):

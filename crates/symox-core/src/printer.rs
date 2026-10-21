@@ -77,6 +77,20 @@ fn paren(e: &Expr, p: u8, strict: bool, out: &mut String) {
     }
 }
 
+/// The parts `(gen, polynomial, function)` of a `RootSum` node, stored as
+/// `RootSum(Lambda(gen, polynomial), function)` so that the generator is bound.
+pub(crate) fn root_sum_parts(e: &Expr) -> Option<(Expr, Expr, Expr)> {
+    let Kind::Func(Func::Undefined(n), args) = e.kind() else { return None };
+    if args.len() != 2 || n.internal || n.host().is_some() || n.name.as_ref() != "RootSum" {
+        return None;
+    }
+    let (variables, body) = crate::sets::lambda_parts(&args[0])?;
+    if variables.len() != 1 || crate::sets::lambda_parts(&args[1]).is_none() {
+        return None;
+    }
+    Some((variables[0].clone(), body, args[1].clone()))
+}
+
 pub(crate) fn write_expr(e: &Expr, out: &mut String) {
     if e.has_host() {
         if let Some(text) = crate::host::print(e, crate::host::HostFormat::Str) {
@@ -100,6 +114,18 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
         Kind::Pow(b, x) => write_pow(b, x, out),
         Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => {
             write_expr(&args[0], out);
+        }
+        Kind::Func(Func::Undefined(_), _) if root_sum_parts(e).is_some() => {
+            // StrPrinter._print_RootSum: the polynomial, then the function
+            // unless it is the identity.
+            let (_, poly, fun) = root_sum_parts(e).unwrap();
+            out.push_str("RootSum(");
+            write_expr(&poly, out);
+            if !matches!(fun.kind(), Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction), _)) {
+                out.push_str(", ");
+                write_expr(&fun, out);
+            }
+            out.push(')');
         }
         Kind::Func(Func::Undefined(n), args) if crate::poly::rootof::is_rootof_head(n, args.len()) => {
             out.push_str("CRootOf(");
@@ -458,6 +484,10 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Add(..) => list("Add", &ordered_terms(e), out),
         Kind::Mul(..) => list("Mul", &crate::sortkey::ordered_factors(e), out),
         Kind::Pow(..) => list("Pow", &e.args(), out),
+        Kind::Func(Func::Undefined(_), _) if root_sum_parts(e).is_some() => {
+            let (gen, poly, fun) = root_sum_parts(e).unwrap();
+            list("RootSum", &[poly, fun, gen], out)
+        }
         Kind::Func(Func::Undefined(n), args) if crate::poly::rootof::is_rootof_head(n, args.len()) => list("ComplexRootOf", args, out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => list("UnevaluatedExpr", args, out),
