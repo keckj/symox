@@ -107,7 +107,7 @@ def test_seeded_mixed_function_closures_and_contradictions_match_sympy():
                 assert getattr(value, 'is_'+fact) is getattr(oracle, 'is_'+fact), (kwargs, fact)
 
 
-@pytest.mark.parametrize('kwargs', [{'commutative': False}, {'commutative': None}, {'commutative': 'yes'},
+@pytest.mark.parametrize('kwargs', [{'commutative': None}, {'commutative': 'yes'},
     {'custom_fact': True}, {'custom_fact': None}, {'integer': True, 'even': False, 'odd': False},
     {'real': True, 'finite': False}])
 def test_unsupported_or_inconsistent_function_facts_are_rejected(kwargs):
@@ -257,10 +257,16 @@ def test_previous_function_pickles_preserve_legacy_metadata_and_internal_origin(
         assert pickle.loads(pickle.dumps(restored)) == restored
 
 
+def test_noncommutative_function_facts_are_accepted():
+    g = sx.Function('g', commutative=False)
+    x = sx.Symbol('x')
+    assert g(x).is_commutative is False
+    assert g(x)*g(x**2) != g(x**2)*g(x)
+
+
 @pytest.mark.parametrize('replacement', [
     lambda f: (f[0], (1 << 31, 0), *f[2:]),
     lambda f: (f[0], (0, 1), *f[2:]),
-    lambda f: (f[0], (1 << FACT_NAMES.index('commutative'), 0), *f[2:]),
     lambda f: (*f[:2], [], *f[3:]),
     lambda f: (*f[:2], [2], *f[3:]),
     lambda f: (*f[:3], True, f[4]),

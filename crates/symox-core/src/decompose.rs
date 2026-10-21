@@ -88,6 +88,26 @@ pub fn as_powers_dict(e:&Expr)->Vec<(Expr,Expr)>{
     visit(e,&mut FxHashMap::default())
 }
 
+/// `is_commutative` is True. A node free of noncommuting symbols, functions
+/// and host classes commutes without a traversal.
+#[inline]
+pub fn commutes(e:&Expr)->bool{!e.has_noncommutative_host()||commutativity(e)==Some(true)}
+
+/// True when `e` contains a noncommutative Symbol or a noncommutative
+/// undefined function application.  The host flag keeps commutative
+/// expressions on a constant-time path.
+pub fn has_noncommutative_atoms(e:&Expr)->bool{
+    fn visit(e:&Expr,seen:&mut rustc_hash::FxHashSet<usize>)->bool{
+        if !e.has_noncommutative_host()||!seen.insert(e.dag_id()){return false;}
+        match e.kind(){
+            Kind::Sym(symbol) if symbol.facts().get("commutative")==Some(false)=>true,
+            Kind::Func(crate::expr::Func::Undefined(head),_) if !head.internal&&head.facts().get("commutative")==Some(false)=>true,
+            _=>e.args().iter().any(|a|visit(a,seen)),
+        }
+    }
+    e.has_noncommutative_host()&&visit(e,&mut Default::default())
+}
+
 /// Native commutativity facts used by the Python expression protocol.
 pub fn commutativity(e:&Expr)->Option<bool>{
     fn visit(e:&Expr,cache:&mut FxHashMap<usize,(Expr,Option<bool>)>)->Option<bool>{
@@ -129,6 +149,7 @@ pub fn commutativity(e:&Expr)->Option<bool>{
             if let Some(symbol)=e.as_sym(){return symbol.facts().get("commutative").or(Some(true));}
         }
         match e.kind(){
+            Kind::Sym(symbol)=>symbol.facts().get("commutative").or(Some(true)),
             Kind::Func(crate::expr::Func::Undefined(head),arguments) if !head.internal=>head.facts().get("commutative")
                 .or_else(||all(&mut arguments.iter().map(|argument|visit(argument,cache)))),
             Kind::Add(..)|Kind::Mul(..)=>Some(args(e).iter().all(|a|visit(a,cache)==Some(true))),
@@ -259,6 +280,17 @@ pub fn as_independent(e:&Expr,deps:&[Expr],as_add:Option<bool>)->(Expr,Expr){
     let dependent=|term:&Expr|has_any(term,&other)||(!symbol_deps.is_empty() && traverse::free_symbols(term).iter().any(|s|symbol_deps.contains(s)));
     if (additive && !e.is_add()) || (!additive && !e.is_mul()){
         return if dependent(e){(identity,e.clone())}else{(e.clone(),identity)};
+    }
+    if !additive && e.has_noncommutative_host(){
+        // SymPy: once a noncommutative factor depends on deps, so does the
+        // remainder of the noncommutative part.
+        let(commutative,noncommutative)=args_cnc(e,true);
+        let(mut depend,mut independent):(Vec<_>,Vec<_>)=commutative.into_iter().partition(|f|dependent(f));
+        if let Some(start)=noncommutative.iter().position(|f|dependent(f)){
+            independent.extend(noncommutative[..start].iter().cloned());
+            depend.extend(noncommutative[start..].iter().cloned());
+        }else{independent.extend(noncommutative);}
+        return(ops::mul(&independent),join(&depend,false));
     }
     let (dependent,independent):(Vec<_>,Vec<_>)=args(e).into_iter().partition(dependent);
     // Unlike the coefficient APIs' raw-argument rebuild, SymPy evaluates the

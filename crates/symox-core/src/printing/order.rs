@@ -441,6 +441,18 @@ pub fn sort_key(e: &Expr) -> Rc<SortKey> {
 // ----------------------------------------------------------------------
 
 /// Sort factors with `default_sort_key` (`Mul.as_ordered_factors`).
+/// `sort_factors` of the commutative factors only: factors that may not
+/// commute keep their relative order after them, as in
+/// `Mul.as_ordered_factors`. Without such a factor this is `sort_factors`.
+pub fn sort_commutative_factors(v: &mut Vec<Expr>) {
+    if !v.iter().any(Expr::has_noncommutative_host) { return sort_factors(v); }
+    let (mut commutative, noncommutative): (Vec<Expr>, Vec<Expr>) =
+        v.drain(..).partition(crate::decompose::commutes);
+    sort_factors(&mut commutative);
+    commutative.extend(noncommutative);
+    *v = commutative;
+}
+
 pub fn sort_factors(v: &mut [Expr]) {
     if v.len() < 2 {
         return;

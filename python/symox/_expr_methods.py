@@ -35,9 +35,7 @@ def coeff(self, x, n=1, right=False, _first=True):
         raise NotImplementedError('Numeric coefficient powers are limited to magnitude 100000')
     target=x**n
     if self.is_commutative is not True or target.is_commutative is not True:
-        if self.is_commutative is True:return S.Zero
-        if right:raise NotImplementedError('Right scalar coefficients require commutative factors')
-        return _native_coeff(self,x,n)
+        return _noncommutative_coeff(self,target,right,_first)
     wanted,_=target.args_cnc(cset=True,warn=False)
     result=[]
     for term in terms:
@@ -45,6 +43,88 @@ def coeff(self, x, n=1, right=False, _first=True):
         if wanted.issubset(factors):
             result.append(Mul(*(list(factors-wanted)+ordered)))
     return Add(*result)
+
+
+def _noncommutative_coeff(self, x, right, _first):
+    """SymPy's ``Expr.coeff`` after ``x = x**n`` when a factor may not commute."""
+    from functools import reduce
+    from . import S, Add, Mul
+    def incommon(l1, l2):
+        if not l1 or not l2:return []
+        for i in range(min(len(l1),len(l2))):
+            if l1[i]!=l2[i]:return l1[:i]
+        return l1[:]
+    def find(l, sub, first=True):
+        if not sub or not l or len(sub)>len(l):return None
+        n=len(sub)
+        if not first:l.reverse();sub.reverse()
+        for i in range(len(l)-n+1):
+            if all(l[i+j]==sub[j] for j in range(n)):break
+        else:i=None
+        if not first:l.reverse();sub.reverse()
+        if i is not None and not first:i=len(l)-(i+n)
+        return i
+    co2=[];co=[]
+    args=Add.make_args(self)
+    self_c=self.is_commutative
+    x_c=x.is_commutative
+    if self_c and not x_c:return S.Zero
+    if _first and self.is_Add and not self_c and not x_c:
+        xargs=Mul.make_args(x)
+        d=Add(*[i for i in Add.make_args(self.as_independent(x)[1]) if all(xi in Mul.make_args(i) for xi in xargs)])
+        rv=coeff(d,x,right=right,_first=False)
+        if not rv.is_Add or not right:return rv
+        c_part,nc_part=zip(*[i.args_cnc() for i in rv.args])
+        if len(set(map(tuple,c_part)))>1:return rv
+        return Add(*[Mul(*i) for i in nc_part])
+    one_c=self_c or x_c
+    xargs,nx=x.args_cnc(cset=True,warn=bool(not x_c))
+    for a in args:
+        margs,nc=a.args_cnc(cset=True,warn=bool(not self_c))
+        if nc is None:nc=[]
+        if len(xargs)>len(margs):continue
+        resid=margs.difference(xargs)
+        if len(resid)+len(xargs)==len(margs):
+            if one_c:co2.append(Mul(*(list(resid)+nc)))
+            else:co.append((resid,nc))
+    if one_c:
+        return Add(*co2) if co2 else S.Zero
+    if not co:return S.Zero
+    if all(n==co[0][1] for r,n in co):
+        ii=find(co[0][1],nx,right)
+        if ii is not None:
+            if not right:return Mul(Add(*[Mul(*r) for r,c in co]),Mul(*co[0][1][:ii]))
+            return Mul(*co[0][1][ii+len(nx):])
+    beg=reduce(incommon,(n[1] for n in co))
+    if beg:
+        ii=find(beg,nx,right)
+        if ii is not None:
+            if not right:
+                gcdc=co[0][0]
+                for i in range(1,len(co)):
+                    gcdc=gcdc.intersection(co[i][0])
+                    if not gcdc:break
+                return Mul(*(list(gcdc)+beg[:ii]))
+            m=ii+len(nx)
+            return Add(*[Mul(*(list(r)+n[m:])) for r,n in co])
+    end=list(reversed(reduce(incommon,(list(reversed(n[1])) for n in co))))
+    if end:
+        ii=find(end,nx,right)
+        if ii is not None:
+            if not right:return Add(*[Mul(*(list(r)+n[:-len(end)+ii])) for r,n in co])
+            return Mul(*end[ii+len(nx):])
+    hit=None
+    for i,(r,n) in enumerate(co):
+        ii=find(n,nx,right)
+        if ii is not None:
+            if not hit:hit=ii,r,n
+            else:break
+    else:
+        if hit:
+            ii,r,n=hit
+            if not right:return Mul(*(list(r)+n[:ii]))
+            return Mul(*n[ii+len(nx):])
+    return S.Zero
 
 
 def as_ordered_terms(self, order=None, data=False):

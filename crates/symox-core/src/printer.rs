@@ -307,7 +307,8 @@ fn write_mul(e: &Expr, out: &mut String) {
     let mut den: Vec<Expr> = Vec::new();
     for item in ordered {
         match item.kind() {
-            Kind::Pow(b, x) => match negative_exponent(x) {
+            // SymPy moves only commutative powers to the denominator.
+            Kind::Pow(b, x) if commutes(&item) => match negative_exponent(x) {
                 Some(px) => den.push(mul_factor(b, &px)),
                 None => num.push(item.clone()),
             },
@@ -351,6 +352,8 @@ fn write_mul(e: &Expr, out: &mut String) {
     }
 }
 
+use crate::decompose::commutes;
+
 fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
     if *x == Expr::rational(1, 2) {
         out.push_str("sqrt(");
@@ -358,13 +361,15 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
         out.push(')');
         return;
     }
-    if *x == Expr::rational(-1, 2) {
+    // SymPy writes `1/b` and `1/sqrt(b)` only for a commutative power.
+    let commutative = commutes(b) && commutes(x);
+    if commutative && *x == Expr::rational(-1, 2) {
         out.push_str("1/sqrt(");
         write_expr(b, out);
         out.push(')');
         return;
     }
-    if x.is_minus_one() {
+    if commutative && x.is_minus_one() {
         out.push_str("1/");
         paren(b, PREC_MUL, true, out);
         return;

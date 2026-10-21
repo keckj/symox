@@ -100,7 +100,7 @@ pub(crate) fn ordered_factors(e: &Expr) -> Vec<Expr> {
     match e.kind() {
         Kind::Mul(c, facs) => {
             let mut v: Vec<Expr> = facs.iter().map(|(b, x)| mul_factor(b, x)).collect();
-            crate::printer::sort_factors(&mut v);
+            order::sort_commutative_factors(&mut v);
             if !c.is_one() {
                 v.insert(0, Expr::num(c.clone()));
             }
