@@ -753,18 +753,24 @@ def heurisch(f, x, rewrite=False, hints=None, mappings=None, retries=3,
 
         # ``solve_lin_sys(..., _raw=False)`` reads only the unknowns of the
         # coefficient ring ``PolyRing(poly_coeffs, ground)``
-        coeff_ring = _CoefficientRing(poly_coeffs, ground)
+        # The repeated ``_integrate`` calls of one ``heurisch`` call append
+        # to the same ``poly_coeffs``, so an unknown can occur twice. The
+        # reference ring then has a generator per occurrence, ``from_expr``
+        # maps the symbol to the last one and the earlier one is a zero
+        # column of the system: keep the last occurrence of each unknown.
+        unknowns = list(reversed(list(dict.fromkeys(reversed(poly_coeffs)))))
+        coeff_ring = _CoefficientRing(unknowns, ground)
         # The coefficients of ``raw_numer`` in ``V`` over ``coeff_ring``,
         # which the reference reads from the element of ``PolyRing(V,
         # coeff_ring)``: the terms are grouped by their monomial in ``V``.
         try:
-            numer = Poly(raw_numer, *V, *poly_coeffs, domain=ground)
+            numer = Poly(raw_numer, *V, *unknowns, domain=ground)
         except (ValueError, PolynomialError, CoercionFailed, GeneratorsNeeded):
             raise PolynomialError
         groups = {}
         n = len(V)
         for monom, coeff in numer.terms():
-            term = coeff*Mul(*[c**e for c, e in zip(poly_coeffs, monom[n:])])
+            term = coeff*Mul(*[c**e for c, e in zip(unknowns, monom[n:])])
             groups[monom[:n]] = groups.get(monom[:n], S.Zero) + term
         coeffs = [groups[m] for m in sorted(groups, reverse=True)]
         solution = solve_lin_sys(coeffs, coeff_ring, _raw=False)
