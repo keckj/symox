@@ -114,10 +114,18 @@ def test_inconsistent_symbol_and_dummy_facts_fail_before_construction(kwargs):
             make(sx, kind, kwargs)
 
 
-@pytest.mark.parametrize('kwargs', [{'commutative': False}, {'commutative': None}, {'commutative': 'yes'}, {'custom_fact': True}])
+@pytest.mark.parametrize('kwargs', [{'commutative': None}, {'commutative': 'yes'}, {'custom_fact': True}])
 def test_unsupported_symbol_domains_and_fact_names_are_explicit(kwargs):
     with pytest.raises((ValueError, NotImplementedError)):
         sx.Symbol('x', **kwargs)
+
+
+def test_noncommutative_symbol_facts_are_accepted():
+    a = sx.Symbol('a', commutative=False)
+    assert a.is_commutative is False
+    facts = a.assumptions0
+    assert facts['commutative'] is False and facts['complex'] is False
+    assert a.is_real is False and a.is_zero is False
 
 
 def test_basic_argument_order_uses_full_symbol_contents_and_dummy_index():

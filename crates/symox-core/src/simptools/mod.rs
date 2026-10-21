@@ -744,6 +744,11 @@ pub(crate) fn num_le(a: &Expr, b: &Expr) -> bool {
 /// SymPy's `expr.as_numer_denom()` (Add, Mul, Pow, exp and Rational).
 pub fn as_numer_denom(e: &Expr) -> (Expr, Expr) {
     let is_exp = |b: &Expr| b.is_constant(Constant::E);
+    // Pow.as_numer_denom and ExpBase.as_numer_denom: a noncommutative
+    // power is its own numerator.
+    if matches!(e.kind(), Kind::Pow(..) | Kind::Func(Func::Exp, _)) && !decompose::commutes(e) {
+        return (e.clone(), Expr::one());
+    }
     match e.kind() {
         Kind::Num(n) if n.is_rational() => (Expr::num(n.numer()), Expr::num(n.denom())),
         Kind::Mul(..) => {

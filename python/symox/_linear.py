@@ -91,6 +91,10 @@ def linsolve(system, *symbols):
         variables = _symbols(symbols)
         if not variables:
             raise ValueError("Explicit symbols must be given when passing equations")
+        from . import _noncommutative
+        if _noncommutative._any_nc(expressions):
+            # linear_eq_to_matrix -> Poly: the reference rejects nc input.
+            raise _noncommutative._polynomial_error()
         a, b = linear_eq_to_matrix(expressions, *variables)
     else:
         a, b = matrices

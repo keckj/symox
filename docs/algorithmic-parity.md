@@ -359,21 +359,93 @@ Remaining gaps in this area:
   `Piecewise._eval_power` is not applied by the `Pow` constructor, so
   `piecewise_fold` of such powers differs.
 - `Order.subs` solves the moving point only for an affine substitution.
-- Noncommutative symbols are not implemented, so the noncommutative
-  branches of `piecewise_fold` cannot be exercised.
+- The noncommutative branches of `piecewise_fold` are not audited.
 - The order of the `polarify` replacement mapping follows set iteration
   and may differ from SymPy's dict order; the mapping itself is equal.
 
 ## Remaining blocking gaps
 
-General noncommutative scalar algebra remains unsupported in this snapshot:
-`Symbol('a', commutative=False)` raises `ValueError` in the declaration layer.
-Dedicated tensor or quantum object protocols do not establish a general
-noncommutative scalar engine; neither do user classes with
-`is_commutative = None`, whose products keep their written order (see the
-paragraph on user subclasses below). Exact arithmetic reuse is restricted to ordinary
-commuting symbols and does not change this pre-existing rejection. This gap
-must be resolved before certifying general `Symbol` and scalar algebra parity.
+### Noncommutative symbols
+
+`Symbol('A', commutative=False)`, `Dummy`, `Wild` and
+`Function('g', commutative=False)` are accepted, and an undefined function
+applied to a noncommutative argument is noncommutative, as in the reference.
+A feature bit marks expressions that contain such an atom, so commutative
+expressions keep their native fast paths and their outputs unchanged.
+
+Supported with reference behaviour (`tests/test_noncommutative_parity.py`
+holds the reference outputs):
+
+- `is_commutative` of symbols, products, sums, powers and functions, and the
+  fact closure (`is_real`, `is_complex` and `is_zero` are False).
+- `Mul` canonicalisation as in `Mul.flatten`: commutative factors are
+  collected in front, noncommutative factors keep their order, and adjacent
+  equal bases combine (`A*A**-1 == 1`, `A**x*A**y == A**(x + y)`).
+  `A*B - B*A` stays nonzero, `(A*B)**2` stays unexpanded and
+  `(2*A)**2 == 4*A**2`.
+- `args`, `args_cnc`, `as_coeff_Mul`, `as_ordered_factors`, `coeff`,
+  `as_independent`, `has` on subproducts, `str`, `srepr`, `latex`, equality,
+  hashing, pickling, `subs` of a contiguous subproduct (a port of
+  `Mul._eval_subs`), `xreplace`, `expand` (multinomials keep the factor
+  order; `exp(A + B)` is not split), `diff`, `series` and `nc_simplify`.
+- `factor` and `factor_nc` (ports of `factor_nc` and `_mask_nc`),
+  `gcd_terms` and `factor_terms` (the reference term masks), `together`,
+  `cancel` and `apart` (the reference `PolynomialError` branches), `ratsimp`
+  (raises `PolynomialError`), `collect` (raises `AttributeError` for a
+  noncommutative pattern), `combsimp` and `gammasimp` without gamma
+  factors, and `simplify` (the reference pipeline, starting with
+  `nc_simplify`). Commutative subexpressions still go to the native code.
+- `Poly`, `linsolve` and the native expression-to-polynomial conversion
+  raise `PolynomialError('non-commutative expressions are not supported')`.
+- `solve` for commutative unknowns replaces each equation by the
+  coefficient equations of its distinct noncommutative words, so a
+  commutative unknown only takes commutative values
+  (`solve(A*x - B, x) == []`, `solve(x*A - A, x) == [1]`). A single
+  noncommutative unknown is solved from a one-sided linear equation
+  without commuting factors (`solve(A*B - C, B) == [A**-1*C]`).
+
+Stages of `simplify` without a noncommutative reference algorithm
+(`trigsimp`, `exptrigsimp`, `hyperexpand`, `besselsimp`, `logcombine`,
+`expand_log`, `radsimp`) run on a linear mask: the noncommutative part of
+each term becomes a commutative Dummy, and the result is kept only when it
+is still linear in these Dummies with none in a denominator. Otherwise the
+stage is skipped, so no factor is commuted.
+
+Remaining noncommutative gaps:
+
+- `adjoint` and `transpose` of a noncommutative expression raise
+  `NotImplementedError`; the reference returns unevaluated
+  `adjoint(B)*adjoint(A)`, which needs scalar adjoint and transpose nodes.
+- `radsimp` of a noncommutative term keeps a common commutative factor
+  (`(-1 + sqrt(2))*A`) where the reference expands it (`-A + sqrt(2)*A`).
+- `solve` differs from the reference where the reference result is wrong
+  or where Symox can decide more: `solve(B*A - C, B)` is `[C*A**-1]`
+  (reference `[A**-1*C]`), `solve(A*B*C - 1, B)` is `[(C*A)**-1]`
+  (reference `[(A*C)**-1]`), `solve(A*B - B, B)` is `[0]` and
+  `solve(A*B + B, A)` is `[-1]` (reference `[]`), and polynomial equations
+  of higher degree in a commutative unknown are solved
+  (`solve(x**2*A - A, x) == [-1, 1]`, `solve(exp(x)*A - A, x) == [0]`)
+  where the reference raises `PolynomialError`. Two-sided equations in a
+  noncommutative unknown (`A*B - B*A` in `A`, where the reference returns
+  `[]`) and systems in noncommutative unknowns raise `NotImplementedError`.
+  `nonlinsolve` raises `ValueError` (the reference returns
+  `{(B*A**-1,)}`).
+- `integrate(A*x, x)` returns `x**2*A/2`; the reference raises
+  `ValueError`.
+- `Symbol('A', commutative=False, real=True)` raises `ValueError`, as for
+  every inconsistent assumption set; the reference raises its
+  `InconsistentAssumptions` subclass.
+- `srepr` of a noncommutative undefined function lists all its derived
+  facts (`Function('g', algebraic=False, commutative=False, ...)`); the
+  reference prints `Function('g')`.
+- `Expr.equals` of noncommutative operands returns True only for a zero
+  difference and None otherwise.
+- Noncommutative `Wild` matching beyond the probed cases, `limit`, `nsimplify`, `evalf`, the
+  `assumptions` system, the matrices of noncommutative entries, the
+  printers other than `str`, `srepr` and `latex`, and the noncommutative
+  user classes with `is_commutative = None` (below) are not audited against
+  the reference. Polynomial simplification still treats noncommutative host
+  factors of such user classes as commuting.
 
 None of the cross-call reuse paths below (exact arithmetic, monomial `Add`
 construction, substitution, expansion, numerical evaluation and the NumPy
@@ -545,7 +617,8 @@ classes have remaining gaps:
   `_NumberKind` and `_BooleanKind` classes. Set kinds are not implemented.
 - `is_complex` of a finite non-real sum such as `1 + I` is unknown. The
   finiteness of `exp(f)` for finite `f`, and of `I**(1/3)`, are unknown.
-- Noncommutative symbols are not implemented.
+- Noncommutative symbols are implemented; see the noncommutative section
+  above for their remaining gaps.
 - `Mul.is_polar` of nonpolar factors is unknown. The reference gives False.
 - Binary float exponents are `i128` values bounded by `2**100`, so
   `exp(2**63)`, `exp(-2**63)`, `exp(2**70)` and `Float('1e999999999999999999')**3`

@@ -144,6 +144,11 @@ fn _st_factor_nc(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
 }
 
 #[pyfunction]
+fn _has_noncommutative_atoms(e: &Bound<'_, PyAny>) -> bool {
+    to_expr(e).map(|e| symox::decompose::has_noncommutative_atoms(&e)).unwrap_or(false)
+}
+
+#[pyfunction]
 fn _st_primitive(e: &Bound<'_, PyAny>) -> PyResult<(PyExpr, PyExpr)> {
     let (c, p) = st::primitive(&to_expr(e)?);
     Ok((wrap(Expr::num(c)), wrap(p)))
@@ -453,6 +458,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_st_gcd_terms, m)?)?;
     m.add_function(wrap_pyfunction!(_st_gcd_terms_list, m)?)?;
     m.add_function(wrap_pyfunction!(_st_factor_nc, m)?)?;
+    m.add_function(wrap_pyfunction!(_has_noncommutative_atoms, m)?)?;
     m.add_function(wrap_pyfunction!(_st_primitive, m)?)?;
     m.add_function(wrap_pyfunction!(_st_extract_additively, m)?)?;
     m.add_function(wrap_pyfunction!(_st_extract_multiplicatively, m)?)?;

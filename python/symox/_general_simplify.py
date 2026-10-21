@@ -32,6 +32,9 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         if expression.is_zero:return S.Zero if not expression.is_Number else expression
         return hook(**options)
     if not expression.args:return expression
+    if _core._has_noncommutative_atoms(expression):
+        from ._noncommutative import simplify as nc_simplify
+        return nc_simplify(expression,**options)
     from . import besselj,bessely,besseli,besselk,hankel1,hankel2,jn,yn
     if expression.func in (besselj,bessely,besseli,besselk,hankel1,hankel2,jn,yn):
         # BesselBase._eval_simplify is besselsimp, without the ratio test.

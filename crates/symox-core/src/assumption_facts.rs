@@ -13,7 +13,6 @@ impl FactSet {
     pub fn from_bits(known:u32,positive:u32)->Result<Self,String> {
         if known>>31!=0 || positive & !known!=0 {return Err("invalid Symbol fact masks".into());}
         let value=Self{known,positive};
-        if value.get("commutative")==Some(false){return Err("noncommutative symbols are not implemented".into());}
         value.closure()?;Ok(value)
     }
     pub fn bits(self)->(u32,u32){(self.known,self.positive)}
@@ -26,7 +25,6 @@ impl FactSet {
         let mut facts=Self::EMPTY;
         for (name,value) in kwargs {
             let index=data::NAMES.iter().position(|n|*n==name).ok_or_else(||format!("unknown assumption {name}"))?;
-            if name=="commutative"&&!value{return Err("noncommutative symbols are not implemented".into());}
             facts.merge(1<<index,if value{1<<index}else{0})?;
         }
         facts.closure()?;Ok(facts)
@@ -58,7 +56,7 @@ impl FactSet {
     }
     fn with_default_commutative(self,default:bool)->Result<Self,String>{
         let mut facts=self;
-        if default {facts.merge(Self::COMMUTATIVE.known,Self::COMMUTATIVE.positive)?;}
+        if default&&facts.known&Self::COMMUTATIVE.known==0 {facts.merge(Self::COMMUTATIVE.known,Self::COMMUTATIVE.positive)?;}
         loop {
             let before=facts;
             for i in 0..31 {

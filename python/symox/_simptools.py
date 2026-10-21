@@ -6,6 +6,7 @@ only adapts the SymPy call signatures and installs the ``Expr`` methods.
 import math as _math
 
 from . import _core
+from . import _noncommutative as _nc
 from ._core import Expr
 
 __all__ = [
@@ -53,7 +54,10 @@ def rcollect(expr, *vars):
 
 def radsimp(expr, symbolic=True, max_terms=4):
     """Rationalize denominators by removing square roots (SymPy ``radsimp``)."""
-    return _core._st_radsimp(_sympify(expr), bool(symbolic), int(max_terms))
+    expr = _sympify(expr)
+    if _nc.is_nc(expr):
+        return _nc.masked(lambda e: _core._st_radsimp(e, bool(symbolic), int(max_terms)), expr)
+    return _core._st_radsimp(expr, bool(symbolic), int(max_terms))
 
 
 # --- simplify.simplify -----------------------------------------------------
@@ -128,21 +132,33 @@ def factor_terms(expr, radical=False, clear=False, fraction=False, sign=True):
         return type(expr)([factor_terms(e, radical, clear, fraction, sign) for e in expr])
     if isinstance(expr, dict):
         return expr
-    return _core._st_factor_terms(_sympify(expr), bool(radical), bool(clear), bool(fraction), bool(sign))
+    expr = _sympify(expr)
+    if _nc.is_nc(expr):
+        return _nc.factor_terms(expr, radical, clear, fraction, sign)
+    return _core._st_factor_terms(expr, bool(radical), bool(clear), bool(fraction), bool(sign))
 
 
 def gcd_terms(terms, isprimitive=False, clear=True, fraction=True):
     """Factor the gcd out of an Add or a sequence of terms (SymPy ``gcd_terms``)."""
     if isinstance(terms, (list, tuple, set)):
-        return _core._st_gcd_terms_list([_sympify(t) for t in terms], bool(isprimitive), bool(clear), bool(fraction))
+        terms = [_sympify(t) for t in terms]
+        if _nc._any_nc(terms):
+            return _nc.gcd_terms(terms, isprimitive, clear, fraction)
+        return _core._st_gcd_terms_list(terms, bool(isprimitive), bool(clear), bool(fraction))
     if isinstance(terms, dict):
         return {k: gcd_terms(v, isprimitive, clear, fraction) for k, v in terms.items()}
-    return _core._st_gcd_terms(_sympify(terms), bool(isprimitive), bool(clear), bool(fraction))
+    terms = _sympify(terms)
+    if _nc.is_nc(terms):
+        return _nc.gcd_terms(terms, isprimitive, clear, fraction)
+    return _core._st_gcd_terms(terms, bool(isprimitive), bool(clear), bool(fraction))
 
 
 def factor_nc(expr):
-    """``factor`` for expressions with commutative factors only."""
-    return _core._st_factor_nc(_sympify(expr))
+    """Factor a noncommutative expression (SymPy ``factor_nc``)."""
+    expr = _sympify(expr)
+    if _nc.is_nc(expr):
+        return _nc.factor_nc(expr)
+    return _core._st_factor_nc(expr)
 
 
 # --- sqrtdenest, gammasimp, ratsimp, fu ------------------------------------
@@ -154,17 +170,26 @@ def sqrtdenest(expr, max_iter=3):
 
 def gammasimp(expr):
     """Simplify gamma functions and combinatorial functions as gammas."""
-    return _core._st_gammasimp(_sympify(expr))
+    expr = _sympify(expr)
+    if _nc.is_nc(expr):
+        return _nc.combsimp(expr, _core._st_gammasimp)
+    return _core._st_gammasimp(expr)
 
 
 def combsimp(expr):
     """Simplify combinatorial expressions (SymPy ``combsimp``)."""
-    return _core._st_combsimp(_sympify(expr))
+    expr = _sympify(expr)
+    if _nc.is_nc(expr):
+        return _nc.combsimp(expr, _core._st_combsimp)
+    return _core._st_combsimp(expr)
 
 
 def ratsimp(expr):
     """Put an expression over a common denominator, then cancel and reduce."""
-    return _core._st_ratsimp(_sympify(expr))
+    expr = _sympify(expr)
+    if _nc.is_nc(expr):
+        return _nc.ratsimp(expr)
+    return _core._st_ratsimp(expr)
 
 
 def ratsimpmodprime(expr, G, *gens, quick=True, polynomial=False, **args):
@@ -423,6 +448,16 @@ def _as_terms(self):
 
 def _equals(self, other, failing_expression=False):
     other = _sympify(other)
+    if _nc.is_nc(self) or _nc.is_nc(other):
+        # Expr.equals: a zero difference proves equality; the numerical
+        # constancy tests cannot decide a noncommutative difference.
+        if self == other:
+            return True
+        from . import simplify
+        diff = factor_terms(simplify(self - other), radical=True)
+        if not diff:
+            return True
+        return diff if failing_expression else None
     rv = _core._st_equals(self, other)
     if rv is None and failing_expression:
         from . import simplify

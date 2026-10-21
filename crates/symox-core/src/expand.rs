@@ -151,7 +151,7 @@ fn ex(
                 args[0].clone()
             };
             match a.kind() {
-                Kind::Add(..) if options.power_exp => {
+                Kind::Add(..) if options.power_exp && crate::decompose::commutes(&a) => {
                     let parts: Vec<Expr> = a.args().iter().map(exp).collect();
                     mul(&parts)
                 }
@@ -231,6 +231,20 @@ fn expand_pow(
                     // when the independent multiplication hint is disabled.
                     return expand_product(&factors);
                 }
+            }
+        }
+    }
+    // SymPy's Pow._eval_expand_power_base of a product that does not
+    // commute: an integer power repeats the ordered factors.
+    if let (Kind::Mul(..), Some(k)) = (b.kind(), x.as_number().filter(|n| n.is_integer()).and_then(Number::to_i64)) {
+        if options.power_base && b.has_noncommutative_host() && crate::decompose::commutativity(b) != Some(true) {
+            let (commutative, ordered) = crate::decompose::args_cnc(b, false);
+            let copies = usize::try_from(k.unsigned_abs()).ok().filter(|n| n.saturating_mul(ordered.len()) <= 1 << 16);
+            if let Some(copies) = copies {
+                let unit: Vec<Expr> = if k > 0 { ordered } else { ordered.iter().rev().map(|f| pow(f, &Expr::minus_one())).collect() };
+                let mut factors: Vec<Expr> = (0..copies).flat_map(|_| unit.iter().cloned()).collect();
+                if !commutative.is_empty() { factors.insert(0, pow(&mul(&commutative), x)); }
+                return if options.mul && factors.iter().any(|f| f.is_add()) { expand_product(&factors) } else { mul(&factors) };
             }
         }
     }

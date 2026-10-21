@@ -223,6 +223,9 @@ pub fn together(e: &Expr) -> Expr {
 
 /// SymPy's (recursive) `as_numer_denom`.
 pub fn as_numer_denom(e: &Expr) -> (Expr, Expr) {
+    if matches!(e.kind(), Kind::Pow(..) | Kind::Func(Func::Exp, _)) && !crate::decompose::commutes(e) {
+        return (e.clone(), Expr::one());
+    }
     match e.kind() {
         Kind::Num(n) => (Expr::num(n.numer()), Expr::num(n.denom())),
         Kind::Mul(c, facs) => {

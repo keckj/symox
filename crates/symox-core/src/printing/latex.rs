@@ -536,7 +536,7 @@ impl<'a> LatexPrinter<'a> {
             1 => self.print(&factors[0]),
             _ => {
                 let mut v = factors.to_vec();
-                crate::printer::sort_factors(&mut v);
+                super::order::sort_commutative_factors(&mut v);
                 // numbers first
                 v.sort_by_key(|f| !f.is_number());
                 self.convert_args(&v)
@@ -549,6 +549,7 @@ impl<'a> LatexPrinter<'a> {
         let mut numer = Vec::new();
         let mut denom = Vec::new();
         let push = |f: Expr, numer: &mut Vec<Expr>, denom: &mut Vec<Expr>| match f.kind() {
+            Kind::Pow(..) | Kind::Func(Func::Exp, _) if !crate::decompose::commutes(&f) => numer.push(f),
             Kind::Pow(b, x) => {
                 if is_known_negative(x) {
                     if x.is_minus_one() {
@@ -647,10 +648,10 @@ impl<'a> LatexPrinter<'a> {
                     return self.print_func(b, Some(format!("{p}/{q}")));
                 }
                 return format!("{base}^{{{p}/{q}}}");
-            } else if p < 0 {
+            } else if p < 0 && crate::decompose::commutes(b) {
                 return self.print_mul(e);
             }
-        } else if x.is_rational_number() && is_known_negative(x) {
+        } else if x.is_rational_number() && is_known_negative(x) && crate::decompose::commutes(b) {
             // big rational exponents
             return self.print_mul(e);
         }

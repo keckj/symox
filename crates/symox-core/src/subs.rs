@@ -260,6 +260,8 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
             }
             None => subs_children(e, old, new, cache),
         },
+        (Kind::Mul(..), Kind::Mul(..)) if e.has_noncommutative_host() || old.has_noncommutative_host() =>
+            noncommutative_mul_subs(e, old, new, cache).unwrap_or_else(|| subs_children(e, old, new, cache)),
         (Kind::Mul(..), Kind::Mul(..)) => match mul_contains(e, old) {
             Some((count, residual, rest)) => {
                 let rest = s1(&rest, old, new, cache);
@@ -506,6 +508,189 @@ fn coefficient_copies(available: &Number, wanted: &Number, limit: i64) -> Option
         count += 1;
     }
     Some(count)
+}
+
+/// SymPy's `Mul._eval_subs` for a product or pattern with factors that may
+/// not commute: commutative factors are extracted as from a multiset, a
+/// noncommutative pattern replaces consecutive factors whose bases agree
+/// in order. `None` falls back to substitution in the arguments.
+fn noncommutative_mul_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Option<Expr> {
+    use crate::decompose::{as_base_exp, commutativity};
+    let coefficient = |m: &Expr| match m.kind() { Kind::Mul(c, _) if !c.is_one() => Some(c.clone()), _ => None };
+    // Keep the replacement literal, so -2*x does not replace 4*x.
+    if coefficient(old).is_some_and(|c| c.is_negative()) {
+        if let Some(co_self) = coefficient(e) {
+            return co_self.is_negative().then(|| subs1(e, &crate::ops::neg(old), &crate::ops::neg(new)));
+        }
+    }
+    enum Nc { Pair(Expr, Number), Done(Expr) }
+    fn base_exp(a: &Expr) -> (Expr, Expr) {
+        if a.is_pow() || matches!(a.kind(), Kind::Func(Func::Exp, _)) { as_base_exp(a) } else { (a.clone(), Expr::one()) }
+    }
+    // b**(Rational*e) -> (b**e, Rational); commutative factors are summed
+    // by base in first-seen order, noncommutative ones keep their order.
+    fn breakup(m: &Expr) -> (Vec<(Expr, Number)>, Vec<(Expr, Number)>) {
+        let (mut c, mut nc): (Vec<(Expr, Number)>, Vec<(Expr, Number)>) = (Vec::new(), Vec::new());
+        for a in m.args() {
+            let (mut b, e) = base_exp(&a);
+            let co = match e.kind() { Kind::Num(n) => n.clone(), Kind::Mul(n, _) => n.clone(), _ => Number::ONE };
+            if !e.is_one() { b = pow(&b, &div(&e, &Expr::num(co.clone()))); }
+            if commutativity(&a) == Some(true) {
+                match c.iter_mut().find(|(k, _)| *k == b) { Some(entry) => entry.1 = entry.1.add(&co), None => c.push((b, co)) }
+            } else { nc.push((b, co)); }
+        }
+        (c, nc)
+    }
+    fn rejoin(b: &Expr, co: &Number) -> Expr {
+        let (b, e) = base_exp(b);
+        pow(&b, &mul2(&e, &Expr::num(co.clone())))
+    }
+    // The integer number of times b divides a extractively, else 0.
+    fn ndiv(a: &Number, b: &Number) -> i64 {
+        let (Some(a), Some(b)) = (a.to_ratio(), b.to_ratio()) else { return 0 };
+        if num_traits::Zero::is_zero(&b) || !(a.denom().is_multiple_of(b.denom()) || b.denom().is_multiple_of(a.denom())) { return 0; }
+        (a / b).trunc().to_integer().to_i64().unwrap_or(0)
+    }
+    fn multiplicity(p: &num_bigint::BigInt, n: &num_bigint::BigInt) -> i64 {
+        use num_traits::{Signed, Zero};
+        let (p, mut n) = (p.abs(), n.abs());
+        if p <= num_bigint::BigInt::from(1) || n.is_zero() { return 0; }
+        let mut count = 0;
+        while (&n % &p).is_zero() { n /= &p; count += 1; }
+        count
+    }
+    fn rational_multiplicity(p: &Number, n: &Number) -> Option<i64> {
+        let (pp, pq) = p.numer_denom()?;
+        let (np, nq) = n.numer_denom()?;
+        let one = num_bigint::BigInt::from(1);
+        Some(if pq == one {
+            multiplicity(&pp, &np) - multiplicity(&pp, &nq)
+        } else if pp == one {
+            multiplicity(&pq, &nq)
+        } else {
+            multiplicity(&pp, &np).min(multiplicity(&pq, &nq)) - multiplicity(&pq, &np).min(multiplicity(&pp, &nq))
+        })
+    }
+    // Give products in the denominator a chance to be changed.
+    let mut rv = None;
+    let (n, d) = crate::simptools::radsimp::fraction(e, false);
+    let mut self2 = e.clone();
+    if !d.is_one() {
+        self2 = div(&s1(&n, old, new, cache), &s1(&d, old, new, cache));
+        if !self2.is_mul() { return Some(s1(&self2, old, new, cache)); }
+        if self2 != *e { rv = Some(self2.clone()); }
+    }
+    let first = |m: &Expr| m.args().into_iter().next();
+    let (co_self, co_old) = (first(&self2)?, first(old)?);
+    let mut co_xmul = None;
+    match (co_self.as_number().filter(|n| n.is_rational()), co_old.as_number().filter(|n| n.is_rational())) {
+        (Some(cs), Some(co)) => if cs != co {
+            // Expr.extract_multiplicatively of a rational
+            co_xmul = cs.div(co).filter(|q| (!cs.is_integer() || q.is_integer()) && !(cs.is_positive() && q.is_negative()));
+        },
+        (None, Some(_)) => return rv,
+        _ => {}
+    }
+    let (mut c, nc) = breakup(&self2);
+    let (old_c, old_nc) = breakup(old);
+    let mut co_residual = Number::ONE;
+    if let (Some(_), Some(cs), Some(co)) = (&co_xmul, co_self.as_number(), co_old.as_number()) {
+        if !co.abs().is_one() {
+            let mult = rational_multiplicity(&co.abs(), cs)?;
+            let key = Expr::num(cs.clone());
+            c.retain(|(b, _)| *b != key);
+            let old_key = Expr::num(co.clone());
+            match c.iter_mut().find(|(b, _)| *b == old_key) { Some(entry) => entry.1 = entry.1.add(&Number::Int(mult)), None => c.push((old_key, Number::Int(mult))) }
+            co_residual = cs.div(&co.pow_i64(mult)?)?;
+        }
+    }
+    let lookup = |list: &[(Expr, Number)], b: &Expr| list.iter().find(|(k, _)| k == b).map(|(_, v)| v.clone());
+    let sign = |n: &Number| if n.is_positive() { 1 } else if n.is_negative() { -1 } else { 0 };
+    let ok = old_nc.len() <= nc.len() && old_c.len() <= c.len()
+        && old_nc.iter().all(|(b, _)| nc.iter().any(|(k, _)| k == b))
+        && old_c.iter().all(|(b, _)| lookup(&c, b).is_some())
+        && old_c.iter().all(|(b, e)| lookup(&c, b).is_some_and(|ce| sign(&ce) == sign(e)));
+    if !ok { return rv; }
+    let cdid = if old_c.is_empty() { None } else {
+        let mut least = i64::MAX;
+        for (b, old_e) in &old_c {
+            let r = ndiv(&lookup(&c, b)?, old_e);
+            if r == 0 { return rv; }
+            least = least.min(r);
+        }
+        Some(least)
+    };
+    let mut nc: Vec<Nc> = nc.into_iter().map(|(b, e)| Nc::Pair(b, e)).collect();
+    let ncdid = if old_nc.is_empty() {
+        for item in nc.iter_mut() { if let Nc::Pair(b, e) = item { *item = Nc::Done(rejoin(b, e)); } }
+        None
+    } else {
+        let mut ncdid = 0i64;
+        let take = old_nc.len();
+        let mut limit = cdid.unwrap_or(i64::MAX);
+        let mut failed = Vec::new();
+        let mut i = 0;
+        let pair = |item: &Nc| match item { Nc::Pair(b, e) => Some((b.clone(), e.clone())), Nc::Done(_) => None };
+        while limit != 0 && i + take <= nc.len() {
+            let mut hit = false;
+            let mut rat = Vec::new();
+            let mut matched = true;
+            for j in 0..take {
+                let Some((b, e)) = pair(&nc[i + j]) else { matched = false; break };
+                if b != old_nc[j].0 { matched = false; break; }
+                if j == 0 || j == take - 1 { rat.push(ndiv(&e, &old_nc[j].1)); }
+                else if e != old_nc[j].1 { matched = false; break; }
+                else { rat.push(1); }
+            }
+            if matched {
+                let mut ndo = rat.iter().copied().min().unwrap_or(0);
+                if ndo != 0 {
+                    let (b0, e0) = pair(&nc[i]).expect("matched pair");
+                    if take == 1 {
+                        if let Some(cdid) = cdid { ndo = ndo.min(cdid); }
+                        let rest = rejoin(&b0, &e0.sub(&Number::Int(ndo).mul(&old_nc[0].1)));
+                        nc[i] = Nc::Done(mul2(&pow(new, &Expr::int(ndo)), &rest));
+                    } else {
+                        ndo = 1;
+                        let left = rejoin(&b0, &e0.sub(&old_nc[0].1));
+                        let mid = new.clone();
+                        let ir = i + take - 1;
+                        let (br, er) = pair(&nc[ir]).expect("matched pair");
+                        let right = er.sub(&old_nc[take - 1].1);
+                        let replacement = if !right.is_zero() {
+                            if i + take < nc.len() { vec![Nc::Done(mul2(&left, &mid)), Nc::Pair(br, right)] }
+                            else { vec![Nc::Done(mul(&[left, mid, rejoin(&br, &right)]))] }
+                        } else { vec![Nc::Done(mul2(&left, &mid))] };
+                        nc.splice(i..i + take, replacement);
+                    }
+                    limit = limit.saturating_sub(ndo);
+                    ncdid += ndo;
+                    hit = true;
+                }
+            }
+            if !hit { failed.push(i); }
+            i += 1;
+        }
+        if ncdid == 0 { return rv; }
+        failed.extend(i..nc.len());
+        for index in failed {
+            if let Nc::Pair(b, e) = &nc[index] { let value = s1(&rejoin(b, e), old, new, cache); nc[index] = Nc::Done(value); }
+        }
+        Some(ncdid)
+    };
+    let done = match (cdid, ncdid) { (None, Some(n)) => n, (Some(c), None) => c, (Some(c), Some(n)) => c.min(n), (None, None) => 0 };
+    let mut margs = Vec::with_capacity(c.len() + 1);
+    for (b, e) in &c {
+        match lookup(&old_c, b) {
+            Some(old_e) => margs.push(rejoin(b, &e.sub(&old_e.mul(&Number::Int(done))))),
+            None => margs.push(rejoin(&s1(b, old, new, cache), e)),
+        }
+    }
+    if let Some(cdid) = cdid {
+        if ncdid.unwrap_or(0) == 0 { margs.insert(0, pow(new, &Expr::int(cdid))); }
+    }
+    let nc: Vec<Expr> = nc.into_iter().map(|item| match item { Nc::Done(e) => e, Nc::Pair(b, e) => rejoin(&b, &e) }).collect();
+    Some(mul(&[Expr::num(co_residual), mul(&margs), mul(&nc)]))
 }
 
 /// Extract as many copies of `s` as occur in `e`, allowing larger powers.

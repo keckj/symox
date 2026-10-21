@@ -305,9 +305,22 @@ fn has_in(e: &Expr, s: &Expr, structural: bool) -> bool {
         }
         // The public arguments include an explicit coefficient, but exclude
         // the implicit exponent one in the compact factor representation.
-        Kind::Mul(..) => e.args().iter().any(|a| has_in(a, s, structural)),
+        Kind::Mul(..) => (s.is_mul() && (e.has_noncommutative_host() || s.has_noncommutative_host()) && noncommutative_mul_contains(e, s))
+            || e.args().iter().any(|a| has_in(a, s, structural)),
         _ => e.args().iter().any(|a| has_in(a, s, structural)),
     }
+}
+
+/// SymPy's `AssocOp._has_matcher` for products: the commutative arguments
+/// of `s` form a subset of those of `e` and its noncommutative arguments a
+/// consecutive run of those of `e`.
+fn noncommutative_mul_contains(e: &Expr, s: &Expr) -> bool {
+    let split = |m: &Expr| -> (Vec<Expr>, Vec<Expr>) {
+        m.args().into_iter().partition(|a| crate::decompose::commutativity(a) == Some(true))
+    };
+    let ((c, nc), (ec, enc)) = (split(s), split(e));
+    if !c.iter().all(|a| ec.contains(a)) { return false; }
+    nc.is_empty() || (nc.len() <= enc.len() && enc.windows(nc.len()).any(|w| w == nc.as_slice()))
 }
 
 /// Estimate cache retention from the native DAG, without constructing

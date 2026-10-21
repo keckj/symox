@@ -815,15 +815,26 @@ def trace(expr):
     return Matrix(expr).trace()
 
 
+def _reject_noncommutative_adjoint(arg, name):
+    # The reference keeps adjoint(A)/transpose(A) unevaluated and reverses
+    # noncommutative products; there is no scalar node for that here, and
+    # conjugating in place would keep the wrong factor order.
+    if isinstance(arg, _core.Expr) and _core._has_noncommutative_atoms(arg):
+        raise NotImplementedError(
+            "%s of noncommutative scalar expressions is not implemented" % name)
+
+
 def adjoint(arg):
     if not hasattr(arg, "adjoint"):
         arg = sympify(arg)
+    _reject_noncommutative_adjoint(arg, "adjoint")
     return arg.adjoint()
 
 
 def transpose(arg):
     if getattr(arg, "_symox_matrixexpr", False):
         return arg.transpose()
+    _reject_noncommutative_adjoint(arg, "transpose")
     if isinstance(arg, (_core.Expr, int, float, complex)):
         # the transpose of a commutative scalar is the scalar itself
         return sympify(arg)
@@ -2043,6 +2054,23 @@ from ._simptools import (  # noqa: E402
     powsimp, powdenest, factor_terms, gcd_terms, factor_nc, sqrtdenest, combsimp, gammasimp,
     ratsimp, ratsimpmodprime, fu, exptrigsimp, trigsimp, FU, kroneckersimp,
 )
+
+# Noncommutative input follows the reference branches of the rational
+# simplifiers; commutative input keeps calling the native functions.
+from . import _noncommutative as _nc  # noqa: E402
+cancel, factor, apart, together, collect = _nc.install(cancel, factor, apart, together, collect)
+
+
+def _make_solve_entry(_native):
+    def solve(f, *symbols, **flags):
+        if _nc._any_nc(f if isinstance(f, (list, tuple, set)) else [f]):
+            return _nc.solve(_native, f, *symbols, **flags)
+        return _native(f, *symbols, **flags)
+    solve.__doc__ = _native.__doc__
+    return solve
+
+
+solve = _make_solve_entry(solve)
 
 # Assumption-dependent queries and rewrites use the native Rust engine.
 from .assumptions import (Q, Predicate, AppliedPredicate, AssumptionsContext,
