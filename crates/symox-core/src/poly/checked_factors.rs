@@ -62,16 +62,16 @@ fn preflight_mode(p: &Polynomial, limits: Limits, legacy: bool) -> PResult<()> {
         return Err(failure("polynomial generators are required"));
     }
     if let Some(f) = &p.algebraic {
-        if f.gens.len() != 1 {
+        if f.gens.len() > 8 {
             return Err(failure(
-                "multivariate number-field factorization is not implemented",
+                "checked factorization supports at most eight polynomial/coefficient variables",
             ));
         }
         check_rep(&f.rep, limits)?;
-        if f.number_field
-            .degree()
-            .saturating_mul(f.rep.degree(0).max(0) as usize)
-            > 256
+        let degree = (0..f.gens.len())
+            .map(|v| f.rep.degree(v).max(0) as usize)
+            .fold(0usize, usize::saturating_add);
+        if f.number_field.degree().saturating_mul(degree) > 256
         {
             return Err(failure(
                 "factorization resource limit: algebraic norm degree exceeds 256",
@@ -293,12 +293,38 @@ pub fn factor_list(p: &Polynomial, squarefree: bool, limits: Limits) -> PResult<
 /// Existing opaque/inexact coefficient polynomials retain their exact stored
 /// arithmetic. They do not acquire a fictitious typed Domain; their factors
 /// are checked in the existing expanded generator representation instead.
+/// The reference views over `EX`: square-free decomposition runs in the
+/// domain, while `dmp_factor_list` raises `DomainError`, so `Poly.factor_list`
+/// returns a constant as the unit and anything else as its only factor.
+fn expression_factorization(
+    p: &super::expression_domain::ExpressionPoly,
+    squarefree: bool,
+    all: bool,
+) -> PResult<Factorization> {
+    let constant = |c: Expr| {
+        super::expression_domain::ExpressionPoly::from_terms(vec![(vec![0; p.gens.len()], c)], &p.gens)
+    };
+    if squarefree {
+        let (c, factors) = p.sqf_list(all)?;
+        return Ok(Factorization {
+            unit: constant(c)?.into(),
+            factors: factors.into_iter().map(|(f, k)| (f.into(), k as u32)).collect(),
+        });
+    }
+    if p.degree(0) == 0 {
+        return Ok(Factorization { unit: p.clone().into(), factors: Vec::new() });
+    }
+    Ok(Factorization { unit: constant(Expr::one())?.into(), factors: vec![(p.clone().into(), 1)] })
+}
 pub fn compatible_list(
     p: &Polynomial,
     squarefree: bool,
     all: bool,
     limits: Limits,
 ) -> PResult<Factorization> {
+    if let Some(e) = &p.expression {
+        return expression_factorization(e, squarefree, all);
+    }
     factor_budget::run(limits, || {
         let legacy = p.field.is_none()
             && p.algebraic.is_none()
@@ -359,6 +385,9 @@ pub fn compatible_list(
     })
 }
 pub fn squarefree_part(p: &Polynomial, limits: Limits) -> PResult<Polynomial> {
+    if let Some(e) = &p.expression {
+        return Ok(e.sqf_part()?.into());
+    }
     factor_budget::run(limits, || {
         let result = compatible_list(p, true, false, limits)?;
         if p.is_zero() {
@@ -525,6 +554,12 @@ pub fn include(
     all: bool,
     limits: Limits,
 ) -> PResult<Vec<(Polynomial, u32)>> {
+    if let Some(e) = &p.expression {
+        if !squarefree {
+            return Ok(vec![(p.clone(), 1)]);
+        }
+        return Ok(e.sqf_list_include(all)?.into_iter().map(|(f, k)| (f.into(), k as u32)).collect());
+    }
     factor_budget::run(limits, || {
         preflight(p, limits)?;
         let factorization = raw(p, squarefree)?;
@@ -619,6 +654,13 @@ pub fn ground_roots(p: &Polynomial, limits: Limits) -> PResult<Vec<(Expr, u32)>>
     factor_budget::run(limits, || {
         if p.ngens != 1 {
             return Err(failure("ground_roots requires one polynomial generator"));
+        }
+        if let Some(e) = &p.expression {
+            if e.degree(0) != 1 {
+                return Ok(Vec::new());
+            }
+            let c = e.all_coeffs();
+            return Ok(vec![(crate::ops::div(&crate::ops::neg(&c[1]), &c[0]), 1)]);
         }
         preflight(p, limits)?;
         let factorization = raw(p, false)?;

@@ -71,6 +71,8 @@ pub(crate) fn precedence(e: &Expr) -> i32 {
         }
         Kind::Pow(..) => PREC_POW,
         Kind::Func(crate::expr::Func::Special(crate::special::SpecialFn::Mod), _) => PREC_MUL,
+        // A root object is an Expr, not a Function: atom precedence.
+        Kind::Func(crate::expr::Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => PREC_ATOM,
         Kind::Func(..) | Kind::Piecewise(_) => PREC_FUNC,
         Kind::Rel(op, ..) => match op {
             crate::expr::RelOp::Eq | crate::expr::RelOp::Ne => PREC_MUL,

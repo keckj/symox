@@ -657,6 +657,14 @@ impl Expr {
                 if *f == Func::Order {
                     mask |= ORDER_MASK;
                 }
+                if let Func::Undefined(head) = f {
+                    if crate::poly::rootof::is_rootof_head(head, args.len()) {
+                        // The generator of a root object's defining polynomial
+                        // is bound: no free symbols, but `has` still sees it.
+                        mask = 0;
+                        features |= 2048;
+                    }
+                }
                 if let Func::MatrixElement(parent) | Func::MatrixProxy(parent) | Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent) = f {
                     has_matrix = true;
                     for matrix in parent.matrix_symbols() {
@@ -828,6 +836,8 @@ impl Expr {
     /// `is_commutative` not True), so products must keep its order.
     #[inline]
     pub fn has_noncommutative_host(&self)->bool {self.0.features & 1024 != 0}
+    /// Contains a root object, whose bound generator the mask omits.
+    pub fn has_bound_generator(&self)->bool {self.0.features & 2048 != 0}
     /// The number of strong references to this node.
     pub fn strong_count(&self)->usize {Arc::strong_count(&self.0)}
     /// Visit the nodes this node references strongly through its scalar

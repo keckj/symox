@@ -361,6 +361,25 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
             }
             _ => (arg.clone(), Expr::one()),
         };
+        // The reference default domain ZZ_I/QQ_I of each component.
+        let gaussian = if modulus.is_none() && checked.is_none() {
+            match super::gaussian::default_selection(std::slice::from_ref(&base), gens) {
+                Some(selection) => match super::algebraic::AlgebraicPoly::from_expr(&base, &selection.gens, super::gaussian::field()) {
+                    Ok(mut p) => {
+                        p.gaussian = Some(selection.integral);
+                        let (c, fs) = if sqf { p.sqf_list() } else { p.factor_list()? };
+                        let ce = c.as_expr();
+                        let positive = ce.as_number().is_some_and(|n| n.is_positive());
+                        Some((ce, positive, fs.into_iter().map(|(q, k)| (FItem::E(q.as_expr()), k)).collect::<Vec<_>>()))
+                    }
+                    Err(_) => None,
+                },
+                None => None,
+            }
+        } else {
+            None
+        };
+        let (ce, positive, mut fs) = if let Some(list) = gaussian { list } else {
         let poly = match Poly::from_expr(&base, gens) {
             Ok(p) => p,
             Err(_) => {
@@ -395,7 +414,9 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
             let (c, fs) = if sqf { poly.sqf_list() } else { poly.factor_list() };
             (rat_expr(&c,float),c.n.is_positive(),fs)
         };
-        let mut fs: Vec<(FItem, u32)> = fs.into_iter().map(|(p, k)| (FItem::P(p), k)).collect();
+        let fs: Vec<(FItem, u32)> = fs.into_iter().map(|(p, k)| (FItem::P(p), k)).collect();
+        (ce, positive, fs)
+        };
         if !ce.is_one() {
             if exp.is_integer_number() {
                 coeff = mul(&[coeff, pow(&ce, &exp)]);
@@ -517,6 +538,256 @@ pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototyp
         let factors:Vec<_>=factors.into_iter().map(|(p,k)|(p.into(),k)).collect();
         super::checked_factors::verify_expression_factors(prototype,&coefficient,&factors,limits)?;
         Ok((coefficient,factors))
+    })
+}
+/// One component of the reference `_symbolic_factor_list` for options that
+/// select an explicit coefficient domain.
+#[derive(Clone, Debug)]
+pub enum DomainFactor {
+    P(super::fraction::Polynomial),
+    E(Expr),
+}
+impl DomainFactor {
+    pub fn as_expr(&self) -> Expr {
+        match self {
+            DomainFactor::P(p) => p.as_expr(),
+            DomainFactor::E(e) => e.clone(),
+        }
+    }
+}
+fn same_component(a: &DomainFactor, b: &DomainFactor) -> bool {
+    match (a, b) {
+        (DomainFactor::P(a), DomainFactor::P(b)) => {
+            component_gens(a) == component_gens(b)
+                && a.domain_str() == b.domain_str()
+                && a.as_expr() == b.as_expr()
+        }
+        (DomainFactor::E(a), DomainFactor::E(b)) => a == b,
+        _ => false,
+    }
+}
+fn component_gens(p: &super::fraction::Polynomial) -> Vec<Expr> {
+    match &p.algebraic {
+        Some(a) => a.gens.clone(),
+        None => p.base.true_gens().to_vec(),
+    }
+}
+/// The reference `_sorted_factors` key: `(len(rep), len(gens), exp,
+/// str(domain), rep)` for factor lists and `(exp, len(rep), ...)` for
+/// square-free lists.
+fn compare_components(
+    a: &super::fraction::Polynomial,
+    ka: u32,
+    b: &super::fraction::Polynomial,
+    kb: u32,
+    squarefree: bool,
+) -> std::cmp::Ordering {
+    let length = |p: &super::fraction::Polynomial| match &p.algebraic {
+        Some(f) => f.rep.degree(0).max(-1) + 1,
+        None => p.base.rep.degree(0).max(-1) + 1,
+    };
+    let (la, lb) = (length(a), length(b));
+    let (ga, gb) = (component_gens(a).len(), component_gens(b).len());
+    let main = if squarefree {
+        ka.cmp(&kb).then(la.cmp(&lb)).then(ga.cmp(&gb))
+    } else {
+        la.cmp(&lb).then(ga.cmp(&gb)).then(ka.cmp(&kb))
+    };
+    main.then_with(|| a.domain_str().cmp(&b.domain_str()))
+        .then_with(|| match (&a.algebraic, &b.algebraic) {
+            (Some(x), Some(y)) if x.gaussian.is_some() && y.gaussian.is_some() => {
+                super::gaussian::compare_reps(&x.rep, &y.rep)
+            }
+            (Some(x), Some(y)) => {
+                let _scope = super::algebraic::AlgebraicScope::new(x.number_field.clone());
+                super::algebraic_multi::compare_reps(&x.rep, &y.rep)
+            }
+            _ => super::polyobj::rep_cmp(&a.base.rep, &b.base.rep, 0),
+        })
+}
+/// The reference `_symbolic_factor_list` when the options select a
+/// coefficient domain: each multiplicative component of `e` is converted on
+/// its own (`build` returns `None` when polification fails) and factored over
+/// the domain those options give it.
+pub fn domain_symbolic_factor_list(
+    e: &Expr,
+    squarefree: bool,
+    build: &dyn Fn(&Expr) -> PResult<Option<super::fraction::Polynomial>>,
+    limits: super::factor_budget::Limits,
+) -> PResult<(Expr, Vec<(DomainFactor, Expr)>)> {
+    let mut coeff = Expr::one();
+    let mut factors: Vec<(DomainFactor, Expr)> = Vec::new();
+    let args: Vec<Expr> = match e.kind() {
+        Kind::Mul(..) => {
+            let mut a = e.args();
+            crate::printing::order::sort_factors(&mut a);
+            a
+        }
+        _ => vec![e.clone()],
+    };
+    for arg in args {
+        if is_pure_complex(&arg) {
+            coeff = mul(&[coeff, arg]);
+            continue;
+        }
+        let (base, exp) = match arg.kind() {
+            Kind::Pow(b, x) if !b.is_constant(Constant::E) => {
+                if b.is_number() && x.is_number() {
+                    coeff = mul(&[coeff, arg.clone()]);
+                    continue;
+                }
+                if b.is_number() {
+                    factors.push((DomainFactor::E(b.clone()), x.clone()));
+                    continue;
+                }
+                (b.clone(), x.clone())
+            }
+            _ => (arg.clone(), Expr::one()),
+        };
+        let Some(poly) = build(&base)? else {
+            factors.push((DomainFactor::E(base), exp));
+            continue;
+        };
+        let result = super::checked_factors::compatible_list(&poly, squarefree, false, limits)?;
+        let ce = result.unit.as_expr();
+        let mut fs: Vec<(DomainFactor, u32)> =
+            result.factors.into_iter().map(|(p, k)| (DomainFactor::P(p), k)).collect();
+        if !ce.is_one() {
+            if exp.is_integer_number() {
+                coeff = mul(&[coeff, pow(&ce, &exp)]);
+            } else if crate::assumptions::fact(&ce, "positive") == Some(true) {
+                factors.push((DomainFactor::E(ce), exp.clone()));
+            } else {
+                fs.push((DomainFactor::E(ce), 1));
+            }
+        }
+        if exp.is_one() {
+            factors.extend(fs.into_iter().map(|(f, k)| (f, Expr::int(k as i64))));
+        } else if exp.is_integer_number() {
+            factors.extend(fs.into_iter().map(|(f, k)| (f, mul(&[Expr::int(k as i64), exp.clone()]))));
+        } else {
+            let mut other = Vec::new();
+            for (f, k) in fs {
+                if crate::assumptions::fact(&f.as_expr(), "positive") == Some(true) {
+                    factors.push((f, mul(&[Expr::int(k as i64), exp.clone()])));
+                } else {
+                    other.push(pow(&f.as_expr(), &Expr::int(k as i64)));
+                }
+            }
+            factors.push((DomainFactor::E(mul(&other)), exp.clone()));
+        }
+    }
+    if squarefree {
+        let mut ks: Vec<Expr> = Vec::new();
+        for (_, k) in &factors {
+            if !ks.contains(k) {
+                ks.push(k.clone());
+            }
+        }
+        let mut out = Vec::new();
+        for k in ks {
+            let group: Vec<&DomainFactor> =
+                factors.iter().filter(|(_, kk)| *kk == k).map(|(f, _)| f).collect();
+            let item = if group.len() == 1 {
+                group[0].clone()
+            } else {
+                let mut acc: Option<super::fraction::Polynomial> = None;
+                let mut exprs = Vec::new();
+                for g in &group {
+                    match g {
+                        DomainFactor::P(p) => {
+                            acc = Some(match acc {
+                                None => p.clone(),
+                                Some(a) => a.mul(p),
+                            })
+                        }
+                        DomainFactor::E(x) => exprs.push(x.clone()),
+                    }
+                }
+                match (acc, exprs.is_empty()) {
+                    (Some(p), true) => DomainFactor::P(p),
+                    (Some(p), false) => {
+                        exprs.push(p.as_expr());
+                        DomainFactor::E(mul(&exprs))
+                    }
+                    (None, _) => DomainFactor::E(mul(&exprs)),
+                }
+            };
+            out.push((item, k));
+        }
+        factors = out;
+    }
+    let mut out: Vec<(DomainFactor, Expr)> = Vec::new();
+    for (f, k) in factors {
+        if let Some(x) = out.iter_mut().find(|x| same_component(&x.0, &f)) {
+            x.1 = add(&[x.1.clone(), k]);
+        } else {
+            out.push((f, k));
+        }
+    }
+    out.retain(|(_, k)| !k.is_zero());
+    Ok((coeff, out))
+}
+/// The reference `_generic_factor_list` with domain options for expressions:
+/// `together`, numerator and denominator component lists, then the generic
+/// factor-list order.
+pub fn domain_factor_list(
+    e: &Expr,
+    squarefree: bool,
+    build: &dyn Fn(&Expr) -> PResult<Option<super::fraction::Polynomial>>,
+    limits: super::factor_budget::Limits,
+) -> PResult<(Expr, Vec<(super::fraction::Polynomial, u32)>)> {
+    super::factor_budget::run(limits, || {
+        super::factor_preflight::check(e, limits)?;
+        guard_symbolic_factor_work(e, limits)?;
+        let together = together(e);
+        guard_symbolic_factor_work(&together, limits)?;
+        let (numerator, denominator) = as_numer_denom(&together);
+        let (cp, fp) = domain_symbolic_factor_list(&numerator, squarefree, build, limits)?;
+        let (cq, fq) = domain_symbolic_factor_list(&denominator, squarefree, build, limits)?;
+        if !fq.is_empty() {
+            return Err(PolyError::Failed(
+                "a polynomial expected: denominator factors require frac=True".into(),
+            ));
+        }
+        let mut factors = Vec::with_capacity(fp.len());
+        for (f, k) in fp {
+            let k = k
+                .as_i64()
+                .filter(|&k| k > 0 && k <= limits.degree as i64)
+                .ok_or_else(|| {
+                    PolyError::Unsupported(
+                        "checked factor lists require positive integer multiplicities".into(),
+                    )
+                })? as u32;
+            let poly = match f {
+                DomainFactor::P(p) => p,
+                DomainFactor::E(e) => build(&e)?.ok_or_else(|| {
+                    PolyError::Failed(format!("cannot convert {} to a polynomial", e))
+                })?,
+            };
+            factors.push((poly, k));
+        }
+        factors.sort_by(|(a, ka), (b, kb)| compare_components(a, *ka, b, *kb, squarefree));
+        Ok((div(&cp, &cq), factors))
+    })
+}
+/// The reference `_symbolic_factor` with domain options: the product of the
+/// component factorizations of `together(e)`.
+pub fn domain_factor(
+    e: &Expr,
+    squarefree: bool,
+    build: &dyn Fn(&Expr) -> PResult<Option<super::fraction::Polynomial>>,
+    limits: super::factor_budget::Limits,
+) -> PResult<Expr> {
+    super::factor_budget::run(limits, || {
+        super::factor_preflight::check(e, limits)?;
+        guard_symbolic_factor_work(e, limits)?;
+        let together = together(e);
+        guard_symbolic_factor_work(&together, limits)?;
+        let (coeff, factors) = domain_symbolic_factor_list(&together, squarefree, build, limits)?;
+        let product: Vec<Expr> = factors.iter().map(|(f, k)| pow(&f.as_expr(), k)).collect();
+        Ok(keep_coeff(&coeff, &mul(&product)))
     })
 }
 fn guard_symbolic_factor_work(e:&Expr,limits:super::factor_budget::Limits)->PResult<()> {
@@ -802,7 +1073,7 @@ pub fn cofactors(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Expr, Expr, Expr
 fn uni_pair(a: &Expr, b: &Expr, gens: &[Expr]) -> PResult<(Vec<Rat>, Vec<Rat>, Vec<Expr>)> {
     let ps = Poly::from_exprs(&[a.clone(), b.clone()], gens)?;
     if ps[0].gens.len() != 1 {
-        return Err(PolyError::Unsupported("univariate polynomials expected".into()));
+        return Err(PolyError::Unsupported("univariate polynomial expected".into()));
     }
     Ok((dense::from_mpoly(&ps[0].rep, 0), dense::from_mpoly(&ps[1].rep, 0), ps[0].gens.clone()))
 }
@@ -941,6 +1212,21 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
         return Ok(map_children(e, &mut |c| cancel(c).unwrap_or_else(|_| c.clone())));
     }
     let (p, q) = as_numer_denom(e);
+    // The reference default domain ZZ_I/QQ_I: `I` is a coefficient, not a
+    // generator, so (x**2 + 1)/(x - I) cancels to x + I.
+    if let Some(selection) = super::gaussian::default_selection(&[p.clone(), q.clone()], &[]) {
+        use super::algebraic::AlgebraicPoly;
+        let field = super::gaussian::field();
+        if let (Ok(mut a), Ok(mut b)) = (
+            AlgebraicPoly::from_expr(&p, &selection.gens, field.clone()),
+            AlgebraicPoly::from_expr(&q, &selection.gens, field),
+        ) {
+            a.gaussian = Some(false);
+            b.gaussian = Some(false);
+            let (pp, qq) = super::gaussian::expr_cancel(&a.rep, &b.rep)?;
+            return Ok(div(&a.with_rep(pp).as_expr(), &b.with_rep(qq).as_expr()));
+        }
+    }
     let c = match super::convert::from_exprs(&[p.clone(), q.clone()]) {
         Ok(c) => c,
         Err(_) => return Ok(e.clone()),

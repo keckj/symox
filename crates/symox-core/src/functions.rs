@@ -239,6 +239,7 @@ fn is_numeric_value_uncached(e: &Expr) -> bool {
             false
         }
         Kind::Func(Func::Logic(_) | Func::Set(_), _) => false,
+        Kind::Func(Func::Undefined(n), a) if crate::poly::rootof::is_rootof_head(n, a.len()) => true,
         Kind::Func(Func::Undefined(n), a) => n.is_internal("Tuple") && a.iter().all(is_numeric_value),
         // Inspect compact payloads instead of args(): reconstructing public
         // terms and powers may canonicalize a shared held arithmetic DAG.

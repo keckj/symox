@@ -177,7 +177,7 @@ def _unexpanded(rep,gens,domain,modulus,extension,args):
             powers[base]=powers.get(base,0)+int(exponent);found.add(base)
         terms.append((Mul(*coefficient),powers))
     if not gens:gens=_sort(found,args)
-    if not gens:raise GeneratorsNeeded('Cannot initialize a polynomial without generators')
+    if not gens:raise GeneratorsNeeded("Cannot initialize from 'dict' without generators")
     indices={g:i for i,g in enumerate(gens)};data={}
     for coefficient,powers in terms:
         monomial=[0]*len(gens)

@@ -88,7 +88,9 @@ def test_legacy_expression_coefficients_keep_calculations_and_pickle(coefficient
     assert p.as_expr()==coefficient*x+1
     assert sm.expand(p.integrate().diff().as_expr()-p.as_expr())==0
     assert pickle.loads(pickle.dumps(p))==p
-    with pytest.raises(NotImplementedError):p.domain
+    # The reference infers ZZ[sin(a)], EX and the Gaussian integers.
+    expected={sm.I:'ZZ_I',sm.sqrt(2):'EX'}.get(coefficient,'ZZ[sin(a)]')
+    assert str(p.domain)==expected
 
 
 def test_implicit_domain_ring_without_runtime_sympy():

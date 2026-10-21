@@ -163,8 +163,9 @@ def test_fraction_domains_reject_unknown_coefficients_and_zero_division():
         p.div(0)
     with pytest.raises(TypeError, match="norm"):
         p.max_norm()
-    with pytest.raises(TypeError):
-        p.gcd(sm.Poly(sm.pi*x, x))
+    # The reference unifies QQ(a) with ZZ[pi] into ZZ(a,pi).
+    assert str(p.gcd(sm.Poly(sm.pi*x, x))) == "Poly(x, x, domain='ZZ(a,pi)')"
+    assert str(sm.Poly(sm.pi*x, x).gcd(p)) == "Poly(x, x, domain='ZZ(pi,a)')"
     with pytest.raises(ValueError, match="generators"):
         sm.Poly(x/a, x, x, domain="QQ(a)")
     with pytest.raises(ValueError, match="generators"):

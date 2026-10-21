@@ -183,6 +183,13 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     let num = if has(&num, x) { num } else { return Some(vec![]) };
     // polynomial in x
     if let Some(c) = poly_coeffs(&num, x) {
+        // The reference solves polynomials through `roots` over the composite
+        // coefficient domain, which factors symbolic coefficients first.
+        if c.iter().any(|t| !t.is_rational_number()) && (c.len() > 3 || splits_quadratic(&num, x)) {
+            if let Some(r) = complete_roots(&num, x, &c) {
+                return Some(r);
+            }
+        }
         return poly_roots(&c).or_else(|| complete_roots(&num, x, &c))
             .or_else(|| algebraic::roots(&num, x));
     }
@@ -223,6 +230,19 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         return solve_rec(&ex, x, depth + 1);
     }
     None
+}
+
+/// Whether a quadratic factors in `x` over its coefficient domain; an
+/// irreducible quadratic keeps the closed form of `poly_roots`, which is the
+/// simplified reference result.
+fn splits_quadratic(num: &Expr, x: &Expr) -> bool {
+    crate::poly::api::factor_list(num).is_ok_and(|(_, fs)| {
+        fs.iter()
+            .filter(|(g, _)| has(g, x))
+            .map(|(_, k)| k.as_i64().unwrap_or(1))
+            .sum::<i64>()
+            > 1
+    })
 }
 
 /// The full `roots` machinery (quartics, decomposition such as x**8 in

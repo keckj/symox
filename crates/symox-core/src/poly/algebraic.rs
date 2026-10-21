@@ -142,6 +142,22 @@ impl NumberField {
     pub fn degree(&self) -> usize {
         self.minimal.len() - 1
     }
+    /// The pure quadratic representation `QQ[T]/(T**2 - radicand)`.
+    pub fn is_pure_quadratic(&self) -> bool {
+        self.model.is_none() && !self.radicand.is_zero()
+    }
+    /// A field given only by its generator and monic minimal polynomial,
+    /// for exact arithmetic during embedding and primitive element
+    /// constructions. Membership falls back to certified embedding.
+    pub fn bare(generator: Expr, minimal: Vec<Rat>) -> Arc<Self> {
+        Arc::new(Self {
+            generator,
+            alias: None,
+            minimal,
+            radicand: Rat::zero(),
+            model: None,
+        })
+    }
     pub fn display(&self) -> String {
         format!("QQ<{}>", self.alias.as_ref().unwrap_or(&self.generator))
     }
@@ -158,6 +174,128 @@ impl NumberField {
             .map_err(|_| PolyError::Failed("invalid algebraic generator".into()))?;
         Self::from_generator(&e).map(Some)
     }
+}
+
+type BasisKey = (Expr, Vec<Rat>);
+thread_local! {
+    static BASIS: RefCell<rustc_hash::FxHashMap<BasisKey, Arc<Vec<Expr>>>> =
+        RefCell::new(rustc_hash::FxHashMap::default());
+}
+
+/// Expanded expressions of `theta**n` for `n` below the field degree, the
+/// reference `_make_converter`. A generator that is a rational combination
+/// of algebraic terms has its powers reduced modulo the minimal polynomial
+/// of every term before expansion, so `(sqrt(2) + sqrt(3))**2` becomes
+/// `5 + 2*sqrt(6)`.
+fn power_exprs(field: &NumberField) -> Arc<Vec<Expr>> {
+    let key = (field.generator.clone(), field.minimal.clone());
+    if let Some(v) = BASIS.with(|b| b.borrow().get(&key).cloned()) {
+        return v;
+    }
+    let degree = field.degree().max(1);
+    let generator = &field.generator;
+    let plain = || {
+        (0..degree)
+            .map(|n| crate::expand::expand(&pow(generator, &Expr::int(n as i64))))
+            .collect::<Vec<_>>()
+    };
+    let powers = if generator.is_add() {
+        reduced_powers(generator, degree).unwrap_or_else(plain)
+    } else {
+        plain()
+    };
+    let powers = Arc::new(powers);
+    BASIS.with(|b| {
+        let mut b = b.borrow_mut();
+        if b.len() > 1024 {
+            b.clear();
+        }
+        b.insert(key, powers.clone());
+    });
+    powers
+}
+
+fn reduced_powers(generator: &Expr, degree: usize) -> Option<Vec<Expr>> {
+    let Kind::Add(c, terms) = generator.kind() else {
+        return None;
+    };
+    let mut gens = Vec::new();
+    let mut coefficients = Vec::new();
+    for (t, k) in terms {
+        gens.push(t.clone());
+        coefficients.push(Rat::from_number(k)?);
+    }
+    let constant = Rat::from_number(c)?;
+    if !constant.is_zero() {
+        gens.push(Expr::one());
+        coefficients.push(constant);
+    }
+    let minimal = gens
+        .iter()
+        .map(|g| super::embedding::minimal_rational(g).ok())
+        .collect::<Option<Vec<_>>>()?;
+    let n = gens.len();
+    let reduce = |p: MPoly<Rat>| -> MPoly<Rat> {
+        let mut pending: Vec<(Vec<u32>, Rat)> = p.iter().map(|(e, c)| (e.to_vec(), c.clone())).collect();
+        let mut done: BTreeMap<Vec<u32>, Rat> = BTreeMap::new();
+        while let Some((e, c)) = pending.pop() {
+            match (0..n).find(|&j| e[j] as usize + 1 >= minimal[j].len()) {
+                None => {
+                    let entry = done.entry(e).or_insert_with(Rat::zero);
+                    *entry = entry.add(&c);
+                }
+                Some(j) => {
+                    let d = minimal[j].len() - 1;
+                    for (i, m) in minimal[j][..d].iter().enumerate() {
+                        if m.is_zero() {
+                            continue;
+                        }
+                        let mut f = e.clone();
+                        f[j] = f[j] - d as u32 + i as u32;
+                        pending.push((f, c.mul(m).neg()));
+                    }
+                }
+            }
+        }
+        MPoly::from_terms(n, done.into_iter().filter(|(_, c)| !c.is_zero()).collect())
+    };
+    let ext = MPoly::from_terms(
+        n,
+        coefficients
+            .iter()
+            .enumerate()
+            .map(|(j, c)| {
+                let mut e = vec![0; n];
+                e[j] = 1;
+                (e, c.clone())
+            })
+            .collect(),
+    );
+    let mut polys = vec![MPoly::constant(Rat::one(), n)];
+    for _ in 1..degree {
+        let next = reduce(polys.last().unwrap().mul(&ext));
+        polys.push(next);
+    }
+    Some(
+        polys
+            .iter()
+            .map(|p| {
+                let terms: Vec<Expr> = p
+                    .iter()
+                    .map(|(e, c)| {
+                        let mut factors = vec![Expr::num(c.to_number())];
+                        for (g, &k) in gens.iter().zip(e) {
+                            if k != 0 {
+                                factors.push(pow(g, &Expr::int(k as i64)));
+                            }
+                        }
+                        mul(&factors)
+                    })
+                    .collect();
+                crate::expand::expand(&add(&terms))
+            })
+            .collect(),
+    )
 }
 
 thread_local! {static CURRENT:RefCell<Option<Arc<NumberField>>>=const {RefCell::new(None)};}
@@ -200,19 +338,27 @@ impl AN {
     pub fn alpha(field: Arc<NumberField>) -> Self {
         Self::new(vec![Rat::zero(), Rat::one()], field)
     }
+    /// The expanded expression of the element, like the reference
+    /// `AlgebraicField.to_sympy`: each power of the generator is expanded
+    /// once, and the rational combination is collected term by term.
     pub fn as_expr(&self) -> Expr {
-        add(&self
-            .coefficients
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| !c.is_zero())
-            .map(|(i, c)| {
-                mul(&[
-                    Expr::num(c.to_number()),
-                    pow(&self.field.generator, &Expr::int(i as i64)),
-                ])
-            })
-            .collect::<Vec<_>>())
+        let basis = power_exprs(&self.field);
+        let mut terms = Vec::new();
+        for (i, c) in self.coefficients.iter().enumerate() {
+            if c.is_zero() {
+                continue;
+            }
+            let c = Expr::num(c.to_number());
+            match basis[i].kind() {
+                Kind::Add(..) => {
+                    for t in crate::traverse::ordered_args(&basis[i]) {
+                        terms.push(mul(&[c.clone(), t]));
+                    }
+                }
+                _ => terms.push(mul(&[c, basis[i].clone()])),
+            }
+        }
+        add(&terms)
     }
     pub fn pow(&self, k: i64) -> Self {
         let mut base = if k < 0 { self.inv() } else { self.clone() };
@@ -235,7 +381,7 @@ impl AN {
                 "quadratic conjugation is not a norm for higher-degree fields".into(),
             ));
         }
-        if self.field.model.is_none() {
+        if self.field.is_pure_quadratic() {
             return Ok(Self::new(
                 self.coefficients
                     .iter()
@@ -256,6 +402,20 @@ impl AN {
         Ok(result)
     }
     pub fn from_expr(e: &Expr, field: Arc<NumberField>) -> PResult<Self> {
+        match Self::from_expr_structural(e, field.clone()) {
+            // Quadratic and bare fields only combine their generator
+            // syntactically; any other element, like a denested radical,
+            // is embedded exactly. Model fields embed in `coefficient`.
+            Err(PolyError::Unsupported(_))
+                if field.model.is_none() && crate::traverse::free_symbols(e).is_empty() =>
+            {
+                super::embedding::coefficient(&field.generator, &field.minimal, e)
+                    .map(|c| Self::new(c, field))
+            }
+            other => other,
+        }
+    }
+    fn from_expr_structural(e: &Expr, field: Arc<NumberField>) -> PResult<Self> {
         if e == &field.generator {
             return Ok(Self::alpha(field));
         }
@@ -291,7 +451,7 @@ impl AN {
                         return Err(unsupported());
                     };
                     out = out.add(
-                        &Self::from_expr(t, field.clone())?.mul(&Self::rational(c, field.clone())),
+                        &Self::from_expr_structural(t, field.clone())?.mul(&Self::rational(c, field.clone())),
                     );
                 }
                 out
@@ -303,9 +463,9 @@ impl AN {
                 let mut out = Self::rational(c, field.clone());
                 for (b, x) in factors {
                     let value = if x.is_one() {
-                        Self::from_expr(b, field.clone())?
+                        Self::from_expr_structural(b, field.clone())?
                     } else {
-                        Self::from_expr(&pow(b, x), field.clone())?
+                        Self::from_expr_structural(&pow(b, x), field.clone())?
                     };
                     out = out.mul(&value);
                 }
@@ -313,7 +473,7 @@ impl AN {
             }
             Kind::Pow(b, x) => {
                 let k = x.as_i64().ok_or_else(unsupported)?;
-                let base = Self::from_expr(b, field.clone())?;
+                let base = Self::from_expr_structural(b, field.clone())?;
                 if k < 0 && base.is_zero() {
                     return Err(PolyError::Failed(
                         "zero algebraic coefficient denominator".into(),
@@ -399,69 +559,160 @@ impl Field for AN {
     }
 }
 
+/// `extension=True` domain inference without explicit generators.
 pub fn infer(expressions: &[Expr]) -> PResult<Option<Arc<NumberField>>> {
-    // Validate unsupported numeric radical degrees before collecting whole
-    // numeric subexpressions, which may generate a proper subfield.
-    super::algebraic_model::inferred_generators(expressions)?;
-    fn scan(e: &Expr, out: &mut Vec<Expr>) {
-        let (_, tail) = crate::ops::as_coeff_mul(e);
-        if crate::traverse::free_symbols(&tail).is_empty() {
-            if let Ok(field) = NumberField::from_generator(&tail) {
-                if !out.contains(&field.generator) {
-                    out.push(field.generator.clone());
+    infer_in(expressions, &[])
+}
+
+/// The reference `construct_domain(coefficients, extension=True)`: the
+/// coefficients of the expanded expressions in `gens` (or, without
+/// generators, their algebraic numeric factors) select a number field only
+/// when every coefficient is an algebraic number and one is not a rational
+/// or Gaussian number. The field is then generated by the ordered atoms of
+/// the coefficient trees, which are the coefficient subexpressions that are
+/// neither rational, sums nor products. `None` keeps the domain inferred
+/// without an extension.
+pub fn infer_in(expressions: &[Expr], gens: &[Expr]) -> PResult<Option<Arc<NumberField>>> {
+    match infer_selection_in(expressions, gens)? {
+        ExtensionSelection::Field(field) => Ok(Some(field)),
+        ExtensionSelection::Gaussian { .. } => NumberField::from_generator(&Expr::i()).map(Some),
+        ExtensionSelection::Unchanged => Ok(None),
+    }
+}
+
+/// The domain selected by the reference `construct_domain(coefficients,
+/// extension=True)`.
+#[derive(Clone, Debug)]
+pub enum ExtensionSelection {
+    /// A proper algebraic number field.
+    Field(Arc<NumberField>),
+    /// Only rational and Gaussian rational coefficients: `ZZ_I` when every
+    /// coefficient is a Gaussian integer, `QQ_I` otherwise.
+    Gaussian { integral: bool },
+    /// The domain inferred without an extension applies.
+    Unchanged,
+}
+
+/// [`infer_in`] distinguishing the reference `ZZ_I`/`QQ_I` selection from
+/// the number field `QQ<I>`.
+pub fn infer_selection_in(expressions: &[Expr], gens: &[Expr]) -> PResult<ExtensionSelection> {
+    fn pure_complex(e: &Expr) -> Option<(crate::number::Number, crate::number::Number)> {
+        let imaginary = |t: &Expr| -> Option<crate::number::Number> {
+            if t == &Expr::i() {
+                return Some(crate::number::Number::int(1));
+            }
+            match t.kind() {
+                Kind::Mul(c, factors)
+                    if factors.len() == 1 && factors[0].0 == Expr::i() && factors[0].1.is_one() =>
+                {
+                    Some(c.clone())
                 }
-                return;
+                _ => None,
+            }
+        };
+        if let Some(b) = imaginary(e) {
+            return Some((crate::number::Number::int(0), b));
+        }
+        if let Kind::Add(c, terms) = e.kind() {
+            if terms.len() == 1 {
+                let term = mul(&[terms[0].0.clone(), Expr::num(terms[0].1.clone())]);
+                return imaginary(&term).map(|b| (c.clone(), b));
             }
         }
-        if let Kind::Mul(_, factors) = e.kind() {
-            if crate::traverse::free_symbols(e).is_empty() {
-                // An unsupported numeric product must not regroup to itself.
-                for a in e.args() {
-                    scan(&a, out);
-                }
-                return;
-            }
-            let mut numeric = Vec::new();
-            for (base, exponent) in factors {
-                let factor = pow(base, exponent);
-                if crate::traverse::free_symbols(&factor).is_empty() {
-                    numeric.push(factor);
-                } else {
-                    scan(&factor, out);
-                }
-            }
-            // A numeric coefficient can be split into radical factors in
-            // the scalar DAG. Recombine it before selecting its number field:
-            // cbrt(2)*I*sqrt(3) belongs to one degree-six field although I and
-            // sqrt(3) separately would require a larger ambient compositum.
-            if !numeric.is_empty() {
-                scan(&mul(&numeric), out);
-            }
+        None
+    }
+    fn atoms(e: &Expr, out: &mut Vec<Expr>) {
+        if e.as_number().is_some() {
             return;
         }
-        for a in e.args() {
-            scan(&a, out);
+        if matches!(e.kind(), Kind::Add(..) | Kind::Mul(..)) {
+            for a in e.args() {
+                atoms(&a, out);
+            }
+        } else if !out.contains(e) {
+            out.push(e.clone());
         }
     }
-    let mut candidates = Vec::new();
+    let mut coefficients = Vec::new();
     for e in expressions {
-        scan(e, &mut candidates);
+        let expanded = crate::expand::expand(e);
+        let terms = if matches!(expanded.kind(), Kind::Add(..)) {
+            expanded.args().to_vec()
+        } else {
+            vec![expanded]
+        };
+        for term in terms {
+            let (c, tail) = crate::ops::as_coeff_mul(&term);
+            let factors = match tail.kind() {
+                Kind::Mul(..) => tail.args().to_vec(),
+                _ if tail.is_one() => Vec::new(),
+                _ => vec![tail.clone()],
+            };
+            let mut coefficient = vec![Expr::num(c)];
+            for factor in factors {
+                let is_coefficient = if gens.is_empty() {
+                    crate::traverse::free_symbols(&factor).is_empty()
+                        && crate::assumptions::fact(&factor, "algebraic") == Some(true)
+                } else {
+                    !gens.iter().any(|g| crate::traverse::has(&factor, g))
+                };
+                if is_coefficient {
+                    coefficient.push(factor);
+                }
+            }
+            coefficients.push(mul(&coefficient));
+        }
     }
-    if candidates.is_empty() {
-        Ok(None)
-    } else {
-        NumberField::from_generators(&candidates).map(Some)
+    let (mut floats, mut complexes, mut algebraics, mut rationals) = (false, false, false, false);
+    for c in &coefficients {
+        if let Some(n) = c.as_number() {
+            if n.is_float() {
+                if algebraics {
+                    return Ok(ExtensionSelection::Unchanged);
+                }
+                floats = true;
+            } else if !n.is_integer() {
+                rationals = true;
+            }
+        } else if let Some((re, im)) = pure_complex(c) {
+            complexes = true;
+            floats |= re.is_float() || im.is_float();
+            rationals |= !re.is_integer() || !im.is_integer();
+        } else if crate::traverse::free_symbols(c).is_empty()
+            && crate::assumptions::fact(c, "algebraic") == Some(true)
+        {
+            if floats {
+                return Ok(ExtensionSelection::Unchanged);
+            }
+            algebraics = true;
+        } else {
+            return Ok(ExtensionSelection::Unchanged);
+        }
     }
+    if !algebraics {
+        return Ok(if complexes && !floats {
+            ExtensionSelection::Gaussian { integral: !rationals }
+        } else {
+            ExtensionSelection::Unchanged
+        });
+    }
+    let mut extensions = Vec::new();
+    for c in &coefficients {
+        atoms(c, &mut extensions);
+    }
+    // SymPy's `ordered`: node count first, then the default sort key.
+    extensions.sort_by_cached_key(|e| (crate::traverse::node_count(e), crate::sortkey::sort_key(e)));
+    NumberField::from_generators(&extensions).map(ExtensionSelection::Field)
 }
 
 /// Field norm of a univariate polynomial in x, by eliminating the primitive
 /// generator T. Rational denominator scaling is restored exactly after the
 /// integer subresultant calculation.
-fn polynomial_norm(coefficients: &[AN], field: &NumberField) -> PResult<Vec<Rat>> {
+pub(crate) fn polynomial_norm(coefficients: &[AN], field: &NumberField) -> PResult<Vec<Rat>> {
     if coefficients.is_empty() {
         return Ok(Vec::new());
     }
-    if field.degree() == 2 && field.model.is_none() {
+    if field.degree() == 2 && field.is_pure_quadratic() {
         let conjugate = coefficients
             .iter()
             .map(AN::conjugate)
@@ -518,7 +769,49 @@ pub struct AlgebraicPoly {
     pub rep: MPoly<AN>,
     pub gens: Vec<Expr>,
     pub number_field: Arc<NumberField>,
+    /// `Some(true)` for the Gaussian integers `ZZ_I`, `Some(false)` for the
+    /// Gaussian rationals `QQ_I` (both over `QQ<I>`), `None` for a genuine
+    /// algebraic field `QQ<...>`.
+    pub gaussian: Option<bool>,
 }
+/// Generators of `expressions` over `field`, as the reference
+/// `_parallel_dict_from_expr_no_gens` with `opt.domain` set: after
+/// expansion every multiplicative factor of every term that is not a number
+/// of the field contributes its `decompose_power` base, so
+/// `x - sqrt(3)*y` over `QQ<sqrt(2)>` has the generators `x, y, sqrt(3)`.
+pub fn infer_generators(expressions: &[Expr], field: &Arc<NumberField>) -> Vec<Expr> {
+    let _scope = AlgebraicScope::new(field.clone());
+    let mut gens: Vec<Expr> = Vec::new();
+    let mut members: Vec<Expr> = Vec::new();
+    for e in expressions {
+        let e = crate::expand::expand(e);
+        let terms = if e.is_add() { e.args() } else { vec![e] };
+        for t in terms {
+            let factors = if t.is_mul() { t.args() } else { vec![t] };
+            for f in factors {
+                if matches!(f.kind(), Kind::Num(_)) || members.contains(&f) {
+                    continue;
+                }
+                if crate::traverse::free_symbols(&f).is_empty()
+                    && AN::from_expr(&f, field.clone()).is_ok()
+                {
+                    members.push(f);
+                    continue;
+                }
+                let base = match f.kind() {
+                    Kind::Pow(b, x) => super::convert::decompose_power(b, x).0,
+                    _ => f.clone(),
+                };
+                if !gens.contains(&base) {
+                    gens.push(base);
+                }
+            }
+        }
+    }
+    super::convert::sort_gens(&mut gens);
+    gens
+}
+
 impl AlgebraicPoly {
     pub fn from_expr(e: &Expr, gens: &[Expr], field: Arc<NumberField>) -> PResult<Self> {
         if gens.is_empty()
@@ -557,10 +850,17 @@ impl AlgebraicPoly {
             rep: MPoly::from_terms(gens.len(), terms),
             gens: gens.to_vec(),
             number_field: field,
+            gaussian: None,
         })
     }
     pub fn convert(&self, e: &Expr) -> PResult<Self> {
-        Self::from_expr(e, &self.gens, self.number_field.clone())
+        let mut p = Self::from_expr(e, &self.gens, self.number_field.clone())?;
+        // A converted operand of a ZZ_I/QQ_I polynomial is itself Gaussian:
+        // ZZ_I when its coefficients are integral, QQ_I otherwise.
+        if self.gaussian.is_some() {
+            p.gaussian = Some(super::gaussian::poly_is_integral(&p.rep));
+        }
+        Ok(p)
     }
     pub fn with_rep(&self, rep: MPoly<AN>) -> Self {
         Self {
@@ -611,17 +911,100 @@ impl AlgebraicPoly {
         let _s = AlgebraicScope::new(self.number_field.clone());
         self.with_rep(self.rep.pow(k))
     }
+    /// The same polynomial over the fraction field of its domain: `QQ_I`
+    /// for `ZZ_I`, itself otherwise.
+    pub fn to_field(&self) -> Self {
+        let mut p = self.clone();
+        if p.gaussian == Some(true) {
+            p.gaussian = Some(false);
+        }
+        p
+    }
+    /// The reference `retract`: back to `ZZ_I` when every coefficient of a
+    /// `QQ_I` result is a Gaussian integer.
+    pub fn retract_to(&self, ring: &Self) -> Self {
+        let mut p = self.clone();
+        if ring.gaussian == Some(true) && super::gaussian::poly_is_integral(&p.rep) {
+            p.gaussian = Some(true);
+        }
+        p
+    }
     pub fn monic(&self) -> Self {
         let _s = AlgebraicScope::new(self.number_field.clone());
-        self.with_rep(fieldalg::monic(&self.rep, MonomialOrder::Lex))
+        self.to_field().with_rep(fieldalg::monic(&self.rep, MonomialOrder::Lex))
     }
+    /// Field division; over `ZZ_I` the quotient and remainder come back in
+    /// `ZZ_I` when both are integral, as the reference `div(auto=True)`.
     pub fn div(&self, o: &Self) -> PResult<(Self, Self)> {
         if o.rep.is_zero() {
             return Err(PolyError::Unsupported("polynomial division by zero".into()));
         }
         let _s = AlgebraicScope::new(self.number_field.clone());
         let (q,r)=super::fraction::recursive_division(&self.rep,&o.rep,0,&|_|true);
-        Ok((self.with_rep(q),self.with_rep(r)))
+        let field = self.to_field();
+        let (q, r) = (field.with_rep(q), field.with_rep(r));
+        if self.gaussian == Some(true)
+            && super::gaussian::poly_is_integral(&q.rep)
+            && super::gaussian::poly_is_integral(&r.rep)
+        {
+            return Ok((q.retract_to(self), r.retract_to(self)));
+        }
+        Ok((q, r))
+    }
+    /// Division in the coefficient ring (`auto=False`): over `ZZ_I` the
+    /// reference `dmp_rr_div`, otherwise field division.
+    pub fn ring_div(&self, o: &Self) -> PResult<(Self, Self)> {
+        if self.gaussian != Some(true) {
+            return self.div(o);
+        }
+        let (q, r) = super::gaussian::ring_div(&self.rep, &o.rep)?;
+        Ok((self.with_rep(q), self.with_rep(r)))
+    }
+    /// The ground content and primitive part (`Poly.primitive`): the
+    /// normalized Gaussian gcd of the coefficients over `ZZ_I`/`QQ_I`, one
+    /// for a genuine algebraic field.
+    pub fn primitive(&self) -> (AN, Self) {
+        let _s = AlgebraicScope::new(self.number_field.clone());
+        match self.gaussian {
+            Some(ring) => {
+                let (c, p) = super::gaussian::ground_primitive(&self.rep, ring);
+                (c, self.with_rep(p))
+            }
+            None if self.rep.is_zero() => (AN::zero(), self.clone()),
+            None => (AN::one(), self.clone()),
+        }
+    }
+    pub fn lcm(&self, o: &Self) -> Self {
+        let _s = AlgebraicScope::new(self.number_field.clone());
+        if self.gaussian == Some(true) {
+            return self.with_rep(
+                super::gaussian::ring_lcm(&self.rep, &o.rep)
+                    .expect("Gaussian lcm divides exactly"),
+            );
+        }
+        if self.rep.is_zero() || o.rep.is_zero() {
+            return self.with_rep(MPoly::zero(self.gens.len()));
+        }
+        let product = self.rep.mul(&o.rep);
+        let g = self.gcd(o);
+        let q = super::algebraic_multi::exact(&product, &g.rep).expect("gcd divides the product");
+        self.with_rep(fieldalg::monic(&q, MonomialOrder::Lex))
+    }
+    /// `(gcd, f/gcd, g/gcd)` with the ring normalization of the domain.
+    pub fn cofactors(&self, o: &Self) -> (Self, Self, Self) {
+        let _s = AlgebraicScope::new(self.number_field.clone());
+        if self.gaussian == Some(true) {
+            let (h, a, b) = super::gaussian::cofactors(&self.rep, &o.rep)
+                .expect("Gaussian gcd divides exactly");
+            return (self.with_rep(h), self.with_rep(a), self.with_rep(b));
+        }
+        let h = self.gcd(o);
+        if h.rep.is_zero() {
+            return (h, self.clone(), o.clone());
+        }
+        let a = super::algebraic_multi::exact(&self.rep, &h.rep).expect("gcd divides");
+        let b = super::algebraic_multi::exact(&o.rep, &h.rep).expect("gcd divides");
+        (h.clone(), self.with_rep(a), self.with_rep(b))
     }
     pub fn diff(&self, i: usize) -> Self {
         let _s = AlgebraicScope::new(self.number_field.clone());
@@ -639,7 +1022,7 @@ impl AlgebraicPoly {
                 (e, c)
             })
             .collect();
-        self.with_rep(MPoly::from_terms(self.gens.len(), ts))
+        self.to_field().with_rep(MPoly::from_terms(self.gens.len(), ts))
     }
     pub fn compose(&self, o: &Self) -> Self {
         let _s = AlgebraicScope::new(self.number_field.clone());
@@ -653,8 +1036,19 @@ impl AlgebraicPoly {
         result
     }
     pub fn gcd(&self, o: &Self) -> Self {
-        assert_eq!(self.gens.len(), 1, "algebraic gcd requires one generator");
         let _s = AlgebraicScope::new(self.number_field.clone());
+        if self.gaussian == Some(true) {
+            return self.with_rep(
+                super::gaussian::ring_gcd(&self.rep, &o.rep)
+                    .expect("Gaussian gcd divides exactly"),
+            );
+        }
+        if self.gens.len() != 1 {
+            return self.with_rep(
+                super::algebraic_multi::gcd(&self.rep, &o.rep)
+                    .expect("multivariate gcd over a field divides exactly"),
+            );
+        }
         let a = dense::from_mpoly(&self.rep, 0);
         let b = dense::from_mpoly(&o.rep, 0);
         self.with_rep(dense::to_mpoly(&dense::gcd_field(&a, &b), 0, 1))
@@ -723,6 +1117,16 @@ impl AlgebraicPoly {
         if self.rep.is_zero() {
             return (AN::zero(), Vec::new());
         }
+        if self.gaussian == Some(true) {
+            let (c, parts) = super::gaussian::ring_sqf_list(&self.rep)
+                .expect("Gaussian square-free decomposition divides exactly");
+            return (c, parts.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect());
+        }
+        if self.gens.len() != 1 {
+            let (c, parts) = super::algebraic_multi::sqf_list(&self.rep)
+                .expect("multivariate square-free decomposition divides exactly");
+            return (c, parts.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect());
+        }
         let leading = self.rep.lc();
         let f = dense::monic(&dense::from_mpoly(&self.rep, 0));
         let mut c = dense::gcd_field(&f, &dense::derivative(&f));
@@ -758,12 +1162,20 @@ impl AlgebraicPoly {
         })
     }
     pub fn factor_list(&self) -> PResult<(AN, Vec<(Self, u32)>)> {
-        if self.gens.len() != 1 {
-            return Err(PolyError::Unsupported(
-                "multivariate factorization over number fields is not yet implemented".into(),
-            ));
-        }
         let _s = AlgebraicScope::new(self.number_field.clone());
+        if let Some(ring) = self.gaussian {
+            // dmp_zz_i_factor/dmp_qq_i_factor through QQ<I>
+            let algebraic = Self { gaussian: None, ..self.clone() };
+            let (c, factors) = super::gaussian::factor_list(&self.rep, ring, |f| {
+                let (c, factors) = algebraic.with_rep(f.clone()).factor_list()?;
+                Ok((c, factors.into_iter().map(|(p, k)| (p.rep, k)).collect()))
+            })?;
+            return Ok((c, factors.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect()));
+        }
+        if self.gens.len() != 1 {
+            let (c, factors) = super::algebraic_multi::factor_list(&self.rep, &self.number_field)?;
+            return Ok((c, factors.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect()));
+        }
         let (c, parts) = self.sqf_list();
         let mut output = Vec::new();
         for (f, k) in parts {
@@ -771,12 +1183,11 @@ impl AlgebraicPoly {
                 output.push((factor, k));
             }
         }
-        output.sort_by_cached_key(|(p, k)| {
-            (p.rep.degree(0), *k, crate::sortkey::sort_key(&p.as_expr()))
-        });
-        Ok((c, output))
+        let mut raw: Vec<_> = output.into_iter().map(|(p, k)| (p.rep, k)).collect();
+        super::algebraic_multi::sort_factors(&mut raw);
+        Ok((c, raw.into_iter().map(|(p, k)| (self.with_rep(p), k)).collect()))
     }
-    fn factor_squarefree(&self) -> PResult<Vec<Self>> {
+    pub(crate) fn factor_squarefree(&self) -> PResult<Vec<Self>> {
         let field = self.number_field.clone();
         let f = dense::from_mpoly(&self.rep, 0);
         let shift = |p: &[AN], a: &AN| {
@@ -805,10 +1216,12 @@ impl AlgebraicPoly {
             let delta = alpha.mul(&AN::from_i64(s as i64));
             let shifted = shift(&f, &delta.neg());
             let norm = polynomial_norm(&shifted, &field)?;
-            if dense::gcd_field(&norm, &dense::derivative(&norm)).len() > 1 {
+            // Square-freeness over QQ is decided on the primitive integer
+            // multiple, where the gcd avoids rational coefficient growth.
+            let (_, z) = dense::clear_denoms(&norm);
+            if super::gcd::gcd_zx(&z, &dense::derivative(&z)).0.len() > 1 {
                 continue;
             }
-            let (_, z) = dense::clear_denoms(&norm);
             let (_, factors) = super::factor_uni::factor_zx(&z);
             let mut remaining = f.clone();
             let mut out = Vec::new();

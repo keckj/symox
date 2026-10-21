@@ -42,14 +42,52 @@ pub(super) fn boolean(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<b
     if let Ok(v) = value.extract::<bool>() {
         return Ok(Some(v));
     }
-    if let Ok(v) = value.extract::<i64>() {
-        if v == 0 || v == 1 {
-            return Ok(Some(v != 0));
+    // The reference accepts `value in [True, False]`, an equality test.
+    for v in [true, false] {
+        if value.eq(v).unwrap_or(false) {
+            return Ok(Some(v));
         }
     }
     Err(OptionError::new_err(format!(
-        "'{name}' must have a boolean value"
+        "'{name}' must have a boolean value assigned, got {}",
+        value.str()?
     )))
+}
+/// The reference `Gaussian` option: `gaussian=True` selects the domain
+/// `QQ_I`. Like every reference option with excludes, a supplied value
+/// (even `False`) conflicts with the options it excludes.
+pub(super) fn gaussian_option<'py>(kw: &Bound<'py, PyDict>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    let Some(value) = kw.get_item("gaussian")? else {
+        return Ok(None);
+    };
+    let Some(flag) = boolean(&value, "gaussian")? else {
+        return Ok(None);
+    };
+    const EXCLUDES: [&str; 7] = ["field", "greedy", "domain", "split", "extension", "modulus", "symmetric"];
+    let keys = kw
+        .keys()
+        .iter()
+        .map(|k| k.extract::<String>())
+        .collect::<PyResult<Vec<_>>>()?;
+    let mut present = Vec::new();
+    for other in EXCLUDES {
+        if kw.get_item(other)?.is_some_and(|v| !v.is_none()) {
+            present.push(other);
+        }
+    }
+    if let Some(first) = present.first() {
+        let position = |name: &str| keys.iter().position(|k| k == name).unwrap_or(usize::MAX);
+        let earliest = present.iter().min_by_key(|name| position(name)).unwrap();
+        return Err(OptionError::new_err(if position("gaussian") < position(earliest) {
+            format!("'gaussian' option is not allowed together with '{first}'")
+        } else {
+            format!("'{earliest}' option is not allowed together with 'gaussian'")
+        }));
+    }
+    if !flag {
+        return Ok(None);
+    }
+    Ok(Some(kw.py().import("symox._core")?.getattr("QQ_I")?))
 }
 impl<'py> Options<'py> {
     fn parse(
@@ -124,7 +162,8 @@ impl<'py> Options<'py> {
                         // division into sparse monomial reduction.
                     }
                     "domain" | "extension" | "modulus" | "gens" | "order" => {}
-                    "greedy" | "sort" | "wrt" | "symmetric" | "composite" | "gaussian"
+                    "gaussian" => {}
+                    "greedy" | "sort" | "wrt" | "symmetric" | "composite"
                     | "split" | "strict" => {
                         return Err(PyNotImplementedError::new_err(format!(
                             "the '{key}' polynomial option is not implemented for global division"
@@ -136,6 +175,9 @@ impl<'py> Options<'py> {
                         )))
                     }
                 }
+            }
+            if let Some(domain) = gaussian_option(kw)? {
+                out.domain = Some(domain);
             }
         }
         // An explicit coefficient-domain or field choice disables automatic
@@ -152,6 +194,7 @@ impl<'py> Options<'py> {
                 "'domain' option is not allowed together with 'field'",
             ));
         }
+        domains::require_expression_generators(out.domain.as_ref(), !out.generators.is_empty())?;
         if out.domain.is_some() && out.modulus.is_some() {
             return Err(OptionError::new_err(
                 "'domain' option is not allowed together with 'modulus'",
@@ -396,7 +439,7 @@ impl Inputs {
                 _ => None,
             };
         }
-        if inherited.is_none() {
+        if inherited.is_none() && selection.gaussian().is_none() {
             if let Some(field) = selection.algebraic(opts.extension.as_ref(), &expressions)? {
                 selected = Some(domains::PyDomain {
                     inner: ExactDomain::Algebraic(field),
@@ -454,7 +497,30 @@ impl Inputs {
                 }
             }
         }
-        let mut generators = opts.generators.clone();
+        let mut default_gens = None;
+        // Without options the reference reads `I` as a coefficient and
+        // selects ZZ_I or QQ_I when it is the only nonrational atom.
+        if selected.is_none()
+            && opts.domain.is_none()
+            && opts.extension.is_none()
+            && opts.modulus.is_none()
+            && [f, g].iter().all(|x| {
+                x.downcast::<PyPoly>()
+                    .map_or(true, |p| p.get().p.algebraic.as_ref().is_some_and(|a| a.gaussian.is_some()))
+            })
+        {
+            if let Some(selection) =
+                symox::poly::gaussian::default_selection(&expressions, &opts.generators)
+            {
+                selected = Some(domains::PyDomain {
+                    inner: ExactDomain::Gaussian {
+                        integral: selection.integral,
+                    },
+                });
+                default_gens = Some(selection.gens);
+            }
+        }
+        let mut generators = default_gens.unwrap_or_else(|| opts.generators.clone());
         if generators.is_empty() {
             // With two Poly arguments their generators remain explicit even
             // when a construction option requests another coefficient domain.
@@ -463,6 +529,20 @@ impl Inputs {
                     symox::poly::polyobj::unify_gens(a.get().p.true_gens(), b.get().p.true_gens());
             } else {
                 generators = inferred_generators(&expressions, selected.as_ref())?;
+            }
+        }
+        if selected.is_none()
+            && opts.domain.is_none()
+            && opts.extension.is_none()
+            && opts.modulus.is_none()
+            && !opts.generators.is_empty()
+        {
+            if let Some(mut polys) =
+                symox::poly::expression_domain::joint_selection(&expressions, &generators)
+            {
+                let b = polys.pop().unwrap();
+                let a = polys.pop().unwrap();
+                return Ok((a.into(), b.into()));
             }
         }
         if let Some(domain) = selected {

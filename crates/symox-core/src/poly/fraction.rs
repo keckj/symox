@@ -2,6 +2,7 @@
 
 use super::convert::{from_exprs_gens, sort_gens, to_expr, to_expr_int, PResult, PolyError};
 use super::fieldalg;
+use super::expression_domain::ExpressionPoly;
 use super::groebner::MonomialOrder;
 use super::int::{Coeff, Field, Int, Rat};
 use super::mpoly::MPoly;
@@ -130,9 +131,19 @@ pub fn coefficient_expr(c: &RF, parameters: &[Expr]) -> Expr {
 }
 
 pub fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
-    let value = crate::simplify::together(value);
-    let (num, den) = crate::simplify::numer_denom(&value);
-    let converted = from_exprs_gens(&[num, den], parameters)?;
+    let together = crate::simplify::together(value);
+    let (num, den) = crate::simplify::numer_denom(&together);
+    let mut converted = from_exprs_gens(&[num, den], parameters)?;
+    if !converted.float && converted.gens.len() != parameters.len() {
+        // A generator such as `exp(a)` reads `exp(-a)` as `1/exp(a)` only
+        // through the reference `as_numer_denom`.
+        let (num, den) = super::api::as_numer_denom(value);
+        if let Ok(retry) = from_exprs_gens(&[num, den], parameters) {
+            if !retry.float && retry.gens.len() == parameters.len() {
+                converted = retry;
+            }
+        }
+    }
     if converted.float || converted.gens.len() != parameters.len() {
         return Err(PolyError::Unsupported(
             "coefficients must be exact rational functions of the declared parameters".into(),
@@ -386,6 +397,161 @@ impl FractionPoly {
                 a.div_exact(&g).unwrap().mul(&c.d)
             })
     }
+    /// The polynomial of a cleared numerator in `gens + parameters`.
+    fn from_cleared(&self, p: &MPoly<Int>) -> Self {
+        let n = self.gens.len();
+        let np = self.parameters.len();
+        let mut groups: Vec<(Vec<u32>, Vec<(Vec<u32>, Int)>)> = Vec::new();
+        for (e, c) in p.iter() {
+            let (key, rest) = e.split_at(n);
+            match groups.iter_mut().find(|(k, _)| k.as_slice() == key) {
+                Some(slot) => slot.1.push((rest.to_vec(), c.clone())),
+                None => groups.push((key.to_vec(), vec![(rest.to_vec(), c.clone())])),
+            }
+        }
+        let terms = groups
+            .into_iter()
+            .map(|(k, t)| (k, RF::from_poly(MPoly::from_terms(np, t))))
+            .collect();
+        self.with_rep(MPoly::from_terms(n, terms))
+    }
+    fn lc_is_negative(&self) -> bool {
+        !self.rep.is_zero() && self.rep.lc().is_negative()
+    }
+    /// The reference `dup_half_gcdex` over the fraction field, for one
+    /// generator: `s*f = h (mod g)` with `h` monic.
+    pub fn half_gcdex(&self, g: &Self) -> PResult<(Self, Self)> {
+        if self.gens.len() != 1 {
+            return Err(PolyError::Unsupported("univariate polynomial expected".into()));
+        }
+        let _s = Scope::new(self.parameters.len());
+        let (mut f, mut g) = (self.clone(), g.clone());
+        let mut a = self.with_rep(MPoly::constant(RF::one(), 1));
+        let mut b = self.with_rep(MPoly::zero(1));
+        while !g.rep.is_zero() {
+            let (q, r) = f.div(&g)?;
+            f = g;
+            g = r;
+            let next = a.sub(&q.mul(&b));
+            a = b;
+            b = next;
+        }
+        if f.rep.is_zero() {
+            return Err(PolyError::Unsupported("polynomial division by zero".into()));
+        }
+        let lc = f.rep.lc().clone();
+        let a = a.with_rep(a.rep.scale(&lc.inv()));
+        Ok((a, f.monic()))
+    }
+    /// The reference `dup_gcdex` over the fraction field.
+    pub fn gcdex(&self, g: &Self) -> PResult<(Self, Self, Self)> {
+        let (s, h) = self.half_gcdex(g)?;
+        let (t, r) = h.sub(&s.mul(self)).div(g)?;
+        if !r.rep.is_zero() {
+            return Err(PolyError::ExactQuotientFailed("extended Euclid cofactor is not exact".into()));
+        }
+        Ok((s, t, h))
+    }
+    /// The reference `dup_invert`: the inverse of `self` modulo `g`.
+    pub fn invert(&self, g: &Self) -> PResult<Self> {
+        let (s, h) = self.half_gcdex(g)?;
+        if h.rep.is_constant() && h.rep.constant_value().is_some_and(|c| c.is_one()) {
+            return Ok(s.div(g)?.1);
+        }
+        Err(PolyError::NotInvertible("zero divisor".into()))
+    }
+    /// The reference `dmp_cancel` over a fraction field with an associated
+    /// ring: clear both denominators, cancel the gcd over the ring, and
+    /// return `(cp, cq, p, q)` with `self/g = (cp*p)/(cq*q)`.
+    pub fn reference_cancel(&self, g: &Self) -> (RF, RF, Self, Self) {
+        let _s = Scope::new(self.parameters.len());
+        let cq = self.denominator();
+        let f = self.clear_coeff_denominators();
+        let cp = g.denominator();
+        let h = g.clear_coeff_denominators();
+        let (_, p, q) = super::gcd::gcd_mz(&f, &h);
+        let (_, cp, cq) = super::gcd::gcd_mz(&cp, &cq);
+        let mut p = self.from_cleared(&p);
+        let mut q = self.from_cleared(&q);
+        let mut cp = RF::from_poly(cp);
+        let cq = RF::from_poly(cq);
+        match (p.lc_is_negative(), q.lc_is_negative()) {
+            (true, true) => {
+                p = p.neg();
+                q = q.neg();
+            }
+            (true, false) => {
+                cp = cp.neg();
+                p = p.neg();
+            }
+            (false, true) => {
+                cp = cp.neg();
+                q = q.neg();
+            }
+            _ => {}
+        }
+        (cp, cq, p, q)
+    }
+    /// The reference `dmp_ground_content` over the fraction field: the
+    /// field `gcd` (numerator gcd over denominator lcm) folded over the
+    /// coefficients, recursively by generator and descending degree, which
+    /// stops as soon as the running content is one.
+    pub fn reference_content(&self) -> RF {
+        let _s = Scope::new(self.parameters.len());
+        let np = self.parameters.len();
+        fn normalized(p: MPoly<Int>) -> MPoly<Int> {
+            if !p.is_zero() && p.lc().is_negative() { p.neg() } else { p }
+        }
+        fn field_gcd(a: &RF, b: &RF, np: usize) -> RF {
+            let p = normalized(super::gcd::gcd_mz(&a.n, &b.n).0);
+            if p.is_zero() {
+                return RF::new(p, MPoly::one(np));
+            }
+            let g = super::gcd::gcd_mz(&a.d, &b.d).0;
+            let q = normalized(a.d.div_exact(&g).unwrap().mul(&b.d));
+            RF::new(p, q)
+        }
+        fn content(terms: &[(Vec<u32>, RF)], var: usize, nvars: usize, np: usize) -> RF {
+            let mut cont = RF::zero();
+            if var + 1 >= nvars {
+                let mut sorted: Vec<&(Vec<u32>, RF)> = terms.iter().collect();
+                sorted.sort_by(|a, b| b.0.get(var).cmp(&a.0.get(var)));
+                for (_, c) in sorted {
+                    cont = field_gcd(&cont, c, np);
+                    if cont.is_one() {
+                        break;
+                    }
+                }
+                return cont;
+            }
+            let mut degrees: Vec<u32> = terms.iter().map(|t| t.0[var]).collect();
+            degrees.sort_unstable_by(|a, b| b.cmp(a));
+            degrees.dedup();
+            for d in degrees {
+                let group: Vec<(Vec<u32>, RF)> = terms.iter().filter(|t| t.0[var] == d).cloned().collect();
+                cont = field_gcd(&cont, &content(&group, var + 1, nvars, np), np);
+                if cont.is_one() {
+                    break;
+                }
+            }
+            cont
+        }
+        let terms: Vec<(Vec<u32>, RF)> = self.rep.iter().map(|(e, c)| (e.to_vec(), c.clone())).collect();
+        if terms.is_empty() {
+            return RF::zero();
+        }
+        content(&terms, 0, self.gens.len(), np)
+    }
+    /// The reference `Poly.primitive` over the fraction field, with the
+    /// content of `reference_content`.
+    pub fn reference_primitive(&self) -> (RF, Self) {
+        let c = self.reference_content();
+        if c.is_zero() || c.is_one() {
+            return (c, self.clone());
+        }
+        let _s = Scope::new(self.parameters.len());
+        (c.clone(), self.with_rep(self.rep.scale(&c.inv())))
+    }
     pub fn primitive(&self) -> (RF, Self) {
         let _s = Scope::new(self.parameters.len());
         if self.rep.is_zero() {
@@ -472,10 +638,13 @@ pub struct Polynomial {
     pub base: Poly,
     pub field: Option<FractionPoly>,
     pub algebraic: Option<super::algebraic::AlgebraicPoly>,
+    /// The reference expression domain `EX`; `base` is then only a
+    /// metadata view and is never used for arithmetic.
+    pub expression: Option<super::expression_domain::ExpressionPoly>,
 }
 impl From<Poly> for Polynomial {
     fn from(base: Poly) -> Self {
-        Self { base, field: None, algebraic:None }
+        Self { base, field: None, algebraic:None, expression:None }
     }
 }
 impl From<FractionPoly> for Polynomial {
@@ -484,11 +653,15 @@ impl From<FractionPoly> for Polynomial {
             base: field.legacy(),
             field: Some(field),
             algebraic:None,
+            expression:None,
         }
     }
 }
 impl From<super::algebraic::AlgebraicPoly> for Polynomial {
-    fn from(p:super::algebraic::AlgebraicPoly)->Self {Self {base:p.legacy(),field:None,algebraic:Some(p)}}
+    fn from(p:super::algebraic::AlgebraicPoly)->Self {Self {base:p.legacy(),field:None,algebraic:Some(p),expression:None}}
+}
+impl From<super::expression_domain::ExpressionPoly> for Polynomial {
+    fn from(p:super::expression_domain::ExpressionPoly)->Self {Self {base:p.legacy(),field:None,algebraic:None,expression:Some(p)}}
 }
 impl std::ops::Deref for Polynomial {
     type Target = Poly;
@@ -503,6 +676,7 @@ impl std::ops::DerefMut for Polynomial {
 }
 impl Polynomial {
     pub fn decompose(&self)->PResult<Vec<Self>> {
+        if let Some(p)=&self.expression {return Ok(p.decompose()?.into_iter().map(Into::into).collect());}
         if let Some(p)=&self.algebraic {
             super::roots::decompose_preflight(p.gens.len(),p.rep.degree(0))?;
             let _scope=super::algebraic::AlgebraicScope::new(p.number_field.clone());
@@ -522,18 +696,27 @@ impl Polynomial {
     }
 
     pub fn as_expr(&self) -> Expr {
+        if let Some(p)=&self.expression {return p.as_expr();}
         if let Some(p)=&self.algebraic {return p.as_expr();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.as_expr(), FractionPoly::as_expr)
     }
     pub fn domain_str(&self) -> String {
-        if let Some(p)=&self.algebraic {return p.number_field.display();}
+        if self.expression.is_some() {return "EX".into();}
+        if let Some(p)=&self.algebraic {
+            return match p.gaussian {
+                Some(true) => "ZZ_I".into(),
+                Some(false) => "QQ_I".into(),
+                None => p.number_field.display(),
+            };
+        }
         self.field
             .as_ref()
             .map_or_else(|| self.base.domain_str(), |p| p.display.clone())
     }
     pub fn terms(&self) -> Vec<(Vec<u32>, Expr)> {
+        if let Some(p)=&self.expression {return p.terms();}
         if let Some(p)=&self.algebraic {return p.terms();}
         self.field
             .as_ref()
@@ -569,6 +752,7 @@ impl Polynomial {
     /// Checked coercion boundary for public fallible operations. Coefficients
     /// from incompatible fields never enter arithmetic or an expect here.
     pub fn checked_algebraic_pair(&self,o:&Self)->PResult<Option<(super::algebraic::AlgebraicPoly,super::algebraic::AlgebraicPoly)>> {
+        if self.expression.is_some()||o.expression.is_some(){return Ok(None);}
         let Some(prototype)=self.algebraic.as_ref().or(o.algebraic.as_ref()) else{return Ok(None)};
         if self.field.is_some() || o.field.is_some() || self.modulus.is_some() || o.modulus.is_some() {
             return Err(PolyError::Unsupported("cannot combine algebraic, rational-function, and finite coefficient fields".into()));
@@ -579,8 +763,16 @@ impl Polynomial {
                 super::algebraic::NumberField::from_generators(&[a.number_field.generator.clone(),b.number_field.generator.clone()])?
             }
         }else{prototype.number_field.clone()};
+        // The reference unification of ZZ_I/QQ_I with each other, with ZZ
+        // or QQ, and with a genuine algebraic field.
+        let gaussian=match (self.algebraic.as_ref().map(|a|a.gaussian),o.algebraic.as_ref().map(|a|a.gaussian)) {
+            (Some(Some(a)),Some(Some(b)))=>Some(a&&b),
+            (Some(Some(a)),None)=>Some(a&&o.domain==super::polyobj::Domain::ZZ),
+            (None,Some(Some(b)))=>Some(b&&self.domain==super::polyobj::Domain::ZZ),
+            _=>None,
+        };
         let convert=|p:&Self| {
-            if let Some(a)=&p.algebraic {if a.number_field==field && a.gens==gens {return Ok(a.clone());}}
+            if let Some(a)=&p.algebraic {if a.number_field==field && a.gens==gens {let mut a=a.clone();a.gaussian=gaussian;return Ok(a);}}
             let _scope=super::algebraic::AlgebraicScope::new(field.clone());
             let positions:Vec<_>=p.true_gens().iter().map(|g|gens.iter().position(|candidate|candidate==g).unwrap()).collect();
             let terms=p.terms().into_iter().map(|(powers,coefficient)|{
@@ -588,7 +780,7 @@ impl Polynomial {
                 for (index,exponent) in positions.iter().zip(powers){remapped[*index]=exponent;}
                 Ok((remapped,super::algebraic::AN::from_expr(&coefficient,field.clone())?))
             }).collect::<PResult<Vec<_>>>()?;
-            Ok(super::algebraic::AlgebraicPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),number_field:field.clone()})
+            Ok(super::algebraic::AlgebraicPoly{rep:MPoly::from_terms(gens.len(),terms),gens:gens.clone(),number_field:field.clone(),gaussian})
         };
         Ok(Some((convert(self)?,convert(o)?)))
     }
@@ -596,6 +788,7 @@ impl Polynomial {
         self.checked_algebraic_pair(o).expect("compatible algebraic fields")
     }
     pub fn checked_fraction_pair(&self, o: &Self) -> PResult<Option<(FractionPoly, FractionPoly)>> {
+        if self.expression.is_some()||o.expression.is_some(){return Ok(None);}
         let Some(prototype)=self.field.as_ref().or(o.field.as_ref()) else{return Ok(None)};
         if self.modulus.is_some()||o.modulus.is_some()||self.algebraic.is_some()||o.algebraic.is_some(){return Err(PolyError::Unsupported("cannot combine rational-function, algebraic, and finite coefficient fields".into()));}
         if let(Some(a),Some(b))=(&self.field,&o.field){if let(super::domains::ExactDomain::Functions{order:a,..},super::domains::ExactDomain::Functions{order:b,..})=(&a.coefficient_domain,&b.coefficient_domain){if a!=b{return Err(PolyError::Unsupported("cannot unify coefficient rings with different monomial orders".into()));}}}
@@ -606,32 +799,31 @@ impl Polynomial {
         if gens.is_empty() {
             gens = prototype.gens.clone();
         }
-        let mut parameters = prototype.parameters.clone();
-        if let Some(f) = &o.field {
-            for p in &f.parameters {
-                if !parameters.contains(p) {
-                    parameters.push(p.clone());
-                }
+        // The reference `_unify_gens` of both coefficient domains, the
+        // receiver first, never sorted.
+        let side = |p: &Self| -> Vec<Expr> {
+            match &p.field {
+                Some(f) => f.parameters.clone(),
+                None => p.base.domain_gens().to_vec(),
             }
-        }
-        if let Some(f) = &self.field {
-            for p in &f.parameters {
-                if !parameters.contains(p) {
-                    parameters.push(p.clone());
-                }
-            }
-        }
+        };
+        let mut parameters = super::polyobj::unify_gens(&side(self), &side(o));
         let coefficients:Vec<_>=[self,o].iter().flat_map(|p|p.terms().into_iter().map(|(_,c)|c)).collect();
         for p in infer_parameters(&coefficients, &gens) {
-            if !parameters.contains(&p) {
+            let covered = parameters.iter().any(|q| crate::traverse::has(q, &p));
+            if !covered {
                 parameters.push(p);
             }
         }
-        if parameters != prototype.parameters {
-            sort_gens(&mut parameters);
-        }
-        let integral=[self,o].iter().all(|p|if let Some(f)=&p.field {matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{integral:true,..})}else{p.domain==super::polyobj::Domain::ZZ});
-        let ring=[self,o].iter().all(|p|p.field.as_ref().is_none_or(|f|matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{ring:true,..})));
+        let integral_side=|p:&Self|if let Some(f)=&p.field {matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{integral:true,..})}else{p.domain==super::polyobj::Domain::ZZ};
+        let ring_side=|p:&Self|p.field.as_ref().is_none_or(|f|matches!(f.coefficient_domain,super::domains::ExactDomain::Functions{ring:true,..}));
+        let composite=|p:&Self|p.field.is_some()||!p.base.domain_gens().is_empty();
+        let ring=ring_side(self)&&ring_side(o);
+        // SymPy's `Domain.unify`: a fraction field unified with a polynomial
+        // ring over a non-field ground takes the ring of the unified ground
+        // (`QQ(a)` and `ZZ[b]` give `ZZ(a,b)`).
+        let integral=(integral_side(self)&&integral_side(o))
+            ||(composite(self)&&composite(o)&&ring_side(self)!=ring_side(o)&&(integral_side(self)||integral_side(o)));
         let order=if let super::domains::ExactDomain::Functions{order,..}=&prototype.coefficient_domain{order.as_str()}else{"lex"};
         let descriptor=super::domains::ExactDomain::functions(integral,ring,parameters.clone(),order)?;
         let display=descriptor.to_string();
@@ -650,7 +842,29 @@ impl Polynomial {
     }
     fn pair(&self,o:&Self)->Option<(FractionPoly,FractionPoly)>{self.checked_fraction_pair(o).expect("compatible fraction coefficient domains")}
 
+    /// The reference unification with `EX`: every other domain converts
+    /// into it coefficient by coefficient, without simplification.
+    pub fn checked_expression_pair(&self,o:&Self)->PResult<Option<(ExpressionPoly,ExpressionPoly)>>{
+        if self.expression.is_none()&&o.expression.is_none(){return Ok(None);}
+        if let Some(m)=self.modulus.or(o.modulus){
+            let message=if self.expression.is_some(){format!("Cannot unify EX with GF({m})")}else{format!("Cannot unify GF({m}) with EX")};
+            return Err(PolyError::Reference{kind:"UnificationFailed",message});
+        }
+        let gens=super::polyobj::unify_gens(self.true_gens(),o.true_gens());
+        let convert=|p:&Self|->PResult<ExpressionPoly>{
+            match &p.expression {
+                Some(e)=>e.reorder(&gens),
+                None=>ExpressionPoly::from_terms(p.terms(),p.true_gens())?.reorder(&gens),
+            }
+        };
+        Ok(Some((convert(self)?,convert(o)?)))
+    }
+    pub fn to_expression(&self)->PResult<ExpressionPoly>{
+        match &self.expression {Some(e)=>Ok(e.clone()),None=>ExpressionPoly::from_terms(self.terms(),self.true_gens())}
+    }
+    fn expression_pair(&self,o:&Self)->Option<(ExpressionPoly,ExpressionPoly)>{self.checked_expression_pair(o).expect("EX unification")}
     pub fn add(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.expression_pair(o){return a.add(&b).expect("EX arithmetic").into();}
         if let Some((a,b))=self.algebraic_pair(o){return a.add(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.add(&b).into()
@@ -659,6 +873,7 @@ impl Polynomial {
         }
     }
     pub fn sub(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.expression_pair(o){return a.sub(&b).expect("EX arithmetic").into();}
         if let Some((a,b))=self.algebraic_pair(o){return a.sub(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.sub(&b).into()
@@ -667,6 +882,7 @@ impl Polynomial {
         }
     }
     pub fn mul(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.expression_pair(o){return a.mul(&b).expect("EX arithmetic").into();}
         if let Some((a,b))=self.algebraic_pair(o){return a.mul(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.mul(&b).into()
@@ -675,24 +891,28 @@ impl Polynomial {
         }
     }
     pub fn neg(&self) -> Self {
+        if let Some(p)=&self.expression {return p.neg().into();}
         if let Some(p)=&self.algebraic {return p.neg().into();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.neg().into(), |p| p.neg().into())
     }
     pub fn pow(&self, k: u32) -> Self {
+        if let Some(p)=&self.expression {return p.pow(k).expect("EX arithmetic").into();}
         if let Some(p)=&self.algebraic {return p.pow(k).into();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.pow(k).into(), |p| p.pow(k).into())
     }
     pub fn diff(&self, i: usize) -> Self {
+        if let Some(p)=&self.expression {return p.diff(1,i).expect("EX arithmetic").into();}
         if let Some(p)=&self.algebraic {return p.diff(i).into();}
         self.field
             .as_ref()
             .map_or_else(|| self.base.diff(i).into(), |p| p.diff(i).into())
     }
     pub fn integrate(&self, i: usize) -> Self {
+        if let Some(p)=&self.expression {return p.integrate(1,i).expect("EX arithmetic").into();}
         if let Some(p)=&self.algebraic {return p.integrate(i).into();}
         self.field
             .as_ref()
@@ -700,7 +920,8 @@ impl Polynomial {
     }
     pub fn div(&self,o:&Self)->PResult<(Self,Self)>{self.div_with_options(o,true)}
     pub fn div_with_options(&self,o:&Self,auto:bool)->PResult<(Self,Self)>{
-        if let Some((a,b))=self.checked_algebraic_pair(o)?{let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
+        if let Some((a,b))=self.checked_expression_pair(o)?{let(q,r)=a.div(&b)?;return Ok((q.into(),r.into()));}
+        if let Some((a,b))=self.checked_algebraic_pair(o)?{let(q,r)=if auto{a.div(&b)?}else{a.ring_div(&b)?};return Ok((q.into(),r.into()));}
         if let Some((a,b))=self.checked_fraction_pair(o)?{let(q,r)=a.div_with_options(&b,auto)?;return Ok((q.into(),r.into()));}
         if let Some(prime)=self.modulus.or(o.modulus) {
             if !self.base.domain_gens().is_empty()||!o.base.domain_gens().is_empty(){return Err(PolyError::Unsupported("finite-field division requires scalar coefficients; finite symbolic coefficient domains are not implemented".into()));}
@@ -741,6 +962,7 @@ impl Polynomial {
         }
     }
     pub fn pdiv(&self,o:&Self)->PResult<(Self,Self)>{
+        if let Some((a,b))=self.checked_expression_pair(o)?{let(q,r)=a.pdiv(&b)?;return Ok((q.into(),r.into()));}
         if let Some((a,b))=self.checked_algebraic_pair(o)?{
             let _scope=super::algebraic::AlgebraicScope::new(a.number_field.clone());
             let(q,r)=super::pseudo::pdiv(&a.rep,&b.rep,0)?;return Ok((a.with_rep(q).into(),a.with_rep(r).into()));
@@ -760,10 +982,15 @@ impl Polynomial {
     }
     pub fn prem(&self,o:&Self)->PResult<Self>{Ok(self.pdiv(o)?.1)}
     pub fn pquo(&self,o:&Self)->PResult<Self>{Ok(self.pdiv(o)?.0)}
-    pub fn pexquo(&self,o:&Self)->PResult<Self>{let(q,r)=self.pdiv(o)?;if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("pseudo-division has a nonzero remainder".into()));}Ok(q)}
+    pub fn pexquo(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.pexquo(&b)?.into());}let(q,r)=self.pdiv(o)?;if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("pseudo-division has a nonzero remainder".into()));}Ok(q)}
     pub fn rem(&self,o:&Self)->PResult<Self>{self.rem_with_options(o,true)}
     pub fn quo(&self,o:&Self)->PResult<Self>{self.quo_with_options(o,true)}
     fn retract_division_component(&self,o:&Self,mut result:Self)->Self{
+        if result.expression.is_some(){return result;}
+        if let (Some(p),Ok(Some((a,_))))=(result.algebraic.as_ref(),self.checked_algebraic_pair(o)){
+            let p=p.retract_to(&a);
+            return p.into();
+        }
         if let Some((a,_))=self.pair(o){
             if a.display.ends_with(']') {if let Some(p)=result.field.as_mut(){if p.rep.coeffs().iter().all(|c|coefficient_in_ring(c,a.display.starts_with("ZZ"))){p.display=a.display;p.coefficient_domain=a.coefficient_domain;}}}
         }else if self.algebraic.is_none()&&o.algebraic.is_none()&&self.modulus.is_none()&&o.modulus.is_none()&&self.domain.max(o.domain)==super::polyobj::Domain::ZZ&&result.base.rep.is_integral(){result.base.domain=super::polyobj::Domain::ZZ;}
@@ -773,10 +1000,30 @@ impl Polynomial {
     pub fn quo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{let q=self.div_with_options(o,auto)?.0;Ok(self.retract_division_component(o,q))}
     pub fn exquo(&self,o:&Self)->PResult<Self>{self.exquo_with_options(o,true)}
     pub fn exquo_with_options(&self,o:&Self,auto:bool)->PResult<Self>{
+        if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.exquo(&b)?.into());}
         let(q,r)=self.div_with_options(o,auto)?;
         if !r.is_zero(){return Err(PolyError::ExactQuotientFailed("polynomial division is not exact in the selected coefficient domain".into()));}Ok(q)
     }
+    pub fn checked_gcd(&self,o:&Self)->PResult<Self>{
+        if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.gcd(&b)?.into());}
+        Ok(self.gcd(o))
+    }
+    pub fn checked_lcm(&self,o:&Self)->PResult<Self>{
+        if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.lcm(&b)?.into());}
+        Ok(self.lcm(o))
+    }
+    pub fn checked_cofactors(&self,o:&Self)->PResult<(Self,Self,Self)>{
+        if let Some((a,b))=self.checked_expression_pair(o)?{let(h,p,q)=a.cofactors(&b)?;return Ok((h.into(),p.into(),q.into()));}
+        Ok(self.cofactors(o))
+    }
+    /// Arithmetic that reports `EX` normalization failures instead of
+    /// panicking; the other domains are infallible here.
+    pub fn checked_add(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.add(&b)?.into());}Ok(self.add(o))}
+    pub fn checked_sub(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.sub(&b)?.into());}Ok(self.sub(o))}
+    pub fn checked_mul(&self,o:&Self)->PResult<Self>{if let Some((a,b))=self.checked_expression_pair(o)?{return Ok(a.mul(&b)?.into());}Ok(self.mul(o))}
+    pub fn checked_pow(&self,k:u32)->PResult<Self>{if let Some(p)=&self.expression{return Ok(p.pow(k)?.into());}Ok(self.pow(k))}
     pub fn gcd(&self, o: &Self) -> Self {
+        if let Some((a,b))=self.expression_pair(o){return a.gcd(&b).expect("EX arithmetic").into();}
         if let Some((a,b))=self.algebraic_pair(o){return a.gcd(&b).into();}
         if let Some((a, b)) = self.pair(o) {
             a.gcd(&b).into()
@@ -785,7 +1032,8 @@ impl Polynomial {
         }
     }
     pub fn lcm(&self, o: &Self) -> Self {
-        if self.algebraic.is_some()||o.algebraic.is_some(){if self.is_zero()||o.is_zero(){return self.mul(o);}return self.mul(o).exquo(&self.gcd(o)).unwrap().algebraic.unwrap().monic().into();}
+        if let Some((a,b))=self.expression_pair(o){return a.lcm(&b).expect("EX arithmetic").into();}
+        if let Some((a,b))=self.algebraic_pair(o){return a.lcm(&b).into();}
         if let Some((a,b))=self.pair(o){
             a.lcm(&b).into()
         } else {
@@ -793,6 +1041,8 @@ impl Polynomial {
         }
     }
     pub fn cofactors(&self, o: &Self) -> (Self, Self, Self) {
+        if let Some((a,b))=self.expression_pair(o){let(h,p,q)=a.cofactors(&b).expect("EX arithmetic");return (h.into(),p.into(),q.into());}
+        if let Some((a,b))=self.algebraic_pair(o){let(h,a,b)=a.cofactors(&b);return (h.into(),a.into(),b.into());}
         let g = self.gcd(o);
         if g.is_zero() {
             return (g, self.clone(), o.clone());
@@ -802,6 +1052,9 @@ impl Polynomial {
         (g, a, b)
     }
     pub fn to_sympy_string(&self) -> String {
+        if let Some(p)=&self.expression {return super::polyobj::format_poly(&p.gens,p.terms(),None,"EX");}
+        // Fraction-field coefficients print as one quotient, `(a**2 + 1)/a`.
+        if let Some(f)=&self.field {return super::polyobj::format_poly(&f.gens,f.terms(),self.modulus,&self.domain_str());}
         self.base.to_sympy_string_with_domain(&self.domain_str())
     }
 
@@ -1039,7 +1292,8 @@ mod functional_decomposition {
         let other:Polynomial=FractionPoly::from_expr(&parse_str("a*x+2").unwrap(),&[x],&[a],"QQ(a)").unwrap().into();
         let other=super::super::structure::rename_gens(&other,&[parse_str("z+1").unwrap()]).unwrap();
         let product=p.mul(&other);
-        assert_eq!(product.domain_str(),"QQ(a)");
+        // The reference unifies ZZ[a] with QQ(a) into ZZ(a).
+        assert_eq!(product.domain_str(),"ZZ(a)");
         assert_eq!(product.terms().len(),4);
         assert_eq!(product.true_gens(),&[parse_str("y+1").unwrap(),parse_str("z+1").unwrap()]);
     }
@@ -1058,5 +1312,49 @@ mod functional_decomposition {
         assert!(super::super::f5b::Fp::from_i64(14).is_zero());
         let polynomial=Poly::from_expr(&parse_str("x^4+1").unwrap(),&[x]).unwrap().set_modulus(2);
         assert!(matches!(polynomial.decompose(),Err(PolyError::NotInvertible(_))));
+    }
+}
+
+#[cfg(test)]
+mod reference_euclid_and_cancel {
+    use super::*;
+    use crate::parser::parse_str;
+    fn poly(source: &str, domain: &str) -> FractionPoly {
+        FractionPoly::from_expr(&parse_str(source).unwrap(), &[Expr::symbol("x")], &[Expr::symbol("a")], domain).unwrap()
+    }
+    fn show(p: &FractionPoly) -> String {
+        let p: Polynomial = p.clone().into();
+        p.to_sympy_string()
+    }
+    #[test]
+    fn gcdex_half_gcdex_and_invert_match_the_reference() {
+        let f = poly("x^2+a", "QQ(a)");
+        let g = poly("x+a", "QQ(a)");
+        let (s, t, h) = f.gcdex(&g).unwrap();
+        assert_eq!(show(&s), "Poly(1/(a**2 + a), x, domain='QQ(a)')");
+        assert_eq!(show(&t), "Poly(-1/(a**2 + a)*x + 1/(a + 1), x, domain='QQ(a)')");
+        assert_eq!(show(&h), "Poly(1, x, domain='QQ(a)')");
+        let (s2, h2) = f.half_gcdex(&g).unwrap();
+        assert_eq!(s2.rep, s.rep);
+        assert_eq!(h2.rep, h.rep);
+        assert_eq!(g.invert(&f).unwrap().rep, t.rep);
+        // A common factor is a zero divisor, not an absent inverse.
+        let d = poly("x^2-a^2", "QQ(a)");
+        assert!(matches!(g.invert(&d), Err(PolyError::NotInvertible(_))));
+    }
+    #[test]
+    fn cancel_and_content_follow_the_reference_normalization() {
+        let p = poly("x^2/a-a", "ZZ(a)");
+        let q = poly("x/a+1", "ZZ(a)");
+        let (cp, cq, r, s) = p.reference_cancel(&q);
+        let _scope = Scope::new(1);
+        assert_eq!(cp, cq);
+        assert_eq!(show(&r), "Poly(x - a, x, domain='ZZ(a)')");
+        assert_eq!(show(&s), "Poly(1, x, domain='ZZ(a)')");
+        let parameters = [Expr::symbol("a")];
+        assert_eq!(coefficient_expr(&p.reference_content(), &parameters), parse_str("1/a").unwrap());
+        let (c, primitive) = p.reference_primitive();
+        assert_eq!(coefficient_expr(&c, &parameters), parse_str("1/a").unwrap());
+        assert_eq!(show(&primitive), "Poly(x**2 - a**2, x, domain='ZZ(a)')");
     }
 }

@@ -31,11 +31,116 @@ pub fn rational_roots(c: &[Rat], digits: u32, maxsteps: u32, cleanup: bool) -> P
             .then(a.im.cmp(&b.im))
     });
     Ok(values.into_iter().map(|z| {
-        // Numerical zero is still a Float in the public nroots result.
-        if z.re.is_zero() && z.im.is_zero() {
-            Expr::num(crate::number::Number::mp_float(BigFloat::zero(), precision))
-        } else { to_expr(z, precision) }
+        // The reference builds roots with Float._new, which maps an exact
+        // zero mantissa to S.Zero.
+        if z.re.is_zero() && z.im.is_zero() { Expr::zero() } else { to_expr(z, precision) }
     }).collect())
+}
+
+/// Numerical roots of a polynomial with Gaussian rational coefficients, given
+/// by its exact square-free factors `(coefficients (re, im) ascending,
+/// multiplicity)`. Every factor is solved with exact Gaussian integer
+/// coefficients at the requested precision, like the rational case.
+pub fn gaussian_roots(factors: &[(Vec<(Rat, Rat)>, u32)], digits: u32, maxsteps: u32, cleanup: bool) -> PResult<Vec<Expr>> {
+    let precision = dps_to_prec(digits);
+    let mut values = Vec::new();
+    for (factor, multiplicity) in factors {
+        let mut common = Int::one();
+        for (x, y) in factor { common = common.lcm(&x.d).lcm(&y.d); }
+        let scale = |q: &Rat| q.n.mul(&common).div_exact_unchecked(&q.d);
+        let mut c: Vec<(Int, Int)> = factor.iter().map(|(x, y)| (scale(x), scale(y))).collect();
+        while c.last().is_some_and(|(x, y)| x.is_zero() && y.is_zero()) { c.pop(); }
+        let zeros = c.iter().take_while(|(x, y)| x.is_zero() && y.is_zero()).count();
+        values.extend(std::iter::repeat(MpComplex::real(BigFloat::zero())).take(zeros * *multiplicity as usize));
+        let c = c.split_off(zeros);
+        if c.len() <= 1 { continue; }
+        let roots = simple_complex_roots(&c, precision, maxsteps, cleanup).ok_or_else(||
+            PolyError::Failed(format!("convergence to root failed; try n < {digits} or maxsteps > {maxsteps}")))?;
+        for root in roots {
+            values.extend(std::iter::repeat(root).take(*multiplicity as usize));
+        }
+    }
+    values.sort_by(|a,b| {
+        (!a.im.is_zero()).cmp(&(!b.im.is_zero()))
+            .then(a.re.cmp(&b.re))
+            .then(a.im.abs().cmp(&b.im.abs()))
+            .then(a.im.cmp(&b.im))
+    });
+    Ok(values.into_iter().map(|z| {
+        // The reference builds roots with Float._new, which maps an exact
+        // zero mantissa to S.Zero.
+        if z.re.is_zero() && z.im.is_zero() { Expr::zero() } else { to_expr(z, precision) }
+    }).collect())
+}
+
+fn horner_complex(c: &[MpComplex], z: &MpComplex, precision: u32) -> (MpComplex, MpComplex) {
+    let mut value = c.last().unwrap().clone();
+    let mut derivative = MpComplex::real(BigFloat::zero());
+    for coefficient in c[..c.len()-1].iter().rev() {
+        derivative = derivative.mul(z, precision).add(&value, precision);
+        value = value.mul(z, precision).add(coefficient, precision);
+    }
+    (value, derivative)
+}
+
+fn simple_complex_roots(c: &[(Int, Int)], precision: u32, maxsteps: u32, cleanup: bool) -> Option<Vec<MpComplex>> {
+    if maxsteps == 0 { return None; }
+    let degree = c.len()-1;
+    let height = c.iter().map(|(x, y)| x.to_big().bits().max(y.to_big().bits())).max().unwrap_or(0);
+    let guard = u32::try_from(height).ok()?.checked_mul(2)?.checked_add(64)?;
+    let working = precision.checked_add(guard.max(degree as u32 * 8))?;
+    for attempt in 0..3 {
+        let wp = working.checked_add(attempt * guard)?;
+        let coeffs: Vec<MpComplex> = c.iter().map(|(x, y)| MpComplex {
+            re: BigFloat::from_int(&x.to_big()).round_to(wp),
+            im: BigFloat::from_int(&y.to_big()).round_to(wp),
+        }).collect();
+        let mut values = if degree == 1 {
+            vec![coeffs[0].neg().div(&coeffs[1], wp)?]
+        } else {
+            // The Newton polygon seeds only use the coefficient magnitudes.
+            let magnitudes: Vec<BigFloat> = coeffs.iter().map(|z| z.abs(wp)).collect();
+            let mut values = polygon_seeds(&magnitudes, 0.37 + attempt as f64*0.11, wp);
+            if !iterate_complex(&coeffs, &mut values, precision, wp, maxsteps) { continue; }
+            values
+        };
+        if cleanup {
+            for z in &mut values {
+                let cutoff = z.re.mag().max(z.im.mag()) - precision as i64 - 8;
+                if z.im.mag() < cutoff { z.im = BigFloat::zero(); }
+                if !z.im.is_zero() && z.re.mag() < cutoff { z.re = BigFloat::zero(); }
+            }
+        }
+        return Some(values.into_iter().map(|z| z.round_to(precision)).collect());
+    }
+    None
+}
+
+fn iterate_complex(c: &[MpComplex], roots: &mut [MpComplex], target: u32, wp: u32, maxsteps: u32) -> bool {
+    let one = MpComplex::real(BigFloat::one());
+    for _ in 0..maxsteps {
+        let mut converged = true;
+        for i in 0..roots.len() {
+            let (value,derivative) = horner_complex(c,&roots[i],wp);
+            let Some(ratio) = value.div(&derivative,wp) else { return false; };
+            let mut sum = MpComplex::real(BigFloat::zero());
+            let mut separation = i64::MAX;
+            for j in 0..roots.len() {
+                if i == j { continue; }
+                let difference = roots[i].sub(&roots[j],wp);
+                let Some(inverse) = difference.inv(wp) else { return false; };
+                separation = separation.min(difference.re.mag().max(difference.im.mag()));
+                sum = sum.add(&inverse,wp);
+            }
+            let Some(step) = ratio.div(&one.sub(&ratio.mul(&sum,wp),wp),wp) else { return false; };
+            roots[i] = roots[i].sub(&step,wp);
+            let error = step.re.mag().max(step.im.mag());
+            let magnitude = roots[i].re.mag().max(roots[i].im.mag());
+            if error > magnitude - target as i64 - 8 || error > separation - 12 { converged = false; }
+        }
+        if converged { return true; }
+    }
+    false
 }
 
 fn horner(c: &[BigFloat], z: &MpComplex, precision: u32) -> (MpComplex, MpComplex) {

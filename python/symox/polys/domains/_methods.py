@@ -304,16 +304,33 @@ def from_MonogenicFiniteExtension(self, a, K0):
 
 
 def invert(self, a, b):
+    # The reference ``Ring.invert``: ``s % b`` when the gcd is exactly one.
+    gaussian = getattr(self, 'is_ZZ_I', False) or getattr(self, 'is_QQ_I', False)
+    if not (self.is_ZZ or self.is_QQ or self.is_RR or self.is_EX or gaussian):
+        return _native_invert(self, a, b)
+    from ... import NotInvertible
+    a, b = self.convert(a), self.convert(b)
+    s, _, h = self.gcdex(a, b)
+    if not self.is_one(h):
+        raise NotInvertible('zero divisor')
+    if self.is_QQ or self.is_EX:
+        # The reference ground types have no ``%`` (PythonMPQ, Expression).
+        name = 'PythonMPQ' if self.is_QQ else 'Expression'
+        raise TypeError("unsupported operand type(s) for %%: '%s' and '%s'" % (name, name))
+    if not b:
+        raise ZeroDivisionError('integer modulo by zero' if self.is_ZZ else 'modulo by zero')
     if getattr(self, 'is_ZZ_I', False):
-        from ... import NotInvertible
-        a, b = self.convert(a), self.convert(b)
-        if not b:
-            raise ZeroDivisionError('zero Gaussian modulus')
-        s, _, g = self.gcdex(a, b)
-        if not self.is_unit(g):
-            raise NotInvertible('Gaussian coefficient is not invertible modulo the ideal')
-        return self.rem(self.exquo(s, g), b)
-    return _native_invert(self, a, b)
+        return self.rem(s, b)
+    if self.is_Field:
+        # Gaussian rationals reduce to zero; real floats keep Python's
+        # floored remainder.
+        if not self.is_RR:
+            return self.zero
+        from ... import floor
+        x, m = self.to_sympy(s), self.to_sympy(b)
+        return self.convert(x - m*floor(x/m))
+    x, m = int(self.to_sympy(s)), int(self.to_sympy(b))
+    return self.convert(x % m)
 
 
 def alg_field_from_poly(self, poly, alias=None, root_index=-1):

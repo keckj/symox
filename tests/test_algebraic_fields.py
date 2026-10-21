@@ -29,14 +29,17 @@ def test_domain_construction_and_exact_arithmetic(gen, option):
     opts = {'extension': a} if option == 'extension' else {'extension': [a]} if option == 'list' else {'domain': f'QQ<{a}>'} if option == 'domain' else {'extension': True}
     p = sm.Poly((1+a)*x*x + x/(1+a) + a, x, **opts)
     q = sp.Poly((1+sa)*sx*sx + sx/(1+sa) + sa, sx, extension=sa)
-    assert p.domain.startswith('QQ<')
+    sopts = {'extension': sa} if option == 'extension' else {'extension': [sa]} if option == 'list' else {'domain': f'QQ<{sa}>'} if option == 'domain' else {'extension': True}
+    # The reference infers QQ_I, not QQ<I>, for `I` with extension=True.
+    r = sp.Poly((1+sa)*sx*sx + sx/(1+sa) + sa, sx, **sopts)
+    assert str(p.domain) == str(r.domain)
     same(p.as_expr(), q.as_expr())
     same(p.monic().as_expr(), q.monic().as_expr())
     same((p*p-p).as_expr(), (q*q-q).as_expr())
     same(p.diff().as_expr(), q.diff().as_expr())
     same(p.integrate().as_expr(), q.integrate().as_expr())
-    assert p.content() == 1
-    assert p.clear_denoms()[0] == 1
+    assert str(p.content()) == str(r.content())
+    assert str(p.clear_denoms()[0]) == str(r.clear_denoms()[0])
     d, r = divmod(p*p+1, p)
     same(d.as_expr(), q.as_expr())
     assert r.as_expr() == 1
@@ -217,13 +220,20 @@ assert str(g.fglm('lex').domain)=='QQ<sqrt(2)>'
 
 
 @pytest.mark.parametrize('operation', [lambda p,q:p+q,lambda p,q:p-q,lambda p,q:p*q,lambda p,q:p.div(q)])
-def test_independent_number_fields_do_not_silently_degrade_to_expressions(operation):
-    x=sm.Symbol('x')
+def test_independent_number_fields_unify_to_a_primitive_element_field(operation):
+    # The reference unifies QQ<sqrt(2), sqrt(3)> and QQ<2**(1/3)> through a
+    # primitive element of their compositum, without expression fallback.
+    x=sm.Symbol('x');sx=sp.Symbol('x')
     p=sm.Poly(x+sm.sqrt(2)+sm.sqrt(3),x,extension=[sm.sqrt(2),sm.sqrt(3)])
-    b=sm.Integer(2)**sm.Rational(1,3)
-    q=sm.Poly(x+b,x,extension=b)
-    with pytest.raises((TypeError,ValueError,NotImplementedError)):
-        operation(p,q)
+    q=sm.Poly(x+sm.Integer(2)**sm.Rational(1,3),x,extension=sm.Integer(2)**sm.Rational(1,3))
+    sp_=sp.Poly(sx+sp.sqrt(2)+sp.sqrt(3),sx,extension=[sp.sqrt(2),sp.sqrt(3)])
+    sq=sp.Poly(sx+sp.Integer(2)**sp.Rational(1,3),sx,extension=sp.Integer(2)**sp.Rational(1,3))
+    actual=operation(p,q);expected=operation(sp_,sq)
+    actual=actual if isinstance(actual,tuple) else (actual,)
+    expected=expected if isinstance(expected,tuple) else (expected,)
+    for a,e in zip(actual,expected):
+        assert str(a.domain)==str(e.domain)
+        same(a.as_expr(),e.as_expr())
 
 
 @pytest.mark.parametrize('value',[0,1,2])

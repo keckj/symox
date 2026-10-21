@@ -588,11 +588,22 @@ fn solve_columns(columns: &[Vec<Rat>], value: &[Rat]) -> Option<Vec<Rat>> {
     Some(pivots.into_iter().map(|i| rows[i][width].clone()).collect())
 }
 
+/// A certified primitive generator with its monic minimal polynomial.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PrimitiveModel {
-    pub algebra: Tensor,
-    pub powers: Vec<Vec<Rat>>,
+    pub generator: Expr,
     pub minimal: Vec<Rat>,
+    pub backend: Backend,
+}
+/// How field membership of an expression is decided.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Backend {
+    /// Rational radicals evaluated in an explicit tensor algebra, with the
+    /// Krylov powers of the generator. Other elements are embedded.
+    Radical { algebra: Tensor, powers: Vec<Vec<Rat>> },
+    /// Any algebraic generator: the minimal polynomial comes from
+    /// `minimal_polynomial` and membership from certified embedding.
+    General,
 }
 impl PrimitiveModel {
     fn from_algebra(algebra: Tensor, generator: &Expr) -> PResult<Self> {
@@ -614,9 +625,9 @@ impl PrimitiveModel {
                     ));
                 }
                 let model = Self {
-                    algebra,
-                    powers,
+                    generator: generator.clone(),
                     minimal,
+                    backend: Backend::Radical { algebra, powers },
                 };
                 if !model.verify(generator) {
                     return Err(PolyError::Failed(
@@ -632,13 +643,49 @@ impl PrimitiveModel {
             "could not construct a minimal polynomial".into(),
         ))
     }
+    /// The model of one generator: the radical algebra when it applies,
+    /// otherwise the general certified construction.
     pub fn build(generator: &Expr) -> PResult<Self> {
+        Self::build_radical(generator).or_else(|_| Self::general(generator))
+    }
+    /// The model inside the explicit radical algebra only.
+    pub fn build_radical(generator: &Expr) -> PResult<Self> {
         Self::from_algebra(Tensor::new(std::slice::from_ref(generator))?, generator)
+    }
+    /// The general model of a numeric algebraic generator.
+    pub fn general(generator: &Expr) -> PResult<Self> {
+        if !crate::traverse::free_symbols(generator).is_empty() {
+            return Err(PolyError::Unsupported(
+                "algebraic generators must be numeric".into(),
+            ));
+        }
+        let minimal = super::embedding::minimal_rational(generator)
+            .map_err(super::embedding::minpoly_error)?;
+        Ok(Self {
+            generator: generator.clone(),
+            minimal,
+            backend: Backend::General,
+        })
     }
     pub fn build_many(generators: &[Expr]) -> PResult<(Expr, Self)> {
         Self::build_many_with_weights(generators).map(|(g, m, _)| (g, m))
     }
     pub fn build_many_with_weights(generators: &[Expr]) -> PResult<(Expr, Self, Vec<i64>)> {
+        Self::build_many_radical(generators).or_else(|_| {
+            let (generator, minimal, weights) =
+                super::embedding::primitive_element(generators)?;
+            Ok((
+                generator.clone(),
+                Self {
+                    generator,
+                    minimal,
+                    backend: Backend::General,
+                },
+                weights,
+            ))
+        })
+    }
+    fn build_many_radical(generators: &[Expr]) -> PResult<(Expr, Self, Vec<i64>)> {
         let Some(first) = generators.first() else {
             return Err(unsupported());
         };
@@ -680,41 +727,55 @@ impl PrimitiveModel {
         Ok((generator, model, weights))
     }
     pub fn coefficient(&self, e: &Expr) -> PResult<Vec<Rat>> {
-        let value = self.algebra.evaluate(e)?;
-        let mut coefficients = solve_columns(&self.powers, &value).ok_or_else(|| {
+        let Backend::Radical { algebra, powers } = &self.backend else {
+            return super::embedding::coefficient(&self.generator, &self.minimal, e);
+        };
+        let Ok(value) = algebra.evaluate(e) else {
+            // Not a combination of the algebra's radicals, but possibly
+            // still an element of the field (a nested radical, say).
+            if !crate::traverse::free_symbols(e).is_empty() {
+                return Err(unsupported());
+            }
+            return super::embedding::coefficient(&self.generator, &self.minimal, e);
+        };
+        let mut coefficients = solve_columns(powers, &value).ok_or_else(|| {
             PolyError::Unsupported("coefficient is outside the selected algebraic subfield".into())
         })?;
         dense::trim(&mut coefficients);
         Ok(coefficients)
     }
     pub fn verify(&self, generator: &Expr) -> bool {
-        let Ok(alpha) = self.algebra.evaluate(generator) else {
+        let Backend::Radical { algebra, powers } = &self.backend else {
+            return generator == &self.generator
+                && super::embedding::minimal_rational(generator).is_ok_and(|m| m == self.minimal);
+        };
+        let Ok(alpha) = algebra.evaluate(generator) else {
             return false;
         };
-        if self.powers.len() + 1 != self.minimal.len()
+        if powers.len() + 1 != self.minimal.len()
             || !self.minimal.last().is_some_and(Coeff::is_one)
         {
             return false;
         }
-        let mut value = self.algebra.constant(Rat::zero());
+        let mut value = algebra.constant(Rat::zero());
         for c in self.minimal.iter().rev() {
             value = add_vectors(
-                &self.algebra.multiply(&value, &alpha),
-                &self.algebra.constant(c.clone()),
+                &algebra.multiply(&value, &alpha),
+                &algebra.constant(c.clone()),
             );
         }
         if value.iter().any(|c| !c.is_zero()) {
             return false;
         }
-        let mut power = self.algebra.unit(0);
-        for (i, expected) in self.powers.iter().enumerate() {
-            if solve_columns(&self.powers[..i], expected).is_some() {
+        let mut power = algebra.unit(0);
+        for (i, expected) in powers.iter().enumerate() {
+            if solve_columns(&powers[..i], expected).is_some() {
                 return false;
             }
             if &power != expected {
                 return false;
             }
-            power = self.algebra.multiply(&power, &alpha);
+            power = algebra.multiply(&power, &alpha);
         }
         true
     }
@@ -869,10 +930,15 @@ mod tests {
             vec![expr("2^(1/5)")],
             vec![expr("sqrt(1+sqrt(2))")],
         ] {
-            assert!(
-                NumberField::from_generators(&generators).is_err(),
-                "{generators:?}"
-            );
+            // Generators outside the radical tensor model use a certified
+            // general primitive element, as in the reference.
+            let field = NumberField::from_generators(&generators)
+                .unwrap_or_else(|e| panic!("{generators:?}: {e:?}"));
+            let model = field.model.as_ref().expect("primitive model");
+            assert!(model.verify(&model.generator), "{generators:?}");
+            for generator in &generators {
+                assert!(model.coefficient(generator).is_ok(), "{generator:?}");
+            }
         }
     }
     #[test]
@@ -1172,7 +1238,9 @@ mod degree_six_eight_tests {
             "2^(1/3)+3^(1/3)",
             "sqrt(1+2^(1/3))",
         ] {
-            assert!(PrimitiveModel::build(&expr(source)).is_err(), "{source}");
+            let model = PrimitiveModel::build(&expr(source)).unwrap();
+            assert!(model.verify(&model.generator), "{source}");
+            assert!(model.coefficient(&expr(source)).is_ok(), "{source}");
         }
     }
 }
@@ -1267,7 +1335,7 @@ mod inference_product_tests {
             assert_eq!(
                 field.degree(),
                 if source.contains("1/3") || source.contains("5/6") {
-                    6
+                    12
                 } else {
                     2
                 }

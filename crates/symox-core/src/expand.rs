@@ -74,7 +74,11 @@ fn ex(
                 } else {
                     t.clone()
                 };
-                if nt.same_presentation(t) {
+                // A held numeric multiple of a sum, like the reference
+                // `(2 - I)*(1/5)` for `1/(2 + I)`, is a product that the
+                // multiplication hint distributes.
+                let held = options.deep && options.mul && nt.is_add() && !k.is_one();
+                if nt.same_presentation(t) && !held {
                     unchanged.push((t.clone(), k.clone()));
                 } else {
                     v.push(mul(&[Expr::num(k.clone()), nt]));

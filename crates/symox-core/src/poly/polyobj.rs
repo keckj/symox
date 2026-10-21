@@ -683,71 +683,7 @@ impl Poly {
 
     /// Render ordered main-generator terms with the selected coefficient label.
     pub fn to_sympy_string_with_domain(&self, coefficient_domain:&str) -> String {
-        let atom = |g: &Expr| matches!(g.kind(), Kind::Sym(_) | Kind::Const(_));
-        let gens_s: Vec<String> = self
-            .true_gens()
-            .iter()
-            .map(|g| if atom(g) { to_str(g) } else { format!("({})", to_str(g)) })
-            .collect();
-        let mut terms: Vec<String> = Vec::new();
-        let tm = self.terms();
-        let tm = if tm.is_empty() { vec![(vec![0; self.ngens], Expr::zero())] } else { tm };
-        for (m, c) in tm {
-            let mut sm = Vec::new();
-            for (i, &e) in m.iter().enumerate() {
-                if e == 1 {
-                    sm.push(gens_s[i].clone());
-                } else if e > 1 {
-                    sm.push(format!("{}**{}", gens_s[i], e));
-                }
-            }
-            let s_monom = sm.join("*");
-            let s_coeff;
-            if c.is_add() {
-                s_coeff = if s_monom.is_empty() { to_str(&c) } else { format!("({})", to_str(&c)) };
-            } else {
-                if !s_monom.is_empty() {
-                    if c.is_one() {
-                        terms.push("+".into());
-                        terms.push(s_monom);
-                        continue;
-                    }
-                    if c.is_minus_one() {
-                        terms.push("-".into());
-                        terms.push(s_monom);
-                        continue;
-                    }
-                }
-                s_coeff = match c.kind() {
-                    Kind::Num(crate::number::Number::Float(f)) => crate::number::format_float(*f),
-                    _ => to_str(&c),
-                };
-            }
-            let s_term = if s_monom.is_empty() { s_coeff } else { format!("{s_coeff}*{s_monom}") };
-            if let Some(rest) = s_term.strip_prefix('-') {
-                terms.push("-".into());
-                terms.push(rest.to_string());
-            } else {
-                terms.push("+".into());
-                terms.push(s_term);
-            }
-        }
-        if terms[0] == "-" || terms[0] == "+" {
-            let m = terms.remove(0);
-            if m == "-" {
-                terms[0] = format!("-{}", terms[0]);
-            }
-        }
-        let gl: Vec<String> = self.true_gens().iter().map(to_str).collect();
-        if let Some(p) = self.modulus {
-            return format!("Poly({}, {}, modulus={p})", terms.join(" "), gl.join(", "));
-        }
-        format!(
-            "Poly({}, {}, domain='{}')",
-            terms.join(" "),
-            gl.join(", "),
-            coefficient_domain
-        )
+        format_poly(self.true_gens(), self.terms(), self.modulus, coefficient_domain)
     }
 
     /// Value at `x_i = a` (rational), as a polynomial in the remaining
@@ -943,5 +879,86 @@ mod tests {
         assert_eq!(c, Rat::one());
         let s: Vec<String> = fs.iter().map(|(p, k)| format!("{}^{k}", to_str(&p.as_expr()))).collect();
         assert_eq!(s, vec!["y^1", "x - y^1", "x + y^1", "x^2"]);
+    }
+}
+
+/// The reference `str(Poly)`: terms in the given order, coefficients
+/// parenthesized when they are sums, then generators and domain.
+pub fn format_poly(gens: &[Expr], tm: Vec<(Vec<u32>, Expr)>, modulus: Option<u64>, coefficient_domain: &str) -> String {
+    // The reference parenthesizes each generator below atom precedence.
+    let atom = |g: &Expr| crate::printing::precedence(g) >= crate::printing::PREC_ATOM;
+    let gens_s: Vec<String> = gens
+        .iter()
+        .map(|g| if atom(g) { to_str(g) } else { format!("({})", to_str(g)) })
+        .collect();
+    let mut terms: Vec<String> = Vec::new();
+    let tm = if tm.is_empty() { vec![(vec![0; gens.len()], Expr::zero())] } else { tm };
+    for (m, c) in tm {
+        let mut sm = Vec::new();
+        for (i, &e) in m.iter().enumerate() {
+            if e == 1 {
+                sm.push(gens_s[i].clone());
+            } else if e > 1 {
+                sm.push(format!("{}**{}", gens_s[i], e));
+            }
+        }
+        let s_monom = sm.join("*");
+        let s_coeff;
+        if c.is_add() {
+            s_coeff = if s_monom.is_empty() { to_str(&c) } else { format!("({})", to_str(&c)) };
+        } else {
+            if !s_monom.is_empty() {
+                if c.is_one() {
+                    terms.push("+".into());
+                    terms.push(s_monom);
+                    continue;
+                }
+                if c.is_minus_one() {
+                    terms.push("-".into());
+                    terms.push(s_monom);
+                    continue;
+                }
+            }
+            s_coeff = match c.kind() {
+                Kind::Num(crate::number::Number::Float(f)) => crate::number::format_float(*f),
+                _ => to_str(&c),
+            };
+        }
+        let s_term = if s_monom.is_empty() { s_coeff } else { format!("{s_coeff}*{s_monom}") };
+        if let Some(rest) = s_term.strip_prefix('-') {
+            terms.push("-".into());
+            terms.push(rest.to_string());
+        } else {
+            terms.push("+".into());
+            terms.push(s_term);
+        }
+    }
+    if terms[0] == "-" || terms[0] == "+" {
+        let m = terms.remove(0);
+        if m == "-" {
+            terms[0] = format!("-{}", terms[0]);
+        }
+    }
+    let gl: Vec<String> = gens.iter().map(to_str).collect();
+    if let Some(p) = modulus {
+        return format!("Poly({}, {}, modulus={p})", terms.join(" "), gl.join(", "));
+    }
+    format!(
+        "Poly({}, {}, domain='{}')",
+        terms.join(" "),
+        gl.join(", "),
+        coefficient_domain
+    )
+}
+
+#[cfg(test)]
+mod reference_generator_unification {
+    use super::*;
+    #[test]
+    fn receiver_generators_come_first_without_sorting() {
+        let s = |v: &[&str]| v.iter().map(|n| Expr::symbol(n)).collect::<Vec<_>>();
+        assert_eq!(unify_gens(&s(&["b"]), &s(&["a"])), s(&["b", "a"]));
+        assert_eq!(unify_gens(&s(&["a"]), &s(&["b"])), s(&["a", "b"]));
+        assert_eq!(unify_gens(&s(&["x", "z"]), &s(&["y", "z"])), s(&["x", "y", "z"]));
     }
 }

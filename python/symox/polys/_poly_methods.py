@@ -305,7 +305,7 @@ def exquo_ground(f, coeff):
 def abs_(f):
     """Make all coefficients of ``f`` positive."""
     K = _domain(f)
-    if K is not None and not K.is_Numerical and not K.is_FiniteField:
+    if K is not None and not K.is_Numerical and not K.is_FiniteField and not K.is_EX:
         raise TypeError("bad operand type for abs(): 'PolyElement'")
     return _ground_result(f, {m: abs(v) for m, v in _items(f)})
 
@@ -619,7 +619,14 @@ def lift(f):
     """Convert algebraic coefficients to rationals (the norm of ``f``)."""
     K = _domain(f)
     ring = False
-    if K is None and _gaussian(f):
+    if K is not None and (getattr(K, "is_GaussianRing", False) or getattr(K, "is_GaussianField", False)):
+        # The reference dmp_lift converts ZZ_I/QQ_I to QQ<I>; the norm stays
+        # over ZZ for the ring.
+        from .. import I, QQ
+        ring = bool(getattr(K, "is_GaussianRing", False))
+        f = Poly(f.as_expr(), *f.gens, domain=QQ.algebraic_field(I))
+        K = f.domain
+    elif K is None and _gaussian(f):
         from .. import I
         ring = all(c.is_integer for c in sum(((c.as_real_imag()) for c in f.coeffs()), ()))
         f = Poly(f.as_expr(), *f.gens, extension=I)
@@ -714,30 +721,18 @@ def shift_list(f, a):
     return Poly(f.as_expr().xreplace(rule), *f.gens, **_domain_kwargs(f))
 
 
-def _numeric_key(r):
-    from .. import N, re
-    return (re(N(r, 50)),)
-
-
-def _is_real_root(r):
-    if r.is_real is not None:
-        return bool(r.is_real)
-    from .. import N, im
-    return abs(im(N(r, 50))) < 1e-40
-
-
 def real_roots(f, multiple=True, radicals=True):
     """Real roots of ``f`` in increasing order (grouped when ``multiple`` is False)."""
-    roots = sorted(_core.real_roots(f), key=_numeric_key)
-    return roots if multiple else _group(roots)
+    from .._public_roots import CRootOf
+    reals = CRootOf.real_roots(f, radicals=radicals)
+    return reals if multiple else _group(reals)
 
 
 def all_roots(f, multiple=True, radicals=True):
     """All complex roots of ``f``: sorted real roots, then the non-real roots
     factor by factor (grouped when ``multiple`` is False)."""
-    roots = _native["all_roots"](f)
-    reals = sorted([r for r in roots if _is_real_root(r)], key=_numeric_key)
-    roots = reals + [r for r in roots if not _is_real_root(r)]
+    from .._public_roots import CRootOf
+    roots = CRootOf.all_roots(f, radicals=radicals)
     return roots if multiple else _group(roots)
 
 
@@ -753,7 +748,8 @@ def _group(roots):
 
 def root(f, index, radicals=True):
     """The ``index``-th root of ``f`` in the order of ``all_roots``."""
-    return f.all_roots()[index]
+    from .._public_roots import rootof
+    return rootof(f, index, radicals=radicals)
 
 
 def same_root(f, a, b):
@@ -797,7 +793,10 @@ def trunc(f, p):
     K = _domain(f)
     p = _convert_ground(f, p)
     if f.modulus is None and (K is None or not K.is_ZZ):
-        raise TypeError("unsupported operand type(s) for %%: '%s' and '%s'" % (K, K))
+        # The reference applies ``%`` to the domain elements; EX elements
+        # are ``Expression`` objects.
+        name = 'Expression' if K is not None and K.is_EX else K
+        raise TypeError("unsupported operand type(s) for %%: '%s' and '%s'" % (name, name))
     from .. import Integer
     p = int(p)
     rep = {}

@@ -15,6 +15,11 @@ impl Polynomial {
         if auto {
             if let Some(field) = &mut p.field {
                 field.promote_field();
+            } else if let Some(a) = p.algebraic.as_ref().filter(|a| a.gaussian == Some(true)) {
+                // ZZ_I integrates over its field QQ_I.
+                let mut a = a.clone();
+                a.gaussian = Some(false);
+                p = a.into();
             } else if p.algebraic.is_none() && p.modulus.is_none() && p.base.domain == Domain::ZZ {
                 p.base.domain = Domain::QQ;
             }
@@ -26,6 +31,9 @@ impl Polynomial {
             return Err(PolyError::Generator(
                 "integration generator is out of range".into(),
             ));
+        }
+        if let Some(e) = &self.expression {
+            return Ok(e.integrate(1, variable)?.into());
         }
         let p = self.integration_domain(auto);
         let degree = |powers: &[u32]| {
@@ -42,7 +50,19 @@ impl Polynomial {
                     let k = degree(powers)?;
                     let mut powers = powers.to_vec();
                     powers[variable] = k;
-                    Ok((powers, c.div(&AN::from_i64(k as i64))))
+                    let q = c.div(&AN::from_i64(k as i64));
+                    if a.gaussian == Some(true) && !super::gaussian::is_integral(&q) {
+                        let show = |z: &AN| {
+                            let (x, y) = super::gaussian::parts(z);
+                            format!("({} + {}*I)", crate::printer::to_str(&crate::expr::Expr::num(x.to_number())), crate::printer::to_str(&crate::expr::Expr::num(y.to_number())))
+                        };
+                        return Err(PolyError::ExactQuotientFailed(format!(
+                            "{} does not divide {} in ZZ_I",
+                            show(&AN::from_i64(k as i64)),
+                            show(c)
+                        )));
+                    }
+                    Ok((powers, q))
                 })
                 .collect::<PResult<Vec<_>>>()?;
             return Ok(a.with_rep(MPoly::from_terms(a.gens.len(), terms)).into());

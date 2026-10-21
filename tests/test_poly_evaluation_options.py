@@ -104,12 +104,15 @@ def test_univariate_evaluation_can_return_general_native_scalars(point):
     assert_equivalent(polynomial.eval(point),expected.eval(point.to_sympy()))
 
 
-def test_unsupported_new_coefficient_backends_are_explicit():
+def test_new_coefficient_backends_follow_the_reference():
     x,y=sx.symbols('x y')
     polynomial=sx.Poly(x+y,x,y)
-    for point in [sx.I,sx.sqrt(2)]:
-        with pytest.raises(NotImplementedError):
-            polynomial.eval(x,point)
+    # The reference evaluates at I into ZZ_I.
+    value=polynomial.eval(x,sx.I)
+    assert str(value)=="Poly(y + I, y, domain='ZZ_I')"
+    # Algebraic points without an extension land in EX, like the reference.
+    value=polynomial.eval(x,sx.sqrt(2))
+    assert str(value)=="Poly(y + sqrt(2), y, domain='EX')"
 
 
 @pytest.mark.parametrize('case',range(8))

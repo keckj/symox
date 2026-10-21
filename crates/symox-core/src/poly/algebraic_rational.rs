@@ -10,10 +10,19 @@ use crate::expr::Expr;
 use crate::ops::{add, div, pow};
 
 pub fn unify(a: &AlgebraicPoly, b: &AlgebraicPoly) -> PResult<(AlgebraicPoly, AlgebraicPoly)> {
+    unify_in(a, b, false)
+}
+/// Common field and generators; `multivariate` admits several generators,
+/// for the operations the reference also defines on `K[x_1, ..., x_n]`.
+fn unify_in(
+    a: &AlgebraicPoly,
+    b: &AlgebraicPoly,
+    multivariate: bool,
+) -> PResult<(AlgebraicPoly, AlgebraicPoly)> {
     let gens = unify_gens(&a.gens, &b.gens);
-    if gens.len() != 1 {
+    if gens.len() != 1 && !(multivariate && !gens.is_empty()) {
         return Err(PolyError::Unsupported(
-            "algebraic rational operations require one polynomial generator".into(),
+            "univariate polynomial expected".into(),
         ));
     }
     let field = if a.number_field.same_embedding(&b.number_field) {
@@ -82,13 +91,22 @@ pub fn invert(a: &AlgebraicPoly, b: &AlgebraicPoly) -> PResult<AlgebraicPoly> {
 /// Cancel a monic common gcd, preserving the original scalar units. This is
 /// also the pair form of cancel: coefficient=1 and these two exact quotients.
 pub fn cancel(a: &AlgebraicPoly, b: &AlgebraicPoly) -> PResult<(AlgebraicPoly, AlgebraicPoly)> {
-    let (a, b) = unify(a, b)?;
+    let (a, b) = unify_in(a, b, true)?;
     if b.rep.is_zero() {
         return Err(PolyError::Unsupported("polynomial division by zero".into()));
     }
     let _scope = AlgebraicScope::new(a.number_field.clone());
     if a.rep.is_zero() {
-        return Ok((a.clone(), dense_poly(&a, &[AN::one()])));
+        return Ok((a.clone(), a.with_rep(super::mpoly::MPoly::one(a.rep.nvars))));
+    }
+    if a.gens.len() > 1 {
+        // The reference dmp_cancel over a field: the cofactors of the monic
+        // dmp_inner_gcd.
+        let gcd = super::algebraic_multi::gcd(&a.rep, &b.rep)?;
+        return Ok((
+            a.with_rep(super::algebraic_multi::exact(&a.rep, &gcd)?),
+            b.with_rep(super::algebraic_multi::exact(&b.rep, &gcd)?),
+        ));
     }
     let numerator = dense::from_mpoly(&a.rep, 0);
     let denominator = dense::from_mpoly(&b.rep, 0);
@@ -287,16 +305,16 @@ mod tests {
         }
     }
     #[test]
-    fn incompatible_fields_and_generators_fail_before_arithmetic() {
+    fn distinct_fields_unify_and_incompatible_generators_fail() {
         let x = Expr::symbol("x");
         let y = Expr::symbol("y");
         let field = |s| NumberField::from_generator(&parse_str(s).unwrap()).unwrap();
         let p = AlgebraicPoly::from_expr(&x, std::slice::from_ref(&x), field("2^(1/3)")).unwrap();
         let q = AlgebraicPoly::from_expr(&x, std::slice::from_ref(&x), field("3^(1/3)")).unwrap();
-        assert!(gcdex(&p, &q).is_err());
-        assert!(invert(&p, &q).is_err());
-        assert!(cancel(&p, &q).is_err());
-        assert!(apart(&p, &q).is_err());
+        // Distinct fields unify over a common primitive element, as in the
+        // reference.
+        assert!(gcdex(&p, &q).is_ok());
+        assert!(cancel(&p, &q).is_ok());
         let q = AlgebraicPoly::from_expr(&y, std::slice::from_ref(&y), field("sqrt(2)")).unwrap();
         assert!(gcdex(&p, &q).is_err());
         let a: super::super::fraction::Polynomial = p.into();

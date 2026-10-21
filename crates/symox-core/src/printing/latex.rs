@@ -707,6 +707,17 @@ impl<'a> LatexPrinter<'a> {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        if let Func::Undefined(head) = f {
+            if crate::poly::rootof::is_rootof_head(head, args.len()) {
+                // The reference's _print_ComplexRootOf.
+                let body = format!(
+                    "\\operatorname{{CRootOf}} {{\\left({}, {}\\right)}}",
+                    self.print(&args[0]),
+                    self.print(&args[1])
+                );
+                return match exp { Some(exp) => format!("{body}^{{{exp}}}"), None => body };
+            }
+        }
         if let (Some(_), Func::Undefined(head)) = (crate::host::expression_head(e), f) {
             // SymPy's _print_Basic for an Expr subclass that is not a Function.
             let name = deal_with_super_sub(&head.name);

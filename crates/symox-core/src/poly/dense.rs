@@ -176,7 +176,8 @@ pub fn gcd_field<C: Field>(a: &[C], b: &[C]) -> Vec<C> {
     while !b.is_empty() {
         let r = rem(&a, &b);
         a = b;
-        b = r;
+        // Monic remainders keep the coefficient sizes of the sequence down.
+        b = if r.is_empty() { r } else { monic(&r) };
     }
     monic(&a)
 }
