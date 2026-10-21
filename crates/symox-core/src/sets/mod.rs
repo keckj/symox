@@ -15,7 +15,7 @@ mod lambda;
 pub use lambda::{identity_function,lambda_checked,lambda_signature,lambda_arity,lambda_parts,lambda_apply,validate_lambda,validate_lambda_tree};
 
 pub use props::{as_relational, boundary, closure, contains, inf, interior, is_subset, measure, sup};
-pub use solveset::{reduce_inequalities, solve_univariate_inequality, solveset, solveset_real};
+pub use solveset::{reduce_inequalities, register_periodic_host, solve_univariate_inequality, solveset, solveset_real, with_periodic_window, PeriodicHost, PeriodicWindow};
 
 use std::cmp::Ordering;
 

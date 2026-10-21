@@ -24,6 +24,7 @@ mod rational_definite;
 mod dirac;
 pub(crate) mod meijerint;
 pub(crate) mod piecewise;
+pub use piecewise::piecewise_intervals;
 
 /// Stage probe of the Meijer G definite integration (testing only).
 /// `meijerint_indefinite(f, x)` with the errors the reference raises, as

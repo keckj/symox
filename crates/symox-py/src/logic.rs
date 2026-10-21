@@ -35,12 +35,33 @@ fn exprs(args: &Bound<'_, PyTuple>) -> PyResult<Vec<Expr>> {
     args.iter().map(|a| to_expr(&a)).collect()
 }
 
+/// `Piecewise._intervals(sym, err_on_Eq)` on the whole real line:
+/// `(True, [(a, b, e, i), ...])` or `(False, message)`.
+#[pyfunction]
+#[pyo3(signature = (expression, sym, err_on_eq=false))]
+fn _piecewise_intervals<'py>(py: Python<'py>, expression: &Bound<'py, PyAny>, sym: &Bound<'py, PyAny>, err_on_eq: bool) -> PyResult<Bound<'py, PyTuple>> {
+    let expression = to_expr(expression)?;
+    let sym = to_expr(sym)?;
+    match symox::integrate::piecewise_intervals(&expression, &sym, err_on_eq) {
+        Ok(abei) => {
+            let items = abei.into_iter().map(|(a, b, e, i)| PyTuple::new(py, [wrap(a).into_pyobject(py)?.into_any(), wrap(b).into_pyobject(py)?.into_any(), wrap(e).into_pyobject(py)?.into_any(), i.into_pyobject(py)?.into_any()])).collect::<PyResult<Vec<_>>>()?;
+            PyTuple::new(py, [true.into_pyobject(py)?.to_owned().into_any(), PyList::new(py, items)?.into_any()])
+        }
+        Err(message) => PyTuple::new(py, [false.into_pyobject(py)?.to_owned().into_any(), message.into_pyobject(py)?.into_any()]),
+    }
+}
+
 #[pyfunction]
 fn _boolean_piecewise_to_ite(expression: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
     let expression = to_expr(expression)?;
     if let Kind::Piecewise(pieces) = expression.kind() {
-        if pieces.iter().any(|(value, _)| !lg::is_boolean_category(value) && !matches!(value.kind(), Kind::Piecewise(_))) {
-            return Err(PyTypeError::new_err("Expecting Boolean or bool branches in a Piecewise rewrite"));
+        // the reference checks the pieces up to the first `True` condition;
+        // a value equal to 1 passes its `b != True` test
+        for (value, cond) in pieces.iter() {
+            if !lg::is_boolean_category(value) && !matches!(value.kind(), Kind::Piecewise(_)) && !value.is_one() {
+                return Err(PyTypeError::new_err(format!("\nExpecting Boolean or bool but got `{}`", value.class_name())));
+            }
+            if matches!(cond.kind(), Kind::Bool(true)) { break; }
         }
     }
     lg::boolean_piecewise_to_ite(&expression).map(wrap).ok_or_else(||
@@ -675,7 +696,8 @@ fn solveset(f: &Bound<'_, PyAny>, symbol: Option<&Bound<'_, PyAny>>, domain: Opt
     };
     require_set(&dom)?;
     if !x.is_symbol() { return Err(PyValueError::new_err("the independent variable must be a symbol")); }
-    st::solveset(&f, &x, &dom).map(wrap).map_err(PyValueError::new_err)
+    st::with_periodic_window(st::PeriodicWindow::Direct, || st::solveset(&f, &x, &dom))
+        .map(wrap).map_err(PyValueError::new_err)
 }
 
 #[pyfunction]
@@ -692,7 +714,8 @@ fn solve_univariate_inequality(
         Some(d) => to_expr(d)?,
         None => st::reals(),
     };
-    st::solve_univariate_inequality(&to_expr(expr)?, &to_expr(gen)?, relational, &dom)
+    let (expr, gen) = (to_expr(expr)?, to_expr(gen)?);
+    st::with_periodic_window(st::PeriodicWindow::Direct, || st::solve_univariate_inequality(&expr, &gen, relational, &dom))
         .map(wrap)
         .map_err(PyNotImplementedError::new_err)
 }
@@ -714,16 +737,44 @@ fn reduce_inequalities(inequalities: &Bound<'_, PyAny>, symbols: Option<&Bound<'
     if syms.len() > 1 {
         return Err(PyNotImplementedError::new_err("only univariate inequalities are supported"));
     }
-    st::reduce_inequalities(&ineqs, syms.first())
+    st::with_periodic_window(st::PeriodicWindow::Direct, || st::reduce_inequalities(&ineqs, syms.first()))
         .map(wrap)
         .map_err(PyNotImplementedError::new_err)
 }
 
+static PERIODIC_SOLVE: pyo3::sync::GILOnceCell<PyObject> = pyo3::sync::GILOnceCell::new();
+
+/// The periodic branch of `solve_univariate_inequality`, ported in Python
+/// (`symox.solvers._periodic_inequality`). Its `NotImplementedError` is the
+/// reference refusal; any other failure keeps the native path.
+fn periodic_host(ineq: &Expr, x: &Expr, domain: &Expr, window: &st::PeriodicWindow) -> Option<Result<Expr, String>> {
+    Python::with_gil(|py| {
+        let solve = PERIODIC_SOLVE.get_or_try_init(py, || -> PyResult<PyObject> {
+            Ok(py.import("symox.solvers._periodic_inequality")?.getattr("native_solve")?.unbind())
+        }).ok()?;
+        let window: PyObject = match window {
+            st::PeriodicWindow::Direct => py.None(),
+            st::PeriodicWindow::Whole => false.into_pyobject(py).ok()?.to_owned().into_any().unbind(),
+            st::PeriodicWindow::Interval(lo, hi) => (wrap(lo.clone()), wrap(hi.clone())).into_pyobject(py).ok()?.into_any().unbind(),
+        };
+        match solve.call1(py, (wrap(ineq.clone()), wrap(x.clone()), wrap(domain.clone()), window)) {
+            Ok(value) if value.is_none(py) => None,
+            Ok(value) => to_expr(value.bind(py)).ok().map(Ok),
+            Err(error) if error.is_instance_of::<PyNotImplementedError>(py) => {
+                Some(Err(error.value(py).str().map(|s| s.to_string()).unwrap_or_default()))
+            }
+            Err(_) => None,
+        }
+    })
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    st::register_periodic_host(periodic_host);
     m.add("BadSignatureError",m.py().get_type::<BadSignatureError>())?;
     m.add("BadArgumentsError",m.py().get_type::<BadArgumentsError>())?;
     m.add_class::<ModelIterator>()?;
     for f in [
+        wrap_pyfunction!(_piecewise_intervals, m)?,
         wrap_pyfunction!(py_and, m)?,
         wrap_pyfunction!(py_or, m)?,
         wrap_pyfunction!(py_not, m)?,
