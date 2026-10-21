@@ -261,14 +261,16 @@ equivalence. Known differences and remaining gaps:
 * Integral transforms (`laplace_transform`, `inverse_laplace_transform`,
   `fourier_transform`, `sine_transform`, `cosine_transform`,
   `mellin_transform`, `hankel_transform`, their inverses and the held
-  `*Transform` classes) are native table and rule engines. They follow
-  SymPy's `(result, plane/strip, cond)` tuples and the `noconds`, `simplify`
-  and `needeval` hints. There is no Meijer G fallback, so integrands
-  outside the tables stay held where SymPy may still succeed (for example
-  `laplace_transform(cos(sqrt(t)), t, s)`). Some results are equivalent but
-  printed differently: the Fourier and cosine transforms keep `Abs(k)` where
-  SymPy assumes `k > 0`. Legacy Matrix results warn with `DeprecationWarning`
-  instead of `SymPyDeprecationWarning`.
+  `*Transform` classes) follow SymPy's `(result, plane/strip, cond)` tuples
+  and the `noconds`, `simplify` and `needeval` hints. The Fourier, sine,
+  cosine and Hankel transforms and their inverses are computed through the
+  definite integral like SymPy, with SymPy's convergence conditions; native
+  closed form tables are only a fallback. Laplace and Mellin transforms try
+  their rules first and then the integral (`laplace_transform(cos(sqrt(t)),
+  t, s)` is evaluated). Some results are equal to SymPy's but printed
+  differently, see [the parity notes](algorithmic-parity.md). Legacy Matrix
+  results warn with `DeprecationWarning` instead of
+  `SymPyDeprecationWarning`.
 
 Absolute-value derivatives respect real and imaginary assumptions. For an
 unconstrained complex argument, derivatives of the real and imaginary parts

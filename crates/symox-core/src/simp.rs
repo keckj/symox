@@ -422,6 +422,11 @@ fn expand_log_arg(arg: &Expr, force: bool) -> Option<Expr> {
         let a = log(x);
         match a.kind() {
             Kind::Func(Func::Log, b) if b.len() == 1 => expand_log_arg(&b[0], force).unwrap_or(a),
+            // log(1/4) evaluates to -log(4), whose argument is expanded too
+            Kind::Mul(..) => map_children(&a, &mut |c| match c.kind() {
+                Kind::Func(Func::Log, b) if b.len() == 1 => expand_log_arg(&b[0], force).unwrap_or_else(|| c.clone()),
+                _ => c.clone(),
+            }),
             _ => a,
         }
     };
