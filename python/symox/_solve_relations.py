@@ -229,10 +229,22 @@ def _polynomial_roots(f,symbol,found=None):
             pass
     soln=list(soln)
     if poly.gen!=symbol:
+        # The reference inverts the generator with tsolve=True, so the
+        # inner solve skips the polynomial branch; without the guard every
+        # inversion would invert its own generator again.
+        if getattr(_INVERTING,'active',False):
+            return None
         t=Dummy('t')
-        inverse=solve(poly.gen-t,symbol)
+        _INVERTING.active=True
+        try:
+            inverse=solve(poly.gen-t,symbol)
+        finally:
+            _INVERTING.active=False
         soln={i.subs(t,s) for i in inverse for s in soln}
     return set(soln) if len(soln)>2 else None
+
+
+_INVERTING=__import__('threading').local()
 
 
 def _radical_generators(equation,symbol):

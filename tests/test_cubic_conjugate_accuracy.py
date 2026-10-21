@@ -52,11 +52,18 @@ for source in ('x**3-3*x+1', 'x**3-7*x+1'):
 
 def test_cubic_inequality_contains_the_entire_exact_positive_set():
     x = sx.Symbol('x')
-    z = -sx.Rational(1, 2)+sx.I*sx.sqrt(3)/2
-    endpoints = [z**sx.Rational(k, 3)+z**sx.Rational(-k, 3) for k in (4, 7, 1)]
-    expected = sx.Union(sx.Interval.open(endpoints[0], endpoints[1]),
-                        sx.Interval.open(endpoints[2], sx.oo))
-    assert sx.solve_univariate_inequality(x**3-3*x+1>0, x, relational=False) == expected
+    # The endpoints are the Cardano roots of solve (the reference raises
+    # NotImplementedError for this inequality). Each is an exact zero, so
+    # every interval is open.
+    result = sx.solve_univariate_inequality(x**3-3*x+1>0, x, relational=False)
+    roots = sx.solve(x**3-3*x+1, x)
+    assert isinstance(result, sx.Union) and len(result.args) == 2
+    first, second = sorted(result.args, key=lambda i: float(sx.re(i.start).evalf()))
+    assert first.left_open and first.right_open and second.left_open
+    assert second.end == sx.oo
+    assert {first.start, first.end, second.start} == set(roots)
+    for endpoint, angle in [(first.start, 8), (first.end, 4), (second.start, 2)]:
+        assert abs(complex(endpoint.evalf(30)) - 2*complex(sp.cos(angle*sp.pi/9).evalf(30))) < 1e-25
     # z=exp(2*pi*I/3) on its principal branch. The three endpoints are exactly
     # 2*cos(8*pi/9), 2*cos(4*pi/9), 2*cos(2*pi/9), respectively. Monotonicity
     # of cosine places them in (-2,-1), (0,1), (1,2). Exact minimal polynomials

@@ -651,7 +651,11 @@ fn sign_analysis(ineq: &Expr, x: &Expr, domain: &Expr, need_domain: bool) -> Opt
     let dom = if need_domain { real_domain(&f, x)? } else { reals() };
     let mut crit: Vec<Expr> = Vec::new();
     let mut poles: Vec<Expr> = Vec::new();
-    crit.extend(real_roots(&num, x)?);
+    // The roots of the numerator are exact zeros. Their radical forms (a
+    // Cardano root, for one) need not expand to zero after substitution,
+    // and a numeric sign at a zero is rounding noise.
+    let zeros = real_roots(&num, x)?;
+    crit.extend(zeros.iter().cloned());
     for p in real_roots(&den, x)? {
         poles.push(p.clone());
         crit.push(p);
@@ -695,9 +699,13 @@ fn sign_analysis(ineq: &Expr, x: &Expr, domain: &Expr, need_domain: bool) -> Opt
         segs.push((Seg::Gap(lo, hi), sat));
         if i < k {
             let p = &pts[i];
-            let sat = if !poles.iter().any(|q| cmp3(q,p)==Some(Ordering::Equal)) && in_dom(p) {
+            let sat = if poles.iter().any(|q| cmp3(q,p)==Some(Ordering::Equal)) || !in_dom(p) {
+                false
+            } else if zeros.iter().any(|z| cmp3(z,p)==Some(Ordering::Equal)) {
+                holds(op,Ordering::Equal)
+            } else {
                 holds(op,sign_at(&f,x,p)?)
-            } else {false};
+            };
             segs.push((Seg::Pt(p.clone()), sat));
         }
     }

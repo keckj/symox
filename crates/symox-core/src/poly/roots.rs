@@ -100,6 +100,22 @@ fn upoly_from_rats(c: &[Rat]) -> UPoly {
     UPoly { c: c.iter().rev().map(|r| Expr::num(r.to_number())).collect(), numerical: true }
 }
 
+/// The reference `CRootOf._roots_trivial` with radicals: the linear,
+/// quadratic and binomial roots of a numerical polynomial (coefficients
+/// highest degree first), `None` for any other polynomial.
+pub fn roots_trivial(c: &[Expr]) -> Option<Vec<Expr>> {
+    let f = UPoly { c: c.to_vec(), numerical: true };
+    if c.len() < 2 || c[0].is_zero() {
+        return None;
+    }
+    match f.deg() {
+        1 => Some(roots_linear(&f)),
+        2 => Some(roots_quadratic(&f)),
+        _ if f.length() == 2 && !f.nth(0).is_zero() => Some(roots_binomial(&f)),
+        _ => None,
+    }
+}
+
 // ----------------------------------------------------------------------
 // closed forms
 // ----------------------------------------------------------------------
@@ -252,7 +268,13 @@ fn principal_root(base: &Expr, n: i64) -> Expr {
         let (c, s) = cos_sin_pi(1, n);
         return expand(&mul(&[r, add(&[c, mul(&[Expr::i(), s])])]));
     }
-    root_n(base, n)
+    let r = root_n(base, n);
+    if !is_real_num(base) {
+        // the reference's alpha.expand(complex=True)
+        let options = crate::expand::ExpandOptions::default();
+        return crate::complex_parts::expand_complex(&r, &options).unwrap_or(r);
+    }
+    r
 }
 
 fn roots_binomial(f: &UPoly) -> Vec<Expr> {
