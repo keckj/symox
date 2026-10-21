@@ -223,14 +223,63 @@ fn eval_trig_integral(s: SpecialFn, z: &Expr) -> Option<Expr> {
             _ => Expr::oo(),
         });
     }
+    let exp_polar = |x: Expr| crate::functions::func(crate::Func::ExpPolar, vec![x]);
+    let half_pi_i = div(&mul2(&Expr::i(), &pi), &Expr::int(2));
+    // _Ifactor(nz, sign)
+    let ifactor = |nz: Expr, sign: i64| -> Expr {
+        let sg = Expr::int(sign);
+        match s {
+            Si => crate::ops::mul(&[Expr::i(), sf(Shi, vec![nz]), sg]),
+            Shi => crate::ops::mul(&[Expr::i(), sf(Si, vec![nz]), sg]),
+            Ci => crate::ops::add(&[sf(Chi, vec![nz]), crate::ops::mul(&[half_pi_i.clone(), sg])]),
+            _ => crate::ops::add(&[sf(Ci, vec![nz]), crate::ops::mul(&[half_pi_i.clone(), sg])]),
+        }
+    };
+    if let Some(nz) = extract_exact_factor(z, &exp_polar(half_pi_i.clone())) {
+        return Some(ifactor(nz, 1));
+    }
     if matches!(s, Si | Shi) {
         if let Some(t) = extract_i(z) {
-            let other = if s == Si { Shi } else { Si };
-            return Some(mul2(&Expr::i(), &sf(other, vec![t])));
+            return Some(ifactor(t, 1));
         }
-        if could_extract_minus_sign(z) {
-            return Some(neg(&sf(s, vec![neg(z)])));
+    }
+    if let Some(nz) = extract_exact_factor(z, &exp_polar(neg(&half_pi_i))) {
+        return Some(ifactor(nz, -1));
+    }
+    // _minusfactor
+    let minus = |nz: Expr| -> Expr {
+        match s {
+            Si | Shi => neg(&sf(s, vec![nz])),
+            _ => crate::ops::add(&[sf(s, vec![nz]), mul2(&Expr::i(), &pi)]),
         }
+    };
+    if let Some(nz) = extract_exact_factor(z, &exp_polar(mul2(&Expr::i(), &pi))) {
+        return Some(minus(nz));
+    }
+    if matches!(s, Si | Shi) && could_extract_minus_sign(z) {
+        return Some(minus(neg(z)));
+    }
+    let (nz, n) = super::hyperexpand::extract_branch_factor(z, false);
+    if n.is_zero() && nz == *z {
+        return None;
+    }
+    Some(match s {
+        Si | Shi => sf(s, vec![nz]),
+        _ => crate::ops::add(&[crate::ops::mul(&[Expr::int(2), pi.clone(), Expr::i(), n]), sf(s, vec![nz])]),
+    })
+}
+
+/// `z.extract_multiplicatively(c)` for a non-numeric atom-like factor `c`:
+/// `z == c` or `c` is a literal factor of the product `z`.
+fn extract_exact_factor(z: &Expr, c: &Expr) -> Option<Expr> {
+    if z == c {
+        return Some(Expr::one());
+    }
+    if let Kind::Mul(..) = z.kind() {
+        let mut args = z.args();
+        let i = args.iter().position(|a| a == c)?;
+        args.remove(i);
+        return Some(crate::ops::mul(&args));
     }
     None
 }

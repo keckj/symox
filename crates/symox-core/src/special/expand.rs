@@ -119,24 +119,13 @@ fn expand_one(e: &Expr) -> Option<Expr> {
                 &gamma(&add(&[a[0].clone(), a[1].clone()])),
             )),
             Erf2 => Some(sub(&erf(&a[1]), &erf(&a[0]))),
-            Polylog => {
-                let s = as_small(&a[0])?;
-                let z = &a[1];
-                if s == 1 {
-                    return Some(neg(&log(&sub(&Expr::one(), z))));
-                }
-                if s <= 0 && s > -200 {
-                    let n = (-s) as u64;
-                    let u = div(z, &sub(&Expr::one(), z));
-                    let v: Vec<Expr> = (1..=n + 1)
-                        .map(|k| {
-                            let c = super::integers::factorial(k - 1) * super::integers::stirling2(n + 1, k);
-                            mul2(&Expr::num(Number::from_bigint(c)), &u.powi(k as i64))
-                        })
-                        .collect();
-                    return Some(add(&v));
-                }
-                None
+            Polylog if a.len() == 2 => {
+                let r = super::hyperexpand::polylog_expand(&a[0], &a[1]);
+                (r != super::polylog(&a[0], &a[1])).then_some(r)
+            }
+            Lerchphi if a.len() == 3 => {
+                let r = super::hyperexpand::lerchphi_expand(&a[0], &a[1], &a[2]);
+                (r != super::lerchphi(&a[0], &a[1], &a[2])).then_some(r)
             }
             Expint => {
                 let n = as_small(&a[0])?;
@@ -333,15 +322,13 @@ fn half_order(s: SpecialFn, nu: &Number, z: &Expr) -> Option<Expr> {
     }
 }
 
-/// Closed forms of a few generalised hypergeometric functions.
+/// SymPy's `hyperexpand(e)` with the default keywords; an expression whose
+/// expansion raises in the reference is returned unchanged.
 pub fn hyperexpand(e: &Expr) -> Expr {
-    rebuild(e, &|x| match x.kind() {
-        Kind::Func(Func::Special(SpecialFn::Hyper), a) => hyperexpand_one(a),
-        Kind::Func(Func::Special(SpecialFn::MeijerG), a) => super::advanced::meijer_expand(a),
-        _ => None,
-    })
+    super::hyperexpand::hyperexpand(e)
 }
 
+#[allow(dead_code)]
 fn hyperexpand_one(a: &[Expr]) -> Option<Expr> {
     let ap = tuple_items(&a[0])?;
     let bq = tuple_items(&a[1])?;

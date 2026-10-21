@@ -21,7 +21,6 @@ use crate::{Expr, Func, Kind};
 mod conds;
 mod table;
 
-pub(crate) use conds::condsimp;
 
 /// A Meijer G-function `G^{m,n}_{p,q}(an, ao; bm, bo | z)`.
 #[derive(Clone, Debug, PartialEq)]
@@ -419,7 +418,7 @@ fn int0oo_1(g: &G, x: &Expr) -> Option<Expr> {
 }
 
 /// `powdenest(e, polar=True)`: denest treating every symbol as polar.
-fn powdenest_polar(e: &Expr) -> Expr {
+pub(crate) fn powdenest_polar(e: &Expr) -> Expr {
     let p = polarify(e, false);
     let mut fwd = Vec::new();
     let mut back = Vec::new();
@@ -604,7 +603,7 @@ fn hyperbolic_heads() -> Vec<Func> {
 /// `_guess_expansion`.
 fn guess_expansion(f: &Expr) -> Vec<Expr> {
     let mut res = vec![f.clone()];
-    let mut push = |e: Expr, res: &mut Vec<Expr>| if !res.contains(&e) { res.push(e) };
+    let push = |e: Expr, res: &mut Vec<Expr>| if !res.contains(&e) { res.push(e) };
     push(crate::simp::expand_mul(f), &mut res);
     push(crate::expand::expand(f), &mut res);
     let mut trig: Vec<Func> = TRIG.to_vec();
@@ -742,6 +741,9 @@ pub(crate) fn meijerint_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Opti
 /// Internal probe of the Meijer G pipeline, used to compare each stage with
 /// the reference implementation.
 pub(crate) fn debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
+    if op.starts_with("hx") {
+        return crate::special::hyperexpand::debug(op, args);
+    }
     let tuple = |v: Vec<Expr>| crate::special::tuple(v);
     match (op, args) {
         ("rewrite_single", [f, x]) => {
@@ -768,6 +770,8 @@ pub(crate) fn debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
         ("check_antecedents", [g1, g2, x]) => {
             Some(vec![conds::check_antecedents(&G::from_expr(g1)?, &G::from_expr(g2)?, x)?])
         }
+        ("powdenest_polar", [e]) => Some(vec![powdenest_polar(e)]),
+        ("polarify", [e]) => Some(vec![polarify(e, false)]),
         ("condsimp", [c]) => Some(vec![conds::condsimp(c, true)]),
         ("eval_cond", [c]) => Some(vec![conds::eval_cond(c)]),
         ("int0oo_1", [g, x]) => Some(vec![int0oo_1(&G::from_expr(g)?, x)?]),

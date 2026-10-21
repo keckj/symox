@@ -131,6 +131,11 @@ fn principal_branch(x: &Expr, p: &Expr) -> Option<Expr> {
 fn has_exp_polar(x: &Expr) -> bool {
     x.is_func(&Func::ExpPolar) || x.args().iter().any(has_exp_polar)
 }
+/// `x.has(exp_polar, polar_lift)`.
+pub(crate) fn has_polar_func(x: &Expr) -> bool {
+    matches!(x.kind(), Kind::Func(Func::ExpPolar | Func::Special(SpecialFn::PolarLift), _))
+        || x.args().iter().any(has_polar_func)
+}
 pub(crate) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
     let x = &a[0];
     match s {
@@ -195,7 +200,8 @@ fn polarify_rec(e: &Expr, lift_all: bool, pause: bool) -> Expr {
     }
 }
 fn is_number_expr(e: &Expr) -> bool {
-    !matches!(e.kind(), Kind::Bool(_) | Kind::Rel(..)) && !crate::logic::is_boolean(e)
+    // A Tuple is not an Expr, so it is never `is_number`.
+    !matches!(e.kind(), Kind::Bool(_) | Kind::Rel(..)) && !crate::logic::is_boolean(e) && super::tuple_items(e).is_none()
         && crate::traverse::free_symbols(e).is_empty() && crate::functions::is_numeric_value(e)
 }
 

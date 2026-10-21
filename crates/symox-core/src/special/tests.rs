@@ -80,6 +80,8 @@ fn meijer_slater_regions_and_boundary_are_explicit() {
     assert_eq!(special::numeric::eval_c64(S::MeijerG,&big).unwrap().re,0.0);
     let boundary=args(Expr::one());
     assert!(special::numeric::eval_c64(S::MeijerG,&boundary).is_none());
+    // hyperexpand reaches the boundary through the reference's
+    // (1 - z)**(a - b - 1)/Gamma(a - b) formula, which is continuous here
     let held=func(Func::Special(S::MeijerG),boundary);
-    assert_eq!(special::hyperexpand(&held),held);
+    assert_eq!(special::hyperexpand(&held),Expr::zero());
 }

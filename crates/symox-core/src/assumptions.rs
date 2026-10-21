@@ -546,6 +546,14 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
         // exp_polar of a real number evaluates to a positive number; SymPy
         // leaves the sign of a symbolic exp_polar unknown.
         Func::ExpPolar if a.is_number() && is_real(a) == Some(true) => Some(Signs::POS),
+        // exp_polar(c + I*pi) evaluates through exp(c + I*pi) = -exp(c),
+        // so the numeric sign test of the reference finds it negative.
+        Func::ExpPolar
+            if crate::functions::is_numeric_value(a)
+                && is_real(&crate::ops::sub(a, &crate::ops::mul2(&Expr::i(), &Expr::pi()))) == Some(true) =>
+        {
+            Some(Signs::NEG)
+        }
         Func::Special(h) => {
             if *h == crate::special::SpecialFn::LambertW {
                 let branch = args.get(1).map_or(Some(0), Expr::as_i64)?;
