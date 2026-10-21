@@ -647,7 +647,8 @@ pub fn expand_power_exp_deep(e: &Expr, deep: bool) -> Expr {
         Kind::Pow(b, x) if x.is_add() && crate::assumptions::is_zero(b) == Some(false) => {
             expanded_product(&x.args().iter().map(|t| pow(b, t)).collect::<Vec<_>>())
         }
-        Kind::Func(Func::Exp, a) if a[0].is_add() => expanded_product(&a[0].args().iter().map(exp).collect::<Vec<_>>()),
+        // ExpBase._eval_expand_power_exp splits only a commutative exponent.
+        Kind::Func(Func::Exp, a) if a[0].is_add() && crate::decompose::commutes(&a[0]) => expanded_product(&a[0].args().iter().map(exp).collect::<Vec<_>>()),
         Kind::Mul(..) if deep => {
             let args = e2.args();
             let changed: Vec<_> = args.iter().map(|f| expand_power_exp_deep(f, false)).collect();

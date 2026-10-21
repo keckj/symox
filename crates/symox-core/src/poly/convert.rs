@@ -281,6 +281,19 @@ pub fn number_to_rat(n: &Number) -> Rat {
     }
 }
 
+/// SymPy's `_dict_from_expr` rejects noncommutative expressions before any
+/// conversion: polynomial arithmetic would commute their factors.
+pub(crate) fn check_commutative(e: &Expr) -> PResult<()> {
+    if crate::decompose::commutes(e) {
+        Ok(())
+    } else {
+        Err(PolyError::Reference {
+            kind: "PolynomialError",
+            message: "non-commutative expressions are not supported".into(),
+        })
+    }
+}
+
 pub(crate) fn check_number(e: &Expr) -> PResult<()> {
     match e.kind() {
         Kind::Const(c) if c.is_infinite() || *c == Constant::NaN => {
@@ -352,6 +365,7 @@ pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
     let mut gens: Vec<Expr> = Vec::new();
     let mut all_terms: Vec<Vec<(Rat, Vec<(usize, i64)>)>> = Vec::new();
     for e in exprs {
+        check_commutative(e)?;
         check_number(e)?;
         let ex = expand_if_needed(e);
         let mut terms = Vec::new();
@@ -417,6 +431,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
     #[allow(clippy::type_complexity)]
     let mut all: Vec<Vec<(Vec<u32>, Rat, Vec<(usize, i64)>)>> = Vec::new();
     for e in exprs {
+        check_commutative(e)?;
         check_number(e)?;
         let ex = expand_if_needed(e);
         let mut terms = Vec::new();
