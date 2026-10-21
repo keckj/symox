@@ -253,19 +253,47 @@ Remaining gaps in this area:
   (`RR.invert(4, 0)` is `0.25`, `RR.invert(-2, 0)` raises
   `ZeroDivisionError`); `Domain.convert` rejects strings, `None`, bytes and
   sequences with `CoercionFailed`, and `nan`/`oo`/`zoo` outside `EXRAW`.
-  Remaining: `RR[pi]` raises `NotImplementedError`; `QQ`, `QQ(x)` and
-  `QQ<sqrt(2)>` reject `convert(2.5)` that the reference converts exactly;
-  `QQ_I.convert(1j)` fails; sets and dicts raise `AttributeError` or are
-  accepted where some reference domains raise `CoercionFailed`;
+  Python floats, `mpf`, `complex` and `mpc` take the reference route
+  through `RR`/`CC` (53 bits): `QQ.convert(2.5)` is `5/2` and
+  `QQ.convert(0.1)` is `1/10` (the limited denominator of
+  `RR.to_rational`), `ZZ`, `GF(p)` and `ZZ[x]` accept integer-valued
+  values only, `QQ_I` takes `CC` values and `ZZ_I` refuses both, algebraic
+  fields read `RR` through `QQ`, and the refusals carry the reference
+  message (`Cannot convert 2.5 of type <class 'mpmath.ctx_mp_python.mpf'>
+  from RR to ZZ`). The SymPy `Float` route of `from_sympy` is the
+  reference one too (`ZZ.convert(Float(3))` is `3`, `QQ_I.convert(Float(2.5))`
+  is `5/2`). `ZZ(2.5)` truncates and `QQ(0.1)` is the exact `Fraction`, as
+  the reference constructors; `QQ(1j)` and `QQ(mpf(2.5))` raise its
+  `TypeError`. The `from_sympy` refusals of `ZZ`, `QQ`, `RR`, `CC`, `ZZ_I`
+  and `QQ_I` use the reference messages (`expected an integer, got pi`,
+  `sqrt(2) is not Gaussian`), including the reference `AttributeError` for
+  sets and dicts in `RR`, `CC` and the Gaussian domains; `EX` sympifies a
+  set or dict and `EXRAW` refuses non-`Expr` objects (`Interval`,
+  `FiniteSet`) with `Expecting an Expr instance but found: ...`.
+  Remaining: polynomial rings and fraction fields over `RR` or `CC`
+  (`RR[pi]`, `RR[x]`, `CC[x]`) raise `NotImplementedError` (this needs a
+  new inexact composite element type and `Poly` support);
+  `ZZ.convert_from(QQ(1, 2), QQ)` keeps the message `expected an integer`;
+  ground elements print as `ZZ(2)`, `QQ(5/2)`, `RR(2.50000000000000)` or
+  `QQ<sqrt(2)>(sqrt(2))` where the reference prints the raw `2`,
+  `MPQ(5,2)`, `mpf('2.5')` or `ANP(...)`;
   `CC.invert` raises `NotImplementedError` (reference `TypeError`);
   `EXRAW` elements are wrapped and do not compare equal to the raw `Expr`.
 - `(-2)**(1/6)` with `extension=True` yields the larger field
   `QQ<2**(1/6) + (-1)**(1/6)>` because core power canonicalization splits the
   base; results stay exact but the field is not the reference one.
-- `construct_domain` elements of composite domains print with their parent,
-  e.g. `ZZ[pi](pi)`, where the reference prints `pi`;
-  `construct_domain([1], extension=sqrt(2))` raises `NotImplementedError`
-  where the reference returns `ZZ`.
+- `construct_domain` follows the reference control flow: the options go
+  through the `Poly` option rules (an unknown option, `extension=False` or a
+  non-boolean `field` raise the reference `OptionError`; `gens`, `domain`
+  and `greedy` are accepted), only `extension=True` enables algebraic
+  inference (`extension=sqrt(2)` gives `ZZ` for `[1]` and `EX` for
+  `[sqrt(2)]`), non-algebraic coefficients with `extension=True` give a
+  composite domain (`ZZ[pi]` for `[pi]`) and algebraic numbers among
+  composite generators give `EX` (`[pi, sqrt(2)]`). Composite elements print
+  like the reference `PolyElement` (`pi`, `x*pi + 1`, `y*(sin(x))`,
+  `-x/(y - 1)`). Remaining: Floats with a non-number generator, where the
+  reference builds `RR[x]` or `RR[pi]`, give `EX` (exact, no evaluation of
+  `pi`), and raise `NotImplementedError` with `composite=True`.
 - `EX` root forms and `nroots` digits can differ from the reference (symox
   can be more accurate); exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.
@@ -935,9 +963,16 @@ differences:
 `meijerint_indefinite` is ported (`_meijerint_indefinite_1`, the splitting
 points, the hyperbolic rewrite and the choice of the simplest result) and
 is the last stage of indefinite integration unless `meijerg=False`.
-`meijerg=True` uses only it. An error inside the method (a failing
-`hyperexpand`) gives no result here, where the reference lets the exception
-out of `integrate`.
+`meijerg=True` uses only it. The public `meijerint_indefinite` raises the
+errors the reference lets out, with their classes: the inverse Mellin
+transform errors of the recursive rewrite other than
+`IntegralTransformError` (`NotImplementedError('Gammas partially over the
+strip.')` for `sin(x)**3/x**3`, a second `MellinTransformStripError`),
+`Unexpected form...`, the `_get_coeff_exp` and `meijerg` `ValueError`s and
+the `hyperexpand` errors. Inside `integrate` they give no result and the
+next method runs; the reference does that for `NotImplementedError` only,
+so an integrand where the method raises another class would differ (none
+is known).
 
 Polynomial times `exp(a*x)` antiderivatives use the Risch form
 `num*exp(a*x)/den` and keep `Piecewise((.., Ne(den, 0)), (value at a = 0,

@@ -303,12 +303,120 @@ def _not_a_coeff(element):
         for value in (S.NaN, S.Infinity, S.NegativeInfinity, S.ComplexInfinity))
 
 
+def _inexact_value(element):
+    """``(complex, re, im)`` for a float, complex, mpf or mpc, as mpmath
+    tuples rounded to the 53 bits of the reference ``RealField()`` and
+    ``ComplexField()`` parents, or None for other objects."""
+    from mpmath import libmp
+    name = type(element).__name__
+    if isinstance(element, float):
+        return False, libmp.from_float(element), libmp.fzero
+    if isinstance(element, complex):
+        return True, libmp.from_float(element.real), libmp.from_float(element.imag)
+    if name == 'mpf' and hasattr(element, '_mpf_'):
+        return False, libmp.mpf_pos(element._mpf_, 53, 'n'), libmp.fzero
+    if name == 'mpc' and hasattr(element, '_mpc_'):
+        re, im = element._mpc_
+        return True, libmp.mpf_pos(re, 53, 'n'), libmp.mpf_pos(im, 53, 'n')
+    return None
+
+
+def _inexact_failure(domain, value):
+    import mpmath
+    from mpmath import libmp
+    from ... import CoercionFailed
+    complex_, re, im = value
+    if complex_:
+        shown, kind, base = '(%s)' % libmp.mpc_to_str((re, im), 15), type(mpmath.mpc(0)), 'CC'
+    else:
+        shown, kind, base = libmp.to_str(re, 15), type(mpmath.mpf(0)), 'RR'
+    return CoercionFailed('Cannot convert %s of type %s from %s to %s' % (shown, kind, base, domain))
+
+
+def _exact(t):
+    from mpmath import libmp
+    from ... import Rational
+    if t in (libmp.fnan, libmp.finf, libmp.fninf):
+        return None
+    return Rational(*libmp.to_rational(t))
+
+
+def _limited(t):
+    """The reference ``RealField.to_rational(a)`` (limited denominator)."""
+    from ... import RR, Rational
+    exact = _exact(t)
+    if exact is None:
+        return None
+    return Rational(*RR.to_rational(RR.from_sympy(exact)))
+
+
+def _as_float(t):
+    from mpmath import libmp
+    value = libmp.to_float(t)
+    return value if libmp.from_float(value) == t else None
+
+
+def _convert_inexact(domain, value):
+    """The reference ``convert_from(parent(element), parent)`` for a
+    Python or mpmath float or complex: the element is first rounded into
+    ``RR`` or ``CC`` and each domain then applies its own ``from_RealField``
+    or ``from_ComplexField`` rule (or has none, which raises)."""
+    from mpmath import libmp
+    from ... import I, Float
+    complex_, re, im = value
+    if getattr(domain, 'is_EX', False) or getattr(domain, 'is_EXRAW', False) or \
+            getattr(domain, 'is_RealField', False) or getattr(domain, 'is_ComplexField', False):
+        if getattr(domain, 'is_RealField', False) and complex_ and im != libmp.fzero:
+            raise _inexact_failure(domain, value)
+        fr, fi = _as_float(re), _as_float(im)
+        if fr is not None and fi is not None:
+            return _native_convert(domain, complex(fr, fi) if complex_ and im != libmp.fzero else fr, None)
+        er, ei = _exact(re), _exact(im)
+        if er is None or ei is None:
+            raise _inexact_failure(domain, value)
+        expression = Float(er, precision=53) + (I*Float(ei, precision=53) if complex_ and ei else 0)
+        return _native_convert(domain, expression, None)
+    if getattr(domain, 'is_PolynomialRing', False) or getattr(domain, 'is_FractionField', False):
+        ground = domain.dom
+        return _native_convert(domain, ground.to_sympy(_convert_inexact(ground, value)), None)
+    if getattr(domain, 'is_ZZ_I', False):
+        raise _inexact_failure(domain, value)
+    if getattr(domain, 'is_QQ_I', False):
+        if not complex_:
+            raise _inexact_failure(domain, value)
+        er, ei = _limited(re), _limited(im)
+        if er is None or ei is None:
+            raise _inexact_failure(domain, value)
+        return _native_convert(domain, er + I*ei, None)
+    if getattr(domain, 'is_ZZ', False) or getattr(domain, 'is_QQ', False) or \
+            getattr(domain, 'is_FiniteField', False) or getattr(domain, 'is_AlgebraicField', False):
+        if complex_:
+            raise _inexact_failure(domain, value)
+        r = _limited(re)
+        if r is None or (not getattr(domain, 'is_Field', False) or domain.is_FiniteField) and not r.is_Integer:
+            raise _inexact_failure(domain, value)
+        return _native_convert(domain, r, None)
+    return None
+
+
 def convert(self, element, base=None):
-    from ... import CoercionFailed, Expr
+    from ... import CoercionFailed, Expr, Basic, Set
     # EXRAW accepts every Expr before the coefficient check (``of_type``).
     raw = getattr(self, 'is_EXRAW', False) and base is None and isinstance(element, Expr)
     if not raw and _not_a_coeff(element):
         raise CoercionFailed('%s is not in any domain' % (element,))
+    if base is None and isinstance(element, (set, frozenset, dict)) and (
+            getattr(self, 'is_EX', False) or getattr(self, 'is_EXRAW', False)):
+        # Not a sequence: strict sympify gives a FiniteSet or a Dict.
+        from ... import sympify
+        element = sympify(element, strict=True)
+        if getattr(self, 'is_EXRAW', False):
+            raise CoercionFailed('Expecting an Expr instance but found: %s' % type(element).__name__)
+        return _native_convert(self, element, None)
+    if base is None and isinstance(element, (set, frozenset, dict)) and _sympy_failure(self, None) is not None:
+        from ... import sympify
+        a = sympify(element, strict=True)
+        raise _sympy_failure(self, a)
     if base is None and (element is None or isinstance(
             element, (str, bytes, bytearray, list, tuple, set, frozenset, dict))):
         # The reference reads only strict sympify input: no strings, and
@@ -316,7 +424,70 @@ def convert(self, element, base=None):
         raise CoercionFailed("Cannot convert %s of type %s to %s" % (element, type(element), self))
     if getattr(base, '_symox_monogenic_extension', False):
         return convert_from(self, element, base)
-    return _native_convert(self, element, base)
+    if base is None:
+        if isinstance(element, bool):
+            # ``isinstance(True, int)``: booleans convert as integers.
+            element = int(element)
+        else:
+            value = _inexact_value(element)
+            if value is not None:
+                if value[1] in _INFINITIES:
+                    raise CoercionFailed('%s is not in any domain' % (element,))
+                result = _convert_inexact(self, value)
+                if result is not None:
+                    return result
+        if getattr(self, 'is_EXRAW', False) and isinstance(element, (Basic, Set)) and not isinstance(element, Expr):
+            raise CoercionFailed('Expecting an Expr instance but found: %s' % type(element).__name__)
+        result = _float_from_sympy(self, element)
+        if result is not None:
+            return result
+    try:
+        return _native_convert(self, element, base)
+    except CoercionFailed:
+        from fractions import Fraction
+        if base is None and isinstance(element, (Basic, Fraction)):
+            if isinstance(element, Fraction):
+                from ... import Rational
+                element = Rational(element.numerator, element.denominator)
+            error = _sympy_failure(self, element)
+            if error is not None:
+                raise error from None
+        raise
+    except TypeError:
+        if base is not None or isinstance(element, Basic):
+            raise
+        raise CoercionFailed("Cannot convert %s of type %s to %s" % (element, type(element), self)) from None
+
+
+def _infinities():
+    from mpmath import libmp
+    return (libmp.finf, libmp.fninf)
+
+
+_INFINITIES = _infinities()
+_native_call = None
+
+
+def _call(self, *args):
+    """``K(a)`` builds ``K.dtype(a)``: ``ZZ(2.5)`` truncates like ``int``
+    and ``QQ(2.5)`` is the exact binary fraction, as ``PythonMPQ``."""
+    if len(args) == 1 and _inexact_value(args[0]) is not None:
+        a = args[0]
+        if getattr(self, 'is_ZZ', False):
+            return _native_call(self, int(a))
+        if getattr(self, 'is_QQ', False):
+            if not isinstance(a, float):
+                raise TypeError('PythonMPQ() requires numeric or string argument')
+            if isinstance(a, float):
+                from fractions import Fraction
+                f = Fraction(a)
+                return _native_call(self, f.numerator, f.denominator)
+        if getattr(self, 'is_RealField', False) and (isinstance(a, complex) or type(a).__name__ == 'mpc'):
+            raise TypeError('cannot create mpf from %r' % (a,))
+        return self.convert(a)
+    if len(args) == 1 and isinstance(args[0], bool):
+        return _native_call(self, int(args[0]))
+    return _native_call(self, *args)
 
 
 def from_sympy(self, *args, **kwargs):
@@ -326,7 +497,108 @@ def from_sympy(self, *args, **kwargs):
         a = args[0] if args else next(iter(kwargs.values()))
         if not isinstance(a, Expr):
             raise CoercionFailed('Expecting an Expr instance but found: %s' % type(a).__name__)
-    return _native_from_sympy(self, *args, **kwargs)
+    if len(args) + len(kwargs) == 1:
+        result = _float_from_sympy(self, args[0] if args else next(iter(kwargs.values())))
+        if result is not None:
+            return result
+    try:
+        return _native_from_sympy(self, *args, **kwargs)
+    except Exception as exc:
+        from ... import CoercionFailed, Basic
+        if not isinstance(exc, CoercionFailed) or len(args) + len(kwargs) != 1:
+            raise
+        a = args[0] if args else next(iter(kwargs.values()))
+        error = _sympy_failure(self, a) if isinstance(a, Basic) else None
+        if error is None:
+            raise
+        raise error from None
+
+
+def _sympy_failure(domain, a):
+    """The exception the reference ``from_sympy`` of ``ZZ``, ``QQ``,
+    ``RR``, ``CC``, ``ZZ_I`` and ``QQ_I`` raises for a value it refuses
+    (None for other domains; with ``a`` None, only tells whether the
+    domain is one of them)."""
+    from ... import CoercionFailed, I, Dict, FiniteSet
+    if getattr(domain, 'is_ZZ_I', False) or getattr(domain, 'is_QQ_I', False):
+        if a is None:
+            return True
+        if not hasattr(a, 'as_coeff_Add'):
+            return AttributeError("'%s' object has no attribute 'as_coeff_Add'" % type(a).__name__)
+        r, b = a.as_coeff_Add()
+        ground = domain.dom
+        try:
+            ground.from_sympy(r)
+        except CoercionFailed as exc:
+            return exc
+        if b:
+            r, b = b.as_coeff_Mul()
+            try:
+                ground.from_sympy(r)
+            except CoercionFailed as exc:
+                return exc
+        return CoercionFailed('%s is not Gaussian' % (a,))
+    if getattr(domain, 'is_ZZ', False):
+        message = 'expected an integer, got %s'
+    elif getattr(domain, 'is_QQ', False):
+        message = 'expected `Rational` object, got %s'
+    elif getattr(domain, 'is_RealField', False):
+        if a is not None and isinstance(a, Dict):
+            return AttributeError("'Dict' object has no attribute 'evalf'")
+        message = 'expected real number, got %s'
+    elif getattr(domain, 'is_ComplexField', False):
+        if a is not None and isinstance(a, Dict):
+            return AttributeError("'Dict' object has no attribute 'evalf'")
+        if a is not None and isinstance(a, FiniteSet):
+            return AttributeError("'FiniteSet' object has no attribute 'as_real_imag'")
+        message = 'expected complex number, got %s'
+    else:
+        return None
+    return True if a is None else CoercionFailed(message % (a,))
+
+
+def _float_ground(domain, r, a):
+    """The reference ``ZZ.from_sympy`` / ``QQ.from_sympy`` of a number
+    ``r``: an integer-valued Float is an integer, and ``QQ`` reads a Float
+    through ``RR`` (limited denominator)."""
+    from ... import CoercionFailed, Integer
+    if not getattr(r, 'is_Float', False):
+        return r if getattr(r, 'is_Rational', False) else None
+    if domain.is_ZZ or domain.is_ZZ_I:
+        from mpmath import libmp
+        p, q = libmp.to_rational(r._mpf_)
+        if q == 1:
+            return Integer(p)
+        raise CoercionFailed('expected an integer, got %s' % a if domain.is_ZZ else 'expected an integer, got %s' % r)
+    from mpmath import libmp
+    return _limited(libmp.mpf_pos(r._mpf_, 53, 'n'))
+
+
+def _float_from_sympy(domain, a):
+    """Float coefficients for ``ZZ``, ``QQ``, ``ZZ_I``, ``QQ_I`` and
+    algebraic fields, as the reference ``from_sympy``; None elsewhere."""
+    from ... import Basic, Float, I, CoercionFailed
+    if not isinstance(a, Basic) or not getattr(a, 'is_number', False) or not a.has(Float):
+        return None
+    if domain.is_ZZ or domain.is_QQ or getattr(domain, 'is_AlgebraicField', False):
+        if not a.is_Float:
+            return None
+        ground = domain if not getattr(domain, 'is_AlgebraicField', False) else domain.dom
+        r = _float_ground(ground, a, a)
+        return None if r is None else _native_convert(domain, r, None)
+    if getattr(domain, 'is_ZZ_I', False) or getattr(domain, 'is_QQ_I', False):
+        r, b = a.as_coeff_Add()
+        x = _float_ground(domain, r, a)
+        if x is None:
+            return None
+        if not b:
+            return _native_convert(domain, x, None)
+        r, b = b.as_coeff_Mul()
+        y = _float_ground(domain, r, a)
+        if y is None or b is not I:
+            return None
+        return _native_convert(domain, x + I*y, None)
+    return None
 
 
 def from_MonogenicFiniteExtension(self, a, K0):
@@ -527,6 +799,10 @@ def install():
                    'ZZ', 'ZZ_gmpy', 'ZZ_python'):
         name = 'from_' + source
         setattr(Domain, name, _conversion_hook(name))
+    global _native_call
+    if _native_call is None:
+        _native_call = Domain.__call__
+        Domain.__call__ = _call
     if hasattr(_core, 'EX'):
         Domain.convert = convert
         Domain.invert = invert

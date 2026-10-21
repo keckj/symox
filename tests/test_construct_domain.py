@@ -74,8 +74,9 @@ def test_invalid_options_and_no_silent_generator_independence():
         with pytest.raises(OptionError):
             construct_domain([1],**options)
     assert str(construct_domain([sx.sin(x)],composite=True)[0]) == 'ZZ[sin(x)]'
-    with pytest.raises(NotImplementedError):
-        construct_domain([1],extension=sx.sqrt(2))
+    # The reference reads only extension=True as algebraic inference.
+    assert str(construct_domain([1],extension=sx.sqrt(2))[0]) == 'ZZ'
+    assert str(construct_domain([sx.sqrt(2)],extension=sx.sqrt(2))[0]) == 'EX'
 
 
 def test_no_sympy_import():

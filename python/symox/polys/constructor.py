@@ -105,45 +105,84 @@ def _gaussian_domain(values, field):
     return (ZZ_I if integral else QQ_I).poly_ring(*symbols)
 
 
+def _classify(coefficients, extension):
+    """The reference ``_construct_simple`` classification.
+
+    Returns ``'simple'`` when every coefficient is a rational, a Float, a
+    pure complex number or (with ``extension=True``) an algebraic number,
+    False for algebraic numbers mixed with Floats (EX), and None when a
+    composite domain is needed.
+    """
+    from ..core.evalf import pure_complex
+    floats = algebraics = False
+    for coeff in coefficients:
+        if coeff.is_Rational:
+            continue
+        if coeff.is_Float:
+            if algebraics:
+                return False
+            floats = True
+            continue
+        parts = pure_complex(coeff)
+        if parts:
+            if not (parts[0].is_Rational and parts[1].is_Rational):
+                floats = True
+        elif extension is True and coeff.is_number and coeff.is_algebraic:
+            if floats:
+                return False
+            algebraics = True
+        else:
+            return None
+    return 'simple'
+
+
 def construct_domain(obj, **args):
     """Return a native domain and coefficients with the input container shape.
 
-    Inference covers implemented numerical and exact domains, symbolic
-    polynomial rings and rational-function fields. General expressions use
-    EX; ``extension=True`` enables the supported algebraic field models.
+    The control flow is the reference one: options go through the Poly
+    option rules (an unknown option or ``extension=False`` raises
+    OptionError, ``gens``, ``domain`` or ``greedy`` are accepted and
+    ignored), simple coefficients give ZZ, QQ, ZZ_I, QQ_I, RR, CC or an
+    algebraic field (only for ``extension=True``; any other extension
+    value behaves like no extension), and the rest gives a composite
+    domain unless ``composite=False``, otherwise EX.
     """
     from .. import EX, sympify, _core
-    from .polyerrors import OptionError
-    unknown = args.keys() - {'field', 'extension', 'composite'}
-    if unknown:
-        raise OptionError('Unknown domain inference options: ' + ', '.join(sorted(unknown)))
-    field = args.get('field', False)
-    composite = args.get('composite', None)
-    extension = args.get('extension', None)
-    if field not in (True, False) or composite not in (True, False, None):
-        raise OptionError('field and composite must be boolean options')
-    if extension is False:
-        raise OptionError('extension=False is not an algebraic extension option')
-    if extension is not None and extension is not True:
-        raise NotImplementedError('construct_domain currently supports extension=True')
+    from .._poly_constructor import _options
+    _, options = _options((), None, None, None, args)
+    field = bool(options.get('field', False))
+    composite = options.get('composite', None)
+    extension = options.get('extension', None)
     mapping = isinstance(obj, dict)
     from ..utilities.iterables import iterable
     sequence = not mapping and iterable(obj)
     original = list(obj.values()) if mapping else list(obj) if sequence else [obj]
     coefficients = [sympify(value) for value in original]
-    if composite is False and (any(value.free_symbols for value in coefficients)
-                               or _core._composite_generators(coefficients) is not None):
+    kind = _classify(coefficients, extension)
+    if kind is False:
         domain = EX
-    else:
+    elif kind == 'simple':
         domain = _gaussian_domain(coefficients, field)
-        if domain is None and extension is None:
-            domain = _composite_domain(coefficients, field)
         if domain is None:
             domain = _infer_domain(coefficients, field=field, extension=extension is True)
-        if domain.is_EXRAW:
-            if composite is True:
-                raise NotImplementedError('Composite inference requires supported coefficient rings over native Symbols')
+    elif composite is False:
+        domain = EX
+    else:
+        has_float = any(a.is_Float for v in coefficients for a in v.atoms())
+        domain = None
+        if not has_float:
+            domain = _gaussian_domain(coefficients, field)
+            if domain is None:
+                domain = _composite_domain(coefficients, field)
+            if domain is None and any(value.free_symbols for value in coefficients):
+                domain = _infer_domain(coefficients, field=field)
+        elif composite is True:
+            # The reference builds RR[x] or CC[x] here.
+            raise NotImplementedError('polynomial rings and fraction fields over RR are not implemented')
+        if domain is None:
             domain = EX
+    if domain.is_EXRAW:
+        domain = EX
     elements = [domain.convert(value) for value in coefficients]
     if mapping:
         result = dict(zip(obj, elements))

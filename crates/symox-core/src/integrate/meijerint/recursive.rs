@@ -8,8 +8,10 @@
 //! tried with a dummy `a` set back to 1 (analytic continuation).
 //!
 //! The reference lets the errors other than `IntegralTransformError` of the
-//! inverse transform retry propagate out of the integration; they give
-//! `None` here.
+//! inverse transform retry propagate out of the integration: they are kept
+//! in the pending error slot (`super::set_pending`), which
+//! `meijerint_indefinite` raises; the definite paths still read them as
+//! `None`.
 
 use std::cell::Cell;
 
@@ -66,7 +68,13 @@ fn integrator(f: &Expr, x: &Expr) -> Expr {
 /// `mellin_transform(...)` followed by `my_imt(...)`.
 fn mellin_inverse(f: &Expr, x: &Expr, s: &Expr) -> Option<Expr> {
     let (big_f, (a, b), _) = crate::transforms::mellin_needeval(f, x, s, &integrator)?;
-    crate::transforms::inverse_mellin_meijerg(&big_f, s, x, &a, &b)
+    match crate::transforms::inverse_mellin_meijerg(&big_f, s, x, &a, &b) {
+        Ok(g) => g,
+        Err((class, message)) => {
+            super::set_pending(class, message);
+            None
+        }
+    }
 }
 
 fn has_bad_value(e: &Expr) -> bool {
@@ -84,7 +92,7 @@ pub(super) fn rewrite(f: &Expr, x: &Expr) -> Option<(Terms, Expr)> {
     let _guard = Guard::enter()?;
     let s = Expr::dummy("s", crate::symbol::Assumptions::NONE);
     let mut g = mellin_inverse(f, x, &s);
-    if g.is_none() {
+    if g.is_none() && !super::has_pending() {
         let a = A.with(|a| a.clone());
         if !crate::traverse::has(f, &a) && is_analytic(f, x) {
             let scaled = crate::subs::subs1(f, x, &mul(&[a.clone(), x.clone()]));
@@ -98,13 +106,31 @@ pub(super) fn rewrite(f: &Expr, x: &Expr) -> Option<(Terms, Expr)> {
     let mut res = Vec::new();
     for term in crate::simptools::add_args(&g) {
         let (c, m) = crate::decompose::as_coeff_mul(&term, std::slice::from_ref(x), false);
-        // the reference raises NotImplementedError('Unexpected form...')
-        let [gm] = m.as_slice() else { return None };
+        let gm = match m.as_slice() {
+            [gm] => gm,
+            [] => {
+                super::set_pending("IndexError", "list index out of range".into());
+                return None;
+            }
+            _ => {
+                super::set_pending("NotImplementedError", "Unexpected form...".into());
+                return None;
+            }
+        };
         let Kind::Func(Func::Special(SpecialFn::MeijerG), _) = gm.kind() else { return None };
         let gf = G::from_expr(gm)?;
-        let (a, b) = get_coeff_exp(&gf.z, x)?;
+        let Some((a, b)) = get_coeff_exp(&gf.z, x) else {
+            super::set_pending("ValueError", super::coeff_exp_error(&gf.z, x));
+            return None;
+        };
         let z = mul(&[unpolarify(&polarify(&a, true), true), pow(x, &b)]);
-        res.push((c, Expr::zero(), G::new(gf.an, gf.ao, gf.bm, gf.bo, z)?));
+        match G::try_new(gf.an, gf.ao, gf.bm, gf.bo, z) {
+            Ok(g) => res.push((c, Expr::zero(), g)),
+            Err(message) => {
+                super::set_pending("ValueError", message);
+                return None;
+            }
+        }
     }
     Some((res, Expr::boolean(true)))
 }

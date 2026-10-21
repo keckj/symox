@@ -3260,6 +3260,18 @@ fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<
     Ok(wrap(value).into_pyobject(py)?.into_any().unbind())
 }
 
+/// `meijerint_indefinite(f, x)`: None, the antiderivative, or the error
+/// the reference raises, as `(class name, message)` for the Python layer.
+#[pyfunction]
+fn _meijerint_indefinite(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    let (f, x) = (to_expr(f)?, to_expr(x)?);
+    match symox::integrate::meijerint_indefinite_checked(&f, &x) {
+        Ok(None) => Ok(py.None()),
+        Ok(Some(r)) => Ok(wrap(r).into_pyobject(py)?.into_any().unbind()),
+        Err((class, message)) => Ok(PyTuple::new(py, [class.to_string(), message])?.into_any().unbind()),
+    }
+}
+
 #[pyfunction]
 #[pyo3(signature = (op, *args))]
 fn _meijerint_debug(py: Python<'_>, op: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
@@ -3791,6 +3803,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
     m.add_function(wrap_pyfunction!(_meijerint_debug, m)?)?;
+    m.add_function(wrap_pyfunction!(_meijerint_indefinite, m)?)?;
     m.add_function(wrap_pyfunction!(_register_node_types, m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_args,m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_key,m)?)?;
