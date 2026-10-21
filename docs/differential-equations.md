@@ -2,145 +2,147 @@
 
 [README](../README.md) · [Solution checks](solver-checks.md)
 
-Differential interfaces use native scalar differentiation, integration,
-algebra and matrix algorithms. They do not import SymPy at runtime. The
-classifiers recognize the families described here; their hint lists are not
-the complete lists of SymPy's methods.
+The differential equation interfaces do not import SymPy at runtime. Their
+Python layer is adapted from SymPy 1.14 (see `LICENSE-SYMPY`) and runs on
+the native expression, polynomial, integration and solving algorithms.
 
 ## Scalar ordinary differential equations
 
-`dsolve(eq, func=None, hint='default', ics=None)` retains the native Rust
-solver for linear constant-coefficient equations, homogeneous Cauchy–Euler
-equations, first-order linear, separable and Bernoulli equations. Initial
-conditions use function values and supported derivative substitutions.
-
-`classify_ode(eq, func=None)` recognizes separable, exact, first-order linear
-and Bernoulli equations, homogeneous constant-coefficient equations, finite
-undetermined-coefficient forcing, second-order variation of parameters and
-homogeneous Cauchy–Euler equations. `dict=True` returns the differential order,
-default hint, ordered matching hints and native coefficient dictionaries.
-These dictionaries are native data, not SymPy's internal solver instances.
-
-The hints in `symox.solvers.ode.allhints` can be passed explicitly to `dsolve`.
-The exact method constructs a potential function and returns an explicit
-solution when isolation succeeds, or an implicit equation otherwise. The
-default solver also tries this exact method and verified Lie point symmetries
-when its original methods fail.
-`checkodesol` supports explicit solutions, lists of solutions and implicit
-solutions whose total derivatives give a provably zero residual.
+`dsolve`, `classify_ode`, `checkodesol`, `constantsimp`, `constant_renumber`,
+`homogeneous_order`, `infinitesimals`, `checkinfsol` and `solve_ics` follow
+SymPy's `sympy.solvers.ode` modules: `ode.py`, `single.py`, `riccati.py`,
+`nonhomogeneous.py`, `hypergeometric.py`, `lie_group.py`, `subscheck.py`
+and `systems.py`. Classification returns SymPy's hint tuple in SymPy's
+order, `dict=True` returns the same matching dictionaries, and
+`hint='all'`, `'all_Integral'`, `'best'`, `simplify=False`, `ics`, `xi`,
+`eta`, `n` and `x0` have SymPy's meaning. Every hint of
+`symox.solvers.ode.allhints` is available, including the Airy and Bessel
+families (`2nd_linear_airy`, `2nd_linear_bessel`), the hypergeometric
+reduction, Riccati special forms, the Liouville form, the nth-order
+reducible form, undetermined coefficients, variation of parameters, the
+Euler families, the power series and the Lie group method.
 
 ```python
-from symox import Function, Symbol, cos, classify_ode, dsolve, checkodesol
+from symox import Function, Symbol, airyai, cos, classify_ode, dsolve, checkodesol
 
 x = Symbol('x')
 f = Function('f')(x)
 equation = (x + cos(f))*f.diff(x) + f + 2*x
 assert '1st_exact' in classify_ode(equation, f)
-solution = dsolve(equation, f)
-assert checkodesol(equation, solution, f) == (True, 0)
+solution = dsolve(equation, f, hint='1st_exact')
+assert checkodesol(equation, solution, f, solve_for_func=False) == (True, 0)
+assert dsolve(f.diff(x, 2) - x*f, f).rhs.has(airyai)
 ```
 
-Unknown or ambiguous dependent functions require an explicit `func` argument.
-Generated integration constants avoid existing free symbol names. Structural
-inspection reads held derivative counts without enumerating their variables.
-Differential order is limited to 256 and inspection to 10,000 graph nodes.
-Taylor and Frobenius series are available through the explicit hints
-`1st_power_series`, `2nd_power_series_ordinary` and `2nd_power_series_regular`,
-with `n` coefficients and expansion point `x0`. They use exact recurrences with
-at most 64 coefficients. Repeated indicial roots and resonances requiring
-logarithmic terms remain unsupported. Request series classification explicitly
-with `classify_ode(..., n=...)`; default classification lists exact families.
-Implicit exact initial conditions and the full SymPy classifier/hint machinery
-remain unimplemented.
-Classification records structural matches; integration or root isolation can
-still exceed the native algorithms for a matched equation.
+The result forms (constant names and numbering, sign and factor choices,
+implicit or explicit solutions) are those of SymPy whenever the underlying
+`solve`, `simplify`, `integrate` and `factor` produce SymPy's forms. On a
+corpus of 315 equations drawn from SymPy's ODE test suite, classification
+matches SymPy's output string for 295 equations, the test suite's hint for
+237 and the default `dsolve` for 245. The remaining differences come from
+those underlying algorithms: the native `simplify` is a candidate search,
+not SymPy's sequence of rewrites, so it can stop at another equivalent
+form (this also decides whether the `factorable` hint is listed, as for
+`f' + 2*x*f - x*exp(-x**2)`); integration results and integrals left
+unevaluated; and Gaussian coefficient domains (`ZZ_I`, `QQ_I`), which the
+polynomial layer does not infer yet.
+The corpus compares strings only; it does not prove that each differing
+result is an equivalent solution.
+
+### Native fallback
+
+When every reference method raises `NotImplementedError` for
+`hint='default'`, `dsolve` tries the native Rust solvers (linear constant
+coefficient and Cauchy-Euler equations, first-order linear, separable,
+Bernoulli and exact equations, Lie point symmetries). If they also fail,
+the reference `NotImplementedError` is raised again: a failure is never
+reported as an absence of solutions. The bounds of the native solvers (at
+most 64 series coefficients, matrix extraction of at most 64 functions,
+matrix exponentials of at most eight functions, differential order 256)
+apply only to this fallback; the reference methods have no such bounds,
+so `n=100` series and large systems behave as in SymPy. `classify_ode`
+raises `NotImplementedError` for differential orders above `10**6`, where
+SymPy differentiates once per order and does not return.
+
+### Deliberate extensions
+
+These deviations return a correct result where SymPy returns an
+incomplete one or fails:
+
+- Initial conditions may use names that coincide with the generated
+  constants (`ics={f(0): C1}` gives `C1*exp(x)` for `f' = f`). SymPy
+  substitutes its own constants into the given values.
+- `2nd_power_series_regular` returns a complete basis when the indicial
+  roots coincide or differ by an integer with an inconsistent recurrence.
+  The second solution is the Frobenius derivative
+  `d/dr[(x - x0)**r * sum(b_j(r)*(x - x0)**j)]` at the smaller root, with
+  `b_j = (r - m)**k * a_j` (`k = 0` for a repeated root, `k = 1` at a
+  resonance), so it carries a `log(x - x0)` term. SymPy 1.14 returns only
+  the first series in these cases. The series is expanded in `x - x0`, and
+  constant simplification keeps the `Order` term (SymPy's `cse` pass can
+  turn it into `O(1)` when a logarithm is present).
+- Characteristic roots in the native fallback take their multiplicities
+  from an exact square-free decomposition, not a numerical derivative
+  test that could merge close simple roots.
+
+```python
+from symox import log
+
+eq = x**2*f.diff(x, 2) + x*f.diff(x) + x**2*f       # Bessel of order 0
+solution = dsolve(eq, f, hint='2nd_power_series_regular', n=6)
+assert solution.rhs.has(log)
+```
+
+When `factorable` is the default hint and its sub-equation reaches the
+Lie group heuristics, SymPy spends about 80 s before it raises
+`NotImplementedError` for `(x + cos(f))*f' + f + 2*x`; the `simplify`
+calls of `abaco2_unique_general` are much slower in symox (minutes in a
+debug build). Name the method (`hint='1st_exact'`) for such equations.
 
 ### Arbitrary constants and Lie point symmetries
 
-`symox.solvers.ode.constantsimp(expr, constants)` absorbs redundant arbitrary
-constants while retaining parameter symbols and correlations between repeated
-occurrences. It handles scalar expressions, equations and nested sequences.
-Only symbols listed in `constants` can be renamed or absorbed.
+`constantsimp(expr, constants)` and `constant_renumber` follow SymPy,
+including the `terms_gcd(clear=False, deep=True, expand=False)` factoring
+of terms that share constants. Only symbols listed in `constants` are
+renamed or absorbed.
 
-`infinitesimals(eq, func, hint='default')` searches first-order point symmetry
-generators. The named searches are `abaco1_simple`, `abaco1_product`,
-`abaco2_similar`, `abaco2_unique_unknown`, `abaco2_unique_general`, `linear`,
-`function_sum`, `bivariate` and `chi`; `hint='all'` combines their results.
-Every returned generator satisfies its exact determining equation.
-`checkinfsol(eq, generators, func)` independently substitutes generators and
-returns `(is_valid, residual)` pairs, including nonzero residuals for invalid
-generators. Polynomial searches use exact nullspaces with degree at most six;
-the separated-polynomial fallback searches degrees up to three.
+`infinitesimals(eq, func, hint='default')` runs SymPy's heuristics
+(`abaco1_simple`, `abaco1_product`, `abaco2_similar`,
+`abaco2_unique_unknown`, `abaco2_unique_general`, `linear`,
+`function_sum`, `bivariate`, `chi`); `hint='all'` combines their results.
+`checkinfsol(eq, generators, func)` substitutes the generators and returns
+`(is_valid, residual)` pairs. `dsolve(..., hint='lie_group')` accepts
+`xi=` and `eta=` generators. Like SymPy, these are first-order searches,
+not a complete classification of Lie symmetries.
 
-`dsolve(..., hint='lie_group')` constructs a first integral by integrating the
-closed form `(dy - h*dx)/(eta - xi*h)` for `y' = h(x, y)`. It verifies both
-partial derivatives of that integral before returning a solution. Pass both
-`xi=` and `eta=` to supply a custom generator; invalid generators raise
-`ValueError`. Function-value initial conditions are supported. Solutions can
-be implicit and retain unevaluated integrals when native integration or root
-isolation cannot produce an explicit expression.
+## Systems
 
-```python
-from symox.solvers.ode import infinitesimals, checkinfsol, constantsimp
-
-equation = f.diff(x) - x**2*f
-generators = infinitesimals(equation, f)
-assert all(valid and residual == 0
-           for valid, residual in checkinfsol(equation, generators, f))
-solution = dsolve(equation, f, hint='lie_group')
-assert checkodesol(equation, solution, f) == (True, 0)
-```
-
-These are bounded first-order searches, not a complete classification of all
-Lie symmetries. A failed search raises `NotImplementedError` (or `ValueError`
-for an explicitly selected heuristic). Higher-order symmetry solving is not
-implemented. Generated constants also avoid names present in initial data.
-
-## Linear systems
-
-The compatible module `symox.solvers.ode.systems` provides:
-
-- `linear_ode_to_matrix(eqs, funcs, t, order)`: exact coefficient extraction
-  with the convention `A_n X^(n) = sum(A_k X^(k)) + b`. Coefficient denominators
-  are preserved. Nonlinear systems and insufficient requested orders raise
-  `ODENonlinearError` and `ODEOrderError`.
-- `canonical_odes(eqs, funcs, t)`: isolates each function's highest derivative
-  using native algebraic solving and returns a list of supported branches.
-- `linodesolve(A, t, b=None, B=None, type='auto', doit=False)`: solves
-  `X' = A X + b` by a matrix exponential when `A` is constant or commutes with
-  its antiderivative `B`. An explicit `B` is validated by differentiation.
-  Forcing integrals remain held unless `doit=True`.
-
-Public `dsolve` accepts a square first-order linear system and a list of
-dependent functions, with optional function-value initial conditions.
+`dsolve` on a list of equations follows SymPy's `dsolve_system`: linear
+first-order systems of types 1 to 6 (constant coefficients, commuting
+antiderivatives, and the reducible non-constant forms), higher-order
+linear systems reduced to first order, decomposition into weakly and
+strongly connected components, and SymPy's nonlinear first-order forms
+for two and three equations. `linear_ode_to_matrix`, `canonical_odes`,
+`linodesolve` and `classify_sysode` follow `systems.py` and `ode.py`.
+Systems that SymPy cannot solve raise `NotImplementedError`; then the
+native fallback tries its exact spectral and triangular methods.
 
 ```python
 from symox import symbols, Function, dsolve
 
 t = symbols('t')
 f, g = Function('f')(t), Function('g')(t)
-solutions = dsolve([f.diff(t)-f-g, g.diff(t)-g], [f, g],
-                  ics={f.subs(t, 0): 1, g.subs(t, 0): 2})
+solutions = dsolve([f.diff(t) - t*g, g.diff(t) - t*f], [f, g])
 ```
-
-Matrix extraction is limited to 64 equations/functions. Matrix-exponential
-solving is limited to eight functions and the native exact spectral models.
-Noncommuting time-dependent systems, singular differential-algebraic systems,
-general coupled nonlinear system solving and alternate time-coordinate methods
-are not implemented by this interface. `dsolve` also reduces triangular
-nonlinear systems of two or three functions to scalar equations, substituting
-each explicit solution and keeping integration constants distinct. See the
-[API implementation guide](api-implementation.md) for the internal adapters.
 
 ## Partial differential equations
 
-`classify_pde`, `pdsolve` and `checkpdesol` support first-order linear equations
-in two independent variables. Constant coefficients use characteristic
-coordinates and an integrating factor, including inhomogeneous forcing.
-`hint='1st_linear_constant_coeff_Integral'` retains a held characteristic
-integral. `solvefun=Function('H')` chooses the arbitrary function; the default
-name avoids collisions with function heads already in the equation. Fresh
-dummy characteristic coordinates cannot capture user symbols.
+`pdsolve`, `classify_pde`, `checkpdesol`, `pde_separate`,
+`pde_separate_add` and `pde_separate_mul` follow SymPy's `pde.py`, with
+the hints `1st_linear_constant_coeff_homogeneous`,
+`1st_linear_constant_coeff`, `1st_linear_constant_coeff_Integral` and
+`1st_linear_variable_coeff` for first-order linear equations in two
+variables.
 
 ```python
 from symox import symbols, Function, pdsolve, checkpdesol
@@ -152,46 +154,35 @@ solution = pdsolve(equation, u)
 assert checkpdesol(equation, solution, u) == (True, 0)
 ```
 
-The compatible method entry points in `symox.solvers.pde` are
-`pde_1st_linear_constant_coeff_homogeneous`,
-`pde_1st_linear_constant_coeff` and `pde_1st_linear_variable_coeff`, with
-arguments `(eq, func, order, match, solvefun)`. `pdsolve` dispatches to these
-methods. They accept native coefficient dictionaries or SymPy-style Wild
-match dictionaries and reject coefficients inconsistent with the equation.
-The inhomogeneous constant-coefficient method retains its integral; ordinary
-`pdsolve` evaluates it unless the `_Integral` hint was requested. Isotropic
-complex directions, including `u_x + I*u_y`, use nondegenerate coordinates.
+Deviations from SymPy:
 
-Variable coefficients cover equations with only one derivative direction,
-diagonal dilation fields, independently separable transport speeds and
-supported shear fields. Other cases reduce to a native characteristic ODE,
-invert its first integral and integrate the forcing along the characteristic.
-Both coordinate directions are tried. This includes mixed fields such as
-`(x+y)*u_x + u_y` and variable zeroth-order terms such as
-`x*u_x - y*u_y + y**2*u - y**2`. Unknown forcing functions can retain held
-characteristic integrals without capturing their parameters.
+- When the reference methods fail or return `False`, `pdsolve` tries the
+  native characteristic solver. It covers isotropic complex directions
+  (`u_x + I*u_y`), mixed fields such as `(x + y)*u_x + u_y` and variable
+  zeroth-order terms such as `x*u_x - y*u_y + y**2*u - g(x, y)`.
+  Otherwise the reference error is raised. The test suite checks these
+  results with `checkpdesol`; `pdsolve` does not check them at runtime.
+- The characteristic integration variable is renamed when it would
+  capture a symbol of the equation, the characteristic coordinates of
+  the constant coefficient method are fresh when the equation contains
+  symbols named `xi` or `eta`, and the arbitrary function is renamed
+  (`F_`) when the equation contains a function `F`. SymPy returns wrong
+  or incomplete solutions in these three cases.
+- `checkpdesol` combines integrals with identical limits by linearity when
+  the coefficients do not depend on the bound variables, so a held
+  characteristic integral can be checked.
 
-Classification can recognize first-order linear equations whose characteristic
-ODE or coordinate inversion is beyond the native solvers; `pdsolve` then
-raises `NotImplementedError`. General characteristic systems, second-order
-PDE solvers and PDE boundary conditions remain unsupported.
+Second-order PDE solvers, general characteristic systems and boundary
+conditions are not implemented, as in SymPy. A failed separation returns
+`None`; it does not claim that no separated solution exists.
 
-`pde_separate`, `pde_separate_add` and `pde_separate_mul` apply an additive or
-multiplicative separated ansatz and isolate the first group of variables.
-Variable groups must be disjoint and cover every original argument. They
-support higher derivatives, grouped variables and separable nonlinear
-exponential equations. A failed separation returns `None`; it does not claim
-that no separated solution exists.
+## Remaining gaps
 
-```python
-from symox import pde_separate_mul
-
-X, Y = Function('X')(x), Function('Y')(y)
-assert pde_separate_mul(u.diff(x, 2)-u.diff(y, 2), u, [X, Y]) is not None
-```
-
-Solution checks substitute native derivatives and simplify the residual.
-Integrals with identical limits combine by linearity only when coefficients
-are independent of their bound variables. Solutions and sign divisions are
-local to domains where the chosen characteristic coordinates and leading
-coefficients are defined; this interface does not infer global boundary data.
+- Output forms differ from SymPy where `simplify`, `integrate` or
+  `factor` choose another equivalent candidate (see the corpus figures
+  above); the solution sets are the same.
+- The Frobenius logarithmic solution and the PDE fallback are extensions;
+  SymPy's own results in those cases are a subset of these.
+- First-order PDEs beyond SymPy's hints and the native characteristic
+  solver (nonlinear first-order PDEs, Charpit's method) are not
+  implemented.

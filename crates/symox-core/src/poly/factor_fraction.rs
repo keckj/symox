@@ -58,7 +58,7 @@ fn number_bits(n: &Number) -> u64 {
         Number::Int(_) | Number::Float(_) => 64,
         Number::BigInt(n) => n.bits(),
         Number::Rational(n) => n.numer().bits() + n.denom().bits(),
-        Number::MpFloat(n, _) => n.man.bits().saturating_add(n.exp.unsigned_abs()),
+        Number::MpFloat(n, _) => n.man.bits().saturating_add(u64::try_from(n.exp.unsigned_abs()).unwrap_or(u64::MAX)),
     }
 }
 // Memoization prevents exponential traversal, but it must not retain an

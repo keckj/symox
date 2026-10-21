@@ -144,7 +144,7 @@ def _finite(value):
 
 
 def _slope(eq, func):
-    from .ode import _data
+    from ._native_ode import _data
     S = _S()
     expression, func, x, order, coordinates = _data(eq, func)
     if order != 1:
@@ -174,7 +174,7 @@ def ode_1st_power_series(eq, func, order, match):
 
 
 def _linear_second(eq, func):
-    from .ode import _data
+    from ._native_ode import _data
     from .._differential import linear_data
     S = _S()
     expression, func, x, order, coordinates = _data(eq, func)
@@ -283,7 +283,7 @@ def classify_sysode(eq, funcs=None, **kwargs):
 
 def _slopes(eq, funcs):
     S = _S()
-    from .systems import canonical_odes
+    from ._native_systems import canonical_odes
     branches = canonical_odes(eq, funcs, funcs[0].args[0])
     if len(branches) != 1:
         raise NotImplementedError('System must have a unique derivative branch')
@@ -361,7 +361,7 @@ def check_nonlinear_3eq_order2(eq, func, func_coef):
 
 
 def sysode_linear_2eq_order1(match_):
-    from .systems import dsolve_system
+    from ._native_systems import dsolve_system
     return dsolve_system(match_['eq'], match_['func'])
 
 

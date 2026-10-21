@@ -34,9 +34,10 @@ def test_specialized_methods_use_native_and_wild_match_protocols(source,hint,pro
     equation,function = build(sx,source)
     data = sx.classify_pde(equation,function,dict=True)[hint]
     if protocol=='wild':
-        b,c,d,e = [sx.Wild(name) for name in ['b','c','d','e']]
-        data = {'b':b,'c':c,'d':d,'e':e,b:data['coefficients'][0],
-                c:data['coefficients'][1],d:data['coefficients'][2],e:-data['forcing']}
+        # SymPy's match data: the names b, c, d, e give the Wild keys
+        names = 'bcd' if hint.endswith('homogeneous') else 'bcde'
+        assert all(isinstance(data[name],sx.Wild) and data[name] in data for name in names)
+        data = dict(data)
     method = getattr(pde,'pde_'+hint)
     solution = method(equation,function,1,data,sx.Function('H'))
     assert solution.has(sx.Function('H'))
@@ -85,15 +86,18 @@ def test_characteristic_constants_cannot_capture_parameters_in_forcing_only():
     assert sx.checkpdesol(equation,solution,u)==(True,0)
 
 
-def test_invalid_method_metadata_cannot_solve_a_different_equation():
+def test_method_metadata_follows_the_reference_protocol():
+    # Like SymPy, the methods trust the classify_pde match and ignore order.
     equation,function = build(sx,'diff(u,x)+diff(u,y)-x')
     data = sx.classify_pde(equation,function,dict=True)['1st_linear_constant_coeff']
-    with pytest.raises(ValueError):
-        pde.pde_1st_linear_constant_coeff(equation,function,2,data,sx.Function('F'))
-    with pytest.raises(ValueError):
-        pde.pde_1st_linear_constant_coeff(equation,function,1,data|{'forcing':sx.Integer(1)},sx.Function('F'))
-    with pytest.raises(ValueError):
-        pde.pde_1st_linear_constant_coeff_homogeneous(equation,function,1,data,sx.Function('F'))
+    first = pde.pde_1st_linear_constant_coeff(equation,function,1,data,sx.Function('F'))
+    assert pde.pde_1st_linear_constant_coeff(equation,function,2,data,sx.Function('F'))==first
+    reference_equation,reference_function = build(sp,'diff(u,x)+diff(u,y)-x')
+    reference = sp.solvers.pde.pde_1st_linear_constant_coeff(
+        reference_equation,reference_function,1,
+        sp.classify_pde(reference_equation,reference_function,dict=True)['1st_linear_constant_coeff'],
+        sp.Function('F'))
+    assert first.to_sympy()==reference
 
 
 def test_specialized_pde_methods_do_not_import_sympy():

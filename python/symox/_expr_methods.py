@@ -193,40 +193,16 @@ def has(self, *patterns):
 
 
 def match(self, pattern, old=False):
-    from . import sympify, expand
-    pattern=sympify(pattern)
-    result=_native_match(self,pattern)
-    if result is not None or not old or self.is_Symbol:
-        return result
-    wilds={node for node in _structural_nodes(pattern)
-           if getattr(node,'is_Symbol',False) and str(node)==node.name+'_'}
-    if len(wilds)!=1:return None
-    wild=next(iter(wilds))
-    residual=pattern-self
-    slope=residual.diff(wild)
-    if slope==0 or slope.has(wild):return None
-    offset=residual.xreplace({wild:_core.sympify(0)})
-    candidate=-offset/slope
-    if candidate.has(wild):return None
-    # Let the native binder check wildcard exclusions on the solved value.
-    if _native_match(candidate,wild) is None:return None
-    if expand(pattern.xreplace({wild:candidate})-self)!=0:return None
-    return {wild:candidate}
+    """The reference pattern matching (symox._matching)."""
+    from . import sympify
+    from ._matching import matches as structural_matches
+    return structural_matches(sympify(pattern), self, old=old)
 
 
 def matches(self, expr, repl_dict=None, old=False):
     """Match this pattern against expr, extending a copy of repl_dict."""
-    expr = _core.sympify(expr)
-    bindings = {} if repl_dict is None else dict(repl_dict)
-    # Arithmetic and Wild matches can replace previous bindings in SymPy.
-    # Function arguments, in contrast, substitute existing bindings first.
-    wild = self.is_Symbol and str(self) == self.name + '_'
-    arithmetic = self.is_Add or self.is_Mul or self.is_Pow or wild
-    result = expr.match(self if arithmetic else self.xreplace(bindings),old=old)
-    if result is None:
-        return None
-    bindings.update(result)
-    return bindings
+    from ._matching import matches as structural_matches
+    return structural_matches(self, _core.sympify(expr), repl_dict, old=old)
 
 
 def is_hypergeometric(self, k):

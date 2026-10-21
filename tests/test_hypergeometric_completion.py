@@ -43,8 +43,9 @@ def test_meijer_numeric_and_repeated_pole_guard(z):
         got=complex(f.evalf())
         expected=complex(mp.meijerg([list(parameters[0]),list(parameters[1])],[[float(v) for v in parameters[2]],list(parameters[3])],float(z)))
         assert abs(got-expected)<3e-12*max(1,abs(expected))
+    # As in SymPy, mpmath evaluates the unit-circle boundary value.
     boundary=s.meijerg([],[2],[0],[],1)
-    assert boundary.evalf()==boundary
+    assert str(boundary.evalf())==str(sp.meijerg([],[2],[0],[],1).evalf())
     f=s.meijerg([],[],[0,0],[],z)
     assert s.hyperexpand(f)==f
     with pytest.raises(ValueError):s.meijerg([1],[],[0],[],z)

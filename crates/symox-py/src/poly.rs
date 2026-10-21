@@ -1285,7 +1285,10 @@ impl PyPoly {
     fn free_symbols<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PySet>> {
         let fs = symox::traverse::free_symbols(&self.p.as_expr());
         let mut v: Vec<PyExpr> = Vec::new();
-        for g in self.p.true_gens() {
+        // SymPy: generators count only when some monomial uses them, plus
+        // the symbols of a composite domain (free_symbols_in_domain).
+        let used = self.p.true_gens().iter().enumerate().filter(|(i, _)| self.p.degree(*i).is_some_and(|d| d > 0)).map(|(_, g)| g);
+        for g in used.chain(self.p.domain_gens().iter()) {
             for s in symox::traverse::free_symbols(g) {
                 if !v.iter().any(|x| x.e == s) {
                     v.push(w(s));
@@ -1889,7 +1892,14 @@ impl PyPoly {
     fn clear_denoms<'py>(&self, py: Python<'py>, convert:bool) -> PyResult<Bound<'py, PyTuple>> {
         if let Some(f)=self.ex(){let _=convert;let(c,q)=f.clear_denoms().map_err(err)?;return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyPoly{p:q.into()}.into_pyobject(py)?.into_any()]);}
         let domain = self.domain_descriptor()?;
-        let canonical = domain.poly(&self.p.as_expr(),self.p.true_gens())?;
+        // Rebuilding from the expression expands composite generators
+        // ((C1 + C2*x)*exp(-x) with the generator C1 + C2*x); a ground
+        // domain representation is already canonical.
+        let canonical = match domain.poly(&self.p.as_expr(),self.p.true_gens()) {
+            Ok(p) => p,
+            Err(_) if self.p.field.is_none() && self.p.algebraic.is_none() => self.p.clone(),
+            Err(e) => return Err(e),
+        };
         let (denominator, numerator) = if let Some(f) = &canonical.field {
             let ring = domain.inner.ring().map_err(err)?;
             let denominator = if matches!(&domain.inner,symox::poly::domains::ExactDomain::Functions{ring:true,..}) {
@@ -2766,6 +2776,11 @@ fn degree(py: Python<'_>, f: &Bound<'_, PyAny>, gen: Option<&Bound<'_, PyAny>>) 
 #[pyo3(signature = (f, *gens, multiple=false, filter=None, **_kwargs))]
 fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multiple: bool, filter: Option<&str>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let (e, g2) = expr_or_coeff_list(f)?;
+    // SymPy's Poly reads an equation as lhs - rhs.
+    let e = match e.kind() {
+        symox::expr::Kind::Rel(symox::expr::RelOp::Eq, lhs, rhs) => symox::ops::sub(lhs, rhs),
+        _ => e,
+    };
     let gv = gens_of(gens)?;
     if f.downcast::<PyList>().is_ok()&&!gv.is_empty(){return Err(PyValueError::new_err("redundant generators given"));}
     let gv = if gv.is_empty() { g2 } else { gv };

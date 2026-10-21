@@ -159,15 +159,24 @@ def test_unsupported_precision_options_are_explicit():
 
 def test_unrepresentable_exponential_and_power_results_remain_symbolic():
     huge = sm.Float("1e100", 60)
-    for function in [sm.exp, sm.sinh, sm.cosh, sm.tanh]:
+    for function in [sm.exp, sm.sinh, sm.cosh]:
         for argument in [huge, -huge]:
             expression = function(argument)
-            assert expression.is_Function
+            # sinh(-x) is -sinh(x) by its eval rule, which runs before
+            # numerical evaluation as in the reference.
+            assert expression.is_Function or (-expression).is_Function
             assert expression.evalf(60) == expression
-    for exponent in [huge, -huge, sm.Integer(2)**63 - 1]:
+    # tanh saturates to +-1, as mpmath returns.
+    assert str(sm.tanh(-huge)) == str(sp.tanh(-sp.Float("1e100", 60)))
+    assert str(sm.tanh(huge)) == str(sp.tanh(sp.Float("1e100", 60)))
+    for exponent in [huge, -huge]:
         expression = sm.Float("10", 60)**exponent
         assert expression.is_Pow
         assert expression.evalf(60) == expression
+    # Binary exponents are bounded by 2**100, not by a 64-bit counter.
+    power = sm.Float("10", 60)**(sm.Integer(2)**63 - 1)
+    assert power.is_Float
+    assert power.to_sympy() == sp.Float("10", 60)**(sp.Integer(2)**63 - 1)
     assert (sm.Float("0", 60)**2).is_zero is True
     assert_close(sm.exp(sm.Float("1000", 60)), sp.exp(sp.Float("1000", 60)), 60)
 

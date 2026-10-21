@@ -195,6 +195,11 @@ fn call(f: &Func, a: &Expr) -> Expr {
 
 /// `cls.eval(arg)`: the constructor result, `None` when it stays `cls(arg)`.
 fn eval_of(f: &Func, a: &Expr) -> Option<Expr> {
+    // SymPy calls the other function's eval, which never evaluates
+    // numerically: a Float argument the caller evaluates itself.
+    if crate::special::should_evalf(std::slice::from_ref(a)) {
+        return float_exact(f, a);
+    }
     let r = call(f, a);
     match r.kind() {
         Kind::Func(g, args) if g == f && args.len() == 1 && args[0] == *a => None,

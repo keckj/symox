@@ -46,6 +46,12 @@ fn shr_ceil(m: &BigInt, k: u64) -> BigInt {
     -shr_floor(&-m, k)
 }
 /// `m * 2^k`, rounded down when `k < 0`.
+/// A float exponent as a dyadic interval exponent. Isolation works on
+/// values whose binary exponents fit in 64 bits.
+fn exp64(e: i128) -> i64 {
+    i64::try_from(e).expect("binary exponent outside the root enclosure range")
+}
+
 fn shift_floor(m: &BigInt, k: i64) -> BigInt {
     if k >= 0 {
         m << (k as u64)
@@ -83,12 +89,13 @@ impl Iv {
         Iv { lo: m.clone(), hi: m, e }
     }
     pub fn from_bigfloat(x: &BigFloat) -> Iv {
-        Iv::point(x.man.clone(), x.exp)
+        Iv::point(x.man.clone(), exp64(x.exp))
     }
     /// `[c - 2^k, c + 2^k]`.
     pub fn ball(c: &BigFloat, k: i64) -> Iv {
-        let e = c.exp.min(k);
-        let m = shift_floor(&c.man, c.exp - e);
+        let ce = exp64(c.exp);
+        let e = ce.min(k);
+        let m = shift_floor(&c.man, ce - e);
         let r = BigInt::one() << ((k - e) as u64);
         Iv { lo: &m - &r, hi: &m + &r, e }
     }
@@ -213,7 +220,7 @@ impl Iv {
         dyadic_rat(&self.hi, self.e)
     }
     pub fn mid(&self, prec: u32) -> BigFloat {
-        BigFloat::round(&self.lo + &self.hi, self.e - 1, prec)
+        BigFloat::round(&self.lo + &self.hi, i128::from(self.e - 1), prec)
     }
     /// Whether the width is at most `2^k`.
     pub fn width_below(&self, k: i64) -> bool {
@@ -637,14 +644,15 @@ fn refine_real(f: &[BigInt], lo: &mut Rat, hi: &mut Rat, prec: u32) -> Iv {
                 }
                 let step = p.div(&d, wp).unwrap();
                 x = x.sub(&step, wp);
-                if step.is_zero() || step.mag() < x.mag().max(0) - wp as i64 + 4 {
+                if step.is_zero() || step.mag() < x.mag().max(0) - wp as i128 + 4 {
                     break;
                 }
             }
             if ok {
                 let k = -(prec as i64) - 2 + scale_exponent(&scale);
-                let e = x.exp.min(k);
-                let m = shift_floor(&x.man, x.exp - e);
+                let xe = exp64(x.exp);
+                let e = xe.min(k);
+                let m = shift_floor(&x.man, xe - e);
                 let r = BigInt::one() << ((k - e) as u64);
                 let a = dyadic_rat(&(&m - &r), e);
                 let b = dyadic_rat(&(&m + &r), e);
@@ -768,9 +776,9 @@ fn refine_complex(f: &[Rat], isolating: &mut iso::ComplexBox, prec: u32) -> Opti
             let si = p.1.mul(&d.0, wp).sub(&p.0.mul(&d.1, wp), wp).div(&dn, wp).unwrap();
             z = (z.0.sub(&sr, wp), z.1.sub(&si, wp));
             let size = z.0.mag().max(z.1.mag()).max(0);
-            let step = if sr.is_zero() { i64::MIN } else { sr.mag() }
-                .max(if si.is_zero() { i64::MIN } else { si.mag() });
-            if step < size - wp as i64 + 8 {
+            let step = if sr.is_zero() { i128::MIN } else { sr.mag() }
+                .max(if si.is_zero() { i128::MIN } else { si.mag() });
+            if step < size - wp as i128 + 8 {
                 converged = true;
                 break;
             }

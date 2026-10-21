@@ -41,10 +41,13 @@ def test_ode_solver_rejects_excessive_orders_before_allocating_coefficients():
     expression=sx.Derivative(f(x),x,2**32-1,evaluate=False)
     with pytest.raises(NotImplementedError):sx.dsolve(expression,f(x))
     with pytest.raises(NotImplementedError):sx.dsolve(expression)
-    assert sx.checkodesol(expression,sx.Eq(f(x),0),f(x))==(False,0)
-    assert sx.checkodesol(expression,sx.Eq(f(x),0))==(False,0)
+    # f = 0 solves f^(n) = 0; the reference runs out of memory here.
+    assert sx.checkodesol(expression,sx.Eq(f(x),0),f(x))==(True,0)
+    assert sx.checkodesol(expression,sx.Eq(f(x),0))==(True,0)
 
 
 def test_ode_checks_with_empty_dependent_functions_do_not_panic():
     x=sx.Symbol('x');f=sx.Function('f')
-    assert sx.checkodesol(f(x),sx.Eq(f(x),0),f())==(False,0)
+    # The reference rejects a function without arguments.
+    with pytest.raises(ValueError, match="function of one variable"):
+        sx.checkodesol(f(x),sx.Eq(f(x),0),f())

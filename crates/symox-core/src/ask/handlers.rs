@@ -218,7 +218,7 @@ fn mp(e: &Expr, prec: u32) -> Option<crate::evalf_mp::MpComplex> {
     if !is_number(e) || is_nan(e) {
         return None;
     }
-    crate::evalf_mp::eval_mp(e, prec)
+    crate::evalf_mp::eval_mp_default(e, prec)
 }
 
 /// The sign of a value computed at two precisions; `None` when they do not

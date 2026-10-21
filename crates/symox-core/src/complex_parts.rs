@@ -53,7 +53,7 @@ fn bits(number: &Number) -> u64 {
         Number::Rational(n) => n.numer().bits() + n.denom().bits(),
         Number::Float(_) => 64,
         Number::MpFloat(value, p) => {
-            u64::from(*p).max(value.man.bits().saturating_add(value.exp.unsigned_abs()))
+            u64::from(*p).max(value.man.bits().saturating_add(u64::try_from(value.exp.unsigned_abs()).unwrap_or(u64::MAX)))
         }
     }
 }
@@ -1062,7 +1062,7 @@ mod tests {
     fn numeric_literals_split_without_expanding_precision_or_exponents() {
         for exponent in [i64::MIN, i64::MAX] {
             let value = Expr::num(Number::MpFloat(crate::bigfloat::BigFloat {
-                man: BigInt::one(), exp: exponent,
+                man: BigInt::one(), exp: exponent.into(),
             }, 65_536));
             assert_eq!(as_real_imag(&value, true, None).unwrap(), Some((value.clone(), Expr::zero())));
             assert_eq!(as_real_imag(&value, true, Some(&value)).unwrap(), None);
@@ -1156,7 +1156,7 @@ mod tests {
             let value = Expr::num(Number::MpFloat(
                 crate::bigfloat::BigFloat {
                     man: BigInt::one(),
-                    exp: exponent,
+                    exp: exponent.into(),
                 },
                 53,
             ));

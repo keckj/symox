@@ -20,7 +20,7 @@ __all__ = [
     'sturm', 'count_roots', 'intervals', 'refine_root', 'ground_roots', 'gff_list',
     'poly_from_expr', 'parallel_poly_from_expr', 'degree_list', 'total_degree',
     'trunc', 'monic', 'content', 'gff', 'sqf_norm', 'all_roots', 'real_roots',
-    'nth_power_roots_poly', 'LC', 'LM', 'LT', 'decompose',
+    'nth_power_roots_poly', 'LC', 'LM', 'LT', 'decompose', 'terms_gcd',
 ]
 
 
@@ -28,7 +28,7 @@ __all__ = [
 _PUBLIC_FUNCTIONS = frozenset((
     'degree', 'pdiv', 'prem', 'pquo', 'pexquo', 'div', 'rem', 'quo', 'exquo',
     'half_gcdex', 'gcdex', 'invert', 'cofactors', 'gcd_list', 'lcm_list',
-    'terms_gcd', 'primitive', 'compose', 'sqf_part', 'sqf', 'nroots', 'cancel',
+    'primitive', 'compose', 'sqf_part', 'sqf', 'nroots', 'cancel',
     'is_zero_dimensional', 'poly',
 ))
 __all__ += sorted(_PUBLIC_FUNCTIONS)
@@ -113,6 +113,8 @@ def _build_options(gens, args):
 
 def _poly_kwargs(opt):
     out = {k: opt[k] for k in ('domain', 'modulus', 'extension') if k in opt and opt[k] is not None}
+    if 'expand' in opt and opt['expand'] is False:
+        out['expand'] = False
     if isinstance(out.get('extension'), set):
         ext = sorted(out['extension'], key=lambda e: e.sort_key())
         out['extension'] = ext[0] if len(ext) == 1 else ext
@@ -150,7 +152,12 @@ def _poly_from_expr(expr, opt):
         try:
             opt['domain'] = poly.domain
         except NotImplementedError:
-            opt['domain'] = poly.domain_descriptor
+            try:
+                opt['domain'] = poly.domain_descriptor()
+            except NotImplementedError:
+                # No typed descriptor (an algebraic extension such as
+                # QQ<I>); callers must use the polynomial itself.
+                opt['domain'] = None
     if 'polys' not in opt:
         opt['polys'] = False
     return poly, opt
@@ -265,6 +272,96 @@ def total_degree(f, *gens):
     if p.is_Number:
         return Integer(0)
     return Integer(Poly(p, *gens).total_degree())
+
+
+def terms_gcd(f, *gens, **args):
+    """Remove the GCD of the terms of ``f``, SymPy's ``terms_gcd``.
+
+    ``deep`` applies it to every subexpression first and ``clear=False``
+    keeps a fractional coefficient inside a sum (``x*(1 - x**3/12)``).
+    Adapted from SymPy 1.14's sympy/polys/polytools.py.
+    """
+    from .. import sympify, Equality, Relational, Expr, Mul, S
+    from ..core.mul import _keep_coeff
+    from ..core.numbers import equal_valued
+    orig = sympify(f)
+    if isinstance(f, Equality):
+        return Equality(*(terms_gcd(s, *gens, **args) for s in [f.lhs, f.rhs]))
+    elif isinstance(f, Relational):
+        raise TypeError("Inequalities cannot be used with terms_gcd. Found: %s" % (f,))
+    f = orig
+    if not isinstance(f, Expr) or f.is_Atom:
+        return orig
+    if args.get('deep', False):
+        new = f.func(*[terms_gcd(a, *gens, **args) for a in f.args])
+        args.pop('deep')
+        args['expand'] = False
+        return terms_gcd(new, *gens, **args)
+    clear = args.pop('clear', True)
+    allowed_flags(args, ['polys'])
+    try:
+        F, opt = poly_from_expr(f, *gens, **args)
+    except PolificationFailed as exc:
+        return exc.expr
+    J, f = F.terms_gcd()
+    gaussian = _gaussian_primitive(f) if opt.domain is None else None
+    if gaussian is not None:
+        coeff, expr = gaussian
+    elif opt.domain is not None and opt.domain.is_Exact is False:
+        # RR and CC: their gcd and denominators are one.
+        coeff = S.One
+        expr = f.as_expr()
+    elif opt.domain is None or opt.domain.is_Ring:
+        if opt.domain is not None and opt.domain.is_Field:
+            denom, f = f.clear_denoms(convert=True)
+        coeff, f = f.primitive()
+        if opt.domain is not None and opt.domain.is_Field:
+            coeff /= denom
+        expr = f.as_expr()
+    else:
+        coeff = S.One
+        expr = f.as_expr()
+    term = Mul(*[x**j for x, j in zip(f.gens, J)])
+    if equal_valued(coeff, 1):
+        coeff = S.One
+        if term == 1:
+            return orig
+    if clear:
+        return _keep_coeff(coeff, term*expr)
+    # base the clearing on the form of the original expression, not
+    # the (perhaps) Mul that we have now
+    coeff, f = _keep_coeff(coeff, expr, clear=False).as_coeff_Mul()
+    return _keep_coeff(coeff, term*f, clear=False)
+
+
+def _gaussian_primitive(f):
+    """SymPy's QQ_I ``clear_denoms(convert=True)`` and ZZ_I ``primitive``.
+
+    Returns ``(content, primitive expression)``, or ``None`` when a
+    coefficient is not a Gaussian rational.
+    """
+    from .. import Add, Mul, ZZ_I, ilcm
+    terms = f.terms()
+    parts = []
+    for _, c in terms:
+        re, im = c.as_real_imag()
+        if not (re.is_Rational and im.is_Rational):
+            return None
+        parts.append((re, im))
+    denom = 1
+    for re, im in parts:
+        denom = ilcm(denom, re.q, im.q)
+    elements = [ZZ_I(int(re*denom), int(im*denom)) for re, im in parts]
+    content = ZZ_I.zero
+    for c in elements:
+        content = ZZ_I.gcd(content, c)
+        if content == ZZ_I.one:
+            break
+    if content == ZZ_I.zero:
+        return None
+    expr = Add(*[ZZ_I.to_sympy(ZZ_I.exquo(c, content))*Mul(*[g**e for g, e in zip(f.gens, monom)])
+                 for (monom, _), c in zip(terms, elements)])
+    return ZZ_I.to_sympy(content)/denom, expr
 
 
 def trunc(f, p, *gens, **args):

@@ -1141,8 +1141,8 @@ impl PyMatrix {
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]
     fn evalf(&self, n: i64, subs: Option<&Bound<'_, PyDict>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         let precision=crate::decimal_precision(n)?;
-        let chop=crate::evalf_options(_kwargs,precision)?;
-        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::evalf_prepared(e,precision,subs,chop))?))
+        let settings=crate::evalf_options(_kwargs,precision)?;
+        Ok(self.wrapped(self.m.try_applyfunc(|e| crate::evalf_prepared(e,precision,subs,settings))?))
     }
 
     #[pyo3(signature = (n=15, subs=None, **_kwargs))]

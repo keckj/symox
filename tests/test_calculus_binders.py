@@ -186,7 +186,10 @@ def test_composite_substitutions_preserve_binding_scopes_and_reject_new_dummy_de
         expected=sp.Integral(F(X)+X*Y+Y,(X,0,Y)).subs(OLD,Z)
         assert sm.to_sympy(actual)==expected
     with pytest.raises(ValueError):sm.Integral(f(y),(x,0,1)).subs(f(y),x)
-    with pytest.raises(ValueError):sm.Integral(f(x),x).subs(x,f(y))
+    # Like the reference, a variable replaced by a function application
+    # becomes the new integration variable.
+    actual=sm.Integral(f(x),x).subs(x,f(y))
+    assert sm.to_sympy(actual)==sp.Integral(F(X),X).subs(X,F(Y))
 
 
 def test_functional_endpoint_integral_and_large_integer_karr_sum():

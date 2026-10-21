@@ -844,8 +844,12 @@ pub(crate) fn decimal_precision(n: impl Into<i64>) -> PyResult<u32> {
     bit_precision(symox::bigfloat::dps_to_prec(n))
 }
 
-pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) -> PyResult<Option<i64>> {
-    let mut chop=None;
+/// Parsed `evalf` keywords: native options plus SymPy's strict flag.
+#[derive(Clone,Copy,Default)]
+pub(crate) struct EvalfSettings { options:symox::evalf_mp::EvalfOptions, strict:bool, quad:bool }
+
+pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) -> PyResult<EvalfSettings> {
+    let mut chop=None;let mut strict=false;let mut maxn:Option<f64>=None;let mut quad=false;
     if let Some(kwargs) = kwargs {
         for (key, value) in kwargs {
             let key: String = key.extract()?;
@@ -855,7 +859,7 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
                         else if let Ok(expression)=value.extract::<PyRef<'_, crate::PyExprNode>>() {
                             if let Kind::Bool(value)=expression.e.kind(){Some(*value)}else{None}
                         } else {None};
-                    if let Some(flag)=flag {chop=flag.then_some(-(precision as i64));continue;}
+                    if let Some(flag)=flag {chop=flag.then_some(-(precision as i128));continue;}
                     if !value.is_truthy()? {continue;}
                     let tolerance=to_expr(&value)?;
                     let error=||PyValueError::new_err("chop tolerance must be finite, real and positive");
@@ -865,26 +869,46 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
                     // range. Outside it, convert the logarithm itself instead
                     // of overflowing/underflowing the tolerance to f64.
                     let factor=if log10.abs()<=300.0 {3.321}else{std::f64::consts::LOG2_10};
-                    let mut bits=(-factor*log10+2.5).round_ties_even() as i64;
+                    let mut bits=(-factor*log10+2.5).round_ties_even() as i128;
                     if bits==3 {bits=2;}
                     chop=Some(4-bits);
                 },
-                "strict" | "verbose" if !value.is_truthy()? => {},
-                "strict" | "verbose" | "maxn" | "quad" => return Err(PyNotImplementedError::new_err(format!("evalf option {key} is not implemented"))),
+                "strict" => strict=value.is_truthy()?,
+                // SymPy's verbose mode prints internal tracing only.
+                "verbose" => {},
+                // SymPy: maxprec = max(prec, int(maxn*LG10)).
+                "maxn" => maxn=Some(value.extract::<f64>()?*std::f64::consts::LOG2_10),
+                // A quadrature choice only matters for an Integral; it is
+                // refused there (see evalf_prepared) and ignored elsewhere.
+                "quad" => quad=!value.is_none(),
                 _ => return Err(PyTypeError::new_err(format!("unexpected evalf option {key}"))),
             }
         }
     }
-    Ok(chop)
+    // SymPy's default maxn is 100 and bounds every cancelling sum. Without an
+    // explicit bound or strict mode the native, larger default budget applies.
+    let budget=if maxn.is_some()||strict {
+        let bits=maxn.unwrap_or(100.0*std::f64::consts::LOG2_10);
+        let bits=if bits.is_nan(){0.0}else{bits.trunc()};
+        Some(if bits>=f64::from(MAX_REQUESTED_PRECISION){MAX_REQUESTED_PRECISION}else{(bits.max(0.0) as u32).max(precision)})
+    } else {None};
+    // An explicit maxn without strict returns a sum at the accuracy it
+    // reached, as SymPy returns a lower precision Float.
+    let partial=maxn.is_some()&&!strict;
+    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial},strict,quad})
 }
 
 pub(crate) fn evalf_expr(e: &Expr, n: i64, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
     let precision = decimal_precision(n)?;
-    let chop=evalf_options(kwargs,precision)?;
-    evalf_prepared(e,precision,replacements,chop)
+    let settings=evalf_options(kwargs,precision)?;
+    evalf_prepared(e,precision,replacements,settings)
 }
 
-pub(crate) fn evalf_prepared(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,chop:Option<i64>)->PyResult<Expr> {
+pub(crate) fn evalf_prepared(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,settings:EvalfSettings)->PyResult<Expr> {
+    special::with_host_errors(||evalf_checked(e,precision,replacements,settings))
+}
+
+fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,settings:EvalfSettings)->PyResult<Expr> {
     let e = match replacements {
         Some(mapping) => {
             let pairs = mapping.iter().map(|(old, new)| Ok((to_expr(&old)?, to_expr(&new)?))).collect::<PyResult<Vec<_>>>()?;
@@ -892,7 +916,19 @@ pub(crate) fn evalf_prepared(e:&Expr,precision:u32,replacements:Option<&Bound<'_
         }
         None => e.clone(),
     };
-    Ok(match chop {Some(cutoff)=>symox::evalf_mp::evalf_chop(&e,precision,cutoff),None=>symox::evalf_mp::evalf(&e, precision)})
+    if settings.quad&&e.has_calculus_binding() {
+        return Err(PyNotImplementedError::new_err("evalf option quad is not implemented for integrals"));
+    }
+    if settings.options==symox::evalf_mp::EvalfOptions::default() {return Ok(symox::evalf_mp::evalf(&e, precision));}
+    let (value,exhausted)=symox::evalf_mp::evalf_with_options(&e,precision,settings.options);
+    if let (true,Some(failed))=(settings.strict,exhausted) {
+        return Python::with_gil(|py|{
+            let class=py.import("symox._public_core")?.getattr("PrecisionExhausted")?;
+            let message=format!("Failed to distinguish the expression: \n\n{}\n\nfrom zero. Try simplifying the input, using chop=True, or providing a higher maxn for evalf",host::checked(printer::to_str(&failed))?);
+            Err(PyErr::from_value(class.call1((message,))?))
+        });
+    }
+    Ok(value)
 }
 
 type IntegrationConditions=symox::integrate::Conds;
@@ -1595,7 +1631,7 @@ impl PyExprNode {
             let value = symox::evalf_mp::eval_mp(&self.e, precision)
                 .ok_or_else(|| PyTypeError::new_err("cannot convert this expression to an integer"))?;
             if !value.is_real() { return Err(PyTypeError::new_err("cannot convert a complex value to an integer")); }
-            if !value.re.is_zero() && value.re.mag() > precision as i64 - 64 {
+            if !value.re.is_zero() && value.re.mag() > precision as i128 - 64 {
                 let required = value.re.mag().saturating_add(128);
                 if required > 80_000 { break; }
                 precision = required as u32;
@@ -1879,7 +1915,7 @@ impl PyExprNode {
     /// The normalized mpmath tuple ``(sign, man, exp, bc)`` of a Float:
     /// an odd mantissa, or ``(0, 0, 0, 0)`` for zero, as SymPy's ``_mpf_``.
     #[getter]
-    fn _mpf_(&self) -> PyResult<(u8, BigInt, i64, i64)> {
+    fn _mpf_(&self) -> PyResult<(u8, BigInt, i128, i64)> {
         let (sign, man, exp) = match self.e.as_number() {
             Some(Number::Float(value)) => {
                 let bits = value.to_bits();
@@ -1893,7 +1929,7 @@ impl PyExprNode {
                     return Ok(if bits >> 63 == 0 { (0, BigInt::from(0), -456, -2) } else { (1, BigInt::from(0), -789, -3) });
                 }
                 let (man, exp) = if biased == 0 { (fraction, -1074) } else { (fraction | (1u64 << 52), biased - 1075) };
-                ((bits >> 63) as u8, BigInt::from(man), exp)
+                ((bits >> 63) as u8, BigInt::from(man), exp as i128)
             }
             Some(Number::MpFloat(value, _)) => (u8::from(value.man.is_negative()), value.man.abs(), value.exp),
             _ => return Err(pyo3::exceptions::PyAttributeError::new_err("only Float numbers have an mpf value")),
@@ -1904,7 +1940,7 @@ impl PyExprNode {
         let shift = man.trailing_zeros().unwrap_or(0);
         let man = man >> shift;
         let bc = man.bits() as i64;
-        Ok((sign, man, exp + shift as i64, bc))
+        Ok((sign, man, exp + shift as i128, bc))
     }
 
     #[getter]
@@ -2407,7 +2443,10 @@ impl PyExprNode {
     #[pyo3(signature = (*patterns))]
     fn has(&self, patterns: &Bound<'_, PyTuple>) -> PyResult<bool> {
         for p in patterns.iter() {
-            if let Some(target)=function_head(&p)?{
+            // An applied function such as g(x) also exposes its head's name
+            // and nargs; only a head is a function-class query.
+            let head=if p.downcast::<PyExprNode>().is_ok() {None} else {function_head(&p)?};
+            if let Some(target)=head{
                 fn contains(e:&Expr,target:&symox::expr::UndefinedFunction)->bool{
                     let mut pending=vec![e.clone()];let mut seen=FxHashMap::default();
                     while let Some(node)=pending.pop() {
@@ -2997,7 +3036,7 @@ fn float_mpf_parts(payload:&Bound<'_,PyAny>,precision:u32)->PyResult<Expr>{
             .ok_or_else(||PyValueError::new_err("invalid hexadecimal mpf mantissa"))?
     }else{source.extract::<BigInt>()?};
     if mantissa.is_negative(){return Err(PyValueError::new_err("mpf mantissa must be nonnegative"));}
-    let exponent=parts.get_item(2)?.extract::<i64>()?;
+    let exponent=parts.get_item(2)?.extract::<i128>()?;
     if parts.len()==4&&mantissa.is_zero(){
         let count=parts.get_item(3)?.extract::<i64>()?;
         match (sign,exponent,count){
@@ -3143,6 +3182,13 @@ fn gamma_integral_conditions(f:&Expr,x:&Expr,lo:&Expr,hi:&Expr)->Option<(Expr,Ex
     })
 }
 
+/// SymPy integrates with respect to an applied undefined function f(x) by
+/// treating it as an independent variable.
+fn function_variable_integral(r:&Expr,limit:Vec<Expr>)->PyResult<Expr>{
+    let held=symox::binders::held(Func::Integral,r,vec![limit]).map_err(PyValueError::new_err)?;
+    Ok(fx::doit(&held,true))
+}
+
 fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationConditions, meijerg:Option<bool>) -> PyResult<(Expr,Option<Expr>)> {
     let mut r = f.clone();
     let mut separate=None;
@@ -3157,6 +3203,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
         if let Some(t) = integration_limit(&a)? {
             if !(1..=3).contains(&t.len()){return Err(PyValueError::new_err("expected (x,), (x,b), or (x,a,b)"));}
             let x = t[0].clone();
+            if symox::binders::is_function_variable(&x){r=function_variable_integral(&r,t)?;continue;}
             if !x.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
             match t.len() {
                 1 => r = symox::integrate::integrate_hint(&r, &x, meijerg),
@@ -3179,6 +3226,7 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
             }
         } else {
             let variable=to_expr(&a)?;
+            if symox::binders::is_function_variable(&variable){r=function_variable_integral(&r,vec![variable])?;continue;}
             if !variable.is_symbol(){return Err(PyValueError::new_err("integration variable must be a symbol"));}
             r = symox::integrate::integrate_hint(&r, &variable, meijerg);
         }
@@ -3439,6 +3487,11 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<P
                         return Err(PyValueError::new_err("Function defined only for real values"));
                     }
                 }
+            }
+            if evaluate && (matches!(f, Func::Special(s) if s.auto_evalf()) || matches!(f, Func::Gamma | Func::LogGamma | Func::Erf | Func::Erfc))
+                && symox::special::should_evalf(&v) {
+                // Float arguments evaluate through mpmath, whose errors propagate.
+                return special::with_host_errors(|| Ok(wrap(fx::func(f, v))));
             }
             Ok(wrap(if evaluate { fx::func(f, v) } else { Expr::from_unevaluated_kind(Kind::Func(f, v)) }))
         }

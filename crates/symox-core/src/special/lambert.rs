@@ -390,13 +390,13 @@ pub(crate) fn mp(args: &[Expr], precision: u32) -> Option<crate::evalf_mp::MpCom
         let denominator = exponential.mul(&wp1, working).sub(&correction, working);
         let step = residual.div(&denominator, working)?;
         w = w.sub(&step, working);
-        let threshold = w.abs(working).mag().max(0) - precision as i64 - 24;
+        let threshold = w.abs(working).mag().max(0) - precision as i128 - 24;
         if step.abs(working).mag() < threshold {
             let residual = w
                 .mul(&w.exp(working)?, working)
                 .sub(&z, working)
                 .abs(working);
-            if residual.mag() < z.abs(working).mag().max(0) - precision as i64 - 16 {
+            if residual.mag() < z.abs(working).mag().max(0) - precision as i128 - 16 {
                 return Some(w.round_to(precision));
             }
         }

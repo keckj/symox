@@ -64,6 +64,11 @@ def _user_class_is_expr(cls):
 
 def _compute(cls):
     if _node_types.is_symox_class(cls):
+        # A Function subclass defined in a symox module (such as the ODE
+        # solvers' diffx) is an expression class, as a user one is.
+        from ._host import _HostFunction
+        if type.__subclasscheck__(_HostFunction, cls):
+            return True
         return _symox_class_is_expr(cls)
     return _user_class_is_expr(cls)
 

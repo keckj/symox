@@ -43,16 +43,6 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     if matches!(f, Func::Sign) && args.len()==1 && crate::assumptions::is_real(&args[0])==Some(true) {
         if let Some(value)=crate::complex_parts::evaluate::sign(&args[0]) { return value; }
     }
-    if args.iter().any(crate::evalf_mp::has_mp)
-        && !matches!(f, Func::Floor | Func::Ceiling | Func::Min | Func::Max | Func::Heaviside | Func::DiracDelta)
-        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number)) {
-        let precision = args.iter().filter_map(crate::evalf_mp::max_precision).max().unwrap();
-        if args.iter().all(is_numeric_value) {
-            let raw = Expr::from_kind(Kind::Func(f, args));
-            return crate::evalf_mp::eval_mp(&raw, precision)
-                .map(|value| crate::evalf_mp::to_expr(value, precision)).unwrap_or(raw);
-        }
-    }
     if let Func::Special(s) = f {
         return crate::special::apply(s, args);
     }
@@ -62,17 +52,18 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             return v;
         }
     }
-    // numeric evaluation when an argument is a float
-    // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
-    // arg of a real float is exact (0, pi or nan) as in SymPy
-    if !matches!(f, Func::Undefined(_) | Func::ExpPolar | Func::Max | Func::Min | Func::Floor | Func::Ceiling | Func::Heaviside | Func::DiracDelta)
-        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number))
-        && !args.is_empty()
-        && args.iter().all(is_numeric_value)
-        && args.iter().any(has_float)
-    {
-        if let Some(v) = crate::evalf::eval_func_numeric(&f, &args) {
-            return v;
+    // gamma, loggamma, erf and erfc have no float rule in their eval: like
+    // SymPy's Function they evaluate only float or float complex arguments,
+    // at the largest argument precision.
+    let auto_evalf = matches!(f, Func::Gamma | Func::LogGamma | Func::Erf | Func::Erfc);
+    if auto_evalf && crate::special::should_evalf(&args) {
+        let prec = args.iter().filter_map(crate::special::float_precision).max().unwrap_or(53);
+        let node = Expr::from_kind(Kind::Func(f.clone(), args.clone()));
+        if let Some(value) = crate::evalf_mp::eval_number(&node, prec) {
+            return value;
+        }
+        if crate::evalf_mp::has_special_host() || prec > 53 {
+            return node;
         }
     }
     let r = match &f {
@@ -149,10 +140,28 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Special(_) | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => None,
     };
-    match r {
-        Some(v) => v,
-        None => Expr::from_kind(Kind::Func(f, args)),
+    if let Some(v) = r { return v; }
+    // Like SymPy's Function.__new__, numerical evaluation happens only when
+    // the function's own eval rule returned nothing.
+    // SymPy's Function._should_evalf: a call evaluates numerically when every
+    // argument is a Float or a sum a + b*I of numbers with a Float part, at
+    // the largest argument precision. Other numeric arguments containing a
+    // Float (2.5*I, 2.5*pi) go through the function's exact rules instead.
+    // The value is computed in multiprecision and rounded once, as mpmath
+    // does, never taken from a double-precision evaluation.
+    // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
+    // arg of a real float is exact (0, pi or nan) as in SymPy
+    if !matches!(f, Func::Undefined(_) | Func::ExpPolar | Func::Max | Func::Min | Func::Floor | Func::Ceiling | Func::Heaviside | Func::DiracDelta)
+        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number))
+        && crate::special::should_evalf(&args)
+    {
+        let precision = args.iter().filter_map(crate::special::float_precision).max().unwrap_or(53);
+        let raw = Expr::from_kind(Kind::Func(f.clone(), args.clone()));
+        if let Some(value) = crate::evalf_mp::eval_mp(&raw, precision) {
+            return crate::evalf_mp::to_expr(value, precision);
+        }
     }
+    Expr::from_kind(Kind::Func(f, args))
 }
 
 /// Evaluate held operations. Matrix scalar nodes retain their typed parents;
@@ -716,7 +725,17 @@ fn eval_minmax(f: &Func, args: Vec<Expr>) -> Expr {
                             let separation = 1e-12*x.abs().max(y.abs()).max(1.0);
                             if is_max { gap > separation } else { gap < -separation }
                         }
-                        _ => false,
+                        // Outside the double range the reference still
+                        // compares mpmath values (Max(3, exp(710)) is exp(710)).
+                        _ => match (crate::evalf_mp::eval_mp_default(a,96),crate::evalf_mp::eval_mp_default(b,96)) {
+                            (Some(x),Some(y)) if x.is_real() && y.is_real() => {
+                                let gap=if is_max {x.re.sub(&y.re,96)} else {y.re.sub(&x.re,96)};
+                                let scale=if x.re.abs().cmp(&y.re.abs()).is_ge() {x.re.abs()} else {y.re.abs()};
+                                let scale=if scale.cmp(&crate::bigfloat::BigFloat::one()).is_ge() {scale} else {crate::bigfloat::BigFloat::one()};
+                                gap.sign()>0 && gap.cmp(&scale.ldexp(-40)).is_gt()
+                            }
+                            _ => false,
+                        },
                     }
                 } else { false }
             }

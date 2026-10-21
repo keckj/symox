@@ -385,11 +385,16 @@ classes have remaining gaps:
   finiteness of `exp(f)` for finite `f`, and of `I**(1/3)`, are unknown.
 - Noncommutative symbols are not implemented.
 - `Mul.is_polar` of nonpolar factors is unknown. The reference gives False.
-- Numerical sign decisions evaluate `exp(x)` only for `|x| <= 2**40`, and
-  evalf results stay symbolic beyond `10**1000000` in magnitude. The reference
-  evaluates and prints `exp(2**63)` (Torch value ranges compare
-  `exp(9223372036854775807)`). Binary exponents are `i64` values, and decimal
-  conversion of huge exponents computes exact powers of ten.
+- Binary float exponents are `i128` values bounded by `2**100`, so
+  `exp(2**63)`, `exp(-2**63)`, `exp(2**70)` and `Float('1e999999999999999999')**3`
+  evaluate, compare and print as in the reference (Torch value ranges compare
+  `exp(9223372036854775807)`). Decimal conversion of huge exponents uses a
+  200-bit logarithm estimate instead of exact powers of ten. Doubles that
+  overflow or underflow (`exp(Float(710))`, `cosh(Float(1000))`) are
+  re-evaluated with multiprecision, and `Max`/`Min` compare such values at 96
+  bits. Beyond `2**100` (for example `exp(Float('1e100'))`, which the
+  reference evaluates) results stay symbolic, and the argument reduction of
+  `sin`/`cos` is not attempted above `2**(2**30)`.
 - `Eijk` is a class, whereas the reference `Eijk` is a function that returns
   a `LeviCivita` node.
 - `printer`, `str`, `precedence`, `codeprinter`, `c` and `cxx` are ports of
@@ -426,9 +431,10 @@ classes have remaining gaps:
   passes 27 of 136 tests (before: none, the import failed); most remaining
   failures need instance attributes on `Relational` and `Add` subclasses
   (`_subdomain`, `.d`) and the items above. Torch's `test/test_sympy_utils.py`
-  has 34 failures (reference: none): 33 are the `exp(2**63)` gap above and 1
-  needs the user `SingletonInt._eval_Eq` hook (`Eq(SingletonInt(1),
-  SingletonInt(2))` stays unevaluated instead of `False`).
+  had 34 failures (reference: none): 33 were the `exp(2**63)` exponent range,
+  now closed (1 failure, 235 passed, 146621 subtests), and 1 needs the user
+  `SingletonInt._eval_Eq` hook (`Eq(SingletonInt(1), SingletonInt(2))` stays
+  unevaluated instead of `False`).
 
 N-dimensional array subclasses follow the reference construction protocol
 (`__new__` through `cls._new`, then `__init__`, with `_array`, `_shape`,
@@ -694,6 +700,13 @@ factors for arguments carrying `exp_polar(2*I*pi*n)`, and `expand_log`
 recurses and repeats until the expression is stable, as the reference does.
 `solve` takes even powers out of the radical of a quadratic root
 (`a**2 + b**2 = 0` gives `-I*b, I*b`, like `roots_quadratic._sqrt`).
+Like the reference `_solve`, it leaves unsimplified the solutions of a
+polynomial in one generator of the unknown that has more than two roots,
+unless `simplify` is given; the roots of each factor of a product are decided
+separately. Two form differences remain: the native solver does not use the
+`roots` formulas for degree 3 and above (`solve(x**3 - 3*x + 1, x)` differs
+in form from the reference, already on main), and it solves a product as a
+whole where the reference solves and simplifies each factor (equal values).
 
 Laplace, Fourier, sine, cosine, Hankel and Mellin transforms fall back to the
 reference integration backends (`_laplace_transform`, `_fourier_transform`,
@@ -998,11 +1011,25 @@ for constructing every stabilizer chain.
   families remain separate obligations.
   The [scoped integration review](../audits/sympy-1.14.0/integration-review.json)
   records the Mellin/contour argument and sparse phase handling.
-- `evalf(strict=True)`, user-controlled `maxn` and the full set of numerical
-  evaluation options are not implemented. The former 10,000-decimal-digit cap
-  has been removed; native precision still uses a bounded machine counter with
-  space reserved for working precision. Binary exponents also use a bounded
-  native counter; out-of-range arithmetic must retain an exact expression
+- `evalf(strict=True)` raises `PrecisionExhausted` with the reference message
+  when a cancelling sum cannot be distinguished from zero. `maxn` bounds the
+  extra working precision of each sum by `max(prec, int(maxn*log2(10)))` bits
+  with SymPy's restart schedule (the extra precision is bounded by
+  `min(maxprec, 2*working)` before each restart, and the last restart may
+  overshoot by the missing accuracy, at most `2**20` bits in total). Without
+  `strict` an explicit `maxn` returns the sum at the accuracy it reached, as a
+  Float of lower precision. Remaining divergences: an exhausted sum with no
+  correct bit (an exact zero, or `exp(300)+1-exp(300)` with `maxn=10`) stays
+  unevaluated instead of becoming SymPy's precision-1 noise Float such as
+  `-0.e-124`; evalf without options keeps the native 4096-bit budget and
+  resolves cancellations that SymPy's default `maxn=100` reports as noise;
+  the accuracy estimate is a rigorous rounding bound rather than SymPy's
+  `add_terms` estimate, so achieved precisions can differ by a few bits;
+  `verbose` prints nothing; `quad` is ignored without an Integral (as in
+  SymPy) and refused with `NotImplementedError` for an Integral. The former
+  10,000-decimal-digit cap has been removed; native precision still uses a bounded machine counter with
+  space reserved for working precision. Binary exponents use an `i128`
+  counter bounded by `2**100`; out-of-range arithmetic must retain an exact expression
   rather than wrap to an unrelated number. Explicit rational output retains
   allocation budgets even though Float literals have compact storage at much
   larger exponents. Removing policy caps does not certify all numerical
@@ -1010,6 +1037,76 @@ for constructing every stabilizer chain.
 - Complex algebraic roots now have the reference certified isolating
   rectangles, exact complex ordering and rounded refinement; see the
   2026-10-21 section above for the remaining algebraic-domain gaps.
+- Special functions that SymPy evaluates through mpmath (Bessel, Airy,
+  gamma family, error and exponential integrals, zeta family, elliptic
+  integrals, Lambert W, `hyper`, `appellf1`, `meijerg`, orthogonal
+  polynomials and the non-integer Bernoulli/harmonic/Euler extensions)
+  now evaluate at any precision through the same mpmath functions, with
+  certified agreement between two guard precisions (up to `2*prec + 512`
+  bits); see [the special-function guide](special-functions.md#multiprecision-evaluation).
+  `meijerg([[],[]],[[1/3],[]],2/3).evalf(50)` gives 50 correct digits, and
+  `exp_polar` branches follow SymPy's `meijerg._eval_evalf`. mpmath errors
+  (`erfinv(2.7)`, `zeta(1.0)`, `loggamma(-2.0)`) propagate as `ValueError`;
+  assumption queries do not raise. Float arguments auto-evaluate under
+  SymPy's `_should_evalf` rule at the largest argument precision, and negative
+  Float bases with fractional exponents follow `Float._eval_power`
+  (`(-1.3)**(1/3)` keeps a `(-1)**(1/3)` factor; `sqrt(-1.3)` has no real
+  noise). Remaining divergences: digits are certified, so ill-conditioned
+  arguments can be more accurate than SymPy (`elliptic_k(1 - 10**-30)`,
+  `(-1.3)**(-1/3)` in the last digit) and slowly converging mpmath cases such
+  as `hyper([2,3,4],[1],1/2)` take a few times longer; a non-finite mpmath
+  result stays unevaluated instead of becoming `oo`/`nan`; the bare Rust
+  library without the Python package keeps double precision kernels for these
+  families; `marcumq` stays double precision (SymPy has no kernel).
+- Elementary functions (exponential, logarithm, trigonometric, hyperbolic
+  and their inverses) evaluate each component of a value at the requested
+  relative accuracy for an exact argument, including near their zeros, on
+  and near branch cuts and under cancellation (`log1p` forms, products such
+  as `(1 - x)*(1 + x)`, the Hull, Fairgrieve and Tang complex `asin` and
+  `acos`). Branch cut values follow mpmath, through which SymPy evaluates
+  them, and the argument is evaluated with as many bits as the condition of
+  the function demands. A Float argument is evaluated only after the
+  function's exact rules return nothing, as in `Function.__new__`. The
+  remaining exponent limit is the bounded `i128` counter above. Analytic
+  continuation is that of mpmath for numerical values and of SymPy's
+  `exp_polar`/`unpolarify` rules for symbolic ones; there is no audit of
+  every multivalued function's continuation outside these paths.
+- Ordinary differential equations, ODE systems and first-order PDEs run
+  SymPy 1.14's own methods (`ode.py`, `single.py`, `riccati.py`,
+  `nonhomogeneous.py`, `hypergeometric.py`, `systems.py`, `pde.py`) on the
+  native algorithms, with every hint, option, `ics` handling and the
+  Airy/Bessel families; see
+  [the differential equation guide](differential-equations.md). The native
+  solvers run only when every reference method raises `NotImplementedError`,
+  and their bounds (64 series coefficients, 64 functions in a system, eight
+  in a matrix exponential) apply only to that fallback. On 315 equations
+  drawn from SymPy's ODE tests, classification output matches for 295, the
+  test's hint for 237 and the default solution for 245 (string comparison).
+  The differences come from equivalent candidates chosen by `simplify`,
+  `integrate` and `factor`, from Gaussian polynomial domains (`ZZ_I`/`QQ_I`
+  inference) and from integrals that remain unevaluated. The native
+  `simplify` is a candidate search followed by SymPy's
+  `factor_terms(sign=False)` and `hollow_mul` steps, not SymPy's whole
+  sequence of rewrites, so its form can differ. SymPy applies
+  `factor_terms` unconditionally; the native step keeps it only when it is
+  not larger and keeps a provably real Cardano root provably real. The
+  `factorable` hint depends on that form (two corpus classifications).
+  SymPy's `cancel(expand_log(expr, deep=True))` step is used only to
+  recognize zero (`log(100)` against `2*log(10)`), not to choose a form.
+  Orders above `10**6` raise `NotImplementedError` in `classify_ode`
+  (SymPy does not return for them). It is also much slower
+  than SymPy on the large expressions of the Lie group heuristic
+  `abaco2_unique_general`, so a default `dsolve` that reaches it (SymPy
+  raises after about 80 s) can take far longer. Deliberate
+  extensions are the logarithmic Frobenius basis for repeated or resonant
+  indicial roots, `ics` that name the generated constants, exact
+  characteristic multiplicities in the fallback, the native PDE
+  characteristic fallback, and `pdsolve` names that do not capture the
+  equation's `xi`, `eta` or `F`. Nonlinear first-order PDEs, Charpit's
+  method and second-order PDEs are not implemented, as in SymPy.
+- Complex algebraic roots do not yet have certified complex isolating boxes;
+  complex root ordering and numerical refinement retain the limitations
+  described in [the root guide](algebraic-roots-quaternions.md).
 - General transcendental solving, all solver options, symbolic parameter case
   distinctions and full set-valued solution-family coverage still need a
   versioned behavioral audit. Supported Lambert families do not establish parity

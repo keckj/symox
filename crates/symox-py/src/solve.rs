@@ -28,7 +28,14 @@ fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,
                 "cubics"=>cubics=value.is_truthy()?,
                 "quartics"=>quartics=Some(value.is_truthy()?),
                 "quintics"=>{},
-                "simplify" if value.is_truthy()? => {},
+                // The native solutions are not post-simplified (the
+                // Python layer applies SymPy's linear-path simplify), so
+                // simplify=False keeps them as they are. force=True is the
+                // reference checksol default, and rational=None/False keeps
+                // Floats as given.
+                "simplify" => {},
+                "force" if value.is_truthy()? => {},
+                "rational" if value.is_none() || !value.is_truthy()? => {},
                 "manual" | "warn" | "minimal" if !value.is_truthy()? => {},
                 _ => return Err(PyNotImplementedError::new_err(format!("solve option '{key}' with this value is not implemented"))),
             }

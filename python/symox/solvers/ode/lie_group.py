@@ -89,7 +89,7 @@ def _problem(eq, func=None, order=None, match=None):
     func = dependent(expression,func)
     actual_order = ode_order(expression,func)
     if actual_order != 1 or order not in (None,0,1):
-        raise NotImplementedError('Lie point symmetries require a first-order scalar ODE')
+        raise NotImplementedError("Infinitesimals for only first order ODE's have been implemented")
     x = func.args[0]
     if match is not None:
         try:
@@ -444,7 +444,7 @@ def infinitesimals(eq, func=None, order=None, hint='default', match=None):
                     continue
                 if not _zero(_residual(h,x,y,left,right)):
                     continue
-                from ..pde import _at
+                from .._native_pde import _at
                 result = {xi:_at(left,y,func,{}),eta:_at(right,y,func,{})}
                 if result not in output:
                     output.append(result)
@@ -471,7 +471,7 @@ def solve_lie(eq,func=None,xi=None,eta=None,ics=None):
     (dy-h*dx)/Q is closed. Its native potential is a first integral of the ODE.
     """
     from ... import Function, Eq, S, sympify, integrate, solve, Symbol
-    from ..pde import _at
+    from .._native_pde import _at
     expression,func,x,y,h = _problem(eq,func)
     if (xi is None)!=(eta is None):
         raise ValueError('Supply both xi and eta for a custom Lie generator')

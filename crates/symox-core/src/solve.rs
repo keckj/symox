@@ -181,6 +181,11 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     }
     let (num, _) = numer_denom(&together(f));
     let num = if has(&num, x) { num } else { return Some(vec![]) };
+    // numer_denom multiplies distinct denominators (log(a)/6 - 1/2 gives
+    // 2*log(a) - 6 over 12); SymPy's together uses their lcm. A spurious
+    // integer content would let logcombine raise the arguments to a power
+    // and add roots of other branches, so it is removed.
+    let num = without_integer_content(&num);
     // polynomial in x
     if let Some(c) = poly_coeffs(&num, x) {
         // The reference solves polynomials through `roots` over the composite
@@ -201,6 +206,11 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
                 continue;
             }
             if e.as_number().is_some_and(|n| n.is_negative()) {
+                continue;
+            }
+            // exp(u) never vanishes. SymPy's as_numer_denom moves exp(-u)
+            // to the denominator, which the numerator here keeps.
+            if matches!(b.kind(), Kind::Func(Func::Exp, _)) {
                 continue;
             }
             out.extend(solve_rec(b, x, depth + 1)?);
@@ -229,6 +239,11 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if ex != num {
         return solve_rec(&ex, x, depth + 1);
     }
+    // SymPy's as_numer_denom moves exp(-u) to the denominator, so its
+    // numerator of C1 + (x + y)*exp(-y) is C1*exp(y) + x + y.
+    if let Some(cleared) = exp_denominators_cleared(&num, x) {
+        return solve_rec(&cleared, x, depth + 1);
+    }
     None
 }
 
@@ -243,6 +258,62 @@ fn splits_quadratic(num: &Expr, x: &Expr) -> bool {
             .sum::<i64>()
             > 1
     })
+}
+
+/// The sum multiplied by the product of its distinct exp denominators
+/// (exp(u) for each factor exp(-u) depending on x), or None.
+fn exp_denominators_cleared(e: &Expr, x: &Expr) -> Option<Expr> {
+    let Kind::Add(..) = e.kind() else { return None; };
+    let terms = e.args();
+    let mut denominators: Vec<Expr> = Vec::new();
+    for term in &terms {
+        let factors = match term.kind() {
+            Kind::Mul(_, facs) => facs.iter().filter(|(_, k)| k.is_one()).map(|(b, _)| b.clone()).collect(),
+            _ => vec![term.clone()],
+        };
+        for factor in factors {
+            if let Kind::Func(Func::Exp, args) = factor.kind() {
+                if has(&args[0], x) && crate::decompose::could_extract_minus_sign(&args[0]) {
+                    let d = neg(&args[0]);
+                    if !denominators.contains(&d) {
+                        denominators.push(d);
+                    }
+                }
+            }
+        }
+    }
+    if denominators.is_empty() {
+        return None;
+    }
+    let multiplier = exp(&add(&denominators));
+    let cleared = add(&terms.iter().map(|t| crate::simp::powsimp(&mul2(t, &multiplier))).collect::<Vec<_>>());
+    (cleared != *e).then_some(cleared)
+}
+
+/// A sum divided by the gcd of its integer term coefficients.
+fn without_integer_content(e: &Expr) -> Expr {
+    use num_bigint::BigInt;
+    use num_integer::Integer;
+    let Kind::Add(..) = e.kind() else { return e.clone(); };
+    let terms = e.args();
+    let mut g = BigInt::from(0);
+    for t in &terms {
+        let c = match t.kind() {
+            Kind::Num(n) => n.clone(),
+            Kind::Mul(c, _) => c.clone(),
+            _ => return e.clone(),
+        };
+        match c.to_bigint() {
+            Some(n) if c.is_integer() => g = g.gcd(&n),
+            _ => return e.clone(),
+        }
+    }
+    if g <= BigInt::from(1) {
+        return e.clone();
+    }
+    let Some(inverse) = Number::from_bigint(g).inv() else { return e.clone(); };
+    let inverse = Expr::num(inverse);
+    add(&terms.iter().map(|t| mul2(&inverse, t)).collect::<Vec<_>>())
 }
 
 /// The full `roots` machinery (quartics, decomposition such as x**8 in
@@ -339,7 +410,7 @@ fn quadratic(a: &Expr, b: &Expr, c: &Expr) -> Vec<Expr> {
     }
     if b.is_zero() {
         let r = neg(&div(c, a));
-        let s = sqrt_squares_out(&r);
+        let s = sqrt_squares_out(&composite_simplify(r));
         return vec![neg(&s), s];
     }
     let d = expand(&sub(&b.powi(2), &mul(&[Expr::int(4), a.clone(), c.clone()])));
@@ -352,8 +423,32 @@ fn quadratic(a: &Expr, b: &Expr, c: &Expr) -> Vec<Expr> {
         }
         return vec![sub(&bb, &dd), add2(&bb, &dd)];
     }
-    let s = sqrt_squares_out(&d);
+    let s = sqrt_squares_out(&composite_simplify(d));
     vec![div(&sub(&neg(b), &s), &two_a), div(&add2(&neg(b), &s), &two_a)]
+}
+
+/// The reference `roots_quadratic._simplify` for a composite coefficient
+/// domain (`ZZ[a]`, `QQ(a)`): the radicand is factored before its squares
+/// are taken out. Numerical and `EX` radicands are kept as they are.
+fn composite_simplify(e: Expr) -> Expr {
+    if crate::functions::is_numeric_value(&e) || !is_rational_function(&e) {
+        return e;
+    }
+    crate::poly::api::factor(&e).unwrap_or(e)
+}
+
+/// Whether `e` is built from rationals and symbols with integer powers.
+fn is_rational_function(e: &Expr) -> bool {
+    let mut ok = true;
+    crate::traverse::preorder(e, &mut |x| {
+        ok &= match x.kind() {
+            Kind::Num(n) => n.is_rational(),
+            Kind::Pow(_, k) => k.is_integer_number(),
+            Kind::Add(..) | Kind::Mul(..) => true,
+            _ => x.is_symbol(),
+        };
+    });
+    ok
 }
 
 /// The reference `roots_quadratic._sqrt`: even powers leave the square root,
@@ -619,6 +714,8 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
                 Func::Atan => vec![(g, tan(&rhs))],
                 Func::Asinh => vec![(g, sinh(&rhs))],
                 Func::Atanh => vec![(g, tanh(&rhs))],
+                // SymPy's _invert: LambertW(g) = r gives g = r*exp(r)
+                Func::Special(crate::special::SpecialFn::LambertW) => vec![(g, mul2(&rhs, &exp(&rhs)))],
                 _ => return None,
             }
         }
@@ -717,6 +814,8 @@ pub fn solve_system_with_check(eqs: &[Expr], vars: &[Expr], check: bool) -> Opti
             ||factors.iter().any(|(_,exponent)|!exponent.as_i64().is_some_and(|n|n>0)){continue;}
         let mut dependent=Vec::new();let mut supported=true;
         for (base,_) in factors{
+            // A factor proved nonzero everywhere (exp(x)) has an empty zero set.
+            if crate::assumptions::exact_queries(||crate::assumptions::is_zero(base))==Some(false){continue;}
             if vars.iter().any(|variable|has(base,variable)){dependent.push(base.clone());}
             else if crate::assumptions::exact_queries(||crate::assumptions::is_zero(base))!=Some(false){supported=false;break;}
         }

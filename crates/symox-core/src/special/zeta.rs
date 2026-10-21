@@ -119,6 +119,10 @@ fn eval_polylog(s: &Expr, z: &Expr) -> Option<Expr> {
             }
         }
     }
+    // SymPy's `z.equals(1)` also accepts a float one.
+    if z.as_number().is_some_and(|n| n.is_float() && n.sub(&crate::number::Number::int(1)).is_zero()) {
+        return Some(super::zeta(s));
+    }
     let polar = super::polar::has_polar_func(z);
     // z.equals(1): undecided for a polar number unless z - 1 is provably
     // nonzero; z == 1 itself was handled above.

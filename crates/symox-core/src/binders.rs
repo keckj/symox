@@ -6,6 +6,15 @@ use crate::ops::{add,mul2,neg};
 pub fn is_calculus(f:&Func)->bool { matches!(f,Func::Integral|Func::Sum|Func::Product) }
 pub fn limits(args:&[Expr])->Vec<Vec<Expr>> { args[1..].iter().map(Expr::args).collect() }
 
+/// SymPy's Integral also binds an applied undefined function such as f(x).
+pub fn is_function_variable(v:&Expr)->bool {matches!(v.kind(),Kind::Func(Func::Undefined(head),_) if !head.internal)}
+
+/// Variables which SymPy accepts as a new indefinite integration variable
+/// (its `_diff_wrt` rule restricted to representable binding variables).
+fn renames_variable(v:&Expr)->bool {v.is_symbol() || is_function_variable(v)}
+
+fn anonymous_dummy()->Expr {Expr::from_kind(Kind::Sym(crate::symbol::Symbol::anonymous_dummy(crate::symbol::Assumptions::NONE)))}
+
 pub fn validate(f:&Func,args:&[Expr])->Result<(),String> {
     if !is_calculus(f) || args.len()<2 { return Err("Integral/Sum/Product requires an integrand and limits".into()); }
     if matches!(args[0].kind(),Kind::Func(Func::MatrixProxy(_),_)) { return Err("matrix-valued calculus binders are not supported".into()); }
@@ -17,7 +26,9 @@ pub fn validate(f:&Func,args:&[Expr])->Result<(),String> {
         if !(1..=3).contains(&values.len()) || (*f!=Func::Integral && values.len()!=3) {
             return Err("Integral expects (x,), (x,b), or (x,a,b); Sum and Product expect (k,a,b)".into());
         }
-        if !values[0].is_symbol() { return Err("calculus binding variables must be symbols".into()); }
+        if !values[0].is_symbol() && !(*f==Func::Integral && is_function_variable(&values[0])) {
+            return Err("calculus binding variables must be symbols".into());
+        }
         if values[1..].iter().any(|bound|matches!(bound.kind(),Kind::Func(Func::MatrixProxy(_),_))) {
             return Err("calculus bounds must be scalar expressions".into());
         }
@@ -60,7 +71,10 @@ pub fn validate_tree(e:&Expr)->Result<(),String> {
 pub fn free_symbols(f:&Func,args:&[Expr])->Vec<Expr> {
     let mut symbols:FxHashSet<Expr>=crate::traverse::free_symbols(&args[0]).into_iter().collect();
     for limit in limits(args) {
-        if *f==Func::Integral && limit.len()==1 { symbols.insert(limit[0].clone()); }
+        if *f==Func::Integral && limit.len()==1 {
+            if limit[0].is_symbol() {symbols.insert(limit[0].clone());}
+            else {symbols.extend(crate::traverse::free_symbols(&limit[0]));}
+        }
         else {
             symbols.remove(&limit[0]);
             for endpoint in &limit[1..] { symbols.extend(crate::traverse::free_symbols(endpoint)); }
@@ -83,8 +97,14 @@ pub fn substitute(e:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->Expr {
             let old_symbols=crate::traverse::free_symbols(old);
             let mut changed=limits(args);let mut replace_body=true;
             for limit in changed.iter_mut().rev() {
-                for endpoint in &mut limit[1..] {*endpoint=crate::subs::subs1(endpoint,old,new);}
-                if old_symbols.contains(&limit[0]) {replace_body=false;break;}
+                // SymPy: an indefinite variable equal to old is renamed when
+                // new can be differentiated with respect to, else evaluated.
+                if *f==Func::Integral && limit.len()==1 && limit[0]==*old {
+                    if renames_variable(new) {limit[0]=new.clone();} else {limit.push(new.clone());}
+                } else {
+                    for endpoint in &mut limit[1..] {*endpoint=crate::subs::subs1(endpoint,old,new);}
+                }
+                if crate::traverse::free_symbols(&limit[0]).iter().any(|s|old_symbols.contains(s)) {replace_body=false;break;}
             }
             if matches!(old.kind(),Kind::Func(Func::Undefined(head),_) if !head.internal) {
                 if check_substitution(&result,old,new).is_err(){return result;}
@@ -103,7 +123,12 @@ pub fn substitute(e:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->Expr {
         if limit.len()>1 || *f!=Func::Integral {
             body_pairs.retain(|(key,_)|*key!=limit[0]);
         } else {
-            body_pairs.retain(|(key,value)|*key!=limit[0] || value.is_symbol());
+            body_pairs.retain(|(key,value)|*key!=limit[0] || renames_variable(value));
+        }
+        if !limit[0].is_symbol() {
+            // A symbol inside a bound f(x) is bound with it (SymPy keeps the body).
+            let bound=crate::traverse::free_symbols(&limit[0]);
+            body_pairs.retain(|(key,_)|!bound.contains(key));
         }
     }
     let body=transform(&args[0],&body_pairs);
@@ -113,7 +138,7 @@ pub fn substitute(e:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->Expr {
         let mut changed=vec![limit[0].clone()];
         if *f==Func::Integral && limit.len()==1 {
             if let Some((_,value))=active.iter().find(|(key,_)|*key==limit[0]) {
-                if value.is_symbol() { changed[0]=value.clone(); } else { changed.push(value.clone()); }
+                if renames_variable(value) { changed[0]=value.clone(); } else { changed.push(value.clone()); }
             }
         } else { changed.extend(limit[1..].iter().map(|endpoint|transform(endpoint,&active))); }
         new_limits.push(changed);
@@ -126,6 +151,14 @@ pub fn doit(f:&Func,args:&[Expr],deep:bool)->Expr {
     let mut value=if deep {crate::functions::doit(&args[0],true)} else {args[0].clone()};
     for mut limit in limits(args) {
         if deep { for endpoint in &mut limit[1..] {*endpoint=crate::functions::doit(endpoint,true);} }
+        if !limit[0].is_symbol() {
+            // Integrate with respect to f(x) through a fresh symbol, as SymPy does.
+            let variable=limit[0].clone();let dummy=anonymous_dummy();
+            let body=crate::subs::subs1(&value,&variable,&dummy);limit[0]=dummy.clone();
+            let Ok(renamed)=held(f.clone(),&body,vec![limit]) else {return value;};
+            value=crate::subs::subs1(&doit(f,&renamed.args(),false),&dummy,&variable);
+            continue;
+        }
         value=if *f==Func::Sum {
             crate::summation::summation(&value,&limit[0],&limit[1],&limit[2])
         } else { match limit.len() {
@@ -144,6 +177,12 @@ pub fn doit(f:&Func,args:&[Expr],deep:bool)->Expr {
 /// be confused with a free x in an endpoint. Unknown discrete endpoint
 /// derivatives remain held derivatives, rather than a continuous approximation.
 pub fn differentiate(e:&Expr,x:&Expr)->Expr {
+    if is_function_variable(x) {
+        // Differentiate with respect to f(x) as with respect to a symbol.
+        let dummy=anonymous_dummy();
+        let renamed=crate::subs::subs1(e,x,&dummy);
+        if renamed!=*e {return crate::subs::subs1(&differentiate(&renamed,&dummy),&dummy,x);}
+    }
     if !x.is_symbol(){return crate::diff::derivative_unevaluated(e,vec![(x.clone(),1)]);}
     let Kind::Func(f,args)=e.kind() else {return Expr::zero();};
     if !free_symbols(f,args).contains(x) { return Expr::zero(); }
@@ -172,13 +211,17 @@ pub fn differentiate(e:&Expr,x:&Expr)->Expr {
     }
     if outer.len()==1 {
         if outer[0]==*x {return inner;}
-        let partial=crate::diff::diff(&inner,x);
+        let partial=if outer[0].is_symbol() {crate::diff::diff(&inner,x)} else {
+            // SymPy masks a bound f(x) while differentiating its integrand.
+            let dummy=anonymous_dummy();
+            crate::subs::subs1(&crate::diff::diff(&crate::subs::subs1(&inner,&outer[0],&dummy),x),&dummy,&outer[0])
+        };
         return if partial.is_zero() {partial} else {held(Func::Integral,&partial,vec![outer]).unwrap()};
     }
     if inner.has_calculus_binding() && outer[1..].iter().any(|point|matches!(point.kind(),Kind::Func(Func::Undefined(head),_) if !head.internal)) {
         return crate::diff::derivative_unevaluated(e,vec![(x.clone(),1)]);
     }
-    let dummy=Expr::from_kind(Kind::Sym(outer[0].as_sym().unwrap().fresh_dummy_like("integration")));
+    let dummy=match outer[0].as_sym() {Some(symbol)=>Expr::from_kind(Kind::Sym(symbol.fresh_dummy_like("integration"))),None=>anonymous_dummy()};
     let renamed=crate::subs::subs1(&inner,&outer[0],&dummy);
     let partial=crate::diff::diff(&renamed,x);
     let mut terms=Vec::new();
@@ -203,10 +246,6 @@ pub fn check_substitution(e:&Expr,old:&Expr,new:&Expr)->Result<(),String> {
         if !e.has_calculus_binding() || e==old || seen.insert(e.dag_id(),e.clone()).is_some(){return Ok(());}
         if let Kind::Func(f,args)=e.kind(){if is_calculus(f){
             let limits=limits(args);
-            if matches!(new.kind(),Kind::Func(Func::Undefined(head),_) if !head.internal)
-                && limits.iter().any(|limit|*f==Func::Integral && limit.len()==1 && limit[0]==*old) {
-                return Err("non-symbol integration variables are not supported".into());
-            }
             if let Kind::Func(Func::Undefined(head),old_args)=old.kind(){if !head.internal {
                 if limits.iter().any(|limit|crate::traverse::has(new,&limit[0]) && !old_args.contains(&limit[0])) {
                     return Err("substitution cannot create dummy dependencies".into());

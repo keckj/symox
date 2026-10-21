@@ -264,8 +264,8 @@ mod tests {
         assert!(root.re.to_string_dps(60, false).starts_with("1.41421356237309504880168872420969807856967187537694807317668"));
         let start = MpComplex { re: BigFloat::one(), im: BigFloat::one() };
         let root = secant(&expression("x**2 + 1"), &x, &[start], &options).unwrap();
-        assert!(root.re.abs().mag() < -(options.precision as i64));
-        assert!(root.im.sub(&BigFloat::one(), options.precision).abs().mag() < -(options.precision as i64));
+        assert!(root.re.abs().mag() < -(options.precision as i128));
+        assert!(root.im.sub(&BigFloat::one(), options.precision).abs().mag() < -(options.precision as i128));
         assert!(secant(&expression("x**2 + 1"), &x, &starts, &options).is_err());
     }
 
@@ -277,10 +277,10 @@ mod tests {
         assert!(real[0].re.to_string_dps(70, false).starts_with("1.414213562373095048801688724209698078569671875376948073176679737990732"));
         let initial = MpComplex { re: BigFloat::one(), im: BigFloat::one() };
         let root = newton(&[expression("x**2 + 1")], &[x], &[initial], &options).unwrap();
-        assert!(root[0].re.abs().mag() < -(options.precision as i64));
-        assert!(root[0].im.sub(&BigFloat::one(), options.precision).abs().mag() < -(options.precision as i64));
+        assert!(root[0].re.abs().mag() < -(options.precision as i128));
+        assert!(root[0].im.sub(&BigFloat::one(), options.precision).abs().mag() < -(options.precision as i128));
         let root = newton(&[expression("exp(x)+1")], &[Expr::symbol("x")], &[MpComplex { re: BigFloat::zero(), im: BigFloat::from_i64(3) }], &options).unwrap();
-        assert!(root[0].im.sub(&crate::bigfloat::pi(options.precision), options.precision).abs().mag() < -(options.precision as i64) + 3);
+        assert!(root[0].im.sub(&crate::bigfloat::pi(options.precision), options.precision).abs().mag() < -(options.precision as i128) + 3);
     }
 
     #[test]

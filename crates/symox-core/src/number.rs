@@ -331,7 +331,7 @@ impl Number {
     }
 
     pub(crate) fn has_wide_exponent(&self)->bool{
-        matches!(self,MpFloat(value,_) if value.exp.unsigned_abs()>(i64::MAX/8) as u64)
+        matches!(self,MpFloat(value,_) if value.exp.unsigned_abs()>crate::bigfloat::WIDE_EXPONENT as u128)
     }
     pub(crate) fn checked_mul(&self,other:&Number)->Option<Number>{
         if self.has_wide_exponent()||other.has_wide_exponent(){

@@ -186,10 +186,22 @@ impl Matrix{
         }
         let x=Expr::dummy("_matrix_exp",crate::Assumptions::default());
         let result=self.analytic_func(&crate::functions::func(Func::Exp,vec![x.clone()]),&x)?;
-        if crate::assumptions::exact_queries(||self.data().iter().all(|e|crate::assumptions::is_real(e)==Some(true))){
+        let result=if crate::assumptions::exact_queries(||self.data().iter().all(|e|crate::assumptions::is_real(e)==Some(true))){
             let projected=result.applyfunc(|e|crate::functions::func(Func::Re,vec![e.clone()]));
-            Budget::new().cancel(&projected)
-        }else{Ok(result)}
+            Budget::new().cancel(&projected)?
+        }else{result};
+        // SymPy's jordan_form evaluates P and J again at the largest Float
+        // precision of the matrix (at least 15 digits), so exp of a diagonal
+        // Float matrix has Float entries: exp(0.0) is exactly 1, but
+        // P*exp(J)*P**-1 is 1.0.
+        let float_prec=self.data().iter().filter_map(|e|e.as_number().and_then(|n|n.float_precision())).max();
+        match float_prec{
+            Some(p) if self.is_diagonal()=>{
+                let prec=crate::bigfloat::dps_to_prec(crate::bigfloat::prec_to_dps(p).max(15));
+                Ok(result.applyfunc(|e|if e.is_number()&&!e.is_zero(){crate::evalf_mp::evalf(e,prec)}else{e.clone()}))
+            }
+            _=>Ok(result),
+        }
     }
 }
 fn sample(function:&Expr,x:&Expr,point:&Expr,budget:&mut Budget)->MResult<Expr>{

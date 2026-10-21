@@ -157,6 +157,7 @@ fn _special_partial(e: &Bound<'_, PyAny>, index: usize) -> PyResult<Option<PyExp
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    symox::evalf_mp::register_special_host(mpmath_special);
     m.add_function(wrap_pyfunction!(_special_partial, m)?)?;
     m.add_function(wrap_pyfunction!(stirling, m)?)?;
     m.add_function(wrap_pyfunction!(multinomial_coefficients, m)?)?;
@@ -169,4 +170,57 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(numeric_many, m)?)?;
     m.add_function(wrap_pyfunction!(special_names, m)?)?;
     Ok(())
+}
+
+static MPMATH_EVALUATE: pyo3::sync::GILOnceCell<PyObject> = pyo3::sync::GILOnceCell::new();
+
+fn host_arg_object(py: Python<'_>, arg: &symox::evalf_mp::HostArg) -> PyResult<PyObject> {
+    use symox::evalf_mp::HostArg;
+    Ok(match arg {
+        HostArg::Number(value) => (
+            value.re.man.clone(), value.re.exp, value.im.man.clone(), value.im.exp,
+        ).into_pyobject(py)?.into_any().unbind(),
+        HostArg::Tuple(items) => pyo3::types::PyList::new(
+            py, items.iter().map(|item| host_arg_object(py, item)).collect::<PyResult<Vec<_>>>()?,
+        )?.into_any().unbind(),
+    })
+}
+
+fn mpmath_evaluate(py: Python<'_>, name: &str, args: &[symox::evalf_mp::HostArg], prec: u32)
+    -> PyResult<Option<symox::evalf_mp::MpComplex>> {
+    let evaluate = MPMATH_EVALUATE.get_or_try_init(py, || -> PyResult<PyObject> {
+        Ok(py.import("symox._mpmath_special")?.getattr("evaluate")?.unbind())
+    })?;
+    let values = args.iter().map(|arg| host_arg_object(py, arg)).collect::<PyResult<Vec<_>>>()?;
+    let result = evaluate.call1(py, (name, pyo3::types::PyList::new(py, values)?, prec))?;
+    if result.is_none(py) {
+        return Ok(None);
+    }
+    let (re_man, re_exp, im_man, im_exp): (num_bigint::BigInt, i128, num_bigint::BigInt, i128) = result.extract(py)?;
+    let part = |man: num_bigint::BigInt, exp: i128| symox::bigfloat::BigFloat { man, exp };
+    Ok(Some(symox::evalf_mp::MpComplex { re: part(re_man, re_exp), im: part(im_man, im_exp) }))
+}
+
+/// Multiprecision special functions through mpmath, as SymPy evaluates them.
+fn mpmath_special(name: &str, args: &[symox::evalf_mp::HostArg], prec: u32)
+    -> Result<Option<symox::evalf_mp::MpComplex>, symox::evalf_mp::HostError> {
+    Python::with_gil(|py| mpmath_evaluate(py, name, args, prec))
+        .map_err(|error| symox::evalf_mp::HostError(Box::new(error)))
+}
+
+/// Run `f` with host errors recorded, and raise the first one as SymPy's
+/// `evalf` propagates mpmath's exceptions.
+pub(crate) fn with_host_errors<T>(f: impl FnOnce() -> PyResult<T>) -> PyResult<T> {
+    let value = {
+        let _scope = symox::evalf_mp::HostErrorScope::enter(true);
+        let value = f();
+        (value, symox::evalf_mp::take_host_error())
+    };
+    match value {
+        (_, Some(error)) => match error.0.downcast::<PyErr>() {
+            Ok(error) => Err(*error),
+            Err(_) => Err(PyValueError::new_err("special function evaluation failed")),
+        },
+        (value, None) => value,
+    }
 }

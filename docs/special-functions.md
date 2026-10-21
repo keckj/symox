@@ -39,7 +39,7 @@ preserves both parameter partitions and supports argument differentiation,
 substitution, pickling and explicit conversion to SymPy.
 
 Meijer G properties include `an`, `aother`, `ap`, `bm`, `bother`, `bq`, `argument`,
-`nu` and `delta`. `integrand(s)` gives the defining Mellin–Barnes integrand.
+`nu` and `delta`. `integrand(s)` gives the defining Mellin-Barnes integrand.
 `get_period()` computes the rational-parameter monodromy period where the simple
 pole-family criterion applies; unresolved or integer-separated families return
 infinity. General parameter differentiation is held.
@@ -49,9 +49,9 @@ hypergeometric functions. The expansion supports simple pole families with at
 most 16 denominator parameters. Integer-separated or repeated pole families,
 which require logarithmic residues, remain held. The `p > q` case uses inversion;
 the `p == q` case retains a `Piecewise` distinction between `abs(z) < 1` and
-`abs(z) > 1`, leaving the unit-circle boundary held. Double precision evaluation
-uses the same certified regions and supported hypergeometric numerical kernels.
-Arbitrary-precision general Meijer G evaluation is not implemented.
+`abs(z) > 1`, leaving the unit-circle boundary held. Numerical Meijer G
+evaluation at any precision follows SymPy's `meijerg._eval_evalf`; see
+[Multiprecision evaluation](#multiprecision-evaluation).
 
 `TupleArg` supplies tuple-wise leading terms, limits and substitution.
 `TupleParametersBase` provides the shared tuple-parameter function protocol.
@@ -88,9 +88,52 @@ applicable finite Bessel sum. Numerical evaluation uses a Poisson mixture of
 regularized incomplete gamma values for real, nonnegative parameters, with
 `a*a/2 <= 4096`. Complex continuation and general order derivatives remain held.
 
-Numerical additions in these families are double precision. Unsupported high
-precision requests do not gain arbitrary-precision special-function kernels;
-use exact reductions where available and check whether the result stayed held.
+`marcumq` numerical evaluation is double precision; SymPy 1.14 has no numerical
+kernel for it either. The other families evaluate at any precision as described
+in [Multiprecision evaluation](#multiprecision-evaluation).
+
+## Multiprecision evaluation
+
+Special functions that SymPy evaluates through mpmath evaluate through the same
+mpmath function in the Python package: Bessel, Hankel, spherical Bessel and
+Airy functions with their derivatives, gamma, loggamma, polygamma, incomplete
+gamma, error functions, exponential, logarithmic, sine and cosine integrals,
+Fresnel integrals, zeta, Dirichlet eta, polylog, Lerch phi, beta, elliptic
+integrals, Lambert W, `hyper`, `appellf1`, `meijerg`, orthogonal polynomials,
+spherical harmonics, and the Bernoulli, harmonic, Euler and Andre extensions to
+non-integer arguments. Real erf, erfc and gamma, and the functions with native
+multiprecision kernels, stay native.
+
+The native evaluator passes exact binary arguments and certifies the result:
+it evaluates at the requested precision plus 10 bits, then at a larger guard
+(10, 30, 70, ... bits), until two values agree to the requested precision,
+with at most `2*prec + 512` bits. Arguments are rounded at the working
+precision plus 12 bits, so ill-conditioned arguments such as
+`elliptic_k(1 - 10**-30)` or `zeta(1 + 10**-20)` keep every requested digit
+where SymPy's single evaluation loses some. If the values never agree the
+expression stays unevaluated; nothing is completed in double precision.
+
+Errors raised by mpmath propagate as in SymPy: `erfinv(2.7)`, `zeta(1.0)`,
+`loggamma(-2.0)` and `lerchphi(2, 1, 0).evalf()` raise `ValueError`.
+Assumption queries and internal numerical probes do not raise. A non-finite
+mpmath result leaves the expression unevaluated.
+
+A special function with Float arguments evaluates on construction under
+SymPy's `_should_evalf` rule: every argument is a Float or a pure complex
+number `a + b*I` with Float parts, and the evaluation uses the largest Float
+precision. `erf(2.0*I)` is a product, not a pure complex number, so it stays
+held as in SymPy.
+
+`meijerg(..., z*exp_polar(theta*I))` follows SymPy's branch handling: a
+principal `theta` in `(-pi, pi]` evaluates on the principal sheet, and
+another branch is carried by mpmath's `r` argument with
+`n = ceiling(abs(theta/pi)) + 1`. `exp_polar` itself evaluates only on the
+principal sheet, and `exp_polar(I*pi)` evaluates to `-1.0`.
+
+Without the Python package (the bare Rust library), special functions keep
+the native kernels, which are double precision for the families above.
+`hyper([2, 3, 4], [1], 1/2)` and other cases where mpmath converges slowly
+cost a few times SymPy's single evaluation because of the certification pass.
 
 ## Mathieu functions
 

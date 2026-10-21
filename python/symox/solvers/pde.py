@@ -1,405 +1,1069 @@
-"""First-order linear PDEs and variable separation on native expressions."""
-from ._differential import equation, dependent, linear_data, replace_function, nodes
-from .deutils import ode_order
+"""Partial differential equations adapted from SymPy 1.14's sympy/solvers/pde.py.
 
-allhints = ('1st_linear_constant_coeff_homogeneous', '1st_linear_constant_coeff',
-            '1st_linear_constant_coeff_Integral', '1st_linear_variable_coeff')
+See LICENSE-SYMPY. The native solvers remain as a fallback when the
+reference methods cannot solve an equation.
+"""
+"""
+This module contains pdsolve() and different helper functions that it
+uses. It is heavily inspired by the ode module and hence the basic
+infrastructure remains the same.
+
+**Functions in this module**
+
+    These are the user functions in this module:
+
+    - pdsolve()     - Solves PDE's
+    - classify_pde() - Classifies PDEs into possible hints for dsolve().
+    - pde_separate() - Separate variables in partial differential equation either by
+                       additive or multiplicative separation approach.
+
+    These are the helper functions in this module:
+
+    - pde_separate_add() - Helper function for searching additive separable solutions.
+    - pde_separate_mul() - Helper function for searching multiplicative
+                           separable solutions.
+
+**Currently implemented solver methods**
+
+The following methods are implemented for solving partial differential
+equations.  See the docstrings of the various pde_hint() functions for
+more information on each (run help(pde)):
+
+  - 1st order linear homogeneous partial differential equations
+    with constant coefficients.
+  - 1st order linear general partial differential equations
+    with constant coefficients.
+  - 1st order linear partial differential equations with
+    variable coefficients.
+
+"""
+from functools import reduce
+
+from itertools import combinations_with_replacement
+from symox.simplify import simplify  # type: ignore
+from symox.core import Add, S
+from symox.core.function import Function, expand, AppliedUndef, Subs
+from symox.core.relational import Equality, Eq
+from symox.core.symbol import Dummy, Symbol, Wild, symbols
+from symox.functions import exp
+from symox.integrals.integrals import Integral, integrate
+from symox.utilities.iterables import has_dups, is_sequence
+from symox.utilities.misc import filldedent
+
+from symox.solvers.deutils import ode_order
+from symox.solvers.ode._ode_helpers import _preprocess, _desolve
+from symox.solvers.solvers import solve
+from symox.simplify.radsimp import collect
+
+import operator
 
 
-def _zero(value):
-    from .. import simplify, cancel
-    value = simplify(cancel(value))
-    return value == 0 or value.is_zero is True
-
-
-def _data(eq, func=None):
-    from .. import Derivative
-    expression = equation(eq)
-    func = dependent(expression, func, dimension=2)
-    order = ode_order(expression, func)
-    if order > 256:
-        raise NotImplementedError('Differential order exceeds 256')
-    x, y = func.args
-    coordinates = [Derivative(func, x), Derivative(func, y), func]
-    linear = linear_data(expression, coordinates) if order == 1 else None
-    if linear is not None:
-        coefficients, rest = linear
-        if any(value.has(func) for value in coefficients+[rest]):
-            linear = None
-        elif _zero(coefficients[0]) and _zero(coefficients[1]):
-            linear = None
-    return expression, func, order, linear
-
-
-def classify_pde(eq, func=None, dict=False, *, prep=True, **kwargs):
-    if kwargs:
-        raise NotImplementedError('These PDE classification options are not implemented')
-    expression, func, order, linear = _data(eq, func)
-    matches = {}
-    if linear is not None:
-        coefficients, rest = linear
-        match = {'coefficients':tuple(coefficients), 'forcing':-rest}
-        if not any(value.has(*func.args) for value in coefficients):
-            if _zero(rest):
-                matches[allhints[0]] = match
-            else:
-                matches[allhints[1]] = match
-                matches[allhints[2]] = match
-        else:
-            matches[allhints[3]] = match
-    hints = tuple(hint for hint in allhints if hint in matches)
-    return ({'order':order, **matches, 'default':hints[0] if hints else None,
-             'ordered_hints':hints} if dict else hints)
+allhints = (
+    "1st_linear_constant_coeff_homogeneous",
+    "1st_linear_constant_coeff",
+    "1st_linear_constant_coeff_Integral",
+    "1st_linear_variable_coeff"
+    )
 
 
 def pdsolve(eq, func=None, hint='default', dict=False, solvefun=None, **kwargs):
-    from .. import Eq, Dummy, Function, exp, integrate, Integral, Subs, cancel, simplify
-    if kwargs:
-        raise NotImplementedError('These pdsolve options are not implemented')
-    expression, func, order, linear = _data(eq, func)
-    hints = classify_pde(expression, func)
-    if not hints:
-        raise NotImplementedError('No implemented first-order linear PDE method matches')
-    if hint in ('all', 'all_Integral'):
-        chosen = [item for item in hints if hint != 'all_Integral' or item.endswith('_Integral')
-                  or item == allhints[0] or item == allhints[3]]
-        result = {'order':order, 'default':hints[0]}
-        for item in chosen:
-            try:
-                result[item] = pdsolve(expression, func, hint=item, solvefun=solvefun)
-            except NotImplementedError as error:
-                result[item] = error
-        return result
-    if hint == 'default':
-        hint = hints[0]
-    elif hint not in allhints:
-        raise ValueError('Unrecognized PDE hint: '+str(hint))
-    elif hint not in hints:
-        raise ValueError('The equation does not match PDE hint '+hint)
-    solvefun = _arbitrary(expression,solvefun)
-    method = {
-        allhints[0]:pde_1st_linear_constant_coeff_homogeneous,
-        allhints[1]:pde_1st_linear_constant_coeff,
-        allhints[2]:pde_1st_linear_constant_coeff,
-        allhints[3]:pde_1st_linear_variable_coeff,
-    }[hint]
-    match = {'coefficients':tuple(linear[0]),'forcing':-linear[1]}
-    result = method(expression,func,order,match,solvefun)
-    if hint == allhints[1]:
-        result = Eq(func,result.rhs.doit())
-    return {func:result.rhs} if dict else result
+    """
+    Solves any (supported) kind of partial differential equation.
+
+    **Usage**
+
+        pdsolve(eq, f(x,y), hint) -> Solve partial differential equation
+        eq for function f(x,y), using method hint.
+
+    **Details**
+
+        ``eq`` can be any supported partial differential equation (see
+            the pde docstring for supported methods).  This can either
+            be an Equality, or an expression, which is assumed to be
+            equal to 0.
+
+        ``f(x,y)`` is a function of two variables whose derivatives in that
+            variable make up the partial differential equation. In many
+            cases it is not necessary to provide this; it will be autodetected
+            (and an error raised if it could not be detected).
+
+        ``hint`` is the solving method that you want pdsolve to use.  Use
+            classify_pde(eq, f(x,y)) to get all of the possible hints for
+            a PDE.  The default hint, 'default', will use whatever hint
+            is returned first by classify_pde().  See Hints below for
+            more options that you can use for hint.
+
+        ``solvefun`` is the convention used for arbitrary functions returned
+            by the PDE solver. If not set by the user, it is set by default
+            to be F.
+
+    **Hints**
+
+        Aside from the various solving methods, there are also some
+        meta-hints that you can pass to pdsolve():
+
+        "default":
+                This uses whatever hint is returned first by
+                classify_pde(). This is the default argument to
+                pdsolve().
+
+        "all":
+                To make pdsolve apply all relevant classification hints,
+                use pdsolve(PDE, func, hint="all").  This will return a
+                dictionary of hint:solution terms.  If a hint causes
+                pdsolve to raise the NotImplementedError, value of that
+                hint's key will be the exception object raised.  The
+                dictionary will also include some special keys:
+
+                - order: The order of the PDE.  See also ode_order() in
+                  deutils.py
+                - default: The solution that would be returned by
+                  default.  This is the one produced by the hint that
+                  appears first in the tuple returned by classify_pde().
+
+        "all_Integral":
+                This is the same as "all", except if a hint also has a
+                corresponding "_Integral" hint, it only returns the
+                "_Integral" hint.  This is useful if "all" causes
+                pdsolve() to hang because of a difficult or impossible
+                integral.  This meta-hint will also be much faster than
+                "all", because integrate() is an expensive routine.
+
+        See also the classify_pde() docstring for more info on hints,
+        and the pde docstring for a list of all supported hints.
+
+    **Tips**
+        - You can declare the derivative of an unknown function this way:
+
+            >>> from sympy import Function, Derivative
+            >>> from symox.abc import x, y # x and y are the independent variables
+            >>> f = Function("f")(x, y) # f is a function of x and y
+            >>> # fx will be the partial derivative of f with respect to x
+            >>> fx = Derivative(f, x)
+            >>> # fy will be the partial derivative of f with respect to y
+            >>> fy = Derivative(f, y)
+
+        - See test_pde.py for many tests, which serves also as a set of
+          examples for how to use pdsolve().
+        - pdsolve always returns an Equality class (except for the case
+          when the hint is "all" or "all_Integral"). Note that it is not possible
+          to get an explicit solution for f(x, y) as in the case of ODE's
+        - Do help(pde.pde_hintname) to get help more information on a
+          specific hint
 
 
-def _arbitrary(expression,solvefun):
-    from .. import Dummy, Function
-    if solvefun is None:
-        occupied = {getattr(node.func, '__name__', '') for node in nodes(expression)
-                    if node.is_UndefinedFunction}
+    Examples
+    ========
+
+    >>> from symox.solvers.pde import pdsolve
+    >>> from sympy import Function, Eq
+    >>> from symox.abc import x, y
+    >>> f = Function('f')
+    >>> u = f(x, y)
+    >>> ux = u.diff(x)
+    >>> uy = u.diff(y)
+    >>> eq = Eq(1 + (2*(ux/u)) + (3*(uy/u)), 0)
+    >>> pdsolve(eq)
+    Eq(f(x, y), F(3*x - 2*y)*exp(-2*x/13 - 3*y/13))
+
+    """
+
+    if not solvefun:
+        solvefun = Function('F')
+        # symox: SymPy reuses a function F of the equation as the arbitrary
+        # function, which loses the general solution of u_x + u_y = F(x - y).
+        # A free name is taken only in that case.
+        names = {a.func.__name__ for a in eq.atoms(AppliedUndef)} if hasattr(eq, 'atoms') else set()
         name = 'F'
-        while name in occupied:
+        while name in names:
             name += '_'
-        solvefun = Function(name)
+        if name != 'F':
+            solvefun = Function(name)
+
+    # See the docstring of _desolve for more details.
     try:
-        probe = solvefun(Dummy('characteristic_probe'))
-    except TypeError as error:
-        raise TypeError('solvefun must be an undefined function head') from error
-    if not getattr(probe, 'is_UndefinedFunction', False):
-        raise TypeError('solvefun must be an undefined function head')
-    return solvefun
+        hints = _desolve(eq, func=func, hint=hint, simplify=True,
+                         type='pde', **kwargs)
+    except NotImplementedError:
+        if hint != 'default':
+            raise
+        return _native_fallback(eq, func, dict, solvefun, kwargs)
+    eq = hints.pop('eq', False)
+    all_ = hints.pop('all', False)
 
+    if all_:
+        # TODO : 'best' hint should be implemented when adequate
+        # number of hints are added.
+        pdedict = {}
+        failed_hints = {}
+        gethints = classify_pde(eq, dict=True)
+        pdedict.update({'order': gethints['order'],
+                        'default': gethints['default']})
+        for hint in hints:
+            try:
+                rv = _helper_simplify(eq, hint, hints[hint]['func'],
+                    hints[hint]['order'], hints[hint][hint], solvefun)
+            except NotImplementedError as detail:
+                failed_hints[hint] = detail
+            else:
+                pdedict[hint] = rv
+        pdedict.update(failed_hints)
+        return pdedict
 
-def _method_data(eq,func,order,match):
-    from .. import sympify, simplify, diff
-    if order != 1:
-        raise ValueError('These PDE methods require differential order one')
-    expression,func,actual_order,linear = _data(eq,func)
-    if actual_order != 1 or linear is None:
-        raise ValueError('The equation is not a first-order linear PDE')
-    if 'coefficients' in match:
-        coefficients = tuple(sympify(value) for value in match['coefficients'])
-        if len(coefficients) != 3:
-            raise ValueError('A PDE match requires three linear coefficients')
-        source = sympify(match.get('forcing',0))
     else:
-        # SymPy method dictionaries store both Wild -> value entries and
-        # string -> Wild labels. Accept that protocol as well as native data.
-        def coefficient(label):
-            marker = match.get(label,0)
-            return sympify(match.get(marker,marker))
-        coefficients = tuple(coefficient(label) for label in ('b','c','d'))
-        source = -coefficient('e')
-    original = linear[0]+[-linear[1]]
-    supplied = list(coefficients)+[source]
-    pivot = next((i for i in (0,1) if not _zero(original[i])),None)
-    if pivot is None or _zero(supplied[pivot]):
-        raise ValueError('The supplied PDE match has no matching characteristic direction')
-    ratio = supplied[pivot]/original[pivot]
-    if any(not _zero(left-ratio*right) for left,right in zip(supplied,original)):
-        raise ValueError('The supplied coefficients do not match this PDE')
-    return expression,func,(*coefficients,source)
+        result = _helper_simplify(eq, hints['hint'], hints['func'],
+                                  hints['order'], hints[hints['hint']], solvefun)
+        if hint == 'default' and not isinstance(result, Equality):
+            # symox: the constant coefficient formulas divide by b**2 + c**2,
+            # which vanishes for isotropic complex characteristics (u_x +
+            # I*u_y); the reference result is then nan and the Eq False.
+            # The native characteristic solver handles that case.
+            from ._native_pde import pdsolve as native_pdsolve
+            try:
+                return native_pdsolve(eq, hints['func'], dict=dict, solvefun=solvefun, **kwargs)
+            except (NotImplementedError, ValueError, TypeError):
+                return result
+        return result
 
 
-def _constant_solution(a,b,c,source,x,y,solvefun):
-    from .. import Dummy, Integral, exp, cancel, simplify, S
-    norm = cancel(a*a+b*b)
-    t,invariant = Dummy('characteristic_time'),Dummy('characteristic_invariant')
-    invariant_value = b*x-a*y
-    if not _zero(norm):
-        time_value = a*x+b*y
-        forcing = source.xreplace({x:(a*t+b*invariant)/norm, y:(b*t-a*invariant)/norm})
-        rate,scale = c/norm,1/norm
-    elif not _zero(a):
-        # Isotropic complex vectors have a*a+b*b=0. A coordinate along x
-        # still straightens the nonzero characteristic vector exactly.
-        time_value = x/a
-        forcing = source.xreplace({x:a*t,y:b*t-invariant/a})
-        rate,scale = c,S.One
+def _helper_simplify(eq, hint, func, order, match, solvefun):
+    """Helper function of pdsolve that calls the respective
+    pde functions to solve for the partial differential
+    equations. This minimizes the computation in
+    calling _desolve multiple times.
+    """
+    solvefunc = globals()["pde_" + hint.removesuffix("_Integral")]
+    return _handle_Integral(solvefunc(eq, func, order,
+        match, solvefun), func, order, hint)
+
+
+def _handle_Integral(expr, func, order, hint):
+    r"""
+    Converts a solution with integrals in it into an actual solution.
+
+    Simplifies the integral mainly using doit()
+    """
+    if hint.endswith("_Integral"):
+        return expr
+
+    elif hint == "1st_linear_constant_coeff":
+        return simplify(expr.doit())
+
     else:
-        raise ValueError('A characteristic direction must be nonzero')
-    integrand = simplify(forcing*exp(rate*t)*scale)
-    particular = S.Zero if _zero(source) else Integral(
-        integrand.xreplace({invariant:invariant_value}),(t,time_value))
-    return exp(-rate*time_value)*(solvefun(invariant_value)+particular)
+        return expr
 
 
-def pde_1st_linear_constant_coeff_homogeneous(eq,func,order,match,solvefun):
-    """Solve the homogeneous constant-coefficient characteristic equation."""
-    from .. import Eq
-    expression,func,(a,b,c,source) = _method_data(eq,func,order,match)
-    if any(value.has(*func.args) for value in (a,b,c)) or not _zero(source):
-        raise ValueError('The homogeneous constant-coefficient PDE method does not match')
-    arbitrary = _arbitrary(expression,solvefun)
-    return Eq(func,_constant_solution(a,b,c,source,*func.args,arbitrary))
+def classify_pde(eq, func=None, dict=False, *, prep=True, **kwargs):
+    """
+    Returns a tuple of possible pdsolve() classifications for a PDE.
+
+    The tuple is ordered so that first item is the classification that
+    pdsolve() uses to solve the PDE by default.  In general,
+    classifications near the beginning of the list will produce
+    better solutions faster than those near the end, though there are
+    always exceptions.  To make pdsolve use a different classification,
+    use pdsolve(PDE, func, hint=<classification>).  See also the pdsolve()
+    docstring for different meta-hints you can use.
+
+    If ``dict`` is true, classify_pde() will return a dictionary of
+    hint:match expression terms. This is intended for internal use by
+    pdsolve().  Note that because dictionaries are ordered arbitrarily,
+    this will most likely not be in the same order as the tuple.
+
+    You can get help on different hints by doing help(pde.pde_hintname),
+    where hintname is the name of the hint without "_Integral".
+
+    See symox.pde.allhints or the symox.pde docstring for a list of all
+    supported hints that can be returned from classify_pde.
 
 
-def pde_1st_linear_constant_coeff(eq,func,order,match,solvefun):
-    """Return a characteristic integral for a constant-coefficient PDE."""
-    from .. import Eq
-    expression,func,(a,b,c,source) = _method_data(eq,func,order,match)
-    if any(value.has(*func.args) for value in (a,b,c)):
-        raise ValueError('The constant-coefficient PDE method does not match')
-    arbitrary = _arbitrary(expression,solvefun)
-    return Eq(func,_constant_solution(a,b,c,source,*func.args,arbitrary))
+    Examples
+    ========
 
+    >>> from symox.solvers.pde import classify_pde
+    >>> from sympy import Function, Eq
+    >>> from symox.abc import x, y
+    >>> f = Function('f')
+    >>> u = f(x, y)
+    >>> ux = u.diff(x)
+    >>> uy = u.diff(y)
+    >>> eq = Eq(1 + (2*(ux/u)) + (3*(uy/u)), 0)
+    >>> classify_pde(eq)
+    ('1st_linear_constant_coeff_homogeneous',)
+    """
 
-def pde_1st_linear_variable_coeff(eq,func,order,match,solvefun):
-    """Solve a variable-coefficient PDE through a native characteristic ODE."""
-    from .. import Eq
-    expression,func,(a,b,c,source) = _method_data(eq,func,order,match)
-    arbitrary = _arbitrary(expression,solvefun)
-    return Eq(func,_variable_solution(a,b,c,source,*func.args,arbitrary))
+    if func and len(func.args) != 2:
+        raise NotImplementedError("Right now only partial "
+            "differential equations of two variables are supported")
 
+    if prep or func is None:
+        prep, func_ = _preprocess(eq, func)
+        if func is None:
+            func = func_
 
-def _variable_solution(a, b, c, source, x, y, arbitrary):
-    from .. import integrate, exp, cancel, simplify, diff
-    if _zero(a):
-        mu = exp(integrate(cancel(c/b), y))
-        return (arbitrary(x)+integrate(cancel(source*mu/b), y))/mu
-    if _zero(b):
-        mu = exp(integrate(cancel(c/a), x))
-        return (arbitrary(y)+integrate(cancel(source*mu/a), x))/mu
-    ax, by = cancel(a/x), cancel(b/y)
-    if not ax.has(x, y) and not by.has(x, y) and not c.has(x, y) and _zero(source):
-        # Diagonal dilation vector fields admit a simple algebraic invariant.
-        return arbitrary(y*x**(-by/ax))*x**(-c/ax)
-    if not a.has(y) and not b.has(x) and _zero(c) and _zero(source):
-        return arbitrary(integrate(1/a, x)-integrate(1/b, y))
-    # A shear with one constant velocity can be straightened explicitly.
-    if not a.has(x, y) and not b.has(y) and _zero(c) and _zero(source):
-        return arbitrary(y-integrate(cancel(b/a), x))
-    if not b.has(x, y) and not a.has(x) and _zero(c) and _zero(source):
-        return arbitrary(x-integrate(cancel(a/b), y))
-    return _characteristic_solution(a,b,c,source,x,y,arbitrary)
+    if isinstance(eq, Equality):
+        if eq.rhs != 0:
+            return classify_pde(eq.lhs - eq.rhs, func)
+        eq = eq.lhs
 
+    f = func.func
+    x = func.args[0]
+    y = func.args[1]
+    fx = f(x,y).diff(x)
+    fy = f(x,y).diff(y)
 
-def _at(expression,time,point,parameters):
-    """Evaluate an antiderivative without capturing characteristic parameters."""
-    from .. import Integral
-    replacements = dict(parameters)
-    replacements[time] = point
-    for node in nodes(expression):
-        if not node.is_Integral:
-            continue
-        limits = tuple(tuple(limit) for limit in node.limits)
-        if not any(limit[0]==time for limit in limits):
-            continue
-        if any(limit[0]==time and len(limit)!=1 for limit in limits):
-            raise NotImplementedError('Nested characteristic endpoint integrals are not supported')
-        rebuilt = [(time,point) if limit[0]==time else tuple(value.xreplace(parameters) for value in limit)
-                   for limit in limits]
-        replacements[node] = Integral(node.function.xreplace(parameters),*rebuilt)
-    return expression.xreplace(replacements)
+    # TODO : For now pde.py uses support offered by the ode_order function
+    # to find the order with respect to a multi-variable function. An
+    # improvement could be to classify the order of the PDE on the basis of
+    # individual variables.
+    order = ode_order(eq, f(x,y))
 
+    # hint:matchdict or hint:(tuple of matchdicts)
+    # Also will contain "default":<default hint> and "order":order items.
+    matching_hints = {'order': order}
 
-def _characteristic_solution(a,b,c,source,x,y,arbitrary):
-    failures = []
-    for first,second,u,v in ((a,b,x,y),(b,a,y,x)):
-        try:
-            return _characteristic_direction(first,second,c,source,u,v,arbitrary)
-        except NotImplementedError as error:
-            failures.append(error)
-    raise NotImplementedError('Neither characteristic direction could be integrated and inverted') from failures[-1]
+    if not order:
+        if dict:
+            matching_hints["default"] = None
+            return matching_hints
+        return ()
 
+    eq = expand(eq)
 
-def _characteristic_direction(a,b,c,source,x,y,arbitrary):
-    from .. import Function, Dummy, Derivative, solve, Equality, integrate, exp, cancel, simplify
-    from .ode import dsolve
-    slot = Dummy('characteristic_function')
-    unknown = Function('characteristic_'+str(slot.dummy_index))(x)
-    characteristic = Derivative(unknown,x)-(b/a).xreplace({y:unknown})
-    solutions = dsolve(characteristic,unknown)
-    solutions = solutions if isinstance(solutions,list) else [solutions]
-    for solution in solutions:
-        relation = (solution.lhs-solution.rhs).xreplace({unknown:y})
-        constants = relation.free_symbols-characteristic.free_symbols-{x,y}
-        if len(constants)!=1:
-            continue
-        roots = solve(relation,next(iter(constants)))
-        if not roots:
-            continue
-        invariant = roots[0]
-        if _zero(invariant.diff(y)):
-            continue
-        time,label = Dummy('characteristic_time'),Dummy('characteristic_label')
-        inverse = solve(invariant-label,y)
-        if not inverse:
-            continue
-        coordinates = {x:time,y:inverse[0].xreplace({x:time})}
-        rate = cancel((c/a).xreplace(coordinates))
-        forcing = cancel((source/a).xreplace(coordinates))
-        mu = exp(integrate(rate,time))
-        primitive = integrate(simplify(forcing*mu),time)
-        value = (arbitrary(label)+primitive)/mu
-        return _at(value,time,x,{label:invariant})
-    raise NotImplementedError('Cannot invert a native characteristic solution for this PDE')
+    a = Wild('a', exclude = [f(x,y)])
+    b = Wild('b', exclude = [f(x,y), fx, fy, x, y])
+    c = Wild('c', exclude = [f(x,y), fx, fy, x, y])
+    d = Wild('d', exclude = [f(x,y), fx, fy, x, y])
+    e = Wild('e', exclude = [f(x,y), fx, fy])
+    n = Wild('n', exclude = [x, y])
+    # Try removing the smallest power of f(x,y)
+    # from the highest partial derivatives of f(x,y)
+    reduced_eq = eq
+    if eq.is_Add:
+        power = None
+        for i in set(combinations_with_replacement((x,y), order)):
+            coeff = eq.coeff(f(x,y).diff(*i))
+            if coeff == 1:
+                continue
+            match = coeff.match(a*f(x,y)**n)
+            if match and match[a]:
+                if power is None or match[n] < power:
+                    power = match[n]
+        if power:
+            den = f(x,y)**power
+            reduced_eq = Add(*[arg/den for arg in eq.args])
+
+    if order == 1:
+        reduced_eq = collect(reduced_eq, f(x, y))
+        r = reduced_eq.match(b*fx + c*fy + d*f(x,y) + e)
+        if r:
+            if not r[e]:
+                ## Linear first-order homogeneous partial-differential
+                ## equation with constant coefficients
+                r.update({'b': b, 'c': c, 'd': d})
+                matching_hints["1st_linear_constant_coeff_homogeneous"] = r
+            elif r[b]**2 + r[c]**2 != 0:
+                ## Linear first-order general partial-differential
+                ## equation with constant coefficients
+                r.update({'b': b, 'c': c, 'd': d, 'e': e})
+                matching_hints["1st_linear_constant_coeff"] = r
+                matching_hints["1st_linear_constant_coeff_Integral"] = r
+
+        else:
+            b = Wild('b', exclude=[f(x, y), fx, fy])
+            c = Wild('c', exclude=[f(x, y), fx, fy])
+            d = Wild('d', exclude=[f(x, y), fx, fy])
+            r = reduced_eq.match(b*fx + c*fy + d*f(x,y) + e)
+            if r:
+                r.update({'b': b, 'c': c, 'd': d, 'e': e})
+                matching_hints["1st_linear_variable_coeff"] = r
+
+    # Order keys based on allhints.
+    rettuple = tuple(i for i in allhints if i in matching_hints)
+
+    if dict:
+        # Dictionaries are ordered arbitrarily, so make note of which
+        # hint would come first for pdsolve().  Use an ordered dict in Py 3.
+        matching_hints["default"] = None
+        matching_hints["ordered_hints"] = rettuple
+        for i in allhints:
+            if i in matching_hints:
+                matching_hints["default"] = i
+                break
+        return matching_hints
+    return rettuple
 
 
 def checkpdesol(pde, sol, func=None, solve_for_func=True):
-    from .. import Equality, simplify, cancel, solve
-    expression = equation(pde)
-    func = dependent(expression, func, dimension=2)
-    if isinstance(sol, (list, tuple, set)):
-        return [checkpdesol(expression, item, func, solve_for_func=solve_for_func) for item in sol]
-    if isinstance(sol, Equality):
-        if sol.lhs == func:
-            value = sol.rhs
-        elif sol.rhs == func:
-            value = sol.lhs
-        elif solve_for_func:
-            values = solve(sol.lhs-sol.rhs, func)
-            if len(values) != 1:
-                raise NotImplementedError('Cannot isolate a unique PDE solution')
-            value = values[0]
-        else:
-            raise NotImplementedError('Implicit PDE solution checks need function isolation')
-    else:
-        from ..calculus._analysis import scalar
-        value = scalar(sol)
-    residual = replace_function(expression, func, value)
-    residual = simplify(cancel(_integral_linearity(residual)))
-    return _zero(residual), residual
-
-
-def _integral_linearity(expression):
-    """Combine residual integrals with identical binders and endpoints.
-
-    Coefficients may move inside only when they are independent of every
-    bound variable. No endpoint substitutions or numerical integration are
-    used to certify the resulting cancellation.
     """
-    from .. import Add, Mul, Integral, simplify, S
-    groups, remaining = {}, []
-    for term in Add.make_args(expression.expand()):
-        factors = Mul.make_args(term)
-        integrals = [factor for factor in factors if factor.is_Integral]
+    Checks if the given solution satisfies the partial differential
+    equation.
+
+    pde is the partial differential equation which can be given in the
+    form of an equation or an expression. sol is the solution for which
+    the pde is to be checked. This can also be given in an equation or
+    an expression form. If the function is not provided, the helper
+    function _preprocess from deutils is used to identify the function.
+
+    If a sequence of solutions is passed, the same sort of container will be
+    used to return the result for each solution.
+
+    The following methods are currently being implemented to check if the
+    solution satisfies the PDE:
+
+        1. Directly substitute the solution in the PDE and check. If the
+           solution has not been solved for f, then it will solve for f
+           provided solve_for_func has not been set to False.
+
+    If the solution satisfies the PDE, then a tuple (True, 0) is returned.
+    Otherwise a tuple (False, expr) where expr is the value obtained
+    after substituting the solution in the PDE. However if a known solution
+    returns False, it may be due to the inability of doit() to simplify it to zero.
+
+    Examples
+    ========
+
+    >>> from sympy import Function, symbols
+    >>> from symox.solvers.pde import checkpdesol, pdsolve
+    >>> x, y = symbols('x y')
+    >>> f = Function('f')
+    >>> eq = 2*f(x,y) + 3*f(x,y).diff(x) + 4*f(x,y).diff(y)
+    >>> sol = pdsolve(eq)
+    >>> assert checkpdesol(eq, sol)[0]
+    >>> eq = x*f(x,y) + f(x,y).diff(x)
+    >>> checkpdesol(eq, sol)
+    (False, (x*F(4*x - 3*y) - 6*F(4*x - 3*y)/25 + 4*Subs(Derivative(F(_xi_1), _xi_1), _xi_1, 4*x - 3*y))*exp(-6*x/25 - 8*y/25))
+    """
+
+    # Converting the pde into an equation
+    if not isinstance(pde, Equality):
+        pde = Eq(pde, 0)
+
+    # If no function is given, try finding the function present.
+    if func is None:
+        try:
+            _, func = _preprocess(pde.lhs)
+        except ValueError:
+            funcs = [s.atoms(AppliedUndef) for s in (
+                sol if is_sequence(sol, set) else [sol])]
+            funcs = set().union(funcs)
+            if len(funcs) != 1:
+                raise ValueError(
+                    'must pass func arg to checkpdesol for this case.')
+            func = funcs.pop()
+
+    # If the given solution is in the form of a list or a set
+    # then return a list or set of tuples.
+    if is_sequence(sol, set):
+        return type(sol)([checkpdesol(
+            pde, i, func=func,
+            solve_for_func=solve_for_func) for i in sol])
+
+    # Convert solution into an equation
+    if not isinstance(sol, Equality):
+        sol = Eq(func, sol)
+    elif sol.rhs == func:
+        sol = sol.reversed
+
+    # Try solving for the function
+    solved = sol.lhs == func and not sol.rhs.has(func)
+    if solve_for_func and not solved:
+        solved = solve(sol, func)
+        if solved:
+            if len(solved) == 1:
+                return checkpdesol(pde, Eq(func, solved[0]),
+                    func=func, solve_for_func=False)
+            else:
+                return checkpdesol(pde, [Eq(func, t) for t in solved],
+                    func=func, solve_for_func=False)
+
+    # try direct substitution of the solution into the PDE and simplify
+    if sol.lhs == func:
+        pde = pde.lhs - pde.rhs
+        s = simplify(pde.subs(func, sol.rhs).doit())
+        if s is not S.Zero and s.has(Integral):
+            # symox: held integrals with the same limits are combined by
+            # linearity, so their integrands can cancel
+            combined = _combine_integrals(s)
+            if combined is S.Zero:
+                return True, S.Zero
+        return s is S.Zero, s
+
+
+def _combine_integrals(expr):
+    groups, rest = {}, []
+    for term in Add.make_args(expand(expr)):
+        integrals = [f for f in term.as_ordered_factors() if isinstance(f, Integral)]
         if len(integrals) != 1:
-            remaining.append(term)
+            rest.append(term)
             continue
         integral = integrals[0]
-        coefficient = Mul(*(factor for factor in factors if factor is not integral))
-        limits = tuple(tuple(limit) for limit in integral.limits)
-        if coefficient.has(*(limit[0] for limit in limits)):
-            remaining.append(term)
+        coefficient = term/integral
+        bound = {limit[0] for limit in integral.limits}
+        if coefficient.free_symbols & bound:
+            rest.append(term)
             continue
-        groups.setdefault(limits, []).append(coefficient*integral.function)
-    for limits, terms in groups.items():
-        integrand = simplify(Add(*terms))
-        if not _zero(integrand):
-            remaining.append(Integral(integrand, *limits))
-    return Add(*remaining)
+        key = integral.limits
+        groups.setdefault(key, []).append(coefficient*integral.function)
+    combined = [Integral(simplify(Add(*parts)), *limits) for limits, parts in groups.items()]
+    return simplify(Add(*rest) + Add(*[c for c in combined if c.function != 0]))
+
+    raise NotImplementedError(filldedent('''
+        Unable to test if %s is a solution to %s.''' % (sol, pde)))
+
+
+
+def pde_1st_linear_constant_coeff_homogeneous(eq, func, order, match, solvefun):
+    r"""
+    Solves a first order linear homogeneous
+    partial differential equation with constant coefficients.
+
+    The general form of this partial differential equation is
+
+    .. math:: a \frac{\partial f(x,y)}{\partial x}
+              + b \frac{\partial f(x,y)}{\partial y} + c f(x,y) = 0
+
+    where `a`, `b` and `c` are constants.
+
+    The general solution is of the form:
+
+    .. math::
+        f(x, y) = F(- a y + b x ) e^{- \frac{c (a x + b y)}{a^2 + b^2}}
+
+    and can be found in SymPy with ``pdsolve``::
+
+        >>> from symox.solvers import pdsolve
+        >>> from symox.abc import x, y, a, b, c
+        >>> from sympy import Function, pprint
+        >>> f = Function('f')
+        >>> u = f(x,y)
+        >>> ux = u.diff(x)
+        >>> uy = u.diff(y)
+        >>> genform = a*ux + b*uy + c*u
+        >>> pprint(genform)
+          d               d
+        a*--(f(x, y)) + b*--(f(x, y)) + c*f(x, y)
+          dx              dy
+
+        >>> pprint(pdsolve(genform))
+                                 -c*(a*x + b*y)
+                                 ---------------
+                                      2    2
+                                     a  + b
+        f(x, y) = F(-a*y + b*x)*e
+
+    Examples
+    ========
+
+    >>> from sympy import pdsolve
+    >>> from sympy import Function, pprint
+    >>> from symox.abc import x,y
+    >>> f = Function('f')
+    >>> pdsolve(f(x,y) + f(x,y).diff(x) + f(x,y).diff(y))
+    Eq(f(x, y), F(x - y)*exp(-x/2 - y/2))
+    >>> pprint(pdsolve(f(x,y) + f(x,y).diff(x) + f(x,y).diff(y)))
+                          x   y
+                        - - - -
+                          2   2
+    f(x, y) = F(x - y)*e
+
+    References
+    ==========
+
+    - Viktor Grigoryan, "Partial Differential Equations"
+      Math 124A - Fall 2010, pp.7
+
+    """
+    # TODO : For now homogeneous first order linear PDE's having
+    # two variables are implemented. Once there is support for
+    # solving systems of ODE's, this can be extended to n variables.
+
+    f = func.func
+    x = func.args[0]
+    y = func.args[1]
+    b = match[match['b']]
+    c = match[match['c']]
+    d = match[match['d']]
+    return Eq(f(x,y), exp(-S(d)/(b**2 + c**2)*(b*x + c*y))*solvefun(c*x - b*y))
+
+
+def pde_1st_linear_constant_coeff(eq, func, order, match, solvefun):
+    r"""
+    Solves a first order linear partial differential equation
+    with constant coefficients.
+
+    The general form of this partial differential equation is
+
+    .. math:: a \frac{\partial f(x,y)}{\partial x}
+              + b \frac{\partial f(x,y)}{\partial y}
+              + c f(x,y) = G(x,y)
+
+    where `a`, `b` and `c` are constants and `G(x, y)` can be an arbitrary
+    function in `x` and `y`.
+
+    The general solution of the PDE is:
+
+    .. math::
+        f(x, y) = \left. \left[F(\eta) + \frac{1}{a^2 + b^2}
+        \int\limits^{a x + b y} G\left(\frac{a \xi + b \eta}{a^2 + b^2},
+        \frac{- a \eta + b \xi}{a^2 + b^2} \right)
+        e^{\frac{c \xi}{a^2 + b^2}}\, d\xi\right]
+        e^{- \frac{c \xi}{a^2 + b^2}}
+        \right|_{\substack{\eta=- a y + b x\\ \xi=a x + b y }}\, ,
+
+    where `F(\eta)` is an arbitrary single-valued function. The solution
+    can be found in SymPy with ``pdsolve``::
+
+        >>> from symox.solvers import pdsolve
+        >>> from symox.abc import x, y, a, b, c
+        >>> from sympy import Function, pprint
+        >>> f = Function('f')
+        >>> G = Function('G')
+        >>> u = f(x, y)
+        >>> ux = u.diff(x)
+        >>> uy = u.diff(y)
+        >>> genform = a*ux + b*uy + c*u - G(x,y)
+        >>> pprint(genform)
+          d               d
+        a*--(f(x, y)) + b*--(f(x, y)) + c*f(x, y) - G(x, y)
+          dx              dy
+        >>> pprint(pdsolve(genform, hint='1st_linear_constant_coeff_Integral'))
+                  //          a*x + b*y                                             \         \|
+                  ||              /                                                 |         ||
+                  ||             |                                                  |         ||
+                  ||             |                                      c*xi        |         ||
+                  ||             |                                     -------      |         ||
+                  ||             |                                      2    2      |         ||
+                  ||             |      /a*xi + b*eta  -a*eta + b*xi\  a  + b       |         ||
+                  ||             |     G|------------, -------------|*e        d(xi)|         ||
+                  ||             |      |   2    2         2    2   |               |         ||
+                  ||             |      \  a  + b         a  + b    /               |  -c*xi  ||
+                  ||             |                                                  |  -------||
+                  ||            /                                                   |   2    2||
+                  ||                                                                |  a  + b ||
+        f(x, y) = ||F(eta) + -------------------------------------------------------|*e       ||
+                  ||                                  2    2                        |         ||
+                  \\                                 a  + b                         /         /|eta=-a*y + b*x, xi=a*x + b*y
+
+    Examples
+    ========
+
+    >>> from symox.solvers.pde import pdsolve
+    >>> from sympy import Function, pprint, exp
+    >>> from symox.abc import x,y
+    >>> f = Function('f')
+    >>> eq = -2*f(x,y).diff(x) + 4*f(x,y).diff(y) + 5*f(x,y) - exp(x + 3*y)
+    >>> pdsolve(eq)
+    Eq(f(x, y), (F(4*x + 2*y)*exp(x/2) + exp(x + 4*y)/15)*exp(-y))
+
+    References
+    ==========
+
+    - Viktor Grigoryan, "Partial Differential Equations"
+      Math 124A - Fall 2010, pp.7
+
+    """
+
+    # TODO : For now homogeneous first order linear PDE's having
+    # two variables are implemented. Once there is support for
+    # solving systems of ODE's, this can be extended to n variables.
+    xi, eta = symbols("xi eta")
+    # symox: SymPy's characteristic coordinates capture symbols named xi or
+    # eta of the equation, which gives a wrong solution; fresh dummies are
+    # used only in that case, so the usual output is unchanged.
+    if eq.has(xi) or eq.has(eta):
+        xi, eta = Dummy("xi"), Dummy("eta")
+    f = func.func
+    x = func.args[0]
+    y = func.args[1]
+    b = match[match['b']]
+    c = match[match['c']]
+    d = match[match['d']]
+    e = -match[match['e']]
+    expterm = exp(-S(d)/(b**2 + c**2)*xi)
+    functerm = solvefun(eta)
+    solvedict = solve((b*x + c*y - xi, c*x - b*y - eta), x, y)
+    # Integral should remain as it is in terms of xi,
+    # doit() should be done in _handle_Integral.
+    genterm = (1/S(b**2 + c**2))*Integral(
+        (1/expterm*e).subs(solvedict), (xi, b*x + c*y))
+    return Eq(f(x,y), Subs(expterm*(functerm + genterm),
+        (eta, xi), (c*x - b*y, b*x + c*y)))
+
+
+def pde_1st_linear_variable_coeff(eq, func, order, match, solvefun):
+    r"""
+    Solves a first order linear partial differential equation
+    with variable coefficients. The general form of this partial
+    differential equation is
+
+    .. math:: a(x, y) \frac{\partial f(x, y)}{\partial x}
+                + b(x, y) \frac{\partial f(x, y)}{\partial y}
+                + c(x, y) f(x, y) = G(x, y)
+
+    where `a(x, y)`, `b(x, y)`, `c(x, y)` and `G(x, y)` are arbitrary
+    functions in `x` and `y`. This PDE is converted into an ODE by
+    making the following transformation:
+
+    1. `\xi` as `x`
+
+    2. `\eta` as the constant in the solution to the differential
+       equation `\frac{dy}{dx} = -\frac{b}{a}`
+
+    Making the previous substitutions reduces it to the linear ODE
+
+    .. math:: a(\xi, \eta)\frac{du}{d\xi} + c(\xi, \eta)u - G(\xi, \eta) = 0
+
+    which can be solved using ``dsolve``.
+
+    >>> from symox.abc import x, y
+    >>> from sympy import Function, pprint
+    >>> a, b, c, G, f= [Function(i) for i in ['a', 'b', 'c', 'G', 'f']]
+    >>> u = f(x,y)
+    >>> ux = u.diff(x)
+    >>> uy = u.diff(y)
+    >>> genform = a(x, y)*u + b(x, y)*ux + c(x, y)*uy - G(x,y)
+    >>> pprint(genform)
+                                         d                     d
+    -G(x, y) + a(x, y)*f(x, y) + b(x, y)*--(f(x, y)) + c(x, y)*--(f(x, y))
+                                         dx                    dy
+
+
+    Examples
+    ========
+
+    >>> from symox.solvers.pde import pdsolve
+    >>> from sympy import Function, pprint
+    >>> from symox.abc import x,y
+    >>> f = Function('f')
+    >>> eq =  x*(u.diff(x)) - y*(u.diff(y)) + y**2*u - y**2
+    >>> pdsolve(eq)
+    Eq(f(x, y), F(x*y)*exp(y**2/2) + 1)
+
+    References
+    ==========
+
+    - Viktor Grigoryan, "Partial Differential Equations"
+      Math 124A - Fall 2010, pp.7
+
+    """
+    from symox.solvers.ode import dsolve
+
+    eta = symbols("eta")
+    f = func.func
+    x = func.args[0]
+    y = func.args[1]
+    b = match[match['b']]
+    c = match[match['c']]
+    d = match[match['d']]
+    e = -match[match['e']]
+
+
+    if not d:
+         # To deal with cases like b*ux = e or c*uy = e
+        if not (b and c):
+            if c:
+                try:
+                    tsol = integrate(e/c, y)
+                except NotImplementedError:
+                    raise NotImplementedError("Unable to find a solution"
+                        " due to inability of integrate")
+                else:
+                    return Eq(f(x,y), solvefun(x) + tsol)
+            if b:
+                try:
+                    tsol = integrate(e/b, x)
+                except NotImplementedError:
+                    raise NotImplementedError("Unable to find a solution"
+                        " due to inability of integrate")
+                else:
+                    return Eq(f(x,y), solvefun(y) + tsol)
+
+    if not c:
+        # To deal with cases when c is 0, a simpler method is used.
+        # The PDE reduces to b*(u.diff(x)) + d*u = e, which is a linear ODE in x
+        plode = f(x).diff(x)*b + d*f(x) - e
+        sol = dsolve(plode, f(x))
+        syms = sol.free_symbols - plode.free_symbols - {x, y}
+        rhs = _simplify_variable_coeff(sol.rhs, syms, solvefun, y)
+        return Eq(f(x, y), rhs)
+
+    if not b:
+        # To deal with cases when b is 0, a simpler method is used.
+        # The PDE reduces to c*(u.diff(y)) + d*u = e, which is a linear ODE in y
+        plode = f(y).diff(y)*c + d*f(y) - e
+        sol = dsolve(plode, f(y))
+        syms = sol.free_symbols - plode.free_symbols - {x, y}
+        rhs = _simplify_variable_coeff(sol.rhs, syms, solvefun, x)
+        return Eq(f(x, y), rhs)
+
+    dummy = Function('d')
+    h = (c/b).subs(y, dummy(x))
+    sol = dsolve(dummy(x).diff(x) - h, dummy(x))
+    if isinstance(sol, list):
+        sol = sol[0]
+    solsym = sol.free_symbols - h.free_symbols - {x, y}
+    if len(solsym) == 1:
+        solsym = solsym.pop()
+        etat = (solve(sol, solsym)[0]).subs(dummy(x), y)
+        ysub = solve(eta - etat, y)[0]
+        deq = (b*(f(x).diff(x)) + d*f(x) - e).subs(y, ysub)
+        final = (dsolve(deq, f(x), hint='1st_linear')).rhs
+        if isinstance(final, list):
+            final = final[0]
+        finsyms = final.free_symbols - deq.free_symbols - {x, y}
+        rhs = _simplify_variable_coeff(final, finsyms, solvefun, etat)
+        return Eq(f(x, y), rhs)
+
+    else:
+        raise NotImplementedError("Cannot solve the partial differential equation due"
+            " to inability of constantsimp")
+
+
+def _simplify_variable_coeff(sol, syms, func, funcarg):
+    r"""
+    Helper function to replace constants by functions in 1st_linear_variable_coeff
+    """
+    eta = Symbol("eta")
+    if len(syms) == 1:
+        sym = syms.pop()
+        final = sol.subs(sym, func(funcarg))
+
+    else:
+        for sym in syms:
+            final = sol.subs(sym, func(funcarg))
+
+    # symox: SymPy substitutes eta = funcarg inside held integrals whose
+    # integration variable also occurs in funcarg (x in eta = x*y), which
+    # captures it and gives a wrong solution. The integration variable is
+    # renamed first; an indefinite integral becomes one with upper limit x.
+    final = _rename_captured_integration_variables(final, eta, funcarg)
+    return simplify(final.subs(eta, funcarg))
+
+
+def _rename_captured_integration_variables(expr, eta, funcarg):
+    from symox.core.symbol import Dummy
+    outer = funcarg.free_symbols
+    def rebuild(node):
+        if not node.args:
+            return node
+        node = node.func(*[rebuild(a) for a in node.args])
+        if not isinstance(node, Integral) or eta not in node.free_symbols:
+            return node
+        body, limits = node.function, []
+        for limit in node.limits:
+            variable = limit[0]
+            if variable in outer:
+                fresh = Dummy(variable.name)
+                body = body.xreplace({variable: fresh})
+                if len(limit) == 1:
+                    limits.append((fresh, variable))
+                else:
+                    limits.append((fresh,) + tuple(limit[1:]))
+            else:
+                limits.append(tuple(limit))
+        return Integral(body, *limits)
+    return rebuild(expr)
 
 
 def pde_separate(eq, fun, sep, strategy='mul'):
-    from .. import sympify, Add, Mul, expand, cancel, separatevars, S
-    if strategy not in ('mul', 'add'):
-        raise ValueError('Unknown separation strategy: '+str(strategy))
-    expression = equation(eq)
-    fun = sympify(fun)
-    if not fun.is_UndefinedFunction or not all(arg.is_Symbol for arg in fun.args):
-        raise ValueError('Separation requires an applied function of independent symbols')
-    sep = tuple(sympify(value) for value in sep)
-    if len(sep) < 2 or any(not value.is_UndefinedFunction for value in sep):
-        raise ValueError('Supply at least two separated functions')
-    arguments = [arg for value in sep for arg in value.args]
-    if len(arguments) != len(fun.args):
-        raise ValueError('Variable counts do not match')
-    if len(set(arguments)) != len(arguments):
-        raise ValueError('Duplicate substitution arguments detected')
-    if set(arguments) != set(fun.args):
-        raise ValueError('Arguments do not match')
-    value = Add(*sep) if strategy == 'add' else Mul(*sep)
-    expression = replace_function(expression, fun, value)
-    if strategy == 'mul':
-        expression = cancel(expression/value)
-    expression = expand(expression)
-    selected = set(sep[0].args)
-    others = set(arguments)-selected
-    # First divide out a common other-variable factor from terms carrying
-    # derivatives in the selected group. This also separates nonlinear
-    # exponential equations under an additive ansatz.
-    divisors = []
-    for term in Add.make_args(expression):
-        if any(node.is_Derivative and not node.has(*others) and node.has(*selected)
-               for node in nodes(term)):
-            independent, dependent_part = term.as_independent(*selected, as_Add=False)
-            if dependent_part.has(*others):
-                return None
-            divisors.append(independent)
-    candidates = [S.One]+divisors
-    for divisor in candidates:
-        if _zero(divisor):
-            continue
-        normalized = expand(cancel(expression/divisor))
-        left, mixed = S.Zero, []
-        for term in Add.make_args(normalized):
-            if not term.has(*others):
-                left += term
-            else:
-                independent, part = term.as_independent(*selected, as_Add=False)
-                if part.has(*others):
-                    break
-                mixed.append((independent, part))
-        else:
-            if not mixed or left == 0:
-                continue
-            common = mixed[0][1]
-            if all(_zero(part-common) for _, part in mixed):
-                lhs = cancel(left/common).expand()
-                rhs = -sum((independent for independent, _ in mixed), S.Zero)
-                if not lhs.has(*others) and not rhs.has(*selected):
-                    return [lhs, rhs.expand()]
-    return None
+    """Separate variables in partial differential equation either by additive
+    or multiplicative separation approach. It tries to rewrite an equation so
+    that one of the specified variables occurs on a different side of the
+    equation than the others.
+
+    :param eq: Partial differential equation
+
+    :param fun: Original function F(x, y, z)
+
+    :param sep: List of separated functions [X(x), u(y, z)]
+
+    :param strategy: Separation strategy. You can choose between additive
+        separation ('add') and multiplicative separation ('mul') which is
+        default.
+
+    Examples
+    ========
+
+    >>> from sympy import E, Eq, Function, pde_separate, Derivative as D
+    >>> from symox.abc import x, t
+    >>> u, X, T = map(Function, 'uXT')
+
+    >>> eq = Eq(D(u(x, t), x), E**(u(x, t))*D(u(x, t), t))
+    >>> pde_separate(eq, u(x, t), [X(x), T(t)], strategy='add')
+    [exp(-X(x))*Derivative(X(x), x), exp(T(t))*Derivative(T(t), t)]
+
+    >>> eq = Eq(D(u(x, t), x, 2), D(u(x, t), t, 2))
+    >>> pde_separate(eq, u(x, t), [X(x), T(t)], strategy='mul')
+    [Derivative(X(x), (x, 2))/X(x), Derivative(T(t), (t, 2))/T(t)]
+
+    See Also
+    ========
+    pde_separate_add, pde_separate_mul
+    """
+
+    do_add = False
+    if strategy == 'add':
+        do_add = True
+    elif strategy == 'mul':
+        do_add = False
+    else:
+        raise ValueError('Unknown strategy: %s' % strategy)
+
+    if isinstance(eq, Equality):
+        if eq.rhs != 0:
+            return pde_separate(Eq(eq.lhs - eq.rhs, 0), fun, sep, strategy)
+    else:
+        return pde_separate(Eq(eq, 0), fun, sep, strategy)
+
+    if eq.rhs != 0:
+        raise ValueError("Value should be 0")
+
+    # Handle arguments
+    orig_args = list(fun.args)
+    subs_args = [arg for s in sep for arg in s.args]
+
+    if do_add:
+        functions = reduce(operator.add, sep)
+    else:
+        functions = reduce(operator.mul, sep)
+
+    # Check whether variables match
+    if len(subs_args) != len(orig_args):
+        raise ValueError("Variable counts do not match")
+    # Check for duplicate arguments like  [X(x), u(x, y)]
+    if has_dups(subs_args):
+        raise ValueError("Duplicate substitution arguments detected")
+    # Check whether the variables match
+    if set(orig_args) != set(subs_args):
+        raise ValueError("Arguments do not match")
+
+    # Substitute original function with separated...
+    result = eq.lhs.subs(fun, functions).doit()
+
+    # Divide by terms when doing multiplicative separation
+    if not do_add:
+        eq = 0
+        for i in result.args:
+            eq += i/functions
+        result = eq
+
+    svar = subs_args[0]
+    dvar = subs_args[1:]
+    return _separate(result, svar, dvar)
 
 
 def pde_separate_add(eq, fun, sep):
+    """
+    Helper function for searching additive separable solutions.
+
+    Consider an equation of two independent variables x, y and a dependent
+    variable w, we look for the product of two functions depending on different
+    arguments:
+
+    `w(x, y, z) = X(x) + y(y, z)`
+
+    Examples
+    ========
+
+    >>> from sympy import E, Eq, Function, pde_separate_add, Derivative as D
+    >>> from symox.abc import x, t
+    >>> u, X, T = map(Function, 'uXT')
+
+    >>> eq = Eq(D(u(x, t), x), E**(u(x, t))*D(u(x, t), t))
+    >>> pde_separate_add(eq, u(x, t), [X(x), T(t)])
+    [exp(-X(x))*Derivative(X(x), x), exp(T(t))*Derivative(T(t), t)]
+
+    """
     return pde_separate(eq, fun, sep, strategy='add')
 
 
 def pde_separate_mul(eq, fun, sep):
+    """
+    Helper function for searching multiplicative separable solutions.
+
+    Consider an equation of two independent variables x, y and a dependent
+    variable w, we look for the product of two functions depending on different
+    arguments:
+
+    `w(x, y, z) = X(x)*u(y, z)`
+
+    Examples
+    ========
+
+    >>> from sympy import Function, Eq, pde_separate_mul, Derivative as D
+    >>> from symox.abc import x, y
+    >>> u, X, Y = map(Function, 'uXY')
+
+    >>> eq = Eq(D(u(x, y), x, 2), D(u(x, y), y, 2))
+    >>> pde_separate_mul(eq, u(x, y), [X(x), Y(y)])
+    [Derivative(X(x), (x, 2))/X(x), Derivative(Y(y), (y, 2))/Y(y)]
+
+    """
     return pde_separate(eq, fun, sep, strategy='mul')
 
 
-__all__ = ['pdsolve', 'classify_pde', 'checkpdesol', 'pde_separate',
-           'pde_separate_add', 'pde_separate_mul',
-           'pde_1st_linear_constant_coeff_homogeneous',
-           'pde_1st_linear_constant_coeff', 'pde_1st_linear_variable_coeff']
+def _separate(eq, dep, others):
+    """Separate expression into two parts based on dependencies of variables."""
+
+    # FIRST PASS
+    # Extract derivatives depending our separable variable...
+    terms = set()
+    for term in eq.args:
+        if term.is_Mul:
+            for i in term.args:
+                if i.is_Derivative and not i.has(*others):
+                    terms.add(term)
+                    continue
+        elif term.is_Derivative and not term.has(*others):
+            terms.add(term)
+    # Find the factor that we need to divide by
+    div = set()
+    for term in terms:
+        ext, sep = term.expand().as_independent(dep)
+        # Failed?
+        if sep.has(*others):
+            return None
+        div.add(ext)
+    # FIXME: Find lcm() of all the divisors and divide with it, instead of
+    # current hack :(
+    # https://github.com/sympy/sympy/issues/4597
+    if len(div) > 0:
+        # double sum required or some tests will fail
+        eq = Add(*[simplify(Add(*[term/i for i in div])) for term in eq.args])
+    # SECOND PASS - separate the derivatives
+    div = set()
+    lhs = rhs = 0
+    for term in eq.args:
+        # Check, whether we have already term with independent variable...
+        if not term.has(*others):
+            lhs += term
+            continue
+        # ...otherwise, try to separate
+        temp, sep = term.expand().as_independent(dep)
+        # Failed?
+        if sep.has(*others):
+            return None
+        # Extract the divisors
+        div.add(sep)
+        rhs -= term.expand()
+    # Do the division
+    fulldiv = reduce(operator.add, div)
+    lhs = simplify(lhs/fulldiv).expand()
+    rhs = simplify(rhs/fulldiv).expand()
+    # ...and check whether we were successful :)
+    if lhs.has(*others) or rhs.has(dep):
+        return None
+    return [lhs, rhs]
+
+
+def _native_fallback(eq, func, dict, solvefun, kwargs):
+    # The native characteristic solvers extend the reference methods; the
+    # reference error is kept when they cannot solve the equation either.
+    import sys
+    error = sys.exc_info()[1]
+    from ._native_pde import pdsolve as native_pdsolve
+    try:
+        return native_pdsolve(eq, func, dict=dict, solvefun=solvefun, **kwargs)
+    except (NotImplementedError, ValueError, TypeError):
+        raise error

@@ -1228,7 +1228,7 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                     return mul(&v);
                 }
             }
-            if e.is_number() && !c.is_one() && c.is_rational() {
+            if e.is_number() && !c.is_one() && (c.is_rational() || c.is_float()) {
                 let rest = mul_from_factors(facs.clone());
                 if c.is_positive() {
                     return mul2(&num_pow(c, e.as_number().unwrap()), &pow_raw(&rest, e));
@@ -1277,9 +1277,7 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             }
         }
         Kind::Func(Func::Exp, args) => {
-            if e.is_integer_number() {
-                return crate::functions::exp(&mul2(&args[0], e));
-            }
+            if let Some(value) = exp_power(&args[0], e) { return value; }
         }
         _ => {}
     }
@@ -1349,6 +1347,25 @@ fn imaginary_square_root_power(a: &Number, e: &Expr) -> Option<Expr> {
     let p = Expr::int(i64::try_from(&p).ok()?);
     let unit = add(&[Expr::one(), if a.is_negative() { mul2(&Expr::minus_one(), &Expr::i()) } else { Expr::i() }]);
     Some(crate::simptools::unevaluated_mul(&[pow(&Expr::num(r), &p), pow(&unit, &p)]))
+}
+
+/// SymPy's exp._eval_power, i.e. Pow._eval_power of E**z: exp(z)**w is
+/// exp(z*w) for an integer w or an extended real z; for a non-real z the
+/// branch factor exp(2*pi*I*w*floor(1/2 - im(z)/(2*pi))) must be +-1.
+fn exp_power(z: &Expr, w: &Expr) -> Option<Expr> {
+    use crate::assumptions::{exact_queries, is_integer, is_real, real_signs};
+    let product = || crate::functions::exp(&mul2(z, w));
+    if w.is_integer_number() || exact_queries(|| is_integer(w)) == Some(true) { return Some(product()); }
+    if real_signs(z).is_some() { return Some(product()); }
+    if exact_queries(|| is_real(z)) != Some(false) { return None; }
+    let imaginary = crate::functions::im(z);
+    if !crate::functions::is_numeric_value(&imaginary) { return None; }
+    let k = crate::functions::floor(&sub(&Expr::rational(1, 2), &div(&imaginary, &mul2(&Expr::int(2), &Expr::pi()))));
+    if !k.is_integer_number() { return None; }
+    if k.is_zero() { return Some(product()); }
+    let turns = mul(&[Expr::int(2), w.clone(), k]);
+    let (n, _) = turns.as_number().filter(|n| n.is_integer())?.numer_denom()?;
+    Some(if num_integer::Integer::is_even(&n) { product() } else { neg(&product()) })
 }
 
 /// `b ** e` without simplification beyond trivial exponents.
@@ -1423,7 +1440,16 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
         return Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
     }
     if b.is_float() || e.is_float() {
-        if matches!(b, Number::MpFloat(..)) || matches!(e, Number::MpFloat(..)) {
+        // SymPy's Float._eval_power: a negative float to 1/q with q odd keeps
+        // the principal root of -1 symbolic.
+        if b.is_float() && b.is_negative() && e.is_rational() && e.numer().is_one()
+            && e.denom().to_bigint().is_some_and(|q| q.is_odd()) {
+            return mul2(&Expr::from_kind(Kind::Pow(Expr::minus_one(), Expr::num(e.clone()))), &num_pow(&b.neg(), e));
+        }
+        if matches!(b, Number::MpFloat(..)) || matches!(e, Number::MpFloat(..)) || (b.is_negative() && !b.is_zero()) {
+            // A complex result of a negative base is mpmath's mpc_pow at the
+            // float precision; double precision trigonometry would leave a
+            // spurious real part.
             let precision = b.float_precision().unwrap_or(0).max(e.float_precision().unwrap_or(0));
             let raw = Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
             return crate::evalf_mp::eval_mp(&raw, precision)

@@ -125,8 +125,8 @@ simplify.fu simplify.gammasimp simplify.hyperexpand simplify.powsimp
 simplify.radsimp simplify.ratsimp simplify.simplify simplify.sqrtdenest
 simplify.trigsimp solvers solvers.bivariate solvers.decompogen
 solvers.deutils solvers.diophantine solvers.diophantine.diophantine
-solvers.inequalities solvers.ode solvers.ode.hypergeometric
-solvers.ode.lie_group solvers.ode.nonhomogeneous solvers.ode.ode
+solvers.inequalities solvers.ode solvers.ode.ode solvers.ode.hypergeometric
+solvers.ode.lie_group solvers.ode.nonhomogeneous
 solvers.ode.riccati solvers.ode.single solvers.ode.subscheck
 solvers.ode.systems solvers.pde solvers.polysys solvers.recurr
 solvers.simplex solvers.solvers solvers.solveset strategies

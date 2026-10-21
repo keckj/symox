@@ -152,7 +152,8 @@ def _data(rep,gens,domain,modulus,extension):
 
 def _unexpanded(rep,gens,domain,modulus,extension,args):
     """Read coefficient/generator factors before the backend distributes them."""
-    from . import Add,Mul,S,exp
+    from . import Add,Mul,S
+    from .core.mul import _keep_coeff
     def is_coefficient(factor):
         if factor.is_Number:return True
         if domain is not None and not isinstance(domain,str):return factor in domain
@@ -165,14 +166,20 @@ def _unexpanded(rep,gens,domain,modulus,extension,args):
         for factor in Mul.make_args(term):
             if is_coefficient(factor):
                 coefficient.append(factor);continue
+            # SymPy's decompose_power: exp(x/3) is the generator, not
+            # exp(x)**(1/3).
             base,exponent=factor.as_base_exp()
-            if base==S.Exp1 and not exponent.is_Number:
-                multiplier,argument=exponent.as_coeff_Mul(rational=True)
-                base,exponent=exp(argument),multiplier
-            if exponent.is_Rational:
-                base,exponent=base**(S.One/exponent.q),exponent.p
-            elif not exponent.is_Integer:
-                base,exponent=factor,S.One
+            if exponent.is_Number:
+                if exponent.is_Rational:
+                    if not exponent.is_Integer:base=base**(S.One/exponent.q)
+                    exponent=exponent.p
+                else:base,exponent=factor,1
+            else:
+                multiplier,tail=exponent.as_coeff_Mul(rational=True)
+                if multiplier is S.NegativeOne:base,exponent=base**tail,-1
+                elif multiplier is not S.One:
+                    base,exponent=base**_keep_coeff(S.One/multiplier.q,tail),multiplier.p
+                else:base,exponent=factor,1
             if exponent<0:base,exponent=1/base,-exponent
             powers[base]=powers.get(base,0)+int(exponent);found.add(base)
         terms.append((Mul(*coefficient),powers))
