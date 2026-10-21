@@ -1124,6 +1124,14 @@ treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
   `Mul.flatten`. A port of these rules matched the reference on isolated
   products but made the `EX` division of `log_to_atan` on this integrand run
   for more than ten minutes, so it is not applied;
+- `pdsolve(x*u(x, y).diff(x) - y*u(x, y).diff(y) + y**2*u(x, y) - g(x, y))`
+  runs for more than 100 s on a tree that merges the integration options
+  into the second integration wave (the reference takes 27 s). The time goes
+  to `heurisch` on `g(x, eta/x)*exp(-eta**2/(2*x**2))/x`, whose ansatz has
+  the reference size (1717 coefficients): the walk `find_non_syms` over
+  `raw_numer` is slow. The slowdown remains with the RootSum, polynomial and
+  expansion changes of this branch reverted, so it comes from the merged
+  base, not verified against the later `heurisch` fix of the second wave;
 - `test_issue_6799` over `(-pi, pi)` gives `pi*cos(n*phi)` in the default
   chain (reference the unsimplified sum
   `-(-pi*n*cos(n*phi)/2 - sin(n*phi)/2)/n + (pi*n*cos(n*phi)/2 -
