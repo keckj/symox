@@ -1160,6 +1160,10 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             if e.is_integer_number() {
                 return pow(bb, &mul2(be, e));
             }
+            // Pow._eval_power: a polar base never needs a branch factor.
+            if crate::special::polar::is_polar(bb) {
+                return pow(bb, &mul2(be, e));
+            }
             // Pow._eval_power: the branch factor is 1 for a real exponent
             // a with |a| < 1, so (b**a)**e = b**(a*e) for every b and e.
             if let Kind::Num(a) = be.kind() {

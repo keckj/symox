@@ -76,6 +76,62 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
         if r.is_some() {
             return r;
         }
+        // SymPy's is_gt/is_ge and the zero test of is_eq read the extended
+        // sign of the difference: Abs(x) + pi is extended positive even when
+        // its finiteness is unknown.
+        let ext = |name: &str| asm::fact(&d, name) == Some(true);
+        let r = match op {
+            RelOp::Gt if ext("extended_positive") => Some(true),
+            RelOp::Gt if ext("extended_nonpositive") => Some(false),
+            RelOp::Ge if ext("extended_nonnegative") => Some(true),
+            RelOp::Ge if ext("extended_negative") => Some(false),
+            RelOp::Lt if ext("extended_negative") => Some(true),
+            RelOp::Lt if ext("extended_nonnegative") => Some(false),
+            RelOp::Le if ext("extended_nonpositive") => Some(true),
+            RelOp::Le if ext("extended_positive") => Some(false),
+            RelOp::Eq | RelOp::Ne if ext("extended_positive") || ext("extended_negative") => Some(op == RelOp::Ne),
+            _ => None,
+        };
+        if r.is_some() {
+            return r;
+        }
+        // SymPy's is_eq then reads the ratio: a finite nonzero numerator
+        // over a finite denominator is not zero (-1/s**2 - 1 for real s).
+        if matches!(op, RelOp::Eq | RelOp::Ne) {
+            let (n, den) = crate::simplify::numer_denom(&d);
+            let infinite = |e: &Expr| asm::is_finite(e).map(|f| !f);
+            let rv = if asm::is_zero(&n) == Some(true) {
+                asm::is_zero(&den).map(|z| !z)
+            } else if asm::is_finite(&n) == Some(true) {
+                if infinite(&den) == Some(true) {
+                    Some(true)
+                } else if asm::is_zero(&n) == Some(false) {
+                    infinite(&den).or_else(|| {
+                        // The condition that makes the denominator infinite
+                        // decides inequality when it does not make the
+                        // original sides equal.
+                        let (l, r) = clear_coefficients(&den, &Expr::oo())?;
+                        let pair = [(l, r)];
+                        let (la, lb) = (crate::subs::subs(a, &pair), crate::subs::subs(b, &pair));
+                        if &la == a && &lb == b {
+                            return None;
+                        }
+                        match decide(RelOp::Eq, &la, &lb) {
+                            Some(false) => Some(false),
+                            _ => None,
+                        }
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            // rv is SymPy's "difference is zero" verdict.
+            if let Some(z) = rv {
+                return Some((op == RelOp::Eq) == z);
+            }
+        }
     }
     if let Kind::Num(n) = d.kind() {
         let c = n.cmp_value(&crate::number::Number::ZERO)?;
@@ -95,6 +151,30 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
         }
     }
     None
+}
+
+/// SymPy's ``clear_coefficients(expr, rhs)`` for an expression with free
+/// symbols: strip rational content and additive constants into ``rhs``.
+fn clear_coefficients(expr: &Expr, rhs: &Expr) -> Option<(Expr, Expr)> {
+    use crate::ops::{div, neg};
+    if crate::traverse::free_symbols(expr).is_empty() {
+        return None;
+    }
+    let (mut expr, mut rhs) = (expr.clone(), rhs.clone());
+    let mut was: Option<Expr> = None;
+    while !expr.is_zero() && was.as_ref() != Some(&expr) {
+        was = Some(expr.clone());
+        let (m, e) = crate::decompose::as_content_primitive(&expr, false, true).ok()?;
+        rhs = div(&rhs, &Expr::num(m));
+        let (c, e) = crate::decompose::as_coeff_add_head(&e, true);
+        rhs = sub(&rhs, &c);
+        expr = e;
+    }
+    let expr = crate::simptools::misc::signsimp(&expr, false);
+    if crate::decompose::could_extract_minus_sign(&expr) {
+        return Some((neg(&expr), neg(&rhs)));
+    }
+    Some((expr, rhs))
 }
 
 fn infinite_decision(op:RelOp, sign:i32, other:&Expr)->Option<bool> {
