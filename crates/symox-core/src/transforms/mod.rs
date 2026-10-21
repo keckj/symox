@@ -21,6 +21,8 @@ use crate::special::SpecialFn;
 
 mod util;
 pub mod laplace;
+mod laplace_integration;
+mod integral_backend;
 pub mod inverse_laplace;
 pub mod fourier;
 pub mod mellin;
@@ -68,7 +70,49 @@ pub fn doit_default(s: SpecialFn, args: &[Expr]) -> Option<Expr> {
 /// auxiliary items SymPy returns with `noconds=False` (strip bounds and
 /// condition for Mellin, the condition otherwise). `None` stands for
 /// SymPy's `IntegralTransformError`.
-fn direct(s: SpecialFn, args: &[Expr], simplify: bool) -> Option<Vec<Expr>> {
+fn direct(s: SpecialFn, args: &[Expr], simplify: bool) -> Result<Vec<Expr>, String> {
+    use SpecialFn::*;
+    if let Some(v) = direct_table(s, args, simplify) {
+        return Ok(v);
+    }
+    let unsupported = || "could not compute integral".to_string();
+    // the reference does not try the integral when the function contains an
+    // undefined function of the variable
+    if laplace_integration::has_applied_undef_in(&args[0], &args[1]) {
+        return Err(unsupported());
+    }
+    match s {
+        MellinTransform => {
+            let (f, (a, b), c) = integral_backend::mellin_integration(&args[0], &args[1], &args[2], simplify)?;
+            Ok(vec![f, a, b, c])
+        }
+        FourierTransform | InverseFourierTransform | SineTransform | InverseSineTransform | CosineTransform
+        | InverseCosineTransform => {
+            let kind = FourierKind::from_head(s).ok_or_else(unsupported)?;
+            let (a, b) = kind.ab();
+            let (f, c) = match kind {
+                FourierKind::Fourier | FourierKind::InverseFourier => {
+                    integral_backend::fourier_integration(&args[0], &args[1], &args[2], &a, &b, simplify)?
+                }
+                FourierKind::Sine | FourierKind::InverseSine => {
+                    integral_backend::sine_cosine_integration(&args[0], &args[1], &args[2], &a, &b, true, simplify)?
+                }
+                FourierKind::Cosine | FourierKind::InverseCosine => {
+                    integral_backend::sine_cosine_integration(&args[0], &args[1], &args[2], &a, &b, false, simplify)?
+                }
+            };
+            Ok(vec![f, c])
+        }
+        HankelTransform | InverseHankelTransform => {
+            let (f, c) = integral_backend::hankel_integration(&args[0], &args[1], &args[2], &args[3], simplify)?;
+            Ok(vec![f, c])
+        }
+        _ => Err(unsupported()),
+    }
+}
+
+/// The closed form tables of the transforms.
+fn direct_table(s: SpecialFn, args: &[Expr], simplify: bool) -> Option<Vec<Expr>> {
     use SpecialFn::*;
     Some(match s {
         MellinTransform => {
@@ -115,13 +159,12 @@ pub fn transform_doit(s: SpecialFn, args: &[Expr], simplify: Option<bool>, neede
             return Ok(vec![f, c]);
         }
         HankelTransform | InverseHankelTransform => {
-            return direct(s, args, simplify.unwrap_or(true))
-                .ok_or_else(|| format!("{name} Transform could not be computed: could not compute integral"));
+            return direct(s, args, simplify.unwrap_or(true)).map_err(|m| format!("{name} Transform could not be computed: {m}"));
         }
         _ => {}
     }
     let simp = simplify.unwrap_or(true);
-    if let Some(v) = direct(s, args, simp) {
+    if let Ok(v) = direct(s, args, simp) {
         return Ok(v);
     }
     let x = &args[1];
