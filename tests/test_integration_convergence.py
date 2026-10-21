@@ -37,3 +37,16 @@ def test_settled_limits_still_evaluate():
     assert sx.integrate(1/(1+x**2), (x, -sx.oo, sx.oo)) == sx.pi
     assert sx.integrate(1/x, (x, 1, sx.oo)) == sx.oo
     assert sx.integrate(sx.exp(x), (x, 0, sx.oo)) == sx.oo
+
+
+def test_hyperbolic_laplace_kernel_keeps_the_meijer_result_and_condition():
+    # The reference keeps the Meijer G evaluation, whose Piecewise has a
+    # G-function in its last piece, rather than the exp rewrite.
+    result = sx.integrate(sx.exp(-s*t)*sx.cosh(t), (t, 0, sx.oo))
+    assert isinstance(result, sx.Piecewise)
+    (value, cond), (fallback, otherwise) = result.args
+    assert cond == (s**2 > 1)
+    assert fallback == sx.Integral(sx.exp(-s*t)*sx.cosh(t), (t, 0, sx.oo))
+    assert otherwise == sx.true
+    assert value.has(sx.meijerg)
+    assert sx.simplify(value.subs(s, 2)) == sx.Rational(2, 3)

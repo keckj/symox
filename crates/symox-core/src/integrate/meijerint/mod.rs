@@ -632,11 +632,16 @@ fn definite_2(f: &Expr, x: &Expr) -> Option<(Expr, Expr)> {
     None
 }
 
+/// `_has(res, meijerg)`: after `piecewise_fold`, every piece contains a
+/// Meijer G-function. A node outside a Piecewise folds into the products of
+/// the pieces of its arguments, so all of them contain one exactly when one
+/// argument has a G-function in every piece.
 fn has_meijerg(e: &Expr) -> bool {
-    if let Kind::Piecewise(pieces) = e.kind() {
-        return pieces.iter().all(|(v, _)| has_meijerg(v));
+    match e.kind() {
+        Kind::Piecewise(pieces) => pieces.iter().all(|(v, c)| has_meijerg(v) || crate::special::has_head(c, SpecialFn::MeijerG)),
+        Kind::Func(Func::Special(SpecialFn::MeijerG), _) => true,
+        _ => e.args().iter().any(has_meijerg),
     }
-    crate::special::has_head(e, SpecialFn::MeijerG)
 }
 
 fn is_inf(e: &Expr) -> bool { e.is_constant(Constant::Infinity) }
