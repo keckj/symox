@@ -47,14 +47,14 @@ def test_missing_native_module_does_not_fall_back_to_an_installed_reference(tmp_
 import importlib.abc, sys
 class MissingNative(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
-        if fullname == 'symox.core.logic':
+        if fullname == 'symox.diffgeom':
             raise ModuleNotFoundError('deliberately unavailable native module')
 sys.meta_path.insert(0, MissingNative())
-import sympy.core.logic
+import sympy.diffgeom
 ''')
     assert process.returncode != 0
-    assert 'requires missing native module symox.core.logic' in process.stderr
-    assert 'sympy.core.logic' not in proofs[0]['loaded_symbolic_modules']
+    assert 'requires missing native module symox.diffgeom' in process.stderr
+    assert 'sympy.diffgeom' not in proofs[0]['loaded_symbolic_modules']
 
 
 def test_preloaded_package_aliases_preserve_public_simplify_callable(tmp_path):
