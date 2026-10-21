@@ -591,7 +591,9 @@ fn algebraic_zero(e:&Expr)->bool {
     fn has_function(e:&Expr)->bool {
         matches!(e.kind(),Kind::Func(..))||e.args().iter().any(has_function)
     }
-    if has_function(e) {return false;}
+    // The tree walks below are not shared-DAG aware: a graph whose
+    // expanded size is huge is left undecided.
+    if crate::traverse::node_count(e)>4096 || has_function(e) {return false;}
     exact_queries(||{
         if algebraic_proof(e)!=Some(true) {return false;}
         matches!(crate::poly::minpoly::minimal_polynomial_qq(e),Ok(p) if p.len()==2&&p[0].is_zero()&&p[1].is_one())
