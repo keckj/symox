@@ -288,7 +288,9 @@ fn d_func(
         for (i,arg) in args.iter().enumerate(){
             let derivative=d(arg,x,cache);
             if derivative.is_zero(){continue;}
-            if arg.is_symbol(){terms.push(mul(&[derivative,derivative_unevaluated(e,vec![(arg.clone(),1)])]));continue;}
+            // AppliedUndef.fdiff: a symbol argument is held directly only
+            // when no other argument depends on it (SymPy issue 8510).
+            if arg.is_symbol()&&args.iter().enumerate().all(|(j,other)|j==i||!crate::traverse::free_symbols(other).contains(arg)){terms.push(mul(&[derivative,derivative_unevaluated(e,vec![(arg.clone(),1)])]));continue;}
             // One fresh atom shared by the argument, derivative and substitution
             // binder; user symbols with the same display name cannot be captured.
             let dummy=Expr::dummy(&format!("xi_{}",i+1),crate::Assumptions::NONE);
