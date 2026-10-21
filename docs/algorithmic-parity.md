@@ -130,6 +130,78 @@ python benches/audit_solver_parity.py --out /tmp/solver-parity.json
 
 This audit covers the cases it names. It is not a global parity certificate.
 
+## Algebraic fields and composite domains on 2026-10-21
+
+Algebraic number fields are no longer limited to quadratic, cubic and the
+previously supported towers. `QQ.algebraic_field`, `QQ.alg_field_from_poly`,
+`QQ.cyclotomic_field` and `extension=` accept any finite list of algebraic
+generators, including fourth roots such as `2**(1/4)`, nested radicals,
+`CRootOf` instances and arbitrary irreducible polynomials. Minimal polynomials
+follow the reference `_minpoly_compose` composition; when the composition
+leaves several candidate factors, the factor is selected by a certified
+outward-rounded enclosure rather than by a floating-point tolerance. Primitive
+elements, their coordinates and the embedding of each generator are computed
+exactly. Membership (`to_number_field`, `field_isomorphism`, conversion into a
+field) is decided by factoring the minimal polynomial over the field and
+identifying the matching factor with a certified enclosure; an element that
+cannot be identified is reported as such and never coerced to an approximate
+value.
+
+The field elements propagate through the polynomial algorithms. Univariate and
+multivariate `gcd`, `sqf_list` and Trager `factor` over number fields are
+line-by-line ports of `dmp_ff_prs_gcd`, `dmp_sqf_list`, `dmp_sqf_norm` and
+`dmp_ext_factor`. Division, `gcdex`/`half_gcdex`/`invert` (also over
+`QQ(a)`), `cancel` and `groebner` use the same exact arithmetic, with the
+reference domain-error messages. For example, `factor(x**4 - 2*y**4,
+extension=2**(1/4))` and `gcd(x**4 - 2, x - 2**(1/4), extension=True)` match
+SymPy.
+
+`ZZ_I`, `QQ_I` and `EX` are now polynomial coefficient backends with the
+reference ring algorithms (Gaussian factorization, EX dense `dmp` algorithms
+including `gcd`, `sqf`, `roots` and `nroots`). Composite domain inference
+selects them as SymPy does: `Poly(x**2 - sqrt(2)*y, x, extension=True)` is
+over `EX`, `Poly(x + y).eval(x, I)` is over `ZZ_I`, and transcendental
+coefficients such as `ZZ[sin(a)]` or `QQ(pi)` support `sturm`, `count_roots`,
+`groebner`, `factor` and `sqf` of a `Poly`. Unification keeps the receiver's
+generator order and applies the reference ground rule: a fraction field
+unified with a polynomial ring over a non-field ground is taken over the ring,
+so `QQ(a)` with `ZZ[pi]` gives `ZZ(a,pi)` for `Domain.unify` and `Poly`
+arithmetic alike.
+
+Complex roots are isolated with the reference certified rectangles, and
+`CRootOf` orders complex roots exactly and evaluates by rounded refinement
+(commits `Port the reference root isolation with certified complex rectangles`
+and `Port CRootOf with exact complex ordering and rounded evaluation`).
+
+Differential tests: `tests/test_composite_domain_parity.py`,
+`test_general_algebraic_fields.py`, `test_degree_six_eight_fields.py`,
+`test_algebraic_fields.py` and `test_implicit_domain_rings.py`. SageMath's
+`sage/interfaces/sympy.py` doctests now have 3 failures out of 319 (311
+passing before this work): the 2 `ZZ[x][y]` cases and the Fresnel integral.
+
+Remaining gaps in this area:
+
+- Nested polynomial rings such as `PolynomialRing(ZZ[x], 'y')` or `ZZ[x][y]`,
+  and typed ring or fraction-field factories over `ZZ_I`, `QQ_I` or algebraic
+  fields (`ZZ_I[x]`, `QQ<sqrt(2)>[x]`) raise `NotImplementedError`.
+- `resultant` and `discriminant` with `extension=True` and parameter
+  coefficients, e.g. `resultant(x**2 - sqrt(2)*y, x - y, x, extension=True)`,
+  raise `CoercionFailed`: `parallel_poly_from_expr` does not unify `EX` with
+  `ZZ[y]` into the common reference domain.
+- `RR[pi]` raises `NotImplementedError`; `RR.invert(4, 0)` raises
+  `ZeroDivisionError` where SymPy returns `0.25`; `EXRAW.convert('x+1')`
+  converts a string that SymPy rejects with `CoercionFailed`.
+- `(-2)**(1/6)` with `extension=True` yields the larger field
+  `QQ<2**(1/6) + (-1)**(1/6)>` because core power canonicalization splits the
+  base; results stay exact but the field is not the reference one.
+- `construct_domain` elements of composite domains print with their parent,
+  e.g. `ZZ[pi](pi)`, where the reference prints `pi`;
+  `construct_domain([1], extension=sqrt(2))` raises `NotImplementedError`
+  where the reference returns `ZZ`.
+- `EX` root forms and `nroots` digits can differ from the reference (symox
+  can be more accurate); exact reduction of root objects (`CRootOf` and
+  `RootSum` simplification into an algebraic field) is not ported.
+
 ## Remaining blocking gaps
 
 General noncommutative scalar algebra remains unsupported in this snapshot:
@@ -777,9 +849,9 @@ for constructing every stabilizer chain.
   allocation budgets even though Float literals have compact storage at much
   larger exponents. Removing policy caps does not certify all numerical
   algorithms, counter ranges or precision options.
-- Complex algebraic roots do not yet have certified complex isolating boxes;
-  complex root ordering and numerical refinement retain the limitations
-  described in [the root guide](algebraic-roots-quaternions.md).
+- Complex algebraic roots now have the reference certified isolating
+  rectangles, exact complex ordering and rounded refinement; see the
+  2026-10-21 section above for the remaining algebraic-domain gaps.
 - General transcendental solving, all solver options, symbolic parameter case
   distinctions and full set-valued solution-family coverage still need a
   versioned behavioral audit. Supported Lambert families do not establish parity
