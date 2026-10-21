@@ -297,6 +297,19 @@ Remaining gaps in this area:
 - `EX` root forms and `nroots` digits can differ from the reference (symox
   can be more accurate); exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.
+- `RootSum` follows the reference constructor: the polynomial is kept as an
+  expression with its generator (`args == (expr, Lambda, gen)`), pure
+  factors are split, linear and quadratic factors of a rational function are
+  summed explicitly (`_rational_case`), and it prints and `srepr`s like the
+  reference. `doit`, differentiation and `evalf` go through the explicit
+  roots as in the reference. `ratint` of a rational function with symbolic
+  coefficients (`1/(x**3 + x + a)`) gives the reference `RootSum`. The
+  supporting polynomial rules are those of the reference: `composite=False`
+  over a polynomial or fraction ground gives `EX`, the content and gcd over
+  `QQ[a]` follow `dup_content` and `dup_rr_prs_gcd`, an algebraic number
+  whose minimal polynomial is the generator is zero, and `expand` distributes
+  a rational coefficient over a power of a sum with a denominator term by
+  term, as the `mul` hint of the reference does.
 
 The ports of the integration methods also rely on these reference rules of
 the polynomial layer:
@@ -1071,9 +1084,9 @@ treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
   reference;
 - the definite integral of the float Piecewise of `test_issue_15498` stays
   unevaluated (reference a `Piecewise` with `Min(0.5, t)` bounds);
-- `manual=True` on `atan(x)*log(x)` and on the rational function of case
-  153 leaves an `Integral` where the reference finishes (manualintegrate
-  leftovers);
+- `manual=True` on the rational function of case 153 leaves an `Integral`
+  where the reference finishes (manualintegrate leftovers); `manual=True` on
+  `atan(x)*log(x)` gives the reference result, about twice as slowly;
 - the native rules also run under the reference `risch_integrate` base
   case (`integrate(..., risch=False)`), so rational parts keep the native
   partial-fraction form: `risch=True` on
@@ -1081,9 +1094,6 @@ treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
   1/(x**2 + 1) - 3/(x + 1)` (reference `(-x**2 + x - 4)/(x**3 + x**2 + x +
   1) + 3*atan(x)`), and `exp(x)/(1 + exp(2*x))` gives `atan(exp(x))` in the
   default chain (reference a `RootSum`);
-- a `RootSum` is stored with the monic coefficient tuple, so it prints
-  `RootSum((1, 0, 1/4), Lambda(...))` (reference `RootSum(4*_z**2 + 1,
-  Lambda(...))`);
 - an unevaluated sum is kept as one integral: `(f(x) - f(-x))/x` gives
   `-Integral((f(-x) - f(x))/x, x)` (reference `-Integral(f(-x)/x, x) -
   Integral(-f(x)/x, x)`), likewise for a Bessel sum with `risch=True`, and the
@@ -1102,11 +1112,18 @@ treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
   equivalent form, and `exp(-I*x**2/2)` over `(0, 1)` gives
   `sqrt(2)*sqrt(pi)*exp(-I*pi/4)*erf(sqrt(2)*exp(I*pi/4)/2)/2` (reference
   `(1 - I)*sqrt(pi)*erf(1/2 + I/2)/2` expanded), equal values;
-- `ratint(1/(x**3 + x + 1), x)` raises PolynomialDivisionFailed over the
-  `EX` domain of the explicit cubic roots (reference a sum of logarithms
-  with radical coefficients), and `ratint(1/(x**3 + x + a), x)` raises
-  NotImplementedError (algebraic root isolation needs rational
-  coefficients) where the reference gives a `RootSum`;
+- `ratint(1/(x**3 + x + 1), x)` finishes with a sum of logarithms and
+  arctangents with radical coefficients, equal in value to the reference
+  but in a larger form (about 80 KB printed against 17 KB) and about five
+  times slower. The cause is the numeric radical canonicalization of
+  products: `Integer**Rational` keeps `1922**(2/3)` where the reference
+  extracts `31*124**(1/3)`, `sqrt(3*2**(2/3))` gives
+  `sqrt(3)*sqrt(2**(2/3))` (reference `2**(1/3)*sqrt(3)`, also visible in
+  the arctangent coefficient of `ratint(1/(x**3 + 2), x)`), and `Mul` does
+  not combine numeric radicals by the order-dependent gcd rule of
+  `Mul.flatten`. A port of these rules matched the reference on isolated
+  products but made the `EX` division of `log_to_atan` on this integrand run
+  for more than ten minutes, so it is not applied;
 - `test_issue_6799` over `(-pi, pi)` gives `pi*cos(n*phi)` in the default
   chain (reference the unsimplified sum
   `-(-pi*n*cos(n*phi)/2 - sin(n*phi)/2)/n + (pi*n*cos(n*phi)/2 -
@@ -1134,7 +1151,7 @@ treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
   `heurisch=True` the native definite stages (rational antiderivatives,
   gamma moments) are still tried before the antiderivative;
 - `ratint(1/(x**5 + x + 1))` and similar `RootSum` results are slow (also
-  in the reference), and `RootSum` printing can differ;
+  in the reference);
 - a derivative of total order above one is not passed through the
   reference `factor_terms(signsimp(...))`, and a product is differentiated
   n times by repetition instead of the general Leibniz rule of
