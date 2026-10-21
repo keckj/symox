@@ -1479,14 +1479,6 @@ differences:
   native solver assigns them: `solve([sinh(x) - 1, a - 1], [x, a],
   dict=True)` gives `{x: ..., a: 1}` where the reference prints
   `{a: 1, x: ...}` (equal dictionaries);
-- `pdsolve(x*u(x, y).diff(x) - y*u(x, y).diff(y) + y**2*u(x, y) - g(x, y))`
-  crashes the process: the rewritten first-order linear PDE path integrates
-  through `heurisch`, which differentiates `Derivative(g(x, eta/x), x)`,
-  and the native `diff` of a `Derivative` of an applied function with a
-  nested argument recurses without bound (also
-  `test_unknown_forcing_remains_outside_characteristic_dummy_scope`; the
-  same `diff` call crashes on
-  `main`, whose PDE path does not reach it);
 - `simplify` lacks the reference step
   `shorter(expand_log(e, deep=True), logcombine(e))`, which is not
   idempotent: `4**x - 8` gives `[3/2, 3/2 + I*pi/log(2)]` where the
