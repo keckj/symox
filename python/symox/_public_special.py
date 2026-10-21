@@ -259,6 +259,11 @@ def install(namespace):
                 from mpmath.libmp.libmpf import dps_to_prec
                 prec = dps_to_prec(int(n)) + (4 if node is value or node == value else 64)
                 replacements[node] = root_float(node,prec)
+            elif node.class_name == 'RootSum':
+                from ._public_roots import root_sum_evalf
+                from mpmath.libmp.libmpf import dps_to_prec
+                value_ = root_sum_evalf(replaced,dps_to_prec(int(n)))
+                if value_ != replaced:replacements[node] = value_
         if replacements:value = value.xreplace(replacements)
         return old_evalf(value,n,*args,**kwargs)
     Expr.evalf = evalf
@@ -266,7 +271,7 @@ def install(namespace):
     Expr.n = evalf
     @wraps(old_diff)
     def derivative(self,*symbols,**kwargs):
-        if not any(node.class_name not in ('ComplexRootOf','Permanent','RootSum') for node in _special_nodes(self)):
+        if not any(node.class_name not in ('ComplexRootOf','Permanent') for node in _special_nodes(self)):
             return old_diff(self,*symbols,**kwargs)
         if kwargs.get('evaluate') is False:return old_diff(self,*symbols,**kwargs)
         if len(symbols) == 1 and hasattr(symbols[0],'shape'):return old_diff(self,*symbols,**kwargs)
@@ -291,7 +296,10 @@ def install(namespace):
             def d(node):
                 if node in memo:return memo[node]
                 if not node.has(variable):return sympify(0)
-                if node.class_name in _SPECIAL:
+                if node.class_name == 'RootSum':
+                    from ._public_roots import root_sum_derivative
+                    result = root_sum_derivative(node,variable)
+                elif node.class_name in _SPECIAL:
                     pieces = []
                     for index,arg in enumerate(node.args):
                         if not arg.has(variable):continue
@@ -344,7 +352,7 @@ def install(namespace):
     def doit(self,*args,**kwargs):
         if self.class_name == 'RootSum':
             from ._public_roots import root_sum_doit
-            return root_sum_doit(self)
+            return root_sum_doit(self,**kwargs)
         if self.class_name == 'Permanent':
             matrix = self.args[0]
             if matrix.kind == 'ImmutableMatrix':return matrix.as_explicit().per()

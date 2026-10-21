@@ -902,92 +902,255 @@ def _eval_is_eq(lhs, rhs):
 
 
 class RootSum(metaclass=_ExprType):
+    """Represents a sum of all roots of a univariate polynomial.
+
+    The reference ``sympy.polys.rootoftools.RootSum``. The native node holds
+    ``Lambda(gen, poly_expr)`` and ``fun``, so the generator of the
+    polynomial is bound; ``args`` gives the reference ``(expr, fun, gen)``.
+    """
     _matches = staticmethod(lambda expr:expr.class_name == 'RootSum')
-    def __new__(cls,expr,func=None,x=None,auto=True,quadratic=False):
-        from . import Lambda,Dummy,Tuple,Matrix,eye,zeros,sympify
-        # the factors of a polynomial with symbolic coefficients split as
-        # in the reference; only the remaining RootSum needs rational ones
-        p = _polynomial(expr,x,rational=False)
-        variable = p.gens[0]
-        if func is None:func = Lambda(variable,variable)
-        if not isinstance(func,Lambda):raise ValueError('root sum requires a univariate Lambda')
-        variables = func.variables
-        variables = variables.args if getattr(variables,'is_Tuple',False) else tuple(variables)
-        if len(variables) != 1:raise ValueError('root sum requires one bound variable')
-        t = variables[0]
-        body = func.expr
-        split = _split_root_sum(p, t, body, auto, quadratic)
-        if split is not None:
-            return split
-        _require_rational(p)
-        if auto:
-            # The trace of r(C), C the companion matrix, equals sum r(root).
-            numerator,denominator = body.as_numer_denom()
-            from . import Poly
-            try:
-                a,b = Poly(numerator,t),Poly(denominator,t)
-            except (ValueError,TypeError):pass
+
+    def __new__(cls, expr, func=None, x=None, auto=True, quadratic=False):
+        """Construct a new ``RootSum`` instance of roots of a polynomial."""
+        from . import Lambda, S, Add
+        from .polys.polyerrors import MultivariatePolynomialError
+        from .polys.polyroots import roots_linear, roots_quadratic
+        coeff, poly = cls._transform(expr, x)
+
+        if not poly.is_univariate:
+            raise MultivariatePolynomialError(
+                "only univariate polynomials are allowed")
+
+        if func is None:
+            func = Lambda(poly.gen, poly.gen)
+        else:
+            is_func = getattr(func, 'is_Function', False) or isinstance(func, Lambda)
+            if is_func and _accepts_one(func):
+                if not isinstance(func, Lambda):
+                    func = Lambda(poly.gen, func(poly.gen))
             else:
-                n = int(p.degree())
-                coefficients = p.monic().all_coeffs()
-                C = zeros(n)
-                for i in range(1,n):C[i,i-1] = 1
-                for i in range(n):C[i,n-1] = -coefficients[n-i]
-                def matrix_polynomial(poly):
-                    value = zeros(n)
-                    for coefficient in poly.all_coeffs():value = value*C+coefficient*eye(n)
-                    return value
-                return (matrix_polynomial(a)*matrix_polynomial(b).inv()).trace().simplify()
-        node = _core._apply('RootSum',Tuple(*p.monic().all_coeffs()),func,evaluate=False)
-        _sums[node] = p,func
+                raise ValueError(
+                    "expected a univariate function, got %s" % func)
+
+        var, expr = func.variables[0], func.expr
+
+        if coeff is not S.One:
+            expr = expr.subs(var, coeff*var)
+
+        deg = poly.degree()
+
+        if not expr.has(var):
+            return deg*expr
+
+        if expr.is_Add:
+            add_const, expr = expr.as_independent(var)
+        else:
+            add_const = S.Zero
+
+        if expr.is_Mul:
+            mul_const, expr = expr.as_independent(var)
+        else:
+            mul_const = S.One
+
+        func = Lambda(var, expr)
+
+        rational = cls._is_func_rational(poly, func)
+        factors, terms = _pure_factors(poly), []
+
+        for poly, k in factors:
+            if poly.degree() == 1:
+                term = func(roots_linear(poly)[0])
+            elif quadratic and poly.degree() == 2:
+                term = sum(map(func, roots_quadratic(poly)))
+            else:
+                if not rational or not auto:
+                    term = cls._new(poly, func, auto)
+                else:
+                    term = cls._rational_case(poly, func)
+
+            terms.append(k*term)
+
+        return mul_const*Add(*terms) + deg*add_const
+
+    @classmethod
+    def _new(cls, poly, func, auto=True):
+        """Construct new raw ``RootSum`` instance. """
+        from . import Lambda
+        node = _core._apply('RootSum', Lambda(poly.gen, poly.as_expr()), func, evaluate=False)
+        _sums[node] = poly, auto
         return node
 
+    @classmethod
+    def new(cls, poly, func, auto=True):
+        """Construct new ``RootSum`` instance. """
+        if not func.expr.has(*func.variables):
+            return func.expr
 
-def _split_root_sum(p, t, body, auto, quadratic):
-    """The reference ``RootSum.__new__`` over the factors of ``p``: a linear
-    factor contributes ``func`` at its root, the others a ``RootSum`` each.
-    ``None`` when ``p`` is irreducible and not linear."""
-    from . import Lambda, Add, S
-    deg = int(p.degree())
-    if not body.has(t):
-        return deg*body
-    try:
-        factors = p.factor_list()[1]
-    except Exception:
-        return None
-    if len(factors) == 1 and factors[0][1] == 1 and factors[0][0].degree() > 1:
-        if not (quadratic and factors[0][0].degree() == 2):
-            return None
-    if body.is_Add:
-        add_const, body = body.as_independent(t)
-    else:
-        add_const = S.Zero
-    if body.is_Mul:
-        mul_const, body = body.as_independent(t)
-    else:
-        mul_const = S.One
-    terms = []
-    for q, k in factors:
-        if q.degree() == 1:
-            term = body.subs(t, -q.nth(0)/q.nth(1))
-        elif quadratic and q.degree() == 2:
-            from .polys.polyroots import roots_quadratic
-            term = Add(*(body.subs(t, r) for r in roots_quadratic(q)))
+        rational = cls._is_func_rational(poly, func)
+
+        if not rational or not auto:
+            return cls._new(poly, func, auto)
         else:
-            term = RootSum(q.as_expr(), Lambda(t, body), q.gens[0], auto=auto)
-        terms.append(k*term)
-    return mul_const*Add(*terms) + deg*add_const
+            return cls._rational_case(poly, func)
+
+    @classmethod
+    def _transform(cls, expr, x):
+        """Transform an expression to a polynomial. """
+        from . import PurePoly
+        from .polys.polyroots import preprocess_roots
+        poly = PurePoly(expr, x, greedy=False)
+        return preprocess_roots(poly)
+
+    @classmethod
+    def _is_func_rational(cls, poly, func):
+        """Check if a lambda is a rational function. """
+        var, expr = func.variables[0], func.expr
+        return expr.is_rational_function(var)
+
+    @classmethod
+    def _rational_case(cls, poly, func):
+        """Handle the rational function case. """
+        from . import symbols, together, Poly, QQ, factor
+        from .polys.polyerrors import GeneratorsNeeded
+        from .polys.polyfuncs import symmetrize, viete
+        roots = symbols('r:%d' % poly.degree())
+        var, expr = func.variables[0], func.expr
+
+        f = sum(expr.subs(var, r) for r in roots)
+        p, q = together(f).as_numer_denom()
+
+        domain = QQ[roots]
+
+        p = p.expand()
+        q = q.expand()
+
+        try:
+            p = Poly(p, domain=domain, expand=False)
+        except GeneratorsNeeded:
+            p, p_coeff = None, (p,)
+        else:
+            p_monom, p_coeff = zip(*p.terms())
+
+        try:
+            q = Poly(q, domain=domain, expand=False)
+        except GeneratorsNeeded:
+            q, q_coeff = None, (q,)
+        else:
+            q_monom, q_coeff = zip(*q.terms())
+
+        coeffs, mapping = symmetrize(p_coeff + q_coeff, formal=True)
+        formulas, values = viete(poly, roots), []
+
+        for (sym, _), (_, val) in zip(mapping, formulas):
+            values.append((sym, val))
+
+        for i, (coeff, _) in enumerate(coeffs):
+            coeffs[i] = coeff.subs(values)
+
+        n = len(p_coeff)
+
+        p_coeff = coeffs[:n]
+        q_coeff = coeffs[n:]
+
+        if p is not None:
+            p = Poly(dict(zip(p_monom, p_coeff)), *p.gens).as_expr()
+        else:
+            (p,) = p_coeff
+
+        if q is not None:
+            q = Poly(dict(zip(q_monom, q_coeff)), *q.gens).as_expr()
+        else:
+            (q,) = q_coeff
+
+        return factor(p/q)
 
 
-def root_sum_doit(node):
-    from . import Dummy,Poly,Add
-    if node in _sums:p,function = _sums[node]
+def _accepts_one(func):
+    nargs = getattr(func, 'nargs', None)
+    if nargs is None:
+        return True
+    from . import Integer
+    try:
+        return 1 in nargs
+    except TypeError:
+        # the nominal FiniteSet of ``Lambda.nargs`` is not iterable here
+        return Integer(1) in getattr(nargs, 'args', ())
+
+
+def _pure_factors(poly):
+    from . import PurePoly
+    _, factors = poly.factor_list()
+    return [(PurePoly(f, expand=False), m) for f, m in factors]
+
+
+def _root_sum_poly(self):
+    from . import PurePoly
+    stored = _sums.get(self)
+    if stored is not None:
+        return stored[0]
+    (gen,), expr = _root_sum_lambda(self)
+    return PurePoly(expr, gen)
+
+
+def _root_sum_lambda(self):
+    lam = _core.Expr.args.__get__(self)[0]
+    return tuple(lam.variables), lam.expr
+
+
+def _root_sum_fun(self):
+    return _core.Expr.args.__get__(self)[1]
+
+
+def _root_sum_auto(self):
+    stored = _sums.get(self)
+    return True if stored is None else stored[1]
+
+
+def _root_sum_expr(self):
+    return self.poly.as_expr()
+
+
+def _root_sum_args(self):
+    return (self.expr, self.fun, self.poly.gen)
+
+
+def _root_sum_is_commutative(self):
+    return True
+
+
+def root_sum_doit(node, **hints):
+    from . import Add
+    from .polys.polyroots import roots
+    if not hints.get('roots', True):
+        return node
+
+    _roots = roots(node.poly, multiple=True)
+
+    if len(_roots) < node.poly.degree():
+        return node
     else:
-        coefficients,function = node.args
-        coefficients = coefficients.args
-        x = Dummy('x')
-        p = Poly(Add(*(c*x**(len(coefficients)-i-1) for i,c in enumerate(coefficients))),x)
-    return Add(*(function(RootOf(p,i)) for i in range(int(p.degree()))))
+        return Add(*[node.fun(r) for r in _roots])
+
+
+def root_sum_evalf(node, prec):
+    from . import Add
+    from mpmath.libmp.libmpf import prec_to_dps
+    from .polys.polyerrors import DomainError, PolynomialError
+    try:
+        _roots = node.poly.nroots(n=prec_to_dps(prec))
+    except (DomainError, PolynomialError):
+        return node
+    else:
+        return Add(*[node.fun(r) for r in _roots])
+
+
+def root_sum_derivative(node, x):
+    from . import Lambda
+    var, expr = node.fun.args
+    if getattr(var, 'is_Tuple', False) or isinstance(var, tuple):
+        (var,) = tuple(var)
+    func = Lambda(var, expr.diff(x))
+    return RootSum.new(node.poly, func, node.auto)
 
 
 def install():
@@ -996,6 +1159,13 @@ def install():
     for name, function in (('poly', _root_poly), ('index', _root_index), ('expr', _root_expr),
                            ('func', lambda self: ComplexRootOf)):
         type.__setattr__(cls, name, property(function))
+    root_sum = node_class('RootSum')
+    for name, function in (('poly', _root_sum_poly), ('fun', _root_sum_fun), ('auto', _root_sum_auto),
+                           ('expr', _root_sum_expr), ('args', _root_sum_args),
+                           ('is_commutative', _root_sum_is_commutative)):
+        type.__setattr__(root_sum, name, property(function))
+    type.__setattr__(root_sum, '_eval_evalf', lambda self, prec: root_sum_evalf(self, prec))
+    type.__setattr__(root_sum, '_eval_derivative', lambda self, x: root_sum_derivative(self, x))
     for method in (_ensure_reals_init, _ensure_complexes_init, _get_interval, _set_interval,
                    _reset, eval_approx, eval_rational, _eval_evalf, _eval_is_eq):
         type.__setattr__(cls, method.__name__, method)

@@ -33,7 +33,20 @@ fn arithmetic_expand_with(
     opaque: &mut dyn FnMut(&Expr) -> Option<Expr>,
 ) -> Expr {
     let mut cache = FxHashMap::default();
-    ex(e, &mut cache, options, opaque)
+    exf(e, &mut cache, options, opaque)
+}
+
+/// `ex` for a subexpression that is not flattened into its parent (a power
+/// base, a function argument, the root): its terms are final, so the
+/// multiplication hint now applies to each of them as a whole product.
+fn exf(
+    e: &Expr,
+    cache: &mut FxHashMap<usize, (Expr, Expr)>,
+    options: &ExpandOptions,
+    opaque: &mut dyn FnMut(&Expr) -> Option<Expr>,
+) -> Expr {
+    let r = ex(e, cache, options, opaque);
+    if options.deep && options.mul { fractional_sum_denominators(r) } else { r }
 }
 
 fn ex(
@@ -91,13 +104,18 @@ fn ex(
                 add(&v)
             }
         }
-        Kind::Mul(..) => {
+        Kind::Mul(c, facs) => {
+            // `c*f` for a number `c` distributes over a sum `f` when it is
+            // built, so the terms of `f` are not final yet
+            let flattened = !c.is_one() && facs.len() == 1;
             let factors: Vec<Expr> = e
                 .args()
                 .iter()
                 .map(|f| {
-                    if options.deep {
+                    if options.deep && flattened {
                         ex(f, cache, options, opaque)
+                    } else if options.deep {
+                        exf(f, cache, options, opaque)
                     } else {
                         f.clone()
                     }
@@ -133,12 +151,12 @@ fn ex(
         }
         Kind::Pow(b, x) => {
             let b2 = if options.deep {
-                ex(b, cache, options, opaque)
+                exf(b, cache, options, opaque)
             } else {
                 b.clone()
             };
             let x2 = if options.deep {
-                ex(x, cache, options, opaque)
+                exf(x, cache, options, opaque)
             } else {
                 x.clone()
             };
@@ -146,7 +164,7 @@ fn ex(
         }
         Kind::Func(Func::Exp, args) => {
             let a = if options.deep {
-                ex(&args[0], cache, options, opaque)
+                exf(&args[0], cache, options, opaque)
             } else {
                 args[0].clone()
             };
@@ -159,12 +177,36 @@ fn ex(
             }
         }
         _ if options.deep => {
-            crate::traverse::map_children(e, &mut |c| ex(c, cache, options, opaque))
+            crate::traverse::map_children(e, &mut |c| exf(c, cache, options, opaque))
         }
         _ => e.clone(),
     };
     cache.insert(e.dag_id(), (e.clone(), r.clone()));
     r
+}
+
+/// The reference expands every term `k*t` of a sum as a whole product: a
+/// fractional coefficient joins the denominator of `t` (`fraction`), and a
+/// number times a sum is distributed, so `1/(29791*(a + b))` becomes
+/// `1/(29791*a + 29791*b)`.
+fn fractional_sum_denominators(r: Expr) -> Expr {
+    if let Kind::Mul(k, _) = r.kind() {
+        return if k.is_rational() && !k.is_integer() && sum_denominator(&r) && has_multi_denominator(&r) {
+            expand_mul_node(&r)
+        } else {
+            r
+        };
+    }
+    let Kind::Add(_, terms) = r.kind() else { return r };
+    if !terms.iter().any(|(t, k)| k.is_rational() && !k.is_integer() && sum_denominator(t)) {
+        return r;
+    }
+    let parts: Vec<Expr> = r
+        .args()
+        .iter()
+        .map(|t| if t.is_mul() && has_multi_denominator(t) { expand_mul_node(t) } else { t.clone() })
+        .collect();
+    add(&parts)
 }
 
 fn expand_pow(
@@ -563,6 +605,16 @@ fn expand_mul_node(m: &Expr) -> Expr {
         r
     } else {
         expr
+    }
+}
+
+/// Has the term a sum raised to a negative power among its factors?
+fn sum_denominator(t: &Expr) -> bool {
+    let neg = |b: &Expr, x: &Expr| b.is_add() && x.as_number().is_some_and(|n| n.is_negative());
+    match t.kind() {
+        Kind::Pow(b, x) => neg(b, x),
+        Kind::Mul(_, facs) => facs.iter().any(|(b, x)| neg(b, x)),
+        _ => false,
     }
 }
 

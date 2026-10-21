@@ -325,7 +325,50 @@ impl FractionPoly {
         p.promote_field();
         p
     }
+    /// The coefficient-ring `gcd` (`PolynomialRing.gcd`) of two elements.
+    fn ring_gcd(&self, a: &RF, b: &RF) -> RF {
+        use super::domains::{DomainElement, ElementValue};
+        let wrap = |c: &RF| DomainElement { domain: self.coefficient_domain.clone(), value: ElementValue::Function(c.clone()) };
+        match wrap(a).gcd(&wrap(b)).expect("valid polynomial-ring coefficient gcd").value {
+            ElementValue::Function(c) => c,
+            _ => unreachable!(),
+        }
+    }
+    /// `K.is_negative` of a coefficient-ring element: the sign of its
+    /// leading ground coefficient.
+    fn ring_negative(c: &RF) -> bool {
+        !c.n.is_zero() && (c.n.lc().is_negative() != c.d.lc().is_negative())
+    }
+    /// The reference `dup_rr_prs_gcd` over a polynomial coefficient ring:
+    /// the gcd of the contents times the primitive part of the last
+    /// subresultant, normalized by `canonical_unit` of its leading term.
+    fn reference_ring_gcd(&self, other: &Self) -> PResult<Self> {
+        let _s = Scope::new(self.parameters.len());
+        let nonnegative = |p: &Self| if Self::ring_negative(&p.rep.lc()) { p.neg() } else { p.clone() };
+        match (self.rep.is_zero(), other.rep.is_zero()) {
+            (true, true) => return Ok(self.clone()),
+            (true, false) => return Ok(self.with_rep(nonnegative(other).rep)),
+            (false, true) => return Ok(nonnegative(self)),
+            _ => {}
+        }
+        let (fc, f) = self.reference_primitive();
+        let (gc, g) = other.reference_primitive();
+        let mut c = self.ring_gcd(&fc, &gc);
+        let prs = super::prs::subresultants(&f.rep, &g.rep, 0)?;
+        let last = prs.sequence.last().cloned().unwrap_or_else(|| g.rep.clone());
+        let (_, h) = self.with_rep(last).reference_primitive();
+        if Self::ring_negative(&h.rep.lc()) {
+            c = c.neg();
+        }
+        let _s = Scope::new(self.parameters.len());
+        Ok(self.with_rep(h.rep.scale(&c)))
+    }
     pub fn gcd(&self, other: &Self) -> Self {
+        if self.display.ends_with(']') && self.gens.len() == 1 {
+            if let Ok(h) = self.reference_ring_gcd(other) {
+                return h;
+            }
+        }
         let _s = Scope::new(self.parameters.len());
         // Gauss' lemma: clear coefficient denominators and compute the gcd
         // in QQ[parameters,generators], then discard coefficient units.
@@ -358,6 +401,19 @@ impl FractionPoly {
         // content first, form the primitive lcm, then restore lcm(contents).
         // Normalizing the product/gcd afterwards loses unit factors when
         // the coefficient domain itself has noncanonical gcd associates.
+        if self.gens.len()==1 {
+            // The reference `dup_rr_lcm`: lcm of the contents times the
+            // primitive product over the gcd, with its canonical unit.
+            let(fc,f)=self.reference_primitive();let(gc,g)=other.reference_primitive();
+            use super::domains::{DomainElement,ElementValue};
+            let wrap=|c:&RF|DomainElement{domain:self.coefficient_domain.clone(),value:ElementValue::Function(c.clone())};
+            let ElementValue::Function(mut c)=wrap(&fc).lcm(&wrap(&gc)).expect("valid coefficient-ring lcm").value else{unreachable!()};
+            let product=f.mul(&g);let gcd=f.gcd(&g);
+            let h=product.div_with_options(&gcd,false).expect("primitive gcd divides the product in its ring").0;
+            if Self::ring_negative(&h.rep.lc()){c=c.neg();}
+            let _scope=Scope::new(self.parameters.len());
+            return self.with_rep(h.rep.scale(&c));
+        }
         let a=self.coefficient_content();let b=other.coefficient_content();
         let target=a.lcm(&b).expect("valid coefficient-ring lcm");
         let(super::domains::ElementValue::Function(a),super::domains::ElementValue::Function(b),super::domains::ElementValue::Function(target))=(a.value,b.value,target.value)else{unreachable!()};
@@ -506,9 +562,9 @@ impl FractionPoly {
         }
         (cp, cq, p, q)
     }
-    /// The reference `dmp_ground_content` over the fraction field: the
-    /// field `gcd` (numerator gcd over denominator lcm) folded over the
-    /// coefficients, recursively by generator and descending degree, which
+    /// The reference `dmp_ground_content`: the coefficient-domain `gcd`
+    /// (over a fraction field, numerator gcd over denominator lcm; over a
+    /// polynomial ring, `PolyElement.gcd`) folded over the coefficients, recursively by generator and descending degree, which
     /// stops as soon as the running content is one.
     pub fn reference_content(&self) -> RF {
         let _s = Scope::new(self.parameters.len());
@@ -525,13 +581,15 @@ impl FractionPoly {
             let q = normalized(a.d.div_exact(&g).unwrap().mul(&b.d));
             RF::new(p, q)
         }
-        fn content(terms: &[(Vec<u32>, RF)], var: usize, nvars: usize, np: usize) -> RF {
+        let ring = self.display.ends_with(']');
+        let gcd = |a: &RF, b: &RF| if ring { self.ring_gcd(a, b) } else { field_gcd(a, b, np) };
+        fn content(terms: &[(Vec<u32>, RF)], var: usize, nvars: usize, gcd: &dyn Fn(&RF, &RF) -> RF) -> RF {
             let mut cont = RF::zero();
             if var + 1 >= nvars {
                 let mut sorted: Vec<&(Vec<u32>, RF)> = terms.iter().collect();
                 sorted.sort_by(|a, b| b.0.get(var).cmp(&a.0.get(var)));
                 for (_, c) in sorted {
-                    cont = field_gcd(&cont, c, np);
+                    cont = gcd(&cont, c);
                     if cont.is_one() {
                         break;
                     }
@@ -543,7 +601,7 @@ impl FractionPoly {
             degrees.dedup();
             for d in degrees {
                 let group: Vec<(Vec<u32>, RF)> = terms.iter().filter(|t| t.0[var] == d).cloned().collect();
-                cont = field_gcd(&cont, &content(&group, var + 1, nvars, np), np);
+                cont = gcd(&cont, &content(&group, var + 1, nvars, gcd));
                 if cont.is_one() {
                     break;
                 }
@@ -554,7 +612,7 @@ impl FractionPoly {
         if terms.is_empty() {
             return RF::zero();
         }
-        content(&terms, 0, self.gens.len(), np)
+        content(&terms, 0, self.gens.len(), &gcd)
     }
     /// The reference `Poly.primitive` over the fraction field, with the
     /// content of `reference_content`.

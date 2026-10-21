@@ -1127,7 +1127,8 @@ mod tests {
                 (value.clone(),Number::ONE),(value,Number::MINUS_ONE)]));
         }
         EVALUATIONS.with(|count|count.set(0));
-        assert_eq!(crate::assumptions::is_positive(&value),None);
+        // The reference also decides that this cancelling sum is not positive.
+        assert_eq!(crate::assumptions::is_positive(&value),Some(false));
         let visits=EVALUATIONS.with(|count|count.get());
         assert!(visits>0 && visits<=4*80,"{visits} evaluations");
         NUMERIC_MEMO.with(|memo|{let memo=memo.borrow();assert_eq!(memo.depth,0);assert!(memo.values.is_none());});
