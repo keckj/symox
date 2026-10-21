@@ -17,11 +17,17 @@ fn conds_name(conds: Conds) -> &'static str {
     }
 }
 
-/// The host callback of the native integrator. In the default chain the
-/// reference only catches NotImplementedError from `risch_integrate`; any
-/// other ordinary exception of the port also leaves the stage to the next
-/// method, while an interrupt (or another BaseException) is raised when the
-/// computation returns to Python.
+/// The host callback of the native integrator. The ports catch what the
+/// reference catches (NotImplementedError from `risch_integrate`,
+/// PolynomialError from `heurisch`, ValueError and PolynomialError from
+/// `manualintegrate`). When a `True` option selects the method, the port is
+/// the whole reference computation and any other exception is raised when
+/// the computation returns to Python, as the reference raises it out of
+/// `integrate` (`integrate(a**(t - s)/(a**t + 1), t, heurisch=True)` raises
+/// the TypeError of `factor_list`). In the default chain, where the native
+/// rules precede the ported stages, an ordinary exception only leaves the
+/// stage to the next method; an interrupt (or another BaseException) is
+/// always raised.
 fn integration_host(method: HostMethod, f: &Expr, x: &Expr, conds: Conds) -> HostOutcome {
     if symox::host::failure_pending() {
         return HostOutcome::Unavailable;
@@ -49,7 +55,12 @@ fn integration_host(method: HostMethod, f: &Expr, x: &Expr, conds: Conds) -> Hos
         match run() {
             Ok(outcome) => outcome,
             Err(error) => {
-                if !error.is_instance_of::<pyo3::exceptions::PyException>(py) {
+                let selected = match method {
+                    HostMethod::ManualOnly | HostMethod::HeurischOnly => true,
+                    HostMethod::Risch => host_methods::methods().risch == Some(true),
+                    HostMethod::Manual | HostMethod::Term => false,
+                };
+                if selected || !error.is_instance_of::<pyo3::exceptions::PyException>(py) {
                     crate::host::report(py, error, None);
                 }
                 HostOutcome::Unavailable

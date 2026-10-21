@@ -196,6 +196,87 @@ fn prepare<'py>(
         result => result,
     }
 }
+/// The factor list of the reference `_generic_factor_list` when a component
+/// of the expression has a symbolic or fractional multiplicity, which the
+/// typed factor lists cannot hold. `None` for other inputs, polynomials and
+/// explicit coefficient domains.
+fn symbolic_multiplicity_list<'py>(
+    f: &Bound<'py, PyAny>,
+    gens: &Bound<'py, PyTuple>,
+    modulus: Option<u64>,
+    kwargs: Option<&Bound<'py, PyDict>>,
+    squarefree: bool,
+) -> PyResult<Option<PyObject>> {
+    if f.downcast::<PyPoly>().is_ok() || modulus.is_some() {
+        return Ok(None);
+    }
+    let mut polys = false;
+    if let Some(kw) = kwargs {
+        for name in ["domain", "extension", "modulus", "gaussian", "field", "greedy", "symmetric"] {
+            if kw.get_item(name)?.is_some_and(|v| !v.is_none()) {
+                return Ok(None);
+            }
+        }
+        if let Some(value) = kw.get_item("polys")? {
+            polys = division::boolean(&value, "polys")? == Some(true);
+        }
+    }
+    let Ok(expression) = crate::to_expr(f) else { return Ok(None) };
+    if !symox::poly::api::has_symbolic_multiplicity(&expression) {
+        return Ok(None);
+    }
+    let mut component_gens = super::gens_of(gens)?;
+    if component_gens.is_empty() {
+        if let Some(g) = kwargs.map(|kw| kw.get_item("gens")).transpose()?.flatten().filter(|g| !g.is_none()) {
+            component_gens = if let Ok(g) = g.downcast::<PyTuple>() {
+                super::gens_of(g)?
+            } else if let Ok(g) = g.downcast::<pyo3::types::PyList>() {
+                g.iter().map(|g| crate::to_expr(&g)).collect::<PyResult<_>>()?
+            } else {
+                vec![crate::to_expr(&g)?]
+            };
+        }
+    }
+    let (coefficient, factors) = symox::poly::api::symbolic_multiplicity_factor_list(
+        &expression,
+        &component_gens,
+        squarefree,
+        Limits::default(),
+    )
+    .map_err(|error| match error {
+        symox::poly::convert::PolyError::Reference { kind: "PolificationFailed", message } => {
+            let py = f.py();
+            let build = || -> PyResult<PyErr> {
+                let kw = kwargs.map_or_else(|| Ok(PyDict::new(py)), |kw| kw.copy())?;
+                let options = py.import("symox.polys.polyoptions")?.getattr("Options")?.call1((gens, &kw))?;
+                let value = w(symox::parser::parse_str(&message).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?)
+                    .into_pyobject(py)?;
+                let exception = py.import("symox.polys.polyerrors")?.getattr("PolificationFailed")?.call1((options, &value, &value))?;
+                Ok(PyErr::from_value(exception))
+            };
+            build().unwrap_or_else(|e| e)
+        }
+        error => err(error),
+    })?;
+    let py = f.py();
+    let result = pyo3::types::PyList::empty(py);
+    for (p, k, int) in factors {
+        let p = super::domains::normalize_poly(p)?;
+        let value = if polys {
+            PyPoly { p }.into_pyobject(py)?.into_any().unbind()
+        } else {
+            w(p.as_expr()).into_pyobject(py)?.into_any().unbind()
+        };
+        // The multiplicities of a component of exponent one are Python
+        // ints, the others Integers, as in the reference.
+        let k = match k.as_number().and_then(|n| n.to_i64()) {
+            Some(n) if int && k.is_integer_number() => n.into_pyobject(py)?.into_any().unbind(),
+            _ => w(k).into_pyobject(py)?.into_any().unbind(),
+        };
+        result.append(PyTuple::new(py, [value, k])?)?;
+    }
+    Ok(Some(PyTuple::new(py, [w(coefficient).into_pyobject(py)?.into_any(), result.into_any()])?.into_any().unbind()))
+}
 pub(super) fn global_list<'py>(
     f: &Bound<'py, PyAny>,
     gens: &Bound<'py, PyTuple>,
@@ -208,7 +289,22 @@ pub(super) fn global_list<'py>(
             return global_fraction_list(f, gens, modulus, kwargs, squarefree);
         }
     }
-    let (p, polys) = prepare(f, gens, modulus, kwargs, false)?;
+    let (p, polys) = match prepare(f, gens, modulus, kwargs, false) {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            // A power such as (2*x + 2)**s is not a polynomial in x, but the
+            // reference factors its components.
+            if !error.is_instance_of::<division::OptionError>(f.py()) {
+                if let Some(list) = symbolic_multiplicity_list(f, gens, modulus, kwargs, squarefree)? {
+                    return Ok(list);
+                }
+            }
+            return Err(error);
+        }
+    };
+    if let Some(list) = symbolic_multiplicity_list(f, gens, modulus, kwargs, squarefree)? {
+        return Ok(list);
+    }
     let mut symbolic = f.downcast::<PyPoly>().is_err() && modulus.is_none();
     if let Some(kw) = kwargs {
         for name in ["domain", "extension", "modulus"] {

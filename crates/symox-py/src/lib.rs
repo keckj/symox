@@ -3256,6 +3256,18 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
 
 fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
     let (conditions,meijerg,methods)=integrate_options(kwargs)?;
+    // `integrate(f, *args)` is `Integral(f, *args).doit()`, and the
+    // constructor denests an `Integral` integrand (not a
+    // `NonElementaryIntegral`) by prepending its limits.
+    if let Kind::Func(Func::Integral,inner)=f.kind(){
+        if !args.is_empty()&&!symox::integrate::host_methods::is_nonelementary(f){
+            let mut merged=symox::binders::limits(inner).into_iter()
+                .map(|l|Ok(PyTuple::new(py,l.into_iter().map(wrap))?.into_any()))
+                .collect::<PyResult<Vec<_>>>()?;
+            merged.extend(args.iter());
+            return integrate_result(py,&inner[0],&PyTuple::new(py,merged)?,kwargs);
+        }
+    }
     if methods.risch==Some(true){
         for arg in args.iter(){
             if integration_limit(&arg)?.is_some_and(|limit|limit.len()>1){

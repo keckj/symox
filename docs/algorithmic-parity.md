@@ -578,10 +578,14 @@ see those patched onto their nearest SymPy ancestor (`Symbol`, `Function`,
 The explicit `NonElementaryIntegral` constructor builds a held native integral
 and retains its marker for reconstruction, pickle and the covered root
 structural operations. Constructing this marker does not prove that its
-integrand is non-elementary. The integration engine does not automatically use
-it to label unsupported computations: the complete Risch decision procedure
-remains unimplemented. Preserving that marker inside every composite native
-expression remains a separate obligation.
+integrand is non-elementary. `integrate` produces it only from a completed
+proof of the ported `risch_integrate` (exp and log towers, as in the
+reference): with `risch=True`, in the Risch stage of the default chain on
+the whole integrand, and in the Risch stage of the term loop. A computation
+that no method decides stays a plain `Integral`. The marker is kept by node
+identity: an equal `Integral` built elsewhere is not marked, the dummy
+substitution of a definite integral keeps it, and other rebuilds of a
+composite native expression may drop it.
 
 Boolean system constraints are converted to their equation meaning before
 linear solving: true is an identity, and false proves inconsistency. The public
@@ -640,9 +644,9 @@ returns `Piecewise((value, cond), (Integral, True))`, `'separate'` returns
 the pair and `'none'` drops it. A parameter range where the integral
 diverges therefore never receives the analytic continuation as its value.
 `meijerg=True` integrates only through Meijer G (an unevaluated Integral
-otherwise) and `meijerg=False` skips it. `risch`, `heurisch` and `manual`
-other than None still raise NotImplementedError: the native engine does not
-separate those methods, so it cannot honor them faithfully. An improper
+otherwise) and `meijerg=False` skips it. The `risch`, `heurisch` and `manual`
+options follow the reference `_eval_integral` (see the integration methods
+paragraph below). An improper
 bound limit that is not settled keeps the Integral unevaluated. An
 antiderivative jump at an interior pole or log branch point is removed
 through one-sided limits (`Expr._eval_interval`), so for example `tan` over
@@ -670,6 +674,63 @@ differences:
   (`test_piecewise_integrate1ca/cb`, `test_piecewise_integrate2`,
   issue 6900), and the Python `piecewise_fold` is not the native port (it
   orders the folded pieces differently).
+
+Integration methods. `risch_integrate` (with `prde`, `rde`),
+`manualintegrate`, `heurisch`/`heurisch_wrapper`, `ratint`,
+`trigintegrate` and `deltaintegrate` are ports of the reference modules,
+and the native integrator calls them in the reference order of
+`_eval_integral`:
+- `risch=True` runs only `risch_integrate`: a proven non-elementary part is
+  a `NonElementaryIntegral`, NotImplementedError (algebraic or trigonometric
+  integrands) leaves the factored `Integral`, as `Integral.doit` gives it,
+  and a definite integral raises ValueError, as in the reference;
+- `manual=True` and `heurisch=True` run `_eval_integral` with only that
+  method (the reference port, including the `Order` terms, `Piecewise`
+  and `sincos_to_sum` recursion); a True option turns the others off, two
+  True options raise ValueError;
+- a False option removes the method from the default chain: after the
+  native rules, `risch_integrate` on the whole integrand
+  (`result + i.doit(risch=False)`, or `NonElementaryIntegral(f).doit(
+  risch=False)` when nothing was integrated), then per term the linear power
+  shortcut, `ratint`, `trigintegrate`, `deltaintegrate`,
+  `singularityintegrate`, `risch_integrate`, `heurisch`, `meijerint` and
+  `manualintegrate` (whose leftover integrals are done with
+  `manual=False`), then the native term rules;
+- the undone result is `Integral(f, x).factor()`, so
+  `integrate(y*exp(x)/log(x), x)` is `y*NonElementaryIntegral(exp(x)/log(x),
+  x)` as in the reference.
+On the method examples of `test_risch.py`, `test_manual.py` and
+`test_heurisch.py` (see `tests/test_integrate_methods.py`) the type and
+printed form agree with the reference except for the gaps below. Remaining
+gaps:
+- the native rules run before the reference chain, so an integrand they
+  integrate keeps the native form: `x*exp(x) + exp(x**2)` gives
+  `(x - 1)*exp(x) + sqrt(pi)*erfi(x)/2` (reference `x*exp(x) - exp(x) +
+  ...`), and a definite integral that stays unevaluated is not split into
+  the reference sum of one-sided integrals
+  (`y*Integral((x - 1)*(x + 1)*exp(x)/log(x), (x, 1, 2))`);
+- `integrate(x + 1/log(x), (x, 1, 2))` gives `li(2) + oo` (reference `oo`):
+  numeric values of special functions such as `li(2)` have no sign here,
+  where the reference decides it by evaluation;
+- an exception other than NotImplementedError inside a ported method makes
+  that stage give no result in the default chain, where the reference lets
+  some of them out of `integrate`;
+- `deltaintegrate` is not used on the terms of the default chain that hold
+  a `DiracDelta`: the native delta rules (above) stand in for it, so the
+  singular products the reference assigns a value (`DiracDelta(x)/x` gives
+  `zoo*Heaviside(x)`) stay unevaluated; `heurisch=True` keeps the reference
+  stage;
+- after the reference chain fails, the native term rules can still find an
+  antiderivative the reference does not give;
+- `final=False` is accepted and ignored, and with `manual=True` or
+  `heurisch=True` the native definite stages (rational antiderivatives,
+  gamma moments) are still tried before the antiderivative;
+- `ratint(1/(x**5 + x + 1))` and similar `RootSum` results are slow (also
+  in the reference), and `RootSum` printing can differ.
+The ports depend on `cancel`: float coefficients outside the double range
+(`1e-300*u`) no longer underflow to zero or overflow to `oo`, but the forms of
+float `cancel` results still differ from the reference RR domain
+(`1/(0.2*x + 0.4)` is printed with scaled integer coefficients).
 
 `meijerint_indefinite` is ported (`_meijerint_indefinite_1`, the splitting
 points, the hyperbolic rewrite and the choice of the simplest result) and
@@ -980,10 +1041,10 @@ for constructing every stabilizer chain.
   heurisch and Meijer G methods available in SymPy. Meijer G definite
   integration, its convergence conditions and `hyperexpand` are ported (see
   above), and so are the Meijer G indefinite integrals and the Piecewise
-  integration of `Integral.doit`. The `risch`, `heurisch` and `manual`
-  method selections and `NonElementaryIntegral` results (which need a Risch
-  proof) remain open: those options still raise NotImplementedError, and
-  results the reference only reaches through heurisch can differ in form.
+  integration of `Integral.doit`, and so are the `risch`, `heurisch` and
+  `manual` methods with their options and the `NonElementaryIntegral`
+  results of a Risch proof (see the integration methods paragraph for the
+  remaining gaps).
   The integration corpus (`tools/integration_corpus.py`) now reports 1033
   identical and 89 equivalent results, against 988 and 93 before the
   Piecewise and Meijer G indefinite ports; 54 cases stay unevaluated where

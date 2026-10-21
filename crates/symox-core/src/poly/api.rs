@@ -331,9 +331,19 @@ fn symbolic_factor_list(e: &Expr, sqf: bool, modulus: Option<u64>) -> PResult<(E
     symbolic_factor_list_with(e,sqf,modulus,&[],None)
 }
 fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],checked:Option<super::factor_budget::Limits>)->PResult<(Expr,Vec<(FItem,Expr)>)> {
+    let (coeff, factors) = symbolic_factor_list_tracked(e, sqf, modulus, gens, checked, false)?;
+    Ok((coeff, factors.into_iter().map(|(f, k, _)| (f, k)).collect()))
+}
+/// `symbolic_factor_list_with`, with for each factor whether its
+/// multiplicity is a Python int in the reference list (the multiplicities
+/// of a `factor_list` call on a component of exponent one) rather than an
+/// Integer; the comparisons of the factor sort depend on it. `args_order`
+/// takes the components in the order of the public `Mul.args`.
+fn symbolic_factor_list_tracked(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],checked:Option<super::factor_budget::Limits>,args_order:bool)->PResult<(Expr,Vec<(FItem,Expr,bool)>)> {
     let mut coeff = Expr::one();
-    let mut factors: Vec<(FItem, Expr)> = Vec::new();
+    let mut factors: Vec<(FItem, Expr, bool)> = Vec::new();
     let args: Vec<Expr> = match e.kind() {
+        Kind::Mul(..) if args_order => crate::traverse::ordered_args(e),
         Kind::Mul(..) => {
             // SymPy's Mul.args order (ties in the factor sort keep it)
             let mut a = e.args();
@@ -354,7 +364,7 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
                     continue;
                 }
                 if b.is_number() {
-                    factors.push((FItem::E(b.clone()), x.clone()));
+                    factors.push((FItem::E(b.clone()), x.clone(), false));
                     continue;
                 }
                 (b.clone(), x.clone())
@@ -369,7 +379,7 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
                         p.gaussian = Some(selection.integral);
                         let (c, fs) = if sqf { p.sqf_list() } else { p.factor_list()? };
                         let ce = c.as_expr();
-                        let positive = ce.as_number().is_some_and(|n| n.is_positive());
+                        let positive = crate::assumptions::is_positive(&ce) == Some(true);
                         Some((ce, positive, fs.into_iter().map(|(q, k)| (FItem::E(q.as_expr()), k)).collect::<Vec<_>>()))
                     }
                     Err(_) => None,
@@ -391,7 +401,7 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
                     coeff = mul(&[coeff, pow(&scalar, &exp)]);
                     continue;
                 }
-                factors.push((FItem::E(base), exp));
+                factors.push((FItem::E(base), exp, false));
                 continue;
             }
         };
@@ -407,7 +417,7 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
         let(ce,positive,fs)=if let Some(limits)=checked {
             let result=super::checked_factors::compatible_list(&poly.into(),sqf,false,limits)?;
             let coefficient=result.unit.as_expr();
-            let positive=coefficient.as_number().is_some_and(|n|n.is_positive());
+            let positive=crate::assumptions::is_positive(&coefficient)==Some(true);
             (coefficient,positive,result.factors.into_iter().map(|(p,k)|(p.base,k)).collect())
         }else{
             let float = poly.is_float();
@@ -417,43 +427,60 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
         let fs: Vec<(FItem, u32)> = fs.into_iter().map(|(p, k)| (FItem::P(p), k)).collect();
         (ce, positive, fs)
         };
+        // The coefficient appended as `(_coeff, S.One)` has an Integer
+        // multiplicity.
+        let mut integer_one = None;
         if !ce.is_one() {
             if exp.is_integer_number() {
                 coeff = mul(&[coeff, pow(&ce, &exp)]);
             } else if positive {
-                factors.push((FItem::E(ce), exp.clone()));
+                factors.push((FItem::E(ce), exp.clone(), false));
             } else {
+                integer_one = Some(fs.len());
                 fs.push((FItem::E(ce), 1));
             }
         }
         if exp.is_one() {
-            factors.extend(fs.into_iter().map(|(f, k)| (f, Expr::int(k as i64))));
+            factors.extend(fs.into_iter().enumerate().map(|(i, (f, k))| (f, Expr::int(k as i64), integer_one != Some(i))));
         } else if exp.is_integer_number() {
-            factors.extend(fs.into_iter().map(|(f, k)| (f, mul(&[Expr::int(k as i64), exp.clone()]))));
+            factors.extend(fs.into_iter().map(|(f, k)| (f, mul(&[Expr::int(k as i64), exp.clone()]), false)));
         } else {
             let mut other = Vec::new();
             for (f, k) in fs {
+                // `f.as_expr().is_positive` of the reference.
                 let fe = f.as_expr();
-                if fe.as_number().is_some_and(|n| n.is_positive()) {
-                    factors.push((f, mul(&[Expr::int(k as i64), exp.clone()])));
+                if crate::assumptions::is_positive(&fe) == Some(true) {
+                    factors.push((f, mul(&[Expr::int(k as i64), exp.clone()]), false));
                 } else {
                     other.push(pow(&fe, &Expr::int(k as i64)));
                 }
             }
-            factors.push((FItem::E(mul(&other)), exp.clone()));
+            factors.push((FItem::E(mul(&other)), exp.clone(), false));
         }
     }
     if sqf {
-        // multiply factors of equal multiplicity
+        // multiply factors of equal multiplicity, in the order of the
+        // reference set of multiplicities: the small integers first.
         let mut ks: Vec<Expr> = Vec::new();
-        for (_, k) in &factors {
+        let mut python_int: Vec<bool> = Vec::new();
+        for (_, k, int) in &factors {
             if !ks.contains(k) {
                 ks.push(k.clone());
+                python_int.push(*int);
             }
+        }
+        // The set keeps the first of equal multiplicities.
+        let flags: Vec<(Expr, bool)> = ks.iter().cloned().zip(python_int).collect();
+        if ks.iter().any(|k| !k.is_integer_number()) {
+            let (mut integers, others): (Vec<Expr>, Vec<Expr>) = ks.into_iter().partition(|k| k.is_integer_number());
+            integers.sort_by_key(|k| k.as_number().and_then(|n| n.to_i64()).unwrap_or(0));
+            integers.extend(others);
+            ks = integers;
         }
         let mut out = Vec::new();
         for k in ks {
-            let group: Vec<&FItem> = factors.iter().filter(|(_, kk)| *kk == k).map(|(f, _)| f).collect();
+            let group: Vec<&FItem> = factors.iter().filter(|(_, kk, _)| *kk == k).map(|(f, _, _)| f).collect();
+            let int = flags.iter().any(|(x, int)| *x == k && *int);
             let item = if group.len() == 1 {
                 group[0].clone()
             } else {
@@ -479,24 +506,25 @@ fn symbolic_factor_list_with(e:&Expr,sqf:bool,modulus:Option<u64>,gens:&[Expr],c
                     (None, _) => FItem::E(mul(&exprs)),
                 }
             };
-            out.push((item, k));
+            out.push((item, k, int));
         }
         factors = out;
     }
     // collect duplicates
-    let mut out: Vec<(FItem, Expr)> = Vec::new();
-    for (f, k) in factors {
+    let mut out: Vec<(FItem, Expr, bool)> = Vec::new();
+    for (f, k, int) in factors {
         let fe = f.as_expr();
         if let Some(x) = out.iter_mut().find(|x| {
             if checked.is_some(){if let(FItem::P(a),FItem::P(b))=(&x.0,&f){if a.gens!=b.gens||a.ngens!=b.ngens||a.domain!=b.domain{return false;}}}
             x.0.as_expr()==fe
         }) {
             x.1 = add(&[x.1.clone(), k]);
+            x.2 &= int;
         } else {
-            out.push((f, k));
+            out.push((f, k, int));
         }
     }
-    out.retain(|(_, k)| !k.is_zero());
+    out.retain(|(_, k, _)| !k.is_zero());
     Ok((coeff, out))
 }
 
@@ -538,6 +566,145 @@ pub fn checked_natural_factor_list(e:&Expr,gens:&[Expr],squarefree:bool,prototyp
         let factors:Vec<_>=factors.into_iter().map(|(p,k)|(p.into(),k)).collect();
         super::checked_factors::verify_expression_factors(prototype,&coefficient,&factors,limits)?;
         Ok((coefficient,factors))
+    })
+}
+/// Whether a multiplicative component of `together(e)` is a power with a
+/// non-integer exponent, so that the reference `_symbolic_factor_list`
+/// gives it a symbolic or fractional multiplicity (`sqrt(x + 1)` is
+/// `(x + 1, 1/2)`, `a**s` is `(a, s)`).
+pub fn has_symbolic_multiplicity(e: &Expr) -> bool {
+    let (numerator, denominator) = as_numer_denom(&together(e));
+    let component = |c: &Expr| match c.kind() {
+        Kind::Pow(b, x) => !x.is_integer_number() && !(b.is_number() && x.is_number()),
+        _ => false,
+    };
+    [numerator, denominator].iter().any(|part| match part.kind() {
+        Kind::Mul(..) => part.args().iter().any(component),
+        _ => component(part),
+    })
+}
+
+/// `ka < kb` as the reference sort evaluates it, or the TypeError of an
+/// undecided relational. `int_a` tells that `ka` is a Python int.
+fn multiplicity_lt(ka: &Expr, int_a: bool, kb: &Expr) -> PResult<bool> {
+    if let (Some(a), Some(b)) = (ka.as_number(), kb.as_number()) {
+        if a.is_rational() && b.is_rational() {
+            return Ok(number_to_rat(&a) < number_to_rat(&b));
+        }
+    }
+    // An int on the left defers to the reflected `kb > ka`; an Integer
+    // builds `ka < kb`.
+    let relation = if int_a {
+        crate::relational::gt(kb, ka)
+    } else {
+        crate::relational::lt(ka, kb)
+    };
+    match relation.kind() {
+        Kind::Bool(value) => Ok(*value),
+        _ => Err(PolyError::Reference {
+            kind: "TypeError",
+            message: format!("cannot determine truth value of Relational: {}", relation),
+        }),
+    }
+}
+
+/// `key(x) < key(y)` for the reference `_sorted_factors` keys.
+fn factor_key_lt(
+    x: &(super::fraction::Polynomial, Expr, bool),
+    y: &(super::fraction::Polynomial, Expr, bool),
+    squarefree: bool,
+) -> PResult<bool> {
+    use std::cmp::Ordering;
+    let ((a, ka, int_a), (b, kb, _)) = (x, y);
+    if !squarefree {
+        let length = |p: &super::fraction::Polynomial| p.base.rep.degree(0).max(-1) + 1;
+        let main = length(a).cmp(&length(b)).then(component_gens(a).len().cmp(&component_gens(b).len()));
+        if main != Ordering::Equal {
+            return Ok(main == Ordering::Less);
+        }
+    }
+    if ka != kb {
+        return multiplicity_lt(ka, *int_a, kb);
+    }
+    Ok(compare_components(a, 0, b, 0, squarefree) == Ordering::Less)
+}
+
+/// CPython's `list.sort` (a natural run, then binary insertion) with a
+/// fallible `<`, so that an undecided comparison fails where the reference
+/// fails.
+fn reference_sort<T>(mut v: Vec<T>, lt: &dyn Fn(&T, &T) -> PResult<bool>) -> PResult<Vec<T>> {
+    let n = v.len();
+    if n < 2 {
+        return Ok(v);
+    }
+    let mut run = 2;
+    if lt(&v[1], &v[0])? {
+        while run < n && lt(&v[run], &v[run - 1])? {
+            run += 1;
+        }
+        v[..run].reverse();
+    } else {
+        while run < n && !lt(&v[run], &v[run - 1])? {
+            run += 1;
+        }
+    }
+    for start in run..n {
+        let (mut l, mut r) = (0, start);
+        while l < r {
+            let p = l + ((r - l) >> 1);
+            if lt(&v[start], &v[p])? {
+                r = p;
+            } else {
+                l = p + 1;
+            }
+        }
+        v[l..=start].rotate_right(1);
+    }
+    Ok(v)
+}
+
+/// The reference `_generic_factor_list` (without `frac`) for expressions
+/// whose components have symbolic or fractional multiplicities: the factors
+/// keep their multiplicity expressions, and the sort raises the reference
+/// TypeError when it cannot order two of them. Each factor tells whether its
+/// multiplicity is a Python int (otherwise an Integer or an expression).
+pub fn symbolic_multiplicity_factor_list(
+    e: &Expr,
+    gens: &[Expr],
+    squarefree: bool,
+    limits: super::factor_budget::Limits,
+) -> PResult<(Expr, Vec<(super::fraction::Polynomial, Expr, bool)>)> {
+    super::factor_budget::run(limits, || {
+        super::factor_preflight::check(e, limits)?;
+        guard_symbolic_factor_work(e, limits)?;
+        let together = together(e);
+        guard_symbolic_factor_work(&together, limits)?;
+        let (numerator, denominator) = as_numer_denom(&together);
+        let (cp, fp) = symbolic_factor_list_tracked(&numerator, squarefree, None, gens, Some(limits), true)?;
+        let (cq, fq) = symbolic_factor_list_tracked(&denominator, squarefree, None, gens, Some(limits), true)?;
+        if !fq.is_empty() {
+            return Err(PolyError::Generator(format!("a polynomial expected, got {}", e)));
+        }
+        let mut factors = Vec::with_capacity(fp.len());
+        for (f, k, int) in fp {
+            let poly = match f {
+                FItem::P(p) => p,
+                FItem::E(e) => {
+                    let e = expand(&e);
+                    match Poly::from_expr(&e, gens) {
+                        Ok(p) => p,
+                        // `_poly_from_expr` of a constant without generators.
+                        Err(_) if gens.is_empty() && e.is_number() => {
+                            return Err(PolyError::Reference { kind: "PolificationFailed", message: e.to_string() })
+                        }
+                        Err(error) => return Err(error),
+                    }
+                }
+            };
+            factors.push((super::fraction::Polynomial::from(poly), k, int));
+        }
+        let factors = reference_sort(factors, &|x, y| factor_key_lt(x, y, squarefree))?;
+        Ok((div(&cp, &cq), factors))
     })
 }
 /// One component of the reference `_symbolic_factor_list` for options that
@@ -1219,7 +1386,10 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
     if contains_bad(e) {
         return Ok(map_children(e, &mut |c| cancel(c).unwrap_or_else(|_| c.clone())));
     }
-    let (p, q) = as_numer_denom(e);
+    // `f.as_numer_denom()` of the reference: the denominator of a radical
+    // base is separated when its sign is known (sqrt(x**2/4 + 1) is
+    // sqrt(x**2 + 4)/2).
+    let (p, q) = crate::simptools::as_numer_denom(e);
     // The reference default domain ZZ_I/QQ_I: `I` is a coefficient, not a
     // generator, so (x**2 + 1)/(x - I) cancels to x + I.
     if let Some(selection) = super::gaussian::default_selection(&[p.clone(), q.clone()], &[]) {

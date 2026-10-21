@@ -1728,6 +1728,10 @@ impl PyPoly {
             let(c,p)=if f.coefficient_domain.is_field(){f.reference_primitive()}else{f.primitive()};let c=symox::poly::fraction::coefficient_expr(&c,&f.parameters);
             return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),poly_obj(py,p)?.into_bound(py)]);
         }
+        if self.p.base.has_domain_gens() && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ) {
+            let (c, p) = self.p.base.ground_primitive();
+            return PyTuple::new(py, [w(c.as_expr()).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()]);
+        }
         let (c, p) = self.p.primitive();
         PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()])
     }
@@ -1736,6 +1740,9 @@ impl PyPoly {
         if let Some(f)=self.ex(){return w(f.content());}
         if let Some(a)=&self.p.algebraic{if a.gaussian.is_some(){return w(a.primitive().0.as_expr());}return w(if self.p.is_zero(){Expr::zero()}else{Expr::one()});}
         if let Some(f)=&self.p.field {return w(symox::poly::fraction::coefficient_expr(&if f.coefficient_domain.is_field(){f.reference_content()}else{f.primitive().0},&f.parameters));}
+        if self.p.base.has_domain_gens() && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ) {
+            return w(self.p.base.ground_primitive().0.as_expr());
+        }
         w(rat_expr(&self.p.primitive().0))
     }
 

@@ -38,3 +38,20 @@ def test_transcendental_coefficients_divide_in_the_fraction_field(coefficient,me
         values=result if isinstance(result,tuple) else (result,)
         return [(str(v),str(v.domain)) for v in values]
     assert run(sx)==run(sp)
+
+
+@pytest.mark.parametrize('formula,gens',[
+    ('a**s*y + a**s','y'), ('exp(s)*y + exp(s)','y'), ('2*a**s*y + 4*a**s','y'),
+    ('a**s*y**2 + a**(2*s)','y'), ('-a**s*y - a**s','y'), ('-2*a**s*y + 4*a**(2*s)','y'),
+    ('(a**s + 1)*y + a**(2*s) - 1','y'), ('3*y*a**s/2 + a**s','y'),
+    ('a**s*exp(b)*y + a**s*exp(b)','y'), ('(a**s*y*z + a**s*y)/3 + 2*a**(2*s)*z/5','y z'),
+    ('3*a**s*y/2 + a**(2*s)*y/3 + a**s','y'), ('(a**(2*s) + 2*a**s + 1)*y + a**(2*s) - 1','y'),
+])
+def test_primitive_over_a_transcendental_coefficient_ring(formula,gens):
+    # As the reference dmp_ground_primitive: the content is the gcd in the
+    # coefficient ring ZZ[a**s] (or QQ[a**s]) of the coefficients.
+    def run(lib):
+        p=lib.Poly(lib.sympify(formula),*lib.symbols(gens,seq=True))
+        c,q=p.primitive()
+        return str(p.domain),str(c),str(q),str(p.content())
+    assert run(sx)==run(sp)
