@@ -24,6 +24,7 @@ pub mod laplace;
 mod laplace_integration;
 mod integral_backend;
 pub mod inverse_laplace;
+mod ilt_irrational;
 pub mod fourier;
 pub mod mellin;
 pub mod hankel;

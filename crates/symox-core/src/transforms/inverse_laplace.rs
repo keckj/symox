@@ -62,6 +62,7 @@ pub(crate) fn ilt(f: &Expr, s: &Expr, t: &Expr, plane: &Expr, dorational: bool, 
         let (k, g) = split_mul(&term, s);
         let r = (if dorational && is_rational(&term, s) { rational(&g, s, t, plane, depth) } else { None })
             .or_else(|| simple(&g, s, t))
+            .or_else(|| super::ilt_irrational::irrational(&g, s, t))
             .or_else(|| expand_rule(&g, s, t, plane, depth))
             .or_else(|| prog(&g, s, t, plane, depth))
             .unwrap_or_else(|| held_ilt(&g, s, t, plane));
@@ -107,8 +108,12 @@ fn rational(f: &Expr, s: &Expr, t: &Expr, plane: &Expr, depth: u32) -> Option<R>
                     let hyp = negv(&b);
                     let bb = if hyp { neg(&b) } else { b };
                     let bs = crate::simplify::simplify(&sqrt(&bb));
+                    // the even part takes the first root of x**2 - b, the odd
+                    // part the simplified square root, as the reference does
+                    let b2 = first_square_root(&bb).unwrap_or_else(|| bs.clone());
+                    let b2t = mul(&[b2, t.clone()]);
                     let bst = mul(&[bs.clone(), t.clone()]);
-                    let (c, sn) = if hyp { (cosh(&bst), sinh(&bst)) } else { (cos(&bst), sin(&bst)) };
+                    let (c, sn) = if hyp { (cosh(&b2t), sinh(&bst)) } else { (cos(&b2t), sin(&bst)) };
                     let ml = sub(&m, &mul(&[a.clone(), l.clone()]));
                     add(&[mul(&[l, ea.clone(), c]), mul(&[div(&ml, &bs), ea, sn])])
                 };
@@ -123,6 +128,13 @@ fn rational(f: &Expr, s: &Expr, t: &Expr, plane: &Expr, depth: u32) -> Option<R>
     }
     let cond = if conds.is_empty() { tru() } else { crate::logic::and(conds) };
     Some((add(&out), cond))
+}
+
+/// `list(roots(x_**2 - b, x_))[0]`.
+fn first_square_root(b: &Expr) -> Option<Expr> {
+    let x = Expr::dummy("x_", Default::default());
+    let rs = crate::poly::roots::roots(&sub(&pow(&x, &int(2)), b), &[x]).ok()?;
+    rs.into_iter().next().map(|(r, _)| r)
 }
 
 fn dirac_delta_n(t: &Expr, n: usize) -> Expr {
@@ -200,9 +212,17 @@ fn expand_rule(f: &Expr, s: &Expr, t: &Expr, plane: &Expr, depth: u32) -> Option
     if f.is_add() {
         return None;
     }
-    let r = crate::expand::expand(f);
-    if r.is_add() {
-        return Some(ilt(&r, s, t, plane, true, depth + 1));
+    let shallow = crate::expand::ExpandOptions { deep: false, ..Default::default() };
+    let steps: [&dyn Fn(&Expr) -> Expr; 3] = [
+        &|e| crate::expand::expand_with_options(e, &shallow, &mut crate::expand::ExpandBudget::default()).unwrap_or_else(|_| e.clone()),
+        &crate::simptools::expand_mul,
+        &crate::expand::expand,
+    ];
+    for step in steps {
+        let r = step(f);
+        if r.is_add() {
+            return Some(ilt(&r, s, t, plane, true, depth + 1));
+        }
     }
     if is_rational(f, s) {
         if let Ok(r) = crate::poly::api::apart(f, Some(s)) {
@@ -219,6 +239,7 @@ fn prog(f: &Expr, s: &Expr, t: &Expr, plane: &Expr, depth: u32) -> Option<R> {
         .or_else(|| freq_shift(f, s, t, plane))
         .or_else(|| time_diff(f, s, t, plane, depth))
         .or_else(|| freq_diff(f, s, t, plane, depth))
+        .or_else(|| super::ilt_irrational::irrational(f, s, t))
 }
 
 fn time_shift(f: &Expr, s: &Expr, t: &Expr, plane: &Expr, depth: u32) -> Option<R> {
