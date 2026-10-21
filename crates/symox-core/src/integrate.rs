@@ -22,6 +22,12 @@ const MAX_DEPTH: u32 = 10;
 
 mod rational_definite;
 mod dirac;
+mod meijerint;
+
+/// Stage probe of the Meijer G definite integration (testing only).
+pub fn meijerint_debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
+    meijerint::debug(op, args)
+}
 
 /// Exact absolute value at a distribution support point. None means the
 /// arithmetic probe was inconclusive or exceeded its local resource budget.

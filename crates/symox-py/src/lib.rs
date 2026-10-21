@@ -3186,6 +3186,16 @@ fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<
 }
 
 #[pyfunction]
+#[pyo3(signature = (op, *args))]
+fn _meijerint_debug(py: Python<'_>, op: &str, args: &Bound<'_, PyTuple>) -> PyResult<PyObject> {
+    let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
+    match symox::integrate::meijerint_debug(op, &v) {
+        None => Ok(py.None()),
+        Some(r) => Ok(PyTuple::new(py, r.into_iter().map(wrap))?.into_any().unbind()),
+    }
+}
+
+#[pyfunction]
 #[pyo3(name = "summation", signature = (f, *limits))]
 fn py_summation(f: &Bound<'_, PyAny>, limits: &Bound<'_, PyTuple>) -> PyResult<PyExpr> {
     if limits.is_empty(){return Err(PyValueError::new_err("summation requires (k,a,b) limits"));}
@@ -3700,6 +3710,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Head>()?;
     m.add_class::<PyCompiled>()?;
     m.add_function(wrap_pyfunction!(py_node, m)?)?;
+    m.add_function(wrap_pyfunction!(_meijerint_debug, m)?)?;
     m.add_function(wrap_pyfunction!(_register_node_types, m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_args,m)?)?;
     m.add_function(wrap_pyfunction!(add_memo::_exact_expr_key,m)?)?;
