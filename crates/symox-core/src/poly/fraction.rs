@@ -57,7 +57,7 @@ pub fn parse_domain(domain: &str, available: &[Expr]) -> PResult<Option<Vec<Expr
         ']'
     };
     // The reference fraction-field pattern only admits ZZ and QQ grounds.
-    if closing == ')' && matches!(&domain[..open], "ZZ_I" | "QQ_I") {
+    if closing == ')' && matches!(&domain[..open], "ZZ_I" | "QQ_I" | "R" | "RR" | "C" | "CC") {
         return Err(PolyError::Reference {
             kind: "OptionError",
             message: format!("expected a valid domain specification, got {domain}"),

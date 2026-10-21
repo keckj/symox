@@ -117,4 +117,4 @@ def test_inexact_symbolic_coefficients_keep_legacy_behavior():
     p=sm.Poly(sm.Float(0.5)*a*x+1,x)
     assert sm.simplify(p.integrate().diff().as_expr()-p.as_expr())==0
     assert pickle.loads(pickle.dumps(p))==p
-    with pytest.raises(NotImplementedError):p.domain
+    assert str(p.domain)=="RR[a]"
