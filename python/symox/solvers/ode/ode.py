@@ -1721,13 +1721,17 @@ def odesimp(ode, eq, func, hint):
     # allow simplifications under assumption that symbols are nonzero
     eq = eq.xreplace((_:={i: Dummy(nonzero=True) for i in constants})).xreplace({_[i]: i for i in _})
 
-    # A logarithmic second Frobenius solution (beyond SymPy 1.14) goes through
-    # constantsimp without its Order term: the common subexpression pass of
-    # constantsimp substitutes into the Order and drops the first series.
-    order_terms = []
-    if hint == '2nd_power_series_regular' and eq.rhs.has(log):
-        order_terms = [t for t in Add.make_args(eq.rhs) if isinstance(t, Order)]
-        eq = Eq(eq.lhs, Add(*[t for t in Add.make_args(eq.rhs) if not isinstance(t, Order)]))
+    # The logarithmic second Frobenius solution is a Symox extension (SymPy
+    # 1.14 returns the first series only). It is set aside so that the rest
+    # of the solution follows the reference simplification exactly, and it
+    # is added back with the next free constant after renumbering.
+    extension = S.Zero
+    if hint == '2nd_power_series_regular' and isinstance(eq, Equality) and eq.rhs.has(log):
+        parts = Add.make_args(eq.rhs)
+        logarithmic = [i for i, t in enumerate(parts) if t.has(log) and not isinstance(t, Order)]
+        if len(logarithmic) == 1:
+            extension = parts[logarithmic[0]]
+            eq = Eq(eq.lhs, Add(*[t for i, t in enumerate(parts) if i != logarithmic[0]]))
 
     # Second, clean up the arbitrary constants.
     # Right now, nth linear hints can put as many as 2*order constants in an
@@ -1787,8 +1791,10 @@ def odesimp(ode, eq, func, hint):
     for i, eqi in enumerate(eq):
         eq[i] = constantsimp(eqi, constants)
         eq[i] = constant_renumber(eq[i], ode.free_symbols)
-        if order_terms:
-            eq[i] = Eq(eq[i].lhs, eq[i].rhs + Add(*order_terms))
+        if extension != 0:
+            old_constant, = extension.free_symbols & constants
+            new_constant = get_numbered_constants([eq[i], ode], num=1)
+            eq[i] = Eq(eq[i].lhs, eq[i].rhs + extension.xreplace({old_constant: new_constant}))
 
     # If there is only 1 solution, return it;
     # otherwise return the list of solutions.
@@ -2655,10 +2661,12 @@ def ode_2nd_power_series_regular(eq, func, order, match):
                     finalseries2 += serdict2[key]*(x - x0)**power
                 finalseries2 += C1
                 finalseries2 = (x - x0)**m2*finalseries2
-            elif second != 0:
-                finalseries2 = C1*second
-            return Eq(f(x), collect(finalseries1 + finalseries2,
-                [C0, C1]) + Order(x**terms))
+            result = collect(finalseries1 + finalseries2, [C0, C1]) + Order(x**terms)
+            if second != 0:
+                # Symox extension: the reference result plus the logarithmic
+                # second solution, kept as one term (see odesimp).
+                result = Add(result, C1*second)
+            return Eq(f(x), result)
 
 
 def _frobenius_log(n, m, k, p0, q0, p, q, x0, x):

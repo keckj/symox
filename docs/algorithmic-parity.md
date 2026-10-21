@@ -202,6 +202,69 @@ Remaining gaps in this area:
   can be more accurate); exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.
 
+## Frobenius series on 2026-10-21
+
+`dsolve(..., hint='2nd_power_series_regular')` was audited against SymPy
+1.14.0 on 37 equations: Bessel of orders 0, 1/3, 1/2, 1, 3/2 and 2,
+Laguerre (plain, generalized and with integer parameter), Gauss
+hypergeometric, Euler (distinct, double, complex and integer-differing
+roots), roots differing by an integer with and without a logarithm,
+complex, irrational and symbolic roots, a nonhomogeneous equation, and
+the options `n=2, 3, 4, 8, 10` and `x0=1, -1`. Every case where SymPy
+returns a result now prints the same string in Symox (series, constants,
+grouping and `O` term); every case where SymPy raises gives the same
+exception and message. Each basis element Symox returns is certified by
+substituting it into the ODE (with `log` held as a symbol): the residual
+vanishes through the computed order.
+
+Fixes that made the default output match: `cse` no longer counts or
+enters `Order` terms when it looks for repeated subexpressions (it used to
+rewrite `O(x**6)` into `O(1)` and drop series); `terms_gcd(expand=False)`
+keeps a polynomial over shifted generators such as `x - 1` unexpanded
+(`clear_denoms` no longer rebuilds a ground-domain polynomial); and
+multiplicative `subs` splits a product with `fraction`, as `Mul._eval_subs`
+does, and keeps the residual coefficient as one factor, so
+`(3*C1*(x + 5)/7).subs(3*C1, C1)` is `C1*(x + 5)/7`.
+
+Deliberate extensions, which never change the reference part:
+
+- When the indicial roots coincide or differ by an integer with an
+  inconsistent recurrence, SymPy returns only the series of the larger
+  root. Symox returns the same expression plus `C2` times the logarithmic
+  Frobenius solution, which is set aside before constant simplification
+  and appended afterwards: `sol.subs(C2, 0)` is exactly the reference.
+- For non-polynomial `p` or `q`, SymPy calls `series(ser, x=x0, n=n+1)`,
+  which leaves the expression unexpanded, and reads wrong coefficients
+  (for example `-4*x` instead of `4*x` in `2F1(1, 2; 1/2; x)`, or only the
+  constant term of `2F1(1/2, 1; 3/2; x)`). Symox expands in `x - x0`; its
+  output is identical to SymPy's pipeline with only that call corrected.
+- With irrational roots (`x**2*f'' + x*f' + (x - 2)*f`), SymPy computes the
+  same raw series (`simplify=False` matches) but raises
+  `NotImplementedError: Not sure of sign of 6 - x0` from `Order.contains`
+  during constant simplification. Symox decides that comparison and
+  returns the certified basis.
+
+Differential tests: `tests/test_frobenius_parity.py` (hardcoded SymPy
+outputs, extension and certification checks).
+
+Remaining gaps in this area:
+
+- Complex indicial roots (Euler `x**2*f'' + x*f' + f`, Bessel of imaginary
+  order) and a symbolic order `nu` raise the reference `ValueError:
+  Expected Expr or iterable but got None`; no complex or parametric
+  Frobenius basis is produced.
+- `x*(1 - x)*f'' + (2 - 3*x)*f' - f` raises the reference `IndexError` in
+  the `2nd_hypergeometric` matcher of `classify_ode`, before the Frobenius
+  hint is reached.
+- Roots differing by an integer that is at least the requested number of
+  terms (`x**2*f'' - 11*x*f' + 36*f`, double root 6 with `n=6`) give
+  `O(1)`, as in SymPy; increase `n` to obtain the series.
+- With `x0 != 0` the result keeps SymPy's `O(x**n)`, an order at 0 rather
+  than at `x0`.
+- The logarithmic solution is not reduced to SymPy's normal form for
+  combinations of the two constants: it stays the Frobenius derivative
+  itself, so `C2` may contain a multiple of the first series.
+
 ## Remaining blocking gaps
 
 General noncommutative scalar algebra remains unsupported in this snapshot:
@@ -1099,7 +1162,8 @@ for constructing every stabilizer chain.
   `abaco2_unique_general`, so a default `dsolve` that reaches it (SymPy
   raises after about 80 s) can take far longer. Deliberate
   extensions are the logarithmic Frobenius basis for repeated or resonant
-  indicial roots, `ics` that name the generated constants, exact
+  indicial roots, the corrected expansion of non-polynomial Frobenius
+  coefficients, irrational indicial roots (see the Frobenius section), `ics` that name the generated constants, exact
   characteristic multiplicities in the fallback, the native PDE
   characteristic fallback, and `pdsolve` names that do not capture the
   equation's `xi`, `eta` or `F`. Nonlinear first-order PDEs, Charpit's
