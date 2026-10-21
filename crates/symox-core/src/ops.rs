@@ -1123,6 +1123,10 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             }
         }
         Kind::Const(Constant::E) => return crate::functions::exp(e),
+        // Piecewise._eval_power: the power of every piece
+        Kind::Piecewise(pieces) => {
+            return crate::relational::piecewise(pieces.iter().map(|(v, c)| (pow(v, e), c.clone())).collect());
+        }
         Kind::Func(Func::Order, _) => {
             if let Some(r) = crate::series::order::pow_hook(b, e) {
                 return r;
