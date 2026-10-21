@@ -199,19 +199,45 @@ Remaining gaps in this area:
   `CoercionFailed` where the reference raises `ValueError`;
   `ZZ[x][y].convert(ZZ[x](x))` and `set_domain` between `ZZ[x][y]` and
   `ZZ[x,y]` convert where the reference raises `CoercionFailed`;
-  `Poly` over `ZZ_I[x]`, `QQ_I[x]` or `QQ<sqrt(2)>[x]` raises
-  `NotImplementedError`; expression-level `factor` or `gcd` with a
+  `Poly` over `QQ<sqrt(2)>[x]` raises `NotImplementedError`; expression-level `factor` or `gcd` with a
   polynomial-ring `domain=` (e.g. `ZZ[x]`, `ZZ[x][y]`) raise
   `NotImplementedError` (the `Poly` methods work); adding a `ZZ[x][y]` and a
   `ZZ[x]` polynomial raises `TypeError` instead of `GeneratorsError`;
-  `ZZ_I[x].is_unit(I)` is `True` (reference `False`);
-  `QQ<sqrt(2)>(sqrt(2))` is accepted where the reference rejects it; inferred
-  domains with `I` and parameters stay `ZZ[y,I]` where the reference infers
-  `ZZ_I[y]` (resultants agree); fraction fields over `ZZ_I`, `QQ_I` or
-  algebraic fields are descriptor-only and raise `NotImplementedError` on
-  element construction. A `Poly` whose inferred coefficient domain is such a
-  fraction field (the reference `ZZ_I(N,pi)` of `-2*I*pi*n/N` in `n`, or
-  `ZZ_I(y)` of `I*x/y` in `x`) is built over `EX`: the coefficients and the
+  `QQ<sqrt(2)>(sqrt(2))` is accepted where the reference rejects it.
+- Gaussian composite grounds (differential tests in
+  `tests/test_gaussian_domains_parity.py`, 148 cases with hardcoded SymPy
+  1.14 outputs). `Poly` inference selects `ZZ_I[y]`, `QQ_I[y]`, `ZZ_I(y)`
+  and `ZZ_I(N,pi)` as the reference does (`Poly(I*x*y, x)`,
+  `Poly(I*x/2*y, x)`, `Poly(I*x/y, x)`, `Poly(-2*I*pi*n/N, n)`), with
+  `domain='ZZ_I[y]'`, `domain=ZZ_I.frac_field(y)`, `Domain.unify` and
+  `construct_domain` for ring grounds. A `Poly` over these domains keeps its
+  coefficients in the reference ground normal form and matches the
+  reference for printing (`(0 + 1*I)*y`), arithmetic, `div`/`rem`/`quo`,
+  `gcd`, `lcm`, `cofactors` (methods and the top-level functions),
+  `factor_list`, `sqf_list`, `sqf_part`, `content`, `primitive`, `monic`,
+  `clear_denoms`, `invert`, `gcdex`, `cancel`, `is_irreducible` and
+  `is_sqf`. `ZZ_I[x].is_unit(I)` is `False`, nested `is_unit` follows the
+  reference (`a.is_ground` and a unit leading coefficient, only `+-1` in a
+  non-field ground ring) and `canonical_unit` normalizes by the ground unit
+  of the leading coefficient; a `domain='ZZ_I(y)'` string raises the
+  reference `OptionError`, and `set_domain` from `ZZ_I[y]` to `ZZ[y]` raises
+  the reference `CoercionFailed`. Remaining gaps: fraction fields over
+  `ZZ_I`, `QQ_I` or algebraic fields have no domain elements
+  (`ZZ_I.frac_field(x)(...)` and `ZZ_I.frac_field(x).is_unit(...)` raise
+  `NotImplementedError`), so `construct_domain` gives `EX` for `[I/y]`,
+  `[-2*I*pi/N]` and `[I*y]` with `field=True` where the reference gives
+  `ZZ_I(y)` or `ZZ_I(N,pi)` (the `Poly` path is not affected); mixed float and
+  `I` coefficients with parameters (`Poly(I*x*y + 1.5, x)`) are not inferred
+  as `CC[y]`; `quo_ground`/`exquo_ground` with a non-divisible ground
+  element and the `QQ_I` `gcd` scaling of some multivariate inputs differ;
+  `sqf_list` of a multivariate polynomial over a composite Gaussian ground
+  raises `NotImplementedError`; `.rep` prints as an `EX` representation
+  instead of the reference `DMP_Python` over `ZZ_I[y]`; the representation
+  is expression-based (algorithms run on a flattened Gaussian polynomial),
+  so it is slower than the reference dense recursive one. The pre-existing
+  `ZZ[x].canonical_unit(ZZ[x](-x))` repr is `ZZ[x](-1)` (reference `-1`).
+- A `Poly` whose inferred coefficient domain is a fraction field over an
+  algebraic ground is built over `EX`: the coefficients and the
   arithmetic stay exact, but the domain and domain-specific operations
   (division, `gcd`, `factor`) differ from the reference.
 - Number factors of an unevaluated product are coefficients, as in the
