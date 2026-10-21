@@ -32,6 +32,24 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         if expression.is_zero:return S.Zero if not expression.is_Number else expression
         return hook(**options)
     if not expression.args:return expression
+    if getattr(expression,'is_Relational',False) and expression.rel_op in ('<','<=','>','>='):
+        return _relational_simplify(expression,options)
+    from .logic.boolalg import BooleanFunction, Xor
+    if isinstance(expression,BooleanFunction) and not isinstance(expression,Xor):
+        # BooleanFunction._eval_simplify starts with simplify_univariate
+        from .logic.boolalg import simplify_univariate
+        rv=simplify_univariate(expression)
+        if not isinstance(rv,BooleanFunction):
+            return rv.simplify(**options) if rv.args else rv
+        from . import simplify_logic
+        rv=rv.func(*[a.simplify(**options) if a.args else a for a in rv.args])
+        expression=simplify_logic(rv)
+        if not isinstance(expression,BooleanFunction):return expression
+    if getattr(expression,'is_Piecewise',False):
+        # Piecewise._eval_simplify
+        if expression.is_zero:return S.Zero
+        from ._public_calculus import piecewise_simplify
+        return piecewise_simplify(expression,**options)
     if _core._has_noncommutative_atoms(expression):
         from ._noncommutative import simplify as nc_simplify
         return nc_simplify(expression,**options)
@@ -82,6 +100,19 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         n,d=fraction(radsimp(1/denom,symbolic=False,max_terms=1))
         if n!=1:
             result=(numer*n).expand()/d
+    from . import Piecewise
+    if result.has(Piecewise):
+        # the Piecewise block of the reference simplify: fold, simplify the
+        # pieces and their conditions, then try factor_terms
+        from . import factor_terms
+        from ._public_calculus import piecewise_fold,piecewise_simplify
+        folded=piecewise_fold(result)
+        if folded.is_Piecewise:
+            folded=piecewise_simplify(folded,**dict(options,doit=False))
+            if folded.has(Piecewise):
+                factored=factor_terms(folded)
+                if measure(factored)<measure(folded):folded=factored
+            return folded
     if not (measure is count_ops and result==original):
         if measure(result)>ratio*measure(original):result=original
     if floats and rational is None:result=nfloat(result,exponent=False)
@@ -89,6 +120,87 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         from . import Integral,Sum,Product,Derivative,Limit,Subs
         if result.has(Integral,Sum,Product,Derivative,Limit,Subs):result=result.doit()
     return result
+
+
+def _relational_simplify(self,options):
+    """``Relational._eval_simplify`` of the reference for the inequalities:
+    evaluate a numeric difference, then write a univariate or linear
+    relation with the symbols on the left and keep it when it is smaller."""
+    from . import S, Add, Poly, poly, gcd, Expr
+    from .core.sorting import ordered
+    from .solvers.solveset import linear_coeffs
+    from .polys.polyerrors import PolynomialError
+    r = self.func(*[i.simplify(**options) for i in self.args])
+    if r.is_Relational:
+        if not isinstance(r.lhs, Expr) or not isinstance(r.rhs, Expr):
+            return r
+        dif = r.lhs - r.rhs
+        v = None
+        if dif.is_comparable:
+            v = dif.n(2)
+            if any(getattr(i, '_prec', None) == 1 for i in v.as_real_imag()):
+                rv, iv = [i.n(2) for i in dif.as_real_imag()]
+                v = rv + S.ImaginaryUnit*iv
+        elif dif.equals(0):
+            v = S.Zero
+        if v is not None:
+            r = r.func(v, S.Zero)
+        if r.is_Relational:
+            r = r.canonical
+        if r.is_Relational:
+            free = list(filter(lambda x: x.is_real is not False, r.free_symbols))
+            if len(free) == 1:
+                try:
+                    x = free.pop()
+                    dif = r.lhs - r.rhs
+                    m, b = linear_coeffs(dif, x)
+                    if m.is_zero is False:
+                        if m.is_negative:
+                            r = r.func(-b / m, x)
+                        else:
+                            r = r.func(x, -b / m)
+                    else:
+                        r = r.func(b, S.Zero)
+                except ValueError:
+                    try:
+                        p = poly(dif, x)
+                        c = p.all_coeffs()
+                        constant = c[-1]
+                        c[-1] = 0
+                        scale = gcd(c)
+                        c = [ctmp / scale for ctmp in c]
+                        r = r.func(Poly.from_list(c, x).as_expr(), -constant / scale)
+                    except PolynomialError:
+                        pass
+            elif len(free) >= 2:
+                try:
+                    free = list(ordered(free))
+                    dif = r.lhs - r.rhs
+                    m = linear_coeffs(dif, *free)
+                    constant = m[-1]
+                    del m[-1]
+                    scale = gcd(m)
+                    m = [mtmp / scale for mtmp in m]
+                    nzm = list(filter(lambda f: f[0] != 0, list(zip(m, free))))
+                    if scale.is_zero is False:
+                        if constant != 0:
+                            newexpr = Add(*[i * j for i, j in nzm])
+                            r = r.func(newexpr, -constant / scale)
+                        else:
+                            lhsterm = nzm[0][0] * nzm[0][1]
+                            del nzm[0]
+                            newexpr = Add(*[i * j for i, j in nzm])
+                            r = r.func(lhsterm, -newexpr)
+                    else:
+                        r = r.func(constant, S.Zero)
+                except ValueError:
+                    pass
+    if r.is_Relational:
+        r = r.canonical
+    measure = options['measure']
+    if measure(r) < options['ratio'] * measure(self):
+        return r
+    return self
 
 
 def expression_simplify(self,**kwargs):

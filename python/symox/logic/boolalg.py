@@ -255,3 +255,57 @@ def _install_lattice_elements():
 _install_lattice_elements()
 
 __all__ += ['And', 'Or', 'Not', 'Xor', 'Nand', 'Nor', 'Xnor', 'Implies', 'Equivalent', 'ITE']
+
+
+def simplify_univariate(expr):
+    """return a simplified version of univariate boolean expression, else ``expr``"""
+    from symox import S, Piecewise, Eq, Ne, And, Or, true, false
+    from symox import _core
+    if not isinstance(expr, BooleanFunction):
+        return expr
+    if expr.atoms(Eq, Ne):
+        return expr
+    c = expr
+    free = c.free_symbols
+    if len(free) != 1:
+        return c
+    x = free.pop()
+    ok, i = _core._piecewise_intervals(Piecewise((0, c), evaluate=False), x, True)
+    if not ok:
+        return c
+    if not i:
+        return false
+    args = []
+    # the reference rebinds ``c`` inside this loop and so tests the
+    # endpoints of later intervals on an earlier piece, which drops x = 0
+    # from Or(x <= 0, x >= 1) when that piece comes first; the endpoints
+    # are tested on the whole condition here
+    for a, b, _, _ in i:
+        if a is S.NegativeInfinity or a == S.NegativeInfinity:
+            if b == S.Infinity:
+                c = true
+            else:
+                if expr.subs(x, b) == True:  # noqa: E712
+                    c = (x <= b)
+                else:
+                    c = (x < b)
+        else:
+            incl_a = (expr.subs(x, a) == True)  # noqa: E712
+            incl_b = (expr.subs(x, b) == True)  # noqa: E712
+            if incl_a and incl_b:
+                if b.is_infinite:
+                    c = (x >= a)
+                else:
+                    c = And(a <= x, x <= b)
+            elif incl_a:
+                c = And(a <= x, x < b)
+            elif incl_b:
+                if b.is_infinite:
+                    c = (x > a)
+                else:
+                    c = And(a < x, x <= b)
+            else:
+                c = And(a < x, x < b)
+        args.append(c)
+    return Or(*args)
+__all__ += ['simplify_univariate']

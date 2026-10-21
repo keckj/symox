@@ -88,29 +88,210 @@ def piecewise_fold(expr, evaluate=True):
     return rv
 
 
-def piecewise_exclusive(expr,*,skip_nan=False,deep=True):
-    from . import Piecewise, And, Or, Not, sympify, false, nan, simplify_logic
-    from ._core import Expr
+def piecewise_exclusive(expr, *, skip_nan=False, deep=True):
+    """SymPy's ``piecewise_exclusive``: each condition excludes the earlier
+    ones, simplified with ``Boolean.simplify``."""
+    from . import Piecewise, And, Or, Not, sympify, false, true, nan
     expr = sympify(expr)
-    def visit(node):
-        if not isinstance(node,Expr) or not node.args:
-            return node
-        if node.is_Piecewise:
-            pieces,covered = [],false
-            for value,condition in _pairs(node):
-                exclusive = simplify_logic(And(condition,Not(covered)))
-                if exclusive != false:
-                    pieces.append((visit(value) if deep else value,exclusive))
-                covered = Or(covered,condition)
-            remainder = simplify_logic(Not(covered))
-            if not skip_nan and remainder != false:
-                pieces.append((nan,remainder))
-            return Piecewise(*pieces,evaluate=False)
-        if not deep:
-            return node
-        args = tuple(visit(a) for a in node.args)
-        return node if args == node.args else node.func(*args)
-    return visit(expr)
+
+    def make_exclusive(*pwargs):
+        pwargs = [tuple(a) for a in pwargs]
+        cumcond = false
+        newargs = []
+        for expr_i, cond_i in pwargs[:-1]:
+            cancond = And(cond_i, Not(cumcond)).simplify()
+            cumcond = Or(cond_i, cumcond).simplify()
+            newargs.append((expr_i, cancond))
+        expr_n, cond_n = pwargs[-1]
+        cancond_n = And(cond_n, Not(cumcond)).simplify()
+        newargs.append((expr_n, cancond_n))
+        if not skip_nan:
+            cumcond = Or(cond_n, cumcond).simplify()
+            if cumcond is not true and cumcond != true:
+                newargs.append((nan, Not(cumcond).simplify()))
+        return Piecewise(*newargs, evaluate=False)
+
+    if deep:
+        return expr.replace(Piecewise, make_exclusive)
+    if getattr(expr, 'is_Piecewise', False):
+        return make_exclusive(*_pairs(expr))
+    return expr
+
+
+def _diff_wrt(e):
+    """``Basic._diff_wrt`` of the reference: Symbols and applied undefined
+    functions."""
+    flag = getattr(e, '_diff_wrt', None)
+    if flag is not None:
+        return flag
+    if getattr(e, 'is_Symbol', False):
+        return True
+    from .core.function import AppliedUndef
+    return isinstance(e, AppliedUndef)
+
+
+def _blessed(e):
+    from . import Rational, NumberSymbol
+    return _diff_wrt(e.lhs) and (
+        _diff_wrt(e.rhs) or
+        isinstance(e.rhs, (Rational, NumberSymbol)))
+
+
+def _piecewise_simplify_eq_and(args):
+    from . import And, Eq
+    from .core.sorting import ordered
+    from .utilities.iterables import sift
+    for i, (expr, cond) in enumerate(args):
+        if isinstance(cond, And):
+            eqs, other = sift(cond.args, lambda i: isinstance(i, Eq), binary=True)
+        elif isinstance(cond, Eq):
+            eqs, other = [cond], []
+        else:
+            eqs = other = []
+        if eqs:
+            eqs = list(ordered(eqs))
+            for j, e in enumerate(eqs):
+                if _blessed(e):
+                    expr = expr.subs(*e.args)
+                    eqs[j + 1:] = [ei.subs(*e.args) for ei in eqs[j + 1:]]
+                    other = [ei.subs(*e.args) for ei in other]
+            cond = And(*(eqs + other))
+            args[i] = (expr, cond)
+    return args
+
+
+def _piecewise_simplify_equal_to_next_segment(args):
+    from . import And, Eq
+    from .core.sorting import ordered
+    from .utilities.iterables import sift
+    prevexpr = None
+    for i, (expr, cond) in reversed(list(enumerate(args))):
+        if prevexpr is not None:
+            if isinstance(cond, And):
+                eqs, other = sift(cond.args, lambda i: isinstance(i, Eq), binary=True)
+            elif isinstance(cond, Eq):
+                eqs, other = [cond], []
+            else:
+                eqs = other = []
+            _prevexpr = prevexpr
+            _expr = expr
+            if eqs and not other:
+                eqs = list(ordered(eqs))
+                for e in eqs:
+                    if len(args) == 2 or _blessed(e):
+                        _prevexpr = _prevexpr.subs(*e.args)
+                        _expr = _expr.subs(*e.args)
+            if _prevexpr == _expr:
+                args[i] = (args[i + 1][0], cond)
+            else:
+                prevexpr = expr
+        else:
+            prevexpr = expr
+    return args
+
+
+def piecewise_simplify_arguments(expr, **kwargs):
+    """SymPy's ``piecewise_simplify_arguments``.  The conditions come from
+    ``Piecewise._intervals`` on the whole real line, so a periodic
+    condition is rewritten only when it is never or always true (the
+    reference keeps the solutions of one period, which is wrong)."""
+    from . import S, Piecewise, Eq, And, Interval, Basic, nan, simplify
+    from . import _core
+    pairs = list(_pairs(expr))
+    f1 = pairs[0][1].free_symbols
+    args = None
+    if len(f1) == 1 and not expr.atoms(Eq):
+        x = f1.pop()
+        ok, abe_ = _core._piecewise_intervals(expr, x, True)
+
+        def include(c, x, a):
+            try:
+                return c.subs(x, a) == True  # noqa: E712
+            except TypeError:
+                return False
+        if ok:
+            args = []
+            covered = S.EmptySet
+            for a, b, e, i in abe_:
+                c = pairs[i][1]
+                incl_a = include(c, x, a)
+                incl_b = include(c, x, b)
+                iv = Interval(a, b, not incl_a, not incl_b)
+                cset = iv - covered
+                if not cset:
+                    continue
+                try:
+                    a = cset.inf
+                except NotImplementedError:
+                    pass
+                else:
+                    incl_a = include(c, x, a)
+                if incl_a and incl_b:
+                    if a.is_infinite and b.is_infinite:
+                        c = S.true
+                    elif b.is_infinite:
+                        c = (x > a) if a in covered else (x >= a)
+                    elif a.is_infinite:
+                        c = (x <= b)
+                    elif a in covered:
+                        c = And(a < x, x <= b)
+                    else:
+                        c = And(a <= x, x <= b)
+                elif incl_a:
+                    if a.is_infinite:
+                        c = (x < b)
+                    elif a in covered:
+                        c = And(a < x, x < b)
+                    else:
+                        c = And(a <= x, x < b)
+                elif incl_b:
+                    if b.is_infinite:
+                        c = (x > a)
+                    else:
+                        c = And(a < x, x <= b)
+                else:
+                    if a in covered:
+                        c = (x < b)
+                    else:
+                        c = And(a < x, x < b)
+                covered |= iv
+                if a is S.NegativeInfinity and incl_a:
+                    covered |= {S.NegativeInfinity}
+                if b is S.Infinity and incl_b:
+                    covered |= {S.Infinity}
+                args.append((e, c))
+            if not S.Reals.is_subset(covered):
+                args.append((nan, True))
+    if args is None:
+        args = list(pairs)
+        for i in range(len(args)):
+            e, c = args[i]
+            if isinstance(c, Basic):
+                c = simplify(c, **kwargs)
+            args[i] = (e, c)
+    doit = kwargs.pop('doit', None)
+    for i in range(len(args)):
+        e, c = args[i]
+        if isinstance(e, Basic):
+            newe = simplify(e, doit=False, **kwargs)
+            if newe != e:
+                e = newe
+        args[i] = (e, c)
+    if doit is not None:
+        kwargs['doit'] = doit
+    return Piecewise(*args)
+
+
+def piecewise_simplify(expr, **kwargs):
+    """SymPy's ``piecewise_simplify``."""
+    from . import Piecewise
+    expr = piecewise_simplify_arguments(expr, **kwargs)
+    if not getattr(expr, 'is_Piecewise', False):
+        return expr
+    args = [tuple(a) for a in _pairs(expr)]
+    args = _piecewise_simplify_eq_and(args)
+    args = _piecewise_simplify_equal_to_next_segment(args)
+    return Piecewise(*args)
 
 
 def _knots(values):
