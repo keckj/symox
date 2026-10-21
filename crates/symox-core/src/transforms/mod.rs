@@ -333,14 +333,33 @@ pub(crate) fn mellin_needeval(
 /// simplified when the strip check fails. `None` for every error; the
 /// reference lets the errors other than `IntegralTransformError` of the
 /// retry propagate out of the integration.
-pub(crate) fn inverse_mellin_meijerg(f: &Expr, s: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+pub(crate) fn inverse_mellin_meijerg(
+    f: &Expr,
+    s: &Expr,
+    x: &Expr,
+    a: &Expr,
+    b: &Expr,
+) -> Result<Option<Expr>, (&'static str, String)> {
+    // `my_imt`: an `IntegralTransformError` gives None, a strip error is
+    // retried once on the simplified transform, and every other error
+    // propagates with its reference class.
     let run = |f: &Expr| inverse_mellin::compute_meijerg(f, s, x, a, b);
+    let failed = |e: inverse_mellin::ImtError| match e {
+        inverse_mellin::ImtError::Transform(_) => Ok(None),
+        inverse_mellin::ImtError::Strip(m) => Err(("MellinTransformStripError", m)),
+        inverse_mellin::ImtError::NotImplemented(m) => Err(("NotImplementedError", m)),
+        inverse_mellin::ImtError::Type(m) => Err(("TypeError", m)),
+        inverse_mellin::ImtError::Value(m) => Err(("ValueError", m)),
+    };
     match run(f) {
-        Ok((g, _)) => Some(g),
+        Ok((g, _)) => Ok(Some(g)),
         Err(inverse_mellin::ImtError::Strip(_)) => {
             let e = crate::poly::api::cancel(&crate::expand::expand(f)).unwrap_or_else(|_| crate::expand::expand(f));
-            run(&crate::simplify::simplify(&e)).ok().map(|(g, _)| g)
+            match run(&crate::simplify::simplify(&e)) {
+                Ok((g, _)) => Ok(Some(g)),
+                Err(e) => failed(e),
+            }
         }
-        Err(_) => None,
+        Err(e) => failed(e),
     }
 }

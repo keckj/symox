@@ -20,6 +20,9 @@ use crate::special::SpecialFn;
 use crate::integrate::piecewise::{piecewise_fold, raw_piecewise};
 use crate::{Expr, Func, Kind};
 
+/// A reference exception: class name and message.
+pub type Fatal = (&'static str, String);
+
 /// `_has(res, hyper, meijerg)`: every piece of the folded result contains
 /// a hypergeometric or Meijer G-function.
 fn has_hyper(e: &Expr) -> bool {
@@ -61,12 +64,17 @@ fn is_true(e: &Expr) -> bool {
 
 /// `_meijerint_indefinite_1`: no substitution of `x`. `Ok(None)` when the
 /// integrand has no rewrite, `Err` for the errors that abort the method.
-fn indefinite_1(f: &Expr, x: &Expr) -> Result<Option<Expr>, ()> {
-    let Some((fac, po, gl, cond)) = rewrite1(f, x, true) else { return Ok(None) };
+fn indefinite_1(f: &Expr, x: &Expr) -> Result<Option<Expr>, Fatal> {
+    super::take_pending();
+    let rewritten = rewrite1(f, x, true);
+    if let Some(error) = super::take_pending() {
+        return Err(error);
+    }
+    let Some((fac, po, gl, cond)) = rewritten else { return Ok(None) };
     let mut res = Vec::new();
     for (big_c, s, g) in gl {
-        let (a, b) = get_coeff_exp(&g.z, x).ok_or(())?;
-        let (_, c) = get_coeff_exp(&po, x).ok_or(())?;
+        let (a, b) = get_coeff_exp(&g.z, x).ok_or_else(|| ("ValueError", super::coeff_exp_error(&g.z, x)))?;
+        let (_, c) = get_coeff_exp(&po, x).ok_or_else(|| ("ValueError", super::coeff_exp_error(&po, x)))?;
         let c = add(&[c, s]);
         // the substitution t = a*x**b gives fac*t**rho*G(t)
         let fac_ = div(&mul(&[fac.clone(), big_c, pow(x, &add(&[Expr::one(), c.clone()]))]), &b);
@@ -83,19 +91,19 @@ fn indefinite_1(f: &Expr, x: &Expr) -> Result<Option<Expr>, ()> {
             ao.push(one_rho);
             let mut bm = g.bm.clone();
             bm.push(neg_rho);
-            neg(&G::new(g.an.clone(), ao, bm, g.bo.clone(), z).ok_or(())?.to_expr())
+            neg(&G::try_new(g.an.clone(), ao, bm, g.bo.clone(), z).map_err(|m| ("ValueError", m))?.to_expr())
         } else {
             let mut an = g.an.clone();
             an.push(one_rho);
             let mut bo = g.bo.clone();
             bo.push(neg_rho);
-            G::new(an, g.ao.clone(), g.bm.clone(), bo, z).ok_or(())?.to_expr()
+            G::try_new(an, g.ao.clone(), g.bm.clone(), bo, z).map_err(|m| ("ValueError", m))?.to_expr()
         };
         // the antiderivative is most often expected near x = 0
         let place = (crate::assumptions::fact(&b, "extended_nonnegative") == Some(true)
             && !has_nan_or_zoo(&crate::subs::subs1(f, x, &Expr::zero())))
         .then(Expr::zero);
-        let r = crate::special::hyperexpand_options(&r, false, Some("default"), place.as_ref()).map_err(|_| ())?;
+        let r = crate::special::hyperexpand_options(&r, false, Some("default"), place.as_ref())?;
         res.push(super::powdenest_polar(&mul(&[fac_, r])));
     }
     let res = piecewise_fold(&add(&res), None);
@@ -111,8 +119,15 @@ fn indefinite_1(f: &Expr, x: &Expr) -> Result<Option<Expr>, ()> {
     ])))
 }
 
-/// `meijerint_indefinite(f, x)`.
+/// `meijerint_indefinite(f, x)`, where the errors the reference raises
+/// give `None` (the integration methods go on with the next one).
 pub(crate) fn meijerint_indefinite(f: &Expr, x: &Expr) -> Option<Expr> {
+    meijerint_indefinite_checked(f, x).ok().flatten()
+}
+
+/// `meijerint_indefinite(f, x)` with the reference errors: `Err((class,
+/// message))` where the reference raises, `Ok(None)` where it returns None.
+pub fn meijerint_indefinite_checked(f: &Expr, x: &Expr) -> Result<Option<Expr>, Fatal> {
     let mut points = vec![Expr::zero()];
     find_splitting_points(f, x, &mut points);
     points.sort_by(crate::sortkey::cmp_default);
@@ -120,12 +135,12 @@ pub(crate) fn meijerint_indefinite(f: &Expr, x: &Expr) -> Option<Expr> {
     let mut results = Vec::new();
     for a in points {
         let shifted = crate::subs::subs1(f, x, &add(&[x.clone(), a.clone()]));
-        let Some(res) = indefinite_1(&shifted, x).ok()? else { continue };
+        let Some(res) = indefinite_1(&shifted, x)? else { continue };
         let res = crate::subs::subs1(&res, x, &sub(x, &a));
         if has_hyper(&res) {
             results.push(res);
         } else {
-            return Some(res);
+            return Ok(Some(res));
         }
     }
     if has_head_in(f, &hyperbolic_heads()) {
@@ -135,22 +150,22 @@ pub(crate) fn meijerint_indefinite(f: &Expr, x: &Expr) -> Option<Expr> {
             "exp",
             true,
         );
-        if let Some(rv) = meijerint_indefinite(&rewritten, x) {
+        if let Some(rv) = meijerint_indefinite_checked(&rewritten, x)? {
             let mut exps = Vec::new();
             crate::traverse::preorder(&rv, &mut |s| {
                 if s.is_func(&Func::Exp) && !exps.contains(s) {
                     exps.push(s.clone())
                 }
             });
-            return Some(crate::poly::api::collect(
+            return Ok(Some(crate::poly::api::collect(
                 &crate::simptools::exprtools::factor_terms(&rv, false, false, false, true),
                 &exps,
-            ));
+            )));
         }
     }
-    results.into_iter().min_by(|r1, r2| {
+    Ok(results.into_iter().min_by(|r1, r2| {
         crate::simptools::nodes(r1)
             .cmp(&crate::simptools::nodes(r2))
             .then_with(|| crate::sortkey::cmp_default(r1, r2))
-    })
+    }))
 }

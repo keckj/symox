@@ -26,6 +26,12 @@ pub(crate) mod meijerint;
 pub(crate) mod piecewise;
 
 /// Stage probe of the Meijer G definite integration (testing only).
+/// `meijerint_indefinite(f, x)` with the errors the reference raises, as
+/// `(class name, message)`.
+pub fn meijerint_indefinite_checked(f: &Expr, x: &Expr) -> Result<Option<Expr>, (&'static str, String)> {
+    meijerint::meijerint_indefinite_checked(f, x)
+}
+
 pub fn meijerint_debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
     meijerint::debug(op, args)
 }

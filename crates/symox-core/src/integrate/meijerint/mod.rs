@@ -28,6 +28,42 @@ mod recursive;
 mod table;
 
 pub(crate) use indefinite::meijerint_indefinite;
+pub use indefinite::meijerint_indefinite_checked;
+
+thread_local! {
+    /// The first error the reference would raise out of a rewrite that
+    /// the port abandons instead (class name, message).
+    static PENDING: std::cell::RefCell<Option<(&'static str, String)>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Records the error the reference raises at this point; the first one
+/// wins, as the reference stops there.
+pub(crate) fn set_pending(class: &'static str, message: String) {
+    PENDING.with(|p| {
+        let mut p = p.borrow_mut();
+        if p.is_none() {
+            *p = Some((class, message));
+        }
+    });
+}
+
+pub(crate) fn has_pending() -> bool {
+    PENDING.with(|p| p.borrow().is_some())
+}
+
+pub(crate) fn take_pending() -> Option<(&'static str, String)> {
+    PENDING.with(|p| p.borrow_mut().take())
+}
+
+/// The `_CoeffExpValueError` message of `_get_coeff_exp(expr, x)`.
+pub(crate) fn coeff_exp_error(expr: &Expr, x: &Expr) -> String {
+    let e = expand_power_base(&crate::simptools::powsimp::powsimp(expr, &Default::default()));
+    let (_, m) = crate::decompose::as_coeff_mul(&e, std::slice::from_ref(x), false);
+    match m.as_slice() {
+        [m] if matches!(m.kind(), Kind::Pow(..)) => "expr not of form a*x**b".into(),
+        _ => format!("expr not of form a*x**b: {expr}"),
+    }
+}
 pub(crate) use inversion::meijerint_inversion;
 
 
@@ -51,21 +87,25 @@ impl G {
     /// parameters and an `a_i - b_j` that is a positive integer are rejected
     /// (SymPy raises ValueError; the caller abandons the rewrite).
     pub fn new(an: Vec<Expr>, ao: Vec<Expr>, bm: Vec<Expr>, bo: Vec<Expr>, z: Expr) -> Option<G> {
+        Self::try_new(an, ao, bm, bo, z).ok()
+    }
+    /// `new` with the reference ValueError message on a rejection.
+    pub fn try_new(an: Vec<Expr>, ao: Vec<Expr>, bm: Vec<Expr>, bo: Vec<Expr>, z: Expr) -> Result<G, String> {
         // meijerg.__new__ stores each parameter list `ordered`.
         let up = |v: Vec<Expr>| crate::simptools::ordered(v.iter().map(|p| unpolarify(p, false)).collect());
         let (an, ao, bm, bo) = (up(an), up(ao), up(bm), up(bo));
         if an.iter().chain(&ao).chain(&bm).chain(&bo).any(has_infinity) {
-            return None;
+            return Err("G-function parameters must be finite".into());
         }
         for a in &an {
             for b in &bm {
                 let d = sub(a, b);
                 if d.is_integer_number() && d.as_number().is_some_and(|n| n.is_positive()) {
-                    return None;
+                    return Err("no parameter a1, ..., an may differ from any b1, ..., bm by a positive integer".into());
                 }
             }
         }
-        Some(G { an, ao, bm, bo, z })
+        Ok(G { an, ao, bm, bo, z })
     }
     pub fn ap(&self) -> Vec<Expr> { self.an.iter().chain(&self.ao).cloned().collect() }
     pub fn bq(&self) -> Vec<Expr> { self.bm.iter().chain(&self.bo).cloned().collect() }
