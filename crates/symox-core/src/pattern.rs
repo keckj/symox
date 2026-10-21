@@ -141,17 +141,43 @@ fn assign(
     combine: &dyn Fn(&[Expr]) -> Expr,
     b: &mut Bindings,
     context: &mut Context,
+    scan: &mut ScanCache,
 ) -> bool {
     if context.error.is_some(){return false;}
     if let Some((p0, prest)) = pats.split_first() {
-        for i in 0..items.len() {
+        // Terms that cannot match `p0` under the current bindings are not
+        // visited; the others are visited in their original order.
+        let candidates = if !scan.unfiltered && neutral.is_zero() && items.len() >= DETERMINED_SCAN_MIN {
+            match determined_target(p0, b) {
+                Some(target) => Some(determined_candidates(items, &target, scan)),
+                None => factor_candidates(items, p0, pats.len(), scan, b),
+            }
+        } else { None };
+        if let Some(candidates) = &candidates {
+            if check_determined_filter() {
+                for i in 0..items.len() {
+                    if used[i] || candidates.binary_search(&i).is_ok() { continue; }
+                    let save = b.len();
+                    assert!(!m(&items[i], p0, b, context), "scan filter skipped a match: {} vs {}", items[i], p0);
+                    b.truncate(save);
+                }
+            }
+        }
+        let mut cursor = 0;
+        loop {
+            let i = match &candidates {
+                Some(candidates) => match candidates.get(cursor) { Some(&i) => i, None => break },
+                None if cursor < items.len() => cursor,
+                None => break,
+            };
+            cursor += 1;
             if context.error.is_some(){return false;}
             if used[i] {
                 continue;
             }
             let save = b.len();
             used[i] = true;
-            if m(&items[i], p0, b, context) && assign(items, used, prest, lone, neutral, combine, b, context) {
+            if m(&items[i], p0, b, context) && assign(items, used, prest, lone, neutral, combine, b, context, scan) {
                 return true;
             }
             used[i] = false;
@@ -159,11 +185,28 @@ fn assign(
         }
         // the pattern item may match the neutral element (0 or 1)
         let save = b.len();
-        if m(neutral, p0, b, context) && assign(items, used, prest, lone, neutral, combine, b, context) {
+        if m(neutral, p0, b, context) && assign(items, used, prest, lone, neutral, combine, b, context, scan) {
             return true;
         }
         b.truncate(save);
         return false;
+    }
+    // A bound lone wildcard without an equal unused item (and other than
+    // the neutral element) fails below whatever the other items are.
+    if !scan.unfiltered && items.len() >= DETERMINED_SCAN_MIN && lone.iter().any(|w| lookup(b, w).is_some()) {
+        let values = scan.values(items);
+        let missing = lone.iter().any(|w| lookup(b, w).is_some_and(|v| {
+            v != neutral && !values.get(v).is_some_and(|positions| positions.iter().any(|&j| !used[j]))
+        }));
+        if missing {
+            if check_determined_filter() {
+                let save = b.len();
+                assert!(!assign(items, used, pats, lone, neutral, combine, b, context, &mut ScanCache { unfiltered: true, ..ScanCache::default() }),
+                    "lone wildcard filter skipped a match");
+                b.truncate(save);
+            }
+            return false;
+        }
     }
     let mut left: Vec<Expr> = items.iter().zip(used.iter()).filter(|(_, u)| !**u).map(|(x, _)| x.clone()).collect();
     // lone wildcards already bound by the other pattern items consume an
@@ -195,7 +238,7 @@ fn assign(
                     let mut rest = left.clone();
                     rest.remove(i);
                     let mut used2 = vec![false; rest.len()];
-                    if assign(&rest, &mut used2, &[], &unbound[1..], neutral, combine, b, context) {
+                    if assign(&rest, &mut used2, &[], &unbound[1..], neutral, combine, b, context, &mut ScanCache::default()) {
                         return true;
                     }
                 }
@@ -203,7 +246,7 @@ fn assign(
             }
             if m(neutral,&firsts[0],b,context) {
                 let mut used=vec![false;left.len()];
-                if assign(&left,&mut used,&[],&unbound[1..],neutral,combine,b,context){return true;}
+                if assign(&left,&mut used,&[],&unbound[1..],neutral,combine,b,context,&mut ScanCache::default()){return true;}
             }
             b.truncate(save);
             // A constrained wildcard can need a group of terms, rather than
@@ -218,6 +261,154 @@ fn assign(
     }
 }
 
+/// Sums (or products, for bound lone wildcards) at least this long use
+/// the indexes of `ScanCache` instead of visiting every term.
+const DETERMINED_SCAN_MIN: usize = 8;
+
+fn check_determined_filter() -> bool {
+    static CHECK: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *CHECK.get_or_init(|| std::env::var_os("SYMOX_CHECK_DETERMINED_FILTER").is_some())
+}
+
+/// Exact arithmetic without held, bound, host or floating-point nodes: the
+/// rebuilding arithmetic of the matcher (quotients by fixed factors,
+/// differences with fixed terms, reciprocals) round-trips on such terms.
+fn plain_term(e: &Expr) -> bool {
+    !e.has_held_arithmetic() && !e.has_binding_identity() && !e.has_host() && e.float_info().max_precision.is_none()
+}
+
+/// The term a sum pattern term rebuilds to when the current bindings bind
+/// every wildcard in it. Matching such a term binds nothing new and
+/// succeeds only on an equal term: each matcher step accepts a sub-term
+/// only when the corresponding pattern part rebuilds to it, so a plain term
+/// that differs from the target cannot match and is not visited. The
+/// equal terms are found by value, so the cost does not grow with the
+/// length of the sum for every binding of the earlier pattern terms.
+fn determined_target(p: &Expr, b: &Bindings) -> Option<Expr> {
+    if !has_wild(p) {
+        return None;
+    }
+    let mut map: FxHashMap<Expr, Expr> = FxHashMap::default();
+    let mut complete = true;
+    crate::traverse::preorder(p, &mut |node| {
+        if complete && is_wild(node) {
+            match lookup(b, node) {
+                Some(v) => {
+                    map.insert(node.clone(), v.clone());
+                }
+                None => complete = false,
+            }
+        }
+    });
+    if !complete {
+        return None;
+    }
+    let target = xreplace(p, &map);
+    plain_term(&target).then_some(target)
+}
+
+/// Per-search indexes of the sum terms, one for each position of the
+/// pattern terms (keyed by the number of pattern terms still to place, which
+/// identifies the position within one search over the same terms).
+#[derive(Default)]
+struct ScanCache {
+    factors: FxHashMap<usize, Option<FactorIndex>>,
+    /// Positions of the terms by value.
+    values: Option<FxHashMap<Expr, Vec<usize>>>,
+    /// Positions of the terms that are not `plain_term`.
+    irregular: Option<Vec<usize>>,
+    /// Visit every term (used to check the filters).
+    unfiltered: bool,
+}
+
+impl ScanCache {
+    fn values(&mut self, items: &[Expr]) -> &FxHashMap<Expr, Vec<usize>> {
+        self.values.get_or_insert_with(|| {
+            let mut values: FxHashMap<Expr, Vec<usize>> = FxHashMap::default();
+            for (j, item) in items.iter().enumerate() {
+                values.entry(item.clone()).or_default().push(j);
+            }
+            values
+        })
+    }
+}
+
+/// The terms (ascending) that can match a pattern term whose wildcards are
+/// all bound: those equal to its rebuilt `target` and those that are not
+/// plain (see `determined_target`).
+fn determined_candidates(items: &[Expr], target: &Expr, scan: &mut ScanCache) -> Vec<usize> {
+    let mut candidates = scan.values(items).get(target).cloned().unwrap_or_default();
+    let irregular = scan.irregular.get_or_insert_with(|| (0..items.len()).filter(|&j| !plain_term(&items[j])).collect());
+    if !irregular.is_empty() {
+        candidates.extend(irregular.iter().copied());
+        candidates.sort_unstable();
+        candidates.dedup();
+    }
+    candidates
+}
+
+/// For a product pattern term with bare wildcard factors: the factors each
+/// sum term leaves once divided by the fixed factors, exactly as
+/// `match_mul` computes them.
+struct FactorIndex {
+    lone: Vec<Expr>,
+    by_factor: FxHashMap<Expr, Vec<usize>>,
+}
+
+fn factor_index(items: &[Expr], p: &Expr) -> Option<FactorIndex> {
+    // Wildcard properties are evaluated (and can fail with an error) while
+    // matching: such patterns are scanned term by term.
+    if !matches!(p.kind(), Kind::Mul(..)) || p.has_wild_properties() {
+        return None;
+    }
+    let (fixed, wilds): (Vec<Expr>, Vec<Expr>) = p.args().into_iter().partition(|t| !has_wild(t));
+    let lone: Vec<Expr> = wilds.into_iter().filter(is_wild).collect();
+    if lone.is_empty() {
+        return None;
+    }
+    let fixed_prod = mul(&fixed);
+    let mut by_factor: FxHashMap<Expr, Vec<usize>> = FxHashMap::default();
+    for (j, item) in items.iter().enumerate() {
+        let q = div(item, &fixed_prod);
+        let factors = match q.kind() {
+            Kind::Mul(..) => q.args(),
+            _ if q.is_one() => vec![],
+            _ => vec![q],
+        };
+        for f in factors {
+            let list = by_factor.entry(f).or_default();
+            if list.last() != Some(&j) {
+                list.push(j);
+            }
+        }
+    }
+    Some(FactorIndex { lone, by_factor })
+}
+
+/// The sum terms (ascending) that can match the product pattern term `p`
+/// under the current bindings, when a bare wildcard factor of `p` is bound
+/// to a value other than 1. `match_mul` matches the other pattern factors
+/// against the factors of the term divided by the fixed factors and then
+/// requires a bound bare wildcard to consume an equal leftover factor (or
+/// to be 1), so a term lacking that factor cannot match. Returns `None`
+/// when no such filter applies.
+fn factor_candidates(items: &[Expr], p: &Expr, key: usize, scan: &mut ScanCache, b: &Bindings) -> Option<Vec<usize>> {
+    let index = scan.factors.entry(key).or_insert_with(|| factor_index(items, p)).as_ref()?;
+    let mut best: Option<&[usize]> = None;
+    for w in &index.lone {
+        if let Some(v) = lookup(b, w) {
+            if v.is_one() {
+                continue;
+            }
+            let list = index.by_factor.get(v).map(Vec::as_slice).unwrap_or(&[]);
+            if best.is_none_or(|current| list.len() < current.len()) {
+                best = Some(list);
+            }
+        }
+    }
+    best.map(<[usize]>::to_vec)
+}
+
 fn assign_group(items:&[Expr],wilds:&[Expr],remaining:usize,start:usize,chosen:&mut Vec<usize>,neutral:&Expr,
     combine:&dyn Fn(&[Expr])->Expr,b:&mut Bindings,context:&mut Context)->bool {
     if context.error.is_some(){return false;}
@@ -227,7 +418,7 @@ fn assign_group(items:&[Expr],wilds:&[Expr],remaining:usize,start:usize,chosen:&
         if m(&combine(&selected),&wilds[0],b,context){
             let rest=items.iter().enumerate().filter(|(i,_)|chosen.binary_search(i).is_err()).map(|(_,e)|e.clone()).collect::<Vec<_>>();
             let mut used=vec![false;rest.len()];
-            if assign(&rest,&mut used,&[],&wilds[1..],neutral,combine,b,context){return true;}
+            if assign(&rest,&mut used,&[],&wilds[1..],neutral,combine,b,context,&mut ScanCache::default()){return true;}
         }
         b.truncate(save);return false;
     }
@@ -261,7 +452,7 @@ fn match_add(e: &Expr, p: &Expr, b: &mut Bindings, context: &mut Context) -> boo
     let (lone, pats): (Vec<Expr>, Vec<Expr>) = wilds.into_iter().partition(is_wild);
     let mut used = vec![false; items.len()];
     let save = b.len();
-    let ok = assign(&items, &mut used, &pats, &lone, &Expr::zero(), &|v: &[Expr]| add(v), b, context);
+    let ok = assign(&items, &mut used, &pats, &lone, &Expr::zero(), &|v: &[Expr]| add(v), b, context, &mut ScanCache::default());
     if !ok {
         b.truncate(save);
     }
@@ -314,7 +505,7 @@ fn match_mul(e: &Expr, p: &Expr, b: &mut Bindings, context: &mut Context) -> boo
     let (lone, pats): (Vec<Expr>, Vec<Expr>) = wilds.into_iter().partition(is_wild);
     let mut used = vec![false; items.len()];
     let save = b.len();
-    let ok = assign(&items, &mut used, &pats, &lone, &Expr::one(), &|v: &[Expr]| mul(v), b, context);
+    let ok = assign(&items, &mut used, &pats, &lone, &Expr::one(), &|v: &[Expr]| mul(v), b, context, &mut ScanCache::default());
     if !ok {
         b.truncate(save);
     }

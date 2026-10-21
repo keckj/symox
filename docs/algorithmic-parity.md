@@ -1273,15 +1273,37 @@ Symbol/Function inheritance, immutable/sparse subclasses, subclass serialization
 and unqualified matrix methods remain open.
 
 The lightweight trigonometric engine used by native general simplification
-now memoizes shared subexpressions within each recursive transformation pass.
-Head discovery visits each distinct node once and combines the same head bits;
-rewrite rules, acceptance conditions and candidate ranking are retained. Local
-caches keep expression owners alive to prevent reuse of identity keys. Exact
-identity and unchanged-expression tests cover graphs whose expanded trees have
-more than `2**64` occurrences. Public traversal multiplicities are unchanged.
-This removes repeated work in these passes, not the inherent cost of expression
-growth or pattern matching. The separate public matching/Fu driver and the
-complexity of the complete `simplify` pipeline remain separate obligations.
+memoizes shared subexpressions. Its rule rewrites, rule fixpoints and
+trigsimp results are shared by every pass, nested call and candidate of one
+`simplify` call. Keys compare structurally, and a hit is used only when the
+stored key has the same presentation. Node sizes and head sets are cached by
+node identity through weak references, so rejected rewrites of a large sum
+are freed. An accepted rewrite of a sum takes back the original terms that
+the pattern bindings rebuilt. Head discovery visits each distinct node once
+and combines the same head bits; rewrite rules, acceptance conditions and
+candidate ranking are retained. Local caches keep expression owners alive
+to prevent reuse of identity keys. Exact identity and unchanged-expression
+tests cover graphs whose expanded trees have more than `2**64` occurrences.
+Public traversal multiplicities are unchanged.
+
+The commutative matcher behind these rules (`pattern.rs`) indexes the terms
+of a large sum (at least 8 terms) by value and by the factors left once a
+pattern term's fixed factors are divided out. A pattern term whose value is
+already determined by the bindings, or a product whose bare wildcard factor
+is already bound, is then tried only on the terms that can match. A bound
+lone wildcard whose value is no longer among the free terms fails at once.
+The scan order, and so the first match returned, is unchanged. Patterns with
+wildcard properties are not filtered, since their predicates may report
+errors. With `SYMOX_CHECK_DETERMINED_FILTER=1` every skipped term is checked
+to fail. Before this, a pattern such as `2*a*cos(b)**2 - a + c`, whose `-a`
+matches every term, matched in quadratic time with a linear scan per step.
+On a sum of 12,000 terms this made one `simplify` call of the `dsolve` case
+in the ODE section run for more than 40 minutes.
+
+These changes remove repeated work, not the inherent cost of expression
+growth or pattern matching. The rule engine is not SymPy's Fu-based
+`futrig`, and the separate public matching/Fu driver and the complexity of
+the complete `simplify` pipeline remain separate obligations.
 
 Single-expression `cancel` follows the reference preprocessing (`signsimp`,
 then `factor_terms(radical=True)`), so `cancel(sqrt(4*R1*T*k + 4*R2*T*k))`
@@ -1598,10 +1620,29 @@ for constructing every stabilizer chain.
   SymPy's `cancel(expand_log(expr, deep=True))` step is used only to
   recognize zero (`log(100)` against `2*log(10)`), not to choose a form.
   Orders above `10**6` raise `NotImplementedError` in `classify_ode`
-  (SymPy does not return for them). It is also much slower
-  than SymPy on the large expressions of the Lie group heuristic
-  `abaco2_unique_general`, so a default `dsolve` that reaches it (SymPy
-  raises after about 80 s) can take far longer. Deliberate
+  (SymPy does not return for them). The Lie group
+  heuristic `abaco2_unique_general` is still slower than in SymPy on large
+  expressions. For `(x + cos(f(x)))*f(x).diff(x) + f(x) + 2*x` it calls
+  `simplify` on three expressions. The first two take 0.2 s and 0.9 s
+  (SymPy: 2.3 s and 9.8 s). Their results are larger than SymPy's (219 and
+  176 operations against 142 and 150), because the native candidate search
+  does not reproduce SymPy's sequence of rewrites. The third input is
+  therefore larger as well (930 operations against 750), and that call
+  takes about 400 s, half of it in `cancel`. SymPy takes 68 s on its own
+  input, and does not finish within 1500 s on symox's input, where its
+  `cancel` alone takes 451 s against about 190 s. On SymPy's own third
+  input symox takes 171 s and returns 677 operations (SymPy: 642), and
+  90% of that time is spent in the native trigonometric rule engine: memo
+  lookups and pattern matching on the terms of sums with about 12000
+  terms, which `args()` rebuilds, so each lookup compares them in full. A
+  default `dsolve` of this equation takes about 395 s in a release build,
+  where SymPy takes 82 s. SymPy then raises `NotImplementedError`, while
+  symox returns its native fallback answer
+  `Eq(x**2 + x*f(x) + sin(f(x)), C1)`. Before the trigonometric memo and
+  the matcher indexes it took more than 40 minutes. The forms of the first two
+  results (SymPy keeps factored powers of `x + cos(_y)`, the native search
+  expands them into multiple-angle terms) and the rule engine's cost on
+  rebuilt terms remain open gaps. Deliberate
   extensions are the logarithmic Frobenius basis for repeated or resonant
   indicial roots, the corrected expansion of non-polynomial Frobenius
   coefficients, irrational indicial roots (see the Frobenius section), `ics` that name the generated constants, exact
