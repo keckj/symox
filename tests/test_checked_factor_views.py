@@ -150,9 +150,14 @@ def test_unknown_flags_and_unsupported_domains_fail_explicitly():
         for value in [True,False,None,2,'bad']:
             with pytest.raises(sm.FlagError):sm.ground_roots(x*x-1,x,**{flag:value})
     with pytest.raises(sm.OptionError):sm.ground_roots(x*x-1,x,bogus=True)
+    import sympy as sy
     for p in [sm.Poly(0.5*x+1,x),sm.Poly(sm.sin(y)*x+1,x)]:
-        for method in ['ground_roots','factor_list_include','sqf_list_include']:
-            with pytest.raises(ValueError,match='exact coefficient domain'):getattr(p,method)()
+        with pytest.raises(ValueError,match='exact coefficient domain'):p.ground_roots()
+        # The legacy RR and ZZ[sin(y)] domains take the factorization of the
+        # reference.
+        q=sy.Poly(sm.to_sympy(p.as_expr()),sm.to_sympy(x))
+        for method in ['factor_list_include','sqf_list_include']:
+            assert str(getattr(p,method)())==str(getattr(q,method)())
     p=sm.Poly(x*y+1,x,y,modulus=5)
     with pytest.raises(ValueError,match='multivariate finite-field'):p.factor_list_include()
 

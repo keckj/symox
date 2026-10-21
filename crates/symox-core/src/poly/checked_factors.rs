@@ -573,14 +573,25 @@ pub fn include(
         return Ok(e.sqf_list_include(all)?.into_iter().map(|(f, k)| (f.into(), k as u32)).collect());
     }
     factor_budget::run(limits, || {
-        preflight(p, limits)?;
-        let factorization = raw(p, squarefree)?;
-        verify(p, &factorization)?;
+        // Polynomial rings over ZZ[pi], ZZ[log(a)] or RR take the list
+        // factorization of compatible_list, which keeps the content in the
+        // unit as dmp_sqf_list does, and has already filled `all`.
+        let legacy = p.field.is_none()
+            && p.algebraic.is_none()
+            && (p.domain == Domain::RR || !p.domain_gens().is_empty());
+        let factorization = if legacy {
+            compatible_list(p, squarefree, all, limits)?
+        } else {
+            preflight(p, limits)?;
+            let factorization = raw(p, squarefree)?;
+            verify(p, &factorization)?;
+            factorization
+        };
         let Factorization { unit, mut factors } = factorization;
         if factors.is_empty() {
             return Ok(vec![(unit, 1)]);
         }
-        if squarefree && all {
+        if squarefree && all && !legacy {
             let highest = factors.iter().map(|(_, k)| *k).max().unwrap_or(1);
             if highest as usize > limits.degree {
                 return Err(failure(

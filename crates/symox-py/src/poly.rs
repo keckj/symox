@@ -1513,6 +1513,15 @@ impl PyPoly {
     fn __truediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
         Ok(w(symox::ops::div(&self.p.as_expr(), &to_expr(o)?)))
     }
+    fn __rtruediv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
+        Ok(w(symox::ops::div(&to_expr(o)?, &self.p.as_expr())))
+    }
+    /// Above the 10.0 of `Expr`, so that `expr op poly` dispatches to the
+    /// reflected method of the polynomial, as in the reference.
+    #[classattr]
+    fn _op_priority() -> f64 {
+        10.001
+    }
     fn __floordiv__(&self, o: &Bound<'_, PyAny>) -> PyResult<PyPoly> {
         let q = self.other(o).ok_or_else(|| PyTypeError::new_err("expected a polynomial"))?;
         Ok(PyPoly { p: (self.p.quo(&q).map_err(err)?).into() })
