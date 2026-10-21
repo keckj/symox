@@ -28,6 +28,14 @@ def install(namespace):
             return reduce_inequalities(prepared,targets)
         # SymPy's solve rewrites the hyperbolic functions of the unknowns in
         # terms of exp before solving (sinh(x) - 1 has two solutions).
+        # SymPy splits a Matrix equation into its entries (and returns a
+        # dict); the rewrites below see those scalar entries.
+        matrix=any(getattr(value,'is_Matrix',False) for value in prepared)
+        scalars=[entry for value in prepared
+                 for entry in (value if getattr(value,'is_Matrix',False) else (value,))]
+        if matrix:
+            f=prepared=scalars
+        sequence=isinstance(f,sequences)
         unknowns=[s for group in symbols
                   for s in (group if isinstance(group,sequences) else (group,))]
         if unknowns:
@@ -36,10 +44,10 @@ def install(namespace):
             hyperbolic=lambda w:isinstance(w,HyperbolicFunction) and w.has_free(*unknowns)
             if any(hasattr(value,'replace') and value.has(HyperbolicFunction)
                    and any(hyperbolic(w) for w in value.atoms(HyperbolicFunction))
-                   for value in prepared):
+                   for value in scalars):
                 rewritten=[value.replace(hyperbolic,lambda w:w.rewrite(exp))
-                           if hasattr(value,'replace') else value for value in prepared]
-                target=rewritten if isinstance(f,sequences) else rewritten[0]
+                           if hasattr(value,'replace') else value for value in scalars]
+                target=rewritten if sequence else rewritten[0]
                 return solve(target,*symbols,**flags)
         # SymPy's solve rationalizes the Floats of the equations unless
         # rational=False, and with rational=None (the default) it returns
@@ -49,14 +57,14 @@ def install(namespace):
             from . import Float,nsimplify
             converted=[]
             floats=False
-            for value in prepared:
+            for value in scalars:
                 if hasattr(value,'has') and value.has(Float):
                     floats=True
                     value=nsimplify(value,rational=True)
                 converted.append(value)
             if floats:
                 inner={k:v for k,v in flags.items() if k!='rational'}
-                target=converted if isinstance(f,sequences) else converted[0]
+                target=converted if sequence else converted[0]
                 result=solve(target,*symbols,**inner)
                 return _restore_floats(result) if rational is None else result
             flags={k:v for k,v in flags.items() if k!='rational'}

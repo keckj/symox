@@ -186,3 +186,17 @@ LOGARITHMIC_LAMBERT = [
 @pytest.mark.parametrize('source, expected', LOGARITHMIC_LAMBERT)
 def test_logarithmic_lambert_forms_give_the_reference_solutions(source, expected):
     assert solve(source) == expected
+
+
+def test_matrix_equations_are_split_before_the_float_and_hyperbolic_rewrites():
+    import numpy as np
+    x, y = sx.symbols('x y')
+    system = sx.Matrix([[1., -1.]])*sx.Matrix([x, y]) - np.array([[0.]])
+    assert str(sx.solve(system)) == '{x: y}'
+    assert str(sx.solve(sx.Matrix([2.0*x - 1]), x)) == '{x: 0.500000000000000}'
+    assert str(sx.solve([sx.Matrix([2.0*x - 1, y - 0.5])], [x, y])) == (
+        '{x: 0.500000000000000, y: 0.500000000000000}')
+    assert str(sx.solve(sx.Matrix([sx.sinh(x) - 1]), x)) == (
+        '[(log(-1 + sqrt(2)) + I*pi,), (log(1 + sqrt(2)),)]')
+    assert str(sx.solve(sx.Matrix([x - 1]), x)) == '{x: 1}'
+    assert str(sx.solve(sx.Matrix([x**2 - 1]), x, dict=True)) == '[{x: -1}, {x: 1}]'
