@@ -7,8 +7,8 @@
 //! bindings are polarified exactly like the reference before the Meijer G
 //! parameters, the coefficient and the condition are built.
 //!
-//! Not ported (such factors give `None`): the recursive Mellin-transform
-//! rewrite.
+//! Factors without an entry go to the recursive Mellin-transform rewrite
+//! of `recursive.rs` when the caller asks for it.
 
 use super::{get_coeff_exp, has_infinity, has_x, is_false, G};
 use crate::ops::{add, div, mul, mul2, neg, pow, sub};
@@ -518,18 +518,19 @@ fn log_heaviside_entries(f: &Expr, x: &Expr, out: &mut Vec<Entry>) {
     }
     let (hv, lg) = if heaviside_arg(&fs[0]).is_some() { (&fs[0], &fs[1]) } else { (&fs[1], &fs[0]) };
     let (Some(harg), Some((p, q, n))) = (heaviside_arg(hv), log_power(lg, x)) else { return };
+    // the structural match binds `p` and `q` once, on the unpolarified
+    // factor; the bindings are polarified afterwards
     let Some((hp, hq, c)) = match_add_t(harg, x) else { return };
-    let (hp, hq, c) = (pol(&hp), pol(&hq), pol(&c));
-    if hq != q {
+    if pol(&hq) != q {
         return;
     }
     let t = mul2(&p, &pow(x, &q));
     // log(t)**n*Heaviside(1 - t)
-    if c.is_one() && hp == neg(&p) {
+    if c.is_one() && pol(&neg(&hp)) == p {
         out.push(Entry { terms: vec![make_log1(&t, n)], cond: Expr::boolean(true), hint_false: false });
     }
     // log(t)**n*Heaviside(t - 1)
-    if c == Expr::minus_one() && hp == p {
+    if c == Expr::minus_one() && pol(&hp) == p {
         out.push(Entry { terms: vec![make_log2(&t, n)], cond: Expr::boolean(true), hint_false: false });
     }
 }

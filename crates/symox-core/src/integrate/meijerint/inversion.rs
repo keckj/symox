@@ -42,7 +42,7 @@ fn truth(e: &Expr) -> Option<bool> {
 }
 
 /// `_is_analytic`: no `Heaviside` or `Abs` of the variable.
-fn is_analytic(f: &Expr, x: &Expr) -> bool {
+pub(super) fn is_analytic(f: &Expr, x: &Expr) -> bool {
     let mut ok = true;
     crate::traverse::preorder(f, &mut |e| {
         if let Kind::Func(Func::Heaviside | Func::Abs, _) = e.kind() {
@@ -313,7 +313,7 @@ pub(crate) fn meijerint_inversion(f: &Expr, x: &Expr, t_: &Expr) -> Option<Expr>
         let res = mul(&[f, fx::dirac_delta(&shifted_t)]);
         return Some(crate::relational::piecewise(vec![(crate::subs::subs1(&res, &t, t_), cond)]));
     }
-    let (fac, po, terms, mut cond) = rewrite1(&f, x)?;
+    let (fac, po, terms, mut cond) = rewrite1(&f, x, true)?;
     let mut res = Vec::new();
     for (c, s, g) in terms {
         let (c, g) = rewrite_inversion(&mul(&[fac.clone(), c]), &mul(&[po.clone(), pow(x, &s)]), &g, x)?;

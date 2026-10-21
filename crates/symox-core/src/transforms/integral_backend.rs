@@ -108,9 +108,21 @@ fn mellin_process_conds(cond: &Expr, s: &Expr, t: &Expr) -> (Expr, Expr, Expr) {
 /// `_mellin_transform(f, x, s_)`: `int_0^oo x**(s-1) f(x) dx` with its
 /// fundamental strip.
 pub(crate) fn mellin_integration(f: &Expr, x: &Expr, s_: &Expr, simplify: bool) -> Result<(Expr, (Expr, Expr), Expr), &'static str> {
+    mellin_integration_with(f, x, s_, simplify, &|g, x| crate::integrate::integrate_definite(g, x, &Expr::zero(), &Expr::oo()))
+}
+
+/// `_mellin_transform(f, x, s_, integrator)`: `integrator(g, x)` is the
+/// integral of `g` over `(0, oo)`.
+pub(crate) fn mellin_integration_with(
+    f: &Expr,
+    x: &Expr,
+    s_: &Expr,
+    simplify: bool,
+    integrator: &dyn Fn(&Expr, &Expr) -> Expr,
+) -> Result<(Expr, (Expr, Expr), Expr), &'static str> {
     let s = Expr::dummy("s", Default::default());
     let integrand = mul(&[pow(x, &sub(&s, &Expr::one())), f.clone()]);
-    let big_f = crate::integrate::integrate_definite(&integrand, x, &Expr::zero(), &Expr::oo());
+    let big_f = integrator(&integrand, x);
     let back = |e: &Expr| crate::subs::subs(e, &[(s.clone(), s_.clone())]);
     if !has_integral(&big_f) {
         return Ok((simplify_result(&back(&big_f), simplify), (Expr::neg_oo(), Expr::oo()), tru()));

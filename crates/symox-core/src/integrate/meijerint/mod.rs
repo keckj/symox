@@ -8,8 +8,9 @@
 //! reported without its condition, and a condition that simplifies to False
 //! makes the method give up instead of returning a value.
 //!
-//! Known gap: the recursive Mellin-transform rewrite of `_rewrite_single`
-//! (used by SymPy only when the direct table lookups fail) is not ported.
+//! When the table has no entry for a factor, `_rewrite_single` computes
+//! its Mellin transform with Meijer G integration and reads the inverse
+//! transform as a G-function (`recursive`).
 
 use crate::expr::Constant;
 use crate::functions as f;
@@ -20,6 +21,7 @@ use crate::{Expr, Func, Kind};
 
 mod conds;
 mod inversion;
+mod recursive;
 mod table;
 
 pub(crate) use inversion::meijerint_inversion;
@@ -490,10 +492,21 @@ fn int0oo(g1: &G, g2: &G, x: &Expr) -> Option<Expr> {
 
 type Terms = Vec<(Expr, Expr, G)>;
 
+/// `_rewrite_single(f, x, recursive)`.
+fn rewrite_single(f: &Expr, x: &Expr, recursive: bool) -> Option<(Terms, Expr)> {
+    if let Some(r) = table::rewrite_single(f, x) {
+        return Some(r);
+    }
+    if !recursive {
+        return None;
+    }
+    recursive::rewrite(f, x)
+}
+
 /// `_rewrite1`: `f = fac*po*sum(C*x**s*G)`.
-fn rewrite1(f: &Expr, x: &Expr) -> Option<(Expr, Expr, Terms, Expr)> {
+fn rewrite1(f: &Expr, x: &Expr, recursive: bool) -> Option<(Expr, Expr, Terms, Expr)> {
     let (fac, po, g) = split_mul(f, x);
-    let (terms, cond) = table::rewrite_single(&g, x)?;
+    let (terms, cond) = rewrite_single(&g, x, recursive)?;
     Some((fac, po, terms, cond))
 }
 
@@ -516,11 +529,14 @@ fn rewrite2(f: &Expr, x: &Expr) -> Option<(Expr, Expr, Terms, Terms, Expr)> {
     l.sort_by(|(ka, a), (kb, b)| ka.cmp(kb)
         .then_with(|| crate::sortkey::cmp_default(&a.0, &b.0))
         .then_with(|| crate::sortkey::cmp_default(&a.1, &b.1)));
-    for (_, (f1, f2)) in l {
-        let (Some(r1), Some(r2)) = (table::rewrite_single(&f1, x), table::rewrite_single(&f2, x)) else { continue };
-        let cond = crate::logic::and(vec![r1.1, r2.1]);
-        if !is_false(&cond) {
-            return Some((fac, po, r1.0, r2.0, cond));
+    for recursive in [false, true] {
+        for (_, (f1, f2)) in &l {
+            let Some(r1) = rewrite_single(f1, x, recursive) else { continue };
+            let Some(r2) = rewrite_single(f2, x, recursive) else { continue };
+            let cond = crate::logic::and(vec![r1.1, r2.1]);
+            if !is_false(&cond) {
+                return Some((fac, po, r1.0, r2.0, cond));
+            }
         }
     }
     None
@@ -532,7 +548,13 @@ fn hyperexpand(e: &Expr) -> Expr { crate::special::hyperexpand(e) }
 
 /// `_meijerint_definite_4`: the integral of `f` over (0, oo).
 fn definite_4(f: &Expr, x: &Expr) -> Option<(Expr, Expr)> {
-    if let Some((fac, po, g, mut cond)) = rewrite1(f, x) {
+    definite_4_opt(f, x, false)
+}
+
+/// `_meijerint_definite_4(f, x, only_double)`: `only_double` skips the
+/// single G-function rewrite (the recursive Mellin rewrite uses it).
+fn definite_4_opt(f: &Expr, x: &Expr, only_double: bool) -> Option<(Expr, Expr)> {
+    if let Some((fac, po, g, mut cond)) = if only_double { None } else { rewrite1(f, x, false) } {
         let mut res = Expr::zero();
         let mut ok = true;
         for (c, s, gf) in &g {
@@ -759,8 +781,13 @@ pub(crate) fn debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
             let t = terms.into_iter().map(|(fac, po, g)| tuple(vec![fac, po, g.to_expr()])).collect();
             Some(vec![tuple(t), cond])
         }
+        ("rewrite_single_recursive", [f, x]) => {
+            let (terms, cond) = rewrite_single(f, x, true)?;
+            let t = terms.into_iter().map(|(fac, po, g)| tuple(vec![fac, po, g.to_expr()])).collect();
+            Some(vec![tuple(t), cond])
+        }
         ("rewrite1", [f, x]) => {
-            let (fac, po, gs, cond) = rewrite1(f, x)?;
+            let (fac, po, gs, cond) = rewrite1(f, x, true)?;
             let t = gs.into_iter().map(|(c, s, g)| tuple(vec![c, s, g.to_expr()])).collect();
             Some(vec![fac, po, tuple(t), cond])
         }

@@ -582,3 +582,11 @@ pub(crate) fn compute(f: &Expr, s: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Res<(
     let b = if is_none(b) { None } else { Some(b.clone()) };
     inverse_mellin_core(f, s, x, (&a, &b), false)
 }
+
+/// `compute` returning the Meijer G form (`as_meijerg=True`).
+pub(crate) fn compute_meijerg(f: &Expr, s: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Res<(Expr, Expr)> {
+    check_components(f, s)?;
+    let a = if is_none(a) { None } else { Some(a.clone()) };
+    let b = if is_none(b) { None } else { Some(b.clone()) };
+    inverse_mellin_core(f, s, x, (&a, &b), true)
+}

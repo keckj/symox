@@ -118,3 +118,39 @@ def test_expand_func_bessel_recurrence():
     assert sx.expand(expand_func(besselj(4, z)) - besselsimp(besselj(4, z))) == 0
     # a symbolic order is not reduced
     assert expand_func(besselk(nu + 3, z)) == besselk(nu + 3, z)
+
+
+def test_recursive_mellin_rewrite():
+    assert str(tuple(_core._meijerint_debug('rewrite_single_recursive', sx.sin(x)*exp(-x), x))) == \
+        '(((sqrt(2)/(2*sqrt(pi)), 0, meijerg(((-1/2, 0, 1/4, 1/2, 3/4), (1,)), ((), (-1/2, 0)), 64/x**4)),), True)'
+    # the table alone has no entry for the product
+    assert _core._meijerint_debug('rewrite_single', sx.sin(x)*exp(-x), x) is None
+
+
+@pytest.mark.parametrize('f, expected', [
+    (exp(-(x - a - b - c)**2), sqrt(pi)*(sx.erf(a + b + c) + 1)/2),
+    (exp(-(x + a + b + c)**2), sqrt(pi)*(1 - sx.erf(a + b + c))/2),
+])
+def test_definite_integrals_through_recursive_rewrite(f, expected):
+    r = simplify(sx.integrate(f, (x, 0, oo), meijerg=True))
+    assert not r.has(sx.Integral)
+    assert sx.expand(r - expected) == 0
+
+
+def test_recursive_rewrite_product_of_gaussians():
+    r = sx.integrate(exp(-(x - a)**2)*exp(-(x - b)**2), (x, 0, oo), meijerg=True)
+    assert not r.has(sx.Integral)
+    expected = sqrt(2)*sqrt(pi)*(sx.erf(sqrt(2)*(a + b)/2) + 1)*exp(-(a - b)**2/2)/4
+    for va, vb in [(1, 2), (Rational(1, 3), Rational(5, 2))]:
+        rv = r.subs({a: va, b: vb}).evalf(30)
+        ev = expected.subs({a: va, b: vb}).evalf(30)
+        assert abs(rv - ev) < 1e-25*abs(ev)
+
+
+@pytest.mark.parametrize('f, expected', [
+    (log(x)**4*H(1 - x), (24/s**5, (0, oo), True)),
+    (log(x)**3*H(x - 1), (6/s**4, (-oo, 0), True)),
+    (log(x)*H(1 - x), (-1/s**2, (0, oo), True)),
+])
+def test_mellin_transform_of_log_heaviside_entries(f, expected):
+    assert sx.mellin_transform(f, x, s) == expected
