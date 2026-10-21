@@ -735,7 +735,10 @@ def heurisch(f, x, rewrite=False, hints=None, mappings=None, retries=3,
                 pass # ignore trivial numbers
             elif expr in syms:
                 pass # ignore variables
-            elif not expr.has_free(*syms):
+            elif syms.isdisjoint(expr.free_symbols):
+                # ``not expr.has_free(*syms)``: the unknowns and generators
+                # are symbols, so it is a test on the free symbols, which the
+                # native core keeps per node
                 non_syms.add(expr)
             elif expr.is_Add or expr.is_Mul or expr.is_Pow:
                 list(map(find_non_syms, expr.args))

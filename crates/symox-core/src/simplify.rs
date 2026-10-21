@@ -344,6 +344,18 @@ pub fn simplify(e: &Expr) -> Expr {
         }
         _ => selected,
     };
+    // The cancelled form splits the powers of a sum exponent
+    // (C1*exp(-1)*exp(-x) for C1*exp(-x - 1)); SymPy's shorter() keeps the
+    // input on a count_ops tie, so a selection that only splits the powers
+    // of the input (powsimp gives the input back) must be shorter.
+    let selected = if selected != *e
+        && crate::simptools::methods::count_ops(e) <= crate::simptools::methods::count_ops(&selected)
+        && crate::simp::powsimp(&selected) == *e
+    {
+        e.clone()
+    } else {
+        selected
+    };
     // SymPy then applies factor_terms(expr, sign=False) (x - x*y is
     // x*(1 - y)); its final hollow_mul pass distributes a remaining
     // number*(sum) product again. SymPy applies it unconditionally, but the
