@@ -185,10 +185,20 @@ pub fn raw_terms(e: &Expr) -> Vec<RawTerm> {
     fn split(t: &Expr, k: &Number) -> RawTerm {
         match t.kind() {
             Kind::Num(n) => RawTerm { coeff: k.mul(n), factors: vec![] },
-            Kind::Mul(c, facs) => RawTerm {
-                coeff: k.mul(c),
-                factors: facs.iter().map(|(b, x)| mul_factor(b, x)).collect(),
-            },
+            // As in the reference `_dict_from_expr`, a number factor of an
+            // unevaluated product is a coefficient: Mul(-1, 2, x,
+            // evaluate=False) is -2*x, not a polynomial in the generator 2.
+            Kind::Mul(c, facs) => {
+                let mut coeff = k.mul(c);
+                let mut factors = Vec::with_capacity(facs.len());
+                for (b, x) in facs {
+                    match b.kind() {
+                        Kind::Num(n) if x.is_one() && !n.is_nan() => coeff = coeff.mul(n),
+                        _ => factors.push(mul_factor(b, x)),
+                    }
+                }
+                RawTerm { coeff, factors }
+            }
             _ => RawTerm { coeff: k.clone(), factors: vec![t.clone()] },
         }
     }

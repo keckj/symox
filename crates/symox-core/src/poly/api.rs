@@ -1202,6 +1202,20 @@ pub fn cancel_polys(p: &MPoly<Rat>, q: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) 
     (pp, qq)
 }
 
+/// The public `cancel(expr)` of the reference for one expression: the
+/// input passes through `signsimp` and `factor_terms(expr, radical=True)`
+/// before its numerator and denominator become polynomials, so
+/// `sqrt(4*a*b + 4*a*c)` with positive symbols is read as
+/// `2*sqrt(a)*sqrt(b + c)`.
+pub fn reference_cancel(e: &Expr) -> PResult<Expr> {
+    let e = crate::simptools::misc::signsimp(e, true);
+    if matches!(e.kind(), Kind::Num(_) | Kind::Rel(..) | Kind::Bool(_)) {
+        return Ok(e);
+    }
+    let e = crate::simptools::exprtools::factor_terms(&e, true, false, false, true);
+    cancel(&e)
+}
+
 /// `cancel(expr)`.
 pub fn cancel(e: &Expr) -> PResult<Expr> {
     match e.kind() {

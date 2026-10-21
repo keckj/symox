@@ -969,6 +969,12 @@ impl PyPoly {
         let fractions=p.domain_gens().iter().any(|g| matches!(g.kind(),symox::Kind::Pow(_,e) if e.as_number().is_some_and(|n|n.is_negative())) && !symox::traverse::free_symbols(g).is_empty());
         if domain.is_none() && fractions {
             let parameters=infer_parameters(std::slice::from_ref(&e),p.true_gens());
+            // The reference builds ZZ_I(y) or QQ_I(y) here, whose fraction
+            // coefficients have no backend yet: the expression domain keeps
+            // the arithmetic exact instead of failing.
+            if p.domain_gens().iter().any(|g|g.is_constant(symox::expr::Constant::I)){
+                return Ok(Self{p:symox::poly::expression_domain::ExpressionPoly::from_expr(&e,p.true_gens()).map_err(err)?.into()});
+            }
             let display=domain_name(&parameters).replacen("QQ","ZZ",1);
             return Ok(Self {p:FractionPoly::from_expr(&e,p.true_gens(),&parameters,&display).map_err(err)?.into()});
         }
@@ -2335,7 +2341,6 @@ fn rational_function_blocker(e:&Expr)->bool{
     found
 }
 
-/// Compute the greatest common divisor of expressions or polynomials.
 /// The reference `construct_domain(..., extension=True)` proceeds exactly
 /// as without the option when a coefficient in the generators is not an
 /// algebraic number (`-sqrt(2)*y` in `x`). The options without it are
@@ -2366,6 +2371,7 @@ fn inapplicable_extension<'py>(py:Python<'py>,f:&Bound<'py,PyAny>,g:Option<&Boun
     Ok(Some(copy))
 }
 
+/// Compute the greatest common divisor of expressions or polynomials.
 #[pyfunction]
 #[pyo3(signature = (f, g=None, *gens, modulus=None, **_kwargs))]
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
@@ -2513,6 +2519,12 @@ fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Boun
                 let(p,q)=p.ring_cancel(&q).map_err(err)?;
                 return Ok(w(symox::ops::div(&p.as_expr(),&q.as_expr())).into_pyobject(py)?.into_any().unbind());
             }
+        }
+    }
+    if f.downcast::<PyPoly>().is_err()&&_kwargs.is_none_or(|k|k.is_empty()){
+        let e=to_expr(f)?;
+        if !rational_function_blocker(&e){
+            return Ok(w(api::reference_cancel(&e).map_err(err)?).into_pyobject(py)?.into_any().unbind());
         }
     }
     Ok(w(api::cancel(&to_expr(f)?).map_err(err)?).into_pyobject(py)?.into_any().unbind())

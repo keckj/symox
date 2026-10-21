@@ -209,7 +209,14 @@ Remaining gaps in this area:
   domains with `I` and parameters stay `ZZ[y,I]` where the reference infers
   `ZZ_I[y]` (resultants agree); fraction fields over `ZZ_I`, `QQ_I` or
   algebraic fields are descriptor-only and raise `NotImplementedError` on
-  element construction.
+  element construction. A `Poly` whose inferred coefficient domain is such a
+  fraction field (the reference `ZZ_I(N,pi)` of `-2*I*pi*n/N` in `n`, or
+  `ZZ_I(y)` of `I*x/y` in `x`) is built over `EX`: the coefficients and the
+  arithmetic stay exact, but the domain and domain-specific operations
+  (division, `gcd`, `factor`) differ from the reference.
+- Number factors of an unevaluated product are coefficients, as in the
+  reference `_dict_from_expr`: `Poly(Mul(-1, 2, x, evaluate=False), x)` is
+  `Poly(-2*x, x, domain='ZZ')`.
 - `resultant`, `subresultants`, `discriminant`, `gcd`, `lcm` and `cancel`
   with `extension=True` and parameter coefficients follow the reference: the
   option is ignored when a coefficient is not an algebraic number, and
@@ -1060,6 +1067,19 @@ more than `2**64` occurrences. Public traversal multiplicities are unchanged.
 This removes repeated work in these passes, not the inherent cost of expression
 growth or pattern matching. The separate public matching/Fu driver and the
 complexity of the complete `simplify` pipeline remain separate obligations.
+
+Single-expression `cancel` follows the reference preprocessing (`signsimp`,
+then `factor_terms(radical=True)`), so `cancel(sqrt(4*R1*T*k + 4*R2*T*k))`
+with positive symbols is `2*sqrt(T)*sqrt(k)*sqrt(R1 + R2)`. Native
+`simplify` also accepts the reference state after its unconditional
+`factor_terms(expr, sign=False)` step when the reference's later `cancel`,
+`factor_terms` and `expand_power_exp(expand_mul)` comparisons keep it (so
+the radical form above is kept while `n**3 - n` stays expanded), and it
+applies the reference's unconditional `exptrigsimp` when the result has
+trigonometric, hyperbolic or exponential functions
+(`simplify(im(exp(2*I)/(1 - exp(4*I))))` is `1/(2*sin(2))`). The remaining
+steps of the reference pipeline are still approximated by the native
+candidate search.
 
 Expression-domain `DomainMatrix` Gauss-Jordan reduction now uses the native
 exact pivot simplifier. This exposes zero pivots such as
