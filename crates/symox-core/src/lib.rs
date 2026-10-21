@@ -23,6 +23,7 @@ pub mod diff;
 pub mod decompose;
 pub mod evalf;
 pub mod evalf_mp;
+pub(crate) mod elementary_mp;
 pub mod expand;
 pub mod expr;
 pub mod functions;

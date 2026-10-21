@@ -159,11 +159,16 @@ def test_unsupported_precision_options_are_explicit():
 
 def test_unrepresentable_exponential_and_power_results_remain_symbolic():
     huge = sm.Float("1e100", 60)
-    for function in [sm.exp, sm.sinh, sm.cosh, sm.tanh]:
+    for function in [sm.exp, sm.sinh, sm.cosh]:
         for argument in [huge, -huge]:
             expression = function(argument)
-            assert expression.is_Function
+            # sinh(-x) is -sinh(x) by its eval rule, which runs before
+            # numerical evaluation as in the reference.
+            assert expression.is_Function or (-expression).is_Function
             assert expression.evalf(60) == expression
+    # tanh saturates to +-1, as mpmath returns.
+    assert str(sm.tanh(-huge)) == str(sp.tanh(-sp.Float("1e100", 60)))
+    assert str(sm.tanh(huge)) == str(sp.tanh(sp.Float("1e100", 60)))
     for exponent in [huge, -huge]:
         expression = sm.Float("10", 60)**exponent
         assert expression.is_Pow

@@ -43,19 +43,6 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     if matches!(f, Func::Sign) && args.len()==1 && crate::assumptions::is_real(&args[0])==Some(true) {
         if let Some(value)=crate::complex_parts::evaluate::sign(&args[0]) { return value; }
     }
-    // Special functions and gamma, loggamma, erf and erfc follow SymPy's
-    // _should_evalf rule below: every argument must be a Float.
-    if args.iter().any(crate::evalf_mp::has_mp)
-        && !matches!(f, Func::Special(_) | Func::Gamma | Func::LogGamma | Func::Erf | Func::Erfc)
-        && !matches!(f, Func::Floor | Func::Ceiling | Func::Min | Func::Max | Func::Heaviside | Func::DiracDelta)
-        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number)) {
-        let precision = args.iter().filter_map(crate::evalf_mp::max_precision).max().unwrap();
-        if args.iter().all(is_numeric_value) {
-            let raw = Expr::from_kind(Kind::Func(f, args));
-            return crate::evalf_mp::eval_mp(&raw, precision)
-                .map(|value| crate::evalf_mp::to_expr(value, precision)).unwrap_or(raw);
-        }
-    }
     if let Func::Special(s) = f {
         return crate::special::apply(s, args);
     }
@@ -77,20 +64,6 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         }
         if crate::evalf_mp::has_special_host() || prec > 53 {
             return node;
-        }
-    }
-    // numeric evaluation when an argument is a float
-    // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
-    // arg of a real float is exact (0, pi or nan) as in SymPy
-    if !matches!(f, Func::Undefined(_) | Func::ExpPolar | Func::Max | Func::Min | Func::Floor | Func::Ceiling | Func::Heaviside | Func::DiracDelta)
-        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number))
-        && !args.is_empty()
-        && args.iter().all(is_numeric_value)
-        && args.iter().any(has_float)
-        && (!auto_evalf || crate::special::should_evalf(&args))
-    {
-        if let Some(v) = crate::evalf::eval_func_numeric(&f, &args) {
-            return v;
         }
     }
     let r = match &f {
@@ -167,10 +140,28 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
         Func::Special(_) | Func::Predicate(_) | Func::AppliedPredicate | Func::Order | Func::Undefined(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Logic(_) | Func::Set(_)
         | Func::MatrixElement(_) | Func::MatrixProxy(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(_, _) => None,
     };
-    match r {
-        Some(v) => v,
-        None => Expr::from_kind(Kind::Func(f, args)),
+    if let Some(v) = r { return v; }
+    // Like SymPy's Function.__new__, numerical evaluation happens only when
+    // the function's own eval rule returned nothing.
+    // SymPy's Function._should_evalf: a call evaluates numerically when every
+    // argument is a Float or a sum a + b*I of numbers with a Float part, at
+    // the largest argument precision. Other numeric arguments containing a
+    // Float (2.5*I, 2.5*pi) go through the function's exact rules instead.
+    // The value is computed in multiprecision and rounded once, as mpmath
+    // does, never taken from a double-precision evaluation.
+    // floor/ceiling of a Float is an Integer in SymPy: use the exact rule
+    // arg of a real float is exact (0, pi or nan) as in SymPy
+    if !matches!(f, Func::Undefined(_) | Func::ExpPolar | Func::Max | Func::Min | Func::Floor | Func::Ceiling | Func::Heaviside | Func::DiracDelta)
+        && !(matches!(f, Func::Arg) && args.first().is_some_and(Expr::is_number))
+        && crate::special::should_evalf(&args)
+    {
+        let precision = args.iter().filter_map(crate::special::float_precision).max().unwrap_or(53);
+        let raw = Expr::from_kind(Kind::Func(f.clone(), args.clone()));
+        if let Some(value) = crate::evalf_mp::eval_mp(&raw, precision) {
+            return crate::evalf_mp::to_expr(value, precision);
+        }
     }
+    Expr::from_kind(Kind::Func(f, args))
 }
 
 /// Evaluate held operations. Matrix scalar nodes retain their typed parents;

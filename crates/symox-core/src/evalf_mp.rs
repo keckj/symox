@@ -214,11 +214,7 @@ impl MpComplex {
     }
 
     pub(crate) fn ln(&self, p: u32) -> Option<MpComplex> {
-        if self.is_real() && self.re.sign() > 0 {
-            return Some(MpComplex::real(self.re.ln(p)?));
-        }
-        let a = self.abs(p + 10);
-        Some(MpComplex { re: a.ln(p)?, im: self.arg(p) })
+        crate::elementary_mp::log(self, p)
     }
 
     fn pow(&self, e: &MpComplex, p: u32) -> Option<MpComplex> {
@@ -360,7 +356,8 @@ fn eval_mp_bounded(e: &Expr, prec: u32, bounded: bool) -> Option<MpComplex> {
     let wp = prec + 20;
     let r = ev(e, wp)?;
     if bounded && !supported_magnitude(&r) { return None; }
-    Some(MpComplex { re: r.re.round_to(prec), im: r.im.round_to(prec) })
+    // SymPy's evalf computes at prec + 4 bits and rounds that value to prec.
+    Some(MpComplex { re: r.re.round_to(prec + 4).round_to(prec), im: r.im.round_to(prec + 4).round_to(prec) })
 }
 
 /// Convert a computed value back to native expression numbers, retaining the
@@ -590,19 +587,25 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
 }
 
 fn pow_of(b: &Expr, x: &Expr, p: u32) -> Option<MpComplex> {
-    let mut bv = ev(b, p)?;
-    // A structurally certified real expression must not acquire a different
-    // square-root branch from rounding noise in a cancelling imaginary part.
-    // Genuine tiny imaginary inputs are retained: this is not numeric chop.
-    if !bv.is_real()&&crate::assumptions::exact_queries(||crate::assumptions::is_real(b))==Some(true){
-        bv.im=BigFloat::zero();
-    }
+    // The relative error of b**x is |x| times that of b, and |x ln b| times
+    // the relative error of x: both are evaluated with those extra bits.
+    let base = |q: u32| -> Option<MpComplex> {
+        let mut bv = ev(b, q)?;
+        // A structurally certified real expression must not acquire a different
+        // square-root branch from rounding noise in a cancelling imaginary part.
+        // Genuine tiny imaginary inputs are retained: this is not numeric chop.
+        if !bv.is_real()&&crate::assumptions::exact_queries(||crate::assumptions::is_real(b))==Some(true){
+            bv.im=BigFloat::zero();
+        }
+        Some(bv)
+    };
+    let bits = |k: i64| 64 - k.unsigned_abs().leading_zeros();
     if let Some(k) = x.as_i64() {
-        return bv.powi(k, p);
+        return base(p + bits(k))?.powi(k, p);
     }
     if let Some((numerator,denominator))=x.as_number().and_then(Number::numer_denom){
         if denominator==2.into(){
-            if let Some(n)=numerator.to_i64(){return bv.sqrt(p+16)?.powi(n,p);}
+            if let Some(n)=numerator.to_i64(){return base(p + bits(n))?.sqrt(p+16)?.powi(n,p);}
         }
     }
     // mpmath's mpc_pow_mpf: an integer or half-integer float exponent is an
@@ -612,11 +615,19 @@ fn pow_of(b: &Expr, x: &Expr, p: u32) -> Option<MpComplex> {
         let t = twice.to_int_trunc();
         if BigFloat::from_int(&t) == twice {
             if let Some(t) = t.to_i64() {
+                let bv = base(p + bits(t))?;
                 return if t % 2 == 0 { bv.powi(t / 2, p) } else { bv.sqrt(p + 16)?.powi(t, p) };
             }
         }
     }
-    let xv = ev(x, p)?;
+    let mut xv = ev(x, p)?;
+    let size = |v: &MpComplex| [&v.re, &v.im].into_iter().filter(|c| !c.is_zero()).map(BigFloat::mag).max();
+    let extra = |m: Option<i128>| m.unwrap_or(0).clamp(0, 1 << 20) as u32;
+    let bv = base(p + extra(size(&xv)))?;
+    if let Some(l) = bv.ln(32) {
+        let bits = extra(size(&xv).zip(size(&l)).map(|(a, b)| a + b));
+        if bits > 0 { xv = ev(x, p + bits)?; }
+    }
     bv.pow(&xv, p)
 }
 
@@ -805,6 +816,13 @@ fn meijerg_host(args: &[Expr], p: u32) -> Option<MpComplex> {
 
 fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
     let wp = p + 10;
+    if let Some(elementary) = match f {
+        Func::Special(s) => crate::elementary_mp::Elementary::of_special(*s),
+        _ => crate::elementary_mp::Elementary::of_func(f),
+    } {
+        if args.len() != 1 { return None; }
+        return crate::elementary_mp::evaluate(elementary, &args[0], p);
+    }
     if let Func::Special(s) = f {
         if *s == crate::special::SpecialFn::MeijerG {
             return meijerg_host(args, p);
@@ -832,79 +850,16 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         return Some(MpComplex::real(BigFloat::atan2(&y.re, &x.re, p)));
     }
     let a = ev(args.first()?, wp)?;
-    let real_only = |v: Option<BigFloat>| v.map(MpComplex::real);
     Some(match f {
-        Func::Exp => a.exp(p)?,
-        Func::Log => a.ln(p)?,
-        Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc if a.is_real() => {
-            // Reduction modulo pi needs as many bits as the argument has
-            // integer bits; beyond 2**30 the 32-bit precision counter cannot
-            // describe that work.
-            if a.re.mag() > 1 << 30 { return None; }
-            let (s, c) = a.re.sin_cos(wp);
-            MpComplex::real(match f {
-                Func::Sin => s,
-                Func::Cos => c,
-                Func::Tan => s.div(&c, p)?,
-                Func::Cot => c.div(&s, p)?,
-                Func::Sec => BigFloat::one().div(&c, p)?,
-                _ => BigFloat::one().div(&s, p)?,
-            })
-        }
-        Func::Sin | Func::Cos | Func::Tan => {
-            // complex: via exponentials
-            let iz = MpComplex { re: a.im.neg(), im: a.re.clone() };
-            let e1 = iz.exp(wp)?;
-            let e2 = e1.inv(wp)?;
-            let half = BigFloat { man: BigInt::from(1), exp: -1 };
-            let cosv = e1.add(&e2, wp).scale(&half, wp);
-            let diff = e1.add(&e2.scale(&BigFloat::from_i64(-1), wp), wp);
-            // sin = (e1 - e2) / (2i)
-            let sinv = MpComplex { re: diff.im.mul(&half, wp), im: diff.re.neg().mul(&half, wp) };
-            match f {
-                Func::Sin => sinv,
-                Func::Cos => cosv,
-                _ => sinv.mul(&cosv.inv(wp)?, p),
-            }
-        }
-        Func::Asin if a.is_real() => real_only(a.re.asin(p))?,
-        Func::Acos if a.is_real() => real_only(a.re.acos(p))?,
-        Func::Atan if a.is_real() => MpComplex::real(a.re.atan(p)),
-        Func::Acot if a.is_real() => MpComplex::real(BigFloat::one().div(&a.re, wp)?.atan(p)),
-        Func::Sinh | Func::Cosh | Func::Tanh if a.is_real() => {
-            let e1 = a.re.checked_exp(wp)?;
-            let e2 = BigFloat::one().div(&e1, wp)?;
-            let sh = e1.sub(&e2, wp).ldexp(-1);
-            let ch = e1.add(&e2, wp).ldexp(-1);
-            MpComplex::real(match f {
-                Func::Sinh => sh,
-                Func::Cosh => ch,
-                _ => sh.div(&ch, p)?,
-            })
-        }
-        Func::Asinh if a.is_real() => {
-            // ln(x + sqrt(x^2+1))
-            let x = &a.re;
-            let s = x.mul(x, wp).add(&BigFloat::one(), wp).sqrt(wp)?;
-            MpComplex::real(x.add(&s, wp).ln(p)?)
-        }
-        Func::Acosh if a.is_real() => {
-            let x = &a.re;
-            let s = x.mul(x, wp).sub(&BigFloat::one(), wp).sqrt(wp)?;
-            MpComplex::real(x.add(&s, wp).ln(p)?)
-        }
-        Func::Atanh if a.is_real() => {
-            let x = &a.re;
-            let one = BigFloat::one();
-            let q = one.add(x, wp).div(&one.sub(x, wp), wp)?;
-            MpComplex::real(q.ln(wp)?.ldexp(-1))
-        }
         Func::Abs => MpComplex::real(a.abs(p)),
         Func::Re => MpComplex::real(a.re),
         Func::Im => MpComplex::real(a.im),
         Func::Conjugate => MpComplex { re: a.re, im: a.im.neg() },
         Func::Arg => MpComplex::real(a.arg(p)),
         Func::Sign if a.is_real() => MpComplex::real(BigFloat::from_i64(a.re.sign() as i64)),
+        // sign(z) = z/|z| for a nonzero complex value, as SymPy's
+        // sign.eval returns arg/Abs(arg) for a nonreal number.
+        Func::Sign if !a.re.is_zero() || !a.im.is_zero() => a.div(&MpComplex::real(a.abs(wp)), p)?,
         Func::Floor | Func::Ceiling if a.is_real() => {
             let t = a.re.to_int_trunc();
             let tf = BigFloat::from_int(&t);
@@ -1305,12 +1260,18 @@ mod tests {
     fn extreme_exponential_inputs_remain_symbolic() {
         let p = dps_to_prec(60);
         let huge = crate::parser::parse_str("Float('1e100', 60)").unwrap();
-        for function in [Func::Exp, Func::Sinh, Func::Cosh, Func::Tanh] {
+        for function in [Func::Exp, Func::Sinh, Func::Cosh] {
             for input in [huge.clone(), crate::ops::neg(&huge)] {
                 let expression = crate::functions::func(function.clone(), vec![input]);
-                assert!(matches!(expression.kind(), Kind::Func(..)));
+                // sinh(-x) is -sinh(x) by its eval rule, which runs first.
+                assert!(expression.as_number().is_none());
                 assert_eq!(super::evalf(&expression, p), expression);
             }
+        }
+        // tanh saturates to +-1 at any precision, as mpmath returns.
+        for (input, sign) in [(huge.clone(), 1), (crate::ops::neg(&huge), -1)] {
+            let value = eval_mp(&crate::functions::func(Func::Tanh, vec![input]), p).unwrap();
+            assert_eq!(value.re.cmp(&BigFloat::from_i64(sign)), std::cmp::Ordering::Equal);
         }
         // mpmath exponents are unbounded; binary exponents up to
         // MAX_EXPONENT are materialized, so exp(2**63) evaluates as in the

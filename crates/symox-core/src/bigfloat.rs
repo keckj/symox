@@ -509,6 +509,48 @@ impl BigFloat {
         if *self == BigFloat::one() {
             return Some(BigFloat::zero());
         }
+        // Near one the reduction below cancels as many bits as ln(x) is
+        // small; the exactly rounded x - 1 keeps them.
+        let d = self.sub(&BigFloat::one(), prec + 30);
+        if d.mag() < -4 {
+            return Some(d.ln_1p_small(prec));
+        }
+        self.ln_core(prec)
+    }
+
+    /// ln(1 + x) for x > -1, with relative accuracy for tiny x.
+    pub fn ln_1p(&self, prec: u32) -> Option<BigFloat> {
+        if self.is_zero() {
+            return Some(BigFloat::zero());
+        }
+        if self.mag() < -4 {
+            return Some(self.ln_1p_small(prec));
+        }
+        let guard = (bitlen(&self.man) as u32).saturating_add(prec + 40);
+        self.add(&BigFloat::one(), guard).ln(prec)
+    }
+
+    fn ln_1p_small(&self, prec: u32) -> BigFloat {
+        let small = (-self.mag()) as u32;
+        if (small as f64) <= (prec as f64).sqrt() + 8.0 {
+            // 1 + x is exact at this width; ln_core loses at most `small` bits.
+            let wp = prec + small + 40;
+            let x = self.add(&BigFloat::one(), wp + small);
+            return x.ln_core(prec + small + 10).unwrap().round_to(prec);
+        }
+        // ln(1 + x) = 2 atanh(x / (2 + x)), with |x / (2 + x)| < 2**-small.
+        let wp = prec + 20;
+        let z = self.div(&self.add(&BigFloat::from_i64(2), wp), wp).unwrap();
+        let at = if (small as i128) > prec as i128 / 2 + 8 {
+            let z3 = z.mul(&z, wp).mul(&z, wp).div_i64(3, wp);
+            z.add(&z3, wp)
+        } else {
+            atanh_series(&z, wp + small + 10)
+        };
+        at.ldexp(1).round_to(prec)
+    }
+
+    fn ln_core(&self, prec: u32) -> Option<BigFloat> {
         let wp = prec + 30;
         // x = m * 2^e with m in [0.5, 1): ln x = ln m + e ln 2
         let e = self.mag();
@@ -527,7 +569,10 @@ impl BigFloat {
             roots += 1;
         }
         let z = m.sub(&BigFloat::one(), wp).div(&m.add(&BigFloat::one(), wp), wp).unwrap();
-        let at = atanh_series(&z, wp);
+        // The fixed-point series has an absolute error; z is below one by
+        // about sqrt(wp) bits after the reduction.
+        let guard = if z.is_zero() { 0 } else { (-z.mag()).max(0) as u32 };
+        let at = atanh_series(&z, wp + guard);
         let lnm = at.ldexp(1 + roots);
         let res = lnm.add(&ln2(wp).mul(&BigFloat::norm(BigInt::from(e), 0), wp), wp);
         Some(res.round_to(prec))
@@ -545,12 +590,23 @@ impl BigFloat {
             return (self.round_to(prec),BigFloat::one());
         }
         let mag = self.mag().max(0) as u32;
-        let wp = prec + 30 + mag;
-        // reduce modulo pi/2
-        let p = pi(wp + mag);
-        let half_pi = p.ldexp(-1);
-        let k = self.div(&half_pi, wp).unwrap().to_int_round();
-        let r = self.sub(&BigFloat::from_int(&k).mul(&half_pi, wp + bitlen(&k) as u32), wp);
+        // Reduce modulo pi/2. Near a multiple of pi/2 the reduced argument
+        // cancels; repeat with as many more bits of pi as were lost.
+        let mut extra = 0u32;
+        let (wp, k, r) = loop {
+            let wp = prec + 30 + mag + extra;
+            let p = pi(wp + mag);
+            let half_pi = p.ldexp(-1);
+            let k = self.div(&half_pi, wp).unwrap().to_int_round();
+            let r = self.sub(&BigFloat::from_int(&k).mul(&half_pi, wp + bitlen(&k) as u32), wp);
+            let lost = if r.is_zero() { None } else { Some((-r.mag()).max(0) as u32) };
+            match lost {
+                Some(lost) if lost <= extra + 10 => break (wp, k, r),
+                Some(lost) if extra < 1 << 22 => extra = lost + 20,
+                None if extra < 1 << 22 => extra = extra * 2 + 64,
+                _ => break (wp, k, r),
+            }
+        };
         // r in [-pi/4, pi/4]; halve s times, use cos double angle
         let s = ((wp as f64).sqrt() as i64 / 2).max(1);
         let rs = r.ldexp(-s);
@@ -592,7 +648,13 @@ impl BigFloat {
         if self.is_zero() {
             return BigFloat::zero();
         }
-        let wp = prec + 30;
+        // atan(x) = x - x**3/3 + ...: the next term is below 2**-2prec.
+        if self.mag() < -(prec as i128 / 2 + 8) {
+            let wp = prec + 10;
+            let x3 = self.mul(self, wp).mul(self, wp).div_i64(3, wp);
+            return self.sub(&x3, prec);
+        }
+        let wp = prec + 30 + (-self.mag()).max(0) as u32;
         let neg = self.is_negative();
         let mut x = self.abs();
         let mut add_half_pi = false;
@@ -609,7 +671,8 @@ impl BigFloat {
             x = x.div(&BigFloat::one().add(&d, wp), wp).unwrap();
             doublings += 1;
         }
-        let mut r = atan_series(&x, wp).ldexp(doublings);
+        let guard = if x.is_zero() { 0 } else { (-x.mag()).max(0) as u32 };
+        let mut r = atan_series(&x, wp + guard).ldexp(doublings);
         if add_half_pi {
             r = pi(wp).ldexp(-1).sub(&r, wp);
         }
@@ -641,10 +704,15 @@ impl BigFloat {
         }
     }
 
+    /// 1 - x**2 as (1 - x)(1 + x), exact up to the final rounding.
+    fn one_minus_square(&self, prec: u32) -> BigFloat {
+        let one = BigFloat::one();
+        one.sub(self, prec + 4).mul(&one.add(self, prec + 4), prec)
+    }
+
     pub fn asin(&self, prec: u32) -> Option<BigFloat> {
         let wp = prec + 20;
-        let one = BigFloat::one();
-        let c = one.sub(&self.mul(self, wp), wp);
+        let c = self.one_minus_square(wp);
         if c.is_negative() {
             return None;
         }
@@ -657,8 +725,13 @@ impl BigFloat {
 
     pub fn acos(&self, prec: u32) -> Option<BigFloat> {
         let wp = prec + 20;
-        let a = self.asin(wp)?;
-        Some(pi(wp).ldexp(-1).sub(&a, prec))
+        let c = self.one_minus_square(wp);
+        if c.is_negative() {
+            return None;
+        }
+        // atan2 keeps the relative accuracy of acos(x) near x = 1, where
+        // pi/2 - asin(x) cancels.
+        Some(BigFloat::atan2(&c.sqrt(wp).unwrap(), self, prec))
     }
 
     /// x**y for x > 0 (general real powers).
