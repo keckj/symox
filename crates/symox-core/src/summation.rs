@@ -146,7 +146,7 @@ pub fn summation(f: &Expr, k: &Expr, a: &Expr, b: &Expr) -> Expr {
 }
 
 /// SymPy's `piecewise._canonical_coeff`: `-2*x + 1 < 0` becomes `x > 1/2`.
-fn canonical_coeff(r: &Expr) -> Expr {
+pub(crate) fn canonical_coeff(r: &Expr) -> Expr {
     use crate::decompose::{as_coeff_add_head, as_coeff_mul_head};
     let r = crate::logic::canonical(r);
     let Kind::Rel(op, lhs, rhs) = r.kind() else { return r };

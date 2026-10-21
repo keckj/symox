@@ -74,7 +74,10 @@ fn mt(f: &Expr, x: &Expr, s: &Expr, depth: u32) -> Option<R> {
         // M[x**n g](s) = G(s + n)
         let sn = add(&[s.clone(), n.clone()]);
         let (v, a, b, cd) = base(&g, x, &sn)?;
-        return Some((v, sub(&a, &n), sub(&b, &n), cd));
+        // Re(s + n) in (a, b): the strip moves by Re(n)
+        let rn = crate::functions::re(&n);
+        let shift = |e: &Expr| if *e == Expr::oo() || *e == Expr::neg_oo() { e.clone() } else { sub(e, &rn) };
+        return Some((v, shift(&a), shift(&b), cd));
     }
     if let Some(r) = base(&g, x, s) {
         return Some(r);

@@ -1,40 +1,30 @@
-"""Integration adapters using the native engine's resolved exact results.
+"""Integration using Meijer G-functions: the native port of the reference
+``meijerint_indefinite``, ``meijerint_definite`` and ``meijerint_inversion``.
 
-These functions preserve the reference result/condition conventions. They do
-not implement a second independent Meijer-G formula catalog.
+Each function returns ``None`` when the method does not apply, like the
+reference.
 """
-import symox as S
+from symox import _core
+from symox import sympify
 
 
-def _resolved(expr):return not expr.has(S.Integral)
+def _first(result):
+    return None if result is None else result[0]
 
-def meijerint_indefinite(f,x):
-    result=S.integrate(f,x)
-    return result if _resolved(result) else None
 
-def meijerint_definite(f,x,a,b):
-    integral=S.Integral(f,(x,a,b))
-    try:converges=integral.is_convergent()
-    except (NotImplementedError,ValueError,TypeError,AttributeError):converges=None
-    if converges is False or converges==S.false:return None
-    expression=S.cancel(f)
-    if expression.is_rational_function(x):
-        denominator=S.denom(expression)
-        zeros=S.solveset(denominator,x,domain=S.Interval(a,b))
-        if getattr(zeros,'is_finite_set',False) and zeros!=S.EmptySet:return None
-    result=S.integrate(f,(x,a,b))
-    if not _resolved(result):return None
-    if getattr(result,'class_name','')=='Piecewise':
-        from ..printing.mathml import _pairs
-        for value,condition in _pairs(result):
-            if _resolved(value) and not value.has(S.nan,S.oo,-S.oo):return value,condition
-        return None
-    if result.has(S.nan,S.oo,-S.oo):return None
-    if (S.sympify(f).free_symbols|S.sympify(a).free_symbols|S.sympify(b).free_symbols)-{x} and converges not in (True,S.true):return None
-    return result,S.true
+def meijerint_indefinite(f, x):
+    """Antiderivative of ``f`` by Meijer G-functions, or None."""
+    return _first(_core._meijerint_debug('indefinite', sympify(f), sympify(x)))
 
-def meijerint_inversion(f,x,t):
-    result=S.inverse_laplace_transform(f,x,t)
-    return None if result.has(S.InverseLaplaceTransform) else result
 
-__all__=['meijerint_indefinite','meijerint_definite','meijerint_inversion']
+def meijerint_definite(f, x, a, b):
+    """``(value, condition)`` for the integral of ``f`` over ``(a, b)``, or None."""
+    return _core._meijerint_debug('definite', sympify(f), sympify(x), sympify(a), sympify(b))
+
+
+def meijerint_inversion(f, x, t):
+    """Inverse Laplace transform of ``f(x)`` at ``t`` by Meijer G-functions, or None."""
+    return _first(_core._meijerint_debug('inversion', sympify(f), sympify(x), sympify(t)))
+
+
+__all__ = ['meijerint_indefinite', 'meijerint_definite', 'meijerint_inversion']

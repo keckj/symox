@@ -1,6 +1,8 @@
-"""Notes on Meijer-G integration adapters.
+"""Notes on Meijer G integration.
 
-The public integration engine performs native symbolic integration. The
-meijerint entry points report only results that the native engine resolved;
-no imported SymPy formula engine is used. Unevaluated cases remain explicit.
+``symox.integrals.meijerint`` calls the native port of the reference
+algorithm: the formula table, the recursive Mellin-transform rewrite, the
+definite integration of one or two G-functions with their convergence
+conditions, the indefinite integration and the Laplace inversion. A case
+the method does not handle gives None, never a guessed value.
 """

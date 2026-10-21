@@ -699,6 +699,29 @@ pub fn denest_pow(eq: &Expr) -> Expr {
     if be.is_one() && !(b.is_mul() || b.as_number().is_some_and(|n| n.is_rational() && !n.is_integer()) || assumptions::is_positive(&b) == Some(true)) {
         return eq.clone();
     }
+    // polar factors denest freely
+    let factors = mul_args(&b);
+    let (polars, nonpolars): (Vec<Expr>, Vec<Expr>) = factors.into_iter().partition(crate::special::polar::is_polar);
+    if !polars.is_empty() {
+        let rest = powdenest(&ops::pow(&ops::mul(&nonpolars), &e), false, false);
+        let pbe: Vec<(Expr, Expr)> = polars.iter().map(decompose::as_base_exp).collect();
+        if pbe.len() == 1 && !pbe[0].0.is_mul() && !matches!(pbe[0].0.kind(), Kind::Func(Func::ExpPolar, _)) {
+            let (pb, pe) = &pbe[0];
+            return ops::mul(&[ops::pow(pb, &ops::mul(&[pe.clone(), e.clone()])), rest]);
+        }
+        let mut out: Vec<Expr> = pbe
+            .iter()
+            .map(|(pb, pe)| match pb.kind() {
+                // ExpBase.as_base_exp: exp_polar(x) = exp_polar(1)**x
+                Kind::Func(Func::ExpPolar, a) if pe.is_one() => {
+                    crate::functions::func(Func::ExpPolar, vec![ops::mul(&[a[0].clone(), e.clone()])])
+                }
+                _ => powdenest(&ops::pow(pb, &ops::mul(&[pe.clone(), e.clone()])), false, false),
+            })
+            .collect();
+        out.push(rest);
+        return ops::mul(&out);
+    }
     if let Some(n) = big(&b) {
         if let Some((base, k)) = crate::ntheory::perfect_power(&n) {
             return ops::pow(&int(base), &ops::mul(&[e.clone(), Expr::int(k as i64)]));

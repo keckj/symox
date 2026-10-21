@@ -75,7 +75,11 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
             if is_neg_inf(z) {
                 return Some(Expr::zero());
             }
-            None
+            let (nz, n) = super::hyperexpand::extract_branch_factor(z, false);
+            if n.is_zero() {
+                return None;
+            }
+            Some(crate::ops::add(&[super::ei(&nz), crate::ops::mul(&[Expr::int(2), Expr::i(), Expr::pi(), n])]))
         }
         Li => {
             if z.is_zero() {
@@ -223,28 +227,104 @@ fn eval_trig_integral(s: SpecialFn, z: &Expr) -> Option<Expr> {
             _ => Expr::oo(),
         });
     }
+    let exp_polar = |x: Expr| crate::functions::func(crate::Func::ExpPolar, vec![x]);
+    let half_pi_i = div(&mul2(&Expr::i(), &pi), &Expr::int(2));
+    // _Ifactor(nz, sign)
+    let ifactor = |nz: Expr, sign: i64| -> Expr {
+        let sg = Expr::int(sign);
+        match s {
+            Si => crate::ops::mul(&[Expr::i(), sf(Shi, vec![nz]), sg]),
+            Shi => crate::ops::mul(&[Expr::i(), sf(Si, vec![nz]), sg]),
+            Ci => crate::ops::add(&[sf(Chi, vec![nz]), crate::ops::mul(&[half_pi_i.clone(), sg])]),
+            _ => crate::ops::add(&[sf(Ci, vec![nz]), crate::ops::mul(&[half_pi_i.clone(), sg])]),
+        }
+    };
+    if let Some(nz) = extract_exact_factor(z, &exp_polar(half_pi_i.clone())) {
+        return Some(ifactor(nz, 1));
+    }
     if matches!(s, Si | Shi) {
         if let Some(t) = extract_i(z) {
-            let other = if s == Si { Shi } else { Si };
-            return Some(mul2(&Expr::i(), &sf(other, vec![t])));
+            return Some(ifactor(t, 1));
         }
-        if could_extract_minus_sign(z) {
-            return Some(neg(&sf(s, vec![neg(z)])));
+    }
+    if let Some(nz) = extract_exact_factor(z, &exp_polar(neg(&half_pi_i))) {
+        return Some(ifactor(nz, -1));
+    }
+    // _minusfactor
+    let minus = |nz: Expr| -> Expr {
+        match s {
+            Si | Shi => neg(&sf(s, vec![nz])),
+            _ => crate::ops::add(&[sf(s, vec![nz]), mul2(&Expr::i(), &pi)]),
         }
+    };
+    if let Some(nz) = extract_exact_factor(z, &exp_polar(mul2(&Expr::i(), &pi))) {
+        return Some(minus(nz));
+    }
+    if matches!(s, Si | Shi) && could_extract_minus_sign(z) {
+        return Some(minus(neg(z)));
+    }
+    let (nz, n) = super::hyperexpand::extract_branch_factor(z, false);
+    if n.is_zero() && nz == *z {
+        return None;
+    }
+    Some(match s {
+        Si | Shi => sf(s, vec![nz]),
+        _ => crate::ops::add(&[crate::ops::mul(&[Expr::int(2), pi.clone(), Expr::i(), n]), sf(s, vec![nz])]),
+    })
+}
+
+/// `z.extract_multiplicatively(c)` for a non-numeric atom-like factor `c`:
+/// `z == c` or `c` is a literal factor of the product `z`.
+fn extract_exact_factor(z: &Expr, c: &Expr) -> Option<Expr> {
+    if z == c {
+        return Some(Expr::one());
+    }
+    if let Kind::Mul(..) = z.kind() {
+        let mut args = z.args();
+        let i = args.iter().position(|a| a == c)?;
+        args.remove(i);
+        return Some(crate::ops::mul(&args));
     }
     None
 }
 
 fn eval_expint(nu: &Expr, z: &Expr) -> Option<Expr> {
-    let nq = as_exact(nu)?;
-    let int_nonpos = nq.is_integer() && !nq.is_positive();
-    let half = !nq.is_integer() && nq.mul(&Number::int(2)).is_integer();
-    if int_nonpos || half {
-        let v = mul2(
-            &pow(z, &sub(nu, &Expr::one())),
-            &super::uppergamma(&sub(&Expr::one(), nu), z),
-        );
-        return Some(crate::simp::expand_mul(&v));
+    let nu2 = super::polar::unpolarify(nu, false);
+    if nu2 != *nu {
+        return Some(super::expint(&nu2, z));
     }
-    None
+    if let Some(nq) = as_exact(nu) {
+        let int_nonpos = nq.is_integer() && !nq.is_positive();
+        let half = !nq.is_integer() && nq.mul(&Number::int(2)).is_integer();
+        if int_nonpos || half {
+            let v = mul2(
+                &pow(z, &sub(nu, &Expr::one())),
+                &super::uppergamma(&sub(&Expr::one(), nu), z),
+            );
+            return Some(super::polar::unpolarify(&crate::simp::expand_mul(&v), false));
+        }
+    }
+    // the branch information, as explained in `lowergamma.eval`
+    let (z, n) = super::hyperexpand::extract_branch_factor(z, false);
+    if n.is_zero() {
+        return None;
+    }
+    let two_pi_i_n = crate::ops::mul(&[Expr::int(2), Expr::pi(), Expr::i(), n]);
+    let nu1 = sub(nu, &Expr::one());
+    if crate::assumptions::fact(nu, "integer") == Some(true) {
+        // `not nu > 0` raises for an undetermined sign in the reference
+        if crate::assumptions::fact(nu, "positive") != Some(true) {
+            return None;
+        }
+        let c = div(
+            &crate::ops::mul(&[two_pi_i_n, pow(&Expr::minus_one(), &nu1), pow(&super::polar::unpolarify(&z, false), &nu1)]),
+            &super::factorial(&nu1),
+        );
+        return Some(sub(&super::expint(nu, &z), &c));
+    }
+    let e = crate::functions::exp(&mul2(&two_pi_i_n, nu));
+    Some(crate::ops::add(&[
+        crate::ops::mul(&[sub(&e, &Expr::one()), pow(&z, &nu1), crate::functions::gamma(&sub(&Expr::one(), nu))]),
+        super::expint(nu, &z),
+    ]))
 }

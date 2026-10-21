@@ -76,6 +76,62 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
         if r.is_some() {
             return r;
         }
+        // SymPy's is_gt/is_ge and the zero test of is_eq read the extended
+        // sign of the difference: Abs(x) + pi is extended positive even when
+        // its finiteness is unknown.
+        let ext = |name: &str| asm::fact(&d, name) == Some(true);
+        let r = match op {
+            RelOp::Gt if ext("extended_positive") => Some(true),
+            RelOp::Gt if ext("extended_nonpositive") => Some(false),
+            RelOp::Ge if ext("extended_nonnegative") => Some(true),
+            RelOp::Ge if ext("extended_negative") => Some(false),
+            RelOp::Lt if ext("extended_negative") => Some(true),
+            RelOp::Lt if ext("extended_nonnegative") => Some(false),
+            RelOp::Le if ext("extended_nonpositive") => Some(true),
+            RelOp::Le if ext("extended_positive") => Some(false),
+            RelOp::Eq | RelOp::Ne if ext("extended_positive") || ext("extended_negative") => Some(op == RelOp::Ne),
+            _ => None,
+        };
+        if r.is_some() {
+            return r;
+        }
+        // SymPy's is_eq then reads the ratio: a finite nonzero numerator
+        // over a finite denominator is not zero (-1/s**2 - 1 for real s).
+        if matches!(op, RelOp::Eq | RelOp::Ne) {
+            let (n, den) = crate::simplify::numer_denom(&d);
+            let infinite = |e: &Expr| asm::is_finite(e).map(|f| !f);
+            let rv = if asm::is_zero(&n) == Some(true) {
+                asm::is_zero(&den).map(|z| !z)
+            } else if asm::is_finite(&n) == Some(true) {
+                if infinite(&den) == Some(true) {
+                    Some(true)
+                } else if asm::is_zero(&n) == Some(false) {
+                    infinite(&den).or_else(|| {
+                        // The condition that makes the denominator infinite
+                        // decides inequality when it does not make the
+                        // original sides equal.
+                        let (l, r) = clear_coefficients(&den, &Expr::oo())?;
+                        let pair = [(l, r)];
+                        let (la, lb) = (crate::subs::subs(a, &pair), crate::subs::subs(b, &pair));
+                        if &la == a && &lb == b {
+                            return None;
+                        }
+                        match decide(RelOp::Eq, &la, &lb) {
+                            Some(false) => Some(false),
+                            _ => None,
+                        }
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            // rv is SymPy's "difference is zero" verdict.
+            if let Some(z) = rv {
+                return Some((op == RelOp::Eq) == z);
+            }
+        }
     }
     if let Kind::Num(n) = d.kind() {
         let c = n.cmp_value(&crate::number::Number::ZERO)?;
@@ -95,6 +151,30 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
         }
     }
     None
+}
+
+/// SymPy's ``clear_coefficients(expr, rhs)`` for an expression with free
+/// symbols: strip rational content and additive constants into ``rhs``.
+fn clear_coefficients(expr: &Expr, rhs: &Expr) -> Option<(Expr, Expr)> {
+    use crate::ops::{div, neg};
+    if crate::traverse::free_symbols(expr).is_empty() {
+        return None;
+    }
+    let (mut expr, mut rhs) = (expr.clone(), rhs.clone());
+    let mut was: Option<Expr> = None;
+    while !expr.is_zero() && was.as_ref() != Some(&expr) {
+        was = Some(expr.clone());
+        let (m, e) = crate::decompose::as_content_primitive(&expr, false, true).ok()?;
+        rhs = div(&rhs, &Expr::num(m));
+        let (c, e) = crate::decompose::as_coeff_add_head(&e, true);
+        rhs = sub(&rhs, &c);
+        expr = e;
+    }
+    let expr = crate::simptools::misc::signsimp(&expr, false);
+    if crate::decompose::could_extract_minus_sign(&expr) {
+        return Some((neg(&expr), neg(&rhs)));
+    }
+    Some((expr, rhs))
 }
 
 fn infinite_decision(op:RelOp, sign:i32, other:&Expr)->Option<bool> {
@@ -172,17 +252,26 @@ pub fn ge(a: &Expr, b: &Expr) -> Expr {
     rel(RelOp::Ge, a, b)
 }
 
-/// `Piecewise((e1, c1), (e2, c2), ...)`.
+/// `Piecewise((e1, c1), (e2, c2), ...)`: `Piecewise.__new__` followed by
+/// `Piecewise.eval` (`_piecewise_collapse_arguments`).
 pub fn piecewise(pieces: Vec<(Expr, Expr)>) -> Expr {
+    piecewise_depth(pieces, 0)
+}
+
+fn piecewise_depth(pieces: Vec<(Expr, Expr)>, depth: usize) -> Expr {
     let mut out: Vec<(Expr, Expr)> = Vec::with_capacity(pieces.len());
     for (e, c) in pieces {
+        // `ExprCondPair`: a condition containing a Piecewise is folded and
+        // the folded Piecewise of booleans becomes an ITE
+        let c = if !matches!(c.kind(), Kind::Piecewise(_)) && condition_has_piecewise(&c, &mut rustc_hash::FxHashSet::default()) {
+            crate::integrate::piecewise::piecewise_fold(&c, Some(true))
+        } else {
+            c
+        };
         let c = crate::logic::boolean_piecewise_to_ite(&c).unwrap_or(c);
         match c.kind() {
             Kind::Bool(false) => continue,
             Kind::Bool(true) => {
-                if out.is_empty() {
-                    return e;
-                }
                 out.push((e, c));
                 break;
             }
@@ -192,5 +281,123 @@ pub fn piecewise(pieces: Vec<(Expr, Expr)>) -> Expr {
     if out.is_empty() {
         return Expr::nan();
     }
+    if out.len() == 1 && matches!(out[0].1.kind(), Kind::Bool(true)) {
+        return out.pop().unwrap().0;
+    }
+    let collapsed = collapse_arguments(&out);
+    if collapsed.is_empty() {
+        return Expr::nan();
+    }
+    if collapsed != out && depth < 16 {
+        return piecewise_depth(collapsed, depth + 1);
+    }
     Expr::from_kind(Kind::Piecewise(out))
+}
+
+fn condition_has_piecewise(e: &Expr, seen: &mut rustc_hash::FxHashSet<usize>) -> bool {
+    if !seen.insert(e.dag_id()) {
+        return false;
+    }
+    matches!(e.kind(), Kind::Piecewise(_)) || e.args().iter().any(|a| condition_has_piecewise(a, seen))
+}
+
+/// `cond.replace(lambda _: _.is_Relational, _canonical_coeff)`.
+fn canonical_conditions(c: &Expr) -> Expr {
+    use crate::expr::Func;
+    match c.kind() {
+        Kind::Rel(..) => crate::summation::canonical_coeff(c),
+        Kind::Func(Func::Logic(op), args) => {
+            let new: Vec<Expr> = args.iter().map(canonical_conditions).collect();
+            if new == *args {
+                c.clone()
+            } else {
+                crate::logic::eval(*op, new)
+            }
+        }
+        _ => c.clone(),
+    }
+}
+
+/// SymPy's `_piecewise_collapse_arguments`.
+fn collapse_arguments(args: &[(Expr, Expr)]) -> Vec<(Expr, Expr)> {
+    use crate::expr::Func;
+    use crate::logic::LogicOp;
+    let is_true = |c: &Expr| matches!(c.kind(), Kind::Bool(true));
+    let mut newargs: Vec<(Expr, Expr)> = Vec::with_capacity(args.len());
+    let mut current: rustc_hash::FxHashSet<Expr> = rustc_hash::FxHashSet::default();
+    for (expr, cond) in args {
+        let mut cond = canonical_conditions(cond);
+        let mut expr = expr.clone();
+        if let Kind::Piecewise(inner) = expr.kind() {
+            let inner = inner.clone();
+            let mut unmatching: Vec<(Expr, Expr)> = Vec::new();
+            for (e, c) in inner {
+                if current.contains(&c) {
+                    continue;
+                }
+                if c == cond {
+                    if !is_true(&c) {
+                        expr = if unmatching.is_empty() {
+                            e
+                        } else {
+                            unmatching.push((e, c));
+                            piecewise(unmatching)
+                        };
+                    }
+                    break;
+                }
+                unmatching.push((e, c));
+            }
+        }
+        let and_args: Vec<Expr> = match cond.kind() {
+            Kind::Func(Func::Logic(LogicOp::And), a) => a.clone(),
+            _ => Vec::new(),
+        };
+        if current.contains(&cond) || and_args.iter().any(|a| current.contains(a)) {
+            continue;
+        }
+        if !and_args.is_empty() {
+            let mut nonredundant = Vec::with_capacity(and_args.len());
+            let mut falsified = false;
+            for c in and_args {
+                if let Kind::Rel(op, a, b) = c.kind() {
+                    if current.contains(&crate::logic::canonical(&crate::logic::negated_rel(&c))) {
+                        continue;
+                    }
+                    let weak = match op {
+                        RelOp::Lt => Some(RelOp::Le),
+                        RelOp::Gt => Some(RelOp::Ge),
+                        _ => None,
+                    };
+                    if let Some(w) = weak {
+                        if current.contains(&rel(w, a, b)) {
+                            falsified = true;
+                            break;
+                        }
+                    }
+                }
+                nonredundant.push(c);
+            }
+            cond = if falsified { Expr::boolean(false) } else { crate::logic::and(nonredundant) };
+        } else if matches!(cond.kind(), Kind::Rel(..))
+            && current.contains(&crate::logic::canonical(&crate::logic::negated_rel(&cond)))
+        {
+            cond = Expr::boolean(true);
+        }
+        current.insert(cond.clone());
+        if let Some(last) = newargs.last_mut() {
+            if last.0 == expr {
+                let mut orcond = crate::logic::or2(&cond, &last.1);
+                if matches!(orcond.kind(), Kind::Func(Func::Logic(LogicOp::And | LogicOp::Or), _)) {
+                    orcond = crate::logic::distribute_and_over_or(&orcond);
+                }
+                last.1 = orcond;
+                continue;
+            } else if last.1 == cond {
+                continue;
+            }
+        }
+        newargs.push((expr, cond));
+    }
+    newargs
 }

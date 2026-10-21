@@ -102,9 +102,13 @@ def test_tuple_helpers_and_nested_representative_rewrite():
     assert sp.simplify(f.rewrite('nonrep').to_sympy()-want)==0
 
 
-def test_meijer_piecewise_expansion_is_idempotent():
-    z=s.Symbol('z')
-    for f in [s.meijerg([],[2],[0],[],z),s.meijerg([1],[],[],[0],z)]:
+def test_meijer_piecewise_reexpansion_matches_reference():
+    # The reference re-expands the G-function kept in the default branch.
+    z=s.Symbol('z'); zr=sp.Symbol('z')
+    for f, g in [(s.meijerg([],[2],[0],[],z), sp.meijerg([],[2],[0],[],zr)),
+                 (s.meijerg([1],[],[],[0],z), sp.meijerg([1],[],[],[0],zr))]:
         expanded=s.hyperexpand(f)
-        assert s.hyperexpand(expanded)==expanded
+        want=sp.hyperexpand(g)
+        assert str(expanded)==str(want)
+        assert str(s.hyperexpand(expanded))==str(sp.hyperexpand(want))
         assert s.expand_func(expanded)==expanded

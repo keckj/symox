@@ -45,7 +45,7 @@ impl FourierKind {
     }
 
     /// SymPy's constants `(a, b)` of the kernel.
-    fn ab(self) -> (Expr, Expr) {
+    pub(crate) fn ab(self) -> (Expr, Expr) {
         match self {
             FourierKind::Fourier => (Expr::one(), mul(&[int(-2), Expr::pi()])),
             FourierKind::InverseFourier => (Expr::one(), mul(&[int(2), Expr::pi()])),

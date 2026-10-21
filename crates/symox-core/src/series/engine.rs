@@ -688,16 +688,29 @@ impl Engine {
         for _ in 0..5 {
             let a = self.ser(arg, m)?;
             let c0 = self.analytic_arg(&a, f.name())?;
+            let r = a.sub(&Ser::constant(c0.clone()));
+            if r.is_zero() {
+                if r.exact {
+                    return self.constant(&func(f.clone(), vec![c0.to_expr()]));
+                }
+                m += n.max(1);
+                continue;
+            }
             let k0 = match &c0 {
                 C::N(Number::Int(k)) => *k,
-                _ => return Err(SErr::Unsupported(format!("{}({arg})", f.name()))),
+                _ => {
+                    // regular point: log Gamma(c0 + r) = log Gamma(c0)
+                    // + sum_{k>=1} polygamma(k - 1, c0) r^k / k!
+                    let res = self.ser_gamma_regular(f, &c0, &r, m)?;
+                    if res.prec >= n {
+                        return Ok(res);
+                    }
+                    m += (n - res.prec).max(1);
+                    continue;
+                }
             };
             if *f == Func::LogGamma && k0 < 1 {
                 return Err(SErr::Pole(format!("loggamma({arg})")));
-            }
-            let r = a.sub(&Ser::constant(c0.clone()));
-            if r.is_zero() {
-                return self.constant(&func(f.clone(), vec![c0.to_expr()]));
             }
             let vr = r.val.max(1);
             let prec = if r.exact { m + vr * (k0.unsigned_abs() as i64 + 2) } else { r.prec };
@@ -738,6 +751,33 @@ impl Engine {
             m += (n - res.prec).max(1);
         }
         Err(SErr::Precision)
+    }
+
+    fn ser_gamma_regular(&mut self, f: &Func, c0: &C, r: &Ser, m: i64) -> SRes<Ser> {
+        let c0e = c0.to_expr();
+        let g0 = func(f.clone(), vec![c0e.clone()]);
+        if contains_bad(&g0) {
+            return Err(SErr::Pole(g0.to_string()));
+        }
+        let vr = r.val.max(1);
+        let prec = if r.exact { m + vr } else { r.prec };
+        let kmax = ((prec + vr - 1) / vr).max(1) as usize;
+        let mut lk: Vec<C> = vec![C::zero(); kmax + 1];
+        let mut fact = Number::ONE;
+        for (k, l) in lk.iter_mut().enumerate().skip(1) {
+            fact = fact.mul(&Number::int(k as i64));
+            let pg = crate::special::polygamma(&Expr::int(k as i64 - 1), &c0e);
+            if contains_bad(&pg) {
+                return Err(SErr::Pole(pg.to_string()));
+            }
+            *l = C::from_expr(crate::ops::div(&pg, &Expr::num(fact.clone())));
+        }
+        let lser = r.compose(&lk, prec);
+        if *f == Func::LogGamma {
+            Ok(Ser::constant(C::from_expr(g0)).add(&lser))
+        } else {
+            Ok(self.exp_ser(&lser, prec)?.scale(&C::from_expr(g0)))
+        }
     }
 
     /// Leading term `(coefficient, exponent in t-units)`.

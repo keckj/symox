@@ -49,12 +49,60 @@ fn algebraic_proof(e:&Expr)->Option<bool>{
     walk(e,&mut rustc_hash::FxHashMap::default())
 }
 
+/// `Add._eval_is_extended_positive` (or `_negative` when `positive` is
+/// false) over the terms, for a sum that is not a number: every term is
+/// extended nonnegative and one is extended positive, with consistent
+/// infinite terms.
+fn add_extended_sign(e:&Expr,positive:bool)->Option<bool>{
+    let (strict,weak,opposite)=if positive{("extended_positive","extended_nonnegative","extended_nonpositive")}else{("extended_negative","extended_nonpositive","extended_nonnegative")};
+    let args:Vec<Expr>=e.args().into_iter().filter(|a|exact_queries(||is_zero(a))!=Some(true)).collect();
+    if args.is_empty(){return Some(false);}
+    let (mut pos,mut nonneg,mut nonpos,mut unknown)=(false,false,false,false);
+    let mut saw_inf:Vec<Option<bool>>=Vec::new();
+    for a in &args{
+        let ispos=fact(a,strict);
+        let infinite=exact_queries(||is_finite(a)).map(|f|!f);
+        if infinite==Some(true){
+            let v=match (ispos,fact(a,weak)){(Some(true),_)|(_,Some(true))=>Some(true),(Some(false),Some(false))=>Some(false),_=>None};
+            if !saw_inf.contains(&v){saw_inf.push(v);}
+            if saw_inf.contains(&Some(true))&&saw_inf.contains(&Some(false)){return None;}
+        }
+        if ispos==Some(true){pos=true;continue;}
+        if fact(a,weak)==Some(true){nonneg=true;continue;}
+        if fact(a,opposite)==Some(true){nonpos=true;continue;}
+        infinite?;
+        unknown=true;
+    }
+    if !saw_inf.is_empty(){
+        return if saw_inf.len()>1{None}else{saw_inf[0]};
+    }
+    if unknown{return None;}
+    if !nonpos&&pos{return Some(true);}
+    if !pos&&!nonneg{return Some(false);}
+    None
+}
+
 /// An exact declared fact, or a conservative native proof for a scalar value.
 /// Additional Symbol facts never fall back to numerical refinement.
 pub fn fact(e:&Expr,name:&str)->Option<bool>{
     if name=="commutative" && e.has_noncommutative_host(){return crate::decompose::commutativity(e);}
     if let Some(answer)=crate::host::fact(e,name){return answer;}
     if name=="polar" && crate::special::polar::is_polar(e){return Some(true);}
+    // Mul._eval_is_polar always settles (any/all over the factors), and
+    // Pow defers to its base.
+    if name=="polar"{
+        match e.kind(){
+            Kind::Mul(..)=>return Some(false),
+            Kind::Pow(b,_)=>return fact(b,"polar"),
+            _=>{}
+        }
+    }
+    if matches!(e.kind(),Kind::Add(..)) && !e.is_number() {
+        let sign=match name{"extended_positive"|"extended_nonnegative"=>Some(true),"extended_negative"|"extended_nonpositive"=>Some(false),_=>None};
+        if let Some(positive)=sign{
+            if add_extended_sign(e,positive)==Some(true){return Some(true);}
+        }
+    }
     if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
     // Float zero has a known integer value, but SymPy deliberately keeps its
     // rationality/irrationality queries unknown, as for other approximate values.
@@ -495,6 +543,17 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
             real_signs(a)?;
             Some(Signs::POS)
         }
+        // exp_polar of a real number evaluates to a positive number; SymPy
+        // leaves the sign of a symbolic exp_polar unknown.
+        Func::ExpPolar if a.is_number() && is_real(a) == Some(true) => Some(Signs::POS),
+        // exp_polar(c + I*pi) evaluates through exp(c + I*pi) = -exp(c),
+        // so the numeric sign test of the reference finds it negative.
+        Func::ExpPolar
+            if crate::functions::is_numeric_value(a)
+                && is_real(&crate::ops::sub(a, &crate::ops::mul2(&Expr::i(), &Expr::pi()))) == Some(true) =>
+        {
+            Some(Signs::NEG)
+        }
         Func::Special(h) => {
             if *h == crate::special::SpecialFn::LambertW {
                 let branch = args.get(1).map_or(Some(0), Expr::as_i64)?;
@@ -581,6 +640,10 @@ pub fn is_real(e:&Expr)->Option<bool>{cached_bool(e,Query::Real,is_real_uncached
 fn is_real_uncached(e: &Expr) -> Option<bool> {
     if let Kind::Func(Func::Re | Func::Im | Func::Abs,args)=e.kind() {
         return is_finite(&args[0]).filter(|finite|*finite);
+    }
+    // exp_polar._eval_is_extended_real (finite for a finite argument)
+    if let Kind::Func(Func::ExpPolar,args)=e.kind() {
+        if is_real(&args[0])==Some(true){return Some(true);}
     }
     if real_signs(e).is_some() {
         return Some(true);
@@ -705,6 +768,8 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
         Kind::Const(Constant::I) => return Some(false),
         Kind::Const(c) if c.is_number_symbol() => return Some(false),
         Kind::Const(c) if c.is_infinite()=>return Some(false),
+        // ExpBase._eval_is_zero
+        Kind::Func(Func::ExpPolar, a) => return Some(a[0].is_constant(Constant::NegInfinity)),
         Kind::Mul(c,factors) if !c.is_zero() && factors.iter().all(|(b,x)| exact_queries(||is_zero(&crate::ops::mul_factor(b,x)))==Some(false)) => return Some(false),
         Kind::Pow(base,exponent) => {
             if let Some(facts)=exact::rational_power(base,exponent) {if facts.zero.is_some(){return facts.zero;}}
@@ -976,6 +1041,12 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
         }
         // sign takes values in {0} and the unit circle
         Kind::Func(Func::Sign, _) => Some(true),
+        // ExpBase._eval_is_finite
+        Kind::Func(Func::ExpPolar, a) => {
+            if is_finite(&a[0]) == Some(true) || a[0].is_constant(Constant::NegInfinity) { Some(true) }
+            else if a[0].is_constant(Constant::Infinity) { Some(false) }
+            else { None }
+        }
         Kind::Func(Func::Re | Func::Im | Func::Abs, args) => is_finite(&args[0]).filter(|finite|*finite),
         // Sums and products of finite terms are finite (SymPy's
         // ``Add._eval_is_finite`` and ``Mul._eval_is_finite``), whether or

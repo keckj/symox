@@ -41,13 +41,21 @@ pub(super) fn antiderivative(expression: &Expr, variable: &Expr) -> Option<Expr>
     let mut multiplier = Vec::new();
     for factor in factors {
         if let Kind::Func(Func::DiracDelta, args) = factor.kind() {
-            if delta.is_some() || args.len() != 1 { return None; }
-            delta = Some(args[0].clone());
+            if delta.is_some() || args.is_empty() || args.len() > 2 { return None; }
+            let order = match args.get(1).map(|k| k.as_number().cloned()) {
+                None => 0,
+                Some(Some(crate::number::Number::Int(k))) if k >= 0 => k,
+                Some(_) => return None,
+            };
+            delta = Some((args[0].clone(), order));
         } else {
             multiplier.push(factor);
         }
     }
-    let argument = delta?;
+    let (argument, order) = delta?;
+    if order > 0 {
+        return derivative_antiderivative(&argument, order, &multiplier, variable);
+    }
     let (slope, offset) = super::linear(&argument, variable)?;
     if !query::exact_queries(|| query::is_real(&slope) == Some(true)
         && query::is_zero(&slope) == Some(false)) { return None; }
@@ -61,6 +69,62 @@ pub(super) fn antiderivative(expression: &Expr, variable: &Expr) -> Option<Expr>
     let value = subs1(&multiplier, variable, &root);
     if super::has_bad(&value) { return None; }
     Some(div(&mul(&[value, heaviside(&argument)]), &slope))
+}
+
+/// `g(x)*DiracDelta(a*x + b, n)` with `n > 0`, by repeated integration by
+/// parts as in the reference `deltaintegrate`: with `p` the root and
+/// `c_j = binomial(n, j)*(-1)**j*g^(j)(p)`, the primitive's largest term is
+/// `c_n*Heaviside(x - p)` when `c_n != 0`, otherwise
+/// `c_j*DiracDelta(x - p, n - j - 1)` for the largest `j` with `c_j != 0`.
+/// The scale `1/(a**n*|a|)` of `DiracDelta(a*x + b, n)` is kept, and a lone
+/// delta keeps the reference form `DiracDelta(a*x + b, n - 1)/a`.
+fn derivative_antiderivative(argument: &Expr, order: i64, multiplier: &[Expr], variable: &Expr) -> Option<Expr> {
+    if order > 64 { return None; }
+    let (slope, offset) = super::linear(argument, variable)?;
+    if !query::exact_queries(|| query::is_real(&slope) == Some(true)
+        && query::is_zero(&slope) == Some(false)) { return None; }
+    let root = div(&neg(&offset), &slope);
+    if query::exact_queries(|| query::is_real(&root)) != Some(true) { return None; }
+    let delta = |k: i64, at: &Expr| crate::functions::func(Func::DiracDelta, if k == 0 { vec![at.clone()] } else { vec![at.clone(), Expr::int(k)] });
+    if multiplier.is_empty() {
+        return Some(div(&delta(order - 1, argument), &slope));
+    }
+    let multiplier = mul(multiplier);
+    if !crate::matrix::functions::scalar_substitution_preflight(&multiplier, variable, &root) {
+        return None;
+    }
+    if !analytic_at(&multiplier, variable, &root, 0) { return None; }
+    let scale = div(&Expr::one(), &mul(&[crate::ops::pow(&slope, &Expr::int(order)), crate::functions::abs(&slope)]));
+    let shifted = crate::ops::sub(variable, &root);
+    let mut derivatives = vec![multiplier];
+    for _ in 0..order {
+        let last = derivatives.last()?.clone();
+        derivatives.push(crate::diff::diff(&last, variable));
+    }
+    for j in (0..=order).rev() {
+        let value = subs1(&derivatives[j as usize], variable, &root);
+        if super::has_bad(&value) { return None; }
+        let coefficient = mul(&[
+            Expr::int(binomial(order, j)),
+            Expr::int(if j % 2 == 0 { 1 } else { -1 }),
+            value,
+        ]);
+        // as in the reference, only a proven zero moves to a lower term
+        if query::exact_queries(|| query::is_zero(&coefficient)) == Some(true) {
+            continue;
+        }
+        let term = if j == order { heaviside(&shifted) } else { delta(order - j - 1, &shifted) };
+        return Some(mul(&[scale, coefficient, term]));
+    }
+    Some(Expr::zero())
+}
+
+fn binomial(n: i64, k: i64) -> i64 {
+    let mut c: i128 = 1;
+    for i in 0..k as i128 {
+        c = c * (n as i128 - i) / (i + 1);
+    }
+    c as i64
 }
 
 fn analytic_at(expression: &Expr, variable: &Expr, root: &Expr, depth: usize) -> bool {

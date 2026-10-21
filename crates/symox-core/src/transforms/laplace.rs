@@ -19,7 +19,7 @@ type R = (Expr, Expr, Expr);
 
 /// Laplace transform of `f` with respect to `t`: `(F(s), plane, cond)`.
 pub fn laplace_transform(f: &Expr, t: &Expr, s: &Expr, simplify: bool) -> R {
-    let (r, p, c) = lt(f, t, s, 0);
+    let (r, p, c) = lt_with(f, t, s, 0, simplify);
     let r = if simplify { crate::simplify::simplify(&r) } else { r };
     (r, p, c)
 }
@@ -33,6 +33,13 @@ fn ok(f: Expr, plane: Expr) -> Option<R> {
 }
 
 pub(crate) fn lt(f: &Expr, t: &Expr, s: &Expr, depth: u32) -> R {
+    lt_with(f, t, s, depth, false)
+}
+
+/// `_laplace_transform(f, t, s, simplify=...)`: the recursive rule calls
+/// use `simplify=False`; only the top level passes the user's flag on to
+/// the integration backend.
+fn lt_with(f: &Expr, t: &Expr, s: &Expr, depth: u32, simplify: bool) -> R {
     if depth > MAX_DEPTH {
         return held_lt(f, t, s);
     }
@@ -63,6 +70,14 @@ pub(crate) fn lt(f: &Expr, t: &Expr, s: &Expr, depth: u32) -> R {
         let r = simple(&ft, t, s)
             .or_else(|| prog(&ft, t, s, depth))
             .or_else(|| expand_rule(&ft, t, s, depth))
+            .or_else(|| {
+                // Undefined functions of t: integration is not attempted.
+                if super::laplace_integration::has_applied_undef_in(&ft, t) {
+                    None
+                } else {
+                    super::laplace_integration::laplace_integration(&ft, t, s, simplify)
+                }
+            })
             .unwrap_or_else(|| held_lt(&ft, t, s));
         out.push(mul(&[k, r.0]));
         planes.push(r.1);

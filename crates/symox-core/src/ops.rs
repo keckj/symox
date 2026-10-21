@@ -619,7 +619,7 @@ fn mul2_nontrivial(a:&Expr,b:&Expr)->Expr{
 fn plain_factor(e: &Expr) -> Option<(Expr, Expr)> {
     let plain_base = |b: &Expr| match b.kind() {
         Kind::Sym(_) | Kind::Add(..) => true,
-        Kind::Func(f, _) => !matches!(f, Func::Exp),
+        Kind::Func(f, _) => !matches!(f, Func::Exp | Func::ExpPolar),
         Kind::Const(c) => matches!(c, Constant::Pi | Constant::EulerGamma | Constant::I | Constant::Catalan | Constant::GoldenRatio | Constant::TribonacciConstant),
         _ => false,
     };
@@ -843,6 +843,40 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
     let mut out: Vec<(Expr, Expr)> = Vec::with_capacity(merged.len());
     let mut pending: Vec<Expr> = Vec::new();
     let mut radicals: Vec<(Expr, Expr)> = Vec::new();
+
+    // exp_polar(a)*exp_polar(b): SymPy's flatten sees both as powers of
+    // exp_polar(1) and gathers exponents sharing the same non-numeric term
+    // (I*pi with I*pi/2, x with 2*x), so opposite windings cancel to 1.
+    // exp_polar(0) is its own base and is never merged.
+    let is_winding = |b: &Expr| match b.kind() {
+        Kind::Func(Func::ExpPolar, a) => !a[0].is_zero(),
+        _ => false,
+    };
+    if merged.iter().filter(|(b, _, _)| is_winding(b)).nth(1).is_some() {
+        let mut groups: Vec<(Expr, Vec<Expr>, Vec<(Expr, Expr, bool)>)> = Vec::new();
+        merged.retain(|item| {
+            if !is_winding(&item.0) {
+                return true;
+            }
+            let Kind::Func(_, a) = item.0.kind() else { return true };
+            let (c, term) = as_coeff_mul(&mul2(&a[0], &item.1));
+            match groups.iter_mut().find(|(t, _, _)| *t == term) {
+                Some((_, cs, orig)) => { cs.push(Expr::num(c)); orig.push(item.clone()); }
+                None => groups.push((term, vec![Expr::num(c)], vec![item.clone()])),
+            }
+            false
+        });
+        for (term, cs, mut orig) in groups {
+            if orig.len() == 1 {
+                merged.push(orig.pop().unwrap());
+                continue;
+            }
+            let total = mul2(&add(&cs), &term);
+            if !total.is_zero() {
+                pending.push(crate::functions::func(Func::ExpPolar, vec![total]));
+            }
+        }
+    }
 
     // exp(a)*exp(b)*E: SymPy combines the arguments, then splits the sum
     // into one exp per term again (so exp(x)*exp(-x) = 1).
@@ -1126,6 +1160,10 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             if e.is_integer_number() {
                 return pow(bb, &mul2(be, e));
             }
+            // Pow._eval_power: a polar base never needs a branch factor.
+            if crate::special::polar::is_polar(bb) {
+                return pow(bb, &mul2(be, e));
+            }
             // Pow._eval_power: the branch factor is 1 for a real exponent
             // a with |a| < 1, so (b**a)**e = b**(a*e) for every b and e.
             if let Kind::Num(a) = be.kind() {
@@ -1175,7 +1213,8 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             if e.is_rational_number() {
                 let (pos, other): (Vec<&(Expr, Expr)>, Vec<&(Expr, Expr)>) = facs
                     .iter()
-                    .partition(|(fb, fe)| !fb.is_number() && crate::assumptions::is_positive(&mul_factor(fb, fe)) == Some(true));
+                    .partition(|(fb, fe)| !fb.is_number() && (crate::special::polar::is_polar(fb)
+                        || crate::assumptions::is_positive(&mul_factor(fb, fe)) == Some(true)));
                 if !pos.is_empty() {
                     let mut v: Vec<Expr> = pos.iter().map(|(fb, fe)| pow(&mul_factor(fb, fe), e)).collect();
                     let mut rest = vec![Expr::num(c.clone())];

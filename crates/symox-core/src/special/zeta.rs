@@ -119,11 +119,25 @@ fn eval_polylog(s: &Expr, z: &Expr) -> Option<Expr> {
             }
         }
     }
-    if s.is_zero() {
-        return Some(div(z, &sub(&Expr::one(), z)));
+    let polar = super::polar::has_polar_func(z);
+    // z.equals(1): undecided for a polar number unless z - 1 is provably
+    // nonzero; z == 1 itself was handled above.
+    let zone_false = !(polar && crate::functions::is_numeric_value(z))
+        || crate::assumptions::is_zero(&sub(z, &Expr::one())) == Some(false);
+    if zone_false {
+        if s.is_zero() {
+            return Some(div(z, &sub(&Expr::one(), z)));
+        }
+        if s.is_minus_one() {
+            return Some(div(z, &sub(&Expr::one(), z).powi(2)));
+        }
     }
-    if s.is_minus_one() {
-        return Some(div(z, &sub(&Expr::one(), z).powi(2)));
+    // polylog is branched, but not over the unit disk
+    if polar && matches!(crate::relational::le(&crate::functions::abs(z), &Expr::one()).kind(), Kind::Bool(true)) {
+        let u = super::polar::unpolarify(z, false);
+        if u != *z {
+            return Some(super::polylog(s, &u));
+        }
     }
     None
 }
@@ -152,6 +166,30 @@ fn dilog_table(z: &Expr) -> Option<Expr> {
     }
     if *z == g {
         return Some(sub(&div(&pi2, &Expr::int(10)), &log(&g).powi(2)));
+    }
+    let i = Expr::i();
+    let cat = Expr::constant(Constant::Catalan);
+    let icat = mul2(&i, &cat);
+    let ipi_log2 = mul(&[i.clone(), Expr::pi(), log2.clone()]);
+    if *z == i {
+        return Some(sub(&icat, &div(&pi2, &Expr::int(48))));
+    }
+    if *z == neg(&i) {
+        return Some(sub(&neg(&icat), &div(&pi2, &Expr::int(48))));
+    }
+    if *z == sub(&Expr::one(), &i) {
+        return Some(add(&[div(&pi2, &Expr::int(16)), neg(&icat), neg(&div(&ipi_log2, &Expr::int(4)))]));
+    }
+    if *z == add(&[Expr::one(), i.clone()]) {
+        return Some(add(&[div(&pi2, &Expr::int(16)), icat.clone(), div(&ipi_log2, &Expr::int(4))]));
+    }
+    if *z == div(&sub(&Expr::one(), &i), &Expr::int(2)) {
+        return Some(add(&[
+            neg(&div(&log2.powi(2), &Expr::int(8))),
+            div(&ipi_log2, &Expr::int(8)),
+            div(&mul2(&Expr::int(5), &pi2), &Expr::int(96)),
+            neg(&icat),
+        ]));
     }
     None
 }

@@ -22,6 +22,13 @@ const MAX_DEPTH: u32 = 10;
 
 mod rational_definite;
 mod dirac;
+pub(crate) mod meijerint;
+pub(crate) mod piecewise;
+
+/// Stage probe of the Meijer G definite integration (testing only).
+pub fn meijerint_debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
+    meijerint::debug(op, args)
+}
 
 /// Exact absolute value at a distribution support point. None means the
 /// arithmetic probe was inconclusive or exceeded its local resource budget.
@@ -38,17 +45,172 @@ pub fn distribution_abs_at(expression: &Expr, variable: &Expr, point: &Expr) -> 
 /// Indefinite integral of `f` with respect to `x`. Returns an unevaluated
 /// `Integral(f, x)` when no rule applies.
 pub fn integrate(f: &Expr, x: &Expr) -> Expr {
-    match try_integrate(f, x) {
-        Some(r) => r,
-        None => integral_unevaluated(f, x),
+    integrate_hint(f, x, None)
+}
+
+/// `integrate(f, x, meijerg=...)`: `Some(true)` integrates only by Meijer
+/// G-functions, `Some(false)` never, `None` falls back to them when the
+/// other rules fail.
+pub fn integrate_hint(f: &Expr, x: &Expr, meijerg: Option<bool>) -> Expr {
+    let g = piecewise::doit_rewrite(f, x, None);
+    doit_indefinite(&g, x, meijerg).unwrap_or_else(|| integral_unevaluated(&g, x))
+}
+
+/// One indefinite limit of `Integral.doit` on the rewritten integrand: a
+/// Piecewise goes through `Piecewise._eval_integral`, anything else through
+/// `_eval_integral`. `None` when the whole integral stays unevaluated.
+fn doit_indefinite(g: &Expr, x: &Expr, meijerg: Option<bool>) -> Option<Expr> {
+    if piecewise::is_piecewise(g) {
+        return match piecewise::eval_integral(g, x, true, meijerg) {
+            Ok(r) if !is_held_integral(&r) => Some(r),
+            _ => None,
+        };
+    }
+    try_integrate_hint(g, x, meijerg)
+}
+
+fn is_held_integral(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Func(Func::Integral, _))
+}
+
+/// How `integrate(..., conds=...)` presents the convergence conditions of a
+/// Meijer G definite integral.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Conds {
+    Piecewise,
+    Separate,
+    None,
+}
+
+/// Definite integral of `f` over `[a, b]` with `conds='piecewise'`.
+pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
+    integrate_definite_conds(f, x, a, b, Conds::Piecewise, None).0
+}
+
+fn has_oo(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Const(Constant::Infinity | Constant::NegInfinity) => true,
+        _ => e.args().iter().any(has_oo),
     }
 }
 
-/// Definite integral of `f` over `[a, b]` (via the antiderivative).
-pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
+fn has_piecewise_or_minmax(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |s| {
+        if matches!(s.kind(), Kind::Piecewise(..) | Kind::Func(Func::Min | Func::Max, _)) {
+            found = true;
+        }
+    });
+    found
+}
+
+/// One `(x, a, b)` limit of `Integral.doit` with the `conds` and `meijerg`
+/// hints. The second component is the separate condition, present only
+/// when `conds='separate'` and the Meijer G method gave the value.
+///
+/// As in the reference, the variable is first replaced by a dummy carrying
+/// the sign the bounds imply, and an improper integral over extended real
+/// bounds tries `meijerint_definite` before any antiderivative. Its
+/// convergence condition is kept, so a parameter range where the integral
+/// diverges never receives the analytic continuation as its value.
+pub fn integrate_definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg: Option<bool>) -> (Expr, Option<Expr>) {
+    use crate::assumptions::{is_nonnegative, is_nonpositive, is_real};
+    use crate::symbol::Assumptions;
+    if f.is_zero() || a == b {
+        return (Expr::zero(), None);
+    }
+    let both = |p: &dyn Fn(&Expr) -> Option<bool>| p(a) == Some(true) && p(b) == Some(true);
+    // A signed dummy would evaluate DiracDelta(x) to zero and lose the half
+    // weight of a delta at a finite endpoint, which the native distribution
+    // rules keep (a documented difference from the reference, which returns
+    // zero there): only realness is attached in that case.
+    let mut dirac = false;
+    crate::traverse::preorder(f, &mut |s| dirac |= matches!(s.kind(), Kind::Func(Func::DiracDelta, _)));
+    let sign = if dirac {
+        None
+    } else if both(&is_nonnegative) && is_nonnegative(x) != Some(true) {
+        Some(Assumptions::POSITIVE)
+    } else if both(&is_nonpositive) && is_nonpositive(x) != Some(true) {
+        Some(Assumptions::NEGATIVE)
+    } else {
+        None
+    };
+    let sign = sign.or_else(|| (both(&is_real) && is_real(x) != Some(true)).then_some(Assumptions::REAL));
+    if let Some(sign) = sign {
+        if x.is_symbol() {
+            let d = Expr::dummy("x", sign);
+            let rep = |e: &Expr, from: &Expr, to: &Expr| {
+                let mut m = rustc_hash::FxHashMap::default();
+                m.insert(from.clone(), to.clone());
+                crate::subs::xreplace(e, &m)
+            };
+            let (v, c) = integrate_definite_conds(&rep(f, x, &d), &d, &rep(a, x, &d), &rep(b, x, &d), conds, meijerg);
+            return (rep(&v, &d, x), c.map(|c| rep(&c, &d, x)));
+        }
+    }
+    let rewritten = piecewise::doit_rewrite(f, x, Some((a, b)));
+    let f = &rewritten;
+    if piecewise::is_piecewise(f) {
+        // `piecewise_integrate`, then the Piecewise evaluation; the Meijer G
+        // definite method is not tried on a Piecewise
+        let big_f = piecewise::piecewise_integrate(f, x, meijerg);
+        let value = piecewise::eval_split(&big_f, x, a, b, &|o| eval_generic(o, x, a, b));
+        return (value.unwrap_or_else(|| integral_definite_unevaluated(f, x, a, b)), None);
+    }
+    let extended_real = |e: &Expr| crate::assumptions::fact(e, "extended_real") == Some(true);
+    let improper = extended_real(a) && extended_real(b) && (has_oo(a) || has_oo(b));
+    let pw = has_piecewise_or_minmax(f);
+    let try_meijerg = || -> Option<(Expr, Option<Expr>)> {
+        let (value, cond) = meijerint::meijerint_definite(f, x, a, b)?;
+        Some(match conds {
+            Conds::Piecewise if matches!(cond.kind(), Kind::Bool(true)) => (value, None),
+            Conds::Piecewise => (
+                Expr::from_kind(Kind::Piecewise(vec![
+                    (value, cond),
+                    (integral_definite_unevaluated(f, x, a, b), Expr::boolean(true)),
+                ])),
+                None,
+            ),
+            Conds::Separate => (value, Some(cond)),
+            Conds::None => (value, None),
+        })
+    };
+    if meijerg != Some(false) && !pw && improper {
+        if let Some(r) = try_meijerg() {
+            return r;
+        }
+        // the antiderivative by G-functions is likely nonsensical when the
+        // definite method failed: `meijerg=True` gives up, otherwise the
+        // other methods go on without it
+        if meijerg == Some(true) {
+            return (integral_definite_unevaluated(f, x, a, b), None);
+        }
+        return (integrate_definite_native(f, x, a, b, Some(false)), None);
+    }
+    if meijerg == Some(true) {
+        // the antiderivative by `meijerint_indefinite` first, then the
+        // definite method
+        if !pw {
+            if let Some(big_f) = try_integrate_hint(f, x, Some(true)) {
+                if let Some(v) = eval_antiderivative(&big_f, f, x, a, b) {
+                    return (v, None);
+                }
+            }
+            if let Some(r) = try_meijerg() {
+                return r;
+            }
+        }
+        return (integral_definite_unevaluated(f, x, a, b), None);
+    }
+    (integrate_definite_native(f, x, a, b, meijerg), None)
+}
+
+/// Definite integral of `f` over `[a, b]` through the native rules and the
+/// antiderivative.
+fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Option<bool>) -> Expr {
     if a == b { return Expr::zero(); }
     if rational_definite::compare(a,b) == Some(std::cmp::Ordering::Greater) {
-        return neg(&integrate_definite(f,x,b,a));
+        return neg(&integrate_definite_native(f,x,b,a,meijerg));
     }
     let unevaluated = || integral_definite_unevaluated(f,x,a,b);
     let checked = match rational_definite::analyze(f,x,a,b) {
@@ -61,29 +223,111 @@ pub fn integrate_definite(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Expr {
     if let Some(value) = gamma_moments(f, x, a, b) {
         return value;
     }
-    match try_integrate(f, x) {
-        Some(big_f) => {
-            // evaluate the antiderivative at the bounds, through limits when
-            // the bound is infinite or the substitution is singular
-            let at = |p: &Expr, dir: crate::limits::Dir| -> Expr {
-                let v = subs1(&big_f, x, p);
-                let infinite = matches!(p.kind(), Kind::Const(c) if c.is_infinite());
-                if infinite || has_bad(&v) {
-                    if let Ok(l) = crate::limits::limit(&big_f, x, p, dir) {
-                        return l;
-                    }
-                }
-                v
-            };
-            let fb = at(b, crate::limits::Dir::Minus);
-            let fa = at(a, crate::limits::Dir::Plus);
-            if has_bad(&fb) || has_bad(&fa) {
-                return integral_definite_unevaluated(f,x,a,b);
-            }
-            expand_if_numeric(&sub(&fb, &fa))
-        }
-        None => integral_definite_unevaluated(f,x,a,b),
+    try_integrate_hint(f, x, meijerg)
+        .and_then(|big_f| eval_antiderivative(&big_f, f, x, a, b))
+        .unwrap_or_else(|| integral_definite_unevaluated(f, x, a, b))
+}
+
+/// The antiderivative `big_f` of `f` between the bounds, through limits
+/// when the bound is infinite or the substitution is singular; `None` when
+/// a bound value is not settled.
+fn eval_antiderivative(big_f: &Expr, f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    let _ = f;
+    if piecewise::has_piecewise(big_f) {
+        // the reference splits the Piecewise terms off and evaluates them
+        // with `Piecewise._eval_interval`
+        return piecewise::eval_split(big_f, x, a, b, &|o| eval_generic(o, x, a, b));
     }
+    eval_generic(big_f, x, a, b)
+}
+
+/// The generic evaluation of an antiderivative between the bounds.
+fn eval_generic(big_f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    let at = |p: &Expr, dir: crate::limits::Dir| -> Expr {
+        let v = subs1(big_f, x, p);
+        let infinite = matches!(p.kind(), Kind::Const(c) if c.is_infinite());
+        if infinite || has_bad(&v) {
+            if let Ok(l) = crate::limits::limit(big_f, x, p, dir) {
+                return l;
+            }
+        }
+        v
+    };
+    let fb = at(b, crate::limits::Dir::Minus);
+    let fa = at(a, crate::limits::Dir::Plus);
+    if has_bad(&fb) || has_bad(&fa) || !settled_bound_value(&fb) || !settled_bound_value(&fa) {
+        return None;
+    }
+    interval_singularities(big_f, x, a, b, sub(&fb, &fa)).map(|value| expand_if_numeric(&value))
+}
+
+/// `Expr._eval_interval`: a jump of the antiderivative at a pole or a log
+/// branch point strictly inside comparable bounds is removed through the
+/// one-sided limits there, so `tan` over `(0, pi)` gives nan as in the
+/// reference instead of the endpoint difference. `None` when such a limit
+/// is undecided.
+fn interval_singularities(big_f: &Expr, x: &Expr, a: &Expr, b: &Expr, value: Expr) -> Option<Expr> {
+    let comparable = |e: &Expr| {
+        matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity))
+            || (crate::functions::is_numeric_value(e) && crate::evalf::eval_f64(e).is_some())
+    };
+    if !comparable(a) || !comparable(b) {
+        return Some(value);
+    }
+    let mut logs = Vec::new();
+    crate::traverse::preorder(big_f, &mut |s| {
+        if let Kind::Func(Func::Log, args) = s.kind() {
+            if has(s, x) && !logs.contains(&args[0]) {
+                logs.push(args[0].clone());
+            }
+        }
+    });
+    let cancelled = crate::poly::api::cancel(big_f).unwrap_or_else(|_| big_f.clone());
+    let den = numer_denom(&cancelled).1;
+    if !has(&den, x) && logs.is_empty() {
+        return Some(value);
+    }
+    let increasing = crate::sets::cmp3(a, b) != Some(std::cmp::Ordering::Greater);
+    let domain = if increasing { crate::sets::interval(a, b, false, false) } else { crate::sets::interval(b, a, false, false) };
+    let mut points: Vec<Expr> = Vec::new();
+    for g in std::iter::once(den).chain(logs) {
+        if !has(&g, x) {
+            continue;
+        }
+        let Ok(set) = crate::sets::solveset(&g, x, &domain) else { return Some(value) };
+        if crate::sets::is_empty_set(&set) {
+            continue;
+        }
+        // An infinite or unsolved set is not iterable: the reference skips
+        // the whole correction (its TypeError is caught).
+        let Some(found) = crate::sets::finite_elements(&set) else { return Some(value) };
+        for p in found {
+            if !points.contains(p) {
+                points.push(p.clone());
+            }
+        }
+    }
+    let mut value = value;
+    for p in points {
+        if value.is_constant(Constant::NaN) {
+            break;
+        }
+        if !comparable(&p) {
+            continue;
+        }
+        let less = |u: &Expr, v: &Expr| crate::sets::cmp3(u, v) == Some(std::cmp::Ordering::Less);
+        let sign = if less(a, &p) && less(&p, b) {
+            Expr::one()
+        } else if less(b, &p) && less(&p, a) {
+            Expr::int(-1)
+        } else {
+            continue;
+        };
+        let right = crate::limits::limit(big_f, x, &p, crate::limits::Dir::Plus).ok()?;
+        let left = crate::limits::limit(big_f, x, &p, crate::limits::Dir::Minus).ok()?;
+        value = add(&[value, mul2(&sign, &sub(&left, &right))]);
+    }
+    Some(value)
 }
 
 /// `∫ P(x) exp(-α x^q) dx` over `(0, oo)` or `(-oo, oo)` through
@@ -212,6 +456,25 @@ fn moment_degree(term:&Expr,x:&Expr)->Option<(Expr,Expr)>{
     }
 }
 
+/// A bound value of the antiderivative is usable only when it is either a
+/// signed infinity (a proved divergence) or free of every infinity. A
+/// residual infinity inside an expression, such as exp(-oo*s), cos(oo) or
+/// oo**(s+1), means the limit was not decided for all parameter values and
+/// must not be presented as the value of the integral.
+fn settled_bound_value(e: &Expr) -> bool {
+    if matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity)) {
+        return true;
+    }
+    !has_infinity(e)
+}
+
+fn has_infinity(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Const(c) => c.is_infinite() || matches!(c, Constant::NaN),
+        _ => e.args().iter().any(has_infinity),
+    }
+}
+
 fn has_bad(e: &Expr) -> bool {
     match e.kind() {
         Kind::Const(Constant::NaN | Constant::ComplexInfinity) => true,
@@ -240,10 +503,66 @@ pub fn integral_definite_unevaluated(f:&Expr,x:&Expr,a:&Expr,b:&Expr)->Expr {
 
 /// Antiderivative, or `None` if the integrator gives up.
 pub fn try_integrate(f: &Expr, x: &Expr) -> Option<Expr> {
+    doit_indefinite(&piecewise::doit_rewrite(f, x, None), x, None)
+}
+
+fn native_antiderivative(f: &Expr, x: &Expr) -> Option<Expr> {
     dirac::with_input(f, || {
         let mut seen = FxHashSet::default();
         integ(f, x, 0, &mut seen)
     })
+}
+
+/// `Integral._eval_integral(f, x, meijerg=...)`. The native rules stand in
+/// for the reference stages before the Meijer G method (polynomials,
+/// rational functions, Risch and heurisch); a term they leave is then
+/// integrated by `meijerint_indefinite` unless `meijerg=False`.
+/// `meijerg=True` integrates only by Meijer G-functions.
+pub fn try_integrate_hint(f: &Expr, x: &Expr, meijerg: Option<bool>) -> Option<Expr> {
+    if meijerg == Some(true) {
+        if free(f, x) {
+            return Some(mul2(f, x));
+        }
+        return meijer_terms(f, x, true);
+    }
+    let native = native_antiderivative(f, x);
+    if native.is_some() || meijerg == Some(false) {
+        return native;
+    }
+    meijer_terms(f, x, false)
+}
+
+/// The term loop of `_eval_integral` from the Meijer G stage on.
+fn meijer_terms(f: &Expr, x: &Expr, only: bool) -> Option<Expr> {
+    // `Piecewise._eval_integral` and the order terms have their own paths
+    if matches!(f.kind(), Kind::Piecewise(_)) || has_piecewise_or_minmax(f) {
+        return None;
+    }
+    let terms = crate::simptools::add_args(f);
+    let mut parts = Vec::new();
+    for t in &terms {
+        let (coeff, g) = crate::decompose::as_independent(t, std::slice::from_ref(x), None);
+        if !only {
+            if let Some(h) = native_antiderivative(&g, x) {
+                parts.push(mul2(&coeff, &h));
+                continue;
+            }
+        }
+        if let Some(h) = meijerint::meijerint_indefinite(&g, x) {
+            parts.push(mul2(&coeff, &h));
+            continue;
+        }
+        if terms.len() == 1 {
+            let e = crate::simptools::fu::sincos_to_sum(f);
+            let options = crate::expand::ExpandOptions { deep: false, ..Default::default() };
+            let e = crate::expand::expand_with_options(&e, &options, &mut crate::expand::ExpandBudget::default()).unwrap_or(e);
+            if e.is_add() {
+                return meijer_terms(&e, x, only);
+            }
+        }
+        return None;
+    }
+    Some(add(&parts))
 }
 
 #[inline]
@@ -502,6 +821,16 @@ fn integ_inner(f: &Expr, x: &Expr, depth: u32, seen: &mut FxHashSet<Expr>) -> Op
             }
         }
     }
+    // exponentials times sin/cos whose cyclic denominator vanishes, as in
+    // exp(I*x)*sin(x): integrate the exponential form
+    if has_head(f, &[Func::Exp]) && has_head(f, &[Func::Sin, Func::Cos]) {
+        let ef = expand(&crate::special::rewrite::rewrite(f, &["sin".to_string(), "cos".to_string()], "exp", true));
+        if ef != *f && ef != ex {
+            if let Some(r) = integ(&ef, x, depth + 1, seen) {
+                return Some(r);
+            }
+        }
+    }
     // hyperbolic functions: integrate the exponential form
     if has_head(f, &[Func::Sinh, Func::Cosh]) {
         let ef = expand(&crate::simptools::trigsimp::rewrite_exp(f));
@@ -574,10 +903,109 @@ fn poly_exp_trig(f: &Expr, x: &Expr) -> Option<Expr> {
     let pa = from_coeffs(&ac[..n], x);
     let pb = from_coeffs(&bc[..n], x);
     if tr.is_none() {
-        // polynomial * exp: SymPy keeps the exponential factored out
-        return Some(mul2(&pa, &ea));
+        // the Risch form: the polynomial over a common denominator times the
+        // exponential
+        let (mut num, mut den) = crate::poly::api::as_numer_denom(&crate::poly::api::together(&pa));
+        if !den.is_number() {
+            if let Ok(c) = crate::poly::api::cancel(&pa) {
+                (num, den) = crate::poly::api::as_numer_denom(&c);
+            }
+        }
+        let generic = mul(&[num, ea, pow(&den, &Expr::minus_one())]);
+        // a coefficient of x that may vanish makes the generic antiderivative
+        // undefined there: the value at zero is kept in a Piecewise like the
+        // reference Risch integrator
+        if den.is_number() || crate::assumptions::fact(&a, "zero") == Some(false) {
+            return Some(generic);
+        }
+        let u = ex.as_ref().expect("exponential factor");
+        let f0 = mul2(&mul(&poly), &exp(&expand(&sub(u, &mul2(&a, x)))));
+        let special = native_antiderivative(&f0, x).unwrap_or_else(|| integral_unevaluated(&f0, x));
+        let (_, monic) = crate::poly::api::add_primitive(&den);
+        return Some(piecewise(vec![(generic, ne(&monic, &Expr::zero())), (special, Expr::boolean(true))]));
     }
-    Some(expand(&mul2(&ea, &add2(&mul2(&pa, &c), &mul2(&pb, &s)))))
+    let generic = expand(&mul2(&ea, &add2(&mul2(&pa, &c), &mul2(&pb, &s))));
+    Some(degenerate_cases(f, x, &det, generic))
+}
+
+/// `heurisch_wrapper`: the parameter values that make the denominator `den`
+/// of the generic antiderivative vanish are integrated separately and kept
+/// in a Piecewise, the generic case last (first, guarded by `Ne`, when there
+/// is a single special case).
+fn degenerate_cases(f: &Expr, x: &Expr, den: &Expr, generic: Expr) -> Expr {
+    // `solve([d], dict=True)`: each factor is solved for its first symbol
+    let zeros = |d: &Expr| -> Vec<Vec<(Expr, Expr)>> {
+        let factors = match crate::poly::api::factor_list(d) {
+            Ok((_, fl)) => fl.into_iter().map(|(g, _)| g).collect(),
+            Err(_) => vec![d.clone()],
+        };
+        let mut out: Vec<Vec<(Expr, Expr)>> = Vec::new();
+        for g in factors {
+            let mut syms: Vec<Expr> = crate::traverse::free_symbols(&g).into_iter().filter(|s| s != x).collect();
+            syms.sort_by(crate::sortkey::cmp_default);
+            for s in syms {
+                if let Some(v) = crate::solve::solve(&g, &s) {
+                    for v in v {
+                        let sol = vec![(s.clone(), v)];
+                        if !out.contains(&sol) {
+                            out.push(sol);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        out
+    };
+    if free(den, x) && den.is_number() {
+        return generic;
+    }
+    let mut sols = zeros(den);
+    if sols.is_empty() {
+        return generic;
+    }
+    // the poles of the integrand itself are not special cases
+    let (_, fden) = numer_denom(f);
+    if !fden.is_number() {
+        let poles = zeros(&fden);
+        sols.retain(|s| !poles.contains(s));
+        if sols.is_empty() {
+            return generic;
+        }
+    }
+    if sols.len() > 1 {
+        let eqs: Vec<Expr> = sols.iter().flatten().map(|(k, v)| sub(k, v)).collect();
+        let mut vars: Vec<Expr> = Vec::new();
+        for e in &eqs {
+            for s in crate::traverse::free_symbols(e) {
+                if s != *x && !vars.contains(&s) {
+                    vars.push(s);
+                }
+            }
+        }
+        vars.sort_by(crate::sortkey::cmp_default);
+        match crate::solve::solve_system(&eqs, &vars) {
+            Some(crate::solve::SystemSolution::Map(m)) if !m.is_empty() => sols.insert(0, m),
+            Some(crate::solve::SystemSolution::NoSolution) => {}
+            // the joint case could not be decided
+            Some(_) | None => return generic,
+        }
+    }
+    let mut pairs = Vec::new();
+    for sol in &sols {
+        let fs = sol.iter().fold(f.clone(), |e, (k, v)| subs1(&e, k, v));
+        let value = native_antiderivative(&fs, x).unwrap_or_else(|| integral_unevaluated(&fs, x));
+        let cond = crate::logic::and(sol.iter().map(|(k, v)| crate::relational::eq(k, v)).collect());
+        pairs.push((value, cond));
+    }
+    if pairs.len() == 1 {
+        let sol = &sols[0];
+        let cond = crate::logic::or(sol.iter().map(|(k, v)| ne(k, v)).collect());
+        let special = pairs.pop().unwrap().0;
+        return piecewise(vec![(generic, cond), (special, Expr::boolean(true))]);
+    }
+    pairs.push((generic, Expr::boolean(true)));
+    piecewise(pairs)
 }
 
 fn rewrite_trig(e: &Expr) -> Expr {
@@ -987,7 +1415,10 @@ fn cyclic(f: &Expr, x: &Expr) -> Option<Expr> {
     let (ea, (is_sin, ta)) = (e_arg?, t?);
     let (a, _) = linear(&ea, x)?;
     let (b, _) = linear(&ta, x)?;
-    let den = add2(&a.powi(2), &b.powi(2));
+    let den = expand(&add2(&a.powi(2), &b.powi(2)));
+    if den.is_zero() {
+        return None;
+    }
     let ex = exp(&ea);
     let (s, co) = (sin(&ta), cos(&ta));
     let inner = if is_sin {
@@ -995,7 +1426,7 @@ fn cyclic(f: &Expr, x: &Expr) -> Option<Expr> {
     } else {
         add2(&mul2(&a, &co), &mul2(&b, &s))
     };
-    Some(expand(&div(&mul2(&ex, &inner), &den)))
+    Some(degenerate_cases(f, x, &den, expand(&div(&mul2(&ex, &inner), &den))))
 }
 
 /// Candidate substitutions: function arguments, power bases and exponents,

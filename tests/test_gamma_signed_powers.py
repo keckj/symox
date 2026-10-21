@@ -32,8 +32,11 @@ def test_symbolic_signed_real_power_uses_absolute_jacobian(positive):
     x,a=sx.symbols('x a');q=sx.Symbol('q',**({'positive':True} if positive else {'negative':True}))
     beta=sx.Symbol('b',positive=True);s=(a+1)/q
     value,condition=sx.integrate(x**a*sx.exp(-beta*x**q),(x,0,sx.oo),conds='separate')
-    assert value==sx.gamma(s)/((q if positive else -q)*beta**s)
-    assert condition==((sx.re(a)>-1) if positive else (sx.re(a)<-1))
+    # The reference form: Meijer G gives gamma(s+1)/(a+1), which is
+    # gamma(s)/|q| with the sign of q, and the condition re(s) > 0.
+    assert value==(1 if positive else -1)*beta**(1-s)*sx.gamma(a/q+1+1/q)/(beta*(a+1))
+    assert condition==((sx.re(a)+1)/q>0)
+    assert sx.simplify(sx.gammasimp(value-sx.gamma(s)/((q if positive else -q)*beta**s)))==0
 
 
 def test_negative_even_power_has_convergent_whole_line_moments():
@@ -63,6 +66,6 @@ assert value==sx.gamma((a+1)/q)/q
 assert condition==(sx.re(a)>-1)
 assert sx.integrate(sx.exp(-x**q),(x,-sx.oo,sx.oo))==2*sx.gamma(1/q)/q
 q=sx.Symbol('q',positive=True,even=True)
-assert sx.integrate(sx.exp(-x**q),(x,-sx.oo,sx.oo))==2*sx.gamma(1/q)/q
+assert sx.integrate(sx.exp(-x**q),(x,-sx.oo,sx.oo))==2*sx.gamma(1+1/q)
 '''
     subprocess.run([sys.executable,'-c',script],check=True,timeout=20)

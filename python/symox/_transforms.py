@@ -249,11 +249,30 @@ def _doit(expr, deep=True, **hints):
     try:
         items = _core._transform_doit(name, args, bool(simplify), bool(needeval))
     except NotImplementedError as err:
+        _raise_fatal(err)
         msg = str(err).split(": ", 1)[-1]
         raise IntegralTransformError(_HEADS[name][0], args[0], msg) from None
     if noconds:
         return items[0]
     return _shape(name, items)
+
+
+_FATAL = {
+    "MellinTransformStripError": MellinTransformStripError,
+    "NotImplementedError": NotImplementedError,
+    "TypeError": TypeError,
+    "ValueError": ValueError,
+}
+
+
+def _raise_fatal(err):
+    """Re-raise a native error tagged ``\\x01Kind\\x01msg`` as ``Kind(msg)``:
+    the errors that the reference does not turn into a held transform."""
+    text = str(err)
+    if not text.startswith("\x01"):
+        return
+    _, kind, msg = text.split("\x01", 2)
+    raise _FATAL.get(kind, NotImplementedError)(msg) from None
 
 
 def _as_integral(expr):
@@ -349,7 +368,11 @@ def inverse_laplace_transform(F, s, t, plane=None, **hints):
             lambda Fij: inverse_laplace_transform(Fij, s, t, plane, **hints))
     if plane is None:
         plane = _none_sentinel()
-    r = _core._transform_doit("InverseLaplaceTransform", [F, s, t, plane], bool(simplify), False)
+    try:
+        r = _core._transform_doit("InverseLaplaceTransform", [F, s, t, plane], bool(simplify), False)
+    except NotImplementedError as err:
+        _raise_fatal(err)
+        raise
     if noconds:
         return r[0]
     return r[0], r[1]

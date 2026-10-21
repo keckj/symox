@@ -8,6 +8,8 @@ import sympy as sp
 
 def same_value(actual, expected, rate):
     actual = actual.to_sympy()
+    if actual == expected:
+        return
     if rate == '1+I':
         # The reference keeps a polar lift of 1+I. Its principal logarithm
         # is exactly log(2)/2+I*pi/4; there is no winding in this right-half-
@@ -137,7 +139,7 @@ x,a=sx.symbols('x a')
 q=10**6
 value,condition=sx.integrate(x**a*sx.exp(3-(1+sx.I)*x**q),[x,0,sx.oo],conds='separate')
 s=(a+1)/q
-assert value==sx.exp(3)*sx.gamma(s)/(q*(1+sx.I)**s)
+assert value==(1-sx.exp_polar(-sx.I*sx.pi/2))**(-s)*sx.exp(3)*sx.gamma(s)/q
 assert condition==(sx.re(a)>-1)
 assert sx.integrate(x**a*sx.exp(-x**q),[x,0,sx.oo]).is_Piecewise
 '''

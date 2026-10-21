@@ -221,9 +221,41 @@ fn digamma_rational(p: &BigInt, q: i64) -> Option<Expr> {
     }
 }
 
+/// The branch information of `lowergamma.eval` / `uppergamma.eval`:
+/// `z = nx*exp_polar(2*I*pi*n)`.
+fn incomplete_gamma_branch(lower: bool, a: &Expr, z: &Expr) -> Option<Expr> {
+    let build = |x: &Expr| if lower { super::lowergamma(a, x) } else { super::uppergamma(a, x) };
+    let (nx, n) = super::hyperexpand::extract_branch_factor(z, false);
+    let integer = crate::assumptions::fact(a, "integer") == Some(true);
+    let two_pi_i_n = mul(&[Expr::int(2), Expr::pi(), Expr::i(), n.clone()]);
+    if integer && crate::assumptions::fact(a, "positive") == Some(true) {
+        let nx = super::polar::unpolarify(z, false);
+        return (nx != *z).then(|| build(&nx));
+    }
+    if integer && crate::assumptions::fact(a, "nonpositive") == Some(true) {
+        if n.is_zero() {
+            return None;
+        }
+        let c = div(&mul2(&two_pi_i_n, &pow(&Expr::minus_one(), &neg(a))), &super::factorial(&neg(a)));
+        return Some(add(&[if lower { c } else { neg(&c) }, build(&nx)]));
+    }
+    if n.is_zero() {
+        return None;
+    }
+    let e = exp(&mul2(&two_pi_i_n, a));
+    Some(if lower {
+        mul2(&e, &build(&nx))
+    } else {
+        add(&[mul2(&gamma(a), &sub(&Expr::one(), &e)), mul2(&e, &build(&nx))])
+    })
+}
+
 fn eval_lowergamma(a: &Expr, x: &Expr) -> Option<Expr> {
     if x.is_zero() {
         return Some(Expr::zero());
+    }
+    if let Some(v) = incomplete_gamma_branch(true, a, x) {
+        return Some(v);
     }
     let aq = as_exact(a)?;
     if aq.is_one() {
@@ -292,6 +324,12 @@ fn q_half() -> Number {
 }
 
 fn eval_uppergamma(a: &Expr, z: &Expr) -> Option<Expr> {
+    let special_z = matches!(z.kind(), Kind::Const(Constant::NaN | Constant::Infinity)) || z.is_zero();
+    if !special_z {
+        if let Some(v) = incomplete_gamma_branch(false, a, z) {
+            return Some(v);
+        }
+    }
     if let Some(aq) = as_exact(a) {
         if aq.is_zero() && is_positive(z) == Some(true) {
             return Some(neg(&super::ei(&neg(z))));

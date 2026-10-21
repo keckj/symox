@@ -110,6 +110,23 @@ fn eval_ji(nu: &Expr, z: &Expr, j: bool) -> Option<Expr> {
             }
         }
     }
+    // Branch handling.
+    if is_integer(nu) == Some(true) {
+        let newz = super::polar::unpolarify(z, false);
+        if newz != *z {
+            return Some(sf(head, vec![nu.clone(), newz]));
+        }
+    } else {
+        let (newz, n) = super::hyperexpand::extract_branch_factor(z, false);
+        if !n.is_zero() {
+            let f = crate::functions::exp(&mul(&[Expr::int(2), n, Expr::pi(), nu.clone(), Expr::i()]));
+            return Some(mul2(&f, &sf(head, vec![nu.clone(), newz])));
+        }
+    }
+    let nnu = super::polar::unpolarify(nu, false);
+    if nnu != *nu {
+        return Some(sf(head, vec![nnu, z.clone()]));
+    }
     None
 }
 

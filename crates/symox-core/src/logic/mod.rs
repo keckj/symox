@@ -25,7 +25,10 @@ use std::cmp::Ordering;
 use rustc_hash::FxHashSet;
 
 use crate::expr::{Constant, Expr, Func, Kind, RelOp};
-use crate::ops::{could_extract_minus_sign, neg};
+// Relational.canonical uses Expr.could_extract_minus_sign, whose ties are
+// broken by sort_key.
+use crate::decompose::could_extract_minus_sign;
+use crate::ops::neg;
 use crate::relational::rel;
 use crate::sortkey::{sort_key, Key};
 

@@ -63,8 +63,27 @@ fn besselsimp(expr: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
 }
 
 #[pyfunction]
-fn hyperexpand(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
-    Ok(wrap(sp::hyperexpand(&to_expr(e)?)))
+#[pyo3(signature = (f, allow_hyper=false, rewrite=Some("default".to_string()), place=None))]
+fn hyperexpand(
+    f: &Bound<'_, PyAny>,
+    allow_hyper: bool,
+    rewrite: Option<String>,
+    place: Option<&Bound<'_, PyAny>>,
+) -> PyResult<PyExpr> {
+    let place = match place {
+        Some(p) if !p.is_none() => Some(to_expr(p)?),
+        _ => None,
+    };
+    match sp::hyperexpand_options(&to_expr(f)?, allow_hyper, rewrite.as_deref(), place.as_ref()) {
+        Ok(r) => Ok(wrap(r)),
+        Err(("ValueError", m)) => Err(pyo3::exceptions::PyValueError::new_err(m)),
+        Err(("TypeError", m)) => Err(pyo3::exceptions::PyTypeError::new_err(m)),
+        Err(("PolynomialError", m)) => {
+            let class = f.py().import("symox")?.getattr("PolynomialError")?;
+            Err(PyErr::from_value(class.call1((m,))?))
+        }
+        Err((_, m)) => Err(pyo3::exceptions::PyNotImplementedError::new_err(m)),
+    }
 }
 
 /// Arbitrary precision value of a numeric expression as a decimal string

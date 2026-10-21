@@ -517,8 +517,17 @@ real affine Dirac delta multiplied by a locally analytic weight. It substitutes
 the exact support point in the weight and integrates through Heaviside, with
 the signed slope retained in the primitive. A substitution budget rejects
 expensive forced coefficient growth before evaluation. The new rule declines
-inexact input, singular or discontinuous weights, products of deltas and
-derivative orders; all established integration methods remain available.
+inexact input, singular or discontinuous weights and products of deltas; all
+established integration methods remain available. Derivatives
+`DiracDelta(a*x+c, n)` of literal order `n` integrate by repeated parts
+against an analytic weight `g`, giving
+`sum_j binomial(n, j)*(-1)**j*g^(j)(x0)` terms with the scale
+`1/(a**n*Abs(a))`. SymPy 1.14 keeps only one term, omits the binomial
+coefficient and the scale (for example `x*DiracDelta(x, 2)` gives
+`-DiracDelta(x)` instead of `-2*DiracDelta(x)`), so these results differ from
+the reference by design where the reference is wrong. Where the reference
+returns `DiracDelta(0)`, `zoo` or `DiracDelta(oo)` for a derivative at an
+endpoint, the integral stays unevaluated.
 This does not certify general distribution integration or floating root
 precision. Direct Heaviside/DiracDelta constructors now validate provably
 nonreal arguments, and DiracDelta validates its derivative order. The same
@@ -543,6 +552,135 @@ finite origin endpoint while returning half weight after translation or at
 an infinite endpoint. Translation and a normalized Gaussian regularization
 are checked separately; this convention is not a universal definition of
 distribution integration at discontinuous boundaries.
+
+Improper definite integrals follow the reference order in `Integral.doit`.
+The variable is replaced by a dummy that carries the sign the bounds imply.
+For extended real bounds with an infinite end, `meijerint_definite` (now a
+port of the reference stages, conditions and `hyperexpand`) is tried before
+any antiderivative. Its convergence condition is kept: `conds='piecewise'`
+returns `Piecewise((value, cond), (Integral, True))`, `'separate'` returns
+the pair and `'none'` drops it. A parameter range where the integral
+diverges therefore never receives the analytic continuation as its value.
+`meijerg=True` integrates only through Meijer G (an unevaluated Integral
+otherwise) and `meijerg=False` skips it. `risch`, `heurisch` and `manual`
+other than None still raise NotImplementedError: the native engine does not
+separate those methods, so it cannot honor them faithfully. An improper
+bound limit that is not settled keeps the Integral unevaluated. An
+antiderivative jump at an interior pole or log branch point is removed
+through one-sided limits (`Expr._eval_interval`), so for example `tan` over
+`(0, pi)` gives nan as in the reference.
+
+Piecewise integrands follow the reference `Integral.doit` per limit. Abs and
+sign are rewritten over a real dummy (indefinite: for a real variable;
+definite: for real finite bounds), Min and Max become Piecewise, and an
+integrand containing a Piecewise is folded. A Piecewise integrand goes
+through `Piecewise._eval_integral` (indefinite) or `piecewise_integrate` and
+the split evaluation of `Piecewise._eval_interval` (definite); the Meijer G
+stage is not tried on it, as in the reference. A condition holding a
+Piecewise is folded before the ITE rewrite, as `ExprCondPair` does.
+`Piecewise.piecewise_integrate` and `Undefined` are available. On the
+reference `test_piecewise.py`, assertion runs go from 522 passing / 232
+failing to 642 / 103, with no wrong value among the failures. Remaining
+differences:
+- an interval the inequality solver cannot decide (for example the periodic
+  `sin(x) >= 0` of `Abs(sin(x))` over `(0, 2*pi)`) keeps the integral
+  unevaluated, where the reference returns 4;
+- a piece whose antiderivative is held gives a held definite integral;
+- `1/(x+a)` over `(0, 1)` with an unassumed `a` stays unevaluated (the
+  reference gives `-log(a) + log(a + 1)`);
+- condition forms with ITE, Min and Max differ in some results
+  (`test_piecewise_integrate1ca/cb`, `test_piecewise_integrate2`,
+  issue 6900), and the Python `piecewise_fold` is not the native port (it
+  orders the folded pieces differently).
+
+`meijerint_indefinite` is ported (`_meijerint_indefinite_1`, the splitting
+points, the hyperbolic rewrite and the choice of the simplest result) and
+is the last stage of indefinite integration unless `meijerg=False`.
+`meijerg=True` uses only it. An error inside the method (a failing
+`hyperexpand`) gives no result here, where the reference lets the exception
+out of `integrate`.
+
+Polynomial times `exp(a*x)` antiderivatives use the Risch form
+`num*exp(a*x)/den` and keep `Piecewise((.., Ne(den, 0)), (value at a = 0,
+True))` when the coefficient may vanish. Polynomial times sin or cos, and
+products with both an exponential and a trigonometric factor, keep the cases
+of `heurisch_wrapper`: the parameter values that zero the denominator are
+solved for, joined when there are several, and integrated separately, for
+example `Eq(a, 0) & Eq(b, 0)`, `Eq(a, -I*b)`, `Eq(a, I*b)` for
+`exp(a*x)*sin(b*x)`. The cyclic rule no longer divides by a vanishing
+`a**2 + b**2` (it returned `zoo` terms for `exp(I*x)*sin(x)`); those products
+are integrated in exponential form. Known differences:
+- the special-case antiderivatives come from the exponential form, not the
+  heurisch form (equal up to a constant);
+- for `x*exp(a*x + 1)` the reference special case is `x**2/2`, which is
+  wrong; the native value is `E*x**2/2`;
+- for `x*sin((a + 1)*x)` heurisch fails in the reference and the result has
+  no `Ne(a, -1)` case; the native result keeps it.
+
+The incomplete gamma functions, `Ei` and `expint` apply the reference branch
+factors for arguments carrying `exp_polar(2*I*pi*n)`, and `expand_log`
+recurses and repeats until the expression is stable, as the reference does.
+`solve` takes even powers out of the radical of a quadratic root
+(`a**2 + b**2 = 0` gives `-I*b, I*b`, like `roots_quadratic._sqrt`).
+
+Laplace, Fourier, sine, cosine, Hankel and Mellin transforms fall back to the
+reference integration backends (`_laplace_transform`, `_fourier_transform`,
+`_sine_cosine_transform`, `_hankel_transform`, `_mellin_transform`) when no
+table rule applies. They read the half plane, the strip and the auxiliary
+conditions from the conditions of the Meijer G integral, and they keep the
+reference error behavior. The transform stays unevaluated when the integral
+does not converge. A Fourier transform also stays unevaluated when the
+function is not integrable on the real axis. A Mellin transform with no
+admissible strip stays unevaluated as well. Examples that now match the
+reference: `laplace_transform(cos(sqrt(t)), t, s)` (an equivalent form),
+`exp(-a*t**2)` with `Abs(arg(a)) <= pi/2`, `erfc(sqrt(t))`, the Fourier
+transform of `exp(-x**4)`, Hankel transforms of `exp(-a*x)/x`, and Mellin
+transforms of `exp(-x)*log(x)`, `cos(x)*exp(-x)` and `log(x)/(1+x)`. The
+`simplify=True` result step is `simplify(powdenest(e, polar=True))`, with the
+reference's `gammasimp` step for gamma functions of non-integer argument.
+
+Remaining transform differences are kept on purpose:
+- Table rules return `True` conditions with `Abs(k)` values, where the
+  reference returns `Eq(Abs(arg(k)), 0)` or `k > 0`. For the Fourier transform
+  of `1/(1+x**2)`, the reference value is wrong for `k < 0`.
+- Native returns a value with `re(a) > 0` for the Fourier transform of
+  `exp(-a*x**2)`, where the reference holds it.
+- Exponential rate conditions are `re(a) > 0`, where the reference has
+  `Abs(arg(a)) < pi/2`.
+- The Hankel transform of `1/(x**2+1)` is `besselk(0, k)`, numerically equal
+  to the reference Meijer G form.
+- Some Laplace rule results differ where SymPy 1.14 is wrong:
+  `1/(t+1)`, `exp(-t)/(t+1)` and `Heaviside(t-1)*sqrt(t)`.
+
+The inverse Laplace transform now applies the reference rules for the
+irrational functions of Bateman 5.3 (`_inverse_laplace_irrational`): once
+after the simple rules and again as the last program rule. The expansion
+step is the reference sequence `expand(deep=False)`, `expand_mul`, `expand`,
+then `apart`. The cosine part of a quadratic denominator uses the first root
+of `x**2 - b`, as in the reference. Factors match `(a*s**m + b)**n` through
+`as_base_exp`. Zeros and poles are sorted by `(n, b != 0, b)`. An undecidable
+order leaves the function to the later stages, where the reference raises
+TypeError. Where the reference closed form fails `L[f](s) == F(s)` (checked
+by quadrature), the native rule returns the correct value:
+- 5.3.6, `sqrt(s)/((s-b)*(sqrt(s)+a))`: the middle term has `erf`, not `erfc`;
+- 5.3.10, `1/(sqrt(s)+a)**2`: the value is
+  `(2*a**2*t+1)*exp(a**2*t)*erfc(a*sqrt(t)) - 2*a*sqrt(t)/sqrt(pi)`;
+- 5.3.16, `1/(sqrt(s)+a)**4`: the factor `a**3*t**(5/2)` is `a*t**(3/2)`;
+- 5.3.14 and 5.3.15: the shift is divided by the coefficient of the cubed
+  pole and the scale multiplies the whole value. The reference is right only
+  for a unit coefficient;
+- 5.3.14 requires the zero `sqrt(a*s)` (not `sqrt(a*s**2)`), and 5.3.2
+  requires the pole `sqrt(a*s)` (not `sqrt(a*s+c)`). The reference returns
+  wrong values for those shapes, so they stay unevaluated.
+
+Not yet ported:
+- the integration stage of the inverse Laplace transform
+  (`_inverse_laplace_transform_integration` through the inverse Mellin
+  transform and `meijerint_inversion`). Inputs that only it handles stay
+  unevaluated, for example `a**b*(s+sqrt(s**2-a**2))**(-b)/sqrt(s**2-a**2)`;
+- the `cos` patterns of the Mellin `process_conds`;
+- `piecewise_fold` in the transform `_simplify` step;
+- the `hyperexpand` step of the reference `simplify`.
 
 Scalar containment queries now visit explicit arithmetic arguments, including
 coefficients and additive constants. They exclude the exponent one stored
@@ -754,7 +892,27 @@ group. They do not certify all permutation-group methods or a comparative bound
 for constructing every stabilizer chain.
 
 - The integration engine does not implement the full collection of Risch,
-  heurisch and Meijer G methods available in SymPy.
+  heurisch and Meijer G methods available in SymPy. Meijer G definite
+  integration, its convergence conditions and `hyperexpand` are ported (see
+  above), and so are the Meijer G indefinite integrals and the Piecewise
+  integration of `Integral.doit`. The `risch`, `heurisch` and `manual`
+  method selections and `NonElementaryIntegral` results (which need a Risch
+  proof) remain open: those options still raise NotImplementedError, and
+  results the reference only reaches through heurisch can differ in form.
+  The integration corpus (`tools/integration_corpus.py`) now reports 1033
+  identical and 89 equivalent results, against 988 and 93 before the
+  Piecewise and Meijer G indefinite ports; 54 cases stay unevaluated where
+  the reference answers. Those open cases are oscillatory integrals on
+  `(0, oo)` that the reference returns as `AccumBounds`, divergent values
+  (`1/sin(x)` on `(0, pi)`, `x**a` on `(1, oo)`), `1/cosh(x)` over the real
+  line, and finite intervals with an unassumed parameter in a logarithmic,
+  `Heaviside` or `DiracDelta` integrand (`1/(x+a)`, `1/x` on `(a, 1)`,
+  `log(a*x)`). For the last group, some reference values such as `-log(a)`
+  for `1/x` on `(a, 1)` hold only when the interval avoids the pole, so the
+  native result stays held rather than copying them. The remaining
+  numerical differences are reference errors: `laplace_transform(1/(t+1))`
+  is `-exp(s)*Ei(-s)` (the reference gives `-exp(-s)*Ei(-s)`), and the
+  Fourier transform of `1/(1+x**2)` keeps `Abs(k)`.
   Gamma moments `c*x**a*exp(delta-beta*x**q)` on `(0, infinity)` now retain the
   exact `re(a)>-1` condition for provably positive real `q`, or `re(a)<-1`
   for provably negative real `q`, with `re(beta)>0`. This includes rational

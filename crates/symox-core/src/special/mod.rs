@@ -37,6 +37,7 @@ mod error;
 pub mod expand;
 mod gamma;
 mod hyper;
+pub(crate) mod hyperexpand;
 pub mod integers;
 pub mod integrate;
 pub mod mp;
@@ -46,6 +47,7 @@ pub(crate) mod orthopoly;
 mod zeta;
 
 pub use expand::{besselsimp, expand_func, expand_func_deep, hyperexpand};
+pub use hyperexpand::hyperexpand_options;
 pub use integers::{bell_number, multinomial_coefficients, partition_number, stirling};
 
 macro_rules! special_fns {
@@ -299,7 +301,9 @@ fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         | AiryAiPrime | AiryBiPrime => bessel::eval(s, a),
         EllipticK | EllipticE | EllipticF | EllipticPi | LambertW => elliptic::eval(s, a),
         Hyper => hyper::eval(a),
-        Hn1 | Hn2 | MarcumQ | MathieuC | MathieuS | MathieuCPrime | MathieuSPrime | AppellF1 | MeijerG | HyperRepPower1 | HyperRepPower2 | HyperRepLog1 | HyperRepLog2 | HyperRepAtanh | HyperRepAsin1 | HyperRepAsin2 | HyperRepSqrts1 | HyperRepSqrts2 | HyperRepCosasin | HyperRepSinasin => advanced::eval(s,a),
+        Hn1 | Hn2 | MarcumQ | MathieuC | MathieuS | MathieuCPrime | MathieuSPrime | AppellF1 | MeijerG => advanced::eval(s,a),
+        HyperRepPower1 | HyperRepPower2 | HyperRepLog1 | HyperRepLog2 | HyperRepAtanh | HyperRepAsin1 | HyperRepAsin2
+        | HyperRepSqrts1 | HyperRepSqrts2 | HyperRepCosasin | HyperRepSinasin => hyperexpand::hyperrep_eval(a).map(|v| raw(s, v)),
         Legendre | AssocLegendre | ChebyshevT | ChebyshevU | Hermite | Laguerre | AssocLaguerre
         | Jacobi | Gegenbauer | Ynm => orthopoly::eval(s, a),
         Mod | Rem | Sech | Csch | Asec | Acsc | Asech | Acsch | Acoth | Sinc | Frac | KroneckerDelta
