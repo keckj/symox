@@ -185,10 +185,16 @@ factorization, roots). Custom numerical domain objects are not; unsupported
 selections are rejected explicitly. Ring factories accept `ZZ_I`, `QQ_I`, algebraic
 fields and polynomial rings as ground domains (`ZZ_I[x]`, `QQ<sqrt(2)>[x]`,
 `ZZ[x][y]`), with reference printing, conversion and `unify`; `Poly` works
-over nested rational rings such as `ZZ[x][y]` but raises
-`NotImplementedError` over `ZZ_I[x]`, `QQ_I[x]` and `QQ<sqrt(2)>[x]`.
-Fraction fields over Gaussian or algebraic grounds are descriptor-only and
-raise `NotImplementedError` when elements are built. See
+over nested rational rings such as `ZZ[x][y]` and over the Gaussian
+composite grounds `ZZ_I[y]`, `QQ_I[y]`, `ZZ_I(y)` and `QQ_I(y)`, which
+`Poly` inference selects as the reference does (`Poly(I*x*y, x)` is over
+`ZZ_I[y]`, `Poly(-2*I*pi*n/N, n)` over `ZZ_I(N,pi)`). These polynomials
+print, divide, factor and compute `gcd`, `sqf` and `cancel` like the
+reference; `ZZ_I[x].is_unit(I)` is `False`. `Poly` over `QQ<sqrt(2)>[x]`
+still raises `NotImplementedError`. Fraction fields over Gaussian or
+algebraic grounds have no domain elements and raise `NotImplementedError`
+when elements are built, so `construct_domain(..., field=True)` falls back
+to `EX` for them. See
 [the parity gaps](algorithmic-parity.md) for the remaining differences.
 
 ## Monogenic finite extensions

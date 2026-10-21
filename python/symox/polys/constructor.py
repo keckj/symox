@@ -89,6 +89,22 @@ def _composite_domain(values, field):
     return None
 
 
+def _gaussian_domain(values, field):
+    """The reference composite domain over ZZ_I or QQ_I, as ``ZZ_I[y]``.
+
+    Fraction fields over a Gaussian ground have no native elements yet, so
+    those inputs keep the EX fallback.
+    """
+    from .. import QQ_I, ZZ_I, _core
+    found = _core._gaussian_composite(values, field)
+    if found is None:
+        return None
+    integral, ring, symbols = found
+    if not ring:
+        return None
+    return (ZZ_I if integral else QQ_I).poly_ring(*symbols)
+
+
 def construct_domain(obj, **args):
     """Return a native domain and coefficients with the input container shape.
 
@@ -119,8 +135,8 @@ def construct_domain(obj, **args):
                                or _core._composite_generators(coefficients) is not None):
         domain = EX
     else:
-        domain = None
-        if extension is None:
+        domain = _gaussian_domain(coefficients, field)
+        if domain is None and extension is None:
             domain = _composite_domain(coefficients, field)
         if domain is None:
             domain = _infer_domain(coefficients, field=field, extension=extension is True)

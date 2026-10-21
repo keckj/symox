@@ -123,6 +123,21 @@ NESTED_CASES = [
     'Poly(x*z + 1, z, domain=ZZ[x].frac_field(y))',
     'Poly(x*z/y + 1, z, domain=ZZ[x].frac_field(y))',
     'Poly(x*z/y + 1, z, domain=ZZ[x].frac_field(y)).domain',
+    # Ring.is_unit only accepts ground +-1 below a polynomial ring; the
+    # Gaussian unit I is not a unit of ZZ_I, ZZ_I[y] or ZZ[x][y] for it.
+    'ZZ_I[y].is_unit(ZZ_I[y](I))',
+    'ZZ_I[y].is_unit(ZZ_I[y](-1))',
+    'ZZ_I[y].is_unit(ZZ_I[y](y))',
+    'ZZ_I[x].is_unit(I)',
+    'ZZ_I.is_unit(ZZ_I(0,1))',
+    'ZZ_I.is_unit(ZZ_I(-1))',
+    'QQ_I[x].is_unit(QQ_I[x](I))',
+    'QQ_I[x].is_unit(QQ_I[x](x))',
+    'ZZ[x][y].is_unit(ZZ[x][y](y))',
+    'QQ[x][y].is_unit(QQ[x][y](2))',
+    'ZZ_I[x].canonical_unit(ZZ_I[x](I*x))',
+    'ZZ_I[x].canonical_unit(ZZ_I[x]((1 + I)*x - 1))',
+    'QQ_I[x].canonical_unit(QQ_I[x](I*x))',
 ]
 
 

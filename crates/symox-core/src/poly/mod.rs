@@ -43,6 +43,7 @@ pub mod fraction;
 pub mod algebraic;
 pub mod algebraic_multi;
 pub mod gaussian;
+pub mod gaussian_ground;
 pub mod expression_domain;
 
 pub mod f5b;

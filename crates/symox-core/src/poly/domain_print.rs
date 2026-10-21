@@ -148,7 +148,9 @@ impl Node {
                         if *exp == 0 {
                             continue;
                         }
-                        let name = if symbol.is_symbol() {
+                        // `parenthesize(symbol, PRECEDENCE["Atom"], strict=True)`:
+                        // atoms such as `pi` print bare.
+                        let name = if symbol.is_symbol() || symbol.args().is_empty() {
                             symbol.to_string()
                         } else {
                             format!("({symbol})")
@@ -301,4 +303,41 @@ pub fn composite_str(element: &DomainElement) -> Option<String> {
         ElementValue::AlgebraicPoly(rep) => algebraic_node(&element.domain, rep, 0).render(),
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ops::{add2 as add, mul2 as mul};
+
+    fn gaussian_ring(integral: bool, parameters: Vec<Expr>) -> ExactDomain {
+        ExactDomain::composite(&ExactDomain::Gaussian { integral }, true, parameters, "lex").unwrap()
+    }
+
+    fn shown(domain: &ExactDomain, e: &Expr) -> String {
+        composite_str(&domain.convert(e).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn gaussian_ring_elements_print_like_poly_elements() {
+        let y = Expr::symbol("y");
+        let zz_i = gaussian_ring(true, vec![y.clone()]);
+        assert_eq!(shown(&zz_i, &mul(&Expr::i(), &y)), "(0 + 1*I)*y");
+        assert_eq!(shown(&zz_i, &Expr::int(2)), "(2 + 0*I)");
+        assert_eq!(shown(&zz_i, &add(&mul(&Expr::i(), &y), &Expr::one())), "(0 + 1*I)*y + (1 + 0*I)");
+        let qq_i = gaussian_ring(false, vec![y.clone()]);
+        assert_eq!(shown(&qq_i, &mul(&Expr::rational(1, 2), &mul(&Expr::i(), &y))), "(0 + 1/2*I)*y");
+    }
+
+    #[test]
+    fn atom_generators_print_without_parentheses() {
+        // parenthesize(symbol, PRECEDENCE["Atom"], strict=True)
+        let pi = Expr::pi();
+        let zz_i = gaussian_ring(true, vec![pi.clone()]);
+        assert_eq!(shown(&zz_i, &mul(&Expr::i(), &pi)), "(0 + 1*I)*pi");
+        // A power is not an atom and keeps its parentheses.
+        let root = crate::ops::sqrt(&Expr::int(2));
+        let zz_i = gaussian_ring(true, vec![root.clone()]);
+        assert_eq!(shown(&zz_i, &mul(&Expr::i(), &root)), "(0 + 1*I)*(sqrt(2))");
+    }
 }

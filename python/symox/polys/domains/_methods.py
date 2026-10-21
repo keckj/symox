@@ -69,6 +69,16 @@ def is_nonpositive(self, a):
 def canonical_unit(self, a):
     if _gaussian(self):
         return self.units[-self.convert(a).quadrant()]
+    if self.is_Composite and not self.is_Field and _gaussian(self.dom):
+        # PolynomialRing.canonical_unit: the ground unit of the leading
+        # coefficient, as a constant of the ring.
+        from ... import Poly
+        value = self.convert(a)
+        lc = self.dom.zero
+        if value:
+            lc = self.dom.convert(Poly(self.to_sympy(value), *self.symbols,
+                                       domain=self.dom).LC(order=self.order))
+        return self.convert(self.dom.to_sympy(self.dom.canonical_unit(lc)))
     return -self.one if self.is_negative(a) else self.one
 
 

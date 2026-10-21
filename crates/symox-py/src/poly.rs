@@ -946,6 +946,10 @@ impl PyPoly {
         // EX for algebraic-number or related coefficient generators.
         if domain.is_none()&&!generators.is_empty()&&legacy.as_ref().map_or(true,|p|!p.domain_gens().is_empty()){
             if let Some(p)=Self::expression_selection(&e,&generators)?{return Ok(p);}
+            // `_construct_composite` over a Gaussian ground: ZZ_I[y], QQ_I(y), ...
+            if let Some(ground)=symox::poly::gaussian_ground::infer(&e,&generators,false) {
+                if let Ok(p)=ground.convert_expr(&e,&generators){return Ok(Self{p:p.into()});}
+            }
             // `_construct_composite` builds a fraction field when a
             // coefficient denominator involves a generator, as for `1/pi`.
             if let Ok(terms)=symox::poly::expression_domain::dict_from_expr(&e,&generators){
@@ -1024,6 +1028,13 @@ impl PyPoly {
             }
             return Some(q.clone());
         }
+        if self.p.expression.as_ref().is_some_and(|e|e.ground.is_some()) {
+            // A composite Gaussian polynomial converts its operand as the
+            // reference `Poly(o, *gens)` and unifies the domains.
+            let py=o.py();
+            let gens=PyTuple::new(py,self.p.true_gens().iter().cloned().map(w)).ok()?;
+            return Self::build(o,&gens,None).ok().map(|q|q.p);
+        }
         if self.p.expression.is_some() {
             return symox::poly::expression_domain::ExpressionPoly::from_expr(&to_expr(o).ok()?,self.p.true_gens()).ok().map(Into::into);
         }
@@ -1043,6 +1054,8 @@ impl PyPoly {
     }
 
     fn ex(&self)->Option<&ExpressionPoly>{self.p.expression.as_ref()}
+    /// The `EX` representation and its composite Gaussian ground, when marked.
+    fn gg(&self)->Option<(&ExpressionPoly,&symox::poly::gaussian_ground::GaussianGround)>{let e=self.p.expression.as_ref()?;Some((e,e.ground.as_ref()?))}
     /// The unified `EX` pair, when either side is over `EX`.
     fn ex_pair(&self,o:&Bound<'_,PyAny>)->PyResult<Option<(ExpressionPoly,ExpressionPoly)>>{
         let other_ex=o.downcast::<PyPoly>().is_ok_and(|q|q.get().p.expression.is_some());
@@ -1279,6 +1292,22 @@ impl PyPoly {
                 _=>{}
             }
         }
+        if let (Some((f,g)),Some(d))=(self.gg(),&selected.native){
+            if symox::poly::gaussian_ground::GaussianGround::from_domain(&d.inner).is_none(){
+                // dmp_convert from the Gaussian ground: the first coefficient
+                // the target rejects, printed as a ground element.
+                if g.ring {
+                    let source=g.domain();
+                    let mut terms=f.terms();terms.sort_by(|a,b|b.0.cmp(&a.0));
+                    for (_,c) in terms {
+                        if d.inner.convert(&c).is_err(){
+                            let shown=source.convert(&c).ok().and_then(|v|symox::poly::domain_print::composite_str(&v)).unwrap_or_else(||c.to_string());
+                            return Err(err(PolyError::Reference{kind:"CoercionFailed",message:format!("Cannot convert {shown} of type <class 'sympy.polys.rings.PolyElement'> from {} to {}",g.display(),d.inner)}));
+                        }
+                    }
+                }
+            }
+        }
         if let Some(d)=selected.native{return Ok(Self{p:d.poly(&self.p.as_expr(),self.p.true_gens())?});}
         let py=domain.py();let gens=PyTuple::new(py,self.p.true_gens().iter().cloned().map(w))?;
         let expr=w(self.p.as_expr()).into_pyobject(py)?.into_any();
@@ -1473,6 +1502,7 @@ impl PyPoly {
 
     #[getter]
     fn is_irreducible(&self) -> PyResult<bool> {
+        if let Some((f,g))=self.gg(){if f.degree(0)<=0&&f.gens.len()==1{return Ok(true);}let(_,fs)=g.factor_list(f).map_err(err)?;return Ok(fs.len()==1 && fs[0].1==1);}
         if self.ex().is_some(){return Err(err(PolyError::Reference{kind:"DomainError",message:"factorization not supported over EX".into()}));}
         if let Some(f)=&self.p.algebraic {if f.rep.is_constant(){return Ok(true);}let(_,fs)=f.factor_list().map_err(err)?;return Ok(fs.len()==1 && fs[0].1==1);}
         if let Some(f)=&self.p.field {let(_,fs)=f.factor_list();return Ok(fs.len()==1 && fs[0].1==1);}
@@ -1482,6 +1512,7 @@ impl PyPoly {
 
     #[getter]
     fn is_sqf(&self) -> PyResult<bool> {
+        if let Some((f,g))=self.gg(){if f.is_zero(){return Ok(true);}let d=g.convert_poly(&f.diff(1,0).map_err(err)?).map_err(err)?;return Ok(g.gcd(f,&d).map_err(err)?.degree(0)<=0);}
         if let Some(f)=self.ex(){return f.sqf_p().map_err(err);}
         if let Some(f)=&self.p.algebraic {return Ok(f.sqf_list().1.iter().all(|(_,k)|*k==1));}
         if let Some(f)=&self.p.field {return Ok(f.sqf_list().1.iter().all(|(_,k)|*k==1));}
@@ -1587,30 +1618,38 @@ impl PyPoly {
 
     #[pyo3(signature=(g,auto=true))]
     fn gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
-        if let Some((a,b))=self.ex_pair(g)?{let(s,t,h)=a.gcdex(&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
+        if let Some((a,b))=self.ex_pair(g)?{let(s,t,h)=a.gcdex(&b).map_err(err)?;
+            if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let c=|p:&ExpressionPoly|f.convert_poly(p).map_err(err);let(s,t,h)=(c(&s)?,c(&t)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
+            return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
         let values=an_rational::poly_bezout(&self.p,&q,false,auto)?;
         Ok(PyTuple::new(g.py(),values.into_iter().map(|p|PyPoly {p}))?.into_any().unbind())
     }
     #[pyo3(signature=(g,auto=true))]
     fn half_gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
-        if let Some((a,b))=self.ex_pair(g)?{let(s,h)=a.half_gcdex(&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
+        if let Some((a,b))=self.ex_pair(g)?{let(s,h)=a.half_gcdex(&b).map_err(err)?;
+            if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let(s,h)=(f.convert_poly(&s).map_err(err)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
+            return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
         let values=an_rational::poly_bezout(&self.p,&q,true,auto)?;
         Ok(PyTuple::new(g.py(),values.into_iter().map(|p|PyPoly {p}))?.into_any().unbind())
     }
     #[pyo3(signature=(g,auto=true))]
     fn invert(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly> {
-        if let Some((a,b))=self.ex_pair(g)?{return Ok(PyPoly{p:a.invert(&b).map_err(err)?.into()});}
+        if let Some((a,b))=self.ex_pair(g)?{
+            if let Some(gr)=a.ground.clone().filter(|_|auto){return Ok(PyPoly{p:gr.to_field().convert_poly(&a.invert(&b).map_err(err)?).map_err(err)?.into()});}
+            return Ok(PyPoly{p:a.invert(&b).map_err(err)?.into()});
+        }
         let q=self.other(g).ok_or_else(||PyTypeError::new_err("incompatible polynomial coefficient fields"))?;
         Ok(PyPoly {p:an_rational::poly_inverse(&self.p,&q,auto)?})
     }
     #[pyo3(signature=(g,include=false))]
     fn cancel(&self,g:&Bound<'_,PyAny>,include:bool)->PyResult<PyObject> {
         if let Some((a,b))=self.ex_pair(g)?{
-            let py=g.py();let(cp,cq,p,q)=a.cancel(&b).map_err(err)?;
+            let py=g.py();let(cp,cq,p,q)=match a.ground.clone(){Some(gr) if b.ground.as_ref()==Some(&gr)=>gr.cancel(&a,&b).map_err(err)?,_=>a.cancel(&b).map_err(err)?};
+            let gr=a.ground.clone();let mark=|p:ExpressionPoly|->PyResult<ExpressionPoly>{match &gr{Some(g)=>g.convert_poly(&p).map_err(err),None=>Ok(p)}};
             if include{
-                let p=p.mul_ground(&cp).map_err(err)?;let q=q.mul_ground(&cq).map_err(err)?;
+                let p=mark(p.mul_ground(&cp).map_err(err)?)?;let q=mark(q.mul_ground(&cq).map_err(err)?)?;
                 return Ok(PyTuple::new(py,[PyPoly{p:p.into()},PyPoly{p:q.into()}])?.into_any().unbind());
             }
             let c=w(symox::ops::div(&cp,&cq)).into_pyobject(py)?.into_any().unbind();
@@ -1666,6 +1705,11 @@ impl PyPoly {
     }
 
     fn factor_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some((f,g))=self.gg(){
+            let(c,fs)=g.factor_list(f).map_err(err)?;
+            let items=fs.into_iter().map(|(p,k)|PyTuple::new(py,[PyPoly{p:p.into()}.into_pyobject(py)?.into_any(),(k as u32).into_pyobject(py)?.into_any()])).collect::<PyResult<Vec<_>>>()?;
+            return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyList::new(py,items)?.into_any()]);
+        }
         if let Some(f)=self.ex(){
             // dmp_factor_list raises DomainError over EX; Poly.factor_list
             // then returns the constant or the polynomial itself.
@@ -1696,11 +1740,13 @@ impl PyPoly {
         checked_factor_views::factorial(&self.p)
     }
     fn factor_list_include(&self)->PyResult<Vec<(PyPoly,u32)>>{
+        if let Some((f,g))=self.gg(){let(c,fs)=g.factor_list(f).map_err(err)?;return gaussian_include(f,g,c,fs);}
         if self.ex().is_some(){return Ok(vec![(self.clone(),1)]);}
         checked_factor_views::include(&self.p,false,false)
     }
     #[pyo3(signature=(all=false))]
     fn sqf_list_include(&self,all:bool)->PyResult<Vec<(PyPoly,u32)>>{
+        if let Some((f,g))=self.gg(){let(c,fs)=g.sqf_list(f,all).map_err(err)?;return gaussian_include(f,g,c,fs);}
         if let Some(f)=self.ex(){return Ok(f.sqf_list_include(all).map_err(err)?.into_iter().map(|(p,k)|(PyPoly{p:p.into()},k as u32)).collect());}
         checked_factor_views::include(&self.p,true,all)
     }
@@ -1708,7 +1754,7 @@ impl PyPoly {
     #[pyo3(signature=(all=false))]
     fn sqf_list<'py>(&self, py: Python<'py>, all:bool) -> PyResult<Bound<'py, PyTuple>> {
         if let Some(f)=self.ex(){
-            let(c,fs)=f.sqf_list(all).map_err(err)?;
+            let(c,fs)=match self.gg(){Some((f,g))=>g.sqf_list(f,all).map_err(err)?,None=>f.sqf_list(all).map_err(err)?};
             let items=fs.into_iter().map(|(p,k)|PyTuple::new(py,[PyPoly{p:p.into()}.into_pyobject(py)?.into_any(),(k as u32).into_pyobject(py)?.into_any()])).collect::<PyResult<Vec<_>>>()?;
             return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyList::new(py,items)?.into_any()]);
         }
@@ -1716,6 +1762,7 @@ impl PyPoly {
     }
 
     fn primitive<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some((f,g))=self.gg(){let(c,q)=g.primitive(f).map_err(err)?;return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyPoly{p:q.into()}.into_pyobject(py)?.into_any()]);}
         if let Some(f)=self.ex(){let(c,q)=f.primitive().map_err(err)?;return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyPoly{p:q.into()}.into_pyobject(py)?.into_any()]);}
         if let Some(a)=&self.p.algebraic{
             if a.gaussian.is_some(){let(c,q)=a.primitive();return PyTuple::new(py,[w(c.as_expr()).into_pyobject(py)?.into_any(),PyPoly{p:q.into()}.into_pyobject(py)?.into_any()]);}
@@ -1729,15 +1776,21 @@ impl PyPoly {
         PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()])
     }
 
-    fn content(&self) -> PyExpr {
-        if let Some(f)=self.ex(){return w(f.content());}
-        if let Some(a)=&self.p.algebraic{if a.gaussian.is_some(){return w(a.primitive().0.as_expr());}return w(if self.p.is_zero(){Expr::zero()}else{Expr::one()});}
-        if let Some(f)=&self.p.field {return w(symox::poly::fraction::coefficient_expr(&if f.coefficient_domain.is_field(){f.reference_content()}else{f.primitive().0},&f.parameters));}
-        w(rat_expr(&self.p.primitive().0))
+    fn content(&self) -> PyResult<PyExpr> {
+        if let Some((f,g))=self.gg(){return Ok(w(g.content(f).map_err(err)?));}
+        if let Some(f)=self.ex(){return Ok(w(f.content()));}
+        if let Some(a)=&self.p.algebraic{if a.gaussian.is_some(){return Ok(w(a.primitive().0.as_expr()));}return Ok(w(if self.p.is_zero(){Expr::zero()}else{Expr::one()}));}
+        if let Some(f)=&self.p.field {return Ok(w(symox::poly::fraction::coefficient_expr(&if f.coefficient_domain.is_field(){f.reference_content()}else{f.primitive().0},&f.parameters)));}
+        Ok(w(rat_expr(&self.p.primitive().0)))
     }
 
     #[pyo3(signature=(auto=true))]
     fn monic(&self, auto:bool) -> PyResult<PyPoly> {
+        if let Some((f,g))=self.gg(){
+            let m=g.monic(f).map_err(err)?;
+            if auto{return Ok(PyPoly{p:m.into()});}
+            return Ok(PyPoly{p:g.convert_poly(&m).map_err(|_|err(PolyError::ExactQuotientFailed(format!("{} does not divide {} in {}",f.lc(),f.lc(),g.display()))))?.into()});
+        }
         if let Some(f)=self.ex(){return Ok(PyPoly{p:f.monic().map_err(err)?.into()});}
         let domain = self.domain_descriptor()?;
         let domain = if auto {domain.get_field()} else {domain};
@@ -1896,6 +1949,7 @@ impl PyPoly {
 
     #[pyo3(signature=(convert=false))]
     fn clear_denoms<'py>(&self, py: Python<'py>, convert:bool) -> PyResult<Bound<'py, PyTuple>> {
+        if let Some((f,g))=self.gg(){let(c,q)=g.clear_denoms(f).map_err(err)?;let q=if convert{g.to_ring().convert_poly(&q).map_err(err)?}else{q};return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyPoly{p:q.into()}.into_pyobject(py)?.into_any()]);}
         if let Some(f)=self.ex(){let _=convert;let(c,q)=f.clear_denoms().map_err(err)?;return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),PyPoly{p:q.into()}.into_pyobject(py)?.into_any()]);}
         let domain = self.domain_descriptor()?;
         // Rebuilding from the expression expands composite generators
@@ -1958,6 +2012,7 @@ impl PyPoly {
     }
 
     fn sqf_part(&self) -> PyResult<PyPoly> {
+        if let Some((f,g))=self.gg(){return Ok(PyPoly{p:g.sqf_part(f).map_err(err)?.into()});}
         if let Some(f)=self.ex(){return Ok(PyPoly{p:f.sqf_part().map_err(err)?.into()});}
         checked_factor_views::part(&self.p)
     }
@@ -2213,12 +2268,14 @@ fn sqf_expression(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, modulus: Opti
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
 fn factor_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    if let Some(p)=gaussian_poly_argument(f,gens,modulus,_kwargs){return Ok(p.factor_list(f.py())?.into_any().unbind());}
     checked_factor_views::global_list(f,gens,modulus,_kwargs,false)
 }
 
 #[pyfunction]
 #[pyo3(signature = (f, *gens, modulus=None, **_kwargs))]
 fn sqf_list<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    if let Some(p)=gaussian_poly_argument(f,gens,modulus,_kwargs){return Ok(p.sqf_list(f.py(),false)?.into_any().unbind());}
     checked_factor_views::global_list(f,gens,modulus,_kwargs,true)
 }
 
@@ -2377,7 +2434,7 @@ fn inapplicable_extension<'py>(py:Python<'py>,f:&Bound<'py,PyAny>,g:Option<&Boun
 fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
-        let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some();
+        let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
         if special(&p.get().p)||q.downcast::<PyPoly>().is_ok_and(|q|special(&q.get().p)){return poly_obj(py,p.get().gcd(q)?.p);}
     }}
     if let (Some(q),None)=(g,modulus) {if let Some((v,polys))=explicit_expression_polys(&[f,q],gens,_kwargs,&[])? {
@@ -2429,7 +2486,7 @@ fn gcd(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens: &Bound<'_, PyTuple>, modulus: Option<u64>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let stripped=inapplicable_extension(py,f,g,gens,_kwargs)?;let _kwargs=stripped.as_ref().or(_kwargs);
     if modulus.is_none() {if let (Ok(p),Some(q))=(f.downcast::<PyPoly>(),g){
-        let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some();
+        let special=|v:&PolyValue|v.algebraic.is_some()||v.field.is_some()||v.expression.as_ref().is_some_and(|e|e.ground.is_some());
         if special(&p.get().p)||q.downcast::<PyPoly>().is_ok_and(|q|special(&q.get().p)){return poly_obj(py,p.get().lcm(q)?.p);}
     }}
     if let (Some(q),None)=(g,modulus) {if let Some((v,polys))=explicit_expression_polys(&[f,q],gens,_kwargs,&[])? {
@@ -2477,6 +2534,7 @@ fn lcm(py: Python<'_>, f: &Bound<'_, PyAny>, g: Option<&Bound<'_, PyAny>>, gens:
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn cofactors<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Bound<'py, PyTuple>> {
+    if let Some(p)=gaussian_poly_argument(f,gens,None,_kwargs){return p.cofactors(py,g);}
     if f.downcast::<PyPoly>().is_err(){if let Some(p)=algebraic_option_polys(f,&[to_expr(g)?],gens,_kwargs)? {
         let q=p.convert(&to_expr(g)?).map_err(err)?;
         let(h,a,b)=p.cofactors(&q);
@@ -2952,6 +3010,15 @@ fn composite_generators(values: Vec<Bound<'_, PyAny>>) -> PyResult<Option<(Vec<P
     Ok(symox::poly::expression_domain::composite_parameters(&coefficients).map_err(err)?.map(|(gens,fractions)|(gens.into_iter().map(w).collect(),fractions)))
 }
 
+/// The reference `_construct_composite` over `ZZ_I`/`QQ_I`: whether the
+/// ground is integral, whether it is a polynomial ring, and its symbols.
+#[pyfunction]
+#[pyo3(name = "_gaussian_composite", signature = (values, field=false))]
+fn gaussian_composite(values: Vec<Bound<'_, PyAny>>, field: bool) -> PyResult<Option<(bool, bool, Vec<PyExpr>)>> {
+    let coefficients=values.iter().map(to_expr).collect::<PyResult<Vec<_>>>()?;
+    Ok(symox::poly::gaussian_ground::infer_coefficients(&coefficients,field).map(|g|(g.integral,g.ring,g.symbols.into_iter().map(w).collect())))
+}
+
 #[pyfunction]
 #[pyo3(name = "_poly_together", signature = (f, deep=false, **_kwargs))]
 fn py_together(f: &Bound<'_, PyAny>, deep: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
@@ -3126,6 +3193,7 @@ fn decompose(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&B
 #[pyfunction]
 #[pyo3(signature = (f, *gens, **_kwargs))]
 fn sqf_part<'py>(f: &Bound<'py, PyAny>, gens: &Bound<'py, PyTuple>, _kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<PyObject> {
+    if let Some(p)=gaussian_poly_argument(f,gens,None,_kwargs){return Ok(p.sqf_part()?.into_pyobject(f.py())?.into_any().unbind());}
     checked_factor_views::global_part(f,gens,_kwargs)
 }
 
@@ -3273,6 +3341,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(real_roots, m)?)?;
     m.add_function(wrap_pyfunction!(gcdex, m)?)?;
     m.add_function(wrap_pyfunction!(composite_generators, m)?)?;
+    m.add_function(wrap_pyfunction!(gaussian_composite, m)?)?;
     m.add_function(wrap_pyfunction!(half_gcdex, m)?)?;
     m.add_function(wrap_pyfunction!(invert, m)?)?;
     m.add_function(wrap_pyfunction!(terms_gcd, m)?)?;
@@ -3286,4 +3355,25 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(structural::_dispersion_set, m)?)?;
     m.add_function(wrap_pyfunction!(structural::_is_cyclotomic, m)?)?;
     Ok(())
+}
+
+/// `factor_list_include`/`sqf_list_include` over a composite Gaussian
+/// ground: the coefficient multiplies the first factor.
+fn gaussian_include(f:&ExpressionPoly,g:&symox::poly::gaussian_ground::GaussianGround,c:Expr,fs:Vec<(ExpressionPoly,usize)>)->PyResult<Vec<(PyPoly,u32)>>{
+    if fs.is_empty(){return Ok(vec![(PyPoly{p:g.convert_poly(&ExpressionPoly::from_expr(&c,&f.gens).map_err(err)?).map_err(err)?.into()},1)]);}
+    let mut out=Vec::new();
+    for (i,(p,k)) in fs.into_iter().enumerate(){
+        let p=if i==0{g.convert_poly(&p.mul_ground(&c).map_err(err)?).map_err(err)?}else{p};
+        out.push((PyPoly{p:p.into()},k as u32));
+    }
+    Ok(out)
+}
+
+/// A `Poly` over a composite Gaussian ground passed without options: the
+/// global functions then reduce to the `Poly` methods.
+fn gaussian_poly_argument(f:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,modulus:Option<u64>,kwargs:Option<&Bound<'_,PyDict>>)->Option<PyPoly>{
+    if !gens.is_empty()||modulus.is_some()||kwargs.is_some_and(|k|!k.is_empty()){return None;}
+    let p=f.downcast::<PyPoly>().ok()?.get().clone();
+    p.p.expression.as_ref()?.ground.as_ref()?;
+    Some(p)
 }
