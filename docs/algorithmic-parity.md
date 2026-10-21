@@ -570,6 +570,59 @@ antiderivative jump at an interior pole or log branch point is removed
 through one-sided limits (`Expr._eval_interval`), so for example `tan` over
 `(0, pi)` gives nan as in the reference.
 
+Piecewise integrands follow the reference `Integral.doit` per limit. Abs and
+sign are rewritten over a real dummy (indefinite: for a real variable;
+definite: for real finite bounds), Min and Max become Piecewise, and an
+integrand containing a Piecewise is folded. A Piecewise integrand goes
+through `Piecewise._eval_integral` (indefinite) or `piecewise_integrate` and
+the split evaluation of `Piecewise._eval_interval` (definite); the Meijer G
+stage is not tried on it, as in the reference. A condition holding a
+Piecewise is folded before the ITE rewrite, as `ExprCondPair` does.
+`Piecewise.piecewise_integrate` and `Undefined` are available. On the
+reference `test_piecewise.py`, assertion runs go from 522 passing / 232
+failing to 642 / 103, with no wrong value among the failures. Remaining
+differences:
+- an interval the inequality solver cannot decide (for example the periodic
+  `sin(x) >= 0` of `Abs(sin(x))` over `(0, 2*pi)`) keeps the integral
+  unevaluated, where the reference returns 4;
+- a piece whose antiderivative is held gives a held definite integral;
+- `1/(x+a)` over `(0, 1)` with an unassumed `a` stays unevaluated (the
+  reference gives `-log(a) + log(a + 1)`);
+- condition forms with ITE, Min and Max differ in some results
+  (`test_piecewise_integrate1ca/cb`, `test_piecewise_integrate2`,
+  issue 6900), and the Python `piecewise_fold` is not the native port (it
+  orders the folded pieces differently).
+
+`meijerint_indefinite` is ported (`_meijerint_indefinite_1`, the splitting
+points, the hyperbolic rewrite and the choice of the simplest result) and
+is the last stage of indefinite integration unless `meijerg=False`.
+`meijerg=True` uses only it. An error inside the method (a failing
+`hyperexpand`) gives no result here, where the reference lets the exception
+out of `integrate`.
+
+Polynomial times `exp(a*x)` antiderivatives use the Risch form
+`num*exp(a*x)/den` and keep `Piecewise((.., Ne(den, 0)), (value at a = 0,
+True))` when the coefficient may vanish. Polynomial times sin or cos, and
+products with both an exponential and a trigonometric factor, keep the cases
+of `heurisch_wrapper`: the parameter values that zero the denominator are
+solved for, joined when there are several, and integrated separately, for
+example `Eq(a, 0) & Eq(b, 0)`, `Eq(a, -I*b)`, `Eq(a, I*b)` for
+`exp(a*x)*sin(b*x)`. The cyclic rule no longer divides by a vanishing
+`a**2 + b**2` (it returned `zoo` terms for `exp(I*x)*sin(x)`); those products
+are integrated in exponential form. Known differences:
+- the special-case antiderivatives come from the exponential form, not the
+  heurisch form (equal up to a constant);
+- for `x*exp(a*x + 1)` the reference special case is `x**2/2`, which is
+  wrong; the native value is `E*x**2/2`;
+- for `x*sin((a + 1)*x)` heurisch fails in the reference and the result has
+  no `Ne(a, -1)` case; the native result keeps it.
+
+The incomplete gamma functions, `Ei` and `expint` apply the reference branch
+factors for arguments carrying `exp_polar(2*I*pi*n)`, and `expand_log`
+recurses and repeats until the expression is stable, as the reference does.
+`solve` takes even powers out of the radical of a quadratic root
+(`a**2 + b**2 = 0` gives `-I*b, I*b`, like `roots_quadratic._sqrt`).
+
 Laplace, Fourier, sine, cosine, Hankel and Mellin transforms fall back to the
 reference integration backends (`_laplace_transform`, `_fourier_transform`,
 `_sine_cosine_transform`, `_hankel_transform`, `_mellin_transform`) when no
@@ -841,9 +894,11 @@ for constructing every stabilizer chain.
 - The integration engine does not implement the full collection of Risch,
   heurisch and Meijer G methods available in SymPy. Meijer G definite
   integration, its convergence conditions and `hyperexpand` are ported (see
-  above); the Meijer G indefinite integrals, the `risch`, `heurisch` and
-  `manual` method selections and `NonElementaryIntegral` results (which
-  need a Risch proof) remain open.
+  above), and so are the Meijer G indefinite integrals and the Piecewise
+  integration of `Integral.doit`. The `risch`, `heurisch` and `manual`
+  method selections and `NonElementaryIntegral` results (which need a Risch
+  proof) remain open: those options still raise NotImplementedError, and
+  results the reference only reaches through heurisch can differ in form.
   Gamma moments `c*x**a*exp(delta-beta*x**q)` on `(0, infinity)` now retain the
   exact `re(a)>-1` condition for provably positive real `q`, or `re(a)<-1`
   for provably negative real `q`, with `re(beta)>0`. This includes rational
