@@ -4064,3 +4064,99 @@ Remaining gaps:
   reference (4 s); free group words are pure Python.
 - `Collector` and `PolycyclicGroup` printing recurses without end, as in
   the reference.
+
+## Wave 4: code generation and printers (WP-C14)
+
+Implemented:
+
+- `fcode`, `FCodePrinter`, `rust_code` and `RustCodePrinter` are now ports
+  of the SymPy 1.14 printers, replacing the native expression printers.
+  This covers Matrix `assign_to`, Piecewise statements, `user_functions`,
+  F77/F95 line wrapping, `strict`, the standard checks of `merge` and the
+  other `FFunction` intrinsics, and the Rust `TypeCast`, `float_floor` and
+  `float_ceiling` overrides.
+- `glsl_code`, `jscode`, `julia_code`, `octave_code` and `rcode` are ports
+  of the reference printers. Matrix `assign_to` and inline matrices print
+  as in SymPy.
+- `cfunctions` follow the reference for `fdiff`, `rewrite`, `evalf` and
+  printing. `isnan` and `isinf` are boolean functions with the reference
+  `eval`. `pycode` and `NumPyPrinter` know the reference math names, and
+  unsupported names raise `PrintMethodNotImplementedError`.
+- `codegen.ast`:
+  - `Print`, `FunctionPrototype`, `FunctionDefinition`, `Declaration`, `For`
+    and `While` coerce their fields as SymPy does.
+  - `Variable.deduced`, `Type.from_expr` and `cast_check` follow SymPy,
+    including the integer and float limit messages.
+  - `CodeBlock` gained `left_hand_sides`, `right_hand_sides`,
+    `topological_sort` and `cse`.
+- `fnodes`:
+  - New nodes: `Module`, `Program`, `Subroutine`, `SubroutineCall`, `use`,
+    `use_rename`, `Extent`, `dimension`, `array`, `bind_C`, `sum_` and
+    `product_`.
+  - New attributes: `intent_*`, `allocatable`, `pure`, `elemental`,
+    `assumed_extent` and `assumed_size`.
+  - `literal_dp` and `literal_sp` give plain `Float` values, as in SymPy.
+- `cnodes` `sizeof` and `alignof` return function calls, as in SymPy.
+
+Intentional divergences:
+
+- `fcode(Do(..., concurrent=True))` prints the Fortran 2008 form
+  `do concurrent (i = 1:n)`. The reference prints `do concurrent i = 1, n`,
+  which gfortran rejects.
+- In F77, SymPy raises `F77 init./parameter statem. req. multiple lines.`
+  for every `Declaration`, because its `NoneToken` is truthy. Symox prints
+  scalar declarations without a value. It still raises for values,
+  `value_const` and dimensions, so it never drops a dimension silently.
+  `GoTo` without an expression prints `go to 10`; SymPy raises.
+- `N(isnan(x).subs(x, Rational(3, 7)))` returns `False`; SymPy raises
+  `AttributeError` (`BooleanFalse` has no `evalf`).
+- `ccode(Sqrt(x))` raises `PrintMethodNotImplementedError`; SymPy raises
+  `KeyError`.
+- For the `fnodes.size` example, SymPy prints `sum(a**2)*1d0/size(a)` and
+  symox prints `sum(a**2)/size(a)`. Symox builds `sum_` and `size` as
+  applied functions named after the intrinsic, so `fcode` knows them as
+  calls. The two expressions are equivalent.
+- `RustCodePrinter().doprint(FunctionDefinition(...))` keeps symox's typed
+  Rust function printer (integer and float arithmetic, loops, returns);
+  SymPy raises `PrintMethodNotImplementedError`.
+- `rust_code(x + 1)` prints the integer literal as SymPy does (`x + 1`).
+  Rust rejects this in `f64` arithmetic. The earlier native printer wrote
+  `1.0`.
+- Unsupported-object messages name symox classes, for example
+  `symox._core.Matrix` and `symox.printing.lambdarepr.NumPyPrinter`.
+
+Remaining gaps:
+
+- Codegen nodes are not `Basic`. The reprs of `Token`, `Variable`,
+  `Attribute` and `Type` differ (12 of 215 `ast` doctest examples).
+  `str(none)` is `None` and not `NoneToken()`. `intc` is a 32-bit
+  `SignedIntType`; SymPy uses `IntBaseType('intc')`.
+- `Idx` arithmetic (`i + 1` raises `TypeError`) and contraction loops are
+  not supported. A Function applied to a Matrix in julia and octave is not
+  supported either. These account for the remaining glsl, jscode, julia,
+  octave, rcode and codeprinter doctest differences.
+- Symox evalf turns `N(-x)` into `-1.0*x`; SymPy keeps `-x`. The Fortran
+  printer emulates SymPy's rule for function arguments, but the core
+  difference remains.
+- Not covered by this work package: smtlib, `codegen.rewriting`,
+  `SeriesApprox` and the `algorithms` and `matrix_nodes` doctests (17/18 and
+  15/17).
+
+Doctest probe, matching examples before and after:
+
+| Module      | Before  | After   |
+|-------------|---------|---------|
+| ast         | 163/215 | 203/215 |
+| fnodes      | 89/107  | 106/107 |
+| cnodes      | 19/24   | 24/24   |
+| glsl        | 21/36   | 34/36   |
+| jscode      | 17/21   | 19/21   |
+| julia       | 26/34   | 31/34   |
+| octave      | 24/34   | 31/34   |
+| rcode       | 17/23   | 21/23   |
+| codeprinter | 59/70   | 64/70   |
+
+The cfunctions probes went from 1/14 to 14/14 (semantics) and from 40/187 to
+183/187 (printing). The four printing differences left are the two
+corrections above and two error messages that name a class at another path.
+`tests/test_missing_codegen_wave4_parity.py` hard-codes 145 reference cases.

@@ -61,7 +61,9 @@ def test_code_generator_c_output_buffer_and_fortran(tmp_path):
 def test_rust_routine_compiles_and_executes(tmp_path):
     from symox.utilities.codegen import codegen
     if not shutil.which('rustc'):pytest.skip('Rust compiler unavailable')
-    x=S.Symbol('x');text=codegen(('f',x*x+S.sin(x)+1),'Rust')[0][1]
+    # SymPy's rust_code prints integer literals as is (``+ 1``), which Rust
+    # rejects in f64 arithmetic, so the constant is a Float here.
+    x=S.Symbol('x');text=codegen(('f',x*x+S.sin(x)+S.Float(1)),'Rust')[0][1]
     path=tmp_path/'routine.rs';path.write_text(text+'\nfn main() { println!("{}", f(1.0)); }\n')
     result=subprocess.run(['rustc',str(path),'-o',str(tmp_path/'routine')],text=True,capture_output=True)
     assert result.returncode==0,result.stderr

@@ -80,6 +80,25 @@ def _symox_indexed(*exprs):
     return any(isinstance(e, _IndexedArithmetic) for e in exprs)
 
 
+def _needs_loops(lhs, rhs):
+    """SymPy's ``lhs.has(IndexedBase) or rhs.has(IndexedBase)`` contraction test.
+
+    Symox's indexed objects are not Basic and their contraction loops are not
+    generated (see ``_symox_indexed``); explicit matrices never contain one.
+    """
+    from symox.tensor.indexed import IndexedBase
+    if _symox_indexed(lhs, rhs):
+        return False
+    def has(e):
+        if getattr(e, 'is_Matrix', False) and hasattr(e, 'tolist'):
+            return any(has(v) for row in e.tolist() for v in row)
+        try:
+            return bool(e.has(IndexedBase))
+        except TypeError:
+            return False
+    return has(lhs) or has(rhs)
+
+
 class CodePrinter(StrPrinter):
     """
     The base class for code-printing subclasses.
@@ -152,6 +171,9 @@ class CodePrinter(StrPrinter):
             self.reserved_words = set()
 
     def _handle_UnevaluatedExpr(self, expr):
+        if not hasattr(expr, 'replace'):
+            # Symox's Extent is not Basic and has no ``replace``.
+            return expr
         return expr.replace(re, lambda arg: arg if isinstance(
             arg, UnevaluatedExpr) and arg.args[0].is_real else re(arg))
 
@@ -173,7 +195,9 @@ class CodePrinter(StrPrinter):
 
         def _handle_assign_to(expr, assign_to):
             if assign_to is None:
-                return sympify(expr)
+                from symox.codegen.ast import CodegenAST
+                # Codegen nodes are Basic in the reference: sympify keeps them.
+                return expr if isinstance(expr, CodegenAST) else sympify(expr)
             if isinstance(assign_to, (list, tuple)):
                 if len(expr) != len(assign_to):
                     raise ValueError('Failed to assign an expression of length {} to {} variables'.format(len(expr), len(assign_to)))
@@ -469,6 +493,12 @@ class CodePrinter(StrPrinter):
             printing method. Used to check if rewriting is possible."""
         return name in self.known_functions or getattr(self, '_print_{}'.format(name), False)
 
+    def _print_isnan(self, arg):
+        return 'isnan(%s)' % self._print(*arg.args)
+
+    def _print_isinf(self, arg):
+        return 'isinf(%s)' % self._print(*arg.args)
+
     def _print_Function(self, expr):
         if expr.func.__name__ in self.known_functions:
             cond_func = self.known_functions[expr.func.__name__]
@@ -658,6 +688,8 @@ class CodePrinter(StrPrinter):
 
     # The following can not be simply translated into C or Fortran
     _print_Basic = _print_not_supported
+    # Symox's codegen nodes are not Basic.
+    _print_CodegenAST = _print_not_supported
     _print_ComplexInfinity = _print_not_supported
     _print_ExprCondPair = _print_not_supported
     _print_GeometryEntity = _print_not_supported
@@ -828,14 +860,10 @@ def cxxcode(expr, assign_to=None, standard='c++11', **settings):
     return cxx_code_printers[standard.lower()](settings).doprint(expr, assign_to)
 
 
-# Symox keeps its native Fortran and Rust printers; SymPy's FCodePrinter
-# and RustCodePrinter are not ported.
 def fcode(expr, assign_to=None, **settings):
     """Converts an expr to a string of fortran code."""
-    from symox.printing.fortran import fcode as native
-    if assign_to is not None:
-        settings['assign_to'] = assign_to
-    return native(expr, **settings)
+    from symox.printing.fortran import FCodePrinter
+    return FCodePrinter(settings).doprint(expr, assign_to)
 
 
 def print_fcode(expr, **settings):
@@ -848,10 +876,13 @@ def print_fcode(expr, **settings):
 
 def rust_code(expr, assign_to=None, **settings):
     """Converts an expr to a string of Rust code."""
-    from symox.printing.rust import rust_code as native
-    if assign_to is not None:
-        settings['assign_to'] = assign_to
-    return native(expr, **settings)
+    from symox.printing.rust import RustCodePrinter
+    printer = RustCodePrinter(settings)
+    expr = printer._rewrite_known_functions(expr)
+    if isinstance(expr, Expr):
+        for src_func, dst_func in printer.function_overrides.values():
+            expr = expr.replace(src_func, dst_func)
+    return printer.doprint(expr, assign_to)
 
 
 def print_rust_code(expr, **settings):

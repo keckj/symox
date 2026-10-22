@@ -76,7 +76,8 @@ def test_function_metadata_is_connected_to_the_language_printers():
     x=S.Symbol('x')
     assert 'besselj' in known_fcns_src1 and julia_code(S.besselj(2,x))=='besselj(2, x)'
     assert known_fcns_src2['LambertW']=='lambertw' and octave_code(S.LambertW(x))=='lambertw(x)'
-    with pytest.raises(NotImplementedError):julia_code(S.Function('besselj')(2,x))
+    # Like SymPy 1.14, an undefined function named like a known one is printed.
+    assert julia_code(S.Function('besselj')(2,x))=='besselj(2, x)'
 
 
 def test_optional_aesara_broadcasting_contract():

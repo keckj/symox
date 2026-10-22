@@ -71,9 +71,29 @@ class AbstractPythonCodePrinter(NodePrinter,CXX17CodePrinter):
         if name in constants:return constants[name]
         if getattr(expr,'is_Function',False):
             custom=self._settings.get('user_functions',{}).get(name)
+            if custom is None and name in _CFUNCTION_NAMES and type(expr).__module__=='symox.codegen.cfunctions':
+                custom=self._cfunction(expr,name)
             if custom is None:custom=name if getattr(expr,'is_UndefinedFunction',False) else self._function(name)
             return custom+'('+', '.join(self._print(a) for a in expr.args)+')'
         return super().emptyPrinter(expr)
+
+
+    def _cfunction(self,expr,name):
+        # The ``sympy.codegen.cfunctions`` names the reference Python printers
+        # know: math has no cbrt, exp2 or fma, numpy has exp2 but no cbrt or fma.
+        known={'Sqrt':'sqrt','log2':'log2','log10':'log10','expm1':'expm1','log1p':'log1p',
+               'hypot':'hypot','isnan':'isnan','isinf':'isinf'}
+        if self._module=='numpy':known['exp2']='exp2'
+        if self._module in ('math','numpy') and name in known:return self._module+'.'+known[name]
+        if self._module in ('math','numpy') and self._settings.get('strict',True) is not False:
+            from .codeprinter import PrintMethodNotImplementedError
+            raise PrintMethodNotImplementedError(
+                f"Unsupported by {type(self)}: {name}" +
+                "\nSet the printer option 'strict' to False in order to generate partially printed code.")
+        return None
+
+
+_CFUNCTION_NAMES=('Sqrt','Cbrt','exp2','log2','log10','expm1','log1p','fma','hypot','isnan','isinf')
 
 
 class PythonCodePrinter(AbstractPythonCodePrinter):pass
