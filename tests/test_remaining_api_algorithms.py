@@ -143,18 +143,20 @@ def test_integer_storage_nullspace_preserves_its_ring():
 
 
 def test_module_morphism_integral_kernels_images_and_minpoly():
+    # The reference API (SymPy 1.14): elements from ZZ columns, ``coeffs``,
+    # ``matrix(modulus)`` and ``kernel(modulus)``.
     from symox.polys.numberfields.modules import PowerBasis,ModuleHomomorphism,InnerEndomorphism,find_min_poly
-    x=S.Symbol('module_x');basis=PowerBasis(S.Poly(x**3-2,x));f=ModuleHomomorphism(basis,basis,lambda a:basis([2*a._vector[0]+3*a._vector[1]+5*a._vector[2]]))
-    kernel=f.kernel()
-    assert kernel.n==2
-    element=basis([-4,1,1])
-    assert f(element)==basis([0])
-    coordinates=kernel.represent(element)
-    assert all(v.is_Integer for v in coordinates)
-    assert f.image().n==1
-    alpha=basis([0,1]);multiplication=InnerEndomorphism(basis,alpha)
-    assert (multiplication*multiplication)(basis.one())==alpha**2
+    from symox.polys.matrices import DomainMatrix
+    def col(*c):return DomainMatrix([[S.ZZ(v)] for v in c],(len(c),1),S.ZZ)
+    x=S.Symbol('module_x');basis=PowerBasis(S.Poly(x**3-2,x))
+    f=ModuleHomomorphism(basis,basis,lambda a:basis(col(2*a.coeffs[0]+3*a.coeffs[1]+5*a.coeffs[2],0,0)))
+    assert f.matrix().to_Matrix()==S.Matrix([[2,3,5],[0,0,0],[0,0,0]])
+    # Over ZZ the reference kernel converts a rational nullspace to ZZ and
+    # raises CoercionFailed here.
+    with pytest.raises(S.CoercionFailed):f.kernel()
+    alpha=basis(col(0,1,0));multiplication=InnerEndomorphism(basis,alpha)
+    assert multiplication.matrix().to_Matrix()==S.Matrix([[0,0,2],[1,0,0],[0,1,0]])
     assert find_min_poly(alpha,S.QQ,x).as_expr()==x**3-2
     residues=f.kernel(modulus=2)
-    assert residues.n==3
-    assert all(v.is_Integer for v in residues.represent(basis([1,0,0])))
+    assert residues.n==2 and residues.matrix.to_Matrix()==S.Matrix([[1,0],[0,1],[0,1]])
+    assert residues.represent(basis(col(1,0,0))).to_Matrix()==S.Matrix([1,0])

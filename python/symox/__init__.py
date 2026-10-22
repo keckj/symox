@@ -2667,3 +2667,5 @@ from .calculus._accum_eval import install_doit as _install_accum_doit  # noqa: E
 _install_accum_subs()
 _install_accum_doit()
 _ACCUM_CLASS[0] = AccumulationBounds
+from .polys._finite_field_options import install as _install_ff_options  # noqa: E402
+_install_ff_options(globals())

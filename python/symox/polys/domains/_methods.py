@@ -551,6 +551,11 @@ def _call(self, *args):
         return self.convert(a)
     if len(args) == 1 and isinstance(args[0], bool):
         return _native_call(self, int(args[0]))
+    if len(args) == 1 and isinstance(args[0], list) and getattr(self, 'is_AlgebraicField', False):
+        # The reference ``ANP(rep, mod, dom)``: dense coefficients of the
+        # primitive element, highest power first.
+        from ._algebraic_methods import from_dense_list
+        return from_dense_list(self, args[0])
     return _native_call(self, *args)
 
 
@@ -735,7 +740,13 @@ def alg_field_from_poly(self, poly, alias=None, root_index=-1):
     root = roots[operator.index(root_index)]
     if root.is_Rational:
         return QQ
-    return self.algebraic_field(root, alias=alias)
+    K = self.algebraic_field(root, alias=alias)
+    # The reference passes ``AlgebraicNumber(root, alias=alias)``, which is
+    # then the original generator.
+    from ... import AlgebraicNumber
+    from ._algebraic_methods import _cache
+    _cache(K)['orig_ext'] = (AlgebraicNumber(root, alias=alias),)
+    return K
 
 
 def cyclotomic_field(self, n, ss=False, alias='zeta', gen=None, root_index=-1):
@@ -868,6 +879,8 @@ def install():
     from ... import _core
     from . import _element_print
     _element_print.install()
+    from . import _algebraic_methods
+    _algebraic_methods.install()
     for function in (_integer_, _rational_, _polynomial_):
         setattr(_core.DomainElement, function.__name__, function)
     global _native_convert, _native_invert, _native_from_sympy, _native_unify
