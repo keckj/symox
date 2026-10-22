@@ -46,6 +46,8 @@ def nonlinsolve(system, *symbols):
     equations = _equations(system)
     if not equations:
         return EmptySet
+    if any(_core._has_noncommutative_atoms(e) for e in equations):
+        return _noncommutative_nonlinsolve(equations, variables)
     result = _core._nonlinsolve_parametric(equations, variables)
     rows = []
     for values, excluded in result:
@@ -53,6 +55,22 @@ def nonlinsolve(system, *symbols):
                for value, roots in zip(values, excluded)]
         rows.append(_core._apply("Tuple", *row))
     return EmptySet if not rows else FiniteSet(*rows)
+
+
+def _noncommutative_nonlinsolve(equations, variables):
+    """One equation with noncommutative coefficients in one unknown, solved
+    by the noncommutative ``solve`` (commutative unknowns take commutative
+    values, a noncommutative unknown keeps the factor order). An empty
+    result is a proven absence of solutions; other systems raise."""
+    from . import EmptySet, FiniteSet, _core, solve
+
+    if len(equations) != 1 or len(variables) != 1:
+        raise NotImplementedError(
+            "systems with noncommutative coefficients are not implemented")
+    solutions = solve(equations[0], variables[0], dict=False)
+    if not solutions:
+        return EmptySet
+    return FiniteSet(*[_core._apply("Tuple", s) for s in solutions])
 
 
 __all__ = ["solve_poly_system", "nonlinsolve"]

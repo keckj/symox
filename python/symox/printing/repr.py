@@ -4,6 +4,20 @@ from ._legacy import LegacyPrinter as Printer
 class ReprPrinter(Printer):
     printmethod='_sympyrepr'
 
+    def _print(self, expr, **kwargs):
+        if isinstance(expr, type):
+            # function classes (sin, user Function subclasses) print by name
+            return expr.__name__
+        from symox import Function
+        if type(expr) is Function:
+            # an undefined function head, in the form of its applied srepr
+            parts = [repr(expr.name)]
+            parts += ['%s=%s' % item for item in sorted(expr._assumptions.items())]
+            if expr._nargs is not None:
+                parts.append('nargs=(%s)' % ''.join('%d,' % n for n in expr._nargs))
+            return 'Function(%s)' % ', '.join(parts)
+        return super()._print(expr, **kwargs)
+
     def _print_Matrix(self, expr):
         if expr.shape == (0, 0):
             arguments = '[]'

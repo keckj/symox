@@ -49,6 +49,17 @@ case is tested with the symox value and detailed in its section below.
   `solve(A*B - B*A, A)` raises `NotImplementedError` instead of SymPy's
   `[]`, since `A = B` is a solution. `solve(x**2*A - A, x)` and
   `integrate(A*x, x)` are computed where SymPy raises.
+- Noncommutative `nonlinsolve` follows `solve`: `nonlinsolve([A*B - C], [B])`
+  is `{(A**-1*C,)}` (SymPy `{(C*A**-1,)}`, which does not satisfy the
+  equation), `nonlinsolve([A*x - B], [x])` is `EmptySet` (SymPy gives the
+  commutative `x` the noncommutative value `B*A**-1`),
+  `nonlinsolve([A*B - B*A], [A])` raises `NotImplementedError` (SymPy
+  `{(Complexes,)}`) and systems of several equations raise
+  `NotImplementedError` (SymPy crashes with `AttributeError`).
+- `srepr` of an applied undefined function with assumptions keeps its facts
+  (`Function('g', ..., commutative=False, ...)(Symbol('x'))`) so that it
+  round-trips through `sympify`, pickling and `to_sympy`; SymPy prints the
+  lossy `Function('g')(Symbol('x'))`.
 - For an integer unknown `x**5 - x - 1` has no solution, and
   `x**3*exp(x) - 1` returns three valid Lambert representatives.
 
@@ -886,6 +897,23 @@ holds the reference outputs):
   (`solve(A*x - B, x) == []`, `solve(x*A - A, x) == [1]`). A single
   noncommutative unknown is solved from a one-sided linear equation
   without commuting factors (`solve(A*B - C, B) == [A**-1*C]`).
+  `nonlinsolve` of one equation in one unknown uses the same solver.
+- `adjoint` and `transpose` (ports of the reference classes and of the
+  `_eval_adjoint`/`_eval_transpose` rules of `Mul`, `Add`, `Pow`, `exp`,
+  `Piecewise` and `conjugate`): `adjoint(A*B) == adjoint(B)*adjoint(A)`,
+  hermitian and antihermitian symbols, `conjugate(adjoint(A)) ==
+  transpose(A)`, `subs`/`xreplace` re-evaluating the nodes, `Expr.adjoint`,
+  `Expr.transpose` and `Matrix.H`/`Matrix.adjoint` of noncommutative entries
+  (`tests/test_noncommutative_rest_parity.py`).
+- `radsimp` reproduces the final numerator/denominator step of the
+  reference (`radsimp(A/(1 + sqrt(2))) == -A + sqrt(2)*A`).
+- `Symbol`, `Dummy` and `Function` with inconsistent assumptions (including
+  `commutative=False` with `real=True`) raise `InconsistentAssumptions`, a
+  `ValueError` subclass, as in the reference. `srepr(sin)` prints `sin` and
+  `srepr(Function('q'))` prints `Function('q')`.
+- `limit`, `nsimplify`, `evalf` and the matrix products, determinants,
+  traces and transposes of noncommutative entries match the reference on
+  the probed cases.
 
 Stages of `simplify` without a noncommutative reference algorithm
 (`trigsimp`, `exptrigsimp`, `hyperexpand`, `besselsimp`, `logcombine`,
@@ -896,36 +924,43 @@ stage is skipped, so no factor is commuted.
 
 Remaining noncommutative gaps:
 
-- `adjoint` and `transpose` of a noncommutative expression raise
-  `NotImplementedError`; the reference returns unevaluated
-  `adjoint(B)*adjoint(A)`, which needs scalar adjoint and transpose nodes.
-- `radsimp` of a noncommutative term keeps a common commutative factor
-  (`(-1 + sqrt(2))*A`) where the reference expands it (`-A + sqrt(2)*A`).
-- `solve` differs from the reference where the reference result is wrong
-  or where Symox can decide more: `solve(B*A - C, B)` is `[C*A**-1]`
-  (reference `[A**-1*C]`), `solve(A*B*C - 1, B)` is `[(C*A)**-1]`
-  (reference `[(A*C)**-1]`), `solve(A*B - B, B)` is `[0]` and
-  `solve(A*B + B, A)` is `[-1]` (reference `[]`), and polynomial equations
-  of higher degree in a commutative unknown are solved
+- `solve` and `nonlinsolve` differ from the reference where the reference
+  result is wrong or where Symox can decide more (see the intentional
+  corrections at the top): `solve(A*B + B, A)` is `[-1]` (reference `[]`),
+  polynomial equations of higher degree in a commutative unknown are solved
   (`solve(x**2*A - A, x) == [-1, 1]`, `solve(exp(x)*A - A, x) == [0]`)
   where the reference raises `PolynomialError`. Two-sided equations in a
-  noncommutative unknown (`A*B - B*A` in `A`, where the reference returns
-  `[]`) and systems in noncommutative unknowns raise `NotImplementedError`.
-  `nonlinsolve` raises `ValueError` (the reference returns
-  `{(B*A**-1,)}`).
+  noncommutative unknown and systems in noncommutative unknowns raise
+  `NotImplementedError`.
+- `solveset(A*x - B, x)` returns the reference's `{B*A**-1}`, inconsistent
+  with `solve(A*x - B, x) == []`; `solveset` has no noncommutative branch.
 - `integrate(A*x, x)` returns `x**2*A/2`; the reference raises
   `ValueError`.
-- `Symbol('A', commutative=False, real=True)` raises `ValueError`, as for
-  every inconsistent assumption set; the reference raises its
-  `InconsistentAssumptions` subclass.
-- `srepr` of a noncommutative undefined function lists all its derived
-  facts (`Function('g', algebraic=False, commutative=False, ...)`); the
-  reference prints `Function('g')`.
+- `radsimp(x*A/(1 + sqrt(2)))` is `-x*(-sqrt(2)*A + A)` (reference
+  `x*(-A + sqrt(2)*A)`, the same value): `-(A + B)` distributes over a
+  noncommutative `Add` in Symox, where the reference keeps
+  `Mul(-1, A + B)`, so `could_extract_minus_sign` breaks the tie
+  differently (and `(A + B) - (A + B)` is 0 where the reference keeps
+  `A + B - (A + B)`).
+- `adjoint` and `transpose` of a function of a noncommutative argument stay
+  unevaluated (`adjoint(sin(A))`; the reference
+  `transpose(sin(conjugate(A)))` through `Function._eval_conjugate`).
+  `latex` and `pretty` print the nodes as functions
+  (`\operatorname{adjoint}{\left(A \right)}`, reference `A^{\dagger}`).
+- `srepr` of a symbol lists its assumptions sorted
+  (`Symbol('A', antihermitian=True, commutative=False)`); the reference
+  keeps the keyword order. `srepr` of an undefined function head with
+  assumptions lists all derived facts (reference `Function('g')`).
+- The message of `InconsistentAssumptions` lists the given facts where the
+  reference lists the facts deduced up to the conflict.
+- `Matrix([[A, 0], [0, B]]).inv()` returns `diag(A**-1, B**-1)`; the
+  reference raises `PolynomialError`.
 - `Expr.equals` of noncommutative operands returns True only for a zero
   difference and None otherwise.
-- Noncommutative `Wild` matching beyond the probed cases, `limit`, `nsimplify`, `evalf`, the
-  `assumptions` system, the matrices of noncommutative entries, the
-  printers other than `str`, `srepr` and `latex`, and the noncommutative
+- Noncommutative `Wild` matching beyond the probed cases, the
+  `assumptions` system (`ask`), matrix algorithms of noncommutative entries
+  beyond the probed ones, the printers other than `str`, `srepr` and
+  `latex`, and the noncommutative
   user classes with `is_commutative = None` (below) are not audited against
   the reference. Polynomial simplification still treats noncommutative host
   factors of such user classes as commuting.

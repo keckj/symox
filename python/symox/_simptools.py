@@ -52,11 +52,33 @@ def rcollect(expr, *vars):
     return _core._st_rcollect(_sympify(expr), [_sympify(v) for v in vars])
 
 
+def _nc_radsimp_tail(expr, result):
+    """The last step of SymPy's ``radsimp`` on a noncommutative result:
+    the numerator is expanded and regrouped by the noncommutative
+    ``gcd_terms``, which keeps one term per noncommutative product
+    (``-A + sqrt(2)*A``, not ``(-1 + sqrt(2))*A``)."""
+    from . import expand_mul, signsimp
+    from .core.mul import _unevaluated_Mul
+    if result == expr or not isinstance(result, Expr):
+        return result
+    coeff, rest = result.as_coeff_Add()
+    n, d = fraction(rest)
+    n = expand_mul(n)
+    if d.is_Number or d.is_Add:
+        n2, d2 = fraction(_nc.gcd_terms(_unevaluated_Mul(n, 1/d)))
+        if d2.is_Number or d2.count_ops() <= d.count_ops():
+            n, d = [signsimp(i) for i in (n2, d2)]
+            if n.is_Mul and n.args[0].is_Number:
+                n = n.func(*n.args)
+    return coeff + _unevaluated_Mul(n, 1/d)
+
+
 def radsimp(expr, symbolic=True, max_terms=4):
     """Rationalize denominators by removing square roots (SymPy ``radsimp``)."""
     expr = _sympify(expr)
     if _nc.is_nc(expr):
-        return _nc.masked(lambda e: _core._st_radsimp(e, bool(symbolic), int(max_terms)), expr)
+        result = _nc.masked(lambda e: _core._st_radsimp(e, bool(symbolic), int(max_terms)), expr)
+        return _nc_radsimp_tail(expr, result)
     return _core._st_radsimp(expr, bool(symbolic), int(max_terms))
 
 
