@@ -3,28 +3,145 @@ from itertools import product
 from math import gcd,isqrt
 
 
-def factor_system(eqs,gens=(),**kwargs):
-    from . import Poly,sympify,factor_list,groebner
-    equations = [sympify(e.lhs-e.rhs if getattr(e,'is_Equality',False) else e) for e in eqs]
-    gens = tuple(gens) or tuple(sorted(set().union(*(e.free_symbols for e in equations)),key=str))
-    if not gens:return [[]] if all(e == 0 for e in equations) else []
-    choices = []
-    for equation in equations:
-        if equation == 0:continue
-        if not equation.free_symbols:return []
-        coefficient,factors = Poly(equation,*gens,**kwargs).factor_list()
-        choices.append(tuple(f.as_expr() for f,m in factors))
-    if not choices:return [[]]
-    systems = []
-    for selected in product(*choices):
-        selected = list(dict.fromkeys(selected))
-        basis = list(groebner(selected,*gens))
-        if any(not f.free_symbols and f != 0 for f in basis):continue
-        canonical = frozenset(basis)
-        if any(existing <= canonical for existing in systems):continue
-        systems = [existing for existing in systems if not canonical < existing]
-        systems.append(canonical)
-    return [sorted(s,key=str) for s in sorted(systems,key=lambda s:(len(s),str(sorted(s,key=str))))]
+def factor_system(eqs, gens=(), **kwargs):
+    """Factorise a system of polynomial equations into the irreducible
+    generic subsystems (SymPy 1.14 ``factor_system``)."""
+    systems = _factor_system_poly_from_expr(eqs, gens, **kwargs)
+    systems_generic = [sys for sys in systems if not _is_degenerate(sys)]
+    return [[p.as_expr() for p in system] for system in systems_generic]
+
+
+def _is_degenerate(system):
+    return any(p.is_ground for p in system)
+
+
+def factor_system_bool(eqs, gens=(), **kwargs):
+    """``factor_system_cond`` as a Boolean: an Or of Ands of equations."""
+    from . import Or, And, Eq
+    systems = factor_system_cond(eqs, gens, **kwargs)
+    return Or(*[And(*[Eq(eq, 0) for eq in sys]) for sys in systems])
+
+
+def factor_system_cond(eqs, gens=(), **kwargs):
+    """Like ``factor_system`` but keeps the subsystems that only hold
+    under a condition on the parameters."""
+    systems_poly = _factor_system_poly_from_expr(eqs, gens, **kwargs)
+    return [[p.as_expr() for p in system] for system in systems_poly]
+
+
+def _factor_system_poly_from_expr(eqs, gens, **kwargs):
+    from . import Dummy
+    from .polys.polytools import parallel_poly_from_expr
+    from .polys.polyerrors import GeneratorsNeeded, PolificationFailed
+    try:
+        polys, opts = parallel_poly_from_expr(eqs, *gens, **kwargs)
+        only_numbers = False
+    except (GeneratorsNeeded, PolificationFailed):
+        _u = Dummy('u')
+        polys, opts = parallel_poly_from_expr(eqs, [_u], **kwargs)
+        only_numbers = True
+    if only_numbers:
+        return [[]] if all(p == 0 for p in polys) else []
+    return factor_system_poly(polys)
+
+
+def factor_system_poly(polys):
+    """Factorise a system of ``Poly`` equations (SymPy 1.14 algorithm)."""
+    from . import Poly
+    from .core.exprtools import factor_terms
+    from .polys.polytools import sqf_part
+    from .polys.polyerrors import DomainError
+    if not all(isinstance(poly, Poly) for poly in polys):
+        raise TypeError("polys should be a list of Poly instances")
+    if not polys:
+        return [[]]
+    base_domain = polys[0].domain
+    base_gens = polys[0].gens
+    if not all(poly.domain == base_domain and poly.gens == base_gens for poly in polys[1:]):
+        raise DomainError("All polynomials must have the same domain and generators")
+    factor_sets = []
+    for poly in polys:
+        constant, factors_mult = poly.factor_list()
+        if constant.is_zero is True:
+            continue
+        elif constant.is_zero is False:
+            if not factors_mult:
+                return []
+            factor_sets.append([f for f, _ in factors_mult])
+        else:
+            constant = sqf_part(factor_terms(constant).as_coeff_Mul()[1])
+            constp = Poly(constant, base_gens, domain=base_domain)
+            factors = [f for f, _ in factors_mult]
+            factors.append(constp)
+            factor_sets.append(factors)
+    if not factor_sets:
+        return [[]]
+    return _sort_systems(_factor_sets(factor_sets))
+
+
+def _factor_sets(eqs):
+    if not eqs:
+        return {frozenset()}
+    current_set = min(eqs, key=len)
+    other_sets = [s for s in eqs if s is not current_set]
+    stack = [(factor, [s for s in other_sets if factor not in s], {factor})
+             for factor in current_set]
+    result = set()
+    while stack:
+        factor, remaining_sets, current_solution = stack.pop()
+        if not remaining_sets:
+            result.add(frozenset(current_solution))
+            continue
+        next_set = min(remaining_sets, key=len)
+        next_remaining = [s for s in remaining_sets if s is not next_set]
+        for next_factor in next_set:
+            valid_remaining = [s for s in next_remaining if next_factor not in s]
+            stack.append((next_factor, valid_remaining, current_solution | {next_factor}))
+    return {s1 for s1 in result if not any(s1 > s2 for s2 in result)}
+
+
+def _sort_systems(systems):
+    systems_list = [sorted(s, key=_poly_sort_key, reverse=True) for s in systems]
+    return sorted(systems_list, key=_sys_sort_key, reverse=True)
+
+
+def _poly_sort_key(poly):
+    if poly.domain.is_FF:
+        from .polys.domains import ZZ
+        poly = poly.set_domain(ZZ)
+    domain = poly.domain
+    return poly.degree_list(), _rep_key(domain, poly.rep.to_list())
+
+
+def _rep_key(domain, rep):
+    if isinstance(rep, list):
+        return [_rep_key(domain, c) for c in rep]
+    return _coeff_key(domain, rep)
+
+
+def _coeff_key(domain, c):
+    # The comparison keys of the reference domain elements: PolyElement
+    # orders by (number of terms, terms), FracElement by (denominator,
+    # numerator), ANP by its coefficient list.
+    from fractions import Fraction
+    from . import Poly, fraction
+    if domain.is_PolynomialRing:
+        terms = Poly(domain.to_sympy(c), *domain.symbols, domain=domain.dom).terms()
+        terms = [(m, v) for m, v in terms if v != 0]
+        return (len(terms), terms)
+    if domain.is_FractionField:
+        numer, denom = fraction(domain.to_sympy(c))
+        def key(e):
+            terms = [(m, v) for m, v in Poly(e, *domain.symbols, domain=domain.dom).terms() if v != 0]
+            return (len(terms), terms)
+        return (key(denom), key(numer))
+    if domain.is_AlgebraicField:
+        return [Fraction(int(q.numerator), int(q.denominator)) for q in c.to_list()]
+    return domain.to_sympy(c)
+
+
+def _sys_sort_key(sys):
+    return list(zip(*map(_poly_sort_key, sys)))
 
 
 def solve_triangulated(polys,*gens,**args):

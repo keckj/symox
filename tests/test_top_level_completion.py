@@ -224,7 +224,8 @@ def test_variational_calculus_and_line_integral():
 def test_factor_system_triangulation_and_substitution():
     result = s.factor_system([x*x-1,y-x],(x,y))
     assert len(result) == 2
-    assert s.factor_system([x,x-1],(x,)) == []
+    # SymPy 1.14 decomposes without testing the consistency of each subsystem.
+    assert s.factor_system([x,x-1],(x,)) == [[x,x-1]]
     assert s.factor_system([0],(x,)) == [[]]
     assert set(s.solve_triangulated([x+y-3,x-y-1],x,y)) == {(s.Integer(2),s.Integer(1))}
     assert s.substitution([x+y],[x],[{y:s.Integer(1)}],[y],[],[x,y]) == s.FiniteSet(s.Tuple(-1,1))

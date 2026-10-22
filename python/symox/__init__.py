@@ -572,6 +572,8 @@ for _n in _SPECIAL:
     globals()[_n] = _make(_n)
 rf = RisingFactorial  # noqa: F821
 ff = FallingFactorial  # noqa: F821
+from ._motzkin_methods import install as _install_motzkin  # noqa: E402
+_install_motzkin(motzkin)  # noqa: F821
 
 # --- elementary completion ---
 # Native heads (symox::special::elementary). Mod/Rem raise ZeroDivisionError
@@ -728,30 +730,94 @@ def symbols(names, *, seq=False, cls=None, **assumptions):
     return _symbols(names, seq=seq, cls=cls, **assumptions)
 
 
-def _symbols(names, *, seq=False, cls=None, **assumptions):
-    """Create symbols like ``sympy.symbols`` (``"x y"``, ``"x,y"``, ``"x:3"``)."""
+_symbol_range = _re.compile('([0-9]*:[0-9]+|[a-zA-Z]?:[a-zA-Z])')
+
+
+def _symbols(names, *, seq=False, cls=None, **args):
+    """Create symbols like ``sympy.symbols`` (``"x y"``, ``"x,y"``, ``"x:3"``).
+
+    Port of SymPy 1.14 ``symbols``: ranges may be wrapped in one layer of
+    parentheses (``"x5(:2)"``) and several ranges are combined.
+    """
+    from itertools import product
     if not isinstance(names, str):
-        return type(names)(symbols(n, cls=cls, **assumptions) for n in names)
-    literals = {}
-    for escape in (r'\,', r'\:', r'\ '):
-        if escape in names:
-            marker = '\0'
-            while marker in names or marker in literals or marker.isspace() or marker.isalnum() or marker in ',:\\()':
-                marker = chr(ord(marker)+1)
-            literals[marker] = escape[1:]
-            names = names.replace(escape, marker)
-    parts = [p for p in _re.split(r"[\s,]+", names.strip()) if p]
-    constructor=Symbol if cls is None else cls
-    if not callable(constructor):raise TypeError('Symbol constructor must be callable')
-    out = []
-    for p in parts:
-        for n in _expand_range(p):
-            for marker, literal in literals.items():
-                n = n.replace(marker, literal)
-            out.append(constructor(n,**assumptions))
-    if len(out) == 1 and not seq and "," not in names and ":" not in names:
-        return out[0]
-    return tuple(out)
+        return type(names)(symbols(n, seq=seq, cls=cls, **args) for n in names)
+    constructor = Symbol if cls is None else cls
+    if not callable(constructor):
+        raise TypeError('Symbol constructor must be callable')
+    result = []
+    marker = 0
+    literals = []
+    for splitter in (r'\,', r'\:', r'\ '):
+        if splitter in names:
+            while chr(marker) in names:
+                marker += 1
+            lit_char = chr(marker)
+            marker += 1
+            names = names.replace(splitter, lit_char)
+            literals.append((lit_char, splitter[1:]))
+
+    def literal(s):
+        for c, l in literals:
+            s = s.replace(c, l)
+        return s
+
+    names = names.strip()
+    as_seq = names.endswith(',')
+    if as_seq:
+        names = names[:-1].rstrip()
+    if not names:
+        raise ValueError('no symbols given')
+    names = [n.strip() for n in names.split(',')]
+    if not all(n for n in names):
+        raise ValueError('missing symbol between commas')
+    for i in range(len(names) - 1, -1, -1):
+        names[i: i + 1] = names[i].split()
+    seq = seq or as_seq
+    for name in names:
+        if not name:
+            raise ValueError('missing symbol')
+        if ':' not in name:
+            result.append(constructor(literal(name), **args))
+            continue
+        split = _symbol_range.split(name)
+        split_list = []
+        for i in range(len(split) - 1):
+            if i and ':' in split[i] and split[i] != ':' and \
+                    split[i - 1].endswith('(') and \
+                    split[i + 1].startswith(')'):
+                split[i - 1] = split[i - 1][:-1]
+                split[i + 1] = split[i + 1][1:]
+        for s in split:
+            if ':' in s:
+                if s.endswith(':'):
+                    raise ValueError('missing end range')
+                a, b = s.split(':')
+                if b[-1] in _string.digits:
+                    a_i = 0 if not a else int(a)
+                    b_i = int(b)
+                    split_list.append([str(c) for c in range(a_i, b_i)])
+                else:
+                    a = a or 'a'
+                    split_list.append([_string.ascii_letters[c] for c in range(
+                        _string.ascii_letters.index(a),
+                        _string.ascii_letters.index(b) + 1)])
+                if not split_list[-1]:
+                    break
+            else:
+                split_list.append([s])
+        else:
+            seq = True
+            if len(split_list) == 1:
+                expanded = split_list[0]
+            else:
+                expanded = [''.join(s) for s in product(*split_list)]
+            result.extend([constructor(literal(s), **args) for s in expanded])
+    if not seq and len(result) <= 1:
+        if not result:
+            return ()
+        return result[0]
+    return tuple(result)
 
 
 def var(names, **assumptions):
@@ -2022,6 +2088,8 @@ Rationals = _named("Rationals")
 
 from ._set_iteration import install as _install_set_iteration
 _install_set_iteration(globals())
+from ._set_protocols import install as _install_set_protocols
+_install_set_protocols(globals())
 
 
 def Contains(x, s):
