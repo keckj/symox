@@ -1237,7 +1237,8 @@ mod tests {
         let (a, b) = as_real_imag(&value, true, None).unwrap().unwrap();
         assert_eq!(a.args(), vec![value.clone()]);
         assert_eq!(b.args(), vec![value]);
-        // A compact exponent must not request a gigantic pi for argument reduction.
+        // A compact exponent must not request a gigantic pi for argument
+        // reduction: the sine of a real number is its own real part.
         for exponent in [i64::MIN, i64::MAX] {
             let value = Expr::num(Number::MpFloat(
                 crate::bigfloat::BigFloat {
@@ -1246,10 +1247,13 @@ mod tests {
                 },
                 53,
             ));
-            assert!(as_real_imag(&raw(Func::Sin, &value), true, None).is_err());
+            let (_, b) = as_real_imag(&raw(Func::Sin, &value), true, None).unwrap().unwrap();
+            assert!(b.is_zero());
         }
         let huge = Expr::from_unevaluated_kind(Kind::Pow(Expr::int(2), Expr::int(1_000_000_000)));
-        assert!(as_real_imag(&huge, true, None).is_err());
+        // a power of a real number stays whole, as in SymPy
+        let (a, b) = as_real_imag(&huge, true, None).unwrap().unwrap();
+        assert_eq!((a, b.is_zero()), (huge, true));
         let mut numeric = Expr::int(2);
         for _ in 0..80 {
             numeric = Expr::from_unevaluated_kind(Kind::Mul(
