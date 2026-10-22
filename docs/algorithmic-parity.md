@@ -28,6 +28,34 @@ growth and output size. Rust implementation and faster timings alone do not
 prove a better asymptotic algorithm. Performance optimization must preserve the
 existing mathematical result and fallback behavior.
 
+## Intentional corrections validated on 2026-10-22
+
+The user validated these results, where SymPy 1.14 is mathematically wrong.
+Symox keeps the correct answer and does not reproduce the reference. Each
+case is tested with the symox value and detailed in its section below.
+
+- Periodic inequalities on a bounded domain:
+  `solveset(sin(x) > 0, x, Interval(2*pi, 3*pi))` is
+  `Interval.open(2*pi, 3*pi)` (SymPy `EmptySet`), and
+  `solveset(sin(x) >= 0, x, Interval(0, 2*pi))` includes `2*pi`.
+- `integrate(Piecewise((1, sin(x) > 0), (0, True)), (x, 0, 4*pi))` is
+  `2*pi` (SymPy `pi`); `simplify` keeps the condition `sin(x) > 0` and
+  `simplify_univariate` keeps the point `x = 0`.
+- `is_increasing(a*x, symbol=x)` with a real `a` is `None` (SymPy `False`,
+  wrong whenever `a >= 0`).
+- Noncommutative `solve`: `solve(B*A - C, B)` is `[C*A**-1]` (SymPy
+  `[A**-1*C]`), `solve(A*B*C - 1, B)` is `[(C*A)**-1]` (SymPy
+  `[(A*C)**-1]`), `solve(A*B - B, B)` is `[0]` (SymPy `[]`), and
+  `solve(A*B - B*A, A)` raises `NotImplementedError` instead of SymPy's
+  `[]`, since `A = B` is a solution. `solve(x**2*A - A, x)` and
+  `integrate(A*x, x)` are computed where SymPy raises.
+- For an integer unknown `x**5 - x - 1` has no solution, and
+  `x**3*exp(x) - 1` returns three valid Lambert representatives.
+
+Decided alignment: `2nd_power_series_ordinary` follows SymPy and refuses
+equations with a right-hand side (`ValueError`), so `classify_ode` lists the
+same hints as the reference.
+
 ## Solver work on 2026-10-18
 
 The native univariate `solve` pipeline now falls back from radical formulae to
