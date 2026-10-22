@@ -202,7 +202,8 @@ def test_numeric_domain_elements_interoperate_with_expressions(kind):
         assert sm.Integer(2)==c and c==sm.Integer(2)
         assert {sm.Integer(2),c,2}=={2}
     else:
-        assert c!=2 and 2!=c
+        # The reference ModularInteger compares integers modulo p.
+        assert c==2 and 2==c and c==7 and not c!=2 and c==sm.Integer(2)
 
 
 @pytest.mark.parametrize('ground',['QQ','ZZ'])
@@ -291,6 +292,11 @@ def test_legacy_unbound_parameter_names_do_not_erase_assumptions():
 def test_unconnected_expression_operations_reject_typed_domains(kind):
     x=sm.Symbol('x');a=sm.Symbol('a')
     k=sm.GF(5) if kind=='GF' else sm.QQ.frac_field(a)
+    if kind=='GF':
+        # The reference treats domain=GF(p) as modulus=p.
+        assert sm.factor(x*x+1,x,domain=k)==(x-2)*(x+2)
+        assert sm.invert(x,x*x+1,x,domain=k)==-x
+        return
     with pytest.raises(NotImplementedError):sm.factor(x*x+1,x,domain=k)
     with pytest.raises(NotImplementedError):sm.invert(x,x*x+1,x,domain=k)
 

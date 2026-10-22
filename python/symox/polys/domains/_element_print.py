@@ -96,6 +96,14 @@ def _display(element, use_repr):
         if use_repr:
             return 'MPQ(%d,%d)' % (numer, denom)
         return str(numer) if denom == 1 else '%d/%d' % (numer, denom)
+    if domain.is_FiniteField:
+        # The reference ``SymmetricModularIntegerMod<p>(val)`` with
+        # ``val`` in ``[0, p)``, printed ``val mod p``.
+        p = int(domain.characteristic())
+        value = int(element) % p
+        if use_repr:
+            return 'SymmetricModularIntegerMod%d(%d)' % (p, value)
+        return '%d mod %d' % (value, p)
     if domain.is_RealField or domain.is_ComplexField:
         value = _scalar(domain, element.as_expr())
         return repr(value) if use_repr else str(value)
@@ -124,3 +132,34 @@ def install():
         _native_str = _core.DomainElement.__str__
     _core.DomainElement.__repr__ = _repr
     _core.DomainElement.__str__ = _str
+    global _native_eq, _native_ne
+    if _native_eq is None:
+        _native_eq = _core.DomainElement.__eq__
+        _native_ne = _core.DomainElement.__ne__
+        _core.DomainElement.__eq__ = _eq
+        _core.DomainElement.__ne__ = _ne
+
+
+_native_eq = None
+_native_ne = None
+
+
+def _int_congruent(self, other):
+    """The reference ``ModularInteger == int``: an ``int`` is compared
+    modulo the characteristic; ``None`` when that rule does not apply."""
+    if type(other) is int or (type(other) is not type(self)
+                              and getattr(other, 'is_Integer', False) is True):
+        domain = self.parent()
+        if domain.is_FiniteField:
+            return (int(self) - int(other)) % int(domain.characteristic()) == 0
+    return None
+
+
+def _eq(self, other):
+    result = _int_congruent(self, other)
+    return _native_eq(self, other) if result is None else result
+
+
+def _ne(self, other):
+    result = _int_congruent(self, other)
+    return _native_ne(self, other) if result is None else not result

@@ -109,8 +109,14 @@ class DomainMatrix(DomainMatrixAlgorithms):
                 and self._data == other._data)
 
     def __repr__(self):
-        rows = self.to_list() if self._fmt == 'dense' else self.to_dod()
-        return 'DomainMatrix(%r, %r, %s)' % (rows, self.shape, self.domain)
+        # The reference DDM/SDM ``__str__``: entries in their ``str`` form.
+        if self._fmt == 'dense':
+            rows = '[%s]' % ', '.join('[%s]' % ', '.join(map(str, row)) for row in self.to_list())
+        else:
+            rows = '{%s}' % ', '.join(
+                '%s: {%s}' % (i, ', '.join('%s: %s' % (j, e) for j, e in row.items()))
+                for i, row in self.to_dod().items())
+        return 'DomainMatrix(%s, %r, %s)' % (rows, self.shape, self.domain)
 
     def _check(self, other, *, product=False, rows_only=False):
         if not isinstance(other, DomainMatrix):
@@ -180,9 +186,17 @@ class DomainMatrix(DomainMatrixAlgorithms):
         if isinstance(scalar, DomainScalar):
             scalar = scalar.element
         if not self.domain.is_Field:
+            # The reference divides over the field of fractions: an integer
+            # matrix divided by an integer is a rational matrix.
+            from ... import ZZ
+            if self.domain.is_ZZ and (isinstance(scalar, int) and not isinstance(scalar, bool)
+                                      or ZZ.of_type(scalar)):
+                return self.to_field() / scalar
             from .exceptions import DMNotAField
             raise DMNotAField('Matrix division requires a field')
         scalar = self.domain.convert(scalar)
+        if self.domain.is_zero(scalar):
+            raise ZeroDivisionError
         return self.mul(self.domain.exquo(self.domain.one, scalar))
 
     def __pow__(self, exponent):
@@ -247,6 +261,24 @@ class DomainMatrix(DomainMatrixAlgorithms):
             raise IndexError('Matrix index out of range')
         return DomainScalar(self._data.get(i % self.shape[0], {}).get(
             j % self.shape[1], self.domain.zero), self.domain)
+
+    def __setitem__(self, key, value):
+        # The reference ``DomainMatrix.__setitem__``: one entry, converted
+        # into the matrix domain.
+        i, j = key
+        if not self.domain.of_type(value):
+            raise TypeError('value must be an element of %s' % (self.domain,))
+        i, j = operator.index(i), operator.index(j)
+        if not -self.shape[0] <= i < self.shape[0] or not -self.shape[1] <= j < self.shape[1]:
+            raise IndexError('index out of range')
+        i, j = i % self.shape[0], j % self.shape[1]
+        row = self._data.setdefault(i, {})
+        if self.domain.is_zero(value):
+            row.pop(j, None)
+            if not row:
+                del self._data[i]
+        else:
+            row[j] = value
 
     @classmethod
     def zeros(cls, shape, domain, *, fmt='sparse'):
@@ -334,3 +366,64 @@ DomainMatrix.to_ddm=_to_ddm
 DomainMatrix.to_sdm=_to_sdm
 DomainMatrix.to_dfm=_to_dfm
 DomainMatrix.rep=property(lambda self:self.to_ddm() if self._fmt=='dense' else self.to_sdm())
+
+
+def _flat(self):
+    return self.to_list_flat()
+
+
+def _from_rep(cls, rep):
+    return cls(rep.to_list() if getattr(rep, 'fmt', 'dense') == 'dense' else rep.to_dod(),
+               rep.shape, rep.domain, fmt=getattr(rep, 'fmt', None))
+
+
+def _is_upper(self):
+    return all(i <= j for i, row in self._data.items() for j in row)
+
+
+def _is_lower(self):
+    return all(i >= j for i, row in self._data.items() for j in row)
+
+
+if not hasattr(DomainMatrix, 'flat'):
+    DomainMatrix.flat = _flat
+if not hasattr(DomainMatrix, 'from_rep'):
+    DomainMatrix.from_rep = classmethod(_from_rep)
+if not hasattr(DomainMatrix, 'to_dfm_or_ddm'):
+    DomainMatrix.to_dfm_or_ddm = _to_ddm
+if not hasattr(DomainMatrix, 'is_square'):
+    DomainMatrix.is_square = property(lambda self: self.shape[0] == self.shape[1])
+if not hasattr(DomainMatrix, 'is_upper'):
+    DomainMatrix.is_upper = property(_is_upper)
+if not hasattr(DomainMatrix, 'is_lower'):
+    DomainMatrix.is_lower = property(_is_lower)
+
+
+def _solve(A, b):
+    """The reference ``DomainMatrix._solve``: a particular solution row and
+    the nullspace of ``A``, from the rref of the augmented matrix."""
+    from .exceptions import DMNotAField
+    if A.shape[0] != b.shape[0]:
+        raise DMShapeError("Shape")
+    if A.domain != b.domain or not A.domain.is_Field:
+        raise DMNotAField('Not a field')
+    Aaug = A.hstack(b)
+    Arref, pivots = Aaug.rref()
+    ncols = Aaug.shape[1]
+    rows = Arref.to_dod()
+    P = {}
+    for i, j in enumerate(pivots):
+        last = rows.get(i, {}).get(ncols - 1)
+        if last is not None:
+            if j == ncols - 1:
+                # The reference builds the 1 x (ncols - 1) row with this
+                # out-of-range entry, which its constructor rejects.
+                raise DMBadInputError('Matrix index out of range')
+            P[j] = A.domain.exquo(last, rows[i][j])
+    particular = DomainMatrix({0: P} if P else {}, (1, ncols - 1), A.domain).to_dense()
+    nullspace = Arref[:, :-1].nullspace()
+    return particular, nullspace
+
+
+if not hasattr(DomainMatrix, '_solve'):
+    DomainMatrix._solve = _solve
