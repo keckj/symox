@@ -115,7 +115,7 @@ def test_domain_matrix_owns_entries_and_converts():
     assert dm.matmul(dm).to_Matrix() == dm.to_Matrix()**2
     assert dm.add(dm).to_Matrix() == 2*dm.to_Matrix()
     assert dm.det() == sx.ZZ(-2)
-    assert DomainMatrix(dm.to_list(), dm.shape, dm.domain) == dm
+    assert DomainMatrix(dm.to_list(), dm.shape, dm.domain).to_sparse() == dm
     with pytest.raises(DMDomainError):
         dm.add(dm.to_field())
     with pytest.raises(DMShapeError):

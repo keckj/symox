@@ -3761,3 +3761,52 @@ Remaining gaps:
   float points also differs from SymPy, which raises `TypeError` (the
   message differs). `ImageSet` membership for maps of several variables is
   still decided only by the native predicate.
+
+## Wave 4: DomainMatrix, DDM, SDM and DFM API (WP-C5)
+
+`symox.polys.matrices` now ships the reference `domainmatrix`, `ddm`, `sdm`,
+`dense`, `rref`, `lll`, `normalforms`, `linsolve`, `dfm`/`_dfm` and
+`domainscalar` modules, ported over the native domain elements. The dense
+polynomial helpers they need (`dup_mul`, `dup_transform`,
+`dup_clear_denoms`, `dup_factor_list`, the factor sorting and Tarjan's
+strongly connected components) are in `_dense_poly.py`. This covers
+`cancel_denom*`, `clear_denoms*`, `content`, `primitive`, `eval_poly*`,
+`charpoly_factor_*`, `charpoly_base`/`charpoly_berk`, `adj_poly_det`,
+`fflu`, `lu`, `lu_solve`, `qr`, `lll`/`lll_transform`,
+`nullspace(divide_last=...)`, `scc`, `solve_den*`, the `to_/from_` dok, dod,
+flat and flat_nz constructors, `from_dict_sympy`, and the DDM/SDM helper
+functions (`sdm_irref`, `ddm_irref_den`, `sdm_nullspace_from_rref`,
+`sdm_particular_from_rref`, ...). All 85 audited polys.matrices records match
+the reference, against 28 before. The 984 docstring outputs of the vendored
+modules also match. Algorithms keep the reference domains, fraction-free
+paths and storage formats. Like the reference, dense and sparse matrices
+compare unequal.
+
+Intentional divergences:
+
+- Entries are converted to native elements of the matrix domain on
+  construction: a Python `1` in a QQ matrix is stored as `QQ(1)`. The
+  reference keeps the raw `int`. Algebraic and EXRAW elements print natively,
+  for example `QQ<sqrt(2)>(3)`, not `ANP(...)`.
+- `DDM.nullspace` and `SDM.nullspace` over ZZ are fraction-free and exact.
+  The reference returns floats there, for example `-2.0`.
+- `rowspace` returns the pivot rows of the transpose. The reference keeps
+  the first `rank` rows, which can be dependent, for example the zero row of
+  `[[0, 0], [1, 2]]`.
+- `M**-n` returns `inv(M)**n`, kept from earlier symox releases. The reference
+  raises `NotImplementedError('Negative powers')`.
+- For `rref` and `inv` over EX and EXRAW, the expression kernel is used, so
+  that `sin(x)**2 + cos(x)**2 - 1` is recognized as a zero pivot.
+- Factors are sorted with `sort_key` over EX and EXRAW. With the reference
+  `<` comparison, `charpoly` raises `TypeError` for symbolic EXRAW entries.
+- Over polynomial and fraction-field domains, `eval_poly`, `adj_det` and
+  `solve_den_charpoly` return the result. Over EX, `eval_poly_mul` does too.
+  In these cases the reference raises `TypeError`, from
+  `DomainMatrix + PolyElement` or from `'method' object is not iterable`.
+
+Remaining unsupported:
+
+- `DFM` requires python-flint, as in the reference without flint:
+  `to_dfm()` raises `NotImplementedError`.
+- `sympy.polys.matrices.eigen` is not shipped. It needs
+  `agca.extensions.FiniteExtension`.
