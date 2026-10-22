@@ -546,6 +546,32 @@ pub fn ordered_args(e: &Expr) -> Vec<Expr> {
             let boundary = args.iter().position(|factor| crate::decompose::commutativity(factor) != Some(true)).unwrap_or(args.len());
             args[..boundary].sort_by(args_cmp);
         } else if canonical { args.sort_by(args_cmp); }
+        if canonical && e.has_host() && args.iter().any(coefficient_host) {
+            // SymPy Add.flatten and Mul.flatten hold an AccumBounds term in
+            // the coefficient slot, which precedes the sorted terms.
+            let (mut front, rest): (Vec<Expr>, Vec<Expr>) = args.into_iter().partition(coefficient_host);
+            front.extend(rest);
+            return front;
+        }
         args
     })
+}
+
+/// Whether a canonical sum or product holds an AccumBounds term next to
+/// a Number or to other bounds, which SymPy folds into one coefficient
+/// through the host arithmetic of the bounds.
+pub fn has_unfolded_bounds(e: &Expr) -> bool {
+    if !e.has_host() || !e.is_canonical() || !(e.is_add() || e.is_mul()) { return false; }
+    let args = ordered_args(e);
+    let bounds = args.iter().take_while(|a| coefficient_host(a)).count();
+    // A distributed Number times bounds, as in 2*(x + AccumBounds(1, 2)).
+    if bounds == 0 { return e.is_add() && args.iter().any(|a| a.is_mul() && has_unfolded_bounds(a)); }
+    bounds > 1 || args.iter().any(|a| a.is_number() || matches!(a.kind(), Kind::Const(
+        crate::expr::Constant::Infinity | crate::expr::Constant::NegInfinity
+        | crate::expr::Constant::ComplexInfinity | crate::expr::Constant::NaN)))
+}
+
+/// An AccumBounds node, which SymPy's Add and Mul keep as their coefficient.
+fn coefficient_host(e: &Expr) -> bool {
+    e.is_host() && crate::host::class_name(e) == Some("AccumulationBounds")
 }

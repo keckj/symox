@@ -1359,7 +1359,13 @@ impl PartialEq for Expr {
         if let Some(result)=EQ_MEMO.with(|memo|memo.borrow().values.as_ref().and_then(|values|values.get(&pair)).copied()) { return result; }
         let result=match (&self.0.binding_identity,&o.0.binding_identity) {
             (Some(a),Some(b))=>a==b,
-            (None,None)=>kind_eq(self.kind(),o.kind()),
+            (None,None)=>kind_eq(self.kind(),o.kind())
+                && (self.0.canonical==o.0.canonical || !matches!(self.kind(),Kind::Add(..)|Kind::Mul(..))
+                    // A held sum or product equals a canonical one only when
+                    // their public arguments agree in order, as in SymPy. The
+                    // storage of a canonical node follows hash order, which
+                    // must not decide equality.
+                    || crate::traverse::ordered_args(self)==crate::traverse::ordered_args(o)),
             _=>false,
         };
         EQ_MEMO.with(|memo|memo.borrow_mut().values.get_or_insert_with(FxHashMap::default).insert(pair,result));

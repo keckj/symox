@@ -114,7 +114,10 @@ class AccumulationBounds(Expr):
             raise ValueError(
                 "Lower limit should be smaller than upper limit")
 
-        _CREATED[0] = True
+        if not _CREATED[0]:
+            from .. import _compat
+            _compat._accum_fold[0] = _fold_coefficient
+            _CREATED[0] = True
         return Expr.__new__(cls, min, max)
 
     # setting the operation priority
@@ -586,4 +589,48 @@ def _eval_is_ge(lhs, rhs):  # noqa: F811
 
 # setting an alias for AccumulationBounds
 AccumBounds = AccumulationBounds
+
+
+def _fold_coefficient(op, args):
+    """SymPy ``Add.flatten`` and ``Mul.flatten`` for terms that include
+    bounds: the Numbers and the bounds fold into the coefficient through the
+    bounds arithmetic, and the coefficient leads the arguments. ``None``
+    leaves the construction to the native engine."""
+    nested = 'is_Add' if op == 'Add' else 'is_Mul'
+    for arg in args:
+        if type(arg) is AccumulationBounds or (getattr(arg, nested, False)
+                and any(type(a) is AccumulationBounds for a in arg.args)):
+            break
+        if op == 'Add' and getattr(arg, 'is_Mul', False) \
+                and type(arg.args[0]) is AccumulationBounds:
+            break
+    else:
+        return None
+    from .. import _core, sympify, S
+    flat = []
+    for arg in args:
+        arg = sympify(arg)
+        if getattr(arg, nested, False) and arg.is_commutative:
+            flat.extend(arg.args)
+        else:
+            flat.append(arg)
+    coeff = S.Zero if op == 'Add' else S.One
+    rest = []
+    for arg in flat:
+        if op == 'Add' and arg.is_Mul and type(arg.args[0]) is AccumulationBounds:
+            # A Number times bounds distributed over a sum.
+            arg = _fold_coefficient('Mul', arg.args) or arg
+        if type(arg) is AccumulationBounds:
+            coeff = arg.__add__(coeff) if op == 'Add' else arg.__mul__(coeff)
+        elif arg.is_Number:
+            coeff = coeff + arg if op == 'Add' else coeff*arg
+        else:
+            rest.append(arg)
+        if not (type(coeff) is AccumulationBounds or coeff.is_Number):
+            return None
+    if coeff is S.NaN:
+        return coeff
+    if not rest:
+        return coeff
+    return _core._node(op, (coeff, *rest), True)
 __all__ = ['AccumBounds', 'AccumulationBounds']

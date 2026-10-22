@@ -487,6 +487,9 @@ def _head_exclusion(heads):
 
 # Set once a Number class with its own arithmetic exists (see _host).
 _arithmetic_numbers = [False]
+# The AccumBounds coefficient folding of Add and Mul, set once bounds exist
+# (see calculus.accumulationbounds).
+_accum_fold = [None]
 
 
 def _evaluation_state(value=None):
@@ -502,6 +505,10 @@ class Add(metaclass=_ExprType):
 
     def __new__(cls, *args, evaluate=None):
         evaluate = _evaluation_state(evaluate)
+        if _accum_fold[0] is not None and evaluate:
+            folded = _accum_fold[0]("Add", args)
+            if folded is not None:
+                return folded
         if cls is Add and evaluate is True:
             from ._add_memo import add
             cached=add(args)
@@ -546,6 +553,10 @@ class Mul(metaclass=_ExprType):
 
     def __new__(cls, *args, evaluate=None):
         evaluate = _evaluation_state(evaluate)
+        if _accum_fold[0] is not None and evaluate:
+            folded = _accum_fold[0]("Mul", args)
+            if folded is not None:
+                return folded
         if any(getattr(arg,'_symox_tensexpr',False) for arg in args):
             from .tensor.tensor import TensMul
             return TensMul(*args,evaluate=evaluate)
