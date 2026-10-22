@@ -228,6 +228,10 @@ impl KeyCache {
 
     fn compute(&mut self, e: &Expr) -> SortKey {
         match e.kind() {
+            // Heaviside(x).args is (x, 1/2) in SymPy
+            Kind::Func(Func::Heaviside,args) if args.len()==1 => {
+                return (*self.key(&Expr::from_kind(Kind::Func(Func::Heaviside,vec![args[0].clone(),Expr::rational(1,2)])))).clone();
+            }
             Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 => {
                 let signature=crate::sets::lambda_signature(e).unwrap();
                 let variables=self.key(&signature);

@@ -27,7 +27,7 @@ fn linear(u: &Expr, x: &Expr) -> Option<(Expr, Expr)> {
 
 fn proved_nonzero(value:&Expr)->bool{
     if crate::assumptions::exact_queries(||crate::assumptions::is_zero(value))==Some(false){return true;}
-    if let Ok(Some((real,imaginary)))=crate::complex_parts::as_real_imag(value,false,None){
+    if let Ok(Some((real,imaginary)))=crate::complex_parts::as_real_imag_bounded(value,false,None){
         return [real,imaginary].iter().any(|part|matches!(crate::special::lambert::real_sign(part),Some(-1|1)));
     }
     false

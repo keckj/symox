@@ -166,12 +166,19 @@ a,b=e.as_real_imag()
 assert a.args==(e,) and b.args==(e,)
 assert len(a.__reduce__()[1][1])==82
 assert pickle.loads(pickle.dumps((a,b)))==(a,b)
-for power in [s.Pow(2,10**9,evaluate=False),
-              s.Pow(x+s.I,10**9,evaluate=False),
-              s.Pow(2,s.Rational(10**20+1,2),evaluate=False)]:
+# a real base keeps the power whole, as in SymPy (no materialization)
+power=s.Pow(2,10**9,evaluate=False)
+assert power.as_real_imag()==(power,0)
+assert s.Pow(2,10**30,evaluate=False).as_real_imag()[1]==0
+# an integer part beyond machine size stays a held power, never truncated
+half=s.Pow(2,s.Rational(10**20+1,2))
+assert half.is_Pow and half.exp==s.Rational(10**20+1,2)
+assert s.Pow(2,s.Rational(10**20+1,2),evaluate=False).as_real_imag()==(half,0)
+# a binomial expansion that cannot fit in memory raises (SymPy never finishes)
+for power in [s.Pow(x+s.I,10**9,evaluate=False), s.Pow(x+s.I,10**30,evaluate=False)]:
     try: power.as_real_imag()
     except NotImplementedError as error: assert 'limit' in str(error)
-    else: raise AssertionError('oversized power was not bounded')
+    else: raise AssertionError('infeasible power was not rejected')
 value=s.Integer(2)
 for _ in range(80): value=s._core._restore_arithmetic('Mul',s.Integer(1),[(value,s.Integer(1)),(value,s.Integer(1))],False)
 try: value.as_real_imag()

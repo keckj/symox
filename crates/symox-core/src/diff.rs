@@ -363,6 +363,15 @@ fn d_func(
     }
     let u = &args[0];
     let du = d(u, x, cache);
+    if matches!(f, Func::Heaviside) && args.len() == 2 && !d(&args[1], x, cache).is_zero() {
+        // Heaviside.fdiff(2) raises ArgumentIndexError in SymPy: the
+        // dependence through H0 stays a held derivative.
+        let held = derivative_unevaluated(e, vec![(x.clone(), 1)]);
+        if *x == args[1] && du.is_zero() {
+            return held;
+        }
+        return add(&[mul(&[dirac_delta(u), du]), held]);
+    }
     if du.is_zero() {
         return Expr::zero();
     }

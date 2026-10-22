@@ -36,7 +36,7 @@ pub(super) fn cardano_sign(e:&Expr)->Option<i8>{
     if a.is_zero(){return None;}
     let c=a.inv()?.mul(b);
     if !c.is_positive(){return None;}
-    let (real,imaginary)=super::exact_queries(||crate::complex_parts::as_real_imag(&base,false,None)).ok()??;
+    let (real,imaginary)=super::exact_queries(||crate::complex_parts::as_real_imag_bounded(&base,false,None)).ok()??;
     let norm=crate::ops::add2(&real.powi(2),&imaginary.powi(2));
     let expected=Expr::num(c.clone()).powi(3);
     if !norm.is_rational_number()||norm!=expected{return None;}
@@ -86,7 +86,7 @@ fn reciprocal_factors(term:&Expr)->Option<(Vec<(Expr,Expr)>,crate::number::Numbe
 fn rational_modulus_squared(factors:&[(Expr,Expr)])->Option<crate::number::Number>{
     let mut product=crate::number::Number::ONE;
     for (base,exponent) in factors{
-        let (real,imaginary)=super::exact_queries(||crate::complex_parts::as_real_imag(base,false,None)).ok()??;
+        let (real,imaginary)=super::exact_queries(||crate::complex_parts::as_real_imag_bounded(base,false,None)).ok()??;
         let norm=crate::ops::add2(&real.powi(2),&imaginary.powi(2));
         let norm=norm.as_number().filter(|n|n.is_rational()&&n.is_positive())?;
         let powered=crate::ops::pow(&Expr::num(norm.clone()),exponent);

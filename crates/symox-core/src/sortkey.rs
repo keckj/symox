@@ -364,6 +364,11 @@ impl SortKeyCache {
     fn compute(&mut self, e: &Expr) -> Key {
     match e.kind() {
         Kind::Bool(_)=>return composite_key((5,0,e.class_name()),vec![]),
+        // Heaviside(x).args is (x, 1/2) in SymPy, so it sorts as the
+        // explicit two-argument node
+        Kind::Func(Func::Heaviside,args) if args.len()==1 => {
+            return self.key(&Expr::from_kind(Kind::Func(Func::Heaviside,vec![args[0].clone(),Expr::rational(1,2)])));
+        }
         Kind::Func(Func::Set(crate::sets::SetOp::Lambda),args) if args.len()==2 => {
             let signature=crate::sets::lambda_signature(e).unwrap();
             return composite_key((5,0,"Lambda"),vec![self.key(&signature),self.key(&args[1])]);

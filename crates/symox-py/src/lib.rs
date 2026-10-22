@@ -1085,7 +1085,14 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
     }
 }
 
-fn python_args(e: &Expr) -> Vec<Expr> { traverse::ordered_args(e) }
+/// SymPy's `.args`. The default `H0 = 1/2` of `Heaviside` is stored as the
+/// one-argument node but reported, as in SymPy, as `(arg, 1/2)`.
+fn python_args(e: &Expr) -> Vec<Expr> {
+    if let Kind::Func(Func::Heaviside, args) = e.kind() {
+        if args.len() == 1 { return vec![args[0].clone(), Expr::rational(1, 2)]; }
+    }
+    traverse::ordered_args(e)
+}
 
 fn operation_count(e: &Expr) -> BigInt {
     fn matrix_count(matrix:&symox::matrixexpr::MatrixExpr,scalars:&mut FxHashMap<usize,(Expr,BigInt)>,matrices:&mut FxHashMap<usize,(symox::matrixexpr::MatrixExpr,BigInt)>)->BigInt{
@@ -3310,9 +3317,44 @@ fn integrate_result(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,kwargs:Option<
             }
         }
     }
+    // The value of `Heaviside(u, H0)` at the single point `u = 0` does not
+    // change an integral: SymPy's integration rules match `Heaviside(u)` and
+    // return results without `H0` (`integrate(Heaviside(x, 0), x)` is
+    // `x*Heaviside(x)`). A result that keeps an `Integral` is computed again
+    // from the original integrand, so an unevaluated integral keeps `H0`.
+    if let Some(stripped)=strip_heaviside_h0(f){
+        let attempt=symox::integrate::host_methods::with_methods(methods,conditions,||integrate_native(py,&stripped,args,conditions,meijerg));
+        host::raise_pending()?;
+        let attempt=attempt?;
+        if let Ok(value)=to_expr(attempt.bind(py)){
+            if !holds_integral(&value){return Ok(attempt);}
+        }
+    }
     let result=symox::integrate::host_methods::with_methods(methods,conditions,||integrate_native(py,f,args,conditions,meijerg));
     host::raise_pending()?;
     result
+}
+
+/// `f` with every `Heaviside(u, H0)` replaced by `Heaviside(u)`, or `None`
+/// when `f` holds no two-argument Heaviside.
+fn strip_heaviside_h0(f:&Expr)->Option<Expr>{
+    let mut found=false;
+    symox::traverse::preorder(f,&mut |e|{
+        if let Kind::Func(Func::Heaviside,a)=e.kind(){if a.len()==2{found=true;}}
+    });
+    if !found{return None;}
+    Some(symox::simptools::bottom_up(f,&mut |e|match e.kind(){
+        Kind::Func(Func::Heaviside,a) if a.len()==2=>symox::functions::func(Func::Heaviside,vec![a[0].clone()]),
+        _=>e.clone(),
+    }))
+}
+
+fn holds_integral(e:&Expr)->bool{
+    let mut found=false;
+    symox::traverse::preorder(e,&mut |node|{
+        if let Kind::Func(Func::Integral,_)=node.kind(){found=true;}
+    });
+    found
 }
 
 fn integrate_native(py:Python<'_>,f:&Expr,args:&Bound<'_,PyTuple>,conditions:IntegrationConditions,meijerg:Option<bool>)->PyResult<PyObject>{
@@ -3569,6 +3611,9 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<P
                 if v.len() != n {
                     return Err(PyTypeError::new_err(format!("{name} takes exactly {n} argument(s)")));
                 }
+            }
+            if matches!(f, Func::Heaviside) && !(1..=2).contains(&v.len()) {
+                return Err(PyTypeError::new_err(format!("Heaviside takes 1 or 2 arguments ({} given)", v.len())));
             }
             if evaluate && matches!(f, Func::DiracDelta | Func::Heaviside) {
                 if matches!(f, Func::DiracDelta) && v.len() == 2

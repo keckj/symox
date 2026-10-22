@@ -109,6 +109,12 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
             Kind::Const(Constant::I) => Some(div(&Expr::pi(), &Expr::int(2))),
             _ => None,
         },
+        // SymPy's default H0 = 1/2 is the one-argument node.
+        Func::Heaviside if args.len() == 2 && args[1] == Expr::rational(1, 2) => {
+            Some(func(Func::Heaviside, vec![args[0].clone()]))
+        }
+        Func::Heaviside if args.len() == 2 && !args[0].is_number()
+            && crate::assumptions::is_zero(&args[0]) == Some(true) => Some(args[1].clone()),
         Func::Heaviside => match args[0].kind() {
             Kind::Const(Constant::Infinity) => Some(Expr::one()),
             Kind::Const(Constant::NegInfinity) => Some(Expr::zero()),
@@ -504,7 +510,7 @@ fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
                 }
             }
             if crate::traverse::has(a, &Expr::i()) {
-                if let Ok(Some((real, imaginary))) = crate::complex_parts::as_real_imag(a, false, None) {
+                if let Ok(Some((real, imaginary))) = crate::complex_parts::as_real_imag_bounded(a, false, None) {
                     if !imaginary.is_zero() {
                         return Some(add(&[func(f.clone(), vec![real]), mul2(&Expr::i(), &func(f.clone(), vec![imaginary]))]));
                     }

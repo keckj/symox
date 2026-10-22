@@ -24,10 +24,28 @@ impl std::fmt::Display for PartsError {
     }
 }
 impl std::error::Error for PartsError {}
+// Opt-in guards of the bounded entry points (`as_real_imag_bounded`), used
+// only by internal heuristics that have no SymPy counterpart and must stay
+// cheap. SymPy's `as_real_imag`/`expand(complex=True)` have no size limit, so
+// the public entry points only keep the recursion-depth guard.
 const MAX_NODES: usize = 20_000;
 const MAX_TERMS: usize = 4096;
 const MAX_POWER: u64 = 128;
 const MAX_BITS: u64 = 1_000_000;
+const MAX_DEPTH: usize = 256;
+// Binomial expansion of `(a + I*b)**n` with a non-real base holds n + 1 terms
+// whose coefficients reach n bits: past 2**17 the output alone needs more
+// than 2 GiB, so it cannot be materialized (SymPy runs out of memory or never
+// finishes). Raising keeps the call interruptible instead of hanging in
+// native code; nothing partial is ever returned.
+const FEASIBLE_POWER: u64 = 1 << 17;
+const FEASIBLE_BITS: u64 = 1 << 34;
+fn infeasible() -> PartsError {
+    PartsError(format!("as_real_imag: result beyond the materialization limit (binomial powers through {FEASIBLE_POWER}, numbers of {FEASIBLE_BITS} bits)"))
+}
+fn depth_limit() -> PartsError {
+    PartsError(format!("as_real_imag: expression nesting deeper than {MAX_DEPTH} levels"))
+}
 fn limit() -> PartsError {
     PartsError("as_real_imag resource limit exceeded (20000 nodes, 4096 terms, integer powers through 128, 1000000 numeric bits)".into())
 }
@@ -68,7 +86,10 @@ fn inspect(
     if let Some((_, value)) = memo.get(&e.dag_id()) {
         return Ok(*value);
     }
-    if depth > 256 || memo.len() > MAX_NODES {
+    if depth > MAX_DEPTH {
+        return Err(depth_limit());
+    }
+    if memo.len() > MAX_NODES {
         return Err(limit());
     }
     let mut child = |e: &Expr| inspect(e, memo, depth + 1);
@@ -174,6 +195,54 @@ fn inspect(
     Ok(value)
 }
 
+/// The guards of the unbounded entry points: the recursive split would
+/// otherwise overflow the native stack where SymPy raises RecursionError,
+/// and a shared numeric DAG (`Mul(v, v)` nested 80 times) would multiply out
+/// a number of more than 2 GiB that can never be materialized.
+fn height(e: &Expr, memo: &mut FxHashMap<usize, (Expr, (usize, Option<u64>))>, depth: usize) -> Result<(usize, Option<u64>)> {
+    if depth > MAX_DEPTH {
+        return Err(depth_limit());
+    }
+    if let Some((_, value)) = memo.get(&e.dag_id()) {
+        return Ok(*value);
+    }
+    let mut value = 0;
+    let children = e.args();
+    let mut numeric: Vec<Option<u64>> = Vec::with_capacity(children.len());
+    for a in &children {
+        let (h, n) = height(a, memo, depth + 1)?;
+        value = value.max(h + 1);
+        numeric.push(n);
+    }
+    if depth + value > MAX_DEPTH {
+        return Err(depth_limit());
+    }
+    // a size estimate (in bits) of the number an unevaluated numeric
+    // product or sum multiplies out to
+    let estimate = match e.kind() {
+        Kind::Num(number) => Some(bits(number)),
+        Kind::Mul(..) => numeric.iter().try_fold(0u64, |acc, n| n.map(|n| acc.saturating_add(n))),
+        Kind::Add(..) => numeric
+            .iter()
+            .try_fold(0u64, |acc, n| n.map(|n| acc.max(n)))
+            .map(|n| n.saturating_add(64)),
+        // a power of a real number stays whole, so it is never multiplied out
+        _ => None,
+    };
+    if matches!(e.kind(), Kind::Mul(..) | Kind::Add(..)) && estimate.is_some_and(|n| n > FEASIBLE_BITS) {
+        return Err(infeasible());
+    }
+    memo.insert(e.dag_id(), (e.clone(), (value, estimate)));
+    Ok((value, estimate))
+}
+fn precheck(e: &Expr, bounded: bool) -> Result<()> {
+    if bounded {
+        inspect(e, &mut FxHashMap::default(), 0).map(|_| ())
+    } else {
+        height(e, &mut FxHashMap::default(), 0).map(|_| ())
+    }
+}
+
 struct Context {
     expanded: ExpandBudget,
     parts: FxHashMap<(usize, bool), (Expr, Parts)>,
@@ -185,14 +254,17 @@ struct Context {
     hinted: FxHashMap<usize, (Expr, Parts)>,
     complex: FxHashMap<(usize, bool), (Expr, Expr)>,
     work: usize,
+    /// Whether the opt-in resource guards apply (internal heuristics only).
+    bounded: bool,
 }
 impl Context {
-    fn new() -> Self {
-        Self::with_hints(ExpandOptions::default())
+    fn new(bounded: bool) -> Self {
+        Self::with_hints(ExpandOptions::default(), bounded)
     }
-    fn with_hints(hints: ExpandOptions) -> Self {
+    fn with_hints(hints: ExpandOptions, bounded: bool) -> Self {
         Self {
-            expanded: ExpandBudget::new(MAX_TERMS),
+            expanded: if bounded { ExpandBudget::new(MAX_TERMS) } else { ExpandBudget::unlimited() },
+            bounded,
             parts: FxHashMap::default(),
             projections: FxHashMap::default(),
             hints: ExpandOptions { deep: true, ..hints },
@@ -203,7 +275,7 @@ impl Context {
     }
     fn charge(&mut self, n: usize) -> Result<()> {
         self.work = self.work.saturating_add(n);
-        if self.work > 200_000 {
+        if self.bounded && self.work > 200_000 {
             Err(limit())
         } else {
             Ok(())
@@ -531,7 +603,7 @@ impl Context {
             let width = sums
                 .iter()
                 .fold(1usize, |width, sum| width.saturating_mul(sum.args().len()));
-            if width > MAX_TERMS {
+            if self.bounded && width > MAX_TERMS {
                 return Err(limit());
             }
             self.charge(width)?;
@@ -566,14 +638,18 @@ impl Context {
         hinted: bool,
     ) -> Result<Parts> {
         if exponent.is_integer_number() {
-            let n = exponent.as_i64().ok_or_else(limit)?;
-            if n.unsigned_abs() > MAX_POWER {
+            let n = exponent.as_i64();
+            if self.bounded && n.map_or(true, |n| n.unsigned_abs() > MAX_POWER) {
                 return Err(limit());
             }
             let (mut a, mut b) = self.split(base, deep)?;
             if is_zero(&b) {
                 return Ok((e.clone(), Expr::zero()));
             }
+            let n = match n {
+                Some(n) if n.unsigned_abs() <= FEASIBLE_POWER => n,
+                _ => return Err(infeasible()),
+            };
             if n < 0 {
                 let magnitude = add2(&powi(&a, 2), &powi(&b, 2));
                 a = div(&a, &magnitude);
@@ -1003,15 +1079,25 @@ pub fn literal_parts(e: &Expr) -> Option<Parts> {
     }
 }
 
+/// SymPy's `e.as_real_imag(deep, ignore=ignore)`, without size limits.
 pub fn as_real_imag(e: &Expr, deep: bool, ignore: Option<&Expr>) -> Result<Option<Parts>> {
+    split_parts(e, deep, ignore, false)
+}
+/// `as_real_imag` under the opt-in resource guards (20000 nodes, 4096 terms,
+/// integer powers through 128): for internal heuristics without a SymPy
+/// counterpart, which treat the error as "undecided".
+pub fn as_real_imag_bounded(e: &Expr, deep: bool, ignore: Option<&Expr>) -> Result<Option<Parts>> {
+    split_parts(e, deep, ignore, true)
+}
+fn split_parts(e: &Expr, deep: bool, ignore: Option<&Expr>, bounded: bool) -> Result<Option<Parts>> {
     scalar(e)?;
     if let Some(parts) = literal_parts(e) {
         if e.is_atom() { return Ok(if ignore == Some(e) { None } else { Some(parts) }); }
         if ignore.is_none() { return Ok(Some(parts)); }
     }
-    inspect(e, &mut FxHashMap::default(), 0)?;
+    precheck(e, bounded)?;
     crate::assumptions::exact_queries(|| {
-        let mut context = Context::new();
+        let mut context = Context::new(bounded);
         if let Some(ignore) = ignore {
             if e.is_mul() {
                 return context.product(e, true, Some(ignore));
@@ -1036,19 +1122,19 @@ pub fn as_real_imag(e: &Expr, deep: bool, ignore: Option<&Expr>) -> Result<Optio
 pub fn expand_complex(e: &Expr, options: &ExpandOptions) -> Result<Expr> {
     scalar(e)?;
     if literal_parts(e).is_some() { return Ok(e.clone()); }
-    inspect(e, &mut FxHashMap::default(), 0)?;
+    precheck(e, false)?;
     crate::assumptions::exact_queries(|| {
-        Context::with_hints(*options).expand_full(e, options.deep)
+        Context::with_hints(*options, false).expand_full(e, options.deep)
     })
 }
 pub fn as_real_imag_many(values: &[Expr], deep: bool) -> Result<Vec<Parts>> {
     let mut seen = FxHashMap::default();
     for value in values {
         scalar(value)?;
-        if literal_parts(value).is_none() { inspect(value, &mut seen, 0)?; }
+        if literal_parts(value).is_none() { height(value, &mut seen, 0)?; }
     }
     crate::assumptions::exact_queries(|| {
-        let mut context = Context::new();
+        let mut context = Context::new(false);
         values.iter().map(|e| match literal_parts(e) {
             Some(parts) => Ok(parts), None => context.split(e, deep),
         }).collect()

@@ -208,6 +208,14 @@ impl Builder<'_> {
                 }
                 Func::Logic(crate::logic::LogicOp::Not) => Ins::Sum(1.0, vec![(self.lower(&args[0])?, -1.0)]),
                 Func::Logic(_) => return self.lower(&crate::logic::eliminate_implications(e)),
+                // Heaviside(x, H0): the value at 0 is H0
+                Func::Heaviside if args.len() == 2 => {
+                    let piecewise = crate::special::rewrite::rewrite(e, &[], "Piecewise", false);
+                    if &piecewise == e {
+                        return Err(LambdifyError::Unsupported(e.to_string()));
+                    }
+                    return self.lower(&piecewise);
+                }
                 Func::Special(s) => {
                     if matches!(s, SpecialFn::Hyper | SpecialFn::Bell) && args.len() == 3 {
                         return Err(LambdifyError::Unsupported(e.to_string()));

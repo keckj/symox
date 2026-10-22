@@ -640,11 +640,78 @@ Remaining gaps in this area:
   `ConditionSet`; SymPy gives the intervals.
 - `reduce_inequalities([sin(x) > 0, x > 0, x < 2*pi], x)` drops the
   redundant `x < 2*pi` that SymPy keeps (form only).
-- `Heaviside(x, H0)` with `H0 != 1/2` is a `Piecewise` wrapper around
-  `Heaviside(x)` in Symox, so its `rewrite(Piecewise)` gives a nested,
-  equal but different `Piecewise`.
 - The series, `And`/`Or` and `Order.subs` gaps listed here before
   2026-10-22 are closed, see the next section.
+
+## Complex expansion without limits and Heaviside(x, H0) on 2026-10-22
+
+`tests/test_core_misc_wave3_parity.py` holds the reference outputs.
+
+- `expand(complex=True)`, `expand_complex`, `as_real_imag`, `re` and `im`
+  have no default size limit, as in SymPy. The guards of 4096 terms,
+  integer powers through 128, 20 000 nodes and 1 000 000 numeric bits used
+  to raise `NotImplementedError` where SymPy computes the result (for
+  example `expand((a + I*b)**200, complex=True)`, `re((a + I*b)**140)`,
+  `((x + I)**130).as_real_imag()` or `re` of a 2000-term sum). These guards
+  remain only on `as_real_imag_bounded`, the opt-in entry point of the
+  internal heuristics without a SymPy counterpart (exact assumption
+  refinement, `solveset`'s nonzero proof, the complex split of
+  `floor`/`ceiling` and the exact numeric parts of the domains); they raise
+  and never return a partial result, and their callers already treat the
+  error as "unknown". On a probe of 20 calls Symox now matches SymPy on 19
+  (8 before) and is faster, e.g. `expand((a + b + I + x)**25,
+  complex=True)` in 0.4 s against 8.1 s.
+- Three guards remain on the public entry points, all raising
+  `NotImplementedError`: an expression nesting deeper than 256 levels (it
+  protects the native stack), the binomial expansion of `(a + I*b)**n` with
+  a non-real base for `|n| > 2**17`, whose output alone exceeds 2 GiB, and
+  an unevaluated numeric product or sum that multiplies out to more than
+  `2**34` bits (a shared `Mul(v, v)` DAG nested 80 times). SymPy runs out of
+  memory or never finishes on these; the native code could not be
+  interrupted. A real base keeps the power whole at any
+  exponent, as in SymPy (`Pow(2, 10**9, evaluate=False).as_real_imag()` is
+  `(2**1000000000, 0)`).
+- `Integer**Rational` whose integer part does not fit in 64 bits stays a
+  held power; it used to drop the integer part (`Pow(2, Rational(10**20 + 1,
+  2))` gave `sqrt(2)`, a wrong value). SymPy never finishes this call.
+- `Heaviside(x, H0)` is a native two-argument node: `args` is `(x, H0)` and
+  `(x, 1/2)` for the default, `pargs` drops a default `1/2`, `Heaviside(x,
+  S.Half)` is `Heaviside(x)`, a Float `H0` is kept (`Heaviside(x, 0.5)`).
+  Printing (str, srepr, latex, pretty, C code), `rewrite(Piecewise)`, the
+  value `H0` at zero (also through `subs` and `xreplace`),
+  `diff` (a derivative with respect to a symbol inside `H0` is held), the
+  ordering of `Heaviside(x)` against `Heaviside(x, 0)`, `is_real`,
+  `is_finite`, `conjugate`, `as_real_imag`, `lambdify`, pickling and the
+  conversions to and from SymPy follow the reference. `integrate` and
+  `laplace_transform` ignore `H0` like the SymPy rules do
+  (`integrate(Heaviside(x, 0), x) == x*Heaviside(x)`); an integral left
+  unevaluated keeps its `H0`. `Heaviside(x, None)` raises `AttributeError`
+  and a nonreal argument raises `ValueError`, as in SymPy. A probe of 96
+  calls went from 39 to 89 outputs equal to SymPy 1.14 (see below for the
+  rest; one more is a set printed in another order).
+- A number times a noncommutative sum stays a product, as in
+  `Mul.flatten` (`-(A + B)` is `Mul(-1, A + B)`, `-(A + B) + (A + B)` prints
+  `A + B - (A + B)`), and `expand` distributes it. A probe of 21
+  noncommutative calls went from 8 to 21 outputs equal to SymPy.
+
+Remaining gaps in this area:
+
+- `series` of `Heaviside` (one or two arguments) raises
+  `NotImplementedError`; SymPy expands around nonzero points and returns
+  the one-sided value.
+- `limit(Heaviside(x), x, 0)` returns `1/2` and `limit(Heaviside(x, 0), x,
+  0)` stays a `Limit`; SymPy gives the right limit `1`.
+- `laplace_transform(Heaviside(t - 2)*t, t, s)` keeps the factored form
+  `(2/s + s**(-2))*exp(-2*s)` where SymPy distributes it (equal values).
+- The error message of `Heaviside(I, 0)` is shorter than the reference.
+- `Heaviside(x).evalf(subs={x: 0})` and `Heaviside(x, 0).evalf(subs={x:
+  1})` stay unevaluated `Heaviside` nodes (one or two arguments); SymPy
+  returns the value.
+- `lambdify` of `Heaviside(x, 0)` returns the float `0.0` at zero where
+  SymPy's generated code returns the integer `0` (equal values).
+- The derivative of `Heaviside(x, H0)` with respect to a symbol inside a
+  non-symbol `H0` is a held `Derivative`; SymPy builds a `Subs` of the
+  derivative of the second argument (equal meaning).
 
 ## Piecewise series, And/Or patterns and Order.subs on 2026-10-22
 
@@ -696,9 +763,6 @@ SymPy outputs).
 
 Remaining gaps in this area:
 
-- `Heaviside(x, H0)` with `H0 != 1/2` is a `Piecewise` wrapper around
-  `Heaviside(x)` in Symox (a native two-argument node is missing), so its
-  printing, `args` and `rewrite(Piecewise)` (nested, equal) differ.
 - `solvify` cannot solve `sin(x) + cos(x)`, `sin(x) - cos(x)`,
   `sin(2*x) + cos(x)` or `exp(sin(x)) - 1` on a period, so the periodic
   inequalities and the Piecewise integrals with such conditions stay a
@@ -980,7 +1044,8 @@ holds the reference outputs):
   collected in front, noncommutative factors keep their order, and adjacent
   equal bases combine (`A*A**-1 == 1`, `A**x*A**y == A**(x + y)`).
   `A*B - B*A` stays nonzero, `(A*B)**2` stays unexpanded and
-  `(2*A)**2 == 4*A**2`.
+  `(2*A)**2 == 4*A**2`. A number times a noncommutative sum stays a
+  product (`-(A + B)`, `2*(A + B)`) and only `expand` distributes it.
 - `args`, `args_cnc`, `as_coeff_Mul`, `as_ordered_factors`, `coeff`,
   `as_independent`, `has` on subproducts, `str`, `srepr`, `latex`, equality,
   hashing, pickling, `subs` of a contiguous subproduct (a port of
@@ -1118,9 +1183,10 @@ expansion no longer stops at 100 000 roots. The `max_terms` hint is a
 symox-only, opt-in resource guard: with it, exceeding the term limit or the
 work budget raises `ValueError` and never returns a partial expansion. Only
 an arithmetic overflow of the term counts (exponents near `2**64`) still
-fails without a hint. Remaining gap: `expand(complex=True)` keeps its own
-guards (4096 terms, powers up to 128, 20 000 nodes) and raises
-`NotImplementedError` beyond them where SymPy computes the result.
+fails without a hint. `expand(complex=True)`, `expand_complex`,
+`as_real_imag`, `re` and `im` have no default size limit either since the
+same date, see the section "Complex expansion without limits and
+Heaviside(x, H0) on 2026-10-22".
 
 The small integer response caches for `primepi` and `partition` apply only to
 one positional built-in Python integer in `[-10**6,10**6]` while evaluation is
@@ -1294,11 +1360,8 @@ classes have remaining gaps:
   classes distinct from the nominal node classes, so `cls.__base__` of a user
   subclass differs from the reference (Devito recurses through
   `cls.__base__.__new__`).
-- `Heaviside(x)` stores no `H0` argument (the reference args are
-  `(x, 1/2)`), and `Heaviside(x, H0)` for another `H0` evaluates to
-  `Piecewise((H0, Eq(x, 0)), (Heaviside(x), True))`, so its printed code is a
-  nested conditional with the same values. Arithmetic with a string operand
-  sympifies the string, where the reference raises `TypeError`.
+- Arithmetic with a string operand sympifies the string, where the
+  reference raises `TypeError`.
 - The strict-mode error message of the code printers names `_core.Matrix` for
   explicit matrices.
 - Measured on 2026-10-20 after integrating the subclass, host-hook,
@@ -1348,8 +1411,7 @@ the reference returns immutable ones; `ImmutableMatrix` subclasses are not
 preserved; `Matrix.D` is missing; function-class substitution into
 `Integral`, `Sum` and `Product` raises a `TypeError` with a different message;
 simultaneous substitution with a `Lambda` replacement succeeds where the
-reference raises `IndexError`; `Heaviside(x).args` omits the reference
-`1/2` default; `Lambda.nargs` is a raw native set node. SymPy 1.14 builds a
+reference raises `IndexError`; `Lambda.nargs` is a raw native set node. SymPy 1.14 builds a
 dense array from a sparse one out of its stored flat positions; symox keeps
 the entries.
 
