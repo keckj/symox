@@ -344,6 +344,86 @@ def _diop_parabolic(expr,var,name):
     return result
 
 
+def _pow_rep_recursive(n_i, k, n_remaining, terms, p):
+    # SymPy 1.14 ``pow_rep_recursive`` (BSD-3-Clause, see LICENSE-SYMPY).
+    from .ntheory.primetest import is_square  # noqa: F401
+    from . import integer_nthroot
+    if n_i <= 0 or k <= 0:
+        return
+    if n_remaining < k:
+        return
+    if k * pow(n_i, p) < n_remaining:
+        return
+    if k == 0 and n_remaining == 0:
+        yield tuple(terms)
+    elif k == 1:
+        next_term, exact = integer_nthroot(n_remaining, p)
+        if exact and next_term <= n_i:
+            yield tuple(terms + [next_term])
+        return
+    else:
+        if n_i >= 1 and k > 0:
+            for next_term in range(1, n_i + 1):
+                residual = n_remaining - pow(next_term, p)
+                if residual < 0:
+                    break
+                yield from _pow_rep_recursive(next_term, k - 1, residual, terms + [next_term], p)
+
+
+def _even_power_representation(n, p, k):
+    """SymPy's ``power_representation(n, p, k)`` without zeros, for an even
+    exponent ``p > 2`` and ``k >= 2`` terms."""
+    from . import integer_nthroot, perfect_power
+    if n <= 0:
+        return
+    if k == 2:
+        be = perfect_power(n)
+        if be and be[1] % p == 0:
+            return  # Fermat: a**n + b**n = c**n has no solution for n > 2
+    if n >= k:
+        a = integer_nthroot(n - (k - 1), p)[0]
+        for t in _pow_rep_recursive(a, k, n, [], p):
+            yield tuple(reversed(t))
+
+
+def _diop_sum_of_even_powers(p, variables, permute):
+    """SymPy 1.14's ``general_sum_of_even_powers`` family
+    ``x_1**e + ... + x_k**e = n`` with an even ``e > 3``; None when the
+    polynomial is not of that form."""
+    from . import Integer
+    from .utilities.iterables import signed_permutations
+    degree = int(p.total_degree())
+    if len(variables) < 2 or degree <= 3 or degree % 2:
+        return None
+    if p.LC() < 0:
+        p = -p
+    constant = 0
+    powers = set()
+    for monomial, coeff in p.terms():
+        if not any(monomial):
+            constant = int(coeff)
+            continue
+        if coeff != 1 or sorted(monomial)[-1] != degree or sum(monomial) != degree:
+            return None
+        powers.add(monomial.index(degree))
+    if len(powers) != len(variables):
+        return None
+    if not constant:
+        # the reference's trivial solution of a sum of even powers
+        return {(Integer(0),)*len(variables)}
+    n = -constant
+    sign = [-1 if v.is_nonpositive else 1 for v in variables]
+    negs = sign.count(-1) != 0
+    result = set()
+    for t in _even_power_representation(n, degree, len(variables)):
+        row = tuple(Integer(sign[i]*j) if negs else Integer(j) for i, j in enumerate(t))
+        if permute:
+            result.update(signed_permutations(row))
+        else:
+            result.add(row)
+    return result
+
+
 def diophantine(eq,param=None,syms=None,permute=False):
     from . import sympify,Symbol,Poly,Add,expand,divisors,sqrt,Integer,factor_terms,default_sort_key
     eq = sympify(eq.lhs-eq.rhs if getattr(eq,'is_Equality',False) else eq)
@@ -395,6 +475,9 @@ def diophantine(eq,param=None,syms=None,permute=False):
                 mapping = dict(zip(present,row))
                 result.add(tuple(mapping.get(v,parameters[variables.index(v)]) for v in variables))
         return result
+    even = _diop_sum_of_even_powers(factors[0][0] if factors else p,variables,permute)
+    if even is not None:
+        return even
     if len(variables) == 2:
         x,y = variables
         expression = expand(p.as_expr())

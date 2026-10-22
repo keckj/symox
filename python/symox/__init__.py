@@ -3396,6 +3396,8 @@ _install_host_expand(globals())
 
 from ._distribution_methods import install as _install_distribution_methods
 _install_distribution_methods(globals())
+from ._expand_fraction_hints import install as _install_expand_fraction_hints  # noqa: E402
+_install_expand_fraction_hints(globals())
 
 from ._matrix_subclasses import install as _install_matrix_subclasses
 _install_matrix_subclasses()

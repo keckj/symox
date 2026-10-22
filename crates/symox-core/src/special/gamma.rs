@@ -110,6 +110,19 @@ pub(super) fn eval_loggamma(z: &Expr) -> Option<Expr> {
             ]);
             return Some(log(&v));
         }
+    } else if !z.is_number() && crate::assumptions::is_rational(z) == Some(true) {
+        // SymPy: p, q = z.as_numer_denom(); half-integral values when
+        // p.is_positive and q == 2.
+        let (p, q) = crate::simptools::as_numer_denom(z);
+        if q == Expr::int(2) && is_positive(&p) == Some(true) {
+            let v = mul(&[
+                sqrt(&Expr::pi()),
+                pow(&Expr::int(2), &sub(&Expr::one(), &p)),
+                gamma(&p),
+                pow(&gamma(&div(&add(&[p.clone(), Expr::one()]), &Expr::int(2))), &Expr::minus_one()),
+            ]);
+            return Some(log(&v));
+        }
     }
     if is_inf(z) {
         return Some(Expr::oo());

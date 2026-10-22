@@ -40,7 +40,8 @@ class Derivative(metaclass=_ExprType):
     def __new__(cls,expr,*variables,**kwargs):
         evaluate=kwargs.get('evaluate',False)
         if evaluate and not kwargs.get('simplify',True):
-            raise NotImplementedError('evaluated derivatives use native canonical simplification')
+            from ._differentiation import unsimplified_diff
+            return unsimplified_diff(expr,variables)
         return _core.Derivative(expr,*variables,evaluate=bool(evaluate))
 
 

@@ -72,6 +72,18 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         }
         Bell => eval_bell(a),
         Partition => {
+            // SymPy: n.is_negative -> 0, n.is_zero -> 1 also for symbols.
+            if as_small(&a[0]).is_none() {
+                if is_integer(&a[0]) != Some(false) {
+                    if is_negative(&a[0]) == Some(true) {
+                        return Some(Expr::zero());
+                    }
+                    if is_zero(&a[0]) == Some(true) {
+                        return Some(Expr::one());
+                    }
+                }
+                return None;
+            }
             let n = as_small(&a[0])?;
             if n < 0 {
                 return Some(Expr::zero());

@@ -861,6 +861,15 @@ pub(crate) fn to_expr(obj: &Bound<'_, PyAny>) -> PyResult<Expr> {
         if let Ok(hook) = obj.getattr("_sympy_") {
             return conversion_hook(obj, &hook);
         }
+        // mpmath numbers convert as in SymPy's sympify converter (Float
+        // from ``_mpf_``, complex from ``_mpc_``), so that mpmath routines
+        // such as ``findroot`` can call native functions.
+        if module.starts_with("mpmath") && (obj.hasattr("_mpf_")? || obj.hasattr("_mpc_")?) {
+            let value = obj.py().import("symox")?.getattr("sympify")?.call1((obj,))?;
+            if value.downcast::<crate::PyExprNode>().is_ok() {
+                return to_expr(&value);
+            }
+        }
     }
     let error = PyTypeError::new_err(format!(
         "cannot convert object of type {tname} to a symox expression"

@@ -399,7 +399,15 @@ fn write_pow(b: &Expr, x: &Expr, out: &mut String) {
     }
     if commutative && x.is_minus_one() {
         out.push_str("1/");
-        paren(b, PREC_MUL, true, out);
+        // The reference parenthesizes at the power precedence (non-strict),
+        // so every power base (an unevaluated `Pow(Pow(..), -1)`) too.
+        if matches!(b.kind(), Kind::Pow(..)) {
+            out.push('(');
+            write_expr(b, out);
+            out.push(')');
+        } else {
+            paren(b, PREC_POW, true, out);
+        }
         return;
     }
     // base

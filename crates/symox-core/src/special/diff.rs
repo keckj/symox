@@ -86,6 +86,20 @@ pub fn partial(s: SpecialFn, a: &[Expr], i: usize) -> Option<Expr> {
         (Shi, 0) => div(&sinh(&a[0]), &a[0]),
         (Chi, 0) => div(&cosh(&a[0]), &a[0]),
         (Expint, 1) => neg(&super::expint(&m1(&a[0]), &a[1])),
+        (Expint, 0) => {
+            // SymPy: -z**(nu - 1)*meijerg([], [1, 1], [0, 0, 1 - nu], [], z)
+            let (nu, z) = (&a[0], &a[1]);
+            let t = super::tuple;
+            let g = sf(
+                MeijerG,
+                vec![
+                    t(vec![t(vec![]), t(vec![one(), one()])]),
+                    t(vec![t(vec![Expr::zero(), Expr::zero(), sub(&one(), nu)]), t(vec![])]),
+                    z.clone(),
+                ],
+            );
+            neg(&mul2(&pow(z, &m1(nu)), &g))
+        }
         (E1, 0) => neg(&super::expint(&Expr::zero(), &a[0])),
         (BesselJ | BesselY | BesselI | BesselK | Hankel1 | Hankel2, 1) => {
             let (nu, z) = (&a[0], &a[1]);

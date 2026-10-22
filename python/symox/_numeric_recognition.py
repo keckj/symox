@@ -91,10 +91,8 @@ def nsimplify(expr, constants=(), tolerance=None, full=False, rational=None,
     # without it must not become an unrelated held scalar through _symox_.
     if not hasattr(expression,'evalf'):
         raise AttributeError("'%s' object has no attribute 'evalf'" % type(expression).__name__)
-    if tol is not None:
-        raise NotImplementedError('Explicit tolerance for irrational recognition is not implemented')
-    if full:
-        raise NotImplementedError('Full irrational recognition search is not implemented')
+    if tol is not None or full:
+        return _identify(expression,constants,tolerance,full,rational,rational_conversion)
     constants=tuple(constants)
     # The original recognition kernel handles IEEE floats. Use it only to
     # propose a candidate for an MP atom, and validate that candidate at the
@@ -118,3 +116,79 @@ def nsimplify(expr, constants=(), tolerance=None, full=False, rational=None,
             replacements[atom]=proposal
     expression=expression.xreplace(replacements) if replacements else expression
     return _core.nsimplify(expression,constants=constants)
+
+
+def _identify(expr, constants, tolerance, full, rational, rational_conversion):
+    """SymPy 1.14 ``nsimplify`` with an explicit tolerance or ``full=True``.
+
+    Ported from ``sympy/simplify/simplify.py`` (BSD-3-Clause, see
+    LICENSE-SYMPY): the value is evaluated at 30 digits and handed to
+    ``mpmath.identify`` with the caller's tolerance.
+    """
+    import mpmath
+    from . import sympify, Float, Rational, S
+    if tolerance is None:
+        tolerance = 10**-min([15] +
+             [mpmath.libmp.libmpf.prec_to_dps(n._prec)
+             for n in expr.atoms(Float)])
+    prec = 30
+    bprec = int(prec*3.33)
+    constants_dict = {}
+    for constant in constants:
+        constant = sympify(constant)
+        v = constant.evalf(prec)
+        if not v.is_Float:
+            raise ValueError("constants must be real-valued")
+        constants_dict[str(constant)] = _to_mpmath(v, bprec)
+    exprval = expr.evalf(prec, chop=True)
+    re, im = exprval.as_real_imag()
+    if not (re.is_Number and im.is_Number):
+        return expr
+
+    def nsimplify_real(x):
+        orig = mpmath.mp.dps
+        xv = _to_mpmath(x, bprec)
+        try:
+            if not (tolerance or full):
+                mpmath.mp.dps = 15
+                rat = mpmath.pslq([xv, 1])
+                if rat is not None:
+                    return Rational(-int(rat[1]), int(rat[0]))
+            mpmath.mp.dps = prec
+            newexpr = mpmath.identify(xv, constants=constants_dict,
+                tol=tolerance, full=full)
+            if not newexpr:
+                raise ValueError
+            if full:
+                newexpr = newexpr[0]
+            result = sympify(newexpr)
+            if x and not result:
+                raise ValueError
+            if result.is_finite is False and xv not in [mpmath.inf, mpmath.ninf]:
+                raise ValueError
+            return result
+        finally:
+            mpmath.mp.dps = orig
+    try:
+        if re:
+            re = nsimplify_real(re)
+        if im:
+            im = nsimplify_real(im)
+    except ValueError:
+        if rational is None:
+            return _rationalize(expr, None, rational_conversion)
+        return expr
+    rv = re + im*S.ImaginaryUnit
+    if rv != expr or rational is False:
+        return rv
+    return _rationalize(expr, None, rational_conversion)
+
+
+def _to_mpmath(number, prec):
+    """``Number._to_mpmath(prec)`` of the reference."""
+    import mpmath
+    if number.is_Integer:
+        return int(number)
+    if number.is_Rational:
+        return mpmath.make_mpf(mpmath.libmp.from_rational(int(number.p), int(number.q), prec, 'n'))
+    return mpmath.make_mpf(mpmath.libmp.mpf_pos(tuple(number._mpf_), prec, 'n'))

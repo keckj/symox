@@ -9,8 +9,28 @@ _native_matrix_diff=_core.Matrix.diff
 def _options(evaluate, options):
     unknown=set(options)-{'simplify'}
     if unknown:raise TypeError('Unknown differentiation options: '+', '.join(sorted(unknown)))
-    if evaluate and options.get('simplify',True) is not True:
-        raise NotImplementedError('Evaluated derivatives use native canonical simplification')
+    return bool(evaluate) and not options.get('simplify',True)
+
+
+def unsimplified_diff(expression, symbols):
+    """SymPy's ``Derivative(..., evaluate=True, simplify=False)``.
+
+    The reference differentiates one variable at a time with
+    ``_eval_derivative`` and only skips the final
+    ``factor_terms(signsimp(expr))`` of multiple derivatives; a native
+    first derivative performs the same single step.
+    """
+    held=_core.Derivative(expression,*symbols,evaluate=False)
+    if not getattr(held,'is_Derivative',False):return held
+    pairs=held.variable_count
+    if any(not (isinstance(count,int) or getattr(count,'is_Integer',False)) for variable,count in pairs):
+        raise NotImplementedError('Unsimplified derivatives of symbolic order are not implemented')
+    result=expression
+    for variable,count in pairs:
+        for _ in range(int(count)):
+            result=_native_diff(result,variable)
+            if result.is_zero is True:return result
+    return result
 
 
 def _matrix_variables(expression, symbols):
@@ -21,14 +41,15 @@ def _matrix_variables(expression, symbols):
 
 
 def scalar_diff(self, *symbols, evaluate=True, **options):
-    _options(evaluate,options)
+    if _options(evaluate,options):return unsimplified_diff(self,symbols)
     if not evaluate:return _core.Derivative(self,*symbols,evaluate=False)
     return _native_scalar_diff(self,*symbols)
 
 
 def matrix_diff(self, *symbols, evaluate=True, **options):
     from . import S
-    _options(evaluate,options)
+    if _options(evaluate,options):
+        raise NotImplementedError('Unsimplified matrix derivatives are not implemented')
     if not evaluate:
         raise NotImplementedError('Held matrix derivatives require lazy array expressions')
     symbols=_matrix_variables(self,symbols)
@@ -40,7 +61,7 @@ def matrix_diff(self, *symbols, evaluate=True, **options):
 
 def diff(f, *symbols, evaluate=True, **options):
     """Differentiate scalar or matrix expressions, optionally holding evaluation."""
-    _options(evaluate,options)
+    unsimplified=_options(evaluate,options)
     if isinstance(f,_core.Matrix):
         return matrix_diff(f,*symbols,evaluate=evaluate,**options)
     if getattr(f,'_symox_sparse',False):
@@ -52,6 +73,7 @@ def diff(f, *symbols, evaluate=True, **options):
         if _defines(type(f),'diff'):
             return f.diff(*symbols,evaluate=evaluate,**options)
     if not evaluate:return _core.Derivative(f,*symbols,evaluate=False)
+    if unsimplified:return unsimplified_diff(f,symbols)
     # Ordered operator polynomials (physics) differentiate themselves.
     hook=getattr(f,'_eval_symox_diff',None)
     if hook is not None:return hook(*symbols)
