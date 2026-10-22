@@ -168,8 +168,10 @@ def test_invalid_lambda_signatures_and_python_callables_fail_explicitly():
             sx.FunctionMatrix(2, 3, lamda)
     with pytest.raises(NotImplementedError, match='destructur|scalar'):
         sx.FunctionMatrix(2, 3, sx.Lambda(((i, j), k), i+j+k))
-    with pytest.raises(NotImplementedError, match='string|Lambda'):
-        sx.FunctionMatrix(2, 3, 'lambda i,j:i+j')
+    # SymPy sympifies strings: a lambda string is accepted, an expression is not.
+    assert sx.FunctionMatrix(2, 3, 'lambda i,j:i+j').as_explicit() == sx.Matrix([[0, 1, 2], [1, 2, 3]])
+    with pytest.raises(ValueError, match='compatible'):
+        sx.FunctionMatrix(2, 3, 'i + j')
     called = []
     def python_function(i, j):
         called.append((i, j))

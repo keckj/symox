@@ -24,17 +24,6 @@ def normalize_theta_set(theta):
     return Union(Interval(a,2*pi,theta.left_open,True),Interval(0,b-2*pi,False,theta.right_open))
 
 
-class CartesianComplexRegion(ComplexRegion):
-    def __init__(self,sets):super().__init__(sets,polar=False)
-    args=property(lambda self:(self.sets,))
-
-
-class PolarComplexRegion(ComplexRegion):
-    def __init__(self,sets):
-        from symox import Union,ProductSet
-        pieces=sets.args if isinstance(sets,Union) else (sets,)
-        normalized=Union(*(ProductSet(piece.args[0],normalize_theta_set(piece.args[1])) for piece in pieces))
-        super().__init__(normalized,polar=True)
-    args=property(lambda self:(self.sets,))
+from symox._set_extensions import CartesianComplexRegion, PolarComplexRegion  # noqa: E402
 
 __all__ += ['CartesianComplexRegion','PolarComplexRegion','normalize_theta_set']

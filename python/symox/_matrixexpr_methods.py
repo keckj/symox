@@ -309,6 +309,11 @@ def dummy_eq(self, other, symbol=None):
 def matches(self, expr, repl_dict=None, old=False):
     from . import MatrixExpr
     from ._core import Expr
+    if getattr(self, 'is_MatMul', False) and getattr(expr, 'is_MatMul', False):
+        # The reference MatMul inherits Mul.matches: the commutative factors
+        # match first (extending repl_dict), then the ordered matrix factors.
+        from ._matching import _mul
+        return _mul(self, expr, repl_dict, old)
     bindings = dict(repl_dict or {})
     budget = 10000
     def visit(pattern, value):

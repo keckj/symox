@@ -181,24 +181,97 @@ class DisjointUnion(_StructuralSet):
 
 
 class ComplexRegion(_StructuralSet):
-    def __init__(self,sets,polar=False):
-        if polar not in (True,False):
-            raise ValueError('polar must be boolean')
+    """SymPy's ComplexRegion: the constructor returns a
+    CartesianComplexRegion or a PolarComplexRegion."""
+
+    def __new__(cls,sets,polar=False):
+        if polar is False:
+            return CartesianComplexRegion(sets)
+        if polar is True:
+            return PolarComplexRegion(sets)
+        raise ValueError('polar should be either True or False')
+
+    def __init__(self,*args,**kwargs):
+        pass
+
+    def _setup(self,sets,polar):
         pieces=sets.args if isinstance(sets,Union) else (sets,)
-        if any(not isinstance(s,ProductSet) or len(s.args)!=2 for s in pieces):
+        if sets!=EmptySet and any(not isinstance(s,ProductSet) or len(s.args)!=2 for s in pieces):
             raise ValueError('complex regions require unions of two-factor Cartesian products')
         self.sets,self.polar=sets,polar
         if polar:
             # Nonnegative radii and principal angles provide an unambiguous
             # membership test. General angular normalization needs set images.
             for piece in pieces:
+                if piece==EmptySet:
+                    continue
                 radius,theta=piece.args
                 if radius.is_subset(Interval(0,S.Infinity)) is not True or theta.is_subset(Interval(0,2*pi)) is not True:
                     raise NotImplementedError('polar regions require r >= 0 and angles in [0, 2*pi]')
+        return self
 
     @property
     def args(self):
-        return self.sets,self.polar
+        return (self.sets,)
+
+    def to_sympy(self):
+        import sympy
+        return sympy.ComplexRegion(self.sets.to_sympy(),polar=self.polar)
+    _sympy_=to_sympy
+
+    @classmethod
+    def from_real(cls,sets):
+        """Convert a subset of the real line to a complex region."""
+        if sets.is_subset(S.Reals) is not True:
+            raise ValueError('sets must be a subset of the real line')
+        return CartesianComplexRegion(sets*FiniteSet(0))
+
+    def union(self,other):
+        # reference `union_sets(ComplexRegion, Set)`
+        if not isinstance(other,Set):
+            other=sympify(other)
+        if not isinstance(other,ComplexRegion) and other.is_subset(S.Reals) is True:
+            other=ComplexRegion.from_real(other)
+        if isinstance(other,ComplexRegion) and self.polar==other.polar:
+            return ComplexRegion(Union(self.sets,other.sets),polar=self.polar)
+        raise NotImplementedError('this complex region union is not implemented')
+    __or__=__add__=union
+
+    def intersect(self,other):
+        # reference `intersection_sets(ComplexRegion, Set)`
+        from . import Intersection, Dummy
+        if not isinstance(other,Set):
+            other=sympify(other)
+        if isinstance(other,ComplexRegion):
+            if not self.polar and not other.polar:
+                return ComplexRegion(Intersection(self.sets,other.sets))
+            if self.polar and other.polar:
+                r1,theta1=self.a_interval,self.b_interval
+                r2,theta2=other.a_interval,other.b_interval
+                new_r=Intersection(r1,r2)
+                new_theta=Intersection(theta1,theta2)
+                # 0 and 2*pi are the same angle
+                if (2*pi in theta1 and S.Zero in theta2) or (2*pi in theta2 and S.Zero in theta1):
+                    new_theta=Union(new_theta,FiniteSet(0))
+                return ComplexRegion(new_r*new_theta,polar=True)
+        elif other.is_subset(S.Reals) is True:
+            pieces=[]
+            if not self.polar:
+                for element in self.psets:
+                    if S.Zero in element.args[1]:
+                        pieces.append(element.args[0])
+                return Intersection(Union(*pieces),other)
+            x=Dummy('x',real=True)
+            for element in self.psets:
+                if S.Zero in element.args[1]:
+                    pieces.append(element.args[0])
+                if pi in element.args[1]:
+                    pieces.append(ImageSet(Lambda(x,-x),element.args[0]))
+                if S.Zero in element.args[0]:
+                    pieces.append(FiniteSet(0))
+            return Intersection(Union(*pieces),other)
+        raise NotImplementedError('this complex region intersection is not implemented')
+    intersection=__and__=intersect
 
     @property
     def psets(self):
@@ -270,6 +343,25 @@ class ComplexRegion(_StructuralSet):
                     term=a.measure*b.measure
                 area+=(-1)**(size+1)*term
         return area
+
+
+class CartesianComplexRegion(ComplexRegion):
+    def __new__(cls,sets):
+        from . import Reals
+        if sets==Reals*Reals:
+            return S.Complexes
+        if isinstance(sets,ProductSet) and len(sets.args)==2 and all(isinstance(a,FiniteSet) for a in sets.args):
+            return FiniteSet(*(x+I*y for x in sets.args[0] for y in sets.args[1]))
+        return object.__new__(cls)._setup(sets,False)
+
+
+class PolarComplexRegion(ComplexRegion):
+    def __new__(cls,sets):
+        from .sets.fancysets import normalize_theta_set
+        pieces=sets.args if isinstance(sets,Union) else (sets,)
+        if sets!=EmptySet:
+            sets=Union(*(ProductSet(piece.args[0],normalize_theta_set(piece.args[1])) for piece in pieces))
+        return object.__new__(cls)._setup(sets,True)
 
 
 def _invertible_in_set(func, setv):
