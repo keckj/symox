@@ -543,12 +543,25 @@ impl Gruntz {
 
     fn leadterm_in(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> LRes<(Expr, Expr)> {
         let l = self.fresh("logw");
-        // With `log(w) = k*x`, `x` is written as `l/k` first, so that the
-        // expansion sees the cancellations between `x` and `log(w)` like the
-        // reference `logx` expansion (`-x/w + log(1/w)/w`, or
-        // `exp(-x)/w = 1`, with `log(w) = -x`).
+        let plain = self.lt_cancel(f, w, &l, logw);
+        let x = self.x.clone();
+        let has_x_exp = |c: &Expr| {
+            fn walk(c: &Expr, x: &Expr) -> bool {
+                match c.kind() {
+                    Kind::Func(Func::Exp, a) if depends(&a[0], x) => true,
+                    _ => c.args().iter().any(|a| walk(a, x)),
+                }
+            }
+            walk(c, &x)
+        };
+        let plain_ok = matches!(&plain, Ok(Some((c, _))) if !c.is_zero() && !has_x_exp(c));
+        // With `log(w) = k*x`, `x` is written as `l/k`, so that the expansion
+        // sees the cancellations between `x` and `log(w)` like the reference
+        // `logx` expansion (`-x/w + log(1/w)/w`, or `exp(-x)/w = 1`, with
+        // `log(w) = -x`); only needed when the plain expansion fails, vanishes
+        // or leaves exponentials of `x` in the coefficient.
         let k = div(logw, &self.x);
-        if k.as_number().is_some_and(|k| !k.is_zero()) && depends(f, &self.x) {
+        if !plain_ok && k.as_number().is_some_and(|k| !k.is_zero()) && depends(f, &self.x) {
             let mut m = FxHashMap::default();
             m.insert(self.x.clone(), div(&l, &k));
             // `exp(alpha*l + beta) = w**alpha*exp(beta)`
@@ -567,7 +580,7 @@ impl Gruntz {
                 }
             }
         }
-        let (c, e) = match self.lt_cancel(f, w, &l, logw) {
+        let (c, e) = match plain {
             Ok(Some(ce)) => ce,
             Ok(None) => return unknown("cancellation in the mrv leading term"),
             Err(SErr::Pole(s)) => return unknown(format!("series in mrv variable: {s}")),
