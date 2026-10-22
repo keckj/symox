@@ -1146,6 +1146,74 @@ Remaining gaps:
   sets against `Reals`, so removing it needs the image-set handlers in native
   code first.
 
+## Solver targets, solve_linear and matrix structure on 2026-10-22
+
+A probe of 182 calls (`solve`, `solveset`, `linsolve`, `nonlinsolve` with
+expression, number, `Indexed`, function and derivative targets,
+`solve_linear`, `Matrix.diag`, `extract`, the structural matrix predicates
+and `.kind` of matrices and matrix expressions) went from 112 to 178 outputs
+equal (by `str` and exception type) to SymPy 1.14.0.
+`tests/test_wrong_linalg_wave4_parity.py` holds the reference values.
+
+- `solve` follows the reference `recast_to_symbols`: an unknown that is not
+  a `Symbol` (an expression such as `x + 2`, a number, an `Indexed`) is
+  replaced by a numbered `Dummy` in `ordered` order, the system is solved,
+  and the keys and values are put back, the dict keys in `ordered` order.
+  A number target also replaces its negative, as `Number._eval_subs` does,
+  so `solve(x - 2, 2)` is `[x]` and `solve(sqrt(2) - 1, 1)` is `[sqrt(2)]`.
+  `solveset` and `nonlinsolve` recast an expression target the same way, so
+  `solveset(x + 2 - y, x + 2)` is `{y}` and `nonlinsolve([f(x)**2 - 1],
+  [f(x)])` is `{(-1,), (1,)}`.
+- `solve_linear` is a port of the reference: a symbol is only isolated when
+  the derivative of the numerator survives differentiation by its free
+  symbols, so `solve_linear(y*cos(x)**2 + y*sin(x)**2 - y)` is `(0, 1)`;
+  derivatives of the symbols are evaluated, a candidate that zeroes a
+  denominator is rejected, numeric integrals in the solution are evaluated,
+  and a non-expression argument raises `AttributeError`.
+- `Matrix.diag` has the reference `strict`, `unpack`, `rows`, `cols` and
+  `cls` options: a single list is unpacked, a non-strict flat list is a
+  column and ragged rows are padded with zeros, `rows`/`cols` pad the
+  result and must be integers, and a too-small size raises `ValueError`.
+  The module-level `diag` is `strict=True, unpack=False`, and
+  `ImmutableMatrix.diag` and `SparseMatrix.diag` share the same code.
+- `extract` accepts boolean masks and negative indices and raises
+  `IndexError` out of range, for dense, immutable and sparse matrices.
+- `is_symmetric` simplifies the differences with `simplify` by default (or
+  the given function, or none with `simplify=False`), so
+  `Matrix([[1, (x + 1)**2], [x**2 + 2*x + 1, 2]]).is_symmetric()` is True.
+  `is_anti_symmetric` and `is_diagonal` are the reference fuzzy
+  conjunctions, so an off-diagonal entry that is zero but not structurally
+  zero gives `None`.
+- `.kind` of every matrix expression (`MatrixSymbol`, `MatMul`, `MatAdd`,
+  `Identity`, `ZeroMatrix`, `Transpose`, `Inverse`, powers) and of sparse
+  matrices is `MatrixKind(NumberKind)`. The internal dispatch tag that
+  used the name `kind` is now `_kind_tag`.
+
+Intentional divergence:
+
+- Function and derivative targets (`f(x)`, `f(x).diff(x)`) stay on the
+  native `solve` path instead of being swapped for dummies. The probed
+  outputs already agree with SymPy, and the native path is the one the ODE
+  solvers rely on.
+- `diag(MatrixSymbol('A', 2, 2))` places the explicit entries of the matrix
+  expression, as symox did before; SymPy raises `AttributeError` because a
+  matrix expression has no `tolist`.
+
+Remaining gaps:
+
+- The general `subs` does not let a number replace its negative
+  (`(x - 2).subs(2, y)` is `x - 2` where SymPy gives `x - y`); only the
+  solver recast applies that rule.
+- `Indexed` is a Python object outside the native expression tree, so
+  `atoms(Indexed)` of a sum is empty and `solve(eqs, eqs.atoms(Indexed))`
+  gives `[]`. An explicit list of `Indexed` targets works.
+- `solve(Integral(x, x) - y, y)` gives `[x**2/2]` where SymPy keeps
+  `[Integral(x, x)]`: the default simplification evaluates the integral
+  (`simplify=False` gives the reference value).
+- `type(...)` of an immutable dense matrix is the native `Matrix` class, so
+  `type(ImmutableMatrix.diag(1, 2)).__name__` is `Matrix` instead of
+  `ImmutableDenseMatrix`; `isinstance(..., ImmutableMatrix)` holds.
+
 ## Remaining blocking gaps
 
 ### Noncommutative symbols

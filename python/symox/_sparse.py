@@ -400,16 +400,20 @@ class _SparseBase:
         from . import conjugate
         return self.applyfunc(conjugate)
     def adjoint(self): return self.H
-    def is_diagonal(self): return all(i == j for i,j in self._data)
-    def is_symmetric(self, simplify=True): return self == self.T
+    def is_diagonal(self):
+        from ._matrix_predicates import _fuzzy_and
+        return _fuzzy_and(v.is_zero for (i,j),v in self._data.items() if i != j)
+    def is_symmetric(self, simplify=True):
+        from ._matrix_predicates import is_symmetric
+        return is_symmetric(self, simplify)
     def trace(self):
         if not self.is_square: raise NonSquareMatrixError('Matrix must be square')
         return sum((v for (i,j),v in self._data.items() if i == j),_ZERO)
     def row(self, i): return self[_index(i,self.rows),:]
     def col(self, j): return self[:,_index(j,self.cols)]
     def extract(self, rowsList, colsList):
-        rowsList,colsList=list(rowsList),list(colsList)
-        ri,cj=[_index(i,self.rows) for i in rowsList],[_index(j,self.cols) for j in colsList]
+        from ._matrix_predicates import extract_indices
+        ri,cj=extract_indices(self,rowsList,colsList)
         return self._new(len(ri),len(cj),{(i,j):self._data[r,c] for i,r in enumerate(ri) for j,c in enumerate(cj) if (r,c) in self._data})
     def reshape(self, rows, cols):
         rows,cols=_dimension(rows),_dimension(cols)
@@ -500,13 +504,9 @@ class _SparseBase:
         rows,cols=_dimension(rows),_dimension(rows if cols is None else cols)
         return cls(rows,cols,{(i,i):_ONE for i in range(min(rows,cols))})
     @classmethod
-    def diag(cls, *entries):
-        data={}; rows=cols=0
-        for value in entries:
-            block = cls(value) if _matrix_like(value) or isinstance(value,(list,tuple)) else cls(1,1,{(0,0):value})
-            data.update({(i+rows,j+cols):v for (i,j),v in block._data.items()})
-            rows += block.rows; cols += block.cols
-        return cls(rows,cols,data)
+    def diag(cls, *entries, **kwargs):
+        from ._matrix_diag import matrix_diag
+        return matrix_diag(cls, *entries, **kwargs)
     @classmethod
     def hstack(cls, *matrices):
         matrices=[m if isinstance(m,_SparseBase) else cls(m) for m in matrices]

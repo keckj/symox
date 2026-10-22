@@ -360,7 +360,7 @@ def install(namespace):
             return root_sum_doit(self,**kwargs)
         if self.class_name == 'Permanent':
             matrix = self.args[0]
-            if matrix.kind == 'ImmutableMatrix':return matrix.as_explicit().per()
+            if getattr(matrix, '_kind_tag', None) == 'ImmutableMatrix':return matrix.as_explicit().per()
         return old_doit(self,*args,**kwargs)
     Expr.doit = doit
     @wraps(old_rewrite)

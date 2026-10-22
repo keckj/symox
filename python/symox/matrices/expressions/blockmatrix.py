@@ -30,13 +30,13 @@ def bc_transpose(expr):return _collapse_kind(expr,('Transpose',))
 
 
 def blockinverse_1x1(expr):
-    if getattr(expr,'kind',None)=='Inverse' and isinstance(expr.args[0],BlockMatrix) and expr.args[0].blockshape==(1,1):
+    if getattr(expr,'_kind_tag',None)=='Inverse' and isinstance(expr.args[0],BlockMatrix) and expr.args[0].blockshape==(1,1):
         return BlockMatrix([[expr.args[0].blocks[0,0].inv()]])
     return expr
 
 
 def blockinverse_2x2(expr):
-    if getattr(expr,'kind',None)!='Inverse' or not isinstance(expr.args[0],BlockMatrix) or expr.args[0].blockshape!=(2,2):return expr
+    if getattr(expr,'_kind_tag',None)!='Inverse' or not isinstance(expr.args[0],BlockMatrix) or expr.args[0].blockshape!=(2,2):return expr
     from symox import ShapeError,NonInvertibleMatrixError
     grid=expr.args[0].blocks;A,B,C,D=[grid[i,j] for i in range(2) for j in range(2)]
     try:

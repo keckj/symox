@@ -732,7 +732,8 @@ class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
 
     @staticmethod
     def diag(*args, **kwargs):
-        return diag(*args, **kwargs).as_immutable()
+        kwargs.setdefault('cls', ImmutableMatrix)
+        return Matrix.diag(*args, **kwargs)
 
     @staticmethod
     def hstack(*args):
@@ -744,6 +745,11 @@ class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
 
 
 ImmutableDenseMatrix = ImmutableMatrix
+
+from . import _matrix_diag  # noqa: E402
+diag = _matrix_diag.install(globals())
+from . import _matrix_predicates  # noqa: E402
+_matrix_predicates.install()
 
 
 class MatrixError(Exception):
@@ -1576,6 +1582,16 @@ def Contains(x, s):
 
 def solveset(f, symbol=None, domain=Complexes):
     """Solve ``f == 0`` (or an (in)equality) for ``symbol`` as a set."""
+    if symbol is not None:
+        target = sympify(symbol)
+        if isinstance(target, Expr) and not target.is_Symbol:
+            # SymPy solves for a non-Symbol (f(x), x + 2, A[1]) through a
+            # Dummy and restores it with xreplace
+            equation = sympify(f)
+            if isinstance(equation, Expr) or getattr(equation, 'is_Relational', False):
+                from .solvers._algebraic import recast_to_symbols
+                fs, s, swap = recast_to_symbols([equation], [target])
+                return solveset(fs[0], s[0], domain).xreplace(swap)
     return _wrap_set(_core.solveset(f, symbol, None if domain is None else _unwrap(domain)))
 
 

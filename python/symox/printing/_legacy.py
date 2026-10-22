@@ -38,7 +38,7 @@ class LegacyPrinter(Printer):
             return getattr(expr, self.printmethod)(self, **kwargs)
         name = getattr(expr, "class_name", type(expr).__name__)
         if name=='_MatrixExpr':
-            name=expr.kind
+            name=expr._kind_tag
         method = getattr(self, "_print_" + name, None)
         undefined = (getattr(expr, "is_UndefinedFunction", False)
                      or any(cls.__name__ == "AppliedUndef" for cls in type(expr).__mro__))

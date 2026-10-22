@@ -147,7 +147,7 @@ def _fragment(value, pattern):
     from . import MatrixExpr
     if not isinstance(value, MatrixExpr) or not isinstance(pattern, MatrixExpr):
         return False
-    if value.kind != pattern.kind:
+    if value._kind_tag != pattern._kind_tag:
         return False
     if value.is_MatMul:
         args = pattern.args
@@ -232,7 +232,7 @@ def is_same(self, other, approx=None):
     def same(a, b):
         if isinstance(a, MatrixExpr) or isinstance(b, MatrixExpr):
             return (isinstance(a, MatrixExpr) and isinstance(b, MatrixExpr) and
-                    a.kind == b.kind and len(a.args) == len(b.args) and
+                    a._kind_tag == b._kind_tag and len(a.args) == len(b.args) and
                     all(same(x, y) for x, y in zip(a.args, b.args)))
         if isinstance(a, Expr) and isinstance(b, Expr):
             return a.is_same(b, approx=approx) if approx is not None else a.is_same(b)
@@ -259,14 +259,14 @@ def _map_scalars(value, transform, memo=None, preserve_indices=False):
         if value in memo:
             return memo[value]
         protected = set()
-        if value.kind == 'Inverse':
+        if value._kind_tag == 'Inverse':
             protected.add(1)
         if preserve_indices:
             protected.update({
                 'MatrixSymbol': (0, 1, 2), 'Identity': (0,), 'ZeroMatrix': (0, 1),
                 'OneMatrix': (0, 1), 'FunctionMatrix': (0, 1), 'MatrixSlice': (1, 2),
                 'MatPow': (1,), 'MatrixPermute': (2,),
-            }.get(value.kind, ()))
+            }.get(value._kind_tag, ()))
         args = tuple(a if i in protected else _map_scalars(a, transform, memo, preserve_indices)
                      for i, a in enumerate(value.args))
         result = value if args == value.args else value.func(*args)
@@ -317,7 +317,7 @@ def matches(self, expr, repl_dict=None, old=False):
         if budget < 0:
             raise NotImplementedError('matrix pattern matching exceeded its search budget')
         if isinstance(pattern, MatrixExpr):
-            if not (isinstance(value, MatrixExpr) and pattern.kind == value.kind and
+            if not (isinstance(value, MatrixExpr) and pattern._kind_tag == value._kind_tag and
                     len(pattern.args) == len(value.args)):
                 return False
             if pattern.is_MatAdd:
@@ -715,15 +715,15 @@ def is_constant(self, *wrt, **flags):
         return False if False in results else (None if None in results else True)
     if self.is_FunctionMatrix:
         return self.lamda.expr.is_constant(*wrt, **flags)
-    if self.is_MatPow or self.kind in ('Transpose', 'Adjoint', 'Inverse', 'MatrixConjugate'):
+    if self.is_MatPow or self._kind_tag in ('Transpose', 'Adjoint', 'Inverse', 'MatrixConjugate'):
         return all(a.is_constant(*wrt, **flags) for a in self.args)
     return None
 
 
 def _diagonal_length(self):
-    if self.kind=='DiagonalOf':
+    if self._kind_tag=='DiagonalOf':
         return self.shape[0]
-    if self.kind!='DiagonalMatrix':
+    if self._kind_tag!='DiagonalMatrix':
         raise AttributeError('diagonal_length is available for diagonal matrix expressions')
     rows,cols=self.shape
     if rows.is_Integer and cols.is_Integer:

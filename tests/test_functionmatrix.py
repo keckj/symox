@@ -23,7 +23,7 @@ def test_functionmatrix_construction_entries_and_sympy_interchange(rows, cols):
     value, reference, _, _ = context(rows, cols)
     assert isinstance(value, sx.FunctionMatrix)
     assert isinstance(value, sx.MatrixExpr)
-    assert value.is_FunctionMatrix and value.kind == 'FunctionMatrix'
+    assert value.is_FunctionMatrix and value._kind_tag == 'FunctionMatrix'
     assert value.args == (rows, cols, value.lamda)
     assert value.func is sx.FunctionMatrix
     assert value.func(*value.args) == value

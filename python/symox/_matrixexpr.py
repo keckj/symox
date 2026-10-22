@@ -1,6 +1,11 @@
 """SymPy-style constructors for the native noncommutative matrix DAG."""
 from . import _core
 
+# The native string tag of a node (MatrixSymbol, MatMul, ...); the public
+# ``kind`` becomes SymPy's MatrixKind once the kinds are installed.
+if '_kind_tag' not in _core._MatrixExpr.__dict__:
+    _core._MatrixExpr._kind_tag = _core._MatrixExpr.__dict__['kind']
+
 
 class _MatrixType(type):
     def __getattr__(cls,name):
@@ -8,7 +13,7 @@ class _MatrixType(type):
         return instance_method(_core._MatrixExpr,name)
 
     def __instancecheck__(cls, value):
-        return isinstance(value, _core._MatrixExpr) and (cls._kinds is None or value.kind in cls._kinds)
+        return isinstance(value, _core._MatrixExpr) and (cls._kinds is None or value._kind_tag in cls._kinds)
 
     def class_key(cls):
         name = cls.__name__

@@ -191,7 +191,6 @@ def test_norm_preserves_symbol_assumptions():
 @pytest.mark.parametrize("operation, exception", [
     (lambda m: m.eigenvals(chop=True), NotImplementedError),
     (lambda m: m.solve(sx.eye(2), method="unknown"), ValueError),
-    (lambda m: sx.diag(1, 2, rows=3), NotImplementedError),
 ])
 def test_unsupported_options_are_explicit(operation, exception):
     with pytest.raises(exception):
