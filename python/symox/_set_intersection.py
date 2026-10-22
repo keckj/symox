@@ -12,7 +12,7 @@ bounds of an ``Interval``.
 
 def _imageset_intersection(self, other):
     from symox import (S, Dummy, FiniteSet, Lambda, Union, ConditionSet, Eq,
-                       Interval, ImageSet, Range, Mul, imageset)
+                       Interval, ImageSet, Range, Mul, imageset, Intersection)
     from symox import expand_complex
     lamda = self.lamda
     if len(lamda.variables) > 1 or tuple(lamda.signature) != tuple(lamda.variables):
@@ -83,32 +83,40 @@ def _imageset_intersection(self, other):
         return imageset(lam, base_set)
 
     if isinstance(other, Interval):
-        from symox.solvers.solveset import invert_real, invert_complex, solveset
+        from symox.solvers.solveset import invert_real, invert_complex
         f = lamda.expr
         n = lamda.variables[0]
+
+        def _through_real_part():
+            # the reference intersects the real zeros of f with the interval,
+            # which drops real values such as 1 in ImageSet(n*I + 1); take the
+            # real part of the image set first instead
+            if f.is_real or other.is_subset(S.Reals) is not True:
+                return None
+            real_part = _imageset_intersection(self, S.Reals)
+            if real_part is None or real_part == self:
+                return None
+            return Intersection(real_part, other)
+
         new_inf, new_sup = None, None
         new_lopen, new_ropen = other.left_open, other.right_open
         inverter = invert_real if f.is_real else invert_complex
         g1, h1 = inverter(f, other.inf, n)
         g2, h2 = inverter(f, other.sup, n)
         if not all(isinstance(i, FiniteSet) for i in (h1, h2)):
-            return None
+            return _through_real_part()
         if g1 == n and len(h1) == 1:
             new_inf = h1.args[0]
         if g2 == n and len(h2) == 1:
             new_sup = h2.args[0]
         if any(i is None for i in (new_sup, new_inf)):
-            return None
-        range_set = S.EmptySet
-        if all(i.is_real for i in (new_sup, new_inf)):
-            if new_inf > new_sup:
-                new_inf, new_sup = new_sup, new_inf
-            new_interval = Interval(new_inf, new_sup, new_lopen, new_ropen)
-            range_set = base_set.intersect(new_interval)
-        else:
-            if other.is_subset(S.Reals):
-                solutions = solveset(f, n, S.Reals)
-                range_set = solutions.intersect(other)
+            return _through_real_part()
+        if not all(i.is_real for i in (new_sup, new_inf)):
+            return _through_real_part()
+        if new_inf > new_sup:
+            new_inf, new_sup = new_sup, new_inf
+        new_interval = Interval(new_inf, new_sup, new_lopen, new_ropen)
+        range_set = base_set.intersect(new_interval)
         if range_set == S.EmptySet:
             return S.EmptySet
         if isinstance(range_set, Range) and range_set.size is not S.Infinity:

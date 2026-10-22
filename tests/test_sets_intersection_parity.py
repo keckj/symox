@@ -155,3 +155,22 @@ def test_reference_intersection_and_complement_rules(call, expected):
     value = eval(call)
     got = srepr(value) if not isinstance(value, (bool, type(None), str)) else repr(value)
     assert got == expected
+
+
+# Intentional correction: the reference intersects the real zeros of the map
+# with the interval and returns EmptySet, although n = 0 gives 1 in [0, 1]
+CORRECTED = [
+    ('Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I + 1), S.Integers))',
+     'FiniteSet(Integer(1))'),
+    ('Intersection(Interval(0, 2), ImageSet(Lambda(n, n*I + n), S.Integers))',
+     'FiniteSet(Integer(0))'),
+    ('Intersection(Interval.open(0, 1), ImageSet(Lambda(n, n*I + 1), S.Integers))',
+     'EmptySet'),
+    ('Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I - I), S.Integers))',
+     'FiniteSet(Integer(0))'),
+]
+
+
+@pytest.mark.parametrize('call,expected', CORRECTED)
+def test_complex_image_set_meets_interval_through_its_real_part(call, expected):
+    assert srepr(eval(call)) == expected

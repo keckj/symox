@@ -878,8 +878,14 @@ Remaining gaps:
   S.Integers))`, `n**2` with `2*n`, and `2*n*pi` with `n*pi` stay
   unevaluated; SymPy gives the image sets.
 - `invert_complex(n*I, 1, n)` with an integer `n` gives `EmptySet` (SymPy
-  `{-I}`), so `Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I),
-  S.Integers))` stays unevaluated; SymPy gives `{0}`.
+  `{-I}`). The `Interval` rule then takes the real part of the image set
+  first, so `Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I),
+  S.Integers))` gives `{0}` as in SymPy.
+- **Intentional correction**: when the inverted bounds are not real, the
+  reference intersects the real zeros of the map with the interval, so
+  `Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I + 1), S.Integers))`
+  is `EmptySet` in SymPy 1.14 although `n = 0` gives `1`. Symox intersects
+  the real part of the image set with the interval and gives `{1}`.
 - `Range.contains` with a step other than 1 and a symbolic integer stays
   `Contains` (the reference returns the relation when `(ref - n) % step`
   simplifies to zero); `ImageSet(Lambda(n, 2*n), S.Integers).contains(x)` is
