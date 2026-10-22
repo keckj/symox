@@ -15,6 +15,7 @@ use crate::traverse::{free_symbols, has};
 
 mod algebraic;
 mod recast;
+mod trig;
 pub use recast::{solve_atom,solve_atom_system};
 pub(crate) mod lambert;
 
@@ -46,10 +47,16 @@ pub fn solve(eq: &Expr, x: &Expr) -> Option<Vec<Expr>> {
 }
 
 pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
-    let f = as_expr(eq);
     if let Kind::Bool(b) = eq.kind() {
         return if *b { None } else { Some(vec![]) };
     }
+    // The reference `solve` expands trig angles once, on the whole equation.
+    let f = trig::expand_angles(&as_expr(eq), x);
+    solve_checked(&f, x, check)
+}
+
+fn solve_checked(f: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
+    let f = f.clone();
     // The reference `_solve` solves each factor of a product on its own (so
     // each factor keeps its own root forms), then rejects the solutions that
     // make a denominator of the product zero.
@@ -61,7 +68,7 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
                 return Some(vec![]);
             }
             if has(&factor, x) {
-                sols.extend(solve_with_check(&factor, x, check)?);
+                sols.extend(solve_checked(&factor, x, check)?);
             }
         }
         sols
@@ -70,7 +77,9 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
     };
     // Infinities reached by log(0), for example, are limiting values rather
     // than finite solutions. This restriction also applies with check=False.
-    sols.retain(|s| !matches!(s.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN));
+    // A candidate such as `2*atan(I) = oo*I` (from the tan half-angle
+    // rewrite) is not a finite solution either.
+    sols.retain(|s| !matches!(s.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN) && !has_infinity(s));
     if check && product {
         // Each factor's solutions were checked against that factor. Like the
         // reference, the union is then only filtered by the denominators of
@@ -319,6 +328,14 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         }
         return Some(out);
     }
+    // several trig generators and no other function: rewrite to tan
+    {
+        let mut gens = Vec::new();
+        generators(&num, x, &mut gens);
+        if let Some(newf) = trig::tan_rewrite(&num, x, &gens) {
+            return solve_rec(&newf, x, depth + 1).map(|r| r.iter().map(tabulated_atan).collect());
+        }
+    }
     // polynomial in a single generator g(x)
     if let Some(r) = solve_by_generator(&num, x, depth) {
         return Some(r);
@@ -349,7 +366,47 @@ fn solve_rec(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
     if let Some(combined) = combined_powers(&num, x) {
         return solve_rec(&combined, x, depth + 1);
     }
+    // the `rewrite(exp)` fallback of the reference `_tsolve`
+    if let Some(rewritten) = trig::exp_rewrite(&num, x) {
+        return solve_rec(&rewritten, x, depth + 1);
+    }
     None
+}
+
+fn contains_node(e: &Expr, p: impl Fn(&Expr) -> bool) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |s| found |= p(s));
+    found
+}
+
+fn has_free_parameter(e: &Expr) -> bool {
+    !free_symbols(e).is_empty()
+}
+
+/// `2*atan(r)` from the tan half-angle rewrite: the reference `simplify`
+/// rationalizes `r` (`1/(1 + sqrt(2))` to `-1 + sqrt(2)`), which evaluates
+/// `atan` at the tabulated angles. Only that evaluation is adopted.
+fn tabulated_atan(e: &Expr) -> Expr {
+    let mut map = FxHashMap::default();
+    crate::traverse::preorder(e, &mut |s| {
+        if let Kind::Func(Func::Atan, a) = s.kind() {
+            let v = atan(&crate::simplify::radsimp(&a[0]));
+            if !contains_node(&v, |t| matches!(t.kind(), Kind::Func(Func::Atan, _))) {
+                map.insert(s.clone(), v);
+            }
+        }
+    });
+    if map.is_empty() { e.clone() } else { crate::subs::xreplace(e, &map) }
+}
+
+fn has_infinity(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |s| {
+        if matches!(s.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN) {
+            found = true;
+        }
+    });
+    found
 }
 
 /// `exp(u)` or `b**u` with `u` depending on the unknown (the reference
@@ -832,23 +889,46 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
             Some(base) => pow(base, e),
             None => exp(e),
         };
-        // rational multiples of x in the exponents
+        // rational multiples of x in the exponents; for `exp`, rational
+        // multiples of `I` (`exp(I*x/2)`, `exp(3*I*x/2)`), the generator
+        // being `exp(I*x/q)`
         let mut ks = Vec::new();
+        let mut unit: Option<Expr> = None;
+        let mut slopes = Vec::new();
         for (_, a) in decomposed {
             let k = diff(a, x);
-            if has(&k, x) || !k.is_rational_number() {
+            if has(&k, x) {
                 return None;
             }
-            ks.push(k);
+            let (r, rest) = if k.is_rational_number() {
+                (k.clone(), Expr::one())
+            } else if base.is_none() && free_symbols(&k).is_empty() {
+                // only the `I*x` multiples of the `rewrite(exp)` of trig
+                // functions; other constants keep the earlier paths
+                let (r, rest) = crate::ops::as_coeff_mul(&k);
+                if rest != Expr::i() {
+                    return None;
+                }
+                (Expr::num(r), rest)
+            } else {
+                return None;
+            };
+            if !r.is_rational_number() || unit.as_ref().is_some_and(|u| *u != rest) {
+                return None;
+            }
+            unit = Some(rest);
+            slopes.push(k);
+            ks.push(r);
         }
+        let unit = unit.unwrap_or_else(Expr::one);
         let mut q = num_bigint::BigInt::from(1);
         for k in &ks {
             q = num_integer::Integer::lcm(&q, &k.as_number().unwrap().numer_denom().unwrap().1);
         }
         let qn = Number::from_bigint(q);
         let mut g2 = f.clone();
-        for ((g, k), (_, a)) in gens.iter().zip(&ks).zip(decomposed) {
-            let c0 = expand(&sub(a, &mul2(k, x)));
+        for (((g, k), slope), (_, a)) in gens.iter().zip(&ks).zip(&slopes).zip(decomposed) {
+            let c0 = expand(&sub(a, &mul2(slope, x)));
             let power = Expr::num(k.as_number().unwrap().mul(&qn));
             g2 = subs1(&g2, g, &mul2(&raise(&c0), &pow(&u, &power)));
         }
@@ -865,7 +945,13 @@ fn solve_by_generator(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
             if r.is_zero() {
                 continue;
             }
-            out.push(mul2(&Expr::num(qn.clone()), &log(&r)));
+            out.push(div(&mul2(&Expr::num(qn.clone()), &log(&r)), &unit));
+        }
+        // The reference simplifies the logarithms of the roots on the unit
+        // circle along a path not reproduced here: only the lattices whose
+        // logarithms all evaluate (`log(-1)`, `log(I)`) are adopted.
+        if !unit.is_one() && out.iter().any(|v| contains_node(v, |t| matches!(t.kind(), Kind::Func(Func::Log, _)))) {
+            return None;
         }
         return Some(out);
     }
@@ -1229,6 +1315,28 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
                 Func::Sin => vec![(g.clone(), asin(&rhs)), (g, sub(&Expr::pi(), &asin(&rhs)))],
                 Func::Cos => vec![(g.clone(), acos(&rhs)), (g, sub(&mul2(&Expr::int(2), &Expr::pi()), &acos(&rhs)))],
                 Func::Tan => vec![(g, atan(&rhs))],
+                // The reference reaches `sec` and `csc` through `rewrite(exp)`
+                // and a simplified logarithm; only the closed forms that
+                // simplify to multiples of `pi` are reproduced.
+                Func::Sec | Func::Csc => {
+                    let r = div(&Expr::one(), &rhs);
+                    let v = if matches!(func, Func::Sec) { acos(&r) } else { asin(&r) };
+                    if contains_node(&v, |e| matches!(e.kind(), Kind::Func(Func::Acos | Func::Asin, _)))
+                        || has_free_parameter(&v) {
+                        return None;
+                    }
+                    let w = if matches!(func, Func::Sec) { neg(&v) } else { sub(&Expr::pi(), &v) };
+                    // a double root of the exp polynomial (`sec(x) + 1`
+                    // gives `[pi]`) is one value
+                    let turns = div(&sub(&w, &v), &mul2(&Expr::int(2), &Expr::pi()));
+                    if turns.as_number().is_some_and(|n| n.is_integer()) {
+                        vec![(g, v)]
+                    } else if matches!(func, Func::Sec) {
+                        vec![(g.clone(), w), (g, v)]
+                    } else {
+                        vec![(g.clone(), v), (g, w)]
+                    }
+                }
                 Func::Cot => vec![(g, acot(&rhs))],
                 Func::Sinh => vec![(g, asinh(&rhs))],
                 Func::Cosh => vec![(g.clone(), acosh(&rhs)), (g, neg(&acosh(&rhs)))],
