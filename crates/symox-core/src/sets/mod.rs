@@ -378,63 +378,95 @@ pub fn union(sets: Vec<Expr>) -> Expr {
     }
 }
 
-/// Simplify `a ∪ b` if a rule applies.
+/// Simplify `a ∪ b` if a rule applies: the reference `union_sets` rules,
+/// dispatched on the ordered pair (the caller tries both orders).
 fn union_pair(a: &Expr, b: &Expr) -> Option<Vec<Expr>> {
-    // two intervals
-    if let (Some((s1, e1, l1, r1)), Some((s2, e2, l2, r2))) = (interval_parts(a), interval_parts(b)) {
-        // order so that s1 <= s2
-        let c = cmp3(&s1, &s2)?;
-        let ((s1, e1, l1, r1), (s2, e2, l2, r2)) = if c == Ordering::Greater {
-            ((s2, e2, l2, r2), (s1, e1, l1, r1))
-        } else {
-            ((s1, e1, l1, r1), (s2, e2, l2, r2))
-        };
-        // disjoint with a gap?
-        match cmp3(&e1, &s2)? {
-            Ordering::Less => return None,
-            Ordering::Equal if r1 && l2 => return None,
-            _ => {}
-        }
-        let lopen = if c == Ordering::Equal { l1 && l2 } else { l1 };
-        let (end, ropen) = match cmp3(&e1, &e2)? {
-            Ordering::Less => (e2, r2),
-            Ordering::Greater => (e1, r1),
-            Ordering::Equal => (e1, r1 && r2),
-        };
-        return Some(vec![interval(&s1, &end, lopen, ropen)]);
+    let (oa, _) = as_set(a)?;
+    let ob = as_set(b).map(|(op, _)| op)?;
+    let keep_a = || Some(vec![a.clone()]);
+    match (oa, ob) {
+        (SetOp::Naturals0, SetOp::Naturals)
+        | (SetOp::Rationals, SetOp::Naturals | SetOp::Naturals0)
+        | (SetOp::Reals, SetOp::Naturals | SetOp::Naturals0 | SetOp::Rationals) => return keep_a(),
+        _ => {}
     }
-    // interval and finite set
-    if let (Some((s, e, l, r)), Some(el)) = (interval_parts(a), finite_elements(b)) {
-        let mut l2 = l;
-        let mut r2 = r;
-        let mut rest = Vec::new();
-        let mut changed = false;
-        for x in el {
-            if l && cmp3(x, &s) == Some(Ordering::Equal) {
-                l2 = false;
-                changed = true;
-            } else if r && cmp3(x, &e) == Some(Ordering::Equal) {
-                r2 = false;
-                changed = true;
-            } else if contains3(a, x) == Some(true) {
-                changed = true;
-            } else {
-                rest.push(x.clone());
+    match oa {
+        SetOp::Integers => {
+            let common = intersection(vec![a.clone(), b.clone()]);
+            if common == *a {
+                return Some(vec![b.clone()]);
             }
-        }
-        if !changed {
+            if common == *b {
+                return keep_a();
+            }
             return None;
         }
-        let iv = if l2 != l || r2 != r { interval(&s, &e, l2, r2) } else { a.clone() };
-        let mut out = vec![iv];
-        if !rest.is_empty() {
-            out.push(finite_set(rest));
+        SetOp::Complexes => {
+            // `b` real: `ComplexRegion.from_real(b)` is absorbed by the plane.
+            return (is_subset(b, &reals()) == Some(true)).then(|| vec![a.clone()]);
         }
-        return Some(out);
+        SetOp::ProductSet => {
+            if is_subset(b, a) == Some(true) {
+                return keep_a();
+            }
+            if let (Some((_, pa)), Some((SetOp::ProductSet, pb))) = (as_set(a), as_set(b)) {
+                if pa.len() == 2 && pb.len() == 2 {
+                    if pa[0] == pb[0] {
+                        return Some(vec![product_set(vec![pa[0].clone(), union(vec![pa[1].clone(), pb[1].clone()])])]);
+                    }
+                    if pa[1] == pb[1] {
+                        return Some(vec![product_set(vec![union(vec![pa[0].clone(), pb[0].clone()]), pa[1].clone()])]);
+                    }
+                }
+            }
+            return None;
+        }
+        _ => {}
     }
-    // subset absorption
-    if is_subset(b, a) == Some(true) {
-        return Some(vec![a.clone()]);
+    if let Some((s1, e1, l1, r1)) = interval_parts(a) {
+        if let Some((s2, e2, l2, r2)) = interval_parts(b) {
+            // merged only when every endpoint is comparable
+            let comparable = [&s1, &e1, &s2, &e2].iter().all(|e| crate::integrate::piecewise::is_comparable(e));
+            if !comparable {
+                return None;
+            }
+            let c = cmp3(&s1, &s2)?;
+            let ((s1, e1, l1, r1), (s2, e2, l2, r2)) = if c == Ordering::Greater {
+                ((s2, e2, l2, r2), (s1, e1, l1, r1))
+            } else {
+                ((s1, e1, l1, r1), (s2, e2, l2, r2))
+            };
+            // disjoint with a gap?
+            match cmp3(&e1, &s2)? {
+                Ordering::Less => return None,
+                Ordering::Equal if r1 && l2 => return None,
+                _ => {}
+            }
+            let lopen = if c == Ordering::Equal { l1 && l2 } else { l1 };
+            let (end, ropen) = match cmp3(&e1, &e2)? {
+                Ordering::Less => (e2, r2),
+                Ordering::Greater => (e1, r1),
+                Ordering::Equal => (e1, r1 && r2),
+            };
+            return Some(vec![interval(&s1, &end, lopen, ropen)]);
+        }
+        // open finite endpoints contained in `b` are closed
+        let finite = |e: &Expr| crate::assumptions::fact(e, "finite") == Some(true);
+        let close_l = l1 && contains3(b, &s1) == Some(true) && finite(&s1);
+        let close_r = r1 && contains3(b, &e1) == Some(true) && finite(&e1);
+        if close_l || close_r {
+            let lopen = l1 && contains3(b, &s1) != Some(true);
+            let ropen = r1 && contains3(b, &e1) != Some(true);
+            return Some(vec![interval(&s1, &e1, lopen, ropen), b.clone()]);
+        }
+        return None;
+    }
+    if let Some(el) = finite_elements(a) {
+        // elements of `a` already in `b` are dropped
+        if el.iter().any(|x| contains3(b, x) == Some(true)) {
+            let rest: Vec<Expr> = el.iter().filter(|x| contains3(b, x) != Some(true)).cloned().collect();
+            return Some(vec![finite_set(rest), b.clone()]);
+        }
     }
     None
 }

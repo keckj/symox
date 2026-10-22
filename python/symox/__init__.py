@@ -1431,6 +1431,18 @@ class Range(Set):
     def step(self):
         return self._e.args[2]
 
+    @property
+    def size(self):
+        """Number of elements, symbolic when the reference can decide it."""
+        if self.start == self.stop:
+            return S.Zero
+        n = (self.stop - self.start)/self.step
+        if n.is_infinite:
+            return S.Infinity
+        if n.is_extended_nonnegative and all(i.is_integer for i in self._e.args):
+            return abs(floor(n))
+        raise ValueError('Invalid method for symbolic Range')
+
     def __iter__(self):
         a, b, s = (int(v) for v in self._e.args)
         return (Integer(i) for i in range(a, b, s))

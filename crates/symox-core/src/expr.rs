@@ -726,8 +726,10 @@ impl Expr {
             }
             Kind::Bool(b) => b.hash(&mut h),
         }
+        // The reference `Reals` hashes like `Interval(-oo, oo)`.
+        let hash=if matches!(&kind,Kind::Func(Func::Set(crate::sets::SetOp::Reals),a) if a.is_empty()) {reals_hash()} else {h.finish()};
         Expr(Arc::new(Node {
-            hash: h.finish(),
+            hash,
             mask,
             exact_algebra_weight: algebra::weight(&kind,canonical),
             kind,
@@ -1303,8 +1305,34 @@ fn cmp_slices(a: &[Expr], b: &[Expr]) -> Ordering {
     })
 }
 
+/// `Interval(-oo, oo)` arguments: open at both infinities.
+fn is_whole_line_interval(args: &[Expr]) -> bool {
+    args.len() == 4
+        && matches!(args[0].kind(), Kind::Const(Constant::NegInfinity))
+        && matches!(args[1].kind(), Kind::Const(Constant::Infinity))
+        && matches!(args[2].kind(), Kind::Bool(true))
+        && matches!(args[3].kind(), Kind::Bool(true))
+}
+
+/// Hash of `Interval(-oo, oo)`, shared by `Reals` as in the reference
+/// (`Reals.__hash__` and `Reals.__eq__` defer to that interval).
+fn reals_hash() -> u64 {
+    static HASH: OnceLock<u64> = OnceLock::new();
+    *HASH.get_or_init(|| {
+        Expr::from_kind(Kind::Func(
+            Func::Set(crate::sets::SetOp::Interval),
+            vec![Expr::neg_oo(), Expr::oo(), Expr::boolean(true), Expr::boolean(true)],
+        ))
+        .hash64()
+    })
+}
+
 fn kind_eq(a: &Kind, b: &Kind) -> bool {
+    use crate::sets::SetOp;
     match (a, b) {
+        (Kind::Func(Func::Set(SetOp::Reals), r), Kind::Func(Func::Set(SetOp::Interval), i))
+        | (Kind::Func(Func::Set(SetOp::Interval), i), Kind::Func(Func::Set(SetOp::Reals), r))
+            if r.is_empty() => is_whole_line_interval(i),
         (Kind::Num(x), Kind::Num(y)) => x == y,
         (Kind::Sym(x), Kind::Sym(y)) => x == y,
         (Kind::Const(x), Kind::Const(y)) => x == y,
