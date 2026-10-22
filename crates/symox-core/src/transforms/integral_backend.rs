@@ -14,6 +14,11 @@ use crate::ops::{mul, pow, sub};
 
 type V = (Expr, Expr);
 
+/// The reference's "function not integrable on real axis" error, reached
+/// after the transform integral was computed with conditions: final, the
+/// closed form tables are not tried (see `transforms::direct`).
+pub(crate) const NOT_INTEGRABLE_FINAL: &str = "function not integrable on real axis ";
+
 /// The first piece of a piecewise result, with the reference's errors.
 fn first_piece(big_f: &Expr) -> Result<V, &'static str> {
     let Kind::Piecewise(pieces) = big_f.kind() else { return Err("could not compute integral") };
@@ -33,6 +38,12 @@ pub(crate) fn fourier_integration(f: &Expr, x: &Expr, k: &Expr, a: &Expr, b: &Ex
     }
     let integral_f = crate::integrate::integrate_definite(f, x, &Expr::neg_oo(), &Expr::oo());
     if integral_f == Expr::oo() || integral_f == Expr::neg_oo() || integral_f == Expr::nan() || has_integral(&integral_f) {
+        // The transform integral was computed under conditions while the
+        // function itself is not proven integrable: the reference stops here
+        // and the closed form tables must not answer in its place.
+        if matches!(big_f.kind(), Kind::Piecewise(p) if !has_integral(&p[0].0)) {
+            return Err(NOT_INTEGRABLE_FINAL);
+        }
         return Err("function not integrable on real axis");
     }
     let (value, cond) = first_piece(&big_f)?;

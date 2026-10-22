@@ -102,11 +102,63 @@ pub(crate) fn factor_undone(e: &Expr) -> Expr {
 fn doit_indefinite(g: &Expr, x: &Expr, meijerg: Option<bool>) -> Option<Expr> {
     if piecewise::is_piecewise(g) {
         return match piecewise::eval_integral(g, x, true, meijerg) {
+            // the pieces went through `integrate_hint`, which added the
+            // floor terms: the reference adds them a second time here, which
+            // makes the antiderivative discontinuous and its definite values
+            // wrong (an intentional difference)
             Ok(r) if !is_held_integral(&r) => Some(r),
             _ => None,
         };
     }
-    try_integrate_hint(g, x, meijerg)
+    try_integrate_hint(g, x, meijerg).map(|r| atan_floor_terms(&r))
+}
+
+/// The final round of `Integral.doit`: every `atan` whose argument is
+/// linear in some `tan(a)` (coefficient `c` free of it) gets
+/// `sign(c)*pi*floor((a - pi/2)/pi)` added, and `sign(c)*pi*floor(a/pi)`
+/// for `cot(a)`, so that the antiderivative is continuous.
+pub(crate) fn atan_floor_terms(antideriv: &Expr) -> Expr {
+    if is_held_integral(antideriv) {
+        return antideriv.clone();
+    }
+    let mut atans: Vec<Expr> = Vec::new();
+    crate::traverse::preorder(antideriv, &mut |n| {
+        if matches!(n.kind(), Kind::Func(Func::Atan, _)) && !atans.contains(n) {
+            atans.push(n.clone());
+        }
+    });
+    let mut out = antideriv.clone();
+    for atan_term in atans {
+        let Kind::Func(_, args) = atan_term.kind() else { continue };
+        let atan_arg = &args[0];
+        let mut parts: Vec<(Expr, bool)> = Vec::new();
+        crate::traverse::preorder(atan_arg, &mut |n| {
+            if let Kind::Func(h @ (Func::Tan | Func::Cot), _) = n.kind() {
+                let p = (n.clone(), *h == Func::Tan);
+                if !parts.contains(&p) {
+                    parts.push(p);
+                }
+            }
+        });
+        let mut extra: Vec<Expr> = Vec::new();
+        for (part, is_tan) in parts {
+            let x1 = Expr::dummy("x1", Default::default());
+            let coeff = diff(&subs1(atan_arg, &part, &x1), &x1);
+            if has(&coeff, &x1) {
+                continue;
+            }
+            let Kind::Func(_, pa) = part.kind() else { continue };
+            let a = &pa[0];
+            let q = if is_tan { div(&sub(a, &div(&Expr::pi(), &Expr::int(2))), &Expr::pi()) } else { div(a, &Expr::pi()) };
+            extra.push(mul(&[sign(&coeff), Expr::pi(), floor(&q)]));
+        }
+        if !extra.is_empty() {
+            let mut terms = vec![atan_term.clone()];
+            terms.extend(extra);
+            out = subs1(&out, &atan_term, &add(&terms));
+        }
+    }
+    out
 }
 
 fn is_held_integral(e: &Expr) -> bool {
@@ -237,7 +289,7 @@ fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg:
         // definite method
         if !pw {
             if let Some(big_f) = try_integrate_hint(f, x, Some(true)) {
-                if let Some(v) = eval_antiderivative(&big_f, f, x, a, b) {
+                if let Some(v) = eval_antiderivative(&atan_floor_terms(&big_f), f, x, a, b) {
                     return (v, None);
                 }
             }
@@ -269,7 +321,7 @@ fn integrate_definite_native(f: &Expr, x: &Expr, a: &Expr, b: &Expr, meijerg: Op
         return value;
     }
     try_integrate_hint(f, x, meijerg)
-        .and_then(|big_f| eval_with_integrals(&big_f, f, x, a, b))
+        .and_then(|big_f| eval_with_integrals(&atan_floor_terms(&big_f), f, x, a, b))
         .unwrap_or_else(|| integral_definite_unevaluated(f, x, a, b))
 }
 
@@ -622,6 +674,16 @@ pub fn try_integrate_hint(f: &Expr, x: &Expr, meijerg: Option<bool>) -> Option<E
         return meijer_terms(f, x, true);
     }
     if let Some(native) = native_antiderivative(f, x) {
+        // The reference tries `risch_integrate` first: on an exp/log tower
+        // its logarithmic part stays a `RootSum` where the native rules
+        // give an `atan` of the tower.
+        if atan_of_tower(&native, f, x) && risch_enabled(f, x) {
+            if let Some(r) = risch_stage(f, x) {
+                if has_root_sum(&r) {
+                    return Some(r);
+                }
+            }
+        }
         return Some(native);
     }
     // `risch_integrate` on the whole integrand, as the reference tries it
@@ -633,6 +695,40 @@ pub fn try_integrate_hint(f: &Expr, x: &Expr, meijerg: Option<bool>) -> Option<E
         }
     }
     term_loop(f, x, meijerg != Some(false), false)
+}
+
+/// Whether `native` has an `atan` of an `exp` or `log` of `x` while `f`
+/// holds no other function than `exp` and `log`.
+fn atan_of_tower(native: &Expr, f: &Expr, x: &Expr) -> bool {
+    let tower = |e: &Expr| {
+        let mut found = false;
+        crate::traverse::preorder(e, &mut |n| {
+            found |= matches!(n.kind(), Kind::Func(Func::Exp | Func::Log, _)) && has(n, x);
+        });
+        found
+    };
+    let mut atan = false;
+    crate::traverse::preorder(native, &mut |n| {
+        if let Kind::Func(Func::Atan, a) = n.kind() {
+            atan |= tower(&a[0]);
+        }
+    });
+    if !atan || !tower(f) {
+        return false;
+    }
+    let mut other = false;
+    crate::traverse::preorder(f, &mut |n| {
+        other |= matches!(n.kind(), Kind::Func(h, _) if !matches!(h, Func::Exp | Func::Log));
+    });
+    !other
+}
+
+fn has_root_sum(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |n| {
+        found |= matches!(n.kind(), Kind::Func(Func::Undefined(name), _) if name.name.as_ref() == "RootSum");
+    });
+    found
 }
 
 /// Whether the host Risch method applies to `f` in the current options.

@@ -1340,30 +1340,43 @@ Differential corpus: the 294 integration examples of `test_risch.py`,
 `test_manual.py` and `test_heurisch.py`, run with SymPy 1.14 and symox as
 the literal test call and as `integrate` in the default, `risch=True`,
 `manual=True` and `heurisch=True` modes (1470 runs, 20 s each, the
-timeouts rerun in a fresh process). The printed form is identical in 1339
-runs and equal by differentiation or simplification in 90; no symox result
-fails the derivative check where the reference passes it, and the 10
-`NonElementaryIntegral` results are proven in both libraries (none in only
-one). The agreeing fast cases are `tests/test_integrate_methods_corpus.py`
+timeouts rerun in a fresh process). Measured on 2026-10-22: the printed
+form is identical in 1374 runs and equal by differentiation or
+simplification in 72, 20 runs give another form, 3 stay unevaluated (all
+`integrate(f(z), z)`, below), no symox run exceeds 20 s (the reference
+exceeds it once); no symox result fails the derivative check where the
+reference passes it, and the 10 `NonElementaryIntegral` results are proven
+in both libraries (none in only one). The cases fixed in this measurement
+are `tests/test_integrate_rest_parity.py`. The agreeing fast cases are `tests/test_integrate_methods_corpus.py`
 (1072 cases; `heurisch(sin(x)*cos(x))` is left out, its reference form
 depends on the hash seed), and the hand-picked ones are
 `tests/test_integrate_methods.py`. Two corpus inputs are right here and
 wrong in the reference: `integrate(f(z), z)` with `z = z(t)` (the reference
 treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
-`Integral`) and `x*exp(a*x + 1)` (below). Remaining gaps:
-- slower than the reference beyond 20 s (no wrong result, the computation
-  is not finished): the default chain on `atan(x)*log(x)`
-  (`test_issue_2850`, reference 8 s) and on `sqrt(x - y)*log(z/x)` and its
-  real-symbol variant (`test_issue_10847`, reference 0.5 s),
-  `heurisch=True` on `cos(n*(x - phi))*cos(n*x)` (`test_issue_6799`,
-  indefinite and over `(-pi, pi)`, reference 2 s) and on
-  `x**(4/3)*log(x)` (`test_heurisch_issue_26930`, also the literal
-  `heurisch` call, reference 2 to 4 s), and the literal `manualintegrate`
-  of the rational function of `test_issue_10847_slow` (reference 10 s);
+`Integral`) and `x*exp(a*x + 1)` (below). `Integral.doit` adds the reference floor terms to every antiderivative,
+indefinite or evaluated between bounds: an `atan` whose argument is linear
+in `tan(a)` gets `sign(c)*pi*floor((a - pi/2)/pi)` (`floor(a/pi)` for
+`cot(a)`), so `integrate(1/(cos(x) + 2), x)` is continuous and its integral
+over `(0, 2*pi)` is `2*sqrt(3)*pi/3` (it was 0 before, a wrong value). The
+reference adds the terms a second time to the antiderivative of a
+Piecewise, which makes `integrate(Piecewise((1/(cos(x) + 2), x > 0), (0,
+True)), (x, -1, 7))` wrong there (`4*sqrt(3)*pi/3 + ...`); symox adds them
+once (an intentional difference). On an exp/log tower where the native
+rules give an `atan` of the tower, the reference `risch_integrate` runs
+first and its `RootSum` is returned (`exp(x)/(1 + exp(2*x))`,
+`1/(x*(1 + log(x)**2))`). Remaining gaps:
+- the cases that exceeded 20 s in the previous measurement
+  (`atan(x)*log(x)`, `test_issue_10847` and its slow variant,
+  `heurisch=True` on `test_issue_6799` and on `x**(4/3)*log(x)`) now finish
+  within the limit; `atan(x)*log(x)` takes about 5 s (reference 8 s);
 - `integrate(exp(10*x)*sin(exp(x)), x)` finishes here and times out in the
   reference;
 - the definite integral of the float Piecewise of `test_issue_15498` stays
-  unevaluated (reference a `Piecewise` with `Min(0.5, t)` bounds);
+  unevaluated (reference a `Piecewise` with `Min(0.5, t)` bounds). The
+  cause is visible on one piece: `integrate(exp(k10*s)*exp(-1.66666666666667*s), s)`
+  gives a generic quotient with rationalized float coefficients and no
+  `Ne(k10, 1.66666666666667)` case, where the reference `heurisch_wrapper`
+  returns the Piecewise of the degenerate rate;
 - `manual=True` on the rational function of case 153 leaves an `Integral`
   where the reference finishes (manualintegrate leftovers); `manual=True` on
   `atan(x)*log(x)` gives the reference result, about twice as slowly;
@@ -1372,8 +1385,7 @@ treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
   partial-fraction form: `risch=True` on
   `(4*x**4 + ...)/(x**6 + ...)` gives `8*x/(4*x**2 + 4) + 3*atan(x) -
   1/(x**2 + 1) - 3/(x + 1)` (reference `(-x**2 + x - 4)/(x**3 + x**2 + x +
-  1) + 3*atan(x)`), and `exp(x)/(1 + exp(2*x))` gives `atan(exp(x))` in the
-  default chain (reference a `RootSum`);
+  1) + 3*atan(x)`);
 - an unevaluated sum is kept as one integral: `(f(x) - f(-x))/x` gives
   `-Integral((f(-x) - f(x))/x, x)` (reference `-Integral(f(-x)/x, x) -
   Integral(-f(x)/x, x)`), likewise for a Bessel sum with `risch=True`, and the
@@ -1383,12 +1395,9 @@ treats `f(z(t))` as a constant and returns a Meijer G sum; symox leaves the
   `Integral(1/sqrt(-(x - 1)*(x + 1)), x)/2` (reference
   `Integral(1/sqrt(1 - x**2), x)/2`), likewise `3/sqrt(1 - 9*x**2)`,
   `1/sqrt(4*x**2 - 4)` and `heurisch(1/sqrt(3*x**2 - 4), x, hints=[])`;
-- `1/(cos(x) + 2)` lacks the `floor` correction term of the reference
-  (`heurisch=True` and the default chain);
 - the variable order of a held mixed `Derivative` under `risch=True` and
   `heurisch=True` on `f(x, y).diff(y).diff(x)` differs;
-- `1/(x*(1 + log(x)**2))` gives `atan(log(x))` (reference a `RootSum`),
-  `sqrt(a*x + b)/(x + c)` with real symbols gives an unsimplified
+- `sqrt(a*x + b)/(x + c)` with real symbols gives an unsimplified
   equivalent form, and `exp(-I*x**2/2)` over `(0, 1)` gives
   `sqrt(2)*sqrt(pi)*exp(-I*pi/4)*erf(sqrt(2)*exp(I*pi/4)/2)/2` (reference
   `(1 - I)*sqrt(pi)*erf(1/2 + I/2)/2` expanded), equal values;
@@ -1693,9 +1702,12 @@ Remaining transform differences:
 - The native definite integral of `exp(-a*x)*sin(b*x)*Heaviside(x)` over the
   real line is not computed. The table gives the reference value with the
   condition `True` instead of the reference half plane condition.
-- `fourier_transform(exp(-a*x**2), x, k)` with an unrestricted `a`: the
-  reference holds it (the integral of the function is not computed), the
-  native table returns the value with the condition `re(a) > 0`.
+- `fourier_transform(exp(-a*x**2), x, k)` with an unrestricted `a` is held
+  like the reference, with and without `noconds`: when the transform
+  integral is computed only under conditions and the integral of the
+  function is not computed, the reference error is final and the closed
+  form table is not tried (it returned the value, invalid for
+  `re(a) <= 0`, with no condition under `noconds=True`).
 - `hankel_transform(1, r, k, 0)` diverges: native raises
   `IntegralTransformError`, where the reference returns a Piecewise with
   `nan` and `oo` pieces.
