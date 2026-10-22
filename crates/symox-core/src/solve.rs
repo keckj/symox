@@ -1353,8 +1353,16 @@ pub fn solve_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
 }
 
 pub fn solve_system_with_check(eqs: &[Expr], vars: &[Expr], check: bool) -> Option<SystemSolution> {
-    let original: Vec<Expr> = eqs.iter().map(as_expr).collect();
-    let eqs: Vec<Expr> = eqs.iter().map(|e| expand(&as_expr(e))).filter(|e| !e.is_zero()).collect();
+    // SymPy's solve drops an equation that has free symbols but none of the
+    // unknowns: it cannot change the solution of the other equations, which
+    // may then be given in terms of its symbols (solve((x - y, y - 3), x) is
+    // {x: y}). Equations without any free symbol stay to be decided, and so
+    // does one proved nonzero by the assumptions of its symbols (with p
+    // nonzero, [x - 1, p] has no solution where SymPy returns {x: 1}).
+    let original: Vec<Expr> = eqs.iter().map(as_expr)
+        .filter(|e| free_symbols(e).is_empty() || vars.iter().any(|v| has(e, v))
+            || crate::assumptions::exact_queries(|| crate::assumptions::is_zero(e)) == Some(false)).collect();
+    let eqs: Vec<Expr> = original.iter().map(expand).filter(|e| !e.is_zero()).collect();
     if eqs.iter().all(|e| is_linear_in(e, vars)) {
         let result = linear_system(&eqs, vars)?;
         return Some(if check { check_system_solution(result, &original, vars) } else { result });
@@ -1403,8 +1411,14 @@ pub fn solve_system_with_check(eqs: &[Expr], vars: &[Expr], check: bool) -> Opti
         let result=if rows.is_empty(){SystemSolution::NoSolution}else{SystemSolution::Tuples(rows)};
         return Some(if check{check_system_solution(result,&original,vars)}else{result});
     }
-    // nonlinear: successive substitution
-    let sols = substitute_solve(&eqs, vars, 0, check)?;
+    // nonlinear: successive substitution. A system polynomial in the
+    // unknowns has its parameters in the coefficient domain, as SymPy's
+    // solve_poly_system does.
+    let generic = eqs.iter().all(|e| {
+        let numerator = numer_denom(&together(e)).0;
+        vars.iter().all(|v| poly_coeffs(&numerator, v).is_some())
+    });
+    let sols = substitute_solve(&eqs, vars, 0, check, generic)?;
     if sols.is_empty() {
         return Some(SystemSolution::NoSolution);
     }
@@ -1440,7 +1454,39 @@ fn check_system_solution(result: SystemSolution, equations: &[Expr], variables: 
     }
 }
 
-fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32, check: bool) -> Option<Vec<FxHashMap<Expr, Expr>>> {
+/// Whether a residual equation free of the unknowns rules a candidate out.
+///
+/// SymPy solves a system polynomial in the unknowns over the coefficient
+/// domain of its parameters, so a residual that is a nonzero element of that
+/// domain is generically inconsistent: solve([x - y, x - 1], [x]) is [].
+/// For the other systems SymPy's checksol rejects a residual that depends on
+/// parameters only when it has no function and no radical, the case where the
+/// expanded numerator decides the zero test. A number must be proved nonzero.
+fn residual_nonzero(e: &Expr, generic: bool) -> bool {
+    if crate::assumptions::exact_queries(|| crate::assumptions::is_zero(e)) == Some(false) {
+        return true;
+    }
+    if free_symbols(e).is_empty() {
+        return false;
+    }
+    let numerator = expand(&numer_denom(&together(e)).0);
+    if numerator.is_zero() {
+        return false;
+    }
+    if generic {
+        return true;
+    }
+    let mut transcendental = false;
+    crate::traverse::preorder(&numerator, &mut |node| match node.kind() {
+        Kind::Func(..) | Kind::Derivative(..) | Kind::Piecewise(..) => transcendental = true,
+        Kind::Pow(_, exponent) if !exponent.is_integer_number() => transcendental = true,
+        Kind::Mul(_, factors) if factors.iter().any(|(_, exponent)| !exponent.is_integer_number()) => transcendental = true,
+        _ => {}
+    });
+    !transcendental
+}
+
+fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32, check: bool, generic: bool) -> Option<Vec<FxHashMap<Expr, Expr>>> {
     if depth > 6 {
         return None;
     }
@@ -1448,12 +1494,11 @@ fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32, check: bool) -> Opt
     if eqs.is_empty() {
         return Some(vec![FxHashMap::default()]);
     }
-    if eqs.iter().any(|e| vars.iter().all(|v| !has(e, v))
-        &&crate::assumptions::exact_queries(||crate::assumptions::is_zero(e))==Some(false)) {
-        // Only a PROVED nonzero equation independent of the remaining
-        // unknowns proves inconsistency. An unresolved parameter constraint
-        // is retained by the original-equation verification, as in solve's
-        // generic conditional-candidate convention.
+    if eqs.iter().any(|e| vars.iter().all(|v| !has(e, v)) && residual_nonzero(e, generic)) {
+        // A residual independent of the remaining unknowns that is nonzero
+        // in the sense of residual_nonzero rules the candidate out. An
+        // undecided one is retained, as SymPy keeps a candidate checksol
+        // cannot decide.
         return Some(vec![]);
     }
     let eqs:Vec<_>=eqs.into_iter().filter(|e|vars.iter().any(|v|has(e,v))).collect();
@@ -1485,7 +1530,7 @@ fn substitute_solve(eqs: &[Expr], vars: &[Expr], depth: u32, check: bool) -> Opt
     let rest_vars: Vec<Expr> = vars.iter().filter(|w| *w != v).cloned().collect();
     for r in roots {
         let rest: Vec<Expr> = eqs.iter().enumerate().filter(|(k, _)| *k != i).map(|(_, e)| subs1(e, v, &r)).collect();
-        for mut m in substitute_solve(&rest, &rest_vars, depth + 1, check)? {
+        for mut m in substitute_solve(&rest, &rest_vars, depth + 1, check, generic)? {
             let val = expand(&subs(&r, &m.iter().map(|(a, b)| (a.clone(), b.clone())).collect::<Vec<_>>()));
             m.insert(v.clone(), val);
             out.push(m);
@@ -1541,8 +1586,9 @@ fn linear_system(eqs: &[Expr], vars: &[Expr]) -> Option<SystemSolution> {
     }
     // inconsistent rows 0 = c
     for row in rows.iter().skip(r) {
-        if row[..n].iter().all(|c| c.is_zero())
-            &&crate::assumptions::exact_queries(||crate::assumptions::is_zero(&row[n]))==Some(false) {
+        // The coefficients are those of SymPy's linear system domain: a
+        // nonzero parametric right-hand side is generically inconsistent.
+        if row[..n].iter().all(|c| c.is_zero()) && residual_nonzero(&row[n], true) {
             return Some(SystemSolution::NoSolution);
         }
     }

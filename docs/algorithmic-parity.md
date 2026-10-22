@@ -122,9 +122,30 @@ unknowns retain tuple columns, following the reference interface conventions.
 
 Scalar `solve` also attempts rational-function coefficient identities before
 ordinary algebraic solving, preserving the distinction between a bare equation
-and a one-equation list. Undecided parameter-only equations retain generic
-candidates rather than proving inconsistency. Full parameter strata remain
-unproved. A single expression target such as `f(x)`, `exp(x)` or `x**2` can be
+and a one-equation list. Full parameter strata remain unproved.
+
+Overdetermined systems follow SymPy's `_solve_system` (2026-10-22). As in
+`solve`, an equation with free symbols but none of the unknowns is dropped
+(`solve([x*y - 2, y - 1], [x])` is `{x: 2/y}`), unless its assumptions prove
+it nonzero, and the Float rationalization flag only looks at the kept
+equations (`solve([x - 1, 1.5*y - 2], [x], dict=True)` is `[{x: 1}]`). A
+system linear or polynomial in the unknowns is solved over the coefficient
+domain of its parameters: a residual equation free of the unknowns whose
+expanded numerator is nonzero makes the system generically inconsistent, so
+`solve([1.5*x*y - 2, x + y - 1], [x])`, `solve([x - y, x - 1], [x])` and
+`solve([x - 1, x - sin(y)], [x])` are `[]`, as in the reference, instead of
+keeping a candidate valid only on a parameter slice. For a system that is not
+polynomial in the unknowns, the residual is rejected only when it has no
+function and no radical (SymPy's `checksol`), so `[exp(x) + x - y, x - 1]` is
+`[]`, while an undecided residual such as `E - sin(y)` keeps the candidate.
+Known differences: SymPy treats `sqrt(a)` as a generator independent of `a`
+and returns `[]` for `solve([x**2 - a, x - sqrt(a)], [x])`, while symox keeps
+the valid `[(sqrt(a),)]` (divergence not yet validated by the user). The
+non-polynomial residual rule was compared on a few cases only (`[sin(x) - y,
+x - 1]` keeps `x = 1` in both); SymPy's `_invert` preprocessing is not
+ported, so other non-polynomial systems may still differ. With `rational=False`,
+`solve([0.25*x**2 - 1, x - 2], [x])` returns `[(2,)]` where SymPy's Float
+domain gives `[(2.00000000000000,)]`. A single expression target such as `f(x)`, `exp(x)` or `x**2` can be
 recast as a fresh algebraic atom only with rational work equations and exact
 reconstruction of the original. Original targets and derivative coefficients
 are restored in the output; these are algebraic solving conventions, rather

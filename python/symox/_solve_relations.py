@@ -64,9 +64,14 @@ def install(namespace):
             from . import Float,nsimplify
             converted=[]
             floats=False
+            unknown_set=set(unknowns)
             for value in scalars:
                 if hasattr(value,'has') and value.has(Float):
-                    floats=True
+                    # SymPy looks for Floats after dropping the equations
+                    # with free symbols but no unknown that are not constant
+                    if (not unknown_set or value.free_symbols&unknown_set
+                            or value.is_number or value.is_constant()):
+                        floats=True
                     value=nsimplify(value,rational=True)
                 converted.append(value)
             if floats:
