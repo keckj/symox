@@ -3761,3 +3761,66 @@ Remaining gaps:
   float points also differs from SymPy, which raises `TypeError` (the
   message differs). `ImageSet` membership for maps of several variables is
   still decided only by the native predicate.
+
+## Missing sympy.geometry features (wave 4, WP-C8) on 2026-10-22
+
+Implemented, with SymPy 1.14 values hard-coded in
+`tests/test_missing_geometry_wave4_parity.py` (probe: 27/236 matching before,
+234/236 after; the two remaining lines are listed below):
+
+- Area moments: `second_moment_of_area`, `polar_second_moment_of_area`,
+  `section_modulus`, `first_moment_of_area` and `cut_section` for polygons,
+  triangles and regular polygons, plus the ellipse and circle versions.
+- `reflect` for points (exact formula), linear entities, polygons, regular
+  polygons (SymPy's `closing_angle` rotation with a negative radius), circles,
+  axis-aligned ellipses, parabolas and curves. `Ellipse.evolute`,
+  `director_circle`, `auxiliary_circle` and `normal_lines` (including `prec`)
+  are also implemented.
+- `plot_interval` and `random_point(seed)`. Lines, rays, segments, ellipses
+  and planes draw the same numbers as SymPy, using `random.Random(seed)` or the
+  global `random` module.
+- `Plane.perpendicular_plane`, `parallel_plane`, `are_concurrent`,
+  `is_coplanar`, `arbitrary_point(u, v)`, `parameter_value` and
+  `random_point`. Also added: `Point3D.direction_ratio`, `direction_cosine`
+  and `are_collinear`, and the Point helpers `canberra_distance`, `is_zero`,
+  `is_nonzero`, `origin`, `project` and `orthogonal_direction`. Points can
+  now have more than three dimensions.
+- `Line3D.equation` now returns a `Tuple`. Other additions: `Line(Segment)`,
+  `Ray(angle=...)`, `coefficients`, `bisectors`, `parameter_value`,
+  `Ray.xdirection`, `ydirection` and `zdirection`, and `Ray2D.closing_angle`.
+- `Polygon(c, r, n=..., rot=...)` and `Triangle(sss=/asa=/sas=)` (`None` when
+  SSS has no solution, `IndexError` for parallel ASA rays). Also added:
+  `Polygon.bisectors(prec)`, the Piecewise `Polygon.arbitrary_point`,
+  `Triangle.bisectors()` as a method, and `RegularPolygon.inradius`,
+  `circumradius`, `length` and `spin`. `RegularPolygon` now reduces the
+  rotation modulo `2*pi/n` and accepts a negative radius. `Polygon.angles`
+  keeps SymPy's key order.
+- Exact conic intersections. Ellipse/ellipse, parabola/ellipse and
+  parabola/parabola intersections use a resultant elimination, then an exact
+  membership check of each root, returned in SymPy's `ordered` order. If a
+  root is missing or its reality cannot be decided, the result is
+  `NotImplementedError`, never a partial list.
+- When a Point is passed to a constructor, its coordinates are no longer
+  re-evaluated, so floats survive as in SymPy. `Line(p, slope=s)` keeps a
+  float slope.
+
+Intentional divergences:
+
+- `Curve.reflect` returns the reflected curve. SymPy 1.14 returns the curve
+  unchanged, because it only maps Point atoms, which is mathematically wrong.
+- `Point3D.reflect` keeps the z coordinate when the line lies in the xy-plane.
+- `Plane.parameter_value(p, t)`: when the system solver gives up, symox
+  solves one trigonometric component at a time and checks every candidate
+  exactly. The result is a valid parameter, but it can differ from SymPy's
+  by a multiple of `2*pi`; for example, `Plane((1,2,3),(1,1,1))` at `5*pi/4`
+  gives `-3*pi/4`.
+- The bisector ray points of non-convex polygons equal SymPy's in value, but
+  their radical forms can differ.
+
+Remaining unsupported (they raise like SymPy, never a wrong value):
+
+- `Ellipse.reflect` across an oblique line raises `NotImplementedError` with
+  the reflected equation, as SymPy does. `Circle.evolute` raises
+  `NotImplementedError`, as SymPy does.
+- Conic intersections whose eliminant cannot be fully solved by `roots`, or
+  whose roots have undecidable reality, raise `NotImplementedError`.

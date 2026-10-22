@@ -4,6 +4,31 @@ from .point import Point, Point3D
 from .line import LinearEntity, Line
 
 
+def _circle_parameter(equations, u):
+    """Solve the unit-circle parametrisation one component at a time.
+
+    Every candidate from a single trigonometric component is checked exactly
+    against all components; an undecidable check raises NotImplementedError.
+    """
+    from .. import solve, count_ops, simplify
+    pending = list(equations)
+    for equation in sorted((e for e in pending if u in e.free_symbols), key=count_ops):
+        try:
+            candidates = solve(equation, u)
+        except NotImplementedError:
+            continue
+        undecided = False
+        for candidate in candidates:
+            residues = [simplify(e.xreplace({u: candidate})) for e in pending]
+            if all(r.is_zero is True for r in residues):
+                return [{u: candidate}]
+            if any(r.is_zero is None for r in residues):
+                undecided = True
+        if not undecided:
+            return []
+    raise NotImplementedError('The circle parameter of this point is undecidable')
+
+
 class Plane(GeometryEntity):
     __slots__ = ()
 
@@ -139,6 +164,124 @@ class Plane(GeometryEntity):
                     coordinates[j] = clean((normal[i]*rhs2-second[i]*rhs1)/determinant)
                     base = Point(*coordinates)
                     return [Line(base, base+direction)]
+
+    @property
+    def ambient_dimension(self):
+        return 3
+
+    def parallel_plane(self, pt):
+        return Plane(pt, normal_vector=self.normal_vector)
+
+    def perpendicular_plane(self, *pts):
+        from .line import Line3D
+        if len(pts) > 2:
+            raise ValueError('No more than 2 pts should be provided.')
+        pts = list(pts)
+        if not pts:
+            pts.append(self.p1)
+        nx, ny, nz = self.normal_vector
+        if len(pts) == 1:
+            direction = (0, 1, 0) if nx == ny == 0 else (0, 0, 1)
+            pts.append(Point(pts[0], dim=3)+Point3D(*direction))
+        p1, p2 = [Point(i, dim=3) for i in pts]
+        l = Line3D(p1, p2)
+        n = Line3D(p1, direction_ratio=self.normal_vector)
+        if n.contains(l):
+            p3 = Point3D(0, 1, 0) if nx == ny == 0 else Point3D(0, 0, 1)
+            if l.contains(p3):
+                p3 = p3*2
+        else:
+            p3 = p1+Point3D(*self.normal_vector)
+        return Plane(p1, p2, p3)
+
+    @staticmethod
+    def are_concurrent(*planes):
+        from .entity import unique
+        planes = unique(planes)
+        for plane in planes:
+            if not isinstance(plane, Plane):
+                raise ValueError('All objects should be Planes but got %s' % type(plane).__name__)
+        if len(planes) < 2:
+            return False
+        first = planes.pop(0)
+        sol = first.intersection(planes[0])
+        if sol == []:
+            return False
+        line = sol[0]
+        for plane in planes[1:]:
+            l = first.intersection(plane)
+            if not l or not line.contains(l[0]):
+                return False
+        return True
+
+    def is_coplanar(self, o):
+        from .. import cancel, Symbol
+        from .line import LinearEntity3D
+        if isinstance(o, Plane):
+            x, y, z = (Symbol(n, real=True) for n in 'xyz')
+            return not cancel(self.equation(x, y, z)/o.equation(x, y, z)).has(x, y, z)
+        if isinstance(o, Point3D):
+            return self.contains(o)
+        if isinstance(o, LinearEntity3D):
+            # Reference quirk: iterating a plane raises TypeError.
+            raise TypeError("'Plane' object is not iterable")
+        if isinstance(o, GeometryEntity):
+            return all(i == 0 for i in self.normal_vector[:2])
+        return None
+
+    def arbitrary_point(self, u=None, v=None):
+        from .. import Symbol, S, sqrt, cos, sin
+        circle = v is None
+        name = lambda value, default: Symbol(value or default, real=True) if value is None or isinstance(value, str) else scalar(value)
+        if circle:
+            u = name(u, 't')
+        else:
+            u, v = name(u, 'u'), name(v, 'v')
+        x, y, z = self.normal_vector
+        a, b, c = self.p1.args
+        if x.is_zero and y.is_zero:
+            x1, y1, z1 = S.One, S.Zero, S.Zero
+        else:
+            x1, y1, z1 = -y, x, S.Zero
+        x2, y2, z2 = y*z1-z*y1, z*x1-x*z1, x*y1-y*x1
+        if circle:
+            n1, n2 = sqrt(x1**2+y1**2+z1**2), sqrt(x2**2+y2**2+z2**2)
+            x1, y1, z1 = (w/n1 for w in (x1, y1, z1))
+            x2, y2, z2 = (w/n2 for w in (x2, y2, z2))
+            return Point3D(a+x1*cos(u)+x2*sin(u), b+y1*cos(u)+y2*sin(u), c+z1*cos(u)+z2*sin(u), evaluate=False)
+        return Point3D(a+x1*u+x2*v, b+y1*u+y2*v, c+z1*u+z2*v, evaluate=False)
+
+    def parameter_value(self, other, u, v=None):
+        from .. import Symbol, solve
+        if not isinstance(other, GeometryEntity):
+            other = Point(other, dim=3)
+        if not isinstance(other, Point):
+            raise ValueError('other must be a point')
+        if other == self.p1:
+            return other
+        if isinstance(u, Symbol) and v is None:
+            delta = self.arbitrary_point(u)-self.p1
+            eq = delta-(other-self.p1).unit
+            try:
+                sol = solve(list(eq), u, dict=True)
+            except NotImplementedError:
+                sol = _circle_parameter(list(eq), u)
+        elif isinstance(u, Symbol) and isinstance(v, Symbol):
+            pt = self.arbitrary_point(u, v)
+            sol = solve(list(pt-other), (u, v), dict=True)
+        else:
+            raise ValueError('expecting 1 or 2 symbols')
+        if not sol:
+            raise ValueError('Given point is not on Plane')
+        return sol[0]
+
+    def random_point(self, seed=None):
+        from .. import Rational, Dummy
+        from .line import _rng
+        rng = _rng(seed)
+        u, v = Dummy('u', real=True), Dummy('v', real=True)
+        params = {u: 2*Rational(rng.gauss(0, 1))-1, v: 2*Rational(rng.gauss(0, 1))-1}
+        return Point3D(*(clean(value.xreplace(params)) for value in self.arbitrary_point(u, v)))
 
     def translate(self, x=0, y=0, z=0):
         return Plane(self.p1.translate(x, y, z), normal_vector=self.normal_vector)

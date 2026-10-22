@@ -7,6 +7,43 @@ def cross2(a, b):
     return clean(a[0]*b[1]-a[1]*b[0])
 
 
+def _symbol(value):
+    from .. import Symbol
+    return Symbol(value, real=True) if isinstance(value, str) else scalar(value)
+
+
+def _rng(seed):
+    import random
+    return random if seed is None else random.Random(seed)
+
+
+def _angle_direction(angle):
+    # Reference Ray2D(angle=...) construction: exact axis directions for
+    # multiples of pi/2, otherwise (+-1, +-tan(angle)) by quadrant.
+    from .. import pi, tan, Rational
+    c = clean(angle/pi)
+    if c.is_Rational:
+        c = c % 2
+        if c == Rational(1, 2):
+            return Point(0, 1)
+        if c == Rational(3, 2):
+            return Point(0, -1)
+        if c == 0:
+            return Point(1, 0)
+        if c == 1:
+            return Point(-1, 0)
+        c = c*pi
+    elif angle.is_number:
+        c = angle % (2*pi)
+    else:
+        raise NotImplementedError('A symbolic ray angle needs a decidable quadrant')
+    m = clean(2*c/pi)
+    left = compare(m, scalar(1)) > 0 and compare(m, scalar(3)) < 0
+    if left:
+        return Point(-1, -tan(c))
+    return Point(1, tan(c))
+
+
 class LinearEntity(GeometrySet):
     __slots__ = ()
     _kind = 'line'
@@ -14,13 +51,22 @@ class LinearEntity(GeometrySet):
     def __new__(cls, p1, p2=None, **kwargs):
         from .. import oo
         kwargs.pop('evaluate', None)
+        if isinstance(p1, LinearEntity):
+            if p2 is not None:
+                raise ValueError('When p1 is a LinearEntity, pt should be None')
+            p1, p2 = p1.p1, p1.p2
         p1 = Point(p1)
+        if 'angle' in kwargs and cls._kind == 'ray':
+            angle = kwargs.pop('angle')
+            if p2 is not None or len(p1) != 2:
+                raise ValueError('A 2nd point or keyword "angle" must be used.')
+            p2 = p1 + _angle_direction(scalar(angle))
         if p2 is None:
             if 'slope' in kwargs:
                 if len(p1) != 2:
                     raise ValueError('Slope is only defined in two dimensions')
                 slope = scalar(kwargs.pop('slope'))
-                p2 = p1 + (Point(0, 1) if slope in (oo, -oo) else Point(1, slope))
+                p2 = Point(*((p1.x, p1.y+1) if slope in (oo, -oo) or slope.is_infinite else (p1.x+1, p1.y+slope)), evaluate=False)
             elif 'direction_ratio' in kwargs:
                 p2 = p1 + Point(kwargs.pop('direction_ratio'), dim=len(p1))
             else:
@@ -226,12 +272,91 @@ class LinearEntity(GeometrySet):
             if zero(dy):
                 return coordinates[1]-self.p1.y
             return clean(dx*(coordinates[1]-self.p1.y)-dy*(coordinates[0]-self.p1.x))
+        # Reference Line3D.equation: eliminate the parameter k through the
+        # first coordinate with a nonzero direction ratio and keep the
+        # numerators of the two remaining equations.
+        from .. import Tuple, together
         base = self.p1
         direction = self.direction
         pivot = next(i for i, value in enumerate(direction) if not zero(value))
-        return tuple(clean((coordinates[j]-base[j])*direction[pivot]
-                           -(coordinates[pivot]-base[pivot])*direction[j])
-                     for j in range(3) if j != pivot)
+        k = (coordinates[pivot]-base[pivot])/direction[pivot]
+        return Tuple(*(together(coordinates[j]-base[j]-direction[j]*k).as_numer_denom()[0].expand()
+                       for j in range(3) if j != pivot))
+
+    @property
+    def coefficients(self):
+        from .. import S, simplify
+        if self.ambient_dimension != 2:
+            raise AttributeError('coefficients are only defined for planar lines')
+        p1, p2 = self.points
+        if p1.x == p2.x:
+            return (S.One, S.Zero, -p1.x)
+        if p1.y == p2.y:
+            return (S.Zero, S.One, -p1.y)
+        return tuple(simplify(i) for i in (p1.y-p2.y, p2.x-p1.x, p1.x*p2.y-p1.y*p2.x))
+
+    @staticmethod
+    def are_concurrent(*lines):
+        if len(lines) < 2:
+            return False
+        common = [lines[0]]
+        for line in lines[1:]:
+            reduced = []
+            for item in common:
+                reduced.extend(item.intersection(line) if not isinstance(item, Point)
+                               else ([item] if line.contains(item) else []))
+            common = reduced
+            if not common:
+                return False
+        return len(common) == 1 and isinstance(common[0], Point)
+
+    def bisectors(self, other):
+        if not isinstance(other, LinearEntity):
+            raise GeometryError('Expecting LinearEntity, not %s' % other)
+        l1, l2 = self, other
+        if l1.ambient_dimension != l2.ambient_dimension:
+            if l1.ambient_dimension == 2:
+                l1, l2 = l2, l1
+            l2 = Line(Point(l2.p1, dim=3), Point(l2.p2, dim=3))
+        point = l1.intersection(l2)
+        if not point:
+            raise GeometryError('The lines do not intersect')
+        pt = point[0]
+        if isinstance(pt, LinearEntity):
+            return [self]
+        d1, d2 = l1.direction.unit, l2.direction.unit
+        return [Line(pt, pt+d1+d2), Line(pt, pt+d1-d2)]
+
+    def parameter_value(self, other, t):
+        from .. import Dummy, solve
+        if not isinstance(other, GeometryEntity):
+            other = Point(other, dim=self.ambient_dimension)
+        if not isinstance(other, Point):
+            raise ValueError('other must be a point')
+        T = Dummy('t', real=True)
+        sol = solve(list(self.arbitrary_point(T)-other), T, dict=True)
+        if not sol:
+            raise ValueError('Given point is not on %s' % type(self).__name__)
+        return {t: sol[0][T]}
+
+    def plot_interval(self, parameter='t'):
+        t = _symbol(parameter)
+        bounds = {'line': (-5, 5), 'ray': (0, 10), 'segment': (0, 1)}[self._kind]
+        return [t, scalar(bounds[0]), scalar(bounds[1])]
+
+    def random_point(self, seed=None):
+        from .. import Rational
+        rng = _rng(seed)
+        if self._kind == 'ray':
+            v = abs(rng.gauss(0, 1))
+        elif self._kind == 'segment':
+            v = rng.random()
+        else:
+            v = rng.gauss(0, 1)
+        return self.p1+self.direction*Rational(v)
+
+    def reflect(self, line):
+        return self.func(self.p1.reflect(line), self.p2.reflect(line))
 
     def arbitrary_point(self, parameter='t'):
         from .. import Symbol
@@ -317,6 +442,19 @@ class Ray(LinearEntity):
     def source(self):
         return self.p1
 
+    def _axis_direction(self, i):
+        from .. import oo
+        relation = compare(self.p1[i], self.p2[i])
+        return oo if relation < 0 else scalar(0) if relation == 0 else -oo
+
+    @property
+    def xdirection(self):
+        return self._axis_direction(0)
+
+    @property
+    def ydirection(self):
+        return self._axis_direction(1)
+
 
 class Segment(LinearEntity):
     __slots__ = ()
@@ -344,19 +482,24 @@ class Line3D(Line, LinearEntity3D):
 class Ray2D(Ray, LinearEntity2D):
     __slots__ = ()
 
-    @property
-    def xdirection(self):
-        from .. import oo
-        return sign(self.direction.x)*oo if not zero(self.direction.x) else scalar(0)
-
-    @property
-    def ydirection(self):
-        from .. import oo
-        return sign(self.direction.y)*oo if not zero(self.direction.y) else scalar(0)
+    def closing_angle(r1, r2):
+        from .. import atan2, pi
+        if not all(isinstance(r, Ray2D) for r in (r1, r2)):
+            raise TypeError('Both arguments must be Ray2D objects.')
+        a1 = atan2(r1.direction.y, r1.direction.x)
+        a2 = atan2(r2.direction.y, r2.direction.x)
+        if sign(a1*a2) < 0:
+            a1 = 2*pi+a1 if sign(a1) < 0 else a1
+            a2 = 2*pi+a2 if sign(a2) < 0 else a2
+        return a1-a2
 
 
 class Ray3D(Ray, LinearEntity3D):
     __slots__ = ()
+
+    @property
+    def zdirection(self):
+        return self._axis_direction(2)
 
 
 class Segment2D(Segment, LinearEntity2D):

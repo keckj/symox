@@ -65,6 +65,9 @@ class Parabola(GeometryEntity):
             raise NotImplementedError('Parabola scaling currently requires a nonsingular similarity')
         return Parabola(self.focus.scale(x, y, pt=pt), self.directrix.scale(x, y, pt=pt))
 
+    def reflect(self, line):
+        return Parabola(self.focus.reflect(line), self.directrix.reflect(line))
+
     def equation(self, x='x', y='y'):
         from .. import Symbol
         x = Symbol(x, real=True) if isinstance(x, str) else scalar(x)
@@ -83,6 +86,13 @@ class Parabola(GeometryEntity):
         from .. import Dummy, solve
         if isinstance(o, Point):
             return [o] if self.contains(o) else []
+        from .ellipse import Ellipse, _conic_intersection
+        if isinstance(o, Parabola):
+            if self.focus.equals(o.focus) and self.directrix.equals(o.directrix):
+                return [o]
+        if isinstance(o, (Parabola, Ellipse)):
+            x, y = Dummy('x', real=True), Dummy('y', real=True)
+            return _conic_intersection(self.equation(x, y), o.equation(x, y), x, y)
         if not isinstance(o, LinearEntity) or o.ambient_dimension != 2:
             raise NotImplementedError('Parabola intersections currently accept points and planar linear entities')
         parameter = Dummy('parabola_line_parameter', real=True)
