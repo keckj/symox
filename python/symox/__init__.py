@@ -1382,6 +1382,18 @@ class ImageSet(Set):
 
     def __new__(cls, flambda, *sets):
         base = sets[0] if len(sets) == 1 else ProductSet(*sets)
+        # reference: a constant map gives its value on a non-empty base
+        try:
+            expr, variables = flambda.expr, flambda.variables
+        except AttributeError:
+            expr = variables = None
+        if variables is not None and not set(variables) & expr.free_symbols:
+            from .core.logic import fuzzy_or
+            is_empty = fuzzy_or(s.is_empty for s in sets)
+            if is_empty is True:
+                return S.EmptySet
+            if is_empty is False:
+                return FiniteSet(expr)
         return _wrap_set(_core.ImageSet(_unwrap(flambda), _unwrap(base)))
 
     @property

@@ -393,5 +393,12 @@ pub fn is_subset(a: &Expr, b: &Expr) -> Option<bool> {
     if oa == SetOp::Reals && matches!(ob, SetOp::Interval | SetOp::FiniteSet) {
         return Some(false);
     }
+    // the reference fallback `self.intersect(other) == self` (True or None)
+    if oa == SetOp::ProductSet && ob == SetOp::ProductSet {
+        return (super::intersection(vec![a.clone(), b.clone()]) == *a).then_some(true);
+    }
+    if oa == SetOp::ImageSet && ob == SetOp::Integers {
+        return (super::lattice_intersection(a, b).as_ref() == Some(a)).then_some(true);
+    }
     None
 }

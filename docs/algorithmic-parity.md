@@ -737,7 +737,8 @@ Remaining gaps:
 - `is_increasing(Function('f')(x), symbol=x)` raises `NotImplementedError`;
   SymPy overflows the recursion limit.
 - The native intersection and complement simplification still uses the
-  approximate Rust `is_subset`.
+  approximate Rust `is_subset` (partly addressed on 2026-10-22, see the
+  `imageset` section below).
 
 ## Interval(-oo, oo), Reals and the union rules on 2026-10-22
 
@@ -774,19 +775,76 @@ outputs equal (by `srepr`) to SymPy 1.14.0.
   named sets follow the reference table (`Union(S.Reals, Range(0, 5))` stays
   a union, as in SymPy).
 
+Remaining gaps: see the next section.
+
+## imageset, image-set lattices and products on 2026-10-22
+
+The probe was extended to 285 calls (119 new ones on `imageset`,
+intersections, complements and `ProductSet`). It went from 214 to 281
+outputs equal (by `srepr`) to SymPy 1.14.0: the 166 previous calls from 154
+to 166, the new ones from 60 to 115. `tests/test_sets_rest_parity.py` holds
+the 127 newly agreed reference values.
+
+- `imageset` is a port of the reference `imageset` and of the
+  `_set_function` handlers (`python/symox/_set_extensions.py`): a `Lambda`
+  over an `Interval` or `Reals` is evaluated from the singularities in the
+  interval, the one-sided limits at open ends and the critical points of
+  `solveset(diff(expr, x), x)` (`Interval(1, 3)` for `2*x + 1` on
+  `[0, 1]`, `Interval(0, oo)` for `x**2` on the reals, a union of two rays
+  for `1/x`), and stays unevaluated where the reference does (several free
+  symbols, a symbolic bound, a derivative whose zeros are not a finite set,
+  such as `sin` or `Abs`). `Piecewise` maps are imaged piece by piece. The
+  `FiniteSet`, `Union`, `Intersection` (when the map is invertible),
+  `Range`, `Integers` (canonical `a*n + b mod a`), `Naturals` and generic
+  handlers follow the reference, including the composition of nested image
+  sets and the `Symbol('x')` variable of the generic handler. As in the
+  reference, several base sets or a `Range` give an unevaluated `ImageSet`
+  (the previous enumeration of finite products is gone), a constant map on a
+  non-empty base is a `FiniteSet`, and a signature that does not match the
+  base sets raises `ValueError`.
+- The native intersection has the reference `ProductSet` rule (empty for
+  different lengths, else the componentwise intersection), the
+  `ConditionSet` rule (the condition set over the intersected base) and the
+  linear case of the `ImageSet` rule: `{p*n + q}` against `Integers` or
+  another such lattice with exact rational coefficients is solved as a
+  linear diophantine equation and returned in the canonical form the
+  reference `imageset` builds (`Intersection(S.Integers, ImageSet(Lambda(n,
+  2*n), S.Integers))` is the image set, `2*n` with `3*n` gives `6*n`, `n/2`
+  gives `Integers`). Through the `Integers` union rule
+  `Union(S.Integers, ImageSet(Lambda(n, 2*n), S.Integers))` is `Integers`.
+- The native `is_subset` decides `ProductSet` against `ProductSet` and an
+  integer lattice against `Integers` by the reference fallback
+  `self.intersect(other) == self` (True or None), so a product contained in
+  another is absorbed by a union, and the complement has the reference rule
+  `(A x B) - (C x D) = ((A - C) x B) U (A x (B - D))`.
+- Unevaluated `Union` and `Intersection` order their arguments as the
+  reference `ordered(args, Set._infimum_key)`: by the numeric infimum (`oo`
+  when it is not comparable), ties in the default order.
+
+Intentional correction:
+
+- `imageset(Lambda(x, tan(x)), Interval(0, 1))` is `Interval(0, tan(1))`.
+  SymPy 1.14 keeps the image set because its `solveset` leaves
+  `tan(x)**2 + 1 = 0` as a `ConditionSet`; the equation has no solution (the
+  native `solveset` gives `EmptySet`), so `tan` is monotonic on the interval
+  and the interval is its exact image.
+
 Remaining gaps:
 
-- `imageset` of a `Lambda` over an `Interval` or `Reals` is not evaluated
-  (SymPy gives `Interval(1, 3)` for `2*x + 1` on `[0, 1]` and
-  `Interval(0, oo)` for `x**2` on the reals).
-- `Union(S.Integers, ImageSet(Lambda(n, 2*n), S.Integers))` stays a union;
-  SymPy gives `Integers` (its intersection reduces to the image set).
-- `ProductSet` absorption in a union needs the Rust `is_subset` to decide
-  products: `Union(ProductSet(Interval(0, 2), Interval(0, 2)),
-  ProductSet(Interval(0, 1), Interval(0, 1)))` stays a union.
-- The argument order of an unevaluated `Union` is not the reference
-  `ordered(args, Set._infimum_key)` order in `srepr` (the printed `str` is
-  the same).
+- `Intersection(S.Reals, ImageSet(Lambda(n, 2*n), S.Integers))` stays
+  unevaluated; SymPy gives the image set (its `ImageSet`/`Reals` rule).
+- `Range` with `Interval` and `Range` with `Range` intersections stay
+  unevaluated (`Intersection(Range(0, 10), Interval(2, 5))`); SymPy gives a
+  `Range`.
+- The `ImageSet` intersection rule only handles linear maps with exact
+  rational coefficients; SymPy also solves nonlinear diophantine equations
+  (for instance `n**2` against `Integers`) and the `Reals` and `Interval`
+  cases of the rule.
+- The remaining native intersection and complement rules are not yet a
+  complete port of `intersection_sets` and `Complement.reduce`: the pairwise
+  fallback still absorbs one argument into the other when the approximate
+  Rust `is_subset` proves inclusion, where the reference only has specific
+  handlers, and the complement starts with that same `is_subset`.
 
 ## Remaining blocking gaps
 
