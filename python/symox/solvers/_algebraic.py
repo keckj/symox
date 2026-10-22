@@ -23,17 +23,37 @@ def denoms(eq,*symbols):
     return result if not symbols else {value for value in result if value.free_symbols&symbols}
 
 
-def recast_to_symbols(eqs,symbols):
-    from .. import Dummy, sympify, default_sort_key
+def recast_subs(value,replacements):
+    """``value.subs(replacements)`` as the reference: a Number target also
+    replaces its negative (``Number._eval_subs``), so ``x - 2`` becomes
+    ``x - X0`` when 2 is replaced by X0."""
+    if not hasattr(value,'subs'):
+        return value
+    numbers={}
+    for old,new in replacements.items():
+        if old.is_Number:
+            numbers[old]=new
+            numbers.setdefault(-old,-new)
+    others={old:new for old,new in replacements.items() if not old.is_Number}
+    if numbers:
+        value=value.xreplace(numbers)
+    return value.subs(others) if others else value
+
+
+def recast_to_symbols(eqs,symbols,keep=None):
+    """SymPy's recast_to_symbols: the non-Symbol unknowns, in canonical
+    order, become Dummy('X0'), Dummy('X1'), ...; ``keep`` exempts the
+    unknowns a caller handles itself."""
+    from .. import Dummy, sympify, ordered
     from .._core import Expr
     if isinstance(eqs,Expr) or isinstance(symbols,Expr):
         raise ValueError('Equations and symbols must both be iterable')
     equations=list(eqs);symbols=list(map(sympify,symbols))
     replacements={}
-    for value in sorted(set(symbols),key=default_sort_key):
-        if not value.is_Symbol:
-            replacements[value]=Dummy('X'+str(len(replacements)))
-    changed=[sympify(value).subs(replacements,simultaneous=True) for value in equations]
+    for value in ordered(symbols):
+        if not value.is_Symbol and value not in replacements and not (keep and keep(value)):
+            replacements[value]=Dummy('X%d' % len(replacements))
+    changed=[recast_subs(sympify(value),replacements) for value in equations]
     return changed,[replacements.get(value,value) for value in symbols],{v:k for k,v in replacements.items()}
 
 

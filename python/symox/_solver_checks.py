@@ -28,35 +28,6 @@ def _illegal(value):
     return value.has(S.NaN,S.ComplexInfinity,oo,-oo)
 
 
-def _rational_pair(expression):
-    """Flatten integer-power rational structure without cancelling poles."""
-    from . import S
-    cache={}
-    def fraction(value,depth=0):
-        if depth>256:
-            raise NotImplementedError('Rational isolation exceeds 256 nested arithmetic levels')
-        if value in cache:return cache[value]
-        if value.is_Add:
-            pairs=[fraction(arg,depth+1) for arg in value.args]
-            denominator=S.One
-            for part in dict.fromkeys(d for _,d in pairs):denominator*=part
-            result=sum((n*(denominator/d) for n,d in pairs),S.Zero),denominator
-        elif value.is_Mul:
-            numerator,denominator=S.One,S.One
-            for arg in value.args:
-                n,d=fraction(arg,depth+1);numerator*=n;denominator*=d
-            result=numerator,denominator
-        elif value.is_Pow and value.exp.is_Integer:
-            n,d=fraction(value.base,depth+1)
-            order=int(value.exp)
-            result=(n**order,d**order) if order>=0 else (d**(-order),n**(-order))
-        else:
-            result=value.as_numer_denom()
-        cache[value]=result
-        return result
-    return fraction(expression)
-
-
 def checksol(f, symbol, sol=None, **flags):
     """Check equations by substitution, returning True, False or None.
 
@@ -121,44 +92,78 @@ def checksol(f, symbol, sol=None, **flags):
 
 
 def solve_linear(lhs, rhs=0, symbols=(), exclude=()):
-    """Isolate a linear numerator variable while excluding denominator zeros."""
-    from . import S, default_sort_key, expand_mul
-    from .calculus._analysis import walk
-    expression=_equation(lhs,rhs)
-    numerator,denominator=_rational_pair(expression)
-    if numerator==0:return S.Zero,S.One
-    provided=tuple(_scalar(value) for value in symbols)
-    if any(not value.is_Symbol for value in provided):
-        raise ValueError('solve_linear requires symbols for isolation')
-    variables=set(provided) if provided else {s for s in numerator.free_symbols
-                                             if isinstance(s,_core.Expr) and s.is_Symbol}
-    variables=(variables&numerator.free_symbols)-{_scalar(value) for value in exclude}
-    if not variables:return S.Zero,S.One
-    derivatives=[]
-    denominators=[]
-    for node in walk(expression):
-        if node.is_Pow and node.exp.is_negative is True:denominators.append(node.base)
-        if node.is_Derivative and node.free_symbols&variables:derivatives.append(node)
-    evaluated={node:node.doit() for node in derivatives}
-    numerator=numerator.xreplace(evaluated)
+    """SymPy's ``solve_linear``: ``(0, 1)``, ``(0, 0)``, ``(symbol, solution)``
+    or ``(n, d)`` for ``lhs - rhs``.
+
+    A port of the reference: a symbol is only isolated when the derivative
+    of the numerator with respect to it survives differentiation by its own
+    free symbols, so an identity in disguise such as
+    ``y*cos(x)**2 + y*sin(x)**2 - y`` is reported as ``(0, 1)``.
+    """
+    from . import S, Eq, Derivative, Integral, default_sort_key, expand_mul
+    from .solvers._algebraic import denoms
+    if isinstance(lhs,Eq):
+        if rhs:
+            raise ValueError('If lhs is an Equality, rhs must be 0 but was %s' % rhs)
+        rhs=lhs.rhs
+        lhs=lhs.lhs
+    dens=None
+    eq=lhs-rhs
+    n,d=eq.as_numer_denom()
+    if not n:
+        return S.Zero,S.One
+    free=n.free_symbols
+    if not symbols:
+        symbols=free
+    else:
+        bad=[s for s in symbols if not s.is_Symbol]
+        if bad:
+            if len(bad)==1:
+                bad=bad[0]
+            if len(symbols)==1:
+                eg='solve(%s, %s)' % (eq,symbols[0])
+            else:
+                eg='solve(%s, *%s)' % (eq,list(symbols))
+            raise ValueError('solve_linear only handles symbols, not %s. To isolate '
+                             'non-symbols use solve, e.g. >>> %s <<<.' % (bad,eg))
+        symbols=free.intersection(symbols)
+    symbols=set(symbols).difference(exclude)
+    if not symbols:
+        return S.Zero,S.One
+    # derivatives of the symbols of interest are evaluated before analysis
+    derivs={}
+    for der in n.atoms(Derivative):
+        for c in der.free_symbols&symbols:
+            derivs.setdefault(c,[]).append(der)
     all_zero=True
-    for symbol in sorted(variables,key=default_sort_key):
-        coefficient=numerator.diff(symbol)
-        if coefficient==0:continue
-        all_zero=False
-        if _illegal(coefficient) or coefficient.has(symbol):continue
-        candidate=-numerator.subs(symbol,0)/coefficient
-        if _illegal(candidate):continue
-        invalid=False
-        for base in denominators:
-            residual=base.subs(symbol,candidate)
-            if residual==0 or residual.is_zero is True or _illegal(residual):
-                invalid=True
+    for xi in sorted(symbols,key=default_sort_key):
+        newn=n.subs({der:der.doit() for der in derivs.get(xi,())})
+        dnewn_dxi=newn.diff(xi)
+        # dnewn_dxi can be nonzero if it survives differentation by any
+        # of its free symbols
+        free=dnewn_dxi.free_symbols
+        if dnewn_dxi and (not free or any(dnewn_dxi.diff(s) for s in free) or free==symbols):
+            all_zero=False
+            if dnewn_dxi is S.NaN:
                 break
-        if not invalid:return symbol,expand_mul(candidate)
-    if all_zero:return S.Zero,S.One
-    if numerator.is_Symbol:return S.Zero,S.Zero
-    return numerator,denominator
+            if xi not in dnewn_dxi.free_symbols:
+                vi=-1/dnewn_dxi*(newn.subs(xi,0))
+                if dens is None:
+                    dens=set()
+                    for den in denoms(eq,symbols):
+                        if den.is_Pow and den.exp.is_Number:
+                            if den.exp.is_zero:
+                                continue
+                            den=den.base
+                        dens.add(den)
+                if not any(checksol(di,{xi:vi},minimal=True) is True for di in dens):
+                    irep=[(i,i.doit()) for i in vi.atoms(Integral) if i.function.is_number]
+                    return xi,expand_mul(vi.subs(irep))
+    if all_zero:
+        return S.Zero,S.One
+    if n.is_Symbol:
+        return S.Zero,S.Zero
+    return n,d
 
 
 def solve_linear_system_LU(matrix, syms):

@@ -33,6 +33,10 @@ def install(namespace):
         if relational:
             targets=symbols[0] if len(symbols)==1 else symbols
             return reduce_inequalities(prepared,targets)
+        swapped=_swap_targets(prepared,f,symbols,sequences)
+        if swapped is not None:
+            target,new_symbols,back=swapped
+            return _restore_targets(solve(target,*new_symbols,**flags),back)
         # SymPy's solve rewrites the hyperbolic functions of the unknowns in
         # terms of exp before solving (sinh(x) - 1 has two solutions).
         # SymPy splits a Matrix equation into its entries (and returns a
@@ -123,6 +127,65 @@ def install(namespace):
         if (name.startswith('symox.') and name!='symox._core' and module is not None
                 and module.__dict__.get('solve') is native):
             module.solve=solve
+
+
+def _swap_targets(prepared,f,symbols,sequences):
+    """SymPy's solve replaces the unknowns that are not Symbols (an
+    expression such as ``x + 2``, a number, an ``Indexed``) by
+    ``Dummy('X%d')`` symbols (recast_to_symbols) before solving; the
+    solutions are expressed in the original unknowns afterwards.
+
+    Applied functions and derivatives are left to the native solver, which
+    treats them as atoms (SymPy's ``subs`` gives the same equations)."""
+    from . import sympify
+    from ._core import Expr
+    from .core.sympify import SympifyError
+    from .solvers._algebraic import recast_to_symbols
+    if not symbols:
+        return None
+    grouped=len(symbols)==1 and isinstance(symbols[0],sequences)
+    items=list(symbols[0]) if grouped else list(symbols)
+    try:
+        items=[sympify(s) for s in items]
+    except SympifyError:
+        return None
+    if any(isinstance(s,sequences) or not isinstance(s,Expr) for s in items):
+        return None
+    native=lambda s:(s.is_Symbol or getattr(s,'is_Function',False)
+                     or getattr(s,'is_Derivative',False))
+    if all(native(s) for s in items):
+        return None
+    equations,replaced,restore=recast_to_symbols(prepared,items,keep=native)
+    if grouped:
+        container=symbols[0]
+        new_symbols=(type(container)(replaced) if type(container) in (list,tuple,set,frozenset)
+                     else replaced,)
+    else:
+        new_symbols=tuple(replaced)
+    target=equations if isinstance(f,sequences) else equations[0]
+    return target,new_symbols,restore
+
+
+def _restore_targets(result,back):
+    from . import ordered
+    keys=back
+    pairs=list(back.items())
+    def restore(value):
+        if isinstance(value,dict):
+            # the solution dictionaries list their (restored) keys in
+            # canonical order
+            restored={keys.get(k,k):restore(v) for k,v in value.items()}
+            return {k:restored[k] for k in ordered(restored)}
+        if isinstance(value,list):
+            return [restore(v) for v in value]
+        if isinstance(value,tuple):
+            return tuple(restore(v) for v in value)
+        if isinstance(value,(set,frozenset)):
+            return type(value)(restore(v) for v in value)
+        if hasattr(value,'subs'):
+            return keys[value] if value in keys else value.subs(pairs)
+        return value
+    return restore(result)
 
 
 def _float_components(result,equations,unknowns):

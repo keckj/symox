@@ -24,7 +24,7 @@ def test_class_arguments_properties_and_native_constructor_method():
     value = sx.ElementwiseApplyFunction(function, A)
     assert isinstance(value, sx.ElementwiseApplyFunction)
     assert isinstance(value, sx.MatrixExpr)
-    assert value.kind == 'ElementwiseApplyFunction'
+    assert value._kind_tag == 'ElementwiseApplyFunction'
     assert value.is_ElementwiseApplyFunction
     assert value.args == (function, A)
     assert value.function == function and value.expr == A

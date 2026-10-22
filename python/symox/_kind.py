@@ -196,6 +196,8 @@ def matrix_tag(value):
     Scalar nodes have SymPy kinds rather than tags, so their kind, which
     walks the whole tree, is not computed by tag tests.
     """
+    if isinstance(value, _core._MatrixExpr):
+        return value._kind_tag
     if isinstance(value, _core.Expr) and getattr(type(value), 'kind', None) is _PROPERTY:
         return None
     return getattr(value, 'kind', None)
@@ -213,7 +215,24 @@ def matrix_kind(matrix):
     return MatrixKind(kinds.pop() if len(kinds) == 1 else UndefinedKind)
 
 
+def matrix_expression_kind(value):
+    """SymPy's ``MatrixExpr.kind``: ``MatrixKind(NumberKind)`` for every
+    matrix expression; an explicit immutable matrix has the kind of its
+    entries as ``RepMatrix.kind``."""
+    from .matrices.kind import MatrixKind
+    if value._kind_tag == 'ImmutableMatrix':
+        return matrix_kind(value.as_explicit())
+    return MatrixKind(NumberKind)
+
+
 def install():
     from . import _core
     _core.Expr.kind = _PROPERTY
     _core.Matrix.kind = property(matrix_kind)
+    from ._sparse import _SparseBase
+    _SparseBase.kind = property(matrix_kind)
+    # The native string tag of a matrix expression node stays available to
+    # the dispatch code as ``_kind_tag``; ``kind`` is the SymPy kind.
+    if '_kind_tag' not in _core._MatrixExpr.__dict__:
+        _core._MatrixExpr._kind_tag = _core._MatrixExpr.__dict__['kind']
+    _core._MatrixExpr.kind = property(matrix_expression_kind)

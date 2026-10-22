@@ -35,7 +35,7 @@ class _Context:
             elif isinstance(value,MatrixExpr):
                 arguments=value.as_ordered_terms(order=order) if value.is_MatAdd else _children(value)
                 keys=tuple(self.key(arg,order) for arg in arguments)
-                if value.kind=='MatrixConjugate':
+                if value._kind_tag=='MatrixConjugate':
                     keys=(((5,0,'Transpose'),(1,keys),one,S.One),)
                 result=value.class_key(),(len(keys),keys),one,S.One
             elif isinstance(value,_core.Expr):

@@ -46,6 +46,15 @@ def nonlinsolve(system, *symbols):
     equations = _equations(system)
     if not equations:
         return EmptySet
+    if any(not getattr(v, 'is_Symbol', False) for v in variables):
+        # SymPy recasts the unknowns that are not Symbols (f(x), x + 2, ...)
+        # to Dummy symbols and restores them in the solution tuples.
+        from .solvers._algebraic import recast_to_symbols
+        recast, unknowns, swap = recast_to_symbols(equations, variables)
+        solutions = nonlinsolve(recast, unknowns)
+        if not isinstance(solutions, FiniteSet):
+            return solutions.xreplace(swap)
+        return FiniteSet(*[_core._apply("Tuple", *(i.xreplace(swap) for i in s)) for s in solutions])
     if any(_core._has_noncommutative_atoms(e) for e in equations):
         return _noncommutative_nonlinsolve(equations, variables)
     result = _core._nonlinsolve_parametric(equations, variables)
