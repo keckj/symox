@@ -138,54 +138,99 @@ def arity(cls):
     return None
 
 
-def comp(z1,z2,tol=None):
-    from . import sympify,Float,Abs
-    if isinstance(z2,str) or tol == '':
-        return str(z1) == str(z2)
-    a,b = sympify(z1),sympify(z2)
-    if not a.is_number or not b.is_number:
-        raise ValueError('comparison requires numeric expressions')
-    if tol is None:
-        floats = a.atoms(Float) | b.atoms(Float)
-        if not floats:
-            return a == b
-        bits = min(f._prec for f in floats)
-        tol = Float(5)*2**(-bits+1)
-    tol = sympify(tol)
-    if tol < 0:
-        raise ValueError('tolerance must be nonnegative')
-    error = Abs(a-b)
-    if b != 0 and Abs(a) > 1:
-        error /= Abs(a)
-    return bool(error.evalf(30) <= tol.evalf(30))
+def comp(z1, z2, tol=None):
+    # sympy/core/numbers.py comp (SymPy 1.14): without a tolerance the
+    # difference is compared at the decimal precision of the Floats.
+    from . import sympify, Float
+    from .core.evalf import pure_complex
+    from mpmath.libmp import prec_to_dps
+    if isinstance(z2, str):
+        if not pure_complex(z1, or_real=True):
+            raise ValueError('when z2 is a str z1 must be a Number')
+        return str(z1) == z2
+    if not z1:
+        z1, z2 = z2, z1
+    if not z1:
+        return True
+    if not tol:
+        a, b = z1, z2
+        if tol == '':
+            return str(a) == str(b)
+        if tol is None:
+            a, b = sympify(a), sympify(b)
+            if not all(i.is_number for i in (a, b)):
+                raise ValueError('expecting 2 numbers')
+            fa = a.atoms(Float)
+            fb = b.atoms(Float)
+            if not fa and not fb:
+                # no floats -- compare exactly
+                return a == b
+            # get a to be pure_complex
+            for _ in range(2):
+                ca = pure_complex(a, or_real=True)
+                if not ca:
+                    if fa:
+                        a = a.n(prec_to_dps(min(i._prec for i in fa)))
+                        ca = pure_complex(a, or_real=True)
+                        break
+                    else:
+                        fa, fb = fb, fa
+                        a, b = b, a
+            cb = pure_complex(b)
+            if not cb and fb:
+                b = b.n(prec_to_dps(min(i._prec for i in fb)))
+                cb = pure_complex(b, or_real=True)
+            if ca and cb and (ca[1] or cb[1]):
+                return all(comp(i, j) for i, j in zip(ca, cb))
+            # Number._prec is -1 for non-Float numbers in the reference.
+            def _prec(v, default):
+                if isinstance(v, Float):
+                    return v._prec
+                return -1 if getattr(v, 'is_Number', False) else default
+            pa = _prec(a, -1)
+            tol = 10**prec_to_dps(min(pa, _prec(b, pa)))
+            return int(abs(a - b)*tol) <= 5
+    diff = abs(z1 - z2)
+    az1 = abs(z1)
+    if z2 and az1 > 1:
+        return diff/az1 <= tol
+    else:
+        return diff <= tol
 
 
 def failing_assumptions(expr,**assumptions):
-    from . import sympify,ask,Q
+    # sympy/core/assumptions.py: the old assumptions (is_<name>) of expr.
+    from . import sympify
     expr = sympify(expr)
-    failures = {}
-    for name,wanted in assumptions.items():
-        if wanted not in (True,False,None):
-            raise ValueError('assumption values must be True, False or None')
-        predicate = getattr(Q,name,None)
-        if predicate is None:
-            raise ValueError('unknown assumption: '+name)
-        actual = ask(predicate(expr))
-        if actual != wanted:
-            failures[name] = actual
-    return failures
+    failed = {}
+    for k in assumptions:
+        test = getattr(expr, 'is_%s' % k, None)
+        if test is not assumptions[k]:
+            failed[k] = test
+    return failed
 
 
 def check_assumptions(expr,against=None,**assume):
+    # sympy/core/assumptions.py: False on a contradiction, None when an
+    # assumption is undecided, True when all of them hold.
+    from . import sympify
+    from .core.assumptions import assumptions
+    expr = sympify(expr)
     if against is not None:
         if assume:
-            raise ValueError('use either against or explicit assumptions')
-        from . import sympify
-        assume = dict(sympify(against).assumptions0)
-    failures = failing_assumptions(expr,**assume)
-    if any(value is not None for value in failures.values()):
-        return False
-    return None if failures else True
+            raise ValueError(
+                'Expecting `against` or `assume`, not both.')
+        assume = assumptions(against)
+    known = True
+    for k, v in assume.items():
+        if v is None:
+            continue
+        e = getattr(expr, 'is_' + k, None)
+        if e is None:
+            known = None
+        elif v != e:
+            return False
+    return known
 
 
 _handlers = {}

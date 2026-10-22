@@ -1326,6 +1326,64 @@ Remaining gaps:
   values are equal, and the difference comes from radical normalization.
 - `sqrt(exp_polar(I*pi)).n()` keeps a spurious real part of about 1e-26.
 
+## Infinities, numeric comparison, Factors and Boolean.equals on 2026-10-22
+
+A probe of 562 core calls (Add/Mul/Pow/division tables over `zoo`, `oo`,
+`-oo`, `nan` and `I*oo`, `comp`, `all_close`, `check_assumptions`,
+`failing_assumptions`, `unchanged`, `WildFunction` matching, bound function
+variables, `Factors`/`Term` and `Boolean.equals`) went from 107 to 14
+outputs different from SymPy 1.14.0 (by `str` and exception type), and a
+second probe of 762 `Pow`/`Add`/`Mul` table calls went from 143 to 43.
+`tests/test_wrong_core_wave4_parity.py` holds the reference values.
+
+- `Add` follows `Add.flatten`: a second `zoo` gives `nan`, and a term
+  `c*oo*s` is collected as `s` with the coefficient `oo`, so `I*oo + I` is
+  `oo*I`, `x + x*oo` is `oo*x` and `I*oo - I*oo` is `nan`.
+- `Pow` follows `Pow.__new__` and the `_eval_power` of `Zero`, `One`,
+  `NegativeOne`, the integers, rationals and Floats, `Infinity`,
+  `NegativeInfinity` and `ComplexInfinity`: any base to the power `zoo` is
+  `nan`; `b**oo` is `oo` for `b > 1`, `0` for `-1 < b < 1`, `zoo` for a
+  finite `b < -1`, `nan` otherwise; `b**-oo` is `(1/b)**oo` with `nan` for
+  a negative non-integer; `0**-oo` is `zoo`; `(-oo)**e` is
+  `(-1)**e*oo**e`; `oo**e` uses `re(e)`; `(I*oo)**(1/2)` is `oo*sqrt(I)`.
+  Exponents such as `I*oo` are decided through the finite coefficient of
+  `oo`, and bases such as `pi` through the numerical sign of `pi - 1`.
+- `comp` is the reference function (non-Float numbers have precision -1,
+  so `comp(1e-10, 0)` is `True`); `all_close`, `check_assumptions`,
+  `failing_assumptions` and `unchanged` are the reference functions.
+- `WildFunction('F').match(F)` and `F.matches(F)` are `{F_: F_}`.
+- `iterfreeargs` and the native `free_symbols` of a definite `Integral`
+  mask a non-symbol integration variable with a `Dummy`, so
+  `Integral(f(x), (f(x), 1, 2)).free_symbols` is empty.
+- `Factors` and `Term` are the reference classes of `exprtools.py`
+  (`gcd`, `lcm`, `quo`, `rem`, `div`, `normal` with negative and symbolic
+  exponents).
+- `Boolean.equals` is the reference test: same atoms and
+  `not satisfiable(Not(Equivalent(a, b)))`, so `(A >> B).equals(~B >> ~A)`
+  is `True`; with relationals it raises `NotImplementedError`.
+
+Divergences kept (not validated by the user yet):
+
+- `zoo**oo` stays unevaluated; SymPy gives `0`, although `|zoo| = oo`.
+- The indefinite `Integral(f(x), f(x)).free_symbols` is `{x}`; SymPy gives
+  `{f(x)}`, a non-symbol.
+
+Remaining gaps:
+
+- `oo/0` and `-oo/0` with a Python `0` are `zoo`; SymPy's
+  `Infinity.__truediv__` gives `oo` and `-oo` (`oo/S(0)` is `zoo` in both).
+- `Mul` with `zoo` keeps finite non-real factors (`zoo*(1 + I)`,
+  `zoo*(1 + oo*I)`) and `(1 + oo*I)**2` stays a power; SymPy gives `zoo`.
+- Print order of `zoo` in sums (`zoo + x` versus SymPy `x + zoo`).
+- `WildFunction` is a `Wild` symbol: `F.is_Function` is `False` and
+  `F.free_symbols` is `{F_}` (SymPy `True` and `{F}`).
+- `Sum` and `Product` with a function as the summation variable raise
+  `ValueError`.
+- `all_close((1, 2), [1, 2])` raises `AttributeError` (SymPy
+  `SympifyError`).
+- `Pow(I, -S.Half)` is `1/sqrt(I)` (SymPy `-I**(3/2)`) and `(-pi)**1.5`
+  stays unevaluated (SymPy `(-1.0*I)*pi**1.5`).
+
 ## Remaining blocking gaps
 
 ### Noncommutative symbols

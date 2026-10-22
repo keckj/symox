@@ -6,7 +6,13 @@ _export(globals(), 'symox', 'AtomicExpr Expr UnevaluatedExpr factor_terms')
 def unchanged(func,*args):
     result=func(*args)
     same_head=result.func==func or (not getattr(result,'is_UndefinedFunction',False) and getattr(func,'_symox_head_name',None)==getattr(result,'class_name',object()))
-    return same_head and result.args==args
+    if not same_head:return False
+    from symox import sympify
+    try:args=tuple(sympify(a) for a in args)
+    except Exception:return False
+    # Like Basic.__eq__, a tuple argument equals its Tuple form (ExprCondPair).
+    if len(result.args)!=len(args):return False
+    return all(a==b or (getattr(a,'is_Tuple',False) or isinstance(a,tuple)) and tuple(a)==tuple(b) for a,b in zip(result.args,args))
 
 class ExprBuilder:
     def __init__(self,op,args=None,validator=None,check=True):

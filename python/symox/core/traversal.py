@@ -10,13 +10,17 @@ def iterargs(expr):
         value=queue.popleft();yield value;queue.extend(getattr(value,'args',()))
 
 def iterfreeargs(expr,_first=True):
-    from collections import deque
-    queue=deque([(expr,frozenset())])
-    while queue:
-        value,bound=queue.popleft()
-        if not (getattr(value,'free_symbols',set())&bound):yield value
-        new_bound=bound|frozenset(getattr(value,'bound_symbols',()))
-        for arg in getattr(value,'args',()):queue.append((arg,new_bound))
+    # sympy/core/traversal.py: the arguments of a binding node are taken
+    # from its canonical dummy form, without those involving the dummies.
+    args=[expr]
+    for i in args:
+        yield i
+        if _first and hasattr(i,'bound_symbols'):
+            void=i.canonical_variables.values()
+            for i in iterfreeargs(i.as_dummy(),_first=False):
+                if not i.has(*void):
+                    yield i
+        args.extend(i.args)
 
 def walk(e,*target):
     if isinstance(e,target):
