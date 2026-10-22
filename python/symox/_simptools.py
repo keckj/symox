@@ -468,8 +468,31 @@ def _as_terms(self):
     return result, gens
 
 
+def _has_relational(expr):
+    stack = [expr]
+    while stack:
+        node = stack.pop()
+        if getattr(node, 'is_Relational', False):
+            return True
+        stack.extend(getattr(node, 'args', ()))
+    return False
+
+
+def _boolean_equals(self, other):
+    # Boolean.equals (sympy/logic/boolalg.py): logical equivalence over the
+    # same atoms, decided by satisfiability of the negated equivalence.
+    from .logic.inference import satisfiable
+    from . import Not, Equivalent
+    if _has_relational(self) or _has_relational(other):
+        raise NotImplementedError('handling of relationals')
+    return self.atoms() == other.atoms() and \
+        not satisfiable(Not(Equivalent(self, other)))
+
+
 def _equals(self, other, failing_expression=False):
     other = _sympify(other)
+    if getattr(self, 'is_Boolean', False) and not getattr(self, 'is_Relational', False):
+        return _boolean_equals(self, other)
     if _nc.is_nc(self) or _nc.is_nc(other):
         # Expr.equals: a zero difference proves equality; the numerical
         # constancy tests cannot decide a noncommutative difference.

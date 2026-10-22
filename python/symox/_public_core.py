@@ -68,7 +68,15 @@ class FunctionClass(type,metaclass=_FunctionClassType):
 
 def _wild_function_value(expr):
     # Marks a WildFunction: a distinct object from the Wild of the same name.
-    return bool(getattr(expr,'is_Function',False))
+    # WildFunction.matches accepts any Function, a WildFunction included.
+    return bool(getattr(expr,'is_Function',False)) or _is_wild_function_node(expr)
+
+
+def _is_wild_function_node(expr):
+    try:
+        return expr in _wild_functions
+    except TypeError:
+        return False
 
 
 class WildFunction(metaclass=_ExprType):
@@ -250,14 +258,31 @@ def install(namespace):
     @wraps(original_match)
     def match(self,pattern,*args,**kwargs):
         result = original_match(self,pattern,*args,**kwargs)
+        if result is None and _is_wild_function_node(pattern) and _is_wild_function_node(self):
+            # WildFunction.matches accepts any Function, a WildFunction included.
+            counts = _wild_functions[pattern]
+            return {pattern:self} if counts is None or 0 in counts else None
         if result is not None:
             for key,value in result.items():
-                if key in _wild_functions and value != key:
+                if key in _wild_functions:
                     counts = _wild_functions[key]
-                    if not value.is_Function or counts is not None and len(value.args) not in counts:
+                    function = value.is_Function or _is_wild_function_node(value)
+                    if not function or counts is not None and len(value.args) not in counts:
                         return None
         return result
     Expr.match = match
+    original_matches = Expr.matches
+    @wraps(original_matches)
+    def matches(self,expr,repl_dict=None,old=False):
+        if _is_wild_function_node(self) and _is_wild_function_node(expr):
+            counts = _wild_functions[self]
+            if counts is not None and 0 not in counts:
+                return None
+            repl_dict = {} if repl_dict is None else dict(repl_dict)
+            repl_dict[self] = expr
+            return repl_dict
+        return original_matches(self,expr,repl_dict,old)
+    Expr.matches = matches
     previous = Expr.nargs
     def nargs(self):
         if self in _wild_functions:

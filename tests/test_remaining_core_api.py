@@ -81,7 +81,7 @@ def test_core_factor_algebra_and_traversal():
     x,y=S.symbols('x y');a,b=Factors(x**3*y),Factors(x*y**2)
     assert a.gcd(b).as_expr()==x*y
     assert a.lcm(b).as_expr()==x**3*y**2
-    assert a.quo(b).as_expr()==x**2/y
+    assert a.quo(b).as_expr()==x**2  # SymPy: Factors({x: 2}); rem is Factors({y: 1})
     assert (Term(2*x/(x+1))*Term((x+1)/y)).as_expr()==2*x/y
     for expression in [x,x**2,x**S.Rational(3,2),S.exp(2*y/3),x**(3*y/2)]:
         base,power=decompose_power(expression)
