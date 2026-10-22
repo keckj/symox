@@ -35,6 +35,11 @@ DOMAINS = [sx.ZZ, sx.QQ, sx.GF(2), sx.GF(5), sx.ZZ_I, sx.QQ_I,
            sx.QQ.algebraic_field(sx.sqrt(2)), sx.EX, sx.EXRAW]
 
 
+def same(a, b):
+    # The reference ``DomainMatrix.__eq__`` also compares the storage format.
+    return a.to_sparse() == b.to_sparse()
+
+
 def reference(matrix):
     from sympy.polys.matrices import DomainMatrix as Reference
     reference_domains = [sp.ZZ, sp.QQ, sp.GF(2), sp.GF(5), sp.ZZ_I, sp.QQ_I,
@@ -55,15 +60,15 @@ def test_charpoly_determinant_adjugate(domain, fmt):
         assert [expected.domain.from_sympy(domain.to_sympy(v).to_sympy())
                 for v in actual.charpoly()] == expected.charpoly()
         adjugate, determinant = actual.adj_det()
-        assert actual*adjugate == DomainMatrix.eye(size, domain)*determinant
-        assert adjugate*actual == actual*adjugate
+        assert same(actual*adjugate, DomainMatrix.eye(size, domain)*determinant)
+        assert same(adjugate*actual, actual*adjugate)
         assert determinant == actual.det()
         # Cayley-Hamilton also tests small-characteristic arithmetic.
         polynomial = DomainMatrix.zeros((size, size), domain)
         identity = DomainMatrix.eye(size, domain)
         for coefficient in actual.charpoly():
             polynomial = polynomial*actual + identity*coefficient
-        assert polynomial == DomainMatrix.zeros((size, size), domain)
+        assert same(polynomial, DomainMatrix.zeros((size, size), domain))
 
 
 @pytest.mark.parametrize('domain', DOMAINS)
@@ -81,15 +86,15 @@ def test_rectangular_rref_and_kernel(domain, method):
         assert reduced.to_Matrix().to_sympy() == expected.to_Matrix()
         numerator, denominator, den_pivots = actual.rref_den(method=method)
         assert den_pivots == pivots
-        assert numerator.to_field()/denominator == reduced
+        assert same(numerator.to_field()/denominator, reduced)
         assert numerator.domain == domain
         kernel = actual.nullspace()
         assert kernel.shape == (n-len(pivots), n)
-        assert actual*kernel.T == DomainMatrix.zeros((m, n-len(pivots)), domain)
+        assert same(actual*kernel.transpose(), DomainMatrix.zeros((m, n-len(pivots)), domain))
         assert kernel.rank() == n-len(pivots)
         if domain.is_Field:
             normalized = actual.nullspace(divide_last=True)
-            assert actual*normalized.T == DomainMatrix.zeros((m, normalized.shape[0]), domain)
+            assert same(actual*normalized.transpose(), DomainMatrix.zeros((m, normalized.shape[0]), domain))
             rowspace, colspace = actual.rowspace(), actual.columnspace()
             assert rowspace.rank() == colspace.rank() == len(pivots)
 
@@ -100,12 +105,12 @@ def test_solve_and_inverse_denominator(domain, method):
     actual = DM([[0, 1, 0], [1, 2, 3], [0, 0, 1]], domain)
     rhs = DM([[1, 2], [3, 4], [5, 6]], domain)
     numerator, denominator = actual.solve_den(rhs, method=method)
-    assert actual*numerator == rhs*denominator
+    assert same(actual*numerator, rhs*denominator)
     inverse, divisor = actual.inv_den(method=method)
-    assert actual*inverse == DomainMatrix.eye(3, domain)*divisor
+    assert same(actual*inverse, DomainMatrix.eye(3, domain)*divisor)
     if domain.is_Field:
-        assert actual.inv()*actual == DomainMatrix.eye(3, domain)
-        assert actual**-2 == actual.inv()*actual.inv()
+        assert same(actual.inv()*actual, DomainMatrix.eye(3, domain))
+        assert same(actual**-2, actual.inv()*actual.inv())
     else:
         with pytest.raises(DMNotAField):
             actual.inv()
@@ -120,7 +125,7 @@ def test_nonrational_coefficients(domain):
     matrix = DM([[value, 1], [0, value+1]], domain)
     assert matrix.det() == domain(value*(value+1))
     adjugate, determinant = matrix.adj_det()
-    assert matrix*adjugate == DomainMatrix.eye(2, domain)*determinant
+    assert same(matrix*adjugate, DomainMatrix.eye(2, domain)*determinant)
     inverse, denominator = matrix.inv_den()
     # Formal EX equality need not prove all equivalent rational trees.
     difference = (matrix*inverse - DomainMatrix.eye(2, domain)*denominator).to_Matrix()
@@ -157,12 +162,12 @@ def test_views_unification_and_scalar_results():
             a[index]
     assert a.hstack(a).shape == (2, 6)
     assert a.vstack(a).shape == (4, 3)
-    assert a.T.T == a
-    assert sx.ZZ(2)*a == a.mul(2)
+    assert same(a.transpose().transpose(), a)
+    assert same(sx.ZZ(2)*a, a.mul(2))
     rational = a.convert_to(sx.QQ)
     assert (a+rational).domain == sx.QQ
-    assert (a*rational.T).domain == sx.QQ
-    assert DM([[1, 2], [3, 4]], sx.ZZ)**0 == DomainMatrix.eye(2, sx.ZZ)
+    assert (a*rational.transpose()).domain == sx.QQ
+    assert same(DM([[1, 2], [3, 4]], sx.ZZ)**0, DomainMatrix.eye(2, sx.ZZ))
     q = DM([[sx.QQ(1, 2), sx.QQ(1, 3)]], sx.QQ)
     denominator, numerator = q.clear_denoms(convert=True)
     assert denominator.domain == numerator.domain == sx.ZZ
@@ -195,13 +200,16 @@ def test_singular_inconsistent_and_invalid_inputs():
     for method in [rectangular.det, rectangular.charpoly, rectangular.inv]:
         with pytest.raises(DMNonSquareMatrixError):
             method()
-    with pytest.raises(DMNonInvertibleMatrixError):
+    # The reference rejects an underdetermined system by its shape.
+    with pytest.raises(DMShapeError):
         rectangular.solve_den(DM([[1]], sx.QQ))
-    with pytest.raises(DMBadInputError):
+    # The reference rejects an unknown rref method with ValueError.
+    with pytest.raises(ValueError):
         matrix.rref(method='unimplemented')
     with pytest.raises(DMDomainError):
         matrix.add(matrix.convert_to(sx.ZZ))
-    with pytest.raises(DMShapeError):
+    # The reference DDM.hstack checks the row counts with an assert.
+    with pytest.raises(AssertionError):
         matrix.hstack(rectangular)
     for rows in [[], [[0, 0]], [[0, 0], [0, 0]]]:
         zero = DomainMatrix.from_list(rows, sx.ZZ)
@@ -232,7 +240,7 @@ from symox.polys.matrices import DM, DomainMatrix
 for K in [ZZ, QQ, GF(5)]:
     A = DM([[1,2],[3,5]], K)
     N, d = A.inv_den()
-    assert A*N == DomainMatrix.eye(2,K)*d
+    assert A*N == (DomainMatrix.eye(2,K)*d).to_dense()
     assert A.rref()[1] == (0,1)
 assert Matrix([[I]]).to_DM().domain.is_ZZ_I
 assert Matrix([[Float('0.1',60)]]).to_DM().domain.precision > 190
