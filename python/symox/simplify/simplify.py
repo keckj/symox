@@ -122,3 +122,6 @@ def nthroot(expr,n,max_len=4,prec=15):
 
 __all__ += ['clear_coefficients','dotprodsimp','factor_sum','inversecombine','nc_simplify','nthroot','product_mul',
  'product_simplify','sum_add','sum_combine','sum_simplify']
+
+# SymPy's simplify module also exposes trigsimp (defined in simplify.trigsimp).
+trigsimp = S.trigsimp

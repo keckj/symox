@@ -1,9 +1,90 @@
-"""Classical mechanics with native moving frames and equations of motion."""
-from .. import vector
-from ..vector import *
-from ._core import (KanesMethod,RigidBody,linear_momentum,angular_momentum,kinetic_energy,potential_energy,Lagrangian,msubs,find_dynamicsymbols,inertia,inertia_of_point_mass,Inertia,Force,Torque,Particle,LagrangesMethod,Linearizer,Body,SymbolicSystem)
-from .joint import PinJoint,PrismaticJoint,CylindricalJoint,PlanarJoint,SphericalJoint,WeldJoint
-from .system import System,JointsMethod
-from ._loads import (WrappingCylinder,WrappingGeometryBase,WrappingSphere,PathwayBase,LinearPathway,ObstacleSetPathway,WrappingPathway,ActuatorBase,ForceActuator,LinearDamper,LinearSpring,TorqueActuator,DuffingSpring,CoulombKineticFriction)
-from ..vector.printing import init_vprinting as mechanics_printing,vprint as mprint,vsprint as msprint,vpprint as mpprint,vlatex as mlatex
-__all__ = ['vector']+vector.__all__+['KanesMethod','RigidBody','linear_momentum','angular_momentum','kinetic_energy','potential_energy','Lagrangian','mechanics_printing','mprint','msprint','mpprint','mlatex','msubs','find_dynamicsymbols','inertia','inertia_of_point_mass','Inertia','Force','Torque','Particle','LagrangesMethod','Linearizer','Body','SymbolicSystem','System','PinJoint','PrismaticJoint','CylindricalJoint','PlanarJoint','SphericalJoint','WeldJoint','JointsMethod','WrappingCylinder','WrappingGeometryBase','WrappingSphere','PathwayBase','LinearPathway','ObstacleSetPathway','WrappingPathway','ActuatorBase','ForceActuator','LinearDamper','LinearSpring','TorqueActuator','DuffingSpring','CoulombKineticFriction']
+__all__ = [
+    'vector',
+
+    'CoordinateSym', 'ReferenceFrame', 'Dyadic', 'Vector', 'Point', 'cross',
+    'dot', 'express', 'time_derivative', 'outer', 'kinematic_equations',
+    'get_motion_params', 'partial_velocity', 'dynamicsymbols', 'vprint',
+    'vsstrrepr', 'vsprint', 'vpprint', 'vlatex', 'init_vprinting', 'curl',
+    'divergence', 'gradient', 'is_conservative', 'is_solenoidal',
+    'scalar_potential', 'scalar_potential_difference',
+
+    'KanesMethod',
+
+    'RigidBody',
+
+    'linear_momentum', 'angular_momentum', 'kinetic_energy', 'potential_energy',
+    'Lagrangian', 'mechanics_printing', 'mprint', 'msprint', 'mpprint',
+    'mlatex', 'msubs', 'find_dynamicsymbols',
+
+    'inertia', 'inertia_of_point_mass', 'Inertia',
+
+    'Force', 'Torque',
+
+    'Particle',
+
+    'LagrangesMethod',
+
+    'Linearizer',
+
+    'Body',
+
+    'SymbolicSystem', 'System',
+
+    'PinJoint', 'PrismaticJoint', 'CylindricalJoint', 'PlanarJoint',
+    'SphericalJoint', 'WeldJoint',
+
+    'JointsMethod',
+
+    'WrappingCylinder', 'WrappingGeometryBase', 'WrappingSphere',
+
+    'PathwayBase', 'LinearPathway', 'ObstacleSetPathway', 'WrappingPathway',
+
+    'ActuatorBase', 'ForceActuator', 'LinearDamper', 'LinearSpring',
+    'TorqueActuator', 'DuffingSpring', 'CoulombKineticFriction',
+]
+
+from symox.physics import vector
+
+from symox.physics.vector import (CoordinateSym, ReferenceFrame, Dyadic, Vector, Point,
+        cross, dot, express, time_derivative, outer, kinematic_equations,
+        get_motion_params, partial_velocity, dynamicsymbols, vprint,
+        vsstrrepr, vsprint, vpprint, vlatex, init_vprinting, curl, divergence,
+        gradient, is_conservative, is_solenoidal, scalar_potential,
+        scalar_potential_difference)
+
+from .kane import KanesMethod
+
+from .rigidbody import RigidBody
+
+from .functions import (linear_momentum, angular_momentum, kinetic_energy,
+                        potential_energy, Lagrangian, mechanics_printing,
+                        mprint, msprint, mpprint, mlatex, msubs,
+                        find_dynamicsymbols)
+
+from .inertia import inertia, inertia_of_point_mass, Inertia
+
+from .loads import Force, Torque
+
+from .particle import Particle
+
+from .lagrange import LagrangesMethod
+
+from .linearize import Linearizer
+
+from .body import Body
+
+from .system import SymbolicSystem, System
+
+from .jointsmethod import JointsMethod
+
+from .joint import (PinJoint, PrismaticJoint, CylindricalJoint, PlanarJoint,
+                    SphericalJoint, WeldJoint)
+
+from .wrapping_geometry import (WrappingCylinder, WrappingGeometryBase,
+                                WrappingSphere)
+
+from .pathway import (PathwayBase, LinearPathway, ObstacleSetPathway,
+                      WrappingPathway)
+
+from .actuator import (ActuatorBase, ForceActuator, LinearDamper, LinearSpring,
+                       TorqueActuator, DuffingSpring, CoulombKineticFriction)

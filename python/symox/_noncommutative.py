@@ -1115,18 +1115,25 @@ def install(cancel_, factor_, apart_, together_, collect_):
 
     @functools.wraps(factor_)
     def factor_entry(f, *gens, **args):
+        # The reference factors lists and tuples entrywise (Beam3D doctest).
+        if isinstance(f, (list, tuple)):
+            return type(f)(factor_entry(e, *gens, **args) for e in f)
         if is_nc(f):
             return factor(f, *gens, **args)
         return factor_(f, *gens, **args)
 
     @functools.wraps(apart_)
     def apart_entry(f, x=None, full=False, **options):
+        if isinstance(f, (list, tuple)):
+            return type(f)(apart_entry(e, x, full=full, **options) for e in f)
         if is_nc(f):
             return apart(f, x=x, full=full, **options)
         return apart_(f, x, full=full, **options)
 
     @functools.wraps(together_)
     def together_entry(expr, deep=False, fraction=True, **kwargs):
+        if isinstance(expr, (list, tuple)):
+            return type(expr)(together_entry(e, deep=deep, fraction=fraction, **kwargs) for e in expr)
         if is_nc(expr):
             return together(expr, deep=deep, fraction=fraction)
         if fraction is True and not kwargs:

@@ -1,8 +1,8 @@
-"""Default str/repr printing mixin for non-expression objects."""
+"""Default printing mixin for non-expression classes (SymPy's ``Printable``)."""
 
 
-class DefaultPrinting:
-    """Print through ``sstr`` for both ``str`` and ``repr``, as the reference mixin."""
+class Printable:
+    """Mix-in giving ``str``/``repr`` through ``sstr`` and Jupyter LaTeX output."""
     __slots__ = ()
 
     def __str__(self):
@@ -14,10 +14,14 @@ class DefaultPrinting:
     def _repr_disabled(self):
         return None
 
+    _repr_png_ = _repr_disabled
+    _repr_svg_ = _repr_disabled
+
     def _repr_latex_(self):
         from .latex import latex
         s = latex(self, mode='plain')
         return "$\\displaystyle %s$" % s
 
 
-Printable = DefaultPrinting
+DefaultPrinting = Printable
+__all__ = ['Printable', 'DefaultPrinting']

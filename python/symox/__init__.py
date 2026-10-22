@@ -83,7 +83,31 @@ def integrate(*args, **kwargs):
             value = None
         if value is not None:
             return value
-    return result
+    return _reevaluate_singularities(result)
+
+
+def _reevaluate_singularities(expr):
+    """Rebuild the held SingularityFunction nodes of ``expr``.
+
+    The native engine substitutes the limits of a definite integral without
+    calling the Python constructor of these held nodes, which would leave
+    SingularityFunction(2, 0, 1) instead of 2; the reference evaluates them.
+    """
+    if not isinstance(expr, Expr):
+        return expr
+    try:
+        heads = [f for f in expr.atoms(Function)
+                 if getattr(f, 'class_name', None) == 'SingularityFunction']
+    except Exception:
+        return expr
+    if not heads:
+        return expr
+    mapping = {}
+    for f in heads:
+        value = SingularityFunction(*f.args)
+        if value != f:
+            mapping[f] = value
+    return expr.xreplace(mapping) if mapping else expr
 
 
 from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, FlagError, UnificationFailed
@@ -2396,6 +2420,12 @@ def limit(e, z, z0, dir="+"):
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
     r = _core._limit(e, z, z0, str(dir))
+    if r is None and str(dir) in ("+", "-"):
+        local = _singularity_local_germ(sympify(e), sympify(z), sympify(z0), str(dir))
+        if local is not None:
+            r = limit(local, z, z0, dir)
+            if isinstance(r, Limit):
+                r = None
     if r is None and str(dir) in ("+", "-") and e.has(Piecewise):
         r = _piecewise_one_sided_limit(sympify(e), sympify(z), sympify(z0), str(dir))
     if r is None and str(dir) == "+-" and e.has(Piecewise):
@@ -2414,6 +2444,37 @@ def limit(e, z, z0, dir="+"):
         from .calculus._accum_limit import oscillating_limit
         r = oscillating_limit(e, z, z0, str(dir))
     return Limit(e, z, z0, dir) if r is None else r
+
+
+def _singularity_local_germ(e, z, z0, dir):
+    """Replace each ``SingularityFunction(u, a, n)`` depending on ``z`` by its
+    germ on the one-sided neighbourhood of ``z0``, following the reference
+    ``SingularityFunction._eval_as_leading_term``: negative orders vanish, a
+    zero shift selects the side, a positive shift keeps ``(u - a)**n`` and any
+    other shift gives zero."""
+    if not isinstance(e, Expr) or not z.is_Symbol or z0.is_infinite:
+        return None
+    sfs = [f for f in e.atoms(Function) if getattr(f, "class_name", None) == "SingularityFunction" and f.has(z)]
+    if not sfs:
+        return None
+    mapping = {}
+    for f in sfs:
+        u, a, n = f.args
+        if n.has(z) or a.has(z):
+            return None
+        shift = (u - a).subs(z, z0)
+        if n.is_negative:
+            mapping[f] = S.Zero
+        elif shift.is_zero:
+            if n.is_zero:
+                mapping[f] = S.One if dir == "+" else S.Zero
+            else:
+                mapping[f] = (u - a)**n if dir == "+" else S.Zero
+        elif shift.is_positive:
+            mapping[f] = (u - a)**n
+        else:
+            mapping[f] = S.Zero
+    return e.xreplace(mapping)
 
 
 def _piecewise_one_sided_limit(e, z, z0, dir):
@@ -2578,6 +2639,21 @@ def N(expr, n=15, **kwargs):
     return _native_N(expr, n, **kwargs)
 
 
+def _singularity_as_piecewise(expr):
+    """The reference code printers print ``SingularityFunction`` through its
+    Piecewise rewrite (``CodePrinter._rewriteable_functions``); do the same
+    before compiling, inside containers and matrices too."""
+    if isinstance(expr, (list, tuple)):
+        return type(expr)(_singularity_as_piecewise(e) for e in expr)
+    if isinstance(expr, MatrixBase):
+        return expr.applyfunc(_singularity_as_piecewise)
+    if not isinstance(expr, Expr):
+        return expr
+    mapping = {f: f.rewrite(Piecewise) for f in expr.atoms(Function)
+               if getattr(f, "class_name", None) == "SingularityFunction"}
+    return expr.xreplace(mapping) if mapping else expr
+
+
 def lambdify(args, expr, modules=None, **kwargs):
     """Build a numerical callable with native NumPy, PyTorch, JAX or Slang.
 
@@ -2614,6 +2690,7 @@ def lambdify(args, expr, modules=None, **kwargs):
             raise NotImplementedError("CUDA lambdify requires a single module")
         return extra.cuda_lambdify(args, expr, **kwargs)
     from .utilities.lambdify import _compile_implemented,_compile_structured,_compile_mpmath
+    expr = _singularity_as_piecewise(expr)
     structured = _compile_structured(args,expr,modules,kwargs)
     if structured is not None:
         return structured
@@ -2648,11 +2725,85 @@ cancel, factor, apart, together, collect = _nc.install(cancel, factor, apart, to
 
 def _make_solve_entry(_native):
     def solve(f, *symbols, **flags):
+        # The reference solve reads no 'domain' flag: solve(x**2 + 1, x,
+        # domain=S.Reals) still returns [-I, I] (the Beam max_* methods pass it).
+        flags.pop('domain', None)
         if _nc._any_nc(f if isinstance(f, (list, tuple, set)) else [f]):
             return _nc.solve(_native, f, *symbols, **flags)
-        return _native(f, *symbols, **flags)
+        try:
+            return _native(f, *symbols, **flags)
+        except NotImplementedError:
+            r = _solve_piecewise(solve, f, symbols, flags)
+            if r is None:
+                raise
+            return r
     solve.__doc__ = _native.__doc__
     return solve
+
+
+def _solve_piecewise(solve, f, symbols, flags):
+    """The reference ``_solve`` branch for a univariate Piecewise equation.
+
+    Each piece is solved and its candidates kept where the piece's explicit
+    condition (its own and none of the earlier ones) holds; an undecided
+    condition gives ``Piecewise((candidate, cond), (nan, True))``. Returns
+    None when the input is not of that form, so the caller keeps its error.
+    """
+    if isinstance(f, (list, tuple, set)):
+        if len(f) != 1:
+            return None
+        f = next(iter(f))
+    syms = list(symbols[0]) if len(symbols) == 1 and isinstance(symbols[0], (list, tuple, set)) else list(symbols)
+    if any(k not in ('dict', 'check', 'simplify', 'rational') for k in flags):
+        return None
+    f = sympify(f)
+    if isinstance(f, Equality):
+        f = f.lhs - f.rhs
+    if not isinstance(f, Expr):
+        return None
+    if not syms:
+        syms = list(f.free_symbols)
+    if len(syms) != 1 or not f.has(Piecewise):
+        return None
+    x = syms[0]
+    f = piecewise_fold(f)
+    if not f.is_Piecewise:
+        return None
+    if any(e.is_zero for e, c in f.args):
+        f = f.simplify()
+        if not f.is_Piecewise:
+            return None
+    result = []
+    cond = neg = S.true
+    for expr, cnd in f.args:
+        cond = And(neg, cnd)
+        neg = And(neg, Not(cond))
+        if expr.is_zero and simplify(cond) != False:
+            raise NotImplementedError(
+                "An expression is already zero when %s. This means that in "
+                "this *region* the solution is zero but solve can only "
+                "represent discrete, not interval, solutions. If this is a "
+                "spurious interval it might be resolved with simplification "
+                "of the Piecewise conditions." % cond)
+        if expr is S.NaN or expr.has(S.NaN):
+            continue
+        candidates = solve(expr, x, **{k: v for k, v in flags.items() if k != 'dict'})
+        for candidate in candidates:
+            if candidate in result:
+                continue
+            try:
+                v = cond.subs(x, candidate)
+                if v not in (True, False, S.true, S.false):
+                    v = simplify(v)
+            except TypeError:
+                continue
+            if v == False:
+                continue
+            result.append(candidate if v == True else Piecewise((candidate, v), (S.NaN, True)))
+    result = list(ordered(result))
+    if flags.get('dict'):
+        return [{x: r} for r in result]
+    return result
 
 
 solve = _make_solve_entry(solve)

@@ -1,7 +1,14 @@
-"""Structural mechanics: beam bending and planar statics."""
-from .beam import Beam, Beam3D
+__all__ = ['Beam',
+            'Truss',
+            'Cable',
+            'Arch'
+            ]
+
+from .beam import Beam
 from .truss import Truss
-__all__ = ['Beam', 'Beam3D', 'Truss']
-from .arch import Arch
 from .cable import Cable
-__all__ += ['Arch', 'Cable']
+from .arch import Arch
+
+# Importable from the package as in earlier symox releases (the reference
+# exposes it from the beam module only).
+from .beam import Beam3D

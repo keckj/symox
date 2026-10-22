@@ -4421,3 +4421,85 @@ The cfunctions probes went from 1/14 to 14/14 (semantics) and from 40/187 to
 183/187 (printing). The four printing differences left are the two
 corrections above and two error messages that name a class at another path.
 `tests/test_missing_codegen_wave4_parity.py` hard-codes 145 reference cases.
+
+
+## Mechanics, vector and continuum mechanics (WP-C12, wave 4)
+
+`symox.physics.vector`, `symox.physics.mechanics`,
+`symox.physics.continuum_mechanics.beam`, `truss` and `arch` are now the
+reference SymPy 1.14 sources, rewritten to import symox. This covers:
+
+- the joint arguments `parent_point`, `child_point`, `parent_axis`,
+  `child_axis`, `parent_interframe` and `child_interframe` of all six joints;
+- `System.form_eoms`, `JointsMethod`, mass matrices, forcing and `rhs`;
+- Beam hinges, influence lines, `Beam3D` torsion and the `max_*` methods.
+
+The probe of these modules went from 137 of 244 to 215 of 244 matching
+outputs.
+
+Supporting changes:
+
+- Frame coordinates are `CoordinateSym` host symbols, so they print as `A_x`,
+  `is_real` is None and they have `.frame`. `_hashable_content` holds the
+  frame and the index. The class is marked as a host class, so that content
+  is part of the native identity. As a result, the coordinates of two frames
+  that share a name stay distinct: `A[0] + B[0]` does not merge, and
+  `(A[0]*B[0]).diff(A[0])` is `B[0]`.
+- Limits of `SingularityFunction` use its one-sided germ. `lambdify` prints
+  it as a `Piecewise`, so it works with numpy, math and mpmath.
+- `integrate` re-evaluates `SingularityFunction` atoms in its result. A
+  definite integral such as `integrate(SF(x, 0, 1), (x, 2, x))` therefore
+  ends as `SF(x, 0, 2)/2 - 2`, not with an unevaluated `SF(2, 0, 2)`.
+- `Piecewise(...).rewrite(Piecewise)` also rewrites `SingularityFunction`
+  inside the pieces.
+- `solve` ignores the `domain` flag, as the reference does (`Beam.max_*`
+  passes it). A single univariate `Piecewise` equation that the native
+  solver rejects falls back to the reference algorithm. Each piece is solved
+  under its condition, with the earlier conditions negated. Undecided
+  conditions give `Piecewise((sol, cond), (nan, True))`. Any other
+  unsupported input still raises `NotImplementedError`.
+- Matrix stacking skips 0x0 blocks.
+- `Basic.is_same` exists. It compares mutable and immutable matrices as
+  different classes, as the reference does.
+- `factor`, `together` and `apart` map over lists and tuples, as the
+  reference does.
+- `vlatex` and `mlatex` print nested dynamic symbols and their time
+  derivatives as the reference does (`q_{1}`, `\dot{q}_{1}^{2}`), not only
+  at the top level, and print matrices. The general `latex(Matrix)` still
+  raises `TypeError` on main; that gap belongs to the printing package.
+- `plot` accepts a degenerate range such as `(x, 1, 1)`. The matplotlib
+  backend draws the `markers`, `annotations`, `rectangles` and `fill`
+  decorations used by Beam, Cable, Truss and Arch drawings.
+
+`Cable` stays native, because the reference point-load and distributed-load
+equilibria are wrong (see above). Two methods were added to it:
+
+- `change_support`: the reference compares the first character of each load
+  label with the support coordinates, which raises `TypeError` as soon as a
+  point load exists. symox checks that every load position stays strictly
+  between the supports.
+- `draw`: it builds the reference plot with the same curves, support
+  rectangles, load annotations and limits. The parabola base line can differ
+  from the reference in the last printed digit (`-7.49552913752914` against
+  `...915`), because the lowest point comes from the symox equilibrium.
+
+Remaining differences:
+
+- Plot objects: the reprs of `Beam.plot_*`, `Beam3D.plot_*` and `draw` differ
+  from the reference `MatplotlibBackend` repr, because the symox plotting
+  module has its own `Plot`.
+- Form only:
+  - `Beam3D` doctest: `collect(simplify(dy), x)` is mathematically equal to
+    the reference expression (their difference simplifies to 0), but its
+    structure differs.
+  - `Beam3D.max_deflection` prints `-(-10 + a)**3` where the reference prints
+    `(10 - a)**3`.
+  - `singularityintegrate(x*SF(x, 0, 1), x)` gives `SF(x, 0, 3)/3`, where the
+    reference gives `x**3*SF(x, 0, 0)/3`. The two are equal.
+- Set and term ordering of `args_cnc`, `atoms` and `find_dynamicsymbols`
+  outputs.
+- Series: the `aseries` order term and the `PoleError` message of `nseries`
+  on frame coordinates.
+- `ObstacleSetPathway`: a `sqrt` form differs.
+- `Beam.max_*` with symbolic `E` and `I` on the reference doctest beam
+  exceeds 150 s in both libraries.

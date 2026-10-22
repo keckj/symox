@@ -16,6 +16,8 @@ class OrderedSet(MutableSet):
         if not self._data:raise KeyError('pop from empty OrderedSet')
         value=next(reversed(self._data)) if last else next(iter(self._data));del self._data[value];return value
     def __repr__(self):return 'OrderedSet(%r)'%list(self)
+    def intersection(self,other):return self.__class__([val for val in self if val in other])
+    def difference(self,other):return self.__class__([val for val in self if val not in other])
 
 class TupleKind(Kind):
     _instances={}
