@@ -89,7 +89,14 @@ pub fn solve_with_check(eq: &Expr, x: &Expr, check: bool) -> Option<Vec<Expr>> {
         });
         // Numerical substitution only verifies the original equation; it is
         // never used to infer a candidate's symbolic assumption properties.
-        sols.retain(|s| verify(&f, x, s));
+        // The reference `_solve` sets `check = False` for the roots of a
+        // numerator polynomial in the unknown itself (only the denominators
+        // are checked): those roots are exact, and evaluating the residual of
+        // large radical roots chases an exact zero through every precision.
+        let (numerator, _) = numer_denom(&together(&f));
+        if poly_coeffs(&numerator, x).is_none() {
+            sols.retain(|s| verify(&f, x, s));
+        }
     }
     sort_solutions(&mut sols);
     Some(sols)
@@ -222,7 +229,12 @@ fn verify_equation(f: &Expr, assignments: &[(Expr, Expr)]) -> bool {
             // `2*I*pi`) is resolved by chopping it below the tolerance, as
             // the reference `checksol` evaluates `val.n(18).n(12, chop=True)`.
             let cutoff = scale.mag().saturating_add(24 - bits as i128);
-            let Some(value) = crate::evalf_mp::eval_mp(&v, bits)
+            // A sum cancelling more than `bits` bits of its largest term is
+            // already within the tolerance below, so a larger cancellation
+            // budget only chases an exact zero (a residual at exact radical
+            // roots) through thousands of bits; the chopped evaluation then
+            // decides it.
+            let Some(value) = crate::evalf_mp::eval_mp_cancelling(&v, bits, bits)
                 .or_else(|| crate::evalf_mp::eval_mp_chopped(&v, bits, cutoff)) else { return true; };
             let magnitude = value.abs(bits);
             if magnitude.cmp(&scale.ldexp(24 - bits as i64)).is_le() { return true; }

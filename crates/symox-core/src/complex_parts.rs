@@ -1079,6 +1079,16 @@ pub fn literal_parts(e: &Expr) -> Option<Parts> {
     }
 }
 
+/// The assumption policy of the complex split. SymPy's `as_real_imag`
+/// decides the sign of a number (`sqrt(a)` with `a` nonnegative stays whole,
+/// `atan2(0, a)` is `0` for `a` positive) with its certified numerical
+/// evaluation, so the caller's numeric refinement policy applies. Structural
+/// proofs alone leave `sqrt` of a positive radical sum undecided and expand
+/// it through `atan2`, `Piecewise` and multinomial squares into results
+/// millions of characters long (`roots_binomial` of the quartic radicals).
+fn parts_queries<R>(query: impl FnOnce() -> R) -> R {
+    query()
+}
 /// SymPy's `e.as_real_imag(deep, ignore=ignore)`, without size limits.
 pub fn as_real_imag(e: &Expr, deep: bool, ignore: Option<&Expr>) -> Result<Option<Parts>> {
     split_parts(e, deep, ignore, false)
@@ -1096,7 +1106,7 @@ fn split_parts(e: &Expr, deep: bool, ignore: Option<&Expr>, bounded: bool) -> Re
         if ignore.is_none() { return Ok(Some(parts)); }
     }
     precheck(e, bounded)?;
-    crate::assumptions::exact_queries(|| {
+    parts_queries(|| {
         let mut context = Context::new(bounded);
         if let Some(ignore) = ignore {
             if e.is_mul() {
@@ -1123,7 +1133,7 @@ pub fn expand_complex(e: &Expr, options: &ExpandOptions) -> Result<Expr> {
     scalar(e)?;
     if literal_parts(e).is_some() { return Ok(e.clone()); }
     precheck(e, false)?;
-    crate::assumptions::exact_queries(|| {
+    parts_queries(|| {
         Context::with_hints(*options, false).expand_full(e, options.deep)
     })
 }
@@ -1133,7 +1143,7 @@ pub fn as_real_imag_many(values: &[Expr], deep: bool) -> Result<Vec<Parts>> {
         scalar(value)?;
         if literal_parts(value).is_none() { height(value, &mut seen, 0)?; }
     }
-    crate::assumptions::exact_queries(|| {
+    parts_queries(|| {
         let mut context = Context::new(false);
         values.iter().map(|e| match literal_parts(e) {
             Some(parts) => Ok(parts), None => context.split(e, deep),

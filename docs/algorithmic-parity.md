@@ -4064,3 +4064,58 @@ Remaining gaps:
   reference (4 s); free group words are pure Python.
 - `Collector` and `PolycyclicGroup` printing recurses without end, as in
   the reference.
+
+## Polynomial systems with quartic radical roots (wave 4 performance regression)
+
+`solve([x**2 + y**2 - 4, y - x**4 + 1], [x, y])` ran for more than 200 s
+(SymPy 1.14: 12 s). Root cause, in order of cost:
+
+- Commit 927d768 removed the size limits of `expand(complex=True)`.
+  `roots_binomial` expands `sqrt` of each root of the decomposed quartic with
+  it; the bounded expansion used to fail and keep the unexpanded root (the
+  archived 2.8 ms timing came from that form).
+- The complex split ran its sign queries in exact mode only, so `sqrt(s)` with
+  `s` a positive radical sum was not proved nonnegative and was expanded
+  through `atan2`, `Piecewise` and multinomial squares (18 MB per root).
+  SymPy decides these signs with its certified numerical evaluation; the split
+  now follows the caller's numeric refinement policy, so `sqrt(s)` stays whole
+  as in the reference.
+- Univariate `solve` verified the roots of a numerator polynomial in the
+  unknown by numerical substitution. The reference `_solve` sets
+  `check = False` for them (only denominators are checked); symox does the
+  same now.
+- The system check (`checksol`) evaluated exact-zero residuals with the
+  4096-bit cancellation budget, recomputing `ln 2` at every precision. The
+  check now caps the cancellation at its own precision (a larger cancellation
+  is already within its tolerance) before its chopped evaluation, and `ln 2`
+  is cached per precision.
+- With the numeric split, `arg` of radical complex numbers (for example
+  `arg((1 + I*sqrt(-1 + 10*10**(1/3)))**(-3))`, used by `phase_margin`)
+  needed `extended_real` of `sqrt(c)`, which the exact assumption system
+  leaves open; the `arg`/`atan2` evaluator now accepts a certified real
+  number as extended real, and these values match the reference text.
+
+Timings (symox before / after, SymPy 1.14), same solution sets checked at
+50 digits:
+
+| System | before | after | SymPy |
+|---|---|---|---|
+| `x**2+y**2-4, y-x**4+1` | >60 s | 4.1 s | 12.0 s |
+| `x**2-y**2-1, y-x**4+2` | >60 s | 8.9 s | 12.0 s |
+| `x**2+y**2-4, y-x**4` | >60 s | 3.4 s | 12.2 s |
+| other `data/cases3.json`-style degree 2-4 systems (9) | 0.7 ms - 3.4 s | 0.8 ms - 0.1 s | 0.1 - 68 s |
+
+Intentional divergence: for `x**2 + y**2 - 4, y - x**3 + 1` SymPy returns
+`[]`, which is wrong; symox returns the 6 `CRootOf` solutions (zero residuals).
+
+Remaining gaps:
+
+- symox solves these systems by substitution (`y = x**4 - 1` expanded at the
+  radical `x` roots) instead of the reference Groebner path, so the printed
+  result is much larger (about 1 MB for the first system, SymPy 16 kB) while
+  being equal.
+- Most of the remaining time is the numerical system check on those large
+  expressions.
+- Not caused by this change: `limit_seq(Sum(2**m/m, (m, 1, n))/(2**n/n), n)`
+  returns `None` in about a quarter of fresh processes (the reference: `2`),
+  because the Stolz-Cesaro path depends on the process-random `Dummy` ordering.

@@ -451,6 +451,25 @@ pub fn pi(prec: u32) -> BigFloat {
 /// and geometric tail give an explicit enclosure. Retry if its endpoints
 /// do not yet round to the same target value.
 pub fn ln2(prec: u32) -> BigFloat {
+    // Correctly rounded values are memoized per precision: logarithms and
+    // powers at thousands of bits would otherwise recompute the series for
+    // every call (the residual checks of large radical roots).
+    thread_local! {
+        static CACHE: std::cell::RefCell<std::collections::HashMap<u32, BigFloat>> = std::cell::RefCell::new(std::collections::HashMap::new());
+    }
+    if let Some(value) = CACHE.with(|cache| cache.borrow().get(&prec).cloned()) {
+        return value;
+    }
+    let value = ln2_uncached(prec);
+    CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if cache.len() >= 512 { cache.clear(); }
+        cache.insert(prec, value.clone());
+    });
+    value
+}
+
+fn ln2_uncached(prec: u32) -> BigFloat {
     let mut wp = prec + 32 + (u32::BITS-prec.max(1).leading_zeros());
     loop {
         let mut power = (BigInt::one() << wp as usize) / 3u32;

@@ -41,6 +41,8 @@ fn fact(e: &Expr, name: &str) -> Option<bool> {
         "extended_nonpositive" | "nonpositive" => either(a::is_nonpositive(e), a::is_positive(e)),
         "zero" => a::is_zero(e),
         "extended_nonzero" => a::is_zero(e).map(|z| !z),
+        // A real number is extended real (`sqrt(a)` with `a` positive).
+        "extended_real" => a::is_real(e).filter(|real| *real),
         _ => None,
     }
 }
