@@ -28,7 +28,11 @@ thread_local! {
         std::cell::RefCell::new(NumericMemo{depth:0,values:None})
     };
     #[cfg(test)] static EVALUATIONS:std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-    static OPTIONS:std::cell::Cell<EvalfOptions> = const { std::cell::Cell::new(EvalfOptions{chop:None,budget:None,partial:false}) };
+    static OPTIONS:std::cell::Cell<EvalfOptions> = const { std::cell::Cell::new(EvalfOptions{chop:None,budget:None,partial:false,residue:false}) };
+    // The sum whose exhaustion returns its residue (see `EvalfOptions::residue`)
+    // and the accuracies, in bits, of the real and imaginary parts it returned.
+    static RESIDUE_ROOT:std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static RESIDUE:std::cell::Cell<Option<(i128,i128)>> = const { std::cell::Cell::new(None) };
     static ACHIEVED:std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
     static EXHAUSTED:std::cell::RefCell<Option<Expr>> = const { std::cell::RefCell::new(None) };
 }
@@ -43,8 +47,16 @@ thread_local! {
 /// With `partial`, a sum that exhausts its budget with at least one correct
 /// bit is returned at the accuracy it reached, as SymPy returns a Float of
 /// lower precision for an explicit `maxn`; otherwise it stays unevaluated.
+/// With `residue` (the public `evalf` without `strict`), a sum evaluated as
+/// a whole that exhausts its budget returns, as SymPy's `evalf_add`, its
+/// computed value with the accuracy of each part: a part without a correct
+/// bit becomes a precision 1 Float, the rounding residue or, for an exact
+/// zero, the absolute error bound (SymPy's scaled zero). The default budget
+/// is tried first; its exhaustion is then reported with SymPy's default
+/// `maxn=100` schedule, so a cancellation resolved within the larger budget
+/// keeps its digits.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq,Hash)]
-pub struct EvalfOptions { pub chop:Option<i128>, pub budget:Option<u32>, pub partial:bool }
+pub struct EvalfOptions { pub chop:Option<i128>, pub budget:Option<u32>, pub partial:bool, pub residue:bool }
 
 pub const DEFAULT_CANCELLATION_BUDGET:u32=4096;
 /// SymPy's last restart may overshoot the budget by the missing accuracy;
@@ -73,7 +85,8 @@ impl Drop for OptionsScope {
 /// `PrecisionExhausted` for it).
 pub fn evalf_with_options(e:&Expr,prec:u32,options:EvalfOptions)->(Expr,Option<Expr>){
     let _scope=OptionsScope::enter(options);
-    let mut value=eval_mp(e,prec);
+    let mut value=eval_mp_root(e,prec);
+    let residue=RESIDUE.with(|cell|cell.take());
     let complete=value.is_some();
     let mut prec=prec;
     if let (Some(achieved),Some(value))=(ACHIEVED.with(|cell|cell.get()),value.as_mut()) {
@@ -86,13 +99,20 @@ pub fn evalf_with_options(e:&Expr,prec:u32,options:EvalfOptions)->(Expr,Option<E
         (Some(mut value),Some(cutoff))=>{
             if !value.re.is_zero() && value.re.mag()<cutoff {value.re=BigFloat::zero();}
             if !value.im.is_zero() && value.im.mag()<cutoff {value.im=BigFloat::zero();}
-            to_expr(value,prec)
+            match residue {Some(accuracies)=>residue_expr(value,prec,accuracies),None=>to_expr(value,prec)}
         },
-        (Some(value),None)=>to_expr(value,prec),
+        (Some(value),None)=>match residue {Some(accuracies)=>residue_expr(value,prec,accuracies),None=>to_expr(value,prec)},
         (None,_)=>evalf(e,prec),
     };
     let exhausted=if complete {None} else {EXHAUSTED.with(|cell|cell.borrow_mut().take())};
     (result,exhausted)
+}
+
+/// The public `evalf` without options: `evalf`, where a cancelling sum that
+/// exhausts its budget returns its residue (see `EvalfOptions::residue`).
+pub fn evalf_reporting_residue(e:&Expr,prec:u32)->Expr{
+    let _scope=OptionsScope::enter(EvalfOptions{residue:true,..EvalfOptions::default()});
+    evalf(e,prec)
 }
 
 /// Evaluate with the default options, independently of an enclosing
@@ -369,6 +389,30 @@ pub fn eval_number(e: &Expr, prec: u32) -> Option<Expr> {
     eval_mp(e, prec).map(|value| to_expr(value, prec))
 }
 
+/// `eval_mp` of `e` evaluated as a whole: under explicit options, a sum `e`
+/// follows SymPy's schedule from its target and, under
+/// `EvalfOptions::residue`, may return its residue.
+fn eval_mp_root(e:&Expr,prec:u32)->Option<MpComplex>{
+    if OPTIONS.with(|cell|cell.get())==EvalfOptions::default() {return eval_mp(e,prec);}
+    struct Root(usize);
+    impl Drop for Root { fn drop(&mut self){RESIDUE_ROOT.with(|cell|cell.set(self.0));} }
+    let _root=Root(RESIDUE_ROOT.with(|cell|cell.replace(e.dag_id())));
+    RESIDUE.with(|cell|cell.set(None));
+    let value=eval_mp(e,prec);
+    if value.is_none() {RESIDUE.with(|cell|cell.set(None));}
+    value
+}
+
+/// The Floats of an exhausted sum: as SymPy's evalf, each part has precision
+/// `max(min(prec, accuracy), 1)`.
+fn residue_expr(value:MpComplex,prec:u32,(real,imaginary):(i128,i128))->Expr{
+    let precision=|accuracy:i128|u32::try_from(accuracy.clamp(1,i128::from(prec))).unwrap_or(prec);
+    let re=if value.re.is_zero(){Expr::zero()}else{Expr::num(Number::mp_float(value.re,precision(real)))};
+    if value.im.is_zero(){return re;}
+    let im=Expr::from_kind(Kind::Mul(Number::mp_float(value.im,precision(imaginary)),vec![(Expr::i(),Expr::one())]));
+    if re.is_zero(){im}else{crate::ops::add2(&re,&im)}
+}
+
 pub fn to_expr(value: MpComplex, prec: u32) -> Expr {
     let re = if value.re.is_zero() { Expr::zero() } else { Expr::num(Number::mp_float(value.re, prec)) };
     if value.im.is_zero() { return re; }
@@ -382,11 +426,15 @@ pub fn to_expr(value: MpComplex, prec: u32) -> Expr {
 /// exact, as in SymPy's partial evalf.
 pub fn evalf(e: &Expr, prec: u32) -> Expr {
     if e.is_zero() { return Expr::zero(); }
-    let memoized=OPTIONS.with(|cell|cell.get())==EvalfOptions::default();
-    if memoized { if let Some(value) = memo::get(e,prec) { return value; } }
-    if let Some(value) = eval_mp(e, prec) {
-        let value=to_expr(value,prec);
-        if memoized {memo::insert(e,&value,prec);}
+    let options=OPTIONS.with(|cell|cell.get());
+    let memoized=EvalfOptions{residue:false,..options}==EvalfOptions::default();
+    if memoized { if let Some(value) = memo::get(e,prec,options.residue) { return value; } }
+    if let Some(value) = eval_mp_root(e, prec) {
+        let value=match RESIDUE.with(|cell|cell.take()) {
+            Some(accuracies)=>residue_expr(value,prec,accuracies),
+            None=>to_expr(value,prec),
+        };
+        if memoized {memo::insert(e,&value,prec,options.residue);}
         return value;
     }
     if crate::functions::is_numeric_value(e) { return e.clone(); }
@@ -422,7 +470,7 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
 /// component cancels exactly is resolved once its rounding error falls below
 /// the cutoff, where `eval_mp` keeps refining it until its budget is spent.
 pub fn eval_mp_chopped(e:&Expr,prec:u32,cutoff:i128)->Option<MpComplex>{
-    let _scope=OptionsScope::enter(EvalfOptions{chop:Some(cutoff),budget:None,partial:false});
+    let _scope=OptionsScope::enter(EvalfOptions{chop:Some(cutoff),budget:None,partial:false,residue:false});
     let _errors=HostErrorScope::enter(false);
     let mut value=eval_mp(e,prec)?;
     if !value.re.is_zero() && value.re.mag()<cutoff {value.re=BigFloat::zero();}
@@ -431,7 +479,7 @@ pub fn eval_mp_chopped(e:&Expr,prec:u32,cutoff:i128)->Option<MpComplex>{
 }
 
 pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i128)->Expr {
-    evalf_with_options(e,prec,EvalfOptions{chop:Some(cutoff),budget:None,partial:false}).0
+    evalf_with_options(e,prec,EvalfOptions{chop:Some(cutoff),budget:None,partial:false,residue:false}).0
 }
 
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
@@ -518,8 +566,13 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
     // An explicit budget follows SymPy's schedule: terms start at ten guard
     // bits, each restart adds what the accuracy estimate lacks, and the loop
     // stops once the working precision exceeds the target by
-    // min(budget, 2*working) bits.
+    // min(budget, 2*working) bits, the working precision of the terms
+    // excluding their ten guard bits. The expression evaluated as a whole is
+    // computed at prec+20 bits (see eval_mp) where SymPy's evalf_add targets
+    // prec+4 bits; its schedule starts from that target.
     let explicit=options.budget.is_some();
+    let root=RESIDUE_ROOT.with(|cell|cell.get())==expression.dag_id();
+    let precision=if explicit&&root {precision.saturating_sub(16).max(1)} else {precision};
     let mut working = if explicit {precision+10} else {precision + 32};
     let mut restarts=0u32;
     loop {
@@ -564,7 +617,26 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
                 largest_size.saturating_sub(error(real_part,largest_real).max(error(imaginary_part,largest_imaginary)))
             };
             if accuracy>=precision as i128 {return Some(sum);}
-            if working-precision>budget.min(working.saturating_mul(2)) {
+            // SymPy's evalf_add result once the budget is exhausted: each
+            // part with its own accuracy, an exact zero as its error bound.
+            let residue=|sum:MpComplex|{
+                let part=|value:BigFloat,present:bool,largest:i128|{
+                    if !present {return (value,i128::MAX);}
+                    let error=error_bound(largest,working);
+                    // Without a correct bit, the part is reported as SymPy's
+                    // scaled zero: the error bound itself, with accuracy -1.
+                    let accuracy=if value.is_zero(){-1}else{value.mag().saturating_sub(error)};
+                    if accuracy<1 {(BigFloat::one().ldexp(error),-1)} else {(value,accuracy)}
+                };
+                let (re,real_accuracy)=part(sum.re,real_part,largest_real);
+                let (im,imaginary_accuracy)=part(sum.im,imaginary_part,largest_imaginary);
+                RESIDUE.with(|cell|cell.set(Some((real_accuracy,imaginary_accuracy))));
+                MpComplex{re,im}
+            };
+            let root=options.residue&&root;
+            let terms_precision=working-10;
+            if terms_precision.saturating_sub(precision)>budget.min(terms_precision.saturating_mul(2)) {
+                if root {return Some(residue(sum));}
                 if options.partial&&accuracy>=1 {
                     let achieved=u32::try_from(accuracy).unwrap_or(u32::MAX);
                     ACHIEVED.with(|cell|cell.set(Some(cell.get().map_or(achieved,|current|current.min(achieved)))));
@@ -576,6 +648,7 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
             let step=(precision as i128).saturating_sub(accuracy).max(10+(1i128<<restarts.min(60)));
             let next=i128::from(working).saturating_add(step);
             if next>i128::from(EXPLICIT_WORKING_LIMIT) {
+                if root {return Some(residue(sum));}
                 EXHAUSTED.with(|cell|{let mut cell=cell.borrow_mut();if cell.is_none(){*cell=Some(expression.clone());}});
                 return None;
             }
@@ -589,6 +662,13 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
         let required = precision as u64 + cancellation + 24;
         if required <= working as u64 { return Some(sum); }
         if working >= ceiling {
+            // The default budget is exhausted: report the residue with
+            // SymPy's default schedule (maxprec = max(prec, 332) bits).
+            if options.residue&&root {
+                let target=precision.saturating_sub(20).max(1);
+                let _scope=OptionsScope::enter(EvalfOptions{budget:Some(target.max(332)),..options});
+                return eval_sum(expression,constant,terms,precision);
+            }
             EXHAUSTED.with(|cell|{let mut cell=cell.borrow_mut();if cell.is_none(){*cell=Some(expression.clone());}});
             return None;
         }

@@ -899,7 +899,10 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
     // An explicit maxn without strict returns a sum at the accuracy it
     // reached, as SymPy returns a lower precision Float.
     let partial=maxn.is_some()&&!strict;
-    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial},strict,quad})
+    // Without strict, an exhausted sum is returned as SymPy's evalf_add
+    // returns it: precision 1 Floats bounding the residue.
+    let residue=!strict;
+    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial,residue},strict,quad})
 }
 
 pub(crate) fn evalf_expr(e: &Expr, n: i64, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {
@@ -924,6 +927,7 @@ fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,se
         return Err(PyNotImplementedError::new_err("evalf option quad is not implemented for integrals"));
     }
     if settings.options==symox::evalf_mp::EvalfOptions::default() {return Ok(symox::evalf_mp::evalf(&e, precision));}
+    if settings.options==(symox::evalf_mp::EvalfOptions{residue:true,..Default::default()}) {return Ok(symox::evalf_mp::evalf_reporting_residue(&e, precision));}
     let (value,exhausted)=symox::evalf_mp::evalf_with_options(&e,precision,settings.options);
     if let (true,Some(failed))=(settings.strict,exhausted) {
         return Python::with_gil(|py|{
