@@ -651,3 +651,111 @@ Use `--module sympy.utilities.iterables` to target a surface, `--limit N` to bou
 explicitly stale records. Normally a changed native fingerprint causes previous examples to be replayed.
 
 See [the capability contract and remaining algorithmic gaps](algorithmic-parity.md).
+
+## Triage wave 4 (2026-10-22)
+
+This section is maintained by hand and is not produced by `report`; keep it when regenerating.
+
+A full ordinary-example replay against native fingerprint
+`dfb31b50e5d39540a91f64fee9bfe81fb2e4aa97e793be3cac10d7b86a7244b6` covered all 2916 documented objects
+(30 s per-worker timeout, each replay under `MemoryMax=4G`, `MemorySwapMax=0`, at most two concurrent replays).
+Evidence: `audits/sympy-1.14.0/wave4-examples.json.gz`. Result: 1749 matching, 1163 different,
+2 incomplete (native timeouts in `Poly.which_all_roots` and `stats.coskewness`), and 2 with no successful
+example (`sympy.test` and `sympy.testing.test`, whose examples are all `+SKIP`). Compared with the previous overlay
+(1551 matching, 1363 different), 202 objects now match and 4 previously matching objects differ:
+`WildFunction` and `core.expr.unchanged` (wrong results), `stats.Zeta` and `PIDController.eval_frequency` (equivalent forms).
+
+Each of the 1167 non-matching objects has exactly one category in
+[triage-wave4.json](../audits/sympy-1.14.0/triage-wave4.json), with evidence, the decisive example and,
+for g, e, d and h, a minimal reproducer. 512 objects were reviewed by hand (every candidate for g, h, d and e,
+every uncertain case and a sample of the rest). The other 655 were classified by string, parse and
+numeric-sampling comparison, then spot-checked. When several examples differ, the most severe category wins
+(g > e > d > c > f > h > b > i > a).
+
+| Category | Objects |
+| --- | ---: |
+| a: printing/form only | 312 |
+| b: equivalent result in another form | 137 |
+| c: missing domain/feature (raises, missing attribute, unevaluated) | 557 |
+| d: missing solution / incomplete result | 3 |
+| e: insufficient precision or exactness | 4 |
+| f: different error type/message | 45 |
+| g: wrong result | 71 |
+| h: reference wrong, symox right (correction candidate) | 15 |
+| i: nondeterministic/environment | 23 |
+
+| Family | a | b | c | d | e | f | g | h | i | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| sympy.stats | 13 | 45 | 33 | 0 | 0 | 0 | 1 | 8 | 0 | 100 |
+| sympy.combinatorics | 41 | 1 | 36 | 0 | 0 | 2 | 5 | 0 | 0 | 85 |
+| sympy.polys.matrices | 30 | 0 | 46 | 0 | 0 | 2 | 0 | 0 | 7 | 85 |
+| sympy.geometry | 2 | 3 | 61 | 0 | 0 | 0 | 3 | 0 | 0 | 69 |
+| sympy.codegen | 12 | 4 | 43 | 0 | 2 | 3 | 2 | 0 | 0 | 66 |
+| sympy.functions | 8 | 6 | 43 | 0 | 0 | 0 | 4 | 2 | 0 | 63 |
+| sympy.physics.continuum_mechanics | 8 | 2 | 35 | 0 | 0 | 0 | 2 | 2 | 0 | 49 |
+| sympy.physics.quantum | 13 | 2 | 23 | 0 | 0 | 0 | 11 | 0 | 0 | 49 |
+| sympy.core | 8 | 1 | 19 | 0 | 0 | 7 | 12 | 0 | 1 | 48 |
+| sympy.matrices | 14 | 3 | 15 | 0 | 0 | 4 | 4 | 1 | 0 | 41 |
+| sympy.physics.mechanics | 15 | 2 | 20 | 0 | 0 | 0 | 4 | 0 | 0 | 41 |
+| sympy.physics.vector | 26 | 4 | 9 | 0 | 0 | 0 | 2 | 0 | 0 | 41 |
+| sympy.physics.secondquant | 8 | 2 | 23 | 0 | 0 | 0 | 3 | 0 | 0 | 36 |
+| sympy.physics.control | 7 | 5 | 16 | 0 | 1 | 1 | 4 | 0 | 0 | 34 |
+| sympy.vector | 14 | 8 | 6 | 0 | 0 | 1 | 2 | 1 | 0 | 32 |
+| sympy.solvers | 7 | 6 | 5 | 1 | 0 | 7 | 2 | 0 | 0 | 28 |
+| sympy.algebras | 4 | 2 | 18 | 0 | 0 | 0 | 0 | 0 | 0 | 24 |
+| sympy.tensor | 6 | 0 | 16 | 1 | 0 | 0 | 0 | 0 | 0 | 23 |
+| sympy.diffgeom | 16 | 5 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 22 |
+| sympy.simplify | 6 | 6 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 18 |
+| sympy.physics.optics | 3 | 8 | 3 | 0 | 0 | 0 | 2 | 1 | 0 | 17 |
+| sympy.utilities | 5 | 2 | 5 | 0 | 1 | 3 | 0 | 0 | 0 | 16 |
+| sympy.printing | 3 | 0 | 10 | 0 | 0 | 1 | 1 | 0 | 0 | 15 |
+| sympy.polys.numberfields | 2 | 0 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 14 |
+| sympy.polys.polytools | 2 | 1 | 4 | 0 | 0 | 6 | 0 | 0 | 0 | 13 |
+| sympy.holonomic | 7 | 1 | 4 | 0 | 0 | 0 | 1 | 0 | 0 | 13 |
+| sympy.integrals | 3 | 4 | 3 | 0 | 0 | 1 | 1 | 0 | 0 | 12 |
+| sympy.categories | 7 | 0 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 12 |
+| sympy.sets | 3 | 0 | 7 | 0 | 0 | 0 | 1 | 0 | 0 | 11 |
+| sympy.plotting | 2 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 8 | 11 |
+| sympy.polys.domains | 1 | 0 | 8 | 0 | 0 | 1 | 0 | 0 | 0 | 10 |
+| Other families (26) | 16 | 14 | 21 | 1 | 0 | 6 | 4 | 0 | 7 | 69 |
+
+Wrong results (g), by area. The reproducers are in the JSON records.
+
+- Core and logic: `zoo + zoo` (zoo instead of nan); `comp(pi.n(4), 3.142)`; `all_close` with a relative tolerance;
+  `check_assumptions` (True instead of None); `WildFunction.match`; `unchanged(Piecewise, ...)`;
+  `iterfreeargs` and `Integral.free_symbols` include bound function variables; `Factors.gcd/lcm/quo/rem`
+  with negative exponents; `And.equals` on equivalent formulas.
+- Functions and calculus: `genocchi(4, x)` (wrong polynomial); `rf` and `ff` on a `Poly`;
+  `Ei(polar_lift(-1)).n()` drops `I*pi`; `Sum(f[n]**2, (n, 0, 3)).doit()`; `limit_seq` of a nested sum
+  (0 instead of 4); a Piecewise double integral that leaves the integration variable free;
+  `ConditionSet.subs` merging an undecided element.
+- Solvers: `solve` with expression or `Indexed` targets returns `[]`; `solve_linear` on an identity.
+- Matrices: `Matrix.diag` does not unpack a list; `extract` with boolean masks; `is_symmetric` without
+  simplification; `MatrixSymbol.kind` is a string.
+- Geometry and vectors: `Point.is_concyclic`, `Ray.contains(Ray)`, the sign of `Plane.angle_between`,
+  `BaseVector.equals` across rotated frames, `projection(scalar=True)`.
+- Combinatorics and holonomic: `Cycle` iteration, `Permutation.atoms`, `Subset.subset_indices`,
+  `Collector.map_relation` and `subword_index`, `HolonomicFunction.evalf` step sizes.
+- Physics: quantum (`TensorProduct` of noncommutative symbols, `IntQubit(1, 1)`, Grover oracle and iteration,
+  `represent(..., basis=Jx)`, `Wigner3j(6,0,4,0,2,0)`, `enumerate_states`, `Wavefunction` derivative,
+  the `TimeDepKet` and `TimeDepBra` labels), secondquant (`NO.doit`, `wicks`, `PermutationOperator.get_permuted`),
+  mechanics (`Body` default inertia, `dynamicsymbols` assumptions, `msubs`, `CoordinateSym` equality,
+  `WrappingCylinder.geodesic_length`, `WrappingPathway.to_loads`), control (`phase_margin`,
+  `pole_zero_numerical_data` order, `StateSpace.dsolve` output, `TransferFunctionMatrix` slicing),
+  continuum mechanics (`Beam3D` bending moment and deflection, `Cable.apply_length`), optics (`deviation` sign,
+  `fresnel_coefficients` arity), `wigner.real_gaunt` sign, `stats.PoissonProcess` conditional probability.
+- Code generation and printing: `codegen.ast.Element` indices, strides and offset; `Node.attr_params`;
+  `maple_code(..., assign_to=...)` emits `=` instead of `:=`.
+
+Precision or exactness (e): `expm1(1e-99).evalf()` and `expand_log(log1p(1e-99))` give 0; `lambdify(..., 'mpmath')`
+returns a double at higher `mp.dps`; `physics.control.gbt` returns Floats instead of exact coefficients.
+
+Incomplete results (d): `substitution` drops the `2*n*I*pi` ImageSet families; `get_contraction_structure` omits
+nested contraction entries; `MusculotendonDeGroote2016.p` lacks four tendon constants.
+
+Correction candidates (h), which need validation before they are recorded as intentional:
+`hn1/hn2.rewrite(hankel1/hankel2)` (the order should be `nu + 1/2`); `DiagonalOf.diagonal_length`
+(`Min(3, n)`); `ImplicitRegion.regular_point` (SymPy returns a singular point); `gaussian_conj`
+(the `(1 - s/f)**2` formula); `Cable.solve` and `Cable.plot_tension` (SymPy reports unbalanced equilibria);
+stats CDFs without upper-support branches or exceeding 1 (`BetaNoncentral`, `BoundedPareto`, `PowerFunction`,
+`Reciprocal`, `Levy`, `LogitNormal`); the `Dirichlet` marginal; the `GaussianUnitaryEnsemble` normalization.
