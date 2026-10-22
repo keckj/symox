@@ -123,7 +123,38 @@ def evaluate_call(polynomial, *values):
     return eval(polynomial, values)
 
 
+def _as_expr_text(value):
+    if isinstance(value, _core.Poly):
+        return str(value.as_expr())
+    from .. import sympify
+    try:
+        return str(sympify(value))
+    except Exception:
+        return str(value)
+
+
+def exact_quotient(native):
+    """Report a failed exact quotient with SymPy's ``g does not divide f`` text."""
+    def method(f, g, *args, **kwargs):
+        try:
+            return native(f, g, *args, **kwargs)
+        except _core.ExactQuotientFailed as exc:
+            if 'does not divide' in str(exc):
+                raise
+            text = '%s does not divide %s' % (_as_expr_text(g), _as_expr_text(f))
+            raise _core.ExactQuotientFailed(text) from None
+    method.__name__ = getattr(native, '__name__', 'exquo')
+    method.__doc__ = getattr(native, '__doc__', None)
+    return method
+
+
 def install():
+    for name in ('exquo', 'pexquo'):
+        native = getattr(_core.Poly, name)
+        if not getattr(native, '_symox_exact_quotient', False):
+            wrapped = exact_quotient(native)
+            wrapped._symox_exact_quotient = True
+            setattr(_core.Poly, name, wrapped)
     _core.Poly.as_expr = as_expr
     _core.Poly.eval = eval
     _core.Poly.__call__ = evaluate_call

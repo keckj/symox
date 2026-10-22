@@ -179,12 +179,12 @@ class _SparseBase:
 
     def __setattr__(self, name, value):
         if getattr(self, '_frozen', False):
-            raise TypeError('Cannot modify an immutable sparse matrix')
+            raise TypeError('Cannot set values of %s' % type(self))
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name):
         if getattr(self, '_frozen', False):
-            raise TypeError('Cannot modify an immutable sparse matrix')
+            raise TypeError('Cannot set values of %s' % type(self))
         object.__delattr__(self, name)
 
     @property
@@ -244,7 +244,7 @@ class _SparseBase:
         return self._new(len(ri), len(cj), data)
 
     def _mutable(self):
-        if self._immutable: raise TypeError('Cannot modify an immutable sparse matrix')
+        if self._immutable: raise TypeError('Cannot set values of %s' % type(self))
 
     def __setitem__(self, key, value):
         self._mutable()

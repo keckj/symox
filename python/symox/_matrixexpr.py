@@ -235,10 +235,48 @@ class DiagonalMatrix(MatrixExpr):
         return _core._matrixexpr_node('DiagonalMatrix', (matrix,))
 
 
+def _check_block_regularity(rows):
+    """SymPy's BlockMatrix regularity check, raising its ValueError texts."""
+    is_mat = lambda i: getattr(i, 'is_Matrix', False)
+    if not isinstance(rows, (list, tuple)) or not rows:
+        return
+    if len({is_mat(r) for r in rows}) != 1:
+        raise ValueError('\nexpecting a sequence of 1 or more rows containing Matrices.')
+    if is_mat(rows[0]):
+        rows = [rows]
+    if not all(isinstance(r, (list, tuple)) and all(is_mat(i) for i in r) for r in rows):
+        return
+    blocky = ok = len({len(r) for r in rows}) == 1
+    if ok:
+        for r in rows:
+            ok = len({i.rows for i in r}) == 1
+            if not ok:
+                break
+        blocky = ok
+        if ok:
+            for c in range(len(rows[0])):
+                ok = len({rows[i][c].cols for i in range(len(rows))}) == 1
+                if not ok:
+                    break
+    if not ok:
+        ok = len({sum(i.cols for i in r) for r in rows}) == 1
+        if blocky and ok:
+            raise ValueError(
+                '\nAlthough this matrix is comprised of blocks, the blocks do not fill\n'
+                'the matrix in a size-symmetric fashion. To create a full matrix from\n'
+                'these arguments, pass them directly to Matrix.')
+        raise ValueError(
+            "\nWhen there are not the same number of rows in each row's matrices or\n"
+            'there are not the same number of total columns in each row, the matrix\n'
+            'is not a block matrix. If this matrix is known to consist of blocks\n'
+            'fully filling a 2-D space then see Matrix.irregular.')
+
+
 class BlockMatrix(MatrixExpr):
     _kinds = ('BlockMatrix', 'BlockDiagMatrix')
 
     def __new__(cls, blocks):
+        _check_block_regularity(blocks)
         return _core._matrixexpr_node('BlockMatrix', (blocks,))
 
 

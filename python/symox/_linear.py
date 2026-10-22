@@ -44,8 +44,50 @@ def linear_eq_to_matrix(equations, *symbols):
     if not variables:
         raise ValueError("Symbols must be given")
     expressions = _equations(equations)
-    coefficients, constants = _core._linear_eq_coefficients(expressions, variables)
+    try:
+        coefficients, constants = _core._linear_eq_coefficients(expressions, variables)
+    except _core.NonlinearError as error:
+        message = _nonlinear_message(expressions, set(variables))
+        if message is None:
+            raise
+        raise _core.NonlinearError(message) from None
     return Matrix(len(expressions), len(variables), coefficients), Matrix(len(expressions), 1, constants)
+
+
+class _Nonlinear(Exception):
+    pass
+
+
+def _lin_eq2dict(a, symset):
+    # SymPy's polys.matrices.linsolve._lin_eq2dict, used only to report the
+    # same offending term as the reference once nonlinearity is detected.
+    if a in symset:
+        return True
+    if a.is_Add:
+        return any([_lin_eq2dict(ai, symset) for ai in a.args])
+    if a.is_Mul:
+        found = False
+        for ai in a.args:
+            if _lin_eq2dict(ai, symset):
+                if found:
+                    raise _Nonlinear('\nnonlinear cross-term: %s' % a)
+                found = True
+        return found
+    if not a.has_xfree(symset):
+        return False
+    raise _Nonlinear('nonlinear term: %s' % a)
+
+
+def _nonlinear_message(expressions, symset):
+    try:
+        for e in expressions:
+            for side in ((e.lhs, e.rhs) if getattr(e, 'is_Equality', False) else (e,)):
+                _lin_eq2dict(side, symset)
+    except _Nonlinear as error:
+        return str(error)
+    except Exception:
+        return None
+    return None
 
 
 def _matrix_system(system):

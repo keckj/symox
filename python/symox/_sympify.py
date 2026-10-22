@@ -69,6 +69,8 @@ def make_sympify(original):
                                   transformations=transformations,evaluate=state)
             except (SyntaxError,ValueError,TypeError,NotImplementedError,tokenize.TokenError) as error:
                 if isinstance(error,SympifyError):raise
+                if isinstance(error,(SyntaxError,tokenize.TokenError)):
+                    raise SympifyError('could not parse %r'%a,error) from error
                 raise SympifyError(a,error) from error
         from . import Tuple,FiniteSet,Dict,ImmutableMatrix,Float,Integer,Range
         from decimal import Decimal

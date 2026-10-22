@@ -195,8 +195,15 @@ def _exquo(self, a, b):
         return _native_exquo(self, a, b)
     except Exception as exc:
         from ... import ExactQuotientFailed
-        if not (isinstance(exc, ExactQuotientFailed) and getattr(self, 'is_ZZ_I', False)):
+        if not isinstance(exc, ExactQuotientFailed):
             raise
+        if not getattr(self, 'is_ZZ_I', False):
+            # SymPy's ExactQuotientFailed(a, b, dom) text.
+            try:
+                text = '%s does not divide %s in %s' % (self.convert(b), self.convert(a), self)
+            except Exception:
+                raise exc from None
+            raise ExactQuotientFailed(text) from None
         a, b = self.convert(a), self.convert(b)
         text = '(%d + %d*I) does not divide (%d + %d*I) in ZZ_I' % (
             int(b.x), int(b.y), int(a.x), int(a.y))

@@ -21,7 +21,7 @@ def _optimize(rows,basis,cost):
         entering=next((j for j,c in enumerate(reduced) if j not in basis and _sign(c)<0),None)
         if entering is None:break
         eligible=[i for i,row in enumerate(rows) if _sign(row[entering])>0]
-        if not eligible:raise UnboundedLPError('objective is unbounded below')
+        if not eligible:raise UnboundedLPError('\nObjective function can assume arbitrarily large values!')
         leaving=min(eligible,key=lambda i:(rows[i][-1]/rows[i][entering],basis[i]))
         pivot=rows[leaving][entering];rows[leaving]=[S.cancel(v/pivot) for v in rows[leaving]]
         for i in range(len(rows)):
@@ -53,7 +53,7 @@ def _simplex(cost,constraints):
         for j,value in extras.items():row[j]=value
     phase1=[S.Integer(int(j in artificial)) for j in range(width)]
     optimum,_=_optimize(rows,basis,phase1)
-    if _sign(optimum)!=0:raise InfeasibleLPError('constraints have no feasible solution')
+    if _sign(optimum)!=0:raise InfeasibleLPError('\nThe constraint set is empty!')
     redundant=[]
     for i,b in enumerate(basis):
         if b not in artificial:continue
@@ -132,7 +132,7 @@ def _symbolic(f,constr,maximize=False):
     symbols=sorted(symbols,key=str);rows=[];rhs=[];equal=[];equal_rhs=[]
     for relation in constr:
         if relation in (True,S.true):continue
-        if relation in (False,S.false):raise InfeasibleLPError('constraint is false')
+        if relation in (False,S.false):raise InfeasibleLPError('\nInconsistent/False constraint')
         name=relation.class_name
         if name not in ('Equality','LessThan','GreaterThan'):raise TypeError('constraints must be non-strict linear equalities or inequalities')
         expr=relation.lhs-relation.rhs
@@ -142,9 +142,32 @@ def _symbolic(f,constr,maximize=False):
         (equal_rhs if name=='Equality' else rhs).append(vector[0])
     matrix,constant=S.linear_eq_to_matrix([f],symbols);cost=list(matrix)
     if maximize:cost=[-a for a in cost]
-    value,solution=linprog(cost,rows,rhs,equal,equal_rhs,[(None,None)]*len(symbols))
+    try:
+        value,solution=linprog(cost,rows,rhs,equal,equal_rhs,[(None,None)]*len(symbols))
+    except InfeasibleLPError:
+        if _univariate_conflict(constr):raise InfeasibleLPError('\nInconsistent/False constraint') from None
+        raise
     value=(-value if maximize else value)-constant[0]
     return S.simplify(value),dict(zip(symbols,solution))
+
+def _univariate_conflict(constr):
+    # SymPy reports contradictory single-variable bounds (x <= -1, x >= 0)
+    # as an inconsistent constraint before running the simplex.
+    bounds={}
+    for relation in constr:
+        name=getattr(relation,'class_name',None)
+        if name not in ('Equality','LessThan','GreaterThan') or len(relation.free_symbols)!=1:continue
+        x,=relation.free_symbols
+        expr=relation.lhs-relation.rhs;a=expr.coeff(x);rest=S.expand(expr-a*x)
+        if rest.has(x) or _sign(a)==0:continue
+        value=-rest/a;low,high=bounds.get(x,(None,None))
+        upper=name=='Equality' or (name=='LessThan')==(_sign(a)>0)
+        lower=name=='Equality' or not upper
+        if upper:high=value if high is None or _sign(value-high)<0 else high
+        if lower:low=value if low is None or _sign(value-low)>0 else low
+        bounds[x]=(low,high)
+        if low is not None and high is not None and _sign(high-low)<0:return True
+    return False
 
 def lpmin(f,constr):return _symbolic(f,constr)
 def lpmax(f,constr):return _symbolic(f,constr,True)

@@ -13,7 +13,7 @@ def sift(seq, keyfunc, binary=False):
         for value in seq:
             key=keyfunc(value)
             if key not in (True,False):
-                raise ValueError('Binary sift keys must be True or False')
+                raise ValueError('keyfunc gave non-binary output')
             (yes if key else no).append(value)
         return yes,no
     result=defaultdict(list)

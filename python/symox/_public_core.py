@@ -28,6 +28,14 @@ class SympifyError(ValueError,TypeError):
         self.expr,self.base_exc = expr,base_exc
         super().__init__('cannot sympify %r%s' % (expr,': '+str(base_exc) if base_exc else ''))
 
+    def __str__(self):
+        # SymPy's SympifyError text.
+        if self.base_exc is None:
+            return "SympifyError: %r" % (self.expr,)
+        return ("Sympify of expression '%s' failed, because of exception being "
+                "raised:\n%s: %s" % (self.expr, self.base_exc.__class__.__name__,
+                                     str(self.base_exc)))
+
 
 class PrecisionExhausted(ArithmeticError):
     """A requested numerical accuracy could not be attained."""

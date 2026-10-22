@@ -73,6 +73,12 @@ def integrate(*args, **kwargs):
     hook = _user_hook(args[0], '_eval_Integral') if args else None
     if hook is not None:
         return hook(*args[1:], **kwargs)
+    if len(args) == 1:
+        # SymPy's _process_limits: an implicit variable must be unique.
+        f = sympify(args[0])
+        free = getattr(f, 'free_symbols', None)
+        if free is not None and len(free) != 1:
+            raise ValueError("specify dummy variables for %s" % f)
     result = _native_integrate(*args, **kwargs)
     if (len(args) == 2 and not kwargs and isinstance(args[1], tuple) and len(args[1]) == 3
             and getattr(result, 'is_Integral', False)):
@@ -466,6 +472,11 @@ class Integral(metaclass=_CalculusMeta):
         hook = _user_hook(function, '_eval_Integral')
         if hook is not None:
             return hook(*limits)
+        if not limits:
+            f = sympify(function)
+            free = getattr(f, 'free_symbols', None)
+            if free is not None and len(free) != 1:
+                raise ValueError("specify dummy variables for %s" % f)
         limits = tuple(_flatten_limit(limit) for limit in limits)
         return _core._calculus("Integral", function, limits)
 
@@ -1752,6 +1763,18 @@ class ConditionSet(Set):
 
     def __new__(cls, sym, condition, base_set=None):
         b = None if base_set is None else _unwrap(base_set)
+        cond = sympify(condition)
+        if not (cond is S.true or cond is S.false or base_set is S.EmptySet):
+            # SymPy rejects a non symbol-like dummy once no trivial answer
+            # (true or false condition, empty base set) applies.
+            from .utilities.iterables import flatten
+            # Only arithmetic combinations and numbers are rejected here, so
+            # every dummy kind accepted before (matrix symbols, elements,
+            # undefined functions) keeps working.
+            for i in flatten([sympify(sym)]):
+                if any(getattr(i, attr, False) for attr in
+                       ('is_Number', 'is_NumberSymbol', 'is_Add', 'is_Mul', 'is_Pow')):
+                    raise ValueError('`%s` is not symbol-like' % i)
         return _wrap_set(_core.ConditionSet(sym, condition, b))
 
     @property
@@ -2277,6 +2300,8 @@ from .polys import _poly_methods  # noqa: E402
 _poly_methods.install()
 from .polys import _evaluation as _poly_evaluation  # noqa: E402
 _poly_evaluation.install()
+exquo = _poly_evaluation.exact_quotient(exquo)
+pexquo = _poly_evaluation.exact_quotient(pexquo)
 from ._purepoly import install as _install_purepoly_methods  # noqa: E402
 _install_purepoly_methods()
 from .polys.numberfields.galoisgroups import galois_group  # noqa: E402
@@ -2325,7 +2350,30 @@ def _series_native(expr, x, x0, n, dir):
         raise
 
 
+def _series_terms(n):
+    # Expr.series applies int(n) and rejects negative term counts.
+    if isinstance(n, float):
+        n = int(n)
+    elif not isinstance(n, int):
+        e = sympify(n)
+        if e in (oo, -oo, nan):
+            raise TypeError('Cannot convert %s to int' % e)
+        if not e.is_number:
+            raise TypeError('Cannot convert symbols to int')
+        if e is zoo or e.is_extended_real is False:
+            raise TypeError('Cannot convert complex to int')
+        n = int(e)
+    if n < 0:
+        raise ValueError("Number of terms should be nonnegative")
+    return n
+
+
 def _series_call(expr, x, x0, n, dir, logx=None):
+    expr = sympify(expr)
+    if n is not None and not (isinstance(n, int) and n >= 0):
+        if x is not None and not expr.has(sympify(x)):
+            return expr
+        n = _series_terms(n)
     if n is None or logx is not None:
         if x is None:
             syms = expr.free_symbols

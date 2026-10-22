@@ -24,7 +24,17 @@ def solve_poly_system(seq, *gens, strict=False, **options):
         variables = tuple(sorted({v for e in equations for v in e.free_symbols}, key=default_sort_key))
     if not variables:
         raise ValueError("Polynomial system solving requires generators")
-    result = _core._solve_poly_system(equations, variables)
+    try:
+        result = _core._solve_poly_system(equations, variables)
+    except NotImplementedError as error:
+        if strict and 'cannot be expressed by the implemented radical root' in str(error):
+            # SymPy's strict mode reports roots(strict=True)'s error class.
+            from .polys.polyerrors import UnsolvableFactorError
+            raise UnsolvableFactorError(
+                '\nStrict mode: some factors cannot be solved in radicals, so a complete\n'
+                'list of solutions cannot be returned. Call roots with strict=False to\n'
+                'get solutions expressible in radicals (if there are any).') from error
+        raise
     return None if result is None else [tuple(solution) for solution in result]
 
 

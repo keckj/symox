@@ -96,9 +96,12 @@ def test_inconsistency_is_distinct_from_unsupported_systems():
         with pytest.raises(NotImplementedError, match="zero-dimensional"):
             sm.solve_poly_system(equations, x, y)
     assert sm.nonlinsolve([x*y-1], x, y) != sm.EmptySet
-    for strict in (False, True):
-        with pytest.raises(NotImplementedError, match="complete solution"):
-            sm.solve_poly_system([x**5-x+1, y-x], x, y, strict=strict)
+    with pytest.raises(NotImplementedError, match="complete solution"):
+        sm.solve_poly_system([x**5-x+1, y-x], x, y, strict=False)
+    # The reference reports strict mode with UnsolvableFactorError.
+    from symox.polys.polyerrors import UnsolvableFactorError
+    with pytest.raises(UnsolvableFactorError, match="Strict mode"):
+        sm.solve_poly_system([x**5-x+1, y-x], x, y, strict=True)
 
 
 def test_nonlinsolve_retains_parametric_linear_solutions():

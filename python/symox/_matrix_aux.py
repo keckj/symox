@@ -744,13 +744,20 @@ def banded(*args, **kwargs):
             smat[r, c] = tba
             undone.append((d, v))
     expanded, srows, scols = {}, 0, 0
+
+    def expand(i, j, v):
+        # SymPy's SparseMatrix(None, smat) refuses overlapping blocks.
+        if v is tba or v:
+            if (i, j) in expanded and v != expanded[i, j]:
+                raise ValueError('There is a collision at {} for {} and {}.'.format((i, j), v, expanded[i, j]))
+            expanded[i, j] = v
     for (i, j), v in smat.items():
         if hasattr(v, 'shape') and hasattr(v, 'todok'):
             for (a, b), w in v.todok().items():
-                expanded[i + a, j + b] = w
+                expand(i + a, j + b, w)
             srows, scols = builtin_max(srows, i + v.rows), builtin_max(scols, j + v.cols)
         else:
-            expanded[i, j] = sympify(v) if v is not tba else v
+            expand(i, j, sympify(v) if v is not tba else v)
             srows, scols = builtin_max(srows, i + 1), builtin_max(scols, j + 1)
     smat = {k: v for k, v in expanded.items() if v is tba or v != 0}
     if rows is not None and rows < srows:

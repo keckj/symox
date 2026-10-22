@@ -5130,3 +5130,50 @@ Remaining gaps:
   extension towers over `QQ<CRootOf(...)>` are not ported (the polynomial
   constructor rejects a CRootOf coefficient whose generator symbol is also a
   polynomial generator).
+
+## Error classes and messages, category f (2026-10-23)
+
+Invalid input now raises the reference exception class, and usually the
+reference text. Covered: BlockMatrix (irregular blocks), ConditionSet
+(non symbol-like dummy), banded (collision), Domain.exquo, Poly.exquo,
+Poly.pexquo, exquo and pexquo ("... does not divide ..."),
+all_roots/real_roots over EX or ZZ[pi] (NotImplementedError) and with a
+non-Symbol generator (PolynomialError), ITE (`as_Boolean` TypeError),
+ImmutableSparseMatrix assignment, Permutation call out of range
+(IndexError), Permutation.resize, CantSympify and string parse failures
+(SympifyError texts), padded_key, sift(binary=True), Ellipse.reflect,
+diff, BaseDyadic.diff, integrate and Integral without variables, series
+with a negative or infinite term count, linear_eq_to_matrix, linsolve and
+linear_coeffs (nonlinear term and cross-term texts), solve_poly_system with
+strict=True (UnsolvableFactorError), lpmin/lpmax (unbounded, empty and
+inconsistent texts), testing.pytest raises/warns (Failed texts) and
+aesara_function without aesara (ImportError). Regressions:
+`tests/test_errtype_f_parity.py`.
+
+Intentional divergences:
+
+- `series(expr, x, x0, oo)` returns `expr` when it does not depend on `x`
+  (the reference also does); a constant is never turned into an error.
+- `solve_poly_system(..., strict=False)` still raises NotImplementedError
+  when a factor is not solvable in radicals instead of returning a partial
+  list.
+- SympifyError also subclasses TypeError; the LP errors and CodeWrapError
+  keep their extra ValueError/RuntimeError bases.
+- `warns` re-emits warnings of other categories instead of raising them, and
+  does not check the stack level.
+- Messages naming a class or module show `symox.` paths
+  (ImmutableSparseMatrix, warns_deprecated_sympy).
+- autowrap and binary_function report the meson f2py command line.
+
+Remaining gaps:
+
+- Ge, Gt, Le, Lt `bool()`: the native text lacks the ": x < 1" suffix.
+- ImmutableDenseMatrix assignment: native text "Cannot set values of an
+  immutable matrix" (class matches).
+- nsolve: the tolerance message lacks the mpmath residual numbers.
+- The native ExactQuotientFailed is a DomainError/ValueError, not a
+  BasePolynomialError; GF(p).exquo(1, 0) raises ZeroDivisionError instead of
+  NotInvertible.
+- `Derivative(x*y)` and `diff(Matrix([x*y]))` keep their own texts for a
+  missing variable; `Integral(Eq(...))` names the equation, not its lhs.
+- `ConditionSet((x, y), ...)` with a plain tuple dummy is rejected natively.

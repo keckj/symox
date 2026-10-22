@@ -30,6 +30,9 @@ def invert_real(f_x,y,x):return invert_complex(f_x,y,x,S.Reals)
 
 
 def linear_coeffs(eq,*syms,dict=False):
+    if len(syms)==1 and S.iterable(syms[0]) and not isinstance(syms[0],S.Basic):
+        raise ValueError('expecting unpacked symbols, *syms')
+    if len(set(syms))!=len(syms):raise ValueError('duplicate symbols given')
     matrix,rhs=S.linear_eq_to_matrix([eq],list(syms))
     values=[matrix[0,i] for i in range(len(syms))]+[-rhs[0]]
     if dict:return {symbol:value for symbol,value in zip([*syms,S.Integer(1)],values) if value!=0}
