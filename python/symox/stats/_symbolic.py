@@ -137,7 +137,7 @@ class StatisticalExpression:
     @property
     def _condition(self):return self.inputs[-1] if self.inputs else None
     def _inputs_doit(self,**hints):
-        return tuple(arg.doit(**hints) if isinstance(arg,S.Basic) and _held_nodes(arg) else arg for arg in self.inputs)
+        return tuple(_input_doit(arg,**hints) for arg in self.inputs)
     def doit(self,**hints):
         from . import _queries
         inputs = self._inputs_doit(**hints) if hints.get('deep',True) else self.inputs
@@ -166,6 +166,18 @@ class StatisticalExpression:
     def __rtruediv__(self,other):return _native_other(other)/self._expr
     def __pow__(self,other):return self._expr**_native_other(other)
     def __neg__(self):return -self._expr
+
+
+def _input_doit(arg,**hints):
+    # Basic.doit(deep=True) of one argument: nested held operators evaluate.
+    if isinstance(arg,StatisticalExpression):return arg.doit(**hints)
+    if isinstance(arg,S.Basic) and _held_nodes(arg):return arg.doit(**hints)
+    return arg
+
+
+def _held_expectation(value):
+    held = HELD.get(value) if isinstance(value,S.Basic) else value
+    return isinstance(held,Expectation)
 
 
 def _native_other(other):
@@ -199,6 +211,23 @@ class Expectation(StatisticalExpression):
         if condition is None and not _is_random(expr):return _native(expr)
         return super().__new__(cls)
     def __init__(self,expr,condition=None,**kwargs):super().__init__(expr,condition,**kwargs)
+    def doit(self,**hints):
+        # Reference Expectation.doit: nested expectations are kept with
+        # deep=False, and linearity skips the held expectation terms.
+        expr,condition = self.inputs
+        if hints.get('numsamples') or not hints.get('evaluate',True) or self.options:
+            return super().doit(**hints)
+        if hints.get('deep',True):expr = _input_doit(expr,**hints)
+        native = _native(expr)
+        if not _is_random(native) or _held_expectation(native):return native
+        if not isinstance(native,S.Basic):
+            from ._queries import E
+            return E(expr,condition)
+        if condition is None and native.is_Add:
+            return S.Add(*(_native(Expectation(arg)) if _held_expectation(arg) else _native(_input_doit(Expectation(arg),**hints)) for arg in native.args))
+        if condition is None and native.is_Mul and any(_held_expectation(node) for node in _held_nodes(native)):return native
+        from ._queries import E
+        return E(expr,condition)
     def expand(self,**kwargs):
         expr,condition = self.inputs;expr = _native(expr)
         if not _is_random(expr):return expr
@@ -330,19 +359,155 @@ def _matrix_value(value):
     except TypeError:return value
 
 
-class ExpectationMatrix(StatisticalExpression):
+def _mnative(value):
+    """The native form of a matrix operand: held matrix statistics and
+    random matrix symbols become their native matrix symbols."""
+    if isinstance(value,_MatrixStatistic):return value._symox_()
+    if getattr(value,'_stats_matrix',False):return value.symbol
+    if isinstance(value,S.Matrix):return value
+    return S.sympify(value)
+
+
+def _mheld(value):
+    """The held matrix statistic or random matrix symbol a native operand stands for."""
+    from ._matrix import MATRIX_REGISTRY
+    try:
+        if value in _MATRIX_HELD:return _MATRIX_HELD[value]
+        return MATRIX_REGISTRY.get(value,value)
+    except TypeError:return value
+
+
+def _is_random_matrix(value):
+    value = _mheld(value)
+    if getattr(value,'_stats_matrix',False):return True
+    if isinstance(value,_MatrixStatistic):return _is_random_matrix(value.inputs[0])
+    from ._queries import random_symbols
+    try:return bool(random_symbols(_mnative(value)))
+    except Exception:return False
+
+
+def _is_random_matrix_symbol(value):
+    return getattr(_mheld(value),'_stats_matrix',False)
+
+
+def _shape(value):
+    value = _mheld(value)
+    return tuple(value.shape)
+
+
+def _product(values):
+    result = S.Integer(1)
+    for value in values:result = result*_mnative(value)
+    return result
+
+
+def _sum(values):
+    values = [_mnative(v) for v in values]
+    if not values:return S.Integer(0)
+    result = values[0]
+    for value in values[1:]:result = result+value
+    return result
+
+
+def _transpose(value):
+    value = _mnative(value)
+    return value.T if hasattr(value,'T') else value
+
+
+def _is_head(value,name):
+    return getattr(value,'is_'+name,False) is True
+
+
+_MATRIX_HELD = {}
+
+
+class _MatrixStatistic(StatisticalExpression):
+    """Held matrix statistic: a matrix expression of known shape whose
+    native stand-in is a matrix symbol printing as the held operator, so
+    products keep their order and shape inside native matrix expressions."""
+    _symox_matrixexpr = True
+    is_Matrix = False
+    def _native_symbol(self):
+        symbol = getattr(self,'_symbol',None)
+        if symbol is None:
+            arguments = ', '.join(str(_mheld(a)) for a in self.inputs if a is not None)
+            symbol = S.MatrixSymbol('%s(%s)'%(type(self).__name__,arguments),*self.shape)
+            self._symbol = symbol;_MATRIX_HELD[symbol] = self
+        return symbol
+    def _symox_(self):return self._native_symbol()
+    @property
+    def rows(self):return self.shape[0]
+    @property
+    def cols(self):return self.shape[1]
+    @property
+    def T(self):return self._symox_().T
+    def transpose(self):return self.T
+    def __add__(self,other):return self._symox_()+_mnative(other)
+    def __radd__(self,other):return _mnative(other)+self._symox_()
+    def __sub__(self,other):return self._symox_()-_mnative(other)
+    def __rsub__(self,other):return _mnative(other)-self._symox_()
+    def __mul__(self,other):return self._symox_()*_mnative(other)
+    def __rmul__(self,other):return _mnative(other)*self._symox_()
+    def __matmul__(self,other):return self._symox_()*_mnative(other)
+    def __rmatmul__(self,other):return _mnative(other)*self._symox_()
+    def __neg__(self):return -self._symox_()
+
+
+def _expectation_matrix(expr,condition=None):
+    return ExpectationMatrix(expr,condition) if _is_random_matrix(expr) else _mnative(expr)
+
+
+class ExpectationMatrix(_MatrixStatistic):
+    def __new__(cls,expr,condition=None):
+        if condition is None and not isinstance(expr,S.Matrix) and not _is_random_matrix(expr):return _mnative(expr)
+        return super().__new__(cls)
     def __init__(self,expr,condition=None):super().__init__(expr,condition)
+    @property
+    def shape(self):return _shape(self.inputs[0])
     def doit(self,**hints):
         from ._queries import E
         expr,condition = self.inputs
         return E(_matrix_value(expr),condition)
+    def expand(self,**hints):
+        # Reference ExpectationMatrix.expand
+        expr,condition = self.inputs;expr = _mnative(expr)
+        if not _is_random_matrix(expr):return expr
+        if _is_head(expr,'MatAdd'):
+            return _sum(_mnative(_expand_held(_expectation_matrix(a,condition))) for a in expr.args)
+        expanded = expr.expand() if hasattr(expr,'expand') else expr
+        if _is_head(expanded,'MatAdd'):
+            return _sum(_mnative(_expand_held(_expectation_matrix(a,condition))) for a in expanded.args)
+        if _is_head(expr,'MatMul'):
+            rv,nonrv,postnon = [],[],[]
+            for a in expr.args:
+                if _is_random_matrix(a):
+                    if rv:rv.extend(postnon)
+                    else:nonrv.extend(postnon)
+                    postnon = [];rv.append(a)
+                elif getattr(a,'is_Matrix',False) or getattr(a,'_symox_matrixexpr',False):postnon.append(a)
+                else:nonrv.append(a)
+            if not nonrv:return self
+            return _product(nonrv)*_mnative(_expectation_matrix(_product(rv),condition))*_product(postnon)
+        return self
 
 
-class VarianceMatrix(StatisticalExpression):
-    def __init__(self,arg,condition=None):super().__init__(arg,condition)
+def _variance_matrix_expand(arg,condition):
+    held = VarianceMatrix(arg,condition)
+    return held.expand()
+
+
+class VarianceMatrix(_MatrixStatistic):
+    def __init__(self,arg,condition=None):
+        if not isinstance(arg,S.Matrix) and not getattr(_mheld(arg),'_stats_matrix',False):
+            shape = _shape(arg)
+            if 1 not in shape:
+                from ..matrices import ShapeError
+                raise ShapeError('Expression is not a vector')
+        super().__init__(arg,condition)
     @property
     def shape(self):
-        value = _matrix_value(self.inputs[0]);dimension = value.rows if value.cols == 1 else value.cols
+        value = _mheld(self.inputs[0]);rows,cols = value.shape
+        dimension = rows if cols == 1 else cols
         return dimension,dimension
     def doit(self,**hints):
         expr,condition = self.inputs;expr = _matrix_value(expr)
@@ -352,14 +517,64 @@ class VarianceMatrix(StatisticalExpression):
         if expr.cols == 1:
             return S.Matrix([[covariance(expr[i,0],expr[j,0],condition) for j in range(expr.rows)] for i in range(expr.rows)])
         return S.Matrix([[S.Add(*(covariance(expr[i,j],expr[i,k],condition) for i in range(expr.rows))) for k in range(expr.cols)] for j in range(expr.cols)])
+    def expand(self,**hints):
+        # Reference VarianceMatrix.expand
+        from itertools import combinations
+        arg,condition = self.inputs
+        if isinstance(arg,S.Matrix):return self
+        arg = _mnative(arg)
+        if not _is_random_matrix(arg):return S.ZeroMatrix(*self.shape)
+        if _is_random_matrix_symbol(arg):return self
+        if _is_head(arg,'MatAdd'):
+            rv = [a for a in arg.args if _is_random_matrix(a)]
+            variances = _sum(_mnative(_expand_held(VarianceMatrix(x,condition))) for x in rv)
+            covariances = [2*_mnative(_expand_held(CrossCovarianceMatrix(x,y,condition))) for x,y in combinations(rv,2)]
+            return _sum([variances]+covariances)
+        if _is_head(arg,'MatMul'):
+            nonrv = [a for a in arg.args if not _is_random_matrix(a)]
+            rv = [a for a in arg.args if _is_random_matrix(a)]
+            if not rv:return S.ZeroMatrix(*self.shape)
+            if not nonrv or len(rv) > 1:return self
+            coefficient = _product(nonrv)
+            return coefficient*_mnative(VarianceMatrix(_product(rv),condition))*_transpose(coefficient)
+        return self
 
 
-class CrossCovarianceMatrix(StatisticalExpression):
-    def __init__(self,arg1,arg2,condition=None):super().__init__(arg1,arg2,condition)
+def _mul_nonrv_rv(m):
+    rv = [a for a in m.args if _is_random_matrix(a)]
+    nonrv = [a for a in m.args if not _is_random_matrix(a)]
+    return _product(nonrv),_product(rv)
+
+
+def _expand_single_argument(expr):
+    # CrossCovarianceMatrix._expand_single_argument of the reference
+    if _is_random_matrix_symbol(expr):return [(S.Integer(1),expr)]
+    if _is_head(expr,'MatAdd'):
+        out = []
+        for a in expr.args:
+            if _is_head(a,'MatMul'):out.append(_mul_nonrv_rv(a))
+            elif _is_random_matrix(a):out.append((S.Integer(1),a))
+        return out
+    if _is_head(expr,'MatMul'):return [_mul_nonrv_rv(expr)]
+    if _is_random_matrix(expr):return [(S.Integer(1),expr)]
+    return []
+
+
+class CrossCovarianceMatrix(_MatrixStatistic):
+    def __init__(self,arg1,arg2,condition=None):
+        matrix_laws = all(getattr(_mheld(v),'_stats_matrix',False) for v in (arg1,arg2))
+        if not isinstance(arg1,S.Matrix) and not isinstance(arg2,S.Matrix) and not matrix_laws:
+            shape1,shape2 = _shape(arg1),_shape(arg2)
+            if 1 not in shape1 or 1 not in shape2 or shape1[1] != shape2[1]:
+                from ..matrices import ShapeError
+                raise ShapeError('Expression is not a vector')
+        super().__init__(arg1,arg2,condition)
     @property
     def shape(self):
-        left,right = map(_matrix_value,self.inputs[:2])
-        return (left.rows,right.rows) if left.cols == right.cols == 1 else (left.cols,right.cols)
+        left,right = map(_mheld,self.inputs[:2])
+        if isinstance(left,S.Matrix) or isinstance(right,S.Matrix):
+            return (left.rows,right.rows) if left.cols == right.cols == 1 else (left.cols,right.cols)
+        return (left.shape[0],right.shape[0]) if left.shape[1] == 1 and right.shape[1] == 1 else (1,1)
     def doit(self,**hints):
         left,right,condition = self.inputs;left,right = _matrix_value(left),_matrix_value(right)
         column_vectors = left.cols == right.cols == 1
@@ -369,6 +584,17 @@ class CrossCovarianceMatrix(StatisticalExpression):
         from ._queries import covariance
         if column_vectors:return S.Matrix([[covariance(left[i,0],right[j,0],condition) for j in range(right.rows)] for i in range(left.rows)])
         return S.Matrix([[S.Add(*(covariance(left[i,j],right[i,k],condition) for i in range(left.rows))) for k in range(right.cols)] for j in range(left.cols)])
+    def expand(self,**hints):
+        # Reference CrossCovarianceMatrix.expand
+        arg1,arg2,condition = self.inputs
+        if isinstance(arg1,S.Matrix) or isinstance(arg2,S.Matrix):return self
+        arg1,arg2 = _mnative(arg1),_mnative(arg2)
+        if arg1 == arg2:return _expand_held(VarianceMatrix(arg1,condition))
+        if not _is_random_matrix(arg1) or not _is_random_matrix(arg2):return S.ZeroMatrix(*self.shape)
+        if _is_random_matrix_symbol(arg1) and _is_random_matrix_symbol(arg2):return self
+        left = _expand_single_argument(arg1.expand())
+        right = _expand_single_argument(arg2.expand())
+        return _sum(a*_mnative(CrossCovarianceMatrix(r1,r2,condition))*_transpose(b) for a,r1 in left for b,r2 in right)
 
 
 def install():

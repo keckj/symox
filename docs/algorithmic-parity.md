@@ -4854,3 +4854,64 @@ Remaining gaps:
   where SymPy's numpy namespace returns `numpy.float64` (equal values), and
   the compiled function has no Python source for `inspect.getsource`.
   Non-polynomial expressions with `int` arguments are evaluated in doubles.
+
+## Dagger, random matrix products, nested Expectation, rational nonlinsolve
+
+Wrong results fixed against SymPy 1.14:
+
+- `Dagger(A)` of a noncommutative symbol returned `conjugate(A)` and kept the
+  factor order of products. It now returns the held adjoint, printed
+  `Dagger(A)` as in SymPy (whose `dagger` module renames `adjoint`), and
+  `Dagger(A*B) == Dagger(B)*Dagger(A)`. Add, Pow, numbers, commutative symbols
+  and matrices follow the reference. `TensorProduct.expand(tensorproduct=True)`
+  distributes over Add factors.
+- `A*X` with `A = MatrixSymbol(k, k)` and `X = RandomMatrixSymbol(k, 1)` was
+  reordered as a scalar product. Native matrix-expression products now accept
+  host objects that expose a native matrix expression (`_symox_matrixexpr`),
+  and scalar products defer to them, so `A*X` stays `A*X` with shape `(k, 1)`
+  and `a*X` stays a matrix expression.
+- `ExpectationMatrix`, `VarianceMatrix` and `CrossCovarianceMatrix` are matrix
+  expressions with the reference shapes, and their `expand` is a port of the
+  reference (linearity, constant matrix factors, `A*Var(X)*A.T`, cross terms).
+  `VarianceMatrix`/`CrossCovarianceMatrix` of a symbolic non-vector raise
+  ShapeError. As before, matrix-distribution variables (`MatrixNormal`, ...)
+  are still accepted and evaluated, an extension over SymPy, which raises
+  ShapeError for them.
+- `Expectation(...).doit()` did not evaluate nested Expectations; it now
+  follows the reference: deep doit evaluates inner expectations
+  (`Expectation(X + Expectation(Y + Expectation(2*X))).doit() == 3*mu + 1`),
+  and `deep=False` keeps held inner terms
+  (`mu + Expectation(Expectation(Y))`).
+- `nonlinsolve([x**2 + 2/y - 2, x + y - 3], [x, y])` lost solutions. A
+  rational polynomial system whose numerators form a zero-dimensional ideal is
+  now solved like the reference (grevlex Groebner basis, FGLM to lex,
+  `solve_poly_system`).
+
+Intentional divergence:
+
+- Roots that make a denominator zero are dropped. SymPy returns the spurious
+  `(0, 0)` for `nonlinsolve([1/x + 1/y - 1, x - 2*y], [x, y])`; symox returns
+  `{(3, 3/2)}`. When it cannot be decided whether a denominator vanishes, the
+  numerator path is not used and the previous path runs.
+
+Remaining gaps:
+
+- `srepr` and pretty printing of `Dagger(A)` still show `adjoint` (native repr
+  is not routed to host printing hooks); `latex(Dagger(A)**2)` prints
+  `\operatorname{adjoint}^{2}` instead of `A^{\dagger 2}`.
+- Type names differ: `TensorProductAtom` vs `TensorProduct`, `_MatrixExpr` vs
+  `MatMul`/`MatAdd`, `Matrix` vs `MutableDenseMatrix`. The deprecated
+  `tensor_product_simp(e**2)` returns a value where SymPy returns None.
+- `CrossCovarianceMatrix(a*X, b*Y).expand()` prints `a*b*CrossCovarianceMatrix(X, Y)`;
+  SymPy keeps an unflattened scalar and prints `(a*b)*CrossCovarianceMatrix(X, Y)`.
+- `ExpectationMatrix((X + Y)*(X - Y).T).expand()` is equal to the reference
+  but its MatAdd terms print in a different order.
+- Printing of held Expectation nodes shows internal dummy names (`_Y`) and
+  native factor order inside the held argument; the values are equal.
+- `nonlinsolve([x**3 + 1/y - 2, x - y], [x, y])` and similar systems whose
+  numerators are not handled by the new path still hang in the native
+  parametric solver (already the case before this change).
+- Not from this change, present on the base commit: `sqrt(-sqrt(2))` stays
+  unevaluated (SymPy `2**(1/4)*I`), so `dsolve(f(x).diff(x, 3) +
+  sqrt(2)*f(x).diff(x))` returns a `cosh(x*sqrt(-sqrt(2)))` term instead of
+  `cos(2**(1/4)*x)` (ODE corpus cases `lin_const_coeff_hom_38`, `reducible_03`).

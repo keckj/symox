@@ -161,6 +161,22 @@ class adjoint(_sp.Function):
             return new
         return adjoint_of(self.args[0].subs(old, new))
 
+    # sympy.physics.quantum.dagger renames the reference class to "Dagger"
+    # on import; the str and repr printers then follow that name.
+    def _sympystr(self, printer, *args):
+        return '%s(%s)' % (type(self).__name__, printer._print(self.args[0]))
+
+    def _sympyrepr(self, printer, *args):
+        return '%s(%s)' % (type(self).__name__, printer._print(self.args[0]))
+
+    def _latex(self, printer, *args):
+        # LatexPrinter._print_adjoint with the default dagger style
+        arg = self.args[0]
+        tex = printer._print(arg)
+        if not (arg.is_Symbol or getattr(arg, 'is_Atom', False)):
+            tex = r'\left(%s\right)' % tex
+        return r'%s^{\dagger}' % tex
+
 
 class transpose(_sp.Function):
     """Transpose of a noncommutative scalar (unevaluated node)."""

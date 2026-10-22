@@ -82,8 +82,21 @@ REFERENCE = [
 ]
 
 
+@pytest.fixture
+def plain_adjoint_name():
+    # The reference strings come from a SymPy process that did not import
+    # sympy.physics.quantum, whose dagger module renames adjoint to Dagger.
+    from symox import _nc_adjoint
+    previous = _nc_adjoint.adjoint.__name__
+    _nc_adjoint.adjoint.__name__ = 'adjoint'
+    try:
+        yield
+    finally:
+        _nc_adjoint.adjoint.__name__ = previous
+
+
 @pytest.mark.parametrize('code, text, representation', REFERENCE)
-def test_matches_sympy(code, text, representation):
+def test_matches_sympy(code, text, representation, plain_adjoint_name):
     value = eval(code, NS)
     assert str(value) == text
     if representation:

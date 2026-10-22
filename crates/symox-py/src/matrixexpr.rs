@@ -96,6 +96,14 @@ fn is_matrix(value:&Bound<'_,PyAny>)->bool{
     value.downcast::<PyMatrixExpr>().is_ok() || value.downcast::<crate::matrices::PyMatrix>().is_ok()
         || value.getattr("is_Matrix").is_ok_and(|v|v.is_truthy().unwrap_or(false))
         || value.getattr("_symox_sparse").is_ok_and(|v|v.is_truthy().unwrap_or(false))
+        || host_matrixexpr(value).is_some()
+}
+/// The native matrix expression of a host object standing for one (such as a
+/// random matrix symbol), so products with it keep their order and shape.
+fn host_matrixexpr(value:&Bound<'_,PyAny>)->Option<MatrixExpr>{
+    if value.is_instance_of::<crate::PyExprNode>()||!value.getattr("_symox_matrixexpr").is_ok_and(|v|v.is_truthy().unwrap_or(false)){return None;}
+    let native=value.call_method0("_symox_").ok()?;
+    native.downcast::<PyMatrixExpr>().ok().map(|v|v.get().m.clone())
 }
 fn slice_argument(value:&Bound<'_,PyAny>,size:&Expr)->PyResult<[Option<Expr>;3]>{
     if value.is_instance_of::<PySlice>(){
@@ -150,6 +158,7 @@ pub(crate) fn to_matrixexpr(value:&Bound<'_,PyAny>)->PyResult<MatrixExpr>{
                 .map_err(|_|PyTypeError::new_err("Expected a matrix expression"))
         });
     }
+    if let Some(m)=host_matrixexpr(value){return Ok(m);}
     if is_matrix(value){return Ok(MatrixExpr::explicit(crate::matrices::to_matrix(value)?));}
     Err(PyTypeError::new_err("Expected a matrix expression or explicit matrix"))
 }
