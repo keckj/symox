@@ -8,6 +8,8 @@ H = S.Rational(1,2)
 
 def _half(value):
     value = S.sympify(value)
+    # The reference accepts floats whose double is integral (int(2*j) == 2*j).
+    if isinstance(value,S.Float) and float(2*value).is_integer():value = S.Rational(int(2*value),2)
     if not (2*value).is_Integer:raise ValueError('angular momenta must be explicit integers or half-integers')
     return value
 
@@ -66,10 +68,11 @@ def wigner_9j(j_1,j_2,j_3,j_4,j_5,j_6,j_7,j_8,j_9,prec=None):
     upper = int(2*min(a+i,b+f,d+h));terms = []
     for twice in range(upper%2,upper+1,2):
         x = S.Rational(twice,2)
-        try:terms.append((twice+1)*racah(a,b,i,f,c,x)*racah(d,f,h,b,e,x)*racah(a,d,i,h,g,x))
+        try:terms.append((twice+1)*racah(a,b,i,f,c,x,prec)*racah(d,f,h,b,e,x,prec)*racah(a,d,i,h,g,x,prec))
         except ValueError:continue
-    value = S.simplify(S.Add(*terms))
-    return value.evalf(prec) if prec else value
+    # With a precision, the reference sums racah values already rounded to it.
+    if prec:return S.Add(*terms) if terms else S.Integer(0)
+    return S.simplify(S.Add(*terms))
 
 
 def gaunt(l_1,l_2,l_3,m_1,m_2,m_3,prec=None):

@@ -46,6 +46,9 @@ def diff(f, *symbols, evaluate=True, **options):
     if getattr(f,'_symox_sparse',False):
         return matrix_diff(f,*symbols,evaluate=evaluate,**options)
     if not evaluate:return _core.Derivative(f,*symbols,evaluate=False)
+    # Ordered operator polynomials (physics) differentiate themselves.
+    hook=getattr(f,'_eval_symox_diff',None)
+    if hook is not None:return hook(*symbols)
     return _native_diff(f,*symbols)
 
 

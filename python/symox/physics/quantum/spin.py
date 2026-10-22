@@ -16,13 +16,24 @@ class _SpinState:
     def _spin_init(self,j,m):
         self.j,self.m=S.sympify(j),S.sympify(m)
         if self.j.is_number and self.m not in m_values(self.j)[1]:raise ValueError('magnetic quantum number lies outside the spin multiplet')
+    def _basis_axis(self,basis):
+        if basis is None:return self.axis
+        if isinstance(basis,type) and issubclass(basis,_SpinOperator):basis=basis.axis
+        elif isinstance(basis,(_SpinOperator,_SpinState)):basis=basis.axis
+        if basis not in ('x','y','z'):raise NotImplementedError('cannot represent a spin state in the basis %s'%(basis,))
+        return basis
+    def _represent_base(self,**options):
+        # Reference SpinState._represent_base: column of D^j_{m',m}(alpha, beta, gamma).
+        alpha,beta,gamma=(S.sympify(options.get(k,0)) for k in ('alpha','beta','gamma'))
+        _,values=m_values(self.j)
+        return S.Matrix([WignerD(self.j,mval,self.m,alpha,beta,gamma).doit() for mval in values])
+    def _represent_ket(self,**options):
+        angles=_BASIS_ANGLES[self.axis,self._basis_axis(options.pop('basis',None))]
+        return self._represent_base(**angles,**options)
     def _represent(self,**options):
-        _,values=m_values(self.j);column=S.Matrix([int(m==self.m) for m in values])
-        if self.axis!='z':
-            # x/y eigenstates are rotations of the z eigenbasis.
-            rotation=wigner_d(self.j,0,-S.pi/2,0) if self.axis=='x' else wigner_d(self.j,-S.pi/2,-S.pi/2,0)
-            column=rotation*column
-        return column.T.conjugate() if self.is_bra else column
+        # Bras use the conjugate transpose of the dual ket representation.
+        if self.is_bra:return self._dual()._represent(**options).conjugate().T
+        return self._represent_ket(**options)
 class JzKet(OrthogonalKet,_SpinState):
     def __init__(self,j,m):self._spin_init(j,m);super().__init__(self.j,self.m)
     def _dual(self):return _BRA[self.axis](self.j,self.m)
@@ -34,13 +45,16 @@ class JzBra(OrthogonalBra,_SpinState):
     def _inner_with(self,ket):
         if isinstance(ket,_SpinState):
             if self.j!=ket.j:return S.Integer(0)
-            return (self._represent()*ket._represent())[0]
+            return (self._represent(basis="z")*ket._represent(basis="z"))[0]
         return super()._inner_with(ket)
 class JxKet(JzKet):axis='x'
 class JxBra(JzBra):axis='x'
 class JyKet(JzKet):axis='y'
 class JyBra(JzBra):axis='y'
 _KET={'x':JxKet,'y':JyKet,'z':JzKet};_BRA={'x':JxBra,'y':JyBra,'z':JzBra}
+_P=S.pi;_BASIS_ANGLES={('z','z'):{},('z','x'):{'beta':3*_P/2},('z','y'):{'alpha':3*_P/2,'beta':_P/2,'gamma':_P/2},
+    ('x','x'):{},('x','y'):{'alpha':3*_P/2},('x','z'):{'beta':_P/2},
+    ('y','y'):{},('y','x'):{'gamma':_P/2},('y','z'):{'alpha':3*_P/2,'beta':-_P/2,'gamma':_P/2}}
 
 
 class _SpinOperator(Operator):
@@ -56,9 +70,13 @@ class _SpinOperator(Operator):
         if state.axis=='z' and self.axis in ('x','y'):
             up=Jplus._apply_to(state);down=Jminus._apply_to(state)
             return (up+down)/2 if self.axis=='x' else (up-down)/(2*S.I)
-        # Change the finite eigenbasis explicitly for other axes.
-        vector=self._represent(j=state.j)*state._represent()
-        return sum((vector[i]*JzKet(state.j,m) for i,m in enumerate(m_values(state.j)[1])),S.Integer(0))
+        # Reference _apply_op rewrites the state in the operator basis, applies
+        # it there and rewrites the result back in the state's own basis.
+        _,values=m_values(state.j)
+        vector=self._represent(j=state.j)*state._represent(basis="z")
+        change=S.Matrix.hstack(*(_KET[state.axis](state.j,m)._represent(basis="z") for m in values))
+        coefficients=(change.conjugate().T*vector).applyfunc(S.simplify)
+        return sum((coefficients[i]*_KET[state.axis](state.j,m) for i,m in enumerate(values)),S.Integer(0))
     def _dual(self):return Jminus if self.axis=='+' else Jplus if self.axis=='-' else self
     def _commutator(self,other):
         if not isinstance(other,_SpinOperator):return None
@@ -70,6 +88,11 @@ class _SpinOperator(Operator):
         if self.axis=='-' and other.axis=='+':return -2*hbar*Jz
         return None
     def _represent(self,**options):
+        # Reference spin operators are only representable in the Jz basis.
+        basis=options.get('basis')
+        if basis is not None:
+            axis=basis.axis if isinstance(basis,(_SpinOperator,_SpinState)) or (isinstance(basis,type) and issubclass(basis,_SpinOperator)) else basis
+            if axis!='z':raise NotImplementedError('spin operators are represented in the Jz basis only')
         j=S.sympify(options.get('j',S.Rational(1,2)));dimension,values=m_values(j)
         if self.axis=='2':return hbar**2*j*(j+1)*S.eye(dimension)
         if self.axis=='z':return hbar*S.diag(*values)
@@ -91,9 +114,24 @@ Jz=JzOp('Jz');J2=J2Op('J2');Jx=JxOp('Jx');Jy=JyOp('Jy');Jplus=JplusOp('J+');Jmin
 class WignerD:
     def __init__(self,j,m,mp,alpha,beta,gamma):self.args=tuple(map(S.sympify,(j,m,mp,alpha,beta,gamma)))
     def doit(self,**hints):
-        j,m,mp,a,b,g=self.args;_,values=m_values(j)
-        if m not in values or mp not in values:return S.Integer(0)
-        return wigner_d(j,-a,-b,-g)[values.index(m),values.index(mp)]
+        # Port of the reference WignerD._eval_wignerd (Varshalovich conventions).
+        j,m,mp,alpha,beta,gamma=self.args
+        if alpha==0 and beta==0 and gamma==0:return S.KroneckerDelta(m,mp)
+        if not j.is_number:raise ValueError('j parameter must be numerical to evaluate, got %s'%j)
+        r=S.Integer(0)
+        if beta==S.pi/2:
+            for k in range(int(2*j+1)):
+                if k>j+mp or k>j-m or k<mp-m:continue
+                r+=S.Integer(-1)**k*S.binomial(j+mp,k)*S.binomial(j-mp,k+m-mp)
+            r*=S.Integer(-1)**(m-mp)/2**j*S.sqrt(S.factorial(j+m)*S.factorial(j-m)/(S.factorial(j+mp)*S.factorial(j-mp)))
+        else:
+            _,mvals=m_values(j)
+            for mpp in mvals:
+                r+=WignerD(j,m,mpp,0,S.pi/2,0).doit()*(S.cos(-mpp*beta)+S.I*S.sin(-mpp*beta))*WignerD(j,mpp,-mp,0,S.pi/2,0).doit()
+            r=r*S.I**(2*j-m-mp)*S.Integer(-1)**(2*m)
+            r=S.simplify(r)
+        r*=S.exp(-S.I*m*alpha)*S.exp(-S.I*mp*gamma)
+        return r
     def _symox_(self):return self.doit()
     def subs(self,*args,**kwargs):return WignerD(*(x.subs(*args,**kwargs) for x in self.args))
 class Rotation(Operator):
@@ -103,11 +141,15 @@ class Rotation(Operator):
     def D(j,m,mp,alpha,beta,gamma):return WignerD(j,m,mp,alpha,beta,gamma)
     @staticmethod
     def d(j,m,mp,beta):return WignerD(j,m,mp,0,beta,0)
-    def _represent(self,**options):return wigner_d(options.get('j',S.Rational(1,2)),-self.alpha,-self.beta,-self.gamma)
+    def _represent(self,**options):
+        # Reference entries are D^j_{m,m'}(alpha, beta, gamma) (held there, evaluated here).
+        j=S.sympify(options.get('j',S.Rational(1,2)));_,values=m_values(j)
+        return S.Matrix(len(values),len(values),lambda p,q:WignerD(j,values[p],values[q],self.alpha,self.beta,self.gamma).doit())
     def _apply_to(self,state,**options):
-        if not isinstance(state,JzKet):return None
-        values=m_values(state.j)[1];matrix=self._represent(j=state.j);column=values.index(state.m)
-        return sum((matrix[i,column]*JzKet(state.j,m) for i,m in enumerate(values)),S.Integer(0))
+        # Reference _apply_operator_uncoupled: sum_mp D^j_{m,mp} |j,mp> in the state's basis.
+        if not isinstance(state,JzKet) or not state.is_ket or isinstance(state,JzKetCoupled) or not state.j.is_number:return None
+        values=m_values(state.j)[1]
+        return sum((WignerD(state.j,state.m,mp,self.alpha,self.beta,self.gamma).doit()*type(state)(state.j,mp) for mp in values),S.Integer(0))
     def _dual(self):return Rotation(-self.gamma,-self.beta,-self.alpha)
 
 
@@ -117,12 +159,25 @@ class JzKetCoupled(JzKet):
         if len(self.jn)!=2:raise NotImplementedError('coupled states currently support two angular momenta')
         self._spin_init(j,m);Atom.__init__(self,self.j,self.m,S.Tuple(*self.jn))
     def _dual(self):return _COUPLED_BRA[self.axis](self.j,self.m,self.jn,self.jcoupling)
+    def _coupled_label(self):return '%s,%s,'%(self.j,self.m)+','.join('j%d=%s'%(i+1,j) for i,j in enumerate(self.jn))
+    def _atom_repr(self):return '|%s>'%self._coupled_label()
+    def _represent_ket(self,**options):
+        # Reference CoupledSpinState._represent_coupled_base: the j block of the
+        # direct sum of all coupled multiplets, ordered by increasing j.
+        if not self.j.is_number or any(not j.is_number for j in self.jn):raise ValueError('State must not have symbolic j values to represent')
+        dimension=int(S.Mul(*(2*j+1 for j in self.jn)));result=S.zeros(dimension,1)
+        start=int(self.j**2 if self.j.is_integer else (2*self.j-1)*(1+2*self.j)/4)
+        block=_SpinState._represent_ket(self,**options)
+        for i in range(block.rows):result[start+i,0]=block[i,0]
+        return result
     def _subs_parameters(self,mapping,**kwargs):return type(self)(self.j.subs(mapping,**kwargs),self.m.subs(mapping,**kwargs),[j.subs(mapping,**kwargs) for j in self.jn],self.jcoupling)
 class JzBraCoupled(JzBra):
     def __init__(self,j,m,jn,jcoupling=None):
         state=JzKetCoupled(j,m,jn,jcoupling);self.jn,self.jcoupling=state.jn,state.jcoupling
         self._spin_init(j,m);Atom.__init__(self,self.j,self.m,S.Tuple(*self.jn))
     def _dual(self):return _COUPLED_KET[self.axis](self.j,self.m,self.jn,self.jcoupling)
+    def _represent(self,**options):return self._dual()._represent(**options).conjugate().T
+    def _atom_repr(self):return '<%s|'%self._dual()._coupled_label()
 class JxKetCoupled(JzKetCoupled):axis='x'
 class JxBraCoupled(JzBraCoupled):axis='x'
 class JyKetCoupled(JzKetCoupled):axis='y'

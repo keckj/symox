@@ -106,15 +106,18 @@ class BraBase(StateBase):
     def _atom_repr(self):return '<'+','.join(map(str,self.labels))+'|'
 class Ket(KetBase):pass
 class Bra(BraBase):pass
-class TimeDepState(State):
+class _TimeDependence:
+    # The last argument is the time; the label is everything before it.
     @property
     def time(self):return self.labels[-1]
-class TimeDepKet(Ket):
     @property
-    def time(self):return self.labels[-1]
-class TimeDepBra(Bra):
-    @property
-    def time(self):return self.labels[-1]
+    def label(self):return self.labels[:-1]
+    def _time_repr(self):return ','.join(map(str,self.label))+';'+str(self.time)
+class TimeDepState(_TimeDependence,State):pass
+class TimeDepKet(_TimeDependence,Ket):
+    def _atom_repr(self):return '|'+self._time_repr()+'>'
+class TimeDepBra(_TimeDependence,Bra):
+    def _atom_repr(self):return '<'+self._time_repr()+'|'
 class OrthogonalState(State):is_orthogonal=True
 class OrthogonalKet(Ket):is_orthogonal=True
 class OrthogonalBra(Bra):is_orthogonal=True
@@ -196,24 +199,53 @@ class AntiCommutator(Commutator):
     def _atom_repr(self):return '{%s,%s}'%(self.a,self.b)
 
 
+def _tensor_factor_repr(factor):
+    # Reference str printer parenthesizes Add, Mul and Pow tensor factors.
+    if isinstance(factor,OperatorExpr):
+        compound=len(factor._terms)>1 or any(len(w)>1 or c!=1 for w,c in factor._terms.items())
+    else:compound=isinstance(factor,S.Expr) and (factor.is_Add or factor.is_Mul or factor.is_Pow)
+    return '(%s)'%factor if compound else str(factor)
+
+
 class TensorProductAtom(Atom):
     def __init__(self,*factors):self.factors=tuple(factors);super().__init__(*factors)
-    def _atom_repr(self):return 'x'.join(map(str,self.factors))
+    def _atom_repr(self):return 'x'.join(map(_tensor_factor_repr,self.factors))
     def _apply_to(self,state,**options):
         if not isinstance(state,TensorProductAtom) or len(self.factors)!=len(state.factors):return None
         return TensorProduct(*(qapply(a*b,**options) for a,b in zip(self.factors,state.factors)))
     def _represent(self,**options):return S.kronecker_product(*(represent(v,**options) for v in self.factors))
+    def _multiply_atom(self,other):
+        # Products of equal-length tensor products combine factorwise, as the
+        # reference does automatically since tensor_product_simp was deprecated.
+        if not isinstance(other,TensorProductAtom) or len(self.factors)!=len(other.factors):return None
+        products=[a*b for a,b in zip(self.factors,other.factors)]
+        if any(isinstance(v,OperatorExpr) and len(v._terms)!=1 for v in products):return None
+        combined=TensorProduct(*products)
+        terms=_terms(combined)
+        if len(terms)!=1:return None
+        word,coefficient=next(iter(terms.items()))
+        return coefficient,word
+
+
+def _tensor_factor_terms(value):
+    """Commuting coefficient/factor pairs of one tensor-product argument."""
+    if isinstance(value,OperatorExpr):
+        return [(c,OperatorExpr._make({word:S.Integer(1)})) for word,c in value._terms.items()]
+    value=S.sympify(value)
+    if isinstance(value,S.Expr) and value.is_commutative is False:
+        # Reference TensorProduct.flatten: args_cnc moves commutative parts out.
+        commutative,noncommutative=value.args_cnc()
+        return [(S.Mul(*commutative),S.Mul(*noncommutative) if noncommutative else S.Integer(1))]
+    return [(value,S.Integer(1))]
 
 
 def TensorProduct(*args):
     if args and all(isinstance(v,S.Matrix) for v in args):return S.kronecker_product(*args)
     if not args:return S.Integer(1)
     result=S.Integer(0)
-    for combination in product(*(list(_terms(v).items()) for v in args)):
-        coefficient=S.Mul(*(item[1] for item in combination));factors=[]
-        for word,c in combination:
-            factors.append(OperatorExpr._make({word:S.Integer(1)}))
-        result+=coefficient*TensorProductAtom(*factors)
+    for combination in product(*(_tensor_factor_terms(v) for v in args)):
+        coefficient=S.Mul(*(item[0] for item in combination));factors=[item[1] for item in combination]
+        result+=coefficient*(factors[0] if len(factors)==1 else TensorProductAtom(*factors))
     return result
 
 
@@ -266,7 +298,16 @@ class Wavefunction(KetBase):
             else:self._limits.append((S.sympify(value),-S.oo,S.oo))
         if not self._limits:raise ValueError('wavefunction needs at least one coordinate')
         self.variables=tuple(limit[0] for limit in self._limits);super().__init__(self.expr,*self.variables);self.hilbert_space=L2(S.ProductSet(*(S.Interval(a,b) for x,a,b in self._limits)))
-    def _atom_repr(self):return 'Wavefunction(%s, %s)'%(self.expr,', '.join(map(str,self.variables)))
+        # Reference arguments keep a bare coordinate for an unbounded domain.
+        self._coordinate_args=tuple(var if a==-S.oo and b==S.oo else S.Tuple(var,a,b) for var,a,b in self._limits)
+    def _key(self):return type(self),self.expr,tuple(self._limits)
+    def _atom_repr(self):return 'Wavefunction(%s, %s)'%(self.expr,', '.join(map(str,self._coordinate_args)))
+    @property
+    def limits(self):return {var:(a,b) for var,a,b in self._limits}
+    def _atom_diff(self,var):
+        # Reference Wavefunction._eval_derivative differentiates the expression.
+        return Wavefunction(S.diff(self.expr,var),*self._limits)
+    def _subs_parameters(self,mapping,**kwargs):return Wavefunction(self.expr.subs(mapping,**kwargs),*self._limits)
     def __call__(self,*values):
         if len(values)!=len(self.variables):raise ValueError('wrong number of wavefunction coordinates')
         for value,(var,a,b) in zip(values,self._limits):
@@ -323,7 +364,7 @@ def represent(expr,**options):
     if shape is None:return S.Add(*results)
     output=S.zeros(*shape) if all(isinstance(v,(S.Expr,S.Matrix)) for v in results) else None
     for value in results:
-        if isinstance(value,S.Expr):
+        if isinstance(value,S.Expr) and not isinstance(value,S.Matrix):
             if shape[0]!=shape[1]:raise ValueError('cannot add scalar identity to a nonsquare state representation')
             value=value*S.eye(shape[0])
         output=value if output is None else output+value
@@ -354,10 +395,24 @@ def get_basis(expr,*,basis=None,replace_none=True,**options):
     return getattr(expr,'basis',None)
 
 def enumerate_states(*args,**options):
-    indices=options.get('index_list',range(options.get('start',0),options.get('stop',options.get('ndim',4))))
-    if not args:raise ValueError('a state prototype or class is required')
-    prototype=args[0];cls=prototype if isinstance(prototype,type) else type(prototype)
-    return [cls(index) for index in indices]
+    """Reference enumerate_states(state, start, num_states) or (state, index_list)."""
+    state=args[0]
+    if len(args) not in (2,3):raise NotImplementedError('Wrong number of arguments!')
+    if not isinstance(state,StateBase):raise TypeError('First argument is not a state!')
+    if len(args)==3:num_states=args[2];options['start_index']=args[1]
+    else:num_states=len(args[1]);options['index_list']=args[1]
+    enumerate_state=getattr(state,'_enumerate_state',None)
+    if enumerate_state is None:return []
+    try:return enumerate_state(num_states,**options)
+    except NotImplementedError:return []
+
+
+def _enumerate_continuous_1D(state,num_states,**options):
+    index_list=list(options.pop('index_list',[]))
+    if not index_list:
+        start=options.pop('start_index',1);index_list=list(range(start,start+num_states))
+    return [type(state)(str(state.labels[0])+'_'+str(index)) for index in index_list]
+
 
 def _postprocess_state_mul(expr):return qapply(expr)
 def _postprocess_state_pow(expr):return expr.doit() if hasattr(expr,'doit') else expr

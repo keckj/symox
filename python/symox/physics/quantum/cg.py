@@ -23,7 +23,10 @@ class CG(_Coupling):
         if self.free_symbols:return self
         a,p,b,q,c,r=self.args;return W.clebsch_gordan(a,b,c,p,q,r)
 class Wigner3j(_Coupling):
-    def doit(self,**hints):return self if self.free_symbols else W.wigner_3j(*self.args)
+    # Arguments are (j1, m1, j2, m2, j3, m3), unlike wigner_3j(j1, j2, j3, m1, m2, m3).
+    def doit(self,**hints):
+        if self.free_symbols:return self
+        a,p,b,q,c,r=self.args;return W.wigner_3j(a,b,c,p,q,r)
 class Wigner6j(_Coupling):
     def doit(self,**hints):return self if self.free_symbols else W.wigner_6j(*self.args)
 class Wigner9j(_Coupling):

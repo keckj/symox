@@ -2,7 +2,7 @@
 import math
 import symox as S
 from .gate import Gate,UGate
-from .qubit import Qubit
+from .qubit import Qubit,IntQubit
 from ._core import qapply
 from .._algebra import Atom
 
@@ -26,7 +26,8 @@ class WGate(UGate):
 def superposition_basis(nqubits):
     nqubits=int(nqubits)
     if nqubits<1:raise ValueError('qubit count must be positive')
-    return sum((Qubit(format(i,'0%db'%nqubits)) for i in range(2**nqubits)),S.Integer(0))/S.sqrt(2**nqubits)
+    amplitude=1/S.sqrt(2**nqubits)
+    return sum((amplitude*IntQubit(i,nqubits=nqubits) for i in range(2**nqubits)),S.Integer(0))
 
 def grover_iteration(qstate,oracle):return qapply(WGate(oracle.nqubits)*oracle*qstate)
 
