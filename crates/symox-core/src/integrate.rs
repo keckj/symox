@@ -313,7 +313,7 @@ fn has_indefinite_integral(e: &Expr, x: &Expr) -> bool {
 }
 
 /// The integrand of `Integral(g, x)` with the single limit `(x,)`.
-fn indefinite_integrand(e: &Expr, x: &Expr) -> Option<Expr> {
+pub(crate) fn indefinite_integrand(e: &Expr, x: &Expr) -> Option<Expr> {
     match e.kind() {
         Kind::Func(Func::Integral, args) if args.len() == 2 && args[1].args() == [x.clone()] => Some(args[0].clone()),
         _ => None,
@@ -1280,7 +1280,12 @@ fn table(f: &Expr, x: &Expr) -> Option<Expr> {
         return None;
     }
     let u = &args[0];
-    let (a, _) = linear(u, x)?;
+    let (a, b) = linear(u, x)?;
+    if matches!(func, Func::Log) && b.is_zero() {
+        // `risch_integrate(log(a*x), x)` of the reference: `x*log(a*x) - x`,
+        // which needs no `Ne(a, 0)` guard since nothing is divided by `a`
+        return Some(sub(&mul2(x, &log(u)), x));
+    }
     let sym = numeric_or_piecewise_guard(&a);
     let res = match func {
         Func::Exp => f.clone(),

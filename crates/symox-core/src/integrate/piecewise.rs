@@ -774,9 +774,34 @@ pub(crate) fn eval_integral(pw: &Expr, x: &Expr, first: bool, meijerg: Option<bo
 pub(crate) fn eval_interval_any(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Result<Expr, PwError> {
     if pieces(f).is_some() {
         eval_interval(f, x, a, b, true)
+    } else if has_func(f, &[Func::Integral]) {
+        integral_interval(f, x, a, b).ok_or(PwError::NotImplemented)
     } else {
         expr_eval_interval(f, x, a, b)
     }
+}
+
+/// `ExprWithLimits._eval_interval`: a piece that is one indefinite integral
+/// in `x` times constant factors becomes that integral over `[a, b]`, as a
+/// piece of an antiderivative the reference could not integrate. `None`
+/// for any other placement of an integral.
+fn integral_interval(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    let mut factors = Vec::new();
+    let mut found = false;
+    for g in crate::simptools::mul_args(f) {
+        if let Some(body) = super::indefinite_integrand(&g, x) {
+            if found {
+                return None;
+            }
+            found = true;
+            factors.push(super::integral_definite_unevaluated(&body, x, a, b));
+        } else if has_func(&g, &[Func::Integral]) || has_x(&g, x) {
+            return None;
+        } else {
+            factors.push(g);
+        }
+    }
+    found.then(|| crate::ops::mul(&factors))
 }
 
 /// `Expr._eval_interval(x, a, b)`: the difference of the endpoint values,
@@ -824,7 +849,7 @@ pub(crate) fn eval_interval(pw: &Expr, x: &Expr, lo: &Expr, hi: &Expr, first: bo
             if pieces(ipw).is_some() {
                 eval_interval(ipw, x, lo, hi, false)
             } else {
-                expr_eval_interval(ipw, x, lo, hi)
+                eval_interval_any(ipw, x, lo, hi)
             }
         };
         if let Some(irv) = handle_irel(pw, x, &mut handler)? {
@@ -971,9 +996,6 @@ pub(crate) fn eval_split(
     b: &Expr,
     others: &dyn Fn(&Expr) -> Option<Expr>,
 ) -> Option<Expr> {
-    if has_func(big_f, &[Func::Integral]) {
-        return None;
-    }
     let (mut rest, mut pws) = (Vec::new(), Vec::new());
     for t in crate::simptools::add_args(big_f) {
         if crate::simptools::mul_args(&t).iter().any(|g| pieces(g).is_some()) {
@@ -981,6 +1003,11 @@ pub(crate) fn eval_split(
         } else {
             rest.push(t);
         }
+    }
+    // an integral piece is evaluated by `ExprWithLimits._eval_interval`
+    // (see `integral_interval`); any other integral is not settled here
+    if rest.iter().any(|t| has_func(t, &[Func::Integral])) {
+        return None;
     }
     let evalued = if rest.is_empty() { Expr::zero() } else { others(&add(&rest))? };
     let evalued_pw = if pws.is_empty() {

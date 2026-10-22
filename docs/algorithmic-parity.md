@@ -1979,18 +1979,36 @@ for constructing every stabilizer chain.
   `manual` methods with their options and the `NonElementaryIntegral`
   results of a Risch proof (see the integration methods paragraph for the
   remaining gaps).
-  The integration corpus (`tools/integration_corpus.py`) now reports 1033
-  identical and 89 equivalent results, against 988 and 93 before the
-  Piecewise and Meijer G indefinite ports; 54 cases stay unevaluated where
-  the reference answers. Those open cases are oscillatory integrals on
-  `(0, oo)` that the reference returns as `AccumBounds`, divergent values
-  (`1/sin(x)` on `(0, pi)`, `x**a` on `(1, oo)`), `1/cosh(x)` over the real
-  line, and finite intervals with an unassumed parameter in a logarithmic,
-  `Heaviside` or `DiracDelta` integrand (`1/(x+a)`, `1/x` on `(a, 1)`,
-  `log(a*x)`). For the last group, some reference values such as `-log(a)`
-  for `1/x` on `(a, 1)` hold only when the interval avoids the pole, so the
-  native result stays held rather than copying them. The remaining
-  numerical differences are reference errors: `laplace_transform(1/(t+1))`
+  The integration corpus (`tools/integration_corpus.py`) now reports 1083
+  identical and 68 equivalent results (1070 and 70 before the parameter
+  work below); 31 cases stay unevaluated where the reference answers.
+  The rational pole analysis of definite integrals decides the position of
+  a pole with parameters from the assumptions (`-a` is outside `(0, 1)` for
+  a positive `a`, so `1/(x+a)`, `1/(1+a*x)` and `1/x` on `(a, 1)` evaluate),
+  the Gruntz sign of a parameter asks the assumptions as the reference does
+  (`x**a` on `(1, oo)` is `oo` for a positive `a`), `log(a*x)` integrates to
+  the reference `x*log(a*x) - x` (its value on `(0, 1)` holds for every
+  nonzero `a`), and an indefinite integral left inside a Piecewise
+  antiderivative becomes a definite integral, as in
+  `ExprWithLimits._eval_interval` (`Heaviside(x - a)` on `(0, 1)`).
+  The 31 open cases are of two kinds:
+  - 14 oscillatory integrals on `(0, oo)` (`sin(x)`, `cos(x)`, `sin(s*x)`,
+    `cos(s*x)`) that the reference returns as `AccumBounds`: the native
+    limits have no accumulation bounds as expressions (`cos(oo)` stays
+    unevaluated, `AccumulationBounds` is a host-only class), so these stay
+    held; for a nonzero `s` the reference even returns
+    `sin(oo*sign(s))/s`;
+  - 17 values the reference returns without a condition although they are
+    wrong for some allowed parameter values, held on purpose: `1/(x+a)`,
+    `1/(x-a)` and `1/(1+a*x)` on `(0, 1)` and `1/x` on `(a, 1)` without
+    assumptions or with real, complex or nonzero `a` (the pole lies on the
+    interval for some `a`: `-log(a)` at `a = -1` is not the value of a
+    divergent integral), and `1/(x-a)` with a positive `a` (divergent for
+    `0 < a <= 1`). With a positive `a`, the pole `-a` inside `(-a-1, 0)`
+    makes `1/(x+a)**2` diverge to `oo` here, where the reference returns
+    `-1 - 1/a`.
+
+  The remaining numerical differences are reference errors: `laplace_transform(1/(t+1))`
   is `-exp(s)*Ei(-s)` (the reference gives `-exp(-s)*Ei(-s)`), and the
   Fourier transform of `1/(1+x**2)` keeps `Abs(k)`.
   Gamma moments `c*x**a*exp(delta-beta*x**q)` on `(0, infinity)` now retain the

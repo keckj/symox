@@ -116,6 +116,10 @@ impl Gruntz {
             return match sign_of(&C::from_expr(e.clone())) {
                 Some(s) if s != 0 => Ok(s),
                 Some(_) => Ok(0),
+                // the reference `sign(e, x)` asks the assumptions first
+                None if crate::assumptions::is_positive(e) == Some(true) => Ok(1),
+                None if crate::assumptions::is_negative(e) == Some(true) => Ok(-1),
+                None if crate::assumptions::is_zero(e) == Some(true) => Ok(0),
                 None => unknown(format!("sign of {e}")),
             };
         }
