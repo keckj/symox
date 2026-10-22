@@ -40,11 +40,21 @@ class OperatorExpr(_BasisDependent):
         terms = [coefficient*S._core._apply('OrderedProduct',*(a._native_atom() for a in word),evaluate=False) if word else coefficient for word,coefficient in self._terms.items()]
         return S.Add(*terms)
     def __repr__(self):
-        result = []
-        for word,coefficient in self._terms.items():
-            factors = '*'.join(a._atom_repr() for a in word)
-            result.append(factors if coefficient==1 and word else str(coefficient)+(('*'+factors) if word else ''))
-        return ' + '.join(result) or '0'
+        # Print like the reference Add/Mul printer: each operator word stands
+        # in as a placeholder symbol sorting after commuting factors, so
+        # coefficients, signs, denominators and term order follow it.
+        words = {}
+        for word in self._terms:
+            if word:words[word] = '*'.join(a._atom_repr() for a in word)
+        if not words:return str(self._terms.get((),0))
+        placeholders = {word:'~~%s~%d'%(text,i) for i,(word,text) in enumerate(words.items())}
+        try:
+            native = S.Add(*(c*S.Symbol(placeholders[w]) if w else c for w,c in self._terms.items()))
+            text = str(native)
+        except Exception:
+            return ' + '.join((words[w] if c==1 else str(c)+'*'+words[w]) if w else str(c) for w,c in self._terms.items())
+        for word,name in sorted(placeholders.items(),key=lambda item:-len(item[1])):text = text.replace(name,words[word])
+        return text
     __str__ = __repr__
     def __eq__(self,other):
         try:return self._terms==_terms(other)
@@ -83,9 +93,37 @@ class OperatorExpr(_BasisDependent):
     def trigsimp(self,**kwargs):return self._make({w:S.trigsimp(v,**kwargs) for w,v in self._terms.items()})
     def evalf(self,*args,**kwargs):return self._make({w:v.evalf(*args,**kwargs) for w,v in self._terms.items()})
     def doit(self,**hints):return self
-    def diff(self,var,*args,**kwargs):
-        if args:raise NotImplementedError('operator derivatives accept one variable per call')
-        return self._make({w:S.diff(v,var,**kwargs) for w,v in self._terms.items()})
+    def _diff_once(self,var):
+        # Product rule: coefficients and atoms with their own derivative
+        # (such as wavefunctions); other operators are constant.
+        result=S.Integer(0)
+        for word,coefficient in self._terms.items():
+            term=S.diff(coefficient,var)
+            for atom in word:term=term*atom
+            result+=term
+            for i,atom in enumerate(word):
+                derivative=getattr(atom,'_atom_diff',None)
+                if derivative is None:continue
+                term=coefficient
+                for j,other in enumerate(word):term=term*(derivative(var) if i==j else other)
+                result+=term
+        return result
+    def diff(self,*symbols,**kwargs):
+        if not symbols:
+            free=self.free_symbols
+            if len(free)!=1:raise ValueError('specify differentiation variables to differentiate %s'%self)
+            symbols=tuple(free)
+        pending=list(symbols);steps=[]
+        while pending:
+            var=pending.pop(0)
+            if isinstance(var,(tuple,list)):var,count=var
+            elif pending and isinstance(pending[0],int) or (pending and isinstance(pending[0],S.Expr) and pending[0].is_Integer):count=pending.pop(0)
+            else:count=1
+            steps.extend([var]*int(count))
+        result=self
+        for var in steps:result=result._diff_once(var) if isinstance(result,OperatorExpr) else S.diff(result,var)
+        return result
+    def _eval_symox_diff(self,*symbols):return self.diff(*symbols)
     def integrate(self,*args,**kwargs):return self._make({w:S.integrate(v,*args,**kwargs) for w,v in self._terms.items()})
     def subs(self,*args,**kwargs):
         mapping = args[0] if len(args)==1 else {args[0]:args[1]}

@@ -25,7 +25,7 @@ class Gate(UnitaryOperator):
             if coefficient==0:continue
             bits=list(state.qubit_values)
             for i,target in enumerate(self.targets):bits[-target-1]=(output>>(len(self.targets)-i-1))&1
-            result+=coefficient*Qubit(*bits)
+            result+=coefficient*type(state)._from_bits(bits)
         return result
     def _represent(self,**options):
         n=int(options.get('nqubits',options.get('ndim',max(self.targets)+1)))
