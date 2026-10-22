@@ -37,8 +37,8 @@ raise the reference errors (`TypeError` on `PolyElement` products and
 domain; `RR(y)` is rejected with the reference `OptionError`. Remaining:
 several generators (`Poly(1.5*x*y + 2, x, z)`) keep the legacy `RR[y]`
 representation (whose `factor_list` returns factors where the reference
-raises); `construct_domain` and `composite=True` still give `EX` for Floats
-with a non-number generator; `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
+raises; `.domain` raises `NotImplementedError` and `I*x*z + 1.5*y` shows
+`RR[y,I]`); `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
 factors (the reference `together` result differs); `ground_roots` and
 `apart` return results where the reference raises `TypeError`; the
 `to_ring` `CoercionFailed` message names the expression instead of the
