@@ -15,7 +15,11 @@ use crate::traverse::{has, map_children};
 pub type Bindings = Vec<(Expr, Expr)>;
 pub type MatchError = crate::symbol::WildcardError;
 #[derive(Default)]
-struct Context { error: Option<MatchError> }
+struct Context<'f> {
+    error: Option<MatchError>,
+    /// See `pattern_match_with_hints`.
+    features: Option<&'f mut dyn MatchHints>,
+}
 
 fn is_wild(e: &Expr) -> bool {
     e.as_sym().is_some_and(|s| s.is_wild())
@@ -61,6 +65,31 @@ fn bind(w: &Expr, e: &Expr, b: &mut Bindings, context: &mut Context) -> bool {
 pub fn pattern_match(e: &Expr, p: &Expr) -> Result<Option<FxHashMap<Expr, Expr>>,MatchError> {
     let mut b = Bindings::new();
     let mut context=Context::default();
+    let matched=m(e,p,&mut b,&mut context);
+    if let Some(error)=context.error { return Err(error); }
+    Ok(matched.then(||b.into_iter().collect()))
+}
+
+/// Knowledge a caller of `pattern_match_with_hints` keeps between matches.
+pub trait MatchHints {
+    /// A set of bits such that an expression can match a pattern only if
+    /// it has every feature of the pattern.
+    fn features(&mut self, e: &Expr) -> u64;
+    /// Whether `e` was found not to match `p` from empty bindings.
+    fn known_mismatch(&mut self, e: &Expr, p: &Expr) -> bool;
+    /// Record that `e` does not match `p` from empty bindings.
+    fn record_mismatch(&mut self, e: &Expr, p: &Expr);
+}
+
+/// `pattern_match` with knowledge kept by the caller (see `MatchHints`).
+/// Long sums and products skip the items lacking a feature of a pattern
+/// item, and items are not matched again against a pattern item they were
+/// found not to match from empty bindings (without wildcard predicates,
+/// such a match depends only on the item and the pattern item): neither
+/// could match, so the bindings found are those of `pattern_match`.
+pub fn pattern_match_with_hints(e: &Expr, p: &Expr, hints: &mut dyn MatchHints) -> Result<Option<FxHashMap<Expr, Expr>>,MatchError> {
+    let mut b = Bindings::new();
+    let mut context=Context{error:None,features:Some(hints)};
     let matched=m(e,p,&mut b,&mut context);
     if let Some(error)=context.error { return Err(error); }
     Ok(matched.then(||b.into_iter().collect()))
@@ -163,6 +192,9 @@ fn assign(
                 }
             }
         }
+        let required = if !scan.unfiltered && items.len() >= DETERMINED_SCAN_MIN {
+            context.features.as_mut().map(|hints| hints.features(p0)).filter(|&r| r != 0)
+        } else { None };
         let mut cursor = 0;
         loop {
             let i = match &candidates {
@@ -175,9 +207,20 @@ fn assign(
             if used[i] {
                 continue;
             }
+            if let (Some(required), Some(hints)) = (required, context.features.as_mut()) {
+                if hints.features(&items[i]) & required != required { continue; }
+            }
             let save = b.len();
+            let pure = save == 0 && !p0.has_wild_properties();
+            if pure && context.features.as_mut().is_some_and(|hints| hints.known_mismatch(&items[i], p0)) {
+                continue;
+            }
             used[i] = true;
-            if m(&items[i], p0, b, context) && assign(items, used, prest, lone, neutral, combine, b, context, scan) {
+            let matched = m(&items[i], p0, b, context);
+            if !matched && pure && context.error.is_none() {
+                if let Some(hints) = context.features.as_mut() { hints.record_mismatch(&items[i], p0); }
+            }
+            if matched && assign(items, used, prest, lone, neutral, combine, b, context, scan) {
                 return true;
             }
             used[i] = false;
@@ -369,7 +412,8 @@ fn factor_index(items: &[Expr], p: &Expr) -> Option<FactorIndex> {
     let fixed_prod = mul(&fixed);
     let mut by_factor: FxHashMap<Expr, Vec<usize>> = FxHashMap::default();
     for (j, item) in items.iter().enumerate() {
-        let q = div(item, &fixed_prod);
+        // A canonical term divided by 1 is itself.
+        let q = if fixed.is_empty() && item.is_canonical() { item.clone() } else { div(item, &fixed_prod) };
         let factors = match q.kind() {
             Kind::Mul(..) => q.args(),
             _ if q.is_one() => vec![],
@@ -393,6 +437,14 @@ fn factor_index(items: &[Expr], p: &Expr) -> Option<FactorIndex> {
 /// to be 1), so a term lacking that factor cannot match. Returns `None`
 /// when no such filter applies.
 fn factor_candidates(items: &[Expr], p: &Expr, key: usize, scan: &mut ScanCache, b: &Bindings) -> Option<Vec<usize>> {
+    // The index applies only through a bare wildcard factor bound to a
+    // value other than 1; it is built when one is.
+    if !scan.factors.contains_key(&key) {
+        let Kind::Mul(..) = p.kind() else { return None };
+        if !p.args().iter().any(|t| is_wild(t) && lookup(b, t).is_some_and(|v| !v.is_one())) {
+            return None;
+        }
+    }
     let index = scan.factors.entry(key).or_insert_with(|| factor_index(items, p)).as_ref()?;
     let mut best: Option<&[usize]> = None;
     for w in &index.lone {
@@ -439,15 +491,21 @@ fn match_add(e: &Expr, p: &Expr, b: &mut Bindings, context: &mut Context) -> boo
     };
     let pargs = p.args();
     let (fixed, wilds): (Vec<Expr>, Vec<Expr>) = pargs.into_iter().partition(|t| !has_wild(t));
-    // fixed pattern terms must be present (numbers are subtracted)
-    let mut remaining = add(&items);
-    for f in &fixed {
-        remaining = sub(&remaining, f);
-    }
-    let items: Vec<Expr> = match remaining.kind() {
-        Kind::Add(..) => remaining.args(),
-        _ if remaining.is_zero() => vec![],
-        _ => vec![remaining.clone()],
+    // fixed pattern terms must be present (numbers are subtracted); a
+    // canonical sum is its own sum of terms, so without fixed terms its
+    // terms are the items as they are
+    let items: Vec<Expr> = if fixed.is_empty() && matches!(e.kind(), Kind::Add(..)) && e.is_canonical() && !e.has_nonfinite() {
+        items
+    } else {
+        let mut remaining = add(&items);
+        for f in &fixed {
+            remaining = sub(&remaining, f);
+        }
+        match remaining.kind() {
+            Kind::Add(..) => remaining.args(),
+            _ if remaining.is_zero() => vec![],
+            _ => vec![remaining.clone()],
+        }
     };
     let (lone, pats): (Vec<Expr>, Vec<Expr>) = wilds.into_iter().partition(is_wild);
     let mut used = vec![false; items.len()];

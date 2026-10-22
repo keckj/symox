@@ -2126,18 +2126,26 @@ for constructing every stabilizer chain.
   expansions. The first two calls take 0.3 s and 1.3 s (SymPy: 2.3 s and
   10.1 s) and return 142 and 150 operations, SymPy's sizes (before: 219
   and 176). The third input is then SymPy's (750 operations, before 930)
-  and that call returns 641 operations (SymPy: 642) in about 210 s, where
-  SymPy takes 71 s. On that input, the reference sequence itself takes
-  about 2.5 s; 97 s go to the native `trigsimp` candidate of the input and
-  62 s to the `trigsimp` candidate of its expansion, both in the native
-  trigonometric rule engine: memo lookups and pattern matching on the
-  terms of sums with about 12000 terms, which `args()` rebuilds, so each
-  lookup compares them in full. A default `dsolve` of this equation takes
-  about 210 s in a release build (before: 395 s), where SymPy takes 85 s.
+  and that call returns 641 operations (SymPy: 642) in about 77 s (before:
+  210 s), where SymPy takes 71 s. On that input, the reference sequence
+  itself takes about 2.5 s; most of the rest goes to the native `trigsimp`
+  candidates of the input and of its expansion (a sum of about 12000
+  terms), in the native trigonometric rule engine. That engine now interns
+  the nodes it visits (equal sub-expressions share one allocation, so the
+  memo lookups compare pointers instead of whole sums), skips the
+  sub-expressions that lack a function head of a rule before any lookup,
+  matches each sum term only against the pattern terms whose heads it
+  has, remembers the terms that failed a pattern term from empty bindings
+  and no longer re-adds the terms of a sum when the pattern has no fixed
+  term (before: 97 s and 62 s for the two candidates). A default `dsolve`
+  of this equation takes about 78 s in a release build (before: 210 s,
+  and 395 s earlier), where SymPy takes 85 s.
   SymPy then raises `NotImplementedError`, while symox returns its native
   fallback answer `Eq(x**2 + x*f(x) + sin(f(x)), C1)`. Before the
   trigonometric memo and the matcher indexes it took more than 40 minutes.
-  The rule engine's cost on rebuilt terms remains an open gap. Deliberate
+  The pattern matcher still rebuilds the terms of a sum (`args()`) for each
+  match, so that third call stays a little slower than SymPy's; this
+  remains an open gap. Deliberate
   extensions are the logarithmic Frobenius basis for repeated or resonant
   indicial roots, the corrected expansion of non-polynomial Frobenius
   coefficients, irrational indicial roots (see the Frobenius section), `ics` that name the generated constants, exact

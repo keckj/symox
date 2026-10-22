@@ -363,6 +363,37 @@ pub(crate) struct TrigMemo {
     sizes: NodeCache<(usize, usize)>,
     /// Node id -> (node, trigonometric heads), see `TrigMemo::heads`.
     head_sets: NodeCache<u8>,
+    /// Node id -> (node, whether a trigonometric function occurs), see
+    /// `TrigMemo::has_trig`.
+    trig_sets: NodeCache<bool>,
+    /// One representative per structure, see `TrigMemo::intern`.
+    representatives: rustc_hash::FxHashSet<Expr>,
+    /// Node id -> (node, its representative).
+    interned: FxHashMap<usize, (crate::expr::WeakExpr, Expr)>,
+    intern_prune_at: usize,
+    /// (expression, pattern) pairs that do not match from empty bindings,
+    /// see `MatchHints`.
+    mismatches: rustc_hash::FxHashSet<(Expr, Expr)>,
+}
+
+impl crate::pattern::MatchHints for TrigMemo {
+    fn features(&mut self, e: &Expr) -> u64 {
+        self.heads(e) as u64
+    }
+
+    fn known_mismatch(&mut self, e: &Expr, p: &Expr) -> bool {
+        match self.mismatches.get(&(e.clone(), p.clone())) {
+            Some((stored, pattern)) => stored.same_presentation(e) && pattern.same_presentation(p),
+            None => false,
+        }
+    }
+
+    fn record_mismatch(&mut self, e: &Expr, p: &Expr) {
+        let key = (e.clone(), p.clone());
+        if !self.mismatches.contains(&key) {
+            self.mismatches.insert(key);
+        }
+    }
 }
 
 /// Values attached to live nodes by identity. The weak reference keeps the
@@ -401,7 +432,122 @@ impl<T: Copy> NodeCache<T> {
 /// `usize::MAX`.
 const NODE_COUNT_DEPTH: usize = 512;
 
+/// The sub-expressions stored in `e`: the terms of a sum without their
+/// coefficients and the bases and exponents of a product, instead of the
+/// `args()` rebuilt from them. Every function application and every
+/// non-numeric node of `args()` occurs in them (the rebuilt terms and powers
+/// are products and powers themselves), so walks looking for function heads
+/// see the same heads without allocating.
+fn stored_children(e: &Expr) -> std::borrow::Cow<'_, [Expr]> {
+    match e.kind() {
+        Kind::Add(_, terms) => std::borrow::Cow::Owned(terms.iter().map(|(t, _)| t.clone()).collect()),
+        Kind::Mul(_, facs) => std::borrow::Cow::Owned(facs.iter().flat_map(|(b, x)| [b.clone(), x.clone()]).collect()),
+        Kind::Pow(b, x) => std::borrow::Cow::Owned(vec![b.clone(), x.clone()]),
+        Kind::Func(_, args) => std::borrow::Cow::Borrowed(args),
+        _ => std::borrow::Cow::Owned(e.args()),
+    }
+}
+
+/// Nodes that `TrigMemo::intern` may exchange for an equal node: canonical
+/// exact scalar arithmetic and functions, without held, bound, host, matrix
+/// or floating-point parts, so that equal nodes print and behave alike.
+fn internable(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Func(..))
+        && e.is_canonical()
+        && !e.has_held_arithmetic()
+        && !e.has_binding_identity()
+        && !e.has_host()
+        && !e.has_matrix()
+        && !e.has_wild_properties()
+        && e.float_info().max_precision.is_none()
+        && match e.kind() {
+            Kind::Func(f, _) => matches!(
+                f,
+                Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc | Func::Sinh | Func::Cosh
+                    | Func::Tanh | Func::Coth | Func::Exp | Func::Log | Func::Undefined(_)
+            ),
+            _ => true,
+        }
+}
+
 impl TrigMemo {
+    /// `e` with every internable sub-expression replaced by the first equal
+    /// node met in this search. Equal nodes built separately (by expansion,
+    /// or by the rebuilt terms of pattern bindings) then share one
+    /// allocation, so the memo lookups and the matcher compare them by
+    /// pointer instead of in full. The result is the same expression with
+    /// the same presentation.
+    pub(crate) fn intern(&mut self, e: &Expr) -> Expr {
+        self.intern_at(e, 0)
+    }
+
+    fn intern_at(&mut self, e: &Expr, depth: usize) -> Expr {
+        if e.is_atom() || depth >= NODE_COUNT_DEPTH {
+            return e.clone();
+        }
+        if let Some((node, rep)) = self.interned.get(&e.dag_id()) {
+            if node.is(e) {
+                return rep.clone();
+            }
+        }
+        let rep = if !internable(e) {
+            e.clone()
+        } else {
+            let mut changed = false;
+            let mut child = |c: &Expr, memo: &mut TrigMemo| {
+                let r = memo.intern_at(c, depth + 1);
+                changed |= !r.ptr_eq(c);
+                r
+            };
+            let kind = match e.kind() {
+                Kind::Add(c, terms) => Kind::Add(c.clone(), terms.iter().map(|(t, k)| (child(t, self), k.clone())).collect()),
+                Kind::Mul(c, facs) => Kind::Mul(c.clone(), facs.iter().map(|(b, x)| (child(b, self), child(x, self))).collect()),
+                Kind::Pow(b, x) => Kind::Pow(child(b, self), child(x, self)),
+                Kind::Func(f, args) => Kind::Func(f.clone(), args.iter().map(|a| child(a, self)).collect()),
+                _ => unreachable!(),
+            };
+            let candidate = if changed { Expr::from_kind(kind) } else { e.clone() };
+            match self.representatives.get(&candidate) {
+                Some(rep) if rep.same_presentation(&candidate) => rep.clone(),
+                Some(_) => candidate,
+                None => {
+                    self.representatives.insert(candidate.clone());
+                    candidate
+                }
+            }
+        };
+        if self.interned.len() >= self.intern_prune_at {
+            self.interned.retain(|_, (node, _)| node.upgrade().is_some());
+            self.intern_prune_at = (2 * self.interned.len()).max(1 << 16);
+        }
+        self.interned.insert(e.dag_id(), (e.downgrade(), rep.clone()));
+        rep
+    }
+
+    /// `has_trig(e)`, reusing the answers of the sub-expressions seen
+    /// earlier in the search.
+    fn has_trig(&mut self, e: &Expr) -> bool {
+        fn visit(e: &Expr, depth: usize, sets: &mut NodeCache<bool>) -> bool {
+            if e.is_atom() {
+                return false;
+            }
+            if let Some(found) = sets.get(e) {
+                return found;
+            }
+            let found = if depth >= NODE_COUNT_DEPTH {
+                has_trig(e)
+            } else {
+                matches!(e.kind(), Kind::Func(Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc | Func::Sinh | Func::Cosh | Func::Tanh, _))
+                    || stored_children(e).iter().any(|c| visit(c, depth + 1, sets))
+            };
+            if e.strong_count() > 1 {
+                sets.insert(e, found);
+            }
+            found
+        }
+        visit(e, 0, &mut self.trig_sets)
+    }
+
     /// `node_count(e)`, reusing the sizes of the sub-expressions seen
     /// earlier in the search: a rewritten sum shares almost all of its terms
     /// with the previous one, so only its new nodes are visited. Each node
@@ -464,7 +610,7 @@ impl TrigMemo {
             let h = if depth >= NODE_COUNT_DEPTH {
                 heads(e)
             } else {
-                e.args().iter().fold(head_bit(e), |h, c| h | collect(c, depth + 1, head_sets))
+                stored_children(e).iter().fold(head_bit(e), |h, c| h | collect(c, depth + 1, head_sets))
             };
             if e.strong_count() > 1 {
                 head_sets.insert(e, h);
@@ -480,6 +626,13 @@ impl TrigMemo {
 /// match a function of the same head inside the expression, so those nodes
 /// cannot match and the result is unchanged. Returns the heads of the result.
 fn rewrite_cached(e: &Expr, index: usize, r: &Rule, memo: &mut TrigMemo) -> (Expr, u8) {
+    // The heads of every node below are among those of `e`: when one of the
+    // rule's heads is missing, no match is tried anywhere in `e` and it
+    // comes back unchanged.
+    let he = memo.heads(e);
+    if he & r.heads != r.heads {
+        return (e.clone(), he);
+    }
     let key = (index, e.clone());
     let reusable = match memo.rewrite.get_key_value(&key) {
         Some(((_, stored), (result, heads))) if stored.same_presentation(e) => return (result.clone(), *heads),
@@ -504,7 +657,9 @@ fn rewrite_uncached(e: &Expr, index: usize, r: &Rule, memo: &mut TrigMemo) -> (E
         nc
     });
     if h & r.heads == r.heads {
-        if let Some(bind) = crate::pattern::pattern_match(&rebuilt, &r.pat)
+        // A pattern item, like a whole pattern, matches only expressions
+        // with all of its function heads (see `rewrite_cached`).
+        if let Some(bind) = crate::pattern::pattern_match_with_hints(&rebuilt, &r.pat, &mut *memo)
             .expect("built-in trigonometric patterns have no host predicates")
         {
             let v = xreplace(&r.rep, &bind);
@@ -556,7 +711,7 @@ fn apply_rules(e: &Expr, memo: &mut TrigMemo) -> Expr {
         Some(_) => false,
         None => true,
     };
-    let mut cur = e.clone();
+    let mut cur = memo.intern(e);
     let mut cur_heads = memo.heads(&cur);
     for _ in 0..16 {
         let mut changed = false;
@@ -566,7 +721,7 @@ fn apply_rules(e: &Expr, memo: &mut TrigMemo) -> Expr {
             }
             let (next, _) = rewrite_cached(&cur, index, r, memo);
             if next != cur {
-                cur = next;
+                cur = memo.intern(&next);
                 cur_heads = memo.heads(&cur);
                 changed = true;
             }
@@ -629,6 +784,7 @@ pub fn trigsimp(e: &Expr) -> Expr {
 
 /// `trigsimp` sharing its memo tables with other calls of one search.
 pub(crate) fn trigsimp_cached(e: &Expr, memo: &mut TrigMemo) -> Expr {
+    let e = &memo.intern(e);
     let reusable = match memo.trigsimp.get_key_value(e) {
         Some((stored, result)) if stored.same_presentation(e) => return result.clone(),
         Some(_) => false,
@@ -642,7 +798,7 @@ pub(crate) fn trigsimp_cached(e: &Expr, memo: &mut TrigMemo) -> Expr {
 }
 
 fn trigsimp_uncached(e: &Expr, memo: &mut TrigMemo) -> Expr {
-    if !has_trig(e) {
+    if !memo.has_trig(e) {
         return e.clone();
     }
     // simplify inside first
