@@ -171,6 +171,9 @@ fn eval_erfi(z: &Expr) -> Option<Expr> {
         if is_inf(&nz) {
             return Some(Expr::i());
         }
+        if is_neg_inf(&nz) {
+            return Some(neg(&Expr::i()));
+        }
         match nz.kind() {
             Kind::Func(Func::Special(SpecialFn::Erfinv), x) => return Some(mul2(&Expr::i(), &x[0])),
             Kind::Func(Func::Special(SpecialFn::Erfcinv), x) => {

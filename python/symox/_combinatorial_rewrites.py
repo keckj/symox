@@ -341,6 +341,10 @@ RULES = {
     ('harmonic', 'tractable'): _harmonic_tractable,
 }
 
+from ._special_rewrites import RULES as _SPECIAL_RULES  # noqa: E402
+for _key, _body in _SPECIAL_RULES.items():
+    RULES.setdefault(_key, _body)
+
 _HEADS = {}
 for _head, _rule in RULES:
     _HEADS.setdefault(_rule, []).append(_head)
@@ -359,13 +363,30 @@ def _class_names(e):
     return {base.__name__ for base in type(e).__mro__}
 
 
+_PYTHON_HEADS = {'SingularityFunction', 'betainc', 'betainc_regularized', 'riemann_xi', 'stieltjes'}
+
+
 def install():
     s = _s()
     Expr = _core.Expr
     old_rewrite = Expr.rewrite
 
+    def has_head(expr, head):
+        cls = getattr(s, head)
+        if isinstance(cls, type) and not isinstance(cls, _core.Expr) and head in _PYTHON_HEADS:
+            # Heads implemented as held Python classes are not seen by the
+            # native has(); look for their class name instead.
+            stack = [expr]
+            while stack:
+                e = stack.pop()
+                if getattr(e, 'class_name', None) == head:
+                    return True
+                stack.extend(a for a in getattr(e, 'args', ()) if isinstance(a, _core.Expr))
+            return False
+        return expr.has(cls)
+
     def heads_present(expr, rule):
-        return any(expr.has(getattr(s, head)) for head in _HEADS[rule])
+        return any(has_head(expr, head) for head in _HEADS[rule])
 
     def rewrite(self, *args, deep=True, **hints):
         if not args:

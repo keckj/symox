@@ -146,6 +146,20 @@ fn eval_y(nu: &Expr, z: &Expr) -> Option<Expr> {
     if is_inf(z) || is_neg_inf(z) {
         return Some(Expr::zero());
     }
+    // bessely(nu, +-I*oo) = exp(+-I*pi*(nu + 1)/2)*oo
+    if let Some(t) = extract_i(z) {
+        let sign = if is_inf(&t) { Some(1) } else if is_neg_inf(&t) { Some(-1) } else { None };
+        if let Some(sign) = sign {
+            let phase = mul(&[
+                Expr::int(sign),
+                Expr::i(),
+                Expr::pi(),
+                crate::ops::add(&[nu.clone(), Expr::one()]),
+                rat(1, 2),
+            ]);
+            return Some(mul2(&crate::functions::exp(&phase), &Expr::oo()));
+        }
+    }
     if is_integer(nu) == Some(true) && could_extract_minus_sign(nu) {
         let mn = neg(nu);
         return Some(mul2(&pow(&Expr::minus_one(), &mn), &super::bessely(&mn, z)));
@@ -166,7 +180,7 @@ fn eval_k(nu: &Expr, z: &Expr) -> Option<Expr> {
         }
         return None;
     }
-    if is_inf(z) {
+    if is_inf(z) || extract_i(z).is_some_and(|t| is_inf(&t) || is_neg_inf(&t)) {
         return Some(Expr::zero());
     }
     if is_integer(nu) == Some(true) && could_extract_minus_sign(nu) {
@@ -192,7 +206,7 @@ fn eval_airy(s: SpecialFn, z: &Expr) -> Option<Expr> {
             _ => Expr::oo(),
         });
     }
-    if is_neg_inf(z) && matches!(s, AiryAi | AiryBi) {
+    if is_neg_inf(z) && matches!(s, AiryAi | AiryBi | AiryBiPrime) {
         return Some(Expr::zero());
     }
     None

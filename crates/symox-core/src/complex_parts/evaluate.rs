@@ -632,6 +632,14 @@ pub(crate) fn conjugate(a: &Expr) -> Option<Expr> {
             crate::special::SpecialFn::MathieuC|crate::special::SpecialFn::MathieuS|
             crate::special::SpecialFn::MathieuCPrime|crate::special::SpecialFn::MathieuSPrime)=>
             Some(f::func(Func::Special(*s),args.iter().map(c).collect())),
+        // Ynm._eval_conjugate: (-1)**m*Ynm(n, -m, theta, phi)
+        Kind::Func(Func::Special(crate::special::SpecialFn::Ynm), args) if args.len() == 4 => Some(mul2(
+            &pow(&Expr::minus_one(), &args[1]),
+            &f::func(
+                Func::Special(crate::special::SpecialFn::Ynm),
+                vec![args[0].clone(), neg(&args[1]), args[2].clone(), args[3].clone()],
+            ),
+        )),
         Kind::Func(Func::Special(s),args) if matches!(s,crate::special::SpecialFn::Hn1|crate::special::SpecialFn::Hn2)=>{
             let other=if *s==crate::special::SpecialFn::Hn1{crate::special::SpecialFn::Hn2}else{crate::special::SpecialFn::Hn1};
             Some(f::func(Func::Special(other),args.iter().map(c).collect()))
