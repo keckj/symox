@@ -123,47 +123,111 @@ class Beam:
 
 
 class Beam3D:
-    """Independent Euler–Bernoulli bending planes, axial extension and Saint-Venant torsion."""
-    def __init__(self, length, elastic_modulus, shear_modulus, second_moment, area=S.Symbol('A'), variable=S.Symbol('x')):
-        self.length, self.elastic_modulus, self.shear_modulus, self.area, self.variable = map(S.sympify, (length, elastic_modulus, shear_modulus, area, variable))
-        moments = list(second_moment) if isinstance(second_moment, (list, tuple)) else [second_moment]*3
-        if len(moments)!=3:raise ValueError('second_moment must be a scalar or three moments')
-        self.second_moment = tuple(map(S.sympify, moments));self._beams = [Beam(length, elastic_modulus, i, area, variable, 'C'+str(k)) for k, i in enumerate(moments)]
-        self._torsion = [];self._bc_slope = [];self._bc_deflection = []
-    def apply_load(self, value, start, order, dir='y'):
-        if dir not in 'xyz' or len(dir)!=1:raise ValueError('direction must be x, y or z')
-        self._beams['xyz'.index(dir)].apply_load(value, start, order)
-    def apply_moment_load(self, value, start, order, dir='y'):
-        if dir == 'x':self._torsion.append((S.sympify(value), S.sympify(start), order));return
-        # M_y bends z; M_z bends y.
-        index = {'y':2, 'z':1}.get(dir)
-        if index is None:raise ValueError('direction must be x, y or z')
-        self._beams[index].apply_load(value if dir == 'z' else -S.sympify(value), start, order-1)
-    bc_slope = property(lambda self:self._bc_slope, lambda self,v:setattr(self, '_bc_slope', list(v)))
-    bc_deflection = property(lambda self:self._bc_deflection, lambda self,v:setattr(self, '_bc_deflection', list(v)))
-    def shear_force(self):return [b.shear_force() for b in self._beams]
-    def bending_moment(self):return [S.Add(*(v*_sf(self.variable, x, n+1) for v, x, n in self._torsion)), -self._beams[2].bending_moment(), self._beams[1].bending_moment()]
-    def solve_for_reaction_loads(self, *reactions):
-        equations = [b._at(b.shear_force(), self.length, True) for b in self._beams]
-        equations += [b._at(b.bending_moment(), self.length, True) for b in self._beams[1:]]
-        sol = _solve(equations, list(reactions))
-        for b in self._beams:b._reaction_loads = sol
-    def _kinematics(self):
-        results = []
-        for i, b in enumerate(self._beams):
-            b.bc_deflection = [(p, values[i]) for p, values in self.bc_deflection]
-            b.bc_slope = [(p, values[i]) for p, values in self.bc_slope]
-            if i == 0:
-                c = S.Symbol('C_axial');expr = b._integrated_load(2).subs(b._reaction_loads)/(self.elastic_modulus*self.area)+c
-                equations = [b._at(expr, p)-values[0] for p, values in self.bc_deflection]
-                sol = S.solve(equations, [c], dict=True) if equations else []
-                results.append((S.diff(expr, self.variable), expr.subs(sol[0]) if sol else expr))
-            else:results.append((b.slope(), b.deflection()))
-        return results
-    def slope(self):return [v[0] for v in self._kinematics()]
-    def deflection(self):return [v[1] for v in self._kinematics()]
-    def angular_deflection(self):
-        x = self.variable;return S.integrate(self.bending_moment()[0]/(self.shear_modulus*self.second_moment[0]), x)
-    def solve_slope_deflection(self):return self.slope(), self.deflection()
+    """Timoshenko beam in three dimensions, fixed at both ends (reference formulation).
+
+    Loads enter the governing equations through their magnitudes (load_vector and
+    moment_load_vector); slopes and deflections solve the coupled shear/bending ODEs
+    with zero slope and deflection at x = 0 and x = length.
+    """
+    def __init__(self, length, elastic_modulus, shear_modulus, second_moment, area, variable=S.Symbol('x')):
+        self.length, self.elastic_modulus, self.variable = map(S.sympify, (length, elastic_modulus, variable))
+        self.shear_modulus = shear_modulus;self.second_moment = second_moment;self.area = area
+        self._boundary_conditions = {'deflection':[], 'slope':[]};self._reaction_loads = {}
+        self._load_vector = [0, 0, 0];self._moment_load_vector = [0, 0, 0];self._torsion_moment = {}
+        self._load_Singularity = [0, 0, 0];self._slope = [0, 0, 0];self._deflection = [0, 0, 0];self._angular_deflection = 0
+    shear_modulus = property(lambda self:self._shear_modulus, lambda self,e:setattr(self, '_shear_modulus', S.sympify(e)))
+    area = property(lambda self:self._area, lambda self,a:setattr(self, '_area', S.sympify(a)))
+    @property
+    def second_moment(self):return self._second_moment
+    @second_moment.setter
+    def second_moment(self, i):self._second_moment = [S.sympify(v) for v in i] if isinstance(i, list) else S.sympify(i)
+    load_vector = property(lambda self:self._load_vector)
+    moment_load_vector = property(lambda self:self._moment_load_vector)
+    boundary_conditions = property(lambda self:self._boundary_conditions)
+    reaction_loads = property(lambda self:self._reaction_loads)
+    bc_deflection = property(lambda self:self._boundary_conditions['deflection'], lambda self,v:self._boundary_conditions.__setitem__('deflection', list(v)))
+    bc_slope = property(lambda self:self._boundary_conditions['slope'], lambda self,v:self._boundary_conditions.__setitem__('slope', list(v)))
+    def polar_moment(self):
+        if not isinstance(self.second_moment, (list, tuple)):return 2*self.second_moment
+        return S.Add(*self.second_moment)
+    def apply_load(self, value, start, order, dir="y"):
+        x = self.variable;value, start, order = map(S.sympify, (value, start, order))
+        k = {'x':0, 'y':1}.get(dir, 2)
+        if not order == -1:self._load_vector[k] += value
+        self._load_Singularity[k] += value*_sf(x, start, order)
+    def apply_moment_load(self, value, start, order, dir="y"):
+        x = self.variable;value, start, order = map(S.sympify, (value, start, order))
+        k = {'x':0, 'y':1}.get(dir, 2)
+        if not order == -2:self._moment_load_vector[k] += value
+        elif k == 0:self._torsion_moment[start] = self._torsion_moment.get(start, 0)+value
+        self._load_Singularity[0] += value*_sf(x, start, order)
+    def apply_support(self, loc, type="fixed"):
+        reaction_load = S.Symbol('R_'+str(loc))
+        if type in ("pin", "roller"):
+            self._reaction_loads[reaction_load] = reaction_load;self.bc_deflection.append((loc, [0, 0, 0]))
+        else:
+            self._reaction_loads[reaction_load] = [reaction_load, S.Symbol('M_'+str(loc))]
+            self.bc_deflection.append((loc, [0, 0, 0]));self.bc_slope.append((loc, [0, 0, 0]))
+    def solve_for_reaction_loads(self, *reaction):
+        x, l = self.variable, self.length
+        shear_curves = [S.integrate(load, x) for load in self._load_Singularity]
+        moment_curves = [S.integrate(shear, x) for shear in shear_curves]
+        for i in range(3):
+            react = [r for r in reaction if (shear_curves[i].has(r) or moment_curves[i].has(r))]
+            if len(react) == 0:continue
+            shear_curve = S.limit(shear_curves[i], x, l);moment_curve = S.limit(moment_curves[i], x, l)
+            sol_dict = dict(zip(react, list(S.linsolve([shear_curve, moment_curve], react).args[0])))
+            for key in sol_dict:
+                if key in self._reaction_loads and sol_dict[key] != self._reaction_loads[key]:
+                    raise ValueError("Ambiguous solution for %s in different directions." % key)
+            self._reaction_loads.update(sol_dict)
+    def shear_force(self):
+        x, q = self.variable, self._load_vector
+        return [S.integrate(-q[0], x), S.integrate(-q[1], x), S.integrate(-q[2], x)]
+    def axial_force(self):return self.shear_force()[0]
+    def shear_stress(self):return [v/self._area for v in self.shear_force()]
+    def axial_stress(self):return self.axial_force()/self._area
+    def bending_moment(self):
+        x, m = self.variable, self._moment_load_vector;shear = self.shear_force()
+        return [S.integrate(-m[0], x), S.integrate(-m[1]+shear[2], x), S.integrate(-m[2]-shear[1], x)]
+    def torsional_moment(self):return self.bending_moment()[0]
+    def solve_for_torsion(self):
+        x = self.variable;sum_moments = S.Add(*self._torsion_moment.values());points = list(self._torsion_moment)
+        torque_diagram = S.Piecewise((sum_moments, x <= points[0]), (0, x >= points[0]))
+        for i in range(1, len(points)):
+            sum_moments -= self._torsion_moment[points[i-1]]
+            torque_diagram += S.Piecewise((0, x <= points[i-1]), (sum_moments, x <= points[i]), (0, x >= points[i]))
+        self._angular_deflection = S.integrate(torque_diagram, x)/(self.shear_modulus*self.polar_moment())
+    def solve_slope_deflection(self):
+        x, l, E, G, A = self.variable, self.length, self.elastic_modulus, self.shear_modulus, self._area
+        I = self.second_moment
+        I_y, I_z = (I[0], I[1]) if isinstance(I, list) else (I, I)
+        load, moment = self._load_vector, self._moment_load_vector
+        defl, theta = S.Function('defl'), S.Function('theta')
+        C1, C2, C_i = S.Symbol('C1'), S.Symbol('C2'), S.Symbol('C_i')
+        def _consts(expr, a, b):return list(S.linsolve([expr.subs(x, 0), expr.subs(x, l)], a, b).args[0])
+        # Axial: (E*A*u')' + load_x = 0
+        def_x = S.dsolve(S.Eq(S.Derivative(E*A*S.Derivative(defl(x), x), x)+load[0], 0), defl(x)).args[1]
+        c = _consts(def_x, C1, C2);def_x = def_x.subs({C1:c[0], C2:c[1]})
+        self._deflection[0] = def_x;self._slope[0] = def_x.diff(x)
+        # y deflection and z slope
+        eq1 = S.Derivative(E*I_z*S.Derivative(theta(x), x), x)+(S.integrate(-load[1], x)+C_i)+moment[2]
+        slope_z = S.dsolve(S.Eq(eq1, 0), theta(x)).args[1]
+        c = _consts(slope_z, C1, C2);slope_z = slope_z.subs({C1:c[0], C2:c[1]})
+        eq2 = G*A*(S.Derivative(defl(x), x))+load[1]*x-C_i-G*A*slope_z
+        def_y = S.dsolve(S.Eq(eq2, 0), defl(x)).args[1]
+        c = _consts(def_y, C1, C_i)
+        self._deflection[1] = def_y.subs({C1:c[0], C_i:c[1]});self._slope[2] = slope_z.subs(C_i, c[1])
+        # z deflection and y slope
+        eq1 = S.Derivative(E*I_y*S.Derivative(theta(x), x), x)+(S.integrate(load[2], x)-C_i)+moment[1]
+        slope_y = S.dsolve(S.Eq(eq1, 0), theta(x)).args[1]
+        c = _consts(slope_y, C1, C2);slope_y = slope_y.subs({C1:c[0], C2:c[1]})
+        eq2 = G*A*(S.Derivative(defl(x), x))+load[2]*x-C_i+G*A*slope_y
+        def_z = S.dsolve(S.Eq(eq2, 0), defl(x)).args[1]
+        c = _consts(def_z, C1, C_i)
+        self._deflection[2] = def_z.subs({C1:c[0], C_i:c[1]});self._slope[1] = slope_y.subs(C_i, c[1])
+    def slope(self):return self._slope
+    def deflection(self):return self._deflection
+    def angular_deflection(self):return self._angular_deflection
 
 __all__ = ['Beam', 'Beam3D']

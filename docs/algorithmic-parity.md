@@ -1677,6 +1677,85 @@ Remaining gaps, all in the native scalar complex `solveset`:
 The systems built on these equations inherit these gaps. Their results are
 incomplete or a `ConditionSet`, but none is wrong.
 
+## Mechanics, vector, control and continuum mechanics on 2026-10-22
+
+A probe of 149 calls (`Body`, `RigidBody`, `Particle`, `dynamicsymbols`,
+`msubs`, `CoordinateSym`, the wrapping geometries and pathways, the margins,
+`pole_zero_numerical_data`, `StateSpace.dsolve`, `TransferFunctionMatrix`
+indexing, `Beam3D` and `Cable`) went from 104 to 14 outputs different from
+SymPy 1.14.0 (by `str` and exception type).
+`tests/test_wrong_mechanics_wave4_parity.py` holds the reference values.
+
+- `RigidBody` and `Body` without inertia carry the symbolic central inertia
+  `B_ixx, B_iyy, B_izz, B_ixy, B_iyz, B_izx`, so `kinetic_energy` keeps the
+  rotational term. Default masses are plain `Symbol(name + '_mass')`.
+  `Body` with a mass and no inertia is a particle (`is_rigidbody` is
+  `False`) and uses the particle kinetic energy and parallel axis.
+- `dynamicsymbols` passes its assumptions to the undefined functions.
+- `msubs` is the reference algorithm (`_crawl`, `_sub_func`): it does not
+  substitute inside derivatives. `smart=True` uses `_smart_subs` with
+  `_fraction_decomp` and the `tan` rewrite.
+- `CoordinateSym(name, frame, index)` returns the coordinate of `frame`, so
+  `CoordinateSym('a_y', A, 1) == A[1]`.
+- `Vector` and `Dyadic` print like `_sympystr`: unit coefficients are
+  dropped, signs are pulled out (`- F*sin(q)*N.x`), and sums are wrapped in
+  parentheses.
+- `WrappingCylinder` and `WrappingSphere` are the reference classes:
+  `point_on_surface`, the `ValueError` messages, `geodesic_end_vectors`,
+  and a cylinder `geodesic_length` through `_directional_atan` (no `Mod`).
+  `WrappingPathway.to_loads` applies `force*pA_force`, `force*pB_force` and
+  `-force*(pA_force + pB_force)` at the axis point.
+- `phase_margin` and `gain_margin` follow the reference: `solveset` over
+  `Interval(0, oo, left_open=True)`, `(arg*180/pi + 180) % 360` folded
+  below 180, `-180` with no crossover, and `oo` with no phase crossover.
+  Non-SISO systems, time delays and extra symbols raise the reference
+  errors.
+- `pole_zero_numerical_data` returns `(zeros, poles)` like `_poly_roots`:
+  exact roots through `all_roots` over QQ/ZZ, otherwise `nroots`, with
+  real roots as `float` and others as `complex`.
+- `StateSpace.dsolve` returns the output `C*x + D*u` and has the
+  reference `ValueError` and `ShapeError` checks.
+- `TransferFunctionMatrix.__getitem__` has the matrix semantics:
+  `tfm[:, 0]` is a column `TransferFunctionMatrix`, a pair of integers is
+  an entry and a flat index is row major.
+- `Beam3D` is the reference Timoshenko formulation: `dsolve` of the shear
+  and bending equations, then `linsolve` for the integration constants
+  with the slope and deflection boundary conditions. Load magnitudes go
+  into `load_vector` and `moment_load_vector`.
+- `Cable.apply_length` sets `length`, raises `ValueError` below the support
+  distance, and a distributed solve keeps the applied length. Supports keep
+  their input order and `reaction_loads` start at zero.
+
+Divergences kept (not validated by the user yet):
+
+- `Beam3D(..., variable=y)` uses `y`; the reference passes the variable to
+  `Beam.__init__` and then uses `x` anyway.
+- `Cable.apply_length` compares with the support distance
+  `sqrt(dx**2 + dy**2)`; the reference uses `dx**2 - dy**2`.
+- `Cable.solve(x0, y0)` with distributed loads checks `y0` against the
+  supports and raises `ValueError` if they disagree; the reference ignores
+  the second argument. Distributed reactions stay balanced (the reference
+  uses the left tension at both supports).
+- `WrappingSphere.geodesic_length` with a symbolic angle gives
+  `r*acos(cos(q))`; the reference raises `ValueError` because it cannot
+  prove that the points are on the sphere.
+- Exact forms differ but are equal for the margins (for example
+  `20*log(3)/log(10)`), `StateSpace.dsolve` and `Beam3D` deflections, and
+  for the order of `Cable.tension` keys.
+
+Remaining gaps:
+
+- Frame coordinates are `Dummy` atoms: they print as `_A_x`, `is_real` is
+  `True` (SymPy `None`) and they have no `.frame` attribute.
+- `LinearPathway(...).to_loads(F)[0].vector.simplify()` has another
+  simplified form.
+- `solveset` leaves `log(Abs(G(I*w)))` equations as a `ConditionSet`, and
+  algebraic roots inside `Interval(0, oo)` as an unevaluated
+  `Intersection`. The margins solve `|G|**2 - 1` instead and decide
+  membership numerically at 50 digits; ties that cannot be decided raise
+  `NotImplementedError`.
+- `Beam3D` plotting and the `max_*` methods are not ported.
+
 ## Remaining blocking gaps
 
 ### Noncommutative symbols

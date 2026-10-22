@@ -27,15 +27,36 @@ def _path(start,end,attribute):
 
 
 def dynamicsymbols(names,level=0,**assumptions):
-    values = S.symbols(names,**assumptions)
-    multiple = isinstance(values,(list,tuple))
-    values = values if multiple else (values,)
-    result = [S.diff(S.Function(str(v))(_TIME),_TIME,level) if level else S.Function(str(v))(_TIME) for v in values]
+    # Assumptions (commutative, real, positive, ...) go to the undefined functions, as in the reference.
+    esses = S.symbols(names,cls=S.Function,**assumptions)
+    multiple = isinstance(esses,(list,tuple))
+    esses = esses if multiple else (esses,)
+    result = [S.diff(e(_TIME),_TIME,level) if level else e(_TIME) for e in esses]
     return result if multiple else result[0]
 
 
 dynamicsymbols._t = _TIME
 dynamicsymbols._str = "'"
+
+
+def _join_terms(terms):
+    out = []
+    for coefficient,basis in terms:
+        if coefficient == 1:out.append(' + '+basis)
+        elif coefficient == -1:out.append(' - '+basis)
+        elif coefficient != 0:
+            text = str(coefficient)
+            if isinstance(coefficient,S.Add):text = '(%s)'%text
+            if text[0] == '-':text,start = text[1:],' - '
+            else:start = ' + '
+            out.append(start+text+'*'+basis)
+    text = ''.join(out)
+    if text.startswith(' + '):return text[3:]
+    if text.startswith(' '):return text[1:]
+    return text
+
+
+_FRAME_COUNTER = [0]
 
 
 class _CoordinateMeta(type):
@@ -47,6 +68,10 @@ class _CoordinateMeta(type):
 class CoordinateSym(metaclass=_CoordinateMeta):
     def __new__(cls,name,frame,index):
         if index not in (0,1,2):raise ValueError('coordinate index must be 0, 1 or 2')
+        existing = getattr(frame,'varlist',None)
+        # Like the reference, coordinates compare by (frame, index) only: a frame owns one
+        # coordinate scalar per axis and rebuilding it returns that scalar (under its frame name).
+        if existing is not None:return existing[index]
         value = S.Dummy(str(name),real=True)
         _COORDINATES[value] = frame,index
         return value
@@ -71,10 +96,11 @@ class Vector(_BasisDependent):
     @property
     def free_symbols(self):return set().union(*(v.free_symbols for m in self._components.values() for v in m)) if self._components else set()
     def __repr__(self):
-        terms = []
-        for frame,values in self._components.items():
-            terms.extend('%s*%s.%s'%(value,frame.name,frame._indices[i]) for i,value in enumerate(values) if value != 0)
-        return ' + '.join(terms) or '0'
+        # Reference layout: unit coefficients dropped, signs pulled out, sums parenthesized,
+        # frames listed in creation order.
+        if not self._components:return '0'
+        items = sorted(self._components.items(),key=lambda kv:kv[0]._creation) if len(self._components)>1 else self._components.items()
+        return _join_terms((value,'%s.%s'%(frame.name,frame._indices[i])) for frame,values in items for i,value in enumerate(values))
     __str__ = __repr__
     def __bool__(self):return bool(self._components)
     def __eq__(self,other):
@@ -137,6 +163,9 @@ class Vector(_BasisDependent):
     def projection(self,other,scalar=False):
         coefficient = self.dot(other)/other.dot(other)
         return coefficient if scalar else coefficient*other
+    def applyfunc(self,f):
+        if not callable(f):raise TypeError('`f` must be callable.')
+        return Vector({fr:m.applyfunc(f) for fr,m in self._components.items()})
     def _map(self,method,*args,**kwargs):return Vector({f:m.applyfunc(lambda v:getattr(v,method)(*args,**kwargs)) for f,m in self._components.items()})
     def subs(self,*args,**kwargs):return self._map('subs',*args,**kwargs)
     def xreplace(self,rule):return self._map('xreplace',rule)
@@ -167,7 +196,9 @@ class Dyadic(_BasisDependent):
             for coefficient,left,right in inlist:
                 contribution = left.outer(right)*coefficient
                 self._components = (self+contribution)._components
-    def __repr__(self):return ' + '.join('%s*(%s|%s)'%(c,a,b) for c,a,b in self._terms()) or '0'
+    def __repr__(self):
+        if not self._components:return '0'
+        return _join_terms((c,'(%s|%s)'%(a,b)) for c,a,b in self._terms()) or '0'
     __str__ = __repr__
     @property
     def args(self):return list(self._terms())
@@ -213,6 +244,9 @@ class Dyadic(_BasisDependent):
     def _left_dot(self,vector):return sum((c*vector.dot(a)*b for c,a,b in self._terms()),Vector(0))
     def cross(self,vector):return sum((c*a.outer(b.cross(vector)) for c,a,b in self._terms()),Dyadic(0))
     __xor__ = cross
+    def applyfunc(self,f):
+        if not callable(f):raise TypeError('`f` must be callable.')
+        return Dyadic({key:m.applyfunc(f) for key,m in self._components.items()})
     def _map(self,method,*args,**kwargs):return Dyadic({key:m.applyfunc(lambda v:getattr(v,method)(*args,**kwargs)) for key,m in self._components.items()})
     def subs(self,*args,**kwargs):return self._map('subs',*args,**kwargs)
     def xreplace(self,rule):return self._map('xreplace',rule)
@@ -231,6 +265,7 @@ class Dyadic(_BasisDependent):
 class ReferenceFrame:
     def __init__(self,name,indices=None,latexs=None,variables=None):
         self.name = str(name);self._indices = tuple(indices or ('x','y','z'))
+        self._creation = _FRAME_COUNTER[0];_FRAME_COUNTER[0] += 1
         if len(self._indices)!=3 or len(set(self._indices))!=3:raise ValueError('provide three distinct frame indices')
         self._dcm_dict = {};self._ang_vel_dict = {};self._ang_acc_dict = {}
         self.varlist = tuple(CoordinateSym(n,self,i) for i,n in enumerate(variables or tuple(self.name+'_'+v for v in ('x','y','z'))))

@@ -7,8 +7,8 @@ class Cable:
     def __init__(self, support_1, support_2):
         if support_1[0] == support_2[0] or support_1[1] == support_2[1]:raise ValueError('supports require distinct labels and horizontal positions')
         supports = sorted((support_1, support_2), key=lambda p:p[1])
-        self._labels = [p[0] for p in supports];self.supports = {p[0]:tuple(map(S.sympify, p[1:])) for p in supports}
-        self.loads = {'distributed':{}, 'point_load':{}};self.loads_position = {};self.reaction_loads = {};self.tension = {};self.length = S.Integer(0)
+        self._labels = [p[0] for p in supports];self.supports = {p[0]:list(map(S.sympify, p[1:])) for p in (support_1, support_2)}
+        self.loads = {'distributed':{}, 'point_load':{}};self.loads_position = {};self.reaction_loads = {S.Symbol('R_'+str(n)+'_'+a):S.Integer(0) for n in self._labels for a in 'xy'};self.tension = {};self.length = S.Integer(0)
         self._tension_func = None;self._cable_eqn = None;self._given_length = None
     def apply_load(self, order, load):
         label = load[0]
@@ -29,7 +29,11 @@ class Cable:
         for label in labels:
             self.loads_position.pop(label, None)
             for kind in self.loads.values():kind.pop(label, None)
-    def apply_length(self, length):self._given_length = S.sympify(length)
+    def apply_length(self, length):
+        # The reference compares against sqrt(dx**2 - dy**2); the support distance is sqrt(dx**2 + dy**2).
+        (x1, y1), (x2, y2) = (self.supports[n] for n in self._labels)
+        if length < S.sqrt((x1-x2)**2+(y1-y2)**2):raise ValueError("length should not be less than the distance between the supports")
+        self._given_length = S.sympify(length);self.length = self._given_length
     def solve(self, *args):
         a, b = self._labels;left, right = self.supports[a], self.supports[b];x = S.Symbol('x')
         if self.loads_position:
@@ -66,9 +70,9 @@ class Cable:
             self.reaction_loads = {S.Symbol('R_'+str(a)+'_x'):-horizontal,S.Symbol('R_'+str(a)+'_y'):-horizontal*slope.subs(x,left[0]),S.Symbol('R_'+str(b)+'_x'):horizontal,S.Symbol('R_'+str(b)+'_y'):horizontal*slope.subs(x,right[0])}
             u, v = 2*coefficient*(left[0]-x0),2*coefficient*(right[0]-x0)
             primitive = lambda z:(z*S.sqrt(1+z*z)+S.asinh(z))/(4*coefficient)
-            self.length = primitive(v)-primitive(u)
+            # The reference leaves an applied length untouched for distributed loads.
+            if self._given_length is None:self.length = primitive(v)-primitive(u)
         else:raise ValueError('apply a load before solving the cable')
-        if self._given_length is not None and S.simplify(self.length-self._given_length).is_zero is False:raise ValueError('specified cable length is inconsistent with the loaded geometry')
     def tension_at(self, x):
         if self._tension_func is None:raise ValueError('solve the cable first')
         return self._tension_func.subs(S.Symbol('x'),x)
