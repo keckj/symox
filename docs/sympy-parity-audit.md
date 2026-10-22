@@ -18,9 +18,9 @@ automatically a mathematical error. Equal exceptions are recorded separately fro
 - Export/method bindings, including aliases: 67547.
 - Distinct reference callables: 6077.
 - Documented objects replayed: 2916.
-- Matching example observations: 1551 objects.
-- Different observations to review: 1363 objects.
-- Incomplete replays: 0 objects.
+- Matching example observations: 1749 objects.
+- Different observations to review: 1163 objects.
+- Incomplete replays: 2 objects.
 - Named-call objects replayed: 2916.
 - Matching named-call observations: 1489 objects.
 - Different named-call observations to review: 1425 objects.
@@ -33,7 +33,7 @@ compares these sources with the [SymPy 1.14.0 PyPI release](https://pypi.org/pro
 
 Catalog native fingerprint: `c6198033b800a80410459efc0220add61ad8a6868a9376220e56666c485b90d0`.
 
-Example snapshot fingerprint: `mixed; consult each record`.
+Example snapshot fingerprint: `dfb31b50e5d39540a91f64fee9bfe81fb2e4aa97e793be3cac10d7b86a7244b6`.
 
 Named-call snapshot fingerprint: `mixed; consult each record`.
 
@@ -47,7 +47,7 @@ These fingerprints may differ while fixes are being made. Each example record ke
 own fingerprint; stale evidence must be rerun before approving a changed implementation.
 Targeted supplementary runs replace older observations by reference callable identity,
 including aliases. Other records retain their original snapshots and stale status.
-Ordinary evidence files: `audits/sympy-1.14.0/seventh-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-examples.json.gz`, `audits/sympy-1.14.0/extra-isolation-examples.json.gz`, `audits/sympy-1.14.0/native-protocol-examples.json.gz`.
+Ordinary evidence files: `audits/sympy-1.14.0/wave4-examples.json.gz`.
 Named-call evidence files: `audits/sympy-1.14.0/fifth-keyword-examples.json.gz`, `audits/sympy-1.14.0/batch29-final-keywords.json.gz`, `audits/sympy-1.14.0/extra-isolation-keywords.json.gz`, `audits/sympy-1.14.0/native-protocol-keywords.json.gz`.
 Scoped review source hashes are also checked against the working tree, so edited Rust
 cannot retain a fresh review merely because an older compiled extension is still installed.
