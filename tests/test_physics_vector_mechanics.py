@@ -43,7 +43,7 @@ def test_vector_products_dyadics_and_rotating_derivatives():
     assert dyad.dt(N)==q.diff(t)*(A.y.outer(A.y)-A.x.outer(A.x))
     assert (2*N.x+3*N.y).diff(S.Symbol('x'),N)==0
     assert S.simplify((S.sin(q)**2+S.cos(q)**2)*N.x)==N.x
-    with pytest.raises(ValueError):V.Vector(0).normalize()
+    assert V.Vector(0).normalize()==0  # reference: no error, the zero vector
     with pytest.raises(ValueError):N.dcm(V.ReferenceFrame('unconnected'))
 
 
@@ -68,9 +68,9 @@ def test_fields_coordinates_and_printing(capsys):
     field=2*x*N.x+2*y*N.y+2*z*N.z
     assert V.gradient(x*x+y*y+z*z,N)==field
     same(V.divergence(field,N),6)
-    assert V.curl(field,N)==0 and V.is_conservative(field,N)
+    assert V.curl(field,N)==0 and V.is_conservative(field)
     same(V.scalar_potential(field,N),x*x+y*y+z*z)
-    assert V.is_solenoidal(y*N.x-x*N.y,N)
+    assert V.is_solenoidal(y*N.x-x*N.y)
     O=V.Point('O');P=O.locatenew('P',N.x);Q=O.locatenew('Q',3*N.x)
     same(V.scalar_potential_difference(field,N,P,Q,O),8)
     assert isinstance(N[0],V.CoordinateSym)
@@ -94,8 +94,8 @@ def test_lagrange_kane_and_linearization():
     active,inertia=kane.kanes_equations([body],[(P,(-k*q-c*u)*N.x)])
     same(active[0],-k*q-c*u);same(inertia[0],-m*u.diff(t))
     matrix_same(kane.rhs(),S.Matrix([u,(-k*q-c*u)/m]))
-    A,B=kane.linearize(A_and_B=True)
-    matrix_same(A,S.Matrix([[0,1],[-k/m,-c/m]]));assert B.shape==(2,0)
+    A,B,r=kane.linearize(A_and_B=True)  # reference: (A, B, r)
+    matrix_same(A,S.Matrix([[0,1],[-k/m,-c/m]]));assert B.shape==(0,0) and r.shape==(0,0)
     assert kane.kindiffdict()=={q.diff(t):u}
 
 
@@ -152,7 +152,8 @@ def test_prismatic_joint_system_and_symbolic_system():
     system=M.System.from_newtonian(wall);system.add_joints(joint);system.add_loads(M.Force(B,-3*q*N.x))
     same(system.form_eoms()[0],-2*u.diff(M.dynamicsymbols._t)-3*q)
     matrix_same(system.rhs(),S.Matrix([u,-S.Rational(3,2)*q]))
-    symbolic=M.SymbolicSystem([q],[-3*q],speeds=[u],mass_matrix=S.Matrix([[2]]),coordinate_derivatives=[u])
+    # The reference needs Matrix right-hand sides (a list raises AttributeError).
+    symbolic=M.SymbolicSystem([q,u],S.Matrix([u,-3*q]),speeds=[u],mass_matrix=S.Matrix([[1,0],[0,2]]))
     symbolic.compute_explicit_form();matrix_same(symbolic.comb_explicit_rhs,S.Matrix([u,-S.Rational(3,2)*q]))
     assert M.find_dynamicsymbols(q+q.diff(M.dynamicsymbols._t))=={q,q.diff(M.dynamicsymbols._t)}
 

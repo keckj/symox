@@ -65,3 +65,9 @@ def annotated(letter):
 __all__=['U','G','g','VF','greek_letters','greek_unicode','digit_2txt','symb_2txt','sub','sup','root','frac',
  'atoms_table','pretty_use_unicode','pretty_try_use_unicode','xstr','xobj','vobj','hobj','xsym','pretty_atom',
  'pretty_symbol','annotated','center_pad','center','is_subscriptable_in_unicode','line_width']
+
+
+def center_accent(string, accent):
+    """Insert the combining ``accent`` on the middle character of ``string``."""
+    midpoint = len(string) // 2 + 1
+    return string[:midpoint] + accent + string[midpoint:]

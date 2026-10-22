@@ -747,15 +747,26 @@ def _has_free(self, *patterns):
 
 
 def _postorder(e):
-    for a in e.args:
+    # Objects without args (mutable matrices) are leaves, as in the
+    # reference postorder_traversal.
+    for a in getattr(e, 'args', ()):
         yield from _postorder(a)
     yield e
+
+
+def _same_head(e):
+    # Mutable and immutable matrices share the native type; their reference
+    # classes differ (MutableDenseMatrix and ImmutableDenseMatrix).
+    func = getattr(e, 'func', None)
+    return (type(e), getattr(e, '_immutable', None)) if func is None else func
 
 
 def _is_same(a, b, approx=None):
     from itertools import zip_longest
     from . import Number
-    for x, y in zip_longest(_postorder(a), _postorder(_sympify(b))):
+    # A matrix is compared as given: sympify would make it immutable.
+    b = b if hasattr(b, '_immutable') else _sympify(b)
+    for x, y in zip_longest(_postorder(a), _postorder(b)):
         if x is None or y is None:
             return False
         if isinstance(x, Number):
@@ -763,7 +774,7 @@ def _is_same(a, b, approx=None):
                 return False
             if approx:
                 return approx(x, y)
-        if not (x == y and x.func == y.func):
+        if not (x == y and _same_head(x) == _same_head(y)):
             return False
     return True
 

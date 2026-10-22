@@ -30,8 +30,9 @@ def _count(value):
 def _grid(bound,n):
     symbol,start,end=bound
     start,end=float(start),float(end)
-    if not math.isfinite(start) or not math.isfinite(end) or start==end:
-        raise ValueError('Plot bounds must be distinct finite real numbers')
+    # The reference samples a degenerate range (Truss.draw plots over (x, 1, 1)).
+    if not math.isfinite(start) or not math.isfinite(end):
+        raise ValueError('Plot bounds must be finite real numbers')
     return np.linspace(start,end,_count(n))
 
 
@@ -114,6 +115,15 @@ class BaseSeries:
         return *values,sampled[0]
 
 
+def _float_args(values):
+    """Numbers of a decoration as floats; sequences (marker data) elementwise."""
+    def number(value):
+        if isinstance(value,(str,bool)):return value
+        try:return float(value)
+        except (TypeError,ValueError):return value
+    return [[number(v) for v in value] if isinstance(value,(list,tuple)) else number(value) for value in values]
+
+
 class MatplotlibBackend:
     """Lazily create a Matplotlib figure for a Plot or PlotGrid."""
     def __init__(self,parent):
@@ -144,9 +154,37 @@ class MatplotlibBackend:
             self._draw(ax,series)
         options=plot.options
         for key in ('title','xlabel','ylabel','zlabel','xlim','ylim','zlim','xscale','yscale'):
-            if key in options and hasattr(ax,'set_'+key):getattr(ax,'set_'+key)(options[key])
+            if key in options and hasattr(ax,'set_'+key):
+                value=options[key]
+                if key.endswith('lim') and isinstance(value,(tuple,list)):
+                    # symbolic numbers (Arch.draw limits) as matplotlib floats
+                    value=tuple(float(v) for v in value)
+                getattr(ax,'set_'+key)(value)
         if options.get('legend'):ax.legend()
         if 'axis' in options and not options['axis']:ax.set_axis_off()
+        # The decorations of the reference MatplotlibBackend (Beam, Cable,
+        # Truss and Arch drawings): matplotlib keyword dictionaries.
+        for marker in options.get('markers') or ():
+            marker=dict(marker);args=marker.pop('args',())
+            ax.plot(*_float_args(args),**marker)
+        if options.get('annotations'):
+            for annotation in options['annotations']:
+                annotation=dict(annotation)
+                for key in ('xy','xytext'):
+                    if key in annotation:annotation[key]=tuple(_float_args(annotation[key]))
+                ax.annotate(**annotation)
+        if options.get('rectangles'):
+            from matplotlib.patches import Rectangle
+            for rectangle in options['rectangles']:
+                rectangle=dict(rectangle);rectangle['xy']=tuple(_float_args(rectangle['xy']))
+                for key in ('width','height','angle'):
+                    if key in rectangle:rectangle[key]=float(rectangle[key])
+                ax.add_patch(Rectangle(**rectangle))
+        if options.get('fill'):
+            fill=dict(options['fill'])
+            for key in ('x','y1','y2'):
+                if key in fill:fill[key]=_float_args(fill[key])
+            ax.fill_between(**fill)
 
     def process_series(self):
         if self.fig is not None:return

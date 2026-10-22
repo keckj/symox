@@ -381,7 +381,11 @@ def install():
                 e = stack.pop()
                 if getattr(e, 'class_name', None) == head:
                     return True
-                stack.extend(a for a in getattr(e, 'args', ()) if isinstance(a, _core.Expr))
+                # Piecewise pairs and tuples are not native expressions but
+                # hold sub-expressions, as any SymPy Basic.
+                stack.extend(a for a in getattr(e, 'args', ())
+                             if isinstance(a, _core.Expr) or (not isinstance(a, (str, bytes))
+                                                              and hasattr(a, 'args')))
             return False
         return expr.has(cls)
 

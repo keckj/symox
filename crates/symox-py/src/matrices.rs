@@ -261,7 +261,9 @@ fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
             if is_matrix(item) { to_matrix(item) }
             else { Ok(Matrix::column(vec![scalar_matrix_entry(item)?])) }
         }).collect::<PyResult<_>>()?;
-        let refs: Vec<&Matrix> = blocks.iter().collect();
+        // As in the reference, a 0x0 block adds no rows and sets no width:
+        // Matrix([q, Matrix([])]) is q.
+        let refs: Vec<&Matrix> = blocks.iter().filter(|m| m.rows() != 0 || m.cols() != 0).collect();
         return Matrix::vstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
     }
     if items.iter().all(|i| is_seq(i) || (i.hasattr("tolist").unwrap_or(false) && !is_sympy_obj(i) && i.hasattr("shape").unwrap_or(false))) {

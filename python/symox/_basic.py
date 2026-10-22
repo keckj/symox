@@ -118,6 +118,12 @@ class Basic(metaclass=_BasicMeta):
     def __getnewargs__(self):
         return self.args
 
+    def is_same(a, b, approx=None):
+        """True if a and b are structurally the same, with numbers of the same
+        type (or equal under ``approx``); usable as ``Basic.is_same(a, b)``."""
+        from ._simptools import _is_same
+        return _is_same(a, b, approx)
+
     def srepr(self):
         from . import srepr
         return type(self).__name__ + '(' + ', '.join(srepr(arg) for arg in self.args) + ')'

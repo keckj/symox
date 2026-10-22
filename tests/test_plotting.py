@@ -135,8 +135,9 @@ def test_invalid_sample_counts(kwargs):
 
 
 def test_range_validation():
-    for interval in [(x,1,1),(x,0,s.oo)]:
-        with pytest.raises(ValueError):plot(x,interval,show=False)
+    with pytest.raises(ValueError):plot(x,(x,0,s.oo),show=False)
+    # The reference samples a degenerate range (Truss.draw relies on it).
+    assert list(plot(x,(x,1,1),show=False)[0].get_data()[0][:3])==[1.0,1.0,1.0]
     with pytest.raises(ValueError):plot(x+y,(x,0,1),show=False)
     with pytest.raises(ValueError):plot3d(x,(x,0,1),(x,0,2),show=False)
     with pytest.raises(NotImplementedError):plot_implicit(s.And(x>0,y>0),show=False)
