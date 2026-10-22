@@ -514,11 +514,24 @@ def finite_model(family,params):
         m._sampler = lambda r,z:2*r.integers(0,2,z)-1
     elif family in ('IdealSoliton','RobustSoliton'):
         k = values[0];_integer(k,1);m.lower,m.upper = S.Integer(1),k
-        if not k.is_Integer:raise NotImplementedError('soliton support requires an explicit integer size')
+        if family == 'RobustSoliton':
+            delta,c = values[1:];check(S.And(delta>0,delta<=1),'delta must lie in (0,1]');positive(c)
+        if not k.is_Integer or (family == 'RobustSoliton' and (c*S.log(k/delta)).free_symbols):
+            # SymPy keeps the density of a symbolic soliton as a held
+            # Density object that evaluates once the parameters are numbers.
+            m._held_density = True
+            if family == 'IdealSoliton':
+                def held_pmf(x):
+                    if x.is_integer is False:return S.Integer(0)
+                    return S.Piecewise((1/k,S.Eq(x,1)),(1/(x*(x-1)),S.And(x >= 1,x <= k)),(0,True))
+                m._pdf = held_pmf
+            else:
+                def held_pmf(x):raise NotImplementedError('the robust soliton mass function requires numeric parameters')
+                m._pdf = held_pmf
+            return m
         table = {S.Integer(1):1/k}
         table.update({S.Integer(j):S.Rational(1,j*(j-1)) for j in range(2,int(k)+1)})
         if family == 'RobustSoliton':
-            delta,c = values[1:];check(S.And(delta>0,delta<=1),'delta must lie in (0,1]');positive(c)
             R = c*S.log(k/delta)*S.sqrt(k)
             if R.free_symbols:raise NotImplementedError('robust soliton requires numeric cutoff parameters')
             cutoff = int(round(float((k/R).evalf())))
@@ -613,6 +626,8 @@ def _constructor(family,spec,kind):
         if kind == 'continuous':model = continuous_model(family,params)
         elif kind == 'finite':model = finite_model(family,params)
         else:model = discrete_model(family,params)
+        model._params = tuple(params)
+        model._remake = lambda values:create(name,*values).distribution
         return variable(name,model)
     create.__name__ = family;create.__qualname__ = family;create.__signature__ = signature
     create.__doc__ = 'Construct a %s random variable with native symbolic parameters.' % family

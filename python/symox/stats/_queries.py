@@ -169,6 +169,70 @@ def _process_query(operation,expr,condition):
     return None
 
 
+def _independent_parts(parts):
+    """Group Boolean parts into blocks whose random variables share no
+    probability space; parts free of random variables form their own block."""
+    blocks = []
+    for part in parts:
+        groups = {v.group for v in random_symbols(part)}
+        joined = [block for block in blocks if block[0]&groups]
+        rest = [block for block in blocks if not block[0]&groups]
+        merged = (set(groups).union(*(b[0] for b in joined)),[p for b in joined for p in b[1]]+[part])
+        blocks = rest+[merged]
+    return [parts for _,parts in blocks]
+
+
+def _factored_probability(condition,variables):
+    """Exact probability of an And, Or or Not of events over independent
+    probability spaces: the product rule P(A & B) = P(A) P(B) and the
+    complement rule P(A | B) = 1 - (1 - P(A)) (1 - P(B))."""
+    if any(getattr(v,'process',None) is not None for v in variables):return None
+    name = getattr(condition,'class_name','')
+    if name == 'Not':return S.simplify(1-P(condition.args[0]))
+    if name not in ('And','Or'):return None
+    blocks = _independent_parts(condition.args)
+    if len(blocks) < 2:return None
+    def value(parts):
+        event = S.And(*parts) if name == 'And' else S.Or(*parts)
+        return P(event) if random_symbols(event) else _indicator(event)
+    if name == 'And':return S.simplify(S.Mul(*(value(parts) for parts in blocks)))
+    return S.simplify(S.expand(1-S.Mul(*(1-value(parts) for parts in blocks))))
+
+
+def _independent_condition(expr,condition,variables):
+    """Drop the conjuncts of a condition that are independent of ``expr``:
+    E(X | A & B) = E(X | A) when B lives on probability spaces disjoint from
+    those of X and A. None when nothing can be dropped."""
+    if any(getattr(v,'process',None) is not None for v in variables):return None
+    if not random_symbols(condition):return None
+    parts = condition.args if getattr(condition,'class_name','') == 'And' else (condition,)
+    target = {v.group for v in random_symbols(expr)}
+    kept,dropped = [],[]
+    for block in _independent_parts(parts):
+        groups = {v.group for part in block for v in random_symbols(part)}
+        (dropped if groups and not groups&target else kept).append(block)
+    if not dropped:return None
+    check(S.And(*(P(S.And(*block)) != 0 for block in dropped)),'conditioning event has zero probability')
+    kept = [part for block in kept for part in block]
+    return S.And(*kept) if kept else S.true
+
+
+def _observed(condition):
+    """A random symbol used as a condition means that its value is observed:
+    SymPy reads ``given(expr, Y)`` as ``given(expr, Eq(Y, Y.symbol))``. Return
+    the substitution of the variable by its symbol, or None."""
+    if condition is None:return None
+    if isinstance(condition,RandomSymbol):rv = condition
+    else:
+        try:atom = scalar(condition)
+        except (ValueError,TypeError):return None
+        rv = REGISTRY.get(atom) if getattr(atom,'is_Symbol',False) or getattr(atom,'is_Dummy',False) else None
+        if rv is None:return None
+    if getattr(rv,'process',None) is not None or getattr(rv,'_stats_joint',False) or getattr(rv,'_stats_matrix',False):return None
+    if rv.group is not rv._atom:raise NotImplementedError('conditioning on a component of a joint distribution is not supported')
+    return {rv._atom:rv.symbol}
+
+
 def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
     if not evaluate:
         from ._symbolic import Probability
@@ -176,6 +240,10 @@ def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
     if numsamples is not None:
         values = sample(condition,given_condition,size=(operator.index(numsamples),),**kwargs)
         return S.Float(float(np.mean(values)))
+    observed = _observed(given_condition)
+    if observed is not None:
+        event = scalar(condition).xreplace(observed)
+        return P(event,None,**kwargs) if random_symbols(event) else _indicator(event)
     condition = scalar(condition)
     if given_condition is not None:given_condition = scalar(given_condition)
     special = _process_query('P',condition,given_condition)
@@ -210,6 +278,8 @@ def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
         denominator = P(given_condition)
         check(denominator != 0,'conditioning event has zero probability')
         return S.simplify(P(S.And(condition,given_condition))/denominator)
+    factored = _factored_probability(condition,variables)
+    if factored is not None:return factored
     # Linear combinations of independent or jointly normal variables reduce
     # to a single exact normal distribution before event integration.
     if condition.is_Relational and len(variables)>1:
@@ -254,6 +324,10 @@ def _expect(expr,variables=None):
             terms.append(value)
         return S.simplify(S.Add(*terms))
     if expr.is_Add:return S.Add(*(_expect(part) for part in expr.args))
+    if expr.is_Mul and not any(getattr(v,'process',None) is not None for v in variables):
+        # E(f(X) g(Y)) = E(f(X)) E(g(Y)) over independent probability spaces
+        blocks = _independent_parts(expr.args)
+        if len(blocks) > 1:return S.simplify(S.Mul(*(_expect(S.Mul(*block)) for block in blocks)))
     groups = _groups(variables)
     if len(groups) == 1:
         group,values = next(iter(groups.items()))
@@ -302,12 +376,16 @@ def E(expr,condition=None,numsamples=None,evaluate=True,**kwargs):
     if getattr(expr,'_stats_matrix',False):return expr.mean()
     if getattr(expr,'_stats_joint',False):return S.Matrix([E(v,condition) for v in expr.components])
     if isinstance(expr,S.Matrix) or getattr(expr,'_symox_sparse',False):return expr.applyfunc(lambda value:E(value,condition,**kwargs))
+    observed = _observed(condition)
+    if observed is not None:return E(scalar(expr).xreplace(observed),None,**kwargs)
     expr = scalar(expr)
     if condition is not None:condition = scalar(condition)
     special = _process_query('E',expr,condition)
     if special is not None:return special
     if condition is None:return _expect(expr)
     variables = random_symbols(expr)|random_symbols(condition)
+    reduced = _independent_condition(expr,condition,variables)
+    if reduced is not None:return E(expr,None if reduced == S.true else reduced)
     worlds = _worlds(variables)
     if worlds is not None:
         numerator,denominator = S.Integer(0),S.Integer(0)
@@ -538,8 +616,13 @@ def where(condition,given_condition=None,**kwargs):
 
 def given(expr,condition=None,**kwargs):
     if condition is None:return expr
+    if isinstance(expr,(tuple,list)) or getattr(expr,'class_name','') == 'Tuple':return _given_tuple(expr,condition,**kwargs)
+    observed = _observed(condition)
+    if observed is not None:return scalar(expr).xreplace(observed)
     condition = scalar(condition)
     expression = scalar(expr)
+    if not random_symbols(condition):return expr
+    if not {v.group for v in random_symbols(expression)}&{v.group for v in random_symbols(condition)}:return expr
     conditioned = _joint_conditioning(expression,condition)
     if conditioned is not None:
         value,gate = conditioned
@@ -568,6 +651,23 @@ def given(expr,condition=None,**kwargs):
     model._support = _condition_set(condition,source)
     result = variable(source.name+'|given',model)
     return result if expression == source._atom else expression.subs(source._atom,scalar(result))
+
+
+def _given_tuple(items,condition,**kwargs):
+    """Condition every entry of a tuple on the same event. Each entry is
+    conditioned on its own only when this preserves the joint law: at most
+    one entry may depend on the event, and it may share no probability space
+    with the other entries."""
+    items = [scalar(v) for v in items]
+    observed = _observed(condition)
+    if observed is not None:return S.Tuple(*(v.xreplace(observed) for v in items))
+    condition = scalar(condition)
+    event = {v.group for v in random_symbols(condition)}
+    groups = [{v.group for v in random_symbols(v)} for v in items]
+    touched = [i for i,g in enumerate(groups) if g&event]
+    if len(touched)>1 or any(groups[i]&groups[j] for i in touched for j in range(len(items)) if j != i):
+        raise NotImplementedError('conditioning several dependent entries of a tuple jointly is not supported')
+    return S.Tuple(*(given(v,condition,**kwargs) if i in touched else v for i,v in enumerate(items)))
 
 
 def _sample_values(expr,condition,size,rng):

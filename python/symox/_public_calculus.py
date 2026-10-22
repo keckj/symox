@@ -10,6 +10,23 @@ def _pairs(expr):
     return tuple(zip(arguments[::2],arguments[1::2]))
 
 
+def _bound_piecewise_variables(expr):
+    """None unless ``expr`` is a Sum, Product or Integral; otherwise whether a
+    Piecewise condition in its function depends on one of its bound variables."""
+    from . import Sum, Product, Integral, Piecewise
+    if not isinstance(expr, (Sum, Product, Integral)):
+        return None
+    variables = set()
+    for limit in expr.args[1:]:
+        items = limit.args if hasattr(limit, 'args') and limit.args else (limit,)
+        variables.add(items[0])
+    for piece in expr.args[0].atoms(Piecewise):
+        for _, condition in _pairs(piece):
+            if getattr(condition, 'free_symbols', set()) & variables:
+                return True
+    return False
+
+
 def piecewise_fold(expr, evaluate=True):
     """SymPy's ``piecewise_fold``: move Piecewise outward through the
     surrounding function, collecting branches with identical conditions."""
@@ -36,6 +53,14 @@ def piecewise_fold(expr, evaluate=True):
             else:
                 new_args.append((e, c))
     else:
+        bound = _bound_piecewise_variables(expr)
+        if bound is not None:
+            # A condition on a summation or integration variable cannot
+            # leave its binder: Sum(Piecewise((f, x > 1), (0, True)), (x, ..))
+            # is not Piecewise((Sum(f, (x, ..)), x > 1), ...). The reference
+            # folds it anyway (a wrong value); keep the binder intact.
+            if bound:
+                return expr.func(piecewise_fold(expr.args[0], evaluate), *expr.args[1:])
         # f(P1, P2) with branch conditions in common keeps them as the
         # leading conditions when f is a commutative Add or Mul
         if expr.is_Add or expr.is_Mul and expr.is_commutative:

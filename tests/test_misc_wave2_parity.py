@@ -278,8 +278,11 @@ q4 = Piecewise((x**3, x < 1), (5, x < 2), (0, True))
     (lambda: piecewise_fold(Piecewise((Piecewise((x, y < 0), (1, True)) + Piecewise((2, y < 0), (3, True)), x < 0),
                                       (0, True))),
      'Piecewise((x + 2, (x < 0) & (y < 0)), (4, x < 0), (0, True))'),
-    (lambda: piecewise_fold(Integral(p1, (x, 0, 3))), 'Piecewise((Integral(x, (x, 0, 3)), x < 1), (Integral(1, (x, 0, 3)), True))'),
-    (lambda: piecewise_fold(Sum(p3, (y, 1, 3))), 'Piecewise((Sum(y, (y, 1, 3)), y > 0), (Sum(-y, (y, 1, 3)), True))'),
+    # SymPy folds a condition on the bound variable out of the binder
+    # (Piecewise((Integral(x, (x, 0, 3)), x < 1), ...)), which changes the
+    # value; symox keeps the binder (docs/algorithmic-parity.md, WP-C10).
+    (lambda: piecewise_fold(Integral(p1, (x, 0, 3))), 'Integral(Piecewise((x, x < 1), (1, True)), (x, 0, 3))'),
+    (lambda: piecewise_fold(Sum(p3, (y, 1, 3))), 'Sum(Piecewise((y, y > 0), (-y, True)), (y, 1, 3))'),
     (lambda: piecewise_fold(Derivative(p1, x)), 'Piecewise((Derivative(x, x), x < 1), (Derivative(1, x), True))'),
     (lambda: piecewise_fold(x), 'x'),
 ])
