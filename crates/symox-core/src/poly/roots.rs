@@ -195,7 +195,8 @@ fn roots_quadratic(f: &UPoly) -> Vec<Expr> {
         d = simp(&d, false);
         bb = simp(&bb, false);
     }
-    let dd = div(&sqrt_squares(&d), &aa);
+    // The reference `factor_terms(_sqrt(d)/A)`.
+    let dd = crate::simptools::exprtools::factor_terms(&div(&sqrt_squares(&d), &aa), false, false, false, true);
     let mut r0 = sub(&bb, &dd);
     let mut r1 = add(&[bb, dd]);
     if is_neg(&a) {
@@ -926,10 +927,11 @@ fn decompose_symbolic(f: &UPoly) -> Option<Vec<UPoly>> {
 /// The factors in the variable of a polynomial with symbolic coefficients
 /// over a polynomial or rational-function domain, with the total number of
 /// factors of the cleared numerator (the reference `factor_list` length).
-fn symbolic_factors(f: &UPoly) -> Option<(usize, Vec<(UPoly, u32)>)> {
-    if super::expression_domain::construct_selects_expression(&f.c).ok()? {
-        return None;
-    }
+fn symbolic_factors(f: &UPoly) -> Option<(usize, Vec<(UPoly, u32)>, bool)> {
+    // Over EX the reference also factors `Poly(f.as_expr())`, with the
+    // algebraic coefficients as generators; only an irreducible simple
+    // factor keeps the EX heuristics.
+    let expression = super::expression_domain::construct_selects_expression(&f.c).ok()?;
     let x = Expr::dummy("x", Default::default());
     let n = f.deg();
     let terms: Vec<Expr> = f.c.iter().enumerate().map(|(i, c)| mul(&[c.clone(), pow(&x, &Expr::int((n - i) as i64))])).collect();
@@ -945,7 +947,7 @@ fn symbolic_factors(f: &UPoly) -> Option<(usize, Vec<(UPoly, u32)>)> {
         let c = Poly::from_expr(&g, std::slice::from_ref(&x)).ok()?.all_coeffs().ok()?;
         out.push((UPoly { c, numerical: false }, k));
     }
-    Some((count, out))
+    Some((count, out, expression))
 }
 
 fn update(result: &mut Vec<(Expr, u32)>, zeros: &mut u32, r: Expr, k: u32) {
@@ -1049,12 +1051,15 @@ fn roots_of_with(f: &UPoly, preprocess: bool) -> Vec<(Expr, u32)> {
             match symbolic_factors(&f) {
                 // The reference factors `Poly(f.as_expr())` in every generator
                 // and applies the heuristics to each factor in the variable.
-                Some((count, factors)) if !(count == 1 && (n == 2 || factors.first().is_some_and(|g| g.1 == 1))) => factors
+                Some((count, factors, _)) if !(count == 1 && (n == 2 || factors.first().is_some_and(|g| g.1 == 1))) => factors
                     .iter()
                     .map(|(g, k)| (try_heuristics(g), *k))
                     .collect(),
-                Some((1, _)) if n == 2 => vec![(roots_quadratic(&f), 1)],
-                Some((1, _)) => vec![(try_decompose_symbolic(&f), 1)],
+                Some((1, _, _)) if n == 2 => vec![(roots_quadratic(&f), 1)],
+                // Over EX the reference applies `to_rational_coeffs` (not
+                // ported) and otherwise the heuristics, without decomposition.
+                Some((1, _, true)) => vec![(try_heuristics(&f), 1)],
+                Some((1, _, false)) => vec![(try_decompose_symbolic(&f), 1)],
                 _ => vec![(try_heuristics(&f), 1)],
             }
         };

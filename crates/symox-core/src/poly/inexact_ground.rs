@@ -446,7 +446,7 @@ fn binomial_coefficients(n: usize) -> Vec<(Vec<usize>, BigInt)> {
 }
 
 /// The reference `multinomial_coefficients(m, n)` in dictionary order.
-fn multinomial_coefficients(m: usize, n: usize) -> Vec<(Vec<usize>, BigInt)> {
+pub(crate) fn multinomial_coefficients(m: usize, n: usize) -> Vec<(Vec<usize>, BigInt)> {
     if m == 0 {
         return if n == 0 { vec![(vec![], BigInt::one())] } else { vec![] };
     }
