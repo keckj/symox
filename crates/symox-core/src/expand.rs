@@ -658,6 +658,9 @@ pub fn expand_product(factors: &[Expr]) -> Expr {
         && factors.iter().any(|factor| crate::decompose::commutativity(factor) != Some(true)) {
         return noncommutative_product(factors);
     }
+    if factors.iter().any(|f| f.is_add() && f.float_info().max_precision.is_some()) {
+        return float_product(factors);
+    }
     let mut gens = Gens::new();
     let raws: Vec<Vec<RawTerm>> = factors.iter().map(|f| raw_terms(f, &mut gens)).collect();
     let n = gens.list.len();
@@ -678,6 +681,40 @@ pub fn expand_product(factors: &[Expr]) -> Expr {
     }
 }
 
+/// A product with Float sums, distributed in the order of the reference
+/// `Mul._expandsums`: the sums are split in halves, each half is expanded
+/// and the pairwise products are added at once. Float coefficients are
+/// rounded at every addition, so a different association changes the last
+/// bits of the result (and the roots of ill-conditioned polynomials).
+fn float_product(factors: &[Expr]) -> Expr {
+    fn sums_terms(sums: &[Expr]) -> Vec<Expr> {
+        if sums.len() == 1 {
+            return crate::traverse::ordered_args(&sums[0]);
+        }
+        let half = sums.len() / 2;
+        let (left, right) = (sums_terms(&sums[..half]), sums_terms(&sums[half..]));
+        let terms: Vec<Expr> = left.iter().flat_map(|a| right.iter().map(move |b| crate::ops::mul2(a, b))).collect();
+        let added = add(&terms);
+        if added.is_add() { crate::traverse::ordered_args(&added) } else { vec![added] }
+    }
+    // The reference iterates the arguments of the rebuilt product, in their
+    // canonical (printed) order, not the internal storage order.
+    let ordered = mul(factors);
+    if !ordered.is_mul() {
+        return ordered;
+    }
+    let (sums, plain): (Vec<Expr>, Vec<Expr>) = crate::traverse::ordered_args(&ordered).into_iter().partition(Expr::is_add);
+    let plain = mul(&plain);
+    let terms: Vec<Expr> = sums_terms(&sums)
+        .iter()
+        .map(|term| {
+            let t = crate::ops::mul2(&plain, term);
+            if t.is_mul() && t.args().iter().any(Expr::is_add) { expand_mul_node(&t) } else { t }
+        })
+        .collect();
+    add(&terms)
+}
+
 /// Distribute a product whose factors may not commute, keeping the order
 /// of the factors in every term (SymPy's `Mul._eval_expand_mul`).
 fn noncommutative_product(factors: &[Expr]) -> Expr {
@@ -693,6 +730,21 @@ fn noncommutative_product(factors: &[Expr]) -> Expr {
 pub fn power_poly(b: &Expr, n: u32) -> Expr {
     if b.has_noncommutative_host() && crate::decompose::commutativity(b) != Some(true) {
         return noncommutative_product(&vec![b.clone(); n as usize]);
+    }
+    if n >= 2 && b.is_add() && b.float_info().max_precision.is_some() && !b.args().iter().any(crate::series::order::is_order) {
+        // The reference `basic_from_dict(multinomial_coefficients(m, n), *terms)`:
+        // each term is built from powers of the Float summands, so their
+        // rounding follows the reference instead of repeated multiplication.
+        let p = crate::traverse::ordered_args(b);
+        let terms: Vec<Expr> = crate::poly::inexact_ground::multinomial_coefficients(p.len(), n as usize)
+            .into_iter()
+            .map(|(ks, c)| {
+                let mut f = vec![Expr::num(Number::from_bigint(c))];
+                f.extend(p.iter().zip(ks).filter(|(_, k)| *k > 0).map(|(g, k)| pow(g, &Expr::int(k as i64))));
+                mul(&f)
+            })
+            .collect();
+        return add(&terms);
     }
     let mut gens = Gens::new();
     let raw = raw_terms(b, &mut gens);

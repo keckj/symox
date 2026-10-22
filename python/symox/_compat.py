@@ -238,10 +238,26 @@ class NumberSymbol(metaclass=_ExprType):
         'Pi', 'Exp1', 'EulerGamma', 'Catalan', 'GoldenRatio', 'TribonacciConstant'))
 
 
+def _float_exact_ratio(value):
+    if not getattr(value, 'is_Float', False):
+        return value
+    sign, man, exp, _ = value._mpf_
+    if not man and exp:
+        return value
+    return Fraction(-man if sign else man) * (Fraction(2) ** exp)
+
+
 class Rational(Number):
     _matches = staticmethod(lambda e: e.is_Rational)
 
     def __new__(cls, p, q=None):
+        # The reference converts a Float to its exact binary ratio, in both
+        # the numerator and the denominator.
+        p, q = _float_exact_ratio(p), _float_exact_ratio(q)
+        if (isinstance(p, Fraction) or isinstance(q, Fraction)) and isinstance(p, (int, Fraction)) \
+                and isinstance(q, (int, Fraction)) and q != 0:
+            value = Fraction(p) / Fraction(q)
+            return _core.Rational(value.numerator, value.denominator)
         if q is None and isinstance(p, (str, float, Fraction)):
             value = Fraction(p)
             return _core.Rational(value.numerator, value.denominator)

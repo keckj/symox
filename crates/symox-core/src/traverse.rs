@@ -467,6 +467,30 @@ mod tests {
 
 /// Ordering used by SymPy's immutable `.args`, which differs from the
 /// presentation ordering used by default_sort_key/as_ordered_terms.
+/// SymPy compares two Floats by their hashable content, the mpmath tuple
+/// `(sign, man, exp, bc)` (odd mantissa): positive values precede negative
+/// ones and magnitudes are not ordered by value.
+fn mpf_cmp(x: &crate::number::Number, y: &crate::number::Number) -> Option<std::cmp::Ordering> {
+    use crate::number::Number;
+    use num_traits::{Signed, Zero};
+    fn tuple(n: &Number) -> Option<(bool, num_bigint::BigInt, i128, u64)> {
+        let f = match n {
+            Number::Float(v) if v.is_finite() && *v != 0.0 => crate::bigfloat::BigFloat::from_f64(*v),
+            Number::MpFloat(v, _) if !v.is_zero() => v.clone(),
+            _ => return None,
+        };
+        let (mut man, mut exp) = (f.man.abs(), f.exp);
+        if man.is_zero() { return None; }
+        let shift = man.trailing_zeros().unwrap_or(0);
+        man >>= shift;
+        exp += i128::from(shift);
+        let bc = man.bits();
+        Some((f.man.is_negative(), man, exp, bc))
+    }
+    let ordering = tuple(x)?.cmp(&tuple(y)?);
+    (ordering != std::cmp::Ordering::Equal).then_some(ordering)
+}
+
 pub(crate) fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
     if a.ptr_eq(b) { return std::cmp::Ordering::Equal; }
     fn rank(e: &Expr) -> (usize, &str) {
@@ -491,7 +515,7 @@ pub(crate) fn args_cmp(a: &Expr, b: &Expr) -> std::cmp::Ordering {
     let ordering = rank(a).cmp(&rank(b));
     if ordering != std::cmp::Ordering::Equal { return ordering; }
     match (a.kind(), b.kind()) {
-        (Kind::Num(x), Kind::Num(y)) => x.cmp_value(y).unwrap_or_else(|| a.cmp_struct(b)),
+        (Kind::Num(x), Kind::Num(y)) => mpf_cmp(x, y).unwrap_or_else(|| x.cmp_value(y).unwrap_or_else(|| a.cmp_struct(b))),
         (Kind::Sym(x), Kind::Sym(y)) => x.cmp_basic(y),
         _ => {
             let aa = ordered_args(a);

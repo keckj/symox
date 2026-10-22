@@ -448,12 +448,26 @@ Remaining gaps in this area:
   double root `-I` of `x**2 + 2*I*x - 1` (reference `~1e-13` real parts), the small root
   `1.0e-20` of `x**2 - 1e20*x + 1` (reference `0`) and the double roots of
   `x**4 - sqrt(2)*x**2 + 1/2` (reference splits them near `1e-8`).
-  Remaining: the clustered roots of `(x - 1)*(x - 1.0001)*(x - 1.0002)` are
-  less accurate than the reference (error `~2e-8` against `~1e-12`); `roots`
-  over `EX` does not factor first like the reference
-  (`x**2 - (1 + sqrt(2))*x + sqrt(2)` gives nested radicals instead of
-  `{1, sqrt(2)}`) and prints some quadratic roots in a factored form
-  (`-sqrt(2)*(1 - I)/2` against `-sqrt(2)/2 + sqrt(2)*I/2`). Exact reduction of root objects (`CRootOf` and
+  Float products and powers are expanded in the reference order
+  (`Mul._expandsums` halves, `Pow._eval_expand_multinomial` multinomial
+  terms, over the canonical argument order where two Floats compare by
+  their mpf tuple, positive first), so Float coefficients have the
+  reference bits and clustered roots such as those of
+  `(x - 1)*(x - 1.0001)*(x - 1.0002)` are as accurate as the reference
+  (they were off by `~2e-8` from a last-bit coefficient difference).
+  `Rational(Float)` gives the exact binary ratio like the reference. An
+  audit of 223 clustered and near-multiple root cases (clusters of 2-5
+  roots at distances `1e-2..1e-12`, real and complex, Float and exact
+  coefficients, degree up to 40, `n` in 15/30/50/100, `maxsteps` and
+  `cleanup`) measured against high-precision roots of the exact
+  coefficients finds no case less accurate than the reference.
+  `roots` over `EX` factors first like the reference
+  (`x**2 - (1 + sqrt(2))*x + sqrt(2)` gives `{1: 1, sqrt(2): 1}`) and
+  quadratic roots use `factor_terms(sqrt(d)/A)`. Remaining: the reference
+  `to_rational_coeffs` step for an irreducible `EX` polynomial is not
+  ported; the terms of `sqrt(I) + sqrt(2)*(-1 + I)/2` (a root of
+  `x**2 + (1 - I)*sqrt(2)*x - 2*I`) print in a different order; `Rational(1, 0)`
+  raises `ZeroDivisionError` instead of giving `zoo`. Exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.
 - `RootSum` follows the reference constructor: the polynomial is kept as an
   expression with its generator (`args == (expr, Lambda, gen)`), pure
