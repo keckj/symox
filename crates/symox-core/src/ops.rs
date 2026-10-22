@@ -963,6 +963,11 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
         }
     }
 
+    // SymPy's Mul.flatten splits a negative numeric base off as a power of
+    // -1 and lets the total power of -1 join a positive base with the same
+    // exponent: (-1)**(1/6)*2**(1/6) = (-2)**(1/6).
+    let minus_one_exponent = signed_radicals(&mut radicals, &mut out, &mut pending);
+    let first_out = out.len();
     // sqrt(2)*sqrt(3) -> sqrt(6): merge positive integer bases with equal
     // rational exponents.
     if radicals.len() > 1 {
@@ -1001,6 +1006,9 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
         }
     } else {
         out.extend(radicals);
+    }
+    if let Some(total) = minus_one_exponent {
+        join_minus_one(total, &mut coeff, &mut out, first_out, &mut pending);
     }
 
     if !pending.is_empty() {
@@ -1061,6 +1069,61 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
     }
     let kind = Kind::Mul(coeff, out);
     if held { Expr::from_unevaluated_kind(kind) } else { Expr::from_kind(kind) }
+}
+
+/// Splits `(-n)**e` radicals into `n**e` and returns the total exponent of
+/// -1, counting a `(-1)**t` factor and `I` as `(-1)**(1/2)` like SymPy's
+/// `neg1e`, or `None` when no radical has a negative base, which leaves the
+/// product as it was.
+fn signed_radicals(radicals: &mut Vec<(Expr, Expr)>, out: &mut Vec<(Expr, Expr)>, pending: &mut Vec<Expr>) -> Option<Number> {
+    let rational_exponent = |e: &Expr| e.as_number().filter(|n| n.is_rational() && n.is_positive()).cloned();
+    let negative_base = |b: &Expr| b.as_number().is_some_and(|n| n.is_integer() && n.is_negative());
+    if !radicals.iter().any(|(b, e)| negative_base(b) && rational_exponent(e).is_some()) { return None; }
+    let mut total = Number::ZERO;
+    let half = Number::rational_i64(1, 2).unwrap();
+    if let Some(index) = pending.iter().position(|p| p.is_constant(Constant::I)) {
+        pending.remove(index);
+        total = half.clone();
+    } else if let Some(index) = out.iter().position(|(b, e)| b.is_constant(Constant::I) && e.is_one()) {
+        out.remove(index);
+        total = half.clone();
+    }
+    let mut kept = Vec::with_capacity(radicals.len());
+    for (b, e) in radicals.drain(..) {
+        match rational_exponent(&e) {
+            Some(n) if b.is_minus_one() => total = total.add(&n),
+            Some(n) if negative_base(&b) => {
+                total = total.add(&n);
+                kept.push((Expr::num(b.as_number().unwrap().neg()), e));
+            }
+            _ => kept.push((b, e)),
+        }
+    }
+    *radicals = kept;
+    Some(total)
+}
+
+/// SymPy's handling of `neg1e`: odd integer parts flip the coefficient, a
+/// half gives `I`, and any other remainder joins the first positive integer
+/// base with that exponent or stays a separate power of -1.
+fn join_minus_one(total: Number, coeff: &mut Number, out: &mut Vec<(Expr, Expr)>, first: usize, pending: &mut Vec<Expr>) {
+    let two = Number::int(2);
+    let mut rest = total.sub(&total.div(&two).unwrap().floor().mul(&two));
+    if rest.cmp_value(&Number::ONE) != Some(std::cmp::Ordering::Less) {
+        *coeff = coeff.neg();
+        rest = rest.sub(&Number::ONE);
+    }
+    if rest.is_zero() { return; }
+    if rest == Number::rational_i64(1, 2).unwrap() {
+        pending.push(Expr::i());
+        return;
+    }
+    let exponent = Expr::num(rest);
+    if let Some(slot) = out[first..].iter_mut().find(|(b, e)| is_positive_int_base(b) && *e == exponent) {
+        slot.0 = Expr::num(slot.0.as_number().unwrap().neg());
+        return;
+    }
+    out.push((Expr::minus_one(), exponent));
 }
 
 fn mul_depth(args: &[Expr], depth: u32, cache: &mut ProductMemo) -> Expr {
@@ -1234,6 +1297,13 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             }
             if e.is_number() && !c.is_one() && (c.is_rational() || c.is_float()) {
                 let rest = mul_from_factors(facs.clone());
+                if c.is_positive() && facs.iter().all(|(fb, fe)| fb.as_number().is_some_and(|n| n.is_rational() && n.is_positive()) && fe.is_rational_number()) {
+                    // SymPy's expand_power_base: every factor is positive,
+                    // so sqrt(sqrt(2)/2) = sqrt(1/2)*2**(1/4) = 2**(3/4)/2.
+                    let mut v = vec![num_pow(c, e.as_number().unwrap())];
+                    v.extend(facs.iter().map(|(fb, fe)| pow(fb, &mul2(fe, e))));
+                    return mul(&v);
+                }
                 if c.is_positive() {
                     return mul2(&num_pow(c, e.as_number().unwrap()), &pow_raw(&rest, e));
                 } else if !c.is_minus_one() {
@@ -1480,6 +1550,28 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
     if b.is_negative() {
         if b.is_minus_one() {
             return minus_one_pow(e);
+        }
+        if e.is_positive() {
+            // SymPy's Integer._eval_power: a negative base stays a power
+            // ((-2)**(1/6)) unless sqrt or a root extraction changes the
+            // positive part; Rational._eval_power keeps the sign on the
+            // numerator: (-2/3)**(1/6) = (-2)**(1/6)*3**(5/6)/3.
+            if !b.is_integer() {
+                if let Number::Rational(r) = b {
+                    let n = Number::from_bigint(r.numer().clone());
+                    let d = Number::from_bigint(r.denom().clone());
+                    return mul2(&num_pow(&n, e), &num_pow(&d, &e.neg()));
+                }
+            } else if *e != Number::rational_i64(1, 2).unwrap() {
+                let positive = b.neg();
+                let value = num_pow(&positive, e);
+                if let Kind::Pow(base, exponent) = value.kind() {
+                    if base.as_number() == Some(&positive) && exponent.as_number() == Some(e) {
+                        return Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
+                    }
+                }
+                return mul2(&minus_one_pow(e), &value);
+            }
         }
         return mul2(&minus_one_pow(e), &num_pow(&b.neg(), e));
     }
