@@ -1278,7 +1278,11 @@ class Intersection(Set):
     def __new__(cls, *args):
         if len(args) == 1 and not isinstance(args[0], (Set, _core.Expr)):
             args = tuple(args[0])
-        return _wrap_set(_core.Intersection(*[_unwrap(a) for a in args]))
+        result = _wrap_set(_core.Intersection(*[_unwrap(a) for a in args]))
+        if type(result) is Intersection:
+            from ._set_intersection import refine_intersection
+            return refine_intersection(result)
+        return result
 
 
 class Complement(Set):
@@ -1286,7 +1290,18 @@ class Complement(Set):
     is_Complement = True
 
     def __new__(cls, a, b):
-        return _wrap_set(_core.Complement(_unwrap(a), _unwrap(b)))
+        result = _wrap_set(_core.Complement(_unwrap(a), _unwrap(b)))
+        if type(result) is Complement:
+            # reference `Complement.reduce`: `A - B` is empty when the
+            # reference subset decision proves `A <= B`
+            first, second = result.args
+            try:
+                inside = first.is_subset(second)
+            except (TypeError, ValueError, NotImplementedError):
+                inside = None
+            if inside is True:
+                return S.EmptySet
+        return result
 
 
 def SymmetricDifference(a, b):
@@ -1404,6 +1419,22 @@ class ImageSet(Set):
     @property
     def base_set(self):
         return _wrap_set(self._e.args[1])
+
+    @property
+    def base_sets(self):
+        """The base sets, one per entry of the signature (reference)."""
+        base = self.base_set
+        try:
+            arity = len(self.lamda.signature)
+        except (AttributeError, TypeError):
+            arity = 1
+        if arity > 1 and isinstance(base, ProductSet):
+            return tuple(base.sets)
+        return (base,)
+
+    @property
+    def base_pset(self):
+        return self.base_set
 
 
 class ConditionSet(Set):

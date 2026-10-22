@@ -1,0 +1,176 @@
+"""Reference intersection and complement rules of SymPy 1.14: `Range` with
+`Range`, `Interval` and the named sets, the `ImageSet` rules against `Reals`,
+`Interval`, `Integers` and other image sets, `Complexes` against real sets,
+and the subset step of `Complement.reduce`.
+
+Expected values are the srepr of the reference SymPy 1.14 on the same calls.
+"""
+import pytest
+
+import symox as sx
+from symox import (S, Interval, Union, Intersection, Complement, FiniteSet,
+                   ProductSet, Range, pi, oo, sin, cos, tan, exp, log, sqrt,
+                   Abs, I, Lambda, imageset, ImageSet, ConditionSet, Piecewise,
+                   EmptySet, srepr, SymmetricDifference, Eq, Rational)
+
+x, y, a, b = sx.symbols('x y a b', real=True)
+n = sx.Symbol('n', integer=True)
+m = sx.Symbol('m', integer=True)
+z = sx.Symbol('z')
+
+CASES = [
+    ('Intersection(Range(0, 10), Interval(2, 5))',
+     'Range(Integer(2), Integer(6), Integer(1))'),
+    ('Intersection(Range(0, 10), Interval.open(2, 5))',
+     'Range(Integer(3), Integer(5), Integer(1))'),
+    ('Intersection(Range(0, 10, 2), Interval(1, 7))',
+     'Range(Integer(2), Integer(8), Integer(2))'),
+    ('Intersection(Range(0, 10, 3), Interval(-5, 100))',
+     'Range(Integer(0), Integer(12), Integer(3))'),
+    ('Intersection(Range(0, oo), Interval(2, 5))',
+     'Range(Integer(2), Integer(6), Integer(1))'),
+    ('Intersection(Range(-oo, 0), Interval(-3, 2))',
+     'Range(Integer(-3), Integer(0), Integer(1))'),
+    ('Intersection(Range(0, 10), Interval(20, 30))',
+     'EmptySet'),
+    ('Intersection(Range(0, 10), Interval(Rational(1, 2), Rational(7, 2)))',
+     'Range(Integer(1), Integer(4), Integer(1))'),
+    ('Intersection(Range(10, 0, -1), Interval(2, 5))',
+     'Range(Integer(2), Integer(6), Integer(1))'),
+    ('Intersection(Range(0, 10), S.Naturals)',
+     'Range(Integer(1), Integer(10), Integer(1))'),
+    ('Intersection(Range(-5, 5), S.Naturals0)',
+     'Range(Integer(0), Integer(5), Integer(1))'),
+    ('Intersection(Range(0, 10), Range(5, 15))',
+     'Range(Integer(5), Integer(10), Integer(1))'),
+    ('Intersection(Range(0, 10, 2), Range(0, 10, 3))',
+     'Range(Integer(0), Integer(12), Integer(6))'),
+    ('Intersection(Range(1, 20, 2), Range(0, 20, 2))',
+     'EmptySet'),
+    ('Intersection(Range(0, 100, 4), Range(2, 100, 6))',
+     'Range(Integer(8), Integer(104), Integer(12))'),
+    ('Intersection(Range(0, oo, 2), Range(0, oo, 3))',
+     'Range(Integer(0), oo, Integer(6))'),
+    ('Intersection(Range(0, 10), Range(10, 20))',
+     'EmptySet'),
+    ('Intersection(Range(10, 0, -1), Range(0, 5))',
+     'Range(Integer(1), Integer(5), Integer(1))'),
+    ('Intersection(S.Reals, ImageSet(Lambda(n, 2*n), S.Integers))',
+     "ImageSet(Lambda(Tuple(Symbol('n', integer=True)), Mul(Integer(2), Symbol('n', integer=True))), Integers)"),
+    ('Intersection(S.Reals, ImageSet(Lambda(n, n + I), S.Integers))',
+     'EmptySet'),
+    ('Intersection(S.Reals, ImageSet(Lambda(n, n**2), S.Integers))',
+     "ImageSet(Lambda(Tuple(Symbol('n', integer=True)), Pow(Symbol('n', integer=True), Integer(2))), Integers)"),
+    ('Intersection(S.Reals, ImageSet(Lambda(x, x + I*x), S.Reals))',
+     'FiniteSet(Integer(0))'),
+    ('Intersection(S.Complexes, ImageSet(Lambda(n, 2*n), S.Integers))',
+     "ImageSet(Lambda(Tuple(Symbol('n', integer=True)), Mul(Integer(2), Symbol('n', integer=True))), Integers)"),
+    ('Intersection(ImageSet(Lambda(n, n**2), S.Integers), ImageSet(Lambda(m, m**2 + 1), S.Integers))',
+     'FiniteSet(Integer(1))'),
+    ('Intersection(ImageSet(Lambda(n, n*pi), S.Integers), S.Reals)',
+     "ImageSet(Lambda(Tuple(Symbol('n', integer=True)), Mul(pi, Symbol('n', integer=True))), Integers)"),
+    ('Intersection(Range(0, 10), Range(0, 10, 2), Interval(2, 7))',
+     'Range(Integer(2), Integer(8), Integer(2))'),
+    ('Range(0, 10).contains(n)',
+     "And(GreaterThan(Symbol('n', integer=True), Integer(0)), LessThan(Symbol('n', integer=True), Integer(9)))"),
+    ('Range(0, oo).contains(n)',
+     "GreaterThan(Symbol('n', integer=True), Integer(0))"),
+    ('Range(0, 10).intersect(Interval(2.5, 7.5))',
+     'Range(Integer(3), Integer(8), Integer(1))'),
+    ('Interval(0, 5).intersect(Range(-3, 3))',
+     'Range(Integer(0), Integer(3), Integer(1))'),
+    ('S.Naturals.intersect(Range(-5, 5))',
+     'Range(Integer(1), Integer(5), Integer(1))'),
+    ('Range(0, 10, 2).is_subset(Range(0, 10))',
+     'True'),
+    ('Intersection(Range(-oo, 0), Range(-oo, 5, 2))',
+     'Range(-oo, Integer(1), Integer(2))'),
+    ('Intersection(Range(-oo, 0), Range(-10, oo, 3))',
+     'Range(Integer(-10), Integer(2), Integer(3))'),
+    ('Intersection(Range(-oo, 0), Interval(-oo, -3))',
+     'Range(-oo, Integer(-2), Integer(1))'),
+    ('Intersection(Range(0, oo), Interval(2, oo))',
+     'Range(Integer(2), oo, Integer(1))'),
+    ('Intersection(Range(-oo, oo), Range(0, 10))',
+     'Range(Integer(0), Integer(10), Integer(1))'),
+    ('Intersection(Range(-oo, oo), Interval(0, pi))',
+     'Range(Integer(0), Integer(4), Integer(1))'),
+    ('Intersection(Range(-oo, oo), Range(10, 0, -2))',
+     'Range(Integer(10), Integer(0), Integer(-2))'),
+    ('Intersection(Range(5, -5, -2), Range(-10, 10, 3))',
+     'Range(Integer(-1), Integer(11), Integer(6))'),
+    ('Intersection(Range(0, 0), Interval(0, 1))',
+     'EmptySet'),
+    ('Intersection(Range(0, -oo, -2), Range(-oo, 0))',
+     'Range(-oo, Integer(0), Integer(2))'),
+    ('Intersection(Range(0, -oo, -2), S.Reals)',
+     'Range(-oo, Integer(2), Integer(2))'),
+    ('Intersection(Range(0, oo), Range(-oo, 5))',
+     'Range(Integer(0), Integer(5), Integer(1))'),
+    ('Intersection(Range(-oo, 0), S.Naturals)',
+     'EmptySet'),
+    ('Intersection(Range(10, 0, -1), S.Reals)',
+     'Range(Integer(1), Integer(11), Integer(1))'),
+    ('Intersection(Range(10, 0, -1), S.Naturals)',
+     'Range(Integer(1), Integer(11), Integer(1))'),
+    ('Intersection(Range(0, 10), Interval(sqrt(2), pi))',
+     'Range(Integer(2), Integer(4), Integer(1))'),
+    ('Intersection(Range(0, 10), Interval(0.5, 3.5))',
+     'Range(Integer(1), Integer(4), Integer(1))'),
+    ('Intersection(Range(0, 10), Interval.Lopen(0, 3))',
+     'Range(Integer(1), Integer(4), Integer(1))'),
+    ('Intersection(Range(0, 10, 4), Interval(1, 3))',
+     'EmptySet'),
+    ('Intersection(Range(0, 10), Interval(-oo, 4))',
+     'Range(Integer(0), Integer(5), Integer(1))'),
+    ('Intersection(Range(1, 10, 2), Range(2, 10, 2))',
+     'EmptySet'),
+    ('Intersection(Range(-20, 20, 7), Range(-20, 20, 5))',
+     'Range(Integer(-20), Integer(50), Integer(35))'),
+    ('Intersection(Union(Range(0, 3), Range(10, 13)), Interval(1, 11))',
+     'Union(Range(Integer(1), Integer(3), Integer(1)), Range(Integer(10), Integer(12), Integer(1)))'),
+    ('Complement(Range(0, 5), Interval(-1, 10))',
+     'EmptySet'),
+    ('Intersection(Interval(1, 5), ImageSet(Lambda(n, -n), S.Naturals))',
+     'EmptySet'),
+    ('Intersection(Interval(-5, 5), ImageSet(Lambda(n, 2*n + 1), S.Naturals0))',
+     'FiniteSet(Integer(1), Integer(3), Integer(5))'),
+    ('Intersection(Interval(0, 3), ImageSet(Lambda(x, 2*x), Interval(0, 5)))',
+     'Interval(Integer(0), Integer(3), false, false)'),
+    ('Intersection(S.Reals, ImageSet(Lambda(n, 1/n), S.Integers))',
+     "ImageSet(Lambda(Tuple(Symbol('x')), Pow(Symbol('x'), Integer(-1))), Complement(Integers, FiniteSet(Integer(0))))"),
+    ('Intersection(S.Reals, ImageSet(Lambda(x, x + I*(x - 1)), S.Reals))',
+     'FiniteSet(Integer(1))'),
+    ('Intersection(S.Reals, ImageSet(Lambda(x, exp(I*x)), S.Reals))',
+     "ImageSet(Lambda(Tuple(Symbol('x')), cos(Symbol('x'))), ConditionSet(Symbol('x', real=True), Equality(sin(Symbol('x', real=True)), Integer(0)), Reals))"),
+    ('Intersection(S.Reals, ImageSet(Lambda(z, z**2), S.Complexes))',
+     "ImageSet(Lambda(Tuple(Symbol('x')), Pow(Symbol('x'), Integer(2))), Complexes)"),
+    ('Intersection(Interval(0, oo), S.Integers, Interval(-oo, 5))',
+     'Range(Integer(0), Integer(6), Integer(1))'),
+]
+
+
+@pytest.mark.parametrize('call,expected', CASES)
+def test_reference_intersection_and_complement_rules(call, expected):
+    value = eval(call)
+    got = srepr(value) if not isinstance(value, (bool, type(None), str)) else repr(value)
+    assert got == expected
+
+
+# Intentional correction: the reference intersects the real zeros of the map
+# with the interval and returns EmptySet, although n = 0 gives 1 in [0, 1]
+CORRECTED = [
+    ('Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I + 1), S.Integers))',
+     'FiniteSet(Integer(1))'),
+    ('Intersection(Interval(0, 2), ImageSet(Lambda(n, n*I + n), S.Integers))',
+     'FiniteSet(Integer(0))'),
+    ('Intersection(Interval.open(0, 1), ImageSet(Lambda(n, n*I + 1), S.Integers))',
+     'EmptySet'),
+    ('Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I - I), S.Integers))',
+     'FiniteSet(Integer(0))'),
+]
+
+
+@pytest.mark.parametrize('call,expected', CORRECTED)
+def test_complex_image_set_meets_interval_through_its_real_part(call, expected):
+    assert srepr(eval(call)) == expected

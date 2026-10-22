@@ -789,6 +789,166 @@ pub(crate) fn lattice_intersection(a: &Expr, b: &Expr) -> Option<Expr> {
     Some(image_set(&lambda(&n, &body), &integers()))
 }
 
+/// An integer arithmetic progression `{c + k*step}` bounded by `lo` and
+/// `hi` (`None` for an infinite end).
+#[derive(Clone)]
+struct Progression {
+    lo: Option<num_bigint::BigInt>,
+    hi: Option<num_bigint::BigInt>,
+    step: num_bigint::BigInt,
+}
+
+impl Progression {
+    fn point(&self) -> num_bigint::BigInt {
+        self.lo.clone().or_else(|| self.hi.clone()).unwrap_or_default()
+    }
+}
+
+/// The elements of a `Range` whose arguments are all numbers: `None` for
+/// symbolic arguments, `Some(None)` for an empty range.
+fn range_progression(r: &Expr) -> Option<Option<Progression>> {
+    use num_integer::Integer;
+    use num_traits::{One, Signed, Zero};
+    let (SetOp::Range, a) = as_set(r)? else { return None };
+    if a.len() != 3 {
+        return None;
+    }
+    let val = |e: &Expr| -> Option<Result<num_bigint::BigInt, i8>> {
+        if e.is_constant(Constant::Infinity) {
+            return Some(Err(1));
+        }
+        if e.is_constant(Constant::NegInfinity) {
+            return Some(Err(-1));
+        }
+        e.as_number()?.to_bigint().map(Ok)
+    };
+    let (start, stop, step) = (val(&a[0])?, val(&a[1])?, val(&a[2])?.ok()?);
+    if step.is_zero() {
+        return None;
+    }
+    let pos = step.is_positive();
+    let st = step.abs();
+    let p = |lo, hi| Some(Some(Progression { lo, hi, step: st.clone() }));
+    match (start, stop) {
+        (Ok(s), Ok(e)) => {
+            let n = (&e - &s).div_ceil(&step);
+            if !n.is_positive() {
+                return Some(None);
+            }
+            let last = &s + (n - 1) * &step;
+            if pos { p(Some(s), Some(last)) } else { p(Some(last), Some(s)) }
+        }
+        (Ok(s), Err(d)) => match ((d > 0) == pos, pos) {
+            (false, _) => Some(None),
+            (true, true) => p(Some(s), None),
+            (true, false) => p(None, Some(s)),
+        },
+        (Err(d), Ok(e)) => {
+            // the elements are `stop - step`, `stop - 2*step`, ...
+            let first = &e - &step;
+            match ((d < 0) == pos, pos) {
+                (false, _) => Some(None),
+                (true, true) => p(None, Some(first)),
+                (true, false) => p(Some(first), None),
+            }
+        }
+        (Err(x), Err(y)) => (x != y && st.is_one()).then(|| Some(Progression { lo: None, hi: None, step: st })),
+    }
+}
+
+/// The reference `intersection_sets(Range, Range)` on progressions: the
+/// common elements as a `Range` with a positive step.
+fn progression_intersection(p1: &Progression, p2: &Progression) -> Expr {
+    use num_bigint::BigInt;
+    use num_integer::Integer;
+    let (c1, c2) = (p1.point(), p2.point());
+    let eg = p1.step.extended_gcd(&p2.step);
+    let g = eg.gcd.clone();
+    let d = &c2 - &c1;
+    if !d.is_multiple_of(&g) {
+        return empty_set();
+    }
+    let l = &p1.step / &g * &p2.step;
+    let c = (&c1 + &p1.step * (&eg.x * (&d / &g))).mod_floor(&l);
+    let lo = match (&p1.lo, &p2.lo) {
+        (Some(x), Some(y)) => Some(x.max(y).clone()),
+        (Some(x), None) | (None, Some(x)) => Some(x.clone()),
+        _ => None,
+    };
+    let hi = match (&p1.hi, &p2.hi) {
+        (Some(x), Some(y)) => Some(x.min(y).clone()),
+        (Some(x), None) | (None, Some(x)) => Some(x.clone()),
+        _ => None,
+    };
+    let first = lo.map(|lo| &lo + (&c - &lo).mod_floor(&l));
+    let last = hi.map(|hi| &hi - (&hi - &c).mod_floor(&l));
+    let int = |v: BigInt| Expr::num(crate::number::Number::from_bigint(v));
+    let step = int(l.clone());
+    match (first, last) {
+        (Some(f), Some(t)) => {
+            if f > t {
+                return empty_set();
+            }
+            mk(SetOp::Range, vec![int(f), int(t + &l), step])
+        }
+        (Some(f), None) => mk(SetOp::Range, vec![int(f), Expr::oo(), step]),
+        (None, Some(t)) => mk(SetOp::Range, vec![Expr::neg_oo(), int(t + &l), step]),
+        (None, None) => mk(SetOp::Range, vec![Expr::neg_oo(), Expr::oo(), step]),
+    }
+}
+
+/// The reference `intersection_sets(Range, Range)`.
+fn range_range(a: &Expr, b: &Expr) -> Option<Expr> {
+    let (pa, pb) = (range_progression(a)?, range_progression(b)?);
+    let (Some(pa), Some(pb)) = (pa, pb) else { return Some(empty_set()) };
+    if pa.lo.is_none() && pa.hi.is_none() {
+        return Some(b.clone());
+    }
+    if pb.lo.is_none() && pb.hi.is_none() {
+        return Some(a.clone());
+    }
+    Some(progression_intersection(&pa, &pb))
+}
+
+/// The reference `intersection_sets(Range, Interval)`: the interval is
+/// trimmed to the integers it contains and intersected as a `Range`.
+fn range_interval(r: &Expr, s: &Expr, e: &Expr, l: bool, ro: bool) -> Option<Expr> {
+    use num_traits::One;
+    if !(crate::logic::is_number_like(s) || is_infinite(s)) || !(crate::logic::is_number_like(e) || is_infinite(e)) {
+        return None;
+    }
+    let pr = range_progression(r)?;
+    let Some(pr) = pr else { return Some(empty_set()) };
+    let to_int = |v: &Expr| v.as_number().and_then(|n| n.to_bigint());
+    let lo = if s.is_constant(Constant::NegInfinity) {
+        None
+    } else if s.is_constant(Constant::Infinity) {
+        return Some(empty_set());
+    } else {
+        let c = ceil_int(s)?;
+        let ci = to_int(&c)?;
+        Some(if l && cmp3(&c, s)? == Ordering::Equal { ci + 1 } else { ci })
+    };
+    let hi = if e.is_constant(Constant::Infinity) {
+        None
+    } else if e.is_constant(Constant::NegInfinity) {
+        return Some(empty_set());
+    } else {
+        let f = floor_int(e)?;
+        let fi = to_int(&f)?;
+        Some(if ro && cmp3(&f, e)? == Ordering::Equal { fi - 1 } else { fi })
+    };
+    if let (Some(x), Some(y)) = (&lo, &hi) {
+        if x > y {
+            return Some(empty_set());
+        }
+    }
+    if pr.lo.is_none() && pr.hi.is_none() && lo.is_none() && hi.is_none() {
+        return Some(r.clone());
+    }
+    Some(progression_intersection(&pr, &Progression { lo, hi, step: num_bigint::BigInt::one() }))
+}
+
 /// Simplify `a ∩ b` if a rule applies.
 fn intersect_pair(a: &Expr, b: &Expr) -> Option<Expr> {
     if let (Some((s1, e1, l1, r1)), Some((s2, e2, l2, r2))) = (interval_parts(a), interval_parts(b)) {
@@ -820,6 +980,29 @@ fn intersect_pair(a: &Expr, b: &Expr) -> Option<Expr> {
             return Some(empty_set());
         }
         return Some(product_set(pa.iter().zip(pb).map(|(i, j)| intersection(vec![i.clone(), j.clone()])).collect()));
+    }
+    // reference `Range` rules (`Range`, `Interval`, `Naturals`, `Integers`,
+    // `Rationals`)
+    if oa == SetOp::Range && ob == SetOp::Range {
+        if let Some(r) = range_range(a, b) {
+            return Some(r);
+        }
+    }
+    for (x, y) in [(a, b), (b, a)] {
+        if !is_op(x, SetOp::Range) {
+            continue;
+        }
+        if let Some((s, e, l, r)) = interval_parts(y) {
+            if let Some(v) = range_interval(x, &s, &e, l, r) {
+                return Some(v);
+            }
+        }
+        match as_set(y).map(|t| t.0) {
+            Some(SetOp::Naturals) => return range_interval(x, &Expr::one(), &Expr::oo(), false, true),
+            Some(SetOp::Naturals0) => return range_interval(x, &Expr::zero(), &Expr::oo(), false, true),
+            Some(SetOp::Integers | SetOp::Rationals) => return Some(x.clone()),
+            _ => {}
+        }
     }
     for (x, y) in [(a, b), (b, a)] {
         if let Some(r) = lattice_intersection(x, y) {

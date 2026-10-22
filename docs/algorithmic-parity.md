@@ -851,22 +851,78 @@ Intentional correction:
   native `solveset` gives `EmptySet`), so `tan` is monotonic on the interval
   and the interval is its exact image.
 
+Remaining gaps: see the next section (the `Reals` and `Interval` cases of
+the `ImageSet` rule and the `Range` rules were added there).
+
+## Range, image-set and complex intersections on 2026-10-22
+
+A probe of 218 calls (intersections, complements, symmetric differences
+and membership with `Range`, `Interval`, `ImageSet`, `FiniteSet` with
+symbols, `ProductSet`, `ConditionSet`, `Naturals`, `Integers`, `Reals`,
+`Complexes`) went from 147 to 211 outputs equal (by `srepr`) to SymPy
+1.14.0. `tests/test_sets_intersection_parity.py` holds the 64 newly agreed
+reference values.
+
+- The native intersection has the reference `Range` rules: `Range` with
+  `Range` (the common arithmetic progression by the extended gcd, as a
+  `Range` with a positive step, including half-infinite and decreasing
+  ranges), `Range` with an `Interval` or `Reals` whose bounds are numbers
+  (the interval trimmed to its integers: `Intersection(Range(0, 10),
+  Interval(2, 5))` is `Range(2, 6)`, irrational and float bounds included),
+  `Range` with `Naturals` and `Naturals0` (through `Interval(inf, oo)`), and
+  `Range` with `Integers` or `Rationals` (the range). A symbolic range or
+  interval stays unevaluated, as in the reference.
+- `Range.contains` of an integer expression in a numeric range of unit step
+  is the reference relation (`And(n >= 0, n <= 9)` for `Range(0, 10)`,
+  `n >= 0` for `Range(0, oo)`, `Eq` for one element).
+- The Python `Intersection` applies the reference `intersection_sets
+  (ImageSet, Set)` handler (`python/symox/_set_intersection.py`) to what the
+  native rules leave unevaluated: the diophantine equation `f(n) = g(m)`
+  against `Integers` or another integer image set (`n**2` with `m**2 + 1`
+  gives `{1}`), the real part of the map against `Reals` (the image set
+  itself for `2*n` and `n*pi`, `EmptySet` for `n + I`, `{0}` for `x + I*x`
+  over the reals, with the denominators excluded), and the inverted bounds
+  of an `Interval`. `Complexes` against a set the reference subset decision
+  proves real gives that set's intersection with `Reals`
+  (`Intersection(S.Complexes, ImageSet(Lambda(n, 2*n), S.Integers))` is the
+  image set). `ImageSet.base_sets` and `base_pset` exist as in the reference.
+- `Complement` applies the first step of the reference `Complement.reduce`
+  to what the native rules leave unevaluated: `EmptySet` when the reference
+  subset decision (`python/symox/_set_subset.py`) proves `A <= B`
+  (`Complement(Range(0, 5), Interval(-1, 10))`).
+
 Remaining gaps:
 
-- `Intersection(S.Reals, ImageSet(Lambda(n, 2*n), S.Integers))` stays
-  unevaluated; SymPy gives the image set (its `ImageSet`/`Reals` rule).
-- `Range` with `Interval` and `Range` with `Range` intersections stay
-  unevaluated (`Intersection(Range(0, 10), Interval(2, 5))`); SymPy gives a
-  `Range`.
-- The `ImageSet` intersection rule only handles linear maps with exact
-  rational coefficients; SymPy also solves nonlinear diophantine equations
-  (for instance `n**2` against `Integers`) and the `Reals` and `Interval`
-  cases of the rule.
-- The remaining native intersection and complement rules are not yet a
-  complete port of `intersection_sets` and `Complement.reduce`: the pairwise
-  fallback still absorbs one argument into the other when the approximate
-  Rust `is_subset` proves inclusion, where the reference only has specific
-  handlers, and the complement starts with that same `is_subset`.
+- The native `diophantine` does not solve the parabolic binary quadratic
+  family (`n**2 - m`, `n**2 + n - m`, `2*m - n**2`) and rejects
+  non-rational coefficients that SymPy removes by factoring (`2*pi*n -
+  pi*m`), so `Intersection(S.Integers, ImageSet(Lambda(n, n**2),
+  S.Integers))`, `n**2` with `2*n`, and `2*n*pi` with `n*pi` stay
+  unevaluated; SymPy gives the image sets.
+- `invert_complex(n*I, 1, n)` with an integer `n` gives `EmptySet` (SymPy
+  `{-I}`). The `Interval` rule then takes the real part of the image set
+  first, so `Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I),
+  S.Integers))` gives `{0}` as in SymPy.
+- **Intentional correction**: when the inverted bounds are not real, the
+  reference intersects the real zeros of the map with the interval, so
+  `Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I + 1), S.Integers))`
+  is `EmptySet` in SymPy 1.14 although `n = 0` gives `1`. Symox intersects
+  the real part of the image set with the interval and gives `{1}`.
+- `Range.contains` with a step other than 1 and a symbolic integer stays
+  `Contains` (the reference returns the relation when `(ref - n) % step`
+  simplifies to zero); `ImageSet(Lambda(n, 2*n), S.Integers).contains(x)` is
+  `Contains(x/2, Integers)` (SymPy keeps `Contains(x, ImageSet(...))`);
+  `ProductSet.contains` of a symbolic tuple stays `Contains` (SymPy gives the
+  conjunction of the component relations).
+- The image-set and complex rules run in the Python constructors only:
+  intersections built inside native code (native `solveset`) do not use
+  them.
+- The native pairwise intersection still absorbs one argument into the other
+  when the approximate Rust `is_subset` proves inclusion, and the native
+  complement still starts with that `is_subset`, where the reference only has
+  specific handlers. Native `solveset` relies on this absorption for image
+  sets against `Reals`, so removing it needs the image-set handlers in native
+  code first.
 
 ## Remaining blocking gaps
 
