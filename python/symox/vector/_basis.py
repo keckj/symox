@@ -89,7 +89,26 @@ class _BasisDependent:
         return self*(1/scalar)
 
     def __repr__(self):
-        return ' + '.join('(%s)*%s' % (c,b._label) for b,c in sorted(self._components.items(),key=lambda item:item[0]._label)) or ('0' if isinstance(self,Vector) else '(0|0)')
+        # Reference str printing: a unit coefficient is omitted and a
+        # coefficient is parenthesized only when its text has '(', '-' or
+        # '+'. Vector terms are grouped by system name, then base order;
+        # both zero objects print as 0.
+        def term(c,label):
+            if getattr(c,'is_Integer',False) and c == 1:
+                return label
+            if getattr(c,'is_Float',False):
+                from .. import sstr
+                measure = sstr(c,full_prec=False)
+            else:
+                measure = str(c)
+            if '(' in measure or '-' in measure or '+' in measure:
+                measure = '('+measure+')'
+            return measure+'*'+label
+        if isinstance(self,Vector):
+            key = lambda item:(str(item[0].system._name),item[0].index)
+        else:
+            key = lambda item:item[0]._label
+        return ' + '.join(term(c,b._label) for b,c in sorted(self._components.items(),key=key)) or '0'
 
     __str__ = __repr__
 
@@ -207,16 +226,23 @@ class Vector(_BasisDependent):
         return self/self.magnitude()
 
     def projection(self, other, scalar=False):
+        # Reference semantics: the scalar form is the coefficient
+        # dot(other)/dot(self) of the vector projection, and projecting onto
+        # the zero vector gives zero.
         if not isinstance(other,Vector):
             raise TypeError('projection requires a vector')
         if not self:
-            raise ValueError('cannot project onto the zero vector')
-        return self.dot(other)/self.magnitude() if scalar else self.dot(other)/self.dot(self)*self
+            return Integer(0) if scalar else Vector.zero
+        coefficient = self.dot(other)/self.dot(self)
+        return coefficient if scalar else coefficient*self
 
     def equals(self, other):
+        # Reference: compare through the squared magnitude of the difference,
+        # which expresses components from different (rotated) frames.
         if not isinstance(other,Vector):
             return False
-        return not (self-other).simplify()
+        diff = self-other
+        return diff.dot(diff).equals(0)
 
 
 class BaseVector(Vector):

@@ -49,7 +49,7 @@ class _Algorithms:
     def __rxor__(self,i):return self(i)
     def __add__(self,other):return type(self).unrank_lex(self.size,self.rank()+operator.index(other))
     def __sub__(self,other):return self+-operator.index(other)
-    def atoms(self):return {self}
+    def atoms(self):return set(self._images)
     def copy(self):return type(self)(self._images)
     def support(self):return [i for i,value in enumerate(self._images) if i!=value]
     def length(self):return sum(i!=value for i,value in enumerate(self._images))

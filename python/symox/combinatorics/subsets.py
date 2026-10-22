@@ -9,7 +9,7 @@ class Subset:
         if len(set(self.superset))!=len(self.superset):
             raise ValueError('superset must have distinct elements')
         indices=self.subset_indices(subset,self.superset)
-        if indices is None or len(set(indices))!=len(indices):
+        if any(v not in self.superset for v in subset) or len(set(indices))!=len(indices):
             raise ValueError('subset must contain distinct superset elements')
         self.subset=[self.superset[i] for i in sorted(indices)]
 
@@ -30,10 +30,19 @@ class Subset:
 
     @staticmethod
     def subset_indices(subset,superset):
-        try:
-            return [list(superset).index(v) for v in subset]
-        except ValueError:
-            return None
+        # Reference: an empty list when some element is not in the superset.
+        a, b = superset, subset
+        sb = set(b)
+        d = {}
+        for i, ai in enumerate(a):
+            if ai in sb:
+                d[ai] = i
+                sb.remove(ai)
+                if not sb:
+                    break
+        else:
+            return []
+        return [d[bi] for bi in b]
 
     @staticmethod
     def bitlist_from_subset(subset,superset):

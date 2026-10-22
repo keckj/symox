@@ -55,6 +55,7 @@ class Collector:
         return word
 
     def _permutation(self,word):
+        if isinstance(word,tuple) and not word:return self.group.identity
         if not isinstance(word,FreeGroupElement) or word.group!=self.free_group:raise ValueError('word belongs to another free group')
         value=self.group.identity
         for s,e in word.array_form:value*=self.pcgs[self.index[s]]**e
@@ -63,12 +64,18 @@ class Collector:
     def collected_word(self,word):return self._word(self._permutation(word))
 
     def pc_relators(self):
+        # Reference layout: generators are processed from the last one,
+        # identity values are stored as the empty tuple ().
         result={}
         gens=self.free_group.generators
-        for i,(g,n) in enumerate(zip(self.pcgs,self.relative_order)):
-            result[gens[i]**n]=self._word(g**n)
-            for j in range(i+1,len(gens)):
-                result[gens[i]**-1*gens[j]*gens[i]]=self._word(~g*self.pcgs[j]*g)
+        def value(element):
+            word=self._word(element)
+            return word if word else ()
+        for i in reversed(range(len(self.pcgs))):
+            g,n=self.pcgs[i],self.relative_order[i]
+            result[gens[i]**n]=value(g**n)
+            for j in reversed(range(i+1,len(gens))):
+                result[gens[i]**-1*gens[j]*gens[i]]=value(~g*self.pcgs[j]*g)
         return result
 
     def relations(self):
@@ -84,14 +91,25 @@ class Collector:
         return None
 
     def subword_index(self,word,w):
-        needle=w if isinstance(w,tuple) else w.array_form
-        for i in range(len(word.array_form)-len(needle)+1):
-            if word.array_form[i:i+len(needle)]==needle:return i,i+len(needle)
-        return None
+        # Reference: letter positions (low, high) of the first occurrence of
+        # ``w`` in ``word``, or (-1, -1).
+        low=-1
+        high=-1
+        for i in range(len(word)-len(w)+1):
+            if word.subword(i,i+len(w))==w:
+                low=i
+                high=i+len(w)
+                break
+        return low,high
 
     def map_relation(self,w):
-        word=w if isinstance(w,FreeGroupElement) else self.free_group.dtype(w)
-        return self.collected_word(word)
+        # Reference: for w = x_i*x_j return the conjugate relator value of
+        # x_j**-1*x_i*x_j from the polycyclic presentation.
+        array=w.array_form
+        s1=array[0][0]
+        s2=array[1][0]
+        key=self.free_group.dtype(((s2,-1),(s1,1),(s2,1)))
+        return self.pc_presentation[key]
 
     def depth(self,element):
         return next((i+1 for i,v in enumerate(self.exponent_vector(element)) if v),len(self.pcgs)+1)
