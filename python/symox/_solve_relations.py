@@ -113,6 +113,8 @@ def install(namespace):
         if (not isinstance(f,sequences) and len(symbols)==1
                 and not isinstance(symbols[0],sequences)):
             return _simplified_solutions(solutions,prepared[0],symbols[0],flags)
+        if rational is False and isinstance(f,sequences) and len(scalars)>1 and not flags.get('set'):
+            return _float_components(solutions,scalars,unknowns)
         return solutions
 
     namespace['solve']=solve
@@ -121,6 +123,53 @@ def install(namespace):
         if (name.startswith('symox.') and name!='symox._core' and module is not None
                 and module.__dict__.get('solve') is native):
             module.solve=solve
+
+
+def _float_components(result,equations,unknowns):
+    """With rational=False, the reference solves each connected component of
+    a polynomial system over the domain of its coefficients: the values of a
+    component with a Float coefficient come from RR (solve_lin_sys or
+    groebner) and are Floats, as nfloat(..., exponent=False) gives them."""
+    from . import Float,nfloat,ordered
+    if not result or not isinstance(result,(list,dict)):
+        return result
+    expressions=[]
+    for equation in equations:
+        if getattr(equation,'is_Equality',False):
+            equation=equation.lhs-equation.rhs
+        if hasattr(equation,'free_symbols'):
+            expressions.append(equation)
+    if not unknowns:
+        unknowns=list(ordered(set().union(*(e.free_symbols for e in expressions))))
+    known=set(unknowns)
+    components=[]
+    for expression in expressions:
+        symbols=expression.free_symbols&known
+        if not symbols:
+            continue
+        joined=[c for c in components if c[0]&symbols]
+        for c in joined:
+            components.remove(c)
+            symbols=symbols|c[0]
+        group=[e for c in joined for e in c[1]]+[expression]
+        components.append((symbols,group))
+    floating=set()
+    for symbols,group in components:
+        if (any(e.has(Float) for e in group)
+                and all(e.is_polynomial(*symbols) for e in group)):
+            floating|=symbols
+    if not floating:
+        return result
+    convert=lambda key,value:nfloat(value,exponent=False) if key in floating else value
+    def row(item):
+        if isinstance(item,dict):
+            return {k:convert(k,v) for k,v in item.items()}
+        if isinstance(item,tuple) and len(item)==len(unknowns):
+            return tuple(convert(k,v) for k,v in zip(unknowns,item))
+        return item
+    if isinstance(result,dict):
+        return row(result)
+    return [row(item) for item in result]
 
 
 def _restore_floats(result):

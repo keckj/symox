@@ -231,6 +231,12 @@ fn shorter(choices: &[Expr]) -> Expr {
     best
 }
 
+fn has_log(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |x| found |= matches!(x.kind(), Kind::Func(Func::Log, _)));
+    found
+}
+
 /// `expr.has(TrigonometricFunction, HyperbolicFunction)`.
 fn has_trig_or_hyperbolic(e: &Expr) -> bool {
     let mut found = false;
@@ -270,6 +276,12 @@ fn reference_sequence(e: &Expr) -> Option<Expr> {
     let mut expr = crate::simptools::exprtools::factor_terms(&reference_state(e)?, false, false, false, false);
     if has_trig_or_hyperbolic(&expr) {
         expr = crate::simptools::trigsimp::futrig(&expr, true);
+    }
+    // `if expr.has(log): expr = shorter(expand_log(expr, deep=True),
+    // logcombine(expr))`, which does not compare with `expr` itself
+    // (log(4)/2 becomes log(2)).
+    if has_log(&expr) {
+        expr = shorter(&[crate::simp::expand_log(&expr, false), crate::simp::logcombine(&expr, false)]);
     }
     let short = shorter(&[
         crate::simptools::powsimp::powsimp(&expr, &PowsimpOptions { deep: true, combine: Combine::Exp, force: false }),

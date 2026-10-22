@@ -146,10 +146,21 @@ Known differences: SymPy treats `sqrt(a)` as a generator independent of `a`
 and returns `[]` for `solve([x**2 - a, x - sqrt(a)], [x])`, while symox keeps
 the valid `[(sqrt(a),)]` (divergence not yet validated by the user). The
 non-polynomial residual rule was compared on a few cases only (`[sin(x) - y,
-x - 1]` keeps `x = 1` in both); SymPy's `_invert` preprocessing is not
-ported, so other non-polynomial systems may still differ. With `rational=False`,
-`solve([0.25*x**2 - 1, x - 2], [x])` returns `[(2,)]` where SymPy's Float
-domain gives `[(2.00000000000000,)]`. A single expression target such as `f(x)`, `exp(x)` or `x**2` can be
+x - 1]` keeps `x = 1` in both). SymPy's `_invert` preprocessing of each
+equation is ported: independent terms move to the right-hand side, two-term
+sums of powers are combined by `powsimp`, and `exp`, `log`, `tan`, `asin`,
+`acos`, `atan`, negative integer powers and radicals of a base with more
+than one unknown are inverted (not `sin` or `cos`, like the reference). An
+equation whose inverted left side is an unknown in which it is not linear
+gives the tuple output of the reference instead of a dictionary
+(`solve([exp(2*x) - 1, y - 1], [x, y])` is `[(0, 1)]`, while
+`solve([exp(x + y) - 2, x - y], [x, y])` is `{x: log(2)/2, y: log(2)/2}`).
+With `rational=False`, a connected component of the system (equations
+sharing unknowns) that is polynomial and has a Float coefficient keeps
+Float values, like the reference RR domain: `solve([0.25*x**2 - 1, x - 2],
+[x], rational=False)` is `[(2.00000000000000,)]`. Dictionary keys and the
+rows of a solution list follow the reference canonical order (`ordered`
+keys, then rows sorted by `default_sort_key`). A single expression target such as `f(x)`, `exp(x)` or `x**2` can be
 recast as a fresh algebraic atom only with rational work equations and exact
 reconstruction of the original. Original targets and derivative coefficients
 are restored in the output; these are algebraic solving conventions, rather
@@ -1615,49 +1626,46 @@ differences:
   reference has only the first solution (also `(x + 2)*exp(-x) - 1`,
   `exp(x) - 3*x`, `x*exp(-x) - 1/4`, `exp(x)/x - 3`, `exp(x) - 2*x - 1`;
   both values are solutions, so the reference set is incomplete);
-- the Lambert forms with a power of a non-`E` base, `2**x - 4*x` and
-  `x*2**x + 1/4`, still raise `NotImplementedError` where the reference
-  gives
-  `[-LambertW(-log(2)/4)/log(2)]` and `[-4, LambertW(-log(2)/4)/log(2)]`;
-- the reference splits a symbolic constant out of an `exp` generator
-  (`exp(a - x)` is a polynomial in `exp(-x)`), so `exp(a - x) + 1` gives
-  `[log(-exp(a))]` (`a + I*pi` for real `a`) where symox inverts the whole
-  generator and gives `[a - I*pi]`; both are solutions, but for real `a`
-  they are different values. `exp(-a - x) + 3` and `exp(a*x + b) - c` differ
-  only in form (`(-b + log(c))/a` against `log(c*exp(-b))/a`);
-- the Lambert log forms whose argument the reference simplify rewrites
-  through `shorter(expand_log, logcombine)` keep the unsimplified argument:
-  `x**(2*x) - 4` gives `exp(LambertW(log(4)/2))` where the reference has
-  `exp(LambertW(log(2)))` (also `x*log(x) - log(9)/2`,
-  `x*log(x) + 2*log(2)`, `x**x - sqrt(2)`; equal values); the nsimplify
-  emulation finds only rationals, `exp(r)` and `sqrt(r)`;
-- the dictionaries of a system solution list the unknowns in the order the
-  native solver assigns them: `solve([sinh(x) - 1, a - 1], [x, a],
-  dict=True)` gives `{x: ..., a: 1}` where the reference prints
-  `{a: 1, x: ...}` (equal dictionaries);
-- `simplify` lacks the reference step
-  `shorter(expand_log(e, deep=True), logcombine(e))`, which is not
-  idempotent: `4**x - 8` gives `[3/2, 3/2 + I*pi/log(2)]` where the
-  reference prints `(log(8)/2 + I*pi)/log(2)` (also `(1/4)**x - 8`,
-  `4**(-x) - 8`, `4**(2*x) - 8`, `4**x - 16`, `4**x + 8`, `8**x - 2`,
-  `9**x - 27`, `2**(2*x) - 8`, `(1/4)**x - 16`, equal values in the same
-  order), and the roots of a power of `exp` with more than two roots keep
-  `log(sqrt(3))` where the reference has `log(3)/2`
-  (`exp(x) - exp(2*x)/3 - 1`); `exp(2*x + a) - 1` gives
-  `[log(exp(-a))/2, log(-exp(-a/2))]` where the reference has
-  `[log(-sqrt(exp(-a))), log(exp(-a))/2]`;
+- the same `W_-1` branch is kept for a power of a non-`E` base, where the
+  reference returns only the principal branch: `2**x - 4*x` gives
+  `[4, -LambertW(-log(2)/4)/log(2)]` where the reference has only the second
+  value (`2**4 = 16 = 4*4`), `3**x - 3*x` adds `1` and `2**x - x - 2` adds
+  `2`; `x*2**x + 1/4` and `x**2 - 2**x` match the reference. The Lambert
+  argument of an exponential factor `b**u` is `u*log(b)`, and
+  `k*(a*x + b)**n + C*exp(c*x + d)` is rewritten as
+  `k*(a*x + b)**n*exp(-c*x - d) + C` before the Lambert attempt;
+- an `exp(c + k*x)` generator with a symbolic constant `c` is inverted like
+  the reference split `exp(c)*exp(k*x)`, so `exp(a - x) + 1` gives
+  `[log(-exp(a))]`. With a rational exponent `k` other than `+-1` the forms
+  still differ: `exp(2*x + a) - 1` gives `[log(exp(-a))/2,
+  log(-exp(-a/2))]` where the reference has `[log(-sqrt(exp(-a))),
+  log(exp(-a))/2]` (equal values);
+- `simplify` applies the reference step `shorter(expand_log(e, deep=True),
+  logcombine(e))` after `futrig` when the expression has a logarithm, so the
+  Lambert log forms `x**(2*x) - 4`, `x*log(x) - log(9)/2`,
+  `x*log(x) + 2*log(2)` and `x**x - sqrt(2)` match. The step is not
+  idempotent and the remaining power-base forms still differ:
+  `4**x - 8` gives `[3/2, 3/2 + I*pi/log(2)]` where the reference prints
+  `(log(8)/2 + I*pi)/log(2)` (also `(1/4)**x - 8`, `4**(-x) - 8`,
+  `4**(2*x) - 8`, `4**x - 16`, `4**x + 8`, `8**x - 2`, `9**x - 27`,
+  `2**(2*x) - 8`, `2**(3*x) - 8`, `(1/4)**x - 16`, equal values in the same
+  order). `x**(3*x) - 8` gives `exp(LambertW(log(8)/3))` where the
+  reference, whose polynomial generator is `x**x`, has
+  `exp(LambertW(log(2)))` (equal value);
+- the branch order and forms of a cubic in a power of `2` or `exp` differ:
+  `2**(3*x) - 3*2**x + 1` and `exp(3*x) - 3*exp(x) + 1` list the roots in
+  another order, and the native `log` takes `I*pi` out of a provably
+  negative argument, so one root prints `log(A) + I*pi` where the reference
+  keeps `log(-A)` (equal values);
 - a rational base that is not a perfect power of an integer or of its
   reciprocal keeps another form: `(4/9)**x - 8` gives
-  `3*log(2)/(2*(-log(3) + log(2)))` where the reference has
+  `log(2**(3/(2*log(2/3))))` where the reference has
   `log(2**(3/log(4/9)))` (equal value);
 - `solve(x**3 - 3*x + 1, x, simplify=True)` differs in form: the native
   simplify search does not reach the reference forms of the Cardano roots
   (equal values);
 - the native Pow does not fold `sqrt(2**(1/3)/2)` to `2**(2/3)/2`, so
   `exp(-3*x) - 2` gives `log(sqrt(2)*sqrt(2**(1/3))/2)` (equal value);
-- the native `log` takes `I*pi` out of a provably negative argument, so one
-  root of `exp(3*x) - 3*exp(x) + 1` prints `log(A) + I*pi` where the
-  reference keeps `log(-A)` (equal value);
 - for `2**(3*x) - 3*2**x + 1` the reference prints one solution with the
   logarithm of an exactly negative number in a form that its evalf puts at
   `-I*pi`; the native value is the principal one, `+I*pi`, so the two
