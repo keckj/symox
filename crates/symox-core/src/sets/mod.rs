@@ -317,6 +317,27 @@ pub(crate) fn contains3(s: &Expr, x: &Expr) -> Option<bool> {
     }
 }
 
+/// The reference `ordered(args, Set._infimum_key)` of the arguments of an
+/// unevaluated `Union` or `Intersection`: by the numeric infimum (`oo` when
+/// it is unknown or not comparable), ties in the default `ordered` order.
+pub(crate) fn ordered_by_infimum(v: &mut [Expr]) {
+    ordered(v);
+    let key = |s: &Expr| -> f64 {
+        match inf(s) {
+            Some(i) if i.is_constant(Constant::NegInfinity) => f64::NEG_INFINITY,
+            Some(i) if crate::integrate::piecewise::is_comparable(&i) => {
+                crate::evalf::eval_f64(&i).unwrap_or(f64::INFINITY)
+            }
+            _ => f64::INFINITY,
+        }
+    };
+    let mut keyed: Vec<(f64, Expr)> = v.iter().map(|e| (key(e), e.clone())).collect();
+    keyed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+    for (slot, (_, e)) in v.iter_mut().zip(keyed) {
+        *slot = e;
+    }
+}
+
 /// `Union(*sets)`.
 pub fn union(sets: Vec<Expr>) -> Expr {
     let mut args: Vec<Expr> = Vec::new();
@@ -372,7 +393,7 @@ pub fn union(sets: Vec<Expr>) -> Expr {
         0 => empty_set(),
         1 => args.pop().unwrap(),
         _ => {
-            ordered(&mut args);
+            ordered_by_infimum(&mut args);
             mk(SetOp::Union, args)
         }
     }
@@ -542,7 +563,7 @@ pub fn intersection(sets: Vec<Expr>) -> Expr {
     if args.len() == 1 {
         return args.pop().unwrap();
     }
-    ordered(&mut args);
+    ordered_by_infimum(&mut args);
     mk(SetOp::Intersection, args)
 }
 
@@ -597,7 +618,7 @@ fn intersect_finite(args: Vec<Expr>) -> Expr {
     }
     let mut v: Vec<Expr> = pruned.into_iter().map(finite_set).collect();
     v.extend(others);
-    ordered(&mut v);
+    ordered_by_infimum(&mut v);
     mk(SetOp::Intersection, v)
 }
 
@@ -699,6 +720,75 @@ fn image_in_interval(img: &Expr, iv: &Expr) -> Option<Expr> {
     Some(finite_set(pts))
 }
 
+
+/// `ImageSet(Lambda(n, p*n + q), Integers)` with exact rational `p != 0`
+/// and `q`: the variable and the coefficients.
+fn integer_lattice(img: &Expr) -> Option<(Expr, num_rational::BigRational, num_rational::BigRational)> {
+    let (SetOp::ImageSet, ia) = as_set(img)? else { return None };
+    if !is_op(&ia[1], SetOp::Integers) || lambda_arity(&ia[0]) != Some(1) {
+        return None;
+    }
+    let (variables, body) = lambda_parts(&ia[0])?;
+    if variables.len() != 1 {
+        return None;
+    }
+    let n = variables[0].clone();
+    let p = crate::diff::diff(&body, &n);
+    if crate::traverse::has(&p, &n) {
+        return None;
+    }
+    let q = crate::expand::expand(&crate::subs::subs1(&body, &n, &Expr::zero()));
+    let (p, q) = (p.as_number()?.to_ratio()?, q.as_number()?.to_ratio()?);
+    if num_traits::Zero::is_zero(&p) {
+        return None;
+    }
+    Some((n, p, q))
+}
+
+/// Linear case of the reference `intersection_sets(ImageSet, Set)` with
+/// `Integers` or another integer image set: the solutions of the linear
+/// diophantine equation `p*n + q = r*m + s`, as the canonical image set the
+/// reference `imageset` builds (`L*n + (b mod L)`, `Integers` for `n`).
+pub(crate) fn lattice_intersection(a: &Expr, b: &Expr) -> Option<Expr> {
+    use num_bigint::BigInt;
+    use num_integer::Integer;
+    use num_rational::BigRational;
+    use num_traits::{One, Signed, Zero};
+    let (n, p, q) = integer_lattice(a)?;
+    let (r, s) = if is_op(b, SetOp::Integers) {
+        (BigRational::one(), BigRational::zero())
+    } else {
+        let (_, r, s) = integer_lattice(b)?;
+        (r, s)
+    };
+    // scale by the common denominator: P*n - R*m = S - Q over the integers
+    let d = [&p, &q, &r, &s].iter().fold(BigInt::one(), |acc, v| acc.lcm(v.denom()));
+    let scale = |v: &BigRational| (v * BigRational::from_integer(d.clone())).to_integer();
+    let (pp, qq, rr, ss) = (scale(&p), scale(&q), scale(&r), scale(&s));
+    let eg = pp.extended_gcd(&rr);
+    let g = eg.gcd.abs();
+    let rhs = &ss - &qq;
+    if !(&rhs % &g).is_zero() {
+        return Some(empty_set());
+    }
+    // pp*x + rr*y = gcd(pp, rr) (up to the sign of the gcd)
+    let n0 = &eg.x * (&rhs / &eg.gcd);
+    let den = BigRational::from_integer(d);
+    let offset = (BigRational::from_integer(&pp * &n0 + &qq)) / &den;
+    let step = BigRational::from_integer((&pp * &rr / &g).abs()) / &den;
+    let modulo = &offset - (&offset / &step).floor() * &step;
+    let num = |v: BigRational| Expr::num(crate::number::Number::from_ratio(v));
+    let body = if step.is_one() {
+        if modulo.is_zero() || modulo.is_integer() {
+            return Some(integers());
+        }
+        crate::ops::add2(&n, &num(modulo))
+    } else {
+        crate::ops::add2(&crate::ops::mul2(&num(step), &n), &num(modulo))
+    };
+    Some(image_set(&lambda(&n, &body), &integers()))
+}
+
 /// Simplify `a ∩ b` if a rule applies.
 fn intersect_pair(a: &Expr, b: &Expr) -> Option<Expr> {
     if let (Some((s1, e1, l1, r1)), Some((s2, e2, l2, r2))) = (interval_parts(a), interval_parts(b)) {
@@ -724,6 +814,24 @@ fn intersect_pair(a: &Expr, b: &Expr) -> Option<Expr> {
         return Some(interval(&start, &end, lopen, ropen));
     }
     let (oa, ob) = (as_set(a)?.0, as_set(b)?.0);
+    // reference `intersection_sets(ProductSet, ProductSet)`
+    if let (Some((SetOp::ProductSet, pa)), Some((SetOp::ProductSet, pb))) = (as_set(a), as_set(b)) {
+        if pa.len() != pb.len() {
+            return Some(empty_set());
+        }
+        return Some(product_set(pa.iter().zip(pb).map(|(i, j)| intersection(vec![i.clone(), j.clone()])).collect()));
+    }
+    for (x, y) in [(a, b), (b, a)] {
+        if let Some(r) = lattice_intersection(x, y) {
+            return Some(r);
+        }
+        // reference `intersection_sets(ConditionSet, Set)`
+        if let (Some((SetOp::ConditionSet, ca)), false) = (as_set(x), is_op(y, SetOp::ConditionSet)) {
+            if ca.len() == 3 {
+                return Some(condition_set(&ca[0], &ca[1], &intersection(vec![ca[2].clone(), y.clone()])));
+            }
+        }
+    }
     // nested standard sets
     if let (Some(ra), Some(rb)) = (subset_chain_rank(oa), subset_chain_rank(ob)) {
         return Some(if ra <= rb { a.clone() } else { b.clone() });
@@ -773,6 +881,17 @@ pub fn complement(a: &Expr, b: &Expr) -> Expr {
     }
     if let Some((SetOp::Union, parts)) = as_set(b) {
         return intersection(parts.iter().map(|p| complement(a, p)).collect());
+    }
+    // reference `Set._complement` of two products:
+    // (A x B) - (C x D) = ((A - C) x B) U (A x (B - D))
+    if let (Some((SetOp::ProductSet, pa)), Some((SetOp::ProductSet, pb))) = (as_set(a), as_set(b)) {
+        if pa.len() != pb.len() {
+            return a.clone();
+        }
+        let overlaps = (0..pa.len())
+            .map(|k| product_set(pa.iter().zip(pb).enumerate().map(|(i, (o, s))| if i != k { o.clone() } else { complement(o, s) }).collect()))
+            .collect();
+        return union(overlaps);
     }
     // B-specific rules
     if let Some((s, e, l, r)) = interval_parts(b) {

@@ -272,29 +272,277 @@ class ComplexRegion(_StructuralSet):
         return area
 
 
+def _invertible_in_set(func, setv):
+    """The reference ``is_function_invertible_in_set``."""
+    from . import Dummy, exp, log
+    if func in (exp, log):
+        return True
+    u = Dummy('u')
+    fdiff = func(u).diff(u)
+    if (fdiff > 0) == True or (fdiff < 0) == True:  # noqa: E712
+        return True
+    return None
+
+
+def _image_interval(f, x):
+    """The reference ``_set_function(Lambda, Interval)``."""
+    from . import (Dummy, Intersection, Complement, Min, Max, diff, limit,
+                   true)
+    from .calculus.singularities import singularities
+    from .solvers.solveset import solveset
+    from .solvers._periodic_inequality import _nsort_reals
+    expr = f.expr
+    if len(expr.free_symbols) > 1 or len(f.variables) != 1:
+        return None
+    var = f.variables[0]
+    if not var.is_real:
+        if expr.subs(var, Dummy(real=True)).is_real is False:
+            return None
+    if expr.is_Piecewise:
+        result = S.EmptySet
+        domain_set = x
+        for (p_expr, p_cond) in expr.args:
+            if p_cond is true or p_cond == True:  # noqa: E712
+                intrvl = domain_set
+            else:
+                intrvl = Intersection(domain_set, p_cond.as_set())
+            if p_expr.is_Number:
+                image = FiniteSet(p_expr)
+            else:
+                image = imageset(Lambda(var, p_expr), intrvl)
+            result = Union(result, image)
+            domain_set = Complement(domain_set, intrvl)
+            if domain_set == EmptySet:
+                break
+        return result
+    if not x.start.is_comparable or not x.end.is_comparable:
+        return None
+    try:
+        sing = list(singularities(expr, var, x))
+        if len(sing) > 1:
+            sing = _nsort_reals(sing)
+    except NotImplementedError:
+        return None
+    if x.left_open:
+        _start = limit(expr, var, x.start, dir="+")
+    elif x.start not in sing:
+        _start = f(x.start)
+    if x.right_open:
+        _end = limit(expr, var, x.end, dir="-")
+    elif x.end not in sing:
+        _end = f(x.end)
+    if len(sing) == 0:
+        soln_expr = solveset(diff(expr, var), var)
+        if not (isinstance(soln_expr, FiniteSet) or soln_expr == EmptySet):
+            return None
+        solns = list(soln_expr)
+        extr = [_start, _end] + [f(i) for i in solns if i.is_real and i in x]
+        start, end = Min(*extr), Max(*extr)
+        left_open, right_open = False, False
+        if _start <= _end:
+            if start == _start and start not in solns:
+                left_open = x.left_open
+            if end == _end and end not in solns:
+                right_open = x.right_open
+        else:
+            if start == _end and start not in solns:
+                left_open = x.right_open
+            if end == _start and end not in solns:
+                right_open = x.left_open
+        return Interval(start, end, left_open, right_open)
+    return imageset(f, Interval(x.start, sing[0], x.left_open, True)) + \
+        Union(*[imageset(f, Interval(sing[i], sing[i + 1], True, True))
+                for i in range(0, len(sing) - 1)]) + \
+        imageset(f, Interval(sing[-1], x.end, True, x.right_open))
+
+
+def _image_range(f, self):
+    """The reference ``_set_function(FunctionUnion, Range)``."""
+    from . import Range, expand_mul
+    if not self:
+        return EmptySet
+    if not isinstance(f.expr, Expr):
+        return None
+    if self.size == 1:
+        return FiniteSet(f(self[0]))
+    x = f.variables[0]
+    expr = f.expr
+    if x not in expr.free_symbols or x in expr.diff(x).free_symbols:
+        return None
+    if self.start.is_finite:
+        F = f(self.step*x + self.start)
+    else:
+        F = f(-self.step*x + self[-1])
+    F = expand_mul(F)
+    if F != expr:
+        return imageset(x, F, Range(self.size))
+    return None
+
+
+def _match_real_imag(expr):
+    """The reference ``match_real_imag``."""
+    r_, i_ = expr.as_independent(I, as_Add=True)
+    if i_ == 0 and r_.is_real:
+        return (r_, i_)
+    i_ = i_.as_coefficient(I)
+    if i_ and i_.is_real and r_.is_real:
+        return (r_, i_)
+    return (None, None)
+
+
+def _image_integers(f, self):
+    """The reference ``_set_function(FunctionUnion, Integers)``."""
+    from . import Add, Wild, Float
+    expr = f.expr
+    if not isinstance(expr, Expr):
+        return None
+    n = f.variables[0]
+    if expr == abs(n):
+        return S.Naturals0
+    c = f(0)
+    fx = f(n) - c
+    f_x = f(-n) - c
+    neg_count = lambda e: sum(t.could_extract_minus_sign() for t in Add.make_args(e))
+    if neg_count(f_x) < neg_count(fx):
+        expr = f_x + c
+    a = Wild('a', exclude=[n])
+    b = Wild('b', exclude=[n])
+    match = expr.match(a*n + b)
+    if match and match[a] and (not match[a].atoms(Float) and not match[b].atoms(Float)):
+        a, b = match[a], match[b]
+        if a in [1, -1]:
+            b = Add(*[bi for bi in Add.make_args(b) if not bi.is_integer])
+        if b.is_number and a.is_real:
+            br, bi = _match_real_imag(b)
+            if br and br.is_comparable and a.is_comparable:
+                br %= a
+                b = br + S.ImaginaryUnit*bi
+        elif b.is_number and a.is_imaginary:
+            br, bi = _match_real_imag(b)
+            ai = a/S.ImaginaryUnit
+            if bi and bi.is_comparable and ai.is_comparable:
+                bi %= ai
+                b = br + S.ImaginaryUnit*bi
+        expr = a*n + b
+    if expr != f.expr:
+        return ImageSet(Lambda(n, expr), S.Integers)
+    return None
+
+
+def _image_naturals(f, self):
+    """The reference ``_set_function(FunctionUnion, Naturals)``."""
+    from . import Range, oo
+    expr = f.expr
+    if not isinstance(expr, Expr):
+        return None
+    x = f.variables[0]
+    if not expr.free_symbols - {x}:
+        if expr == abs(x):
+            if self == S.Naturals:
+                return self
+            return S.Naturals0
+        step = expr.coeff(x)
+        c = expr.subs(x, 0)
+        if c.is_Integer and step.is_Integer and expr == step*x + c:
+            if self == S.Naturals:
+                c += step
+            if step > 0:
+                if step == 1:
+                    if c == 0:
+                        return S.Naturals0
+                    elif c == 1:
+                        return S.Naturals
+                return Range(c, oo, step)
+            return Range(c, -oo, step)
+    return None
+
+
+def _set_function(f, x):
+    """The reference ``set_function`` dispatch for a ``Lambda``."""
+    from . import Symbol, Intersection, Range, oo
+    _x = Symbol('x')
+    if x == EmptySet:
+        return x
+    if isinstance(x, FiniteSet):
+        return FiniteSet(*map(f, x))
+    if x == S.Integers:
+        return _image_integers(f, x)
+    if x == S.Naturals or x == S.Naturals0:
+        return _image_naturals(f, x)
+    if isinstance(x, type(S.Reals)):
+        if not isinstance(f.expr, Expr):
+            return None
+        return _image_interval(f, Interval(-oo, oo))
+    if isinstance(x, Interval):
+        return _image_interval(f, x)
+    if isinstance(x, Range):
+        return _image_range(f, x)
+    if isinstance(x, Union):
+        return Union(*(imageset(f, a) for a in x.args))
+    if isinstance(x, Intersection):
+        if _invertible_in_set(f, x):
+            return Intersection(*(imageset(f, a) for a in x.args))
+        return ImageSet(Lambda(_x, f(_x)), x)
+    return ImageSet(Lambda(_x, f(_x)), x)
+
+
 def imageset(*args):
-    if len(args)<2:
-        raise TypeError('imageset requires a map and base sets')
-    if isinstance(args[0],(Expr,)) and getattr(args[0],'is_Lambda',False):
-        function,bases=args[0],args[1:]
-    elif callable(args[0]) and not isinstance(args[0],Expr):
+    """The reference ``imageset``."""
+    from . import Symbol, Tuple
+    if len(args) < 2:
+        raise ValueError('imageset expects at least 2 args, got: %s' % len(args))
+    if isinstance(args[0], (Symbol, tuple, Tuple)) and len(args) > 2:
+        f = Lambda(args[0], args[1])
+        set_list = args[2:]
+    else:
+        f = args[0]
+        set_list = args[1:]
+    if isinstance(f, Expr) and getattr(f, 'is_Lambda', False):
+        pass
+    elif callable(f):
         import inspect
         from . import Dummy
-        function=args[0]
-        n=len(inspect.signature(function).parameters)
-        variables=tuple(Dummy('x%d'%i) for i in range(n))
-        function,bases=Lambda(variables,function(*variables)),args[1:]
+        from .core.symbol import uniquely_named_symbol
+        nargs = getattr(f, 'nargs', {})
+        if nargs:
+            if len(nargs) != 1:
+                raise NotImplementedError('This function can take more than 1 arg')
+            N = nargs.args[0]
+            s = 'x' if N == 1 else [Symbol('x%i' % i) for i in range(1, N + 1)]
+        else:
+            s = inspect.signature(f).parameters
+        dexpr = sympify(f(*[Dummy() for i in s]))
+        var = tuple(uniquely_named_symbol(Symbol(i), dexpr) for i in s)
+        f = Lambda(var, f(*var))
     else:
-        if len(args)<3:
-            raise TypeError('imageset requires variables, expression, and base sets')
-        function,bases=Lambda(args[0],args[1]),args[2:]
-    if len(function.variables)!=len(bases):
-        raise ValueError('map arity does not match base sets')
-    if all(s.is_finite_set is True for s in bases):
-        size=1
-        for s in bases:
-            size*=0 if s==EmptySet else len(s)
-        if size>100000:
-            raise NotImplementedError('explicit image exceeds 100000 points')
-        return FiniteSet(*(function(*values) for values in product(*(list(s) if s!=EmptySet else [] for s in bases))))
-    return ImageSet(function,*bases)
+        raise TypeError("expecting lambda, Lambda, or FunctionClass, not '%s'." % type(f).__name__)
+    if any(not isinstance(s, Set) for s in set_list):
+        raise ValueError('arguments after mapping should be sets, not %s'
+                         % [type(s).__name__ for s in set_list])
+    signature = getattr(f, 'signature', None) or f.variables
+    if len(signature) != len(set_list):
+        raise ValueError('Incompatible signature')
+    if len(set_list) == 1:
+        set_ = set_list[0]
+        try:
+            if len(f.variables) != 1:
+                raise TypeError
+            r = _set_function(f, set_)
+            if r is None:
+                raise TypeError
+            if r == EmptySet:
+                return r
+        except TypeError:
+            r = ImageSet(f, set_)
+        if isinstance(r, ImageSet):
+            f, set_ = r.lamda, r.base_set
+        if f.variables[0] == f.expr:
+            return set_
+        if isinstance(set_, ImageSet):
+            if len(set_.lamda.variables) == 1 and len(f.variables) == 1:
+                x = set_.lamda.variables[0]
+                y = f.variables[0]
+                return imageset(Lambda(x, f.expr.subs(y, set_.lamda.expr)), set_.base_set)
+        if r is not None:
+            return r
+    return ImageSet(f, *set_list)
