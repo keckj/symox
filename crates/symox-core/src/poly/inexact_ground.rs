@@ -2273,6 +2273,53 @@ pub fn cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionP
     let (k, (h, a, b)) = pair(f, g, |k, a, b| k.inner_gcd(a, b))?;
     Ok((k.poly(&h, &f.gens)?, k.poly(&a, &f.gens)?, k.poly(&b, &f.gens)?))
 }
+/// `dmp_cancel(f, g, include=True)` over `RR` (53 bits) for the expression
+/// `cancel` of float input, whose coefficients are given as the exact values
+/// of their doubles: `RR` has no associated ring, so no denominators are
+/// cleared; the gcd is computed over `QQ` after `to_rational(limit=True)`
+/// (`_dmp_inner_gcd` of an inexact domain), the cofactors of the monic gcd
+/// come back through `RR.from_QQ` and only the signs of the leading
+/// coefficients are normalized. `x/(0.3*x + 0.1)` keeps its coefficients,
+/// where clearing the binary denominators gave `2**55`-sized integers.
+pub fn rr_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
+    let k = Inexact { precision: 53, complex: false };
+    let n = f.nvars;
+    let to_qq = |p: &MPoly<Rat>| -> MPoly<Rat> {
+        MPoly::from_terms(
+            n,
+            p.iter()
+                .map(|(e, c)| {
+                    let x = BF::from_ratio(&c.n.to_big(), &c.d.to_big(), 53);
+                    (e.to_vec(), k.to_rational(&x, 53))
+                })
+                .filter(|(_, c)| !c.is_zero())
+                .collect(),
+        )
+    };
+    let back = |p: &MPoly<Rat>| -> MPoly<Rat> {
+        MPoly::from_terms(
+            n,
+            p.iter()
+                .map(|(e, c)| {
+                    let r = k.from_rat(c).re.to_ratio_exact();
+                    (e.to_vec(), Rat::new(Int::from_big(r.numer().clone()), Int::from_big(r.denom().clone())))
+                })
+                .filter(|(_, c)| !c.is_zero())
+                .collect(),
+        )
+    };
+    let (_, p, q) = super::gcd::gcd_mq(&to_qq(f), &to_qq(g));
+    let (mut p, mut q) = (back(&p), back(&q));
+    // `p_neg`/`q_neg`: a negative denominator is negated with the
+    // numerator; a negative numerator alone is negated and multiplied by
+    // `cp = -1` again (include=True), so it is kept.
+    if q.lc().is_negative() {
+        q = q.neg();
+        p = p.neg();
+    }
+    (p, q)
+}
+
 /// `Poly.cancel(g, include=False)`: `(cp, cq, p, q)` with `cp/cq` the
 /// coefficient ratio in the associated ring.
 pub fn cancel(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(Expr, Expr, ExpressionPoly, ExpressionPoly)> {

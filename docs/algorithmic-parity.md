@@ -1723,14 +1723,21 @@ first and its `RootSum` is returned (`exp(x)/(1 + exp(2*x))`,
   integration variable). `integrate(exp(k10*s)*exp(-1.66666666666667*s), s)`
   is now the reference `Piecewise` with the generic case under
   `Ne(k10, 1.66666666666667)` and the degenerate rate last
-  (`tests/test_transforms_wave3_parity.py`). Remaining differences: `cancel`
-  over `RR` clears the rationalized float denominators
-  (`2251799813685248.0*exp(k10*s)/(2251799813685248.0*k10*exp(c*s) - ...)`
-  where the reference keeps `1.0*exp(k10*s)/(1.0*k10*exp(c*s) - c*exp(c*s))`),
-  and the degenerate piece is float noise in both libraries with a
-  different value (reference `-300239975158033.0*exp(-3.33066907387547e-15*s)`,
-  symox `-500399958596722.0*exp(-1.99840144432528e-15*s)`; the exact value
-  is `s`); the definite integral of the float Piecewise of
+  (`tests/test_transforms_wave3_parity.py`). The top-level `cancel` of an
+  expression with 53-bit Float coefficients follows the reference
+  `dmp_cancel` over `RR` (`tests/test_forms_rest_parity.py`): `RR` has no
+  associated ring, so no denominators are cleared; the gcd is computed over
+  `QQ` after `to_rational(limit=True)` of each coefficient, the cofactors
+  come back through `RR.from_QQ`, and a negative denominator leading
+  coefficient is moved to the numerator. `cancel(x/(0.3*x + 0.1))` is
+  `1.0*x/(0.3*x + 0.1)` and the generic piece of the integral above is
+  `1.0*exp(k10*s)/(1.0*k10*exp(c*s) - c*exp(c*s))`, where symox used to print
+  `2251799813685248.0*...`. Intentional divergence: the degenerate piece is
+  float noise in the reference (`-300239975158033.0*exp(-3.33066907387547e-15*s)`)
+  and is now the exact `s` in symox. Remaining: `Poly.cancel` over `RR` still
+  clears denominators (`3.6e16*x`) and `include=False` returns the integer
+  `1` where the reference has `1.0`; floats with another precision keep the
+  legacy cancellation; the definite integral of the float Piecewise of
   `test_issue_15498` is not rechecked here;
 - `manual=True` on the rational function of case 153 leaves an `Integral`
   where the reference finishes (manualintegrate leftovers); `manual=True` on
@@ -1973,7 +1980,19 @@ differences:
   `(log(8)/2 + I*pi)/log(2)` (also `(1/4)**x - 8`, `4**(-x) - 8`,
   `4**(2*x) - 8`, `4**x - 16`, `4**x + 8`, `8**x - 2`, `9**x - 27`,
   `2**(2*x) - 8`, `2**(3*x) - 8`, `(1/4)**x - 16`, equal values in the same
-  order). `x**(3*x) - 8` gives `exp(LambertW(log(8)/3))` where the
+  order). The divergent step is the outer `simplify` of each solution:
+  `simplify(3/2 + I*pi/log(2))` is `(log(8)/2 + I*pi)/log(2)` in the
+  reference, reached by its sequence (`normal` bottom up gives
+  `(3*log(2) + 2*I*pi)/(2*log(2))`, `Mul(*powsimp(e).as_content_primitive())`
+  keeps it, then `factor_terms` and `shorter(expand_log, logcombine)`). The
+  native size search keeps the input. Following the ported
+  `reference_sequence` for numeric logarithmic expressions fixed
+  `4**x - 16`, `4**x + 8` and `(1/4)**x - 16` without regressions in a
+  56-call probe, but not the others: the native `powsimp` distributes the
+  rational content into the sum (`(3*log(2)/2 + I*pi)/log(2)`, where the
+  reference `powsimp` keeps the input), and the sequence then returns
+  `3/2 + I*pi/log(2)`. Flattening the content product did not change that,
+  so a later step also diverges; the change was not kept. `x**(3*x) - 8` gives `exp(LambertW(log(8)/3))` where the
   reference, whose polynomial generator is `x**x`, has
   `exp(LambertW(log(2)))` (equal value);
 - the branch order and forms of a cubic in a power of `2` or `exp` differ:

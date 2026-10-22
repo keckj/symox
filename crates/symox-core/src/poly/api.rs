@@ -1394,6 +1394,13 @@ fn float_representable(p: &MPoly<Rat>) -> bool {
     })
 }
 
+/// Whether `e` has a float of a precision other than 53 bits.
+fn has_mp_float(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |x| found |= matches!(x.kind(), Kind::Num(crate::number::Number::MpFloat(_, p)) if *p != 53));
+    found
+}
+
 /// `cancel(expr)`.
 pub fn cancel(e: &Expr) -> PResult<Expr> {
     match e.kind() {
@@ -1429,7 +1436,15 @@ pub fn cancel(e: &Expr) -> PResult<Expr> {
     if c.ngens == 0 {
         return Ok(expand(e));
     }
-    let (mut pp, mut qq) = cancel_polys(&c.polys[0], &c.polys[1]);
+    // Float input is a polynomial over `RR` in the reference, a field
+    // without an associated ring: its cancel keeps the float coefficients
+    // (`x/(0.3*x + 0.1)` is `1.0*x/(0.3*x + 0.1)`). Higher precision
+    // floats keep the rational path.
+    let (mut pp, mut qq) = if c.float && !has_mp_float(e) {
+        super::inexact_ground::rr_cancel(&c.polys[0], &c.polys[1])
+    } else {
+        cancel_polys(&c.polys[0], &c.polys[1])
+    };
     // The integer cofactors of float input may lie outside the double range
     // (1e-300*u gives u/2**1049): take the scale into the numerator then,
     // so that no coefficient overflows to oo or underflows to 0.
