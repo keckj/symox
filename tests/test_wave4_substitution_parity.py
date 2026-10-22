@@ -99,7 +99,8 @@ def test_no_spurious_free_row_when_equation_constrains_it():
     assert not contains_point(r,(0,1))
 
 
-def test_unsolved_equation_gives_conditionset():
-    # Scalar solveset leaves sin(x) + cos(x) unsolved; a (x, 0) row would claim every x.
+def test_trig_equation_gives_imagesets():
+    # Reference output; a (x, 0) row would claim every x.
     r = s.substitution([s.sin(x)+s.cos(x),y],[x,y])
-    assert isinstance(r,s.ConditionSet)
+    assert str(r) == ('{(ImageSet(Lambda(_n, 2*_n*pi + 3*pi/4), Integers), 0), '
+                      '(ImageSet(Lambda(_n, 2*_n*pi + 7*pi/4), Integers), 0)}')

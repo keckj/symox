@@ -2414,12 +2414,30 @@ class Limit(metaclass=_LimitMeta):
         return _core._held_limit(e, z, z0, str(dir))
 
 
+def _limit_through_positive_dummy(e, z, z0, dir, r):
+    h = Dummy('h', positive=True)
+    if z0 is S.Infinity or z0 is S.NegativeInfinity:
+        shifted, point = e.xreplace({z: h if z0 is S.Infinity else -h}), S.Infinity
+    else:
+        shifted, point = e.xreplace({z: z0 + h if dir == "+" else z0 - h}), S.Zero
+    if shifted.has(arg) and any(a.args[0].is_positive is None and a.args[0].is_negative is None
+                                for a in shifted.atoms(arg)):
+        return r
+    shifted = shifted.doit() if shifted.has(arg) else shifted
+    value = _core._limit(shifted, h, point, "+")
+    return r if value is None or value is S.NaN else value
+
+
 def limit(e, z, z0, dir="+"):
     """Limit of ``e`` as ``z -> z0`` (``dir`` is ``'+'``, ``'-'`` or ``'+-'``).
 
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
     r = _core._limit(e, z, z0, str(dir))
+    if (r is None or r is S.NaN) and str(dir) in ("+", "-") and sympify(e).has(arg):
+        # The reference approaches z0 through a positive dummy, on which
+        # arg(h) is 0: arg(z) -> 0 as z -> 0+ rather than arg(0) = nan.
+        r = _limit_through_positive_dummy(sympify(e), sympify(z), sympify(z0), str(dir), r)
     if r is None and str(dir) in ("+", "-"):
         local = _singularity_local_germ(sympify(e), sympify(z), sympify(z0), str(dir))
         if local is not None:
