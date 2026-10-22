@@ -230,6 +230,17 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
     if matches!(e.kind(),Kind::Func(Func::Integral|Func::Sum|Func::Product,_)) {
         return crate::binders::substitute(e,&[(old.clone(),new.clone())],false);
     }
+    // SymPy's ConditionSet._eval_subs: the bound symbol is never changed by
+    // subs, so a substitution of it reaches only the base set (where it is
+    // free) and the condition keeps the binder.
+    if let Kind::Func(Func::Set(crate::sets::SetOp::ConditionSet),args)=e.kind() {
+        if args.len()==3 && crate::traverse::has_structural(&args[0],old) {
+            let base=s1(&args[2],old,new,cache);
+            let value=if base==args[2] {e.clone()} else {crate::sets::condition_set(&args[0],&args[1],&base)};
+            cache.insert(e.dag_id(),(e.clone(),value.clone()));
+            return value;
+        }
+    }
     if matches!(e.kind(),Kind::Func(Func::Order,_)) {
         if let Some(value)=order_subs(e,old,new,cache) {
             return value;

@@ -1228,6 +1228,104 @@ Remaining gaps:
   `type(ImmutableMatrix.diag(1, 2)).__name__` is `Matrix` instead of
   `ImmutableDenseMatrix`; `isinstance(..., ImmutableMatrix)` holds.
 
+## Special numbers, Indexed sums and ConditionSet.subs on 2026-10-22
+
+There are 301 probes in three groups:
+
+- 96 grid probes for genocchi, bernoulli, euler, andre and harmonic: 16
+  differed from SymPy before, 1 after.
+- 129 probes for rf/ff on `Poly` and `Ei` with polar arguments: 58 before,
+  1 after.
+- 76 probes for Sum/Product with Indexed terms, limit_seq, piecewise double
+  integrals and ConditionSet.subs: 43 before, 19 after (four are the
+  intentional ConditionSet divergence below).
+
+The tests are in `tests/test_wrong_calculus_wave4_parity.py`.
+
+- `genocchi(n, x)` used the wrong sign on every constant term except
+  `G_1`, since `G_k(0) = -G_k`. This made every polynomial and every value
+  at an integer or rational point wrong for `n >= 2`. Examples:
+  `genocchi(4, x) = -4*x**3 + 6*x**2 - 1` and `genocchi(29, 2) = -58`.
+- `euler(-1) = pi/2` and
+  `euler(-1, x) = digamma((x + 1)/2) - digamma(x/2)`.
+  `euler(0[, x]) = 1`, and an odd positive symbolic `n` gives 0.
+- In `rf`/`ff` at minus infinity, `ff(-oo, k)` for an integer `k > 0` now
+  follows the parity of `k` like `rf`: `ff(-oo, 2) = oo` and
+  `ff(-oo, 3) = -oo`. For `k < 0`, both functions give `oo` at `±oo`. The
+  rule "a negative integer `x` with a non-integer `k` gives 0" now applies
+  only to `rf`.
+- `rf(Poly, k)` and `ff(Poly, k)` with an integer `k` multiply shifted
+  copies of the polynomial and keep the `Poly` type and domain. A negative
+  `k` gives the reciprocal expression. A multivariate `Poly` raises
+  `ValueError` ("only defined for polynomials on one generator").
+- `Ei(z).evalf()` adds `I*pi` when `z` is polar and `z/exp_polar(I*pi)` is
+  positive, like `Ei._eval_evalf`. For example,
+  `Ei(polar_lift(-1)).n() = -0.2193... + 3.1415...*I`, and
+  `exp_polar(-I*pi)` gives `-I*pi`. Precision follows the requested
+  number of digits.
+- `Sum`, `Product`, `summation`, `product` and `doit` of terms with symbolic
+  `Indexed` indices (`f[n]`, `f[n, m]`, `f[2*n]`, `f[n + 1] - f[n]`) now
+  expand the indices. Before, the flattened symbol `f[n]` was treated as a
+  constant, so `Sum(f[n], (n, 0, 3)).doit()` returned `4*f[n]`. Reversed
+  limits and symbolic upper bounds follow the reference.
+- `ConditionSet.subs` of the bound symbol leaves the symbol and the
+  condition unchanged and substitutes only in the base set, like
+  `ConditionSet._eval_subs`. Examples:
+  `ConditionSet(x, x < 1, {x, z}).subs(x, 0) = Union(ConditionSet(x, x < 1, {z}), {0})`
+  and `ConditionSet(x, x < 1, Reals).subs(x, y)` unchanged.
+- The gruntz `mrv` set of an unevaluated `Sum`, `Product`, `Integral`,
+  `Limit`, `Subs` or `Order` is unknown, as in the reference, which raises.
+  Before, the binder counted as a constant. Then
+  `limit(Sum(2**m/m, (m, 1, n))/(2**n/n), n, oo)` returned 0, and so did
+  `limit_seq` of that expression and of the nested-sum example
+  `Sum(k**2*Sum(2**m/m, (m, 1, k)), (k, 1, n))/(2**n*n)`. The limit is now
+  left unevaluated. limit_seq takes the Stolz-Cesaro difference path, which
+  gives 2 for the first expression. The nested example gives 4 when it is
+  computed first in a session.
+
+Divergence kept, to be validated by the user: SymPy's
+`ConditionSet._eval_subs` drops a substitution of a free symbol in the
+condition whenever the replacement is not a symbol. For example,
+`ConditionSet(x, x < y, Reals).subs(y, 1)` stays `ConditionSet(x, x < y, Reals)`,
+and `ConditionSet(x, x > y, {1, 2, z}).subs(y, 1)` keeps `y`. Both are
+wrong. Symox applies the substitution, which gives
+`ConditionSet(x, x < 1, Reals)` and
+`Union(ConditionSet(x, x > 1, {z}), {2})`. The capture case
+`ConditionSet(x, x < y, Reals).subs(y, x)` gives `x < x` in both.
+
+Remaining gaps:
+
+- Piecewise double integrals whose condition involves an inner integration
+  variable with finite real limits, such as
+  `(x**2 + Piecewise((0, x/t < 0), (1, True))).integrate((t, 4/5, 1), (x, -1, 1))`.
+  SymPy returns 1/3, and also 1 and 1/2 for related integrands. SymPy
+  replaces such variables with dummies that inherit assumptions (here
+  `t > 0`). Symox moves the inner integral into the Piecewise branches,
+  leaves `t` in the conditions, and returns an unevaluated `Integral`. The
+  result is still correct.
+- After other computations in the same session, the nested example
+  `limit_seq(Sum(k**2*Sum(2**m/m, (m, 1, k)), (k, 1, n))/(2**n*n), n)`
+  returns `None` instead of 4. `simplify` then keeps
+  `Sum(2**m/m, (m, 1, n + 1))` unsplit, and the five Stolz-Cesaro trials do
+  not converge. The answer is never a wrong value. Before this change, the
+  result was a wrong 0.
+- limit_seq returns `None` where SymPy finds 1, 1/2, 1/3 or oo. The
+  affected forms are harmonic sums over `log(n)`
+  (`Sum(1/k, (k, 1, n))/log(n)`, `harmonic(n)/log(n)`, the nested `log`
+  quotients) and `n*Sum(1/k**2, (k, 1, n))`.
+- `limit_seq(fibonacci(n + 1)/fibonacci(n), n)` returns
+  `1/2 + sqrt(5)/2` (SymPy `GoldenRatio`). The values are equal.
+- `Sum(x*f[n], (n, 0, 2)).doit()` is the expanded `f[0]*x + f[1]*x + f[2]*x`
+  (SymPy `x*(f[0] + f[1] + f[2])`). Native function terms behave the same
+  way.
+- `Sum(f[n], ...).free_symbols` lacks the base `f`, because Indexed objects
+  are flattened into symbols. `rf(Poly, k)` with a symbolic `k` cannot
+  hold the `Poly` argument. Indexed objects with a shaped base print in
+  flattened form.
+- `harmonic(12, 1/3)` prints `12**(2/3)/12` (SymPy `18**(1/3)/6`). The
+  values are equal, and the difference comes from radical normalization.
+- `sqrt(exp_polar(I*pi)).n()` keeps a spurious real part of about 1e-26.
+
 ## Remaining blocking gaps
 
 ### Noncommutative symbols

@@ -192,7 +192,8 @@ fn eval_rf(x: &Expr, k: &Expr, up: bool) -> Option<Expr> {
                 return Some(Expr::oo());
             }
             if is_neg_inf(x) {
-                return Some(if up && kk % 2 == 1 { Expr::neg_oo() } else if up { Expr::oo() } else { return None });
+                // rf and ff alike: (-oo)**k by the parity of k
+                return Some(if kk % 2 == 1 { Expr::neg_oo() } else { Expr::oo() });
             }
             let mut r = Expr::one();
             for i in 0..kk {
@@ -202,7 +203,7 @@ fn eval_rf(x: &Expr, k: &Expr, up: bool) -> Option<Expr> {
             return Some(r);
         }
         if is_inf(x) || is_neg_inf(x) {
-            return if up { Some(Expr::oo()) } else { None };
+            return Some(Expr::oo());
         }
         let mut r = Expr::one();
         for i in 1..=(-kk) {
@@ -211,7 +212,8 @@ fn eval_rf(x: &Expr, k: &Expr, up: bool) -> Option<Expr> {
         }
         return Some(pow(&r, &Expr::minus_one()));
     }
-    if is_integer(k) == Some(false) && is_integer(x) == Some(true) && is_negative(x) == Some(true) {
+    // Only RisingFactorial.eval has this rule in the reference.
+    if up && is_integer(k) == Some(false) && is_integer(x) == Some(true) && is_negative(x) == Some(true) {
         return Some(Expr::zero());
     }
     None
@@ -295,7 +297,24 @@ fn eval_bernoulli(a: &[Expr]) -> Option<Expr> {
 }
 
 fn eval_euler(a: &[Expr]) -> Option<Expr> {
-    let nn = as_small(&a[0])?;
+    let n = &a[0];
+    if is_zero(n) == Some(true) {
+        return Some(Expr::one());
+    }
+    if as_small(n) == Some(-1) {
+        // SymPy: euler(-1) = pi/2, euler(-1, x) = digamma((x+1)/2) - digamma(x/2)
+        let Some(x) = a.get(1) else {
+            return Some(div(&Expr::pi(), &Expr::int(2)));
+        };
+        let half = |e: &Expr| div(e, &Expr::int(2));
+        let digamma = |e: Expr| sf(SpecialFn::Digamma, vec![e]);
+        return Some(sub(&digamma(half(&add(&[x.clone(), Expr::one()]))), &digamma(half(x))));
+    }
+    if a.len() == 1 && !n.is_number() && is_integer(n) == Some(true)
+        && crate::assumptions::is_odd(n) == Some(true) && is_positive(n) == Some(true) {
+        return Some(Expr::zero());
+    }
+    let nn = as_small(n)?;
     if nn < 0 || nn > 5000 {
         return None;
     }

@@ -418,12 +418,16 @@ fn eval_genocchi(a: &[Expr]) -> Option<Expr> {
         return None;
     }
     let nv = as_int(n)?.to_usize()?;
-    // Appell sequence: G_n(x) = sum_k binomial(n, k) G_k x**(n - k)
+    // SymPy's genocchi_poly is -n*euler_poly(n - 1, x), the Appell sequence
+    // G_n(x) = sum_k binomial(n, k) G_k(0) x**(n - k) whose constants are
+    // G_k(0) = -G_k except G_1(0) = G_1 = -1 (the number convention takes
+    // B_1 = +1/2, the polynomial one B_1 = -1/2).
     let g = genocchi_numbers(nv)?;
     let row = nt::misc::binomial_row(nv as u64);
     let mut c = vec![BigInt::zero(); nv + 1];
     for k in 0..=nv {
-        c[nv - k] = &row[k] * &g[k];
+        let constant = if k == 1 { g[k].clone() } else { -&g[k] };
+        c[nv - k] = &row[k] * constant;
     }
     Some(poly_z(&c, &a[1]))
 }
