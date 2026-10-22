@@ -4287,3 +4287,41 @@ Remaining gaps:
   and `sort_args_by_name` raise `NotImplementedError`). `Integral` of an
   array or a matrix raises `TypeError` (native conversion). `IndexedBase`
   and `Indexed` are still `codegen.ast` classes with another repr.
+
+## Run-to-run determinism of Dummy-dependent results (wave 4)
+
+Fresh Dummy indices start from a seed made of the clock, the process id and
+a random value, so that they stay unique across processes and pickles.
+Dummy hashes used that index. Add and Mul store their operands in hash
+order, so the storage order changed from run to run. `difference_delta`
+split a product on its first stored factor. SymPy splits on `args[0]`, in
+canonical order. For `n*Sum(2**m/m, (m, 1, n))`, symox then gave
+`Sum(2**m/m, (m, 1, n + 1)) + 2**(n + 1)*n/(n + 1)` in about a quarter of
+the runs, instead of the reference `2**(n + 1) + Sum(2**m/m, (m, 1, n))`.
+Both values are equal, but the Stolz-Cesaro iteration of `limit_seq` does
+not converge on the first form, so
+`limit_seq(Sum(2**m/m, (m, 1, n))/(2**n/n), n)` returned `None` instead
+of 2.
+
+Fixes:
+
+- `difference_delta` splits a product on its first factor in canonical
+  order, as the reference does.
+- A Dummy hashes the offset of its index from the first fresh index of the
+  process. Fresh Dummies of a given program therefore hash, and are stored,
+  in the same way in every run. The indices stay unique across processes,
+  pickles keep them, and the origin does not change after a fork.
+
+Remaining risks and gaps:
+
+- Rust code that walks the stored operand order (`Expr::args`) where SymPy
+  walks `args` in canonical order can still diverge from the reference. It
+  is now reproducible, but it can change when an unrelated Dummy is created
+  earlier in the run. `traverse::ordered_args` gives the reference order.
+- The nested example
+  `limit_seq(Sum(k**2*Sum(2**m/m, (m, 1, k)), (k, 1, n))/(2**n*n), n)`
+  now returns `None` in every run, instead of 4. The earlier note that it
+  gives 4 when computed first came from a favourable hash order. The
+  reference keeps only the dominant terms of the numerator and the
+  denominator (`dominant`) after each difference step. Symox does not yet
+  port that step.

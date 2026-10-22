@@ -214,7 +214,9 @@ impl DummyState {
     }
     fn new() -> Self {
         let pid=std::process::id();
-        Self{pid,next:Self::seed(pid),anonymous:BigInt::from(0),reserved:FxHashSet::default()}
+        let next=Self::seed(pid);
+        let _=DUMMY_HASH_ORIGIN.set(next.clone());
+        Self{pid,next,anonymous:BigInt::from(0),reserved:FxHashSet::default()}
     }
     fn fresh(&mut self) -> BigInt {
         let pid=std::process::id();
@@ -226,6 +228,18 @@ impl DummyState {
             let result=self.next.clone();self.next+=1;
             if !self.reserved.contains(&result) { return result; }
         }
+    }
+}
+/// The first fresh index of this process. Dummy hashes use the offset from
+/// it, so the hash-based storage order of Add/Mul operands (and every
+/// algorithm that still walks it) is reproducible from run to run, while the
+/// indices themselves stay unique across processes. It never changes, even
+/// after a fork, since hashes already stored in shared nodes must stay valid.
+static DUMMY_HASH_ORIGIN:OnceLock<BigInt>=OnceLock::new();
+fn dummy_hash_offset(index:&BigInt)->BigInt{
+    match DUMMY_HASH_ORIGIN.get(){
+        Some(origin)=>index-origin,
+        None=>{with_dummy_state(|_|());index-DUMMY_HASH_ORIGIN.get().expect("Dummy hash origin")},
     }
 }
 fn with_dummy_state<T>(operation:impl FnOnce(&mut DummyState)->T) -> T {
@@ -451,7 +465,7 @@ impl Hash for Symbol {
         if let Some(extra)=self.hash_extra{0xfac7u16.hash(h);extra.hash(h);}
         if let Some(index) = &self.dummy_index {
             0xd00du16.hash(h);
-            index.hash(h);
+            dummy_hash_offset(index).hash(h);
         }
         if let Some(w) = &self.wild {
             0xa11du16.hash(h);

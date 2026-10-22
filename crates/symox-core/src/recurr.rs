@@ -1072,7 +1072,9 @@ fn delta_of(e: &Expr, n: &Expr, step: &Expr) -> Expr {
     let rule = match e.kind() {
         Kind::Add(..) => Some(add(&e.args().iter().map(|a| delta_of(a, n, step)).collect::<Vec<_>>())),
         Kind::Mul(..) => {
-            let args = e.args();
+            // SymPy splits off `self.args[0]` in its canonical order; the
+            // stored factor order follows hashes, which vary with Dummy indices.
+            let args = crate::traverse::ordered_args(e);
             let rest = mul(&args[1..]);
             Some(add2(&mul2(&shifted(&args[0]), &delta_of(&rest, n, step)), &mul2(&delta_of(&args[0], n, step), &rest)))
         }
