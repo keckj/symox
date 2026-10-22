@@ -30,7 +30,21 @@ def test_univariate_power_support_and_warm_expansion_limits():
         value.expand(max_terms=100)
     y = sx.Symbol("y")
     with pytest.raises(ValueError,match="limit|budget"):
-        ((x+y)**10000).expand()
+        ((x+y)**10000).expand(max_terms=10**6)
+
+
+def test_default_expansion_has_no_size_limit_like_the_reference():
+    # SymPy's expand has no term limit or work budget; the max_terms guard
+    # of symox is opt-in and raises instead of returning a partial result.
+    x, y = sx.Symbol("x"), sx.Symbol("y")
+    xs, ys = sx.symbols("x0:400"), sx.symbols("y0:400")
+    product = sx.Add(*xs)*sx.Add(*ys)
+    assert len(sx.expand(product).args) == 160000
+    with pytest.raises(ValueError, match="limit"):
+        sx.expand(product, max_terms=100000)
+    power = ((x+y)**3000).expand()
+    assert len(power.args) == 3001
+    assert power.coeff(x, 1500) == sx.binomial(3000, 1500)*y**1500
 
 
 def test_repeated_expansion_keeps_options_and_alpha_equal_binder_names():

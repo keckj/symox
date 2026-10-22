@@ -77,7 +77,7 @@ def test_mul_and_power_work_limits_are_checked_before_expansion():
     with pytest.raises(ValueError,match='limit|budget'):
         ((x+y)*(x+z)*(y+z)).expand(max_terms=3)
     with pytest.raises(ValueError,match='budget'):
-        ((x+y)**10000).expand()
+        ((x+y)**10000).expand(max_terms=10**6)
     assert ((x+y)**10000).expand(multinomial=False)==(x+y)**10000
     assert ((x**2147483647+y)**2).expand()==x**4294967294+2*x**2147483647*y+y**2
 

@@ -845,6 +845,22 @@ expression round trip, retaining exact domains and the established fallback
 for other coefficient domains. These are scoped preservation arguments, not a
 refresh of the separate full API or downstream qualification records.
 
+`expand` has no default size limit (2026-10-22), as SymPy's has none. A
+default term limit of 100 000 and a work budget of 5 000 000 elementary
+products used to make SymPy-compatible calls fail, e.g. `expand((x + y +
+z + w + v)**40)` (135 751 terms) or `expand((x + y)**3000)`, and the internal
+callers that fell back to the unexpanded input on that error (simplification
+helpers, `collect`, `integrate`, the inverse Laplace transform, the domain
+construction of expressions) silently changed their results. The default
+budget is now unbounded, for scalar and matrix expressions, and DiracDelta
+expansion no longer stops at 100 000 roots. The `max_terms` hint is a
+symox-only, opt-in resource guard: with it, exceeding the term limit or the
+work budget raises `ValueError` and never returns a partial expansion. Only
+an arithmetic overflow of the term counts (exponents near `2**64`) still
+fails without a hint. Remaining gap: `expand(complex=True)` keeps its own
+guards (4096 terms, powers up to 128, 20 000 nodes) and raises
+`NotImplementedError` beyond them where SymPy computes the result.
+
 The small integer response caches for `primepi` and `partition` apply only to
 one positional built-in Python integer in `[-10**6,10**6]` while evaluation is
 enabled. This is cache eligibility, not a mathematical domain limit: larger
