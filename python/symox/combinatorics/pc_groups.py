@@ -1,142 +1,278 @@
-"""Collection in certified finite polycyclic presentations.
+"""Polycyclic groups and collectors (ported from the reference pc_groups module)."""
+from symox.ntheory.primetest import isprime
+from symox.combinatorics.perm_groups import PermutationGroup
+from symox.printing.defaults import DefaultPrinting
+from symox.combinatorics.free_groups import free_group
 
-Normal forms are enumerated up to 100000 elements. Infinite polycyclic
-presentations and large-group collection require a different backend.
-"""
-from itertools import product
-from math import prod
-import operator
-from .free_groups import free_group, FreeGroupElement
-from .perm_groups import PermutationGroup
-from .permutations import Permutation
+class PolycyclicGroup(DefaultPrinting):
+    is_group = True
+    is_solvable = True
 
+    def __init__(self, pc_sequence, pc_series, relative_order, collector=None):
+        self.pcgs = pc_sequence
+        self.pc_series = pc_series
+        self.relative_order = relative_order
+        self.collector = Collector(self.pcgs, pc_series, relative_order) if not collector else collector
 
-class Collector:
-    def __init__(self,pcgs,pc_series,relative_order,free_group_=None,pc_presentation=None):
-        self.pcgs=list(pcgs);self.pc_series=list(pc_series)
-        self.relative_order=[operator.index(v) for v in relative_order]
-        if len(self.pcgs)!=len(self.relative_order) or any(v<1 for v in self.relative_order):
-            raise ValueError('finite relative orders must be positive and match the generators')
-        if prod(self.relative_order)>100000:raise NotImplementedError('polycyclic normal form enumeration exceeds 100000 elements')
-        if any(not isinstance(g,Permutation) for g in self.pcgs):raise TypeError('finite permutation generators required')
-        self.group=PermutationGroup(self.pcgs or [self.pc_series[0].identity if self.pc_series else Permutation([])])
-        self.free_group=free_group('x:%d'%len(self.pcgs))[0] if free_group_ is None else free_group_
-        if self.free_group.rank!=len(self.pcgs):raise ValueError('free group has the wrong rank')
-        self.index={s:i for i,s in enumerate(self.free_group.symbols)}
-        self._vectors={}
-        for vector in product(*(range(n) for n in self.relative_order)):
-            value=self.group.identity
-            for g,e in zip(self.pcgs,vector):value=value*g**e
-            if value in self._vectors:raise ValueError('polycyclic normal forms are not unique')
-            self._vectors[value]=vector
-        if len(self._vectors)!=self.group.order():raise ValueError('normal forms do not cover the group')
-        # Certify cyclic quotient factors and normality of each tail subgroup.
-        tails=[PermutationGroup(self.pcgs[i:] or [self.group.identity]) for i in range(len(self.pcgs)+1)]
-        for i,g in enumerate(self.pcgs):
-            if tails[i].order()!=self.relative_order[i]*tails[i+1].order() or any(not tails[i+1].contains(~g*h*g,strict=False) for h in tails[i+1].generators):
-                raise ValueError('the generators are not a polycyclic sequence')
-        if self.pc_series:
-            if len(self.pc_series)!=len(tails) or any(set(a._enumerate())!=set(b._enumerate()) for a,b in zip(self.pc_series,tails)):
-                raise ValueError('series does not match the polycyclic sequence')
-        self.pc_series=tails
-        self.pc_presentation=self.pc_relators()
-        if pc_presentation is not None and pc_presentation!=self.pc_presentation:
-            raise ValueError('supplied relators disagree with the permutation presentation')
+    def is_prime_order(self):
+        return all((isprime(order) for order in self.relative_order))
 
-    def exponent_vector(self,element):
-        if not isinstance(element,Permutation):raise TypeError('expected a permutation')
-        element=Permutation(element,size=self.group.degree)
-        try:return list(self._vectors[element])
-        except KeyError:raise ValueError('element is outside the polycyclic group') from None
+    def length(self):
+        return len(self.pcgs)
 
-    def _word(self,element):
-        word=self.free_group.identity
-        for g,e in zip(self.free_group.generators,self.exponent_vector(element)):word*=g**e
-        return word
+class Collector(DefaultPrinting):
 
-    def _permutation(self,word):
-        if isinstance(word,tuple) and not word:return self.group.identity
-        if not isinstance(word,FreeGroupElement) or word.group!=self.free_group:raise ValueError('word belongs to another free group')
-        value=self.group.identity
-        for s,e in word.array_form:value*=self.pcgs[self.index[s]]**e
+    def __init__(self, pcgs, pc_series, relative_order, free_group_=None, pc_presentation=None):
+        self.pcgs = pcgs
+        self.pc_series = pc_series
+        self.relative_order = relative_order
+        self.free_group = free_group('x:{}'.format(len(pcgs)))[0] if not free_group_ else free_group_
+        self.index = {s: i for (i, s) in enumerate(self.free_group.symbols)}
+        if not pc_series:
+            # Extension: the reference indexes an empty series and fails;
+            # the tail subgroups of the sequence form its polycyclic series.
+            identity = [pcgs[0] ** 0] if pcgs else []
+            self.pc_series = [PermutationGroup(list(pcgs[i:]) or identity)
+                              for i in range(len(pcgs) + 1)] if pcgs else []
+            tails = self.pc_series
+            for (i, g) in enumerate(pcgs):
+                if (tails[i].order() != relative_order[i] * tails[i + 1].order()
+                        or not tails[i + 1].is_normal(tails[i])):
+                    raise ValueError('the generators are not a polycyclic sequence')
+        self.pc_presentation = self.pc_relators()
+
+    def _permutation(self, word):
+        """Evaluate a word (or the empty relator ``()``) on the pcgs."""
+        value = self.pcgs[0] ** 0
+        if isinstance(word, tuple) and not word:
+            return value
+        if word.group != self.free_group:
+            raise ValueError('word belongs to another free group')
+        for (s, e) in word.array_form:
+            value = value * self.pcgs[self.index[s]] ** e
         return value
 
-    def collected_word(self,word):return self._word(self._permutation(word))
-
-    def pc_relators(self):
-        # Reference layout: generators are processed from the last one,
-        # identity values are stored as the empty tuple ().
-        result={}
-        gens=self.free_group.generators
-        def value(element):
-            word=self._word(element)
-            return word if word else ()
-        for i in reversed(range(len(self.pcgs))):
-            g,n=self.pcgs[i],self.relative_order[i]
-            result[gens[i]**n]=value(g**n)
-            for j in reversed(range(i+1,len(gens))):
-                result[gens[i]**-1*gens[j]*gens[i]]=value(~g*self.pcgs[j]*g)
-        return result
-
-    def relations(self):
-        return ({k:v for k,v in self.pc_presentation.items() if len(k.array_form)==1},
-                {k:v for k,v in self.pc_presentation.items() if len(k.array_form)!=1})
-
-    def minimal_uncollected_subword(self,word):
-        self._permutation(word)
-        for s,e in word.array_form:
-            if not 0<e<self.relative_order[self.index[s]]:return ((s,e),)
-        for (s,e),(t,f) in zip(word.array_form,word.array_form[1:]):
-            if self.index[s]>self.index[t]:return ((s,e),(t,1 if f>0 else -1))
+    def minimal_uncollected_subword(self, word):
+        if not word:
+            return None
+        array = word.array_form
+        re = self.relative_order
+        index = self.index
+        for i in range(len(array)):
+            (s1, e1) = array[i]
+            if re[index[s1]] and (e1 < 0 or e1 > re[index[s1]] - 1):
+                return ((s1, e1),)
+        for i in range(len(array) - 1):
+            (s1, e1) = array[i]
+            (s2, e2) = array[i + 1]
+            if index[s1] > index[s2]:
+                e = 1 if e2 > 0 else -1
+                return ((s1, e1), (s2, e))
         return None
 
-    def subword_index(self,word,w):
-        # Reference: letter positions (low, high) of the first occurrence of
-        # ``w`` in ``word``, or (-1, -1).
-        low=-1
-        high=-1
-        for i in range(len(word)-len(w)+1):
-            if word.subword(i,i+len(w))==w:
-                low=i
-                high=i+len(w)
-                break
-        return low,high
+    def relations(self):
+        power_relators = {}
+        conjugate_relators = {}
+        for (key, value) in self.pc_presentation.items():
+            if len(key.array_form) == 1:
+                power_relators[key] = value
+            else:
+                conjugate_relators[key] = value
+        return (power_relators, conjugate_relators)
 
-    def map_relation(self,w):
-        # Reference: for w = x_i*x_j return the conjugate relator value of
-        # x_j**-1*x_i*x_j from the polycyclic presentation.
-        array=w.array_form
-        s1=array[0][0]
-        s2=array[1][0]
-        key=self.free_group.dtype(((s2,-1),(s1,1),(s2,1)))
+    def subword_index(self, word, w):
+        low = -1
+        high = -1
+        for i in range(len(word) - len(w) + 1):
+            if word.subword(i, i + len(w)) == w:
+                low = i
+                high = i + len(w)
+                break
+        return (low, high)
+
+    def map_relation(self, w):
+        array = w.array_form
+        s1 = array[0][0]
+        s2 = array[1][0]
+        key = ((s2, -1), (s1, 1), (s2, 1))
+        key = self.free_group.dtype(key)
         return self.pc_presentation[key]
 
-    def depth(self,element):
-        return next((i+1 for i,v in enumerate(self.exponent_vector(element)) if v),len(self.pcgs)+1)
+    def collected_word(self, word):
+        free_group = self.free_group
+        while True:
+            w = self.minimal_uncollected_subword(word)
+            if not w:
+                break
+            (low, high) = self.subword_index(word, free_group.dtype(w))
+            if low == -1:
+                continue
+            (s1, e1) = w[0]
+            if len(w) == 1:
+                re = self.relative_order[self.index[s1]]
+                q = e1 // re
+                r = e1 - q * re
+                key = ((w[0][0], re),)
+                key = free_group.dtype(key)
+                if self.pc_presentation[key]:
+                    # The reference keeps only the first syllable of the
+                    # power relator; x**e = x**r * (x**re)**q needs all of it.
+                    word_ = free_group.dtype(((w[0][0], 1),)) ** r * self.pc_presentation[key] ** q
+                elif r != 0:
+                    word_ = ((w[0][0], r),)
+                    word_ = free_group.dtype(word_)
+                else:
+                    word_ = None
+                word = word.eliminate_word(free_group.dtype(w), word_)
+            if len(w) == 2 and w[1][1] > 0:
+                (s2, e2) = w[1]
+                s2 = ((s2, 1),)
+                s2 = free_group.dtype(s2)
+                word_ = self.map_relation(free_group.dtype(w))
+                word_ = s2 * word_ ** e1
+                word_ = free_group.dtype(word_)
+                word = word.substituted_word(low, high, word_)
+            elif len(w) == 2 and w[1][1] < 0:
+                (s2, e2) = w[1]
+                s2 = ((s2, 1),)
+                s2 = free_group.dtype(s2)
+                word_ = self.map_relation(free_group.dtype(w))
+                word_ = s2 ** (-1) * word_ ** e1
+                word_ = free_group.dtype(word_)
+                word = word.substituted_word(low, high, word_)
+        return word
 
-    def leading_exponent(self,element):
-        return next((v for v in self.exponent_vector(element) if v),None)
+    def pc_relators(self):
+        free_group = self.free_group
+        rel_order = self.relative_order
+        pc_relators = {}
+        perm_to_free = {}
+        pcgs = self.pcgs
+        for (gen, s) in zip(pcgs, free_group.generators):
+            perm_to_free[gen ** (-1)] = s ** (-1)
+            perm_to_free[gen] = s
+        pcgs = pcgs[::-1]
+        series = self.pc_series[::-1]
+        rel_order = rel_order[::-1]
+        collected_gens = []
+        for (i, gen) in enumerate(pcgs):
+            re = rel_order[i]
+            relation = perm_to_free[gen] ** re
+            G = series[i]
+            l = G.generator_product(gen ** re, original=True)
+            l.reverse()
+            word = free_group.identity
+            for g in l:
+                word = word * perm_to_free[g]
+            word = self.collected_word(word)
+            pc_relators[relation] = word if word else ()
+            self.pc_presentation = pc_relators
+            collected_gens.append(gen)
+            if len(collected_gens) > 1:
+                conj = collected_gens[len(collected_gens) - 1]
+                conjugator = perm_to_free[conj]
+                for j in range(len(collected_gens) - 1):
+                    conjugated = perm_to_free[collected_gens[j]]
+                    relation = conjugator ** (-1) * conjugated * conjugator
+                    gens = conj ** (-1) * collected_gens[j] * conj
+                    l = G.generator_product(gens, original=True)
+                    l.reverse()
+                    word = free_group.identity
+                    for g in l:
+                        word = word * perm_to_free[g]
+                    word = self.collected_word(word)
+                    pc_relators[relation] = word if word else ()
+                    self.pc_presentation = pc_relators
+        return pc_relators
 
-    def induced_pcgs(self,gens):
-        subgroup=PermutationGroup(gens)
-        chosen=[]
-        for d in range(1,len(self.pcgs)+1):
-            candidates=[g for g in subgroup._enumerate() if self.depth(g)==d]
-            if candidates:
-                chosen.append(min(candidates,key=lambda g:self.leading_exponent(g)))
-        return chosen
+    def exponent_vector(self, element):
+        free_group = self.free_group
+        G = PermutationGroup()
+        for g in self.pcgs:
+            G = PermutationGroup([g] + G.generators)
+        gens = G.generator_product(element, original=True)
+        gens.reverse()
+        perm_to_free = {}
+        for (sym, g) in zip(free_group.generators, self.pcgs):
+            perm_to_free[g ** (-1)] = sym ** (-1)
+            perm_to_free[g] = sym
+        w = free_group.identity
+        for g in gens:
+            w = w * perm_to_free[g]
+        word = self.collected_word(w)
+        index = self.index
+        exp_vector = [0] * len(free_group)
+        word = word.array_form
+        for t in word:
+            exp_vector[index[t[0]]] = t[1]
+        return exp_vector
 
-    def constructive_membership_test(self,ipcgs,g):
-        group=PermutationGroup(ipcgs or [self.group.identity])
-        return group.contains(g,strict=False)
+    def depth(self, element):
+        exp_vector = self.exponent_vector(element)
+        return next((i + 1 for (i, x) in enumerate(exp_vector) if x), len(self.pcgs) + 1)
 
+    def leading_exponent(self, element):
+        exp_vector = self.exponent_vector(element)
+        depth = self.depth(element)
+        if depth != len(self.pcgs) + 1:
+            return exp_vector[depth - 1]
+        return None
 
-class PolycyclicGroup:
-    is_group=is_solvable=True
-    def __init__(self,pc_sequence,pc_series,relative_order,collector=None):
-        self.collector=Collector(pc_sequence,pc_series,relative_order) if collector is None else collector
-        self.pcgs=self.collector.pcgs;self.pc_series=self.collector.pc_series;self.relative_order=self.collector.relative_order
-    def length(self):return len(self.pcgs)
-    def is_prime_order(self):
-        from .. import isprime
-        return all(isprime(n) for n in self.relative_order)
+    def _inverse_exponent(self, value, depth):
+        # The reference multiplies by the float ``value**-1``; the leading
+        # exponent has to be inverted modulo the relative order instead.
+        order = self.relative_order[depth - 1]
+        try:
+            return pow(int(value), -1, int(order))
+        except ValueError:
+            raise NotImplementedError('leading exponent %s is not invertible '
+                'modulo the relative order %s' % (value, order)) from None
+
+    def _sift(self, z, g):
+        h = g
+        d = self.depth(h)
+        # The reference stops at depth len(pcgs) and never sifts elements of
+        # the last depth.
+        while d <= len(self.pcgs) and z[d - 1] != 1:
+            k = z[d - 1]
+            e = self.leading_exponent(h) * self._inverse_exponent(self.leading_exponent(k), d)
+            e = e % self.relative_order[d - 1]
+            h = k ** (-e) * h
+            d = self.depth(h)
+        return h
+
+    def induced_pcgs(self, gens):
+        z = [1] * len(self.pcgs)
+        # The reference pops from (and so empties) the caller's list.
+        G = list(gens)
+        while G:
+            g = G.pop(0)
+            h = self._sift(z, g)
+            d = self.depth(h)
+            if d <= len(self.pcgs):
+                for gen in z:
+                    if gen != 1:
+                        G.append(h ** (-1) * gen ** (-1) * h * gen)
+                # The reference omits the power of the new element, so it
+                # misses (0 2)(1 3) in the subgroup generated by (0 1 2 3).
+                G.append(h ** self.relative_order[d - 1])
+                z[d - 1] = h
+        z = [gen for gen in z if gen != 1]
+        return z
+
+    def constructive_membership_test(self, ipcgs, g):
+        e = [0] * len(ipcgs)
+        h = g
+        d = self.depth(h)
+        for (i, gen) in enumerate(ipcgs):
+            while self.depth(gen) == d:
+                f = self.leading_exponent(h) * self._inverse_exponent(self.leading_exponent(gen), d)
+                f = f % self.relative_order[d - 1]
+                h = gen ** (-f) * h
+                e[i] = f
+                d = self.depth(h)
+        # The reference compares a Permutation with 1, which is never equal,
+        # so it reports every member as outside the subgroup.
+        if h.is_Identity:
+            return e
+        return False

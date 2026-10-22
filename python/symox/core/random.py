@@ -31,3 +31,25 @@ def test_derivative_numerically(f,z,tol=1e-6,a=2,b=-1,c=3,d=1):
 
 test_derivative_numerically.__test__=False
 __all__=['seed','random_complex_number','verify_numerically','test_derivative_numerically']
+
+
+def _randrange(seed=None):
+    """Return a randrange generator seeded by an int or by a value sequence."""
+    if seed is None:
+        return randrange
+    if isinstance(seed,int):
+        rng.seed(seed);return randrange
+    from ..utilities.iterables import is_sequence
+    if is_sequence(seed):
+        seed=list(seed);seed.reverse()
+        def give(a,b=None,seq=seed):
+            from ..utilities.misc import as_int
+            if b is None:a,b=0,a
+            a,b=as_int(a),as_int(b)
+            if b-a<1:raise ValueError('_randrange got empty range')
+            try:x=seq.pop()
+            except IndexError:raise ValueError('_randrange sequence was too short')
+            if a<=x<b:return x
+            return give(a,b,seq)
+        return give
+    raise ValueError('_randrange got an unexpected seed')

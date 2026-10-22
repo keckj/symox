@@ -47,18 +47,18 @@ def test_conjugacy_class_accepts_elements_outside_group():
 
 def test_transversal_sampling_is_uniform_without_enumerating_group(monkeypatch):
     import symox.combinatorics.perm_groups as module
+    # As in the reference, random() unranks a uniform rank through the
+    # basic transversals, so every rank gives a distinct group element.
     group = SymmetricGroup(4)
-    levels = group._chain().transversals
     seen = set()
-    for choices in itertools.product(*(range(len(level)) for level in levels)):
-        indices = iter(choices)
-        monkeypatch.setattr(module.random, 'choice', lambda sequence: sequence[next(indices)])
+    for rank in range(group.order()):
+        monkeypatch.setattr(module, 'randrange', lambda n, rank=rank: rank)
         value = group.random()
         assert group.contains(value)
         seen.add(tuple(value.array_form))
-    assert len(seen) == group.order() == math.prod(map(len, levels))
+    assert len(seen) == group.order() == math.prod(map(len, group.basic_transversals))
     large = SymmetricGroup(30)
-    monkeypatch.setattr(module.random, 'choice', lambda sequence: sequence[-1])
+    monkeypatch.setattr(module, 'randrange', lambda n: n - 1)
     def forbidden(*args, **kwargs):
         raise AssertionError('Sampling must not enumerate the factorial-size group')
     monkeypatch.setattr(large, 'generate_schreier_sims', forbidden)
