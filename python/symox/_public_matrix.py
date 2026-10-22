@@ -1,5 +1,4 @@
 """Deferred vectors, indexed contractions and matrix scalar entry points."""
-from collections import Counter
 import operator
 
 from . import _core
@@ -94,60 +93,122 @@ class IndexConformanceException(ValueError):
     """Outer Einstein indices disagree or occur more than twice."""
 
 
-def _index_result(expr):
+def _as_indexed(expr):
     from .codegen.ast import Indexed
-    from . import sympify
-    indexed = expr if isinstance(expr,Indexed) else _indexed.get(expr)
-    if indexed is not None:
-        counts = Counter(indexed.indices)
-    else:
-        expr = sympify(expr)
-        if expr.is_Add:
-            results = [_index_result(a)[0] for a in expr.args]
-            nonscalar = [r for r in results if r]
-            if nonscalar and any(r != nonscalar[0] for r in nonscalar):
-                raise IndexConformanceException('indices are not consistent across sum terms')
-            return nonscalar[0] if nonscalar else set(),()
-        if expr.is_Mul:
-            counts = Counter(i for a in expr.args for i in _index_result(a)[0])
-        elif expr.is_Pow:
-            base,exponent = expr.args
-            first,second = _index_result(base)[0],_index_result(exponent)[0]
-            return first | second,()
-        elif expr.is_Function:
-            results = [_index_result(a)[0] for a in expr.args if isinstance(a,_core.Expr)]
-            return set().union(*results),()
-        else:
-            return set(),()
-    if any(count > 2 for count in counts.values()):
-        raise IndexConformanceException('an Einstein index occurs more than twice')
-    return {i for i,n in counts.items() if n == 1},tuple(sorted((i for i,n in counts.items() if n == 2),key=str))
+    if isinstance(expr,Indexed):return expr
+    try:return _indexed.get(expr)
+    except TypeError:return None
+
+
+def _unique_and_repeated(inds):
+    # SymPy's index_methods._unique_and_repeated: first-occurrence order.
+    uniq = {}
+    for i in inds:
+        uniq[i] = 0 if i in uniq else 1
+    return [i for i,n in uniq.items() if n],[i for i,n in uniq.items() if not n]
+
+
+def _remove_repeated(inds):
+    unique,repeated = _unique_and_repeated(inds)
+    return set(unique),tuple(repeated)
+
+
+def _index_object(i):
+    try:return _indices.get(i,i)
+    except TypeError:return i
+
+
+def _indexed_indices(indexed):
+    return [_index_object(i) for i in indexed.indices]
+
+
+def _get_indices_Mul(expr,return_dummies=False):
+    inds = [i for arg in expr.args for i in get_indices(arg)[0]]
+    inds,dummies = _remove_repeated(inds)
+    if return_dummies:return inds,{},dummies
+    return inds,{}
+
+
+def _index_atom(expr):
+    return isinstance(expr,_core.Expr) and not expr.args
 
 
 def get_indices(expr):
-    return {_indices.get(i,i) for i in _index_result(expr)[0]},{}
+    """Outer indices of ``expr``, following sympy.tensor.index_methods."""
+    from . import sympify
+    indexed = _as_indexed(expr)
+    if indexed is not None:
+        unique,_ = _unique_and_repeated(_indexed_indices(indexed))
+        return set(unique),{}
+    if expr is None:return set(),{}
+    if isinstance(expr,Idx):return {expr},{}
+    expr = sympify(expr)
+    if _index_atom(expr):return set(),{}
+    if expr.is_Mul:
+        return _get_indices_Mul(expr)
+    if expr.is_Add:
+        results = [get_indices(a)[0] for a in expr.args]
+        nonscalar = [r for r in results if r != set()]
+        if not nonscalar:return set(),{}
+        if any(r != nonscalar[0] for r in nonscalar[1:]):
+            raise IndexConformanceException('Indices are not consistent: %s' % expr)
+        return nonscalar[0],{}
+    if expr.is_Pow or getattr(expr,'class_name','') == 'exp':
+        base,exponent = expr.as_base_exp()
+        return get_indices(base)[0] | get_indices(exponent)[0],{}
+    if getattr(expr,'class_name','') == 'Piecewise':
+        return set(),{}
+    if expr.is_Function:
+        found = set()
+        for arg in expr.args:
+            found |= get_indices(arg)[0]
+        return found,{}
+    return set(),{}
+
+
+def _trivial(structure):
+    return None in structure and len(structure) == 1
 
 
 def get_contraction_structure(expr):
+    """Dummy-index structure of ``expr``, following sympy.tensor.index_methods."""
     from . import sympify
-    from .codegen.ast import Indexed
-    node = expr if isinstance(expr,Indexed) else sympify(expr)
-    terms = node.args if not isinstance(node,Indexed) and node.is_Add else (node,)
-    result = {}
-    for term in terms:
-        dummy = _index_result(term)[1]
-        key = tuple(_indices.get(i,i) for i in dummy) or None
-        result.setdefault(key,set()).add(term)
+    indexed = _as_indexed(expr)
+    if indexed is not None:
+        _,key = _remove_repeated(_indexed_indices(indexed))
+        return {key or None:{expr}}
+    expr = sympify(expr)
+    if _index_atom(expr):return {None:{expr}}
+    if expr.is_Mul:
+        _,_,key = _get_indices_Mul(expr,return_dummies=True)
+        result = {key or None:{expr}}
         nested = []
-        if not isinstance(term,Indexed):
-            for child in term.args:
-                if isinstance(child,_core.Expr) and child.args:
-                    structure = get_contraction_structure(child)
-                    if any(k is not None for k in structure):
-                        nested.append(structure)
-        if nested:
-            result[term] = nested
-    return result
+        for factor in expr.args:
+            structure = get_contraction_structure(factor)
+            if not _trivial(structure):nested.append(structure)
+        if nested:result[expr] = nested
+        return result
+    if expr.is_Pow or getattr(expr,'class_name','') == 'exp':
+        base,exponent = expr.as_base_exp()
+        dicts = [d for d in (get_contraction_structure(base),get_contraction_structure(exponent)) if not _trivial(d)]
+        result = {None:{expr}}
+        if dicts:result[expr] = dicts
+        return result
+    if expr.is_Add:
+        result = {}
+        for term in expr.args:
+            for key,value in get_contraction_structure(term).items():
+                if key in result:result[key] |= value
+                else:result[key] = value
+        return result
+    if getattr(expr,'class_name','') == 'Piecewise':
+        return {None:expr}
+    if expr.is_Function:
+        deep = [d for d in (get_contraction_structure(a) for a in expr.args) if not _trivial(d)]
+        result = {None:{expr}}
+        if deep:result[expr] = deep
+        return result
+    return {None:{expr}}
 
 
 class Permanent(metaclass=_ExprType):
