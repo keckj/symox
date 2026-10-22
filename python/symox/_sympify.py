@@ -81,7 +81,11 @@ def make_sympify(original):
             if strict:raise SympifyError(a)
             return type(a)(sympify(value,locals=locals,convert_xor=convert_xor,
                                   rational=rational,evaluate=evaluate) for value in a)
-        if isinstance(a,_core.Matrix) or getattr(a,'_symox_sparse',False):
+        if getattr(a,'_symox_sparse',False):
+            # SymPy keeps the sparse representation: sympify(SparseMatrix)
+            # is an ImmutableSparseMatrix, which printers dispatch on.
+            return a if getattr(a,'_immutable',False) else a.as_immutable()
+        if isinstance(a,_core.Matrix):
             return ImmutableMatrix(a)
         if getattr(a,'is_NDimArray',False) and getattr(a,'_mutable',False):
             # SymPy converts mutable arrays to their immutable counterpart.

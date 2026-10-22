@@ -3105,3 +3105,54 @@ for constructing every stabilizer chain.
   remain separate obligations.
 
 These gaps prevent a claim of global algorithmic equivalence with SymPy.
+
+## Wrong-result fixes: optics, Gaunt, Poisson process, Maple, codegen (WP-G14)
+
+Fixed to match SymPy 1.14:
+
+- `physics.optics.utils` is a faithful port: `deviation` sign, `fresnel_coefficients`
+  returns two values under total internal reflection, `refraction_angle`
+  returns `Ray3D` and raises `ValueError` on total internal reflection, and
+  lens/mirror formulas handle `oo`.
+- `real_gaunt` uses the SymPy U-matrix convention (checked identical to the
+  reference on 859 index combinations).
+- `maple_code(..., assign_to=y)` emits `:=`; the printer is a port of the
+  reference `MapleCodePrinter`. Sparse matrices keep their sparse type through
+  `sympify`, and `S.BooleanTrue`/`S.BooleanFalse` are available.
+- `codegen.ast.Element` coerces indices and strides to `Tuple`, is no longer an
+  arithmetic expression, and `ccode` honours strides and offset.
+  `Node.attr_params` returns `None` for a missing attribute.
+- `PoissonProcess` conditional probabilities with random-event or `Contains`
+  conditions are computed exactly (finite enumeration with a lumped tail
+  state) instead of being returned inside a `Piecewise`. `state_space` is
+  `Naturals0`; `__add__` and `split` follow the reference, including errors.
+
+Deliberate divergences where the reference is mathematically wrong (symox keeps
+the exact value; `X` is `PoissonProcess('X', 3)`):
+
+| Query | SymPy | symox |
+|---|---|---|
+| `P(Eq(X(t1),2), Ne(X(t1),4) & Contains(t1, [2,4)))` | `1-36e^-6` | `1-54e^-6` |
+| `P(X(2)<=3, X(1)>1)` | `5e^-3` | `45e^-3/(2(e^3-4))` |
+| `P(X(2)<=3, X(1)>=1)` | `27e^-3/2` | `48e^-3/(e^3-1)` |
+| `P(X(3)>2, X(1)<2)` | `e^-6` | `1-23e^-6/2` |
+| `P(X(4)<3, Eq(X(1),1))` | `e^-9` | `10e^-9` |
+| `P(X(2)<3, X(2)>1)` | `0` | `18/(e^6-7)` |
+| `P((X(1)<2) & (X(2)>3))` | `4e^-6` | `4e^-3-77e^-6/2` |
+| `P(Eq(X(t1),1) \| Eq(X(t2),0))`, disjoint `Contains` | `e^-6+3e^-3` | `3e^-3+e^-6-3e^-9` |
+| `E(X(3), Eq(X(1),2))` | `9` | `8` |
+
+Remaining gaps:
+
+- `fcode` of codegen nodes (`Element`, `Assignment`, `Declaration`) is not
+  supported by the native Fortran printer; `fcode(Element)` now raises
+  `TypeError` instead of emitting the wrong `x[i, j]`.
+- Reprs of other codegen nodes (`Variable`, `Assignment`, `Node`,
+  `FunctionCall`, `For`) differ from the reference `Token` repr, and
+  `str(none)` is `None` instead of `NoneToken()`.
+- A symox `Tuple` compares unequal to a Python `tuple` (SymPy: equal).
+- Unevaluated process probabilities display internal atoms (`_X(t1)`).
+- Outside the process path, joint probabilities of independent discrete
+  variables over multivariate relationals (for example
+  `P(Eq(A,2) & Eq(B,3))` with plain `Poisson` variables) still return a
+  wrong `Piecewise` with dummies outside the `Sum`.

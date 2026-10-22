@@ -329,7 +329,15 @@ class Float(Number):
             from mpmath.libmp import dps_to_prec
             bits = int(precision) if precision is not None else dps_to_prec(15 if dps is None else int(dps))
             return _core.Float(mpmath.mpf(num, prec=bits), precision=bits)
-        return _core.Float(num, dps, precision=precision)
+        try:
+            return _core.Float(num, dps, precision=precision)
+        except NotImplementedError:
+            # An object whose conversion hook declines (a geometric locus,
+            # for instance) is not a number: the reference fails in mpmath
+            # with a TypeError, which callers such as optics.deviation catch.
+            if isinstance(num, (str, int, float, tuple, _core.Expr)):
+                raise
+            raise TypeError('cannot create mpf from %r' % (num,)) from None
 
 
 def _host_atom_bases(bases):
@@ -682,6 +690,7 @@ class _SingletonRegistry:
             "Pi": "pi", "Exp1": "E", "ImaginaryUnit": "I",
             "Infinity": "oo", "ComplexInfinity": "zoo", "NaN": "nan",
             "EulerGamma": "EulerGamma", "true": "true", "false": "false",
+            "BooleanTrue": "true", "BooleanFalse": "false",
             "Catalan": "Catalan", "GoldenRatio": "GoldenRatio",
             "TribonacciConstant": "TribonacciConstant",
         }

@@ -1,6 +1,5 @@
 """Exact angular-momentum coupling from finite factorial sums."""
 from functools import lru_cache
-from itertools import product
 import symox as S
 
 H = S.Rational(1,2)
@@ -82,14 +81,34 @@ def gaunt(l_1,l_2,l_3,m_1,m_2,m_3,prec=None):
 
 
 def real_gaunt(l_1,l_2,l_3,mu_1,mu_2,mu_3,prec=None):
-    degrees = tuple(map(S.sympify,(l_1,l_2,l_3)));orders = tuple(map(S.sympify,(mu_1,mu_2,mu_3)))
-    if any(not v.is_Integer for v in degrees+orders):raise ValueError('real Gaunt indices must be integers')
-    def basis(m):
-        if m==0:return [(0,S.Integer(1))]
-        if m>0:return [(m,1/S.sqrt(2)),(-m,S.Integer(-1)**int(m)/S.sqrt(2))]
-        return [(m,1/(S.I*S.sqrt(2))),(-m,-S.Integer(-1)**int(m)/(S.I*S.sqrt(2)))]
-    value = S.simplify(S.Add(*(S.Mul(*(v[1] for v in combination))*gaunt(*degrees,*(v[0] for v in combination)) for combination in product(*(basis(m) for m in orders)))))
-    return value.evalf(prec) if prec else value
+    """Integral of three real spherical harmonics.
+
+    The real harmonics are built from the complex ones with the reference
+    unitary matrix U (Homeier and Steinborn), including its Condon-Shortley
+    phase, so the sign of every coefficient matches the reference."""
+    from symox.utilities.misc import as_int
+    l_1,l_2,l_3,mu_1,mu_2,mu_3 = [as_int(i) for i in (l_1,l_2,l_3,mu_1,mu_2,mu_3)]
+    # An odd number of negative orders makes the integrand odd.
+    if sum(1 for i in (mu_1,mu_2,mu_3) if i<0)%2:return S.Integer(0)
+    if (l_1+l_2+l_3)%2:return S.Integer(0)
+    lmax = l_2+l_3
+    lmin = max(abs(l_2-l_3),min(abs(mu_2+mu_3),abs(mu_2-mu_3)))
+    if (lmin+lmax)%2:lmin += 1
+    if lmin not in range(lmax,lmin-2,-2):return S.Integer(0)
+    kron_del = lambda i,j:1 if i==j else 0
+    s = lambda e:-1 if e%2 else 1
+    t = lambda x:1 if x>0 else 0
+    A = lambda mu,m:t(-mu)*(s(m)*kron_del(m,mu)-kron_del(m,-mu))
+    B = lambda mu,m:t(mu)*(kron_del(m,mu)+s(m)*kron_del(m,-mu))
+    U = lambda mu,m:kron_del(abs(mu),abs(m))*(kron_del(mu,0)*kron_del(m,0)+(B(mu,m)+S.I*A(mu,m))/S.sqrt(2))
+    ugnt = S.Integer(0)
+    for m1 in range(-l_1,l_1+1):
+        U1 = U(mu_1,m1)
+        for m2 in range(-l_2,l_2+1):
+            U2 = U(mu_2,m2)
+            U3 = U(mu_3,-m1-m2)
+            ugnt = ugnt+S.re(U1*U2*U3)*gaunt(l_1,l_2,l_3,m1,m2,-m1-m2,prec=prec)
+    return ugnt
 
 
 def wigner_d_small(J,beta):

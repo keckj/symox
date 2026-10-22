@@ -50,7 +50,11 @@ def test_javascript_executes(expression):
 
 def test_unknown_functions_and_user_mapping():
     expression=sx.Function('custom')(x)
-    for fn in [p.jscode,p.julia_code,p.octave_code,p.rcode,p.maple_code,p.mathematica_code,p.glsl_code]:
+    # The reference Maple printer allows unknown functions and has no
+    # user_functions setting.
+    assert p.maple_code(expression)=='custom(x)'
+    with pytest.raises(TypeError):p.maple_code(expression,user_functions={'custom':'mapped'})
+    for fn in [p.jscode,p.julia_code,p.octave_code,p.rcode,p.mathematica_code,p.glsl_code]:
         with pytest.raises(NotImplementedError):fn(expression)
         assert 'mapped' in fn(expression,user_functions={'custom':'mapped'})
     assert p.jscode(sx.Symbol('for'))=='for_'
