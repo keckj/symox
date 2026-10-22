@@ -3620,3 +3620,101 @@ Remaining unsupported:
 - The audited `DomainMatrix`/`DDM`/`SDM`/`DFM` method examples (`fflu`,
   `lll`, `qr`, `clear_denoms`, `primitive`, `charpoly_factor_*`, ...)
   remain open.
+
+## Wave 4: statistics joint events and symbolic queries (WP-C10)
+
+Implemented (tests in `tests/test_missing_stats_wave4_parity.py`):
+
+- Joint events over independent probability spaces. `P` of `&` and `|`
+  events, including discrete x discrete and discrete x continuous events,
+  now factors over independent blocks. `P(Eq(A, 2) & Eq(B, 3))` with
+  independent Poisson variables used to return a wrong `Piecewise`; it is
+  now the product of the two probabilities. `E` and `P` drop condition
+  blocks that are independent of the queried expression. `E` of a product
+  over independent blocks factors.
+- `piecewise_fold` no longer moves a `Piecewise` out of a `Sum`, `Product`
+  or `Integral` when a condition uses the bound variable. Before, a
+  `simplify` of such sums was wrong.
+- `rewrite` (Integral, Sum, Probability, Expectation) and `expand` of
+  `Expectation`, `Variance`, `Covariance`, `Probability`, `Moment` and
+  `CentralMoment`, plus their `doit`, `evaluate_integral` and
+  `evaluate_sum`, follow the reference.
+- A random symbol used as a condition means that it is observed, as in
+  SymPy's `Eq(Y, Y.symbol)`. This applies to `given`, `E`, `P`, `density`
+  and `variance`: `E(X + Y, Y) = Y`, and `density(X + Y, Y)` is the shifted
+  normal. A component of a joint distribution raises
+  `NotImplementedError`. `given(expr, cond)` returns `expr` when `cond` is
+  independent of it.
+- `given(Tuple(...), cond)` is supported when at most one entry depends on
+  the event and that entry shares no space with the others. Other cases
+  raise `NotImplementedError`.
+- `RandomSymbol.subs` on distribution parameters rebuilds the variable.
+  Before, `Normal('X', m, 1).subs(m, 2)` silently kept the mean `m`.
+- `IdealSoliton` and `RobustSoliton` accept a symbolic `k` (and a symbolic
+  `c`). `density(.).dict` is the held `Density(...)`, and `.subs(...).doit()`
+  evaluates it. The ideal soliton mass function is symbolic. `E` and `P` of
+  a symbolic-size soliton raise `NotImplementedError` (SymPy raises
+  `TypeError`).
+- `coskewness` with a condition (the audited doctest) now runs in a fraction
+  of a second; before, it took more than 60 s. The cause was the factored
+  expectation of independent blocks.
+- `DiscreteMarkovChain`:
+  - Float rows are checked exactly, as in the reference.
+  - Symbol state labels are decided by index.
+  - A `MatrixSymbol` of explicit size is used entrywise, both as `trans_probs`
+    and through `TransitionMatrixOf`.
+  - A `MatrixSymbol` of symbolic size has state space `Range(0, n)` and
+    answers `P(Eq(Y[a], b), Eq(Y[c], d))` as `(T**(a - c))[d, b]`.
+  - `stationary_distribution(condition_set=True)` works for a `MatrixSymbol`.
+  - Added `limiting_distribution` and `fixed_row_vector`.
+- Added `ContinuousMarkovChain.limiting_distribution()`.
+
+Probe counts against SymPy 1.14 (scratch probes, cases that differ in
+value, not only in `_X` dummy printing):
+
+| Probe | Before | After |
+| --- | --- | --- |
+| Joint and conditional `P`/`E`, 24 cases | 12 wrong or raising | 0 |
+| Observed-variable and tuple `given`, 25 cases | 22 raising or wrong | 6 open: 3 unsupported tuple cases, 3 divergences listed below |
+| Markov chain doctest variants, 20 cases | 17 failing | 7 open, listed below |
+| Soliton doctest | raising | matching for `IdealSoliton` |
+
+Intentional divergences:
+
+- `P(A | B)` for non-disjoint independent discrete events: SymPy adds the
+  two probabilities. symox uses inclusion-exclusion.
+- `Variance(X).doit()` and `Covariance(X, Y).doit()` evaluate where the
+  reference keeps them unevaluated.
+- `P(X > Y, Y)` evaluates to `1/2 - erf(sqrt(2)*Y/2)/2`, where SymPy returns
+  it unevaluated. `P(Y > 1, Y)` is the indicator `Piecewise`, where SymPy
+  returns a `BernoulliDistribution`.
+- `given(Tuple(X, Y), X > 0)`: the entries are independent, so
+  `independent` is True. SymPy reports them as dependent through the shared
+  conditional space. `dependent(A, A + B)` for discrete variables is True;
+  SymPy raises `NotImplementedError`.
+- `RobustSoliton` normalizes over the support `1..k`, so the mass sums to 1
+  (Luby). The reference `Z` sums the spike terms up to `round(k/R)`, beyond
+  `k`, and its masses do not sum to 1. For example, `k = 10` with
+  `c = 0.05` sums to `0.975`. Numeric values therefore differ from the
+  reference doctest.
+
+Remaining unsupported:
+
+- `Str` states of a Markov chain raise `NotImplementedError`. The native
+  `Eq` does not accept `Str`.
+- Markov queries at symbolic times (`P(Eq(Y[a], b), Eq(Y[c], d))` on an
+  explicit matrix) raise `NotImplementedError`. SymPy builds a symbolic
+  matrix power.
+- `stationary_distribution()` and `limiting_distribution()` of a
+  `MatrixSymbol` chain without `condition_set=True` raise
+  `NotImplementedError`. The native `Lambda` rejects matrix-symbol
+  signatures.
+- Not implemented and still raising `AttributeError`:
+  `DiscreteMarkovChain.canonical_form`, `communication_classes`,
+  `decompose` and `fundamental_matrix`.
+- `given(Tuple(...), cond)` with an event shared by several entries, such
+  as `Eq(X + Y, 3)`.
+- The native summation of `k*3**k/k!` over `k >= 0` stays unevaluated, so
+  `Expectation(Poisson).rewrite(Sum).doit()` is a `Sum`. `E` itself is
+  exact. Sums of an expression times an indicator `Piecewise` of the
+  summation variable stay unevaluated; SymPy also leaves them unevaluated.

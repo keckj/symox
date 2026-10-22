@@ -73,14 +73,29 @@ class Distribution:
     @property
     def set(self):
         if self._support is not None:return self._support
+        if getattr(self,'_held_density',False) and self._table is None:
+            if self.upper.is_Integer:return S.FiniteSet(*S.Range(self.lower,self.upper+1))
+            return S.Range(self.lower,self.upper+1)
         if self.kind == 'finite' and self._table is not None:return S.FiniteSet(*self.dict)
         if self.kind == 'discrete':return S.Range(self.lower,self.upper+1)
         return S.Interval(self.lower,self.upper)
     @property
     def dict(self):
+        if self._table is None and getattr(self,'_held_density',False):return HeldDensity(self)
         if self._table is None:raise ValueError('the support is not an explicit finite table')
         return self._table() if callable(self._table) else dict(self._table)
     def __call__(self,*args):return self.pdf(*args)
+    def remake(self,function):
+        """The same family with ``function`` applied to every parameter, or
+        None when the parameters do not change or cannot be rebuilt."""
+        params = getattr(self,'_params',None)
+        if params is None:return None
+        def apply(value):
+            if isinstance(value,(list,tuple)):return type(value)(apply(v) for v in value)
+            return function(value) if hasattr(value,'subs') else value
+        values = tuple(apply(v) for v in params)
+        if values == params:return None
+        return self._remake(values)
     def pdf(self,x):
         x = scalar(x)
         if self._pdf is not None:return self._pdf(x)
@@ -195,6 +210,27 @@ class Distribution:
         return result.item() if not size else result
 
 
+class HeldDensity:
+    """The unevaluated density table of a distribution with symbolic size,
+    printed as ``Density(...)``; ``subs`` then ``doit`` evaluates it."""
+    def __init__(self,distribution):self.distribution = distribution
+    def __repr__(self):return 'Density(%r)' % (self.distribution,)
+    __str__ = __repr__
+    @property
+    def args(self):return (self.distribution,)
+    @property
+    def free_symbols(self):return self.distribution.free_symbols
+    def subs(self,*args,**kwargs):
+        model = self.distribution.remake(lambda v:v.subs(*args,**kwargs))
+        return self if model is None else HeldDensity(model)
+    def doit(self,**hints):
+        return self if self.distribution._table is None else self.distribution.dict
+    def _table(self,*args):raise NotImplementedError('a distribution with symbolic size has no explicit density table')
+    items = keys = values = __iter__ = __len__ = __getitem__ = _table
+    def __eq__(self,other):return isinstance(other,HeldDensity) and repr(self) == repr(other)
+    def __hash__(self):return hash(repr(self))
+
+
 class RandomSymbol:
     """A probability-space scalar coercible to an independent native Dummy."""
     is_random = True
@@ -231,6 +267,13 @@ class RandomSymbol:
     @property
     def is_Discrete(self):return self.distribution.is_Discrete
     def __getattr__(self,name):return getattr(self._atom,name)
+    def subs(self,*args,**kwargs):
+        """Substituting into the parameters gives the variable of the same
+        name with the new distribution, as in SymPy ``X.subs(mu, 2)``."""
+        if self.group is self._atom and self.process is None:
+            model = self.distribution.remake(lambda v:v.subs(*args,**kwargs))
+            if model is not None:return variable(self.name,model)
+        return self._atom.subs(*args,**kwargs)
     def __add__(self,other):return self._atom+other
     def __radd__(self,other):return other+self._atom
     def __sub__(self,other):return self._atom-other

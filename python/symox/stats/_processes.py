@@ -58,9 +58,17 @@ class _Markov:
         self.continuous = continuous
         self.index_set = S.Interval(0,S.oo) if continuous else S.Range(0,S.oo)
         self._transition = None if transition is None else matrix(transition)
+        self._symbolic = self._transition is not None and not isinstance(self._transition,S.Matrix)
         if self._transition is not None:check(self._transition.rows == self._transition.cols,'transition matrix must be square')
+        if self._symbolic and not self._transition.rows.is_Integer:
+            # A transition MatrixSymbol of symbolic size: the states are
+            # Range(0, n) and only matrix-power queries are available.
+            if state_space is not None:raise NotImplementedError('named states of a symbolic-size chain are not supported')
+            self._states = ();self.state_space = S.Range(0,self._transition.rows);return
         if state_space is None:
             state_space = list(range(self._transition.rows)) if self._transition is not None else []
+        if any(type(x).__name__ == 'Str' for x in (state_space.args if isinstance(state_space,S.FiniteSet) else state_space)):
+            raise NotImplementedError('Str states of a Markov chain are not supported; use symbols or integers')
         self._states = tuple(scalar(x) for x in (state_space.args if isinstance(state_space,S.FiniteSet) else state_space))
         if len(set(self._states)) != len(self._states):raise ValueError('states must be distinct')
         self.state_space = S.FiniteSet(*self._states)
@@ -71,7 +79,8 @@ class _Markov:
             for i in range(T.rows):
                 for j in range(T.cols):
                     if not self.continuous or i != j:check(T[i,j] >= 0,'transition rates/probabilities must be nonnegative')
-                check(S.simplify(sum(T[i,j] for j in range(T.cols))) == (0 if self.continuous else 1),'transition rows must sum to zero (generator) or one')
+                gap = sum(T[i,j] for j in range(T.cols))-(0 if self.continuous else 1)
+                check(gap == 0 or S.simplify(gap) == 0,'transition rows must sum to zero (generator) or one')
     @property
     def transition_probabilities(self):return self._transition if not self.continuous else None
     @property
@@ -92,13 +101,31 @@ class _Markov:
                 if kind == 'states':states = value
                 else:T = value
             else:ordinary.append(item)
+        if T is not None and not isinstance(T,S.Matrix) and T.rows.is_Integer:
+            # An explicit-size MatrixSymbol is used entrywise: T[i, j].
+            if not states:states = tuple(S.Integer(i) for i in range(T.rows))
+            check(T.rows == len(states),'matrix and state-space dimensions differ')
+            T = T.as_explicit();self._stochastic_symbol = True
+        elif T is not None:self._validate(T,states);self._stochastic_symbol = False
         if T is None or not states:raise ValueError('a transition/generator matrix and a finite state space are required')
-        self._validate(T,states)
         return states,T,S.And(*ordinary) if ordinary else None
     def _transition_at(self,T,elapsed):
         return (elapsed*T).exp() if self.continuous else T**elapsed
+    def _symbolic_size_query(self,operation,expr,condition):
+        from ._queries import _bindings
+        bindings = _bindings(condition)
+        target = _bindings(expr) if operation == 'P' else None
+        if not bindings or not target or len(bindings) != 1 or len(target) != 1 or self.continuous:
+            raise NotImplementedError('a chain of symbolic size supports only P(Eq(Y[a], b), Eq(Y[c], d))')
+        (start,i), = bindings.items();(stop,j), = target.items()
+        from ._base import REGISTRY
+        elapsed = REGISTRY[stop].time-REGISTRY[start].time
+        check(elapsed >= 0,'the conditioning time must not follow the queried time')
+        return (self._transition**elapsed)[i,j]
     def query(self,operation,expr,condition):
         from ._queries import random_symbols,_bindings,_indicator,_truth
+        if self._symbolic and not self._transition.rows.is_Integer and not any(item in _CONTEXT for item in _parts(condition)):
+            return self._symbolic_size_query(operation,expr,condition)
         states,T,gate = self._context(condition)
         variables = random_symbols(expr)|random_symbols(gate)
         if any(v.process is not self for v in variables):raise NotImplementedError('Markov queries require observations from one process')
@@ -108,6 +135,7 @@ class _Markov:
         if not pinned:
             from ._symbolic import Probability,Expectation
             return Probability(expr,condition) if operation == 'P' else Expectation(expr,condition)
+        if any(not v.time.is_number for v in variables):raise NotImplementedError('Markov queries at symbolic times are not supported')
         times = sorted({v.time for v in variables},key=lambda t:float(t) if t.is_number else str(t))
         earliest = times[0]
         anchors = [value for v,value in pinned if v.time == earliest]
@@ -115,24 +143,48 @@ class _Markov:
         initial = anchors[0];check(initial in states,'conditioned state is outside the state space')
         if len(times)>1 and len(states)**(len(times)-1)>1000000:raise RuntimeError('Markov path enumeration exceeds one million states')
         kernels = [self._transition_at(T,b-a) for a,b in zip(times,times[1:])]
+        # Symbolic state labels are distinct by construction: events are
+        # decided on their indices, while expectations keep the labels.
+        codes = None if any(x.is_number for x in states) else {x:S.Integer(i) for i,x in enumerate(states)}
+        event = scalar(expr) if codes is None else scalar(expr).xreplace(codes)
+        coded_gate = gate if codes is None or gate is None else gate.xreplace(codes)
         numerator,denominator = S.Integer(0),S.Integer(0)
         for tail in product(states,repeat=len(times)-1):
             path = (initial,)+tail;weight = S.Integer(1)
             for kernel,a,b in zip(kernels,path,path[1:]):weight *= kernel[states.index(a),states.index(b)]
             mapping = {v._atom:path[times.index(v.time)] for v in variables}
-            indicator = S.Integer(1) if gate is None else _indicator(gate.subs(mapping,simultaneous=True))
+            coded = mapping if codes is None else {k:codes[v] for k,v in mapping.items()}
+            indicator = S.Integer(1) if gate is None else _indicator(coded_gate.subs(coded,simultaneous=True))
             denominator += weight*indicator
-            outcome = scalar(expr).subs(mapping,simultaneous=True)
-            numerator += weight*indicator*(_indicator(outcome) if operation == 'P' else outcome)
+            if operation == 'P':numerator += weight*indicator*_indicator(event.subs(coded,simultaneous=True))
+            else:numerator += weight*indicator*scalar(expr).subs(mapping,simultaneous=True)
+        if getattr(self,'_stochastic_symbol',False) and gate is not None:
+            # Rows of a transition MatrixSymbol sum to one, so conditioning on
+            # the initial state alone has probability one (as in SymPy).
+            rest = [item for item in _parts(gate) if not (getattr(item,'class_name','') in ('Eq','Equality') and any(v._atom in item.free_symbols and v.time == earliest for v in variables) and len(random_symbols(item)) == 1)]
+            if not rest:denominator = S.Integer(1)
         check(denominator != 0,'conditioning event has zero probability')
         return S.simplify(numerator/denominator)
     def stationary_distribution(self,condition_set=False):
         if self._transition is None:raise ValueError('transition data are required')
+        if self._symbolic:
+            n = self._transition.rows
+            if n == 0:return S.ImmutableMatrix(S.Matrix(0,0,[]))
+            wm = S.MatrixSymbol('wm',1,n)
+            if condition_set:return S.ConditionSet(wm,S.Eq(wm*self._transition,wm))
+            raise NotImplementedError('a Lambda over matrix symbols is not supported; use condition_set=True')
         n = len(self._states);symbols = S.symbols('_stationary0:'+str(n))
         equations = list((S.Matrix(1,n,symbols)*self._transition-(S.zeros(1,n) if self.continuous else S.Matrix(1,n,symbols))))+[sum(symbols)-1]
         solutions = S.solve(equations,symbols,dict=True)
         if len(solutions) != 1:raise ValueError('stationary distribution is not unique')
         return S.ImmutableMatrix([[solutions[0].get(x,x) for x in symbols]])
+    def limiting_distribution(self):
+        """The solution of w Q = 0 with unit sum (a chain with a generator)."""
+        if self._transition is None:return None
+        if self._symbolic:raise NotImplementedError('a Lambda over matrix symbols is not supported')
+        n = self._transition.rows;w = S.IndexedBase('w');wi = [w[i] for i in range(n)]
+        equations = list(S.Matrix([wi])*self._transition)+[sum(wi)-1]
+        return S.ImmutableMatrix([[S.simplify(v) for v in list(S.linsolve(equations,wi))[0]]])
     def sample_mapping(self,rng,variables,condition=None):
         from ._queries import _bindings
         states,T,_ = self._context(condition);bindings = _bindings(condition)
@@ -157,6 +209,9 @@ class _Markov:
 
 class DiscreteMarkovChain(_Markov,DiscreteTimeStochasticProcess):
     def __init__(self,sym,state_space=None,trans_probs=None):self._initialize_chain(sym,state_space,trans_probs,False)
+    def fixed_row_vector(self):return self.stationary_distribution()
+    @property
+    def limiting_distribution(self):return self.fixed_row_vector()
 
 
 class ContinuousMarkovChain(_Markov,StochasticProcess):
