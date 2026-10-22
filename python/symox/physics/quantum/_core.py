@@ -225,6 +225,11 @@ def _conjugate_scalar(value):
     return result
 
 
+# Reference sympy.physics.quantum.dagger: importing it renames ``adjoint``.
+from ... import _nc_adjoint as _nc_adjoint_module
+_nc_adjoint_module.adjoint.__name__='Dagger'
+
+
 def Dagger(expr):
     if isinstance(expr,S.Matrix):return expr.conjugate().T
     if isinstance(expr,InnerProduct):return expr._adjoint_product()
@@ -245,6 +250,10 @@ def Dagger(expr):
             for factor in reversed(word):term=term*Dagger(factor)
             result+=term
         return result
+    if isinstance(expr,S.Expr) and expr.is_commutative is False:
+        # Reference Dagger: arg.adjoint(), which reverses products and keeps
+        # an unevaluated Dagger(A) for a noncommutative symbol.
+        return S.adjoint(expr)
     return S.conjugate(expr)
 
 
@@ -477,6 +486,20 @@ class TensorProductAtom(Atom):
         if not isinstance(state,TensorProductAtom) or len(self.factors)!=len(state.factors):return None
         return TensorProduct(*(qapply(a*b,**options) for a,b in zip(self.factors,state.factors)))
     def _represent(self,**options):return S.kronecker_product(*(represent(v,**options) for v in self.factors))
+    def expand(self,**hints):
+        # Expr.expand (deep) then TensorProduct._eval_expand_tensorproduct:
+        # distribute over the first sum among the factors, recursively.
+        native_hints={k:v for k,v in hints.items() if k not in ('tensorproduct','commutator')}
+        factors=[v.expand(**(hints if isinstance(v,OperatorExpr) else native_hints)) if hasattr(v,'expand') else v for v in self.factors]
+        if not hints.get('tensorproduct'):
+            return self if factors==list(self.factors) else TensorProduct(*factors)
+        for i,v in enumerate(factors):
+            if isinstance(v,S.Expr) and v.is_Add:
+                result=S.Integer(0)
+                for term in v.args:
+                    result+=TensorProduct(*(factors[:i]+[term]+factors[i+1:])).expand(**hints)
+                return result
+        return TensorProduct(*factors)
     def _multiply_atom(self,other):
         # Products of equal-length tensor products combine factorwise, as the
         # reference does automatically since tensor_product_simp was deprecated.

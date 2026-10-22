@@ -1598,6 +1598,7 @@ impl PyExprNode {
             // let Matrix.__rmul__ handle scalar * matrix
             return Ok(py.NotImplemented());
         }
+        if host_matrix_operand(o) { return Ok(py.NotImplemented()); }
         arithmetic_object(&slf, o, ops::mul2(&slf.e, &scalar_expr(o)?))
     }
     fn __rmul__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
@@ -1609,6 +1610,7 @@ impl PyExprNode {
         if o.downcast::<matrices::PyMatrix>().is_ok() || o.downcast::<matrixexpr::PyMatrixExpr>().is_ok() || (!o.is_exact_instance_of::<PyInt>() && !o.is_exact_instance_of::<PyFloat>() && !o.is_exact_instance_of::<PyComplex>() && o.getattr("_symox_sparse").is_ok_and(|marker| marker.is_truthy().unwrap_or(false))) {
             return Ok(o.py().NotImplemented());
         }
+        if host_matrix_operand(o) { return Ok(o.py().NotImplemented()); }
         arithmetic_object(&slf, o, ops::mul2(&scalar_expr(o)?, &slf.e))
     }
     fn __truediv__(slf: PyRef<'_, Self>, o: &Bound<'_, PyAny>) -> PyResult<PyObject> {
@@ -4056,4 +4058,13 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     printing::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
+}
+
+/// A host object standing for a matrix expression (random matrix symbols,
+/// held matrix statistics): scalar products defer to its own operators so
+/// the result stays a matrix expression.
+fn host_matrix_operand(o: &Bound<'_, PyAny>) -> bool {
+    !o.is_instance_of::<PyExprNode>()
+        && o.getattr("_symox_matrixexpr").is_ok_and(|v| v.is_truthy().unwrap_or(false))
+        && (o.hasattr("__rmul__").unwrap_or(false))
 }

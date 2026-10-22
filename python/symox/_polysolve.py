@@ -66,7 +66,10 @@ def nonlinsolve(system, *symbols):
         # the periodic ImageSet families.
         from .solvers._substitution import _is_polynomial_system, nonlinsolve_substitution
         if _is_polynomial_system(equations, variables):
-            raise
+            solutions = _zero_dimensional_numerators(equations, variables)
+            if solutions is None:
+                raise
+            return solutions
         return nonlinsolve_substitution(list(equations), list(variables))
     rows = []
     for values, excluded in result:
@@ -74,6 +77,47 @@ def nonlinsolve(system, *symbols):
                for value, roots in zip(values, excluded)]
         rows.append(_core._apply("Tuple", *row))
     return EmptySet if not rows else FiniteSet(*rows)
+
+
+def _zero_dimensional_numerators(equations, variables):
+    """The reference zero-dimensional branch of ``nonlinsolve`` for a
+    system whose numerators are polynomials with exact numeric coefficients:
+    grevlex Groebner basis of the numerators, FGLM to lex, then the complete
+    ``solve_poly_system`` roots. Unlike the reference, roots where a
+    denominator of the original system vanishes are dropped (they are not
+    solutions). Returns None outside that class, so the caller raises."""
+    from . import EmptySet, FiniteSet, _core, groebner, simplify, solve_poly_system, together
+
+    numerators, denominators = [], []
+    for eq in equations:
+        if getattr(eq, 'is_Equality', False):
+            eq = eq.lhs - eq.rhs
+        numerator, denominator = together(eq).as_numer_denom()
+        if not numerator.free_symbols <= set(variables) or not denominator.free_symbols <= set(variables):
+            return None
+        numerators.append(numerator)
+        if denominator.free_symbols:
+            denominators.append(denominator)
+    try:
+        basis = groebner(numerators, *variables, order='grevlex')
+        if 1 in list(basis):
+            return EmptySet
+        if not basis.is_zero_dimensional:
+            return None
+        roots = solve_poly_system(list(basis.fglm('lex')), *variables)
+    except (NotImplementedError, ValueError):
+        return None
+    if roots is None:
+        return EmptySet
+    rows = []
+    for root in roots:
+        values = dict(zip(variables, root))
+        vanishing = [simplify(d.subs(values)).is_zero for d in denominators]
+        if any(v is None for v in vanishing):
+            return None
+        if not any(vanishing):
+            rows.append(_core._apply("Tuple", *root))
+    return FiniteSet(*rows) if rows else EmptySet
 
 
 def _noncommutative_nonlinsolve(equations, variables):
