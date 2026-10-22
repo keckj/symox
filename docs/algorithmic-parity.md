@@ -274,17 +274,31 @@ Remaining gaps in this area:
   non-field ground ring) and `canonical_unit` normalizes by the ground unit
   of the leading coefficient; a `domain='ZZ_I(y)'` string raises the
   reference `OptionError`, and `set_domain` from `ZZ_I[y]` to `ZZ[y]` raises
-  the reference `CoercionFailed`. Remaining gaps: fraction fields over
-  `ZZ_I`, `QQ_I` or algebraic fields have no domain elements
-  (`ZZ_I.frac_field(x)(...)` and `ZZ_I.frac_field(x).is_unit(...)` raise
-  `NotImplementedError`), so `construct_domain` gives `EX` for `[I/y]`,
-  `[-2*I*pi/N]` and `[I*y]` with `field=True` where the reference gives
-  `ZZ_I(y)` or `ZZ_I(N,pi)` (the `Poly` path is not affected); `quo_ground`/`exquo_ground` with a non-divisible ground
-  element and the `QQ_I` `gcd` scaling of some multivariate inputs differ;
-  `sqf_list` of a multivariate polynomial over a composite Gaussian ground
-  raises `NotImplementedError`; `.rep` prints as an `EX` representation
-  instead of the reference `DMP_Python` over `ZZ_I[y]`; the representation
-  is expression-based (algorithms run on a flattened Gaussian polynomial),
+  the reference `CoercionFailed`. The fraction fields `ZZ_I(y)`,
+  `QQ_I(y)` and `ZZ_I(N,pi)` have domain elements
+  (`tests/test_gaussian_fractions_parity.py`): conversion, `construct_domain`
+  (`[I/y]`, `[-2*I*pi/N]`, `[I*y]` with `field=True`), arithmetic, the
+  reference cancellation to coprime numerator and denominator with integral
+  Gaussian coefficients and a canonical denominator unit, the raw
+  `FracElement` powers (`K(I/y)**-1` is `y/(0 + 1*I)`), `gcd`, `lcm`,
+  `cofactors`, `numer`/`denom`, `is_unit`, signs and `canonical_unit`,
+  printing (`(0 + 1*I)*y/(1 + 0*I)`) and the reference errors
+  (`ValueError` for a non-rational expression, `ZeroDivisionError`);
+  `quo_ground`/`exquo_ground` failures print the reference message. Remaining
+  gaps: `sqf_list` of a multivariate polynomial over a composite Gaussian
+  ground raises `ValueError` (not implemented); the SymPy 1.14 result is
+  itself wrong in some of these cases (`Poly((x + I*y)**2*(x - z), x, z)`
+  gives `-1, [(x - z, 1), (x + I*y, 2)]`, whose product is the negation of
+  the input, and similarly over `QQ_I[y]`), so it is not reproduced;
+  multivariate `sqf_list` over `ZZ_I` such as `I*(x + y)**3*(x - I)` raises
+  the factorization certificate error, where the reference result
+  `(1, [(x - I, 1), (I*x + I*y, 3)])` is also off by the unit `-1`;
+  `K.convert(ZZ_I(1 + I))` succeeds where the reference raises
+  `CoercionFailed: expected an integer`; `ZZ_I(y).from_sympy(Float(1.5))`
+  raises `ValueError` where the reference gives `(3 + 0*I)/(2 + 0*I)`; elements are `DomainElement`
+  objects, not `FracElement`; fraction fields over algebraic fields still
+  have no domain elements. `.rep` prints the reference `DMP_Python` over
+  `ZZ_I[y]` or `ZZ_I(y)`, but the representation is expression-based (algorithms run on a flattened Gaussian polynomial),
   so it is slower than the reference dense recursive one. The pre-existing
   `ZZ[x].canonical_unit(ZZ[x](-x))` repr is `ZZ[x](-1)` (reference `-1`).
 - A `Poly` whose inferred coefficient domain is a fraction field over an

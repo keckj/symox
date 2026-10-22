@@ -136,19 +136,15 @@ def _float_composite_domain(values, field):
 
 
 def _gaussian_domain(values, field):
-    """The reference composite domain over ZZ_I or QQ_I, as ``ZZ_I[y]``.
-
-    Fraction fields over a Gaussian ground have no native elements yet, so
-    those inputs keep the EX fallback.
-    """
+    """The reference composite domain over ZZ_I or QQ_I, as ``ZZ_I[y]``
+    or, for denominators or ``field=True``, ``ZZ_I(y)``."""
     from .. import QQ_I, ZZ_I, _core
     found = _core._gaussian_composite(values, field)
     if found is None:
         return None
     integral, ring, symbols = found
-    if not ring:
-        return None
-    return (ZZ_I if integral else QQ_I).poly_ring(*symbols)
+    ground = ZZ_I if integral else QQ_I
+    return ground.poly_ring(*symbols) if ring else ground.frac_field(*symbols)
 
 
 def _classify(coefficients, extension):

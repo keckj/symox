@@ -301,6 +301,17 @@ pub fn composite_str(element: &DomainElement) -> Option<String> {
     Some(match &element.value {
         ElementValue::Function(r) => rational_node(&element.domain, &r.n, &r.d, 0).render(),
         ElementValue::AlgebraicPoly(rep) => algebraic_node(&element.domain, rep, 0).render(),
+        // `_print_FracElement`: `frac.denom == 1` never holds over the
+        // Gaussian grounds (a `GaussianElement` is not equal to `1`), so
+        // the denominator is always printed.
+        ElementValue::GaussianFraction(numer, denom) => {
+            let ring = ring_level(&element.domain);
+            format!(
+                "{}/{}",
+                algebraic_node(&ring, numer, 0).parenthesize(Prec::Mul),
+                algebraic_node(&ring, denom, 0).parenthesize(Prec::Atom)
+            )
+        }
         _ => return None,
     })
 }

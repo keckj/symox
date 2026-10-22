@@ -219,10 +219,14 @@ composite grounds `ZZ_I[y]`, `QQ_I[y]`, `ZZ_I(y)` and `QQ_I(y)`, which
 `ZZ_I[y]`, `Poly(-2*I*pi*n/N, n)` over `ZZ_I(N,pi)`). These polynomials
 print, divide, factor and compute `gcd`, `sqf` and `cancel` like the
 reference; `ZZ_I[x].is_unit(I)` is `False`. `Poly` over `QQ<sqrt(2)>[x]`
-still raises `NotImplementedError`. Fraction fields over Gaussian or
-algebraic grounds have no domain elements and raise `NotImplementedError`
-when elements are built, so `construct_domain(..., field=True)` falls back
-to `EX` for them. See
+still raises `NotImplementedError`. The fraction fields `ZZ_I(y)` and
+`QQ_I(y)` have reference domain elements: conversion, arithmetic with
+cancellation to the reference normal form, `gcd`, `lcm` and printing
+(`(0 + 1*I)/y`), and `construct_domain` selects them (`[I/y]` gives
+`ZZ_I(y)`, also with `field=True`). Fraction fields over algebraic fields
+have no domain elements and raise `NotImplementedError` when elements are
+built, so `construct_domain(..., field=True)` falls back to `EX` for them.
+See
 [the parity gaps](algorithmic-parity.md) for the remaining differences.
 
 ## Monogenic finite extensions

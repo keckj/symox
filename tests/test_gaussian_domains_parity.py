@@ -314,11 +314,6 @@ REFERENCE = [
      "Poly(1.0*I*y*x + 1.5, x, domain='CC[y]')"),
     ('construct_domain([I*y, 1.5])',
      '(CC[y], [(0.0 + 1.0j)*y, (1.5 + 0.0j)])'),
-]
-
-# Reference outputs that symox does not reproduce yet; see the remaining gaps
-# in docs/algorithmic-parity.md.
-GAPS = [
     ('ZZ_I.frac_field(x).is_unit(ZZ_I.frac_field(x)(x))',
      'True'),
     ('construct_domain([I/y])',
@@ -332,10 +327,4 @@ GAPS = [
 
 @pytest.mark.parametrize('case, expected', REFERENCE)
 def test_gaussian_domain_case_matches_reference(case, expected):
-    assert outcome(case) == expected
-
-
-@pytest.mark.xfail(strict=True, reason='documented remaining gap')
-@pytest.mark.parametrize('case, expected', GAPS)
-def test_gaussian_domain_gap(case, expected):
     assert outcome(case) == expected

@@ -84,6 +84,17 @@ impl std::fmt::Display for ExactDomain {
 fn failure(s: impl Into<String>) -> PolyError {
     PolyError::Failed(s.into())
 }
+/// The reference `FracElement` normal form of `num/den` over `ZZ_I`:
+/// integral sides, `PolyElement.cancel` over the Gaussian integers, and a
+/// canonical leading coefficient of the denominator.
+fn gaussian_fraction_normal(num: &super::MPoly<AN>, den: &super::MPoly<AN>) -> PResult<(super::MPoly<AN>, super::MPoly<AN>)> {
+    let field = super::gaussian::field();
+    let _scope = AlgebraicScope::new(field.clone());
+    let (a, _) = super::gaussian::clear_denoms(num);
+    let (b, _) = super::gaussian::clear_denoms(den);
+    let common = AN::rational(Rat::from(a.lcm(&b)), field);
+    super::gaussian::expr_cancel(&num.scale(&common), &den.scale(&common))
+}
 impl ExactDomain {
     pub fn inexact_precision(&self)->Option<u32> {
         match self {Self::RR=>Some(53),Self::Inexact{precision,..}=>Some(*precision),_=>None}
@@ -233,6 +244,7 @@ impl ExactDomain {
             (Some(CompositeBase::Algebraic { gaussian, .. }), ElementValue::AlgebraicPoly(p)) => {
                 gaussian != Some(true) || super::gaussian::poly_is_integral(p)
             }
+            (_, ElementValue::GaussianFraction(..)) => self.gaussian_fraction_ground().is_some(),
             _ => false,
         }
     }
@@ -301,8 +313,48 @@ impl ExactDomain {
             )),
         }
     }
+    /// The Gaussian ground of a fraction field directly over `ZZ_I` or
+    /// `QQ_I` (`ZZ_I(y)`, `QQ_I(N,pi)`).
+    pub fn gaussian_fraction_ground(&self) -> Option<super::gaussian_ground::GaussianGround> {
+        if !matches!(self, Self::Composite { ring: false, .. }) {
+            return None;
+        }
+        super::gaussian_ground::GaussianGround::from_domain(self).filter(|g| g.inexact.is_none() && !g.ring)
+    }
+    /// The reference `FracField` name used in conversion errors.
+    pub fn fraction_field_name(&self) -> String {
+        let Self::Composite { ground, parameters, order, .. } = self else { return self.to_string() };
+        let symbols = parameters.iter().map(crate::printer::to_str).collect::<Vec<_>>().join(", ");
+        format!("Rational function field in {symbols} over {ground} with {order} order")
+    }
     pub fn convert(&self, e: &Expr) -> PResult<DomainElement> {
         let value=match self {
+            Self::Composite { .. } if self.gaussian_fraction_ground().is_some() => {
+                // FracField._rebuild_expr: an integer power of a
+                // non-constant base is a raw FracElement power.
+                if e.is_pow() {
+                    let args = e.args();
+                    if let Some(k) = args[1].as_i64().filter(|k| *k != 1) {
+                        let base = self.convert(&args[0])?;
+                        if let ElementValue::GaussianFraction(p, q) = &base.value {
+                            if !(p.is_constant() && q.is_constant()) {
+                                return base.pow(k);
+                            }
+                        }
+                    }
+                }
+                let g = self.gaussian_fraction_ground().unwrap();
+                let (p, q) = g.element(e).map_err(|_| PolyError::Reference {
+                    kind: "ValueError",
+                    message: format!(
+                        "expected an expression convertible to a rational function in {}, got {}",
+                        self.fraction_field_name(),
+                        crate::printer::to_str(e)
+                    ),
+                })?;
+                let (p, q) = gaussian_fraction_normal(&p, &q)?;
+                ElementValue::GaussianFraction(p, q)
+            }
             Self::RR | Self::Inexact{..} => {
                 let precision=self.inexact_precision().unwrap();
                 let value=crate::evalf_mp::eval_mp(e,precision).ok_or_else(||failure("expected a finite supported numerical value"))?;
@@ -379,6 +431,11 @@ pub enum ElementValue {
     Inexact(Expr),
     /// A flattened polynomial over a Gaussian or algebraic base field.
     AlgebraicPoly(super::MPoly<AN>),
+    /// An element `numer/denom` of `ZZ_I(y...)` or `QQ_I(y...)`, as the
+    /// reference `FracElement`: both sides have Gaussian integer
+    /// coefficients and are reduced by `PolyElement.cancel`, except after
+    /// the operations the reference leaves raw (powers).
+    GaussianFraction(super::MPoly<AN>, super::MPoly<AN>),
 }
 #[derive(Clone, Debug)]
 pub struct DomainElement {
@@ -432,6 +489,9 @@ impl DomainElement {
             ElementValue::Finite(f) => Expr::num(f.to_rat().to_number()),
             ElementValue::Algebraic(a) => a.as_expr(),
             ElementValue::Function(r) => coefficient_expr(r, &self.domain.flat_parameters()),
+            ElementValue::GaussianFraction(p, q) => {
+                self.domain.gaussian_fraction_ground().expect("Gaussian fraction field").element_expr(p, q)
+            }
             ElementValue::AlgebraicPoly(p) => {
                 let parameters = self.domain.flat_parameters();
                 crate::ops::add(&p.iter().map(|(e, c)| {
@@ -459,6 +519,7 @@ impl DomainElement {
             ElementValue::Algebraic(r) => r.is_zero(),
             ElementValue::Function(r) => r.is_zero(),
             ElementValue::AlgebraicPoly(p) => p.is_zero(),
+            ElementValue::GaussianFraction(p, _) => p.is_zero(),
             ElementValue::Expression(e) | ElementValue::Inexact(e) => e.is_zero(),
         }
     }
@@ -635,7 +696,26 @@ impl DomainElement {
             return Err(failure("incompatible coefficient domains"));
         }
         if op == '/' && other.is_zero() {
+            if matches!(self.value, ElementValue::GaussianFraction(..)) {
+                return Err(PolyError::Reference { kind: "ZeroDivisionError", message: String::new() });
+            }
             return Err(PolyError::Unsupported("division by zero".into()));
+        }
+        if let (ElementValue::GaussianFraction(a, b), ElementValue::GaussianFraction(c, d)) = (&self.value, &other.value) {
+            let _scope = AlgebraicScope::new(super::gaussian::field());
+            // FracElement.__add__/__sub__/__mul__/__truediv__: `f.new(...)`,
+            // which cancels; equal denominators are kept as they are.
+            let (p, q) = match op {
+                '+' | '-' => {
+                    let sum = |x: &super::MPoly<AN>, y: &super::MPoly<AN>| if op == '+' { x.add(y) } else { x.sub(y) };
+                    if b == d { (sum(a, c), b.clone()) } else { (sum(&a.mul(d), &b.mul(c)), b.mul(d)) }
+                }
+                '*' => (a.mul(c), b.mul(d)),
+                '/' => (a.mul(d), b.mul(c)),
+                _ => return Err(failure("unknown coefficient operation")),
+            };
+            let (p, q) = super::gaussian::expr_cancel(&p, &q)?;
+            return Ok(Self { domain: self.domain.clone(), value: ElementValue::GaussianFraction(p, q) });
         }
         macro_rules! calc {
             ($a:expr,$b:expr) => {
@@ -711,6 +791,18 @@ impl DomainElement {
         Ok(result)
     }
     pub fn pow(&self, exponent: i64) -> PResult<Self> {
+        if let ElementValue::GaussianFraction(p, q) = &self.value {
+            // FracElement.__pow__ uses raw_new: no cancellation, and a
+            // negative power swaps the sides without normalizing the unit.
+            if exponent < 0 && p.is_zero() {
+                return Err(PolyError::Reference { kind: "ZeroDivisionError", message: String::new() });
+            }
+            let _scope = AlgebraicScope::new(super::gaussian::field());
+            let k = u32::try_from(exponent.unsigned_abs()).map_err(|_| failure("exponent too large"))?;
+            let (p, q) = (p.pow(k), q.pow(k));
+            let value = if exponent < 0 { ElementValue::GaussianFraction(q, p) } else { ElementValue::GaussianFraction(p, q) };
+            return Ok(Self { domain: self.domain.clone(), value });
+        }
         if exponent < 0 && self.is_zero() {
             return Err(PolyError::Unsupported("division by zero".into()));
         }
@@ -849,6 +941,24 @@ impl DomainElement {
         if let Some((a, b)) = self.algebraic_operands(other) {
             return self.unflatten_algebraic(a.gcd(&b).rep);
         }
+        if let (ElementValue::GaussianFraction(a, b), ElementValue::GaussianFraction(c, d)) = (&self.value, &other.value) {
+            let _scope = AlgebraicScope::new(super::gaussian::field());
+            // Field.gcd: ring.gcd of the numerators over ring.lcm of
+            // the denominators.
+            let ring = self.domain.ring()?;
+            let wrap = |p: &super::MPoly<AN>| Self { domain: ring.clone(), value: ElementValue::AlgebraicPoly(p.clone()) };
+            let (ElementValue::AlgebraicPoly(p), ElementValue::AlgebraicPoly(q)) =
+                (wrap(a).gcd(&wrap(c))?.value, wrap(b).lcm(&wrap(d))?.value)
+            else {
+                return Err(failure("unexpected Gaussian ring element"));
+            };
+            let one = super::MPoly::one(p.nvars);
+            let (p, p1) = gaussian_fraction_normal(&p, &one)?;
+            let (q, q1) = gaussian_fraction_normal(&q, &one)?;
+            let numerator = Self { domain: self.domain.clone(), value: ElementValue::GaussianFraction(p, p1) };
+            let denominator = Self { domain: self.domain.clone(), value: ElementValue::GaussianFraction(q, q1) };
+            return numerator.binary(&denominator, '/');
+        }
         if let ExactDomain::Composite { ring, .. } = &self.domain {
             if *ring || !matches!(self.domain.composite_base(), Some(CompositeBase::Rational { .. })) {
                 return Err(PolyError::Unsupported(
@@ -985,6 +1095,24 @@ impl DomainElement {
                 return self.domain.convert(&Expr::zero());
             }
             return self.unflatten_algebraic(a.lcm(&b).rep);
+        }
+        if let (ElementValue::GaussianFraction(a, b), ElementValue::GaussianFraction(c, d)) = (&self.value, &other.value) {
+            let _scope = AlgebraicScope::new(super::gaussian::field());
+            // Field.lcm: ring.lcm of the numerators over ring.gcd of
+            // the denominators.
+            let ring = self.domain.ring()?;
+            let wrap = |p: &super::MPoly<AN>| Self { domain: ring.clone(), value: ElementValue::AlgebraicPoly(p.clone()) };
+            let (ElementValue::AlgebraicPoly(p), ElementValue::AlgebraicPoly(q)) =
+                (wrap(a).lcm(&wrap(c))?.value, wrap(b).gcd(&wrap(d))?.value)
+            else {
+                return Err(failure("unexpected Gaussian ring element"));
+            };
+            let one = super::MPoly::one(p.nvars);
+            let (p, p1) = gaussian_fraction_normal(&p, &one)?;
+            let (q, q1) = gaussian_fraction_normal(&q, &one)?;
+            let numerator = Self { domain: self.domain.clone(), value: ElementValue::GaussianFraction(p, p1) };
+            let denominator = Self { domain: self.domain.clone(), value: ElementValue::GaussianFraction(q, q1) };
+            return numerator.binary(&denominator, '/');
         }
         if let ExactDomain::Composite { ring, .. } = &self.domain {
             if *ring || !matches!(self.domain.composite_base(), Some(CompositeBase::Rational { .. })) {

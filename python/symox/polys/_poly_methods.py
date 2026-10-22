@@ -267,6 +267,18 @@ def mul_ground(f, coeff):
     return _ground_result(f, {m: v*c for m, v in _items(f)})
 
 
+def _quotient_str(K, a):
+    """``a`` as the reference ``ExactQuotientFailed`` prints it: Gaussian
+    elements (also inside ``ZZ_I[y]``) print as ``(x + y*I)``."""
+    from .domains import ZZ_I, QQ_I
+    if K == ZZ_I or K == QQ_I:
+        a = K.convert(a)
+        return '(%s + %s*I)' % (a.x, a.y)
+    if K.is_Composite and K.dom in (ZZ_I, QQ_I):
+        return str(K.convert(a))
+    return str(a)
+
+
 def _ground_div(f, coeff, exact):
     c = _convert_ground(f, coeff)
     if c == 0:
@@ -285,7 +297,8 @@ def _ground_div(f, coeff, exact):
                 try:
                     q = K.to_sympy(K.exquo(K.convert(v), K.convert(c)))
                 except ExactQuotientFailed:
-                    raise ExactQuotientFailed("%s does not divide %s in %s" % (c, v, K)) from None
+                    raise ExactQuotientFailed("%s does not divide %s in %s" % (
+                        _quotient_str(K, c), _quotient_str(K, v), K)) from None
         else:
             q = K.to_sympy(K.quo(K.convert(v), K.convert(c)))
         out[m] = q
