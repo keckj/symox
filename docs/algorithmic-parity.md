@@ -4931,8 +4931,7 @@ derivative in `nu`, the `nseries` of `sinc`, `elliptic_k`, `elliptic_e`,
 mpmath numbers in `sympify` at their own precision, the `frac`, `numer`,
 `denom`, `modulus` and `exact` hints of `expand`, `refine` of a
 `MatrixElement`, `opt_cse` (with `Unevaluated`), `diff(..., simplify=False)`,
-the final `factor_terms(signsimp(...))` of multiple derivatives, the
-sum-of-even-powers solver of `diophantine`, and `1/(b)` printing of an
+the sum-of-even-powers solver of `diophantine`, and `1/(b)` printing of an
 unevaluated power base. `harmonic`, `nonlinsolve` and `sysode` were already
 correct.
 
@@ -4947,6 +4946,10 @@ Correct results that differ from SymPy:
 
 Remaining gaps:
 
+- Multiple derivatives are not ended with `factor_terms(signsimp(...))`:
+  `diff(sqrt((x + 1)**2 + x), (x, 5)).count_ops()` is 136 (SymPy 30); the
+  values are equal. Applying it in `diff` broke the native undetermined
+  coefficients ODE solver (10 corpus cases), so it was not kept.
 - `(x**y).nseries(x, 0, 2)` raises NotImplementedError; SymPy returns `x**y`
   (the series engine cannot carry a symbolic power prefactor).
 - `trigsimp(..., old=True, compare=True)` uses futrig instead of the legacy
