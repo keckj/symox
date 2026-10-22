@@ -30,14 +30,12 @@ fn exponential_term(e: &Expr, x: &Expr) -> Option<(Expr, Expr, u32, Expr)> {
     let mut exponential = None;
     let mut rest = Vec::new();
     for factor in factors(e) {
-        if let Kind::Func(Func::Exp, args) = factor.kind() {
-            if has(&args[0], x) {
-                if exponential.is_some() {
-                    return None;
-                }
-                exponential = Some(args[0].clone());
-                continue;
+        if let Some(argument) = exponential_argument(&factor, x) {
+            if exponential.is_some() {
+                return None;
             }
+            exponential = Some(argument);
+            continue;
         }
         rest.push(factor);
     }
@@ -54,6 +52,22 @@ fn exponential_term(e: &Expr, x: &Expr) -> Option<(Expr, Expr, u32, Expr)> {
     Some((coefficient, base, power, exponential?))
 }
 
+/// The argument `u` of a factor `exp(u)`, `b**u = exp(u*log(b))` with `b`
+/// free of the unknown (the reference `_solve_lambert` rewrites such powers
+/// with `exp`), or an integral power of one of them.
+fn exponential_argument(factor: &Expr, x: &Expr) -> Option<Expr> {
+    match factor.kind() {
+        Kind::Func(Func::Exp, args) if has(&args[0], x) => Some(args[0].clone()),
+        Kind::Pow(base, power) if !has(base, x) && has(power, x) => {
+            Some(mul2(power, &crate::functions::log(base)))
+        }
+        Kind::Pow(base, power) if has(base, x) && power.as_i64().is_some() => {
+            exponential_argument(base, x).map(|argument| mul2(power, &argument))
+        }
+        _ => None,
+    }
+}
+
 fn branches(argument: &Expr) -> Option<Vec<Expr>> {
     let mut values = vec![crate::special::lambertw(argument)];
     if argument.is_zero() {
@@ -65,6 +79,25 @@ fn branches(argument: &Expr) -> Option<Vec<Expr>> {
         _ => {}
     }
     Some(values)
+}
+
+/// `k*(a*x+b)**n` with `k` free of the unknown, `n` a positive integer
+/// greater than one and `a*x+b` affine (a single linear term is left to the
+/// affine exponential form).
+fn monomial(e: &Expr, x: &Expr) -> Option<(Expr, Expr, u32)> {
+    if e.is_add() {
+        return None;
+    }
+    let (independent, dependent): (Vec<_>, Vec<_>) =
+        factors(e).into_iter().partition(|factor| !has(factor, x));
+    let product = mul(&dependent);
+    let Kind::Pow(base, power) = product.kind() else { return None };
+    let n = power.as_i64().filter(|p| *p > 1 && *p <= 4096)?;
+    let (a, _) = affine(base, x)?;
+    if a.is_zero() {
+        return None;
+    }
+    Some((mul(&independent), base.clone(), n as u32))
 }
 
 pub(crate) fn solve(f: &Expr, x: &Expr) -> Option<Vec<Expr>> {
@@ -89,6 +122,14 @@ pub(crate) fn solve(f: &Expr, x: &Expr) -> Option<Vec<Expr>> {
         if c.is_zero() {
             continue;
         }
+        // k*(a*x+b)**n + C*exp(c*x+d) = 0 is k*(a*x+b)**n*exp(-c*x-d) + C = 0.
+        let (coefficient, base, power, c, d, rest) = match monomial(&rest, x) {
+            Some((k, monomial_base, n)) if !has(&base, x) && !has(&coefficient, x) => {
+                let amplitude = mul2(&coefficient, &crate::ops::pow(&base, &Expr::int(power as i64)));
+                (k, monomial_base, n, neg(&c), neg(&d), amplitude)
+            }
+            _ => (coefficient, base, power, c, d, rest),
+        };
         if let Some((a, b)) = affine(&base, x) {
             if !a.is_zero() && !has(&rest, x) {
                 let n = Expr::int(power as i64);

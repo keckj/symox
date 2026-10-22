@@ -106,6 +106,11 @@ fn _nonlinsolve_parametric(f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyAny>) -> 
     Ok(result.into_iter().map(|b| (b.values.into_iter().map(wrap).collect(), b.excluded.into_iter().map(|r| r.into_iter().map(wrap).collect()).collect())).collect())
 }
 
+/// SymPy's `ordered` keys for the unknowns of a solution dictionary.
+fn canonical_key(e:&Expr)->(usize,symox::sortkey::Key){
+    (symox::traverse::node_count(e),symox::sortkey::sort_key(e))
+}
+
 #[pyfunction]
 #[pyo3(signature = (f, *symbols, **flags))]
 fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, flags: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
@@ -194,6 +199,10 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
                     .map(|(_,value)|value.clone()).unwrap_or_else(||v.clone()));
                 return Ok(PyList::new(py,[PyTuple::new(py,row.map(wrap))?])?.into_any().unbind());
             }
+            // The reference lists the keys of a solution dictionary in
+            // canonical order (ordered(s): node count, then sort key).
+            let mut m=m;
+            m.sort_by_cached_key(|(key,_)|canonical_key(key));
             let d = PyDict::new(py);
             for (k, v) in m {
                 d.set_item(wrap(k), wrap(v))?;
@@ -218,17 +227,20 @@ fn solve(py: Python<'_>, f: &Bound<'_, PyAny>, symbols: &Bound<'_, PyTuple>, fla
                 for (key,value) in vars.iter().zip(&ts[0]){d.set_item(wrap(key.clone()),wrap(value.clone()))?;}
                 return Ok(d.into_any().unbind());
             }
-            if as_dict||inferred_symbols||unordered_symbols{
-                ts.sort_by_cached_key(|row|vars.iter().zip(row).filter(|(key,value)|*key!=*value)
-                    .map(|(key,value)|(symox::sortkey::sort_key(key),symox::sortkey::sort_key(value))).collect::<Vec<_>>());
-            }
+            // The reference sorts the solution dictionaries, with their keys
+            // in canonical order, by default_sort_key before unpacking them
+            // into tuples of the given unknowns.
+            let order={let mut order:Vec<usize>=(0..vars.len()).collect();
+                order.sort_by_cached_key(|&i|canonical_key(&vars[i]));order};
+            ts.sort_by_cached_key(|row|order.iter().filter(|&&i|row[i]!=vars[i])
+                .map(|&i|(symox::sortkey::sort_key(&vars[i]),symox::sortkey::sort_key(&row[i]))).collect::<Vec<_>>());
             let l = PyList::empty(py);
             for t in ts {
                 if as_dict||inferred_symbols||unordered_symbols {
                     let d = PyDict::new(py);
-                    for (k, v) in vars.iter().zip(t) {
-                        if *k==v{continue;}
-                        d.set_item(wrap(k.clone()), wrap(v))?;
+                    for &i in &order {
+                        if vars[i]==t[i]{continue;}
+                        d.set_item(wrap(vars[i].clone()), wrap(t[i].clone()))?;
                     }
                     l.append(d)?;
                 } else {

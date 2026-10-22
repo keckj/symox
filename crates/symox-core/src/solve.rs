@@ -1208,6 +1208,9 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         }
         Kind::Func(func, a) if a.len() == 1 => {
             let g = a[0].clone();
+            if let (Func::Exp, Some(value)) = (func, split_exp_inverse(&g, &rhs, x)) {
+                return Some(vec![value]);
+            }
             match func {
                 Func::Exp => vec![(g, log(&rhs))],
                 Func::Log => vec![(g, exp(&rhs))],
@@ -1242,6 +1245,40 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         }
     }
     Some(out)
+}
+
+/// `exp(c + k*x) = rhs` with a symbolic `c` free of the unknown and `k` one
+/// of `1`, `-1` or a symbol. The reference polynomial generators split
+/// `exp(c + k*x)` into `exp(c)*exp(k*x)` (expand with power_exp), so it solves
+/// `exp(k*x) = R` with `R = rhs*exp(-c)`, `exp(-x)` through its numerator
+/// `1 - R*exp(x)`: `exp(a - x) + 1` gives `log(-exp(a))` (not `a - I*pi`,
+/// a different value for real `a`), `exp(a*x + b) - c` gives
+/// `log(c*exp(-b))/a`.
+fn split_exp_inverse(argument: &Expr, rhs: &Expr, x: &Expr) -> Option<Expr> {
+    let argument = expand(argument);
+    if !argument.is_add() {
+        return None;
+    }
+    let (dependent, constant): (Vec<Expr>, Vec<Expr>) = argument.args().into_iter().partition(|t| has(t, x));
+    let c = add(&constant);
+    if free_symbols(&c).is_empty() {
+        return None;
+    }
+    let [term] = dependent.as_slice() else { return None };
+    let k = div(term, x);
+    if has(&k, x) {
+        return None;
+    }
+    let r = mul2(rhs, &exp(&neg(&c)));
+    if k.is_one() {
+        Some(log(&r))
+    } else if k == Expr::minus_one() {
+        Some(log(&div(&Expr::one(), &r)))
+    } else if k.is_symbol() {
+        Some(div(&log(&r), &k))
+    } else {
+        None
+    }
 }
 
 /// `b**e = rhs` with both `b` and `e` depending on the unknown, as the
@@ -1362,10 +1399,22 @@ pub fn solve_system_with_check(eqs: &[Expr], vars: &[Expr], check: bool) -> Opti
     let original: Vec<Expr> = eqs.iter().map(as_expr)
         .filter(|e| free_symbols(e).is_empty() || vars.iter().any(|v| has(e, v))
             || crate::assumptions::exact_queries(|| crate::assumptions::is_zero(e)) == Some(false)).collect();
-    let eqs: Vec<Expr> = original.iter().map(expand).filter(|e| !e.is_zero()).collect();
+    let inverted: Vec<(Expr, Expr)> = original.iter().map(|e| system_invert(e, vars)).collect();
+    let eqs: Vec<Expr> = inverted.iter().map(|(lhs, rhs)| expand(&sub(lhs, rhs))).filter(|e| !e.is_zero()).collect();
     if eqs.iter().all(|e| is_linear_in(e, vars)) {
         let result = linear_system(&eqs, vars)?;
-        return Some(if check { check_system_solution(result, &original, vars) } else { result });
+        let result = if check { check_system_solution(result, &original, vars) } else { result };
+        // The reference reports the system as nonlinear (tuples rather than
+        // a dictionary) when an equation inverts to a single unknown in which
+        // it is not linear (`[exp(x) - 2]` gives `[(log(2),)]`).
+        let nonlinear = original.iter().zip(&inverted).any(|(equation, (lhs, _))|
+            vars.contains(lhs) && !is_linear_in(&expand(equation), std::slice::from_ref(lhs)));
+        return Some(match result {
+            SystemSolution::Map(assignments) if nonlinear => SystemSolution::Tuples(vec![vars.iter().map(|variable|
+                assignments.iter().find(|(key, _)| key == variable).map(|(_, value)| value.clone())
+                    .unwrap_or_else(|| variable.clone())).collect()]),
+            result => result,
+        });
     }
     // A product vanishes on the UNION of its factor zero sets. Solving only
     // for one pivot divides by the other factors and loses whole components
@@ -1430,6 +1479,107 @@ pub fn solve_system_with_check(eqs: &[Expr], vars: &[Expr], check: bool) -> Opti
     tuples.dedup();
     let result = SystemSolution::Tuples(tuples);
     Some(if check { check_system_solution(result, &original, vars) } else { result })
+}
+
+/// The reference `_solve_system` replaces each equation `g` by `d - i` for
+/// `(i, d) = _invert(g, *symbols)`: independent terms and factors move to the
+/// right-hand side, a two-term sum of powers is combined by powsimp, equal
+/// functions of the two terms are matched, a function with an inverse is
+/// inverted (principal branch, as the reference; `sin` and `cos` are
+/// kept), and a radical of a base
+/// with several unknowns is raised to the reciprocal power
+/// (`exp(x + y) - 1` gives `x + y`, making `[exp(x + y) - 1, x - y]` linear).
+/// Only non-polynomial equations change: a polynomial is its own inversion
+/// up to the order of its terms.
+fn system_invert(eq: &Expr, vars: &[Expr]) -> (Expr, Expr) {
+    let polynomial = |e: &Expr| vars.iter().all(|v| poly_coeffs(e, v).is_some());
+    if polynomial(eq) || !vars.iter().any(|v| has(eq, v)) {
+        return (eq.clone(), Expr::zero());
+    }
+    let dependent_on = |e: &Expr| vars.iter().any(|v| has(e, v));
+    let ispow = |e: &Expr| matches!(e.kind(), Kind::Pow(..) | Kind::Func(Func::Exp, _));
+    let options = crate::simptools::powsimp::PowsimpOptions::default();
+    let mut lhs = eq.clone();
+    let mut rhs = Expr::zero();
+    for _ in 0..64 {
+        let was = lhs.clone();
+        loop {
+            let (independent, dependent) = crate::decompose::as_independent(&lhs, vars, None);
+            if lhs.is_add() {
+                if independent.is_zero() { break; }
+                lhs = dependent;
+                rhs = sub(&rhs, &independent);
+            } else {
+                if independent.is_one() { break; }
+                lhs = dependent;
+                rhs = div(&rhs, &independent);
+            }
+        }
+        if lhs.is_add() && rhs.is_zero() && lhs.args().len() == 2 && !polynomial(&lhs) {
+            let mut pair = lhs.args();
+            crate::logic::ordered(&mut pair);
+            let (ai, ad) = crate::decompose::as_independent(&pair[0], vars, Some(false));
+            let (bi, bd) = crate::decompose::as_independent(&pair[1], vars, Some(false));
+            if ispow(&ad) || ispow(&bd) {
+                let (a_base, a_exp) = crate::ops::as_base_exp(&ad);
+                let (b_base, b_exp) = crate::ops::as_base_exp(&bd);
+                if a_base == b_base && crate::simptools::extract_additively(&a_exp, &b_exp).is_none() {
+                    lhs = crate::simptools::powsimp::powsimp(
+                        &crate::simptools::powsimp::powdenest(&div(&ad, &bd), false, false), &options);
+                    rhs = neg(&div(&bi, &ai));
+                } else {
+                    let ratio = div(&ad, &bd);
+                    let combined = crate::simptools::powsimp::powsimp(&ratio, &options);
+                    if combined != ratio {
+                        lhs = combined;
+                        rhs = neg(&div(&bi, &ai));
+                    }
+                }
+            } else if ai == neg(&bi) {
+                if let (Kind::Func(f, a), Kind::Func(g, b)) = (ad.kind(), bd.kind()) {
+                    if f == g && a.len() == 1 && b.len() == 1 {
+                        lhs = sub(&a[0], &b[0]);
+                    }
+                }
+            }
+        } else if lhs.is_mul() && lhs.args().iter().any(|a| ispow(a)) {
+            lhs = crate::simptools::powsimp::powsimp(
+                &crate::simptools::powsimp::powdenest(&lhs, false, false), &options);
+        }
+        if let Kind::Func(f, args) = lhs.kind() {
+            let inverse = match f {
+                Func::Exp => Some(Func::Log),
+                Func::Log => Some(Func::Exp),
+                Func::Tan => Some(Func::Atan),
+                Func::Asin => Some(Func::Sin),
+                Func::Acos => Some(Func::Cos),
+                Func::Atan => Some(Func::Tan),
+                _ => None,
+            };
+            // exp(u) = 0 has no solution; log(0) would make the equation zoo.
+            let inverse = inverse.filter(|_| !(rhs.is_zero() && *f == Func::Exp));
+            if let (Some(inverse), [argument]) = (inverse, args.as_slice()) {
+                rhs = func(inverse, vec![rhs.clone()]);
+                lhs = argument.clone();
+            }
+        }
+        if let Kind::Pow(base, exponent) = lhs.kind() {
+            let integer = exponent.as_i64();
+            if !rhs.is_zero() && integer.is_some_and(|n| n < 0) {
+                lhs = div(&Expr::one(), &lhs);
+                rhs = div(&Expr::one(), &rhs);
+            } else if integer.is_none() && exponent.is_number()
+                && vars.iter().filter(|v| has(base, v)).count() > 1 {
+                rhs = pow(&rhs, &div(&Expr::one(), exponent));
+                lhs = base.clone();
+            }
+        }
+        if lhs == was { break; }
+    }
+    if !dependent_on(&lhs) {
+        return (eq.clone(), Expr::zero());
+    }
+    (lhs, rhs)
 }
 
 fn check_system_solution(result: SystemSolution, equations: &[Expr], variables: &[Expr]) -> SystemSolution {
