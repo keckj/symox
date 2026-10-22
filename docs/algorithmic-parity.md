@@ -3873,3 +3873,102 @@ Remaining unsupported (they raise like SymPy, never a wrong value):
   `NotImplementedError`, as SymPy does.
 - Conic intersections whose eliminant cannot be fully solved by `roots`, or
   whose roots have undecidable reality, raise `NotImplementedError`.
+
+## Wave 4: sympy.physics.quantum and secondquant (WP-C11, missing_quantum)
+
+Regression tests: `tests/test_missing_quantum_wave4_parity.py` and
+`tests/test_missing_quantum_secondquant_wave4_parity.py`. Both hard-code
+SymPy 1.14 outputs. Probe score: 42/126 before, 114/126 after.
+
+Implemented (ports of the SymPy 1.14 algorithms):
+
+- `Operator`/`Ket`/`Bra` `.label`, `dual_class`, `Operator.inverse`/`inv`.
+  `UnitaryOperator`: `U*Dagger(U)` and `Dagger(U)*U` give 1.
+- `Commutator`/`AntiCommutator` `doit` and `expand(commutator=True)`, and
+  `Dagger` of both.
+- `qapply` inside `TensorProduct` factors. `Bra*Ket` and `InnerProduct`
+  printing.
+- `hbar` is a `NumberSymbol`: printing order and `evalf` at any precision
+  match SymPy.
+- `represent` follows SymPy's dispatch: `_represent_<Basis>`, then the
+  default basis, then `rep_innerproduct`/`rep_expectation`. Products go
+  through the index/unities path and `integrate_result`. Also ported:
+  `rep_innerproduct`, `rep_expectation`, `integrate_result`, `get_basis`
+  and `enumerate_states`. `XKet`/`PxKet` default labels and
+  `.position`/`.momentum` were added.
+- `CG`/`Wigner3j`/`6j`/`9j` keyword arguments, attributes and `is_symbolic`.
+  `WignerD` is a held function (6 arguments, `doit`, `simplify` evaluates
+  it). Also added: `Rotation` printing and `inverse`, and `Rotation.D`/`d`.
+- `couple`/`uncouple` for any number of spins, ported from SymPy, with
+  explicit `jcoupling`. Coupled states take `(j, m, jn, *jcoupling)`, use
+  SymPy's validation and errors, and provide `coupling`, `coupled_jn`,
+  `coupled_n`, `uncoupled_class`/`coupled_class` and SymPy's printing.
+- Hilbert spaces. Tensor products flatten and merge equal neighbours into
+  powers, giving `C(2)**3`. Direct sums flatten and print with `+`.
+  `FockSpace` prints `F`. The new attributes are `.spaces`, `.base` and
+  `.exp`.
+- `DifferentialOperator.variables`, `len(Qubit)` and `Qubit.dimension`.
+- New module `sympy.physics.quantum.pauli`. It provides `SigmaX/Y/Z`,
+  `SigmaMinus/Plus` (powers, `Dagger`, commutator and anticommutator
+  tables, `represent`, `qapply` on `SigmaZKet`), `SigmaZKet`/`SigmaZBra`
+  and `qsimplify_pauli`.
+- Secondquant, as ports:
+  - `apply_operator` on `B`/`Bd`/`F`/`Fd`.
+  - Fock-state `up`/`down` with Fermi-sea semantics (holes, Pauli and
+    hole-count zeros, sorting sign, Kronecker guards on symbolic indices).
+  - `VarBosonicBasis`/`FixedBosonicBasis`.
+  - `Commutator.eval`/`doit`, including `wicks=True`.
+  - `AntiSymmetricTensor` canonical sorting, sign, `symbol`/`upper`/`lower`.
+  - Fermi-level-aware deltas in `evaluate_deltas`/`contraction`/`wicks`.
+  - `wicks` expansion and the full `substitute_dummies` algorithm.
+  - `above_fermi`/`below_fermi` symbol assumptions.
+
+Intentional divergences (same value, or SymPy is wrong):
+
+- Operator sums print their terms in a different order (for example,
+  `B*[A,C] + [A,B]*C`).
+- Operator coefficients are simplified, so `exp(a)*exp(b)` prints combined
+  (`Rotation` applied to states). `TensorProduct` distributes over sums
+  when built (`AxC + BxC` rather than `(A + B)xC`). `qsimplify_pauli`
+  returns expanded sums such as `I/2 + I*SigmaZ()/2`.
+- Some results are an equal unitary form: `U*Dagger(U)**2` gives
+  `Dagger(U)` where SymPy gives `U**(-1)`. `simplify(WignerD(...))` can
+  print `(-1)**(1/4)` for `exp(I*pi/4)`.
+- `Ket.dual_class()` returns symox's own class, so the module path in its
+  repr differs.
+- Bra-ket products of orthogonal states such as `SigmaZBra(0)*SigmaZKet(1)`
+  evaluate to the Kronecker delta immediately. SymPy keeps `<0|1>` until
+  `qapply`.
+- The SymPy Pauli rules that ignore the spin name are wrong:
+  - `Commutator(SigmaZ('a'), SigmaMinus('b')).doit()`: SymPy returns
+    `-2*SigmaMinus()`; symox returns 0.
+  - Anticommutators of differently named spins: symox keeps
+    `A*B + B*A` instead of SymPy's same-spin value.
+- `represent(SigmaX(), format='numpy')` returns the numpy matrix; SymPy
+  raises `NotImplementedError`.
+- `conjugate(<b|k>)` is held outside `Dagger`.
+- `srepr` and the type of `above_fermi`/`below_fermi` symbols differ.
+- Secondquant:
+  - `fermi_level` is stored on each state, and `Dagger` keeps it.
+  - `up`/`down` accept plain Python integers (SymPy raises
+    `AttributeError`).
+  - The printed argument order of an unevaluated `Commutator` uses an
+    approximation of `sort_key`.
+
+Remaining unsupported (they raise, never a wrong value):
+
+- `couple`/`uncouple` with symbolic spins raise `NotImplementedError`. SymPy
+  returns a held `Sum`, which symox cannot build over operator expressions.
+- `XOp` represented in `PxKet` and `PxOp` in `XKet` raise
+  `NotImplementedError`. SymPy builds a one-argument `DifferentialOperator`
+  there.
+- `represent` of products such as `XOp()*XKet()` returns a held `Integral`
+  of a `DiracDelta` product. The value is correct, but integrate does not
+  apply delta sifting there.
+- Secondquant:
+  - The core `KroneckerDelta` does not vanish across the Fermi level when
+    built and has no `is_only_above_fermi`/`is_only_below_fermi`.
+  - LaTeX and `srepr` of operator products print `OrderedProduct`.
+  - `Sum` over operator expressions (`matrix_rep` in the oscillator
+    example).
+  - `NO.subs` with operator keys works only at the top level.

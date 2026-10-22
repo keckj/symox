@@ -18,6 +18,20 @@ def _word(word):
     return tuple(stack),coefficient
 
 
+def _word_repr(word):
+    """Noncommutative product text; equal neighbours print as powers like SymPy's Mul."""
+    parts = [];index = 0
+    while index<len(word):
+        run = index
+        while run+1<len(word) and word[run+1]==word[index]:run += 1
+        text = word[index]._atom_repr();count = run-index+1
+        if count>1:
+            simple = text.replace('_','').isalnum() or (text.endswith(')') and text.count('(')==1 and text[0].isalpha())
+            text = '%s**%d'%(text if simple else '(%s)'%text,count)
+        parts.append(text);index = run+1
+    return '*'.join(parts)
+
+
 class OperatorExpr(_BasisDependent):
     is_commutative = False
     def __init__(self,terms=None):
@@ -45,11 +59,11 @@ class OperatorExpr(_BasisDependent):
         # coefficients, signs, denominators and term order follow it.
         words = {}
         for word in self._terms:
-            if word:words[word] = '*'.join(a._atom_repr() for a in word)
+            if word:words[word] = _word_repr(word)
         if not words:return str(self._terms.get((),0))
         placeholders = {word:'~~%s~%d'%(text,i) for i,(word,text) in enumerate(words.items())}
         try:
-            native = S.Add(*(c*S.Symbol(placeholders[w]) if w else c for w,c in self._terms.items()))
+            native = S.Add(*(c*S.Symbol(placeholders[w],commutative=False) if w else c for w,c in self._terms.items()))
             text = str(native)
         except Exception:
             return ' + '.join((words[w] if c==1 else str(c)+'*'+words[w]) if w else str(c) for w,c in self._terms.items())
@@ -59,7 +73,9 @@ class OperatorExpr(_BasisDependent):
     def __eq__(self,other):
         try:return self._terms==_terms(other)
         except (TypeError,ValueError):return False
-    __hash__ = None
+    # Terms never change after construction, so operator polynomials can be
+    # arguments of commutators and tensor products, like SymPy's Add and Mul.
+    def __hash__(self):return hash((OperatorExpr,frozenset(self._terms.items())))
     def __bool__(self):return bool(self._terms)
     def __add__(self,other):
         terms = dict(self._terms)
@@ -88,11 +104,30 @@ class OperatorExpr(_BasisDependent):
         result = S.Integer(1)
         for _ in range(int(power)):result = self.__rmul__(result)
         return result
-    def expand(self,**kwargs):return self
+    def expand(self,**kwargs):
+        # Only the quantum hints rewrite operator atoms; the algebra itself is
+        # always kept expanded over sums.
+        if not any(kwargs.get(hint) for hint in ('commutator','tensorproduct')):return self
+        result = S.Integer(0)
+        for word,coefficient in self._terms.items():
+            term = coefficient
+            for atom in word:term = term*atom.expand(**kwargs)
+            result = result+term
+        return result
     def simplify(self,**kwargs):return self._make({w:S.simplify(v,**kwargs) for w,v in self._terms.items()})
     def trigsimp(self,**kwargs):return self._make({w:S.trigsimp(v,**kwargs) for w,v in self._terms.items()})
     def evalf(self,*args,**kwargs):return self._make({w:v.evalf(*args,**kwargs) for w,v in self._terms.items()})
-    def doit(self,**hints):return self
+    def doit(self,**hints):
+        # SymPy's Mul/Add.doit: evaluate every factor (commutators, inner products).
+        if not any(type(atom).doit is not Atom.doit for word in self._terms for atom in word) and \
+                not any(hasattr(c,'doit') and c.has(S.Function) for c in self._terms.values()):
+            return self
+        result = S.Integer(0)
+        for word,coefficient in self._terms.items():
+            term = coefficient.doit(**hints) if hasattr(coefficient,'doit') else coefficient
+            for atom in word:term = term*atom.doit(**hints)
+            result = result+term
+        return result
     def _diff_once(self,var):
         # Product rule: coefficients and atoms with their own derivative
         # (such as wavefunctions); other operators are constant.
@@ -145,6 +180,8 @@ class Atom(OperatorExpr):
     def __hash__(self):return hash(self._key())
     def __eq__(self,other):return isinstance(other,Atom) and self._key()==other._key()
     def _parameter_symbols(self):return set().union(*(v.free_symbols for v in self.labels if isinstance(v,S.Expr)))
+    def expand(self,**kwargs):return self
+    def doit(self,**hints):return self
     @property
     def args(self):return self.labels
     def _atom_repr(self):return '%s(%s)'%(type(self).__name__,', '.join(map(str,self.labels)))

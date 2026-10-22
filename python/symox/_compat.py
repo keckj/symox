@@ -365,10 +365,65 @@ def _symbol_assumptions(assumptions):
     return tuple((key, bool(value)) for key,value in assumptions.items() if value is not None)
 
 
+# Assumptions the native fact engine does not know, but which SymPy keeps on
+# a symbol as part of its identity (secondquant's Fermi-level restrictions).
+# A symbol carrying them is an instance of a host subclass, so it differs from
+# the plain symbol of the same name, and reports them in ``assumptions0``.
+_EXTRA_ASSUMPTIONS = frozenset(('above_fermi', 'below_fermi'))
+_extra_classes = {}
+
+
+def _split_extra_assumptions(cls, assumptions):
+    if not _EXTRA_ASSUMPTIONS.intersection(assumptions):
+        return cls, assumptions
+    rest = dict(assumptions)
+    extra = dict(cls.__dict__.get('_symox_extra_assumptions', {}))
+    for key in _EXTRA_ASSUMPTIONS.intersection(rest):
+        value = rest.pop(key)
+        if value is not None:
+            extra[key] = bool(value)
+    base = cls.__dict__.get('_symox_extra_base', cls)
+    if not extra:
+        return base, rest
+    key = (base, tuple(sorted(extra.items())))
+    sub = _extra_classes.get(key)
+    if sub is None:
+        frozen = dict(extra)
+
+        def assumptions0(self, _frozen=frozen):
+            facts = dict(_core.Expr.assumptions0.__get__(self))
+            facts.update(_frozen)
+            return dict(sorted(facts.items()))
+
+        def assumptions_orig(self, _frozen=frozen):
+            facts = dict(_core.Expr._assumptions_orig.__get__(self))
+            facts.update(_frozen)
+            return facts
+
+        def reduce_ex(self, protocol, _base=base):
+            index = self.dummy_index if self.is_Dummy else None
+            return _rebuild_extra_symbol, (_base, self.name, index, self._assumptions_orig)
+
+        namespace = {'__module__': 'symox._extra_assumptions', '__qualname__': base.__name__,
+                     '__reduce_ex__': reduce_ex, '__reduce__': lambda self: reduce_ex(self, 2),
+                     '_symox_extra_assumptions': frozen, '_symox_extra_base': base,
+                     'assumptions0': property(assumptions0),
+                     '_assumptions_orig': property(assumptions_orig)}
+        sub = _extra_classes[key] = type(base)(base.__name__, (base,), namespace)
+    return sub, rest
+
+
+def _rebuild_extra_symbol(base, name, dummy_index, assumptions):
+    if dummy_index is not None:
+        return base(name, dummy_index=dummy_index, **assumptions)
+    return base(name, **assumptions)
+
+
 class Symbol(metaclass=_ExprType):
     _matches = staticmethod(lambda e: e.is_Symbol)
 
     def __new__(cls, name, **assumptions):
+        cls, assumptions = _split_extra_assumptions(cls, assumptions)
         given = _symbol_assumptions(assumptions)
         try:
             hash((cls, name, given))
@@ -381,6 +436,7 @@ class Symbol(metaclass=_ExprType):
         """SymPy's uncached construction of a symbol of class ``cls``."""
         if not isinstance(name, str):
             raise TypeError('name should be a string, not %s' % repr(type(name)))
+        cls, assumptions = _split_extra_assumptions(cls, assumptions)
         return _symbol_instance(cls, _core.Symbol(name, **dict(_symbol_assumptions(assumptions))))
 
     @staticmethod
@@ -393,6 +449,7 @@ class Dummy(Symbol):
     _matches = staticmethod(lambda e: e.is_Dummy)
 
     def __new__(cls, name=None, dummy_index=None, **assumptions):
+        cls, assumptions = _split_extra_assumptions(cls, assumptions)
         return _symbol_instance(cls, _core.Dummy(name, dummy_index, **assumptions))
 
 
