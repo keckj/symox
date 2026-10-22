@@ -696,6 +696,27 @@ fn solveset(f: &Bound<'_, PyAny>, symbol: Option<&Bound<'_, PyAny>>, domain: Opt
     };
     require_set(&dom)?;
     if !x.is_symbol() { return Err(PyValueError::new_err("the independent variable must be a symbol")); }
+    // reference `solveset`: the assumptions of the symbol do not restrict
+    // the solutions; it is replaced by a real (real domain) or complex dummy
+    if let Some(sym) = x.as_sym() {
+        use symox::assumption_facts::FactSet;
+        use symox::symbol::Assumptions;
+        let given = sym.given_facts();
+        let real_domain = st::is_subset(&dom, &st::reals()) == Some(true);
+        let plain_real = given == FactSet::from_legacy(Assumptions::REAL);
+        if !given.is_empty() && given.get("commutative") != Some(false) && !sym.is_dummy()
+            && !(real_domain && plain_real) {
+            let d = Expr::dummy(sym.name(), if real_domain { Assumptions::REAL } else { Assumptions::COMPLEX });
+            let mut forward = rustc_hash::FxHashMap::default();
+            forward.insert(x.clone(), d.clone());
+            let g = symox::subs::xreplace(&f, &forward);
+            let r = st::with_periodic_window(st::PeriodicWindow::Direct, || st::solveset(&g, &d, &dom))
+                .map_err(PyValueError::new_err)?;
+            let mut back = rustc_hash::FxHashMap::default();
+            back.insert(d, x.clone());
+            return Ok(wrap(symox::subs::xreplace(&r, &back)));
+        }
+    }
     st::with_periodic_window(st::PeriodicWindow::Direct, || st::solveset(&f, &x, &dom))
         .map(wrap).map_err(PyValueError::new_err)
 }

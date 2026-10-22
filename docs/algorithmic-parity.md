@@ -891,32 +891,69 @@ reference values.
   subset decision (`python/symox/_set_subset.py`) proves `A <= B`
   (`Complement(Range(0, 5), Interval(-1, 10))`).
 
-Remaining gaps:
+Remaining gaps (updated by the follow-up below):
 
-- The native `diophantine` does not solve the parabolic binary quadratic
-  family (`n**2 - m`, `n**2 + n - m`, `2*m - n**2`) and rejects
-  non-rational coefficients that SymPy removes by factoring (`2*pi*n -
-  pi*m`), so `Intersection(S.Integers, ImageSet(Lambda(n, n**2),
-  S.Integers))`, `n**2` with `2*n`, and `2*n*pi` with `n*pi` stay
-  unevaluated; SymPy gives the image sets.
-- `invert_complex(n*I, 1, n)` with an integer `n` gives `EmptySet` (SymPy
-  `{-I}`). The `Interval` rule then takes the real part of the image set
-  first, so `Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I),
-  S.Integers))` gives `{0}` as in SymPy.
 - **Intentional correction**: when the inverted bounds are not real, the
   reference intersects the real zeros of the map with the interval, so
   `Intersection(Interval(0, 1), ImageSet(Lambda(n, n*I + 1), S.Integers))`
   is `EmptySet` in SymPy 1.14 although `n = 0` gives `1`. Symox intersects
   the real part of the image set with the interval and gives `{1}`.
-- `Range.contains` with a step other than 1 and a symbolic integer stays
-  `Contains` (the reference returns the relation when `(ref - n) % step`
-  simplifies to zero); `ImageSet(Lambda(n, 2*n), S.Integers).contains(x)` is
-  `Contains(x/2, Integers)` (SymPy keeps `Contains(x, ImageSet(...))`);
-  `ProductSet.contains` of a symbolic tuple stays `Contains` (SymPy gives the
-  conjunction of the component relations).
-- The image-set and complex rules run in the Python constructors only:
-  intersections built inside native code (native `solveset`) do not use
-  them.
+
+## Inversion, diophantine and membership follow-up on 2026-10-22
+
+A probe of 101 calls (`invert_complex`/`invert_real` on symbols with
+assumptions, binary diophantine equations, image-set intersections,
+`Range`, `ImageSet` and `ProductSet` membership) went from 30 to 96 outputs
+equal (by `srepr`) to SymPy 1.14.0, and a probe of 31 native `solveset` and
+intersection calls on assumed symbols went from 26 to 29.
+`tests/test_sets_contains_parity.py` holds the agreed reference values.
+
+- `solveset` follows the reference handling of the symbol's assumptions: a
+  symbol with assumptions (other than a plain `real=True` symbol over a real
+  domain) is replaced by a `Dummy` that is `real` when the domain is a
+  subset of `Reals` and `complex` otherwise, the equation is solved, and the
+  symbol is put back. The assumptions no longer filter the solutions, so
+  `invert_complex(n*I, 1, n)` with an integer `n` is `(n, {-I})` and
+  `solveset(2*k - 3, k, S.Reals)` with an integer `k` is `{3/2}`, as in
+  SymPy.
+- `diophantine` applies the reference preprocessing (numerator,
+  `factor_terms`, then the factor independent of the variables is dropped,
+  so `2*pi*n - pi*m` is `2*n - m`), factors a repeated factor, solves the
+  linear equation with the reference `Linear.solve` (`base_solution_linear`
+  and the extended gcd, variables in the default sort order, the reference
+  parameter signs), and has the reference parabolic binary quadratic case
+  (`discriminant == 0`: `n**2 - m`, `n**2 + n - 2*m`, `(n - m)**2 - n - m`,
+  `4*n**2 + 4*n*m + m**2 + n + 1`). `Intersection(S.Integers,
+  ImageSet(Lambda(n, n**2), S.Integers))`, `n**2` with `2*n`, and
+  `2*n*pi` with `n*pi` are the reference image sets.
+- `Range.contains` with any step is the reference rule: the relation
+  `And(x >= inf, x <= sup)` when `(ref - x) % step` is zero (for an integer
+  expression whose non-constant terms are multiples of the step), `false`
+  when it is a nonzero integer, `Eq` for one element, unevaluated otherwise.
+- `ImageSet.contains` returns only a decided value; an undecided membership
+  stays `Contains(x, ImageSet(...))` as in the reference.
+- `ProductSet.contains` of a tuple of the right length is the conjunction of
+  the component memberships, `false` for a tuple of another length or a
+  non-tuple number, and unevaluated for a symbol.
+- **Intentional corrections** (SymPy 1.14 loses solutions through the
+  assumption filtering of its image-set intersection):
+  `solveset(exp(I*x) - 1, x, S.Reals)` is `ImageSet(Lambda(n, 2*n*pi),
+  S.Integers)` (SymPy `{0}`), and `solveset(exp(I*x) - I, x, Interval(0,
+  10))` is `{pi/2, 5*pi/2}` (SymPy `{pi/2}`).
+
+Remaining gaps:
+
+- `invert_real`/`invert_complex` are `(x, solveset(f - y, x, domain))`
+  rather than a port of the reference `_invert`, so the partial inversions
+  the reference returns differ: `invert_complex(n**2, 2, n)` gives
+  `(n, {-sqrt(2), sqrt(2)})` where SymPy gives `(n**2, {2})`; the same holds
+  for `invert_real(r**2, -1, r)` and `invert_complex(k**2, 4, k)`.
+- `invert_complex(exp(r), -1, r)` gives the image set
+  `2*n*I*pi + I*pi` where SymPy gives `I*(2*n*pi + pi)` (same set,
+  different form).
+- The image-set and complex intersection rules run in the Python
+  constructors only. The probed native `solveset` paths already agree with
+  SymPy, but intersections built inside native code do not use those rules.
 - The native pairwise intersection still absorbs one argument into the other
   when the approximate Rust `is_subset` proves inclusion, and the native
   complement still starts with that `is_subset`, where the reference only has

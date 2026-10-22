@@ -105,20 +105,30 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
                 }
             }
             // reference `Range._contains` of an integer expression in a
-            // numeric range of unit step: the bounds as relations
+            // numeric range: the bounds as relations when `(ref - x) % step`
+            // is zero, false when it is a nonzero integer
             if !crate::logic::is_number_like(x) && crate::assumptions::is_integer(x) == Some(true) {
                 if let Some(p) = range_progression(s) {
                     let Some(p) = p else { return f() };
-                    if num_traits::One::is_one(&p.step) {
-                        let int = |v: &num_bigint::BigInt| Expr::num(crate::number::Number::from_bigint(v.clone()));
-                        return match (&p.lo, &p.hi) {
-                            (None, None) => t(),
-                            (Some(l), Some(h)) if l == h => rel(RelOp::Eq, x, &int(l)),
-                            (lo, hi) => and(vec![
-                                lo.as_ref().map_or_else(t, |l| crate::relational::ge(x, &int(l))),
-                                hi.as_ref().map_or_else(t, |h| crate::relational::le(x, &int(h))),
-                            ]),
-                        };
+                    let int = |v: &num_bigint::BigInt| Expr::num(crate::number::Number::from_bigint(v.clone()));
+                    let residue = match (&p.lo, &p.hi) {
+                        _ if num_traits::One::is_one(&p.step) => Some(num_bigint::BigInt::from(0)),
+                        (Some(r), _) | (None, Some(r)) => integer_residue(&crate::ops::sub(&int(r), x), &p.step),
+                        (None, None) => Some(num_bigint::BigInt::from(0)),
+                    };
+                    match (&p.lo, &p.hi) {
+                        (None, None) => return t(),
+                        (Some(l), Some(h)) if l == h => return rel(RelOp::Eq, x, &int(l)),
+                        (lo, hi) => match residue {
+                            Some(r) if num_traits::Zero::is_zero(&r) => {
+                                return and(vec![
+                                    lo.as_ref().map_or_else(t, |l| crate::relational::ge(x, &int(l))),
+                                    hi.as_ref().map_or_else(t, |h| crate::relational::le(x, &int(h))),
+                                ])
+                            }
+                            Some(_) => return f(),
+                            None => {}
+                        },
                     }
                 }
             }
@@ -136,12 +146,30 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
                         let residual = crate::ops::sub(body, &crate::ops::add2(&crate::ops::mul2(&coefficient, variable), &offset));
                         if crate::expand::expand(&residual).is_zero() {
                             let inverse = crate::simplify::simplify(&crate::ops::div(&crate::ops::sub(x, &offset), &coefficient));
-                            return contains(&a[1], &inverse);
+                            // reference `ImageSet._contains`: only the
+                            // emptiness of the solution set is decided, an
+                            // undecided membership stays `Contains(x, self)`
+                            let r = contains(&a[1], &inverse);
+                            if matches!(r.kind(), Kind::Bool(_)) {
+                                return r;
+                            }
+                            return unevaluated();
                         }
                     }
                 }
             }
             unevaluated()
+        }
+        SetOp::ProductSet => {
+            // reference `ProductSet._contains`: the conjunction of the
+            // component memberships of a tuple of the right length
+            if matches!(x.kind(), Kind::Sym(_)) {
+                return unevaluated();
+            }
+            match crate::special::tuple_items(x) {
+                Some(items) if items.len() == a.len() => and(a.iter().zip(items).map(|(p, e)| contains(p, e)).collect()),
+                _ => f(),
+            }
         }
         SetOp::ConditionSet => {
             let c = crate::subs::subs1(&a[1], &a[0], x);
@@ -149,6 +177,29 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
         }
         _ => unevaluated(),
     }
+}
+
+/// `e mod step` in `0..step` when every non-constant term of the expanded
+/// `e` is an integer expression with a coefficient divisible by `step` (the
+/// cases where the reference `Mod` evaluates to an integer); `None` otherwise.
+fn integer_residue(e: &Expr, step: &num_bigint::BigInt) -> Option<num_bigint::BigInt> {
+    use num_integer::Integer;
+    let e = crate::expand::expand(e);
+    let (konst, terms): (num_bigint::BigInt, Vec<(Expr, crate::number::Number)>) = match e.kind() {
+        Kind::Num(n) => (n.to_bigint()?, vec![]),
+        Kind::Add(c, t) => (c.to_bigint()?, t.clone()),
+        _ => {
+            let (c, t) = crate::ops::as_coeff_mul(&e);
+            (num_bigint::BigInt::from(0), vec![(t, c)])
+        }
+    };
+    for (term, c) in &terms {
+        let c = c.to_bigint()?;
+        if crate::assumptions::is_integer(term) != Some(true) || !num_traits::Zero::is_zero(&c.mod_floor(step)) {
+            return None;
+        }
+    }
+    Some(konst.mod_floor(step))
 }
 
 /// `q * n**(p/r)` with rational `q != 0` and an integer `n` whose
