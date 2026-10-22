@@ -389,21 +389,39 @@ Remaining gaps in this area:
   does `apart` over `RR[y]` once the cancelled denominator has degree above
   one. Tests: `tests/test_domains_inexact_wave3_parity.py` (135 of 149
   probed calls identical; 105 of the first 131 before).
-  Remaining: products and `gcd` of a several-generator `RR[y]` polynomial
-  with an exact `ZZ[y]` one fail (`TypeError`; the reference unifies to
-  `RR[y]`), and several-generator `RR[y]` polynomials keep the legacy
-  representation, whose `factor_list`/`sqf_list`/`content`/`integrate`
-  differ from the reference. `apart` over RR (`1.5/(x**2 - 1)`, reference
-  `-0.75/(x + 1) + 0.75/(x - 1)`, or `1/(x - 1.5*y)`) and `invert`/`gcdex`
-  over RR (`invert(1.5*x, x**2 + 1)`, reference `-0.666666666666667*x`)
-  compute exactly over QQ and return rationals instead of Floats. `CC` has
-  no polynomial backend for an explicit `domain=CC` (`Poly(x, x,
-  domain=CC)` raises `NotImplementedError`), and the inferred `CC`
-  polynomials have no `invert` (`ValueError` where the reference returns
-  the CC result or raises `NotInvertible`). `RR.frac_field(x).field`,
-  `CC.frac_field(x).field` and `RR.poly_ring(x).ring` raise
-  `AttributeError`, and `factor_list`/`sqf_list` of RR expressions print
-  factors as `1.0*x - 1.0*y` where the reference prints `x - y`.
+  Plain univariate `RR` `invert`/`gcdex`/`half_gcdex` (methods and
+  expression functions) run the reference `dup_half_gcdex` in 53-bit
+  floating point (`dup_ff_div` drops the rounding-created leading term,
+  `dup_gcdex` takes `dup_quo`, `invert` needs `h` exactly `1.0`), so
+  `invert(1.5*x, x**2 + 1)` is `-0.666666666666667*x` and
+  `invert(x**2 - 1.0, x - 1)` raises `NotInvertible`. `Poly.cancel` over
+  plain `RR` computes the cofactors over QQ like `dup_inner_gcd` and
+  applies the `dmp_cancel` field sign rule, returning a Float `cp/cq`
+  (`include=True` keeps the sign in `p`). `content`/`primitive` over plain
+  `RR` give `1.0` like the reference field content (also several
+  generators and the `content`/`primitive` functions). `PolynomialRing.ring`
+  and `FractionField.field` exist (`RR.poly_ring(x).ring`,
+  `CC.frac_field(x).field`). Tests: `tests/test_domains_rrcc_parity.py`
+  (82 of 157 probed calls identical; 49 before).
+  Remaining: products, `gcd`, `lcm`, `div` and `resultant` of a
+  several-generator `RR[y]` polynomial with an exact `ZZ[y]` one fail
+  (`TypeError`; the reference unifies to `RR[y]`), and several-generator
+  `RR[y]` polynomials keep the legacy representation, whose
+  `factor_list`/`sqf_list`/`content`/`integrate` differ from the reference
+  (`Poly(1.5*x*z + 1.5*y, x, z).content()` is `3/2`, reference `1.0`).
+  `apart` over RR (`1.5/(x**2 - 1)`, reference
+  `-0.75/(x + 1) + 0.75/(x - 1)`, or `1/(x - 1.5*y)`) computes exactly over
+  QQ and returns rationals instead of Floats. `CC` has no polynomial
+  backend for an explicit `domain=CC` (`Poly(x, x, domain=CC)` raises
+  `NotImplementedError`), and the inferred `CC` polynomials have no
+  `invert`/`gcdex` (`ValueError` where the reference returns the CC result
+  or raises `NotInvertible`). Elements of `RR.poly_ring(x).ring` print
+  `0`/`1.0*x` where the reference prints `0.0`/`x`, and the zero `RR` Poly
+  prints `Poly(0, x, domain='RR')` (reference `Poly(0.0, ...)`).
+  `factor`/`factor_list`/`sqf_list` of RR expressions print factors as
+  `1.0*x - 1.0*y` where the reference prints `x - y`, and `factor(1.5*x -
+  1.5*y)` does not pull the Float content out as the reference
+  `together`/`gcd_terms` does (`1.5*(x - y)`).
 - Negative bases with rational exponents follow the reference
   `Integer._eval_power`/`Rational._eval_power` and the `Mul.flatten` sign
   join: `(-2)**(1/6)` stays one power (also after `(-1)**(1/6)*2**(1/6)`),

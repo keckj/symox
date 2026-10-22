@@ -19,6 +19,10 @@ generators may be Symbols or other non-algebraic expressions (`ZZ[pi]`,
 `ZZ[y,sin(x)]`, `ZZ(x,pi)`), and their elements print like the reference
 `PolyElement`.
 
+Plain univariate `RR` `invert`/`gcdex`/`half_gcdex` follow the reference
+floating-point `dup_half_gcdex`; `Poly.cancel`, `content` and `primitive`
+over plain `RR` keep Floats (field content `1.0`).
+
 Composite domains over `RR` and `CC` follow the `ZZ_I[y]` composite-ground
 design: a univariate `Poly` whose coefficients contain Floats and other
 symbols is inferred over `RR[y]`, `CC[y]` (when `I` occurs) or `RR(y)` (when a
@@ -43,7 +47,10 @@ generators, the imaginary unit being one of them) and report the reference
 `RR[y]`/`CC[y]` domain. Remaining: that legacy representation's
 `factor_list` returns factors where the reference raises, its `sqf_list`,
 `content` and `integrate` differ, and its products and `gcd` with exact
-`ZZ[y]` polynomials fail; `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
+`ZZ[y]` polynomials fail (`TypeError`, the reference unifies to `RR[y]`);
+explicit `domain=CC` has no backend (`NotImplementedError`) and inferred `CC`
+polynomials have no `invert`; `apart` over plain `RR` returns rationals
+instead of Floats; `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
 factors (the reference `together` result differs); the
 `to_ring` `CoercionFailed` message names the expression instead of the
 `FracElement`; the `div` remainder of near-cancelling Float inputs can differ
