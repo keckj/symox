@@ -508,6 +508,25 @@ impl Engine {
         if matches!(f, Func::Floor | Func::Ceiling) && args.len() == 1 {
             return self.ser_floor(*f == Func::Floor, &args[0], n);
         }
+        if let Func::Special(s) = f {
+            use crate::special::SpecialFn;
+            let order_arg = match (s, args.len()) {
+                (SpecialFn::Polygamma, 2) => Some((args[0].clone(), &args[1])),
+                (SpecialFn::Digamma, 1) => Some((Expr::zero(), &args[0])),
+                (SpecialFn::Trigamma, 1) => Some((Expr::one(), &args[0])),
+                _ => None,
+            };
+            if let Some((order, z)) = order_arg {
+                let order = order.as_number().filter(|k| k.is_integer()).and_then(|k| k.to_i64()).filter(|k| *k >= 0);
+                if let Some(order) = order {
+                    let a = self.ser(z, n.max(1))?;
+                    if !a.is_zero() && a.val < 0 {
+                        return self.ser_polygamma_inf(order, z, &a, n);
+                    }
+                }
+                return Err(SErr::Unsupported(format!("{}(...)", f.name())));
+            }
+        }
         if args.len() != 1 {
             return Err(SErr::Unsupported(format!("{}(...)", f.name())));
         }
@@ -755,6 +774,10 @@ impl Engine {
     /// `gamma`/`loggamma` at integer points through
     /// `loggamma(1 + r) = -EulerGamma r + Σ (-1)^k zeta(k) r^k / k`.
     fn ser_gamma(&mut self, f: &Func, arg: &Expr, n: i64) -> SRes<Ser> {
+        let a = self.ser(arg, n.max(1))?;
+        if !a.is_zero() && a.val < 0 {
+            return self.ser_stirling(f, arg, &a, n);
+        }
         let mut m = n;
         for _ in 0..5 {
             let a = self.ser(arg, m)?;
@@ -822,6 +845,66 @@ impl Engine {
             m += (n - res.prec).max(1);
         }
         Err(SErr::Precision)
+    }
+
+    /// `loggamma(z)` for `z -> +oo`: the Stirling series of the reference
+    /// `loggamma._eval_aseries`,
+    /// `(z - 1/2)*log(z) - z + log(2*pi)/2 + Σ B_2k/(2k(2k - 1) z**(2k - 1))`,
+    /// with the remainder `O(z**-(2K + 1))` kept as the precision. `gamma`
+    /// has no asymptotic series there (the reference raises `PoleError`).
+    fn ser_stirling(&mut self, f: &Func, arg: &Expr, a: &Ser, n: i64) -> SRes<Ser> {
+        if *f != Func::LogGamma || sign_of(a.lead().unwrap()) != Some(1) {
+            return Err(SErr::Pole(format!("{}({arg})", f.name())));
+        }
+        let v = -a.val;
+        let k_terms = if n <= v { 0 } else { (n - v + 2 * v - 1) / (2 * v) };
+        let half = Expr::rational(1, 2);
+        let mut terms = vec![
+            mul2(&sub(arg, &half), &fx::log(arg)),
+            neg(arg),
+            mul2(&half, &add(&[fx::log(&Expr::int(2)), fx::log(&Expr::pi())])),
+        ];
+        let b = bernoulli(2 * k_terms as usize);
+        for k in 1..=k_terms {
+            let c = b[2 * k as usize].div(&Number::int(2 * k * (2 * k - 1))).unwrap();
+            terms.push(mul2(&Expr::num(c), &pow(arg, &Expr::int(1 - 2 * k))));
+        }
+        let r = self.ser(&add(&terms), n)?;
+        Ok(r.add(&Ser::zero_inexact((2 * k_terms + 1) * v)))
+    }
+
+    /// `polygamma(N, z)` for `z -> +oo` (Abramowitz & Stegun 6.3.18 and
+    /// 6.4.10, as the reference `polygamma._eval_aseries`), with the
+    /// remainder of the truncated series kept as the precision.
+    fn ser_polygamma_inf(&mut self, order: i64, z: &Expr, a: &Ser, n: i64) -> SRes<Ser> {
+        if sign_of(a.lead().unwrap()) != Some(1) {
+            return Err(SErr::Pole(format!("polygamma({order}, {z})")));
+        }
+        let v = -a.val;
+        let lead = if order == 0 { 2 } else { order + 2 };
+        let k_terms = if n <= lead * v { 0 } else { (n - lead * v + 2 * v - 1) / (2 * v) };
+        let b = bernoulli(2 * k_terms as usize);
+        let zpow = |k: i64| pow(z, &Expr::int(-k));
+        let mut terms = vec![];
+        if order == 0 {
+            terms.push(fx::log(z));
+            terms.push(mul2(&Expr::rational(-1, 2), &zpow(1)));
+            for k in 1..=k_terms {
+                let c = b[2 * k as usize].div(&Number::int(-2 * k)).unwrap();
+                terms.push(mul2(&Expr::num(c), &zpow(2 * k)));
+            }
+        } else {
+            let fact = |m: i64| (1..=m).fold(Number::ONE, |acc, j| acc.mul(&Number::int(j)));
+            let sgn = if order % 2 == 1 { Number::ONE } else { Number::MINUS_ONE };
+            terms.push(mul2(&Expr::num(sgn.mul(&fact(order - 1))), &zpow(order)));
+            terms.push(mul2(&Expr::num(sgn.mul(&fact(order)).div(&Number::int(2)).unwrap()), &zpow(order + 1)));
+            for k in 1..=k_terms {
+                let c = b[2 * k as usize].mul(&fact(2 * k + order - 1)).div(&fact(2 * k)).unwrap().mul(&sgn);
+                terms.push(mul2(&Expr::num(c), &zpow(2 * k + order)));
+            }
+        }
+        let r = self.ser(&add(&terms), n)?;
+        Ok(r.add(&Ser::zero_inexact((2 * k_terms + lead) * v)))
     }
 
     fn ser_gamma_regular(&mut self, f: &Func, c0: &C, r: &Ser, m: i64) -> SRes<Ser> {

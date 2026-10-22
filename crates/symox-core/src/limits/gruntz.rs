@@ -87,7 +87,18 @@ impl Gruntz {
         match self.sign(&e0)? {
             1 => Ok(Expr::zero()),
             -1 => self.infinity_with_sign_of(&c0),
-            _ => self.limitinf(&c0),
+            _ => {
+                // The canonical product splits `exp(a)*exp(b + c)` into one
+                // exponential per term, which can undo the rewrite in the mrv
+                // variable (the coefficient comes back unchanged): continue
+                // with the exponential factors merged into a single one.
+                if c0 == e {
+                    if let Some(m) = merge_exp_factors(&c0) {
+                        return self.limitinf(&m);
+                    }
+                }
+                self.limitinf(&c0)
+            }
         }
     }
 
@@ -221,6 +232,21 @@ impl Gruntz {
             Kind::Pow(b, p) if depends(p, &x) || (depends(b, &x) && !p.is_number()) => {
                 fx::exp(&mul2(p, &simp_log(&fx::log(b))))
             }
+            Kind::Func(Func::Gamma, args) if args.len() == 1 && depends(&args[0], &x) => self.gamma_tractable(&args[0], e)?,
+            Kind::Func(Func::LogGamma, args) if args.len() == 1 && depends(&args[0], &x) => {
+                // Stirling's series needs `+oo`; a finite limit point is regular.
+                let l = self.limitinf(&args[0])?;
+                if !l.is_constant(Constant::Infinity) && !is_finite_limit(&l) {
+                    return unknown(format!("loggamma({}) near the limit point", args[0]));
+                }
+                e.clone()
+            }
+            Kind::Func(Func::Special(s), args) if args.iter().any(|a| depends(a, &x)) => {
+                match self.special_tractable(*s, args)? {
+                    Some(r) => self.prepare(&r)?,
+                    None => e.clone(),
+                }
+            }
             Kind::Func(f, args) if args.len() == 1 && depends(&args[0], &x) => {
                 let a = &args[0];
                 match f {
@@ -265,6 +291,76 @@ impl Gruntz {
             }
             _ => e.clone(),
         })
+    }
+
+    /// The reference `gamma._eval_rewrite_as_tractable`: `exp(loggamma(z))`,
+    /// whose exponent has Stirling's series at `+oo`. A gamma whose argument
+    /// has a finite limit is continuous or has a pole the series engine
+    /// expands; any other argument is left undecided.
+    fn gamma_tractable(&mut self, a: &Expr, e: &Expr) -> LRes<Expr> {
+        let l = self.limitinf(a)?;
+        if l.is_constant(Constant::Infinity) {
+            return Ok(fx::exp(&crate::functions::func(Func::LogGamma, vec![a.clone()])));
+        }
+        if is_finite_limit(&l) {
+            return Ok(e.clone());
+        }
+        unknown(format!("gamma({a}) near the limit point"))
+    }
+
+    /// Tractable forms of the factorial family and of harmonic numbers
+    /// (the reference rewrites `factorial` to `gamma` before gruntz and
+    /// `binomial`, `RisingFactorial`, `FallingFactorial` and `harmonic`
+    /// through `rewrite('tractable')`). `None` keeps the node.
+    fn special_tractable(&mut self, s: crate::special::SpecialFn, args: &[Expr]) -> LRes<Option<Expr>> {
+        use crate::special::SpecialFn as S;
+        let gamma = |a: Expr| crate::functions::func(Func::Gamma, vec![a]);
+        let one = Expr::one();
+        Ok(Some(match (s, args) {
+            (S::Factorial, [a]) => gamma(add(&[a.clone(), one])),
+            (S::Binomial, [n, k]) => div(
+                &gamma(add(&[n.clone(), one.clone()])),
+                &mul2(&gamma(add(&[k.clone(), one.clone()])), &gamma(add(&[n.clone(), neg(k), one]))),
+            ),
+            (S::RisingFactorial, [a, k]) => div(&gamma(add(&[a.clone(), k.clone()])), &gamma(a.clone())),
+            (S::FallingFactorial, [a, k]) => {
+                div(&gamma(add(&[a.clone(), one.clone()])), &gamma(add(&[a.clone(), neg(k), one])))
+            }
+            (S::Harmonic, [n]) => return self.harmonic_tractable(n, &one),
+            (S::Harmonic, [n, m]) => return self.harmonic_tractable(n, m),
+            (S::Fibonacci, [n]) => {
+                // (phi**n - cos(pi*n)/phi**n)/sqrt(5)
+                let phi = Expr::constant(Constant::GoldenRatio);
+                let pn = pow(&phi, n);
+                let osc = div(&fx::cos(&mul2(&Expr::pi(), n)), &pn);
+                div(&sub(&pn, &osc), &crate::ops::sqrt(&Expr::int(5)))
+            }
+            _ => return Ok(None),
+        }))
+    }
+
+    /// `harmonic(n, m) = polygamma(0, n + 1) + EulerGamma` for `m = 1` and
+    /// `(-1)**m*(polygamma(m - 1, 1) - polygamma(m - 1, n + 1))/gamma(m)`
+    /// for an integer `m > 1` (the reference `_eval_rewrite_as_polygamma`).
+    fn harmonic_tractable(&mut self, n: &Expr, m: &Expr) -> LRes<Option<Expr>> {
+        use crate::special::{apply, SpecialFn as S};
+        let l = self.limitinf(n)?;
+        if is_finite_limit(&l) && !depends(m, &self.x) {
+            return Ok(None);
+        }
+        let order = match m.as_number().filter(|k| k.is_integer()).and_then(|k| k.to_i64()) {
+            Some(k) if k >= 1 && l.is_constant(Constant::Infinity) => k,
+            _ => return unknown(format!("harmonic({n}, {m}) near the limit point")),
+        };
+        let n1 = add(&[n.clone(), Expr::one()]);
+        let pg = |k: i64, z: Expr| apply(S::Polygamma, vec![Expr::int(k), z]);
+        Ok(Some(if order == 1 {
+            add(&[pg(0, n1), Expr::constant(Constant::EulerGamma)])
+        } else {
+            let sgn = if order % 2 == 0 { 1 } else { -1 };
+            let diff = sub(&pg(order - 1, Expr::one()), &pg(order - 1, n1));
+            div(&mul2(&Expr::int(sgn), &diff), &crate::functions::func(Func::Gamma, vec![m.clone()]))
+        }))
     }
 
     // ------------------------------------------------------------------
@@ -318,7 +414,17 @@ impl Gruntz {
             Kind::Func(Func::Sum | Func::Product | Func::Integral | Func::Limit | Func::Subs | Func::Order, _) => {
                 unknown(format!("mrv of {e}"))
             }
-            Kind::Func(_, args) => {
+            Kind::Func(f, args) => {
+                if grows_beyond_its_argument(f) {
+                    // The growth of these functions at an infinite argument is
+                    // not that of the argument: without a tractable rewrite
+                    // the mrv set is unknown.
+                    for a in args {
+                        if depends(a, &x) && !is_finite_limit(&self.limitinf(a)?) {
+                            return unknown(format!("mrv of {e}"));
+                        }
+                    }
+                }
                 let mut acc = vec![];
                 for a in args {
                     let m = self.mrv(a)?;
@@ -437,8 +543,46 @@ impl Gruntz {
 
     fn leadterm_in(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> LRes<(Expr, Expr)> {
         let l = self.fresh("logw");
-        let (c, e) = match leading_term_with(f, w, &Expr::zero(), false, &l, logw) {
-            Ok(lt) => (lt.coeff, Expr::num(lt.exp)),
+        let plain = self.lt_cancel(f, w, &l, logw);
+        let x = self.x.clone();
+        let has_x_exp = |c: &Expr| {
+            fn walk(c: &Expr, x: &Expr) -> bool {
+                match c.kind() {
+                    Kind::Func(Func::Exp, a) if depends(&a[0], x) => true,
+                    _ => c.args().iter().any(|a| walk(a, x)),
+                }
+            }
+            walk(c, &x)
+        };
+        let plain_ok = matches!(&plain, Ok(Some((c, _))) if !c.is_zero() && !has_x_exp(c));
+        // With `log(w) = k*x`, `x` is written as `l/k`, so that the expansion
+        // sees the cancellations between `x` and `log(w)` like the reference
+        // `logx` expansion (`-x/w + log(1/w)/w`, or `exp(-x)/w = 1`, with
+        // `log(w) = -x`); only needed when the plain expansion fails, vanishes
+        // or leaves exponentials of `x` in the coefficient.
+        let k = div(logw, &self.x);
+        if !plain_ok && k.as_number().is_some_and(|k| !k.is_zero()) && depends(f, &self.x) {
+            let mut m = FxHashMap::default();
+            m.insert(self.x.clone(), div(&l, &k));
+            // `exp(alpha*l + beta) = w**alpha*exp(beta)`
+            let g = crate::simptools::bottom_up(&xreplace(f, &m), &mut |u| match u.kind() {
+                Kind::Func(Func::Exp, a) => match crate::series::engine::linear_in(&a[0], &l) {
+                    Some((alpha, beta)) if !alpha.is_zero() => {
+                        mul2(&pow(w, &Expr::num(alpha)), &fx::exp(&beta))
+                    }
+                    _ => u.clone(),
+                },
+                _ => u.clone(),
+            });
+            if let Ok(Some((c, e))) = self.lt_cancel(&g, w, &l, logw) {
+                if !c.is_zero() && !depends(&c, w) {
+                    return Ok((c, e));
+                }
+            }
+        }
+        let (c, e) = match plain {
+            Ok(Some(ce)) => ce,
+            Ok(None) => return unknown("cancellation in the mrv leading term"),
             Err(SErr::Pole(s)) => return unknown(format!("series in mrv variable: {s}")),
             Err(_) => self.lt_fallback(f, w, logw)?,
         };
@@ -446,6 +590,22 @@ impl Gruntz {
             return unknown("leading coefficient depends on w");
         }
         Ok((c, e))
+    }
+
+    /// Leading term of `f` in `w`, the expansion keeping `log(w)` as the
+    /// symbol `l`: a leading coefficient that vanishes only once `l = logw`
+    /// is substituted is subtracted and the next term is taken.
+    fn lt_cancel(&mut self, f: &Expr, w: &Expr, l: &Expr, logw: &Expr) -> Result<Option<(Expr, Expr)>, SErr> {
+        let mut g = f.clone();
+        for _ in 0..8 {
+            let lt = leading_term_with(&g, w, &Expr::zero(), false, l, logw)?;
+            if lt.coeff.is_zero() && !lt.coeff_logt.is_zero() {
+                g = sub(&g, &mul2(&lt.coeff_logt, &pow(w, &Expr::num(lt.exp))));
+                continue;
+            }
+            return Ok(Some((lt.coeff, Expr::num(lt.exp))));
+        }
+        Ok(None)
     }
 
     /// Leading term algebra `(c, e)` with symbolic exponents (`w**log(2)`),
@@ -559,6 +719,96 @@ impl Gruntz {
         let f = xreplace(e, &m);
         let logw = if sig == -1 { garg } else { neg(&garg) };
         Ok((f, logw))
+    }
+}
+
+/// `exp(a)*exp(b)*r` as `exp(a + b)*r` (integer powers only), or `None`
+/// when the product has fewer than two exponential factors.
+fn merge_exp_factors(e: &Expr) -> Option<Expr> {
+    let Kind::Mul(c, facs) = e.kind() else { return None };
+    let mut args = vec![];
+    let mut rest = vec![Expr::num(c.clone())];
+    for (b, p) in facs {
+        match b.kind() {
+            Kind::Func(Func::Exp, a) if p.as_number().is_some_and(|k| k.is_integer()) => {
+                args.push(mul2(&a[0], p))
+            }
+            _ => rest.push(mul_factor(b, p)),
+        }
+    }
+    if args.len() < 2 {
+        return None;
+    }
+    rest.push(fx::exp(&add(&args)));
+    let m = mul(&rest);
+    (m != *e).then_some(m)
+}
+
+/// A limit value that is a finite number or a finite parameter expression.
+fn is_finite_limit(l: &Expr) -> bool {
+    fn bad(e: &Expr) -> bool {
+        match e.kind() {
+            Kind::Const(c) => c.is_infinite() || *c == Constant::NaN,
+            Kind::Func(Func::Limit | Func::Order, _) => true,
+            _ => e.args().iter().any(bad),
+        }
+    }
+    !bad(l)
+}
+
+/// Functions whose growth or decay at an infinite argument leaves the
+/// comparability class of the argument (factorial-like, exponential-like or
+/// exponentially decaying), so that the mrv set of their arguments does not
+/// bound them.
+fn grows_beyond_its_argument(f: &Func) -> bool {
+    use crate::special::SpecialFn as S;
+    match f {
+        Func::Gamma => true,
+        Func::Special(s) => matches!(
+            s,
+            S::Factorial
+                | S::Factorial2
+                | S::Subfactorial
+                | S::Binomial
+                | S::RisingFactorial
+                | S::FallingFactorial
+                | S::Catalan
+                | S::Fibonacci
+                | S::Lucas
+                | S::Bell
+                | S::Partition
+                | S::Tribonacci
+                | S::Bernoulli
+                | S::Euler
+                | S::Genocchi
+                | S::Andre
+                | S::Motzkin
+                | S::Beta
+                | S::LowerGamma
+                | S::UpperGamma
+                | S::Erfi
+                | S::Ei
+                | S::Shi
+                | S::Chi
+                | S::Expint
+                | S::E1
+                | S::BesselI
+                | S::BesselK
+                | S::Hankel1
+                | S::Hankel2
+                | S::Hn1
+                | S::Hn2
+                | S::AiryAi
+                | S::AiryBi
+                | S::AiryAiPrime
+                | S::AiryBiPrime
+                | S::Hyper
+                | S::MeijerG
+                | S::MarcumQ
+                | S::AppellF1
+                | S::Lerchphi
+        ),
+        _ => false,
     }
 }
 

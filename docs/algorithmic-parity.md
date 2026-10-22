@@ -4741,3 +4741,61 @@ Remaining gaps:
   (`Monomial` objects), `eject`, `nth_power_roots_poly` and other methods
   not listed above raise `NotImplementedError`. `srepr` shows the modulus
   form and `pretty()` raises `TypeError`.
+
+## Limits at oo of gamma-like functions (Stirling, wave 4)
+
+Root cause of the wrong `0` for `limit(factorial(n)*exp(n)/(n**n*sqrt(n)), n, oo)`
+(reference `sqrt(2)*sqrt(pi)`): gruntz took the mrv set of the arguments of
+`gamma`/`factorial` and so treated them as being in the class of `n`, and the
+series engine had no expansion of `loggamma` at an infinite argument.
+
+Changes:
+- gruntz `prepare` applies the reference tractable rewrites: `gamma(a)` ->
+  `exp(loggamma(a))` when `a -> +oo`; `factorial`, `binomial`, `rf`, `ff` ->
+  gamma ratios; `harmonic` -> `polygamma`; `fibonacci` -> powers of the
+  golden ratio. `loggamma` near a non-finite, non-`+oo` limit is unknown.
+- mrv refuses (unknown, so `Limit` is returned) a function that grows or
+  decays beyond its argument's class (`gamma`, `Ei`, `erfi`, `besseli`,
+  `lucas`, `catalan`, ...) when no tractable rewrite applies, instead of
+  returning a wrong value. Before: `Ei(n)*exp(-n)*n`, `erfi(n)*exp(-n)`,
+  `fibonacci(n)/GoldenRatio**n`, `besseli(0, n)*exp(-n)*sqrt(n)` gave `0`.
+- The series engine expands `loggamma` (Stirling series with Bernoulli
+  terms) and `polygamma(k, z)`/`digamma`/`trigamma` (A&S 6.3.18, 6.4.10) at
+  an argument going to `+oo`; other functions of the gamma family there are
+  still a pole.
+- The mrv leading term writes `x` as `log(w)/k` when `log(w) = k*x` (and
+  `exp(alpha*log(w) + beta)` as `w**alpha*exp(beta)`), like the reference
+  `logx` expansion, so cancellations between `x` and `log(w)` are seen; a
+  coefficient that vanishes only after the `log(w)` substitution is
+  subtracted and the next term taken. A product of exponentials that the
+  canonical `Mul` re-splits after the rewrite (no progress) is merged into
+  one exponential before recursing.
+
+Matches the reference: the Stirling forms, `gamma(n + 1/2)/(gamma(n)*sqrt(n))`,
+`gamma(n)/gamma(n + 1/3)*n**(1/3)`, `factorial(n)**(1/n)/n`,
+`binomial(n, 2)/n**2`, `factorial(n + 1)/factorial(n) - n`,
+`loggamma(n) - (n - 1/2)*log(n) + n` (`log(2)/2 + log(pi)/2`).
+
+Divergences, symox correct: `rf(n, n)*factorial(n)/factorial(2*n)` is `1/2`
+(reference `oo`, wrong); `ff(2*n, n)*factorial(n)/factorial(2*n)` and
+`ff(n, n)/factorial(n)` are `1` (reference unevaluated or raises);
+`gamma(n + a)/(gamma(n)*n**a)` is `1` (reference raises). The reference
+`subfactorial(n)/factorial(n) -> 0` is wrong (true value `exp(-1)`); symox
+returns `Limit`.
+
+Remaining gaps (symox returns `Limit`, never a number): `binomial(2*n, n)`
+and `factorial(2*n)/factorial(n)**2` forms with `4**n`, `harmonic`,
+`polygamma` and `loggamma` differences, `uppergamma`, `erfc*exp`, `Ei`, `li`,
+`Si`, `Ci`, `zeta`, `lucas`, `catalan`, `Shi`, `Chi`, `factorial2`,
+`subfactorial`, `polylog(2, 1/n)*n`, `gamma(log(n))`, `loggamma(1/n)`,
+`gamma(-n)`, `harmonic(n, 1/2)`; `limit((x + 1)**(x + 1)/x**x/x, x, oo)`
+(reference `E`). `loggamma(1/x).series(x, 0, 2)` prints `O(x**2*log(x))`
+where the reference prints `O(x**2)`.
+
+Native segfault on large `Abs` power quotients (`(n + a)**(n + b)`) from the
+`limit_seq` ratio test: not reproduced on this base (192 `Abs` quotient
+variants and the `limit_seq` paths run in subprocesses); a subprocess
+regression test guards it. `limit_seq((n**2 + a)**(n + b)/(n + a)**(2*n), n)`
+returns `0` where the reference returns `None` (the value depends on `b`):
+an open wrong value in the `limit_seq` Python layer, not in the native
+`limit` (which stays unevaluated).
