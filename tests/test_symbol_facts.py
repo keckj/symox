@@ -109,8 +109,10 @@ def test_seeded_mixed_fact_closures_and_contradictions_match_sympy():
     {'algebraic': True, 'transcendental': True}, {'positive': True, 'negative': True},
 ])
 def test_inconsistent_symbol_and_dummy_facts_fail_before_construction(kwargs):
+    from symox.core.facts import InconsistentAssumptions
     for kind in ('Symbol', 'Dummy'):
-        with pytest.raises(ValueError, match='inconsistent'):
+        # SymPy raises InconsistentAssumptions, a ValueError subclass
+        with pytest.raises(InconsistentAssumptions):
             make(sx, kind, kwargs)
 
 

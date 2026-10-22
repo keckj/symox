@@ -486,8 +486,8 @@ fn function_spec(name:&str,assumptions:&Bound<'_,PyDict>,nargs:Option<Vec<usize>
             kwargs.push((key,value.is_truthy()?));
         }
     }
-    let given=symox::assumption_facts::FactSet::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(PyValueError::new_err)?;
-    symox::expr::UndefinedFunction::with_facts(name,given,nargs).map_err(PyValueError::new_err)
+    let given=symox::assumption_facts::FactSet::from_kwargs(kwargs.iter().map(|(k,v)|(k.as_str(),*v))).map_err(|e|assumption_error(e,&kwargs))?;
+    symox::expr::UndefinedFunction::with_facts(name,given,nargs).map_err(|e|assumption_error(e,&kwargs))
 }
 
 fn function_kwargs<'py>(py:Python<'py>,function:&symox::expr::UndefinedFunction)->PyResult<Bound<'py,PyDict>>{
@@ -2440,9 +2440,9 @@ impl PyExprNode {
             .map_err(|error|PyNotImplementedError::new_err(error.to_string()))
     }
 
-    fn conjugate(&self) -> PyExpr { wrap(fx::conjugate(&self.e)) }
-    fn adjoint(&self) -> PyExpr { wrap(fx::conjugate(&self.e)) }
-    fn transpose(&self) -> PyExpr { wrap(self.e.clone()) }
+    fn conjugate(&self, py: Python<'_>) -> PyResult<PyExpr> { self.noncommutative_head(py, "conjugate_of", || fx::conjugate(&self.e)) }
+    fn adjoint(&self, py: Python<'_>) -> PyResult<PyExpr> { self.noncommutative_head(py, "adjoint_of", || fx::conjugate(&self.e)) }
+    fn transpose(&self, py: Python<'_>) -> PyResult<PyExpr> { self.noncommutative_head(py, "transpose_of", || self.e.clone()) }
 
     #[pyo3(signature=(*types))]
     fn atoms(&self,py:Python<'_>,types:&Bound<'_,PyTuple>)->PyResult<PyObject>{
@@ -2693,6 +2693,19 @@ impl PyExprNode {
 
     fn __getnewargs__(&self) -> (String,) {
         (printer::srepr(&self.e),)
+    }
+}
+
+impl PyExprNode {
+    /// `conjugate`, `adjoint` and `transpose` of a noncommutative expression
+    /// follow the reference rules in `symox._nc_adjoint`; commutative
+    /// expressions keep the native result.
+    fn noncommutative_head(&self, py: Python<'_>, name: &str, native: impl FnOnce() -> Expr) -> PyResult<PyExpr> {
+        if !symox::decompose::has_noncommutative_atoms(&self.e) {
+            return Ok(wrap(native()));
+        }
+        let value = py.import("symox._nc_adjoint")?.getattr(name)?.call1((wrap(self.e.clone()),))?;
+        Ok(wrap(to_expr(&value)?))
     }
 }
 
@@ -2978,8 +2991,26 @@ fn py_symbol(name: &str, assumptions: Option<&Bound<'_, PyDict>>) -> PyResult<Py
         kw.push((k, v.is_truthy()?));
     }
     let a = symox::assumption_facts::FactSet::from_kwargs(kw.iter().map(|(k, v)| (k.as_str(), *v)))
-        .map_err(PyValueError::new_err)?;
-    Ok(wrap(Expr::from_kind(Kind::Sym(symox::Symbol::with_facts(name,a).map_err(PyValueError::new_err)?))))
+        .map_err(|e|assumption_error(e,&kw))?;
+    Ok(wrap(Expr::from_kind(Kind::Sym(symox::Symbol::with_facts(name,a).map_err(|e|assumption_error(e,&kw))?))))
+}
+
+/// A contradictory assumption set raises SymPy's `InconsistentAssumptions`
+/// (a `ValueError` subclass); other errors stay `ValueError`.
+fn assumption_error(message: String, given: &[(String, bool)]) -> PyErr {
+    if !message.starts_with("inconsistent") {
+        return PyValueError::new_err(message);
+    }
+    Python::with_gil(|py| {
+        let build = || -> PyResult<PyErr> {
+            let class = py.import("symox.core.facts")?.getattr("InconsistentAssumptions")?;
+            let kb = PyDict::new(py);
+            for (key, value) in given { kb.set_item(key, value)?; }
+            let (key, value) = given.last().cloned().unwrap_or_default();
+            Ok(PyErr::from_value(class.call1((kb, key, value))?))
+        };
+        build().unwrap_or_else(|_| PyValueError::new_err(message.clone()))
+    })
 }
 
 #[pyfunction]

@@ -144,6 +144,11 @@ def _make(name):
                 and not isinstance(args[0], _core.Expr) and hasattr(args[0], "applyfunc")
                 and hasattr(args[0], "as_real_imag")):
             return _matrix_part(name, args[0])
+        if (name == "conjugate" and evaluate and len(args) == 1
+                and isinstance(args[0], _core.Expr) and _core._has_noncommutative_atoms(args[0])):
+            # conjugate(adjoint(A)) is transpose(A), as in the reference
+            from ._nc_adjoint import conjugate_of
+            return conjugate_of(args[0])
         return _core._apply(name, *args) if evaluate else _core._apply(name, *args, evaluate=False)
 
     f.__name__ = name
@@ -833,26 +838,22 @@ def trace(expr):
     return Matrix(expr).trace()
 
 
-def _reject_noncommutative_adjoint(arg, name):
-    # The reference keeps adjoint(A)/transpose(A) unevaluated and reverses
-    # noncommutative products; there is no scalar node for that here, and
-    # conjugating in place would keep the wrong factor order.
-    if isinstance(arg, _core.Expr) and _core._has_noncommutative_atoms(arg):
-        raise NotImplementedError(
-            "%s of noncommutative scalar expressions is not implemented" % name)
-
-
 def adjoint(arg):
     if not hasattr(arg, "adjoint"):
         arg = sympify(arg)
-    _reject_noncommutative_adjoint(arg, "adjoint")
+    if isinstance(arg, _core.Expr) and _core._has_noncommutative_atoms(arg):
+        # The reference reverses products and keeps adjoint(A) unevaluated.
+        from ._nc_adjoint import adjoint as _nc_adjoint
+        return _nc_adjoint(arg)
     return arg.adjoint()
 
 
 def transpose(arg):
     if getattr(arg, "_symox_matrixexpr", False):
         return arg.transpose()
-    _reject_noncommutative_adjoint(arg, "transpose")
+    if isinstance(arg, _core.Expr) and _core._has_noncommutative_atoms(arg):
+        from ._nc_adjoint import transpose as _nc_transpose
+        return _nc_transpose(arg)
     if isinstance(arg, (_core.Expr, int, float, complex)):
         # the transpose of a commutative scalar is the scalar itself
         return sympify(arg)

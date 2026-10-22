@@ -81,6 +81,9 @@ def _is_user(cls):
     # the nominal node and set classes report SymPy's module, and the native
     # application classes of undefined heads record none.
     module = type.__dict__['__module__'].__get__(cls)
+    if '_symox_user_hooks' in cls.__dict__:
+        # symox classes written as host classes (noncommutative adjoint)
+        return True
     if not isinstance(module, str):
         return False
     return not module.startswith('symox.') and module != 'symox'

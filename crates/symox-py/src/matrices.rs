@@ -881,8 +881,8 @@ impl PyMatrix {
 
     #[getter]
     #[pyo3(name = "H")]
-    fn h(&self) -> PyMatrix {
-        self.wrapped(self.m.adjoint())
+    fn h(&self, py: Python<'_>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(noncommutative_adjoint(py, &self.m)?))
     }
 
     #[getter]
@@ -910,8 +910,8 @@ impl PyMatrix {
         Ok((self.wrapped(real),self.wrapped(imag)))
     }
 
-    fn adjoint(&self) -> PyMatrix {
-        self.wrapped(self.m.adjoint())
+    fn adjoint(&self, py: Python<'_>) -> PyResult<PyMatrix> {
+        Ok(self.wrapped(noncommutative_adjoint(py, &self.m)?))
     }
 
     fn trace(&self, py: Python<'_>) -> PyResult<PyExpr> {
@@ -1916,4 +1916,15 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_cancel, m)?)?;
     m.add_function(wrap_pyfunction!(_sparse_matrix_hash, m)?)?;
     Ok(())
+}
+
+
+/// Conjugate transpose; noncommutative entries take the reference
+/// `adjoint(entry)` (reversed products) instead of an entrywise conjugate.
+fn noncommutative_adjoint(py: Python<'_>, m: &Matrix) -> PyResult<Matrix> {
+    if !m.data().iter().any(symox::decompose::has_noncommutative_atoms) {
+        return Ok(m.adjoint());
+    }
+    let adjoint = py.import("symox._nc_adjoint")?.getattr("adjoint_of")?;
+    m.transpose().try_applyfunc(|e| crate::to_expr(&adjoint.call1((crate::wrap(e.clone()),))?))
 }
