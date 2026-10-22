@@ -206,6 +206,29 @@ def _joint_domain(exprs, gens, kwargs):
         return None
 
 
+def _separate_domains_joint(polys, exprs, gens):
+    """The polynomials over one domain built from all coefficients.
+
+    Only needed when the separately inferred domains differ: the reference
+    calls ``construct_domain`` once on the union of the coefficients, so
+    ``EX`` with ``ZZ[y]`` (shared symbols) gives ``EX`` and ``RR`` with
+    ``ZZ[y]`` gives ``RR[y]``.
+    """
+    from .constructor import construct_domain
+    try:
+        domains = {str(p.domain) for p in polys}
+    except NotImplementedError:
+        domains = None
+    if domains is not None and len(domains) == 1:
+        return None
+    try:
+        coefficients = [c for e in exprs for c in Poly(e, *gens, domain='EX').coeffs()]
+        domain, _ = construct_domain(coefficients)
+        return [Poly(e, *gens, domain=domain) for e in exprs]
+    except Exception:  # any failure keeps the separately inferred domains
+        return None
+
+
 def parallel_poly_from_expr(exprs, *gens, **args):
     """Construct polynomials over common generators and a common domain."""
     from .. import sympify
@@ -248,7 +271,12 @@ def parallel_poly_from_expr(exprs, *gens, **args):
                 polys = [Poly(e, *all_gens, domain=joint, **rest) for e in converted]
             except (NotImplementedError, ValueError, TypeError):
                 pass
-    if not kwargs:
+    joint = None
+    if not kwargs and len(polys) > 1:
+        joint = _separate_domains_joint(polys, converted, all_gens)
+        if joint is not None:
+            polys = joint
+    if not kwargs and joint is None:
         domain = None
         try:
             for p in polys:

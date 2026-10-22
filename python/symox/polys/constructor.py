@@ -89,6 +89,52 @@ def _composite_domain(values, field):
     return None
 
 
+def _float_composite_domain(values, field):
+    """The reference composite domain over RealField or ComplexField.
+
+    ``_construct_composite`` takes the generators of the numerators and
+    denominators, then a ComplexField ground when a Float meets a pure
+    complex coefficient, else a RealField, at the largest Float precision.
+    Floats are only accepted as coefficients; anything else keeps EX.
+    """
+    from .. import (Add, Mul, Dummy, Float, I, nsimplify, RealField, ComplexField,
+                    CoercionFailed, _core)
+    floats = []
+    for value in values:
+        for part in value.as_numer_denom():
+            for term in Add.make_args(part.expand()):
+                for factor in Mul.make_args(term):
+                    if factor.is_Float:
+                        floats.append(factor)
+                    elif factor.has(Float):
+                        return None
+    if not floats:
+        return None
+    unit = Dummy('I')
+    exact = []
+    for value in values:
+        # Only the shape matters here: any exact value of each Float will do.
+        value = nsimplify(value, rational=True)
+        exact.append(value.xreplace({I: unit}))
+    found = _core._composite_generators(exact)
+    if found is None:
+        return None
+    gens, fractions = found
+    complexes = unit in gens
+    gens = [g for g in gens if g != unit]
+    if not gens:
+        return None
+    precision = max(f._prec for f in floats)
+    ground = ComplexField(precision) if complexes else RealField(precision)
+    domain = ground.frac_field(*gens) if fractions or field else ground.poly_ring(*gens)
+    try:
+        for value in values:
+            domain.convert(value)
+    except CoercionFailed:
+        return None
+    return domain
+
+
 def _gaussian_domain(values, field):
     """The reference composite domain over ZZ_I or QQ_I, as ``ZZ_I[y]``.
 
@@ -176,9 +222,8 @@ def construct_domain(obj, **args):
                 domain = _composite_domain(coefficients, field)
             if domain is None and any(value.free_symbols for value in coefficients):
                 domain = _infer_domain(coefficients, field=field)
-        elif composite is True:
-            # The reference builds RR[x] or CC[x] here.
-            raise NotImplementedError('polynomial rings and fraction fields over RR are not implemented')
+        else:
+            domain = _float_composite_domain(coefficients, field)
         if domain is None:
             domain = EX
     if domain.is_EXRAW:

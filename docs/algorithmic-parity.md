@@ -320,15 +320,39 @@ Remaining gaps in this area:
   Univariate `Poly` objects over `RR[y]`, `CC[y]` and `RR(y)` are inferred
   and computed like the reference (see `docs/domains.md`, composite domains
   over `RR` and `CC`, for the ported algorithms and the remaining gaps:
-  several generators, `construct_domain`/`composite=True`, `factor`,
-  `ground_roots`, `apart` and the `to_ring` message).
-  Remaining:
-  `ZZ.convert_from(QQ(1, 2), QQ)` keeps the message `expected an integer`;
-  ground elements print as `ZZ(2)`, `QQ(5/2)`, `RR(2.50000000000000)` or
-  `QQ<sqrt(2)>(sqrt(2))` where the reference prints the raw `2`,
-  `MPQ(5,2)`, `mpf('2.5')` or `ANP(...)`;
-  `CC.invert` raises `NotImplementedError` (reference `TypeError`);
-  `EXRAW` elements are wrapped and do not compare equal to the raw `Expr`.
+  several generators, `factor`, `ground_roots`, `apart` and the `to_ring`
+  message).
+  Ground elements print like the reference raw values (`2`, `MPQ(5,2)`,
+  `mpf('2.5')`, `mpc(real='1.0', imag='2.0')`, in the field's mpmath
+  context), and elements of `RR[x]`, `CC[x]`, `RR(x)` or `RealField(100)[x]`
+  like the reference `PolyElement`/`FracElement` (`-x - 1.5`,
+  `(0.0 + 1.0j)*x + (1.0 + 0.0j)`, `1.0/(x + 1.5)`); `CC.invert` raises the
+  reference `TypeError` (`unsupported operand type(s) for %: 'mpc' and
+  'mpc'`); `Domain.unify` with an inexact ground follows the reference
+  composite rule (`ZZ[x].unify(RR)` is `RR[x]`, `RR[x].unify(CC)` is
+  `CC[x]`), `RR[x].is_Exact` is False and `RR[x].get_exact()` is `QQ[x]`.
+  `parallel_poly_from_expr` infers one joint domain when the separately
+  inferred ones differ (`EX` for `[x + exp(y), x*y]`, `RR[y]` for
+  `[x*y, x + 1.5]`). Tests: `tests/test_domains_inexact_wave3_parity.py`
+  (105 of 131 probed calls identical, 53 before).
+  Remaining: `ZZ.convert_from(QQ(1, 2), QQ)` keeps the message `expected an
+  integer`; algebraic field elements print as `QQ<sqrt(2)>(sqrt(2))` (reference
+  `ANP(...)`); domain elements are `DomainElement` (reference `PolyElement`)
+  and `RR.frac_field(x).field` is missing; `EXRAW` elements are wrapped and
+  do not compare equal to the raw `Expr`. `Poly` with several generators
+  over an inexact composite ground (`Poly(1.5*x*z + y, x, z)`) prints
+  `RR[y]` but `.domain` raises `NotImplementedError`, `I*x*z + 1.5*y` shows
+  `RR[y,I]` instead of `CC[y]`, `1.5*x*z + 1/y` raises `ValueError`
+  (reference `RR(y)`), and products and `gcd` of such polynomials fail.
+  `apart` over `RR[y]` returns a result where the reference raises
+  `TypeError` (`unsupported operand type(s) for *: 'PolyElement' and
+  'PolyElement'`), and `apart(1.5/(x**2 - 1), x)` returns the exact
+  `-3/(4*(x + 1)) + ...` where the reference keeps Floats
+  (`-0.75/(x + 1) + 0.75/(x - 1)`). `ground_roots` over `RR[y]` returns
+  `{}` (reference `TypeError`) and over `RR` raises `ValueError` (reference
+  roots from `factor_list`, `{1.0: 1, -1.0: 1}` for `1.5*x**2 - 1.5`).
+  `Poly(x, x, domain=CC).invert(...)` and `invert(1.5*x, x**2 + 1)` are not
+  computed over `CC`/`RR` (exact `-2*x/3` instead of `-0.666666666666667*x`).
 - `(-2)**(1/6)` with `extension=True` yields the larger field
   `QQ<2**(1/6) + (-1)**(1/6)>` because core power canonicalization splits the
   base; results stay exact but the field is not the reference one.
@@ -341,10 +365,12 @@ Remaining gaps in this area:
   composite domain (`ZZ[pi]` for `[pi]`) and algebraic numbers among
   composite generators give `EX` (`[pi, sqrt(2)]`). Composite elements print
   like the reference `PolyElement` (`pi`, `x*pi + 1`, `y*(sin(x))`,
-  `-x/(y - 1)`). Remaining: Floats with a non-number generator, where the
-  reference builds `RR[x]` or `RR[pi]`, give `EX` (exact, no evaluation of
-  `pi`), and raise `NotImplementedError` with `composite=True` (the `Poly`
-  path infers `RR[y]`, `CC[y]` and `RR(y)` for univariate polynomials).
+  `-x/(y - 1)`). Floats with generators build the reference
+  `RealField`/`ComplexField` composite at the largest Float precision
+  (`[1.5*x]` gives `RR[x]`, `[1.5*x, pi]` gives `RR[x,pi]`, `[1.5*x/y]`
+  gives `RR(x,y)`, `[1.5*x + I]` gives `CC[x]`), also with
+  `composite=True`. Remaining: a Float outside a coefficient position (an
+  exponent such as `x**1.5`, a function argument) keeps `EX`.
 - `EX` root forms and `nroots` digits can differ from the reference (symox
   can be more accurate); exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.

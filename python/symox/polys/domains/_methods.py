@@ -242,10 +242,46 @@ def evalf(self, a, prec=None, **options):
 
 
 def get_exact(self):
+    if self.is_Composite and _inexact_ground(self):
+        # The reference ``RR[x].get_exact()`` is ``QQ[x]``.
+        ground = self.domain.get_exact()
+        return ground.frac_field(*self.symbols) if self.is_FractionField else ground.poly_ring(*self.symbols)
     if self.is_Exact:
         return self
     from ... import QQ, QQ_I
     return QQ_I if getattr(self, 'is_CC', False) else QQ
+
+
+_native_unify = None
+
+
+def _inexact_ground(domain):
+    ground = domain.domain if domain.is_Composite else domain
+    return ground.is_RealField or ground.is_ComplexField
+
+
+def unify(self, K1, symbols=None):
+    # The reference composite rule when an inexact ground is involved:
+    # ``ZZ[x].unify(RR)`` is ``RR[x]`` and ``RR[x].unify(CC)`` is ``CC[x]``.
+    K0 = self
+    if (symbols is None and (K0.is_Composite or K1.is_Composite)
+            and (_inexact_ground(K0) or _inexact_ground(K1))
+            and not (K0.is_EX or K1.is_EX)):
+        g0 = K0.domain if K0.is_Composite else K0
+        g1 = K1.domain if K1.is_Composite else K1
+        s0 = tuple(K0.symbols) if K0.is_Composite else ()
+        s1 = tuple(K1.symbols) if K1.is_Composite else ()
+        if not s0 or not s1 or s0 == s1:
+            gens = s0 or s1
+            ground = g0.unify(g1)
+            if K0.is_Composite and (not K1.is_Composite or K0.is_FractionField or K1.is_PolynomialRing):
+                fraction = K0.is_FractionField
+            else:
+                fraction = K1.is_FractionField
+            return ground.frac_field(*gens) if fraction else ground.poly_ring(*gens)
+    if symbols is None:
+        return _native_unify(self, K1)
+    return _native_unify(self, K1, symbols)
 
 
 def drop(self, *symbols):
@@ -617,13 +653,20 @@ def from_MonogenicFiniteExtension(self, a, K0):
 def invert(self, a, b):
     # The reference ``Ring.invert``: ``s % b`` when the gcd is exactly one.
     gaussian = getattr(self, 'is_ZZ_I', False) or getattr(self, 'is_QQ_I', False)
-    if not (self.is_ZZ or self.is_QQ or self.is_RR or self.is_EX or gaussian):
+    complex_field = getattr(self, 'is_ComplexField', False)
+    if not (self.is_ZZ or self.is_QQ or self.is_RR or self.is_EX or gaussian or complex_field):
         return _native_invert(self, a, b)
     from ... import NotInvertible
+    from ... import _core
+    # The reference ``s % b`` keeps ``b`` unconverted: mpc for CC elements.
+    modulus = 'mpc' if isinstance(b, _core.DomainElement) else type(b).__name__
     a, b = self.convert(a), self.convert(b)
     s, _, h = self.gcdex(a, b)
     if not self.is_one(h):
         raise NotInvertible('zero divisor')
+    if complex_field:
+        # mpmath's mpc has no ``%``.
+        raise TypeError("unsupported operand type(s) for %%: 'mpc' and '%s'" % modulus)
     if self.is_QQ or self.is_EX:
         # The reference ground types have no ``%`` (PythonMPQ, Expression).
         name = 'PythonMPQ' if self.is_QQ else 'Expression'
@@ -767,9 +810,18 @@ def _polynomial_(self, R):
 def install():
     from ... import Domain
     from ... import _core
+    from . import _element_print
+    _element_print.install()
     for function in (_integer_, _rational_, _polynomial_):
         setattr(_core.DomainElement, function.__name__, function)
-    global _native_convert, _native_invert, _native_from_sympy
+    global _native_convert, _native_invert, _native_from_sympy, _native_unify
+    if _native_unify is None:
+        _native_unify = Domain.unify
+        Domain.unify = unify
+        native_exact = Domain.is_Exact
+        Domain.is_Exact = property(
+            lambda self: False if self.is_Composite and _inexact_ground(self)
+            else native_exact.__get__(self))
     if _native_convert is None:
         _native_convert, _native_invert = Domain.convert, Domain.invert
         _native_from_sympy = Domain.from_sympy
