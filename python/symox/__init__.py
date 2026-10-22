@@ -2207,10 +2207,13 @@ def lambdify(args, expr, modules=None, **kwargs):
         if len(candidates) != 1:
             raise NotImplementedError("CUDA lambdify requires a single module")
         return extra.cuda_lambdify(args, expr, **kwargs)
-    from .utilities.lambdify import _compile_implemented,_compile_structured
+    from .utilities.lambdify import _compile_implemented,_compile_structured,_compile_mpmath
     structured = _compile_structured(args,expr,modules,kwargs)
     if structured is not None:
         return structured
+    multiprecision = _compile_mpmath(args, expr, modules, kwargs)
+    if multiprecision is not None:
+        return multiprecision
     implemented = _compile_implemented(args, expr, modules, kwargs)
     if implemented is not None:
         return implemented

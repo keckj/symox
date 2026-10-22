@@ -59,8 +59,6 @@ def test_namespace_sqrt_receives_square_roots(source, modules):
     # SymPy prints b**(1/2) as sqrt(b) and b**(-1/2) as 1/sqrt(b); Lcapy
     # maps ``sqrt`` to a complex-aware square root.
     import cmath
-    if source == 't**(3/2)' and modules == ['mpmath']:
-        pytest.skip('native mpmath powers are evaluated in double precision (tracked gap)')
 
     def run(lib):
         t = lib.Symbol('t')

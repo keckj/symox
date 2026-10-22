@@ -217,3 +217,164 @@ def _compile_structured(args,expr,modules,options):
         for plan,value in zip(input_plans,values):unpack(plan,value)
         return restore(evaluator(*flattened))
     return call
+
+
+# --- mpmath -----------------------------------------------------------------
+# SymPy's lambdify with the 'mpmath' module prints the expression with the
+# MpmathPrinter and evaluates it in a namespace built by
+# ``from mpmath import *`` and MPMATH_TRANSLATIONS, so the callable computes
+# with mpf numbers at the current mpmath precision.
+
+_MPMATH_TRANSLATIONS = {
+    'Abs': 'fabs', 'elliptic_k': 'ellipk', 'elliptic_f': 'ellipf', 'elliptic_e': 'ellipe',
+    'elliptic_pi': 'ellippi', 'ceiling': 'ceil', 'chebyshevt': 'chebyt', 'chebyshevu': 'chebyu',
+    'assoc_legendre': 'legenp', 'E': 'e', 'I': 'j', 'ln': 'log', 'oo': 'inf',
+    'LambertW': 'lambertw', 'MutableDenseMatrix': 'matrix', 'ImmutableDenseMatrix': 'matrix',
+    'conjugate': 'conj', 'dirichlet_eta': 'altzeta', 'Ei': 'ei', 'Shi': 'shi', 'Chi': 'chi',
+    'Si': 'si', 'Ci': 'ci', 'RisingFactorial': 'rf', 'FallingFactorial': 'ff',
+    'betainc_regularized': 'betainc',
+}
+_MPMATH_CONSTANTS = {'Pi': 'pi', 'Exp1': 'e', 'ImaginaryUnit': '1j', 'Infinity': 'inf',
+                     'NegativeInfinity': '(-inf)', 'NaN': 'nan', 'ComplexInfinity': 'zoo',
+                     'EulerGamma': 'euler', 'Catalan': 'catalan', 'GoldenRatio': 'phi'}
+# Printed names of SymPy's PythonCodePrinter (builtins or Piecewise forms).
+_MPMATH_PRINTED = {'Abs': 'abs', 'Min': 'min', 'Max': 'max'}
+_MPMATH_EXCLUDED = ('numpy', 'scipy', 'cupy', 'jax', 'tensorflow', 'numexpr', 'math', 'cmath', 'sympy', 'symox')
+
+
+class _Unprintable(Exception):
+    pass
+
+
+def _mpmath_only(modules):
+    """Whether ``modules`` selects the mpmath namespace and printer only."""
+    candidates=modules if isinstance(modules,(list,tuple)) else [modules]
+    if not _module_present('mpmath',candidates):return False
+    for module in candidates:
+        if isinstance(module,dict):continue
+        name=module if isinstance(module,str) else getattr(module,'__name__',None)
+        if name!='mpmath':return False
+    return True
+
+
+class _MpmathSource:
+    def __init__(self,symbol_names):
+        self.names=symbol_names;self.functions=set()
+    def number(self,value):
+        if value.is_Integer:return str(int(value)) if value>=0 else '(%d)'%int(value)
+        if value.is_Rational:return '(mpf(%d)/mpf(%d))'%(int(value.p),int(value.q))
+        if value.is_Float:
+            from .._host import _float_mpf
+            return 'mpf(%s)'%(tuple(map(int,_float_mpf(value))),)
+        raise _Unprintable(value)
+    def call(self,name,args):
+        self.functions.add(name)
+        return name+'('+', '.join(args)+')'
+    def __call__(self,e):
+        S=_S
+        if isinstance(e,(list,tuple)):
+            body=', '.join(self(v) for v in e)
+            return ('['+body+']') if isinstance(e,list) else '('+body+(',' if len(e)==1 else '')+')'
+        if isinstance(e,bool):return str(e)
+        e=S.sympify(e)
+        if e in self.names:return self.names[e]
+        name=getattr(e,'class_name',type(e).__name__)
+        if getattr(e,'is_Matrix',False) and hasattr(e,'tolist'):
+            return self.call('ImmutableDenseMatrix',['['+', '.join('['+', '.join(self(v) for v in row)+']' for row in e.tolist())+']'])
+        if name in _MPMATH_CONSTANTS:
+            value=_MPMATH_CONSTANTS[name]
+            if value[0].isalpha():self.functions.add(value)
+            elif 'inf' in value:self.functions.add('inf')
+            return value
+        if e is S.true or name=='BooleanTrue':return 'True'
+        if e is S.false or name=='BooleanFalse':return 'False'
+        if getattr(e,'is_Symbol',False):
+            text=str(e)
+            if not text.isidentifier():raise _Unprintable(e)
+            return text
+        if getattr(e,'is_Number',False):return self.number(e)
+        args=e.args
+        if getattr(e,'is_Add',False):return '('+' + '.join(self(a) for a in args)+')'
+        if getattr(e,'is_Mul',False):return '('+'*'.join(self(a) for a in args)+')'
+        if getattr(e,'is_Pow',False):
+            base,exp=args
+            if exp==S.Rational(1,2):return self.call('sqrt',[self(base)])
+            if exp==S.Rational(-1,2) and e.is_commutative:return '(1/'+self.call('sqrt',[self(base)])+')'
+            return '('+self(base)+'**'+self(exp)+')'
+        relations={'Equality':'==','Unequality':'!=','LessThan':'<=','StrictLessThan':'<',
+                   'GreaterThan':'>=','StrictGreaterThan':'>'}
+        if name in relations:return '('+self(args[0])+' '+relations[name]+' '+self(args[1])+')'
+        if name in ('And','Or'):return '('+(' and ' if name=='And' else ' or ').join(self(a) for a in args)+')'
+        if name=='Not':return '(not '+self(args[0])+')'
+        if name=='Piecewise':
+            from ..printing.mathml import _pairs
+            tail=None
+            for value,condition in reversed(_pairs(e)):
+                if str(condition) in ('True','true'):tail=self(value)
+                else:tail='(('+self(value)+') if ('+self(condition)+') else ('+(tail if tail is not None else 'None')+'))'
+            return '('+tail+')'
+        if name=='sinc':
+            a=self(args[0]);self.functions.add('sin')
+            return '(((sin('+a+')/'+a+') if ('+a+' != 0) else (1)))'
+        if name=='Heaviside':
+            a=self(args[0]);h0=self(args[1]) if len(args)>1 else 'mpf(1)/mpf(2)'
+            return '(((0) if ('+a+' < 0) else ('+h0+') if ('+a+' == 0) else (1)))'
+        if name=='log1p':return self.call('log1p',[self(args[0])])
+        if name=='expm1':return self.call('expm1',[self(args[0])])
+        if name=='log2':return '('+self.call('log',[self(args[0])])+'/log(2))'
+        if name=='uppergamma':return self.call('gammainc',[self(args[0]),self(args[1]),'inf'])
+        if name=='lowergamma':return self.call('gammainc',[self(args[0]),'0',self(args[1])])
+        if getattr(e,'is_Function',False) and name.isidentifier():
+            return self.call(_MPMATH_PRINTED.get(name,name),[self(a) for a in args])
+        raise _Unprintable(e)
+
+
+def _mpmath_namespace(modules,expr):
+    import builtins
+    import mpmath
+    namespace={}
+    candidates=modules if isinstance(modules,(list,tuple)) else [modules]
+    for module in reversed(candidates):
+        if isinstance(module,dict):namespace.update(module);continue
+        exec('from mpmath import *',namespace)
+        for name,target in _MPMATH_TRANSLATIONS.items():namespace[name]=namespace[target]
+    namespace.setdefault('Abs',abs)
+    namespace.update({'builtins':builtins,'range':range,'mpmath':mpmath})
+    return namespace
+
+
+def _compile_mpmath(args,expr,modules,options):
+    """SymPy's mpmath lambdify, or None for forms the printer does not cover."""
+    if not _mpmath_only(modules) or options.get('printer') is not None or options.get('cse'):return None
+    from .._host import is_host_function_class
+    if is_host_function_class(type(expr)) or (isinstance(expr,(list,tuple)) and any(is_host_function_class(type(v)) for v in expr)):
+        return None
+    roots=[args] if isinstance(args,(_S.Expr,str)) else list(args)
+    mapping={};parameters=[]
+    def descend(value,path):
+        if isinstance(value,(tuple,list)) or getattr(value,'is_Tuple',False):
+            for i,child in enumerate(value):descend(child,path+'['+str(i)+']')
+        else:mapping[_S.sympify(value)]=path
+    try:
+        for i,arg in enumerate(roots):
+            name=getattr(arg,'name',str(arg))
+            if options.get('dummify') or not name.isidentifier() or isinstance(arg,(tuple,list)) or getattr(arg,'is_Tuple',False):
+                name='_arg'+str(i)
+            parameters.append(name);descend(arg,name)
+        printer=_MpmathSource(mapping)
+        body=printer(expr)
+    except _Unprintable:
+        return None
+    except Exception:
+        return None
+    namespace=_mpmath_namespace(modules,expr)
+    import builtins
+    for name in printer.functions:
+        if name not in namespace and not hasattr(builtins,name):
+            if name in _implemented:namespace[name]=_implemented[name]
+            else:return None
+    source='def _lambdifygenerated('+', '.join(parameters)+'):\n    return '+body+'\n'
+    exec(compile(source,'<lambdifygenerated>','exec'),namespace)
+    function=namespace['_lambdifygenerated']
+    function.__doc__='Created with lambdify. Signature:\n\nfunc('+', '.join(parameters)+')\n\nSource code:\n\n'+source
+    return function
