@@ -1514,6 +1514,21 @@ class ImageSet(Set):
         return self.base_set
 
 
+def _install_image_set_node_properties():
+    # An ImageSet held inside a Tuple or FiniteSet (the solution tuples of
+    # nonlinsolve and substitution) is a native node: give it the lamda and
+    # base set accessors of the reference class.
+    from ._node_types import node_class
+    nominal = node_class('ImageSet')
+    for name in ('lamda', 'base_set', 'base_sets', 'base_pset'):
+        if name not in nominal.__dict__:
+            setattr(nominal, name, property(
+                lambda self, _name=name: getattr(_wrap_set(self), _name)))
+
+
+_install_image_set_node_properties()
+
+
 class ConditionSet(Set):
     __slots__ = ()
 

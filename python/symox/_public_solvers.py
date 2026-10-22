@@ -37,27 +37,10 @@ def solve_triangulated(polys,*gens,**args):
 
 
 def substitution(system,symbols,result=None,known_symbols=(),exclude=(),all_symbols=None):
-    from . import sympify,solve,FiniteSet,Tuple,EmptySet,simplify
-    symbols = tuple(symbols)
-    if not symbols or any(not s.is_Symbol for s in symbols):raise ValueError('supply a sequence of symbols')
-    all_symbols = symbols if all_symbols is None else tuple(all_symbols)
-    equations = [sympify(e.lhs-e.rhs if getattr(e,'is_Equality',False) else e) for e in system]
-    if not equations:return EmptySet
-    rows = []
-    for known in ([{}] if result is None or result == [] else result):
-        residual = [e.subs(known) for e in equations]
-        solved = solve(residual,*symbols,dict=True)
-        for branch in solved:
-            values = dict(known);values.update(branch)
-            # Fully resolve chained substitutions without an unbounded loop.
-            for i in range(len(values)):
-                updated = {k:v.subs(values,simultaneous=True) for k,v in values.items()}
-                if updated == values:break
-                values = updated
-            if any(simplify(sympify(e).subs(values)) == 0 for e in exclude):continue
-            if any(simplify(e.subs(values)).is_zero is False for e in equations):continue
-            rows.append(Tuple(*(values.get(s,s) for s in all_symbols)))
-    return FiniteSet(*rows) if rows else EmptySet
+    # The reference substitution method, which keeps periodic solutions as
+    # ImageSet families.
+    from .solvers._substitution import substitution as reference
+    return reference(system,symbols,result,known_symbols,exclude,all_symbols)
 
 
 def _egcd(a,b):
