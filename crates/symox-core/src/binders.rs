@@ -69,14 +69,20 @@ pub fn validate_tree(e:&Expr)->Result<(),String> {
 /// Each subsequent (outer) limit binds the body and earlier limits, but
 /// never its own endpoints. An indefinite integral introduces a free variable.
 pub fn free_symbols(f:&Func,args:&[Expr])->Vec<Expr> {
-    let mut symbols:FxHashSet<Expr>=crate::traverse::free_symbols(&args[0]).into_iter().collect();
+    // ExprWithLimits.free_symbols masks a non-symbol variable such as f(x)
+    // with a Dummy, so the symbols inside a bound f(x) are not free.
+    let masks:FxHashMap<Expr,Expr>=limits(args).into_iter()
+        .filter(|limit|limit.len()>1 && !limit[0].is_symbol())
+        .map(|limit|(limit[0].clone(),anonymous_dummy())).collect();
+    let body=if masks.is_empty(){args[0].clone()}else{crate::subs::xreplace(&args[0],&masks)};
+    let mut symbols:FxHashSet<Expr>=crate::traverse::free_symbols(&body).into_iter().collect();
     for limit in limits(args) {
         if *f==Func::Integral && limit.len()==1 {
             if limit[0].is_symbol() {symbols.insert(limit[0].clone());}
             else {symbols.extend(crate::traverse::free_symbols(&limit[0]));}
         }
         else {
-            symbols.remove(&limit[0]);
+            symbols.remove(masks.get(&limit[0]).unwrap_or(&limit[0]));
             for endpoint in &limit[1..] { symbols.extend(crate::traverse::free_symbols(endpoint)); }
         }
     }

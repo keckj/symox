@@ -198,7 +198,7 @@ fn add_with_cache(args:&[Expr],cache:&mut ArithmeticMemo)->Expr{
                         if k.is_zero(){continue;}
                         match t.kind(){
                             Kind::Const(Constant::NaN)=>return Expr::nan(),
-                            Kind::Const(Constant::ComplexInfinity)=>inf.complex=true,
+                            Kind::Const(Constant::ComplexInfinity)=>{if inf.complex{return Expr::nan();}inf.complex=true},
                             Kind::Const(Constant::Infinity)=>if k.is_negative(){inf.neg=true}else{inf.pos=true},
                             Kind::Const(Constant::NegInfinity)=>if k.is_negative(){inf.pos=true}else{inf.neg=true},
                             _=>terms.push((t.clone(),k.clone())),
@@ -213,7 +213,7 @@ fn add_with_cache(args:&[Expr],cache:&mut ArithmeticMemo)->Expr{
             Kind::Const(Constant::NaN) => return Expr::nan(),
             Kind::Const(Constant::Infinity) => inf.pos = true,
             Kind::Const(Constant::NegInfinity) => inf.neg = true,
-            Kind::Const(Constant::ComplexInfinity) => inf.complex = true,
+            Kind::Const(Constant::ComplexInfinity) => { if inf.complex { return Expr::nan(); } inf.complex = true }
             _ => terms.push((a.clone(), Number::ONE)),
         }
     }
@@ -308,9 +308,45 @@ fn add2_merge(a: &Expr, b: &Expr) -> Option<Expr> {
     Some(Expr::from_kind(Kind::Add(coeff, out)))
 }
 
+/// Add.flatten collects `c*oo*s` as the term `s` with the Number coefficient
+/// `oo`: finite multiples of `s` are absorbed and `oo*s - oo*s` is nan.
+fn infinite_coefficients(terms: Vec<(Expr, Number)>) -> Option<Vec<(Expr, Number)>> {
+    fn split(term: &Expr, k: &Number) -> Option<(Expr, bool)> {
+        let Kind::Mul(c, factors) = term.kind() else { return None };
+        let position = factors.iter().position(|(base, exponent)| exponent.is_one()
+            && (base.is_constant(Constant::Infinity) || base.is_constant(Constant::NegInfinity)))?;
+        let negative = factors[position].0.is_constant(Constant::NegInfinity) ^ c.is_negative() ^ k.is_negative();
+        let mut rest = vec![Expr::num(c.abs())];
+        rest.extend(factors.iter().enumerate().filter(|(index, _)| *index != position)
+            .map(|(_, (base, exponent))| mul_factor(base, exponent)));
+        Some((mul(&rest), negative))
+    }
+    let mut infinite: Vec<(Expr, bool)> = Vec::new();
+    let mut finite = Vec::with_capacity(terms.len());
+    for (term, k) in terms {
+        match split(&term, &k) {
+            Some((rest, negative)) => match infinite.iter().find(|(seen, _)| *seen == rest) {
+                Some((_, sign)) if *sign != negative => return None,
+                Some(_) => {}
+                None => infinite.push((rest, negative)),
+            },
+            None => finite.push((term, k)),
+        }
+    }
+    finite.retain(|(term, _)| !infinite.iter().any(|(rest, _)| rest == term));
+    for (rest, negative) in infinite {
+        let constant = if negative { Expr::neg_oo() } else { Expr::oo() };
+        finite.push((mul2(&constant, &rest), Number::ONE));
+    }
+    Some(finite)
+}
+
 fn finish_add(coeff: Number, mut terms: Vec<(Expr, Number)>, inf: InfFlags) -> Expr {
     if coeff.is_nan() {
         return Expr::nan();
+    }
+    if terms.iter().any(|(term, _)| term.is_mul() && term.has_nonfinite()) {
+        match infinite_coefficients(terms) { Some(collected) => terms = collected, None => return Expr::nan() }
     }
     // sort + merge equal terms
     // stable sort: linear on the common case of concatenated sorted runs
@@ -1150,6 +1186,122 @@ fn distribute(k: &Number, c: &Number, terms: &[(Expr, Number)]) -> Expr {
 // Pow
 // ----------------------------------------------------------------------
 
+fn extended_fact(e: &Expr, name: &str) -> Option<bool> {
+    let known = crate::assumptions::exact_queries(|| crate::assumptions::fact(e, name));
+    if known.is_some() { return known; }
+    if let Some((rest, negative)) = infinite_multiple(e) {
+        // c*oo with a finite nonzero c: extended_real follows c, and the
+        // extended sign is the sign of c (flipped for -oo).
+        let nonzero = crate::assumptions::exact_queries(|| crate::assumptions::is_zero(&rest)) == Some(false);
+        if !nonzero { return None; }
+        return match name {
+            "extended_real" => crate::assumptions::is_real(&rest),
+            "extended_positive" => if negative { crate::assumptions::is_negative(&rest) } else { crate::assumptions::is_positive(&rest) },
+            "extended_negative" => if negative { crate::assumptions::is_positive(&rest) } else { crate::assumptions::is_negative(&rest) },
+            "infinite" => Some(true),
+            _ => None,
+        };
+    }
+    // Numerical signs of constants such as pi - 1 (is_gt in Pow.__new__).
+    match name {
+        "extended_positive" if crate::traverse::free_symbols(e).is_empty() => crate::assumptions::is_positive(e),
+        "extended_negative" if crate::traverse::free_symbols(e).is_empty() => crate::assumptions::is_negative(e),
+        _ => None,
+    }
+}
+
+/// `(c, negative)` for a product `c*oo` or `c*(-oo)` with finite factors `c`.
+fn infinite_multiple(e: &Expr) -> Option<(Expr, bool)> {
+    let Kind::Mul(coefficient, factors) = e.kind() else { return None };
+    let position = factors.iter().position(|(base, exponent)| exponent.is_one()
+        && (base.is_constant(Constant::Infinity) || base.is_constant(Constant::NegInfinity)))?;
+    let rest_factors: Vec<Expr> = std::iter::once(Expr::num(coefficient.clone()))
+        .chain(factors.iter().enumerate().filter(|(index, _)| *index != position)
+            .map(|(_, (base, exponent))| mul_factor(base, exponent))).collect();
+    let rest = mul(&rest_factors);
+    if rest.has_nonfinite() { return None; }
+    Some((rest, factors[position].0.is_constant(Constant::NegInfinity)))
+}
+
+/// The exceptional powers of Pow.__new__ and the `_eval_power` methods of
+/// Zero, NegativeOne, Integer, Rational, Float, Infinity, NegativeInfinity,
+/// ComplexInfinity and an infinite Mul (SymPy 1.14). `None` keeps the power.
+fn infinite_power(b: &Expr, e: &Expr) -> Option<Expr> {
+    // Pow.__new__: any base to zoo is undefined.
+    if e.is_constant(Constant::ComplexInfinity) { return Some(Expr::nan()); }
+    let infinity = Expr::oo();
+    if e.is_constant(Constant::Infinity) && !b.is_constant(Constant::ComplexInfinity) {
+        let above = |bound: &Expr| extended_fact(&sub(b, bound), "extended_positive");
+        let below = |bound: &Expr| extended_fact(&sub(b, bound), "extended_negative");
+        if above(&Expr::one()) == Some(true) { return Some(infinity); }
+        if above(&Expr::minus_one()) == Some(true) && below(&Expr::one()) == Some(true) { return Some(Expr::zero()); }
+        if below(&Expr::minus_one()) == Some(true) {
+            match crate::assumptions::exact_queries(|| crate::assumptions::is_finite(b)) {
+                Some(true) => return Some(Expr::zoo()),
+                Some(false) => return Some(Expr::nan()),
+                None => {}
+            }
+        }
+    }
+    let negative_infinity = e.is_constant(Constant::NegInfinity);
+    match b.kind() {
+        Kind::Num(n) if n.is_zero() && n.is_rational() => {
+            // Zero._eval_power
+            if extended_fact(e, "extended_positive") == Some(true) { return Some(Expr::zero()); }
+            if extended_fact(e, "extended_negative") == Some(true) { return Some(Expr::zoo()); }
+            if extended_fact(e, "extended_real") == Some(false) { return Some(Expr::nan()); }
+            let (coefficient, terms) = as_coeff_mul(e);
+            if coefficient.is_negative() { return Some(pow(&Expr::zoo(), &terms)); }
+            if !coefficient.is_one() { return Some(pow(b, &terms)); }
+            None
+        }
+        Kind::Num(n) if (n.is_one() || n.is_minus_one()) && n.is_rational()
+            && (e.is_constant(Constant::Infinity) || negative_infinity) => Some(Expr::nan()),
+        Kind::Num(n) if negative_infinity => {
+            // Integer: (1/b)**oo; Rational and Float: a negative base gives nan.
+            if n.is_negative() && !n.is_integer() { return Some(Expr::nan()); }
+            Some(pow(&div(&Expr::one(), b), &infinity))
+        }
+        Kind::Const(Constant::Infinity) => {
+            if extended_fact(e, "extended_positive") == Some(true) { return Some(infinity); }
+            if extended_fact(e, "extended_negative") == Some(true) { return Some(Expr::zero()); }
+            if extended_fact(e, "extended_real") == Some(false) && crate::traverse::free_symbols(e).is_empty() {
+                let real = crate::functions::re(e);
+                if extended_fact(&real, "extended_positive") == Some(true) { return Some(Expr::zoo()); }
+                if extended_fact(&real, "extended_negative") == Some(true) { return Some(Expr::zero()); }
+                if real.is_zero() { return Some(Expr::nan()); }
+            }
+            None
+        }
+        Kind::Const(Constant::NegInfinity) if crate::traverse::free_symbols(e).is_empty() => {
+            if matches!(e.kind(), Kind::Const(c) if c.is_infinite()) { return Some(Expr::nan()); }
+            if e.as_number().is_some_and(|n| n.is_integer() && n.is_positive()) { return None; }
+            let infinite_part = pow(&infinity, e);
+            let sign_part = pow(&Expr::minus_one(), e);
+            let finite = crate::assumptions::exact_queries(|| crate::assumptions::is_finite(&sign_part)) == Some(true);
+            if infinite_part.is_zero() && finite { return Some(infinite_part); }
+            if infinite_part.is_constant(Constant::ComplexInfinity) && finite
+                && extended_fact(&sign_part, "extended_real") != Some(true) { return Some(Expr::zoo()); }
+            Some(mul2(&sign_part, &infinite_part))
+        }
+        Kind::Const(Constant::ComplexInfinity) if negative_infinity => Some(Expr::zero()),
+        Kind::Mul(..) => {
+            // Mul._eval_power expands the power base: (c*oo)**e = oo**e*c**e.
+            let n = e.as_number()?;
+            if n.is_integer() || !(n.is_rational() || n.is_float()) { return None; }
+            let Kind::Mul(coefficient, factors) = b.kind() else { return None };
+            let position = factors.iter().position(|(base, exponent)| exponent.is_one()
+                && (base.is_constant(Constant::Infinity) || base.is_constant(Constant::NegInfinity)))?;
+            let mut rest = vec![Expr::num(coefficient.clone())];
+            if factors[position].0.is_constant(Constant::NegInfinity) { rest.push(Expr::minus_one()); }
+            rest.extend(factors.iter().enumerate().filter(|(index, _)| *index != position)
+                .map(|(_, (base, exponent))| mul_factor(base, exponent)));
+            Some(mul2(&pow(&infinity, e), &pow(&mul(&rest), e)))
+        }
+        _ => None,
+    }
+}
+
 /// Canonical power `b ** e`.
 pub fn pow(b: &Expr, e: &Expr) -> Expr {
     if !e.is_zero() {
@@ -1171,9 +1323,14 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
     if e.is_constant(Constant::NaN) || b.is_constant(Constant::NaN) {
         return Expr::nan();
     }
+    if b.has_nonfinite() || e.has_nonfinite() || b.is_zero() {
+        if let Some(result) = infinite_power(b, e) { return result; }
+    }
     match b.kind() {
         Kind::Num(n) if n.is_one() => {
-            if matches!(e.kind(), Kind::Const(c) if c.is_infinite()) {
+            if matches!(e.kind(), Kind::Const(c) if c.is_infinite())
+                || crate::assumptions::exact_queries(|| crate::assumptions::is_finite(e)) == Some(false)
+                || extended_fact(e, "infinite") == Some(true) {
                 return Expr::nan();
             }
             return Expr::one();
