@@ -57,6 +57,10 @@ def test_maxn_returns_the_accuracy_it_reached(digits, maxn):
     actual = sm.Add(sm.pi, -sm.sympify(approximation), evaluate=False).evalf(15, maxn=maxn)
     expected = reference.evalf(60)
     assert actual.is_Float and 1 <= actual._prec <= 53
+    if actual._prec == 1 and abs(sm.to_sympy(actual)) > 2 * abs(expected):
+        # No correct bit: as SymPy, a precision 1 Float bounding the residue.
+        assert reference.evalf(15, maxn=maxn)._prec == 1
+        return
     assert abs(sm.to_sympy(actual) - expected) <= abs(expected) * sp.Rational(2) ** (1 - actual._prec)
 
 

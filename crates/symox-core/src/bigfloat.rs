@@ -337,6 +337,15 @@ impl BigFloat {
 
     /// Decimal representation with `dps` significant digits, SymPy style
     /// (fixed notation for moderate exponents, `e` notation otherwise).
+    /// mpmath's `to_str(x, 0)` as SymPy prints a Float of fewer than 5 bits:
+    /// no digit, only the decimal exponent rounded to the nearest power.
+    pub fn to_string_no_digits(&self) -> String {
+        if self.is_zero() {return "0.e+0".into();}
+        let (neg, digits, e10) = self.decimal_digits(3);
+        let e10=if matches!(digits.as_bytes().first(),Some(b'5'..=b'9')){e10+1}else{e10};
+        format!("{}0.e{}{}",if neg{"-"}else{""},if e10<0{"-"}else{"+"},e10.unsigned_abs())
+    }
+
     pub fn to_string_dps(&self, dps: u32, strip_zeros: bool) -> String {
         let dps=dps.max(1);
         if self.is_zero() {

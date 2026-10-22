@@ -617,6 +617,7 @@ impl fmt::Display for Number {
             BigInt(b) => write!(f, "{b}"),
             Rational(r) => write!(f, "{}/{}", r.numer(), r.denom()),
             Float(x) => write!(f, "{}", format_float(*x)),
+            MpFloat(value, prec) if *prec<5 => write!(f, "{}", value.to_string_no_digits()),
             MpFloat(value, prec) => write!(f, "{}", value.to_string_dps(crate::bigfloat::prec_to_dps(*prec), true)),
         }
     }

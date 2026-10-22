@@ -53,6 +53,8 @@ pub fn to_str(e: &Expr) -> String {
         return crate::number::format_float_full(*f);
     }
     if let Kind::Num(Number::MpFloat(value, precision)) = e.kind() {
+        // SymPy's StrPrinter prints a Float of fewer than 5 bits with dps 0.
+        if *precision<5 {return value.to_string_no_digits();}
         return value.to_string_dps(crate::bigfloat::prec_to_dps(*precision), false);
     }
     let mut s = String::new();

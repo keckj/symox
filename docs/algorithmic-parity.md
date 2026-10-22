@@ -2013,13 +2013,44 @@ for constructing every stabilizer chain.
   `min(maxprec, 2*working)` before each restart, and the last restart may
   overshoot by the missing accuracy, at most `2**20` bits in total). Without
   `strict` an explicit `maxn` returns the sum at the accuracy it reached, as a
-  Float of lower precision. Remaining divergences: an exhausted sum with no
-  correct bit (an exact zero, or `exp(300)+1-exp(300)` with `maxn=10`) stays
-  unevaluated instead of becoming SymPy's precision-1 noise Float such as
-  `-0.e-124`; evalf without options keeps the native 4096-bit budget and
-  resolves cancellations that SymPy's default `maxn=100` reports as noise;
+  Float of lower precision. Without `strict`, a sum evaluated as a whole
+  that exhausts its budget is returned as SymPy's `evalf_add` returns it:
+  each part has precision `max(min(prec, accuracy), 1)`, and a part without a
+  correct bit (an exact zero such as
+  `-I*exp(3*I/5)/2 - exp(3*I/10)*sin(3/10) + I/2`) is the precision 1 Float
+  equal to its absolute error bound (SymPy's scaled zero), printed without
+  digits as `0.e-168 + 0.e-168*I`. The schedule starts from SymPy's `prec+4`
+  target and compares the terms' working precision without their ten guard
+  bits, so the reference example gives SymPy's exponents at 30 digits.
+  `chop=True` still returns `0` and `strict=True` still raises. evalf without
+  options first tries the native 4096-bit budget, which resolves
+  cancellations that SymPy's default `maxn=100` reports as a bound, and
+  reports an unresolved sum with SymPy's default `maxn=100` schedule.
+  Remaining divergences: the bound is always the positive error bound, where
+  SymPy returns its rounding residue when it is not exactly zero (sign and
+  magnitude of noise, such as `-0.e-125` for `sin(pi/7)**2+cos(pi/7)**2-1`);
   the accuracy estimate is a rigorous rounding bound rather than SymPy's
-  `add_terms` estimate, so achieved precisions can differ by a few bits;
+  `add_terms` estimate, so exponents and achieved precisions can differ by a
+  few bits, and for some sums by up to about 30 decimal digits of the bound;
+  an exhausted sum nested in a numerical expression (`exp(z)`, `1 + I*z`,
+  `3*z` with an unevaluated product) stays unevaluated, because native
+  evaluation does not propagate SymPy's per-value accuracy (only a symbolic
+  factor, as in `x*z`, is evaluated around it);
+  `tests/test_evalf_cancel_parity.py` records the agreed cases.
+  Branch cuts audit (same file, 123 expressions at 15, 30 and 100 digits,
+  369 points: `log`, `sqrt`, symbolic powers, inverse trigonometric and
+  hyperbolic functions, `LambertW` branches, `polylog`, `zeta` near 1,
+  `hyper`/`meijerg` at the unit argument, `loggamma`, Bessel functions of
+  negative arguments, on exact cuts and 10**-30 above and below them): every
+  point has SymPy's branch and digits correct to the requested precision,
+  357 part by part and 9 relative to the larger part where SymPy itself is
+  only accurate in that sense (`hyper([1, 1], [2], 2)` and its neighbours).
+  Native evaluation is more accurate than SymPy on tiny parts near a cut
+  (`sqrt(-2 + I/10**30)`, `acosh(1/2 + I/10**30)`) and evaluates
+  `zeta(1 + 1/10**20)` and `hyper([1, 1], [2], 1 - 1/10**20)` at 15 digits
+  where SymPy rounds the argument onto the pole and fails. Remaining gap:
+  `meijerg([[1, 1], []], [[1], [0]], -1)` stays unevaluated where SymPy
+  returns `-oo` (the logarithmic singularity).
   `verbose` prints nothing; `quad` is ignored without an Integral (as in
   SymPy) and refused with `NotImplementedError` for an Integral. The former
   10,000-decimal-digit cap has been removed; native precision still uses a bounded machine counter with
