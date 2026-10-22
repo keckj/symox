@@ -176,7 +176,7 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
     if matches!(e.kind(),Kind::Add(..)) && !e.is_number() {
         let sign=match name{"extended_positive"|"extended_nonnegative"=>Some(true),"extended_negative"|"extended_nonpositive"=>Some(false),_=>None};
         if let Some(positive)=sign{
-            if add_extended_sign(e,positive)==Some(true){return Some(true);}
+            if add_extended_sign(e,positive)==Some(true)&&structural_fact(e,"extended_real")!=Some(false){return Some(true);}
         }
     }
     if let Some(symbol)=e.as_sym(){return symbol.facts().get(name);}
@@ -192,13 +192,20 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
             if algebraic{return Some(false);}
         }
     }
-    match name {
-        "real"=>return is_real(e),"positive"=>return is_positive(e),"negative"=>return is_negative(e),
-        "nonnegative"=>return is_nonnegative(e),"nonpositive"=>return is_nonpositive(e),
-        "zero"=>return is_zero(e),"nonzero"=>return is_nonzero(e),"integer"=>return is_integer(e),
-        "rational"=>return is_rational(e),"finite"=>return is_finite(e),"even"=>return is_even(e),"odd"=>return is_odd(e),
-        "commutative"=>return crate::decompose::commutativity(e),_=>{},
+    let native=match name {
+        "real"=>Some(is_real(e)),"positive"=>Some(is_positive(e)),"negative"=>Some(is_negative(e)),
+        "nonnegative"=>Some(is_nonnegative(e)),"nonpositive"=>Some(is_nonpositive(e)),
+        "zero"=>Some(is_zero(e)),"nonzero"=>Some(is_nonzero(e)),"integer"=>Some(is_integer(e)),
+        "rational"=>Some(is_rational(e)),"finite"=>return is_finite(e),"even"=>Some(is_even(e)),"odd"=>Some(is_odd(e)),
+        "commutative"=>return crate::decompose::commutativity(e),_=>None,
+    };
+    if let Some(answer)=native{
+        // Every one of these facts implies extended_real: a sum, product or
+        // exponential proven non-real settles them (SymPy derives them from
+        // ``is_extended_real`` through the assumption rules).
+        return settle_nonreal(e,answer);
     }
+    if implies_extended_real(name)&&structural_kind(e)&&structural_fact(e,"extended_real")==Some(false){return Some(false);}
     let mut seed=Vec::new();
     match e.kind(){
         Kind::Num(n)=>{
@@ -249,6 +256,9 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
                 if exact_queries(||is_nonnegative(e))==Some(true){seed.push(("nonnegative",true));}
                 else if exact_queries(||is_nonpositive(e))==Some(true){seed.push(("nonpositive",true));}
             }
+            for structural in structural_names(name){
+                if let Some(value)=structural_fact(e,structural){seed.push((structural,value));}
+            }
             if need_imaginary{
                 if let Some(imaginary)=quadratic.and_then(|f|f.imaginary){seed.push(("imaginary",imaginary));}
                 // A reduced rational with denominator two has odd numerator.
@@ -264,6 +274,201 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
         },
     }
     crate::assumption_facts::FactSet::from_kwargs(seed).ok()?.closure().ok()?.get(name)
+}
+
+/// The structural handlers that can settle a queried fact through the
+/// closure of the assumption rules.
+fn structural_names(name:&str)->&'static [&'static str]{
+    match name{
+        "complex"|"infinite"=>&["complex"],
+        "transcendental"=>&["complex","algebraic"],
+        "algebraic"=>&["algebraic","complex"],
+        "irrational"=>&["algebraic"],
+        "extended_real"=>&["extended_real"],
+        "imaginary"=>&["imaginary"],
+        "hermitian"=>&["hermitian","extended_real"],
+        "antihermitian"=>&["antihermitian","imaginary"],
+        _=>&[],
+    }
+}
+
+/// A native answer to a fact that implies extended_real (real, zero,
+/// nonzero, integer, rational and the signs), settled to False when the
+/// native inference is undecided on a number that SymPy's sum, product or
+/// exponential handlers prove non-real. SymPy derives these facts from
+/// ``is_extended_real`` through the assumption rules.
+pub fn settle_nonreal(e:&Expr,answer:Option<bool>)->Option<bool>{
+    if answer.is_some(){return answer;}
+    // Each of these facts implies real.
+    if is_real(e)==Some(false){return Some(false);}
+    if answer.is_none()&&structural_kind(e)&&crate::symbolic_number::is_symbolic_number(e)&&fact(e,"extended_real")==Some(false){return Some(false);}
+    answer
+}
+
+/// Facts that require an extended real value.
+fn implies_extended_real(name:&str)->bool{
+    matches!(name,"extended_positive"|"extended_negative"|"extended_nonnegative"|"extended_nonpositive"
+        |"extended_nonzero"|"irrational"|"noninteger"|"prime"|"composite")
+}
+
+/// The expression kinds that ``structural_fact`` handles.
+fn structural_kind(e:&Expr)->bool{
+    matches!(e.kind(),Kind::Add(..)|Kind::Mul(..)|Kind::Func(Func::Exp,_))
+}
+
+/// SymPy's ``Add._eval_is_imaginary``.
+fn add_imaginary(args:&[Expr])->Option<bool>{
+    let mut nonzero=Vec::new();
+    let mut imaginary=Vec::new();
+    for a in args{
+        if fact(a,"extended_real")==Some(true){
+            match is_zero(a){Some(true)=>{},Some(false)=>nonzero.push(a.clone()),None=>return None}
+        }else if fact(a,"imaginary")==Some(true){
+            imaginary.push(a.clone());
+        }else if let Kind::Mul(..)=a.kind(){
+            let factors=a.args();
+            let units=factors.iter().filter(|f|f.is_constant(Constant::I)).count();
+            if units!=1{return None;}
+            let rest:Vec<Expr>=factors.iter().filter(|f|!f.is_constant(Constant::I)).cloned().collect();
+            if fact(&crate::ops::mul(&rest),"extended_real")!=Some(true){return None;}
+            imaginary.push(a.clone());
+        }else{return None;}
+    }
+    if nonzero.len()==args.len(){return None;}
+    match is_zero(&crate::ops::add(&nonzero)){
+        // The zeroness of a sum of the ``a*I`` is that of the sum of the ``a``.
+        Some(true)=>is_zero(&crate::ops::add(&imaginary)).map(|zero|!zero),
+        Some(false)=>Some(false),
+        None=>None,
+    }
+}
+
+/// SymPy's ``_fuzzy_group``.
+fn fuzzy_group(values:impl IntoIterator<Item=Option<bool>>,quick_exit:bool)->Option<bool>{
+    let mut saw_other=false;
+    for value in values{
+        match value{
+            Some(true)=>{},
+            None=>return None,
+            Some(false)=>{
+                if quick_exit&&saw_other{return None;}
+                saw_other=true;
+            },
+        }
+    }
+    Some(!saw_other)
+}
+
+fn fuzzy_or(values:impl IntoIterator<Item=Option<bool>>)->Option<bool>{
+    let mut result=Some(false);
+    for value in values{
+        match value{Some(true)=>return Some(true),None=>result=None,Some(false)=>{}}
+    }
+    result
+}
+
+/// SymPy's ``Mul._eval_real_imag``.
+fn mul_real_imag(args:&[Expr],mut real:bool)->Option<bool>{
+    let mut zero=Some(false);
+    let mut not_re_im:Option<&Expr>=None;
+    for t in args{
+        let extended_real=fact(t,"extended_real");
+        let complex_or_infinite=match (fact(t,"complex"),fact(t,"infinite")){
+            (Some(true),_)|(_,Some(true))=>Some(true),(Some(false),Some(false))=>Some(false),_=>None,
+        };
+        if complex_or_infinite==Some(false)&&extended_real==Some(false){return Some(false);}
+        if fact(t,"imaginary")==Some(true){real=!real;}
+        else if extended_real==Some(true){
+            if zero!=Some(true){
+                let z=is_zero(t);
+                if z!=Some(true)&&zero==Some(false){zero=z;}
+                else if z==Some(true){
+                    if args.iter().all(|a|is_finite(a)==Some(true)){return Some(true);}
+                    return None;
+                }
+            }
+        }
+        else if extended_real==Some(false)||fact(t,"imaginary")==Some(false){
+            if not_re_im.is_some(){return None;}
+            not_re_im=Some(t);
+        }
+        else{return None;}
+    }
+    if let Some(t)=not_re_im{
+        if fact(t,"extended_real")==Some(false)&&real{return zero;}
+        if fact(t,"imaginary")==Some(false)&&!real{return zero;}
+        None
+    }else if zero==Some(false)||real{Some(real)}else{None}
+}
+
+/// SymPy's ``Mul._eval_herm_antiherm``.
+fn mul_herm_antiherm(e:&Expr,args:&[Expr],mut herm:bool)->Option<bool>{
+    for t in args{
+        let (h,a)=(fact(t,"hermitian"),fact(t,"antihermitian"));
+        if h.is_none()||a.is_none(){return None;}
+        if h==Some(true){continue;}
+        if a==Some(true){herm=!herm;}else{return None;}
+    }
+    if herm{return Some(true);}
+    match is_zero(e){Some(true)=>Some(true),Some(false)=>Some(false),None=>None}
+}
+
+/// The SymPy ``Add``, ``Mul``, ``Pow`` and ``exp`` handlers of the facts
+/// that the native sign inference does not derive: complex, algebraic,
+/// extended real, imaginary, hermitian and antihermitian.
+fn structural_fact(e:&Expr,name:&str)->Option<bool>{
+    match e.kind(){
+        Kind::Add(..)=>match name{
+            "complex"|"algebraic"|"extended_real"|"hermitian"|"antihermitian"=>
+                fuzzy_group(e.args().iter().map(|a|fact(a,name)),true),
+            "imaginary"=>add_imaginary(&e.args()),
+            _=>None,
+        },
+        Kind::Mul(..)=>{
+            let args=e.args();
+            match name{
+                "complex"=>{
+                    let comp=fuzzy_group(args.iter().map(|a|fact(a,"complex")),false);
+                    if comp==Some(false)&&args.iter().any(|a|fact(a,"infinite")==Some(true)){
+                        if args.iter().any(|a|is_zero(a)!=Some(false)){return None;}
+                        return Some(false);
+                    }
+                    comp
+                },
+                "algebraic"=>{
+                    let r=fuzzy_group(args.iter().map(|a|fact(a,"algebraic")),true);
+                    if r==Some(false)&&!args.iter().all(|a|is_zero(a)==Some(false)){return None;}
+                    r
+                },
+                "extended_real"=>mul_real_imag(&args,true),
+                "imaginary"=>{
+                    if args.iter().all(|a|is_zero(a)==Some(false)&&is_finite(a)==Some(true)){mul_real_imag(&args,false)}else{None}
+                },
+                "hermitian"|"antihermitian"=>mul_herm_antiherm(e,&args,name=="hermitian"),
+                _=>None,
+            }
+        },
+        Kind::Pow(base,exponent) if name=="complex"=>{
+            if base.is_constant(Constant::E){
+                return fuzzy_or([fact(exponent,"complex"),fact(exponent,"extended_negative")]);
+            }
+            if fact(base,"complex")==Some(true)&&fact(exponent,"complex")==Some(true)&&is_finite(e)==Some(true){Some(true)}else{None}
+        },
+        Kind::Func(Func::Exp,args) if args.len()==1=>match name{
+            "complex"=>fuzzy_or([fact(&args[0],"complex"),fact(&args[0],"extended_negative")]),
+            // ``exp._eval_is_extended_real``.
+            "extended_real" if fact(&args[0],"extended_real")==Some(true)=>Some(true),
+            "extended_real" if fact(&args[0],"imaginary")==Some(true)=>{
+                let turns=crate::ops::div(&crate::ops::mul(&[Expr::int(-2),Expr::i(),args[0].clone()]),&Expr::constant(Constant::Pi));
+                is_even(&turns)
+            },
+            // ``exp._eval_is_algebraic``: a nonzero algebraic exponent gives
+            // a transcendental value (Lindemann).
+            "algebraic" if is_zero(&args[0])==Some(false)&&fact(&args[0],"algebraic")==Some(true)=>Some(false),
+            _=>None,
+        },
+        _=>None,
+    }
 }
 
 #[cfg(test)]
@@ -1179,7 +1384,7 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
         // Heaviside.is_finite = True (a class fact)
         Kind::Func(Func::Heaviside, _) => Some(true),
         // ExpBase._eval_is_finite
-        Kind::Func(Func::ExpPolar, a) => {
+        Kind::Func(Func::ExpPolar | Func::Exp, a) => {
             if is_finite(&a[0]) == Some(true) || a[0].is_constant(Constant::NegInfinity) { Some(true) }
             else if a[0].is_constant(Constant::Infinity) { Some(false) }
             else { None }
@@ -1189,6 +1394,10 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
         // ``Add._eval_is_finite`` and ``Mul._eval_is_finite``), whether or
         // not they are real: 1 + I is finite, hence not extended real.
         Kind::Add(_, terms) if terms.iter().all(|(term, _)| is_finite(term) == Some(true)) => Some(true),
+        // ``Add._eval_is_finite``: a single infinite term among finite ones.
+        Kind::Add(..) if fuzzy_group(e.args().iter().map(is_finite),true)==Some(false) => Some(false),
+        // ``Mul._eval_is_infinite``: an infinite factor and no zero factor.
+        Kind::Mul(..) if { let args=e.args(); args.iter().any(|a|is_finite(a)==Some(false))&&args.iter().all(|a|is_zero(a)==Some(false)) } => Some(false),
         Kind::Mul(_, factors) if factors.iter().all(|(base, exponent)| finite_power(base, exponent)) => Some(true),
         Kind::Pow(base, exponent) if finite_power(base, exponent) => Some(true),
         _ => {

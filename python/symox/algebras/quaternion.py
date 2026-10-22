@@ -21,25 +21,6 @@ def is_eq(lhs, rhs):
     return True if value is S.true else False if value is S.false else None
 
 
-def _is_complex(e):
-    """``e.is_complex`` with the reference ``Add``, ``Mul`` and ``Pow``
-    handlers: the native fact closure leaves ``(2 + I).is_complex`` unknown."""
-    value = e.is_complex
-    if value is not None or not getattr(e, 'args', ()):
-        return value
-    if e.is_Add or e.is_Mul:
-        values = [_is_complex(a) for a in e.args]
-        if all(v is True for v in values):
-            return True
-        if e.is_Add and False in values and all(v is not None for v in values):
-            return None
-        return None
-    if e.is_Pow:
-        if all(_is_complex(a) is True for a in e.args) and e.is_finite:
-            return True
-    return value
-
-
 def _check_norm(elements, norm):
     """validate if input norm is consistent"""
     if norm is not None and norm.is_number:
@@ -821,7 +802,7 @@ class Quaternion(Expr):
 
         # If q2 is a number or a SymPy expression instead of a quaternion
         if not isinstance(q2, Quaternion):
-            if q1.real_field and _is_complex(q2):
+            if q1.real_field and q2.is_complex:
                 return Quaternion(re(q2) + q1.a, im(q2) + q1.b, q1.c, q1.d)
             elif q2.is_commutative:
                 return Quaternion(q1.a + q2, q1.b, q1.c, q1.d)
@@ -920,7 +901,7 @@ class Quaternion(Expr):
 
         # If q1 is a number or a SymPy expression instead of a quaternion
         if not isinstance(q1, Quaternion):
-            if q2.real_field and _is_complex(q1):
+            if q2.real_field and q1.is_complex:
                 return Quaternion(re(q1), im(q1), 0, 0) * q2
             elif q1.is_commutative:
                 return Quaternion(q1 * q2.a, q1 * q2.b, q1 * q2.c, q1 * q2.d)
@@ -929,7 +910,7 @@ class Quaternion(Expr):
 
         # If q2 is a number or a SymPy expression instead of a quaternion
         if not isinstance(q2, Quaternion):
-            if q1.real_field and _is_complex(q2):
+            if q1.real_field and q2.is_complex:
                 return q1 * Quaternion(re(q2), im(q2), 0, 0)
             elif q2.is_commutative:
                 return Quaternion(q2 * q1.a, q2 * q1.b, q2 * q1.c, q2 * q1.d)
