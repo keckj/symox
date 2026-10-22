@@ -98,9 +98,7 @@ def test_general_primitive_element_fields_match_reference(field):
     x=sm.Symbol('x');sx=sp.Symbol('x');theta=sm.sympify(field);eta=sp.sympify(field)
     p=sm.Poly(x+theta,x,extension=theta)
     oracle=sp.Poly(sx+eta,sx,extension=eta)
-    if field!='(-2)**(1/6)':
-        # The native parser writes (-2)**(1/6) as (-1)**(1/6)*2**(1/6).
-        assert str(p.domain)==str(oracle.domain)
+    assert str(p.domain)==str(oracle.domain)
     same(p.norm().as_expr(),sp.Poly(oracle.norm().as_expr(),sx).monic().as_expr(),x)
     q,r=(p*p+1).div(p)
     assert r.as_expr()==1 and q==p

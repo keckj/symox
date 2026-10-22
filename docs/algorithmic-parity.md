@@ -400,10 +400,31 @@ Remaining gaps in this area:
   no polynomial backend for an explicit `domain=CC` (`Poly(x, x,
   domain=CC)` raises `NotImplementedError`), and the inferred `CC`
   polynomials have no `invert` (`ValueError` where the reference returns
-  the CC result or raises `NotInvertible`).
-- `(-2)**(1/6)` with `extension=True` yields the larger field
-  `QQ<2**(1/6) + (-1)**(1/6)>` because core power canonicalization splits the
-  base; results stay exact but the field is not the reference one.
+  the CC result or raises `NotInvertible`). `RR.frac_field(x).field`,
+  `CC.frac_field(x).field` and `RR.poly_ring(x).ring` raise
+  `AttributeError`, and `factor_list`/`sqf_list` of RR expressions print
+  factors as `1.0*x - 1.0*y` where the reference prints `x - y`.
+- Negative bases with rational exponents follow the reference
+  `Integer._eval_power`/`Rational._eval_power` and the `Mul.flatten` sign
+  join: `(-2)**(1/6)` stays one power (also after `(-1)**(1/6)*2**(1/6)`),
+  `(-2)**(-1/6)` is
+  `-(-2)**(5/6)/2`, `(-2/3)**(1/6)` is `(-2)**(1/6)*3**(5/6)/3`,
+  `(-2)**(-3/2)` is `sqrt(2)*I/4`, `I*(-1)**(1/3)` is `(-1)**(5/6)`, and
+  `sqrt(sqrt(2)/2)` is `2**(3/4)/2`. With `extension=True`, `(-2)**(1/6)`
+  now builds the reference field `QQ<(-2)**(1/6)>` (minpoly `x**6 + 2`), and
+  `factor`/`gcd`/`sqf_list`/`cancel` over it match. Tests:
+  `tests/test_extension_root_parity.py` (79 of 86 probed calls identical;
+  36 before). Remaining: the reference per-prime extraction of
+  `Integer._eval_power` is not ported (`(-12)**(1/6)` stays one power, the
+  reference gives `(-3)**(1/6)*2**(1/3)`; `144**(1/3)` is `12**(2/3)`, the
+  reference `2*18**(1/3)`); porting it makes `simplify` of the quartic
+  root residual of `x**4 + x + 1` exhaust the multivariate Gaussian gcd,
+  which must be bounded first. `factor(x**6 + 2, extension=(-2)**(1/6))` exhausts
+  the factorization work limit (`ValueError`; the reference factors it in
+  about one second), `nsimplify((-2)**(1/6))` returns the power unchanged
+  where the reference rewrites it as `2**(1/6)*sqrt(3)/2 + 2**(1/6)*I/2`,
+  and `construct_domain` elements print as `QQ<...>(...)` instead of the
+  reference `ANP(...)` repr (general, not specific to this field).
 - `construct_domain` follows the reference control flow: the options go
   through the `Poly` option rules (an unknown option, `extension=False` or a
   non-boolean `field` raise the reference `OptionError`; `gens`, `domain`
@@ -419,8 +440,20 @@ Remaining gaps in this area:
   gives `RR(x,y)`, `[1.5*x + I]` gives `CC[x]`), also with
   `composite=True`. Remaining: a Float outside a coefficient position (an
   exponent such as `x**1.5`, a function argument) keeps `EX`.
-- `EX` root forms and `nroots` digits can differ from the reference (symox
-  can be more accurate); exact reduction of root objects (`CRootOf` and
+- `EX` root forms and `nroots` digits can differ from the reference. An
+  audit of 56 `nroots`/`roots` calls (47 identical) found these intentional
+  corrections, where symox returns the more accurate roots: the triple root
+  of `(x - 1/3)**3` (reference `NoConvergence`), `x**2 - 2*x + 1 + 1/10**10`
+  (`1.0 +- 1.0e-5*I`, reference imaginary parts off by about `1e-18`), the
+  double root `-I` of `x**2 + 2*I*x - 1` (reference `~1e-13` real parts), the small root
+  `1.0e-20` of `x**2 - 1e20*x + 1` (reference `0`) and the double roots of
+  `x**4 - sqrt(2)*x**2 + 1/2` (reference splits them near `1e-8`).
+  Remaining: the clustered roots of `(x - 1)*(x - 1.0001)*(x - 1.0002)` are
+  less accurate than the reference (error `~2e-8` against `~1e-12`); `roots`
+  over `EX` does not factor first like the reference
+  (`x**2 - (1 + sqrt(2))*x + sqrt(2)` gives nested radicals instead of
+  `{1, sqrt(2)}`) and prints some quadratic roots in a factored form
+  (`-sqrt(2)*(1 - I)/2` against `-sqrt(2)/2 + sqrt(2)*I/2`). Exact reduction of root objects (`CRootOf` and
   `RootSum` simplification into an algebraic field) is not ported.
 - `RootSum` follows the reference constructor: the polynomial is kept as an
   expression with its generator (`args == (expr, Lambda, gen)`), pure
