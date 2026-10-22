@@ -103,9 +103,10 @@ assert solution.rhs.has(log)
 When `factorable` is the default hint and its sub-equation reaches the
 Lie group heuristics, SymPy spends about 85 s before it raises
 `NotImplementedError` for `(x + cos(f))*f' + f + 2*x`; the `simplify`
-calls of `abaco2_unique_general` take about 210 s in a release build of
-symox, almost all of it in the native trigonometric candidates of the
-third call. Name the method (`hint='1st_exact'`) for such equations.
+calls of `abaco2_unique_general` take about 78 s in a release build of
+symox (before: 210 s), most of it in the native trigonometric candidates
+of the third call. Name the method (`hint='1st_exact'`) for such
+equations.
 
 ### Arbitrary constants and Lie point symmetries
 
