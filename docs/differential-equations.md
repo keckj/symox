@@ -38,8 +38,8 @@ The result forms (constant names and numbering, sign and factor choices,
 implicit or explicit solutions) are those of SymPy whenever the underlying
 `solve`, `simplify`, `integrate` and `factor` produce SymPy's forms. On a
 corpus of 315 equations drawn from SymPy's ODE test suite, classification
-matches SymPy's output string for 295 equations, the test suite's hint for
-237 and the default `dsolve` for 245. The remaining differences come from
+matches SymPy's output string for 296 equations, the test suite's hint for
+262 and the default `dsolve` for 258. The remaining differences come from
 those underlying algorithms: the native `simplify` is a candidate search,
 not SymPy's sequence of rewrites, so it can stop at another equivalent
 form (this also decides whether the `factorable` hint is listed, as for
@@ -101,10 +101,11 @@ assert solution.rhs.has(log)
 ```
 
 When `factorable` is the default hint and its sub-equation reaches the
-Lie group heuristics, SymPy spends about 80 s before it raises
+Lie group heuristics, SymPy spends about 85 s before it raises
 `NotImplementedError` for `(x + cos(f))*f' + f + 2*x`; the `simplify`
-calls of `abaco2_unique_general` are much slower in symox (minutes in a
-debug build). Name the method (`hint='1st_exact'`) for such equations.
+calls of `abaco2_unique_general` take about 210 s in a release build of
+symox, almost all of it in the native trigonometric candidates of the
+third call. Name the method (`hint='1st_exact'`) for such equations.
 
 ### Arbitrary constants and Lie point symmetries
 

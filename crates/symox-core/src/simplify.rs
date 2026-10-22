@@ -203,30 +203,7 @@ fn distribute_hollow_mul(e: &Expr) -> Expr {
 /// `2*sqrt(T)*sqrt(k)*sqrt(R1 + R2)` for `sqrt(4*R1*T*k + 4*R2*T*k)` with
 /// positive symbols. `None` when a step fails.
 fn reference_factored_state(e: &Expr) -> Option<Expr> {
-    use crate::simptools::methods::count_ops;
-    let shorter = |choices: &[Expr]| -> Expr {
-        let mut best = choices[0].clone();
-        let mut best_ops = count_ops(&best);
-        for c in &choices[1..] {
-            let ops = count_ops(c);
-            if ops < best_ops {
-                best = c.clone();
-                best_ops = ops;
-            }
-        }
-        best
-    };
-    let start = crate::simptools::misc::signsimp(e, true);
-    let start = crate::simptools::bottom_up(&start, &mut |w| crate::simptools::normal(w));
-    let (content, primitive) =
-        crate::decompose::as_content_primitive(&crate::simptools::powsimp::powsimp(&start, &Default::default()), false, false).ok()?;
-    let start = mul(&[Expr::num(content), primitive]);
-    let cancelled = crate::poly::api::reference_cancel(&start).ok()?;
-    let expanded = crate::poly::api::reference_cancel(&crate::simptools::mexpand(&cancelled)).ok()?;
-    let expr1 = shorter(&[cancelled, expanded]);
-    let expr2 = shorter(&[crate::poly::api::together(&start), crate::poly::api::together(&expr1)]);
-    let state = shorter(&[expr2, expr1, start]);
-    let factored = distribute_hollow_mul(&crate::simptools::exprtools::factor_terms(&state, false, false, false, false));
+    let factored = distribute_hollow_mul(&crate::simptools::exprtools::factor_terms(&reference_state(e)?, false, false, false, false));
     // The later shorter steps (cancel, factor_terms and
     // expand_power_exp(expand_mul)) undo a factorization that has more
     // operations than its expansion: n**3 - n stays expanded.
@@ -237,6 +214,92 @@ fn reference_factored_state(e: &Expr) -> Option<Expr> {
         crate::simp::expand_power_exp(&crate::simp::expand_mul(&short)),
     ]);
     (short == factored).then_some(factored)
+}
+
+/// SymPy's `shorter`: the first of the choices with the fewest operations.
+fn shorter(choices: &[Expr]) -> Expr {
+    use crate::simptools::methods::count_ops;
+    let mut best = choices[0].clone();
+    let mut best_ops = count_ops(&best);
+    for c in &choices[1..] {
+        let ops = count_ops(c);
+        if ops < best_ops {
+            best = c.clone();
+            best_ops = ops;
+        }
+    }
+    best
+}
+
+/// `expr.has(TrigonometricFunction, HyperbolicFunction)`.
+fn has_trig_or_hyperbolic(e: &Expr) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |x| {
+        if !found {
+            found = matches!(
+                x.kind(),
+                Kind::Func(
+                    Func::Sin
+                        | Func::Cos
+                        | Func::Tan
+                        | Func::Cot
+                        | Func::Sec
+                        | Func::Csc
+                        | Func::Sinh
+                        | Func::Cosh
+                        | Func::Tanh
+                        | Func::Coth,
+                    _
+                )
+            );
+        }
+    });
+    found
+}
+
+/// The candidate of SymPy's own sequence of rewrites for an expression of
+/// sums, products and powers: the shortest state of the rational steps,
+/// `factor_terms(sign=False)`, `trigsimp(deep=True)` (Fu's `futrig`), the
+/// `powsimp`, `cancel`, `factor_terms` and `expand_power_exp(expand_mul)`
+/// shorter steps, `exptrigsimp` and the `hollow_mul` pass. The native search
+/// can expand factored powers of a sum with trigonometric terms into
+/// multiple-angle sums, where this sequence keeps them factored, as SymPy
+/// does: `(x + cos(y))**k` stays a power. `None` when a step fails.
+fn reference_sequence(e: &Expr) -> Option<Expr> {
+    use crate::simptools::powsimp::{Combine, PowsimpOptions};
+    let mut expr = crate::simptools::exprtools::factor_terms(&reference_state(e)?, false, false, false, false);
+    if has_trig_or_hyperbolic(&expr) {
+        expr = crate::simptools::trigsimp::futrig(&expr, true);
+    }
+    let short = shorter(&[
+        crate::simptools::powsimp::powsimp(&expr, &PowsimpOptions { deep: true, combine: Combine::Exp, force: false }),
+        crate::simptools::powsimp::powsimp(&expr, &Default::default()),
+        expr,
+    ]);
+    let short = shorter(&[short.clone(), crate::poly::api::reference_cancel(&short).ok()?]);
+    let short = shorter(&[
+        short.clone(),
+        crate::simptools::exprtools::factor_terms(&short, false, false, false, true),
+        crate::simp::expand_power_exp(&crate::simp::expand_mul(&short)),
+    ]);
+    let short = if has_exp_or_trig(&short) { crate::simptools::trigsimp::exptrigsimp(&short) } else { short };
+    Some(distribute_hollow_mul(&short))
+}
+
+/// The shortest state of the reference `simplify` after its rational
+/// steps (signsimp, `normal` bottom up, content, cancel and together),
+/// before `factor_terms`.
+fn reference_state(e: &Expr) -> Option<Expr> {
+    let start = crate::simptools::misc::signsimp(e, true);
+    let start = crate::simptools::bottom_up(&start, &mut |w| crate::simptools::normal(w));
+    let (content, primitive) =
+        crate::decompose::as_content_primitive(&crate::simptools::powsimp::powsimp(&start, &Default::default()), false, false).ok()?;
+    let start = mul(&[Expr::num(content), primitive]);
+    let cancelled = crate::poly::api::reference_cancel(&start).ok()?;
+    let expanded = crate::poly::api::reference_cancel(&crate::simptools::mexpand(&cancelled)).ok()?;
+    let expr1 = shorter(&[cancelled, expanded]);
+    let expr2 = shorter(&[crate::poly::api::together(&start), crate::poly::api::together(&expr1)]);
+    Some(shorter(&[expr2, expr1, start]))
 }
 
 /// `expr.has(TrigonometricFunction, HyperbolicFunction, ExpBase, exp)`.
@@ -326,6 +389,9 @@ pub fn simplify(e: &Expr) -> Expr {
         // tan/cot/sec/csc through sin and cos (tan(x)*cos(x) -> sin(x)).
         candidates.push(crate::simptools::trigsimp::futrig(e, true));
     }
+    // SymPy's own sequence keeps the factored powers that the expansion
+    // based candidates lose. It comes last, so a tie keeps the native form.
+    candidates.extend(reference_sequence(e));
     let selected = candidates
         .into_iter()
         // Ties in size go to SymPy's count_ops measure, which counts an

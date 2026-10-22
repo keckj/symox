@@ -2005,8 +2005,8 @@ for constructing every stabilizer chain.
   solvers run only when every reference method raises `NotImplementedError`,
   and their bounds (64 series coefficients, 64 functions in a system, eight
   in a matrix exponential) apply only to that fallback. On 315 equations
-  drawn from SymPy's ODE tests, classification output matches for 295, the
-  test's hint for 237 and the default solution for 245 (string comparison).
+  drawn from SymPy's ODE tests, classification output matches for 296, the
+  test's hint for 262 and the default solution for 258 (string comparison).
   The differences come from equivalent candidates chosen by `simplify`,
   `integrate` and `factor`, from Gaussian polynomial domains (`ZZ_I`/`QQ_I`
   inference) and from integrals that remain unevaluated. The native
@@ -2022,26 +2022,26 @@ for constructing every stabilizer chain.
   (SymPy does not return for them). The Lie group
   heuristic `abaco2_unique_general` is still slower than in SymPy on large
   expressions. For `(x + cos(f(x)))*f(x).diff(x) + f(x) + 2*x` it calls
-  `simplify` on three expressions. The first two take 0.2 s and 0.9 s
-  (SymPy: 2.3 s and 9.8 s). Their results are larger than SymPy's (219 and
-  176 operations against 142 and 150), because the native candidate search
-  does not reproduce SymPy's sequence of rewrites. The third input is
-  therefore larger as well (930 operations against 750), and that call
-  takes about 400 s, half of it in `cancel`. SymPy takes 68 s on its own
-  input, and does not finish within 1500 s on symox's input, where its
-  `cancel` alone takes 451 s against about 190 s. On SymPy's own third
-  input symox takes 171 s and returns 677 operations (SymPy: 642), and
-  90% of that time is spent in the native trigonometric rule engine: memo
-  lookups and pattern matching on the terms of sums with about 12000
-  terms, which `args()` rebuilds, so each lookup compares them in full. A
-  default `dsolve` of this equation takes about 395 s in a release build,
-  where SymPy takes 82 s. SymPy then raises `NotImplementedError`, while
-  symox returns its native fallback answer
-  `Eq(x**2 + x*f(x) + sin(f(x)), C1)`. Before the trigonometric memo and
-  the matcher indexes it took more than 40 minutes. The forms of the first two
-  results (SymPy keeps factored powers of `x + cos(_y)`, the native search
-  expands them into multiple-angle terms) and the rule engine's cost on
-  rebuilt terms remain open gaps. Deliberate
+  `simplify` on three expressions. The native candidate search now also
+  runs SymPy's own sequence (the rational steps, `factor_terms`, Fu's
+  `trigsimp`, the `powsimp`, `cancel` and `factor_terms` shorter steps and
+  `exptrigsimp`) as one more candidate, so the factored powers of
+  `x + cos(_y)` that SymPy keeps are no longer lost to the multiple-angle
+  expansions. The first two calls take 0.3 s and 1.3 s (SymPy: 2.3 s and
+  10.1 s) and return 142 and 150 operations, SymPy's sizes (before: 219
+  and 176). The third input is then SymPy's (750 operations, before 930)
+  and that call returns 641 operations (SymPy: 642) in about 210 s, where
+  SymPy takes 71 s. On that input, the reference sequence itself takes
+  about 2.5 s; 97 s go to the native `trigsimp` candidate of the input and
+  62 s to the `trigsimp` candidate of its expansion, both in the native
+  trigonometric rule engine: memo lookups and pattern matching on the
+  terms of sums with about 12000 terms, which `args()` rebuilds, so each
+  lookup compares them in full. A default `dsolve` of this equation takes
+  about 210 s in a release build (before: 395 s), where SymPy takes 85 s.
+  SymPy then raises `NotImplementedError`, while symox returns its native
+  fallback answer `Eq(x**2 + x*f(x) + sin(f(x)), C1)`. Before the
+  trigonometric memo and the matcher indexes it took more than 40 minutes.
+  The rule engine's cost on rebuilt terms remains an open gap. Deliberate
   extensions are the logarithmic Frobenius basis for repeated or resonant
   indicial roots, the corrected expansion of non-polynomial Frobenius
   coefficients, irrational indicial roots (see the Frobenius section), `ics` that name the generated constants, exact
