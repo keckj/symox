@@ -236,6 +236,10 @@ def _shape(name, items):
     return tuple(items)
 
 
+_PIECEWISE_SIMPLIFY = (FourierTypeTransform._subclasses + SineCosineTypeTransform._subclasses
+                       + HankelTypeTransform._subclasses)
+
+
 def _doit(expr, deep=True, **hints):
     name = _head_name(expr)
     noconds_default, simplify_default = _DOIT_DEFAULTS.get(name, (True, True))
@@ -252,6 +256,13 @@ def _doit(expr, deep=True, **hints):
         _raise_fatal(err)
         msg = str(err).split(": ", 1)[-1]
         raise IntegralTransformError(_HEADS[name][0], args[0], msg) from None
+    if simplify and getattr(items[0], "is_Piecewise", False) and name in _PIECEWISE_SIMPLIFY:
+        # the reference ``simplify`` of a Piecewise result is
+        # ``piecewise_simplify``: univariate conditions become real intervals
+        # (``Abs(w**2) < 1`` is ``(w > -1) & (w < 1)``)
+        from ._public_calculus import piecewise_simplify
+        items = list(items)
+        items[0] = piecewise_simplify(items[0], deep=True, doit=False)
     if noconds:
         return items[0]
     return _shape(name, items)

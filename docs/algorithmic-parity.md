@@ -1441,12 +1441,24 @@ first and its `RootSum` is returned (`exp(x)/(1 + exp(2*x))`,
   within the limit; `atan(x)*log(x)` takes about 5 s (reference 8 s);
 - `integrate(exp(10*x)*sin(exp(x)), x)` finishes here and times out in the
   reference;
-- the definite integral of the float Piecewise of `test_issue_15498` stays
-  unevaluated (reference a `Piecewise` with `Min(0.5, t)` bounds). The
-  cause is visible on one piece: `integrate(exp(k10*s)*exp(-1.66666666666667*s), s)`
-  gives a generic quotient with rationalized float coefficients and no
-  `Ne(k10, 1.66666666666667)` case, where the reference `heurisch_wrapper`
-  returns the Piecewise of the degenerate rate;
+- `solve_lin_sys` over an inexact ground (`RR(k10)`, as `heurisch` builds
+  it for a Float rate) row reduces with the arithmetic of the domain like
+  the reference `_solve_lin_sys_component`, instead of `linsolve` over
+  expressions, where the float rounding kept a spurious common factor
+  (`(k10 - c)/(k10**2 - 2*c*k10 + c**2)`, whose denominator `solve` then
+  split into two complex roots depending on `s`, giving conditions on the
+  integration variable). `integrate(exp(k10*s)*exp(-1.66666666666667*s), s)`
+  is now the reference `Piecewise` with the generic case under
+  `Ne(k10, 1.66666666666667)` and the degenerate rate last
+  (`tests/test_transforms_wave3_parity.py`). Remaining differences: `cancel`
+  over `RR` clears the rationalized float denominators
+  (`2251799813685248.0*exp(k10*s)/(2251799813685248.0*k10*exp(c*s) - ...)`
+  where the reference keeps `1.0*exp(k10*s)/(1.0*k10*exp(c*s) - c*exp(c*s))`),
+  and the degenerate piece is float noise in both libraries with a
+  different value (reference `-300239975158033.0*exp(-3.33066907387547e-15*s)`,
+  symox `-500399958596722.0*exp(-1.99840144432528e-15*s)`; the exact value
+  is `s`); the definite integral of the float Piecewise of
+  `test_issue_15498` is not rechecked here;
 - `manual=True` on the rational function of case 153 leaves an `Integral`
   where the reference finishes (manualintegrate leftovers); `manual=True` on
   `atan(x)*log(x)` gives the reference result, about twice as slowly;
@@ -1764,14 +1776,28 @@ Remaining transform differences:
   2*I*pi*k/a)**2)`), the indicator of `[0, 1]` (one fraction), the `2**(1 -
   m)` factor of `hankel_transform(1/r**m, r, k, nu)` and the arrangement of
   `laplace_transform(cos(sqrt(t)))`.
-- Piecewise results keep `Abs(w**2) < 1` where the reference `simplify`
-  rewrites it as `(w > -1) & (w < 1)` (sine and cosine transforms of
-  `besselj(0, t)` and `sin(t)/t`, the inverse Fourier transform of
-  `sin(k)/k`). The reference rewrite assumes a real `w`. The nested
-  Piecewise of the cosine transform of `sin(t)/t` is folded.
+- A Piecewise result of a Fourier, sine, cosine or Hankel transform (and
+  their inverses) goes through the reference `piecewise_simplify`, the
+  `simplify` of a Piecewise: univariate conditions become real intervals,
+  `Abs(w**2) < 1` is `(w > -1) & (w < 1)` like the reference, which
+  assumes a real `w` there (sine and cosine transforms of `besselj(0, t)`
+  and `sin(t)/t`, the inverse Fourier transform of `sin(k)/k`,
+  `tests/test_transforms_wave3_parity.py`). The nested Piecewise of the
+  cosine transform of `sin(t)/t` is still folded (its outer conditions are
+  the reference ones).
+- `hankel_transform(1, r, k, 0)` (and the inverse) raises
+  `IntegralTransformError`: the integral of `r*besselj(0, k*r)` over
+  `(0, oo)` diverges, and the reference returns a meaningless
+  `Piecewise` of `nan`, `oo` and `besselj(1, zoo*k)` from the limits of the
+  antiderivative at infinity; symox does not compute this integral.
 - The native definite integral of `exp(-a*x)*sin(b*x)*Heaviside(x)` over the
-  real line is not computed. The table gives the reference value with the
-  condition `True` instead of the reference half plane condition.
+  real line with positive `a`, `b` and a real `k` is not computed. The table
+  gives the reference value with the condition `True` instead of the
+  reference `Abs(arg(1 - 2*pi*k*exp_polar(-I*pi/2)/a)) < pi/2` (the
+  reference `meijerint_definite` result). Without assumptions the native
+  integral is computed with `(re(a) + im(b) > 0) & (re(a) - im(b) > 0)`
+  where the reference holds the transform. The Laplace transform of the
+  same function matches the reference (`-re(a) + Abs(im(b))`, `True`).
 - `fourier_transform(exp(-a*x**2), x, k)` with an unrestricted `a` is held
   like the reference, with and without `noconds`: when the transform
   integral is computed only under conditions and the integral of the

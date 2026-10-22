@@ -39,10 +39,51 @@ def sympy_eqs_to_ring(eqs,symbols):
     ring,expressions=sring(list(eqs),list(symbols),field=True,extension=True)
     return expressions,ring
 
+def _inexact(domain):
+    """An inexact ground (``RR``, ``CC`` or a fraction field over them)."""
+    while domain is not None:
+        if getattr(domain,'is_Exact',True) is False:return True
+        try:inner=domain.domain
+        except Exception:return False  # a ground domain has no coefficient domain
+        if inner is domain:return False
+        domain=inner
+    return False
+
+
+def _solve_inexact(matrix,rhs,symbols,ring,_raw):
+    """The reference ``_solve_lin_sys_component`` over an inexact ground:
+    the reduced row echelon form of the augmented matrix computed with the
+    arithmetic of ``ring.domain`` (``RR(k)`` cancels its fractions), not
+    over expressions, where float rounding keeps spurious common factors
+    (``(k - c)/(k**2 - 2*c*k + c**2)`` instead of ``1/(k - c)``)."""
+    K=ring.domain;n=len(symbols)
+    rows=[[K.convert(matrix[i,j]) for j in range(n)]+[K.convert(rhs[i,0])] for i in range(matrix.rows)]
+    pivots=[];r=0
+    for col in range(n+1):
+        piv=next((i for i in range(r,len(rows)) if rows[i][col]),None)
+        if piv is None:continue
+        rows[r],rows[piv]=rows[piv],rows[r]
+        inv=K.one/rows[r][col];rows[r]=[v*inv for v in rows[r]]
+        for i in range(len(rows)):
+            if i!=r and rows[i][col]:
+                f=rows[i][col];rows[i]=[a-f*b for a,b in zip(rows[i],rows[r])]
+        pivots.append(col);r+=1
+        if r==len(rows):break
+    if pivots and pivots[-1]==n:return None
+    answer={}
+    for i,p in enumerate(pivots):
+        value=K.to_sympy(rows[i][n])-S.Add(*[K.to_sympy(rows[i][j])*symbols[j] for j in range(p+1,n) if rows[i][j]])
+        if _raw:
+            answer[ring.gens[p]]=ring(value) if value.free_symbols&set(symbols) else ring.domain.convert(value)
+        else:answer[symbols[p]]=value
+    return answer
+
+
 def solve_lin_sys(eqs,ring,_raw=True):
     symbols=list(ring.symbols);expressions=[e.as_expr() if hasattr(e,'as_expr') else S.sympify(e) for e in eqs]
     try:matrix,rhs=S.linear_eq_to_matrix(expressions,symbols)
     except ValueError as exc:raise PolyNonlinearError(str(exc)) from exc
+    if _inexact(getattr(ring,'domain',None)):return _solve_inexact(matrix,rhs,symbols,ring,_raw)
     result=S.linsolve((matrix,rhs),symbols)
     if result==S.EmptySet:return None
     solutions=list(result)
