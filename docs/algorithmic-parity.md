@@ -128,7 +128,11 @@ Overdetermined systems follow SymPy's `_solve_system` (2026-10-22). As in
 `solve`, an equation with free symbols but none of the unknowns is dropped
 (`solve([x*y - 2, y - 1], [x])` is `{x: 2/y}`), unless its assumptions prove
 it nonzero, and the Float rationalization flag only looks at the kept
-equations (`solve([x - 1, 1.5*y - 2], [x], dict=True)` is `[{x: 1}]`). A
+equations (`solve([x - 1, 1.5*y - 2], [x], dict=True)` is `[{x: 1}]`). An
+unknown that is not a symbol (`f(x)`, `Derivative(f(x), x)`) counts through
+`has`, as SymPy swaps it for a Dummy before this test; otherwise the Floats
+of `classify_ode` equations reached the native solver and the inverse
+fallback recursed on `1.0*(...)` factorizations. A
 system linear or polynomial in the unknowns is solved over the coefficient
 domain of its parameters: a residual equation free of the unknowns whose
 expanded numerator is nonzero makes the system generically inconsistent, so

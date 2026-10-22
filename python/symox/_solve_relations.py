@@ -65,11 +65,15 @@ def install(namespace):
             converted=[]
             floats=False
             unknown_set=set(unknowns)
+            # SymPy swaps the unknowns that are not symbols (f(x),
+            # Derivative(f(x), x)) for Dummy symbols before this test
+            applied=[u for u in unknowns if not getattr(u,'is_Symbol',False)]
             for value in scalars:
                 if hasattr(value,'has') and value.has(Float):
                     # SymPy looks for Floats after dropping the equations
                     # with free symbols but no unknown that are not constant
                     if (not unknown_set or value.free_symbols&unknown_set
+                            or (applied and value.has(*applied))
                             or value.is_number or value.is_constant()):
                         floats=True
                     value=nsimplify(value,rational=True)
@@ -425,7 +429,8 @@ def _inverted_values(solve,equation,symbol,flags):
                 factored=factor(powdenest(equation))
             except Exception:
                 return None
-            if factored.is_Mul:
+            # a Float content factors out as 1.0*equation: no progress
+            if factored.is_Mul and equation not in factored.args:
                 return _inverted_values(solve,factored,symbol,flags)
         return None
     node=nodes[0]

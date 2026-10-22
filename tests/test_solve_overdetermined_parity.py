@@ -99,3 +99,30 @@ def test_proved_nonzero_parameter_still_rules_out_the_system():
     # returns {x: 1}, although no x satisfies p = 0 when p is nonzero.
     p = sx.Symbol('p', nonzero=True)
     assert sx.solve([x - 1, p], x) == []
+
+
+
+
+@pytest.mark.parametrize('flags', [{}, {'rational': False}])
+def test_floats_with_function_unknowns_do_not_recurse(flags):
+    # SymPy swaps f(a) for a Dummy symbol before looking for Floats, so the
+    # Floats are rationalized; nth_algebraic's diffx(f(a)) then makes solve
+    # raise NotImplementedError in SymPy 1.14, with or without rational.
+    # The inverse fallback recursed on the 1.0*(...) factorization instead.
+    from symox.solvers.ode.single import NthAlgebraic
+    f = sx.Function('f')
+    diffx = NthAlgebraic._get_diffx(a)
+    with pytest.raises(NotImplementedError) as info:
+        sx.solve(51.05*y*f(a) + diffx(f(a)) - 1, f(a), simplify=False, **flags)
+    # a deep recursion may surface as a NotImplementedError too
+    depth, error = 0, info.value
+    while error is not None:
+        depth, error = depth + 1, error.__context__
+    assert depth < 10
+
+
+def test_floats_with_derivative_unknowns_are_rationalized():
+    f = sx.Function('f')
+    eq = 51.05*y*f(a) + f(a).diff(a) - 1
+    assert sx.solve(eq, f(a).diff(a)) == [-51.05*y*f(a) + 1.0]
+    assert 'separable' in sx.classify_ode(eq, f(a))
