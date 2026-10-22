@@ -61,6 +61,22 @@ def _cancel_mod(native, f, gens, args):
 
 
 def install(namespace):
+    from ._modular_functions import NAMES as ring_names, selected, call
+    for name in ring_names:
+        native = namespace.get(name)
+        if native is None or getattr(native, '_symox_ring_options', False):
+            continue
+
+        def make_ring(native, name):
+            @functools.wraps(native)
+            def wrapper(*fargs, **args):
+                dom = selected(fargs, args)
+                if dom is not None:
+                    return call(name, dom, fargs, args)
+                return native(*fargs, **args)
+            wrapper._symox_ring_options = True
+            return wrapper
+        namespace[name] = make_ring(native, name)
     for name in _NAMES:
         native = namespace.get(name)
         if native is None or getattr(native, '_symox_ff_options', False):

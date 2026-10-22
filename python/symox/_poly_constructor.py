@@ -200,9 +200,11 @@ def _unexpanded(rep,gens,domain,modulus,extension,args):
 def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
     gens,args=_options(gens,domain,modulus,extension,kwargs)
     domain=args.get('domain');modulus=args.get('modulus');extension=args.get('extension')
-    from ._modular_ring import ModularRing
-    if isinstance(domain,ModularRing):
-        raise NotImplementedError('polynomials over %s are not implemented' % domain)
+    from ._modular_poly import ring_domain
+    ring=ring_domain(domain,modulus,args.get('symmetric',True))
+    if ring is not None:
+        from ._modular_poly import construct as ring_construct
+        return ring_construct(rep,gens,ring,args)
     if args.get('gaussian'):
         from . import QQ_I
         domain=QQ_I

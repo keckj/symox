@@ -680,9 +680,8 @@ def test_documented_deviations():
     # Non-linear RootSum factors are not implemented.
     with pytest.raises(NotImplementedError, match='RootSum'):
         symox.assemble_partfrac_list(symox.apart_list(1/(x**2 + 1)/(x - 1), x))
-    # Composite moduli are rejected instead of building a non-field.
-    with pytest.raises(ValueError, match='prime'):
-        symox.Poly(x**2 + 7).set_modulus(4)
+    # Composite moduli build a polynomial over the ring Z/4Z.
+    assert repr(symox.Poly(x**2 + 7).set_modulus(4)) == 'Poly(x**2 - 1, x, modulus=4)'
     # SymPy overflows on candidates whose value is exactly zero but the
     # count is too small (non-real roots); symox keeps the exact roots.
     assert symox.Poly(x**2 + 1).which_real_roots([symox.I, -symox.I]) == [symox.I, -symox.I]

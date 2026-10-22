@@ -7,8 +7,8 @@ nonsymmetric option changes only the element representatives. The native
 ``GF(p)`` covers symmetric prime fields below ``2**32``. This module ports
 the reference ``FiniteField`` and ``ModularInteger`` element arithmetic for
 the other moduli: composite moduli, primes above the native range and the
-nonsymmetric representation. Polynomials over these domains are not
-implemented (see docs/algorithmic-parity.md).
+nonsymmetric representation. Polynomials over these domains are
+``_modular_poly.ModularPoly`` objects.
 """
 import operator
 
@@ -250,10 +250,11 @@ class ModularRing:
             domain = object.__new__(cls)
             domain.mod = mod
             domain.sym = bool(symmetric)
-            domain.dom = _core.ZZ
+            from .polys._dense._support import ZZ as _ground
+            domain.dom = _ground
             name = ("SymmetricModularIntegerMod%s" if symmetric else "ModularIntegerMod%s") % mod
             domain.dtype = type(name, (ModularInteger,), {
-                '__slots__': (), 'mod': mod, 'dom': _core.ZZ, 'sym': bool(symmetric), '_parent': domain})
+                '__slots__': (), 'mod': mod, 'dom': domain.dom, 'sym': bool(symmetric), '_parent': domain})
             domain.dtype.__module__ = 'sympy.polys.domains.modularinteger'
             domain.zero = domain.dtype(0)
             domain.one = domain.dtype(1)
@@ -268,6 +269,12 @@ class ModularRing:
 
     def __reduce__(self):
         return (ModularRing, (self.mod, self.sym))
+
+    @property
+    def __class__(self):
+        # ``isinstance(GF(n), Domain)`` holds as for the native prime field;
+        # ``type()`` still names this class.
+        return _core.Domain
 
     @property
     def tp(self):
@@ -394,7 +401,7 @@ class ModularRing:
         return not a
 
     def abs(self, a):
-        return abs(a) if not isinstance(a, ModularInteger) else a
+        return abs(a)
 
     def neg(self, a):
         return -a
@@ -437,6 +444,50 @@ class ModularRing:
 
     def lcm(self, a, b):
         return a*b
+
+    def gcdex(self, a, b):
+        d = self.gcd(a, b)
+        if a == self.zero:
+            if b == self.zero:
+                return self.zero, self.one, self.zero
+            return self.zero, d/b, d
+        return d/a, self.zero, d
+
+    def half_gcdex(self, a, b):
+        s, t, h = self.gcdex(a, b)
+        return s, h
+
+    def cofactors(self, a, b):
+        gcd = self.gcd(a, b)
+        return gcd, self.quo(a, gcd), self.quo(b, gcd)
+
+    def invert(self, a, b):
+        s, t, h = self.gcdex(a, b)
+        if self.is_one(h):
+            return s % b
+        raise NotInvertible("zero divisor")
+
+    def canonical_unit(self, a):
+        return self.one
+
+    def get_exact(self):
+        return self
+
+    def from_ZZ(self, a, base=None):
+        return self.dtype(int(a))
+
+    from_ZZ_python = from_ZZ_gmpy = from_ZZ
+
+    def from_FF(self, a, base=None):
+        return self.dtype(int(a))
+
+    from_FF_python = from_FF_gmpy = from_FF
+
+    def unify(self, other, symbols=None):
+        if other == self:
+            return self
+        from .polys.polyerrors import UnificationFailed
+        raise UnificationFailed("Cannot unify %s with %s" % (self, other))
 
     def numer(self, a):
         return a

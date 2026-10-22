@@ -178,7 +178,8 @@ def test_unsupported_options_and_invalid_inputs_are_explicit():
     assert str(sm.groebner([x], x, domain="EX")) == "GroebnerBasis([x], x, domain='EX', order='lex')"
     with pytest.raises(ValueError, match="integers"):
         sm.groebner([x/2], x, domain="ZZ")
-    with pytest.raises(ValueError, match="prime"):
+    # Groebner bases over the ring Z/6Z are not implemented.
+    with pytest.raises(NotImplementedError):
         sm.groebner([x], x, modulus=6)
     with pytest.raises(ValueError, match="denominator"):
         sm.groebner([x/5], x, modulus=5)

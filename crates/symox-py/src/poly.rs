@@ -1160,14 +1160,33 @@ fn degree_obj(py: Python<'_>, d: Option<u32>) -> PyResult<PyObject> {
     }
 }
 
+impl PyPoly {
+    /// The native constructor for callers that need the native polynomial.
+    pub(crate) fn new_native(rep: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&Bound<'_,PyAny>>) -> PyResult<Self> {
+        let normalized=rep.py().import("symox._poly_constructor")?.getattr("construct")?
+            .call1((rep,gens,domain,None::<u64>,None::<u64>,None::<u64>))?;
+        Ok(normalized.extract::<PyRef<'_,Self>>()?.clone())
+    }
+}
+
 #[pymethods]
 impl PyPoly {
     #[new]
     #[pyo3(signature = (rep, *gens, domain=None, modulus=None, extension=None, **_kwargs))]
-    fn py_new(rep: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&Bound<'_,PyAny>>, modulus: Option<u64>, extension:Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+    fn py_new(rep: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, domain: Option<&Bound<'_,PyAny>>, modulus: Option<&Bound<'_,PyAny>>, extension:Option<&Bound<'_,PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<pyo3::PyClassInitializer<Self>> {
         let normalized=rep.py().import("symox._poly_constructor")?.getattr("construct")?
             .call1((rep,gens,domain,modulus,extension,_kwargs))?;
-        Ok(normalized.extract::<PyRef<'_,Self>>()?.clone())
+        if let Ok(native)=normalized.extract::<PyRef<'_,Self>>() {
+            return Ok(pyo3::PyClassInitializer::from(native.clone()));
+        }
+        // A polynomial over the reference ring Z/nZ (``symox._modular_poly``)
+        // is a Python object: ``Poly.__new__`` returns it unchanged, as
+        // ``type.__call__`` allows. The initializer only hands the pointer back.
+        let ring=rep.py().import("symox._modular_poly")?.getattr("ModularPoly")?;
+        if !normalized.get_type().is(&ring) {
+            return Err(PyTypeError::new_err("Poly construction returned a non-polynomial"));
+        }
+        Ok(pyo3::PyClassInitializer::from(unsafe { normalized.downcast_into_unchecked::<Self>() }.unbind()))
     }
 
     /// Dense exact ground coefficients need no expression round trip.
