@@ -985,6 +985,10 @@ fn is_real_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NOT_REAL){return Some(false);}
     match e.kind() {
         Kind::Pow(base,exponent) if exact::rational_power(base,exponent).and_then(|f| f.real).is_some() => exact::rational_power(base,exponent).and_then(|f| f.real),
+        // Pow._eval_is_extended_real: a negative base to a non-integer
+        // rational power is not real (sqrt(n), (-sqrt(2) - 1)**(1/3)).
+        Kind::Pow(base,exponent) if exponent.as_number().is_some_and(|n|n.is_rational()&&!n.is_integer())
+            && is_negative(base)==Some(true) => Some(false),
         Kind::Const(Constant::I) => Some(false),
         Kind::Func(Func::Special(crate::special::SpecialFn::LambertW), args) =>
             crate::special::lambert::real(&args[0], args.get(1).map_or(Some(0), Expr::as_i64)?),

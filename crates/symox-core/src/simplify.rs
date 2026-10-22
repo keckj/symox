@@ -302,6 +302,17 @@ fn reference_sequence(e: &Expr) -> Option<Expr> {
 /// steps (signsimp, `normal` bottom up, content, cancel and together),
 /// before `factor_terms`.
 fn reference_state(e: &Expr) -> Option<Expr> {
+    // The cancellation of the bottom-up normal form runs under the factor
+    // budget: algebraic gcds over many dependent numeric radicals
+    // (12**(1/6), 12**(5/6), sqrt(3), sqrt(229) in a Ferrari root residual)
+    // can blow up, and this state is only one candidate among several.
+    crate::poly::factor_budget::run(crate::poly::factor_budget::Limits::default(), || {
+        reference_state_unbudgeted(e).ok_or_else(|| crate::poly::convert::PolyError::Unsupported("no reference state".into()))
+    })
+    .ok()
+}
+
+fn reference_state_unbudgeted(e: &Expr) -> Option<Expr> {
     let start = crate::simptools::misc::signsimp(e, true);
     let start = crate::simptools::bottom_up(&start, &mut |w| crate::simptools::normal(w));
     let (content, primitive) =
