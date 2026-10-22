@@ -169,6 +169,54 @@ def _process_query(operation,expr,condition):
     return None
 
 
+def _independent_parts(parts):
+    """Group Boolean parts into blocks whose random variables share no
+    probability space; parts free of random variables form their own block."""
+    blocks = []
+    for part in parts:
+        groups = {v.group for v in random_symbols(part)}
+        joined = [block for block in blocks if block[0]&groups]
+        rest = [block for block in blocks if not block[0]&groups]
+        merged = (set(groups).union(*(b[0] for b in joined)),[p for b in joined for p in b[1]]+[part])
+        blocks = rest+[merged]
+    return [parts for _,parts in blocks]
+
+
+def _factored_probability(condition,variables):
+    """Exact probability of an And, Or or Not of events over independent
+    probability spaces: the product rule P(A & B) = P(A) P(B) and the
+    complement rule P(A | B) = 1 - (1 - P(A)) (1 - P(B))."""
+    if any(getattr(v,'process',None) is not None for v in variables):return None
+    name = getattr(condition,'class_name','')
+    if name == 'Not':return S.simplify(1-P(condition.args[0]))
+    if name not in ('And','Or'):return None
+    blocks = _independent_parts(condition.args)
+    if len(blocks) < 2:return None
+    def value(parts):
+        event = S.And(*parts) if name == 'And' else S.Or(*parts)
+        return P(event) if random_symbols(event) else _indicator(event)
+    if name == 'And':return S.simplify(S.Mul(*(value(parts) for parts in blocks)))
+    return S.simplify(S.expand(1-S.Mul(*(1-value(parts) for parts in blocks))))
+
+
+def _independent_condition(expr,condition,variables):
+    """Drop the conjuncts of a condition that are independent of ``expr``:
+    E(X | A & B) = E(X | A) when B lives on probability spaces disjoint from
+    those of X and A. None when nothing can be dropped."""
+    if any(getattr(v,'process',None) is not None for v in variables):return None
+    if not random_symbols(condition):return None
+    parts = condition.args if getattr(condition,'class_name','') == 'And' else (condition,)
+    target = {v.group for v in random_symbols(expr)}
+    kept,dropped = [],[]
+    for block in _independent_parts(parts):
+        groups = {v.group for part in block for v in random_symbols(part)}
+        (dropped if groups and not groups&target else kept).append(block)
+    if not dropped:return None
+    check(S.And(*(P(S.And(*block)) != 0 for block in dropped)),'conditioning event has zero probability')
+    kept = [part for block in kept for part in block]
+    return S.And(*kept) if kept else S.true
+
+
 def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
     if not evaluate:
         from ._symbolic import Probability
@@ -210,6 +258,8 @@ def P(condition,given_condition=None,numsamples=None,evaluate=True,**kwargs):
         denominator = P(given_condition)
         check(denominator != 0,'conditioning event has zero probability')
         return S.simplify(P(S.And(condition,given_condition))/denominator)
+    factored = _factored_probability(condition,variables)
+    if factored is not None:return factored
     # Linear combinations of independent or jointly normal variables reduce
     # to a single exact normal distribution before event integration.
     if condition.is_Relational and len(variables)>1:
@@ -254,6 +304,10 @@ def _expect(expr,variables=None):
             terms.append(value)
         return S.simplify(S.Add(*terms))
     if expr.is_Add:return S.Add(*(_expect(part) for part in expr.args))
+    if expr.is_Mul and not any(getattr(v,'process',None) is not None for v in variables):
+        # E(f(X) g(Y)) = E(f(X)) E(g(Y)) over independent probability spaces
+        blocks = _independent_parts(expr.args)
+        if len(blocks) > 1:return S.simplify(S.Mul(*(_expect(S.Mul(*block)) for block in blocks)))
     groups = _groups(variables)
     if len(groups) == 1:
         group,values = next(iter(groups.items()))
@@ -308,6 +362,8 @@ def E(expr,condition=None,numsamples=None,evaluate=True,**kwargs):
     if special is not None:return special
     if condition is None:return _expect(expr)
     variables = random_symbols(expr)|random_symbols(condition)
+    reduced = _independent_condition(expr,condition,variables)
+    if reduced is not None:return E(expr,None if reduced == S.true else reduced)
     worlds = _worlds(variables)
     if worlds is not None:
         numerator,denominator = S.Integer(0),S.Integer(0)
