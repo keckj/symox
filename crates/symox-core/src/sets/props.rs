@@ -104,6 +104,24 @@ pub fn contains(s: &Expr, x: &Expr) -> Expr {
                     }
                 }
             }
+            // reference `Range._contains` of an integer expression in a
+            // numeric range of unit step: the bounds as relations
+            if !crate::logic::is_number_like(x) && crate::assumptions::is_integer(x) == Some(true) {
+                if let Some(p) = range_progression(s) {
+                    let Some(p) = p else { return f() };
+                    if num_traits::One::is_one(&p.step) {
+                        let int = |v: &num_bigint::BigInt| Expr::num(crate::number::Number::from_bigint(v.clone()));
+                        return match (&p.lo, &p.hi) {
+                            (None, None) => t(),
+                            (Some(l), Some(h)) if l == h => rel(RelOp::Eq, x, &int(l)),
+                            (lo, hi) => and(vec![
+                                lo.as_ref().map_or_else(t, |l| crate::relational::ge(x, &int(l))),
+                                hi.as_ref().map_or_else(t, |h| crate::relational::le(x, &int(h))),
+                            ]),
+                        };
+                    }
+                }
+            }
             unevaluated()
         }
         SetOp::ImageSet => {
