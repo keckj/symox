@@ -117,8 +117,9 @@ def test_mimo_and_plotting(tmp_path):
     matplotlib.use('Agg')
     s=S.Symbol('s');A=C.TransferFunctionMatrix.from_Matrix(S.diag(1/(s+1),2/(s+2)),s)
     B=C.TransferFunctionMatrix.from_Matrix(S.eye(2),s)
-    matrices((A*B).to_expr(),A.to_expr())
-    matrices(C.MIMOFeedback(A,B).to_expr(),S.diag(1/(s+2),2/(s+4)))
+    # SymPy 1.14 MIMO objects have no to_expr; the expression matrix is _expr_mat.
+    matrices((A*B).doit()._expr_mat.doit(),A._expr_mat.doit())
+    matrices(C.MIMOFeedback(A,B).doit()._expr_mat.doit(),S.diag(1/(s+2),2/(s+4)))
     fig=C.step_response_plot(A[0,0],n=20,show=False);fig.savefig(tmp_path/'step.png')
     assert (tmp_path/'step.png').stat().st_size>100
 

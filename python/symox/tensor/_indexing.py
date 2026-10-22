@@ -239,7 +239,9 @@ class _IndexStructure:
             if len(group)==1:self.free.append((indices[group[0]],group[0]))
             elif len(group)==2:
                 first,second=group
-                if indices[first].is_up==indices[second].is_up:raise ValueError('Repeated indices must have opposite variance')
+                if indices[first].is_up==indices[second].is_up:
+                    raise ValueError('two equal %s indices in slots %d and %d' % (
+                        'contravariant' if indices[first].is_up else 'covariant',first,second))
                 self.dum.append((first,second) if indices[first].is_up else (second,first))
             else:raise ValueError('An Einstein index may occur at most twice in a product')
         self.free.sort(key=lambda item:_index_key(item[0]));self.dum.sort();self._ext_rank=len(indices)

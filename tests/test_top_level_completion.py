@@ -255,7 +255,7 @@ def test_quaternion_hamilton_identities_rotations_and_calculus():
     assert (q*q.inverse()).simplify() == Q(1)
     assert q**0 == Q(1)
     assert Q(0,0,0,s.pi).exp().simplify() == Q(-1)
-    r = Q.from_axis_angle(((0,0,1),s.pi/2))
+    r = Q.from_axis_angle((0,0,1),s.pi/2)
     assert Q.rotate_point((1,0,0),r) == (0,1,0)
     matrix = r.to_rotation_matrix()
     assert matrix == s.Matrix([[0,-1,0],[1,0,0],[0,0,1]])

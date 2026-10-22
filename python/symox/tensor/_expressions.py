@@ -26,7 +26,15 @@ def _split(expression):
 def _normalize(factors):
     indices=[index for factor in factors for index in factor.indices]
     if len(indices)>MAX_SLOTS:raise NotImplementedError('Tensor products are limited to 32 slots')
-    structure=_IndexStructure(indices)
+    try:structure=_IndexStructure(indices)
+    except ValueError as error:
+        if len(factors)<2 or not str(error).startswith('two equal'):raise
+        # TensMul._indices_to_free_dum names the repeated index.
+        seen=set()
+        for index in indices:
+            if index in seen:raise ValueError('Repeated index: %s' % index) from None
+            seen.add(index)
+        raise
     occupied={_name_key(index) for index,_ in structure.free};counters={};replacements={}
     for upper,lower in structure.dum:
         index=indices[upper];typ=index.tensor_index_type
@@ -252,6 +260,7 @@ class Tensor(TensExpr):
     @property
     def nocoeff(self):return self
     def get_indices(self):return list(self.indices)
+    def split(self):return [self]
     def __repr__(self):return '%s(%s)' % (self.component.name,', '.join(map(str,self.indices)))
     __str__=__repr__
     def to_sympy(self):
@@ -285,6 +294,15 @@ class TensMul(TensExpr):
     @property
     def components(self):return [t.component for t in self._factors]
     def get_indices(self):return [i for factor in self._factors for i in factor.indices]
+    def split(self):
+        """TensMul.split: the tensor factors, the scalar coefficient joined
+        to the first one; contracted indices stay as they are."""
+        if self.args==():return [self]
+        result=[];coeff=1
+        for arg in self.args:
+            if isinstance(arg,Tensor):result.append(arg if coeff==1 else _product(coeff,[arg]));coeff=1
+            else:coeff*=arg
+        return result
     def __repr__(self):return '*'.join(map(str,self.args))
     __str__=__repr__
     def to_sympy(self):

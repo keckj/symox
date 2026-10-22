@@ -50,11 +50,29 @@ from ._core import (
 _native_integrate = integrate
 
 
+def _user_hook(value, name):
+    """The ``name`` method a user host class (Quaternion) defines for
+    ``value``, or None: the reference ``Integral`` and ``conjugate``
+    constructors defer to ``_eval_Integral`` and ``_eval_conjugate``."""
+    if not isinstance(value, _core.Expr):
+        return None
+    from ._host import _defines
+    try:
+        if not _defines(type(value), name):
+            return None
+    except Exception:
+        return None
+    return getattr(value, name)
+
+
 def integrate(*args, **kwargs):
     """Indefinite or definite integral (native engine). A definite integral
     over an infinite interval of an oscillating integrand whose
     antiderivative has accumulation bounds at the infinite endpoint is the
     difference of those bounds, as in the reference."""
+    hook = _user_hook(args[0], '_eval_Integral') if args else None
+    if hook is not None:
+        return hook(*args[1:], **kwargs)
     result = _native_integrate(*args, **kwargs)
     if (len(args) == 2 and not kwargs and isinstance(args[1], tuple) and len(args[1]) == 3
             and getattr(result, 'is_Integral', False)):
@@ -204,6 +222,12 @@ def _make(name):
                 and not isinstance(args[0], _core.Expr) and hasattr(args[0], "applyfunc")
                 and hasattr(args[0], "as_real_imag")):
             return _matrix_part(name, args[0])
+        if name == "conjugate" and evaluate and len(args) == 1:
+            hook = _user_hook(args[0], '_eval_conjugate')
+            if hook is not None:
+                value = hook()
+                if value is not None:
+                    return value
         if (name == "conjugate" and evaluate and len(args) == 1
                 and isinstance(args[0], _core.Expr) and _core._has_noncommutative_atoms(args[0])):
             # conjugate(adjoint(A)) is transpose(A), as in the reference
@@ -414,6 +438,9 @@ class Integral(metaclass=_CalculusMeta):
             raise NotImplementedError("Integral constructor options are not implemented")
         # a sequence limit is flattened, as the reference `_process_limits`
         # does: `Integral(f, ((x,),))` is `Integral(f, (x,))`
+        hook = _user_hook(function, '_eval_Integral')
+        if hook is not None:
+            return hook(*limits)
         limits = tuple(_flatten_limit(limit) for limit in limits)
         return _core._calculus("Integral", function, limits)
 
@@ -2810,8 +2837,7 @@ from . import functions  # noqa: E402
 from .parsing.sympy_parser import parse_expr  # noqa: E402
 
 # Complete the public surface with native-backed implementations.
-from . import algebras, concrete, external, interactive, multipledispatch, release, strategies
-from .algebras import Quaternion
+from . import concrete, external, interactive, multipledispatch, release, strategies
 from .polys.domains._compat import (FF_gmpy,FF_python,GMPYFiniteField,GMPYIntegerRing,
     GMPYRationalField,PythonFiniteField,PythonIntegerRing,PythonRational,
     QQ_gmpy,QQ_python,ZZ_gmpy,ZZ_python)
@@ -3020,3 +3046,9 @@ _install_accum_doit()
 _ACCUM_CLASS[0] = AccumulationBounds
 from .polys._finite_field_options import install as _install_ff_options  # noqa: E402
 _install_ff_options(globals())
+# Quaternions are a host expression class, defined once the core namespace
+# is complete (as the accumulation bounds above).
+from . import algebras  # noqa: E402
+from .algebras import Quaternion  # noqa: E402
+if 'Quaternion' not in __all__:
+    __all__.append('Quaternion')

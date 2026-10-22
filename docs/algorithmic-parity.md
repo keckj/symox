@@ -4064,3 +4064,72 @@ Remaining gaps:
   reference (4 s); free group words are pure Python.
 - `Collector` and `PolycyclicGroup` printing recurses without end, as in
   the reference.
+
+## Wave 4: control, Quaternion and tensor helpers
+
+Implemented:
+
+- `sympy.physics.control.lti` is the reference 1.14 module on symox: `Series`,
+  `Parallel` and `Feedback` with `StateSpace` operands, `doit` and
+  `rewrite(TransferFunction)`, `MIMOSeries`, `MIMOParallel`, `MIMOFeedback`,
+  `TransferFunctionMatrix.elem_poles`, `elem_zeros`, `from_Matrix`,
+  `eval_frequency`, `StateSpace.controllable_subspace`,
+  `observable_subspace` and `TransferFunction.from_zpk`. 58 of 61 triage
+  probes match the reference output exactly (24 before), 35 of 41 reference
+  `test_lti.py` tests pass (none collected before).
+- `Quaternion` is the reference 1.14 class as a symox host expression:
+  `from_euler`, `to_euler`, `axis`, `angle`, `arc_coplanar`,
+  `vector_coplanar`, `parallel`, `orthogonal`, `mensor`, `set_norm`, `add`,
+  `mul`, `index_vector`, `pow_cos_sin`, `to_Matrix`, `from_Matrix`,
+  `from_axis_angle`, `str`/`latex`/top-level `pprint`, `conjugate`, `diff`,
+  `integrate`/`Integral` and pickling (which keeps `real_field` and `norm`).
+  The top-level `conjugate`, `diff`, `integrate` and `Integral` now call
+  the `_eval_conjugate`, `diff` and `_eval_Integral` methods of host
+  expression classes. 170 of 171 probe lines match (the other is the
+  printing order of a `free_symbols` set); 19 of 20 reference
+  `test_quaternion.py` tests pass.
+- Tensor: `Idx` bounds (infinite, symbolic, unordered tuples, integer
+  labels returned as such) and the reference error messages; a label not
+  known to be an integer is now rejected as in the reference;
+  `IndexedBase` assumptions; `shape` of an `Integral`; `TensMul.split`,
+  `Tensor.split`, `matches`, repeated-index errors; `PartialDerivative`
+  dummy names and symbol index orders in `replace_with_arrays`; the
+  `from_*`/`conv_*` array expression converter modules. 178 of 199
+  reference doctest probes match (142 before).
+
+Intentional divergence:
+
+- `Quaternion.from_rotation_matrix` of a rotation through `pi` (for example
+  `diag(1, -1, -1)`) takes the relative signs of the vector components from
+  the symmetric part of the matrix and returns a quaternion whose rotation
+  matrix is the input. The reference returns the zero quaternion.
+- `PartialDerivative(H(i, j), A(j)).replace_with_arrays(...)` contracts
+  the derivative index with the right axis (`[2, y]` for
+  `H = [[x, y], [x*y, x**2]]`, `A = [x, y]`); the reference gives
+  `[x + 1, 0]`, which disagrees with its own manual contraction.
+
+Remaining gaps:
+
+- `Tuple(1, 2) == (1, 2)` is `False` in symox (native comparison), so the
+  reference `test_to_euler_iss24504` fails.
+- `(2 + I).is_complex` is `None` in symox; `Quaternion` uses the reference
+  Add/Mul/Pow rule locally to decide between real and complex fields.
+- A `Quaternion` nested inside another expression does not pretty print;
+  `pprint` of control objects raises `TypeError` as before.
+- Control: `poles`/`elem_poles` list conjugate roots in another order;
+  `evalf` keeps `-1.0*s`; Floats inside matrices and tuples print in full;
+  `StateSpace` to `TransferFunction` negates numerator and denominator and
+  `MIMOFeedback.doit()` returns an expanded form (same functions, core
+  matrix `solve`/`simplify` forms); `TransferFunctionMatrix` from a symox
+  `Tuple(Tuple(TF))` fails because the core `Tuple` cannot hold systems;
+  `StateSpace.dsolve` does not produce the reference `Piecewise`;
+  `phase_margin` keeps the previous symox algorithm, as the reference one
+  needs relational truth values that symox does not provide.
+- Tensor: array expressions are still the simplified non-`Basic` symox
+  implementation (no `C.T.T` simplification, other canonical forms,
+  `permutedims`/`tensorproduct` of matrix symbols evaluate to explicit
+  arrays, `convert_array_to_matrix` returns an equal explicit matrix,
+  `convert_indexed_to_array` of a trace gives `Trace(M)`, diagonal cases
+  and `sort_args_by_name` raise `NotImplementedError`). `Integral` of an
+  array or a matrix raises `TypeError` (native conversion). `IndexedBase`
+  and `Indexed` are still `codegen.ast` classes with another repr.

@@ -115,8 +115,27 @@ def _extract(expression,replacements):
     raise NotImplementedError('No component evaluator for this tensor expression')
 
 
+def _remap_indices(expression,indices):
+    """TensExpr.replace_with_arrays: symbols ``i`` and ``-i`` in the requested
+    order stand for the free tensor indices of the same name and variance.
+    The reference rewrites the caller's list in place."""
+    if not indices:return indices
+    remap=None
+    for position,index in enumerate(indices):
+        if getattr(index,'is_Symbol',False) or getattr(index,'is_Mul',False):
+            if remap is None:
+                from .. import Symbol
+                remap={}
+                for k in expression.get_free_indices():
+                    name=k.args[0] if hasattr(k.args[0],'is_Symbol') else Symbol(k.args[0])
+                    remap[name if k.is_up else -name]=k
+            indices[position]=remap[index] if index in remap else -remap[-index]
+    return indices
+
+
 def replace_with_arrays(expression,replacement_dict,indices=None):
     replacements=dict(replacement_dict)
+    indices=_remap_indices(expression,indices)
     free,array=_extract(expression,replacements)
     wanted=free if indices is None else list(indices)
     if any(not isinstance(index,TensorIndex) for index in wanted):raise TypeError('Component axes require typed tensor indices')
