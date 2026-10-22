@@ -108,6 +108,7 @@ fn direct(s: SpecialFn, args: &[Expr], simplify: bool) -> Result<Vec<Expr>, Stri
     match integral(s, args, simplify) {
         Ok(v) => Ok(v),
         Err(m) if is_fatal(&m) => Err(m),
+        Err(m) if m == integral_backend::NOT_INTEGRABLE_FINAL => Err(m.trim_end().to_string()),
         Err(m) => direct_table(s, args, simplify).ok_or(m),
     }
 }
