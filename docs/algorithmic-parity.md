@@ -3669,15 +3669,24 @@ Implemented (tests in `tests/test_missing_stats_wave4_parity.py`):
   - Added `limiting_distribution` and `fixed_row_vector`.
 - Added `ContinuousMarkovChain.limiting_distribution()`.
 
-Probe counts against SymPy 1.14 (scratch probes, cases that differ in
-value, not only in `_X` dummy printing):
+Probe results against SymPy 1.14 (scratch probes):
 
-| Probe | Before | After |
-| --- | --- | --- |
-| Joint and conditional `P`/`E`, 24 cases | 12 wrong or raising | 0 |
-| Observed-variable and tuple `given`, 25 cases | 22 raising or wrong | 6 open: 3 unsupported tuple cases, 3 divergences listed below |
-| Markov chain doctest variants, 20 cases | 17 failing | 7 open, listed below |
-| Soliton doctest | raising | matching for `IdealSoliton` |
+- Joint and conditional `P`/`E`, 24 cases: every case now matches the
+  reference value, or is correct where the reference raises or is wrong.
+  The top-priority `Piecewise` result was wrong before the fix.
+- Observed-variable and tuple `given`, 25 cases: 22 raised or were wrong
+  before. After the fix, 11 match. Of the 14 textual differences:
+  - 2 are equivalent forms and 2 are `_X` dummy printing.
+  - In 2 cases both sides raise.
+  - In 4 cases symox returns a correct value where SymPy raises.
+  - 3 are the divergences listed below, and 1 is unsupported (the shared
+    `Eq(X + Y, 3)` tuple).
+- Markov chain doctest variants, 20 cases: 17 failed before and 9 differ
+  after. Of those 9, 7 are open (listed below), 1 is the printing of
+  `(T**5)[1, 2]` and 1 is an equivalent form.
+- Soliton doctests: these raised before. They now match the reference for
+  `IdealSoliton`, and for `RobustSoliton` everywhere except the
+  normalization divergence.
 
 Intentional divergences:
 
