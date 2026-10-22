@@ -922,7 +922,16 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         if *s == crate::special::SpecialFn::MeijerG {
             return meijerg_host(args, p);
         }
-        return crate::special::mp::eval(*s, args, p).or_else(|| host_eval(s.name(), args, p));
+        let value = crate::special::mp::eval(*s, args, p).or_else(|| host_eval(s.name(), args, p))?;
+        // SymPy's Ei._eval_evalf: an argument on the ray polar_lift(-1)*(0, oo)
+        // lies on the upper side of the cut, Ei(-x) + I*pi.
+        if *s == crate::special::SpecialFn::Ei && args.len() == 1 && crate::special::polar::has_polar_func(&args[0]) {
+            let lifted = crate::functions::func(Func::ExpPolar, vec![crate::ops::mul2(&Expr::i(), &Expr::pi())]);
+            if crate::assumptions::is_positive(&crate::ops::div(&args[0], &lifted)) == Some(true) {
+                return Some(MpComplex { re: value.re, im: value.im.add(&pi(wp), wp) }.round_to(p));
+            }
+        }
+        return Some(value);
     }
     if let Func::ExpPolar = f {
         let w = args.first()?;

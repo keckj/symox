@@ -312,6 +312,12 @@ impl Gruntz {
                     Ok(inner)
                 }
             }
+            // SymPy's mrv knows functions only: a held sum, product,
+            // integral, limit or substitution that depends on x raises
+            // NotImplementedError (its growth is not that of its arguments).
+            Kind::Func(Func::Sum | Func::Product | Func::Integral | Func::Limit | Func::Subs | Func::Order, _) => {
+                unknown(format!("mrv of {e}"))
+            }
             Kind::Func(_, args) => {
                 let mut acc = vec![];
                 for a in args {

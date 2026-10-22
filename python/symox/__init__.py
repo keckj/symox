@@ -134,6 +134,31 @@ _ACCUM_HEADS = frozenset(('sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'exp', 'log'
                           'csch'))
 
 
+def _poly_factorial(name, x, k):
+    """RisingFactorial/FallingFactorial.eval of a Poly and an integer: the
+    product of shifted copies of the polynomial (a Poly for k > 0, the
+    reciprocal expression for k < 0), as in the reference."""
+    k = sympify(k)
+    if not k.is_Integer:
+        return None
+    if k.is_zero:
+        return S.One
+    up = name == 'RisingFactorial'
+    if len(x.gens) != 1:
+        label = 'ff' if not up and k.is_positive else 'rf'
+        raise ValueError("%s only defined for polynomials on one generator" % label)
+    count = abs(int(k))
+    if k.is_positive:
+        shifts = range(count) if up else range(0, -count, -1)
+    else:
+        shifts = range(-1, -count - 1, -1) if up else range(1, count + 1)
+    result = None
+    for i in shifts:
+        factor = x.shift(i)
+        result = factor if result is None else result*factor
+    return result if k.is_positive else 1/result
+
+
 def _make(name):
     from ._function_signatures import signature as _head_signature,bind as _bind_head
     _contract=_head_signature(name)
@@ -163,6 +188,11 @@ def _make(name):
                     raise ValueError('%s requires extended-real arguments' % name)
                 converted.append(value)
             args=tuple(converted)
+        if (evaluate and name in ('RisingFactorial', 'FallingFactorial') and len(args) == 2
+                and isinstance(args[0], _core.Poly)):
+            value = _poly_factorial(name, *args)
+            if value is not None:
+                return value
         if len(args) == 1 and getattr(args[0], "_symox_matrixexpr", False):
             if name == "conjugate":
                 return args[0].conjugate()
@@ -455,6 +485,7 @@ from ._core import NonlinearError  # noqa: E402
 from ._linear import linear_eq_to_matrix, linsolve, solve_linear_system  # noqa: E402
 from ._polysolve import solve_poly_system, nonlinsolve  # noqa: E402
 from ._core import product, residue  # noqa: E402
+from ._concrete import product, summation  # noqa: E402,F811
 from ._core import (  # noqa: E402
     difference_delta, hypersimilar, hypersimp, rsolve, rsolve_hyper, rsolve_poly, rsolve_ratio,
 )
