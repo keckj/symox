@@ -2281,7 +2281,7 @@ pub fn cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionP
 /// come back through `RR.from_QQ` and only the signs of the leading
 /// coefficients are normalized. `x/(0.3*x + 0.1)` keeps its coefficients,
 /// where clearing the binary denominators gave `2**55`-sized integers.
-pub fn rr_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
+fn rr_inner_gcd(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
     let k = Inexact { precision: 53, complex: false };
     let n = f.nvars;
     let to_qq = |p: &MPoly<Rat>| -> MPoly<Rat> {
@@ -2309,7 +2309,33 @@ pub fn rr_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
         )
     };
     let (_, p, q) = super::gcd::gcd_mq(&to_qq(f), &to_qq(g));
-    let (mut p, mut q) = (back(&p), back(&q));
+    (back(&p), back(&q))
+}
+
+/// The cofactors of `dmp_inner_gcd` over `RR`: the reference computes them
+/// over `QQ` after `RR.to_rational` of every coefficient, and rounds back.
+fn rr_cofactors(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
+    rr_inner_gcd(f, g)
+}
+
+/// `Poly.cancel` over `RR` (`dmp_cancel` over a field without associated
+/// ring): `(negated, p, q)`, with `cp = -1` when `negated`, `cq = 1`.
+pub fn rr_poly_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (bool, MPoly<Rat>, MPoly<Rat>) {
+    let (p, q) = rr_cofactors(f, g);
+    let (pn, qn) = (p.lc().is_negative(), q.lc().is_negative());
+    if pn && qn {
+        (false, p.neg(), q.neg())
+    } else if pn {
+        (true, p.neg(), q)
+    } else if qn {
+        (true, p, q.neg())
+    } else {
+        (false, p, q)
+    }
+}
+
+pub fn rr_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
+    let (mut p, mut q) = rr_cofactors(f, g);
     // `p_neg`/`q_neg`: a negative denominator is negated with the
     // numerator; a negative numerator alone is negated and multiplied by
     // `cp = -1` again (include=True), so it is kept.
@@ -2602,4 +2628,152 @@ pub fn infer(e: &Expr, gens: &[Expr], field: bool) -> Option<GaussianGround> {
         super::expression_domain::dict_from_expr(e, gens).ok()?.into_iter().map(|(_, c)| c).collect()
     };
     infer_coefficients(&coefficients, field)
+}
+
+// Univariate polynomials over the plain field `RR` (53 bits): the
+// reference `dup_half_gcdex`, `dup_gcdex` and `dup_invert` in floating
+// point, with `dup_ff_div` dropping the leading term created by rounding.
+// Polynomials are exact rational images of their `mpf` coefficients.
+type RV = Vec<C>;
+const RRK: Inexact = Inexact { precision: 53, complex: false };
+
+fn rr_strip(mut f: RV) -> RV {
+    let n = f.iter().take_while(|c| RRK.is_zero(c)).count();
+    f.drain(..n);
+    f
+}
+fn rr_dense(f: &MPoly<Rat>) -> RV {
+    let n = f.iter().map(|(e, _)| e[0] as usize).max().unwrap_or(0);
+    let mut v = vec![RRK.zero(); if f.is_zero() { 0 } else { n + 1 }];
+    for (e, c) in f.iter() {
+        v[n - e[0] as usize] = RRK.from_rat(c);
+    }
+    rr_strip(v)
+}
+fn rr_sparse(f: &RV) -> MPoly<Rat> {
+    let n = f.len();
+    MPoly::from_terms(
+        1,
+        f.iter()
+            .enumerate()
+            .filter(|(_, c)| !RRK.is_zero(c))
+            .map(|(i, c)| {
+                let r = c.re.to_ratio_exact();
+                (vec![(n - 1 - i) as u32], Rat::new(Int::from_big(r.numer().clone()), Int::from_big(r.denom().clone())))
+            })
+            .collect(),
+    )
+}
+/// `dup_sub`.
+fn rr_sub(f: &RV, g: &RV) -> RV {
+    let (df, dg) = (f.len(), g.len());
+    let mut h = Vec::with_capacity(df.max(dg));
+    if df > dg {
+        h.extend(f[..df - dg].iter().cloned());
+        h.extend(f[df - dg..].iter().zip(g).map(|(a, b)| RRK.sub(a, b)));
+    } else {
+        h.extend(g[..dg - df].iter().map(|b| RRK.neg(b)));
+        h.extend(f.iter().zip(&g[dg - df..]).map(|(a, b)| RRK.sub(a, b)));
+    }
+    rr_strip(h)
+}
+/// `dup_mul` (the schoolbook product of the reference below degree 100).
+fn rr_mul(f: &RV, g: &RV) -> RV {
+    if f.is_empty() || g.is_empty() {
+        return vec![];
+    }
+    let (df, dg) = (f.len() - 1, g.len() - 1);
+    let mut h = Vec::with_capacity(df + dg + 1);
+    for i in 0..=df + dg {
+        let mut c = RRK.zero();
+        for j in i.saturating_sub(dg)..=df.min(i) {
+            c = RRK.add(&c, &RRK.mul(&f[j], &g[i - j]));
+        }
+        h.push(c);
+    }
+    rr_strip(h)
+}
+/// `dup_ff_div` over an inexact field.
+fn rr_div(f: &RV, g: &RV) -> PResult<(RV, RV)> {
+    if g.is_empty() {
+        return Err(zero_division());
+    }
+    let dg = g.len() as i64 - 1;
+    let mut dr = f.len() as i64 - 1;
+    let (mut q, mut r): (RV, RV) = (vec![], f.clone());
+    if dr < dg {
+        return Ok((q, r));
+    }
+    let lc_g = g[0].clone();
+    loop {
+        let c = RRK.div(&r[0], &lc_g)?;
+        let j = (dr - dg) as usize;
+        if q.is_empty() {
+            q = vec![RRK.zero(); j + 1];
+            q[0] = c.clone();
+        } else {
+            let m = q.len() - j - 1;
+            q[m] = RRK.add(&q[m], &c);
+        }
+        let mut h: RV = g.iter().map(|a| RRK.mul(a, &c)).collect();
+        h.extend(std::iter::repeat(RRK.zero()).take(j));
+        r = rr_sub(&r, &h);
+        let prev = dr;
+        dr = r.len() as i64 - 1;
+        if dr < dg {
+            break;
+        } else if dr == prev {
+            r = rr_strip(r[1..].to_vec());
+            dr = r.len() as i64 - 1;
+            if dr < dg {
+                break;
+            }
+        } else if dr > prev {
+            return Err(reference("PolynomialDivisionFailed", "polynomial division failed"));
+        }
+    }
+    Ok((q, r))
+}
+fn rr_monic(f: &RV) -> PResult<RV> {
+    if f.is_empty() || RRK.is_zero(&RRK.sub(&f[0], &RRK.one())) {
+        return Ok(f.clone());
+    }
+    f.iter().map(|c| RRK.div(c, &f[0])).collect()
+}
+fn rr_half_gcdex_dense(f: &RV, g: &RV) -> PResult<(RV, RV)> {
+    let (mut f, mut g) = (f.clone(), g.clone());
+    let (mut a, mut b): (RV, RV) = (vec![RRK.one()], vec![]);
+    while !g.is_empty() {
+        let (q, r) = rr_div(&f, &g)?;
+        f = std::mem::replace(&mut g, r);
+        let nb = rr_sub(&a, &rr_mul(&q, &b));
+        a = std::mem::replace(&mut b, nb);
+    }
+    let lc = f.first().cloned().unwrap_or_else(|| RRK.zero());
+    let a = a.iter().map(|c| RRK.div(c, &lc)).collect::<PResult<RV>>()?;
+    Ok((a, rr_monic(&f)?))
+}
+/// `dup_half_gcdex` over `RR`.
+pub fn rr_half_gcdex(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<(MPoly<Rat>, MPoly<Rat>)> {
+    let (s, h) = rr_half_gcdex_dense(&rr_dense(f), &rr_dense(g))?;
+    Ok((rr_sparse(&s), rr_sparse(&h)))
+}
+/// `dup_gcdex` over `RR`.
+pub fn rr_gcdex(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<(MPoly<Rat>, MPoly<Rat>, MPoly<Rat>)> {
+    let (a, b) = (rr_dense(f), rr_dense(g));
+    let (s, h) = rr_half_gcdex_dense(&a, &b)?;
+    let big_f = rr_sub(&h, &rr_mul(&s, &a));
+    // The reference takes `dup_quo` here: the rounding remainder is dropped.
+    let (t, _) = rr_div(&big_f, &b)?;
+    Ok((rr_sparse(&s), rr_sparse(&t), rr_sparse(&h)))
+}
+/// `dup_invert` over `RR`.
+pub fn rr_invert(f: &MPoly<Rat>, g: &MPoly<Rat>) -> PResult<MPoly<Rat>> {
+    let b = rr_dense(g);
+    let (s, h) = rr_half_gcdex_dense(&rr_dense(f), &b)?;
+    if h.len() == 1 && RRK.is_zero(&RRK.sub(&h[0], &RRK.one())) {
+        Ok(rr_sparse(&rr_div(&s, &b)?.1))
+    } else {
+        Err(PolyError::NotInvertible("zero divisor".into()))
+    }
 }

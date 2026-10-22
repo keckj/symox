@@ -1080,6 +1080,23 @@ impl PyPoly {
     }
 
     fn ex(&self)->Option<&ExpressionPoly>{self.p.expression.as_ref()}
+    /// The partner of a plain `RR` polynomial over the same generators.
+    fn rr_plain_other(&self,o:&Bound<'_,PyAny>)->Option<Poly>{
+        let plain=|p:&PolyValue|p.expression.is_none()&&p.algebraic.is_none()&&p.field.is_none()&&p.base.modulus.is_none()&&!p.base.has_domain_gens();
+        let q=self.other(o)?;
+        if !plain(&self.p)||!plain(&q)||self.p.base.gens!=q.base.gens||self.p.base.ngens!=q.base.ngens{return None;}
+        if self.p.base.domain!=Domain::RR&&q.base.domain!=Domain::RR{return None;}
+        Some(q.base)
+    }
+    /// A polynomial of `rr_plain_other` back over `RR`.
+    fn rr_poly(&self,rep:symox::poly::mpoly::MPoly<Rat>)->PyPoly{let mut p=self.p.base.clone();p.rep=rep;p.domain=Domain::RR;PyPoly{p:p.into()}}
+    /// The reference `dmp_ground_content` over the field `RR` (no
+    /// associated ring): one, or zero for the zero polynomial.
+    fn rr_field_content(&self)->Option<Expr>{
+        let p=&self.p;
+        if p.expression.is_some()||p.algebraic.is_some()||p.field.is_some()||p.base.domain!=Domain::RR||p.base.modulus.is_some()||p.base.has_domain_gens(){return None;}
+        Some(symox::poly::convert::rat_to_expr_float(&if p.base.rep.is_zero(){Rat::zero()}else{Rat::one()},true))
+    }
     /// The `EX` representation and its composite Gaussian ground, when marked.
     fn gg(&self)->Option<(&ExpressionPoly,&symox::poly::gaussian_ground::GaussianGround)>{let e=self.p.expression.as_ref()?;Some((e,e.ground.as_ref()?))}
     /// The unified `EX` pair, when either side is over `EX`.
@@ -1662,6 +1679,7 @@ impl PyPoly {
 
     #[pyo3(signature=(g,auto=true))]
     fn gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
+        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){let(s,t,h)=symox::poly::inexact_ground::rr_gcdex(&self.p.base.rep,&q.rep).map_err(err)?;return Ok(PyTuple::new(g.py(),[self.rr_poly(s),self.rr_poly(t),self.rr_poly(h)])?.into_any().unbind());}
         if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};let(s,t,h)=symox::poly::inexact_ground::gcdex(&a,&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         if let Some((a,b))=self.ex_pair(g)?{let(s,t,h)=a.gcdex(&b).map_err(err)?;
             if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let c=|p:&ExpressionPoly|f.convert_poly(p).map_err(err);let(s,t,h)=(c(&s)?,c(&t)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,t,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
@@ -1672,6 +1690,7 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,auto=true))]
     fn half_gcdex(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyObject> {
+        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){let(s,h)=symox::poly::inexact_ground::rr_half_gcdex(&self.p.base.rep,&q.rep).map_err(err)?;return Ok(PyTuple::new(g.py(),[self.rr_poly(s),self.rr_poly(h)])?.into_any().unbind());}
         if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};let(s,h)=symox::poly::inexact_ground::half_gcdex(&a,&b).map_err(err)?;return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
         if let Some((a,b))=self.ex_pair(g)?{let(s,h)=a.half_gcdex(&b).map_err(err)?;
             if let Some(gr)=a.ground.clone().filter(|_|auto){let f=gr.to_field();let(s,h)=(f.convert_poly(&s).map_err(err)?,f.monic(&h).map_err(err)?);return Ok(PyTuple::new(g.py(),[s,h].map(|p|PyPoly{p:p.into()}))?.into_any().unbind());}
@@ -1682,6 +1701,7 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,auto=true))]
     fn invert(&self,g:&Bound<'_,PyAny>,auto:bool)->PyResult<PyPoly> {
+        if let Some(q)=self.rr_plain_other(g).filter(|q|q.gens.len()==1){return Ok(self.rr_poly(symox::poly::inexact_ground::rr_invert(&self.p.base.rep,&q.rep).map_err(err)?));}
         if let Some((a,b))=self.inexact_ops(g)?{let(a,b)=if auto{(symox::poly::inexact_ground::to_field(&a).map_err(err)?,symox::poly::inexact_ground::to_field(&b).map_err(err)?)}else{(a,b)};return Ok(PyPoly{p:symox::poly::inexact_ground::invert(&a,&b).map_err(err)?.into()});}
         if let Some((a,b))=self.ex_pair(g)?{
             if let Some(gr)=a.ground.clone().filter(|_|auto){return Ok(PyPoly{p:gr.to_field().convert_poly(&a.invert(&b).map_err(err)?).map_err(err)?.into()});}
@@ -1692,6 +1712,17 @@ impl PyPoly {
     }
     #[pyo3(signature=(g,include=false))]
     fn cancel(&self,g:&Bound<'_,PyAny>,include:bool)->PyResult<PyObject> {
+        if let Some(q)=self.rr_plain_other(g){
+            // `dmp_cancel` over `RR`, a field without an associated ring.
+            let py=g.py();let(negated,p,q)=symox::poly::inexact_ground::rr_poly_cancel(&self.p.base.rep,&q.rep);
+            let rr=|rep|self.rr_poly(rep);
+            if include{
+                let p=if negated{p.neg()}else{p};
+                return Ok(PyTuple::new(py,[rr(p),rr(q)])?.into_any().unbind());
+            }
+            let c=w(symox::poly::convert::rat_to_expr_float(&if negated{Rat::one().neg()}else{Rat::one()},true)).into_pyobject(py)?.into_any().unbind();
+            return Ok(PyTuple::new(py,[c,rr(p).into_pyobject(py)?.into_any().unbind(),rr(q).into_pyobject(py)?.into_any().unbind()])?.into_any().unbind());
+        }
         if let Some((a,b))=self.ex_pair(g)?{
             let py=g.py();let(cp,cq,p,q)=match a.ground.clone(){Some(gr) if b.ground.as_ref()==Some(&gr)=>gr.cancel(&a,&b).map_err(err)?,_=>a.cancel(&b).map_err(err)?};
             let gr=a.ground.clone();let mark=|p:ExpressionPoly|->PyResult<ExpressionPoly>{match &gr{Some(g)=>g.convert_poly(&p).map_err(err),None=>Ok(p)}};
@@ -1823,6 +1854,7 @@ impl PyPoly {
             let (c, p) = self.p.base.ground_primitive();
             return PyTuple::new(py, [w(c.as_expr()).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()]);
         }
+        if let Some(c)=self.rr_field_content(){return PyTuple::new(py,[w(c).into_pyobject(py)?.into_any(),self.clone().into_pyobject(py)?.into_any()]);}
         let (c, p) = self.p.primitive();
         PyTuple::new(py, [w(rat_expr(&c)).into_pyobject(py)?.into_any(), PyPoly { p: p.into() }.into_pyobject(py)?.into_any()])
     }
@@ -1835,6 +1867,7 @@ impl PyPoly {
         if self.p.base.has_domain_gens() && self.p.base.modulus.is_none() && matches!(self.p.base.domain, Domain::ZZ | Domain::QQ) {
             return Ok(w(self.p.base.ground_primitive().0.as_expr()));
         }
+        if let Some(c)=self.rr_field_content(){return Ok(w(c));}
         Ok(w(rat_expr(&self.p.primitive().0)))
     }
 
@@ -3171,6 +3204,16 @@ fn functional_euclid<'py>(f: &Bound<'py, PyAny>, g: &Bound<'py, PyAny>, gens: &B
     Ok(Some(PyTuple::new(py,values)?.into_any().unbind()))
 }
 
+/// Expression `gcdex`/`half_gcdex`/`invert` of univariate float input:
+/// the reference computes over `RR` in floating point.
+fn rr_expression_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTuple>,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<Option<(Vec<Expr>,symox::poly::mpoly::MPoly<Rat>,symox::poly::mpoly::MPoly<Rat>)>>{
+    if kwargs.is_some_and(|k|!k.is_empty())||f.downcast::<PyPoly>().is_ok()||g.downcast::<PyPoly>().is_ok(){return Ok(None);}
+    let (fe,ge)=(to_expr(f)?,to_expr(g)?);
+    let Ok(ps)=Poly::from_exprs(&[fe,ge],&gens_of(gens)?) else {return Ok(None)};
+    if ps.len()!=2||ps.iter().any(|p|p.has_domain_gens()||p.modulus.is_some()||p.gens.len()!=1)||!ps.iter().any(|p|p.domain==Domain::RR){return Ok(None);}
+    Ok(Some((ps[0].gens.clone(),ps[0].rep.clone(),ps[1].rep.clone())))
+}
+
 #[pyfunction]
 #[pyo3(signature = (f, g, *gens, **_kwargs))]
 fn gcdex(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
@@ -3184,6 +3227,7 @@ fn gcdex(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Boun
     }
     if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::bezout(py,selected,false);}
     if let Some(v)=functional_euclid(f,g,gens,_kwargs,"gcdex")?{return Ok(v);}
+    if let Some((x,a,b))=rr_expression_pair(f,g,gens,_kwargs)?{let(s,t,h)=symox::poly::inexact_ground::rr_gcdex(&a,&b).map_err(err)?;let e=|p|w(symox::poly::convert::to_expr_f(&p,&x,true));return Ok(PyTuple::new(py,[e(s),e(t),e(h)])?.into_any().unbind());}
     let (s,t,h)=api::gcdex(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?;
     Ok(PyTuple::new(py,[w(s),w(t),w(h)])?.into_any().unbind())
 }
@@ -3201,6 +3245,7 @@ fn half_gcdex(py: Python<'_>, f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: 
     }
     if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::bezout(py,selected,true);}
     if let Some(v)=functional_euclid(f,g,gens,_kwargs,"half_gcdex")?{return Ok(v);}
+    if let Some((x,a,b))=rr_expression_pair(f,g,gens,_kwargs)?{let(s,h)=symox::poly::inexact_ground::rr_half_gcdex(&a,&b).map_err(err)?;let e=|p|w(symox::poly::convert::to_expr_f(&p,&x,true));return Ok(PyTuple::new(py,[e(s),e(h)])?.into_any().unbind());}
     let (s,h)=api::half_gcdex(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?;
     Ok(PyTuple::new(py,[w(s),w(h)])?.into_any().unbind())
 }
@@ -3217,6 +3262,7 @@ fn invert(f: &Bound<'_, PyAny>, g: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>,
     }
     if let Some(selected)=an_rational::select(f,g,gens,_kwargs)?{return an_rational::inverse(py,selected);}
     if let Some(v)=functional_euclid(f,g,gens,_kwargs,"invert")?{return Ok(v);}
+    if let Some((x,a,b))=rr_expression_pair(f,g,gens,_kwargs)?{return Ok(w(symox::poly::convert::to_expr_f(&symox::poly::inexact_ground::rr_invert(&a,&b).map_err(err)?,&x,true)).into_pyobject(py)?.into_any().unbind());}
     Ok(w(api::invert(&to_expr(f)?,&to_expr(g)?,&gens_of(gens)?).map_err(err)?).into_pyobject(py)?.into_any().unbind())
 }
 

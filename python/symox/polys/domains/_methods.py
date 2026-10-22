@@ -838,6 +838,31 @@ def _polynomial_(self, R):
     return result
 
 
+_ring_cache = {}
+
+
+def _domain_ring(self):
+    """`PolynomialRing.ring`: the `PolyRing` of the domain elements."""
+    if not self.is_PolynomialRing:
+        raise AttributeError("'%s' domain has no attribute 'ring'" % self)
+    key = ('ring', self)
+    if key not in _ring_cache:
+        from ..rings import PolyRing
+        _ring_cache[key] = PolyRing(self.symbols, self.domain, str(self.order))
+    return _ring_cache[key]
+
+
+def _domain_field(self):
+    """`FractionField.field`: the `FracField` of the domain elements."""
+    if not self.is_FractionField:
+        raise AttributeError("'%s' domain has no attribute 'field'" % self)
+    key = ('field', self)
+    if key not in _ring_cache:
+        from ..fields import FracField
+        _ring_cache[key] = FracField(self.symbols, self.domain, str(self.order))
+    return _ring_cache[key]
+
+
 def install():
     from ... import Domain
     from ... import _core
@@ -850,6 +875,8 @@ def install():
         _native_unify = Domain.unify
         Domain.unify = unify
         native_exact = Domain.is_Exact
+        Domain.ring = property(_domain_ring)
+        Domain.field = property(_domain_field)
         Domain.has_assoc_Ring = property(lambda self: _has_assoc(self, 'get_ring'))
         Domain.has_assoc_Field = property(lambda self: _has_assoc(self, 'get_field'))
         Domain.is_Exact = property(
