@@ -137,7 +137,8 @@ def _wild(pattern, expr, repl_dict):
 def _wild_function(pattern, expr, repl_dict):
     if not (getattr(expr, 'is_Function', False) or getattr(expr, 'is_UndefinedFunction', False)):
         return None
-    nargs = _wild_function_counts()[pattern]
+    from ._public_core import _wild_nargs
+    nargs = _wild_nargs(pattern)
     if nargs is not None and len(expr.args) not in nargs:
         return None
     repl_dict = {} if repl_dict is None else dict(repl_dict)

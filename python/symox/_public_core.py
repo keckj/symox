@@ -11,6 +11,16 @@ from ._compat import _ExprType
 _evaluation = ContextVar('symox_evaluation',default=True)
 _divide_error = ContextVar('symox_divide_error',default=False)
 _wild_functions = {}
+# Equal WildFunctions may carry different nargs, as in the reference: each
+# created object keeps its own counts, keyed by identity.
+_wild_function_instances = {}
+
+
+def _wild_nargs(node):
+    entry = _wild_function_instances.get(id(node))
+    if entry is not None and entry[0] is node:
+        return entry[1]
+    return _wild_functions[node]
 
 
 class SympifyError(ValueError,TypeError):
@@ -94,6 +104,7 @@ class WildFunction(metaclass=_ExprType):
             counts = tuple(sorted(set(counts)))
         node = _core.Wild(name,(),(_wild_function_value,),**assumptions)
         _wild_functions[node] = counts
+        _wild_function_instances[id(node)] = (node,counts)
         return node
 
 
@@ -259,13 +270,14 @@ def install(namespace):
     def match(self,pattern,*args,**kwargs):
         result = original_match(self,pattern,*args,**kwargs)
         if result is None and _is_wild_function_node(pattern) and _is_wild_function_node(self):
-            # WildFunction.matches accepts any Function, a WildFunction included.
-            counts = _wild_functions[pattern]
-            return {pattern:self} if counts is None or 0 in counts else None
+            # WildFunction.matches accepts any Function, a WildFunction
+            # included, whose single argument is its name in the reference.
+            counts = _wild_nargs(pattern)
+            return {pattern:self} if counts is None or 1 in counts else None
         if result is not None:
             for key,value in result.items():
                 if key in _wild_functions:
-                    counts = _wild_functions[key]
+                    counts = _wild_nargs(key)
                     function = value.is_Function or _is_wild_function_node(value)
                     if not function or counts is not None and len(value.args) not in counts:
                         return None
@@ -275,8 +287,8 @@ def install(namespace):
     @wraps(original_matches)
     def matches(self,expr,repl_dict=None,old=False):
         if _is_wild_function_node(self) and _is_wild_function_node(expr):
-            counts = _wild_functions[self]
-            if counts is not None and 0 not in counts:
+            counts = _wild_nargs(self)
+            if counts is not None and 1 not in counts:
                 return None
             repl_dict = {} if repl_dict is None else dict(repl_dict)
             repl_dict[self] = expr
@@ -287,7 +299,7 @@ def install(namespace):
     def nargs(self):
         if self in _wild_functions:
             from . import Naturals0,FiniteSet
-            counts = _wild_functions[self]
+            counts = _wild_nargs(self)
             return Naturals0 if counts is None else FiniteSet(*counts)
         return previous.__get__(self,Expr)
     Expr.nargs = property(nargs)
