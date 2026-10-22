@@ -182,6 +182,10 @@ def periodicity(f, symbol, check=False):
                     if trigsimp(shifted+node.base)==0:period/=2
             elif not node.base.has(real_symbol):
                 period=candidate(node.exp)
+            else:
+                # Both the base and the exponent vary: a common period of
+                # the two is a period of the power (reference _periodicity).
+                period=_common_period([candidate(node.base),candidate(node.exp)])
         elif head in ('sin','cos','tan','cot','sec','csc','sinh','cosh','tanh','coth','sech','csch'):
             slope=affine(node.args[0])
             if slope is not None and slope.is_zero is False:

@@ -3378,3 +3378,8 @@ from . import algebras  # noqa: E402
 from .algebras import Quaternion  # noqa: E402
 if 'Quaternion' not in __all__:
     __all__.append('Quaternion')
+# Integral.transform, as_sum and principal_value (SymPy 1.14 ports).
+from .integrals._integral_extras import install as _install_integral_extras  # noqa: E402
+_install_integral_extras()
+from .series._order_contains import install as _install_order_contains  # noqa: E402
+_install_order_contains()

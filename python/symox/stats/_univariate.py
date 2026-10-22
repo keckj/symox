@@ -672,10 +672,25 @@ class ContinuousDistributionHandmade(Distribution):
         self._pdf = lambda z:expression.subs(x,z)
 
 
+def _integer_run(support):
+    """A finite support of consecutive integers (given as a Python set or a
+    ``FiniteSet``) as the equal ``Range``; any other support is returned
+    unchanged."""
+    import builtins
+    if isinstance(support,(builtins.set,frozenset,list,tuple)):support = S.FiniteSet(*support)
+    if getattr(support,'is_FiniteSet',False) and len(support) > 0:
+        values = list(support)
+        if all(getattr(v,'is_Integer',False) for v in values):
+            low,high = min(values),max(values)
+            if high-low+1 == len(values):return S.Range(low,high+1)
+    return support
+
+
 class DiscreteDistributionHandmade(Distribution):
     kind = 'discrete'
     def __init__(self,pdf,set=None):
         if set is None:set = S.Integers
+        set = _integer_run(set)
         super().__init__();self.family = 'DiscreteHandmade';self._support = set
         if isinstance(set,S.Range):self.lower,self.upper = set.start,set.stop-1
         elif set == S.Naturals:self.lower,self.upper = S.Integer(1),S.oo

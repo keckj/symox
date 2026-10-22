@@ -158,8 +158,33 @@ def _through_indexed(native):
     return call
 
 
-Expr.doit = _through_indexed(Expr.doit)
-summation = _through_indexed(_core.summation)
+def _with_hyper_stage(native):
+    """Run the reference ``eval_sum_hyper`` stage on the single-limit sums
+    the native engine leaves held (``Sum(x**k/factorial(k), (k, 0, oo))``
+    is ``exp(x)``)."""
+    def call(expr, *args, **kwargs):
+        result = native(expr, *args, **kwargs)
+        if isinstance(result, Expr) and result.has(_SUM[0] or _sum_head()):
+            from .concrete._sum_hyper import complete
+            result = complete(result)
+        return result
+    call.__name__ = getattr(native, '__name__', 'call')
+    call.__doc__ = getattr(native, '__doc__', None)
+    call._symox_native = getattr(native, '_symox_native', native)
+    return call
+
+
+_SUM = [None]
+
+
+def _sum_head():
+    from . import Sum
+    _SUM[0] = Sum
+    return Sum
+
+
+Expr.doit = _with_hyper_stage(_through_indexed(Expr.doit))
+summation = _with_hyper_stage(_through_indexed(_core.summation))
 product = _through_indexed(_core.product)
 
 

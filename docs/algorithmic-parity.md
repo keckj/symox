@@ -4986,3 +4986,97 @@ What remains:
   `ConditionSet`.
 
 Tests: `tests/test_solve_trig_rest_parity.py`.
+
+## Missing domains and features, batch c1 (integrals, sums, series, calculus, holonomic, stats; wave 4)
+
+Implemented (regressions in `tests/test_missing_c1_parity.py`, values from
+SymPy 1.14):
+
+- `Integral.as_sum`, `Integral.transform` and `Integral.principal_value` are
+  ports of the reference methods (`python/symox/integrals/_integral_extras.py`);
+  their docstring examples match.
+- `Order.contains` and `in` are the reference algorithm
+  (`python/symox/series/_order_contains.py`): `O(1) in O(1, x)` is True, an
+  undecided containment raises `TypeError` for `in` like the reference.
+- A multivariate `Order` of a sum keeps its leading terms only (the
+  reference `extract_leading_order` on the expanded expression, every point
+  moved to the origin): `O(1 + x*y)` is `O(1, x, y)`, `O(x + y + x*y)` is
+  `O(x + y, x, y)`, `O(1 + x*y, (x, oo), (y, oo))` is
+  `O(x*y, (x, oo), (y, oo))`. A term whose ratio to another is not a
+  monomial is kept.
+- The reference `eval_sum_hyper` stage runs after the native summation on a
+  single-limit `Sum` with an infinite bound that the native engine leaves
+  held (`python/symox/concrete/_sum_hyper.py`): `Sum(x**k/factorial(k),
+  (k, 0, oo))` is `exp(x)`, `summation(x**k/k, (k, 1, oo))` is the
+  reference `Piecewise` with its convergence condition. `Sum(f, (i, oo, oo))`
+  stays held.
+- `limit` no longer returns `0` for a power of the variable with an
+  exponent of unknown sign: gruntz treats the exponential of an argument
+  whose limit is `oo*sign(b)` as infinite (reference mrv), and a leading
+  coefficient that holds `w**s` with a symbolic `s` goes to the symbolic
+  exponent algebra, which needs the sign of `s`. The mrv comparison drops
+  the x-free factors of the ratio of logarithms, so `exp(x)/x**a` is still
+  `oo` and `exp(-x)*exp(b*sqrt(x))` still `0`. `limit(x**b/x, x, oo)` and
+  `limit(exp(b*x)*exp(-x), x, oo)` stay held (reference: `oo**(b - 1)` and
+  NotImplementedError), and
+  `limit_seq((n**2 + a)**(n + b)/(n + a)**(2*n), n)` is None like the
+  reference instead of `0`.
+- `periodicity` of a power whose base and exponent both vary is the common
+  period of the two: `periodicity(sin(4*x)**cos(2*x), x)` is `pi`.
+- `Idx` supports arithmetic, so `apply_finite_diff` on `x[i + j]` points
+  works.
+- Holonomic: differential operators print as `(1)*Dx**2`, a
+  `HolonomicSequence` prints its initial values (`u(0) = 1`), the operator
+  algebras print the reference text, and `to_sequence` at an ordinary point
+  returns the reference `smallest_n` (`lower + degree`, raised past the
+  integer roots of the leading coefficient) and `order + smallest_n`
+  initial values.
+- Stats: `density()` of a finite expression returns a `FiniteDensity` (so
+  `.dict` works); `DiscreteRV(..., set=set(range(n)))` (a finite support of
+  consecutive integers) is the equal `Range`; `DiscreteMarkovChain` has
+  `communication_classes`, `decompose`, `canonical_form`,
+  `number_of_states` and `index_of`; the `MultivariateNormal` density
+  exponent is expanded like the reference.
+
+Intentional divergences (equal values, other forms or stricter answers):
+
+- `Integral(x**2, (x, 0, 1)).as_sum(n, 'left')` and
+  `Integral(sqrt(x), (x, 0, 1)).as_sum(3, 'right')` come back in the native
+  canonical form (`sqrt(3)/9 + sqrt(6)/9 + 1/3` for
+  `sqrt(3)*(1 + sqrt(2) + sqrt(3))/9`).
+- `apply_finite_diff` with indexed points prints its terms in another order.
+- `cdf(Moyal(...))` simplifies to `erfc(...)` where the reference prints
+  `1 - erf(...)`.
+- `approximants` cancels its coefficients exactly, so the continued fraction
+  of a rational series ends: for the binomial-row docstring example the
+  generator stops after `-1/(t*(x + 1) - 1)` where the reference goes on to
+  yield `nan` (an artefact of uncancelled coefficients).
+- `Sum(1/x, (x, a, b)).euler_maclaurin()` keeps `Integral(1/x, (x, a, b))`
+  where the reference writes `log(b) - log(a)`, which is wrong when
+  `a < 0 < b`.
+
+Remaining gaps:
+
+- `fps(x**n*sin(x**2), x)`: the native series does not expand `x**n` with a
+  symbolic `n`, and the native `Order` of `x**(n + 8)` lists `n` as a
+  variable.
+- `Product` docstring: `(1/4)**n*4**n` is not merged to `1` by the native
+  `Mul`, and limits of `RisingFactorial`/`gamma` ratios with half-integer
+  shifts (Wallis product) stay held.
+- Holonomic: Frobenius initial conditions (a dict `y0`), `to_expr` of
+  `besselj` (the initial values are not resolved), and `to_meijerg` of
+  general annihilators raise NotImplementedError/ValueError.
+- Stats: `BernoulliProcess.joint_distribution` and
+  `JointDistributionHandmade` are missing (and discrete-time process values
+  print as `B(1)`, not `B[1]`); `density(X).dict` of a `Binomial` or `Die`
+  with a symbolic parameter (the reference held `Density` object);
+  `ContinuousMarkovChain` with float generators (numeric matrix
+  exponential) and Markov queries at symbolic times; `DiscreteMarkovChain`
+  with `Str` states; `stationary_distribution` with a `MatrixSymbol`;
+  multivariate `Laplace`; `MultivariateNormal` with `MatrixSymbol`
+  parameters; `GaussianSymplecticEnsemble` density at a `MatrixSymbol`;
+  Wiener and Gamma process queries under `Contains` conditions;
+  `given(Tuple(X, Y), cond)`. Each raises NotImplementedError or stays held;
+  `sympy.stats.Expectation` is handled separately.
+- `limit(x**p*x**(-p - 1), x, oo)` with a positive `p` stays held
+  (reference `0`).

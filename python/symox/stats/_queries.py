@@ -497,7 +497,8 @@ def density(expr,condition=None,evaluate=True,numsamples=None,**kwargs):
         for values,weight in worlds:
             value = expression.subs(values,simultaneous=True)
             table[value] = table.get(value,S.Integer(0))+weight
-        return {value:S.simplify(weight) for value,weight in table.items()}
+        from ._spaces import FiniteDensity
+        return FiniteDensity({value:S.simplify(weight) for value,weight in table.items()})
     normal = _normal_linear(expression)
     if normal is not None:
         from ._univariate import continuous_model
