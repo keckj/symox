@@ -71,7 +71,7 @@ fn exact_numeric_parts(e:&Expr)->Option<(symox::number::Number,symox::number::Nu
             number=>Some(number.clone()),
         }
     }
-    let (re,im)=symox::complex_parts::as_real_imag(e,true,None).ok()??;
+    let (re,im)=symox::complex_parts::as_real_imag_bounded(e,true,None).ok()??;
     Some((number(&re)?,number(&im)?))
 }
 fn numeric_hash(number:&symox::number::Number)->Option<isize> {

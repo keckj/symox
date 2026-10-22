@@ -212,15 +212,20 @@ def install(namespace):
     from functools import wraps
     Expr = _core.Expr
     native_heaviside = namespace['Heaviside']
+    default = object()
     @wraps(native_heaviside)
-    def Heaviside(arg,H0=None,*,evaluate=None):
-        from . import sympify,Rational,Piecewise,Eq
+    def Heaviside(arg,H0=default,*,evaluate=None):
+        # SymPy 1.14's two-argument node Heaviside(arg, H0=S.Half); the
+        # default H0 is stored as the one-argument node, whose args still
+        # report (arg, 1/2). H0=None fails in SymPy's eval.
+        from . import sympify,Rational
         arg = sympify(arg)
-        if H0 is None or sympify(H0) == Rational(1,2):return native_heaviside(arg,evaluate=evaluate)
+        if H0 is default:return native_heaviside(arg,evaluate=evaluate)
+        if H0 is None:raise AttributeError("'NoneType' object has no attribute 'is_Float'")
         H0 = sympify(H0)
-        if arg == 0:return H0
-        if arg.is_nonzero is True:return native_heaviside(arg,evaluate=evaluate)
-        return Piecewise((H0,Eq(arg,0)),(native_heaviside(arg,evaluate=evaluate),True))
+        if H0.is_Rational and H0 == Rational(1,2):return native_heaviside(arg,evaluate=evaluate)
+        if arg.is_zero is True and evaluate is not False:return H0
+        return native_heaviside(arg,H0,evaluate=evaluate)
     from . import _BuiltinFunctionHead
     namespace['Heaviside'] = _BuiltinFunctionHead('Heaviside', Heaviside)
     from . import _node_types

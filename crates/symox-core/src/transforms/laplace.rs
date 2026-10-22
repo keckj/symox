@@ -19,6 +19,13 @@ type R = (Expr, Expr, Expr);
 
 /// Laplace transform of `f` with respect to `t`: `(F(s), plane, cond)`.
 pub fn laplace_transform(f: &Expr, t: &Expr, s: &Expr, simplify: bool) -> R {
+    // the value H0 of `Heaviside(u, H0)` at one point does not change the
+    // integral (SymPy's rules match `Heaviside(u)` whatever H0)
+    let stripped = crate::simptools::bottom_up(f, &mut |e| match e.kind() {
+        Kind::Func(Func::Heaviside, a) if a.len() == 2 => crate::functions::func(Func::Heaviside, vec![a[0].clone()]),
+        _ => e.clone(),
+    });
+    let f = &stripped;
     let (r, p, c) = lt_with(f, t, s, 0, simplify);
     let r = if simplify { crate::simplify::simplify(&r) } else { r };
     (r, p, c)

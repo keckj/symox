@@ -763,6 +763,10 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
 #[inline]
 pub fn is_real(e:&Expr)->Option<bool>{cached_bool(e,Query::Real,is_real_uncached)}
 fn is_real_uncached(e: &Expr) -> Option<bool> {
+    // Heaviside.is_real = True (a class fact, whatever H0)
+    if let Kind::Func(Func::Heaviside, _) = e.kind() {
+        return Some(true);
+    }
     if let Kind::Func(Func::Re | Func::Im | Func::Abs,args)=e.kind() {
         return is_finite(&args[0]).filter(|finite|*finite);
     }
@@ -1172,6 +1176,8 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
         }
         // sign takes values in {0} and the unit circle
         Kind::Func(Func::Sign, _) => Some(true),
+        // Heaviside.is_finite = True (a class fact)
+        Kind::Func(Func::Heaviside, _) => Some(true),
         // ExpBase._eval_is_finite
         Kind::Func(Func::ExpPolar, a) => {
             if is_finite(&a[0]) == Some(true) || a[0].is_constant(Constant::NegInfinity) { Some(true) }

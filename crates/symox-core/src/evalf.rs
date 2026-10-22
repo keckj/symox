@@ -199,6 +199,8 @@ pub fn apply_c64(f: &Func, a: &[C64]) -> Option<C64> {
                 1.0
             } else if r < 0.0 {
                 0.0
+            } else if let Some(h0) = a.get(1) {
+                return Some(*h0);
             } else {
                 0.5
             })

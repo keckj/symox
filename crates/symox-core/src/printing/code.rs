@@ -984,11 +984,22 @@ impl<'a> CodePrinter<'a> {
                 let (a, b) = (fx::exp(x), fx::exp(&neg(x)));
                 div(&crate::ops::add2(&a, &b), &crate::ops::sub(&a, &b))
             }
-            Func::Heaviside => Expr::from_kind(Kind::Piecewise(vec![
-                (Expr::zero(), Expr::from_kind(Kind::Rel(RelOp::Lt, x.clone(), Expr::zero()))),
-                (Expr::rational(1, 2), Expr::from_kind(Kind::Rel(RelOp::Eq, x.clone(), Expr::zero()))),
-                (Expr::one(), Expr::boolean(true)),
-            ])),
+            // SymPy's Heaviside(x, H0).rewrite(Piecewise)
+            Func::Heaviside => {
+                let h0 = args.get(1).cloned().unwrap_or_else(|| Expr::rational(1, 2));
+                let rel = |op, x: &Expr| Expr::from_kind(Kind::Rel(op, x.clone(), Expr::zero()));
+                Expr::from_kind(Kind::Piecewise(if h0.is_zero() {
+                    vec![(Expr::zero(), rel(RelOp::Le, x)), (Expr::one(), Expr::boolean(true))]
+                } else if h0.is_one() {
+                    vec![(Expr::zero(), rel(RelOp::Lt, x)), (Expr::one(), Expr::boolean(true))]
+                } else {
+                    vec![
+                        (Expr::zero(), rel(RelOp::Lt, x)),
+                        (h0, rel(RelOp::Eq, x)),
+                        (Expr::one(), Expr::boolean(true)),
+                    ]
+                }))
+            }
             Func::Special(sp) => return Self::rewrite_elementary(*sp, args),
             _ => return None,
         })

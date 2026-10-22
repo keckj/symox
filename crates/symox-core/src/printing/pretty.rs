@@ -1045,6 +1045,10 @@ impl PrettyPrinter<'_> {
                 p.func = Some(Rc::new((pf, pa)));
                 p
             }
+            // SymPy prints a non-default H0 as an ordinary function argument.
+            Func::Heaviside if args.len() > 1 && args[1] != Expr::rational(1, 2) => {
+                self.seq(args).paren().left(&[Pict::new(xsym("θ", "Heaviside"))])
+            }
             Func::Heaviside => self.print(&args[0]).paren().left(&[Pict::new(xsym("θ", "Heaviside"))]),
             Func::Special(crate::special::SpecialFn::Mod) => {
                 let mut p = self.print(&args[0]);

@@ -93,6 +93,12 @@ fn ex(
                 let held = options.deep && options.mul && nt.is_add() && !k.is_one();
                 if nt.same_presentation(t) && !held {
                     unchanged.push((t.clone(), k.clone()));
+                } else if held && crate::decompose::has_noncommutative_atoms(&nt) {
+                    // a number times a noncommutative sum stays a product
+                    // when built, so its terms are distributed one by one
+                    for a in nt.args() {
+                        v.push(mul(&[Expr::num(k.clone()), a]));
+                    }
                 } else {
                     v.push(mul(&[Expr::num(k.clone()), nt]));
                 }
@@ -124,6 +130,10 @@ fn ex(
             let m = mul(&factors);
             let mut r = if !options.mul {
                 m
+            } else if m.is_mul() && m.has_noncommutative_host() && factors.iter().any(|f| f.is_add()) {
+                // a number times a noncommutative sum stays a product when
+                // built (Mul.flatten), so it is distributed here
+                expand_product(&factors)
             } else if m.is_mul() {
                 expand_mul_node(&m)
             } else if m.is_add() && !factors.iter().any(|f| f.is_add()) {

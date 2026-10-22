@@ -1039,8 +1039,9 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
         if coeff.is_one() {
             return mul_factor(b, e);
         }
-        // Number * (a + b) distributes
-        if e.is_one() {
+        // Number * (a + b) distributes, for a commutative sum only (SymPy's
+        // Mul.flatten keeps Mul(-1, A + B) when the sum does not commute).
+        if e.is_one() && !crate::decompose::has_noncommutative_atoms(b) {
             if let Kind::Add(c, terms) = b.kind() {
                 if !b.is_canonical(){
                     let normalized=normalized_sum(b,&mut ArithmeticMemo::default());
@@ -1561,8 +1562,13 @@ fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
     }
     // 2. split integer part: e = k + r/q
     let k = e.floor();
+    let Some(k_small) = k.to_i64() else {
+        // the integer part cannot be materialized: keep the power held
+        // rather than dropping it (SymPy tries and never finishes)
+        return Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(n.clone())), Expr::num(e.clone())));
+    };
     let r = p - k.to_bigint().unwrap() * &q;
-    let mut outside = Number::from_bigint(n.clone()).pow_i64(k.to_i64().unwrap_or(0)).unwrap();
+    let mut outside = Number::from_bigint(n.clone()).pow_i64(k_small).unwrap();
     // 3. extract q-th powers: n = A**q * M
     let q_u = q.to_u64().unwrap_or(u64::MAX);
     let mut a = BigInt::one();
@@ -1647,7 +1653,7 @@ fn neg_canonical(a:&Expr)->Expr{
                 Expr::from_kind(Kind::Mul(c, facs.clone()))
             }
         }
-        Kind::Add(c, terms) => distribute(&Number::MINUS_ONE, c, terms),
+        Kind::Add(c, terms) if !crate::decompose::has_noncommutative_atoms(a) => distribute(&Number::MINUS_ONE, c, terms),
         _ => mul2(&Expr::minus_one(), a),
     }
 }

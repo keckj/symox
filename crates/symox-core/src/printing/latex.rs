@@ -865,7 +865,12 @@ impl<'a> LatexPrinter<'a> {
             }
             Func::Heaviside | Func::DiracDelta => {
                 let name = if *f == Func::Heaviside { "\\theta" } else { "\\delta" };
-                let t = format!("{name}\\left({}\\right)", a0());
+                // SymPy's Heaviside prints its pargs: H0 unless it is 1/2.
+                let t = if *f == Func::Heaviside && args.len() > 1 && args[1] != Expr::rational(1, 2) {
+                    format!("{name}\\left({}, {}\\right)", a0(), self.print(&args[1]))
+                } else {
+                    format!("{name}\\left({}\\right)", a0())
+                };
                 return match exp {
                     Some(x) => format!("\\left({t}\\right)^{{{x}}}"),
                     None => t,
