@@ -59,7 +59,8 @@ def _delta_node(node, wrt, max_terms):
             return node
         if status:
             real.append(root)
-    if len(real) > max_terms:
+    # an explicit max_terms guard only: SymPy has no limit
+    if max_terms is not None and len(real) > max_terms:
         raise ValueError('DiracDelta expansion exceeds max_terms')
     terms = []
     for root in real:
@@ -117,7 +118,7 @@ def install(namespace):
             return target(e, deep=deep)
         rest, enabled, wrt = options(hints)
         result = target(e, deep=deep, **rest)
-        return _expand_deltas(result, wrt, deep, rest.get('max_terms', 100_000)) if enabled else result
+        return _expand_deltas(result, wrt, deep, rest.get('max_terms')) if enabled else result
 
     @wraps(original_method)
     def method(self, deep=True, **hints):
@@ -125,7 +126,7 @@ def install(namespace):
             return original_method(self, deep=deep)
         rest, enabled, wrt = options(hints)
         result = original_method(self, deep=deep, **rest)
-        return _expand_deltas(result, wrt, deep, rest.get('max_terms', 100_000)) if enabled else result
+        return _expand_deltas(result, wrt, deep, rest.get('max_terms')) if enabled else result
 
     namespace['expand'] = expand
     _core.Expr.expand = method

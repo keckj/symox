@@ -43,9 +43,16 @@ type Result<T> = std::result::Result<T, ExpandError>;
 
 /// Shared by scalar coefficients and matrix products. Reservations happen
 /// before allocating Cartesian products or expanding large integer powers.
+///
+/// SymPy's `expand` has no size limit, so the default budget is unbounded
+/// (only arithmetic overflow of the counts fails). A term limit and a work
+/// budget apply only when requested explicitly (`ExpandBudget::new`, the
+/// `max_terms` hint of the Python layer); exceeding them raises an error and
+/// never returns a partially expanded result.
 pub struct ExpandBudget {
     max_terms: usize,
     remaining_work: usize,
+    initial_work: usize,
     scalar_cache: FxHashMap<(usize, ExpandOptions), (Expr, Expr)>,
     matrix_cache: FxHashMap<
         (usize, ExpandOptions),
@@ -54,14 +61,24 @@ pub struct ExpandBudget {
 }
 impl Default for ExpandBudget {
     fn default() -> Self {
-        Self::new(100_000)
+        Self::unlimited()
     }
 }
 impl ExpandBudget {
+    /// An explicit resource guard: at most `max_terms` terms per sum and a
+    /// work budget of 5 000 000 elementary products.
     pub fn new(max_terms: usize) -> Self {
+        Self::with_work(max_terms, 5_000_000)
+    }
+    /// SymPy's behavior: no term limit and no work budget.
+    pub fn unlimited() -> Self {
+        Self::with_work(usize::MAX, usize::MAX)
+    }
+    fn with_work(max_terms: usize, work: usize) -> Self {
         Self {
             max_terms,
-            remaining_work: 5_000_000,
+            remaining_work: work,
+            initial_work: work,
             scalar_cache: FxHashMap::default(),
             matrix_cache: FxHashMap::default(),
         }
@@ -472,9 +489,9 @@ pub fn expand_with_options(
     // A fresh top-level budget has a reproducible work cost. Nested calls can
     // share matrix/scalar reservations, so they use only the per-call cache.
     let fresh = budget.scalar_cache.is_empty() && budget.matrix_cache.is_empty()
-        && budget.remaining_work == 5_000_000;
+        && budget.remaining_work == budget.initial_work;
     if fresh {
-        if let Some((value,work)) = super::memo::get(e,options,budget.max_terms) {
+        if let Some((value,work)) = super::memo::get(e,options,(budget.max_terms,budget.initial_work)) {
             budget.claim_product(1,work)?;
             budget.scalar_cache.insert(key,(e.clone(),value.clone()));
             return Ok(value);
@@ -545,7 +562,7 @@ pub fn expand_with_options(
     }
     budget.scalar_cache.insert(key, (e.clone(), value.clone()));
     if fresh {
-        super::memo::insert(e,&value,options,budget.max_terms,initial_work-budget.remaining_work);
+        super::memo::insert(e,&value,options,(budget.max_terms,budget.initial_work),initial_work-budget.remaining_work);
     }
     Ok(value)
 }

@@ -12,7 +12,7 @@ struct Entry {
     input: Expr,
     output: Expr,
     options: ExpandOptions,
-    max_terms: usize,
+    limits: (usize, usize),
     numeric_refinement: bool,
     work: usize,
     weight: usize,
@@ -21,17 +21,17 @@ struct Entry {
 struct Memo { entries: VecDeque<Entry>, weight: usize }
 thread_local! { static MEMO: RefCell<Memo> = RefCell::new(Memo::default()); }
 
-pub(super) fn get(e: &Expr, options: &ExpandOptions, max_terms: usize) -> Option<(Expr,usize)> {
+pub(super) fn get(e: &Expr, options: &ExpandOptions, limits: (usize, usize)) -> Option<(Expr,usize)> {
     let policy = crate::assumptions::numeric_refinement_enabled();
     MEMO.with(|memo| memo.borrow().entries.iter().rev().find(|entry|
         entry.input.dag_id() == e.dag_id() && entry.options == *options
-            && entry.max_terms == max_terms && entry.numeric_refinement == policy
+            && entry.limits == limits && entry.numeric_refinement == policy
     ).map(|entry| (entry.output.clone(),entry.work)))
 }
 
-pub(super) fn insert(e: &Expr, output: &Expr, options: &ExpandOptions, max_terms: usize, work: usize) {
+pub(super) fn insert(e: &Expr, output: &Expr, options: &ExpandOptions, limits: (usize, usize), work: usize) {
     let Some(weight)=crate::traverse::retention_weight(&[e,output],MAX_WEIGHT) else{return;};
-    let entry = Entry { input:e.clone(), output:output.clone(), options:*options, max_terms,
+    let entry = Entry { input:e.clone(), output:output.clone(), options:*options, limits,
         numeric_refinement:crate::assumptions::numeric_refinement_enabled(), work, weight };
     MEMO.with(|memo| {
         let mut memo = memo.borrow_mut();

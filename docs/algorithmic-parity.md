@@ -128,7 +128,11 @@ Overdetermined systems follow SymPy's `_solve_system` (2026-10-22). As in
 `solve`, an equation with free symbols but none of the unknowns is dropped
 (`solve([x*y - 2, y - 1], [x])` is `{x: 2/y}`), unless its assumptions prove
 it nonzero, and the Float rationalization flag only looks at the kept
-equations (`solve([x - 1, 1.5*y - 2], [x], dict=True)` is `[{x: 1}]`). A
+equations (`solve([x - 1, 1.5*y - 2], [x], dict=True)` is `[{x: 1}]`). An
+unknown that is not a symbol (`f(x)`, `Derivative(f(x), x)`) counts through
+`has`, as SymPy swaps it for a Dummy before this test; otherwise the Floats
+of `classify_ode` equations reached the native solver and the inverse
+fallback recursed on `1.0*(...)` factorizations. A
 system linear or polynomial in the unknowns is solved over the coefficient
 domain of its parameters: a residual equation free of the unknowns whose
 expanded numerator is nonzero makes the system generically inconsistent, so
@@ -840,6 +844,22 @@ alter cached answers. Rational dense polynomial construction avoids an
 expression round trip, retaining exact domains and the established fallback
 for other coefficient domains. These are scoped preservation arguments, not a
 refresh of the separate full API or downstream qualification records.
+
+`expand` has no default size limit (2026-10-22), as SymPy's has none. A
+default term limit of 100 000 and a work budget of 5 000 000 elementary
+products used to make SymPy-compatible calls fail, e.g. `expand((x + y +
+z + w + v)**40)` (135 751 terms) or `expand((x + y)**3000)`, and the internal
+callers that fell back to the unexpanded input on that error (simplification
+helpers, `collect`, `integrate`, the inverse Laplace transform, the domain
+construction of expressions) silently changed their results. The default
+budget is now unbounded, for scalar and matrix expressions, and DiracDelta
+expansion no longer stops at 100 000 roots. The `max_terms` hint is a
+symox-only, opt-in resource guard: with it, exceeding the term limit or the
+work budget raises `ValueError` and never returns a partial expansion. Only
+an arithmetic overflow of the term counts (exponents near `2**64`) still
+fails without a hint. Remaining gap: `expand(complex=True)` keeps its own
+guards (4096 terms, powers up to 128, 20 000 nodes) and raises
+`NotImplementedError` beyond them where SymPy computes the result.
 
 The small integer response caches for `primepi` and `partition` apply only to
 one positional built-in Python integer in `[-10**6,10**6]` while evaluation is

@@ -3370,14 +3370,15 @@ fn py_integrate(py:Python<'_>,f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>, _
 /// Parse the common scalar and matrix expansion options once.
 pub(crate) fn parse_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<(expand::ExpandOptions,expand::ExpandBudget)> {
     let mut options=expand::ExpandOptions{deep,..Default::default()};
-    let mut max_terms=100_000usize;
+    let mut max_terms:Option<usize>=None;
     if let Some(hints)=hints {
         for (name,value) in hints.iter(){
             let name:String=name.extract()?;
             if name=="max_terms" {
                 if value.is_instance_of::<pyo3::types::PyBool>(){return Err(PyTypeError::new_err("max_terms must be a positive integer"));}
-                max_terms=value.extract::<usize>().map_err(|_|PyValueError::new_err("max_terms must be a positive integer"))?;
-                if max_terms==0{return Err(PyValueError::new_err("max_terms must be a positive integer"));}
+                let limit=value.extract::<usize>().map_err(|_|PyValueError::new_err("max_terms must be a positive integer"))?;
+                if limit==0{return Err(PyValueError::new_err("max_terms must be a positive integer"));}
+                max_terms=Some(limit);
                 continue;
             }
             let slot=match name.as_str(){
@@ -3389,7 +3390,8 @@ pub(crate) fn parse_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->P
             *slot=value.is_truthy()?;
         }
     }
-    Ok((options,expand::ExpandBudget::new(max_terms)))
+    // SymPy's expand has no size limit: the guard is opt-in (max_terms)
+    Ok((options,max_terms.map_or_else(expand::ExpandBudget::unlimited,expand::ExpandBudget::new)))
 }
 /// Like `parse_expand_options`, also accepting SymPy's `complex` hint.
 pub(crate) fn parse_scalar_expand_options(deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<(expand::ExpandOptions,expand::ExpandBudget,bool)>{

@@ -7,7 +7,7 @@ use rustc_hash::FxHashMap;
 
 impl MatrixExpr {
     pub fn expand(&self) -> MResult<Self> {
-        self.expand_with_options(&ExpandOptions::default(), &mut ExpandBudget::new(100_000))
+        self.expand_with_options(&ExpandOptions::default(), &mut ExpandBudget::unlimited())
     }
 
     /// Apply the scalar expansion hints and distribute ordered matrix products.
