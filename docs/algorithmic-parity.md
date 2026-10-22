@@ -67,6 +67,72 @@ Decided alignment: `2nd_power_series_ordinary` follows SymPy and refuses
 equations with a right-hand side (`ValueError`), so `classify_ode` lists the
 same hints as the reference.
 
+## Wave-4 intentional corrections pending validation, 2026-10-22
+
+In these 15 cases SymPy 1.14 is wrong and symox keeps the correct value.
+They still need the user's validation. Each case was checked against a
+definition, mpmath at 30 to 40 digits, an equilibrium condition or a
+normalization integral, not against the reference. The tests are in
+`tests/test_wave4_h_validation_parity.py`.
+
+- `DiagonalOf(MatrixSymbol('x', n, 3)).diagonal_length` is `Min(3, n)`
+  for an integer `n`. SymPy returns 3, which is wrong for `n < 3`. A
+  2 x 3 matrix has a diagonal of length 2.
+- `hn1(nu, z).rewrite(hankel1)` and `hn2(nu, z).rewrite(hankel2)` use the
+  order `nu + 1/2`, since `h1_n(z) = sqrt(pi/(2*z))*H1_{n+1/2}(z)`.
+  At `nu = 1, z = 2`, the definition `jn + I*yn`, the closed form
+  `-exp(I*z)*(z + I)/z**2` and the symox rewrite all give
+  `0.43539777... - 0.35061200...*I`. SymPy's `hankel1(nu, z)` form gives
+  `0.5111 - 0.0949*I`. For `hn2(2, 7/5)` the true value is
+  `0.11334028 + 1.57276046*I`, and SymPy's form gives `0.2196 + 1.0830*I`.
+- `Cable.solve()` with loads at fixed points `Z(2, 7.26)` (3 downward) and
+  `X(4, 6)` (8 downward) between `A(0, 10)` and `B(10, 10)` raises
+  `ValueError`. With vertical loads only, the horizontal tension is
+  constant. Equilibrium at `Z` needs `H = 3/(1.37 - 0.63) = 4.054`, and
+  equilibrium at `X` needs `H = 8/(0.63 + 2/3) = 6.17`, so no
+  equilibrium exists. SymPy returns tensions whose horizontal components
+  are 5.255, 4.054 and 5.700 in the three segments. `plot_tension`
+  follows.
+- `Cable(('A', 0, 40), ('B', 100, 20))` with a distributed load of 850 and
+  `solve(58.58)` gives `R_A = (-36465, 49793)` and `R_B = (36465, 35207)`.
+  The parabola gives `H = w*(x0**2 - (100 - x0)**2)/40 = 36465` and
+  vertical reactions `w*x0` and `w*(100 - x0)`, which sum to the load
+  85000. SymPy's reactions are not balanced: horizontally 36465 against
+  44400, vertically 92661 against 85000.
+- `gaussian_conj(3, 2, 5)` is `(-5/4, 25/4, 5*sqrt(2)/4)`. ABCD
+  propagation of `q = s + I*z_r` through a thin lens gives
+  `z_r_out = 6.25` and `m = sqrt(z_r_out/z_r) = 1.7678`, which matches
+  `m = 1/sqrt((1 - s/f)**2 + (z_r/f)**2)`. SymPy uses `1 - (s/f)**2` and
+  gives `z_r_out = 5/2` and `m = sqrt(5)/2`. `s_out` is the same in both.
+- CDF support branches. Each symox CDF matches the integral of the
+  density inside the support to 1e-20 and is 0 or 1 outside it:
+  - `cdf(BetaNoncentral('x', 1, 1, 1), evaluate=False)(2).doit()` is 1.
+    SymPy gives `2*exp(1/2) = 3.297`.
+  - `BoundedPareto` has a `x >= H` branch. SymPy gives 1.11375 at
+    `L = 1, H = 3, x = 10`.
+  - `PowerFunction` has a `z >= b` branch. SymPy gives 1.7778 at
+    `a = 1, b = 4, z = 5`.
+  - `Reciprocal` has a `x >= b` branch. SymPy gives 1.209 at
+    `a = 1, b = 5, x = 7`.
+  - `Levy` is 0 for `z < mu`. SymPy's `erfc` form is complex there:
+    `1 - 1.6504*I` at `mu = 1, c = 2, z = 0`.
+  - `LogitNormal` is 0 for `z < 0` and 1 for `z >= 1`. SymPy gives
+    `15.16 - 4.63*I` at `z = 2`.
+- `marginal_distribution(MultivariateBeta('C', a1, a2), C[0])(x)` is the
+  `Beta(a1, a2)` density `x**(a1 - 1)*(1 - x)**(a2 - 1)/beta(a1, a2)`.
+  SymPy integrates `x2` over `[0, 1]` instead of the simplex. Its result
+  integrates to 2 at `a1 = 2, a2 = 3`.
+- `density(GaussianUnitaryEnsemble('U', 2))(X)` is
+  `2*exp(-Trace(X**2))/pi**2`. Over the four real parameters,
+  `Tr H**2 = h11**2 + h22**2 + 2*(a**2 + b**2)`, and
+  `exp(-Tr H**2)` integrates to `pi*(pi/2) = pi**2/2`. SymPy's
+  `1/(2*pi**2)` integrates to 1/4.
+- `ImplicitRegion((x, y, z), (x + y + z)**4).regular_point()` raises
+  `NotImplementedError`. Every partial derivative is `4*(x + y + z)**3`,
+  which vanishes everywhere on the surface, so no regular point exists.
+  SymPy returns `(-10, -10, 20)`, which is a singular point. The circle
+  case returns a valid point.
+
 ## Solver work on 2026-10-18
 
 The native univariate `solve` pipeline now falls back from radical formulae to
@@ -1325,6 +1391,160 @@ Remaining gaps:
 - `harmonic(12, 1/3)` prints `12**(2/3)/12` (SymPy `18**(1/3)/6`). The
   values are equal, and the difference comes from radical normalization.
 - `sqrt(exp_polar(I*pi)).n()` keeps a spurious real part of about 1e-26.
+
+## Precision and incomplete results from the wave-4 replay on 2026-10-22
+
+The tests are in `tests/test_precision_incomplete_wave4_parity.py`,
+`tests/test_wave4_substitution_parity.py`,
+`tests/test_wave4_index_biomech_control_parity.py` and
+`tests/test_wave4_h_validation_parity.py`.
+
+### expm1, log1p and cancellation
+
+`expm1` and `log1p` are function classes with the reference `eval`,
+`fdiff`, `expand_func`, `rewrite` and assumption handlers. Before, the
+constant arguments were turned into `exp(a) - 1` and `log(1 + a)`. With a
+Float, both lost every digit: `expm1(1e-99).evalf()` and
+`expand_log(log1p(1e-99)).evalf()` gave 0. A symbolic application did not
+evaluate after `subs`, and `diff` stayed unevaluated.
+
+- `expm1` of a Float, or of a number with Float parts, is computed with
+  `mpmath.expm1` at the precision of the Float. Otherwise `exp(a)` is
+  tried, so `expm1(0) = 0` and `expm1(log(3)) = 2`. `expm1(2)` stays
+  unevaluated, as in the reference, and `evalf` uses `mpmath.expm1`.
+- `log1p` of a Rational is `log(a + 1)`. A Float is converted exactly,
+  so `log1p(1e-99)` is `log(Rational(1e-99) + 1)`, as in the reference.
+  `evalf` uses `mpmath.log1p`.
+- Accuracy. Relative error against mpmath at 400 digits, for
+  `t = 10**-k` with `k` in 10, 50, 99 and 200, at 15, 30, 60 and 120
+  digits: every form stays below `10**(1 - dps)`. The forms are
+  `expm1(t)`, `log1p(t)`, `expand_log(log1p(t))`, the same three on
+  `Float(t)`, and `subs` into a symbolic application.
+- SymPy is less accurate here. `log1p(1e-99).evalf()` is 0 in SymPy. It is
+  `1e-99` in symox. SymPy also gives 0 for `log(1 + 10**-99)`,
+  `log(1 + t) - t`, `cos(t) - 1`, `sinc(t) - 1` and `tan(t) - t` at
+  `t = 10**-99`. Symox has full precision on these, and on `Si(t)`,
+  `erf(t)`, `erfc(t) - 1`, `sqrt(1 + t) - 1` and `exp(t) - 1 - t`.
+  `gamma(-1 + 10**-50)` raises at 15 and 30 digits in both, like the
+  reference. At 60 digits the symox error is `2e-21` (SymPy `4e-15`).
+- `lambdify` with NumPy or math evaluates `expm1` and `log1p` through
+  `numpy.expm1` and `numpy.log1p`. Before, it raised "cannot compile".
+  `ccode` and `cxxcode` print `expm1`/`log1p`, and `cxxcode` now prints
+  `std::expm1` like the reference.
+
+### lambdify with mpmath
+
+`lambdify(..., 'mpmath')` and `modules=['mpmath']`, with optional dict
+namespaces, now follow SymPy. The expression is printed with mpmath
+calls and evaluated in the namespace of `from mpmath import *` and
+`MPMATH_TRANSLATIONS`. So the callable computes with `mpf` at the
+current `mp.dps`. Before, the native evaluator returned a double: at
+`mp.dps = 40`, `lambdify(x, sin(x), 'mpmath')(1)` had only 16 correct
+digits.
+
+- Floats are printed as their exact binary mantissa and Rationals as
+  `mpf(p)/mpf(q)`. `pi`, `E`, `EulerGamma`, `Catalan`, `GoldenRatio` and
+  `oo` are mpmath constants. Square roots are printed with `sqrt`.
+  `Piecewise`, `sinc`, `Heaviside`, `Min`/`Max` and matrices are printed
+  as in the reference (`mpmath.matrix`).
+- 80 expression and namespace probes give the same values and types as
+  SymPy, at 38 digits.
+- A list with `math`, `numpy` or `sympy` keeps the native evaluator, as
+  before. SymPy also computes doubles there. An expression that the
+  printer does not cover also stays on the native evaluator.
+- `MpmathPrinter` prints Floats as `mpmath.mpf((sign, man, exp, bc))`,
+  Rationals without extra parentheses and roots as `mpmath.sqrt`. It uses
+  `mpmath.inf`, `mpmath.euler` and similar constants. 12 of 14 probes
+  print the same text as the reference. For `LambertW`, `Si` and
+  `conjugate`, symox prints `mpmath.lambertw`, `mpmath.si` and
+  `mpmath.conj`, where SymPy raises.
+
+Remaining gaps:
+
+- The native `evalf` of `log(1 + r)` loses every digit when the Rational
+  `r` is below about `10**-230`, and returns 0. SymPy already returns 0
+  from `10**-99`. `log1p(r)` follows `log(r + 1)`, as in the reference, so
+  it is affected too.
+- `series`, `limit` and `integrate` do not handle `expm1` and `log1p` (a
+  native gap for function classes). SymPy gives
+  `x + x**2/2 + x**3/6 + O(x**4)`, `limit(expm1(x)/x, x, 0) = 1` and
+  `integrate(expm1(x), x) = -x*exp(x) + x*expm1(x) + exp(x)`. `pycode`
+  raises where SymPy prints `math.expm1(x)`.
+- `sympy.codegen.scipy_nodes` (`cosm1`, `powm1`) has no symox module.
+
+### Index methods, musculotendon constants and gbt
+
+- `get_contraction_structure` and `get_indices` follow
+  `sympy.tensor.index_methods`. A product, power or function whose factors
+  hold contractions gets a nested entry, so
+  `get_contraction_structure(x[i, i]*y[j, j])` has the key
+  `x[i, i]*y[j, j]` with `[{(i,): {x[i, i]}}, {(j,): {y[j, j]}}]`, and
+  `A[j, j]**A[i, i]` is handled the same way. Dummy indices keep their first
+  occurrence order. An index that occurs three times gives no outer index,
+  as in the reference, instead of an error. 19 probes, including every
+  docstring example, give the same keys and entries as SymPy.
+- `MusculotendonDeGroote2016.p` lists the 31 reference symbols in the
+  reference order: the six muscle parameters, the activation constants, then
+  `c_0:4_fl_T`, `c_0:2_fl_M_pas`, `c_0:12_fl_M_act` and `c_0:4_fv_M`.
+  The tendon curve constants are listed even for a rigid tendon. Default
+  symbols carry no assumptions. `MusculotendonDeGroote2016.with_defaults`
+  exists, and the explicit formulations accept a nonzero fiber damping and
+  neglect it in the force balance, like SymPy. The implicit formulations,
+  which SymPy does not implement, are kept.
+- `gbt` converts `alpha` with `Rational(alpha).limit_denominator(1000)` and
+  does not simplify, so `gbt(tf, T, 0.5)` gives the exact
+  `T/(2*(L + R*T/2))`. `bilinear`, `forward_diff` and `backward_diff`
+  give the same `srepr` as the reference on four transfer functions.
+
+Remaining gaps:
+
+- `ccode`/`fcode` of a contraction with `assign_to` and ranged `Idx` print
+  a single assignment instead of the reference summation loops.
+- The biomechanics curves are evaluated (`doit`) in the force and in
+  `rhs`, where SymPy keeps unevaluated curve objects. The values are equal.
+  For formulation 2 without defaults, SymPy leaves a `Derivative`
+  unevaluated in `rhs`, where symox gives a number.
+
+### substitution and nonlinsolve with transcendental equations
+
+- `substitution` is a port of the reference algorithm. It runs a real pass
+  and a complex pass, keeps the `ImageSet` families and tracks complements,
+  intersections and excluded denominators. So
+  `substitution([exp(x) - sin(y), y**2 - 4], [x, y])` keeps the
+  `2*n*I*pi` families and gives the reference output.
+- `nonlinsolve` falls back to the reference path (unrad, the polynomial and
+  non-polynomial split, Groebner, then `substitution`) when the native
+  parametric solver rejects a system that is not polynomial. Polynomial
+  systems keep the native path.
+- `ImageSet` objects inside a `Tuple` have `lamda`, `base_set`, `base_sets`
+  and `base_pset`.
+- 38 exp, log and trigonometric systems, each through both functions, went
+  from 74 to 11 results that differ from the reference. All the reference
+  docstring examples of `substitution` give the reference output.
+- Symox is deliberately stricter in three cases where the reference is
+  wrong. These are intentional corrections:
+  - `[sin(x)**2 - 1, y - 1]`: the reference returns `(x, 1)`. Symox
+    returns the families `2*n*pi + pi/2` and `2*n*pi + 3*pi/2`.
+  - `[exp(y) - x, x**2 + 1]`: the reference returns `(exp(y), y)`. Symox
+    returns `(I, 2*n*I*pi + I*pi/2)` and `(-I, 2*n*I*pi - I*pi/2)`.
+  - `[2**x - 8, y - x]`: the reference returns `(y, y)`. Symox returns
+    `(3, 3)`.
+- A row that leaves a variable free is dropped when an equation still
+  restricts that variable. If a solver call was unsolved, a `ConditionSet`
+  is returned instead. Rows that differ only in the names of their
+  parameters are merged. A finite row that no free row covers is kept,
+  where the reference drops it.
+
+Remaining gaps, all in the native scalar complex `solveset`:
+
+- `exp(x) - exp(-x)` gives `{0, I*pi}` instead of `n*I*pi`.
+- `exp(2*x) - 3*exp(x) + 2` misses the `2*n*I*pi` families.
+- `2**x - 8` misses `3 + 2*n*I*pi/log(2)`, so the result for
+  `[2**x - 8, y - x]` is correct but incomplete.
+- `sin(x) + cos(x)` is left as a `ConditionSet`.
+
+The systems built on these equations inherit these gaps. Their results are
+incomplete or a `ConditionSet`, but none is wrong.
 
 ## Remaining blocking gaps
 
