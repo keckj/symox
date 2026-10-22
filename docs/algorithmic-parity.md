@@ -1384,6 +1384,116 @@ Remaining gaps:
 - `Pow(I, -S.Half)` is `1/sqrt(I)` (SymPy `-I**(3/2)`) and `(-pi)**1.5`
   stays unevaluated (SymPy `(-1.0*I)*pi**1.5`).
 
+## Quantum states, Wigner symbols and second quantization on 2026-10-22
+
+Three probes compare outputs with SymPy 1.14.0 by `str` and exception
+type. `tests/test_wrong_quantum_wave4_parity.py` holds the reference values.
+
+- Quantum states, spin representation and the Wigner/CG grid: 161 of 235
+  calls matched before, 234 after.
+- Rotation, tensor-product and spin siblings: 18 of 34 before, 30 after.
+- `secondquant`: 6 of 88 before, 76 after (85 when term order in sums is
+  ignored).
+
+- `TensorProduct` follows `TensorProduct.__new__`/`flatten`:
+  - The commutative parts are pulled out with `args_cnc`, so
+    `TensorProduct(x*A, y*B)` is `x*y*AxB`.
+  - A single argument returns itself.
+  - Factors that are sums, products or powers are printed in parentheses.
+  - Products of tensor products of the same length combine factorwise:
+    `(A*C)x(B*D)`.
+  - `represent` of a tensor product of kets is the Kronecker product.
+- `IntQubit` follows `IntQubitState._eval_args`:
+  - A single integer is converted to binary.
+  - With two arguments, the second one is `nqubits` when it is larger
+    than 1.
+  - `IntQubit(n, nqubits=k)` is supported.
+  - A `Qubit` argument is accepted.
+  - `IntQubit(2, 1)` raises `ValueError`.
+  - It prints as `|n>`, and `as_int()` is a method.
+  - `IntQubitBra` is its dual.
+  - Gates keep the qubit class.
+  - `superposition_basis` and the Grover functions use
+    `IntQubit(i, nqubits=n)`, so an oracle on `IntQubit(k)` marks the
+    intended state.
+- Spin states follow `SpinState._represent_base`: `represent(state,
+  basis=...)` is the column of `Rotation.D(j, m, mp, ...).doit()` with the
+  Euler angles of each axis pair.
+  - The default basis is the state's own axis.
+  - A bra is represented by the conjugate transpose of its ket.
+  - `JzKetCoupled` and the other coupled kets give the direct-sum column
+    of dimension `prod(2*ji + 1)` and print `|j,m,j1=..,j2=..>`.
+  - Spin operators are represented only in the `Jz` basis; any other basis
+    raises `NotImplementedError`.
+  - `WignerD.doit` is the reference `_eval_wignerd`.
+  - `qapply(Rotation*JzKet(j, m))` sums `D(j, m, mp)*|j,mp>` with `m` as
+    the first index.
+- `Wigner3j(j1, m1, j2, m2, j3, m3).doit()` passes its arguments to
+  `wigner_3j(j1, j2, j3, m1, m2, m3)`; `Wigner3j(6, 0, 4, 0, 2, 0).doit()`
+  is `sqrt(715)/143`.
+  - The `wigner` functions accept Floats with half-integer values.
+  - `wigner_9j(..., prec=n)` passes `prec` to `racah` and returns the
+    unsimplified sum.
+- `enumerate_states(state, start, num)` and `(state, index_list)` are the
+  reference function: `XKet('foo')` gives `|foo_1>`, `|foo_2>`, and so on.
+  The other states give `[]`, and a wrong number of arguments raises
+  `TypeError`.
+- `diff(Wavefunction(...), x)` differentiates the expression and keeps the
+  limits. `OperatorExpr.diff` applies the product rule. `Wavefunction.limits`
+  is a dict.
+- `TimeDepKet`/`TimeDepBra`: `label` excludes the time, `time` is the last
+  argument, and they print `|psi;t>` and `<psi;t|`.
+- Sums of states print with the native order and signs: `|0>/2 + |1>/2`
+  and `-|2>`.
+- `secondquant` uses the Fermi vacuum of the reference:
+  - The fermion operators carry the Fermi-level and quasi-particle
+    properties of the reference.
+  - `contraction` introduces the `_a`/`_i` dummies, and a fermion with a
+    boson raises `ContractionAppliesOnlyToFermions`.
+  - `NO` sorts its operators with the sign and is 0 on a Pauli violation.
+  - `NO(...).doit()` splits general `Dummy` indices into the parts above
+    and below the Fermi level, and raises
+    `SubstitutionOfAmbigousOperatorFailed` for other ambiguous indices.
+  - `wicks`, `evaluate_deltas`, `PermutationOperator.get_permuted`,
+    `simplify_index_permutations` and the `SecondQuantizationError`
+    exceptions are the reference ones.
+  - `wicks(F(0)*Fd(0), keep_only_fully_contracted=True)` is
+    `KroneckerDelta(0, _a)` (it was 1, under an empty-vacuum convention).
+  - Operators print as `f+(p)`, and as `CreateFermion(p)` inside products.
+
+Divergences kept (not validated by the user yet):
+
+- `wigner_9j(1, 1, 1, 1, 1, 1, 1, 1, 0, prec=64)` ends in `...556`, the
+  correctly rounded value of `1/18`; SymPy prints `...555`.
+- `represent(Rotation(...), j=...)` evaluates the `WignerD` entries; SymPy
+  keeps them unevaluated.
+- Bosons: `NO(...).doit()`, `wicks` and `contraction` still give the
+  correct bosonic results, where SymPy raises `NotImplementedError` or
+  `ContractionAppliesOnlyToFermions`.
+- `Fd(p)*Fd(p)` and `NO(Fd(p)*Fd(p))` are 0; SymPy leaves
+  `CreateFermion(_p)**2`.
+- `wicks(3)` is 3; SymPy raises `AttributeError`.
+
+Remaining gaps:
+
+- `qapply(TensorProduct(Jz, Jz)*TensorProduct(JzKet(1, 1), JzKet(1, -1)))`
+  raises `TypeError` (operator expressions are not hashable as tensor
+  factors); SymPy gives `-hbar**2*|1,1>x|1,-1>`.
+- `Bra('a')*Ket('b')` prints `InnerProduct(Bra(a), Ket(b))`; SymPy prints
+  `<a|b>`.
+- `TensorProduct` distributes over sums when it is constructed; SymPy keeps
+  `(A + B)xC` until `expand(tensorproduct=True)`.
+- Coupling or uncoupling more than two spins (`couple`/`uncouple` with
+  three `jn`) is not checked against the reference.
+- Symbols with the `above_fermi`/`below_fermi` assumptions cannot be
+  created (unknown assumption in the core). Only the dummies made by
+  `secondquant` itself have a Fermi level, so a `KroneckerDelta` built by
+  the user does not vanish across the Fermi level.
+- `substitute_dummies`, the index ordering of `AntiSymmetricTensor` and
+  Fermi-sea `FKet` (`fermi_level != 0`, holes) are not ported.
+- Sums of operator products print `-1*NO(...)` and `+ -...`; SymPy prints
+  `-NO(...)` and `- ...`.
+
 ## Remaining blocking gaps
 
 ### Noncommutative symbols

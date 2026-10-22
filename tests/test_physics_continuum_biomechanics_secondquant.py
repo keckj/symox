@@ -148,10 +148,12 @@ def test_fermionic_ladders_anticommutation_and_wick_signs():
     assert apply_operators(Fd(1)*FKet([0]))==-FKet([0,1])
     assert apply_operators(Fd(1)*FKet([0,1]))==0
     assert Dagger(F(0))==Fd(0)
-    assert wicks(F(0)*Fd(0)+Fd(0)*F(0))==1
-    assert wicks(F(0)*F(1)*Fd(1)*Fd(0),keep_only_fully_contracted=True)==1
-    assert wicks(F(0)*F(1)*Fd(0)*Fd(1),keep_only_fully_contracted=True)==-1
-    assert NO(F(0)*Fd(1)).doit()==-Fd(1)*F(0)
+    # Reference Fermi-vacuum convention: numeric indices are ambiguous with
+    # respect to the Fermi level, so contractions keep KroneckerDelta(0, _a).
+    assert str(wicks(F(0)*Fd(0)+Fd(0)*F(0)))=='KroneckerDelta(0, _a) + KroneckerDelta(0, _i)'
+    assert str(wicks(F(0)*F(1)*Fd(1)*Fd(0),keep_only_fully_contracted=True))=='KroneckerDelta(0, _a)*KroneckerDelta(1, _a)'
+    assert str(wicks(F(0)*F(1)*Fd(0)*Fd(1),keep_only_fully_contracted=True))=='-KroneckerDelta(0, _a)*KroneckerDelta(1, _a)'
+    assert str(NO(F(0)*Fd(1)))=='-NO(CreateFermion(1)*AnnihilateFermion(0))'
     i,j=S.symbols('i j')
     assert AntiSymmetricTensor('v',(i,j),())==-AntiSymmetricTensor('v',(j,i),())
     assert AntiSymmetricTensor('v',(i,i),())==0
