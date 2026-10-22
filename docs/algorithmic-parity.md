@@ -528,13 +528,6 @@ outputs).
 
 Remaining gaps in this area:
 
-- `Piecewise` series expands each branch with `series` semantics. SymPy's
-  `_eval_nseries` on a branch may give a different order term
-  (`Piecewise((x, x < 1), (x**5, True)).series(x, 0, 3)` is `O(x**5)` in
-  SymPy, `O(x**3)` in Symox).
-- Only a top-level `Piecewise` takes the reference series path; a
-  `Piecewise` inside an `Add` or `Mul` uses the native series.
-- `Order.subs` solves the moving point only for an affine substitution.
 - The noncommutative branches of `piecewise_fold` are not audited.
 - The order of the `polarify` replacement mapping follows set iteration
   and may differ from SymPy's dict order; the mapping itself is equal.
@@ -610,16 +603,73 @@ Remaining gaps in this area:
 - `Heaviside(x, H0)` with `H0 != 1/2` is a `Piecewise` wrapper around
   `Heaviside(x)` in Symox, so its `rewrite(Piecewise)` gives a nested,
   equal but different `Piecewise`.
-- `series` of an `Add` or `Mul` that holds a `Piecewise` raises
-  `NotImplementedError`; SymPy expands each term with
-  `Piecewise._eval_nseries` and `_eval_as_leading_term`.
-- `Piecewise((x, x < 1), (x**5, True)).series(x, 0, 3)` gives `O(x**3)`
-  for the second branch; SymPy gives `O(x**5)`.
-- The pattern-based `And`/`Or` simplification of `BooleanFunction` is not
-  ported: `Or(x < 0, x < 1).simplify()` is `(x <= 0) | (x < 1)` instead of
-  `x < 1`, `Or(x > 0, x < 1)` is not reduced to `True`, `Or(x > 1, x < -1)`
-  is not rewritten as `Abs(x) > 1`, and the `Eq` substitution of
-  `And(Eq(x, 1), y > x)` into `y > 1` is missing.
+- The series, `And`/`Or` and `Order.subs` gaps listed here before
+  2026-10-22 are closed, see the next section.
+
+## Piecewise series, And/Or patterns and Order.subs on 2026-10-22
+
+A probe of 112 cases (series of sums and products holding a `Piecewise`,
+the order term per branch, powers, `piecewise_fold`, limits, `And`/`Or`
+simplification, `Heaviside(x, H0)`, periodic inequalities and
+`Order.subs`) went from 48 to 97 outputs equal to SymPy 1.14.0.
+
+- `series` of any expression holding a `Piecewise` in the expansion
+  variable follows `Expr.series` (`python/symox/series/_piecewise_series.py`):
+  the positive dummy (which often decides the conditions), the shift for
+  `x0 != 0` and `dir='-'`, then `Add._eval_nseries` term by term,
+  `Mul._eval_nseries` with the leading terms of the factors (a `Piecewise`
+  contributes the leading term of its first branch true at 0, as
+  `Piecewise._eval_as_leading_term`), and the order term handling of
+  `Expr.series`. `nseries` at 0 from the right is `_eval_nseries` without
+  the dummy (`(Piecewise((sin(x), x < 0), (cos(x), True))*x).nseries(x, 0, 4)`
+  is `x + O(x**4)`).
+- A branch is expanded with `_eval_nseries` semantics: a power `x**k` with
+  `k > n` is `O(x**k)` (`Pow._eval_nseries`, `maxpow < 0`), so
+  `Piecewise((x, x < 1), (x**5, True)).series(x, 0, 3)` is
+  `Piecewise((x, x < 1), (O(x**5), True))`.
+- `simplify` of `And`/`Or` ports `And._eval_simplify` (linear `Eq`
+  substitution, `And(Eq(x, 1), y > x)` is `Eq(x, 1) & (y > 1)`),
+  `Or._eval_simplify` (`a <= b` split into `Eq(a, b) | (a < b)`) and
+  `_apply_patternbased_simplification` with the two- and three-term
+  pattern tables (`python/symox/logic/_pattern_simplify.py`):
+  `Or(x < 0, x < 1)` is `x < 1`, `Or(x > 0, x < 1)` is `True`,
+  `Or(x > 1, x < -1)` is `Abs(x) > 1`.
+- `Order.subs` with a non-affine replacement solves the moving point as
+  `Order._eval_subs` does (`solveset` of `old = new(d)`, first solution,
+  `limit` at the old point) through a host hook
+  (`python/symox/series/_order_point.py`): `O(x**2).subs(x, 1/x)` is
+  `O(x**(-2), (x, oo))`, `O(x**3).subs(x, exp(x))` is
+  `O(exp(3*x), (x, -oo))`.
+- `limit` of an expression holding a `Piecewise` at a finite point from
+  one side substitutes `z0 + d` (or `z0 - d`) with a positive `d`; when
+  every condition is decided, the limit of the selected branches is
+  taken.
+
+Deliberate divergence (SymPy's answer is wrong):
+
+- `limit(Piecewise((sin(x), x < 0), (cos(x), True)) + x, x, 0, '-')` is
+  `0` here, the left branch value; SymPy gives `1`, the value of the right
+  branch.
+
+Differential tests: `tests/test_piecewise_series_parity.py` (hardcoded
+SymPy outputs).
+
+Remaining gaps in this area:
+
+- `Heaviside(x, H0)` with `H0 != 1/2` is a `Piecewise` wrapper around
+  `Heaviside(x)` in Symox (a native two-argument node is missing), so its
+  printing, `args` and `rewrite(Piecewise)` (nested, equal) differ.
+- `solvify` cannot solve `sin(x) + cos(x)`, `sin(x) - cos(x)`,
+  `sin(2*x) + cos(x)` or `exp(sin(x)) - 1` on a period, so the periodic
+  inequalities and the Piecewise integrals with such conditions stay a
+  `ConditionSet` or an `Integral`; SymPy gives the intervals and `pi`.
+- `O(x*y).subs(y, x)` gives `O(x**2)`; SymPy raises `ValueError`.
+- `Xor` simplification by patterns (`Xor._eval_simplify`) is not wired;
+  its pattern table is ported.
+- A function of an undecided `Piecewise` (`exp(Piecewise(...))`) still
+  raises `NotImplementedError` in `series`; `Mul._eval_nseries` is ported
+  only for products holding a `Piecewise`, with Order terms of the factors
+  skipped in the term products.
 
 ## Set emptiness and the subset decision path on 2026-10-21
 

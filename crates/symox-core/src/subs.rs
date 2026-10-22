@@ -133,10 +133,22 @@ pub fn subs_doit(e:&Expr,variables:&[Expr],points:&[Expr])->Expr {
     subs(e,&active)
 }
 
+/// Host solver of a moving Order point: `(old, new, var, point)` gives
+/// `limit(d, old, point)` for the solution `d` of `old = new(d)`
+/// (`solveset` then `limit`, as `Order._eval_subs` does).
+pub type OrderPointHost = fn(&Expr, &Expr, &Expr, &Expr) -> Option<Expr>;
+
+static ORDER_POINT_HOST: std::sync::OnceLock<OrderPointHost> = std::sync::OnceLock::new();
+
+pub fn register_order_point_host(host: OrderPointHost) {
+    let _ = ORDER_POINT_HOST.set(host);
+}
+
 /// SymPy's `Order._eval_subs` for a substituted order variable: the limit
 /// point follows the substitution (`O(x).subs(x, x - 2)` is
-/// `O(x - 2, (x, 2))`). Moving points are solved for affine replacements
-/// only; `None` falls back to substitution in the arguments.
+/// `O(x - 2, (x, 2))`). An affine replacement is solved here, any other
+/// one by the host (`solveset` and `limit`); `None` falls back to
+/// substitution in the arguments.
 fn order_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)>) -> Option<Expr> {
     let (inner, vars) = crate::series::order::order_parts(e)?;
     let i = vars.iter().position(|(v, _)| v == old)?;
@@ -154,11 +166,12 @@ fn order_subs(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Ex
             if point != start {
                 // solve old = new(d) for d, then evaluate at old = start
                 let slope = crate::diff::diff(new, &var);
-                if slope.is_zero() || crate::traverse::has(&slope, &var) || !start.is_number() {
-                    return None;
+                if !slope.is_zero() && !crate::traverse::has(&slope, &var) && start.is_number() {
+                    let intercept = subs1(new, &var, &Expr::zero());
+                    point = div(&crate::ops::sub(&start, &intercept), &slope);
+                } else {
+                    point = ORDER_POINT_HOST.get()?(old, new, &var, &start)?;
                 }
-                let intercept = subs1(new, &var, &Expr::zero());
-                point = div(&crate::ops::sub(&start, &intercept), &slope);
             }
             vars[i] = (var, point);
         } else {
