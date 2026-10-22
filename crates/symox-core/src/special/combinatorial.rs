@@ -198,6 +198,10 @@ fn eval_rf(x: &Expr, k: &Expr, up: bool) -> Option<Expr> {
     if up && x.is_one() {
         return Some(super::factorial(k));
     }
+    // FallingFactorial.eval: `k.is_integer and x == k` gives factorial(x).
+    if !up && x == k && crate::assumptions::is_integer(k) == Some(true) {
+        return Some(super::factorial(x));
+    }
     if let Some(kk) = as_small(k) {
         if kk == 0 {
             return Some(Expr::one());

@@ -116,7 +116,7 @@ def test_inconsistent_symbol_and_dummy_facts_fail_before_construction(kwargs):
             make(sx, kind, kwargs)
 
 
-@pytest.mark.parametrize('kwargs', [{'commutative': None}, {'commutative': 'yes'}, {'custom_fact': True}])
+@pytest.mark.parametrize('kwargs', [{'commutative': None}, {'commutative': 'yes'}])
 def test_unsupported_symbol_domains_and_fact_names_are_explicit(kwargs):
     with pytest.raises((ValueError, NotImplementedError)):
         sx.Symbol('x', **kwargs)

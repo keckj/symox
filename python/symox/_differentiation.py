@@ -33,6 +33,27 @@ def unsimplified_diff(expression, symbols):
     return result
 
 
+def _derivative_count(expression, symbols):
+    held=_core.Derivative(expression,*symbols,evaluate=False)
+    if not getattr(held,'is_Derivative',False):return 0
+    total=0
+    for variable,count in held.variable_count:
+        if not (isinstance(count,int) or getattr(count,'is_Integer',False)):return 0
+        total+=int(count)
+    return total
+
+
+def _reference_simplify(result, expression, symbols):
+    # Derivative.__new__ ends multiple derivatives with
+    # factor_terms(signsimp(expr)) unless simplify=False.
+    if len(symbols)==1 and not isinstance(symbols[0],(tuple,list)):return result
+    if not isinstance(result,_core.Expr) or result.is_Atom:return result
+    if _derivative_count(expression,symbols)<=1:return result
+    from .core.exprtools import factor_terms
+    from .simplify.simplify import signsimp
+    return factor_terms(signsimp(result))
+
+
 def _matrix_variables(expression, symbols):
     if symbols:return symbols
     free=expression.free_symbols
@@ -43,7 +64,7 @@ def _matrix_variables(expression, symbols):
 def scalar_diff(self, *symbols, evaluate=True, **options):
     if _options(evaluate,options):return unsimplified_diff(self,symbols)
     if not evaluate:return _core.Derivative(self,*symbols,evaluate=False)
-    return _native_scalar_diff(self,*symbols)
+    return _reference_simplify(_native_scalar_diff(self,*symbols),self,symbols)
 
 
 def matrix_diff(self, *symbols, evaluate=True, **options):
@@ -77,7 +98,7 @@ def diff(f, *symbols, evaluate=True, **options):
     # Ordered operator polynomials (physics) differentiate themselves.
     hook=getattr(f,'_eval_symox_diff',None)
     if hook is not None:return hook(*symbols)
-    return _native_diff(f,*symbols)
+    return _reference_simplify(_native_diff(f,*symbols),f,symbols)
 
 
 def install():

@@ -136,8 +136,8 @@ def test_error(source, kind, message):
 
 
 def test_singularity_derivative_form_is_equivalent():
-    # SymPy writes -DiracDelta(a - x, 1); both forms are the same distribution.
-    assert str(SingularityFunction(x, a, -2).rewrite(Heaviside)) == 'DiracDelta(-a + x, 1)'
+    # Multiple derivatives end with factor_terms(signsimp(...)) as in SymPy.
+    assert str(SingularityFunction(x, a, -2).rewrite(Heaviside)) == '-DiracDelta(a - x, 1)'
 
 
 def test_documented_divergences_keep_correct_values():
