@@ -161,8 +161,16 @@ class ScalarCodePrinter(CXX17CodePrinter):
     def emptyPrinter(self,expr):
         name=getattr(expr,'class_name',type(expr).__name__)
         if name in _CONSTANTS[self.target]:return _CONSTANTS[self.target][name]
+        if name in ('isnan','isinf'):
+            # The C99 classification BooleanFunctions print as calls in
+            # every reference language printer (round parentheses included).
+            return name+'('+', '.join(self._print(a) for a in expr.args)+')'
         if not getattr(expr,'is_Function',False):
             raise NotImplementedError(f'{name} is unsupported by the {self.target} printer')
+        if self.target=='mathematica' and name in ('Sqrt','Cbrt','exp2','log2','log10','expm1','log1p','fma','hypot'):
+            # MCodePrinter._print_Function prints a function it does not know
+            # as ``Name[args]``.
+            return name+'['+', '.join(self._print(a) for a in expr.args)+']'
         target=(self._user_functions if getattr(expr,'is_UndefinedFunction',False) else self.known_functions).get(name)
         if target is None and (getattr(expr,'is_UndefinedFunction',False) or name not in _COMMON|_EXTRA[self.target]):
             if name in ('cot','sec','csc') and self.target in ('javascript','glsl'):

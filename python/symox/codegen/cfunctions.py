@@ -10,21 +10,17 @@ class _Intrinsic(metaclass=_ExprType):
     def __new__(cls,*args,evaluate=True):
         if len(args) not in cls._arity:raise TypeError(cls.__name__+' received the wrong number of arguments')
         args=tuple(map(S.sympify,args));name=cls.__name__
-        if evaluate and all(a.is_number for a in args):
+        if evaluate:
             a=args[0]
-            if name=='isnan':return S.true if a==S.nan else S.false
-            if name=='isinf':return S.true if a in (S.oo,-S.oo) else S.false
-            formulas={'Sqrt':lambda:S.sqrt(a),'Cbrt':lambda:S.real_root(a,3),
-                'exp2':lambda:2**a,'expm1':lambda:S.exp(a)-1,'log2':lambda:S.log(a,2),
-                'log10':lambda:S.log(a,10),'log1p':lambda:S.log(1+a),
-                'fma':lambda:args[0]*args[1]+args[2],
-                'hypot':lambda:S.sqrt(sum(v*v for v in args))}
-            return formulas[name]()
+            # The ``eval`` of SymPy's isnan and isinf BooleanFunctions.
+            if name=='isnan':
+                if a is S.nan or a==S.nan:return S.true
+                if a.is_number:return S.false
+            if name=='isinf':
+                if a.is_infinite:return S.true
+                if a.is_finite:return S.false
         return S._core._apply(name,*args,evaluate=False)
 
-class Sqrt(_Intrinsic):pass
-class Cbrt(_Intrinsic):pass
-class exp2(_Intrinsic):pass
 def _has_float(value):
     return bool(value.atoms(S.Float))
 
@@ -99,8 +95,6 @@ class expm1(S.Function):
         return _evaluated(mpmath.expm1,self.args[0],prec)
     def _eval_is_real(self):return self.args[0].is_real
     def _eval_is_finite(self):return self.args[0].is_finite
-class log2(_Intrinsic):pass
-class log10(_Intrinsic):pass
 class log1p(S.Function):
     """``log(x + 1)``, evaluated without cancellation near ``x = 0``."""
     nargs=1
@@ -134,8 +128,158 @@ class log1p(S.Function):
     def _eval_is_positive(self):return self.args[0].is_positive
     def _eval_is_zero(self):return self.args[0].is_zero
     def _eval_is_nonnegative(self):return self.args[0].is_nonnegative
-class isnan(_Intrinsic):pass
-class isinf(_Intrinsic):pass
-class fma(_Intrinsic):_arity=(3,)
-class hypot(_Intrinsic):_arity=(2,)
+class isnan(S.Function):
+    """The C99 ``isnan`` classification (a boolean function in SymPy)."""
+    nargs=1
+    def _latex(self,printer):
+        # SymPy prints boolean functions without the function-argument braces.
+        return r'\operatorname{isnan}\left(%s\right)'%printer._print(self.args[0])
+    _symox_user_hooks=True
+    @classmethod
+    def eval(cls,arg):
+        if arg is S.nan or arg==S.nan:return S.true
+        if arg.is_number:return S.false
+class isinf(S.Function):
+    """The C99 ``isinf`` classification (a boolean function in SymPy)."""
+    nargs=1
+    def _latex(self,printer):
+        # SymPy prints boolean functions without the function-argument braces.
+        return r'\operatorname{isinf}\left(%s\right)'%printer._print(self.args[0])
+    _symox_user_hooks=True
+    @classmethod
+    def eval(cls,arg):
+        if arg.is_infinite:return S.true
+        if arg.is_finite:return S.false
+_Two=S.Integer(2);_Ten=S.Integer(10)
+
+
+def _argindex_error(self,argindex):
+    from ..core.function import ArgumentIndexError
+    raise ArgumentIndexError(self,argindex)
+
+
+def _log_base_atom(arg,base):
+    # SymPy's ``log.eval(arg, base)`` result, kept only when it is an atom.
+    result=S.log(arg,base)
+    return result if result.is_Atom else None
+
+
+class exp2(S.Function):
+    """``2**x``, as the C99 ``exp2``."""
+    nargs=1
+    _symox_user_hooks=True
+    def fdiff(self,argindex=1):
+        if argindex==1:return self*S.log(_Two)
+        _argindex_error(self,argindex)
+    def _eval_rewrite_as_Pow(self,arg,**kwargs):return S.Pow(_Two,arg)
+    _eval_rewrite_as_tractable=_eval_rewrite_as_Pow
+    def _eval_expand_func(self,**hints):return S.Pow(_Two,self.args[0])
+    @classmethod
+    def eval(cls,arg):
+        if arg.is_number:return S.Pow(_Two,arg)
+
+
+class log2(S.Function):
+    """``log(x)/log(2)``, as the C99 ``log2``."""
+    nargs=1
+    _symox_user_hooks=True
+    def fdiff(self,argindex=1):
+        if argindex==1:return S.Integer(1)/(S.log(_Two)*self.args[0])
+        _argindex_error(self,argindex)
+    @classmethod
+    def eval(cls,arg):
+        if arg.is_number:return _log_base_atom(arg,_Two)
+        elif arg.is_Pow and arg.base==_Two:return arg.exp
+    def _eval_evalf(self,prec):
+        from ..core.evalf import prec_to_dps
+        return (S.log(self.args[0])/S.log(_Two)).evalf(prec_to_dps(prec))
+    def _eval_expand_func(self,**hints):return S.log(self.args[0])/S.log(_Two)
+    def _eval_rewrite_as_log(self,arg,**kwargs):return S.log(arg)/S.log(_Two)
+    _eval_rewrite_as_tractable=_eval_rewrite_as_log
+
+
+class fma(S.Function):
+    """``x*y + z``, as the C99 fused multiply-add."""
+    nargs=3
+    _symox_user_hooks=True
+    def fdiff(self,argindex=1):
+        if argindex in (1,2):return self.args[2-argindex]
+        elif argindex==3:return S.Integer(1)
+        _argindex_error(self,argindex)
+    def _eval_expand_func(self,**hints):
+        x,y,z=self.args;return x*y+z
+    def _eval_rewrite_as_tractable(self,arg,limitvar=None,**kwargs):
+        # The reference passes a single argument to the three-argument
+        # helper, so this rewrite raises TypeError there as well.
+        raise TypeError('_fma() missing 2 required positional arguments')
+
+
+class log10(S.Function):
+    """``log(x)/log(10)``, as the C99 ``log10``."""
+    nargs=1
+    _symox_user_hooks=True
+    _imp_=_numeric('log10')
+    def fdiff(self,argindex=1):
+        if argindex==1:return S.Integer(1)/(S.log(_Ten)*self.args[0])
+        _argindex_error(self,argindex)
+    @classmethod
+    def eval(cls,arg):
+        if arg.is_number:return _log_base_atom(arg,_Ten)
+        elif arg.is_Pow and arg.base==_Ten:return arg.exp
+    def _eval_evalf(self,prec):
+        import mpmath
+        return _evaluated(mpmath.log10,self.args[0],prec)
+    def _eval_expand_func(self,**hints):return S.log(self.args[0])/S.log(_Ten)
+    def _eval_rewrite_as_log(self,arg,**kwargs):return S.log(arg)/S.log(_Ten)
+    _eval_rewrite_as_tractable=_eval_rewrite_as_log
+
+
+class Sqrt(S.Function):
+    """The square root, as the C99 ``sqrt``; it is never evaluated."""
+    nargs=1
+    _symox_user_hooks=True
+    def fdiff(self,argindex=1):
+        if argindex==1:return S.Pow(self.args[0],S.Rational(-1,2))/_Two
+        _argindex_error(self,argindex)
+    def _eval_expand_func(self,**hints):return S.Pow(self.args[0],S.Rational(1,2))
+    def _eval_rewrite_as_Pow(self,arg,**kwargs):return S.Pow(arg,S.Rational(1,2))
+    _eval_rewrite_as_tractable=_eval_rewrite_as_Pow
+    def _eval_evalf(self,prec):return self
+
+
+class Cbrt(S.Function):
+    """The cube root, as the C99 ``cbrt``; it is never evaluated."""
+    nargs=1
+    _symox_user_hooks=True
+    def fdiff(self,argindex=1):
+        if argindex==1:return S.Pow(self.args[0],S.Rational(-2,3))/3
+        _argindex_error(self,argindex)
+    def _eval_expand_func(self,**hints):return S.Pow(self.args[0],S.Rational(1,3))
+    def _eval_rewrite_as_Pow(self,arg,**kwargs):return S.Pow(arg,S.Rational(1,3))
+    _eval_rewrite_as_tractable=_eval_rewrite_as_Pow
+    def _eval_evalf(self,prec):return self
+
+
+class hypot(S.Function):
+    """``sqrt(x**2 + y**2)``, as the C99 ``hypot``."""
+    nargs=2
+    _symox_user_hooks=True
+    def fdiff(self,argindex=1):
+        if argindex in (1,2):return 2*self.args[argindex-1]/(_Two*self.func(*self.args))
+        _argindex_error(self,argindex)
+    def _eval_expand_func(self,**hints):
+        x,y=self.args;return S.sqrt(S.Pow(x,2)+S.Pow(y,2))
+    def _eval_rewrite_as_Pow(self,arg,**kwargs):
+        # The reference helper takes two arguments, so the rewrite raises.
+        raise TypeError('hypot._eval_rewrite_as_Pow() takes 2 positional arguments but 3 were given')
+    _eval_rewrite_as_tractable=_eval_rewrite_as_Pow
+    def _eval_evalf(self,prec):
+        import mpmath
+        x,y=self.args
+        with mpmath.workprec(prec+20):
+            a,b=_mpmath_number(x,prec+20),_mpmath_number(y,prec+20)
+            if a is None or b is None:return None
+            return _float_result(mpmath.hypot(a,b),prec)
+
+
 __all__=['Sqrt','Cbrt','exp2','expm1','log2','log10','log1p','isnan','isinf','fma','hypot']

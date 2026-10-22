@@ -2443,13 +2443,26 @@ from ._core import (  # noqa: E402
     ccode,
     ccode_function,
     cxxcode,
-    fcode,
     latex,
     numpycode,
     pretty,
     pycode,
-    rust_code,
 )
+from ._statement_printing import _python_wrapper  # noqa: E402
+
+pycode = _python_wrapper(pycode)
+
+
+def fcode(expr, assign_to=None, **settings):
+    """Converts an expr to a string of Fortran code (SymPy's ``fcode``)."""
+    from .printing.codeprinter import fcode as _fcode
+    return _fcode(expr, assign_to, **settings)
+
+
+def rust_code(expr, assign_to=None, **settings):
+    """Converts an expr to a string of Rust code (SymPy's ``rust_code``)."""
+    from .printing.codeprinter import rust_code as _rust_code
+    return _rust_code(expr, assign_to, **settings)
 
 
 def pprint(expr, **settings):

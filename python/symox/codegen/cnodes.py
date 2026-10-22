@@ -15,10 +15,14 @@ class CommaOperator(CodegenAST,_Expression):
     def _symox_(self):return S._core._apply('CommaOperator',*(S.sympify(v) for v in self.args),evaluate=False)
 class Label(Token):_fields=('name','body');defaults={'body':none}
 class goto(Token):_fields=('label',)
-class sizeof(Token,_Expression):
-    _fields=('arg',)
-    def _symox_(self):return S._core._apply('sizeof',S.Symbol(str(self.arg)),evaluate=False)
-class alignof(sizeof):pass
+def alignof(arg):
+    """Generate a FunctionCall instance for calling 'alignof'."""
+    from .ast import FunctionCall,String
+    return FunctionCall('alignof',[String(arg) if isinstance(arg,str) else arg])
+def sizeof(arg):
+    """Generate a FunctionCall instance for calling 'sizeof'."""
+    from .ast import FunctionCall,String
+    return FunctionCall('sizeof',[String(arg) if isinstance(arg,str) else arg])
 class struct(Token):_fields=('name','declarations');defaults={'name':none}
 class union(struct):pass
 __all__=['restrict','volatile','PreIncrement','PreDecrement','PostIncrement','PostDecrement','CommaOperator','Label','goto','sizeof','alignof','struct','union']

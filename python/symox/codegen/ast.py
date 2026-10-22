@@ -68,8 +68,9 @@ class CodegenAST:
 class Node(CodegenAST):
     _fields=('attrs',);defaults={'attrs':()}
     def attr_params(self,looking_for):
+        name=str(looking_for.name) if isinstance(looking_for,Attribute) else str(looking_for)
         for attr in self.attrs:
-            if str(attr.name)==str(looking_for):return attr.parameters
+            if str(attr.name)==name:return attr.parameters
         # Like the reference, a missing attribute gives None, not ().
         return None
 
@@ -110,29 +111,42 @@ class Type(Token):
     def __str__(self):return str(self.name)
     @classmethod
     def from_expr(cls,expr):
-        value=_S.sympify(expr)
-        return integer if value.is_integer else real if value.is_real else complex_ if value.is_complex else untyped
+        # SymPy's ``Type.from_expr``.
+        if isinstance(expr,(float,_S.Float)):return real
+        if isinstance(expr,(int,_S.Integer)) or getattr(expr,'is_integer',False):return integer
+        if getattr(expr,'is_real',False):return real
+        if isinstance(expr,complex) or getattr(expr,'is_complex',False):return complex_
+        if isinstance(expr,bool) or getattr(expr,'is_Relational',False):return bool_
+        raise ValueError('Could not deduce type from expr.')
+    def cast_nocheck(self,value):return value
+    def _check(self,value):pass
     def cast_check(self,value,rtol=None,atol=0,precision_targets=None):
-        import numpy as np
-        value=_S.sympify(value);name=str(self.name)
-        if name in ('integer','intc') or isinstance(self,IntBaseType):
-            if value.is_integer is not True:raise ValueError('value is not an exact integer')
-            result=int(value)
-            if hasattr(self,'nbits'):
-                low=0 if isinstance(self,UnsignedIntType) else -(1<<(int(self.nbits)-1));high=(1<<int(self.nbits))-1 if isinstance(self,UnsignedIntType) else (1<<(int(self.nbits)-1))-1
-                if not low<=result<=high:raise ValueError('integer does not fit target type')
-            return _S.Integer(result)
-        if isinstance(self,ComplexBaseType):return _S.sympify(complex(value.evalf()))
-        bits=int(getattr(self,'nbits',64));dtype=np.float32 if bits<=32 else np.float64 if bits<=64 else np.longdouble
-        numeric=float(value.evalf());converted=dtype(numeric)
-        if np.isfinite(numeric) and not np.isfinite(converted):raise ValueError('floating conversion overflows')
-        tolerance=float(rtol) if rtol is not None else float(np.finfo(dtype).eps)
-        if abs(float(converted)-numeric)>float(atol)+tolerance*abs(numeric):raise ValueError('floating conversion exceeds tolerance')
-        return _S.Float(str(converted))
-class IntBaseType(Type):pass
-class SignedIntType(IntBaseType):_fields=('name','nbits')
-class UnsignedIntType(IntBaseType):_fields=('name','nbits')
-class FloatBaseType(Type):pass
+        """SymPy's ``Type.cast_check``: cast, check the bounds, then the rounding."""
+        val=_S.sympify(value)
+        ten=_S.Integer(10)
+        exp10=getattr(self,'decimal_dig',None)
+        if rtol is None:rtol=1e-15 if exp10 is None else 2.0*ten**(-exp10)
+        def tol(num):return atol+rtol*abs(num)
+        new_val=self.cast_nocheck(value)
+        self._check(new_val)
+        delta=new_val-val
+        if abs(delta)>tol(val):raise ValueError("Casting gives a significantly different value.")
+        return new_val
+class IntBaseType(Type):
+    def cast_nocheck(self,i):return _S.Integer(int(i))
+class _SizedIntType(IntBaseType):
+    _fields=('name','nbits')
+    def _check(self,value):
+        if value<self.min:raise ValueError("Value is too small: %d < %d"%(value,self.min))
+        if value>self.max:raise ValueError("Value is too big: %d > %d"%(value,self.max))
+class SignedIntType(_SizedIntType):
+    min=property(lambda self:-2**(_S.Integer(self.nbits)-1))
+    max=property(lambda self:2**(_S.Integer(self.nbits)-1)-1)
+class UnsignedIntType(_SizedIntType):
+    min=property(lambda self:_S.Integer(0))
+    max=property(lambda self:2**_S.Integer(self.nbits)-1)
+class FloatBaseType(Type):
+    def cast_nocheck(self,value):return _S.Float(value)
 
 
 class _FloatLimits:
@@ -173,10 +187,31 @@ class _FloatLimits:
             return float('-inf')
         return _S.Float(str(_S.sympify(value).evalf(self.decimal_dig)), self.decimal_dig)
 
+    def _check(self, value):
+        if value < -self.max:
+            raise ValueError("Value is too small: %d < %d" % (value, -self.max))
+        if value > self.max:
+            raise ValueError("Value is too big: %d > %d" % (value, self.max))
+        if abs(value) < self.tiny:
+            raise ValueError("Smallest (absolute) value for data type bigger than new value.")
+
 
 class FloatType(_FloatLimits,FloatBaseType):_fields=('name','nbits','nmant','nexp')
-class ComplexBaseType(Type):pass
-class ComplexType(_FloatLimits,ComplexBaseType):_fields=('name','nbits','nmant','nexp')
+class ComplexBaseType(Type):
+    # SymPy's ``ComplexBaseType`` derives from ``FloatBaseType``: the real
+    # and imaginary parts are cast and checked as floats.
+    def _part_cast(self,value):return FloatBaseType.cast_nocheck(self,value)
+    def _part_check(self,value):pass
+    def cast_nocheck(self,value):
+        return self._part_cast(_S.re(value))+self._part_cast(_S.im(value))*_S.I
+    def _check(self,value):
+        self._part_check(_S.re(value));self._part_check(_S.im(value))
+class ComplexType(_FloatLimits,ComplexBaseType):
+    _fields=('name','nbits','nmant','nexp')
+    def _part_cast(self,value):return _FloatLimits.cast_nocheck(self,value)
+    def _part_check(self,value):_FloatLimits._check(self,value)
+    cast_nocheck=ComplexBaseType.cast_nocheck
+    _check=ComplexBaseType._check
 
 untyped=Type('untyped');integer=IntBaseType('integer');intc=SignedIntType('intc',32)
 real=FloatBaseType('real');float32=FloatType('float32',32,23,8);float64=FloatType('float64',64,52,11);float80=FloatType('float80',80,63,15)
@@ -193,13 +228,22 @@ class Variable(Node,_Expression):
     def free_symbols(self):return self.symbol.free_symbols
     @classmethod
     def deduced(cls,symbol,value=None,attrs=(),**kwargs):
-        if value is None:value=symbol
-        return cls(symbol,kwargs.get('type',Type.from_expr(value)),value,attrs)
+        # SymPy's ``Variable.deduced``.
+        if isinstance(symbol,Variable):return symbol
+        cast_check=kwargs.get('cast_check',True)
+        try:type_=Type.from_expr(symbol)
+        except ValueError:type_=Type.from_expr(value)
+        if value is not None and cast_check:value=type_.cast_check(value)
+        return cls(symbol,type_,none if value is None else value,attrs)
     def as_Declaration(self,**kwargs):
         values=dict(zip(self._fields,self.args));values.update(kwargs);return Declaration(type(self)(**values))
 class Pointer(Variable):
     def __getitem__(self,indices):return Element(self.symbol,(indices,) if not isinstance(indices,tuple) else indices)
-class Declaration(CodegenAST):_fields=('variable',)
+class Declaration(CodegenAST):
+    _fields=('variable',)
+    def _coerce(self,field,value):
+        # SymPy's ``_construct_variable = Variable``.
+        return value if isinstance(value,Variable) else Variable(value)
 class Element(CodegenAST):
     """Element of a (possibly N-dimensional) array.
 
@@ -233,13 +277,48 @@ class Element(CodegenAST):
 class FunctionCall(CodegenAST,_Expression):
     _fields=('name','function_args')
     def _symox_(self):return _S.Function(str(self.name))(*self.function_args)
+def _function_parameter(arg):
+    # SymPy's ``FunctionPrototype._construct_parameters``.
+    if isinstance(arg,Declaration):return arg.variable
+    if isinstance(arg,Variable):return arg
+    return Variable.deduced(arg)
 class FunctionPrototype(Node):
     _fields=('return_type','name','parameters','attrs');defaults={'attrs':()}
+    def _coerce(self,field,value):
+        if field=='parameters':return tuple(_function_parameter(a) for a in value)
+        return super()._coerce(field,value)
     @classmethod
-    def from_FunctionDefinition(cls,definition):return cls(definition.return_type,definition.name,definition.parameters,definition.attrs)
-class FunctionDefinition(FunctionPrototype):_fields=('return_type','name','parameters','body','attrs')
-class For(CodegenAST):_fields=('target','iterable','body')
-class While(CodegenAST):_fields=('condition','body')
+    def from_FunctionDefinition(cls,func_def):
+        if not isinstance(func_def,FunctionDefinition):raise TypeError("func_def is not an instance of FunctionDefinition")
+        return cls(**func_def.kwargs(exclude=('body',)))
+class FunctionDefinition(FunctionPrototype):
+    _fields=('return_type','name','parameters','body','attrs')
+    def _coerce(self,field,value):
+        if field=='body' and not isinstance(value,CodeBlock):return CodeBlock(*value)
+        return super()._coerce(field,value)
+    @classmethod
+    def from_FunctionPrototype(cls,func_proto,body):
+        if not isinstance(func_proto,FunctionPrototype):raise TypeError("func_proto is not an instance of FunctionPrototype")
+        return cls(body=body,**func_proto.kwargs())
+def _code_block(body):
+    return body if isinstance(body,CodeBlock) else CodeBlock(*body)
+class For(CodegenAST):
+    _fields=('target','iterable','body')
+    def _coerce(self,field,value):
+        # SymPy's For._construct_iterable and _construct_body.
+        if field=='iterable':
+            if isinstance(value,range):return _S.Range(value.start,value.stop,value.step)
+            if isinstance(value,list):value=tuple(value)
+            if not hasattr(value,'__iter__'):raise TypeError("iterable must be an iterable")
+            return value if isinstance(value,(CodegenAST,_S.Basic,_S.Set)) else _S.sympify(value)
+        if field=='body':return _code_block(value)
+        return super()._coerce(field,value)
+class While(CodegenAST):
+    _fields=('condition','body')
+    def _coerce(self,field,value):
+        if field=='condition':return _S.sympify(value)
+        if field=='body':return _code_block(value)
+        return super()._coerce(field,value)
 class Scope(CodegenAST):_fields=('body',)
 class Return(CodegenAST):
     _fields=('return',)
@@ -250,6 +329,10 @@ class Stream(CodegenAST):_fields=('name',)
 stdout=Stream('stdout');stderr=Stream('stderr')
 class Print(CodegenAST):
     _fields=('print_args','format_string','file');defaults={'format_string':none,'file':none}
+    def _coerce(self,field,value):
+        if field=='print_args':return tuple(a if isinstance(a,CodegenAST) else _S.sympify(a) for a in value)
+        if field=='format_string' and isinstance(value,str):return QuotedString(value)
+        return super()._coerce(field,value)
 def _check_assignment(lhs,rhs):
     """The matrix structure checks of SymPy's ``AssignmentBase._check_args``."""
     lhs_is_mat=hasattr(lhs,'shape') and not isinstance(lhs,Indexed)
@@ -305,6 +388,9 @@ class Assignment(AssignmentBase):
     def free_symbols(self):
         return self.lhs.free_symbols | self.rhs.free_symbols
 
+    def __repr__(self):
+        return '%s(%s, %s)' % (type(self).__name__, self.lhs, self.rhs)
+
 
 @dataclass(frozen=True, init=False)
 class CodeBlock(CodegenAST):
@@ -315,6 +401,69 @@ class CodeBlock(CodegenAST):
 
     @property
     def args(self):return self._statements
+    def __iter__(self):return iter(self.args)
+
+    def __repr__(self):
+        return 'CodeBlock(\n%s\n)' % ',\n'.join(repr(arg) for arg in self.args)
+
+    @property
+    def left_hand_sides(self):
+        return tuple(a.lhs for a in self.args if isinstance(a, AssignmentBase))
+
+    @property
+    def right_hand_sides(self):
+        return tuple(a.rhs for a in self.args if isinstance(a, AssignmentBase))
+
+    def atoms(self, *types):
+        found = set()
+        for arg in self.args:
+            for part in getattr(arg, 'args', ()):
+                if hasattr(part, 'atoms'):
+                    found |= part.atoms(*types)
+        return found
+
+    @classmethod
+    def topological_sort(cls, assignments):
+        """SymPy's ``CodeBlock.topological_sort``."""
+        from collections import defaultdict
+        from symox.utilities.iterables import topological_sort
+        if not all(isinstance(i, Assignment) for i in assignments):
+            raise NotImplementedError("CodeBlock.topological_sort only supports Assignments")
+        if any(isinstance(i, AugmentedAssignment) for i in assignments):
+            raise NotImplementedError("CodeBlock.topological_sort does not yet work with AugmentedAssignments")
+        A = list(enumerate(assignments))
+        var_map = defaultdict(list)
+        for node in A:
+            var_map[node[1].lhs].append(node)
+        E = []
+        for dst_node in A:
+            for s in dst_node[1].rhs.free_symbols:
+                for src_node in var_map[s]:
+                    E.append((src_node, dst_node))
+        ordered_assignments = topological_sort([A, E])
+        return cls(*[a for i, a in ordered_assignments])
+
+    def cse(self, symbols=None, optimizations=None, postprocess=None, order='canonical'):
+        """SymPy's ``CodeBlock.cse``."""
+        from symox.simplify.cse_main import cse
+        from symox.utilities.iterables import numbered_symbols, filter_symbols
+        if not all(isinstance(i, Assignment) for i in self.args):
+            raise NotImplementedError("CodeBlock.cse only supports Assignments")
+        if any(isinstance(i, AugmentedAssignment) for i in self.args):
+            raise NotImplementedError("CodeBlock.cse does not yet work with AugmentedAssignments")
+        for i, lhs in enumerate(self.left_hand_sides):
+            if lhs in self.left_hand_sides[:i]:
+                raise NotImplementedError("Duplicate assignments to the same "
+                    "variable are not yet supported (%s)" % lhs)
+        existing_symbols = self.atoms(_S.Symbol)
+        if symbols is None:
+            symbols = numbered_symbols()
+        symbols = filter_symbols(symbols, existing_symbols)
+        replacements, reduced_exprs = cse(list(self.right_hand_sides), symbols=symbols,
+            optimizations=optimizations, postprocess=postprocess, order=order)
+        new_block = [Assignment(var, expr) for var, expr in zip(self.left_hand_sides, reduced_exprs)]
+        new_assignments = [Assignment(var, expr) for var, expr in replacements]
+        return self.topological_sort(new_assignments + new_block)
 
     @property
     def free_symbols(self):
