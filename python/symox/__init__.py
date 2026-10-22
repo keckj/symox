@@ -472,6 +472,7 @@ from ._core import (  # noqa: E402
     expand_log, expand_mul, expand_power_base, expand_power_exp, expand_trig,
     logcombine, nsimplify, powsimp, trigsimp,
 )
+from ._simptools import expand_power_base  # noqa: E402,F811
 
 
 def expand_complex(expr, deep=True):
@@ -731,6 +732,46 @@ def to_sympy(e):
 # Symbolic matrices (Rust implementation in symox._core.Matrix).
 
 from ._core import Matrix, diag, eye, hessian, jacobian, ones, wronskian, zeros  # noqa: E402
+
+_native_hessian = hessian
+
+
+def hessian(f, varlist, constraints=()):
+    """The Hessian of ``f``, bordered by the gradients of ``constraints``."""
+    if constraints is None or not len(constraints):
+        return _native_hessian(f, varlist)
+    # SymPy's bordered Hessian.
+    from .utilities.iterables import is_sequence
+    from .matrices import ShapeError
+    if isinstance(varlist, _core.Matrix) or getattr(varlist, 'is_Matrix', False):
+        if 1 not in varlist.shape:
+            raise ShapeError("`varlist` must be a column or row vector.")
+        if varlist.cols == 1:
+            varlist = varlist.T
+        varlist = varlist.tolist()[0]
+    if is_sequence(varlist):
+        n = len(varlist)
+        if not n:
+            raise ShapeError("`len(varlist)` must not be zero.")
+    else:
+        raise ValueError("Improper variable list in hessian function")
+    if not getattr(f, 'diff'):
+        raise ValueError("Function `f` (%s) is not differentiable" % f)
+    m = len(constraints)
+    N = m + n
+    out = zeros(N)
+    for k, g in enumerate(constraints):
+        if not getattr(g, 'diff'):
+            raise ValueError("Function `f` (%s) is not differentiable" % f)
+        for i in range(n):
+            out[k, i + m] = g.diff(varlist[i])
+    for i in range(n):
+        for j in range(i, n):
+            out[i + m, j + m] = f.diff(varlist[i]).diff(varlist[j])
+    for i in range(N):
+        for j in range(i + 1, N):
+            out[j, i] = out[i, j]
+    return out
 
 MutableDenseMatrix = Matrix
 DenseMatrix = Matrix
@@ -1513,6 +1554,47 @@ class ImageSet(Set):
     def base_pset(self):
         return self.base_set
 
+    def contains(self, other):
+        rv = Set.contains(self, other)
+        if getattr(getattr(rv, 'func', None), '__name__', None) != 'Contains':
+            return rv
+        # reference ImageSet._contains for a one-variable map: solve
+        # expr = other over the base set (`_solveset_multi`).
+        lam = self.lamda
+        try:
+            variables = lam.variables
+        except AttributeError:
+            return rv
+        if len(variables) != 1 or not getattr(variables[0], 'is_Symbol', False):
+            return rv
+        other = sympify(other)
+        var = variables[0]
+        d = Dummy(var.name)
+        from . import solveset, Intersection
+        eq = Eq(lam.expr.xreplace({var: d}), other)
+        if eq is S.false or eq == false:
+            return false
+        if eq == true:
+            return true
+        solution = solveset(eq, d, self.base_set)
+        empty = solution.is_empty
+        if empty is True:
+            return false
+        if empty is False:
+            return true
+        return rv
+
+    def __iter__(self):
+        # reference ImageSet.__iter__
+        seen = set()
+        lam = self.lamda
+        for value in self.base_pset:
+            value = lam(*value) if isinstance(value, tuple) else lam(value)
+            if value in seen:
+                continue
+            seen.add(value)
+            yield value
+
 
 def _install_image_set_node_properties():
     # An ImageSet held inside a Tuple or FiniteSet (the solution tuples of
@@ -1553,7 +1635,28 @@ class Range(Set):
     __slots__ = ()
 
     def __new__(cls, *args):
-        return _wrap_set(_core.Range(*args))
+        native = _core.Range(*args)
+        start, stop, step = native.args
+        if any(v.has(Symbol) for v in (start, stop, step)):
+            # SymPy canonicalizes a symbolic stop to the first value past the
+            # last element: Range(n, n + 20, 3) is Range(n, n + 21, 3).
+            dif = stop - start
+            n = dif/step
+            if n.is_Rational:
+                if dif == 0:
+                    return _wrap_set(_core.Range(0))
+                end = start + floor(n)*step
+                if dif.is_Rational:
+                    # SymPy tests (end - stop).is_negative, which drops the
+                    # last element for a negative step (Range(n, n - 20, -3)
+                    # would get 6 elements instead of 7): compare along step.
+                    if ((end - stop)/step).is_negative:
+                        end += step
+                elif (end/stop - 1).is_negative:
+                    end += step
+                if end != stop:
+                    native = _core.Range(start, end, step)
+        return _wrap_set(native)
 
     @property
     def start(self):
@@ -1580,12 +1683,179 @@ class Range(Set):
         raise ValueError('Invalid method for symbolic Range')
 
     def __iter__(self):
-        a, b, s = (int(v) for v in self._e.args)
-        return (Integer(i) for i in range(a, b, s))
+        if all(v.is_Integer for v in self._e.args):
+            a, b, s = (int(v) for v in self._e.args)
+            return (Integer(i) for i in range(a, b, s))
+        return self._iter_symbolic()
+
+    def _iter_symbolic(self):
+        n = self.size  # validate
+        if not (n.has(S.Infinity) or n.has(S.NegativeInfinity) or n.is_Integer):
+            raise TypeError("Cannot iterate over symbolic Range")
+        if self.start in [S.NegativeInfinity, S.Infinity]:
+            raise TypeError("Cannot iterate over Range with infinite start")
+        elif self.start != self.stop:
+            i = self.start
+            if n.is_infinite:
+                while True:
+                    yield i
+                    i += self.step
+            else:
+                for _ in range(n):
+                    yield i
+                    i += self.step
 
     def __len__(self):
-        a, b, s = (int(v) for v in self._e.args)
-        return len(range(a, b, s))
+        if all(v.is_Integer for v in self._e.args):
+            a, b, s = (int(v) for v in self._e.args)
+            return len(range(a, b, s))
+        rv = self.size
+        if rv is S.Infinity:
+            raise ValueError('Use .size to get the length of an infinite Range')
+        return int(rv)
+
+    @property
+    def reversed(self):
+        """Return an equivalent Range in the opposite order."""
+        if self.has(Symbol):
+            n = (self.stop - self.start)/self.step
+            if not n.is_extended_positive or not all(
+                    i.is_integer or i.is_infinite for i in self._e.args):
+                raise ValueError('invalid method for symbolic range')
+        if self.start == self.stop:
+            return self
+        return Range(self.stop - self.step, self.start - self.step, -self.step)
+
+    def __getitem__(self, i):
+        # SymPy's Range.__getitem__.
+        from .core.logic import fuzzy_and, fuzzy_or
+        ooslice = "cannot slice from the end with an infinite value"
+        zerostep = "slice step cannot be zero"
+        infinite = "slicing not possible on range with infinite start"
+        ambiguous = "cannot unambiguously re-stride from the end " + \
+            "with an infinite value"
+        if isinstance(i, slice):
+            if self.size.is_finite:  # validates, too
+                if self.start == self.stop:
+                    return Range(0)
+                start, stop, step = i.indices(self.size)
+                n = ceiling(Integer(stop - start)/step)
+                if n <= 0:
+                    return Range(0)
+                canonical_stop = start + n*step
+                end = canonical_stop - step
+                ss = step*self.step
+                return Range(self[start], self[end] + ss, ss)
+            start = i.start
+            stop = i.stop
+            if i.step == 0:
+                raise ValueError(zerostep)
+            step = i.step or 1
+            ss = step*self.step
+            if self.start.is_infinite and self.stop.is_infinite:
+                raise ValueError(infinite)
+            if self.stop.is_infinite:
+                # SymPy maps this case onto the reversed range with an
+                # off-by-one index shift (Range(1, oo)[0:3] gives Range(0)).
+                # Index from the finite start instead.
+                if step > 0:
+                    first = 0 if start is None else start
+                    if first < 0 or (stop is not None and stop < 0):
+                        raise ValueError(ooslice)
+                    if stop is None:
+                        if step > 1:
+                            # SymPy's error, kept for parity.
+                            raise ValueError(ambiguous)
+                        return Range(self.start + first*self.step, self.stop, ss)
+                    indices = range(first, stop, step)
+                else:
+                    if start is None or start < 0 or (stop is not None and stop < 0):
+                        raise ValueError(ooslice)
+                    indices = range(start, -1 if stop is None else stop, step)
+                if not len(indices):
+                    return Range(0)
+                return Range(self.start + indices[0]*self.step,
+                             self.start + indices[-1]*self.step + ss, ss)
+            if start is None:
+                if stop is None:
+                    if step < 0:
+                        return Range(self[-1], self.start, ss)
+                    elif step > 1:
+                        raise ValueError(ambiguous)
+                    else:
+                        return self
+                elif stop < 0:
+                    if step < 0:
+                        return Range(self[-1], self[stop], ss)
+                    else:
+                        return Range(self.start, self[stop], ss)
+                elif stop == 0:
+                    if step > 0:
+                        return Range(0)
+                    else:
+                        raise ValueError(ooslice)
+                else:
+                    raise ValueError(ooslice)
+            elif start < 0:
+                if stop is None:
+                    if step < 0:
+                        return Range(self[start], self.start, ss)
+                    else:
+                        return Range(self[start], self.stop, ss)
+                elif stop < 0:
+                    return Range(self[start], self[stop], ss)
+                elif stop == 0:
+                    if step < 0:
+                        raise ValueError(ooslice)
+                    else:
+                        return Range(0)
+                elif stop > 0:
+                    raise ValueError(ooslice)
+            elif start == 0:
+                if stop is None:
+                    if step < 0:
+                        raise ValueError(ooslice)
+                    elif step > 1:
+                        raise ValueError(ambiguous)
+                    else:
+                        return self
+                elif stop < 0:
+                    if step > 1:
+                        raise ValueError(ambiguous)
+                    elif step == 1:
+                        return Range(self.start, self[stop], ss)
+                    else:
+                        return Range(0)
+                else:
+                    raise ValueError(ooslice)
+            elif start > 0:
+                raise ValueError(ooslice)
+        else:
+            if self.start == self.stop:
+                raise IndexError('Range index out of range')
+            if not (all(v.is_integer or v.is_infinite for v in self._e.args) and
+                    ((self.stop - self.start)/self.step).is_extended_positive):
+                raise ValueError('Invalid method for symbolic Range')
+            if i == 0:
+                if self.start.is_infinite:
+                    raise ValueError(ooslice)
+                return self.start
+            if i == -1:
+                if self.stop.is_infinite:
+                    raise ValueError(ooslice)
+                return self.stop - self.step
+            n = self.size  # must be known for any other index
+            rv = (self.stop if i < 0 else self.start) + i*self.step
+            if rv.is_infinite:
+                raise ValueError(ooslice)
+            val = (rv - self.start)/self.step
+            rel = fuzzy_or([val.is_infinite,
+                            fuzzy_and([val.is_nonnegative, (n-val).is_extended_nonnegative])])
+            if rel:
+                return rv
+            if rel is None:
+                raise ValueError('Invalid method for symbolic Range')
+            raise IndexError("Range index out of range")
 
 
 class _NamedSet(Set):
@@ -1854,8 +2124,29 @@ def _series_native(expr, x, x0, n, dir):
         raise
 
 
-def _series_call(expr, x, x0, n, dir):
-    if n is not None and expr.has(Piecewise):
+def _series_call(expr, x, x0, n, dir, logx=None):
+    if n is None or logx is not None:
+        if x is None:
+            syms = expr.free_symbols
+            if not syms:
+                return expr
+            if len(syms) > 1:
+                raise ValueError("x must be given for multivariate functions.")
+            x = syms.pop()
+        x = sympify(x)
+        if not expr.has(x):
+            return (s for s in [expr]) if n is None else expr
+        if logx is not None:
+            # Expr.series(logx=...): log(x) is the independent symbol logx.
+            logx = sympify(logx)
+            lx = log(x)
+            expr = expr.xreplace({lx: logx})
+            if n is None:
+                return (t.xreplace({lx: logx}) for t in _expr_lseries(expr, x, x0, dir))
+            result = _series_call(expr, x, x0, n, dir)
+            return result.xreplace({lx: logx})
+        return _expr_lseries(expr, x, x0, dir)
+    if expr.has(Piecewise):
         if x is None:
             syms = expr.free_symbols
             if not syms:
@@ -1871,7 +2162,20 @@ def _series_call(expr, x, x0, n, dir):
             result = _pw_series(expr, x, x0, n, dir)
             if result is not None:
                 return result
-    return _series_native(expr, x, x0, n, dir)
+    try:
+        return _series_native(expr, x, x0, n, dir)
+    except NotImplementedError:
+        # Expr.series expands in a positive dummy when x has no sign
+        # assumption; Abs(x*y) then evaluates to x*Abs(y) first.
+        sx = sympify(x) if x is not None else None
+        if (sx is None or not getattr(sx, 'is_Symbol', False) or x0 != 0 or dir != '+'
+                or sx.is_positive is not None or sx.is_negative is not None):
+            raise
+        xpos = Dummy('x', positive=True)
+        shifted = sympify(expr).subs(sx, xpos)
+        if not shifted.has(Abs, sign, arg, Heaviside):
+            raise
+        return _series_native(shifted, xpos, x0, n, dir).subs(xpos, sx)
 
 
 def series(expr, x=None, x0=0, n=6, dir="+"):
@@ -1891,7 +2195,7 @@ O = Order
 
 
 def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
-    return _series_call(self, x, x0, n, dir)
+    return _series_call(self, x, x0, n, dir, logx)
 
 
 def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
@@ -1904,7 +2208,7 @@ def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
             return self
         if _has_pw(self, x):
             return eval_nseries(self, x, n)
-    return _series_call(self, x, x0, n, dir)
+    return _series_call(self, x, x0, n, dir, logx)
 
 
 def _expr_taylor_term(self, n, x, *previous_terms):
@@ -1928,7 +2232,7 @@ def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
         s = _series_call(self, x, x0, n, dir)
         terms = s.removeO()
         terms = list(terms.args) if terms.is_Add else ([terms] if terms != 0 else [])
-        terms = _sort_series_terms(terms, s)
+        terms = _sort_series_terms(terms, s, x, x0 == 0)
         for t in terms[done:]:
             yield t
         done = len(terms)
@@ -1937,9 +2241,23 @@ def _expr_lseries(self, x=None, x0=0, dir="+", logx=None, cdir=0):
         n *= 2
 
 
-def _sort_series_terms(terms, s):
+def _sort_series_terms(terms, s, x=None, at_zero=False):
     order = [str(t) for t in (s.as_ordered_terms() if s.is_Add else [s])]
-    return sorted(terms, key=lambda t: order.index(str(t)) if str(t) in order else len(order))
+    terms = sorted(terms, key=lambda t: order.index(str(t)) if str(t) in order else len(order))
+    if not at_zero:
+        return terms
+    if x is None:
+        syms = s.free_symbols
+        x = next(iter(syms)) if len(syms) == 1 else None
+    if x is not None:
+        # The terms come in increasing order in x (Expr.lseries).
+        try:
+            exponents = [_core._leadterm(t, sympify(x))[1] for t in terms]
+            if all(e.is_number and e.is_real for e in exponents):
+                return [t for _, t in sorted(zip(exponents, terms), key=lambda p: float(p[0]))]
+        except Exception:
+            pass
+    return terms
 
 
 def _expr_leadterm(self, x, x0=0, dir="+"):
@@ -1959,6 +2277,33 @@ Expr.removeO = lambda self: _core._remove_o(self)
 Expr.getO = _expr_getO
 Expr.getn = _expr_getn
 Expr.lseries = _expr_lseries
+
+
+def _add_extract_leading_order(self, symbols, point=None):
+    """The leading terms of the sum with their orders (Add.extract_leading_order)."""
+    from .utilities.iterables import is_sequence
+    lst = []
+    symbols = list(symbols if is_sequence(symbols) else [symbols])
+    if not point:
+        point = [0]*len(symbols)
+    seq = [(f, Order(f, *zip(symbols, point))) for f in self.args]
+    for ef, of in seq:
+        for e, o in lst:
+            if o.contains(of) and o != of:
+                of = None
+                break
+        if of is None:
+            continue
+        new_lst = [(ef, of)]
+        for e, o in lst:
+            if of.contains(o) and o != of:
+                continue
+            new_lst.append((e, o))
+        lst = new_lst
+    return tuple(lst)
+
+
+_node_types.node_class('Add').extract_leading_order = _add_extract_leading_order
 Expr.leadterm = _expr_leadterm
 Expr.as_leading_term = _expr_as_leading_term
 Expr.is_Order = property(lambda self: _core._is_order(self))

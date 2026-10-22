@@ -3514,3 +3514,69 @@ for constructing every stabilizer chain.
   remain separate obligations.
 
 These gaps prevent a claim of global algorithmic equivalence with SymPy.
+
+## Wave 4: core matching, series, sums and fancy sets (missing_core)
+
+Implemented as SymPy 1.14 ports (tests in
+`tests/test_missing_core_wave4_parity.py`):
+
+- `Basic.matches`/`Basic.match`. `Wild`, `Pow`, `Add`, `Mul` and `MatMul`
+  `matches` accept an old-match dictionary and the `old` flag. `MatMul`
+  matching goes through the commutative-part matcher. `WildFunction` keeps
+  `nargs` per instance.
+- `series(n=None)` lazy generator. `series`/`nseries` with `logx`.
+  `Add.extract_leading_order`.
+- `Abs` series where the sign of the leading coefficient is not known: when
+  the native engine refuses, the expansion is retried in a positive dummy, as
+  `Expr.series` does. `Abs(y*x).series(x)` gives `x*Abs(y)`.
+- `N`/`evalf` of `Sum(f, (k, a, oo))` via `hypsum` (fixed-point summation or
+  Richardson/Shanks extrapolation). Euler-Maclaurin is the fallback.
+  Divergence raises SymPy's `ValueError`. `Sum.euler_maclaurin`.
+- `expand_power_base` (the full `Pow._eval_expand_power_base`, including
+  `force` and `deep`).
+- `Range`: indexing, slicing, `reversed`, iteration and the canonical stop of
+  symbolic ranges. `ImageSet`: one-variable membership (solving over the base
+  set) and iteration.
+- `ComplexRegion` now returns `CartesianComplexRegion`/`PolarComplexRegion`
+  (polar angles normalized). Added `from_real`, plus the reference union and
+  intersection rules (two regions of the same kind, or a region and a real
+  set).
+- Bordered `hessian(f, vars, constraints)`, `Trace`/`Determinant` simplify
+  (`doit` of an unhandled head), and `FunctionMatrix` with string lambdas or a
+  `KroneckerDelta` head. Sparse `RL`/`CL`.
+- `solve_triangulated` follows the reference algorithm: without `extension`
+  only the ground-domain roots are returned, honouring `domain=`.
+
+Intentional divergences (SymPy is wrong):
+
+- Symbolic `Range` canonicalization: when the stop has a rational offset,
+  test `((end - stop)/step).is_negative` rather than `(end - stop).is_negative`.
+  SymPy drops an element for negative steps: it gives `Range(n, n - 20, -3)`
+  6 elements instead of 7.
+- `Range` with a finite start and an infinite stop:
+  - Integer indices test `(n - i).is_extended_nonnegative`. SymPy raises
+    `IndexError` for `Range(1, oo)[5]`.
+  - Slices are indexed from the start. SymPy's mapping onto the reversed
+    range is off by one: `Range(1, oo)[0:3]` gives `Range(0)` and
+    `Range(1, oo)[2:5]` gives `Range(3, 5)`.
+  - SymPy's `ValueError` for an ambiguous unbounded re-stride (`[::2]`) is
+    kept.
+
+Remaining gaps:
+
+- `solve_triangulated(..., extension=True)` raises `NotImplementedError`. The
+  reference lifts roots into `CRootOf` algebraic-field towers, and the native
+  polynomial domains cannot yet evaluate polynomials at `CRootOf` generators.
+- The `Abs` series of an argument whose leading coefficient has an unknown
+  sign, and which does not factor out of `Abs` in a positive dummy, still
+  raises `NotImplementedError`. Example: `Abs(x*y + x**2)`; SymPy returns
+  `sign(y)*(x*y + x**2)`. `Abs(y*x).nseries(x)` gives `x*Abs(y)`, where SymPy
+  gives the equal form `x*y*sign(y)`.
+- The default `expand()` and the native `expand_power_base_deep` (used by
+  meijerint) do not yet split `(2*x)**y` the way the public
+  `expand_power_base` does.
+- Other `ComplexRegion` operations raise `NotImplementedError`: complements,
+  mixed polar/Cartesian unions, and unions with non-real sets. Membership of
+  float points also differs from SymPy, which raises `TypeError` (the
+  message differs). `ImageSet` membership for maps of several variables is
+  still decided only by the native predicate.

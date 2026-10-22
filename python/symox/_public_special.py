@@ -161,6 +161,35 @@ def _special_nodes(expr):
     return tuple(node for node in _nodes(expr) if node.class_name in _SPECIAL)
 
 
+@lru_cache(maxsize=8192)
+def _any_sum(expr):
+    return any(node.class_name == 'Sum' for node in _nodes(expr))
+
+
+@lru_cache(maxsize=8192)
+def _infinite_sums(expr):
+    # Closed Sum nodes over [a, oo): evaluated numerically as evalf_sum does.
+    from . import S
+    found = []
+    for node in _nodes(expr):
+        if node.class_name == 'Sum' and len(node.args) == 2 and not node.free_symbols:
+            limits = node.args[1]
+            if len(limits.args) == 3 and limits.args[2] is S.Infinity:
+                found.append(node)
+    return tuple(found)
+
+
+def _evalf_infinite_sums(value,n):
+    from ._concrete import evalf_infinite_sum
+    replacements = {}
+    for node in reversed(_infinite_sums(value)):
+        replaced = node.xreplace(replacements) if replacements else node
+        number = evalf_infinite_sum(replaced,int(n))
+        if number is not None:
+            replacements[node] = number
+    return value.xreplace(replacements) if replacements else value
+
+
 def _numeric_value(node,digits):
     import mpmath
     mp = mpmath.mp.clone()
@@ -249,8 +278,16 @@ def install(namespace):
         if not _special_nodes(value) and not (
                 isinstance(substitutions,dict) and
                 any(_special_nodes(v) for v in substitutions.values())):
+            if _any_sum(value):
+                if isinstance(substitutions,dict) and substitutions:
+                    # evalf_sum substitutes before summing.
+                    value = value.subs(substitutions)
+                if _infinite_sums(value):
+                    value = _evalf_infinite_sums(value,n)
             return old_evalf(value,n,*args,**kwargs)
         if substitutions:value = value.subs(substitutions)
+        if _infinite_sums(value):
+            value = _evalf_infinite_sums(value,n)
         replacements = {}
         for node in reversed(_special_nodes(value)):
             replaced = node.xreplace(replacements) if replacements else node
@@ -412,5 +449,7 @@ def install(namespace):
             if getattr(x,'is_NDimArray',False):x=x.as_immutable()
             return x.applyfunc(lambda entry:N(entry,n,**kwargs))
         value = sympify(x)
+        if isinstance(value,Expr) and _any_sum(value):
+            return value.evalf(n,**kwargs)
         return value.evalf(n,**kwargs) if any(v.class_name in _NUMERIC|{'ComplexRootOf'} for v in _special_nodes(value)) else old_N(x,n,**kwargs)
     namespace['N'] = N

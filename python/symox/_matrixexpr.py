@@ -47,8 +47,15 @@ class MatrixSymbol(MatrixExpr):
 def _normalize_matrix_function(function, arity, context):
     """Accept native Lambda values and known public symbolic function heads."""
     from . import Dummy, Function, Lambda
-    if isinstance(function, str):
+    if isinstance(function, str) and context != 'FunctionMatrix':
         raise NotImplementedError(f'{context} requires a native Lambda; function strings are unsupported')
+    if isinstance(function, str):
+        # FunctionMatrix sympifies the string; only a Lambda or a function
+        # head is accepted.
+        from . import sympify
+        function = sympify(function)
+        if isinstance(function, _core.Expr) and getattr(function.func, '__name__', None) != 'Lambda':
+            raise ValueError(f'{function} should be compatible with SymPy function classes.')
     if isinstance(function, _core.Expr):
         return function
     if isinstance(function, Function):
@@ -63,7 +70,7 @@ def _normalize_matrix_function(function, arity, context):
         import sys
         namespace = vars(sys.modules[__package__])
         if arity == 2:
-            names = ('atan2', 'Max', 'Min', 'Mod', 'log', 'beta', 'binomial',
+            names = ('atan2', 'Max', 'Min', 'Mod', 'log', 'beta', 'binomial', 'KroneckerDelta',
                      'polygamma', 'besselj', 'bessely', 'besseli', 'besselk',
                      'hankel1', 'hankel2', 'jn', 'yn')
         else:

@@ -32,6 +32,13 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         if expression.is_zero:return S.Zero if not expression.is_Number else expression
         return hook(**options)
     if not expression.args:return expression
+    if getattr(expression.func,'__name__',None) in ('Trace','Determinant'):
+        # SymPy simplifies the Expr arguments, then returns done(expr), that
+        # is expr.doit() for an unhandled head.
+        argument=expression.args[0]
+        if getattr(argument,'_symox_matrixexpr',False) and doit and ratio==1.7 and measure is count_ops and not rational and not inverse:
+            expression=expression.func(simplify(argument))
+        return expression.doit() if doit else expression
     if getattr(expression,'is_Relational',False) and expression.rel_op in ('<','<=','>','>='):
         return _relational_simplify(expression,options)
     from .logic.boolalg import BooleanFunction, Xor

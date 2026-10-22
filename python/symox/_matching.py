@@ -148,7 +148,9 @@ def _wild_function(pattern, expr, repl_dict):
 
 def _basic(pattern, expr, repl_dict, old):
     from . import sympify
-    expr = sympify(expr)
+    from ._basic import Basic
+    if not isinstance(expr, Basic):
+        expr = sympify(expr)
     if not _same_class(pattern, expr):
         return None
     repl_dict = {} if repl_dict is None else dict(repl_dict)
@@ -413,7 +415,7 @@ def _mul(pattern, expr, repl_dict, old):
 def _expand_pows(arg_list):
     new_args = []
     for arg in arg_list:
-        if arg.is_Pow and arg.exp > 0:
+        if getattr(arg, "is_Pow", False) and arg.exp > 0:
             new_args.extend([arg.base] * int(arg.exp))
         else:
             new_args.append(arg)

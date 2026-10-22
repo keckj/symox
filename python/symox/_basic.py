@@ -176,6 +176,17 @@ class Basic(metaclass=_BasicMeta):
             return self
         return self.func(*(arg.doit(**hints) if hasattr(arg, 'doit') else arg for arg in self.args))
 
+    def matches(self, expr, repl_dict=None, old=False):
+        from ._matching import matches
+        return matches(self, expr, repl_dict, old=old)
+
+    def match(self, pattern, old=False):
+        from ._matching import matches
+        from . import sympify
+        if not isinstance(pattern, Basic):
+            pattern = sympify(pattern)
+        return matches(pattern, self, old=old)
+
     def _symox_(self):
         raise NotImplementedError('Formal Basic containers are not native scalar expressions')
 

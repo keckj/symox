@@ -903,3 +903,143 @@ def kroneckersimp(expr):
                             return Integer(0)*value
         return value
     return visit(expr)
+
+
+def _pow_expand_power_base(self, force=False):
+    """SymPy's ``Pow._eval_expand_power_base``: ``(a*b)**n -> a**n * b**n``."""
+    from . import S, Mul, Pow
+    from .core.logic import fuzzy_bool
+    from .utilities.iterables import sift
+    b = self.base
+    e = self.exp
+    if not b.is_Mul:
+        return self
+    cargs, nc = b.args_cnc(split_1=False)
+    if nc:
+        nc = [_pow_expand_power_base(i, force) if i.is_Pow else i for i in nc]
+        if e.is_Integer:
+            if e.is_positive:
+                rv = Mul(*nc*e)
+            else:
+                rv = Mul(*[i**-1 for i in nc[::-1]]*-e)
+            if cargs:
+                rv *= Mul(*cargs)**e
+            return rv
+        if not cargs:
+            return Pow(Mul(*nc), e, evaluate=False)
+        nc = [Mul(*nc)]
+    other, maybe_real = sift(cargs, lambda x: x.is_extended_real is False, binary=True)
+
+    def pred(x):
+        if x is S.ImaginaryUnit:
+            return S.ImaginaryUnit
+        polar = x.is_polar
+        if polar:
+            return True
+        if polar is None:
+            return fuzzy_bool(x.is_extended_nonnegative)
+    sifted = sift(maybe_real, pred)
+    nonneg = sifted[True]
+    other += sifted[None]
+    neg = sifted[False]
+    imag = sifted[S.ImaginaryUnit]
+    if imag:
+        I = S.ImaginaryUnit
+        i = len(imag) % 4
+        if i == 0:
+            pass
+        elif i == 1:
+            other.append(I)
+        elif i == 2:
+            if neg:
+                nonn = -neg.pop()
+                if nonn is not S.One:
+                    nonneg.append(nonn)
+            else:
+                neg.append(S.NegativeOne)
+        else:
+            if neg:
+                nonn = -neg.pop()
+                if nonn is not S.One:
+                    nonneg.append(nonn)
+            else:
+                neg.append(S.NegativeOne)
+            other.append(I)
+        del imag
+    if force or e.is_integer:
+        cargs = nonneg + neg + other
+        other = nc
+    else:
+        if len(neg) > 1:
+            o = S.One
+            if not other and neg[0].is_Number:
+                o *= neg.pop(0)
+            if len(neg) % 2:
+                o = -o
+            for n in neg:
+                nonneg.append(-n)
+            if o is not S.One:
+                other.append(o)
+        elif neg and other:
+            if neg[0].is_Number and neg[0] is not S.NegativeOne:
+                other.append(S.NegativeOne)
+                nonneg.append(-neg[0])
+            else:
+                other.extend(neg)
+        else:
+            other.extend(neg)
+        del neg
+        cargs = nonneg
+        other += nc
+    rv = S.One
+    if cargs:
+        if e.is_Rational:
+            npow, cargs = sift(cargs, lambda x: x.is_Pow and x.exp.is_Rational and x.base.is_number,
+                               binary=True)
+            rv = Mul(*[Pow(b.func(*b.args), e) for b in npow])
+        rv *= Mul(*[Pow(b, e, evaluate=False) for b in cargs])
+    if other:
+        rv *= Pow(Mul(*other), e, evaluate=False)
+    return rv
+
+
+def _expand_power_base_hint(expr, deep, force):
+    # Expr._expand_hint of the power_base hint: children first (always deep
+    # below the top level), then the node itself.
+    from ._core import Expr
+    hit = False
+    if not isinstance(expr, Expr):
+        return expr, False
+    if deep and expr.args and not expr.is_Atom:
+        changes = {}
+        for arg in expr.args:
+            new, arghit = _expand_power_base_hint(arg, True, force)
+            if arghit:
+                hit = True
+                changes[arg] = new
+        if hit:
+            try:
+                expr = expr.func(*[changes.get(a, a) for a in expr.args])
+            except Exception:
+                expr = expr.xreplace(changes)
+    if expr.is_Pow:
+        new = _pow_expand_power_base(expr, force)
+        if new != expr:
+            return new, True
+    return expr, hit
+
+
+def expand_power_base(expr, deep=True, force=False):
+    """Split powers of products, ``(x*y)**z -> x**z*y**z``, where valid.
+
+    A port of SymPy's ``expand_power_base`` (the ``power_base`` hint of
+    ``expand``): nonnegative factors (and, with ``force``, every factor)
+    are separated; for an integer exponent all commutative factors are.
+    """
+    from . import sympify
+    expr = sympify(expr)
+    if not isinstance(expr, Expr) and hasattr(expr, 'applyfunc'):
+        return expr.applyfunc(lambda entry: expand_power_base(entry, deep=deep, force=force))
+    if not isinstance(expr, Expr):
+        return expr
+    return _expand_power_base_hint(expr, deep, force)[0]

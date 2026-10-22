@@ -275,6 +275,8 @@ class _SparseBase:
     def nnz(self): return len(self._data)
     def row_list(self): return [(i,j,self._data[i,j]) for i,j in sorted(self._data)]
     def col_list(self): return [(i,j,self._data[i,j]) for i,j in sorted(self._data, key=lambda k:(k[1],k[0]))]
+    RL = property(row_list)
+    CL = property(col_list)
     def values(self): return [v for _,_,v in self.row_list()]
     def iter_values(self): return iter(self.values())
     def iter_items(self): return iter(sorted(self._data.items()))
