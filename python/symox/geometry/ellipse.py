@@ -21,6 +21,57 @@ def _sort_points(points):
     return sorted(unique(points), key=cmp_to_key(order))
 
 
+def _ordered_points(points):
+    from .. import Tuple
+    from ..core.sorting import ordered
+    return [Point(*item.args) for item in ordered([Tuple(*point.args) for point in unique(points)])]
+
+
+def _real_roots(polynomial):
+    """All real roots of a univariate polynomial, or NotImplementedError."""
+    from .. import roots
+    if polynomial.degree() <= 0:
+        return []
+    found = roots(polynomial)
+    if sum(found.values()) != polynomial.degree():
+        raise NotImplementedError('Conic intersections need every root of the eliminant')
+    result = []
+    for root in found:
+        root = clean(root)
+        if root.is_real is True or (root.is_number and zero(root.as_real_imag()[1])):
+            result.append(clean(root.as_real_imag()[0]) if root.is_real is not True else root)
+        elif root.is_real is None and not root.is_number:
+            raise NotImplementedError('Conic intersection reality is undecidable')
+    return result
+
+
+def _conic_intersection(eq1, eq2, x, y):
+    """Real common zeros of two planar polynomial equations (no common component)."""
+    from .. import Poly, resultant, gcd, expand
+    eq1, eq2 = (expand(e.as_numer_denom()[0]) for e in (eq1, eq2))
+    eliminant = Poly(resultant(eq1, eq2, y), x)
+    if eliminant.is_zero:
+        raise NotImplementedError('The conics share a common component')
+    points = []
+    for xr in _real_roots(eliminant):
+        # A polynomial gcd over algebraic coefficients can miss common
+        # factors, so the roots of one equation are checked in the other.
+        polys = sorted((Poly(expand(e.xreplace({x: xr})), y) for e in (eq1, eq2)),
+                       key=lambda p: (p.degree() <= 0, p.degree()))
+        first, second = polys
+        if first.degree() <= 0:
+            if zero(first.as_expr()) and zero(second.as_expr()):
+                raise NotImplementedError('Vertical common component')
+            continue
+        for yr in _real_roots(first):
+            residue = clean(second.as_expr().xreplace({y: yr}))
+            if residue == 0 or residue.is_zero is True:
+                points.append(Point(xr, yr))
+            elif residue.is_zero is None:
+                raise NotImplementedError('Conic intersection membership is undecidable')
+    return _ordered_points(points)
+
+
 class Ellipse(GeometrySet):
     __slots__ = ()
 
@@ -104,11 +155,120 @@ class Ellipse(GeometrySet):
         from .. import elliptic_e
         return 4*self.major*elliptic_e(self.eccentricity**2)
 
-    def equation(self, x='x', y='y'):
+    def equation(self, x='x', y='y', _slope=None):
         from .. import Symbol
         x = Symbol(x, real=True) if isinstance(x, str) else scalar(x)
         y = Symbol(y, real=True) if isinstance(y, str) else scalar(y)
-        return (x-self.center.x)**2/self.hradius**2+(y-self.center.y)**2/self.vradius**2-1
+        dx, dy = x-self.center.x, y-self.center.y
+        if _slope is not None:
+            _slope = scalar(_slope)
+            L = (dy-_slope*dx)**2
+            l = (_slope*dy+dx)**2
+            h = 1+_slope**2
+            return l/(h*self.major**2)+L/(h*self.minor**2)-1
+        return (dx/self.hradius)**2+(dy/self.vradius)**2-1
+
+    def auxiliary_circle(self):
+        from .. import Max
+        return Circle(self.center, Max(self.hradius, self.vradius))
+
+    def director_circle(self):
+        from .. import sqrt
+        return Circle(self.center, sqrt(self.hradius**2+self.vradius**2))
+
+    def evolute(self, x='x', y='y'):
+        from .. import Symbol, Rational
+        if isinstance(self, Circle):
+            raise NotImplementedError('Evolute of arbitrary Ellipse is not supported.')
+        x = Symbol(x, real=True) if isinstance(x, str) else scalar(x)
+        y = Symbol(y, real=True) if isinstance(y, str) else scalar(y)
+        t1 = (self.hradius*(x-self.center.x))**Rational(2, 3)
+        t2 = (self.vradius*(y-self.center.y))**Rational(2, 3)
+        return t1+t2-(self.hradius**2-self.vradius**2)**Rational(2, 3)
+
+    def plot_interval(self, parameter='t'):
+        from .. import Symbol, S
+        t = Symbol(parameter, real=True) if isinstance(parameter, str) else scalar(parameter)
+        return [t, -S.Pi, S.Pi]
+
+    def random_point(self, seed=None):
+        from .. import Rational, sqrt, Dummy, cos, sin
+        from .line import _rng
+        rng = _rng(seed)
+        r = Rational(rng.random())
+        c = 2*r-1
+        s = sqrt(1-c**2)
+        return Point(self.center.x+self.hradius*c, self.center.y+self.vradius*s)
+
+    def second_moment_of_area(self, point=None):
+        from .. import S
+        I_xx = (S.Pi*self.hradius*self.vradius**3)/4
+        I_yy = (S.Pi*self.hradius**3*self.vradius)/4
+        I_xy = S.Zero
+        if point is None:
+            return I_xx, I_yy, I_xy
+        point = Point(point, dim=2)
+        I_xx = I_xx+self.area*(point[1]-self.center.y)**2
+        I_yy = I_yy+self.area*(point[0]-self.center.x)**2
+        I_xy = I_xy+self.area*(point[0]-self.center.x)*(point[1]-self.center.y)
+        return I_xx, I_yy, I_xy
+
+    def polar_second_moment_of_area(self):
+        moment = self.second_moment_of_area()
+        return moment[0]+moment[1]
+
+    def section_modulus(self, point=None):
+        from .. import Max
+        x_c, y_c = self.center
+        if point is None:
+            x_min, y_min, x_max, y_max = self.bounds
+            y = Max(y_c-y_min, y_max-y_c)
+            x = Max(x_c-x_min, x_max-x_c)
+        else:
+            point = Point(point, dim=2)
+            y, x = point.y-y_c, point.x-x_c
+        moment = self.second_moment_of_area()
+        return moment[0]/y, moment[1]/x
+
+    def normal_lines(self, p, prec=None):
+        from .. import oo, Symbol, Dummy, solve, Poly, nsimplify
+        from .util import idiff
+        p = Point(p, dim=2)
+        rv = []
+        if p.x == self.center.x:
+            rv.append(Line(self.center, slope=oo))
+        if p.y == self.center.y:
+            rv.append(Line(self.center, slope=0))
+        if rv:
+            return rv
+        x, y = Dummy('ellipse_dummy', real=True), Dummy('ellipse_dummy', real=True)
+        eq = self.equation(x, y)
+        dydx = idiff(eq, y, x)
+        norm = -1/dydx
+        slope = (y-p.y)/(x-p.x)
+        yis = solve(slope-norm, y)[0]
+        xeq = eq.subs(y, yis).as_numer_denom()[0].expand()
+        if len(xeq.free_symbols) != 1:
+            raise NotImplementedError('intersections for the general ellipse are not supported')
+        xsol = Poly(xeq, x).real_roots()
+        points = [Point(i, solve(eq.subs(x, i), y)[0]) for i in xsol]
+        slopes = [clean(norm.subs({x: pt.x, y: pt.y})) for pt in points]
+        if prec is not None:
+            points = [pt.n(prec) for pt in points]
+            slopes = [i if i in (oo, -oo) else i.n(prec) for i in slopes]
+        return [Line(pt, slope=s) for pt, s in zip(points, slopes)]
+
+    def reflect(self, line):
+        from .. import oo, Symbol
+        if line.slope in (0, oo):
+            return self.func(self.center.reflect(line), -self.hradius, self.vradius)
+        x, y = Symbol('_x', real=True), Symbol('_y', real=True)
+        expr = self.equation(x, y)
+        p = Point(x, y).reflect(line)
+        result = expr.xreplace({x: p.x, y: p.y})
+        raise NotImplementedError('General Ellipse is not supported but the equation '
+                                  'of the reflected Ellipse is given by the zeros of: '
+                                  'f(%s, %s) = %s' % (x, y, result))
 
     def contains(self, other):
         if isinstance(other, Ellipse):
@@ -183,7 +343,9 @@ class Ellipse(GeometrySet):
         if self.equals(o):
             return [self]
         if isinstance(o, Ellipse):
-            raise NotImplementedError('General ellipse-ellipse intersections require isolated algebraic roots')
+            from .. import Dummy
+            x, y = Dummy('x', real=True), Dummy('y', real=True)
+            return _conic_intersection(self.equation(x, y), o.equation(x, y), x, y)
         if hasattr(o, 'intersection'):
             return o.intersection(self)
         raise TypeError('Intersection requires a geometric entity')
@@ -304,6 +466,9 @@ class Circle(Ellipse):
 
     def rotate(self, angle, pt=None):
         return Circle(self.center.rotate(angle, pt), self.radius)
+
+    def reflect(self, line):
+        return self.func(self.center.reflect(line), -self.radius)
 
     def scale(self, x=1, y=1, pt=None):
         from .. import Abs

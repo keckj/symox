@@ -11,6 +11,11 @@ class Point(GeometryEntity):
             raise ValueError('A point requires at least two coordinates')
         if len(args) == 1:
             if isinstance(args[0], Point):
+                # SymPy keeps an existing point's coordinates unevaluated.
+                evaluate = False
+                target = dim if dim is not None else 2 if cls is Point2D else 3 if cls is Point3D else len(args[0])
+                if len(args[0]) == target:
+                    return args[0]
                 args = args[0].args
             elif getattr(getattr(args[0], 'func', None), '__name__', '') == 'Tuple':
                 args = args[0].args
@@ -21,8 +26,8 @@ class Point(GeometryEntity):
                     raise TypeError('Point requires coordinate values') from exc
         if dim is None:
             dim = 2 if cls is Point2D else 3 if cls is Point3D else len(args)
-        if dim not in (2, 3):
-            raise NotImplementedError('Points currently support dimensions two and three')
+        if dim < 2:
+            raise ValueError('At least two coordinates are required')
         if cls is Point2D and dim != 2 or cls is Point3D and dim != 3:
             raise ValueError('Coordinate dimension disagrees with the point class')
         if len(args) > dim:
@@ -39,7 +44,7 @@ class Point(GeometryEntity):
             raise ValueError('Euclidean coordinates must be finite')
         if evaluate:
             values = tuple(nsimplify(value, rational=True) for value in values)
-        return construct((Point2D if dim == 2 else Point3D) if cls is Point else cls, values)
+        return construct((Point2D if dim == 2 else Point3D if dim == 3 else Point) if cls is Point else cls, values)
 
     def __len__(self):
         return len(self.args)
@@ -110,6 +115,61 @@ class Point(GeometryEntity):
     def taxicab_distance(self, p):
         from .. import Abs
         return sum((Abs(v) for v in self-Point(p)), scalar(0))
+
+    def canberra_distance(self, p):
+        from .. import Abs
+        p = Point(p)
+        dim = max(len(self), len(p))
+        s, p = Point(self, dim=dim), Point(p, dim=dim)
+        if s.is_zero and p.is_zero:
+            raise ValueError('Cannot project to the zero vector.')
+        return sum((Abs(a-b)/(Abs(a)+Abs(b)) for a, b in zip(s, p)), scalar(0))
+
+    @property
+    def is_zero(self):
+        values = [value.is_zero for value in self]
+        if all(values):
+            return True
+        if any(value is False for value in values):
+            return False
+        return None
+
+    @property
+    def is_nonzero(self):
+        value = self.is_zero
+        return None if value is None else not value
+
+    @property
+    def origin(self):
+        return Point(*([0]*len(self)), evaluate=False)
+
+    @staticmethod
+    def project(a, b):
+        a, b = Point(a), Point(b)
+        dim = max(len(a), len(b))
+        a, b = Point(a, dim=dim), Point(b, dim=dim)
+        if b.is_zero:
+            raise ValueError('Cannot project to the zero vector.')
+        return b*(a.dot(b)/b.dot(b))
+
+    @property
+    def orthogonal_direction(self):
+        dim = len(self)
+        if self[0].is_zero:
+            return Point(*([1]+(dim-1)*[0]))
+        if self[1].is_zero:
+            return Point(*([0, 1]+(dim-2)*[0]))
+        return Point(*([-self[1], self[0]]+(dim-2)*[0]))
+
+    def reflect(self, line):
+        from .line import LinearEntity
+        if not isinstance(line, LinearEntity) or line.ambient_dimension != 2:
+            raise AttributeError('Reflection requires a planar line')
+        a, b = line.p1, line.direction
+        normal = Point(-b.y, b.x)
+        planar = Point(self.x, self.y)
+        image = planar-normal*clean(2*(planar-a).dot(normal)/normal.dot(normal))
+        return Point(*(tuple(image)+tuple(self.args[2:])), evaluate=False)
 
     def midpoint(self, p):
         return (self + Point(p))/2
@@ -230,6 +290,19 @@ class Point3D(Point):
         a, b, c = self
         d, e, f = other
         return Point3D(clean(b*f-c*e), clean(c*d-a*f), clean(a*e-b*d), evaluate=False)
+
+    def direction_ratio(self, point):
+        return [point.x-self.x, point.y-self.y, point.z-self.z]
+
+    def direction_cosine(self, point):
+        from .. import sqrt
+        a = self.direction_ratio(point)
+        b = sqrt(sum((i**2 for i in a), scalar(0)))
+        return [(point.x-self.x)/b, (point.y-self.y)/b, (point.z-self.z)/b]
+
+    @staticmethod
+    def are_collinear(*points):
+        return Point.is_collinear(*points)
 
     @staticmethod
     def are_coplanar(*points):

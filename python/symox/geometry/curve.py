@@ -46,6 +46,8 @@ class Curve(GeometrySet):
 
     def arbitrary_point(self, parameter='t'):
         from .. import Symbol
+        if parameter is None:
+            return Point(*self.functions)
         parameter = Symbol(parameter, real=True) if isinstance(parameter, str) else scalar(parameter)
         if parameter in self.free_symbols:
             raise ValueError('Parameter conflicts with a free coordinate symbol')
@@ -77,3 +79,8 @@ class Curve(GeometrySet):
 
     def scale(self, x=1, y=1, z=1, pt=None):
         return Curve(Point(*self.functions).scale(x, y, z, pt=pt).args, self.limits)
+
+    def reflect(self, line):
+        # SymPy 1.14 returns the curve unchanged (it only maps Point atoms);
+        # the mathematically correct image reflects the coordinate functions.
+        return Curve(Point(*self.functions, evaluate=False).reflect(line).args, self.limits)
