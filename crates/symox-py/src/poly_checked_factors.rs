@@ -687,6 +687,30 @@ fn global_fraction_list<'py>(
 
 pub(super) fn ground(p: &PolyValue, py: Python<'_>) -> PyResult<PyObject> {
     let result = PyDict::new(py);
+    // The reference `Poly.ground_roots` reads the linear factors of
+    // `factor_list`, which raises over the inexact composites `RR[y]`,
+    // `RR(y)`, ... and runs over RR through its exact conversion.
+    if let Some(g) = p.expression.as_ref().and_then(|e| e.ground.as_ref()).filter(|g| g.inexact.is_some()) {
+        return Err(err(symox::poly::inexact_ground::factor_error(g)));
+    }
+    let legacy_float = p.expression.is_none() && p.field.is_none() && p.algebraic.is_none() && p.base.modulus.is_none() && p.base.domain == symox::poly::polyobj::Domain::RR && p.base.ngens == 1;
+    if legacy_float && p.base.domain_gens().iter().any(|g| !g.is_constant(symox::expr::Constant::I)) {
+        return Err(err(symox::poly::convert::PolyError::Reference { kind: "TypeError", message: "unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'".into() }));
+    }
+    if legacy_float && p.base.domain_gens().is_empty() {
+        let poly = PyPoly { p: p.clone() }.into_pyobject(py)?;
+        let factors = poly.call_method0("factor_list")?.get_item(1)?;
+        for item in factors.try_iter()? {
+            let item = item?;
+            let (factor, k) = (item.get_item(0)?, item.get_item(1)?);
+            if factor.call_method0("degree")?.extract::<i64>().ok() == Some(1) {
+                let coeffs = factor.call_method0("all_coeffs")?;
+                let (a, b) = (coeffs.get_item(0)?, coeffs.get_item(1)?);
+                result.set_item(b.neg()?.div(&a)?, k)?;
+            }
+        }
+        return Ok(result.into_any().unbind());
+    }
     for (root, multiplicity) in native::ground_roots(p, Limits::default()).map_err(err)? {
         result.set_item(w(root), multiplicity)?;
     }

@@ -152,7 +152,12 @@ def test_unknown_flags_and_unsupported_domains_fail_explicitly():
     with pytest.raises(sm.OptionError):sm.ground_roots(x*x-1,x,bogus=True)
     import sympy as sy
     for p in [sm.Poly(0.5*x+1,x),sm.Poly(sm.sin(y)*x+1,x)]:
-        with pytest.raises(ValueError,match='exact coefficient domain'):p.ground_roots()
+        if p.domain==sm.RR:
+            # The reference reads the linear factors of factor_list over RR.
+            q=sy.Poly(sm.to_sympy(p.as_expr()),sm.to_sympy(x))
+            assert str(p.ground_roots())==str(q.ground_roots())
+        else:
+            with pytest.raises(ValueError,match='exact coefficient domain'):p.ground_roots()
         # The legacy RR and ZZ[sin(y)] domains take the factorization of the
         # reference.
         q=sy.Poly(sm.to_sympy(p.as_expr()),sm.to_sympy(x))

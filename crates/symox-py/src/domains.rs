@@ -116,6 +116,18 @@ impl PyDomain {
             // polynomial generators, which is the reference polynomial ring.
             return Ok(Self{inner:ExactDomain::Functions{integral:p.domain==Domain::ZZ,ring:true,parameters:p.base.domain_gens().to_vec(),order:"lex".into()}});
         }
+        if p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && p.domain == Domain::RR && !p.base.domain_gens().is_empty() {
+            // Legacy floats over coefficient generators: `RR[y]`, or `CC`,
+            // `CC[y]` when the imaginary unit is one of them.
+            let i = Expr::i();
+            let complex = p.base.domain_gens().contains(&i);
+            let symbols: Vec<Expr> = p.base.domain_gens().iter().filter(|g| **g != i).cloned().collect();
+            if symbols.is_empty() {
+                return Ok(Self { inner: ExactDomain::Inexact { precision: 53, complex: true } });
+            }
+            let ground = symox::poly::gaussian_ground::GaussianGround { integral: false, ring: true, symbols, inexact: Some(symox::poly::inexact_ground::Inexact { precision: 53, complex }) };
+            return Ok(Self { inner: ground.domain() });
+        }
         if p.field.is_none() && p.algebraic.is_none() && !p.base.domain_gens().is_empty() {
             return Err(PyNotImplementedError::new_err(
                 "this legacy coefficient backend has no implemented typed Domain descriptor",
