@@ -206,6 +206,18 @@ impl Gruntz {
         let x = self.x.clone();
         let two = Expr::int(2);
         Ok(match e.kind() {
+            // `x -> oo` is a positive variable in the reference gruntz, so a
+            // Heaviside or DiracDelta whose argument has an eventual sign
+            // evaluates (`Heaviside(1/x)` is `1`); `H0` is never reached.
+            Kind::Func(f @ (Func::Heaviside | Func::DiracDelta), args) if !args.is_empty() && depends(&args[0], &x) => {
+                match self.sign(&args[0]) {
+                    Ok(s) if s != 0 && *f == Func::DiracDelta => Expr::zero(),
+                    Ok(1) => Expr::one(),
+                    Ok(-1) => Expr::zero(),
+                    Ok(_) => return unknown(format!("sign of {} near the limit point", args[0])),
+                    Err(err) => return Err(err),
+                }
+            }
             Kind::Pow(b, p) if depends(p, &x) || (depends(b, &x) && !p.is_number()) => {
                 fx::exp(&mul2(p, &simp_log(&fx::log(b))))
             }

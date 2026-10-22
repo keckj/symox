@@ -222,7 +222,11 @@ fn fast_path(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> Option<Expr> {
         return None;
     }
     let logt = Expr::symbol("_symox_lim_logt");
-    let lt = leading_term_with(e, x, x0, minus, &logt, &logt).ok()?;
+    let lt = match leading_term_with(e, x, x0, minus, &logt, &logt) {
+        Ok(lt) => lt,
+        Err(_) if crate::series::vanishes_near(e, x, x0, minus) => return Some(Expr::zero()),
+        Err(_) => return None,
+    };
     if depends(&lt.coeff_logt, x) {
         return None;
     }

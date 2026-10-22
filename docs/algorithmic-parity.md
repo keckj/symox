@@ -679,7 +679,7 @@ Remaining gaps in this area:
   S.Half)` is `Heaviside(x)`, a Float `H0` is kept (`Heaviside(x, 0.5)`).
   Printing (str, srepr, latex, pretty, C code), `rewrite(Piecewise)`, the
   value `H0` at zero (also through `subs` and `xreplace`),
-  `diff` (a derivative with respect to a symbol inside `H0` is held), the
+  `diff`, the
   ordering of `Heaviside(x)` against `Heaviside(x, 0)`, `is_real`,
   `is_finite`, `conjugate`, `as_real_imag`, `lambdify`, pickling and the
   conversions to and from SymPy follow the reference. `integrate` and
@@ -696,22 +696,92 @@ Remaining gaps in this area:
 
 Remaining gaps in this area:
 
-- `series` of `Heaviside` (one or two arguments) raises
-  `NotImplementedError`; SymPy expands around nonzero points and returns
-  the one-sided value.
-- `limit(Heaviside(x), x, 0)` returns `1/2` and `limit(Heaviside(x, 0), x,
-  0)` stays a `Limit`; SymPy gives the right limit `1`.
 - `laplace_transform(Heaviside(t - 2)*t, t, s)` keeps the factored form
   `(2/s + s**(-2))*exp(-2*s)` where SymPy distributes it (equal values).
 - The error message of `Heaviside(I, 0)` is shorter than the reference.
-- `Heaviside(x).evalf(subs={x: 0})` and `Heaviside(x, 0).evalf(subs={x:
-  1})` stay unevaluated `Heaviside` nodes (one or two arguments); SymPy
-  returns the value.
 - `lambdify` of `Heaviside(x, 0)` returns the float `0.0` at zero where
   SymPy's generated code returns the integer `0` (equal values).
-- The derivative of `Heaviside(x, H0)` with respect to a symbol inside a
-  non-symbol `H0` is a held `Derivative`; SymPy builds a `Subs` of the
-  derivative of the second argument (equal meaning).
+
+## Limits and series at jumps on 2026-10-22
+
+`tests/test_heaviside_limit_parity.py` holds the reference outputs and the
+corrections below.
+
+- Wrong results fixed: `limit(Heaviside(x), x, 0)` returned `1/2` for every
+  direction (SymPy: `1`, `0`, `ValueError` for `'+-'`), so did every
+  expression whose limit went through `Heaviside` at its jump
+  (`Heaviside(x)*exp(x)`, `Heaviside(x)**2` gave `1/4`, `Heaviside(1/x)` at
+  `oo`, `Heaviside(x)*Heaviside(-x)` with `'+-'` gave `1/4`).
+  `limit(Heaviside(x)/x, x, 0, '-')` gave `-oo` and `'+-'` gave `zoo` (both
+  `0`/`ValueError`), `limit(Heaviside(x)*log(-x), x, 0, '-')` gave `-oo`
+  (`0`), and `limit(DiracDelta(x), x, 0)` gave `DiracDelta(0)` (`0`).
+- The series engine expands `Heaviside(u, H0)` and `DiracDelta(u, k)`
+  one-sided: the leading coefficient of `u` on the side approached gives
+  `1` or `0` (`H0` is never reached) and `DiracDelta` vanishes, which is
+  what SymPy's positive dummy produces. A nonvanishing symbolic value is
+  continuous (`limit(Heaviside(x - y), x, 0)` is `Heaviside(-y)`); an
+  undecided sign (`Heaviside(a*x)`) stays a `Limit`. The gruntz rewrite does
+  the same at infinity (`limit(Heaviside(x), x, oo)` is `1`).
+- `floor`, `ceiling` and `frac` expand to the one-sided constant (at an
+  integer, the side is the sign of the first non-constant term), so their
+  limits at jumps, `series(floor(x), x)` (`0`), `series(frac(x), x)` (`x`)
+  and `floor(x).as_leading_term(x)` (`0`) follow SymPy; they used to stay
+  unevaluated or raise. An expression that is exactly zero on the side
+  approached has limit and leading term `0`.
+- `limit(..., '+-')` of a `Piecewise` combines the one-sided limits and
+  raises `ValueError` when they differ.
+- `Heaviside(u, H0).evalf(subs=...)` (one or two arguments) and `N` give the
+  value: `0` at negative points (the integer, as SymPy), `H0` at zero.
+- The derivative with respect to a symbol inside `H0` follows
+  `Function.fdiff`: `Derivative(Heaviside(x, y), y)` for a symbol `H0` not
+  in the first argument, `Subs(Derivative(Heaviside(u, _xi_2), _xi_2),
+  _xi_2, H0)` times the chain factor otherwise.
+- A probe of 254 calls went from 70 to 194 outputs equal to SymPy 1.14. The
+  other 60 are the corrections below, `Abs(x)/x`-style series that print a
+  trailing order term, and evalf misses.
+
+Intentional differences (SymPy 1.14 is wrong; the correct value is kept):
+
+- `limit(Heaviside(sin(x)), x, 0)`, `Heaviside(x**3 - x)` and
+  `Heaviside(exp(x) - 1)` give `1/2` on both sides in SymPy (gruntz
+  evaluates the argument at the point); Symox gives the one-sided values
+  and raises `ValueError` for `'+-'`. `series(Heaviside(sin(x)), x)` is `1`
+  (SymPy: `1/2 + x*DiracDelta(0) + ...`).
+- `limit(Heaviside(a*x), x, 0)` is `1/2` in SymPy although the sign of `a`
+  is unknown; Symox keeps the `Limit`.
+- `limit(Heaviside(x), x, -1)` and `limit(Heaviside(x - 1), x, 0)` never
+  finish in SymPy; Symox gives `0`.
+- `limit(Piecewise((0, x < 0), (1, True)), x, 0, '-')` is `1` in SymPy (the
+  branch at the point); Symox gives `0`, and `-1` for
+  `Piecewise((x - 1, x < 0), (x + 1, x >= 0))`; `'+-'` raises `ValueError`
+  where SymPy gives `1`.
+- `nseries` of `Heaviside` or `DiracDelta` at the jump is a Taylor
+  expansion through the discontinuity in SymPy (`1/2 + x*DiracDelta(0) +
+  x**2*DiracDelta(0, 1)/2 + O(x**3)`); Symox returns the one-sided
+  expansion, as `series` does in both.
+- `as_leading_term` of `Heaviside`, `DiracDelta`, `sign` and `Abs` raises
+  `NotImplementedError` in SymPy (no `_eval_as_leading_term`); Symox
+  returns the one-sided leading term (`Heaviside(-x)` gives `0`).
+- With `limit(DiracDelta(x), x, oo)` now `0`, a delta derivative supported
+  inside the interval or at infinity integrates to its value:
+  `integrate(DiracDelta(x - 1, 1), (x, 0, oo))` and the same with a
+  positive support `p` give `0` (SymPy: `DiracDelta(oo)`), and
+  `DiracDelta(x, 1)` over `(-oo, oo)` gives `0` as in SymPy. When a delta
+  of the antiderivative may sit on a finite bound, the definite integral
+  stays unevaluated instead of the endpoint difference `DiracDelta(0)`
+  that SymPy returns (`DiracDelta(x, 1)` over `(0, oo)`, `(-oo, 0)` and
+  `(0, 1)`, `x*DiracDelta(x, 2)`, `DiracDelta(x, 1)*Heaviside(x)`,
+  `DiracDelta(x - a, 1)` over `(0, oo)`); `(0, 1)` used to give
+  `-DiracDelta(0)`.
+
+Remaining gaps in this area:
+
+- `series(Heaviside(x)/x, x)` and `series(Abs(x)/x, x)` print `1/x +
+  O(x**3)` and `1 + O(x**3)` where SymPy returns the exact `1/x` and `1`
+  (equal values).
+- `DiracDelta(x).evalf(subs={x: 0})` gives `DiracDelta(0)` and
+  `Heaviside(x, y).evalf(subs={x: 0})` gives `Heaviside(0, y)`; SymPy
+  returns the original expression.
 
 ## Piecewise series, And/Or patterns and Order.subs on 2026-10-22
 

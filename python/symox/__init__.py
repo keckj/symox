@@ -1918,6 +1918,16 @@ def limit(e, z, z0, dir="+"):
     r = _core._limit(e, z, z0, str(dir))
     if r is None and str(dir) in ("+", "-") and e.has(Piecewise):
         r = _piecewise_one_sided_limit(sympify(e), sympify(z), sympify(z0), str(dir))
+    if r is None and str(dir) == "+-" and e.has(Piecewise):
+        # Limit.doit for '+-': both one-sided limits, equal or infinite.
+        right, left = limit(e, z, z0, "+"), limit(e, z, z0, "-")
+        if not isinstance(right, Limit) and not isinstance(left, Limit):
+            if right == left:
+                return right
+            if right.is_infinite and left.is_infinite:
+                return S.ComplexInfinity
+            raise ValueError("The limit does not exist since left hand limit = %s"
+                             " and right hand limit = %s" % (left, right))
     return Limit(e, z, z0, dir) if r is None else r
 
 

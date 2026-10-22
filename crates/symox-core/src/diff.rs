@@ -363,14 +363,28 @@ fn d_func(
     }
     let u = &args[0];
     let du = d(u, x, cache);
-    if matches!(f, Func::Heaviside) && args.len() == 2 && !d(&args[1], x, cache).is_zero() {
-        // Heaviside.fdiff(2) raises ArgumentIndexError in SymPy: the
-        // dependence through H0 stays a held derivative.
-        let held = derivative_unevaluated(e, vec![(x.clone(), 1)]);
-        if *x == args[1] && du.is_zero() {
-            return held;
+    if matches!(f, Func::Heaviside) && args.len() == 2 {
+        let dh0 = d(&args[1], x, cache);
+        if !dh0.is_zero() {
+            // Heaviside.fdiff(2) raises ArgumentIndexError, so SymPy falls
+            // back to Function.fdiff: a symbol H0 absent from the first
+            // argument gives Derivative(Heaviside(u, H0), H0), anything else
+            // Subs(Derivative(Heaviside(u, xi_2), xi_2), xi_2, H0).
+            let h0 = &args[1];
+            let partial = if h0.is_symbol() && !crate::traverse::free_symbols(u).contains(h0) {
+                derivative_unevaluated(e, vec![(h0.clone(), 1)])
+            } else {
+                let dummy = Expr::dummy("xi_2", crate::Assumptions::NONE);
+                let applied = crate::functions::func(Func::Heaviside, vec![u.clone(), dummy.clone()]);
+                let inner = derivative_unevaluated(&applied, vec![(dummy.clone(), 1)]);
+                crate::subs::held_subs(&inner, vec![dummy], vec![h0.clone()])
+            };
+            let held = mul(&[partial, dh0]);
+            if du.is_zero() {
+                return held;
+            }
+            return add(&[mul(&[dirac_delta(u), du]), held]);
         }
-        return add(&[mul(&[dirac_delta(u), du]), held]);
     }
     if du.is_zero() {
         return Expr::zero();
