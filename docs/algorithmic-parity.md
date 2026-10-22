@@ -1657,16 +1657,9 @@ Remaining gaps:
   parameters are merged. A finite row that no free row covers is kept,
   where the reference drops it.
 
-Remaining gaps, all in the native scalar complex `solveset`:
-
-- `exp(x) - exp(-x)` gives `{0, I*pi}` instead of `n*I*pi`.
-- `exp(2*x) - 3*exp(x) + 2` misses the `2*n*I*pi` families.
-- `2**x - 8` misses `3 + 2*n*I*pi/log(2)`, so the result for
-  `[2**x - 8, y - x]` is correct but incomplete.
-- `sin(x) + cos(x)` is left as a `ConditionSet`.
-
-The systems built on these equations inherit these gaps. Their results are
-incomplete or a `ConditionSet`, but none is wrong.
+The complex `solveset` gaps found here (`exp(x) - exp(-x)`,
+`exp(2*x) - 3*exp(x) + 2`, `2**x - 8` and `sin(x) + cos(x)`) are fixed; see
+"Complex `solveset` of exponential and trigonometric equations" at the end.
 
 ## Mechanics, vector, control and continuum mechanics on 2026-10-22
 
@@ -4618,3 +4611,59 @@ Remaining gaps:
 - Ordering a `Tuple` against a plain Python tuple raises an error of
   another type than the reference. A `Tuple` cannot hold `Permutation` or
   matrix objects (native conversion), as before.
+
+## Complex `solveset` of exponential and trigonometric equations on 2026-10-22
+
+The native scalar `solveset` over `Complexes` returned incomplete finite sets
+for transcendental equations, for example `{0, I*pi}` for `exp(x) - exp(-x)`.
+A probe of 78 equations (exp, log, rational bases, trig, hyperbolic,
+parameters, products and quotients, in `Complexes`, `Reals` and intervals)
+went from 40 to 61 outputs identical to SymPy 1.14. The others are the same
+sets in another form, or the divergences listed below.
+
+What was implemented:
+
+- `_solve_as_poly` for exponential generators. The equation becomes a
+  polynomial in `t = exp(g*x)`, where `g` is the gcd of the exponents. Each
+  root `k` is inverted as in `invert_complex`, to
+  `ImageSet(Lambda(n, (I*(2*n*pi + arg(k)) + log(Abs(k)) - c)/g), Integers)`.
+  The constant offset `c` of the generator is kept, so `exp(x + 1) - 2` gives
+  `2*n*I*pi - 1 + log(2)`. The lattice is canonicalized as in
+  `_set_function(Lambda, Integers)`: the sign of `n` is chosen with the fewest
+  negatives, and the offset is reduced modulo the period.
+- `_solve_as_rational`: the solutions of the numerator minus the roots of the
+  denominator.
+- `_solve_trig1`: trig and hyperbolic equations are rewritten in `exp` and
+  solved for `exp(I*x)` or `exp(x)`. The poles are removed.
+- Products are split factor by factor.
+- When a step is undecided (no complete roots, a symbolic multiple of `x` in a
+  trig equation, nested exponentials, `x**x`, mixed bases), the result is a
+  `ConditionSet`. It is never the finite roots of `solve`.
+- `nonlinsolve` and `substitution` inherit the results.
+  `[exp(x) - sin(y), y**2 - 4]` now matches SymPy.
+  `[2**x - 8, y - x]` and `[exp(y) - x, x**2 + 1]` are complete.
+
+Intentional divergences:
+
+- `b**x` with a positive rational base is solved through `exp(x*log(b))`.
+  `2**x - 8` gives `2*n*I*pi/log(2) + 3`, where SymPy returns a `ConditionSet`.
+- `2**x - 3**x` is a `ConditionSet`. SymPy returns the incomplete `{0}`.
+- `exp(2*x) - exp(x)` has no spurious `nan`.
+- `log(x) + log(x - 1)` keeps only `1/2 + sqrt(5)/2`. SymPy also keeps
+  `1/2 - sqrt(5)/2`, which is not a solution.
+- Some unions are printed in another order (`sin(x)*cos(x)`) or with another
+  representative (`cos(x) - 2`). Another case is
+  `exp(x)/(exp(x) - 2) - 3`, which gives a plain ImageSet where SymPy gives a
+  `Complement`. These are the same sets.
+- In `nonlinsolve([2**x - 8, y - x])` the real solution `(3, 3)` is listed
+  next to the lattice that contains it.
+
+What remains:
+
+- `exp(exp(x)) - 1` is a `ConditionSet`. SymPy gives a `ProductSet` ImageSet.
+- Trig equations with a symbolic coefficient of `x` stay a `ConditionSet`.
+- `2**x*3**x - 6` (mixed bases) is a `ConditionSet`. SymPy also gives one.
+- `solve(sin(x) + cos(x))` raises `NotImplementedError`. This predates the
+  change; SymPy gives `[-pi/4]`.
+
+Tests: `tests/test_solveset_complex_wave4_parity.py`.

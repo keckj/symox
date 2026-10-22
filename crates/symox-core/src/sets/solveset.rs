@@ -318,6 +318,353 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
     Some(union(cs.iter().map(|c|restricted_image(&period,c,domain,context)).collect()))
 }
 
+fn any_node(e: &Expr, pred: &dyn Fn(&Expr) -> bool) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(e, &mut |a| found |= pred(a));
+    found
+}
+
+/// The exponent of an exponential atom: `u` for `exp(u)` and `u*log(b)` for
+/// `b**u` with a positive rational `b`. `Err` for an `x` dependent exponent
+/// that is not of this kind (a symbolic or `x` dependent base).
+fn exponential_exponent(e: &Expr, x: &Expr) -> Result<Option<(Expr, bool)>, ()> {
+    match e.kind() {
+        Kind::Func(Func::Exp, a) if a.len() == 1 && has(&a[0], x) => Ok(Some((a[0].clone(), false))),
+        Kind::Pow(b, ex) if has(ex, x) => {
+            if has(b, x) {
+                return Err(());
+            }
+            if *b == Expr::e() {
+                return Ok(Some((ex.clone(), false)));
+            }
+            if b.as_number().is_some_and(|n| n.is_rational() && n.is_positive()) {
+                return Ok(Some((mul2(ex, &crate::functions::log(b)), true)));
+            }
+            Err(())
+        }
+        _ => Ok(None),
+    }
+}
+
+/// The distinct exponential atoms of `e` with their exponents; `false` if
+/// an exponent depends on `x` in an unsupported way.
+fn collect_exponentials(e: &Expr, x: &Expr, out: &mut Vec<(Expr, Expr, bool)>) -> bool {
+    if !has(e, x) {
+        return true;
+    }
+    match exponential_exponent(e, x) {
+        Err(()) => return false,
+        Ok(Some((u, rational_base))) => {
+            if !out.iter().any(|(a, ..)| a == e) {
+                out.push((e.clone(), u, rational_base));
+            }
+            return true;
+        }
+        Ok(None) => {}
+    }
+    e.args().iter().all(|a| collect_exponentials(a, x, out))
+}
+
+/// `exp(u)**k -> exp(k*u)` for a rational `k`, as SymPy evaluates it.
+fn merge_exp_powers(e: &Expr) -> Expr {
+    crate::simptools::bottom_up(e, &mut |rv| match rv.kind() {
+        Kind::Pow(b, k) if k.as_number().is_some_and(|n| n.is_rational()) => match b.kind() {
+            Kind::Func(Func::Exp, a) if a.len() == 1 => crate::functions::func(Func::Exp, vec![crate::expand::expand(&mul2(k, &a[0]))]),
+            _ => rv.clone(),
+        },
+        _ => rv.clone(),
+    })
+}
+
+/// `x` occurs in an exponent (`exp(u(x))`, `b**u(x)`).
+fn has_exponential_in(e: &Expr, x: &Expr) -> bool {
+    if !has(e, x) {
+        return false;
+    }
+    match e.kind() {
+        Kind::Func(Func::Exp, a) if a.iter().any(|t| has(t, x)) => true,
+        Kind::Pow(_, ex) if has(ex, x) => true,
+        _ => e.args().iter().any(|a| has_exponential_in(a, x)),
+    }
+}
+
+/// `x` occurs other than polynomially (inside a function or an exponent).
+fn is_transcendental_in(e: &Expr, x: &Expr) -> bool {
+    if !has(e, x) {
+        return false;
+    }
+    match e.kind() {
+        Kind::Func(..) => true,
+        Kind::Pow(b, ex) => has(ex, x) || ex.as_number().is_none_or(|n| !n.is_integer()) || is_transcendental_in(b, x),
+        _ => e.args().iter().any(|a| is_transcendental_in(a, x)),
+    }
+}
+
+/// The canonical form that SymPy's `imageset(Lambda(n, expr), Integers)`
+/// gives to an expression linear in `n` (`_set_function(Lambda, Integers)`).
+fn canonical_integer_lattice(expr: &Expr, n: &Expr) -> Expr {
+    let c = subs1(expr, n, &Expr::zero());
+    let fx = sub(expr, &c);
+    let f_x = sub(&subs1(expr, n, &neg(n)), &c);
+    let neg_count = |e: &Expr| -> usize {
+        match e.kind() {
+            Kind::Add(..) => e.args().iter().filter(|t| crate::ops::could_extract_minus_sign(t)).count(),
+            _ => usize::from(crate::ops::could_extract_minus_sign(e)),
+        }
+    };
+    let expr = if neg_count(&f_x) < neg_count(&fx) { add2(&f_x, &c) } else { expr.clone() };
+    // `expr.match(a*n + b)`: every term is free of `n` or has `n` as a
+    // plain factor
+    let terms = match expr.kind() {
+        Kind::Add(..) => expr.args(),
+        _ => vec![expr.clone()],
+    };
+    let mut a_terms = Vec::new();
+    let mut b_terms = Vec::new();
+    for t in &terms {
+        if !has(t, n) {
+            b_terms.push(t.clone());
+            continue;
+        }
+        if t == n {
+            a_terms.push(Expr::one());
+            continue;
+        }
+        let Kind::Mul(..) = t.kind() else { return expr };
+        let factors = t.args();
+        let (with, without): (Vec<Expr>, Vec<Expr>) = factors.into_iter().partition(|f| has(f, n));
+        if with.len() != 1 || &with[0] != n {
+            return expr;
+        }
+        a_terms.push(crate::ops::mul(&without));
+    }
+    let a = crate::ops::add(&a_terms);
+    if a.is_zero() || any_node(&expr, &|e| e.as_number().is_some_and(|n| n.is_float())) {
+        return expr;
+    }
+    if a.is_one() || a.is_minus_one() {
+        b_terms.retain(|t| crate::assumptions::is_integer(t) != Some(true));
+    }
+    let mut b = crate::ops::add(&b_terms);
+    let numeric = |e: &Expr| crate::traverse::free_symbols(e).is_empty();
+    if numeric(&b) {
+        if let Ok(Some((br, bi))) = crate::complex_parts::as_real_imag(&b, false, None) {
+            let real_a = crate::assumptions::exact_queries(|| crate::assumptions::is_real(&a)) == Some(true);
+            if real_a && numeric(&a) {
+                if !br.is_zero() {
+                    if let Some(r) = mod_numeric(&br, &a) {
+                        b = add2(&r, &mul2(&Expr::i(), &bi));
+                    }
+                }
+            } else {
+                let ai = div(&a, &Expr::i());
+                if crate::assumptions::exact_queries(|| crate::assumptions::is_real(&ai)) == Some(true)
+                    && numeric(&ai) && !bi.is_zero() {
+                    if let Some(r) = mod_numeric(&bi, &ai) {
+                        b = add2(&br, &mul2(&Expr::i(), &r));
+                    }
+                }
+            }
+        }
+    }
+    add2(&mul2(&a, n), &b)
+}
+
+/// `c % p` for real numeric `c` and `p`, with a certified floor.
+fn mod_numeric(c: &Expr, p: &Expr) -> Option<Expr> {
+    let ratio = div(c, p);
+    let integer = match ratio.as_number() {
+        Some(number) => number.floor(),
+        None => match crate::special::lambert::integer_round(&ratio, -1) {
+            Some(i) => crate::number::Number::from_bigint(i),
+            None => {
+                let value = crate::evalf_mp::evalf(&ratio, 80);
+                let v = value.as_number()?;
+                let f = v.floor();
+                // refuse a value too close to an integer to be certified
+                let low = crate::evalf_mp::evalf(&sub(&ratio, &Expr::num(f.clone())), 80);
+                let low = low.as_number()?;
+                let eps = crate::number::Number::rational(1.into(), num_bigint::BigInt::from(10u32).pow(30))?;
+                let one_minus = crate::number::Number::rational(num_bigint::BigInt::from(10u32).pow(30) - 1, num_bigint::BigInt::from(10u32).pow(30))?;
+                if low.cmp_value(&eps) != Some(Ordering::Greater) || low.cmp_value(&one_minus) != Some(Ordering::Less) {
+                    return None;
+                }
+                f
+            }
+        },
+    };
+    Some(crate::expand::expand(&sub(c, &mul2(&Expr::num(integer), p))))
+}
+
+/// `ImageSet(Lambda(n, expr), Integers)` restricted to `domain`.
+fn lattice_in_domain(expr: &Expr, n: &Expr, domain: &Expr, context: &SolveContext) -> Expr {
+    let lattice = image_set(&lambda(n, expr), &integers());
+    if !is_real_domain(domain) {
+        return if is_op(domain, SetOp::Complexes) { lattice } else { intersection(vec![lattice, domain.clone()]) };
+    }
+    match linear(expr, n) {
+        Some((period, c)) => restricted_image(&period, &c, domain, context),
+        None => intersection(vec![lattice, domain.clone()]),
+    }
+}
+
+/// The roots of the polynomial `p` in `t` with multiplicities, when all of
+/// them are found in radicals.
+fn complete_roots(p: &Expr, t: &Expr) -> Option<Vec<Expr>> {
+    let degree = crate::poly::api::degree(p, Some(t)).ok()??;
+    if degree == 0 {
+        return Some(Vec::new());
+    }
+    let roots = crate::poly::roots::roots(p, std::slice::from_ref(t)).ok()?;
+    if roots.iter().map(|(_, m)| *m).sum::<u32>() != degree
+        || roots.iter().any(|(r, _)| has(r, t) || any_node(r, &|e| crate::poly::rootof::is_rootof(e))) {
+        return None;
+    }
+    Some(roots.into_iter().map(|(r, _)| r).collect())
+}
+
+/// `_solve_as_poly` for an equation that is a polynomial in a single
+/// exponential generator `exp(g*x)`, inverted with `_invert_complex`:
+/// `exp(g*x) = k` gives `x = (I*(2*n*pi + arg(k)) + log(Abs(k)))/g`.
+/// `num` and `den` are the numerator and denominator of the equation.
+/// Rational ratios between the exponents are reduced to the generator
+/// with the gcd of the exponents. `None` when the method does not apply or
+/// some roots cannot be found.
+fn solve_exponential_poly(num: &Expr, den: &Expr, x: &Expr, domain: &Expr, context: &SolveContext,
+    allow_symbolic: bool) -> Option<Expr> {
+    use num_integer::Integer;
+    let num = &merge_exp_powers(num);
+    let den = &merge_exp_powers(den);
+    let mut atoms = Vec::new();
+    if !collect_exponentials(num, x, &mut atoms) || atoms.is_empty() {
+        return None;
+    }
+    if !collect_exponentials(den, x, &mut atoms) {
+        return None;
+    }
+    let mut affine = Vec::new();
+    for (_, u, rational_base) in &atoms {
+        let u = if *rational_base { crate::simp::expand_log(u, true) } else { u.clone() };
+        affine.push(linear(&u, x)?);
+    }
+    let a0 = affine[0].0.clone();
+    let mut ratios = Vec::new();
+    let (mut g_num, mut l_den) = (num_bigint::BigInt::from(0), num_bigint::BigInt::from(1));
+    for (a, _) in &affine {
+        let r = crate::expand::expand(&div(a, &a0));
+        let (p, q) = r.as_number().filter(|n| n.is_rational())?.numer_denom()?;
+        g_num = g_num.gcd(&p);
+        l_den = l_den.lcm(&q);
+        ratios.push((p, q));
+    }
+    let mut g = mul2(&a0, &div(&Expr::num(crate::number::Number::from_bigint(g_num.clone())),
+        &Expr::num(crate::number::Number::from_bigint(l_den.clone()))));
+    let mut flip = false;
+    if crate::ops::could_extract_minus_sign(&g) {
+        g = neg(&g);
+        flip = true;
+    }
+    if !proved_nonzero(&g) && !(allow_symbolic && crate::assumptions::is_zero(&g) != Some(true)) {
+        return None;
+    }
+    // the generator is `exp(g*x + c)`, the first exponent scaled by `g/a0`
+    let mut c = crate::expand::expand(&mul2(&div(&g, &a0), &affine[0].1));
+    let t = Expr::dummy("solveset_exp", crate::symbol::Assumptions::NONE);
+    let mut map = rustc_hash::FxHashMap::default();
+    for (((atom, ..), (_, b)), (p, q)) in atoms.iter().zip(&affine).zip(&ratios) {
+        let mut k = (p * &l_den / q) / &g_num;
+        if flip {
+            k = -k;
+        }
+        let k = i64::try_from(k).ok()?;
+        if k.abs() > 64 {
+            return None;
+        }
+        let shift = crate::expand::expand(&sub(b, &mul2(&Expr::int(k), &c)));
+        map.insert(atom.clone(), mul2(&crate::functions::func(Func::Exp, vec![shift]), &crate::ops::pow(&t, &Expr::int(k))));
+    }
+    // the numerator of the equation in `t`; its denominator may only be a
+    // power of `t` (`t != 0`)
+    let lift = |e: &Expr| -> Option<Expr> {
+        let (pn, pd) = crate::simplify::numer_denom(&crate::simplify::together(&crate::subs::xreplace(e, &map)));
+        if has(&pd, x) || has(&pd, &t) && !complete_roots(&crate::expand::expand(&pd), &t)?.iter().all(Expr::is_zero) {
+            return None;
+        }
+        let p = crate::expand::expand(&pn);
+        if has(&p, x) { None } else { Some(p) }
+    };
+    let mut p = lift(num)?;
+    if allow_symbolic && !has(den, x) {
+        // SymPy's generator is that of the cleared numerator (`_solve_trig1`
+        // keeps `exp(I*x)` instead): a polynomial
+        // in `t**d` is solved in `exp(d*(g*x + c))`
+        let terms = match p.kind() { Kind::Add(..) => p.args(), _ => vec![p.clone()] };
+        let mut d = 0u32;
+        let mut monomials = Vec::new();
+        for term in &terms {
+            let k = crate::poly::api::degree(term, Some(&t)).ok()??;
+            d = d.gcd(&k);
+            monomials.push((div(term, &crate::ops::pow(&t, &Expr::int(i64::from(k)))), k));
+        }
+        if d > 1 && monomials.iter().all(|(coeff, _)| !has(coeff, &t)) {
+            p = crate::ops::add(&monomials.iter().map(|(coeff, k)| mul2(coeff, &crate::ops::pow(&t, &Expr::int(i64::from(k / d))))).collect::<Vec<_>>());
+            g = mul2(&Expr::int(i64::from(d)), &g);
+            c = mul2(&Expr::int(i64::from(d)), &c);
+        }
+    }
+    let roots = complete_roots(&p, &t)?;
+    if roots.is_empty() && crate::poly::api::degree(&p, Some(&t)).ok()?? == 0 {
+        if p.is_zero() {
+            return None;
+        }
+        if !has(den, x) {
+            return Some(empty_set());
+        }
+    }
+    let mut poles = Vec::new();
+    if has(den, x) {
+        let q = lift(den)?;
+        poles = complete_roots(&q, &t)?;
+    }
+    let rational_base = atoms.iter().any(|(.., r)| *r);
+    let n = context.periodic_variable().clone();
+    let two_pi = mul2(&Expr::int(2), &Expr::pi());
+    let mut parts = Vec::new();
+    let mut seen: Vec<Expr> = Vec::new();
+    for k in roots {
+        if k.is_zero() || seen.iter().any(|s| crate::expand::expand(&sub(s, &k)).is_zero()) {
+            continue;
+        }
+        seen.push(k.clone());
+        if poles.iter().any(|s| crate::expand::expand(&sub(s, &k)).is_zero()) {
+            continue;
+        }
+        let modulus = crate::functions::log(&crate::functions::func(Func::Abs, vec![k.clone()]));
+        let modulus = if rational_base { crate::simp::expand_log(&modulus, true) } else { modulus };
+        let center = add2(&mul2(&Expr::i(), &add2(&mul2(&two_pi, &n), &crate::functions::func(Func::Arg, vec![k.clone()]))), &modulus);
+        let mut expr = div(&sub(&center, &c), &g);
+        if rational_base {
+            expr = crate::expand::expand(&expr);
+        }
+        let expr = canonical_integer_lattice(&expr, &n);
+        parts.push(lattice_in_domain(&expr, &n, domain, context));
+    }
+    Some(union(parts))
+}
+
+/// `_solve_trig1`: an equation in several trigonometric or hyperbolic
+/// functions of arguments linear in `x`, rewritten in exponentials.
+fn solve_trig_exponential(num: &Expr, den: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
+    let rewritten = crate::simptools::trigsimp::rewrite_exp(&div(num, den));
+    if has_periodic_in(&rewritten, x) {
+        return None;
+    }
+    let (n2, d2) = crate::simplify::numer_denom(&crate::simplify::together(&rewritten));
+    let n2 = crate::expand::expand(&n2);
+    let d2 = crate::expand::expand(&d2);
+    solve_exponential_poly(&n2, &d2, x, domain, context, false)
+}
+
 /// Solutions of `f == 0` restricted to `domain`, as a set.
 fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
     let real = is_real_domain(domain);
@@ -327,7 +674,7 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         return Some(empty_set());
     }
     if let Kind::Mul(_, facs) = num.kind() {
-        if facs.iter().any(|(b, _)| matches!(b.kind(), Kind::Func(..)) && has(b, x)) && facs.len() > 1 {
+        if facs.iter().any(|(b, _)| (matches!(b.kind(), Kind::Func(..)) || !real && is_transcendental_in(b, x)) && has(b, x)) && facs.len() > 1 {
             let mut parts = Vec::new();
             for (b, e) in facs {
                 if !has(b, x) || e.as_number().is_some_and(|n| n.is_negative()) {
@@ -339,7 +686,8 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
             return Some(exclude_poles(u, &den, x, domain, context));
         }
     }
-    if let Some(g) = single_generator(&num, x) {
+    let complex_exponential = !real && has_exponential_in(&num, x);
+    if let Some(g) = single_generator(&num, x).filter(|g| !(complex_exponential && matches!(g.kind(), Kind::Func(Func::Exp, _)))) {
         // polynomial in g = trig(a*x + b) (or exp in the complex domain)
         let t = Expr::dummy("solveset_t", crate::symbol::Assumptions::NONE);
         let mut map = rustc_hash::FxHashMap::default();
@@ -361,7 +709,17 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         }
     }
     if has_periodic_in(&num, x) {
-        return None;
+        // several trigonometric or hyperbolic functions: `_solve_trig1`
+        return solve_trig_exponential(&num, &den, x, domain, context);
+    }
+    if complex_exponential {
+        // a polynomial in one exponential generator, inverted over the
+        // complex logarithm branches; otherwise unsolved, never the finite
+        // principal-branch roots of `solve`
+        // `_solve_as_rational`: the solutions of the numerator minus those
+        // of the denominator
+        let r = solve_exponential_poly(&num, &Expr::one(), x, domain, context, true)?;
+        return Some(exclude_poles(r, &den, x, domain, context));
     }
     // absolute values over the reals: split on the sign of the argument
     if real {
