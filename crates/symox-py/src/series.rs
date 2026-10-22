@@ -127,7 +127,16 @@ fn _leadterm<'py>(
         Some(v) if !v.is_none() => to_expr(v)?,
         _ => Expr::zero(),
     };
-    let lt = sr::leading_term(&to_expr(e)?, &to_expr(x)?, &x0, dir == "-").map_err(serr)?;
+    let (e, x) = (to_expr(e)?, to_expr(x)?);
+    let lt = match sr::leading_term(&e, &x, &x0, dir == "-") {
+        Ok(lt) => lt,
+        // exactly zero on the side approached (`floor(x)` at `0+`), as the
+        // reference `as_leading_term` returns `0`
+        Err(_) if sr::vanishes_near(&e, &x, &x0, dir == "-") => {
+            return PyTuple::new(py, [w(Expr::zero()), w(Expr::zero())]);
+        }
+        Err(err) => return Err(serr(err)),
+    };
     PyTuple::new(py, [w(lt.coeff), w(Expr::num(lt.exp))])
 }
 

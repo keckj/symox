@@ -944,6 +944,28 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         }
         return Some(MpComplex::real(BigFloat::atan2(&y.re, &x.re, p)));
     }
+    if matches!(f, Func::Heaviside | Func::DiracDelta) && !args.is_empty() {
+        // An argument substituted by evalf(subs=...) is held: rebuild the
+        // node so an exact zero takes the value H0 (SymPy evaluates
+        // Heaviside(0, H0) to H0), then decide a numeric argument by sign.
+        fn evaluated(e: &Expr) -> Expr {
+            if !matches!(e.kind(), Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Func(..)) {
+                return e.clone();
+            }
+            let new: Vec<Expr> = crate::simptools::args(e).iter().map(evaluated).collect();
+            crate::simptools::rebuild(e, &new)
+        }
+        let rebuilt = crate::functions::func(f.clone(), args.iter().map(evaluated).collect());
+        if !matches!(rebuilt.kind(), Kind::Func(g, _) if g == f) {
+            return ev(&rebuilt, p);
+        }
+        let a = ev(&args[0], wp)?;
+        if !a.is_real() || a.re.is_zero() {
+            return None;
+        }
+        let one = *f == Func::Heaviside && a.re.sign() > 0;
+        return Some(MpComplex::real(if one { BigFloat::from_i64(1) } else { BigFloat::zero() }));
+    }
     let a = ev(args.first()?, wp)?;
     Some(match f {
         Func::Abs => MpComplex::real(a.abs(p)),

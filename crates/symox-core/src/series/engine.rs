@@ -16,7 +16,7 @@ use super::ser::{exp_kernel, log_kernel, pow_kernel, sincos_kernel, tan_kernel, 
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::functions::{self as fx, func};
 use crate::number::Number;
-use crate::ops::{add, mul, mul2, mul_factor, neg, pow};
+use crate::ops::{add, mul, mul2, mul_factor, neg, pow, sub};
 
 /// How far (in t-units beyond the request) we look for a non-zero
 /// leading term before giving up.
@@ -479,6 +479,35 @@ impl Engine {
     }
 
     fn ser_func(&mut self, f: &Func, args: &[Expr], n: i64) -> SRes<Ser> {
+        if matches!(f, Func::Heaviside | Func::DiracDelta) && !args.is_empty() {
+            // One-sided expansion: the argument keeps the sign of its leading
+            // coefficient on the side approached, so `Heaviside` is the
+            // constant 0 or 1 (its value `H0` at zero is never reached) and
+            // `DiracDelta` (any order) vanishes, as with SymPy's positive
+            // dummy (`Heaviside(x).series(x)` is `1`).
+            let a = self.ser_nonzero(&args[0], n)?;
+            return match sign_of(a.lead().unwrap()) {
+                Some(s) if s != 0 && *f == Func::DiracDelta => Ok(Ser::zero_exact()),
+                Some(1) => Ok(Ser::constant(C::one())),
+                Some(-1) => Ok(Ser::zero_exact()),
+                // a nonvanishing symbolic value: continuous there, as the
+                // reference `limit(Heaviside(x - y), x, 0)` is `Heaviside(-y)`
+                None if a.val == 0 && !matches!(a.lead(), Some(C::E(e)) if depends(e, &self.logt)) => {
+                    let mut at = args.to_vec();
+                    at[0] = a.lead().unwrap().to_expr();
+                    self.constant(&func(f.clone(), at))
+                }
+                _ => Err(SErr::Unsupported(format!("{}({})", f.name(), args[0]))),
+            };
+        }
+        if let Func::Special(crate::special::SpecialFn::Frac) = f {
+            // frac(u) = u - floor(u)
+            let fl = func(Func::Floor, vec![args[0].clone()]);
+            return self.ser(&sub(&args[0], &fl), n);
+        }
+        if matches!(f, Func::Floor | Func::Ceiling) && args.len() == 1 {
+            return self.ser_floor(*f == Func::Floor, &args[0], n);
+        }
         if args.len() != 1 {
             return Err(SErr::Unsupported(format!("{}(...)", f.name())));
         }
@@ -616,6 +645,48 @@ impl Engine {
             }
             _ => Err(SErr::Unsupported(format!("{}({arg})", f.name()))),
         }
+    }
+
+    /// One-sided `floor`/`ceiling`: a constant near the point. A non-integer
+    /// value `c0` of the argument gives `floor(c0)`/`ceiling(c0)`; at an
+    /// integer the side is the sign of the first non-constant term, as in
+    /// `RoundFunction._eval_nseries` (`floor(x).series(x)` is `0`).
+    fn ser_floor(&mut self, is_floor: bool, arg: &Expr, n: i64) -> SRes<Ser> {
+        let unsupported = || SErr::Unsupported(format!("{}({arg})", if is_floor { "floor" } else { "ceiling" }));
+        let a = self.ser(arg, n.max(1))?;
+        if !a.is_zero() && a.val < 0 {
+            return Err(SErr::Pole(format!("floor({arg})")));
+        }
+        let c0 = a.at(0);
+        if let C::E(e) = &c0 {
+            if depends(e, &self.logt) {
+                return Err(unsupported());
+            }
+        }
+        let c0e = c0.to_expr();
+        let integer = c0e.as_number().map(|k| k.is_integer());
+        if integer != Some(true) {
+            let fl = func(Func::Floor, vec![c0e.clone()]);
+            let ce = func(Func::Ceiling, vec![c0e.clone()]);
+            let gap = sub(&ce, &fl);
+            if fl.as_number().is_some() && gap.as_number().is_some_and(|g| g.is_one()) {
+                return Ok(Ser::constant(C::from_expr(if is_floor { fl } else { ce })));
+            }
+            return Err(unsupported());
+        }
+        let rest = sub(arg, &c0e);
+        let s = match self.ser_nonzero(&rest, n.max(1)) {
+            Ok(r) => sign_of(r.lead().unwrap()).ok_or_else(unsupported)?,
+            Err(SErr::Pole(msg)) if msg.ends_with("(identically zero)") => 0,
+            Err(err) => return Err(err),
+        };
+        let k = match (is_floor, s) {
+            (_, 0) => c0e,
+            (true, 1) | (false, -1) => c0e,
+            (true, _) => sub(&c0e, &Expr::one()),
+            (false, _) => add(&[c0e, Expr::one()]),
+        };
+        Ok(Ser::constant(C::from_expr(k)))
     }
 
     /// Inverse trigonometric/hyperbolic functions through

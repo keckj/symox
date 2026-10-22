@@ -402,6 +402,12 @@ fn eval_generic(big_f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
     if has_bad(&fb) || has_bad(&fa) || !settled_bound_value(&fb) || !settled_bound_value(&fa) {
         return None;
     }
+    // A delta (or a derivative of one) left in a bound value sits on the
+    // endpoint, where the antiderivative jumps: `DiracDelta(0)` is not a
+    // value, so the integral stays unevaluated.
+    if delta_on_bound(big_f, x, [a, b]) {
+        return None;
+    }
     interval_singularities(big_f, x, a, b, sub(&fb, &fa)).map(|value| expand_if_numeric(&value))
 }
 
@@ -617,6 +623,26 @@ fn has_infinity(e: &Expr) -> bool {
         Kind::Const(c) => c.is_infinite() || matches!(c, Constant::NaN),
         _ => e.args().iter().any(has_infinity),
     }
+}
+
+/// Whether a delta of the antiderivative may sit on a finite bound, where
+/// its value `DiracDelta(0)` (or a derivative there) is not a number.
+fn delta_on_bound(big_f: &Expr, x: &Expr, bounds: [&Expr; 2]) -> bool {
+    let mut found = false;
+    crate::traverse::preorder(big_f, &mut |s| {
+        if found {
+            return;
+        }
+        if let Kind::Func(Func::DiracDelta, args) = s.kind() {
+            if !args.is_empty() && has(&args[0], x) {
+                found = bounds.iter().any(|p| {
+                    !matches!(p.kind(), Kind::Const(c) if c.is_infinite())
+                        && crate::assumptions::is_nonzero(&subs1(&args[0], x, p)) != Some(true)
+                });
+            }
+        }
+    });
+    found
 }
 
 fn has_bad(e: &Expr) -> bool {

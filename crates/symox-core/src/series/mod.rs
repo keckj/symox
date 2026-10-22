@@ -94,6 +94,14 @@ pub fn leading_term(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> SRes<LeadTerm
     leading_term_with(e, x, x0, minus, &logt, &crate::functions::log(&small_var(x, x0, minus)))
 }
 
+/// Whether `e` is exactly zero on the one-sided neighbourhood of `x0`
+/// (`Heaviside(-x)` or `floor(x)` for `x -> 0+`), where the leading term
+/// does not exist but the expansion and the limit are `0`.
+pub fn vanishes_near(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> bool {
+    let logt = logt_symbol();
+    with_engine(x, x0, minus, &logt, |eng| Ok(eng.ser(e, 1)?.is_exact_zero())).is_ok_and(|(zero, _)| zero)
+}
+
 /// [`leading_term`] with a caller supplied `log` symbol and its value.
 pub fn leading_term_with(e: &Expr, x: &Expr, x0: &Expr, minus: bool, logt: &Expr, logval: &Expr) -> SRes<LeadTerm> {
     let ((c, v), d) = with_engine(x, x0, minus, logt, |eng| eng.leading(e))?;
