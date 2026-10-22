@@ -61,39 +61,78 @@ class WrappingGeometryBase(ABC):
 
 
 class WrappingSphere(WrappingGeometryBase):
-    def point_on_surface(self,point):return S.simplify(point.pos_from(self.point).dot(point.pos_from(self.point))-self.radius**2)==0
-    def _radii(self,p1,p2):
-        a,b = p1.pos_from(self.point),p2.pos_from(self.point)
-        for v in (a,b):
-            difference = S.simplify(v.dot(v)-self.radius**2)
-            if difference.is_zero is False:raise ValueError('attachment point is not on the wrapping sphere')
-        return a,b
+    def __repr__(self):return f'{self.__class__.__name__}(radius={self.radius}, point={self.point})'
+    def point_on_surface(self,point):
+        point_vector = point.pos_from(self.point)
+        squared = point_vector.dot(point_vector) if isinstance(point_vector,Vector) else point_vector**2
+        return S.Eq(squared,self.radius**2) == True
     def geodesic_length(self,point_1,point_2):
-        a,b = self._radii(point_1,point_2);return self.radius*S.acos(S.simplify(a.dot(b)/self.radius**2))
+        for point in (point_1,point_2):
+            if not self.point_on_surface(point):
+                raise ValueError(f'Geodesic length cannot be calculated as point {point} with radius '
+                                 f'{point.pos_from(self.point).magnitude()} from the sphere\'s center {self.point} '
+                                 f'does not lie on the surface of {self} with radius {self.radius}.')
+        point_1_vector = point_1.pos_from(self.point).normalize()
+        point_2_vector = point_2.pos_from(self.point).normalize()
+        return self.radius*S.acos(point_2_vector.dot(point_1_vector))
     def geodesic_end_vectors(self,point_1,point_2):
-        a,b = self._radii(point_1,point_2);normal = a.cross(b)
-        if normal==0:raise ValueError('coincident or antipodal endpoints do not define unique tangents')
-        return a.cross(normal).normalize(),normal.cross(b).normalize()
+        pA,pB,pO = point_1,point_2,self.point
+        pA_vec,pB_vec = pA.pos_from(pO),pB.pos_from(pO)
+        if pA_vec.cross(pB_vec) == 0:
+            raise ValueError(f'Can\'t compute geodesic end vectors for the pair of points {pA} and {pB} on a sphere '
+                             f'{self} as they are diametrically opposed, thus the geodesic is not defined.')
+        return (pA_vec.cross(pB.pos_from(pA)).cross(pA_vec).normalize(),
+                pB_vec.cross(pA.pos_from(pB)).cross(pB_vec).normalize())
+
+
+def _directional_atan(numerator,denominator):
+    """Central angle in [0, 2*pi) along the wrapping direction (reference algorithm)."""
+    numerator,denominator = S.sympify(numerator),S.sympify(denominator)
+    if numerator.is_number and denominator.is_number:
+        angle = S.atan2(numerator,denominator)
+        if angle < 0:angle += 2*S.pi
+    elif numerator.is_number:
+        raise NotImplementedError(f'Cannot compute a directional atan when the numerator {numerator} is numeric and the denominator {denominator} is symbolic.')
+    elif denominator.is_number:
+        raise NotImplementedError(f'Cannot compute a directional atan when the numerator {numerator} is symbolic and the denominator {denominator} is numeric.')
+    else:
+        ratio = S.sympify(S.trigsimp(numerator/denominator))
+        if isinstance(ratio,S.tan):angle = ratio.args[0]
+        elif ratio.is_Mul and ratio.args[0] == S.Integer(-1) and isinstance(ratio.args[1],S.tan):angle = 2*S.pi-ratio.args[1].args[0]
+        else:raise NotImplementedError(f'Cannot compute a directional atan for the value {ratio}.')
+    return angle
 
 
 class WrappingCylinder(WrappingGeometryBase):
     def __init__(self,radius,point,axis):super().__init__(radius,point);self.axis = _vector(axis).normalize()
-    def _geometry(self,p1,p2):
-        a,b = p1.pos_from(self.point),p2.pos_from(self.point)
-        ar,br = a-a.dot(self.axis)*self.axis,b-b.dot(self.axis)*self.axis
-        for v in (ar,br):
-            if S.simplify(v.dot(v)-self.radius**2).is_zero is False:raise ValueError('attachment point is not on the wrapping cylinder')
-        angle = S.atan2(self.axis.dot(ar.cross(br)),ar.dot(br));angle = S.Mod(angle,2*S.pi)
-        height = (b-a).dot(self.axis)
-        return ar,br,angle,height
+    def __repr__(self):return f'{self.__class__.__name__}(radius={self.radius}, point={self.point}, axis={self.axis})'
     def point_on_surface(self,point):
-        value = point.pos_from(self.point);radial = value-value.dot(self.axis)*self.axis
-        return S.simplify(radial.dot(radial)-self.radius**2)==0
+        relative_position = point.pos_from(self.point)
+        point_vector = relative_position-relative_position.dot(self.axis)*self.axis
+        squared = point_vector.dot(point_vector) if isinstance(point_vector,Vector) else point_vector**2
+        return S.Eq(S.trigsimp(squared),self.radius**2) == True
     def geodesic_length(self,point_1,point_2):
-        a,b,angle,height = self._geometry(point_1,point_2);return S.sqrt(self.radius**2*angle**2+height**2)
+        for point in (point_1,point_2):
+            if not self.point_on_surface(point):
+                raise ValueError(f'Geodesic length cannot be calculated as point {point} with radius '
+                                 f'{point.pos_from(self.point).magnitude()} from the cylinder\'s center {self.point} '
+                                 f'does not lie on the surface of {self} with radius {self.radius} and axis {self.axis}.')
+        parallel_length = point_2.pos_from(point_1).dot(self.axis)
+        p1 = point_1.pos_from(self.point);p1 = (p1-p1.dot(self.axis)*self.axis).normalize()
+        p2 = point_2.pos_from(self.point);p2 = (p2-p2.dot(self.axis)*self.axis).normalize()
+        central_angle = _directional_atan(S.cancel(p1.cross(p2).dot(self.axis)),S.cancel(p1.dot(p2)))
+        return S.sqrt(parallel_length**2+(self.radius*central_angle)**2)
     def geodesic_end_vectors(self,point_1,point_2):
-        a,b,angle,height = self._geometry(point_1,point_2)
-        return (-angle*self.axis.cross(a)-height*self.axis).normalize(),(angle*self.axis.cross(b)+height*self.axis).normalize()
+        p1o,p2o = point_1.pos_from(self.point),point_2.pos_from(self.point)
+        if p1o == p2o:raise ValueError(f'Cannot compute geodesic end vectors for coincident points {point_1} and {point_2} as no geodesic exists.')
+        n1 = p1o-p1o.dot(self.axis)*self.axis;n2 = p2o-p2o.dot(self.axis)*self.axis
+        if n1 == n2:perp1 = perp2 = Vector(0)
+        else:perp1,perp2 = self.axis.cross(n1).normalize(),-self.axis.cross(n2).normalize()
+        geodesic_length = self.geodesic_length(point_1,point_2)
+        parallel_length = point_2.pos_from(point_1).dot(self.axis)
+        planar_arc_length = S.sqrt(geodesic_length**2-parallel_length**2)
+        return ((planar_arc_length*perp1+parallel_length*self.axis).normalize(),
+                (planar_arc_length*perp2-parallel_length*self.axis).normalize())
 
 
 class WrappingPathway(PathwayBase):
@@ -104,8 +143,9 @@ class WrappingPathway(PathwayBase):
     @property
     def length(self):return self.geometry.geodesic_length(*self.attachments)
     def to_loads(self,force):
-        first,second = self.geometry.geodesic_end_vectors(*self.attachments)
-        return [Force(self.attachments[0],force*first),Force(self.attachments[1],force*second),Force(self.geometry.point,-force*(first+second))]
+        pA,pB = self.attachments;pO = self.geometry.point
+        pA_force,pB_force = self.geometry.geodesic_end_vectors(pA,pB)
+        return [Force(pA,force*pA_force),Force(pB,force*pB_force),Force(pO,force*(-(pA_force+pB_force)))]
 
 
 class ActuatorBase(ABC):

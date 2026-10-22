@@ -92,7 +92,7 @@ def test_transfer_function_interconnections_and_discretization():
     matrices(ss.A,S.Matrix([[-1]]));matrices(ss.B,S.Matrix([[1]]))
     same(ss.rewrite(C.TransferFunction)[0][0].to_expr(),g.to_expr())
     assert ss.is_controllable() and ss.is_observable()
-    matrices(ss.dsolve([1]),S.Matrix([S.exp(-S.Symbol('t'))]))
+    matrices(ss.dsolve(S.Matrix([1])),S.Matrix([S.exp(-S.Symbol('t'))]))
 
 
 def test_control_time_and_frequency_responses():
@@ -108,7 +108,7 @@ def test_control_time_and_frequency_responses():
     w,phase=C.bode_phase_numerical_data(g,-2,2,n=31)
     np.testing.assert_allclose(phase,-np.arctan(w),atol=1e-10)
     assert C.gain_margin(g)==S.oo
-    poles,zeros=C.pole_zero_numerical_data(g);assert poles==[-1+0j] and zeros==[]
+    zeros,poles=C.pole_zero_numerical_data(g);assert zeros==[] and poles==[-1.0] and isinstance(poles[0],float)
 
 
 def test_mimo_and_plotting(tmp_path):

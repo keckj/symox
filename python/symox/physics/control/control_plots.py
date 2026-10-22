@@ -10,9 +10,16 @@ def _numeric(system):
     return system
 
 
+def _poly_roots(poly):
+    def _eval(values):return [float(v) if v.is_real else complex(v) for v in values]
+    if poly.domain in (S.QQ,S.ZZ):return _eval(poly.all_roots())
+    return _eval(poly.nroots())
+
+
 def pole_zero_numerical_data(system):
+    """Return (zeros, poles) as Python floats/complexes, like the reference."""
     system=_numeric(system)
-    return [complex(v.evalf()) for v in system.poles()],[complex(v.evalf()) for v in system.zeros()]
+    return _poly_roots(S.Poly(system.num,system.var)),_poly_roots(S.Poly(system.den,system.var))
 
 
 def _response(system,order,prec=8,lower_limit=0,upper_limit=10,slope=1,**kwargs):
@@ -65,7 +72,7 @@ def _plot(data,xlabel,ylabel,show=True,grid=True,color='b',logx=False,**kwargs):
 
 def pole_zero_plot(system,pole_color='blue',pole_markersize=10,zero_color='orange',zero_markersize=7,grid=True,show_axes=True,show=True,**kwargs):
     import matplotlib.pyplot as plt
-    poles,zeros=pole_zero_numerical_data(system);fig,ax=plt.subplots()
+    zeros,poles=pole_zero_numerical_data(system);fig,ax=plt.subplots()
     ax.scatter([v.real for v in poles],[v.imag for v in poles],color=pole_color,marker='x',s=pole_markersize**2,label='poles')
     ax.scatter([v.real for v in zeros],[v.imag for v in zeros],edgecolors=zero_color,facecolors='none',s=zero_markersize**2,label='zeros')
     ax.grid(grid);ax.set_xlabel('Real');ax.set_ylabel('Imaginary')

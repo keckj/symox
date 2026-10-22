@@ -142,8 +142,22 @@ class TransferFunctionMatrix:
     @classmethod
     def from_Matrix(cls,matrix,var):return cls([[TransferFunction.from_rational_expression(matrix[i,j],var) for j in range(matrix.cols)] for i in range(matrix.rows)])
     def __getitem__(self,key):
-        if isinstance(key,tuple):return self._entries[key[0]][key[1]]
-        return self._entries[key]
+        # Matrix indexing semantics: a flat integer or an (i, j) pair gives one transfer
+        # function, any slice gives a sub-TransferFunctionMatrix.
+        rows,cols=self.shape
+        def _axis(k,n):
+            if isinstance(k,slice):return list(range(n))[k],True
+            k=int(k)
+            if not -n<=k<n:raise IndexError('Index out of range: a[%s]'%(k,))
+            return [k%n],False
+        if isinstance(key,tuple):
+            (ri,rs),(ci,cs)=_axis(key[0],rows),_axis(key[1],cols)
+            if not (rs or cs):return self._entries[ri[0]][ci[0]]
+            if not ri or not ci:raise ValueError('transfer-function matrix must be nonempty and rectangular')
+            return TransferFunctionMatrix([[self._entries[i][j] for j in ci] for i in ri])
+        if isinstance(key,slice):return [self._entries[k//cols][k%cols] for k in range(rows*cols)[key]]
+        (k,),_=_axis(key,rows*cols)
+        return self._entries[k//cols][k%cols]
     def to_expr(self):return S.Matrix([[v.to_expr() for v in row] for row in self._entries])
     def doit(self,**kwargs):return self
     def __neg__(self):return TransferFunctionMatrix([[-v for v in row] for row in self._entries])
@@ -232,12 +246,20 @@ class StateSpace:
         A=self.A.row_join(self.B*other.C).col_join(S.zeros(other.num_states,self.num_states).row_join(other.A))
         return StateSpace(A,(self.B*other.D).col_join(other.B),self.C.row_join(self.D*other.C),self.D*other.D)
     def dsolve(self,initial_conditions=None,input_vector=None,var=S.Symbol('t')):
-        var=S.sympify(var);x0=S.zeros(self.num_states,1) if initial_conditions is None else S.Matrix(initial_conditions)
+        # Output response y = C*x + D*u of the state solution x(t), like the reference.
+        if not isinstance(var,S.Symbol):raise ValueError("Variable for representing time must be a Symbol.")
+        if not initial_conditions:x0=S.zeros(self.A.shape[0],1)
+        elif initial_conditions.shape!=(self.A.shape[0],1):
+            raise S.ShapeError("Initial condition vector should have the same number of rows as the state matrix.")
+        else:x0=S.Matrix(initial_conditions)
+        if not input_vector:input_vector=S.zeros(self.B.shape[1],1)
+        elif input_vector.shape!=(self.B.shape[1],1):
+            raise S.ShapeError("Input vector should have the same number of columns as the input matrix.")
         value=(self.A*var).exp()*x0
-        if input_vector is not None:
+        if any(v!=0 for v in input_vector):
             tau=S.Dummy('tau',real=True);integrand=(self.A*(var-tau)).exp()*self.B*S.Matrix(input_vector).subs(var,tau)
             value+=integrand.applyfunc(lambda entry:S.integrate(entry,(tau,0,var)))
-        return value
+        return self.C*value+self.D*input_vector
 
 
 def gbt(tf,sample_per,alpha):

@@ -9,6 +9,9 @@ def inertia(frame,ixx,iyy,izz,ixy=0,iyz=0,izx=0):
     return Dyadic({(frame,frame):S.Matrix([[ixx,ixy,izx],[ixy,iyy,iyz],[izx,iyz,izz]])})
 
 
+_inertia_dyadic = inertia
+
+
 def inertia_of_point_mass(mass,pos_vec,frame):
     r = pos_vec.to_matrix(frame);return Dyadic({(frame,frame):S.sympify(mass)*((r.T*r)[0]*S.eye(3)-r*r.T)})
 
@@ -26,7 +29,7 @@ class Particle:
     def __init__(self,name,point=None,mass=None):
         self.name = str(name);self.point = point if point is not None else Point(self.name+'_masscenter')
         if not isinstance(self.point,Point):raise TypeError('particle location must be a Point')
-        self.mass = S.Symbol(self.name+'_mass',positive=True) if mass is None else S.sympify(mass)
+        self.mass = S.Symbol(self.name+'_mass') if mass is None else S.sympify(mass)
         self.potential_energy = S.Integer(0)
     @property
     def masscenter(self):return self.point
@@ -42,8 +45,11 @@ class RigidBody:
         self.name = str(name);self.masscenter = masscenter if masscenter is not None else Point(self.name+'_masscenter')
         self.frame = frame if frame is not None else ReferenceFrame(self.name+'_frame')
         if not isinstance(self.masscenter,Point) or not isinstance(self.frame,ReferenceFrame):raise TypeError('rigid body needs a Point and ReferenceFrame')
-        self.mass = S.Symbol(self.name+'_mass',positive=True) if mass is None else S.sympify(mass)
-        self.inertia = Inertia(*(inertia if inertia is not None else (Dyadic(0),self.masscenter)))
+        self.mass = S.Symbol(self.name+'_mass') if mass is None else S.sympify(mass)
+        if inertia is None:
+            ixx,iyy,izz,izx,ixy,iyz = (S.Symbol(self.name+'_'+v) for v in ('ixx','iyy','izz','izx','ixy','iyz'))
+            inertia = (_inertia_dyadic(self.frame,ixx,iyy,izz,ixy,iyz,izx),self.masscenter)
+        self.inertia = Inertia(*inertia)
         self.potential_energy = S.Integer(0)
     def __repr__(self):return self.name
     @property
@@ -60,8 +66,32 @@ class RigidBody:
 
 class Body(RigidBody):
     def __init__(self,name,masscenter=None,mass=None,frame=None,central_inertia=None):
-        center = masscenter if masscenter is not None else Point(str(name)+'_masscenter')
-        super().__init__(name,center,frame,mass,(central_inertia or Dyadic(0),center));self.loads = []
+        name = str(name);center = masscenter if masscenter is not None else Point(name+'_masscenter')
+        frame = frame if frame is not None else ReferenceFrame(name+'_frame')
+        if central_inertia is None and mass is None:
+            # Like the reference, an unspecified rigid body carries symbolic central inertia scalars.
+            ixx,iyy,izz,izx,ixy,iyz = (S.Symbol(name+'_'+v) for v in ('ixx','iyy','izz','izx','ixy','iyz'))
+            central_inertia = inertia(frame,ixx,iyy,izz,ixy,iyz,izx)
+        # A mass without central inertia makes the body a particle, as in the reference.
+        self._rigid = not (central_inertia is None and mass is not None)
+        if central_inertia is None:central_inertia = Dyadic(0)
+        super().__init__(name,center,frame,S.Symbol(name+'_mass') if mass is None else mass,(central_inertia,center))
+        center.set_vel(frame,0);self.loads = []
+    @property
+    def is_rigidbody(self):return self._rigid
+    @property
+    def x(self):return self.frame.x
+    @property
+    def y(self):return self.frame.y
+    @property
+    def z(self):return self.frame.z
+    def kinetic_energy(self,frame):
+        if isinstance(frame,Body):frame = frame.frame
+        if self.is_rigidbody:return RigidBody.kinetic_energy(self,frame)
+        return Particle.kinetic_energy(self,frame)
+    def parallel_axis(self,point,frame=None):
+        if self.is_rigidbody:return RigidBody.parallel_axis(self,point,frame)
+        return Particle.parallel_axis(self,point,frame)
     def apply_force(self,force,point=None,reaction_body=None,reaction_point=None):
         self.loads.append(Force(point or self.masscenter,force))
         if reaction_body is not None:reaction_body.loads.append(Force(reaction_point or reaction_body.masscenter,-force))
@@ -103,13 +133,54 @@ def Lagrangian(frame,*bodies):return kinetic_energy(frame,*bodies)-potential_ene
 
 
 def msubs(expr,*sub_dicts,smart=False,**kwargs):
-    mapping = {}
-    for d in sub_dicts:mapping.update(d)
-    if isinstance(expr,(Vector,Dyadic)):return expr.xreplace(mapping)
-    if isinstance(expr,S.Matrix):return expr.applyfunc(lambda v:msubs(v,mapping,smart=smart))
-    expr = S.sympify(expr)
-    # Higher derivatives are replaced before their underlying functions.
-    return expr.xreplace(mapping)
+    """Substitute once over the tree, leaving derivative interiors untouched (reference algorithm)."""
+    sub_dict = {}
+    for d in sub_dicts:sub_dict.update(d)
+    if smart:func = _smart_subs
+    elif hasattr(expr,'msubs'):return expr.msubs(sub_dict)
+    else:func = lambda e,d:_crawl(e,_sub_func,d)
+    if isinstance(expr,(S.Matrix,Vector,Dyadic)) or getattr(expr,'is_Matrix',False):return expr.applyfunc(lambda v:func(v,sub_dict))
+    return func(S.sympify(expr),sub_dict)
+
+
+def _crawl(expr,func,*args,**kwargs):
+    value = func(expr,*args,**kwargs)
+    if value is not None:return value
+    return expr.func(*(_crawl(arg,func,*args,**kwargs) for arg in expr.args))
+
+
+def _sub_func(expr,sub_dict):
+    if expr in sub_dict:return sub_dict[expr]
+    if not expr.args or expr.is_Derivative:return expr
+
+
+def _tan_repl_func(expr):
+    if isinstance(expr,S.tan):return S.sin(*expr.args)/S.cos(*expr.args)
+    if not expr.args or expr.is_Derivative:return expr
+
+
+def _fraction_decomp(expr):
+    if not expr.is_Mul:return expr,1
+    num,den = [],[]
+    for a in expr.args:
+        if a.is_Pow and a.args[1]<0:den.append(1/a)
+        else:num.append(a)
+    if not den:return expr,1
+    return S.Mul(*num),S.Mul(*den)
+
+
+def _smart_subs(expr,sub_dict):
+    expr = _crawl(expr,_tan_repl_func)
+    def _recurser(expr,sub_dict):
+        num,den = _fraction_decomp(expr)
+        if den != 1:
+            denom_subbed = _recurser(den,sub_dict)
+            if denom_subbed.evalf()==0:expr = S.simplify(expr)
+            else:return _recurser(num,sub_dict)/denom_subbed
+        value = _sub_func(expr,sub_dict)
+        if value is not None:return value
+        return expr.func(*(_recurser(arg,sub_dict) for arg in expr.args))
+    return _recurser(expr,sub_dict)
 
 
 def find_dynamicsymbols(expression,exclude=None,reference_frame=None):
