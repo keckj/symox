@@ -214,11 +214,8 @@ def test_nonsymmetric_and_large_moduli():
     assert int(GF(big)(3)**-1 * 3) == 1
 
 
-def test_polynomials_over_composite_gf_are_unsupported():
-    # The reference builds Poly(x**2 - 4*x - 2, x, modulus=9); symox has no
-    # polynomial arithmetic over Z/nZ and refuses instead of guessing.
-    with pytest.raises(NotImplementedError):
-        Poly(x**2 + 5*x + 7, x, domain=GF(9))
+def test_polynomials_over_composite_gf():
+    assert repr(Poly(x**2 + 5*x + 7, x, domain=GF(9))) == 'Poly(x**2 - 4*x - 2, x, modulus=9)'
 
 
 def test_lfsr_sequence_over_composite_gf():

@@ -153,7 +153,7 @@ def test_f5b_api_validation_reduction_fglm_pickle_and_no_runtime_sympy():
     assert restored.domain==g.domain and restored.order==g.order
     with pytest.raises(ValueError,match='valid Groebner algorithm'):sm.groebner([x],x,method='f4')
     with pytest.raises(ValueError,match='denominator'):sm.groebner([x/5],x,method='f5b',modulus=5)
-    with pytest.raises(ValueError,match='prime'):sm.groebner([x],x,method='f5b',modulus=4)
+    with pytest.raises(NotImplementedError):sm.groebner([x],x,method='f5b',modulus=4)
     result=subprocess.run([sys.executable,'-c', '''
 import sys
 sys.modules['sympy']=None

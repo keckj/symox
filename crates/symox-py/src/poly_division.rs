@@ -578,8 +578,8 @@ impl Inputs {
         // parallel_poly_from_expr; the Poly constructor would keep their domain.
         let fe = w(expressions[0].clone()).into_pyobject(py)?.into_any();
         let ge = w(expressions[1].clone()).into_pyobject(py)?.into_any();
-        let a = PyPoly::py_new(&fe, &args, opts.domain.as_ref(), None, None, None)?.p;
-        let b = PyPoly::py_new(&ge, &args, opts.domain.as_ref(), None, None, None)?.p;
+        let a = PyPoly::new_native(&fe, &args, opts.domain.as_ref())?.p;
+        let b = PyPoly::new_native(&ge, &args, opts.domain.as_ref())?.p;
         // Separately inferred domains are joined as parallel_poly_from_expr
         // does, so that `EX` or a wider parameter ring holds both operands.
         if opts.domain.is_none() && opts.modulus.is_none() {

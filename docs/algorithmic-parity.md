@@ -3586,8 +3586,8 @@ Intentional divergences:
   succeeds. Otherwise it returns the valuation given by ideal containment,
   bounded by the norm.
 - `GF(p**k)` and `GF(n)` for composite `n` are now the reference ring
-  `Z/nZ` (see the core gaps section at the end); polynomials over it are
-  not implemented.
+  `Z/nZ` (see the core gaps section); polynomials over it: see the section
+  on polynomials over `Z/nZ` at the end.
 
 Remaining unsupported:
 
@@ -4597,12 +4597,8 @@ Implemented:
 
 Remaining gaps:
 
-- Polynomials over a composite `GF(n)` (`Poly(.., domain=GF(9))`) raise
-  `NotImplementedError`, and `modulus=9` (`Poly`, `factor`, `groebner`,
-  `rem`) still raises the native `ValueError` (the reference builds
-  `Poly(.., modulus=9)` and fails later with `DomainError` or
-  `NotInvertible`). `isinstance(GF(9), Domain)` is False. `is_square` and
-  `sqrt` on `GF(9)` raise `NotImplementedError`.
+- `is_square` and `sqrt` on `GF(9)` raise `NotImplementedError`
+  (polynomials over `GF(n)`: see the section on polynomials over `Z/nZ`).
 - `sqrt(2 + I).is_extended_real` is unknown (the reference proves it False
   through `arg(2 + I)/(2*pi)` not being an integer), and
   `(-2)**(1/3)` is not proven non-imaginary. A few products of non-real
@@ -4704,3 +4700,44 @@ Remaining differences:
   `Add(Ket('k'), x)` (an `OrderedProduct` wrapper); `codegen.ast.Indexed`
   sorts before symbols (`(x + A[x]).args == (A[x], x)`, SymPy `(x, A[x])`).
   Both construction orders agree for `Indexed`.
+
+## Polynomials over Z/nZ on 2026-10-22
+
+`Poly` with `modulus=n` or `domain=GF(n)` for composite `n`, `n` above
+`2**32` or `symmetric=False` is `python/symox/_modular_poly.py`
+(`ModularPoly`, reported as a `Poly`; `GF(n)` is reported as a `Domain`).
+It runs the reference dense algorithms (`densearith`, `densetools`,
+`euclidtools`, `sqfreetools`, `galoistools`, `factortools`, ported in
+`python/symox/polys/_dense/`) over the reference `Z/nZ` ring, so results and
+errors follow the reference: ring division (`div`, `rem`, `gcd` through the
+PRS) and its `DomainError('there is no ring associated with GF(9)')`,
+`NotInvertible('zero divisor')`, `ExactQuotientFailed`, `UnificationFailed`
+with `QQ` or symbolic points, the `OptionError` for `modulus` below 1, the
+reference printing (`Poly(x**2 - 4*x - 2, x, modulus=9)`). Arithmetic,
+`div`/`rem`/`quo`/`exquo`/`prem`, `gcd`/`lcm`/`cofactors`/`gcdex`/`invert`,
+`resultant`/`subresultants`/`discriminant`, `eval`, `degree`, `LC`, `monic`,
+`diff`/`integrate`, `compose`/`decompose`/`shift`, `sqf_*`, `factor_list`
+and the expression functions (`factor`, `sqf`, `gcd`, `rem`, ...) are
+covered. Symmetric prime moduli below `2**32` keep the native path. Tests:
+`tests/test_composite_modulus_parity.py`.
+
+Divergence: the reference equal-degree factorization is randomized, so over a
+composite modulus `factor_list(x**2 - 1, modulus=9)` returns factors or
+raises `NotInvertible` from run to run; symox seeds it (seed 0) and is
+reproducible.
+
+Remaining gaps:
+
+- `groebner` over a composite modulus raises the reference `TypeError` only
+  when a single non-monic generator decides it (lex order); other inputs
+  raise `NotImplementedError` (the reference runs Buchberger/F5B over the
+  ring and returns a basis or raises `TypeError`). `groebner` over a prime
+  modulus above `2**32` or with `symmetric=False` raises
+  `NotImplementedError`.
+- `roots`, `real_roots`, `nroots` and `all_roots` of such a polynomial raise
+  `NotImplementedError` (the reference returns the integer roots of the
+  symmetric representative). `solve_poly_system` raises another error.
+- `rep` and `per(rep)` (the reference `DMP_Python`), `LM`/`EM`/`LT`/`ET`
+  (`Monomial` objects), `eject`, `nth_power_roots_poly` and other methods
+  not listed above raise `NotImplementedError`. `srepr` shows the modulus
+  form and `pretty()` raises `TypeError`.
