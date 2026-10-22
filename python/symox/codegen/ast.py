@@ -600,12 +600,31 @@ class Indexed(_IndexedArithmetic):
             sizes.append(size)
         return Tuple(*sizes)
 
+    def __hash__(self):
+        # The hash of the symbol it becomes in arithmetic, so that results
+        # keyed by that symbol (``solve``) are found with ``A[1]`` itself.
+        try:
+            return self.__dict__['_symbol_hash']
+        except KeyError:
+            value = hash(self._symox_())
+            object.__setattr__(self, '_symbol_hash', value)
+            return value
+
     def _symox_(self):
         # Flatten multidimensional references consistently when they enter
         # native scalar arithmetic (whose atoms are scalar symbols).
         from symox import Symbol
         from symox.printing._legacy import LegacyCXX17CodePrinter
-        return Symbol(LegacyCXX17CodePrinter().doprint(self))
+        symbol = Symbol(LegacyCXX17CodePrinter().doprint(self))
+        _INDEXED_SYMBOLS.setdefault(symbol, self)
+        return symbol
+
+
+# The scalar symbols that Indexed references became in native arithmetic,
+# so that ``expr.atoms(Indexed)`` finds them (SymPy's
+# ``Tuple(A[1] + A[2] - 3).atoms(Indexed)`` is ``{A[1], A[2]}``).
+_INDEXED_SYMBOLS = {}
+
 
 def _install_indexed_assumptions():
     """IndexedBase keeps the assumptions of its label (given as keywords or
@@ -634,6 +653,25 @@ def _install_indexed_assumptions():
 
 
 _install_indexed_assumptions()
+
+
+def _install_indexed_atoms():
+    """``expr.atoms(Indexed)`` lists the symbols that Indexed references
+    became in native arithmetic (the reference finds its Indexed nodes)."""
+    from symox import _core
+    native_atoms = _core.Expr.atoms
+
+    def atoms(self, *types):
+        found = native_atoms(self, *types)
+        if any(t is Indexed for t in types) and _INDEXED_SYMBOLS:
+            found |= {s for s in native_atoms(self, _S.Symbol) if s in _INDEXED_SYMBOLS}
+        return found
+
+    atoms.__doc__ = native_atoms.__doc__
+    setattr(_core.Expr, 'atoms', atoms)
+
+
+_install_indexed_atoms()
 
 
 __all__ = [name for name,value in globals().items() if not name.startswith("_") and (isinstance(value,type) and issubclass(value,CodegenAST) or name in ("aug_assign",))]

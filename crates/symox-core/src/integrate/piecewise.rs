@@ -37,6 +37,26 @@ pub(crate) fn has_piecewise(e: &Expr) -> bool {
     found
 }
 
+/// Whether `expr` is an Integral, Sum or Product whose integrand holds a
+/// Piecewise condition on one of its bound variables.
+fn bound_conditions(expr: &Expr) -> bool {
+    use crate::expr::Func;
+    let Kind::Func(Func::Integral | Func::Sum | Func::Product, a) = expr.kind() else {
+        return false;
+    };
+    if a.is_empty() {
+        return false;
+    }
+    let bound: Vec<Expr> = crate::binders::limits(a).into_iter().filter_map(|l| l.first().cloned()).collect();
+    let mut found = false;
+    crate::traverse::preorder(&a[0], &mut |s| {
+        if let Some(p) = pieces(s) {
+            found |= p.iter().any(|(_, c)| bound.iter().any(|v| crate::traverse::has(c, v)));
+        }
+    });
+    found
+}
+
 /// `piecewise_fold(expr, evaluate)`: `Some(true)` evaluates the result,
 /// `Some(false)` keeps the raw form, `None` drops duplicate conditions only.
 pub(crate) fn piecewise_fold(expr: &Expr, evaluate: Option<bool>) -> Expr {
@@ -55,6 +75,13 @@ pub(crate) fn piecewise_fold(expr: &Expr, evaluate: Option<bool>) -> Expr {
             }
         }
     } else {
+        if bound_conditions(expr) {
+            // A condition on a bound variable cannot leave its Integral,
+            // Sum or Product: `Integral(Piecewise((0, x/t < 0), (1, True)),
+            // (t, a, b))` folded into a Piecewise on `x/t < 0` would leak
+            // `t` outside the integral (the reference folds it anyway).
+            return expr.clone();
+        }
         let args: Vec<Expr> = if matches!(expr.kind(), Kind::Add(..) | Kind::Mul(..)) && crate::assumptions::fact(expr, "commutative") != Some(false) {
             group_common_conditions(expr)
         } else {

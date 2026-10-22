@@ -1307,11 +1307,23 @@ class Set(metaclass=_node_types.WrapperType):
     # properties ----------------------------------------------------------------
     @property
     def inf(self):
-        return _core._set_inf(self._e)
+        try:
+            return _core._set_inf(self._e)
+        except NotImplementedError:
+            # SymPy's Union._inf, for parts (a symbolic Range) the native
+            # infimum leaves to the Python layer.
+            if self.class_name == 'Union':
+                return Min(*[s.inf for s in self.args])
+            raise
 
     @property
     def sup(self):
-        return _core._set_sup(self._e)
+        try:
+            return _core._set_sup(self._e)
+        except NotImplementedError:
+            if self.class_name == 'Union':
+                return Max(*[s.sup for s in self.args])
+            raise
 
     @property
     def measure(self):
@@ -1783,6 +1795,69 @@ class Range(Set):
         if self.start == self.stop:
             return self
         return Range(self.stop - self.step, self.start - self.step, -self.step)
+
+    @property
+    def is_finite_set(self):
+        if self.start.is_integer and self.stop.is_integer:
+            return True
+        return self.size.is_finite
+
+    @property
+    def is_empty(self):
+        try:
+            return self.size.is_zero
+        except ValueError:
+            return None
+
+    def __bool__(self):
+        # SymPy's Range.__bool__: only a definite null Range is falsy.
+        b = Eq(self.start, self.stop)
+        if b not in (S.true, S.false):
+            raise ValueError('cannot tell if Range is null or not')
+        return b is S.false
+
+    # SymPy's Range._inf/_sup, which Set.inf/sup return.
+    @property
+    def _inf(self):
+        if not self:
+            return S.EmptySet.inf
+        if self.has(Symbol):
+            if all(i.is_integer or i.is_infinite for i in self._e.args):
+                dif = self.stop - self.start
+                if self.step.is_positive and dif.is_positive:
+                    return self.start
+                elif self.step.is_negative and dif.is_negative:
+                    return self.stop - self.step
+            raise ValueError('invalid method for symbolic range')
+        if self.step > 0:
+            return self.start
+        else:
+            return self.stop - self.step
+
+    @property
+    def _sup(self):
+        if not self:
+            return S.EmptySet.sup
+        if self.has(Symbol):
+            if all(i.is_integer or i.is_infinite for i in self._e.args):
+                dif = self.stop - self.start
+                if self.step.is_positive and dif.is_positive:
+                    return self.stop - self.step
+                elif self.step.is_negative and dif.is_negative:
+                    return self.start
+            raise ValueError('invalid method for symbolic range')
+        if self.step > 0:
+            return self.stop - self.step
+        else:
+            return self.start
+
+    @property
+    def inf(self):
+        return self._inf
+
+    @property
+    def sup(self):
+        return self._sup
 
     def __getitem__(self, i):
         # SymPy's Range.__getitem__.
@@ -2719,7 +2794,75 @@ def lambdify(args, expr, modules=None, **kwargs):
     implemented = _compile_implemented(args, expr, modules, kwargs)
     if implemented is not None:
         return implemented
-    return _native_lambdify(args, expr, modules=modules, **kwargs)
+    native = _native_lambdify(args, expr, modules=modules, **kwargs)
+    exact = _integer_polynomial_lambda(args, expr, modules)
+    if exact is None:
+        return native
+    return _ExactIntegerLambda(native, exact)
+
+
+class _ExactIntegerLambda:
+    """A native compiled function that follows the Python integer arithmetic
+    of the reference generated code for ``int`` arguments.
+
+    The reference prints ``x + 1`` as Python source, so
+    ``lambdify(x, x + 1)(2**60)`` is the exact ``1152921504606846977``; the
+    native evaluator works in doubles. A polynomial with integer
+    coefficients and nonnegative integer powers is evaluated by the same
+    Python operations when an argument is an ``int``.
+    """
+    __slots__ = ('_native', '_exact')
+
+    def __init__(self, native, exact):
+        self._native = native
+        self._exact = exact
+
+    def __call__(self, *values, **kw):
+        if not kw and any(type(v) is int for v in values):
+            return self._exact(*values)
+        return self._native(*values, **kw)
+
+    def __getattr__(self, name):
+        return getattr(self._native, name)
+
+
+def _integer_polynomial_lambda(args, expr, modules):
+    """A Python function of ``args`` evaluating ``expr`` with Python ``+``,
+    ``*`` and ``**``, or None unless ``expr`` is a polynomial in plain
+    symbol arguments with Integer coefficients."""
+    if modules is not None:
+        names = modules if isinstance(modules, (list, tuple)) else [modules]
+        if not all(isinstance(m, str) and m in ('math', 'mpmath', 'sympy', 'numpy', 'scipy')
+                   for m in names):
+            return None
+    if not isinstance(expr, Expr) or isinstance(expr, MatrixBase):
+        return None
+    params = args if isinstance(args, (list, tuple)) else (args,)
+    if not params or not all(isinstance(p, Symbol) for p in params) or len(set(params)) != len(params):
+        return None
+    if not expr.free_symbols <= set(params):
+        return None
+    names = {p: '_a%d' % i for i, p in enumerate(params)}
+
+    def source(e):
+        if e in names:
+            return names[e]
+        if e.is_Integer:
+            return '(%d)' % int(e)
+        if e.is_Add or e.is_Mul:
+            parts = [source(a) for a in e.args]
+            if None in parts:
+                return None
+            return '(%s)' % (' + ' if e.is_Add else '*').join(parts)
+        if e.is_Pow and e.exp.is_Integer and e.exp >= 0:
+            base = source(e.base)
+            return None if base is None else '(%s**%d)' % (base, int(e.exp))
+        return None
+
+    body = source(expr)
+    if body is None:
+        return None
+    return eval('lambda %s: %s' % (', '.join(names[p] for p in params), body), {})
 
 from ._matrixexpr import (  # noqa: E402
     MatrixExpr, MatrixSymbol, FunctionMatrix, ElementwiseApplyFunction, MatAdd, MatMul, MatPow, Transpose, Adjoint,
