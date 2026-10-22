@@ -36,6 +36,13 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         return _relational_simplify(expression,options)
     from .logic.boolalg import BooleanFunction, Xor
     if isinstance(expression,BooleanFunction) and not isinstance(expression,Xor):
+        from . import And as _And, Or as _Or
+        from .logic import _pattern_simplify
+        lattice='And' if expression.func==_And else ('Or' if expression.func==_Or else None)
+        if lattice=='Or':
+            # Or._eval_simplify: a <= b becomes Eq(a, b) | (a < b) first
+            split=_pattern_simplify.or_split_lege(expression)
+            if split is not None:return simplify(split,**options)
         # BooleanFunction._eval_simplify starts with simplify_univariate
         from .logic.boolalg import simplify_univariate
         rv=simplify_univariate(expression)
@@ -45,6 +52,12 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         rv=rv.func(*[a.simplify(**options) if a.args else a for a in rv.args])
         expression=simplify_logic(rv)
         if not isinstance(expression,BooleanFunction):return expression
+        if lattice=='Or':
+            if expression.func!=_Or:return expression
+            return _pattern_simplify.or_simplify(expression,measure)
+        if lattice=='And':
+            if expression.func!=_And:return expression
+            return _pattern_simplify.and_simplify(expression,measure,ratio)
     if getattr(expression,'is_Piecewise',False):
         # Piecewise._eval_simplify
         if expression.is_zero:return S.Zero

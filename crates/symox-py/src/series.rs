@@ -155,7 +155,26 @@ fn _held_limit(e:&Bound<'_,PyAny>,z:&Bound<'_,PyAny>,z0:&Bound<'_,PyAny>,dir:&st
     Ok(w(held))
 }
 
+static ORDER_POINT: pyo3::sync::GILOnceCell<PyObject> = pyo3::sync::GILOnceCell::new();
+
+/// The moving point of `Order._eval_subs` for a non-affine replacement,
+/// computed by `symox.series._order_point.order_point`.
+fn order_point_host(old: &Expr, new: &Expr, var: &Expr, point: &Expr) -> Option<Expr> {
+    Python::with_gil(|py| {
+        let f = ORDER_POINT.get_or_try_init(py, || -> PyResult<PyObject> {
+            Ok(py.import("symox.series._order_point")?.getattr("order_point")?.unbind())
+        }).ok()?;
+        let args = (crate::wrap(old.clone()), crate::wrap(new.clone()), crate::wrap(var.clone()), crate::wrap(point.clone()));
+        match f.call1(py, args) {
+            Ok(value) if value.is_none(py) => None,
+            Ok(value) => to_expr(value.bind(py)).ok(),
+            Err(_) => None,
+        }
+    })
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    symox::subs::register_order_point_host(order_point_host);
     m.add_function(wrap_pyfunction!(_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_held_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_series, m)?)?;

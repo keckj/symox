@@ -1694,38 +1694,22 @@ class PoleError(ValueError):
 
 def _piecewise_nseries(expr, x, n):
     """SymPy's ``Piecewise._eval_nseries``: expand each branch."""
-    return expr.func(*[(_series_call(e, x, 0, n, "+"), c) for e, c in expr.args])
+    from .series._piecewise_series import piecewise_nseries
+    return piecewise_nseries(expr, x, n)
 
 
-def _piecewise_series(expr, x, x0, n, dir):
-    """``Expr.series`` for a Piecewise: shift the origin, expand in a
-    positive variable, then expand the branches."""
-    from symox import Dummy, collect
-    x0 = sympify(x0)
-    if x0.is_infinite:
-        return None
-    if x0 or dir == "-":
-        if dir == "-":
-            rep, back = -x + x0, -x + x0
-        else:
-            rep, back = x + x0, x - x0
-        s = _series_call(expr.subs(x, rep), x, 0, n, "+")
-        return s.subs(x, back)
-    if (x.is_positive is None and x.is_negative is None) or not x.is_Symbol:
-        xpos = Dummy("x", positive=True)
-        return _series_call(expr.subs(x, xpos), xpos, 0, n, "+").subs(xpos, x)
-    s1 = _piecewise_nseries(expr, x, n)
-    if s1.has(Order):
-        # asymptotic expansion, returned as is
-        return s1
-    o = Order(x**n, x)
-    if (s1 + o).removeO() == s1:
-        return s1
-    return collect(s1, x) + o
+def _series_native(expr, x, x0, n, dir):
+    try:
+        return _core._series(expr, x, x0, n, dir)
+    except ValueError as e:
+        msg = str(e)
+        if msg.startswith("PoleError: "):
+            raise PoleError(msg[len("PoleError: "):]) from None
+        raise
 
 
 def _series_call(expr, x, x0, n, dir):
-    if getattr(expr, "is_Piecewise", False) and n is not None:
+    if n is not None and expr.has(Piecewise):
         if x is None:
             syms = expr.free_symbols
             if not syms:
@@ -1736,16 +1720,12 @@ def _series_call(expr, x, x0, n, dir):
         x = sympify(x)
         if x not in expr.free_symbols:
             return expr
-        result = _piecewise_series(expr, x, x0, n, dir)
-        if result is not None:
-            return result
-    try:
-        return _core._series(expr, x, x0, n, dir)
-    except ValueError as e:
-        msg = str(e)
-        if msg.startswith("PoleError: "):
-            raise PoleError(msg[len("PoleError: "):]) from None
-        raise
+        from .series._piecewise_series import _has_pw, series as _pw_series
+        if _has_pw(expr, x):
+            result = _pw_series(expr, x, x0, n, dir)
+            if result is not None:
+                return result
+    return _series_native(expr, x, x0, n, dir)
 
 
 def series(expr, x=None, x0=0, n=6, dir="+"):
@@ -1769,11 +1749,15 @@ def _expr_series(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
 
 
 def _expr_nseries(self, x=None, x0=0, n=6, dir="+", logx=None, cdir=0):
-    if getattr(self, "is_Piecewise", False) and x is not None and not x0 and dir == "+":
+    if x is not None and not x0 and dir == "+" and n is not None and self.has(Piecewise):
+        # Expr.nseries at 0 from the right is _eval_nseries, without the
+        # positive dummy of Expr.series
+        from .series._piecewise_series import _has_pw, eval_nseries
         x = sympify(x)
         if x not in self.free_symbols:
             return self
-        return _piecewise_nseries(self, x, n)
+        if _has_pw(self, x):
+            return eval_nseries(self, x, n)
     return _series_call(self, x, x0, n, dir)
 
 
@@ -1888,7 +1872,24 @@ def limit(e, z, z0, dir="+"):
     Returns an unevaluated :class:`Limit` when the limit cannot be computed.
     """
     r = _core._limit(e, z, z0, str(dir))
+    if r is None and str(dir) in ("+", "-") and e.has(Piecewise):
+        r = _piecewise_one_sided_limit(sympify(e), sympify(z), sympify(z0), str(dir))
     return Limit(e, z, z0, dir) if r is None else r
+
+
+def _piecewise_one_sided_limit(e, z, z0, dir):
+    """A one-sided limit at a finite point where every Piecewise condition
+    is decided on a small one-sided neighborhood: ``z = z0 +- d`` with a
+    positive ``d`` selects the branches, then ``d -> 0+``."""
+    from .series._piecewise_series import _has_pw
+    if not z.is_Symbol or not z0.is_number or not z0.is_finite:
+        return None
+    d = Dummy("d", positive=True)
+    shifted = e.subs(z, z0 + d if dir == "+" else z0 - d)
+    if _has_pw(shifted, d):
+        return None
+    r = _core._limit(shifted, d, 0, "+")
+    return r
 
 
 Expr.limit = lambda self, x, xlim, dir="+": limit(self, x, xlim, dir)
