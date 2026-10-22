@@ -318,6 +318,9 @@ impl PyDomain {
     /// The reference coercion message for an element proven outside an
     /// algebraic field; undecided memberships keep their own message.
     fn conversion_failure(&self, e: &Expr, error: symox::poly::convert::PolyError) -> PyErr {
+        if matches!(error, symox::poly::convert::PolyError::Reference { .. }) {
+            return err(error);
+        }
         if matches!(self.inner, ExactDomain::Algebraic(_))
             && symox::poly::embedding::is_absence(&error)
         {
@@ -1042,6 +1045,11 @@ impl PyDomainElement {
         if imaginary {self.value.domain.convert(&Expr::zero()).map(|value|Self{value}).map_err(coercion)} else {Ok(self.clone())}
     }
     fn fraction_part(&self, denominator: bool) -> PyResult<Self> {
+        if let ElementValue::GaussianFraction(p, q) = &self.value.value {
+            let domain = self.value.domain.ring().map_err(err)?;
+            let side = if denominator { q } else { p };
+            return Ok(Self { value: DomainElement { domain, value: ElementValue::AlgebraicPoly(side.clone()) } });
+        }
         if matches!(self.value.domain,ExactDomain::Gaussian{..}) {
             let (n,d)=self.value.gaussian_fraction().map_err(err)?;
             return Ok(Self{value:if denominator {d}else{n}});

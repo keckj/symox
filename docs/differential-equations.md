@@ -44,8 +44,13 @@ those underlying algorithms: the native `simplify` is a candidate search,
 not SymPy's sequence of rewrites, so it can stop at another equivalent
 form (this also decides whether the `factorable` hint is listed, as for
 `f' + 2*x*f - x*exp(-x**2)`); integration results and integrals left
-unevaluated; and Gaussian coefficient domains (`ZZ_I`, `QQ_I`), which the
-polynomial layer does not infer yet.
+unevaluated. The six differing cases with `I` in the reference
+(`almost_lin_01`, `undet_39`, `liouville_05`, `rational_riccati_09`,
+`var_of_parameters_13`, `var_of_parameters_14`) are not caused by the
+Gaussian domains, which `Poly` infers and whose fraction fields have
+elements: they come from root ordering, the simplified form, and a
+`CoercionFailed` (coefficient outside the selected algebraic field) in
+the variation of parameters for `var_of_parameters_13` and `_14`.
 The corpus compares strings only; it does not prove that each differing
 result is an equivalent solution.
 

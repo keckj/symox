@@ -34,8 +34,26 @@ def _sign_coefficient(domain, value):
     return domain.to_sympy(value)
 
 
+def _gaussian_composite(domain):
+    # PolynomialRing and FractionField delegate signs to the ground of the
+    # leading coefficient, which has none over ZZ_I and QQ_I.
+    return domain.is_Composite and _gaussian(domain.dom)
+
+
+def _has_assoc(domain, method):
+    if getattr(domain, 'is_EX', False) or getattr(domain, 'is_EXRAW', False):
+        return method == 'get_field'
+    if method == 'get_ring' and not domain.is_Exact:
+        return False
+    try:
+        getattr(domain, method)()
+    except Exception:
+        return False
+    return True
+
+
 def is_positive(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self):
+    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
         self.convert(a)
         return False
     if getattr(self, 'is_EX', False):
@@ -44,7 +62,7 @@ def is_positive(self, a):
 
 
 def is_negative(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self):
+    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
         self.convert(a)
         return False
     if getattr(self, 'is_EX', False):
@@ -53,14 +71,14 @@ def is_negative(self, a):
 
 
 def is_nonnegative(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self):
+    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
         self.convert(a)
         return False
     return not self.is_negative(a)
 
 
 def is_nonpositive(self, a):
-    if getattr(self, 'is_CC', False) or _gaussian(self):
+    if getattr(self, 'is_CC', False) or _gaussian(self) or _gaussian_composite(self):
         self.convert(a)
         return False
     return not self.is_positive(a)
@@ -83,6 +101,10 @@ def canonical_unit(self, a):
 
 
 def abs_(self, a):
+    if _gaussian_composite(self):
+        self.convert(a)
+        raise TypeError("bad operand type for abs(): '%s'"
+                        % ('FracElement' if self.is_Field else 'PolyElement'))
     if getattr(self, 'is_CC', False):
         return abs(self.convert(a))
     if self.is_ZZ or self.is_QQ or self.is_Composite:
@@ -517,6 +539,15 @@ def _call(self, *args):
                 return _native_call(self, f.numerator, f.denominator)
         if getattr(self, 'is_RealField', False) and (isinstance(a, complex) or type(a).__name__ == 'mpc'):
             raise TypeError('cannot create mpf from %r' % (a,))
+        if getattr(self, 'is_FractionField', False) and not self.dom.is_Field:
+            # FracField.ground_new retries through the field of the ground:
+            # ZZ(y)(1.5) is 3/2 and ZZ_I(y)(1.5) reports QQ_I.
+            from ... import CoercionFailed
+            try:
+                return self.convert(a)
+            except CoercionFailed:
+                field = self.dom.get_field()
+                return self.convert(field.to_sympy(_convert_inexact(field, _inexact_value(a))))
         return self.convert(a)
     if len(args) == 1 and isinstance(args[0], bool):
         return _native_call(self, int(args[0]))
@@ -819,6 +850,8 @@ def install():
         _native_unify = Domain.unify
         Domain.unify = unify
         native_exact = Domain.is_Exact
+        Domain.has_assoc_Ring = property(lambda self: _has_assoc(self, 'get_ring'))
+        Domain.has_assoc_Field = property(lambda self: _has_assoc(self, 'get_field'))
         Domain.is_Exact = property(
             lambda self: False if self.is_Composite and _inexact_ground(self)
             else native_exact.__get__(self))
