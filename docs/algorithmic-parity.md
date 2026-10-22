@@ -5080,3 +5080,69 @@ Remaining gaps:
   `sympy.stats.Expectation` is handled separately.
 - `limit(x**p*x**(-p - 1), x, oo)` with a positive `p` stays held
   (reference `0`).
+
+## Category-c batch 4: geometry, optics, vector, quantum, control
+
+Reference algorithms ported (doctests now match SymPy 1.14): `Line` from an
+equation (`linear_coeffs`), `RayTransferMatrix(A, B, C, D)`,
+`CoordSys3D.orient_new`/`orient_new_quaternion` with a symbolic quaternion,
+`Del.gradient` of a constant, `ImplicitRegion` regular/singular points,
+multiplicity and rational parametrization (`vector/_implicitregion_ref.py`),
+`Wavefunction` calls, `prob` and `norm`, `IntQubit(Qubit(...))`,
+`integrate_result`/`represent` with symbolic delta roots, and the spin state
+`rewrite` to `Jx`/`Jy`/`Jz` (coupled and uncoupled). `phase_margin` decides
+`pm >= 180` from a 50-digit value when the native relational stays
+symbolic, and raises TypeError when that value is ambiguous.
+
+Deliberate choices:
+
+- The `CoordSys3D` orthogonality check and the `QuaternionOrienter`
+  unit-norm check were removed, as in the reference, which stores the
+  matrix as given. The older tests that expected ValueError were updated.
+- The integration term loop now calls the reference `deltaintegrate` on
+  products the native rules decline, but only when every delta argument in
+  `x` has slope +1 (or -1 with no derivative order) and at least one root
+  is symbolic. Results that contain `zoo`, `nan` or a numeric
+  `DiracDelta(c)` are refused. As a result, `x*DiracDelta(x - a)`
+  integrates to `a*Heaviside(x - a)`. `DiracDelta(x)/x` stays unevaluated,
+  where the reference returns `zoo*Heaviside(x)`. Numeric roots stay with
+  the native preflighted rules.
+- `ImplicitRegion.rational_parametrization` of a plane in three variables
+  keeps the earlier exact linear solution, where the reference raises
+  NotImplementedError.
+
+Remaining gaps:
+
+- Printing (printing owner): `pprint` and `pretty` of Python-level objects
+  and containers fail. This covers MIMO systems, `TransferFunctionMatrix`
+  (and `from_Matrix`), `jones_2_stokes` lists, the `Diagram`/`Diagram.hom`
+  tuples and `DiagramGrid`. `DiagramGrid` also lays out as 3x1 instead of
+  the reference 2x2, because `diagram_drawing` is not ported.
+- Core/sets: `FiniteSet` of Python-level `Diagram`/`Object` instances
+  (`Category`, `Diagram.subdiagram_from_objects`), `Lambda` with a `Matrix`
+  body (`CoordinateSymbol`), `Integral` of an `NDimArray`/`Matrix`
+  (`shape`, `ArrayKind`), and `Add` of Python `Vector` objects
+  (`VectorKind`).
+- `phase_margin`: the value is correct, but the native `arg` returns a
+  different closed form.
+- `couple`/`uncouple` and `rewrite` with symbolic spins: the reference
+  `Sum` of states prints as `OrderedProduct` through the native `Sum`, so
+  NotImplementedError is kept.
+- `simplify_gpgp`: `TensMul.sorted_components` and the reference dummy
+  canonicalisation are missing. The result is an unchanged equal
+  expression.
+- Array expressions: `sort_args_by_name`, `PermuteDims` and
+  `convert_array_to_matrix` need the canonical array-expression forms, and
+  `tensorproduct` of `MatrixSymbol`s with symbolic shapes. These raise or
+  return explicit arrays. `convert_indexed_to_array` depends on `Indexed`
+  being a real node.
+- `ImplicitRegion.rational_parametrization`: the circle example picks a
+  different regular point because the native `diophantine` returns another
+  parametrisation, and the float example hits NotImplementedError in
+  `nonlinsolve` (solvers).
+- Divergence: for three variables, `ImplicitRegion.regular_point` skips
+  grid points where the gradient vanishes. The reference returns such a
+  singular point, for example `(-10, -10, 20)` for `(x + y + z)**4`. This
+  version raises NotImplementedError when every candidate is singular. In
+  that case the reference fallback `list[self.singular_points()][0]`
+  raises TypeError.

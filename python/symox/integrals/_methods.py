@@ -59,6 +59,41 @@ def _linear_power(g, x, conds):
     return h / M[a]
 
 
+def _unit_slope_deltas(g, x):
+    """Whether every delta of ``g`` in ``x`` has an argument ``x - c``
+    (``c - x`` allowed without a derivative order).  deltaintegrate then
+    needs no 1/|g'(root)| scaling, which the native expansion only
+    applies to roots it proves real."""
+    symbolic_root = False
+    for d in g.atoms(DiracDelta):
+        arg = d.args[0]
+        if not arg.has(x):
+            continue
+        slope = arg.diff(x)
+        order = d.args[1] if len(d.args) > 1 else S.Zero
+        if slope == 1 or (slope == -1 and order == 0):
+            symbolic_root = symbolic_root or bool(arg.free_symbols - {x})
+            continue
+        return False
+    # Numeric roots stay with the native rules, which preflight the
+    # substitution cost (t**(2**80)*DiracDelta(t - 2) is left held).
+    return symbolic_root
+
+
+def _regular_delta_value(h):
+    """``h`` unless it carries a singular value: ``zoo``/``nan`` or a
+    delta at a numeric zero (``DiracDelta(0)``), which the reference
+    deltaintegrate produces for DiracDelta(x)/x or DiracDelta(x)**2."""
+    if h is None:
+        return None
+    if h.has(S.ComplexInfinity, S.NaN):
+        return None
+    for d in h.atoms(DiracDelta):
+        if d.args[0].is_number:
+            return None
+    return h
+
+
 def _term(g, x, conds):
     """The default term loop on one term ``g`` (its coefficient taken out)
     up to the Meijer G method: the shortcuts, ``ratint``,
@@ -84,6 +119,12 @@ def _term(g, x, conds):
     stages = [lambda: trigintegrate(g, x, conds=conds)]
     if not g.has(DiracDelta):
         stages.append(lambda: deltaintegrate(g, x))
+    else:
+        # Products the native rules declined (a symbolic delta root such as
+        # x*DiracDelta(x - a)): take the reference deltaintegrate value
+        # unless it is one of the singular products it mis-evaluates.
+        if _unit_slope_deltas(g, x):
+            stages.append(lambda: _regular_delta_value(deltaintegrate(g, x)))
     stages.append(lambda: singularityintegrate(g, x))
     for stage in stages:
         h = stage()

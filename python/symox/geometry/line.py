@@ -433,6 +433,42 @@ class LinearEntity3D(LinearEntity):
 class Line(LinearEntity):
     __slots__ = ()
 
+    def __new__(cls, *args, **kwargs):
+        # Reference Line(equation, x=..., y=...): a linear equation in two
+        # named variables gives the line through its y (or x) intercept.
+        from .. import Expr, Eq, oo
+        from ..core.relational import Equality
+        if len(args) == 1 and isinstance(args[0], (Expr, Equality)) and not isinstance(args[0], GeometryEntity):
+            from ..core.symbol import uniquely_named_symbol
+            from ..solvers.solveset import linear_coeffs
+            from .util import find
+            missing = uniquely_named_symbol('?', args)
+            if not kwargs:
+                x, y = 'x', 'y'
+            else:
+                x = kwargs.pop('x', missing)
+                y = kwargs.pop('y', missing)
+            if kwargs:
+                raise ValueError('expecting only x and y as keywords')
+            equation = args[0]
+            if isinstance(equation, Equality):
+                equation = equation.lhs - equation.rhs
+
+            def find_or_missing(v):
+                try:
+                    return find(v, equation)
+                except ValueError:
+                    return missing
+            x = find_or_missing(x)
+            y = find_or_missing(y)
+            a, b, c = linear_coeffs(equation, x, y)
+            if b:
+                return Line((0, -c/b), slope=-a/b)
+            if a:
+                return Line((-c/a, 0), slope=oo)
+            raise ValueError('not found in equation: %s' % (set('xy') - {x, y}))
+        return LinearEntity.__new__(cls, *args, **kwargs)
+
 
 class Ray(LinearEntity):
     __slots__ = ()
