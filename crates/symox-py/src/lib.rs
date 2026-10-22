@@ -902,7 +902,7 @@ pub(crate) fn evalf_options(kwargs: Option<&Bound<'_, PyDict>>,precision:u32) ->
     // Without strict, an exhausted sum is returned as SymPy's evalf_add
     // returns it: precision 1 Floats bounding the residue.
     let residue=!strict;
-    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial,residue},strict,quad})
+    Ok(EvalfSettings{options:symox::evalf_mp::EvalfOptions{chop,budget,partial,residue,cancellation:None},strict,quad})
 }
 
 pub(crate) fn evalf_expr(e: &Expr, n: i64, replacements: Option<&Bound<'_, PyDict>>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Expr> {

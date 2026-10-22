@@ -28,7 +28,7 @@ thread_local! {
         std::cell::RefCell::new(NumericMemo{depth:0,values:None})
     };
     #[cfg(test)] static EVALUATIONS:std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-    static OPTIONS:std::cell::Cell<EvalfOptions> = const { std::cell::Cell::new(EvalfOptions{chop:None,budget:None,partial:false,residue:false}) };
+    static OPTIONS:std::cell::Cell<EvalfOptions> = const { std::cell::Cell::new(EvalfOptions{chop:None,budget:None,partial:false,residue:false,cancellation:None}) };
     // The sum whose exhaustion returns its residue (see `EvalfOptions::residue`)
     // and the accuracies, in bits, of the real and imaginary parts it returned.
     static RESIDUE_ROOT:std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -56,7 +56,10 @@ thread_local! {
 /// `maxn=100` schedule, so a cancellation resolved within the larger budget
 /// keeps its digits.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq,Hash)]
-pub struct EvalfOptions { pub chop:Option<i128>, pub budget:Option<u32>, pub partial:bool, pub residue:bool }
+pub struct EvalfOptions { pub chop:Option<i128>, pub budget:Option<u32>, pub partial:bool, pub residue:bool,
+    /// Internal: replaces `DEFAULT_CANCELLATION_BUDGET` for a sum without an
+    /// explicit `budget` (same schedule, smaller ceiling).
+    pub cancellation:Option<u32> }
 
 pub const DEFAULT_CANCELLATION_BUDGET:u32=4096;
 /// SymPy's last restart may overshoot the budget by the missing accuracy;
@@ -469,8 +472,18 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
 /// binary magnitude `cutoff` removed, as SymPy's `n(chop=True)`. A sum whose
 /// component cancels exactly is resolved once its rounding error falls below
 /// the cutoff, where `eval_mp` keeps refining it until its budget is spent.
+/// `eval_mp` where a sum without an explicit budget may add at most
+/// `cancellation` bits to its target precision before it stays unevaluated.
+/// For callers that compare the value with a tolerance: a cancellation of
+/// more than that many bits already places the sum below it.
+pub(crate) fn eval_mp_cancelling(e:&Expr,prec:u32,cancellation:u32)->Option<MpComplex>{
+    let options=OPTIONS.with(|cell|cell.get());
+    let _scope=OptionsScope::enter(EvalfOptions{cancellation:Some(cancellation),..options});
+    eval_mp(e,prec)
+}
+
 pub fn eval_mp_chopped(e:&Expr,prec:u32,cutoff:i128)->Option<MpComplex>{
-    let _scope=OptionsScope::enter(EvalfOptions{chop:Some(cutoff),budget:None,partial:false,residue:false});
+    let _scope=OptionsScope::enter(EvalfOptions{chop:Some(cutoff),budget:None,partial:false,residue:false,cancellation:None});
     let _errors=HostErrorScope::enter(false);
     let mut value=eval_mp(e,prec)?;
     if !value.re.is_zero() && value.re.mag()<cutoff {value.re=BigFloat::zero();}
@@ -479,7 +492,7 @@ pub fn eval_mp_chopped(e:&Expr,prec:u32,cutoff:i128)->Option<MpComplex>{
 }
 
 pub fn evalf_chop(e:&Expr,prec:u32,cutoff:i128)->Expr {
-    evalf_with_options(e,prec,EvalfOptions{chop:Some(cutoff),budget:None,partial:false,residue:false}).0
+    evalf_with_options(e,prec,EvalfOptions{chop:Some(cutoff),budget:None,partial:false,residue:false,cancellation:None}).0
 }
 
 pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
@@ -559,7 +572,7 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
         return Some(MpComplex::real(BigFloat::zero()));
     }
     let options=OPTIONS.with(|cell|cell.get());
-    let budget=options.budget.unwrap_or(DEFAULT_CANCELLATION_BUDGET);
+    let budget=options.budget.unwrap_or(options.cancellation.unwrap_or(DEFAULT_CANCELLATION_BUDGET));
     let ceiling=precision.saturating_add(budget);
     // Absolute rounding error of the computed sum, as a binary exponent.
     let error_bound=|largest:i128,working:u32|largest.saturating_add(3+(usize::BITS-terms.len().leading_zeros()) as i128)-working as i128;
