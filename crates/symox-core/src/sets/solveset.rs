@@ -47,7 +47,10 @@ pub fn dummy_n() -> Expr {
 /// Every periodic branch of one solve uses the same bound integer atom.
 /// This keeps presentation independent of branch discovery/allocation order.
 #[derive(Default)]
-struct SolveContext { periodic_variable: std::sync::OnceLock<Expr> }
+struct SolveContext { periodic_variable: std::sync::OnceLock<Expr>,
+    /// The generator occurs once and linearly (the reference `_solve_trig`
+    /// inverts only then).
+    single: std::cell::Cell<bool> }
 impl SolveContext {
     fn periodic_variable(&self)->&Expr { self.periodic_variable.get_or_init(dummy_n) }
 }
@@ -150,6 +153,43 @@ fn restricted_image(period:&Expr,c:&Expr,domain:&Expr,context:&SolveContext)->Ex
     fallback()
 }
 
+/// The reference `_solve_trig` for a single trig or hyperbolic function of
+/// `a*x + b` with a symbolic `a`: the lattice of `trig(u) = k` is inverted
+/// through `u = a*x + b` without expansion, as `imageset(Lambda(n, (n -
+/// b)/a), ...)`, and guarded by `Ne(numer(a), 0) & Ne(denom(a), 0)`.
+fn symbolic_coefficient(f: &Func, a: &Expr, b: &Expr, k: &Expr, x: &Expr, context: &SolveContext) -> Option<Expr> {
+    if !context.single.get() || crate::traverse::free_symbols(a).is_empty() || !is_numeric_value(k)
+        || matches!(f, Func::Exp) {
+        return None;
+    }
+    let u = Expr::dummy("solveset_u", crate::symbol::Assumptions::NONE);
+    let unit = periodic(&crate::functions::func(f.clone(), vec![u.clone()]), k, &u, &complexes(), context)?;
+    let n = context.periodic_variable().clone();
+    let pieces = if is_op(&unit, SetOp::Union) { unit.args() } else { vec![unit.clone()] };
+    let mut out = Vec::new();
+    for piece in pieces {
+        if is_empty_set(&piece) {
+            continue;
+        }
+        if !is_op(&piece, SetOp::ImageSet) {
+            return None;
+        }
+        let parts = piece.args();
+        if parts.len() != 2 || !is_op(&parts[1], SetOp::Integers) {
+            return None;
+        }
+        let body = crate::sets::apply_lambda(&parts[0], &n)?;
+        if has(&body, &u) {
+            return None;
+        }
+        out.push(image_set(&lambda(&n, &div(&sub(&body, b), a)), &integers()));
+    }
+    let (num, den) = crate::simplify::numer_denom(a);
+    let cond = crate::logic::and(vec![crate::relational::ne(&num, &Expr::zero()),
+        crate::relational::ne(&den, &Expr::zero())]);
+    Some(condition_set(x, &cond, &union(out)))
+}
+
 /// Periodic solutions of `trig(a*x + b) = k` / `exp(a*x + b) = k`.
 fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
     use crate::functions::{acos, asin, atan, log, asinh, acosh, atanh};
@@ -158,10 +198,10 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
         return None;
     }
     let (a, b) = linear(&args[0], x)?;
-    if !proved_nonzero(&a){return None;}
     if has(k, x) {
         return None;
     }
+    if !proved_nonzero(&a){return symbolic_coefficient(f, &a, &b, k, x, context);}
     let pi = Expr::pi();
     let two_pi = mul2(&Expr::int(2), &pi);
     let real = is_real_domain(domain);
@@ -695,6 +735,9 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         let p = crate::subs::xreplace(&num, &map);
         if !has(&p, x) {
             let ks = crate::solve::solve(&p, &t)?;
+            let mut occurrences = 0;
+            crate::traverse::preorder(&num, &mut |e| if *e == g { occurrences += 1; });
+            context.single.set(occurrences == 1 && crate::integrate::poly_coeffs(&p, &t).is_some_and(|c| c.len() == 2));
             let mut parts = Vec::new();
             for k in ks {
                 parts.push(periodic(&g, &k, x, domain, context)?);

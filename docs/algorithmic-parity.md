@@ -4915,3 +4915,74 @@ Remaining gaps:
   unevaluated (SymPy `2**(1/4)*I`), so `dsolve(f(x).diff(x, 3) +
   sqrt(2)*f(x).diff(x))` returns a `cosh(x*sqrt(-sqrt(2)))` term instead of
   `cos(2**(1/4)*x)` (ODE corpus cases `lin_const_coeff_hom_38`, `reducible_03`).
+
+## Trig equations in `solve`, symbolic trig coefficients in `solveset` on 2026-10-22
+
+A probe of 77 calls (sin/cos/tan combinations, shifted and multiple
+angles, powers, hyperbolic, parameters, `dict=True`, `check=False`, and
+`solveset` with a symbolic coefficient) went from 28 to 65 outputs identical
+to SymPy 1.14.
+
+What was implemented (`crates/symox-core/src/solve/trig.rs`):
+
+- The angle expansion of the reference `solve`: when more than one distinct
+  trig atom depends on the unknown, `TR10` expands `sin(x + c)` and `TR11`
+  doubles the angles equal to twice the gcd of the arguments.
+- The trig branch of the multiple-generator case of `_solve`. Two terms
+  `A*sin(u)**p + B*cos(u)**p` become the numerator of `TR2i(A/B) + 1`
+  (`sin(x) + cos(x)` gives `[-pi/4]`). Anything else is solved as
+  `TR1(f).rewrite(tan)`, a rational function of `tan(x/2)`, then checked
+  against the original equation. When the rewritten form is unsolved, the
+  result is `NotImplementedError`, as in the reference.
+- The `rewrite(exp)` fallback of `_tsolve` for trig equations whose unknown
+  occurs only in trig functions of `r*x + c` with rational `r` (other
+  equations, such as `y*sin(y/x)` in `odesimp`, are left unsolved without
+  the rewrite, which only made them slow). A sum of `exp(r_i*I*x)` with
+  rational `r_i` is solved as a polynomial in `exp(I*x/q)`; the lattice is adopted only when every
+  logarithm of a root evaluates (`log(-1)`, `log(I)`), so
+  `tan(x) - sin(x)` gives `[0, -pi, pi, 2*pi]` and `cos(x) + cos(3*x)`
+  gives `[-3*pi/4, -pi/2, -pi/4, pi/4, pi/2, 3*pi/4]`.
+- `sec(u) = r` and `csc(u) = r` are inverted through `acos(1/r)` and
+  `asin(1/r)` when these evaluate to multiples of `pi` (`sec(x) - 2` gives
+  `[-pi/3, pi/3]`, a double root such as `sec(x) + 1` gives `[pi]`);
+  otherwise the equation is left to the other paths.
+- `2*atan(r)` from the tan half-angle rewrite is evaluated at
+  `radsimp(r)` when that gives a tabulated angle
+  (`sin(x) + cos(x) - sqrt(2)` gives `[pi/4]`).
+- `solveset` of a single trig or hyperbolic function of `a*x + b` with a
+  symbolic `a` (the reference `_solve_trig`): the unit lattice is inverted
+  without expansion, `ImageSet(Lambda(n, (2*n*pi + pi/2 - b)/a), Integers)`,
+  inside `ConditionSet(x, Ne(numer(a), 0) & Ne(denom(a), 0), ...)`. This
+  applies only when the function occurs once, linearly; otherwise the result
+  stays a `ConditionSet`, as in the reference.
+
+Intentional divergences:
+
+- Candidates containing `oo`, `zoo` or `nan` are dropped, also with
+  `check=False`. `solve(tan(x) - sin(x), check=False)` gives
+  `[0, -3*pi/2, -pi, -pi/2, pi/2, pi, 3*pi/2, 2*pi]`, the unchecked roots of
+  the exp polynomial, where SymPy gives `[0, zoo, -pi, pi, 2*pi]`. With the
+  default check both give `[0, -pi, pi, 2*pi]`.
+- `solve(sin(x/2) - cos(x))` gives `[-pi, pi/3, 5*pi/3]` (each one checked).
+  SymPy raises `NotImplementedError`.
+- `solve(cos(x)**2 - sin(x))` prints `sqrt(2 - 2*sqrt(5))/2` where SymPy
+  prints `sqrt(2)*sqrt(1 - sqrt(5))/2`. These are the same values.
+
+What remains:
+
+- `solve(sin(3*x) - sin(x))` gives `[0, -3*pi/4, -pi/4, pi/4, 3*pi/4, pi]`.
+  SymPy gives the same list without `pi`, which is also a solution: its
+  selection of principal values along the tan and exp rewrites is not
+  reproduced.
+- `sec` and `csc` equations whose inverse does not evaluate to a multiple of
+  `pi` (`sec(x) - 3`) raise `NotImplementedError`; SymPy gives logarithms
+  such as `I*(log(3) - log(1 - 2*sqrt(2)*I))`.
+- `solveset(exp(exp(x)) - 1, x)` and other nested exponentials stay a
+  `ConditionSet`. SymPy inverts them over a `ProductSet(Integers, Integers)`
+  ImageSet (`_invert_complex` on an ImageSet right-hand side).
+- With a symbolic coefficient, `solveset` of several trig functions
+  (`sin(a*x) + cos(a*x)`, the reference `_solve_trig1` with a symbolic
+  `mu`) and of a symbolic right-hand side (`cos(a*x) - b`) stays a
+  `ConditionSet`.
+
+Tests: `tests/test_solve_trig_rest_parity.py`.
