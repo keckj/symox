@@ -1439,19 +1439,11 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
                 }
                 return mul(&v);
             }
-            // pull positive factors out of a radical: sqrt(p*x) = sqrt(p)*sqrt(x)
-            if e.is_rational_number() {
-                let (pos, other): (Vec<&(Expr, Expr)>, Vec<&(Expr, Expr)>) = facs
-                    .iter()
-                    .partition(|(fb, fe)| !fb.is_number() && (crate::special::polar::is_polar(fb)
-                        || crate::assumptions::is_positive(&mul_factor(fb, fe)) == Some(true)));
-                if !pos.is_empty() {
-                    let mut v: Vec<Expr> = pos.iter().map(|(fb, fe)| pow(&mul_factor(fb, fe), e)).collect();
-                    let mut rest = vec![Expr::num(c.clone())];
-                    rest.extend(other.iter().map(|(fb, fe)| mul_factor(fb, fe)));
-                    v.push(pow(&mul(&rest), e));
-                    return mul(&v);
-                }
+            // Mul._eval_power -> Pow._eval_expand_power_base for a
+            // non-integer rational or float exponent.
+            if e.is_rational_number() || e.as_number().is_some_and(Number::is_float) {
+                let (commutative, _) = crate::decompose::args_cnc(b, false);
+                return expand_power_base_split(b, commutative, None, e);
             }
             if e.is_number() && !c.is_one() && (c.is_rational() || c.is_float()) {
                 let rest = mul_from_factors(facs.clone());
@@ -1608,7 +1600,11 @@ fn exp_power(z: &Expr, w: &Expr) -> Option<Expr> {
 fn noncommutative_product_power(b: &Expr, e: &Expr) -> Expr {
     let (commutative, ordered) = crate::decompose::args_cnc(b, false);
     let integer = e.is_integer_number();
-    if !integer && !e.is_rational_number() { return Expr::from_kind(Kind::Pow(b.clone(), e.clone())); }
+    if !integer && (e.is_rational_number() || e.as_number().is_some_and(Number::is_float)) {
+        if commutative.is_empty() { return Expr::from_kind(Kind::Pow(b.clone(), e.clone())); }
+        return expand_power_base_split(b, commutative, Some(mul(&ordered)), e);
+    }
+    if !integer { return Expr::from_kind(Kind::Pow(b.clone(), e.clone())); }
     let (mut outside, mut inside) = (Vec::new(), Vec::new());
     for factor in commutative {
         if integer || crate::assumptions::is_nonnegative(&factor) == Some(true) { outside.push(pow(&factor, e)); }
@@ -1617,6 +1613,76 @@ fn noncommutative_product_power(b: &Expr, e: &Expr) -> Expr {
     inside.extend(ordered);
     outside.push(Expr::from_kind(Kind::Pow(mul(&inside), e.clone())));
     mul(&outside)
+}
+
+/// SymPy's `Pow._eval_expand_power_base` (reached from `Mul._eval_power`)
+/// for a non-integer rational or float exponent `e`: the nonnegative and
+/// polar commutative factors get their own power, a negative numeric
+/// coefficient is split into `-1` and its absolute value when it shares
+/// the residual power with factors of unknown sign, an even number of
+/// negative factors is made positive, and the residual (non-real, unknown
+/// sign, the odd `-1` and the noncommutative product `nc`) keeps one power.
+fn expand_power_base_split(b: &Expr, cargs: Vec<Expr>, nc: Option<Expr>, e: &Expr) -> Expr {
+    use crate::assumptions::fact;
+    let (mut nonneg, mut neg, mut other) = (Vec::new(), Vec::new(), Vec::new());
+    for x in cargs {
+        if fact(&x, "extended_real") == Some(false) { other.push(x); continue; }
+        match fact(&x, "polar") {
+            Some(true) => nonneg.push(x),
+            Some(false) => other.push(x),
+            None => match fact(&x, "extended_nonnegative").or_else(|| {
+                // numeric sign proofs (sin(1) > 0) live in the finite queries
+                if crate::assumptions::is_nonnegative(&x) == Some(true) { Some(true) }
+                else if crate::assumptions::is_negative(&x) == Some(true) { Some(false) }
+                else { None }
+            }) {
+                Some(true) => nonneg.push(x),
+                Some(false) => neg.push(x),
+                None => other.push(x),
+            },
+        }
+    }
+    if neg.len() > 1 {
+        let mut o = Expr::one();
+        if other.is_empty() && neg[0].as_number().is_some() { o = neg.remove(0); }
+        if neg.len() % 2 == 1 { o = self::neg(&o); }
+        nonneg.extend(neg.iter().map(self::neg));
+        if !o.is_one() { other.push(o); }
+    } else if !neg.is_empty() && !other.is_empty() {
+        if neg[0].as_number().is_some() && !neg[0].is_minus_one() {
+            other.push(Expr::minus_one());
+            nonneg.push(self::neg(&neg[0]));
+        } else {
+            other.append(&mut neg);
+        }
+    } else {
+        other.append(&mut neg);
+    }
+    let residual = if other.is_empty() && nc.is_none() { None } else {
+        let mut factors = other;
+        factors.extend(nc.iter().cloned());
+        Some((mul(&factors), nc.is_some()))
+    };
+    let pieces = nonneg.len() + usize::from(residual.is_some());
+    if pieces == 0 { return Expr::one(); }
+    if pieces == 1 {
+        // SymPy builds a single piece with evaluate=False; only a power of
+        // a numeric base is evaluated (the `npow` sift).
+        if let Some(x) = nonneg.first() {
+            let numeric_power = e.is_rational_number() && matches!(x.kind(),
+                Kind::Pow(xb, xe) if xb.is_number() && xe.is_rational_number());
+            if numeric_power { return pow(x, e); }
+            if x == b { return pow_raw(b, e); }
+            return pow_raw(x, e);
+        }
+        let (rest, _) = residual.unwrap();
+        return pow_raw(&rest, e);
+    }
+    let mut v: Vec<Expr> = nonneg.iter().map(|x| pow(x, e)).collect();
+    if let Some((rest, noncommutative)) = residual {
+        v.push(if noncommutative { pow_raw(&rest, e) } else { pow(&rest, e) });
+    }
+    mul(&v)
 }
 
 fn pow_raw(b: &Expr, e: &Expr) -> Expr {

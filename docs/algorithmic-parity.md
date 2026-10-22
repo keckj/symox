@@ -5130,3 +5130,52 @@ Remaining gaps:
   extension towers over `QQ<CRootOf(...)>` are not ported (the polynomial
   constructor rejects a CRootOf coefficient whose generator symbol is also a
   polynomial generator).
+
+## Powers of products with a negative coefficient (wave 4, pow-negbase)
+
+`Pow(Mul, r)` for a non-integer rational or float `r` now ports SymPy's
+`Mul._eval_power` -> `Pow._eval_expand_power_base` in the native constructor
+(`expand_power_base_split` in `ops.rs`), for commutative and noncommutative
+products. Factors that are polar or extended nonnegative (numeric sign proofs
+included, e.g. `sin(1)`) get their own power, an even number of negative
+factors becomes positive, a negative numeric coefficient sharing the residual
+power with factors of unknown sign splits into `-1` and its absolute value,
+and the residual (non-real factors, unknown signs, the odd `-1`, the
+noncommutative product) keeps one power. Before, only non-numeric positive
+factors were split, so `sqrt(-sqrt(2))` stayed unevaluated (now `2**(1/4)*I`),
+as did `(-sqrt(2))**(1/3)` (now `(-1)**(1/3)*2**(1/6)`). `sqrt(n*m)` with
+negative `n`, `m` is now `sqrt(-m)*sqrt(-n)`, and `sqrt(-2*x*A*B)` is
+`sqrt(2)*sqrt(-x*A*B)`. `Pow._eval_is_extended_real` now also gives `False`
+for a negative base to a non-integer rational power (`sqrt(n)`,
+`sqrt(-sqrt(2) - 1)`). This also fixes the ODE regression
+`dsolve(f' + sqrt(2)*f''', f)`, which now gives the reference
+`C1 + C2*sin(2**(3/4)*x/2) + C3*cos(2**(3/4)*x/2)` deterministically.
+
+Probes (101 bases times 17 exponents, plus facts): 1 232 of 1 669 matched
+before, 1 588 match now. The 81 remaining differences are all numerically
+equal (checked at sample points) and come from two form-only gaps:
+- SymPy's `Mul.flatten` keeps nested products when it re-evaluates held
+  powers, e.g. `(1.0*I)*p**0.5`, `(-n)*sqrt(x)`, `-I**(3/2)` from `I**(-1/2)`.
+  Symox prints the flat product.
+- Numeric radical products combine differently: SymPy gives
+  `(-3)**(1/3)*2**(1/6)*sqrt(3)/3` for `(-sqrt(6)/3)**(1/3)`, symox gives
+  `(-1)**(1/3)*3**(2/3)*6**(1/6)/3`. The cause is a pre-existing difference
+  in how `Mul` combines numeric powers with different exponents, for example
+  `6**(1/6)*(-1/3)**(1/3)`. It is not specific to `Pow`.
+
+Remaining gap: `im`/`re` of a product holding an unevaluated
+`Pow(-sqrt(2), 1/2, evaluate=False)` returns the correct but unsimplified
+`-sqrt(2)*I*sqrt(-sqrt(2))/2`. SymPy re-evaluates held powers inside
+`Mul.flatten` and gets `2**(3/4)/2`. Canonical inputs are not affected.
+
+The split adds dependent numeric radicals to the bottom-up `normal` form that
+the reference `simplify` state cancels, for example `12**(1/6)`, `12**(5/6)`,
+`sqrt(3)` and `sqrt(229)` in the residual of a Ferrari root of
+`x**4 + x + 1`. The native algebraic gcd behind that `cancel` does not reduce
+the radical relations and blew up, so `solve_poly_system([x**4 + x + 1], x)`
+stopped returning. That state now runs under the default factor budget. When
+the budget runs out, simplify skips this one candidate and keeps the others
+(trigsimp, the cancelled, expanded and together forms, powsimp).
+`solve_poly_system` again returns in about 4 s, as before. Remaining gap: on
+such inputs the native cancel is still slower than SymPy's, which treats the
+radicals as independent generators.
