@@ -1160,6 +1160,79 @@ Remaining gaps:
   sets against `Reals`, so removing it needs the image-set handlers in native
   code first.
 
+## Geometry, vectors, combinatorics and holonomic numerics on 2026-10-22
+
+A probe of 160 calls (`is_concyclic`/`is_collinear`, `contains` of rays,
+lines and segments in 2D and 3D, `Plane.angle_between`, vector `equals`,
+`express` and `projection`, `Cycle`, `Permutation.atoms`,
+`Subset.subset_indices`, the polycyclic `Collector` and
+`HolonomicFunction.evalf`) went from 87 to 152 outputs (str or exception
+type) equal to SymPy 1.14.0. `tests/test_wrong_geomcomb_wave4_parity.py`
+holds the reference values.
+
+- `Point.is_collinear` and `Point.is_concyclic` are instance methods that
+  include `self`, as in the reference (`Point(1, 1).is_concyclic(Point(1, 0),
+  Point(0, 1), Point(-1, 0))` is `False`; the unbound form still works).
+  `is_concyclic` uses the reference rank and rref test, so coplanar spatial
+  points are accepted, and `Point.affine_rank` is available.
+- `Ray.contains(Ray)` and `Line.contains(Ray)` require both points of the
+  inner ray on the outer entity (a non-parallel ray from a point of the ray
+  was accepted).
+- `Plane.angle_between` of a spatial linear entity is the signed
+  `asin(n.d/(|n|*|d|))`, and is `None` for other arguments, as in SymPy.
+- Vector `equals` compares `(a - b).dot(a - b)` with zero, so vectors of
+  rotated frames compare equal (`D.j.equals(C.k)`). `projection(...,
+  scalar=True)` is the reference coefficient `dot(other)/dot(self)`
+  (7/3, not the Euclidean scalar projection), and projecting onto the zero
+  vector gives zero instead of `ValueError`.
+- Vectors and dyadics print as in the reference: a unit coefficient is
+  omitted, a coefficient is parenthesized only if its text has `(`, `-` or
+  `+`, Floats are printed short, terms are grouped by system name then
+  base order, and the zero dyadic prints `0`. `Permutation` repr is the
+  reference cyclic form `Permutation(2)(0, 1)`.
+- `Cycle` is a port of the reference class: it stores the listed points
+  only, iterates over the array form (`list(Cycle(1, 2))` is `[0, 2, 1]`),
+  has the reference `str`/`repr` and composition, and rejects dict
+  arguments. `Permutation.atoms()` is the set of the array-form elements.
+  `Subset.subset_indices` returns `[]` when an element is missing.
+- `Collector.subword_index` returns letter positions `(low, high)` or
+  `(-1, -1)`; `map_relation(x_i*x_j)` returns the conjugate relator value
+  of `x_j**-1*x_i*x_j`; `pc_presentation` uses the reference insertion
+  order and stores an identity value as `()`.
+- `HolonomicFunction.evalf(points)` with a list takes one Euler or RK4 step
+  from each point to the next, starting at `x0` (`h` is unused), as in the
+  reference. A single endpoint is still reached with steps of length at most
+  `h`.
+
+Intentional divergences (SymPy 1.14 demonstrably wrong; to be validated):
+
+- `Ray((0, 0), (4, 4)).contains(Ray((-1, -1), (0, 0)))` is `False`: the
+  reference only checks collinearity and the sense, and returns `True` for a
+  ray that starts outside.
+- `Collector.collected_word` keeps the whole power relator: with the S4
+  sequence `[(0 1 2 3), (0 2 1), (0 1)(2 3), (0 3)(1 2)]` the reference keeps
+  only the first syllable of `x0**2 = x2*x3` and returns `x0*x1**2` for
+  `x1*x0**3` (a different permutation); symox returns `x0*x1**2*x3`, and
+  `exponent_vector((0 2)(1 3))` is `[0, 0, 1, 1]`, not `[0, 0, 1, 0]`.
+- `HolonomicFunction.evalf(b)` at a single point integrates to exactly `b`.
+  The reference builds the mesh with `int((b - a)/h)` steps and returns the
+  value at the last mesh point, which is not `b` when `(b - a)/h` is not an
+  integer in floating point.
+
+Remaining gaps:
+
+- `PermutationGroup.polycyclic_group` picks a different polycyclic sequence
+  than the reference for `SymmetricGroup(4)` and `DihedralGroup(4)`; the
+  reference sequence comes from `derived_series` with randomized normal
+  closures and is not even stable between SymPy runs. Collector results that
+  depend on it (`map_relation`, `exponent_vector`) differ for those groups,
+  while they agree for an explicitly given sequence.
+- `Collector.induced_pcgs` and `constructive_membership_test` keep the
+  symox algorithms: the reference `induced_pcgs([(0 1 2 3)])` in S4 omits
+  the square of the generator, so its membership test rejects
+  `(0 2)(1 3)`; symox returns a complete sequence and a boolean (the
+  reference returns the exponent list or `False`).
+
 ## Remaining blocking gaps
 
 ### Noncommutative symbols

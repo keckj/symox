@@ -464,18 +464,13 @@ class HolonomicFunction:
         def numeric(value):
             real,imag = value.as_real_imag()
             return complex(float(real.evalf()),float(imag.evalf()))
-        def run(target):
-            start, target = numeric(self.x0), numeric(_expr(target))
-            steps = max(1, math.ceil(abs(target-start)/h))
-            if steps > 100000:
-                raise ValueError('numeric path exceeds 100000 steps; increase h')
+        def rhs(t, y):
+            native = Float(t.real)+Float(t.imag)*_expr('I')
+            if self.annihilator.is_singular(native):
+                raise ValueError('numeric path crosses a singularity')
+            return [sum(numeric(c.subs(self.x,native))*v for c,v in zip(row,y)) for row in matrix]
+        def advance(start, target, state, steps):
             delta = (target-start)/steps
-            state = [numeric(v) for v in self.y0[:len(matrix)]]
-            def rhs(t, y):
-                native = Float(t.real)+Float(t.imag)*_expr('I')
-                if self.annihilator.is_singular(native):
-                    raise ValueError('numeric path crosses a singularity')
-                return [sum(numeric(c.subs(self.x,native))*v for c,v in zip(row,y)) for row in matrix]
             for k in range(steps):
                 t = start+k*delta
                 k1 = rhs(t,state)
@@ -486,9 +481,28 @@ class HolonomicFunction:
                     k3 = rhs(t+delta/2,[v+delta*d/2 for v,d in zip(state,k2)])
                     k4 = rhs(t+delta,[v+delta*d for v,d in zip(state,k3)])
                     state = [v+delta*(a+2*b+2*c+d)/6 for v,a,b,c,d in zip(state,k1,k2,k3,k4)]
+            return state
+        def output(state):
             result = [Float(v.real)+Float(v.imag)*_expr('I') for v in state]
             return result if derivatives else result[0]
-        return [run(p) for p in points] if isinstance(points,(list,tuple)) else run(points)
+        start = numeric(self.x0)
+        state = [numeric(v) for v in self.y0[:len(matrix)]]
+        if isinstance(points,(list,tuple)):
+            # Reference: the given points are the mesh, one Euler/RK4 step
+            # from each point to the next (starting at x0); h is unused.
+            results = []
+            for p in points:
+                target = numeric(_expr(p))
+                state = advance(start, target, state, 1)
+                start = target
+                results.append(output(state))
+            return results
+        # A single endpoint is reached exactly with steps of length <= h.
+        target = numeric(_expr(points))
+        steps = max(1, math.ceil(abs(target-start)/h))
+        if steps > 100000:
+            raise ValueError('numeric path exceeds 100000 steps; increase h')
+        return output(advance(start, target, state, steps))
 
 
 def _conditions(expression, x, x0, count):

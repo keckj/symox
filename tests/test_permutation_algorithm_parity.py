@@ -27,7 +27,7 @@ def test_all_small_permutations_ranks_successors_and_discrete_invariants(degree)
             assert (native+shift).array_form==(reference+shift).array_form
             assert (native-shift).array_form==(reference-shift).array_form
         assert native.copy()==native and native.copy() is not native
-        assert native.atoms()=={native}
+        assert native.atoms()==reference.atoms()==set(array)
         for name in ['min','max']:
             try:expected=getattr(reference,name)()
             except ValueError:

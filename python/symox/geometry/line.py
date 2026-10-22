@@ -107,7 +107,9 @@ class LinearEntity(GeometrySet):
             if other._kind == 'line' and self._kind != 'line':
                 return False
             if other._kind == 'ray':
-                if self._kind == 'segment' or not self.contains(other.p1):
+                # Both defining points must lie on self (this enforces a
+                # parallel support); a ray additionally needs the same sense.
+                if self._kind == 'segment' or not (self.contains(other.p1) and self.contains(other.p2)):
                     return False
                 return self._kind == 'line' or sign(self.direction.dot(other.direction)) > 0
             return self.contains(other.p1) and self.contains(other.p2)

@@ -217,7 +217,8 @@ class Permutation:
         return self._images == other._images
 
     def __repr__(self):
-        return 'Permutation(%r)' % self.array_form
+        # Reference repr is the cyclic form: Permutation(3)(0, 1).
+        return 'Permutation'+str(self).replace(' ', ', ')
 
     def __str__(self):
         prefix = '(%d)' % (self.size-1) if self.size and self._images[-1] == self.size-1 else ''
@@ -226,45 +227,80 @@ class Permutation:
 
 
 class Cycle(dict):
-    """A finite cycle mapping; composition applies the left mapping first."""
+    """A finite cycle mapping; composition applies the left mapping first.
+
+    Port of the reference class: only the listed (moved) points are stored,
+    iteration yields the array form and missing keys map to themselves.
+    """
+    def __missing__(self,arg):
+        return operator.index(arg)
+
+    def __iter__(self):
+        yield from self.list()
+
+    def __call__(self,*other):
+        rv=Cycle(*other)
+        for k,v in zip(list(self.keys()),[rv[self[k]] for k in self.keys()]):
+            rv[k]=v
+        return rv
+
+    def list(self,size=None):
+        if not self and size is None:
+            raise ValueError('must give size for empty Cycle')
+        if size is not None:
+            big=max([i for i in self.keys() if self[i]!=i]+[0])
+            size=max(operator.index(size),big+1)
+        else:
+            size=self.size
+        return [self[i] for i in range(size)]
+
+    def _cycles_text(self):
+        cycles=Permutation(self).cyclic_form
+        s=''.join(str(tuple(c)) for c in cycles)
+        big=self.size-1
+        if not any(i==big for c in cycles for i in c):
+            s+='(%s)'%big
+        return s
+
+    def __repr__(self):
+        if not self:
+            return 'Cycle()'
+        return 'Cycle%s'%self._cycles_text()
+
+    def __str__(self):
+        if not self:
+            return '()'
+        return self._cycles_text().replace(',','')
+
     def __init__(self,*args):
         super().__init__()
-        if len(args)==1 and isinstance(args[0],Permutation):
-            self.update(enumerate(args[0].array_form))
-        elif len(args)==1 and isinstance(args[0],dict):
-            self.update(args[0])
-            if set(self)!=set(self.values()):raise ValueError('cycle mapping must be a bijection')
-        elif args:
-            values=[operator.index(v) for v in args]
-            if min(values)<0 or len(set(values))!=len(values):raise ValueError('invalid cycle indices')
-            self.update(zip(values,values[1:]+values[:1]))
+        if not args:
+            return
+        if len(args)==1:
+            if isinstance(args[0],Permutation):
+                for c in args[0].cyclic_form:
+                    self.update(self(*c))
+                return
+            elif isinstance(args[0],Cycle):
+                for k,v in args[0].items():
+                    self[k]=v
+                return
+        args=[operator.index(a) for a in args]
+        if any(i<0 for i in args):
+            raise ValueError('negative integers are not allowed in a cycle.')
+        if len(set(args))!=len(args):
+            raise ValueError('All elements must be unique in a cycle.')
+        for i in range(-len(args),0):
+            self[args[i]]=args[i+1]
 
     @property
     def size(self):
-        return max(self,default=-1)+1
-
-    def __missing__(self,key):
-        return key
-
-    def __call__(self,*args):
-        other=Cycle(*args)
-        keys=set(self)|set(other)
-        return Cycle({i:other[self[i]] for i in keys})
-
-    def list(self,size=None):
-        if size is None:
-            if not self:raise ValueError('must give size for empty Cycle')
-            size=self.size
-        else:
-            largest_moved=max((i for i in self if self[i]!=i),default=0)
-            size=max(operator.index(size),largest_moved+1)
-        return [self[i] for i in range(size)]
+        if not self:
+            return 0
+        return max(self.keys())+1
 
     def copy(self):
         return Cycle(self)
-
-    def __repr__(self):
-        return str(Permutation(self.list()))
 
 Perm=Permutation
 

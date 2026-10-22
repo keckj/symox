@@ -133,8 +133,25 @@ class Point(GeometryEntity):
         return [self] if self.contains(other) else []
 
     @staticmethod
-    def is_collinear(*points):
-        points = [Point(point) for point in points]
+    def affine_rank(*args):
+        """Dimension of the smallest affine space containing the points."""
+        from .. import Matrix
+        if not args:
+            return -1
+        points = [Point(point) for point in args]
+        dimension = max(map(len, points))
+        points = [Point(point, dim=dimension) for point in points]
+        origin = points[0]
+        rows = [list(point-origin) for point in points[1:]]
+        if not rows:
+            return 0
+        return Matrix(rows).rank(iszerofunc=lambda value:
+            abs(value.n(2)) < 1e-12 if value.is_number else value.is_zero)
+
+    def is_collinear(self, *args):
+        # Reference instance method: ``self`` is one of the tested points
+        # (``Point.is_collinear(p, q, r)`` still works unbound).
+        points = [Point(point) for point in (self,)+args]
         if len(points) < 3:
             return True
         dimension = max(map(len, points))
@@ -147,20 +164,23 @@ class Point(GeometryEntity):
         return all(zero(a[i]*b[j]-a[j]*b[i]) for b in others[1:]
                    for i in range(dimension) for j in range(i+1, dimension))
 
-    @staticmethod
-    def is_concyclic(*points):
-        from .ellipse import Circle
+    def is_concyclic(self, *args):
+        # Reference algorithm: the points are concyclic when they are
+        # coplanar and the system |p_i - c|**2 == r**2 is consistent, i.e.
+        # the augmented column of squared norms carries no pivot.
+        from .. import Matrix
         from .entity import unique
-        points = unique(Point(point) for point in points)
-        if len(points) < 4:
-            return not Point.is_collinear(*points) if len(points) == 3 else True
-        if any(len(point) != 2 for point in points):
-            raise NotImplementedError('Concyclic tests require planar points')
-        try:
-            circle = Circle(*points[:3])
-        except GeometryError:
+        points = [Point(point) for point in (self,)+args]
+        dimension = max(map(len, points))
+        points = unique(Point(point, dim=dimension) for point in points)
+        if Point.affine_rank(*points) > 2:
             return False
-        return all(circle.contains(point) for point in points[3:])
+        origin = points[0]
+        rows = []
+        for point in points:
+            delta = point-origin
+            rows.append(list(delta)+[delta.dot(delta)])
+        return dimension not in Matrix(rows).rref()[1]
 
     def translate(self, x=0, y=0, z=0):
         if len(self) == 2 and not zero(scalar(z)):

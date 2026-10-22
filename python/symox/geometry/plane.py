@@ -103,12 +103,14 @@ class Plane(GeometryEntity):
         return Line(pt, pt+self._normal)
 
     def angle_between(self, o):
-        from .. import acos, asin, Abs
+        # Reference: the signed angle asin(n.d/(|n||d|)) for spatial linear
+        # entities, acos of the normals for planes, None for anything else.
+        from .. import acos, asin
         if isinstance(o, Plane):
             return acos(clean(self._normal.dot(o._normal)/(abs(self._normal)*abs(o._normal))))
-        if isinstance(o, LinearEntity):
-            return asin(Abs(clean(self._normal.dot(o.direction)/(abs(self._normal)*abs(o.direction)))))
-        raise TypeError('Expected a plane or a line')
+        if isinstance(o, LinearEntity) and o.ambient_dimension == 3:
+            return asin(clean(self._normal.dot(o.direction)/(abs(self._normal)*abs(o.direction))))
+        return None
 
     def intersection(self, o):
         if isinstance(o, Point):
