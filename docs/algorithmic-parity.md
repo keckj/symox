@@ -4667,3 +4667,40 @@ What remains:
   change; SymPy gives `[-pi/4]`.
 
 Tests: `tests/test_solveset_complex_wave4_parity.py`.
+
+## Canonical order and equality of Add and Mul over host classes
+
+Root cause of `x + AccumBounds(1, 2) != Add(AccumBounds(1, 2), x)` (seen
+after an import-order change): `AccumBounds.__radd__` returns
+`Add(self, other, evaluate=False)`, a held node, while `Add(B, x)` was
+canonical with the public arguments `(x, AccumBounds(1, 2))`. Native equality
+compared the held storage with the canonical storage, which follows the node
+hash order; the hash of a host node includes its class identity, so the
+result depended on the import and registration order. The same accident made
+209 of the 870 ordered pairs of plain symbols compare
+`Add(a_j, a_i, evaluate=False) == a_i + a_j` as True where SymPy says False.
+
+Fixes:
+
+- A held Add or Mul equals a canonical one only when their public arguments
+  agree in order (SymPy compares `args`). Equality is only stricter, so equal
+  nodes keep equal hashes; canonical-canonical comparisons are unchanged.
+- As in SymPy `Add.flatten` and `Mul.flatten`, AccumBounds is the
+  coefficient: it leads the arguments of a canonical Add or Mul, and Numbers
+  and other bounds fold into it through the bounds arithmetic
+  (`Add(B(1, 2), 1, x).args == (B(2, 3), x)`, `(x + B(1, 2) + 1)`,
+  `2*(x*B(1, 2))`, `(B(1, 2) + x)*2`). The folding runs only once bounds have
+  been built, and in the native operators only for nodes holding host terms.
+
+Remaining differences:
+
+- Folding happens in the `Add`/`Mul` constructors and the arithmetic
+  operators; other native rebuilds (`subs`, `expand`, `xreplace`) do not fold
+  a Number into bounds.
+- `2*(B(1, 2)*x + y)` gives `x*AccumBounds(2, 4) + 2*y`; SymPy keeps the
+  distributed `2*x*AccumBounds(1, 2)` unfolded. The values are equal.
+- Not native Add/Mul nodes, so outside this fix: `x + Ket('k')` is a quantum
+  `OperatorExpr` whose `args` differ from SymPy and which differs from
+  `Add(Ket('k'), x)` (an `OrderedProduct` wrapper); `codegen.ast.Indexed`
+  sorts before symbols (`(x + A[x]).args == (A[x], x)`, SymPy `(x, A[x])`).
+  Both construction orders agree for `Indexed`.

@@ -331,6 +331,18 @@ fn arithmetic_object(slf: &PyRef<'_, crate::PyExprNode>, other: &Bound<'_, PyAny
     if other.downcast::<crate::PyExprNode>().is_ok_and(|other| e.ptr_eq(&other.get().e)) {
         return Ok(other.clone().unbind());
     }
+    if traverse::has_unfolded_bounds(&e) {
+        // SymPy Add.flatten / Mul.flatten fold Numbers and bounds into the
+        // coefficient through the bounds arithmetic, defined by the host.
+        let py = slf.py();
+        let fold = py.import("symox._compat")?.getattr("_accum_fold")?.get_item(0)?;
+        if !fold.is_none() {
+            let op = if e.is_add() { "Add" } else { "Mul" };
+            let args = PyTuple::new(py, python_args(&e).into_iter().map(wrap))?;
+            let folded = fold.call1((op, args))?;
+            if !folded.is_none() { return Ok(folded.unbind()); }
+        }
+    }
     expr_object(slf.py(), e)
 }
 
