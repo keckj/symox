@@ -2885,6 +2885,25 @@ from . import _noncommutative as _nc  # noqa: E402
 cancel, factor, apart, together, collect = _nc.install(cancel, factor, apart, together, collect)
 
 
+def _make_apart_entry(_native):
+    import functools
+    from .polys.partfrac import _apart_full
+
+    @functools.wraps(_native)
+    def apart(f, x=None, full=False, **options):
+        # full=True is the reference Bronstein decomposition with RootSum
+        # terms; the native apart covers the undetermined-coefficients path.
+        if full and not isinstance(f, (list, tuple, set, frozenset)):
+            result = _apart_full(f, x, **options)
+            if result is not None:
+                return result
+        return _native(f, x, full=full, **options)
+    return apart
+
+
+apart = _make_apart_entry(apart)
+
+
 def _make_solve_entry(_native):
     def solve(f, *symbols, **flags):
         # The reference solve reads no 'domain' flag: solve(x**2 + 1, x,

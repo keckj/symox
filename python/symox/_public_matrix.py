@@ -104,6 +104,20 @@ class Idx:
     def __getattr__(self,name):
         return getattr(self.label,name)
 
+    # Arithmetic on an index acts on its label (``y[i + 1]``), whose symbol
+    # keeps the integer assumption; the reference keeps the Idx node itself.
+    def __add__(self,other):return self.label+other
+    def __radd__(self,other):return other+self.label
+    def __sub__(self,other):return self.label-other
+    def __rsub__(self,other):return other-self.label
+    def __mul__(self,other):return self.label*other
+    def __rmul__(self,other):return other*self.label
+    def __truediv__(self,other):return self.label/other
+    def __rtruediv__(self,other):return other/self.label
+    def __pow__(self,other):return self.label**other
+    def __rpow__(self,other):return other**self.label
+    def __neg__(self):return -self.label
+
 
 class IndexConformanceException(ValueError):
     """Outer Einstein indices disagree or occur more than twice."""
@@ -112,7 +126,8 @@ class IndexConformanceException(ValueError):
 def _as_indexed(expr):
     from .codegen.ast import Indexed
     if isinstance(expr,Indexed):return expr
-    try:return _indexed.get(expr)
+    from .codegen.ast import _INDEXED_SYMBOLS
+    try:return _indexed.get(expr) or _INDEXED_SYMBOLS.get(expr)
     except TypeError:return None
 
 
@@ -303,6 +318,8 @@ def install(namespace):
             if self.base.shape is not None or len(self.indices) == 1:raise
             from . import Symbol
             value = Symbol(str(self))
+            from .codegen.ast import _INDEXED_SYMBOLS
+            _INDEXED_SYMBOLS.setdefault(value,self)
         _indexed[value] = self
         return value
     Indexed._symox_ = expression

@@ -23,12 +23,25 @@ def filldedent(s,w=70,**kwargs):
 
 
 def public(obj):
-    namespace = vars(sys.modules[obj.__module__])
-    names = namespace.setdefault('__all__',[])
-    if obj.__name__ not in names:
+    """Append ``obj``'s name to the global ``__all__`` variable (SymPy's
+    ``utilities.decorator.public``): a function's own globals, a class's
+    module."""
+    import types
+    if isinstance(obj,types.FunctionType):
+        namespace = obj.__globals__
+        name = obj.__name__
+    elif isinstance(obj,(type(type),type)):
+        namespace = sys.modules[obj.__module__].__dict__
+        name = obj.__name__
+    else:
+        raise TypeError("expected a function or a class, got %s" % obj)
+    if "__all__" not in namespace:
+        namespace["__all__"] = [name]
+    else:
+        names = namespace["__all__"]
         if not hasattr(names,'append'):
-            names = namespace['__all__'] = list(names)
-        names.append(obj.__name__)
+            names = namespace["__all__"] = list(names)
+        names.append(name)
     return obj
 
 

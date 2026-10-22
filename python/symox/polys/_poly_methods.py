@@ -432,6 +432,15 @@ def per(f, rep, gens=None, remove=None):
     if gens is None:
         gens = f.gens
     gens = tuple(gens)
+    from .polyclasses import DMP
+    if isinstance(rep, DMP):
+        # The reference ``f.__class__.new(rep, *gens)`` over ``rep.dom``.
+        if remove is not None:
+            gens = gens[:remove] + gens[remove + 1:]
+        if len(gens) != rep.lev + 1:
+            raise PolynomialError("invalid number of generators: expected %s, got %s"
+                                  % (rep.lev + 1, len(gens)))
+        return type(f).from_dict(rep.to_sympy_dict(), *gens, domain=rep.dom)
     if not _is_poly(rep):
         raise PolynomialError("invalid polynomial representation: %s" % (rep,))
     if len(rep.gens) != len(f.gens):
@@ -860,7 +869,10 @@ def _which_roots(f, candidates, num_roots):
             if value != 0:
                 # A value whose magnitude survives a doubled working precision
                 # above 10**-prec is not a rounding residue of a root.
-                size = N(Abs(value), 2*prec)
+                # Evaluate first: Abs of an unevaluated expression in
+                # CRootOf nodes expands into conjugate products that N
+                # leaves unevaluated.
+                size = Abs(N(value, 2*prec))
                 if size.is_zero is False and size > Integer(10)**(-prec):
                     continue
             keep.append(r)

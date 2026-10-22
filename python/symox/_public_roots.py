@@ -784,8 +784,19 @@ def eval_approx(self, n, return_mpmath=False):
     self._set_interval(interval)
     if return_mpmath:
         return root
-    return (Float._new(root.real._mpf_, prec) +
-        I*Float._new(root.imag._mpf_, prec))
+    return (_float_new(root.real._mpf_, prec) +
+        I*_float_new(root.imag._mpf_, prec))
+
+
+def _float_new(mpf_, prec):
+    """The reference ``Float._new``: zero is ``S.Zero``, anything else a
+    Float holding exactly ``mpf_`` at precision ``prec``."""
+    from . import Float, S
+    from mpmath import make_mpf
+    from mpmath.libmp import fzero
+    if mpf_ == fzero:
+        return S.Zero
+    return Float(make_mpf(mpf_), precision=prec)
 
 
 def eval_rational(self, dx=None, dy=None, n=15):

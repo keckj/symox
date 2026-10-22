@@ -677,9 +677,9 @@ def test_documented_deviations():
     x, y, a = symox.symbols('x y a')
     # SymPy 1.14 overwrites the x**2 term (x**2 + x*y); symox keeps both terms.
     assert symox.Poly(x**2 + y + 1, x, y).homogenize(x) == symox.Poly(2*x**2 + x*y, x, y)
-    # Non-linear RootSum factors are not implemented.
-    with pytest.raises(NotImplementedError, match='RootSum'):
-        symox.assemble_partfrac_list(symox.apart_list(1/(x**2 + 1)/(x - 1), x))
+    # Non-linear factors assemble into a RootSum, as in SymPy 1.14.
+    assert str(symox.assemble_partfrac_list(symox.apart_list(1/(x**2 + 1)/(x - 1), x))) == (
+        'RootSum(_w**2 + 1, Lambda(_a, (_a**2/4 + _a/4)/(-_a + x))) + 1/(2*(x - 1))')
     # Composite moduli build a polynomial over the ring Z/4Z.
     assert repr(symox.Poly(x**2 + 7).set_modulus(4)) == 'Poly(x**2 - 1, x, modulus=4)'
     # SymPy overflows on candidates whose value is exactly zero but the

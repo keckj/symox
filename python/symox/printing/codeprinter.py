@@ -69,34 +69,32 @@ class _AssignmentPiecewise:
             e.has(*patterns) or c.has(*patterns) for e, c in self.args)
 
 
-def _symox_indexed(*exprs):
-    """Whether one of ``exprs`` is a Symox indexed reference.
+def _has_indexed(e):
+    """SymPy's ``e.has(IndexedBase)``.
 
-    Symox's ``Indexed`` is not a Basic node and enters scalar arithmetic as a
-    flattened symbol, so its index contraction loops are not generated: the
-    assignment is printed as a single statement.
+    Symox's ``Indexed`` is not a Basic node: it enters scalar arithmetic as
+    a symbol recorded in ``codegen.ast._INDEXED_SYMBOLS``, so an expression
+    holds an indexed reference when one of its free symbols is recorded
+    there.
     """
-    from symox.codegen.ast import _IndexedArithmetic
-    return any(isinstance(e, _IndexedArithmetic) for e in exprs)
+    from symox.codegen.ast import _IndexedArithmetic, _INDEXED_SYMBOLS
+    if isinstance(e, _IndexedArithmetic):
+        return True
+    if getattr(e, 'is_Matrix', False) and hasattr(e, 'tolist'):
+        return any(_has_indexed(v) for row in e.tolist() for v in row)
+    if not _INDEXED_SYMBOLS:
+        return False
+    try:
+        free = e.free_symbols
+    except AttributeError:
+        return False
+    return any(_INDEXED_SYMBOLS.get(s) is not None for s in free
+               if getattr(s, 'is_Symbol', False))
 
 
 def _needs_loops(lhs, rhs):
-    """SymPy's ``lhs.has(IndexedBase) or rhs.has(IndexedBase)`` contraction test.
-
-    Symox's indexed objects are not Basic and their contraction loops are not
-    generated (see ``_symox_indexed``); explicit matrices never contain one.
-    """
-    from symox.tensor.indexed import IndexedBase
-    if _symox_indexed(lhs, rhs):
-        return False
-    def has(e):
-        if getattr(e, 'is_Matrix', False) and hasattr(e, 'tolist'):
-            return any(has(v) for row in e.tolist() for v in row)
-        try:
-            return bool(e.has(IndexedBase))
-        except TypeError:
-            return False
-    return has(lhs) or has(rhs)
+    """SymPy's ``lhs.has(IndexedBase) or rhs.has(IndexedBase)`` contraction test."""
+    return _has_indexed(lhs) or _has_indexed(rhs)
 
 
 class CodePrinter(StrPrinter):
@@ -197,7 +195,8 @@ class CodePrinter(StrPrinter):
             if assign_to is None:
                 from symox.codegen.ast import CodegenAST
                 # Codegen nodes are Basic in the reference: sympify keeps them.
-                return expr if isinstance(expr, CodegenAST) else sympify(expr)
+                from symox.codegen.matrix_nodes import MatrixSolve
+                return expr if isinstance(expr, (CodegenAST, MatrixSolve)) else sympify(expr)
             if isinstance(assign_to, (list, tuple)):
                 if len(expr) != len(assign_to):
                     raise ValueError('Failed to assign an expression of length {} to {} variables'.format(len(expr), len(assign_to)))
@@ -355,9 +354,15 @@ class CodePrinter(StrPrinter):
         for i in indices:
             score_table[i] = 0
 
+        # Symox's Indexed references are symbols in arithmetic, and their
+        # indices the labels of the Idx objects.
+        from symox.codegen.ast import _INDEXED_SYMBOLS
+        from symox._public_matrix import _index_object
         arrays = expr.atoms(Indexed)
         for arr in arrays:
+            arr = _INDEXED_SYMBOLS.get(arr, arr) if getattr(arr, 'is_Symbol', False) else arr
             for p, ind in enumerate(arr.indices):
+                ind = _index_object(ind)
                 try:
                     score_table[ind] += self._rate_index_position(p)
                 except KeyError:
@@ -452,8 +457,7 @@ class CodePrinter(StrPrinter):
                 code0 = self._print(temp)
                 lines.append(code0)
             return "\n".join(lines)
-        elif self._settings.get("contract", False) and (lhs.has(IndexedBase) or
-                rhs.has(IndexedBase)) and not _symox_indexed(lhs, rhs):
+        elif self._settings.get("contract", False) and _needs_loops(lhs, rhs):
             # Here we check if there is looping to be done, and if so
             # print the required loops.
             return self._doprint_loops(rhs, lhs)
@@ -477,6 +481,17 @@ class CodePrinter(StrPrinter):
         return self._print(expr.symbol)
 
     def _print_Symbol(self, expr):
+        # An Indexed reference becomes a scalar symbol in native arithmetic:
+        # print it as the Indexed node it stands for (``y(i + 1)`` in
+        # Fortran and Octave, flattened offsets in C).
+        from symox.codegen.ast import _INDEXED_SYMBOLS
+        if _INDEXED_SYMBOLS and hasattr(self, '_print_Indexed'):
+            try:
+                indexed = _INDEXED_SYMBOLS.get(expr)
+            except TypeError:
+                indexed = None
+            if indexed is not None:
+                return self._print_Indexed(indexed)
         name = super()._print_Symbol(expr)
 
         if name in self.reserved_words:

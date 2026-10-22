@@ -140,7 +140,9 @@ def test_range_validation():
     assert list(plot(x,(x,1,1),show=False)[0].get_data()[0][:3])==[1.0,1.0,1.0]
     with pytest.raises(ValueError):plot(x+y,(x,0,1),show=False)
     with pytest.raises(ValueError):plot3d(x,(x,0,1),(x,0,2),show=False)
-    with pytest.raises(NotImplementedError):plot_implicit(s.And(x>0,y>0),show=False)
+    # Inequality regions combine as boolean masks; an equality has no area.
+    assert plot_implicit(s.And(x>0,y>0),show=False)[0].get_data()[3]=='contourf'
+    with pytest.raises(NotImplementedError):plot_implicit(s.And(s.Eq(x,0),y>0),show=False)
 
 
 def test_samples_do_not_require_matplotlib(monkeypatch):

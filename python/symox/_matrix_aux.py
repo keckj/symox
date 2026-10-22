@@ -122,6 +122,48 @@ def copyin_matrix(self, key, value):
             self[i + rlo, j + clo] = value[i, j]
 
 
+def _block_assignment(self, key, value):
+    """SymPy's ``_setitem`` rule for a scalar key and a matrix value.
+
+    ``M[i, j] = B`` (or a flat ``M[k] = B``) copies ``B`` with its top-left
+    corner at ``(i, j)``; a sequence that is not an expression becomes a
+    Matrix first. Returns the ``(slices, matrix)`` to copy in, or None.
+    """
+    i, j = self.key2ij(key)
+    if isinstance(i, slice) or isinstance(j, slice):
+        return None
+    if not getattr(value, 'is_Matrix', False):
+        from ._core import Expr
+        if isinstance(value, Expr) or not _is_sequence(value):
+            return None
+        value = Matrix(value)
+    return (slice(i, i + value.rows), slice(j, j + value.cols)), value
+
+
+_native_setitem = None
+_native_has = None
+
+
+def _matrix_has(self, *patterns):
+    # SymPy's ``_eval_has``: any entry has any pattern. The native test takes
+    # expressions only, so a pattern class (``A.has(Float)``) asks each entry.
+    if any(isinstance(p, type) for p in patterns):
+        return any(entry.has(*patterns) for entry in self)
+    return _native_has(self, *patterns)
+
+
+def _matrix_setitem(self, key, value):
+    try:
+        return _native_setitem(self, key, value)
+    except ValueError as exc:
+        if str(exc) != 'size mismatch in assignment':
+            raise
+        block = _block_assignment(self, key, value)
+        if block is None:
+            raise
+    self.copyin_matrix(*block)
+
+
 def copyin_list(self, key, value):
     if not _is_sequence(value):
         raise TypeError("`value` must be an ordered iterable, not %s." % type(value))
@@ -537,6 +579,14 @@ def install(immutable_facade, sparse_base, mutable_sparse):
     Matrix.__init_subclass__ = classmethod(_matrix_init_subclass)
     Matrix.__array__ = _matrix_array
     Matrix.__array_priority__ = 11
+    global _native_setitem
+    if _native_setitem is None:
+        _native_setitem = Matrix.__setitem__
+        Matrix.__setitem__ = _matrix_setitem
+    global _native_has
+    if _native_has is None:
+        _native_has = Matrix.has
+        Matrix.has = _matrix_has
     sparse_base.__array__ = _matrix_array
     for name in _INSTANCE:
         if not hasattr(Matrix, name):

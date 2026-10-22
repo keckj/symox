@@ -75,6 +75,7 @@ fn latex(expr: &Bound<'_, PyAny>, settings: Option<&Bound<'_, PyDict>>) -> PyRes
                 }
                 "mul_symbol" => s.mul_symbol = v.extract()?,
                 "fold_short_frac" => s.fold_short_frac = v.extract()?,
+                "long_frac_ratio" => s.long_frac_ratio = v.extract()?,
                 "fold_frac_powers" => s.fold_frac_powers = v.extract()?,
                 "fold_func_brackets" => s.fold_func_brackets = v.extract()?,
                 "inv_trig_style" => {

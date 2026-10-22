@@ -38,7 +38,7 @@ class CodeWrapper:
     def wrap_code(self,routine,helpers=None):
         directory=Path(self.filepath or tempfile.mkdtemp(prefix='symox-autowrap-')).resolve()
         directory.mkdir(parents=True,exist_ok=True)
-        self.generator.write([*(helpers or []),routine],directory/self.filename,to_files=True)
+        self.generator.write([*(helpers or []),routine],str(directory/self.filename),to_files=True)
         return self._compile(routine,directory)
     def _compile(self,routine,directory):raise NotImplementedError('choose a compilation backend')
 
@@ -92,7 +92,9 @@ class CythonCodeWrapper(CodeWrapper):
 
 class UfuncifyCodeWrapper(CodeWrapper):
     def wrap_code(self,routine,helpers=None):
-        if helpers:raise NotImplementedError('ufunc helper routines require explicit inlining')
+        # Helpers are (name, expression, arguments) triples compiled as
+        # static C functions that the loop body calls by name.
+        self.helpers=list(helpers or ())
         directory=Path(self.filepath or tempfile.mkdtemp(prefix='symox-ufunc-')).resolve()
         directory.mkdir(parents=True,exist_ok=True)
         return self._compile(routine,directory)
@@ -105,11 +107,16 @@ class UfuncifyCodeWrapper(CodeWrapper):
         if not expressions:raise ValueError('a ufunc requires at least one output')
         nin,nout=len(arguments),len(expressions);ntypes=nin+nout
         if ntypes>32:raise ValueError('NumPy ufuncs support at most 32 arguments and outputs')
-        printer=C99CodePrinter();lines=[]
+        helper_names={str(name):str(name) for name,_,_ in getattr(self,'helpers',())}
+        printer=C99CodePrinter({'user_functions':helper_names});lines=[]
+        helper_source=''
+        for name,value,hargs in getattr(self,'helpers',()):
+            helper_source+='static double '+str(name)+'('+', '.join('double '+str(a) for a in hargs)+') {\n return '+printer.doprint(value)+';\n}\n'
         for i,arg in enumerate(arguments):lines.append('double '+str(arg.name)+' = *(double *)(args['+str(i)+'] + j*steps['+str(i)+']);')
         for i,expr in enumerate(expressions,nin):lines.append('*(double *)(args['+str(i)+'] + j*steps['+str(i)+']) = '+printer.doprint(expr)+';')
         name=self.module_name
         source='#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION\n#include <Python.h>\n#include <numpy/arrayobject.h>\n#include <numpy/ufuncobject.h>\n#include <math.h>\n'
+        source+=helper_source
         source+='static void loop(char **args, const npy_intp *dims, const npy_intp *steps, void *data) {\n for(npy_intp j=0;j<dims[0];++j){\n'+ '\n'.join(lines)+'\n }}\n'
         source+='static PyUFuncGenericFunction loops[1]={loop};\nstatic void *data[1]={NULL};\nstatic char types['+str(ntypes)+']={'+','.join(['NPY_DOUBLE']*ntypes)+'};\n'
         source+='static struct PyModuleDef def={PyModuleDef_HEAD_INIT,"'+name+'",NULL,-1,NULL};\n'
@@ -136,10 +143,15 @@ def binary_function(symfunc,expr,**kwargs):return implemented_function(symfunc,a
 
 
 def ufuncify(args,expr,language=None,backend='numpy',tempdir=None,flags=None,verbose=False,helpers=None,**kwargs):
-    if backend.lower()!='numpy':return autowrap(expr,language,backend,tempdir,args,flags,verbose,helpers,**kwargs)
+    if backend.lower()!='numpy':
+        # The reference wraps an elementwise loop over its array arguments;
+        # the compiled scalar routine is applied elementwise the same way.
+        import numpy as np
+        scalar=autowrap(expr,language,backend,tempdir,args,flags,verbose,helpers,**kwargs)
+        return np.vectorize(scalar,otypes=[float])
     arguments=list(args) if isinstance(args,(list,tuple)) else [args]
     generator=CCodeGen();routine=generator.routine('autofunc',expr,argument_sequence=arguments)
-    return UfuncifyCodeWrapper(generator,tempdir,flags,verbose,**kwargs).wrap_code(routine)
+    return UfuncifyCodeWrapper(generator,tempdir,flags,verbose,**kwargs).wrap_code(routine,helpers)
 
 
 __all__=['CodeWrapError','CodeWrapper','CythonCodeWrapper','DummyWrapper','F2PyCodeWrapper','UfuncifyCodeWrapper','autowrap','binary_function','ufuncify']

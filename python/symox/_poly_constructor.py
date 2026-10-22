@@ -197,8 +197,59 @@ def _unexpanded(rep,gens,domain,modulus,extension,args):
     return _from_terms(data,gens,domain,modulus,extension)
 
 
+_ALIASES={'Z':'ZZ','Q':'QQ','R':'RR','C':'CC'}
+
+
+def _domain_alias(domain):
+    """The short spellings of the reference ``Domain.preprocess``: ``Z``,
+    ``Q``, ``R``, ``C``, ``R_53``/``RR_53`` (the default precision) and the
+    same letters before ``[...]``, ``(...)`` and ``<...>``."""
+    import re
+    if not isinstance(domain,str):return domain
+    text=domain.strip()
+    match=re.match(r'^(R|RR|C|CC)_(\d+)$',text)
+    if match and int(match.group(2))==53:return _ALIASES.get(match.group(1),match.group(1))
+    if text in _ALIASES:return _ALIASES[text]
+    match=re.match(r'^(Z|Q|R|C)(\[.+\]|\(.+\)|<.+>)$',text)
+    if match:return _ALIASES[match.group(1)]+match.group(2)
+    return domain
+
+
+def _real_coefficients(rep,gens,args):
+    """Evaluate the numeric coefficients of ``rep`` in ``RR``.
+
+    The reference ``RR.from_sympy`` evaluates every coefficient that is a
+    real number (``sqrt(3)`` becomes ``1.73205080756888``), also when the
+    generators are inferred: ``_dict_from_expr_no_gens`` keeps factors in the
+    domain as coefficients. The coefficient of each expanded term is
+    evaluated as a whole, so ``2*sqrt(3)`` rounds once.
+    """
+    from . import Add,Mul,RR,expand
+    from .core.expr import Expr
+    if not isinstance(rep,Expr) or any(getattr(g,'is_number',False) for g in gens):return rep
+    def symbolic_number(e):
+        return e.is_number and not e.is_Number and e in RR
+    if not any(symbolic_number(a) for a in _subexpressions(rep)):return rep
+    if args.get('expand',True):rep=expand(rep)
+    terms=[]
+    for term in Add.make_args(rep):
+        numeric=[];rest=[]
+        for factor in Mul.make_args(term):
+            (numeric if factor.is_number and factor in RR else rest).append(factor)
+        coefficient=Mul(*numeric)
+        if not coefficient.is_Number:coefficient=coefficient.evalf(RR.dps)
+        terms.append(Mul(coefficient,*rest))
+    return Add(*terms)
+
+
+def _subexpressions(expr):
+    from . import preorder_traversal
+    return preorder_traversal(expr)
+
+
 def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
     gens,args=_options(gens,domain,modulus,extension,kwargs)
+    if 'domain' in args:args['domain']=_domain_alias(args['domain'])
     domain=args.get('domain');modulus=args.get('modulus');extension=args.get('extension')
     from ._modular_poly import ring_domain
     ring=ring_domain(domain,modulus,args.get('symmetric',True))
@@ -219,6 +270,8 @@ def construct(rep,gens,domain=None,modulus=None,extension=None,kwargs=None):
         from . import sympify
         if not isinstance(rep,Poly):rep=sympify(rep,evaluate=type(rep) is not str)
         if getattr(rep,'is_Equality',False):rep=rep.lhs-rep.rhs
+        if domain is not None and str(domain)=='RR' and not isinstance(rep,Poly):
+            rep=_real_coefficients(rep,gens,args)
         special_inference=not gens and (args.get('greedy') is False or extension is True)
         if (args.get('expand') is False or special_inference) and not isinstance(rep,Poly):
             if args.get('expand',True):

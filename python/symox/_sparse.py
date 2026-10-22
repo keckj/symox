@@ -93,11 +93,14 @@ def _creation(args):
         args = (None, None, args[1])
     if len(args) != 3:
         raise TypeError('Expected (), (matrix), or (rows, cols, entries)')
+    # SymPy's SparseRepMatrix._handle_creation_inputs, with its messages.
     rows, cols, source = args
-    automatic = rows is None and cols is None
-    if not automatic:
-        if rows is None or cols is None:
-            raise ValueError('Both dimensions must be None for autosizing')
+    if rows is None and cols is None:
+        automatic = True
+    elif rows is None or cols is None:
+        raise ValueError('Pass rows=None and no cols for autosizing.')
+    else:
+        automatic = False
         rows, cols = _dimension(rows), _dimension(cols)
     data = {}
 
@@ -105,49 +108,53 @@ def _creation(args):
         i, j = _integer(i), _integer(j)
         if i < 0 or j < 0:
             raise ValueError('Sparse coordinates must be nonnegative')
-        if not automatic and (i >= rows or j >= cols):
-            raise ValueError('Sparse coordinate is outside matrix shape')
         value = sympify(value)
         if value != 0:
             if (i, j) in data and data[i, j] != value:
-                raise ValueError('Overlapping sparse entries disagree')
+                raise ValueError('There is a collision at {} for {} and {}.'.format((i, j), value, data[i, j]))
             data[i, j] = value
 
-    if hasattr(source, 'items'):
+    if callable(source) and not hasattr(source, 'items') and not _matrix_like(source):
+        if automatic:
+            raise ValueError('{} and {} must be integers for this specification.'.format(rows, cols))
+        for i in range(rows):
+            for j in range(cols):
+                value = sympify(source(sympify(i), sympify(j)))
+                if value != 0:
+                    data[i, j] = value
+    elif hasattr(source, 'items'):
         for key, value in source.items():
             if not isinstance(key, tuple) or len(key) != 2:
                 raise TypeError('Sparse entries must use (row, col) keys')
             i, j = key
             if _matrix_like(value) or isinstance(value, (list, tuple)):
-                block = MutableSparseMatrix(value)
-                for (bi, bj), entry in block._data.items():
+                _, _, block = _creation((value,))
+                for (bi, bj), entry in block.items():
                     store(i + bi, j + bj, entry)
             else:
                 store(i, j, value)
-    elif callable(source):
-        if automatic:
-            raise ValueError('Callable construction requires dimensions')
-        for i in range(rows):
-            for j in range(cols):
-                store(i, j, source(i, j))
     else:
-        if automatic:
+        if automatic and not isinstance(source, (list, tuple)):
             raise ValueError('Autosizing requires a coordinate dictionary')
         source = list(source)
         if any(isinstance(row, (list, tuple)) for row in source):
-            r, c, source = _creation((source,))
-            if (r, c) != (rows, cols):
-                raise ValueError('Sequence does not match matrix shape')
-            for (i, j), value in source.items():
+            _, _, nested = _creation((source,))
+            for (i, j), value in nested.items():
                 store(i, j, value)
         else:
             if len(source) != rows * cols:
-                raise ValueError('Sequence does not match matrix shape')
+                raise ValueError('The length of the flat list ({}) does not match the specified size ({} * {}).'
+                                 .format(len(source), rows, cols))
             for pos, value in enumerate(source):
                 store(pos // cols, pos % cols, value)
     if automatic:
         rows = max((i for i, _ in data), default=-1) + 1
         cols = max((j for _, j in data), default=-1) + 1
+    else:
+        for i, j in data:
+            if i and i >= rows or j and j >= cols:
+                raise ValueError('The location {} is out of the designated range[{}, {}]x[{}, {}]'
+                                 .format((i, j), 0, rows - 1, 0, cols - 1))
     return rows, cols, data
 
 
@@ -267,6 +274,10 @@ class _SparseBase:
             for (r,c),v in block._data.items(): self._data[ri[r],cj[c]] = v
             return
         key = _index(i, self.rows), _index(j, self.cols)
+        from ._matrix_aux import _block_assignment
+        block = _block_assignment(self, key, value)
+        if block is not None:
+            return self.copyin_matrix(*block)
         value = sympify(value)
         if value == 0: self._data.pop(key, None)
         else: self._data[key] = value

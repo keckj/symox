@@ -59,6 +59,10 @@ class FracField:
 
 
 class FracElement:
+    # Expressions on the left defer to the element, as the reference
+    # ``Expr`` binary methods return ``NotImplemented`` for it.
+    _op_priority = 10.1
+
     def __init__(self,field,value):
         self.field,self._value=field,value
 
@@ -73,7 +77,13 @@ class FracElement:
         return self.as_expr().to_sympy()
 
     def __repr__(self):
-        return str(self.as_expr())
+        # The reference ``StrPrinter._print_FracElement``.
+        from ..printing.precedence import PRECEDENCE
+        from .rings import _parenthesize
+        if self.denom == 1:
+            return repr(self.numer)
+        return (_parenthesize(self.numer, PRECEDENCE["Mul"], True) + "/" +
+                _parenthesize(self.denom, PRECEDENCE["Atom"], True))
 
     def __hash__(self):
         return hash((self.field,self._value))

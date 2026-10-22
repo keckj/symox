@@ -62,7 +62,16 @@ class CodegenAST:
         kwargs={k:getattr(self,k) for k in self._fields if k not in exclude}
         if apply is not None:return {k:apply(v) for k,v in kwargs.items()}
         return kwargs
-    def has(self,*patterns):return any(self==p or isinstance(p,type) and isinstance(self,p) for p in patterns) or any(getattr(v,'has',lambda *p:False)(*patterns) for v in self.args)
+    def has(self,*patterns):
+        if any(self==p or isinstance(p,type) and isinstance(self,p) for p in patterns):return True
+        # A native expression cannot contain a code-generation node, so only
+        # the expression patterns are searched below it.
+        plain=tuple(p for p in patterns if not isinstance(p,CodegenAST) and not (isinstance(p,type) and issubclass(p,CodegenAST)))
+        for v in self.args:
+            if isinstance(v,CodegenAST):
+                if v.has(*patterns):return True
+            elif plain and getattr(v,'has',None) is not None and v.has(*plain):return True
+        return False
 
 
 class Node(CodegenAST):

@@ -106,7 +106,9 @@ class BaseSeries:
             return (*sampled,*values) if self.is_parametric and self.kind!='surface_parametric' else tuple(sampled)
         if self.kind=='implicit':
             z=sampled[0]
-            if self._implicit_relation:
+            if self._implicit_relation=='Boolean':
+                z=_implicit_mask(expressions[0],symbols,values).astype(float)
+            elif self._implicit_relation:
                 name=self._implicit_relation
                 z={'LessThan':lambda:z<=0,'StrictLessThan':lambda:z<0,
                    'GreaterThan':lambda:z>=0,'StrictGreaterThan':lambda:z>0,
@@ -368,6 +370,31 @@ def plot_contour(*args,show=True,**kwargs):
     return _plot(args,'contour',1,2,show,kwargs)
 
 
+_IMPLICIT_COMPARE={'LessThan':np.less_equal,'StrictLessThan':np.less,
+                   'GreaterThan':np.greater_equal,'StrictGreaterThan':np.greater}
+
+
+def _implicit_leaves(expr):
+    name=expr.class_name
+    if name in ('And','Or','Not','Xor'):
+        for arg in expr.args:_implicit_leaves(arg)
+    elif name not in _IMPLICIT_COMPARE:
+        raise NotImplementedError('Compound implicit regions support inequalities only, not '+name)
+
+
+def _implicit_mask(expr,symbols,values):
+    name=expr.class_name
+    if name=='Not':return np.logical_not(_implicit_mask(expr.args[0],symbols,values))
+    if name in ('And','Or','Xor'):
+        combine={'And':np.logical_and,'Or':np.logical_or,'Xor':np.logical_xor}[name]
+        masks=[_implicit_mask(a,symbols,values) for a in expr.args]
+        result=masks[0]
+        for mask in masks[1:]:result=combine(result,mask)
+        return result
+    z=np.asarray(_evaluate(expr.lhs-expr.rhs,symbols,values),dtype=float)
+    return _IMPLICIT_COMPARE[name](z,0)
+
+
 def plot_implicit(expr,x_var=None,y_var=None,adaptive=True,depth=0,n=300,line_color='blue',show=True,**kwargs):
     s=_s();expr=s.sympify(expr)
     mode='contour'
@@ -376,8 +403,12 @@ def plot_implicit(expr,x_var=None,y_var=None,adaptive=True,depth=0,n=300,line_co
         name=expr.class_name
         if name!='Equality':mode='contourf';relation=name
         expr=expr.lhs-expr.rhs
-    elif expr.class_name in ('And','Or','Not'):
-        raise NotImplementedError('Compound implicit regions are not implemented')
+    elif expr.class_name in ('And','Or','Not','Xor'):
+        # A region combining strict or weak inequalities is sampled as the
+        # boolean combination of each inequality's mask, as the reference's
+        # uniform-mesh fallback does; equalities have no area to fill.
+        _implicit_leaves(expr)
+        mode='contourf';relation='Boolean'
     kwargs.update(n=n,line_color=line_color,_implicit_mode=mode,_implicit_relation=relation)
     ranges=tuple(v for v in (x_var,y_var) if v is not None)
     return _plot((expr,*ranges),'implicit',1,2,show,kwargs)

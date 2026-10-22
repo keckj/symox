@@ -75,8 +75,109 @@ class LatexPrinter(Printer):
             out_str = block_str % out_str
         return out_str
 
+    # SymPy's printers of Python containers, explicit matrices and objects
+    # that are not expressions (the native printer takes expressions only).
+    def _print(self, expr, **kwargs):
+        if (getattr(expr, 'is_Matrix', False) and hasattr(expr, 'tolist')
+                and hasattr(expr, 'rows') and not isinstance(expr, type)):
+            if not (self.printmethod and hasattr(type(expr), self.printmethod)):
+                return self._print_MatrixBase(expr)
+        return super()._print(expr, **kwargs)
+
+    def _separator(self):
+        separator = self._settings.get('decimal_separator', 'period')
+        if separator == 'comma':
+            return ';'
+        if separator == 'period':
+            return ','
+        raise ValueError('Unknown Decimal Separator')
+
+    def _add_parens_lspace(self, s):
+        return r"\left( {}\right)".format(s)
+
+    def _print_tuple(self, expr):
+        sep = self._separator()
+        if len(expr) == 1:
+            # 1-tuple needs a trailing separator
+            return self._add_parens_lspace(self._print(expr[0]) + sep)
+        return self._add_parens_lspace(
+            (sep + r" \  ").join([self._print(i) for i in expr]))
+
+    _print_Tuple = _print_tuple
+
+    def _print_Float(self, expr):
+        text = self.emptyPrinter(expr)
+        if self._settings.get('decimal_separator', 'period') == 'comma':
+            text = text.replace('.', '{,}')
+        return text
+
+    def _print_list(self, expr):
+        sep = self._separator()
+        return r"\left[ %s\right]" % (sep + r" \  ").join([self._print(i) for i in expr])
+
+    def _print_dict(self, d):
+        from symox import default_sort_key
+        keys = sorted(d.keys(), key=default_sort_key)
+        items = ["%s : %s" % (self._print(key), self._print(d[key])) for key in keys]
+        return r"\left\{ %s\right\}" % r", \  ".join(items)
+
+    def _print_set(self, s):
+        from symox import default_sort_key
+        items = sorted(s, key=default_sort_key)
+        sep = self._separator()
+        return r"\left\{%s\right\}" % (sep + " ").join(map(self._print, items))
+
+    _print_frozenset = _print_set
+
+    def _print_Dict(self, expr):
+        return self._print_dict(dict(expr))
+
+    def _print_bool(self, e):
+        return r"\text{%s}" % e
+
+    _print_NoneType = _print_bool
+
+    def _print_matrix_contents(self, expr):
+        lines = []
+        for line in range(expr.rows):
+            lines.append(" & ".join([self._print(i) for i in expr[line, :]]))
+        mat_str = self._settings.get('mat_str')
+        if mat_str is None:
+            if self._settings.get('mode', 'plain') == 'inline':
+                mat_str = 'smallmatrix'
+            elif (expr.cols <= 10) is True:
+                mat_str = 'matrix'
+            else:
+                mat_str = 'array'
+        out_str = r'\begin{%MATSTR%}%s\end{%MATSTR%}'
+        out_str = out_str.replace('%MATSTR%', mat_str)
+        if mat_str == 'array':
+            out_str = out_str.replace('%s', '{' + 'c'*expr.cols + '}%s')
+        return out_str % r"\\".join(lines)
+
+    def _print_MatrixBase(self, expr):
+        out_str = self._print_matrix_contents(expr)
+        left_delim = self._settings.get('mat_delim', '[')
+        if left_delim:
+            right_delim = {'(': ')', '[': ']'}[left_delim]
+            out_str = r'\left' + left_delim + out_str + r'\right' + right_delim
+        return out_str
+
     def emptyPrinter(self,expr):
         from symox import _core
+        from symox.core.basic import Basic
+        if isinstance(expr, (str, type)) or not isinstance(expr, (Basic, int, float, complex)):
+            # SymPy prints objects that are not expressions monospaced; a
+            # string is not parsed.
+            converted = None
+            if not isinstance(expr, (str, type)):
+                try:
+                    converted = _core.sympify(expr)
+                except Exception:
+                    converted = None
+            if converted is None:
+                return r"\mathtt{\text{%s}}" % latex_escape(str(expr))
+            expr = converted
         settings = dict(self._settings, mode='plain')
         if settings.get('fold_short_frac') is None:
             settings['fold_short_frac'] = self._settings.get('mode') == 'inline'

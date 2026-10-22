@@ -1621,7 +1621,7 @@ Remaining gaps:
 Remaining gaps:
 
 - `ccode`/`fcode` of a contraction with `assign_to` and ranged `Idx` print
-  a single assignment instead of the reference summation loops.
+  a single assignment instead of the reference summation loops (fixed in the c3 section).
 - The biomechanics curves are evaluated (`doit`) in the force and in
   `rhs`, where SymPy keeps unevaluated curve objects. The values are equal.
   For formulation 2 without defaults, SymPy leaves a `Derivative`
@@ -4373,7 +4373,7 @@ Remaining gaps:
   `str(none)` is `None` and not `NoneToken()`. `intc` is a 32-bit
   `SignedIntType`; SymPy uses `IntBaseType('intc')`.
 - `Idx` arithmetic (`i + 1` raises `TypeError`) and contraction loops are
-  not supported. A Function applied to a Matrix in julia and octave is not
+  not supported (both fixed in the c3 section). A Function applied to a Matrix in julia and octave is not
   supported either. These account for the remaining glsl, jscode, julia,
   octave, rcode and codeprinter doctest differences.
 - Symox evalf turns `N(-x)` into `-1.0*x`; SymPy keeps `-x`. The Fortran
@@ -4986,3 +4986,152 @@ What remains:
   `ConditionSet`.
 
 Tests: `tests/test_solve_trig_rest_parity.py`.
+
+## Matrices, polys and printing/codegen callables (c3) on 2026-10-22
+
+The doctests of 41 callables were compared against SymPy 1.14. Before this
+work, most of them had a few examples that did not match. Now 29 match on
+every example. `MutableSparseMatrix` has no examples of its own; it is
+checked through the `SparseRepMatrix` examples.
+
+Implemented, printing and codegen:
+
+- `Indexed` stays a flattened symbol in the expression tree. Making it a
+  native node would need the native printers and core to change, so it is
+  handled at the printer level:
+  - The code printers print a flattened `Indexed` symbol through
+    `_print_Indexed`, which gives the strided form (`A[i*n + j]`) for a
+    shaped base.
+  - `Idx` arithmetic (`y[i + 1]`) works.
+  - `ccode`, `fcode`, `jscode`, `rcode`, `rust_code`, `glsl_code`,
+    `julia_code` and `octave_code` with `assign_to` and ranged `Idx`
+    generate the reference loops, including the summation loops of a
+    contraction. This closes the earlier gaps on `Idx` arithmetic and
+    contraction loops.
+- `latex`:
+  - tuples, lists, dicts and sets as containers;
+  - matrices with `mat_str`, `mat_delim` and `decimal_separator`;
+  - `long_frac_ratio`, in the native printer;
+  - `emptyPrinter`.
+- `codegen.rewriting` follows the reference:
+  - `Optimization.cheapest`, and `optimize` uses it;
+  - `exp2_opt`, `sinc_opts`, `log2_opt`, `log2const_opt` and
+    `logsumexp_2terms_opt`;
+  - `FuncMinusOneOptim`, used by `expm1_opt` and `cosm1_opt`;
+  - `log1p_opt`;
+  - `create_expand_pow_optimization`, with `UnevaluatedExpr`;
+  - `matinv_opt`, which requires a full-rank `MatrixSymbol` (asked through
+    `Q.fullrank`);
+  - the `optims_c99`, `optims_numpy` and `optims_scipy` tuples.
+- `SeriesApprox` is a port: it checks the parity of `n_point_checks`, and
+  lowers the order while the relative tolerance holds.
+- `MatrixSolve` has `matrix` and `vector`, and the numpy printer prints
+  `numpy.linalg.solve`. `CodegenAST.has` looks inside native expression
+  arguments, which makes `newtons_method` match.
+- `utilities.codegen` is SymPy 1.14's module, with the imports changed:
+  - matrix outputs are kept in an `_Exprs` container;
+  - `get_datatype` covers every language;
+  - `Argument` datatypes use `getattr` for `is_integer` and `is_real`.
+- `autowrap`:
+  - `ufuncify` passes `helpers` to the C ufunc wrapper as static functions;
+  - with a non-numpy backend, it vectorizes the scalar wrapper.
+- `smtlib_code`:
+  - infers the types of symbols and of undefined functions;
+  - gives the reference warnings for a type it cannot infer and for a
+    non-Boolean expression;
+  - raises TypeError for an unknown undefined function;
+  - sorts its declarations;
+  - prints `Integer` and `Rational` as SymPy does.
+- `public` is the reference decorator.
+- `plot_implicit` of an `And`, `Or`, `Not` or `Xor` of inequalities draws
+  the filled region (`contourf`). The reference raises
+  NotImplementedError when an equality is part of such a combination, and
+  so does symox.
+
+Implemented, matrices:
+
+- `BlockMatrix.LUdecomposition` (BlockDiagMatrix).
+- The generalized and off-diagonal Schur complements.
+- `MatPow.inverse()` as `MatPow(base, -exp)`.
+- `KroneckerProduct.has_matching_shape` and `structurally_equal`.
+- `Matrix.has` with pattern classes.
+- `M[i, j] = B` block assignment, for dense and sparse matrices.
+- `SparseMatrix` creation following `_handle_creation_inputs`, with SymPy's
+  messages.
+- `func_name` of dense matrices.
+- The product and integer-power rules of `combine_kronecker`.
+
+Implemented, polys:
+
+- `apart(full=True)`, ported in `polys.partfrac`.
+- `assemble_partfrac_list` builds a `RootSum` for a non-linear factor.
+- `RootSum.doit` inside larger expressions.
+- `Poly(domain='R')` and the domain aliases.
+- `Poly.per` with a DMP.
+- `CRootOf.eval_approx` with exact zero parts.
+- `which_all_roots`: it evaluates before taking `Abs`, which removes a
+  timeout.
+- `sfield`/`sring` infer non-Symbol generators, and ring and field elements
+  print as in SymPy.
+
+Intentional divergences:
+
+- A flattened `Indexed` orders its strides and factors by symbol name.
+  `A[i*n + j]` is printed where SymPy prints `A[n*i + j]`, and
+  `ccode(A[i]*x + 1)` gives `A[i]*x + 1` where SymPy gives `x*A[i] + 1`.
+- Generated code headers say "Code generated with SymPy" followed by the
+  symox version.
+- With a non-numpy backend, `ufuncify` returns a `numpy.vectorize` wrapper,
+  so an array argument gives an array.
+- With `helpers`, the numpy `ufuncify` returns the correct array. The
+  reference raises a numpy TypeError in this environment.
+- `logaddexp_opt`, `cosm1_opt` and `powm1_opt` produce mathematically equal
+  closed forms (`log(exp(x) + exp(y))`, `-2*sin(x/2)**2`, `x**y - 1`)
+  instead of the numpy/scipy function nodes.
+- `combine_kronecker` leaves `KroneckerProduct(A, B) + KroneckerProduct(C,
+  D)` unchanged. SymPy's `KroneckerProduct(A + C, B + D)` is not an
+  identity. It also does not distribute non-integer powers.
+
+What remains:
+
+- `has_dups(Set())` is not supported: the abstract `Set` belongs to the
+  sets area.
+- `julia_code` and `octave_code` of a Function applied to a Matrix
+  (`g(mat)`) are not supported: the core cannot build that expression.
+- `MatrixKind`: the native binder refuses `Integral` of a `MatrixSymbol`.
+- The native matrix-expression `str` differs from SymPy in four ways:
+  - It orders sums differently: `-B*D**(-1)*C + A` where SymPy has
+    `A - B*D**(-1)*C`.
+  - It prints an `Inverse` of a product or power without parentheses
+    (`C.T*C**(-1)`); `sstr` gets this right.
+  - It prints rational `MatPow` exponents as `A**1/2`.
+  - It prints a BlockMatrix as `BlockMatrix([...])` instead of
+    `Matrix([...])`.
+
+  These cause the remaining `schur` and `LUdecomposition` differences. The
+  fix belongs in `to_str` of `crates/symox-core/src/matrixexpr.rs`.
+- `galois_group` of degree 5 and 6 raises NotImplementedError. A port needs
+  SymPy's galoisgroups, galois_resolvents and resolvent_lookup modules,
+  plus the dense `dup_*` toolkits.
+- `prime_decomp` and `primes_above` over
+  `QQ.algebraic_field((T, theta))` with a symbolic `theta` raise an error,
+  because native algebraic fields need a numeric generator. With
+  `CRootOf(T, 0)` they work, but the generator prints as `_x`.
+- Unsupported `Poly` domains raise an error:
+  - composite domains with inexact or non-generator coefficients (`'R[y]'`,
+    `'Z[y]'` or `'Q(y)'` with `sqrt(3)`);
+  - `CC`/`'C'`;
+  - `RR_n` with n other than 53.
+
+  The exception types match SymPy's, but the messages may be worded
+  differently.
+- Ring elements over `QQ<a>` print coefficients as `sqrt(2)`, where SymPy
+  prints the raw `ANP(...)` repr.
+- `Expr*elem` with an Expr that does not convert into the ring raises
+  CoercionFailed, where SymPy raises TypeError.
+- `ufuncify`: five doctest lines fail only in the reference environment.
+  Symox matches the docstring there.
+
+Tests: `tests/test_missing_c3_parity.py`,
+`tests/test_missing_c3_matrices_parity.py`,
+`tests/test_missing_c3_polys_parity.py`.

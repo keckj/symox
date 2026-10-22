@@ -740,8 +740,109 @@ def _diagonal_length(self):
     except TypeError:return None
 
 
+def _block_quadrants(self, message):
+    from . import ShapeError
+    if getattr(self, 'blockshape', None) != (2, 2) or matrix_tag(self) not in ('BlockMatrix', 'BlockDiagMatrix'):
+        raise ShapeError(message)
+    grid = self.blocks
+    return grid[0, 0], grid[0, 1], grid[1, 0], grid[1, 1]
+
+
+_native_schur = None
+
+
+def schur(self, mat='A', generalized=False):
+    """SymPy's ``BlockMatrix.schur``; the generalized complement uses the
+    Moore-Penrose inverse ``(X.T*X)**(-1)*X.T`` of the chosen block."""
+    from . import NonInvertibleMatrixError
+    A, B, C, D = _block_quadrants(self, 'Schur Complement can only be calculated for 2x2 block matrices')
+    d = {'A': A, 'B': B, 'C': C, 'D': D}
+    if mat not in d or (not generalized and mat in 'AD'):
+        return _native_schur(self, mat)
+    try:
+        inv = (d[mat].T*d[mat]).inv()*d[mat].T if generalized else d[mat].inv()
+    except NonInvertibleMatrixError:
+        raise NonInvertibleMatrixError('The given matrix is not invertible. Please set generalized=True \
+            to compute the generalized Schur Complement which uses Moore-Penrose Inverse')
+    if mat == 'A':
+        return D - C * inv * B
+    if mat == 'B':
+        return C - D * inv * A
+    if mat == 'C':
+        return B - A * inv * D
+    return A - B * inv * C
+
+
+def LUdecomposition(self):
+    """SymPy's block LU decomposition ``(L, U)`` of a 2x2 block matrix."""
+    from . import S, ZeroMatrix, BlockMatrix
+    from . import NonInvertibleMatrixError
+    A, B, C, D = _block_quadrants(self, 'Block LU decomposition is supported only for 2x2 block matrices')
+    try:
+        A = A**S.Half
+        AI = A.I
+    except NonInvertibleMatrixError:
+        raise NonInvertibleMatrixError('Block LU decomposition cannot be calculated when\
+                    "A" is singular')
+    Z = ZeroMatrix(*B.shape)
+    Q = self.schur()**S.Half
+    L = BlockMatrix([[A, Z], [C*AI, Q]])
+    U = BlockMatrix([[A, AI*B], [Z.T, Q]])
+    return L, U
+
+
+def _is_kronecker(value):
+    return isinstance(value, _core_matrix_expr()) and matrix_tag(value) == 'KroneckerProduct'
+
+
+def _core_matrix_expr():
+    from . import _core
+    return _core._MatrixExpr
+
+
+def has_matching_shape(self, other):
+    """Whether multiplication can be brought inside two Kronecker products."""
+    return (_is_kronecker(self) and _is_kronecker(other)
+            and self.cols == other.rows
+            and len(self.args) == len(other.args)
+            and all(a.cols == b.rows for (a, b) in zip(self.args, other.args)))
+
+
+_native_structurally_equal = None
+
+
+def structurally_equal(self, other):
+    if _is_kronecker(self):
+        return (_is_kronecker(other)
+                and self.shape == other.shape
+                and len(self.args) == len(other.args)
+                and all(a.shape == b.shape for (a, b) in zip(self.args, other.args)))
+    return _native_structurally_equal(self, other)
+
+
+_native_inverse = None
+
+
+def _inverse(self):
+    # SymPy's MatPow._eval_inverse: the inverse of B**e is B**(-e), so that
+    # A**(1/2)*(A**(1/2)).I cancels.
+    if matrix_tag(self) == 'MatPow' and self.is_square is not False:
+        from . import MatPow
+        base, exp = self.args
+        return MatPow(base, -exp)
+    return _native_inverse(self)
+
+
 def install():
     from . import _core
+    global _native_schur, _native_structurally_equal, _native_inverse
+    if _native_schur is None:
+        _native_schur = _core._MatrixExpr.schur
+        _native_structurally_equal = _core._MatrixExpr.structurally_equal
+        _native_inverse = _core._MatrixExpr.inverse
+        _core._MatrixExpr.I = property(_inverse)
+        _core._MatrixExpr.inv = _inverse
+        _core._MatrixExpr.inverse = _inverse
     global _native_has
     if _native_has is None:
         _native_has = _core._MatrixExpr.has
@@ -763,6 +864,8 @@ def install():
         'as_ordered_terms': as_ordered_terms, 'coeff': coeff, 'normal': _identity,
         'taylor_term': taylor_term, 'dir': dir_, 'integrate': integrate,
         'is_constant': is_constant,
+        'schur': schur, 'LUdecomposition': LUdecomposition,
+        'has_matching_shape': has_matching_shape, 'structurally_equal': structurally_equal,
     }
     for name in ('evalf', 'n', 'nsimplify', 'trigsimp', 'powsimp', 'combsimp',
                  'gammasimp', 'radsimp', 'ratsimp', 'cancel', 'factor', 'together',

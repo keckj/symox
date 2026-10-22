@@ -44,9 +44,12 @@ def test_code_generator_c_output_buffer_and_fortran(tmp_path):
     from symox.utilities.codegen import codegen
     x,y=S.symbols('x y')
     files=codegen(('f',x*x+S.sin(x)),'C',prefix=str(tmp_path/'cfunc'))
+    # As in the reference, the source includes its generated header.
+    (tmp_path/files[1][0]).write_text(files[1][1])
     assert len(files)==2 and compile_c(tmp_path,files[0][1])(1.)==pytest.approx(1+math.sin(1))
     matrix=S.Matrix([[x,y],[x+y,x*y]])
-    csource=codegen(('matrix_fn',matrix),'C')[0][1]
+    mfiles=codegen(('matrix_fn',matrix),'C');csource=mfiles[0][1]
+    (tmp_path/mfiles[1][0]).write_text(mfiles[1][1])
     cpath=tmp_path/'matrix.c';cpath.write_text(csource);lib=tmp_path/'matrix.so'
     subprocess.run(['cc','-shared','-fPIC',str(cpath),'-lm','-o',str(lib)],check=True)
     library=ctypes.CDLL(str(lib));fn=library.matrix_fn;fn.argtypes=[ctypes.c_double,ctypes.c_double,ctypes.POINTER(ctypes.c_double)];fn.restype=None
