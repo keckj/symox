@@ -1369,18 +1369,9 @@ Remaining gaps:
   `t > 0`). Symox moves the inner integral into the Piecewise branches,
   leaves `t` in the conditions, and returns an unevaluated `Integral`. The
   result is still correct.
-- After other computations in the same session, the nested example
-  `limit_seq(Sum(k**2*Sum(2**m/m, (m, 1, k)), (k, 1, n))/(2**n*n), n)`
-  returns `None` instead of 4. `simplify` then keeps
-  `Sum(2**m/m, (m, 1, n + 1))` unsplit, and the five Stolz-Cesaro trials do
-  not converge. The answer is never a wrong value. Before this change, the
-  result was a wrong 0.
-- limit_seq returns `None` where SymPy finds 1, 1/2, 1/3 or oo. The
-  affected forms are harmonic sums over `log(n)`
-  (`Sum(1/k, (k, 1, n))/log(n)`, `harmonic(n)/log(n)`, the nested `log`
-  quotients) and `n*Sum(1/k**2, (k, 1, n))`.
-- `limit_seq(fibonacci(n + 1)/fibonacci(n), n)` returns
-  `1/2 + sqrt(5)/2` (SymPy `GoldenRatio`). The values are equal.
+- limit_seq returns `None` where SymPy finds 1, 1/2, 1/3 or oo on
+  `harmonic` terms (`harmonic(n)/log(n)`, `n*Sum(1/k**2, (k, 1, n))`); see
+  the limit_seq section at the end.
 - `Sum(x*f[n], (n, 0, 2)).doit()` is the expanded `f[0]*x + f[1]*x + f[2]*x`
   (SymPy `x*(f[0] + f[1] + f[2])`). Native function terms behave the same
   way.
@@ -4318,13 +4309,6 @@ Remaining risks and gaps:
   walks `args` in canonical order can still diverge from the reference. It
   is now reproducible, but it can change when an unrelated Dummy is created
   earlier in the run. `traverse::ordered_args` gives the reference order.
-- The nested example
-  `limit_seq(Sum(k**2*Sum(2**m/m, (m, 1, k)), (k, 1, n))/(2**n*n), n)`
-  now returns `None` in every run, instead of 4. The earlier note that it
-  gives 4 when computed first came from a favourable hash order. The
-  reference keeps only the dominant terms of the numerator and the
-  denominator (`dominant`) after each difference step. Symox does not yet
-  port that step.
 
 ## Wave 4: code generation and printers (WP-C14)
 
@@ -4503,3 +4487,80 @@ Remaining differences:
 - `ObstacleSetPathway`: a `sqrt` form differs.
 - `Beam.max_*` with symbolic `E` and `I` on the reference doctest beam
   exceeds 150 s in both libraries.
+
+## Wave 4: limit_seq follows the reference algorithm
+
+`limit_seq` is now a port of `sympy.series.limitseq`: `dominant`, the
+`trials` loop of `_limit_seq` (difference step on the expanded numerator
+and denominator, `gammasimp`, then the dominant terms of both), the odd and
+even `Dummy` indices for alternating signs and trigonometric terms,
+accumulation bounds, the termwise sum and the `Abs` fallback. The input is
+rewritten as in the reference (`fibonacci` in `GoldenRatio`, `factorial`
+and `subfactorial` in `gamma`). `dominant` is exported from
+`symox.series.limitseq`.
+
+The reference `_limit_inf` is `Limit(...).doit(deep=False)`. Symox uses the
+native limit, with these differences:
+
+- An unevaluated native `Limit` counts as undecided (`None`), and the
+  algorithm continues. The reference returns the unevaluated `Limit` in
+  that case (for example `catalan(n + 1)/catalan(n)`, and `F(n)` for an
+  undefined `F`). Symox returns `None` there.
+- Terms with a Sum or Integral give `None`, as the reference gruntz raises
+  on them. A Product is first evaluated with `doit()`. The reference does
+  not terminate on `Product(1 + 1/k, (k, 1, n))/n`. Symox gives 1.
+- The native gruntz engine does not know the asymptotics of Gamma-type
+  functions, and it returned wrong values on them (`0` for
+  `factorial(n)*exp(n)/(n**n*sqrt(n))`). It is not used on Gamma-type terms.
+  `simplify(combsimp(...))` is tried first. Then an exact ratio test proves
+  0, oo or -oo (`5**n/factorial(n)`, `n**n/factorial(n)`). Any other case
+  gives `None`.
+- The ratio test also decides the powers of non-real numbers, such as
+  `n**7*(I/3)**n`.
+- With an odd or even index, `(-b)**e` becomes `b**e` or `-b**e` for a
+  positive number `b`. The reference Pow constructor does this when the
+  exponent is the index itself, and its gruntz handles the other parity
+  exponents.
+- `dominant` calls are nested at most 4 deep. The reference recurses until
+  gruntz decides each ratio. Symox leaves more ratios undecided and would
+  otherwise recurse until a RecursionError.
+- When the odd subsequence has a limit but the even one does not, the
+  result is `None`. In that case the reference raises an AttributeError.
+- Plain Python numbers are sympified (the reference raises an
+  AttributeError on `limit_seq(5, n)`).
+
+Divergence kept on purpose: `lucas` is rewritten in its Binet form. The
+reference does not rewrite `lucas`. It returns an unevaluated `Limit` for
+`lucas(n + 1)/lucas(n)`, and a wrong 0 for `lucas(n)/fibonacci(n)`. Symox
+gives `GoldenRatio` and `2*GoldenRatio - 1` (that is, `sqrt(5)`).
+
+Probe against SymPy 1.14 (the cases of `test_limitseq.py`, the docstrings
+and 120 more sequences): 131 of 159 match, up from 111 with the previous
+implementation. The nested example
+`limit_seq(Sum(k**2*Sum(2**m/m, (m, 1, k)), (k, 1, n))/(2**n*n), n)`
+gives 4, and
+`Sum(binomial(3*k, k)*binomial(5*k, k), (k, 1, n))/(binomial(3*n, n)*binomial(5*n, n))`
+gives 84375/83351. Both results are the same in 20 fresh processes with
+different `PYTHONHASHSEED` values. Each remaining difference is a `None` where the
+reference finds a value. None of them is a wrong value.
+
+Remaining gaps (all `None` in symox):
+
+- `harmonic` at infinity: the native limit does not expand
+  `harmonic(n)`, `harmonic(n, s)` or `polygamma` at `oo`. This affects
+  `harmonic(n)/log(n)`, `harmonic(n) - log(n)`, `harmonic(2*n) - harmonic(n)`,
+  `Sum(1/k, (k, 1, n))` and `Sum(1/k**2, (k, 1, n))` (that is, `harmonic(n, 2)`),
+  `Sum(1/x, (x, 1, y)) - log(y)`, and the reference tests
+  `(harmonic(n)*Sum(harmonic(k), (k, 1, n)))/(n*harmonic(2*n)**2)` and
+  `Sum(harmonic(k)**2/k, (k, 1, 2*n))/harmonic(n)**3`.
+- Gamma asymptotics (Stirling): `factorial(n)*exp(n)/(n**n*sqrt(n))`,
+  `binomial(2*n, n)*sqrt(n)/4**n`, `binomial(2*n, n)/4**n`,
+  `catalan(n)*n**(3/2)/4**n`, `subfactorial(n)/factorial(n)` (`exp(-1)`),
+  `log(factorial(n))/(n*log(n))`, `1/gamma(n + 1/2)` (`gammasimp` does not
+  reduce `gamma(n + 1/2)/gamma(n + 3/2)`), and `Sum(1/factorial(k), (k, 0, n))`.
+- `floor(n/2)/n`, and the closed form of `Sum(m**k, (m, 1, n))` over
+  `n**(k + 1)` with a symbolic `k`.
+- The native limit crashes the process (segmentation fault, deep native
+  recursion) on some large `Abs` quotients of powers `(n + a)**(n + b)`.
+  This was found in the ratio test, which is now not used for such terms.
+

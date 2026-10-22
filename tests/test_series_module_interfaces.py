@@ -80,16 +80,18 @@ def test_sequence_limit_validation_and_unsupported_unknown_slope():
     assert limit_seq((n+1)/n)==1
     assert limit_seq(sx.Function('F')(n),n) is None
     with pytest.raises(ValueError):limit_seq(n+a)
-    with pytest.raises(ValueError):limit_seq(n,n+1)
-    with pytest.raises(ValueError):limit_seq(n,n,trials=100000)
+    # As in the reference: an index that is not a free symbol leaves the
+    # expression unchanged, and a large trial count is only an upper bound.
+    assert limit_seq(n,n+1)==n
+    assert limit_seq(n,n,trials=100000)==sx.oo
     with pytest.raises(ValueError):list(approximants(range(257)))
 
 
 def test_lucas_fibonacci_ratio_uses_the_exact_binet_limit():
     # SymPy 1.14's sequence-limit rewrite handles Fibonacci but overlooks Lucas.
-    # Their exact Binet formulas give sqrt(5) as the dominant-term ratio.
+    # Their exact Binet formulas give 2*GoldenRatio - 1 = sqrt(5).
     n=sx.Symbol('n',integer=True,positive=True)
-    assert limit_seq(sx.lucas(n)/sx.fibonacci(n),n)==sx.sqrt(5)
+    assert limit_seq(sx.lucas(n)/sx.fibonacci(n),n)==2*sx.S.GoldenRatio-1
 
 
 def test_module_paths_use_the_existing_native_limit_order_and_residue_implementations():

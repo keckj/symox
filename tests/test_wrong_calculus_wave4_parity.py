@@ -136,4 +136,4 @@ def test_limit_seq_sum_over_exponential():
     assert limit_seq(Sum(2**m/m, (m, 1, n))/(2**n/n), n) == 2
     nested = limit_seq(
         Sum(k**2*Sum(2**m/m, (m, 1, k)), (k, 1, n))/(2**n*n), n)
-    assert nested in (4, None)
+    assert nested == 4
