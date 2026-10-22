@@ -295,6 +295,15 @@ def _fdiff(expr,argindex=None):
         argindex=2 if name in _BESSEL or name=='marcumq' else 3 if name in ('hyper','meijerg') else 5 if name=='appellf1' else 1
     index=operator.index(argindex)
     if index<1:raise ValueError('argument index must be positive')
+    if name in ('Heaviside','DiracDelta'):
+        # SymPy's Heaviside.fdiff and DiracDelta.fdiff.
+        if index!=1:
+            from .core.function import ArgumentIndexError
+            raise ArgumentIndexError(expr,index)
+        s=_s()
+        if name=='Heaviside':return s.DiracDelta(expr.args[0])
+        k=expr.args[1] if len(expr.args)>1 else s.Integer(0)
+        return s.DiracDelta(expr.args[0],k+1)
     value=_core._special_partial(expr,index-1)
     if value is None:raise NotImplementedError('partial derivative of %s with respect to argument %d is not implemented'%(name,index))
     return value

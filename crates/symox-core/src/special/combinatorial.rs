@@ -46,6 +46,9 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         Factorial => eval_factorial(&a[0]),
         Factorial2 => eval_factorial2(&a[0]),
         Subfactorial => {
+            if is_inf(&a[0]) {
+                return Some(Expr::oo());
+            }
             let n = as_small(&a[0])?;
             if n < 0 {
                 return None;
@@ -61,6 +64,9 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
         Catalan => eval_catalan(&a[0]),
         Fibonacci => eval_fibonacci(a),
         Lucas => {
+            if is_inf(&a[0]) {
+                return Some(Expr::oo());
+            }
             let n = as_small(&a[0])?;
             Some(num(ints::lucas_number(n)))
         }
@@ -282,6 +288,14 @@ fn eval_harmonic(a: &[Expr]) -> Option<Expr> {
 
 fn eval_bernoulli(a: &[Expr]) -> Option<Expr> {
     let n = &a[0];
+    // SymPy: bernoulli(n) = 0 for odd n > 1
+    if a.len() == 1
+        && is_nonnegative(n) == Some(true)
+        && crate::assumptions::is_odd(n) == Some(true)
+        && is_positive(&sub(n, &Expr::one())) == Some(true)
+    {
+        return Some(Expr::zero());
+    }
     let nn = as_small(n)?;
     if nn < 0 {
         return None;
@@ -350,6 +364,9 @@ fn eval_catalan(n: &Expr) -> Option<Expr> {
 }
 
 fn eval_fibonacci(a: &[Expr]) -> Option<Expr> {
+    if is_inf(&a[0]) {
+        return Some(Expr::oo());
+    }
     let nn = as_small(&a[0])?;
     if a.len() == 1 {
         if nn.unsigned_abs() > 10 * MAX_EXACT {
@@ -364,6 +381,9 @@ fn eval_fibonacci(a: &[Expr]) -> Option<Expr> {
 }
 
 fn eval_bell(a: &[Expr]) -> Option<Expr> {
+    if is_inf(&a[0]) && a.len() == 1 {
+        return Some(Expr::oo());
+    }
     let nn = as_small(&a[0])?;
     if nn < 0 || nn as u64 > MAX_EXACT {
         return None;

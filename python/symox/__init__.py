@@ -564,8 +564,14 @@ def _tuple(items):
     return _core._apply("Tuple", *items)
 
 
-def hyper(ap, bq, z):
+def hyper(ap, bq, z, evaluate=True):
     """Generalised hypergeometric function ``hyper(ap, bq, z)``."""
+    if not evaluate:
+        # SymPy's hyper.__new__ sorts both parameter lists (TupleArg of
+        # ordered(...)) before Function.__new__ decides whether to evaluate.
+        from . import ordered, sympify
+        return _core._apply("hyper", _tuple(list(ordered(map(sympify, ap)))),
+                            _tuple(list(ordered(map(sympify, bq)))), z, evaluate=False)
     return _core._apply("hyper", _tuple(ap), _tuple(bq), z)
 
 

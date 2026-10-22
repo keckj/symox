@@ -3620,3 +3620,78 @@ Remaining unsupported:
 - The audited `DomainMatrix`/`DDM`/`SDM`/`DFM` method examples (`fflu`,
   `lll`, `qr`, `clear_denoms`, `primitive`, `charpoly_factor_*`, ...)
   remain open.
+
+## Special-function evaluation and rewrites (wave 4, missing_special)
+
+Implemented, following the SymPy 1.14 `eval` and `_eval_rewrite_as_*`
+methods:
+
+- Values at infinity: `erfi(-I*oo) = -I`, `polygamma(0, -oo)` and
+  `polygamma(0, +-I*oo)` give `oo`, `loggamma(+-I*oo) = zoo`,
+  `uppergamma(a, oo) = 0`, `subfactorial`, `lucas`, `fibonacci` and `bell` at
+  `oo`, `airybi`/`airybiprime(-oo) = 0`, `bessely(nu, +-I*oo)` and
+  `besselk(nu, oo or +-I*oo)`.
+- `bernoulli(n) = 0` for odd `n > 1`, including symbolic odd `n`.
+- `conjugate(Ynm(n, m, theta, phi)) = (-1)**m*Ynm(n, -m, theta, phi)` (so
+  `Ynm_c` evaluates as in SymPy).
+- `SingularityFunction` uses SymPy's constructor (nan propagation, real
+  arguments, orders down to -4, non-integer nonnegative orders), and its
+  Piecewise, Heaviside and DiracDelta rewrites apply anywhere in an
+  expression.
+- `Heaviside.fdiff` and `DiracDelta.fdiff`, with SymPy's
+  `ArgumentIndexError` message.
+- `doit()` on a relation rebuilds it from its arguments, so
+  `Eq(2, 5, evaluate=False).doit()` is `False`.
+- Rewrite targets of Ei, expint, li, Li, Si, Ci, Shi, Chi, erfc to erf, all
+  four Airy functions, the Bessel family (besselj, bessely, besseli, besselk,
+  jn, yn, with SymPy's integer-order guard on yn), betainc and
+  betainc_regularized, zeta, dirichlet_eta, polylog, elliptic_k/e/f/pi, and
+  catalan.
+- `elliptic_pi(1, z, m)`, `elliptic_pi(n, z, 0)` and `elliptic_pi(n, z, n)`
+  evaluate in closed form.
+- `stieltjes` and `riemann_xi` use SymPy's `eval`: `stieltjes(n)` keeps a
+  single argument, negative or non-integer numeric orders give `zoo`, and
+  `riemann_xi(s)` evaluates whenever `zeta(s)` does.
+- `hyper(ap, bq, z, evaluate=False)` sorts its parameters without cancelling
+  them.
+
+Intentional divergences, where symox keeps the correct value:
+
+- `polygamma(-1, oo)` is `oo` in symox. SymPy returns 0, but the order -1
+  polygamma is an antiderivative of the digamma function and diverges.
+- `besselj(1, -I*oo)` is `-oo*I` in symox, from
+  `besselj(1, -I*y) = -I*besseli(1, y)`. SymPy returns nan.
+- `Ci(-I*oo)` raises `UnboundLocalError` in SymPy. Symox leaves it
+  unevaluated.
+- `diff(Heaviside(x - a), x, k)` gives `DiracDelta(x - a, k - 1)`, whereas
+  SymPy sometimes normalises the argument to `a - x` with a sign. The two
+  forms are equal.
+
+Remaining unsupported items. These raise or stay unevaluated and never
+return a wrong value:
+
+- Series of the Airy and complete or incomplete elliptic functions raise
+  `NotImplementedError`.
+- `limit(harmonic(n, m), n, oo)` stays an unevaluated `Limit`, and
+  `expand_func(harmonic(n - k))` is not expanded.
+- Derivatives of `expint` in its order, `elliptic_pi` in its characteristic
+  and `assoc_laguerre` in its parameter stay as `Derivative`.
+- `dirichlet_eta(s, a)` (two arguments) is not implemented.
+- `motzkin.is_motzkin`, `Integer.factors()` and
+  `partition(q)` for a negative integer symbol (SymPy gives 0) are missing.
+- Printing differences remain: the term order of
+  `li(z).rewrite(meijerg)`, and `4*(1 - m)` versus `4 - 4*m` in
+  `elliptic_f(z, m).diff(m)`.
+- Native functions given `nan` sometimes return `nan` where SymPy stays
+  unevaluated.
+- Some infinite complex arguments depend on how `exp(I*oo)` is handled in
+  the core: `expint(0, +-I*oo)`, `lowergamma`/`uppergamma(2, +-I*oo)` and
+  `elliptic_pi(+-I*oo, 0)`.
+- The following still differ at infinite degree or argument, or in their
+  error type:
+  - legendre and chebyshevt at infinite degree;
+  - `DiracDelta(-oo)`;
+  - the error types of laguerre, partition, bell and factorial2;
+  - `beta(1, +-oo)`;
+  - `Chi(-I*oo)`;
+  - the odd-part extraction in `elliptic_e(-I*oo, 1)`.

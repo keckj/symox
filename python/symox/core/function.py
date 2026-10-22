@@ -8,7 +8,7 @@ _export(globals(), 'symox', 'BadArgumentsError BadSignatureError PoleError count
 from .._compat import _ExprType
 
 class ArgumentIndexError(ValueError):
-    def __init__(self,function,index):self.function,self.index=function,index;super().__init__('invalid argument index %s for %s'%(index,function))
+    def __init__(self,function,index):self.function,self.index=function,index;super().__init__('Invalid operation with argument number %s for Function %s'%(index,function))
 
 from .._function_heads import Application, DefinedFunction  # noqa: E402
 class AppliedUndef(Application):_matches=staticmethod(lambda e:e.is_UndefinedFunction)

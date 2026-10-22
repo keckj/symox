@@ -153,8 +153,31 @@ fn eval_pi3(n: &Expr, z: &Expr, m: &Expr) -> Option<Expr> {
     if n.is_zero() {
         return Some(super::elliptic_f(z, m));
     }
+    // sqrt(1 - m*sin(z)**2)
+    let delta = |m: &Expr| sqrt(&sub(&Expr::one(), &mul2(m, &crate::functions::sin(z).powi(2))));
+    let tan_z = crate::functions::tan(z);
+    if n.is_one() {
+        return Some(add(&[
+            super::elliptic_f(z, m),
+            div(
+                &sub(&mul2(&delta(m), &tan_z), &super::elliptic_e2(z, m)),
+                &sub(&Expr::one(), m),
+            ),
+        ]));
+    }
     if let Some(k) = half_periods(z) {
         return Some(mul2(&k, &super::elliptic_pi(n, m)));
+    }
+    if m.is_zero() {
+        let r = sqrt(&sub(n, &Expr::one()));
+        return Some(div(&crate::functions::atanh(&mul2(&r, &tan_z)), &r));
+    }
+    if n == m {
+        return Some(add(&[
+            super::elliptic_f(z, n),
+            neg(&super::elliptic_pi3(&Expr::one(), z, n)),
+            div(&tan_z, &delta(n)),
+        ]));
     }
     if is_inf(n) || is_neg_inf(n) || is_inf(m) || is_neg_inf(m) {
         return Some(Expr::zero());

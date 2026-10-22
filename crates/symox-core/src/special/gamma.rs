@@ -117,6 +117,10 @@ pub(super) fn eval_loggamma(z: &Expr) -> Option<Expr> {
     if is_neg_inf(z) || z.is_constant(Constant::ComplexInfinity) {
         return Some(Expr::zoo());
     }
+    // abs(z) is oo
+    if extract_i(z).is_some_and(|t| is_inf(&t) || is_neg_inf(&t)) {
+        return Some(Expr::zoo());
+    }
     None
 }
 
@@ -134,6 +138,10 @@ fn eval_polygamma(n: &Expr, z: &Expr) -> Option<Expr> {
     }
     if is_inf(z) {
         return Some(if nn == 0 { Expr::oo() } else { Expr::zero() });
+    }
+    // polygamma(0, -oo) and polygamma(0, +-I*oo)
+    if nn == 0 && (is_neg_inf(z) || extract_i(z).is_some_and(|t| is_inf(&t) || is_neg_inf(&t))) {
+        return Some(Expr::oo());
     }
     let zq = as_exact(z)?;
     if zq.is_integer() && !zq.is_positive() {
@@ -324,6 +332,9 @@ fn q_half() -> Number {
 }
 
 fn eval_uppergamma(a: &Expr, z: &Expr) -> Option<Expr> {
+    if is_inf(z) {
+        return Some(Expr::zero());
+    }
     let special_z = matches!(z.kind(), Kind::Const(Constant::NaN | Constant::Infinity)) || z.is_zero();
     if !special_z {
         if let Some(v) = incomplete_gamma_branch(false, a, z) {

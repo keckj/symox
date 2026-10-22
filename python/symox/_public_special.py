@@ -83,36 +83,50 @@ def jacobi_normalized(n,a,b,x):
 
 
 def riemann_xi(s):
-    from . import sympify,Rational
+    from . import sympify,Rational,zeta,gamma,pi
     s = sympify(s)
     if s in (0,1):return Rational(1,2)
+    z = zeta(s)
+    if getattr(z,'class_name',None) != 'zeta':return s*(s-1)*gamma(s/2)*z/(2*pi**(s/2))
     return _held('riemann_xi',s)
 
 
-def stieltjes(n,a=1):
-    from . import sympify,digamma
-    n,a = sympify(n),sympify(a)
-    if n.is_integer is False or n.is_negative is True:raise ValueError('Stieltjes index must be nonnegative and integral')
-    if a.is_integer is True and a.is_nonpositive is True:raise ValueError('Stieltjes constant is singular at this argument')
-    if n == 0:return -digamma(a)
-    return _held('stieltjes',n,a)
+def stieltjes(n,a=None):
+    # SymPy's stieltjes.eval.
+    from . import sympify,nan,zoo,EulerGamma
+    n = sympify(n)
+    if a is not None:
+        a = sympify(a)
+        if a == nan:return nan
+        if a.is_Integer and a.is_nonpositive:return zoo
+    if n.is_Number:
+        if n == nan:return nan
+        if n < 0:return zoo
+        if not n.is_Integer:return zoo
+        if n == 0 and a in (None,1):return EulerGamma
+    if n.is_extended_negative is True:return zoo
+    if n.is_zero is True and a in (None,1):return EulerGamma
+    if n.is_integer is False:return zoo
+    return _held('stieltjes',n) if a is None else _held('stieltjes',n,a)
 
 
 class SingularityFunction(metaclass=_ExprType):
     _matches = staticmethod(lambda expr:expr.class_name == 'SingularityFunction')
     def __new__(cls,x,a,n):
-        from . import sympify,oo
+        from . import sympify,oo,im,nan
         x,a,n = map(sympify,(x,a,n))
-        if n.is_integer is False:raise ValueError('singularity order must be integral')
-        displacement = x-a
-        if displacement.is_negative is True:return sympify(0)
-        if displacement.is_positive is True:
-            if n.is_nonnegative is True:return displacement**n
-            if n.is_negative is True:return sympify(0)
-        if displacement == 0:
-            if n.is_positive is True:return sympify(0)
-            if n == 0:return sympify(1)
-            if n.is_negative is True:return oo
+        shift = x-a
+        if im(shift).is_zero is False:raise ValueError('Singularity Functions are defined only for Real Numbers.')
+        if im(n).is_zero is False:raise ValueError('Singularity Functions are not defined for imaginary exponents.')
+        if shift == nan or n == nan:return nan
+        if (n+4).is_negative is True:raise ValueError('Singularity Functions are not defined for exponents less than -4.')
+        if shift.is_extended_negative is True:return sympify(0)
+        if n.is_nonnegative is True:
+            if shift.is_zero is True:return sympify(0)**n
+            if shift.is_extended_nonnegative is True:return shift**n
+        if n in (-1,-2,-3,-4):
+            if shift.is_negative is True or shift.is_extended_positive is True:return sympify(0)
+            if shift.is_zero is True:return oo
         return _held('SingularityFunction',x,a,n)
 
 
@@ -172,7 +186,7 @@ def _numeric_value(node,digits):
         args = [number(a) for a in node.args]
         name = node.class_name
         if name in ('betainc','betainc_regularized'):value = mp.betainc(*args,regularized=name.endswith('_regularized'))
-        elif name == 'stieltjes':value = mp.stieltjes(int(args[0]),args[1])
+        elif name == 'stieltjes':value = mp.stieltjes(int(args[0]),args[1] if len(args) > 1 else 1)
         elif name == 'riemann_xi':
             z = args[0]
             value = mp.mpf('.5') if z in (0,1) else z*(z-1)*mp.gamma(z/2)*mp.zeta(z)/(2*mp.pi**(z/2))
@@ -361,7 +375,15 @@ def install(namespace):
         if self.class_name == 'Permanent':
             matrix = self.args[0]
             if getattr(matrix, '_kind_tag', None) == 'ImmutableMatrix':return matrix.as_explicit().per()
-        return old_doit(self,*args,**kwargs)
+        result = old_doit(self,*args,**kwargs)
+        # Basic.doit rebuilds the node from its evaluated arguments, so an
+        # unevaluated relation such as Eq(2, 5, evaluate=False) evaluates.
+        if kwargs.get('deep',True) and getattr(result,'is_Relational',False) is True:
+            try:
+                return result.func(*result.args)
+            except TypeError:
+                return result
+        return result
     Expr.doit = doit
     @wraps(old_rewrite)
     def rewrite(self,*args,**kwargs):
@@ -377,11 +399,14 @@ def install(namespace):
             x,a,n = self.args
             if name == 'Piecewise':
                 from . import oo,Eq
-                return Piecewise((oo,Eq(x,a)),(0,True)) if n.is_negative is True else Piecewise(((x-a)**n,x>=a),(0,True))
-            if name in ('Heaviside','DiracDelta') and n.is_Integer:
-                if n < 0:
-                    return DiracDelta(x-a) if n == -1 else DiracDelta(x-a,-int(n)-1)
-                return (x-a)**n*Heaviside(x-a,1)
+                if n in (-1,-2,-3,-4):return Piecewise((oo,Eq(x-a,0)),(0,True))
+                if n.is_nonnegative is True:return Piecewise(((x-a)**n,x-a>=0),(0,True))
+                return self
+            if name in ('Heaviside','DiracDelta','HeavisideDiracDelta'):
+                from . import diff
+                if n in (-1,-2,-3,-4):return diff(Heaviside(x-a),x.free_symbols.pop(),-int(n))
+                if n.is_nonnegative is True:return (x-a)**n*Heaviside(x-a,1)
+                return self
         return old_rewrite(self,target,**kwargs)
     Expr.rewrite = rewrite
     original_subs,original_xreplace = Expr.subs,Expr.xreplace
