@@ -586,8 +586,6 @@ Remaining gaps in this area:
   `x < 1`, `Or(x > 0, x < 1)` is not reduced to `True`, `Or(x > 1, x < -1)`
   is not rewritten as `Abs(x) > 1`, and the `Eq` substitution of
   `And(Eq(x, 1), y > x)` into `y > 1` is missing.
-- `solve_univariate_inequality(x**2 + 2 > 0, x, relational=False)` gives
-  `Interval(-oo, oo)` where SymPy gives `Reals`.
 
 ## Set emptiness and the subset decision path on 2026-10-21
 
@@ -632,15 +630,61 @@ Remaining gaps:
 - `Interval(a, b).is_subset(Interval(a, b + 1))` is True; SymPy gives None
   because its intersection keeps `Min(b, b + 1)` unevaluated while the
   native intersection simplifies it (the True answer is correct).
-- `Interval(-oo, oo)` is not canonicalized to `S.Reals` in the native
-  constructor.
 - `is_increasing(a*x, symbol=x)` with a real parameter `a` stays None;
   SymPy gives False (its `solveset(a >= 0, x, S.Reals)` decides it).
 - `is_increasing(Function('f')(x), symbol=x)` raises `NotImplementedError`;
   SymPy overflows the recursion limit.
-- The `Range`/`FiniteSet` rule does not handle a symbolic `Range` (no
-  symbolic `Range.size`), and the native union, intersection and
-  complement simplification still uses the approximate Rust `is_subset`.
+- The native intersection and complement simplification still uses the
+  approximate Rust `is_subset`.
+
+## Interval(-oo, oo), Reals and the union rules on 2026-10-22
+
+A probe of 166 calls (set operations, `solveset`,
+`solve_univariate_inequality`, `reduce_inequalities`, `imageset`,
+`ConditionSet`, `Piecewise.as_expr_set_pairs`, `integrate` of a
+`Piecewise`, `is_increasing`, `singularities`, `continuous_domain`,
+`function_range`, symbolic `Range` in `FiniteSet`) went from 124 to 154
+outputs equal (by `srepr`) to SymPy 1.14.0.
+`tests/test_sets_reals_parity.py` holds the 152 agreed reference values.
+
+- SymPy 1.14 does not turn `Interval(-oo, oo)` into `Reals` in
+  `Interval.__new__`: `srepr(Interval(-oo, oo))` stays an `Interval`. Instead
+  `Reals.__eq__` and `Reals.__hash__` defer to `Interval(-oo, oo)`. The native
+  node of `Reals` now has the hash of `Interval(-oo, oo)` and both compare
+  equal, also inside other expressions (`ProductSet(Interval(-oo, oo),
+  Interval(-oo, oo)) == ProductSet(S.Reals, S.Reals)`). As in the reference,
+  `Union`, `Intersection` and `FiniteSet` keep the first of the two forms,
+  `Interval(-oo, oo).is_subset(S.Reals)` is True, and `is_increasing`,
+  `continuous_domain`, `function_range` and `as_expr_set_pairs` accept
+  `Interval(-oo, oo)` as the real line.
+- `solve_univariate_inequality(x**2 + 2 > 0, x, relational=False)` gives
+  `Reals`, and a symbolic `Range` stays an element of a `FiniteSet`, as in
+  the reference; `Range.size` is the reference property (symbolic when
+  decidable, `ValueError` otherwise).
+- The native union simplification follows the reference `union_sets`
+  rules instead of a generic subset absorption: intervals merge only when
+  all their endpoints are comparable (`Union(Interval(-oo, a),
+  Interval(a, oo))` stays a union), open finite endpoints contained in the
+  other set are closed (`Union(S.Integers, Interval.open(0, 1))`), elements
+  of a `FiniteSet` contained in the other set are dropped, `Integers`
+  absorbs or is absorbed through its intersection, `Complexes` absorbs real
+  sets, `ProductSet` uses `is_subset` and the common factor rule, and the
+  named sets follow the reference table (`Union(S.Reals, Range(0, 5))` stays
+  a union, as in SymPy).
+
+Remaining gaps:
+
+- `imageset` of a `Lambda` over an `Interval` or `Reals` is not evaluated
+  (SymPy gives `Interval(1, 3)` for `2*x + 1` on `[0, 1]` and
+  `Interval(0, oo)` for `x**2` on the reals).
+- `Union(S.Integers, ImageSet(Lambda(n, 2*n), S.Integers))` stays a union;
+  SymPy gives `Integers` (its intersection reduces to the image set).
+- `ProductSet` absorption in a union needs the Rust `is_subset` to decide
+  products: `Union(ProductSet(Interval(0, 2), Interval(0, 2)),
+  ProductSet(Interval(0, 1), Interval(0, 1)))` stays a union.
+- The argument order of an unevaluated `Union` is not the reference
+  `ordered(args, Set._infimum_key)` order in `srepr` (the printed `str` is
+  the same).
 
 ## Remaining blocking gaps
 
