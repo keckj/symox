@@ -8,9 +8,7 @@ from .graycode import GrayCode
 from .subsets import Subset
 from .partitions import Partition, IntegerPartition, RGS_enum, RGS_rank, RGS_unrank
 from .prufer import Prufer
-from .free_groups import free_group
 from .coset import Coset
-from .pc_groups import PolycyclicGroup, Collector
 from .polyhedron import Polyhedron, tetrahedron, cube, octahedron, dodecahedron, icosahedron
 
 __all__ = ['Permutation','PermutationGroup','Cycle','cyclic','alternating','symmetric',
@@ -19,3 +17,9 @@ __all__ = ['Permutation','PermutationGroup','Cycle','cyclic','alternating','symm
     'GrayCode','Subset','Partition','IntegerPartition','RGS_enum','RGS_rank',
     'RGS_unrank','Prufer','free_group','Coset','PolycyclicGroup','Collector',
     'Polyhedron','tetrahedron','cube','octahedron','dodecahedron','icosahedron']
+
+# Free, finitely presented and polycyclic groups import the core, which is
+# still initializing when this package loads; resolve them on first access.
+from symox._api_exports import export as _export
+_export(globals(), 'symox.combinatorics.free_groups', 'free_group')
+_export(globals(), 'symox.combinatorics.pc_groups', 'PolycyclicGroup Collector')

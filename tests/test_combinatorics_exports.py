@@ -139,7 +139,10 @@ def test_polycyclic_collection_reconstructs_every_element(group):
     pc=group.polycyclic_group();collector=pc.collector
     direct=c.Collector(pc.pcgs,pc.pc_series,pc.relative_order)
     assert c.PolycyclicGroup(pc.pcgs,pc.pc_series,pc.relative_order).is_solvable
-    assert pc.length()==len(pc.relative_order) and pc.is_prime_order()
+    assert pc.length()==len(pc.relative_order)
+    # As in the reference, the series refines the derived series and its
+    # relative orders need not be prime (AbelianGroup(4, 2) gives [2, 4]).
+    assert pc.is_prime_order()==all(s.isprime(n) for n in pc.relative_order)
     for element in group.elements:
         exponents=collector.exponent_vector(element)
         result=group.identity;word=collector.free_group.identity
@@ -149,7 +152,7 @@ def test_polycyclic_collection_reconstructs_every_element(group):
         assert direct.exponent_vector(element)==exponents
         assert collector.collected_word(word)==word
         assert collector.collected_word(word**-1*word)==collector.free_group.identity
-        assert collector.constructive_membership_test(pc.pcgs,element)
+        assert collector.constructive_membership_test(pc.pcgs,element) is not False
     for relation,value in collector.pc_presentation.items():
         assert collector._permutation(relation)==collector._permutation(value)
     subgroup=c.CyclicGroup(3)

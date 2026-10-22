@@ -336,3 +336,57 @@ Permutation.apply=_apply
 
 from ._permutation_algorithms import install as _install_algorithms
 _install_algorithms(Permutation)
+
+
+# Array-form helpers of the reference permutation module. ``_af_rmul(a, b)``
+# applies ``b`` first; the group algorithms ported from the reference use them.
+Permutation._array_form=property(lambda self:list(self._images))
+Permutation._af_new=classmethod(lambda cls,perm:cls._from_images(perm))
+
+def _af_new(perm):return Permutation._from_images(perm)
+
+def _af_rmul(a,b):return [a[i] for i in b]
+
+def _af_rmuln(*abc):
+    m=len(abc)
+    if m==0:raise ValueError('String must not be empty')
+    if m==1:return list(abc[0])
+    if m==2:
+        a,b=abc;return [a[i] for i in b]
+    p0=_af_rmuln(*abc[:m//2]);p1=_af_rmuln(*abc[m//2:])
+    return [p0[i] for i in p1]
+
+def _af_parity(pi):
+    n=len(pi);a=[0]*n;c=0
+    for j in range(n):
+        if a[j]==0:
+            c+=1;a[j]=1;i=j
+            while pi[i]!=j:
+                i=pi[i];a[i]=1
+    return (n-c)%2
+
+def _af_invert(a):
+    inv_form=[0]*len(a)
+    for i,ai in enumerate(a):inv_form[ai]=i
+    return inv_form
+
+def _af_pow(a,n):
+    if n==0:return list(range(len(a)))
+    if n<0:return _af_pow(_af_invert(a),-n)
+    a=list(a);b=list(range(len(a)))
+    while n:
+        if n&1:b=[b[i] for i in a]
+        n>>=1
+        if n:a=[a[i] for i in a]
+    return b
+
+def _af_commutes_with(a,b):
+    return not any(a[b[i]]!=b[a[i]] for i in range(len(a)-1))
+
+
+def _permutation_rmul(self, other):
+    """Coerce ``other`` to a permutation, as the reference does in ``rmul``."""
+    return type(self)(other) * self
+
+
+Permutation.__rmul__ = _permutation_rmul

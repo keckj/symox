@@ -67,6 +67,12 @@ class Partition:
     @property
     def rank(self):return RGS_rank(self.RGS)
 
+    def sort_key(self,order=None):
+        """Canonical sort key (size, members, rank), as in the reference."""
+        from .. import default_sort_key
+        members=self.members if order is None else tuple(sorted(self.members,key=lambda w:default_sort_key(w,order)))
+        return tuple(map(default_sort_key,(self.size,members,self.rank)))
+
     @classmethod
     def from_rgs(cls,rgs,elements):
         values=_rgs(rgs);elements=list(elements)
