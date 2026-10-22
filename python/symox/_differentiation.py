@@ -45,6 +45,12 @@ def diff(f, *symbols, evaluate=True, **options):
         return matrix_diff(f,*symbols,evaluate=evaluate,**options)
     if getattr(f,'_symox_sparse',False):
         return matrix_diff(f,*symbols,evaluate=evaluate,**options)
+    if isinstance(f,_core.Expr) and type(f) is not _core.Expr:
+        # The reference diff() calls f.diff: user host classes such as
+        # Quaternion differentiate componentwise.
+        from ._host import _defines
+        if _defines(type(f),'diff'):
+            return f.diff(*symbols,evaluate=evaluate,**options)
     if not evaluate:return _core.Derivative(f,*symbols,evaluate=False)
     # Ordered operator polynomials (physics) differentiate themselves.
     hook=getattr(f,'_eval_symox_diff',None)

@@ -458,5 +458,34 @@ class Indexed(_IndexedArithmetic):
         from symox.printing._legacy import LegacyCXX17CodePrinter
         return Symbol(LegacyCXX17CodePrinter().doprint(self))
 
+def _install_indexed_assumptions():
+    """IndexedBase keeps the assumptions of its label (given as keywords or
+    inherited from a Symbol label) and Indexed those of its base, as the
+    reference ``IndexedBase._set_assumptions``."""
+    # sympy.core.assumptions._assume_defined (the facts module cannot be
+    # imported while the package initializes).
+    facts = ('algebraic', 'antihermitian', 'commutative', 'complex', 'composite',
+             'even', 'extended_negative', 'extended_nonnegative',
+             'extended_nonpositive', 'extended_nonzero', 'extended_positive',
+             'extended_real', 'finite', 'hermitian', 'imaginary', 'infinite',
+             'integer', 'irrational', 'negative', 'noninteger', 'nonnegative',
+             'nonpositive', 'nonzero', 'odd', 'polar', 'positive', 'prime', 'rational',
+             'real', 'transcendental', 'zero',)
+
+    def base_fact(name):
+        return property(lambda self: getattr(self.label, name))
+
+    def indexed_fact(name):
+        return property(lambda self: getattr(self.base.label, name))
+
+    for fact in facts:
+        name = 'is_' + fact
+        setattr(IndexedBase, name, base_fact(name))
+        setattr(Indexed, name, indexed_fact(name))
+
+
+_install_indexed_assumptions()
+
+
 __all__ = [name for name,value in globals().items() if not name.startswith("_") and (isinstance(value,type) and issubclass(value,CodegenAST) or name in ("aug_assign",))]
 __all__ += 'untyped integer intc real float32 float64 float80 complex_ complex64 complex128 bool_ void int8 int16 int32 int64 uint8 uint16 uint32 uint64 value_const pointer_const restrict volatile none break_ continue_ stdout stderr Indexed IndexedBase'.split()

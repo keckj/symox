@@ -9,6 +9,10 @@ _use_unicode=True
 class PrettyPrinter(Printer):
     def doprint(self, expr):
         from symox import _core
+        if getattr(type(expr), '_symox_pretty_as_str', False):
+            # The reference PrettyPrinter has no handler for the class
+            # (Quaternion): its emptyPrinter renders the str form.
+            return str(expr)
         settings=dict(self._settings)
         if settings.get("use_unicode") is None:settings["use_unicode"]=_use_unicode
         return _core.pretty(expr, **settings)

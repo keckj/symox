@@ -5,6 +5,11 @@ from ._indexing import TensorIndexType,TensorIndex,TensorSymmetry,_Object,_Index
 from ._expressions import TensorHead,Tensor,TensExpr,TensAdd,TensMul,TensorElement,tensor_heads
 from ._canonical import canon_bp,contract_metric,substitute_indices,riemann_cyclic,riemann_cyclic_replace
 from ._matching import WildTensorIndex,WildTensorHead,WildTensor
+# Names the reference module imports at its top level.
+from ..combinatorics import Permutation
+from ..combinatorics.tensor_can import get_symmetric_group_sgs,bsgs_direct_product,canonicalize,riemann_bsgs
+from .. import (Basic,Expr,sympify,Add,Mul,S,Integer,Rational,Tuple,Dict,WildFunction,
+                Symbol,symbols,Wild,default_sort_key,eye)
 
 
 def tensor_indices(s,typ):

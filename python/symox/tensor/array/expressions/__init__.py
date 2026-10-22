@@ -72,6 +72,7 @@ class ArraySymbol(_ArrayExpr):
     def __init__(self,name,shape):self.name=str(name);self.shape=_dimensions(shape);self.args=(self.name,self.shape)
     @property
     def free_symbols(self):return {self}
+    def __repr__(self):return self.name
     def _entry(self,indices):return ArrayElement(self,indices)
 
 
@@ -129,10 +130,12 @@ class PermuteDims(_ArrayExpr):
         if index_order_old is not None:permutation=[list(index_order_old).index(i) for i in index_order_new]
         permutation=tuple(permutation.array_form if hasattr(permutation,'array_form') else permutation)
         if sorted(permutation)!=list(range(len(_shape(expr)))):raise ValueError('permutation must contain each axis exactly once')
-        self.expr,self.permutation=expr,permutation;self.args=(expr,permutation);self.shape=tuple(expr.shape[i] for i in permutation)
+        from ....combinatorics import Permutation
+        self.expr,self.permutation=expr,Permutation(list(permutation))
+        self.args=(expr,self.permutation);self.shape=tuple(expr.shape[i] for i in permutation)
     def _entry(self,indices):
         original=[None]*len(indices)
-        for axis,old in enumerate(self.permutation):original[old]=indices[axis]
+        for axis,old in enumerate(self.permutation.array_form):original[old]=indices[axis]
         return _entry(self.expr,original)
 
 
@@ -150,6 +153,10 @@ class _AxisOperation(_ArrayExpr):
 class ArrayContraction(_AxisOperation):
     @property
     def contraction_indices(self):return self.groups
+    def sort_args_by_name(self):
+        # SymPy canonicalizes the sorted tensor product again, which these
+        # array expressions do not model.
+        raise NotImplementedError('sort_args_by_name requires the canonical array expression forms')
     def _entry(self,indices):
         original=[None]*len(_shape(self.expr))
         for axis,index in zip(self.remaining,indices):original[axis]=index
@@ -243,7 +250,7 @@ def convert_array_to_matrix(expr):
     if len(_shape(expr))!=2:return expr
     if isinstance(expr,ArraySymbol):return S.MatrixSymbol(expr.name,*expr.shape)
     if isinstance(expr,ArrayAdd):return S.MatAdd(*(convert_array_to_matrix(a) for a in expr.args))
-    if isinstance(expr,PermuteDims) and expr.permutation==(1,0):return convert_array_to_matrix(expr.expr).T
+    if isinstance(expr,PermuteDims) and expr.permutation.array_form==[1,0]:return convert_array_to_matrix(expr.expr).T
     if isinstance(expr,ArrayContraction) and isinstance(expr.expr,ArrayTensorProduct):
         factors=expr.expr.args;matrices=[a for a in factors if len(_shape(a))==2]
         if expr.groups==tuple((2*i+1,2*i+2) for i in range(len(matrices)-1)):

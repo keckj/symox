@@ -2,7 +2,7 @@
 from functools import singledispatch
 
 
-class NoShapeError(ValueError):
+class NoShapeError(Exception):
     """An expression has no matrix or array shape."""
 
 
@@ -12,6 +12,17 @@ def shape(expr):
     if hasattr(expr, 'shape'):
         return expr.shape
     raise NoShapeError('%s does not have shape, or its type is not registered to shape().' % expr)
+
+
+def _register_integral():
+    from ..integrals import Integral
+
+    @shape.register(Integral)
+    def _(expr):
+        return shape(expr.function)
+
+
+_register_integral()
 
 
 __all__ = ['shape']

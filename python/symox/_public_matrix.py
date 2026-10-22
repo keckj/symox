@@ -41,27 +41,43 @@ class DeferredVector:
 
 
 class Idx:
+    def __new__(cls,label,range=None,**kwargs):
+        # Idx.__new__ returns an integer label itself.
+        from . import sympify
+        if not isinstance(label,str):
+            value = sympify(label)
+            if value.is_Number:
+                if not value.is_integer:
+                    raise TypeError('Index is not an integer number.')
+                return value
+        return super().__new__(cls)
+
     def __init__(self,label,range=None,**kwargs):
         from . import Symbol,sympify,Integer
         if kwargs:
             raise TypeError('unexpected index options')
         self.label = Symbol(label,integer=True) if isinstance(label,str) else sympify(label)
-        if self.label.is_integer is False:
-            raise TypeError('index labels must be integer-valued')
+        if not self.label.is_integer:
+            raise TypeError('Idx object requires an integer label.')
+        # Idx.__new__: integer (or infinite) bounds, a range ``n`` meaning
+        # ``(0, n - 1)``; the reference does not order the bounds.
+        from . import S
         if range is None:
             self.lower = self.upper = None
         elif isinstance(range,(tuple,list)) or getattr(range,'is_Tuple',False):
             values = range.args if getattr(range,'is_Tuple',False) else range
             if len(values) != 2:
-                raise ValueError('index bounds must be (lower, upper)')
-            self.lower,self.upper = map(sympify,values)
+                raise ValueError('\nIdx range tuple must have length 2, but got %s' % len(values))
+            values = tuple(map(sympify,values))
+            for bound in values:
+                if bound.is_integer is False and bound is not S.Infinity and bound is not S.NegativeInfinity:
+                    raise TypeError('Idx object requires integer bounds.')
+            self.lower,self.upper = values
         else:
-            self.lower,self.upper = Integer(0),sympify(range)-1
-        if self.lower is not None:
-            if self.lower.is_integer is False or self.upper.is_integer is False:
-                raise TypeError('index bounds must be integers')
-            if self.lower.is_number and self.upper.is_number and self.upper < self.lower:
-                raise ValueError('index upper bound is below its lower bound')
+            range = sympify(range)
+            if range is not S.Infinity and range.is_integer is False:
+                raise TypeError('Idx object requires an integer dimension.')
+            self.lower,self.upper = Integer(0),range-1
         _indices[self.label] = self
 
     @property
