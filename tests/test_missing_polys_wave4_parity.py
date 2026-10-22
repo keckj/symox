@@ -45,11 +45,10 @@ def test_cancel_modulo_p(expr, p, expected):
     assert cancel(expr, modulus=p) == expected
 
 
-def test_prime_power_finite_fields_are_rejected():
-    # SymPy 1.14 builds Z/9Z for GF(9) and calls it a field; symox refuses
-    # a non-prime modulus instead of returning a ring with zero divisors.
-    with pytest.raises(S.DomainError):
-        GF(9)
+def test_prime_power_finite_fields_are_the_ring_modulo_n():
+    # SymPy 1.14 builds the ring Z/9Z for GF(9), which is not a field.
+    assert GF(9).is_Field is False
+    assert repr(GF(9)(3)*GF(9)(3)) == 'SymmetricModularIntegerMod9(0)'
 
 
 # Gaussian domains

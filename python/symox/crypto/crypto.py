@@ -587,7 +587,7 @@ def _feedback_field(values):
         if not callable(modulus_method):raise TypeError('feedback elements must belong to a prime field')
         modulus = _integer(modulus_method())
         field = GF(modulus)
-    if not isprime(modulus):raise ValueError('feedback arithmetic requires prime characteristic')
+    # The reference also runs over the ring Z/nZ of a composite GF(n).
     for value in values:
         parent = getattr(value,'parent',None)
         if callable(parent) and parent() != field:raise ValueError('all feedback elements must belong to the same field')

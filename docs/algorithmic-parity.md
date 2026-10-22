@@ -2153,8 +2153,9 @@ classes have remaining gaps:
   the reference keeps it unevaluated.
 - The private kind classes are `_ScalarKind` instances, not the reference
   `_NumberKind` and `_BooleanKind` classes. Set kinds are not implemented.
-- `is_complex` of a finite non-real sum such as `1 + I` is unknown. The
-  finiteness of `exp(f)` for finite `f`, and of `I**(1/3)`, are unknown.
+- `is_complex` of a finite non-real sum such as `1 + I` is now True (see
+  the core gaps section at the end). The finiteness of `I**(1/3)` is
+  unknown.
 - Noncommutative symbols are implemented; see the noncommutative section
   above for their remaining gaps.
 - `Mul.is_polar` of nonpolar factors is unknown. The reference gives False.
@@ -3550,7 +3551,8 @@ Remaining gaps:
 - Reprs of other codegen nodes (`Variable`, `Assignment`, `Node`,
   `FunctionCall`, `For`) differ from the reference `Token` repr, and
   `str(none)` is `None` instead of `NoneToken()`.
-- A symox `Tuple` compares unequal to a Python `tuple` (SymPy: equal).
+- A symox `Tuple` now compares equal to the Python `tuple` of its items
+  and shares its hash (see the core gaps section at the end).
 - Unevaluated process probabilities display internal atoms (`_X(t1)`).
 - Outside the process path, joint probabilities of independent discrete
   variables over multivariate relationals (for example
@@ -3590,8 +3592,9 @@ Intentional divergences:
   as `2*ZK` in `QQ(sqrt(2))`. symox keeps the reference result whenever it
   succeeds. Otherwise it returns the valuation given by ideal containment,
   bounded by the norm.
-- `GF(p**k)` and `GF(n)` for composite `n`: SymPy 1.14 builds `Z/nZ`, which
-  has zero divisors, and calls it a field. symox raises `DomainError`.
+- `GF(p**k)` and `GF(n)` for composite `n` are now the reference ring
+  `Z/nZ` (see the core gaps section at the end); polynomials over it are
+  not implemented.
 
 Remaining unsupported:
 
@@ -3604,7 +3607,8 @@ Remaining unsupported:
   arithmetic. Field elements print natively, not as `ANP(...)`.
 - `QQ.algebraic_field((T, theta))` with a symbolic `theta` raises
   `NotAlgebraic`.
-- `GF(p, symmetric=False)` element display raises `NotImplementedError`.
+- `GF(p, symmetric=False)` is the Python `Z/nZ` domain with the reference
+  `ModularIntegerMod{p}` elements.
 - The reference `ModularInteger % ModularInteger` is not supported.
 - `ModuleHomomorphism.kernel()` over ZZ with a non-integral rational
   nullspace raises `CoercionFailed`, like the reference.
@@ -4255,10 +4259,9 @@ Intentional divergence:
 
 Remaining gaps:
 
-- `Tuple(1, 2) == (1, 2)` is `False` in symox (native comparison), so the
-  reference `test_to_euler_iss24504` fails.
-- `(2 + I).is_complex` is `None` in symox; `Quaternion` uses the reference
-  Add/Mul/Pow rule locally to decide between real and complex fields.
+- (Resolved by the core gaps section at the end: `Tuple(1, 2) == (1, 2)`
+  is True and `(2 + I).is_complex` is True, so `Quaternion` uses the native
+  `is_complex`.)
 - A `Quaternion` nested inside another expression does not pretty print;
   `pprint` of control objects raises `TypeError` as before.
 - Control: `poles`/`elem_poles` list conjugate roots in another order;
@@ -4564,3 +4567,54 @@ Remaining gaps (all `None` in symox):
   recursion) on some large `Abs` quotients of powers `(n + a)**(n + b)`.
   This was found in the ratio test, which is now not used for such terms.
 
+## Core gaps: Tuple equality, complex assumptions and GF(n) (wave 4)
+
+Implemented:
+
+- `Tuple` follows the reference `Tuple.__eq__`/`__hash__`: it equals the
+  Python `tuple` of its items (item by item, so `Tuple(1.0, 2) != (1, 2)`
+  as in the reference) and hashes as `hash(self.args)`, so a `Tuple` and its
+  tuple share dict and set slots. The native hash uses CPython's tuple
+  algorithm over the item hashes. `Tuple.__lt__`/`__le__` compare the args,
+  and `index`, `count`, `tuple_count`, `in`, `+` and `*` with Python tuples
+  and integers follow the reference. Expr equality is unchanged
+  (Expr==Expr about 127 ns before and after; `hash(Tuple(1, x))` goes from
+  90 ns to 105 ns; `Tuple(1, x) == (1, x)` from 2.5 us, unequal, to 0.8 us).
+- The assumption engine ports the reference `Add`, `Mul`, `Pow` and `exp`
+  handlers for `complex`, `algebraic`, `extended_real`, `imaginary`,
+  `hermitian` and `antihermitian` (`_fuzzy_group`, `Mul._eval_real_imag`,
+  `Mul._eval_herm_antiherm`, `Add._eval_is_imaginary`,
+  `exp._eval_is_extended_real`, Lindemann for `exp._eval_is_algebraic`),
+  plus `Add._eval_is_finite`, `Mul._eval_is_infinite` and
+  `exp._eval_is_finite`. `(2 + I).is_complex`, `(pi*I).is_transcendental`,
+  `(2*I).is_antihermitian`, `(oo + I).is_infinite` and `exp(I).is_finite`
+  are True. Facts that imply a real value (`real`, `zero`, `rational`,
+  `integer`, the signs) are False for numbers these handlers prove
+  non-real, and for any expression whose native `is_real` is False
+  (`(r + I).is_zero` is False). `(oo + I).is_extended_positive` was True and
+  is now False. `Quaternion` no longer carries its local `is_complex`
+  rule.
+- `GF(n)` for composite `n`, `n` above `2**32` and `symmetric=False` is the
+  reference `Z/nZ` domain (`python/symox/_modular_ring.py`): `is_Field` is
+  `isprime(n)`, elements are `SymmetricModularIntegerMod{n}` /
+  `ModularIntegerMod{n}`, non-units raise `NotInvertible('zero divisor')`,
+  `get_ring` raises `DomainError`, and `GF(0)`/`GF(-4)` raise the reference
+  `ValueError`. Symmetric prime moduli below `2**32` keep the native field.
+  `lfsr_sequence` over `GF(4)` works as in the reference.
+
+Remaining gaps:
+
+- Polynomials over a composite `GF(n)` (`Poly(.., domain=GF(9))`) raise
+  `NotImplementedError`, and `modulus=9` (`Poly`, `factor`, `groebner`,
+  `rem`) still raises the native `ValueError` (the reference builds
+  `Poly(.., modulus=9)` and fails later with `DomainError` or
+  `NotInvertible`). `isinstance(GF(9), Domain)` is False. `is_square` and
+  `sqrt` on `GF(9)` raise `NotImplementedError`.
+- `sqrt(2 + I).is_extended_real` is unknown (the reference proves it False
+  through `arg(2 + I)/(2*pi)` not being an integer), and
+  `(-2)**(1/3)` is not proven non-imaginary. A few products of non-real
+  factors such as `(2 + I)*(3 - I)` are decided (False) where the
+  reference is unknown.
+- Ordering a `Tuple` against a plain Python tuple raises an error of
+  another type than the reference. A `Tuple` cannot hold `Permutation` or
+  matrix objects (native conversion), as before.

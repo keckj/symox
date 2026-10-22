@@ -362,7 +362,6 @@ def test_empty_plaintext_is_empty(name):
     lambda:crypto.decipher_bg(([2],1),(7,11)),lambda:crypto.encode_morse('ABC',sep=''),
     lambda:crypto.decode_morse('.-',sep=''),lambda:crypto.lfsr_sequence([],[],1),
     lambda:crypto.lfsr_sequence([s.GF(2)(1)],[s.GF(3)(1)],3),
-    lambda:crypto.lfsr_sequence([s.GF(4)(1)],[s.GF(4)(1)],3),
     lambda:crypto.lfsr_autocorrelation([1,0],3,0),
 ])
 def test_invalid_inputs_raise_explicitly(call):

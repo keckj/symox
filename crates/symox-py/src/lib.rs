@@ -97,6 +97,44 @@ fn matrix_element_part(e: &Expr, py: Python<'_>, index: usize, name: &str) -> Py
     expr_object(py, args[index - 1].clone())
 }
 
+/// The args of a Tuple node as a Python tuple of expression objects.
+/// The Python hash of a native expression. SymPy's Tuple.__hash__ is
+/// hash(self.args): a Tuple and the Python tuple it equals share dictionary
+/// and set slots. Tuples of native items hash with CPython's tuple algorithm
+/// over the item hashes, without materializing the item objects.
+fn native_hash(py: Python<'_>, e: &Expr) -> PyResult<isize> {
+    match e.kind() {
+        Kind::Num(Number::Float(value)) => return value.into_pyobject(py)?.hash(),
+        Kind::Num(number) => if let Some(hash) = python_hash::exact_hash(number) { return Ok(hash); },
+        Kind::Bool(value) => return Ok(isize::from(*value)),
+        Kind::Const(Constant::Infinity) => return Ok(314159),
+        Kind::Const(Constant::NegInfinity) => return Ok(-314159),
+        Kind::Func(Func::Undefined(head), arguments) if head.is_internal("Tuple") => {
+            // Host items may define their own __hash__.
+            if e.has_host() { return tuple_items(py, arguments)?.hash(); }
+            const P1: u64 = 11400714785074694791;
+            const P2: u64 = 14029467366897019727;
+            const P5: u64 = 2870177450012600261;
+            let mut acc = P5;
+            for a in arguments {
+                let lane = native_hash(py, a)? as u64;
+                acc = acc.wrapping_add(lane.wrapping_mul(P2)).rotate_left(31).wrapping_mul(P1);
+            }
+            acc = acc.wrapping_add((arguments.len() as u64) ^ (P5 ^ 3527539));
+            return Ok(if acc == u64::MAX { 1546275796 } else { acc as isize });
+        },
+        _ => {},
+    }
+    let mut h = DefaultHasher::new();
+    e.hash(&mut h);
+    let hash = h.finish() as isize;
+    Ok(if hash == -1 { -2 } else { hash })
+}
+
+fn tuple_items<'py>(py: Python<'py>, arguments: &[Expr]) -> PyResult<Bound<'py, PyTuple>> {
+    PyTuple::new(py, arguments.iter().map(|a| expr_object(py, a.clone())).collect::<PyResult<Vec<_>>>()?)
+}
+
 pub(crate) fn expr_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
     if let Kind::Func(Func::MatrixProxy(parent), _) = e.kind() {
         return Ok(matrixexpr::wrap_matrixexpr((**parent).clone()).into_pyobject(py)?.into_any().unbind());
@@ -1424,23 +1462,31 @@ impl PyExprNode {
 
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
         if self.e.has_wild_properties(){wildcards::check_hashable(py,&self.e)?;}
-        match self.e.kind() {
-            Kind::Num(Number::Float(value)) => return value.into_pyobject(py)?.hash(),
-            Kind::Num(number) => if let Some(hash) = python_hash::exact_hash(number) { return Ok(hash); },
-            Kind::Bool(value) => return Ok(isize::from(*value)),
-            Kind::Const(Constant::Infinity) => return Ok(314159),
-            Kind::Const(Constant::NegInfinity) => return Ok(-314159),
-            _ => {},
-        }
-        let mut h = DefaultHasher::new();
-        self.e.hash(&mut h);
-        let hash = h.finish() as isize;
-        Ok(if hash == -1 { -2 } else { hash })
+        native_hash(py, &self.e)
     }
 
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<PyObject> {
         let py = other.py();
         use pyo3::basic::CompareOp::*;
+        if let Kind::Func(Func::Undefined(head), arguments) = self.e.kind() {
+            if head.is_internal("Tuple") {
+                match op {
+                    // SymPy's Tuple.__eq__ compares its args with a non-Basic
+                    // operand: Tuple(1, 2) == (1, 2), through the items' __eq__.
+                    Eq | Ne if other.is_instance_of::<PyTuple>() => {
+                        return Ok(tuple_items(py, arguments)?.rich_compare(other, op)?.unbind());
+                    },
+                    // Tuple.__lt__/__le__: _sympify(self.args < other.args).
+                    Lt | Le => {
+                        let order = tuple_items(py, arguments)?.rich_compare(other.getattr("args")?, op)?;
+                        return Ok(expr_object(py, to_expr(&order)?)?);
+                    },
+                    // Basic has no __gt__/__ge__: Python reflects to __lt__/__le__.
+                    Gt | Ge => return Ok(py.NotImplemented()),
+                    _ => {},
+                }
+            }
+        }
         if !matches!(op, Eq | Ne) {
             // SymPy's Expr orderings return NotImplemented for a Boolean
             // operand; BooleanAtom and BooleanFunction then raise.
@@ -2121,47 +2167,47 @@ impl PyExprNode {
     }
     #[getter]
     fn is_zero(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_zero(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_zero(&self.e)))
     }
     #[getter]
     fn is_nonzero(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_nonzero(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_nonzero(&self.e)))
     }
     #[getter]
     fn is_integer(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_integer(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_integer(&self.e)))
     }
     #[getter]
     fn is_rational(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_rational(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_rational(&self.e)))
     }
     #[getter]
     fn is_real(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_real(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_real(&self.e)))
     }
     #[getter]
     fn is_positive(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_positive(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_positive(&self.e)))
     }
     #[getter]
     fn is_negative(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_negative(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_negative(&self.e)))
     }
     #[getter]
     fn is_nonnegative(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_nonnegative(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_nonnegative(&self.e)))
     }
     #[getter]
     fn is_nonpositive(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_nonpositive(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_nonpositive(&self.e)))
     }
     #[getter]
     fn is_even(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_even(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_even(&self.e)))
     }
     #[getter]
     fn is_odd(&self) -> PyResult<Option<bool>> {
-        host::checked(symox::assumptions::is_odd(&self.e))
+        host::checked(symox::assumptions::settle_nonreal(&self.e,symox::assumptions::is_odd(&self.e)))
     }
     #[getter]
     fn is_finite(&self) -> PyResult<Option<bool>> {

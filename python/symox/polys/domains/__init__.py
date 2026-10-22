@@ -5,6 +5,7 @@ and certified algebraic-field backends. Domain identity includes the actual
 symbol assumptions, generator order, and selected algebraic embedding.
 """
 from ..._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed
+from ..._modular_ring import GF
 
 __all__ = ["Domain", "DomainElement", "QQ", "ZZ", "GF", "DomainError", "CoercionFailed", "ExactQuotientFailed"]
 

@@ -622,6 +622,45 @@ class Tuple(_core.Expr, metaclass=_ExprType):
             return native
         return _core.Expr.__new__(cls, native)
 
+    # The reference sequence protocol of Tuple. Equality, ordering and
+    # hashing (``Tuple(1, 2) == (1, 2)``) live in the native type.
+    def __add__(self, other):
+        if isinstance(other, Tuple):
+            return Tuple(*(self.args + other.args))
+        if isinstance(other, tuple):
+            return Tuple(*(self.args + other))
+        return NotImplemented
+
+    def __radd__(self, other):
+        if isinstance(other, Tuple):
+            return Tuple(*(other.args + self.args))
+        if isinstance(other, tuple):
+            return Tuple(*(other + self.args))
+        return NotImplemented
+
+    def __mul__(self, other):
+        from .utilities.misc import as_int
+        try:
+            n = as_int(other)
+        except ValueError:
+            raise TypeError("Can't multiply sequence by non-integer of type '%s'" % type(other))
+        return self.func(*(self.args*n))
+
+    __rmul__ = __mul__
+
+    def __contains__(self, item):
+        return item in self.args
+
+    def tuple_count(self, value):
+        return self.args.count(value)
+
+    def index(self, value, start=None, stop=None):
+        if start is None and stop is None:
+            return self.args.index(value)
+        if stop is None:
+            return self.args.index(value, start)
+        return self.args.index(value, start, stop)
+
     def subs(self, *args, **kwargs):
         return _tuple_result(super().subs(*args, **kwargs))
 
