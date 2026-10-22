@@ -5080,3 +5080,53 @@ Remaining gaps:
   `sympy.stats.Expectation` is handled separately.
 - `limit(x**p*x**(-p - 1), x, oo)` with a positive `p` stays held
   (reference `0`).
+
+## Missing callables, batch c2 (2026-10-23)
+
+Ported from SymPy 1.14 and checked against it in
+`tests/test_missing_c2_parity.py`: `symbols` with extra assumptions,
+`Rational` from strings and `Rational.factors`, `entails`, the `motzkin`
+helpers, `Set.kind`, `Set.powerset`, `ProductSet` iteration, `Predicate`
+subclasses, `fu` names (`TR1`, ...), `sqrt_biquadratic_denest`,
+`factor_system`, `ff(n, n)` for integer `n`, `partition(n)` for negative or
+zero integer `n`, `loggamma(p/2)` for symbolic rational `p/2`, `Expint`
+derivative in `nu`, the `nseries` of `sinc`, `elliptic_k`, `elliptic_e`,
+`elliptic_f`, `elliptic_pi`, `airyai`, `airybi` and their derivatives,
+`nsimplify(..., tolerance=..., full=True)` through `mpmath.identify`,
+mpmath numbers in `sympify` at their own precision, the `frac`, `numer`,
+`denom`, `modulus` and `exact` hints of `expand`, `refine` of a
+`MatrixElement`, `opt_cse` (with `Unevaluated`), `diff(..., simplify=False)`,
+the sum-of-even-powers solver of `diophantine`, and `1/(b)` printing of an
+unevaluated power base. `harmonic`, `nonlinsolve` and `sysode` were already
+correct.
+
+Correct results that differ from SymPy:
+
+- `series(sinc(x), x, 1, 3)` returns the Taylor expansion; SymPy returns
+  `sin(x)/x` unexpanded.
+- `series(elliptic_k(m), m, 1, 2)` raises NotImplementedError (logarithmic
+  singularity); SymPy returns `nan`. Some SymPy RecursionErrors in special
+  function series become NotImplementedError.
+- `srepr(Symbol('x', Integer=True))` omits the extra assumption.
+
+Remaining gaps:
+
+- Multiple derivatives are not ended with `factor_terms(signsimp(...))`:
+  `diff(sqrt((x + 1)**2 + x), (x, 5)).count_ops()` is 136 (SymPy 30); the
+  values are equal. Applying it in `diff` broke the native undetermined
+  coefficients ODE solver (10 corpus cases), so it was not kept.
+- `(x**y).nseries(x, 0, 2)` raises NotImplementedError; SymPy returns `x**y`
+  (the series engine cannot carry a symbolic power prefactor).
+- `trigsimp(..., old=True, compare=True)` uses futrig instead of the legacy
+  pattern-matching `_trigsimp` (`tan(x)**2` vs `cot(x)**(-2)`, and the
+  `futrig:` comparison line is not printed).
+- `diff(assoc_laguerre(n, a, x), a)` stays unevaluated on purpose: the
+  reference `Sum(assoc_laguerre(_k, a, x)/(n - a), (_k, 0, n - 1))` is wrong
+  (for n = 1 it gives `1/(1 - a)` instead of 1).
+- `devise_plan_meijer(G_Function([0], [], [0], []), G_Function([1], [], [1], []), z)`
+  raises "Singular contiguous shift"; SymPy gives
+  `[MeijerUnShiftB, MeijerShiftA]`.
+- `solve_triangulated(..., extension=True)` raises NotImplementedError: the
+  extension towers over `QQ<CRootOf(...)>` are not ported (the polynomial
+  constructor rejects a CRootOf coefficient whose generator symbol is also a
+  polynomial generator).

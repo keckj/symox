@@ -30,8 +30,12 @@ NS = _namespace()
 
 
 def _outcome(case):
+    # sympify of an mpmath number uses the working precision, which other
+    # test modules may change globally (test_special_numeric sets dps 30).
+    import mpmath
     try:
-        return 'OK ' + repr(eval(case, NS))
+        with mpmath.workprec(53):
+            return 'OK ' + repr(eval(case, NS))
     except Exception as e:
         return 'ERR ' + type(e).__name__ + ': ' + str(e)[:150]
 

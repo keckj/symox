@@ -51,4 +51,8 @@ def dispatch(*types,**kwargs):
     return decorate
 
 
-__all__ = ['dispatch','Dispatcher']
+class MDNotImplementedError(NotImplementedError):
+    """A dispatched implementation declines; the next match is tried."""
+
+
+__all__ = ['dispatch','Dispatcher','MDNotImplementedError']

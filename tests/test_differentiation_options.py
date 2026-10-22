@@ -40,7 +40,7 @@ def test_held_derivatives_infer_one_variable_and_evaluate_later():
     assert held.doit()==sx.cos(x)+2*x
     assert sx.diff(2,evaluate=False)==0
     assert sx.diff(x*x,x,evaluate=False,simplify=False)==sx.Derivative(x*x,x)
-    with pytest.raises(NotImplementedError):sx.diff(x*x,x,simplify=False)
+    assert sx.diff(x*x,x,simplify=False)==2*x
     with pytest.raises(TypeError):sx.diff(x*x,x,unknown=True)
 
 

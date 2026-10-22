@@ -22,8 +22,10 @@ def pl_true(expr,model=None,deep=False):
 
 def valid(expr):return S.satisfiable(S.Not(expr)) is False
 
-def entails(expr,formula_set):
-    return S.satisfiable(S.And(*list(formula_set),S.Not(expr))) is False
+def entails(expr,formula_set=None):
+    formula_set=list(formula_set) if formula_set else []
+    formula_set.append(S.Not(expr))
+    return not S.satisfiable(S.And(*formula_set))
 
 
 class KB(ABC):

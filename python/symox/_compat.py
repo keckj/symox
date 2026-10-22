@@ -251,6 +251,21 @@ class Rational(Number):
     _matches = staticmethod(lambda e: e.is_Rational)
 
     def __new__(cls, p, q=None):
+        if q is None and isinstance(p, str):
+            # SymPy 1.14 string parsing: one optional '/' between two
+            # Fraction literals, each of which may be a decimal ('1e-2/3.2').
+            if p.count('/') > 1:
+                raise TypeError('invalid input: %s' % p)
+            text = p.replace(' ', '')
+            pq = text.rsplit('/', 1)
+            try:
+                if len(pq) == 2:
+                    value = Fraction(pq[0]) / Fraction(pq[1])
+                else:
+                    value = Fraction(text)
+            except ValueError:
+                raise TypeError('invalid input: %s' % p) from None
+            return _core.Rational(value.numerator, value.denominator)
         # The reference converts a Float to its exact binary ratio, in both
         # the numerator and the denominator.
         p, q = _float_exact_ratio(p), _float_exact_ratio(q)
@@ -262,6 +277,20 @@ class Rational(Number):
             value = Fraction(p)
             return _core.Rational(value.numerator, value.denominator)
         return _core.Rational(p, q)
+
+
+def _rational_factors(self, limit=None, use_trial=True, use_rho=False,
+                      use_pm1=False, verbose=False, visual=False):
+    """A dictionary of the prime factors of the rational (SymPy's
+    ``Rational.factors``, negative multiplicities in the denominator)."""
+    from .ntheory.factor_ import factorrat
+    return factorrat(self, limit=limit, use_trial=use_trial,
+                     use_rho=use_rho, use_pm1=use_pm1,
+                     verbose=verbose).copy()
+
+
+# The native nodes find host methods set on the class after its creation.
+Rational.factors = _rational_factors
 
 
 class Integer(Rational):
@@ -369,16 +398,32 @@ def _symbol_assumptions(assumptions):
 # a symbol as part of its identity (secondquant's Fermi-level restrictions).
 # A symbol carrying them is an instance of a host subclass, so it differs from
 # the plain symbol of the same name, and reports them in ``assumptions0``.
+# Any other key that is not one of SymPy's defined facts (``Integer=True``
+# in the classify_sysode docstring) is kept the same way: SymPy stores it in
+# the symbol's assumptions without deriving anything from it.
 _EXTRA_ASSUMPTIONS = frozenset(('above_fermi', 'below_fermi'))
+_DEFINED_FACTS = frozenset((
+    'algebraic', 'antihermitian', 'commutative', 'complex', 'composite', 'even',
+    'extended_negative', 'extended_nonnegative', 'extended_nonpositive',
+    'extended_nonzero', 'extended_positive', 'extended_real', 'finite',
+    'hermitian', 'imaginary', 'infinite', 'integer', 'irrational', 'negative',
+    'noninteger', 'nonnegative', 'nonpositive', 'nonzero', 'odd', 'polar',
+    'positive', 'prime', 'rational', 'real', 'transcendental', 'zero'))
 _extra_classes = {}
 
 
+def _extra_keys(assumptions):
+    return [key for key in assumptions
+            if key in _EXTRA_ASSUMPTIONS or (isinstance(key, str) and key not in _DEFINED_FACTS)]
+
+
 def _split_extra_assumptions(cls, assumptions):
-    if not _EXTRA_ASSUMPTIONS.intersection(assumptions):
+    keys = _extra_keys(assumptions)
+    if not keys:
         return cls, assumptions
     rest = dict(assumptions)
     extra = dict(cls.__dict__.get('_symox_extra_assumptions', {}))
-    for key in _EXTRA_ASSUMPTIONS.intersection(rest):
+    for key in keys:
         value = rest.pop(key)
         if value is not None:
             extra[key] = bool(value)

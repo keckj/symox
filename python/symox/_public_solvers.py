@@ -3,28 +3,145 @@ from itertools import product
 from math import gcd,isqrt
 
 
-def factor_system(eqs,gens=(),**kwargs):
-    from . import Poly,sympify,factor_list,groebner
-    equations = [sympify(e.lhs-e.rhs if getattr(e,'is_Equality',False) else e) for e in eqs]
-    gens = tuple(gens) or tuple(sorted(set().union(*(e.free_symbols for e in equations)),key=str))
-    if not gens:return [[]] if all(e == 0 for e in equations) else []
-    choices = []
-    for equation in equations:
-        if equation == 0:continue
-        if not equation.free_symbols:return []
-        coefficient,factors = Poly(equation,*gens,**kwargs).factor_list()
-        choices.append(tuple(f.as_expr() for f,m in factors))
-    if not choices:return [[]]
-    systems = []
-    for selected in product(*choices):
-        selected = list(dict.fromkeys(selected))
-        basis = list(groebner(selected,*gens))
-        if any(not f.free_symbols and f != 0 for f in basis):continue
-        canonical = frozenset(basis)
-        if any(existing <= canonical for existing in systems):continue
-        systems = [existing for existing in systems if not canonical < existing]
-        systems.append(canonical)
-    return [sorted(s,key=str) for s in sorted(systems,key=lambda s:(len(s),str(sorted(s,key=str))))]
+def factor_system(eqs, gens=(), **kwargs):
+    """Factorise a system of polynomial equations into the irreducible
+    generic subsystems (SymPy 1.14 ``factor_system``)."""
+    systems = _factor_system_poly_from_expr(eqs, gens, **kwargs)
+    systems_generic = [sys for sys in systems if not _is_degenerate(sys)]
+    return [[p.as_expr() for p in system] for system in systems_generic]
+
+
+def _is_degenerate(system):
+    return any(p.is_ground for p in system)
+
+
+def factor_system_bool(eqs, gens=(), **kwargs):
+    """``factor_system_cond`` as a Boolean: an Or of Ands of equations."""
+    from . import Or, And, Eq
+    systems = factor_system_cond(eqs, gens, **kwargs)
+    return Or(*[And(*[Eq(eq, 0) for eq in sys]) for sys in systems])
+
+
+def factor_system_cond(eqs, gens=(), **kwargs):
+    """Like ``factor_system`` but keeps the subsystems that only hold
+    under a condition on the parameters."""
+    systems_poly = _factor_system_poly_from_expr(eqs, gens, **kwargs)
+    return [[p.as_expr() for p in system] for system in systems_poly]
+
+
+def _factor_system_poly_from_expr(eqs, gens, **kwargs):
+    from . import Dummy
+    from .polys.polytools import parallel_poly_from_expr
+    from .polys.polyerrors import GeneratorsNeeded, PolificationFailed
+    try:
+        polys, opts = parallel_poly_from_expr(eqs, *gens, **kwargs)
+        only_numbers = False
+    except (GeneratorsNeeded, PolificationFailed):
+        _u = Dummy('u')
+        polys, opts = parallel_poly_from_expr(eqs, [_u], **kwargs)
+        only_numbers = True
+    if only_numbers:
+        return [[]] if all(p == 0 for p in polys) else []
+    return factor_system_poly(polys)
+
+
+def factor_system_poly(polys):
+    """Factorise a system of ``Poly`` equations (SymPy 1.14 algorithm)."""
+    from . import Poly
+    from .core.exprtools import factor_terms
+    from .polys.polytools import sqf_part
+    from .polys.polyerrors import DomainError
+    if not all(isinstance(poly, Poly) for poly in polys):
+        raise TypeError("polys should be a list of Poly instances")
+    if not polys:
+        return [[]]
+    base_domain = polys[0].domain
+    base_gens = polys[0].gens
+    if not all(poly.domain == base_domain and poly.gens == base_gens for poly in polys[1:]):
+        raise DomainError("All polynomials must have the same domain and generators")
+    factor_sets = []
+    for poly in polys:
+        constant, factors_mult = poly.factor_list()
+        if constant.is_zero is True:
+            continue
+        elif constant.is_zero is False:
+            if not factors_mult:
+                return []
+            factor_sets.append([f for f, _ in factors_mult])
+        else:
+            constant = sqf_part(factor_terms(constant).as_coeff_Mul()[1])
+            constp = Poly(constant, base_gens, domain=base_domain)
+            factors = [f for f, _ in factors_mult]
+            factors.append(constp)
+            factor_sets.append(factors)
+    if not factor_sets:
+        return [[]]
+    return _sort_systems(_factor_sets(factor_sets))
+
+
+def _factor_sets(eqs):
+    if not eqs:
+        return {frozenset()}
+    current_set = min(eqs, key=len)
+    other_sets = [s for s in eqs if s is not current_set]
+    stack = [(factor, [s for s in other_sets if factor not in s], {factor})
+             for factor in current_set]
+    result = set()
+    while stack:
+        factor, remaining_sets, current_solution = stack.pop()
+        if not remaining_sets:
+            result.add(frozenset(current_solution))
+            continue
+        next_set = min(remaining_sets, key=len)
+        next_remaining = [s for s in remaining_sets if s is not next_set]
+        for next_factor in next_set:
+            valid_remaining = [s for s in next_remaining if next_factor not in s]
+            stack.append((next_factor, valid_remaining, current_solution | {next_factor}))
+    return {s1 for s1 in result if not any(s1 > s2 for s2 in result)}
+
+
+def _sort_systems(systems):
+    systems_list = [sorted(s, key=_poly_sort_key, reverse=True) for s in systems]
+    return sorted(systems_list, key=_sys_sort_key, reverse=True)
+
+
+def _poly_sort_key(poly):
+    if poly.domain.is_FF:
+        from .polys.domains import ZZ
+        poly = poly.set_domain(ZZ)
+    domain = poly.domain
+    return poly.degree_list(), _rep_key(domain, poly.rep.to_list())
+
+
+def _rep_key(domain, rep):
+    if isinstance(rep, list):
+        return [_rep_key(domain, c) for c in rep]
+    return _coeff_key(domain, rep)
+
+
+def _coeff_key(domain, c):
+    # The comparison keys of the reference domain elements: PolyElement
+    # orders by (number of terms, terms), FracElement by (denominator,
+    # numerator), ANP by its coefficient list.
+    from fractions import Fraction
+    from . import Poly, fraction
+    if domain.is_PolynomialRing:
+        terms = Poly(domain.to_sympy(c), *domain.symbols, domain=domain.dom).terms()
+        terms = [(m, v) for m, v in terms if v != 0]
+        return (len(terms), terms)
+    if domain.is_FractionField:
+        numer, denom = fraction(domain.to_sympy(c))
+        def key(e):
+            terms = [(m, v) for m, v in Poly(e, *domain.symbols, domain=domain.dom).terms() if v != 0]
+            return (len(terms), terms)
+        return (key(denom), key(numer))
+    if domain.is_AlgebraicField:
+        return [Fraction(int(q.numerator), int(q.denominator)) for q in c.to_list()]
+    return domain.to_sympy(c)
+
+
+def _sys_sort_key(sys):
+    return list(zip(*map(_poly_sort_key, sys)))
 
 
 def solve_triangulated(polys,*gens,**args):
@@ -227,6 +344,86 @@ def _diop_parabolic(expr,var,name):
     return result
 
 
+def _pow_rep_recursive(n_i, k, n_remaining, terms, p):
+    # SymPy 1.14 ``pow_rep_recursive`` (BSD-3-Clause, see LICENSE-SYMPY).
+    from .ntheory.primetest import is_square  # noqa: F401
+    from . import integer_nthroot
+    if n_i <= 0 or k <= 0:
+        return
+    if n_remaining < k:
+        return
+    if k * pow(n_i, p) < n_remaining:
+        return
+    if k == 0 and n_remaining == 0:
+        yield tuple(terms)
+    elif k == 1:
+        next_term, exact = integer_nthroot(n_remaining, p)
+        if exact and next_term <= n_i:
+            yield tuple(terms + [next_term])
+        return
+    else:
+        if n_i >= 1 and k > 0:
+            for next_term in range(1, n_i + 1):
+                residual = n_remaining - pow(next_term, p)
+                if residual < 0:
+                    break
+                yield from _pow_rep_recursive(next_term, k - 1, residual, terms + [next_term], p)
+
+
+def _even_power_representation(n, p, k):
+    """SymPy's ``power_representation(n, p, k)`` without zeros, for an even
+    exponent ``p > 2`` and ``k >= 2`` terms."""
+    from . import integer_nthroot, perfect_power
+    if n <= 0:
+        return
+    if k == 2:
+        be = perfect_power(n)
+        if be and be[1] % p == 0:
+            return  # Fermat: a**n + b**n = c**n has no solution for n > 2
+    if n >= k:
+        a = integer_nthroot(n - (k - 1), p)[0]
+        for t in _pow_rep_recursive(a, k, n, [], p):
+            yield tuple(reversed(t))
+
+
+def _diop_sum_of_even_powers(p, variables, permute):
+    """SymPy 1.14's ``general_sum_of_even_powers`` family
+    ``x_1**e + ... + x_k**e = n`` with an even ``e > 3``; None when the
+    polynomial is not of that form."""
+    from . import Integer
+    from .utilities.iterables import signed_permutations
+    degree = int(p.total_degree())
+    if len(variables) < 2 or degree <= 3 or degree % 2:
+        return None
+    if p.LC() < 0:
+        p = -p
+    constant = 0
+    powers = set()
+    for monomial, coeff in p.terms():
+        if not any(monomial):
+            constant = int(coeff)
+            continue
+        if coeff != 1 or sorted(monomial)[-1] != degree or sum(monomial) != degree:
+            return None
+        powers.add(monomial.index(degree))
+    if len(powers) != len(variables):
+        return None
+    if not constant:
+        # the reference's trivial solution of a sum of even powers
+        return {(Integer(0),)*len(variables)}
+    n = -constant
+    sign = [-1 if v.is_nonpositive else 1 for v in variables]
+    negs = sign.count(-1) != 0
+    result = set()
+    for t in _even_power_representation(n, degree, len(variables)):
+        row = tuple(Integer(sign[i]*j) if negs else Integer(j) for i, j in enumerate(t))
+        if permute:
+            result.update(signed_permutations(row))
+        else:
+            result.add(row)
+    return result
+
+
 def diophantine(eq,param=None,syms=None,permute=False):
     from . import sympify,Symbol,Poly,Add,expand,divisors,sqrt,Integer,factor_terms,default_sort_key
     eq = sympify(eq.lhs-eq.rhs if getattr(eq,'is_Equality',False) else eq)
@@ -278,6 +475,9 @@ def diophantine(eq,param=None,syms=None,permute=False):
                 mapping = dict(zip(present,row))
                 result.add(tuple(mapping.get(v,parameters[variables.index(v)]) for v in variables))
         return result
+    even = _diop_sum_of_even_powers(factors[0][0] if factors else p,variables,permute)
+    if even is not None:
+        return even
     if len(variables) == 2:
         x,y = variables
         expression = expand(p.as_expr())

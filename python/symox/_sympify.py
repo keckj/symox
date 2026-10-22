@@ -94,6 +94,8 @@ def make_sympify(original):
             # SymPy returns proxies forwarding attribute access to one of its
             # expressions unchanged (they expose its ``__sympy__`` marker).
             return a
+        mpmath_number=_from_mpmath(a)
+        if mpmath_number is not None:return mpmath_number
         try:
             return original(a)
         except (ValueError,TypeError) as error:
@@ -120,3 +122,18 @@ def make_sympify(original):
             if type(error) not in (ValueError,TypeError):raise
             raise SympifyError(a,error) from error
     return sympify
+
+
+def _from_mpmath(value):
+    """SymPy's ``sympify_mpmath``: ``Expr._from_mpmath(x, x.context.prec)``."""
+    module=type(value).__module__ or ''
+    if not module.startswith('mpmath'):return None
+    from . import Float, I
+    prec=getattr(getattr(value,'context',None),'prec',None)
+    if prec is None:return None
+    if hasattr(value,'_mpf_'):
+        return Float(value._mpf_,precision=prec)
+    if hasattr(value,'_mpc_'):
+        real,imag=value._mpc_
+        return Float(real,precision=prec)+Float(imag,precision=prec)*I
+    return None

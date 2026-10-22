@@ -527,6 +527,11 @@ impl Engine {
                 return Err(SErr::Unsupported(format!("{}(...)", f.name())));
             }
         }
+        if let Func::Special(s) = f {
+            if let Some(res) = self.ser_special_taylor(*s, args, n)? {
+                return Ok(res);
+            }
+        }
         if args.len() != 1 {
             return Err(SErr::Unsupported(format!("{}(...)", f.name())));
         }
@@ -932,6 +937,122 @@ impl Engine {
         } else {
             Ok(self.exp_ser(&lser, prec)?.scale(&C::from_expr(g0)))
         }
+    }
+
+    /// Taylor expansions of the Airy, elliptic and `sinc` functions at a
+    /// regular point, following SymPy 1.14: `sinc(u)` is `sin(u)/u`, Airy
+    /// `Ai` and `Bi` use their `taylor_term` at 0, `elliptic_k(m)` and
+    /// `elliptic_e(m)` their hypergeometric series at 0, and the other
+    /// cases the derivatives of `Function._eval_nseries` (each term
+    /// expanded). `None` leaves the other functions unsupported.
+    fn ser_special_taylor(&mut self, s: crate::special::SpecialFn, args: &[Expr], n: i64) -> SRes<Option<Ser>> {
+        use crate::special::SpecialFn::*;
+        if !matches!(s, AiryAi | AiryBi | AiryAiPrime | AiryBiPrime | EllipticK | EllipticE | EllipticF | EllipticPi | Sinc)
+            || !s.nargs().contains(&args.len())
+        {
+            return Ok(None);
+        }
+        if s == Sinc {
+            let u = &args[0];
+            return self.ser(&crate::ops::div(&fx::sin(u), u), n).map(Some);
+        }
+        let deps: Vec<usize> = (0..args.len()).filter(|&i| depends(&args[i], &self.x)).collect();
+        if deps.len() != 1 {
+            return Ok(None);
+        }
+        let i = deps[0];
+        let one_arg_hyper = args.len() == 1 && matches!(s, EllipticK | EllipticE);
+        let name = crate::special::sf(s, args.to_vec()).to_string();
+        let mut m = n;
+        for _ in 0..5 {
+            let a = self.ser(&args[i], m.max(1))?;
+            let c0 = self.analytic_arg(&a, &name)?;
+            let r = a.sub(&Ser::constant(c0.clone()));
+            let c0e = c0.to_expr();
+            let at = |v: &Expr| {
+                let mut w = args.to_vec();
+                w[i] = v.clone();
+                crate::special::sf(s, w)
+            };
+            if r.is_zero() {
+                if r.exact {
+                    let v = at(&c0e);
+                    if contains_bad(&v) {
+                        return Err(SErr::Pole(name));
+                    }
+                    return self.constant(&v).map(Some);
+                }
+                m += n.max(1);
+                continue;
+            }
+            let vr = r.val.max(1);
+            let prec = if r.exact { m + vr } else { r.prec };
+            let kmax = ((prec + vr - 1) / vr).max(1) as usize;
+            let at_zero = c0e.is_zero();
+            if one_arg_hyper && !at_zero {
+                return Ok(None);
+            }
+            let mut coeffs: Vec<C> = Vec::with_capacity(kmax + 1);
+            if at_zero && (one_arg_hyper || matches!(s, AiryAi | AiryBi)) {
+                let mut fact = Expr::one();
+                for k in 0..=kmax {
+                    if k > 0 {
+                        fact = mul2(&fact, &Expr::int(k as i64));
+                    }
+                    let ke = Expr::int(k as i64);
+                    let c = match s {
+                        AiryAi | AiryBi => {
+                            let g = fx::gamma(&crate::ops::div(&add(&[ke.clone(), Expr::one()]), &Expr::int(3)));
+                            let sn = fx::sin(&mul(&[Expr::rational(2, 3), Expr::pi(), add(&[ke.clone(), Expr::one()])]));
+                            let (sn, root) = if s == AiryAi {
+                                (sn, pow(&Expr::int(3), &Expr::rational(2, 3)))
+                            } else {
+                                (fx::abs(&sn), pow(&Expr::int(3), &Expr::rational(1, 6)))
+                            };
+                            mul(&[
+                                pow(&mul2(&root, &Expr::pi()), &Expr::minus_one()),
+                                g,
+                                sn,
+                                pow(&fact, &Expr::minus_one()),
+                                pow(&pow(&Expr::int(3), &Expr::rational(1, 3)), &ke),
+                            ])
+                        }
+                        _ => {
+                            let a0 = if s == EllipticK { Expr::rational(1, 2) } else { Expr::rational(-1, 2) };
+                            let rfk = |b: &Expr| mul(&(0..k).map(|j| add(&[b.clone(), Expr::int(j as i64)])).collect::<Vec<_>>());
+                            let num = mul2(&rfk(&a0), &rfk(&Expr::rational(1, 2)));
+                            let den = mul2(&rfk(&Expr::one()), &fact);
+                            mul(&[Expr::pi(), Expr::rational(1, 2), crate::ops::div(&num, &den)])
+                        }
+                    };
+                    if contains_bad(&c) {
+                        return Err(SErr::Unsupported(name));
+                    }
+                    coeffs.push(C::from_expr(c));
+                }
+            } else {
+                let u = Expr::dummy("u", Default::default());
+                let mut g = at(&u);
+                let mut fact = Expr::one();
+                for k in 0..=kmax {
+                    if k > 0 {
+                        fact = mul2(&fact, &Expr::int(k as i64));
+                        g = crate::diff::diff(&g, &u);
+                    }
+                    let v = crate::subs::subs(&g, &[(u.clone(), c0e.clone())]);
+                    if contains_bad(&v) || depends(&v, &u) {
+                        return Err(SErr::Unsupported(name));
+                    }
+                    coeffs.push(C::from_expr(crate::expand::expand(&crate::ops::div(&v, &fact))));
+                }
+            }
+            let res = r.compose(&coeffs, prec);
+            if res.prec >= n {
+                return Ok(Some(res));
+            }
+            m += (n - res.prec).max(1);
+        }
+        Err(SErr::Unsupported(name))
     }
 
     /// Leading term `(coefficient, exponent in t-units)`.

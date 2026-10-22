@@ -23,7 +23,6 @@ def test_textual_derivative_forms_match_reference(source):
     'Derivative(sin(x),x,0,0)','Derivative(sin(x),x,2,3)',
     'Derivative(sin(x),x,-1)','Derivative(sin(x),x,2.0)',
     'Derivative(sin(x),sin(x))','diff(x*y)',
-    'diff(sin(x),x,simplify=False)',
     'Min(I,1)','Max(nan,1)','Min(zoo,1)',
 ])
 def test_invalid_textual_derivatives_and_nonreal_extrema_raise(source):
