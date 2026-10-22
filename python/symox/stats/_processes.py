@@ -236,6 +236,9 @@ class _IncrementProcess(StochasticProcess):
         covariance = S.Matrix([[S.Min(a.time,b.time) for b in variables] for a in variables])-weights*cross.T
         return [mean[i,0] for i in range(len(variables))],covariance
     def query(self,operation,expr,condition):
+        if self.kind == 'Poisson':
+            result = self._poisson_query(operation,expr,condition)
+            if result is not None:return result
         if condition is None:return None
         from ._queries import random_symbols,_bindings,_truth,_indicator,P,E
         bindings = _bindings(condition)
@@ -303,6 +306,83 @@ class _IncrementProcess(StochasticProcess):
             state += scalar(model.sample(rng,()))
 
 
+_BOOLEAN_HEADS = ('And','Or','Not')
+_RELATIONAL_HEADS = ('Equality','Unequality','StrictLessThan','LessThan','StrictGreaterThan','GreaterThan')
+
+
+def _has_contains(expr):
+    return expr is not None and any(getattr(node,'class_name','') == 'Contains' for node in S.preorder_traversal(expr))
+
+
+def _event_constants(event,atoms):
+    """The numeric constants c of an event built with And/Or/Not from
+    relationals ``X op c`` (one process value against a real number), or
+    None when the event has another shape."""
+    head = getattr(event,'class_name','')
+    if event in (S.true,S.false):return []
+    if head in _BOOLEAN_HEADS:
+        constants = []
+        for arg in event.args:
+            found = _event_constants(arg,atoms)
+            if found is None:return None
+            constants += found
+        return constants
+    if head not in _RELATIONAL_HEADS:return None
+    lhs,rhs = event.args
+    free = event.free_symbols
+    if len(free) != 1 or not free <= atoms:return None
+    if lhs in atoms and rhs.is_number and rhs.is_extended_real:return [rhs]
+    if rhs in atoms and lhs.is_number and lhs.is_extended_real:return [lhs]
+    return None
+
+
+class _PoissonEvents:
+    """Exact probabilities of events on the values of a Poisson process.
+
+    The values are either the process at increasing numeric times (dependent,
+    with independent increments) or independent Poisson variables. Every
+    relational compares one value with a number, so all values at or above
+    K = floor(max constant) + 1 behave alike and are lumped in one state;
+    the probability is then a finite sum over the joint states."""
+    _LIMIT = 20000
+
+    def __init__(self,atoms,means,cumulative):
+        self.atoms,self.means,self.cumulative = atoms,means,cumulative
+
+    @staticmethod
+    def _pmf(k,mean):
+        if mean == 0:return S.Integer(1) if k == 0 else S.Integer(0)
+        return S.exp(-mean)*mean**k/S.factorial(k)
+
+    def probabilities(self,events):
+        constants = []
+        for event in events:
+            found = _event_constants(event,set(self.atoms))
+            if found is None:return None
+            constants += found
+        K = max([int(S.floor(c))+1 for c in constants]+[1])
+        if K < 1 or (K+1)**len(self.atoms) > self._LIMIT:return None
+        totals = [S.Integer(0) for _ in events]
+        def visit(index,previous,weight,states):
+            if weight == 0:return
+            if index == len(self.atoms):
+                rule = {a:(K if s is None else s) for a,s in zip(self.atoms,states)}
+                for position,event in enumerate(events):
+                    if S.sympify(event).subs(rule,simultaneous=True) == S.true:totals[position] += weight
+                return
+            mean = self.means[index]
+            if self.cumulative and previous is None:
+                visit(index+1,None,weight,states+[None]);return
+            start = previous if self.cumulative else 0
+            remaining = S.Integer(1)
+            for value in range(start,K):
+                p = self._pmf(value-start,mean);remaining -= p
+                visit(index+1,value,weight*p,states+[value])
+            visit(index+1,None,weight*remaining,states+[None])
+        visit(0,0,S.Integer(1),[])
+        return totals
+
+
 class WienerProcess(_IncrementProcess):
     kind = 'Wiener'
     def __init__(self,sym):super().__init__(sym,S.Reals)
@@ -310,8 +390,80 @@ class WienerProcess(_IncrementProcess):
 
 class PoissonProcess(_IncrementProcess):
     kind = 'Poisson'
+    _increments = 0
     def __init__(self,sym,lamda):
-        self.lamda = scalar(lamda);positive(self.lamda);super().__init__(sym,S.Range(0,S.oo))
+        self.lamda = scalar(lamda);positive(self.lamda);super().__init__(sym,S.Naturals0)
+
+    def __add__(self,other):
+        if not isinstance(other,PoissonProcess):raise ValueError('Only instances of Poisson Process can be merged')
+        return PoissonProcess(S.Dummy(self.symbol.name+other.symbol.name),self.lamda+other.lamda)
+
+    def split(self,l1,l2):
+        if S.sympify(l1+l2) != self.lamda:raise ValueError('Sum of l1 and l2 should be %s' % str(self.lamda))
+        return (PoissonProcess(S.Dummy('l1'),l1),PoissonProcess(S.Dummy('l2'),l2))
+
+    def _poisson_query(self,operation,expr,condition):
+        from ._queries import random_symbols
+        expr = scalar(expr)
+        if condition is not None:condition = scalar(condition)
+        if _has_contains(condition):return self._contains_query(operation,expr,condition)
+        if operation != 'P':return None
+        variables = random_symbols(expr)|random_symbols(condition)
+        if not variables or any(getattr(v,'process',None) is not self for v in variables):return None
+        if any(not v.time.is_number for v in variables):return None
+        if condition is None and len({v.time for v in variables}) < 2:return None
+        variables = sorted(variables,key=lambda v:float(v.time))
+        times = [S.Integer(0)]+[v.time for v in variables]
+        means = [self.lamda*(b-a) for a,b in zip(times,times[1:])]
+        events = [expr] if condition is None else [S.And(expr,condition),condition]
+        totals = _PoissonEvents([v._atom for v in variables],means,True).probabilities(events)
+        if totals is None:return None
+        if condition is None:return S.simplify(totals[0])
+        if totals[1] == 0:return None
+        return S.simplify(totals[0]/totals[1])
+
+    def _contains_query(self,operation,expr,condition):
+        """The reference convention for conditions ``Contains(t, interval)``:
+        the value at the symbolic time t is the count over that interval,
+        i.e. a Poisson variable of mean lamda*length. Counts over pairwise
+        disjoint intervals are independent; overlapping intervals give an
+        unevaluated query."""
+        from itertools import combinations
+        from ._queries import random_symbols,P,E
+        from ._univariate import Poisson
+        args = condition.args if getattr(condition,'class_name','') in ('And','Or') else (condition,)
+        if not all(_has_contains(arg) for arg in args):
+            raise ValueError('If given condition is passed with `Contains`, then please pass the evaluated condition with its corresponding information in terms of intervals of each time stamp to be passed in given condition.')
+        lengths,intervals = {},[]
+        for v in sorted(random_symbols(expr),key=lambda v:str(v.time)):
+            for arg in args:
+                if arg.has(v.time) and v.time.is_Symbol:
+                    interval = arg.args[1]
+                    if isinstance(interval,(list,tuple,set)):interval = S.FiniteSet(*interval)
+                    elif not hasattr(interval,'sup'):
+                        # Boolean arguments hold structural copies of the
+                        # set; rebuild the set object to reach its bounds.
+                        interval = getattr(S,type(interval).__name__)(*interval.args)
+                    length = interval.sup-interval.inf
+                    if length == S.oo:raise ValueError('%s should have finite bounds' % str(v.name))
+                    if length == 0:length = interval.sup
+                    lengths[v] = length;intervals.append(interval)
+        if len(intervals) > 1 and not all(S.Intersection(*pair) == S.EmptySet for pair in combinations(intervals,2)):
+            from ._symbolic import Expectation,Probability
+            return Probability(expr,condition) if operation == 'P' else Expectation(expr,condition)
+        if any(v not in lengths for v in random_symbols(expr)):
+            expr = expr.subs({v._atom:self(length)._atom for v,length in lengths.items()},simultaneous=True)
+            return P(expr) if operation == 'P' else E(expr)
+        ordered = sorted(lengths,key=lambda v:str(v.time))
+        if operation == 'P':
+            totals = _PoissonEvents([v._atom for v in ordered],[self.lamda*lengths[v] for v in ordered],False).probabilities([expr])
+            if totals is not None:return S.simplify(totals[0])
+        fresh = {}
+        for v in ordered:
+            PoissonProcess._increments += 1
+            fresh[v._atom] = scalar(Poisson('_%s_count%d' % (self.name,PoissonProcess._increments),self.lamda*lengths[v]))
+        expr = expr.subs(fresh,simultaneous=True)
+        return P(expr) if operation == 'P' else E(expr)
 
 
 class GammaProcess(_IncrementProcess):

@@ -69,8 +69,9 @@ class Node(CodegenAST):
     _fields=('attrs',);defaults={'attrs':()}
     def attr_params(self,looking_for):
         for attr in self.attrs:
-            if attr.name==str(looking_for):return attr.parameters
-        return ()
+            if str(attr.name)==str(looking_for):return attr.parameters
+        # Like the reference, a missing attribute gives None, not ().
+        return None
 
 
 class _Expression:
@@ -199,9 +200,36 @@ class Variable(Node,_Expression):
 class Pointer(Variable):
     def __getitem__(self,indices):return Element(self.symbol,(indices,) if not isinstance(indices,tuple) else indices)
 class Declaration(CodegenAST):_fields=('variable',)
-class Element(CodegenAST,_Expression):
+class Element(CodegenAST):
+    """Element of a (possibly N-dimensional) array.
+
+    As in the reference, the symbol and offset are sympified and the indices
+    and strides become Tuples (a string such as 'ijk' gives one symbol per
+    character). An Element is a code node, not an arithmetic expression: it
+    is printed with its strides and offset by the code printers."""
     _fields=('symbol','indices','strides','offset');defaults={'strides':none,'offset':none}
-    def _symox_(self):return _S.Symbol(str(self.symbol)+'['+', '.join(map(str,self.indices))+']')
+    def _coerce(self,field,value):
+        if value is None or isinstance(value,NoneToken):return self.defaults.get(field,none)
+        if field in ('symbol','offset'):return _S.sympify(value)
+        return _S.Tuple(*value)
+    def _repr_args(self,printer):
+        parts=[]
+        for position,(field,value) in enumerate(zip(self._fields,self.args)):
+            if field in self.defaults and value==self.defaults[field]:continue
+            if isinstance(value,_S.Tuple):
+                joined=', '.join(printer(v) for v in value.args)
+                text=('({0},)' if len(value.args)==1 else '({0})').format(joined)
+            else:text=printer(value)
+            parts.append(text if position==0 else field+'='+text)
+        return type(self).__name__+'('+', '.join(parts)+')'
+    def _sympyrepr(self,printer,*args,**kwargs):return self._repr_args(printer._print)
+    def _sympystr(self,printer,*args,**kwargs):return self._repr_args(printer._print)
+    def __repr__(self):
+        from symox.printing.repr import srepr
+        return self._repr_args(srepr)
+    def __str__(self):
+        from symox.printing.str import sstr
+        return self._repr_args(sstr)
 class FunctionCall(CodegenAST,_Expression):
     _fields=('name','function_args')
     def _symox_(self):return _S.Function(str(self.name))(*self.function_args)

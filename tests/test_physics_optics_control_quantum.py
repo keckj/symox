@@ -63,10 +63,11 @@ def test_jones_stokes_mueller_and_snell():
     psi,chi=S.symbols('psi chi',real=True)
     matrices(O.jones_2_stokes(O.jones_vector(psi,chi)),O.stokes_vector(psi,chi))
     matrices(O.mueller_matrix(S.eye(2)),S.eye(4))
-    same(O.refraction_angle(S.pi/6,1,S.Rational(3,2)),S.asin(S.Rational(1,3)))
+    # Like the reference, a numeric angle is converted with float().
+    assert str(O.refraction_angle(S.pi/6,1,S.Rational(3,2)))=='0.339836909454122'
     same(O.brewster_angle(1,S.Rational(3,2)),S.atan(S.Rational(3,2)))
     same(O.critical_angle(2,1),S.pi/6)
-    assert O.refraction_angle(S.pi/3,2,1)==0
+    with pytest.raises(ValueError,match='total internal reflection'):O.refraction_angle(S.pi/3,2,1)
     with pytest.raises(ValueError):O.critical_angle(1,2)
     same(O.lens_formula(focal_length=2,u=-6),3)
     same(O.mirror_formula(focal_length=2,u=6),3)

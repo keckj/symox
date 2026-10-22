@@ -1,75 +1,266 @@
-"""Snell refraction, Fresnel amplitudes and paraxial imaging relations."""
-import symox as S
+"""Snell refraction, Fresnel amplitudes and paraxial imaging relations.
+
+The functions follow the reference implementation step by step, so that the
+accepted inputs, total internal reflection branches, error messages and
+returned types are the same.
+"""
+from symox import Float, I, oo, pi, zoo, S, Symbol, sympify, sqrt, acos, asin, atan2, cos, sin, tan, Matrix, cancel, Limit
+from symox.geometry import Ray3D, Plane, intersection
+from symox.utilities.iterables import is_sequence
 from .medium import Medium
 
+__all__ = ['refraction_angle', 'deviation', 'fresnel_coefficients', 'brewster_angle', 'critical_angle', 'lens_makers_formula', 'mirror_formula', 'lens_formula', 'hyperfocal_distance', 'transverse_magnification']
 
-def _index(medium):return medium.refractive_index if isinstance(medium,Medium) else S.sympify(medium)
+def refractive_index_of_medium(medium):
+    if isinstance(medium, Medium):
+        n = medium.refractive_index
+    else:
+        n = sympify(medium)
+    return n
 
+def refraction_angle(incident, medium1, medium2, normal=None, plane=None):
+    n1 = refractive_index_of_medium(medium1)
+    n2 = refractive_index_of_medium(medium2)
+    try:
+        angle_of_incidence = float(incident)
+    except TypeError:
+        angle_of_incidence = None
+    try:
+        critical_angle_ = critical_angle(medium1, medium2)
+    except (ValueError, TypeError):
+        critical_angle_ = None
+    if angle_of_incidence is not None:
+        if normal is not None or plane is not None:
+            raise ValueError('Normal/plane not allowed if incident is an angle')
+        if not 0.0 <= angle_of_incidence < pi * 0.5:
+            raise ValueError('Angle of incidence not in range [0:pi/2)')
+        if critical_angle_ and angle_of_incidence > critical_angle_:
+            raise ValueError('Ray undergoes total internal reflection')
+        return asin(n1 * sin(angle_of_incidence) / n2)
+    return_ray = False
+    if plane is not None and normal is not None:
+        raise ValueError('Either plane or normal is acceptable.')
+    if not isinstance(incident, Matrix):
+        if is_sequence(incident):
+            _incident = Matrix(incident)
+        elif isinstance(incident, Ray3D):
+            _incident = Matrix(incident.direction_ratio)
+        else:
+            raise TypeError('incident should be a Matrix, Ray3D, or sequence')
+    else:
+        _incident = incident
+    if plane is not None:
+        if not isinstance(plane, Plane):
+            raise TypeError('plane should be an instance of geometry.plane.Plane')
+        if isinstance(incident, Ray3D):
+            return_ray = True
+            intersection_pt = plane.intersection(incident)[0]
+        _normal = Matrix(plane.normal_vector)
+    elif not isinstance(normal, Matrix):
+        if is_sequence(normal):
+            _normal = Matrix(normal)
+        elif isinstance(normal, Ray3D):
+            _normal = Matrix(normal.direction_ratio)
+            if isinstance(incident, Ray3D):
+                intersection_pt = intersection(incident, normal)
+                if len(intersection_pt) == 0:
+                    raise ValueError("Normal isn't concurrent with the incident ray.")
+                else:
+                    return_ray = True
+                    intersection_pt = intersection_pt[0]
+        else:
+            raise TypeError('Normal should be a Matrix, Ray3D, or sequence')
+    else:
+        _normal = normal
+    eta = n1 / n2
+    mag_incident = sqrt(sum((i ** 2 for i in _incident)))
+    mag_normal = sqrt(sum((i ** 2 for i in _normal)))
+    _incident /= mag_incident
+    _normal /= mag_normal
+    c1 = -_incident.dot(_normal)
+    cs2 = 1 - eta ** 2 * (1 - c1 ** 2)
+    if cs2.is_negative:
+        return S.Zero
+    drs = eta * _incident + (eta * c1 - sqrt(cs2)) * _normal
+    drs = drs * mag_incident
+    if not return_ray:
+        return drs
+    else:
+        return Ray3D(intersection_pt, direction_ratio=drs)
 
-def refraction_angle(incident,medium1,medium2,normal=None,plane=None):
-    ratio=_index(medium1)/_index(medium2)
-    if isinstance(incident,(int,float,S.Expr)):
-        angle=S.sympify(incident)
-        if angle.is_number and (angle<0 or angle>S.pi/2):raise ValueError('incidence angle must lie in [0, pi/2]')
-        argument=ratio*S.sin(angle)
-        if (argument-1).is_positive is True:return S.Integer(0)
-        return S.asin(argument)
-    from ...geometry import Ray3D
-    if isinstance(incident,Ray3D):direction=S.Matrix(incident.direction_ratio)
-    elif isinstance(incident,(list,tuple,S.Matrix)):direction=S.Matrix(incident)
-    else:raise TypeError('incident ray must be an angle, vector or Ray3D')
-    if plane is not None:normal=S.Matrix(plane.normal_vector)
-    if normal is None:raise ValueError('vector refraction requires a normal or plane')
-    if hasattr(normal,'direction_ratio'):normal=S.Matrix(normal.direction_ratio)
-    normal=S.Matrix(normal);direction=direction/S.sqrt(direction.dot(direction));normal=normal/S.sqrt(normal.dot(normal))
-    cosine=-normal.dot(direction)
-    if cosine.is_negative is True:normal=-normal;cosine=-cosine
-    discriminant=1-ratio**2*(1-cosine**2)
-    if discriminant.is_negative is True:return S.Integer(0)
-    result=ratio*direction+(ratio*cosine-S.sqrt(discriminant))*normal
-    return result.applyfunc(S.simplify)
+def fresnel_coefficients(angle_of_incidence, medium1, medium2):
+    if not 0 <= 2 * angle_of_incidence < pi:
+        raise ValueError('Angle of incidence not in range [0:pi/2)')
+    n1 = refractive_index_of_medium(medium1)
+    n2 = refractive_index_of_medium(medium2)
+    angle_of_refraction = asin(n1 * sin(angle_of_incidence) / n2)
+    try:
+        angle_of_total_internal_reflection_onset = critical_angle(n1, n2)
+    except ValueError:
+        angle_of_total_internal_reflection_onset = None
+    if angle_of_total_internal_reflection_onset is None or angle_of_total_internal_reflection_onset > angle_of_incidence:
+        R_s = -sin(angle_of_incidence - angle_of_refraction) / sin(angle_of_incidence + angle_of_refraction)
+        R_p = tan(angle_of_incidence - angle_of_refraction) / tan(angle_of_incidence + angle_of_refraction)
+        T_s = 2 * sin(angle_of_refraction) * cos(angle_of_incidence) / sin(angle_of_incidence + angle_of_refraction)
+        T_p = 2 * sin(angle_of_refraction) * cos(angle_of_incidence) / (sin(angle_of_incidence + angle_of_refraction) * cos(angle_of_incidence - angle_of_refraction))
+        return [R_p, R_s, T_p, T_s]
+    else:
+        n = n2 / n1
+        R_s = cancel((cos(angle_of_incidence) - I * sqrt(sin(angle_of_incidence) ** 2 - n ** 2)) / (cos(angle_of_incidence) + I * sqrt(sin(angle_of_incidence) ** 2 - n ** 2)))
+        R_p = cancel((n ** 2 * cos(angle_of_incidence) - I * sqrt(sin(angle_of_incidence) ** 2 - n ** 2)) / (n ** 2 * cos(angle_of_incidence) + I * sqrt(sin(angle_of_incidence) ** 2 - n ** 2)))
+        return [R_p, R_s]
 
+def deviation(incident, medium1, medium2, normal=None, plane=None):
+    refracted = refraction_angle(incident, medium1, medium2, normal=normal, plane=plane)
+    try:
+        angle_of_incidence = Float(incident)
+    except TypeError:
+        angle_of_incidence = None
+    if angle_of_incidence is not None:
+        return float(refracted) - angle_of_incidence
+    if refracted != 0:
+        if isinstance(refracted, Ray3D):
+            refracted = Matrix(refracted.direction_ratio)
+        if not isinstance(incident, Matrix):
+            if is_sequence(incident):
+                _incident = Matrix(incident)
+            elif isinstance(incident, Ray3D):
+                _incident = Matrix(incident.direction_ratio)
+            else:
+                raise TypeError('incident should be a Matrix, Ray3D, or sequence')
+        else:
+            _incident = incident
+        if plane is None:
+            if not isinstance(normal, Matrix):
+                if is_sequence(normal):
+                    _normal = Matrix(normal)
+                elif isinstance(normal, Ray3D):
+                    _normal = Matrix(normal.direction_ratio)
+                else:
+                    raise TypeError('normal should be a Matrix, Ray3D, or sequence')
+            else:
+                _normal = normal
+        else:
+            _normal = Matrix(plane.normal_vector)
+        mag_incident = sqrt(sum((i ** 2 for i in _incident)))
+        mag_normal = sqrt(sum((i ** 2 for i in _normal)))
+        mag_refracted = sqrt(sum((i ** 2 for i in refracted)))
+        _incident /= mag_incident
+        _normal /= mag_normal
+        refracted /= mag_refracted
+        i = acos(_incident.dot(_normal))
+        r = acos(refracted.dot(_normal))
+        return i - r
 
-def deviation(incident,medium1,medium2,normal=None,plane=None):
-    result=refraction_angle(incident,medium1,medium2,normal,plane)
-    if isinstance(incident,(int,float,S.Expr)):return S.sympify(incident)-result
-    direction=S.Matrix(incident.direction_ratio if hasattr(incident,'direction_ratio') else incident)
-    return S.acos(direction.dot(result)/(S.sqrt(direction.dot(direction))*S.sqrt(result.dot(result))))
+def brewster_angle(medium1, medium2):
+    n1 = refractive_index_of_medium(medium1)
+    n2 = refractive_index_of_medium(medium2)
+    return atan2(n2, n1)
 
+def critical_angle(medium1, medium2):
+    n1 = refractive_index_of_medium(medium1)
+    n2 = refractive_index_of_medium(medium2)
+    if n2 > n1:
+        raise ValueError('Total internal reflection impossible for n1 < n2')
+    else:
+        return asin(n2 / n1)
 
-def fresnel_coefficients(angle_of_incidence,medium1,medium2):
-    angle=S.sympify(angle_of_incidence);n1,n2=_index(medium1),_index(medium2);transmitted=S.asin(n1*S.sin(angle)/n2)
-    ci,ct=S.cos(angle),S.cos(transmitted)
-    rp=(n2*ci-n1*ct)/(n2*ci+n1*ct);rs=(n1*ci-n2*ct)/(n1*ci+n2*ct)
-    tp=2*n1*ci/(n2*ci+n1*ct);ts=2*n1*ci/(n1*ci+n2*ct)
-    return [rp,rs,tp,ts]
+def lens_makers_formula(n_lens, n_surr, r1, r2, d=0):
+    if isinstance(n_lens, Medium):
+        n_lens = n_lens.refractive_index
+    else:
+        n_lens = sympify(n_lens)
+    if isinstance(n_surr, Medium):
+        n_surr = n_surr.refractive_index
+    else:
+        n_surr = sympify(n_surr)
+    d = sympify(d)
+    focal_length = 1 / ((n_lens - n_surr) / n_surr * (1 / r1 - 1 / r2 + (n_lens - n_surr) * d / (n_lens * r1 * r2)))
+    if focal_length == zoo:
+        return S.Infinity
+    return focal_length
 
+def mirror_formula(focal_length=None, u=None, v=None):
+    if focal_length and u and v:
+        raise ValueError('Please provide only two parameters')
+    focal_length = sympify(focal_length)
+    u = sympify(u)
+    v = sympify(v)
+    if u is oo:
+        _u = Symbol('u')
+    if v is oo:
+        _v = Symbol('v')
+    if focal_length is oo:
+        _f = Symbol('f')
+    if focal_length is None:
+        if u is oo and v is oo:
+            return Limit(Limit(_v * _u / (_v + _u), _u, oo), _v, oo).doit()
+        if u is oo:
+            return Limit(v * _u / (v + _u), _u, oo).doit()
+        if v is oo:
+            return Limit(_v * u / (_v + u), _v, oo).doit()
+        return v * u / (v + u)
+    if u is None:
+        if v is oo and focal_length is oo:
+            return Limit(Limit(_v * _f / (_v - _f), _v, oo), _f, oo).doit()
+        if v is oo:
+            return Limit(_v * focal_length / (_v - focal_length), _v, oo).doit()
+        if focal_length is oo:
+            return Limit(v * _f / (v - _f), _f, oo).doit()
+        return v * focal_length / (v - focal_length)
+    if v is None:
+        if u is oo and focal_length is oo:
+            return Limit(Limit(_u * _f / (_u - _f), _u, oo), _f, oo).doit()
+        if u is oo:
+            return Limit(_u * focal_length / (_u - focal_length), _u, oo).doit()
+        if focal_length is oo:
+            return Limit(u * _f / (u - _f), _f, oo).doit()
+        return u * focal_length / (u - focal_length)
 
-def brewster_angle(medium1,medium2):return S.atan(_index(medium2)/_index(medium1))
-def critical_angle(medium1,medium2):
-    n1,n2=_index(medium1),_index(medium2)
-    if (n2-n1).is_positive is True:raise ValueError('total internal reflection requires a higher incident refractive index')
-    return S.asin(n2/n1)
+def lens_formula(focal_length=None, u=None, v=None):
+    if focal_length and u and v:
+        raise ValueError('Please provide only two parameters')
+    focal_length = sympify(focal_length)
+    u = sympify(u)
+    v = sympify(v)
+    if u is oo:
+        _u = Symbol('u')
+    if v is oo:
+        _v = Symbol('v')
+    if focal_length is oo:
+        _f = Symbol('f')
+    if focal_length is None:
+        if u is oo and v is oo:
+            return Limit(Limit(_v * _u / (_u - _v), _u, oo), _v, oo).doit()
+        if u is oo:
+            return Limit(v * _u / (_u - v), _u, oo).doit()
+        if v is oo:
+            return Limit(_v * u / (u - _v), _v, oo).doit()
+        return v * u / (u - v)
+    if u is None:
+        if v is oo and focal_length is oo:
+            return Limit(Limit(_v * _f / (_f - _v), _v, oo), _f, oo).doit()
+        if v is oo:
+            return Limit(_v * focal_length / (focal_length - _v), _v, oo).doit()
+        if focal_length is oo:
+            return Limit(v * _f / (_f - v), _f, oo).doit()
+        return v * focal_length / (focal_length - v)
+    if v is None:
+        if u is oo and focal_length is oo:
+            return Limit(Limit(_u * _f / (_u + _f), _u, oo), _f, oo).doit()
+        if u is oo:
+            return Limit(_u * focal_length / (_u + focal_length), _u, oo).doit()
+        if focal_length is oo:
+            return Limit(u * _f / (u + _f), _f, oo).doit()
+        return u * focal_length / (u + focal_length)
 
+def hyperfocal_distance(f, N, c):
+    f = sympify(f)
+    N = sympify(N)
+    c = sympify(c)
+    return 1 / (N * c) * f ** 2
 
-def lens_makers_formula(n_lens,n_surr,r1,r2,d=0):
-    n,ns,r1,r2,d=map(S.sympify,(n_lens,n_surr,r1,r2,d));ratio=n/ns
-    return 1/((ratio-1)*(1/r1-1/r2+(ratio-1)*d/(ratio*r1*r2)))
-
-
-def _imaging(focal_length,u,v,mirror):
-    values=[None if value is None else S.sympify(value) for value in (focal_length,u,v)]
-    if values.count(None)!=1:raise ValueError('provide exactly two of focal_length, u and v')
-    f,u,v=values
-    if f is None:return 1/(1/v+(1/u if mirror else -1/u))
-    if u is None:return f*v/(v-f) if mirror else f*v/(f-v)
-    return f*u/(u-f) if mirror else f*u/(u+f)
-
-
-def mirror_formula(focal_length=None,u=None,v=None):return _imaging(focal_length,u,v,True)
-def lens_formula(focal_length=None,u=None,v=None):return _imaging(focal_length,u,v,False)
-def hyperfocal_distance(f,N,c):return S.sympify(f)**2/(S.sympify(N)*S.sympify(c))
-def transverse_magnification(si,so):return -S.sympify(si)/S.sympify(so)
-
-
-__all__=['refraction_angle','deviation','fresnel_coefficients','brewster_angle','critical_angle','lens_makers_formula','mirror_formula','lens_formula','hyperfocal_distance','transverse_magnification']
+def transverse_magnification(si, so):
+    si = sympify(si)
+    so = sympify(so)
+    return -(si / so)
