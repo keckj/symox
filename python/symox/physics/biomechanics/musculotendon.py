@@ -31,11 +31,14 @@ class MusculotendonBase(ForceActuator, ABC):
         labels = ('l_T_slack', 'F_M_max', 'l_M_opt', 'v_M_max', 'alpha_opt', 'beta')
         parameters = []
         for label, value in zip(labels, supplied):
-            if value is None:value = S.Symbol(label+'_'+name, nonnegative=True)
+            # SymPy names the default parameters without assumptions.
+            if value is None:value = S.Symbol(label+'_'+name)
             value = S.sympify(value);setattr(self, label, value);parameters.append(value)
-        for value in parameters[:4]:
-            if value.is_nonpositive is True:raise ValueError('muscle lengths, force and velocity scales must be positive')
-        self._parameters = parameters;self._curve_constants = [];self._with_defaults = with_defaults
+        self._parameters = parameters;self._with_defaults = with_defaults
+        # SymPy lists the constants of the four curves in this fixed order for
+        # every formulation, including the unused tendon curve of a rigid tendon.
+        self._curve_constants = [] if with_defaults else [S.Symbol(f'c_{i}_{group}_{name}')
+            for group, count in (('fl_T', 4), ('fl_M_pas', 2), ('fl_M_act', 12), ('fv_M', 4)) for i in range(count)]
         self._states, self._inputs, self._equations = [], [], []
         self.l_MT, self.v_MT = pathway.length, pathway.extension_velocity
         height = self.l_M_opt*S.sin(self.alpha_opt)
@@ -62,7 +65,8 @@ class MusculotendonBase(ForceActuator, ABC):
         if form != MusculotendonFormulation.RIGID_TENDON:
             self.F_T_tilde = self._curve('tendon_force_length', self.l_T/self.l_T_slack) if form in (1, 3) else self._states[0]
             if form in (1, 2):
-                if self.beta != 0:raise NotImplementedError('explicit compliant-tendon dynamics require zero fiber damping; use an implicit formulation for damping')
+                # Like SymPy, the explicit formulations invert the force
+                # balance without the fiber damping term.
                 fv = (self.F_T_tilde/self.cos_alpha-self.fl_M_pas)/(self.a*self.fl_M_act)
                 self.v_M = self.v_M_max*self._curve('fiber_force_velocity_inverse', fv)
             else:
@@ -75,7 +79,8 @@ class MusculotendonBase(ForceActuator, ABC):
                 self._equations.append(derivative*(self.v_MT-self.v_M/self.cos_alpha)/self.l_T_slack)
         self.v_M_tilde = self.v_M/self.v_M_max
         self.fv_M = self._curve('fiber_force_velocity', self.v_M_tilde)
-        self.F_M_tilde = self.a*self.fl_M_act*self.fv_M+self.fl_M_pas+self.beta*self.v_M_tilde
+        if form in (1, 2):self.F_M_tilde = self.F_T_tilde/self.cos_alpha
+        else:self.F_M_tilde = self.a*self.fl_M_act*self.fv_M+self.fl_M_pas+self.beta*self.v_M_tilde
         if form == 0:self.F_T_tilde = self.F_M_tilde*self.cos_alpha
         self.force_balance = self.F_M_tilde*self.cos_alpha-self.F_T_tilde
         self.F_M, self.F_T = self.F_M_max*self.F_M_tilde, self.F_M_max*self.F_T_tilde
@@ -83,10 +88,20 @@ class MusculotendonBase(ForceActuator, ABC):
     def _curve(self, kind, value):
         curve = getattr(self.curves, kind)
         if self._with_defaults:return curve.with_defaults(value).doit()
-        constants = [S.Symbol(f'c_{i}_{kind}_{self.name}') for i in range(len(curve.defaults))]
-        for c in constants:
-            if c not in self._curve_constants:self._curve_constants.append(c)
+        group = {'tendon_force_length':'fl_T', 'tendon_force_length_inverse':'fl_T',
+            'fiber_force_length_passive':'fl_M_pas', 'fiber_force_length_passive_inverse':'fl_M_pas',
+            'fiber_force_length_active':'fl_M_act', 'fiber_force_velocity':'fv_M',
+            'fiber_force_velocity_inverse':'fv_M'}[kind]
+        constants = [S.Symbol(f'c_{i}_{group}_{self.name}') for i in range(len(curve.defaults))]
         return curve(value, *constants).doit()
+    @classmethod
+    def with_defaults(cls, name, pathway, activation_dynamics, *, musculotendon_dynamics=MusculotendonFormulation.RIGID_TENDON,
+                      tendon_slack_length=None, peak_isometric_force=None, optimal_fiber_length=None,
+                      maximal_fiber_velocity=S.Float('10.0'), optimal_pennation_angle=S.Float('0.0'), fiber_damping_coefficient=S.Float('0.1')):
+        return cls(name, pathway, activation_dynamics, musculotendon_dynamics=musculotendon_dynamics,
+            tendon_slack_length=tendon_slack_length, peak_isometric_force=peak_isometric_force,
+            optimal_fiber_length=optimal_fiber_length, maximal_fiber_velocity=maximal_fiber_velocity,
+            optimal_pennation_angle=optimal_pennation_angle, fiber_damping_coefficient=fiber_damping_coefficient, with_defaults=True)
     @property
     def a(self):return self.activation_dynamics.a
     @property
@@ -96,7 +111,7 @@ class MusculotendonBase(ForceActuator, ABC):
     @property
     def r(self):return _column(self._inputs+list(self.activation_dynamics.r))
     @property
-    def p(self):return _column([c for c in self._parameters if c.free_symbols]+self._curve_constants+list(self.activation_dynamics.p))
+    def p(self):return _column([c for c in self._parameters if not c.is_number]+list(self.activation_dynamics.p)+self._curve_constants)
     state_vars = property(lambda self:self.x)
     input_vars = property(lambda self:self.r)
     constants = property(lambda self:self.p)

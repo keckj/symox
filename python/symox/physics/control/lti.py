@@ -241,15 +241,24 @@ class StateSpace:
 
 
 def gbt(tf,sample_per,alpha):
-    tf=_tf(tf);T,alpha=map(S.sympify,(sample_per,alpha));z=S.Symbol('_z')
-    if alpha.is_number and (alpha<0 or alpha>1):raise ValueError('alpha must lie in [0,1]')
-    expression=S.cancel(tf.to_expr().subs(tf.var,(z-1)/(T*(alpha*z+1-alpha))))
-    num,den=expression.as_numer_denom();a=S.Poly(den,z).all_coeffs();b=S.Poly(num,z).all_coeffs();lead=a[0]
-    return [S.simplify(v/lead) for v in b],[S.simplify(v/lead) for v in a]
+    # SymPy's gbt: alpha becomes an exact Rational (limit_denominator(1000)),
+    # and H(z) is multiplied by z**N/z**N without any simplification.
+    if isinstance(tf,TransferFunctionMatrix) or getattr(tf,'is_SISO',True) is False:
+        raise NotImplementedError('Not implemented for MIMO systems.')
+    tf=_tf(tf)
+    T=sample_per;s=tf.var;z=s
+    np=S.Poly(tf.num,s).all_coeffs();dp=S.Poly(tf.den,s).all_coeffs()
+    alpha=S.Rational(alpha).limit_denominator(1000)
+    N=max(len(np),len(dp))-1
+    num=S.Add(*[T**(N-i)*c*(z-1)**i*(alpha*z+1-alpha)**(N-i) for c,i in zip(np[::-1],range(len(np)))])
+    den=S.Add(*[T**(N-i)*c*(z-1)**i*(alpha*z+1-alpha)**(N-i) for c,i in zip(dp[::-1],range(len(dp)))])
+    num_coefs=S.Poly(num,z).all_coeffs();den_coefs=S.Poly(den,z).all_coeffs()
+    para=den_coefs[0]
+    return [coef/para for coef in num_coefs],[coef/para for coef in den_coefs]
 
 def bilinear(tf,sample_per):return gbt(tf,sample_per,S.Rational(1,2))
-def forward_diff(tf,sample_per):return gbt(tf,sample_per,0)
-def backward_diff(tf,sample_per):return gbt(tf,sample_per,1)
+def forward_diff(tf,sample_per):return gbt(tf,sample_per,S.Integer(0))
+def backward_diff(tf,sample_per):return gbt(tf,sample_per,S.Integer(1))
 
 
 __all__=['TransferFunction','PIDController','Series','MIMOSeries','Parallel','MIMOParallel','Feedback','MIMOFeedback','TransferFunctionMatrix','StateSpace','gbt','bilinear','forward_diff','backward_diff']

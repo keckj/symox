@@ -57,7 +57,17 @@ def nonlinsolve(system, *symbols):
         return FiniteSet(*[_core._apply("Tuple", *(i.xreplace(swap) for i in s)) for s in solutions])
     if any(_core._has_noncommutative_atoms(e) for e in equations):
         return _noncommutative_nonlinsolve(equations, variables)
-    result = _core._nonlinsolve_parametric(equations, variables)
+    try:
+        result = _core._nonlinsolve_parametric(equations, variables)
+    except (ValueError, NotImplementedError):
+        # A system with a non-polynomial equation (exp, log, trigonometric
+        # functions of the unknowns) takes the reference branch: Groebner
+        # elimination of the polynomial part, then substitution, which keeps
+        # the periodic ImageSet families.
+        from .solvers._substitution import _is_polynomial_system, nonlinsolve_substitution
+        if _is_polynomial_system(equations, variables):
+            raise
+        return nonlinsolve_substitution(list(equations), list(variables))
     rows = []
     for values, excluded in result:
         row = [_unwrap(Complement(Complexes, FiniteSet(*roots))) if roots else value

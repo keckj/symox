@@ -1514,6 +1514,21 @@ class ImageSet(Set):
         return self.base_set
 
 
+def _install_image_set_node_properties():
+    # An ImageSet held inside a Tuple or FiniteSet (the solution tuples of
+    # nonlinsolve and substitution) is a native node: give it the lamda and
+    # base set accessors of the reference class.
+    from ._node_types import node_class
+    nominal = node_class('ImageSet')
+    for name in ('lamda', 'base_set', 'base_sets', 'base_pset'):
+        if name not in nominal.__dict__:
+            setattr(nominal, name, property(
+                lambda self, _name=name: getattr(_wrap_set(self), _name)))
+
+
+_install_image_set_node_properties()
+
+
 class ConditionSet(Set):
     __slots__ = ()
 
@@ -2207,10 +2222,13 @@ def lambdify(args, expr, modules=None, **kwargs):
         if len(candidates) != 1:
             raise NotImplementedError("CUDA lambdify requires a single module")
         return extra.cuda_lambdify(args, expr, **kwargs)
-    from .utilities.lambdify import _compile_implemented,_compile_structured
+    from .utilities.lambdify import _compile_implemented,_compile_structured,_compile_mpmath
     structured = _compile_structured(args,expr,modules,kwargs)
     if structured is not None:
         return structured
+    multiprecision = _compile_mpmath(args, expr, modules, kwargs)
+    if multiprecision is not None:
+        return multiprecision
     implemented = _compile_implemented(args, expr, modules, kwargs)
     if implemented is not None:
         return implemented

@@ -79,9 +79,36 @@ class AbstractPythonCodePrinter(NodePrinter,CXX17CodePrinter):
 class PythonCodePrinter(AbstractPythonCodePrinter):pass
 class CmathPrinter(PythonCodePrinter):_module='cmath'
 class MpmathPrinter(PythonCodePrinter):
+    """Python with mpmath, keeping the precision of Float literals."""
     _module='mpmath'
-    def _print_Float(self,expr):return "mpmath.mpf('"+str(expr)+"')"
-    def _print_Rational(self,expr):return '(mpmath.mpf('+str(expr.p)+')/mpmath.mpf('+str(expr.q)+'))'
+    def _print_Float(self,expr):
+        # SymPy prints the exact binary mantissa of the Float.
+        from .._host import _float_mpf
+        return 'mpmath.mpf('+str(tuple(map(int,_float_mpf(expr))))+')'
+    def _print_Rational(self,expr):return 'mpmath.mpf('+str(expr.p)+')/mpmath.mpf('+str(expr.q)+')'
+    def _print_Half(self,expr):return self._print_Rational(expr)
+    def _print_Pow(self,expr):
+        import symox as _S
+        base,exp=expr.args
+        if exp==_S.Rational(1,2):return 'mpmath.sqrt('+self._print(base)+')'
+        if exp==_S.Rational(-1,2) and expr.is_commutative:return '1/mpmath.sqrt('+self._print(base)+')'
+        return self.parenthesize(base,PRECEDENCE['Pow'])+'**'+self.parenthesize(exp,PRECEDENCE['Pow'])
+    def emptyPrinter(self,expr):
+        name=getattr(expr,'class_name',type(expr).__name__)
+        constants={'GoldenRatio':'phi','EulerGamma':'euler','Catalan':'catalan','NaN':'nan','Infinity':'inf','NegativeInfinity':'ninf'}
+        if name in constants:return 'mpmath.'+constants[name]
+        return super().emptyPrinter(expr)
+    def _function(self,name):
+        # mpmath spellings of the functions SymPy's lambdify translates.
+        from ..utilities.lambdify import _MPMATH_TRANSLATIONS
+        if name!='Abs' and name in _MPMATH_TRANSLATIONS:return 'mpmath.'+_MPMATH_TRANSLATIONS[name]
+        return super()._function(name)
+    _print_Infinity=lambda self,expr:'mpmath.inf'
+    _print_NegativeInfinity=lambda self,expr:'mpmath.ninf'
+    _print_NaN=lambda self,expr:'mpmath.nan'
+    _print_EulerGamma=lambda self,expr:'mpmath.euler'
+    _print_Catalan=lambda self,expr:'mpmath.catalan'
+    _print_GoldenRatio=lambda self,expr:'mpmath.phi'
 class SymPyPrinter(PythonCodePrinter):_module='symox'
 class ArrayPrinter(PythonCodePrinter):
     _module='numpy'
