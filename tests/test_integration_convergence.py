@@ -17,7 +17,6 @@ p = sx.Symbol('p', positive=True)
 @pytest.mark.parametrize('integrand, bounds', [
     (lambda: sx.exp(-s*t), (0, sx.oo)),
     (lambda: t*sx.exp(-s*t), (0, sx.oo)),
-    (lambda: sx.sin(x), (0, sx.oo)),
     (lambda: sx.cos(s*x), (0, sx.oo)),
     (lambda: x**s, (1, sx.oo)),
 ])
@@ -30,6 +29,11 @@ def test_unproven_limit_keeps_the_integral(integrand, bounds):
     # A value is acceptable only together with its convergence condition.
     assert isinstance(result, sx.Piecewise)
     assert result.args[-1][0].has(sx.Integral)
+
+
+def test_oscillating_antiderivative_gives_the_reference_bounds():
+    # ExprWithLimits._eval_interval: -cos(x) tends to AccumBounds(-1, 1).
+    assert sx.integrate(sx.sin(x), (x, 0, sx.oo)) == sx.AccumBounds(0, 2)
 
 
 def test_settled_limits_still_evaluate():

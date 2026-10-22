@@ -47,6 +47,27 @@ from ._core import (
     to_number_field,
 )
 
+_native_integrate = integrate
+
+
+def integrate(*args, **kwargs):
+    """Indefinite or definite integral (native engine). A definite integral
+    over an infinite interval of an oscillating integrand whose
+    antiderivative has accumulation bounds at the infinite endpoint is the
+    difference of those bounds, as in the reference."""
+    result = _native_integrate(*args, **kwargs)
+    if (len(args) == 2 and not kwargs and isinstance(args[1], tuple) and len(args[1]) == 3
+            and getattr(result, 'is_Integral', False)):
+        from .calculus._accum_limit import oscillating_integral
+        try:
+            value = oscillating_integral(_native_integrate, None, args[0], *args[1])
+        except (TypeError, ValueError, NotImplementedError):
+            value = None
+        if value is not None:
+            return value
+    return result
+
+
 from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, FlagError, UnificationFailed
 
 from ._basic import Basic
@@ -104,6 +125,15 @@ def _public_function_head(name):
     return globals()[name]
 
 
+# The AccumulationBounds class, set once it is defined (end of this module).
+_ACCUM_CLASS = [None]
+_ACCUM_MUL_HEADS = frozenset(('exp', 'cos', 'sec', 'sinh', 'cosh', 'tanh', 'coth', 'sech',
+                              'csch'))
+_ACCUM_HEADS = frozenset(('sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'exp', 'log', 'frac',
+                          'atanh', 'asech', 'atan', 'sinh', 'cosh', 'tanh', 'coth', 'sech',
+                          'csch'))
+
+
 def _make(name):
     from ._function_signatures import signature as _head_signature,bind as _bind_head
     _contract=_head_signature(name)
@@ -149,6 +179,16 @@ def _make(name):
             # conjugate(adjoint(A)) is transpose(A), as in the reference
             from ._nc_adjoint import conjugate_of
             return conjugate_of(args[0])
+        if evaluate and len(args) == 1 and name in _ACCUM_HEADS:
+            # The reference evals that return accumulation bounds.
+            a = args[0]
+            if isinstance(a, _core.Expr) and (
+                    type(a) is _ACCUM_CLASS[0] or a.is_finite is False
+                    or (a.is_Mul and name in _ACCUM_MUL_HEADS)):
+                from .calculus._accum_eval import evaluate as _accum_evaluate
+                value = _accum_evaluate(name, a)
+                if value is not None:
+                    return value
         return _core._apply(name, *args) if evaluate else _core._apply(name, *args, evaluate=False)
 
     f.__name__ = name
@@ -1928,6 +1968,11 @@ def limit(e, z, z0, dir="+"):
                 return S.ComplexInfinity
             raise ValueError("The limit does not exist since left hand limit = %s"
                              " and right hand limit = %s" % (left, right))
+    if r is None:
+        # Oscillating functions at an infinite argument: the reference
+        # leading terms give accumulation bounds.
+        from .calculus._accum_limit import oscillating_limit
+        r = oscillating_limit(e, z, z0, str(dir))
     return Limit(e, z, z0, dir) if r is None else r
 
 
@@ -2277,7 +2322,6 @@ from .tensor.array import (  # noqa: E402
     ArrayComprehension, ArrayComprehensionMap, ArrayKind,
 )
 from ._kind import Kind,NumberKind,BooleanKind,UndefinedKind
-from .calculus.accumulationbounds import AccumBounds,AccumulationBounds
 from .tensor.functions import shape  # noqa: E402
 from .tensor.array import _adapters as _array_adapters  # noqa: E402
 _array_adapters.install(globals())
@@ -2429,6 +2473,17 @@ for _context_name in ('sqrt','cbrt','log'):
     def _context_function(name,original):
         def apply(args,evaluate):
             state = _public_core._evaluation.get() if evaluate is None else evaluate
+            if state and len(args) == 1 and isinstance(args[0], _core.Expr) and (
+                    args[0].is_infinite or _core._host_contains(args[0])[1]):
+                from .calculus.accumulationbounds import AccumBounds as _bounds
+                if isinstance(args[0], _bounds):
+                    # Pow(bounds, e) calls AccumBounds._eval_power.
+                    if name != 'log':
+                        return args[0]**Rational(1,2 if name=='sqrt' else 3)
+                    from .calculus._accum_eval import evaluate as _accum_evaluate
+                    value = _accum_evaluate(name, args[0])
+                    if value is not None:
+                        return value
             if state:return original(*args)
             if name in ('sqrt','cbrt'):
                 return _core._node('Pow',(args[0],Rational(1,2 if name=='sqrt' else 3)),False)
@@ -2539,3 +2594,11 @@ from ._head_classes import install as _install_head_classes  # noqa: E402
 _install_head_classes(globals())
 from ._fact_cache import install as _install_fact_cache  # noqa: E402
 _install_fact_cache()
+# Accumulation bounds are a host expression class: defined once the core
+# namespace the host registration consults is complete.
+from .calculus.accumulationbounds import AccumBounds, AccumulationBounds  # noqa: E402
+from .calculus._accum_eval import install_subs as _install_accum_subs  # noqa: E402
+from .calculus._accum_eval import install_doit as _install_accum_doit  # noqa: E402
+_install_accum_subs()
+_install_accum_doit()
+_ACCUM_CLASS[0] = AccumulationBounds

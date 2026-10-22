@@ -2479,6 +2479,51 @@ partitions with the reference, and exhaust all transversal choices on a small
 group. They do not certify all permutation-group methods or a comparative bound
 for constructing every stabilizer chain.
 
+- Accumulation bounds follow `sympy/calculus/accumulationbounds.py`:
+  `AccumBounds` is a port of the reference class (arithmetic, powers,
+  comparisons, `Min`/`Max`, `intersection`, `union`, `in`), and its whole
+  test file passes (`tests/test_accumbounds_wave4_parity.py`). The `eval`
+  branches that return bounds are reproduced: `sin`, `cos` at `oo`/`-oo`
+  (and `cos` of a real infinity such as `oo*sign(s)` with a nonzero `s`) are
+  `AccumBounds(-1, 1)`, `tan`, `cot`, `sec`, `csc` at `oo`/`-oo` are
+  `AccumBounds(-oo, oo)`, `frac(oo)` is `AccumBounds(0, 1)`, `atanh(zoo)`
+  and `asech(zoo)` are `I*AccumBounds(-pi/2, pi/2)`, `atan(zoo)` is
+  `AccumBounds(-pi/2, pi/2)`, `sinh`, `cosh`, `tanh`, `coth`, `sech`,
+  `csch` of `I*oo` are the trigonometric bounds (`sinh(I*oo)` is
+  `I*AccumBounds(-1, 1)`), `exp(I*oo)` is `nan`,
+  and `sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `exp`, `log`, `sqrt` of
+  bounds are bounds. `subs` of an infinity or of bounds re-evaluates these
+  applications as the reference rebuild does (`sin(x).subs(x, oo)`,
+  `(x**2 + 2*x + 1).subs(x, AccumBounds(-1, 1))`).
+  A limit the native engine leaves unevaluated and that holds an
+  oscillating function (`sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `frac`) of
+  an argument tending to an infinity is evaluated term by term with the
+  bounds arithmetic, as the reference leading terms do
+  (`limit(sin(x), x, oo)`, `limit(1/(2 + sin(x)), x, oo)`,
+  `limit(sin(1/x), x, 0)`), and a definite integral with an infinite
+  endpoint subtracts such limits of the antiderivative, as
+  `ExprWithLimits._eval_interval` does (also for `Limit(...).doit()` and
+  `Integral(...).doit()`). A limit the native engine already
+  answers is never replaced, and any `nan`, `oo - oo` or unevaluated part
+  keeps the limit or the integral unevaluated.
+  Intentional divergences, where the reference value is degenerate or an
+  error: `limit(x*sin(x), x, oo)`, `limit(x**2*cos(x), x, oo)`,
+  `limit(exp(x)*sin(x), x, oo)` and `integrate(x*sin(x), (x, 0, oo))` are
+  `AccumBounds(-oo, oo)` (the reference returns
+  `oo*sign(AccumBounds(-1, 1))`), `limit(sin(x)/(1 + exp(-x)), x, oo)` is
+  `AccumBounds(-1, 1)` (the reference raises `TypeError`), and
+  `limit(sqrt(x + sin(x)) - sqrt(x), x, oo)` stays `0` (the reference leaves
+  it unevaluated).
+  Remaining gaps: `sin(oo)` built inside the kernel (a native
+  substitution or simplification that does not go through the public
+  constructors or `subs`) stays unevaluated, and so does a held `Limit` or
+  `Integral` nested in a larger expression on `doit()`
+  (`(x + Integral(sin(x), (x, 0, oo))).doit()`); `cos(oo*sign(s))` is evaluated
+  but `sin(oo*sign(s))` stays, as in the reference; `limit(sinc(x), x, oo)`
+  and `limit((-1)**n, n, oo)` stay unevaluated (the reference gives `0` and
+  `nan`); a limit at `zoo` and a limit of an `Integral` stay unevaluated
+  where the reference raises `NotImplementedError`.
+
 - The integration engine does not implement the full collection of Risch,
   heurisch and Meijer G methods available in SymPy. Meijer G definite
   integration, its convergence conditions and `hyperexpand` are ported (see
@@ -2501,11 +2546,14 @@ for constructing every stabilizer chain.
   `ExprWithLimits._eval_interval` (`Heaviside(x - a)` on `(0, 1)`).
   The 31 open cases are of two kinds:
   - 14 oscillatory integrals on `(0, oo)` (`sin(x)`, `cos(x)`, `sin(s*x)`,
-    `cos(s*x)`) that the reference returns as `AccumBounds`: the native
-    limits have no accumulation bounds as expressions (`cos(oo)` stays
-    unevaluated, `AccumulationBounds` is a host-only class), so these stay
-    held; for a nonzero `s` the reference even returns
-    `sin(oo*sign(s))/s`;
+    `cos(s*x)`) that the reference returns as `AccumBounds`. They now
+    evaluate like the reference (`sin(x)` is `AccumBounds(0, 2)`,
+    `sin(s*x)` with a positive or nonzero `s` is
+    `AccumBounds(-1, 1)/s + 1/s`; see the accumulation bounds paragraph
+    below). Without assumptions or with a real or complex `s` both libraries
+    keep them held. The one left held is `cos(s*x)` with a nonzero `s`, for
+    which the reference returns `sin(oo*sign(s))/s`, an unevaluated
+    function of an infinity;
   - 17 values the reference returns without a condition although they are
     wrong for some allowed parameter values, held on purpose: `1/(x+a)`,
     `1/(x-a)` and `1/(1+a*x)` on `(0, 1)` and `1/x` on `(a, 1)` without

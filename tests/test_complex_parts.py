@@ -203,12 +203,14 @@ def test_complex_logarithm_of_exact_machine_and_arbitrary_precision_zero_is_zoo(
 
 @pytest.mark.parametrize('function', ['sin', 'cos', 'tan', 'cot'])
 @pytest.mark.parametrize('sign', [-1, 1])
-def test_oscillatory_infinite_arguments_require_an_explicit_unsupported_accumbounds(function, sign):
+def test_oscillatory_infinite_arguments_are_reference_accumbounds(function, sign):
     value = getattr(sx, function)(sign*sx.oo)
     expected = getattr(sp, function)(sign*sp.oo)
     assert isinstance(expected, sp.AccumBounds)
-    with pytest.raises(NotImplementedError, match='AccumBounds'):
-        value.as_real_imag()
+    assert isinstance(value, sx.AccumBounds)
+    assert value.to_sympy() == expected
+    assert str(value.as_real_imag()) == str(expected.as_real_imag())
+    assert str((sx.re(value), sx.im(value))) == str((sp.re(expected), sp.im(expected)))
 
 
 @pytest.mark.parametrize('source', [

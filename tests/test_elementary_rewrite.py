@@ -101,10 +101,9 @@ EVAL_CASES = (
     + OTHER_EVAL
 )
 
-# acos(I*oo) prints the Add terms in another order (-oo*I + pi/2)
-# AccumBounds is not implemented, so these stay unevaluated
-EVAL_GAPS = {"acos(I*oo)", "acos(-I*oo)", "atan(zoo)", "atanh(zoo)", "asech(zoo)",
-             "sinh(I*oo)", "cosh(I*oo)", "tanh(I*oo)", "coth(I*oo)", "sech(I*oo)", "csch(I*oo)"}
+# The accumulation bounds values (atan(zoo), sinh(I*oo), ...) are evaluated
+# as in the reference, so no special value is a gap any more.
+EVAL_GAPS = set()
 
 
 @pytest.mark.parametrize("case", [c for c in EVAL_CASES if c not in EVAL_GAPS])
