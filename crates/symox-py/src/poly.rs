@@ -987,6 +987,13 @@ impl PyPoly {
         let fractions=p.domain_gens().iter().any(|g| matches!(g.kind(),symox::Kind::Pow(_,e) if e.as_number().is_some_and(|n|n.is_negative())) && !symox::traverse::free_symbols(g).is_empty());
         if domain.is_none() && fractions {
             let parameters=infer_parameters(std::slice::from_ref(&e),p.true_gens());
+            // `_construct_composite` over RR or CC with several generators:
+            // RR(y), CC(y), whose ring arithmetic is native.
+            if p.domain==Domain::RR {
+                if let Some(ground)=symox::poly::inexact_ground::infer(&e,p.true_gens(),false).filter(|g|!g.ring) {
+                    if let Ok(q)=ground.convert_expr(&e,p.true_gens()){return Ok(Self{p:q.into()});}
+                }
+            }
             // The reference builds ZZ_I(y) or QQ_I(y) here, whose fraction
             // coefficients have no backend yet: the expression domain keeps
             // the arithmetic exact instead of failing.
@@ -1763,7 +1770,7 @@ impl PyPoly {
     }
 
     fn ground_roots(&self,py:Python<'_>)->PyResult<PyObject>{
-        if let Some(f)=self.ex(){
+        if let Some(f)=self.ex().filter(|f|f.ground.as_ref().is_none_or(|g|g.inexact.is_none())||f.gens.len()!=1){
             if f.gens.len()!=1{return Err(err(PolyError::Reference{kind:"MultivariatePolynomialError",message:f.as_expr().to_string()}));}
             let result=PyDict::new(py);
             // The only factor of a nonconstant EX polynomial is itself.
@@ -2644,6 +2651,22 @@ fn cancel(f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, _kwargs: Option<&Boun
 #[pyfunction]
 #[pyo3(signature = (f, x=None, full=false, **_kwargs))]
 fn apart(f: &Bound<'_, PyAny>, x: Option<&Bound<'_, PyAny>>, full: bool, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyExpr> {
+    // Over an inexact composite ground (`RR[y]`, `RR(y)`, ...) the reference
+    // `apart_undetermined_coeffs` fails in `Q.factor_list()` once the
+    // cancelled denominator has degree above one.
+    if let (false,Some(gen),Ok(e))=(full,x.and_then(|x|to_expr(x).ok()),to_expr(f)){
+        let (p,q)=api::as_numer_denom(&e);
+        let gens=[gen];
+        let mut coefficients=Vec::new();
+        for part in [&p,&q]{if let Ok(terms)=symox::poly::expression_domain::dict_from_expr(part,&gens){coefficients.extend(terms.into_iter().map(|(_,c)|c));}}
+        if let Some(ground)=symox::poly::inexact_ground::infer_coefficients(&coefficients,false){
+            if let (Ok(a),Ok(b))=(ground.convert_expr(&p,&gens),ground.convert_expr(&q,&gens)){
+                if let Ok((_,_,_,b))=symox::poly::inexact_ground::cancel(&a,&b){
+                    if b.degree(0)>1{return Err(err(symox::poly::inexact_ground::factor_error(&ground)));}
+                }
+            }
+        }
+    }
     if let Some(result)=an_rational::apart_input(f,x,full,_kwargs)?{return Ok(result);}
     let x = match x {
         Some(x) => Some(to_expr(x)?),

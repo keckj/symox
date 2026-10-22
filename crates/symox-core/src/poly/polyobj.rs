@@ -212,10 +212,15 @@ impl Poly {
             Domain::QQ => "QQ",
             Domain::RR => "RR",
         };
-        if self.ngens == self.gens.len() {
+        // Over RR the imaginary unit is stored as a coefficient generator:
+        // the reference ground is then CC (`CC`, `CC[y]`).
+        let complex = self.domain == Domain::RR && self.domain_gens().iter().any(|g| g.is_constant(crate::expr::Constant::I));
+        let gens: Vec<&Expr> = self.domain_gens().iter().filter(|g| !(complex && g.is_constant(crate::expr::Constant::I))).collect();
+        let base = if complex { "CC" } else { base };
+        if gens.is_empty() {
             base.to_string()
         } else {
-            let ds: Vec<String> = self.domain_gens().iter().map(to_str).collect();
+            let ds: Vec<String> = gens.into_iter().map(to_str).collect();
             format!("{base}[{}]", ds.join(","))
         }
     }

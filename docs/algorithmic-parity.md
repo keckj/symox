@@ -339,20 +339,28 @@ Remaining gaps in this area:
   integer`; algebraic field elements print as `QQ<sqrt(2)>(sqrt(2))` (reference
   `ANP(...)`); domain elements are `DomainElement` (reference `PolyElement`)
   and `RR.frac_field(x).field` is missing; `EXRAW` elements are wrapped and
-  do not compare equal to the raw `Expr`. `Poly` with several generators
-  over an inexact composite ground (`Poly(1.5*x*z + y, x, z)`) prints
-  `RR[y]` but `.domain` raises `NotImplementedError`, `I*x*z + 1.5*y` shows
-  `RR[y,I]` instead of `CC[y]`, `1.5*x*z + 1/y` raises `ValueError`
-  (reference `RR(y)`), and products and `gcd` of such polynomials fail.
-  `apart` over `RR[y]` returns a result where the reference raises
-  `TypeError` (`unsupported operand type(s) for *: 'PolyElement' and
-  'PolyElement'`), and `apart(1.5/(x**2 - 1), x)` returns the exact
-  `-3/(4*(x + 1)) + ...` where the reference keeps Floats
-  (`-0.75/(x + 1) + 0.75/(x - 1)`). `ground_roots` over `RR[y]` returns
-  `{}` (reference `TypeError`) and over `RR` raises `ValueError` (reference
-  roots from `factor_list`, `{1.0: 1, -1.0: 1}` for `1.5*x**2 - 1.5`).
-  `Poly(x, x, domain=CC).invert(...)` and `invert(1.5*x, x**2 + 1)` are not
-  computed over `CC`/`RR` (exact `-2*x/3` instead of `-0.666666666666667*x`).
+  do not compare equal to the raw `Expr`. Floats over several generators
+  report the reference domain: `Poly(1.5*x*z + y, x, z).domain` is `RR[y]`,
+  `I*x*z + 1.5*y` gives `CC[y]` (and `1.5*x + I` gives `CC`),
+  `1.5*x*z + 1/y` builds `RR(y)` with native ring arithmetic, and `monic`/
+  `to_field` move to `RR(y)`. `ground_roots` reads the linear factors of
+  `factor_list` like the reference (`{1.0: 1, -1.0: 1}` for
+  `1.5*x**2 - 1.5`) and raises the reference `TypeError` over `RR[y]`, as
+  does `apart` over `RR[y]` once the cancelled denominator has degree above
+  one. Tests: `tests/test_domains_inexact_wave3_parity.py` (135 of 149
+  probed calls identical; 105 of the first 131 before).
+  Remaining: products and `gcd` of a several-generator `RR[y]` polynomial
+  with an exact `ZZ[y]` one fail (`TypeError`; the reference unifies to
+  `RR[y]`), and several-generator `RR[y]` polynomials keep the legacy
+  representation, whose `factor_list`/`sqf_list`/`content`/`integrate`
+  differ from the reference. `apart` over RR (`1.5/(x**2 - 1)`, reference
+  `-0.75/(x + 1) + 0.75/(x - 1)`, or `1/(x - 1.5*y)`) and `invert`/`gcdex`
+  over RR (`invert(1.5*x, x**2 + 1)`, reference `-0.666666666666667*x`)
+  compute exactly over QQ and return rationals instead of Floats. `CC` has
+  no polynomial backend for an explicit `domain=CC` (`Poly(x, x,
+  domain=CC)` raises `NotImplementedError`), and the inferred `CC`
+  polynomials have no `invert` (`ValueError` where the reference returns
+  the CC result or raises `NotInvertible`).
 - `(-2)**(1/6)` with `extension=True` yields the larger field
   `QQ<2**(1/6) + (-1)**(1/6)>` because core power canonicalization splits the
   base; results stay exact but the field is not the reference one.

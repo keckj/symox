@@ -34,13 +34,17 @@ coefficient divides; `monic`, `integrate`, `half_gcdex`, `gcdex` and `invert`
 move to the field. `factor_list`, `abs`, `max_norm`, `l1_norm` and `nroots`
 raise the reference errors (`TypeError` on `PolyElement` products and
 `abs`, `DomainError` for `nroots`). The string domain `RR[y]` builds the same
-domain; `RR(y)` is rejected with the reference `OptionError`. Remaining:
-several generators (`Poly(1.5*x*y + 2, x, z)`) keep the legacy `RR[y]`
-representation (whose `factor_list` returns factors where the reference
-raises; `.domain` raises `NotImplementedError` and `I*x*z + 1.5*y` shows
-`RR[y,I]`); `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
-factors (the reference `together` result differs); `ground_roots` and
-`apart` return results where the reference raises `TypeError`; the
+domain; `RR(y)` is rejected with the reference `OptionError`.
+`ground_roots` and `apart` (with a cancelled denominator of degree above
+one) raise the reference `TypeError`. With several generators, `RR(y)` and
+`CC(y)` grounds use the same native ring arithmetic, while `RR[y]` and
+`CC[y]` keep the legacy representation (Floats over coefficient
+generators, the imaginary unit being one of them) and report the reference
+`RR[y]`/`CC[y]` domain. Remaining: that legacy representation's
+`factor_list` returns factors where the reference raises, its `sqf_list`,
+`content` and `integrate` differ, and its products and `gcd` with exact
+`ZZ[y]` polynomials fail; `factor(1.5*x**2*y - 1.5*y, x)` keeps `1.0*x`
+factors (the reference `together` result differs); the
 `to_ring` `CoercionFailed` message names the expression instead of the
 `FracElement`; the `div` remainder of near-cancelling Float inputs can differ
 in the last bits (`2.78e-17` against `8.67e-17`).

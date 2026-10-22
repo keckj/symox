@@ -2,7 +2,10 @@
 
 ``construct_domain`` over RealField/ComplexField grounds, ``CC.invert``,
 element display (``2``, ``MPQ(1,2)``, ``mpf``, ``PolyElement`` over RR/CC),
-unification with inexact grounds and ``parallel_poly_from_expr``.
+unification with inexact grounds and ``parallel_poly_from_expr``, the
+``RR[y]``/``CC[y]``/``RR(y)`` domains of Floats over several generators,
+``ground_roots`` over RR and the ``TypeError`` of ``apart`` and
+``ground_roots`` over ``RR[y]``.
 """
 import pytest
 
@@ -130,6 +133,37 @@ CASES = [
     ('str(CC.frac_field(x))', "'CC(x)'"),
     ('RR[x].ngens', '1'),
     ('RR[x].symbols', '(x,)'),
+    # Floats over several generators, ground_roots and apart over RR[y]
+    ('Poly(1.5*x*z + y, x, z).domain', 'RR[y]'),
+    ('Poly(I*x*z + 1.5*y, x, z)', "Poly(1.0*I*x*z + 1.5*y, x, z, domain='CC[y]')"),
+    ('Poly(I*x*z + 1.5*y, x, z).domain', 'CC[y]'),
+    ('Poly(1.5*x*z + 1/y, x, z)', "Poly(1.5*x*z + 1.0/y, x, z, domain='RR(y)')"),
+    ('Poly(1.5*x*z + 1/y, x, z).domain', 'RR(y)'),
+    ('Poly(1.5*x*z + y*t, x, z).domain', 'RR[y,t]'),
+    ('Poly(1.5*x*y*z + 1, x, z).domain', 'RR[y]'),
+    ('Poly((1.5+I)*x*z + y, x, z).domain', 'CC[y]'),
+    ('apart(1/(x**2 - 1.5*x*y + 1), x)', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('apart(1/(1.5*x**2*y - y), x)', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('apart(y/(1.5*x**2 - 1), x)', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('apart((x+y)/(x**2+1.5*y*x), x)', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('Poly(1.5*x**2*y - 1.5*y, x).ground_roots()', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('ground_roots(1.5*x**2*y - 1.5*y, x)', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('ground_roots(1.5*x**2 - 1.5, x)', '{1.00000000000000: 1, -1.00000000000000: 1}'),
+    ('ground_roots(x**2*y - 2.0*y, x)', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('Poly(x**2 - 1.5, x).ground_roots()', '{}'),
+    ('Poly(1.5*x+I,x)', "Poly(1.5*x + 1.0*I, x, domain='CC')"),
+    ('Poly(1.5*x+I,x).domain', 'CC'),
+    ('Poly(I*x*z + 1.5*y, x, z)*Poly(x,x,z)', "Poly(1.0*I*x**2*z + 1.5*y*x, x, z, domain='CC[y]')"),
+    ('Poly(1.5*x*z + 1/y, x, z)*Poly(x, x, z)', "Poly(1.5*x**2*z + 1.0/y*x, x, z, domain='RR(y)')"),
+    ('Poly(1.5*x*z + 1/y, x, z).as_expr()', '1.5*x*z + 1.0/y'),
+    ('Poly(1.5*x*z+y,x,z).monic()', "Poly(1.0*x*z + 0.666666666666667*y, x, z, domain='RR(y)')"),
+    ('Poly(1.5*x*z+y,x,z).to_field()', "Poly(1.5*x*z + 1.0*y, x, z, domain='RR(y)')"),
+    ('Poly(1.5*x+y,x).ground_roots()', "EXC TypeError unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'"),
+    ('ground_roots(1.5*x**2-1.5*x, x)', '{1.00000000000000: 1, 0: 1}'),
+    ('ground_roots(2.0*x**3-2.0, x)', '{1.00000000000000: 1}'),
+    ('Poly(x**2-2.25,x).ground_roots()', '{1.50000000000000: 1, -1.50000000000000: 1}'),
+    ('ground_roots(x**2+1.0,x)', '{}'),
+    ('ground_roots((x-1.5)*(x+1)*1.0,x)', '{1.50000000000000: 1, -1.00000000000000: 1}'),
 ]
 
 
