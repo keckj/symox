@@ -24,6 +24,13 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         method=getattr(expression,'simplify',None)
         if method is not None:return method(**options)
         return _core.simplify(expression)
+    if doit and _core._host_contains(expression)[0]:
+        # The reference simplify ends with doit() on unhandled heads; host
+        # classes that opt in (held WignerD) are evaluated first here.
+        held=expression.find(lambda node:getattr(type(node),'_symox_simplify_doit',False))
+        if held:
+            expression=expression.xreplace({node:node.doit() for node in held})
+            if not isinstance(expression,Expr):return simplify(expression,**options)
     from ._host import simplify_hook
     hook=simplify_hook(expression)
     if hook is not None:

@@ -14,6 +14,9 @@ class Qubit(Ket):
         if not bits or any(v not in (0,1) for v in self.qubit_values):raise ValueError('qubit labels must be 0 or 1')
         self.nqubits=len(bits);Atom.__init__(self,*self.qubit_values);self.hilbert_space=ComplexSpace(2**self.nqubits)
     def _atom_repr(self):return '|'+''.join(map(str,self.qubit_values))+'>'
+    def __len__(self):return self.nqubits
+    @property
+    def dimension(self):return self.nqubits
     def __getitem__(self,index):return self.qubit_values[-int(index)-1]
     def flip(self,*bits):
         values=list(self.qubit_values)

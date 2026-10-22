@@ -3,7 +3,7 @@ from itertools import combinations, combinations_with_replacement
 import symox as S
 from ._algebra import Atom, OperatorExpr, _terms
 from .quantum._core import (Operator, StateBase, KetBase, BraBase, Dagger,
-    InnerProduct, qapply, FockSpace)
+    qapply, FockSpace)
 
 KroneckerDelta = S.KroneckerDelta
 
@@ -38,8 +38,12 @@ def _fermi_dummy(name, level, template=None):
     if template is not None:
         try:assumptions = {k:v for k,v in template.assumptions0.items() if k not in _LEVEL_KEY}
         except Exception:assumptions = {}
-    try:index = S.Dummy(name,**assumptions)
-    except Exception:index = S.Dummy(name)
+    assumptions[level+'_fermi'] = True
+    try:return S.Dummy(name,**assumptions)
+    except Exception:
+        assumptions.pop(level+'_fermi')
+        try:index = S.Dummy(name,**assumptions)
+        except Exception:index = S.Dummy(name)
     _FERMI_LEVEL[index] = level
     return index
 
@@ -52,7 +56,11 @@ def _delta(a, b):
     return KroneckerDelta(a,b)
 
 
-class BosonicOperator(Operator):
+class _SqAtoms:
+    def atoms(self,*types):return set().union(*(S.sympify(v).atoms(*types) for v in self.labels))
+
+
+class BosonicOperator(_SqAtoms,Operator):
     is_boson = True
     is_creator = False
     def __init__(self, state):self.state=S.sympify(state);super().__init__(self.state)
@@ -64,22 +72,22 @@ class BosonicOperator(Operator):
         if not isinstance(other,BosonicOperator):return None
         if self.is_creator == other.is_creator:return S.Integer(0)
         return (-1 if self.is_creator else 1)*KroneckerDelta(self.state,other.state)
+    def apply_operator(self, state):
+        if not self.is_symbolic and isinstance(state,FockStateKet):
+            element=self.state
+            if self.is_creator:return S.sqrt(state[element]+1)*state.up(element)
+            return S.sqrt(state[element])*state.down(element)
+        return self*state
     def _apply_to(self, ket, **options):
-        if not isinstance(ket,FockStateBosonKet) or not self.state.is_Integer:return None
-        i=int(self.state)
-        if not 0<=i<len(ket.occupations):raise ValueError('mode index lies outside the Fock state')
-        values=list(ket.occupations);n=values[i]
-        if self.is_creator:values[i]+=1;factor=S.sqrt(n+1)
-        else:
-            if n==0:return S.Integer(0)
-            values[i]-=1;factor=S.sqrt(n)
-        return factor*type(ket)(values)
+        # apply_operators leaves symbolic labels alone, like the reference _apply_Mul.
+        if self.is_symbolic or not isinstance(ket,FockStateKet):return None
+        return self.apply_operator(ket)
 class AnnihilateBoson(BosonicOperator):
     def _dual(self):return CreateBoson(self.state)
 class CreateBoson(BosonicOperator):
     is_creator=True
     def _dual(self):return AnnihilateBoson(self.state)
-class _FermionOperator(Operator):
+class _FermionOperator(_SqAtoms,Operator):
     is_boson=False
     is_creator=False
     def __init__(self,state):self.state=S.sympify(state);super().__init__(self.state)
@@ -123,72 +131,215 @@ class _FermionOperator(Operator):
     def _multiply_atom(self,other):
         if isinstance(other,type(self)) and self.state==other.state:return S.Integer(0),()
         return None
+    def _ladder(self,ket):return ket.up(self.state) if self.is_creator else ket.down(self.state)
+    def apply_operator(self,state):
+        if isinstance(state,FockStateFermionKet):return self._ladder(state)
+        if isinstance(state,OperatorExpr) and len(state._terms)==1:
+            (word,coefficient),=state._terms.items()
+            if word and isinstance(word[0],FockStateFermionKet):return coefficient*self._ladder(word[0])*_prod(word[1:])
+        return self*state
     def _apply_to(self,ket,**options):
-        if not isinstance(ket,FockStateFermionKet) or not self.state.is_Integer:return None
-        # Fermionic states are occupied orbital lists, in increasing order.
-        orbital=self.state;values=list(ket.occupations)
-        if self.is_creator:
-            if orbital in values:return S.Integer(0)
-            position=sum(int(v)<int(orbital) for v in values);values.insert(position,orbital)
-        else:
-            if orbital not in values:return S.Integer(0)
-            position=values.index(orbital);values.pop(position)
-        return (-1)**position*type(ket)(values,fermi_level=ket.fermi_level)
+        if self.is_symbolic or not isinstance(ket,FockStateFermionKet):return None
+        return self.apply_operator(ket)
 class AnnihilateFermion(_FermionOperator):pass
 class CreateFermion(_FermionOperator):is_creator=True
 _LADDER=(BosonicOperator,_FermionOperator)
 
 
+def _tuple_text(values):
+    values=tuple(values)
+    return '(%s,)'%values[0] if len(values)==1 else '(%s)'%', '.join(map(str,values))
+
+
 class FockState(StateBase):
+    lbracket=rbracket=''
     def __init__(self,occupations):
+        if getattr(self,'_ready',False):return
         self.occupations=tuple(map(S.sympify,occupations));StateBase.__init__(self,*self.occupations);self.hilbert_space=FockSpace()
+    def __getitem__(self,i):return self.occupations[int(i)]
+    @property
+    def args(self):return (S.Tuple(*self.occupations),)
+    def __len__(self):return len(self.occupations)
+    def _labels(self):return self.occupations
+    def __repr__(self):return 'FockState(%s)'%_tuple_text(self.occupations)
+    def __str__(self):return '%s%s%s'%(self.lbracket,_tuple_text(self._labels()),self.rbracket)
+    # Products print the class-name form, like the reference StrPrinter.
+    def _atom_repr(self):return '%s(%s)'%(type(self).__name__,_tuple_text(self.occupations))
     def _subs_parameters(self,mapping,**kwargs):return type(self)([v.subs(mapping,**kwargs) for v in self.occupations])
     def _inner_with(self,ket):
-        if type(self) not in (FockStateBosonBra,FockStateFermionBra) or self.statistics!=getattr(ket,'statistics',None):return S.Integer(0)
-        if len(self.occupations)!=len(ket.occupations):return S.Integer(0)
-        return S.Mul(*(KroneckerDelta(a,b) for a,b in zip(self.occupations,ket.occupations)))
-class FockStateKet(FockState,KetBase):pass
-class FockStateBra(FockState,BraBase):pass
-class FockStateBosonKet(FockStateKet):
+        if isinstance(ket,FockStateKet):return InnerProduct(self,ket)
+        return StateBase._inner_with(self,ket)
+class FockStateKet(FockState,KetBase):lbracket,rbracket='|','>'
+class FockStateBra(FockState,BraBase):lbracket,rbracket='<','|'
+
+
+class BosonState(FockState):
+    def up(self,i):
+        i=int(i);values=list(self.occupations);values[i]=values[i]+1
+        return type(self)(values)
+    def down(self,i):
+        i=int(i);values=list(self.occupations)
+        if values[i]==0:return S.Integer(0)
+        values[i]=values[i]-1
+        return type(self)(values)
+
+
+def _only_below_fermi(i,fermi_level):
+    i=S.sympify(i)
+    if i.is_number:return bool(i<=fermi_level)
+    return _assumed(i,'below_fermi')
+
+
+def _only_above_fermi(i,fermi_level):
+    i=S.sympify(i)
+    if i.is_number:return bool(i>fermi_level)
+    if _assumed(i,'above_fermi'):return True
+    return not fermi_level
+
+
+class FermionState(FockState):
+    """Excitations of the Fermi sea: holes (orbitals at or below ``fermi_level``) and particles.
+
+    The reference stores ``fermi_level`` on the class (the last construction
+    wins); here every state keeps its own level.
+    """
+    def __new__(cls,occupations,fermi_level=0):
+        occupations=list(map(S.sympify,occupations));sign=0
+        if len(occupations)>1:
+            try:occupations,sign=_sort_anticommuting_fermions(occupations,key=_sqkey_index)
+            except ViolationOfPauliPrinciple:return S.Integer(0)
+        if sum(_only_below_fermi(i,fermi_level) for i in occupations)>fermi_level:return S.Integer(0)
+        obj=super().__new__(cls);obj.fermi_level=fermi_level
+        FockState.__init__(obj,occupations);obj._ready=True
+        return -obj if sign%2 else obj
+    def __init__(self,*args,**kwargs):pass
+    def up(self,i):
+        i=S.sympify(i);present=i in self.occupations
+        if _only_above_fermi(i,self.fermi_level):return S.Integer(0) if present else self._add_orbit(i)
+        if _only_below_fermi(i,self.fermi_level):return self._remove_orbit(i) if present else S.Integer(0)
+        if present:return KroneckerDelta(i,S.Dummy('i',below_fermi=True))*self._remove_orbit(i)
+        return KroneckerDelta(i,S.Dummy('a',above_fermi=True))*self._add_orbit(i)
+    def down(self,i):
+        i=S.sympify(i);present=i in self.occupations
+        if _only_above_fermi(i,self.fermi_level):return self._remove_orbit(i) if present else S.Integer(0)
+        if _only_below_fermi(i,self.fermi_level):return S.Integer(0) if present else self._add_orbit(i)
+        if present:return KroneckerDelta(i,S.Dummy('i',below_fermi=True))*self._add_orbit(i)
+        return KroneckerDelta(i,S.Dummy('a',above_fermi=True))*self._remove_orbit(i)
+    def _remove_orbit(self,i):
+        values=list(self.occupations);pos=values.index(i);del values[pos]
+        state=type(self)(values,self.fermi_level)
+        return -state if pos%2 else state
+    def _add_orbit(self,i):return type(self)((i,)+self.occupations,self.fermi_level)
+    def _negate_holes(self,occupations):
+        return tuple(-i if _only_below_fermi(i,self.fermi_level) and i.is_number else i for i in occupations)
+    def _labels(self):return self._negate_holes(self.occupations)
+    def __repr__(self):
+        if self.fermi_level:return 'FockStateKet(%s, fermi_level=%s)'%(_tuple_text(self.occupations),self.fermi_level)
+        return 'FockStateKet(%s)'%_tuple_text(self.occupations)
+    def _subs_parameters(self,mapping,**kwargs):return type(self)([v.subs(mapping,**kwargs) for v in self.occupations],self.fermi_level)
+
+
+class FockStateBosonKet(BosonState,FockStateKet):
     statistics='boson'
     def __init__(self,occupations):
         if any(S.sympify(n).is_integer is False or S.sympify(n).is_negative is True for n in occupations):raise ValueError('bosonic occupation numbers must be nonnegative integers')
         super().__init__(occupations)
     def _dual(self):return FockStateBosonBra(self.occupations)
-class FockStateBosonBra(FockStateBra):
+class FockStateBosonBra(BosonState,FockStateBra):
     statistics='boson'
     def _dual(self):return FockStateBosonKet(self.occupations)
-class FockStateFermionKet(FockStateKet):
+class FockStateFermionKet(FermionState,FockStateKet):
     statistics='fermion'
-    def __init__(self,occupations,fermi_level=0):
-        values=tuple(map(S.sympify,occupations))
-        if len(set(values))!=len(values):raise ValueError('a fermionic orbital cannot be occupied twice')
-        if any(v.is_Integer is not True for v in values):raise NotImplementedError('fermionic Fock states currently require explicit integer orbitals')
-        if tuple(sorted(values,key=int))!=values:raise ValueError('fermionic occupied orbitals must be sorted')
-        self.fermi_level=fermi_level
-        if fermi_level!=0:raise NotImplementedError('filled Fermi-sea states are not supported; use the empty-vacuum convention')
-        super().__init__(values)
-    def _dual(self):return FockStateFermionBra(self.occupations,fermi_level=self.fermi_level)
-class FockStateFermionBra(FockStateBra):
+    def _dual(self):return FockStateFermionBra(self.occupations,self.fermi_level)
+class FockStateFermionBra(FermionState,FockStateBra):
     statistics='fermion'
-    def __init__(self,occupations,fermi_level=0):
-        ket=FockStateFermionKet(occupations,fermi_level);self.fermi_level=ket.fermi_level;super().__init__(ket.occupations)
-    def _dual(self):return FockStateFermionKet(self.occupations,fermi_level=self.fermi_level)
+    def _dual(self):return FockStateFermionKet(self.occupations,self.fermi_level)
 
 BBra=FockStateBosonBra;BKet=FockStateBosonKet;FBra=FockStateFermionBra;FKet=FockStateFermionKet
 B=AnnihilateBoson;Bd=CreateBoson;F=AnnihilateFermion;Fd=CreateFermion
 
+
+class InnerProduct:
+    """Overlap of Fock states, evaluated at construction like the reference."""
+    def __new__(cls,bra,ket):
+        if not isinstance(bra,FockStateBra):raise TypeError('must be a bra')
+        if not isinstance(ket,FockStateKet):raise TypeError('must be a ket')
+        return cls.eval(bra,ket)
+    @classmethod
+    def eval(cls,bra,ket):
+        result=S.Integer(1)
+        for i,j in zip(bra.occupations,ket.occupations):
+            result*=KroneckerDelta(i,j)
+            if result==0:break
+        return result
+
+
 def apply_operators(e):return qapply(e)
 
 
-class Commutator:
+def _sort_key(e):
+    # Approximates the reference Basic.sort_key: products sort before operators.
+    if isinstance(e,Atom):return ((5,0,type(e).__name__),(len(e.labels),tuple(_sort_key(v) for v in e.labels)))
+    if isinstance(e,OperatorExpr):
+        (word,coefficient),=e._terms.items()
+        return ((3,0,'Mul'),(len(word),tuple(_sort_key(v) for v in word)))
+    return ((0,0,''),S.default_sort_key(e))
+
+
+class Commutator(Atom):
+    """The reference commutator [A,B]; it evaluates at construction when it can."""
     def __new__(cls,a,b):
-        if a==b:return S.Integer(0)
-        result=getattr(a,'_commutator',lambda b:None)(b)
+        result=cls.eval(a,b)
         if result is not None:return result
-        obj=super().__new__(cls);obj.a,obj.b=a,b;return obj
-    def doit(self,**hints):return wicks(self.a*self.b-self.b*self.a)
-    def _symox_(self):return S.sympify(self.doit())
+        obj=super().__new__(cls);Atom.__init__(obj,a,b);return obj
+    def __init__(self,*args):pass
+    @classmethod
+    def eval(cls,a,b):
+        if _is_zero(a) or _is_zero(b) or a==b:return S.Integer(0)
+        if any(not isinstance(v,OperatorExpr) and S.sympify(v).is_commutative is not False for v in (a,b)):return S.Integer(0)
+        terms_a,terms_b=_commutator_terms(a),_commutator_terms(b)
+        if len(terms_a)>1:return _sum(cls(c*w,b) for c,w in terms_a)
+        if len(terms_b)>1:return _sum(cls(a,c*w) for c,w in terms_b)
+        (ca,wa),=terms_a;(cb,wb),=terms_b
+        if wa==1 or wb==1:return S.Integer(0)
+        if ca*cb!=1:return ca*cb*cls(wa,wb)
+        a,b=wa,wb
+        if isinstance(a,BosonicOperator) and isinstance(b,BosonicOperator):
+            if isinstance(b,CreateBoson) and isinstance(a,AnnihilateBoson):return KroneckerDelta(a.state,b.state)
+            if isinstance(a,CreateBoson) and isinstance(b,AnnihilateBoson):return -KroneckerDelta(a.state,b.state)
+            return S.Integer(0)
+        if isinstance(a,_FermionOperator) and isinstance(b,_FermionOperator):return wicks(a*b)-wicks(b*a)
+        if _sort_key(a)>_sort_key(b):return -cls(b,a)
+        return None
+    def doit(self,**hints):
+        a,b=self.labels
+        if hints.get('wicks'):
+            a=a.doit(**hints);b=b.doit(**hints)
+            try:return wicks(a*b)-wicks(b*a)
+            except (ContractionAppliesOnlyToFermions,WicksTheoremDoesNotApply):pass
+        result=a*b-b*a
+        return result.doit(**hints) if hasattr(result,'doit') else result
+    def _parameter_symbols(self):return set().union(*(v.free_symbols for v in self.labels))
+    def _subs_parameters(self,mapping,**kwargs):return Commutator(*(v.subs(mapping,**kwargs) for v in self.labels))
+    def _atom_repr(self):return 'Commutator(%s, %s)'%self.labels
+    def __repr__(self):return 'Commutator(%s,%s)'%self.labels
+    def __str__(self):return '[%s,%s]'%self.labels
+
+
+def _commutator_terms(e):
+    """The expanded (commuting part, noncommuting part) terms of a commutator argument."""
+    if isinstance(e,OperatorExpr):
+        return [(c,_prod(w)) for w,c in e._terms.items()] or [(S.Integer(0),S.Integer(1))]
+    result=[]
+    for term in S.Add.make_args(S.expand(S.sympify(e))):
+        c,nc=term.args_cnc();result.append((S.Mul(*c),S.Mul(*nc)))
+    return result
+
+
+def _sum(values):
+    total=S.Integer(0)
+    for value in values:total=total+value
+    return total
 
 
 def _boson_contraction(a,b):
@@ -307,6 +458,14 @@ class NO(Atom):
         result=cls._raw(newseq)
         return -result if sign%2 else result
     def _key(self):return type(self),self.ops
+    def subs(self,*args,**kwargs):
+        # Operator replacements reach the factors, like the reference NO.subs.
+        mapping=args[0] if len(args)==1 else {args[0]:args[1]}
+        if isinstance(mapping,(list,tuple)):mapping=dict(mapping)
+        if not any(isinstance(k,OperatorExpr) for k in mapping):return super().subs(mapping,**kwargs)
+        scalars={k:v for k,v in mapping.items() if not isinstance(k,OperatorExpr)}
+        result=NO(_prod(mapping.get(op,op) for op in self.ops))
+        return result.subs(scalars,**kwargs) if scalars and isinstance(result,OperatorExpr) else result
     @property
     def expression(self):return _prod(self.ops)
     def _parameter_symbols(self):return set().union(*(a._parameter_symbols() for a in self.ops))
@@ -404,6 +563,13 @@ def _is_zero(e):
     except Exception:return False
 
 
+def _expand_coefficients(e):
+    if isinstance(e,OperatorExpr):
+        terms={w:S.expand(c) for w,c in e._terms.items()}
+        return e if all(terms[w]==c for w,c in e._terms.items()) else OperatorExpr(terms)
+    return S.expand(e)
+
+
 def wicks(e,**kw_args):
     """Wick expansion relative to the Fermi vacuum, as in the reference."""
     if _is_zero(e):return S.Integer(0)
@@ -430,25 +596,51 @@ def wicks(e,**kw_args):
         result=coefficient*(_fully_contracted(word) if opts['keep_only_fully_contracted'] else _normal_word(word,True))
     else:
         result=coefficient*_get_contractions(tuple(word),keep_only_fully_contracted=opts['keep_only_fully_contracted'])
+    if opts['expand']:result=_expand_coefficients(result)
     if opts['simplify_kronecker_deltas']:result=evaluate_deltas(result)
     return result
 
 
-class BosonicBasis:
-    def __init__(self,states):self._states=list(states)
-    def __len__(self):return len(self._states)
-    def __getitem__(self,index):return self._states[index]
-    def index(self,state):return self._states.index(state)
-class VarBosonicBasis(BosonicBasis):
+class BosonicBasis:pass
+
+
+class VarBosonicBasis:
+    """Single-mode bosonic basis with occupations 0, ..., n_max-1."""
     def __init__(self,n_max):
-        if int(n_max)!=n_max or n_max<1:raise ValueError('basis dimension must be positive')
-        super().__init__([BKet([n]) for n in range(n_max)])
+        self.n_max=n_max;self._build_states()
+    def _build_states(self):
+        self.basis=[FockStateBosonKet([i]) for i in range(self.n_max)];self.n_basis=len(self.basis)
+    def index(self,state):return self.basis.index(state)
+    def state(self,i):return self.basis[i]
+    def __getitem__(self,i):return self.state(i)
+    def __len__(self):return len(self.basis)
+    def __repr__(self):return repr(self.basis)
+
+
 class FixedBosonicBasis(BosonicBasis):
+    """Basis of ``n_particles`` bosons over ``n_levels`` levels, in the reference order."""
     def __init__(self,n_particles,n_levels):
-        if n_particles<0 or n_levels<1:raise ValueError('invalid particle or level count')
-        states=[]
-        for occupied in combinations_with_replacement(range(n_levels),n_particles):states.append(BKet([occupied.count(i) for i in range(n_levels)]))
-        super().__init__(states)
+        self.n_particles=n_particles;self.n_levels=n_levels
+        self._build_particle_locations();self._build_states()
+    def _build_particle_locations(self):
+        # The reference nests "for i0 in range(n_levels) for i1 in range(i0 + 1) ...".
+        if self.n_particles==0:locations=[() for _ in range(self.n_levels)]
+        else:
+            locations=[(i,) for i in range(self.n_levels)]
+            for _ in range(self.n_particles-1):locations=[t+(j,) for t in locations for j in range(t[-1]+1)]
+        self.particle_locations=locations
+    def _build_states(self):
+        self.basis=[]
+        for tuple_of_indices in self.particle_locations:
+            occ_numbers=self.n_levels*[0]
+            for level in tuple_of_indices:occ_numbers[level]+=1
+            self.basis.append(FockStateBosonKet(occ_numbers))
+        self.n_basis=len(self.basis)
+    def index(self,state):return self.basis.index(state)
+    def state(self,i):return self.basis[i]
+    def __getitem__(self,i):return self.state(i)
+    def __len__(self):return len(self.basis)
+    def __repr__(self):return repr(self.basis)
 
 def matrix_rep(op,basis):
     basis=list(basis);result=S.zeros(len(basis))
@@ -520,31 +712,199 @@ def evaluate_deltas(e):
     if isinstance(e,OperatorExpr):
         result=S.Integer(0)
         for word,coefficient in e._terms.items():
-            for term in S.Add.make_args(S.expand(coefficient)):
+            for term in S.Add.make_args(S.expand(_clean_deltas(coefficient))):
                 result=result+_evaluate_mul(list(S.Mul.make_args(term))+list(word))
         return result
-    e=S.sympify(e)
+    e=_clean_deltas(S.sympify(e))
     if e.is_Add:return S.Add(*(evaluate_deltas(t) for t in e.args))
     if e.is_Mul:return _evaluate_mul(list(e.args))
     return e
 
-def _antisym_sort(values):
-    values=tuple(map(S.sympify,values))
-    if len(set(values))!=len(values):return 0,values
-    order=sorted(range(len(values)),key=lambda i:str(values[i]));inversions=sum(order[i]>order[j] for i in range(len(order)) for j in range(i+1,len(order)))
-    return (-1)**inversions,tuple(values[i] for i in order)
+class AntiSymmetricTensor(S.Function):
+    """Tensor antisymmetric in its upper and in its lower indices, as in the reference."""
+    # Host hooks of a symox class, so eval canonicalizes again after subs.
+    _symox_user_hooks=True
+    def __new__(cls,symbol,upper,lower):
+        return super().__new__(cls,S.sympify(symbol),S.Tuple(*upper),S.Tuple(*lower))
+    @classmethod
+    def eval(cls,symbol,upper,lower):
+        # Indices sort like the reference _sqkey_index; this reruns on subs.
+        try:
+            su,signu=_sort_anticommuting_fermions(list(upper),key=_sqkey_index)
+            sl,signl=_sort_anticommuting_fermions(list(lower),key=_sqkey_index)
+        except ViolationOfPauliPrinciple:
+            return S.Integer(0)
+        if tuple(su)==tuple(upper) and tuple(sl)==tuple(lower):return None
+        result=cls(symbol,su,sl)
+        return -result if (signu+signl)%2 else result
+    @property
+    def symbol(self):return self.args[0]
+    @property
+    def upper(self):return self.args[1]
+    @property
+    def lower(self):return self.args[2]
 
-def AntiSymmetricTensor(symbol,upper,lower):
-    su,upper=_antisym_sort(upper);sl,lower=_antisym_sort(lower)
-    if not su or not sl:return S.Integer(0)
-    return su*sl*S._core._apply('AntiSymmetricTensor',S.Symbol(symbol) if isinstance(symbol,str) else S.sympify(symbol),S.Tuple(*upper),S.Tuple(*lower),evaluate=False)
+
+def _is_dummy(s):return getattr(s,'is_Dummy',False) is True
 
 
-def substitute_dummies(expression,new_indices=False,pretty_indices=None):
-    # Native Dummy identity, unlike symbol spelling, determines dummy status.
-    symbols=sorted((s for s in expression.free_symbols if getattr(s,'class_name','')=='Dummy'),key=str)
-    mapping={s:S.Dummy(f'd_{i}') if new_indices else S.Symbol(f'd_{i}') for i,s in enumerate(symbols)}
-    return expression.xreplace(mapping)
+def _factor_dummies(factor):
+    if isinstance(factor,OperatorExpr):return {s for s in factor.free_symbols if _is_dummy(s)}
+    return set(S.sympify(factor).atoms(S.Dummy))
+
+
+def _key_text(factor):
+    """The reference KeyPrinter text: every Dummy prints as ``(name_index)``."""
+    if isinstance(factor,_LADDER):
+        return '%s(%s)'%(type(factor).__name__ if not isinstance(factor,BosonicOperator) else ('CreateBoson' if factor.is_creator else 'AnnihilateBoson'),_key_text(factor.state))
+    if isinstance(factor,NO):return 'NO(%s)'%'*'.join(_key_text(op) for op in factor.ops)
+    if isinstance(factor,OperatorExpr):
+        return factor._subs_parameters({d:S.Symbol(_key_text(d)) for d in _factor_dummies(factor)})._atom_repr()
+    factor=S.sympify(factor)
+    if _is_dummy(factor):return '(%s_%i)'%(factor.name,factor.dummy_index)
+    dummies=factor.atoms(S.Dummy)
+    return str(factor.xreplace({d:S.Symbol(_key_text(d)) for d in dummies}) if dummies else factor)
+
+
+def _term_factors(term):
+    """Mul.make_args of one term: commuting factors, then the operator word."""
+    if isinstance(term,OperatorExpr):
+        if not term._terms:return [S.Integer(0)]
+        if len(term._terms)>1:raise NotImplementedError('dummy ordering of a sum of operator words')
+        (word,coefficient),=term._terms.items()
+        return list(S.Mul.make_args(coefficient))+list(word)
+    return list(S.Mul.make_args(S.sympify(term)))
+
+
+def _level_mask(d):
+    if _assumed(d,'below_fermi'):return '0'
+    if _assumed(d,'above_fermi'):return '1'
+    return '2'
+
+
+def _has_dups(values):
+    values=list(values);return len(set(values))!=len(values)
+
+
+def _get_ordered_dummies(mul,verbose=False):
+    """Canonical order of the dummies of one term, ported from the reference."""
+    args=_term_factors(mul)
+    fac_dum={};fac_repr={}
+    for fac in args:
+        fac_dum[fac]=_factor_dummies(fac);fac_repr[fac]=_key_text(fac)
+    all_dums=sorted(set().union(*fac_dum.values()),key=S.default_sort_key)
+    mask={d:_level_mask(d) for d in all_dums}
+    dum_repr={d:_key_text(d) for d in all_dums}
+    def _key(d):
+        dumstruct=[fac for fac in fac_dum if d in fac_dum[fac]]
+        other_dums=set().union(*[fac_dum[fac] for fac in dumstruct])
+        other_dums.discard(d)
+        masked_facs=[fac_repr[fac] for fac in dumstruct]
+        for d2 in other_dums:masked_facs=[fac.replace(dum_repr[d2],mask[d2]) for fac in masked_facs]
+        all_masked=[fac.replace(dum_repr[d],mask[d]) for fac in masked_facs]
+        masked_facs=dict(zip(dumstruct,masked_facs))
+        if _has_dups(all_masked):
+            all_masked.sort()
+            return mask[d],tuple(all_masked)
+        keydict=dict(zip(dumstruct,all_masked))
+        dumstruct.sort(key=lambda x:keydict[x])
+        all_masked.sort()
+        pos_val=[]
+        for fac in dumstruct:
+            if isinstance(fac,AntiSymmetricTensor):
+                if d in fac.upper:pos_val.append('u')
+                if d in fac.lower:pos_val.append('l')
+            elif isinstance(fac,_LADDER):pos_val.append('u' if fac.is_creator else 'l')
+            elif isinstance(fac,NO):
+                for op in fac.ops:
+                    if d in op.free_symbols:pos_val.append('u' if op.is_creator else 'l')
+            else:
+                facpos=-1
+                while True:
+                    facpos=masked_facs[fac].find(dum_repr[d],facpos+1)
+                    if facpos==-1:break
+                    pos_val.append(facpos)
+        return mask[d],tuple(all_masked),pos_val[0],pos_val[-1]
+    dumkey={d:_key(d) for d in all_dums}
+    result=sorted(all_dums,key=lambda x:dumkey[x])
+    if _has_dups(dumkey.values()):
+        unordered={}
+        for d,k in dumkey.items():unordered.setdefault(k,[]).append(d)
+        unordered=[set(unordered[k]) for k in sorted(unordered) if len(unordered[k])>=2]
+        result=_determine_ambiguous(mul,result,unordered)
+    return result
+
+
+def _subs_sequence(term,pairs):
+    for old,new in pairs:term=term.subs(old,new)
+    return term
+
+
+_symbol_counter=[0]
+
+
+def _determine_ambiguous(term,ordered,ambiguous_groups):
+    all_ambiguous=set()
+    for dummies in ambiguous_groups:all_ambiguous|=dummies
+    all_ordered=set(ordered)-all_ambiguous
+    if not all_ordered:
+        group=[d for d in ordered if d in ambiguous_groups[0]]
+        d=group[0];all_ordered.add(d);ambiguous_groups[0].remove(d)
+    stored_counter=_symbol_counter[0];subslist=[]
+    for d in [d for d in ordered if d in all_ordered]:
+        subslist.append((d,S.Symbol('_]"]_%i'%_symbol_counter[0])));_symbol_counter[0]+=1
+    newterm=_subs_sequence(term,subslist)
+    neworder=_get_ordered_dummies(newterm)
+    _symbol_counter[0]=stored_counter
+    for group in ambiguous_groups:
+        ordered_group=[d for d in neworder if d in group];ordered_group.reverse()
+        result=[]
+        for d in ordered:result.append(ordered_group.pop() if d in group else d)
+        ordered=result
+    return ordered
+
+
+def _expanded_terms(expr):
+    if isinstance(expr,OperatorExpr):
+        return [t*_prod(word) for word,coefficient in expr._terms.items() for t in S.Add.make_args(S.expand(coefficient))]
+    return list(S.Add.make_args(S.expand(S.sympify(expr))))
+
+
+def substitute_dummies(expr,new_indices=False,pretty_indices={}):
+    """Rename the dummies of every term canonically so equivalent terms combine, as in the reference."""
+    if new_indices:
+        letters_above=pretty_indices.get('above','');letters_below=pretty_indices.get('below','');letters_general=pretty_indices.get('general','')
+        def _letter(letters,prefix,number):return letters[number] if number<len(letters) else '%s_%i'%(prefix,number-len(letters))
+    aboves=[];belows=[];generals=[]
+    dummies=[s for s in expr.free_symbols if _is_dummy(s)] if isinstance(expr,OperatorExpr) else list(S.sympify(expr).atoms(S.Dummy))
+    if not new_indices:dummies=sorted(dummies,key=S.default_sort_key)
+    counts={'a':0,'i':0,'p':0}
+    for d in dummies:
+        if _assumed(d,'above_fermi'):kind,group,letters='a',aboves,letters_above if new_indices else ''
+        elif _assumed(d,'below_fermi'):kind,group,letters='i',belows,letters_below if new_indices else ''
+        else:kind,group,letters='p',generals,letters_general if new_indices else ''
+        if new_indices:
+            group.append(S.Dummy(_letter(letters,kind,counts[kind]),**d.assumptions0));counts[kind]+=1
+        else:group.append(d)
+    new_terms=[]
+    for term in _expanded_terms(expr):
+        i=iter(belows);a=iter(aboves);p=iter(generals)
+        subsdict={}
+        for d in _get_ordered_dummies(term):
+            if _assumed(d,'below_fermi'):subsdict[d]=next(i)
+            elif _assumed(d,'above_fermi'):subsdict[d]=next(a)
+            else:subsdict[d]=next(p)
+        subslist=[];final_subs=[]
+        for k,v in subsdict.items():
+            if k==v:continue
+            if v in subsdict:
+                if subsdict[v] in subsdict:
+                    x=S.Dummy('x');subslist.append((k,x));final_subs.append((x,v))
+                else:final_subs.insert(0,(k,v))
+            else:subslist.append((k,v))
+        subslist.extend(final_subs)
+        new_terms.append(_subs_sequence(term,subslist))
+    return _sum(new_terms)
 
 
 def _has_index(expr,index):
