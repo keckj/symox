@@ -172,6 +172,24 @@ fn certified_sign(e: &Expr) -> Option<i8> {
     None
 }
 
+/// Sign of `e` from a certified enclosure, else from the assumptions of its
+/// parameters (a pole `-a` with `a` positive is certified negative).
+fn assumed_sign(e: &Expr) -> Option<i8> {
+    if let Some(s) = certified_sign(e) {
+        return Some(s);
+    }
+    let e = crate::simplify::simplify(&crate::expand::expand(e));
+    if crate::assumptions::is_positive(&e) == Some(true) {
+        Some(1)
+    } else if crate::assumptions::is_negative(&e) == Some(true) {
+        Some(-1)
+    } else if crate::assumptions::is_zero(&e) == Some(true) {
+        Some(0)
+    } else {
+        None
+    }
+}
+
 pub(super) fn compare(a: &Expr, b: &Expr) -> Option<Ordering> {
     if a == b {
         return Some(Ordering::Equal);
@@ -182,7 +200,7 @@ pub(super) fn compare(a: &Expr, b: &Expr) -> Option<Ordering> {
     if a.is_constant(Constant::Infinity) || b.is_constant(Constant::NegInfinity) {
         return Some(Ordering::Greater);
     }
-    certified_sign(&sub(a, b)).map(|s| s.cmp(&0))
+    assumed_sign(&sub(a, b)).map(|s| s.cmp(&0))
 }
 
 fn variations(signs: impl Iterator<Item = i8>) -> usize {
@@ -273,12 +291,31 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
                 Err(_) => return Analysis::Unknown,
             }
         };
-        let real: Vec<_> = roots
-            .iter()
-            .filter(|(r, _)| enclose(r, 64).is_some())
-            .collect();
+        // A root with parameters is real or not by the assumptions; it
+        // must be decided, otherwise a pole may lie on the interval.
+        let mut real = Vec::new();
+        let mut decided = 0usize;
+        let mut symbolic = false;
+        for root in &roots {
+            if enclose(&root.0, 64).is_some() {
+                real.push(root);
+                decided += root.1 as usize;
+            } else if !crate::traverse::free_symbols(&root.0).is_empty() {
+                symbolic = true;
+                match crate::assumptions::is_real(&root.0) {
+                    Some(true) => real.push(root),
+                    Some(false) => {}
+                    None => return Analysis::Unknown,
+                }
+                decided += root.1 as usize;
+            }
+        }
         if let Some(count) = expected_real {
             if real.len() != count {
+                return Analysis::Unknown;
+            }
+        } else if symbolic {
+            if decided != dc.len() - 1 {
                 return Analysis::Unknown;
             }
         } else if real.iter().map(|(_, m)| *m as usize).sum::<usize>() != dc.len() - 1 {
@@ -304,7 +341,7 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
                     .collect();
             }
             let coefficient = mul2(&evaluated(&nc, root), &evaluated(&derivative, root));
-            let Some(sign) = certified_sign(&coefficient) else {
+            let Some(sign) = assumed_sign(&coefficient) else {
                 return Analysis::Unknown;
             };
             if sign == 0 {
@@ -322,7 +359,7 @@ pub(super) fn analyze(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Analysis {
     // leading power; include it independently of finite-pole divergences.
     let degree = nc.len() as i64 - dc.len() as i64;
     if degree >= -1 && (a.is_constant(Constant::NegInfinity) || b.is_constant(Constant::Infinity)) {
-        let Some(sign) = certified_sign(&mul2(nc.last().unwrap(), dc.last().unwrap())) else {
+        let Some(sign) = assumed_sign(&mul2(nc.last().unwrap(), dc.last().unwrap())) else {
             return Analysis::Unknown;
         };
         if sign == 0 {
