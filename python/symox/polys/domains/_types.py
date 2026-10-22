@@ -34,7 +34,8 @@ class _DomainType(type):
         _DomainType._classes.append(cls)
 
     def __instancecheck__(cls, value):
-        return isinstance(value, _core.Domain) and bool(getattr(value, cls._flag, False))
+        from ..._modular_ring import ModularRing
+        return isinstance(value, (_core.Domain, ModularRing)) and bool(getattr(value, cls._flag, False))
 
     def __setattr__(cls, name, value):
         type.__setattr__(cls, name, value)
@@ -64,7 +65,8 @@ class FiniteField(metaclass=_DomainType):
     def __new__(cls, mod, dom=None, symmetric=True):
         if dom not in (None, _core.ZZ):
             raise NotImplementedError('finite fields require the integer ground ring')
-        return _core.GF(operator.index(mod), symmetric=symmetric)
+        from ..._modular_ring import GF
+        return GF(operator.index(mod), symmetric=symmetric)
 
 
 def _numerical(prec, dps, tol, complex):

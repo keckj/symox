@@ -87,6 +87,7 @@ def integrate(*args, **kwargs):
 
 
 from ._core import Domain, DomainElement, QQ, ZZ, GF, DomainError, CoercionFailed, ExactQuotientFailed, OptionError, FlagError, UnificationFailed
+from ._modular_ring import GF
 
 from ._basic import Basic
 from . import _node_types

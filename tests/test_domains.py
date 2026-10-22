@@ -62,9 +62,17 @@ def test_finite_fields_exact_inverse_and_conversion(prime):
     with pytest.raises(sm.CoercionFailed):k(1)+sm.GF(103)(1)
 
 
-@pytest.mark.parametrize('prime',[0,1,4,6,4294967296])
-def test_invalid_characteristics(prime):
-    with pytest.raises(sm.DomainError):sm.GF(prime)
+@pytest.mark.parametrize('modulus',[0,-4])
+def test_invalid_characteristics(modulus):
+    with pytest.raises(ValueError,match='modulus must be a positive integer'):sm.GF(modulus)
+
+
+@pytest.mark.parametrize('modulus',[1,4,6,4294967296])
+def test_composite_and_large_characteristics_are_rings_modulo_n(modulus):
+    # The reference GF(n) is Z/nZ for every positive n; it is a field only
+    # for prime n.
+    k=sm.GF(modulus)
+    assert k.is_Field is False and k.mod==modulus and str(k)=='GF(%d)'%modulus
 
 
 def test_function_fields_assumptions_order_membership_and_fraction_parts():

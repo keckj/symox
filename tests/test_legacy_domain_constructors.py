@@ -35,9 +35,6 @@ def test_rational_backend_names_convert_the_python_rational_protocol(name):
 @pytest.mark.parametrize('name',['PythonFiniteField','GMPYFiniteField','FF_python','FF_gmpy'])
 @pytest.mark.parametrize('symmetric',[False,True])
 def test_finite_field_backend_names_validate_the_native_display_option(name,symmetric):
-    if not symmetric:
-        with pytest.raises(NotImplementedError):getattr(domains,name)(7,symmetric)
-        return
     field=getattr(domains,name)(7,symmetric)
     assert field==sx.GF(7,symmetric=symmetric)
     assert field(3)*field(5)==field(1)
