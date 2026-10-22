@@ -70,7 +70,7 @@ def test_invalid_options_and_large_conversion_exponents():
     with pytest.raises(ValueError):sx.nsimplify(value,rational=True,rational_conversion='unknown')
     with pytest.raises(TypeError):sx.nsimplify(value,rational='yes')
     assert sx.nsimplify(value,rational=False,tolerance=.01)==sx.Rational(1,2)
-    with pytest.raises(NotImplementedError):sx.nsimplify(value,full=True)
+    assert sx.nsimplify(value,full=True)==sx.Rational(1,2)
     huge_exponent=sx.Float('1e-1000000',20)
     assert sx.nsimplify(huge_exponent,rational=True)==sx.Rational(1,10**1000000)
     exact=sx.nsimplify(huge_exponent,rational=True,rational_conversion='exact')
