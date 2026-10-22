@@ -4704,3 +4704,58 @@ Remaining differences:
   `Add(Ket('k'), x)` (an `OrderedProduct` wrapper); `codegen.ast.Indexed`
   sorts before symbols (`(x + A[x]).args == (A[x], x)`, SymPy `(x, A[x])`).
   Both construction orders agree for `Indexed`.
+
+## Wrong results: multiple Piecewise integrals, Range bounds, Indexed atoms, exact lambdify (wave 4, final A)
+
+Fixes (regressions in `tests/test_wrong_final_a_parity.py`):
+
+- Multiple integrals. `piecewise_fold` no longer lifts a Piecewise condition
+  that holds a bound variable out of its Integral, Sum or Product: the
+  folded `Piecewise((Integral(x**2, (t, 4/5, 1)), x/t < 0), ...)` left `t`
+  free outside the t-integral. When an inner definite limit stays
+  unevaluated and more limits follow, its Piecewise conditions are reduced
+  by the sign the limits give the variable (SymPy's signed dummy of
+  `Integral.doit`: `x/t < 0` is `x < 0` for `t` in `[4/5, 1]`) and the
+  limit is tried again, so
+  `(x**2 + Piecewise((0, x/t < 0), (1, True))).integrate((t, 4/5, 1), (x, -1, 1))`
+  is `1/3` as in SymPy. A single inner limit stays unevaluated as in SymPy.
+- `Range._inf`, `_sup`, `inf`, `sup`, `is_empty`, `is_finite_set` and
+  `__bool__` are SymPy's: a symbolic Range whose emptiness or direction is
+  undecided raises `ValueError` (`Range(ii, jj, kp).inf` returned `jj - kp`,
+  and `sup` `ii`), an empty Range raises `NotImplementedError` like
+  `EmptySet.inf`. The native set infimum and supremum no longer answer for a
+  symbolic or empty Range. The infimum and supremum of a Union holding such a
+  Range fall back to SymPy's `Min`/`Max` of its parts:
+  `Union(Range(ii, ii + 5*kp, kp), Interval(100, 200)).inf` is
+  `Min(100, ii)`, and an undecided Range part raises its `ValueError`.
+- `expr.atoms(Indexed)` lists the Indexed references of the expression, so
+  `solve(eqs, eqs.atoms(Indexed))` is `{A[1]: 1, A[2]: 2}` instead of `[]`.
+- `lambdify` of a polynomial with Integer coefficients and nonnegative
+  integer powers evaluates `int` arguments with Python integer arithmetic,
+  as SymPy's generated code does: `lambdify(x, x + 1)(2**60)` is
+  `1152921504606846977` for the default, `math`, `mpmath`, `sympy` and
+  `numpy` modules.
+
+Intentional divergence:
+
+- SymPy folds a condition on a bound variable out of its integral and can
+  return a result where that variable is free
+  (`integrate(Piecewise((t, x/t < 0), (1, True)), (t, -1, 1), (x, 0, 1))` is
+  `Integral(Piecewise((0, x/t < 0), (2, True)), (x, 0, 1))`, true value
+  `1/2`); symox keeps the double integral unevaluated.
+
+Remaining gaps:
+
+- `Indexed`, `IndexedBase` and `Idx` are still the `codegen.ast` dataclass
+  references (and a plain `Idx` class), not SymPy's `sympy.tensor.indexed`
+  Expr nodes: in arithmetic `A[1]` becomes the symbol named `A[1]`, so
+  `solve` returns those symbols as keys (equal to `A[1]`, which hashes like
+  its symbol so `sol[A[1]]` works), `isinstance(atom, Indexed)` is False
+  for the atoms found, `fcode(A[i])` is
+  `A[i]` where SymPy prints `A(i)`, and `ccode(A[1] + A[2])` prints instead
+  of raising `IndexException`. Making them Expr nodes touches every code
+  printer and the codegen contraction support.
+- Other lambdify differences: the native evaluator returns Python `float`
+  where SymPy's numpy namespace returns `numpy.float64` (equal values), and
+  the compiled function has no Python source for `inspect.getsource`.
+  Non-polynomial expressions with `int` arguments are evaluated in doubles.

@@ -277,6 +277,9 @@ pub fn inf(s: &Expr) -> Option<Expr> {
         SetOp::Reals | SetOp::Integers | SetOp::Rationals => Expr::neg_oo(),
         SetOp::Naturals => Expr::one(),
         SetOp::Naturals0 => Expr::zero(),
+        // `Range._inf`: an empty or symbolic Range is decided by the
+        // Python layer (the reference raises there).
+        SetOp::Range if a[0] == a[1] || a.iter().any(|v| !crate::traverse::free_symbols(v).is_empty()) => return None,
         SetOp::Range => {
             if a[2].as_number().is_some_and(|n| n.is_positive()) {
                 a[0].clone()
@@ -297,6 +300,7 @@ pub fn sup(s: &Expr) -> Option<Expr> {
         SetOp::FiniteSet => crate::functions::max(a.to_vec()),
         SetOp::Union => crate::functions::max(a.iter().map(sup).collect::<Option<Vec<_>>>()?),
         SetOp::Reals | SetOp::Integers | SetOp::Rationals | SetOp::Naturals | SetOp::Naturals0 => Expr::oo(),
+        SetOp::Range if a[0] == a[1] || a.iter().any(|v| !crate::traverse::free_symbols(v).is_empty()) => return None,
         SetOp::Range => {
             if a[2].as_number().is_some_and(|n| n.is_positive()) {
                 if a[1].is_constant(Constant::Infinity) {

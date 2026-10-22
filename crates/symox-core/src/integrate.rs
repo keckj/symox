@@ -210,6 +210,81 @@ pub fn integrate_definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: C
     (factor_undone(&value), cond)
 }
 
+/// `f` with the relational conditions `u*v < 0` (any of `<, <=, >, >=, ==,
+/// !=` against zero) freed of the factors in `x` whose sign the bounds
+/// `[a, b]` fix, as `Integral.doit` sees them through its signed dummy:
+/// `x/t < 0` is `x < 0` for `t` in `[4/5, 1]`. `None` when nothing changes.
+///
+/// The multiple-integral loop uses it after a limit stays unevaluated, so
+/// that a later limit does not integrate a Piecewise whose conditions hold
+/// a bound variable.
+pub fn reduce_signed_conditions(f: &Expr, x: &Expr, a: &Expr, b: &Expr) -> Option<Expr> {
+    use crate::assumptions::{is_negative, is_nonnegative, is_nonpositive, is_positive};
+    use crate::expr::RelOp;
+    use crate::symbol::Assumptions;
+    if !x.is_symbol() {
+        return None;
+    }
+    let both = |p: &dyn Fn(&Expr) -> Option<bool>| p(a) == Some(true) && p(b) == Some(true);
+    let sign = if both(&is_nonnegative) {
+        Assumptions::POSITIVE
+    } else if both(&is_nonpositive) {
+        Assumptions::NEGATIVE
+    } else {
+        return None;
+    };
+    let d = Expr::dummy("x", sign);
+    let to = |e: &Expr, from: &Expr, to: &Expr| {
+        let mut m = rustc_hash::FxHashMap::default();
+        m.insert(from.clone(), to.clone());
+        host_methods::xreplace_marked(e, &m)
+    };
+    let g = to(f, x, &d);
+    let flip = |op: RelOp| match op {
+        RelOp::Lt => RelOp::Gt,
+        RelOp::Le => RelOp::Ge,
+        RelOp::Gt => RelOp::Lt,
+        RelOp::Ge => RelOp::Le,
+        other => other,
+    };
+    let mut changed = false;
+    let reduced = crate::simptools::bottom_up(&g, &mut |e| {
+        let Kind::Rel(op, l, r) = e.kind() else { return e.clone() };
+        let (op, side) = if r.is_zero() {
+            (*op, l)
+        } else if l.is_zero() {
+            (flip(*op), r)
+        } else {
+            return e.clone();
+        };
+        if !matches!(side.kind(), Kind::Mul(..)) {
+            return e.clone();
+        }
+        let (mut kept, mut negative, mut dropped) = (Vec::new(), false, false);
+        for factor in crate::simptools::mul_args(side) {
+            if has(&factor, &d) {
+                if is_positive(&factor) == Some(true) {
+                    dropped = true;
+                    continue;
+                }
+                if is_negative(&factor) == Some(true) {
+                    dropped = true;
+                    negative = !negative;
+                    continue;
+                }
+            }
+            kept.push(factor);
+        }
+        if !dropped {
+            return e.clone();
+        }
+        changed = true;
+        let op = if negative { flip(op) } else { op };
+        crate::relational::rel(op, &crate::ops::mul(&kept), &Expr::zero())
+    });
+    changed.then(|| to(&reduced, &d, x))
+}
+
 fn definite_conds(f: &Expr, x: &Expr, a: &Expr, b: &Expr, conds: Conds, meijerg: Option<bool>) -> (Expr, Option<Expr>) {
     use crate::assumptions::{is_nonnegative, is_nonpositive, is_real};
     use crate::symbol::Assumptions;

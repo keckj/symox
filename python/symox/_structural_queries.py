@@ -60,6 +60,11 @@ def matcher(query, matching=True):
         'BooleanTrue','BooleanFalse','true','false'}
     if query is AtomicExpr:return lambda value:_is_expr(value) and bool(getattr(value,'is_Atom',False))
     if query is Tuple:return lambda value:isinstance(value,(Tuple,_TupleView))
+    if isinstance(query,type) and query.__module__=='symox.codegen.ast' and query.__name__=='Indexed':
+        # Indexed references enter native arithmetic as symbols named A[i].
+        from .codegen.ast import _INDEXED_SYMBOLS
+        return lambda value:isinstance(value,query) or (
+            bool(getattr(value,'is_Symbol',False)) and value in _INDEXED_SYMBOLS)
     if isinstance(query,type):return lambda value:isinstance(value,query)
     constructor=getattr(query,'_symox_head_name',None)
     name=getattr(query,'__name__',None)

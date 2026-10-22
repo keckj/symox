@@ -3319,7 +3319,8 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
         }
         return Ok((symox::integrate::integrate_hint(f, &fs[0], meijerg),None));
     }
-    for a in args.iter() {
+    let count=args.len();
+    for (index,a) in args.iter().enumerate() {
         if let Some(t) = integration_limit(&a)? {
             if !(1..=3).contains(&t.len()){return Err(PyValueError::new_err("expected (x,), (x,b), or (x,a,b)"));}
             let x = t[0].clone();
@@ -3333,7 +3334,18 @@ fn do_integrate(f: &Expr, args: &Bound<'_, PyTuple>, conditions:IntegrationCondi
                 },
                 3 => {
                     let lo = &t[1];let hi=&t[2];
-                    let (value,condition)=symox::integrate::integrate_definite_conds(&r,&x,lo,hi,conditions,meijerg);
+                    let (mut value,mut condition)=symox::integrate::integrate_definite_conds(&r,&x,lo,hi,conditions,meijerg);
+                    // An inner limit left unevaluated because a Piecewise
+                    // condition holds its variable: the reference goes on
+                    // with that condition under the signed dummy of the
+                    // limit (`x/t < 0` with `t > 0`); reduce the condition
+                    // by the sign so the later limits never see `t`.
+                    if index+1<count&&holds_integral(&value)&&!holds_integral(&r){
+                        if let Some(reduced)=symox::integrate::reduce_signed_conditions(&r,&x,lo,hi){
+                            let (retry,retry_condition)=symox::integrate::integrate_definite_conds(&reduced,&x,lo,hi,conditions,meijerg);
+                            if !holds_integral(&retry){value=retry;condition=retry_condition;}
+                        }
+                    }
                     if condition.is_some()&&args.len()!=1{
                         return Err(PyValueError::new_err("\nconds=separate not supported in multiple integrals"));
                     }
