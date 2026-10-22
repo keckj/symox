@@ -104,6 +104,26 @@ class Idx:
     def __getattr__(self,name):
         return getattr(self.label,name)
 
+    # Idx is an Expr in the reference: arithmetic acts on its label, so
+    # ``x[i + 1]`` (apply_finite_diff stencils) is the shifted index.
+    def __add__(self,other): return self.label+_idx_operand(other)
+    def __radd__(self,other): return _idx_operand(other)+self.label
+    def __sub__(self,other): return self.label-_idx_operand(other)
+    def __rsub__(self,other): return _idx_operand(other)-self.label
+    def __mul__(self,other): return self.label*_idx_operand(other)
+    def __rmul__(self,other): return _idx_operand(other)*self.label
+    def __truediv__(self,other): return self.label/_idx_operand(other)
+    def __rtruediv__(self,other): return _idx_operand(other)/self.label
+    def __pow__(self,other): return self.label**_idx_operand(other)
+    def __rpow__(self,other): return _idx_operand(other)**self.label
+    def __neg__(self): return -self.label
+    def __pos__(self): return self.label
+
+
+def _idx_operand(other):
+    from . import sympify
+    return other.label if isinstance(other,Idx) else sympify(other)
+
 
 class IndexConformanceException(ValueError):
     """Outer Einstein indices disagree or occur more than twice."""

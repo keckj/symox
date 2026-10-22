@@ -69,7 +69,7 @@ class _OreAlgebra:
         return type(self) is type(other) and self.base == other.base and self.gen_symbol == other.gen_symbol
 
     def __repr__(self):
-        return '%s Operator Algebra in %s over %s' % ('Differential' if self.differential else 'Recurrence', self.gen_symbol, self.base)
+        return 'Univariate %s Operator Algebra in intermediate %s over the base ring %s' % ('Differential' if self.differential else 'Recurrence', self.gen_symbol, self.base)
 
     def __call__(self, value):
         if isinstance(value, _OreOperator):
@@ -93,7 +93,9 @@ class _OreOperator:
         return [_expr(p) for p in self.listofpoly]
 
     def __repr__(self):
-        g = str(self.parent.gen_symbol)
+        # Differential operators print as (c)*Dx**i, recurrence operators
+        # as (c)Sn**i, like the reference __str__ methods.
+        g = ('*' if self.parent.differential else '') + str(self.parent.gen_symbol)
         return ' + '.join('(%s)%s' % (c, '' if i == 0 else g if i == 1 else g+'**'+str(i))
                           for i, c in enumerate(self.coefficients) if c != 0) or '0'
 
@@ -182,7 +184,8 @@ class HolonomicSequence:
         self.n = recurrence.parent.x
 
     def __repr__(self):
-        return 'HolonomicSequence(%r, %r)' % (self.recurrence, self.u0)
+        text = 'HolonomicSequence(%r, %s)' % (self.recurrence, self.n)
+        return text + ''.join(', u(%d) = %s' % (i, v) for i, v in enumerate(self.u0))
 
     def __eq__(self, other):
         return isinstance(other, HolonomicSequence) and self.recurrence == other.recurrence and self.u0 == other.u0

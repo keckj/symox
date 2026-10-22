@@ -212,6 +212,70 @@ class DiscreteMarkovChain(_Markov,DiscreteTimeStochasticProcess):
     def fixed_row_vector(self):return self.stationary_distribution()
     @property
     def limiting_distribution(self):return self.fixed_row_vector()
+    @property
+    def number_of_states(self):return S.Integer(len(self._states)) if self._states else self.state_space.size
+    @property
+    def index_of(self):return {state:S.Integer(i) for i,state in enumerate(self._states)}
+
+    def communication_classes(self):
+        """The reference ``communication_classes``: Tarjan's strongly
+        connected components, their recurrence and their periods."""
+        from ..utilities.iterables import strongly_connected_components
+        T = self.transition_probabilities
+        if T is None or not isinstance(T,S.Matrix):
+            raise NotImplementedError("Cannot perform the operation with a symbolic matrix.")
+        n = len(self._states)
+        V = list(range(n))
+        E = [(i,j) for i in V for j in V if T[i,j] != 0]
+        classes = strongly_connected_components((V,E))
+        recurrence = [];periods = []
+        for class_ in classes:
+            submatrix = T.extract(class_,class_)
+            is_recurrent = S.true
+            for row in submatrix.tolist():
+                if (sum(row)-1) != 0:
+                    is_recurrent = S.false
+                    break
+            recurrence.append(is_recurrent)
+            non_tree_edge_values = set()
+            visited = {class_[0]};newly_visited = {class_[0]};level = {class_[0]:0}
+            current_level = 0;done = False
+            while not done:
+                done = len(visited) == len(class_)
+                current_level += 1
+                for i in newly_visited:
+                    newly_visited = {j for j in class_ if T[i,j] != 0}
+                    new_tree_edges = newly_visited.difference(visited)
+                    for j in new_tree_edges:level[j] = current_level
+                    new_non_tree_edges = newly_visited.intersection(visited)
+                    non_tree_edge_values |= {level[i]-level[j]+1 for j in new_non_tree_edges}
+                    visited = visited.union(new_tree_edges)
+            positive = {v for v in non_tree_edge_values if v > 0}
+            if len(positive) == 0:periods.append(len(class_))
+            elif len(positive) == 1:periods.append(positive.pop())
+            else:periods.append(S.igcd(*positive))
+        classes = [[scalar(self._states[i]) for i in class_] for class_ in classes]
+        return list(zip(classes,recurrence,map(S.Integer,periods)))
+
+    def decompose(self):
+        T = self.transition_probabilities
+        r_states = [];t_states = []
+        for states,recurrent,period in self.communication_classes():
+            if recurrent:r_states += states
+            else:t_states += states
+        states = r_states+t_states
+        index = self.index_of
+        indexes = [int(index[state]) for state in states]
+        nr,nt = len(r_states),len(t_states)
+        A = S.Matrix(nr,nr,lambda i,j:T[indexes[i],indexes[j]])
+        B = S.Matrix(nt,nr,lambda i,j:T[indexes[nr+i],indexes[j]])
+        C = S.Matrix(nt,nt,lambda i,j:T[indexes[nr+i],indexes[nr+j]])
+        return states,A.as_immutable(),B.as_immutable(),C.as_immutable()
+
+    def canonical_form(self):
+        states,A,B,C = self.decompose()
+        O = S.zeros(A.shape[0],C.shape[1])
+        return states,S.BlockMatrix([[A,O],[B,C]]).as_explicit()
 
 
 class ContinuousMarkovChain(_Markov,StochasticProcess):

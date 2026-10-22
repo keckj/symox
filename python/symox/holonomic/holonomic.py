@@ -386,8 +386,21 @@ class HolonomicFunction:
                     factor *= n-lower-j+k
                 coefficients[i-j-lower] += expand(factor)
         parent, _ = RecurrenceOperators(_base(self.annihilator.parent.base.domain,n), 'Sn')
-        sequence = HolonomicSequence(parent.operator_class(coefficients, parent), self._coefficients(max(upper-lower, upper, self._initial_count())))
-        return [(sequence, max(0, lower))] if lb else [sequence]
+        if self.is_singularics():
+            count, smallest = max(upper-lower, upper, self._initial_count()), max(0, lower)
+        else:
+            # Reference: the recurrence holds for n >= lower + degree and
+            # beyond the integer roots of its leading coefficient; it needs
+            # order + smallest_n initial terms.
+            from .. import roots
+            degree = max(j for p in polys for (j,),c in p.items() if c != 0)
+            smallest = lower + degree
+            integer_roots = list(roots(coefficients[-1], n, filter='Z'))
+            if integer_roots:
+                smallest = max(max(integer_roots) + 1, smallest)
+            count = max(upper - lower + smallest, len(self.y0 or ()))
+        sequence = HolonomicSequence(parent.operator_class(coefficients, parent), self._coefficients(count))
+        return [(sequence, smallest)] if lb else [sequence]
 
     def to_expr(self):
         from .. import Function, Eq, dsolve, solve

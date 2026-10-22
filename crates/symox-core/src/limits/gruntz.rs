@@ -39,6 +39,11 @@ fn is_inf(e: &Expr) -> bool {
     e.is_constant(Constant::Infinity) || e.is_constant(Constant::NegInfinity)
 }
 
+/// `c*oo` with a factor of unknown sign (`oo*sign(b)`).
+fn is_parametric_inf(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Mul(_, f) if f.iter().any(|(b, _)| is_inf(b)))
+}
+
 impl Gruntz {
     pub fn new(x: &Expr) -> Gruntz {
         Gruntz {
@@ -402,7 +407,10 @@ impl Gruntz {
             Kind::Func(Func::Exp, a) => {
                 let l = self.limitinf(&a[0])?;
                 let inner = self.mrv(&a[0])?;
-                if is_inf(&l) {
+                // `oo*sign(b)` (a parameter of unknown sign) is infinite too,
+                // like the reference `any(_.is_infinite for _ in
+                // Mul.make_args(limitinf(e.exp, x)))`.
+                if is_inf(&l) || is_parametric_inf(&l) {
                     self.mrv_max(vec![e.clone()], inner)
                 } else {
                     Ok(inner)
@@ -481,10 +489,27 @@ impl Gruntz {
     fn compare_impl(&mut self, a: &Expr, b: &Expr) -> LRes<Ordering> {
         let la = self.log_of(a);
         let lb = self.log_of(b);
-        let c = self.limitinf(&div(&la, &lb))?;
+        // A nonzero factor free of x (a parameter of `exp(b*sqrt(x))`)
+        // does not change the order of the ratio: only the x-dependent
+        // part is passed to the limit, like the numeric case.
+        let q = div(&la, &lb);
+        let q = match q.kind() {
+            Kind::Mul(_, facs) if facs.iter().any(|(f, p)| !depends(f, &self.x) && !depends(p, &self.x)) => {
+                let dep: Vec<Expr> = facs
+                    .iter()
+                    .filter(|(f, p)| depends(f, &self.x) || depends(p, &self.x))
+                    .map(|(f, p)| mul_factor(f, p))
+                    .collect();
+                mul(&dep)
+            }
+            _ => q,
+        };
+        let c = self.limitinf(&q)?;
         if c.is_zero() {
             Ok(Ordering::Less)
-        } else if is_inf(&c) {
+        } else if is_inf(&c) || is_parametric_inf(&c) {
+            // `oo*sign(b)`: the ratio of the logarithms is unbounded
+            // whatever the sign of the parameter.
             Ok(Ordering::Greater)
         } else {
             Ok(Ordering::Equal)
@@ -599,6 +624,9 @@ impl Gruntz {
         let mut g = f.clone();
         for _ in 0..8 {
             let lt = leading_term_with(&g, w, &Expr::zero(), false, l, logw)?;
+            if exp_of_logw(&lt.coeff_logt, l) {
+                return Err(SErr::Unsupported("symbolic power of the mrv variable".into()));
+            }
             if lt.coeff.is_zero() && !lt.coeff_logt.is_zero() {
                 g = sub(&g, &mul2(&lt.coeff_logt, &pow(w, &Expr::num(lt.exp))));
                 continue;
@@ -619,7 +647,9 @@ impl Gruntz {
         }
         let l = self.fresh("logw");
         if let Ok(lt) = leading_term_with(f, w, &Expr::zero(), false, &l, logw) {
-            return Ok((lt.coeff, Expr::num(lt.exp)));
+            if !exp_of_logw(&lt.coeff_logt, &l) {
+                return Ok((lt.coeff, Expr::num(lt.exp)));
+            }
         }
         match f.kind() {
             Kind::Mul(c, facs) => {
@@ -719,6 +749,18 @@ impl Gruntz {
         let f = xreplace(e, &m);
         let logw = if sig == -1 { garg } else { neg(&garg) };
         Ok((f, logw))
+    }
+}
+
+/// Does the leading coefficient hold `exp(s*log(w))`, a power `w**s` with a
+/// symbolic exponent? Such a factor is in the mrv class itself (`x**b/x`
+/// gives `w**(1 - b)`), so the numeric exponent of the term is not its order
+/// and the symbolic exponent algebra (which needs the sign of `1 - b`) must
+/// decide instead.
+fn exp_of_logw(c: &Expr, l: &Expr) -> bool {
+    match c.kind() {
+        Kind::Func(Func::Exp, a) if depends(&a[0], l) => true,
+        _ => depends(c, l) && c.args().iter().any(|a| exp_of_logw(a, l)),
     }
 }
 

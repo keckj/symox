@@ -195,11 +195,37 @@ pub fn order(expr: &Expr, vars: &[(Expr, Expr)]) -> Expr {
     // several variables: drop the factors free of all of them
     let syms: Vec<Expr> = vars.iter().map(|v| v.0.clone()).collect();
     let dep = |f: &Expr| syms.iter().any(|s| depends(f, s));
-    let e = match expr.kind() {
+    let strip = |t: &Expr| match t.kind() {
         Kind::Mul(_, facs) => mul(&facs.iter().map(|(b, p)| mul_factor(b, p)).filter(|f| dep(f)).collect::<Vec<_>>()),
-        _ if !dep(&expr) => Expr::one(),
-        _ => as_coeff_mul(&expr).1,
+        _ if !dep(t) => Expr::one(),
+        _ => as_coeff_mul(t).1,
     };
+    if !expr.is_add() {
+        return raw(strip(&expr), &vars);
+    }
+    // A sum keeps its leading terms only (reference `extract_leading_order`
+    // on the expanded expression, with every point moved to the origin):
+    // `O(1 + x*y) = O(1)`, `O(x + y + x*y) = O(x + y)`. A term whose ratio
+    // to another is not a monomial is kept.
+    let mut e0 = expr.clone();
+    for (x, p) in &vars {
+        e0 = to_zero(&e0, x, p);
+    }
+    let e0 = crate::expand::expand(&e0);
+    let zvars: Vec<(Expr, Expr)> = vars.iter().map(|(x, _)| (x.clone(), Expr::zero())).collect();
+    let mut kept: Vec<Expr> = Vec::new();
+    for t in add_args(&e0) {
+        let s = strip(&t);
+        if s.is_zero() || kept.iter().any(|k| *k == s || contains_expr(k, &zvars, &s)) {
+            continue;
+        }
+        kept.retain(|k| !contains_expr(&s, &zvars, k));
+        kept.push(s);
+    }
+    let mut e = add(&kept);
+    for (x, p) in &vars {
+        e = from_zero(&e, x, p);
+    }
     raw(e, &vars)
 }
 

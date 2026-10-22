@@ -178,11 +178,14 @@ fn limit_one_sided(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
 /// Value of the limit from a leading term `c * t**e` (with `t -> 0+`
 /// and `log(t)` written as `lt.logt` in `lt.coeff_logt`).
 pub(crate) fn from_leading(lt: &LeadTerm) -> Option<Expr> {
+    let c = &lt.coeff_logt;
+    // A coefficient that is not a polynomial in log(t) (x**b written as
+    // exp(b*log(t)) with a symbolic b) may dominate t**exp: leave such
+    // terms to gruntz, which needs the sign of b.
+    let k = degree_in(c, &lt.logt)?;
     if lt.exp.is_positive() {
         return Some(Expr::zero());
     }
-    let c = &lt.coeff_logt;
-    let k = degree_in(c, &lt.logt)?;
     if lt.exp.is_zero() && k == 0 {
         return Some(c.clone());
     }

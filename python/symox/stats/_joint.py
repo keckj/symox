@@ -127,7 +127,9 @@ class JointVariable:
             mu,cov = p[:2];vector = S.Matrix(x)
             if f == 'MultivariateNormal':
                 delta = vector-mu
-                return S.exp(-(delta.T*cov.inv()*delta)[0]/2)/S.sqrt((2*S.pi)**k*cov.det())
+                # The reference takes the exponential of the 1x1 matrix
+                # -x.T*(Sigma**-1*x)/2, which yields the expanded quadratic.
+                return S.exp(S.expand((S.Rational(-1,2)*delta.T*(cov.inv()*delta))[0]))/S.sqrt((2*S.pi)**k*cov.det())
             if f == 'MultivariateT':
                 nu = p[2];delta = vector-mu
                 return S.gamma((nu+k)/2)/(S.gamma(nu/2)*(nu*S.pi)**(S.Rational(k,2))*S.sqrt(cov.det()))*(1+(delta.T*cov.inv()*delta)[0]/nu)**(-(nu+k)/2)
