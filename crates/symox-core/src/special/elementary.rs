@@ -93,6 +93,12 @@ pub(crate) fn num_mod(p: &Number, q: &Number) -> Option<Number> {
     }
     let (pr, qr) = (exact_ratio(p)?, exact_ratio(q)?);
     let m = &pr - &qr * (&pr / &qr).floor();
+    // SymPy's Float.__mod__ by an Integer goes through Float._new, which
+    // returns S.Zero for an exact zero (Float(10.0) % 1 is 0, not 0.0);
+    // the Rational and Float modulus paths keep a Float zero.
+    if m.is_zero() && p.is_float() && !q.is_float() && qr.is_integer() {
+        return Some(Number::int(0));
+    }
     let prec = float_prec(p, q);
     Some(if prec == 0 { Number::from_ratio(m) } else { round_ratio(&m, prec) })
 }

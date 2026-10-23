@@ -3,6 +3,9 @@ from .entity import GeometryEntity, GeometryError, construct, scalar, clean, zer
 
 
 class Point(GeometryEntity):
+    is_Point = True
+    # Matrix([p1, p2]) takes points as rows (SymPy is_sequence).
+    _symox_matrix_row = True
     __slots__ = ()
 
     def __new__(cls, *args, dim=None, evaluate=True, on_morph='ignore'):

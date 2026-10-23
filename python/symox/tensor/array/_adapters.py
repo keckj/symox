@@ -29,7 +29,24 @@ def _diff_dispatch(original):
         variables=args[1:]
         if len(variables) == 1 and _array_variable(variables[0]):
             _check_derivative_options(options)
-            return derive_by_array(expression, variables[0])
+            variable = variables[0]
+            if (isinstance(variable, _core.Matrix) or getattr(variable, '_symox_sparse', False)) and not (
+                    isinstance(expression, (NDimArray, _core.Matrix, _core._MatrixExpr))
+                    or getattr(expression, '_symox_sparse', False) or getattr(expression, 'is_Matrix', False)):
+                # SymPy's ArrayDerivative._call_derive_scalar_by_matrix: a
+                # scalar derived by a matrix stays an (immutable) matrix.
+                if getattr(variable, '_symox_sparse', False):
+                    # Sparse applyfunc also maps the implicit zero, which
+                    # SymPy's dok-based applyfunc never differentiates by.
+                    return variable.as_immutable().applyfunc(
+                        lambda entry: entry if entry == 0 else original(expression, entry))
+                return variable.as_immutable().applyfunc(lambda entry: original(expression, entry))
+            result = derive_by_array(expression, variable)
+            # SymPy's MatrixCalculus.diff: a mutable matrix gives a mutable array.
+            if (isinstance(expression, _core.Matrix) and not getattr(expression, '_immutable', False)
+                    and hasattr(result, 'as_mutable')):
+                result = result.as_mutable()
+            return result
         return original(*args, **options)
     return diff
 

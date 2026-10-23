@@ -10,6 +10,12 @@ _deferred = {}
 
 
 class DeferredVector:
+    # SymPy's ``DeferredVector(Symbol, NotIterable)``: list() would never end.
+    _iterable = False
+
+    def __iter__(self):
+        raise TypeError("'DeferredVector' object is not iterable")
+
     def __init__(self,name,**assumptions):
         from . import Symbol
         self._symbol = Symbol(name,**assumptions)

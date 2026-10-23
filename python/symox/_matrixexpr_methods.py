@@ -355,6 +355,17 @@ def matches(self, expr, repl_dict=None, old=False):
 def match(self, pattern, old=False):
     if getattr(pattern, 'is_MatrixExpr', False):
         return pattern.matches(self, old=old)
+    if getattr(pattern, 'is_Wild', False):
+        # Wild.matches: any expression free of the excluded atoms and
+        # satisfying the properties binds to the wildcard.
+        # (an excluded matrix symbol is stored as a native scalar node)
+        free = self.free_symbols
+        if any(x == self or self.has(x) or any(x == f for f in free)
+               for x in getattr(pattern, 'exclude', ())):
+            return None
+        if not all(f(self) for f in getattr(pattern, 'properties', ())):
+            return None
+        return {pattern: self}
     return None
 
 

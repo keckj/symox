@@ -218,7 +218,7 @@ a=s.SparseMatrix([[1,2],[0,3]])
 assert (a*a).todok() == {(0,0):1,(0,1):8,(1,1):9}
 p,j=a.jordan_form()
 assert a*p == p*j
-assert a.pinv(method='ED') == a.inv()
+assert s.simplify(a.pinv(method='ED')) == a.inv()
 assert 'sympy' not in sys.modules
 '''
     subprocess.run([sys.executable,'-c',source],check=True,capture_output=True,text=True)

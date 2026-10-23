@@ -8069,3 +8069,72 @@ Remaining:
   does not.
 
 Tests: `tests/test_simp_rest2_parity.py`.
+
+## Matrix leftovers, part 2 (mat-rest2, wave 8, 2026-10-23)
+
+Ported from SymPy 1.14:
+- `MatrixBase.pow` and `__pow__` for non-integer and symbolic exponents
+  (`python/symox/_matrix_power.py`): Jordan-block powers, the
+  recursion/cayley/multiply methods, `NonInvertibleMatrixError` for a
+  singular matrix to a non-integer power, and an unevaluated `MatPow` when
+  the Jordan form cannot be used. `M**S.Half` and `M**n` now match SymPy.
+  The `_eval_matrix_exp_jblock` and `_eval_matrix_log_jblock` helpers are
+  ported too.
+- `pinv(method='ED')` uses SymPy's `_pinv_diagonalization`
+  (`python/symox/_matrix_pinv.py`). The old native path hung on symbolic
+  matrices.
+- The deprecated mixin classes that `test_commonmatrix` imports:
+  `symox.matrices.common`, `symox.matrices.matrices` and the `_legacy_*`
+  modules, plus `matrices.exceptions` and `matrices.normalforms`.
+- `diff(expr, A)` for a matrix or array variable, and the `[[x, y]]` and
+  `([x, y], 2)` forms, go through `derive_by_array` as SymPy's
+  `ArrayDerivative` does. The array keeps the mutability of the matrix.
+  A scalar derived by a matrix stays an ImmutableMatrix
+  (`_call_derive_scalar_by_matrix`).
+- `Mod(Matrix, n)` applies `Mod` to each entry (`_eval_Mod`).
+- `Float(10.0) % 1` is the exact `S.Zero`, as in `Float._new`. A Float
+  or Rational modulus keeps a Float zero.
+- `MatrixExpr.match` with a `Wild`, including `exclude`.
+- `Float.epsilon_eq`.
+- A geometry `Point` is accepted as a matrix row, because SymPy's
+  `is_sequence` accepts it.
+- `DeferredVector` is not iterable.
+- `expand_mul`, `expand_func`, `expand_trig`, `expand_log` and
+  `expand_power_exp` on a matrix return an ImmutableMatrix, as in SymPy.
+- `Matrix._rep` is a sparse `DomainMatrix` over ZZ, QQ or EXRAW, and
+  `_fromrep` builds a matrix from one. Both exist on the dense, immutable
+  and sparse classes.
+
+Remaining gaps:
+- ImmutableMatrix is not a real class: `type(ImmutableMatrix(...))` is
+  `symox._core.Matrix`, and the Hashable/type-name checks of the SymPy
+  tests fail (41 probe statements).
+- `Eq(ImmutableMatrix, ...)` raises "cannot convert Matrix", because
+  relational nodes cannot hold matrices.
+- Quantum `Dagger`/`Operator` entries become native noncommutative nodes,
+  so the matrix adjoint gives `conjugate(...)` forms.
+- `adjoint`/`transpose` of `Abs(A)` and `sqrt(A)` for a noncommutative `A`
+  are not ported.
+- Poly entries in a Matrix are converted to Expr without the
+  "deprecated-non-expr-in-matrix" warning. This makes `test_smith_normal`
+  crash in the probe harness, although `smith_normal_form` itself works.
+- Derivative variables are not sorted as in SymPy (core Rust).
+- Matrix expression derivatives of traces fail with "Shape should contain
+  integers only" (`expressions/tests/test_derivatives.py`).
+- A `_fromrep` with an algebraic-field domain keeps that domain on the
+  dense classes only. The sparse classes recompute the domain (EXRAW).
+- Unsimplified forms still differ from SymPy in `cholesky`,
+  `GramSchmidt`, `LDLdecomposition`, `matrix_norm`, `exp`, `refine`,
+  `simplify(ratio=...)` and the `numer` expand hint. The values are
+  equal. The SymPy ED pinv form is also unsimplified, and
+  `tests/test_sparse_matrices.py` now compares it after `simplify`.
+- The order of the cubic roots of `roots(..., multiple=True)` differs.
+- `DFT`, `GenericIdentity` and `_csrtodok` are missing.
+
+Probe (all of `sympy/matrices/tests` and `expressions/tests`, mat-rest
+harness): before same 3641, diff 301, exc 389, not reached 1801;
+after same 4174, diff 320, exc 245, not reached 1393, with no statement
+going from same to different. The new diffs are statements that used to
+raise or were not reached. They are the type-name and form gaps above.
+
+Tests: `tests/test_mat_rest2_parity.py`.
