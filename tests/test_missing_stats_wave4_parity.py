@@ -128,8 +128,10 @@ def test_given_tuple_and_dependence():
     # space; conditioning on X > 0 alone leaves them independent.
     assert independent(T[0], T[1])
     assert given(S.Tuple(X, Y), A > 1) == S.Tuple(X, Y)
-    with pytest.raises(NotImplementedError):
-        given(S.Tuple(X, Y), S.Eq(X + Y, 3))
+    # The dependent case conditions the joint space (as SymPy); see
+    # tests/test_stats_rest_parity.py.
+    U, V = given(S.Tuple(X, Y), S.Eq(X + Y, 3))
+    assert E(U) == S.Rational(3, 2) and dependent(U, V)
     assert dependent(X, X + Y) and independent(X, Y**2) and independent(A, X)
     assert dependent(A, A + B)
 

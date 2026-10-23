@@ -673,8 +673,124 @@ def _given_tuple(items,condition,**kwargs):
     groups = [{v.group for v in random_symbols(v)} for v in items]
     touched = [i for i,g in enumerate(groups) if g&event]
     if len(touched)>1 or any(groups[i]&groups[j] for i in touched for j in range(len(items)) if j != i):
-        raise NotImplementedError('conditioning several dependent entries of a tuple jointly is not supported')
+        # SymPy: the random symbols of the tuple and the event move to the
+        # conditional space of their joint space, so the entries stay
+        # jointly distributed (and dependent).
+        swap = _conditional_space(items,condition)
+        return S.Tuple(*(v.xreplace(swap) for v in items))
     return S.Tuple(*(given(v,condition,**kwargs) if i in touched else v for i,v in enumerate(items)))
+
+
+class _ConditionalFiniteSpace:
+    """The joint law of finite random symbols given an event (SymPy
+    ``FinitePSpace.conditional_space``): explicit weighted joint outcomes."""
+    def __init__(self,outcomes):
+        self.outcomes = outcomes
+    def finite_worlds(self,values):
+        table = {}
+        for outcome,weight in self.outcomes:
+            key = tuple(outcome[rv] for rv in values)
+            table[key] = table.get(key,S.Integer(0))+weight
+        return [({rv._atom:k for rv,k in zip(values,key)},weight) for key,weight in table.items()]
+
+
+class _ConditionalContinuousSpace:
+    """The joint law of continuous random symbols given an equation
+    ``g = 0`` linear in one of them: SymPy's ``DiracDelta(g)`` conditional
+    space, ``f(x, y(x))/|dg/dy|/Z`` after integrating out ``y``."""
+    def __init__(self,variables,equation,normalizer):
+        self.variables,self.equation,self.normalizer = variables,equation,normalizer
+        # The unconditional laws of the variables.
+        self.laws = {v:v.distribution for v in variables}
+    def eliminate(self,keep=None):
+        """(free, eliminated, solution, density) with ``keep`` free."""
+        for eliminated in reversed(self.variables):
+            if eliminated is keep:continue
+            x = eliminated._atom;slope = S.diff(self.equation,x)
+            if slope == 0 or slope.has(x) or random_symbols(slope)-set(self.variables):continue
+            if any(slope.has(v._atom) for v in self.variables):continue
+            solution = S.solve(self.equation,x)
+            if len(solution) != 1:continue
+            free = [v for v in self.variables if v is not eliminated]
+            density = S.Mul(*(self.laws[v].pdf(v._atom) for v in free))
+            density *= self.laws[eliminated].bounded_pdf(solution[0])/abs(slope)
+            return free,eliminated,solution[0],density
+        return None
+    def expectation(self,expr,values=None):
+        free,eliminated,solution,density = self.eliminate()
+        body = scalar(expr).xreplace({eliminated._atom:solution})
+        coordinates = [(rv,S.Dummy(rv.name,real=True)) for rv in free]
+        body = (body*density/self.normalizer).xreplace({rv._atom:x for rv,x in coordinates})
+        limits = [(x,rv.distribution.lower,rv.distribution.upper) for rv,x in coordinates]
+        return _erf_simplify(S.integrate(body,*limits))
+    def joint_moment(self,factors):
+        return self.expectation(S.Mul(*(rv._atom**power for rv,power in factors.items())))
+    def marginal(self,rv):
+        free,eliminated,solution,density = self.eliminate(keep=rv)
+        rest = [(w,S.Dummy(w.name,real=True)) for w in free if w is not rv]
+        value = density.xreplace({w._atom:d for w,d in rest})/self.normalizer
+        if rest:value = S.integrate(value,*[(d,w.distribution.lower,w.distribution.upper) for w,d in rest])
+        return _erf_simplify(value)
+
+
+def _erf_simplify(value):
+    """simplify, with ``erfc`` written through ``erf`` so that the Gaussian
+    integrals ``erf(a) + erfc(a)`` collapse."""
+    if value.has(S.erfc):value = value.rewrite(S.erf)
+    return S.simplify(value)
+
+
+def _conditional_space(items,condition):
+    """The map from the random symbols of ``items`` and ``condition`` (and
+    their joint spaces) to their copies in the conditional space."""
+    variables = set(random_symbols(condition))
+    for item in items:variables |= random_symbols(item)
+    variables = sorted(variables,key=lambda v:v.name)
+    if any(v.process is not None for v in variables):
+        raise NotImplementedError('conditioning process values of a tuple jointly is not supported')
+    worlds = _worlds(variables)
+    if worlds is not None:
+        outcomes,total = [],S.Integer(0)
+        for values,weight in worlds:
+            if _truth(condition.subs(values,simultaneous=True)) is True:
+                outcomes.append(({rv:values[rv._atom] for rv in variables},weight));total += weight
+        check(total != 0,'conditioning event has zero probability')
+        outcomes = [(outcome,weight/total) for outcome,weight in outcomes]
+        space = _ConditionalFiniteSpace(outcomes)
+        swap,copies = {},{}
+        for rv in variables:
+            table = {}
+            for outcome,weight in outcomes:table[outcome[rv]] = table.get(outcome[rv],S.Integer(0))+weight
+            model = Distribution();model.kind = 'finite';model.family = 'FiniteConditional';model._table = table
+            copies[rv] = variable(rv.name,model,group=space);swap[rv._atom] = copies[rv]._atom
+        space.outcomes = [({copies[rv]:value for rv,value in outcome.items()},weight) for outcome,weight in outcomes]
+        return swap
+    if (len(variables) > 1 and all(v.distribution.kind == 'continuous' and v.group is v._atom for v in variables)
+            and getattr(condition,'class_name','') == 'Equality'):
+        space = _ConditionalContinuousSpace(variables,condition.lhs-condition.rhs,S.Integer(1))
+        parts = space.eliminate()
+        if parts is not None:
+            free,eliminated,solution,density = parts
+            coordinates = [(v,S.Dummy(v.name,real=True)) for v in free]
+            limits = [(c,v.distribution.lower,v.distribution.upper) for v,c in coordinates]
+            normalizer = _erf_simplify(S.integrate(density.xreplace({v._atom:c for v,c in coordinates}),*limits))
+            if not normalizer.has(S.Integral):
+                check(normalizer != 0,'conditioning event has zero probability')
+                space.normalizer = normalizer
+                marginals = {v:space.marginal(v) for v in variables}
+                swap = {}
+                for v in variables:
+                    model = Distribution();model.family = 'ContinuousConditional'
+                    model.lower,model.upper = v.distribution.lower,v.distribution.upper
+                    model._pdf = lambda z,m=marginals[v],a=v._atom:m.subs(a,z)
+                    swap[v._atom] = variable(v.name,model,group=space)._atom
+                space.variables = [REGISTRY[swap[v._atom]] for v in variables]
+                space.laws = {REGISTRY[swap[v._atom]]:v.distribution for v in variables}
+                space.equation = space.equation.xreplace(swap)
+                return swap
+    if all(v.distribution.kind == 'continuous' for v in variables) and not getattr(condition,'class_name','') == 'Equality':
+        raise NotImplementedError('Multivariate Inequalities not yet implemented')
+    raise NotImplementedError('conditioning several dependent entries of a tuple jointly is not supported')
 
 
 def _sample_values(expr,condition,size,rng):

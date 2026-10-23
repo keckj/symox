@@ -6329,3 +6329,90 @@ Remaining gaps:
 - `diff(..., (x, 5))` is still not ended with `factor_terms(signsimp(...))`
   (see batch c2), and `solve_triangulated(..., extension=True)` still
   raises NotImplementedError.
+
+## sympy.stats follow-up (stats-rest, 2026-10-23)
+
+This batch handles the stats gaps listed for batches c1 and c2. Doctest
+probes over ContinuousMarkovChain, DiscreteMarkovChain (with
+`stationary_distribution`), GammaProcess, WienerProcess,
+GaussianSymplecticEnsemble, Laplace, MultivariateNormal, density,
+dependent, independent, Moyal, DiscreteRV and given went from 137/171 to
+163/171 matches with SymPy 1.14. Tests are in
+`tests/test_stats_rest_parity.py`.
+
+Implemented:
+
+- Random symbols in arithmetic are a `RandomAtom` Dummy that prints as
+  its name in str, latex and pretty (`N**2 + N`, `N^{2} + N`), and that
+  keeps `pspace` and `distribution`.
+- `given(Tuple(...), cond)` with dependent entries conditions the joint
+  space, as SymPy does.
+  - Finite spaces filter and renormalize the joint outcomes.
+  - Independent continuous variables conditioned on a linear `Eq` eliminate
+    one variable on the hyperplane and normalize by an exact integral.
+  - The new entries share one space, so `dependent` is True.
+  - Results are closed forms. SymPy leaves `erfc` residue, and leaves an
+    unevaluated `Integral` for `E(B)` of `given(Tuple(X, Y), Eq(2*X + Y, 1))`.
+    The correct values are 2/5 and 1/5.
+  - A continuous inequality condition raises SymPy's
+    `NotImplementedError('Multivariate Inequalities not yet implemented')`.
+- `Laplace(name, mu_list, sigma_matrix)` dispatches to
+  `MultivariateLaplace`, as SymPy does.
+- DiscreteMarkovChain without transition data:
+  - The transition is `MatrixSymbol('_T', n, n)` over `Range(0, n)`.
+  - A symbolic `stationary_distribution` is
+    `Lambda((wm, T), Eq(wm*T, wm))`, or a `ConditionSet` with
+    `condition_set=True`. The native `Lambda` takes only scalar
+    signatures, so this is a small Python `MatrixLambda`.
+  - A numeric chain uses SymPy's linsolve system, so a reducible chain
+    gives the reference parametric row (`1 - tau0, tau0`).
+- Markov chains at float or symbolic times:
+  - The kernel is SymPy's transition function: `Q*exp(t*D)*Q**-1` (CTMC)
+    or `Q*D**t*Q**-1` (DTMC) when diagonalizable, otherwise `exp(t*G)`.
+  - Symbolic-time queries port `_symbolic_probability`: a `Piecewise` on
+    `a > c`, with the held `Probability` otherwise. Gt, Ge, Lt and Le use the
+    reference sum from `next_state + upper`.
+  - The kernel entry at symbolic states is a `Piecewise` over the states,
+    where SymPy has a symbolic matrix index. The native explicit matrix
+    takes only integer indices.
+  - The values after `subs` match the doctests (0.4002723175, 0.6832579186,
+    0.3096, 0.64705).
+- Wiener and Gamma processes under `Contains(t, interval)` conditions use
+  the reference convention already implemented for Poisson. The value at t
+  is the increment over the interval, and disjoint intervals are
+  independent.
+- `GaussianSymplecticEnsemble` density at an n x n `MatrixSymbol` is the
+  normalized closed form, for example `32*exp(-2*Trace(X**2))/pi**3` for
+  n = 2. SymPy holds the normalizer as `Integral(exp(-2*Trace(_H**2)), _H)`.
+
+Divergences kept, where SymPy is wrong:
+
+- `P((X(t1) > 2) | (X(t1) < 4), Contains(t1, Interval.Ropen(2, 4)))` for
+  a Wiener process is 1. SymPy adds the two overlapping events and returns
+  `-erf(1)/2 + erf(2)/2 + 1`, as in the Poisson `Or` divergences already
+  listed.
+- Poisson `P(X(2) <= 3, X(1) > 1)` is
+  `45*exp(-3)/(2*(-4 + exp(3)))`, the exact conditional probability.
+  SymPy returns `5*exp(-3)`.
+
+Remaining gaps:
+
+- `MultivariateNormal` (and T and Laplace) with `MatrixSymbol` parameters
+  of symbolic dimension raise
+  `NotImplementedError('multivariate distributions of symbolic dimension
+  (MatrixSymbol parameters) are not supported')`. SymPy holds
+  `(exp(matrix)/sqrt(...))[0, 0]`, but the native exp of an abstract
+  matrix is not implemented.
+- `Str` states of a Markov chain are rejected, because the native `Eq` does
+  not take `Str`.
+- The `str` printer does not parenthesize a compound matrix parent of a
+  `MatrixElement`: it prints `T**5[1, 2]` where SymPy prints `(T**5)[1, 2]`.
+  The fix is in Rust (`printer.rs`) and was not made in this batch.
+- After `subs`, the held `Probability` branch of a symbolic-time query keeps
+  `C(a)`, because the random atom does not carry its time through `subs`.
+  SymPy prints `Probability(Eq(C(1), 2))`.
+- Term order: a random symbol sorts as a plain symbol, so it prints
+  `X + x` where SymPy prints `x + X`. In SymPy, RandomSymbol's class_key is
+  `(5, 0, ...)`. The native print order keys every symbol as `(2, 0, ...)`.
+- `simplify(cdf(Moyal)(z))` is `erfc(...)` where SymPy gives `1 - erf(...)`.
+  This is a simplification form difference.
