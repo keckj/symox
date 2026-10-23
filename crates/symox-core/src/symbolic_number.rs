@@ -40,6 +40,8 @@ pub fn is_symbolic_number(e: &Expr) -> bool {
         // A root object is an atom-like number: its polynomial argument is
         // bound by the object, as the reference's ``ComplexRootOf.is_number``.
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => true,
+        // A host Number or NumberSymbol subclass atom (hbar) is a number.
+        Kind::Func(Func::Undefined(head), args) if args.is_empty() && head.host().is_some_and(|host| host.atomic() && host.number()) => true,
         Kind::Func(Func::Undefined(head), args) => {
             let function = head.host().is_some_and(|host| !host.expression() && !host.atomic());
             (head.is_internal("UnevaluatedExpr") || (function && !args.is_empty()))

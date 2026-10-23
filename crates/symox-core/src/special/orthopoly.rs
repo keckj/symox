@@ -34,6 +34,30 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
     }
 }
 
+/// The ValueError the reference `eval` raises for these arguments, if any:
+/// `jacobi_poly` and `laguerre_poly` reject a negative Number degree, and
+/// `laguerre` a degree that is known not to be an integer.
+pub(crate) fn eval_error(s: SpecialFn, a: &[Expr]) -> Option<String> {
+    let number = |n: &Expr| matches!(n.kind(), Kind::Num(_));
+    let negative = |n: &Expr| matches!(n.kind(), Kind::Num(v) if v.is_negative());
+    match s {
+        SpecialFn::Laguerre if a.len() == 2 && crate::assumptions::is_integer(&a[0]) == Some(false) => Some("Error: n should be an integer.".into()),
+        SpecialFn::AssocLaguerre if a.len() == 3 => {
+            if a[1].is_zero() {
+                return eval_error(SpecialFn::Laguerre, &[a[0].clone(), a[2].clone()]);
+            }
+            (number(&a[0]) && negative(&a[0])).then(|| format!("The index n must be nonnegative integer (got {})", a[0]))
+        }
+        SpecialFn::Jacobi if a.len() == 4 => {
+            if a[1] == a[2] || a[2] == neg(&a[1]) {
+                return None;
+            }
+            (number(&a[0]) && negative(&a[0])).then(|| format!("Cannot generate Jacobi polynomial of index {}", a[0]))
+        }
+        _ => None,
+    }
+}
+
 fn degree(n: &Expr) -> Option<i64> {
     as_small(n).filter(|k| k.abs() <= MAX_DEGREE)
 }
@@ -315,6 +339,10 @@ fn eval_laguerre(n: &Expr, x: &Expr) -> Option<Expr> {
             return Some(mul2(&exp(x), &super::laguerre(&Expr::int(-k - 1), &neg(x))));
         }
         return Some(poly_q(&laguerre_coeffs(k as usize), x));
+    }
+    // A negative Float degree: L_n(x) = exp(x) L_{-n-1}(-x), as the reference
+    if matches!(n.kind(), Kind::Num(v @ (Number::Float(_) | Number::MpFloat(..))) if v.is_negative()) {
+        return Some(mul2(&exp(x), &super::laguerre(&sub(&neg(n), &Expr::one()), &neg(x))));
     }
     if n.is_number() {
         return None;

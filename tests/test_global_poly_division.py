@@ -301,12 +301,8 @@ def test_mixed_poly_expression_joint_inference_and_explicit_override(op, kind):
         assert p.domain==k and p.gens==(x,)
 
 
-@pytest.mark.parametrize('op', OPS)
-def test_unimplemented_valid_options_are_rejected_explicitly(op):
-    x=sm.Symbol('x')
-    for option in ['greedy','symmetric']:
-        with pytest.raises(NotImplementedError):
-            getattr(sm,op)(x+1,x,x,**{option:True})
+# greedy, symmetric, sort and wrt are all ported (tests/test_small_rest_parity.py
+# and test_generator_order_options_follow_reference below).
 
 
 @pytest.mark.parametrize('op', OPS)
