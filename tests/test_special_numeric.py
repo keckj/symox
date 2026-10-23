@@ -17,7 +17,9 @@ import mpmath as mp
 import symox
 from symox import _core
 
-mp.mp.dps = 30
+# References are computed at 30 digits inside ``run`` only, so importing this
+# module during collection does not change the global mpmath precision.
+DPS = 30
 
 REL = 1e-13  # tolerance used by the assertion (typical errors are ~1e-15)
 
@@ -165,6 +167,11 @@ def relerr(got, want):
 
 
 def run(verbose=True):
+    with mp.workdps(DPS):
+        return _run(verbose)
+
+
+def _run(verbose):
     bad = []
     report = []
     for label, f, ref, pts in CASES:
