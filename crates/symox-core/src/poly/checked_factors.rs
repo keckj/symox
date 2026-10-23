@@ -688,7 +688,7 @@ pub fn ground_roots(p: &Polynomial, limits: Limits) -> PResult<Vec<(Expr, u32)>>
         preflight(p, limits)?;
         let factorization = raw(p, false)?;
         verify(p, &factorization)?;
-        let mut result = if let Some(f) = &p.algebraic {
+        let result = if let Some(f) = &p.algebraic {
             let _scope = AlgebraicScope::new(f.number_field.clone());
             roots(
                 &f.rep,
@@ -741,7 +741,7 @@ pub fn ground_roots(p: &Polynomial, limits: Limits) -> PResult<Vec<(Expr, u32)>>
             .map(|(r, k)| (Expr::num(r.to_number()), k))
             .collect()
         };
-        result.sort_by_cached_key(|(root, _)| crate::sortkey::sort_key(root));
+        // The reference keeps the order of the linear factors of factor_list.
         Ok(result)
     })
 }

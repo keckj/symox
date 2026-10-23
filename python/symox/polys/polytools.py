@@ -90,6 +90,8 @@ def _build_options(gens, args):
     if gens and args.get('gens'):
         raise OptionError("both '*gens' and keyword argument 'gens' supplied")
     opt = Options()
+    # The reference stores the given options (positional gens appended to
+    # them) before the postprocess steps add the derived ones like auto.
     for key, value in args.items():
         if key == 'order':
             from .orderings import monomial_key
@@ -97,8 +99,10 @@ def _build_options(gens, args):
         elif key == 'gens':
             value = tuple(sympify(g) for g in value)
         opt[key] = value
-        if key == 'domain' and 'auto' not in args:
-            opt['auto'] = False
+    if gens:
+        opt['gens'] = tuple(sympify(g) for g in gens)
+    if ('domain' in args or 'field' in args) and 'auto' not in args:
+        opt['auto'] = False
     ext = args.get('extension')
     if ext is not None and ext is not True and ext is not False:
         opt['extension'] = set(ext) if isinstance(ext, (list, tuple, set)) else {sympify(ext)}

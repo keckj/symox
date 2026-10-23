@@ -60,18 +60,31 @@ def translate(s,a,b=None,c=None):
     return replace(s,mapping)
 
 def rawlines(s):
-    if '\n' not in s:return repr(s)
-    # Adjacent quoted literals preserve whitespace, escapes and line endings.
-    return '(\n'+''.join('    '+repr(line)+'\n' for line in s.splitlines(keepends=True))+')'
+    # The reference rendering: dedent() for plain text, adjacent literals otherwise.
+    lines=s.split('\n')
+    if len(lines)==1:return repr(lines[0])
+    triple=["'''" in s,'"""' in s]
+    if any(li.endswith(' ') for li in lines) or '\\' in s or all(triple):
+        rv=[];trailing=s.endswith('\n');last=len(lines)-1
+        for i,li in enumerate(lines):
+            rv.append(repr(li+'\n') if i!=last or trailing else repr(li))
+        return '(\n    %s\n)'%'\n    '.join(rv)
+    rv='\n    '.join(lines)
+    if triple[0]:return 'dedent("""\\\n    %s""")'%rv
+    return "dedent('''\\\n    %s''')"%rv
 
 def strlines(s,c=64,short=False):
-    if not isinstance(s,str):raise ValueError('expected a string')
+    if not isinstance(s,str):raise ValueError('expecting string input')
     if '\n' in s:return rawlines(s)
-    if c<8:raise ValueError('line width must be at least eight characters')
-    chunks=[];current=''
-    for char in s:
-        if len(repr(current+char))>c-4 and current:chunks.append(repr(current));current=''
-        current+=char
-    if current or not chunks:chunks.append(repr(current))
-    return chunks[0] if short and len(chunks)==1 else '(\n'+'\n'.join(chunks)+'\n)'
+    q='"' if repr(s).startswith('"') else "'"
+    q=(q,)*2
+    if '\\' in s:
+        m='(\nr%s%%s%s\n)'%q;j='%s\nr%s'%q;c-=3
+    else:
+        m='(\n%s%%s%s\n)'%q;j='%s\n%s'%q;c-=2
+    out=[]
+    while s:
+        out.append(s[:c]);s=s[c:]
+    if short and len(out)==1:return (m%out[0]).splitlines()[1]
+    return m%j.join(out)
 __all__ += ['Undecidable','debug','debugf','debug_decorator','find_executable','func_name','ordinal','replace','translate','rawlines','strlines']

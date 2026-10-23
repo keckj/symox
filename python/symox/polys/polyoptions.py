@@ -14,6 +14,11 @@ class Options(_Options):
         if args.get('field') and args.get('modulus') is not None:raise OptionError('field and modulus cannot be combined')
         super().__init__(_build_options(tuple(gens),args))
         if len(set(self.gens)) != len(self.gens):raise OptionError('generators must be distinct')
+        ext = self.get('extension')
+        if ext is not None and ext is not True and ext is not False and self.get('domain') is None:
+            # Extension.postprocess
+            from .. import QQ
+            self['domain'] = QQ.algebraic_field(*ext)
         modulus = self.get('modulus')
         if modulus is not None:
             from .. import GF

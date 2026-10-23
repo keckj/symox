@@ -30,20 +30,35 @@ def _interval(expr,bounds):
 
 
 class SumApprox(Optimization):
-    def __init__(self,bounds,reltol,**kwargs):super().__init__(**kwargs);self.bounds,self.reltol=dict(bounds),float(reltol)
+    """The reference SumApprox: drop Add terms bounded far below the others."""
+    def __init__(self,bounds,reltol,**kwargs):super().__init__(**kwargs);self.bounds,self.reltol=bounds,reltol
     def __call__(self,expr):
-        def simplify(node):
-            if not node.is_Add:return node
-            interval=_interval(node,self.bounds)
-            if interval is None or interval[0]<=0<=interval[1]:return node
-            minimum=min(abs(v) for v in interval);budget=self.reltol*minimum;terms=[]
-            for term in node.args:
-                bound=_interval(term,self.bounds)
-                magnitude=max(map(abs,bound)) if bound is not None else float('inf')
-                if magnitude<=budget:budget-=magnitude
-                else:terms.append(term)
-            return S.Add(*terms)
-        return S.bottom_up(expr,simplify)
+        return expr.factor().replace(self.query,lambda arg:self.value(arg))
+    def query(self,expr):return expr.is_Add
+    def value(self,add):
+        from symox import Interval
+        from symox.calculus.singularities import is_increasing,is_decreasing
+        for term in add.args:
+            if term.is_number or term in self.bounds or len(term.free_symbols)!=1:continue
+            fs,=term.free_symbols
+            if fs not in self.bounds:continue
+            intrvl=Interval(*self.bounds[fs])
+            if is_increasing(term,intrvl,fs):
+                self.bounds[term]=(term.subs({fs:self.bounds[fs][0]}),term.subs({fs:self.bounds[fs][1]}))
+            elif is_decreasing(term,intrvl,fs):
+                self.bounds[term]=(term.subs({fs:self.bounds[fs][1]}),term.subs({fs:self.bounds[fs][0]}))
+            else:return add
+        if all(term.is_number or term in self.bounds for term in add.args):
+            bounds=[(term,term) if term.is_number else self.bounds[term] for term in add.args]
+            largest_abs_guarantee=0
+            for lo,hi in bounds:
+                if lo<=0<=hi:continue
+                largest_abs_guarantee=max(largest_abs_guarantee,min(abs(lo),abs(hi)))
+            new_terms=[]
+            for term,(lo,hi) in zip(add.args,bounds):
+                if max(abs(lo),abs(hi))>=largest_abs_guarantee*self.reltol:new_terms.append(term)
+            return add.func(*new_terms)
+        return add
 
 
 class SeriesApprox(Optimization):

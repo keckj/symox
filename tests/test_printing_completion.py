@@ -96,6 +96,10 @@ def test_pretty_unicode_and_console_wrappers(capsys,monkeypatch):
         ('print_jscode','jscode'),('print_latex','latex'),('print_maple_code','maple_code'),
         ('print_mathml','mathml'),('print_python','python'),('print_rcode','rcode')]:
         getattr(p,printer)(x+1)
+        if printer=='print_mathml':
+            # SymPy 1.14 prints pretty XML (toprettyxml) here.
+            assert capsys.readouterr().out=='<apply>\n\t<plus/>\n\t<ci>x</ci>\n\t<cn>1</cn>\n</apply>\n\n'
+            continue
         assert capsys.readouterr().out==getattr(p,formatter)(x+1)+'\n'
     p.print_tree(x+1,assumptions=False)
     assert 'Add:' in capsys.readouterr().out
@@ -132,8 +136,9 @@ def test_gtk_headless_and_multiline_latex(monkeypatch):
     text=p.multiline_latex(y,x*x+x+1,terms_per_line=1)
     assert text.startswith('\\begin{align*}') and text.endswith('\\end{align*}')
     assert text.count('\\\\')==2
-    for options in [{'terms_per_line':0},{'environment':'bad'}]:
-        with pytest.raises(ValueError):p.multiline_latex(y,x,**options)
+    with pytest.raises(ValueError):p.multiline_latex(y,x,environment='bad')
+    # SymPy 1.14 accepts terms_per_line=0.
+    assert p.multiline_latex(y,x,terms_per_line=0)=='\\begin{align*}\ny = & x \n\\end{align*}'
 
 
 def test_smtlib_executes_in_z3():

@@ -34,16 +34,28 @@ def uniquely_named_symbol(xname,exprs=(),compare=str,modify=None,**assumptions):
     return Symbol(name,**assumptions)
 
 
-def disambiguate(*expressions):
-    from symox import sympify,Tuple,Symbol
-    expressions=[sympify(expr) for expr in expressions]
-    symbols=set().union(*(expr.free_symbols for expr in expressions));groups={}
-    for symbol in sorted(symbols,key=lambda s:(s.name,repr(sorted(s.assumptions0.items())),getattr(s,'dummy_index',-1))):groups.setdefault(symbol.name.lstrip('_'),[]).append(symbol)
-    occupied=set(groups);mapping={}
-    for name,group in groups.items():
-        for i,symbol in enumerate(group):
-            candidate=name if i==0 else name+'_'+str(i)
-            while i and candidate in occupied:i+=1;candidate=name+'_'+str(i)
-            occupied.add(candidate);mapping[symbol]=Symbol(candidate,**symbol.assumptions0)
-    return Tuple(*(expr.xreplace(mapping) for expr in expressions))
+def disambiguate(*iter):
+    # Verbatim port of the reference disambiguate.
+    from symox import Tuple,Symbol,ordered
+    new_iter = Tuple(*iter)
+    key = lambda x:tuple(sorted(x.assumptions0.items()))
+    syms = ordered(new_iter.free_symbols, keys=key)
+    mapping = {}
+    for s in syms:
+        mapping.setdefault(str(s).lstrip('_'), []).append(s)
+    reps = {}
+    for k in mapping:
+        mapk0 = Symbol("%s" % (k), **mapping[k][0].assumptions0)
+        if mapping[k][0] != mapk0:
+            reps[mapping[k][0]] = mapk0
+        skip = 0
+        for i in range(1, len(mapping[k])):
+            while True:
+                name = "%s_%i" % (k, i + skip)
+                if name not in mapping:
+                    break
+                skip += 1
+            ki = mapping[k][i]
+            reps[ki] = Symbol(name, **ki.assumptions0)
+    return new_iter.xreplace(reps)
 __all__ += ['Str','uniquely_named_symbol','disambiguate']

@@ -28,10 +28,40 @@ def _polynomial_components(expr,dims):
     for powers,coefficient in poly.terms():result[sum(powers)]+=coefficient*S.Mul(*(symbol**power for symbol,power in zip(dims,powers)))
     return dict(result)
 
-def decompose(expr,separate=False):
-    expr=S.expand(S.sympify(expr));variables=sorted(expr.free_symbols,key=str)
-    if separate:return set(expr.args) if expr.is_Add else {expr}
-    return _polynomial_components(expr,variables) if variables else {0:expr}
+def decompose(expr, separate=False):
+    # Verbatim port of the reference decompose (no expansion, Add.args order).
+    poly_dict = {}
+    if isinstance(expr, S.Expr) and not expr.is_number:
+        if expr.is_Symbol:
+            poly_dict[1] = expr
+        elif expr.is_Add:
+            symbols = expr.atoms(S.Symbol)
+            degrees = [(sum(S.degree_list(monom, *symbols)), monom)
+                       for monom in expr.args]
+            if separate:
+                return {monom[1] for monom in degrees}
+            for degree, term in degrees:
+                if poly_dict.get(degree):
+                    poly_dict[degree] += term
+                else:
+                    poly_dict[degree] = term
+        elif expr.is_Pow:
+            _, degree = expr.args
+            poly_dict[degree] = expr
+        else:  # Now expr can only be of `Mul` type
+            degree = 0
+            for term in expr.args:
+                term_type = len(term.args)
+                if term_type == 0 and term.is_Symbol:
+                    degree += 1
+                elif term_type == 2:
+                    degree += term.args[1]
+            poly_dict[degree] = expr
+    else:
+        poly_dict[0] = expr
+    if separate:
+        return set(poly_dict.values())
+    return poly_dict
 
 def strip(monom):
     monom=S.sympify(monom)
@@ -203,15 +233,118 @@ def point_sort(poly,normal=None,clockwise=True):
     return sorted(points,key=cmp_to_key(order))
 
 
-def best_origin(a,b,lineseg,expr):
-    p,q=_points(lineseg);polynomial=S.Poly(expr,x,y)
-    totals=[sum(powers[i] for powers,coefficient in polynomial.terms()) for i in range(2)]
-    for axis in sorted(range(2),key=lambda i:totals[i],reverse=True):
-        delta=q[axis]-p[axis]
-        if delta!=0:
-            parameter=-p[axis]/delta
-            if parameter.is_nonnegative is True and (1-parameter).is_nonnegative is True:return tuple(S.simplify(v+parameter*(w-v)) for v,w in zip(p,q))
-    return tuple(p)
+def best_origin(a, b, lineseg, expr):
+    # Verbatim port of the reference best_origin.
+    a1, b1 = lineseg.points[0]
+
+    def x_axis_cut(ls):
+        """Returns the point where the input line segment
+        intersects the x-axis.
+
+        Parameters
+        ==========
+
+        ls :
+            Line segment
+        """
+        p, q = ls.points
+        if p.y.is_zero:
+            return tuple(p)
+        elif q.y.is_zero:
+            return tuple(q)
+        elif p.y/q.y < S.Integer(0):
+            return p.y * (p.x - q.x)/(q.y - p.y) + p.x, S.Integer(0)
+        else:
+            return ()
+
+    def y_axis_cut(ls):
+        """Returns the point where the input line segment
+        intersects the y-axis.
+
+        Parameters
+        ==========
+
+        ls :
+            Line segment
+        """
+        p, q = ls.points
+        if p.x.is_zero:
+            return tuple(p)
+        elif q.x.is_zero:
+            return tuple(q)
+        elif p.x/q.x < S.Integer(0):
+            return S.Integer(0), p.x * (p.y - q.y)/(q.x - p.x) + p.y
+        else:
+            return ()
+
+    gens = (x, y)
+    power_gens = {}
+
+    for i in gens:
+        power_gens[i] = S.Integer(0)
+
+    if len(gens) > 1:
+        # Special case for vertical and horizontal lines
+        if len(gens) == 2:
+            if a[0] == 0:
+                if y_axis_cut(lineseg):
+                    return S.Integer(0), b/a[1]
+                else:
+                    return a1, b1
+            elif a[1] == 0:
+                if x_axis_cut(lineseg):
+                    return b/a[0], S.Integer(0)
+                else:
+                    return a1, b1
+
+        if isinstance(expr, S.Expr):  # Find the sum total of power of each
+            if expr.is_Add:         # generator and store in a dictionary.
+                for monomial in expr.args:
+                    if monomial.is_Pow:
+                        if monomial.args[0] in gens:
+                            power_gens[monomial.args[0]] += monomial.args[1]
+                    else:
+                        for univariate in monomial.args:
+                            term_type = len(univariate.args)
+                            if term_type == 0 and univariate in gens:
+                                power_gens[univariate] += 1
+                            elif term_type == 2 and univariate.args[0] in gens:
+                                power_gens[univariate.args[0]] +=\
+                                           univariate.args[1]
+            elif expr.is_Mul:
+                for term in expr.args:
+                    term_type = len(term.args)
+                    if term_type == 0 and term in gens:
+                        power_gens[term] += 1
+                    elif term_type == 2 and term.args[0] in gens:
+                        power_gens[term.args[0]] += term.args[1]
+            elif expr.is_Pow:
+                power_gens[expr.args[0]] = expr.args[1]
+            elif expr.is_Symbol:
+                power_gens[expr] += 1
+        else:  # If `expr` is a constant take first vertex of the line segment.
+            return a1, b1
+
+        #  TODO : This part is quite hacky. Should be made more robust with
+        #  TODO : respect to symbol names and scalable w.r.t higher dimensions.
+        power_gens = sorted(power_gens.items(), key=lambda k: str(k[0]))
+        if power_gens[0][1] >= power_gens[1][1]:
+            if y_axis_cut(lineseg):
+                x0 = (S.Integer(0), b / a[1])
+            elif x_axis_cut(lineseg):
+                x0 = (b / a[0], S.Integer(0))
+            else:
+                x0 = (a1, b1)
+        else:
+            if x_axis_cut(lineseg):
+                x0 = (b/a[0], S.Integer(0))
+            elif y_axis_cut(lineseg):
+                x0 = (S.Integer(0), b/a[1])
+            else:
+                x0 = (a1, b1)
+    else:
+        x0 = (b/a[0])
+    return x0
 
 
 def plot_polytope(poly):

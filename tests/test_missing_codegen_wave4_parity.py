@@ -299,6 +299,8 @@ REFERENCE = [
      ['ok', '(x, y)']),
     ('ccode(CodeBlock(Assignment(x, 1), Assignment(z, (x + y)**2), Assignment(tau, (x + y)**2 + 1)).cse())',
      ['ok', 'x = 1;\nx0 = pow(x + y, 2);\nz = x0;\ntau = x0 + 1;']),
+    ('str(Print([x]).format_string)',
+     ['ok', 'NoneToken()']),
 ]
 
 # Same exception type as SymPy; the message names a symox class.
@@ -324,9 +326,6 @@ CORRECTED = [
     ("fcode(FunctionPrototype(real, 'f', [Variable(x, real)]), source_format='free')",
      ['err', 'NotImplementedError', 'F77 init./parameter statem. req. multiple lines.'],
      ['ok', 'interface\n   real*8 function f(x)\n   real*8 x\n   end function\nend interface']),
-    ('str(Print([x]).format_string)',
-     ['ok', 'NoneToken()'],
-     ['ok', 'None']),
 ]
 
 

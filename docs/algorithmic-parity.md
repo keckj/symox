@@ -5441,3 +5441,73 @@ Remaining gaps:
   version raises NotImplementedError when every candidate is singular. In
   that case the reference fallback `list[self.singular_points()][0]`
   raises TypeError.
+
+## Printing parity, audit batch print-a1
+
+Implemented (ports of the reference code, with regressions in
+`tests/test_print_a1_parity.py`):
+
+- Printing helpers: `multiline_latex`, pretty-printed `print_mathml` XML,
+  `rawlines`/`strlines`, `mathematica_code` of products with rational
+  coefficients, the `Ordinal` exponent repr, and the codegen AST reprs
+  (`Token`, `Type`, `intc`, `NoneToken`, `Variable`, `Comment`, `For`).
+  `str(none)` is now `NoneToken()`, as in the reference, which replaces
+  the earlier `None` divergence noted above. `strlines` and `rawlines` now
+  return the reference text (`dedent(...)` blocks and raw literals), and
+  `multiline_latex` accepts `terms_per_line=0` as the reference does.
+- Computation fixes found through printing:
+  - `SumApprox`, plus `reduce_order` and `reduce_order_meijer`, which now
+    use the reference sort keys.
+  - `hermite_prob` uses the reference `eval`: symbolic or negative orders
+    stay unevaluated.
+  - `Options` and `build_options`: `auto` is off when `domain` or `field`
+    is given, and `extension` builds an algebraic field.
+  - `decompose`, `best_origin`, `disambiguate`, `PropKB` clauses
+    (`tell`/`retract` through CNF), `kernS`, `collect_abs`,
+    `collect_sqrt` and `cse_release_variables`.
+  - `function_range` returns `Interval(-oo, oo)` and not `Reals`.
+  - `sympy_eqs_to_ring` returns the ring's domain, and `sring(...,
+    field=True)` gives `ZZ(a)` rather than `QQ(a)`.
+  - The public modules of `Tuple` and `AlgebraicNumber` match the
+    reference.
+- Core (Rust):
+  - `conjugate` now passes through `beta`, `betainc`,
+    `betainc_regularized`, `erfi`, `erf2`, `li` (unless the argument is
+    extended-negative), the Fresnel and Airy functions,
+    `lowergamma`/`uppergamma` (except at `z = 0` or `-oo`), `sech`,
+    `csch`, and the orthogonal polynomials (the order is kept).
+  - `ground_roots` keeps the `factor_list` order.
+  - `Pow` of a `Pow` whose base is `1/q` reads it as `q**(-e)`, as the
+    reference `as_base_exp` does. A symbolic exponent that is known to be
+    an integer also combines: `((1/2)**s)**-1 = 2**s` and
+    `(x**s)**k = x**(k*s)`.
+
+Intentional divergences:
+
+- `Subs(y, y, 0).has(y)`: the reference cached `has` result is wrong;
+  symox returns the correct answer.
+- Orders that depend on hashes (`args_cnc`/`atoms` sets, `itermonomials`,
+  `denoms`, `decompose(separate=True)`) and the core canonical `Add`/`Mul`
+  order (`Abs.aseries`, `gamma` series, `singularityintegrate`) are
+  form-only.
+
+Remaining unsupported:
+
+- `UndefinedPredicate`: a native `Predicate` has different `.func` and
+  `.name`.
+- Order of models and mappings from `satisfiable` and `bool_map`; operator
+  order in `devise_plan`.
+- The type name of the native `Domain`.
+- Alias printing for `AlgebraicField` (`alg_field_from_poly`,
+  `cyclotomic_field`, `integral_basis`).
+- `DDM`, `SDM` and `DomainMatrix` elements print as `MPQ`, not the
+  flint-style mix.
+- `Add`/`Mul` of a `MatrixSymbol` do not become `MatAdd`/`MatMul`.
+- `ImageSet` intersected with a `FiniteSet`, and `solveset` with an
+  imaginary symbol.
+- Pretty printing of sets, `Order`, `hyper`, `meijerg` and `Integral`
+  (covers `solveset`, `stationary_points`, `Integers`, `Naturals`, the
+  ODE power-series records and `odesimp`).
+- Last-digit `evalf` precision for `catalan`, `jn` and `yn`.
+- `sring` with a float coefficient and a symbolic one panics. This
+  predates this batch.

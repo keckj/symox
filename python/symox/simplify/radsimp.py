@@ -20,27 +20,72 @@ expand_denom=denom_expand
 
 
 def collect_abs(expr):
-    def visit(node):
-        if not node.is_Mul:return node
-        inside=[];outside=[]
-        for factor in node.args:
-            if factor.class_name=='Abs':inside.append(factor.args[0])
-            elif factor.is_Pow and factor.base.class_name=='Abs' and factor.exp.is_Integer:inside.append(factor.base.args[0]**factor.exp)
-            else:outside.append(factor)
-        return S.Mul(*outside)*S.Abs(S.Mul(*inside)) if len(inside)>1 else node
-    return S.bottom_up(expr,visit)
+    # Port of the reference collect_abs.
+    def _abs(mul):
+        c, nc = mul.args_cnc()
+        a = []
+        o = []
+        for i in c:
+            if i.class_name == 'Abs':
+                a.append(i.args[0])
+            elif i.is_Pow and i.base.class_name == 'Abs' and i.exp.is_real:
+                a.append(i.base.args[0]**i.exp)
+            else:
+                o.append(i)
+        if len(a) < 2 and not any(i.exp.is_negative for i in a if i.is_Pow):
+            return mul
+        absarg = S.Mul(*a)
+        A = S.Abs(absarg)
+        args = [A]
+        args.extend(o)
+        if not A.has(S.Abs):
+            args.extend(nc)
+            return S.Mul(*args)
+        if A.class_name != 'Abs':
+            A = S.Abs(absarg, evaluate=False)
+        args[0] = A
+        args.extend(nc)
+        return S.Mul(*args, evaluate=False)
+
+    return S.sympify(expr).replace(
+        lambda x: x.is_Mul,
+        lambda x: _abs(x)).replace(
+            lambda x: x.is_Pow,
+            lambda x: _abs(x))
 
 
-def collect_sqrt(expr,evaluate=None):
-    expr=S.sympify(expr);radicals=set()
-    for term in S.Add.make_args(expr):
-        for factor in S.Mul.make_args(term):
-            if factor==S.I or factor.is_Pow and factor.exp.is_Rational and factor.exp.q==2 and factor.is_number:radicals.add(factor)
-    result=S.collect_const(expr,*sorted(radicals,key=S.default_sort_key),Numbers=False) if radicals else expr
-    if evaluate is not False:return result
-    terms=S.Add.make_args(result)
-    count=sum(any(factor==S.I or factor.is_Pow and factor.exp.is_Rational and factor.exp.q==2 for factor in S.Mul.make_args(term)) for term in terms)
-    return (tuple(sorted(terms,key=S.default_sort_key)) if count else (result,)),count
+def collect_sqrt(expr, evaluate=None):
+    # Port of the reference collect_sqrt; the radicals are passed to
+    # collect_const in sorted order instead of hash-set order.
+    if evaluate is None:
+        from .._public_core import _evaluation
+        evaluate = _evaluation.get()
+    expr = S.sympify(expr)
+    coeff, expr = expr.as_content_primitive()
+    vars = set()
+    for a in S.Add.make_args(expr):
+        for m in a.args_cnc()[0]:
+            if m.is_number and (
+                    m.is_Pow and m.exp.is_Rational and m.exp.q == 2 or
+                    m == S.I):
+                vars.add(m)
+    d = S.collect_const(expr, *sorted(vars, key=S.default_sort_key), Numbers=False)
+    hit = expr != d
+    if not evaluate:
+        nrad = 0
+        args = list(S.ordered(S.Add.make_args(d)))
+        for i, m in enumerate(args):
+            c, nc = m.args_cnc()
+            for ci in c:
+                if ci.is_Pow and ci.exp.is_Rational and ci.exp.q == 2 or \
+                        ci == S.I:
+                    nrad += 1
+                    break
+            args[i] *= coeff
+        if not (hit or nrad):
+            args = [S.Add(*args)]
+        return tuple(args), nrad
+    return coeff*d
 
 
 def rad_rationalize(num,den):return S.fraction(S.radsimp(S.sympify(num)/S.sympify(den)))

@@ -103,7 +103,7 @@ class NoneToken(Token):
     def __bool__(self):return False
     def __eq__(self,other):return other is None or isinstance(other,NoneToken)
     def __hash__(self):return hash(())
-    def __str__(self):return 'None'
+    def __str__(self):return 'NoneToken()'
 class BreakToken(Token):pass
 class ContinueToken(Token):pass
 none=NoneToken();break_=BreakToken();continue_=ContinueToken()
@@ -222,7 +222,7 @@ class ComplexType(_FloatLimits,ComplexBaseType):
     cast_nocheck=ComplexBaseType.cast_nocheck
     _check=ComplexBaseType._check
 
-untyped=Type('untyped');integer=IntBaseType('integer');intc=SignedIntType('intc',32)
+untyped=Type('untyped');integer=IntBaseType('integer');intc=IntBaseType('intc')
 real=FloatBaseType('real');float32=FloatType('float32',32,23,8);float64=FloatType('float64',64,52,11);float80=FloatType('float80',80,63,15)
 complex_=ComplexBaseType('complex');complex64=ComplexType('complex64',64,23,8);complex128=ComplexType('complex128',128,52,11)
 bool_=Type('bool');void=Type('void');int8=SignedIntType('int8',8);int16=SignedIntType('int16',16);int32=SignedIntType('int32',32);int64=SignedIntType('int64',64)
@@ -232,6 +232,12 @@ value_const=Attribute('value_const');pointer_const=Attribute('pointer_const');re
 
 class Variable(Node,_Expression):
     _fields=('symbol','type','value','attrs');defaults={'type':untyped,'value':none,'attrs':()}
+    def _coerce(self,field,value):
+        # SymPy's ``_construct_value = staticmethod(sympify)``.
+        if field=='value' and value is not None and not isinstance(value,(CodegenAST,_S.Basic)):
+            try:return _S.sympify(value)
+            except Exception:return value
+        return super()._coerce(field,value)
     def _symox_(self):return self.symbol
     @property
     def free_symbols(self):return self.symbol.free_symbols
@@ -482,6 +488,7 @@ class CodeBlock(CodegenAST):
 @dataclass(frozen=True)
 class Comment(Token):
     text: str
+    _fields=('text',)
 
     def __post_init__(self):
         object.__setattr__(self, "text", str(self.text))
@@ -681,6 +688,72 @@ def _install_indexed_atoms():
 
 
 _install_indexed_atoms()
+
+
+
+# The reference Token._sympyrepr/_sympystr layout: the first field is
+# positional, later ones are keywords, defaults are omitted and a body is
+# indented one level deeper than its owner.
+_STRING_FIELDS=('name','message','local','original')
+
+
+def _token_value(value,repr_mode,il,joiner=', '):
+    if isinstance(value,CodeBlock):
+        joined=(',\n'+' '*il).join(_token_value(a,repr_mode,il) for a in value.args)
+        return ' '*(il-4)+'CodeBlock(\n'+' '*il+joined+'\n'+' '*(il-4)+')'
+    if isinstance(value,AssignmentBase) and repr_mode:
+        from symox.printing.repr import srepr
+        return '%s(%s, %s)'%(type(value).__name__,srepr(value.lhs),srepr(value.rhs))
+    if isinstance(value,_TOKEN_CLASSES):return _token_text(value,repr_mode,il)
+    if isinstance(value,bool):return repr(value)
+    if isinstance(value,int):return 'Integer(%d)'%value if repr_mode else str(value)
+    if isinstance(value,str):return repr(value) if repr_mode else value
+    if repr_mode:
+        from symox.printing.repr import srepr
+        return srepr(value)
+    if isinstance(value,_S.Float):
+        # A nested Float prints stripped (the reference full_prec='auto').
+        from symox.printing.str import sstr
+        return sstr(value,full_prec=False)
+    return str(value)
+
+
+def _token_text(obj,repr_mode,il=0):
+    if isinstance(obj,NoneToken):return 'NoneToken()'
+    if not repr_mode:
+        if isinstance(obj,String):return obj.text
+        if isinstance(obj,Type):return str(obj.name)
+        if isinstance(obj,Attribute):
+            result=str(obj.name)
+            if obj.parameters:result+='(%s)'%', '.join(_token_value(a,False,0) for a in obj.parameters)
+            return result
+    parts=[]
+    for i,field in enumerate(obj._fields):
+        value=getattr(obj,field)
+        if field in obj.defaults and value==obj.defaults[field]:continue
+        ilvl=il+4 if field=='body' else 0
+        joiner=',\n'+' '*ilvl if field=='body' else ', '
+        if isinstance(value,str) and field in _STRING_FIELDS and not isinstance(obj,String):
+            text="String(%r)"%value if repr_mode else value
+        elif isinstance(value,(tuple,_S.Tuple)) and not isinstance(value,CodegenAST):
+            items=value.args if isinstance(value,_S.Tuple) else value
+            joined=joiner.join(_token_value(a,repr_mode,ilvl) for a in items)
+            if field=='body':text='(\n'+' '*ilvl+joined+',\n'+' '*(ilvl-4)+')'
+            else:text=('({0},)' if len(items)==1 else '({0})').format(joined)
+        else:text=_token_value(value,repr_mode,ilvl)
+        parts.append(text.lstrip() if i==0 else '%s=%s'%(field,text.lstrip()))
+    return '%s(%s)'%(type(obj).__name__,', '.join(parts))
+
+
+_TOKEN_CLASSES=(Token,Variable,Declaration,FunctionCall,FunctionPrototype,For,While,Scope,Return,RuntimeError_,Raise,Stream,Print)
+for _cls in _TOKEN_CLASSES:
+    _cls.__repr__=lambda self:_token_text(self,True)
+    _cls._sympyrepr=lambda self,printer,*args,**kwargs:_token_text(self,True)
+    _cls._sympystr=lambda self,printer,*args,**kwargs:_token_text(self,False)
+for _cls in (Token,Variable,Declaration,FunctionCall,FunctionPrototype,For,While,Scope,Return,RuntimeError_,Raise,Stream,Print):
+    if '__str__' not in _cls.__dict__:_cls.__str__=lambda self:_token_text(self,False)
+Comment.__repr__=lambda self:_token_text(self,True)
+del _cls
 
 
 __all__ = [name for name,value in globals().items() if not name.startswith("_") and (isinstance(value,type) and issubclass(value,CodegenAST) or name in ("aug_assign",))]

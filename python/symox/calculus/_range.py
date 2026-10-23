@@ -27,6 +27,13 @@ def _attained(expression, symbol, value, domain):
     raise NotImplementedError('Range endpoint attainment is undecided')
 
 
+def _real_line_as_interval(value):
+    # The reference builds the whole line as Interval(-oo, oo), not Reals.
+    from .. import Interval
+    if value==S.Reals:return Interval(-S.Infinity,S.Infinity)
+    return value
+
+
 def function_range(f, symbol, domain):
     from .. import Dummy, Interval, FiniteSet, Union
     from .util import continuous_domain, periodicity
@@ -45,7 +52,7 @@ def function_range(f, symbol, domain):
         domain=Interval(0,period)
     continuous=continuous_domain(f,real,domain)
     if continuous==S.EmptySet:return continuous
-    if f==real:return continuous
+    if f==real:return _real_line_as_interval(continuous)
     if not f.has(real) and continuous.is_empty is False:return FiniteSet(f)
     images=[]
     points=set()
@@ -67,9 +74,7 @@ def function_range(f, symbol, domain):
         upper_attained=compact or _attained(f,real,high,part)
         images.append(Interval(low,high,not lower_attained,not upper_attained))
     result=Union(*images,FiniteSet(*points))
-    if isinstance(result,Interval) and result.start==-S.Infinity and result.end==S.Infinity:
-        return S.Reals
-    return result
+    return _real_line_as_interval(result)
 
 
 __all__=['function_range']

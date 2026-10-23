@@ -111,7 +111,12 @@ def mathml(expr,printer='content',**settings):
 
 
 def print_mathml(expr,printer='content',**settings):
-    print(mathml(expr,printer=printer,**settings))
+    # The reference prints the DOM through toprettyxml (tab indentation).
+    from xml.dom.minidom import parseString
+    text=mathml(expr,printer=printer,**settings)
+    try:pretty_xml=parseString(text).documentElement.toprettyxml()
+    except Exception:pretty_xml=text
+    print(pretty_xml)
 
 
 class MathMLPrinter(MathMLPrinterBase):
