@@ -396,28 +396,44 @@ def devise_plan(target, origin, z):
 
 
 def devise_plan_meijer(fro, to, z):
-    S = _S()
-    if fro.signature != to.signature:
-        raise ValueError('Meijer signatures must agree')
-    current, operators = [list(group) for group in fro.args], []
-    for group, (source, target) in enumerate(zip(fro.args, to.args)):
-        for i, (a, b) in enumerate(zip(source, target)):
-            delta = S.simplify(b-a)
-            if not delta.is_Integer or abs(int(delta)) > 256:
-                raise ValueError('Meijer shifts require integer steps of magnitude at most 256')
-            for _ in range(abs(int(delta))):
-                value = current[group][i]
-                if delta > 0:
-                    operator = (MeijerUnShiftB(*current, i, z) if group == 0 else
-                                MeijerUnShiftD(*current, i, z) if group == 1 else
-                                MeijerShiftA(value) if group == 2 else MeijerShiftC(value))
-                else:
-                    operator = (MeijerShiftB(value) if group == 0 else
-                                MeijerShiftD(value) if group == 1 else
-                                MeijerUnShiftA(*current, i, z) if group == 2 else MeijerUnShiftC(*current, i, z))
-                operators.append(operator)
-                current[group][i] += 1 if delta > 0 else -1
-    return list(reversed(operators))
+    # Port of SymPy 1.14: inverse-shift when possible, shift otherwise, and
+    # give up when no progress can be made.
+
+    def try_shift(f, t, shifter, diff, counter):
+        for idx, (a, b) in enumerate(zip(f, t)):
+            if ((a - b).is_integer and (b - a)/diff > 0 and
+                    all(a != x for x in counter)):
+                sh = shifter(idx)
+                f[idx] += diff
+                return sh
+        return None
+
+    fan, fap, fbm, fbq = list(fro.an), list(fro.ap), list(fro.bm), list(fro.bq)
+    steps = (
+        (fan, to.an, lambda i: MeijerUnShiftB(fan, fap, fbm, fbq, i, z), 1, lambda: fbm + fbq),
+        (fap, to.ap, lambda i: MeijerUnShiftD(fan, fap, fbm, fbq, i, z), 1, lambda: fbm + fbq),
+        (fbm, to.bm, lambda i: MeijerUnShiftA(fan, fap, fbm, fbq, i, z), -1, lambda: fan + fap),
+        (fbq, to.bq, lambda i: MeijerUnShiftC(fan, fap, fbm, fbq, i, z), -1, lambda: fan + fap),
+        (fan, to.an, lambda i: MeijerShiftB(fan[i]), -1, list),
+        (fap, to.ap, lambda i: MeijerShiftD(fap[i]), -1, list),
+        (fbm, to.bm, lambda i: MeijerShiftA(fbm[i]), 1, list),
+        (fbq, to.bq, lambda i: MeijerShiftC(fbq[i]), 1, list),
+    )
+    ops = []
+    change = True
+    while change:
+        change = False
+        for f, t, shifter, diff, counter in steps:
+            op = try_shift(f, t, shifter, diff, counter())
+            if op is not None:
+                ops.append(op)
+                change = True
+                break
+    if (fan != list(to.an) or fap != list(to.ap) or fbm != list(to.bm)
+            or fbq != list(to.bq)):
+        raise NotImplementedError('Could not devise plan.')
+    ops.reverse()
+    return ops
 
 
 class Formula:

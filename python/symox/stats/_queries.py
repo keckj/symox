@@ -527,6 +527,12 @@ def cdf(expr,condition=None,evaluate=True,**kwargs):
         total,table = S.Integer(0),{}
         for value,p in sorted(model.dict.items(),key=lambda pair:float(pair[0])):total += p;table[value] = S.simplify(total)
         return table
+    mass = getattr(model,'_symbolic_mass',None) if isinstance(model,Distribution) else None
+    if mass is not None and model._table is None:
+        # SymPy SingleFinitePSpace.compute_cdf for a symbolic size.
+        k,ki = S.Dummy('k'),S.Dummy('ki')
+        term = S.Piecewise((mass(ki),S.And(ki >= model.lower,ki <= model.upper)),(0,True))
+        return S.Lambda(k,S.Sum(term,(ki,model.lower,k)))
     x = S.Dummy('z',real=True)
     if isinstance(model,Distribution):return S.Lambda(x,model.cdf(x,**kwargs))
     t = S.Dummy('t',real=True)

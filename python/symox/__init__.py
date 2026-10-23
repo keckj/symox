@@ -2412,6 +2412,9 @@ def _series_call(expr, x, x0, n, dir, logx=None):
         if logx is not None:
             # Expr.series(logx=...): log(x) is the independent symbol logx.
             logx = sympify(logx)
+            if n is not None and _is_symbolic_power(expr, x, x0):
+                # Pow._eval_nseries: x**e with e free of x is exp(e*logx)
+                return exp(expr.exp*logx)
             lx = log(x)
             expr = expr.xreplace({lx: logx})
             if n is None:
@@ -2435,6 +2438,14 @@ def _series_call(expr, x, x0, n, dir, logx=None):
             result = _pw_series(expr, x, x0, n, dir)
             if result is not None:
                 return result
+    if x is not None and _is_symbolic_power(expr, sympify(x), x0):
+        # Pow._eval_nseries: x**e with a symbolic exponent free of x is its
+        # own expansion at 0 (no Order term).  A product with such a power
+        # still raises: the reference truncates it to O(x**n) whatever the
+        # sign of e, which drops the leading term when e < n.
+        if x0 in (S.Infinity, S.NegativeInfinity):
+            return Pow(1/expr.base, -expr.exp, evaluate=False)
+        return expr
     try:
         return _series_native(expr, x, x0, n, dir)
     except NotImplementedError:
@@ -2449,6 +2460,21 @@ def _series_call(expr, x, x0, n, dir, logx=None):
         if not shifted.has(Abs, sign, arg, Heaviside):
             raise
         return _series_native(shifted, xpos, x0, n, dir).subs(xpos, sx)
+
+
+def _is_symbolic_power(expr, x, x0):
+    """``x**e`` with ``e`` free of ``x`` and not a number, expanded at 0 or
+    at infinity."""
+    if not (getattr(expr, 'is_Pow', False) and expr.base == x):
+        return False
+    e = expr.exp
+    if e.is_number or e.has(x):
+        return False
+    try:
+        x0 = sympify(x0)
+    except Exception:
+        return False
+    return x0 == 0 or x0 in (S.Infinity, S.NegativeInfinity)
 
 
 def series(expr, x=None, x0=0, n=6, dir="+"):
@@ -2654,6 +2680,14 @@ def limit(e, z, z0, dir="+"):
         # The reference approaches z0 through a positive dummy, on which
         # arg(h) is 0: arg(z) -> 0 as z -> 0+ rather than arg(0) = nan.
         r = _limit_through_positive_dummy(sympify(e), sympify(z), sympify(z0), str(dir), r)
+    if r is None:
+        # Powers of a common base with symbolic exponents: x**p*x**(-p - 1)
+        # is x**(-1) (combining exponents of one base is always valid).
+        ee = sympify(e)
+        if ee.is_Mul or ee.is_Pow:
+            merged = powsimp(ee, combine='exp')
+            if merged != ee:
+                r = _core._limit(merged, z, z0, str(dir))
     if r is None and str(dir) in ("+", "-"):
         local = _singularity_local_germ(sympify(e), sympify(z), sympify(z0), str(dir))
         if local is not None:

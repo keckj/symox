@@ -277,10 +277,13 @@ def trigsimp(expr, inverse=False, **opts):
         return expr.func(trigsimp(expr.lhs, inverse=inverse, **opts),
                          trigsimp(expr.rhs, inverse=inverse, **opts))
     legacy = opts.pop("old", False)
-    opts.pop("deep", None)
-    opts.pop("recursive", None)
-    method = opts.pop("method", "matching")
-    if legacy:method='old'
+    if legacy:
+        # SymPy keeps deep, recursive and method for trigsimp_old.
+        method = 'old'
+    else:
+        opts.pop("deep", None)
+        opts.pop("recursive", None)
+        method = opts.pop("method", "matching")
     if method == "fu":
         result = fu(expr, **opts)
     elif method == "matching":

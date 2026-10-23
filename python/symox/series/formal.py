@@ -33,12 +33,33 @@ class _Sequence:
     __getitem__ = coeff
 
 
+def _split_symbolic_power(f, x, x0, direction):
+    """``(x**e, g)`` when ``f = x**e*g`` at ``x0 = 0`` from the right with a
+    symbolic exponent ``e`` free of ``x`` (the reference ``_compute_fps``
+    separates such a term as ``symb`` and multiplies it back), else
+    ``(1, f)``."""
+    from .. import S, Mul
+    if x0 != 0 or direction != 1:
+        return S.One, f
+    symb, rest = [], []
+    for factor in (f.args if f.is_Mul else (f,)):
+        if (factor.is_Pow and factor.base == x and not factor.exp.is_number
+                and not factor.exp.has(x)):
+            symb.append(factor)
+        else:
+            rest.append(factor)
+    if not symb:
+        return S.One, f
+    return Mul(*symb), Mul(*rest)
+
+
 class FormalPowerSeries:
     """A lazily evaluated formal expansion, with exact finite coefficients."""
     def __init__(self, function, x, x0=0, dir=1):
         from .. import S
         self.function, self.x, self.x0 = map(_core.sympify, (function, x, x0))
         self.dir = _core.sympify(dir)
+        self._symb, self._rest = _split_symbolic_power(self.function, self.x, self.x0, self.dir)
         self._default_order = 6
         self._cache = {}
         if self.x0 in (S.Infinity, S.NegativeInfinity):
@@ -59,9 +80,24 @@ class FormalPowerSeries:
         from .. import O
         n = _order(n)
         if n not in self._cache:
+            if self._symb != 1:
+                from .. import Add, expand, powsimp
+                value = expand(self._rest.series(self.x, self.x0, n, '+').removeO())
+                terms = value.args if value.is_Add else (value,)
+                self._cache[n] = (Add(*(powsimp(self._symb*t, combine='exp') for t in terms))
+                                  + O(powsimp(self._symb*self._small**n, combine='exp'), (self.x, self.x0)))
+                return self._cache[n]
             value = self.function.series(self.x, self.x0, n, '+' if self.dir == 1 else '-')
             self._cache[n] = value.removeO() + O(self._small**n, (self.x, self.x0))
         return self._cache[n]
+
+    def _plain_series(self, n):
+        """The expansion of the function without its symbolic power factor."""
+        if self._symb == 1:
+            return self._series(n)
+        from .. import O
+        return (self._rest.series(self.x, self.x0, n, '+').removeO()
+                + O(self._small**n, (self.x, self.x0)))
 
     def truncate(self, n=_DEFAULT):
         if n is _DEFAULT:
@@ -81,11 +117,14 @@ class FormalPowerSeries:
             change = (1 if self.x0 == S.Infinity else -1)/slot
         else:
             change = self.x0 + self.dir*slot
-        polynomial = self._series(index+1).removeO().subs(self.x, change).expand()
+        polynomial = self._plain_series(index+1).removeO().subs(self.x, change).expand()
         return polynomial.coeff(slot, index)
 
     def term(self, index):
         index = _order(index)
+        if self._symb != 1:
+            from .. import powsimp
+            return powsimp(self.coefficient(index)*self._symb*self._small**index, combine='exp')
         return self.coefficient(index)*self._small**index
 
     def __getitem__(self, index):
@@ -173,7 +212,10 @@ def fps(f, x=None, x0=0, dir=1, hyper=True, order=4, rational=True, full=False):
         return f
     # A fractional power, logarithm of the local variable or essential
     # singularity does not have an ordinary integer-power formal expansion.
-    probe = f.series(x, x0, 3, '+' if direction == 1 else '-')
+    probe = _split_symbolic_power(f, x, x0, direction)[1]
+    if x not in probe.free_symbols:
+        return f
+    probe = probe.series(x, x0, 3, '+' if direction == 1 else '-')
     slot = Dummy('t', positive=True)
     change = (1/slot if x0 == S.Infinity else -1/slot) if x0 in (S.Infinity, S.NegativeInfinity) else x0+direction*slot
     polynomial = probe.removeO().subs(x, change).expand()
