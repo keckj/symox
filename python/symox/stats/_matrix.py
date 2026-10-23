@@ -150,12 +150,23 @@ class MatrixRandomVariable:
         x = matrix(value)
         if x.shape != self.shape:raise ValueError('density argument has the wrong matrix shape')
         f,p = self.family,self.params
-        if f in ('Wishart','MatrixGamma'):
-            n,scale = self._wishart_parameters();dimension = self.rows
-            return S.exp(-(scale.inv()*x).trace()/2)*x.det()**((n-dimension-1)/2)/(2**(dimension*n/2)*scale.det()**(n/2)*S.multigamma(n/2,dimension))
+        if f == 'Wishart':
+            # Reference form: exp(Trace(-Sigma**-1*X/2)) with the factor
+            # folded into the explicit inverse.
+            n,scale = p;dimension = self.rows
+            term1 = S.exp(((-scale.inv()/2)*x).trace())/((2**(dimension*n/S.Integer(2)))*S.multigamma(n/S.Integer(2),dimension))
+            return term1*scale.det()**(-n/S.Integer(2))*x.det()**((n-dimension-1)/S.Integer(2))
+        if f == 'MatrixGamma':
+            alpha,beta,scale = p;dimension = self.rows
+            term1 = S.exp(((-scale.inv())*x).trace()/beta)/((beta**(dimension*alpha))*S.multigamma(alpha,dimension))
+            return term1*scale.det()**(-alpha)*x.det()**(alpha-S.Integer(dimension+1)/2)
         if f == 'MatrixNormal':
             mu,U,V = p;delta = x-mu
-            return S.exp(-(V.inv()*delta.T*U.inv()*delta).trace()/2)/((2*S.pi)**S.Rational(self.rows*self.cols,2)*U.det()**S.Rational(self.cols,2)*V.det()**S.Rational(self.rows,2))
+            # Explicit identity factors drop out of the reference product.
+            factors = [F for F in (V.inv(),delta.T,U.inv(),delta) if not (getattr(F,'is_square',False) and F == S.eye(F.rows))]
+            product = factors[0]
+            for F in factors[1:]:product = product*F
+            return S.exp(-product.trace()/2)/((2*S.pi)**S.Rational(self.rows*self.cols,2)*U.det()**S.Rational(self.cols,2)*V.det()**S.Rational(self.rows,2))
         nu,mu,Omega,Sigma = p;delta = x-mu;n,p = self.shape
         normalizer = S.multigamma((nu+n+p-1)/2,p)/(S.multigamma((nu+p-1)/2,p)*S.pi**S.Rational(n*p,2)*Omega.det()**S.Rational(n,2)*Sigma.det()**S.Rational(p,2))
         return normalizer*(S.eye(n)+Sigma.inv()*delta*Omega.inv()*delta.T).det()**(-(nu+n+p-1)/2)

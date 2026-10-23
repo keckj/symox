@@ -5441,3 +5441,68 @@ Remaining gaps:
   version raises NotImplementedError when every candidate is singular. In
   that case the reference fallback `list[self.singular_points()][0]`
   raises TypeError.
+
+## Output forms of sympy.stats documentation examples (wave 4, stats-forms)
+
+The audit listed 47 sympy.stats callables whose example output was equal to
+SymPy's but written in another form. Re-running every example of their
+docstrings (398 examples) against SymPy 1.14: 1 callable matched before
+(`Normal`), 19 match now. The fixes follow the reference formulas exactly.
+- CDF layout. A distribution can now carry the reference CDF expression,
+  support Piecewise included (`_cdf_form`). It is ported for `Arcsin`,
+  `Uniform`, `Kumaraswamy`, `UniformSum` (`(0, x < a), (F, x <= b), (1, True)`),
+  `Dagum`, `Exponential`, `ChiSquared`, `Frechet`, `Gamma`/`Erlang`,
+  `GammaInverse`, `Nakagami` (`(F, x >= lower)` or `x > 0`, then `(0, True)`),
+  and the integrated form `Piecewise((F, x >= lower), (0, True))` of `Lomax`
+  and `Benini`, which have no reference `_cdf`. The in-support `_cdf` is
+  unchanged and still used for probabilities and sampling.
+- `cdf(X, **options)` forwards the options. With options SymPy integrates the
+  density, so `cdf(Gamma(k, theta), meijerg=True)` now gives
+  `k*lowergamma(k, z/theta)/gamma(k + 1)` for `z >= 0`.
+- `ExGaussian` CDF composes the two Gaussian CDFs in the scaled variable, as
+  the reference does.
+- Densities written as in the reference: `Gompertz`, `ShiftedGompertz` and
+  `NormalGamma` keep separate `exp` factors; `Geometric` is `(1-p)**(k-1)*p`
+  and `FlorySchulz` is `a**2*k*(1-a)**(k-1)` (no unsimplified `binomial`);
+  `FDistribution`, `Benini` and `Nakagami` use the reference expressions;
+  `Trapezoidal` uses half-open pieces `[a, b)`, `[b, c)`, `[c, d]`. Shapes
+  where `b == a` or `c == d` still drop the empty piece.
+- `GeneralizedMultivariateLogGamma(Omega)` sums over `Symbol('n',
+  integer=True, negative=False)` with `gamma(n + 1)` in the denominator.
+- `Wishart` and `MatrixGamma` densities fold the scalar into the explicit
+  inverse scale matrix (`exp(Trace(-Sigma**-1*X/2))`, `exp(Trace(-Sigma**-1*X)/beta)`)
+  with `Determinant(Sigma)**(-n/2)`. `MatrixNormal` drops explicit identity
+  factors from the trace product.
+
+Remaining form gaps, by root cause. All are numerically equal.
+- Core printing (not changed here): multi-line `Matrix` inside `str`
+  (`Wishart`, `MatrixGamma`, which are otherwise identical); pretty printing of
+  `beta` as `B` (`FDistribution`), of `Sum` and `factorial` (`UniformSum` pdf).
+- Core canonicalization (not changed here): `Rational**symbol` stays
+  `(1/2)**n` instead of `2**(-n)` (`GeneralizedMultivariateLogGamma`,
+  `Logarithmic` density); `beta(2, 2)` evaluates to `1/6` (`BetaBinomial`
+  `density(X).dict`); `Trace` of the product keeps `(X - M)*(X - M).T`
+  instead of `(X - M).T*(X - M)` (`MatrixNormal`, equal by cyclicity).
+- Moments from closed forms plus `simplify`, where SymPy integrates and does
+  not simplify: `ChiSquared` `moment(X, 3)` (factored vs expanded),
+  `ExGaussian` `E`, `Rayleigh` and `Zeta` variance, `Nakagami` `E` and
+  variance (`mu*gamma(mu)` vs `gamma(mu + 1)`), `H` (`entropy`, `log(2*pi)`
+  vs split logs), `Logarithmic` `E`/variance, `GaussianInverse`
+  `skewness(...).expand()` (symox leaves `exp*(cosh - sinh)` terms),
+  `kurtosis`, `skewness` and `coskewness` (simplified quotients),
+  `Probability.evaluate_integral`, `Multinomial` marginal (symox uses
+  `p1 + p2 + p3 = 1`). Matching them needs SymPy's integration path and its
+  absence of `simplify`, which would change many other results; left as gaps.
+- Kept on purpose:
+  - `LogCauchy` CDF keeps the `Piecewise((0, z < 0), ...)` guard. SymPy's
+    `atan((log(z) - mu)/sigma)/pi + 1/2` is complex for `z < 0`.
+  - `MatrixStudentT` stays exact; SymPy prints `pi**1.0` and float
+    determinant powers.
+  - `GaussianOrthogonalEnsemble` evaluates the normalising integral
+    (`2*pi**(3/2)` for n = 2). SymPy leaves the `Integral` unevaluated.
+  - `Circular*Ensemble` for n = 1 and `joint_eigen_distribution` give the
+    evaluated density, where SymPy keeps an empty or held `Product`.
+  - `MultivariateEwens` marginal substitutes `a1 = 2` inside the `Eq(a1, 2)`
+    branch (`1/2` vs `1/factorial(a1)`).
+
+Tests: tests/test_stats_forms_parity.py.

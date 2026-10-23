@@ -96,6 +96,7 @@ def continuous_model(family,params):
         a,b = values;_bounded(m,a,b)
         m._pdf = lambda x:S.Piecewise((1/(b-a),S.And(x>=a,x<=b)),(0,True))
         m._cdf = lambda x:(x-a)/(b-a)
+        m._cdf_form = lambda x:S.Piecewise((0,x < a),((x-a)/(b-a),x <= b),(1,True))
         m._moment = lambda n:(b**(n+1)-a**(n+1))/((n+1)*(b-a))
         m._mgf = lambda t:(S.exp(b*t)-S.exp(a*t))/(t*(b-a))
         m._quantile = lambda p:a+(b-a)*p
@@ -108,6 +109,14 @@ def continuous_model(family,params):
         m.lower = S.Integer(0)
         m._pdf = lambda x:x**(k-1)*S.exp(-x/theta)/(S.gamma(k)*theta**k)
         m._cdf = lambda x:S.lowergamma(k,x/theta)/S.gamma(k)
+        if family == 'Gamma':
+            m._cdf_form = lambda x:S.Piecewise((S.lowergamma(k,x/theta)/S.gamma(k),x > 0),(0,True))
+            # cdf(X, meijerg=True): the reference integrates the density.
+            m._cdf_integrated = lambda x:S.Piecewise((k*S.lowergamma(k,x/theta)/S.gamma(k+1),x >= 0),(0,True))
+        elif family == 'ChiSquared':
+            m._cdf_form = lambda x:S.Piecewise((S.lowergamma(k,x/2)/S.gamma(k),x >= 0),(0,True))
+        else:
+            m._cdf_form = lambda x:S.Piecewise((1-S.exp(-rate*x),x >= 0),(0,True))
         m._moment = lambda n:theta**n*S.rf(k,n)
         m._mgf = lambda t:(1-theta*t)**(-k)
         m._sampler = lambda r,z:r.gamma(float(k),float(theta),z)
@@ -175,6 +184,9 @@ def continuous_model(family,params):
             m._moment = lambda n:scale**n*2**(n/2)*S.gamma((k+n)/2)/S.gamma(k/2)
             m._sampler = lambda r,z:float(scale)*np.sqrt(r.chisquare(float(k),z))
             if family == 'Rayleigh':m._quantile = lambda p:scale*S.sqrt(-2*S.log(1-p))
+            if family == 'Nakagami':
+                m._pdf = lambda x:2*shape**shape/(S.gamma(shape)*omega**shape)*x**(2*shape-1)*S.exp(-shape/omega*x**2)
+                m._cdf_form = lambda x:S.Piecewise((S.lowergamma(shape,(shape/omega)*x**2)/S.gamma(shape),x > 0),(0,True))
     elif family in ('LogNormal','LogitNormal'):
         mu,sigma = values;positive(sigma)
         m.lower = S.Integer(0)
@@ -209,6 +221,7 @@ def continuous_model(family,params):
             alpha,scale = values;positive(alpha,scale);m.lower = S.Integer(0)
             m._pdf = lambda x:alpha/scale*(1+x/scale)**(-alpha-1)
             m._cdf = lambda x:1-(1+x/scale)**(-alpha)
+            m._cdf_form = lambda x:S.Piecewise((1-(1+x/scale)**(-alpha),x >= 0),(0,True))
             m._moment = lambda n:_exists(scale**n*S.gamma(n+1)*S.gamma(alpha-n)/S.gamma(alpha),alpha>n,n)
             m._quantile = lambda p:scale*((1-p)**(-1/alpha)-1)
             m._sampler = lambda r,z:float(scale)*r.pareto(float(alpha),z)
@@ -222,17 +235,19 @@ def continuous_model(family,params):
             alpha,scale,location = values;positive(alpha,scale);m.lower = location
             m._pdf = lambda x:alpha/scale*((x-location)/scale)**(-1-alpha)*S.exp(-((x-location)/scale)**(-alpha))
             m._cdf = lambda x:S.exp(-((x-location)/scale)**(-alpha))
+            m._cdf_form = lambda x:S.Piecewise((S.exp(-((x-location)/scale)**(-alpha)),x >= location),(0,True))
             m._moment = lambda n:_shift(n,location,lambda j:S.Integer(1) if j == 0 else _exists(scale**j*S.gamma(1-j/alpha),alpha>j,j))
             m._quantile = lambda p:location+scale*(-S.log(p))**(-1/alpha)
         elif family == 'GammaInverse':
             alpha,beta = values;positive(alpha,beta);m.lower = S.Integer(0)
             m._pdf = lambda x:beta**alpha*x**(-alpha-1)*S.exp(-beta/x)/S.gamma(alpha)
             m._cdf = lambda x:S.uppergamma(alpha,beta/x)/S.gamma(alpha)
+            m._cdf_form = lambda x:S.Piecewise((S.uppergamma(alpha,beta/x)/S.gamma(alpha),x > 0),(0,True))
             m._moment = lambda n:_exists(beta**n*S.gamma(alpha-n)/S.gamma(alpha),alpha>n,n)
             m._sampler = lambda r,z:float(beta)/r.gamma(float(alpha),1,z)
         elif family == 'FDistribution':
             d1,d2 = values;_integer(d1,1);_integer(d2,1);m.lower = S.Integer(0)
-            m._pdf = lambda x:(d1/d2)**(d1/2)*x**(d1/2-1)*(1+d1*x/d2)**(-(d1+d2)/2)/S.beta(d1/2,d2/2)
+            m._pdf = lambda x:S.sqrt((d1*x)**d1*d2**d2/(d1*x+d2)**(d1+d2))/(x*S.beta(d1/2,d2/2))
             m._cdf = lambda x:S.betainc_regularized(d1/2,d2/2,0,d1*x/(d1*x+d2))
             m._moment = lambda n:_exists((d2/d1)**n*S.gamma(d1/2+n)*S.gamma(d2/2-n)/(S.gamma(d1/2)*S.gamma(d2/2)),d2>2*n,n)
             m._sampler = lambda r,z:r.f(float(d1),float(d2),z)
@@ -240,6 +255,7 @@ def continuous_model(family,params):
             p,a,b = values;positive(p,a,b);m.lower = S.Integer(0)
             m._pdf = lambda x:a*p*(x/b)**(a*p)/(x*(1+(x/b)**a)**(p+1))
             m._cdf = lambda x:(1+(x/b)**(-a))**(-p)
+            m._cdf_form = lambda x:S.Piecewise(((1+(x/b)**(-a))**(-p),x >= 0),(0,True))
             m._moment = lambda n:_exists(b**n*S.gamma(1-n/a)*S.gamma(p+n/a)/S.gamma(p),a>n,n)
             m._quantile = lambda q:b*(q**(-1/p)-1)**(-1/a)
     elif family == 'StudentT':
@@ -277,6 +293,12 @@ def continuous_model(family,params):
         m._pdf = lambda x:rate*S.exp(rate*(2*mu+rate*sigma*sigma-2*x)/2)*S.erfc((mu+rate*sigma*sigma-x)/(S.sqrt(2)*sigma))/2
         normalcdf = lambda x:(1+S.erf(x/S.sqrt(2)))/2
         m._cdf = lambda x:normalcdf((x-mu)/sigma)-S.exp(-rate*(x-mu)+rate*rate*sigma*sigma/2)*normalcdf((x-mu)/sigma-rate*sigma)
+        def exgaussian_cdf(x):
+            # The reference composes two Gaussian CDFs in the scaled variable.
+            u,v = rate*(x-mu),rate*sigma
+            gauss = lambda value,mean,std:S.erf(S.sqrt(2)*(-mean+value)/(2*std))/2+H
+            return gauss(u,0,v)-S.exp(-u+v**2/2+S.log(gauss(u,v**2,v)))
+        m._cdf_form = exgaussian_cdf
         m._moment = lambda n:S.Add(*(S.binomial(n,j)*_normal_moment(n-j,mu,sigma)*S.factorial(j)/rate**j for j in range(int(n)+1))) if n.is_Integer else None
         m._mgf = lambda t:S.exp(mu*t+sigma*sigma*t*t/2)/(1-t/rate)
         m._sampler = lambda r,z:r.normal(float(mu),float(sigma),z)+r.exponential(1/float(rate),z)
@@ -299,6 +321,7 @@ def continuous_model(family,params):
         a,b = values;_bounded(m,a,b)
         m._pdf = lambda x:1/(S.pi*S.sqrt((x-a)*(b-x)))
         m._cdf = lambda x:2*S.asin(S.sqrt((x-a)/(b-a)))/S.pi
+        m._cdf_form = lambda x:S.Piecewise((0,x < a),(2*S.asin(S.sqrt((x-a)/(b-a)))/S.pi,x <= b),(1,True))
         m._moment = lambda n:_shift(n,a,lambda j:(b-a)**j*S.rf(H,j)/S.factorial(j))
         m._quantile = lambda p:a+(b-a)*S.sin(S.pi*p/2)**2
         m._sampler = lambda r,z:float(a)+float(b-a)*r.beta(.5,.5,z)
@@ -306,6 +329,7 @@ def continuous_model(family,params):
         a,b = values;positive(a,b);m.lower,m.upper = S.Integer(0),S.Integer(1)
         m._pdf = lambda x:a*b*x**(a-1)*(1-x**a)**(b-1)
         m._cdf = lambda x:1-(1-x**a)**b
+        m._cdf_form = lambda x:S.Piecewise((0,x < 0),(1-(1-x**a)**b,x <= 1),(1,True))
         m._moment = lambda n:b*S.beta(1+n/a,b)
         m._quantile = lambda p:(1-(1-p)**(1/b))**(1/a)
     elif family == 'PowerFunction':
@@ -322,8 +346,9 @@ def continuous_model(family,params):
         m._quantile = lambda p:a*(b/a)**p
     elif family == 'Benini':
         a,b,scale = values;positive(a,b,scale);m.lower = scale
-        m._pdf = lambda x:S.exp(-a*S.log(x/scale)-b*S.log(x/scale)**2)*(a+2*b*S.log(x/scale))/x
+        m._pdf = lambda x:S.exp(-a*S.log(x/scale)-b*S.log(x/scale)**2)*(a/x+2*b*S.log(x/scale)/x)
         m._cdf = lambda x:1-S.exp(-a*S.log(x/scale)-b*S.log(x/scale)**2)
+        m._cdf_form = lambda x:S.Piecewise((1-S.exp(-a*S.log(x/scale)-b*S.log(x/scale)**2),x >= scale),(0,True))
         m._moment = lambda n:scale**n*(1+n*S.sqrt(S.pi)/(2*S.sqrt(b))*S.exp((a-n)**2/(4*b))*S.erfc((a-n)/(2*S.sqrt(b))))
         m._quantile = lambda p:scale*S.exp((S.sqrt(a*a-4*b*S.log(1-p))-a)/(2*b))
     elif family == 'Davis':
@@ -333,13 +358,13 @@ def continuous_model(family,params):
     elif family in ('Gompertz','ShiftedGompertz'):
         b,eta = values;positive(b,eta);m.lower = S.Integer(0)
         if family == 'Gompertz':
-            m._pdf = lambda x:b*eta*S.exp(b*x+eta-eta*S.exp(b*x))
+            m._pdf = lambda x:b*eta*S.exp(b*x)*S.exp(eta)*S.exp(-eta*S.exp(b*x))
             m._cdf = lambda x:1-S.exp(eta-eta*S.exp(b*x))
             m._mgf = lambda t:S.exp(eta)*eta**(-t/b)*S.uppergamma(1+t/b,eta)
             m._moment = lambda n:S.exp(eta)*S.expint(1,eta)/b if n == 1 else None
             m._quantile = lambda p:S.log(1-S.log(1-p)/eta)/b
         else:
-            m._pdf = lambda x:b*S.exp(-b*x-eta*S.exp(-b*x))*(1+eta*(1-S.exp(-b*x)))
+            m._pdf = lambda x:b*S.exp(-b*x)*S.exp(-eta*S.exp(-b*x))*(1+eta*(1-S.exp(-b*x)))
             m._cdf = lambda x:(1-S.exp(-b*x))*S.exp(-eta*S.exp(-b*x))
     elif family == 'Gumbel':
         beta,mu,minimum = values;positive(beta);sign = -1 if bool(minimum) else 1
@@ -394,7 +419,14 @@ def continuous_model(family,params):
                 result.append((height,b,c))
                 if d != c:result.append((height*(d-x)/(d-c),c,d))
                 return result
-            m._pdf = lambda x:S.Piecewise(*((p,S.And(x>=l,x<=u)) for p,l,u in pieces(x)),(0,True))
+            def trapezoid_pdf(x):
+                # Reference pieces: half-open [a, b), [b, c), closed [c, d].
+                result = []
+                if b != a:result.append((2*(x-a)/((b-a)*(d+c-a-b)),S.And(a <= x,x < b)))
+                result.append((2/(d+c-a-b),S.And(b <= x,x < c)))
+                result.append((2*(d-x)/((d-c)*(d+c-a-b)),S.And(c <= x,x <= d)) if d != c else (height,S.Eq(x,c)))
+                return S.Piecewise(*result,(0,True))
+            m._pdf = trapezoid_pdf
             rising = lambda x:S.Integer(0) if b == a else height*(x-a)**2/(2*(b-a))
             falling = lambda x:S.Integer(1) if d == c else 1-height*(d-x)**2/(2*(d-c))
             m._cdf = lambda x:S.Piecewise((rising(x),x<b),(height*((b-a)/2+x-b),x<=c),(falling(x),True))
@@ -419,6 +451,10 @@ def continuous_model(family,params):
             return sum_expr((-1)**k*S.binomial(n,k)*(x-k)**power,k,S.Integer(0),S.floor(x))/S.factorial(power)
         m._pdf = lambda x:irwin(x,n-1)
         m._cdf = lambda x:irwin(x,n)
+        def irwin_cdf(x):
+            k = S.Dummy('k')
+            return S.Piecewise((0,x < 0),(1/S.factorial(n)*S.Sum((-1)**k*S.binomial(n,k)*(x-k)**n,(k,0,S.floor(x))),x <= n),(1,True))
+        m._cdf_form = irwin_cdf
         m._moment = lambda k:S.stirling(n+k,n,kind=2)/S.binomial(n+k,n) if n.is_Integer and k.is_Integer else None
         m._mgf = lambda t:((S.exp(t)-1)/t)**n
         m._sampler = lambda r,z:r.uniform(size=tuple(z)+(int(n),)).sum(axis=-1)
@@ -561,6 +597,8 @@ def discrete_model(family,params):
         else:shape,p = values;positive(shape);_probability(p,False);offset = S.Integer(0)
         m.lower = offset
         m._pdf = lambda k:S.binomial(k-offset+shape-1,k-offset)*(1-p)**(k-offset)*p**shape
+        if family == 'Geometric':m._pdf = lambda k:(1-p)**(k-1)*p
+        elif family == 'FlorySchulz':m._pdf = lambda k:p**2*k*(1-p)**(k-1)
         m._cdf = lambda x:S.betainc_regularized(shape,S.floor(x)-offset+1,0,p)
         m._moment = lambda n:_shift(n,offset,lambda k:S.Add(*(S.stirling(k,j,kind=2)*S.rf(shape,j)*((1-p)/p)**j for j in range(int(k)+1))))
         m._mgf = lambda t:S.exp(offset*t)*(p/(1-(1-p)*S.exp(t)))**shape
