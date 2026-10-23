@@ -627,7 +627,8 @@ pub(crate) fn class_head(cls: &Bound<'_, PyType>) -> PyResult<Option<UndefinedFu
 
 /// A new unevaluated application of a host head, bound to its instance.
 pub(crate) fn apply<'py>(py: Python<'py>, head: &UndefinedFunction, args: &Bound<'py, PyTuple>) -> PyResult<Bound<'py, PyAny>> {
-    let args = args.iter().map(|arg| crate::scalar_expr(&arg)).collect::<PyResult<Vec<_>>>()?;
+    // SymPy's Basic accepts matrix arguments (e.g. `shape(NewExpr(M))`).
+    let args = args.iter().map(|arg| crate::replacement_expr(&arg)).collect::<PyResult<Vec<_>>>()?;
     if !head.accepts(args.len()) {
         return Err(pyo3::exceptions::PyTypeError::new_err(format!(
             "{} accepts argument counts {:?}, got {}", head.name, head.nargs.as_ref().unwrap(), args.len())));

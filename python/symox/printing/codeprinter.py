@@ -514,6 +514,14 @@ class CodePrinter(StrPrinter):
     def _print_isinf(self, arg):
         return 'isinf(%s)' % self._print(*arg.args)
 
+    def _print_ImmutableMatrix(self, expr):
+        # An explicit matrix held as a function argument comes back as a
+        # matrix expression; print it as SymPy's ImmutableDenseMatrix.
+        explicit = expr.as_explicit()
+        if explicit is expr or type(explicit) is type(expr):
+            return self._print_Function(expr)
+        return self._print(explicit)
+
     def _print_Function(self, expr):
         if expr.func.__name__ in self.known_functions:
             cond_func = self.known_functions[expr.func.__name__]

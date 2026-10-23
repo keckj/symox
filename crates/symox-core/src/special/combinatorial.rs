@@ -263,6 +263,14 @@ fn eval_harmonic(a: &[Expr]) -> Option<Expr> {
         if m.is_constant(Constant::Infinity) {
             return Some(Expr::one());
         }
+        // SymPy: is_le(m, 1) gives oo, is_gt(m, 1) gives zeta(m).
+        let shifted = sub(&m, &Expr::one());
+        if is_nonpositive(&shifted) == Some(true) {
+            return Some(Expr::oo());
+        }
+        if is_positive(&shifted) == Some(true) {
+            return Some(super::zeta(&m));
+        }
         return None;
     }
     if let Some(mm) = as_small(&m) {

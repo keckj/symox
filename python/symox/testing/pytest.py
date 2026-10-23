@@ -52,24 +52,50 @@ def skip_under_pyodide(message=None):
 
 @contextlib.contextmanager
 def warns(warningcls,*,match='',test_stacklevel=True):
-    """SymPy's ``warns``: the expected category must be emitted and match ``match``.
-
-    The stack-level check of the reference (which needs a ``test_*`` file
-    on the stack) is not performed."""
+    """SymPy's ``warns``: the expected category must be emitted and match
+    ``match``; any other warning is an error, and with ``test_stacklevel``
+    the warning must point at the calling ``test_*`` file (as in SymPy)."""
+    import inspect, os
     with warnings.catch_warnings(record=True) as warnrec:
-        warnings.simplefilter('always')
+        warnings.simplefilter('error')
+        warnings.filterwarnings('always',category=warningcls)
         yield warnrec
     if not any(issubclass(w.category,warningcls) for w in warnrec):
-        raise Failed('Failed: DID NOT WARN. No warnings of type %s was emitted.'
-                     ' The list of emitted warnings is: %s.'%(warningcls,[w.message for w in warnrec]))
+        msg=('Failed: DID NOT WARN.'
+             ' No warnings of type %s was emitted.'
+             ' The list of emitted warnings is: %s.')%(warningcls,[w.message for w in warnrec])
+        raise Failed(msg)
     for w in warnrec:
-        if issubclass(w.category,warningcls) and not re.compile(match,re.IGNORECASE).match(str(w.message)):
+        assert issubclass(w.category,warningcls)
+        if not re.compile(match,re.IGNORECASE).match(str(w.message)):
             raise Failed(f"Failed: WRONG MESSAGE. A warning with of the correct category ({warningcls.__name__}) "
                          f"was issued, but it did not match the given match regex ({match!r})")
-    for w in warnrec:
-        if not issubclass(w.category,warningcls):
-            warnings.warn_explicit(w.message,w.category,w.filename,w.lineno)
-def warns_deprecated_sympy(*,match='',test_stacklevel=True):return warns(SymPyDeprecationWarning,match=match,test_stacklevel=test_stacklevel)
+    if test_stacklevel:
+        for f in inspect.stack():
+            thisfile=f.filename
+            file=os.path.split(thisfile)[1]
+            if file.startswith('test_'):
+                break
+            elif file=='doctest.py':
+                return
+        else:
+            raise RuntimeError('Could not find the file for the given warning to test the stacklevel')
+        for w in warnrec:
+            if w.filename!=thisfile:
+                msg=f"""\
+Failed: Warning has the wrong stacklevel. The warning stacklevel needs to be
+set so that the line of code shown in the warning message is user code that
+calls the deprecated code (the current stacklevel is showing code from
+{w.filename} (line {w.lineno}), expected {thisfile})""".replace('\n',' ')
+                raise Failed(msg)
+
+
+
+@contextlib.contextmanager
+def warns_deprecated_sympy():
+    """Shorthand for ``warns(SymPyDeprecationWarning)``."""
+    with warns(SymPyDeprecationWarning):
+        yield
 
 __all__=['ExceptionInfo','Failed','RaisesContext','SKIP','Skipped','XFAIL','XFail','XPass','nocache_fail','raises',
  'skip','skip_under_pyodide','slow','tooslow','warns','warns_deprecated_sympy']

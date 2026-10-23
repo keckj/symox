@@ -3513,6 +3513,13 @@ def lambdify(args, expr, modules=None, **kwargs):
             raise NotImplementedError("CUDA lambdify requires a single module")
         return extra.cuda_lambdify(args, expr, **kwargs)
     from .utilities.lambdify import _compile_implemented,_compile_structured,_compile_mpmath
+    from .utilities.lambdify import _NAMESPACE_MODULES, _module_namespace
+    # SymPy imports every named module first: a missing one (for example
+    # 'tensorflow') raises "Cannot import 'tensorflow' with 'import
+    # tensorflow' command".
+    for module in candidates:
+        if isinstance(module, str) and module in _NAMESPACE_MODULES:
+            _module_namespace(module)
     expr = _singularity_as_piecewise(expr)
     structured = _compile_structured(args,expr,modules,kwargs)
     if structured is not None:

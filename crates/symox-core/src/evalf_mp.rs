@@ -176,8 +176,10 @@ impl MpComplex {
         if self.is_real() && o.is_real() {
             return MpComplex::real(self.re.mul(&o.re, p));
         }
-        let re = self.re.mul(&o.re, p).sub(&self.im.mul(&o.im, p), p);
-        let im = self.re.mul(&o.im, p).add(&self.im.mul(&o.re, p), p);
+        // mpmath's mpc_mul: exact partial products, each part rounded once.
+        let exact = |a: &BigFloat, b: &BigFloat| a.mul(b, (a.man.bits() + b.man.bits() + 2) as u32);
+        let re = exact(&self.re, &o.re).sub(&exact(&self.im, &o.im), p);
+        let im = exact(&self.re, &o.im).add(&exact(&self.im, &o.re), p);
         MpComplex { re, im }
     }
 
@@ -213,7 +215,18 @@ impl MpComplex {
     }
 
     pub(crate) fn div(&self, other: &MpComplex, precision: u32) -> Option<MpComplex> {
-        Some(self.mul(&other.inv(precision + 8)?, precision))
+        // mpmath's mpc_div (mpc_div_mpf for a real divisor).
+        if other.is_real() {
+            if other.re.is_zero() { return None; }
+            if self.is_real() { return Some(MpComplex::real(self.re.div(&other.re, precision)?)); }
+            return Some(MpComplex { re: self.re.div(&other.re, precision)?, im: self.im.div(&other.re, precision)? });
+        }
+        let exact = |a: &BigFloat, b: &BigFloat| a.mul(b, (a.man.bits() + b.man.bits() + 2) as u32);
+        let wp = precision + 10;
+        let mag = exact(&other.re, &other.re).add(&exact(&other.im, &other.im), wp);
+        let t = exact(&self.re, &other.re).add(&exact(&self.im, &other.im), wp);
+        let u = exact(&self.im, &other.re).sub(&exact(&self.re, &other.im), wp);
+        Some(MpComplex { re: t.div(&mag, precision)?, im: u.div(&mag, precision)? })
     }
 
     pub(crate) fn conjugate(&self) -> MpComplex {

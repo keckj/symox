@@ -96,7 +96,7 @@ def test_testing_adapters_execute_real_assertions_and_doctests(tmp_path):
     from symox.utilities.exceptions import sympy_deprecation_warning
     with raises(ZeroDivisionError) as caught:1/0
     assert isinstance(caught.value,ZeroDivisionError)
-    with warns_deprecated_sympy():sympy_deprecation_warning('old API',deprecated_since_version='0.1',active_deprecations_target='test')
+    with warns_deprecated_sympy():sympy_deprecation_warning('old API',deprecated_since_version='0.1',active_deprecations_target='test',stacklevel=2)
     assert split_list(list(range(10)),'2/3')==[3,4,5]
     assert split_list(list(range(10)),'3/3')==[6,7,8,9]
     path=tmp_path/'example.txt';path.write_text('>>> from symox import Rational\n>>> Rational(1, 2) + Rational(1, 3)\n5/6\n')

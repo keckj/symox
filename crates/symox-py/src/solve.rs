@@ -258,13 +258,14 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
     let (mut digits, mut maxsteps, mut verify, mut as_dict) = (15_i64, 100_usize, true, false);
     let mut tolerance = None;
     let mut solver = None;
+    let mut maxsteps_given = false;
     if let Some(kwargs) = _kwargs {
         for (key, value) in kwargs.iter() {
             let key: String = key.extract()?;
             match key.as_str() {
                 "tol" if value.is_none() => {},
                 "tol" => tolerance = Some(to_expr(&value)?),
-                "maxsteps" => maxsteps = value.extract()?,
+                "maxsteps" => { maxsteps = value.extract()?; maxsteps_given = true; },
                 "verify" => verify = value.extract()?,
                 "dict" => as_dict = value.is_truthy()?,
                 "solver" => solver = Some(value.extract::<String>()?),
@@ -316,7 +317,7 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
         }
         Ok(value.re)
     }).transpose()?;
-    let use_mp = solver == "secant" || digits != 15 || eqs.len() > vars.len() || starts.iter().any(|point| !point.is_real())
+    let use_mp = solver == "secant" || solver == "bisect" || digits != 15 || eqs.len() > vars.len() || starts.iter().any(|point| !point.is_real())
         || initial.iter().chain(&eqs).any(symox::evalf_mp::has_mp)
         || eqs.iter().any(|equation| symox::traverse::has(equation, &Expr::i()));
     // Machine precision Newton is only a fast path: when it fails, the
@@ -335,6 +336,8 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
             sv::nsolve_with_options(&eqs, &vars, &starts, tolerance, maxsteps, verify)
         }.map(|values| values.into_iter().map(Expr::float).collect())
     };
+    // mpmath's solver classes carry their own default step limits.
+    if !maxsteps_given && solver == "secant" { maxsteps = 30; }
     let results: Vec<Expr> = match fast { Some(results) => results, None => {
         // mpmath's findroot default: tol = eps * 2**10 at prec + 20 bits.
         let options = symox::nsolve_mp::Options {
