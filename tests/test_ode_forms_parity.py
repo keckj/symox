@@ -1,6 +1,6 @@
 """ODE corpus cases where Symox raised while SymPy 1.14 answers, and the
 polynomial helpers they go through. Expected values are SymPy 1.14's."""
-from symox import (Abs, CRootOf, Eq, Function, I, Symbol, cancel, collect,
+from symox import (CRootOf, Eq, Function, I, Symbol, cancel, collect,
                    cos, cse, dsolve, exp, im, re, simplify, sin, sqrt,
                    symbols,
                    terms_gcd)
@@ -30,14 +30,11 @@ LCHOM_33 = (
 
 def test_lin_const_coeff_hom_rootof():
     # SymPy 1.14 proves im(r1) < 0 numerically, so sin(x*Abs(im(r1)))
-    # becomes -sin(x*im(r1)) and the sign goes into C1. Symox does not
-    # decide the sign of a CRootOf yet and keeps Abs; up to that sign the
-    # solution is SymPy's (it raised in collect(sol, 0) before).
+    # becomes -sin(x*im(r1)) and the sign goes into C1; the CRootOf sign
+    # is decided natively too (it raised in collect(sol, 0) before).
     eq = f(x).diff(x, 5) + 11*f(x).diff(x) - 2*f(x)
     sol = dsolve(eq, f(x), hint='nth_linear_constant_coeff_homogeneous')
-    rhs = sol.rhs.xreplace({a: -a.args[0] for a in sol.rhs.atoms(Abs)})
-    rhs = rhs.subs({C1: -C1, C3: -C3}, simultaneous=True)
-    assert str(rhs) == LCHOM_33
+    assert str(sol.rhs) == LCHOM_33
 
 
 def test_euler_hom_rootof():
