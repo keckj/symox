@@ -5829,3 +5829,79 @@ Still unsupported:
 
 Tests: `tests/test_matexpr_pretty_parity.py` (177 expressions in the 3
 printers, plus 13 settings cases, 4 of them skipped as known divergences).
+
+## Batches c1 and c2, follow-up (c-rest-a, 2026-10-23)
+
+Ported from SymPy 1.14, regressions in `tests/test_c_rest_a_parity.py`:
+
+- `devise_plan_meijer` is the reference loop (unshifts, then shifts, in
+  the reference order); every docstring example gives the same operator
+  list, and an unreachable target raises `NotImplementedError('Could not
+  devise plan.')`.
+- `(x**y).nseries(x, 0, n)` and `.series(...)` with an x-free symbolic
+  exponent return `x**y` (at `oo`, `(1/x)**(-y)`), and with `logx` return
+  `exp(logx*y)`. `limit` retries a product of powers after
+  `powsimp(combine='exp')`, so `limit(x**p*x**(-p - 1), x, oo)` is `0`.
+- `trigsimp(..., old=True)` is the reference legacy `trigsimp_old`
+  (`_trigsimp`, `__trigsimp` and the `_trigpats` patterns, in
+  `python/symox/simplify/_trigsimp_old.py`), with `deep`, `recursive`,
+  `method` and `compare` (which prints the `futrig:` line).
+- `fps(x**n*f(x), x)` with an x-free symbolic `n` at `x0 = 0` expands `f`
+  and multiplies each term by `x**n`: `fps(x**n*sin(x**2), x).truncate(8)`
+  is `-x**(n + 6)/6 + x**(n + 2) + O(x**(n + 8), (x, 0))`.
+- The Wallis product limit of the `Product` docstring,
+  `limit(simplify(W.rewrite(gamma)), n, oo)`, is `pi/2`.
+- Stats: `density(X).dict` of a `Die` or `Binomial` with a symbolic size is
+  the held `Density(...)` object, and `.subs(n, 4).doit()` gives the table.
+  `cdf` of these is the reference `Lambda(_k, Sum(Piecewise(...)))`.
+  `BernoulliProcess` values print as `B[1]`, and `joint_distribution`
+  returns a `JointDistributionHandmade` (process values or indices) that
+  can be called or `.pdf`-evaluated.
+
+Reference-wrong, with checks:
+
+- `(2*x**y).nseries(x, 0, 2)` is `O(x**2)` in SymPy, which is false at
+  `y = 0` (the value is 2). Symox keeps `NotImplementedError`.
+- `fps(x**(n + 1)*exp(x), x).truncate(3)`: SymPy drops `x**(n + 3)/2` but
+  still claims `O(x**(n + 4))`. Symox returns
+  `x**(n + 3)/2 + x**(n + 2) + x**(n + 1) + O(x**(n + 4), (x, 0))`.
+- `cdf(Binomial('X', n, p, succ, fail))` with a symbolic `n` and
+  `(succ, fail) != (1, 0)`: SymPy sums the count pmf from 0, which is not
+  the cdf of the shifted values (for `n = 3`, `succ = 2`, `fail = 1`, its
+  `cdf(3)` is 1, but `P(X <= 3) = 1/8`). Symox raises NotImplementedError.
+
+Form-only divergences:
+
+- An `fps` with a symbolic power prefactor prints `x**n` first in the sum.
+- The symbolic `Binomial` cdf term prints `(1/2)**_ki*(1/2)**(-_ki + n)`
+  where SymPy prints `2**(_ki - n)/2**_ki` (the `Mul` gap below).
+- `E` of a symbolic `Die` or `Binomial` is the closed form (`n/2 + 1/2`);
+  SymPy returns a `Sum`.
+- `fps(x**n*f(x), x, 1)` is a Taylor expansion of the whole product; SymPy
+  keeps `x**n*(...)`.
+
+Remaining gaps:
+
+- The native `Mul` does not multiply numeric bases that share a
+  non-rational exponent (SymPy `num_exp`): `(1/4)**n*4**n` is not `1` and
+  `2**n*3**n` is not `6**n`. It does not map a `1/q` base to `q` with the
+  opposite exponent either (`x*(1/2)**x` is `x/2**x` in SymPy). The values
+  are equal. Both rules were implemented in `finish_mul` and matched the
+  reference on every probe, but the new factors reach the native inverse
+  Mellin strip test in another order, so
+  `meijerint_indefinite(sin(x)**3/x**3, x)` raised
+  `MellinTransformStripError` instead of the reference
+  `NotImplementedError('Gammas partially over the strip.')`. The change
+  was reverted. That strip test needs to be made order-independent first.
+- Random symbols in arithmetic print as their internal dummies
+  (`N + N**2` is `_N**2 + _N`; SymPy `N**2 + N`). This predates this batch.
+- `given(Tuple(X, Y), cond)` with dependent entries, multivariate
+  `Laplace`, `MultivariateNormal` with `MatrixSymbol` parameters,
+  `DiscreteMarkovChain` without transition data (symbolic
+  `stationary_distribution`), `GaussianSymplecticEnsemble` density at a
+  `MatrixSymbol`, the continuous Markov chain and Wiener/Gamma process
+  queries, and the holonomic items of batch c1 (Frobenius `y0`, `to_expr`
+  of `besselj`, general `to_meijerg`) still raise or stay held.
+- `diff(..., (x, 5))` is still not ended with `factor_terms(signsimp(...))`
+  (see batch c2), and `solve_triangulated(..., extension=True)` still
+  raises NotImplementedError.

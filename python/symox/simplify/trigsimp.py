@@ -7,8 +7,8 @@ import symox as S
 
 
 def trigsimp_old(expr,*,first=True,**opts):
-    from .._simptools import futrig
-    return futrig(S.sympify(expr))
+    from ._trigsimp_old import trigsimp_old as _old
+    return _old(S.sympify(expr), first=first, **opts)
 
 
 def _common_angles(expr):

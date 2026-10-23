@@ -496,6 +496,7 @@ def finite_model(family,params):
         sides, = values;_integer(sides,1);m.lower,m.upper = S.Integer(1),sides
         m._pdf = lambda k:S.Piecewise((1/sides,S.And(k>=1,k<=sides,S.Contains(k,S.Integers))),(0,True))
         if sides.is_Integer:m._table = {S.Integer(k):1/sides for k in range(1,int(sides)+1)}
+        else:m._held_density = True;m._symbolic_mass = lambda k:1/sides  # SymPy: density(Dn).dict is Density(DieDistribution(n))
         m._moment = lambda n:(S.bernoulli(n+1,sides+1)-S.bernoulli(n+1))/(sides*(n+1)) if n.is_Integer else None
         m._mgf = lambda t:S.exp(t)*(1-S.exp(sides*t))/(sides*(1-S.exp(t)))
         m._sampler = lambda r,z:r.integers(1,int(sides)+1,z)
@@ -515,6 +516,9 @@ def finite_model(family,params):
                 value = j*success+(n-j)*failure
                 table[value] = table.get(value,S.Integer(0))+mass(S.Integer(j))
             m._table = table
+        else:
+            m._held_density = True  # SymPy: a held Density(BinomialDistribution(...))
+            if success == 1 and failure == 0:m._symbolic_mass = mass
         if success == failure:
             m._pdf = lambda k:S.Piecewise((1,S.Eq(k,n*failure)),(0,True))
         else:

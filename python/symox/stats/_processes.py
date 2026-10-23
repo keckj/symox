@@ -14,8 +14,24 @@ def _parts(condition):
     return condition.args if getattr(condition,'class_name','') == 'And' else (() if condition is None else (condition,))
 
 
+class JointDistributionHandmade:
+    """SymPy ``JointDistributionHandmade``: a joint density given as a
+    ``Lambda`` over the process values."""
+    def __init__(self,pdf):self.args = (pdf,)
+    @property
+    def pdf(self):return self.args[0]
+    def __call__(self,*args):return self.args[0](*args)
+    @property
+    def free_symbols(self):return set()
+    def __repr__(self):return 'JointDistributionHandmade(%s)' % (self.args[0],)
+    __str__ = __repr__
+    def __eq__(self,other):return isinstance(other,JointDistributionHandmade) and self.args == other.args
+    def __hash__(self):return hash(self.args)
+
+
 class StochasticProcess:
     _stats_process = True
+    _value_format = '%s(%s)'
     def __init__(self,sym,state_space=S.Reals,**kwargs):
         if kwargs:raise TypeError('unknown stochastic-process options')
         self.symbol = S.Symbol(str(sym));self.name = str(sym);self.state_space = state_space
@@ -31,7 +47,7 @@ class StochasticProcess:
     def _at(self,time):
         time = scalar(time);check(time >= 0,'time must be nonnegative')
         if time not in self._observations:
-            rv = variable('%s(%s)' % (self.name,time),self._model(time),group=self)
+            rv = variable(self._value_format % (self.name,time),self._model(time),group=self)
             rv.process,rv.time = self,time;self._observations[time] = rv
         return self._observations[time]
     def finite_worlds(self,variables):return None
@@ -44,6 +60,7 @@ class StochasticProcess:
 
 
 class DiscreteTimeStochasticProcess(StochasticProcess):
+    _value_format = '%s[%s]'
     def __init__(self,sym,state_space=S.Reals,**kwargs):
         super().__init__(sym,state_space,**kwargs);self.index_set = S.Range(0,S.oo)
     def __getitem__(self,time):return self._at(time)
@@ -303,6 +320,21 @@ class BernoulliProcess(DiscreteTimeStochasticProcess):
         finite_model('Bernoulli',(self.p,self.success,self.failure))
         super().__init__(sym,S.FiniteSet(self.success,self.failure))
     def _model(self,time):return finite_model('Bernoulli',(self.p,self.success,self.failure))
+    def _pmf(self,x):
+        return S.Piecewise((self.p,S.Eq(x,self.success)),(1-self.p,S.Eq(x,self.failure)),(0,True))
+    def density(self,x):
+        return self._pmf(scalar(x))
+    def joint_distribution(self,*args):
+        # SymPy StochasticProcess.joint_distribution: the product of the
+        # marginal densities, as a Lambda over the process values.
+        values = []
+        for arg in args:
+            if getattr(scalar(arg),'is_Number',False):arg = self[arg]
+            elif getattr(arg,'process',None) is not self:
+                raise ValueError('Expected a RandomIndexedSymbol or key not  %s' % (type(arg),))
+            values.append(arg)
+        names = tuple(S.Symbol(v.name) for v in values)
+        return JointDistributionHandmade(S.Lambda(names,S.Mul(*(self._pmf(n) for n in names))))
     def finite_worlds(self,variables):
         choices = [list(v.distribution.dict.items()) for v in variables]
         for entries in product(*choices):
