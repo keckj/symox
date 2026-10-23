@@ -1152,10 +1152,11 @@ pub fn expand_mul(e: &Expr) -> Expr {
 
 pub fn expand_mul_deep(e: &Expr, deep: bool) -> Expr {
     let e2 = if !deep || e.is_atom() { e.clone() } else { map_children(e, &mut |c| expand_mul_deep(c, deep)) };
-    // a number times a noncommutative sum is a held product inside a sum
-    // (Mul.flatten), which the multiplication hint distributes
+    // a number times a sum is a held product inside a sum (Mul.flatten
+    // for a noncommutative sum, or a factor_terms result such as
+    // `x - (a + b)`), which the multiplication hint distributes
     if let Kind::Add(c, terms) = e2.kind() {
-        if terms.iter().any(|(t, k)| t.is_add() && !k.is_one()) && crate::decompose::has_noncommutative_atoms(&e2) {
+        if terms.iter().any(|(t, k)| t.is_add() && !k.is_one()) {
             let mut v = vec![Expr::num(c.clone())];
             for (t, k) in terms {
                 if t.is_add() && !k.is_one() {

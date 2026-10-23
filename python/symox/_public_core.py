@@ -50,7 +50,11 @@ class Derivative(metaclass=_ExprType):
         if evaluate and not kwargs.get('simplify',True):
             from ._differentiation import unsimplified_diff
             return unsimplified_diff(expr,variables)
-        return _core.Derivative(expr,*variables,evaluate=bool(evaluate))
+        result=_core.Derivative(expr,*variables,evaluate=bool(evaluate))
+        if evaluate and not getattr(result,'is_Derivative',False):
+            from ._differentiation import _finish_multiple
+            return _finish_multiple(result,_core.sympify(expr),variables)
+        return result
 
 
 class evaluate:

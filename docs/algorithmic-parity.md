@@ -6329,3 +6329,102 @@ Remaining gaps:
 - `diff(..., (x, 5))` is still not ended with `factor_terms(signsimp(...))`
   (see batch c2), and `solve_triangulated(..., extension=True)` still
   raises NotImplementedError.
+
+## Holonomic, multiple derivatives, triangulated extension and parametric systems (holo-rest, 2026-10-23)
+
+Ported from SymPy 1.14. The regressions are in `tests/test_holo_rest_parity.py`.
+
+- Holonomic functions (`sympy/holonomic/holonomic.py`):
+  - Frobenius initial conditions `y0 = {p: [c0, c1, ...]}` are accepted.
+    `is_singularics()` returns True for a dict, False for a list and None
+    without initial conditions.
+  - Sums and products combine singular conditions at the same point.
+    `diff`, `integrate`, `change_ics` and `__neg__` follow the reference,
+    and `to_sequence` returns the reference 3-tuples `(sequence, p, n0)`.
+  - `series` and `to_sequence` follow the reference at singular points: the
+    indicial equation and `_frobenius`, with the `C_i` constants left
+    undetermined.
+  - `to_hyper` is the reference algorithm. `to_expr` is
+    `hyperexpand(to_hyper()).simplify()`, so the Bessel equations give
+    `besselj(1, x)`, `besselj(2, x)/2` and `besselj(0, x)`.
+  - `to_meijerg` sums `_hyper_to_meijerg` over the hypergeometric terms.
+  - `expr_to_holonomic` gives singular conditions for algebraic functions
+    at a branch point: `sqrt(x**3 + x)` and `x**(3/2)*exp(x)`.
+  - `NotPowerSeriesError` and `NotHyperSeriesError` exist, with the
+    reference messages.
+- A derivative of total order greater than 1 ends with
+  `factor_terms(signsimp(...))`. This applies to `diff`, `Expr.diff`,
+  `Derivative(..., evaluate=True)` and `Derivative.doit()`, including held
+  derivatives nested in a larger expression.
+  `diff(sqrt((x + 1)**2 + x), (x, 5)).count_ops()` is 30.
+  - The earlier attempt broke the undetermined coefficients ODE solver.
+    The cause was the native `expand_mul`: it did not distribute a held
+    `-(a*sin(x) + b*cos(x))` term inside a sum. It now does for any numeric
+    coefficient, not only for noncommutative sums.
+- `solve_triangulated(..., extension=True)` is the reference algorithm. The
+  roots come from `all_roots(radicals=False)`, and each partial solution
+  carries its `QQ<CRootOf(...)>` field. This needed two fixes:
+  - Polys whose coefficients are `CRootOf` objects named after a generator
+    (`CRootOf(x**2 - 2, 0)` in a polynomial in `x`) are now built over
+    placeholders in `Poly._from_dict` and `Poly.eval`. This also fixes
+    `Poly(y**2 - CRootOf(x**2 - 2, 0), y, extension=True).all_roots()`.
+  - The native `algebraic_field` rejects a rational generator. A rational
+    root therefore keeps the current domain (the reference builds `QQ<0>`).
+- `solve(sec(k*x) - r)` and `solve(csc(k*x) - r)` for `k = 2, 3`, when the
+  inverse trig value has no closed form. The quadratic in `u = exp(I*k*x)`
+  gives the `k` roots of `t**k = u`, as `-I*log(u)/k` and
+  `-I*log(w*u**(1/k))`. `sec(2*x) - 3`, `2*sec(2*x) - 5` and
+  `csc(3*x) + 4` print as in the reference.
+- `nonlinsolve` of a polynomial system with external parameters, when the
+  exact parametric solver cannot represent the parameter conditions, now
+  returns the reference `_handle_zero_dimensional` answer: generic values
+  of the parameters. `nonlinsolve([a*x**2 - 1, y - x], [x, y])` matches.
+  `nonlinsolve([a*x], x)` is `{(0,)}` as in SymPy; it used to raise. The
+  `a = 0` component is still obtained by including `a` among the
+  unknowns. An inconsistent generic basis does not prove that there are no
+  solutions, so it still raises NotImplementedError.
+
+Probe comparison (SymPy 1.14; values hard-coded in the tests):
+
+| Probes | Before | After |
+| --- | --- | --- |
+| Holonomic | 8/40 | 37/40 |
+| Multiple derivatives | 4/13 | 13/13 |
+| `solve_triangulated` | 0/12 | 6/12 (the 6 others differ only in the `extension=False` OptionError) |
+| Item-4 solve probes | 3/11 | 6/11 |
+
+Intentional divergences:
+
+- `expr_to_holonomic(exp(x) + sin(x)).to_hyper()` returns the correct sum
+  of hypergeometric terms. SymPy raises NotHyperSeriesError.
+- `HolonomicFunction(x*Dx - 1, x, 0, [1]).series()` keeps the ValueError,
+  because the initial conditions are inconsistent. SymPy returns `C_0*x`.
+- Some products and sums give the annihilator as a scalar multiple of the
+  reference one, because symox normalizes cyclic vectors differently. The
+  initial conditions match: `(h + h)` is `(-1) + (2*x)*Dx` and SymPy gives
+  `(-1/2) + (x)*Dx`.
+- In some `to_sequence` results symox determines a value such as `u(1) = 1`
+  where SymPy leaves the constant `C_1`.
+- `solve_triangulated(..., extension=False)` returns the ground-domain
+  roots. SymPy's `build_options` rejects the explicit `False`.
+- The denominator-zero roots of `nonlinsolve` stay dropped. SymPy also
+  returns `(0, 0)` for `[1/x + 1/y - 1, x - 2*y]` and `(0, 1)` for
+  `[x/(y - 1) - 1, y**2 - 1]`, where a denominator vanishes.
+
+Remaining gaps:
+
+- Parametric `nonlinsolve` and `solve` with symbolic coefficients agree
+  with SymPy in value, but not in form. Symox prints
+  `(1 - sqrt(-4*a*b + 1))/(2*a)`; the `solve_poly_system` back-substitution
+  in SymPy prints `-(-sqrt(-4*a*b + 1)/2 - 1/2)/a`.
+- `sec(4*x) - 3` and `sec(x/2) - 3` raise NotImplementedError. SymPy
+  solves the first; the second raises in both, with a different message.
+- With a symbolic right-hand side, `sec(2*x) - a` is solved, but it prints
+  in an unsimplified form.
+- When the inverse trig value has a closed form (`csc(2*x) - 2`,
+  `sec(2*x) + 1`), only the principal family is returned. SymPy also lists
+  `-I*log(-sqrt(sqrt(3)/2 + I/2))`-type roots, and both `-pi/2` and `pi/2`.
+- Holonomic, out of scope: the `erfc` rewrite, `integrate` of singular
+  conditions returning `nan`, float domains
+  (`expr_to_holonomic(1.2*cos(3.1*x))`), symbolic or negative powers, and
+  the reference expand canonicalization of rational coefficients.

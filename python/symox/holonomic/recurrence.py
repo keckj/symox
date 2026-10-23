@@ -180,7 +180,10 @@ class HolonomicSequence:
         if not isinstance(recurrence, RecurrenceOperator):
             raise TypeError('expected a recurrence operator')
         self.recurrence = recurrence
+        if u0 is not None and not isinstance(u0, (list, tuple)):
+            u0 = [u0]
         self.u0 = [_expr(v) for v in (u0 or [])]
+        self._have_init_cond = bool(self.u0)
         self.n = recurrence.parent.x
 
     def __repr__(self):
@@ -188,7 +191,15 @@ class HolonomicSequence:
         return text + ''.join(', u(%d) = %s' % (i, v) for i, v in enumerate(self.u0))
 
     def __eq__(self, other):
-        return isinstance(other, HolonomicSequence) and self.recurrence == other.recurrence and self.u0 == other.u0
+        # Reference: the initial values are compared only when both
+        # sequences have them.
+        if not isinstance(other, HolonomicSequence):
+            return False
+        if self.recurrence != other.recurrence or self.n != other.n:
+            return False
+        if self._have_init_cond and other._have_init_cond:
+            return self.u0 == other.u0
+        return True
 
     def eval(self, n):
         from .. import cancel

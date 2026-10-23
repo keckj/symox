@@ -131,9 +131,9 @@ def test_solve_triangulated_ground_domain():
     assert solve_triangulated([x + y - 3, x - y - 1], x, y) == [(2, 1)]
     assert solve_triangulated([x**2 - 2, y - x], x, y, domain=sm.QQ.algebraic_field(sqrt(2))) == [
         (-sqrt(2), -sqrt(2)), (sqrt(2), sqrt(2))]
-    # The algebraic extension tower is a documented gap.
-    with pytest.raises(NotImplementedError):
-        solve_triangulated([x**2 - 2, y - x], x, y, extension=True)
+    r2 = sm.CRootOf(x**2 - 2, 0), sm.CRootOf(x**2 - 2, 1)
+    assert solve_triangulated([x**2 - 2, y - x], x, y, extension=True) == [
+        (r2[0], r2[0]), (r2[1], r2[1])]
 
 
 def test_imageset_doc_cases():

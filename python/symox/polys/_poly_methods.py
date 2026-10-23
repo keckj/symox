@@ -87,8 +87,13 @@ def _from_dict(f, rep, gens=None, domain=_SAME):
         kwargs = {}
     else:
         kwargs = {"domain": domain}
-    if all(g.is_Symbol for g in gens):
+    if all(g.is_Symbol for g in gens) and not any(
+            getattr(c, 'has', None) is not None and not getattr(c, 'is_Rational', False)
+            and c.has(*gens) for c in rep.values()):
         return Poly(_expr_from_dict(rep, gens), *gens, **kwargs)
+    # Coefficients such as ``CRootOf(x**2 - 2, 0)`` hold a generator name
+    # without depending on it: build over placeholders, as the reference
+    # works on the representation.
     # Expression generators such as ``y + 1`` are not re-read from an
     # expression (``5*(y + 1)`` would distribute): build over placeholders.
     from .. import Dummy

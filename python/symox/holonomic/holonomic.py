@@ -69,12 +69,17 @@ class HolonomicFunction:
         if self.x != annihilator.parent.x:
             raise ValueError('independent variable must match the operator base ring')
         if isinstance(y0, dict):
-            raise NotImplementedError('Frobenius initial conditions are not supported; supply ordinary derivatives')
-        self.y0 = None if y0 is None else [sympify(v) for v in y0]
+            # Reference singular (Frobenius) format {p: [c0, c1, ...]}:
+            # the function is sum_p x**p*(c0 + c1*x + ...) about x0.
+            self.y0 = {sympify(k): [sympify(v) for v in vals] for k, vals in y0.items()}
+        else:
+            self.y0 = None if y0 is None else [sympify(v) for v in y0]
         self._expr = None
 
     def __repr__(self):
-        return 'HolonomicFunction(%r, %s, %s, %r)' % (self.annihilator, self.x, self.x0, self.y0)
+        if self._have_init_cond():
+            return 'HolonomicFunction(%r, %s, %s, %r)' % (self.annihilator, self.x, self.x0, self.y0)
+        return 'HolonomicFunction(%r, %s)' % (self.annihilator, self.x)
 
     def __eq__(self, other):
         return isinstance(other, HolonomicFunction) and (self.annihilator, self.x, self.x0, self.y0) == (other.annihilator, other.x, other.x0, other.y0)
@@ -83,7 +88,25 @@ class HolonomicFunction:
         return bool(self.y0)
 
     def is_singularics(self):
+        # Reference: True for initial conditions in the singular dictionary
+        # format, False for the ordinary list format, None without any.
+        if isinstance(self.y0, dict):
+            return True
+        if isinstance(self.y0, list):
+            return False
+        return None
+
+    def _singular_point(self):
         return self.annihilator.is_singular(self.x0)
+
+    def _singularics_to_ord(self):
+        from .. import factorial, Integer
+        a = list(self.y0)[0]
+        b = self.y0[a]
+        if len(self.y0) == 1 and a == int(a) and a > 0:
+            a = int(a)
+            y0 = [Integer(0)]*a + [j*factorial(a + i) for i, j in enumerate(b)]
+            return HolonomicFunction(self.annihilator, self.x, self.x0, y0)
 
     def _initial_count(self):
         """Include every nonnegative integral indicial exponent in the jet.
@@ -93,7 +116,7 @@ class HolonomicFunction:
         """
         from .. import Poly, Dummy, expand
         r = self.annihilator.order
-        if not self.is_singularics():
+        if not self._singular_point():
             return r
         polynomials = [Poly(c.subs(self.x,self.x+self.x0).expand(),self.x).as_dict()
                        for c in self.annihilator.coefficients]
@@ -183,6 +206,11 @@ class HolonomicFunction:
         if left._expr is not None and right._expr is not None:
             expression = left._expr*right._expr if product else left._expr+right._expr
         result = left._from_system(matrix, row, expression)
+        if isinstance(left.y0, dict) or isinstance(right.y0, dict):
+            result.y0 = None
+            if left.y0 and right.y0 and left.x0 == right.x0:
+                result.y0 = _singular_combination(left.y0, right.y0, product)
+            return result
         if expression is None and left.y0 is not None and right.y0 is not None:
             if left.x0 != right.x0:
                 raise ValueError('initial conditions must be at the same point; use change_ics first')
@@ -202,6 +230,8 @@ class HolonomicFunction:
     __rmul__ = __mul__
 
     def __neg__(self):
+        if isinstance(self.y0, dict):
+            return HolonomicFunction(self.annihilator, self.x, self.x0, {k: [-v for v in c] for k, c in self.y0.items()})
         result = HolonomicFunction(self.annihilator, self.x, self.x0, None if self.y0 is None else [-v for v in self.y0])
         result._expr = None if self._expr is None else -self._expr
         return result
@@ -251,12 +281,34 @@ class HolonomicFunction:
         for _ in range(count):
             row = _step(row, matrix, self.x)
         result = self._from_system(matrix, row, None if self._expr is None else self._expr.diff(self.x, count))
-        if self._expr is None and self.y0 is not None:
+        if isinstance(self.y0, dict):
+            # Reference: singular initial conditions are not differentiated.
+            result.y0 = None
+        elif self._expr is None and self.y0 is not None:
             result.y0 = self._derivatives(count+result._initial_count())[count:]
         return result
 
     def integrate(self, limits):
         from .. import integrate
+        if isinstance(self.y0, dict):
+            # Reference: singular conditions integrate termwise.
+            ordinary = self._singularics_to_ord()
+            if ordinary:
+                return ordinary.integrate(limits)
+            y0 = {}
+            for i, c in self.y0.items():
+                c2 = []
+                for j, cj in enumerate(c):
+                    if cj == 0:
+                        c2.append(_expr(0))
+                    elif i + j + 1 == 0:
+                        raise NotImplementedError("logarithmic terms in the series are not supported")
+                    else:
+                        c2.append(cj/_expr(i + j + 1))
+                y0[i + 1] = c2
+            if hasattr(limits, "__iter__"):
+                raise NotImplementedError("Definite integration for singular initial conditions")
+            return HolonomicFunction(self.annihilator*self.annihilator.parent.derivative_operator, self.x, self.x0, y0)
         definite = isinstance(limits, (tuple, list)) or getattr(limits, 'is_Tuple', False)
         limits = tuple(limits.args) if getattr(limits, 'is_Tuple', False) else limits
         if definite:
@@ -292,7 +344,7 @@ class HolonomicFunction:
         matrix = [[cancel(c.subs(self.x, expression)*expression.diff(self.x)) for c in row] for row in self._system()]
         result = self._from_system(matrix, [Integer(1)]+[Integer(0)]*(len(matrix)-1),
                                    None if self._expr is None else self._expr.subs(self.x, expression), x0, y0)
-        if result._expr is None and y0 is None and self.y0 is not None and expression.subs(self.x, x0) == self.x0:
+        if result._expr is None and y0 is None and isinstance(self.y0, list) and expression.subs(self.x, x0) == self.x0:
             # A sufficiently long Taylor jet determines the chain rule exactly.
             count = result._initial_count()
             jet = self.series(n=count+1, order=False)
@@ -364,16 +416,78 @@ class HolonomicFunction:
 
     def series(self, n=6, coefficient=False, order=True, _recur=None):
         from .. import Order
-        if _recur is not None:
-            raise NotImplementedError('custom Frobenius recurrence input is not implemented')
-        coefficients = self._coefficients(n)
+        if _recur is None and isinstance(self.y0, list):
+            try:
+                coefficients = self._coefficients(n)
+            except NotImplementedError:
+                # Undetermined Taylor coefficients: the reference keeps them
+                # as C_j symbols through the recurrence of to_sequence.
+                pass
+            else:
+                if coefficient:
+                    return coefficients
+                result = sum((a*(self.x-self.x0)**i for i,a in enumerate(coefficients)), _expr(0))
+                return result + Order((self.x-self.x0)**n, (self.x,self.x0)) if order else result
+        if _recur is None and self.y0 is None and not self._singular_point():
+            raise ValueError('series requires initial derivative values')
+        return self._reference_series(n, coefficient, order, _recur)
+
+    def _reference_series(self, n=6, coefficient=False, order=True, _recur=None):
+        # Reference HolonomicFunction.series, from the recurrence of
+        # to_sequence (Frobenius exponents included).
+        from .. import Order, cancel, Integer
+        recurrence = self.to_sequence() if _recur is None else _recur
+        if isinstance(recurrence, tuple) and len(recurrence) == 2:
+            recurrence, constantpower = recurrence[0], 0
+        elif isinstance(recurrence, tuple) and len(recurrence) == 3:
+            constantpower, recurrence = recurrence[1], recurrence[0]
+        elif len(recurrence) == 1 and len(recurrence[0]) == 2:
+            recurrence, constantpower = recurrence[0][0], 0
+        elif len(recurrence) == 1 and len(recurrence[0]) == 3:
+            constantpower, recurrence = recurrence[0][1], recurrence[0][0]
+        else:
+            return [self._reference_series(_recur=i) for i in recurrence]
+        n = n - int(constantpower)
+        l = len(recurrence.u0) - 1
+        k = recurrence.recurrence.order
+        x, x0 = self.x, self.x0
+        seq = recurrence.recurrence.coefficients
+        sub = [cancel(-seq[i]/seq[k]) for i in range(k)]
+        sol = list(recurrence.u0)
+        if l + 1 < n:
+            for i in range(l + 1 - k, n - k):
+                sol.append(sum((sub[j].subs(recurrence.n, i)*sol[i + j]
+                                for j in range(k) if i + j >= 0), Integer(0)))
         if coefficient:
-            return coefficients
-        result = sum((a*(self.x-self.x0)**i for i,a in enumerate(coefficients)), _expr(0))
-        return result + Order((self.x-self.x0)**n, (self.x,self.x0)) if order else result
+            return sol
+        ser = sum((x**(i + constantpower)*j for i, j in enumerate(sol)), Integer(0))
+        if order:
+            ser += Order(x**(n + int(constantpower)), x)
+        if x0 != 0:
+            return ser.subs(x, x - x0)
+        return ser
+
+    def _shift_to_zero(self):
+        # Reference shift_x(x0): the annihilator moved to 0, y0 kept.
+        coefficients = [c.subs(self.x, self.x + self.x0).expand() for c in self.annihilator.coefficients]
+        return HolonomicFunction(DifferentialOperator(coefficients, self.annihilator.parent), self.x, 0, self.y0)
 
     def to_sequence(self, lb=True):
-        from .. import Symbol, QQ, Poly, expand
+        if isinstance(self.y0, list) and not self._singular_point():
+            try:
+                return self._ordinary_sequence(lb)
+            except NotImplementedError:
+                pass
+        if self.x0 != 0:
+            return self._shift_to_zero().to_sequence(lb)
+        if self.annihilator.is_singular(self.x0):
+            return self._frobenius(lb=lb)
+        if self.y0 is None:
+            raise ValueError('series requires initial derivative values')
+        return self._reference_ordinary_sequence(lb)
+
+    def _ordinary_sequence(self, lb=True):
+        from .. import Symbol, Poly, expand, roots
         n = Symbol('n', integer=True)
         polys = [Poly(c.subs(self.x, self.x+self.x0).expand(), self.x).as_dict() for c in self.annihilator.coefficients]
         shifts = [i-j for i,p in enumerate(polys) for (j,),c in p.items() if c != 0]
@@ -386,26 +500,210 @@ class HolonomicFunction:
                     factor *= n-lower-j+k
                 coefficients[i-j-lower] += expand(factor)
         parent, _ = RecurrenceOperators(_base(self.annihilator.parent.base.domain,n), 'Sn')
-        if self.is_singularics():
-            count, smallest = max(upper-lower, upper, self._initial_count()), max(0, lower)
-        else:
-            # Reference: the recurrence holds for n >= lower + degree and
-            # beyond the integer roots of its leading coefficient; it needs
-            # order + smallest_n initial terms.
-            from .. import roots
-            degree = max(j for p in polys for (j,),c in p.items() if c != 0)
-            smallest = lower + degree
-            integer_roots = list(roots(coefficients[-1], n, filter='Z'))
-            if integer_roots:
-                smallest = max(max(integer_roots) + 1, smallest)
-            count = max(upper - lower + smallest, len(self.y0 or ()))
+        # Reference: the recurrence holds for n >= lower + degree and
+        # beyond the integer roots of its leading coefficient; it needs
+        # order + smallest_n initial terms.
+        degree = max(j for p in polys for (j,),c in p.items() if c != 0)
+        smallest = lower + degree
+        integer_roots = list(roots(coefficients[-1], n, filter='Z'))
+        if integer_roots:
+            smallest = max(max(integer_roots) + 1, smallest)
+        count = max(upper - lower + smallest, len(self.y0 or ()))
         sequence = HolonomicSequence(parent.operator_class(coefficients, parent), self._coefficients(count))
         return [(sequence, smallest)] if lb else [sequence]
 
+    def _recurrence_terms(self, p, singular):
+        # Reference: x**k*Dx**i contributes rf(n - k + 1 + p, i) to the
+        # coefficient of index (i - k) (and degree k, or k - i at a
+        # regular singular point).
+        from .. import Poly, rf, expand
+        n = self._n
+        dict1 = {}
+        for i, c in enumerate(self.annihilator.coefficients):
+            for (k,), coeff in Poly(c, self.x).as_dict().items():
+                if coeff == 0:
+                    continue
+                key = (i - k, k - i) if singular else (i - k, k)
+                dict1[key] = dict1.get(key, _expr(0)) + coeff*expand(rf(n - k + 1 + p, i))
+        return dict1
+
+    @property
+    def _n(self):
+        from .. import Symbol
+        return Symbol('n', integer=True)
+
+    def _recurrence_operator(self, dict1):
+        from .. import roots, expand, Integer
+        n = self._n
+        keylist = [i[0] for i in dict1]
+        lower, upper = min(keylist), max(keylist)
+        sol = []
+        for j in range(lower, upper + 1):
+            if j in keylist:
+                sol.append(expand(sum((v.subs(n, n - lower) for key, v in dict1.items() if key[0] == j), Integer(0))))
+            else:
+                sol.append(Integer(0))
+        parent, _ = RecurrenceOperators(_base(self.annihilator.parent.base.domain, n), 'Sn')
+        sol = parent.operator_class(sol, parent)
+        all_roots = list(roots(sol.coefficients[-1], n, filter='Z'))
+        return sol, lower, all_roots
+
+    def _solve_missing(self, dict1, u0, order, lower_index, upper_index, letter):
+        # Reference: equate the coefficients of the low powers of x to zero
+        # to find the missing initial terms; the rest stay symbols.
+        from .. import Symbol, solve, Integer
+        n = self._n
+        dummys, eqs, unknowns = {}, [], []
+        for i in range(lower_index, upper_index):
+            eq = Integer(0)
+            for j in dict1:
+                if i + j[0] < 0:
+                    dummys[i + j[0]] = Integer(0)
+                elif i + j[0] < len(u0):
+                    dummys[i + j[0]] = u0[i + j[0]]
+                elif not i + j[0] in dummys:
+                    dummys[i + j[0]] = Symbol(letter + '_%s' % (i + j[0]))
+                    unknowns.append(dummys[i + j[0]])
+                if j[1] <= i:
+                    eq += dict1[j].subs(n, i)*dummys[i + j[0]]
+            eqs.append(eq)
+        soleqs = solve(eqs, *unknowns)
+        if isinstance(soleqs, dict):
+            for i in range(len(u0), order):
+                if i not in dummys:
+                    dummys[i] = Symbol(letter + '_%s' % i)
+                u0.append(soleqs[dummys[i]] if dummys[i] in soleqs else dummys[i])
+            return True
+        for i in range(len(u0), order):
+            if i not in dummys:
+                dummys[i] = Symbol(letter + '_%s' % i)
+            found = False
+            for j in soleqs:
+                if dummys[i] in j:
+                    u0.append(j[dummys[i]])
+                    found = True
+            if not found:
+                u0.append(dummys[i])
+        return False
+
+    def _reference_ordinary_sequence(self, lb=True):
+        from .. import factorial
+        dict1 = self._recurrence_terms(0, False)
+        sol, lower, all_roots = self._recurrence_operator(dict1)
+        smallest_n = lower + self.degree()
+        if all_roots:
+            smallest_n = max(max(all_roots) + 1, smallest_n)
+        order = sol.order + smallest_n
+        y0 = _extend_y0(self, order)
+        u0 = [j/factorial(i) for i, j in enumerate(y0)]
+        if len(u0) < order:
+            self._solve_missing(dict1, u0, order, 0, self.degree(), 'C')
+        sequence = HolonomicSequence(sol, u0)
+        return [(sequence, smallest_n)] if lb else [sequence]
+
+    def _indicial(self):
+        # Reference HolonomicFunction._indicial.
+        from .. import Poly, roots, Integer
+        if self.x0 != 0:
+            return self._shift_to_zero()._indicial()
+        x = self.x
+        coefficients = [Poly(c, x) for c in self.annihilator.coefficients]
+        degree = max(max(q.degree(), 0) for q in coefficients)
+        inf = 10*(max(1, degree) + max(1, self.annihilator.order))
+        def pole_degree(q):
+            return inf if q.is_zero else roots(q.as_expr(), x, filter='Z').get(0, 0)
+        b = min(pole_degree(q) - j for j, q in enumerate(coefficients))
+        s, y = Integer(0), Integer(1)
+        for i, q in enumerate(coefficients):
+            if 0 <= i + b <= max(q.degree(), 0):
+                s = s + q.nth(i + b)*y
+            y *= x - i
+        return roots(s.expand(), x)
+
+    def _frobenius(self, lb=True):
+        # Reference HolonomicFunction._frobenius: a recurrence for each
+        # selected root p of the indicial equation, for the series
+        # x**p*sum(u(n)*x**n).
+        from .. import ordered, factorial
+        indicialroots = self._indicial()
+        reals, compl = [], []
+        for i in ordered(indicialroots.keys()):
+            if i.is_real:
+                reals.extend([i]*indicialroots[i])
+            else:
+                a, b = i.as_real_imag()
+                compl.extend([(i, a, b)]*indicialroots[i])
+        compl.sort(key=lambda v: v[1])
+        compl.sort(key=lambda v: v[2])
+        reals.sort()
+        grp = []
+        for i in reals:
+            for j in grp:
+                if (j[0] - i).is_integer:
+                    j.append(i)
+                    break
+            else:
+                grp.append([i])
+        independent = all(len(i) == 1 for i in grp)
+        allpos = all(i >= 0 for i in reals)
+        allint = all(i.is_integer for i in reals)
+        if self.is_singularics() == True:
+            rootstoconsider = []
+            for i in ordered(self.y0.keys()):
+                for j in ordered(indicialroots.keys()):
+                    if (j - i) == 0:
+                        rootstoconsider.append(i)
+        elif allpos and allint:
+            rootstoconsider = [min(reals)]
+        elif independent:
+            rootstoconsider = [i[0] for i in grp] + [j[0] for j in compl]
+        elif not allint:
+            rootstoconsider = [i for i in reals if not int(i) == i]
+        elif not allpos:
+            if not self._have_init_cond() or _expr(self.y0[0]).is_finite == False:
+                rootstoconsider = [min(reals)]
+            else:
+                rootstoconsider = [min([i for i in reals if i >= 0])]
+        finalsol = []
+        char = ord('C')
+        for p in rootstoconsider:
+            dict1 = self._recurrence_terms(p, True)
+            sol, lower, all_roots = self._recurrence_operator(dict1)
+            degree = max(i[1] for i in dict1)
+            degree2 = min(i[1] for i in dict1)
+            smallest_n = lower + degree
+            if all_roots:
+                smallest_n = max(max(all_roots) + 1, smallest_n)
+            order = sol.order + smallest_n
+            u0 = []
+            if self.is_singularics() == True:
+                u0 = list(self.y0[p])
+            elif self.is_singularics() == False and p >= 0 and int(p) == p and len(rootstoconsider) == 1:
+                y0 = _extend_y0(self, order + int(p))
+                if len(y0) > int(p):
+                    u0 = [y0[i]/factorial(i) for i in range(int(p), len(y0))]
+            if len(u0) < order:
+                if self._solve_missing(dict1, u0, order, degree2, degree, chr(char)):
+                    finalsol.append((HolonomicSequence(sol, u0), p, smallest_n) if lb else (HolonomicSequence(sol, u0), p))
+                    continue
+            finalsol.append((HolonomicSequence(sol, u0), p, smallest_n) if lb else (HolonomicSequence(sol, u0), p))
+            char += 1
+        return finalsol
+
     def to_expr(self):
-        from .. import Function, Eq, dsolve, solve
+        from .. import Function, Eq, dsolve, solve, hyperexpand
         if self._expr is not None:
             return self._expr
+        # Reference: hyperexpand(self.to_hyper()).simplify().
+        try:
+            expression = hyperexpand(self._reference_hyper()).simplify()
+        except (NotHyperSeriesError, NotImplementedError, ValueError):
+            if isinstance(self.y0, dict):
+                raise
+            expression = None
+        if expression is not None:
+            self._expr = expression
+            return expression
         f = Function('y')(self.x)
         equation = Eq(sum(c*f.diff(self.x,i) for i,c in enumerate(self.annihilator.coefficients)), 0)
         solution = dsolve(equation, f)
@@ -421,8 +719,91 @@ class HolonomicFunction:
         self._expr = expression
         return expression
 
-    def to_hyper(self, as_list=False):
+    def _reference_hyper(self, as_list=False, _recur=None):
+        # Reference HolonomicFunction.to_hyper.
+        from .. import hyper, roots, Poly, Symbol, nsimplify, ordered, Integer
+        recurrence = self.to_sequence() if _recur is None else _recur
+        if isinstance(recurrence, tuple) and len(recurrence) == 2:
+            smallest_n, recurrence, constantpower = recurrence[1], recurrence[0], 0
+        elif isinstance(recurrence, tuple) and len(recurrence) == 3:
+            smallest_n, constantpower, recurrence = recurrence[2], recurrence[1], recurrence[0]
+        elif len(recurrence) == 1 and len(recurrence[0]) == 2:
+            smallest_n, recurrence, constantpower = recurrence[0][1], recurrence[0][0], 0
+        elif len(recurrence) == 1 and len(recurrence[0]) == 3:
+            smallest_n, constantpower, recurrence = recurrence[0][2], recurrence[0][1], recurrence[0][0]
+        else:
+            sol = self._reference_hyper(as_list=as_list, _recur=recurrence[0])
+            for i in recurrence[1:]:
+                sol += self._reference_hyper(as_list=as_list, _recur=i)
+            return sol
+        u0 = list(recurrence.u0)
+        r = recurrence.recurrence
+        coefficients = r.coefficients
+        nn = recurrence.n
+        x, x0 = self.x, self.x0
+        m = r.order
+        if m == 0:
+            nonzeroterms = roots(coefficients[0], nn, filter='R')
+            sol = Integer(0)
+            for j, i in enumerate(nonzeroterms):
+                if i < 0 or not i.is_integer:
+                    continue
+                i = int(i)
+                if i < len(u0):
+                    sol += u0[i]*x**i
+                else:
+                    sol += Symbol('C_%s' % j)*x**i
+            sol = sol*x**constantpower
+            if as_list:
+                return [(sol.subs(x, x - x0),)] if x0 != 0 else [(sol,)]
+            return sol.subs(x, x - x0) if x0 != 0 else sol
+        if smallest_n + m > len(u0):
+            raise NotImplementedError("Can't compute sufficient Initial Conditions")
+        if any(c != 0 for c in coefficients[1:-1]):
+            raise NotHyperSeriesError(self, self.x0)
+        a, b = Poly(coefficients[0], nn), Poly(coefficients[-1], nn)
+        c = -(a.LC()*m**(a.degree()))/(b.LC()*m**(b.degree()))
+        sol = Integer(0)
+        arg1 = roots(a.as_expr(), nn)
+        arg2 = roots(b.as_expr(), nn)
+        listofsol = []
+        for i in range(smallest_n + m):
+            if i < smallest_n:
+                if as_list:
+                    listofsol.append(((_expr(u0[i])*x**(i + constantpower)).subs(x, x - x0),))
+                else:
+                    sol += _expr(u0[i])*x**i
+                continue
+            if _expr(u0[i]) == 0:
+                continue
+            ap, bq = [], []
+            for k in ordered(arg1.keys()):
+                ap.extend([nsimplify((i - k)/m)]*arg1[k])
+            for k in ordered(arg2.keys()):
+                bq.extend([nsimplify((i - k)/m)]*arg2[k])
+            if 1 in bq:
+                bq.remove(1)
+            else:
+                ap.append(1)
+            if as_list:
+                listofsol.append(((_expr(u0[i])*x**(i + constantpower)).subs(x, x - x0),
+                                  hyper(ap, bq, c*x**m).subs(x, x - x0)))
+            else:
+                sol += _expr(u0[i])*hyper(ap, bq, c*x**m)*x**i
+        if as_list:
+            return listofsol
+        sol = sol*x**constantpower
+        return sol.subs(x, x - x0) if x0 != 0 else sol
+
+    def to_hyper(self, as_list=False, _recur=None):
         from .. import hyper, Rational
+        try:
+            return self._reference_hyper(as_list=as_list, _recur=_recur)
+        except NotHyperSeriesError:
+            # A known expression that is a sum of hypergeometric terms is
+            # still converted (the reference raises).
+            if self._expr is None or _recur is not None:
+                raise
         def convert(value):
             name = str(value.func)
             if name in ('hyper','meijerg') or not value.has(self.x):
@@ -439,20 +820,32 @@ class HolonomicFunction:
                 return Add(*items) if value.is_Add else Mul(*items)
             if value.is_polynomial(self.x):
                 return value
-            raise NotImplementedError('hypergeometric reconstruction currently supports exponentials and trigonometric/hyperbolic functions with polynomial prefactors')
-        expression = convert(self.to_expr())
+            raise NotHyperSeriesError(self, self.x0)
+        expression = convert(self._expr)
         if as_list:
-            return [expression]
+            return [(expression,)]
         return expression
 
     def to_meijerg(self):
         if self._expr is not None and str(self._expr.func) == 'meijerg':
             return self._expr
-        raise NotImplementedError('general Meijer G reconstruction from an annihilator is not implemented')
+        # Reference: each hypergeometric term of to_hyper(as_list=True).
+        from .. import Integer
+        sol = Integer(0)
+        for i in self._reference_hyper(as_list=True):
+            if len(i) == 1:
+                sol += i[0]
+            elif len(i) == 2:
+                sol += i[0]*_hyper_to_meijerg(i[1])
+        return sol
 
     def change_ics(self, b, lenics=None):
         b = _expr(b)
         count = self.annihilator.order if lenics is None else operator.index(lenics)
+        if isinstance(self.y0, dict) and self._expr is None:
+            # Reference: through to_expr and expr_to_holonomic at b.
+            return expr_to_holonomic(self.to_expr(), x=self.x, x0=b, lenics=lenics,
+                                     domain=self.annihilator.parent.base.domain)
         result = HolonomicFunction(self.annihilator, self.x, b)
         result._expr = self._expr
         if self._expr is not None:
@@ -471,7 +864,7 @@ class HolonomicFunction:
             raise ValueError('step size must be positive')
         if self.y0 is None or len(self.y0) < self.annihilator.order:
             raise ValueError('numeric continuation requires complete initial derivatives')
-        if self.is_singularics():
+        if self.is_singularics() or self._singular_point():
             raise ValueError('cannot start numeric continuation at a singular point')
         matrix = self._system()
         def numeric(value):
@@ -591,11 +984,73 @@ def expr_to_holonomic(func, x=None, x0=0, y0=None, lenics=None, domain=None, ini
     else:
         raise NotImplementedError('no D-finite conversion implemented for %s' % func)
     result._expr = func
+    if y0 is None and initcond and _expr(x0) == 0 and result.annihilator.is_singular(0) \
+            and (lenics is None or lenics <= 1):
+        singular = _algebraic_singular_ics(func, x)
+        if singular is not None:
+            result.y0 = singular
+            return result
     count = result._initial_count() if lenics is None else operator.index(lenics)
+    if isinstance(y0, dict):
+        result.y0 = {_expr(k): [_expr(v) for v in c] for k, c in y0.items()}
+        result._expr = None
+        return result
     result.y0 = [_expr(v) for v in y0] if y0 is not None else _conditions(func,x,_expr(x0),count) if initcond else None
     if y0 is not None and result.y0 != _conditions(func,x,_expr(x0),len(result.y0)):
         result._expr = None
+    if y0 is None and initcond and (result.y0 is None or _fractional_exponent(result)):
+        _undefined_conditions(result, func, x, lenics)
     return result
+
+
+def _fractional_exponent(result):
+    # A single simple non-integer indicial root: ordinary values at x0 do
+    # not determine the function (x**(3/2)*exp(x) has y(0) = 0 for every
+    # multiple), so the reference singular conditions are used.
+    if not result.annihilator.is_singular(result.x0):
+        return False
+    r = result._indicial()
+    keys = list(r)
+    return len(r) == 1 and r[keys[0]] == 1 and not keys[0].is_integer
+
+
+def _algebraic_singular_ics(func, x):
+    # Reference _convert_poly_rat_alg for basepoly**(m/n) singular at 0:
+    # {i*m/n: [c_i**(m/n)]} for the lowest nonzero coefficient c_i.
+    from .. import Poly
+    if not func.is_Pow:
+        return None
+    base, exponent = func.args
+    if not (exponent.is_Rational and not exponent.is_Integer) or not base.is_polynomial(x):
+        return None
+    for i, (c,) in enumerate(reversed([[v] for v in Poly(base, x).all_coeffs()])):
+        if c != 0:
+            return {_expr(i)*exponent: [_expr(c)**exponent]}
+    return None
+
+
+def _undefined_conditions(result, func, x, lenics):
+    # Reference expr_to_holonomic when the ordinary conditions are undefined
+    # at x0: a single simple indicial root r gives the singular conditions
+    # of func/(x - x0)**r, otherwise x0 moves to x0 + 1, x0 + 2, ...
+    from .. import factorial
+    x0 = result.x0
+    count = result.annihilator.order if not lenics else lenics
+    if result.annihilator.is_singular(x0):
+        r = result._indicial()
+        keys = list(r)
+        if len(r) == 1 and r[keys[0]] == 1:
+            g = func/(x - x0)**keys[0]
+            ics = _find_conditions(g, x, x0, count)
+            if ics:
+                result.y0 = {keys[0]: [j/factorial(i) for i, j in enumerate(ics)]}
+                return
+    for _ in range(64):
+        x0 += 1
+        ics = _find_conditions(func, x, x0, count)
+        if ics:
+            result.x0, result.y0 = x0, ics
+            return
 
 
 def _special(func, x, x0, y0, lenics, domain, initcond, meijer):
@@ -622,6 +1077,10 @@ def _special(func, x, x0, y0, lenics, domain, initcond, meijer):
         result = result.composition(argument)
     result._expr = func
     count = result._initial_count() if lenics is None else operator.index(lenics)
+    if isinstance(y0, dict):
+        result.y0 = {_expr(k): [_expr(v) for v in c] for k, c in y0.items()}
+        result._expr = None
+        return result
     result.y0 = [_expr(v) for v in y0] if y0 is not None else _conditions(func,x,_expr(x0),count) if initcond else None
     if y0 is not None and result.y0 != _conditions(func,x,_expr(x0),len(result.y0)):
         result._expr = None
@@ -681,3 +1140,97 @@ def from_meijerg(func, x0=0, evalf=False, initcond=True, domain=None):
     if evalf and result.y0 is not None:
         result.y0 = [v.evalf() for v in result.y0]
     return result
+
+
+class BaseHolonomicError(Exception):
+    def new(self, *args):
+        raise NotImplementedError("abstract base class")
+
+
+class NotPowerSeriesError(BaseHolonomicError):
+    def __init__(self, holonomic, x0):
+        self.holonomic = holonomic
+        self.x0 = x0
+
+    def __str__(self):
+        return 'A Power Series does not exists for %s about %s.' % (self.holonomic, self.x0)
+
+
+class NotHyperSeriesError(BaseHolonomicError):
+    def __init__(self, holonomic, x0):
+        self.holonomic = holonomic
+        self.x0 = x0
+
+    def __str__(self):
+        return 'Power series expansion of %s about %s is not hypergeometric' % (self.holonomic, self.x0)
+
+
+def _singular_combination(y1, y2, product):
+    # Reference __add__/__mul__ with singular initial conditions: an
+    # ordinary list becomes {0: [y0[i]/i!]}.
+    from .. import factorial
+    def as_dict(y):
+        return y if isinstance(y, dict) else {_expr(0): [j/factorial(i) for i, j in enumerate(y)]}
+    y1, y2 = as_dict(y1), as_dict(y2)
+    y0 = {}
+    if product:
+        for i in y1:
+            for j in y2:
+                k = min(len(y1[i]), len(y2[j]))
+                c = [sum((y1[i][b]*y2[j][a - b] for b in range(a + 1)), _expr(0)) for a in range(k)]
+                y0[i + j] = c if i + j not in y0 else [a + b for a, b in zip(c, y0[i + j])]
+        return y0
+    for i in y1:
+        y0[i] = [a + b for a, b in zip(y1[i], y2[i])] if i in y2 else y1[i]
+    for i in y2:
+        if i not in y1:
+            y0[i] = y2[i]
+    return y0
+
+
+def _extend_y0(holonomic, n):
+    """Reference _extend_y0: more initial values from the equation at an
+    ordinary point."""
+    from .. import cancel
+    if holonomic.annihilator.is_singular(holonomic.x0) or holonomic.is_singularics() == True:
+        return holonomic.y0
+    x = holonomic.x
+    a = holonomic.annihilator.order
+    coefficients = holonomic.annihilator.coefficients
+    y0 = holonomic.y0
+    if len(y0) < a or n <= len(y0):
+        return y0
+    list_red = [cancel(-coefficients[i]/coefficients[a]) for i in range(a)]
+    y1 = list(y0[:min(len(y0), a)])
+    for _ in range(n - a):
+        sol = _expr(0)
+        for value, b in zip(y1, list_red):
+            r = b.subs(x, holonomic.x0)
+            if not getattr(r, 'is_finite', True):
+                return y0
+            sol += value*r
+        y1.append(sol)
+        derived = [cancel(list_red[0].diff(x))]
+        for i, j in enumerate(list_red[1:]):
+            derived.append(cancel(j.diff(x) + list_red[i]))
+        derived.append(list_red[-1])
+        list_red = derived
+    return list(y0) + y1[len(y0):]
+
+
+def _hyper_to_meijerg(func):
+    """Reference _hyper_to_meijerg."""
+    from .. import hyperexpand, gamma, meijerg, Integer
+    ap, bq = func.ap, func.bq
+    if any(i <= 0 and int(i) == i for i in ap):
+        return hyperexpand(func)
+    z = func.args[2]
+    an = tuple(1 - i for i in ap)
+    bm = (Integer(0),)
+    bmq = tuple(1 - i for i in bq)
+    k = Integer(1)
+    for i in bq:
+        k = k*gamma(i)
+    for i in ap:
+        k = k/gamma(i)
+    return k*meijerg(an, (), bm, bmq, -z)

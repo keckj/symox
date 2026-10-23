@@ -69,7 +69,7 @@ def test_taylor_coefficients_and_recurrence(expression):
     values = h.series(10,coefficient=True)
     reference = expression.to_sympy().series(x.to_sympy(),0,10).removeO()
     assert all(sp.simplify(value.to_sympy()-reference.coeff(x.to_sympy(),i)) == 0 for i,value in enumerate(values))
-    sequence,start = h.to_sequence()[0]
+    sequence = h.to_sequence()[0][0]
     assert all(sequence.eval(i) == value for i,value in enumerate(values))
     assert h.series(6).getO() == s.Order(x**6,x)
 
@@ -144,7 +144,10 @@ def test_parameters_and_overridden_initial_values():
     assert product.y0 == [0,0,2]
     assert product.degree() == 2
     assert product.series(6,order=False) == x**2-x**4/6
-    assert product.to_sequence()[0][0].eval(4) == -s.Rational(1,6)
+    # Reference _frobenius at the singular point: exponent p = 1, so u(3)
+    # is the coefficient of x**4.
+    sequence, p, start = product.to_sequence()[0]
+    assert p == 1 and sequence.eval(3) == -s.Rational(1,6)
 
 
 @pytest.mark.parametrize('target',[1,-1,s.I/2])
@@ -172,8 +175,8 @@ def test_failures_are_explicit():
         expr_to_holonomic(s.exp(x),x).composition(s.sin(x))
     with pytest.raises(ValueError):
         HolonomicFunction(x*D-1,x,0,[1]).series()
-    with pytest.raises(NotImplementedError):
-        HolonomicFunction(x*D-1,x,0,[0]).series()
+    # Underdetermined: the reference keeps the free coefficient C_0.
+    assert str(HolonomicFunction(x*D-1,x,0,[0]).series()) == 'C_0*x + O(x**6)'
     with pytest.raises(ValueError):
         HolonomicFunction(D-1,x,0,[1]).evalf(1,h=0)
 

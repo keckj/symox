@@ -26,7 +26,8 @@ def test_mathieu_differential_equation(name):
     assert s.expand(f.diff(z,2)+(a-2*q*s.cos(2*z))*f)==0
     assert f.diff(z).class_name==name+'prime'
     assert f.fdiff(3)==f.diff(z)
-    assert f.diff(z).fdiff(3)==f.diff(z,2)
+    # diff(z, 2) ends with factor_terms(signsimp(...)), as in SymPy
+    assert s.expand(f.diff(z).fdiff(3)-f.diff(z,2))==0
     assert f.diff(a).class_name=='Derivative'
     assert s.conjugate(f)==getattr(s,name)(s.conjugate(a),s.conjugate(q),s.conjugate(z))
     assert pickle.loads(pickle.dumps(f))==f
