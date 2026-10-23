@@ -135,7 +135,6 @@ def _print(obj, format):
         if method is not None:
             from .printing.pretty.pretty import PrettyPrinter
             printer = PrettyPrinter({'use_unicode': format == 'pretty'})
-            printer._use_unicode = format == 'pretty'
             form = method(printer)
             picture = getattr(form, 'picture', None)
             if picture is not None and len(picture) == 1:

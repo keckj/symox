@@ -156,14 +156,30 @@ pub fn commutativity(e:&Expr)->Option<bool>{
             Kind::Pow(base,exponent)=>all(&mut [base,exponent].into_iter().map(|part|visit(part,cache))),
             Kind::Func(crate::expr::Func::Limit|crate::expr::Func::MatrixDotProduct(..),_)=>None,
             Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")||head.is_internal("Tuple")=>None,
-            // re, im, Abs, arg and sign are (extended) real or complex, hence
-            // commutative, whatever their argument (SymPy's assumption rules).
-            Kind::Func(crate::expr::Func::Re|crate::expr::Func::Im|crate::expr::Func::Abs|crate::expr::Func::Arg|crate::expr::Func::Sign,_)=>Some(true),
+            Kind::Func(head,_) if commutative_head(head)=>Some(true),
             Kind::Func(_,arguments)=>all(&mut arguments.iter().map(|argument|visit(argument,cache))),
             _=>Some(true),
         }
     }
     visit(e,&mut FxHashMap::default())
+}
+
+/// Heads whose SymPy class declares a fact that implies `commutative`
+/// (`extended_real` for re, im, Abs and arg, `complex` for sign, `real`
+/// for DiracDelta and Heaviside, `integer` for the number-theoretic and
+/// Kronecker/Levi-Civita symbols, `is_commutative = True` on
+/// `TupleParametersBase` for hyper and meijerg). Their applications commute
+/// whatever the arguments.
+pub fn commutative_head(head:&crate::expr::Func)->bool{
+    use crate::expr::Func;
+    use crate::special::SpecialFn as S;
+    match head{
+        Func::Re|Func::Im|Func::Abs|Func::Sign|Func::Arg|Func::DiracDelta|Func::Heaviside|Func::Max|Func::Min=>true,
+        Func::Special(h)=>matches!(h,S::Partition|S::Totient|S::ReducedTotient|S::Mobius|S::DivisorSigma|S::UdivisorSigma
+            |S::LegendreSymbol|S::JacobiSymbol|S::KroneckerSymbol|S::PrimeNu|S::PrimeOmega|S::PrimePi
+            |S::Hyper|S::MeijerG|S::KroneckerDelta|S::LeviCivita),
+        _=>false,
+    }
 }
 
 /// Split at the first factor whose commutativity is not known to be true.

@@ -305,17 +305,16 @@ pub(crate) fn arg(a: &Expr) -> Option<Expr> {
         a.clone()
     } else {
         // factor_terms(arg).as_coeff_Mul(), then factors of known sign drop.
-        let (content, primitive) = crate::decompose::as_content_primitive(a, false, false)
-            .unwrap_or((Number::ONE, a.clone()));
-        let (coefficient, rest) = match primitive.kind() {
+        let factored = crate::simptools::exprtools::factor_terms(a, false, false, false, true);
+        let (coefficient, rest) = match factored.kind() {
             Kind::Mul(c, factors) => (
-                content.mul(c),
+                c.clone(),
                 mul(&factors
                     .iter()
                     .map(|(b, x)| crate::ops::mul_factor(b, x))
                     .collect::<Vec<_>>()),
             ),
-            _ => (content, primitive.clone()),
+            _ => (Number::ONE, factored.clone()),
         };
         let rest = match rest.kind() {
             Kind::Mul(_, factors) => mul(&factors

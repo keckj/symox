@@ -181,7 +181,13 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
             out.push_str(f.name()); out.push('('); out.push_str(&parent.to_str()); out.push(')');
         }
         Kind::Func(Func::MatrixElement(parent), args) => {
-            out.push_str(&parent.to_str()); out.push('[');
+            // SymPy's `parenthesize(parent, PRECEDENCE["Atom"], strict=True)`:
+            // `(T**5)[1, 2]`, `(A*B)[i, j]`.
+            let wrap = crate::printing::latex::matrix_precedence_with(parent, false) < crate::printing::PREC_ATOM;
+            if wrap { out.push('('); }
+            out.push_str(&parent.to_str());
+            if wrap { out.push(')'); }
+            out.push('[');
             write_expr(&args[0], out); out.push_str(", ");
             write_expr(&args[1], out); out.push(']');
         }

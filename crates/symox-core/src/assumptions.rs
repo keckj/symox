@@ -163,7 +163,12 @@ fn add_extended_sign(e:&Expr,positive:bool)->Option<bool>{
 pub fn fact(e:&Expr,name:&str)->Option<bool>{
     if name=="commutative" && e.has_noncommutative_host(){return crate::decompose::commutativity(e);}
     if let Some(answer)=crate::host::fact(e,name){return answer;}
-    if name=="polar" && crate::special::polar::is_polar(e){return Some(true);}
+    // SymPy's assumption rules make every one of these facts imply
+    // `commutative` (`extended_real -> commutative`, `complex ->
+    // commutative`), so an expression that does not commute has them all
+    // False: `(x*A).is_extended_real` and `(A + x).is_zero` are False.
+    if implies_commutative(name)&&nc_settles(e){return Some(false);}
+    if name=="polar" &&crate::special::polar::is_polar(e){return Some(true);}
     // Mul._eval_is_polar always settles (any/all over the factors), and
     // Pow defers to its base.
     if name=="polar"{
@@ -299,10 +304,29 @@ fn structural_names(name:&str)->&'static [&'static str]{
 /// ``is_extended_real`` through the assumption rules.
 pub fn settle_nonreal(e:&Expr,answer:Option<bool>)->Option<bool>{
     if answer.is_some(){return answer;}
-    // Each of these facts implies real.
+    // Each of these facts implies real, hence commutative.
+    if nc_settles(e){return Some(false);}
     if is_real(e)==Some(false){return Some(false);}
     if answer.is_none()&&structural_kind(e)&&crate::symbolic_number::is_symbolic_number(e)&&fact(e,"extended_real")==Some(false){return Some(false);}
     answer
+}
+
+/// True when `e` provably does not commute.
+fn noncommuting(e:&Expr)->bool{e.has_noncommutative_host()&&crate::decompose::commutativity(e)==Some(false)}
+
+/// A noncommutative expression whose facts implying `commutative` are all
+/// False. SymPy settles them so for symbols, sums, products and functions,
+/// but a noncommutative Pow only gets what its own handlers decide
+/// (`(A**2).is_positive` is None, `(A**-1).is_real` False), so powers keep
+/// the native answers.
+fn nc_settles(e:&Expr)->bool{!matches!(e.kind(),Kind::Pow(..))&&noncommuting(e)}
+
+/// Facts whose closure under SymPy's assumption rules contains
+/// `commutative`.
+pub fn implies_commutative(name:&str)->bool{
+    matches!(name,"algebraic"|"complex"|"composite"|"even"|"extended_negative"|"extended_nonnegative"|"extended_nonpositive"
+        |"extended_nonzero"|"extended_positive"|"extended_real"|"imaginary"|"integer"|"irrational"|"negative"|"noninteger"
+        |"nonnegative"|"nonpositive"|"nonzero"|"odd"|"positive"|"prime"|"rational"|"real"|"transcendental"|"zero")
 }
 
 /// Facts that require an extended real value.
@@ -1099,6 +1123,8 @@ pub fn is_zero(e:&Expr)->Option<bool>{cached_bool(e,Query::Zero,is_zero_uncached
 fn is_zero_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::NOT_ZERO){return Some(false);}
     if declared(e).has(A::ZERO){return Some(true);}
+    // `zero -> commutative`: `(A*B - B*A).is_zero` is False in SymPy.
+    if nc_settles(e){return Some(false);}
     match e.kind() {
         Kind::Num(n) => return Some(n.is_zero()),
         Kind::Sym(s) if s.assumptions().has(A::NOT_ZERO) => return Some(false),
@@ -1119,6 +1145,11 @@ fn is_zero_uncached(e: &Expr) -> Option<bool> {
             if let Some(facts)=exact::rational_power(base,exponent) {if facts.zero.is_some(){return facts.zero;}}
             if exact_queries(||is_zero(base))==Some(false) && is_finite(exponent)==Some(true) {return Some(false);}
         },
+        // re._eval_is_zero (arg imaginary or zero), im._eval_is_zero (arg
+        // extended real), Abs/sign (arg zero): all False for an argument
+        // that does not commute.
+        Kind::Func(Func::Re|Func::Im|Func::Abs|Func::Sign,args) if args.len()==1&&noncommuting(&args[0]) => return Some(false),
+        Kind::Add(..) if e.has_noncommutative_host() && crate::functions::noncommutative_sum_nonzero(e)==Some(false) => return Some(false),
         _ => {}
     }
     if let Some(s) = real_signs(e) {
@@ -1161,6 +1192,9 @@ fn is_integer_uncached(e: &Expr) -> Option<bool> {
     if declared(e).has(A::INTEGER){return Some(true);}
     if declared(e).has(A::NOT_INTEGER){return Some(false);}
     match e.kind() {
+        // re/im._eval_is_algebraic is that of the argument, False when it
+        // does not commute, and integer implies algebraic.
+        Kind::Func(Func::Re|Func::Im,args) if args.len()==1&&noncommuting(&args[0]) => Some(false),
         Kind::Num(n) => number_integer(n),
         Kind::Sym(s) => {
             let a = s.assumptions();

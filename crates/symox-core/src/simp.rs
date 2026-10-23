@@ -1155,7 +1155,7 @@ pub fn expand_mul_deep(e: &Expr, deep: bool) -> Expr {
     // a number times a noncommutative sum is a held product inside a sum
     // (Mul.flatten), which the multiplication hint distributes
     if let Kind::Add(c, terms) = e2.kind() {
-        if terms.iter().any(|(t, k)| t.is_add() && !k.is_one()) && crate::decompose::has_noncommutative_atoms(&e2) {
+        if terms.iter().any(|(t, k)| t.is_add() && !k.is_one()) && !crate::decompose::commutes(&e2) {
             let mut v = vec![Expr::num(c.clone())];
             for (t, k) in terms {
                 if t.is_add() && !k.is_one() {

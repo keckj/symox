@@ -216,6 +216,59 @@ pub fn imaginary_part_is_zero(imaginary: &Expr) -> Option<bool> {
     }
 }
 
+/// `Add._eval_is_zero` leaves a sum of nonzero terms undecided; SymPy then
+/// settles `zero` through `zero -> integer` and `zero -> algebraic` with
+/// Add's `_fuzzy_group(..., quick_exit=True)`: `im(A) + 1` with a
+/// noncommutative `A` is not an integer, hence nonzero. Some(false) or None,
+/// for a sum whose parts hold a noncommutative argument.
+pub(crate) fn noncommutative_sum_nonzero(sum: &Expr) -> Option<bool> {
+    let terms = sum.args();
+    let algebraic: Vec<Option<bool>> = terms.iter().map(noncommutative_part_algebraic).collect();
+    let integer = terms.iter().zip(&algebraic).map(|(t, a)| if *a == Some(false) { Some(false) } else { crate::assumptions::fact(t, "integer") });
+    if fuzzy_group(algebraic.iter().copied(), true) == Some(false) || fuzzy_group(integer, true) == Some(false) {
+        return Some(false);
+    }
+    None
+}
+
+/// SymPy's `_fuzzy_group`: True when every value is True, None as soon as
+/// one is None, and False for exactly one False (any number without
+/// `quick_exit`).
+fn fuzzy_group(values: impl Iterator<Item = Option<bool>>, quick_exit: bool) -> Option<bool> {
+    let mut saw_other = false;
+    for value in values {
+        match value {
+            Some(true) => continue,
+            None => return None,
+            Some(false) => {
+                if quick_exit && saw_other {
+                    return None;
+                }
+                saw_other = true;
+            }
+        }
+    }
+    Some(!saw_other)
+}
+
+/// `is_algebraic` of a part of `im(z)` or `re(z)`: `re`/`im` defer to their
+/// argument (False when it does not commute), Mul uses `_fuzzy_group` and
+/// Pow `Pow._eval_is_algebraic` for a rational exponent.
+fn noncommutative_part_algebraic(e: &Expr) -> Option<bool> {
+    match e.kind() {
+        Kind::Func(Func::Re | Func::Im, a) if a.len() == 1 => crate::assumptions::fact(&a[0], "algebraic"),
+        Kind::Mul(c, factors) if e.has_noncommutative_host() => {
+            let coefficient = std::iter::once(if c.is_float() { None } else { Some(true) });
+            fuzzy_group(coefficient.chain(factors.iter().map(|(b, x)| noncommutative_part_algebraic(&crate::ops::mul_factor(b, x)))), true)
+        }
+        Kind::Pow(b, x) if e.has_noncommutative_host() && x.as_number().is_some_and(|n| n.is_rational() && !n.is_zero()) => {
+            if crate::assumptions::is_zero_exact(b) == Some(true) || b.is_one() { return Some(true); }
+            if noncommutative_part_algebraic(b) == Some(false) { Some(false) } else { None }
+        }
+        _ => crate::assumptions::fact(e, "algebraic"),
+    }
+}
+
 /// Evaluate held operations. Matrix scalar nodes retain their typed parents;
 /// abstract symbols stay abstract instead of being materialized implicitly.
 pub fn doit(e: &Expr, deep: bool) -> Expr {
@@ -555,7 +608,10 @@ fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
                     return Some(add(&[add(&integers), func(f.clone(), vec![add(&remainder)])]));
                 }
             }
-            if crate::traverse::has(a, &Expr::i()) {
+            // A noncommutative argument is neither imaginary nor `I` times a
+            // real value (SymPy's assumption rules), so RoundFunction.eval
+            // keeps it whole: `floor(x - I*A*B)`.
+            if crate::traverse::has(a, &Expr::i()) && crate::decompose::commutes(a) {
                 if let Ok(Some((real, imaginary))) = crate::complex_parts::as_real_imag_bounded(a, false, None) {
                     if !imaginary.is_zero() {
                         return Some(add(&[func(f.clone(), vec![real]), mul2(&Expr::i(), &func(f.clone(), vec![imaginary]))]));

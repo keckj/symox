@@ -93,7 +93,7 @@ fn ex(
                 let held = options.deep && options.mul && nt.is_add() && !k.is_one();
                 if nt.same_presentation(t) && !held {
                     unchanged.push((t.clone(), k.clone()));
-                } else if held && crate::decompose::has_noncommutative_atoms(&nt) {
+                } else if held && !crate::decompose::commutes(&nt) {
                     // a number times a noncommutative sum stays a product
                     // when built, so its terms are distributed one by one
                     for a in nt.args() {
