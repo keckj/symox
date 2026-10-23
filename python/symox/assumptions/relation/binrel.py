@@ -35,6 +35,7 @@ class BinaryRelation(Predicate,metaclass=_BinaryType):
     reversed=property(lambda self:self if self.is_symmetric else None)
     negated=None
     def __repr__(self):return 'Q.'+self.name
+    __str__=__repr__
     def __hash__(self):return hash(self._native)
     def __eq__(self,other):return isinstance(other,BinaryRelation) and self.name==other.name
 

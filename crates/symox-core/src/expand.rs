@@ -170,7 +170,14 @@ fn ex(
             } else {
                 x.clone()
             };
-            expand_pow(&b2, &x2, cache, options, opaque)
+            // SymPy's multinomial hint leaves base**-1 alone, and no other
+            // hint applies to it: with an unchanged sum as base the node is
+            // returned as is (a held 1/(0.99 + 0.2*I) stays held).
+            if x2.is_minus_one() && b2.is_add() && b2 == *b {
+                e.clone()
+            } else {
+                expand_pow(&b2, &x2, cache, options, opaque)
+            }
         }
         Kind::Func(Func::Exp, args) => {
             let a = if options.deep {

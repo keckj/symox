@@ -1028,6 +1028,23 @@ impl MatrixExpr {
             MatrixKind::Mul(c,fs)=>{if fs.len()==1{return Ok(mul2(c,&fs[0].element(i,j)?));}let first=&fs[0];if let Ok(n)=finite_dim(first.cols()){let rest=Self::mul(Expr::one(),&fs[1..],true)?;let mut terms=Vec::with_capacity(n);for k in 0..n{let k=Expr::int(k as i64);terms.push(mul2(&first.element(i,&k)?,&rest.element(&k,j)?));}Ok(mul2(c,&add(&terms)))}else{Ok(self.opaque_element(i,j))}},
             MatrixKind::Transpose(b)=>b.element(j,i),MatrixKind::Adjoint(b)=>Ok(func(Func::Conjugate,vec![b.element(j,i)?])),MatrixKind::Conjugate(b)=>Ok(func(Func::Conjugate,vec![b.element(i,j)?])),
             MatrixKind::Pow(_,e) if e.as_i64().is_none()=>Ok(self.opaque_element(i,j)),
+            // A square of a lazy (non-explicit) finite matrix: one row times one column, as SymPy's
+            // MatMul._entry does, instead of materialising the whole d x d product (O(d**3)).
+            MatrixKind::Pow(b,e) if e.as_i64()==Some(2)&&!matches!(b.kind(),MatrixKind::Explicit(_))&&finite_dim(b.cols()).is_ok()&&i.as_i64().is_some()&&j.as_i64().is_some()=>{
+                // Same entry as the explicit power (Matrix::powi: matmul then dotprodsimp); a row and
+                // column with zero off-diagonal entries may come from a diagonal base, whose explicit
+                // power has another form, so that case keeps the explicit path.
+                let n=finite_dim(b.cols())?;let (ii,jj)=(i.as_i64().unwrap().rem_euclid(n as i64),j.as_i64().unwrap().rem_euclid(n as i64));
+                let mut row=Vec::with_capacity(n);let mut col=Vec::with_capacity(n);
+                for k in 0..n{let ke=Expr::int(k as i64);row.push(b.element(&Expr::int(ii),&ke)?);col.push(b.element(&ke,&Expr::int(jj))?);}
+                let diagonal_like=(0..n).all(|k|(k as i64==ii||row[k].is_zero())&&(k as i64==jj||col[k].is_zero()));
+                if !diagonal_like&&n>1{
+                    let r=crate::matrix::Matrix::new(1,n,row)?;let c=crate::matrix::Matrix::new(n,1,col)?;
+                    let e=r.matmul(&c)?.get(0,0).clone();
+                    return Ok(if e.as_i64().is_some(){e}else{crate::matrix::ratfunc::dotprodsimp_withsimp(&e).0});
+                }
+                let m=self.as_explicit()?;Ok(m.get(ii as usize,jj as usize).clone())
+            },
             MatrixKind::Pow(..)|MatrixKind::Inverse(_)=>{if finite_dim(self.rows()).is_ok(){let m=self.as_explicit()?;if let(Some(i),Some(j))=(i.as_i64(),j.as_i64()){return Ok(m.get(i.rem_euclid(m.rows() as i64) as usize,j.rem_euclid(m.cols() as i64) as usize).clone());}}Ok(self.opaque_element(i,j))},
             _=>Ok(self.opaque_element(i,j)),
         }
