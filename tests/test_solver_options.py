@@ -17,10 +17,11 @@ def test_solve_set_and_dict_outputs():
 
 
 @pytest.mark.parametrize("flags", [dict(manual=True), dict(mispelled=True)])
-def test_solve_unimplemented_flags_are_explicit(flags):
+def test_solve_flags_accepted_like_reference(flags):
+    # SymPy 1.14 implements manual=True and ignores flags it never reads
     x = s.Symbol("x")
-    with pytest.raises(NotImplementedError):
-        s.solve(x-1, x, **flags)
+    assert s.solve(x-1, x, **flags) == [1]
+    assert sp.solve(sp.Symbol("x")-1, sp.Symbol("x"), **flags) == [1]
 
 
 @pytest.mark.parametrize("flags", [dict(simplify=False), dict(rational=False)])

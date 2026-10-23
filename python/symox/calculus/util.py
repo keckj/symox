@@ -1,6 +1,7 @@
 """Real continuity, stationary points and structural periodicity."""
 from ._analysis import scalar, variable, walk, name, zeros, real_domain, inequality
 from .. import S as _S
+S = _S
 
 
 def lcim(numbers):
@@ -149,79 +150,174 @@ def _common_period(periods):
     return period
 
 
+def _trig_period(f, symbol):
+    """SymPy's ``TrigonometricFunction._period``; None when it raises."""
+    from .. import S, pi, expand_mul
+    general = pi if name(f) in ('tan', 'cot') else 2*pi
+    arg = expand_mul(f.args[0])
+    if not arg.has(symbol):
+        return S.Zero
+    if arg == symbol:
+        return general
+    if symbol in arg.free_symbols:
+        if arg.is_Mul:
+            g, h = arg.as_independent(symbol)
+            if h == symbol:
+                return general/abs(g)
+        if arg.is_Add:
+            a, h = arg.as_independent(symbol)
+            g, h = h.as_independent(symbol, as_Add=False)
+            if h == symbol:
+                return general/abs(g)
+    return None
+
+
+def _lcim(numbers):
+    """SymPy's ``lcim``: least common integral multiple, or None."""
+    from .. import lcm_list
+    if all(num.is_irrational for num in numbers):
+        factors_num = [num.factor().as_coeff_Mul() for num in numbers]
+        term = factors_num[0][1]
+        if all(factor == term for coeff, factor in factors_num):
+            return lcm_list([coeff for coeff, factor in factors_num])*term
+        return None
+    if all(num.is_rational for num in numbers):
+        return lcm_list(numbers)
+    return None
+
+
+_TRIG = ('sin', 'cos', 'tan', 'cot', 'sec', 'csc')
+
+
 def periodicity(f, symbol, check=False):
-    """Find a real period; return None when this structural search finds none."""
-    from .. import S, Dummy, pi, Abs, im, simplify, trigsimp
-    from .._core import Expr
-    f=scalar(f)
-    symbol=variable(symbol)
-    # Periodicity is with respect to a real independent variable. This
-    # also exposes simplifications such as Abs(exp(I*x)) == 1.
-    real_symbol=Dummy('period_x',real=True)
-    expression=f.xreplace({symbol:real_symbol})
-    expression=trigsimp(expression)
-    list(walk(expression))
-    cache={}
-    def affine(argument):
-        slope=argument.diff(real_symbol)
-        return slope if not slope.has(real_symbol) else None
-    def candidate(node):
-        if not isinstance(node,Expr):
-            return S.Zero if hasattr(node,'has') and not node.has(real_symbol) else None
-        if node in cache:return cache[node]
-        if not node.has(real_symbol):return S.Zero
-        head=name(node)
-        period=None
-        if node.is_Add or node.is_Mul:
-            period=_common_period([candidate(arg) for arg in node.args])
-        elif node.is_Pow:
-            if not node.exp.has(real_symbol):
-                period=candidate(node.base)
-                if period and node.exp.is_even is True:
-                    shifted=node.base.subs(real_symbol,real_symbol+period/2)
-                    if trigsimp(shifted+node.base)==0:period/=2
-            elif not node.base.has(real_symbol):
-                period=candidate(node.exp)
-            else:
-                # Both the base and the exponent vary: a common period of
-                # the two is a period of the power (reference _periodicity).
-                period=_common_period([candidate(node.base),candidate(node.exp)])
-        elif head in ('sin','cos','tan','cot','sec','csc','sinh','cosh','tanh','coth','sech','csch'):
-            slope=affine(node.args[0])
-            if slope is not None and slope.is_zero is False:
-                multiplier=1 if head in ('tan','cot','tanh','coth') else 2
-                if head in ('sin','cos','tan','cot','sec','csc') and slope.is_real is True:
-                    period=multiplier*pi/Abs(slope)
-                elif head in ('sinh','cosh','tanh','coth','sech','csch') and slope.is_imaginary is True:
-                    period=multiplier*pi/Abs(im(slope))
-            if period is None:period=candidate(node.args[0])
-        elif head=='exp':
-            slope=affine(node.args[0])
-            if slope is not None and slope.is_imaginary is True:
-                period=2*pi/Abs(im(slope))
-            else:period=candidate(node.args[0])
-        elif head=='Mod':
-            numerator,modulus=node.args
-            slope=affine(numerator)
-            if (slope is not None and slope.is_real is True and slope.is_zero is False
-                    and not modulus.has(real_symbol) and modulus.is_real is True
-                    and modulus.is_zero is False):
-                period=Abs(modulus/slope)
-        elif node.is_Derivative:
-            period=candidate(node.expr)
-        elif node.is_Function or node.is_UndefinedFunction:
-            period=_common_period([candidate(arg) for arg in node.args])
-            if head=='Abs' and period:
-                original=node.args[0]
-                if trigsimp(original.subs(real_symbol,real_symbol+period/2)+original)==0:period/=2
-        cache[node]=period
+    """SymPy's ``periodicity``: the period of ``f`` in ``symbol``, ``S.Zero``
+    for a constant and None when no period is found."""
+    from .. import (S, Dummy, Abs, Pow, Mod, Piecewise, Relational, sin, re,
+                    im, expand_mul, degree, sympify)
+    from ..core.numbers import equal_valued
+    from .. import cos, tan, cot, sec, csc
+    trig_heads = (sin, cos, tan, cot, sec, csc)
+    f = sympify(f)
+    symbol = variable(symbol)
+    if getattr(symbol, 'kind', None) is not None and str(symbol.kind) != 'NumberKind':
+        raise NotImplementedError("Cannot use symbol of kind %s" % symbol.kind)
+    temp = Dummy('x', real=True)
+    f = f.subs(symbol, temp)
+    symbol = temp
+
+    def _check(orig_f, period):
+        new_f = orig_f.subs(symbol, symbol + period)
+        if new_f.equals(orig_f):
+            return period
+        raise NotImplementedError(
+            "The period of the given function cannot be verified. When `%s` "
+            "was replaced with `%s + %s` in `%s`, the result was `%s` which "
+            "was not recognized as being the same as the original function. "
+            "So either the period was wrong or the two forms were not "
+            "recognized as being equal. Set check=False to obtain the value."
+            % (symbol, symbol, period, orig_f, new_f))
+
+    orig_f = f
+    period = None
+    if isinstance(f, Relational):
+        f = f.lhs - f.rhs
+    simplified = f.simplify()
+    # SymPy's simplify replaces a trigonometric expression by its deep
+    # trigsimp form (kept unless 1.7 times longer than the input); the
+    # native simplify does not always apply that step (sin(x)*cos(x)).
+    if simplified.has(*trig_heads):
+        from .. import trigsimp, count_ops
+        candidate = trigsimp(simplified, deep=True)
+        if count_ops(candidate) <= 1.7*count_ops(f):
+            simplified = candidate
+    f = simplified
+    if symbol not in f.free_symbols:
+        return S.Zero
+    if name(f) in _TRIG:
+        period = _trig_period(f, symbol)
+    if isinstance(f, Abs):
+        arg = f.args[0]
+        if name(arg) in ('sec', 'csc', 'cos'):
+            arg = sin(arg.args[0])
+        period = periodicity(arg, symbol)
+        if period is not None and name(arg) == 'sin':
+            orig_f = Abs(arg)
+            try:
+                return _check(orig_f, period/2)
+            except NotImplementedError as err:
+                if check:
+                    raise NotImplementedError(err)
+    if name(f) == 'exp' or (f.is_Pow and f.base == S.Exp1):
+        f = Pow(S.Exp1, expand_mul(f.exp))
+        if im(f) != 0:
+            period_real = periodicity(re(f), symbol)
+            period_imag = periodicity(im(f), symbol)
+            if period_real is not None and period_imag is not None:
+                period = _lcim([period_real, period_imag])
+    if f.is_Pow and f.base != S.Exp1:
+        base, expo = f.args
+        base_has_sym = base.has(symbol)
+        expo_has_sym = expo.has(symbol)
+        if base_has_sym and not expo_has_sym:
+            period = periodicity(base, symbol)
+        elif expo_has_sym and not base_has_sym:
+            period = periodicity(expo, symbol)
+        else:
+            period = _periodicity(f.args, symbol)
+    elif f.is_Mul:
+        coeff, g = f.as_independent(symbol, as_Add=False)
+        if name(g) in _TRIG or not equal_valued(coeff, 1):
+            period = periodicity(g, symbol)
+        else:
+            period = _periodicity(g.args, symbol)
+    elif f.is_Add:
+        k, g = f.as_independent(symbol)
+        if k is not S.Zero:
+            return periodicity(g, symbol)
+        period = _periodicity(g.args, symbol)
+    elif isinstance(f, Mod):
+        a, n = f.args
+        if a == symbol:
+            period = n
+        elif name(a) in _TRIG:
+            period = periodicity(a, symbol)
+        elif (a.is_polynomial(symbol) and degree(a, symbol) == 1 and
+                symbol not in n.free_symbols):
+            period = Abs(n/a.diff(symbol))
+    elif isinstance(f, Piecewise):
+        pass
+    elif period is None:
+        from ..solvers.decompogen import compogen, decompogen
+        g_s = decompogen(f, symbol)
+        num_of_gs = len(g_s)
+        if num_of_gs > 1:
+            for index, g in enumerate(reversed(g_s)):
+                start_index = num_of_gs - 1 - index
+                g = compogen(g_s[start_index:], symbol)
+                if g not in (orig_f, f):
+                    period = periodicity(g, symbol)
+                    if period is not None:
+                        break
+    if period is not None:
+        if check:
+            return _check(orig_f, period)
         return period
-    period=candidate(expression)
-    if check and period is not None and period!=0:
-        difference=expression.subs(real_symbol,real_symbol+period)-expression
-        if simplify(trigsimp(difference))!=0:
-            raise NotImplementedError('The candidate period could not be verified symbolically')
-    return period
+    return None
+
+
+def _periodicity(args, symbol):
+    periods = []
+    for f in args:
+        period = periodicity(f, symbol)
+        if period is None:
+            return None
+        if period is not S.Zero and period != 0:
+            periods.append(period)
+    if len(periods) > 1:
+        return _lcim(periods)
+    if periods:
+        return periods[0]
+    return None
 
 
 from ._extrema import minimum, maximum

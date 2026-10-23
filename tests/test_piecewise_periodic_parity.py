@@ -24,8 +24,10 @@ r = Symbol('r', real=True)
     (lambda: solveset(sin(x) > 0, x, Interval(-pi, pi)), 'Interval.open(0, pi)'),
     (lambda: solveset(sin(2*x) < 0, x, Interval(0, pi)), 'Interval.open(pi/2, pi)'),
     (lambda: solveset(sin(x)**2 > S(1)/4, x, Interval(0, pi)), 'Interval.open(pi/6, 5*pi/6)'),
+    # SymPy 1.14 leaves a ConditionSet: its function_range fails on the
+    # Piecewise derivative of Abs(sin(x)) (as_set of a periodic relational)
     (lambda: solveset(Abs(sin(x)) < S.Half, x, Interval(0, 2*pi)),
-     'ConditionSet(x, Abs(sin(x)) < 1/2, Interval(0, 2*pi))'),
+     'Union(Interval.Ropen(0, pi/6), Interval.open(5*pi/6, 7*pi/6), Interval.Lopen(11*pi/6, 2*pi))'),
     (lambda: solveset(cos(x) > 0, x, S.Reals),
      'Union(Interval.Ropen(0, pi/2), Interval.open(3*pi/2, 2*pi))'),
     (lambda: solveset(sin(x) > 2, x, S.Reals), 'EmptySet'),

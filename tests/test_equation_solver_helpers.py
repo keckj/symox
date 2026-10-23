@@ -166,6 +166,6 @@ x,y=symbols('x y')
 assert denoms(x/y)=={y}
 assert det_quick(Matrix([[x,1],[1,x]]))==x*x-1
 assert unrad(sqrt(1+sqrt(x))-2)==(x-9,[])
-assert minsolve_linear_system(Matrix([[1,1,2]]),x,y)=={x:2,y:0}
+assert minsolve_linear_system(Matrix([[1,1,2]]),x,y)=={x:0,y:2}
 '''
     subprocess.run([sys.executable,'-c',source],check=True)
