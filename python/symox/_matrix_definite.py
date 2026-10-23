@@ -389,7 +389,14 @@ def _eigenvals(M, error_when_incomplete=True, *, simplify=False,
     if rational:
         M = M.applyfunc(
             lambda x: nsimplify(x, rational=True) if x.has(Float) else x)
-    ret = _native_eigenvals(M, error_when_incomplete, multiple, **flags)
+    try:
+        ret = _native_eigenvals(M, error_when_incomplete, multiple, **flags)
+    except NotImplementedError as exc:
+        from . import _matrix_eigen_rootof as rootof
+        if not rootof.is_unsupported(exc):
+            raise
+        ret = rootof.eigenvals(M, error_when_incomplete, multiple,
+                               simplify, **flags)
     if not simplify:
         return ret
     if not isinstance(simplify, FunctionType):
@@ -402,7 +409,54 @@ def _eigenvals(M, error_when_incomplete=True, *, simplify=False,
 def _eigenvects(M, error_when_incomplete=True, iszerofunc=None, **flags):
     if _float_numeric(M):
         return _eigenvects_mpmath(M)
-    return _wrapped_eigenvects(M, error_when_incomplete, iszerofunc, **flags)
+    try:
+        return _wrapped_eigenvects(M, error_when_incomplete, iszerofunc, **flags)
+    except NotImplementedError as exc:
+        from . import _matrix_eigen_rootof as rootof
+        from . import CRootOf, MatrixError
+        if not rootof.is_unsupported(exc):
+            raise
+        if rootof._is_rational_matrix(M):
+            return rootof.eigenvects(M, flags.get('simplify', True),
+                                     flags.get('simplify', False))
+        # _eigenvects_sympy
+        eigs = rootof.eigenvals(M, error_when_incomplete, False)
+        if any(x.has(CRootOf) for x in eigs):
+            raise MatrixError(
+                "Eigenvector computation is not implemented if the matrix have "
+                "eigenvalues in CRootOf form")
+        raise
+
+
+def _jordan_form(M, calc_transform=True, *, chop=False, **kwargs):
+    from . import Float
+    has_floats = M.is_square and M.has(Float)
+    if has_floats:
+        # SymPy runs the whole computation on nsimplify(x, rational=True)
+        # and evaluates the results at the largest precision of the entries
+        from . import nsimplify
+        from .printing._mpf_str import prec_to_dps
+        precs = [x._prec for x in M if isinstance(x, Float)]
+        max_dps = max(prec_to_dps(max(precs) if precs else 53), 15)
+        R = M.applyfunc(lambda x: nsimplify(x, rational=True))
+        res = _jordan_form(R, calc_transform, **kwargs)
+        if calc_transform:
+            # restore_floats returns a list here, as in SymPy
+            return [m.evalf(n=max_dps, chop=chop) for m in res]
+        return res.evalf(n=max_dps, chop=chop)
+    try:
+        return _native_jordan_form(M, calc_transform, **kwargs)
+    except NotImplementedError as exc:
+        from . import _matrix_eigen_rootof as rootof
+        from . import MatrixError
+        if not rootof.is_unsupported(exc):
+            raise
+        raise MatrixError(
+            "Jordan normal form is not implemented if the matrix have "
+            "eigenvalues in CRootOf form")
+
+
+_native_jordan_form = None
 
 
 def install():
@@ -420,6 +474,10 @@ def install():
         _wrapped_eigenvects = _core.Matrix.eigenvects
         _core.Matrix.eigenvals = _eigenvals
         _core.Matrix.eigenvects = _eigenvects
+    global _native_jordan_form
+    if _native_jordan_form is None:
+        _native_jordan_form = _core.Matrix.jordan_form
+        _core.Matrix.jordan_form = _jordan_form
     for name, fn in (('is_positive_definite', _is_positive_definite),
                      ('is_positive_semidefinite', _is_positive_semidefinite),
                      ('is_negative_definite', _is_negative_definite),

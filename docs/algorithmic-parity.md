@@ -7696,3 +7696,67 @@ Huge exponents, remaining (explicit, never a wrong number):
   answers. The values were checked against mpmath.
 
 Tests: `tests/test_prec_parity.py`.
+
+## Matrix leftovers (mat-rest)
+
+Implemented (ports of SymPy 1.14):
+- `eigenvals` and `eigenvects` of rational matrices whose characteristic
+  polynomial has irreducible factors of degree > 4. `eigenvals` follows
+  `_eigenvals_dict`/`_eigenvals_list` (`roots`, then `all_roots`, so
+  `CRootOf`). `eigenvects` follows `_eigenvects_DOM`: nullspace over
+  `QQ[lambda]/(minpoly)`, then substitution of each root. `jordan_form` of
+  such a matrix raises SymPy's `MatrixError` ("... eigenvalues in CRootOf
+  form").
+- `jordan_form` of Float matrices: rationalize, compute, then restore floats
+  at the input precision (`evalf(n=max_dps, chop)`). With `calc_transform`,
+  the result is a list, as in SymPy.
+- `inv(method='LU')`, `inverse_LU` and `inv(method='BLOCK')` run
+  `_verify_invertible` (berkowitz det `.equals(0)`, then `rref`) on symbolic
+  matrices. A singular symbolic matrix now raises `NonInvertibleMatrixError`
+  instead of returning a matrix of `zoo`/`nan`. `BLOCK` is SymPy's
+  `_inv_block`.
+- `inv()` with noncommutative entries raises SymPy's `PolynomialError`
+  (the default `DomainMatrix` path); `inv(method='LU')` works as in SymPy.
+- `adjoint(f(A))` for a noncommutative `A` and a function `f`:
+  `transpose(f(conjugate(A)))` (`Expr._eval_adjoint`).
+- `minor`/`cofactor`/`minor_submatrix` index and squareness errors; boolean
+  masks in `__getitem__` and `extract`; list keys (with repeats and masks) on
+  `SparseMatrix`; `Matrix(2, 2)` `TypeError`; non-integer and negative
+  dimensions of `eye`/`ones`/`zeros`/`Matrix`; `Matrix([[1, 2], [3]])`
+  ("mismatched dimensions") and `Matrix([1, 2, [3]])` ("expecting list of
+  lists") errors; `diag(..., strict=False)` of ragged lists.
+- `is_Identity`, `is_upper_hessenberg`/`is_lower_hessenberg`, the Dirac
+  conjugate `M.D`, and the `is_hermitian` fallback (`simplify(a - adjoint(b))`
+  per entry pair when the native test is undecided).
+- `solve(Matrix_equation, Matrix([a, b]))` (matrix of symbols).
+- `sympy.matrices.utilities` (`dotprodsimp` context manager,
+  `_get_intermediate_simp`) and `sympy.matrices.determinant`
+  (`_find_reasonable_pivot`, `_find_reasonable_pivot_naive`).
+
+Intentional divergences:
+- `CRootOf` equality is structural: it depends on the generator name.
+  SymPy's equality ignores it (PurePoly), and the generator SymPy prints
+  (`x` or `_lambda`) depends on its cache.
+- `inv(method='LU', iszerofunc=f)`: SymPy's `LUsolve` ignores `f`; symox
+  applies it to the pivots, so a predicate that calls a pivot zero raises
+  `NonInvertibleMatrixError` where SymPy divides by it.
+
+Remaining gaps (explicit errors or different forms, never a wrong number):
+- `inv(method='GE')` with noncommutative entries gives a different form
+  (SymPy's result is also wrong for nc entries).
+- `adjoint`/`transpose` of `Abs(A)` and `sqrt(A)` for noncommutative `A`.
+- The deprecated mixin classes of `test_commonmatrix` (`_MinimalMatrix`,
+  `ShapingOnlyMatrix` and the other `*OnlyMatrix`) do not exist.
+- Class identity: `ImmutableMatrix` is `Matrix` with a flag, so
+  `type(m) is ImmutableMatrix` and `Hashable` checks differ.
+- `pinv` of some symbolic matrices times out.
+- Non-integer matrix powers (`_matrix_pow_by_jordan_blocks`),
+  `_eval_matrix_exp_jblock`/`_eval_matrix_log_jblock` helpers, `diff` by a
+  matrix, `Mod` of a matrix, `match` on a matrix, `epsilon_eq`, `Point2D`
+  entries, `DeferredVector` iteration, `Dagger`/`Operator` entries.
+- Unsimplified forms differ in `cholesky`, `GramSchmidt`, `LDL`,
+  `matrix_norm` (`Max`), `exp`, `refine` and `simplify(ratio=...)`, and the
+  `expand` hint `numer`.
+- `roots(multiple=True)` orders cubic roots differently (native `roots`).
+
+Tests: `tests/test_mat_rest_parity.py`.

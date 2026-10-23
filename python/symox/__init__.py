@@ -4241,3 +4241,5 @@ for _cls, _mod in ((Tuple, 'symox.core.containers'), (AlgebraicNumber, 'symox.co
 del _cls, _mod
 from . import _matrix_definite  # noqa: E402
 _matrix_definite.install()
+from . import _matrix_inverse  # noqa: E402
+_matrix_inverse.install()

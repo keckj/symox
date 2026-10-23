@@ -11,7 +11,9 @@ def _loose_block(value):
     """``SparseMatrix._handle_creation_inputs`` of a list: a flat list is a
     column and a ragged list of rows is padded with zeros."""
     from . import Matrix
-    if value and all(isinstance(row, list) for row in value):
+    if value and any(isinstance(row, list) for row in value):
+        # A scalar among rows is a row of one entry, as the reference.
+        value = [row if isinstance(row, list) else [row] for row in value]
         cols = max(len(row) for row in value)
         entries = {(i, j): entry for i, row in enumerate(value) for j, entry in enumerate(row)}
         return len(value), cols, entries

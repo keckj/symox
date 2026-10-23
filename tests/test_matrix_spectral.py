@@ -119,8 +119,8 @@ def test_empty_jordan_and_invalid_arguments():
     assert a.jordan_cells()[1] == []
     with pytest.raises(sx.NonSquareMatrixError):
         sx.ones(2,3).jordan_form()
-    with pytest.raises(NotImplementedError):
-        sx.eye(2).jordan_form(chop=True)
+    # SymPy 1.14 accepts chop (used only for Float matrices).
+    assert sx.eye(2).jordan_form(chop=True) == (sx.eye(2), sx.eye(2))
     with pytest.raises(ValueError):
         sx.eye(2).pinv(method='bad')
 
