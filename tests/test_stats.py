@@ -23,7 +23,8 @@ C={
 
 
 def same(actual,expected):
-    assert S.simplify(actual-S.sympify(expected)) == 0
+    # beta(m, n) of integers stays unevaluated, as in SymPy.
+    assert S.simplify((actual-S.sympify(expected)).rewrite(S.gamma)) == 0
 
 
 def reference_args(args):return tuple(R.sympify(str(a)) for a in args)
