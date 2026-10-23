@@ -1019,13 +1019,15 @@ impl PrettyPrinter<'_> {
             }
         }
         if matches!(f,Func::Predicate(_) | Func::AppliedPredicate | Func::Subs | Func::Limit | Func::Integral | Func::Sum){return Pict::new(&crate::printer::to_str(&Expr::from_kind(Kind::Func(f.clone(),args.to_vec()))));}
-        if let Func::MatrixElement(parent) = f {
-            return Pict::new(&format!("{}[{}, {}]",parent.to_str(),args[0],args[1]));
-        }
-        if let Func::MatrixDotProduct(a,b)=f{return Pict::new(&format!("DotProduct({}, {})",a,b));}
-        if let Func::MatrixProxy(parent) = f { return Pict::new(&parent.to_str()); }
-        if let Func::MatrixTrace(parent) | Func::MatrixDeterminant(parent) = f {
-            return Pict::new(&format!("{}({})",f.name(),parent.to_str()));
+        if let Some(p) = self.print_matrix_func(f, args) { return p; }
+        // `_print_Lambda`: `signature ↦ body`.
+        if let (Func::Set(crate::sets::SetOp::Lambda), [signature, body]) = (f, args) {
+            let signature = match crate::special::tuple_items(signature) {
+                Some([single]) if crate::special::tuple_items(single).is_none() => self.print(single),
+                Some(items) => self.pretty_tuple(items),
+                None => self.print(signature),
+            };
+            return Pict::next(&[signature, Pict::new(xsym(" ↦ ", " -> ")), self.print(body)]).bind(Binding::Open);
         }
         match f {
             Func::Exp => Pict::pow(Pict::new(xsym("ℯ", "e")), self.print(&args[0])),
@@ -1147,6 +1149,217 @@ impl PrettyPrinter<'_> {
 enum Den {
     E(Expr),
     Pow(Expr, Expr),
+}
+
+// ----------------------------------------------------------------------
+// matrix expressions (SymPy's PrettyPrinter matrix handlers)
+// ----------------------------------------------------------------------
+
+use crate::matrixexpr::{MatrixExpr, MatrixKind, MatrixOperand};
+
+impl PrettyPrinter<'_> {
+    /// `_print_matrix_contents`: the grid of cells, two columns between
+    /// cells and an empty line between rows, baseline at mid-height.
+    fn matrix_grid(&self, rows: usize, cols: usize, cells: Vec<Pict>) -> Pict {
+        if rows == 0 || cols == 0 {
+            return Pict::new("");
+        }
+        let widths: Vec<usize> = (0..cols).map(|j| (0..rows).map(|i| cells[i * cols + j].width()).max().unwrap_or(0)).collect();
+        let mut lines = Vec::new();
+        let mut cells = cells.into_iter();
+        for _ in 0..rows {
+            let mut parts = Vec::with_capacity(2 * cols);
+            for (j, width) in widths.iter().enumerate() {
+                let mut cell = cells.next().unwrap();
+                if j != 0 { parts.push(Pict::new("  ")); }
+                cell.lines = cell.lines.iter().map(|line| center(line, *width)).collect();
+                parts.push(cell);
+            }
+            if !lines.is_empty() { lines.push(String::new()); }
+            lines.extend(Pict::next(&parts).lines);
+        }
+        let width = lines.iter().map(|line| line_width(line)).max().unwrap_or(0);
+        let baseline = (lines.len() / 2) as isize;
+        Pict { lines: lines.iter().map(|line| center(line, width)).collect(), baseline, binding: Binding::Atom, func: None }
+    }
+
+    fn block_cells(&self, m: &MatrixExpr) -> Option<(usize, usize, Vec<Pict>)> {
+        match m.kind() {
+            MatrixKind::Block(grid) => {
+                let (r, c) = grid.shape();
+                Some((r, c, (0..r * c).map(|k| self.print_matrix(grid.get(k / c, k % c))).collect()))
+            }
+            MatrixKind::BlockDiag(blocks) => {
+                let k = blocks.len();
+                Some((k, k, (0..k * k).map(|p| if p / k == p % k { self.print_matrix(&blocks[p / k]) } else { Pict::new(xsym("𝟘", "0")) }).collect()))
+            }
+            _ => None,
+        }
+    }
+
+    fn operand(&self, o: &MatrixOperand) -> (Pict, i32) {
+        match o {
+            MatrixOperand::Scalar(e) => (self.print(e), super::precedence(e)),
+            MatrixOperand::Matrix(m) => (self.print_matrix(m), super::latex::matrix_precedence_with(m, false)),
+        }
+    }
+
+    /// `_print_MatPow`, `_print_Transpose` and `_print_Adjoint`.
+    fn matrix_super(&self, base: &MatrixExpr, sup: Pict, block_plain: bool) -> Pict {
+        let mut p = self.print_matrix(base);
+        let plain = matches!(base.kind(), MatrixKind::Symbol(_)) || (block_plain && matches!(base.kind(), MatrixKind::Block(_) | MatrixKind::BlockDiag(_)));
+        if !plain { p = p.paren(); }
+        Pict::pow(p, sup)
+    }
+
+    fn adjoint_symbol() -> Pict { Pict::new(xsym("†", "+")) }
+
+    /// `_print_seq` with a delimiter, parenthesizing the selected items.
+    fn matrix_seq(&self, items: &[MatrixExpr], delimiter: &str, paren: impl Fn(&MatrixExpr) -> bool) -> Pict {
+        let mut forms = Vec::with_capacity(2 * items.len());
+        for (i, item) in items.iter().enumerate() {
+            if i > 0 { forms.push(Pict::new(delimiter)); }
+            let p = self.print_matrix(item);
+            forms.push(if paren(item) { p.paren() } else { p });
+        }
+        Pict::next(&forms)
+    }
+
+    /// SymPy's pretty form of a matrix expression.
+    fn print_matrix(&self, m: &MatrixExpr) -> Pict {
+        match m.kind() {
+            MatrixKind::Symbol(name) => Pict::new(&pretty_symbol(name)),
+            MatrixKind::Identity => Pict::new(xsym("𝕀", "I")),
+            MatrixKind::Zero => Pict::new(xsym("𝟘", "0")),
+            MatrixKind::One => Pict::new(xsym("𝟙", "1")),
+            MatrixKind::Explicit(x) => {
+                if x.rows() == 0 || x.cols() == 0 { return Pict::new("[]"); }
+                self.matrix_grid(x.rows(), x.cols(), x.data().iter().map(|e| self.print(e)).collect()).parens("[", "]")
+            }
+            MatrixKind::Block(_) | MatrixKind::BlockDiag(_) => {
+                let (r, c, mut cells) = self.block_cells(m).unwrap();
+                if r == 1 && c == 1 { return cells.pop().unwrap(); }
+                self.matrix_grid(r, c, cells).parens("[", "]")
+            }
+            // `_print_MatAdd`: the terms in argument order; a term whose
+            // coefficient is negative carries its own sign.
+            MatrixKind::Add(terms) => {
+                let mut forms: Vec<Pict> = Vec::with_capacity(2 * terms.len());
+                for (i, term) in terms.iter().enumerate() {
+                    if i > 0 {
+                        let negative = matches!(term.kind(), MatrixKind::Mul(c, _) if super::minus_sign(c));
+                        forms.push(Pict::new(if negative { " " } else { " + " }));
+                    }
+                    forms.push(self.print_matrix(term));
+                }
+                Pict::next(&forms)
+            }
+            // `_print_MatMul`: compound sums and products get parentheses.
+            MatrixKind::Mul(c, factors) => {
+                let count = factors.len() + usize::from(!c.is_one());
+                let mut forms = Vec::with_capacity(count);
+                if !c.is_one() {
+                    let p = self.print(c);
+                    forms.push(if count > 1 && matches!(c.kind(), Kind::Add(..)) { p.paren() } else { p });
+                }
+                for f in factors {
+                    let p = self.print_matrix(f);
+                    let compound = matches!(f.kind(), MatrixKind::Add(_) | MatrixKind::HadamardProduct(_) | MatrixKind::Kronecker(_));
+                    forms.push(if compound && count > 1 { p.paren() } else { p });
+                }
+                Pict::mul(forms)
+            }
+            MatrixKind::Pow(base, exp) => self.matrix_super(base, self.print(exp), false),
+            MatrixKind::Inverse(base) => self.matrix_super(base, self.print(&Expr::minus_one()), false),
+            MatrixKind::Transpose(base) => self.matrix_super(base, Pict::new("T"), true),
+            MatrixKind::Adjoint(base) => self.matrix_super(base, Self::adjoint_symbol(), true),
+            // SymPy holds the conjugate of a matrix expression as Adjoint(Transpose(base)).
+            MatrixKind::Conjugate(base) => Pict::pow(self.matrix_super(base, Pict::new("T"), true).paren(), Self::adjoint_symbol()),
+            MatrixKind::HadamardProduct(factors) => self.matrix_seq(factors, xsym("∘", ".*"), |f| matches!(f.kind(), MatrixKind::Add(_) | MatrixKind::Mul(..) | MatrixKind::HadamardProduct(_))),
+            MatrixKind::Kronecker(factors) => self.matrix_seq(factors, xsym(" ⨂ ", " x "), |f| matches!(f.kind(), MatrixKind::Add(_) | MatrixKind::Mul(..))),
+            MatrixKind::HadamardPower(base, exp) => {
+                let (base, _) = self.operand(base);
+                let (mut exp, prec) = self.operand(exp);
+                if prec < super::PREC_MUL { exp = exp.paren(); }
+                Pict::pow(base, Pict::next(&[Pict::new(xsym("∘", ".")), exp]))
+            }
+            MatrixKind::Slice(parent, rows, cols) => {
+                let mut pf = self.print_matrix(parent);
+                if !matches!(parent.kind(), MatrixKind::Symbol(_)) { pf = pf.paren(); }
+                let part = |spec, dim| {
+                    let mut forms = Vec::new();
+                    for (i, x) in super::latex::slice_parts(spec, dim).iter().enumerate() {
+                        if i > 0 { forms.push(Pict::new(":")); }
+                        forms.push(x.as_ref().map(|e| self.print(e)).unwrap_or_else(|| Pict::new("")));
+                    }
+                    Pict::next(&forms)
+                };
+                let pa = Pict::next(&[part(rows, parent.rows()), Pict::new(", "), part(cols, parent.cols())]).parens("[", "]");
+                let mut p = Pict::next(&[pf.clone(), pa.clone()]).bind(Binding::Func);
+                p.func = Some(Rc::new((pf, pa)));
+                p
+            }
+            // `_helper_print_function(..., elementwise=True)`.
+            MatrixKind::ApplyFunction(function, parent) => {
+                // A Lambda has no `__name__`, so SymPy parenthesizes it.
+                let pf = self.print(function).paren();
+                let pf = Pict::next(&[pf, Pict::new(xsym("˳", "."))]);
+                let pa = self.print_matrix(parent).paren();
+                let mut p = Pict::next(&[pf.clone(), pa.clone()]).bind(Binding::Func);
+                p.func = Some(Rc::new((pf, pa)));
+                p
+            }
+            _ => Pict::new(&m.to_str()),
+        }
+    }
+
+    fn print_matrix_func(&self, f: &Func, args: &[Expr]) -> Option<Pict> {
+        Some(match f {
+            Func::MatrixProxy(parent) => self.print_matrix(parent),
+            Func::MatrixDotProduct(a, b) => Pict::mul(vec![self.print_matrix(a), self.print_matrix(b)]),
+            Func::MatrixTrace(parent) => {
+                let mut d = self.print_matrix(parent).paren();
+                d.baseline = (d.height() / 2) as isize;
+                d.left(&[Pict::new("tr")])
+            }
+            Func::MatrixDeterminant(parent) => {
+                if let Some((r, c, cells)) = self.block_cells(parent) {
+                    return Some(self.matrix_grid(r, c, cells).parens("|", "|"));
+                }
+                let mut d = self.print_matrix(parent);
+                d.baseline = (d.height() / 2) as isize;
+                d.parens("|", "|")
+            }
+            Func::MatrixElement(parent) => {
+                if let (MatrixKind::Symbol(name), Some(i), Some(j)) = (parent.kind(), args[0].as_number(), args[1].as_number()) {
+                    if i.is_integer() && j.is_integer() {
+                        return Some(Pict::new(&pretty_symbol(&format!("{name}_{i}{j}"))));
+                    }
+                }
+                let pf = self.print_matrix(parent).paren();
+                let pa = self.seq(args).parens("[", "]");
+                let mut p = Pict::next(&[pf.clone(), pa.clone()]).bind(Binding::Func);
+                p.func = Some(Rc::new((pf, pa)));
+                p
+            }
+            _ => return None,
+        })
+    }
+}
+
+
+impl PrettyPrinter<'_> {
+    /// `_print_tuple`: `(a, b)`, or `(a,)` for a single item.
+    fn pretty_tuple(&self, items: &[Expr]) -> Pict {
+        let print = |e: &Expr| match crate::special::tuple_items(e) { Some(inner) => self.pretty_tuple(inner), None => self.print(e) };
+        let mut forms = Vec::with_capacity(2 * items.len());
+        for (i, item) in items.iter().enumerate() {
+            if i > 0 { forms.push(Pict::new(", ")); }
+            forms.push(print(item));
+        }
+        if items.len() == 1 { forms.push(Pict::new(",")); }
+        Pict::next(&forms).paren()
+    }
 }
 
 #[cfg(test)]

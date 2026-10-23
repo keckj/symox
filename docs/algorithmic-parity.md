@@ -5204,3 +5204,62 @@ What remains:
   as `Max(0, ceiling(Max(0, Min(1, n))))`, where SymPy stores `1`.
 
 Tests: `tests/test_matexpr_print_parity.py`.
+
+## Matrix-expression LaTeX and pretty printing on 2026-10-23
+
+The native `latex` and `pretty` printers now port the SymPy 1.14 handlers
+for matrix expressions. Before this work, symox printed these expressions
+through their `str` form. The handlers cover:
+
+- MatrixSymbol, with `mat_symbol_style="bold"` in `latex`.
+- MatMul, MatAdd and MatPow.
+- Inverse, Transpose, Adjoint (with the `adjoint_style` setting) and
+  conjugate.
+- HadamardProduct, HadamardPower and KroneckerProduct.
+- BlockMatrix and BlockDiagMatrix.
+- MatrixSlice and MatrixElement.
+- Trace and Determinant.
+- Identity, ZeroMatrix and OneMatrix.
+- Explicit matrices, with the `mat_delim` and `mat_str` settings, the
+  inline `smallmatrix` form and the `array` form for more than 10
+  columns.
+- ElementwiseApplyFunction, DotProduct and Lambda.
+
+The parenthesization follows SymPy's `precedence_traditional`, and MatAdd
+signs follow SymPy's rules. In pretty output a negative term is joined
+with a space. In LaTeX, " - " is used only when the coefficient is a
+negative Number, so `A + - i B` prints as in SymPy. The MatAdd arguments
+are now sorted with `default_sort_key`, as SymPy's canonicalize does. The
+native `str` order of MatAdd terms is therefore SymPy's `args` order. The
+Python `str` printer still orders the terms as SymPy's `str` does.
+When the expression tree of the terms exceeds 4096 nodes (for example
+the shared DAG of `block_collapse(X**1000000000)`), the sort falls back to
+the structural order. Computing `default_sort_key` on that tree is
+exponential.
+
+There are 126 main probes and 70 extra probes (settings, nesting, edge
+cases). On the main probes, the outputs that differ from SymPy went from
+121 to 2 for latex, from 94 to 2 for pretty ascii and from 117 to 2 for
+pretty unicode. On the extra probes, they went from 67/45/56 to 2/2/2.
+The `str` time of `A*B + C` is unchanged: 131 us, against 509 us for
+SymPy.
+
+The remaining differences come from evaluation or representation, not
+from the printers:
+
+- SymPy evaluates `(A*B)[0, 1]` to a Sum. Symox keeps the element.
+- `(A + B)[:2, 1:]` with symbolic `n` keeps the normalized
+  Max/Min/ceiling stop.
+- `conjugate(A*B)` is distributed, as noted in the previous section.
+- `X[:2, :2].T` is rewritten as a slice of the transpose.
+
+Still unsupported:
+
+- PermutationMatrix in cyclic notation (the `perm_cyclic` setting).
+- FunctionMatrix, DiagMatrix, DiagonalOf and Permute. In `latex` and
+  `pretty` they fall back to the `str` form.
+- `mat_symbol_style` for `pretty`.
+- `decimal_separator` inside matrix expressions.
+
+Tests: `tests/test_matexpr_pretty_parity.py` (177 expressions in the 3
+printers, plus 13 settings cases, 4 of them skipped as known divergences).

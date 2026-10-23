@@ -75,9 +75,11 @@ CASES = [
     (lambda: BlockMatrix([[A, B]])*BlockMatrix([[C], [D]]), 'Matrix([[A, B]])*Matrix([\n[C],\n[D]])'),
 ]
 
-# The native printer keeps the internal order of MatAdd terms; every other
-# case matches SymPy without the Python printer.
-NATIVE_ORDER = {'A + B - C': '-C + A + B', 'A - B*D**(-1)*C': '-B*D**(-1)*C + A'}
+# The native printer keeps the argument order of MatAdd terms (SymPy's
+# default_sort_key order); every other case matches SymPy without the
+# Python printer.
+NATIVE_ORDER = {'A + B - C': '-C + A + B', 'A - B*D**(-1)*C': '-B*D**(-1)*C + A',
+                '(C**(-1) + A*B.T)**(1/3)': '(A*B.T + C**(-1))**(1/3)'}
 
 
 @pytest.mark.parametrize('build, expected', CASES)

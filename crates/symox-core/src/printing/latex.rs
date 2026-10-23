@@ -58,6 +58,14 @@ pub struct LatexSettings {
     /// Custom LaTeX for symbols, keyed by symbol name.
     pub symbol_names: FxHashMap<String, String>,
     pub parenthesize_super: bool,
+    /// SymPy's `mat_symbol_style`: `"plain"` or `"bold"`.
+    pub mat_symbol_bold: bool,
+    /// SymPy's `adjoint_style`: `"dagger"`, `"star"` or `"hermitian"`.
+    pub adjoint_style: String,
+    /// SymPy's `mat_delim`: `"["`, `"("` or empty (no delimiters).
+    pub mat_delim: String,
+    /// SymPy's `mat_str` (`None` chooses `matrix`, `smallmatrix` or `array`).
+    pub mat_str: Option<String>,
 }
 
 impl Default for LatexSettings {
@@ -77,6 +85,10 @@ impl Default for LatexSettings {
             diff_operator: "d".into(),
             symbol_names: FxHashMap::default(),
             parenthesize_super: true,
+            mat_symbol_bold: false,
+            adjoint_style: "dagger".into(),
+            mat_delim: "[".into(),
+            mat_str: None,
         }
     }
 }
@@ -764,6 +776,10 @@ impl<'a> LatexPrinter<'a> {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        // `_print_Lambda`: `\left( signature \mapsto body \right)`.
+        if let (Func::Set(crate::sets::SetOp::Lambda), [signature, body]) = (f, args.as_slice()) {
+            return Self::sup(format!("\\left( {} \\mapsto {} \\right)", self.lambda_signature(signature), self.print(body)), exp);
+        }
         if let Func::Undefined(head) = f {
             if crate::poly::rootof::is_rootof_head(head, args.len()) {
                 // The reference's _print_ComplexRootOf.
@@ -860,11 +876,18 @@ impl<'a> LatexPrinter<'a> {
         }
         let a0 = || self.print(&args[0]);
         match f {
-            Func::MatrixDotProduct(a,b)=>{let parent=|m:&crate::matrixexpr::MatrixExpr|if matches!(m.kind(),crate::matrixexpr::MatrixKind::Add(_)){format!("\\left({}\\right)",m)}else{m.to_str()};return Self::sup(format!("{} \\cdot {}",parent(a),parent(b)),exp);},
-            Func::MatrixProxy(parent) => return Self::sup(parent.to_str(), exp),
-            Func::MatrixTrace(parent) => return Self::sup(format!("\\operatorname{{tr}}\\left({}\\right)", parent.to_str()), exp),
-            Func::MatrixDeterminant(parent) => return Self::sup(format!("\\det\\left({}\\right)", parent.to_str()), exp),
-            Func::MatrixElement(parent) => return Self::sup(format!("{}_{{{}, {}}}", parent.to_str(), self.print(&args[0]), self.print(&args[1])), exp),
+            // SymPy's _print_DotProduct: precedence Mul - 1, not strict.
+            Func::MatrixDotProduct(a,b)=>return Self::sup(format!("{} \\cdot {}",self.mat_parenthesize(a,PREC_MUL-1,false),self.mat_parenthesize(b,PREC_MUL-1,false)),exp),
+            Func::MatrixProxy(parent) => return Self::sup(self.print_matrix(parent), exp),
+            Func::MatrixTrace(parent) => return Self::sup(format!("\\operatorname{{tr}}\\left({} \\right)", self.print_matrix(parent)), exp),
+            Func::MatrixDeterminant(parent) => {
+                let inner = match parent.kind() {
+                    crate::matrixexpr::MatrixKind::Block(grid) => { let (r, c) = grid.shape(); self.matrix_contents(r, c, (0..r * c).map(|k| self.print_matrix(grid.get(k / c, k % c))).collect()) }
+                    _ => self.print_matrix(parent),
+                };
+                return Self::sup(format!("\\left|{{{inner}}}\\right|"), exp);
+            }
+            Func::MatrixElement(parent) => return Self::sup(format!("{{{}}}_{{{},{}}}", self.mat_parenthesize(parent, PREC_ATOM, true), self.print(&args[0]), self.print(&args[1])), exp),
             Func::Exp => return Self::do_exponent(format!("e^{{{}}}", a0()), exp),
             Func::Log => {
                 let t = if self.s.ln_notation {
@@ -1032,6 +1055,206 @@ impl<'a> LatexPrinter<'a> {
 }
 
 /// `(p, q)` of a machine size rational number.
+// ----------------------------------------------------------------------
+// matrix expressions (SymPy's LatexPrinter matrix handlers)
+// ----------------------------------------------------------------------
+
+use crate::matrixexpr::{MatrixExpr, MatrixKind, MatrixOperand, SliceSpec};
+
+/// `could_extract_minus_sign` of a MatMul: a negative Number coefficient.
+fn matmul_negative(c: &Expr) -> bool {
+    c.as_number().is_some_and(|n| n.is_negative())
+}
+
+/// SymPy's `precedence_traditional` of a matrix expression.
+pub(crate) fn matrix_precedence(m: &MatrixExpr) -> i32 {
+    matrix_precedence_with(m, true)
+}
+
+/// SymPy's `precedence` (`traditional == false`, where Transpose and
+/// Adjoint are atoms) or `precedence_traditional` of a matrix expression.
+pub(crate) fn matrix_precedence_with(m: &MatrixExpr, traditional: bool) -> i32 {
+    match m.kind() {
+        MatrixKind::Transpose(_) | MatrixKind::Adjoint(_) | MatrixKind::Conjugate(_) if !traditional => PREC_ATOM,
+        MatrixKind::Add(_) => super::PREC_ADD,
+        MatrixKind::Mul(c, _) => if matmul_negative(c) { super::PREC_ADD } else { PREC_MUL },
+        MatrixKind::Pow(..) | MatrixKind::Inverse(_) | MatrixKind::HadamardPower(..)
+        | MatrixKind::Transpose(_) | MatrixKind::Adjoint(_) | MatrixKind::Conjugate(_) => PREC_POW,
+        MatrixKind::HadamardProduct(_) | MatrixKind::Kronecker(_) => PREC_MUL,
+        _ => PREC_ATOM,
+    }
+}
+
+/// SymPy's `latexslice`/`ppslice`: the printed parts of a slice, with a
+/// unit step dropped and a zero start or full stop left empty.
+pub(crate) fn slice_parts(spec: &SliceSpec, dim: &Expr) -> Vec<Option<Expr>> {
+    let start = if spec.start.is_zero() { None } else { Some(spec.start.clone()) };
+    let full = spec.stop_is_omitted || &spec.stop == dim
+        || (spec.stop.is_number() && dim.is_number()
+            && crate::ops::sub(&spec.stop, dim).as_number().is_some_and(|d| !d.is_negative()));
+    let stop = if full { None } else { Some(spec.stop.clone()) };
+    let mut parts = vec![start, stop];
+    if !spec.step.is_one() { parts.push(Some(spec.step.clone())); }
+    parts
+}
+
+
+/// `precedence_traditional`, whose table holds the class names Add, Mul
+/// and Pow at fixed levels (so `-x` is a Mul, not a negative term).
+fn class_precedence_traditional(e: &Expr) -> i32 {
+    match e.kind() {
+        Kind::Add(..) => super::PREC_ADD,
+        Kind::Mul(..) => PREC_MUL,
+        Kind::Pow(..) => PREC_POW,
+        _ => precedence_traditional(e),
+    }
+}
+
+impl LatexPrinter<'_> {
+    fn mat_parenthesize(&self, m: &MatrixExpr, level: i32, strict: bool) -> String {
+        let p = matrix_precedence(m);
+        if p < level || (!strict && p <= level) { Self::parens(&self.print_matrix(m)) } else { self.print_matrix(m) }
+    }
+
+    fn symbol_style(&self, name: &str) -> String {
+        if !self.s.mat_symbol_bold || name.contains('{') { return deal_with_super_sub(name); }
+        let (head, supers, subs) = split_super_sub(name);
+        let mut out = format!("\\mathbf{{{}}}", translate(&head));
+        if !supers.is_empty() { out.push_str(&format!("^{{{}}}", supers.iter().map(|x| translate(x)).collect::<Vec<_>>().join(" "))); }
+        if !subs.is_empty() { out.push_str(&format!("_{{{}}}", subs.iter().map(|x| translate(x)).collect::<Vec<_>>().join(" "))); }
+        out
+    }
+
+    /// `_print_matrix_contents`.
+    fn matrix_contents(&self, rows: usize, cols: usize, cells: Vec<String>) -> String {
+        let lines: Vec<String> = (0..rows).map(|i| cells[i * cols..(i + 1) * cols].join(" & ")).collect();
+        let mat_str = match &self.s.mat_str {
+            Some(m) => m.clone(),
+            None if self.s.mode == LatexMode::Inline => "smallmatrix".into(),
+            None if cols <= 10 => "matrix".into(),
+            None => "array".into(),
+        };
+        let spec = if mat_str == "array" { format!("{{{}}}", "c".repeat(cols)) } else { String::new() };
+        format!("\\begin{{{mat_str}}}{spec}{}\\end{{{mat_str}}}", lines.join("\\\\"))
+    }
+
+    /// `_print_MatrixBase`.
+    fn matrix_base(&self, rows: usize, cols: usize, cells: Vec<String>) -> String {
+        let body = self.matrix_contents(rows, cols, cells);
+        match self.s.mat_delim.as_str() {
+            "" => body,
+            "(" => format!("\\left({body}\\right)"),
+            _ => format!("\\left[{body}\\right]"),
+        }
+    }
+
+    fn zero_matrix(&self) -> String { if self.s.mat_symbol_bold { "\\mathbf{0}".into() } else { "0".into() } }
+
+    fn operand(&self, o: &MatrixOperand) -> (String, i32) {
+        match o {
+            MatrixOperand::Scalar(e) => (self.print(e), class_precedence_traditional(e)),
+            MatrixOperand::Matrix(m) => (self.print_matrix(m), matrix_precedence(m)),
+        }
+    }
+
+    /// `_print_MatPow`, `_print_Transpose` and `_print_Adjoint` share this
+    /// rule: a compound base gets parentheses, a symbol only when it
+    /// already carries a superscript.
+    fn matrix_super(&self, base: &MatrixExpr, sup: &str, block_plain: bool) -> String {
+        let plain = matches!(base.kind(), MatrixKind::Symbol(_)) || (block_plain && matches!(base.kind(), MatrixKind::Block(_) | MatrixKind::BlockDiag(_)));
+        if !plain { return format!("\\left({}\\right)^{{{sup}}}", self.print_matrix(base)); }
+        let s = if block_plain { self.mat_parenthesize(base, PREC_POW, true) } else { self.print_matrix(base) };
+        if s.contains('^') { format!("\\left({s}\\right)^{{{sup}}}") } else { format!("{s}^{{{sup}}}") }
+    }
+
+    fn adjoint_symbol(&self) -> &'static str {
+        match self.s.adjoint_style.as_str() { "star" => "\\ast", "hermitian" => "\\mathsf{H}", _ => "\\dagger" }
+    }
+
+    /// `_print_MatMul` with the coefficient and matrix factors.
+    fn print_matmul(&self, c: &Expr, factors: &[MatrixExpr]) -> String {
+        let negative = matmul_negative(c);
+        let level = if negative { super::PREC_ADD } else { PREC_MUL };
+        let scalar = |e: &Expr| if matches!(e.kind(), Kind::Mul(..)) { self.print(e) } else { self.parenthesize(e, level, false) };
+        let mut parts: Vec<String> = Vec::with_capacity(factors.len() + 1);
+        let coefficient = if negative { neg(c) } else { c.clone() };
+        if !coefficient.is_one() || (!negative && !c.is_one()) { parts.push(scalar(&coefficient)); }
+        parts.extend(factors.iter().map(|m| self.mat_parenthesize(m, level, false)));
+        let body = parts.join(" ");
+        if negative { format!("- {body}") } else { body }
+    }
+
+    /// SymPy's LaTeX form of a matrix expression.
+    pub(crate) fn print_matrix(&self, m: &MatrixExpr) -> String {
+        match m.kind() {
+            MatrixKind::Symbol(name) => self.symbol_style(name),
+            MatrixKind::Identity => if self.s.mat_symbol_bold { "\\mathbf{I}".into() } else { "\\mathbb{I}".into() },
+            MatrixKind::Zero => self.zero_matrix(),
+            MatrixKind::One => if self.s.mat_symbol_bold { "\\mathbf{1}".into() } else { "1".into() },
+            MatrixKind::Explicit(x) => self.matrix_base(x.rows(), x.cols(), x.data().iter().map(|e| self.print(e)).collect()),
+            MatrixKind::Block(grid) => { let (r, c) = grid.shape(); self.matrix_base(r, c, (0..r * c).map(|k| self.print_matrix(grid.get(k / c, k % c))).collect()) }
+            MatrixKind::BlockDiag(blocks) => {
+                let k = blocks.len();
+                self.matrix_base(k, k, (0..k * k).map(|p| if p / k == p % k { self.print_matrix(&blocks[p / k]) } else { self.zero_matrix() }).collect())
+            }
+            // `_print_Add` through the ordered terms.
+            MatrixKind::Add(terms) => {
+                let mut tex = String::new();
+                for (i, term) in super::order::matrix_ordered(terms).iter().enumerate() {
+                    let text = match term.kind() {
+                        MatrixKind::Mul(c, factors) if i > 0 && matmul_negative(c) => { tex.push_str(" - "); self.print_matmul(&neg(c), factors) }
+                        _ => { if i > 0 { tex.push_str(" + "); } self.print_matrix(term) }
+                    };
+                    if matches!(term.kind(), MatrixKind::Add(_)) { tex.push_str(&Self::parens(&text)); } else { tex.push_str(&text); }
+                }
+                tex
+            }
+            MatrixKind::Mul(c, factors) => self.print_matmul(c, factors),
+            MatrixKind::Pow(base, exp) => self.matrix_super(base, &self.print(exp), false),
+            MatrixKind::Inverse(base) => self.matrix_super(base, "-1", false),
+            MatrixKind::Transpose(base) => self.matrix_super(base, "T", true),
+            MatrixKind::Adjoint(base) => self.matrix_super(base, self.adjoint_symbol(), true),
+            // SymPy holds the conjugate of a matrix expression as Adjoint(Transpose(base)).
+            MatrixKind::Conjugate(base) => format!("\\left({}\\right)^{{{}}}", self.matrix_super(base, "T", true), self.adjoint_symbol()),
+            MatrixKind::HadamardProduct(factors) => factors.iter().map(|f| self.mat_parenthesize(f, PREC_POW, true)).collect::<Vec<_>>().join(" \\circ "),
+            MatrixKind::Kronecker(factors) => factors.iter().map(|f| self.mat_parenthesize(f, PREC_POW, true)).collect::<Vec<_>>().join(" \\otimes "),
+            // `_print_HadamardPower` through `_helper_print_standard_power`.
+            MatrixKind::HadamardPower(base, exp) => {
+                let (exp_tex, exp_prec) = self.operand(exp);
+                let (base_tex, base_prec) = self.operand(base);
+                let base_tex = if base_prec <= PREC_POW { Self::parens(&base_tex) } else { base_tex };
+                if exp_prec < PREC_MUL { format!("{base_tex}^{{\\circ \\left({{{exp_tex}}}\\right)}}") } else { format!("{base_tex}^{{\\circ {{{exp_tex}}}}}") }
+            }
+            MatrixKind::Slice(parent, rows, cols) => {
+                let part = |spec: &SliceSpec, dim: &Expr| slice_parts(spec, dim).iter().map(|x| x.as_ref().map(|e| self.print(e)).unwrap_or_default()).collect::<Vec<_>>().join(":");
+                format!("{}\\left[{}, {}\\right]", self.mat_parenthesize(parent, PREC_ATOM, true), part(rows, parent.rows()), part(cols, parent.cols()))
+            }
+            MatrixKind::ApplyFunction(function, parent) => format!("{{{}}}_{{\\circ}}\\left({{{}}}\\right)", self.print(function), self.print_matrix(parent)),
+            _ => m.to_str(),
+        }
+    }
+}
+
+
+impl LatexPrinter<'_> {
+    /// A Lambda signature: a lone symbol, or `_print_tuple` of the
+    /// (possibly nested) variables.
+    fn lambda_signature(&self, signature: &Expr) -> String {
+        match crate::special::tuple_items(signature) {
+            Some([single]) if crate::special::tuple_items(single).is_none() => self.print(single),
+            Some(items) => self.latex_tuple(items),
+            None => self.print(signature),
+        }
+    }
+
+    fn latex_tuple(&self, items: &[Expr]) -> String {
+        let print = |e: &Expr| match crate::special::tuple_items(e) { Some(inner) => self.latex_tuple(inner), None => self.print(e) };
+        let sep = ",";
+        if items.len() == 1 { return format!("\\left( {}{sep}\\right)", print(&items[0])); }
+        format!("\\left( {}\\right)", items.iter().map(print).collect::<Vec<_>>().join(&format!("{sep} \\  ")))
+    }
+}
+
 fn has_mod(e: &Expr) -> bool {
     crate::special::has_head(e, crate::special::SpecialFn::Mod)
 }

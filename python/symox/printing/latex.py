@@ -181,6 +181,10 @@ class LatexPrinter(Printer):
         settings = dict(self._settings, mode='plain')
         if settings.get('fold_short_frac') is None:
             settings['fold_short_frac'] = self._settings.get('mode') == 'inline'
+        if settings.get('mat_str') is None and self._settings.get('mode') == 'inline':
+            # The native printer runs in plain mode; SymPy's inline matrices
+            # use smallmatrix.
+            settings['mat_str'] = 'smallmatrix'
         return _core.latex(expr, **settings)
 
     def doprint(self, expr):
