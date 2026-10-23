@@ -6121,3 +6121,41 @@ Remaining gaps:
   `Order(x**3, x, 0)` instead of `O(x**3)`; LaTeX and pretty of
   `SingularityFunction`; LaTeX and pretty of `Commutator` expansions, which
   print the `OrderedProduct` structure.
+
+## Numeric bases sharing an exponent (wave 4, numbase)
+
+Implemented in the Rust `Mul` (`ops.rs::finish_mul`), following SymPy 1.14
+`Mul.flatten`:
+- The `num_exp` rule: powers with a finite nonzero number base and a
+  non-rational exponent are gathered by exponent when the base is positive or
+  the exponent is an integer. The bases sharing an exactly equal exponent are
+  multiplied and rebuilt as one power: `2**n*3**n` is `6**n`,
+  `(1/4)**n*4**n` is `1`, `Float(2.5)**n*2**n` is `5.0**n`,
+  `(-2)**k*(-3)**k` is `6**k` for an integer `k`, while `(-2)**n*3**n` stays
+  as it is for a general `n`. The combined power is not merged again with
+  the other factors, as in SymPy: `2**n*3**n*6**(-n)` is `1` only through
+  the binary evaluation order.
+- `Pow.as_base_exp` for a unit-numerator rational base inside a product:
+  `x*(1/2)**n` is `x/2**n`, while `(1/2)**n` alone stays as it is.
+- The gammasimp internal `factor` no longer expands each factor base before
+  factoring. SymPy runs `together` first. Expanding first changed the
+  result once `2**s*6**s` combined into `12**s`.
+- The SymPy sequence candidate of the native `simplify` now applies
+  `combsimp` to gamma and combinatorial functions before its `powsimp`,
+  `cancel` and `factor_terms` steps, as SymPy does. With the combined
+  numeric powers, this keeps `meijerint_indefinite(sin(x)**3/x**3, x)`
+  raising SymPy's `NotImplementedError('Gammas partially over the strip.')`.
+
+Probes against SymPy 1.14 (`str` of 86 products and sums of numeric-base
+powers): 54 differed before, none after.
+
+Consequence: `solveset(2**x*3**x - 6, x, Complexes)` is now the equation
+`6**x - 6`, as in SymPy, and falls under the documented divergence for
+`b**x` with a positive rational base: the complete lattice
+`2*n*I*pi/log(6) + 1`, where SymPy returns a `ConditionSet`.
+
+Remaining gaps: the native `simplify` is still a candidate search, not
+SymPy's chain of rewrites. Forms of other expressions with combined numeric
+powers can still differ where the native candidates win. For example, the
+simplified Mellin integrand of `sin(x)**3/x**3` keeps `2**s` where SymPy
+keeps `6**s/3**s`. That form already differed before this change.
