@@ -185,7 +185,12 @@ class LatexPrinter(Printer):
             # The native printer runs in plain mode; SymPy's inline matrices
             # use smallmatrix.
             settings['mat_str'] = 'smallmatrix'
-        return _core.latex(expr, **settings)
+        tex = _core.latex(expr, **settings)
+        if self._settings.get('mode') == 'inline' and r'\int\limits' in tex:
+            # The reference ``_print_Integral`` omits ``\limits`` inline;
+            # the native printer always runs in the plain mode.
+            tex = tex.replace(r'\int\limits', r'\int')
+        return tex
 
     def doprint(self, expr):
         mode = self._settings.get('mode', 'plain')
