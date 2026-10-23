@@ -51,11 +51,12 @@ def test_double_precision_floats_keep_an_unbounded_exponent(source):
 
 
 def test_beyond_the_exponent_bound_stays_symbolic():
-    # mpmath has no exponent bound; symox stops at 2**100 binary exponents
-    # and keeps the power unevaluated instead of returning inf or 0.
-    value = F(2)**(2**101)
+    # mpmath has no exponent bound; symox stops at 2**120 binary exponents
+    # (2**100 before bigexp) and keeps the power unevaluated instead of
+    # returning inf or 0.
+    value = F(2)**(2**121)
     assert isinstance(value, S.Pow)
-    assert S.exp(10**30).evalf().func is S.exp
+    assert S.exp(10**40).evalf().func is S.exp
     # SymPy: 2.99850408006855e+130295280877923619137326550880708245539429.
     # mpmath returns exponents past i128; symox used to raise OverflowError.
     assert S.gamma(R(10**40, 3)).evalf().func is S.gamma

@@ -200,7 +200,7 @@ mod tests{
             let (_,text,decimal_exp)=digits(&value,15);
             assert_eq!(text,"100000000000000");assert_eq!(decimal_exp,exponent);
         }
-        assert!(from_decimal("1e1000000000000000000000000000000000",53).is_err());
+        assert!(from_decimal("1e10000000000000000000000000000000000000",53).is_err());
         for exponent in [i64::MIN,i64::MAX]{
             let value=BigFloat{man:3.into(),exp:exponent.into()};
             assert_eq!(digits(&value,30).1.len(),30);

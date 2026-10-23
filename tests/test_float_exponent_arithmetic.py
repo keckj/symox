@@ -7,8 +7,17 @@ import symox as sx
 import sympy as sp
 
 
-def test_huge_products_preserve_exact_held_arithmetic_at_counter_boundary():
+def test_cube_below_the_counter_boundary_is_evaluated_like_sympy():
+    # Binary exponent 1.3e30 (past the former 2**100 counter): a Float.
     literal='1e130000000000000000000000000000'
+    value=sx.Float(literal,20);reference=sp.Float(literal,20)
+    cube=value*value*value
+    assert cube.is_Float
+    assert cube.to_sympy()==reference*reference*reference
+
+
+def test_huge_products_preserve_exact_held_arithmetic_at_counter_boundary():
+    literal='1e150000000000000000000000000000000000'
     value=sx.Float(literal,20);reference=sp.Float(literal,20)
     square=value*value;expected_square=reference*reference
     assert square.is_Float and square.to_sympy()==expected_square
@@ -26,15 +35,15 @@ def test_huge_products_preserve_exact_held_arithmetic_at_counter_boundary():
 
 
 def test_exponent_gaps_do_not_overflow_in_addition_or_division():
-    value=sx.Float('1e130000000000000000000000000000',20)
-    reference=sp.Float('1e130000000000000000000000000000',20)
+    value=sx.Float('1e150000000000000000000000000000000000',20)
+    reference=sp.Float('1e150000000000000000000000000000000000',20)
     square=value*value;R=reference*reference
     assert (square+1/square).to_sympy()==R+1/R
     assert (square-square).is_zero
     assert (value/value).to_sympy()==reference/reference
-    outside=square/sx.Float('1e-130000000000000000000000000000',20)
+    outside=square/sx.Float('1e-150000000000000000000000000000000000',20)
     assert not outside.is_Float
-    expected=sp.Mul(R,1/sp.Float('1e-130000000000000000000000000000',20),evaluate=False)
+    expected=sp.Mul(R,1/sp.Float('1e-150000000000000000000000000000000000',20),evaluate=False)
     assert outside.to_sympy().evalf(20)==expected.evalf(20)
     complex_literal=value+sx.Float('.125',20)*sx.I
     assert sx.N(complex_literal,30).to_sympy()==sp.N(reference+sp.Float('.125',20)*sp.I,30)
@@ -77,7 +86,7 @@ class Block:
             raise AssertionError('reference import')
 sys.meta_path.insert(0,Block())
 from symox import *
-value=Float('1e130000000000000000000000000000',20)
+value=Float('1e150000000000000000000000000000000000',20)
 square=value*value
 assert square.is_Float
 assert (square*value).is_Mul
