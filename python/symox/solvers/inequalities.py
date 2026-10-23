@@ -319,17 +319,23 @@ def _solve_inequality(ie,s,linear=False):
 
 def _reduce_multisymbol(inequalities,symbols,native):
     """SymPy's ``reduce_inequalities`` when some inequality has more than one
-    symbol: an inequality with exactly one symbol of interest is isolated by
+    symbol, or the univariate inequalities are in several symbols: an
+    inequality with exactly one symbol of interest is isolated by
     ``_solve_inequality``; the univariate ones keep the native reduction,
     grouped by generator. Returns None when no inequality needs this path."""
     from .. import And,Dummy,Relational,S,Symbol,sympify
     gens=set().union(*[i.free_symbols for i in inequalities])
     symbols=(set(symbols) or gens)&gens
     multi=False
+    single=set()
     for i in inequalities:
-        if isinstance(i,Relational) and len((i.lhs-i.rhs).atoms(Symbol))>1:
-            multi=True
-    if not multi:
+        if isinstance(i,Relational):
+            found=(i.lhs-i.rhs).atoms(Symbol)
+            if len(found)>1:
+                multi=True
+            single|=found
+    # univariate inequalities in different symbols are reduced per symbol
+    if not multi and len(single)<2:
         return None
     if any(i.is_extended_real is False for i in symbols):
         raise TypeError('inequalities cannot contain symbols that are not real.')
@@ -360,7 +366,7 @@ def _reduce_multisymbol(inequalities,symbols,native):
             continue
         common=expr.free_symbols&rsymbols
         if len(common)!=1:
-            raise NotImplementedError('inequality has more than one symbol of interest.')
+            raise NotImplementedError('\ninequality has more than one symbol of interest.')
         other.append(_solve_inequality(i,common.pop()))
     parts=[native(group,[gen.xreplace(back)]) for gen,group in groups.items()]
     return And(*(parts+[o.xreplace(back) for o in other]))

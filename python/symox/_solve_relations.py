@@ -33,6 +33,11 @@ def install(namespace):
         if relational:
             targets=symbols[0] if len(symbols)==1 else symbols
             return reduce_inequalities(prepared,targets)
+        if 'implicit' in flags:
+            if not flags['implicit']:
+                flags={k:v for k,v in flags.items() if k!='implicit'}
+            else:
+                return _implicit_solution(solve,prepared,f,symbols,flags,sequences)
         swapped=_swap_targets(prepared,f,symbols,sequences)
         if swapped is not None:
             target,new_symbols,back=swapped
@@ -104,13 +109,21 @@ def install(namespace):
         try:
             solutions=native(f,*symbols,**flags)
         except NotImplementedError:
-            if isinstance(f,sequences) or len(symbols)!=1:
+            if isinstance(f,sequences) or len(symbols)>1:
                 raise
-            values=_masked_solution(solve,prepared[0],symbols[0],flags)
+            if symbols:
+                target=symbols[0]
+            else:
+                # SymPy's solve takes the free symbols as the unknowns
+                free=getattr(prepared[0],'free_symbols',set())
+                if len(free)!=1:
+                    raise
+                target=next(iter(free))
+            values=_masked_solution(solve,prepared[0],target,flags)
             if values is None:
-                values=_inverted_solution(solve,prepared[0],symbols[0],flags)
+                values=_inverted_solution(solve,prepared[0],target,flags)
             if values is None:
-                values=_unrad_solution(solve,prepared[0],symbols[0],flags)
+                values=_unrad_solution(solve,prepared[0],target,flags)
             if values is None:
                 raise
             return values
@@ -552,6 +565,67 @@ def _inverted_values(solve,equation,symbol,flags):
         target=inverse(root)
         extend([target] if argument==symbol else solve(argument-target,symbol,**flags))
     return values
+
+
+def _implicit_solution(solve,prepared,f,symbols,flags,sequences):
+    """SymPy's solve with implicit=True: every Pow and function application
+    (and every other non-invertible object) that contains an unknown is
+    masked by a Dummy, the masked equations are solved, and the masked
+    objects are restored in the solutions, which may thus contain the
+    unknowns."""
+    from . import Dummy, Expr, Piecewise, default_sort_key, im, re
+    from .core.traversal import preorder_traversal
+    inner={k:v for k,v in flags.items() if k!='implicit'}
+    equations=[]
+    for value in prepared:
+        if getattr(value,'is_Equality',False):
+            value=value.lhs-value.rhs
+        if not isinstance(value,Expr) or getattr(value,'is_Matrix',False):
+            raise NotImplementedError('solve(implicit=True) needs scalar expressions')
+        equations.append(value)
+    unknowns=[s for group in symbols
+              for s in (group if isinstance(group,sequences) else (group,))]
+    if not unknowns:
+        unknowns=sorted(set().union(*(e.free_symbols for e in equations)),key=default_sort_key)
+        symbols=tuple(unknowns)
+    if not all(getattr(u,'is_Symbol',False) for u in unknowns):
+        raise NotImplementedError('solve(implicit=True) only supports Symbol unknowns')
+    symset=set(unknowns)
+    seen=set();masked=set()
+    for equation in equations:
+        pot=preorder_traversal(equation)
+        for node in pot:
+            if not isinstance(node,Expr) or isinstance(node,Piecewise):
+                continue
+            if ((not node.args or node in symset or node.is_Add or node.is_Mul)
+                    and node.func not in (re,im)):
+                continue
+            if node not in seen:
+                seen.add(node)
+                if node.free_symbols&symset:
+                    masked.add(node)
+                else:
+                    continue
+            pot.skip()
+    if not masked:
+        return solve(f,*symbols,**inner)
+    replacement={node:Dummy() for node in masked}
+    equations=[e.subs(replacement) for e in equations]
+    back={v:k for k,v in replacement.items()}
+    target=equations if isinstance(f,sequences) else equations[0]
+    result=solve(target,*symbols,**inner)
+
+    def restore(value):
+        if isinstance(value,dict):
+            return {k:restore(v) for k,v in value.items()}
+        if isinstance(value,list):
+            return [restore(v) for v in value]
+        if isinstance(value,tuple):
+            return tuple(restore(v) for v in value)
+        if isinstance(value,set):
+            return {restore(v) for v in value}
+        return value.subs(back) if hasattr(value,'subs') else value
+    return restore(result)
 
 
 def _unrad_solution(solve,equation,symbol,flags):

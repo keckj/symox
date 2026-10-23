@@ -808,6 +808,11 @@ impl Engine {
                     continue;
                 }
             };
+            if *f == Func::LogGamma && k0 == 0 {
+                // loggamma._eval_nseries: at a zero of the argument the
+                // reference expands the intractable form log(gamma(z)).
+                return self.ser(&fx::log(&fx::gamma(arg)), n);
+            }
             if *f == Func::LogGamma && k0 < 1 {
                 return Err(SErr::Pole(format!("loggamma({arg})")));
             }

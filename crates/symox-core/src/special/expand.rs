@@ -38,6 +38,62 @@ fn split_int_shift(e: &Expr) -> Option<(Expr, i64)> {
     None
 }
 
+/// Split a non-integer rational `z` as `n + p/q` with `0 < p < q`.
+fn split_rational(z: &Expr) -> Option<(Number, Number, Number)> {
+    let Kind::Num(r) = z.kind() else { return None };
+    if !r.is_rational() || r.is_integer() || r.is_float() {
+        return None;
+    }
+    let (p, q) = r.numer_denom()?;
+    let (p, q) = (Number::from_bigint(p), Number::from_bigint(q));
+    let n = r.floor();
+    let p = p.sub(&n.mul(&q));
+    Some((n, p, q))
+}
+
+/// `loggamma._eval_expand_func` at a rational argument `n + p/q`.
+fn loggamma_rational(z: &Expr) -> Option<Expr> {
+    let (n, p, q) = split_rational(z)?;
+    if n.is_zero() {
+        return None;
+    }
+    let k = Expr::dummy("k", crate::symbol::Assumptions::NONE);
+    let (ne, pe, qe) = (Expr::num(n.clone()), Expr::num(p.clone()), Expr::num(q.clone()));
+    let base = add(&[crate::functions::loggamma(&div(&pe, &qe)), neg(&mul2(&ne, &log(&qe)))]);
+    if n.is_positive() {
+        let body = log(&add(&[mul2(&sub(&k, &Expr::one()), &qe), pe]));
+        Some(add(&[base, crate::summation::sum_unevaluated(&body, &k, &Expr::one(), &ne)]))
+    } else {
+        let body = log(&sub(&mul2(&k, &qe), &pe));
+        let s = crate::summation::sum_unevaluated(&body, &k, &Expr::one(), &neg(&ne));
+        Some(add(&[base, mul(&[Expr::pi(), Expr::i(), ne]), neg(&s)]))
+    }
+}
+
+/// `harmonic._eval_expand_func` at a rational argument `u + p/q`, `u >= 0`.
+fn harmonic_rational(z: &Expr) -> Option<Expr> {
+    let (u, p, q) = split_rational(z)?;
+    if u.is_negative() {
+        return None;
+    }
+    let k = Expr::dummy("k", crate::symbol::Assumptions::NONE);
+    let (ue, pe, qe) = (Expr::num(u), Expr::num(p.clone()), Expr::num(q.clone()));
+    let pi = Expr::pi();
+    let t1 = mul2(&qe, &crate::summation::sum_unevaluated(
+        &pow(&add(&[mul2(&qe, &k), pe.clone()]), &Expr::minus_one()), &k, &Expr::zero(), &ue));
+    let half_qm1 = Expr::num(q.sub(&Number::ONE).div(&Number::int(2))?.floor());
+    let body = mul2(
+        &cos(&div(&mul(&[Expr::int(2), pi.clone(), pe.clone(), k.clone()]), &qe)),
+        &log(&sin(&div(&mul2(&pi, &k), &qe))),
+    );
+    let t2 = mul2(&Expr::int(2), &crate::summation::sum_unevaluated(&body, &k, &Expr::one(), &half_qm1));
+    let t3 = add(&[
+        mul2(&div(&pi, &Expr::int(2)), &crate::functions::cot(&div(&mul2(&pi, &pe), &qe))),
+        log(&mul2(&Expr::int(2), &qe)),
+    ]);
+    Some(add(&[t1, t2, neg(&t3)]))
+}
+
 /// SymPy's `expand_func`: rewrite special functions in terms of simpler
 /// ones where a closed form is known.
 pub fn expand_func(e: &Expr) -> Expr {
@@ -66,6 +122,7 @@ fn expand_one(e: &Expr) -> Option<Expr> {
     }
     let Kind::Func(f, a) = e.kind() else { return None };
     match f {
+        Func::LogGamma => loggamma_rational(&a[0]),
         Func::Gamma => {
             let (x, n) = split_int_shift(&a[0])?;
             if n.abs() > 1000 {
@@ -112,11 +169,20 @@ fn expand_one(e: &Expr) -> Option<Expr> {
                 Some(add(&[super::polygamma(&a[0], &x), mul2(&c, &add(&v))]))
             }
             Harmonic if a.len() == 1 => {
+                if let Some(v) = harmonic_rational(&a[0]) {
+                    return Some(v);
+                }
                 let (x, n) = split_int_shift(&a[0])?;
-                if n <= 0 || n > 1000 {
+                if n == 0 || n.abs() > 1000 {
                     return None;
                 }
-                let v: Vec<Expr> = (1..=n).map(|k| pow(&add(&[x.clone(), Expr::int(k)]), &Expr::minus_one())).collect();
+                // harmonic._eval_expand_func: H(x + n) = H(x) + sum 1/(x + k), and
+                // H(x - n) = H(x) - sum_{k=0}^{n-1} 1/(x - k).
+                let v: Vec<Expr> = if n > 0 {
+                    (1..=n).map(|k| pow(&add(&[x.clone(), Expr::int(k)]), &Expr::minus_one())).collect()
+                } else {
+                    (0..(-n)).map(|k| neg(&pow(&sub(&x, &Expr::int(k)), &Expr::minus_one()))).collect()
+                };
                 Some(add(&[super::harmonic(&x), add(&v)]))
             }
             Beta if a.len() == 2 => Some(div(
