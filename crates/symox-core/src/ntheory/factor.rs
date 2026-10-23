@@ -346,10 +346,32 @@ fn perfect_power_big_uncached(n: &BigInt) -> Option<(BigInt,u64)> {
     if n <= &BigInt::from(3) {
         return None;
     }
+    if is_mersenne_nonpower(n) { return None; }
+    // As SymPy's perfect_power(factor=True), small prime factors are tried
+    // first: if n = b**E, E divides the multiplicity m of any prime factor,
+    // so m == 1 rules out every power and otherwise only the divisors of m
+    // are candidates (largest first, giving the maximal exponent). Without
+    // this, a large n with a small factor (factorial products) costs an
+    // integer root per prime up to bits(n).
+    if n.bits() > 64 {
+        for fac in (2u32..1000).filter(|p| super::is_prime_u64(*p as u64)) {
+            let f = BigInt::from(fac);
+            if !(n % &f).is_zero() { continue; }
+            let m = multiplicity(&f, n).unwrap_or(1);
+            if m <= 1 { return None; }
+            let mut ds: Vec<u64> = (2..=m).filter(|d| m % d == 0).collect();
+            ds.reverse();
+            for d in ds {
+                let Ok(d32) = u32::try_from(d) else { continue };
+                let (r, exact) = iroot(n, d32);
+                if exact && r > BigInt::one() { return Some((r, d)); }
+            }
+            return None;
+        }
+    }
     let mut b = n.clone();
     let mut e = 1u64;
     let mut p = 2u32;
-    if is_mersenne_nonpower(&b) { return None; }
     while b.bits() as u32 >= p {
         let (r, exact) = iroot(&b, p);
         if exact && r > BigInt::one() {

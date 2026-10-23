@@ -8138,3 +8138,55 @@ going from same to different. The new diffs are statements that used to
 raise or were not reached. They are the type-name and form gaps above.
 
 Tests: `tests/test_mat_rest2_parity.py`.
+
+## Wave-8 replay of the documentation examples (replay, 2026-10-23)
+
+The docstring audit (`tools/sympy_parity.py examples`, ordinary examples and
+`--keywords`) was replayed on all 2916 documented objects. The triage is in
+`audits/sympy-1.14.0/triage-wave8.json` and `.md`, compared with
+`triage-wave4-final.json`.
+
+Regressions found with the a2a0038 build (waves 5-7), all fixed:
+
+- `FunctionMatrix`: `(A**2)[i, j]` of a symbolic-size matrix expression timed
+  out. `MatPow(b, 2)` entries are now one row times one column, as in
+  SymPy's `MatMul._entry` (`crates/symox-core/src/matrixexpr.rs`).
+- `BinaryRelation`: `str()` of an applied user relation raised
+  AttributeError. `__str__` is now `__repr__` (`Q.R(2, 1)`).
+- `gaunt`: the `n(64)` example timed out in `perfect_power` on a large
+  factorial quotient. Big integers are now trial-divided by the primes below
+  1000. The multiplicity of the first prime factor bounds the candidate
+  exponents, as in SymPy's `perfect_power(factor=True)`
+  (`crates/symox-core/src/ntheory/factor.rs`).
+- `PIDController.eval_frequency` (keyword example): `expand()` rebuilt the
+  held `1/(0.99 + 0.2*I)` of `TransferFunction.to_expr` and evaluated it.
+  SymPy's multinomial hint leaves `base**-1` alone, and no other hint
+  applies, so that node is now returned unchanged
+  (`crates/symox-core/src/expand.rs`).
+
+Documented, not changed:
+
+- `stats.Zeta` keyword example (b): `variance(X)` comes back over a common
+  denominator. The polynomial-moment path simplifies its sum, while SymPy
+  uses the moment-generating function. The value is the same.
+- `solve` (e, new): `(root(r**15, 3) - root(r**15, 5) + Rational(1, 7)).n(2)`
+  with `r = CRootOf(7*x**5 - 7*x**3 + 1, 1)` is exactly 0. SymPy reports
+  `0.e-110`, while symox prints spurious digits. The cancellation budget
+  and the residue logic of `eval_sum` (`crates/symox-core/src/evalf_mp.rs`)
+  only apply at the root, but here `abs()` wraps the sum.
+
+The original a2a0038 replay outputs were lost in a power cut. Both modes
+were therefore re-run on the build that has the first three fixes. The
+objects whose examples call `expand`, and the objects flagged in that run,
+were re-run on the final build.
+
+Counts of the still-differing ordinary examples, wave-4 final to wave 8: a 89
+to 89, b 68 to 66, c 30 to 13, e 0 to 1, f 15 to 5, h 21 to 20, i 33 to 34,
+and 256 to 228 in total. 28 objects are fixed since the last triage. Two
+objects are `reference_timeout`: SymPy itself exceeded the 30 s budget on the
+loaded machine while symox completed every example (`ode_sol_simplicity`
+and the keyword examples of `ReferenceFrame.orient_space_fixed`). The ODE
+corpus was not run, because its reference was still being regenerated after
+the power cut.
+
+Tests: `tests/test_replay_parity.py`.
