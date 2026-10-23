@@ -6555,6 +6555,7 @@ Remaining gaps:
 - `simplify(cdf(Moyal)(z))` is `erfc(...)` where SymPy gives `1 - erf(...)`.
   This is a simplification form difference.
 
+
 ## Small remaining gaps: order, containers, division options, orthopolys
 
 Implemented (regression tests in `tests/test_small_rest_parity.py`):
@@ -6811,3 +6812,70 @@ Remaining gaps:
 - If a singular point lies on the integration path (bisection depth 64),
   the integral falls back to mpmath's `quadsubdiv`, with mpmath's speed and
   accuracy.
+
+## Commutative heads of noncommutative arguments, nc assumptions (nc-rest, 2026-10-23)
+
+Probe of 78 functions on 16 noncommutative arguments (1248 cases): 174
+mismatches before this branch, 84 after merging feat-small-rest, 31 now
+(29 SymPy RecursionError cases, and csc/csch below). Regression tests in
+`tests/test_nc_rest_parity.py`, run in a child interpreter.
+
+Implemented:
+
+- Heads that SymPy declares commutative at class level are commutative for
+  any argument (`decompose::commutative_head`): re, im, Abs, sign, arg,
+  DiracDelta, Heaviside, Max, Min, hyper, meijerg, KroneckerDelta,
+  LeviCivita and the ntheory heads (partition, totient, reduced_totient,
+  mobius, divisor_sigma, udivisor_sigma, legendre/jacobi/kronecker_symbol,
+  primenu, primeomega, primepi). Products, expansion and distribution of a
+  rational over a sum treat them as scalars:
+  `hyper((1,), (2,), A)*hyper((1,), (2,), B)*B`, `2*re(A) + 2*x`. This
+  supersedes the nc-segv gap on the probe-628 DiracDelta message, which is
+  now SymPy's.
+- Every fact whose closure contains `commutative` (real, extended_real,
+  complex, zero, nonzero, integer, rational, positive, imaginary,
+  algebraic, ...) is False for a noncommutative symbol, sum, product or
+  function: `(x*A).is_extended_real`, `(A + x).is_zero`,
+  `(A*B - B*A).is_zero` are False. `KroneckerDelta(A, x)` is 0.
+- `re`/`im`/`Abs`/`sign` of a noncommutative argument are nonzero, and
+  re/im are not integers (`re._eval_is_algebraic`).
+- A commutative sum of such parts follows Add's `_fuzzy_group` on
+  integer/algebraic: `(im(A) + 1).is_zero` is False, `(x + im(A)).is_zero`
+  is None. So `DiracDelta(A + I)` and `Heaviside(x*A - I)` raise SymPy's
+  "Function defined only for Real Values" errors.
+- `Eq`/`Ne` of a noncommutative difference stay unevaluated (SymPy's
+  `is_eq` only returns False for a commutative difference).
+- floor/ceiling of a complex noncommutative argument keep it whole except
+  for integer terms (`floor(x - I*A*B)`, `1 + floor(A)`).
+- `arg` uses `factor_terms(arg).as_coeff_Mul()` as SymPy does:
+  `arg(-(x + A*B))`, `arg(x*(y + 1))` for `arg(2*x*y + 2*x)`.
+- str `MatrixElement` parenthesizes its parent below atom precedence:
+  `(M**5)[1, 2]`, `(M*N)[1, 2]`, `(M**(-1))[0, 1]`, `(-M*N)[0, 1]`
+  (LaTeX and pretty already matched).
+
+Intentional divergences:
+
+- A noncommutative Pow keeps the native answers instead of False: SymPy
+  decides them only through Pow's own handlers (`(A**2).is_positive` is
+  None, `(A**-1).is_real` False), and Symox answers None for some facts
+  SymPy settles to False there (`(A**2).is_integer`, `sqrt(A).is_real`).
+- SymPy prints `csc(I*z)` as `(-I)*sinh(z)**(-1)` (Mul.flatten keeps the
+  evaluated `I**-1` as a nested `Mul(-1, I)`); Symox prints
+  `-I*sinh(z)**(-1)`. The values are equal; this belongs to Mul numeric
+  combining.
+- The SymPy RecursionError cases of the nc-segv section are unchanged.
+
+Remaining gaps:
+
+- Derived facts that need the closure of several facts are not computed
+  for these heads: `re(A).is_noninteger`, `Abs(A).is_negative` and
+  `Abs(x).is_negative` are None (SymPy True/False), and `sign(z).is_complex`
+  is None (SymPy True, also for commutative `z`).
+- `floor(x + 2*I)` (commutative) is split through `as_real_imag` into
+  `I*(floor(im(x)) + 2) + floor(re(x))`; SymPy's RoundFunction.eval only
+  splits integer and Gaussian-integer terms (`floor(x) + 2*I`).
+- `MatrixElement(M + N, i, j)`, `MatrixElement(M.T, i, j)` and
+  `MatrixElement(HadamardProduct(M, N), i, j)` evaluate on construction in
+  Symox and stay unevaluated in SymPy. Conversely `(M*N)[i, j]` and
+  `(M**5)[1, 2]` stay unevaluated in Symox, while SymPy expands them into a
+  `Sum` over dummy indices.

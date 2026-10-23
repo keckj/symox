@@ -60,6 +60,13 @@ fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
         return None;
     }
     let d = sub(a, b);
+    // is_eq: `z is False and dif.is_commutative` (issue 10728); a
+    // noncommutative difference is nonzero by the assumption rules, and its
+    // ratio test is undecided too, so Eq(A*B, B*A) stays unevaluated.
+    if matches!(op, RelOp::Eq | RelOp::Ne) && d.has_noncommutative_host()
+        && crate::decompose::commutativity(&d) != Some(true) {
+        return None;
+    }
     if !d.is_number() {
         use crate::assumptions as asm;
         // A sign fact that fails, or the complementary one, decides an

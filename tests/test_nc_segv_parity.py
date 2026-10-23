@@ -139,11 +139,8 @@ REAL_CHECK = {
     'Heaviside(p)': '1',
 }
 
-# The probe-628 argument.  SymPy 1.14 prints the complex part as
-# ``im(t*sinh(y)*Derivative(g(x, y), x, y)*B)*atan(p)**(3/2)``: there ``im`` of
-# anything is commutative, while Symox keeps ``im`` of a noncommutative
-# argument noncommutative, so the factor order of the message differs (a
-# documented gap).  The error itself matches.
+# The probe-628 argument; the expected message is the SymPy 1.14 one (``im`` of
+# a noncommutative argument is commutative, as in SymPy).
 PROBE_628 = 'DiracDelta(B*(t*(atan(p))**Rational(3,2))*Derivative(g(x, y), x, y)*sinh(y))'
 
 ALL = {**SYMPY, **RECURSING, **REAL_CHECK, PROBE_628: None}
@@ -189,10 +186,10 @@ def test_real_value_check(outputs, src):
 
 
 def test_probe_628_dirac_delta_raises(outputs):
-    out = outputs[PROBE_628]
-    assert out.startswith('raised ValueError: \nFunction defined only for Real Values. Complex part:\n'), out
-    assert 'im(t*sinh(y)*Derivative(g(x, y), x, y)*B)' in out
-    assert out.endswith('found in\nt*sinh(y)*atan(p)**(3/2)*Derivative(g(x, y), x, y)*B .'), out
+    assert outputs[PROBE_628] == (
+        'raised ValueError: \nFunction defined only for Real Values. Complex part:\n'
+        'im(t*sinh(y)*Derivative(g(x, y), x, y)*B)*atan(p)**(3/2)  found in\n'
+        't*sinh(y)*atan(p)**(3/2)*Derivative(g(x, y), x, y)*B .')
 
 
 def test_sign_test_is_antisymmetric_on_noncommutative_sums():

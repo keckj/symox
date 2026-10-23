@@ -1123,7 +1123,7 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
         }
         // Number * (a + b) distributes, for a commutative sum only (SymPy's
         // Mul.flatten keeps Mul(-1, A + B) when the sum does not commute).
-        if e.is_one() && !crate::decompose::has_noncommutative_atoms(b) {
+        if e.is_one() && crate::decompose::commutes(b) {
             if let Kind::Add(c, terms) = b.kind() {
                 if !b.is_canonical(){
                     let normalized=normalized_sum(b,&mut ArithmeticMemo::default());
@@ -2012,7 +2012,7 @@ fn neg_canonical(a:&Expr)->Expr{
                 Expr::from_kind(Kind::Mul(c, facs.clone()))
             }
         }
-        Kind::Add(c, terms) if !crate::decompose::has_noncommutative_atoms(a) => distribute(&Number::MINUS_ONE, c, terms),
+        Kind::Add(c, terms) if crate::decompose::commutes(a) => distribute(&Number::MINUS_ONE, c, terms),
         _ => mul2(&Expr::minus_one(), a),
     }
 }
