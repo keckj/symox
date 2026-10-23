@@ -564,6 +564,9 @@ class Add(metaclass=_ExprType):
         if any(_matrix_operand(arg) for arg in args):
             from ._matrixexpr import MatAdd
             return MatAdd(*args,evaluate=evaluate)
+        if any(getattr(arg,'_symox_vector_sum',False) for arg in args):
+            from .vector._basis import VectorAdd
+            return args[0] if len(args) == 1 else VectorAdd(*args)
         if _arithmetic_numbers[0] and evaluate and any(getattr(arg,'_symox_arith',False) for arg in args):
             # Number classes with their own arithmetic fold the coefficient.
             from ._host import fold_numbers

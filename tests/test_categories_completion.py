@@ -20,7 +20,8 @@ def test_associativity_units_and_normalization():
     assert (g*f).components == (f,g)
     assert (g*f).domain == A and (g*f).codomain == C
     assert (g*f).flatten('gf') == NamedMorphism(A,C,'gf')
-    assert Morphism(A,B).domain == A
+    with pytest.raises(NotImplementedError):
+        Morphism(A,B)
     assert len({f,NamedMorphism(A,B,'f')}) == 1
     with pytest.raises(ValueError):
         f*g
@@ -63,30 +64,34 @@ def test_loops_are_finite_and_explicit_words_retained():
     diagram = Diagram([f,g,loop,g*f])
     assert g*f in diagram.premises and loop in diagram.premises
     assert len(diagram.premises) < 20
-    source = xypic_draw_diagram(diagram)
-    assert '@(r,u)' in source
+    # Reference SymPy 1.14 output.
+    assert xypic_draw_diagram(diagram) == (
+        '\\xymatrix{\nA \\ar[r]^{f} \\ar@(u,l)[]^{u} & B \\ar@/^3mm/[l]^{g} \n}\n')
 
 
 def test_grids_rendering_masks_and_formatters():
     (A,B,C,D),(f,g,h) = arrows()
     diagram = Diagram([f,g],{g*f:'unique'})
     grid = DiagramGrid(diagram)
-    assert grid.width == 3 and grid.height == 1
-    assert [grid[0,i] for i in range(3)] == [A,B,C]
+    # Reference SymPy 1.14 generic layout: a triangle on a 2x2 grid.
+    assert grid.width == 2 and grid.height == 2
+    assert [[grid[i,j] for j in range(2)] for i in range(2)] == [[A,B],[C,None]]
     transposed = DiagramGrid(diagram,transpose=True)
-    assert transposed.width == 1 and transposed.height == 3
+    assert transposed.width == 2 and transposed.height == 2
     drawer = XypicDiagramDrawer()
     drawer.arrow_formatters['unique'] = lambda arrow:setattr(arrow,'arrow_style','{-->}')
     text = drawer.draw(diagram,grid)
-    assert r'\xymatrix' in text and r'\circ' in text and r'@{-->}' in text
-    assert r'\circ' not in drawer.draw(diagram,grid,masked=[g*f])
+    assert text == '\\xymatrix{\nA \\ar@{-->}[d]_{g\\circ f} \\ar[r]^{f} & B \\ar[ld]^{g} \\\\\nC & \n}\n'
+    assert drawer.draw(diagram,grid,masked=[g*f]) == (
+        '\\xymatrix{\nA \\ar[r]^{f} & B \\ar[ld]^{g} \\\\\nC & \n}\n')
     assert xypic_draw_diagram(diagram,diagram_format='@R=1cm').startswith(r'\xymatrix@R=1cm')
-    assert xypic_draw_diagram(Diagram()) == '\\xymatrix{\n\n}'
-    assert r'\ar[r]^{}' in xypic_draw_diagram(Diagram([Morphism(A,B)]))
-    grouped = DiagramGrid(diagram,groups=[[B,A]])
+    # SymPy 1.14 fails on an empty diagram and on groups missing an object.
+    with pytest.raises(IndexError):
+        xypic_draw_diagram(Diagram())
+    with pytest.raises(KeyError):
+        DiagramGrid(diagram,groups=[[B,A]])
+    grouped = DiagramGrid(diagram,groups=[[B,A],C])
     assert {grouped[i,j] for i in range(grouped.height) for j in range(grouped.width)} >= {A,B,C}
-    with pytest.raises(NotImplementedError):
-        DiagramGrid(diagram,unsupported=True)
 
 
 @pytest.mark.skipif(not all(shutil.which(tool) for tool in ('latex','dvipng','kpsewhich')),reason='TeX rendering tools unavailable')

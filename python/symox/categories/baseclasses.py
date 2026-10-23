@@ -27,6 +27,21 @@ class _Value:
 
     __str__ = __repr__
 
+    def _sort_key_args(self, order):
+        from .. import default_sort_key
+        return tuple(default_sort_key(a, order) for a in self.args)
+
+    def sort_key(self, order=None):
+        # Reference Basic.sort_key: (class_key, (nargs, arg keys), 1, 1).
+        from .. import S
+        args = self._sort_key_args(order)
+        return ((5,0,type(self).__name__),(len(args),args),S.One.sort_key(),S.One)
+
+
+def _name_key(cls_name, name):
+    from .. import S
+    return ((2,0,cls_name),(1,(name,)),S.One.sort_key(),S.One)
+
 
 class Object(_Value):
     def __init__(self,name):
@@ -37,6 +52,9 @@ class Object(_Value):
     @property
     def name(self):
         return self.args[0]
+
+    def sort_key(self, order=None):
+        return _name_key(type(self).__name__, self.name)
 
     def _latex(self,printer):
         from .. import Symbol
@@ -54,9 +72,18 @@ def _pretty_arrow(name,morphism):
     return prettyForm(name + morphism.domain._pretty(None).s + xsym('-->') + morphism.codomain._pretty(None).s)
 
 
+def _is_object(o):
+    # DiagramGrid lays groups out as diagrams whose objects are sets of
+    # objects, as SymPy does with FiniteSet endpoints.
+    return isinstance(o,Object) or getattr(o,'_symox_category_object',False)
+
+
 class Morphism(_Value):
     def __init__(self,domain,codomain):
-        if not isinstance(domain,Object) or not isinstance(codomain,Object):
+        if type(self) is Morphism:
+            raise NotImplementedError(
+                "Cannot instantiate Morphism.  Use derived classes instead.")
+        if not _is_object(domain) or not _is_object(codomain):
             raise TypeError('morphism endpoints must be category objects')
         self._set_args(domain,codomain)
 
@@ -79,7 +106,7 @@ class Morphism(_Value):
 
 class IdentityMorphism(Morphism):
     def __init__(self,domain):
-        if not isinstance(domain,Object):
+        if not _is_object(domain):
             raise TypeError('identity domain must be an Object')
         self._set_args(domain)
 
@@ -105,6 +132,11 @@ class NamedMorphism(Morphism):
     @property
     def name(self):
         return self.args[2]
+
+    def _sort_key_args(self, order):
+        from .. import default_sort_key
+        return (default_sort_key(self.domain, order), default_sort_key(self.codomain, order),
+                _name_key('Str', self.name))
 
     def _latex(self,printer):
         from .. import Symbol
@@ -143,6 +175,11 @@ class CompositeMorphism(Morphism):
     @property
     def components(self):
         return self.args[0]
+
+    def _sort_key_args(self, order):
+        from .. import default_sort_key, S
+        keys = tuple(default_sort_key(c, order) for c in self.components)
+        return (((5,0,'Tuple'),(len(keys),keys),S.One.sort_key(),S.One),)
 
     @property
     def domain(self):
@@ -224,6 +261,38 @@ def _closure(values,identities=True,components=True):
     return result
 
 
+class _MorphismSet(frozenset):
+    """A finite set of category values that prints as the reference
+    ``FiniteSet`` (``EmptySet`` when empty)."""
+
+    def _sorted(self):
+        from .. import default_sort_key
+        return sorted(self, key=default_sort_key)
+
+    def __repr__(self):
+        if not self:
+            return 'EmptySet'
+        from ..printing.str import sstr
+        return '{%s}' % ', '.join(sstr(v) if not isinstance(v,str) else v for v in self._sorted())
+
+    __str__ = __repr__
+
+    def _pretty(self,printer):
+        from ..printing.pretty.stringpict import prettyForm
+        if not self:
+            return prettyForm('EmptySet')
+        from ..printing.pretty.pretty import PrettyPrinter
+        composer = printer if hasattr(printer,'_print_seq') else PrettyPrinter(getattr(printer,'_settings',{}))
+        return composer._print_seq(self._sorted(),'{','}')
+
+
+def _as_sets(mapping):
+    # Keys in the reference Dict print order (default_sort_key).
+    from .. import default_sort_key
+    items = sorted(mapping, key=lambda item: default_sort_key(item[0]))
+    return MappingProxyType({m:_MorphismSet(p) for m,p in items})
+
+
 class Diagram(_Value):
     __repr__ = __str__ = _Value._plain_repr
 
@@ -236,18 +305,18 @@ class Diagram(_Value):
 
     @property
     def premises(self):
-        return MappingProxyType(dict(self.args[0]))
+        return _as_sets(self.args[0])
 
     @property
     def conclusions(self):
-        return MappingProxyType(dict(self.args[1]))
+        return _as_sets(self.args[1])
 
     @property
     def objects(self):
         return self.args[2]
 
     def hom(self,A,B):
-        return tuple(frozenset(m for m in mapping if m.domain == A and m.codomain == B)
+        return tuple(_MorphismSet(m for m in mapping if m.domain == A and m.codomain == B)
                      for mapping in (self.premises,self.conclusions))
 
     def is_subdiagram(self,diagram):

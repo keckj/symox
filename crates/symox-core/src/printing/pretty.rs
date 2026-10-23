@@ -51,13 +51,35 @@ pub fn pretty_with(e: &Expr, s: &PrettySettings) -> String {
     pict.render(s)
 }
 
+/// Unwrapped picture of `e` as `(text, baseline, binding)`, so that
+/// Python-level printers can compose it like a `prettyForm`.
+pub fn pretty_form_with(e: &Expr, s: &PrettySettings) -> (String, isize, u8) {
+    let _session = super::order::session();
+    let _ascii = AsciiGuard::set(!s.use_unicode);
+    let p = PrettyPrinter { s };
+    let pict = p.print_top(e);
+    (pict.text(), pict.baseline, pict.binding as u8)
+}
+
 /// Render explicit matrix cells using the scalar printer's baseline-aware boxes.
 pub fn pretty_matrix_with(matrix: &crate::matrix::Matrix, s: &PrettySettings) -> String {
     let _session = super::order::session();
     let _ascii = AsciiGuard::set(!s.use_unicode);
+    matrix_pict(matrix, s).render(s)
+}
+
+/// Unwrapped picture of an explicit matrix as `(text, baseline, binding)`.
+pub fn pretty_matrix_form_with(matrix: &crate::matrix::Matrix, s: &PrettySettings) -> (String, isize, u8) {
+    let _session = super::order::session();
+    let _ascii = AsciiGuard::set(!s.use_unicode);
+    let pict = matrix_pict(matrix, s);
+    (pict.text(), pict.baseline, pict.binding as u8)
+}
+
+fn matrix_pict(matrix: &crate::matrix::Matrix, s: &PrettySettings) -> Pict {
     let printer = PrettyPrinter { s };
     if matrix.rows() == 0 || matrix.cols() == 0 {
-        return "[]".to_owned();
+        return Pict::new("[]");
     }
     let cells: Vec<Vec<Pict>> = (0..matrix.rows()).map(|i|
         (0..matrix.cols()).map(|j| printer.print(matrix.get(i, j))).collect()
@@ -82,7 +104,7 @@ pub fn pretty_matrix_with(matrix: &crate::matrix::Matrix, s: &PrettySettings) ->
         lines: lines.iter().map(|line| center(line, width)).collect(),
         baseline, binding: Binding::Atom, func: None,
     };
-    body.parens("[", "]").render(s)
+    body.parens("[", "]")
 }
 
 /// `pprint(expr)`: print the pretty form to stdout.

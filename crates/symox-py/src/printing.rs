@@ -144,6 +144,30 @@ fn pretty(
     crate::host::checked(pr::pretty_with(&e, &s))
 }
 
+/// `(text, baseline, binding)` of the unwrapped pretty picture.
+#[pyfunction]
+#[pyo3(name = "_pretty_form", signature = (expr, use_unicode=None, root_notation=true, use_unicode_sqrt_char=true, **_settings))]
+fn pretty_form(
+    expr: &Bound<'_, PyAny>,
+    use_unicode: Option<bool>,
+    root_notation: bool,
+    use_unicode_sqrt_char: bool,
+    _settings: Option<&Bound<'_, PyDict>>,
+) -> PyResult<(String, isize, u8)> {
+    let s = PrettySettings {
+        use_unicode: use_unicode.unwrap_or(true),
+        wrap_line: false,
+        num_columns: 80,
+        root_notation,
+        use_unicode_sqrt_char,
+    };
+    if let Ok(matrix) = expr.extract::<PyRef<'_, crate::matrices::PyMatrix>>() {
+        return Ok(pr::pretty::pretty_matrix_form_with(&matrix.m, &s));
+    }
+    let e = to_expr(expr)?;
+    crate::host::checked(pr::pretty::pretty_form_with(&e, &s))
+}
+
 // ----------------------------------------------------------------------
 // cse
 // ----------------------------------------------------------------------
@@ -616,6 +640,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(latex, m)?)?;
     m.add_function(wrap_pyfunction!(py_latex_translate, m)?)?;
     m.add_function(wrap_pyfunction!(pretty, m)?)?;
+    m.add_function(wrap_pyfunction!(pretty_form, m)?)?;
     m.add_function(wrap_pyfunction!(py_cse, m)?)?;
     m.add_function(wrap_pyfunction!(ccode, m)?)?;
     m.add_function(wrap_pyfunction!(cxxcode, m)?)?;

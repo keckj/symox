@@ -178,9 +178,11 @@ def poly_from_expr(expr, *gens, **args):
     return _poly_from_expr(expr, _build_options(gens, args))
 
 
-def _gens_of(expr):
+def _gens_of(expr, expand=True):
     try:
-        return Poly(expr).gens
+        # With expand=False the reference keeps unexpanded factors as
+        # generators (``_parallel_dict_from_expr_no_gens``).
+        return Poly(expr, expand=False).gens if expand is False else Poly(expr).gens
     except ValueError as exc:
         if _without_generators(exc):
             return ()
@@ -261,7 +263,7 @@ def parallel_poly_from_expr(exprs, *gens, **args):
     else:
         found = []
         for expr in converted:
-            for g in _gens_of(expr):
+            for g in _gens_of(expr, kwargs.get('expand', True)):
                 if g not in found:
                     found.append(g)
         if not found:

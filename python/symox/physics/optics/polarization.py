@@ -13,8 +13,10 @@ def stokes_vector(psi,chi,p=1,I=1):
 def jones_2_stokes(e):
     e=S.Matrix(e)
     if e.shape!=(2,1):raise ValueError('Jones vector must have two components')
-    x,y=e;cross=x*S.conjugate(y)
-    return S.Matrix([x*S.conjugate(x)+y*S.conjugate(y),x*S.conjugate(x)-y*S.conjugate(y),2*S.re(cross),-2*S.im(cross)]).applyfunc(S.trigsimp)
+    # Reference formula, without extra simplification.
+    ex,ey=e
+    return S.Matrix([S.Abs(ex)**2+S.Abs(ey)**2,S.Abs(ex)**2-S.Abs(ey)**2,
+                     2*S.re(ex*ey.conjugate()),-2*S.im(ex*ey.conjugate())])
 
 
 def linear_polarizer(theta=0):
