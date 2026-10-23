@@ -47,6 +47,10 @@ class Distribution:
         self._table = None
         self._pdf = None
         self._cdf = None
+        # The complete reference-form CDF (support Piecewise included), when
+        # SymPy writes one; ``_cdf`` stays the in-support formula.
+        self._cdf_form = None
+        self._cdf_integrated = None
         self._moment = None
         self._mgf = None
         self._quantile = None
@@ -108,12 +112,16 @@ class Distribution:
         condition = S.And(x >= self.lower,x <= self.upper)
         if self.kind == 'discrete':condition = S.And(condition,S.Contains(x,S.Integers))
         return S.Piecewise((value,condition),(0,True))
-    def cdf(self,x):
+    def cdf(self,x,**kwargs):
         x = scalar(x)
         if x == -S.oo:return S.Integer(0)
         if x == S.oo:return S.Integer(1)
         if self.kind == 'finite':
             return S.Add(*(S.Piecewise((p,x >= value),(0,True)) for value,p in self.dict.items()))
+        # SymPy integrates the density whenever integration options are
+        # given, and otherwise returns the family's own CDF expression.
+        if kwargs and self._cdf_integrated is not None:return self._cdf_integrated(x)
+        if self._cdf_form is not None:return self._cdf_form(x)
         t = S.Dummy('t',real=True)
         if self._cdf is not None:value = self._cdf(x)
         elif self.kind == 'discrete':value = sum_expr(self.pdf(t),t,self.lower,S.floor(x))

@@ -528,7 +528,7 @@ def cdf(expr,condition=None,evaluate=True,**kwargs):
         for value,p in sorted(model.dict.items(),key=lambda pair:float(pair[0])):total += p;table[value] = S.simplify(total)
         return table
     x = S.Dummy('z',real=True)
-    if isinstance(model,Distribution):return S.Lambda(x,model.cdf(x))
+    if isinstance(model,Distribution):return S.Lambda(x,model.cdf(x,**kwargs))
     t = S.Dummy('t',real=True)
     return S.Lambda(x,integral(model(t),t,-S.oo,x))
 

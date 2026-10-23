@@ -151,10 +151,12 @@ class JointVariable:
             return S.Piecewise((body,S.Eq(S.Add(*((i+1)*v for i,v in enumerate(x))),n)),(0,True))
         if f == 'NormalGamma':
             mu,lamda,alpha,beta = p;value,tau = x
-            return beta**alpha*S.sqrt(lamda)*tau**(alpha-HALF)*S.exp(-beta*tau-lamda*tau*(value-mu)**2/2)/(S.gamma(alpha)*S.sqrt(2*S.pi))
+            return beta**alpha*S.sqrt(lamda)/(S.gamma(alpha)*S.sqrt(2*S.pi))*tau**(alpha-HALF)*S.exp(-1*beta*tau)*S.exp(-1*(lamda*tau*(value-mu)**2)/S.Integer(2))
         if f == 'GeneralizedMultivariateLogGamma':
-            delta,v,scales,rates = p;n = S.Dummy('n',integer=True,nonnegative=True)
-            summand = (1-delta)**n*S.Mul(*(rate*scale**(-v-n) for rate,scale in zip(rates,scales)))*S.exp((v+n)*S.Add(*(rate*value for rate,value in zip(rates,x)))-S.Add(*(S.exp(rate*value)/scale for rate,value,scale in zip(rates,x,scales))))/(S.gamma(v+n)**(k-1)*S.gamma(v)*S.factorial(n))
+            # The reference sums over a plain Symbol n (not a Dummy) with
+            # gamma(n + 1) in the denominator.
+            delta,v,scales,rates = p;n = S.Symbol('n',negative=False,integer=True)
+            summand = (1-delta)**n/((S.gamma(v+n)**(k-1))*S.gamma(v)*S.gamma(n+1))*S.Mul(*(rate*scale**(-v-n) for rate,scale in zip(rates,scales)))*S.exp((v+n)*S.Add(*(rate*value for rate,value in zip(rates,x)))-S.Add(*(S.exp(rate*value)/scale for rate,value,scale in zip(rates,x,scales))))
             return summand.subs(n,0) if delta == 1 else delta**v*S.Sum(summand,(n,0,S.oo))
         if f == 'JointHandmade':return self._lambda(*x)
         raise ValueError('unknown joint probability family')
