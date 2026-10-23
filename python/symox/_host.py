@@ -29,6 +29,7 @@ _EXPR, _ATOM, _DERIV, _HASHABLE = 32, 64, 128, 256
 _SUBS, _ASSUME, _EVALF, _FUNC = 512, 1024, 2048, 4096
 _NONCOMMUTATIVE, _UNCOMMUTED, _COMMUTATIVE_HOOK = 8192, 16384, 32768
 _PRETTY = 65536
+_NUMBER = 131072
 
 # Hooks dispatched by the Python facades, enabled once a class defines one.
 _hooks = {'expand': False, 'free_symbols': False}
@@ -763,13 +764,16 @@ def expression_class(cls):
     if kind is None:
         return
     from ._basic import Basic
+    from ._compat import NumberSymbol
     atomic = kind != 'expr'
+    number = kind == 'number' or issubclass(cls, NumberSymbol)
     defaults = {
         'is_Function': False,
         'is_Atom': atomic,
         'class_key': classmethod(_number_class_key if kind == 'number' else
                                  _atom_class_key if atomic else _expr_class_key),
-        'is_number': True if kind == 'number' else False if atomic else property(_expr_is_number),
+        # Number and NumberSymbol subclasses are numbers (SymPy is_number).
+        'is_number': True if number else False if atomic else property(_expr_is_number),
         '__reduce_ex__': _reduce,
         '__reduce__': _default_reduce,
         '__getnewargs__': _getnewargs,
@@ -803,7 +807,7 @@ def expression_class(cls):
     for name in installed:
         setattr(cls, name, defaults[name])
     cls._symox_defaults = frozenset(installed)
-    flags = _EXPR | (_ATOM if atomic else 0) | _hook_flags(cls)
+    flags = _EXPR | (_ATOM if atomic else 0) | (_NUMBER if number else 0) | _hook_flags(cls)
     if '_eval_evalf' in installed:
         flags |= _EVALF
     from ._compat import NumberSymbol

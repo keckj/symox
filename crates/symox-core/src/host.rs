@@ -59,6 +59,9 @@ pub trait HostClass: Send + Sync + fmt::Debug {
     fn expression(&self) -> bool { false }
     /// The applications of this head are atoms (SymPy `Atom` subclasses).
     fn atomic(&self) -> bool { false }
+    /// The atoms of this class are numbers (SymPy `Number` and
+    /// `NumberSymbol` subclasses): `is_number` is True.
+    fn number(&self) -> bool { false }
     /// The first two fields of the class `class_key()`, when they differ
     /// from those of a function head.
     fn class_key(&self) -> Option<(u8, u32)> { None }

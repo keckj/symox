@@ -302,10 +302,12 @@ def test_mixed_poly_expression_joint_inference_and_explicit_override(op, kind):
 
 
 @pytest.mark.parametrize('op', OPS)
-def test_unimplemented_valid_options_are_rejected_explicitly(op):
+def test_boolean_generator_order_options_raise_reference_option_error(op):
+    # greedy and symmetric are ported (tests/test_small_rest_parity.py);
+    # a boolean sort/wrt is rejected while parsing options, as in SymPy.
     x=sm.Symbol('x')
-    for option in ['greedy','symmetric']:
-        with pytest.raises(NotImplementedError):
+    for option in ['sort','wrt']:
+        with pytest.raises(sm.OptionError, match=f"invalid argument for '{option}' option"):
             getattr(sm,op)(x+1,x,x,**{option:True})
 
 

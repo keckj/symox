@@ -34,6 +34,43 @@ struct Options<'py> {
     extension: Option<Bound<'py, PyAny>>,
     modulus: Option<u64>,
     generators: Vec<Expr>,
+    /// `greedy=False`: numeric factors are coefficients, not generators.
+    greedy: Option<bool>,
+}
+/// The reference `Options.__init__` consistency pass: for each supplied
+/// (non-None) option in keyword order, its `requires` must be present and none
+/// of its `excludes` may be.
+fn check_option_dependencies(kw: &Bound<'_, PyDict>) -> PyResult<()> {
+    fn table(option: &str) -> (&'static [&'static str], &'static [&'static str]) {
+        match option {
+            "field" => (&[], &["domain", "split", "gaussian"]),
+            "greedy" | "composite" => (&[], &["domain", "split", "gaussian", "extension", "modulus", "symmetric"]),
+            "domain" => (&[], &["field", "greedy", "split", "gaussian", "extension"]),
+            "split" => (&[], &["field", "greedy", "domain", "gaussian", "extension", "modulus", "symmetric"]),
+            "gaussian" => (&[], &["field", "greedy", "domain", "split", "extension", "modulus", "symmetric"]),
+            "extension" => (&[], &["greedy", "domain", "split", "gaussian", "modulus", "symmetric"]),
+            "modulus" => (&[], &["greedy", "split", "domain", "gaussian", "extension"]),
+            "symmetric" => (&["modulus"], &["greedy", "domain", "split", "gaussian", "extension"]),
+            _ => (&[], &[]),
+        }
+    }
+    let present = |name: &str| -> PyResult<bool> { Ok(kw.get_item(name)?.is_some_and(|v| !v.is_none())) };
+    for (key, value) in kw.iter() {
+        if value.is_none() { continue; }
+        let Ok(option) = key.extract::<String>() else { continue };
+        let (requires, excludes) = table(&option);
+        for required in requires {
+            if !present(required)? {
+                return Err(OptionError::new_err(format!("'{option}' option is only allowed together with '{required}'")));
+            }
+        }
+        for excluded in excludes {
+            if present(excluded)? {
+                return Err(OptionError::new_err(format!("'{option}' option is not allowed together with '{excluded}'")));
+            }
+        }
+    }
+    Ok(())
 }
 pub(super) fn boolean(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<bool>> {
     if value.is_none() {
@@ -103,8 +140,10 @@ impl<'py> Options<'py> {
             extension: None,
             modulus: None,
             generators: gens_of(gens)?,
+            greedy: None,
         };
         let mut explicit_auto = false;
+        let mut nonsymmetric = false;
         if let Some(kw) = kw {
             for (key, value) in kw.iter() {
                 let key = key.extract::<String>()?;
@@ -163,7 +202,11 @@ impl<'py> Options<'py> {
                     }
                     "domain" | "extension" | "modulus" | "gens" | "order" => {}
                     "gaussian" => {}
-                    "greedy" | "sort" | "wrt" | "symmetric" | "composite"
+                    "greedy" => out.greedy = boolean(&value, "greedy")?,
+                    // FF(p, symmetric): the default symmetric representation
+                    // is the only finite-field display symox implements.
+                    "symmetric" => nonsymmetric = boolean(&value, "symmetric")? == Some(false),
+                    "sort" | "wrt" | "composite"
                     | "split" | "strict" => {
                         return Err(PyNotImplementedError::new_err(format!(
                             "the '{key}' polynomial option is not implemented for global division"
@@ -175,6 +218,10 @@ impl<'py> Options<'py> {
                         )))
                     }
                 }
+            }
+            check_option_dependencies(kw)?;
+            if nonsymmetric {
+                return Err(PyNotImplementedError::new_err("nonsymmetric finite-field displays are not implemented"));
             }
             if let Some(domain) = gaussian_option(kw)? {
                 out.domain = Some(domain);
@@ -383,10 +430,13 @@ impl Inputs {
         operation: &Operation,
     ) -> PyResult<Self> {
         let opts = Options::parse(gens, kw, operation.allow_auto())?;
-        let inherited = inherited_extension(f, g, &opts)?;
         let fp = f.downcast::<PyPoly>().ok();
         let gp = g.downcast::<PyPoly>().ok();
         let polys = opts.polys.unwrap_or(fp.is_some() || gp.is_some());
+        if opts.greedy == Some(false) && (fp.is_none() || gp.is_none()) {
+            return Self::build_nongreedy(f, g, kw.expect("greedy is a keyword"), &opts, polys, operation);
+        }
+        let inherited = inherited_extension(f, g, &opts)?;
         let (mut a, mut b) = if let (Some(fp), Some(gp)) = (fp, gp) {
             if (opts.generators.is_empty()
                 || (opts.generators == fp.get().p.true_gens()
@@ -417,6 +467,55 @@ impl Inputs {
             auto: opts.auto,
             polys,
         })
+    }
+    /// `greedy=False`: numeric factors (sqrt(2), pi, ...) are coefficients,
+    /// as the reference `_parallel_dict_from_expr_no_gens` with
+    /// `_is_coeff = factor.is_number`. Each expression is built as
+    /// `Poly(e, *gens, greedy=False)` (a constant one takes the generators of
+    /// the other) and the two polynomials are then unified.
+    fn build_nongreedy<'py>(
+        f: &Bound<'py, PyAny>,
+        g: &Bound<'py, PyAny>,
+        kw: &Bound<'py, PyDict>,
+        opts: &Options<'py>,
+        polys: bool,
+        operation: &Operation,
+    ) -> PyResult<Self> {
+        let py = f.py();
+        let poly = py.import("symox")?.getattr("Poly")?;
+        let options = PyDict::new(py);
+        options.set_item("greedy", false)?;
+        if let Some(field) = opts.field {
+            options.set_item("field", field)?;
+        }
+        let make = |e: &Bound<'py, PyAny>, gens: Option<Bound<'py, PyTuple>>| -> PyResult<Bound<'py, PyAny>> {
+            if e.downcast::<PyPoly>().is_ok() {
+                return Ok(e.clone());
+            }
+            match gens {
+                Some(gens) => poly.call((e.clone(),).into_pyobject(py)?.add(gens)?.downcast_into::<PyTuple>()?, Some(&options)),
+                None => poly.call((e.clone(),), Some(&options)),
+            }
+        };
+        let explicit = (!opts.generators.is_empty())
+            .then(|| PyTuple::new(py, opts.generators.iter().map(|e| w(e.clone()))))
+            .transpose()?;
+        let gens_of = |p: &Bound<'py, PyAny>| -> PyResult<Bound<'py, PyTuple>> { Ok(p.getattr("gens")?.downcast_into::<PyTuple>()?) };
+        let (a, b) = match (make(f, explicit.clone()), make(g, explicit.clone())) {
+            (Ok(a), Ok(b)) => (a, b),
+            (Ok(a), Err(_)) if explicit.is_none() => { let b = make(g, Some(gens_of(&a)?))?; (a, b) }
+            (Err(_), Ok(b)) if explicit.is_none() => { let a = make(f, Some(gens_of(&b)?))?; (a, b) }
+            (Err(error), _) | (_, Err(error)) => return Err(error),
+        };
+        let rest = PyDict::new(py);
+        for (key, value) in kw.iter() {
+            let name = key.extract::<String>()?;
+            if !matches!(name.as_str(), "greedy" | "gens" | "field") {
+                rest.set_item(key, value)?;
+            }
+        }
+        rest.set_item("polys", polys)?;
+        Self::build(&a, &b, &PyTuple::empty(py), Some(&rest), operation)
     }
     fn construct<'py>(
         f: &Bound<'py, PyAny>,

@@ -61,6 +61,30 @@ pub fn pretty_form_with(e: &Expr, s: &PrettySettings) -> (String, isize, u8) {
     (pict.text(), pict.baseline, pict.binding as u8)
 }
 
+/// A Python container handed to `pretty`: the reference `_print_list`,
+/// `_print_tuple`, `_print_dict`, `_print_set` and `_print_frozenset`.
+pub enum PrettyItem {
+    Expr(Expr),
+    List(Vec<PrettyItem>),
+    Tuple(Vec<PrettyItem>),
+    /// Items already sorted by `default_sort_key`.
+    Dict(Vec<(PrettyItem, PrettyItem)>),
+    Set(Vec<PrettyItem>),
+    FrozenSet(Vec<PrettyItem>),
+}
+
+/// `pretty(container, **settings)`.
+pub fn pretty_item_with(item: &PrettyItem, s: &PrettySettings) -> String {
+    let _session = super::order::session();
+    let _ascii = AsciiGuard::set(!s.use_unicode);
+    let printer = PrettyPrinter { s };
+    let pict = match item {
+        PrettyItem::Expr(e) => printer.print_top(e),
+        _ => printer.print_item(item),
+    };
+    pict.render(s)
+}
+
 /// Render explicit matrix cells using the scalar printer's baseline-aware boxes.
 pub fn pretty_matrix_with(matrix: &crate::matrix::Matrix, s: &PrettySettings) -> String {
     let _session = super::order::session();
@@ -811,6 +835,8 @@ impl PrettyPrinter<'_> {
                 if let Some(text) = crate::host::print(e, format) { return Pict::new(&text); }
             }
         }
+        // `_print_Tuple` is `_print_tuple`.
+        if let Some(items) = crate::special::tuple_items(e) { return self.pretty_tuple(items); }
         match e.kind() {
             Kind::Num(n) => self.print_number(n),
             Kind::Sym(s) => Pict::new(&pretty_symbol(&crate::host::atom_name(e, s))),
@@ -1856,6 +1882,31 @@ impl PrettyPrinter<'_> {
 
 
 impl PrettyPrinter<'_> {
+    fn print_item(&self, item: &PrettyItem) -> Pict {
+        let seq = |items: &[PrettyItem], left: &str, right: &str| {
+            Self::seq_forms(items.iter().map(|i| self.print_item(i)).collect(), left, right, ", ")
+        };
+        match item {
+            PrettyItem::Expr(e) => self.print(e),
+            PrettyItem::List(items) => seq(items, "[", "]"),
+            PrettyItem::Tuple(items) if items.len() == 1 => {
+                Self::parens_nougly(Pict::next(&[self.print_item(&items[0]), Pict::new(",")]), "(", ")")
+            }
+            PrettyItem::Tuple(items) => seq(items, "(", ")"),
+            PrettyItem::Set(items) if items.is_empty() => Pict::new("set()"),
+            PrettyItem::Set(items) => seq(items, "{", "}"),
+            PrettyItem::Dict(pairs) => {
+                let forms = pairs.iter().map(|(k, v)| Pict::next(&[self.print_item(k), Pict::new(": "), self.print_item(v)])).collect();
+                Self::seq_forms(forms, "{", "}", ", ")
+            }
+            PrettyItem::FrozenSet(items) if items.is_empty() => Pict::new("frozenset()"),
+            PrettyItem::FrozenSet(items) => {
+                let inner = Self::parens_nougly(seq(items, "{", "}"), "(", ")");
+                Pict::next(&[Pict::new("frozenset"), inner])
+            }
+        }
+    }
+
     /// `_print_tuple`: `(a, b)`, or `(a,)` for a single item.
     fn pretty_tuple(&self, items: &[Expr]) -> Pict {
         let print = |e: &Expr| match crate::special::tuple_items(e) { Some(inner) => self.pretty_tuple(inner), None => self.print(e) };
@@ -1865,7 +1916,8 @@ impl PrettyPrinter<'_> {
             forms.push(print(item));
         }
         if items.len() == 1 { forms.push(Pict::new(",")); }
-        Pict::next(&forms).paren()
+        if forms.is_empty() { return Pict::new("()"); }
+        Self::parens_nougly(Pict::next(&forms), "(", ")")
     }
 }
 

@@ -42,6 +42,7 @@ const NONCOMMUTATIVE: u32 = 8192;
 const UNCOMMUTED: u32 = 16384;
 const COMMUTATIVE_HOOK: u32 = 32768;
 const PRETTY: u32 = 65536;
+const NUMBER: u32 = 131072;
 
 fn may_not_commute(flags: u32) -> bool { flags & (NONCOMMUTATIVE | UNCOMMUTED | COMMUTATIVE_HOOK) != 0 }
 
@@ -536,6 +537,7 @@ impl HostClass for HeadHost {
     fn applied(&self) -> Option<Arc<dyn HostClass>> { Some(Arc::new(self.fresh())) }
     fn expression(&self) -> bool { self.class.flags & EXPR != 0 }
     fn atomic(&self) -> bool { self.class.flags & ATOM != 0 }
+    fn number(&self) -> bool { self.class.flags & NUMBER != 0 }
     fn class_key(&self) -> Option<(u8, u32)> { self.class.class_key }
     fn derivative(&self, expr: &Expr, x: &Expr) -> Option<Expr> {
         if self.class.flags & DERIV == 0 { return None; }

@@ -674,13 +674,28 @@ impl KeyCache {
             *z *= num_complex::Complex64::new(f64::NAN, f64::NAN);
             return;
         }
-        if super::is_numeric(&factor) && crate::symbolic_number::is_symbolic_number(&factor) {
+        // A host NumberSymbol (hbar): complex(factor) through its evalf.
+        if let Kind::Func(Func::Undefined(head), args) = factor.kind() {
+            if let Some(host) = head.host().filter(|host| args.is_empty() && host.atomic() && host.number() && host.evaluates_numerically()) {
+                if let Some(v) = host.evalf(&factor, 53).as_ref().and_then(crate::evalf::eval_c64) {
+                    *z *= v;
+                    return;
+                }
+            }
+        }
+        // `factor.is_number`: a closed Integral/Sum/Product binds its
+        // variables, so the free-symbol mask alone does not decide it.
+        if (super::is_numeric(&factor) || matches!(factor.kind(), Kind::Func(Func::Integral | Func::Sum | Func::Product, _)))
+            && crate::symbolic_number::is_symbolic_number(&factor) {
             if let Some(v) = crate::sortkey::numeric_coefficient(&factor) {
                 *z *= v;
                 return;
             }
         }
-        if noncommutative && crate::decompose::commutativity(&factor) != Some(true) {
+        // `factor.is_commutative` is None for heads such as Limit, whose
+        // direction argument is a Basic Symbol: they go in ncpart even when the
+        // sum has no noncommutative symbol.
+        if (noncommutative || matches!(factor.kind(), Kind::Func(..))) && crate::decompose::commutativity(&factor) != Some(true) {
             ncpart.push(self.key(&factor));
             return;
         }

@@ -140,6 +140,10 @@ fn pretty(
     if let Ok(matrix) = expr.extract::<PyRef<'_, crate::matrices::PyMatrix>>() {
         return Ok(pr::pretty::pretty_matrix_with(&matrix.m, &s));
     }
+    if is_container(expr) {
+        let item = pretty_item(expr)?;
+        return crate::host::checked(pr::pretty::pretty_item_with(&item, &s));
+    }
     let e = to_expr(expr)?;
     crate::host::checked(pr::pretty_with(&e, &s))
 }
@@ -166,6 +170,37 @@ fn pretty_form(
     }
     let e = to_expr(expr)?;
     crate::host::checked(pr::pretty::pretty_form_with(&e, &s))
+}
+
+fn is_container(obj: &Bound<'_, PyAny>) -> bool {
+    use pyo3::types::{PyFrozenSet, PySet};
+    obj.is_exact_instance_of::<PyList>() || obj.is_exact_instance_of::<PyTuple>() || obj.is_exact_instance_of::<PyDict>()
+        || obj.is_exact_instance_of::<PySet>() || obj.is_exact_instance_of::<PyFrozenSet>()
+}
+
+/// The reference sorts dict keys and set items by `default_sort_key`.
+fn sorted_by_key<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+    let py = obj.py();
+    let key = py.import("symox")?.getattr("default_sort_key")?;
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("key", key)?;
+    let sorted = py.import("builtins")?.getattr("sorted")?.call((obj,), Some(&kwargs))?;
+    sorted.try_iter()?.collect()
+}
+
+fn pretty_item(obj: &Bound<'_, PyAny>) -> PyResult<pr::pretty::PrettyItem> {
+    use pr::pretty::PrettyItem as I;
+    if !is_container(obj) { return Ok(I::Expr(to_expr(obj)?)); }
+    let items = |o: &Bound<'_, PyAny>| -> PyResult<Vec<I>> { o.try_iter()?.map(|i| pretty_item(&i?)).collect() };
+    if obj.is_exact_instance_of::<PyList>() { return Ok(I::List(items(obj)?)); }
+    if obj.is_exact_instance_of::<PyTuple>() { return Ok(I::Tuple(items(obj)?)); }
+    if let Ok(d) = obj.downcast::<PyDict>() {
+        let keys = sorted_by_key(&d.keys().into_any())?;
+        let pairs = keys.iter().map(|k| Ok((pretty_item(k)?, pretty_item(&d.as_any().get_item(k)?)?))).collect::<PyResult<_>>()?;
+        return Ok(I::Dict(pairs));
+    }
+    let sorted = sorted_by_key(obj)?.iter().map(pretty_item).collect::<PyResult<Vec<_>>>()?;
+    if obj.is_exact_instance_of::<pyo3::types::PySet>() { Ok(I::Set(sorted)) } else { Ok(I::FrozenSet(sorted)) }
 }
 
 // ----------------------------------------------------------------------
