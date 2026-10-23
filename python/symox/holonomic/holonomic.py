@@ -634,10 +634,41 @@ def from_hyper(func, x0=0, evalf=False):
     symbols = tuple(func.args[-1].free_symbols)
     if len(symbols) != 1:
         raise ValueError('hypergeometric argument must have exactly one independent variable')
-    result = expr_to_holonomic(func,x=symbols[0],x0=x0)
-    if evalf and result.y0 is not None:
-        result.y0 = [v.evalf() for v in result.y0]
+    x = symbols[0]
+    result = expr_to_holonomic(func,x=x,x0=x0,initcond=False)
+    # SymPy's from_hyper: initial conditions of hyperexpand(func) at x0,
+    # x0+1, ... without limits, or of the unexpanded function from x0 = 1.
+    from .. import hyperexpand, oo
+    simp = hyperexpand(func)
+    if simp in (oo, -oo):
+        return result
+    order = result.annihilator.order
+    if str(simp.func) == 'hyper':
+        x0, evaluate = 1, evalf
+    else:
+        evaluate = False
+    x0 = _expr(x0)
+    y0 = _find_conditions(simp, x, x0, order, evaluate)
+    while not y0:
+        x0 += 1
+        y0 = _find_conditions(simp, x, x0, order, evaluate)
+    result.x0, result.y0 = x0, y0
     return result
+
+
+def _find_conditions(func, x, x0, order, evalf=False):
+    # SymPy's _find_conditions with use_limit=False.
+    from .. import nan
+    y0 = []
+    for _ in range(order):
+        value = func.subs(x, x0)
+        if evalf:
+            value = value.evalf()
+        if value.is_finite is False or value is nan or value == nan:
+            return None
+        y0.append(value)
+        func = func.diff(x)
+    return y0
 
 
 def from_meijerg(func, x0=0, evalf=False, initcond=True, domain=None):

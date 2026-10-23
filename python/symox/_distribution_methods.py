@@ -6,8 +6,7 @@ from . import _core
 
 
 def _delta_node(node, wrt, max_terms):
-    from . import (Dummy, Poly, DiracDelta, solve, sympify, S,
-                   Add)
+    from . import DiracDelta, sympify, S
     argument = node.args[0]
     if wrt is None:
         variables = node.free_symbols
@@ -26,6 +25,39 @@ def _delta_node(node, wrt, max_terms):
     # through the polynomial solver's approximate root path here.
     if any(value.is_Float for value in argument.atoms() if isinstance(value, _core.Expr)):
         return node
+    # SymPy's _eval_expand_diracdelta: every root must be simple and not
+    # provably nonreal, otherwise the delta is kept whole.
+    from . import roots, Poly
+    from .polys.polyerrors import PolynomialError
+    try:
+        argroots = roots(argument, variable)
+    except PolynomialError:
+        return node
+    # SymPy sums an incomplete roots() dictionary (0 for a quintic); keep
+    # every real root through the exact fallback instead.
+    if argument.is_polynomial(variable) is True and \
+            sum(argroots.values()) != Poly(argument, variable).degree():
+        return _delta_node_complete(node, argument, variable, max_terms)
+    # an explicit max_terms guard only: SymPy has no limit
+    if max_terms is not None and len(argroots) > max_terms:
+        raise ValueError('DiracDelta expansion exceeds max_terms')
+    darg = abs(argument.diff(variable))
+    result = S.Zero
+    for root, multiplicity in argroots.items():
+        if root.is_real is False or multiplicity != 1:
+            return node
+        scale = darg.subs(variable, root)
+        # A scale that may vanish (DiracDelta(a*x), a real) is not divided away.
+        if _core._exact_assumption(scale, 'zero') is not False:
+            return node
+        result += DiracDelta(variable-root)/scale
+    return result
+
+
+def _delta_node_complete(node, argument, variable, max_terms):
+    """Exact fallback when ``roots`` does not return every root: CRootOf
+    roots of rational polynomials and proved real nonzero affine scales."""
+    from . import Dummy, Poly, DiracDelta, solve, S, Add
     if argument == variable:
         return node
     slope = argument.diff(variable)

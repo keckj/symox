@@ -110,7 +110,12 @@ def test_hypergeometric_and_meijerg_converters():
     hyper = s.hyper([s.Rational(1,2)],[s.Rational(3,2)],x**2)
     h = from_hyper(hyper)
     assert_annihilates(h,hyper)
-    assert h.series(8,coefficient=True) == [1,0,s.Rational(1,3),0,s.Rational(1,10),0,s.Rational(1,42),0]
+    # SymPy's from_hyper takes the conditions of hyperexpand(hyper) from x0 = 1
+    # when they are undefined at 0.
+    assert h.x0 == 1 and str(h.series(8,coefficient=True)) == (
+        '[-I*sqrt(pi)*erf(I)/2, I*sqrt(pi)*erf(I)/2 + E, -I*sqrt(pi)*erf(I)/2, I*sqrt(pi)*erf(I)/2 + E, '
+        '-E/6 - I*sqrt(pi)*erf(I)/2, I*sqrt(pi)*erf(I)/2 + 4*E/5, -11*E/30 - I*sqrt(pi)*erf(I)/2, '
+        'I*sqrt(pi)*erf(I)/2 + 202*E/315]')
     g = s.meijerg([],[],[0],[],x)
     h = from_meijerg(g,initcond=False)
     assert_annihilates(h,g)
@@ -127,7 +132,8 @@ def test_parameters_and_overridden_initial_values():
     assert h.series(4,order=False) == a*x-a**3*x**3/6
     assert h.to_sequence()[0][0].eval(5) == a**5/120
     hyper = from_hyper(s.hyper([a],[2],x))
-    assert hyper.series(3,coefficient=True) == [1,a/2,(a*a+a)/12]
+    # An unexpanded hyper takes its values at x0 = 1, as in SymPy's from_hyper.
+    assert hyper.x0 == 1 and hyper.y0 == [s.hyper([a],[2],1), a*s.hyper([a+1],[3],1)/2]
     assert expr_to_holonomic(s.exp(x),x,y0=[2]).to_expr() == 2*s.exp(x)
     original = expr_to_holonomic(s.exp(x),x)
     assert original.composition(2*x,0,[3]).to_expr() == 3*s.exp(2*x)

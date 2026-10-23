@@ -48,7 +48,8 @@ class sum_(Token,_Expression):
     def _symox_(self):
         if self.mask is not none:raise NotImplementedError("arithmetic on a masked %s is not supported"%type(self).__name__)
         args=(self.array,) if self.dim is none else (self.array,self.dim)
-        return S.Function(type(self).__name__.rstrip('_'))(*args)
+        # SymPy Tokens have is_commutative None: noncommutative in Mul.
+        return S.Function(type(self).__name__.rstrip('_'),commutative=False)(*args)
 class product_(sum_):pass
 
 class FFunction(S.Function):

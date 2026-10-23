@@ -125,8 +125,15 @@ class _BasisDependent:
         return self._map('diff',*args,**kwargs)
 
     def integrate(self, *args, **kwargs):
-        from .. import integrate
-        return self._new({b:integrate(c,*args,**kwargs) for b,c in self._components.items()})
+        # SymPy's integrate() builds Integral(self), whose _eval_Integral holds
+        # every component, then re-evaluates only the Integral arguments of
+        # the result: a single-term field is integrated, a sum stays held.
+        from .. import integrate, Integral
+        flags = ('meijerg', 'conds', 'risch', 'heurisch', 'manual')
+        if len(self._components) == 1:
+            return self._new({b:integrate(c,*args,**kwargs) for b,c in self._components.items()})
+        options = {k:v for k,v in kwargs.items() if k not in flags}
+        return self._new({b:Integral(c,*args,**options) for b,c in self._components.items()})
 
     def simplify(self, **kwargs):
         return self._map('simplify',**kwargs)

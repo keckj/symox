@@ -12,25 +12,71 @@ def implemented_function(symfunc,implementation):
     symfunc._imp_=implementation;_implemented[symfunc.name]=implementation
     return symfunc
 
+def _recursive_to_string(doprint,arg):
+    # SymPy's lambdify._recursive_to_string.
+    from ..utilities.iterables import iterable
+    if isinstance(arg,_S.Basic) or getattr(arg,'is_Matrix',False):return doprint(arg)
+    if iterable(arg):
+        if isinstance(arg,list):left,right='[',']'
+        elif isinstance(arg,tuple):
+            if not arg:return '()'
+            left,right='(',',)'
+        else:raise NotImplementedError('unhandled type: %s, %s'%(type(arg),arg))
+        return left+', '.join(_recursive_to_string(doprint,e) for e in arg)+right
+    if isinstance(arg,str):return arg
+    return doprint(arg)
+
 def lambdastr(args,expr,printer=None,dummify=None):
-    from ..printing.lambdarepr import LambdaPrinter
-    roots=[args] if isinstance(args,(_S.Expr,str)) else list(args)
-    mapping={};parameters=[]
-    def descend(value,path):
-        if isinstance(value,(tuple,list)) or getattr(value,'is_Tuple',False):
-            for i,child in enumerate(value):descend(child,path+'['+str(i)+']')
-        else:mapping[_S.sympify(value)]=path
-    for i,arg in enumerate(roots):
-        name=getattr(arg,'name',str(arg))
-        if dummify or not name.isidentifier() or isinstance(arg,(tuple,list)):name='_arg'+str(i)
-        parameters.append(name);descend(arg,name)
-    settings={'symbol_names':mapping}
-    emitter=LambdaPrinter(settings) if printer is None else printer(settings) if isinstance(printer,type) else printer
-    if callable(emitter) and not hasattr(emitter,'doprint'):body=emitter(expr)
+    # Port of SymPy 1.14 lambdify.lambdastr.
+    import inspect
+    from ..utilities.iterables import flatten,iterable,NotIterable
+    DeferredVector=_S.DeferredVector
+    if printer is not None:
+        if inspect.isfunction(printer):lambdarepr=printer
+        elif inspect.isclass(printer):lambdarepr=lambda expr:printer().doprint(expr)
+        else:lambdarepr=lambda expr:printer.doprint(expr)
     else:
-        if hasattr(emitter,'_settings'):emitter._settings.setdefault('symbol_names',{}).update(mapping)
-        body=emitter.doprint(expr)
-    return 'lambda '+', '.join(parameters)+': ('+body+')'
+        from ..printing.lambdarepr import lambdarepr
+    def sub_args(args,dummies_dict):
+        if isinstance(args,str):return args
+        elif isinstance(args,DeferredVector):return str(args)
+        elif iterable(args):
+            dummies=flatten([sub_args(a,dummies_dict) for a in args])
+            return ','.join(str(a) for a in dummies)
+        elif isinstance(args,(_S.Function,_S.Symbol,_S.Derivative)) or getattr(args,'is_Function',False):
+            dummies=_S.Dummy()
+            dummies_dict.update({args:dummies})
+            return str(dummies)
+        else:return str(args)
+    def sub_expr(expr,dummies_dict):
+        expr=_S.sympify(expr)
+        if isinstance(expr,_S.Basic):expr=expr.xreplace(dummies_dict)
+        elif isinstance(expr,list):expr=[sub_expr(a,dummies_dict) for a in expr]
+        return expr
+    def isiter(l):return iterable(l,exclude=(str,DeferredVector,NotIterable))
+    def flat_indexes(iterable):
+        n=0
+        for el in iterable:
+            if isiter(el):
+                for ndeep in flat_indexes(el):yield (n,)+ndeep
+            else:yield (n,)
+            n+=1
+    if dummify is None:
+        dummify=any(isinstance(a,_S.Basic) and a.atoms(_S.Function,_S.Derivative)
+                    for a in (args if isiter(args) else [args]))
+    if isiter(args) and any(isiter(i) for i in args):
+        dum_args=[str(_S.Dummy(str(i))) for i in range(len(args))]
+        indexed_args=','.join([dum_args[ind[0]]+''.join(['[%s]'%k for k in ind[1:]])
+                               for ind in flat_indexes(args)])
+        lstr=lambdastr(flatten(args),expr,printer=printer,dummify=dummify)
+        return 'lambda %s: (%s)(%s)'%(','.join(dum_args),lstr,indexed_args)
+    dummies_dict={}
+    if dummify:args=sub_args(args,dummies_dict)
+    elif isinstance(args,str):pass
+    elif iterable(args,exclude=DeferredVector):args=','.join(str(a) for a in args)
+    if dummify and not isinstance(expr,str):expr=sub_expr(expr,dummies_dict)
+    expr=_recursive_to_string(lambdarepr,expr)
+    return 'lambda %s: (%s)'%(args,expr)
 
 def _user_namespace(modules):
     # SymPy's lambdify namespace: name mappings of the given modules, the
@@ -56,6 +102,50 @@ def _normalized_sinc(modules):
     # named ``sinc`` receives that argument.
     if _module_present('mpmath',modules):return False
     return any(_module_present(name,modules) for name in ('scipy','numpy','cupy','jax'))
+
+
+def _integer_kernel(parameters,expressions,modules,native,vectors={}):
+    """Wrap ``native`` so ``int`` arguments follow the Python integer
+    arithmetic of SymPy's printed source, as ``_ExactIntegerLambda`` does.
+
+    ``expressions`` is one expression or a list; ``vectors`` maps the
+    parameters standing for a DeferredVector to its name, its entries being
+    the symbols ``name[i]``. Returns ``native`` unless every expression is a polynomial
+    with Integer coefficients in the parameters."""
+    if modules is not None:
+        names=modules if isinstance(modules,(list,tuple)) else [modules]
+        if not all(isinstance(m,str) and m in ('math','mpmath','sympy','numpy','scipy') for m in names):return native
+    import re
+    names={p:'_a%d'%i for i,p in enumerate(parameters)}
+    by_label={label:names[p] for p,label in dict(vectors).items()}
+    def source(e):
+        if e in names:return names[e]
+        if getattr(e,'is_Symbol',False):
+            match=re.fullmatch(r'(.+)\[(\d+)\]',e.name)
+            if match and match.group(1) in by_label:return '%s[%s]'%(by_label[match.group(1)],match.group(2))
+            return None
+        if getattr(e,'is_Integer',False):return '(%d)'%int(e)
+        if e.is_Add or e.is_Mul:
+            parts=[source(a) for a in e.args]
+            if None in parts:return None
+            return '(%s)'%(' + ' if e.is_Add else '*').join(parts)
+        if e.is_Pow and e.exp.is_Integer and e.exp>=0:
+            base=source(e.base)
+            return None if base is None else '(%s**%d)'%(base,int(e.exp))
+        return None
+    single=not isinstance(expressions,(list,tuple))
+    try:bodies=[source(_S.sympify(e)) for e in ([expressions] if single else expressions)]
+    except (AttributeError,TypeError):return native
+    if not bodies or None in bodies:return native
+    body=bodies[0] if single else '[%s]'%', '.join(bodies)
+    exact=eval('lambda %s: %s'%(', '.join(names[p] for p in parameters),body),{})
+    def integral(value):
+        if type(value) is int:return True
+        return isinstance(value,(list,tuple)) and any(type(v) is int for v in value)
+    def call(*values,**kw):
+        if not kw and any(integral(v) for v in values):return exact(*values)
+        return native(*values,**kw)
+    return call
 
 
 def _compile_implemented(args,expr,modules,options):
@@ -104,16 +194,16 @@ def _compile_implemented(args,expr,modules,options):
             else:stack.extend(getattr(node,'args',()))
         return list(dict.fromkeys(result))
     if isinstance(expr,(list,tuple)):
-        plans=[_compile_implemented(args,e,modules,options) or _S._native_lambdify(args,e,modules=modules,**options) for e in expr]
+        plans=[_compile_implemented(args,e,modules,options) or _integer_kernel(arguments,e,modules,_S._native_lambdify(args,e,modules=modules,**options)) for e in expr]
         return lambda *values:type(expr)(plan(*values) for plan in plans)
     found=calls(expr)
     if not found:return None
     def plan(value):
         outer=calls(value)
-        if not outer:return _S._native_lambdify(arguments,value,modules=modules,**options)
+        if not outer:return _integer_kernel(arguments,value,modules,_S._native_lambdify(arguments,value,modules=modules,**options))
         temporary=[_S.Dummy('implemented') for _ in outer]
         body=_S.sympify(value).xreplace(dict(zip(outer,temporary)))
-        evaluator=_S._native_lambdify(arguments+temporary,body,modules=modules,**options)
+        evaluator=_integer_kernel(arguments+temporary,body,modules,_S._native_lambdify(arguments+temporary,body,modules=modules,**options))
         def operands(node):
             if square_root(node):return [node.args[0]]
             if normalized_sinc and not is_host_function_class(type(node)) and getattr(node,'class_name','')=='sinc':
@@ -162,11 +252,13 @@ def _compile_structured(args,expr,modules,options):
     roots=list(args) if sequence(args) else [args]
     if not (arrays or any(sequence(arg) for arg in roots) or sequence(expr) or is_concrete_matrix(expr)):
         return None
-    arguments=[]
+    arguments=[];vectors=[]
     def argument_plan(value):
         # SymPy unpacks an array argument like the nested list it iterates as.
         if sequence(value) or isinstance(value,NDimArray):return tuple(argument_plan(child) for child in value)
-        arguments.append(_S.sympify(value));return None
+        arguments.append(_S.sympify(value))
+        if isinstance(value,_S.DeferredVector):vectors.append(arguments[-1])
+        return None
     input_plans=[argument_plan(arg) for arg in roots]
     expressions=[]
     def output_plan(value):
@@ -205,7 +297,9 @@ def _compile_structured(args,expr,modules,options):
     replacements=dict(zip(arguments,parameters))
     expressions=[expression.xreplace(replacements) for expression in expressions]
     evaluator=(_compile_implemented(parameters,expressions,modules,options)
-               or _S._native_lambdify(parameters,expressions,modules=modules,**options))
+               or _integer_kernel(parameters,expressions,modules,
+                                  _S._native_lambdify(parameters,expressions,modules=modules,**options),
+                                  {replacements[v]:v.name for v in vectors}))
     def call(*values):
         if len(values)!=len(roots):raise TypeError('expected %d argument(s), got %d'%(len(roots),len(values)))
         flattened=[]

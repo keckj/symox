@@ -307,13 +307,25 @@ class Ellipse(GeometrySet):
             return []
         dx, dy = p-self.center
         if relation == 0:
-            return [Line(p, p+Point(-dy/self.vradius**2, dx/self.hradius**2))]
+            # SymPy's on-curve rule, with its unnormalized rise and run.
+            from .. import simplify
+            rise = self.vradius**2*(-dx)
+            run = -self.hradius**2*(-dy)
+            return [Line(p, Point(simplify(p.x+run), simplify(p.y+rise)))]
         # Normalize to a unit circle and recover its two contact points.
         u, v = dx/self.hradius, dy/self.vradius
         norm = clean(u*u+v*v)
         root = sqrt(norm-1)
         contacts = [self.center+Point(self.hradius*(u-s*v*root)/norm,
                                      self.vradius*(v+s*u*root)/norm) for s in (-1, 1)]
+        vertical = [c for c in contacts if zero(c.x-p.x)]
+        if len(vertical) == 1:
+            # SymPy's slope equation cannot see a vertical tangent, so it keeps
+            # the vertical line through p and the remaining contact point.
+            other = [c for c in contacts if c is not vertical[0]][0]
+            if zero(other.x-p.x) or zero(other.y-p.y):
+                return [Line(p, p+Point(1, 0)), Line(p, p+Point(0, 1))]
+            return [Line(p, p+Point(0, 1)), Line(p, other)]
         return [Line(p, contact) for contact in _sort_points(contacts)]
 
     def is_tangent(self, o):

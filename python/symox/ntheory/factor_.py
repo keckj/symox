@@ -297,9 +297,43 @@ def _factorint_small(factors, n, limit, fail_max):
     return done(n, next_p)
 
 
-def _factor_limited(n, limit):
-    """SymPy's result for ``factorint(n, limit)`` when the trial phase
-    decides it; ``None`` when the full factorization is needed."""
+def _limited_termination(factors, n, limit, next_p):
+    """SymPy's ``_check_termination``."""
+    if n == 1:
+        return True
+    if n < next_p ** 2 or isprime(n):
+        factor_cache[n] = n
+        factors[int(n)] = 1
+        return True
+    pp = _core.nt_perfect_power(n, None, True)
+    if pp is None:
+        return False
+    base, exp = int(pp[0]), int(pp[1])
+    if base < next_p ** 2 or isprime(base):
+        factor_cache[n] = base
+        factors[base] = exp
+    else:
+        for b, e in factorint(base, limit).items():
+            factors[b] = exp * e
+    return True
+
+
+def _limited_trial(factors, n, candidates):
+    """SymPy's ``_trial``."""
+    nfactors = len(factors)
+    for d in candidates:
+        if n % d == 0:
+            if n != d:
+                factor_cache[n] = d
+            n, m = _remove(n // d, d)
+            factors[d] = m + 1
+    return int(n), len(factors) != nfactors
+
+
+def _factor_limited(n, limit, use_trial=True, use_rho=True, use_pm1=True):
+    """Port of SymPy 1.14's ``factorint`` body for a given ``limit``
+    (ECM is disabled by a limit): trial division, Fermat, then the
+    trial/p-1/rho rounds up to ``limit``. Unfactored cofactors are kept."""
     factors = {}
     small = min(2 ** 15, limit)
     n, next_p = _factorint_small(factors, n, small, 600)
@@ -307,24 +341,69 @@ def _factor_limited(n, limit):
         if n > 1:
             factors[int(n)] = 1
         return factors
+    while (p := factor_cache.get(n)):
+        n, e = _remove(n, p)
+        factors[int(p)] = int(e)
     if next_p > limit:
-        if n == 1:
+        if _limited_termination(factors, n, limit, next_p):
             return factors
-        if n < next_p ** 2 or isprime(n):
+        if n > 1:
             factors[int(n)] = 1
-            return factors
-        pp = _core.nt_perfect_power(n, None, True)
-        if pp is not None:
-            base, exp = int(pp[0]), int(pp[1])
-            if base < next_p ** 2 or isprime(base):
-                factors[base] = exp
-            else:
-                for b, e in factorint(base, limit).items():
-                    factors[b] = exp * e
-            return factors
-        factors[int(n)] = 1
         return factors
-    return None
+    if _limited_termination(factors, n, limit, next_p):
+        return factors
+    sqrt_n = math.isqrt(n)
+    a = sqrt_n + 1
+    if (n % 4 == 1) ^ (a & 1):
+        a += 1
+    a2 = a ** 2
+    b2 = a2 - n
+    for _ in range(3):
+        b = math.isqrt(b2)
+        if b * b == b2:
+            for r in [a - b, a + b]:
+                facs = factorint(r, limit=limit, use_trial=use_trial,
+                                 use_rho=use_rho, use_pm1=use_pm1)
+                for k, v in facs.items():
+                    factors[k] = factors.get(k, 0) + v
+                factor_cache.add(n, facs)
+            return factors
+        b2 += (a + 1) << 2
+        a += 2
+    low, high = next_p, 2 * next_p
+    _limit = limit + 1
+    def split(c):
+        if c < next_p ** 2 or isprime(c):
+            return [c]
+        return factorint(c, limit=limit, use_trial=use_trial,
+                         use_rho=use_rho, use_pm1=use_pm1)
+    while 1:
+        high_ = min(high, _limit)
+        if use_trial:
+            n, found_trial = _limited_trial(factors, n, primerange(low, high_))
+            next_p = high_
+            if found_trial and _limited_termination(factors, n, limit, next_p):
+                return factors
+        else:
+            found_trial = False
+        if high > _limit:
+            if n > 1:
+                factors[int(n)] = 1
+            return factors
+        if not found_trial:
+            if use_pm1:
+                c = pollard_pm1(n, B=low, seed=high_)
+                if c:
+                    n, _ = _limited_trial(factors, n, split(c))
+                    if _limited_termination(factors, n, limit, next_p):
+                        return factors
+            if use_rho:
+                c = pollard_rho(n, retries=1, max_steps=low, seed=high_)
+                if c:
+                    n, _ = _limited_trial(factors, n, split(c))
+                    if _limited_termination(factors, n, limit, next_p):
+                        return factors
+        low, high = high, high * 2
 
 
 def _factor_dict(n):
@@ -389,9 +468,7 @@ def factorint(n, limit=None, use_trial=True, use_rho=True, use_pm1=True,
         return [{0: 1}, {}, {2: 1}, {3: 1}, {2: 2}, {5: 1}, {2: 1, 3: 1},
                 {7: 1}, {2: 3}, {3: 2}][n]
     if limit:
-        r = _factor_limited(n, limit)
-        if r is not None:
-            return r
+        return _factor_limited(n, limit, use_trial, use_rho, use_pm1)
     return _factor_dict(n)
 
 

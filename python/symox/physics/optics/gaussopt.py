@@ -106,7 +106,10 @@ class BeamParameter:
     def __repr__(self):return 'BeamParameter(%s, %s, %s, n=%s)'%self.args
 
 
-def geometric_conj_ab(a,b):return 1/(1/S.sympify(a)+1/S.sympify(b))
+def geometric_conj_ab(a,b):
+    a,b=map(S.sympify,(a,b))
+    if a.is_infinite or b.is_infinite:return a if b.is_infinite else b
+    return a*b/(a+b)
 def geometric_conj_af(a,f):return S.sympify(a)*S.sympify(f)/(S.sympify(a)-S.sympify(f))
 def geometric_conj_bf(a,f):return geometric_conj_af(a,f)
 
@@ -114,18 +117,24 @@ def geometric_conj_bf(a,f):return geometric_conj_af(a,f)
 def gaussian_conj(s_in,z_r_in,f):
     s,z,f=map(S.sympify,(s_in,z_r_in,f));denominator=(s-f)**2+z*z
     magnification=S.Abs(f)/S.sqrt(denominator)
-    return S.simplify(f*(s*(s-f)+z*z)/denominator),S.simplify(z*f*f/denominator),S.simplify(magnification)
+    # s_out is SymPy's expression; the Rayleigh range and magnification use
+    # (1 - s/f)**2 where SymPy has 1 - (s/f)**2 (see docs/algorithmic-parity.md).
+    return 1/(-1/(s+z**2/(s-f))+1/f),S.simplify(z*f*f/denominator),S.simplify(magnification)
 
 
 def conjugate_gauss_beams(wavelen,waist_in,waist_out,**kwargs):
-    wavelength,wi,wo=map(S.sympify,(wavelen,waist_in,waist_out));zr=waist2rayleigh(wi,wavelength)
-    f=kwargs.pop('f',None);s=kwargs.pop('s_in',None)
-    if kwargs or (f is None)==(s is None):raise ValueError('provide exactly one of f or s_in')
-    if f is not None:
-        f=S.sympify(f);s=f-S.sqrt(f*f*wi*wi/(wo*wo)-zr*zr)
-    else:
-        s=S.sympify(s);f=(s*s+zr*zr)/(s+S.sqrt((s*s+zr*zr)*wi*wi/(wo*wo)-zr*zr))
-    return s,gaussian_conj(s,zr,f)[0],f
+    wavelen,waist_in,waist_out=map(S.sympify,(wavelen,waist_in,waist_out))
+    m=waist_out/waist_in;z=waist2rayleigh(waist_in,wavelen)
+    if len(kwargs)!=1:raise ValueError('The function expects only one named argument')
+    elif 'dist' in kwargs:raise NotImplementedError('Currently only focal length is supported as a parameter')
+    elif 'f' in kwargs:
+        f=S.sympify(kwargs['f']);s_in=f*(1-S.sqrt(1/m**2-z**2/f**2));s_out=gaussian_conj(s_in,z,f)[0]
+    elif 's_in' in kwargs:
+        # Symox extension (SymPy 1.14 raises NotImplementedError): the focal
+        # length placing the output waist for a given input distance.
+        s_in=S.sympify(kwargs['s_in']);f=(s_in**2+z**2)/(s_in+S.sqrt((s_in**2+z**2)/m**2-z**2));s_out=gaussian_conj(s_in,z,f)[0]
+    else:raise ValueError('The function expects only one named argument')
+    return (s_in,s_out,f)
 
 
 __all__=['RayTransferMatrix','FreeSpace','FlatRefraction','CurvedRefraction','FlatMirror','CurvedMirror','ThinLens','GeometricRay','BeamParameter','waist2rayleigh','rayleigh2waist','geometric_conj_ab','geometric_conj_af','geometric_conj_bf','gaussian_conj','conjugate_gauss_beams']

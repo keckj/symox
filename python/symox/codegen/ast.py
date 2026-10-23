@@ -291,7 +291,9 @@ class Element(CodegenAST):
         return self._repr_args(sstr)
 class FunctionCall(CodegenAST,_Expression):
     _fields=('name','function_args')
-    def _symox_(self):return _S.Function(str(self.name))(*self.function_args)
+    # SymPy's FunctionCall has is_commutative None, which Mul treats as
+    # noncommutative: keep its factor order and Pow(-1) printing.
+    def _symox_(self):return _S.Function(str(self.name),commutative=False)(*self.function_args)
 def _function_parameter(arg):
     # SymPy's ``FunctionPrototype._construct_parameters``.
     if isinstance(arg,Declaration):return arg.variable

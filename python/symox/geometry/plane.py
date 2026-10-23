@@ -110,7 +110,8 @@ class Plane(GeometryEntity):
                 candidates.append(self.distance(o.p2))
             return Min(*candidates)
         point = Point(o, dim=3)
-        return clean(Abs((point-self.p1).dot(self._normal))/abs(self._normal))
+        # SymPy projects onto the unit normal and takes abs of the projection.
+        return abs((point-self.p1).dot(Point(self._normal, dim=3).unit))
 
     def projection(self, pt):
         pt = Point(pt, dim=3)

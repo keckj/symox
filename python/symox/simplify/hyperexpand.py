@@ -20,8 +20,13 @@ def _params(values):
 
 
 def _mod1(value):
+    # SymPy's _mod1: only the numeric part of the parameter is reduced.
     S = _S()
-    return S.simplify(S.Mod(value, 1))
+    value = S.sympify(value)
+    if value.is_Number:
+        return S.Mod(value, 1)
+    c, rest = value.as_coeff_Add()
+    return S.Mod(c, 1)+rest
 
 
 class Hyper_Function:

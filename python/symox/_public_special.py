@@ -32,9 +32,20 @@ def betainc_regularized(a,b,x1,x2):
 
 
 def erf2inv(x,y):
-    from . import erf,erfinv,sympify
+    from . import erf,erfinv,erfcinv,sympify,S
     x,y = sympify(x),sympify(y)
-    return x if y == 0 else erfinv(y+erf(x))
+    # SymPy's erf2inv.eval special values, in its order.
+    if x is S.NaN or y is S.NaN:return S.NaN
+    if x.is_zero and y.is_zero:return S.Zero
+    if x.is_zero and y is S.One:return S.Infinity
+    if x is S.One and y.is_zero:return S.One
+    if x.is_zero:return erfinv(y)
+    if x is S.Infinity:return erfcinv(-y)
+    if y.is_zero:return x
+    if y is S.Infinity:return erfinv(x)
+    # Divergence: SymPy holds erf2inv(x, y); symox returns the equal
+    # closed form erfinv(y + erf(x)), keeping exact derivatives.
+    return erfinv(y+erf(x))
 
 
 def Ynm_c(n,m,theta,phi):

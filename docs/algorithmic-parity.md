@@ -5829,3 +5829,122 @@ Still unsupported:
 
 Tests: `tests/test_matexpr_pretty_parity.py` (177 expressions in the 3
 printers, plus 13 settings cases, 4 of them skipped as known divergences).
+
+## Equivalent-form parity, audit batch form-b2 (2026-10-23)
+
+These are records where the value was already equal to SymPy's but the form
+differed. Each fix ports the reference step that builds the result.
+
+Implemented:
+
+- Geometry:
+  - `Ellipse.tangent_lines` uses SymPy's rise/run formula on the curve and
+    its single-solution branch for outside points.
+  - `perpendicular_line` follows SymPy's 2D and 3D constructions.
+  - `Line3D.distance` for skew lines goes through the plane with the
+    cross-product normal.
+  - `Plane.distance` is the projection on the unit normal.
+  - `direction_ratio` is componentwise in 3D. This also fixes
+    `deviation` and `refraction_angle`.
+- `Matrix.eigenvects(simplify=...)` and `Matrix.diagonalize` are SymPy
+  ports: primitive eigenvectors, the same errors, and an immutable result
+  for immutable input.
+- DiracDelta expansion uses SymPy's `roots` algorithm. Two guards keep
+  exactness:
+  - When `roots` misses a root (a quintic), the exact CRootOf fallback
+    runs. SymPy returns 0 there.
+  - When the scale `|g'(r)|` may vanish (`DiracDelta((x**2 - 1)*y)`),
+    the delta is kept whole. SymPy divides by `Abs(y)`, which is
+    undefined at y = 0.
+- `erf2inv` special values follow SymPy's `eval`.
+- `factor(deep=True)` runs SymPy's bottom_up `_try_factor` followed by the
+  partials pass.
+- `together(deep=True)` also combines function arguments and power
+  exponents.
+- `unrad` canonicalizes the result as SymPy's `_canonical` does: it drops
+  numeric factors and factor powers, then applies `could_extract_minus_sign`
+  per factor, instead of making the leading coefficient positive.
+- `poly_from_expr` passes `wrt` and `sort` through, so
+  `horner(f, wrt=y)` now matches SymPy.
+- `split_surds`, `_split_gcd` and `rad_rationalize` are direct ports.
+- Vector: `curl`, `divergence` (`doit=False` holds the Derivatives),
+  `gradient`, `laplacian` and `Vector.integrate` are ported.
+- Physics:
+  - Ported from SymPy: musculotendon, activation and the curve mixin;
+    `E_nl_dirac`, `R_nl` and `wigner_d_small` (which returns an
+    ImmutableMatrix); `Medium`; `TWave` (repr, superposition, speed);
+    `conjugate_gauss_beams`; `geometric_conj_ab`.
+  - Kept beyond SymPy 1.14: musculotendon formulations 3 and 4,
+    `conjugate_gauss_beams(s_in=...)`, and the corrected Rayleigh range and
+    magnification of `gaussian_conj`.
+- Other modules:
+  - Ported: `factorint(limit=...)` (trial division, Fermat, pm1 and rho
+    rounds), `find_linear_recurrence`, `from_hyper` initial conditions,
+    hyperexpand `_mod1`, and `lambdastr`.
+  - `fnodes` `FunctionCall` and `sum_` are noncommutative.
+  - `lambdify` with Python ints, an implemented function or a
+    DeferredVector uses exact integer arithmetic.
+
+Intentional divergences:
+
+- The general case of `erf2inv(x, y)` evaluates to `erfinv(y + erf(x))`,
+  where SymPy holds `erf2inv(x, y)`.
+- The two DiracDelta guards above.
+- diffgeom objects are evaluated eagerly, where SymPy keeps lazy objects.
+  The values are equal.
+
+Remaining form gaps (values are equal):
+
+- Rust core:
+  - `Matrix.exp` uses skew_exp or analytic_func, not P*exp(J)*P^-1.
+  - `expand_power_base` splits only when every factor is positive. SymPy
+    also pulls out the nonnegative factors. This also affects
+    `polarify(...).expand()`.
+  - `(-2)**i` with an odd `i` keeps the base.
+  - `2*2**(-m)` merges to `2**(1 - m)`. This affects `hankel_transform`
+    and `inverse_hankel_transform`.
+  - `diff(..., n)` distributes the numeric coefficient.
+  - `expand_func(gamma(p/q))` does not shift by the integer part, so
+    `expand_func(integrate(fresnel integrand))` keeps a gamma ratio.
+- Simplification and transforms:
+  - `simplify` picks `-(x**2/y**2 + 1)/y` over `(-x**2 - y**2)/y**3`
+    (`idiff(...).simplify()`, and a custom `measure`).
+  - `trigsimp(method='old')` simplifies more than SymPy's `trigsimpold`.
+  - `trigsimp_groebner` ignores `hints`.
+  - `inverse_mellin_transform` and `laplace_transform` build their
+    results differently.
+- Solvers:
+  - `solve` on the `solve_undetermined_coeffs` system returns
+    `c - b**2/(4*a)`, not `(4*a*c - b**2)/(4*a)`.
+  - `reduce_inequalities` does not add the `x < oo` bound for symbolic
+    coefficients. It also raises NotImplementedError for `x*y > 1` with
+    respect to `x`, where SymPy returns the relational unchanged.
+  - The `1st_linear_constant_coeff` PDE: the exp product and Integral
+    hint forms differ.
+  - `solve_decomposition` ImageSet output differs in pretty printing and
+    in the order of the union terms.
+- Polys: `factor_list`, `sqf_list` and `div` raise NotImplementedError for
+  `wrt`.
+- Vector: top-level `integrate(vector, x)` raises TypeError.
+- Physics:
+  - Bra*Ket is evaluated at multiplication time. SymPy keeps an
+    unevaluated InnerProduct (`OrthogonalKet`, `Qubit`).
+  - The core multiplies a Float into a sum that contains an
+    UnevaluatedExpr.
+  - `-(-10 + c)**3` is printed where SymPy has `(10 - c)**3`.
+  - `limit` and `expand` forms differ in the PIDController records.
+  - `simplify` gives a different form for the `ObstacleSetPathway` result.
+- Other modules:
+  - The `Product.change_index` and `reverse_order` forms differ (Rust
+    summation term order and simplify).
+  - The core distributes the numeric content into the
+    `find_linear_recurrence` generating function.
+  - The `round_two` and `integral_basis` doc forms need
+    `QQ.algebraic_field((T, theta))` and `alias` support in the native
+    algebraic domain.
+  - `lookup_origin` uses native closed forms, not SymPy's `HyperRep_*`
+    table.
+  - The holonomic `_normal` sign and scale differ.
+  - `lambdify` on numpy int arrays returns floats.
+
+Tests: `tests/test_forms_b2_parity.py` and `tests/test_forms_b2_parity_*.py`.
