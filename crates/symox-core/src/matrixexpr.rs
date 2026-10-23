@@ -444,7 +444,17 @@ impl MatrixExpr {
         let mut result=Vec::new();
         if let Some(m)=explicit {if !m.is_zero_matrix(){result.push(Self::explicit(m));}}
         for (base,c) in groups {if !c.is_zero(){result.push(Self::mul(c,&[base],true)?);}}
-        result.sort();
+        // MatAdd's canonicalize ends with sort(default_sort_key), which fixes
+        // the argument order the pretty printer and `.args` expose. The key
+        // walks the expression tree, so a term whose tree is very large (a
+        // shared DAG from block powers) keeps the structural order, which
+        // is linear in the DAG size.
+        let mut budget=4096usize;
+        if result.iter().all(|t|t.tree_size_within(&mut budget)) {
+            result.sort_by_cached_key(crate::sortkey::matrix_sort_key);
+        } else {
+            result.sort();
+        }
         Ok(match result.len(){0=>Self::zero(rows,cols)?,1=>result.remove(0),_=>Self::new(MatrixKind::Add(result),rows,cols)})
     }
     pub fn mul(coefficient:Expr,factors:&[Self],evaluate:bool)->MResult<Self> {
@@ -841,6 +851,13 @@ impl MatrixExpr {
         };
         let result=if let MatrixKind::Block(grid)=result.kind(){if grid.shape()==(1,1){grid.get(0,0).clone()}else{result}}else{result};
         memo.insert(self.dag_id(),result.clone());Ok(result)
+    }
+    /// Whether the expression tree (shared subtrees counted once per use)
+    /// fits in `budget` nodes; decrements the budget and stops early.
+    pub(crate) fn tree_size_within(&self,budget:&mut usize)->bool{
+        if *budget==0 {return false;}
+        *budget-=1;
+        self.children().iter().all(|c|c.tree_size_within(budget))
     }
     pub fn children(&self)->Vec<Self>{match self.kind(){MatrixKind::Add(a)|MatrixKind::Mul(_,a)|MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>a.clone(),MatrixKind::Block(grid)=>grid.data().to_vec(),MatrixKind::Slice(parent,..)|MatrixKind::ApplyFunction(_,parent)|MatrixKind::Permute(parent,..)=>vec![parent.clone()],MatrixKind::HadamardPower(a,b)=>[a,b].into_iter().filter_map(|o|o.matrix().cloned()).collect(),MatrixKind::Pow(b,_)|MatrixKind::Transpose(b)|MatrixKind::Adjoint(b)|MatrixKind::Inverse(b)|MatrixKind::Conjugate(b)|MatrixKind::Diag(b)|MatrixKind::DiagonalOf(b)|MatrixKind::Diagonal(b)=>vec![b.clone()],_=>Vec::new()}}
     pub fn map_children(&self, matrices:&mut dyn FnMut(&Self)->Self, scalars:&mut dyn FnMut(&Expr)->Expr)->MResult<Self>{

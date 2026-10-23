@@ -567,6 +567,12 @@ fn cmp_f64(a: f64, b: f64) -> Ordering {
     a.partial_cmp(&b).unwrap_or(Ordering::Equal)
 }
 
+/// `MatAdd.as_ordered_terms()`: the terms of a matrix sum in SymPy's
+/// printing order (used by the LaTeX printer).
+pub fn matrix_ordered(terms: &[MatrixExpr]) -> Vec<MatrixExpr> {
+    with_cache(|k| matrix_ordered_terms(terms, |m| k.matrix_key(m)))
+}
+
 /// `Add.as_ordered_terms()`: the terms of a sum (with their coefficients,
 /// the numeric term included) in SymPy's printing order.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {

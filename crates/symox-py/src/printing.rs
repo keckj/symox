@@ -104,8 +104,13 @@ fn latex(expr: &Bound<'_, PyAny>, settings: Option<&Bound<'_, PyDict>>) -> PyRes
                         s.symbol_names.insert(n, name.extract()?);
                     }
                 }
-                "order" | "full_prec" | "mat_delim" | "mat_str" | "mat_symbol_style" | "decimal_separator"
-                | "perm_cyclic" | "min" | "max" | "adjoint_style" | "disable_split_super_sub" => {}
+                "mat_symbol_style" => s.mat_symbol_bold = v.extract::<Option<String>>()?.as_deref() == Some("bold"),
+                // An unknown style falls back to the dagger, as in SymPy.
+                "adjoint_style" => s.adjoint_style = v.extract()?,
+                "mat_delim" => s.mat_delim = v.extract::<Option<String>>()?.unwrap_or_default(),
+                "mat_str" => s.mat_str = v.extract()?,
+                "order" | "full_prec" | "decimal_separator" | "perm_cyclic" | "min" | "max"
+                | "disable_split_super_sub" => {}
                 _ => return Err(PyTypeError::new_err(format!("Unknown setting '{key}'."))),
             }
         }
