@@ -7902,3 +7902,90 @@ Remaining (explicit, never a wrong number):
   evaluated.
 
 Tests: `tests/test_bigexp_parity.py`, `tests/test_prec_parity.py`.
+
+## Solve and integration leftovers (solint-rest, wave 7, 2026-10-23)
+
+Implemented:
+- `_tsolve`'s bivariate block (`python/symox/solvers/bivariate.py`, a port
+  of `sympy.solvers.bivariate`, called from `_tsolve_steps.py` after the
+  native NotImplementedError): the `sym**spow` change of variable, the
+  `eq_down` factoring, `_solve_lambert` with the even-degree `t`
+  substitution, the nsimplify replacement and `bivariate_type`.
+  `solve(x*exp(x**2) - 1, x)` gives `[exp(-LambertW(2)/2)]`,
+  `solve(x**a*exp(x) - 1, x)` gives `[a*LambertW(1/a)]`, and `x**x - 2`,
+  `x*log(x) - 1`, `log(x) + x**2`, `x**2 - 2**x`, `exp(x) + x**3` and
+  `x - log(x)*y` give SymPy's LambertW roots. The posify retry tries the
+  rewritten equation first (as SymPy does), then the original one.
+- solveset `radical_step`: a product of radicals without a symbol-free
+  coefficient goes to `unrad` unchanged (the reference inverter does not
+  invert it). `sqrt(x)*sqrt(x - 7) - 12` gives `{16}`, as do
+  `2*sqrt(x)*sqrt(x - 7) - 24` and the Reals domain.
+- Rational equations with symbolic poles keep SymPy's
+  `_result - singularities` form: `solveset(y - b/(1 + a*x), x)` gives
+  `Complement({b/(a*y) - 1/a}, {-1/a})` (SymPy writes the element
+  `(b/y - 1)/a`). This also fixes a wrong result: `solveset((x - a)/(x - b),
+  x)` gave `{a}`, which is wrong for `a = b`. It now gives
+  `Complement({a}, {b})`.
+- Real domains: an exact algebraic root whose realness is undecided goes
+  through `expand_complex` (as in `_solve_as_poly`), and a provably nonzero
+  imaginary part drops it. Roots with logarithms stay undecided. `solveset(x**3 + x + 1, x, S.Reals)` now gives
+  the single real Cardano root instead of a union with an undecided
+  Intersection.
+- `roots` applies `preprocess_roots`'s `_integer_basis` rescaling to rational
+  polynomials. The roots of `3125*x**3 + 37100*x**2 + 100800*x - 82944` now
+  have SymPy's form.
+- `limit` never returns `nan` computed from an expression without `nan`.
+  Before this change, `limit(Ei(-x) - Ei(-2*x), x, 0, '+')` gave `nan`, and
+  so did `Ei(x) - Ei(2*x)`, `Ci(x) - Ci(2*x)` and `Chi(x) - Chi(2*x)`: the
+  substitution of the singular value `Ei(0) = -oo` gave `-oo + oo`. SymPy
+  gives `-log(2)` here. The limit now stays unevaluated.
+- `solve(x**(1/3) + sqrt(x) + 1, x)` gives SymPy's `[]`.
+  `bivariate_type` no longer raises PolynomialError on its dependent
+  generators.
+
+Intentional divergences:
+- `solve_univariate_inequality((I*x + 1)**3 < 2, x)` raises
+  NotImplementedError, as before this wave. SymPy 1.14 returns
+  `Interval(-oo, oo)`, but at x = 1 the left side is `-2 + 2*I`, which has
+  no order. Now that `solveset((I*x + 1)**3 - 2, x, S.Reals)` decides
+  EmptySet (as SymPy does), an inequality with `I` is solved only when its
+  expanded difference is real for a real variable.
+- `solveset(sqrt(x)*(x + 1)**(1/3) - 2, x)` gives
+  `{CRootOf(x**5 + 2*x**4 + x**3 - 64, 0)}`, which was checked numerically.
+  SymPy raises PolynomialError.
+- In the three-radical cubic case in Complexes, symox rejects the complex
+  candidates after a numerical check. SymPy keeps them in a ConditionSet.
+- On Reals, `solveset(y - b/(1 + a*x), x, S.Reals)` and
+  `solveset(a/(x - 1) - 2, x, S.Reals)` keep the pole Complement. SymPy
+  returns `Intersection({(b/y - 1)/a}, Reals)`, which keeps the pole
+  `x = -1/a` when `b = 0` (and `{1}` for `a = 0`). Those values are not
+  solutions.
+
+Remaining:
+- The limits above (log-singular leading terms of Ei/Ci/Chi/li/expint)
+  need the `_eval_as_leading_term` of those functions. Until then, the
+  definite integrals that depend on them stay unevaluated:
+  - the Frullani integrals `(exp(-x) - exp(-2*x))/x` and
+    `(cos(x) - cos(2*x))/x` on (0, oo);
+  - `log(log(x))/x**2` on (1, oo);
+  - `sqrt(log(1/x))` on (0, 1). Its limit at 0+ of
+    `x*sqrt(log(1/x)) + sqrt(pi)*erfc(sqrt(log(1/x)))/2` stays held.
+
+  The antiderivatives are identical to SymPy's. SymPy's `meijerint_definite`
+  also fails, so these integrals go through the limits.
+- `SingularityFunction` integrals over (-oo, oo) stay unevaluated.
+- The real inverter of negative bases is not ported. On Reals, SymPy
+  gives `{3}` for `(-5)**(x + 1) = 625` and `{42}` for
+  `(-3)**(x - 3) = -3**39`. symox keeps the complex candidate
+  (`log(625)/log(-5) - 1`, expanded) in an undecided Intersection.
+  `solveset(Eq((-2)**x, 4), x, S.Reals)` gives EmptySet where SymPy gives
+  `{2}`. That false "no solution" predates this wave and remains open.
+- `ratint(1/(x**3 + x + 1))` still raises (xfail in
+  `tests/test_integ_rest_parity.py`). The step-by-step comparison of
+  `ratint_logpart` was not done.
+- `integrate(1/(1 + exp(x - 1/2)/(1 + exp(x))), x)` still times out.
+- Form difference: the second root of `(a*x + b*y)**2 + (a*x + b*y) - 1`
+  for `x` is `(-b*y - sqrt(5)/2 - 1/2)/a`. SymPy gives
+  `(-2*b*y - sqrt(5) - 1)/(2*a)`.
+
+Tests: `tests/test_solint_rest_parity.py`.

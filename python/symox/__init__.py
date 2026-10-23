@@ -2540,6 +2540,19 @@ def solve_univariate_inequality(expr, gen, relational=True, domain=Reals, contin
         from .solvers.inequalities import _abs_domain
         return _abs_domain(condition.lhs-condition.rhs,condition.rel_op,gen).intersect(target)
 
+    condition = sympify(expr)
+    if getattr(condition, 'is_Relational', False) and \
+            getattr(condition, 'rel_op', None) in ('<', '<=', '>', '>=') and \
+            condition.has(S.ImaginaryUnit):
+        # an order relation between nonreal values is undefined: the sign
+        # analysis is only valid when the expression is real for real gen
+        # (``(I*x + 1)**3 < 2`` is nonreal at x = 1)
+        real_gen = Dummy('x', real=True)
+        diff = expand((condition.lhs - condition.rhs).subs(gen, real_gen))
+        if diff.is_real is not True:
+            raise NotImplementedError(
+                'The inequality, %s, cannot be solved using '
+                'solve_univariate_inequality.' % (condition,))
     try:
         r = _core.solve_univariate_inequality(
             expr, gen, False, None if domain is None else _unwrap(domain), continuous)

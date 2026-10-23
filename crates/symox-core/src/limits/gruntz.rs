@@ -710,6 +710,13 @@ impl Gruntz {
                 if r.is_zero() {
                     return unknown("zero of a function in symbolic leading term");
                 }
+                // A singular value (Ei(0) = -oo, Ci(0) = -oo) is not a
+                // leading coefficient: the log singularities of two such
+                // terms may cancel (Ei(-x) - Ei(-2*x) -> log(2)), which
+                // `-oo + oo = nan` would hide.
+                if !is_finite_limit(&r) {
+                    return unknown("singular value of a function in symbolic leading term");
+                }
                 Ok((r, Expr::zero()))
             }
             _ => unknown(format!("leading term of {f}")),

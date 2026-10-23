@@ -144,10 +144,29 @@ pub fn limit(e: &Expr, x: &Expr, x0: &Expr, dir: Dir) -> LRes<Expr> {
 }
 
 fn limit_one_sided(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
+    let r = limit_one_sided_raw(e, x, x0, minus)?;
+    // A `nan` computed from a finite expression is an `oo - oo` of two
+    // singular leading values (`Ei(-x) - Ei(-2*x)` at 0+, whose log
+    // singularities cancel to `log(2)`): undecided, never the limit.
+    if has_nan(&r) && !has_nan(e) {
+        return unknown("indeterminate combination of singular leading values");
+    }
+    Ok(r)
+}
+
+fn has_nan(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Const(c) => *c == Constant::NaN,
+        Kind::Num(_) | Kind::Sym(_) | Kind::Bool(_) => false,
+        _ => e.args().iter().any(has_nan),
+    }
+}
+
+fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr> {
     if x0.is_constant(Constant::ComplexInfinity) || x0.is_constant(Constant::NaN) {
         return unknown("bad limit point");
     }
-    if let Some(r) = fast_path(e, x, x0, minus) {
+    if let Some(r) = fast_path(e, x, x0, minus).filter(|r| !has_nan(r)) {
         return Ok(r);
     }
     // map to x -> oo
