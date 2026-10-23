@@ -68,7 +68,11 @@ def _one(polynomial, index, value, auto):
         except DomainError as error:
             raise UnificationFailed(str(error)) from error
         point = domain.convert(value)
-    if all(generator.is_Symbol for generator in polynomial.gens):
+    # A value such as CRootOf(x**2 - 2, 0) names a generator without
+    # depending on it; the term-wise path below keeps it a coefficient.
+    clash = (len(polynomial.gens) > 1 and not value.is_Rational
+             and value.has(*polynomial.gens) and not (value.free_symbols & set(polynomial.gens)))
+    if all(generator.is_Symbol for generator in polynomial.gens) and not clash:
         if len(polynomial.gens) == 1:
             # Scalar substitution and expansion stay in the Rust expression
             # engine; final conversion certifies the selected coefficient field.

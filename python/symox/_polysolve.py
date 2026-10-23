@@ -77,6 +77,10 @@ def nonlinsolve(system, *symbols):
         from .solvers._substitution import _is_polynomial_system, nonlinsolve_substitution
         if _is_polynomial_system(equations, variables):
             solutions = _zero_dimensional_numerators(equations, variables)
+            if solutions is None and _external_parameters(equations, variables):
+                # The reference ``_handle_zero_dimensional`` answer for generic
+                # values of the external parameters (as ``solve`` returns).
+                solutions = _zero_dimensional_numerators(equations, variables, parametric=True)
             if solutions is None:
                 raise
             return solutions
@@ -89,7 +93,14 @@ def nonlinsolve(system, *symbols):
     return EmptySet if not rows else FiniteSet(*rows)
 
 
-def _zero_dimensional_numerators(equations, variables):
+def _external_parameters(equations, variables):
+    free = set()
+    for eq in equations:
+        free |= eq.free_symbols
+    return bool(free - set(variables))
+
+
+def _zero_dimensional_numerators(equations, variables, parametric=False):
     """The reference zero-dimensional branch of ``nonlinsolve`` for a
     system whose numerators are polynomials with exact numeric coefficients:
     grevlex Groebner basis of the numerators, FGLM to lex, then the complete
@@ -103,7 +114,8 @@ def _zero_dimensional_numerators(equations, variables):
         if getattr(eq, 'is_Equality', False):
             eq = eq.lhs - eq.rhs
         numerator, denominator = together(eq).as_numer_denom()
-        if not numerator.free_symbols <= set(variables) or not denominator.free_symbols <= set(variables):
+        if not parametric and (not numerator.free_symbols <= set(variables)
+                               or not denominator.free_symbols <= set(variables)):
             return None
         numerators.append(numerator)
         if denominator.free_symbols:
@@ -111,14 +123,16 @@ def _zero_dimensional_numerators(equations, variables):
     try:
         basis = groebner(numerators, *variables, order='grevlex')
         if 1 in list(basis):
-            return EmptySet
+            # With parameters this is only the generic answer: special
+            # parameter values may still have solutions.
+            return None if parametric else EmptySet
         if not basis.is_zero_dimensional:
             return None
         roots = solve_poly_system(list(basis.fglm('lex')), *variables)
     except (NotImplementedError, ValueError):
         return None
     if roots is None:
-        return EmptySet
+        return None if parametric else EmptySet
     rows = []
     for root in roots:
         values = dict(zip(variables, root))

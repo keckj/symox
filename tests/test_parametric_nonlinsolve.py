@@ -63,8 +63,9 @@ def test_exclusions_are_complement_domains_not_generic_rational_answers():
 
 def test_external_conditions_and_unsolved_components_reject_whole_result():
     x,y,a=sm.symbols("x y a")
-    with pytest.raises(NotImplementedError,match="external parameters"):
-        sm.nonlinsolve([a*x],x)
+    # The reference answer for generic values of the external parameter
+    # (SymPy's _handle_zero_dimensional); a = 0 is not covered.
+    assert sm.nonlinsolve([a*x],x) == sm.FiniteSet((0,))
     with pytest.raises(NotImplementedError):
         sm.nonlinsolve([x*(y**5-y+1)],x,y)
     with pytest.raises(NotImplementedError,match="exact coefficients"):

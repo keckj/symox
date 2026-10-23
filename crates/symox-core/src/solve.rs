@@ -1375,7 +1375,10 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
 /// 2*sqrt(2)*I))`. Only the argument `x` itself is handled; other arguments
 /// keep raising, as their reference forms are not reproduced.
 fn sec_csc_exp(secant: bool, g: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
-    if g != x || has(rhs, x) || rhs.is_zero() {
+    if g != x {
+        return sec_csc_multiple(secant, g, rhs, x, depth);
+    }
+    if has(rhs, x) || rhs.is_zero() {
         return None;
     }
     let t = Expr::dummy("t", crate::Assumptions::NONE);
@@ -1410,6 +1413,53 @@ fn sec_csc_exp(secant: bool, g: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Opti
             Some(mul2(&Expr::i(), &sub(&log(&Expr::num(inverse)), &log(&p))))
         })();
         out.push(split.unwrap_or(plain));
+    }
+    Some(out)
+}
+
+/// `sec(k*x) = rhs` or `csc(k*x) = rhs` for `k` 2 or 3. The reference
+/// `rewrite(exp)` gives a quadratic in `u = exp(I*k*x)`; each root `u` gives
+/// the `k` roots of `t**k = u` and `x = -I*log(t)`, whose simplified forms
+/// are `-I*log(u)/k` for the principal root and `-I*log(w*u**(1/k))` for the
+/// other roots of unity `w` (`-1`, or `-(1 -+ sqrt(3)*I)/2`).
+fn sec_csc_multiple(secant: bool, g: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    if has(rhs, x) || rhs.is_zero() {
+        return None;
+    }
+    let k = div(g, x).as_number()?.clone();
+    let k = if k == Number::int(2) {
+        2
+    } else if k == Number::int(3) {
+        3
+    } else {
+        return None;
+    };
+    let u = Expr::dummy("u", crate::Assumptions::NONE);
+    let u2 = pow(&u, &Expr::int(2));
+    let middle = if secant { mul2(&Expr::int(-2), &u) } else { mul(&[Expr::int(-2), Expr::i(), u.clone()]) };
+    let last = if secant { rhs.clone() } else { neg(rhs) };
+    let p = add(&[mul2(rhs, &u2), middle, last]);
+    let roots = solve_rec(&p, &u, depth + 1)?;
+    if roots.len() != 2 {
+        return None;
+    }
+    let minus_i = neg(&Expr::i());
+    let mut out = Vec::new();
+    for r in roots {
+        if r.is_zero() {
+            return None;
+        }
+        out.push(div(&mul2(&minus_i, &log(&r)), &Expr::int(k)));
+        if k == 2 {
+            out.push(mul2(&minus_i, &log(&neg(&sqrt(&r)))));
+        } else {
+            let cube = pow(&r, &Expr::num(Number::ONE.div(&Number::int(3))?));
+            let half = Expr::num(Number::int(-1).div(&Number::int(2))?);
+            let s3i = mul2(&sqrt(&Expr::int(3)), &Expr::i());
+            for w in [sub(&Expr::one(), &s3i), add2(&Expr::one(), &s3i)] {
+                out.push(mul2(&minus_i, &log(&mul(&[half.clone(), w, cube.clone()]))));
+            }
+        }
     }
     Some(out)
 }

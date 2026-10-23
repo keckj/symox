@@ -146,39 +146,59 @@ def _sys_sort_key(sys):
 
 def solve_triangulated(polys,*gens,**args):
     """SymPy's Gianni-Mora triangulated solver. Without ``extension`` only
-    the roots in the ground domain are returned, as in the reference."""
+    the roots in the ground domain are returned; with it every complex root
+    is lifted through algebraic fields built from ``CRootOf`` generators."""
     from . import groebner, default_sort_key
     from .polys.polyoptions import build_options
     from .utilities.iterables import postfixes
     opt = build_options(gens, args)
-    if opt.get('extension', False):
-        # The reference lifts each root into an algebraic field built from
-        # CRootOf generators; that domain tower is not available natively.
-        raise NotImplementedError('triangulated algebraic extension towers are not yet supported')
     G = list(groebner(polys, gens, polys=True))[::-1]
-    domain = opt.get('domain')
-    if domain is not None:
-        G = [g.set_domain(domain) for g in G]
+    extension = opt.get('extension', False)
+    if extension:
+        def _solve_univariate(f):
+            return [r for r, _ in f.all_roots(multiple=False, radicals=False)]
+    else:
+        domain = opt.get('domain')
+        if domain is not None:
+            G = [g.set_domain(domain) for g in G]
 
-    def _solve_univariate(f):
-        return list(f.ground_roots().keys())
+        def _solve_univariate(f):
+            return list(f.ground_roots().keys())
 
     f, G = G[0].ltrim(-1), G[1:]
-    solutions = {(zero,) for zero in _solve_univariate(f)}
+    dom = f.get_domain()
+    zeros = _solve_univariate(f)
+    def _algebraic_field(dom, zero):
+        # The native field needs an irrational generator; a rational root
+        # adds nothing to the domain (the reference builds QQ<0>).
+        if getattr(zero, 'is_Rational', False):
+            return dom.get_field() if dom.is_ZZ else dom
+        return dom.algebraic_field(zero)
+
+    if extension:
+        solutions = {((zero,), _algebraic_field(dom, zero)) for zero in zeros}
+    else:
+        solutions = {((zero,), dom) for zero in zeros}
     for var, vars in zip(reversed(gens[:-1]), postfixes(gens[1:])):
         _solutions = set()
-        for values in solutions:
+        for values, dom in solutions:
             H, mapping = [], dict(zip(vars, values))
             for g in G:
                 if g.has_only_gens(var, *vars) and g.degree(var) != 0:
+                    if extension:
+                        g = g.set_domain(g.domain.unify(dom))
                     h = g.ltrim(var).eval(mapping)
                     if g.degree(var) == h.degree():
                         H.append(h)
             p = min(H, key=lambda h: h.degree())
             for zero in _solve_univariate(p):
-                _solutions.add((zero,) + values)
+                if extension and zero not in dom:
+                    dom_zero = _algebraic_field(dom, zero)
+                else:
+                    dom_zero = dom
+                _solutions.add(((zero,) + values, dom_zero))
         solutions = _solutions
-    return sorted(solutions, key=default_sort_key)
+    return sorted((s for s, _ in solutions), key=default_sort_key)
 
 
 def substitution(system,symbols,result=None,known_symbols=(),exclude=(),all_symbols=None):
