@@ -91,12 +91,37 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         from . import besselsimp
         return besselsimp(expression)
     original=expression
+    from . import Abs, sign
+    if expression.func==sign and len(expression.args)==1:
+        # sign._eval_simplify
+        from . import factor_terms
+        return sign(factor_terms(expression.args[0]))
+    if expression.has(Abs):
+        # original_expr = collect_abs(signsimp(expr)) in SymPy
+        from .simplify.radsimp import collect_abs
+        expression=collect_abs(expression)
+        if not isinstance(expression,Expr) or not expression.args:return expression
     if inverse:
         from .simplify.simplify import inversecombine
         expression=inversecombine(expression)
+        if not isinstance(expression,Expr) or not expression.args:return expression
     floats=rational is not False and bool(expression.atoms(Float))
     if floats:expression=nsimplify(expression,rational=True)
+    # SymPy's deep simplification: the arguments of every function node are
+    # simplified bottom-up before the expression itself.
+    expression=_simplify_function_arguments(expression,options)
+    early=_function_head_result(expression,options)
+    if early is not None:return early
     result=_core.simplify(expression)
+    from . import Piecewise
+    # the reference runs its Piecewise block before hyperexpand, so a
+    # Piecewise produced by the post steps (hyperexpand of a meijerg keeps
+    # the meijerg in its last piece) is not simplified piecewise again
+    post_piecewise=False
+    if not kwargs.get('_symox_post'):
+        before=result
+        result=_post_steps(result,original,options)
+        post_piecewise=result is not before and not before.has(Piecewise)
     if measure is count_ops and result.is_Integer and result==0 and isinstance(ratio,(int,float)) and ratio>=0:
         # Zero has no operations: the default ratio test cannot reject it.
         # Avoid traversing the original expression after the native proof.
@@ -129,10 +154,12 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
     if denom.is_Add:
         from . import radsimp,fraction
         n,d=fraction(radsimp(1/denom,symbolic=False,max_terms=1))
-        if n!=1:
+        # SymPy tests n is not S.One; its pipeline reaches a negated
+        # denominator there, so a denominator proven to be a Number (e.g.
+        # 3 - (-1)**(2/3) + (-1)**(1/3) == 4) is also taken.
+        if n!=1 or (d.is_Number and d!=denom):
             result=(numer*n).expand()/d
-    from . import Piecewise
-    if result.has(Piecewise):
+    if not post_piecewise and result.has(Piecewise):
         # the Piecewise block of the reference simplify: fold, simplify the
         # pieces and their conditions, then try factor_terms
         from . import factor_terms
@@ -151,6 +178,78 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         from . import Integral,Sum,Product,Derivative,Limit,Subs
         if result.has(Integral,Sum,Product,Derivative,Limit,Subs):result=result.doit()
     return result
+
+
+def _simplify_function_arguments(expression,options):
+    from ._core import Expr
+    from . import Function, Abs, sign
+    from .core.function import AppliedUndef
+
+    def deep(node):
+        return (isinstance(node,Expr) and node.args and (isinstance(node,Function) or node.func in (Abs,sign))
+                and not node.func.__name__ in ('exp',) and not getattr(node,'is_Piecewise',False)
+                and all(isinstance(a,Expr) for a in node.args))
+    targets=expression.find(deep)
+    if not targets:return expression
+
+    def rebuild(node):
+        if not deep(node):return node
+        new=[simplify(a,**options) if a.args else a for a in node.args]
+        return node.func(*new)
+    try:
+        return expression.replace(deep,rebuild,simultaneous=False)
+    except (NotImplementedError,TypeError,ValueError):
+        return expression
+
+
+# Heads whose SymPy class defines _eval_simplify (or that SymPy's simplify
+# handles as ExpBase): the native search keeps them.
+_NATIVE_HEADS=frozenset(('log','exp','hyper','meijerg','besselj','bessely','besseli','besselk',
+    'hankel1','hankel2','jn','yn','factorial','factorial2','subfactorial','binomial',
+    'RisingFactorial','FallingFactorial','Abs','Piecewise'))
+
+
+def _function_head_result(expression,options):
+    """SymPy returns done(expr) at once when the deep-simplified expression
+    is not an Add, Mul, Pow or exp; sign uses sign._eval_simplify."""
+    from . import Function, sign, factor_terms
+    if not isinstance(expression,Function) or not expression.args:return None
+    name=expression.func.__name__
+    if name in _NATIVE_HEADS or not all(a.is_commutative for a in expression.args):return None
+    rv=expression.doit() if options['doit'] else expression
+    from .simplify.radsimp import collect_abs
+    alternative=collect_abs(rv)
+    measure=options['measure']
+    return alternative if measure(alternative)<measure(rv) else rv
+
+
+def _post_steps(result,original,options):
+    """The SymPy simplify steps after factor_terms that the native search
+    lacks: sign -> Abs, hyperexpand, kroneckersimp and besselsimp."""
+    from ._core import Expr
+    from . import S, sign, Abs, KroneckerDelta, hyper, meijerg
+    from . import besselj,bessely,besseli,besselk,hankel1,hankel2,jn,yn
+    if not isinstance(result,Expr) or not result.args:return result
+    measure=options['measure']
+    changed=result
+    if changed.has(sign):
+        rewritten=changed.rewrite(Abs)
+        if rewritten!=changed:
+            candidate=simplify(rewritten,**options,_symox_post=True)
+            if not candidate.has(sign):changed=candidate
+    if changed.has(hyper,meijerg):
+        from . import hyperexpand
+        changed=hyperexpand(changed)
+    if changed.has(KroneckerDelta):
+        from . import kroneckersimp
+        changed=kroneckersimp(changed)
+    if changed.has(besselj,bessely,besseli,besselk,hankel1,hankel2,jn,yn):
+        from . import besselsimp
+        changed=besselsimp(changed)
+    if changed==result:return result
+    if changed.is_number and changed.is_zero:return S.Zero
+    again=_core.simplify(changed) if isinstance(changed,Expr) else changed
+    return again if measure(again)<=measure(changed) else changed
 
 
 def _relational_simplify(self,options):

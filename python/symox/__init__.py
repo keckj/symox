@@ -4137,3 +4137,5 @@ for _cls, _mod in ((Tuple, 'symox.core.containers'), (AlgebraicNumber, 'symox.co
     except (AttributeError, TypeError):
         pass
 del _cls, _mod
+from . import _matrix_definite  # noqa: E402
+_matrix_definite.install()

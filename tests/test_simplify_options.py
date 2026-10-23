@@ -86,9 +86,15 @@ def test_nsimplify_identify_options_follow_the_reference(options):
     assert sx.nsimplify(1.4142135623730951,**options) == sx.sqrt(2)
 
 
-@pytest.mark.parametrize('tolerance',[0,-1,float('inf'),float('nan')])
+@pytest.mark.parametrize('tolerance',[-1,float('inf'),float('nan')])
 def test_nsimplify_invalid_tolerances(tolerance):
     with pytest.raises(ValueError): sx.nsimplify(.5,tolerance=tolerance)
+
+
+def test_nsimplify_zero_tolerance_uses_pslq():
+    # SymPy 1.14: tolerance=0 selects the pslq fraction search
+    assert sx.nsimplify(.5,tolerance=0)==sx.Rational(1,2)
+    assert sx.nsimplify(-.2222,tolerance=0)==sx.Rational(-1111,5000)
 
 
 def test_nsimplify_existing_constants_and_defaults_preserved():

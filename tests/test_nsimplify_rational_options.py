@@ -43,7 +43,12 @@ def test_symbolic_coefficients_exponents_and_complex_parts(conversion):
 
 def test_high_precision_and_extreme_exponents_do_not_underflow_to_zero():
     tiny=sx.Float('1e-1000',100);large=sx.Float('1e1000',100)
-    assert sx.nsimplify(tiny,rational=True)==sx.Rational(1,10**1000)
+    # SymPy 1.14 recognizes the value with mpmath.identify at the Float's
+    # tolerance: a nonzero fraction within 1e-100 of 10**-1000.
+    rational=sx.nsimplify(tiny,rational=True)
+    assert rational.is_Rational and rational!=0
+    assert rational.to_sympy()==sp.nsimplify(tiny.to_sympy(),rational=True)
+    assert abs(rational*10**1000-1)<sx.Rational(1,10**100)
     assert sx.nsimplify(large,rational=True)==sx.Integer(10**1000)
     third=sx.Float('0.'+'3'*90,100)
     assert sx.nsimplify(third,rational=True)==sx.Rational(1,3)
@@ -72,7 +77,9 @@ def test_invalid_options_and_large_conversion_exponents():
     assert sx.nsimplify(value,rational=False,tolerance=.01)==sx.Rational(1,2)
     assert sx.nsimplify(value,full=True)==sx.Rational(1,2)
     huge_exponent=sx.Float('1e-1000000',20)
-    assert sx.nsimplify(huge_exponent,rational=True)==sx.Rational(1,10**1000000)
+    rational=sx.nsimplify(huge_exponent,rational=True)
+    # SymPy 1.14's mpmath.identify result (slow, as in the reference)
+    assert rational!=0 and abs(rational*10**1000000-1)<sx.Rational(1,10**20)
     exact=sx.nsimplify(huge_exponent,rational=True,rational_conversion='exact')
     assert exact.to_sympy()==sp.Rational(huge_exponent.to_sympy())
 
@@ -101,6 +108,7 @@ value=Float('.1')
 assert nsimplify(value,rational=True)==Rational(1,10)
 assert nsimplify(value,rational=True,rational_conversion='exact')==Rational(3602879701896397,36028797018963968)
 assert nsimplify(Float('3.141592653589793'),rational=True,tolerance=Rational(1,1000))==Rational(355,113)
-assert nsimplify(Float('1e-1000',100),rational=True)==Rational(1,10**1000)
+r=nsimplify(Float('1e-1000',100),rational=True)
+assert r.is_Rational and r!=0 and abs(r*10**1000-1)<Rational(1,10**100)
 '''
     subprocess.run([sys.executable,'-c',source],check=True)

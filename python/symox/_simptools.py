@@ -79,7 +79,40 @@ def radsimp(expr, symbolic=True, max_terms=4):
     if _nc.is_nc(expr):
         result = _nc.masked(lambda e: _core._st_radsimp(e, bool(symbolic), int(max_terms)), expr)
         return _nc_radsimp_tail(expr, result)
+    expr = _radsimp_numeric_denominators(expr)
     return _core._st_radsimp(expr, bool(symbolic), int(max_terms))
+
+
+def _radsimp_numeric_denominators(expr):
+    """The ``d.is_number`` step of SymPy's ``radsimp`` handler.
+
+    A numeric denominator that ``nsimplify`` (``mpmath.identify``) proves
+    to be a Number is replaced by it, e.g. ``3 - (-1)**(2/3) + (-1)**(1/3)``
+    is 4. The native handler only recognizes Float values.
+    """
+    from . import Float, Pow, expand_mul, expand_multinomial
+    if not isinstance(expr, Expr) or not expr.args:
+        return expr
+    from ._numeric_recognition import nsimplify
+
+    def numeric_add_power(node):
+        return (node.is_Pow and node.exp.is_Integer and node.exp.is_negative
+                and node.base.is_Add and node.base.is_number
+                and not node.base.has(Float))
+
+    nodes = expr.find(numeric_add_power) if isinstance(expr, Expr) else ()
+    if not nodes:
+        return expr
+    replacements = {}
+    for node in nodes:
+        base = expand_mul(expand_multinomial(node.base))
+        try:
+            candidate = nsimplify(base)
+        except (ValueError, TypeError, NotImplementedError, ArithmeticError):
+            continue
+        if candidate.is_Number and candidate != base and candidate.equals(base):
+            replacements[node] = candidate**node.exp
+    return expr.xreplace(replacements) if replacements else expr
 
 
 # --- simplify.simplify -----------------------------------------------------
@@ -507,9 +540,23 @@ def _equals(self, other, failing_expression=False):
             return True
         return diff if failing_expression else None
     rv = _core._st_equals(self, other)
-    if rv is None and failing_expression:
+    if rv is None:
         from . import simplify
-        return factor_terms(simplify(self - other), radical=True)
+        diff = factor_terms(simplify(self - other), radical=True)
+        if isinstance(diff, Expr) and diff.is_number:
+            # Expr.equals ends with minimal_polynomial(diff): the symbol
+            # itself proves zero, any other polynomial proves nonzero. The
+            # native model only covers real radicals.
+            from . import minimal_polynomial
+            from .polys.polyerrors import NotAlgebraic
+            try:
+                mp = minimal_polynomial(diff)
+            except (NotAlgebraic, NotImplementedError):
+                mp = None
+            if mp is not None:
+                return bool(mp.is_Symbol)
+        if failing_expression:
+            return diff
     return rv
 
 
