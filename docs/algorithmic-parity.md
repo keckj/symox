@@ -8594,3 +8594,50 @@ Remaining (left unevaluated, never a wrong value):
   AccumBounds(-oo, oo). SymPy gives `oo*sign(AccumBounds(-1, 1))`.
 
 Tests: `tests/test_liminf_parity.py`.
+
+## Integration corpus residue (icorpus, wave 10)
+
+Integration corpus (`tools/integration_corpus.py`) before -> after:
+SAME 1134 -> 1161, EQUIV 46 -> 21, COND 2 -> 0, MISSING 18 -> 18,
+DIFF 10 -> 10. Every change is EQUIV/COND -> SAME.
+
+Fixed:
+- `solve_univariate_inequality` with a generator that has sign assumptions
+  (positive, negative, ...): SymPy keeps a real generator, but its root
+  finding over `S.Reals` ignores the other assumptions. symox used them and
+  turned `k**2 > 1/(4*pi**2)` for a positive `k` into
+  `(k > 1/(2*pi)) | (k < 1/(2*pi))`. That is a wrong set: it contains
+  `0 < k < 1/(2*pi)`. Fixed by solving over a plain real dummy, which also
+  fixes `fourier_transform(sin(x)/x, x, k)` for a positive `k` (the two COND
+  entries) and `reduce_inequalities`.
+- Laplace `t**a` rule: SymPy applies it only when `n > -1` is True. For an
+  open condition it falls back to integration, giving
+  `gamma(a + 1)/(s*s**a)` (and `exp(-t)*t**a` likewise).
+- `meijerint_definite` split points: a bare `x` was treated as a possible
+  boolean and skipped, so the split point 0 was missing. On `(1, oo)`,
+  `1/(x*(1+x))` now gives `log(2)` rather than a meijerg, and `x**a` gives
+  `-1/(a + 1)`.
+
+Remaining (documented causes):
+- MISSING (17): definite integrals with parameters, such as `1/(x+a)`,
+  `1/(x-a)` and `1/(1+a*x)` on (0, 1) and `1/x` on (a, 1). These are
+  intentional holds (see the triage above): SymPy's unconditional value is
+  wrong for some parameter values (a pole in the interval).
+- MISSING (1): `cos(s*x)` on (0, oo) with a nonzero `s`. SymPy returns
+  `sin(oo*sign(s))/s` from its Limit leading-term machinery, and symox
+  leaves `limit(sin(s*x), x, oo)` unevaluated. This is a limit gap, not a
+  wrong value.
+- DIFF (10): `laplace_transform(1/(t+1))`. SymPy's `-exp(-s)*Ei(-s)` is
+  wrong: at s = 1 the true value is e*E1(1) = 0.5963, which equals
+  symox's `-exp(s)*Ei(-s)`. Intentional correction.
+- EQUIV (21), equivalent forms only:
+  - `mellin_transform(besselj(0, x))`: `2**s/2` versus `2**(s - 1)`. Native
+    simplify candidate selection; simplify area.
+  - `cos(x)/x` on (1, oo): a meijerg-reduction form.
+  - `hankel_transform(exp(-a*x)/x)` with real symbols: `Abs(k)/(k*sqrt(..))`
+    versus `1/(k*sqrt(a**2/k**2 + 1))`.
+  - `Heaviside(t-a)*sin(t)`: `cos(a - pi/2)` versus the exp form.
+  - The AccumBounds entries `sin(s*x)` and `cos(s*x)`: they print
+    identically, so this is a comparison artifact.
+
+Tests: `tests/test_icorpus_parity.py`.

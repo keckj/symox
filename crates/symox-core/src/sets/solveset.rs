@@ -1515,6 +1515,26 @@ fn periodic_inequality(ineq: &Expr, x: &Expr, domain: &Expr) -> Option<Result<Ex
 }
 
 fn solve_univariate_inequality_set(ineq: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
+    // SymPy keeps a real generator but its root finding (`solvify` over
+    // `S.Reals`) ignores further assumptions: a positive `k` still gives
+    // `k**2 > 4` as `(-oo, -2) U (2, oo)`. The sign chart filters roots
+    // through the assumptions of `x`, so it runs on a plain real Dummy
+    // (otherwise the root `-2` is dropped and the chart can be wrong:
+    // `k**2 > 1/(4*pi**2)` became `Ne(k, 1/(2*pi))`).
+    if let Some(sym) = x.as_sym() {
+        if crate::assumptions::is_real(x) == Some(true) {
+            let real_x = Expr::dummy("inequality_gen", crate::symbol::Assumptions::REAL);
+            let plain = real_x.as_sym().map(|d| d.assumptions());
+            if plain != Some(sym.assumptions()) {
+                let result = solve_univariate_inequality_inner(&subs1(ineq, x, &real_x), &real_x, domain)?;
+                return Ok(subs1(&result, &real_x, x));
+            }
+        }
+    }
+    solve_univariate_inequality_inner(ineq, x, domain)
+}
+
+fn solve_univariate_inequality_inner(ineq: &Expr, x: &Expr, domain: &Expr) -> Result<Expr, String> {
     match ineq.kind() {
         Kind::Rel(RelOp::Eq, a, b) => return solveset(&sub(a, b), x, domain),
         Kind::Bool(true) => return Ok(domain.clone()),
@@ -1537,7 +1557,7 @@ fn solve_univariate_inequality_set(ineq: &Expr, x: &Expr, domain: &Expr) -> Resu
             let root=mul2(&crate::functions::sign(bound),
                 &crate::ops::pow(&crate::functions::abs(bound),&Expr::rational(1,order)));
             let reduced=crate::relational::rel(direction,base,&root);
-            return solve_univariate_inequality_set(&reduced,x,domain);
+            return solve_univariate_inequality_inner(&reduced,x,domain);
         }
     }
     if let Some(result) = periodic_inequality(ineq, x, domain) {
