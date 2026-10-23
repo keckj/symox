@@ -215,6 +215,25 @@ def evalf(x,prec,options):
                 None if not re else prec,None if not im else prec)
 
 
+def _modular_pow(self, other, mod):
+    """``Expr.__pow__(other, mod)`` of the reference: the integer modular
+    power (with ``mod_inverse`` for a negative exponent), else
+    ``self**other % mod``."""
+    from . import sympify, mod_inverse
+    from .ntheory._intfunc import as_int
+    try:
+        _self, other, mod = as_int(self), as_int(other), as_int(mod)
+        if other >= 0:
+            return sympify(pow(_self, other, mod))
+        return sympify(mod_inverse(pow(_self, -other, mod), mod))
+    except ValueError:
+        power = self**other
+        try:
+            return power % mod
+        except TypeError:
+            return NotImplemented
+
+
 def install(namespace):
     Expr = _core.Expr
     if getattr(Expr,'_public_core_installed',False):
@@ -241,6 +260,8 @@ def install(namespace):
             scalars = (Expr,int,float,complex)
             @wraps(original)
             def operation(self,other,*args):
+                if name == '__pow__' and args and args[0] is not None:
+                    return _modular_pow(self,other,args[0])
                 # Exact built-in numeric types have no symbolic priority or
                 # foreign conversion hooks. Subclasses keep full dispatch.
                 other_type = type(other)

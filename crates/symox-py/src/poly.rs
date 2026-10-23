@@ -3030,6 +3030,7 @@ fn roots(py: Python<'_>, f: &Bound<'_, PyAny>, gens: &Bound<'_, PyTuple>, multip
             match key.as_str(){
                 "cubics"=>options.cubics=value.is_truthy()?,
                 "quartics"=>options.quartics=value.is_truthy()?,
+                "trig"=>options.trig=value.is_truthy()?,
                 "strict"=>strict=value.is_truthy()?,
                 "predicate" if !value.is_none()=>predicate=Some(value),
                 _=>{},

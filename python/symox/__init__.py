@@ -1352,6 +1352,29 @@ class Set(metaclass=_node_types.WrapperType):
     def __ne__(self, other):
         return not self == other
 
+    def as_dummy(self):
+        """``Basic.as_dummy``: bound symbols become canonical dummies."""
+        return _wrap_set(self._e.as_dummy())
+
+    def dummy_eq(self, other, symbol=None):
+        """``Basic.dummy_eq``: equality up to bound symbols and one free
+        Dummy, which is matched with ``symbol`` (or the only free symbol of
+        ``other``)."""
+        s = self._e.as_dummy()
+        o = sympify(_unwrap(other))
+        o = o.as_dummy() if hasattr(o, 'as_dummy') else o
+        dummies = [i for i in s.free_symbols if i.is_Dummy]
+        if len(dummies) != 1:
+            return s == o
+        dummy = dummies[0]
+        if symbol is None:
+            symbols = o.free_symbols
+            if len(symbols) != 1:
+                return s == o
+            symbol = next(iter(symbols))
+        tmp = Dummy()
+        return s.xreplace({dummy: tmp}) == o.xreplace({sympify(_unwrap(symbol)): tmp})
+
     def __hash__(self):
         return hash(self._e)
 
@@ -2257,9 +2280,18 @@ def solveset(f, symbol=None, domain=Complexes):
         split = _solveset_polynomial_abs(f, sympify(symbol), domain)
         if split is not None:
             return split
+        if domain is not None and getattr(sympify(symbol), 'is_Symbol', False):
+            from .solvers._solveset_steps import modular_step
+            modular = modular_step(f, sympify(symbol), _wrap_set(_unwrap(domain)), solveset)
+            if modular is not None:
+                return modular
     result = _wrap_set(_core.solveset(f, symbol, None if domain is None else _unwrap(domain)))
     if isinstance(result, ConditionSet) and symbol is not None:
         alt = _solveset_abs_piecewise(f, sympify(symbol), result)
+        if alt is not None:
+            return alt
+        from .solvers._solveset_steps import radical_step
+        alt = radical_step(f, sympify(symbol), result.base_set, solveset)
         if alt is not None:
             return alt
     return result
@@ -3540,6 +3572,9 @@ def _make_solve_entry(_native):
             return _native(f, *symbols, **flags)
         except NotImplementedError:
             r = _solve_piecewise(solve, f, symbols, flags)
+            if r is None:
+                from .solvers._tsolve_steps import tsolve_step
+                r = tsolve_step(solve, f, symbols, flags)
             if r is None:
                 raise
             return r

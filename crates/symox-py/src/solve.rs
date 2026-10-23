@@ -42,7 +42,7 @@ fn solve_flags(flags: Option<&Bound<'_, PyDict>>) -> PyResult<(bool, bool, bool,
             }
         }
     }
-    Ok((dict, set && !dict, check,symox::poly::roots::RadicalOptions{cubics,quartics:quartics.unwrap_or(cubics),incomplete}))
+    Ok((dict, set && !dict, check,symox::poly::roots::RadicalOptions{cubics,quartics:quartics.unwrap_or(cubics),incomplete,trig:false}))
 }
 
 fn expr_list(o: &Bound<'_, PyAny>) -> PyResult<(Vec<Expr>, bool)> {
