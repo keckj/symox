@@ -184,8 +184,8 @@ def test_rejections_and_disconnected_frames():
     C = CoordSys3D('C')
     with pytest.raises(ValueError):
         CoordSys3D('Q',transformation=lambda u,v,w:(u+v,v,w))
-    with pytest.raises(ValueError):
-        CoordSys3D('Q',rotation_matrix=s.Matrix([[1,0,0],[0,1,0],[0,0,2]]))
+    # Reference SymPy stores the rotation matrix as given (no orthogonality check).
+    assert CoordSys3D('Q2',rotation_matrix=s.Matrix([[1,0,0],[0,1,0],[0,0,2]]))._rotation[2, 2] == 2
     with pytest.raises(TypeError):
         C.i*C.j
     with pytest.raises(TypeError):
@@ -194,8 +194,8 @@ def test_rejections_and_disconnected_frames():
         express(C.i,CoordSys3D('disconnected'))
     with pytest.raises(ValueError):
         scalar_potential(C.x*C.j,C)
-    with pytest.raises(ValueError):
-        QuaternionOrienter(2,0,0,0).rotation_matrix()
+    # Reference SymPy takes the quaternion as given (no unit-norm check).
+    assert QuaternionOrienter(2,0,0,0).rotation_matrix() == 4*s.eye(3)
 
 
 def test_vector_calculus_without_sympy():

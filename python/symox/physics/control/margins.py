@@ -59,8 +59,21 @@ def phase_margin(system):
     mag_sol = _positive_roots(mag,_w,lambda:S.numer(S.cancel(S.expand(w_expr*S.conjugate(w_expr))-1)))
     if len(mag_sol) == 0:pm = S.Integer(-180)
     else:pm = ((S.arg(w_expr)*S.Integer(180)/S.pi).subs({_w:mag_sol[0]})+S.Integer(180)) % 360
-    if pm >= 180:pm = pm-360
+    if _at_least_180(pm):pm = pm-360
     return pm
+
+
+def _at_least_180(pm):
+    # Reference: ``pm >= 180`` decided by SymPy's numeric sign evaluation of
+    # an algebraic constant.  The native relational does not evaluate it, so
+    # decide it from a high-precision value and refuse when it is ambiguous.
+    relation = pm >= 180
+    if relation in (S.true,S.false) or isinstance(relation,bool):
+        return bool(relation)
+    difference = (pm-180).evalf(50)
+    if difference.is_Number and difference.is_real and abs(difference) > S.Float('1e-40'):
+        return bool(difference > 0)
+    raise TypeError('cannot determine truth value of Relational')
 
 
 def gain_margin(system):

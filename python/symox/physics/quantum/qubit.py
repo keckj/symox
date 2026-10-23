@@ -8,7 +8,8 @@ from .._algebra import Atom,OperatorExpr,_terms
 class Qubit(Ket):
     is_orthogonal=True
     def __init__(self,*bits):
-        if len(bits)==1 and isinstance(bits[0],str):bits=tuple(bits[0])
+        if len(bits)==1 and isinstance(bits[0],Qubit):bits=tuple(bits[0].qubit_values)
+        elif len(bits)==1 and isinstance(bits[0],str):bits=tuple(bits[0])
         elif len(bits)==1 and isinstance(bits[0],(list,tuple)):bits=tuple(bits[0])
         self.qubit_values=tuple(S.sympify(v) for v in bits)
         if not bits or any(v not in (0,1) for v in self.qubit_values):raise ValueError('qubit labels must be 0 or 1')

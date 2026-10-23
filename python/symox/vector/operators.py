@@ -33,11 +33,13 @@ def gradient(scalar_field,doit=True):
     if isinstance(scalar_field,(Vector,Dyadic)):
         raise TypeError('gradient requires a scalar field')
     scalar_field = sympify(scalar_field)
+    # Reference gradient: a field free of base scalars has the zero
+    # gradient, whether or not doit is requested.
+    if not _get_coord_systems(scalar_field):
+        return Vector.zero
     if not doit:
         return Gradient(scalar_field)
     system = _system(scalar_field)
-    if system is None:
-        return Vector.zero
     from .functions import express
     scalar_field = express(scalar_field,system,variables=True)
     return sum((simplify(scalar_field.diff(x)/h)*b for x,h,b in zip(system.base_scalars(),system.lame_coefficients(),system.base_vectors())),Vector.zero)

@@ -5,6 +5,9 @@ import symox as S
 class RayTransferMatrix:
     _symox_matrixexpr = True
     def __init__(self,*args):
+        # Reference constructor: the four elements A, B, C, D, or one 2x2 matrix.
+        if len(args) == 4:
+            args = ([[args[0], args[1]], [args[2], args[3]]],)
         self._matrix = S.Matrix(*args)
         if self._matrix.shape!=(2,2):raise ValueError('ray transfer matrix must be 2 by 2')
     def _symox_(self):return S.MatrixExpr(self._matrix)

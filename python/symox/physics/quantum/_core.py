@@ -486,6 +486,12 @@ class TensorProductAtom(Atom):
         if not isinstance(state,TensorProductAtom) or len(self.factors)!=len(state.factors):return None
         return TensorProduct(*(qapply(a*b,**options) for a,b in zip(self.factors,state.factors)))
     def _represent(self,**options):return S.kronecker_product(*(represent(v,**options) for v in self.factors))
+    def rewrite(self,*args,**hints):
+        # Reference TensorProduct._eval_rewrite: rewrite the factors, then
+        # distribute the tensor product over the resulting sums.
+        factors=[v.rewrite(*args,**hints) if hasattr(v,'rewrite') else v for v in self.factors]
+        result=TensorProduct(*factors)
+        return result.expand(tensorproduct=True) if hasattr(result,'expand') else result
     def expand(self,**hints):
         # Expr.expand (deep) then TensorProduct._eval_expand_tensorproduct:
         # distribute over the first sum among the factors, recursively.
@@ -603,15 +609,33 @@ class Wavefunction(KetBase):
         # Reference Wavefunction._eval_derivative differentiates the expression.
         return Wavefunction(S.diff(self.expr,var),*self._limits)
     def _subs_parameters(self,mapping,**kwargs):return Wavefunction(self.expr.subs(mapping,**kwargs),*self._limits)
-    def __call__(self,*values):
-        if len(values)!=len(self.variables):raise ValueError('wrong number of wavefunction coordinates')
-        for value,(var,a,b) in zip(values,self._limits):
-            condition=S.And(S.sympify(value)>=a,S.sympify(value)<=b)
-            if condition==S.false:return S.Integer(0)
-        return self.expr.subs(dict(zip(self.variables,values)),simultaneous=True)
-    def prob(self):return S.conjugate(self.expr)*self.expr
+    def __call__(self,*args,**options):
+        # Reference Wavefunction.__call__: zero outside the domain, keyword
+        # values substitute the expression's parameters by name.
+        var=self.variables
+        if len(args)!=len(var):raise NotImplementedError("Incorrect number of arguments to function!")
+        ct=0
+        for v in var:
+            lower,upper=self.limits[v]
+            if isinstance(args[ct],S.Expr) and not (lower in args[ct].free_symbols or upper in args[ct].free_symbols):
+                continue
+            if (args[ct]<lower)==True or (args[ct]>upper)==True:
+                return S.Integer(0)
+            ct+=1
+        expr=self.expr
+        for symbol in list(expr.free_symbols):
+            if str(symbol) in options.keys():
+                expr=expr.subs(symbol,options[str(symbol)])
+        return expr.subs(list(zip(var,args)))
+    def prob(self):
+        # Reference prob(): the density as a Wavefunction of the bare coordinates.
+        return Wavefunction(self.expr*S.conjugate(self.expr),*self.variables)
     @property
-    def norm(self):return S.sqrt(S.integrate(self.prob(),*self._limits))
+    def norm(self):
+        # Reference norm: iterated integrals of expr*conjugate(expr).
+        value=self.expr*S.conjugate(self.expr)
+        for var,a,b in self._limits:value=S.integrate(value,(var,a,b))
+        return S.sqrt(value)
     @property
     def is_normalized(self):return S.simplify(self.norm-1)==0
     def normalize(self):return Wavefunction(self.expr/self.norm,*self._limits)

@@ -4,7 +4,12 @@ from .. import (sympify, Symbol, Poly, solve, simplify, diff, FiniteSet,
                 EmptySet, Tuple, sqrt, sin, cos, pi, Equality)
 
 
-class ImplicitRegion:
+from ._implicitregion_ref import _ReferenceImplicitRegion, conic_coeff  # noqa: F401
+
+
+class ImplicitRegion(_ReferenceImplicitRegion):
+    # regular_point, singular_points, multiplicity and
+    # rational_parametrization follow the reference algorithms.
     def __init__(self,variables,equation):
         self.variables = tuple(sympify(x) for x in variables)
         if not self.variables or len(self.variables) > 3 or any(not x.is_Symbol for x in self.variables) or len(set(self.variables)) != len(self.variables):
@@ -16,71 +21,29 @@ class ImplicitRegion:
     def __repr__(self):
         return 'ImplicitRegion(%s, %s)' % (self.variables,self.equation)
 
-    @property
-    def degree(self):
-        return Poly(self.equation,*self.variables).total_degree()
-
-    def singular_points(self):
-        equations = [self.equation]+[self.equation.diff(x) for x in self.variables]
-        if all(simplify(e) == 0 for e in equations):
-            raise NotImplementedError('positive-dimensional singular loci are not represented')
-        if any(e.is_number and e != 0 for e in equations):
-            return EmptySet
-        solutions = solve(equations,self.variables,dict=True)
-        if any(any(x not in solution for x in self.variables) for solution in solutions):
-            raise NotImplementedError('positive-dimensional singular loci are not represented')
-        return FiniteSet(*(Tuple(*(solution[x] for x in self.variables)) for solution in solutions))
-
-    def regular_point(self):
-        # Deterministic finite search followed by an exact univariate solve.
-        # Failure is explicit rather than claiming the real locus is empty.
-        last = self.variables[-1]
-        for values in product((0,1,-1,2,-2,3,-3),repeat=len(self.variables)-1):
-            substitutions = dict(zip(self.variables[:-1],values))
-            reduced = self.equation.subs(substitutions,simultaneous=True)
-            roots = solve(reduced,last) if reduced != 0 else [sympify(0),sympify(1)]
-            for root in roots:
-                if root.is_real is False or root.free_symbols & set(self.variables):
-                    continue
-                candidate = values+(root,)
-                mapping = dict(zip(self.variables,candidate))
-                if simplify(self.equation.subs(mapping,simultaneous=True)) == 0 and any(simplify(self.equation.diff(x).subs(mapping,simultaneous=True)) != 0 for x in self.variables):
-                    return tuple(sympify(v) for v in candidate)
-        raise NotImplementedError('no regular point found by the finite exact search')
-
-    def rational_parametrization(self,parameters=('t','s')):
-        if self.degree > 2:
-            raise NotImplementedError('rational parametrization is implemented for linear equations and quadrics')
-        if isinstance(parameters,(str,)) or getattr(parameters,'is_Symbol',False):
-            parameters = (parameters,)
-        count = len(self.variables)-1
-        if len(parameters) < count:
-            raise ValueError('insufficient parameters')
-        params = tuple(Symbol(p,real=True) if isinstance(p,str) else sympify(p) for p in parameters[:count])
-        if set(params) & set(self.variables) or len(set(params)) != len(params):
-            raise ValueError('parameters must be distinct from region coordinates')
-        if self.degree == 1:
+    def rational_parametrization(self,parameters=('t','s'),reg_point=None):
+        # The reference raises NotImplementedError for a plane in three
+        # variables; solving the linear equation for its last variable is
+        # an exact extension kept from the previous implementation.
+        if self.degree == 1 and len(self.variables) == 3:
+            if isinstance(parameters,str) or getattr(parameters,'is_Symbol',False):
+                parameters = (parameters,)
+            if len(parameters) < 2:
+                raise ValueError('insufficient parameters')
+            params = tuple(Symbol(p,real=True) if isinstance(p,str) else sympify(p) for p in parameters[:2])
+            if set(params) & set(self.variables) or len(set(params)) != 2:
+                raise ValueError('parameters must be distinct from region coordinates')
             variable = next(x for x in reversed(self.variables) if self.equation.diff(x) != 0)
             others = [x for x in self.variables if x != variable]
             mapping = dict(zip(others,params))
-            values = solve(self.equation,variable)
-            mapping[variable] = values[0].subs(mapping,simultaneous=True)
+            mapping[variable] = solve(self.equation,variable)[0].subs(mapping,simultaneous=True)
             return tuple(mapping[x] for x in self.variables)
-        point = self.regular_point()
-        u = Symbol('_line_parameter')
-        # Select a direction chart where the second intersection is not
-        # identically degenerate (e.g. at a vertex of a parabola).
-        for fixed in range(len(self.variables)-1,-1,-1):
-            direction = list(params)
-            direction.insert(fixed,sympify(1))
-            line = [p+u*d for p,d in zip(point,direction)]
-            polynomial = Poly(self.equation.subs(dict(zip(self.variables,line)),simultaneous=True).expand(),u)
-            quadratic = polynomial.nth(2)
-            if quadratic == 0:
-                continue
-            distance = simplify(-polynomial.nth(1)/quadratic)
-            return tuple(simplify(p+distance*d) for p,d in zip(point,direction))
-        raise NotImplementedError('the chosen quadric has no nondegenerate line parametrization')
+        return super().rational_parametrization(parameters,reg_point)
+
+    @property
+    def degree(self):
+        from ..polys import total_degree
+        return total_degree(self.equation)
 
     def _parametric_regions(self,parameters=None):
         from .parametricregion import ParametricRegion

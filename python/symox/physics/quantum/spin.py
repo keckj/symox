@@ -34,6 +34,38 @@ class _SpinState:
         # Bras use the conjugate transpose of the dual ket representation.
         if self.is_bra:return self._dual()._represent(**options).conjugate().T
         return self._represent_ket(**options)
+    def rewrite(self,*args,**options):
+        # Reference SpinState._eval_rewrite_as_J{x,y,z}: expand the state in
+        # the eigenbasis of another axis.
+        if not args:return self
+        rule=args[-1]
+        name=rule if isinstance(rule,str) else getattr(rule,'__name__',None)
+        if name not in ('Jx','Jy','Jz'):return self
+        axis=name[1]
+        coupled=isinstance(self,_CoupledSpinState)
+        if coupled:evect=(_COUPLED_BRA if self.is_bra else _COUPLED_KET)[axis]
+        else:evect=(_BRA if self.is_bra else _KET)[axis]
+        return self._rewrite_basis({'x':Jx,'y':Jy,'z':Jz}[axis],evect,**options)
+    def _rewrite_basis(self,basis,evect,**options):
+        j=self.j
+        coupled=isinstance(self,_CoupledSpinState)
+        if not j.is_number:
+            # The reference returns Sum(WignerD*state, (mi, -j, j)), which
+            # the native Sum cannot hold with quantum states.
+            raise NotImplementedError('rewriting a spin state of symbolic j (a Sum over m values) is not supported')
+        if coupled:
+            start=j**2 if j==int(j) else (2*j-1)*(2*j+1)/4
+            extra=(self.jn,tuple(self.jcoupling))
+        else:
+            start=0;extra=()
+        rep_options={k:v for k,v in options.items() if k!='coupled'}
+        vect=represent(self,basis=basis,**rep_options)
+        result=S.Integer(0)
+        for i in range(int(2*j+1)):
+            result+=vect[int(start)+i]*evect(j,j-i,*extra)
+        if coupled and options.get('coupled') is False:
+            return uncouple(result)
+        return result
 class JzKet(OrthogonalKet,_SpinState):
     def __init__(self,j,m):self._spin_init(j,m);super().__init__(self.j,self.m)
     def _dual(self):return _BRA[self.axis](self.j,self.m)

@@ -58,9 +58,8 @@ class QuaternionOrienter:
 
     def rotation_matrix(self):
         a,b,c,d = self.q0,self.q1,self.q2,self.q3
-        norm = simplify(a*a+b*b+c*c+d*d)
-        if norm != 1:
-            raise ValueError('quaternion must have unit norm')
+        # The reference orienter takes the quaternion as given, with no
+        # normalisation or unit-norm check.
         return Matrix([[a*a+b*b-c*c-d*d,2*(b*c+a*d),2*(b*d-a*c)],
                        [2*(b*c-a*d),a*a-b*b+c*c-d*d,2*(c*d+a*b)],
                        [2*(b*d+a*c),2*(c*d-a*b),a*a-b*b-c*c+d*d]])

@@ -51,8 +51,8 @@ class CoordSys3D:
         self._rotation = Matrix.eye(3) if rotation_matrix is None else Matrix(rotation_matrix)
         if self._rotation.shape != (3,3):
             raise ValueError('rotation matrix must be 3 by 3')
-        if any(simplify((self._rotation*self._rotation.T)[i,j]-(1 if i == j else 0)) != 0 for i in range(3) for j in range(3)) or simplify(self._rotation.det()-1) != 0:
-            raise ValueError('rotation matrix must be a proper orthogonal matrix')
+        # The reference constructor stores the rotation matrix as given
+        # (orient_new_quaternion with a non-unit quaternion included).
         self._location = Vector.zero if location is None else location
         if not isinstance(self._location,Vector):
             raise TypeError('location must be a Vector')
