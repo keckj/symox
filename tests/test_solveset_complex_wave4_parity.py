@@ -155,11 +155,18 @@ def test_complete_where_reference_is_not(source, expected):
         assert abs(complex(sx.N(f.subs(x, complex(re_, im_)), 20))) < 1e-6
 
 
-@pytest.mark.parametrize('source', ['2**x - 3**x', '2**x*3**x - 6', 'x**x - 1',
+@pytest.mark.parametrize('source', ['2**x - 3**x', '2**x*3**(2*x) - 6', 'x**x - 1',
                                     'exp(x) - x', '2**x - x'])
 def test_undecided_is_condition_set(source):
     # never an incomplete finite set: 2**x = 3**x also holds at 2*I*pi*n/log(3/2)
     assert isinstance(solveset(source, 'Complexes'), sx.ConditionSet)
+
+
+def test_combined_numeric_bases_are_one_base():
+    # 2**x*3**x is 6**x, as in SymPy; 6**x - 6 is then solved through
+    # exp(x*log(6)) (documented divergence: SymPy returns a ConditionSet)
+    assert str(solveset('2**x*3**x - 6', 'Complexes')) == \
+        'ImageSet(Lambda(_n, 2*_n*I*pi/log(6) + 1), Integers)'
 
 
 SYSTEMS = [

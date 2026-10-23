@@ -265,8 +265,8 @@ fn has_trig_or_hyperbolic(e: &Expr) -> bool {
 
 /// The candidate of SymPy's own sequence of rewrites for an expression of
 /// sums, products and powers: the shortest state of the rational steps,
-/// `factor_terms(sign=False)`, `trigsimp(deep=True)` (Fu's `futrig`), the
-/// `powsimp`, `cancel`, `factor_terms` and `expand_power_exp(expand_mul)`
+/// `factor_terms(sign=False)`, `trigsimp(deep=True)` (Fu's `futrig`),
+/// `combsimp` for gamma and combinatorial functions, the `powsimp`, `cancel`, `factor_terms` and `expand_power_exp(expand_mul)`
 /// shorter steps, `exptrigsimp` and the `hollow_mul` pass. The native search
 /// can expand factored powers of a sum with trigonometric terms into
 /// multiple-angle sums, where this sequence keeps them factored, as SymPy
@@ -282,6 +282,10 @@ fn reference_sequence(e: &Expr) -> Option<Expr> {
     // (log(4)/2 becomes log(2)).
     if has_log(&expr) {
         expr = shorter(&[crate::simp::expand_log(&expr, false), crate::simp::logcombine(&expr, false)]);
+    }
+    // `if expr.has(CombinatorialFunction, gamma): expr = combsimp(expr)`.
+    if has_gamma_or_combinatorial(&expr) {
+        expr = crate::simptools::gammasimp::combsimp(&expr);
     }
     let short = shorter(&[
         crate::simptools::powsimp::powsimp(&expr, &PowsimpOptions { deep: true, combine: Combine::Exp, force: false }),

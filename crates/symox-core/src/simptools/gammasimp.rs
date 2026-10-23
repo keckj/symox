@@ -211,25 +211,12 @@ fn normalize_gammas(e: &Expr) -> Expr {
     })
 }
 
-/// SymPy's `factor` builds a polynomial from every factor base with
-/// `expr.expand()`, so function arguments come out expanded.
-fn expand_bases(e: &Expr) -> Expr {
-    let parts: Vec<Expr> = mul_args(e)
-        .into_iter()
-        .map(|a| match a.kind() {
-            Kind::Num(_) => a.clone(),
-            Kind::Pow(b, _) if b.is_number() || b.is_constant(crate::expr::Constant::E) => a.clone(),
-            Kind::Pow(b, x) => ops::pow(&full_expand(b), x),
-            Kind::Piecewise(_) => a.clone(),
-            _ => full_expand(&a),
-        })
-        .collect();
-    ops::mul(&parts)
-}
-
+/// `factor(expr)`. SymPy's `factor` runs `together` on the whole product
+/// before it expands each factor base into a polynomial; expanding the
+/// bases first changes the result once numeric-base powers combine
+/// (`2**s*6**s` is `12**s`).
 fn factor(e: &Expr) -> Expr {
-    let e = expand_bases(e);
-    crate::poly::api::factor(&e).unwrap_or(e)
+    crate::poly::api::factor(e).unwrap_or_else(|_| e.clone())
 }
 
 /// `expand_func(gamma(n))` for a Rational `n`.

@@ -816,6 +816,16 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
         }
     }
     if scalar_zero && scalar_infinite { return Expr::nan(); }
+    // Mul.flatten reads a power through Pow.as_base_exp, which turns
+    // (1/q)**e into q**(-e); for a non-rational exponent the factor then
+    // joins num_exp with base q, so x*(1/2)**n = x*2**(-n).
+    for factor in facs.iter_mut() {
+        if let Kind::Num(n) = factor.0.kind() {
+            if n.is_rational() && !n.is_integer() && n.numer().is_one() && !factor.1.is_rational_number() {
+                *factor = (Expr::num(n.denom()), neg(&factor.1));
+            }
+        }
+    }
     facs.sort_unstable_by(cmp_factor);
     // merge equal bases
     let mut merged: Vec<(Expr, Expr, bool)> = Vec::with_capacity(facs.len());
@@ -963,8 +973,27 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
         }
     }
 
+    // Mul.flatten's num_exp: powers of a nonzero finite Number base with a
+    // non-rational exponent, kept when the base is positive or the exponent
+    // an integer. After gathering equal bases, the bases sharing one
+    // exponent multiply: 2**x*3**x = 6**x, (-2)**k*(-3)**k = 6**k.
+    let num_exp_base = |b: &Expr, e: &Expr| match b.kind() {
+        Kind::Num(n) => !n.is_zero() && !e.is_rational_number()
+            && !matches!(n, Number::Float(value) if !value.is_finite())
+            && (n.is_positive() || crate::assumptions::is_integer(e) == Some(true)),
+        _ => false,
+    };
+    let mut num_exp: Vec<(Expr, Number)> = Vec::new();
     for (b, e, was_merged) in merged {
         if e.is_zero() {
+            continue;
+        }
+        if num_exp_base(&b, &e) {
+            let n = b.as_number().unwrap();
+            match num_exp.iter_mut().find(|(exponent, _)| *exponent == e) {
+                Some((_, product)) => *product = product.mul(n),
+                None => num_exp.push((e, n.clone())),
+            }
             continue;
         }
         if e.is_one() && !b.is_number() {
@@ -995,6 +1024,15 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
                 coeff = coeff.mul(c);
                 radicals.extend(fs.iter().cloned());
             }
+            _ => pending.push(v),
+        }
+    }
+    for (e, product) in num_exp {
+        let b = Expr::num(product);
+        let v = pow(&b, &e);
+        match v.kind() {
+            Kind::Pow(vb, ve) if *vb == b => out.push((b, ve.clone())),
+            Kind::Num(n) => coeff = coeff.mul(n),
             _ => pending.push(v),
         }
     }
