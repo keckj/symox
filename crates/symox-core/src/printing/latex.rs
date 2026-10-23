@@ -41,6 +41,10 @@ pub struct LatexSettings {
     /// Print `a / b` instead of `\frac{a}{b}` for short fractions
     /// (default: only in inline mode).
     pub fold_short_frac: Option<bool>,
+    /// SymPy's `long_frac_ratio`: the allowed ratio of the numerator width
+    /// to the denominator width before a long fraction is broken off
+    /// (`None`, the default, never breaks).
+    pub long_frac_ratio: Option<f64>,
     pub fold_frac_powers: bool,
     pub fold_func_brackets: bool,
     pub inv_trig_style: InvTrigStyle,
@@ -62,6 +66,7 @@ impl Default for LatexSettings {
             mode: LatexMode::Plain,
             mul_symbol: None,
             fold_short_frac: None,
+            long_frac_ratio: None,
             fold_frac_powers: false,
             fold_func_brackets: false,
             inv_trig_style: InvTrigStyle::Abbreviated,
@@ -617,6 +622,10 @@ impl<'a> LatexPrinter<'a> {
                 } else {
                     tex.push_str(&format!("{snumer} / {sdenom}"));
                 }
+            } else if let Some(ratio) =
+                self.s.long_frac_ratio.filter(|r| snumer.split_whitespace().count() as f64 > r * ldenom as f64)
+            {
+                tex.push_str(&self.long_fraction(&numer, &snumer, &sdenom, ratio * ldenom as f64));
             } else {
                 tex.push_str(&format!("\\frac{{{snumer}}}{{{sdenom}}}"));
             }
@@ -625,6 +634,53 @@ impl<'a> LatexPrinter<'a> {
             tex.push(')');
         }
         tex
+    }
+
+    /// `convert()` of SymPy's `_print_Mul` on one expression.
+    fn convert_expr(&self, e: &Expr) -> String {
+        if e.is_mul() {
+            self.convert_args(&ordered_factors(e))
+        } else {
+            self.print(e)
+        }
+    }
+
+    /// SymPy's `_needs_mul_brackets(expr, last=True)` for a numerator.
+    fn needs_mul_brackets_last(&self, e: &Expr) -> bool {
+        self.needs_mul_brackets(e, false)
+    }
+
+    /// The long-fraction branch of SymPy's `_print_Mul` (`long_frac_ratio`).
+    fn long_fraction(&self, numer: &[Expr], snumer: &str, sdenom: &str, width: f64) -> String {
+        let sep = &self.sep;
+        let numer_expr = crate::ops::mul(numer);
+        if self.needs_mul_brackets_last(&numer_expr) {
+            return format!("\\frac{{1}}{{{sdenom}}}{sep}\\left({snumer}\\right)");
+        }
+        if numer_expr.is_mul() {
+            // Split a long numerator: the factors that keep it short enough
+            // stay above the bar.
+            let mut a = Expr::one();
+            let mut b = Expr::one();
+            for x in ordered_factors(&numer_expr) {
+                let ax = crate::ops::mul2(&a, &x);
+                let noncommuting = !crate::decompose::commutes(&b) && !crate::decompose::commutes(&x);
+                if self.needs_mul_brackets(&x, false)
+                    || self.convert_expr(&ax).split_whitespace().count() as f64 > width
+                    || noncommuting
+                {
+                    b = crate::ops::mul2(&b, &x);
+                } else {
+                    a = ax;
+                }
+            }
+            let (sa, sb) = (self.convert_expr(&a), self.convert_expr(&b));
+            if self.needs_mul_brackets_last(&b) {
+                return format!("\\frac{{{sa}}}{{{sdenom}}}{sep}\\left({sb}\\right)");
+            }
+            return format!("\\frac{{{sa}}}{{{sdenom}}}{sep}{sb}");
+        }
+        format!("\\frac{{1}}{{{sdenom}}}{sep}{snumer}")
     }
 
     fn print_pow(&self, e: &Expr, b: &Expr, x: &Expr) -> String {

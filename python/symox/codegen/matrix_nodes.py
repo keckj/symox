@@ -8,6 +8,8 @@ class MatrixSolve:
         self.A,self.b=A,b;self.args=(A,b)
     @property
     def shape(self):return self.b.shape
+    matrix=property(lambda self:self.A)
+    vector=property(lambda self:self.b)
     rows=property(lambda self:self.b.rows)
     cols=property(lambda self:self.b.cols)
     free_symbols=property(lambda self:self.A.free_symbols|self.b.free_symbols)

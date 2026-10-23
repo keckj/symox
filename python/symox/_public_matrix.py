@@ -132,7 +132,8 @@ class IndexConformanceException(ValueError):
 def _as_indexed(expr):
     from .codegen.ast import Indexed
     if isinstance(expr,Indexed):return expr
-    try:return _indexed.get(expr)
+    from .codegen.ast import _INDEXED_SYMBOLS
+    try:return _indexed.get(expr) or _INDEXED_SYMBOLS.get(expr)
     except TypeError:return None
 
 
@@ -323,6 +324,8 @@ def install(namespace):
             if self.base.shape is not None or len(self.indices) == 1:raise
             from . import Symbol
             value = Symbol(str(self))
+            from .codegen.ast import _INDEXED_SYMBOLS
+            _INDEXED_SYMBOLS.setdefault(value,self)
         _indexed[value] = self
         return value
     Indexed._symox_ = expression

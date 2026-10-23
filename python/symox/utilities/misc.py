@@ -24,8 +24,17 @@ def debug_decorator(func):
     return wrapped
 
 def find_executable(executable,path=None):return _which(executable,path=path)
+def _dense_matrix_name(x):
+    # The mutable and immutable dense matrices share the native class, which
+    # SymPy names MutableDenseMatrix and ImmutableDenseMatrix.
+    from symox import _core,ImmutableMatrix
+    if x is _core.Matrix:return 'MutableDenseMatrix'
+    if x is ImmutableMatrix:return 'ImmutableDenseMatrix'
+    if type(x) is _core.Matrix:return 'ImmutableDenseMatrix' if x._immutable else 'MutableDenseMatrix'
+    return None
+
 def func_name(x,short=False):
-    name=getattr(x,'class_name',None) or getattr(getattr(x,'func',x),'__name__',type(x).__name__)
+    name=_dense_matrix_name(x) or getattr(x,'class_name',None) or getattr(getattr(x,'func',x),'__name__',type(x).__name__)
     aliases={'GreaterThan':'Ge','StrictGreaterThan':'Gt','LessThan':'Le','StrictLessThan':'Lt','Equality':'Eq','Unequality':'Ne'}
     return aliases.get(name,name) if short else name
 

@@ -412,6 +412,17 @@ def install(namespace):
         if self.class_name == 'Permanent':
             matrix = self.args[0]
             if getattr(matrix, '_kind_tag', None) == 'ImmutableMatrix':return matrix.as_explicit().per()
+        if kwargs.get('deep',True) and isinstance(self,Expr):
+            # The native doit does not reach the Python RootSum hook, so a
+            # deep doit evaluates nested RootSum nodes first, as
+            # Basic.doit does through each argument's doit.
+            sums = [node for node in _special_nodes(self) if node.class_name == 'RootSum']
+            if sums:
+                replacements = {}
+                for node in sums:
+                    value = node.doit(*args,**kwargs)
+                    if value != node:replacements[node] = value
+                if replacements:self = self.xreplace(replacements)
         result = old_doit(self,*args,**kwargs)
         # Basic.doit rebuilds the node from its evaluated arguments, so an
         # unevaluated relation such as Eq(2, 5, evaluate=False) evaluates.

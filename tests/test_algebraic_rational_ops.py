@@ -141,8 +141,9 @@ def test_noninvertible_zero_and_unsupported_are_explicit():
         sm.invert(0,x+a,x,extension=a)
     with pytest.raises(ZeroDivisionError):
         sm.invert(0,0,x,extension=a)
+    # Supported since the full=True port; SymPy 1.14 output.
+    assert str(sm.apart(1/(x*x-2),x,extension=a,full=True))=='RootSum(_w**2 - 2, Lambda(_a, _a/(-_a + x)))/4'
     for call in [lambda:sm.gcdex(x+y,x-y,x,y,extension=a),
-                 lambda:sm.apart(1/(x*x-2),x,extension=a,full=True),
                  lambda:sm.apart(1/(y*x*x-2),x,extension=a),
                  lambda:sm.invert(x+a,x*x-3,x,extension=a,modulus=5)]:
         with pytest.raises((NotImplementedError,ValueError,TypeError)):

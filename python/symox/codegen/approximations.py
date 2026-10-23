@@ -1,4 +1,5 @@
 """Bounded polynomial and small-term approximations for numerical expressions."""
+import math
 from itertools import product
 import symox as S
 from .rewriting import Optimization
@@ -46,22 +47,37 @@ class SumApprox(Optimization):
 
 
 class SeriesApprox(Optimization):
+    """Replace one-variable function calls by a truncated series (sympy.codegen.approximations)."""
     def __init__(self,bounds,reltol,max_order=4,n_point_checks=4,**kwargs):
-        super().__init__(**kwargs);self.bounds=dict(bounds);self.reltol=float(reltol);self.max_order=int(max_order);self.n_point_checks=int(n_point_checks)
+        super().__init__(**kwargs)
+        self.bounds=bounds;self.reltol=reltol;self.max_order=max_order
+        if n_point_checks%2==1:
+            raise ValueError("Checking the solution at expansion point is not helpful")
+        self.n_point_checks=n_point_checks
+        self._prec=math.ceil(-math.log10(self.reltol))
     def __call__(self,expr):
-        variables=sorted(expr.free_symbols,key=str)
-        if len(variables)!=1 or variables[0] not in self.bounds:return expr
-        x=variables[0];a,b=map(float,self.bounds[x]);count=max(2,self.n_point_checks)
-        points=[a+(b-a)*i/(count-1) for i in range(count)]
-        for order in range(1,self.max_order+1):
-            try:
-                polynomial=S.series(expr,x,0,order).removeO()
-                if not polynomial.is_polynomial(x):continue
-                error=0.
-                for point in points:
-                    exact=complex(expr.subs(x,point).evalf());approx=complex(polynomial.subs(x,point).evalf())
-                    error=max(error,abs(approx-exact)/max(abs(exact),1e-300))
-                if error<=self.reltol:return polynomial
-            except (ValueError,TypeError,NotImplementedError):continue
-        return expr
+        return expr.factor().replace(self.query,lambda arg:self.value(arg))
+    def query(self,expr):
+        # The reference's UndefinedFunction instance test never holds for an
+        # applied function, so every one-argument function call qualifies.
+        return expr.is_Function and len(expr.args)==1
+    def value(self,fexpr):
+        free_symbols=fexpr.free_symbols
+        if len(free_symbols)!=1:return fexpr
+        symb,=free_symbols
+        if symb not in self.bounds:return fexpr
+        lo,hi=self.bounds[symb]
+        x0=(lo+hi)/2
+        cheapest=None
+        for n in range(self.max_order+1,0,-1):
+            fseri=fexpr.series(symb,x0=x0,n=n).removeO()
+            n_ok=True
+            for idx in range(self.n_point_checks):
+                x=lo+idx*(hi-lo)/(self.n_point_checks-1)
+                val=fseri.xreplace({symb:x});ref=fexpr.xreplace({symb:x})
+                if abs((1-val/ref).evalf(self._prec))>self.reltol:
+                    n_ok=False;break
+            if n_ok:cheapest=fseri
+            else:break
+        return fexpr if cheapest is None else cheapest
 __all__=['SumApprox','SeriesApprox']

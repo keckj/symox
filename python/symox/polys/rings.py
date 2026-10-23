@@ -100,6 +100,10 @@ class PolyRing:
 
 
 class PolyElement:
+    # Expressions on the left defer to the element, as the reference
+    # ``Expr`` binary methods return ``NotImplemented`` for it.
+    _op_priority = 10.1
+
     def __init__(self, ring, value):
         self.ring, self._value = ring, value
 
@@ -120,7 +124,7 @@ class PolyElement:
         return self.as_expr().to_sympy()
 
     def __repr__(self):
-        return str(self.as_expr())
+        return _poly_element_str(self)
 
     def __hash__(self):
         return hash((self.ring,self._value))
@@ -311,6 +315,101 @@ def vring(symbols, domain, order=lex):
     return R
 
 
+def _parenthesize(item, level, strict):
+    """``StrPrinter.parenthesize`` over expressions and ring elements."""
+    from ..printing.str import sstr
+    text, prec = _element_text(item)
+    if prec < level or (not strict and prec <= level):
+        return "(%s)" % text
+    return text
+
+
+def _element_text(item):
+    from ..printing.str import sstr
+    from ..printing.precedence import precedence, PRECEDENCE
+    if isinstance(item, PolyElement):
+        return _poly_element_str(item), _poly_element_precedence(item)
+    from .fields import FracElement
+    if isinstance(item, _Coefficient):
+        domain, coeff = item
+        if getattr(domain, 'is_ZZ', False) or getattr(domain, 'is_QQ', False) \
+                or getattr(domain, 'is_RR', False) or getattr(domain, 'is_CC', False):
+            # Ground elements print natively (``1/2``, ``2.5``).
+            return str(coeff), precedence(domain.to_sympy(coeff))
+        return _element_text(domain.to_sympy(coeff))
+    if isinstance(item, FracElement):
+        prec = (_poly_element_precedence(item.numer) if item.denom == 1
+                else PRECEDENCE["Mul"])
+        return repr(item), prec
+    return sstr(item), precedence(item)
+
+
+class _Coefficient(tuple):
+    """A ``(domain, element)`` pair printed like the reference raw coefficient."""
+
+
+def _poly_element_precedence(item):
+    """The reference ``precedence_PolyElement``."""
+    from ..printing.precedence import precedence, PRECEDENCE
+    terms = item.terms()
+    zm = item.ring.zero_monom
+    if len(terms) == 1 and terms[0][1] == item.ring.domain.one and sum(terms[0][0]) == 1:
+        return PRECEDENCE["Atom"]
+    if not terms or (len(terms) == 1 and terms[0][0] == zm):
+        coeff = terms[0][1] if terms else item.ring.domain.zero
+        return precedence(item.ring.domain.to_sympy(coeff))
+    if len(terms) == 1:
+        return PRECEDENCE["Mul"]
+    return PRECEDENCE["Add"]
+
+
+def _poly_element_str(self):
+    """The reference ``PolyElement.str`` with ``StrPrinter``: terms in the
+    ring order, non-atomic generators parenthesized (``x*(exp(x))``)."""
+    from ..printing.precedence import PRECEDENCE
+    from ..printing.str import sstr
+    ring = self.ring
+    domain = ring.domain
+    terms = self.terms()
+    if not terms:
+        return _element_text(_Coefficient((domain, domain.zero)))[0]
+    prec_mul, prec_atom = PRECEDENCE["Mul"], PRECEDENCE["Atom"]
+    symbols, zm = ring.symbols, ring.zero_monom
+    sexpvs = []
+    for expv, coeff in terms:
+        negative = domain.is_negative(coeff)
+        sexpvs.append(" - " if negative else " + ")
+        if expv == zm:
+            scoeff = _element_text(_Coefficient((domain, coeff)))[0]
+            if negative and scoeff.startswith("-"):
+                scoeff = scoeff[1:]
+        else:
+            if negative:
+                coeff = -coeff
+            if coeff != domain.one:
+                scoeff = _parenthesize(_Coefficient((domain, coeff)), prec_mul, True)
+            else:
+                scoeff = ''
+        sexpv = []
+        for i in range(ring.ngens):
+            exp = expv[i]
+            if not exp:
+                continue
+            symbol = _parenthesize(symbols[i], prec_atom, True)
+            if exp != 1:
+                sexpv.append("%s**%s" % (symbol, exp))
+            else:
+                sexpv.append(symbol)
+        if scoeff:
+            sexpv = [scoeff] + sexpv
+        sexpvs.append("*".join(sexpv))
+    if sexpvs[0] in (" + ", " - "):
+        head = sexpvs.pop(0)
+        if head == " - ":
+            sexpvs.insert(0, "-")
+    return "".join(sexpvs)
+
+
 def _inferred(exprs, symbols, options, fractions=False):
     from .. import Poly, ZZ, QQ, sympify
     from .._core import Expr
@@ -326,8 +425,31 @@ def _inferred(exprs, symbols, options, fractions=False):
     symbols=tuple(symbols)
     if len(symbols)==1 and isinstance(symbols[0],(tuple,list)):
         symbols=tuple(symbols[0])
-    if not symbols:
+    if not symbols and extension:
         symbols=tuple(sorted(set().union(*(v.free_symbols for v in values)),key=str))
+    elif not symbols:
+        # The reference ``_parallel_dict_from_expr`` infers the generators,
+        # including non-symbol ones such as ``exp(1/x)`` or ``x**(1/3)``.
+        from .polytools import parallel_poly_from_expr
+        parts=[]
+        for v in values:
+            parts.extend(v.as_numer_denom() if fractions else (v,))
+        kw={}
+        if given is not None:kw['domain']=given
+        if extension:kw['extension']=extension
+        try:
+            polys,_=parallel_poly_from_expr(parts,**kw)
+        except Exception:
+            polys=None
+        if polys:
+            symbols=tuple(polys[0].gens)
+            if given is None:
+                domain=polys[0].domain
+                if field and domain==ZZ:
+                    domain=QQ
+                return values,symbols,domain,order,single
+        else:
+            symbols=tuple(sorted(set().union(*(v.free_symbols for v in values)),key=str))
     domain=_domain(given) if given is not None else ZZ
     if given is None:
         for v in values:

@@ -155,11 +155,13 @@ def test_grid_and_options_fail_explicitly():
             with pytest.raises(sx.ShapeError, match='2x2'):
                 operation()
     value = sx.BlockDiagMatrix(a, a)
-    with pytest.raises(NotImplementedError, match='Generalized'):
-        value.schur(generalized=True)
+    # SymPy 1.14: the generalized complement on A is A; the zero
+    # off-diagonal pivots are not invertible.
+    assert value.schur(generalized=True) == a
     for pivot in ['B', 'C']:
-        with pytest.raises(NotImplementedError, match='off-diagonal'):
-            value.schur(pivot)
+        for generalized in (False, True):
+            with pytest.raises(sx.NonInvertibleMatrixError, match='not invertible'):
+                value.schur(pivot, generalized=generalized)
     with pytest.raises(ValueError, match='pivot'):
         value.schur('unknown')
 

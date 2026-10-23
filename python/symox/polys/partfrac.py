@@ -4,13 +4,22 @@
 SymPy: each square-free factor ``d`` of the denominator yields terms
 ``RootSum(D(w), Lambda(a, b(a))/(x - a)**k)`` stored as
 ``(D(w), Lambda(a, b), Lambda(a, x - a), k)``. ``assemble_partfrac_list``
-expands the roots of linear ``D`` (and explicit root lists); higher degree
-``D`` would need ``RootSum``, which is not implemented.
+sums over the roots of ``D`` with ``RootSum(D, ..., auto=False)``, which
+expands linear factors and keeps the others unevaluated.
 """
 from .._core import Poly, _apart_full_decomposition
 from .polytools import allowed_flags, parallel_poly_from_expr
 
-__all__ = ['apart_list', 'assemble_partfrac_list']
+__all__ = ['apart', 'apart_list', 'assemble_partfrac_list']
+
+
+def __getattr__(name):
+    # ``apart`` is the package-level function, bound lazily because it is
+    # rebound (noncommutative handling) after this module is imported.
+    if name == 'apart':
+        import symox
+        return symox.apart
+    raise AttributeError(name)
 
 
 def apart_list(f, x=None, dummies=None, **options):
@@ -87,31 +96,10 @@ def apart_list_full_decomposition(P, Q, dummygen):
     return partial
 
 
-def _root_sum(r, var, expr):
-    """``RootSum(r, Lambda(var, expr), auto=False)`` when every irreducible
-    factor of ``r`` is linear; otherwise ``NotImplementedError``."""
-    from .. import Add, S
-    deg = r.degree()
-    if not expr.has(var):
-        return deg*expr
-    add_const = S.Zero
-    if expr.is_Add:
-        add_const, expr = expr.as_independent(var)
-    mul_const = S.One
-    if expr.is_Mul:
-        mul_const, expr = expr.as_independent(var)
-    terms = []
-    for factor, k in r.factor_list()[1]:
-        if factor.degree() != 1:
-            raise NotImplementedError(
-                "RootSum over the roots of %s is not implemented" % factor.as_expr())
-        root = -factor.TC()/factor.LC()
-        terms.append(k*expr.subs(var, root))
-    return mul_const*Add(*terms) + deg*add_const
-
-
 def assemble_partfrac_list(partial_list):
     """Rebuild an expression from the output of :func:`apart_list`."""
+    from .. import Lambda
+    from .rootoftools import RootSum
     common = partial_list[0]
     polypart = partial_list[1]
     pfd = polypart.as_expr()
@@ -120,8 +108,43 @@ def assemble_partfrac_list(partial_list):
             an, nu = nf.variables, nf.expr
             ad, de = df.variables, df.expr
             de = de.subs(ad[0], an[0])
-            pfd += _root_sum(r, an[0], nu/de**ex)
+            func = Lambda(tuple(an), nu/de**ex)
+            pfd += RootSum(r, func, auto=False, quadratic=False)
         else:
             for root in r:
                 pfd += nf(root)/df(root)**ex
     return common*pfd
+
+
+def _apart_full(f, x=None, **options):
+    """The ``full=True`` branch of the reference ``apart`` for commutative
+    univariate input (Bronstein's algorithm through :func:`apart_list` and
+    :func:`assemble_partfrac_list`). ``None`` defers to the native ``apart``.
+    """
+    from .. import Add, sympify, factor
+    from .polyerrors import PolynomialError
+    from .rootoftools import RootSum
+    f = sympify(f)
+    if f.is_Atom or not f.is_commutative:
+        return None
+    P, Q = f.as_numer_denom()
+    options = dict(options)
+    options.setdefault('extension', True)
+    gens = () if x is None else (x,)
+    try:
+        (P, Q), opt = parallel_poly_from_expr((P, Q), *gens, **options)
+    except PolynomialError:
+        return None
+    if P.is_multivariate:
+        return None
+    common, P, Q = P.cancel(Q)
+    poly, P = P.div(Q, auto=True)
+    P, Q = P.rat_clear_denoms(Q)
+    if Q.degree() <= 1:
+        partial = P.as_expr()/Q.as_expr()
+    else:
+        partial = assemble_partfrac_list(apart_list(P.as_expr()/Q.as_expr(), P.gens[0]))
+    terms = []
+    for term in Add.make_args(partial):
+        terms.append(term if term.has(RootSum) else factor(term))
+    return common*(poly.as_expr() + Add(*terms))
