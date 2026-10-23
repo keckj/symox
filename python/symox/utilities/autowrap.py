@@ -135,7 +135,13 @@ def autowrap(expr,language=None,backend='f2py',tempdir=None,args=None,flags=None
     if backend=='cython' and language not in ('C','C99','C89'):raise ValueError('Cython wrapper requires C')
     generator=FCodeGen() if language in ('F95','F90','FORTRAN') else CCodeGen()
     routine=generator.routine('autofunc',expr,argument_sequence=args)
-    helper_routines=[generator.routine(name,value,arguments) for name,value,arguments in helpers or ()]
+    # SymPy accepts one (name, expr, args) triple or an iterable of them
+    from .iterables import iterable
+    if iterable(helpers) and len(helpers)!=0 and iterable(helpers[0]):
+        helpers=helpers if helpers else ()
+    else:
+        helpers=[helpers] if helpers else ()
+    helper_routines=[generator.routine(name,value,arguments) for name,value,arguments in helpers]
     return wrappers[backend](generator,tempdir,flags,verbose,**kwargs).wrap_code(routine,helper_routines)
 
 

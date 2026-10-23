@@ -3844,6 +3844,10 @@ pub struct PyCompiled {
     object_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
     numpy_vectors: bool,
     numpy_evaluator: pyo3::sync::GILOnceCell<Py<PyAny>>,
+    // SymPy's generated function exposes the namespace it was executed in;
+    // it is assembled on first access from the requested modules.
+    modules: Option<Py<PyAny>>,
+    globals: pyo3::sync::GILOnceCell<Py<PyAny>>,
 }
 
 fn needs_object_evaluation(value: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -3985,6 +3989,19 @@ impl PyCompiled {
     fn nargs(&self) -> usize {
         self.c.n_args()
     }
+
+    /// The namespace of SymPy's generated function (`f.__globals__`).
+    #[getter]
+    fn __globals__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.globals.get_or_try_init(py, || -> PyResult<Py<PyAny>> {
+            let modules = match &self.modules { Some(m) => m.clone_ref(py), None => py.None() };
+            let exprs = PyList::new(py, self.exprs.iter().cloned().map(wrap))?;
+            Ok(py.import("symox.utilities.lambdify")?
+                .getattr("_lambdify_namespace")?
+                .call1((modules, exprs))?
+                .unbind())
+        }).map(|value| value.clone_ref(py))
+    }
 }
 
 #[pyfunction]
@@ -4018,7 +4035,8 @@ fn py_lambdify(
     }
     Ok(PyCompiled { c, scalar_out, exprs, arguments: arg_list,
         object_evaluator: pyo3::sync::GILOnceCell::new(),numpy_vectors,
-        numpy_evaluator })
+        numpy_evaluator, modules: modules.map(|m| m.clone().unbind()),
+        globals: pyo3::sync::GILOnceCell::new() })
 }
 
 #[pymodule]

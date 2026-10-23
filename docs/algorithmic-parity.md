@@ -3660,8 +3660,8 @@ return a wrong value:
 
 - Series of the Airy and complete or incomplete elliptic functions raise
   `NotImplementedError`.
-- `limit(harmonic(n, m), n, oo)` stays an unevaluated `Limit`, and
-  `expand_func(harmonic(n - k))` is not expanded.
+- `limit(harmonic(n, m), n, oo)` stays an unevaluated `Limit`
+  (`expand_func(harmonic(n - k))` is now expanded, see the c-final section).
 - Derivatives of `expint` in its order, `elliptic_pi` in its characteristic
   and `assoc_laguerre` in its parameter stay as `Derivative`.
 - `dirichlet_eta(s, a)` (two arguments) is not implemented.
@@ -6879,3 +6879,59 @@ Remaining gaps:
   Symox and stay unevaluated in SymPy. Conversely `(M*N)[i, j]` and
   `(M**5)[1, 2]` stay unevaluated in Symox, while SymPy expands them into a
   `Sum` over dummy indices.
+
+## c-final: harmonic, loggamma, implicit solve, lambdify namespace, autowrap helpers
+
+Implemented (SymPy 1.14 behaviour), closing the five undocumented "c"
+objects of the final wave-4 triage:
+
+- `expand_func(harmonic(u + p/q))` for a rational argument with `u >= 0`
+  gives the reference closed form `q*Sum(1/(q*k + p), (k, 0, u)) +
+  2*Sum(cos(2*pi*p*k/q)*log(sin(pi*k/q)), (k, 1, floor((q - 1)/2))) -
+  pi*cot(pi*p/q)/2 - log(2*q)` (so `harmonic(1/3)` and `harmonic(25/7)`
+  reach their values through `doit`), and `expand_func(harmonic(n - k))`
+  pulls out negative integer offsets like positive ones. Negative rationals
+  and orders `m != 1` stay unexpanded, as in SymPy. `harmonic(1/3)` and
+  `harmonic(1/3).doit()` stay unevaluated in both.
+- `expand_func(loggamma(n + p/q))` gives the reference sum
+  `loggamma(p/q) - n*log(q) + Sum(log((k - 1)*q + p), (k, 1, n))`, with
+  `pi*I*n - Sum(log(k*q - p), (k, 1, -n))` for negative `n`.
+- `series(loggamma(z), x, 0, n)` at a zero of the argument expands
+  `log(gamma(z))` like `loggamma._eval_nseries`
+  (`-log(x) - EulerGamma*x + pi**2*x**2/12 - ...`); at a negative integer it
+  still raises `PoleError` (with the message `loggamma(x - 1)` instead of
+  SymPy's `Cannot expand loggamma(_x - 1) around 0`).
+- `solve(eq)` without symbols reaches the masked, inverted and unrad
+  fallbacks when the equation has one free symbol, so the radical equations
+  `x**(1/3) - x**(1/5) + 1/7` (two `CRootOf(...)**15` roots),
+  `(x**3 - 3*x**2)**(1/3) + 1 - x` (no solution: the unrad candidate 1/3
+  fails the check) and `sqrt(x + 1) - sqrt(x) - 1` are solved exactly.
+- `solve(..., implicit=True)` masks every Pow, function application and
+  other non-invertible object that contains an unknown (re/im included,
+  Piecewise traversed), solves the masked system and restores the masked
+  objects, as SymPy's `_solve` does (`solve(x + exp(x), x, implicit=True)`
+  is `[-exp(x)]`). `implicit=False` is plain solve. Non-Symbol unknowns with
+  `implicit=True` raise `NotImplementedError`.
+- `reduce_inequalities` with univariate inequalities in several symbols
+  (`[0 <= x - 1, y < 3]`) reduces each symbol's group separately and
+  returns their `And`, as `_reduce_inequalities` does, including symbols
+  that are not in the requested list.
+- `symox.testing.pytest.ignore_warnings` is re-exported as in SymPy, and
+  the compiled lambdify function has a `__globals__` mapping assembled on
+  first access from SymPy's module tables (`f.__globals__['sin'] is
+  numpy.sin` by default, translations such as `ceiling -> ceil` for math,
+  the dict modules taking precedence, the expression symbols, `builtins`
+  and `range`); the Python-level results (user-function dicts, implemented
+  functions, structured and mpmath paths) are rebuilt with that mapping as
+  their globals. The native evaluator does not execute in that namespace,
+  so modifying it does not change the function (SymPy's would), and a
+  user-dict function receives the evaluator's float (`mysin(1.0)` where
+  SymPy's generated code passes the int `1`).
+- `autowrap(..., helpers=("name", expr, args))` accepts a single triple
+  like SymPy, besides an iterable of triples.
+
+Remaining gaps: the native `CompiledFunction` still has no `__name__`,
+`__code__`, signature or source (`inspect.getsource` raises `TypeError`, see
+the lambdify notes above); `limit(harmonic(n, m), n, oo)`; `solve(sqrt(x) -
+1 + x)` without symbols returns the equivalent `(-1/2 + sqrt(5)/2)**2`
+where SymPy prints `3/2 - sqrt(5)/2` (with `x` given both agree).

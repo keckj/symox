@@ -2961,18 +2961,44 @@ def lambdify(args, expr, modules=None, **kwargs):
     expr = _singularity_as_piecewise(expr)
     structured = _compile_structured(args,expr,modules,kwargs)
     if structured is not None:
-        return structured
+        return _lambdify_globals(structured, args, expr, modules)
     multiprecision = _compile_mpmath(args, expr, modules, kwargs)
     if multiprecision is not None:
-        return multiprecision
+        return _lambdify_globals(multiprecision, args, expr, modules)
     implemented = _compile_implemented(args, expr, modules, kwargs)
     if implemented is not None:
-        return implemented
+        return _lambdify_globals(implemented, args, expr, modules)
     native = _native_lambdify(args, expr, modules=modules, **kwargs)
     exact = _integer_polynomial_lambda(args, expr, modules)
     if exact is None:
         return native
     return _ExactIntegerLambda(native, exact)
+
+
+def _lambdify_globals(function, args, expr, modules):
+    """Give a Python-level lambdify result the ``__globals__`` of SymPy's
+    generated function (the merged module namespace), keeping the global
+    names its own code looks up."""
+    import types
+    if type(function) is not types.FunctionType:
+        return function
+    from .utilities.lambdify import _lambdify_namespace
+    exprs = list(expr) if isinstance(expr, (list, tuple)) else [expr]
+    try:
+        namespace = _lambdify_namespace(modules, exprs)
+    except Exception:
+        return function
+    original = function.__globals__
+    for name in function.__code__.co_names:
+        if name in original:
+            namespace[name] = original[name]
+    rebuilt = types.FunctionType(function.__code__, namespace, function.__name__,
+                                 function.__defaults__, function.__closure__)
+    rebuilt.__kwdefaults__ = function.__kwdefaults__
+    rebuilt.__dict__.update(function.__dict__)
+    rebuilt.__qualname__ = function.__qualname__
+    rebuilt.__doc__ = function.__doc__
+    return rebuilt
 
 
 class _ExactIntegerLambda:

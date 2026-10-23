@@ -472,3 +472,93 @@ def _compile_mpmath(args,expr,modules,options):
     function=namespace['_lambdifygenerated']
     function.__doc__='Created with lambdify. Signature:\n\nfunc('+', '.join(parameters)+')\n\nSource code:\n\n'+source
     return function
+
+
+# SymPy's lambdify module namespaces (sympy.utilities.lambdify.MODULES):
+# the default entries, the import commands and the name translations.
+_NAMESPACE_MODULES = {
+    'math': ({}, ('from math import *',), {'ceiling': 'ceil', 'E': 'e', 'ln': 'log'}),
+    'cmath': ({}, ('import cmath; from cmath import *',), {}),
+    'mpmath': ({}, ('from mpmath import *',), {
+        'Abs': 'fabs', 'elliptic_k': 'ellipk', 'elliptic_f': 'ellipf', 'elliptic_e': 'ellipe',
+        'elliptic_pi': 'ellippi', 'ceiling': 'ceil', 'chebyshevt': 'chebyt', 'chebyshevu': 'chebyu',
+        'assoc_legendre': 'legenp', 'E': 'e', 'I': 'j', 'ln': 'log', 'oo': 'inf',
+        'LambertW': 'lambertw', 'MutableDenseMatrix': 'matrix', 'ImmutableDenseMatrix': 'matrix',
+        'conjugate': 'conj', 'dirichlet_eta': 'altzeta', 'Ei': 'ei', 'Shi': 'shi', 'Chi': 'chi',
+        'Si': 'si', 'Ci': 'ci', 'RisingFactorial': 'rf', 'FallingFactorial': 'ff',
+        'betainc_regularized': 'betainc'}),
+    'numpy': ({'I': 1j}, ('import numpy; from numpy import *; from numpy.linalg import *',),
+              {'Heaviside': 'heaviside'}),
+    'scipy': ({'I': 1j}, ('import scipy; import numpy; from scipy.special import *',),
+              {'jn': 'spherical_jn', 'yn': 'spherical_yn'}),
+    'cupy': ({'I': 1j}, ('import cupy',), {}),
+    'jax': ({'I': 1j}, ('import jax',), {}),
+    'tensorflow': ({}, ('import tensorflow',), {}),
+    'torch': ({'I': 1j}, ('import torch',), {}),
+    'sympy': ({}, ('from symox.functions import *', 'from symox.matrices import *',
+                   'from symox import Integral, pi, oo, nan, zoo, E, I'), {}),
+    'numexpr': ({}, ('import numexpr',), {}),
+}
+_NAMESPACE_MODULES['symox'] = _NAMESPACE_MODULES['sympy']
+_NAMESPACE_CACHE = {}
+
+
+def _module_namespace(name):
+    """SymPy's ``lambdify._import``: the translation dictionary of a module
+    name, built once."""
+    if name in _NAMESPACE_CACHE:
+        return _NAMESPACE_CACHE[name]
+    try:
+        default, commands, translations = _NAMESPACE_MODULES[name]
+    except KeyError:
+        raise NameError("'%s' module cannot be used for lambdification" % name) from None
+    namespace = dict(default)
+    for command in commands:
+        try:
+            exec(command, {}, namespace)
+        except ImportError:
+            raise ImportError("Cannot import '%s' with '%s' command" % (name, command)) from None
+    for symbol_name, target in translations.items():
+        namespace[symbol_name] = namespace[target]
+    namespace.setdefault('Abs', abs)
+    _NAMESPACE_CACHE[name] = namespace
+    return namespace
+
+
+def _lambdify_namespace(modules, exprs):
+    """The ``__globals__`` of SymPy's generated function: the module
+    namespaces (the first module taking precedence), the symbols of the
+    expression, ``builtins`` and ``range``."""
+    import builtins
+    from symox import Symbol
+    if modules is None:
+        try:
+            _module_namespace('scipy')
+        except ImportError:
+            try:
+                _module_namespace('numpy')
+            except ImportError:
+                modules = ['math', 'mpmath', 'sympy']
+            else:
+                modules = ['numpy']
+        else:
+            modules = ['numpy', 'scipy']
+    if isinstance(modules, (dict, str)) or not hasattr(modules, '__iter__'):
+        candidates = [modules]
+    else:
+        candidates = list(modules)
+    namespace = {}
+    for module in reversed(candidates):
+        if isinstance(module, str):
+            namespace.update(_module_namespace(module))
+        elif isinstance(module, dict):
+            namespace.update(module)
+        elif hasattr(module, '__dict__'):
+            namespace.update(module.__dict__)
+        else:
+            raise TypeError('Argument must be either a string, dict or module but it is: %s' % module)
+    for expr in exprs:
+        if hasattr(expr, 'atoms'):
+            namespace.update({str(term): term for term in expr.atoms(Symbol)})
+    namespace.update({'builtins': builtins, 'range': range, '__builtins__': builtins.__dict__})
+    return namespace

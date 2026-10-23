@@ -5,6 +5,7 @@ import sys
 import warnings
 import pytest as _pytest
 from ..utilities.exceptions import SymPyDeprecationWarning
+from ..utilities.exceptions import ignore_warnings  # noqa: F401  (SymPy re-exports it here)
 ExceptionInfo=_pytest.ExceptionInfo
 Failed=_pytest.fail.Exception
 Skipped=_pytest.skip.Exception
