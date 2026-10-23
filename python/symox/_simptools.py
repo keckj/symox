@@ -945,25 +945,42 @@ FU = {n: getattr(fu_rules, n) for n in (
 
 
 def kroneckersimp(expr):
-    """Remove products with incompatible Kronecker equality constraints."""
-    from itertools import combinations
-    from . import Eq, Integer, sympify
+    """Simplify expressions with KroneckerDelta (SymPy's ``kroneckersimp``):
+    products of deltas with incompatible constraints cancel, after the
+    Piecewise parts are rewritten as KroneckerDelta."""
+    from . import Eq, S, Mul, Piecewise, KroneckerDelta, sympify
+    from .utilities.iterables import subsets
     expr = sympify(expr)
 
-    def visit(e):
-        if not e.args:
-            return e
-        args = tuple(visit(a) for a in e.args)
-        value = e if args == e.args else e.func(*args)
-        if value.is_Mul:
-            deltas = [a for a in value.args if a.class_name == 'KroneckerDelta']
-            for a, b in combinations(deltas, 2):
-                for i in range(2):
-                    for j in range(2):
-                        if Eq(a.args[i], b.args[j]) == True and Eq(a.args[1-i], b.args[1-j]) == False:
-                            return Integer(0)*value
-        return value
-    return visit(expr)
+    def args_cancel(args1, args2):
+        for i1 in range(2):
+            for i2 in range(2):
+                a1 = args1[i1]
+                a2 = args2[i2]
+                a3 = args1[(i1 + 1) % 2]
+                a4 = args2[(i2 + 1) % 2]
+                if Eq(a1, a2) is S.true and Eq(a3, a4) is S.false:
+                    return True
+        return False
+
+    def cancel_kronecker_mul(m):
+        args = m.args
+        deltas = [a for a in args if isinstance(a, KroneckerDelta)]
+        for delta1, delta2 in subsets(deltas, 2):
+            if args_cancel(delta1.args, delta2.args):
+                return S.Zero * m  # In case of oo etc
+        return m
+
+    if not expr.has(KroneckerDelta):
+        return expr
+    if expr.has(Piecewise):
+        expr = expr.rewrite(KroneckerDelta)
+    newexpr = expr
+    expr = None
+    while newexpr != expr:
+        expr = newexpr
+        newexpr = expr.replace(lambda e: isinstance(e, Mul), cancel_kronecker_mul)
+    return expr
 
 
 def _pow_expand_power_base(self, force=False):

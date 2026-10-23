@@ -84,16 +84,26 @@ def product_simplify(s,**kwargs):return S.Mul(*_combine(S.Mul.make_args(S.sympif
 
 
 def inversecombine(expr):
-    """Cancel formal inverse compositions; branch restrictions are ignored."""
-    pairs={'log':'exp','exp':'log','asin':'sin','sin':'asin','acos':'cos','cos':'acos','atan':'tan','tan':'atan',
-     'asinh':'sinh','sinh':'asinh','acosh':'cosh','cosh':'acosh','atanh':'tanh','tanh':'atanh'}
-    def visit(node):
-        name=getattr(node,'class_name','')
-        if name in pairs and len(node.args)==1:
-            argument=node.args[0]
-            if getattr(argument,'class_name','')==pairs[name] and len(argument.args)==1:return argument.args[0]
-        return node
-    return S.bottom_up(expr,visit)
+    """Simplify the composition of a function and its inverse.
+
+    Port of SymPy's ``inversecombine``: no attention is paid to whether the
+    inverse is a left inverse or a right inverse, so ``asin(sin(x))`` gives
+    ``x`` whatever the branch.
+    """
+    log,exp=S.log,S.exp
+    def f(rv):
+        if isinstance(rv,log):
+            if isinstance(rv.args[0],exp) or (rv.args[0].is_Pow and rv.args[0].base==S.S.Exp1):
+                rv=rv.args[0].exp
+        elif rv.is_Function and hasattr(rv,'inverse'):
+            if (len(rv.args)==1 and len(rv.args[0].args)==1 and
+               isinstance(rv.args[0],rv.inverse(argindex=1))):
+                rv=rv.args[0].args[0]
+        if rv.is_Pow and rv.base==S.S.Exp1:
+            if isinstance(rv.exp,log):
+                rv=rv.exp.args[0]
+        return rv
+    return S.bottom_up(expr,f)
 
 
 def nc_simplify(expr,deep=True):

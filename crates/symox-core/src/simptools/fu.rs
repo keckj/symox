@@ -37,8 +37,9 @@ pub fn is_trig(e: &Expr) -> bool {
     matches!(e.kind(), Kind::Func(Func::Sin | Func::Cos | Func::Tan | Func::Cot | Func::Sec | Func::Csc, a) if a.len() == 1)
 }
 
+/// SymPy's `HyperbolicFunction`, including the reciprocal `sech`, `csch`.
 fn is_hyper(e: &Expr) -> bool {
-    matches!(e.kind(), Kind::Func(Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth, a) if a.len() == 1)
+    matches!(e.kind(), Kind::Func(Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth | Func::Special(crate::special::SpecialFn::Sech) | Func::Special(crate::special::SpecialFn::Csch), a) if a.len() == 1)
 }
 
 fn arg0(e: &Expr) -> Expr {
@@ -402,21 +403,31 @@ pub fn tr3(rv: &Expr) -> Expr {
     })
 }
 
+/// TR4's predicate: a trigonometric function whose argument is a rational
+/// multiple of pi with denominator 1, 2, 3, 4 or 6.
+fn tr4_special_angle(x: &Expr) -> bool {
+    if !is_trig(x) {
+        return false;
+    }
+    let r = div(&arg0(x), &Expr::pi());
+    r.as_number()
+        .filter(|n| n.is_rational())
+        .map(|n| n.denom())
+        .is_some_and(|q| [1, 2, 3, 4, 6].iter().any(|d| q == Number::int(*d)))
+}
+
 /// `TR4`: trig functions of the special angles are evaluated.
 pub fn tr4(rv: &Expr) -> Expr {
-    if !rv.has_held_arithmetic() {
+    // Evaluated trees never hold such a function: only held arithmetic or
+    // a held trigonometric function (built under `evaluate(False)`) can.
+    if !rv.has_held_arithmetic() && super::atoms_where(rv, &tr4_special_angle).is_empty() {
         return rv.clone();
     }
     bottom_up(rv, &mut |x| {
-        if is_trig(x) {
+        if tr4_special_angle(x) {
             let a = arg0(x);
-            let r = div(&a, &Expr::pi());
-            if let Some(q) = r.as_number().filter(|n| n.is_rational()).map(|n| n.denom()) {
-                if [1, 2, 3, 4, 6].iter().any(|d| q == Number::int(*d)) {
-                    let a = if a.is_atom() { a } else { super::rebuild(&a, &args(&a)) };
-                    return func_of(head(x).unwrap(), &a);
-                }
-            }
+            let a = if a.is_atom() { a } else { super::rebuild(&a, &args(&a)) };
+            return func_of(head(x).unwrap(), &a);
         }
         x.clone()
     })
@@ -1669,7 +1680,9 @@ pub fn osborne(e: &Expr, d: &Expr) -> Expr {
             Func::Sinh => mul2(&i, &sin(&a)),
             Func::Cosh => cos(&a),
             Func::Tanh => mul2(&i, &tan(&a)),
-            _ => div(&cot(&a), &i),
+            Func::Coth => div(&cot(&a), &i),
+            Func::Special(crate::special::SpecialFn::Sech) => f1(Func::Sec, &a),
+            _ => div(&f1(Func::Csc, &a), &i),
         }
     })
 }
@@ -1689,8 +1702,8 @@ pub fn osbornei(e: &Expr, d: &Expr) -> Expr {
             Func::Cos => h(Func::Cosh),
             Func::Tan => div(&h(Func::Tanh), &i),
             Func::Cot => mul2(&h(Func::Coth), &i),
-            Func::Sec => div(&Expr::one(), &h(Func::Cosh)),
-            _ => div(&i, &h(Func::Sinh)),
+            Func::Sec => h(Func::Special(crate::special::SpecialFn::Sech)),
+            _ => mul2(&h(Func::Special(crate::special::SpecialFn::Csch)), &i),
         }
     })
 }

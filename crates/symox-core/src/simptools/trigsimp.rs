@@ -8,8 +8,9 @@ use crate::expr::{Constant, Expr, Func, Kind};
 use crate::functions::func;
 use crate::ops;
 
+/// SymPy's `HyperbolicFunction`, including the reciprocal `sech`, `csch`.
 fn is_hyper(e: &Expr) -> bool {
-    matches!(e.kind(), Kind::Func(Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth, a) if a.len() == 1)
+    matches!(e.kind(), Kind::Func(Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth | Func::Special(crate::special::SpecialFn::Sech) | Func::Special(crate::special::SpecialFn::Csch), a) if a.len() == 1)
 }
 
 fn has(e: &Expr, pred: &dyn Fn(&Expr) -> bool) -> bool {
@@ -443,6 +444,10 @@ fn inverse_f(rv: &Expr) -> Expr {
         Func::Acos => Some(Func::Cos),
         Func::Atan => Some(Func::Tan),
         Func::Acot => Some(Func::Cot),
+        // SymPy: `g = rv.inverse` with `g()(1)` a TrigonometricFunction,
+        // which includes the reciprocal functions sec and csc.
+        Func::Special(crate::special::SpecialFn::Asec) => Some(Func::Sec),
+        Func::Special(crate::special::SpecialFn::Acsc) => Some(Func::Csc),
         _ => None,
     };
     if let Some(g) = inner {

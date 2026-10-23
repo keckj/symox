@@ -3229,38 +3229,12 @@ def cse(exprs, symbols=None, optimizations=None, postprocess=None,
     """Common subexpression elimination (SymPy's ``cse``).
 
     Returns ``(replacements, reduced_exprs)`` where ``replacements`` is a
-    list of ``(Symbol, expr)`` pairs in evaluation order.
+    list of ``(Symbol, expr)`` pairs in evaluation order. This is the port
+    of SymPy's ``opt_cse``/``tree_cse`` in ``symox.simplify.cse_main``.
     """
-    from ._cse_matrices import is_concrete_matrix,flatten
-    single = isinstance(exprs, (_core.Expr, int, float, str)) or is_concrete_matrix(exprs)
-    if isinstance(exprs, dict):
-        keys = _builtins.list(exprs)
-        reps, red = cse([exprs[k] for k in keys], symbols, optimizations, postprocess, order, ignore)
-        return reps, dict(zip(keys, red))
-    seq = [exprs] if single else exprs
-    seq,restore=flatten(seq)
-    opt = optimizations not in (False, "none")
-    reps, red = _core._cse(seq, opt, ignore or None,
-                         order='none' if order=='none' else 'canonical')
-    if symbols is not None:
-        it = iter(symbols)
-        mapping = {}
-        new_reps = []
-        for s, v in reps:
-            v = v.xreplace(mapping) if mapping else v
-            t = next(it)
-            mapping[s] = t
-            new_reps.append((t, v))
-        reps = new_reps
-        red = [r.xreplace(mapping) for r in red] if mapping else red
-    red=restore(red)
-    if postprocess is not None:
-        return postprocess(reps, red)
-    if single and not list:
-        return reps, red[0]
-    if not single and not list:
-        return reps, type(exprs)(red)
-    return reps, red
+    from .simplify.cse_main import cse as _cse
+    return _cse(exprs, symbols=symbols, optimizations=optimizations,
+                postprocess=postprocess, order=order, ignore=ignore, list=list)
 
 # --- end printing ---
 
@@ -4243,3 +4217,7 @@ from . import _matrix_definite  # noqa: E402
 _matrix_definite.install()
 from . import _matrix_inverse  # noqa: E402
 _matrix_inverse.install()
+
+from . import _inverse_methods  # noqa: E402
+_inverse_methods.install(globals())
+_inverse_methods.install_rewrites(globals())
