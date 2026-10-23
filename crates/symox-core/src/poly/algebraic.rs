@@ -798,10 +798,9 @@ pub fn infer_generators(expressions: &[Expr], field: &Arc<NumberField>) -> Vec<E
                     members.push(f);
                     continue;
                 }
-                let base = match f.kind() {
-                    Kind::Pow(b, x) => super::convert::decompose_power(b, x).0,
-                    _ => f.clone(),
-                };
+                // The same decomposition as the conversion (exp(2*x) is
+                // exp(x)**2), otherwise the inferred generator clashes.
+                let base = super::convert::decompose_factor(&f).0;
                 if !gens.contains(&base) {
                     gens.push(base);
                 }

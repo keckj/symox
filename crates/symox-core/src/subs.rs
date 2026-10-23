@@ -204,6 +204,13 @@ fn s1(e: &Expr, old: &Expr, new: &Expr, cache: &mut FxHashMap<usize, (Expr,Expr)
         Kind::Pow(b, _) if b.is_symbol() => Some(b),
         _ => None,
     };
+    // ComplexRootOf._eval_subs returns self: subs never reaches the
+    // polynomial or the root index (collect(expr, 0) must keep CRootOf(p, 0)).
+    if let Kind::Func(Func::Undefined(head), args) = e.kind() {
+        if crate::poly::rootof::is_rootof_head(head, args.len()) {
+            return e.clone();
+        }
+    }
     if !hooked && e.is_symbol() {
         if symbol_power == Some(e) {
             if let Some(value) = power_subs(e, &Expr::one(), false, old, new, cache) {

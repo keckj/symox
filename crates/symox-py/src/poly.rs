@@ -2074,6 +2074,10 @@ impl PyPoly {
         let canonical = if ground { self.p.clone() } else { match domain.poly(&self.p.as_expr(),self.p.true_gens()) {
             Ok(p) => p,
             Err(_) if self.p.field.is_none() && self.p.algebraic.is_none() => self.p.clone(),
+            // A Gaussian representation is already canonical; a composite
+            // generator with I (C5 + I*x/8 from terms_gcd(expand=False))
+            // cannot be rebuilt from the expression.
+            Err(_) if self.p.field.is_none() && self.p.algebraic.as_ref().is_some_and(|a|a.gaussian.is_some()) => self.p.clone(),
             Err(e) => return Err(e),
         } };
         let (denominator, numerator) = if let Some(f) = &canonical.field {

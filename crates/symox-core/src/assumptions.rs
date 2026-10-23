@@ -980,6 +980,11 @@ fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {
         Func::Floor | Func::Ceiling => real_signs(a).map(|_| Signs::ANY),
         // These range signs include possible infinities. The finite-real
         // queries below require a separate proof for projections.
+        // A numeric projection is finite, so the reference decides its sign
+        // numerically (im(CRootOf(x**5 + 11*x - 2, 1)) is negative).
+        Func::Re | Func::Im if crate::functions::is_numeric_value(a) => {
+            numeric_refine(&Expr::from_kind(Kind::Func(f.clone(), args.to_vec())), Signs::ANY)
+        }
         Func::Re | Func::Im => Some(Signs::ANY),
         Func::Arg => Some(Signs::ANY),
         Func::Gamma => {
