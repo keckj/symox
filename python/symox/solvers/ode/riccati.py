@@ -208,7 +208,7 @@ from symox.core.symbol import symbols, Symbol, Dummy
 from symox.functions import sqrt, exp
 from symox.functions.elementary.complexes import sign
 from symox.integrals.integrals import Integral
-from symox.polys.domains import ZZ
+from symox.polys.domains import ZZ, EX
 from symox.polys.polytools import Poly
 from symox import roots
 from symox.solvers.solveset import linsolve
@@ -695,12 +695,23 @@ def solve_aux_eq(numa, dena, numy, deny, x, m):
         psol = Poly(1, x, domain=ZZ)
 
     # Eq (5.16) in Thesis - Pg 81
-    auxeq = (dena*(numy.diff(x)*deny - numy*deny.diff(x) + numy**2) - numa*deny**2)*psol
-    if m >= 1:
-        px = psol.diff(x)
-        auxeq += px*(2*numy*deny*dena)
-    if m >= 2:
-        auxeq += px.diff(x)*(deny**2*dena)
+    def _auxeq(numa, dena, numy, deny, psol):
+        auxeq = (dena*(numy.diff(x)*deny - numy*deny.diff(x) + numy**2) - numa*deny**2)*psol
+        if m >= 1:
+            px = psol.diff(x)
+            auxeq += px*(2*numy*deny*dena)
+        if m >= 2:
+            auxeq += px.diff(x)*(deny**2*dena)
+        return auxeq
+    try:
+        auxeq = _auxeq(numa, dena, numy, deny, psol)
+    except TypeError:
+        # The reference unifies QQ<a> with ZZ[C0, ...] into QQ<a>[C0, ...];
+        # Symox has no polynomial ring over an algebraic field, so the same
+        # polynomial is built over EX (same coefficients, same linear system).
+        if not m:
+            raise
+        auxeq = _auxeq(*[Poly(p.as_expr(), x, domain=EX) for p in (numa, dena, numy, deny, psol)])
     if m != 0:
         # m is a non-zero integer. Find the constant terms using undetermined coefficients
         return psol, linsolve_dict(auxeq.all_coeffs(), psyms), True
@@ -723,7 +734,13 @@ def remove_redundant_sols(sol1, sol2, x):
     num1, den1 = [Poly(e, x, extension=True) for e in sol1.together().as_numer_denom()]
     num2, den2 = [Poly(e, x, extension=True) for e in sol2.together().as_numer_denom()]
     # Cross multiply
-    e = num1*den2 - den1*num2
+    try:
+        e = num1*den2 - den1*num2
+    except TypeError:
+        # QQ<a>[C0] in the reference; Symox computes the same polynomial
+        # over EX (see solve_aux_eq).
+        num1, den1, num2, den2 = [Poly(p.as_expr(), x, domain=EX) for p in (num1, den1, num2, den2)]
+        e = num1*den2 - den1*num2
     # Check if there are any constants
     syms = list(e.atoms(Symbol, Dummy))
     if len(syms):

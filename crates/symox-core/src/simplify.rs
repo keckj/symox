@@ -418,7 +418,8 @@ pub fn simplify(e: &Expr) -> Expr {
     }
     // SymPy's own sequence keeps the factored powers that the expansion
     // based candidates lose. It comes last, so a tie keeps the native form.
-    candidates.extend(reference_sequence(e));
+    let reference = reference_sequence(e);
+    candidates.extend(reference.clone());
     let selected = candidates
         .into_iter()
         // Ties in size go to SymPy's count_ops measure, which counts an
@@ -462,7 +463,14 @@ pub fn simplify(e: &Expr) -> Expr {
             || crate::assumptions::is_real(&selected) != Some(true)
             || crate::assumptions::is_real(&factored) == Some(true)
     };
-    let selected = if (crate::simptools::methods::count_ops(&factored) <= crate::simptools::methods::count_ops(&selected)
+    // On a count_ops tie, SymPy's own sequence decides: when it ends on the
+    // selected form, its shorter steps undid the factorization
+    // (-2*x*f(x) + x*exp(-x**2) stays a sum, which solve's form-dependent
+    // factorable classification of dsolve relies on).
+    let factored_ops = crate::simptools::methods::count_ops(&factored);
+    let selected_ops = crate::simptools::methods::count_ops(&selected);
+    let tie_keeps_reference = factored_ops == selected_ops && reference.as_ref() == Some(&selected);
+    let selected = if ((factored_ops <= selected_ops && !tie_keeps_reference)
         || (factored != selected && reference_factored_state(e).as_ref() == Some(&factored)))
         && keeps_realness()
     {

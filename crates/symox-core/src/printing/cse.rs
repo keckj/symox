@@ -366,6 +366,14 @@ impl Cse {
                     if is_order(e) {
                         continue;
                     }
+                    // Nor a RootOf: its polynomial must stay a polynomial
+                    // (constantsimp undoes the cse with subs, which leaves
+                    // ComplexRootOf untouched).
+                    if let Kind::Func(crate::expr::Func::Undefined(head), args) = e.kind() {
+                        if crate::poly::rootof::is_rootof_head(head, args.len()) {
+                            continue;
+                        }
+                    }
                 }
                 // SymPy iterates over a Tuple (e.g. integration limits)
                 // without making it a candidate for elimination.

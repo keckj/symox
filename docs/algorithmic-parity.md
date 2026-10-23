@@ -7103,3 +7103,76 @@ Remaining gaps:
   numerically singular`.
 - The machine-precision Newton fast path for systems still verifies each
   squared residual against `1e-14`, not against mpmath's tolerance.
+
+## ODE corpus forms and errors (ode-forms, 2026-10-23)
+
+ODE corpus: cls 296 -> 298, hint 263 -> 268, def 259 -> 263 (out of 315).
+Regression tests: `tests/test_ode_forms_parity.py`.
+
+Implemented:
+
+- `subs` and `collect` no longer enter a `ComplexRootOf` (SymPy's
+  `ComplexRootOf._eval_subs` returns self). `nonhomogeneous`'s
+  `collect(sol, 0)` for a real root replaced the root index by a dummy and
+  raised (euler_hom_08, lin_const_coeff_hom_33..37).
+- `cse` neither counts nor enters a RootOf (`tree_cse._find_repeated`), so
+  constantsimp no longer rebuilds `CRootOf(x0, i)`.
+- `cancel(..., extension=True)` infers the generators of `exp(2*x)` and
+  `exp(x)` through the same power decomposition as the other conversions
+  (rational_riccati_01 hinted).
+- `terms_gcd(..., clear=False)` keeps a polynomial over `QQ_I` with a
+  composite generator instead of raising CoercionFailed
+  (var_of_parameters_13/14).
+- `1st_rational_riccati`: `solve_aux_eq` and `remove_redundant_sols` fall
+  back to `EX` when the coefficients mix algebraic fields. SymPy uses a
+  polynomial ring over `QQ<a>`, which Symox does not have
+  (rational_riccati_08 now gives SymPy's solution).
+- `simplify`: on a count_ops tie between `factor_terms(selected)` and the
+  selection, the selection is kept when SymPy's own sequence ends on it
+  (`-2*x*f(x) + x*exp(-x**2)` stays a sum). The `factorable` classification
+  of dsolve depends on that form through `solve`; lie_group_08/12 no longer
+  list `factorable`.
+- `re`/`im` of a numeric argument take the numerical sign refinement of the
+  other functions. It is inert for `CRootOf` until a CRootOf evaluates
+  inside the sign query (see below).
+
+Intentional divergences:
+
+- 2nd_2F1_hyper_01..03 (default hint `2nd_power_series_regular`): SymPy's
+  series are wrong (residual of order 1: for
+  `x*(x - 1)*f'' + (3/2 - 2*x)*f' + 2*f`, SymPy gives
+  `1 + 4*x/3 + ...`, while `1 - 4*x/3` is an exact solution). Symox keeps
+  the correct series.
+- `solve(7*log(y - 3)/2 - 7*log(y + 3)/2 - C1, y)` returns `[]` in both
+  (SymPy's false empty result is reproduced, not fixed).
+
+Remaining gaps:
+
+- lin_const_coeff_hom_33..37: Symox keeps `sin(x*Abs(im(r)))` for a
+  `CRootOf` r. SymPy proves `im(r) < 0` numerically and moves the sign into
+  the constant. The sign query does not evaluate a CRootOf yet.
+- lie_group_08/12 default: `integrate(x*(2*y - exp(-x**2))*exp(x**2), x)`
+  gives `log(exp(-x**2))/2` (manualintegrate's form) where SymPy's risch
+  step comes first and gives `-x**2/2`.
+- dep_div_indep_04, undet_26: SymPy's `simplify` gives
+  `(-x/sin(f(x)/x) + f(x))/x` and `sqrt(2)*sin(x + pi/4)` for the solved
+  derivative, and `factorable` matches on that form; Symox keeps the sum.
+- separable_26: `solve(1.0*log(y - 3) - 1.0*log(y + 3) - C1, y,
+  rational=False)` raises; SymPy reaches `-3/tanh(C1/2)` through `_tsolve`'s
+  `factor` step and a generic substitution of the independent part.
+- var_of_parameters_13 (hinted): both solutions pass checkodesol. SymPy's
+  keeps terms such as `x*(3*exp(I*x)/2 + 3*exp(-I*x)/2)` inside the
+  coefficients of `sin(x)` and `cos(x)`; Symox's integration of the
+  Wronskian quotients gives the shorter, equivalent form.
+- rational_riccati_01 default: SymPy's `separable` solves the implicit log
+  solution to `-sqrt(2)/tanh(C1 - sqrt(2)*x)`; Symox keeps the implicit
+  equation: `solve(x + sqrt(2)*log(y - sqrt(2))/4 - sqrt(2)*log(y +
+  sqrt(2))/4 - C1, y)` raises, the same gap as separable_26 (a common
+  non-rational coefficient of the logarithms).
+- Other differing forms not analysed in detail: euler_undet_03/06,
+  fact_12/13/16, 1st_exact_11, almost_lin_01/05, undet_38/39,
+  liouville_08, separable_13/14/21/27, rational_riccati_04/07/09/10,
+  lie_group_06/07/09, 1st_homogeneous_coeff_best_03/08, dep_div_indep_02,
+  linear_coeff_01. Reference timeouts or crashes (nothing to do): fact_06,
+  fact_11, 1st_exact_05/07, 2nd_nonlinear_autonomous_conserved_01..05,
+  separable_reduced_01/02/04/08/11, dep_div_indep_03/05.

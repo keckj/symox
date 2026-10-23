@@ -80,6 +80,9 @@ fn replace_pattern(e:&Expr,old:&Expr,new:&Expr)->Result<Expr,String>{
     if !matches!(old.kind(),Kind::Func(Func::Exp,_)|Kind::Pow(..)) && derivative.is_none() && !old.is_minus_one(){return Ok(crate::subs::subs1(e,old,new));}
     fn walk(e:&Expr,old:&Expr,new:&Expr,derivative:&Option<(Expr,Expr,u32)>,cache:&mut FxHashMap<usize,(Expr,Expr)>)->Result<Expr,String>{
         if e==old{return Ok(new.clone());}
+        // SymPy replaces composite patterns with expr.subs, which leaves
+        // ComplexRootOf untouched (its _eval_subs returns self).
+        if let Kind::Func(Func::Undefined(head),args)=e.kind(){if crate::poly::rootof::is_rootof_head(head,args.len()){return Ok(e.clone());}}
         if let Some((_,value))=cache.get(&e.dag_id()){return Ok(value.clone());}
         let symbol_power=if let Kind::Pow(base,exponent)=old.kind(){
             if e.is_symbol() && e==base{let ratio=div(&Expr::one(),exponent);if ratio.is_integer_number(){Some(pow(new,&ratio))}else{None}}else{None}
