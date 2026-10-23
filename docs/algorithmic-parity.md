@@ -8257,3 +8257,105 @@ Tests: `tests/test_bigexp2_parity.py`. Older tests that expected the
 2**120 bound to hold values now check the evaluated values
 (`tests/test_bigexp_parity.py`, `tests/test_float_exponent_arithmetic.py`,
 `tests/test_precision.py`, `tests/test_prec_parity.py`).
+
+## solint-rest2 (wave 9)
+
+Implemented:
+- Precision of cancelled sums with CRootOf. The `Expr.evalf` wrapper used to
+  replace each CRootOf by a Float at `prec + 64` bits before the native
+  evaluation, which left a rounding residue: for
+  `r = CRootOf(7*x**5 - 7*x**3 + 1, 1)`,
+  `(root(r**15, 3) - root(r**15, 5) + Rational(1, 7)).n(2)` gave
+  `-6.6e-24`. The wrapper now first tries the native evaluator, which
+  refines the root through its enclosures, and keeps that value when no
+  CRootOf is left. The native evaluator also propagates a cancelled nested
+  sum: the enclosing function or power is evaluated again at `prec + 64`
+  and each part keeps only the digits on which both evaluations agree.
+  This gives a scaled zero (`0.e-111`, SymPy `-0.e-110`) for the sum and
+  inside `re`, `Mul`, `Pow`, `pi*f`, `f*(f + 1)` and `sin(f)`; `Abs(f)` and
+  `im(f)` give 0 as in SymPy, and `exp(f)`, `f + 1` and `cos(1 + f)` give
+  their correct values. The sign and exponent of SymPy's zero are rounding
+  noise and are not reproduced (`(f**2).n(2)` is `0.e-282` here and
+  `6.1e-238` in SymPy, and `sqrt(f).n(2)` is `0.e-70` here and
+  `5.6e-59*I` in SymPy).
+- Log-singular series of `Ei`, `Ci`, `Chi`, `li` and `expint(1, z)` at a
+  zero of the argument: `EulerGamma + log(u) + sum` with the convergent
+  series (minus `I*pi` for `Ei` of an argument with a negative real
+  part; `li(u)` is `Ei(log(u))` near `u = 1`). The leading terms are
+  `log(x) + EulerGamma` as in SymPy. SymPy raises NotImplementedError for
+  the leading terms of `li` and `expint`; symox returns
+  `-log(x) - EulerGamma` for `expint(1, x)`. The argument is expanded
+  until it is nonzero, so `Ei(2*x)`, `Ei(-x)` and `Ei(x**2)` are covered
+  at every order. The limits `limit(Ei(-x) - Ei(-2*x), x, 0, '+')`, and the
+  same for `Ci` and `Chi`, give `-log(2)` as in SymPy. The Frullani
+  integrals `integrate((exp(-x) - exp(-2*x))/x, (x, 0, oo))` and
+  `integrate((cos(x) - cos(2*x))/x, (x, 0, oo))` give `log(2)` as in SymPy.
+- Definite integrals of SingularityFunction with an infinite endpoint.
+  They use the antiderivative, with each `SingularityFunction` replaced by
+  its value at the endpoint (0 at `-oo`; at `oo` 0 for negative orders, 1
+  for order 0 and `(x - c)**n` for positive orders, then a limit). An
+  endpoint at a singularity uses the one-sided value. The results match
+  SymPy for negative orders: `integrate(SingularityFunction(x, 0, -1),
+  (x, -oo, oo))` is 1, with `x**2*SingularityFunction(x, 2, -1)` it is
+  4, and `SingularityFunction(x, 0, -2)` gives 0.
+  Divergence: SymPy gives 0 for `integrate(SingularityFunction(x, a, 0),
+  (x, -oo, oo))` and for `SingularityFunction(x, 1, 1)`, which is wrong.
+  Those integrands are a unit step and a ramp, so both integrals diverge,
+  and symox returns `oo`. Over `(0, oo)` symox gives
+  `oo - SingularityFunction(0, a, 1)` where SymPy gives
+  `-SingularityFunction(0, a, 1)`.
+- `ratint(1/(x**3 + x + 1), x)`. `log_to_atan` divided by a constant EX
+  polynomial with `Poly.div`. SymPy's EX elements are canonicalised by
+  `cancel`, so the remainder is exactly 0 there. symox's EX arithmetic does
+  not recognise `(a/c)*c - a` as 0 for these nested cube roots, and the
+  division raised PolynomialDivisionFailed. A constant divisor now divides
+  the coefficients directly. The result is real and has the same value as
+  SymPy's (checked by differentiation and against the definite integral
+  over (1, 2)). It is written in a different, larger radical form (82704
+  characters, SymPy 16653).
+- `solveset` of `sec`, `csc` and `cot` equations uses SymPy's
+  `_invert_trig_hyp_complex` lattices when the inverse stays unevaluated:
+  `2*n*pi +- asec(k)`, `2*n*pi + acsc(k)` and `2*n*pi + pi - acsc(k)`, and
+  `n*pi + acot(k)`. `solveset(sec(2*x) - 3, x)` gives
+  `Union(ImageSet(Lambda(_n, _n*pi - asec(3)/2), Integers),
+  ImageSet(Lambda(_n, _n*pi + asec(3)/2), Integers))` as in SymPy, where it
+  used to give the equivalent `acos(1/3)` form. Over the reals this form
+  is used only for a real argument and a real `k` outside `(-1, 1)`, where
+  every lattice point is real. The old answer was an `Intersection` with
+  `Reals` and is now the plain union, as in SymPy. Equations whose inverse
+  evaluates, such as `sec(x) - sqrt(2)`, keep the reduction to `cos`, which
+  already matched SymPy.
+- Systems with symbolic coefficients: 14 linear and nonlinear systems,
+  among them `solve([a*x + b*y - 1, c*x - y], [x, y])`,
+  `linsolve([a*x + b*y - c, d*x - y], [x, y])`,
+  `solve([x*y - a, x + y - b], [x, y])` and
+  `nonlinsolve([x*y - a, x - b*y], [x, y])`, give the same results as
+  SymPy. `solve(sec(2*x) - 3, x)` already matched.
+
+Remaining (explicit, never a wrong value):
+- `integrate(log(log(x))/x**2, (x, 1, oo))` (SymPy `-EulerGamma`) and
+  `integrate(sqrt(log(1/x)), (x, 0, 1))` (SymPy `sqrt(pi)/2`) stay
+  unevaluated. The antiderivatives are found, and the limit at `x = 1` of
+  `Ei(-log(x)) - log(log(x))/x` is `EulerGamma`. The native gruntz has no
+  asymptotic expansion of `Ei`, `Ci`, `Si` or `erfc` at an infinite
+  argument, so `limit(Ei(-log(x)), x, oo)`,
+  `limit(erfc(sqrt(log(1/x))), x, 0, '+')` and even `limit(Si(x), x, oo)`
+  stay as `Limit` objects. The base already had this gap. SymPy uses the
+  tractable rewrites with `_eis` and `_erfs`.
+- `limit(li(x) - li(2*x), x, 0, '+')` (SymPy 0) stays a `Limit`: near 0
+  `li(x)` is `Ei(log(x))` with `log(x) -> -oo`, which needs the same
+  asymptotic expansion. SymPy raises NotImplementedError for
+  `li(x).as_leading_term(x)`, and so does symox.
+- `integrate(1/(1 + exp(x - 1/2)/(1 + exp(x))), x)` still does not finish.
+  SymPy solves it through risch in 0.2 s, while its manualintegrate also
+  loops. In symox risch stops with CoercionFailed. The coefficients over
+  `ZZ(exp(1/2))` contain `E`, because `exp(1/2)**2` collapses to `E`, and
+  `infer_parameters`, `coefficient` and `checked_fraction_pair` in
+  `crates/symox-core/src/poly/fraction.rs` treat `E` as a separate
+  parameter. As a result `Poly(exp(1/2)/(1 + E + 2*exp(1/2)), t,
+  domain='ZZ(exp(1/2))')` fails, while SymPy accepts it. The fix is to map
+  `E` and `exp(r)` onto powers of the `exp(1/m)` generator in the fraction
+  field conversion.
+
+Tests: `tests/test_solint_rest2_parity.py`. The ratint test in
+`tests/test_integ_rest_parity.py` no longer hits its xfail branch.

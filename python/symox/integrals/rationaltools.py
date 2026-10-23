@@ -313,6 +313,15 @@ def log_to_atan(f, g):
     f = f.to_field()
     g = g.to_field()
 
+    if g.degree() == 0 and f.domain.is_EX:
+        # Division by a nonzero constant is exact. SymPy's EX elements are
+        # canonicalised by cancel, so its f.div(g) leaves a zero remainder;
+        # symox's EX arithmetic does not always recognise (a/c)*c - a as 0
+        # for nested radicals, so divide by the constant directly.
+        c = g.LC()
+        p = Poly([coeff/c for coeff in f.all_coeffs()], *f.gens, domain=f.domain)
+        return 2*atan(p.as_expr())
+
     p, q = f.div(g)
 
     if q.is_zero:
