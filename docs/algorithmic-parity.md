@@ -7444,3 +7444,96 @@ Remaining gaps (probe evidence):
   matrices, `cofactor`/`minors` index errors, Matrix hashing in
   `columnspace` comparisons, decomposition and solver form differences in
   `test_matrixbase.py` (54 different, 52 exceptions).
+
+## Distribution integrals and Integral special integrands (integ-risch, 2026-10-23)
+
+A probe set of 732 integrals was taken from SymPy 1.14's `test_risch.py`,
+`test_heurisch.py`, `test_manual.py`, `test_integrals.py`,
+`test_deltafunctions.py` and `test_singularityfunctions.py`. Symox gave no
+wrong result on it before or after this wave. The Risch and heurisch
+leftovers listed in the TODO already matched SymPy: `atan(exp(x))`, the
+`RootSum` forms, partial fractions with `risch=True`, `atan(x)*log(x)`,
+`x**(4/3)*log(x)` with `heurisch=True`, and `1/(cos(x) + 2)`.
+
+Implemented:
+
+- Delta integrals now use SymPy's `deltaintegrate` stage in more cases:
+  - an order-0 delta of a rational polynomial of degree 2 or more, when
+    the guarded expansion splits it into simple real roots. Examples:
+    `DiracDelta(x**2 - 1)`, `cos(x)*DiracDelta(x**2 - 1)`,
+    `DiracDelta(2*x**2 - 8)/x`, and `DiracDelta(x**2 - 3*x + 2)*x` on
+    `(0, 3)`;
+  - a unit-slope delta weighted by `Heaviside`, `sign` or `Abs`, as in
+    `Heaviside(x - a)*DiracDelta(x - 1)`, which gives
+    `Heaviside(1 - a)*Heaviside(x - 1)`;
+  - a delta weighted by an undefined function: `f(x)*DiracDelta(x)` gives
+    `f(0)*Heaviside(x)`, and `f(0)` over the real line.
+
+  The stage is skipped for Float input, for integer powers above 1000,
+  for deltas of order 1 or more (SymPy keeps only one term of
+  `g(x)*DiracDelta(x - p, n)`), and when the result still holds an
+  `Integral`. In that last case, `DiracDelta(x**2 - 1)/(x - 1)` stays held
+  where SymPy returns `zoo`.
+- `integrate` handles the special integrands that SymPy's `Integral`
+  handles:
+  - `Eq(l, r)` gives `Eq(integrate(l), integrate(r))`;
+  - an integrand that is a `Sum` with finite limits is integrated term by
+    term. A `Sum` with an infinite limit stays held. When a limit of the
+    sum is an integration variable, `integrate` raises SymPy's
+    `ValueError`;
+  - a limit `(x, None, b)` or `(x, a, None)` keeps only the given
+    endpoint, with strings sympified;
+  - `O(g)` integrates to `O(G)`, where `G` is an antiderivative of `g`.
+
+Probe before and after this wave:
+
+| Category | Before | After |
+|---|---|---|
+| same | 620 | 634 |
+| equivalent | 36 | 34 |
+| differs (form, or a reference error or timeout) | 46 | 45 |
+| symox unevaluated | 19 | 14 |
+| symox exception only | 3 | 0 |
+| SymPy exception only | 3 | 0 |
+| symox wrong | 0 | 0 |
+
+Intentional divergences, unchanged:
+
+- For derivatives of deltas, symox applies the `1/(a**n*|a|)` scale of an
+  affine argument. SymPy omits it: for `exp(x)*DiracDelta(2*x - 3, 1)` on
+  the real line, SymPy gives `-exp(3/2)`, and the correct value is
+  `-exp(3/2)/4`.
+- The real root of `DiracDelta(x**5 - x - 1)` is kept as a `CRootOf`
+  (SymPy gives 0). It was checked numerically against `exp(r)/|g'(r)|`.
+
+Remaining gaps:
+
+- Indefinite integrals of `g(x)*DiracDelta(x - p, n)` with `n >= 1` keep
+  SymPy's single leading term. For example, `x*DiracDelta(x - 1, 1)` gives
+  `-Heaviside(x - 1)`, without the `DiracDelta(x - 1)` term. The definite
+  values are exact.
+- `SingularityFunction` integrals over `(-oo, oo)` stay held, because
+  `SingularityFunction` has no limit at infinity. SymPy gives `1` and
+  `f(5)`.
+- `Heaviside(x - 1)*DiracDelta(x - 1)` gives `Heaviside(x - 1)**2/2` from
+  the native step, where SymPy gives `Heaviside(x - 1)/2`. The two are
+  equal as distributions.
+- `meijerint_definite` does not find these SymPy values:
+  - `sqrt(log(1/x))` on `(0, 1)`;
+  - the Frullani integrals of `test_integrals.py`;
+  - `log(log(x))/x**n` on `(1, oo)`.
+- Integrals over the unit cube with a parameter in an inner integrand,
+  for example `1/(x + y)**2` on `(0, 1)`, stay held because of a possible
+  pole.
+- `integrate(1/(1 + exp(x - 1/2)/(1 + exp(x))), x)` takes more than 30 s.
+- `DiracDelta(x)**2` over the real line stays held (SymPy gives
+  `DiracDelta(0)`).
+- `ratint(1/(x**3 + x + 1))` is still the gap described in the integ-rest
+  section above. Two further findings:
+  - SymPy's `roots_quadratic` calls `simplify` for an `EX` domain, but the
+    native `roots_quadratic` in `poly/roots.rs` calls `factor` for every
+    non-numeric domain.
+  - Patching the Python `roots_quadratic` with an emulation of SymPy's
+    simplify pipeline still fails in `log_to_atan`. The remaining
+    difference is therefore in the normalization or `cancel` of the `EX`
+    domain, not only in `simplify`.
