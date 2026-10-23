@@ -1563,10 +1563,12 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             {
                 return pow(&rb, &mul2(&re, e));
             }
-            // (r**(2k))**e = Abs(r)**(2k*e) for real r
-            if e.is_number()
-                && crate::assumptions::is_real(bb) == Some(true)
-                && be.as_i64().is_some_and(|k| k % 2 == 0)
+            // Pow._eval_power: an even inner exponent of a real base reads
+            // the base as Abs(r), which is nonnegative, so the branch factor
+            // is 1 and (r**(2k))**e = Abs(r)**(2k*e) for every e.
+            if crate::assumptions::is_real(bb) == Some(true)
+                && (be.as_i64().is_some_and(|k| k % 2 == 0)
+                    || (!be.is_number() && crate::assumptions::is_even(be) == Some(true)))
             {
                 return pow(&crate::functions::abs(bb), &mul2(be, e));
             }

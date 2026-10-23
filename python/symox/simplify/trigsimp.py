@@ -39,8 +39,9 @@ def _common_angles(expr):
     return S.expand_trig(expr.xreplace(replacements)).xreplace(back)
 
 
-def trigsimp_groebner(expr,hints=None,quick=False,order='grlex',polynomial=False):
-    """Reduce rational trig expressions modulo their quadratic identities."""
+def _angle_groebner(expr,order='grlex',quick=False):
+    """Reduce rational trig expressions in commensurate angles modulo their
+    quadratic identities (the matching method's common-angle pass)."""
     expr=S.sympify(expr);common=_common_angles(expr)
     expanded=S.expand_trig(expr) if common is None else common
     def ratios(node):
@@ -70,5 +71,7 @@ def trigsimp_groebner(expr,hints=None,quick=False,order='grlex',polynomial=False
             candidates.append(S.cancel(n/d).xreplace(back))
         except (ValueError,TypeError,NotImplementedError):continue
     return min(candidates,key=lambda value:(S.count_ops(value),len(str(value))))
+
+from ._trigsimp_groebner import trigsimp_groebner  # noqa: E402
 
 __all__ += ['trigsimp_old','trigsimp_groebner']

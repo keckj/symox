@@ -172,6 +172,16 @@ def _generic_factor_list(expr, args, method):
 def _wrap(native, name):
     @functools.wraps(native)
     def wrapper(*fargs, **args):
+        if name == 'groebner' and 'gens' in args:
+            # Reference: Options' ``gens`` keyword (used by
+            # trigsimp_groebner); both forms at once raise OptionError.
+            gens = args.pop('gens')
+            if gens is not None:
+                if len(fargs) > 1:
+                    from .polyerrors import OptionError
+                    raise OptionError("both '*gens' and keyword argument 'gens' supplied")
+                gens = tuple(gens) if hasattr(gens, '__iter__') else (gens,)
+                fargs = fargs[:1] + gens
         if args.get('wrt') is None and args.get('sort') is None:
             args.pop('wrt', None)
             args.pop('sort', None)

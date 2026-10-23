@@ -1467,10 +1467,11 @@ fn is_finite_uncached(e: &Expr) -> Option<bool> {
 }
 
 /// A power of a finite base to a finite exponent that is nonnegative, or of
-/// a nonzero base, is finite (SymPy's ``Pow._eval_is_finite``).
+/// a base that is not zero (``fuzzy_not(base.is_zero)``, so complex bases
+/// such as I count), is finite (SymPy's ``Pow._eval_is_finite``).
 fn finite_power(base: &Expr, exponent: &Expr) -> bool {
     is_finite(base) == Some(true) && is_finite(exponent) == Some(true)
-        && (is_nonnegative(exponent) == Some(true) || is_nonzero(base) == Some(true))
+        && (is_nonnegative(exponent) == Some(true) || is_zero(base) == Some(false))
 }
 
 #[cfg(test)]

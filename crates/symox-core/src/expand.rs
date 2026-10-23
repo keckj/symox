@@ -193,6 +193,17 @@ fn ex(
                 _ => exp(&a),
             }
         }
+        // AddWithLimits._eval_expand_basic: an Integral or a Sum of a sum
+        // is the sum of the Integrals (Sums) of its terms, when the summand
+        // commutes and the limits are not known to be infinite (or force).
+        Kind::Func(Func::Integral | Func::Sum, _) if options.basic => {
+            let rebuilt = if options.deep {
+                crate::traverse::map_children(e, &mut |c| exf(c, cache, options, opaque))
+            } else {
+                e.clone()
+            };
+            split_add_with_limits(&rebuilt, options.force).unwrap_or(rebuilt)
+        }
         _ if options.deep => {
             crate::traverse::map_children(e, &mut |c| exf(c, cache, options, opaque))
         }
@@ -200,6 +211,48 @@ fn ex(
     };
     cache.insert(e.dag_id(), (e.clone(), r.clone()));
     r
+}
+
+/// SymPy's `ExprWithLimits.has_finite_limits`: False when a bound is
+/// infinite, None when a bound may be infinite and the variable may be too.
+fn has_finite_limits(limits: &[Expr]) -> Option<bool> {
+    let infinite = |e: &Expr| crate::assumptions::fact(e, "infinite");
+    let mut unknown = false;
+    for limit in limits {
+        let parts = limit.args();
+        if parts.len() == 3 {
+            if parts[1..].iter().any(|b| infinite(b) == Some(true)) {
+                return Some(false);
+            }
+            if parts[1..].iter().any(|b| infinite(b).is_none()) && infinite(&parts[0]).is_none() {
+                unknown = true;
+            }
+        } else if parts.first().is_some_and(|v| infinite(v).is_none()) {
+            unknown = true;
+        }
+    }
+    if unknown { None } else { Some(true) }
+}
+
+fn split_add_with_limits(e: &Expr, force: bool) -> Option<Expr> {
+    let Kind::Func(head @ (Func::Integral | Func::Sum), args) = e.kind() else { return None };
+    let summand = args.first()?;
+    if !summand.is_add()
+        || !(force || (crate::decompose::commutes(summand) && has_finite_limits(&args[1..]) != Some(false)))
+    {
+        return None;
+    }
+    let parts: Vec<Expr> = summand
+        .args()
+        .iter()
+        .map(|term| {
+            let mut pieces = Vec::with_capacity(args.len());
+            pieces.push(term.clone());
+            pieces.extend(args[1..].iter().cloned());
+            crate::functions::func(head.clone(), pieces)
+        })
+        .collect();
+    Some(add(&parts))
 }
 
 /// The reference expands every term `k*t` of a sum as a whole product: a
