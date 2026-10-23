@@ -69,6 +69,21 @@ impl<K: PartialEq + Clone, V> OMap<K, V> {
     }
 }
 
+/// `as_base_exp` with SymPy's `exp_polar.as_base_exp`: `exp_polar(x)` is
+/// `exp_polar(1)**x` (ExpBase), except `exp_polar(0)`.
+fn base_exp(e: &Expr) -> (Expr, Expr) {
+    if let Kind::Func(Func::ExpPolar, a) = e.kind() {
+        if a.len() == 1 && !a[0].is_zero() {
+            return (crate::functions::func(Func::ExpPolar, vec![Expr::one()]), a[0].clone());
+        }
+    }
+    decompose::as_base_exp(e)
+}
+
+fn is_polar(e: &Expr) -> bool {
+    crate::special::polar::is_polar(e)
+}
+
 fn is_exp(e: &Expr) -> bool {
     matches!(e.kind(), Kind::Func(Func::Exp, _))
 }
@@ -150,7 +165,7 @@ fn bkey(b: &Expr, e: &Expr) -> ((Expr, BigInt), Expr) {
 }
 
 fn bkey1(x: &Expr) -> ((Expr, BigInt), Expr) {
-    let (b, e) = decompose::as_base_exp(x);
+    let (b, e) = base_exp(x);
     bkey(&b, &e)
 }
 
@@ -180,6 +195,12 @@ pub fn powsimp(expr: &Expr, opts: &PowsimpOptions) -> Expr {
 fn powsimp_y(expr: &Expr, opts: &PowsimpOptions, y: &Expr) -> Expr {
     if expr.is_atom() || matches!(expr.kind(), Kind::Func(Func::MatrixProxy(_), _)) {
         return expr.clone();
+    }
+    // `expr in (exp_polar(0), exp_polar(1))`
+    if let Kind::Func(Func::ExpPolar, a) = expr.kind() {
+        if a.len() == 1 && (a[0].is_zero() || a[0].is_one()) {
+            return expr.clone();
+        }
     }
     if !matches!(expr.kind(), Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Add(..) | Kind::Mul(..) | Kind::Pow(..) | Kind::Func(..) | Kind::Piecewise(_) | Kind::Rel(..) | Kind::Derivative(..)) {
         return expr.clone();
@@ -214,7 +235,7 @@ fn combine_exp(expr: &Expr, opts: &PowsimpOptions, y: &Expr) -> Expr {
         }
         let term = if term.is_pow() { denest_pow(&term) } else { term };
         if commutative(&term) {
-            let (mut b, mut e) = decompose::as_base_exp(&term);
+            let (mut b, mut e) = base_exp(&term);
             if opts.deep {
                 b = recurse(&b, *opts);
                 e = recurse(&e, *opts);
@@ -279,7 +300,7 @@ fn combine_exp(expr: &Expr, opts: &PowsimpOptions, y: &Expr) -> Expr {
         if skip.contains(b) {
             continue;
         }
-        if assumptions::is_positive(b) == Some(true) {
+        if assumptions::is_positive(b) == Some(true) || is_polar(b) {
             let binv = ops::inv(b);
             if matches!(b.kind(), Kind::Num(Number::Float(_))) && b.as_number().unwrap().cmp_value(&Number::ONE) == Some(Ordering::Equal) {
                 cp.set(b.clone(), Expr::one());
@@ -496,14 +517,14 @@ fn combine_base(expr: &Expr, opts: &PowsimpOptions, y: &Expr) -> Expr {
     let mut nc_part: Vec<Expr> = Vec::new();
     for term in args(expr) {
         if commutative(&term) {
-            c_powers.push(decompose::as_base_exp(&term));
+            c_powers.push(base_exp(&term));
         } else {
             nc_part.push(term);
         }
     }
     for item in c_powers.iter_mut() {
         let (b, e) = item.clone();
-        if !(nonneg_all(&b) || assumptions::is_integer(&e) == Some(true) || opts.force) {
+        if !(nonneg_all(&b) || assumptions::is_integer(&e) == Some(true) || opts.force || is_polar(&b)) {
             continue;
         }
         let (exp_c, exp_t) = decompose::as_coeff_mul_head(&e, true);
@@ -537,7 +558,8 @@ fn combine_base(expr: &Expr, opts: &PowsimpOptions, y: &Expr) -> Expr {
             for bi in bases {
                 if assumptions::is_negative(&bi) == Some(true) {
                     neg.push(bi);
-                } else if assumptions::is_nonnegative(&bi) == Some(true) {
+                } else if assumptions::is_nonnegative(&bi) == Some(true) || is_polar(&bi) {
+                    // polar can be treated like non-negative
                     nonneg.push(bi);
                 } else {
                     unk.push(bi);

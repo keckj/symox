@@ -542,6 +542,17 @@ pub fn zassenhaus(f: &[Int]) -> Vec<Vec<Int>> {
     let bits = 1.0 + lc.log2() + n as f64 + norm2_log + 2.0;
     let l = (bits / (p as f64).log2()).ceil().max(1.0) as u32;
     let pl = Int::from_u64(p).pow(l);
+    // Lifting and the trial divisions of the recombination multiply
+    // polynomials of degree <= n with coefficients below p**l: about
+    // r * (n + 1)**2 * bits**2 / 64 units per lifting level.
+    let lift_bits = pl.bits().saturating_add(lc.bits());
+    let levels = 2 * u64::from(32 - l.leading_zeros()) + 4;
+    super::factor_budget::grant(
+        (fs.len() as u64 + 1)
+            .saturating_mul(((n + 1) * (n + 1)) as u64)
+            .saturating_mul(lift_bits.saturating_mul(lift_bits) / 64)
+            .saturating_mul(levels),
+    );
     let lifted = hensel_lift_any(f, &fs, p, &pl, l);
     recombine(f, lifted, &pl)
 }

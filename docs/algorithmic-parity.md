@@ -8257,3 +8257,82 @@ Tests: `tests/test_bigexp2_parity.py`. Older tests that expected the
 2**120 bound to hold values now check the evaluated values
 (`tests/test_bigexp_parity.py`, `tests/test_float_exponent_arithmetic.py`,
 `tests/test_precision.py`, `tests/test_prec_parity.py`).
+
+## simp-rest3 (wave 9, 2026-10-23)
+
+Implemented:
+- `(I**x).is_finite` is True for a real `x`: a power of a finite nonzero
+  base to a finite exponent is finite (`finite_power` in
+  `assumptions.rs`). `solveset(I**x*(x - 2), x, S.Reals)` gives `{2}`.
+- `(r**2)**x` is `Abs(r)**(2*x)` for a real `r`, and also for a symbolic
+  even exponent (Pow-of-Pow rule in `ops.rs`), as in SymPy.
+- nthroot1: Zassenhaus' Hensel lifting and recombination multiply
+  integers of the size of the factor bound p**l, and the fixed work
+  allowance of the factor budget (2e7 units, about 5 ms) stopped them on
+  the degree-20 polynomial of `nthroot` (coefficients of 351 to 2011
+  bits). `zassenhaus` now extends the allowance by the cost of that stage,
+  r*(n + 1)**2*bits(p**l)**2/64 units per lifting level, at most 100 times
+  the scope's limit (`factor_budget::grant`); the attempt, degree,
+  coefficient and storage limits are unchanged and still bound the
+  exponential stages. The heuristic gcd also stops before an evaluation
+  point whose images would pass the coefficient-bit or work limits and uses
+  the modular gcd instead (`factor_budget::affordable`). The factorization
+  takes 22 ms (1e-20 case) and 31 ms (1e-30 case), SymPy 92 ms, and
+  `nthroot(expand_multinomial(q**5), 5) == q` for
+  `q = 1 + sqrt(2) + sqrt(3) + 1/10**20` and `1/10**30`.
+- `nc_simplify` of matrix expressions is a port of SymPy's
+  (`python/symox/simplify/_nc_simplify.py`), for example
+  `A*B*A*B*A*B*C*(A*B)**3*C` gives `((A*B)**3*C)**2` (issue 25590).
+- `trigsimp_groebner` is a port of SymPy's
+  (`python/symox/simplify/_trigsimp_groebner.py`), with `hints`,
+  `polynomial` and `quick`. `trigsimp(method='groebner')` and
+  `method='combined'` use SymPy's `groebnersimp` traversal. `groebner` and
+  `ratsimpmodprime` accept the `gens` keyword (OptionError when both forms
+  are given, as in SymPy). Intentional correction: where SymPy's
+  `analyse_gens` raises ValueError (`1/2 is not an integer`, angles that
+  are rational multiples such as `sin(beta/2)` with `sin(beta)`),
+  `method='groebner'` and `'combined'` fall back to the native
+  common-angle Groebner reduction, which proves
+  `-6*sin(beta/2)**8 + 12*sin(beta/2)**6 - 6*sin(beta/2)**4 + 3*sin(beta)**4/8`
+  is 0, as symox did before.
+- powsimp of polar bases: `exp_polar(a)` has the base `exp_polar(1)` and
+  the exponent `a`, and polar bases combine like nonnegative bases.
+  `powsimp(exp_polar(x)*exp_polar(y)*p**x*p**y)` gives
+  `(p*exp_polar(1))**(x + y)` for a polar `p`.
+- posify of a Matrix, and `expand` of an Integral or a Sum of a sum with
+  limits not known to be infinite (SymPy's
+  `AddWithLimits._eval_expand_basic`): `expand(Integral(x + y, (y, 1, 3)))`
+  is `Integral(x, (y, 1, 3)) + Integral(y, (y, 1, 3))`, and an infinite
+  bound keeps the Integral.
+
+Remaining (explicit):
+- `simplify((x + 5)/(16*x**2 + 28*x + 6))` stays
+  `(x + 5)/(16*x**2 + 28*x + 6)`; SymPy gives
+  `(x + 5)/(2*(8*x**2 + 14*x + 3))` (same count_ops, its
+  `shorter(together(expr), ...)` puts together first). A tie rule that
+  takes SymPy's rational state in the native selection did not reach the
+  output (later steps of the selection cancel again); it was reverted. The
+  test is an xfail.
+- test_lerchphi of the probe: the symbolic statements are correct and
+  fast, but the `can_do` numerical checks of the same function pass the
+  60 s probe timeout.
+- `trigsimp_groebner(ex)` of SymPy's test can return
+  `(-5*sin(x) + 5*cos(x) - 1)/(-8*sin(x) + 6*cos(x))`, the same quotient
+  with both signs flipped. SymPy's test accepts both forms.
+- `((1 + I)**x).is_zero` is None (SymPy: False), because `is_zero(1 + I)`
+  is not decided by the exact queries.
+- `MatrixExpr.doit(inv_expand=False)` is not supported natively;
+  nc_simplify falls back to `doit()`.
+- Issue 17141: `simplify(acos(I)**2)` gives a different form from SymPy's
+  `(pi - 2*I*log(1 + sqrt(2)))**2/4`. It needs a change of the
+  factor_terms tie rule of the simplify selection.
+- Issue 11004: cancel converts Floats to 53 bits.
+- `log(exp(x), 2, evaluate=False)` held: SymPy re-evaluates the rebuilt
+  log in subs, doit, expand and simplify (`subs(x, 3)` gives
+  `3/log(2)`, `simplify(e, inverse=True)` gives `x/log(2)`). Symox keeps
+  the held form.
+- `Derivative(sin(x), (x, d))` with a symbolic order (issue 22210): the
+  native Derivative stores integer orders, so a symbolic order needs a
+  core change.
+
+Tests: `tests/test_simp_rest3_parity.py`.

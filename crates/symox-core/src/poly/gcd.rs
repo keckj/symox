@@ -99,7 +99,19 @@ fn heugcd_zx(f: &[Int], g: &[Int]) -> Option<(Vec<Int>, Vec<Int>, Vec<Int>)> {
     let fin = |h: Vec<Int>, cff: Vec<Int>, cfg: Vec<Int>| {
         (dense::scale(&h, &cont), cff, cfg)
     };
+    let degree = f.len().max(g.len()) as u64;
+    let norm_bits = f_norm.bits().max(g_norm.bits());
     for _ in 0..HEU_GCD_MAX {
+        // Horner evaluation at `x` builds integers of about `degree * bits(x)`
+        // bits; when that would exceed the active factorization allowance the
+        // exact modular gcd is used instead (SymPy's heuristic has no such
+        // allowance, so this keeps large-coefficient inputs factorable).
+        let xb = x.bits();
+        let eval_bits = xb.saturating_mul(degree).saturating_add(norm_bits);
+        let eval_work = degree.saturating_mul(degree).saturating_mul(xb).saturating_mul(xb) / 64;
+        if !super::factor_budget::affordable(eval_bits, eval_work) {
+            return None;
+        }
         let ff = dense::eval(&f, &x);
         let gg = dense::eval(&g, &x);
         if !ff.is_zero() && !gg.is_zero() {

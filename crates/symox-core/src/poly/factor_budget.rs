@@ -125,6 +125,32 @@ pub(crate) fn bits(bits: u64) {
         }
     }
 }
+/// Whether an optional heuristic whose intermediate integers reach `bits`
+/// bits and which costs about `work` units fits the active allowance. A
+/// heuristic with an exact alternative (such as the heuristic gcd, which
+/// falls back to the modular gcd) checks this and takes the alternative
+/// instead of cancelling the whole computation.
+pub(crate) fn affordable(bits: u64, work: u64) -> bool {
+    STATE.with(Cell::get).map_or(true, |state| {
+        bits <= state.limits.coefficient_bits && work <= state.work / 4
+    })
+}
+/// Extends the work allowance of the active scope for a stage whose cost is
+/// polynomial in the size of its input (`work` units, at most 100 times the
+/// scope's work limit). Zassenhaus' Hensel lifting and recombination
+/// multiply integers of the size of the factor coefficient bound, so a
+/// fixed allowance stops them on inputs of a few hundred bits, where the
+/// reference factors in milliseconds. The attempt, degree and coefficient
+/// limits still bound the exponential stages.
+pub(crate) fn grant(work: u64) {
+    STATE.with(|slot| {
+        if let Some(mut state) = slot.get() {
+            let cap = state.limits.work.saturating_mul(100);
+            state.work = state.work.saturating_add(work.min(cap));
+            slot.set(Some(state));
+        }
+    });
+}
 pub(crate) fn storage(bits: u64) {
     if let Some(state) = STATE.with(Cell::get) {
         if bits > state.limits.storage_bits {
