@@ -7387,3 +7387,60 @@ Remaining gaps:
   SymPy's simplify pipeline with symox functions gives SymPy's
   intermediates. Fixing this needs SymPy's `simplify` pipeline (or its
   output form for this radicand) in the native simplify.
+
+## Simplification and matrix probes (simp-mat, 2026-10-23)
+
+Probe sets were generated from the assertions of SymPy 1.14's
+`sympy/simplify/tests/*.py` and `sympy/matrices/tests/*.py`, comparing each
+asserted expression with SymPy statement by statement.
+
+- simplify tests: same 1544 -> 1573, different 194 -> 169, exceptions
+  31 -> 27 (`test_simplify.py`: same 288 -> 317).
+- matrix tests: same 1649 -> 1728, exceptions 145 -> 73.
+
+Implemented:
+
+- `nsimplify` follows SymPy: `tolerance=0` uses PSLQ through `identify`,
+  `rational=True` uses `_real_to_rational` (with `nsimplify(fl,
+  rational=False)` for each Float), infinite Floats map to `oo`/`-oo`, and
+  Matrices are mapped entrywise. The decimal-fraction fallback keeps its
+  explicit resource guard for exponents larger than 10**6.
+- `radsimp` replaces a numeric radical denominator that `nsimplify` proves
+  equal to a Number (SymPy's `d.is_number` branch), and `Expr.equals` ends
+  with SymPy's `minimal_polynomial` test for numeric differences.
+- `simplify` now runs these steps of SymPy's pipeline around the native
+  search: `sign._eval_simplify`, `collect_abs`, the deep replacement that
+  simplifies function arguments, the early return for function heads that
+  the reference does not touch, then `sign` rewritten as `Abs`,
+  `hyperexpand`, `kroneckersimp` and `besselsimp`. A `Piecewise` produced
+  by that last `hyperexpand` is not simplified piecewise again, because the
+  reference runs its Piecewise block before `hyperexpand`.
+- Matrices: `is_positive_definite`, `is_positive_semidefinite`,
+  `is_negative_definite`, `is_negative_semidefinite`, `is_indefinite`,
+  `is_echelon` and `is_weakly/strongly_diagonally_dominant` are ports of
+  SymPy's `eigen.py`/`reductions.py`, including the Cholesky and
+  division-free elimination tests and `_find_reasonable_pivot`.
+  `eigenvals`/`eigenvects` of numeric Float matrices use SymPy's mpmath
+  path with its precision doubling and `PrecisionExhausted`, and
+  `eigenvals` accepts `simplify` (bool or function) and `rational`.
+
+Intentional divergence: `nsimplify` raises `ValueError` for a negative,
+infinite or NaN tolerance, where SymPy accepts `-1` and fails with an
+`AssertionError` for `inf`/`nan`.
+
+Remaining gaps (probe evidence):
+
+- simplify: `nthroot`; `nc_simplify` of noncommutative `MatMul` scalars;
+  forms of `hypersimp`, issue 17141 and issue 22210 (derivative order);
+  issue 11004 Float precision; `posify` with `Integral` and `Matrix`;
+  `cos` has no `_eval_rewrite_as_exp` for `simplify_complex`;
+  `log(exp(x), 2)` with `inverse=True`; some `KroneckerDelta` products.
+- fu: `TR4` on `False`, missing `_TR11`/`_TR56`, `hyper_as_trig`, issue
+  25590. hyperexpand: `lerchphi`/`meijerg` timeouts, `test_plan`,
+  `meijerg` with Floats. powsimp (10) and radsimp (5) form differences;
+  cse differences (91) were not triaged.
+- matrices: eigenvalues of characteristic polynomials with irreducible
+  factors of degree > 4 (SymPy returns `CRootOf`), Jordan forms of Float
+  matrices, `cofactor`/`minors` index errors, Matrix hashing in
+  `columnspace` comparisons, decomposition and solver form differences in
+  `test_matrixbase.py` (54 different, 52 exceptions).

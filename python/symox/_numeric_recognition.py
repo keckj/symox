@@ -50,14 +50,28 @@ def _rationalize(expression, tolerance, conversion):
         elif conversion=='exact':
             result=_exact_fraction(atom)
         else:
-            result=_decimal_fraction(atom)
-            # Recognize small fractions at the displayed precision. Retain
-            # decimal data if a nearby small denominator is not justified.
-            candidate=result.limit_denominator(10000)
-            digits=max(1,min(15,int(round(atom._prec*0.3010299956639812-1))))
-            if ((candidate!=0 or atom.is_zero is True)
-                    and abs(result-candidate)<=Fraction(1,10**digits)):
-                result=candidate
+            # SymPy's _real_to_rational: nsimplify(fl, rational=False), then
+            # the decimal string when the recognized value is not Rational.
+            # Outside the exact-conversion budget the decimal conversion
+            # raises explicitly; mpmath.identify would exhaust memory.
+            if abs(Decimal(str(atom)).adjusted())>1000000:
+                result=_decimal_fraction(atom)
+                replacements[atom]=Rational(result.numerator,result.denominator)
+                continue
+            recognized=nsimplify(atom,rational=False)
+            if atom and not recognized:
+                result=_exact_fraction(atom)
+            elif recognized.is_Rational:
+                replacements[atom]=recognized
+                continue
+            elif atom.is_infinite:
+                from . import S
+                replacements[atom]=S.ComplexInfinity
+                continue
+            elif atom.is_zero:
+                result=Fraction(0)
+            else:
+                result=_decimal_fraction(atom)
         replacements[atom]=Rational(result.numerator,result.denominator)
     return expression.xreplace(replacements) if replacements else expression
 
@@ -79,43 +93,36 @@ def nsimplify(expr, constants=(), tolerance=None, full=False, rational=None,
         raise ValueError("rational_conversion must be 'base10' or 'exact'")
     if rational is not None and rational is not True and rational is not False:
         raise TypeError('rational must be True, False or None')
-    tol=None if tolerance is None else _tolerance(tolerance)
+    import operator
+    if isinstance(expr,int) or getattr(expr,'is_Integer',False):
+        return sympify(operator.index(expr))
     expression=sympify(expr)
     if getattr(expression,'is_Matrix',False):
         matrix_constants=tuple(constants)
         return expression.applyfunc(lambda entry: nsimplify(entry,constants=matrix_constants,
             tolerance=tolerance,full=full,rational=rational,rational_conversion=rational_conversion))
+    from . import Float, S
+    infinities={atom:(S.Infinity if atom>0 else S.NegativeInfinity)
+                for atom in expression.atoms(Float) if atom.is_infinite}
+    if infinities:
+        expression=expression.xreplace(infinities)
+    if expression is S.Infinity or expression is S.NegativeInfinity:
+        return expression
     if rational is True or expression.free_symbols:
+        tol=None if tolerance is None else _tolerance(tolerance)
         return _rationalize(expression,tol,rational_conversion)
     # Numeric recognition requires the reference evalf protocol. A container
     # without it must not become an unrelated held scalar through _symox_.
     if not hasattr(expression,'evalf'):
         raise AttributeError("'%s' object has no attribute 'evalf'" % type(expression).__name__)
-    if tol is not None or full:
-        return _identify(expression,constants,tolerance,full,rational,rational_conversion)
-    constants=tuple(constants)
-    # The original recognition kernel handles IEEE floats. Use it only to
-    # propose a candidate for an MP atom, and validate that candidate at the
-    # original precision before changing any value. Double under/overflow
-    # must never turn a nonzero native MP value into zero or infinity.
-    from . import Float, Rational, Abs, S
-    replacements={}
-    for atom in expression.atoms(Float):
-        approximate=float(atom)
-        if not math.isfinite(approximate) or approximate==0 and atom.is_zero is not True:
-            continue
-        proposal=_core.nsimplify(_core.Float(approximate),constants=constants)
-        if proposal.is_Float:
-            continue
-        digits=max(30,math.ceil(atom._prec*math.log10(2))+10)
-        original=atom.evalf(digits)
-        candidate=proposal.evalf(digits)
-        tolerance_digits=max(1,min(15,round(atom._prec*math.log10(2)-1)))
-        threshold=Rational(1,10**tolerance_digits)*Abs(original)
-        if (Abs(candidate-original)<=threshold)==S.true:
-            replacements[atom]=proposal
-    expression=expression.xreplace(replacements) if replacements else expression
-    return _core.nsimplify(expression,constants=constants)
+    if tolerance is not None:
+        tolerance=sympify(tolerance)
+        if tolerance.is_real is not True or tolerance.is_finite is not True or tolerance.is_negative:
+            raise ValueError('tolerance must be finite and positive')
+        tolerance=float(tolerance) if tolerance else 0
+    # SymPy 1.14 evaluates every numeric expression at 30 digits and hands
+    # it to mpmath.identify (with pslq for tolerance=0).
+    return _identify(expression,constants,tolerance,full,rational,rational_conversion)
 
 
 def _identify(expr, constants, tolerance, full, rational, rational_conversion):
