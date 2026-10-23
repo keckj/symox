@@ -11,6 +11,9 @@ def test_unicode_names_match_sympy(text):
 
 def test_unicode_whitespace_and_invalid_characters():
     assert sx.sympify('α\u2003+\u00a0β') == sx.Symbol('α')+sx.Symbol('β')
-    for text in ['x+🙂', '🙂', 'x+→', 'α@β']:
-        with pytest.raises(ValueError):
+    for text in ['x+🙂', '🙂', 'x+→']:
+        with pytest.raises(sx.SympifyError):
             sx.sympify(text)
+    # SymPy lets the evaluation error of parsed code propagate unchanged.
+    with pytest.raises(TypeError, match="unsupported operand type"):
+        sx.sympify('α@β')

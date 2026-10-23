@@ -269,6 +269,8 @@ class Rational(Number):
         # The reference converts a Float to its exact binary ratio, in both
         # the numerator and the denominator.
         p, q = _float_exact_ratio(p), _float_exact_ratio(q)
+        # bool is an int for SymPy: Rational(True) is 1.
+        p, q = (int(v) if isinstance(v, bool) else v for v in (p, q))
         if (isinstance(p, Fraction) or isinstance(q, Fraction)) and isinstance(p, (int, Fraction)) \
                 and isinstance(q, (int, Fraction)) and q != 0:
             value = Fraction(p) / Fraction(q)
@@ -276,6 +278,23 @@ class Rational(Number):
         if q is None and isinstance(p, (str, float, Fraction)):
             value = Fraction(p)
             return _core.Rational(value.numerator, value.denominator)
+        # SymPy accepts only integers, rationals, floats and strings in
+        # either slot: Rational(pi) and Rational(1, x) raise TypeError.
+        for value in (p, q):
+            if value is None or isinstance(value, (int, Fraction, float, str)) \
+                    or getattr(value, 'is_Rational', None) is True:
+                continue
+            try:
+                from . import sympify
+                converted = sympify(value)
+            except Exception:
+                raise TypeError('invalid input: %s' % (value,)) from None
+            if getattr(converted, 'is_Rational', None) is not True:
+                raise TypeError('invalid input: %s' % (converted,))
+        if q is not None and Rational(q) == 0:
+            # SymPy: p/0 is zoo and 0/0 is nan.
+            from . import S
+            return S.NaN if Rational(p) == 0 else S.ComplexInfinity
         return _core.Rational(p, q)
 
 

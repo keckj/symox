@@ -114,9 +114,15 @@ fn least_squares_step(a: &[Vec<MpComplex>], b: &[MpComplex], precision: u32) -> 
 
 fn verify(expressions: &[Expr], variables: &[Expr], values: &[MpComplex], options: &Options, precision: u32) -> Result<(), String> {
     if options.verify {
-        let residual = max_norm(&evaluate(expressions, variables, values, precision)?, precision);
-        if residual.mul(&residual, precision).cmp(&options.tolerance) == Ordering::Greater {
-            return Err("Could not find root within given tolerance".into());
+        // mpmath's findroot: the squared Euclidean norm of the residual
+        // vector must not exceed tol.
+        let squared = evaluate(expressions, variables, values, precision)?.iter()
+            .fold(BigFloat::zero(), |sum, value| { let a = value.abs(precision); sum.add(&a.mul(&a, precision), precision) });
+        if squared.cmp(&options.tolerance) == Ordering::Greater {
+            let shown = options.precision + 20;
+            let text = |value: &BigFloat| crate::printer::to_str(&evalf_mp::to_expr(MpComplex::real(value.clone()), shown));
+            return Err(format!("Could not find root within given tolerance. ({} > {})\nTry another starting point or tweak arguments.",
+                text(&squared), text(&options.tolerance)));
         }
     }
     Ok(())
@@ -165,8 +171,8 @@ pub fn newton(equations: &[Expr], variables: &[Expr], starts: &[MpComplex], opti
         }
         match accepted {
             Some(candidate) => values = candidate,
-            None if !options.verify => break,
-            None => return Err("Could not find root within given tolerance (Newton step did not decrease the residual)".into()),
+            // Like mpmath, a stalled iteration is judged by the final check.
+            None => break,
         }
     }
     verify(&expressions, variables, &values, options, precision)?;

@@ -145,6 +145,17 @@ class _CallableExpr(Expr):
     def __call__(self, *args):
         return self._call_symbolic(*args)
 
+    def __getattr__(self, name):
+        # SymPy's Predicate.register / register_many on an undefined
+        # predicate (``Predicate("P")``), which has no dispatcher.
+        if name in ('register', 'register_many') and self.class_name == 'UndefinedPredicate':
+            from .assumptions.assume import PredicateMeta
+
+            def register(*types, **kwargs):
+                raise TypeError("%s cannot be dispatched." % PredicateMeta)
+            return register
+        raise AttributeError("'%s' object has no attribute '%s'" % (type(self).__name__, name))
+
 # ---------------------------------------------------------------------------
 # constants
 # ---------------------------------------------------------------------------
@@ -966,6 +977,10 @@ class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
 
 
 ImmutableDenseMatrix = ImmutableMatrix
+# SymPy names the class ImmutableDenseMatrix (ImmutableMatrix is the alias),
+# which shows in reprs such as "Cannot set values of <class ...>".
+ImmutableMatrix.__name__ = ImmutableMatrix.__qualname__ = "ImmutableDenseMatrix"
+ImmutableMatrix.__module__ = "symox.matrices.immutable"
 
 from . import _matrix_diag  # noqa: E402
 diag = _matrix_diag.install(globals())

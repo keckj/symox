@@ -3,12 +3,16 @@ from contextlib import contextmanager
 from .. import _core
 
 
-class _PredicateType(type):
+class PredicateMeta(type):
     def __instancecheck__(cls, value):
         if cls in type(value).__mro__:return True
         return isinstance(value, _core.Expr) and (
             value.class_name.endswith("Predicate")
             and value.class_name != "AppliedPredicate")
+
+
+# SymPy's metaclass name, shown by ``register`` on an undefined predicate.
+_PredicateType = PredicateMeta
 
 
 class Predicate(metaclass=_PredicateType):
@@ -165,7 +169,6 @@ def assuming(*assumptions):
         global_assumptions.clear()
         global_assumptions.update(previous)
 
-PredicateMeta=type(Predicate)
 
 class _UndefinedPredicateType(_PredicateType):
     def __instancecheck__(cls,value):return isinstance(value,_core.Expr) and value.class_name=='UndefinedPredicate'

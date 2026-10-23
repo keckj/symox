@@ -1249,6 +1249,11 @@ fn unwrap_unevaluated(e: &Expr) -> Expr {
 /// Parse the variable list of `diff(expr, x, y, (z, 2), x, 3)`.
 fn valid_diff_variable(variable: &Expr) -> bool { diff::is_valid_variable(variable) }
 
+/// SymPy's Derivative.__new__ wording (``filldedent`` adds the leading newline).
+fn cannot_diff_wrt(variable: &Expr) -> PyErr {
+    PyValueError::new_err(format!("\nCan't calculate derivative wrt {}.", printer::to_str(variable)))
+}
+
 pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>> {
     let order = |value: &Bound<'_, PyAny>| -> PyResult<u32> {
         if value.is_instance_of::<pyo3::types::PyBool>() {
@@ -1295,7 +1300,7 @@ pub(crate) fn diff_vars(args: &Bound<'_, PyTuple>) -> PyResult<Vec<(Expr, u32)>>
             return Err(PyNotImplementedError::new_err("matrix-variable derivatives require tensor expressions"));
         }
         if !valid_diff_variable(&variable) {
-            return Err(PyValueError::new_err("cannot differentiate with respect to this expression"));
+            return Err(cannot_diff_wrt(&variable));
         }
         vars.push((variable,n));
         i += 1;
@@ -1572,7 +1577,7 @@ impl PyExprNode {
         match self.e.kind() {
             Kind::Bool(b) => Ok(*b),
             Kind::Num(n) => Ok(!n.is_zero()),
-            Kind::Rel(..) => Err(PyTypeError::new_err("cannot determine truth value of Relational")),
+            Kind::Rel(..) => Err(PyTypeError::new_err(format!("cannot determine truth value of Relational: {}", host::checked(printer::to_str(&self.e))?))),
             _ => Ok(true),
         }
     }
@@ -3271,7 +3276,7 @@ fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>,evaluate:bool) 
     let expression=to_expr(f)?;
     let mut vars = diff_vars(args)?;
     if vars.is_empty(){let symbols=traverse::free_symbols(&expression);match symbols.len(){0=>return Ok(wrap(Expr::zero())),1=>vars.push((symbols[0].clone(),1)),_=>return Err(PyValueError::new_err("specify the differentiation variables"))}}
-    if vars.iter().any(|(v,_)|!valid_diff_variable(v)){return Err(PyValueError::new_err("cannot differentiate with respect to this expression"));}
+    if let Some((v,_))=vars.iter().find(|(v,_)|!valid_diff_variable(v)){return Err(cannot_diff_wrt(v));}
     Ok(wrap(if evaluate{diff::diff_many(&expression,&vars)}else{diff::derivative_unevaluated(&expression,vars)}))
 }
 
