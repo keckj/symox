@@ -535,6 +535,9 @@ impl Engine {
             }
         }
         if let Func::Special(s) = f {
+            if let Some(res) = self.ser_log_singular(*s, args, n)? {
+                return Ok(res);
+            }
             if let Some(res) = self.ser_special_taylor(*s, args, n)? {
                 return Ok(res);
             }
@@ -949,6 +952,77 @@ impl Engine {
         } else {
             Ok(self.exp_ser(&lser, prec)?.scale(&C::from_expr(g0)))
         }
+    }
+
+    /// Expansions of the exponential and trigonometric integrals whose
+    /// argument tends to zero, where they have a logarithmic singularity
+    /// (SymPy 1.14's `_eval_nseries` through the Si/Ei rewrites and the
+    /// `_eval_as_leading_term` of Ei, Ci and Chi):
+    /// `Ei(u) = EulerGamma + log(u) + Σ u**k/(k*k!)`, minus `I*pi` when
+    /// the leading coefficient of `u` has a negative real part, as SymPy's
+    /// `Ei._eval_as_leading_term`;
+    /// `Ci(u) = EulerGamma + log(u) + Σ (-1)**k*u**(2*k)/(2*k*(2*k)!)`,
+    /// `Chi(u) = EulerGamma + log(u) + Σ u**(2*k)/(2*k*(2*k)!)`,
+    /// `expint(1, u) = -EulerGamma - log(u) - Σ (-u)**k/(k*k!)`, and
+    /// `li(u) = Ei(log(u))` when `u` tends to 1 (SymPy's `li._eval_nseries`).
+    fn ser_log_singular(&mut self, s: crate::special::SpecialFn, args: &[Expr], n: i64) -> SRes<Option<Ser>> {
+        use crate::special::SpecialFn::*;
+        let u = match (s, args.len()) {
+            (Ei | Ci | Chi | Li, 1) => &args[0],
+            (Expint, 2) if args[0].is_one() => &args[1],
+            _ => return Ok(None),
+        };
+        // The order of the argument's leading term may exceed `n` (`Ei(2*x)`
+        // at O(x), `Ei(x**2)`): expand until it is nonzero.
+        let Ok(a) = self.ser_nonzero(u, n.max(1)) else { return Ok(None) };
+        if a.is_zero() || a.val < 0 {
+            return Ok(None);
+        }
+        let c0 = a.lead().cloned().ok_or(SErr::Precision)?;
+        if let C::E(e) = &c0 {
+            if depends(e, &self.logt) {
+                return Ok(None);
+            }
+        }
+        if s == Li {
+            if a.val == 0 && c0.to_expr().is_one() {
+                let ei = crate::special::sf(Ei, vec![fx::log(u)]);
+                return self.ser(&ei, n).map(Some);
+            }
+            return Ok(None);
+        }
+        if a.val == 0 {
+            return Ok(None);
+        }
+        // Terms u**k contribute from t**(k*val/d): enough of them for O(t**n).
+        let kmax = (n.max(1) / a.val + 2).max(2);
+        let mut terms = vec![Expr::constant(Constant::EulerGamma), fx::log(u)];
+        let mut fact = Expr::one();
+        for k in 1..=(if matches!(s, Ci | Chi) { 2 * kmax } else { kmax }) {
+            fact = mul2(&fact, &Expr::int(k));
+            let ke = Expr::int(k);
+            let term = match s {
+                Ei => Some(crate::ops::div(&pow(u, &ke), &mul2(&ke, &fact))),
+                Expint => Some(crate::ops::div(&pow(&neg(u), &ke), &mul2(&ke, &fact))),
+                Ci | Chi if k % 2 == 0 => {
+                    let t = crate::ops::div(&pow(u, &ke), &mul2(&ke, &fact));
+                    Some(if s == Ci && k % 4 == 2 { neg(&t) } else { t })
+                }
+                _ => None,
+            };
+            if let Some(term) = term {
+                terms.push(term);
+            }
+        }
+        if s == Ei {
+            let real = func(Func::Re, vec![c0.to_expr()]);
+            if crate::assumptions::is_negative(&real) == Some(true) {
+                terms.push(neg(&mul2(&Expr::i(), &Expr::pi())));
+            }
+        }
+        let value = add(&terms);
+        let value = if s == Expint { neg(&value) } else { value };
+        self.ser(&value, n).map(Some)
     }
 
     /// Taylor expansions of the Airy, elliptic and `sinc` functions at a

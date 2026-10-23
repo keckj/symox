@@ -21,7 +21,7 @@ pub struct MpComplex {
 // inside an enclosing numerical cache must not answer an unchopped query.
 struct NumericMemo {
     depth: usize,
-    values: Option<rustc_hash::FxHashMap<(usize,u32,bool,EvalfOptions),(Expr,Option<MpComplex>)>>,
+    values: Option<rustc_hash::FxHashMap<(usize,u32,bool,EvalfOptions),(Expr,Option<MpComplex>,bool)>>,
 }
 thread_local! {
     static NUMERIC_MEMO:std::cell::RefCell<NumericMemo> = const {
@@ -35,6 +35,9 @@ thread_local! {
     static RESIDUE:std::cell::Cell<Option<(i128,i128)>> = const { std::cell::Cell::new(None) };
     static ACHIEVED:std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
     static EXHAUSTED:std::cell::RefCell<Option<Expr>> = const { std::cell::RefCell::new(None) };
+    // Set when a sum below the root exhausted its budget under
+    // `EvalfOptions::residue` and returned its residue (see `eval_sum`).
+    static NESTED:std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// Options of one public numerical evaluation, as in SymPy's `evalf`.
@@ -407,8 +410,35 @@ fn eval_mp_root(e:&Expr,prec:u32)->Option<MpComplex>{
     impl Drop for Root { fn drop(&mut self){RESIDUE_ROOT.with(|cell|cell.set(self.0));} }
     let _root=Root(RESIDUE_ROOT.with(|cell|cell.replace(e.dag_id())));
     RESIDUE.with(|cell|cell.set(None));
-    let value=eval_mp_componentwise(e,prec);
+    let outer=NESTED.with(|cell|cell.replace(false));
+    let mut value=eval_mp_componentwise(e,prec);
+    let nested=NESTED.with(|cell|cell.replace(outer));
     if value.is_none() {RESIDUE.with(|cell|cell.set(None));}
+    else if nested&&RESIDUE.with(|cell|cell.get()).is_none() {
+        // A cancelled sum below the root returned its residue, as SymPy's
+        // evalf_add does at any depth. The digits of the root that do not
+        // depend on that residue are those on which an evaluation with a
+        // larger budget agrees; a part without such a digit keeps the
+        // computed value with a precision of one bit (SymPy's scaled zero).
+        let first=value.clone()?;
+        let second=eval_mp(e,prec+64);
+        NESTED.with(|cell|cell.set(outer));
+        let Some(second)=second else {RESIDUE.with(|cell|cell.set(None));return None};
+        let part=|v:&BigFloat,w:&BigFloat|->i128{
+            if v.is_zero()&&w.is_zero() {return i128::MAX;}
+            if v.is_zero()||w.is_zero() {return -1;}
+            let difference=v.sub(w,prec+128);
+            if difference.is_zero() {return i128::MAX;}
+            let accuracy=w.mag().saturating_sub(difference.mag()).saturating_sub(1);
+            if accuracy>=i128::from(prec) {i128::MAX} else if accuracy<1 {-1} else {accuracy}
+        };
+        let (real,imaginary)=(part(&first.re,&second.re),part(&first.im,&second.im));
+        if real!=i128::MAX||imaginary!=i128::MAX {
+            let round=|v:&BigFloat,accuracy:i128|if accuracy==i128::MAX||accuracy<1 {v.clone()} else {v.round_to(u32::try_from(accuracy).unwrap_or(prec))};
+            value=Some(MpComplex{re:round(&first.re,real),im:round(&first.im,imaginary)});
+            RESIDUE.with(|cell|cell.set(Some((real,imaginary))));
+        }
+    }
     value
 }
 
@@ -577,14 +607,18 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
     if e.is_atom(){return ev_uncached(e,p);}
     let _scope=NumericScope::enter();
     let key=(e.dag_id(),p,crate::assumptions::numeric_refinement_enabled(),OPTIONS.with(|cell|cell.get()));
-    if let Some(value)=NUMERIC_MEMO.with(|memo|memo.borrow().values.as_ref()
-        .and_then(|values|values.get(&key).map(|(_,value)|value.clone()))) {
+    if let Some((value,nested))=NUMERIC_MEMO.with(|memo|memo.borrow().values.as_ref()
+        .and_then(|values|values.get(&key).map(|(_,value,nested)|(value.clone(),*nested)))) {
+        if nested {NESTED.with(|cell|cell.set(true));}
         return value;
     }
     #[cfg(test)] EVALUATIONS.with(|count|count.set(count.get()+1));
+    let before=NESTED.with(|cell|cell.replace(false));
     let result=ev_uncached(e,p);
+    let nested=NESTED.with(|cell|cell.get());
+    NESTED.with(|cell|cell.set(before||nested));
     NUMERIC_MEMO.with(|memo|memo.borrow_mut().values
-        .get_or_insert_with(rustc_hash::FxHashMap::default).insert(key,(e.clone(),result.clone())));
+        .get_or_insert_with(rustc_hash::FxHashMap::default).insert(key,(e.clone(),result.clone(),nested)));
     result
 }
 
@@ -725,7 +759,7 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
             if accuracy>=precision as i128 {return Some(sum);}
             // SymPy's evalf_add result once the budget is exhausted: each
             // part with its own accuracy, an exact zero as its error bound.
-            let residue=|sum:MpComplex|{
+            let residue=|sum:MpComplex,report:bool|{
                 let part=|value:BigFloat,present:bool,largest:i128|{
                     if !present {return (value,i128::MAX);}
                     let error=error_bound(largest,working);
@@ -736,13 +770,18 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
                 };
                 let (re,real_accuracy)=part(sum.re,real_part,largest_real);
                 let (im,imaginary_accuracy)=part(sum.im,imaginary_part,largest_imaginary);
-                RESIDUE.with(|cell|cell.set(Some((real_accuracy,imaginary_accuracy))));
+                if report {RESIDUE.with(|cell|cell.set(Some((real_accuracy,imaginary_accuracy))));}
+                else {NESTED.with(|cell|cell.set(true));}
                 MpComplex{re,im}
             };
+            // Without strict, SymPy's evalf_add returns the residue of a
+            // cancelled sum at any depth; below the root it is flagged so
+            // that the root reports only the digits it does not change.
+            let nested=options.residue&&!root;
             let root=options.residue&&root;
             let terms_precision=working-10;
             if terms_precision.saturating_sub(precision)>budget.min(terms_precision.saturating_mul(2)) {
-                if root {return Some(residue(sum));}
+                if root||nested {return Some(residue(sum,root));}
                 if options.partial&&accuracy>=1 {
                     let achieved=u32::try_from(accuracy).unwrap_or(u32::MAX);
                     ACHIEVED.with(|cell|cell.set(Some(cell.get().map_or(achieved,|current|current.min(achieved)))));
@@ -754,7 +793,7 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
             let step=(precision as i128).saturating_sub(accuracy).max(10+(1i128<<restarts.min(60)));
             let next=i128::from(working).saturating_add(step);
             if next>i128::from(EXPLICIT_WORKING_LIMIT) {
-                if root {return Some(residue(sum));}
+                if root||nested {return Some(residue(sum,root));}
                 EXHAUSTED.with(|cell|{let mut cell=cell.borrow_mut();if cell.is_none(){*cell=Some(expression.clone());}});
                 return None;
             }
@@ -770,7 +809,7 @@ fn eval_sum(expression:&Expr,constant: &Number, terms: &[(Expr, Number)], precis
         if working >= ceiling {
             // The default budget is exhausted: report the residue with
             // SymPy's default schedule (maxprec = max(prec, 332) bits).
-            if options.residue&&root {
+            if options.residue&&options.budget.is_none() {
                 let target=precision.saturating_sub(20).max(1);
                 let _scope=OptionsScope::enter(EvalfOptions{budget:Some(target.max(332)),..options});
                 return eval_sum(expression,constant,terms,precision);

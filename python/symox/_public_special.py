@@ -320,6 +320,14 @@ def install(namespace):
                     value = _evalf_infinite_sums(value,n)
             return old_evalf(value,n,*args,**kwargs)
         if substitutions:value = value.subs(substitutions)
+        if all(node.class_name == 'ComplexRootOf' for node in _special_nodes(value)):
+            # The native evaluator refines a root at every working precision,
+            # so a sum that cancels (r**5 - r**3 + 1/7 for a root r of
+            # 7*x**5 - 7*x**3 + 1) is resolved or reported as SymPy's scaled
+            # zero; a Float replacement would leave its rounding residue.
+            native = old_evalf(value,n,*args[1:],**{k:v for k,v in kwargs.items() if k != 'subs'})
+            if not any(node.class_name == 'ComplexRootOf' for node in _nodes(native)):
+                return native
         if _infinite_sums(value):
             value = _evalf_infinite_sums(value,n)
         replacements = {}

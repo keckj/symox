@@ -83,9 +83,9 @@ def test_infeasible_integer_part_stays_held_on_the_perfect_power_base():
 
 
 def test_ratint_cubic_with_one_real_root_is_still_a_gap():
-    # SymPy 1.14 returns a 16653-character closed form. symox still raises
-    # in log_to_atan because the roots_quadratic radicand produced by the
-    # native simplify differs from SymPy's form (documented gap).
+    # SymPy 1.14 returns a 16653-character closed form. symox now returns a
+    # real closed form with the same value (log_to_atan divides by a
+    # constant EX polynomial directly); the radical form is larger.
     x = Symbol("x")
     try:
         result = ratint(1 / (x**3 + x + 1), x)

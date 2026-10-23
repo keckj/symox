@@ -104,7 +104,93 @@ def integrate(*args, **kwargs):
             value = None
         if value is not None:
             return value
+    if (len(args) == 2 and not kwargs and isinstance(args[1], (tuple, Tuple)) and len(args[1]) == 3
+            and getattr(result, 'is_Integral', False)):
+        value = _singularity_definite(args[0], *args[1])
+        if value is not None:
+            return value
     return _reevaluate_singularities(result)
+
+
+def _singularity_definite(f, x, a, b):
+    """The definite integral of an integrand with SingularityFunction
+    nodes from its antiderivative, as SymPy's ``Integral._eval_interval``,
+    or None.
+
+    A finite endpoint is substituted. At an infinite endpoint each
+    ``SingularityFunction(x, c, n)`` is replaced by its value for ``x``
+    beyond ``c``: 0 at ``-oo``, and at ``oo`` 0 for ``n < 0``, 1 for
+    ``n = 0`` and ``(x - c)**n`` otherwise; the limit of the result is then
+    taken. SymPy 1.14's ``limit`` gives 0 for every SingularityFunction at
+    infinity, which is wrong for ``n >= 0`` (``SingularityFunction(x, a, 0)``
+    over the real line gives 0 there; the integral diverges).
+    """
+    try:
+        f, x, a, b = sympify(f), sympify(x), sympify(a), sympify(b)
+    except Exception:
+        return None
+    if not isinstance(f, Expr) or not isinstance(x, Symbol):
+        return None
+    heads = [g for g in f.atoms(Function) if getattr(g, 'class_name', None) == 'SingularityFunction']
+    if not heads or not (a.is_infinite or b.is_infinite):
+        return None
+    F = _reevaluate_singularities(_native_integrate(f, x))
+    if getattr(F, 'has', None) is None or F.has(Integral):
+        return None
+
+    def at(v, right):
+        if not v.is_infinite:
+            value = _reevaluate_singularities(F.subs(x, v))
+            if not value.has(S.NaN, S.Infinity, S.NegativeInfinity, S.ComplexInfinity):
+                return value
+            # As Expr._eval_interval: the one-sided limit from inside the
+            # interval, where SingularityFunction(x, v, n) is 0 for n != 0,
+            # and 1 for n = 0 from the right.
+            mapping = {}
+            for g in F.atoms(Function):
+                if getattr(g, 'class_name', None) != 'SingularityFunction':
+                    continue
+                arg, c, n = g.args
+                if arg != x or not (c - v).is_zero or not n.is_Integer:
+                    continue
+                mapping[g] = S.One if right and n == 0 else S.Zero
+            value = _reevaluate_singularities(F.xreplace(mapping).subs(x, v))
+            if value.has(S.NaN, S.Infinity, S.NegativeInfinity, S.ComplexInfinity):
+                return None
+            return value
+        if v not in (S.Infinity, S.NegativeInfinity):
+            return None
+        mapping = {}
+        for g in F.atoms(Function):
+            if getattr(g, 'class_name', None) != 'SingularityFunction':
+                continue
+            arg, c, n = g.args
+            if arg != x or c.has(x) or not n.is_Integer:
+                return None
+            if v is S.NegativeInfinity or n < 0:
+                mapping[g] = S.Zero
+            elif n == 0:
+                mapping[g] = S.One
+            else:
+                mapping[g] = (x - c)**n
+        G = F.xreplace(mapping)
+        if not G.has(x):
+            return G
+        value = limit(G, x, v)
+        if value.has(Limit):
+            return None
+        return value
+
+    if (b - a).is_negative:
+        return None
+    upper, lower = at(b, False), at(a, True)
+    if upper is None or lower is None:
+        return None
+    value = upper - lower
+    if value.has(S.NaN) or any(getattr(g, 'class_name', None) == 'SingularityFunction'
+                               and g.args[0].is_infinite for g in value.atoms(Function)):
+        return None
+    return value
 
 
 def _reference_integrate_cases(args, kwargs):

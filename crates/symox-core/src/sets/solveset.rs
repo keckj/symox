@@ -216,6 +216,56 @@ fn symbolic_coefficient(f: &Func, a: &Expr, b: &Expr, k: &Expr, x: &Expr, domain
     Some(condition_set(x, &cond, &union(out)))
 }
 
+/// SymPy's `_invert_trig_hyp_complex` lattices for `sec`, `csc` and `cot`
+/// when the reciprocal inverse stays unevaluated: `2*n*pi +- asec(k)`,
+/// `2*n*pi + acsc(k)` / `2*n*pi + pi - acsc(k)` and `n*pi + acot(k)`.
+/// Over the reals this is used only for a real argument and a real `k`
+/// outside `(-1, 1)` (every lattice point is then real); other cases keep
+/// the reduction to `cos`, `sin` and `tan`.
+#[allow(clippy::too_many_arguments)]
+fn reciprocal_trig_images(f: &Func, k: &Expr, a: &Expr, b: &Expr, domain: &Expr, real: bool,
+    real_argument: bool, context: &SolveContext) -> Option<Expr> {
+    if !is_numeric_value(k) {
+        return None;
+    }
+    let pi = Expr::pi();
+    let inverse = match f {
+        Func::Sec => crate::special::asec(k),
+        Func::Csc => crate::special::acsc(k),
+        _ => crate::functions::acot(k),
+    };
+    let unevaluated = match (f, inverse.kind()) {
+        (Func::Sec, Kind::Func(Func::Special(crate::special::SpecialFn::Asec), _))
+        | (Func::Csc, Kind::Func(Func::Special(crate::special::SpecialFn::Acsc), _))
+        | (Func::Cot, Kind::Func(Func::Acot, _)) => true,
+        _ => false,
+    };
+    if !unevaluated {
+        return None;
+    }
+    if real {
+        if !is_op(domain, SetOp::Reals) || !real_argument
+            || crate::assumptions::exact_queries(|| crate::assumptions::is_real(k)) != Some(true) {
+            return None;
+        }
+        if !matches!(f, Func::Cot) {
+            let above = crate::special::lambert::real_sign(&sub(k, &Expr::one()));
+            let below = crate::special::lambert::real_sign(&add2(k, &Expr::one()));
+            if above != Some(1) && below != Some(-1) {
+                return None;
+            }
+        }
+    }
+    let (thetas, base) = match f {
+        Func::Sec => (vec![inverse.clone(), neg(&inverse)], mul2(&Expr::int(2), &pi)),
+        Func::Csc => (vec![inverse.clone(), sub(&pi, &inverse)], mul2(&Expr::int(2), &pi)),
+        _ => (vec![inverse], pi),
+    };
+    let period = div(&base, a);
+    let period = if crate::special::lambert::real_sign(&period) == Some(-1) { neg(&period) } else { period };
+    Some(union(thetas.iter().map(|t| image(&period, &crate::expand::expand(&div(&sub(t, b), a)), context)).collect()))
+}
+
 /// Periodic solutions of `trig(a*x + b) = k` / `exp(a*x + b) = k`.
 fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
     use crate::functions::{acos, asin, atan, log, asinh, acosh, atanh};
@@ -239,6 +289,9 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
             return periodic(&crate::functions::func(Func::Cos,args.clone()),k,x,domain,context);
         }
         if !proved_nonzero(k){return None;}
+        if let Some(images)=reciprocal_trig_images(f,k,&a,&b,domain,real,real_argument,context){
+            return Some(images);
+        }
         let head=match f{Func::Sec=>Func::Cos,Func::Csc=>Func::Sin,_=>Func::Tan};
         return periodic(&crate::functions::func(head,args.clone()),&div(&Expr::one(),k),x,domain,context);
     }
