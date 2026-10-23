@@ -181,7 +181,12 @@ class LatexPrinter(Printer):
         settings = dict(self._settings, mode='plain')
         if settings.get('fold_short_frac') is None:
             settings['fold_short_frac'] = self._settings.get('mode') == 'inline'
-        return _core.latex(expr, **settings)
+        tex = _core.latex(expr, **settings)
+        if self._settings.get('mode') == 'inline' and r'\int\limits' in tex:
+            # The reference ``_print_Integral`` omits ``\limits`` inline;
+            # the native printer always runs in the plain mode.
+            tex = tex.replace(r'\int\limits', r'\int')
+        return tex
 
     def doprint(self, expr):
         mode = self._settings.get('mode', 'plain')

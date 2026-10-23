@@ -760,10 +760,85 @@ impl<'a> LatexPrinter<'a> {
         }
     }
 
+    /// The reference latex set printers.
+    fn print_set(&self, op: crate::sets::SetOp, args: &[Expr]) -> Option<String> {
+        use crate::sets::SetOp as O;
+        let is_op = |e: &Expr, ops: &[O]| matches!(e.kind(), Kind::Func(Func::Set(o), _) if ops.contains(o));
+        let traditional = [O::Union, O::Intersection, O::Complement, O::ProductSet];
+        let joined = |delim: &str| {
+            args.iter()
+                .map(|a| if is_op(a, &traditional) { Self::parens(&self.print(a)) } else { self.print(a) })
+                .collect::<Vec<_>>()
+                .join(delim)
+        };
+        Some(match op {
+            O::FiniteSet => {
+                let mut v = args.to_vec();
+                v.sort_by_cached_key(crate::sortkey::sort_key);
+                format!("\\left\\{{{}\\right\\}}", v.iter().map(|a| self.print(a)).collect::<Vec<_>>().join(", "))
+            }
+            O::Interval => {
+                let e = Expr::from_kind(Kind::Func(Func::Set(op), args.to_vec()));
+                let (a, b, lo, ro) = crate::sets::interval_parts(&e)?;
+                if a == b {
+                    return Some(format!("\\left\\{{{}\\right\\}}", self.print(&a)));
+                }
+                format!("\\left{}{}, {}\\right{}", if lo { "(" } else { "[" }, self.print(&a), self.print(&b), if ro { ")" } else { "]" })
+            }
+            O::Union => joined(" \\cup "),
+            O::Intersection => joined(" \\cap "),
+            O::Complement => joined(" \\setminus "),
+            O::ProductSet if args.len() > 1 && args.iter().any(|a| *a != args[0]) => joined(" \\times "),
+            O::Integers => "\\mathbb{Z}".into(),
+            O::Naturals => "\\mathbb{N}".into(),
+            O::Naturals0 => "\\mathbb{N}_0".into(),
+            O::Reals => "\\mathbb{R}".into(),
+            O::Complexes => "\\mathbb{C}".into(),
+            O::Rationals => "\\mathbb{Q}".into(),
+            O::EmptySet => "\\emptyset".into(),
+            O::UniversalSet => "\\mathbb{U}".into(),
+            O::ImageSet => {
+                let Kind::Func(Func::Set(O::Lambda), lam) = args.first()?.kind() else { return None };
+                if lam.len() != 2 {
+                    return None;
+                }
+                let sig = crate::special::tuple_items(&lam[0]).map(|v| v.to_vec()).unwrap_or_else(|| vec![lam[0].clone()]);
+                let sets = super::pretty::image_base_sets(&sig, &args[1..]);
+                let xinys = sig.iter().zip(&sets)
+                    .map(|(x, y)| format!("{} \\in {}", self.print(x), self.print(y)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("\\left\\{{{}\\; \\middle|\\; {}\\right\\}}", self.print(&lam[1]), xinys)
+            }
+            O::ConditionSet if args.len() == 3 => {
+                let syms = crate::special::tuple_items(&args[0]).map(|v| v.to_vec()).unwrap_or_else(|| vec![args[0].clone()]);
+                let vars = syms.iter().map(|a| self.print(a)).collect::<Vec<_>>().join(", ");
+                if is_op(&args[2], &[O::UniversalSet]) {
+                    return Some(format!("\\left\\{{{}\\; \\middle|\\; {} \\right\\}}", vars, self.print(&args[1])));
+                }
+                format!("\\left\\{{{}\\; \\middle|\\; {} \\in {} \\wedge {} \\right\\}}", vars, vars, self.print(&args[2]), self.print(&args[1]))
+            }
+            O::Range => {
+                let items = super::pretty::range_display(args, true)?;
+                let body = items.iter()
+                    .map(|i| match i { Some(e) => self.print(e), None => "\\ldots".to_string() })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("\\left\\{{{}\\right\\}}", body)
+            }
+            _ => return None,
+        })
+    }
+
     fn print_func(&self, e: &Expr, exp: Option<String>) -> String {
         let Kind::Func(f, args) = e.kind() else {
             return self.print(e);
         };
+        if let (Func::Set(op), None) = (f, &exp) {
+            if let Some(tex) = self.print_set(*op, args) {
+                return tex;
+            }
+        }
         if let Func::Undefined(head) = f {
             if crate::poly::rootof::is_rootof_head(head, args.len()) {
                 // The reference's _print_ComplexRootOf.
@@ -809,17 +884,66 @@ impl<'a> LatexPrinter<'a> {
             return Self::do_exponent(value,exp);
         }
         if matches!(f,Func::Integral) {
+            // The reference _print_Integral: `\iint` for up to four
+            // indefinite variables, else one `\int\limits` per limit; the
+            // integrand is parenthesized strictly below Mul, or always when
+            // its coefficient is negative.
             let limits=crate::binders::limits(args);
             let mut value=String::new();
-            for limit in limits.iter().rev() {
-                value.push_str("\\int");match limit.len(){
-                    2=>value.push_str(&format!("^{{{}}}",self.print(&limit[1]))),
-                    3=>value.push_str(&format!("_{{{}}}^{{{}}}",self.print(&limit[1]),self.print(&limit[2]))),_=>{},
-                }value.push(' ');
+            if limits.len()<=4 && limits.iter().all(|l|l.len()==1) {
+                value.push_str(&format!("\\i{}nt","i".repeat(limits.len().saturating_sub(1))));
+            } else {
+                for limit in limits.iter().rev() {
+                    value.push_str("\\int");
+                    if limit.len()>1 && self.s.mode!=LatexMode::Inline && !self.s.itex {value.push_str("\\limits");}
+                    match limit.len(){
+                        2=>value.push_str(&format!("^{{{}}}",self.print(&limit[1]))),
+                        3=>value.push_str(&format!("_{{{}}}^{{{}}}",self.print(&limit[1]),self.print(&limit[2]))),_=>{},
+                    }
+                }
             }
-            value.push_str(&self.parenthesize(&args[0],PREC_MUL,false));
+            value.push(' ');
+            let negative=matches!(args[0].kind(),Kind::Mul(c,_) if c.is_negative())
+                || matches!(args[0].as_number(),Some(n) if n.is_negative());
+            if negative {value.push_str(&Self::parens(&self.print(&args[0])));}
+            else {value.push_str(&self.parenthesize(&args[0],PREC_MUL,true));}
             for limit in limits {value.push_str(&format!("\\, d{}",self.print(&limit[0])));}
             return Self::do_exponent(value,exp);
+        }
+        if matches!(f,Func::Order) {
+            // The reference _print_Order.
+            let mut s=self.print(&args[0]);
+            let vars:Vec<&Expr>=args[1..].iter().step_by(2).collect();
+            let points:Vec<&Expr>=args[1..].iter().skip(1).step_by(2).collect();
+            let tuple=|items:&[&Expr]|format!("\\left( {}\\right)",items.iter().map(|e|self.print(e)).collect::<Vec<_>>().join(", \\  "));
+            if points.iter().any(|p|!p.is_zero()) || vars.len()>1 {
+                s.push_str("; ");
+                if vars.len()>1 {s.push_str(&tuple(&vars));} else if let Some(v)=vars.first() {s.push_str(&self.print(v));}
+                s.push_str("\\rightarrow ");
+                if points.len()>1 {s.push_str(&tuple(&points));} else if let Some(p)=points.first() {s.push_str(&self.print(p));}
+            }
+            return Self::sup(format!("O\\left({s}\\right)"),exp);
+        }
+        if let Func::Special(sf @ (crate::special::SpecialFn::Hyper | crate::special::SpecialFn::MeijerG)) = f {
+            if args.len()==3 {
+                // The reference _print_hyper and _print_meijerg.
+                let vec=|items:&[Expr]|items.iter().map(|e|self.print(e)).collect::<Vec<_>>().join(", ");
+                let z=self.print(&args[2]);
+                let tex=if *sf==crate::special::SpecialFn::Hyper {
+                    let (ap,bq)=(args[0].args(),args[1].args());
+                    format!("{{{{}}_{{{}}}F_{{{}}}\\left(\\begin{{matrix}} {} \\\\ {} \\end{{matrix}}\\middle| {{{}}} \\right)}}",ap.len(),bq.len(),vec(&ap),vec(&bq),z)
+                } else {
+                    let (a,b)=(args[0].args(),args[1].args());
+                    if a.len()==2 && b.len()==2 {
+                        let (an,ao,bm,bo)=(a[0].args(),a[1].args(),b[0].args(),b[1].args());
+                        format!("{{G_{{{}, {}}}^{{{}, {}}}\\left(\\begin{{matrix}} {} & {} \\\\{} & {} \\end{{matrix}} \\middle| {{{}}} \\right)}}",
+                            an.len()+ao.len(),bm.len()+bo.len(),bm.len(),an.len(),vec(&an),vec(&ao),vec(&bm),vec(&bo),z)
+                    } else { String::new() }
+                };
+                if !tex.is_empty() {
+                    return match exp { Some(x)=>format!("{{{tex}}}^{{{x}}}"), None=>tex };
+                }
+            }
         }
         if matches!(f,Func::Limit){
             let direction=args[3].as_sym().map(|s|s.name()).unwrap_or("+");

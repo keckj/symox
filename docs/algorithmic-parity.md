@@ -5511,3 +5511,58 @@ Remaining unsupported:
 - Last-digit `evalf` precision for `catalan`, `jn` and `yn`.
 - `sring` with a float coefficient and a symbolic one panics. This
   predates this batch.
+
+## Printing parity, audit batch print-a3
+
+This batch follows up on the gaps of print-a1. On the same 90 records, the
+probe went from 50 differing records to 42. Regression tests are in
+`tests/test_print_a3_parity.py`.
+
+Implemented:
+
+- Pretty printing (ASCII and unicode) and latex of sets, ported from the
+  reference `_print_FiniteSet`, `_print_Interval`, `_print_Union`,
+  `_print_Intersection`, `_print_Complement`, `_print_ProductSet`,
+  `_print_ImageSet`, `_print_ConditionSet` and `_print_Range`, and of the
+  named sets (`Integers`, `Naturals`, `Naturals0`, `Reals`, `Complexes`,
+  `Rationals`, `EmptySet`, `UniversalSet`). This covers the results of
+  `solveset` and `stationary_points`. Several base sets of an `ImageSet`,
+  which symox stores as one `ProductSet`, print as separate sets.
+- Pretty printing of `Order`, `hyper`, `meijerg` and `Integral`, and
+  latex of `Order`, `hyper`, `meijerg` and `Integral` (`\iint`-style
+  signs, `\limits`, which is left out inline and with `itex`). This
+  covers the ODE power-series records and `odesimp`.
+- Elements of an algebraic field print as the reference `ANP(rep, mod, QQ)`.
+  `EX` elements print as `EX(...)` and `EXRAW` elements as the raw
+  expression, in both `str` and `repr`.
+- `construct_domain(..., extension=True)` takes as generators the leaves of
+  the `Add`/`Mul` trees of the coefficients, as the reference
+  `_construct_algebraic` does: `[1 + sqrt(2), 1]` gives `QQ<sqrt(2)>`.
+
+Intentional divergences:
+
+- `DDM`, `SDM` and `DomainMatrix` over `QQ` (16 records) hold `MPQ`
+  elements. The reference keeps the raw Python `int` given for `QQ`. Its
+  results then mix types (`rref` returns floats, `inv` raises
+  `TypeError`). The reference is wrong here, and the exact conversion
+  stays, as in WP-C5.
+
+Remaining unsupported:
+
+- Alias printing for `AlgebraicField` (`alg_field_from_poly`,
+  `cyclotomic_field`, `integral_basis`). It needs an aliased
+  `AlgebraicNumber` atom in the core expression tree.
+- The type name of the native `Domain` and `DomainElement` classes. They
+  are single Rust classes and cannot be subclassed per domain.
+- A `PolyElement` over an algebraic field prints its coefficients as
+  expressions, not as `ANP`.
+- `Add`/`Mul` of a `MatrixSymbol` do not become `MatAdd`/`MatMul`. Not
+  attempted: it changes core construction, which the matrix and core
+  caller tests depend on.
+- Last-digit `evalf` precision for `catalan`, `jn` and `yn`. Not attempted
+  in this batch.
+- `FiniteSet(...).intersect(ImageSet(...))` stays unevaluated. The
+  reference tests each element for membership.
+- `solveset` over the reals with an imaginary symbol keeps the symbol in
+  its `ConditionSet`. The reference uses a real dummy `_R`.
+- Pretty printing of `Sum` and `Limit` still uses the `str` form.

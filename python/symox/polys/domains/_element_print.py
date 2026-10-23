@@ -107,6 +107,23 @@ def _display(element, use_repr):
     if domain.is_RealField or domain.is_ComplexField:
         value = _scalar(domain, element.as_expr())
         return repr(value) if use_repr else str(value)
+    if domain.is_AlgebraicField:
+        # The reference ``ANP.__repr__``, used for ``str`` too:
+        # ``ANP(rep, mod, QQ)`` with dense coefficient lists.
+        def mpqs(coeffs):
+            return ', '.join('MPQ(%d,%d)' % (int(c.numerator), int(c.denominator))
+                             for c in coeffs)
+        return 'ANP([%s], [%s], QQ)' % (mpqs(element.to_list()),
+                                        mpqs(domain.mod.to_list()))
+    if domain.is_EX and not domain.is_EXRAW:
+        # ``Expression.__repr__``/``__str__``: ``EX(...)`` around the
+        # expression's own repr or str.
+        expr = element.as_expr()
+        return 'EX(%s)' % (repr(expr) if use_repr else str(expr))
+    if domain.is_EXRAW:
+        # EXRAW elements are the raw expressions.
+        expr = element.as_expr()
+        return repr(expr) if use_repr else str(expr)
     if domain.is_PolynomialRing or domain.is_FractionField:
         ground = domain.domain
         if ground.is_RealField or ground.is_ComplexField:

@@ -185,6 +185,15 @@ impl Pict {
         Pict { lines, baseline, binding: Binding::Atom, func: None }
     }
 
+    /// `stringPict(s, baseline)`: Python `splitlines` drops one trailing
+    /// empty line.
+    fn from_splitlines(s: &str, baseline: isize) -> Pict {
+        if s.is_empty() {
+            return Pict { lines: Vec::new(), baseline, binding: Binding::Atom, func: None };
+        }
+        Pict::with_baseline(s.strip_suffix('\n').unwrap_or(s), baseline)
+    }
+
     fn bind(mut self, b: Binding) -> Pict {
         self.binding = b;
         self
@@ -434,6 +443,55 @@ impl Pict {
     }
 }
 
+/// The elements the reference `_print_Range` shows, `None` for the dots;
+/// `None` when the range is not numeric. `latex` selects the latex rule
+/// (`size < 4` instead of `len <= 4`).
+pub(crate) fn range_display(args: &[Expr], latex: bool) -> Option<Vec<Option<Expr>>> {
+    if args.len() != 3 {
+        return None;
+    }
+    let (start, stop, step) = (&args[0], &args[1], &args[2]);
+    let inf = |e: &Expr| *e == Expr::oo() || *e == Expr::neg_oo();
+    let st = step.as_i64()?;
+    if inf(start) && inf(stop) {
+        let v = if st > 0 { [-1, 0, 1] } else { [1, 0, -1] };
+        return Some(vec![None, Some(Expr::int(v[0])), Some(Expr::int(v[1])), Some(Expr::int(v[2])), None]);
+    }
+    if inf(start) {
+        let last = stop.as_i64()? - st;
+        return Some(vec![None, Some(Expr::int(last - st)), Some(Expr::int(last))]);
+    }
+    let a = start.as_i64()?;
+    if inf(stop) {
+        return Some(vec![Some(Expr::int(a)), Some(Expr::int(a + st)), None]);
+    }
+    let b = stop.as_i64()?;
+    if st == 0 {
+        return None;
+    }
+    let (d, m) = if st > 0 { (b - a, st) } else { (a - b, -st) };
+    let size = if d <= 0 { 0 } else { (d + m - 1) / m };
+    let elem = |i: i64| Some(Expr::int(a + i * st));
+    let few = if latex { size < 4 } else { size <= 4 };
+    if few {
+        return Some((0..size).map(elem).collect());
+    }
+    Some(vec![elem(0), elem(1), None, elem(size - 1)])
+}
+
+/// The reference `ImageSet.base_sets`: symox keeps several base sets as
+/// one `ProductSet`, unpacked here for a signature of the same length.
+pub(crate) fn image_base_sets(sig: &[Expr], sets: &[Expr]) -> Vec<Expr> {
+    if sig.len() > 1 && sets.len() == 1 {
+        if let Kind::Func(Func::Set(crate::sets::SetOp::ProductSet), parts) = sets[0].kind() {
+            if parts.len() == sig.len() {
+                return parts.clone();
+            }
+        }
+    }
+    sets.to_vec()
+}
+
 /// Vertical delimiter of height `h` (`xobj`).
 fn vobj(sym: &str, h: usize) -> String {
     // (ext, top, bot, mid, single)
@@ -446,6 +504,7 @@ fn vobj(sym: &str, h: usize) -> String {
             "{" => ("|", "/", "\\", Some("<"), "{"),
             "}" => ("|", "\\", "/", Some(">"), "}"),
             "|" => ("|", "|", "|", None, "|"),
+            "int" => (" | ", "  /", "/  ", None, " \n|\n "),
             other => (other, other, other, None, other),
         }
     } else {
@@ -461,6 +520,7 @@ fn vobj(sym: &str, h: usize) -> String {
         "rfloor" => ("⎥", "⎥", "⎦", None, "⌋"),
         "lceil" => ("⎢", "⎡", "⎢", None, "⌈"),
         "rceil" => ("⎥", "⎤", "⎥", None, "⌉"),
+        "int" => ("⎮", "⌠", "⌡", None, "∫"),
         other => (other, other, other, None, other),
         }
     };
@@ -1010,8 +1070,335 @@ impl PrettyPrinter<'_> {
         pretty_func.bind(Binding::Mul)
     }
 
+    /// The reference `_print_Order`.
+    fn print_order(&self, args: &[Expr]) -> Pict {
+        let mut p = self.print(&args[0]);
+        let vars: Vec<Expr> = args[1..].iter().step_by(2).cloned().collect();
+        let points: Vec<Expr> = args[1..].iter().skip(1).step_by(2).cloned().collect();
+        if points.iter().any(|q| !q.is_zero()) || vars.len() > 1 {
+            let mut parts = vec![p, Pict::new("; ")];
+            parts.push(if vars.len() > 1 { self.seq(&vars).paren() } else { self.print(&vars[0]) });
+            parts.push(Pict::new(xsym(" → ", " -> ")));
+            parts.push(if points.len() > 1 { self.seq(&points).paren() } else { self.print(&points[0]) });
+            p = Pict::next(&parts);
+        }
+        p.paren().left(&[Pict::new("O")])
+    }
+
+    /// `_hprint_vec`: the items joined by `, `, or a blank.
+    fn hprint_vec(&self, items: &[Expr]) -> Pict {
+        if items.is_empty() {
+            return Pict::new(" ");
+        }
+        self.seq(items)
+    }
+
+    /// `_hprint_vseparator`: `p1 | p2` with a bar of their joint height.
+    fn hprint_vseparator(p1: Pict, p2: Pict) -> Pict {
+        let tmp = Pict::next(&[p1.clone(), p2.clone()]);
+        let sep = Pict::with_baseline(&vobj("|", tmp.height()), tmp.baseline);
+        Pict::next(&[p1, sep, p2])
+    }
+
+    /// The `annotated` letter drawing `(sz, t, b, add, img)`.
+    fn annotated(letter: char) -> (isize, isize, isize, isize, &'static str) {
+        match (letter, ascii()) {
+            ('F', false) => (2, 0, 2, 0, "┌─\n├─\n╵"),
+            ('G', false) => (3, 0, 3, 1, "╭─╮\n│╶┐\n╰─╯"),
+            ('F', true) => (3, 0, 3, 0, " _\n|_\n|\n"),
+            _ => (3, 0, 3, 1, " __\n/__\n\\_|"),
+        }
+    }
+
+    /// The letter of `_print_hyper`/`_print_meijerg` sized for `d`, and
+    /// `above` and `add`.
+    fn hyper_letter(letter: char, d: &Pict) -> (Pict, isize, isize) {
+        let above = d.height() as isize / 2 - 1;
+        let below = d.height() as isize - above - 1;
+        let (sz, t, b, add, img) = Self::annotated(letter);
+        let text = format!("{}{}{}", "\n".repeat((above - t).max(0) as usize), img, "\n".repeat((below - b).max(0) as usize));
+        (Pict::from_splitlines(&text, above + sz), above, add)
+    }
+
+    /// The reference `_print_hyper`.
+    fn print_hyper(&self, ap: &[Expr], bq: &[Expr], z: &Expr) -> Pict {
+        let mut p = self.print(z);
+        p.baseline = p.height() as isize / 2;
+        let mut d = self.hprint_vec(ap).below(vec![Item::P(Pict::new(" "))]);
+        d = d.below(vec![Item::P(self.hprint_vec(bq))]);
+        d.baseline = d.height() as isize / 2;
+        let p = p.left(&[Pict::new(" ")]);
+        let d = d.right(&[Pict::new(" ")]);
+        let d = Self::hprint_vseparator(d, p).paren();
+        let (f, above, _) = Self::hyper_letter('F', &d);
+        // `_print_hyper` replaces the annotated offset by `(sz + 1)//2`.
+        let add = (Self::annotated('F').0 + 1) / 2;
+        let mut f = f.left(&[Pict::new(&ap.len().to_string())]);
+        f = f.right(&[Pict::new(&bq.len().to_string())]);
+        f.baseline = above + add;
+        f.right(&[Pict::new(" "), d])
+    }
+
+    /// The reference `_print_meijerg`.
+    fn print_meijerg(&self, an: &[Expr], aother: &[Expr], bm: &[Expr], bother: &[Expr], z: &Expr) -> Pict {
+        let mut p = self.print(z);
+        p.baseline = p.height() as isize / 2;
+        let mut vp = [[self.hprint_vec(an), self.hprint_vec(aother)], [self.hprint_vec(bm), self.hprint_vec(bother)]];
+        for i in 0..2 {
+            let maxw = vp[0][i].width().max(vp[1][i].width());
+            for row in vp.iter_mut() {
+                let s = &row[i];
+                let left = (maxw - s.width()) / 2;
+                let right = maxw - left - s.width();
+                row[i] = s.left(&[Pict::new(&" ".repeat(left))]).right(&[Pict::new(&" ".repeat(right))]);
+            }
+        }
+        let d1 = vp[0][0].right(&[Pict::new("  "), vp[0][1].clone()]).below(vec![Item::P(Pict::new(" "))]);
+        let d2 = vp[1][0].right(&[Pict::new("  "), vp[1][1].clone()]);
+        let mut d = d1.below(vec![Item::P(d2)]);
+        d.baseline = d.height() as isize / 2;
+        let p = p.left(&[Pict::new(" ")]);
+        let d = d.right(&[Pict::new(" ")]);
+        let d = Self::hprint_vseparator(d, p).paren();
+        let (mut f, above, add) = Self::hyper_letter('G', &d);
+        let num = |n: usize| Pict::new(&n.to_string());
+        let adjust = |p1: Pict, p2: Pict| -> (Pict, Pict) {
+            let (w1, w2) = (p1.width(), p2.width());
+            if w1 > w2 {
+                let p2 = p2.left(&[Pict::new(&" ".repeat(w1 - w2))]);
+                (p1, p2)
+            } else if w2 > w1 {
+                (p1.left(&[Pict::new(&" ".repeat(w2 - w1))]), p2)
+            } else {
+                (p1, p2)
+            }
+        };
+        let (pp, pm) = adjust(num(an.len() + aother.len()), num(bm.len()));
+        let (pq, pn) = adjust(num(bm.len() + bother.len()), num(an.len()));
+        let mut pu = pm.right(&[Pict::new(", "), pn]);
+        let pl = pp.right(&[Pict::new(", "), pq]);
+        let ht = f.baseline - above - 2;
+        if ht > 0 {
+            pu = pu.below(vec![Item::P(Pict::from_splitlines(&"\n".repeat(ht as usize), 0))]);
+        }
+        let pr = pu.below(vec![Item::P(pl)]);
+        f.baseline = above;
+        let mut f = f.right(&[pr]);
+        f.baseline = above + add;
+        f.right(&[Pict::new(" "), d])
+    }
+
+    /// `parens(left, right, ifascii_nougly=True)`: single line brackets in
+    /// ASCII mode.
+    fn parens_nougly(p: Pict, left: &str, right: &str) -> Pict {
+        if !ascii() {
+            return p.parens(left, right);
+        }
+        let mut parts = Vec::with_capacity(3);
+        if !left.is_empty() {
+            parts.push(Pict::new(left));
+        }
+        parts.push(p);
+        if !right.is_empty() {
+            parts.push(Pict::new(right));
+        }
+        let mut res = Pict::next(&parts);
+        res.binding = Binding::Atom;
+        res
+    }
+
+    /// The reference `_print_seq` over already printed forms.
+    fn seq_forms(forms: Vec<Pict>, left: &str, right: &str, delimiter: &str) -> Pict {
+        let mut parts = Vec::with_capacity(forms.len() * 2);
+        for (i, f) in forms.into_iter().enumerate() {
+            if i > 0 {
+                parts.push(Pict::new(delimiter));
+            }
+            parts.push(f);
+        }
+        let p = if parts.is_empty() { Pict::new("") } else { Pict::next(&parts) };
+        Self::parens_nougly(p, left, right)
+    }
+
+    /// `_hprint_vseparator(p1, p2, left, right, delimiter=' ',
+    /// ifascii_nougly=True)`.
+    fn vseparator_braced(p1: Pict, p2: Pict) -> Pict {
+        if ascii() {
+            return Self::seq_forms(vec![p1, Pict::new("|"), p2], "{", "}", " ");
+        }
+        let tmp = Self::seq_forms(vec![p1.clone(), p2.clone()], "{", "}", " ");
+        let sep = Pict::with_baseline(&vobj("|", tmp.height()), tmp.baseline);
+        Self::seq_forms(vec![p1, sep, p2], "{", "}", " ")
+    }
+
+    /// The reference set printers (`_print_FiniteSet`, `_print_Interval`,
+    /// `_print_Union`, `_print_ImageSet`, `_print_ConditionSet`, ...).
+    fn print_set(&self, op: crate::sets::SetOp, args: &[Expr]) -> Option<Pict> {
+        use crate::sets::SetOp as O;
+        let is_op = |e: &Expr, ops: &[O]| matches!(e.kind(), Kind::Func(Func::Set(o), _) if ops.contains(o));
+        let joined = |delim: &str, paren: &[O]| {
+            let forms = args.iter().map(|a| {
+                let p = self.print(a);
+                if is_op(a, paren) { p.paren() } else { p }
+            }).collect();
+            Self::seq_forms(forms, "", "", delim)
+        };
+        Some(match op {
+            O::FiniteSet => {
+                let mut v = args.to_vec();
+                v.sort_by_cached_key(crate::sortkey::sort_key);
+                Self::seq_forms(v.iter().map(|a| self.print(a)).collect(), "{", "}", ", ")
+            }
+            O::Interval => {
+                let e = Expr::from_kind(Kind::Func(Func::Set(op), args.to_vec()));
+                let (a, b, lo, ro) = crate::sets::interval_parts(&e)?;
+                if a == b {
+                    return Some(Self::seq_forms(vec![self.print(&a)], "{", "}", ", "));
+                }
+                Self::seq_forms(vec![self.print(&a), self.print(&b)], if lo { "(" } else { "[" }, if ro { ")" } else { "]" }, ", ")
+            }
+            O::Union => joined(xsym(" ∪ ", " U "), &[O::ProductSet, O::Intersection, O::Complement]),
+            O::Intersection => joined(xsym(" ∩ ", " n "), &[O::ProductSet, O::Union, O::Complement]),
+            O::Complement => joined(" \\ ", &[O::ProductSet, O::Intersection, O::Union]),
+            O::ProductSet if args.len() > 1 && args.iter().any(|a| *a != args[0]) => {
+                joined(xsym(" × ", " x "), &[O::Union, O::Intersection, O::ProductSet])
+            }
+            O::Integers => Pict::new(xsym("ℤ", "Integers")),
+            O::Naturals => Pict::new(xsym("ℕ", "Naturals")),
+            O::Naturals0 => Pict::new(xsym("ℕ₀", "Naturals0")),
+            O::Complexes => Pict::new(xsym("ℂ", "Complexes")),
+            O::Rationals => Pict::new(xsym("ℚ", "Rationals")),
+            O::EmptySet => Pict::new(xsym("∅", "EmptySet")),
+            O::UniversalSet => Pict::new(xsym("𝕌", "UniversalSet")),
+            O::Reals if ascii() => Self::seq_forms(vec![Pict::new("-oo"), Pict::new("oo")], "(", ")", ", "),
+            O::Reals => Pict::new("ℝ"),
+            O::ImageSet => {
+                let Kind::Func(Func::Set(O::Lambda), lam) = args.first()?.kind() else { return None };
+                if lam.len() != 2 {
+                    return None;
+                }
+                let sig = crate::special::tuple_items(&lam[0]).map(|v| v.to_vec()).unwrap_or_else(|| vec![lam[0].clone()]);
+                let sets = image_base_sets(&sig, &args[1..]);
+                let sets = &sets[..];
+                if sig.len() != sets.len() {
+                    return None;
+                }
+                let inn = xsym("∊", "in");
+                let expr = self.print(&lam[1]);
+                let right = if sig.len() == 1 {
+                    Self::seq_forms(vec![self.print(&sig[0]), Pict::new(inn), self.print(&sets[0])], "", "", " ")
+                } else {
+                    let mut forms = Vec::new();
+                    for (i, (v, st)) in sig.iter().zip(sets).enumerate() {
+                        if i > 0 {
+                            forms.push(Pict::new(", "));
+                        }
+                        forms.extend([self.print(v), Pict::new(" "), Pict::new(inn), Pict::new(" "), self.print(st)]);
+                    }
+                    Self::seq_forms(forms, "", "", "")
+                };
+                Self::vseparator_braced(expr, right)
+            }
+            O::ConditionSet if args.len() == 3 => {
+                let syms = crate::special::tuple_items(&args[0]).map(|v| v.to_vec()).unwrap_or_else(|| vec![args[0].clone()]);
+                let variables = Self::seq_forms(syms.iter().map(|a| self.print(a)).collect(), "", "", ", ");
+                let mut cond = self.print(&args[1]);
+                if !ascii() {
+                    cond = cond.paren();
+                }
+                if is_op(&args[2], &[O::UniversalSet]) {
+                    return Some(Self::vseparator_braced(variables, cond));
+                }
+                let c = Self::seq_forms(
+                    vec![variables.clone(), Pict::new(xsym("∊", "in")), self.print(&args[2]), Pict::new(xsym("∧", "and")), cond],
+                    "", "", " ");
+                Self::vseparator_braced(variables, c)
+            }
+            O::Range => {
+                let items = range_display(args, false)?;
+                let dots = xsym("…", "...");
+                let forms = items.iter().map(|i| match i { Some(e) => self.print(e), None => Pict::new(dots) }).collect();
+                Self::seq_forms(forms, "{", "}", ", ")
+            }
+            _ => return None,
+        })
+    }
+
+    /// The reference `_print_Integral`.
+    fn print_integral(&self, args: &[Expr]) -> Pict {
+        let limits = crate::binders::limits(args);
+        let mut arg = self.print(&args[0]);
+        if args[0].is_add() {
+            arg = arg.paren();
+        }
+        for lim in &limits {
+            let mut pa = self.print(&lim[0]);
+            if pa.width() > 1 {
+                pa = pa.paren();
+            }
+            arg = arg.right(&[Pict::new(" d"), pa]);
+        }
+        let asc = ascii();
+        let mut s: Option<Pict> = None;
+        for lim in &limits {
+            let h = arg.height() as isize;
+            let big = h + 2 + if asc { 2 } else { 0 };
+            let mut pform = Pict::new(&vobj("int", big as usize));
+            pform.baseline = arg.baseline + (big - h) / 2;
+            if lim.len() > 1 {
+                let (mut a, mut b) = if lim.len() == 2 {
+                    (Pict::new(""), self.print(&lim[1]))
+                } else {
+                    (self.print(&lim[1]), self.print(&lim[2]))
+                };
+                if asc {
+                    let spc = 3usize.saturating_sub(b.width()).max(1);
+                    b = b.left(&[Pict::new(&" ".repeat(spc))]);
+                    let spc = 4usize.saturating_sub(a.width()).max(1);
+                    a = a.right(&[Pict::new(&" ".repeat(spc))]);
+                }
+                pform = pform.above(vec![Item::P(b)]);
+                pform = pform.below(vec![Item::P(a)]);
+            }
+            if !asc {
+                pform = pform.right(&[Pict::new(" ")]);
+            }
+            s = Some(match s {
+                None => pform,
+                Some(prev) => prev.left(&[pform]),
+            });
+        }
+        let mut p = match s {
+            Some(sign) => arg.left(&[sign]),
+            None => arg,
+        };
+        p.binding = Binding::Mul;
+        p.func = None;
+        p
+    }
+
     fn print_func(&self, f: &Func, args: &[Expr]) -> Pict {
+        if let Func::Set(op) = f {
+            if let Some(p) = self.print_set(*op, args) {
+                return p;
+            }
+        }
         if *f == Func::Product { return self.print_product(args); }
+        if *f == Func::Integral && args.len() > 1 { return self.print_integral(args); }
+        if *f == Func::Order && !args.is_empty() { return self.print_order(args); }
+        if let Func::Special(crate::special::SpecialFn::Hyper) = f {
+            if args.len() == 3 {
+                return self.print_hyper(&args[0].args(), &args[1].args(), &args[2]);
+            }
+        }
+        if let Func::Special(crate::special::SpecialFn::MeijerG) = f {
+            if args.len() == 3 {
+                let (a, b) = (args[0].args(), args[1].args());
+                if a.len() == 2 && b.len() == 2 {
+                    return self.print_meijerg(&a[0].args(), &a[1].args(), &b[0].args(), &b[1].args(), &args[2]);
+                }
+            }
+        }
         if let Func::Undefined(head) = f {
             if crate::poly::rootof::is_rootof_head(head, args.len()) {
                 // The reference's _print_ComplexRootOf: an atom.

@@ -58,8 +58,24 @@ def _infer_domain(values, *, field=False, extension=False, **options):
             return EXRAW
         return domain
     if extension is True:
+        # The reference ``_construct_algebraic``: the generators are the
+        # leaves of the Add/Mul trees of the coefficients, so that
+        # ``[1 + sqrt(2)]`` gives ``QQ<sqrt(2)>``.
+        from ..core.sorting import ordered
+        exts = set()
+
+        def leaves(value):
+            if value.is_Rational:
+                return
+            if value.is_Add or value.is_Mul:
+                for arg in value.args:
+                    leaves(arg)
+            else:
+                exts.add(value)
+        for value in values:
+            leaves(value)
         try:
-            return QQ.algebraic_field(*(v for v in values if not v.is_Rational))
+            return QQ.algebraic_field(*ordered(exts))
         except (ValueError, NotImplementedError):
             pass
     return EXRAW
