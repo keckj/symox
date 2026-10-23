@@ -41,8 +41,8 @@ fn complete_roots(e: &Expr, x: &Expr) -> PResult<Vec<Expr>> {
         // Expansion can turn related radicals into independent-looking
         // powers. Preserve the original formula for algebraic certificates.
         let residual = subs1(e, x, &root);
-        if scalar_zero_status(&normalize(&residual)) != Some(true)
-            && super::radical_cert::is_zero(&residual) != Some(true) {
+        if super::radical_cert::is_zero(&residual) != Some(true)
+            && scalar_zero_status(&normalize(&residual)) != Some(true) {
             return Err(unsupported("an exact zero certificate for a radical root is not implemented"));
         }
         values.push(normalize(&root));

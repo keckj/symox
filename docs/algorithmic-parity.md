@@ -5697,3 +5697,76 @@ Remaining gaps:
 - LaTeX of quantum states inside `FiniteSet` (sets printer).
 - Diffgeom LaTeX of `TensorProduct`/`WedgeProduct` (`\otimes`, `\wedge`),
   and the unevaluated `Differential` of a scalar expression.
+
+## Trigonometric and nested exponential solve, remaining items (2026-10-23)
+
+Implemented:
+
+- `solve(sec(x) - r)` and `solve(csc(x) - r)`, when the reference `acos`
+  or `asin` of `1/r` does not evaluate. The equation is rewritten to a
+  quadratic in `t = exp(I*x)`, as `_tsolve` does through
+  `rewrite(exp)`, and each root gives `-I*log(t)`. At the top level the
+  reference simplify splits a rational content `1/c` out as
+  `I*(log(c) - log(p))` (for example `I*(log(3) - log(1 - 2*sqrt(2)*I))`).
+  Under a generator such as `sec(x)**2 - 9` the plain form is kept, as in
+  the reference.
+- `solveset` of nested exponentials over the complexes (`exp(exp(x)) - 1`,
+  `exp(exp(exp(x))) - 1`, `exp(2*exp(x)) - 3`, `exp(exp(x) + 1) - 1`,
+  `exp(exp(2*x)) - 1`). Each level of `_invert_complex` for `exp` adds a
+  `k` dummy and gives `ImageSet(Lambda(((_k1, _n),), I*(2*_k1*pi +
+  arg(body)) + log(Abs(body))), ProductSet(Integers, Integers))`. An outer
+  affine map stays held as `ImageSet(Lambda(x, ...), inner)`. Over the
+  reals the empty set is kept.
+- `solveset` with a symbolic coefficient (`_solve_trig1` with a symbolic
+  `mu`, and `_invert_trig_hyp_complex` with a symbolic right-hand side):
+  `sin(a*x) - b`, `cos(a*x) - b`, `tan(a*x) - b` and `sin(a*x + 1) - b`
+  give `ConditionSet(x, Ne(a, 0), Union(ImageSet(Lambda(_n, (2*_n*pi +
+  asin(b))/a), Integers), ...))`. Over the reals, `sin` and `cos` add the
+  condition `(-1 <= b) & (b <= 1)`. When the trig function occurs more
+  than once (`sin(a*x) - cos(a*x)`), the exponential polynomial path keeps
+  the image sets unexpanded, intersects them with the domain when it is
+  real, and guards them with `Ne(a, 0)`.
+- `complete_roots` in `poly/systems.rs` now tries the radical certificate
+  before the simplify-based residual check. The two checks are still both
+  required to fail before a root is rejected.
+
+Probe comparison (40 probes, reference SymPy 1.14): 8 matched before and
+27 after. The tests are in `tests/test_solve_rest2_parity.py`.
+`tests/test_solveset_complex_wave4_parity.py` no longer lists
+`exp(exp(x)) - 1` as an undecided equation.
+
+Intentional divergence:
+
+- `solve(sin(3*x) - sin(x))` also returns `pi`, which is a genuine root
+  that the reference loses.
+
+Remaining gaps:
+
+- `sec(2*x) - 3`, `csc(3*x) + 4` and other non-unit arguments: the
+  reference solves a polynomial of degree 4 or 12 in `exp(I*x)`, with
+  forms such as `-I*log(1/3 - 2*sqrt(2)*I/3)/2` and cube roots. Symox
+  raises NotImplementedError. `sec(x/2) - 3` raises in both, but the
+  message text differs.
+- `solve(sec(x) - a, x)` prints one root as `-I*log((1 - sqrt(1 -
+  a**2))/a)`. The reference prints the equal `-I*log(-(sqrt(1 - a**2) -
+  1)/a)`.
+- `solveset(exp(exp(x)) - y, x)` with a symbolic `y` stays a ConditionSet,
+  because the nested inversion requires a value proved nonzero. The
+  reference returns the `ProductSet(Integers, Integers)` image.
+- The Union order of the symbolic `_solve_trig1` results (`sin(a*x) +
+  cos(a*x)`, `sin(2*a*x) + sin(a*x)`) differs. The reference order follows
+  the creation order of the `_n` dummies (`default_sort_key` compares their
+  indices). The sets are equal.
+- `solveset(cos(ap*x) - b, x, Reals)` with a positive `ap` goes through
+  the numeric-coefficient path. It prints `2*_n*pi/ap + acos(b)/ap`, where
+  the reference prints `(2*_n*pi + acos(b))/ap`. The sets are equal.
+- `nonlinsolve([x**3 + 1/y - 2, x - y], [x, y])` still does not finish.
+  The time goes into `normalize` (`simplify(expand(e))`) in
+  `poly/systems.rs` `descend`/`complete_roots`. That call reaches
+  `cancel`, and from there the algebraic-field multivariate gcd
+  (`algebraic_multi::gcd_from`), on the substituted cubic radicals. The
+  reference does not simplify there. It keeps the raw `roots` output for
+  `y` and an EX-domain form for `x`. `[x**3 + 1/y - 2, x + y]` raises
+  NotImplementedError. `[x**3 + 1/y, x - y]` prints `y` in the factored
+  `sqrt(2)*(1 + I)/2` form, where the reference prints the expanded
+  `sqrt(2)/2 + sqrt(2)*I/2`.

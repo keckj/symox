@@ -1323,7 +1323,7 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
                     let v = if matches!(func, Func::Sec) { acos(&r) } else { asin(&r) };
                     if contains_node(&v, |e| matches!(e.kind(), Kind::Func(Func::Acos | Func::Asin, _)))
                         || has_free_parameter(&v) {
-                        return None;
+                        return sec_csc_exp(matches!(func, Func::Sec), &g, &rhs, x, depth);
                     }
                     let w = if matches!(func, Func::Sec) { neg(&v) } else { sub(&Expr::pi(), &v) };
                     // a double root of the exp polynomial (`sec(x) + 1`
@@ -1363,6 +1363,53 @@ fn invert(f: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
         } else {
             out.extend(solve_rec(&sub(&g, &v), x, depth + 1)?);
         }
+    }
+    Some(out)
+}
+
+/// `sec(x) = r` or `csc(x) = r` through the reference `rewrite(exp)`: with
+/// `t = exp(I*x)` the equation is `r*t**2 - 2*t + r = 0` (`sec`) or
+/// `r*t**2 - 2*I*t - r = 0` (`csc`), and `x = -I*log(t)`. At the top level
+/// the reference simplify takes a positive rational content `1/m` out of the
+/// logarithm: `-I*log(1/3 - 2*sqrt(2)*I/3)` is `I*(log(3) - log(1 -
+/// 2*sqrt(2)*I))`. Only the argument `x` itself is handled; other arguments
+/// keep raising, as their reference forms are not reproduced.
+fn sec_csc_exp(secant: bool, g: &Expr, rhs: &Expr, x: &Expr, depth: u32) -> Option<Vec<Expr>> {
+    if g != x || has(rhs, x) || rhs.is_zero() {
+        return None;
+    }
+    let t = Expr::dummy("t", crate::Assumptions::NONE);
+    let t2 = pow(&t, &Expr::int(2));
+    let middle = if secant { mul2(&Expr::int(-2), &t) } else { mul(&[Expr::int(-2), Expr::i(), t.clone()]) };
+    let last = if secant { rhs.clone() } else { neg(rhs) };
+    let p = add(&[mul2(rhs, &t2), middle, last]);
+    let roots = solve_rec(&p, &t, depth + 1)?;
+    if roots.len() != 2 && !(roots.len() == 1 && rhs.is_number()) {
+        return None;
+    }
+    let minus_i = neg(&Expr::i());
+    let mut out = Vec::new();
+    for r in roots {
+        if r.is_zero() {
+            return None;
+        }
+        let plain = mul2(&minus_i, &log(&r));
+        if depth > 0 {
+            out.push(plain);
+            continue;
+        }
+        let (c, p) = crate::simptools::primitive(&r);
+        let split = (|| {
+            if !c.is_rational() || c.is_negative() || c.is_one() {
+                return None;
+            }
+            let inverse = Number::ONE.div(&c)?;
+            if !inverse.is_integer() || p.is_number() && p.as_number().is_some() {
+                return None;
+            }
+            Some(mul2(&Expr::i(), &sub(&log(&Expr::num(inverse)), &log(&p))))
+        })();
+        out.push(split.unwrap_or(plain));
     }
     Some(out)
 }
