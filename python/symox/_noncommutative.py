@@ -437,6 +437,27 @@ def together(expr, deep=False, fraction=True):
     return _together(_sympify(expr))
 
 
+def _together_deep(expr, native):
+    """SymPy's ``together(deep=True)``: the Add/Mul/Pow walk is the native
+    ``together``; function arguments and power exponents are combined too."""
+    def fix(e):
+        if not e.args:
+            return e
+        if e.is_Function:
+            return e.func(*[run(a) for a in e.args])
+        if e.is_Pow:
+            return e.func(fix(e.base), run(e.exp))
+        return e.func(*[fix(a) for a in e.args])
+
+    def run(e):
+        e = fix(e)
+        if isinstance(e, _core.Expr) and e.args:
+            return native(e)
+        return e
+
+    return run(_sympify(expr))
+
+
 def cancel(f, *gens, _signsimp=True, **args):
     """SymPy's ``cancel`` PolynomialError branch for noncommutative input."""
     from . import signsimp, Piecewise, preorder_traversal
@@ -1120,6 +1141,12 @@ def install(cancel_, factor_, apart_, together_, collect_):
             return type(f)(factor_entry(e, *gens, **args) for e in f)
         if is_nc(f):
             return factor(f, *gens, **args)
+        if args.get('deep') and isinstance(f, _core.Expr) and f.args:
+            # SymPy's deep pass: bottom_up _try_factor, then the partials
+            # xreplace over every Add/Mul atom.
+            args = dict(args)
+            args.pop('deep')
+            return factor(f, *gens, deep=True, **args)
         return factor_(f, *gens, **args)
 
     @functools.wraps(apart_)
@@ -1136,6 +1163,8 @@ def install(cancel_, factor_, apart_, together_, collect_):
             return type(expr)(together_entry(e, deep=deep, fraction=fraction, **kwargs) for e in expr)
         if is_nc(expr):
             return together(expr, deep=deep, fraction=fraction)
+        if deep and fraction is True and not kwargs and hasattr(expr, 'args'):
+            return _together_deep(expr, together_)
         if fraction is True and not kwargs:
             return together_(expr, deep=deep)
         return together_(expr, deep=deep, fraction=fraction, **kwargs)

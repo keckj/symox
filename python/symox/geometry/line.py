@@ -68,7 +68,11 @@ class LinearEntity(GeometrySet):
                 slope = scalar(kwargs.pop('slope'))
                 p2 = Point(*((p1.x, p1.y+1) if slope in (oo, -oo) or slope.is_infinite else (p1.x+1, p1.y+slope)), evaluate=False)
             elif 'direction_ratio' in kwargs:
-                p2 = p1 + Point(kwargs.pop('direction_ratio'), dim=len(p1))
+                ratio = kwargs.pop('direction_ratio')
+                if len(ratio) != len(p1):
+                    raise ValueError('A 2nd Point or keyword "direction_ratio" must be used.')
+                # SymPy adds the ratios componentwise to the bare coordinates.
+                p2 = Point(*[c + d for c, d in zip(p1.args, ratio)])
             else:
                 raise ValueError('Supply two points, a slope, or a direction ratio')
         if kwargs:
@@ -105,6 +109,9 @@ class LinearEntity(GeometrySet):
 
     @property
     def direction_ratio(self):
+        if len(self.p1) == 3:
+            # SymPy subtracts the bare coordinates, without Point's simplify.
+            return self.p1.direction_ratio(self.p2)
         return list(self.direction)
 
     @property
@@ -201,13 +208,12 @@ class LinearEntity(GeometrySet):
 
     def perpendicular_line(self, p):
         p = Point(p, dim=self.ambient_dimension)
-        projection = self.projection(p)
-        if p.equals(projection):
-            if self.ambient_dimension != 2:
-                raise NotImplementedError('A spatial perpendicular through an incident point is not unique')
-            dx, dy = self.direction
-            projection = p+Point(-dy, dx)
-        return Line(p, projection)
+        if self.ambient_dimension == 2:
+            # SymPy's LinearEntity2D rule: step along the orthogonal direction.
+            return Line(p, p+self.direction.orthogonal_direction)
+        if p in self:
+            p = p+self.direction.orthogonal_direction
+        return Line(p, self.projection(p))
 
     def perpendicular_segment(self, p):
         p = Point(p, dim=self.ambient_dimension)
@@ -230,8 +236,10 @@ class LinearEntity(GeometrySet):
             if self._kind == other._kind == 'line':
                 if self.is_parallel(other) or self.ambient_dimension == 2:
                     return self.distance(other.p1)
-                normal = self.direction.cross(other.direction)
-                return Abs((other.p1-self.p1).dot(normal))/abs(normal)
+                from .plane import Plane
+                from .. import Matrix
+                normal = Matrix(self.direction_ratio).cross(Matrix(other.direction_ratio))
+                return other.p1.distance(Plane(self.p1, normal_vector=list(normal)))
             candidates = []
             # Spatial segments and rays can attain their minimum at two
             # interior points on skew supporting lines.

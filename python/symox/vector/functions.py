@@ -54,7 +54,10 @@ def directional_derivative(field,direction_vector):
 
 def laplacian(expr):
     if isinstance(expr,Vector):
-        return (gradient(divergence(expr))-curl(curl(expr))).simplify()
+        return (gradient(divergence(expr))-curl(curl(expr))).doit()
+    if len(_get_coord_systems(sympify(expr))) == 1:
+        # SymPy: Del().dot(Del()(expr)).doit(), over held derivatives.
+        return divergence(gradient(expr,doit=False),doit=False).doit()
     return divergence(gradient(expr))
 
 

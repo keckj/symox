@@ -29,7 +29,12 @@ class AbstractPythonCodePrinter(NodePrinter,CXX17CodePrinter):
         if (not name.isidentifier() or keyword.iskeyword(name)) and not _indexed_symbol_name(name):
             raise ValueError('invalid Python identifier: '+name)
         return name
-    def _print_Dummy(self,expr):return self._settings.get('symbol_names',{}).get(expr,expr.name+'_'+str(expr.dummy_index))
+    def _print_Dummy(self,expr):
+        mapping=self._settings.get('symbol_names',{})
+        if expr in mapping:return mapping[expr]
+        # SymPy's CodePrinter._print_Dummy.
+        if expr.name.startswith('Dummy_'):return '_'+expr.name
+        return expr.name+'_'+str(expr.dummy_index)
     def _print_Rational(self,expr):return '('+str(expr.p)+'/'+str(expr.q)+')'
     def _print_Float(self,expr):return str(expr)
     def _print_Pow(self,expr):

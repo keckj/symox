@@ -117,14 +117,16 @@ def real_gaunt(l_1,l_2,l_3,mu_1,mu_2,mu_3,prec=None):
 def wigner_d_small(J,beta):
     J,beta = _half(J),S.sympify(beta)
     if J<0:raise ValueError('spin must be nonnegative')
-    states = [J-k for k in range(int(2*J)+1)]
-    def element(row,col):
-        p,m = states[row],states[col];terms = []
-        coefficient = S.sqrt(_fact(J+m)*_fact(J-m)*_fact(J+p)*_fact(J-p))
-        for s in range(max(0,int(m-p)),min(int(J+m),int(J-p))+1):
-            terms.append(S.Integer(-1)**s*S.cos(beta/2)**(2*J+m-p-2*s)*S.sin(beta/2)**(p-m+2*s)/(_fact(J+m-s)*_fact(s)*_fact(p-m+s)*_fact(J-p-s)))
-        return S.simplify(coefficient*S.Add(*terms))
-    return S.Matrix(len(states),len(states),element)
+    M = [J-i for i in range(2*J+1)]
+    d = S.zeros(2*J+1)
+    for i,Mi in enumerate(M):
+        for j,Mj in enumerate(M):
+            sigmamax = min([J-Mi,J-Mj])
+            sigmamin = max([0,-Mi-Mj])
+            dij = S.sqrt(S.factorial(J+Mi)*S.factorial(J-Mi)/S.factorial(J+Mj)/S.factorial(J-Mj))
+            terms = [(-1)**(J-Mi-s)*S.binomial(J+Mj,J-Mi-s)*S.binomial(J-Mj,s)*S.cos(beta/2)**(2*s+Mi+Mj)*S.sin(beta/2)**(2*J-2*s-Mj-Mi) for s in range(sigmamin,sigmamax+1)]
+            d[i,j] = dij*S.Add(*terms)
+    return S.ImmutableMatrix(d)
 
 
 def wigner_d(J,alpha,beta,gamma):

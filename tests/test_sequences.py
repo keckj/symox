@@ -166,8 +166,9 @@ def test_periodic_recurrence_bounds_and_failed_search():
     assert SeqFormula(n*n).find_linear_recurrence(10,d=2)==[]
     assert SeqFormula(sx.factorial(n)).find_linear_recurrence(10,d=3)==[]
     assert SeqFormula(0).find_linear_recurrence(10,gfvar=sx.Symbol('t'))==([],None)
-    for size in [-1,1000]:
-        with pytest.raises(ValueError):seq.find_linear_recurrence(size)
+    # SymPy 1.14: a negative term count is an empty slice; no term bound.
+    assert seq.find_linear_recurrence(-1)==[]
+    assert seq.find_linear_recurrence(1000)==[0,0,1]
 
 
 def test_empty_sequences_and_unevaluated_operations():

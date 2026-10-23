@@ -26,11 +26,15 @@ def Psi_nlm(n,l,m,r,phi,theta,Z=1):
 
 
 def E_nl_dirac(n,l,spin_up=True,Z=1,c=S.Float('137.035999037')):
-    n,l,Z,c = map(S.sympify,(n,l,Z,c));_validate(n,l,S.Integer(0))
-    if l==0 and not spin_up:raise ValueError('l=0 requires spin_up=True')
-    kappa = -(l+1) if spin_up else -l
-    effective = n+kappa+S.sqrt(kappa*kappa-Z*Z/(c*c))
-    return c*c*(1/S.sqrt(1+Z*Z/(c*c*effective*effective))-1)
+    # Same validation and evaluation order as SymPy 1.14 (floating rounding
+    # depends on the order of the operations).
+    n,l,Z,c = map(S.sympify,(n,l,Z,c))
+    if not l>=0:raise ValueError("'l' must be positive or zero")
+    if not n>l:raise ValueError("'n' must be greater than 'l'")
+    if l==0 and spin_up is False:raise ValueError('Spin must be up for l==0.')
+    skappa = -l-1 if spin_up else -l
+    beta = S.sqrt(skappa**2-Z**2/c**2)
+    return c**2/S.sqrt(1+Z**2/(n+skappa+beta)**2/c**2)-c**2
 
 
 __all__ = ['E_nl','E_nl_dirac','Psi_nlm','R_nl']

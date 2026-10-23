@@ -205,39 +205,38 @@ class SeqBase:
         return self._transform(lambda value:expand(value,**options))
 
     def find_linear_recurrence(self, n, d=None, gfvar=None):
-        from .. import Matrix, S, cancel, simplify
-        n=operator.index(n)
-        if not 0<=n<=256:
-            raise ValueError('Recurrence searches require between 0 and 256 terms')
-        degree=min(n//2,64 if d is None else operator.index(d))
-        if degree<0 or degree>64:
-            raise ValueError('Recurrence search order must lie between 0 and 64')
-        values=[cancel(simplify(value)) for value in self[:n]]
-        coefficients=[]
-        if any(value!=0 for value in values):
-            for order in range(1,degree+1):
-                matrix=Matrix([[values[k-j-1] for j in range(order)] for k in range(order,n)])
-                rhs=Matrix(values[order:])
-                try:
-                    solution,parameters=matrix.gauss_jordan_solve(rhs)
-                except ValueError:
-                    continue
-                replacements={parameter:S.Zero for parameter in parameters}
-                candidate=[cancel(value.subs(replacements)) for value in solution]
-                if all(cancel(values[k]-sum(candidate[j]*values[k-j-1] for j in range(order)))==0
-                       for k in range(order,n)):
-                    coefficients=candidate
+        # Port of SymPy 1.14 SeqBase.find_linear_recurrence.
+        from .. import Matrix, expand, factor, flatten, simplify
+        # SymPy's slice of a negative stop is empty.
+        x=[simplify(expand(t)) for t in self[:max(n,0)]]
+        lx=len(x)
+        r=lx//2 if d is None else min(d,lx//2)
+        coeffs=[]
+        for l in range(1,r+1):
+            l2=2*l
+            m=Matrix([x[k:k+l] for k in range(l)])
+            if m.det()!=0:
+                y=simplify(m.LUsolve(Matrix(x[l:l2])))
+                if lx==l2:
+                    coeffs=flatten(y[::-1])
+                    break
+                m=Matrix([x[k:k+l] for k in range(l,lx-l)])
+                if m*y==Matrix(x[l2:]):
+                    coeffs=flatten(y[::-1])
                     break
         if gfvar is None:
-            return coefficients
-        if not coefficients:
+            return coeffs
+        l=len(coeffs)
+        if l==0:
             return [],None
-        variable=_scalar(gfvar)
-        numerator=sum((values[k]-sum(coefficients[j-1]*values[k-j] for j in range(1,k+1)))
-                      *variable**k for k in range(len(coefficients)))
-        denominator=1-sum(value*variable**(j+1) for j,value in enumerate(coefficients))
-        return coefficients,cancel(numerator/denominator)
-
+        gfvar=_scalar(gfvar)
+        num,den=x[l-1]*gfvar**(l-1),1-coeffs[l-1]*gfvar**l
+        for i in range(l-1):
+            num+=x[i]*gfvar**i
+            for j in range(l-i-1):
+                num-=coeffs[i]*x[j]*gfvar**(i+j+1)
+            den-=coeffs[i]*gfvar**(i+1)
+        return coeffs,simplify(factor(num)/factor(den))
 
 class SeqExpr(SeqBase):
     """Base sequence expression with a bound index and inclusive interval."""

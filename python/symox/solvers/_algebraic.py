@@ -167,17 +167,18 @@ def minsolve_linear_system(system,*symbols,**flags):
 
 
 def _radical_normalize(expression):
-    from .. import factor_terms,Poly,Mul
+    """SymPy's ``unrad._canonical``: clear the content, drop numeric factors
+    and factor powers, then make each factor's sign canonical."""
+    from .. import factor_terms,Mul
     expression=factor_terms(expression.expand(),clear=True)
     if expression.is_Mul:
-        expression=Mul(*(value for value in expression.args if not value.is_number))
-    if expression.free_symbols:
-        try:
-            polynomial=Poly(expression,*sorted(expression.free_symbols,key=str))
-            _,polynomial=polynomial.primitive()
-            expression=polynomial.as_expr()
-            if polynomial.LC().is_negative is True:expression=-expression
-        except (ValueError,TypeError,NotImplementedError):pass
+        expression=Mul(*(value.base if value.is_Pow else value for value in expression.args if not value.is_number))
+    factors=list(Mul.make_args(expression))
+    changed=False
+    for index,value in enumerate(factors):
+        if value.could_extract_minus_sign():
+            factors[index]=-value;changed=True
+    if changed:expression=Mul(*factors,evaluate=False)
     return expression
 
 

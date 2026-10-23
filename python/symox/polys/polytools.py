@@ -119,6 +119,10 @@ def _poly_kwargs(opt):
     out = {k: opt[k] for k in ('domain', 'modulus', 'extension') if k in opt and opt[k] is not None}
     if 'expand' in opt and opt['expand'] is False:
         out['expand'] = False
+    # The generator ordering options select the main generator (horner wrt).
+    for key in ('wrt', 'sort'):
+        if opt.get(key):
+            out[key] = opt[key]
     if opt.get('field') and 'domain' not in out:
         out['field'] = True
     if isinstance(out.get('extension'), set):

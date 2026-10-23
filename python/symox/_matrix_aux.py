@@ -574,8 +574,62 @@ def _matrix_init_subclass(cls, **kwargs):
         cls.__iter__ = _getitem_iter
 
 
+_native_eigenvects = None
+
+
+def _eigenvects(self, error_when_incomplete=True, iszerofunc=None, *, chop=False, **flags):
+    """SymPy's ``_eigenvects`` flag handling around the native kernel.
+
+    An explicit ``simplify`` flag also requests primitive eigenvectors,
+    ``v/gcd(v)``, exactly as in the reference implementation.
+    """
+    from types import FunctionType
+    from . import gcd, simplify as _simplify
+    primitive = flags.pop('simplify', False)
+    flags.pop('multiple', None)
+    if iszerofunc is not None:
+        flags['iszerofunc'] = iszerofunc
+    if chop:
+        flags['chop'] = chop
+    ret = _native_eigenvects(self, error_when_incomplete, **flags)
+    if primitive:
+        simpfunc = primitive if isinstance(primitive, FunctionType) else _simplify
+        ret = [(val, mult, [(v/gcd(list(v))).applyfunc(simpfunc) for v in es])
+               for val, mult, es in ret]
+    return ret
+
+
+def _diagonalize(self, reals_only=False, sort=False, normalize=False):
+    """Port of SymPy's ``_diagonalize`` over primitive eigenvectors."""
+    from . import NonSquareMatrixError, MatrixError
+    from ._compat import default_sort_key
+    if not self.is_square:
+        raise NonSquareMatrixError()
+    eigenvecs = self.eigenvects(simplify=True)
+    for val, mult, basis in eigenvecs:
+        if (reals_only and not val.is_real) or mult != len(basis):
+            raise MatrixError('Matrix is not diagonalizable')
+    if sort:
+        eigenvecs = sorted(eigenvecs, key=default_sort_key)
+    p_cols, diag = [], []
+    for val, mult, basis in eigenvecs:
+        diag += [val]*mult
+        p_cols += basis
+    if normalize:
+        p_cols = [v/v.norm() for v in p_cols]
+    P, D = self.hstack(*p_cols), self.diag(*diag)
+    if getattr(self, '_immutable', False):
+        P, D = P.as_immutable(), D.as_immutable()
+    return P, D
+
+
 def install(immutable_facade, sparse_base, mutable_sparse):
     namespace = globals()
+    global _native_eigenvects
+    if _native_eigenvects is None:
+        _native_eigenvects = Matrix.eigenvects
+        Matrix.eigenvects = _eigenvects
+        Matrix.diagonalize = _diagonalize
     Matrix.__init_subclass__ = classmethod(_matrix_init_subclass)
     Matrix.__array__ = _matrix_array
     Matrix.__array_priority__ = 11

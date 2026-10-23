@@ -88,22 +88,64 @@ def collect_sqrt(expr, evaluate=None):
     return coeff*d
 
 
-def rad_rationalize(num,den):return S.fraction(S.radsimp(S.sympify(num)/S.sympify(den)))
+def rad_rationalize(num, den):
+    """SymPy's ``rad_rationalize``: multiply by the conjugate of the
+    ``split_surds`` decomposition until the denominator is not an Add."""
+    from .sqrtdenest import _mexpand
+    num, den = S.sympify(num), S.sympify(den)
+    if not den.is_Add:
+        return num, den
+    g, a, b = split_surds(den)
+    a = a*S.sqrt(g)
+    num = _mexpand((a - b)*num)
+    den = _mexpand(a**2 - b**2)
+    return rad_rationalize(num, den)
+
+
+def _split_gcd(*a):
+    """SymPy's ``_split_gcd``."""
+    g = a[0]
+    b1 = [g]
+    b2 = []
+    for x in a[1:]:
+        g1 = S.gcd(g, x)
+        if g1 == 1:
+            b2.append(x)
+        else:
+            g = g1
+            b1.append(x)
+    return g, b1, b2
 
 
 def split_surds(expr):
-    expr=S.sympify(expr);terms=S.Add.make_args(expr);radicands=[]
-    for term in terms:
-        coefficient,radical=term.as_coeff_Mul()
-        if radical.is_Pow and radical.exp==S.Rational(1,2) and radical.base.is_Rational and radical.base.is_positive:radicands.append(radical.base)
-    if not radicands:raise ValueError('surds must include a square root of a positive rational')
-    g=min(radicands);selected=[];rest=[]
-    for term in terms:
-        coefficient,radical=term.as_coeff_Mul()
-        if radical.is_Pow and radical.exp==S.Rational(1,2) and radical.base.is_Rational and (radical.base/g).is_Integer:
-            selected.append(coefficient*S.sqrt(radical.base/g))
-        else:rest.append(term)
-    return g,S.Add(*selected),S.Add(*rest)
+    """SymPy's ``split_surds``."""
+    from ..core.sorting import default_sort_key
+    expr = S.sympify(expr)
+    args = sorted(expr.args, key=default_sort_key)
+    coeff_muls = [x.as_coeff_Mul() for x in args]
+    surds = [x[1]**2 for x in coeff_muls if x[1].is_Pow]
+    if not surds:
+        raise ValueError('surds must include a square root of a positive rational')
+    surds.sort(key=default_sort_key)
+    g, b1, b2 = _split_gcd(*surds)
+    g2 = g
+    if not b2 and len(b1) >= 2:
+        b1n = [x/g for x in b1]
+        b1n = [x for x in b1n if x != 1]
+        # only a common factor has been factored; split again
+        g1, b1n, b2 = _split_gcd(*b1n)
+        g2 = g*g1
+    a1v, a2v = [], []
+    for c, s in coeff_muls:
+        if s.is_Pow and s.exp == S.S.Half:
+            s1 = s.base
+            if s1 in b1:
+                a1v.append(c*S.sqrt(s1/g2))
+            else:
+                a2v.append(c*s)
+        else:
+            a2v.append(c*s)
+    return g2, S.Add(*a1v), S.Add(*a2v)
 
 __all__ += ['collect_abs','collect_sqrt','denom_expand','expand_denom','expand_fraction','expand_numer','fraction_expand',
  'numer_expand','rad_rationalize','split_surds']
