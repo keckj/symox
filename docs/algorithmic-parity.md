@@ -7387,3 +7387,76 @@ Remaining gaps:
   SymPy's simplify pipeline with symox functions gives SymPy's
   intermediates. Fixing this needs SymPy's `simplify` pipeline (or its
   output form for this radicand) in the native simplify.
+
+## Precision near cuts and huge exponents (prec, wave 6, 2026-10-23)
+
+Probe: 6225 evaluations (2075 expressions at 15, 50 and 200 digits) of every
+multivalued elementary and special function symox evaluates (log, roots and
+complex powers, inverse trigonometric and hyperbolic functions, LambertW
+branches 0/-1/1/2, polylog, zeta/Hurwitz zeta/polygamma/dirichlet_eta,
+Ei/li/Li/E1/expint/Si/Ci/Shi/Chi, gamma/loggamma/incomplete gamma, erf family,
+hyper/meijerg, elliptic_k/e/f/pi, Bessel/Hankel/Airy) on and next to their
+cuts (exact offsets such as `-2 + I/10**30`), near poles and zeros, and exact
+cancellations. Each value was compared with SymPy's evalf and with mpmath on
+the exact argument at 3n+60 digits.
+
+- Relative accuracy of the complex value (n-3 digits required): 5947 correct
+  in both, 188 correct in symox only (SymPy rounds the argument first), 29
+  evaluated by symox only and correct (SymPy raises a pole error or returns
+  `oo` for `atanh(1 + 10**-25)`, `zeta(1 - 10**-25)`, `gamma(-3 + 10**-25)`,
+  ...), 30 left unevaluated by both, 22 inaccurate in both (18 identical
+  strings). No case where SymPy is accurate and symox is not, no wrong branch,
+  and no exception or timeout specific to symox.
+- Componentwise, 7 cases give a tiny component with more printed digits than
+  it holds. SymPy tracks the accuracy of each component and prints fewer
+  digits (`0.e-21`, or a 26-digit mantissa). Examples are
+  `(1 + 10**-25)**I` at 50 digits (32 correct digits in the imaginary part,
+  SymPy prints 26), `(-1 + 10**-25)**(1+I)` at 15 digits (symox
+  `-1.08e-30*I`, SymPy `0.e-21*I`, true `+4.3e-27*I`),
+  `Li(2 + I/10**30)` at 15 digits (real part 5.2e-61 with 9 correct
+  digits), and the cancelling sum
+  `-I*exp(3*I/5)/2 - exp(3*I/10)*sin(3/10) + I/2 + 10**-25` at 50 digits.
+  The complex value is accurate to n digits, but the small part's digits are
+  not certified. Open gap: per-component accuracy tracking (SymPy's
+  `complex_accuracy`) in the Pow, Li and Add paths of `evalf_mp`.
+
+Huge exponents, fixed:
+- Floats with 53-bit precision are stored as doubles, and their arithmetic
+  overflowed or underflowed silently. `Float(2)**1024`, `Float(10)**400`,
+  `Float(1e300)*Float(1e300)`, `Float(1)*10**400`, `Float(2)**1100.0` and
+  `Float(2)**Rational(2049, 2)` gave `inf` or `oo`, and `Float(2.5)**-1100`
+  gave `0.0`. These were wrong results. Add, mul, div and integer or real
+  powers now detect a result or operand outside the normal double range and
+  recompute it at 53 bits with a wide exponent. The results are SymPy's
+  (`1.79769313486232e+308`, ...).
+- `Float(b)**n` with an integer `n` beyond i64 (`Float(2)**(2**63)`,
+  `Float(0.5)**(10**30)`, `Float(-2)**(2**63 + 1)`) is now evaluated like
+  SymPy. Before, it stayed an unevaluated power.
+- `Pow(-2, 10**20 + 1).evalf()` gave a spurious imaginary part
+  (`... + 4.2e+30102999566398119492*I`). A negative real base to an integer
+  power beyond i64 is now real, with the sign set by the parity of the
+  exponent. SymPy does not finish these in 20 s.
+- `gamma(x).evalf()` for large real `x` lost about log10(x log x) digits
+  (`gamma(10**20/3)` was correct to 4 digits only). The argument is now
+  evaluated with mag(x) + 16 extra bits, and Spouge's working precision
+  includes mag(x). Integer arguments above 4096 use Spouge's sum instead of
+  the quadratic exact product, so `factorial(10**6).evalf()` takes 3 ms
+  instead of 169 s (SymPy: 3.8 s).
+  Intentional correction: SymPy 1.14 rounds the argument to the target
+  precision first and returns `3.11482135286148e+636286142112569524544` for
+  `gamma(Rational(10**20, 3)).evalf()`. That is 52 orders of magnitude off.
+  mpmath at 120 digits gives `2.70659425601764e+636286142112569524492`, which
+  is symox's value. SymPy's `gamma(Rational(10**12, 3)).evalf()` is also
+  wrong from its 6th digit.
+
+Huge exponents, remaining (explicit, never a wrong number):
+- Binary exponents stay bounded by `MAX_EXPONENT = 2**100`. Beyond it, symox
+  keeps the expression unevaluated where mpmath (unbounded exponents)
+  answers: `exp(10**30).evalf()`, `exp(2**100).evalf()`,
+  `Float(2)**(2**101)`, `exp(Float('1e30'))`, `factorial(10**30).evalf()`.
+  Lifting the bound needs big-integer exponents in `BigFloat`.
+- Where SymPy hangs (`factorial(10**20).evalf()`, `Pow(2, 10**20).evalf()`,
+  `loggamma(10**30).evalf()`, `Pow(Rational(3, 2), 2**80).evalf()`), symox
+  answers. The values were checked against mpmath.
+
+Tests: `tests/test_prec_parity.py`.

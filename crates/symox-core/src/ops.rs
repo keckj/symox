@@ -1896,6 +1896,16 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
             let odd = e.to_bigint().unwrap().is_odd();
             return Expr::int(if odd { -1 } else { 1 });
         }
+        if let (Some(p), Some(n)) = (b.float_precision(), e.to_bigint()) {
+            // Float._eval_power with an exponent beyond i64: mpmath rounds
+            // the power at the float precision; it stays symbolic only when
+            // the binary exponent leaves the representable range.
+            let base = b.to_bigfloat(p);
+            if let Some(v) = base.abs().powf(&crate::bigfloat::BigFloat::from_int(&n), p) {
+                let v = if base.is_negative() && n.is_odd() { v.neg() } else { v };
+                return Expr::num(Number::mp_float(v, p));
+            }
+        }
         return Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
     }
     if b.is_float() || e.is_float() {
@@ -1915,6 +1925,13 @@ pub fn num_pow(b: &Number, e: &Number) -> Expr {
                 .map(|value| crate::evalf_mp::to_expr(value, precision)).unwrap_or(raw);
         }
         let (x, y) = (b.to_f64(), e.to_f64());
+        if x != 0.0 && x.is_finite() && y.is_finite() && !x.powf(y).is_normal() {
+            // The double power overflows or underflows: mpmath keeps an
+            // unbounded exponent, so evaluate at 53 bits.
+            let raw = Expr::from_kind(Kind::Pow(Expr::num(b.clone()), Expr::num(e.clone())));
+            return crate::evalf_mp::eval_mp(&raw, 53)
+                .map(|value| crate::evalf_mp::to_expr(value, 53)).unwrap_or(raw);
+        }
         if x >= 0.0 || y.fract() == 0.0 {
             return Expr::float(x.powf(y));
         }

@@ -249,6 +249,12 @@ impl MpComplex {
         if self.is_real() && e.is_real() && self.re.sign() > 0 {
             return Some(MpComplex::real(self.re.powf(&e.re, p)?));
         }
+        if self.is_real() && e.is_real() && !e.re.is_zero() && e.re.exp >= 0 {
+            // A negative base to an integer power beyond i64 is real, with
+            // the sign of the exponent's parity (mpmath's mpf_pow_int).
+            let magnitude = self.re.abs().powf(&e.re, p)?;
+            return Some(MpComplex::real(if e.re.exp == 0 && num_integer::Integer::is_odd(&e.re.man) { magnitude.neg() } else { magnitude }));
+        }
         if e.re.mag() > 1 << 20 || e.im.mag() > 1 << 20 { return None; }
         let wp = p + 20 + e.re.mag().max(0) as u32 + e.im.mag().max(0) as u32;
         let l = self.ln(wp)?;
@@ -1042,10 +1048,17 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             Some(value) => MpComplex::real(value),
             None => return host_eval("erfc", args, p),
         },
-        Func::Gamma if a.is_real() => match gamma_mp(&a.re, p) {
-            Some(value) => MpComplex::real(value),
-            None => return host_eval("gamma", args, p),
-        },
+        Func::Gamma if a.is_real() => {
+            // d log(gamma(x))/dx = digamma(x) ~ log(x): a large argument
+            // needs about mag(x) + log2(log(x)) more bits to keep p bits of
+            // gamma(x).
+            let size = a.re.mag();
+            let x = if size > 2 { ev(&args[0], wp + size as u32 + 16)?.re } else { a.re.clone() };
+            match gamma_mp(&x, p) {
+                Some(value) => MpComplex::real(value),
+                None => return host_eval("gamma", args, p),
+            }
+        }
         Func::Erf => return host_eval("erf", args, p),
         Func::Erfc => return host_eval("erfc", args, p),
         Func::Gamma => return host_eval("gamma", args, p),
@@ -1203,13 +1216,23 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
         if n <= 0 {
             return None;
         }
+        if n > 4096 {
+            // The exact product is quadratic in n; Spouge's sum below is
+            // accurate for large integers as well.
+            return gamma_spouge(x, prec);
+        }
         let mut acc = BigInt::from(1);
         for i in 2..n {
             acc *= i;
         }
         return Some(BigFloat::from_int(&acc).round_to(prec));
     }
-    let wp = prec.saturating_mul(2) + 80;
+    gamma_spouge(x, prec)
+}
+
+fn gamma_spouge(x: &BigFloat, prec: u32) -> Option<BigFloat> {
+    // (z+a)**(z+1/2)*exp(-(z+a)) cancels mag(x) + log2(log(x)) bits.
+    let wp = prec.saturating_mul(2) + 80 + x.mag().max(0) as u32 + 8;
     if x.sign() < 0 || x.cmp(&BigFloat { man: BigInt::from(1), exp: -1 }) == std::cmp::Ordering::Less {
         // reflection: gamma(x) = pi / (sin(pi x) gamma(1-x))
         let one_minus = BigFloat::one().sub(x, wp);
