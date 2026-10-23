@@ -245,7 +245,15 @@ pub fn to_matrix(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
 }
 
 fn is_seq(obj: &Bound<'_, PyAny>) -> bool {
-    obj.downcast::<PyList>().is_ok() || obj.downcast::<PyTuple>().is_ok()
+    obj.downcast::<PyList>().is_ok() || obj.downcast::<PyTuple>().is_ok() || is_sequence_row(obj)
+}
+
+/// Host sequences SymPy's `is_sequence` accepts as matrix rows, such as a
+/// geometry `Point` (its class sets `_symox_matrix_row`).
+fn is_sequence_row(obj: &Bound<'_, PyAny>) -> bool {
+    !obj.is_instance_of::<crate::PyExprNode>()
+        && obj.downcast::<PyMatrix>().is_err()
+        && obj.get_type().getattr("_symox_matrix_row").is_ok_and(|v| v.is_truthy().unwrap_or(false))
 }
 
 fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {

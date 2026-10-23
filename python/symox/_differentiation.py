@@ -33,6 +33,60 @@ def unsimplified_diff(expression, symbols):
     return result
 
 
+def _is_array_like(value):
+    from .tensor.array import NDimArray
+    return isinstance(value, (list, tuple, NDimArray, _core.Matrix)) or getattr(value, '_symox_sparse', False)
+
+
+def _array_variable_spec(symbols):
+    """SymPy's ``_derivative_dispatch``/``Derivative.__new__`` parsing of
+    derive-by-array variables such as ``[[x, y]]``, ``([x, y], 2)`` or
+    ``((x, y),)``. Returns None when no such variable is present."""
+    if not any(isinstance(item, (tuple, list)) and item and _is_array_like(item[0]) for item in symbols):
+        return None
+    from .tensor.array import Array
+    spec = []
+    for item in symbols:
+        if isinstance(item, (tuple, list)) and item and _is_array_like(item[0]):
+            if len(item) == 1:
+                variable, count = item[0], 1
+            else:
+                variable, count = item
+            spec.append(('array', Array(variable), count))
+        else:
+            spec.append(('scalar', item, None))
+    return spec
+
+
+def _array_diff(expression, spec):
+    """Evaluate ``ArrayDerivative`` one variable group at a time."""
+    from .tensor.array import NDimArray, derive_by_array
+    from . import sympify
+    result = expression
+    chunk = []
+
+    def flush(value):
+        if not chunk:
+            return value
+        symbols = tuple(chunk)
+        chunk.clear()
+        if isinstance(value, NDimArray):
+            return value.applyfunc(lambda entry: diff(entry, *symbols)).as_immutable()
+        return diff(value, *symbols)
+
+    for kind, variable, count in spec:
+        if kind == 'scalar':
+            chunk.append(variable)
+            continue
+        result = flush(result)
+        count = sympify(count)
+        if not count.is_Integer or count < 0:
+            raise ValueError('derivative order must be a nonnegative integer')
+        for _ in range(int(count)):
+            result = derive_by_array(result, variable)
+    return flush(result)
+
+
 def _matrix_variables(expression, symbols):
     if symbols:return symbols
     free=expression.free_symbols
@@ -87,6 +141,9 @@ def _finish_multiple(result, expression, symbols):
 
 
 def scalar_diff(self, *symbols, evaluate=True, **options):
+    spec=_array_variable_spec(symbols)
+    if spec is not None and evaluate and not options:
+        return _array_diff(self,spec)
     if _options(evaluate,options):return unsimplified_diff(self,symbols)
     if not evaluate:return _core.Derivative(self,*symbols,evaluate=False)
     try:result=_native_scalar_diff(self,*symbols)
@@ -100,11 +157,24 @@ def matrix_diff(self, *symbols, evaluate=True, **options):
         raise NotImplementedError('Unsimplified matrix derivatives are not implemented')
     if not evaluate:
         raise NotImplementedError('Held matrix derivatives require lazy array expressions')
+    spec=_array_variable_spec(symbols)
+    if spec is not None:
+        result=_array_diff(self,spec)
+        # SymPy's MatrixCalculus.diff: a mutable matrix gives a mutable array.
+        if not getattr(self,'_immutable',False) and hasattr(result,'as_mutable'):
+            result=result.as_mutable()
+        return result
     symbols=_matrix_variables(self,symbols)
     if not symbols:return self.applyfunc(lambda entry:S.Zero)
     if not isinstance(self,_core.Matrix):
         return self.applyfunc(lambda entry:_native_scalar_diff(entry,*symbols))
-    return _native_matrix_diff(self,*symbols)
+    result=_native_matrix_diff(self,*symbols)
+    # SymPy's MatrixCalculus.diff: the derivative of a mutable matrix by a
+    # matrix is a mutable array.
+    if (not getattr(self,'_immutable',False) and not isinstance(result,_core.Matrix)
+            and hasattr(result,'as_mutable')):
+        result=result.as_mutable()
+    return result
 
 
 def diff(f, *symbols, evaluate=True, **options):
@@ -112,6 +182,10 @@ def diff(f, *symbols, evaluate=True, **options):
     unsimplified=_options(evaluate,options)
     if isinstance(f,_core.Matrix):
         return matrix_diff(f,*symbols,evaluate=evaluate,**options)
+    if evaluate and not options and isinstance(f,_core.Expr):
+        spec=_array_variable_spec(symbols)
+        if spec is not None:
+            return _array_diff(f,spec)
     if getattr(f,'_symox_sparse',False):
         return matrix_diff(f,*symbols,evaluate=evaluate,**options)
     if isinstance(f,_core.Expr) and type(f) is not _core.Expr:

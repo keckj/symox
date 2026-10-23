@@ -364,6 +364,12 @@ def _make(name):
                 value = _accum_evaluate(name, a)
                 if value is not None:
                     return value
+        if (name == 'Mod' and evaluate and len(args) == 2 and not isinstance(args[0], _core.Expr)
+                and hasattr(args[0], '_eval_Mod')):
+            # Mod.eval: ``p._eval_Mod(q)`` first (a matrix is reduced entrywise).
+            value = args[0]._eval_Mod(args[1])
+            if value is not None:
+                return value
         return _core._apply(name, *args) if evaluate else _core._apply(name, *args, evaluate=False)
 
     f.__name__ = name
@@ -3277,6 +3283,72 @@ from . import _matrix_decompositions  # noqa: E402
 _matrix_decompositions.install(Matrix, _sparse_module._SparseBase)
 from . import _matrix_charpoly  # noqa: E402
 _matrix_charpoly.install(Matrix)
+from . import _matrix_power  # noqa: E402
+_matrix_power.install(Matrix)
+from . import _matrix_pinv  # noqa: E402
+_matrix_pinv.install(Matrix)
+
+
+def _matrix_eval_Mod(self, other):
+    # MatrixBase._eval_Mod on the sympified (immutable) matrix, as Mod(A, q)
+    # sympifies its arguments first.
+    return self.as_immutable().applyfunc(lambda entry: Mod(entry, other))
+
+
+Matrix._eval_Mod = _matrix_eval_Mod
+
+
+def _matrix_rep(self):
+    # RepMatrix._rep: a sparse DomainMatrix over ZZ, QQ or EXRAW
+    # (_dod_to_DomainMatrix); a matrix built by _fromrep keeps its rep.
+    entries = list(self)
+    stored = self.__dict__.get('_symox_fromrep') if hasattr(self, '__dict__') else None
+    if stored is not None and stored[1] == entries:
+        return stored[0]
+    from .polys.matrices import DomainMatrix
+    from .polys.domains import ZZ, QQ, EXRAW
+    rows, cols = self.shape
+    dod = {}
+    for n, entry in enumerate(entries):
+        if entry != 0:
+            i, j = divmod(n, cols)
+            dod.setdefault(i, {})[j] = entry
+    rep = DomainMatrix(dod, (rows, cols), EXRAW)
+    if all(e.is_Rational for e in entries):
+        rep = rep.convert_to(ZZ if all(e.is_Integer for e in entries) else QQ)
+    return rep
+
+
+def _matrix_fromrep(cls, rep):
+    # RepMatrix._fromrep
+    obj = cls(rep.to_Matrix())
+    try:
+        obj._symox_fromrep = (rep, list(obj))
+    except (AttributeError, TypeError):
+        pass
+    return obj
+
+
+Matrix._rep = property(_matrix_rep)
+Matrix._fromrep = classmethod(_matrix_fromrep)
+ImmutableMatrix._fromrep = classmethod(_matrix_fromrep)
+
+
+def _install_sparse_rep():
+    from ._sparse import _SparseBase
+    _SparseBase._rep = property(_matrix_rep)
+    _SparseBase._fromrep = classmethod(_matrix_fromrep)
+
+
+_install_sparse_rep()
+
+
+def _float_epsilon_eq(self, other, epsilon="1e-15"):
+    # Float.epsilon_eq
+    return abs(self - other) < Float(epsilon)
+
+
+type(Float(1.0)).epsilon_eq = _float_epsilon_eq
 MutableMatrix = Matrix
 
 _native_lambdify = lambdify
@@ -4158,6 +4230,24 @@ _install_expand_fraction_hints(globals())
 
 from ._matrix_subclasses import install as _install_matrix_subclasses
 _install_matrix_subclasses()
+
+
+def _matrix_expand_hint(original):
+    # expand_mul(M) and friends are sympify(M).expand(hint=True): the
+    # (immutable) matrix is expanded entrywise.
+    def wrapper(expr, *args, **kwargs):
+        if isinstance(expr, _core.Matrix) or getattr(expr, '_symox_sparse', False):
+            return expr.as_immutable().applyfunc(lambda entry: original(entry, *args, **kwargs))
+        return original(expr, *args, **kwargs)
+    wrapper.__name__ = wrapper.__qualname__ = original.__name__
+    wrapper.__doc__ = original.__doc__
+    wrapper.__wrapped__ = original
+    return wrapper
+
+
+for _name in ('expand_mul', 'expand_func', 'expand_trig', 'expand_log', 'expand_power_exp'):
+    globals()[_name] = _matrix_expand_hint(globals()[_name])
+del _name
 
 # The public Expr class is SymPy's expression category; the native storage
 # type, shared by Boolean and Basic nodes, stays the internal base.
