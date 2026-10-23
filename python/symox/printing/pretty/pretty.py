@@ -8,6 +8,7 @@ _use_unicode=True
 
 class PrettyPrinter(Printer):
     def doprint(self, expr):
+        global _use_unicode
         from symox import _core
         if getattr(type(expr), '_symox_pretty_as_str', False):
             # The reference PrettyPrinter has no handler for the class
@@ -15,7 +16,35 @@ class PrettyPrinter(Printer):
             return str(expr)
         settings=dict(self._settings)
         if settings.get("use_unicode") is None:settings["use_unicode"]=_use_unicode
-        return _core.pretty(expr, **settings)
+        try:
+            return _core.pretty(expr, **settings)
+        except TypeError as exc:
+            if 'cannot convert object' not in str(exc):raise
+        # A Python-level object the native layout engine cannot represent:
+        # the reference dispatches to its _pretty method, otherwise its
+        # emptyPrinter renders the str form.
+        if not hasattr(expr, '_pretty'):return str(expr)
+        previous=_use_unicode
+        _use_unicode=bool(settings["use_unicode"])
+        try:
+            self._settings=settings
+            form=expr._pretty(self)
+        finally:
+            _use_unicode=previous
+        if hasattr(form, 'render'):
+            return form.render(wrap_line=settings.get('wrap_line', True),
+                               num_columns=settings.get('num_columns'))
+        return str(form)
+
+    def _print(self, expr, **kwargs):
+        from .stringpict import prettyForm
+        if hasattr(expr, 'picture'):return expr
+        if isinstance(expr, str):return prettyForm(expr)
+        if hasattr(expr, '_pretty'):
+            try:return expr._pretty(self)
+            except TypeError:pass
+        text=PrettyPrinter(self._settings).doprint(expr)
+        return prettyForm(text)
 
 
 def pretty(expr, **settings):

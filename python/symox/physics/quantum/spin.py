@@ -422,3 +422,11 @@ def couple(expr,jcoupling_list=None):
     return _map_atoms(expr,visit)
 
 __all__=['m_values','Jplus','Jminus','Jx','Jy','Jz','J2','Rotation','WignerD','JxKet','JxBra','JyKet','JyBra','JzKet','JzBra','JzOp','J2Op','JxKetCoupled','JxBraCoupled','JyKetCoupled','JyBraCoupled','JzKetCoupled','JzBraCoupled','couple','uncouple']
+
+
+# Reference SpinState._label_separator is ','.
+from ._core import StateBase as _StateBase
+for _cls in list(globals().values()):
+    if isinstance(_cls,type) and issubclass(_cls,_StateBase) and _cls.__module__==__name__:
+        _cls._label_separator=','
+del _cls

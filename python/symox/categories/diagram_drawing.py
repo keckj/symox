@@ -92,6 +92,18 @@ class ArrowStringDescription:
         return r'\ar%s%s%s[%s%s]%s%s{%s}' % (curve,loop,style,self.horizontal_direction,self.vertical_direction,self.label_position,self.label_displacement,self.label)
 
 
+def _morphism_label(morphism,latex):
+    from .. import Symbol
+    from .baseclasses import CompositeMorphism,IdentityMorphism,NamedMorphism
+    if isinstance(morphism,IdentityMorphism):
+        return r'\mathrm{id}_{%s}' % latex(morphism.domain)
+    if isinstance(morphism,CompositeMorphism):
+        return r'\circ '.join(latex(Symbol(c.name)) for c in reversed(morphism.components))
+    if isinstance(morphism,NamedMorphism):
+        return latex(Symbol(morphism.name))
+    return ''
+
+
 class XypicDiagramDrawer:
     def __init__(self):
         self.unit = 'mm'
@@ -114,7 +126,7 @@ class XypicDiagramDrawer:
                 continue
             i,j = positions[m.domain]
             ti,tj = positions[m.codomain]
-            desc = ArrowStringDescription(unit=self.unit,label=latex(m))
+            desc = ArrowStringDescription(unit=self.unit,label=_morphism_label(m,latex))
             desc.horizontal_direction = ('r' if tj >= j else 'l')*abs(tj-j)
             desc.vertical_direction = ('d' if ti >= i else 'u')*abs(ti-i)
             key = frozenset((m.domain,m.codomain))

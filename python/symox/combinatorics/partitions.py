@@ -48,8 +48,9 @@ def RGS_unrank(rank,m):
 
 class Partition:
     def __init__(self,*partition):
-        from .. import default_sort_key
-        blocks=[frozenset(block) for block in partition]
+        from .. import default_sort_key,sympify
+        # The reference sympifies every block into a FiniteSet.
+        blocks=[frozenset(map(sympify,block)) for block in partition]
         if any(not b for b in blocks) or sum(map(len,blocks))!=len(set().union(*blocks)):
             raise ValueError('partition blocks must be nonempty and disjoint')
         self.members=tuple(sorted(set().union(*blocks),key=default_sort_key))
@@ -88,7 +89,26 @@ class Partition:
     def __hash__(self):return hash(frozenset(self._blocks))
     def __lt__(self,other):return self.RGS<other.RGS
     def __le__(self,other):return self==other or self<other
-    def __repr__(self):return 'Partition(%s)'%', '.join(map(str,self.partition))
+    def _finite_sets(self):
+        from .. import FiniteSet,default_sort_key
+        return sorted((FiniteSet(*block) for block in self.partition),key=default_sort_key)
+    def _sympystr(self,printer):
+        return 'Partition(%s)'%', '.join(printer._print(block) for block in self._finite_sets())
+    def _blocks_sorted(self):
+        from .. import default_sort_key
+        return [sorted(block.args,key=default_sort_key) for block in self._finite_sets()]
+    def _latex(self,printer):
+        return r'\left\{%s\right\}'%', '.join(r'\left\{%s\right\}'%', '.join(printer._print(v) for v in block)
+                                                for block in self._blocks_sorted())
+    def _pretty(self,printer):
+        from ..printing.pretty import pretty
+        from ..printing.pretty.stringpict import prettyForm
+        return prettyForm('{%s}'%', '.join('{%s}'%', '.join(pretty(v,**printer._settings) for v in block)
+                                          for block in self._blocks_sorted()))
+    def __repr__(self):
+        from ..printing.str import sstr
+        return sstr(self)
+    __str__=__repr__
 
 
 class IntegerPartition:

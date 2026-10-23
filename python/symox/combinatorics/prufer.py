@@ -17,6 +17,13 @@ class Prufer:
             if any(not 0<=v<n for v in self._code):
                 raise ValueError('Prüfer entries must be node labels')
         self.nodes=n
+        # The reference prints its constructor arguments: Prufer([1, 2, 0]).
+        self._args=(list(self._code) if not values or not isinstance(values[0],(list,tuple)) else [list(e) for e in values],)+tuple(args[1:])
+
+    def __repr__(self):
+        return 'Prufer(%s)'%', '.join(map(str,self._args))
+
+    __str__=__repr__
 
     @property
     def prufer_repr(self):return list(self._code)

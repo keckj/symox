@@ -146,3 +146,9 @@ def matches(pattern,expr,repl_dict=None,old=False):
             candidate=flexible[0].matches(_product(capture_coefficient,remaining),candidate,old)
         if candidate is not None:return candidate
     return None
+
+
+# The reference classes live in sympy.tensor.tensor.
+for _cls in (WildTensorIndex,WildTensorHead,WildTensor):
+    _cls.__module__='symox.tensor.tensor'
+del _cls

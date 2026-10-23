@@ -1110,6 +1110,9 @@ def transpose(arg):
     if isinstance(arg, (_core.Expr, int, float, complex)):
         # the transpose of a commutative scalar is the scalar itself
         return sympify(arg)
+    if callable(getattr(arg, "transpose", None)) and not isinstance(arg, (list, tuple)):
+        # SymPy's transpose(Array) is the transposed Array, not a Matrix
+        return arg.transpose()
     return Matrix(arg).T
 
 

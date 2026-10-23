@@ -303,7 +303,27 @@ class TensMul(TensExpr):
             if isinstance(arg,Tensor):result.append(arg if coeff==1 else _product(coeff,[arg]));coeff=1
             else:coeff*=arg
         return result
-    def __repr__(self):return '*'.join(map(str,self.args))
+    def __repr__(self):
+        # Reference StrPrinter._print_TensMul with
+        # _get_args_for_traditional_printer: a leading sign, and scalar
+        # factors parenthesized below Mul precedence, as in -A(a), (1/2)*A(a).
+        from symox.printing.precedence import precedence,PRECEDENCE
+        args=list(self.args);sign=''
+        coeff=next((a for a in args if not isinstance(a,TensExpr)),None)
+        if coeff is not None and args and args[0] is coeff and getattr(coeff,'could_extract_minus_sign',lambda:False)():
+            sign='-'
+            if coeff==-1:args=args[1:]
+            else:args[0]=-coeff
+        parts=[];flat=[]
+        for arg in args:
+            # The reference keeps a product coefficient as separate factors.
+            if not isinstance(arg,TensExpr) and getattr(arg,'is_Mul',False):flat.extend(arg.as_ordered_factors())
+            else:flat.append(arg)
+        for arg in flat:
+            text=str(arg)
+            if not isinstance(arg,TensExpr) and precedence(arg)<=PRECEDENCE['Mul']:text='(%s)'%text
+            parts.append(text)
+        return sign+'*'.join(parts)
     __str__=__repr__
     def to_sympy(self):
         from sympy.tensor.tensor import TensMul
@@ -350,7 +370,8 @@ class TensAdd(TensExpr):
             if isinstance(arg,TensExpr):
                 result.extend(i for i in arg.get_indices() if i not in result)
         return result
-    def __repr__(self):return ' + '.join(map(str,self.args))
+    # Reference TensAdd._print: ' + '.join, then '+ -' becomes '- '.
+    def __repr__(self):return ' + '.join(map(str,self.args)).replace('+ -','- ')
     __str__=__repr__
     def to_sympy(self):
         from sympy.tensor.tensor import TensAdd

@@ -198,7 +198,14 @@ class LatexPrinter(Printer):
 
 
 def latex(expr,**settings):
-    return LatexPrinter(settings).doprint(expr)
+    # Symbol subclasses with their own _latex, such as diffgeom's
+    # BaseScalarField (\mathbf{x}), print through symbol_names.
+    try:symbols = expr.free_symbols if hasattr(expr,'free_symbols') else ()
+    except Exception:symbols = ()
+    printer = LatexPrinter(settings)
+    own = {s:s._latex(printer) for s in symbols if '_latex' in type(s).__dict__}
+    if own:printer = LatexPrinter({**settings,'symbol_names':{**own,**settings.get('symbol_names',{})}})
+    return printer.doprint(expr)
 
 def print_latex(expr,**settings):
     print(latex(expr,**settings))

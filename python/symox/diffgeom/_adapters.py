@@ -3,6 +3,13 @@ from functools import wraps
 from .._dispatch_arguments import FirstArgument
 
 
+def _field_expression(expr):
+    # Unpickles a callable scalar-field expression.
+    import symox
+    install()
+    return symox._core.Expr.__new__(symox._diffgeom_callable_type,expr)
+
+
 def install():
     import symox
     from ._tensors import _Tensor
@@ -13,6 +20,8 @@ def install():
     from ._coordinates import _field_atoms
     class FieldExpression(Expr):
         __slots__ = ()
+        def __reduce_ex__(self,protocol):
+            return (_field_expression,(Expr.__new__(Expr,self),))
         def __call__(self,*args,**kwargs):
             if len(args)==1 and isinstance(args[0],Point) and not kwargs:
                 return _scalar_at(self,args[0])

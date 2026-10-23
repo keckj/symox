@@ -20,6 +20,10 @@ def _combine(first,second,multiplier=1):
 def _dimensional_name(dependencies):return S.Mul(*(S.Symbol(n)**p for n,p in sorted(dependencies.items())))
 
 
+# Named dimensions with a symbol, such as Dimension(length, L), by name.
+_SYMBOLIC_DIMENSIONS = {}
+
+
 class Dimension:
     is_commutative = True
     def __init__(self,name,symbol=None):
@@ -29,6 +33,7 @@ class Dimension:
         self.symbol = S.Symbol(symbol) if isinstance(symbol,str) else symbol
         self._atom = S._core._apply('Dimension',self.name,evaluate=False)
         _DIMENSIONS[self._atom] = self
+        if self.symbol is not None:_SYMBOLIC_DIMENSIONS.setdefault(str(self.name),self)
     def _symox_(self):return self._atom
     def __repr__(self):return 'Dimension(%s%s)'%(self.name,'' if self.symbol is None else ', '+str(self.symbol))
     def __hash__(self):return hash(self.name)
@@ -109,7 +114,16 @@ class DimensionSystem:
                 # SymPy reads any other argument as a dimension name
                 # expression, such as get_dimensional_expr's result.
                 result = self._name_dependencies(value)
-        return {Dimension(n):p for n,p in result.items()} if result else ({Dimension(1):S.Integer(1)} if mark_dimensionless else {})
+        # Reference keys are the system's base dimensions, with their symbols,
+        # except for a tabled derived dimension, whose stored keys carry none.
+        name = dimension.name if isinstance(dimension,Dimension) else None
+        derived = name is not None and name.is_Symbol and str(name) not in {str(d.name) for d in self.base_dims} and (str(name) in self._dependencies or str(name) in _DIMENSION_DATA)
+        bases = {} if derived else {str(d.name):d for d in self.base_dims}
+        def key(n):
+            base = bases.get(str(n))
+            if base is not None and base.symbol is None:base = _SYMBOLIC_DIMENSIONS.get(str(n),base)
+            return base or Dimension(n)
+        return {key(n):p for n,p in result.items()} if result else ({Dimension(1):S.Integer(1)} if mark_dimensionless else {})
     def equivalent_dims(self,first,second):return self.get_dimensional_dependencies(first)==self.get_dimensional_dependencies(second)
     def is_dimensionless(self,dimension):return not self.get_dimensional_dependencies(dimension)
     def extend(self,new_base_dims, new_derived_dims=(),new_dim_deps=None):

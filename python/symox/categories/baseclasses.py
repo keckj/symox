@@ -15,8 +15,17 @@ class _Value:
     def __eq__(self,other):
         return type(self) is type(other) and self.args == other.args
 
-    def __repr__(self):
+    def _plain_repr(self):
         return '%s(%s)' % (type(self).__name__,', '.join(map(repr,self.args)))
+
+    def __repr__(self):
+        # The reference prints category values with its StrPrinter, which
+        # quotes names with double quotes: Object("A").
+        from ..printing.str import sstr,StrPrinter
+        if hasattr(type(self),'_sympystr') or any(hasattr(StrPrinter,'_print_'+c.__name__) for c in type(self).__mro__):return sstr(self)
+        return '%s(%s)' % (type(self).__name__,', '.join(sstr(a) for a in self.args))
+
+    __str__ = __repr__
 
 
 class Object(_Value):
@@ -32,6 +41,17 @@ class Object(_Value):
     def _latex(self,printer):
         from .. import Symbol
         return printer.doprint(Symbol(self.name))
+
+    def _pretty(self,printer):
+        from ..printing.pretty.pretty_symbology import pretty_symbol
+        from ..printing.pretty.stringpict import prettyForm
+        return prettyForm(pretty_symbol(self.name))
+
+
+def _pretty_arrow(name,morphism):
+    from ..printing.pretty.pretty_symbology import xsym
+    from ..printing.pretty.stringpict import prettyForm
+    return prettyForm(name + morphism.domain._pretty(None).s + xsym('-->') + morphism.codomain._pretty(None).s)
 
 
 class Morphism(_Value):
@@ -54,7 +74,7 @@ class Morphism(_Value):
     __mul__ = compose
 
     def _latex(self,printer):
-        return ''
+        return r'%s\rightarrow %s' % (printer._print(self.domain),printer._print(self.codomain))
 
 
 class IdentityMorphism(Morphism):
@@ -68,7 +88,11 @@ class IdentityMorphism(Morphism):
         return self.domain
 
     def _latex(self,printer):
-        return r'\mathrm{id}_{%s}' % printer.doprint(self.domain)
+        from .. import Symbol
+        return '%s:%s' % (printer._print(Symbol('id')),Morphism._latex(self,printer))
+
+    def _pretty(self,printer):
+        return _pretty_arrow('id:',self)
 
 
 class NamedMorphism(Morphism):
@@ -84,7 +108,11 @@ class NamedMorphism(Morphism):
 
     def _latex(self,printer):
         from .. import Symbol
-        return printer.doprint(Symbol(self.name))
+        return '%s:%s' % (printer._print(Symbol(self.name)),Morphism._latex(self,printer))
+
+    def _pretty(self,printer):
+        from ..printing.pretty.pretty_symbology import pretty_symbol
+        return _pretty_arrow(pretty_symbol(self.name)+':',self)
 
 
 class CompositeMorphism(Morphism):
@@ -128,7 +156,17 @@ class CompositeMorphism(Morphism):
         return NamedMorphism(self.domain,self.codomain,new_name)
 
     def _latex(self,printer):
-        return r'\circ '.join(printer.doprint(c) for c in reversed(self.components))
+        from .. import Symbol
+        names = [printer._print(Symbol(c.name)) for c in reversed(self.components)]
+        return r'\circ '.join(names) + ':' + Morphism._latex(self,printer)
+
+    def _pretty(self,printer):
+        from ..printing.pretty.pretty_symbology import pretty_symbol,xsym
+        names = [pretty_symbol(c.name) for c in reversed(self.components)]
+        return _pretty_arrow(xsym('.').join(names)+':',self)
+
+    def _sympystr(self,printer):
+        return 'CompositeMorphism((%s))' % ', '.join(printer._print(c) for c in self.components)
 
 
 def _properties(value):
@@ -187,6 +225,8 @@ def _closure(values,identities=True,components=True):
 
 
 class Diagram(_Value):
+    __repr__ = __str__ = _Value._plain_repr
+
     def __init__(self,premises=(),conclusions=()):
         premises = _closure(premises)
         objects = frozenset(o for m in premises for o in (m.domain,m.codomain))
@@ -228,6 +268,13 @@ class Diagram(_Value):
 
 
 class Category(_Value):
+    def _pretty(self,printer):
+        return Object._pretty(self,printer)
+
+    def _latex(self,printer):
+        from .. import Symbol
+        return r'\mathbf{%s}' % printer._print(Symbol(self.name))
+
     def __init__(self,name,objects=(),commutative_diagrams=()):
         if not isinstance(name,str) or not name:
             raise ValueError('a category requires a nonempty string name')

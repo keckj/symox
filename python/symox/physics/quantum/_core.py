@@ -148,6 +148,8 @@ class IdentityOperator(Operator):
 
 
 class StateBase(Atom):
+    # Reference QExpr._label_separator: labels print without separator.
+    _label_separator=''
     is_ket=False
     is_bra=False
     is_orthogonal=False
@@ -182,10 +184,10 @@ class StateBase(Atom):
 class State(StateBase):pass
 class KetBase(StateBase):
     is_ket=True
-    def _atom_repr(self):return '|'+','.join(map(str,self.labels))+'>'
+    def _atom_repr(self):return '|'+self._label_separator.join(map(str,self.labels))+'>'
 class BraBase(StateBase):
     is_bra=True
-    def _atom_repr(self):return '<'+','.join(map(str,self.labels))+'|'
+    def _atom_repr(self):return '<'+self._label_separator.join(map(str,self.labels))+'|'
 class Ket(KetBase):pass
 class Bra(BraBase):pass
 class _TimeDependence:
@@ -194,7 +196,7 @@ class _TimeDependence:
     def time(self):return self.labels[-1]
     @property
     def label(self):return self.labels[:-1]
-    def _time_repr(self):return ','.join(map(str,self.label))+';'+str(self.time)
+    def _time_repr(self):return self._label_separator.join(map(str,self.label))+';'+str(self.time)
 class TimeDepState(_TimeDependence,State):pass
 class TimeDepKet(_TimeDependence,Ket):
     def _atom_repr(self):return '|'+self._time_repr()+'>'
@@ -851,3 +853,9 @@ def _postprocess_state_pow(expr):return expr.doit() if hasattr(expr,'doit') else
 
 
 __all__=['AntiCommutator','qapply','Commutator','Dagger','HilbertSpaceError','HilbertSpace','TensorProductHilbertSpace','TensorPowerHilbertSpace','DirectSumHilbertSpace','ComplexSpace','L2','FockSpace','InnerProduct','Operator','HermitianOperator','UnitaryOperator','IdentityOperator','OuterProduct','DifferentialOperator','represent','rep_innerproduct','rep_expectation','integrate_result','get_basis','enumerate_states','KetBase','BraBase','StateBase','State','Ket','Bra','TimeDepState','TimeDepBra','TimeDepKet','OrthogonalKet','OrthogonalBra','OrthogonalState','Wavefunction','TensorProduct','tensor_product_simp','hbar','HBar','_postprocess_state_mul','_postprocess_state_pow']
+
+
+# The reference defines the state classes in sympy.physics.quantum.state.
+for _cls in (KetBase,BraBase,StateBase,State,Ket,Bra,TimeDepState,TimeDepBra,TimeDepKet,OrthogonalKet,OrthogonalBra,OrthogonalState,Wavefunction):
+    _cls.__module__='symox.physics.quantum.state'
+del _cls

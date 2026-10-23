@@ -274,7 +274,7 @@ fn scalar_object(py: Python<'_>, e: Expr) -> PyResult<PyObject> {
         if let Some(fields)=module.downcast::<pyo3::types::PyModule>()?.dict().get_item("_diffgeom_field_atoms")? {
             if fields.len()? != 0 {
                 for atom in traverse::free_symbols(&e) {
-                    if matches!(atom.kind(),Kind::Sym(symbol) if symbol.is_dummy())
+                    if matches!(atom.kind(),Kind::Sym(_))
                         && fields.contains(Bound::new(py, PyExprNode { e: atom })?)?
                     {
                         let class = module.getattr("_diffgeom_callable_type")?;
