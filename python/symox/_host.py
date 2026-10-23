@@ -28,6 +28,7 @@ _STR, _LATEX, _RENAMES, _EVAL, _FDIFF = 1, 2, 4, 8, 16
 _EXPR, _ATOM, _DERIV, _HASHABLE = 32, 64, 128, 256
 _SUBS, _ASSUME, _EVALF, _FUNC = 512, 1024, 2048, 4096
 _NONCOMMUTATIVE, _UNCOMMUTED, _COMMUTATIVE_HOOK = 8192, 16384, 32768
+_PRETTY = 65536
 
 # Hooks dispatched by the Python facades, enabled once a class defines one.
 _hooks = {'expand': False, 'free_symbols': False}
@@ -126,6 +127,18 @@ def _print(obj, format):
         if method is not None:
             from .printing.latex import LatexPrinter
             return str(method(LatexPrinter()))
+    if format in ('pretty', 'pretty_ascii'):
+        # A one-line _pretty form of an atom or nullary application; any
+        # other form keeps the native layout.
+        method = getattr(obj, '_pretty', None)
+        if method is not None:
+            from .printing.pretty.pretty import PrettyPrinter
+            printer = PrettyPrinter({'use_unicode': format == 'pretty'})
+            printer._use_unicode = format == 'pretty'
+            form = method(printer)
+            picture = getattr(form, 'picture', None)
+            if picture is not None and len(picture) == 1:
+                return picture[0]
     return None
 
 
@@ -202,6 +215,8 @@ def atom_class(metaclass, name, bases, namespace, **kwargs):
         flags |= _STR
     if _defines(cls, '_latex'):
         flags |= _LATEX
+    if _defines(cls, '_pretty'):
+        flags |= _PRETTY
     if _defines(cls, 'name'):
         flags |= _RENAMES
     _install_content_hash(cls)
@@ -421,6 +436,8 @@ class _HostFunctionType(type):
             flags |= _STR
         if _defines(cls, '_latex'):
             flags |= _LATEX
+        if _defines(cls, '_pretty'):
+            flags |= _PRETTY
         _install_content_hash(cls)
         host = _core._host_class(cls, flags)
         cls._symox_head = _core._host_head(host, name, _class_facts(cls), nargs)
@@ -800,6 +817,8 @@ def expression_class(cls):
         flags |= _STR
     if _defines(cls, '_latex'):
         flags |= _LATEX
+    if _defines(cls, '_pretty'):
+        flags |= _PRETTY
     key = cls.class_key()
     host = _core._host_class(cls, flags, (key[0], key[1]))
     cls._symox_head = _core._host_head(host, cls.__name__, _class_facts(cls), None)

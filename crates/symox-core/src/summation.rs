@@ -11,7 +11,7 @@ use num_traits::{One, Zero};
 use crate::diff::diff;
 use crate::expand::expand;
 use crate::expr::{Constant, Expr, Func, Kind};
-use crate::functions::{abs, undefined};
+use crate::functions::abs;
 use crate::integrate::poly_coeffs;
 use crate::number::Number;
 use crate::ops::{add, add2, div, mul, mul2, neg, pow, sub};
@@ -403,7 +403,7 @@ fn infinite_sum(f: &Expr, k: &Expr, a: &Expr) -> Option<Expr> {
                     return Some(mul2(&c, &Expr::pi().powi(p as i64)));
                 }
                 if n < -1 {
-                    return Some(undefined("zeta", vec![Expr::int(-n)]));
+                    return Some(crate::special::sf(crate::special::SpecialFn::Zeta, vec![Expr::int(-n)]));
                 }
                 if n >= -1 {
                     return Some(Expr::oo());

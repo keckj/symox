@@ -1,6 +1,6 @@
 """One-dimensional quantum oscillator eigenstates and energies."""
 import symox as S
-hbar = S.Symbol('hbar',positive=True)
+from symox.physics.quantum.constants import hbar
 
 
 def psi_n(n,x,m,omega):

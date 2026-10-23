@@ -1119,6 +1119,6 @@ pub fn zeta_int(k: i64) -> Expr {
         }
         mul2(&Expr::num(c), &pow(&Expr::pi(), &Expr::int(k)))
     } else {
-        crate::functions::undefined("zeta", vec![Expr::int(k)])
+        crate::special::sf(crate::special::SpecialFn::Zeta, vec![Expr::int(k)])
     }
 }

@@ -16,6 +16,10 @@ pub enum HostFormat {
     Str,
     Repr,
     Latex,
+    /// A one-line unicode pretty form of an atom or a nullary application.
+    Pretty,
+    /// A one-line ASCII pretty form of an atom or a nullary application.
+    PrettyAscii,
 }
 
 impl HostFormat {
@@ -24,6 +28,8 @@ impl HostFormat {
             HostFormat::Str => "str",
             HostFormat::Repr => "repr",
             HostFormat::Latex => "latex",
+            HostFormat::Pretty => "pretty",
+            HostFormat::PrettyAscii => "pretty_ascii",
         }
     }
 }

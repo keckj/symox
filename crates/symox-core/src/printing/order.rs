@@ -15,7 +15,7 @@ use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::Number;
 use crate::ops::{add_term, mul, mul_factor, pow};
 use crate::matrixexpr::{MatrixExpr, MatrixKind};
-use crate::sortkey::{matrix_ordered_terms, matrix_presentation, PresentationArg};
+use crate::sortkey::{matrix_ordered_terms, matrix_presentation, Key, PresentationArg};
 
 // ----------------------------------------------------------------------
 // default_sort_key
@@ -40,7 +40,7 @@ pub struct SortKey {
     args: KArgs,
     /// `None` for numbers (their key has an empty exponent part).
     exp: Option<Rc<SortKey>>,
-    coeff: Number,
+    coeff: Key,
 }
 
 fn cmp_args(a: &KArgs, b: &KArgs) -> Ordering {
@@ -94,7 +94,7 @@ impl Ord for SortKey {
                 (Some(_), None) => Ordering::Greater,
                 (Some(a), Some(b)) => a.cmp(b),
             })
-            .then_with(|| self.coeff.cmp_value(&o.coeff).unwrap_or(Ordering::Equal))
+            .then_with(|| self.coeff.cmp(&o.coeff))
     }
 }
 
@@ -116,6 +116,11 @@ fn func_ordinal(f: &Func) -> u32 {
         Func::Re => 41,
         Func::Im => 42,
         Func::Arg => 43,
+        // Classes without `nargs` take any number of arguments (`Naturals0`).
+        Func::ExpPolar => 0,
+        Func::Special(s) if s.is_transform() || matches!(s, crate::special::SpecialFn::MeijerG
+            | crate::special::SpecialFn::Lerchphi | crate::special::SpecialFn::LeviCivita
+            | crate::special::SpecialFn::Carmichael) => 0,
         _ => 10000,
     }
 }
@@ -140,7 +145,7 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
         Kind::Pow(..) => (3, 2, Cow::Borrowed("Pow")),
         Kind::Func(Func::Max, _) => (5, 0, Cow::Borrowed("Max")),
         Kind::Func(Func::Min, _) => (5, 0, Cow::Borrowed("Min")),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product), _) => (5, 0, Cow::Owned(f.name().into())),
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..)), _) => (5, 0, Cow::Owned(f.name().into())),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, Cow::Borrowed("ComplexRootOf")),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, Cow::Owned(head.name.to_string())),
         Kind::Func(Func::Undefined(head), _) if head.host().and_then(|host| host.class_key()).is_some() => {
@@ -155,8 +160,26 @@ fn class_key(e: &Expr) -> (u8, u32, Cow<'static, str>) {
     }
 }
 
+/// `as_coeff_Mul()` with the coefficient as a sort-key component (a real
+/// infinity or nan factor is the coefficient, as SymPy's Number).
+fn coeff_mul(e: &Expr) -> (Key, Expr) {
+    if let Kind::Mul(c, facs) = e.kind() {
+        // A held product: as_coeff_Mul of its own first argument.
+        if !e.is_canonical() || c.is_one() && facs.iter().any(|(b, x)| x.is_one() && matches!(b.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN))) {
+            let (c, rest) = crate::decompose::as_coeff_mul_head(e, false);
+            return match c.kind() {
+                Kind::Num(n) => (Key::Num(n.clone()), rest),
+                Kind::Const(k) => (Key::SpecialNumber(*k), rest),
+                _ => (Key::Num(Number::ONE), e.clone()),
+            };
+        }
+    }
+    let (c, rest) = crate::ops::as_coeff_mul(e);
+    (Key::Num(c), rest)
+}
+
 fn one_key() -> SortKey {
-    SortKey { class: (1, 0, Cow::Borrowed("Number")), args: KArgs::Empty, exp: None, coeff: Number::ONE }
+    SortKey { class: (1, 0, Cow::Borrowed("Number")), args: KArgs::Empty, exp: None, coeff: Key::Num(Number::ONE) }
 }
 
 fn atom_args(e: &Expr) -> KArgs {
@@ -187,7 +210,7 @@ impl KeyCache {
     }
 
     fn composite(&mut self, class: (u8, u32, &'static str), args: KArgs) -> SortKey {
-        SortKey { class: (class.0, class.1, Cow::Borrowed(class.2)), args, exp: Some(self.one()), coeff: Number::ONE }
+        SortKey { class: (class.0, class.1, Cow::Borrowed(class.2)), args, exp: Some(self.one()), coeff: Key::Num(Number::ONE) }
     }
 
     fn presentation_arg(&mut self, arg: PresentationArg) -> Rc<SortKey> {
@@ -236,87 +259,103 @@ impl KeyCache {
                 let signature=crate::sets::lambda_signature(e).unwrap();
                 let variables=self.key(&signature);
                 let body=self.key(&args[1]);
-                self.composite((5,0,"Lambda"),KArgs::List(vec![variables,body]))
+                return self.composite((5,0,"Lambda"),KArgs::List(vec![variables,body]));
             }
-            Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_)=>self.composite((5,0,"IdentityFunction"),KArgs::List(vec![])),
+            Kind::Func(Func::Set(crate::sets::SetOp::IdentityFunction),_)=>return self.composite((5,0,"IdentityFunction"),KArgs::List(vec![])),
             Kind::Derivative(expression, variables) => {
                 let mut args = vec![self.key(expression)];
                 for (variable, count) in variables {
                     args.push(self.presentation_arg(PresentationArg::Node("Tuple", vec![PresentationArg::Scalar(variable.clone()), PresentationArg::Scalar(Expr::int(*count as i64))])));
                 }
-                self.composite((5, 0, "Derivative"), KArgs::List(args))
+                return self.composite((5, 0, "Derivative"), KArgs::List(args));
             }
-            Kind::Func(Func::MatrixProxy(matrix), _) => (*self.matrix_key(matrix)).clone(),
+            // Order(expr, (x, 0), ...): the point pairs are Tuples.
+            Kind::Func(Func::Order, arguments) if !arguments.is_empty() => {
+                let mut args = vec![self.key(&arguments[0])];
+                for pair in arguments[1..].chunks(2) {
+                    args.push(self.presentation_arg(PresentationArg::Node("Tuple", pair.iter().cloned().map(PresentationArg::Scalar).collect())));
+                }
+                return self.composite((5, 0, "Order"), KArgs::List(args));
+            }
+            Kind::Piecewise(pieces) => {
+                let args = pieces.iter().map(|(expression, condition)| {
+                    self.presentation_arg(PresentationArg::Node("ExprCondPair", vec![PresentationArg::Scalar(expression.clone()), PresentationArg::Scalar(condition.clone())]))
+                }).collect();
+                return self.composite((4, 0, "Piecewise"), KArgs::List(args));
+            }
+            // BooleanTrue/BooleanFalse are Basic atoms without arguments.
+            Kind::Bool(_) => return SortKey { class: class_key(e), args: KArgs::List(vec![]), exp: Some(self.one()), coeff: Key::Num(Number::ONE) },
+            Kind::Func(Func::MatrixProxy(matrix), _) => return (*self.matrix_key(matrix)).clone(),
             Kind::Func(Func::MatrixDotProduct(left,right),_) => {
                 let args=vec![self.matrix_key(left),self.matrix_key(right)];
-                self.composite((5,0,"DotProduct"),KArgs::List(args))
+                return self.composite((5,0,"DotProduct"),KArgs::List(args));
             }
             Kind::Func(Func::MatrixElement(matrix), args) => {
                 let mut keys = vec![self.matrix_key(matrix)];
                 keys.extend(args.iter().map(|arg| self.key(arg)));
-                self.composite((5, 0, "MatrixElement"), KArgs::List(keys))
+                return self.composite((5, 0, "MatrixElement"), KArgs::List(keys));
             }
             Kind::Func(Func::MatrixTrace(matrix), _) => {
                 let args = vec![self.matrix_key(matrix)];
-                self.composite((5, 0, "Trace"), KArgs::List(args))
+                return self.composite((5, 0, "Trace"), KArgs::List(args));
             }
             Kind::Func(Func::MatrixDeterminant(matrix), _) => {
                 let args = vec![self.matrix_key(matrix)];
-                self.composite((5, 0, "Determinant"), KArgs::List(args))
+                return self.composite((5, 0, "Determinant"), KArgs::List(args));
             }
-            Kind::Num(n) => SortKey { class: class_key(e), args: KArgs::Empty, exp: None, coeff: n.clone() },
+            // Number.sort_key: (class_key, (0, ()), (), self)
+            Kind::Num(n) => return SortKey { class: class_key(e), args: KArgs::Empty, exp: None, coeff: Key::Num(n.clone()) },
             Kind::Const(c @ (Constant::Infinity | Constant::NegInfinity | Constant::NaN)) => {
-                let v = match c {
-                    Constant::Infinity => f64::INFINITY,
-                    Constant::NegInfinity => f64::NEG_INFINITY,
-                    _ => f64::NAN,
-                };
-                SortKey { class: class_key(e), args: KArgs::Empty, exp: None, coeff: Number::Float(v) }
+                return SortKey { class: class_key(e), args: KArgs::Empty, exp: None, coeff: Key::SpecialNumber(*c) };
             }
-            Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => SortKey {
+            // Atom.sort_key: (class_key, (1, (str(self),)), One.sort_key(), One)
+            Kind::Sym(_) | Kind::Const(_) => return SortKey {
                 class: class_key(e),
                 args: atom_args(e),
                 exp: Some(self.one()),
-                coeff: Number::ONE,
+                coeff: Key::Num(Number::ONE),
             },
-            _ => {
-                // coeff, expr = as_coeff_Mul()
-                let (coeff, rest) = crate::ops::as_coeff_mul(e);
-                let (expr, exp) = match rest.kind() {
-                    Kind::Pow(b, x) => (b.clone(), Some(x.clone())),
-                    _ => (rest, None),
-                };
-                if matches!(expr.kind(), Kind::Derivative(..) | Kind::Func(Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
-                    let mut key = (*self.key(&expr)).clone();
-                    key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
-                    key.coeff = coeff;
-                    return key;
-                }
-                let args = match expr.kind() {
-                    Kind::Sym(symbol) if symbol.is_dummy() => KArgs::List(vec![self.key(&expr)]),
-                    Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => {
-                        atom_args(&expr)
-                    }
-                    _ if crate::host::expression_head(&expr).is_some_and(|host| host.atomic()) => {
-                        KArgs::Atom(crate::printer::to_str(&expr))
-                    }
-                    Kind::Add(..) => {
-                        let t = self.ordered_terms(&expr);
-                        KArgs::List(t.iter().map(|a| self.key(a)).collect())
-                    }
-                    Kind::Mul(..) => {
-                        let f = self.ordered_factors(&expr);
-                        KArgs::List(f.iter().map(|a| self.key(a)).collect())
-                    }
-                    _ => KArgs::List(expr.args().iter().map(|a| self.key(a)).collect()),
-                };
-                let exp = match exp {
-                    Some(x) => self.key(&x),
-                    None => self.one(),
-                };
-                SortKey { class: class_key(&expr), args, exp: Some(exp), coeff }
-            }
+            _ => {}
         }
+        // Expr.sort_key: coeff, expr = as_coeff_Mul(); base, exp = as_base_exp()
+        let (coeff, rest) = coeff_mul(e);
+        let (expr, exp) = match rest.kind() {
+            Kind::Pow(..) => {
+                let (b, x) = crate::decompose::as_base_exp(&rest);
+                // E**x sorts like the function exp(x)
+                if b.is_constant(Constant::E) { (crate::functions::exp(&x), None) } else { (b, Some(x)) }
+            }
+            _ => (rest, None),
+        };
+        let heaviside = matches!(expr.kind(), Kind::Func(Func::Heaviside, args) if args.len() == 1);
+        if heaviside || matches!(expr.kind(), Kind::Derivative(..) | Kind::Piecewise(_) | Kind::Func(Func::Order | Func::Set(crate::sets::SetOp::Lambda|crate::sets::SetOp::IdentityFunction),_) | Kind::Func(Func::MatrixProxy(_) | Func::MatrixElement(_) | Func::MatrixTrace(_) | Func::MatrixDeterminant(_) | Func::MatrixDotProduct(..), _)) {
+            let mut key = (*self.key(&expr)).clone();
+            key.exp = Some(match exp { Some(x) => self.key(&x), None => self.one() });
+            key.coeff = coeff;
+            return key;
+        }
+        let args = match expr.kind() {
+            Kind::Sym(symbol) if symbol.is_dummy() => KArgs::List(vec![self.key(&expr)]),
+            Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) => atom_args(&expr),
+            Kind::Bool(_) => KArgs::Atom(crate::printer::to_str(&expr)),
+            _ if crate::host::expression_head(&expr).is_some_and(|host| host.atomic()) => {
+                KArgs::Atom(crate::printer::to_str(&expr))
+            }
+            Kind::Add(..) => {
+                let t = if expr.is_canonical() { self.ordered_terms(&expr) } else { crate::sortkey::held_ordered_terms(&expr) };
+                KArgs::List(t.iter().map(|a| self.key(a)).collect())
+            }
+            Kind::Mul(..) => {
+                let f = self.ordered_factors(&expr);
+                KArgs::List(f.iter().map(|a| self.key(a)).collect())
+            }
+            _ => KArgs::List(expr.args().iter().map(|a| self.key(a)).collect()),
+        };
+        let exp = match exp {
+            Some(x) => self.key(&x),
+            None => self.one(),
+        };
+        SortKey { class: class_key(&expr), args, exp: Some(exp), coeff }
     }
 
     /// Sort factors with `default_sort_key` (`Mul.as_ordered_factors`).
@@ -474,10 +513,10 @@ pub fn ordered_factors(e: &Expr) -> Vec<Expr> {
 // ----------------------------------------------------------------------
 
 /// `decompose_power`: symbolic base and integer exponent.
-fn decompose_power(f: &Expr) -> (Expr, i64) {
+pub(crate) fn decompose_power(f: &Expr) -> (Expr, i64) {
+    // base, exp = expr.as_base_exp()
     let (b, x) = match f.kind() {
-        Kind::Pow(b, x) => (b.clone(), x.clone()),
-        Kind::Func(Func::Exp, a) => (Expr::e(), a[0].clone()),
+        Kind::Pow(..) | Kind::Func(Func::Exp, _) => crate::decompose::as_base_exp(f),
         _ => return (f.clone(), 1),
     };
     let rebuild = |b: &Expr, t: &Expr| -> Expr {
@@ -563,10 +602,6 @@ fn cmp_lex(a: &[(usize, i64)], b: &[(usize, i64)]) -> Ordering {
     }
 }
 
-fn cmp_f64(a: f64, b: f64) -> Ordering {
-    a.partial_cmp(&b).unwrap_or(Ordering::Equal)
-}
-
 /// `MatAdd.as_ordered_terms()`: the terms of a matrix sum in SymPy's
 /// printing order (used by the LaTeX printer).
 pub fn matrix_ordered(terms: &[MatrixExpr]) -> Vec<MatrixExpr> {
@@ -579,157 +614,195 @@ pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
     if !e.is_add() {
         return vec![e.clone()];
     }
+    if !e.is_canonical() {
+        return crate::sortkey::held_ordered_terms(e);
+    }
     with_cache(|k| k.ordered_terms(e))
 }
 
+/// `Add.as_ordered_terms()` special case: a positive Number or NumberSymbol
+/// and a negative Number times one factor keep that order ("1 - x").
+fn positive_constant_first(all: &[Expr]) -> bool {
+    if all.len() != 2 { return false; }
+    let numeric = |a: &Expr| matches!(a.kind(), Kind::Num(_) | Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN))
+        || matches!(a.kind(), Kind::Const(c) if c.is_number_symbol());
+    let (n, m) = if numeric(&all[0]) { (0, 1) } else { (1, 0) };
+    if !numeric(&all[n]) || numeric(&all[m]) { return false; }
+    // `oo.is_positive` is False (it is not finite).
+    let positive = match all[n].kind() { Kind::Num(x) => x.is_positive(), Kind::Const(c) => c.is_number_symbol(), _ => false };
+    positive && matches!(all[m].kind(), Kind::Mul(k, facs) if facs.len() == 1 && k.is_negative())
+}
+
+/// One term of `Expr.as_terms()`: complex coefficient, commutative
+/// generator powers and the factors that may not commute.
+struct Term {
+    expr: Expr,
+    re: f64,
+    im: f64,
+    cpart: Vec<(usize, i64)>,
+    ncpart: Vec<Rc<SortKey>>,
+    order: bool,
+}
+
+/// `((bool(im), im), (re, im))` with Python tuple semantics: the first
+/// unequal component decides, and an unordered (nan) pair is "not less".
+fn cmp_coeff(a: &Term, b: &Term) -> Ordering {
+    let (ai, bi) = (a.im != 0.0, b.im != 0.0);
+    if ai != bi { return ai.cmp(&bi); }
+    for (x, y) in [(a.im, b.im), (a.re, b.re), (a.im, b.im)] {
+        if x != y { return x.partial_cmp(&y).unwrap_or(Ordering::Equal); }
+    }
+    Ordering::Equal
+}
+
+fn gen_index(base: Expr, gens: &mut FxHashMap<Expr, usize>, gen_list: &mut Vec<Expr>) -> usize {
+    if let Some(&i) = gens.get(&base) {
+        return i;
+    }
+    gens.insert(base.clone(), gen_list.len());
+    gen_list.push(base);
+    gen_list.len() - 1
+}
+
 impl KeyCache {
-    /// `Add.as_ordered_terms()`.
-    pub fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
-    let Kind::Add(c, terms) = e.kind() else {
-        return vec![e.clone()];
-    };
-    let mut all: Vec<Expr> = terms.iter().map(|(t, k)| add_term(t, k)).collect();
-    if !c.is_zero() {
-        all.push(Expr::num(c.clone()));
-    }
-    // special case: a positive number and a negative multiple of one
-    // factor print number first ("1 - x", "pi - 2*x")
-    if all.len() == 2 {
-        let (n, m) = if is_number_like(&all[0]) { (0, 1) } else { (1, 0) };
-        if is_number_like(&all[n]) && !is_number_like(&all[m]) {
-            let positive = match all[n].kind() {
-                Kind::Num(x) => x.is_positive(),
-                _ => true,
-            };
-            if positive {
-                if let Kind::Mul(k, facs) = all[m].kind() {
-                    if facs.len() == 1 && k.is_negative() && !k.is_one() {
-                        return vec![all[n].clone(), all[m].clone()];
-                    }
-                }
-            }
-        }
-    }
-    // decompose every term into coefficient and generator powers
-    struct Term {
-        expr: Expr,
-        re: f64,
-        im: f64,
-        cpart: Vec<(usize, i64)>,
-        // Factors that may not commute, in order (SymPy's ncpart).
-        ncpart: Vec<Expr>,
-    }
-    let noncommutative = e.has_noncommutative_host();
-    let commutes = |f: &Expr| !noncommutative || crate::decompose::commutativity(f) == Some(true);
-    let mut gens: FxHashMap<Expr, usize> = FxHashMap::default();
-    let mut gen_list: Vec<Expr> = Vec::new();
-    let mut decomposed: Vec<Term> = Vec::with_capacity(all.len());
-    fn gen_index(base: Expr, gens: &mut FxHashMap<Expr, usize>, gen_list: &mut Vec<Expr>) -> usize {
-        if let Some(&i) = gens.get(&base) {
-            return i;
-        }
-        gens.insert(base.clone(), gen_list.len());
-        gen_list.push(base);
-        gen_list.len() - 1
-    }
-    fn general(
-        f: Expr,
-        z: &mut num_complex::Complex64,
-        cpart: &mut Vec<(usize, i64)>,
-        gens: &mut FxHashMap<Expr, usize>,
-        gen_list: &mut Vec<Expr>,
-    ) {
-        // Real infinities are numeric coefficients, not generators of the
-        // monomial ordering (x + oo prints with the constant last).
-        if matches!(f.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity)) {
-            let value = if f.is_constant(Constant::Infinity) { f64::INFINITY } else { f64::NEG_INFINITY };
-            z.re *= value;
-            if z.im != 0.0 { z.im *= value; }
+    /// One factor of a term in `Expr.as_terms()`.
+    #[allow(clippy::too_many_arguments)]
+    fn term_factor(&mut self, factor: Expr, noncommutative: bool, z: &mut num_complex::Complex64, cpart: &mut Vec<(usize, i64)>,
+        ncpart: &mut Vec<Rc<SortKey>>, gens: &mut FxHashMap<Expr, usize>, gen_list: &mut Vec<Expr>) {
+        // if factor.is_number: coeff *= complex(factor); complex(zoo) is nan+nanj
+        if factor.is_constant(Constant::ComplexInfinity) {
+            *z *= num_complex::Complex64::new(f64::NAN, f64::NAN);
             return;
         }
-        if super::is_numeric(&f) {
-            if let Some(v) = crate::evalf::eval_c64(&f) {
-                if v.re.is_finite() && v.im.is_finite() {
-                    *z *= v;
-                    return;
-                }
+        if super::is_numeric(&factor) && crate::symbolic_number::is_symbolic_number(&factor) {
+            if let Some(v) = crate::sortkey::numeric_coefficient(&factor) {
+                *z *= v;
+                return;
             }
         }
-        let (base, d) = decompose_power(&f);
+        if noncommutative && crate::decompose::commutativity(&factor) != Some(true) {
+            ncpart.push(self.key(&factor));
+            return;
+        }
+        let (base, d) = decompose_power(&factor);
         let g = gen_index(base, gens, gen_list);
-        // a generator may appear twice (x and sqrt(x) do not merge, but
-        // exp(x) and exp(2*x) cannot both be factors): last wins
+        // cpart is a dict: a repeated base keeps the last exponent
         cpart.retain(|(h, _)| *h != g);
         cpart.push((g, d));
     }
-    for t in all {
-        let (coeff, facs): (Number, &[(Expr, Expr)]) = match t.kind() {
-            Kind::Num(n) => (n.clone(), &[]),
-            Kind::Mul(c, facs) => (c.clone(), facs.as_slice()),
-            _ => (Number::ONE, &[]),
+
+    /// `Add.as_ordered_terms()`.
+    pub fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
+        let Kind::Add(c, terms) = e.kind() else {
+            return vec![e.clone()];
         };
-        let mut z = num_complex::Complex64::new(coeff.to_f64(), 0.0);
-        let mut cpart: Vec<(usize, i64)> = Vec::with_capacity(facs.len().max(1));
-        let mut ncpart = Vec::new();
-        if matches!(t.kind(), Kind::Num(_)) {
-        } else if facs.is_empty() && !commutes(&t) {
-            ncpart.push(t.clone());
-        } else if facs.is_empty() {
-            general(t.clone(), &mut z, &mut cpart, &mut gens, &mut gen_list);
-        } else {
-            for (b, x) in facs {
+        // Add.make_args order: the Number first
+        let mut all: Vec<Expr> = Vec::with_capacity(terms.len() + 1);
+        if !c.is_zero() {
+            all.push(Expr::num(c.clone()));
+        }
+        all.extend(terms.iter().map(|(t, k)| add_term(t, k)));
+        if positive_constant_first(&all) {
+            if !is_number_like(&all[0]) { all.swap(0, 1); }
+            return all;
+        }
+        let noncommutative = e.has_noncommutative_host();
+        let mut gens: FxHashMap<Expr, usize> = FxHashMap::default();
+        let mut gen_list: Vec<Expr> = Vec::new();
+        let mut decomposed: Vec<Term> = Vec::with_capacity(all.len());
+        for t in all {
+            let order = t.is_func(&Func::Order);
+            // coeff, _term = term.as_coeff_Mul(); coeff = complex(coeff)
+            let (coeff, facs): (Number, &[(Expr, Expr)]) = match t.kind() {
+                Kind::Num(n) => (n.clone(), &[]),
+                Kind::Mul(c, facs) => (c.clone(), facs.as_slice()),
+                _ => (Number::ONE, &[]),
+            };
+            let mut z = num_complex::Complex64::new(coeff.to_f64(), 0.0);
+            let mut cpart: Vec<(usize, i64)> = Vec::with_capacity(facs.len().max(1));
+            let mut ncpart = Vec::new();
+            // A real infinity (or nan) factor is SymPy's Number coefficient.
+            let special = facs.iter().position(|(b, x)| x.is_one() && matches!(b.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN)));
+            if let Some(i) = special {
+                let value = match facs[i].0.kind() {
+                    Kind::Const(Constant::Infinity) => f64::INFINITY,
+                    Kind::Const(Constant::NegInfinity) => f64::NEG_INFINITY,
+                    _ => f64::NAN,
+                };
+                z = num_complex::Complex64::new(z.re * value, 0.0);
+            }
+            let factors: Vec<Expr> = match t.kind() {
+                Kind::Num(_) => Vec::new(),
+                Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::NaN) => {
+                    z = num_complex::Complex64::new(if t.is_constant(Constant::Infinity) { f64::INFINITY } else if t.is_constant(Constant::NegInfinity) { f64::NEG_INFINITY } else { f64::NAN }, 0.0);
+                    Vec::new()
+                }
+                Kind::Mul(..) => Vec::new(),
+                _ => vec![t.clone()],
+            };
+            for factor in factors {
+                self.term_factor(factor, noncommutative, &mut z, &mut cpart, &mut ncpart, &mut gens, &mut gen_list);
+            }
+            for (i, (b, x)) in facs.iter().enumerate() {
+                if Some(i) == special { continue; }
                 // fast path: symbol ** integer
                 if let (false, Kind::Sym(_), Kind::Num(Number::Int(d))) = (noncommutative, b.kind(), x.kind()) {
                     let g = gen_index(b.clone(), &mut gens, &mut gen_list);
+                    cpart.retain(|(h, _)| *h != g);
                     cpart.push((g, *d));
                     continue;
                 }
-                let factor = mul_factor(b, x);
-                if !commutes(&factor) { ncpart.push(factor); continue; }
-                general(factor, &mut z, &mut cpart, &mut gens, &mut gen_list);
+                self.term_factor(mul_factor(b, x), noncommutative, &mut z, &mut cpart, &mut ncpart, &mut gens, &mut gen_list);
+            }
+            decomposed.push(Term { expr: t, re: z.re, im: z.im, cpart, ncpart, order });
+        }
+        // gens = sorted(gens, key=default_sort_key)
+        let mut rank: Vec<usize> = (0..gen_list.len()).collect();
+        if gen_list.len() > 1 {
+            let keys: Vec<Rc<SortKey>> = gen_list.iter().map(|g| self.key(g)).collect();
+            let mut order: Vec<usize> = (0..gen_list.len()).collect();
+            order.sort_by(|a, b| keys[*a].cmp(&keys[*b]));
+            for (r, g) in order.iter().enumerate() {
+                rank[*g] = r;
             }
         }
-        decomposed.push(Term { expr: t, re: z.re, im: z.im, cpart, ncpart });
-    }
-    // sort the generators with default_sort_key
-    let mut order: Vec<usize> = (0..gen_list.len()).collect();
-    if order.len() > 1 {
-        let keys: Vec<Rc<SortKey>> = gen_list.iter().map(|g| self.key(g)).collect();
-        order.sort_by(|a, b| keys[*a].cmp(&keys[*b]));
-    }
-    let mut rank = vec![0usize; gen_list.len()];
-    for (r, g) in order.iter().enumerate() {
-        rank[*g] = r;
-    }
-    let mut keyed: Vec<(Vec<(usize, i64)>, Term)> = decomposed
-        .into_iter()
-        .map(|t| {
-            let mut m: Vec<(usize, i64)> = t.cpart.iter().map(|(g, d)| (rank[*g], *d)).collect();
-            m.sort_unstable();
-            (m, t)
-        })
-        .collect();
-    keyed.sort_by(|(ma, ta), (mb, tb)| {
-        cmp_lex(mb, ma)
-            .then_with(|| {
-                if ta.ncpart.is_empty() && tb.ncpart.is_empty() { return Ordering::Equal; }
-                let mut keys = KeyCache::default();
-                let a: Vec<Rc<SortKey>> = ta.ncpart.iter().map(|f| keys.key(f)).collect();
-                let b: Vec<Rc<SortKey>> = tb.ncpart.iter().map(|f| keys.key(f)).collect();
-                a.cmp(&b)
+        let mut keyed: Vec<(Vec<(usize, i64)>, Term)> = decomposed
+            .into_iter()
+            .map(|t| {
+                let mut m: Vec<(usize, i64)> = t.cpart.iter().map(|(g, d)| (rank[*g], *d)).collect();
+                m.sort_unstable();
+                (m, t)
             })
-            .then_with(|| (ta.im != 0.0).cmp(&(tb.im != 0.0)))
-            .then_with(|| cmp_f64(ta.im, tb.im))
-            .then_with(|| cmp_f64(ta.re, tb.re))
-            .then_with(|| {
-                if ta.expr == tb.expr {
-                    Ordering::Equal
-                } else {
-                    KeyCache::default().key(&ta.expr).cmp(&KeyCache::default().key(&tb.expr))
-                }
-            })
-    });
-    keyed.into_iter().map(|(_, t)| t.expr).collect()
+            .collect();
+        // key(term) = (neg(monom), ncpart, coeff): descending lex monomials
+        let compare = |(ma, ta): &(Vec<(usize, i64)>, Term), (mb, tb): &(Vec<(usize, i64)>, Term)| {
+            cmp_lex(mb, ma).then_with(|| ta.ncpart.cmp(&tb.ncpart)).then_with(|| cmp_coeff(ta, tb))
+        };
+        let has_order = keyed.iter().any(|(_, t)| t.order);
+        let has_nan = keyed.iter().any(|(_, t)| t.re.is_nan() || t.im.is_nan());
+        // Python's stable sort; with an Order term both groups are sorted
+        // with reverse=True (equal keys keep their order) and the Order terms
+        // come last.
+        let sort = |v: &mut Vec<(Vec<(usize, i64)>, Term)>, reverse: bool| {
+            let cmp = |a: &(Vec<(usize, i64)>, Term), b: &(Vec<(usize, i64)>, Term)| if reverse { compare(b, a) } else { compare(a, b) };
+            if has_nan {
+                // nan makes the order partial: a stable insertion pass keeps
+                // the Python semantics without Rust's total-order contract.
+                for i in 1..v.len() { let mut j = i; while j > 0 && cmp(&v[j], &v[j - 1]).is_lt() { v.swap(j, j - 1); j -= 1; } }
+            } else {
+                v.sort_by(cmp);
+            }
+        };
+        if has_order {
+            let (mut normal, mut orders): (Vec<_>, Vec<_>) = keyed.into_iter().partition(|(_, t)| !t.order);
+            sort(&mut normal, true);
+            sort(&mut orders, true);
+            normal.extend(orders);
+            keyed = normal;
+        } else {
+            sort(&mut keyed, false);
+        }
+        keyed.into_iter().map(|(_, t)| t.expr).collect()
     }
 }
 
