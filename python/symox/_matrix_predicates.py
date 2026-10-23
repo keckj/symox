@@ -92,6 +92,69 @@ def is_diagonal(matrix):
                       if i != j and matrix[i, j] != 0)
 
 
+def _is_Identity(M):
+    # RepMatrix._eval_is_Identity
+    if not M.is_square:
+        return False
+    if not all(M[i, i] == 1 for i in range(M.rows)):
+        return False
+    return sum(1 for v in M if not (v.is_Number and v.is_zero)) == M.rows
+
+
+def _is_upper_hessenberg(M):
+    return all(M[i, j].is_zero for i in range(M.rows) for j in range(M.cols)
+               if i > j + 1)
+
+
+def _is_lower_hessenberg(M):
+    return all(M[i, j].is_zero for i in range(M.rows) for j in range(M.cols)
+               if i + 1 < j)
+
+
+def _hermitian_check(native):
+    """``MatrixBase.is_hermitian``: ``fuzzy_and`` of
+    ``simplify(M[i, j] - M[j, i].adjoint()).is_zero`` over the nonzero
+    entries.  The native test decides most cases; it is undecided when its
+    zero test cannot conclude, then SymPy's rule is applied."""
+    def is_hermitian(M):
+        r = native.__get__(M)
+        if r is not None or not M.is_square:
+            return r
+        from . import simplify, adjoint
+        return _fuzzy_and(simplify(M[i, j] - adjoint(M[j, i])).is_zero
+                          for i in range(M.rows) for j in range(M.cols)
+                          if M[i, j] != 0)
+    is_hermitian.__doc__ = native.__doc__
+    return property(is_hermitian)
+
+
+def _dirac_conjugate(M):
+    """``MatrixBase.D``: the Dirac conjugate ``M.H * mgamma(0)``."""
+    from .physics.matrices import mgamma
+    if M.rows != 4:
+        raise AttributeError
+    return M.H * mgamma(0)
+
+
+def _minor_index_check(native, square):
+    """``_minor_submatrix``/``_minor``/``_cofactor`` argument checks of
+    ``sympy/matrices/determinant.py``."""
+    def wrapper(M, i, j, *args, **kwargs):
+        if square and (not M.is_square or M.rows < 1):
+            from . import NonSquareMatrixError
+            raise NonSquareMatrixError()
+        ii = i + M.rows if i < 0 else i
+        jj = j + M.cols if j < 0 else j
+        if not 0 <= ii < M.rows or not 0 <= jj < M.cols:
+            raise ValueError("`i` and `j` must satisfy 0 <= i < ``M.rows`` "
+                             "(%d)" "and 0 <= j < ``M.cols`` (%d)."
+                             % (M.rows, M.cols))
+        return native(M, i, j, *args, **kwargs)
+    wrapper.__doc__ = native.__doc__
+    wrapper.__name__ = native.__name__
+    return wrapper
+
+
 def install():
     from . import _core
     native_extract = _core.Matrix.extract
@@ -105,5 +168,15 @@ def install():
     extract.__doc__ = native_extract.__doc__ or extract.__doc__
     _core.Matrix.extract = extract
     _core.Matrix.is_symmetric = is_symmetric
+    for name, fn in (('is_Identity', _is_Identity),
+                     ('is_upper_hessenberg', _is_upper_hessenberg),
+                     ('is_lower_hessenberg', _is_lower_hessenberg),
+                     ('D', _dirac_conjugate)):
+        if not hasattr(_core.Matrix, name):
+            setattr(_core.Matrix, name, property(fn))
+    _core.Matrix.is_hermitian = _hermitian_check(_core.Matrix.is_hermitian)
+    for name in ('minor_submatrix', 'minor', 'cofactor'):
+        setattr(_core.Matrix, name,
+                _minor_index_check(getattr(_core.Matrix, name), name != 'minor_submatrix'))
     _core.Matrix.is_anti_symmetric = is_anti_symmetric
     _core.Matrix.is_diagonal = is_diagonal

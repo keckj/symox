@@ -3,7 +3,12 @@ from symox._api_exports import export as _export
 _export(globals(), 'symox', 'besselsimp hypersimilar hypersimp kroneckersimp logcombine nsimplify posify separatevars signsimp simplify')
 
 import symox as S
-from ..matrices import dotprodsimp
+
+
+def dotprodsimp(expr,withsimp=False):
+    from symox import cancel,expand,sympify
+    original=sympify(expr);result=cancel(expand(original))
+    return (result,result!=original) if withsimp else result
 
 
 def clear_coefficients(expr,rhs=0):

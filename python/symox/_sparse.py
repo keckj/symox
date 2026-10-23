@@ -49,6 +49,16 @@ def _index(value, limit):
     return value
 
 
+def _key_list(key, limit):
+    if isinstance(key, slice):
+        return list(range(*key.indices(limit)))
+    if isinstance(key, (list, tuple)):
+        if key and all(isinstance(k, bool) for k in key):
+            return [n for n, k in enumerate(key) if k]
+        return [_index(k, limit) for k in key]
+    return [_index(key, limit)]
+
+
 def _matrix_like(value):
     return hasattr(value, 'rows') and hasattr(value, 'cols') and hasattr(value, '__getitem__')
 
@@ -242,8 +252,20 @@ class _SparseBase:
             return self._data.get(divmod(pos, self.cols), _ZERO)
         if len(key) != 2: raise IndexError('Expected two matrix indices')
         i, j = key
-        if not isinstance(i, slice) and not isinstance(j, slice):
+        fancy = isinstance(i, (list, tuple)) or isinstance(j, (list, tuple))
+        if not fancy and not isinstance(i, slice) and not isinstance(j, slice):
             return self._data.get((_index(i, self.rows), _index(j, self.cols)), _ZERO)
+        if fancy:
+            # fancy indexing (a_2nd_key): index lists, repeats allowed, or
+            # a mask made only of booleans
+            ri, cj = _key_list(i, self.rows), _key_list(j, self.cols)
+            data = {}
+            for a, r in enumerate(ri):
+                for b, c in enumerate(cj):
+                    v = self._data.get((r, c))
+                    if v is not None:
+                        data[(a, b)] = v
+            return self._new(len(ri), len(cj), data)
         ri = list(range(*i.indices(self.rows))) if isinstance(i, slice) else [_index(i, self.rows)]
         cj = list(range(*j.indices(self.cols))) if isinstance(j, slice) else [_index(j, self.cols)]
         rm, cm = {v:k for k,v in enumerate(ri)}, {v:k for k,v in enumerate(cj)}

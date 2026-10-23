@@ -273,10 +273,12 @@ fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
     }
     if items.iter().all(|i| is_seq(i) || (i.hasattr("tolist").unwrap_or(false) && !is_sympy_obj(i) && i.hasattr("shape").unwrap_or(false))) {
         let mut rows = Vec::with_capacity(items.len());
+        let mut plain = true;
         for it in &items {
             let it = if is_seq(it) { it.clone() } else { it.call_method0("tolist")? };
             let entries: Vec<Bound<'_, PyAny>> = it.try_iter()?.collect::<PyResult<_>>()?;
             if entries.iter().any(&is_matrix) {
+                plain = false;
                 let blocks: Vec<Matrix> = entries.iter().map(|entry| {
                     if is_matrix(entry) { to_matrix(entry) }
                     else { Ok(Matrix::column(vec![scalar_matrix_entry(entry)?])) }
@@ -288,8 +290,16 @@ fn from_nested(obj: &Bound<'_, PyAny>) -> PyResult<Matrix> {
                 rows.push(Matrix::new(1, row.len(), row).map_err(|e| PyValueError::new_err(e.to_string()))?);
             }
         }
+        // The reference rejects plain rows of unequal lengths.
+        if plain && rows.windows(2).any(|w| w[0].cols() != w[1].cols()) {
+            return Err(PyValueError::new_err("mismatched dimensions"));
+        }
         let refs: Vec<&Matrix> = rows.iter().collect();
         return Matrix::vstack(&refs).map_err(|e| PyValueError::new_err(e.to_string()));
+    }
+    // A sequence mixed with scalars is not a list of lists.
+    if items.iter().any(is_seq) {
+        return Err(PyValueError::new_err("expecting list of lists"));
     }
     let col: Vec<Expr> = items.iter().map(scalar_matrix_entry).collect::<PyResult<_>>()?;
     Ok(Matrix::column(col))
@@ -338,9 +348,20 @@ fn key_indices(k: &Bound<'_, PyAny>, n: usize) -> PyResult<(Vec<usize>, bool)> {
         return Ok((vec![norm_index(i, n)?], false));
     }
     if is_seq(k) {
+        let items: Vec<Bound<'_, PyAny>> = k.try_iter()?.collect::<PyResult<_>>()?;
+        // SymPy's ``extract``: a list made only of bools is a mask.
+        if !items.is_empty() && items.iter().all(|x| x.is_instance_of::<pyo3::types::PyBool>()) {
+            let mut v = Vec::new();
+            for (i, x) in items.iter().enumerate() {
+                if x.is_truthy()? {
+                    v.push(norm_index(i as isize, n)?);
+                }
+            }
+            return Ok((v, true));
+        }
         let mut v = Vec::new();
-        for x in k.try_iter()? {
-            let i: isize = x?.extract()?;
+        for x in items {
+            let i: isize = x.extract()?;
             v.push(norm_index(i, n)?);
         }
         return Ok((v, true));
@@ -409,8 +430,7 @@ impl PyMatrix {
             0 => Ok(wrapm(Matrix::zeros(0, 0))),
             1 => Ok(wrapm(to_matrix(&args.get_item(0)?)?)),
             3 => {
-                let r: usize = args.get_item(0)?.extract()?;
-                let c: usize = args.get_item(1)?.extract()?;
+                let (r, c) = creation_dims(&args.get_item(0)?, Some(&args.get_item(1)?))?;
                 let src = args.get_item(2)?;
                 if src.is_callable() && !is_seq(&src) {
                     let mut data = Vec::with_capacity(r * c);
@@ -434,11 +454,9 @@ impl PyMatrix {
                 }
                 Ok(wrapm(Matrix::new(r, c, flat).py(py)?))
             }
-            2 => {
-                let r: usize = args.get_item(0)?.extract()?;
-                let c: usize = args.get_item(1)?.extract()?;
-                Ok(wrapm(Matrix::zeros(r, c)))
-            }
+            // SymPy has no two-argument form: Matrix(2, 2) is a TypeError.
+            2 => Err(PyTypeError::new_err(
+                "\nData type not understood; expecting list of lists or lists of values.")),
             _ => Err(PyTypeError::new_err("Matrix() takes at most 3 arguments")),
         }
     }
@@ -1762,19 +1780,19 @@ impl PyMatrix {
 
     #[staticmethod]
     #[pyo3(name = "eye", signature = (n, m=None, **_kwargs))]
-    fn eye_s(n: usize, m: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn eye_s(n: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         eye(n, m, _kwargs)
     }
 
     #[staticmethod]
     #[pyo3(name = "zeros", signature = (r, c=None, **_kwargs))]
-    fn zeros_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn zeros_s(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         zeros(r, c, _kwargs)
     }
 
     #[staticmethod]
     #[pyo3(name = "ones", signature = (r, c=None, **_kwargs))]
-    fn ones_s(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn ones_s(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
         ones(r, c, _kwargs)
     }
 
@@ -1822,31 +1840,54 @@ impl PyMatrix {
 // module functions
 // ----------------------------------------------------------------------
 
-fn dims(r: usize, c: Option<usize>) -> (usize, usize) {
-    (r, c.unwrap_or(r))
+/// SymPy's ``as_int`` on a matrix dimension.
+fn as_int_dim(o: &Bound<'_, PyAny>) -> PyResult<isize> {
+    let py = o.py();
+    match py.import("operator")?.getattr("index")?.call1((o,)) {
+        Ok(v) => v.extract::<isize>(),
+        Err(e) if e.is_instance_of::<PyTypeError>(py) => {
+            Err(PyValueError::new_err(format!("{} is not an integer", o.str()?)))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Dimensions of ``zeros``/``ones``/``eye``/``Matrix(r, c, data)``: integers
+/// (``as_int``) and non-negative, with SymPy's error messages.
+fn creation_dims(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>) -> PyResult<(usize, usize)> {
+    let r = as_int_dim(r)?;
+    let c = match c {
+        Some(c) if !c.is_none() => as_int_dim(c)?,
+        _ => r,
+    };
+    if r < 0 || c < 0 {
+        return Err(PyValueError::new_err(format!(
+            "Cannot create a {} x {} matrix. Both dimensions must be positive", r, c)));
+    }
+    Ok((r as usize, c as usize))
 }
 
 #[pyfunction]
 #[pyo3(signature = (n, m=None, **_kwargs))]
-fn eye(n: usize, m: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+fn eye(n: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
     reject_kwargs(_kwargs)?;
-    let (r, c) = dims(n, m);
+    let (r, c) = creation_dims(n, m)?;
     Ok(wrapm(Matrix::from_fn(r, c, |i, j| if i == j { Expr::one() } else { Expr::zero() })))
 }
 
 #[pyfunction]
 #[pyo3(signature = (r, c=None, **_kwargs))]
-fn zeros(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+fn zeros(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
     reject_kwargs(_kwargs)?;
-    let (r, c) = dims(r, c);
+    let (r, c) = creation_dims(r, c)?;
     Ok(wrapm(Matrix::zeros(r, c)))
 }
 
 #[pyfunction]
 #[pyo3(signature = (r, c=None, **_kwargs))]
-fn ones(r: usize, c: Option<usize>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+fn ones(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
     reject_kwargs(_kwargs)?;
-    let (r, c) = dims(r, c);
+    let (r, c) = creation_dims(r, c)?;
     Ok(wrapm(Matrix::ones(r, c)))
 }
 

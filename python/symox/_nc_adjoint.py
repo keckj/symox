@@ -79,9 +79,14 @@ def _eval_adjoint(e):
         return e
     if e.is_antihermitian:
         return -e
-    # Expr._eval_conjugate (real or imaginary) cannot hold for a
-    # noncommutative expression; Expr._eval_transpose then needs
-    # hermiticity, already tested above.
+    # Expr._eval_adjoint: transpose(self._eval_conjugate()) when the node
+    # has a conjugation rule (sin(A) -> sin(conjugate(A)), ...); the native
+    # conjugate applies exactly those rules and otherwise stays unevaluated.
+    if getattr(e, 'is_Function', False):
+        c = _native_conjugate(e)
+        if _conjugate_arg(c) is None:
+            return transpose_of(c)
+    # Expr._eval_transpose then needs hermiticity, already tested above.
     return None
 
 

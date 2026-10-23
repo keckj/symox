@@ -12,9 +12,6 @@ from .kind import MatrixKind
 from .expressions.sets import MatrixSet
 
 
-def dotprodsimp(expr,withsimp=False):
-    from symox import cancel,expand,sympify
-    original=sympify(expr);result=cancel(expand(original))
-    return (result,result!=original) if withsimp else result
+from .utilities import dotprodsimp
 
 __all__ += ['MatrixKind','MatrixSet','dotprodsimp']

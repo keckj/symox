@@ -12,6 +12,10 @@ def install(namespace):
         sequences=(list,tuple,set,frozenset,Tuple)
         if hasattr(f,'__next__'):
             f=list(f)
+        from ._matrix_aux import MatrixBase
+        if len(symbols)==1 and isinstance(symbols[0],MatrixBase):
+            # SymPy: ``if len(symbols) == 1 and iterable(symbols[0])``
+            symbols=(list(symbols[0]),)
         if (len(symbols)==1 and isinstance(symbols[0],sequences) and not symbols[0]
                 and not flags.get('set')):
             # SymPy solves for no unknown when given an empty collection
