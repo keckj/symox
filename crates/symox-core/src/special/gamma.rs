@@ -31,9 +31,28 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
             if a.len() == 1 {
                 return Some(super::beta(&a[0], &a[0]));
             }
+            // SymPy's beta.eval: numerical arguments go through beta.doit.
             let (x, y) = (&a[0], &a[1]);
-            if is_int_number(x) && is_int_number(y) {
-                return Some(div(&mul2(&gamma(x), &gamma(y)), &gamma(&add(&[x.clone(), y.clone()]))));
+            if x.as_number().is_none() || y.as_number().is_none() {
+                return None;
+            }
+            if x.is_zero() || y.is_zero() {
+                return Some(Expr::zoo());
+            }
+            let exact_one = |e: &Expr| e.as_number().is_some_and(|n| !n.is_float() && n.is_one());
+            if exact_one(y) {
+                return Some(pow(x, &Expr::minus_one()));
+            }
+            if exact_one(x) {
+                return Some(pow(y, &Expr::minus_one()));
+            }
+            if *y == add(&[x.clone(), Expr::one()]) {
+                return Some(pow(&mul(&[x.clone(), y.clone(), super::catalan(x)]), &Expr::minus_one()));
+            }
+            let s = add(&[x.clone(), y.clone()]);
+            if is_integer(&s) == Some(true) && is_negative(&s) == Some(true)
+                && is_integer(x) == Some(false) && is_integer(y) == Some(false) {
+                return Some(Expr::zero());
             }
             None
         }

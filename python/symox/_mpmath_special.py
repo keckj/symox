@@ -158,6 +158,9 @@ _GENERIC = {
     "legendre": mp.legendre, "assoc_legendre": mp.legenp,
     "chebyshevt": mp.chebyt, "chebyshevu": mp.chebyu, "hermite": mp.hermite,
     "jacobi": mp.jacobi, "gegenbauer": mp.gegenbauer,
+    # A non-integer degree evaluates the analytic continuation, as for
+    # jacobi and gegenbauer (SymPy truncates the degree at construction).
+    "assoc_laguerre": mp.laguerre,
     "factorial": mp.factorial, "binomial": mp.binomial,
     "RisingFactorial": mp.rf, "FallingFactorial": mp.ff,
 }

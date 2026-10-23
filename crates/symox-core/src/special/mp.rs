@@ -4,9 +4,14 @@
 //! with digits that were not computed.
 
 use crate::evalf_mp::{ev, MpComplex};
-use crate::expr::Expr;
+use num_bigint::BigInt;
+use num_rational::BigRational;
+use num_traits::One;
+
+use crate::expr::{Expr, Kind};
+use crate::number::Number;
 use crate::functions::{cos, gamma};
-use crate::ops::{add2, div, mul2, neg, pow, sqrt, sub};
+use crate::ops::{add, add2, div, mul, mul2, neg, pow, sqrt, sub};
 
 use super::SpecialFn;
 
@@ -19,6 +24,11 @@ pub fn eval(s: SpecialFn, args: &[Expr], prec: u32) -> Option<MpComplex> {
     if s == SpecialFn::LambertW {
         return super::lambert::mp(args, prec);
     }
+    // SymPy hands mpmath the exact binary value of a Float argument. The
+    // identities below are built from exact rationals, so that a factor such
+    // as gamma(0.75) is not evaluated at the Float's own precision.
+    let args: Vec<Expr> = args.iter().map(exact_floats).collect();
+    let args = &args[..];
     let x = &args[0];
     let one = Expr::one();
     let plus_one = |a: &Expr| add2(a, &one);
@@ -55,4 +65,31 @@ pub fn eval(s: SpecialFn, args: &[Expr], prec: u32) -> Option<MpComplex> {
         _ => return None,
     };
     ev(&expr, prec)
+}
+
+/// `e` with each Float leaf replaced by the exact rational value of its
+/// binary representation (moderate magnitudes only).
+fn exact_floats(e: &Expr) -> Expr {
+    match e.kind() {
+        Kind::Num(n) if n.is_float() => {
+            let value = n.to_bigfloat(n.float_precision().unwrap_or(53));
+            if value.is_zero() {
+                return Expr::zero();
+            }
+            if value.mag().abs() > 4096 || value.exp.abs() > 8192 {
+                return e.clone();
+            }
+            let man = value.man.clone();
+            let ratio = if value.exp >= 0 {
+                BigRational::from_integer(man << (value.exp as usize))
+            } else {
+                BigRational::new(man, BigInt::one() << ((-value.exp) as usize))
+            };
+            Expr::num(Number::from_ratio(ratio))
+        }
+        Kind::Add(..) => add(&e.args().iter().map(exact_floats).collect::<Vec<_>>()),
+        Kind::Mul(..) => mul(&e.args().iter().map(exact_floats).collect::<Vec<_>>()),
+        Kind::Pow(base, exponent) => pow(&exact_floats(base), &exact_floats(exponent)),
+        _ => e.clone(),
+    }
 }

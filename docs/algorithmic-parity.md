@@ -5829,3 +5829,71 @@ Still unsupported:
 
 Tests: `tests/test_matexpr_pretty_parity.py` (177 expressions in the 3
 printers, plus 13 settings cases, 4 of them skipped as known divergences).
+
+## Special-function evalf digits
+
+A probe (seed 20261023) compares `str(N(e, n))` with SymPy 1.14 for about
+60 special functions, about 10 arguments each, at 15, 30 and 50 digits
+(2796 cases). Before this work: 2641 exact, 5 last-digit, 97 larger
+differences and 53 errors. After: 2680 exact, 5 last-digit, 85 larger and
+26 errors. Every remaining difference was checked against mpmath at 3n+10
+digits, or is listed below.
+
+What was implemented:
+
+- The gamma identities used for `beta`, `rf`, `ff`, `binomial` and
+  `catalan` take Float arguments as their exact binary value. Before, the
+  inner gamma of a Float was computed at 53 bits, so `beta(5/2, 0.75)`,
+  `rf(5/2, 0.75)` and `ff(1, 2.5)` were wrong from about the 17th digit at
+  30 and 50 digits.
+- `beta(x, y)` with numerical arguments follows SymPy's `beta.doit`. A
+  zero argument gives `zoo` (including `beta(0, 0)`, which gave `nan`).
+  `y == 1` or `x == 1` gives `1/x` or `1/y`. `y == x + 1` gives
+  `1/(x*y*catalan(x))`. A negative integer sum of two non-integers gives 0.
+  Any other case stays unevaluated: `beta(2, 4)` and `beta(-1, 2)` are no
+  longer evaluated to `1/20` and `zoo`.
+- `N(lowergamma(a, z))` is `oo` at a pole of mpmath's `gammainc(a, 0, z)`:
+  `a` a nonpositive integer, `z != 0` and `re(z) >= 0`. When `re(z) < 0`,
+  mpmath's ValueError "gamma function pole" is raised, as in SymPy.
+- SymPy's ValueErrors when the expression is built: `laguerre` with a
+  non-integer degree, `hermite` with a negative degree and
+  `assoc_legendre` with a negative degree or `|m| > n`. The messages are
+  SymPy's.
+- `assoc_laguerre` with a non-integer degree evaluates through mpmath's
+  `laguerre`, as `jacobi` and `gegenbauer` already did.
+
+Kept on purpose (symox is correctly rounded and SymPy is not; the tests
+check these against mpmath):
+
+- `catalan(I)` and `catalan(1/2 + I)`. SymPy evaluates the gamma factors
+  separately.
+- `jn`/`yn` with a complex Float argument, and `jn(1, 2.5)`/`yn(1, 2.5)`.
+  SymPy's rewrite computes `1/z` at 53 bits.
+- `Li(2.3)` and `catalan(2.3)`. They are evaluated when built, at 53 bits.
+  SymPy loses about 9-10 ulp there to cancellation.
+- `zeta(107/3, 4)` at 50 digits, and the last digit of `airyaiprime`,
+  `airybiprime`, `bernoulli` and `euler` at large arguments.
+- `jacobi`, `gegenbauer` and `assoc_laguerre` with a non-integer degree.
+  SymPy truncates the degree when it builds the expression: for example
+  `jacobi(1/3, a, b, x)` is 1 and `gegenbauer(-1/2, a, x)` is 0. Symox
+  evaluates the analytic continuation, as mpmath does.
+- `chebyshevu(-1/2, 3)` evaluates. SymPy raises a TypeError (a bug in its
+  negative-degree branch).
+- `lucas` with a non-integer argument uses the Binet form (see the `lucas`
+  section above).
+
+Remaining gaps:
+
+- `elliptic_pi`. mpmath's `ellippi` time is erratic in the precision, and
+  symox's precision refinement re-evaluates it, so 7 probes time out
+  (10 s) where SymPy takes 1 to 15 s (SymPy times out on 1 other probe).
+  The 7 differences at 30 and 50 digits are closer to mpmath than SymPy's,
+  but `elliptic_pi(2, 7/2)` at 50 digits is still wrong from about the
+  45th digit.
+- `jacobi(n, ...)` and `assoc_laguerre(n, ...)` with a negative
+  non-integer `n` raise a ValueError in SymPy, through order-dependent
+  transformations. Symox evaluates them (6 + 6 probes).
+
+Tests: `tests/test_evalf_digits_parity.py`. It has 37 SymPy digit
+strings, 15 construction cases, 14 domain errors, and mpmath checks for
+the cases kept on purpose.

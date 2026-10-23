@@ -440,6 +440,7 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
         if memoized {memo::insert(e,&value,prec,options.residue);}
         return value;
     }
+    if lower_gamma_pole(e) { return Expr::oo(); }
     if crate::functions::is_numeric_value(e) { return e.clone(); }
     match e.kind() {
         Kind::Add(..) => crate::ops::add(&e.args().iter().map(|a| evalf(a, prec)).collect::<Vec<_>>()),
@@ -464,6 +465,19 @@ pub fn evalf(e: &Expr, prec: u32) -> Expr {
             },
         _ => e.clone(),
     }
+}
+
+/// SymPy's `lowergamma._eval_evalf` returns mpmath's `gammainc(a, 0, z)` as
+/// it is: at a pole (a nonpositive integer `a`, `z != 0` with `re(z) >= 0`)
+/// that is `+inf`, so the value is `oo`.
+fn lower_gamma_pole(e: &Expr) -> bool {
+    let Kind::Func(Func::Special(crate::special::SpecialFn::LowerGamma), args) = e.kind() else { return false };
+    let [a, z] = args.as_slice() else { return false };
+    if !a.as_number().is_some_and(|n| n.is_integer() && !n.is_positive()) {
+        return false;
+    }
+    let Some(value) = ev(z, 64) else { return false };
+    !(value.re.is_zero() && value.im.is_zero()) && value.re.sign() >= 0
 }
 
 /// Remove absolutely small real/imaginary numerical components by binary

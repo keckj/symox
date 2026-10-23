@@ -131,6 +131,31 @@ pub fn check_args(s: SpecialFn, a: &[Expr]) -> Result<(), (bool, String)> {
             Some(n) if !n.is_negative() => Ok(()),
             _ => ve("The provided number must be a positive integer"),
         },
+        // SymPy's laguerre.eval rejects a non-integer degree first.
+        Laguerre if is_integer(&a[0]) == Some(false) => ve("Error: n should be an integer."),
+        // hermite.eval: a numerical degree is evaluated as a polynomial and
+        // must not be negative.
+        Hermite => match a[0].as_number() {
+            Some(n) if n.is_negative() => Err((false, format!("The index n must be nonnegative integer (got {})", a[0]))),
+            _ => Ok(()),
+        },
+        // assoc_legendre.eval: P^{-m}_n is rewritten through P^m_n, m = 0 is
+        // legendre and x = 0 has a closed form; other integer indices must
+        // satisfy 0 <= |m| <= n.
+        AssocLegendre => {
+            let (Some(n), Some(m)) = (as_int(&a[0]), as_int(&a[1])) else { return Ok(()) };
+            if m.is_zero() || a[2].is_zero() || !a[0].is_number() || !a[1].is_number() {
+                return Ok(());
+            }
+            let m = m.abs();
+            if n.is_negative() {
+                return Err((false, format!("assoc_legendre : 1st index must be nonnegative integer (got {n})")));
+            }
+            if m > n {
+                return Err((false, format!("assoc_legendre : abs('2nd index') must be <= '1st index' (got {n}, {m})")));
+            }
+            Ok(())
+        }
         _ => Ok(()),
     }
 }
