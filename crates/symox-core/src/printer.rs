@@ -62,6 +62,16 @@ pub fn to_str(e: &Expr) -> String {
     s
 }
 
+/// SymPy `str()` of an expression printed inside a container (a matrix
+/// entry, a list item): the StrPrinter's `full_prec="auto"` strips the
+/// trailing zeros of Floats below the top printing level.
+pub fn to_str_nested(e: &Expr) -> String {
+    let _session = crate::printing::order::session();
+    let mut s = String::new();
+    write_expr(e, &mut s);
+    s
+}
+
 /// SymPy gives `Mod` the precedence of `Mul`, so it is parenthesized inside
 /// products with a positive coefficient and inside powers.
 fn is_mod(e: &Expr) -> bool {

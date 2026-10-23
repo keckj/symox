@@ -5645,3 +5645,55 @@ Remaining unsupported:
 - Last-digit `evalf` precision for `catalan`, `jn` and `yn`.
 - `sring` with a float coefficient and a symbolic one panics. This
   predates this batch.
+
+## Printing parity, batch a2 (physics, diffgeom, combinatorics, tensor, categories, geometry)
+
+Implemented (tests in `tests/test_print_a2_parity.py`):
+- Quantum: `Ket`/`Bra`/`TimeDepKet` labels (`|n,m>` only for spin states),
+  state classes in `symox.physics.quantum.state`, gate names (`H(0)`,
+  `C((0),Z(1))`), `CPHASE` built as `CGateS` as in the reference, operator
+  powers (`A**(-1)`, `sqrt(A)`), and adjacent powers merge (`A*A.inv() == 1`).
+- Diffgeom: base scalar fields print by coordinate name (`x**2`, LaTeX
+  `\mathbf{x}`), and `CoordSystem.transformation` prints as a `Lambda`.
+- Tensor: `TensMul`/`TensAdd` signs and coefficients, the `WildTensor*`
+  module path, and `Indexed`/`IndexedBase` repr and LaTeX.
+- Values corrected so that they print like the reference: optics
+  `phase_retarder`, `mueller_matrix` and `polarizing_beam_splitter` (the
+  reference formulas); `Cable.loads_position` lists; `transpose` of an
+  `Array` stays an `Array`; `Polyhedron` generators and `copy`;
+  `Segment.perpendicular_bisector`; `Polygon.intersection` ordering, using
+  a geometry `sort_key` that mirrors `Basic.sort_key`; the keys of
+  `DimensionSystem.get_dimensional_dependencies` (symbols only for base
+  dimensions, not for tabled derived ones); and the categories,
+  `Partition` and `Prufer` printers.
+- `repr(Matrix)` strips trailing Float zeros, as the reference `sstr`
+  does. `str(Matrix)` keeps full precision.
+
+Form-only (core canonical `Add`/`Mul` order, left as is):
+- `metric_to_Ricci_components`, `metric_to_Riemann_components`,
+  `vectors_in_basis` and `get_contraction_structure`;
+- `FiberForceLengthPassiveInverseDeGroote2016` (`log(x + 1)`), `psi_n` and
+  `PIDController.to_expr`, whose reference extra parentheses come from an
+  unevaluated `Pow`;
+- the term order of `Commutator.expand` and `Operator.expand`, and the order
+  of `TensAdd` terms.
+
+Ordering only:
+- `PIDController.poles` (order of `roots`);
+- `find_dynamicsymbols`, `PermutationGroup.conjugacy_classes` and
+  `PermutationGroup.generate` (set/generation order).
+
+`Bra.subs` combines `<mm| - I*<mm|` to `(1 - I)*<mm|`. The value is equal.
+
+Reference-wrong: `wigner_9j` at high precision. This version keeps the
+correctly rounded last digit.
+
+Remaining gaps:
+- Xypic layout (`XypicDiagramDrawer`, `xypic_draw_diagram`): `DiagramGrid`
+  is a simplified port.
+- `MatplotlibBackend.append`/`extend`: `plot` returns a `Plot`, not a
+  backend subclass.
+- `Reshape.as_explicit` prints `ArrayElement(A, 0)` instead of `A[0]`.
+- LaTeX of quantum states inside `FiniteSet` (sets printer).
+- Diffgeom LaTeX of `TensorProduct`/`WedgeProduct` (`\otimes`, `\wedge`),
+  and the unevaluated `Differential` of a scalar expression.

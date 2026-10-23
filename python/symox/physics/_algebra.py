@@ -10,12 +10,33 @@ def _word(word):
     coefficient = S.Integer(1);stack = []
     for atom in word:
         if getattr(atom,'is_identity',False):continue
+        if stack:
+            merged = _merge_powers(stack[-1],atom)
+            if merged is not None:
+                stack.pop();stack.extend(merged);continue
         if stack and hasattr(stack[-1],'_multiply_atom'):
             reduction = stack[-1]._multiply_atom(atom)
             if reduction is not None:
                 stack.pop();factor,replacement = reduction;coefficient *= factor;stack.extend(replacement);continue
         stack.append(atom)
     return tuple(stack),coefficient
+
+
+def _power_parts(atom):
+    if isinstance(atom,PowerAtom) and isinstance(atom.base,Atom):return atom.base,atom.power
+    return atom,S.Integer(1)
+
+
+def _merge_powers(left,right):
+    # SymPy's Mul combines adjacent noncommutative powers of one base, so
+    # A*A**-1 is 1 and A**-1*A**-1 is A**-2.
+    if not (isinstance(left,PowerAtom) or isinstance(right,PowerAtom)):return None
+    (b1,e1),(b2,e2) = _power_parts(left),_power_parts(right)
+    if b1!=b2:return None
+    power = e1+e2
+    if power==0:return ()
+    if power.is_Integer and power>0:return (b1,)*int(power)
+    return (PowerAtom(b1,power),)
 
 
 def _word_repr(word):
@@ -194,5 +215,16 @@ class Atom(OperatorExpr):
 
 class PowerAtom(Atom):
     def __init__(self,base,power):self.base,self.power = base,power;super().__init__(base,power)
-    def _atom_repr(self):return '(%s)**%s'%(self.base,self.power)
+    def _atom_repr(self):
+        # Reference StrPrinter._print_Pow for a noncommutative base:
+        # parenthesize by precedence, so A**(-1), A**(1/2), (A + B)**n.
+        base = self.base._atom_repr() if isinstance(self.base,Atom) else str(self.base)
+        simple = base.replace('_','').isalnum() or (base.endswith(')') and base.count('(')==1 and base[0].isalpha())
+        if not simple:base = '(%s)'%base
+        power = self.power
+        if power==S.Rational(1,2):return 'sqrt(%s)'%(self.base._atom_repr() if isinstance(self.base,Atom) else self.base)
+        if power==S.Rational(-1,2):return '1/sqrt(%s)'%(self.base._atom_repr() if isinstance(self.base,Atom) else self.base)
+        text = str(power)
+        if not (power.is_Atom and not power.is_negative and not power.is_Rational or power.is_Integer and power>=0):text = '(%s)'%text
+        return '%s**%s'%(base,text)
     def _subs_parameters(self,mapping,**kwargs):return PowerAtom(self.base.subs(mapping,**kwargs),self.power.subs(mapping,**kwargs))

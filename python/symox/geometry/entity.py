@@ -63,6 +63,16 @@ class GeometryEntity:
     def func(self):
         return type(self)
 
+    def sort_key(self, order=None):
+        # Basic.sort_key of the reference, with geometry's class key (5, 0, name).
+        from .. import S, default_sort_key
+        args = tuple(a.sort_key(order) if isinstance(a, GeometryEntity) else default_sort_key(a, order) for a in self.args)
+        return ((5, 0, type(self).__name__), (len(args), args), S.One.sort_key(), S.One)
+
+    def _node_count(self):
+        from ..utilities.sorting import _nodes
+        return 1 + sum(a._node_count() if isinstance(a, GeometryEntity) else _nodes(a) for a in self.args)
+
     @property
     def free_symbols(self):
         return set().union(*(arg.free_symbols for arg in self.args))

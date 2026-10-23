@@ -503,7 +503,7 @@ class Segment(LinearEntity):
     def perpendicular_bisector(self, p=None):
         line = Line(self.p1, self.p2).perpendicular_line(self.midpoint)
         if p is not None and line.contains(Point(p)):
-            return Segment(self.midpoint, Point(p))
+            return Segment(Point(p), self.midpoint)  # reference argument order
         return line
 
 

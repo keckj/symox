@@ -295,7 +295,9 @@ class Polygon(GeometrySet):
         edges = o.sides if isinstance(o, Polygon) else [o]
         result = unique(item for side in self.sides for edge in edges for item in side.intersection(edge))
         segments = [item for item in result if isinstance(item, Segment)]
-        return [item for item in result if not isinstance(item, Point) or not any(side.contains(item) for side in segments)]
+        # The reference returns list(ordered(...)): by node count, then sort key.
+        items = [item for item in result if not isinstance(item, Point) or not any(side.contains(item) for side in segments)]
+        return sorted(items, key=lambda item: (item._node_count(), item.sort_key()))
 
     def equals(self, o):
         if not isinstance(o, Polygon) or len(self.vertices) != len(o.vertices):

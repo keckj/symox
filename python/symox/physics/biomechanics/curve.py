@@ -25,7 +25,10 @@ class CharacteristicCurveFunction(ABC):
         return S.diff(formula, dummies[argindex-1]).xreplace(dict(zip(dummies, self.args)))
     def diff(self, *args, **kwargs):return self.doit().diff(*args, **kwargs)
     def subs(self, *args, **kwargs):return type(self)(*(x.subs(*args, **kwargs) for x in self.args))
-    def __repr__(self):return f'{type(self).__name__}({", ".join(map(str, self.args))})'
+    def _sympystr(self, printer):
+        return '%s(%s)' % (type(self).__name__, ', '.join(printer._print(a) for a in self.args))
+    def __repr__(self):return S.sstr(self)
+    __str__ = __repr__
     def __mul__(self, other):return self.doit()*S.sympify(other)
     __rmul__ = __mul__
     def __add__(self, other):return self.doit()+S.sympify(other)
@@ -53,10 +56,10 @@ class FiberForceVelocityInverseDeGroote2016(CharacteristicCurveFunction):
     defaults = (-.318, -8.149, -.374, .886)
     def _formula(self, x, c):return (S.sinh((x-c[3])/c[0])-c[2])/c[1]
 class TendonForceLengthDeGroote2016(CharacteristicCurveFunction):
-    defaults = (.2, .995, .25, 33.93669377311689)
+    defaults = (.2, .995, .25, S.Float('33.93669377311689'))
     def _formula(self, x, c):return c[0]*S.exp(c[3]*(x-c[1]))-c[2]
 class TendonForceLengthInverseDeGroote2016(CharacteristicCurveFunction):
-    defaults = (.2, .995, .25, 33.93669377311689)
+    defaults = (.2, .995, .25, S.Float('33.93669377311689'))
     def _formula(self, x, c):return c[1]+S.log((x+c[2])/c[0])/c[3]
 
 

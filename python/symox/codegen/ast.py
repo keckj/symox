@@ -564,6 +564,12 @@ class IndexedBase(_IndexedArithmetic):
     def __str__(self):
         return str(self.label)
 
+    # Reference printing: IndexedBase('A') is shown as A, not a dataclass.
+    __repr__ = __str__
+
+    def _latex(self, printer):
+        return printer._print(self.label)
+
 
 @dataclass(frozen=True, init=False)
 class Indexed(_IndexedArithmetic):
@@ -590,6 +596,12 @@ class Indexed(_IndexedArithmetic):
 
     def __str__(self):
         return f"{self.base}[{', '.join(map(str, self.indices))}]"
+
+    __repr__ = __str__
+
+    def _latex(self, printer):
+        # Reference LatexPrinter._print_Indexed.
+        return '{%s}_{%s}' % (printer._print(self.base), ','.join(printer._print(i) for i in self.indices))
 
     @property
     def rank(self):
@@ -634,6 +646,10 @@ class Indexed(_IndexedArithmetic):
         symbol = Symbol(LegacyCXX17CodePrinter().doprint(self))
         _INDEXED_SYMBOLS.setdefault(symbol, self)
         return symbol
+
+
+# The reference classes live in sympy.tensor.indexed.
+IndexedBase.__module__ = Indexed.__module__ = 'symox.tensor.indexed'
 
 
 # The scalar symbols that Indexed references became in native arithmetic,

@@ -48,7 +48,6 @@ use crate::expand::expand;
 use crate::expr::{Expr, Func};
 use crate::functions::func;
 use crate::ops::{add, mul2, neg, pow};
-use crate::printer::to_str;
 use crate::subs::subs;
 
 pub use linalg::DetMethod;
@@ -785,7 +784,8 @@ impl Matrix {
                 if j > 0 {
                     s.push_str(", ");
                 }
-                s.push_str(&to_str(self.get(i, j)));
+                // SymPy's Matrix.__str__ keeps full Float precision; repr strips.
+                s.push_str(&crate::printer::to_str(self.get(i, j)));
             }
             s.push(']');
         }
@@ -798,7 +798,7 @@ impl Matrix {
         if self.rows == 0 || self.cols == 0 {
             return format!("Matrix({}, {}, [])", self.rows, self.cols);
         }
-        let strs: Vec<String> = self.data.iter().map(to_str).collect();
+        let strs: Vec<String> = self.data.iter().map(crate::printer::to_str_nested).collect();
         let mut width = vec![0usize; self.cols];
         for i in 0..self.rows {
             for j in 0..self.cols {

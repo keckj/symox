@@ -324,7 +324,8 @@ class AppliedPermutation:
         return Piecewise(*[(self.perm(i),Eq(self.x,i)) for i in range(self.perm.size)],(nan,True))
     def doit(self,**hints):return type(self)(self.perm,self.x)
     def subs(self,*args,**kwargs):return type(self)(self.perm,self.x.subs(*args,**kwargs))
-    def __repr__(self):return 'AppliedPermutation(%r, %s)'%(self.perm,self.x)
+    # Reference StrPrinter prints the nested permutation in cyclic form.
+    def __repr__(self):return 'AppliedPermutation(%s, %s)'%(self.perm,self.x)
     def __eq__(self,other):return isinstance(other,AppliedPermutation) and self.args==other.args
     def __hash__(self):return hash((type(self),self.args))
     def __add__(self,other):return self._symox_()+other

@@ -8,7 +8,15 @@ _charts = {}
 _fields = {}
 _coordinates = {}
 _atoms = {}
-_field_atoms = set()
+class _FieldAtomSet(set):
+    # The native converter probes every free symbol; a Wild whose properties
+    # are unhashable is never a field atom and must keep its own hash error.
+    def __contains__(self,atom):
+        try:return set.__contains__(self,atom)
+        except TypeError:return False
+
+
+_field_atoms = _FieldAtomSet()
 
 
 def _native(value):
@@ -126,6 +134,50 @@ class Patch:
         return self.name
 
 
+_coordinate_classes = {}
+
+
+def _coordinate_atom_class(coord_sys):
+    # The reference CoordinateSymbol is a Symbol printed by its name whose
+    # identity includes its chart. One native Symbol class per chart keeps
+    # same-named coordinates of different charts distinct.
+    key = id(coord_sys)
+    if key not in _coordinate_classes:
+        cls = type('CoordinateSymbol',(Symbol,),{'__module__':'symox.diffgeom.diffgeom'})
+        _coordinate_classes[key] = (coord_sys,cls)
+    return _coordinate_classes[key][1]
+
+
+_field_classes = {}
+
+
+def _chart_key(coord_sys):
+    return (str(coord_sys.name),str(coord_sys.patch.name),str(coord_sys.patch.manifold.name))
+
+
+def _field_atom(chart,name):
+    # Unpickles a field atom as the atom of its chart's base scalar field;
+    # the chart is found by name among the charts with field atoms.
+    from . import rn  # noqa: F401  (registers the standard charts)
+    coord_sys = next((cs for cs,_ in _field_classes.values() if _chart_key(cs) == chart),None)
+    if coord_sys is None:raise ValueError('unknown coordinate system %s' % (chart,))
+    index = [str(symbol) for symbol in coord_sys._input_symbols].index(name)
+    return BaseScalarField(coord_sys,index)._atom
+
+
+def _field_atom_class(coord_sys):
+    # The reference BaseScalarField prints by its coordinate name. A native
+    # Symbol class per chart, distinct from the coordinate symbols, keeps the
+    # field atoms separate from coordinates while printing like SymPy.
+    key = id(coord_sys)
+    if key not in _field_classes:
+        cls = type('BaseScalarField',(Symbol,),{'__module__':'symox.diffgeom.diffgeom','_latex':lambda self, printer: r'\mathbf{%s}' % printer._print(Symbol(self.name)),
+            '__reduce__':lambda self, key=key: (_field_atom, (_chart_key(_field_classes[key][0]), self.name)),
+            '__reduce_ex__':lambda self, protocol, key=key: (_field_atom, (_chart_key(_field_classes[key][0]), self.name))})
+        _field_classes[key] = (coord_sys,cls)
+    return _field_classes[key][1]
+
+
 class CoordinateSymbol(_ScalarAtom):
     def __new__(cls,coord_sys,index,**assumptions):
         index = operator.index(index)
@@ -137,7 +189,7 @@ class CoordinateSymbol(_ScalarAtom):
             obj.coord_sys,obj.index = coord_sys,index
             source = coord_sys._input_symbols[index]
             obj._name = source.name
-            obj._atom = Dummy(source.name,**(assumptions or source.assumptions0))
+            obj._atom = _coordinate_atom_class(coord_sys)(source.name,**(assumptions or source.assumptions0))
             _coordinates[key] = obj
             _atoms[obj._atom] = obj
         return _coordinates[key]
@@ -159,7 +211,7 @@ class BaseScalarField(_ScalarAtom):
             obj.coord_sys,obj.index = coord_sys,index
             source = coord_sys._input_symbols[index]
             obj._name = source.name
-            obj._atom = Dummy(source.name,**source.assumptions0)
+            obj._atom = _field_atom_class(coord_sys)(source.name,**source.assumptions0)
             from .. import _diffgeom_callable_type
             from .._core import Expr
             obj._atom = Expr.__new__(_diffgeom_callable_type,obj._atom)
@@ -171,6 +223,7 @@ class BaseScalarField(_ScalarAtom):
     def __init__(self,*args,**kwargs):
         pass
 
+    def _latex(self,printer):return r'\mathbf{%s}' % printer._print(Symbol(self._name))
     def __call__(self,point):
         if not isinstance(point,Point):
             raise TypeError('scalar fields are evaluated at differential-geometric points')
@@ -183,6 +236,17 @@ class _CoordinateMap:
     def __init__(self,variables,expression):
         self.signature = self.variables = tuple(_native(v) for v in variables)
         self.expr = Matrix(expression)
+
+    # The reference returns Lambda(signature, Matrix(expressions)); native
+    # Lambda bodies are scalar, so this map prints as that Lambda.
+    @property
+    def args(self):return (self.signature,self.expr)
+
+    def __repr__(self):
+        signature = self.signature[0] if len(self.signature) == 1 else Tuple(*self.signature)
+        return 'Lambda(%s, %r)' % (signature,self.expr)
+
+    __str__ = __repr__
 
     def __call__(self,*args):
         if len(args) != len(self.variables):
@@ -280,7 +344,7 @@ class CoordSystem:
 
     def transform(self,sys,coordinates=None):
         coordinates = self.symbols if coordinates is None else _sequence(coordinates)
-        return self.transformation(sys)(*coordinates)
+        return _CoordinateMap(self.symbols,self._path(sys))(*coordinates)
 
     coord_tuple_transform_to = transform
 

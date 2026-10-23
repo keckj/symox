@@ -19,7 +19,7 @@ class Cable:
             x, y, mag, direction = map(S.sympify, load[1:]);a, b = [self.supports[n][0] for n in self._labels]
             if (x <= a) is S.true or (x >= b) is S.true:raise ValueError('point load must lie strictly between the supports')
             if mag.is_negative is True:raise ValueError('load magnitude must be nonnegative')
-            self.loads_position[label] = (x, y);self.loads['point_load'][label] = [mag, direction]
+            self.loads_position[label] = [x, y];self.loads['point_load'][label] = [mag, direction]
         elif order == 0:
             if self.loads_position:raise ValueError('point and distributed loads cannot be combined')
             mag = S.sympify(load[1])

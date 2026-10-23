@@ -12,7 +12,8 @@ class Gate(UnitaryOperator):
         self.targets=tuple(int(v) for v in targets)
         if not self.targets or any(v<0 for v in self.targets) or len(set(self.targets))!=len(self.targets):raise ValueError('gate targets must be distinct nonnegative indices')
         Atom.__init__(self,*self.targets);self.hilbert_space=ComplexSpace(2**(max(self.targets)+1))
-    def _atom_repr(self):return type(self).__name__+'('+','.join(map(str,self.targets))+')'
+    # Reference Gate._print_label: gate_name(targets) with ',' separators.
+    def _atom_repr(self):return getattr(type(self),'gate_name',type(self).__name__)+'('+','.join(map(str,self.targets))+')'
     def _local_matrix(self):raise NotImplementedError('this abstract gate has no specified matrix')
     def _apply_to(self,state,**options):
         if not isinstance(state,Qubit) or not state.is_ket:return None
@@ -52,30 +53,39 @@ class OneQubitGate(Gate):
 class TwoQubitGate(Gate):
     def __init__(self,first,second):super().__init__(first,second)
 class IdentityGate(OneQubitGate):
+    gate_name='1'
     order=1
     def _local_matrix(self):return E.eye(2)
 class HadamardGate(OneQubitGate):
+    gate_name='H'
     order=2
     def _local_matrix(self):return E.Matrix([[1,1],[1,-1]])/E.sqrt(2)
 class XGate(OneQubitGate):
+    gate_name='X'
     order=2
     def _local_matrix(self):return E.Matrix([[0,1],[1,0]])
 class YGate(OneQubitGate):
+    gate_name='Y'
     order=2
     def _local_matrix(self):return E.Matrix([[0,-E.I],[E.I,0]])
 class ZGate(OneQubitGate):
+    gate_name='Z'
     order=2
     def _local_matrix(self):return E.diag(1,-1)
 class PhaseGate(OneQubitGate):
+    gate_name='S'
     order=4
     def _local_matrix(self):return E.diag(1,E.I)
 class TGate(OneQubitGate):
+    gate_name='T'
     order=8
     def _local_matrix(self):return E.diag(1,E.exp(E.I*E.pi/4))
 class SwapGate(TwoQubitGate):
+    gate_name='SWAP'
     order=2
     def _local_matrix(self):return E.Matrix([[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])
 class CNotGate(TwoQubitGate):
+    gate_name='CNOT'
     order=2
     def __init__(self,control,target):super().__init__(control,target);self.controls=(int(control),)
     def _local_matrix(self):return E.Matrix([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]])
@@ -98,6 +108,9 @@ class CGate(Gate):
         if set(self.controls)&set(gate.targets):raise ValueError('controls cannot overlap targets')
         super().__init__(*(self.controls+gate.targets))
     def _key(self):return type(self),self.controls,self.gate
+    def _atom_repr(self):
+        if type(self).__dict__.get('gate_name') is None and type(self) not in (CGate,CGateS):return Gate._atom_repr(self)
+        return 'C((%s),%s)'%(','.join(map(str,self.controls)),self.gate._atom_repr())
     def _apply_to(self,state,**options):
         if not isinstance(state,Qubit):return None
         return self.gate._apply_to(state,**options) if all(state[c]==1 for c in self.controls) else state
@@ -105,7 +118,8 @@ class CGate(Gate):
 class CGateS(CGate):pass
 
 
-def CPHASE(a,b):return CGate((a,),PhaseGate(b))
+# Reference CPHASE is the controlled Z gate CGateS((a,), Z(b)).
+def CPHASE(a,b):return CGateS((a,),ZGate(b))
 
 def normalized(normalize):
     matrix=qubit_to_matrix(normalize);norm=E.sqrt((matrix.conjugate().T*matrix)[0]);return normalize/norm

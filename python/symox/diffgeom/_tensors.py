@@ -56,10 +56,45 @@ def _tensor(components,variance,cls=None,**metadata):
     return obj
 
 
+_slot_classes = {}
+
+
+def _slot_atom(slot):
+    # Printing proxy: the reference keeps fields as Add/Mul trees of
+    # BaseVectorField and Differential atoms. One Symbol class per chart and
+    # variance keeps same-named slots of different charts apart.
+    from .. import Symbol
+    key = (id(slot.chart),slot.variance)
+    if key not in _slot_classes:
+        name = 'BaseVectorField' if slot.variance == 1 else 'Differential'
+        prefix = 2 if slot.variance == 1 else 1
+        latex = r'\partial_{%s}' if slot.variance == 1 else r'\operatorname{d}%s'
+        namespace = {'__module__':'symox.diffgeom.diffgeom',
+                     '_sympystr':lambda self,printer:self.name,
+                     '_latex':lambda self,printer:latex % printer._print(Symbol(self.name[prefix:]))}
+        _slot_classes[key] = (slot.chart,type(name,(Symbol,),namespace))
+    return _slot_classes[key][1](repr(slot))
+
+
 class _Tensor:
+    def _printing_expr(self):
+        from .. import Add,Function
+        terms = []
+        for slots,c in self._components.items():
+            atoms = [_slot_atom(slot) for slot in slots]
+            term = atoms[0] if len(atoms) == 1 else Function('TensorProduct')(*atoms)
+            terms.append(c*term)
+        return Add(*terms)
+
+    def _sympystr(self,printer):
+        return str(self._printing_expr())
+
+    def _latex(self,printer):
+        from ..printing import latex
+        return latex(self._printing_expr())
+
     def __repr__(self):
-        return ' + '.join('(%s)*%s' % (c,' @ '.join(map(str,slots)))
-                          for slots,c in sorted(self._components.items(),key=lambda item:repr(item[0])))
+        return str(self._printing_expr())
 
     __str__ = __repr__
 

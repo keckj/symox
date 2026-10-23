@@ -22,8 +22,11 @@ def linear_polarizer(theta=0):
 
 
 def phase_retarder(theta=0,delta=0):
-    theta,delta=map(S.sympify,(theta,delta));rotation=S.Matrix([[S.cos(theta),-S.sin(theta)],[S.sin(theta),S.cos(theta)]])
-    return rotation*S.diag(S.exp(-S.I*delta/2),S.exp(S.I*delta/2))*rotation.T
+    # Reference matrix and phase factor, entry for entry.
+    theta,delta=map(S.sympify,(theta,delta))
+    R=S.Matrix([[S.cos(theta)**2+S.exp(S.I*delta)*S.sin(theta)**2,(1-S.exp(S.I*delta))*S.cos(theta)*S.sin(theta)],
+                [(1-S.exp(S.I*delta))*S.cos(theta)*S.sin(theta),S.sin(theta)**2+S.exp(S.I*delta)*S.cos(theta)**2]])
+    return R*S.exp(-S.I*delta/2)
 
 
 def half_wave_retarder(theta):return phase_retarder(theta,S.pi)
@@ -35,13 +38,14 @@ def reflective_filter(R):return S.sqrt(S.sympify(R))*S.diag(1,-1)
 def mueller_matrix(J):
     J=S.Matrix(J)
     if J.shape!=(2,2):raise ValueError('Jones matrix must be 2 by 2')
-    basis=[S.eye(2),S.diag(1,-1),S.Matrix([[0,1],[1,0]]),S.Matrix([[0,-S.I],[S.I,0]])]
-    return S.Matrix(4,4,lambda i,j:S.simplify(S.trace(basis[i]*J*basis[j]*J.conjugate().T)/2))
+    # Reference: simplify(A*TensorProduct(J, J.conjugate())*A.inv()).
+    A=S.Matrix([[1,0,0,1],[1,0,0,-1],[0,1,1,0],[0,-S.I,S.I,0]])
+    return S.simplify(A*S.kronecker_product(J,J.conjugate())*A.inv())
 
 
 def polarizing_beam_splitter(Tp=1,Rs=1,Ts=0,Rp=0,phia=0,phib=0):
     Tp,Rs,Ts,Rp,phia,phib=map(S.sympify,(Tp,Rs,Ts,Rp,phia,phib))
-    return S.Matrix([[S.sqrt(Tp),0,S.I*S.sqrt(Rp),0],[0,S.sqrt(Ts),0,-S.I*S.sqrt(Rs)*S.exp(S.I*phia)],[S.I*S.sqrt(Rp)*S.exp(S.I*phib),0,S.sqrt(Tp),0],[0,-S.I*S.sqrt(Rs),0,S.sqrt(Ts)]])
+    return S.Matrix([[S.sqrt(Tp),0,S.I*S.sqrt(Rp),0],[0,S.sqrt(Ts),0,-S.I*S.sqrt(Rs)*S.exp(S.I*phia)],[S.I*S.sqrt(Rp),0,S.sqrt(Tp),0],[0,-S.I*S.sqrt(Rs)*S.exp(S.I*phib),0,S.sqrt(Ts)]])
 
 
 __all__=['jones_vector','stokes_vector','jones_2_stokes','linear_polarizer','phase_retarder','half_wave_retarder','quarter_wave_retarder','transmissive_filter','reflective_filter','mueller_matrix','polarizing_beam_splitter']
