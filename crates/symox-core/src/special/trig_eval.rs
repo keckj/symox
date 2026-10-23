@@ -16,7 +16,7 @@ use crate::functions::{
     sinh, tan, tanh, coth, abs, floor, re, im,
 };
 use crate::number::Number;
-use crate::decompose::could_extract_minus_sign;
+use crate::decompose::could_extract_minus_sign_eval as could_extract_minus_sign;
 use crate::ops::{add, add2, div, inv, mul, mul2, neg, pow, sqrt, sub};
 use num_bigint::BigInt;
 use num_integer::Integer;

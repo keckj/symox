@@ -5947,3 +5947,52 @@ Remaining gaps:
   `[a*x + y - 1, x - y]` and `[x**2 + a/y, x - y]` with a free parameter
   `a`. Also `[x**2 + 1/y - 1, x - y**2]`, whose quintic factor SymPy
   returns as `CRootOf` through the substitution path.
+
+## Odd/even heads on noncommutative sums, DiracDelta real-value check (nc-segv, 2026-10-23)
+
+`erf(B*A - 2*x)` with noncommutative `A`, `B` crashed the interpreter
+(SIGSEGV, unbounded native recursion). The negation of a noncommutative sum
+`z` stays `Mul(-1, z)`, as in SymPy, because a number is not distributed over
+a noncommutative sum. The native sign test (`ops::could_extract_minus_sign`)
+broke ties between terms with its own structural rule, and reported both `z`
+and `Mul(-1, z)` as negative. The rewrite `f(z) -> -f(-z)` then flipped back
+and forth. Implemented:
+
+- Noncommutative sums and products now use SymPy's exact
+  `could_extract_minus_sign` (term count, then `sort_key` of `z` against
+  `-z`). That rule is antisymmetric, which fixes erf, erfc, erfi, erf2, Si,
+  Shi, fresnels, fresnelc, besselj, besseli and the trigonometric and
+  hyperbolic heads (60 probe cases went from a crash to SymPy's output).
+  Commutative arguments keep the previous rule, and the printers keep the
+  syntactic test.
+- Si, Shi, fresnels and fresnelc use SymPy's `extract_multiplicatively(-1)`
+  on a noncommutative sum: `Si(-A*B - x)` is `-Si(x + A*B)`, as in SymPy.
+- DiracDelta and Heaviside port SymPy's `fuzzy_not(im(arg).is_zero)` check
+  for noncommutative arguments. `im(X)` and `re(X)` of a noncommutative `X`
+  are nonzero (SymPy's rule `extended_real -> commutative`), and products of
+  such parts follow `Mul._eval_is_zero`. The error messages are SymPy's: the
+  DiracDelta one is wrapped like `filldedent`.
+
+Intentional divergences:
+
+- When a noncommutative sum `z` could itself extract a minus sign (for
+  example `-A*B - x`), SymPy 1.14 raises RecursionError for sin, cos, tan,
+  erf, asin, atan, sinh, the Bessel functions, Abs, sinc and others. Symox
+  returns the equivalent `-f(-(-x - A*B))` for an odd head, `f(-(-x - A*B))`
+  for an even head, and `Abs(-x - A*B)`.
+
+Remaining gaps:
+
+- SymPy treats `im`, `re`, `Abs`, `sign`, `arg`, `DiracDelta`, `Heaviside`
+  and `hyper` of a noncommutative argument as commutative, because they are
+  extended real or because of their own assumption rules. Symox keeps them
+  noncommutative. So factor order differs in products. For example, the
+  DiracDelta message of probe 628 prints
+  `atan(p)**(3/2)*im(t*sinh(y)*Derivative(g(x, y), x, y)*B)`, and SymPy
+  prints `im(...)*atan(p)**(3/2)`.
+- The general assumption system does not yet derive `extended_real=False`
+  (and every fact that implies it) from `commutative=False` for
+  noncommutative products and sums (`(x*A).is_extended_real` is None, while
+  SymPy gives False). The real-value check uses its own port, so it does not
+  depend on this. Sums such as `DiracDelta(A + I)` still do not raise (SymPy
+  raises), because `Add._eval_is_zero` settles them through those facts.

@@ -209,6 +209,22 @@ pub fn could_extract_minus_sign(e:&Expr)->bool{
     visit(e,&mut FxHashMap::default(),&mut FxHashMap::default())
 }
 
+/// The sign choice of the odd/even function rewrites `f(-z) -> -f(z)`.
+///
+/// Negating a noncommutative sum `z` keeps `-z` as `Mul(-1, z)`, and SymPy
+/// reports such a product as negative whatever `z` is.  When `z` itself could
+/// extract a minus sign, SymPy then rewrites `f(z)` to `-f(-z)` and back
+/// forever (a RecursionError).  Here `-z` is negative exactly when `z` is not,
+/// so every rewrite terminates; all other cases are SymPy's rule unchanged.
+pub fn could_extract_minus_sign_eval(e:&Expr)->bool{
+    if let Kind::Mul(c,factors)=e.kind(){
+        if c.is_minus_one() && factors.len()==1 && factors[0].1.is_one() && factors[0].0.is_add() && !commutes(&factors[0].0){
+            return !could_extract_minus_sign(&factors[0].0);
+        }
+    }
+    could_extract_minus_sign(e)
+}
+
 fn number_atom(e:&Expr)->bool{matches!(e.kind(),Kind::Num(_)|Kind::Const(Constant::Infinity|Constant::NegInfinity|Constant::NaN))}
 fn has(e:&Expr,pattern:&Expr)->bool {
     if pattern.is_symbol() || e.has_matrix() || pattern.has_matrix(){return traverse::has(e,pattern);}

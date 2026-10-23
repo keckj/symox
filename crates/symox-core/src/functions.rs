@@ -170,6 +170,52 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     Expr::from_kind(Kind::Func(f, args))
 }
 
+/// `im(arg).is_zero` for the real-value check of DiracDelta and Heaviside,
+/// given `imaginary = im(arg)`.
+///
+/// SymPy's assumption rules make every noncommutative expression non-real
+/// (`extended_real -> commutative`), so `im(X)` and `re(X)` of a
+/// noncommutative `X` are nonzero (`im._eval_is_zero` is
+/// `X.is_extended_real`, `re._eval_is_zero` is `X.is_imaginary or
+/// X.is_zero`). Products of such parts follow `Mul._eval_is_zero`. Other
+/// nodes keep the exact native query.
+pub fn imaginary_part_is_zero(imaginary: &Expr) -> Option<bool> {
+    let noncommutative = |e: &Expr| !crate::decompose::commutes(e);
+    match imaginary.kind() {
+        Kind::Func(Func::Re | Func::Im, a) if a.len() == 1 && noncommutative(&a[0]) => Some(false),
+        Kind::Mul(c, factors) if imaginary.has_noncommutative_host() => {
+            // SymPy's Mul._eval_is_zero over the coefficient and the factors.
+            let mut items: Vec<Expr> = Vec::with_capacity(factors.len() + 1);
+            if !c.is_one() {
+                items.push(Expr::num(c.clone()));
+            }
+            items.extend(factors.iter().map(|(b, x)| crate::ops::mul_factor(b, x)));
+            let (mut zero, mut infinite) = (Some(false), false);
+            for item in &items {
+                let z = imaginary_part_is_zero(item);
+                if z == Some(true) {
+                    if infinite {
+                        return None;
+                    }
+                    zero = Some(true);
+                } else {
+                    if crate::assumptions::fact(item, "finite") != Some(true) {
+                        if zero == Some(true) {
+                            return None;
+                        }
+                        infinite = true;
+                    }
+                    if zero == Some(false) && z.is_none() {
+                        zero = None;
+                    }
+                }
+            }
+            zero
+        }
+        _ => crate::assumptions::is_zero_exact(imaginary),
+    }
+}
+
 /// Evaluate held operations. Matrix scalar nodes retain their typed parents;
 /// abstract symbols stay abstract instead of being materialized implicitly.
 pub fn doit(e: &Expr, deep: bool) -> Expr {

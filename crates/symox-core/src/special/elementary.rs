@@ -6,7 +6,7 @@
 //! `KroneckerDelta` and `LeviCivita` rules are ported from SymPy
 //! (BSD-3-Clause, see LICENSE-SYMPY).
 
-use crate::decompose::could_extract_minus_sign;
+use crate::decompose::could_extract_minus_sign_eval as could_extract_minus_sign;
 use super::{
     extract_i, is_integer, is_negative, is_nonnegative, is_nonpositive, is_positive,
     is_zero, raw, sf, tuple_items, SpecialFn,
