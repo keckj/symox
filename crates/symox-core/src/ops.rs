@@ -8,7 +8,7 @@
 
 use num_bigint::BigInt;
 use num_integer::Integer;
-use num_traits::{One, ToPrimitive, Zero};
+use num_traits::{One, ToPrimitive};
 
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::{exact_root, trial_factor, Number};
@@ -786,6 +786,26 @@ fn is_positive_int_base(b: &Expr) -> bool {
     matches!(b.kind(), Kind::Num(n) if n.is_integer() && n.is_positive())
 }
 
+/// A non-integer Rational base that `Pow.as_base_exp` keeps as it is
+/// (`Rational(-1, 3)`, `Rational(2, 3)`; `Rational(1, 3)**e` reads as
+/// `3**(-e)` and is evaluated).
+fn is_fraction_base(b: &Expr) -> bool {
+    matches!(b.kind(), Kind::Num(n) if n.is_rational() && !n.is_integer()
+        && !n.numer_denom().is_some_and(|(p, _)| p.is_one()))
+}
+
+/// A positive Rational base, an element of SymPy's `pnum_rat`.
+fn is_positive_rational_base(b: &Expr) -> bool {
+    matches!(b.kind(), Kind::Num(n) if n.is_rational() && n.is_positive())
+}
+
+/// `Rational.gcd`: `Rational(igcd(p1, p2), ilcm(q1, q2))`.
+fn rational_gcd(a: &Number, b: &Number) -> Number {
+    let (p1, q1) = a.numer_denom().unwrap();
+    let (p2, q2) = b.numer_denom().unwrap();
+    Number::rational(p1.gcd(&p2), q1.lcm(&q2)).unwrap()
+}
+
 fn exceptional_scalar_power(base: &Expr, exponent: &Expr) -> Option<Expr> {
     let exceptional = matches!(base.kind(), Kind::Const(c) if c.is_infinite() || *c == Constant::NaN)
         || base.as_number().is_some_and(|number| number.is_zero()
@@ -1007,6 +1027,12 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
             out.push((b, e));
             continue;
         }
+        if is_fraction_base(&b) && e.as_number().is_some_and(|n| n.is_rational() && !n.is_integer() && n.is_positive()) {
+            // Mul.flatten puts a held power of a Rational base in pnum_rat
+            // (its sign in neg1e) instead of evaluating it first.
+            radicals.push((b, e));
+            continue;
+        }
         let v = pow(&b, &e);
         match v.kind() {
             Kind::Pow(vb, ve) if *vb == b => {
@@ -1042,42 +1068,28 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
     // exponent: (-1)**(1/6)*2**(1/6) = (-2)**(1/6).
     let minus_one_exponent = signed_radicals(&mut radicals, &mut out, &mut pending);
     let first_out = out.len();
-    // sqrt(2)*sqrt(3) -> sqrt(6): merge positive integer bases with equal
-    // rational exponents.
-    if radicals.len() > 1 {
-        radicals.sort_unstable_by(|a, b| a.1.cmp(&b.1));
-        let mut i = 0;
-        while i < radicals.len() {
-            let mut j = i + 1;
-            while j < radicals.len() && radicals[j].1 == radicals[i].1 {
-                j += 1;
+    // Mul.flatten's pnum_rat/comb_e/num_rat/pnew steps for positive integer
+    // bases with rational exponents: sqrt(2)*sqrt(3) -> sqrt(6),
+    // 2**(1/3)*6**(1/4) -> 2**(7/12)*3**(1/4), 124**(1/3)*sqrt(93) ->
+    // 2**(2/3)*sqrt(3)*31**(5/6).
+    let positive_rational = |b: &Expr, e: &Expr| is_positive_rational_base(b)
+        && e.as_number().is_some_and(|n| n.is_rational() && !n.is_integer() && n.is_positive());
+    if radicals.iter().filter(|(b, e)| positive_rational(b, e)).nth(1).is_some()
+        || radicals.iter().any(|(b, e)| positive_rational(b, e) && is_fraction_base(b)) {
+        let mut numeric: Vec<(Number, Number)> = Vec::new();
+        for (b, e) in radicals.drain(..) {
+            if !positive_rational(&b, &e) {
+                out.push((b, e));
+                continue;
             }
-            let group = &radicals[i..j];
-            let ints: Vec<&(Expr, Expr)> =
-                group.iter().filter(|(b, _)| is_positive_int_base(b)).collect();
-            if ints.len() > 1 {
-                let mut prod = Number::ONE;
-                for (b, _) in &ints {
-                    prod = prod.mul(b.as_number().unwrap());
-                }
-                let v = pow(&Expr::num(prod), &group[0].1);
-                match v.kind() {
-                    Kind::Num(n) => coeff = coeff.mul(n),
-                    Kind::Mul(c, fs) => {
-                        coeff = coeff.mul(c);
-                        out.extend(fs.iter().cloned());
-                    }
-                    Kind::Pow(b, e) => out.push((b.clone(), e.clone())),
-                    _ => pending.push(v),
-                }
-                for (b, e) in group.iter().filter(|(b, _)| !is_positive_int_base(b)) {
-                    out.push((b.clone(), e.clone()));
-                }
-            } else {
-                out.extend(group.iter().cloned());
+            let base = b.as_number().unwrap().clone();
+            let exponent = e.as_number().unwrap().clone();
+            match numeric.iter_mut().find(|(known, _)| *known == base) {
+                Some((_, total)) => *total = total.add(&exponent),
+                None => numeric.push((base, exponent)),
             }
-            i = j;
         }
+        combine_numeric_radicals(numeric, &mut coeff, &mut out, &mut pending);
     } else {
         out.extend(radicals);
     }
@@ -1146,13 +1158,117 @@ fn finish_mul(mut coeff: Number, mut facs: Vec<(Expr, Expr)>, depth: u32, cache:
     if held { Expr::from_unevaluated_kind(kind) } else { Expr::from_kind(kind) }
 }
 
+/// Folds an evaluated numeric power into the product being built: numbers go
+/// to the coefficient, numeric powers to `out` grouped later, anything else
+/// to `pending`.
+fn fold_numeric_power(value: Expr, coeff: &mut Number, sink: &mut Vec<(Expr, Expr)>, pending: &mut Vec<Expr>) {
+    match value.kind() {
+        Kind::Num(n) => *coeff = coeff.mul(n),
+        Kind::Pow(b, e) if b.is_number() && e.is_rational_number() => sink.push((b.clone(), e.clone())),
+        Kind::Mul(c, fs) if fs.iter().all(|(b, e)| b.is_number() && e.is_rational_number()) => {
+            *coeff = coeff.mul(c);
+            sink.extend(fs.iter().cloned());
+        }
+        _ => pending.push(value),
+    }
+}
+
+/// SymPy's `Mul.flatten` for positive integer bases with rational
+/// exponents (`pnum_rat` gathered by base): bases sharing a total exponent
+/// multiply (`comb_e`), integer parts of the exponents go to the
+/// coefficient, common factors of the bases are extracted (`num_rat`) and
+/// the resulting powers are grouped by exponent again (`pnew`).
+fn combine_numeric_radicals(pnum_rat: Vec<(Number, Number)>, coeff: &mut Number, out: &mut Vec<(Expr, Expr)>, pending: &mut Vec<Expr>) {
+    let big = |n: &Number| n.clone();
+    // comb_e: {total exponent: product of bases}
+    let mut comb_e: Vec<(Number, Number)> = Vec::new();
+    for (b, e) in pnum_rat {
+        match comb_e.iter_mut().find(|(known, _)| *known == e) {
+            Some((_, product)) => *product = product.mul(&b),
+            None => comb_e.push((e, b)),
+        }
+    }
+    let mut num_rat: Vec<(Number, Number)> = Vec::new();
+    for (e, b) in comb_e {
+        let (p, q) = e.numer_denom().unwrap();
+        if q.is_one() {
+            fold_numeric_power(num_pow(&big(&b), &e), coeff, out, pending);
+            continue;
+        }
+        let mut e = e;
+        if p > q {
+            let (whole, rest) = p.div_mod_floor(&q);
+            fold_numeric_power(num_pow(&big(&b), &Number::from_bigint(whole)), coeff, out, pending);
+            e = Number::rational(rest, q).unwrap();
+        }
+        num_rat.push((b, e));
+    }
+    // extract gcd of bases: 4**r1*6**r2 -> 2**(r1+r2)*2**r1*3**r2
+    let mut pnew: Vec<(Expr, Number)> = Vec::new();
+    let add_pnew = |pnew: &mut Vec<(Expr, Number)>, b: &Expr, e: &Expr| {
+        let base = b.as_number().unwrap().clone();
+        match pnew.iter_mut().find(|(known, _)| *known == *e) {
+            Some((_, product)) => *product = product.mul(&base),
+            None => pnew.push((e.clone(), base)),
+        }
+    };
+    let mut i = 0;
+    while i < num_rat.len() {
+        let (mut bi, ei) = num_rat[i].clone();
+        if bi.is_one() {
+            i += 1;
+            continue;
+        }
+        let mut grow: Vec<(Number, Number)> = Vec::new();
+        for j in i + 1..num_rat.len() {
+            let (bj, ej) = num_rat[j].clone();
+            let g = rational_gcd(&bi, &bj);
+            if !g.is_one() {
+                let mut e = ei.add(&ej);
+                let (p, q) = e.numer_denom().unwrap();
+                if q.is_one() {
+                    fold_numeric_power(num_pow(&big(&g), &e), coeff, out, pending);
+                } else {
+                    if p > q {
+                        let (whole, rest) = p.div_mod_floor(&q);
+                        fold_numeric_power(num_pow(&big(&g), &Number::from_bigint(whole)), coeff, out, pending);
+                        e = Number::rational(rest, q).unwrap();
+                    }
+                    grow.push((g.clone(), e));
+                }
+                num_rat[j] = (bj.div(&g).unwrap(), ej);
+                bi = bi.div(&g).unwrap();
+                if bi.is_one() {
+                    break;
+                }
+            }
+        }
+        if !bi.is_one() {
+            let mut parts: Vec<(Expr, Expr)> = Vec::new();
+            fold_numeric_power(num_pow(&big(&bi), &ei), coeff, &mut parts, pending);
+            for (b, e) in parts {
+                if b.as_number().is_some_and(|n| !n.is_zero()) {
+                    add_pnew(&mut pnew, &b, &e);
+                } else {
+                    out.push((b, e));
+                }
+            }
+        }
+        num_rat.extend(grow);
+        i += 1;
+    }
+    for (e, b) in pnew {
+        fold_numeric_power(num_pow(&b, e.as_number().unwrap()), coeff, out, pending);
+    }
+}
+
 /// Splits `(-n)**e` radicals into `n**e` and returns the total exponent of
 /// -1, counting a `(-1)**t` factor and `I` as `(-1)**(1/2)` like SymPy's
 /// `neg1e`, or `None` when no radical has a negative base, which leaves the
 /// product as it was.
 fn signed_radicals(radicals: &mut Vec<(Expr, Expr)>, out: &mut Vec<(Expr, Expr)>, pending: &mut Vec<Expr>) -> Option<Number> {
     let rational_exponent = |e: &Expr| e.as_number().filter(|n| n.is_rational() && n.is_positive()).cloned();
-    let negative_base = |b: &Expr| b.as_number().is_some_and(|n| n.is_integer() && n.is_negative());
+    let negative_base = |b: &Expr| b.as_number().is_some_and(|n| n.is_rational() && n.is_negative());
     if !radicals.iter().any(|(b, e)| negative_base(b) && rational_exponent(e).is_some()) { return None; }
     let mut total = Number::ZERO;
     let half = Number::rational_i64(1, 2).unwrap();
@@ -1190,7 +1306,8 @@ fn join_minus_one(total: Number, coeff: &mut Number, out: &mut Vec<(Expr, Expr)>
     }
     if rest.is_zero() { return; }
     if rest == Number::rational_i64(1, 2).unwrap() {
-        pending.push(Expr::i());
+        // SymPy appends I to c_part without flattening the radicals again.
+        out.push((Expr::i(), Expr::one()));
         return;
     }
     let exponent = Expr::num(rest);
@@ -1891,79 +2008,120 @@ fn minus_one_pow(e: &Number) -> Expr {
 
 const TRIAL_LIMIT: u64 = 1 << 15;
 
-/// `n ** (p/q)` for a positive integer `n` and a non-integer rational.
-fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
-    let (p, q) = e.numer_denom().unwrap();
-    // 1. perfect power reduction: n = m**g  =>  n**e = m**(e*g)
-    let (factors, cof) = trial_factor(n, TRIAL_LIMIT);
-    let mut g: u64 = 0;
-    for (_, m) in &factors {
-        g = g.gcd(&(*m as u64));
+/// Bit size above which an integer power is kept held instead of being
+/// materialized (SymPy tries and never finishes).
+const MAX_POWER_BITS: u64 = 1 << 26;
+
+/// `base ** k` as an integer, or `None` when it would exceed `MAX_POWER_BITS`.
+fn bounded_int_pow(base: &BigInt, k: &BigInt) -> Option<BigInt> {
+    let k = k.to_u64()?;
+    if base.bits().saturating_mul(k) > MAX_POWER_BITS {
+        return None;
     }
-    if !cof.is_one() {
-        // the unfactored cofactor: find its largest perfect-power exponent
-        let bits = cof.bits();
-        let mut k = (bits / 16).clamp(1, 64);
-        let mut cof_root_exp = 1u64;
-        while k >= 2 {
-            if exact_root(&cof, k as u32).is_some() {
-                cof_root_exp = k;
+    Some(num_traits::pow::Pow::pow(base, k))
+}
+
+/// `n ** (p/q)` for a positive integer `n` and a non-integer rational.
+///
+/// Port of SymPy's `Integer._eval_power` (and of `Rational._eval_power` for a
+/// negative exponent): perfect roots first, then the factors of `n` up to
+/// `2**15` are collected into an integer part, radicals of primes whose
+/// reduced exponent shares a factor with `q`, and one radical of the
+/// remaining primes with the gcd of their exponents (`72**(1/3)` is
+/// `2*3**(2/3)`, `1922**(2/3)` is `31*124**(1/3)`).
+fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
+    use num_traits::{Signed, Zero};
+    let held = || Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(n.clone())), Expr::num(e.clone())));
+    let (p, q) = e.numer_denom().unwrap();
+    if p.is_negative() {
+        // Rational(1, n)**(a/q) = n**(a*(q - 1)/q) / n**a
+        let a = -&p;
+        let Some(den) = bounded_int_pow(n, &a) else { return held(); };
+        let top_e = Number::rational(&a * (&q - BigInt::one()), q.clone()).unwrap();
+        let top = num_pow(&Number::from_bigint(n.clone()), &top_e);
+        return mul2(&top, &Expr::num(Number::rational(BigInt::one(), den).unwrap()));
+    }
+    let Some(q_small) = q.to_u32() else { return held(); };
+    // a perfect root: sqrt(4) -> 2
+    if let Some(x) = exact_root(n, q_small) {
+        return match bounded_int_pow(&x, &p) { Some(v) => Expr::num(Number::from_bigint(v)), None => held() };
+    }
+    let factors: Vec<(BigInt, BigInt)> = match crate::ntheory::factor::perfect_power(n, None, true) {
+        Some((base, k)) => vec![(base, BigInt::from(k))],
+        None => {
+            let (found, cof) = trial_factor(n, TRIAL_LIMIT);
+            let mut out: Vec<(BigInt, BigInt)> = found.into_iter().map(|(prime, m)| (prime, BigInt::from(m))).collect();
+            if !cof.is_one() {
+                match crate::ntheory::factor::perfect_power(&cof, None, true) {
+                    Some((base, k)) => out.push((base, BigInt::from(k))),
+                    None => out.push((cof, BigInt::one())),
+                }
+            }
+            out
+        }
+    };
+    // An infeasible integer part keeps the power held, on the base of a
+    // perfect power when there is one (4**(r/4) stays 2**(r/2)).
+    let perfect = match factors.as_slice() {
+        [(base, k)] if !k.is_one() => Some((base.clone(), k.clone())),
+        _ => None,
+    };
+    let held = || {
+        if let Some((base, k)) = &perfect {
+            let reduced = e.mul(&Number::from_bigint(k.clone()));
+            if !reduced.is_integer() {
+                return Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(base.clone())), Expr::num(reduced)));
+            }
+        }
+        held()
+    };
+    let mut out_int = BigInt::one();
+    let mut out_rad = Expr::one();
+    let mut remaining: Vec<(BigInt, BigInt)> = Vec::new();
+    for (prime, mult) in factors {
+        let exponent = mult * &p;
+        let (div_e, div_m) = exponent.div_mod_floor(&q);
+        if div_e.is_positive() {
+            let Some(v) = bounded_int_pow(&prime, &div_e) else { return held(); };
+            out_int *= v;
+            if out_int.bits() > MAX_POWER_BITS {
+                return held();
+            }
+        }
+        if div_m.is_positive() {
+            let g = div_m.gcd(&q);
+            if !g.is_one() {
+                let radical = num_pow(&Number::from_bigint(prime), &Number::rational(&div_m / &g, &q / &g).unwrap());
+                out_rad = mul2(&out_rad, &radical);
+            } else {
+                remaining.push((prime, div_m));
+            }
+        }
+    }
+    let mut sqr_gcd = BigInt::from(0);
+    for (_, ex) in &remaining {
+        if sqr_gcd.is_zero() {
+            sqr_gcd = ex.clone();
+        } else {
+            sqr_gcd = sqr_gcd.gcd(ex);
+            if sqr_gcd.is_one() {
                 break;
             }
-            k -= 1;
-        }
-        g = if g == 0 { cof_root_exp } else { g.gcd(&cof_root_exp) };
-    }
-    if g > 1 {
-        let m = exact_root(n, g as u32).unwrap();
-        let e2 = e.mul(&Number::int(g as i64));
-        return num_pow(&Number::from_bigint(m), &e2);
-    }
-    // 2. Integer._eval_power: collect perfect roots prime by prime.  Each
-    // prime**(m*p) is split by divmod(m*p, q); a remainder sharing a factor
-    // with q becomes a reduced radical ((2**2)**(1/6) -> 2**(1/3)), the
-    // other remainders share one radical of exponent gcd/q.
-    let mut entries: Vec<(BigInt, BigInt)> = factors.iter().map(|(prime, m)| (prime.clone(), BigInt::from(*m))).collect();
-    if !cof.is_one() {
-        entries.push((cof.clone(), BigInt::one()));
-    }
-    let held = || Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(n.clone())), Expr::num(e.clone())));
-    let mut outside = Number::ONE;
-    let mut radicals: Vec<Expr> = Vec::new();
-    let mut remaining: Vec<(BigInt, BigInt)> = Vec::new();
-    for (prime, m) in &entries {
-        let (whole, rest) = (m * &p).div_mod_floor(&q);
-        if !whole.is_zero() {
-            // the integer part cannot be materialized: keep the power held
-            // rather than dropping it (SymPy tries and never finishes)
-            let Some(factor) = whole.to_i64().and_then(|k| Number::from_bigint(prime.clone()).pow_i64(k)) else { return held() };
-            outside = outside.mul(&factor);
-        }
-        if !rest.is_zero() {
-            let g = rest.gcd(&q);
-            if g.is_one() {
-                remaining.push((prime.clone(), rest));
-            } else {
-                let exponent = Number::rational(&rest / &g, &q / &g).unwrap();
-                radicals.push(num_pow(&Number::from_bigint(prime.clone()), &exponent));
-            }
         }
     }
-    let common = remaining.iter().fold(BigInt::from(0), |g, (_, r)| g.gcd(r));
-    let mut base = BigInt::one();
-    for (prime, r) in &remaining {
-        let Some(k) = (r / &common).to_u64() else { return held() };
-        base *= num_traits::pow::Pow::pow(prime, k);
+    let mut sqr_int = BigInt::one();
+    for (k, v) in &remaining {
+        let Some(part) = bounded_int_pow(k, &(v / &sqr_gcd)) else { return held(); };
+        sqr_int *= part;
+        if sqr_int.bits() > MAX_POWER_BITS {
+            return held();
+        }
     }
-    if base == *n && outside.is_one() && radicals.is_empty() {
+    if sqr_int == *n && out_int.is_one() && out_rad.is_one() {
         return held();
     }
-    let mut factors = vec![Expr::num(outside)];
-    factors.extend(radicals);
-    if !base.is_one() {
-        factors.push(Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(base)), Expr::num(Number::rational(common, q).unwrap()))));
-    }
-    mul(&factors)
+    let rad = num_pow(&Number::from_bigint(sqr_int), &Number::rational(sqr_gcd, q).unwrap());
+    mul2(&mul2(&Expr::num(Number::from_bigint(out_int)), &out_rad), &rad)
 }
 
 // ----------------------------------------------------------------------

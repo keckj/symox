@@ -7332,3 +7332,58 @@ Remaining gaps:
   linear_coeff_01. Reference timeouts or crashes (nothing to do): fact_06,
   fact_11, 1st_exact_05/07, 2nd_nonlinear_autonomous_conserved_01..05,
   separable_reduced_01/02/04/08/11, dep_div_indep_03/05.
+
+## Wave 5 integration leftovers (integ-rest)
+
+Done:
+
+- `Integer**Rational` now follows SymPy's `Integer._eval_power`: exact
+  root first, then `perfect_power`, then `factors(limit=2**15)` with the
+  `out_int`/`out_rad`/`sqr_gcd` regrouping, and `n**(a*(q-1)/q)/n**a` for a
+  negative exponent. For example, `1922**(2/3)` is `31*124**(1/3)`,
+  `72**(1/3)` is `2*3**(2/3)`, `248**(1/6)` is `sqrt(2)*31**(1/6)` and
+  `12**(-1/3)` is `18**(1/3)/6`, as in SymPy.
+- Products of positive-integer radicals follow `Mul.flatten`: they are
+  grouped by base, then by exponent (`comb_e`), then the common integer gcd
+  of two radicals is extracted (`num_rat`), and the result is regrouped by
+  exponent (`pnew`). For example, `sqrt(12)*18**(1/3)` is
+  `2*3**(5/6)*6**(1/3)`, `2**(1/3)*6**(1/4)` is `2**(7/12)*3**(1/4)` and
+  `1922**(1/3)*62**(2/3)` is `62*31**(1/3)`. Held powers of a Rational
+  base take part as in `pnum_rat`, with the Rational gcd
+  `igcd(p)/ilcm(q)`. A `1/q` base reads as `q**(-e)` through
+  `Pow.as_base_exp`, and a negative base joins `neg1e`, so
+  `Mul(Pow(1/2, 1/3, evaluate=False), 6**(1/3))` is `3**(1/3)`. Before
+  this wave, 14 of the 23 integer probes and 6 of the 13 Rational-base
+  probes in `tests/test_integ_rest_parity.py` differed from SymPy. Now
+  none of the integer probes and 3 of the Rational-base probes differ.
+- A power whose integer part cannot be materialized stays held on the
+  base of a perfect power: `4**((10**20 + 1)/4)` is `2**((10**20 + 1)/2)`.
+  SymPy tries to build `2**(5*10**19)` and never finishes.
+- Integration corpus: the 18 MISSING and 10 DIFF cases were triaged again.
+  Every one is an intentional hold or a reference error that is already
+  documented: the definite integrals with parameters above, where SymPy's
+  value is wrong for some parameter values; `cos(s*x)` on `(0, oo)` with a
+  nonzero `s`, where SymPy returns `sin(oo*sign(s))/s`; and the
+  `laplace_transform`/Fourier values. No case was changed.
+
+Remaining gaps:
+
+- SymPy's `Mul.flatten` result depends on the argument order when a held
+  negative Rational-base power meets an integer radical:
+  `Mul(6**(3/4), (-1/3)**(3/2))` is `-sqrt(3)*6**(3/4)*I/9`, but
+  `Mul((-1/3)**(3/2), 6**(3/4))` is `-24**(1/4)*I/3`. Symox flattens in
+  canonical order and gives the second form in both cases, so
+  `(-sqrt(6)/3)**(3/2)` is `-24**(1/4)*I/3`, where SymPy's
+  `_eval_expand_power_base` gives the first. The two forms are equal. The
+  case is a strict xfail in `tests/test_pow_negative_base_parity.py`.
+- `ratint(1/(x**3 + x + 1))` raises `PolynomialDivisionFailed` in
+  `log_to_atan`, while SymPy returns a 16653-character closed form. The
+  `1922**(2/3)` reduction is now in place, but it is not enough. The
+  radicand that `roots_quadratic` passes through `simplify` gets a
+  different form from symox's native `simplify` than from SymPy's
+  pipeline. The resulting `EX` constant then mixes `1922**(1/3)` with
+  `2**(1/3)*31**(2/3)`, so `cancel` cannot prove `(1/b)*b - 1 == 0`, and the
+  division by a constant polynomial fails. A step-by-step emulation of
+  SymPy's simplify pipeline with symox functions gives SymPy's
+  intermediates. Fixing this needs SymPy's `simplify` pipeline (or its
+  output form for this radicand) in the native simplify.
