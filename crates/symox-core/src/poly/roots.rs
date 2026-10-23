@@ -1041,7 +1041,31 @@ fn roots_of_with(f: &UPoly, preprocess: bool) -> Vec<(Expr, u32)> {
     // preprocess: primitive integer polynomial for numerical domains
     if let Some(rs) = rats_of(&f) {
         let (_, z) = dense::clear_denoms(&rs);
-        let (_, pz) = dense::primitive(&z);
+        let (_, mut pz) = dense::primitive(&z);
+        // The reference `preprocess_roots` ends with `_integer_basis`: the
+        // roots of p(b*y)/b**n are found and multiplied by b.
+        let basis = {
+            let n = pz.len() - 1;
+            let terms: Vec<(u32, num_bigint::BigInt)> =
+                pz.iter().enumerate().rev().filter(|(_, c)| !c.is_zero()).map(|(i, c)| (i as u32, c.to_big())).collect();
+            match if preprocess { integer_basis(&terms) } else { None } {
+                Some(b) => {
+                    pz = pz
+                        .iter()
+                        .enumerate()
+                        .map(|(i, c)| Int::from_big(num_integer::Integer::div_floor(&c.to_big(), &num_traits::pow(b.clone(), n - i))))
+                        .collect();
+                    Some(Expr::num(Rat::new(Int::from_big(b), Int::one()).to_number()))
+                }
+                None => None,
+            }
+        };
+        if let Some(b) = basis {
+            let g = upoly_from_rats(&dense::to_rat(&pz));
+            for (r, k) in roots_of_with(&g, false) {
+                update(&mut result, &mut zeros, mul(&[b.clone(), r]), k);
+            }
+        } else {
         f = upoly_from_rats(&dense::to_rat(&pz));
         let n = f.deg();
         if n == 1 {
@@ -1083,6 +1107,7 @@ fn roots_of_with(f: &UPoly, preprocess: bool) -> Vec<(Expr, u32)> {
                     }
                 }
             }
+        }
         }
     } else if let Some((coeff, g)) = preprocess.then(|| preprocess_symbolic(&f)).flatten().filter(|(_, g)| g.c != f.c) {
         for (r, k) in roots_of_with(&g, false) {

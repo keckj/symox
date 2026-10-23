@@ -137,6 +137,94 @@ def _invert(eq, sym):
     return rhs, lhs
 
 
+def _bivariate_eq(eq, sym):
+    """The reference ``_tsolve`` rewrite of ``eq`` before ``_solve_lambert``:
+    the part without exp/log/symbolic-power generators is factored."""
+    from .. import (S, exp, expand_log, expand_power_exp, factor, log,
+                    powdenest)
+    from .bivariate import _filtered_gens
+    g = _filtered_gens(eq.as_poly(), sym)
+    up_or_log = set()
+    for gi in g:
+        if isinstance(gi, (exp, log)) or (gi.is_Pow and gi.base == S.Exp1):
+            up_or_log.add(gi)
+        elif gi.is_Pow:
+            gisimp = powdenest(expand_power_exp(gi))
+            if gisimp.is_Pow and sym in gisimp.exp.free_symbols:
+                up_or_log.add(gi)
+    eq_down = expand_log(expand_power_exp(eq)).subs(
+        dict(zip(up_or_log, [0]*len(up_or_log))))
+    return expand_power_exp(factor(eq_down, deep=True) + (eq - eq_down))
+
+
+def _bivariate_step(solve, eq, sym, flags):
+    """The ``bivariate`` block of the reference ``_tsolve``: the
+    ``sym**spow`` change of variable, ``_solve_lambert`` and
+    ``bivariate_type``."""
+    from .. import Dummy, Pow, checksol, log, nsimplify
+    from ..polys.polyerrors import PolynomialError
+    from .bivariate import _filtered_gens, _solve_lambert, bivariate_type
+    logs = eq.atoms(log)
+    spow = min(
+        {i.exp for j in logs for i in j.atoms(Pow) if i.base == sym} or {1})
+    if spow != 1:
+        p = sym**spow
+        u = Dummy('bivariate-cov')
+        ueq = eq.subs(p, u)
+        if not ueq.has_free(sym):
+            try:
+                sol = solve(ueq, u, **flags)
+                inv = solve(p - u, sym)
+            except NotImplementedError:
+                return None
+            return [i.subs(u, s) for i in inv for s in sol]
+    try:
+        eq = _bivariate_eq(eq, sym)
+        rhs, lhs = _invert(eq, sym)
+    except (NotImplementedError, ValueError):
+        return None
+    if not lhs.has(sym):
+        return None
+    try:
+        poly = lhs.as_poly()
+        if poly is None:
+            return None
+        g = _filtered_gens(poly, sym)
+        _eq = lhs - rhs
+        sols = _solve_lambert(_eq, sym, g)
+        for n, s in enumerate(sols):
+            ns = nsimplify(s)
+            if ns != s and ns.count_ops() <= s.count_ops():
+                ok = checksol(_eq, sym, ns)
+                if ok is None:
+                    ok = _eq.subs(sym, ns).equals(0)
+                if ok:
+                    sols[n] = ns
+        return sols
+    except NotImplementedError:
+        if len(g) == 2:
+            try:
+                try:
+                    gpu = bivariate_type(lhs - rhs, *g)
+                except PolynomialError:
+                    # generators that are not independent (``sqrt(x**3)``
+                    # with ``x**(1/3)``): no bivariate form
+                    return None
+                if gpu is None:
+                    return None
+                g, p, u = gpu
+                inner = dict(flags)
+                inner['bivariate'] = False
+                inversion = solve(g - u, sym, **inner)
+                if inversion:
+                    sol = solve(p, u, **flags)
+                    return list({i.subs(u, s)
+                                 for i in inversion for s in sol})
+            except NotImplementedError:
+                pass
+    return None
+
+
 _SAW = []
 _NO_FORCE = []
 
@@ -198,22 +286,41 @@ def _tsolve_step(solve, f, symbols, flags):
     if lhs.is_Pow and not lhs.exp.is_Integer and \
             sym not in lhs.exp.free_symbols:
         return solve(lhs.base - rhs**(1/lhs.exp), sym, **flags)
+    candidates = [(rhs, lhs)]
+    if flags.get('bivariate', True):
+        r = _bivariate_step(solve, f, sym, flags)
+        if r is not None:
+            return r
+        # the reference posify retry works on the rewritten equation; the
+        # equation before the rewrite is tried next (the native solver may
+        # handle only that form)
+        try:
+            candidates.insert(0, _invert(_bivariate_eq(f, sym), sym))
+        except (NotImplementedError, ValueError):
+            pass
     # the reference ends with a posify retry (``force`` is then False)
     if flags.get('force', True) and not _NO_FORCE:
-        pos, reps = posify(lhs - rhs)
-        for u, s in reps.items():
-            if s == sym:
-                break
-        else:
-            u = sym
-        if pos.has(u):
+        seen = []
+        for rhs, lhs in candidates:
+            eq = lhs - rhs
+            if eq in seen:
+                continue
+            seen.append(eq)
+            pos, reps = posify(eq)
+            for u, s in reps.items():
+                if s == sym:
+                    break
+            else:
+                u = sym
+            if not pos.has(u):
+                continue
             # ``force=False`` for the inner solve (the native solver does
             # not read that flag, so it is kept here)
             _NO_FORCE.append(True)
             try:
                 soln = solve(pos, u, **flags)
             except NotImplementedError:
-                return None
+                continue
             finally:
                 _NO_FORCE.pop()
             return [s.subs(reps) for s in soln]

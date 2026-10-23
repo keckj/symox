@@ -190,7 +190,15 @@ def radical_step(f, symbol, domain, solver):
     # symbol-dependent part is itself a sum. A single radical or power is
     # inverted first (and may stay a ConditionSet there).
     indep, dep = f.as_independent(symbol, as_Add=True)
-    if not dep.is_Add:
+    if dep.is_Mul:
+        # the reference inverters divide by a symbol-free coefficient and
+        # solve again; a product without one reaches ``unrad`` unchanged
+        g, h = dep.as_independent(symbol, as_Add=False)
+        if g is not S.One:
+            if g.is_zero is not False or g.is_finite is not True:
+                return None
+            return solver(h + indep/g, symbol, domain)
+    elif not dep.is_Add:
         return _invert_real_radical(indep, dep, symbol, domain, solver)
     try:
         u = unrad(f, symbol)

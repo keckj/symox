@@ -951,7 +951,48 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         return None;
     }
     let sols = crate::solve::solve(f, x)?;
-    Some(filter_domain(sols, domain))
+    let found = filter_domain(sols, domain);
+    // `solve` drops a candidate only when it is provably a pole; the
+    // reference `_solveset` subtracts the solutions of the denominator, so
+    // an undecided pole (`(x - a)/(x - b)` has no zero when `a = b`) stays
+    // as a Complement.
+    if has(&den, x)
+        && !(free_symbols_except(&den, x).is_empty() && free_symbols_except(&found, x).is_empty())
+        && !is_empty_set(&found)
+    {
+        if let Some(poles) = solve_zero(&den, x, domain, context) {
+            return Some(complement(&found, &poles));
+        }
+    }
+    Some(found)
+}
+
+/// An exact algebraic number (rationals, `I`, sums, products and rational
+/// powers): the radical roots of `_solve_as_poly`. Roots with logarithms
+/// (`log(4)/log(-2)` of `(-2)**x = 4`) are left undecided: the real
+/// inverter they need is not ported, and dropping the complex candidate
+/// would turn the missing real root into a false EmptySet.
+fn is_exact_algebraic(e: &Expr) -> bool {
+    use crate::number::Number;
+    let exact = |n: &Number| !matches!(n, Number::Float(_));
+    match e.kind() {
+        Kind::Num(n) => exact(n),
+        Kind::Const(Constant::I) => true,
+        Kind::Add(c, terms) => exact(c) && terms.iter().all(|(t, k)| exact(k) && is_exact_algebraic(t)),
+        Kind::Mul(c, factors) => exact(c) && factors.iter().all(|(b, x)| {
+            is_exact_algebraic(b) && matches!(x.kind(), Kind::Num(n) if exact(n))
+        }),
+        Kind::Pow(b, x) => is_exact_algebraic(b) && matches!(x.kind(), Kind::Num(n) if exact(n)),
+        _ => false,
+    }
+}
+
+fn free_symbols_except(e: &Expr, x: &Expr) -> Vec<Expr> {
+    crate::traverse::free_symbols(e).into_iter().filter(|s| s != x).collect()
+}
+
+fn is_empty_set(e: &Expr) -> bool {
+    is_op(e, SetOp::EmptySet)
 }
 
 fn exclude_poles(s: Expr, den: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Expr {
@@ -1030,7 +1071,32 @@ fn filter_domain(sols: Vec<Expr>, domain: &Expr) -> Expr {
             match crate::assumptions::is_real(&s) {
                 Some(true) => real.push(s),
                 Some(false) => {}
-                None => unknown.push(s),
+                None => {
+                    // The reference `_solve_as_poly` writes the numeric
+                    // roots as `expand_complex(s)` before intersecting with
+                    // the domain, which decides Cardano roots with a
+                    // cube root of unity factor.
+                    let expanded = if is_exact_algebraic(&s) {
+                        crate::complex_parts::expand_complex(&s, &crate::expand::ExpandOptions::default()).ok()
+                    } else {
+                        None
+                    };
+                    let realness = expanded.as_ref().and_then(|e| {
+                        crate::assumptions::is_real(e).or_else(|| {
+                            // a nonzero imaginary part (decided by the
+                            // assumption queries) proves the root not real
+                            match crate::complex_parts::as_real_imag_bounded(e, true, None) {
+                                Ok(Some((_, im))) if crate::assumptions::is_nonzero(&im) == Some(true) => Some(false),
+                                _ => None,
+                            }
+                        })
+                    });
+                    match realness {
+                        Some(true) => real.push(expanded.unwrap()),
+                        Some(false) => {}
+                        None => unknown.push(s),
+                    }
+                }
             }
         }
         let mut parts = vec![intersection(vec![finite_set(real), domain.clone()])];
