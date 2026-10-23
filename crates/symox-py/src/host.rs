@@ -41,6 +41,7 @@ const FUNC: u32 = 4096;
 const NONCOMMUTATIVE: u32 = 8192;
 const UNCOMMUTED: u32 = 16384;
 const COMMUTATIVE_HOOK: u32 = 32768;
+const PRETTY: u32 = 65536;
 
 fn may_not_commute(flags: u32) -> bool { flags & (NONCOMMUTATIVE | UNCOMMUTED | COMMUTATIVE_HOOK) != 0 }
 
@@ -362,6 +363,7 @@ fn wants(flags: u32, format: HostFormat) -> bool {
         HostFormat::Str => flags & STR != 0,
         HostFormat::Latex => flags & LATEX != 0,
         HostFormat::Repr => false,
+        HostFormat::Pretty | HostFormat::PrettyAscii => flags & PRETTY != 0,
     }
 }
 

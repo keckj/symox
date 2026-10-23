@@ -75,20 +75,32 @@ class OperatorExpr(_BasisDependent):
         terms = [coefficient*S._core._apply('OrderedProduct',*(a._native_atom() for a in word),evaluate=False) if word else coefficient for word,coefficient in self._terms.items()]
         return S.Add(*terms)
     def __repr__(self):
-        # Print like the reference Add/Mul printer: each operator word stands
-        # in as a placeholder symbol sorting after commuting factors, so
-        # coefficients, signs, denominators and term order follow it.
-        words = {}
-        for word in self._terms:
-            if word:words[word] = _word_repr(word)
-        if not words:return str(self._terms.get((),0))
-        placeholders = {word:'~~%s~%d'%(text,i) for i,(word,text) in enumerate(words.items())}
+        # Print like the reference Add/Mul printer: each operator atom stands
+        # in as a noncommutative placeholder symbol, so coefficients, signs,
+        # denominators and term order follow it.  The placeholder name starts
+        # with the atom class, then its text, so the noncommutative factor
+        # keys order like the reference ones (class key, then arguments).
+        if not any(self._terms):return str(self._terms.get((),0))
+        names,texts = {},{}
+        def placeholder(atom):
+            if atom not in names:
+                text = atom._atom_repr()
+                name = '~~%s~%s~%d'%(type(atom).__name__,text,len(names))
+                names[atom] = name;texts[name] = text
+            return S.Symbol(names[atom],commutative=False)
+        def factor(atom):
+            if isinstance(atom,PowerAtom) and isinstance(atom.base,Atom):return placeholder(atom.base)**atom.power
+            return placeholder(atom)
         try:
-            native = S.Add(*(c*S.Symbol(placeholders[w],commutative=False) if w else c for w,c in self._terms.items()))
+            native = S.Add(*(c*S.Mul(*(factor(a) for a in w)) if w else c for w,c in self._terms.items()))
             text = str(native)
         except Exception:
+            words = {w:_word_repr(w) for w in self._terms if w}
             return ' + '.join((words[w] if c==1 else str(c)+'*'+words[w]) if w else str(c) for w,c in self._terms.items())
-        for word,name in sorted(placeholders.items(),key=lambda item:-len(item[1])):text = text.replace(name,words[word])
+        for name in sorted(texts,key=len,reverse=True):
+            atom = texts[name]
+            simple = atom.replace('_','').isalnum() or (atom.endswith(')') and atom.count('(')==1 and atom[0].isalpha()) or (atom.startswith('[') and atom.endswith(']')) or (atom.startswith('{') and atom.endswith('}'))
+            text = text.replace(name+'**',(atom if simple else '(%s)'%atom)+'**').replace(name,atom)
         return text
     __str__ = __repr__
     def __eq__(self,other):

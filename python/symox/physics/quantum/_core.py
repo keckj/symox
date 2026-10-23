@@ -18,6 +18,11 @@ class HBar(S.NumberSymbol):
         # Reference HBar._as_mpf_val: the double 1.05457162e-34 at the precision.
         return S.Float(mpmath.mpf(1.05457162e-34),mpmath.libmp.prec_to_dps(prec))
     def _sympystr(self,printer,*args):return 'hbar'
+    def _latex(self,printer,*args):return r'\hbar'
+    def _pretty(self,printer,*args):
+        from symox.printing.pretty.stringpict import prettyForm
+        if printer._use_unicode:return prettyForm('\N{PLANCK CONSTANT OVER TWO PI}')
+        return prettyForm('hbar')
 HBar.__module__='symox.physics.quantum.constants'
 hbar=HBar()
 

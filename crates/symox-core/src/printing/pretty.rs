@@ -721,6 +721,14 @@ impl PrettyPrinter<'_> {
     }
 
     fn print(&self, e: &Expr) -> Pict {
+        if e.has_host() && matches!(e.kind(), Kind::Sym(_) | Kind::Func(_, _)) {
+            // A host `_pretty` of an atom or nullary application (HBar).
+            let nullary = match e.kind() { Kind::Func(_, args) => args.is_empty(), _ => true };
+            let format = if self.s.use_unicode { crate::host::HostFormat::Pretty } else { crate::host::HostFormat::PrettyAscii };
+            if nullary {
+                if let Some(text) = crate::host::print(e, format) { return Pict::new(&text); }
+            }
+        }
         match e.kind() {
             Kind::Num(n) => self.print_number(n),
             Kind::Sym(s) => Pict::new(&pretty_symbol(&crate::host::atom_name(e, s))),

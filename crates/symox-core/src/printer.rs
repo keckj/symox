@@ -280,11 +280,6 @@ pub(crate) fn write_expr(e: &Expr, out: &mut String) {
 
 /// Terms of an `Add` in SymPy's printing order.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    if let Kind::Add(_, terms) = e.kind() {
-        if e.may_have_order() && terms.iter().any(|(t, _)| t.is_func(&Func::Order)) {
-            return crate::series::print::series_ordered_terms(e);
-        }
-    }
     crate::printing::order::ordered_terms(e)
 }
 
@@ -340,7 +335,7 @@ fn write_mul(e: &Expr, out: &mut String) {
     } else {
         Expr::from_kind(Kind::Mul(c, factors_src.clone()))
     };
-    let ordered = crate::sortkey::ordered_factors(&body);
+    let ordered = crate::printing::order::ordered_factors(&body);
     let mut num: Vec<Expr> = Vec::new();
     let mut den: Vec<Expr> = Vec::new();
     for item in ordered {

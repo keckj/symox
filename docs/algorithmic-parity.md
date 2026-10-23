@@ -5697,3 +5697,58 @@ Remaining gaps:
 - LaTeX of quantum states inside `FiniteSet` (sets printer).
 - Diffgeom LaTeX of `TensorProduct`/`WedgeProduct` (`\otimes`, `\wedge`),
   and the unevaluated `Differential` of a scalar expression.
+
+## Printing order of Add terms and Mul factors (print-order, 2026-10-23)
+
+`str`, `latex` and `pretty` order the terms of a sum and the factors of a
+product as SymPy 1.14 `Add.as_ordered_terms` and `Mul.as_ordered_factors`
+do. The stored canonical order of `Add`/`Mul` arguments is unchanged.
+`printing::order` holds one implementation of `as_terms` and of
+`default_sort_key`, and the keys of one print are computed once and shared:
+- `as_terms`: every numeric factor multiplies into the complex coefficient,
+  where `complex(zoo)` is `nan+nanj`. The generators are sorted by
+  `default_sort_key`, and the sort is stable. With an `Order` term, both
+  groups are sorted in reverse and the `Order` terms follow the regular
+  terms.
+- The special case of SymPy is kept: a positive Number or NumberSymbol stays
+  before a negated single factor (`2 - 3*x`, `pi - x`). `oo - x` prints as
+  `-x + oo`.
+- `Function.class_key` uses the `funcs` table. A held undefined head whose
+  name is a SymPy class with a finite `nargs` orders with 10000, as SymPy
+  does, which puts `f(1)` before `SingularityFunction(x, 1, 0)`. `Max` and
+  `Min` use `Basic.class_key`, and `Heaviside(x)` sorts with the arguments
+  `(x, 1/2)`.
+- Held sums and products keep the `make_args` order of their held
+  arguments, as before.
+- Series coefficients of `gamma` and summation results hold the `zeta`
+  function, not an undefined `zeta`. `qho_1d` uses the quantum `hbar`
+  number symbol, which prints as `\hbar` in LaTeX and as the Planck glyph in
+  pretty. A host atom's one-line `_pretty` form now reaches the native
+  pretty printer.
+- `OperatorExpr` (`Commutator.expand`, `Operator` powers) prints through the
+  same `Add`/`Mul` order.
+
+Probe: 1973 random expressions with seed fixed, against SymPy 1.14.
+
+| | str | as_ordered_terms | as_ordered_factors | latex | str order-only |
+|---|---|---|---|---|---|
+| before | 182 | 175 | 183 | 1182 | 57 |
+| after | 138 | 138 | 139 | 1176 | 17 |
+
+The remaining `str` mismatches are not caused by ordering. They are
+evaluation differences: `(1/2)**x` versus `2**(-x)`, the distribution of
+`re`/`im`, and powers of `I`.
+
+Remaining gaps:
+- `re`, `im`, `Heaviside` and `DiracDelta` of noncommutative arguments are
+  commutative in SymPy and noncommutative here. This explains the 17
+  remaining order-only mismatches.
+- `hbar.is_number` is False here and True in SymPy, which leaves
+  `psi_n(n >= 1)` with a different factor order.
+- One probe expression segfaults symox, where SymPy raises `ValueError`.
+  It was skipped.
+- Printing gaps unrelated to order: LaTeX `\zeta{\left(3 \right)}` versus
+  `\zeta\left(3\right)`; `Order` in LaTeX and pretty, printed as
+  `Order(x**3, x, 0)` instead of `O(x**3)`; LaTeX and pretty of
+  `SingularityFunction`; LaTeX and pretty of `Commutator` expansions, which
+  print the `OrderedProduct` structure.

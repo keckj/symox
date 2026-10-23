@@ -13,7 +13,7 @@ use num_complex::Complex64;
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::functions::is_numeric_value;
 use crate::number::Number;
-use crate::ops::{as_coeff_mul, pow};
+use crate::printing::order::decompose_power;
 use crate::matrixexpr::{MatrixExpr, MatrixKind, MatrixOperand};
 
 /// Presentation arguments deliberately differ from scalar `Expr::args()`:
@@ -235,13 +235,41 @@ fn share_key(key: Key) -> Key {
 
 /// SymPy `Function.class_key` ordinal of an undefined head: the known names
 /// first, then 0 for any argument count (`Naturals0`) and 10000 otherwise.
+/// SymPy 1.14 function classes whose `nargs` is finite (generated from
+/// `_function_nargs.NARGS`): their held instances order with 10000.
+const FIXED_NARGS_CLASSES: &[&str] = &[
+    "Abs", "BesselBase", "Chi", "Ci", "Coeff", "DiracDelta", "Ei", "FallingFactorial",
+    "FresnelIntegral", "Heaviside", "KroneckerDelta", "LambertW", "Li", "Mod", "Not",
+    "ReciprocalHyperbolicFunction", "ReciprocalTrigonometricFunction", "Rem", "RisingFactorial",
+    "RoundFunction", "Shi", "Si", "SingularityFunction", "SphericalBesselBase",
+    "SphericalHankelBase", "TrigonometricIntegral", "Ynm", "Znm", "_erfs", "_rf", "acos", "acosh",
+    "acot", "acoth", "acsc", "acsch", "airyai", "airyaiprime", "airybi", "airybiprime", "andre",
+    "appellf1", "arg", "asec", "asech", "asin", "asinh", "assoc_laguerre", "assoc_legendre", "atan",
+    "atan2", "atanh", "bell", "bernoulli", "besseli", "besselj", "besselk", "bessely", "beta",
+    "betainc", "betainc_regularized", "binomial", "catalan", "ceiling", "chebyshevt",
+    "chebyshevt_root", "chebyshevu", "chebyshevu_root", "conjugate", "cos", "cosh", "cot", "coth",
+    "csc", "csch", "digamma", "dirichlet_eta", "divisor_sigma", "elliptic_e", "elliptic_f",
+    "elliptic_k", "elliptic_pi", "erf", "erf2", "erf2inv", "erfc", "erfcinv", "erfi", "erfinv",
+    "euler", "exp", "expint", "factorial", "factorial2", "fibonacci", "floor", "frac", "fresnelc",
+    "fresnels", "gamma", "gegenbauer", "genocchi", "hankel1", "hankel2", "harmonic", "hermite",
+    "hermite_prob", "hn1", "hn2", "hyper", "im", "jacobi", "jacobi_symbol", "jn",
+    "kronecker_symbol", "laguerre", "legendre", "legendre_symbol", "li", "log", "loggamma",
+    "lowergamma", "lucas", "marcumq", "mathieuc", "mathieucprime", "mathieus", "mathieusprime",
+    "mobius", "motzkin", "multigamma", "partition", "periodic_argument", "polar_lift", "polygamma",
+    "polylog", "primenu", "primeomega", "primepi", "principal_branch", "re", "reduced_totient",
+    "riemann_xi", "sec", "sech", "sign", "sin", "sinc", "sinh", "stieltjes", "subfactorial", "tan",
+    "tanh", "totient", "transpose", "tribonacci", "trigamma", "udivisor_sigma", "uppergamma", "yn",
+    "zeta",
+];
+
 pub(crate) fn undefined_ordinal(head: &crate::expr::UndefinedFunction) -> u32 {
     match &*head.name {
         "exp" => 10, "log" => 11,
         "sin" => 20, "cos" => 21, "tan" => 22, "cot" => 23,
         "sinh" => 30, "cosh" => 31, "tanh" => 32, "coth" => 33,
         "conjugate" => 40, "re" => 41, "im" => 42, "arg" => 43,
-        _ if head.nargs.is_some() => 10000,
+        // A held instance of a fixed-arity SymPy class carries no nargs here.
+        name if head.nargs.is_some() || FIXED_NARGS_CLASSES.binary_search(&name).is_ok() => 10000,
         _ => 0,
     }
 }
@@ -263,7 +291,8 @@ pub fn class_key(e: &Expr) -> Key {
         Kind::Mul(..) => (3, 0, "Mul".into()),
         Kind::Add(..) => (3, 1, "Add".into()),
         Kind::Func(f @ (Func::MatrixElement(_)|Func::MatrixTrace(_)|Func::MatrixDeterminant(_)|Func::MatrixDotProduct(..)),_)=>(5,0,f.name().into()),
-        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order), _) => (5, 0, f.name().into()),
+        // Max and Min are not Function subclasses: Basic.class_key.
+        Kind::Func(f @ (Func::Logic(_) | Func::Set(_) | Func::Subs | Func::Limit | Func::Integral | Func::Sum | Func::Product | Func::Order | Func::Max | Func::Min), _) => (5, 0, f.name().into()),
         Kind::Func(Func::Undefined(head), args) if crate::poly::rootof::is_rootof_head(head, args.len()) => (5, 0, "ComplexRootOf".into()),
         Kind::Func(Func::Undefined(head), _) if head.internal => (5, 0, head.name.to_string()),
         // An Expr or Atom subclass that is not a Function keeps its class_key.
@@ -447,7 +476,8 @@ impl SortKeyCache {
         vec![Key::Str(crate::printer::to_str(&base))]
     } else {
         match base.kind() {
-            Kind::Add(..) => self.ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
+            Kind::Add(..) if !base.is_canonical() => self.held_ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
+            Kind::Add(..) => crate::printing::order::ordered_terms(&base).iter().map(|arg| self.key(arg)).collect(),
             Kind::Mul(..) => self.ordered_factors(&base).iter().map(|arg| self.key(arg)).collect(),
             _ => base.args().iter().map(|arg| self.key(arg)).collect(),
         }
@@ -476,44 +506,15 @@ impl SortKeyCache {
     }
 }
 
-/// SymPy's `decompose_power`: `(base, integer exponent)`.
-fn decompose_power(f: &Expr) -> (Expr, i64) {
-    let (b, x) = match f.kind() {
-        Kind::Pow(b, x) => (b.clone(), x.clone()),
-        Kind::Func(Func::Exp, a) => (Expr::e(), a[0].clone()),
-        _ => return (f.clone(), 1),
-    };
-    if let Some(n) = x.as_number() {
-        return match n {
-            Number::Int(k) => (b, *k),
-            Number::Rational(r) => {
-                let q = num_traits::ToPrimitive::to_i64(r.denom()).unwrap_or(1);
-                let p = num_traits::ToPrimitive::to_i64(r.numer()).unwrap_or(1);
-                (pow(&b, &Expr::rational(1, q)), p)
-            }
-            _ => (f.clone(), 1),
-        };
-    }
-    let (c, tail) = as_coeff_mul(&x);
-    if !c.is_rational() || c.is_one() {
-        return (f.clone(), 1);
-    }
-    if c.is_minus_one() {
-        return (pow(&b, &tail), -1);
-    }
-    let p = c.numer().to_i64().unwrap_or(1);
-    let q = c.denom().to_i64().unwrap_or(1);
-    let t = crate::ops::mul2(&Expr::rational(1, q), &tail);
-    (pow(&b, &t), p)
-}
-
 /// SymPy's `as_ordered_terms` (default `lex` order) for a sum.
 pub fn ordered_terms(e: &Expr) -> Vec<Expr> {
-    SortKeyCache::default().ordered_terms(e)
+    crate::printing::order::ordered_terms(e)
 }
 
 impl SortKeyCache {
-fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
+/// `as_ordered_terms` of a held sum: `Add.make_args` keeps the held
+/// arguments, numeric subtrees evaluate to complex coefficients.
+pub(crate) fn held_ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
     let args = match e.kind() {
         Kind::Add(..) => e.args(),
         _ => return vec![e.clone()],
@@ -602,7 +603,16 @@ fn ordered_terms(&mut self, e: &Expr) -> Vec<Expr> {
 }
 }
 
-fn numeric_coefficient(e:&Expr)->Option<Complex64>{
+fn is_number_symbol(e: &Expr) -> bool {
+    matches!(e.kind(), Kind::Const(c) if c.is_number_symbol())
+}
+
+/// `as_ordered_terms` of a held sum (see `SortKeyCache::held_ordered_terms`).
+pub(crate) fn held_ordered_terms(e: &Expr) -> Vec<Expr> {
+    SortKeyCache::default().held_ordered_terms(e)
+}
+
+pub(crate) fn numeric_coefficient(e:&Expr)->Option<Complex64>{
     if matches!(e.kind(),Kind::Const(Constant::NaN|Constant::ComplexInfinity)){return Some(Complex64::new(f64::NAN,f64::NAN));}
     if let Some(value)=crate::evalf::eval_c64(e){return Some(value);}
     // Closed held arithmetic can contain zoo/nan, which the finite evaluator
@@ -618,10 +628,6 @@ fn numeric_coefficient(e:&Expr)->Option<Complex64>{
         if value!=*e{return numeric_coefficient(&value);}
     }
     None
-}
-
-fn is_number_symbol(e: &Expr) -> bool {
-    matches!(e.kind(), Kind::Const(c) if c.is_number_symbol())
 }
 
 /// Compare expressions using SymPy default ordering.
