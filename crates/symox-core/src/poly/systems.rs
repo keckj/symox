@@ -36,12 +36,28 @@ fn complete_roots(e: &Expr, x: &Expr) -> PResult<Vec<Expr>> {
     if roots.iter().map(|(_, m)| *m as usize).sum::<usize>() != degree {
         return Err(unsupported("a complete solution set cannot be expressed by the implemented radical root algorithms"));
     }
+    if coefficients.iter().all(Expr::is_rational_number) {
+        // SymPy's solve_generic keeps the raw `roots` output of a univariate
+        // polynomial over QQ (`roots(f.ltrim(gen))`), neither simplified nor
+        // re-verified: the exact radical formulas are complete there. A
+        // simplify of the substituted residual of cubic or quartic radicals
+        // can take unbounded time in the algebraic multivariate gcd.
+        let mut values: Vec<_> = roots.into_iter().map(|(root, _)| root).collect();
+        values.sort_by_cached_key(crate::sortkey::sort_key);
+        values.dedup();
+        return Ok(values);
+    }
+    // The root -c0/c1 of a linear polynomial with a certified nonzero
+    // leading coefficient is exact by construction (SymPy's roots_linear),
+    // so its residual needs no zero certificate.
+    let linear = degree == 1 && scalar_zero_status(&normalize(&coefficients[1])) == Some(false);
     let mut values = Vec::new();
     for (root, _) in roots {
         // Expansion can turn related radicals into independent-looking
         // powers. Preserve the original formula for algebraic certificates.
         let residual = subs1(e, x, &root);
-        if super::radical_cert::is_zero(&residual) != Some(true)
+        if !linear
+            && super::radical_cert::is_zero(&residual) != Some(true)
             && scalar_zero_status(&normalize(&residual)) != Some(true) {
             return Err(unsupported("an exact zero certificate for a radical root is not implemented"));
         }
@@ -131,7 +147,9 @@ fn descend(
             .collect();
         let mut values = assignment.to_vec();
         for value in values.iter_mut().flatten() {
-            *value = normalize(&subs1(value, &variables[j], &root));
+            if has(value, &variables[j]) {
+                *value = normalize(&subs1(value, &variables[j], &root));
+            }
         }
         values[j] = Some(root);
         result.extend(descend(&rest, variables, &next, &values, lex)?);

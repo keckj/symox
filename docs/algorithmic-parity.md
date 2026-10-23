@@ -5514,3 +5514,66 @@ Remaining gaps:
   NotImplementedError. `[x**3 + 1/y, x - y]` prints `y` in the factored
   `sqrt(2)*(1 + I)/2` form, where the reference prints the expanded
   `sqrt(2)/2 + sqrt(2)*I/2`.
+
+## Cubic and quartic roots in rational `nonlinsolve` systems on 2026-10-23
+
+`nonlinsolve([x**3 + 1/y - 2, x - y], [x, y])` did not finish. SymPy
+clears the denominators, takes the grevlex Groebner basis of the numerators,
+converts it to lex with FGLM and calls `solve_poly_system`. Its
+`solve_generic` keeps the raw `roots(f.ltrim(gen))` output of the
+univariate basis element over QQ. It neither simplifies nor re-verifies
+these roots. Symox checked each root by substituting it into the
+polynomial. When the radical certificate failed, it fell back to
+`simplify(expand(residual))`, and for the complex cubic and quartic roots
+that call does not end (it goes through `cancel` into the
+algebraic-field multivariate gcd).
+
+The native system solver (`poly/systems.rs`, `complete_roots`) now follows
+the reference:
+
+- Roots of a univariate polynomial with rational coefficients are the
+  exact `roots` formulas. They are kept unsimplified and are not
+  re-verified, as in SymPy. The value of the last lex variable now prints
+  like the reference: `y = sqrt(2)/2 + sqrt(2)*I/2` in `[x**3 + 1/y, x - y]`,
+  and the cubic-formula forms such as `-1/3 - 2/(9*(17/27 +
+  sqrt(33)/9)**(1/3)) + (17/27 + sqrt(33)/9)**(1/3)`.
+- The root `-c0/c1` of a linear polynomial whose leading coefficient is
+  certified nonzero is exact by construction (SymPy's `roots_linear`), so it
+  no longer needs a residual zero certificate. Other degrees with
+  non-rational coefficients keep the certificate.
+- A value already assigned is re-normalized only if it contains the variable
+  just solved.
+
+Denominator filtering is unchanged: roots where a denominator of the
+original system vanishes are still dropped (intentional divergence, see the
+rational nonlinsolve section above).
+
+A probe of 46 rational, polynomial and parametric systems (2 and 3
+unknowns, degrees 1 to 5, denominators, parameters) was run with a 60 s
+timeout per call. It went from 22 outputs identical to SymPy 1.14, 1 hang
+and 5 errors to 26 identical, 0 hangs and 3 errors. No identical output
+became different. Newly solved: `[x**3 + 1/y - 2, x - y]` (0.2 s),
+`[x**3 + 1/y - 2, x + y]` (it used to raise NotImplementedError, SymPy
+returns the four quartic-formula solutions; symox takes 5 s) and
+`[x**3 + 1/y - 3, x - y]`. The other differences are equal sets in another
+printed form, or intentional.
+
+Remaining gaps:
+
+- The components solved after the last variable (the `x` of the examples
+  above) print in another form. SymPy computes them with `roots` over the
+  EX domain. There, `preprocess_roots` clears the denominators before
+  `roots_linear` simplifies `-c0/c1`, which gives forms such as
+  `(-(17 + 3*sqrt(33))**(1/3) + 4 + ...)/(3*(1 - sqrt(3)*I)*(17 +
+  3*sqrt(33))**(1/3))`. Symox simplifies the substituted equation. The
+  values are equal.
+- With radicals of the quartic formula, several radicands are exactly
+  negative reals. At 15 or 30 digits, `evalf` (in SymPy too) can land on
+  the wrong side of the branch cut. A 30-digit substitution check then
+  reports non-solutions that are correct: at 80 digits, through mpmath,
+  they are exact. SymPy's own output for `[x**3 + 1/y - 1, x - y]` shows
+  the same effect.
+- Still unsupported (NotImplementedError, SymPy solves them):
+  `[a*x + y - 1, x - y]` and `[x**2 + a/y, x - y]` with a free parameter
+  `a`. Also `[x**2 + 1/y - 1, x - y**2]`, whose quintic factor SymPy
+  returns as `CRootOf` through the substitution path.
