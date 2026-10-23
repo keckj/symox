@@ -135,6 +135,10 @@ class _BasisDependent:
         options = {k:v for k,v in kwargs.items() if k not in flags}
         return self._new({b:Integral(c,*args,**options) for b,c in self._components.items()})
 
+    def _eval_Integral(self, *symbols, **assumptions):
+        from .. import Integral
+        return self._new({b:Integral(c,*symbols,**assumptions) for b,c in self._components.items()})
+
     def simplify(self, **kwargs):
         return self._map('simplify',**kwargs)
 

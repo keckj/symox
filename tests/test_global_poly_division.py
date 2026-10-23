@@ -304,9 +304,20 @@ def test_mixed_poly_expression_joint_inference_and_explicit_override(op, kind):
 @pytest.mark.parametrize('op', OPS)
 def test_unimplemented_valid_options_are_rejected_explicitly(op):
     x=sm.Symbol('x')
-    for option in ['greedy','sort','wrt','symmetric']:
+    for option in ['greedy','symmetric']:
         with pytest.raises(NotImplementedError):
             getattr(sm,op)(x+1,x,x,**{option:True})
+
+
+@pytest.mark.parametrize('op', OPS)
+def test_generator_order_options_follow_reference(op):
+    # explicit generators ignore wrt/sort, whose values are still validated
+    x=sm.Symbol('x')
+    for option in ['sort','wrt']:
+        with pytest.raises(sm.OptionError,match="invalid argument for '%s' option"%option):
+            getattr(sm,op)(x+1,x,x,**{option:True})
+    if op!='exquo':
+        assert getattr(sm,op)(x+1,x,x,wrt=x)==getattr(sm,op)(x+1,x,x)
 
 
 @pytest.mark.parametrize('op', OPS)

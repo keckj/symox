@@ -50,6 +50,14 @@ from ._core import (
 _native_integrate = integrate
 
 
+def _basis_dependent(value):
+    """Whether ``value`` is a vector or dyadic of ``symox.vector``: the
+    reference integrates those componentwise through ``_eval_Integral``."""
+    import sys
+    module = sys.modules.get('symox.vector._basis')
+    return module is not None and isinstance(value, module._BasisDependent)
+
+
 def _user_hook(value, name):
     """The ``name`` method a user host class (Quaternion) defines for
     ``value``, or None: the reference ``Integral`` and ``conjugate``
@@ -70,6 +78,10 @@ def integrate(*args, **kwargs):
     over an infinite interval of an oscillating integrand whose
     antiderivative has accumulation bounds at the infinite endpoint is the
     difference of those bounds, as in the reference."""
+    if args and _basis_dependent(args[0]):
+        # Integral(vector) holds each component; integrate() re-evaluates
+        # only the Integral arguments of that sum (Vector.integrate).
+        return args[0].integrate(*args[1:], **kwargs)
     hook = _user_hook(args[0], '_eval_Integral') if args else None
     if hook is not None:
         return hook(*args[1:], **kwargs)
@@ -469,6 +481,8 @@ class Integral(metaclass=_CalculusMeta):
             raise NotImplementedError("Integral constructor options are not implemented")
         # a sequence limit is flattened, as the reference `_process_limits`
         # does: `Integral(f, ((x,),))` is `Integral(f, (x,))`
+        if _basis_dependent(function):
+            return function._eval_Integral(*limits)
         hook = _user_hook(function, '_eval_Integral')
         if hook is not None:
             return hook(*limits)
@@ -2181,6 +2195,13 @@ def reduce_inequalities(inequalities, symbols=[]):  # noqa: B006
         from .solvers.inequalities import _reduce_abs_system
         try:return _reduce_abs_system(inequalities,syms)
         except (ValueError,TypeError,NotImplementedError):pass
+    from .solvers.inequalities import _reduce_multisymbol
+    if not hasattr(symbols, '__iter__'):
+        symbols = [symbols]
+    multi = _reduce_multisymbol([sympify(c) for c in conditions], list(symbols),
+                                lambda group, gen: _core.reduce_inequalities(group, gen))
+    if multi is not None:
+        return multi
     return _core.reduce_inequalities(inequalities, syms)
 
 
@@ -2937,12 +2958,30 @@ class _ExactIntegerLambda:
         self._exact = exact
 
     def __call__(self, *values, **kw):
-        if not kw and any(type(v) is int for v in values):
+        if not kw and values and any(type(v) in (int, bool) for v in values):
+            return self._exact(*values)
+        if not kw and values and all(_numpy_integer(v) for v in values):
+            # NumPy integer arrays and scalars keep their integer dtype in
+            # the reference generated code (x + 1 on an int64 array).
             return self._exact(*values)
         return self._native(*values, **kw)
 
     def __getattr__(self, name):
         return getattr(self._native, name)
+
+
+def _numpy_integer(value):
+    """Whether ``value`` is a Python int or a NumPy integer scalar or array
+    (the NumPy module is consulted only once it is imported)."""
+    if type(value) in (int, bool):
+        return True
+    import sys
+    numpy = sys.modules.get('numpy')
+    if numpy is None:
+        return False
+    if isinstance(value, numpy.ndarray):
+        return value.dtype.kind in 'biu'
+    return isinstance(value, (numpy.integer, numpy.bool_))
 
 
 def _integer_polynomial_lambda(args, expr, modules):
@@ -3016,11 +3055,37 @@ def _make_apart_entry(_native):
             result = _apart_full(f, x, **options)
             if result is not None:
                 return result
-        return _native(f, x, full=full, **options)
+        try:
+            return _native(f, x, full=full, **options)
+        except ValueError as error:
+            # the reference refuses a multivariate decomposition with
+            # NotImplementedError (sympy.polys.partfrac.apart)
+            if str(error) == "multivariate partial fraction decomposition":
+                raise NotImplementedError(str(error)) from None
+            raise
     return apart
 
 
 apart = _make_apart_entry(apart)
+
+
+def _make_together_entry(_native):
+    import functools
+
+    @functools.wraps(_native)
+    def together(expr, *args, **kwargs):
+        # the reference signature is together(expr, deep=False, fraction=True)
+        for key in kwargs:
+            if key not in ('deep', 'fraction'):
+                raise TypeError("together() got an unexpected keyword argument '%s'" % key)
+        if len(args) > 2:
+            raise TypeError("together() takes from 1 to 3 positional arguments but %d were given"
+                            % (len(args) + 1))
+        return _native(expr, *args, **kwargs)
+    return together
+
+
+together = _make_together_entry(together)
 
 
 def _make_solve_entry(_native):
@@ -3523,6 +3588,15 @@ from .integrals._integral_extras import install as _install_integral_extras  # n
 _install_integral_extras()
 from .series._order_contains import install as _install_order_contains  # noqa: E402
 _install_order_contains()
+# The generator-ordering options wrt and sort of the polys functions.
+from .polys import _wrt_option as _wrt_option_module  # noqa: E402
+from . import polys as _polys_package  # noqa: E402
+from .polys import polytools as _polytools_module  # noqa: E402
+_wrt_option_module.install_univariate_errors(globals(), vars(_polys_package), vars(_polytools_module))
+_wrt_option_module.install(globals(), vars(_polys_package), vars(_polytools_module))
+del _wrt_option_module, _polys_package, _polytools_module
+from .polys.rings import install_anp_printing as _install_anp_printing  # noqa: E402
+_install_anp_printing()
 # Public module paths of the reference classes (type() printing).
 for _cls, _mod in ((Tuple, 'symox.core.containers'), (AlgebraicNumber, 'symox.core.numbers')):
     try:

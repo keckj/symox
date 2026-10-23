@@ -89,7 +89,7 @@ def test_characteristic_obstruction_raises_instead_of_inverting_zero():
 def test_multivariate_and_sparse_huge_degrees_fail_before_dense_allocation():
     x,y,t=sx.symbols('x y t')
     for domain in ['QQ(t)','QQ<sqrt(2)>']:
-        with pytest.raises(NotImplementedError):sx.Poly(x*x+y,x,y,domain=domain).decompose()
+        with pytest.raises(ValueError,match='univariate polynomial expected'):sx.Poly(x*x+y,x,y,domain=domain).decompose()
         with pytest.raises(NotImplementedError):sx.Poly(x**1000000000+1,x,domain=domain).decompose()
     with pytest.raises(NotImplementedError):sx.Poly(x**1000000000+1,x).decompose()
 

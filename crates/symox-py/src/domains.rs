@@ -1155,6 +1155,8 @@ impl PyDomainElement {
             || other.getattr("_symox_quotient_element").is_ok_and(|v|v.is_truthy().unwrap_or(false))
             || other.getattr("is_Matrix").is_ok_and(|v|v.is_truthy().unwrap_or(false))
             || other.getattr("_symox_sparse").is_ok_and(|v|v.is_truthy().unwrap_or(false))
+            // A ring or field element over this domain applies the scalar itself.
+            || other.getattr("_symox_ring_element").is_ok_and(|v|v.is_truthy().unwrap_or(false))
             || other.downcast::<crate::matrices::PyMatrix>().is_ok() {
             return Ok(other.py().NotImplemented());
         }

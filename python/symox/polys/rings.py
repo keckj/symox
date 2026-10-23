@@ -103,6 +103,8 @@ class PolyElement:
     # Expressions on the left defer to the element, as the reference
     # ``Expr`` binary methods return ``NotImplemented`` for it.
     _op_priority = 10.1
+    # Native domain elements on the left defer to it (ANP*PolyElement).
+    _symox_ring_element = True
 
     def __init__(self, ring, value):
         self.ring, self._value = ring, value
@@ -336,12 +338,45 @@ def _element_text(item):
                 or getattr(domain, 'is_RR', False) or getattr(domain, 'is_CC', False):
             # Ground elements print natively (``1/2``, ``2.5``).
             return str(coeff), precedence(domain.to_sympy(coeff))
+        if getattr(domain, 'is_AlgebraicField', False):
+            # The reference ANP prints its dense representation (an atom).
+            return anp_repr(domain, domain.convert(coeff)), PRECEDENCE["Atom"]
         return _element_text(domain.to_sympy(coeff))
     if isinstance(item, FracElement):
         prec = (_poly_element_precedence(item.numer) if item.denom == 1
                 else PRECEDENCE["Mul"])
         return repr(item), prec
     return sstr(item), precedence(item)
+
+
+def anp_repr(domain, element):
+    """The reference ``ANP.__repr__``: ``ANP(rep, mod, dom)`` with the dense
+    coefficient lists over the ground field."""
+    return "ANP(%r, %r, %s)" % (list(element.to_list()), list(domain.mod.to_list()), domain.dom)
+
+
+def install_anp_printing():
+    """Print the elements of an algebraic field like the reference ANP
+    (``str`` is its ``repr``); the other elements keep the native text."""
+    from .._core import DomainElement
+    if getattr(DomainElement, '_symox_anp_printing', False):
+        return
+    native_repr, native_str = DomainElement.__repr__, DomainElement.__str__
+
+    def __repr__(self):
+        domain = self.parent()
+        if domain.is_AlgebraicField:
+            return anp_repr(domain, self)
+        return native_repr(self)
+
+    def __str__(self):
+        domain = self.parent()
+        if domain.is_AlgebraicField:
+            return anp_repr(domain, self)
+        return native_str(self)
+    DomainElement.__repr__ = __repr__
+    DomainElement.__str__ = __str__
+    DomainElement._symox_anp_printing = True
 
 
 class _Coefficient(tuple):

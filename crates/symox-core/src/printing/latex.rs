@@ -839,8 +839,10 @@ impl<'a> LatexPrinter<'a> {
         }
         if matches!(f,Func::Limit){
             let direction=args[3].as_sym().map(|s|s.name()).unwrap_or("+");
-            let suffix=if !matches!(args[2].kind(),Kind::Const(crate::expr::Constant::Infinity|crate::expr::Constant::NegInfinity)) && direction!="+-" {format!("^{{{direction}}}")}else{String::new()};
-            let tex=format!("\\lim_{{{} \\to {}{suffix}}} {}",self.print(&args[1]),self.print(&args[2]),self.parenthesize(&args[0],PREC_MUL,false));
+            let suffix=if !matches!(args[2].kind(),Kind::Const(crate::expr::Constant::Infinity|crate::expr::Constant::NegInfinity)) && direction!="+-" {format!("^{direction}")}else{String::new()};
+            let head=format!("\\lim_{{{} \\to {}{suffix}}}",self.print(&args[1]),self.print(&args[2]));
+            // The reference wraps an AssocOp (Add/Mul) argument in \left(...\right) without a space.
+            let tex=if matches!(args[0].kind(),Kind::Add(..)|Kind::Mul(..)){format!("{head}\\left({}\\right)",self.print(&args[0]))}else{format!("{head} {}",self.print(&args[0]))};
             return Self::do_exponent(tex,exp);
         }
         if matches!(f,Func::Subs){

@@ -130,7 +130,8 @@ def test_multivariate_rational_and_function_coefficient_factor_metadata(name):
         coefficient=a if domain not in [sm.ZZ,sm.QQ] else sm.Integer(2)
         p=sm.Poly(coefficient*(x+y)**2*(x-y),x,y,domain=domain)
         reconstruct(p,getattr(p,name)())
-        with pytest.raises(ValueError,match='one polynomial generator'):p.ground_roots()
+        # the reference MultivariatePolynomialError of Poly.ground_roots
+        with pytest.raises(sm.MultivariatePolynomialError,match='Cannot compute ground roots of'):p.ground_roots()
 
 
 @pytest.mark.parametrize('option',['modulus','extension','field','gens','domain'])
