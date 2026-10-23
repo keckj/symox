@@ -2186,7 +2186,176 @@ def solveset(f, symbol=None, domain=Complexes):
                 from .solvers._algebraic import recast_to_symbols
                 fs, s, swap = recast_to_symbols([equation], [target])
                 return solveset(fs[0], s[0], domain).xreplace(swap)
-    return _wrap_set(_core.solveset(f, symbol, None if domain is None else _unwrap(domain)))
+    if symbol is not None:
+        split = _solveset_polynomial_abs(f, sympify(symbol), domain)
+        if split is not None:
+            return split
+    result = _wrap_set(_core.solveset(f, symbol, None if domain is None else _unwrap(domain)))
+    if isinstance(result, ConditionSet) and symbol is not None:
+        alt = _solveset_abs_piecewise(f, sympify(symbol), result)
+        if alt is not None:
+            return alt
+    return result
+
+
+def _solveset_abs_piecewise(f, symbol, unsolved):
+    """The reference solveset steps for ``Abs``, ``Min``/``Max`` and
+    ``Piecewise`` that the native solver leaves as a ConditionSet.
+
+    Over a real domain the symbol is made real, the non-``Abs`` heads are
+    rewritten as Piecewise and folded (``solveset``), a Piecewise is solved
+    piece by piece on ``as_expr_set_pairs`` (``_solveset``), and an
+    equation ``p*Abs(q) + r`` is split on the sign of ``q`` (``_solve_abs``).
+    In the complex domain ``_solve_abs`` raises ValueError. Returns None to
+    keep the native result.
+    """
+    if not getattr(symbol, 'is_Symbol', False):
+        return None
+    domain = unsolved.base_set
+    f = sympify(f)
+    if not isinstance(f, (Expr, Relational)) or isinstance(f, Equality) and not f.has(symbol):
+        return None
+    if isinstance(f, Equality):
+        f = f.lhs - f.rhs
+    heads = (Abs, Min, Max, Piecewise)
+    if not any(e.has(symbol) for h in heads for e in f.atoms(h)):
+        return None
+    if domain.is_subset(S.Reals) is not True:
+        if isinstance(f, Expr) and any(e.has(symbol) for e in f.atoms(Abs)):
+            raise ValueError('\nAbsolute values cannot be inverted in the complex domain.')
+        return None
+    real = symbol if symbol.is_real else Dummy('R', real=True)
+    g = f.xreplace({symbol: real})
+    abses = [e for e in g.atoms(Abs)]
+    mask = {e: Dummy('A') for e in abses}
+    g = g.xreplace(mask).rewrite(Piecewise)
+    g = g.xreplace({d: Abs(e.args[0].rewrite(Piecewise)) for e, d in mask.items()})
+    g = piecewise_fold(g)
+    try:
+        if g.is_Piecewise:
+            out = S.EmptySet
+            for expr, in_set in g.as_expr_set_pairs(domain):
+                if getattr(in_set, 'is_Relational', False):
+                    in_set = in_set.as_set()
+                if expr is S.true or expr == True:
+                    part = in_set
+                elif expr is S.false or expr == False:
+                    part = S.EmptySet
+                else:
+                    part = solveset(expr, real, in_set)
+                out = Union(out, part)
+        elif isinstance(g, Relational):
+            # the reference solves Abs inequalities through _solve_abs, so only
+            # polynomial Abs arguments are split (Abs(sin(x)) < 1/2 stays a
+            # ConditionSet as in SymPy)
+            if not g.has(Abs) or not all(
+                    e.args[0].is_polynomial(real) for e in g.atoms(Abs)):
+                return None
+            out = solve_univariate_inequality(g, real, relational=False, domain=domain)
+        elif g.has(Abs) and _invert_abs_equation(g, real, domain) is not None:
+            out = _invert_abs_equation(g, real, domain)
+        elif g.has(Abs):
+            # the reference inverts Abs(q) for a non-polynomial q (invert_real),
+            # and the sign split over one period of q would drop solutions
+            if g.free_symbols != {real} or not all(
+                    e.args[0].is_polynomial(real) for e in g.atoms(Abs)):
+                return None
+            out = _solve_abs_split(g, real, domain)
+            if out is None:
+                return None
+        else:
+            return None
+    except (NotImplementedError, ValueError, TypeError):
+        return None
+    if (isinstance(out, ConditionSet) and type(out.condition).__name__ == 'Contains'
+            and not out.base_set.has(ConditionSet)):
+        return out.xreplace({real: symbol})
+    if out.has(ConditionSet):
+        return None
+    return out.xreplace({real: symbol})
+
+
+def _invert_abs_equation(g, real, domain):
+    """``invert_real`` on ``p*Abs(q) + r`` with ``p`` and ``r`` free of the
+    symbol (SymPy's ``_invert_abs``): ``q`` is solved on ``{rhs, -rhs}``
+    under the condition ``rhs >= 0``, which is kept as a ConditionSet
+    condition when its truth is unknown."""
+    p, q, r = Wild('p', exclude=[real]), Wild('q'), Wild('r', exclude=[real])
+    m = g.match(p*Abs(q) + r)
+    if not m or m.get(p, S.Zero).is_zero or not m[q].has(real):
+        return None
+    rhs = -m.get(r, S.Zero)/m[p]
+    ok = rhs.is_nonnegative if rhs.is_Number else rhs.is_positive
+    if ok is False:
+        return S.EmptySet
+    parts = [solveset(m[q] - rhs, real, domain), solveset(m[q] + rhs, real, domain)]
+    if ok is None and rhs.is_Symbol:
+        # under the condition rhs >= 0 a candidate that is real for a
+        # nonnegative rhs needs no Intersection with the real domain
+        nonneg = {rhs: Dummy('c', nonnegative=True)}
+        parts = [part.args[0] if isinstance(part, Intersection) and len(part.args) == 2
+                 and part.args[1] == domain and isinstance(part.args[0], FiniteSet)
+                 and all(v.xreplace(nonneg).is_real for v in part.args[0]) else part
+                 for part in parts]
+    values = Union(*parts)
+    if values.has(ConditionSet):
+        return None
+    if ok is None:
+        return ConditionSet(real, Contains(rhs, Interval(0, oo)), values)
+    return values
+
+
+def _solve_abs_split(g, real, domain):
+    """SymPy's ``_solve_abs``: match ``p*Abs(q) + r`` and solve on the sign
+    of ``q`` (the remaining ``Abs`` of ``r`` are split by the recursive
+    solveset calls). Returns None when there is no such match."""
+    p, q, r = Wild('p'), Wild('q'), Wild('r')
+    m = g.match(p*Abs(q) + r) or {}
+    fp, fq, fr = [m.get(i, S.Zero) for i in (p, q, r)]
+    if fp.is_zero or fq.is_zero or not fq.has(real):
+        return None
+    from .calculus.util import continuous_domain
+    qdomain = continuous_domain(fq, real, domain)
+    pos = solve_univariate_inequality(fq >= 0, real, relational=False,
+                                      domain=qdomain, continuous=True)
+    neg = pos.complement(qdomain)
+    return Union(solveset(fp*fq + fr, real, S.Reals).intersect(pos),
+                 solveset(-fp*fq + fr, real, S.Reals).intersect(neg))
+
+
+def _solveset_polynomial_abs(f, symbol, domain):
+    """The ``_solve_abs`` split for a real univariate equation whose
+    ``Abs`` arguments and remaining part are polynomial in the symbol.
+    The native single-``Abs`` substitution loses the pieces where a branch
+    vanishes identically (x + Abs(x - 1) - 1 is zero on all of
+    (-oo, 1]), so this case follows the reference algorithm."""
+    if domain is None or not getattr(symbol, 'is_Symbol', False):
+        return None
+    try:
+        f = sympify(f)
+        if isinstance(f, Equality):
+            f = f.lhs - f.rhs
+        if not isinstance(f, Expr) or f.free_symbols != {symbol}:
+            return None
+        abses = [e for e in f.atoms(Abs) if e.has(symbol)]
+        if not abses or f.has(Min, Max, Piecewise):
+            return None
+        domain = _wrap_set(_unwrap(domain))
+        if domain.is_subset(S.Reals) is not True:
+            return None
+        if not all(e.args[0].is_polynomial(symbol) for e in abses):
+            return None
+        mask = {e: Dummy('A') for e in abses}
+        if not f.xreplace(mask).is_polynomial(symbol, *mask.values()):
+            return None
+        real = symbol if symbol.is_real else Dummy('R', real=True)
+        g = f.xreplace({symbol: real})
+        out = _solve_abs_split(g, real, domain)
+    except (NotImplementedError, ValueError, TypeError):
+        return None
+    if out is None or out.has(ConditionSet):
+        return None
+    return out.intersect(domain).xreplace({real: symbol})
 
 
 def solveset_real(f, symbol):
@@ -2195,6 +2364,70 @@ def solveset_real(f, symbol):
 
 def solveset_complex(f, symbol):
     return solveset(f, symbol, Complexes)
+
+
+def _min_max_inequality(expr, gen, domain):
+    """The reference interval test of ``solve_univariate_inequality`` for a
+    continuous ``Min``/``Max`` of polynomials: ``solvify`` finds the
+    finitely many zeros (solveset rewrites Min/Max as Piecewise), and the
+    sign is constant between consecutive zeros and the domain bounds."""
+    try:
+        cond = sympify(expr)
+        if not getattr(cond, 'is_Relational', False) or cond.rel_op not in ('<', '<=', '>', '>='):
+            return None
+        e = cond.lhs - cond.rhs
+        if e.free_symbols != {gen} or not e.has(Min, Max) or e.has(Abs, Piecewise):
+            return None
+        heads = list(e.atoms(Min)) + list(e.atoms(Max))
+        if not all(a.is_polynomial(gen) for h in heads for a in h.args):
+            return None
+        mask = {h: Dummy('m') for h in heads}
+        if not e.xreplace(mask).is_polynomial(gen, *mask.values()):
+            return None
+        target = S.Reals if domain is None else _wrap_set(_unwrap(domain))
+        if not (isinstance(target, Interval) or target == S.Reals) or target.is_subset(S.Reals) is not True:
+            return None
+        zeros = solveset(e, gen, target)
+        if zeros == S.EmptySet:
+            found = set()
+        elif isinstance(zeros, FiniteSet):
+            found = set(zeros.args)
+        else:
+            return None
+        points = sorted(found | {target.inf, target.sup}, key=lambda v: float(v) if v.is_finite else (float('inf') if v is S.Infinity else float('-inf')))
+        def holds(v):
+            r = cond.func(e.subs(gen, v), 0)
+            if r not in (S.true, S.false):
+                raise ValueError
+            return r is S.true
+        out = S.EmptySet
+        for lo, hi in zip(points, points[1:]):
+            if lo.is_infinite and hi.is_infinite:
+                mid = S.Zero
+            elif lo.is_infinite:
+                mid = hi - 1
+            elif hi.is_infinite:
+                mid = lo + 1
+            else:
+                mid = (lo + hi)/2
+            if holds(mid):
+                out = Union(out, Interval(lo, hi, True, True))
+        for v in points:
+            if v.is_finite and holds(v):
+                out = Union(out, FiniteSet(v))
+        return out.intersect(target)
+    except (ValueError, TypeError, NotImplementedError):
+        return None
+
+
+def _filled_inequality_error(error):
+    """The reference raises its "cannot be solved" message through
+    filldedent (a leading newline, lines wrapped at 70 columns)."""
+    msg = str(error)
+    if msg.startswith('The inequality, ') and '\n' not in msg:
+        from ._public_tools import filldedent
+        return NotImplementedError(filldedent(msg))
+    return error
 
 
 def solve_univariate_inequality(expr, gen, relational=True, domain=Reals, continuous=False):
@@ -2213,7 +2446,10 @@ def solve_univariate_inequality(expr, gen, relational=True, domain=Reals, contin
             expr, gen, False, None if domain is None else _unwrap(domain), continuous)
     except NotImplementedError as native_error:
         try:result=absolute_result()
-        except (ValueError,TypeError,NotImplementedError):raise native_error
+        except (ValueError,TypeError,NotImplementedError):
+            result=_min_max_inequality(expr, gen, domain)
+            if result is None:
+                raise _filled_inequality_error(native_error) from None
     else:
         result=_wrap_set(r)
         if isinstance(result,ConditionSet):
@@ -2239,7 +2475,38 @@ def reduce_inequalities(inequalities, symbols=[]):  # noqa: B006
                                 lambda group, gen: _core.reduce_inequalities(group, gen))
     if multi is not None:
         return multi
-    return _core.reduce_inequalities(inequalities, syms)
+    try:
+        result = _core.reduce_inequalities(inequalities, syms)
+    except NotImplementedError as error:
+        raise _filled_inequality_error(error) from None
+    return _reduce_other_real(conditions, result)
+
+
+def _reduce_other_real(conditions, result):
+    """SymPy's ``_reduce_inequalities`` solves an inequality that is not a
+    rational function of its generator (``exp(x) < 1``, ``sqrt(x) > 1``)
+    with ``solve_univariate_inequality`` on a real Dummy, so an infinite
+    bound such as ``x < oo`` evaluates to True before the symbol is
+    restored. Polynomial and rational inequalities keep both bounds."""
+    try:
+        if len(conditions) != 1:
+            return result
+        cond = sympify(conditions[0])
+        if not getattr(cond, 'is_Relational', False):
+            return result
+        free = cond.free_symbols
+        if len(free) != 1:
+            return result
+        gen = next(iter(free))
+        if gen.is_real or cond.has(Abs):
+            return result
+        expr = cond.lhs - cond.rhs
+        if expr.is_rational_function(gen):
+            return result
+        real = Dummy(gen.name, real=True)
+        return result.xreplace({gen: real}).xreplace({real: gen})
+    except (TypeError, ValueError, AttributeError):
+        return result
 
 
 # --- end logic ---
@@ -3190,6 +3457,11 @@ def _make_solve_entry(_native):
         # The reference solve reads no 'domain' flag: solve(x**2 + 1, x,
         # domain=S.Reals) still returns [-I, I] (the Beam max_* methods pass it).
         flags.pop('domain', None)
+        r = _solve_reference_flags(_native, f, symbols, flags)
+        if r is not _NO_RESULT:
+            return r
+        f, symbols = flags.pop('_args')
+        f = _solve_rewrite_abs(f, symbols)
         if _nc._any_nc(f if isinstance(f, (list, tuple, set)) else [f]):
             return _nc.solve(_native, f, *symbols, **flags)
         try:
@@ -3201,6 +3473,165 @@ def _make_solve_entry(_native):
             return r
     solve.__doc__ = _native.__doc__
     return solve
+
+
+_NO_RESULT = object()
+
+# Flags read by the reference solve, _solve, _solve_system and checksol;
+# any other keyword is ignored there (solve(x - sqrt(y), y, positive=True)).
+_SOLVE_FLAGS = frozenset((
+    'dict', 'set', 'exclude', 'check', 'numerical', 'minimal', 'warn',
+    'simplify', 'force', 'rational', 'manual', 'implicit', 'particular',
+    'quick', 'cubics', 'quartics', 'quintics', 'incomplete', 'tsolve',
+    'bivariate', '_denominators', '_reverse', '_split', '_take', '_unrad'))
+
+
+def _solve_reference_flags(_native, f, symbols, flags):
+    """The reference solve's handling of ``exclude``, ``particular``,
+    ``quick`` and of the checksol-only or unread flags.
+
+    Returns the solution when ``particular`` selects the minimal linear
+    solver; otherwise leaves the remaining flags and the (possibly
+    filtered) arguments in ``flags['_args']`` and returns ``_NO_RESULT``.
+    """
+    for key in [k for k in flags if k not in _SOLVE_FLAGS]:
+        del flags[key]
+    # checksol-only refinements (numerical fallback, minimal check) and the
+    # one-at-a-time system strategy give the same solution set; the native
+    # solver checks exactly and solves systems with its own strategy.
+    for key in ('numerical', 'minimal'):
+        flags.pop(key, None)
+    manual = flags.pop('manual', False)
+    bare_f = not isinstance(f, (list, tuple, set, frozenset, Tuple)) and not (
+        hasattr(f, 'is_Matrix') and getattr(f, 'is_Matrix', False))
+    if flags.get('quick', None) is not None:
+        if not flags.get('particular', None):
+            raise ValueError('when using `quick`, `particular` should be True')
+    if flags.get('particular', False) and bare_f:
+        from ._public_tools import filldedent
+        raise ValueError(filldedent("""
+            The 'particular/quick' flag is usually used with systems of
+            equations. Either pass your equation in a list or consider using
+            a solver like `diophantine` if you are looking for a solution in
+            integers."""))
+    exclude = flags.pop('exclude', None)
+    if exclude:
+        if isinstance(exclude, Basic):
+            exclude = [exclude]
+        exclude = set().union(*[e.free_symbols for e in sympify(list(exclude))])
+        if symbols:
+            if len(symbols) == 1 and isinstance(symbols[0], (list, tuple, set, frozenset)):
+                symbols = (type(symbols[0])(s for s in symbols[0] if s not in exclude),)
+            else:
+                symbols = tuple(s for s in symbols if s not in exclude)
+        else:
+            eqs = f if not bare_f else [f]
+            free = set().union(*[sympify(e).free_symbols for e in eqs])
+            symbols = (set(free - exclude),)
+    particular = flags.pop('particular', False)
+    quick = flags.pop('quick', False)
+    if particular:
+        r = _solve_particular(f, symbols, quick, flags)
+        if r is not _NO_RESULT:
+            return r
+    if manual and not bare_f and not flags.get('dict') and not flags.get('set'):
+        # The reference solves a manual system one equation at a time and
+        # reports the solutions like a non-linear system: tuples for given
+        # ordered symbols, dictionaries otherwise.
+        res = _native(f, *symbols, dict=True, **flags)
+        ordered_syms = symbols and not (len(symbols) == 1 and isinstance(symbols[0], (set, frozenset)))
+        if not ordered_syms:
+            return res
+        syms = list(symbols[0]) if len(symbols) == 1 and isinstance(symbols[0], (list, tuple)) else list(symbols)
+        return [tuple(d.get(s, s) for s in syms) for d in res]
+    flags['_args'] = (f, symbols)
+    return _NO_RESULT
+
+
+def _solve_rewrite_abs(f, symbols):
+    """The reference solve's ``Abs`` preprocessing: an ``Abs`` of the
+    unknowns becomes the Piecewise of its separated form, and one whose
+    argument sign stays undecided raises NotImplementedError."""
+    seq = isinstance(f, (list, tuple))
+    eqs = list(f) if seq else [f]
+    if not any(isinstance(e, Basic) and e.has(Abs) for e in eqs):
+        return f
+    if any(getattr(e, 'is_Relational', False) and not isinstance(e, Equality) for e in eqs):
+        return f  # inequalities go to reduce_inequalities first
+    if symbols:
+        syms = symbols[0] if len(symbols) == 1 and isinstance(
+            symbols[0], (list, tuple, set, frozenset)) else symbols
+        syms = [s for s in syms if isinstance(s, Basic)]
+    else:
+        syms = list(set().union(*[e.free_symbols for e in eqs if isinstance(e, Basic)]))
+    if not syms:
+        return f
+    out = []
+    for fi in eqs:
+        if not isinstance(fi, Basic) or not fi.has(Abs):
+            out.append(fi)
+            continue
+        while True:
+            was = fi
+            fi = fi.replace(Abs, lambda arg:
+                            separatevars(Abs(arg)).rewrite(Piecewise) if arg.has(*syms)
+                            else Abs(arg))
+            if was == fi:
+                break
+        for e in fi.find(Abs):
+            if e.has(*syms):
+                raise NotImplementedError('solving %s when the argument '
+                                          'is not real or imaginary.' % e)
+        out.append(fi)
+    return type(f)(out) if seq else out[0]
+
+
+def _solve_particular(f, symbols, quick, flags):
+    """The reference ``_solve_system`` with ``particular=True``: a linear
+    system goes to ``minsolve_linear_system``; anything else is solved
+    without the flag, as the reference does for non-linear systems."""
+    from .solvers.solvers import minsolve_linear_system
+    from .polys.polyerrors import PolynomialError
+    eqs = []
+    for e in (list(f) if not hasattr(f, 'is_Matrix') else list(f)):
+        e = sympify(e)
+        if isinstance(e, Equality):
+            e = e.lhs - e.rhs
+        if e is S.true or e == True:
+            continue
+        eqs.append(e)
+    if len(symbols) == 1 and isinstance(symbols[0], (list, tuple, set, frozenset)):
+        syms = list(symbols[0]) if not isinstance(symbols[0], (set, frozenset)) else list(ordered(symbols[0]))
+    elif symbols:
+        syms = list(symbols)
+    else:
+        syms = list(ordered(set().union(*[e.free_symbols for e in eqs])))
+    if not eqs or not syms:
+        return _NO_RESULT
+    polys = []
+    for e in eqs:
+        try:
+            poly = e.as_numer_denom()[0].as_poly(*syms)
+        except PolynomialError:
+            poly = None
+        if poly is None or not poly.is_linear:
+            return _NO_RESULT
+        polys.append(poly)
+    n, m = len(polys), len(syms)
+    matrix = zeros(n, m + 1)
+    for i, poly in enumerate(polys):
+        for monom, coeff in poly.terms():
+            try:
+                matrix[i, monom.index(1)] = coeff
+            except ValueError:
+                matrix[i, m] = -coeff
+    result = minsolve_linear_system(matrix, *syms, quick=quick)
+    result = {k: result[k] for k in ordered(result)} if result else result
+    if flags.get('set'):
+        return (syms, {tuple(result.get(s, s) for s in syms)} if result else set())
+    if flags.get('dict'):
+        return [result] if result else []
+    return result if result else []
 
 
 def _solve_piecewise(solve, f, symbols, flags):

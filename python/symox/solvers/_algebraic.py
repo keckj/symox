@@ -119,51 +119,71 @@ def inv_quick(M):
                        for i in range(n) for j in range(n)])
 
 
-def minsolve_linear_system(system,*symbols,**flags):
-    """Find a particular solution with the fewest nonzero unknowns.
+def minsolve_linear_system(system, *symbols, **flags):
+    """SymPy's ``minsolve_linear_system``: a particular solution with as few
+    nonzero unknowns as possible (``quick=True`` uses the greedy heuristic)."""
+    from .. import Matrix, S, solve_linear_system, ordered, default_sort_key, solve
+    quick = flags.get('quick', False)
+    system = Matrix(system)
+    s0 = solve_linear_system(system, *symbols)
+    if not s0 or all(v == 0 for v in s0.values()):
+        return s0
+    if quick:
+        s = solve_linear_system(system, *symbols)
 
-    Exact search enumerates supports; the quick path greedily removes columns
-    while retaining consistency. Nontrivial homogeneous solutions are retained
-    when the reference linear-system convention permits free variables.
-    """
-    from .. import Matrix,S,solve_linear_system,cancel
-    from .._linear import _symbols
-    quick=flags.pop('quick',False)
-    if flags:raise NotImplementedError('Unknown minimal linear-system options')
-    matrix=Matrix(system);symbols=_symbols(symbols)
-    if matrix.cols!=len(symbols)+1:
-        raise ValueError('Augmented columns must match the symbols plus one')
-    general=solve_linear_system(matrix,*symbols)
-    if general is None or not general or all(value==0 for value in general.values()):return general
-    n=len(symbols)
-    if n>64:raise ValueError('Minimal linear solving accepts at most 64 unknowns')
-    homogeneous=all(value==0 for value in matrix[:,-1:])
-    def candidate(support):
-        columns=list(support)+[n]
-        submatrix=matrix[:,columns]
-        chosen=[symbols[i] for i in support]
-        solved=solve_linear_system(submatrix,*chosen)
-        if solved is None:return None
-        free=[symbol for symbol in chosen if symbol not in solved]
-        assignments={symbol:S.Zero for symbol in free}
-        if homogeneous and free:assignments[free[0]]=S.One
-        values={symbol:S.Zero for symbol in symbols}
-        values.update(assignments)
-        values.update({symbol:cancel(value.subs(assignments,simultaneous=True)) for symbol,value in solved.items()})
-        if homogeneous and not any(value!=0 for value in values.values()):return None
-        return values
-    support=list(range(n));best=candidate(support)
-    for column in reversed(range(n)):
-        reduced=[i for i in support if i!=column]
-        found=candidate(reduced)
-        if found is not None:support,best=reduced,found
-    if quick:return best
-    if n>20:raise NotImplementedError('Exact sparse support search is limited to 20 unknowns; use quick=True')
-    for size in range(1,sum(value!=0 for value in best.values())):
-        for subset in itertools.combinations(range(n),size):
-            found=candidate(subset)
-            if found is not None:return found
-    return best
+        def update(determined, solution):
+            delete = []
+            for k, v in solution.items():
+                solution[k] = v.subs(determined)
+                if not solution[k].free_symbols:
+                    delete.append(k)
+                    determined[k] = solution[k]
+            for k in delete:
+                del solution[k]
+        determined = {}
+        update(determined, s)
+        while s:
+            k = max((k for k in s.values()),
+                    key=lambda x: (len(x.free_symbols), default_sort_key(x)))
+            kfree = k.free_symbols
+            x = next(reversed(list(ordered(kfree))))
+            if len(kfree) != 1:
+                determined[x] = S.Zero
+            else:
+                val = solve(k, x, check=False)[0]
+                if not val and not any(v.subs(x, val) for v in s.values()):
+                    determined[x] = S.One
+                else:
+                    determined[x] = val
+            update(determined, s)
+        return determined
+    N = len(symbols)
+    bestsol = minsolve_linear_system(system, *symbols, quick=True)
+    n0 = len([x for x in bestsol.values() if x != 0])
+    # SymPy stops at two nonzero values (range(n0 - 1, 1, -1)), so a
+    # solution with a single nonzero value is never found although its
+    # docstring promises the minimal number; the search includes n = 1.
+    for n in range(n0 - 1, 0, -1):
+        thissol = None
+        for nonzeros in itertools.combinations(range(N), n):
+            subm = Matrix([system.col(i).T for i in nonzeros] + [system.col(-1).T]).T
+            s = solve_linear_system(subm, *[symbols[i] for i in nonzeros])
+            if s and not all(v == 0 for v in s.values()):
+                subs = [(symbols[v], S.One) for v in nonzeros]
+                for k, v in s.items():
+                    s[k] = v.subs(subs)
+                for sym in symbols:
+                    if sym not in s:
+                        if symbols.index(sym) in nonzeros:
+                            s[sym] = S.One
+                        else:
+                            s[sym] = S.Zero
+                thissol = s
+                break
+        if thissol is None:
+            break
+        bestsol = thissol
+    return bestsol
 
 
 def _radical_normalize(expression):

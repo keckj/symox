@@ -7103,3 +7103,100 @@ Remaining gaps:
   numerically singular`.
 - The machine-precision Newton fast path for systems still verifies each
   squared residual against `1e-14`, not against mpmath's tolerance.
+
+## Solve options, Abs/Min/Max solving and periodic inequalities (solve-rest, 2026-10-23)
+
+Probe of the open items of TODO section 3 against SymPy 1.14 (303 cases:
+249 identical before, 273 after; periodic inequalities 11 -> 17 of 19;
+`periodicity` 41 -> 42 of 42; Abs/Min/Max/Piecewise solveset 21 -> 35 of 36).
+
+Implemented:
+
+- `periodicity` is a port of SymPy's (`_periodicity`, `lcim`, the trig
+  `_period`, `decompogen`, Abs/Mod/exp cases, `check`). So `sin(x)**2` has
+  period `2*pi` as in SymPy, and the periodic inequality windows match
+  (`sin(x)**2 > 1/4` on `[0, 2*pi]`). SymPy's `f.simplify()` turns
+  `sin(x)*cos(x)` into `sin(2*x)/2`. Symox's simplify does not, so
+  `periodicity` adds a deep `trigsimp` step under SymPy's 1.7 `count_ops`
+  ratio. The gap itself is in `simplify`.
+- `minsolve_linear_system` is SymPy's port (the quick heuristic and the
+  combination search). `solve(..., particular=True[, quick=True])` builds the
+  linear system and uses it, with SymPy's ValueError messages.
+- `solve` flags: `exclude` (with and without symbols), `manual` for systems,
+  and `numerical`/`minimal` (only used by checksol). Unknown flags that SymPy
+  never reads (`positive=True`) are ignored instead of raising.
+- `solve` rewrites `Abs` of the symbol as the Piecewise of `separatevars`,
+  as SymPy does: `solve(Abs(xr) - 2, xr) == [-2, 2]`. The argument that is
+  neither real nor imaginary raises SymPy's NotImplementedError.
+- `solveset` over a real domain reproduces SymPy's Abs/Min/Max/Piecewise
+  steps when the native solver returns a ConditionSet:
+  - the symbol is made real and the other heads are rewritten as Piecewise
+    and folded;
+  - each `as_expr_set_pairs` piece is solved on its own set;
+  - `p*Abs(q) + r` with `p` and `r` free of the symbol is inverted
+    (`_invert_abs`, with the `Contains(rhs, Interval(0, oo))` condition);
+  - the other equations are split on the sign of a polynomial `q`
+    (`_solve_abs`).
+  In the complex domain SymPy's "Absolute values cannot be inverted"
+  ValueError is raised.
+- A wrong native result is fixed. A univariate equation whose Abs arguments
+  and remaining part are polynomial now follows `_solve_abs` before the
+  native solver, which lost the pieces where a branch vanishes
+  identically. For example, `solveset(x + Abs(x - 1) - 1, x, Reals)` was
+  `{1}` and is now `Interval(-oo, 1)`, and `Abs(x) + Abs(x - 1) - 1` gives
+  `Interval(0, 1)`.
+- `solve_univariate_inequality` of a continuous Min/Max of polynomials
+  uses SymPy's interval test between the zeros given by solveset
+  (`Max(x, 1) > 2`).
+- `reduce_inequalities` of a single non-rational univariate inequality
+  works on a real symbol, as SymPy's `_reduce_inequalities` does. The
+  infinite bound disappears: `sqrt(x) > 1` gives `1 < x` and `exp(x) < 1`
+  gives `x < 0`.
+- The "cannot be solved using solve_univariate_inequality" message is
+  passed through `filldedent`, as in SymPy.
+
+Intentional divergences (SymPy is wrong or less precise):
+
+- `solveset(cos(2*x) < 0, x, Interval(0, 2*pi))`: SymPy returns only
+  `(pi/4, 3*pi/4)`. Symox also returns `(5*pi/4, 7*pi/4)`. The same holds
+  for `sin(2*x) > 0` and for `cos(x) > 1/2` at the endpoint `2*pi`.
+- `solveset(Abs(x**2 - 1) - y, x, Reals)` keeps
+  `Intersection({-sqrt(1 - y), sqrt(1 - y)}, Reals)`, because those values
+  are not real for `y > 1`. SymPy lists them unconditionally.
+- `minsolve_linear_system` (and `particular=True`) also tries a single
+  nonzero value. SymPy's search stops at two
+  (`range(n0 - 1, 1, -1)`), although its docstring promises the minimal
+  number. For example, `solve([x + 2*y + 3*z - 6, 2*x + y - 3],
+  particular=True)` gives `{x: 0, y: 3, z: 0}` (SymPy
+  `{x: 3/2, y: 0, z: 3/2}`).
+- `solveset(Abs(sin(x)) < 1/2, x, Interval(0, 2*pi))` is solved. SymPy
+  leaves a ConditionSet because its `function_range` fails on the
+  Piecewise derivative.
+- `periodicity` keeps the ValueError for a variable that is not a Symbol.
+  SymPy returns 0 for `periodicity(x, x*x)`.
+- `periodicity((sin(x) + cos(x))**2, x)` gives `pi` where SymPy gives
+  `2*pi`. Both are periods, and the simplify forms differ.
+- Extra valid Lambert branches (`x**3*exp(x) - 1`, `exp(x) - x**3`,
+  `exp(x) - 2*x - 1`, `3**x - 2*x - 1`), the ImageSet of
+  `solveset(2**x - 4, x)` (SymPy gives a ConditionSet), and inequalities
+  that SymPy refuses (`exp(x) > x + 1`, `x*exp(-x) < 1/4`,
+  `log(x) > x - 2`).
+
+Remaining gaps:
+
+- `solveset(x**Rational(1, 3) + 2, x, Reals)`: SymPy's `invert_real` uses
+  the real cube root and gives `{-8}`. Symox uses the principal branch
+  and gives EmptySet.
+- Radical solveset `sqrt(x + 1) - sqrt(x) - 1` and `sqrt(x) + sqrt(x - 1) - 1`
+  (SymPy `{0}` and `{1}`) stay ConditionSets.
+- `solveset(Mod(x, 3) - 1, x, Integers)` (SymPy `ImageSet(3*n + 1)`) stays a
+  ConditionSet.
+- `roots(x**3 - 3*x + 1, trig=True)` does not give the cos form.
+- Forms that still differ:
+  - `solve` of `x*exp(x**2) - 1`, `x**y - 2`, `x**a*exp(x) - 1`, `x**n - 1`;
+  - `solve([x**2 + y**2 - 1, x - a])` gives `sqrt(-(a - 1)*(a + 1))`;
+  - the Union order of `solveset(sin(x) - sin(2*x), x, Reals)`;
+  - `Interval(-oo, oo)` is printed where SymPy prints `Reals`.
+- The `reduce_inequalities` NotImplementedError message prints the original
+  symbol, where SymPy prints its real Dummy (`_a`). The strict-`roots`
+  message is not wrapped with `filldedent`.
