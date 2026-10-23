@@ -146,7 +146,7 @@ fn int_value(e: &Expr) -> Option<BigInt> {
     if !v.im.is_zero() {
         return None;
     }
-    Some(v.re.to_int_trunc())
+    v.re.checked_int_trunc()
 }
 
 fn real_f64(e: &Expr) -> Option<f64> {

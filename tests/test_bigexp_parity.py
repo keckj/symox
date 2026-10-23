@@ -81,10 +81,16 @@ def test_rational_power_of_huge_float_uses_the_exact_exponent():
     lambda: gamma(Rational(10**40, 3)).evalf(),
     lambda: exp(10**100).evalf(),
 ])
-def test_exponents_beyond_the_native_counter_stay_unevaluated(expr):
-    # Binary exponents beyond 2**120 are not materialized (documented gap);
-    # the value stays symbolic instead of becoming a wrong number.
-    assert not expr().is_Float
+def test_exponents_beyond_2_120_are_evaluated(expr):
+    # Binary exponents are arbitrary-size integers since bigexp2; values
+    # are checked against SymPy in tests/test_bigexp2_parity.py.
+    assert expr().is_Float
+
+
+def test_exponents_beyond_the_materialization_bound_stay_unevaluated():
+    # Binary exponents of 65536 bits or more are not materialized
+    # (documented gap); the value stays symbolic instead of a wrong number.
+    assert not exp(2**70000).evalf().is_Float
 
 
 @pytest.mark.parametrize("expr, expected", [

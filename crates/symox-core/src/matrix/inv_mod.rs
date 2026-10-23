@@ -203,7 +203,8 @@ impl Budget {
                 return Ok(BigInt::zero());
             }
             let mantissa = self.reduce(&number.man, modulus)?;
-            let power = self.power_of_two(number.exp as u64, modulus)?;
+            let exponent = number.exp.to_i64().and_then(|e| u64::try_from(e).ok()).ok_or_else(limited)?;
+            let power = self.power_of_two(exponent, modulus)?;
             self.mul(&mantissa, &power, modulus)
         }
     }
@@ -396,7 +397,7 @@ mod tests {
         let value = Expr::num(Number::MpFloat(
             BigFloat {
                 man: BigInt::one(),
-                exp: 1_000_000_000,
+                exp: 1_000_000_000i64.into(),
             },
             80,
         ));
@@ -431,7 +432,7 @@ mod tests {
         let integer_float = Expr::num(Number::MpFloat(
             BigFloat {
                 man: BigInt::from(-4),
-                exp: -1,
+                exp: (-1i64).into(),
             },
             80,
         ));
@@ -475,7 +476,7 @@ mod tests {
         budget.work = 1;
         let wide_float = BigFloat {
             man: BigInt::one() << 128,
-            exp: -128,
+            exp: (-128i64).into(),
         };
         assert!(budget.float_residue(&wide_float, &BigInt::one()).is_err());
         assert!(preflight(1_000_000, 1_000_000, &BigInt::from(6)).is_err());
@@ -485,7 +486,7 @@ mod tests {
             vec![Expr::num(Number::MpFloat(
                 BigFloat {
                     man: BigInt::one(),
-                    exp: -1
+                    exp: (-1i64).into()
                 },
                 80
             ))]

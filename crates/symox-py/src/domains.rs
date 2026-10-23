@@ -1314,7 +1314,7 @@ impl PyDomainElement {
             ElementValue::Inexact(e) => {
                 let value=symox::evalf_mp::eval_mp(e,self.value.domain.inexact_precision().unwrap()).ok_or_else(||coercion("cannot evaluate this numerical element"))?;
                 if !value.is_real(){return Err(PyTypeError::new_err("cannot convert a nonreal coefficient to int"));}
-                Ok(value.re.to_int_trunc())
+                value.re.checked_int_trunc().ok_or_else(||pyo3::exceptions::PyOverflowError::new_err("too many digits in integer"))
             },
             ElementValue::Rational(r) if r.is_integer() => Ok(r.n.to_big()),
             ElementValue::Finite(r) => {

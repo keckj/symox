@@ -48,8 +48,8 @@ fn shr_ceil(m: &BigInt, k: u64) -> BigInt {
 /// `m * 2^k`, rounded down when `k < 0`.
 /// A float exponent as a dyadic interval exponent. Isolation works on
 /// values whose binary exponents fit in 64 bits.
-fn exp64(e: i128) -> i64 {
-    i64::try_from(e).expect("binary exponent outside the root enclosure range")
+fn exp64(e: &crate::bigfloat::Exponent) -> i64 {
+    e.to_i64().expect("binary exponent outside the root enclosure range")
 }
 
 fn shift_floor(m: &BigInt, k: i64) -> BigInt {
@@ -89,11 +89,11 @@ impl Iv {
         Iv { lo: m.clone(), hi: m, e }
     }
     pub fn from_bigfloat(x: &BigFloat) -> Iv {
-        Iv::point(x.man.clone(), exp64(x.exp))
+        Iv::point(x.man.clone(), exp64(&x.exp))
     }
     /// `[c - 2^k, c + 2^k]`.
     pub fn ball(c: &BigFloat, k: i64) -> Iv {
-        let ce = exp64(c.exp);
+        let ce = exp64(&c.exp);
         let e = ce.min(k);
         let m = shift_floor(&c.man, ce - e);
         let r = BigInt::one() << ((k - e) as u64);
@@ -650,7 +650,7 @@ fn refine_real(f: &[BigInt], lo: &mut Rat, hi: &mut Rat, prec: u32) -> Iv {
             }
             if ok {
                 let k = -(prec as i64) - 2 + scale_exponent(&scale);
-                let xe = exp64(x.exp);
+                let xe = exp64(&x.exp);
                 let e = xe.min(k);
                 let m = shift_floor(&x.man, xe - e);
                 let r = BigInt::one() << ((k - e) as u64);

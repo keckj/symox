@@ -4,9 +4,6 @@
 //! with digits that were not computed.
 
 use crate::evalf_mp::{ev, MpComplex};
-use num_bigint::BigInt;
-use num_rational::BigRational;
-use num_traits::One;
 
 use crate::expr::{Expr, Kind};
 use crate::number::Number;
@@ -79,12 +76,7 @@ fn exact_floats(e: &Expr) -> Expr {
             if value.mag().abs() > 4096 || value.exp.abs() > 8192 {
                 return e.clone();
             }
-            let man = value.man.clone();
-            let ratio = if value.exp >= 0 {
-                BigRational::from_integer(man << (value.exp as usize))
-            } else {
-                BigRational::new(man, BigInt::one() << ((-value.exp) as usize))
-            };
+            let ratio = value.to_ratio_exact();
             Expr::num(Number::from_ratio(ratio))
         }
         Kind::Add(..) => add(&e.args().iter().map(exact_floats).collect::<Vec<_>>()),

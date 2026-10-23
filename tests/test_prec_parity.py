@@ -50,18 +50,15 @@ def test_double_precision_floats_keep_an_unbounded_exponent(source):
     assert str(eval(source)) == DOUBLE_RANGE[source]
 
 
-def test_beyond_the_exponent_bound_stays_symbolic():
-    # mpmath has no exponent bound; symox stops at 2**120 binary exponents
-    # (2**100 before bigexp) and keeps the power unevaluated instead of
-    # returning inf or 0.
-    value = F(2)**(2**121)
-    assert isinstance(value, S.Pow)
-    assert S.exp(10**40).evalf().func is S.exp
-    # SymPy: 2.99850408006855e+130295280877923619137326550880708245539429.
-    # mpmath returns exponents past i128; symox used to raise OverflowError.
-    assert S.gamma(R(10**40, 3)).evalf().func is S.gamma
-    assert S.gamma(S.Float(1e40)).evalf().func is S.gamma
-    assert S.factorial(10**40).evalf().func is S.factorial
+def test_beyond_the_former_exponent_bound_is_evaluated():
+    # symox stopped at 2**120 binary exponents before bigexp2; values are
+    # now Floats (strings checked in tests/test_bigexp2_parity.py).
+    assert str(F(2)**(2**121)) == "2.94672872688847e+800274995615151279296969603516431505"
+    assert S.exp(10**40).evalf().is_Float
+    assert S.gamma(R(10**40, 3)).evalf().is_Float
+    assert S.gamma(S.Float(1e40)).evalf().is_Float
+    # 65536-bit binary exponents and more are not materialized.
+    assert S.exp(2**70000).evalf().func is S.exp
 
 
 # SymPy 1.14 is wrong here (gamma(10**20/3) ~ 3.1e+636286142112569524544,

@@ -55,7 +55,7 @@ pub struct C {
 
 /// The exact product of two binary floats.
 fn xmul(a: &BF, b: &BF) -> BF {
-    BF::round(&a.man * &b.man, a.exp + b.exp, u32::MAX)
+    BF::round(&a.man * &b.man, &a.exp + &b.exp, u32::MAX)
 }
 
 fn bitlen_u64(n: u64) -> u64 {
@@ -74,32 +74,32 @@ fn pow_real(s: &BF, n: u64, prec: u32) -> BF {
         return BF::zero();
     }
     if n == 2 {
-        return BF::round(&s.man * &s.man, s.exp + s.exp, prec);
+        return BF::round(&s.man * &s.man, &s.exp + &s.exp, prec);
     }
     let neg = s.is_negative() && n % 2 == 1;
     let sign = |m: BigInt| if neg { -m } else { m };
     let mut man = s.man.abs();
-    let mut exp = s.exp;
+    let mut exp = s.exp.clone();
     if man.is_one() {
-        return BF::round(sign(BigInt::one()), exp * n as i128, u32::MAX);
+        return BF::round(sign(BigInt::one()), &exp * n, u32::MAX);
     }
     let bc = man.bits();
     if bc.saturating_mul(n) < 1000 {
         let m = num_traits::pow(man, n as usize);
-        return BF::round(sign(m), exp * n as i128, prec);
+        return BF::round(sign(m), &exp * n, prec);
     }
     let workprec = prec as u64 + 4 * bitlen_u64(n) + 4;
-    let (mut pm, mut pe) = (BigInt::one(), 0i128);
+    let (mut pm, mut pe) = (BigInt::one(), crate::bigfloat::Exponent::ZERO);
     let mut n = n;
     loop {
         if n & 1 == 1 {
             pm = &pm * &man;
-            pe += exp;
+            pe += &exp;
             let pbc = pm.bits();
             if pbc > workprec {
                 let sh = pbc - workprec;
                 pm >>= sh;
-                pe += sh as i128;
+                pe += sh;
             }
             n -= 1;
             if n == 0 {
@@ -107,12 +107,12 @@ fn pow_real(s: &BF, n: u64, prec: u32) -> BF {
             }
         }
         man = &man * &man;
-        exp += exp;
+        exp = &exp + &exp;
         let bc = man.bits();
         if bc > workprec {
             let sh = bc - workprec;
             man >>= sh;
-            exp += sh as i128;
+            exp += sh;
         }
         n /= 2;
     }
@@ -172,7 +172,7 @@ impl Inexact {
     }
     /// `mpf_mul_int`/`mpc_mul_int`.
     fn mul_int(&self, a: &C, k: &BigInt) -> C {
-        let m = |x: &BF| BF::round(&x.man * k, x.exp, self.p());
+        let m = |x: &BF| BF::round(&x.man * k, x.exp.clone(), self.p());
         C { re: m(&a.re), im: m(&a.im) }
     }
     fn from_int(&self, n: &BigInt) -> C {
@@ -225,19 +225,19 @@ impl Inexact {
             let im = a.re.mul(&a.im, p).ldexp(1);
             return Ok(C { re, im });
         }
-        let (mut am, mut ae) = (a.re.man.clone(), a.re.exp);
-        let (mut bm, mut be) = (a.im.man.clone(), a.im.exp);
-        let de = ae - be;
+        let (mut am, mut ae) = (a.re.man.clone(), a.re.exp.clone());
+        let (mut bm, mut be) = (a.im.man.clone(), a.im.exp.clone());
+        let de = &ae - &be;
         let size = (n as u128).saturating_mul(de.unsigned_abs() + am.bits().max(bm.bits()) as u128);
         if size >= 10000 {
             return Err(PolyError::Unsupported("large complex powers through mpc_exp(mpc_log) are not implemented".into()));
         }
         if de > 0 {
-            am <<= de as u64;
-            ae = be;
+            am <<= de.to_usize().unwrap();
+            ae = be.clone();
         } else {
-            bm <<= (-de) as u64;
-            be = ae;
+            bm <<= (-&de).to_usize().unwrap();
+            be = ae.clone();
         }
         let (mut wre, mut wim) = (BigInt::one(), BigInt::zero());
         let (mut x, mut y) = (am, bm);
@@ -256,7 +256,7 @@ impl Inexact {
             y = y2;
             k /= 2;
         }
-        Ok(C { re: BF::round(wre, n as i128 * ae, p), im: BF::round(wim, n as i128 * be, p) })
+        Ok(C { re: BF::round(wre, &ae * n, p), im: BF::round(wim, &be * n, p) })
     }
     fn is_negative(&self, a: &C) -> bool {
         !self.complex && a.re.is_negative()

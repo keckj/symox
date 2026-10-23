@@ -589,6 +589,10 @@ fn eval_floor_ceil(f: &Func, a: &Expr) -> Option<Expr> {
         return Some(a.clone());
     }
     match a.kind() {
+        // The integer part of a Float with a huge binary exponent cannot be
+        // materialized; SymPy raises OverflowError (the Python entry does
+        // too) and the function stays held here.
+        Kind::Num(Number::MpFloat(value, _)) if !value.integer_part_fits() => None,
         Kind::Num(n) => {
             let fl = n.floor();
             if ceil && fl.cmp_value(n) != Some(std::cmp::Ordering::Equal) {
@@ -640,7 +644,7 @@ pub fn integer_trunc(a: &Expr) -> Option<num_bigint::BigInt> {
     if let Some(n) = a.as_number() {
         return match n {
             Number::Float(f) if f.is_finite() => Some(crate::bigfloat::BigFloat::from_f64(*f).to_int_trunc()),
-            Number::MpFloat(value, _) => Some(value.to_int_trunc()),
+            Number::MpFloat(value, _) => value.checked_int_trunc(),
             _ => { let (p,q) = n.numer_denom()?; Some(p/q) },
         };
     }

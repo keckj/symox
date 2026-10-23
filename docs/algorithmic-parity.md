@@ -7883,7 +7883,8 @@ Per-part accuracy, fixed:
     SymPy gives `oo`.
 
 Remaining (explicit, never a wrong number):
-- Binary exponents beyond 2**120 still need big-integer exponents in
+- (Resolved by bigexp2, see "Arbitrary-size binary exponents" below.)
+  Binary exponents beyond 2**120 still need big-integer exponents in
   `BigFloat`. Changing the field touches about 95 constructors and over 100
   field uses across the crates. The following stay unevaluated where SymPy
   answers:
@@ -8190,3 +8191,69 @@ corpus was not run, because its reference was still being regenerated after
 the power cut.
 
 Tests: `tests/test_replay_parity.py`.
+
+## Arbitrary-size binary exponents (bigexp2, wave 8, 2026-10-23)
+
+Fixed:
+- The binary exponent of `BigFloat` is now an `Exponent`
+  (`crates/symox-core/src/bigfloat/exponent.rs`): an `i128` up to 2**120 in
+  absolute value, otherwise a boxed `BigInt`. The i128 path is unchanged
+  for ordinary values. SymPy's values are now returned for
+  `exp(10**40).evalf()`, `exp(10**100).evalf()`, `exp(10**1000).evalf()`,
+  `Float(2)**(2**121)`, `Float(2)**(2**200)`, `Float(3)**(10**40)`,
+  `exp(10**40 + I).evalf()`, Float literals such as `Float('1e10**50')`
+  (decimal exponent above 4e35), and arithmetic, comparisons, hashing,
+  `_mpf_` and `srepr` on these values.
+- Materialized exponents are bounded at `MAX_EXPONENT_BITS = 65536` bits,
+  which keeps decimal printing and repeated squaring bounded.
+- `floor`, `ceiling` and `int` of a Float whose integer part needs more
+  than 2**31 bits (`MAX_INTEGER_SHIFT`) raise
+  `OverflowError: too many digits in integer`, as in SymPy. Before this,
+  `floor(Float(2)**(2**100))` returned 1 and the same call at 2**121
+  panicked in the core.
+- `ln` carried too few guard bits after its square-root reduction: the
+  last digits of `log(2).evalf(2500)` were wrong, and so was
+  `Float(2)**(2**k)` for k >= 3000 (mantissa 2**53 - 1 instead of 1). The
+  reduction now carries `reduce + 4` extra bits.
+- `factorial(10**40).evalf()` = `2.68554168269385e+395657055180967481723488710810833949177076`
+  and `loggamma(10**40).evalf()` = `9.11034037197618e+41` (mpmath). SymPy
+  does not finish either in 30 s.
+
+Intentional corrections, checked against mpmath at 60 digits:
+- `gamma(Rational(10**40, 3)).evalf()` gives
+  `3.55973154373079e+130295280877923619116846143926094265361665`. SymPy
+  rounds the argument first and gives `2.99850408006855e+...539429`.
+- `gamma(Float(1e40))` ends in `...626811080`. SymPy's `...626811120` is
+  wrong in the exponent.
+- `gamma(Float(1e100))` gives `5.54790221218382e+...443467`, the 53-bit
+  rounding of the true value. SymPy gives `5.54790221218381e+...443567`.
+- `exp(10**40).evalf()**Rational(1, 3)` gives
+  `4.53613542926576e+1447648273010839425503763063055350274314`. SymPy
+  rounds 1/3 to 53 bits and gives `9.34867898800170e+...839853`.
+
+Benchmarks (load average about 25 during the runs, two interleaved runs
+each, base commit a2a0038):
+- The 15 evalf/precision test files: 41.0 s and 32.2 s on the base, 43.3 s
+  and 32.8 s here.
+- `test_performance_regressions.py` and `test_performance_validation.py`:
+  20.3 s and 13.0 s on the base, 16.3 s and 17.2 s here.
+- Common-path microbenchmark (best of 9): Float arithmetic loop 54.9 ms on
+  the base, 56.2 ms here; `log(n).evalf(500)` 126.6 ms and 120.1 ms;
+  `gamma(Rational(n, 5)).evalf()` 624 ms and 657 ms. The differences are
+  within the noise of this load.
+
+Remaining (explicit, never a wrong number):
+- Binary exponents of 65536 bits or more stay unevaluated
+  (`exp(2**70000).evalf()`, `Float(2)**(2**70000)`), where mpmath has no
+  bound. `Float(2)**(2**70000)` takes a few seconds to give up, because it
+  computes the logarithm before checking the bound.
+- Printing a Float whose exponent is close to the bound is slow (0.3 s for
+  `Float(2)**(2**8000)`, more than 2 minutes near 2**65000). SymPy cannot
+  print these values at all past about 4300 exponent digits (Python's
+  int-to-str limit raises ValueError).
+- `sin(exp(10**30).evalf())` stays symbolic. SymPy does not finish it.
+
+Tests: `tests/test_bigexp2_parity.py`. Older tests that expected the
+2**120 bound to hold values now check the evaluated values
+(`tests/test_bigexp_parity.py`, `tests/test_float_exponent_arithmetic.py`,
+`tests/test_precision.py`, `tests/test_prec_parity.py`).

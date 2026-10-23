@@ -16,22 +16,20 @@ def test_cube_below_the_counter_boundary_is_evaluated_like_sympy():
     assert cube.to_sympy()==reference*reference*reference
 
 
-def test_huge_products_preserve_exact_held_arithmetic_at_counter_boundary():
+def test_huge_products_follow_the_reference_past_2_120():
+    # Binary exponents are arbitrary-size since bigexp2: the products that
+    # used to stay held at the 2**120 counter now give SymPy's Floats.
     literal='1e150000000000000000000000000000000000'
     value=sx.Float(literal,20);reference=sp.Float(literal,20)
     square=value*value;expected_square=reference*reference
     assert square.is_Float and square.to_sympy()==expected_square
     assert (value**2).to_sympy()==reference**2
     cube=square*value
-    assert cube.is_Mul and not cube.is_Float
-    assert cube.to_sympy().evalf(20)==expected_square*reference
-    evaluated=sx.N(cube,30)
-    assert evaluated.is_Mul
-    held=sp.Mul(expected_square,reference,evaluate=False)
-    assert evaluated.to_sympy().evalf(30)==held.evalf(30)
+    assert cube.is_Float and cube.to_sympy()==expected_square*reference
+    assert str(sx.N(cube,30))==str(sp.N(expected_square*reference,30))
     matrix=sx.Matrix([[value]])*sx.Matrix([[value]])*sx.Matrix([[value]])
-    assert matrix[0,0].is_Mul
-    assert matrix[0,0].to_sympy().evalf(20)==expected_square*reference
+    assert matrix[0,0].is_Float
+    assert matrix[0,0].to_sympy()==expected_square*reference
 
 
 def test_exponent_gaps_do_not_overflow_in_addition_or_division():
@@ -42,9 +40,8 @@ def test_exponent_gaps_do_not_overflow_in_addition_or_division():
     assert (square-square).is_zero
     assert (value/value).to_sympy()==reference/reference
     outside=square/sx.Float('1e-150000000000000000000000000000000000',20)
-    assert not outside.is_Float
-    expected=sp.Mul(R,1/sp.Float('1e-150000000000000000000000000000000000',20),evaluate=False)
-    assert outside.to_sympy().evalf(20)==expected.evalf(20)
+    expected=R/sp.Float('1e-150000000000000000000000000000000000',20)
+    assert outside.is_Float and outside.to_sympy()==expected
     complex_literal=value+sx.Float('.125',20)*sx.I
     assert sx.N(complex_literal,30).to_sympy()==sp.N(reference+sp.Float('.125',20)*sp.I,30)
 
@@ -89,9 +86,9 @@ from symox import *
 value=Float('1e150000000000000000000000000000000000',20)
 square=value*value
 assert square.is_Float
-assert (square*value).is_Mul
-assert N(square*value,30).is_Mul
+assert (square*value).is_Float
+assert N(square*value,30).is_Float
 assert (square+1/square)==square
-assert (Matrix([[square]])*Matrix([[value]]))[0,0].is_Mul
+assert (Matrix([[square]])*Matrix([[value]]))[0,0].is_Float
 '''
     subprocess.run([sys.executable,'-c',source],check=True,timeout=15)

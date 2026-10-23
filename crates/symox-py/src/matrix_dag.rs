@@ -23,7 +23,7 @@ fn number(py:Python<'_>,value:&Number)->PyResult<PyObject>{
         Number::BigInt(n)=>vec![obj(py,"bigint")?,obj(py,n.clone())?],
         Number::Rational(n)=>vec![obj(py,"rational")?,obj(py,n.numer().clone())?,obj(py,n.denom().clone())?],
         Number::Float(n)=>vec![obj(py,"float")?,obj(py,n.to_bits())?],
-        Number::MpFloat(n,p)=>vec![obj(py,"mpfloat")?,obj(py,n.man.clone())?,obj(py,n.exp)?,obj(py,*p)?],
+        Number::MpFloat(n,p)=>vec![obj(py,"mpfloat")?,obj(py,n.man.clone())?,obj(py,n.exp.to_bigint())?,obj(py,*p)?],
     };tuple(py,fields)
 }
 fn read_number(value:&Bound<'_,PyAny>)->PyResult<Number>{
@@ -35,7 +35,7 @@ fn read_number(value:&Bound<'_,PyAny>)->PyResult<Number>{
         ("bigint",2)=>Number::from_bigint(p.get_item(1)?.extract()?),
         ("rational",3)=>Number::rational(p.get_item(1)?.extract()?,p.get_item(2)?.extract()?).ok_or_else(||invalid("zero rational denominator"))?,
         ("float",2)=>Number::Float(f64::from_bits(p.get_item(1)?.extract()?)),
-        ("mpfloat",4)=>{let precision:u32=p.get_item(3)?.extract()?;if precision<1||precision>crate::MAX_REQUESTED_PRECISION{return Err(invalid("invalid floating point precision"));}Number::MpFloat(symox::bigfloat::BigFloat{man:p.get_item(1)?.extract()?,exp:p.get_item(2)?.extract()?},precision)},
+        ("mpfloat",4)=>{let precision:u32=p.get_item(3)?.extract()?;if precision<1||precision>crate::MAX_REQUESTED_PRECISION{return Err(invalid("invalid floating point precision"));}Number::MpFloat(symox::bigfloat::BigFloat{man:p.get_item(1)?.extract()?,exp:p.get_item(2)?.extract::<num_bigint::BigInt>()?.into()},precision)},
         _=>return Err(invalid("unknown number record")),
     })
 }

@@ -178,7 +178,7 @@ fn host_arg_object(py: Python<'_>, arg: &symox::evalf_mp::HostArg) -> PyResult<P
     use symox::evalf_mp::HostArg;
     Ok(match arg {
         HostArg::Number(value) => (
-            value.re.man.clone(), value.re.exp, value.im.man.clone(), value.im.exp,
+            value.re.man.clone(), value.re.exp.to_bigint(), value.im.man.clone(), value.im.exp.to_bigint(),
         ).into_pyobject(py)?.into_any().unbind(),
         HostArg::Tuple(items) => pyo3::types::PyList::new(
             py, items.iter().map(|item| host_arg_object(py, item)).collect::<PyResult<Vec<_>>>()?,
@@ -198,12 +198,13 @@ fn mpmath_evaluate(py: Python<'_>, name: &str, args: &[symox::evalf_mp::HostArg]
     }
     let (re_man, re_exp, im_man, im_exp): (num_bigint::BigInt, num_bigint::BigInt, num_bigint::BigInt, num_bigint::BigInt) =
         result.extract(py)?;
-    // mpmath exponents are unbounded; a value whose exponent does not fit
-    // is beyond MAX_EXPONENT and is unavailable, as for native kernels.
-    let (Ok(re_exp), Ok(im_exp)) = (i128::try_from(re_exp), i128::try_from(im_exp)) else {
+    // mpmath exponents are unbounded, as `Exponent`; only exponents past
+    // MAX_EXPONENT_BITS bits are unavailable, as for native kernels.
+    let limit = u64::from(symox::bigfloat::MAX_EXPONENT_BITS);
+    if re_exp.bits() >= limit || im_exp.bits() >= limit {
         return Ok(None);
-    };
-    let part = |man: num_bigint::BigInt, exp: i128| symox::bigfloat::BigFloat { man, exp };
+    }
+    let part = |man: num_bigint::BigInt, exp: num_bigint::BigInt| symox::bigfloat::BigFloat { man, exp: exp.into() };
     Ok(Some(symox::evalf_mp::MpComplex { re: part(re_man, re_exp), im: part(im_man, im_exp) }))
 }
 

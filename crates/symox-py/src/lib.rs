@@ -1062,7 +1062,7 @@ fn expr_to_sympy<'py>(py: Python<'py>, e: &Expr) -> PyResult<Bound<'py, PyAny>> 
             Number::MpFloat(value,precision) => {
                 // Binary transfer avoids decimal round trips and Python's
                 // configurable limit on decimal integer-string conversion.
-                let mpf=(u8::from(value.man.is_negative()),value.man.abs(),value.exp,value.man.bits());
+                let mpf=(u8::from(value.man.is_negative()),value.man.abs(),value.exp.to_bigint(),value.man.bits());
                 let kwargs=PyDict::new(py);
                 kwargs.set_item("precision",*precision)?;
                 // SymPy's mpf-tuple constructor canonicalizes zero to Integer(0).
@@ -1728,6 +1728,7 @@ impl PyExprNode {
     }
 
     fn __int__(&self) -> PyResult<BigInt> {
+        huge_integer_part(&self.e)?;
         if let Some(integer) = fx::integer_trunc(&self.e) { return Ok(integer); }
         // Keep the established numerical fallback for functions outside the
         // rational enclosure engine, at native MP precision rather than f64.
@@ -2021,32 +2022,32 @@ impl PyExprNode {
     /// The normalized mpmath tuple ``(sign, man, exp, bc)`` of a Float:
     /// an odd mantissa, or ``(0, 0, 0, 0)`` for zero, as SymPy's ``_mpf_``.
     #[getter]
-    fn _mpf_(&self) -> PyResult<(u8, BigInt, i128, i64)> {
+    fn _mpf_(&self) -> PyResult<(u8, BigInt, BigInt, i64)> {
         let (sign, man, exp) = match self.e.as_number() {
             Some(Number::Float(value)) => {
                 let bits = value.to_bits();
                 let biased = ((bits >> 52) & 0x7ff) as i64;
                 let fraction = bits & ((1u64 << 52) - 1);
                 if value.is_nan() {
-                    return Ok((0, BigInt::from(0), -123, -1));
+                    return Ok((0, BigInt::from(0), BigInt::from(-123), -1));
                 }
                 if value.is_infinite() {
                     // mpmath's finf and fninf.
-                    return Ok(if bits >> 63 == 0 { (0, BigInt::from(0), -456, -2) } else { (1, BigInt::from(0), -789, -3) });
+                    return Ok(if bits >> 63 == 0 { (0, BigInt::from(0), BigInt::from(-456), -2) } else { (1, BigInt::from(0), BigInt::from(-789), -3) });
                 }
                 let (man, exp) = if biased == 0 { (fraction, -1074) } else { (fraction | (1u64 << 52), biased - 1075) };
-                ((bits >> 63) as u8, BigInt::from(man), exp as i128)
+                ((bits >> 63) as u8, BigInt::from(man), symox::bigfloat::Exponent::from(exp))
             }
-            Some(Number::MpFloat(value, _)) => (u8::from(value.man.is_negative()), value.man.abs(), value.exp),
+            Some(Number::MpFloat(value, _)) => (u8::from(value.man.is_negative()), value.man.abs(), value.exp.clone()),
             _ => return Err(pyo3::exceptions::PyAttributeError::new_err("only Float numbers have an mpf value")),
         };
         if man.is_zero() {
-            return Ok((0, BigInt::from(0), 0, 0));
+            return Ok((0, BigInt::from(0), BigInt::from(0), 0));
         }
         let shift = man.trailing_zeros().unwrap_or(0);
         let man = man >> shift;
         let bc = man.bits() as i64;
-        Ok((sign, man, exp + shift as i128, bc))
+        Ok((sign, man, (exp + shift).to_bigint(), bc))
     }
 
     #[getter]
@@ -3175,10 +3176,10 @@ fn float_mpf_parts(payload:&Bound<'_,PyAny>,precision:u32)->PyResult<Expr>{
             .ok_or_else(||PyValueError::new_err("invalid hexadecimal mpf mantissa"))?
     }else{source.extract::<BigInt>()?};
     if mantissa.is_negative(){return Err(PyValueError::new_err("mpf mantissa must be nonnegative"));}
-    let exponent=parts.get_item(2)?.extract::<i128>()?;
+    let exponent=parts.get_item(2)?.extract::<BigInt>()?;
     if parts.len()==4&&mantissa.is_zero(){
         let count=parts.get_item(3)?.extract::<i64>()?;
-        match (sign,exponent,count){
+        match (sign,i64::try_from(&exponent).unwrap_or(0),count){
             (0,-456,-2)=>return Ok(Expr::oo()),
             (1,-789,-3)=>return Ok(Expr::constant(Constant::NegInfinity)),
             (0,-123,-1)=>return Ok(Expr::nan()),
@@ -3187,7 +3188,7 @@ fn float_mpf_parts(payload:&Bound<'_,PyAny>,precision:u32)->PyResult<Expr>{
     }
     if mantissa.is_zero()&&!hexadecimal{return Ok(Expr::zero());}
     if sign==1{mantissa=-mantissa;}
-    let value=symox::bigfloat::BigFloat{man:mantissa,exp:exponent}.checked_round_to(precision)
+    let value=symox::bigfloat::BigFloat{man:mantissa,exp:exponent.clone().into()}.checked_round_to(precision)
         .ok_or_else(||PyValueError::new_err("mpf value exceeds the native binary exponent counter"))?;
     Ok(Expr::num(Number::mp_float(value,precision)))
 }
@@ -3666,6 +3667,17 @@ fn floor_div(p: &Expr, q: &Expr) -> PyResult<Expr> {
     Ok(fx::floor(&ops::div(p, q)))
 }
 
+/// SymPy builds the integer part of a Float as a Python int, which raises
+/// OverflowError when its bit shift does not fit (`floor(exp(10**40).evalf())`).
+fn huge_integer_part(e: &Expr) -> PyResult<()> {
+    if let Some(Number::MpFloat(value, _)) = e.as_number() {
+        if !value.integer_part_fits() {
+            return Err(pyo3::exceptions::PyOverflowError::new_err("too many digits in integer"));
+        }
+    }
+    Ok(())
+}
+
 /// Apply a known function by name (used by the Python layer).
 #[pyfunction]
 #[pyo3(name = "_apply", signature = (name, *args, evaluate=true))]
@@ -3681,6 +3693,7 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<P
         return calculus::_calculus(name,&args.get_item(0)?,&limits);
     }
     let v: Vec<Expr> = args.iter().map(|a| to_expr(&a)).collect::<PyResult<_>>()?;
+    if evaluate && (name == "floor" || name == "ceiling") && v.len() == 1 { huge_integer_part(&v[0])?; }
     if evaluate && (name == "Mod" || name == "Rem") && v.len() == 2 {
         return checked_mod(name, &v[0], &v[1]).map(wrap);
     }

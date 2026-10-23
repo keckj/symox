@@ -478,6 +478,9 @@ impl Number {
                 Self::from_bigint(integer)
             }
             Float(_) => self.clone(),
+            // A Float with an exponent beyond MAX_INTEGER_SHIFT is an
+            // integer value whose digits cannot be materialized.
+            MpFloat(value, _) if !value.integer_part_fits() => self.clone(),
             MpFloat(value, _) => {
                 let mut integer = value.to_int_trunc();
                 if value.is_negative() && crate::bigfloat::BigFloat::from_int(&integer) != *value { integer -= 1; }

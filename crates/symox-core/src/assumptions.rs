@@ -1496,7 +1496,7 @@ mod numeric_literal_tests {
             assert_eq!(is_odd(&value),Some(false));
             assert_eq!(fact(&value,"noninteger"),Some(true));
         }
-        let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(4),exp:-2},200));
+        let value=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(4),exp:(-2i64).into()},200));
         assert_eq!(is_integer(&value),None);
         let zero=Expr::num(Number::MpFloat(BigFloat{man:BigInt::from(0),exp:i64::MIN.into()},200));
         assert_eq!(is_integer(&zero),Some(true));

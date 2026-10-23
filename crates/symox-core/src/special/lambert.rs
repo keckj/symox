@@ -17,12 +17,13 @@ fn rational(n: &crate::number::Number) -> Option<Q> {
     if value.exp.unsigned_abs() > 1_000_000 {
         return None;
     }
-    Some(if value.exp >= 0 {
-        Q::from_integer(value.man << value.exp as usize)
+    let exp = value.exp.small()?;
+    Some(if exp >= 0 {
+        Q::from_integer(value.man << exp as usize)
     } else {
         Q::new(
             value.man,
-            BigInt::one() << value.exp.unsigned_abs() as usize,
+            BigInt::one() << exp.unsigned_abs() as usize,
         )
     })
 }
@@ -536,11 +537,7 @@ mod enclosure_tests {
         for bits in [32, 128, 512, 2048] {
             let interval = pi(bits);
             let value = crate::bigfloat::pi(bits + 64);
-            let dyadic = if value.exp >= 0 {
-                Q::from_integer(value.man << value.exp as usize)
-            } else {
-                Q::new(value.man, BigInt::one() << value.exp.unsigned_abs() as usize)
-            };
+            let dyadic = value.to_ratio_exact();
             assert!(interval.lo <= dyadic && dyadic <= interval.hi);
             assert!(interval.hi - interval.lo <= Q::new(2.into(), BigInt::one() << bits));
         }
