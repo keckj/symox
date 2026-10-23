@@ -40,10 +40,25 @@ def _matrix_variables(expression, symbols):
     return tuple(free)
 
 
+def _ambiguous_variable(error,f):
+    # SymPy's Derivative text names the expression.
+    if not symbols_missing(error):raise error
+    from ._public_tools import filldedent
+    raise ValueError(filldedent('''
+        Since there is more than one variable in the
+        expression, the variable(s) of differentiation
+        must be supplied to differentiate %s''' % f)) from None
+
+
+def symbols_missing(error):
+    return isinstance(error,ValueError) and str(error).startswith('Since there is more than one variable in the expression, the variable(s) of differentiation must be supplied')
+
+
 def scalar_diff(self, *symbols, evaluate=True, **options):
     if _options(evaluate,options):return unsimplified_diff(self,symbols)
     if not evaluate:return _core.Derivative(self,*symbols,evaluate=False)
-    return _native_scalar_diff(self,*symbols)
+    try:return _native_scalar_diff(self,*symbols)
+    except ValueError as error:_ambiguous_variable(error,self)
 
 
 def matrix_diff(self, *symbols, evaluate=True, **options):
@@ -77,7 +92,8 @@ def diff(f, *symbols, evaluate=True, **options):
     # Ordered operator polynomials (physics) differentiate themselves.
     hook=getattr(f,'_eval_symox_diff',None)
     if hook is not None:return hook(*symbols)
-    return _native_diff(f,*symbols)
+    try:return _native_diff(f,*symbols)
+    except ValueError as error:_ambiguous_variable(error,f)
 
 
 def install():

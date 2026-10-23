@@ -126,6 +126,9 @@ class _Algorithms:
             return self if n==self.size else type(self)(self.array_form+list(range(self.size,n)))
         if n<0:raise ValueError('permutation size must be nonnegative')
         if any((i<n)!=(value<n) for i,value in enumerate(self._images)):
+            for cycle in self.full_cyclic_form:
+                if min(cycle)<=n-1<max(cycle):
+                    raise ValueError('The permutation cannot be resized to {} because the cycle {} may break.'.format(n,tuple(cycle)))
             raise ValueError('resizing would break a permutation cycle')
         return type(self)(self._images[:n])
 

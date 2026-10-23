@@ -243,7 +243,23 @@ class ITE(BooleanFunction):
     """If-then-else clause: ``ITE(A, B, C)`` is B if A is true, else C."""
     _native_names = ('ITE',)
     _symox_head_name = 'ITE'
-    __new__ = _gate_constructor('ITE')
+    _native_new = staticmethod(_gate_constructor('ITE'))
+
+    def __new__(cls, *args, **options):
+        if cls.__dict__.get('_symox_head_name') == 'ITE':
+            from symox import Basic
+            for arg in args:
+                # Reference ``as_Boolean``: Python objects other than truth
+                # values are rejected before any sympification.
+                if isinstance(arg, Basic) or arg is True or arg is False:
+                    continue
+                try:
+                    truth = arg == True or arg == False  # noqa: E712
+                except Exception:
+                    truth = False
+                if truth is not True:
+                    raise TypeError('expecting bool or Boolean, not `%s`.' % (arg,))
+        return cls._native_new(cls, *args, **options)
 
 
 def _install_lattice_elements():

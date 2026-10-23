@@ -65,9 +65,21 @@ class AesaraPrinter(Printer):
         return operation(*arguments)
 
 
-def aesara_code(expr,cache=None,**kwargs):return AesaraPrinter(cache=cache).doprint(expr,**kwargs)
+def _require_aesara(what):
+    # SymPy imports aesara with import_module and reports its absence (or an
+    # import failure) with its own ImportError text.
+    try:
+        import aesara
+    except ImportError:
+        raise ImportError(what) from None
+    return aesara
+
+
+def aesara_code(expr,cache=None,**kwargs):
+    _require_aesara("aesara is required for aesara_code")
+    return AesaraPrinter(cache=cache).doprint(expr,**kwargs)
 def aesara_function(inputs,outputs,scalar=False,*,cache=None,dtypes=None,dim=None,dims=None,broadcastables=None,**kwargs):
-    import aesara
+    aesara=_require_aesara("Aesara is required for aesara_function")
     printer=AesaraPrinter(cache=cache);broadcast=dim_handling(inputs,dim,dims,broadcastables)
     graph_inputs=[printer.doprint(value,dtypes,broadcast) for value in inputs]
     graph_outputs=printer.doprint(outputs,dtypes,broadcast)

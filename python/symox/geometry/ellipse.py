@@ -262,13 +262,17 @@ class Ellipse(GeometrySet):
         from .. import oo, Symbol
         if line.slope in (0, oo):
             return self.func(self.center.reflect(line), -self.hradius, self.vradius)
-        x, y = Symbol('_x', real=True), Symbol('_y', real=True)
+        from ..core.symbol import uniquely_named_symbol
+        from .._public_tools import filldedent
+        x, y = [uniquely_named_symbol(name, (self, line), modify=lambda s: '_' + s, real=True)
+                for name in 'xy']
         expr = self.equation(x, y)
         p = Point(x, y).reflect(line)
         result = expr.xreplace({x: p.x, y: p.y})
-        raise NotImplementedError('General Ellipse is not supported but the equation '
-                                  'of the reflected Ellipse is given by the zeros of: '
-                                  'f(%s, %s) = %s' % (x, y, result))
+        raise NotImplementedError(filldedent(
+            'General Ellipse is not supported but the equation '
+            'of the reflected Ellipse is given by the zeros of: '
+            'f(%s, %s) = %s' % (x, y, result)))
 
     def contains(self, other):
         if isinstance(other, Ellipse):

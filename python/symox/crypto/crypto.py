@@ -70,9 +70,14 @@ def _alphabet(symbols):
 
 def padded_key(key,symbols):
     """Remove repeated key characters and append unused alphabet characters."""
-    symbols = _alphabet(symbols)
-    key = check_and_join(key,symbols)
-    return ''.join(dict.fromkeys(key+symbols))
+    syms = ''.join(dict.fromkeys(symbols))
+    if len(syms) != len(symbols):
+        extra = ''.join(sorted({i for i in symbols if symbols.count(i) > 1}))
+        raise ValueError('duplicate characters in symbols: %s' % extra)
+    extra = set(key) - set(syms)
+    if extra:
+        raise ValueError('characters in key but not symbols: %s' % ''.join(sorted(extra)))
+    return ''.join(dict.fromkeys(key + syms))
 
 
 def _prepare(message,key='',symbols=None,default=None):

@@ -467,13 +467,21 @@ def sqf_norm(f, *gens, **args):
 
 def _univariate_for_roots(f, extension):
     from .. import sympify
-    kwargs = {'extension': extension} if extension else {}
+    # SymPy builds Poly(f, greedy=False): algebraic or transcendental
+    # coefficients stay in the ground domain (EX, ZZ[pi]) instead of becoming
+    # generators, so sorting the roots fails with NotImplementedError.
+    kwargs = {'extension': extension} if extension else {'greedy': False}
     try:
-        F = Poly(f, **kwargs) if isinstance(f, Poly) else Poly(sympify(f), **kwargs)
+        if isinstance(f, Poly):
+            F = Poly(f, **kwargs) if extension else f
+        else:
+            F = Poly(sympify(f), **kwargs)
     except ValueError as exc:
         if _without_generators(exc):
             raise PolynomialError("Cannot compute real roots of %s, not a polynomial" % f) from None
         raise
+    if not isinstance(f, Poly) and F.is_univariate and not F.gen.is_Symbol:
+        raise PolynomialError("generator must be a Symbol")
     if not F.is_univariate:
         raise PolynomialError("only univariate polynomials are allowed")
     return F

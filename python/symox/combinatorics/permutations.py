@@ -113,6 +113,8 @@ class Permutation:
             return [value[i] for i in self._images]
         if index < 0 or index > self.size:
             raise TypeError('permutation index out of range')
+        if index == self.size:
+            raise IndexError('list index out of range')
         return self._images[index]
 
     def __mul__(self, other):

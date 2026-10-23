@@ -21,7 +21,7 @@ _counter=itertools.count()
 def _run(command,cwd,verbose=False,env=None):
     result=subprocess.run(command,cwd=cwd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,env=env)
     if verbose:print(result.stdout)
-    if result.returncode:raise CodeWrapError(' '.join(map(str,command))+'\n'+result.stdout)
+    if result.returncode:raise CodeWrapError('Error while executing command: %s. Command output is:\n%s'%(' '.join(map(str,command)),result.stdout))
 
 def _load(name,directory):
     paths=list(Path(directory).glob(name+'*'+sysconfig.get_config_var('EXT_SUFFIX')))
