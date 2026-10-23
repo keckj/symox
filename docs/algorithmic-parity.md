@@ -7696,3 +7696,63 @@ Huge exponents, remaining (explicit, never a wrong number):
   answers. The values were checked against mpmath.
 
 Tests: `tests/test_prec_parity.py`.
+
+## simp-rest (wave 7): simplification leftovers
+
+Implemented (statement-by-statement probe over `sympy/simplify/tests`):
+- `cse`: SymPy's algorithm is now ported (`opt_cse` with `match_common_args`,
+  then `tree_cse` rebuilt in `ordered` order, `basic_optimizations` with
+  `sub_pre`/`sub_post` from the new `symox.simplify.cse_opts`, `ignore`,
+  `postprocess`, `list=False`, sparse and immutable matrices, MatrixSymbol and
+  MatrixExpr inputs). The former native shortcut produced the 91 differences
+  noted by simp-mat. `symox.simplify._cse_diff` (`_forward_jacobian` and
+  helpers) is ported too. `iterable(MatrixExpr)` is now False as in SymPy
+  (`MatrixExpr._iterable = False`); it made `opt_cse` recurse forever.
+- `Function.inverse(argindex=1)` on the builtin heads that define it in
+  SymPy (`exp -> log`, `asin -> sin`, `erf -> erfinv`, `tanh -> atanh`, ...;
+  `sin`, `cos` still have none). `inversecombine` is SymPy's (any head with an
+  `inverse`, user `Function` subclasses included), so
+  `simplify(f(g(x)), inverse=True)` gives `x` like SymPy.
+- `trigsimp(..., inverse=True)` also cancels `asec(sec(x))` and
+  `acsc(csc(x))` (SymPy accepts every inverse whose `g()(1)` is a
+  TrigonometricFunction).
+- `sech` and `csch` are hyperbolic functions for `hyper_as_trig`, `_osborne`
+  and `_osbornei` (`sech -> sec`, `csch -> csc/I` and back), so trigsimp now
+  reduces `tanh(x)**2 + sech(x)**2`, `cosh(x)*sech(x)`,
+  `sinh(2*x)*csch(x)`, `csch(x)**2 - coth(x)**2` like SymPy (before, they were
+  returned unchanged).
+- `TR4` evaluates trigonometric functions of special angles that were built
+  held (`evaluate(False)`); `_TR11`, `_TR56`, `_osborne`, `_osbornei` are
+  importable from `symox.simplify.fu`.
+- `f._eval_rewrite_as_exp(*args)` exists on the trigonometric and hyperbolic
+  heads (used directly by SymPy's tests).
+- `kroneckersimp` is SymPy's (Piecewise rewritten as KroneckerDelta, then
+  cancellation to a fixed point), and `simplify` runs it before the native
+  search when KroneckerDelta and Piecewise appear together:
+  `simplify(KroneckerDelta(1, i) + Piecewise((1, Eq(j, 2)), (0, True)))` is
+  `KroneckerDelta(1, i) + KroneckerDelta(2, j)` and
+  `simplify(KroneckerDelta(0, j).rewrite(Piecewise)*KroneckerDelta(1, j))`
+  is 0.
+
+Remaining (documented, no wrong result found):
+- `log(exp(x), 2, evaluate=False)` builds an undefined `Function('log')` with
+  two arguments instead of a held `log`, so `simplify(..., inverse=True)`
+  leaves it alone (SymPy: `x/log(2)`).
+- `Derivative(sin(x), (x, d))` with a symbolic integer order `d` raises
+  ValueError at construction (issue 22210); SymPy keeps it.
+- Explicit-matrix expressions in `cse` print differently:
+  `Inverse(ImmutableMatrix)` prints as `ImmutableMatrix(2, 2, [...])**(-1)`
+  where SymPy prints `Matrix([...])**(-1)`, `MatrixSolve` is not a Basic, and
+  the kalman_filter / matrix-matrix cases give equivalent but different
+  replacements.
+- `nc_simplify` of noncommutative matrix products (41 probe statements:
+  MatrixExpr `doit` options unsupported), the noncommutative `simplify` of
+  issue 25590 (`cos(x)*(2*sin(x)*B*A + cos(x))`, equivalent), hyperexpand
+  timeouts (`test_prudnikov_1`, `test_lerchphi`, meijerg shift operators,
+  `test_plan`, meijerg with Floats), trigsimp_groebner, powsimp_polar and the
+  other powsimp/radsimp forms, nthroot, hypersimp form, posify with
+  Integral/Matrix, the issue 17141 exponent form and the issue 11004 Float
+  printing (`0.918937683105469` vs `0.9189`).
+- `hyper_as_trig` results differ from SymPy only by the Dummy index.
+
+Tests: `tests/test_simp_rest_parity.py`.

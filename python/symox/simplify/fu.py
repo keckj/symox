@@ -10,8 +10,11 @@ _REFERENCE_NAMES = frozenset(('Add', 'Dummy', 'Expr', 'Factors', 'HyperbolicFunc
     'gcd_terms', 'identity', 'ordered', 'perfect_power', 'pi', 'sec', 'sech',
     'sin', 'sinh', 'sqrt', 'sympify', 'tan', 'tanh'))
 
+# Private helpers that the reference tests import from the module.
+_PRIVATE_RULES = frozenset(('_TR11', '_TR56', '_osborne', '_osbornei'))
+
 def __getattr__(name):
-    if name in __all__:return getattr(_rules, name)
+    if name in __all__ or name in _PRIVATE_RULES:return getattr(_rules, name)
     if name in _REFERENCE_NAMES:
         import symox
         for source in ('symox', 'symox.simplify.simplify', 'symox.core.exprtools',

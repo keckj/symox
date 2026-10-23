@@ -105,6 +105,14 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         from .simplify.simplify import inversecombine
         expression=inversecombine(expression)
         if not isinstance(expression,Expr) or not expression.args:return expression
+    from . import KroneckerDelta, Piecewise as _Piecewise
+    if expression.has(KroneckerDelta) and expression.has(_Piecewise):
+        # SymPy runs kroneckersimp (which rewrites Piecewise as
+        # KroneckerDelta) before its final Piecewise block; the native search
+        # would rewrite the Eq/Ne conditions first.
+        from . import kroneckersimp
+        expression=kroneckersimp(expression)
+        if not isinstance(expression,Expr) or not expression.args:return expression
     floats=rational is not False and bool(expression.atoms(Float))
     if floats:expression=nsimplify(expression,rational=True)
     # SymPy's deep simplification: the arguments of every function node are

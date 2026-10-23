@@ -7,6 +7,9 @@ def _node_count(e):
     # args are Basic (i.e. have an args property).
     if getattr(e, 'is_Float', False):
         return 0.5
+    if isinstance(e, str):
+        # The reference stores a MatrixSymbol name as a ``Str`` atom.
+        return 1
     args = getattr(e, 'args', None)
     if args is None:
         args = _immutable_matrix_args(e)

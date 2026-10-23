@@ -1,6 +1,4 @@
 """Compatible imports backed by existing native implementations."""
-from symox._api_exports import export as _export
-_export(globals(), 'symox', 'cse')
 
 from collections import defaultdict
 import symox as S
@@ -9,9 +7,17 @@ import symox as S
 # SymPy 1.14 ``sympy/simplify/cse_main.py`` (BSD-3-Clause, see LICENSE-SYMPY).
 from symox import Basic, Mul, Add, Pow, MatrixExpr, MatMul, MatAdd, MatPow, Inverse
 from symox.core.containers import OrderedSet
-from symox.utilities.iterables import iterable, topological_sort
+from symox.utilities.iterables import iterable, topological_sort, numbered_symbols, sift  # noqa: F401
 from symox.matrices.expressions.matexpr import MatrixElement  # noqa: F401
 from symox import S as _S
+
+from symox.core.exprtools import factor_terms  # noqa: E402
+from symox.simplify import cse_opts  # noqa: E402
+
+# (preprocessor, postprocessor) pairs which are commonly useful (SymPy's
+# ``basic_optimizations``).
+basic_optimizations = [(cse_opts.sub_pre, cse_opts.sub_post),
+                       (factor_terms, None)]
 
 
 class FuncArgTracker:
@@ -220,7 +226,7 @@ def opt_cse(exprs, order='canonical'):
         if not isinstance(expr, (Basic, Unevaluated)):
             return
 
-        if expr.is_Atom or expr.is_Order:
+        if getattr(expr, 'is_Atom', False) or getattr(expr, 'is_Order', False):
             return
 
         if iterable(expr):
@@ -363,10 +369,275 @@ def postprocess_for_cse(expr,optimizations):
     return expr
 
 
-def tree_cse(exprs,symbols,opt_subs=None,order='canonical',ignore=()):
-    substitutions={old:S.sympify(new) for old,new in (opt_subs or {}).items()}
-    expressions=[S.sympify(expr).xreplace(substitutions) for expr in exprs]
-    return S.cse(expressions,symbols=symbols,order=order,ignore=ignore)
+def tree_cse(exprs, symbols, opt_subs=None, order='canonical', ignore=()):
+    """Perform raw CSE on expression tree, taking opt_subs into account.
 
-__all__ += ['FuncArgTracker','Unevaluated','cse_release_variables','cse_separate','match_common_args','opt_cse',
- 'postprocess_for_cse','preprocess_for_cse','reps_toposort','tree_cse']
+    Port of SymPy 1.14 ``tree_cse``.
+    """
+    from symox.polys.rootoftools import RootOf
+    from symox.matrices.expressions import MatrixSymbol
+    from symox.matrices.expressions.matexpr import MatrixElement
+    from symox.core.sorting import ordered
+
+    if opt_subs is None:
+        opt_subs = {}
+
+    ## Find repeated sub-expressions
+
+    to_eliminate = set()
+
+    seen_subexp = set()
+    excluded_symbols = set()
+
+    def _find_repeated(expr):
+        if not isinstance(expr, (Basic, Unevaluated)):
+            return
+
+        if isinstance(expr, RootOf):
+            return
+
+        if isinstance(expr, Basic) and (
+                getattr(expr, 'is_Atom', False) or
+                getattr(expr, 'is_Order', False) or
+                isinstance(expr, (MatrixSymbol, MatrixElement))):
+            if expr.is_Symbol:
+                excluded_symbols.add(expr.name)
+            return
+
+        if iterable(expr):
+            args = expr
+
+        else:
+            if expr in seen_subexp:
+                for ign in ignore:
+                    if ign in expr.free_symbols:
+                        break
+                else:
+                    to_eliminate.add(expr)
+                    return
+
+            seen_subexp.add(expr)
+
+            if expr in opt_subs:
+                expr = opt_subs[expr]
+
+            args = expr.flat() if _is_concrete_matrix(expr) else expr.args
+
+        list(map(_find_repeated, args))
+
+    for e in exprs:
+        if isinstance(e, Basic):
+            _find_repeated(e)
+
+    ## Rebuild tree
+
+    # Remove symbols from the generator that conflict with names in the expressions.
+    symbols = (_ for _ in symbols if _.name not in excluded_symbols)
+
+    replacements = []
+
+    subs = {}
+
+    def _rebuild(expr):
+        if not isinstance(expr, (Basic, Unevaluated)):
+            return expr
+
+        if _is_concrete_matrix(expr):
+            # The reference ImmutableMatrix is a Basic with args
+            # (rows, cols, Tuple(*entries)); rebuild entrywise.
+            return type(expr)(expr.rows, expr.cols,
+                              [_rebuild(arg) for arg in expr.flat()])
+
+        if not expr.args:
+            return expr
+
+        if iterable(expr):
+            new_args = [_rebuild(arg) for arg in expr.args]
+            return expr.func(*new_args)
+
+        if expr in subs:
+            return subs[expr]
+
+        orig_expr = expr
+        if expr in opt_subs:
+            expr = opt_subs[expr]
+
+        if _is_concrete_matrix(expr):
+            new_expr = _rebuild(expr)
+            if orig_expr in to_eliminate:
+                return _eliminate(orig_expr, new_expr)
+            return new_expr
+
+        # If enabled, parse Muls and Adds arguments by order to ensure
+        # replacement order independent from hashes
+        if order != 'none':
+            if isinstance(expr, (Mul, MatMul)):
+                c, nc = expr.args_cnc()
+                if c == [1]:
+                    args = nc
+                else:
+                    args = list(ordered(c)) + nc
+            elif isinstance(expr, (Add, MatAdd)):
+                args = list(ordered(expr.args))
+            else:
+                args = expr.args
+        else:
+            args = expr.args
+
+        new_args = list(map(_rebuild, args))
+        if isinstance(expr, Unevaluated) or new_args != args:
+            new_expr = expr.func(*new_args)
+        else:
+            new_expr = expr
+
+        if orig_expr in to_eliminate:
+            return _eliminate(orig_expr, new_expr)
+        else:
+            return new_expr
+
+    def _eliminate(orig_expr, new_expr):
+        try:
+            sym = next(symbols)
+        except StopIteration:
+            raise ValueError("Symbols iterator ran out of symbols.")
+
+        if isinstance(orig_expr, MatrixExpr):
+            sym = MatrixSymbol(sym.name, orig_expr.rows,
+                orig_expr.cols)
+
+        subs[orig_expr] = sym
+        replacements.append((sym, new_expr))
+        return sym
+
+    reduced_exprs = []
+    for e in exprs:
+        if isinstance(e, Basic):
+            reduced_e = _rebuild(e)
+        else:
+            reduced_e = e
+        reduced_exprs.append(reduced_e)
+    return replacements, reduced_exprs
+
+
+def _is_concrete_matrix(expr):
+    from symox import _core
+    return isinstance(expr, _core.Matrix)
+
+
+def _basic_optimizations():
+    return basic_optimizations
+
+
+def cse(exprs, symbols=None, optimizations=None, postprocess=None,
+        order='canonical', ignore=(), list=True):
+    """Perform common subexpression elimination on an expression.
+
+    Port of SymPy 1.14 ``cse``: ``opt_cse`` finds the Add/Mul/Pow
+    rewrites, ``tree_cse`` the repeated subtrees.
+    """
+    from symox.core.containers import Tuple
+    from symox.matrices import (MatrixBase, Matrix, ImmutableMatrix,
+                                SparseMatrix, ImmutableSparseMatrix)
+    from symox.utilities.iterables import numbered_symbols
+    from symox import Symbol, sympify
+
+    if not list:
+        return _cse_homogeneous(exprs,
+            symbols=symbols, optimizations=optimizations,
+            postprocess=postprocess, order=order, ignore=ignore)
+
+    if isinstance(exprs, (int, float)):
+        exprs = sympify(exprs)
+
+    # Handle the case if just one expression was passed.
+    if isinstance(exprs, (Basic, MatrixBase)) or getattr(exprs, '_symox_matrixexpr', False):
+        exprs = [exprs]
+
+    copy = exprs
+    temp = []
+    for e in exprs:
+        if isinstance(e, (Matrix, ImmutableMatrix)):
+            temp.append(Tuple(*e.flat()))
+        elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
+            temp.append(Tuple(*e.todok().items()))
+        else:
+            temp.append(e)
+    exprs = temp
+    del temp
+
+    if optimizations is None:
+        optimizations = []
+    elif optimizations == 'basic':
+        optimizations = _basic_optimizations()
+
+    # Preprocess the expressions to give us better optimization opportunities.
+    reduced_exprs = [preprocess_for_cse(e, optimizations) for e in exprs]
+
+    if symbols is None:
+        symbols = numbered_symbols(cls=Symbol)
+    else:
+        # In case we get passed an iterable with an __iter__ method instead of
+        # an actual iterator.
+        symbols = iter(symbols)
+
+    # Find other optimization opportunities.
+    opt_subs = opt_cse(reduced_exprs, order)
+
+    # Main CSE algorithm.
+    replacements, reduced_exprs = tree_cse(reduced_exprs, symbols, opt_subs,
+                                           order, ignore)
+
+    # Postprocess the expressions to return the expressions to canonical form.
+    exprs = copy
+    replacements = [(sym, postprocess_for_cse(subtree, optimizations))
+                    for sym, subtree in replacements]
+    reduced_exprs = [postprocess_for_cse(e, optimizations)
+                     for e in reduced_exprs]
+
+    # Get the matrices back
+    for i, e in enumerate(exprs):
+        if isinstance(e, (Matrix, ImmutableMatrix)):
+            reduced_exprs[i] = Matrix(e.rows, e.cols, reduced_exprs[i])
+            if isinstance(e, ImmutableMatrix):
+                reduced_exprs[i] = reduced_exprs[i].as_immutable()
+        elif isinstance(e, (SparseMatrix, ImmutableSparseMatrix)):
+            m = SparseMatrix(e.rows, e.cols, {})
+            for k, v in reduced_exprs[i]:
+                m[tuple(int(j) for j in k)] = v
+            if isinstance(e, ImmutableSparseMatrix):
+                m = m.as_immutable()
+            reduced_exprs[i] = m
+
+    if postprocess is None:
+        return replacements, reduced_exprs
+
+    return postprocess(replacements, reduced_exprs)
+
+
+def _cse_homogeneous(exprs, **kwargs):
+    """Same as ``cse`` but the ``reduced_exprs`` are returned with the
+    same type as ``exprs`` or a sympified version of the same."""
+    from symox import sympify
+    if isinstance(exprs, str):
+        replacements, reduced_exprs = _cse_homogeneous(
+            sympify(exprs), **kwargs)
+        return replacements, repr(reduced_exprs)
+    if isinstance(exprs, (list, tuple, set)):
+        replacements, reduced_exprs = cse(exprs, **kwargs)
+        return replacements, type(exprs)(reduced_exprs)
+    if isinstance(exprs, dict):
+        keys = list(exprs.keys())
+        replacements, values = cse([exprs[k] for k in keys], **kwargs)
+        reduced_exprs = dict(zip(keys, values))
+        return replacements, reduced_exprs
+
+    try:
+        replacements, (reduced_exprs,) = cse(exprs, **kwargs)
+    except TypeError:  # For example 'mpf' objects
+        return [], exprs
+    else:
+        return replacements, reduced_exprs
+
+
+__all__ = ['cse', 'numbered_symbols', 'basic_optimizations', 'FuncArgTracker','Unevaluated','cse_release_variables','cse_separate','match_common_args','opt_cse',
+ 'postprocess_for_cse','preprocess_for_cse','reps_toposort','tree_cse','cse','numbered_symbols']

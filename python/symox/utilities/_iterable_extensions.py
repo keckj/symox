@@ -986,6 +986,9 @@ def iterable(i, exclude=(str, dict, NotIterable)):
     """Return a boolean indicating whether ``i`` is SymPy iterable.
     True also indicates that the iterator is finite, e.g. you can
     call list(...) on the instance."""
+    if getattr(i, '_symox_matrixexpr', False) and not isinstance(i, type):
+        # SymPy's ``MatrixExpr._iterable = False``.
+        return False
     if hasattr(i, '_iterable'):
         flag = i._iterable
         # On a class such as ``sin`` the instance property itself is found;
