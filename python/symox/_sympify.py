@@ -67,11 +67,10 @@ def make_sympify(original):
             try:
                 return parse_expr(_unicode_space(a),local_dict=locals,
                                   transformations=transformations,evaluate=state)
-            except (SyntaxError,ValueError,TypeError,NotImplementedError,tokenize.TokenError) as error:
-                if isinstance(error,SympifyError):raise
-                if isinstance(error,(SyntaxError,tokenize.TokenError)):
-                    raise SympifyError('could not parse %r'%a,error) from error
-                raise SympifyError(a,error) from error
+            except (SyntaxError,tokenize.TokenError) as error:
+                # SymPy wraps only parse failures; evaluation errors of the
+                # parsed code (TypeError, ValueError, ...) propagate unchanged.
+                raise SympifyError('could not parse %r'%a,error) from error
         from . import Tuple,FiniteSet,Dict,ImmutableMatrix,Float,Integer,Range
         from decimal import Decimal
         if isinstance(a,Decimal):return Float(a)

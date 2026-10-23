@@ -61,6 +61,45 @@ class _BasicMeta(ABCMeta):
             forward_delattr(cls, 'Basic', name)
 
 
+def _class_operand_name(value):
+    # SymPy's classes are plain ``type`` instances: arithmetic on a class
+    # (``sympify('O + 1')``) reports the operand type as 'type'.
+    return 'type' if isinstance(value, _BasicMeta) else type(value).__name__
+
+
+def _class_binary(symbol, name):
+    def forward(cls, other):
+        reflected = getattr(type(other), '__r%s__' % name, None)
+        if reflected is not None and not isinstance(other, type):
+            result = reflected(other, cls)
+            if result is not NotImplemented:
+                return result
+        raise TypeError("unsupported operand type(s) for %s: 'type' and '%s'"
+                        % (symbol, _class_operand_name(other)))
+
+    def backward(cls, other):
+        raise TypeError("unsupported operand type(s) for %s: '%s' and 'type'"
+                        % (symbol, _class_operand_name(other)))
+    return forward, backward
+
+
+def _class_unary(symbol):
+    def operation(cls):
+        raise TypeError("bad operand type for %s: 'type'" % symbol)
+    return operation
+
+
+for _symbol, _name in (('+', 'add'), ('-', 'sub'), ('*', 'mul'), ('/', 'truediv'),
+                       ('//', 'floordiv'), ('%', 'mod'), ('** or pow()', 'pow'),
+                       ('@', 'matmul')):
+    _forward, _backward = _class_binary(_symbol, _name)
+    setattr(_BasicMeta, '__%s__' % _name, _forward)
+    setattr(_BasicMeta, '__r%s__' % _name, _backward)
+for _symbol, _name in (('unary -', 'neg'), ('unary +', 'pos'), ('abs()', 'abs')):
+    setattr(_BasicMeta, '__%s__' % _name, _class_unary(_symbol))
+del _symbol, _name, _forward, _backward
+
+
 class Basic(metaclass=_BasicMeta):
     """Immutable, reconstructible structural container for symbolic arguments."""
     # No instance slots: classes deriving from Basic and from the native

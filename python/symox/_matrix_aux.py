@@ -838,7 +838,7 @@ def banded(*args, **kwargs):
             else:
                 do, x = 1, 0
             if x:
-                raise ValueError('sequence does not fit an integral number of times in the matrix')
+                raise ValueError('\nsequence does not fit an integral number of times in the matrix')
             j = min(v.shape)
             for i in range(do):
                 smat[r, c] = v

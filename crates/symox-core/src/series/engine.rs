@@ -192,7 +192,14 @@ impl Engine {
         self.depth += 1;
         let r = self.ser_impl(e, n);
         self.depth -= 1;
-        let r = r?;
+        // SymPy's Function._eval_nseries names the innermost function whose
+        // argument tends to a logarithm: "Cannot expand sin(log(x)) around 0".
+        let r = match r {
+            Err(SErr::Pole(message)) if self.xser.val > 0 && matches!(e.kind(), Kind::Func(f, _)
+                if message == format!("{} of log", f.name())) =>
+                return Err(SErr::Pole(format!("Cannot expand {e} around 0"))),
+            r => r?,
+        };
         let better = match self.memo.get(e) {
             Some(old) => !old.exact && (r.exact || r.prec > old.prec),
             None => true,

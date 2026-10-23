@@ -319,10 +319,27 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
     let use_mp = solver == "secant" || digits != 15 || eqs.len() > vars.len() || starts.iter().any(|point| !point.is_real())
         || initial.iter().chain(&eqs).any(symox::evalf_mp::has_mp)
         || eqs.iter().any(|equation| symox::traverse::has(equation, &Expr::i()));
-    let results: Vec<Expr> = if use_mp {
+    // Machine precision Newton is only a fast path: when it fails, the
+    // arbitrary precision solver decides and reports the residual like
+    // mpmath's findroot.
+    let fast: Option<Vec<Expr>> = if use_mp { None } else {
+        let tolerance = numerical_tolerance.as_ref().map(|value| value.to_f64()).unwrap_or(1e-14);
+        if !tolerance.is_finite() || tolerance <= 0.0 {
+            return Err(PyValueError::new_err("tol is not representable at the default precision; request a higher prec"));
+        }
+        let starts: Vec<f64> = initial.iter().map(|point| symox::evalf::eval_f64(point)
+            .ok_or_else(|| PyValueError::new_err("starting points must be finite real values"))).collect::<PyResult<_>>()?;
+        if solver == "bisect" {
+            sv::nsolve_bisect(&eqs[0], &vars[0], starts[0], starts[1], tolerance, maxsteps, verify).map(|root| vec![root])
+        } else {
+            sv::nsolve_with_options(&eqs, &vars, &starts, tolerance, maxsteps, verify)
+        }.map(|values| values.into_iter().map(Expr::float).collect())
+    };
+    let results: Vec<Expr> = match fast { Some(results) => results, None => {
+        // mpmath's findroot default: tol = eps * 2**10 at prec + 20 bits.
         let options = symox::nsolve_mp::Options {
             precision,
-            tolerance: numerical_tolerance.unwrap_or_else(|| symox::bigfloat::BigFloat::one().ldexp(-(precision as i64) - 8)),
+            tolerance: numerical_tolerance.unwrap_or_else(|| symox::bigfloat::BigFloat::one().ldexp(-(precision as i64) - 9)),
             maxsteps,
             verify,
         };
@@ -334,20 +351,7 @@ fn nsolve(py: Python<'_>, f: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>, x0: Option
             symox::nsolve_mp::newton(&eqs, &vars, &starts, &options)
         }.map_err(PyValueError::new_err)?;
         values.into_iter().map(|value| symox::evalf_mp::to_expr(value, precision)).collect()
-    } else {
-        let tolerance = numerical_tolerance.map(|value| value.to_f64()).unwrap_or(1e-14);
-        if !tolerance.is_finite() || tolerance <= 0.0 {
-            return Err(PyValueError::new_err("tol is not representable at the default precision; request a higher prec"));
-        }
-        let starts: Vec<f64> = initial.iter().map(|point| symox::evalf::eval_f64(point)
-            .ok_or_else(|| PyValueError::new_err("starting points must be finite real values"))).collect::<PyResult<_>>()?;
-        let values = if solver == "bisect" {
-            sv::nsolve_bisect(&eqs[0], &vars[0], starts[0], starts[1], tolerance, maxsteps, verify).map(|root| vec![root])
-        } else {
-            sv::nsolve_with_options(&eqs, &vars, &starts, tolerance, maxsteps, verify)
-        }.ok_or_else(|| PyValueError::new_err("Could not find root within given tolerance"))?;
-        values.into_iter().map(Expr::float).collect()
-    };
+    }};
     if as_dict {
         let mapping = PyDict::new(py);
         for (symbol, value) in vars.iter().zip(results) { mapping.set_item(wrap(symbol.clone()), wrap(value))?; }

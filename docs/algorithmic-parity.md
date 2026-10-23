@@ -7027,3 +7027,79 @@ Remaining unsupported (all raise; none returns a wrong value):
 - Printing: `Trace(A)*B` prints as `Expr(A)*B` (native printer), which
   affects some `convert_array_to_matrix` results containing a trace; the
   value is correct.
+
+## Error types and messages of the category-f doc examples (f-final, 2026-10-23)
+
+The 15 objects of the final triage whose SymPy 1.14 doc example raised a
+different error type or message now raise SymPy's exception type with its
+text. Where the message contains a class repr, the package name is `symox`
+instead of `sympy`.
+
+- `nseries` of a function whose argument tends to a logarithm at 0
+  (`sin(log(x))`, `Abs(sin(log(x)))`, `cos(log(x))`) raises
+  `PoleError: Cannot expand sin(log(x)) around 0`, naming the innermost
+  function as `Function._eval_nseries` does. Other expansion points keep the
+  native message (SymPy prints the substituted dummy there, `sin(1/_k)`).
+- `Derivative` and `diff` with respect to a non-differentiable variable
+  raise `ValueError("\nCan't calculate derivative wrt x*y.")`.
+- `bool()` of an undecided relational raises
+  `TypeError: cannot determine truth value of Relational: x < 1`
+  (`1 < x < 2` reports `x > 1`, as in SymPy).
+- Item assignment on an immutable dense matrix raises
+  `TypeError: Cannot set values of <class 'symox.matrices.immutable.ImmutableDenseMatrix'>`.
+  The Python class is now named `ImmutableDenseMatrix` (in module
+  `symox.matrices.immutable`) with `ImmutableMatrix` as its alias, as in
+  SymPy. Sparse matrices report `symox._sparse.ImmutableSparseMatrix`.
+- `Predicate("P").register(...)` and `register_many` raise
+  `TypeError: <class 'symox.assumptions.assume.PredicateMeta'> cannot be dispatched.`;
+  the predicate metaclass is named `PredicateMeta` as in SymPy.
+- `Rational` accepts only what SymPy accepts: integers (including bool),
+  rationals, floats, `Float` and strings, in either slot. `Rational(pi)`,
+  `Rational(x)`, `Rational(sqrt(2))`, `Rational(I)`, `Rational(oo)`,
+  `Rational(nan)`, `Rational(pi, 2)` and `Rational(1, pi)` raise
+  `TypeError: invalid input: pi` (previously `Rational(pi)` returned `pi`).
+  `Rational(p, 0)` is `zoo` and `Rational(0, 0)` is `nan` (previously
+  `ZeroDivisionError`), and `Rational(True)` is `1`.
+- `banded` reports `"\nsequence does not fit an integral number of times in the matrix"`.
+- `sympify` of a string wraps only parse failures (`SyntaxError`,
+  `TokenError`) into `SympifyError`, like SymPy; evaluation errors of the
+  parsed code propagate unchanged. Arithmetic on a Symox class
+  (`sympify("O + 1")`, `-O`, `1 + O`) raises Python's `TypeError` text with
+  the operand type `'type'`, as for SymPy's plain classes.
+- `aesara_code` and `aesara_function` emit SymPy 1.14's
+  `SymPyDeprecationWarning` before the `ImportError` raised when Aesara is
+  absent.
+- `nsolve` failures report the residual and the tolerance as mpmath's
+  `findroot` does: `Could not find root within given tolerance. (r > tol)`
+  followed by `Try another starting point or tweak arguments.`. The
+  verification uses mpmath's criterion, the squared Euclidean norm of the
+  residual vector against `tol`, and the default tolerance is mpmath's
+  `eps * 2**10` at `prec + 20` bits, `2**(-prec - 9)` (`2.168...e-19` at 15
+  digits; it was `2**(-prec - 8)`). A failed machine-precision Newton run
+  for a system now falls back to the arbitrary-precision solver, which
+  decides the result or the error. A Newton iteration that cannot decrease
+  the residual stops and is judged by that final check, as in mpmath,
+  instead of raising a separate message.
+- `warns_deprecated_sympy` already reports SymPy's "DID NOT WARN" text; the
+  class is pytest's `Failed`, which SymPy also uses when run under pytest.
+
+Intentional divergences:
+
+- The residual printed by a failed `nsolve` differs from SymPy's. For the
+  doc example `nsolve(cos(x)*cosh(x) - 1, 3.14*100)` both solvers reach the
+  same root `312.588469032184` (`verify=False` gives it in both), and the
+  residual is the rounding noise of `cosh(312) ~ 1e135`. Symox iterates
+  with 64 guard bits where mpmath uses 20, so the noise differs (Symox
+  `5.0e+214`, SymPy `1.39e+230`). The tolerance printed is the same.
+
+Remaining gaps:
+
+- `nsolve(x**2 + 2, I)` gives `-5.2e-25 + 1.4142135623731*I`, while SymPy
+  prints `1.4142135623731*I`. The real part is below the requested
+  precision. mpmath's secant iterate happens to round it to exactly zero,
+  and Symox's stopping rule ends one iteration earlier.
+- `nsolve` of a singular two-variable system raises `ValueError: Jacobian is
+  numerically singular`, where mpmath raises `ZeroDivisionError: matrix is
+  numerically singular`.
+- The machine-precision Newton fast path for systems still verifies each
+  squared residual against `1e-14`, not against mpmath's tolerance.

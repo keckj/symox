@@ -75,10 +75,21 @@ def _require_aesara(what):
     return aesara
 
 
+def _deprecated(name):
+    # SymPy 1.14 deprecates the Aesara printer before checking for Aesara.
+    from ..utilities.exceptions import sympy_deprecation_warning
+    sympy_deprecation_warning("""
+        The %s function is deprecated.
+        """ % name, deprecated_since_version="1.14",
+        active_deprecations_target='deprecated-aesaraprinter', stacklevel=4)
+
+
 def aesara_code(expr,cache=None,**kwargs):
+    _deprecated('aesara_code')
     _require_aesara("aesara is required for aesara_code")
     return AesaraPrinter(cache=cache).doprint(expr,**kwargs)
 def aesara_function(inputs,outputs,scalar=False,*,cache=None,dtypes=None,dim=None,dims=None,broadcastables=None,**kwargs):
+    _deprecated('aesara_function')
     aesara=_require_aesara("Aesara is required for aesara_function")
     printer=AesaraPrinter(cache=cache);broadcast=dim_handling(inputs,dim,dims,broadcastables)
     graph_inputs=[printer.doprint(value,dtypes,broadcast) for value in inputs]

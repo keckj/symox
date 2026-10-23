@@ -195,7 +195,12 @@ impl PyMatrix {
 
     fn require_mutable(&self) -> PyResult<()> {
         if self.immutable {
-            Err(PyTypeError::new_err("Cannot set values of an immutable matrix"))
+            // SymPy's MatrixBase wording names the immutable class.
+            let class = Python::with_gil(|py| py.import("symox")
+                .and_then(|module| module.getattr("ImmutableDenseMatrix"))
+                .and_then(|class| class.repr().map(|text| text.to_string())))
+                .unwrap_or_else(|_| "an immutable matrix".to_owned());
+            Err(PyTypeError::new_err(format!("Cannot set values of {class}")))
         } else {
             Ok(())
         }
