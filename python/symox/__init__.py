@@ -3142,7 +3142,7 @@ cancel, factor, apart, together, collect = _nc.install(cancel, factor, apart, to
 
 def _make_apart_entry(_native):
     import functools
-    from .polys.partfrac import _apart_full
+    from .polys.partfrac import _apart_full, _apart_inexact
 
     @functools.wraps(_native)
     def apart(f, x=None, full=False, **options):
@@ -3150,6 +3150,11 @@ def _make_apart_entry(_native):
         # terms; the native apart covers the undetermined-coefficients path.
         if full and not isinstance(f, (list, tuple, set, frozenset)):
             result = _apart_full(f, x, **options)
+            if result is not None:
+                return result
+        if not full and not isinstance(f, (list, tuple, set, frozenset)):
+            # Float coefficients: the reference decomposes over RR/CC.
+            result = _apart_inexact(f, x, **options)
             if result is not None:
                 return result
         try:

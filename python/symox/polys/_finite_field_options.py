@@ -35,6 +35,58 @@ def _rewrite(args):
     return args
 
 
+_BINARY = ('gcd', 'lcm', 'div', 'quo', 'rem', 'gcdex', 'invert')
+
+
+def _relabel_roots(name, fargs, args):
+    """Root objects whose defining polynomial uses an inferred generator.
+
+    SymPy reads ``CRootOf(x**3 - x - 1, 0)`` in ``gcd(x**3 - x - 1, x -
+    CRootOf(x**3 - x - 1, 0), extension=True)`` as an algebraic coefficient
+    when the generators are inferred: only ``Poly`` with explicit generators
+    rejects it. The backend checks the generators structurally, so each such
+    root is rewritten over a fresh symbol and restored in the result.
+    Returns the new arguments and the restoring map, or None.
+    """
+    from .._core import Expr
+    count = 2 if name in _BINARY else 1
+    if len(fargs) != count or 'gens' in args or args.get('extension') is None:
+        return None
+    if not all(isinstance(a, Expr) for a in fargs):
+        return None
+    from ..polys.rootoftools import ComplexRootOf
+    from .. import Dummy
+    roots = set()
+    for a in fargs:
+        roots |= a.atoms(ComplexRootOf)
+    if not roots:
+        return None
+    free = set()
+    for a in fargs:
+        free |= a.free_symbols
+    forward, back = {}, {}
+    for r in roots:
+        symbols = r.expr.free_symbols
+        if not symbols & free:
+            continue
+        t = Dummy('t')
+        new = ComplexRootOf(r.expr.xreplace({s: t for s in symbols}), r.index)
+        forward[r] = new
+        back[new] = r
+    if not forward:
+        return None
+    return tuple(a.xreplace(forward) for a in fargs), back
+
+
+def _restore_roots(value, back):
+    from .._core import Expr
+    if isinstance(value, Expr):
+        return value.xreplace(back)
+    if isinstance(value, (tuple, list)):
+        return type(value)(_restore_roots(v, back) for v in value)
+    return value
+
+
 def _cancel_mod(native, f, gens, args):
     from .. import Poly, sympify, together, fraction, Tuple
     p = args['modulus']
@@ -90,6 +142,9 @@ def install(namespace):
                         args.get('symmetric', True) is not False and \
                         set(args) <= {'modulus', 'symmetric'}:
                     return _cancel_mod(native, fargs[0], fargs[1:], args)
+                relabeled = _relabel_roots(name, fargs, args)
+                if relabeled is not None:
+                    return _restore_roots(native(*relabeled[0], **args), relabeled[1])
                 return native(*fargs, **args)
             wrapper._symox_ff_options = True
             return wrapper

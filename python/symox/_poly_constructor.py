@@ -100,9 +100,22 @@ def _sort(gens,args):
     return tuple(sorted(gens,key=key))
 
 
+def _bound_generator(coefficient,gens):
+    from .polys.rootoftools import ComplexRootOf
+    free=getattr(coefficient,'free_symbols',None)
+    if free is None or free&set(gens):return False
+    return any(coefficient.has(g) for g in gens) and coefficient.has(ComplexRootOf)
+
+
 def _from_terms(terms,gens,domain,modulus,extension):
     from . import Add,Mul,Dummy
     slots=gens if all(getattr(g,'is_Symbol',False) for g in gens) else tuple(Dummy('g') for g in gens)
+    if slots==gens and any(_bound_generator(c,gens) for c in terms.values()):
+        # A root object such as CRootOf(x**3 - x - 1, 0) holds the
+        # generator symbol in its defining polynomial: SymPy reads it as a
+        # coefficient when the generators are inferred, so the backend gets
+        # placeholder generators.
+        slots=tuple(Dummy('g') for g in gens)
     expression=Add(*(coefficient*Mul(*(g**e for g,e in zip(slots,monomial)))
                      for monomial,coefficient in terms.items()))
     result=Poly._from_normalized(expression,slots,domain,modulus,extension)

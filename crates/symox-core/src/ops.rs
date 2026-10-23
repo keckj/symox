@@ -8,7 +8,7 @@
 
 use num_bigint::BigInt;
 use num_integer::Integer;
-use num_traits::{One, ToPrimitive};
+use num_traits::{One, ToPrimitive, Zero};
 
 use crate::expr::{Constant, Expr, Func, Kind};
 use crate::number::{exact_root, trial_factor, Number};
@@ -1919,50 +1919,51 @@ fn int_rational_pow(n: &BigInt, e: &Number) -> Expr {
         let e2 = e.mul(&Number::int(g as i64));
         return num_pow(&Number::from_bigint(m), &e2);
     }
-    // 2. split integer part: e = k + r/q
-    let k = e.floor();
-    let Some(k_small) = k.to_i64() else {
-        // the integer part cannot be materialized: keep the power held
-        // rather than dropping it (SymPy tries and never finishes)
-        return Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(n.clone())), Expr::num(e.clone())));
-    };
-    let r = p - k.to_bigint().unwrap() * &q;
-    let mut outside = Number::from_bigint(n.clone()).pow_i64(k_small).unwrap();
-    // 3. extract q-th powers: n = A**q * M
-    let q_u = q.to_u64().unwrap_or(u64::MAX);
-    let mut a = BigInt::one();
-    let mut m = BigInt::one();
-    for (prime, mult) in &factors {
-        let mult = *mult as u64;
-        let out_e = mult / q_u;
-        let in_e = mult % q_u;
-        if out_e > 0 {
-            a *= num_traits::pow::Pow::pow(prime, out_e);
-        }
-        if in_e > 0 {
-            m *= num_traits::pow::Pow::pow(prime, in_e);
-        }
-    }
+    // 2. Integer._eval_power: collect perfect roots prime by prime.  Each
+    // prime**(m*p) is split by divmod(m*p, q); a remainder sharing a factor
+    // with q becomes a reduced radical ((2**2)**(1/6) -> 2**(1/3)), the
+    // other remainders share one radical of exponent gcd/q.
+    let mut entries: Vec<(BigInt, BigInt)> = factors.iter().map(|(prime, m)| (prime.clone(), BigInt::from(*m))).collect();
     if !cof.is_one() {
-        match q.to_u32().and_then(|qq| exact_root(&cof, qq)) {
-            Some(rt) => a *= rt,
-            None => m *= &cof,
+        entries.push((cof.clone(), BigInt::one()));
+    }
+    let held = || Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(n.clone())), Expr::num(e.clone())));
+    let mut outside = Number::ONE;
+    let mut radicals: Vec<Expr> = Vec::new();
+    let mut remaining: Vec<(BigInt, BigInt)> = Vec::new();
+    for (prime, m) in &entries {
+        let (whole, rest) = (m * &p).div_mod_floor(&q);
+        if !whole.is_zero() {
+            // the integer part cannot be materialized: keep the power held
+            // rather than dropping it (SymPy tries and never finishes)
+            let Some(factor) = whole.to_i64().and_then(|k| Number::from_bigint(prime.clone()).pow_i64(k)) else { return held() };
+            outside = outside.mul(&factor);
+        }
+        if !rest.is_zero() {
+            let g = rest.gcd(&q);
+            if g.is_one() {
+                remaining.push((prime.clone(), rest));
+            } else {
+                let exponent = Number::rational(&rest / &g, &q / &g).unwrap();
+                radicals.push(num_pow(&Number::from_bigint(prime.clone()), &exponent));
+            }
         }
     }
-    if !a.is_one() {
-        let ar = num_traits::pow::Pow::pow(&a, r.to_u64().unwrap());
-        outside = outside.mul(&Number::from_bigint(ar));
+    let common = remaining.iter().fold(BigInt::from(0), |g, (_, r)| g.gcd(r));
+    let mut base = BigInt::one();
+    for (prime, r) in &remaining {
+        let Some(k) = (r / &common).to_u64() else { return held() };
+        base *= num_traits::pow::Pow::pow(prime, k);
     }
-    if m.is_one() {
-        return Expr::num(outside);
+    if base == *n && outside.is_one() && radicals.is_empty() {
+        return held();
     }
-    let rad_e = Number::rational(r, q).unwrap();
-    let rad = (Expr::num(Number::from_bigint(m)), Expr::num(rad_e));
-    if outside.is_one() {
-        Expr::from_kind(Kind::Pow(rad.0, rad.1))
-    } else {
-        Expr::from_kind(Kind::Mul(outside, vec![rad]))
+    let mut factors = vec![Expr::num(outside)];
+    factors.extend(radicals);
+    if !base.is_one() {
+        factors.push(Expr::from_kind(Kind::Pow(Expr::num(Number::from_bigint(base)), Expr::num(Number::rational(common, q).unwrap()))));
     }
+    mul(&factors)
 }
 
 // ----------------------------------------------------------------------

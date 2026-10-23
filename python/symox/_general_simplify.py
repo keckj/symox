@@ -24,6 +24,10 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
         method=getattr(expression,'simplify',None)
         if method is not None:return method(**options)
         return _core.simplify(expression)
+    # SymPy's simplify returns 0 at once for an expression known to be zero;
+    # numeric values decide it exactly (algebraic root objects included).
+    if expression.args and expression.is_number and expression.is_zero:
+        return S.Zero if not expression.is_Number else expression
     if doit and _core._host_contains(expression)[0]:
         # The reference simplify ends with doit() on unhandled heads; host
         # classes that opt in (held WignerD) are evaluated first here.

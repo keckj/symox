@@ -400,8 +400,17 @@ pub struct Term {
 impl Term {
     pub fn from_expr(term: &Expr) -> Term {
         let (c, rest) = ops::as_coeff_mul(term);
-        let mut coeff = c;
-        let factors = if rest.is_one() { vec![] } else { mul_args(&rest) };
+        let mut factors = if rest.is_one() { vec![] } else { mul_args(&rest) };
+        // Term.__init__ reads term.as_coeff_mul() with rational=True: a Float
+        // coefficient is a factor (its sign stays in the coefficient), so
+        // gcd_terms extracts a common float content: 2.0*x + 2.0 -> 2.0*(x + 1).
+        let mut coeff = if c.is_float() {
+            let negative = c.is_negative();
+            factors.insert(0, Expr::num(if negative { c.neg() } else { c }));
+            if negative { Number::MINUS_ONE } else { Number::ONE }
+        } else {
+            c
+        };
         let mut numer: Vec<(Expr, Expr)> = Vec::new();
         let mut denom: Vec<(Expr, Expr)> = Vec::new();
         for factor in factors {

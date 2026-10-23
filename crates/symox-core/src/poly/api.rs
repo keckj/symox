@@ -124,6 +124,12 @@ impl Term {
         let (mut coeff, rest) = as_coeff_mul(t);
         let mut numer = Factors::default();
         let mut denom = Factors::default();
+        // Term.__init__ reads as_coeff_mul() with rational=True: a Float
+        // coefficient is a factor and its sign stays in the coefficient.
+        if coeff.is_float() {
+            numer.add(Expr::num(coeff.abs()), 1);
+            coeff = if coeff.is_negative() { Number::MINUS_ONE } else { Number::ONE };
+        }
         let facs: Vec<Expr> = match rest.kind() {
             Kind::Mul(_, fs) => fs.iter().map(|(b, x)| mul_factor(b, x)).collect(),
             Kind::Num(n) if n.is_one() => vec![],

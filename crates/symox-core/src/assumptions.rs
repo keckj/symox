@@ -211,6 +211,17 @@ pub fn fact(e:&Expr,name:&str)->Option<bool>{
         return settle_nonreal(e,answer);
     }
     if implies_extended_real(name)&&structural_kind(e)&&structural_fact(e,"extended_real")==Some(false){return Some(false);}
+    // `Expr._eval_is_extended_positive_negative`: the sign of a finite
+    // number comes from its evaluation, settled by the minimal polynomial
+    // when the evaluation has no significance.
+    if matches!(name,"extended_positive"|"extended_negative"|"extended_nonnegative"|"extended_nonpositive")
+        && !e.is_atom() && crate::functions::is_numeric_value(e) && exact_queries(||is_finite(e))==Some(true) {
+        let answer=match name{
+            "extended_positive"=>is_positive(e),"extended_negative"=>is_negative(e),
+            "extended_nonnegative"=>is_nonnegative(e),_=>is_nonpositive(e),
+        };
+        if answer.is_some(){return answer;}
+    }
     let mut seed=Vec::new();
     match e.kind(){
         Kind::Num(n)=>{
@@ -817,7 +828,9 @@ fn numerically_null(first:&crate::evalf_mp::MpComplex,last:&crate::evalf_mp::MpC
 /// whose evaluation has no significance, which is algebraic and free of
 /// functions, is exactly zero when its minimal polynomial is the generator.
 fn algebraic_zero(e:&Expr)->bool {
+    // A root object is a number, not a `Function`, for the reference.
     fn has_function(e:&Expr)->bool {
+        if crate::poly::rootof::is_rootof(e) {return false;}
         matches!(e.kind(),Kind::Func(..))||e.args().iter().any(has_function)
     }
     // A sum whose identical terms cancel has the generator as minimal
