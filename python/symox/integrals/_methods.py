@@ -80,13 +80,75 @@ def _unit_slope_deltas(g, x):
     return symbolic_root
 
 
+def _reference_delta_product(g, x):
+    """Whether the default term loop hands ``g`` to the reference
+    ``deltaintegrate`` after the native delta rules declined it.
+
+    Besides the unit-slope symbolic roots of :func:`_unit_slope_deltas`:
+
+    - a delta ``DiracDelta(p(x))`` of order 0 whose argument is a
+      nonaffine polynomial with rational coefficients, when the guarded
+      ``diracdelta=True`` expansion splits it (every real root exact and
+      decided, the scale ``|p'(r)|`` nonzero);
+    - a unit-slope delta with a numeric root whose weight holds a
+      piecewise-constant head (``Heaviside``, ``sign``, ``Abs``) that
+      the native rules decline; the reference substitutes the root in
+      the weight (``Heaviside(x)*DiracDelta(x - 1)`` gives
+      ``Heaviside(x - 1)``), or an undefined function, the test function
+      of the sampling property (``f(x)*DiracDelta(x)`` gives
+      ``f(0)*Heaviside(x)``).
+
+    Exact input only, and no integer power above 1000 (the substitution
+    cost the native rules preflight)."""
+    from symox import Float, Heaviside, sign, Abs, Pow
+    if _unit_slope_deltas(g, x):
+        return True
+    if g.has(Float):
+        return False
+    for p in g.atoms(Pow):
+        if p.exp.is_Integer and abs(p.exp) > 1000:
+            return False
+    deltas = [d for d in g.atoms(DiracDelta) if d.args[0].has(x)]
+    if not deltas:
+        return False
+    nonaffine = False
+    orders = [d.args[1] if len(d.args) > 1 else S.Zero for d in deltas]
+    for d in deltas:
+        arg = d.args[0]
+        order = d.args[1] if len(d.args) > 1 else S.Zero
+        if arg.free_symbols - {x}:
+            return False
+        slope = arg.diff(x)
+        if slope == 1 or (slope == -1 and order == 0):
+            continue
+        if order != 0 or not arg.is_polynomial(x):
+            return False
+        poly = Poly(arg, x)
+        if poly.degree() < 2 or not poly.get_domain().is_QQ and not poly.get_domain().is_ZZ:
+            return False
+        if d.expand(diracdelta=True, wrt=x) == d:
+            return False
+        nonaffine = True
+    from symox.core.function import AppliedUndef
+    # The reference keeps one term of a derivative against a weight
+    # (f(x)*DiracDelta(x, 1) misses f(0)*DiracDelta(x)): order 0 only.
+    if any(o != 0 for o in orders):
+        return False
+    return nonaffine or g.has(Heaviside, sign, Abs) or bool(g.atoms(AppliedUndef))
+
+
 def _regular_delta_value(h):
     """``h`` unless it carries a singular value: ``zoo``/``nan`` or a
     delta at a numeric zero (``DiracDelta(0)``), which the reference
-    deltaintegrate produces for DiracDelta(x)/x or DiracDelta(x)**2."""
+    deltaintegrate produces for DiracDelta(x)/x or DiracDelta(x)**2, or
+    a result that still holds an integral."""
     if h is None:
         return None
     if h.has(S.ComplexInfinity, S.NaN):
+        return None
+    # A rewritten integrand left unevaluated is no antiderivative; the
+    # original stays held instead.
+    if h.has(Integral):
         return None
     for d in h.atoms(DiracDelta):
         if d.args[0].is_number:
@@ -123,7 +185,7 @@ def _term(g, x, conds):
         # Products the native rules declined (a symbolic delta root such as
         # x*DiracDelta(x - a)): take the reference deltaintegrate value
         # unless it is one of the singular products it mis-evaluates.
-        if _unit_slope_deltas(g, x):
+        if _reference_delta_product(g, x):
             stages.append(lambda: _regular_delta_value(deltaintegrate(g, x)))
     stages.append(lambda: singularityintegrate(g, x))
     for stage in stages:

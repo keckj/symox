@@ -91,6 +91,9 @@ def integrate(*args, **kwargs):
         free = getattr(f, 'free_symbols', None)
         if free is not None and len(free) != 1:
             raise ValueError("specify dummy variables for %s" % f)
+    special = _reference_integrate_cases(args, kwargs)
+    if special is not None:
+        return special[0]
     result = _native_integrate(*args, **kwargs)
     if (len(args) == 2 and not kwargs and isinstance(args[1], tuple) and len(args[1]) == 3
             and getattr(result, 'is_Integral', False)):
@@ -102,6 +105,70 @@ def integrate(*args, **kwargs):
         if value is not None:
             return value
     return _reevaluate_singularities(result)
+
+
+def _reference_integrate_cases(args, kwargs):
+    """The special forms that SymPy's ``Integral`` construction and
+    ``Integral.doit`` handle before integration, as ``(value,)``, or None.
+
+    - an ``Equality`` integrand integrates both sides (``AddWithLimits``);
+    - a ``Sum`` integrand is integrated term by term inside the sum, and a
+      limit of the sum that is an integration variable raises ValueError;
+    - a limit ``(x, None, b)`` or ``(x, a, None)`` keeps only the given
+      endpoint of the antiderivative (``Integral._eval_interval``);
+    - an ``Order`` integrand ``O(g)`` integrates to ``O(G)`` with ``G``
+      the antiderivative of ``g`` (``Integral._eval_integral``).
+    """
+    if not args:
+        return None
+    try:
+        f = sympify(args[0])
+    except Exception:
+        return None
+    limits = args[1:]
+    if isinstance(f, Equality):
+        return (Equality(integrate(f.lhs, *limits, **kwargs),
+                         integrate(f.rhs, *limits, **kwargs)),)
+    if isinstance(f, Sum) and limits:
+        spec = []
+        for lim in limits:
+            lim = sympify(lim)
+            spec.append(lim[0] if isinstance(lim, Tuple) and lim else lim)
+        first = f.limits[0]
+        if any(v in first for v in spec):
+            raise ValueError('Limit of the sum cannot be an integration variable.')
+        if any(l.is_infinite for l in first[1:]):
+            return (Integral(f, *limits),)
+        inner = integrate(f.function, *limits, **kwargs)
+        return (f.func(inner, *f.limits).doit(),)
+    if any(isinstance(lim, (tuple, list, Tuple)) and len(lim) == 3 and
+           any(v is None for v in lim[1:]) for lim in limits):
+        value = f
+        for lim in limits:
+            if not (isinstance(lim, (tuple, list, Tuple)) and len(lim) == 3
+                    and any(v is None for v in lim[1:])):
+                value = integrate(value, lim, **kwargs)
+                continue
+            x = sympify(lim[0])
+            a, b = [None if v is None else sympify(v) for v in lim[1:]]
+            if a is None and b is None:
+                value = integrate(value, x, **kwargs)
+                continue
+            F = integrate(value, x, **kwargs)
+            if getattr(F, 'is_Integral', False):
+                raise NotImplementedError('a limit of None needs an antiderivative of %s' % value)
+            value = (F.subs(x, b) if b is not None else S.Zero) - \
+                (F.subs(x, a) if a is not None else S.Zero)
+        return (value,)
+    if (len(limits) == 1 and isinstance(f, Expr) and f.has(Order)):
+        order = f.getO()
+        x = sympify(limits[0])
+        if order is not None and isinstance(x, Symbol) and not kwargs:
+            h = integrate(f.removeO(), x)
+            h_order = integrate(order.expr, x)
+            if not (getattr(h, 'is_Integral', False) or getattr(h_order, 'is_Integral', False)):
+                return (h + order.func(h_order, *order.variables),)
+    return None
 
 
 def _reevaluate_singularities(expr):

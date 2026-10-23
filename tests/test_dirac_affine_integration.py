@@ -92,9 +92,12 @@ def test_dirac_derivative_order_requires_nonnegative_integer_literal(order):
 
 def test_singular_and_multiple_distribution_products_are_not_assigned_values():
     t = sx.Symbol('t', real=True)
-    for expression in [sx.DiracDelta(t)/t,
-                       sx.DiracDelta(t)**2, sx.DiracDelta(t*t-1)]:
+    for expression in [sx.DiracDelta(t)/t, sx.DiracDelta(t)**2]:
         assert sx.integrate(expression, t).has(sx.Integral)
+    # A simple-root polynomial argument splits like SymPy's deltaintegrate:
+    # DiracDelta(t**2 - 1) = (DiracDelta(t - 1) + DiracDelta(t + 1))/2.
+    assert sx.integrate(sx.DiracDelta(t*t-1), t) == \
+        sx.Heaviside(t - 1)/2 + sx.Heaviside(t + 1)/2
 
 
 def test_existing_substitution_rule_for_step_delta_products_is_preserved():
