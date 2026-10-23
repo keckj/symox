@@ -1053,6 +1053,10 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             // needs about mag(x) + log2(log(x)) more bits to keep p bits of
             // gamma(x).
             let size = a.re.mag();
+            // |log2 gamma(x)| ~ x log2(x) exceeds MAX_EXPONENT for |x| > 2**100.
+            if size > 100 {
+                return None;
+            }
             let x = if size > 2 { ev(&args[0], wp + size as u32 + 16)?.re } else { a.re.clone() };
             match gamma_mp(&x, p) {
                 Some(value) => MpComplex::real(value),
@@ -1232,7 +1236,7 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
 
 fn gamma_spouge(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     // (z+a)**(z+1/2)*exp(-(z+a)) cancels mag(x) + log2(log(x)) bits.
-    let wp = prec.saturating_mul(2) + 80 + x.mag().max(0) as u32 + 8;
+    let wp = prec.saturating_mul(2) + 80 + x.mag().clamp(0, 1 << 20) as u32 + 8;
     if x.sign() < 0 || x.cmp(&BigFloat { man: BigInt::from(1), exp: -1 }) == std::cmp::Ordering::Less {
         // reflection: gamma(x) = pi / (sin(pi x) gamma(1-x))
         let one_minus = BigFloat::one().sub(x, wp);

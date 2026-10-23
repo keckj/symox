@@ -390,7 +390,7 @@ impl Number {
             (Float(_), _) | (_, Float(_)) => {
                 let (a, b) = (self.to_f64(), o.to_f64());
                 let r = a / b;
-                if b != 0.0 && self.double_overflow(a, o, b, r, false) {
+                if !o.is_zero() && self.double_overflow(a, o, b, r, false) {
                     return self.to_bigfloat(53).div(&o.to_bigfloat(53), 53).map(|v| Self::mp_result(v, 53));
                 }
                 Some(Self::float_result(r))

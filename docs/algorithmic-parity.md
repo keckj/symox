@@ -7455,6 +7455,14 @@ Huge exponents, remaining (explicit, never a wrong number):
   answers: `exp(10**30).evalf()`, `exp(2**100).evalf()`,
   `Float(2)**(2**101)`, `exp(Float('1e30'))`, `factorial(10**30).evalf()`.
   Lifting the bound needs big-integer exponents in `BigFloat`.
+  `gamma(Rational(10**40, 3)).evalf()`, `gamma(Float(1e40))` and
+  `factorial(10**40).evalf()` used to raise `OverflowError`, because the
+  mpmath result has an exponent past i128. They now stay unevaluated too.
+  So does `loggamma(10**40).evalf()` (`log(gamma(10**40))`, about 9.1e41).
+  SymPy does not finish it in 60 s. Evaluating it needs a log-of-gamma path
+  that avoids the huge intermediate.
+- `Float(1)/Rational(1, 10**400)` gave `inf` (the divisor rounds to the
+  double 0.0). It now gives SymPy's `1.00000000000000e+400`.
 - Where SymPy hangs (`factorial(10**20).evalf()`, `Pow(2, 10**20).evalf()`,
   `loggamma(10**30).evalf()`, `Pow(Rational(3, 2), 2**80).evalf()`), symox
   answers. The values were checked against mpmath.

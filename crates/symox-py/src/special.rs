@@ -196,7 +196,13 @@ fn mpmath_evaluate(py: Python<'_>, name: &str, args: &[symox::evalf_mp::HostArg]
     if result.is_none(py) {
         return Ok(None);
     }
-    let (re_man, re_exp, im_man, im_exp): (num_bigint::BigInt, i128, num_bigint::BigInt, i128) = result.extract(py)?;
+    let (re_man, re_exp, im_man, im_exp): (num_bigint::BigInt, num_bigint::BigInt, num_bigint::BigInt, num_bigint::BigInt) =
+        result.extract(py)?;
+    // mpmath exponents are unbounded; a value whose exponent does not fit
+    // is beyond MAX_EXPONENT and is unavailable, as for native kernels.
+    let (Ok(re_exp), Ok(im_exp)) = (i128::try_from(re_exp), i128::try_from(im_exp)) else {
+        return Ok(None);
+    };
     let part = |man: num_bigint::BigInt, exp: i128| symox::bigfloat::BigFloat { man, exp };
     Ok(Some(symox::evalf_mp::MpComplex { re: part(re_man, re_exp), im: part(im_man, im_exp) }))
 }
