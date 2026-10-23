@@ -17,7 +17,7 @@ use super::int::{Field, Int, Rat};
 use super::polyobj::Poly;
 use crate::expand::expand;
 use crate::expr::{Expr, Kind};
-use crate::functions::{cos, sin};
+use crate::functions::{acos, cos, sin};
 use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
@@ -25,9 +25,10 @@ use crate::ops::{add, div, mul, neg, pow, sqrt, sub};
 /// polynomial whose `roots` are incomplete and whose `all_roots` is not
 /// supported (symbolic coefficients) yields the partial `roots` result. It is
 /// off outside a public `solve` call, so internal callers still see `None`.
-pub struct RadicalOptions{pub cubics:bool,pub quartics:bool,pub incomplete:bool}
-impl Default for RadicalOptions{fn default()->Self{Self{cubics:true,quartics:true,incomplete:false}}}
-thread_local!{static RADICAL_OPTIONS:std::cell::Cell<RadicalOptions>=std::cell::Cell::new(RadicalOptions{cubics:true,quartics:true,incomplete:false});}
+/// `trig` is the reference `roots(..., trig=True)` flag of `roots_cubic`.
+pub struct RadicalOptions{pub cubics:bool,pub quartics:bool,pub incomplete:bool,pub trig:bool}
+impl Default for RadicalOptions{fn default()->Self{Self{cubics:true,quartics:true,incomplete:false,trig:false}}}
+thread_local!{static RADICAL_OPTIONS:std::cell::Cell<RadicalOptions>=std::cell::Cell::new(RadicalOptions{cubics:true,quartics:true,incomplete:false,trig:false});}
 
 pub fn radical_options()->RadicalOptions{RADICAL_OPTIONS.with(std::cell::Cell::get)}
 
@@ -355,7 +356,59 @@ fn roots_cyclotomic(n: i64) -> Vec<Expr> {
     ks.iter().rev().map(|&k| unit_root(k, n)).collect()
 }
 
+/// The `trig=True` branch of the reference `roots_cubic`: three real roots
+/// (a decidably positive discriminant) in the cos/acos form.
+fn roots_cubic_trig(f: &UPoly) -> Option<Vec<Expr>> {
+    if f.c.len() != 4 {
+        return None;
+    }
+    let (a, b, c, d) = (f.c[0].clone(), f.c[1].clone(), f.c[2].clone(), f.c[3].clone());
+    let two = Expr::int(2);
+    let three = Expr::int(3);
+    let p = div(
+        &sub(&mul(&[three.clone(), a.clone(), c.clone()]), &pow(&b, &two)),
+        &mul(&[three.clone(), pow(&a, &two)]),
+    );
+    let q = div(
+        &add(&[
+            mul(&[two.clone(), pow(&b, &three)]),
+            mul(&[Expr::int(-9), a.clone(), b.clone(), c.clone()]),
+            mul(&[Expr::int(27), pow(&a, &two), d.clone()]),
+        ]),
+        &mul(&[Expr::int(27), pow(&a, &three)]),
+    );
+    let disc = add(&[
+        mul(&[Expr::int(18), a.clone(), b.clone(), c.clone(), d.clone()]),
+        mul(&[Expr::int(-4), pow(&b, &three), d.clone()]),
+        mul(&[pow(&b, &two), pow(&c, &two)]),
+        mul(&[Expr::int(-4), a.clone(), pow(&c, &three)]),
+        mul(&[Expr::int(-27), pow(&a, &two), pow(&d, &two)]),
+    ]);
+    if crate::assumptions::is_positive(&disc) != Some(true) {
+        return None;
+    }
+    let amp = mul(&[two, sqrt(&div(&neg(&p), &three))]);
+    let arg = div(
+        &acos(&mul(&[div(&q, &p), sqrt(&div(&Expr::int(-3), &p)), Expr::rational(3, 2)])),
+        &three,
+    );
+    let shift = div(&b, &mul(&[three, a]));
+    Some(
+        (0..3)
+            .map(|k| {
+                let t = sub(&arg, &mul(&[Expr::int(k), Expr::pi(), Expr::rational(2, 3)]));
+                sub(&mul(&[amp.clone(), cos(&t)]), &shift)
+            })
+            .collect(),
+    )
+}
+
 fn roots_cubic(f: &UPoly) -> Vec<Expr> {
+    if radical_options().trig {
+        if let Some(rv) = roots_cubic_trig(f) {
+            return rv;
+        }
+    }
     let m = f.monic();
     let (a, b, c) = (m[1].clone(), m[2].clone(), m[3].clone());
     if c.is_zero() {
@@ -1528,7 +1581,7 @@ mod tests {
 
     #[test]
     fn radical_controls_preserve_complete_solve_fallback_and_restore_context(){
-        let disabled=RadicalOptions{cubics:false,quartics:false,incomplete:false};
+        let disabled=RadicalOptions{cubics:false,quartics:false,incomplete:false,trig:false};
         let x=Expr::symbol("x");let cubic=parse_str("x^3-x+1").unwrap();
         with_radical_options(disabled,||{
             assert!(roots(&cubic,&[x.clone()]).unwrap().is_empty());

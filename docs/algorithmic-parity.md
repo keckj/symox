@@ -7387,3 +7387,81 @@ Remaining gaps:
   SymPy's simplify pipeline with symox functions gives SymPy's
   intermediates. Fixing this needs SymPy's `simplify` pipeline (or its
   output form for this radicand) in the native simplify.
+
+## Solve and ODE leftovers (ode-solve, 2026-10-23)
+
+Regression tests: `tests/test_ode_solve_parity.py`. This wave settles the
+"Remaining gaps" of the solve-rest section above.
+
+Implemented:
+
+- `solveset` of a modular equation over the integers: ports of
+  `_is_modular`, `_invert_modular` and `_solve_modular`
+  (`python/symox/solvers/_solveset_steps.py`). `Mod(x, 3) - 1` gives
+  `ImageSet(Lambda(n, 3*n + 1), Integers)`, `Mod(7**x, 41) - 15` gives
+  `ImageSet(Lambda(n, 40*n + 3), Naturals0)`, `7 - Mod(x, 5)` and
+  `Mod(x, 3) - I` are proven EmptySets, a domain that is not a subset of
+  the integers keeps the ConditionSet. `pow(Integer, Integer, Integer)` and
+  `pow(Expr, n, m)` (`Mod(x**2, 3)`) follow SymPy's three-argument pow.
+- `solveset` radical step: when the native solver leaves a ConditionSet,
+  SymPy's `_solve_radical` (unrad, then `checksol` on every candidate; an
+  undecided candidate stays in a ConditionSet) runs if the
+  symbol-dependent part is a sum, and the `_invert_real` branch for
+  `g**(odd/even) = rhs` (rhs must be nonnegative) if it is a single power.
+  `sqrt(x + 1) - sqrt(x) - 1` gives `{0}`, `sqrt(x) + sqrt(x - 1) - 1`
+  gives `{1}`, and `sqrt(17*x - sqrt(x**2 - 5)) - 7` gives `{3}`.
+- `Set.as_dummy` and `Set.dummy_eq`.
+- `solve` fallback after the native NotImplementedError: SymPy's `_invert`
+  and the `_tsolve` steps `factor(powdenest(...))`,
+  `logcombine(lhs, force=True)`, `f(x)**e = rhs` with a symbol-free
+  non-integer `e`, and the final posify retry
+  (`python/symox/solvers/_tsolve_steps.py`). `x**y - 2` gives
+  `[2**(1/y)]`, `x**n - 1` gives `[1]`. The separable/Riccati implicit
+  solutions of rational_riccati_01, separable_26 and almost_lin_01 are now
+  solved for `y`.
+- `roots(..., trig=True)`: the trig branch of `roots_cubic` (cos/acos
+  form when the discriminant is decidably positive); SymPy's
+  `-x**3 + 2*x**2 + 3*x - 2` and `x**3 - 3*x + 1` forms are reproduced.
+
+Intentional divergences:
+
+- `solveset(x**Rational(1, 3) + 2, x, Reals)` stays EmptySet (SymPy:
+  `{-8}`). SymPy's `invert_real` uses the real cube root there, but Symox
+  and SymPy both evaluate `(-8)**(1/3)` to the principal value
+  `1 + sqrt(3)*I`, so `-8` does not satisfy the equation, and SymPy's own
+  Complexes result is EmptySet. The odd-denominator branch of
+  `_invert_real` is therefore not ported.
+- Complex radical candidates that SymPy leaves undecided in a ConditionSet
+  can be decided by Symox's `checksol`: `x**(1/3) + sqrt(x) - 2` gives `{1}`
+  where SymPy keeps the candidates `(-1 +- I)**6` (they are not solutions:
+  `(-8*I)**(1/3) + sqrt(-8*I) - 2` is not zero).
+- `exptrigsimp` no longer writes `(c*(1 + s*exp(x)))**m` as
+  `c**m*(1 + s*exp(x))**m` for a non-integer `m` and a `c` that is not
+  positive. SymPy does, and that is wrong:
+  `simplify((-1 - sqrt(3)*I)*(exp(a) - 1)**(1/3)/2)` gives
+  `(-1)**(1/3)*(-1 - sqrt(3)*I)*(1 - exp(a))**(1/3)/2`, which differs for
+  `a = 2`. The solve fallback above exposed it: one cube root of
+  almost_lin_01 was lost.
+
+Remaining gaps:
+
+- The tsolve steps give different but equal forms: rational_riccati_01
+  `sqrt(2)*(-exp(2*sqrt(2)*C1) - exp(2*sqrt(2)*x))/(exp(2*sqrt(2)*C1) -
+  exp(2*sqrt(2)*x))`, where SymPy writes `-sqrt(2)/tanh(sqrt(2)*(C1 - x))`
+  (SymPy reaches it through the bivariate `_u` substitution and its
+  `simplify`). almost_lin_01 gives `(exp(3*C1 + 3/x) - 1)**(1/3)`, where
+  SymPy writes `(exp(3*C1*x + 3)**(1/x) - 1)**(1/3)`. The two forms agree
+  for real `C1` and `x`, and Symox's form is the exact inverse of the
+  equation.
+- Lambert forms that need the log of a product of a positive unknown
+  (`x*exp(x**2) - 1`, `log(x) + x**2`, `x**a*exp(x) - 1`) still raise
+  NotImplementedError. SymPy reaches `_solve_lambert` with a posified
+  symbol and `expand_log`.
+- Radical solveset: `sqrt(x)*sqrt(x - 7) - 12` (a product, SymPy `{16}`),
+  `sqrt(x) + sqrt(x + 1) + sqrt(1 - x) - 6*sqrt(5)/5` (the native Reals
+  filter cannot decide that the Cardano roots with cube-root-of-unity
+  factors are not real, and `roots` does not apply SymPy's
+  `_integer_basis` scaling), and the `Complement(..., {-1/a})` form of
+  `solveset(y - b/(1 + a*x), x)`.
+- Symox has no public `Function.inverse()`. The solve fallback uses a
+  table of SymPy's one-argument inverses.

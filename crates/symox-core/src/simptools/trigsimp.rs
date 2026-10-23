@@ -386,9 +386,18 @@ fn exptrig_f(rv: &Expr) -> Expr {
                 } else {
                     dd_add(&mut newd, &ops::mul2(&ops::neg(&c), &t), m);
                 }
-            } else {
+            } else if crate::assumptions::is_integer(m) == Some(true)
+                || crate::assumptions::is_positive(&c) == Some(true)
+            {
                 dd_add(&mut newd, &ops::add2(&Expr::one(), &ops::mul2(&sgn, &ex)), m);
                 dd_add(&mut newd, &c, m);
+            } else {
+                // Intentional correction: the reference also writes
+                // (c*(1 + s*E**x))**m as c**m*(1 + s*E**x)**m here, which is
+                // wrong for a non-integer m and a c that is not positive
+                // ((exp(a) - 1)**(1/3) is not (-1)**(1/3)*(1 - exp(a))**(1/3)
+                // for a > 0); the factor is kept.
+                dd_add(&mut newd, k, m);
             }
         }
     }
