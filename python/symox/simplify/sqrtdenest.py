@@ -144,3 +144,36 @@ def sqrt_biquadratic_denest(expr, a, b, r, d2):
     return None
 
 __all__ += ['_mexpand','_sqrt_match','SqrtdenestStopIteration','is_algebraic','is_sqrt','sqrt_biquadratic_denest','sqrt_depth']
+
+
+def _sqrt_numeric_denest(a, b, r, d2):
+    """SymPy's helper that denests ``sqrt(a + b*sqrt(r))`` with
+    ``d2 = a**2 - b**2*r > 0``; None when it cannot be denested."""
+    d = S.sqrt(d2)
+    s = a + d
+    if sqrt_depth(s) < sqrt_depth(r) + 1 or (s**2).is_Rational:
+        s1, s2 = S.sign(s), S.sign(b)
+        if s1 == s2 == -1:
+            s1 = s2 = 1
+        res = (s1*S.sqrt(a + d) + s2*S.sqrt(a - d))*S.sqrt(2)/2
+        return res.expand()
+
+
+def _subsets(n):
+    """All nonempty subsets of ``(0, ..., n-1)`` as 0/1 lists, in SymPy's
+    reversed lexicographical order."""
+    if n == 1:
+        a = [[1]]
+    elif n == 2:
+        a = [[1, 0], [0, 1], [1, 1]]
+    elif n == 3:
+        a = [[1, 0, 0], [0, 1, 0], [1, 1, 0],
+             [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]]
+    else:
+        b = _subsets(n - 1)
+        a0 = [x + [0] for x in b]
+        a1 = [x + [1] for x in b]
+        a = a0 + [[0]*(n - 1) + [1]] + a1
+    return a
+
+__all__ += ['_sqrt_numeric_denest', '_subsets']

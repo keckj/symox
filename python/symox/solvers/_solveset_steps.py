@@ -246,3 +246,187 @@ def radical_step(f, symbol, domain, solver):
         return solutions
 
     return check_set(result)
+
+
+def _negative_base_pows(f, symbol):
+    """The powers ``b**g(x)`` of ``f`` with a constant base that is not
+    known to be positive (or zero): SymPy's ``_invert_real`` inverts them
+    only for a negative base, with ``integer_log``, and otherwise keeps a
+    ConditionSet (``c**x = 4`` has the solution 2 for ``c = -2``, which the
+    principal logarithm misses)."""
+    from .. import Pow
+    return [p for p in f.atoms(Pow) if p.exp.has(symbol) and not p.base.has(symbol)
+            and p.base.is_positive is not True and p.base.is_zero is not True]
+
+
+def _finite_with_finite_vars(f, domain):
+    """SymPy's ``_is_finite_with_finite_vars``."""
+    from .. import S, Dummy
+    def assumptions(s):
+        A = dict(s.assumptions0)
+        A.setdefault('finite', A.get('finite', True))
+        if domain.is_subset(S.Reals):
+            A.setdefault('real', True)
+        else:
+            A.setdefault('complex', True)
+        return A
+    reps = {s: Dummy(**assumptions(s)) for s in f.free_symbols}
+    return f.xreplace(reps).is_finite
+
+
+def _rational_log(a, m):
+    """The integer ``k`` with ``a**k == m`` for positive Rationals ``a != 1``
+    and ``m``, or None."""
+    import math
+    from .. import Rational
+    if m == 1:
+        return 0
+    la = math.log(a.p) - math.log(a.q)
+    lm = math.log(m.p) - math.log(m.q)
+    k0 = round(lm/la)
+    for k in (k0, k0 - 1, k0 + 1):
+        if Rational(a)**k == m:
+            return k
+    return None
+
+
+def _negative_base_exponents(base, rhs):
+    """The real exponents ``e`` with ``base**e == rhs`` for a negative
+    constant ``base``: ``('ints', [k])`` with the integer solutions,
+    ``('parity', j)`` for ``base == -1`` (``e`` in ``2*Integers + j``), or
+    None when it is not decided.
+
+    For a real ``e``, ``(-a)**e = a**e*exp(I*pi*e)`` is real only for an
+    integer ``e``, and then it is ``(-1)**e*a**e``. SymPy's ``_invert_real``
+    finds the nonnegative ``e`` with ``integer_log(rhs, base)`` and raises
+    ValueError for other right-hand sides."""
+    from .. import S, Abs, Float, cancel, expand_log, log
+    if rhs.free_symbols or base.free_symbols or rhs.has(S.NaN, S.ComplexInfinity):
+        return None
+    if rhs.is_zero:
+        return ('ints', [])
+    if rhs.is_zero is not False or rhs.is_finite is not True:
+        return None
+    if rhs.is_extended_real is not True:
+        return None
+    if base.atoms(Float) or rhs.atoms(Float):
+        return None
+    if base == -1:
+        if rhs == 1:
+            return ('parity', 0)
+        if rhs == -1:
+            return ('parity', 1)
+        if rhs.is_Rational:
+            return ('ints', [])
+        return None
+    a = -base
+    if a.is_Rational and rhs.is_Rational:
+        k = _rational_log(a, Abs(rhs))
+    else:
+        k = cancel(expand_log(log(Abs(rhs)), force=True)/expand_log(log(a), force=True))
+        if not k.is_Rational:
+            return None
+        if not k.is_Integer:
+            return ('ints', [])
+        k = int(k)
+        if (a**k - Abs(rhs)).equals(0) is not True:
+            return None
+    if k is None:
+        return ('ints', [])
+    sign = rhs.is_positive
+    if sign is None:
+        return None
+    return ('ints', [k] if (k % 2 == 0) == sign else [])
+
+
+def negative_base_step(f, symbol, domain, solver):
+    """``_invert_real`` of an equation whose symbol sits in the exponent of a
+    power with a negative constant base (``(-2)**x = 4``) on a real domain.
+
+    The symbol-free terms and factors are moved to the right side and
+    ``exp``/``log`` are inverted (as ``_invert_real`` does) until the power
+    is reached; its exponent is then solved for the exact integer powers
+    found by ``_negative_base_exponents``. When the inversion does not
+    reach such a power, the native result is checked by
+    ``negative_base_guard``. Returns None to keep the native result."""
+    from .. import (S, ConditionSet, Dummy, Eq, Equality, Expr, Lambda,
+                    Union, exp, imageset, log, sympify)
+    from .. import Set
+    if not isinstance(domain, Set):
+        return None
+    if not getattr(symbol, 'is_Symbol', False) or domain.is_subset(S.Reals) is not True:
+        return None
+    f0 = sympify(f)
+    if isinstance(f0, Equality):
+        f0 = f0.lhs - f0.rhs
+    if not isinstance(f0, Expr) or not _negative_base_pows(f0, symbol):
+        return None
+    unsolved = ConditionSet(symbol, Eq(f0, 0), domain)
+    if f0.is_Mul and all(_finite_with_finite_vars(m, domain) for m in f0.args):
+        # ``_solveset`` solves the factors of a product of finite terms
+        return Union(*[solver(m, symbol, domain) for m in f0.args])
+    lhs, ys = f0, [S.Zero]
+    while True:
+        if isinstance(lhs, exp):
+            lhs, ys = lhs.args[0], [log(y) for y in ys]
+        elif isinstance(lhs, log) and len(lhs.args) == 1:
+            lhs, ys = lhs.args[0], [exp(y) for y in ys]
+        elif lhs.is_Add and lhs.as_independent(symbol)[0] != 0:
+            g, lhs = lhs.as_independent(symbol)
+            ys = [y - g for y in ys]
+        elif lhs.is_Mul and lhs.as_independent(symbol)[0] != 1:
+            g, lhs = lhs.as_independent(symbol)
+            if g.is_zero is not False or g.is_finite is not True:
+                return None
+            ys = [y/g for y in ys]
+        else:
+            break
+    if not (lhs.is_Pow and not lhs.base.has(symbol) and lhs.exp.has(symbol)):
+        return None
+    if not lhs.base.is_negative:
+        return unsolved if lhs.base.is_positive is not True and lhs.base.is_zero is not True else None
+    expo = lhs.exp
+    parts = []
+    for y in ys:
+        found = _negative_base_exponents(lhs.base, y)
+        if found is None:
+            return unsolved
+        kind, value = found
+        if kind == 'ints':
+            parts.extend(solver(expo - k, symbol, domain) for k in value)
+            continue
+        c = expo.as_independent(symbol, as_Add=True)[0]
+        coeff = (expo - c)/symbol
+        if coeff.has(symbol) or coeff.is_extended_real is not True or coeff.is_zero is not False \
+                or c.is_extended_real is not True:
+            return unsolved
+        n = Dummy('n', integer=True)
+        lattice = imageset(Lambda(n, (2*n + value - c)/coeff), S.Integers)
+        parts.append(lattice if domain == S.Reals else domain.intersect(lattice))
+    return Union(*parts) if parts else S.EmptySet
+
+
+def negative_base_guard(f, symbol, domain, result):
+    """The native solver inverts ``b**g(x)`` with the principal logarithm,
+    which misses the integer exponents of a negative base on a real domain
+    (``(-2)**x*2**x = 16`` has the solution 2). An EmptySet obtained that
+    way is not a proof that there is no solution, and a finite set may
+    miss solutions (``(-2)**x = 2**x`` holds for every even ``x``), so the
+    native result becomes a ConditionSet. ``negative_base_step`` already
+    split the products and inverted the single powers; for the remaining
+    equations SymPy either raises ValueError (``integer_log``) or keeps a
+    ConditionSet."""
+    from .. import S, ConditionSet, Eq, Equality, Expr, sympify
+    from .. import Set
+    if not isinstance(domain, Set):
+        return result
+    if not getattr(symbol, 'is_Symbol', False) or isinstance(result, ConditionSet):
+        return result
+    if domain.is_subset(S.Reals) is not True:
+        return result
+    f0 = sympify(f)
+    if isinstance(f0, Equality):
+        f0 = f0.lhs - f0.rhs
+    if not isinstance(f0, Expr) or not _negative_base_pows(f0, symbol):
+        return result
+    return ConditionSet(symbol, Eq(f0, 0), domain)

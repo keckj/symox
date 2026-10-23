@@ -113,27 +113,70 @@ def nc_simplify(expr,deep=True):
     return S.bottom_up(expr,S.factor_nc) if deep else S.factor_nc(expr)
 
 
-def nthroot(expr,n,max_len=4,prec=15):
-    expr,n=S.sympify(expr),S.sympify(n)
-    if n==0:raise ValueError('a root order must be nonzero')
-    root=S.real_root(expr,n) if n.is_Integer and int(n)%2 else expr**(1/n)
-    constants=sorted([node for node in S.preorder_traversal(expr) if node.is_Pow and node.exp==S.Rational(1,2) and node.is_number],key=S.default_sort_key)[:max_len]
-    if constants:
-        try:
-            candidate=S.nsimplify(root.evalf(prec),constants=constants)
-            if S.simplify(S.expand(candidate**n-expr))==0:return candidate
-        except (NotImplementedError,ValueError,TypeError):pass
-        if not expr.free_symbols:
-            import mpmath
-            context=mpmath.mp.clone();context.dps=max(60,int(prec)+20)
-            values={'r'+str(i):context.mpf(str(value.evalf(context.dps))) for i,value in enumerate(constants)}
-            try:
-                identified=context.identify(context.mpf(str(root.evalf(context.dps))),constants=values,tol=context.mpf(10)**(-context.dps+15),maxcoeff=10000)
-                if identified:
-                    candidate=S.parse_expr(identified,local_dict={'r'+str(i):value for i,value in enumerate(constants)})
-                    if S.simplify(S.expand(candidate**n-expr))==0:return candidate
-            except (ValueError,TypeError,NotImplementedError):pass
-    return S.sqrtdenest(root)
+def _nthroot_solve(p, n, prec):
+    """SymPy's helper for ``nthroot``: denest ``p**(1/n)`` through its
+    minimal polynomial."""
+    from ..polys.numberfields.minpoly import _minimal_polynomial_sq
+    from .sqrtdenest import _mexpand
+    while n % 2 == 0:
+        p = S.sqrtdenest(S.sqrt(p))
+        n = n // 2
+    if n == 1:
+        return p
+    pn = p**S.Rational(1, n)
+    x = S.Symbol('x')
+    f = _minimal_polynomial_sq(p, n, x)
+    if f is None:
+        return None
+    sols = S.solve(f, x)
+    for sol in sols:
+        if abs(sol - pn).n() < 1./10**prec:
+            sol = S.sqrtdenest(sol)
+            if _mexpand(sol**n) == p:
+                return sol
+
+
+def nthroot(expr, n, max_len=4, prec=15):
+    """SymPy's ``nthroot``: a real nth root of a sum of surds, denested
+    with ``nsimplify`` on the surds or through the minimal polynomial."""
+    from ..polys.numberfields.minpoly import _is_sum_surds
+    from .sqrtdenest import _mexpand
+    expr = S.sympify(expr)
+    n = S.sympify(n)
+    p = expr**S.Rational(1, n)
+    if not n.is_integer:
+        return p
+    if not _is_sum_surds(expr):
+        return p
+    surds = []
+    coeff_muls = [x.as_coeff_Mul() for x in expr.args]
+    for x, y in coeff_muls:
+        if not x.is_rational:
+            return p
+        if y is S.S.One:
+            continue
+        if not (y.is_Pow and y.exp == S.S.Half and y.base.is_integer):
+            return p
+        surds.append(y)
+    surds.sort(key=lambda y: y.base)  # numeric order, as SymPy's sort()
+    surds = surds[:max_len]
+    if expr < 0 and n % 2 == 1:
+        p = (-expr)**S.Rational(1, n)
+        a = S.nsimplify(p, constants=surds)
+        res = a if _mexpand(a**n) == _mexpand(-expr) else p
+        return -res
+    a = S.nsimplify(p, constants=surds)
+    if _mexpand(a) is not _mexpand(p) and _mexpand(a**n) == _mexpand(expr):
+        return _mexpand(a)
+    try:
+        expr = _nthroot_solve(expr, n, prec)
+    except ValueError:
+        # the native factorization of the minimal polynomial gave up on
+        # its resource limit (SymPy factors it): keep the root
+        return p
+    if expr is None:
+        return p
+    return expr
 
 __all__ += ['clear_coefficients','dotprodsimp','factor_sum','inversecombine','nc_simplify','nthroot','product_mul',
  'product_simplify','sum_add','sum_combine','sum_simplify']

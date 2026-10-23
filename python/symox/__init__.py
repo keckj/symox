@@ -2285,7 +2285,14 @@ def solveset(f, symbol=None, domain=Complexes):
             modular = modular_step(f, sympify(symbol), _wrap_set(_unwrap(domain)), solveset)
             if modular is not None:
                 return modular
+            from .solvers._solveset_steps import negative_base_step
+            negative = negative_base_step(f, sympify(symbol), _wrap_set(_unwrap(domain)), solveset)
+            if negative is not None:
+                return negative
     result = _wrap_set(_core.solveset(f, symbol, None if domain is None else _unwrap(domain)))
+    if symbol is not None and domain is not None and not isinstance(result, ConditionSet):
+        from .solvers._solveset_steps import negative_base_guard
+        result = negative_base_guard(f, sympify(symbol), _wrap_set(_unwrap(domain)), result)
     if isinstance(result, ConditionSet) and symbol is not None:
         alt = _solveset_abs_piecewise(f, sympify(symbol), result)
         if alt is not None:

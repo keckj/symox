@@ -7989,3 +7989,83 @@ Remaining:
   `(-2*b*y - sqrt(5) - 1)/(2*a)`.
 
 Tests: `tests/test_solint_rest_parity.py`.
+
+## simp-rest2 (wave 8)
+
+Implemented:
+- The real inverter of negative bases (SymPy's `_invert_real`, the
+  `integer_log` branch), in `negative_base_step`
+  (`python/symox/solvers/_solveset_steps.py`). On a real domain, the
+  symbol-free terms and factors are moved to the right side, `exp` and
+  `log` are inverted, and `b**g(x) = r` with `b < 0` is solved as
+  `g(x) = k` for the exact integer `k` with `b**k = r`. A product of
+  finite factors is split first, as `_solveset` does. Results now match
+  SymPy: `(-2)**x = 4` gives `{2}` (it gave a false EmptySet),
+  `(-5)**(x + 1) = 625` gives `{3}`, `(-3)**(x - 3) = -3**39` gives
+  `{42}`, `(-2)**x = -8` gives `{3}`, and `(-2)**x = 2` gives EmptySet.
+  `(-2)**x` is real only on the integers, where it is `(-1)**x*2**x`, so
+  EmptySet is correct there.
+- A guard (`negative_base_guard`). On a real domain, a native result for
+  an equation that still has a power `b**g(x)` whose constant base is not
+  known to be positive becomes a ConditionSet. The principal logarithm
+  misses the integer exponents of a negative base: `c**x = 4` has the
+  solution 2 for `c = -2`, and `(-2)**x*2**x = 16` has the solution 2.
+  SymPy keeps a ConditionSet for a base of unknown sign or a complex
+  base (`c**x`, `r**x`, `I**x`, `(1 + I)**x`). Before, symox returned an
+  incomplete Intersection, `{0}` or EmptySet.
+- `solve` adds SymPy's `_tsolve` guess `e_rat`: `(-2)**x - 4` gives the
+  integer solution 2 before the principal logarithm root (native
+  `power_generator_tsolve`).
+- `nthroot` is a port of SymPy's `nthroot` and `_nthroot_solve`.
+- `sqrtdenest`: ports of `_sqrt_numeric_denest` and `_subsets` (issue
+  19914).
+- `minpoly`: ports of `_is_sum_surds`, `_separate_sq`, `_choose_factor`
+  (over QQ) and `_minimal_polynomial_sq`.
+
+Intentional corrections (each value checked by substitution):
+- SymPy's `integer_log` raises ValueError for a non-integer right side or
+  base. symox solves exactly:
+  - `(-2)**x = 1/4` gives `{-2}`;
+  - `(-1/2)**x = 4` gives `{-2}`;
+  - `(-2/3)**x = 81/16` gives `{-4}`;
+  - `(-E)**x = E**2` gives `{2}`;
+  - `(-sqrt(2))**x = 4` gives `{4}`.
+- SymPy raises "base must be 2 or more" for base -1. symox gives the
+  lattices `2*Integers` (for `1`) and `2*Integers + 1` (for `-1`),
+  intersected with a bounded domain (`{0, 2, 4, 6}` on `[0, 7]`).
+- `(-2)**x*(x - 1) = 0` gives `{1}`. SymPy raises.
+- `(-2)**x = 2**x` stays a ConditionSet. SymPy returns EmptySet, but the
+  equation holds on every even integer.
+- A symbolic or complex right side, a Float, a symbolic negative base, and
+  equations with several negative-base powers stay ConditionSets where
+  SymPy raises ValueError.
+- `solve((-2)**xr - 4, xr)` for a real `xr` gives `[2]`. SymPy also keeps
+  a non-real second root.
+
+Remaining:
+- `log(exp(x), 2, evaluate=False)`: the native `log` takes one argument,
+  so the held two-argument form is a generic function. As a result,
+  `simplify(..., inverse=True)` does not give `x/log(2)`.
+- `Derivative(sin(x), (x, d))` with a symbolic integer order (issue
+  22210): native derivative orders are machine integers, so construction
+  raises ValueError.
+- Still not done:
+  - `nc_simplify` of noncommutative matrix products (and issue 25590);
+  - the hyperexpand timeouts and forms;
+  - `trigsimp_groebner`;
+  - `powsimp_polar`;
+  - `posify` with Integral/Matrix;
+  - issues 17141 and 11004.
+- `nthroot1`: the native `factor_list` stops with "factorization resource
+  limit", and `nthroot` then returns its argument.
+- hypersimp and simplify forms: `simplify((x + 5)/(16*x**2 + 28*x + 6))`
+  keeps the expanded denominator. SymPy gives `(x + 5)/(2*(8*x**2 + 14*x
+  + 3))`. The `factor_terms` step of native simplify keeps the reference
+  form on a count_ops tie.
+- `(I**x).is_finite` is None for a real finite `x` (SymPy: True). As a
+  result, `I**x*(x - 2) = 0` on Reals stays a ConditionSet where SymPy
+  gives `{2}`.
+- SymPy rewrites `(r**2)**x` as `Abs(r)**(2*x)` for a real `r`. symox
+  does not.
+
+Tests: `tests/test_simp_rest2_parity.py`.

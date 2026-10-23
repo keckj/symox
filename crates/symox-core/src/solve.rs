@@ -1049,6 +1049,19 @@ fn power_generator_tsolve(f: &Expr, x: &Expr, gens: &[Expr], depth: u32) -> Opti
         if rhs_base == base {
             return solve_rec(&sub(&exponent, &rhs_exponent), x, depth + 1);
         }
+        // For a negative base, `_tsolve` first guesses the rational exponent
+        // `e_rat = nsimplify(log(|rhs|)/log(|b|))` and keeps it when
+        // `b**e_rat == rhs`, then adds the principal logarithm solutions
+        // (`(-2)**x - 4` gives `[2, log(4)/(log(2) + I*pi)]`).
+        if let Some(k) = negative_base_ratio(&rhs, &base) {
+            let mut out = solve_rec(&sub(&exponent, &k), x, depth + 1)?;
+            for r in invert(f, x, depth)? {
+                if !out.contains(&r) {
+                    out.push(r);
+                }
+            }
+            return Some(out);
+        }
         return None;
     }
     let factored = crate::poly::api::factor(&crate::simptools::powsimp::powdenest(f, false, false)).ok()?;
@@ -1551,6 +1564,28 @@ fn self_power(f: &Expr, b: &Expr, e: &Expr, rhs: &Expr, x: &Expr, depth: u32) ->
         }
     }
     Some(unique)
+}
+
+/// The rational `k` with `b**k == r` for a negative base `b`, found from
+/// `log(|r|)/log(|b|)` (the reference's `e_rat` guess in `_tsolve`); only a
+/// `k` for which the principal power is exactly `r` is returned.
+fn negative_base_ratio(r: &Expr, b: &Expr) -> Option<Expr> {
+    let bv = crate::evalf::eval_f64(b)?;
+    let rv = crate::evalf::eval_f64(r)?;
+    if !(bv < 0.0) || rv == 0.0 || !rv.is_finite() || bv == -1.0 {
+        return None;
+    }
+    let k = rv.abs().ln() / (-bv).ln();
+    for q in 1..=12i64 {
+        let p = (k * q as f64).round();
+        if (k * q as f64 - p).abs() < 1e-9 * q as f64 && p.abs() < 1e6 {
+            let cand = Expr::rational(p as i64, q);
+            if crate::expand::expand(&sub(&pow(b, &cand), r)).is_zero() {
+                return Some(cand);
+            }
+        }
+    }
+    None
 }
 
 /// log(r)/log(b), simplified to an exact rational when r is a rational power
