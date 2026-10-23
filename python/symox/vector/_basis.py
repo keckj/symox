@@ -148,6 +148,9 @@ class _BasisDependent:
 class Vector(_BasisDependent):
     kind = VectorKind()
     is_Vector = True
+    # Add(v1, v2) builds a VectorAdd, as the reference constructor
+    # postprocessors do.
+    _symox_vector_sum = True
 
     def __init__(self, *args):
         if not args:

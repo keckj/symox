@@ -469,6 +469,69 @@ def cancel(f, *gens, _signsimp=True, **args):
     return f.xreplace(dict(reps))
 
 
+def _cancel_unexpanded(f, gens):
+    """Reference ``cancel(f, expand=False)`` for commutative expressions.
+
+    SymPy builds the ring with ``sring(..., expand=False)``, so unexpanded
+    factors such as ``s - 1`` become generators and survive in the result.
+    Returns None when the native path must handle the input.
+    """
+    from . import signsimp, Piecewise, Tuple
+    from .polys.polytools import parallel_poly_from_expr
+    from .polys.polyerrors import PolificationFailed
+    if isinstance(f, (tuple, Tuple)):
+        return None
+    f = signsimp(_sympify(f))
+    if f.is_Number or f.is_Relational or not isinstance(f, _core.Expr):
+        return f
+    f = factor_terms(f, radical=True)
+    if f.has(Piecewise):
+        return None
+    p, q = f.as_numer_denom()
+    try:
+        (F, G), _ = parallel_poly_from_expr((p, q), *gens, expand=False)
+    except PolificationFailed:
+        return None
+    if not F.gens:
+        return f.expand()
+    P, Q = _poly_cancel(F, G)
+    return P/Q
+
+
+def _poly_cancel(F, G):
+    """``dmp_cancel(include=True)`` over fresh symbols standing for the
+    (possibly composite) generators of ``F`` and ``G``; returns expressions."""
+    from . import Dummy, Poly
+    gens = F.gens
+    syms = [Dummy('g%d' % i) for i in range(len(gens))]
+    K0 = F.domain
+    f = Poly.from_dict(F.as_dict(), *syms, domain=K0)
+    g = Poly.from_dict(G.as_dict(), *syms, domain=K0)
+    if K0.is_Field and K0.has_assoc_Ring:
+        K = K0.get_ring()
+        cq, f = f.clear_denoms(convert=True)
+        cp, g = g.clear_denoms(convert=True)
+        _, p, q = f.cofactors(g)
+        _, cp, cq = K.cofactors(K.convert(cp), K.convert(cq))
+        cp, cq = K0.convert(cp, K), K0.convert(cq, K)
+        p, q = p.set_domain(K0), q.set_domain(K0)
+    else:
+        K = K0
+        cp = cq = K0.one
+        _, p, q = f.cofactors(g)
+    p_neg, q_neg = K0.is_negative(p.LC()), K0.is_negative(q.LC())
+    if p_neg and q_neg:
+        p, q = -p, -q
+    elif p_neg:
+        cp, p = -cp, -p
+    elif q_neg:
+        cp, q = -cp, -q
+    back = dict(zip(syms, gens))
+    P = (p.mul_ground(cp)).as_expr().xreplace(back)
+    Q = (q.mul_ground(cq)).as_expr().xreplace(back)
+    return P, Q
+
+
 def factor(f, *gens, deep=False, **args):
     """SymPy's ``factor``: noncommutative input goes to ``factor_nc``."""
     from . import Mul, Add
@@ -1111,6 +1174,10 @@ def install(cancel_, factor_, apart_, together_, collect_):
     def cancel_entry(f, *gens, **args):
         if is_nc(f):
             return cancel(f, *gens, **args)
+        if args.get('expand', True) is False and set(args) == {'expand'}:
+            result = _cancel_unexpanded(f, gens)
+            if result is not None:
+                return result
         return cancel_(f, *gens, **args)
 
     @functools.wraps(factor_)

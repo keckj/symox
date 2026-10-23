@@ -5947,3 +5947,92 @@ Remaining gaps:
   `[a*x + y - 1, x - y]` and `[x**2 + a/y, x - y]` with a free parameter
   `a`. Also `[x**2 + 1/y - 1, x - y**2]`, whose quintic factor SymPy
   returns as `CRootOf` through the substitution path.
+
+## Category-c batches 3 and 4, remaining gaps (c-rest-b) on 2026-10-23
+
+All c3 and c4 doctest records were re-run against SymPy 1.14. Callables
+whose doctests all match: c3 went from 33/41 to 33/41, c4 from 12/37 to
+23/37.
+
+Implemented:
+
+- Pretty printing of Python-level values. The Python `PrettyPrinter` now
+  composes Python objects with the reference `stringPict` and `prettyForm`
+  (a verbatim copy of SymPy's `stringpict.py`). Native subexpressions come
+  from the new `_core._pretty_form`, which returns the picture with its
+  baseline and binding. This covers the reference `_print_seq`, list,
+  tuple, dict, set and frozenset printers (keys and items sorted by
+  `default_sort_key`), `TransferFunction`, `Series`, `Parallel`,
+  `Feedback`, the MIMO variants, `TransferFunctionMatrix` and
+  `DiagramGrid`. Objects with a `_pretty` method are tried first, as in
+  the reference dispatch.
+- Categories:
+  - Category values have the reference `sort_key` (Object like a named
+    atom, morphisms as Basic, `CompositeMorphism` through a `Tuple`).
+  - `Diagram.premises`, `Diagram.conclusions` and `Diagram.hom` return
+    sets that print like SymPy's `FiniteSet`/`EmptySet` and are ordered
+    like the reference `Dict`.
+  - `Morphism(A, B)` raises SymPy's NotImplementedError.
+  - `DiagramGrid`, `ArrowStringDescription`, `XypicDiagramDrawer` and
+    `xypic_draw_diagram` are now a verbatim port of
+    `sympy/categories/diagram_drawing.py`. Groups use a frozenset with
+    the FiniteSet sort key. The previous simplified layout differed (for
+    example a 3x1 grid instead of SymPy's 2x2 triangle). All 153
+    reference doctests of the module pass. The errors are SymPy's too:
+    IndexError for an empty diagram, KeyError for groups that miss an
+    object.
+- `cancel(f, expand=False)` follows the reference: unexpanded factors
+  become generators, and `dmp_cancel(include=True)` runs over fresh
+  symbols. Before, the option was ignored and the result was expanded.
+  This also fixes `TransferFunction.simplify`,
+  `TransferFunctionMatrix.simplify` and `MIMOFeedback.doit`. For the
+  same reason, `parallel_poly_from_expr(..., expand=False)` now finds
+  the generators without expanding.
+- `jones_2_stokes` uses the reference formula (`Abs(e)**2`), without the
+  extra `trigsimp`.
+- `Add(v1, v2)` of vectors returns a `VectorAdd`, so its kind is
+  `VectorKind(NumberKind)`. `Add(N.i, 1)` still raises TypeError.
+
+Intentional divergences:
+
+- `combine_kronecker(A⊗B + C⊗D)`: SymPy returns `(A + C)⊗(B + D)`. That is
+  wrong in general, so symox keeps the sum unchanged.
+- `ufuncify`: the SymPy doctest fails in this environment (f2py "return
+  arrays must be of ArrayType"), while symox's path works.
+- `preview_diagram` loads `\xyoption{all}` and passes `filename`,
+  `outputbuffer` and `dvioptions` through to `preview`. SymPy omits the
+  option, so its LaTeX run fails on curved arrows and loops. SymPy also
+  hands those three options to `DiagramGrid` as ignored hints, so
+  `viewer="file"` cannot work there.
+
+Still unsupported or different (none of them returns a wrong value):
+
+- c3:
+  - `galois_group` of degree 6 over an AlgebraicField raises
+    NotImplementedError.
+  - `prime_decomp` over `QQ.algebraic_field((T, theta))` with a symbolic
+    `theta` raises an error: the native field needs a concrete root.
+  - `has_dups(Set())`: the abstract `Set()` cannot be instantiated.
+  - `julia_code` and `octave_code` of a user function applied to a
+    Matrix, and `Integral` of a `MatrixSymbol` (`MatrixKind` doctest),
+    raise TypeError or ValueError: native expressions cannot hold
+    matrices.
+- c4:
+  - `FiniteSet` of Python-level category values (`Category`,
+    `subdiagram_from_objects(FiniteSet(A, B))`) raises TypeError.
+  - `CoordinateSymbol` doctests need a `Lambda` with a Matrix body.
+  - `shape` and `ArrayKind` of `Integral(Array)` raise errors.
+  - The array-expression doctests (`sort_args_by_name`, `PermuteDims`,
+    `convert_array_to_matrix`, `convert_indexed_to_array`) still differ.
+  - `phase_margin` returns an equal closed form written differently,
+    because of the native `arg`/`atan` simplification.
+  - `simplify_gpgp` leaves `ps*qs*qs` unchanged. SymPy contracts it to
+    `G(-L_0)*p(L_0)*q(L_1)*q(-L_1)`. The reference needs
+    `sorted_components` and SymPy's rank-3 `GammaMatrix`. Symox's
+    `GammaMatrix` has no spinor indices. The input is returned unchanged,
+    which is still equal.
+  - `couple` and `uncouple` with symbolic spins raise NotImplementedError.
+  - `ImplicitRegion.rational_parametrization`:
+    - The circle example uses another regular point, because the native
+      ternary-quadratic `diophantine` is not ported.
+    - The float example raises NotImplementedError.
