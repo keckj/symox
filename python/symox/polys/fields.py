@@ -62,6 +62,7 @@ class FracElement:
     # Expressions on the left defer to the element, as the reference
     # ``Expr`` binary methods return ``NotImplemented`` for it.
     _op_priority = 10.1
+    _symox_ring_element = True
 
     def __init__(self,field,value):
         self.field,self._value=field,value

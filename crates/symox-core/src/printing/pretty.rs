@@ -1385,6 +1385,94 @@ impl PrettyPrinter<'_> {
         p
     }
 
+    /// SymPy's `_print_Sum` (with its `asum` sign builder): one sign per
+    /// limit, innermost first.
+    fn print_sum(&self, args: &[Expr]) -> Pict {
+        let ascii_mode = ascii();
+        // asum(hrequired) -> (d, h, lines, more)
+        let asum = |hrequired: usize| -> (usize, usize, Vec<String>, usize) {
+            let h = hrequired.max(2);
+            let mut d = h / 2;
+            let mut w = d + 1;
+            let more = hrequired % 2;
+            let mut lines = Vec::new();
+            if ascii_mode {
+                lines.push(format!("{} ", "_".repeat(w)));
+                lines.push(format!("\\{}`", " ".repeat(w - 1)));
+                for i in 1..d {
+                    lines.push(format!("{}\\{}", " ".repeat(i), " ".repeat(w - i)));
+                }
+                if more == 1 {
+                    lines.push(format!("{}){}", " ".repeat(d), " ".repeat(w - d)));
+                }
+                for i in (1..d).rev() {
+                    lines.push(format!("{}/{}", " ".repeat(i), " ".repeat(w - i)));
+                }
+                lines.push(format!("/{},", "_".repeat(w - 1)));
+                (d, h + more, lines, more)
+            } else {
+                w += more;
+                d += more;
+                lines.push("_".repeat(w));
+                for i in 0..d {
+                    lines.push(format!("{}╲{}", " ".repeat(i), " ".repeat(w - i - 1)));
+                }
+                for i in (0..d).rev() {
+                    lines.push(format!("{}╱{}", " ".repeat(i), " ".repeat(w - i - 1)));
+                }
+                lines.push("‾".repeat(w));
+                (d, h + 2 * more, lines, more)
+            }
+        };
+        let mut pretty_func = self.print(&args[0]);
+        if matches!(args[0].kind(), Kind::Add(..)) {
+            pretty_func = pretty_func.paren();
+        }
+        let required = pretty_func.height() + 2;
+        let (mut first, mut max_upper, mut sign_height, mut adjustment) = (true, 0usize, 0usize, 0usize);
+        for limit in crate::binders::limits(args) {
+            let lower = Pict::next(&[self.print(&limit[0]), Pict::new(" = "), self.print(&limit[1])]);
+            let upper = self.print(&limit[2]);
+            max_upper = max_upper.max(upper.height());
+            let (d, h, lines, more) = asum(required);
+            adjustment = more;
+            let mut sign = Pict::stack(lines.iter().map(|l| Item::P(Pict::new(l))).collect());
+            if first { sign_height = sign.height(); }
+            sign = sign.above(vec![Item::P(upper)]);
+            sign = sign.below(vec![Item::P(lower)]);
+            if first {
+                let height = pretty_func.height() as isize;
+                pretty_func.baseline -= d as isize - (height / 2 - pretty_func.baseline);
+                first = false;
+            }
+            let padding = Pict::stack((0..h).map(|_| Item::P(Pict::new(" "))).collect());
+            sign = sign.right(&[padding]);
+            pretty_func = sign.right(&[pretty_func]);
+        }
+        let ascii_adjustment = if ascii_mode && adjustment == 0 { 1 } else { 0 };
+        pretty_func.baseline = (max_upper + sign_height / 2 + ascii_adjustment) as isize;
+        pretty_func.bind(Binding::Mul)
+    }
+
+    /// SymPy's `_print_Limit`.
+    fn print_limit(&self, args: &[Expr]) -> Pict {
+        let (e, z, z0) = (&args[0], &args[1], &args[2]);
+        let mut body = self.print(e);
+        if super::precedence(e) <= super::PREC_MUL {
+            body = body.parens("(", ")");
+        }
+        let mut arg = self.print(z).right(&[Pict::new(xsym("─→", "->"))]);
+        arg = arg.right(&[self.print(z0)]);
+        let direction = args.get(3).and_then(|d| d.as_sym().map(|s| s.name().to_string())).unwrap_or_else(|| "+".into());
+        let infinite = matches!(z0.kind(), Kind::Const(crate::expr::Constant::Infinity | crate::expr::Constant::NegInfinity));
+        if direction != "+-" && !infinite {
+            let text = if ascii() { direction } else if direction == "+" { "⁺".into() } else { "⁻".into() };
+            arg = arg.right(&[Pict::new(&text)]);
+        }
+        let lim = Pict::new("lim").below(vec![Item::P(arg)]);
+        lim.right(&[body]).bind(Binding::Mul)
+    }
+
     fn print_func(&self, f: &Func, args: &[Expr]) -> Pict {
         if let Func::Set(op) = f {
             if let Some(p) = self.print_set(*op, args) {
@@ -1407,6 +1495,8 @@ impl PrettyPrinter<'_> {
                 }
             }
         }
+        if *f == Func::Sum && args.len() > 1 && crate::binders::limits(args).iter().all(|l| l.len() == 3) { return self.print_sum(args); }
+        if *f == Func::Limit && args.len() >= 3 { return self.print_limit(args); }
         if let Func::Undefined(head) = f {
             if crate::poly::rootof::is_rootof_head(head, args.len()) {
                 // The reference's _print_ComplexRootOf: an atom.

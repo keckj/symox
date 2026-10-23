@@ -6189,3 +6189,67 @@ Remaining gaps:
 Tests: `tests/test_evalf_digits_parity.py`. It has 37 SymPy digit
 strings, 15 construction cases, 14 domain errors, and mpmath checks for
 the cases kept on purpose.
+
+## Small gaps: inequalities, wrt, vector integrate, lambdify, matrices, Sum/Limit printing, ANP
+
+Implemented (SymPy 1.14 behaviour):
+
+- `reduce_inequalities` with a relational in several symbols and one symbol
+  of interest goes through a port of `_solve_inequality`: a safe linear
+  inversion that divides only by a factor of known sign. Symbols of
+  unknown realness are recast to real dummies as in the reference.
+  Otherwise the input stays unchanged (`x*y > 1`), or NotImplementedError
+  is raised when no solver applies.
+- The polys `wrt` and `sort` options order the automatically detected
+  generators, as `_sort_gens` does. This covers `factor_list`, `sqf_list`
+  (through a port of `_generic_factor_list`), `div`, `rem`, `quo`, `pdiv`,
+  `prem`, `pquo`, `exquo`, `pexquo`, `resultant`, `subresultants`,
+  `compose`, `reduced`, `groebner`, `sqf_part`, `discriminant`,
+  `decompose`, `sturm`, `gff_list` and `ground_roots`. Explicit
+  generators ignore the option, as in the reference.
+- Multivariate `decompose`, `gff_list` and `ground_roots` raise the
+  reference errors.
+- `integrate(vector, ...)` and `Integral(vector, ...)` work componentwise
+  through `_eval_Integral`. A single term is evaluated; a sum keeps held
+  Integrals, as in SymPy.
+- `lambdify` keeps the integer dtypes of numpy arrays and scalars, and is
+  exact on Python ints such as `2**60`.
+- Pretty printing of `Sum` and `Limit` is ported from `_print_Sum` (with
+  `asum`) and `_print_Limit`, in both ASCII and unicode. The `Limit`
+  LaTeX is `\lim_{x \to 0^+}\left(...\right)` for an Add or Mul, and
+  `\lim_{x \to 0^-} \frac{1}{x}` otherwise.
+- A PolyElement over an algebraic field prints its coefficients in the
+  reference `ANP(rep, mod, QQ)` form, for both str and repr. ANP has Atom
+  precedence and the sign comes from the leading coefficient.
+  `ANP * PolyElement` now defers to the ring element.
+- `Add` and `Mul` of MatrixSymbols already build MatAdd and MatMul (same
+  `func`, isinstance, str and shape as SymPy).
+
+This closes the `wrt`, vector `integrate` and numpy-int `lambdify` items
+in the forms B2 gap list above.
+
+Intentional divergences:
+
+- `Add(A, 1)` with a MatrixSymbol `A` raises TypeError. SymPy builds a
+  meaningless scalar+matrix `Add` (`1 + A`).
+- `type(e).__name__` of a matrix expression is the native class name.
+  `.func` and isinstance follow SymPy.
+- Error messages differ in wording but have the same exception type:
+  - the ShapeError of `Add(A, C)` and `Mul(C, A)`;
+  - the TypeError of `A + 1`;
+  - the NotImplementedError of `reduce_inequalities(x**2*y > 1, [x])`.
+- The ANP repr assumes the reference's python ground types (`MPQ(p,q)`),
+  i.e. a SymPy without gmpy2 or flint.
+
+Still unsupported or different:
+
+- The pretty printing of `Integral` still falls back to str.
+- In an Add that holds both a `Sum` and a `Limit`, the term order differs
+  (symox prints the Limit first). This is a general printer ordering
+  gap, not a Sum/Limit printer gap.
+- The global `div`, `rem`, `quo` and `exquo` still raise
+  NotImplementedError for `greedy=True`, which the reference accepts, and
+  for `symmetric=True`, where the reference raises OptionError (this
+  predates this change).
+
+Tests: `tests/test_gaps_misc_parity.py`.
