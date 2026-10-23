@@ -155,7 +155,7 @@ def test_complete_where_reference_is_not(source, expected):
         assert abs(complex(sx.N(f.subs(x, complex(re_, im_)), 20))) < 1e-6
 
 
-@pytest.mark.parametrize('source', ['2**x - 3**x', '2**x*3**x - 6', 'exp(exp(x)) - 1', 'x**x - 1',
+@pytest.mark.parametrize('source', ['2**x - 3**x', '2**x*3**x - 6', 'x**x - 1',
                                     'exp(x) - x', '2**x - x'])
 def test_undecided_is_condition_set(source):
     # never an incomplete finite set: 2**x = 3**x also holds at 2*I*pi*n/log(3/2)

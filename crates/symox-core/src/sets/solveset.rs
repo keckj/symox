@@ -4,7 +4,7 @@
 use std::cmp::Ordering;
 
 use super::*;
-use crate::expr::RelOp;
+use crate::expr::{Constant, RelOp};
 use crate::functions::is_numeric_value;
 use crate::ops::{add2, div, mul2, neg, sub};
 use crate::subs::subs1;
@@ -157,9 +157,38 @@ fn restricted_image(period:&Expr,c:&Expr,domain:&Expr,context:&SolveContext)->Ex
 /// `a*x + b` with a symbolic `a`: the lattice of `trig(u) = k` is inverted
 /// through `u = a*x + b` without expansion, as `imageset(Lambda(n, (n -
 /// b)/a), ...)`, and guarded by `Ne(numer(a), 0) & Ne(denom(a), 0)`.
-fn symbolic_coefficient(f: &Func, a: &Expr, b: &Expr, k: &Expr, x: &Expr, context: &SolveContext) -> Option<Expr> {
-    if !context.single.get() || crate::traverse::free_symbols(a).is_empty() || !is_numeric_value(k)
-        || matches!(f, Func::Exp) {
+fn symbolic_coefficient(f: &Func, a: &Expr, b: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Option<Expr> {
+    if !context.single.get() || crate::traverse::free_symbols(a).is_empty() || matches!(f, Func::Exp) {
+        return None;
+    }
+    let (num, den) = crate::simplify::numer_denom(a);
+    let mut cond = crate::logic::and(vec![crate::relational::ne(&num, &Expr::zero()),
+        crate::relational::ne(&den, &Expr::zero())]);
+    if !is_numeric_value(k) {
+        // `_invert_trig_hyp_complex` with a symbolic right-hand side:
+        // `2*n*pi + asin(k)`, `2*n*pi + pi - asin(k)`; `2*n*pi + acos(k)`,
+        // `2*n*pi - acos(k)`; `n*pi + atan(k)`. Over the reals `sin` and
+        // `cos` add the condition `-1 <= k <= 1` (`_invert_trig_hyp_real`).
+        use crate::functions::{acos, asin, atan};
+        let n = context.periodic_variable().clone();
+        let two_pi_n = mul2(&mul2(&Expr::int(2), &Expr::pi()), &n);
+        let bodies = match f {
+            Func::Sin => vec![add2(&two_pi_n, &asin(k)), crate::ops::add(&[two_pi_n.clone(), Expr::pi(), neg(&asin(k))])],
+            Func::Cos => vec![add2(&two_pi_n, &acos(k)), sub(&two_pi_n, &acos(k))],
+            Func::Tan if !is_real_domain(domain) => vec![add2(&mul2(&Expr::pi(), &n), &atan(k))],
+            _ => return None,
+        };
+        if is_real_domain(domain) {
+            if !is_op(domain, SetOp::Reals) {
+                return None;
+            }
+            cond = crate::logic::and(vec![crate::relational::le(&Expr::minus_one(), k),
+                crate::relational::le(k, &Expr::one()), cond]);
+        }
+        let images = bodies.iter().map(|body| image_set(&lambda(&n, &div(&sub(body, b), a)), &integers())).collect();
+        return Some(condition_set(x, &cond, &union(images)));
+    }
+    if !is_numeric_value(k) {
         return None;
     }
     let u = Expr::dummy("solveset_u", crate::symbol::Assumptions::NONE);
@@ -184,9 +213,6 @@ fn symbolic_coefficient(f: &Func, a: &Expr, b: &Expr, k: &Expr, x: &Expr, contex
         }
         out.push(image_set(&lambda(&n, &div(&sub(&body, b), a)), &integers()));
     }
-    let (num, den) = crate::simplify::numer_denom(a);
-    let cond = crate::logic::and(vec![crate::relational::ne(&num, &Expr::zero()),
-        crate::relational::ne(&den, &Expr::zero())]);
     Some(condition_set(x, &cond, &union(out)))
 }
 
@@ -201,7 +227,7 @@ fn periodic(g: &Expr, k: &Expr, x: &Expr, domain: &Expr, context: &SolveContext)
     if has(k, x) {
         return None;
     }
-    if !proved_nonzero(&a){return symbolic_coefficient(f, &a, &b, k, x, context);}
+    if !proved_nonzero(&a){return symbolic_coefficient(f, &a, &b, k, x, domain, context);}
     let pi = Expr::pi();
     let two_pi = mul2(&Expr::int(2), &pi);
     let real = is_real_domain(domain);
@@ -571,7 +597,7 @@ fn complete_roots(p: &Expr, t: &Expr) -> Option<Vec<Expr>> {
 /// with the gcd of the exponents. `None` when the method does not apply or
 /// some roots cannot be found.
 fn solve_exponential_poly(num: &Expr, den: &Expr, x: &Expr, domain: &Expr, context: &SolveContext,
-    allow_symbolic: bool) -> Option<Expr> {
+    allow_symbolic: bool, symbolic_trig: bool) -> Option<Expr> {
     use num_integer::Integer;
     let num = &merge_exp_powers(num);
     let den = &merge_exp_powers(den);
@@ -604,7 +630,11 @@ fn solve_exponential_poly(num: &Expr, den: &Expr, x: &Expr, domain: &Expr, conte
         g = neg(&g);
         flip = true;
     }
-    if !proved_nonzero(&g) && !(allow_symbolic && crate::assumptions::is_zero(&g) != Some(true)) {
+    // `_solve_trig1` with a symbolic `mu`: the solutions are guarded by
+    // the nonvanishing of the coefficient
+    let guarded = symbolic_trig && !proved_nonzero(&g) && crate::assumptions::is_zero(&g) != Some(true)
+        && !crate::traverse::free_symbols(&g).is_empty();
+    if !proved_nonzero(&g) && !(allow_symbolic && crate::assumptions::is_zero(&g) != Some(true)) && !guarded {
         return None;
     }
     // the generator is `exp(g*x + c)`, the first exponent scaled by `g/a0`
@@ -686,10 +716,147 @@ fn solve_exponential_poly(num: &Expr, den: &Expr, x: &Expr, domain: &Expr, conte
         if rational_base {
             expr = crate::expand::expand(&expr);
         }
+        if guarded {
+            // the composed image `imageset(Lambda(n, n/(I*mu)), ...)` keeps
+            // its form, and is intersected with a real domain as a whole
+            let lattice = image_set(&lambda(&n, &expr), &integers());
+            parts.push(if is_op(domain, SetOp::Complexes) { lattice } else { intersection(vec![lattice, domain.clone()]) });
+            continue;
+        }
         let expr = canonical_integer_lattice(&expr, &n);
         parts.push(lattice_in_domain(&expr, &n, domain, context));
     }
+    if guarded {
+        let m = div(&g, &Expr::i());
+        let (mn, md) = crate::simplify::numer_denom(&m);
+        let strip = |e: &Expr| crate::simptools::primitive(e).1;
+        let (mn, md) = (strip(&mn), strip(&md));
+        let cond = crate::logic::and(vec![crate::relational::ne(&md, &Expr::zero()),
+            crate::relational::ne(&mn, &Expr::zero())]);
+        return Some(condition_set(x, &cond, &union(parts)));
+    }
     Some(union(parts))
+}
+
+/// The right-hand side of the reference `_invert_complex`: a finite set,
+/// an image of `Integers` (one integer variable) or of `Integers**k`, the
+/// latter possibly under a held affine map `Lambda(x, ...)`.
+enum Inverse {
+    Finite(Vec<Expr>),
+    Lattice(Vec<Expr>, Expr),
+    Held(Vec<Expr>, Expr, Expr),
+}
+
+/// `imageset(Lambda(v, phi(v)), g_ys)` for an affine `phi`.
+fn map_inverse(g: Inverse, phi: &dyn Fn(&Expr) -> Expr, variable: &Expr) -> Inverse {
+    match g {
+        Inverse::Finite(values) => Inverse::Finite(values.iter().map(phi).collect()),
+        Inverse::Lattice(vars, body) if vars.len() == 1 => {
+            let composed = phi(&body);
+            Inverse::Lattice(vars.clone(), canonical_integer_lattice(&composed, &vars[0]))
+        }
+        Inverse::Lattice(vars, body) => Inverse::Held(vars, body, phi(variable)),
+        Inverse::Held(vars, body, outer) => Inverse::Held(vars, body, phi(&outer)),
+    }
+}
+
+/// The reference `_invert_complex` of nested exponentials
+/// (`exp(exp(x)) - 1`): `exp(f) = g` with an image `g` adds an integer
+/// variable, `f = I*(2*k*pi + arg(g)) + log(Abs(g))` over
+/// `ProductSet(Integers, ...)`. Only sums and products with terms free of
+/// `x` and exponentials are inverted; `None` otherwise.
+fn nested_exponential(f: &Expr, x: &Expr) -> Option<Expr> {
+    let nested = any_node(f, &|e| matches!(e.kind(), Kind::Func(Func::Exp, a) if has_exponential_in(&a[0], x)));
+    if !nested {
+        return None;
+    }
+    let variable = Expr::symbol("x");
+    let mut g = Inverse::Finite(vec![Expr::zero()]);
+    let mut h = f.clone();
+    let two_pi = mul2(&Expr::int(2), &Expr::pi());
+    for _ in 0..32 {
+        if h == *x {
+            break;
+        }
+        match h.kind() {
+            Kind::Add(..) => {
+                let (indep, dep): (Vec<Expr>, Vec<Expr>) = h.args().into_iter().partition(|t| !has(t, x));
+                if indep.is_empty() || dep.is_empty() {
+                    return None;
+                }
+                let c = crate::ops::add(&indep);
+                g = map_inverse(g, &|v| sub(v, &c), &variable);
+                h = crate::ops::add(&dep);
+            }
+            Kind::Mul(..) => {
+                let (indep, dep): (Vec<Expr>, Vec<Expr>) = h.args().into_iter().partition(|t| !has(t, x));
+                if indep.is_empty() || dep.is_empty() {
+                    return None;
+                }
+                let c = crate::ops::mul(&indep);
+                if !proved_nonzero(&c) || any_node(&c, &|e| matches!(e.kind(), Kind::Const(Constant::Infinity | Constant::NegInfinity | Constant::ComplexInfinity | Constant::NaN))) {
+                    return None;
+                }
+                g = map_inverse(g, &|v| div(v, &c), &variable);
+                h = crate::ops::mul(&dep);
+            }
+            Kind::Func(Func::Exp, a) => {
+                let u = a[0].clone();
+                g = match g {
+                    Inverse::Finite(values) => {
+                        let values: Vec<Expr> = values.into_iter().filter(|v| !v.is_zero()).collect();
+                        match values.as_slice() {
+                            [] => return Some(empty_set()),
+                            [value] => {
+                                if !proved_nonzero(value) {
+                                    return None;
+                                }
+                                let n = Expr::dummy("n", crate::symbol::Assumptions::NONE);
+                                let body = add2(&mul2(&Expr::i(), &add2(&mul2(&two_pi, &n), &crate::functions::func(Func::Arg, vec![value.clone()]))),
+                                    &crate::functions::log(&crate::functions::func(Func::Abs, vec![value.clone()])));
+                                let body = canonical_integer_lattice(&body, &n);
+                                Inverse::Lattice(vec![n], body)
+                            }
+                            _ => return None,
+                        }
+                    }
+                    Inverse::Lattice(vars, body) => {
+                        let k = Expr::dummy(&format!("k{}", vars.len()), crate::symbol::Assumptions::NONE);
+                        let body = add2(&mul2(&Expr::i(), &add2(&mul2(&two_pi, &k), &crate::functions::func(Func::Arg, vec![body.clone()]))),
+                            &crate::functions::log(&crate::functions::func(Func::Abs, vec![body])));
+                        let mut all = vec![k];
+                        all.extend(vars);
+                        Inverse::Lattice(all, body)
+                    }
+                    Inverse::Held(..) => return None,
+                };
+                h = u;
+            }
+            _ => return None,
+        }
+    }
+    if h != *x {
+        return None;
+    }
+    let image = |vars: &[Expr], body: &Expr| -> Option<Expr> {
+        if vars.len() == 1 {
+            return Some(image_set(&lambda(&vars[0], body), &integers()));
+        }
+        let signature = crate::special::tuple(vec![crate::special::tuple(vars.to_vec())]);
+        let lam = crate::sets::lambda::lambda_checked(&signature, body).ok()?;
+        Some(image_set(&lam, &product_set(vec![integers(); vars.len()])))
+    };
+    match g {
+        Inverse::Finite(values) => Some(finite_set(values)),
+        Inverse::Lattice(vars, body) => image(&vars, &body),
+        Inverse::Held(vars, body, outer) => {
+            if any_node(&body, &|e| *e == variable) {
+                return None;
+            }
+            let inner = image(&vars, &body)?;
+            Some(image_set(&lambda(&variable, &outer), &inner))
+        }
+    }
 }
 
 /// `_solve_trig1`: an equation in several trigonometric or hyperbolic
@@ -702,7 +869,8 @@ fn solve_trig_exponential(num: &Expr, den: &Expr, x: &Expr, domain: &Expr, conte
     let (n2, d2) = crate::simplify::numer_denom(&crate::simplify::together(&rewritten));
     let n2 = crate::expand::expand(&n2);
     let d2 = crate::expand::expand(&d2);
-    solve_exponential_poly(&n2, &d2, x, domain, context, false)
+    let hyperbolic = any_node(num, &|e| matches!(e.kind(), Kind::Func(Func::Sinh | Func::Cosh | Func::Tanh | Func::Coth, _)));
+    solve_exponential_poly(&n2, &d2, x, domain, context, false, !hyperbolic)
 }
 
 /// Solutions of `f == 0` restricted to `domain`, as a set.
@@ -761,7 +929,11 @@ fn solve_zero(f: &Expr, x: &Expr, domain: &Expr, context: &SolveContext) -> Opti
         // principal-branch roots of `solve`
         // `_solve_as_rational`: the solutions of the numerator minus those
         // of the denominator
-        let r = solve_exponential_poly(&num, &Expr::one(), x, domain, context, true)?;
+        let r = match solve_exponential_poly(&num, &Expr::one(), x, domain, context, true, false) {
+            Some(r) => r,
+            None if !has(&den, x) && is_op(domain, SetOp::Complexes) => return nested_exponential(&num, x),
+            None => return None,
+        };
         return Some(exclude_poles(r, &den, x, domain, context));
     }
     // absolute values over the reals: split on the sign of the argument
