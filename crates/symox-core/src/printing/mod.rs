@@ -49,7 +49,7 @@ pub(crate) const PREC_ATOM: i32 = 1000;
 
 /// `could_extract_minus_sign` for printing purposes.
 pub(crate) fn minus_sign(e: &Expr) -> bool {
-    crate::ops::could_extract_minus_sign(e)
+    crate::ops::could_extract_minus_sign_syntactic(e)
 }
 
 /// SymPy's `precedence()` (the one used by the string and code printers).

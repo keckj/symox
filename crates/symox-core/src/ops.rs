@@ -2004,7 +2004,21 @@ pub fn powi(a: &Expr, n: i64) -> Expr {
 
 /// Is `e` (syntactically) "negative looking", i.e. has a negative leading
 /// numeric coefficient (SymPy's `could_extract_minus_sign` heuristic)?
+///
+/// Noncommutative sums and products follow SymPy's rule exactly (see
+/// [`crate::decompose::could_extract_minus_sign_eval`]): the coefficient
+/// heuristic below is not antisymmetric there, because `-z` stays
+/// `Mul(-1, z)`, and the odd/even rewrites `f(-z) -> -f(z)` never ended.
 pub fn could_extract_minus_sign(e: &Expr) -> bool {
+    if matches!(e.kind(), Kind::Add(..) | Kind::Mul(..)) && !crate::decompose::commutes(e) {
+        return crate::decompose::could_extract_minus_sign_eval(e);
+    }
+    could_extract_minus_sign_syntactic(e)
+}
+
+/// The coefficient heuristic of [`could_extract_minus_sign`], without the
+/// noncommutative refinement (the printers' sign test).
+pub fn could_extract_minus_sign_syntactic(e: &Expr) -> bool {
     match e.kind() {
         Kind::Num(n) => n.is_negative(),
         Kind::Const(Constant::NegInfinity) => true,

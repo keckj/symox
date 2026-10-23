@@ -3703,8 +3703,17 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<P
                 }
                 if let Some(argument) = v.first() {
                     let imaginary = fx::im(argument);
-                    if symox::assumptions::is_zero_exact(&imaginary) == Some(false) {
-                        return Err(PyValueError::new_err("Function defined only for real values"));
+                    if fx::imaginary_part_is_zero(&imaginary) == Some(false) {
+                        // SymPy's messages: DiracDelta wraps its text with filldedent.
+                        let message = format!(
+                            "Function defined only for Real Values. Complex part: {imaginary}  found in {argument} ."
+                        );
+                        if matches!(f, Func::DiracDelta) {
+                            let py = args.py();
+                            let wrapped: String = py.import("textwrap")?.call_method1("fill", (message, 70))?.extract()?;
+                            return Err(PyValueError::new_err(format!("\n{wrapped}")));
+                        }
+                        return Err(PyValueError::new_err(message));
                     }
                 }
             }

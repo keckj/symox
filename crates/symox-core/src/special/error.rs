@@ -50,9 +50,9 @@ pub(super) fn eval(s: SpecialFn, a: &[Expr]) -> Option<Expr> {
             let mut pref = Expr::one();
             let mut arg = z.clone();
             let mut changed = false;
-            if could_extract_minus_sign(&arg) {
+            if let Some(t) = extract_minus(&arg) {
                 pref = neg(&pref);
-                arg = neg(&arg);
+                arg = t;
                 changed = true;
             }
             if let Some(t) = extract_i(&arg) {
@@ -263,8 +263,10 @@ fn eval_trig_integral(s: SpecialFn, z: &Expr) -> Option<Expr> {
     if let Some(nz) = extract_exact_factor(z, &exp_polar(mul2(&Expr::i(), &pi))) {
         return Some(minus(nz));
     }
-    if matches!(s, Si | Shi) && could_extract_minus_sign(z) {
-        return Some(minus(neg(z)));
+    if matches!(s, Si | Shi) {
+        if let Some(nz) = extract_minus(z) {
+            return Some(minus(nz));
+        }
     }
     let (nz, n) = super::hyperexpand::extract_branch_factor(z, false);
     if n.is_zero() && nz == *z {
@@ -274,6 +276,17 @@ fn eval_trig_integral(s: SpecialFn, z: &Expr) -> Option<Expr> {
         Si | Shi => sf(s, vec![nz]),
         _ => crate::ops::add(&[crate::ops::mul(&[Expr::int(2), pi.clone(), Expr::i(), n]), sf(s, vec![nz])]),
     })
+}
+
+/// `z.extract_multiplicatively(-1)` as the Si/Shi and Fresnel heads use it.
+/// A commutative argument keeps the native sign test. A noncommutative sum
+/// negates to `Mul(-1, z)`, so SymPy's distributing extraction is used there:
+/// `-x - A*B` gives `x + A*B`, and `-2*x + B*A` gives nothing.
+fn extract_minus(z: &Expr) -> Option<Expr> {
+    if z.is_add() && !crate::decompose::commutes(z) {
+        return crate::simptools::extract_multiplicatively(z, &Expr::minus_one());
+    }
+    could_extract_minus_sign(z).then(|| neg(z))
 }
 
 /// `z.extract_multiplicatively(c)` for a non-numeric atom-like factor `c`:

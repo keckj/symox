@@ -433,7 +433,10 @@ pub(crate) fn abs(a: &Expr) -> Option<Expr> {
         _ => {}
     }
     // signsimp: a sum that prefers a leading minus sign is a negated product.
-    if !a.is_mul() && crate::decompose::could_extract_minus_sign(a) {
+    // A noncommutative sum negates to Mul(-1, sum), whose Abs is the Abs of
+    // the sum again (SymPy recurses forever there): it stays unevaluated.
+    if !a.is_mul() && crate::decompose::could_extract_minus_sign(a)
+        && !(a.is_add() && !crate::decompose::commutes(a)) {
         return Some(f::abs(&neg(a)));
     }
     let (n, d) = crate::simplify::numer_denom(a);
