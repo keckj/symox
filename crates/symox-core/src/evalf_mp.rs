@@ -226,9 +226,8 @@ impl MpComplex {
     }
 
     pub(crate) fn exp(&self, p: u32) -> Option<MpComplex> {
-        // mpmath exponents are unbounded. Binary exponents here are i128
-        // values bounded by MAX_EXPONENT, which covers exp(2**63) (Torch
-        // value ranges compare exp(9223372036854775807)); beyond it the
+        // mpmath exponents are unbounded. Binary exponents here are big
+        // integers of fewer than MAX_EXPONENT_BITS bits; beyond them the
         // value stays symbolic.
         let r = self.re.checked_exp(p + 10)?;
         if self.im.is_zero() {
@@ -290,7 +289,7 @@ impl MpComplex {
 }
 
 fn supported_magnitude(value: &MpComplex) -> bool {
-    [&value.re, &value.im].iter().all(|v| v.is_zero() || v.mag().unsigned_abs() <= crate::bigfloat::MAX_EXPONENT as u128)
+    [&value.re, &value.im].iter().all(|v| v.is_zero() || v.exp.bits() < u64::from(crate::bigfloat::MAX_EXPONENT_BITS))
 }
 
 fn number(n: &Number, p: u32) -> BigFloat {
@@ -814,8 +813,7 @@ fn pow_of(b: &Expr, x: &Expr, p: u32) -> Option<MpComplex> {
     // integer power, of the square root for a half-integer.
     if let Some(n) = x.as_number().filter(|n| n.is_float() && !n.is_zero()) {
         let twice = n.to_bigfloat(n.float_precision()?).ldexp(1);
-        let t = twice.to_int_trunc();
-        if BigFloat::from_int(&t) == twice {
+        if let Some(t) = twice.checked_int_trunc().filter(|t| BigFloat::from_int(t) == twice) {
             if let Some(t) = t.to_i64() {
                 let bv = base(p + bits(t))?;
                 return if t % 2 == 0 { bv.powi(t / 2, p) } else { bv.sqrt(p + 16)?.powi(t, p) };
@@ -1094,7 +1092,7 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
         // sign.eval returns arg/Abs(arg) for a nonreal number.
         Func::Sign if !a.re.is_zero() || !a.im.is_zero() => a.div(&MpComplex::real(a.abs(wp)), p)?,
         Func::Floor | Func::Ceiling if a.is_real() => {
-            let t = a.re.to_int_trunc();
+            let t = a.re.checked_int_trunc()?;
             let tf = BigFloat::from_int(&t);
             let c = a.re.cmp(&tf);
             let v = match (f, c) {
@@ -1117,8 +1115,8 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             // needs about mag(x) + log2(log(x)) more bits to keep p bits of
             // gamma(x).
             let size = a.re.mag();
-            // |log2 gamma(x)| ~ x log2(x) exceeds MAX_EXPONENT = 2**120 for
-            // |x| > 2**113; the result check below catches the rest.
+            // |log2 gamma(x)| ~ x log2(x) has more than MAX_EXPONENT_BITS
+            // bits beyond this size; the result check below catches the rest.
             if size > crate::bigfloat::MAX_EXPONENT_BITS as i128 - 7 {
                 return None;
             }
@@ -1146,7 +1144,7 @@ pub fn euler_gamma(prec: u32) -> BigFloat {
     let one = BigInt::from(1) << (wp as usize);
     let ln_n = BigFloat::from_i64(n as i64).ln(wp).unwrap();
     let ln_n_fx = {
-        let s = ln_n.exp + wp as i128;
+        let s = ln_n.exp.small().unwrap() + wp as i128;
         if s >= 0 {
             &ln_n.man << (s as usize)
         } else {
@@ -1302,7 +1300,7 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
 fn gamma_spouge(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     // (z+a)**(z+1/2)*exp(-(z+a)) cancels mag(x) + log2(log(x)) bits.
     let wp = prec.saturating_mul(2) + 80 + x.mag().clamp(0, 1 << 20) as u32 + 8;
-    if x.sign() < 0 || x.cmp(&BigFloat { man: BigInt::from(1), exp: -1 }) == std::cmp::Ordering::Less {
+    if x.sign() < 0 || x.cmp(&BigFloat::from_parts(BigInt::from(1), -1i64)) == std::cmp::Ordering::Less {
         // reflection: gamma(x) = pi / (sin(pi x) gamma(1-x))
         let one_minus = BigFloat::one().sub(x, wp);
         let g = gamma_mp(&one_minus, wp)?;
@@ -1331,7 +1329,7 @@ fn gamma_spouge(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     }
     // gamma(z+1) = (z+a)^(z+1/2) e^(-(z+a)) * sum
     let za = z.add(&af, wp);
-    let half = BigFloat { man: BigInt::from(1), exp: -1 };
+    let half = BigFloat::from_parts(BigInt::from(1), -1i64);
     let pw = za.powf(&z.add(&half, wp), wp)?;
     let ex = za.neg().checked_exp(wp)?;
     Some(pw.mul(&ex, wp).mul(&sum, prec))
@@ -1421,7 +1419,7 @@ mod tests {
     #[test]
     fn complex_square_root_keeps_tiny_genuine_branch_components(){
         let precision=200;
-        let tiny=BigFloat{man:BigInt::from(1),exp:-4000};
+        let tiny=BigFloat{man:BigInt::from(1),exp:(-4000i64).into()};
         for sign in [-1,1]{
             let z=MpComplex{re:BigFloat::from_i64(-1),im:if sign<0{tiny.neg()}else{tiny.clone()}};
             let root=z.sqrt(precision).unwrap();
@@ -1515,7 +1513,12 @@ mod tests {
     #[test]
     fn extreme_exponential_inputs_remain_symbolic() {
         let p = dps_to_prec(60);
-        let huge = crate::parser::parse_str("Float('1e100', 60)").unwrap();
+        // exp(1e100) has a binary exponent of about 333 bits: a Float now.
+        let big = crate::parser::parse_str("Float('1e100', 60)").unwrap();
+        assert!(crate::functions::func(Func::Exp, vec![big]).as_number().is_some());
+        // exp(1e30000) would need about 99660 exponent bits, past the
+        // MAX_EXPONENT_BITS materialization bound.
+        let huge = crate::parser::parse_str("Float('1e30000', 60)").unwrap();
         for function in [Func::Exp, Func::Sinh, Func::Cosh] {
             for input in [huge.clone(), crate::ops::neg(&huge)] {
                 let expression = crate::functions::func(function.clone(), vec![input]);
@@ -1529,9 +1532,10 @@ mod tests {
             let value = eval_mp(&crate::functions::func(Func::Tanh, vec![input]), p).unwrap();
             assert_eq!(value.re.cmp(&BigFloat::from_i64(sign)), std::cmp::Ordering::Equal);
         }
-        // mpmath exponents are unbounded; binary exponents up to
-        // MAX_EXPONENT are materialized, so exp(2**63) and exp(2**110)
-        // evaluate as in the reference, while exp(2**125) stays symbolic.
+        // mpmath exponents are unbounded; binary exponents of up to
+        // MAX_EXPONENT_BITS bits are materialized, so exp(2**63), exp(2**110)
+        // and exp(2**125) evaluate as in the reference, while exp(2**70000)
+        // stays symbolic.
         let exp = |n: Expr| Expr::from_kind(Kind::Func(Func::Exp, vec![n]));
         let power = |k: u32| Expr::num(Number::from_bigint(num_bigint::BigInt::from(1) << k as usize));
         assert!(eval_mp(&exp(Expr::int(2_303_000)), p).is_some());
@@ -1539,7 +1543,8 @@ mod tests {
         assert_eq!(value.re.to_string_dps(19, false), "7.375865886842630054e+4005659580146785380");
         assert!(eval_mp(&exp(crate::ops::neg(&power(63))), p).is_some_and(|v| v.re.sign() > 0));
         assert!(eval_mp(&exp(power(110)), p).is_some());
-        assert!(eval_mp(&exp(power(125)), p).is_none());
-        assert_eq!(super::evalf(&exp(power(125)), p), exp(power(125)));
+        assert!(eval_mp(&exp(power(125)), p).is_some());
+        assert!(eval_mp(&exp(power(70000)), p).is_none());
+        assert_eq!(super::evalf(&exp(power(70000)), p), exp(power(70000)));
     }
 }

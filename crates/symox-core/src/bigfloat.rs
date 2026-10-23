@@ -13,12 +13,15 @@ use num_integer::Integer;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
 mod decimal;
+mod exponent;
+
+pub use exponent::Exponent;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct BigFloat {
     /// Signed mantissa; zero is represented by `man == 0, exp == 0`.
     pub man: BigInt,
-    pub exp: i128,
+    pub exp: Exponent,
 }
 
 /// Convert decimal digits to bits of precision (with no guard bits).
@@ -31,13 +34,17 @@ pub fn prec_to_dps(prec: u32) -> u32 {
     ((prec as f64 / std::f64::consts::LOG2_10 - 1.0).round().max(1.0)) as u32
 }
 
-/// Largest binary exponent a materialized value may carry. mpmath has no
-/// bound; this one keeps exponent arithmetic exact in i128 (sums of a few
-/// exponents and mantissa lengths, and the decimal scaling intervals, stay
-/// below 2**127) while covering every magnitude whose exponent is itself
-/// representable in memory.
-pub const MAX_EXPONENT_BITS: u32 = 120;
-pub const MAX_EXPONENT: i128 = 1 << MAX_EXPONENT_BITS;
+/// Largest bit length of the binary exponent of a materialized value.
+/// mpmath's exponents are unbounded Python integers; exponents themselves
+/// are big integers here (`Exponent`), and this bound only keeps every
+/// exponent-sized computation (decimal printing scales by the exponent's
+/// bits) within seconds. It covers magnitudes up to 2**(2**65536).
+pub const MAX_EXPONENT_BITS: u32 = 1 << 16;
+
+/// Largest binary shift materialized by `checked_int_trunc`: the integer
+/// part of a Float with a larger exponent has more than 2**31 bits. Python
+/// (hence SymPy) raises OverflowError or MemoryError on such integers.
+pub const MAX_INTEGER_SHIFT: i128 = 1 << 31;
 
 /// Exponents above this use checked interval arithmetic instead of the
 /// plain kernels.
@@ -49,11 +56,21 @@ fn bitlen(n: &BigInt) -> i128 {
 
 impl BigFloat {
     pub fn zero() -> BigFloat {
-        BigFloat { man: BigInt::zero(), exp: 0 }
+        BigFloat { man: BigInt::zero(), exp: Exponent::ZERO }
     }
 
     pub fn one() -> BigFloat {
-        BigFloat { man: BigInt::one(), exp: 0 }
+        BigFloat { man: BigInt::one(), exp: Exponent::ZERO }
+    }
+
+    /// `man * 2**exp`, as stored (no normalisation).
+    pub fn from_parts<E: Into<Exponent>>(man: BigInt, exp: E) -> BigFloat {
+        BigFloat { man, exp: exp.into() }
+    }
+
+    /// The binary exponent when it is in the inline i128 range.
+    pub fn exp_i128(&self) -> Option<i128> {
+        self.exp.small()
     }
 
     pub fn is_zero(&self) -> bool {
@@ -73,20 +90,21 @@ impl BigFloat {
     }
 
     /// Normalise: strip trailing zero bits of the mantissa.
-    fn norm(man: BigInt, exp: i128) -> BigFloat {
+    fn norm<E: Into<Exponent>>(man: BigInt, exp: E) -> BigFloat {
         if man.is_zero() {
             return BigFloat::zero();
         }
+        let exp = exp.into();
         let tz = man.trailing_zeros().unwrap_or(0);
         if tz > 0 {
-            BigFloat { man: man >> tz, exp: exp + tz as i128 }
+            BigFloat { man: man >> tz, exp: exp + tz }
         } else {
             BigFloat { man, exp }
         }
     }
 
     /// Round `man * 2**exp` to `prec` bits (nearest, ties to even).
-    pub fn round(man: BigInt, exp: i128, prec: u32) -> BigFloat {
+    pub fn round<E: Into<Exponent>>(man: BigInt, exp: E, prec: u32) -> BigFloat {
         let bl = bitlen(&man);
         let excess = bl - prec as i128;
         if excess <= 0 {
@@ -110,7 +128,7 @@ impl BigFloat {
         if neg {
             m = -m;
         }
-        BigFloat::norm(m, exp + excess)
+        BigFloat::norm(m, exp.into() + excess)
     }
 
     pub fn from_int(n: &BigInt) -> BigFloat {
@@ -148,10 +166,11 @@ impl BigFloat {
     }
 
     pub fn to_ratio_exact(&self) -> num_rational::BigRational {
+        let size = "exact rational of a Float exceeds addressable storage";
         if self.exp >= 0 {
-            num_rational::BigRational::from_integer(&self.man << self.exp as usize)
+            num_rational::BigRational::from_integer(&self.man << self.exp.to_usize().expect(size))
         } else {
-            num_rational::BigRational::new(self.man.clone(), BigInt::one() << (-self.exp) as usize)
+            num_rational::BigRational::new(self.man.clone(), BigInt::one() << (-&self.exp).to_usize().expect(size))
         }
     }
 
@@ -160,10 +179,13 @@ impl BigFloat {
             return 0.0;
         }
         let sign = if self.is_negative() { 1u64 << 63 } else { 0 };
+        let Some(exp) = self.exp.small() else {
+            return if self.exp.is_negative() { f64::from_bits(sign) } else { f64::from_bits(sign | (0x7ff << 52)) };
+        };
         // Subnormals have a fixed quantum of 2**-1074. Round directly to
         // that grid to avoid both powi underflow and double rounding.
         if self.mag() < -1021 {
-            let shift = self.exp + 1074;
+            let shift = exp + 1074;
             let mut mantissa = self.man.abs();
             if shift >= 0 {
                 mantissa <<= shift as usize;
@@ -177,7 +199,7 @@ impl BigFloat {
             }
             return f64::from_bits(sign | mantissa.to_u64().unwrap_or(0));
         }
-        let r = BigFloat::round(self.man.clone(), self.exp, 53);
+        let r = BigFloat::round(self.man.clone(), exp, 53);
         let exponent = r.mag() - 1;
         if exponent > 1023 { return f64::from_bits(sign | (0x7ff << 52)); }
         let mantissa = r.man.abs().to_u64().unwrap() << (53 - r.man.bits());
@@ -185,19 +207,29 @@ impl BigFloat {
     }
 
     pub fn neg(&self) -> BigFloat {
-        BigFloat { man: -&self.man, exp: self.exp }
+        BigFloat { man: -&self.man, exp: self.exp.clone() }
     }
 
     pub fn abs(&self) -> BigFloat {
-        BigFloat { man: self.man.abs(), exp: self.exp }
+        BigFloat { man: self.man.abs(), exp: self.exp.clone() }
     }
 
-    /// Magnitude: `floor(log2 |x|) + 1` (0 for zero).
+    /// Magnitude: `floor(log2 |x|) + 1` (`i128::MIN / 4` for zero). Wide
+    /// exponents saturate at +-2**124; use `mag_exact` to compare them.
     pub fn mag(&self) -> i128 {
         if self.is_zero() {
             i128::MIN / 4
         } else {
-            self.exp.saturating_add(bitlen(&self.man))
+            self.exp.saturating_i128().saturating_add(bitlen(&self.man))
+        }
+    }
+
+    /// Exact magnitude `floor(log2 |x|) + 1` (`i128::MIN / 4` for zero).
+    pub fn mag_exact(&self) -> Exponent {
+        if self.is_zero() {
+            Exponent::from(i128::MIN / 4)
+        } else {
+            &self.exp + self.man.bits()
         }
     }
 
@@ -208,22 +240,24 @@ impl BigFloat {
 
     pub fn add(&self, o: &BigFloat, prec: u32) -> BigFloat {
         if self.is_zero() {
-            return BigFloat::round(o.man.clone(), o.exp, prec);
+            return BigFloat::round(o.man.clone(), o.exp.clone(), prec);
         }
         if o.is_zero() {
-            return BigFloat::round(self.man.clone(), self.exp, prec);
+            return BigFloat::round(self.man.clone(), self.exp.clone(), prec);
         }
         // if one operand is far below the other, keep a sticky contribution
-        let (a, b) = if self.mag() >= o.mag() { (self, o) } else { (o, self) };
-        let gap = a.mag() - b.mag();
+        let (sm, om) = (self.mag_exact(), o.mag_exact());
+        let (a, b, gap) = if sm >= om { (self, o, sm - om) } else { (o, self, om - sm) };
         if gap > prec as i128 + 4 {
             let shift = (prec as i128 + 4 - bitlen(&a.man)).max(0);
             let m = (&a.man << (shift as usize + 2)) + if b.is_negative() { -1 } else { 1 };
-            return BigFloat::round(m, a.exp - shift as i128 - 2, prec);
+            return BigFloat::round(m, &a.exp - (shift + 2), prec);
         }
-        let e = a.exp.min(b.exp);
-        let m = (&a.man << ((a.exp - e) as usize)) + (&b.man << ((b.exp - e) as usize));
-        BigFloat::round(m, e, prec)
+        // Close magnitudes bound both alignment shifts by the mantissa sizes.
+        let e = a.exp.min_ref(&b.exp);
+        let shift = |x: &BigFloat| (&x.exp - e).to_usize().expect("aligned shift is bounded by the mantissas");
+        let m = (&a.man << shift(a)) + (&b.man << shift(b));
+        BigFloat::round(m, e.clone(), prec)
     }
 
     pub fn sub(&self, o: &BigFloat, prec: u32) -> BigFloat {
@@ -231,26 +265,23 @@ impl BigFloat {
     }
 
     pub fn mul(&self, o: &BigFloat, prec: u32) -> BigFloat {
-        BigFloat::round(&self.man * &o.man, self.exp + o.exp, prec)
+        BigFloat::round(&self.man * &o.man, &self.exp + &o.exp, prec)
     }
 
     pub fn mul_i64(&self, k: i64, prec: u32) -> BigFloat {
-        BigFloat::round(&self.man * BigInt::from(k), self.exp, prec)
+        BigFloat::round(&self.man * BigInt::from(k), self.exp.clone(), prec)
     }
 
     /// Multiply by `2**k` (exact).
-    pub fn ldexp<K: Into<i128>>(&self, k: K) -> BigFloat {
+    pub fn ldexp<K: Into<Exponent>>(&self, k: K) -> BigFloat {
         let k = k.into();
         if self.is_zero() {
             return self.clone();
         }
-        BigFloat { man: self.man.clone(), exp: self.exp + k }
+        BigFloat { man: self.man.clone(), exp: &self.exp + &k }
     }
 
     pub fn div(&self, o: &BigFloat, prec: u32) -> Option<BigFloat> {
-        if self.exp.unsigned_abs()>WIDE_EXPONENT as u128||o.exp.unsigned_abs()>WIDE_EXPONENT as u128{
-            return decimal::checked_quotient(self,o,prec);
-        }
         if o.is_zero() {
             return None;
         }
@@ -266,7 +297,7 @@ impl BigFloat {
         } else {
             (q << 1usize) + sticky
         };
-        Some(BigFloat::round(q, self.exp - o.exp - shift - 1, prec))
+        Some(BigFloat::round(q, &self.exp - &o.exp - (shift + 1), prec))
     }
 
     pub fn div_i64(&self, k: i64, prec: u32) -> BigFloat {
@@ -277,17 +308,17 @@ impl BigFloat {
         let sign=self.sign().cmp(&o.sign());
         if sign!=Ordering::Equal { return sign; }
         if self.is_zero() { return Ordering::Equal; }
-        let magnitude=(i128::from(self.exp)+i128::from(self.man.bits()))
-            .cmp(&(i128::from(o.exp)+i128::from(o.man.bits())));
+        let magnitude=self.mag_exact().cmp(&o.mag_exact());
         if magnitude!=Ordering::Equal {
             return if self.is_negative() { magnitude.reverse() } else { magnitude };
         }
         if self.exp==o.exp { return self.man.cmp(&o.man); }
         // Equal leading bit positions bound alignment by the mantissa sizes,
         // even when the stored exponents differ by billions elsewhere.
-        let low=self.exp.min(o.exp);
-        let left=&self.man << (i128::from(self.exp)-i128::from(low)) as usize;
-        let right=&o.man << (i128::from(o.exp)-i128::from(low)) as usize;
+        let low=self.exp.min_ref(&o.exp);
+        let shift=|x:&BigFloat|(&x.exp-low).to_usize().expect("aligned shift is bounded by the mantissas");
+        let left=&self.man << shift(self);
+        let right=&o.man << shift(o);
         left.cmp(&right)
     }
 
@@ -304,21 +335,30 @@ impl BigFloat {
         if shift < 0 {
             shift = 0;
         }
-        if (self.exp - shift) % 2 != 0 {
+        if (&self.exp - shift).is_odd() {
             shift += 1;
         }
         let m = &self.man << (shift as usize);
         let r = m.sqrt();
         let sticky = if &r * &r == m { BigInt::zero() } else { BigInt::one() };
-        Some(BigFloat::round((r << 1usize) + sticky, (self.exp - shift) / 2 - 1, prec))
+        Some(BigFloat::round((r << 1usize) + sticky, (&self.exp - shift).half_floor() - 1, prec))
     }
+
+    /// Truncate towards zero to an integer, or `None` when the integer part
+    /// has more than `MAX_INTEGER_SHIFT` bits.
+    pub fn checked_int_trunc(&self) -> Option<BigInt> {
+        if self.exp > MAX_INTEGER_SHIFT { None } else { Some(self.to_int_trunc()) }
+    }
+
+    /// Whether `to_int_trunc` materializes at most `MAX_INTEGER_SHIFT` bits.
+    pub fn integer_part_fits(&self) -> bool { self.exp <= MAX_INTEGER_SHIFT }
 
     /// Truncate towards zero to an integer.
     pub fn to_int_trunc(&self) -> BigInt {
         if self.exp >= 0 {
-            &self.man << (self.exp as usize)
+            &self.man << self.exp.to_usize().expect("integer part of a Float exceeds addressable storage")
         } else {
-            let s = (-self.exp) as usize;
+            let Some(s) = (-&self.exp).to_usize() else { return BigInt::zero() };
             if self.man.is_negative() {
                 -((-&self.man) >> s)
             } else {
@@ -332,7 +372,7 @@ impl BigFloat {
         if self.exp >= 0 {
             return self.to_int_trunc();
         }
-        let half = BigFloat { man: BigInt::one(), exp: -1 };
+        let half = BigFloat::from_parts(BigInt::one(), -1i64);
         let p = (bitlen(&self.man) + 4) as u32;
         let v = if self.is_negative() { self.sub(&half, p) } else { self.add(&half, p) };
         v.to_int_trunc()
@@ -345,8 +385,8 @@ impl BigFloat {
     pub fn to_string_no_digits(&self) -> String {
         if self.is_zero() {return "0.e+0".into();}
         let (neg, digits, e10) = self.decimal_digits(3);
-        let e10=if matches!(digits.as_bytes().first(),Some(b'5'..=b'9')){e10+1}else{e10};
-        format!("{}0.e{}{}",if neg{"-"}else{""},if e10<0{"-"}else{"+"},e10.unsigned_abs())
+        let e10=if matches!(digits.as_bytes().first(),Some(b'5'..=b'9')){e10+1i64}else{e10};
+        format!("{}0.e{}{}",if neg{"-"}else{""},if e10.is_negative(){"-"}else{"+"},e10.abs())
     }
 
     pub fn to_string_dps(&self, dps: u32, strip_zeros: bool) -> String {
@@ -362,7 +402,8 @@ impl BigFloat {
         }
         // digits d1 d2 ... with value 0.d1d2... * 10**(e10+1) i.e. d1.d2... * 10**e10
         let minimum=(-(dps as i128/3)).min(-5);
-        let fixed=minimum<e10 && e10<dps as i128;
+        let fixed=e10>minimum && e10<dps as i128;
+        let e10_small=e10.small().unwrap_or(0);
         if strip_zeros {
             while digits.len() > 1 && digits.ends_with('0') {
                 digits.pop();
@@ -370,7 +411,7 @@ impl BigFloat {
         }
         if fixed {
             if e10 >= 0 {
-                let int_len = (e10 + 1) as usize;
+                let int_len = (e10_small + 1) as usize;
                 if digits.len() <= int_len {
                     s.push_str(&digits);
                     s.push_str(&"0".repeat(int_len - digits.len()));
@@ -387,7 +428,7 @@ impl BigFloat {
                 }
             } else {
                 s.push_str("0.");
-                s.push_str(&"0".repeat((-e10 - 1) as usize));
+                s.push_str(&"0".repeat((-e10_small - 1) as usize));
                 s.push_str(&digits);
             }
         } else {
@@ -404,7 +445,7 @@ impl BigFloat {
     }
 
     /// `(negative, dps digits, decimal exponent of the first digit)`.
-    fn decimal_digits(&self, dps: u32) -> (bool, String, i128) {
+    fn decimal_digits(&self, dps: u32) -> (bool, String, Exponent) {
         decimal::digits(self,dps)
     }
 }
@@ -495,11 +536,11 @@ fn ln2_uncached(prec: u32) -> BigFloat {
 
 impl BigFloat {
     pub fn round_to(&self, prec: u32) -> BigFloat {
-        BigFloat::round(self.man.clone(), self.exp, prec)
+        BigFloat::round(self.man.clone(), self.exp.clone(), prec)
     }
 
-    /// e**x. Panics if the binary exponent exceeds `MAX_EXPONENT`; callers
-    /// evaluating untrusted magnitudes should use `checked_exp`.
+    /// e**x. Panics if the binary exponent exceeds `MAX_EXPONENT_BITS`
+    /// bits; callers evaluating untrusted magnitudes should use `checked_exp`.
     pub fn exp(&self, prec: u32) -> BigFloat {
         self.checked_exp(prec).expect("exponential exponent exceeds the BigFloat exponent range")
     }
@@ -509,12 +550,12 @@ impl BigFloat {
             return Some(BigFloat::one());
         }
         let mag = self.mag();
-        if mag > MAX_EXPONENT_BITS as i128 + 2 { return None; }
+        // k = round(x/ln 2) has about `mag` bits, as the result's exponent.
+        if mag > MAX_EXPONENT_BITS as i128 { return None; }
         let wp = prec + 20 + mag.max(0) as u32;
         // x = k*ln2 + r, |r| <= ln2/2
         let l2 = ln2(wp + mag.max(0) as u32);
         let k = self.div(&l2, wp).unwrap().to_int_round();
-        let ki = k.to_i128()?;
         let kf = BigFloat::from_int(&k);
         let r = self.sub(&kf.mul(&l2, wp + bitlen(&k) as u32), wp);
         // further reduce: r / 2^s
@@ -527,8 +568,8 @@ impl BigFloat {
         for _ in 0..s {
             y = y.mul(&y, wp2);
         }
-        let exponent = y.exp.checked_add(ki)?;
-        if exponent.unsigned_abs() > MAX_EXPONENT as u128 { return None; }
+        let exponent = &y.exp + Exponent::from(k);
+        if exponent.bits() >= MAX_EXPONENT_BITS as u64 { return None; }
         Some(BigFloat { man: y.man, exp: exponent }.round_to(prec))
     }
 
@@ -582,15 +623,20 @@ impl BigFloat {
     }
 
     fn ln_core(&self, prec: u32) -> Option<BigFloat> {
-        let wp = prec + 30;
+        // m is reduced below 2**-reduce with about `reduce` square roots.
+        // The rounding error of the j-th root is scaled by 2**j in
+        // 2**roots * ln(m), so the working precision carries `reduce` more
+        // guard bits (before, ln(2) at 8000 bits lost its last 15 digits).
+        let reduce = (((prec + 30) as f64).sqrt() as i128).max(8);
+        let wp = prec + 30 + reduce as u32 + 4;
         // x = m * 2^e with m in [0.5, 1): ln x = ln m + e ln 2
-        let e = self.mag();
-        let m = self.ldexp(-e);
+        let e = self.mag_exact();
+        let m = self.ldexp(-&e);
         // ln m via the atanh series: ln m = 2 atanh((m-1)/(m+1)), after
         // reducing m close to 1 with square roots
         let mut m = m;
         let mut roots = 0i64;
-        let target = BigFloat { man: BigInt::one(), exp: -((wp as f64).sqrt() as i128).max(8) };
+        let target = BigFloat::from_parts(BigInt::one(), -reduce);
         loop {
             let d = m.sub(&BigFloat::one(), wp).abs();
             if d.cmp(&target) != Ordering::Greater || roots > 400 {
@@ -605,7 +651,7 @@ impl BigFloat {
         let guard = if z.is_zero() { 0 } else { (-z.mag()).max(0) as u32 };
         let at = atanh_series(&z, wp + guard);
         let lnm = at.ldexp(1 + roots);
-        let res = lnm.add(&ln2(wp).mul(&BigFloat::norm(BigInt::from(e), 0), wp), wp);
+        let res = lnm.add(&ln2(wp).mul(&BigFloat::norm(e.to_bigint(), 0), wp), wp);
         Some(res.round_to(prec))
     }
 
@@ -696,7 +742,7 @@ impl BigFloat {
         }
         // reduce: atan(x) = 2 atan(x / (1 + sqrt(1 + x^2)))
         let mut doublings = 0i64;
-        let target = BigFloat { man: BigInt::one(), exp: -((wp as f64).sqrt() as i128).max(8) };
+        let target = BigFloat::from_parts(BigInt::one(), -((wp as f64).sqrt() as i128).max(8));
         while x.cmp(&target) == Ordering::Greater && doublings < 200 {
             let d = BigFloat::one().add(&x.mul(&x, wp), wp).sqrt(wp).unwrap();
             x = x.div(&BigFloat::one().add(&d, wp), wp).unwrap();
@@ -784,7 +830,7 @@ impl BigFloat {
     /// exponent of x).
     pub fn ln_size(&self) -> u32 {
         if self.is_zero() { return 0; }
-        128 - self.mag().unsigned_abs().leading_zeros()
+        self.mag_exact().bits() as u32
     }
 
     /// x**n for an integer n.
@@ -795,11 +841,11 @@ impl BigFloat {
 
 /// Fixed point helper: value of `x` as an integer scaled by 2^wp.
 fn to_fixed(x: &BigFloat, wp: u32) -> BigInt {
-    let s = x.exp + wp as i128;
+    let s = &x.exp + wp;
     if s >= 0 {
-        &x.man << (s as usize)
+        &x.man << s.to_usize().expect("fixed-point value exceeds addressable storage")
     } else {
-        let sh = (-s) as usize;
+        let Some(sh) = (-&s).to_usize() else { return BigInt::zero() };
         if x.man.is_negative() {
             -((-&x.man) >> sh)
         } else {
@@ -912,14 +958,14 @@ mod tests {
 
     #[test]
     fn comparisons_do_not_allocate_exponent_sized_integers() {
-        let tiny=BigFloat{man:BigInt::one(),exp:-1_000_000_000};
-        let huge=BigFloat{man:BigInt::one(),exp:1_000_000_000};
+        let tiny=BigFloat::from_parts(BigInt::one(),-1_000_000_000i64);
+        let huge=BigFloat::from_parts(BigInt::one(),1_000_000_000i64);
         assert_eq!(tiny.cmp(&BigFloat::zero()),Ordering::Greater);
         assert_eq!(tiny.cmp(&BigFloat::one()),Ordering::Less);
         assert_eq!(huge.cmp(&BigFloat::one()),Ordering::Greater);
-        let same=BigFloat{man:BigInt::from(2),exp:999_999_999};
+        let same=BigFloat::from_parts(BigInt::from(2),999_999_999i64);
         assert_eq!(huge.cmp(&same),Ordering::Equal);
-        let negative=BigFloat{man:BigInt::from(-1),exp:-1_000_000_000};
+        let negative=BigFloat::from_parts(BigInt::from(-1),-1_000_000_000i64);
         assert_eq!(negative.cmp(&BigFloat::zero()),Ordering::Less);
         assert_eq!(negative.cmp(&BigFloat::from_i64(-1)),Ordering::Greater);
         let number=crate::number::Number::MpFloat(tiny,100);
@@ -968,14 +1014,20 @@ mod tests {
             let value = f64::from_bits(bits);
             assert_eq!(BigFloat::from_f64(value).to_f64().to_bits(), value.to_bits());
         }
-        assert_eq!(BigFloat { man: BigInt::from(1), exp: -1075 }.to_f64().to_bits(), 0);
-        assert_eq!(BigFloat { man: BigInt::from(3), exp: -1075 }.to_f64().to_bits(), 2);
-        assert_eq!(BigFloat { man: BigInt::from(-3), exp: -1075 }.to_f64().to_bits(), (1u64 << 63) | 2);
+        assert_eq!(BigFloat::from_parts(BigInt::from(1), -1075i64).to_f64().to_bits(), 0);
+        assert_eq!(BigFloat::from_parts(BigInt::from(3), -1075i64).to_f64().to_bits(), 2);
+        assert_eq!(BigFloat::from_parts(BigInt::from(-3), -1075i64).to_f64().to_bits(), (1u64 << 63) | 2);
     }
 
     #[test]
     fn unrepresentable_exponentials_and_powers_are_checked() {
-        let huge = BigFloat::from_decimal("1e100", 200).unwrap();
+        // mpmath exponents are unbounded: exp(1e100) has a 330-bit binary
+        // exponent, while exp(1e30000) needs more than MAX_EXPONENT_BITS.
+        let big = BigFloat::from_decimal("1e100", 200).unwrap();
+        assert!(big.checked_exp(200).unwrap().mag_exact().bits() > 300);
+        assert!(big.neg().checked_exp(200).unwrap().mag_exact().is_negative());
+        assert!(BigFloat::from_i64(10).powf(&big, 200).is_some());
+        let huge = BigFloat::from_decimal("1e30000", 200).unwrap();
         assert!(huge.checked_exp(200).is_none());
         assert!(huge.neg().checked_exp(200).is_none());
         assert!(BigFloat::from_i64(10).powf(&huge, 200).is_none());
@@ -983,7 +1035,7 @@ mod tests {
         let power = BigFloat::from_i64(10).powi(i64::MAX, 200).unwrap();
         assert!(power.mag() > i128::from(i64::MAX));
         let large = BigFloat::from_decimal("1e1000000000000000000", 200).unwrap();
-        assert!(large.powi(i64::MAX, 200).is_none());
+        assert!(large.powi(i64::MAX, 200).unwrap().mag_exact() > Exponent::from(1i128 << 120));
         assert_eq!(BigFloat::zero().powi(2, 200), Some(BigFloat::zero()));
         let ordinary = BigFloat::from_i64(1000).checked_exp(200).unwrap();
         assert!(ordinary.mag() > 1400);

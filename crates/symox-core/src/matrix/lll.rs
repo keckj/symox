@@ -243,11 +243,11 @@ impl Budget {
             return Ok(BigInt::zero());
         }
         if value.exp >= 0 {
-            let bits = value.man.bits().saturating_add(u64::try_from(value.exp).unwrap_or(u64::MAX));
+            let bits = value.man.bits().saturating_add(value.exp.to_i64().and_then(|e| u64::try_from(e).ok()).unwrap_or(u64::MAX));
             self.scratch(bits)?;
             self.record(bits)?;
             self.claim(words(bits))?;
-            let shift = usize::try_from(value.exp).map_err(|_| LllError::Resource)?;
+            let shift = value.exp.to_usize().ok_or(LllError::Resource)?;
             Ok(&value.man << shift)
         } else {
             let shift = u64::try_from(value.exp.unsigned_abs()).unwrap_or(u64::MAX);
@@ -299,7 +299,7 @@ impl Budget {
         let bits = f.man.bits();
         self.scratch(bits)?;
         self.claim(words(bits))?;
-        let scale = f.exp + i128::from(bits);
+        let scale = f.exp.saturating_i128() + i128::from(bits);
         if !f.man.is_positive() || !(-1..=0).contains(&scale) {
             return Err(LllError::Delta);
         }
@@ -754,7 +754,7 @@ mod tests {
         let huge = Expr::num(Number::MpFloat(
             BigFloat {
                 man: BigInt::one(),
-                exp: 1_000_000_000,
+                exp: 1_000_000_000i64.into(),
             },
             80,
         ));
@@ -785,7 +785,7 @@ mod tests {
         assert_eq!(
             b.float_integer(&BigFloat {
                 man: BigInt::one() << 128,
-                exp: -128
+                exp: (-128i64).into()
             }),
             Err(LllError::Resource)
         );

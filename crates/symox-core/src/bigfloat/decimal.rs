@@ -2,20 +2,21 @@
 //!
 //! Positive dyadic intervals are rounded outwards after each product/division.
 //! Powers of ten use binary exponentiation; their exponent is stored separately
-//! in i128 so a large decimal exponent does not allocate that many digits.
-use super::BigFloat;
+//! as an `Exponent` so a large decimal exponent does not allocate that many
+//! digits.
+use super::{BigFloat,Exponent};
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::{One,Signed,Zero};
 
 #[derive(Clone,PartialEq,Eq)]
-struct Positive {man:BigInt,exp:i128}
+struct Positive {man:BigInt,exp:Exponent}
 impl Positive {
-    fn new(mut man:BigInt,mut exp:i128)->Self{
-        if man.is_zero(){return Self{man,exp:0};}
+    fn new(mut man:BigInt,exp:Exponent)->Self{
+        if man.is_zero(){return Self{man,exp:Exponent::ZERO};}
         let zeros=man.trailing_zeros().unwrap();
-        man>>=zeros as usize;exp+=zeros as i128;
-        Self{man,exp}
+        man>>=zeros as usize;
+        Self{man,exp:exp+zeros}
     }
     fn round(&self,bits:u64,up:bool)->Self{
         let shift=self.man.bits().saturating_sub(bits.max(1));
@@ -23,7 +24,7 @@ impl Positive {
         let discarded=self.man.trailing_zeros().unwrap_or(shift)<shift;
         let mut man=&self.man>>shift as usize;
         if up&&discarded{man+=1u8;}
-        Self::new(man,self.exp+shift as i128)
+        Self::new(man,&self.exp+shift)
     }
     fn nearest(&self,bits:u64)->Self{
         let shift=self.man.bits().saturating_sub(bits.max(1));
@@ -32,22 +33,20 @@ impl Positive {
         let half_bit=(&self.man>>(shift-1) as usize).is_odd();
         let above_half=self.man.trailing_zeros().unwrap_or(shift)<shift-1;
         if half_bit&&(above_half||man.is_odd()){man+=1u8;}
-        Self::new(man,self.exp+shift as i128)
+        Self::new(man,&self.exp+shift)
     }
     fn product(&self,other:&Self,bits:u64,up:bool)->Self{
-        Self::new(&self.man*&other.man,self.exp+other.exp).round(bits,up)
+        Self::new(&self.man*&other.man,&self.exp+&other.exp).round(bits,up)
     }
     fn quotient(&self,other:&Self,bits:u64,up:bool)->Self{
         let shift=(bits as i128+other.man.bits() as i128-self.man.bits() as i128+2).max(0) as usize;
         let (mut man,remainder)=(&self.man<<shift).div_rem(&other.man);
         if up&&!remainder.is_zero(){man+=1u8;}
-        Self::new(man,self.exp-other.exp-shift as i128).round(bits,up)
+        Self::new(man,&self.exp-&other.exp-shift).round(bits,up)
     }
     fn nearest_integer(&self)->BigInt{
-        if self.exp>=0{return &self.man<<usize::try_from(self.exp).expect("integer exponent exceeds addressable storage");}
-        let shift=self.exp.unsigned_abs();
-        if shift>self.man.bits() as u128{return BigInt::zero();}
-        let shift=shift as usize;
+        if self.exp>=0{return &self.man<<self.exp.to_usize().expect("integer exponent exceeds addressable storage");}
+        let shift=match (-&self.exp).to_usize(){Some(shift) if shift as u64<=self.man.bits()=>shift,_=>return BigInt::zero()};
         let mut integer=&self.man>>shift;
         let half_bit=(&self.man>>(shift-1)).is_odd();
         // mpmath/SymPy decimal display resolves exact halves away from zero.
@@ -56,52 +55,41 @@ impl Positive {
         integer
     }
     fn bigfloat(self)->Result<BigFloat,String>{
-        let exp=self.exp;
-        if exp.unsigned_abs().saturating_add(u128::from(self.man.bits()))>super::MAX_EXPONENT as u128{
+        if self.exp.bits()>=u64::from(super::MAX_EXPONENT_BITS){
             return Err("decimal value exceeds the native binary exponent counter".into());
         }
-        Ok(BigFloat{man:self.man,exp})
+        Ok(BigFloat{man:self.man,exp:self.exp})
     }
 }
 
-fn signed_round(man:BigInt,exp:i128,precision:u32)->Option<BigFloat>{
+fn signed_round(man:BigInt,exp:Exponent,precision:u32)->Option<BigFloat>{
     let negative=man.is_negative();
     let result=Positive::new(man.abs(),exp).nearest(precision as u64).bigfloat().ok()?;
     Some(if negative{result.neg()}else{result})
 }
 
 pub(super) fn checked_product(a:&BigFloat,b:&BigFloat,precision:u32)->Option<BigFloat>{
-    signed_round(&a.man*&b.man,a.exp as i128+b.exp as i128,precision)
+    signed_round(&a.man*&b.man,&a.exp+&b.exp,precision)
 }
 
 pub(super) fn checked_sum(a:&BigFloat,b:&BigFloat,precision:u32)->Option<BigFloat>{
     if a.is_zero(){return checked_round(b,precision);}
     if b.is_zero(){return checked_round(a,precision);}
-    let am=a.exp as i128+a.man.bits() as i128;let bm=b.exp as i128+b.man.bits() as i128;
+    let am=a.mag_exact();let bm=b.mag_exact();
     let (a,b,gap)=if am>=bm{(a,b,am-bm)}else{(b,a,bm-am)};
     if gap>precision as i128+4{
         let shift=(precision as i128+4-a.man.bits() as i128).max(0) as usize;
         let man=(&a.man<<(shift+2))+if b.is_negative(){-1i8}else{1i8};
-        return signed_round(man,a.exp as i128-shift as i128-2,precision);
+        return signed_round(man,&a.exp-(shift+2),precision);
     }
-    let exponent=a.exp.min(b.exp);
-    let man=(&a.man<<usize::try_from(a.exp as i128-exponent as i128).ok()?)
-           +(&b.man<<usize::try_from(b.exp as i128-exponent as i128).ok()?);
-    signed_round(man,exponent as i128,precision)
-}
-
-pub(super) fn checked_quotient(a:&BigFloat,b:&BigFloat,precision:u32)->Option<BigFloat>{
-    if b.is_zero(){return None;}
-    if a.is_zero(){return Some(BigFloat::zero());}
-    let shift=(precision as i128+3+b.man.bits() as i128-a.man.bits() as i128).max(0) as usize;
-    let (quotient,remainder)=(&a.man.abs()<<shift).div_rem(&b.man.abs());
-    let man=(quotient<<1usize)+u8::from(!remainder.is_zero());
-    let man=if a.is_negative()!=b.is_negative(){-man}else{man};
-    signed_round(man,a.exp as i128-b.exp as i128-shift as i128-1,precision)
+    let exponent=a.exp.min_ref(&b.exp);
+    let man=(&a.man<<(&a.exp-exponent).to_usize()?)
+           +(&b.man<<(&b.exp-exponent).to_usize()?);
+    signed_round(man,exponent.clone(),precision)
 }
 
 pub(super) fn checked_round(value:&BigFloat,precision:u32)->Option<BigFloat>{
-    let result=Positive::new(value.man.abs(),value.exp as i128).nearest(precision as u64).bigfloat().ok()?;
+    let result=Positive::new(value.man.abs(),value.exp.clone()).nearest(precision as u64).bigfloat().ok()?;
     Some(if value.is_negative(){result.neg()}else{result})
 }
 
@@ -137,7 +125,7 @@ mod tests{
                     assert!(!negative);assert_eq!(text.len(),requested as usize);
                     assert_ne!(text.as_bytes()[0],b'0');
                     let mut rational=value.to_ratio_exact();
-                    let power=requested as i128-1-decimal_exp;
+                    let power=requested as i128-1-decimal_exp.small().unwrap();
                     let ten=num_traits::pow::Pow::pow(BigInt::from(10),power.unsigned_abs() as u64);
                     if power>=0{rational*=BigRational::from_integer(ten);}else{rational/=BigRational::from_integer(ten);}
                     let (mut integer,remainder)=rational.numer().div_rem(rational.denom());
@@ -169,8 +157,9 @@ mod tests{
     fn exponent_counter_overflow_is_held_instead_of_wrapping(){
         let value=BigFloat::from_decimal("1e999999999999999999",70).unwrap();
         let value=crate::Expr::num(crate::number::Number::mp_float(value,70));
-        // Binary exponents are i128 values bounded by MAX_EXPONENT. Squaring
-        // reaches that bound after a few dozen steps.
+        // Binary exponents are big integers of fewer than MAX_EXPONENT_BITS
+        // bits. Each squaring doubles their size, so the bound is reached
+        // after a few dozen steps.
         let mut square=crate::ops::mul2(&value,&value);
         while crate::ops::mul2(&square,&square).as_number().is_some(){
             square=crate::ops::mul2(&square,&square);
@@ -200,7 +189,14 @@ mod tests{
             let (_,text,decimal_exp)=digits(&value,15);
             assert_eq!(text,"100000000000000");assert_eq!(decimal_exp,exponent);
         }
-        assert!(from_decimal("1e10000000000000000000000000000000000000",53).is_err());
+        // Binary exponents beyond i128 are big integers, as mpmath's.
+        for literal in ["1e10000000000000000000000000000000000000","1e1000000000000000000000000000000000000000000000000000","-1.5e-1000000000000000000000000000000000000000000000000000"]{
+            let value=from_decimal(literal,53).unwrap();
+            let (_,text,decimal_exp)=digits(&value,15);
+            let expected:num_bigint::BigInt=literal.split('e').nth(1).unwrap().parse().unwrap();
+            assert_eq!(text,if literal.starts_with('-'){"150000000000000"}else{"100000000000000"});
+            assert_eq!(decimal_exp.to_bigint(),expected);
+        }
         for exponent in [i64::MIN,i64::MAX]{
             let value=BigFloat{man:3.into(),exp:exponent.into()};
             assert_eq!(digits(&value,30).1.len(),30);
@@ -210,7 +206,7 @@ mod tests{
 
 struct Interval {lo:Positive,hi:Positive}
 impl Interval {
-    fn point(man:BigInt,exp:i128,bits:u64)->Self{
+    fn point(man:BigInt,exp:Exponent,bits:u64)->Self{
         let point=Positive::new(man,exp);
         Self{lo:point.round(bits,false),hi:point.round(bits,true)}
     }
@@ -222,21 +218,21 @@ impl Interval {
     }
 }
 
-fn scale(man:&BigInt,exp:i128,decimal_power:i128,bits:u64)->Interval{
-    let mut power=Interval::point(BigInt::one(),0,bits);
-    let mut base=Interval::point(BigInt::from(10),0,bits);
-    let mut exponent=decimal_power.unsigned_abs();
-    while exponent!=0{
-        if exponent&1!=0{power=power.product(&base,bits);}
-        exponent>>=1;
-        if exponent!=0{base=base.product(&base,bits);}
+fn scale(man:&BigInt,exp:Exponent,decimal_power:&Exponent,bits:u64)->Interval{
+    let mut power=Interval::point(BigInt::one(),Exponent::ZERO,bits);
+    let mut base=Interval::point(BigInt::from(10),Exponent::ZERO,bits);
+    let exponent=decimal_power.abs().to_bigint();
+    let length=exponent.bits();
+    for bit in 0..length{
+        if exponent.bit(bit){power=power.product(&base,bits);}
+        if bit+1<length{base=base.product(&base,bits);}
     }
     let value=Interval::point(man.clone(),exp,bits);
-    if decimal_power<0{value.quotient(&power,bits)}else{value.product(&power,bits)}
+    if decimal_power.is_negative(){value.quotient(&power,bits)}else{value.product(&power,bits)}
 }
 
-fn initial_bits(target:u64,power:i128)->u64{
-    target+64+(128-power.unsigned_abs().leading_zeros()) as u64
+fn initial_bits(target:u64,power:&Exponent)->u64{
+    target+64+power.bits()
 }
 
 /// Integer powers have the same enclosure proof as decimal scaling. Positive
@@ -246,17 +242,17 @@ pub(super) fn checked_integer_power(value:&BigFloat,exponent:i64,precision:u32)-
     if exponent==0{return Some(BigFloat::one());}
     if value.is_zero(){return if exponent>0{Some(BigFloat::zero())}else{None};}
     let negative=value.is_negative()&&exponent.unsigned_abs()&1!=0;
-    let mut bits=initial_bits(precision as u64,exponent.into());
+    let mut bits=initial_bits(precision as u64,&Exponent::from(exponent));
     loop{
-        let mut power=Interval::point(BigInt::one(),0,bits);
-        let mut base=Interval::point(value.man.abs(),value.exp as i128,bits);
+        let mut power=Interval::point(BigInt::one(),Exponent::ZERO,bits);
+        let mut base=Interval::point(value.man.abs(),value.exp.clone(),bits);
         let mut count=exponent.unsigned_abs();
         while count!=0{
             if count&1!=0{power=power.product(&base,bits);}
             count>>=1;
             if count!=0{base=base.product(&base,bits);}
         }
-        if exponent<0{power=Interval::point(BigInt::one(),0,bits).quotient(&power,bits);}
+        if exponent<0{power=Interval::point(BigInt::one(),Exponent::ZERO,bits).quotient(&power,bits);}
         let lo=power.lo.nearest(precision as u64);let hi=power.hi.nearest(precision as u64);
         if lo==hi{let value=lo.bigfloat().ok()?;return Some(if negative{value.neg()}else{value});}
         bits=bits.checked_mul(2)?;
@@ -267,11 +263,11 @@ pub(super) fn checked_integer_power(value:&BigFloat,exponent:i64,precision:u32)-
 /// whose sizes are bounded by the input mantissa and requested output size.
 fn exact_scaled_integer(value:&BigFloat,power:i128)->BigInt{
     let five=num_traits::pow::Pow::pow(BigInt::from(5),u64::try_from(power.unsigned_abs()).expect("exact decimal scale exceeds addressable storage"));
-    let exp=value.exp+power;
+    let exp=&value.exp+power;
     if power>=0{return Positive::new(value.man.abs()*five,exp).nearest_integer();}
     let mut numerator=value.man.abs();let mut denominator=five;
-    if exp>=0{numerator<<=usize::try_from(exp).unwrap();}
-    else{denominator<<=usize::try_from(exp.unsigned_abs()).unwrap();}
+    if exp>=0{numerator<<=exp.to_usize().unwrap();}
+    else{denominator<<=(-&exp).to_usize().unwrap();}
     let (mut quotient,remainder)=numerator.div_rem(&denominator);
     match (&remainder<<1usize).cmp(&denominator){
         std::cmp::Ordering::Greater=>quotient+=1u8,
@@ -284,8 +280,8 @@ fn exact_scaled_integer(value:&BigFloat,power:i128)->BigInt{
 pub(super) fn from_decimal(text:&str,precision:u32)->Result<BigFloat,String>{
     let text=text.trim();
     let (mantissa,exponent)=match text.find(['e','E']){
-        Some(i)=>(&text[..i],text[i+1..].parse::<i128>().map_err(|_|"invalid decimal exponent")?),
-        None=>(text,0),
+        Some(i)=>(&text[..i],text[i+1..].parse::<BigInt>().map_err(|_|"invalid decimal exponent")?),
+        None=>(text,BigInt::zero()),
     };
     let (negative,mantissa)=match mantissa.as_bytes().first(){
         Some(b'-')=>(true,&mantissa[1..]),Some(b'+')=>(false,&mantissa[1..]),_=>(false,mantissa),
@@ -297,19 +293,20 @@ pub(super) fn from_decimal(text:&str,precision:u32)->Result<BigFloat,String>{
         else{return Err("invalid decimal literal".into());}
     }
     if digits.is_empty(){return Err("invalid decimal literal".into());}
-    let power=exponent.checked_sub(fractional.unwrap_or(0)).ok_or("decimal exponent overflow")?;
+    let power=Exponent::from(exponent)-fractional.unwrap_or(0);
     let mut mantissa:BigInt=digits.parse().map_err(|_|"invalid decimal literal")?;
     if mantissa.is_zero(){return Ok(BigFloat::zero());}
     if power.unsigned_abs()<=u128::from(mantissa.bits()+precision as u64+64){
+        let power=power.small().unwrap();
         let ten=num_traits::pow::Pow::pow(BigInt::from(10),power.unsigned_abs() as u64);
         if negative{mantissa=-mantissa;}
         let result=if power>=0{BigFloat::from_int(&(mantissa*ten)).round_to(precision)}
                    else{BigFloat::from_ratio(&mantissa,&ten,precision)};
         return Ok(result);
     }
-    let mut bits=initial_bits(precision as u64,power);
+    let mut bits=initial_bits(precision as u64,&power);
     loop{
-        let bounds=scale(&mantissa,0,power,bits);
+        let bounds=scale(&mantissa,Exponent::ZERO,&power,bits);
         let lo=bounds.lo.nearest(precision as u64);let hi=bounds.hi.nearest(precision as u64);
         if lo==hi{let value=lo.bigfloat()?;return Ok(if negative{value.neg()}else{value});}
         bits=bits.checked_mul(2).ok_or("decimal conversion working precision overflow")?;
@@ -318,40 +315,41 @@ pub(super) fn from_decimal(text:&str,precision:u32)->Result<BigFloat,String>{
 
 /// floor(n*log10(2)) up to one unit, without the 53-bit error of an f64
 /// estimate at binary exponents beyond 2**53.
-fn decimal_exponent_estimate(n:i128)->i128{
-    if n.unsigned_abs()<1<<50{return ((n as f64)*std::f64::consts::LOG10_2).floor() as i128;}
-    let ratio=super::ln2(200).div(&BigFloat::from_i64(10).ln(200).unwrap(),200).unwrap();
-    let estimate=BigFloat::norm(BigInt::from(n),0).mul(&ratio,200).to_int_trunc();
-    num_traits::ToPrimitive::to_i128(&estimate).unwrap_or(if n<0{i128::MIN/2}else{i128::MAX/2})
+fn decimal_exponent_estimate(n:&Exponent)->Exponent{
+    if n.unsigned_abs()<1<<50{return Exponent::from(((n.small().unwrap() as f64)*std::f64::consts::LOG10_2).floor() as i128);}
+    // The product keeps 200 bits beyond the integer part.
+    let wp=200+n.bits() as u32;
+    let ratio=super::ln2(wp).div(&BigFloat::from_i64(10).ln(wp).unwrap(),wp).unwrap();
+    Exponent::from(BigFloat::norm(n.to_bigint(),0).mul(&ratio,wp).to_int_trunc())
 }
 
-pub(super) fn digits(value:&BigFloat,digits:u32)->(bool,String,i128){
+pub(super) fn digits(value:&BigFloat,digits:u32)->(bool,String,Exponent){
     let digits=digits.max(1);
-    let magnitude=value.exp+value.man.bits() as i128;
-    let mut exponent=decimal_exponent_estimate(magnitude-1);
+    let magnitude=value.mag_exact();
+    let mut exponent=decimal_exponent_estimate(&(&magnitude-1i64));
     loop{
-        let power=digits as i128-1-exponent;
+        let power=Exponent::from(digits as i128-1)-&exponent;
         let exact=power.unsigned_abs()<=u128::from(value.man.bits()+4*digits as u64+64);
-        let (integer,scaled_magnitude)=if exact{(exact_scaled_integer(value,power),None)}else{
-            let mut bits=initial_bits(4*digits as u64,power);
+        let (integer,scaled_magnitude)=if exact{(exact_scaled_integer(value,power.small().unwrap()),None)}else{
+            let mut bits=initial_bits(4*digits as u64,&power);
             loop{
-                let bounds=scale(&value.man.abs(),value.exp as i128,power,bits);
+                let bounds=scale(&value.man.abs(),value.exp.clone(),&power,bits);
                 let lo=bounds.lo.nearest_integer();let hi=bounds.hi.nearest_integer();
-                if lo==hi{break (lo,Some(bounds.lo.exp+bounds.lo.man.bits() as i128));}
+                if lo==hi{break (lo,Some(&bounds.lo.exp+bounds.lo.man.bits()));}
                 bits=bits.checked_mul(2).expect("decimal conversion working precision overflow");
             }
         };
         let text=integer.to_string();
-        if text.len() as u64>digits as u64{exponent+=text.len() as i128-digits as i128;continue;}
+        if text.len() as u64>digits as u64{exponent=exponent+(text.len() as i128-digits as i128);continue;}
         if (text.len() as u64)<digits as u64||integer.is_zero(){
             if integer.is_zero(){
                 // A floating exponent estimate can be several hundred off
                 // near i64 boundaries. Its only role is choosing a scale;
                 // the final digit count and integer rounding are certified.
-                let binary=scaled_magnitude.map(|m|m-1).unwrap_or_else(||magnitude-1+(power as f64*std::f64::consts::LOG2_10).floor() as i128);
-                let correction=decimal_exponent_estimate(binary)-digits as i128+1;
-                exponent+=correction.min(-1);
-            }else{exponent-=digits as i128-text.len() as i128;}
+                let binary=scaled_magnitude.map(|m|m-1i64).unwrap_or_else(||&magnitude-1i64+(power.small().unwrap() as f64*std::f64::consts::LOG2_10).floor() as i128);
+                let correction=decimal_exponent_estimate(&binary)-digits+1i64;
+                exponent=exponent+correction.min(Exponent::from(-1i64));
+            }else{exponent=exponent-(digits as i128-text.len() as i128);}
             continue;
         }
         return (value.is_negative(),text,exponent);

@@ -473,17 +473,17 @@ mod tests {
 fn mpf_cmp(x: &crate::number::Number, y: &crate::number::Number) -> Option<std::cmp::Ordering> {
     use crate::number::Number;
     use num_traits::{Signed, Zero};
-    fn tuple(n: &Number) -> Option<(bool, num_bigint::BigInt, i128, u64)> {
+    fn tuple(n: &Number) -> Option<(bool, num_bigint::BigInt, crate::bigfloat::Exponent, u64)> {
         let f = match n {
             Number::Float(v) if v.is_finite() && *v != 0.0 => crate::bigfloat::BigFloat::from_f64(*v),
             Number::MpFloat(v, _) if !v.is_zero() => v.clone(),
             _ => return None,
         };
-        let (mut man, mut exp) = (f.man.abs(), f.exp);
+        let (mut man, mut exp) = (f.man.abs(), f.exp.clone());
         if man.is_zero() { return None; }
         let shift = man.trailing_zeros().unwrap_or(0);
         man >>= shift;
-        exp += i128::from(shift);
+        exp += shift;
         let bc = man.bits();
         Some((f.man.is_negative(), man, exp, bc))
     }
