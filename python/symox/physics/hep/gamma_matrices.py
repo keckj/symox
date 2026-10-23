@@ -65,18 +65,74 @@ def kahane_simplify(expression):
 
 def simplify_gamma_expression(expression):return kahane_simplify(expression)
 
+def _sorted_components(ex):
+    # reference TensMul._sort_args_for_sorted_components
+    coefficient, cv = _parts(ex)
+    cv = list(cv)
+    sign = 1
+    n = len(cv) - 1
+    for i in range(n):
+        for j in range(n, i, -1):
+            c = cv[j-1].component.commutes_with(cv[j].component)
+            if c not in (0, 1):
+                continue
+            typ1 = sorted({t.name for t in cv[j-1].component.index_types})
+            typ2 = sorted({t.name for t in cv[j].component.index_types})
+            if (typ1, cv[j-1].component.name) > (typ2, cv[j].component.name):
+                cv[j-1], cv[j] = cv[j], cv[j-1]
+                if c:
+                    sign = -sign
+    return sign*coefficient, cv
+
+
 def simplify_gpgp(ex, sort=True):
-    """Reduce adjacent equal slashed-vector pairs; retain other ordered factors."""
+    """Simplify products ``G(i)*p(-i)*G(j)*p(-j) -> p(i)*p(-i)``.
+
+    Reference algorithm (SymPy 1.14), except that a lone pair is not
+    multiplied by 4: ``p_slash*p_slash`` is ``p(i)*p(-i)`` times the
+    identity, not its trace (the reference returns ``4*p(i)*p(-i)``).
+    """
     if isinstance(ex,TensAdd):return sum((simplify_gpgp(t,sort) for t in ex.args),S.Integer(0))
-    coefficient,factors=_parts(ex)
-    gamma=[f for f in factors if f.component==GammaMatrix]
-    vectors=[f for f in factors if f.component!=GammaMatrix]
-    if len(gamma)==2 and len(vectors)==2 and vectors[0].component==vectors[1].component and vectors[0].component.rank==1:
-        gi=[g.indices[0] for g in gamma];vi=[v.indices[0] for v in vectors]
-        if set(gi)==set(-i for i in vi):
-            from ...tensor.tensor import TensorIndex
-            i=TensorIndex('p',LorentzIndex);head=vectors[0].component
-            return coefficient*head(i)*head(-i)
-    return _reduce(ex)
+    if not isinstance(ex,(TensMul,Tensor)):return ex
+    from ...tensor.tensor import TensorIndex
+    coefficient,factors=_sorted_components(ex) if sort else _parts(ex)
+    while True:
+        # positions of every factor's slots, as in the reference ``ex.dum``
+        comp_map=[]
+        for i,f in enumerate(factors):
+            comp_map.extend([i]*len(f.indices))
+        flat=[ix for f in factors for ix in f.indices]
+        dum=[]
+        for a,ia in enumerate(flat):
+            if ia.is_up:
+                for b,ib in enumerate(flat):
+                    if ib==-ia:
+                        dum.append((a,b,comp_map[a],comp_map[b]))
+        dum.sort()
+        pairs=[]
+        for i,f in enumerate(factors):
+            if f.component!=GammaMatrix:continue
+            for dx in dum:
+                if dx[2]==i:pos=dx[3]
+                elif dx[3]==i:pos=dx[2]
+                else:continue
+                comp=factors[pos].component
+                if comp.comm==0 and comp.rank==1:
+                    pairs.append((i,pos))
+        hit=None
+        for k,ai in enumerate(pairs[:-1]):
+            if ai[0]!=pairs[k+1][0]-1:continue
+            if factors[ai[1]].component!=factors[pairs[k+1][1]].component:continue
+            hit=k;break
+        if hit is None:
+            return _product(coefficient,factors)
+        ai,aj=pairs[hit],pairs[hit+1]
+        elim={ai[0],ai[1],aj[0],aj[1]}
+        head=factors[ai[1]].component
+        mu=TensorIndex('mu',GammaMatrix.index_types[0])
+        rest=[f for j,f in enumerate(factors) if j not in elim]
+        new=_product(coefficient,rest+[head(mu),head(-mu)])
+        coefficient,factors=_parts(new)
+
 
 __all__=['extract_type_tens','gamma_trace','kahane_simplify','simplify_gamma_expression','simplify_gpgp']

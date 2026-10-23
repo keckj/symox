@@ -382,11 +382,11 @@ def test_unsupported_paths_raise_instead_of_wrong_values():
     from symox.physics.quantum.represent import represent
     from symox.physics.quantum.cartesian import XOp, PxOp, XKet, PxKet
     j1, m1, j2, m2 = Symbol('j1'), Symbol('m1'), Symbol('j2'), Symbol('m2')
-    # SymPy returns a held Sum here; symox refuses rather than guessing.
-    with pytest.raises(NotImplementedError):
-        couple(TensorProduct(JzKet(j1, m1), JzKet(j2, m2)))
-    with pytest.raises(NotImplementedError):
-        uncouple(JzKetCoupled(Symbol('j'), Symbol('m'), (j1, j2)))
+    # Symbolic spins give the reference held Sum (see test_c_doc_physics_parity).
+    assert str(couple(TensorProduct(JzKet(j1, m1), JzKet(j2, m2)))) == (
+        'Sum(CG(j1, m1, j2, m2, j, m1 + m2)*|j,m1 + m2,j1=j1,j2=j2>, (j, m1 + m2, j1 + j2))')
+    assert str(uncouple(JzKetCoupled(Symbol('j'), Symbol('m'), (j1, j2)))) == (
+        'Sum(CG(j1, m1, j2, m2, j, m)*|j1,m1>x|j2,m2>, (m1, -j1, j1), (m2, -j2, j2))')
     with pytest.raises(NotImplementedError):
         represent(XOp(), basis=PxKet)
     with pytest.raises(NotImplementedError):

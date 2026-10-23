@@ -139,6 +139,76 @@ class PermuteDims(_ArrayExpr):
         return _entry(self.expr,original)
 
 
+def _af_invert(form):
+    inverse=[0]*len(form)
+    for i,j in enumerate(form):inverse[j]=i
+    return inverse
+
+
+def _permute_dims(expr,permutation):
+    """``PermuteDims(expr, permutation)`` in SymPy's canonical form.
+
+    As SymPy's ``PermuteDims._canonicalize``: nested permutations are
+    composed, the arguments of a permuted tensor product are sorted by the
+    positions their axes take, and an identity permutation is dropped.
+    """
+    from ....combinatorics import Permutation
+    form=list(permutation.array_form if hasattr(permutation,'array_form') else permutation)
+    if sorted(form)!=list(range(len(_shape(expr)))):raise ValueError('Permutation size must be the length of the shape of expr')
+    if isinstance(expr,PermuteDims):
+        inner=expr.permutation.array_form
+        form=[inner[i] for i in form];expr=expr.expr
+    if isinstance(expr,ArrayContraction):
+        expr,form=_permute_contraction(expr,form)
+    if isinstance(expr,ArrayTensorProduct):
+        image=_af_invert(form);args=list(expr.args);offsets=[0]
+        for arg in args:offsets.append(offsets[-1]+len(_shape(arg)))
+        components=[image[offsets[i]:offsets[i+1]] for i in range(len(args))]
+        order=sorted(range(len(args)),key=lambda i:sorted(components[i]))
+        form=_af_invert([j for i in order for j in components[i]])
+        expr=ArrayTensorProduct(*(args[i] for i in order)) if len(args)>1 else args[0]
+    if isinstance(expr,ZeroArray):return ZeroArray(*[expr.shape[i] for i in form])
+    if form==sorted(form):return expr
+    return PermuteDims(expr,Permutation(form))
+
+
+def _sort_key(value):
+    if isinstance(value,ArraySymbol):
+        return ((5,0,'ArraySymbol'),(1,(value.name,)+tuple(str(n) for n in value.shape)))
+    try:return S.default_sort_key(value)
+    except Exception:return (str(type(value).__name__),str(value))
+
+
+def _array_contraction(expr,*groups):
+    """``ArrayContraction(expr, *groups)`` in part of SymPy's canonical form.
+
+    As SymPy's ``ArrayContraction._canonicalize`` for a tensor product: the
+    fully contracted arguments move first, sorted by their sort key, and a
+    single-axis contraction of a dimension one axis is dropped. Other nested
+    forms are kept as given (an equivalent, not canonical, expression).
+    """
+    groups=[tuple(sorted(operator.index(i) for i in g)) for g in groups]
+    if not groups:return expr
+    if isinstance(expr,ArrayTensorProduct) and not any(isinstance(a,ArrayAdd) for a in expr.args):
+        args=expr.args;offsets=[0]
+        for a in args:offsets.append(offsets[-1]+len(_shape(a)))
+        flat={j for g in groups for j in g}
+        full=[all(j in flat for j in range(offsets[i],offsets[i+1])) for i in range(len(args))]
+        order=sorted(range(len(args)),key=lambda i:(0,_sort_key(args[i])) if full[i] else (1,))
+        form=_af_invert([j for i in order for j in range(offsets[i],offsets[i+1])])
+        groups=[tuple(sorted(form[j] for j in g)) for g in groups]
+        expr=ArrayTensorProduct(*(args[i] for i in order))
+    shape=_shape(expr)
+    groups=[g for g in groups if len(g)>1 or shape[g[0]]!=1]
+    if not groups:return expr
+    return ArrayContraction(expr,*groups)
+
+
+def _is_symbolic_array(value):
+    """Whether SymPy's array operations build an array expression for it."""
+    return isinstance(value,_ArrayExpr) or matrix_tag(value)=='MatrixSymbol'
+
+
 class _AxisOperation(_ArrayExpr):
     def __init__(self,expr,*groups):
         self.expr=expr;shape=_shape(expr);used=set();normalized=[]
@@ -151,12 +221,25 @@ class _AxisOperation(_ArrayExpr):
         self.args=(expr,*self.groups);self.shape=tuple(shape[i] for i in self.remaining)
 
 class ArrayContraction(_AxisOperation):
+    def __init__(self,expr,*groups):
+        # SymPy sorts each contraction and the contractions by first axis
+        groups=sorted((tuple(sorted(operator.index(i) for i in g)) for g in groups),key=lambda g:min(g) if g else -1)
+        super().__init__(expr,*groups)
     @property
     def contraction_indices(self):return self.groups
     def sort_args_by_name(self):
-        # SymPy canonicalizes the sorted tensor product again, which these
-        # array expressions do not model.
-        raise NotImplementedError('sort_args_by_name requires the canonical array expression forms')
+        # SymPy's ArrayContraction.sort_args_by_name
+        expr=self.expr
+        if not isinstance(expr,ArrayTensorProduct):return self
+        args=expr.args;offsets=[0]
+        for a in args:offsets.append(offsets[-1]+len(_shape(a)))
+        owner=[(k,j-offsets[k]) for k in range(len(args)) for j in range(offsets[k],offsets[k+1])]
+        order=sorted(range(len(args)),key=lambda i:_sort_key(args[i]))
+        new_position={old:new for new,old in enumerate(order)}
+        sorted_args=[args[i] for i in order];new_offsets=[0]
+        for a in sorted_args:new_offsets.append(new_offsets[-1]+len(_shape(a)))
+        groups=[tuple(new_offsets[new_position[owner[j][0]]]+owner[j][1] for j in g) for g in self.groups]
+        return _array_contraction(ArrayTensorProduct(*sorted_args),*groups)
     def _entry(self,indices):
         original=[None]*len(_shape(self.expr))
         for axis,index in zip(self.remaining,indices):original[axis]=index
@@ -178,6 +261,7 @@ class ArrayContraction(_AxisOperation):
 
 class ArrayDiagonal(_AxisOperation):
     def __init__(self,expr,*groups):
+        groups=[tuple(sorted(operator.index(i) for i in g)) for g in groups]
         super().__init__(expr,*groups)
         if any(len(g)<2 for g in self.groups):raise ValueError('diagonals require at least two axes')
         self.shape+=tuple(expr.shape[g[0]] for g in self.groups)
@@ -238,7 +322,7 @@ def convert_matrix_to_array(expr):
         factors=[convert_matrix_to_array(a) if hasattr(a,'shape') else a for a in expr.args]
         product_=ArrayTensorProduct(*factors);matrices=[a for a in factors if _shape(a)]
         groups=[(2*i+1,2*i+2) for i in range(len(matrices)-1)]
-        return ArrayContraction(product_,*groups) if groups else product_
+        return _array_contraction(product_,*groups) if groups else product_
     if kind=='KroneckerProduct':
         product_=ArrayTensorProduct(*(convert_matrix_to_array(a) for a in expr.args));n=len(expr.args)
         order=tuple(range(0,2*n,2))+tuple(range(1,2*n,2))
@@ -246,7 +330,69 @@ def convert_matrix_to_array(expr):
     return expr
 
 
+def _as_matrix_factor(value):
+    if isinstance(value,_ArrayExpr):value=convert_array_to_matrix(value)
+    if isinstance(value,_ArrayExpr) or len(_shape(value))!=2 or not hasattr(value,'T'):return None
+    if isinstance(value,NDimArray):return None
+    return value
+
+
+def _matrix_chains(expr):
+    """Matrix form of a contraction of a tensor product of matrices.
+
+    Each connected set of contracted matrix axes is a chain (a matrix
+    product whose two ends are free axes) or a cycle (a trace). The result
+    is None when the free axes of the chains are not consecutive, which
+    needs an axis permutation that a matrix product cannot express.
+    """
+    from functools import reduce
+    inner,groups=(expr.expr,expr.groups) if isinstance(expr,ArrayContraction) else (expr,())
+    factors=inner.args if isinstance(inner,ArrayTensorProduct) else (inner,)
+    if any(len(g)!=2 for g in groups):return None
+    owner={};matrices={};scalars=[];axis=0
+    for k,factor in enumerate(factors):
+        rank=len(_shape(factor))
+        if rank==0:
+            scalars.append(S.sympify(factor));continue
+        matrix=_as_matrix_factor(factor)
+        if matrix is None:return None
+        matrices[k]=matrix;owner[axis]=(k,0);owner[axis+1]=(k,1);axis+=2
+    position={v:a for a,v in owner.items()}
+    partner={}
+    for a,b in groups:partner[a]=b;partner[b]=a
+    free=[a for a in range(axis) if a not in partner]
+    def walk(k,side):
+        chain=[];start=(k,side)
+        while True:
+            chain.append(matrices[k] if side==0 else matrices[k].T);seen.add(k)
+            out=position[(k,1-side)]
+            if out not in partner:return chain,out
+            k,side=owner[partner[out]]
+            if (k,side)==start:return chain,None
+    seen=set();chains=[];ends=[];pending=list(free)
+    while pending:
+        start=pending.pop(0);k,side=owner[start]
+        chain,end=walk(k,side)
+        if end is None or end not in pending:return None
+        pending.remove(end);ends.extend((start,end))
+        chains.append(reduce(lambda a,b:a*b,chain))
+    for k in matrices:
+        if k not in seen:
+            chain,_=walk(k,0);scalars.append(S.Trace(reduce(lambda a,b:a*b,chain)))
+    scalar=S.Mul(*scalars)
+    if not chains:return scalar
+    if scalar!=1:chains[0]=scalar*chains[0]
+    if len(chains)==1:return chains[0]
+    result=ArrayTensorProduct(*chains)
+    # axis t of the product is free axis ends[t] of the expression
+    form=_af_invert([free.index(e) for e in ends])
+    return _permute_dims(result,form)
+
+
 def convert_array_to_matrix(expr):
+    if isinstance(expr,(ArrayContraction,ArrayTensorProduct)):
+        chained=_matrix_chains(expr)
+        if chained is not None:return chained
     if len(_shape(expr))!=2:return expr
     if isinstance(expr,ArraySymbol):return S.MatrixSymbol(expr.name,*expr.shape)
     if isinstance(expr,ArrayAdd):return S.MatAdd(*(convert_array_to_matrix(a) for a in expr.args))
@@ -261,8 +407,115 @@ def convert_array_to_matrix(expr):
     return expr
 
 
+class _Unported(Exception):
+    """An indexed form the ported SymPy conversion does not cover."""
+
+
+def _diagonal_indices(flattened):
+    groups={}
+    for i,index in enumerate(flattened):
+        if getattr(index,'is_Integer',False) or isinstance(index,int):raise _Unported
+        groups.setdefault(index,[]).append(i)
+    groups={k:v for k,v in groups.items() if len(v)>1}
+    ret=[i for i in flattened if i not in groups]
+    keys=sorted(groups,key=flattened.index)
+    return [tuple(groups[k]) for k in keys],tuple(ret+keys)
+
+
+def _permute_contraction(expr,form):
+    """SymPy's ``PermuteDims._PermuteDims_denestarg_ArrayContraction``."""
+    if not isinstance(expr.expr,ArrayTensorProduct):return expr,form
+    args=expr.expr.args;ranks=[len(_shape(a)) for a in args];offsets=[0]
+    for r in ranks:offsets.append(offsets[-1]+r)
+    contracted={j for g in expr.groups for j in g};image=_af_invert(form)
+    blocks_up=[];counter=0;index_blocks_up=[]
+    for i in range(len(args)):
+        current=[];up=[]
+        for j in range(offsets[i],offsets[i+1]):
+            if j in contracted:continue
+            current.append(image[counter]);up.append(image[counter]);counter+=1
+        blocks_up.append(current);index_blocks_up.append(up)
+    order=sorted(range(len(args)),key=lambda i:index_blocks_up[i])
+    new_blocks=[list(range(offsets[i],offsets[i+1])) for i in order]
+    new_form=_af_invert([j for b in new_blocks for j in b])
+    groups=[tuple(new_form[j] for j in g) for g in expr.groups]
+    new_args=[args[i] for i in order]
+    product_=ArrayTensorProduct(*new_args) if len(new_args)>1 else new_args[0]
+    return _array_contraction(product_,*groups),_af_invert([j for i in order for j in blocks_up[i]])
+
+
+def _canonical_permute(expr,form):
+    return _permute_dims(expr,list(form))
+
+
+def _indexed_to_array(expr):
+    """A port of SymPy's ``_convert_indexed_to_array`` for sums of products."""
+    from ....codegen.ast import Indexed
+    if isinstance(expr,Indexed):
+        diagonal,ret=_diagonal_indices(list(expr.indices))
+        base=ArraySymbol(str(expr.base.label),expr.base.shape) if getattr(expr.base,'shape',None) else None
+        if base is None:raise _Unported
+        return (ArrayDiagonal(base,*diagonal) if diagonal else base),ret
+    if isinstance(expr,ArrayElement):
+        diagonal,ret=_diagonal_indices(list(expr.indices))
+        return (ArrayDiagonal(expr.name,*diagonal) if diagonal else expr.name),ret
+    if isinstance(expr,S.MatrixElement):
+        parent=expr.args[0]
+        if matrix_tag(parent)!='MatrixSymbol':raise _Unported
+        diagonal,ret=_diagonal_indices(list(expr.args[1:]))
+        return (ArrayDiagonal(parent,*diagonal) if diagonal else parent),ret
+    if getattr(expr,'is_Mul',False):
+        converted=[_indexed_to_array(arg) for arg in expr.args]
+        flattened=[j for _,indices in converted for j in indices]
+        diagonal,ret=_diagonal_indices(flattened)
+        args=[a for a,_ in converted]
+        tp=ArrayTensorProduct(*args) if len(args)>1 else args[0]
+        return (ArrayDiagonal(tp,*diagonal) if diagonal else tp),ret
+    if getattr(expr,'is_Sum',False):
+        function=expr.function
+        subexpr,subindices=_indexed_to_array(function)
+        summation=sorted(set(expr.variables),key=S.default_sort_key)
+        shape=_shape(subexpr)
+        for limit in expr.limits:
+            index,start,end=limit
+            if index not in subindices:raise _Unported
+            i=subindices.index(index)
+            if start!=0 or end+1!=shape[i]:
+                raise ValueError("summation index and array dimension mismatch: %s" % index)
+        contractions=[];subindices=list(subindices)
+        if isinstance(subexpr,ArrayDiagonal):
+            diagonals=list(subexpr.groups);dindices=subindices[-len(diagonals):];subindices=subindices[:-len(diagonals)]
+            for index in summation:
+                if index in dindices:
+                    position=dindices.index(index);contractions.append(diagonals[position]);diagonals[position]=None
+            diagonals=[d for d in diagonals if d is not None]
+            subexpr=ArrayDiagonal(subexpr.expr,*diagonals) if diagonals else subexpr.expr
+            if diagonals:raise _Unported
+        axes={}
+        for i,index in enumerate(subindices):
+            if index in summation:
+                axes.setdefault(index,[]).append(i);subindices[i]=None
+        contractions.extend(tuple(v) for v in axes.values())
+        if any(len(g)<2 for g in contractions):raise _Unported
+        free=[i for i in subindices if i is not None]
+        return _array_contraction(subexpr,*contractions),tuple(free)
+    raise _Unported
+
+
 def convert_indexed_to_array(expr,first_indices=None):
     from ....codegen.ast import Indexed
+    try:
+        result,indices=_indexed_to_array(expr)
+    except _Unported:
+        pass
+    else:
+        if not first_indices:return result
+        order=[i for i in first_indices if i in indices]
+        order.extend(i for i in indices if i not in order)
+        form=_af_invert([order.index(i) for i in indices])
+        if isinstance(result,ArrayAdd):
+            return ArrayAdd(*(_canonical_permute(a,form) for a in result.args))
+        return _canonical_permute(result,form)
     if isinstance(expr,(Indexed,ArrayElement)):
         result=expr.name if isinstance(expr,ArrayElement) else ArraySymbol(str(expr.base.label),expr.base.shape)
         indices=tuple(expr.indices)

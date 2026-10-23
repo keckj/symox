@@ -137,13 +137,22 @@ class Patch:
 _coordinate_classes = {}
 
 
+def _coordinate_eval_rewrite(self,rule,args,**hints):
+    # Reference CoordinateSymbol._eval_rewrite: rewriting in a chart gives
+    # this coordinate in terms of the coordinates of that chart.
+    if isinstance(rule,CoordSystem):
+        coordinate = _atoms[self]
+        return _native(rule.transform(coordinate.coord_sys)[coordinate.index])
+    return None
+
+
 def _coordinate_atom_class(coord_sys):
     # The reference CoordinateSymbol is a Symbol printed by its name whose
     # identity includes its chart. One native Symbol class per chart keeps
     # same-named coordinates of different charts distinct.
     key = id(coord_sys)
     if key not in _coordinate_classes:
-        cls = type('CoordinateSymbol',(Symbol,),{'__module__':'symox.diffgeom.diffgeom'})
+        cls = type('CoordinateSymbol',(Symbol,),{'__module__':'symox.diffgeom.diffgeom','_eval_rewrite':_coordinate_eval_rewrite})
         _coordinate_classes[key] = (coord_sys,cls)
     return _coordinate_classes[key][1]
 

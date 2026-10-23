@@ -21,8 +21,18 @@ def _tensor_argument(value):
     return _scalar(value)
 
 
+def _expressions():
+    from . import expressions
+    return expressions
+
+
 def tensorproduct(*arguments):
     from ... import S
+    if len(arguments)>1 and any(_expressions()._is_symbolic_array(arg) for arg in arguments):
+        # as SymPy, a matrix symbol or array expression keeps the product held
+        return _expressions().ArrayTensorProduct(*arguments)
+    if len(arguments)==1 and _expressions()._is_symbolic_array(arguments[0]):
+        return arguments[0]
     values=[_tensor_argument(arg) for arg in arguments]
     arrays=[value for value in values if isinstance(value,NDimArray)]
     if not arrays:
@@ -90,6 +100,10 @@ def _groups(array, groups):
 
 def tensorcontraction(array, *contraction_axes):
     from ... import S
+    if _expressions()._is_symbolic_array(array):
+        if not contraction_axes:
+            return array
+        return _expressions()._array_contraction(array,*contraction_axes)
     array=_array(array)
     if not contraction_axes:
         return array
@@ -107,6 +121,10 @@ def tensorcontraction(array, *contraction_axes):
 
 
 def tensordiagonal(array, *diagonal_axes):
+    if _expressions()._is_symbolic_array(array):
+        if not diagonal_axes:
+            return array
+        return _expressions().ArrayDiagonal(array,*diagonal_axes)
     array=_array(array)
     if not diagonal_axes:
         return array
@@ -124,6 +142,15 @@ def tensordiagonal(array, *diagonal_axes):
 
 
 def permutedims(expr, perm=None, index_order_old=None, index_order_new=None):
+    if _expressions()._is_symbolic_array(expr):
+        if index_order_old is not None or index_order_new is not None:
+            if perm is not None or index_order_old is None or index_order_new is None:
+                raise ValueError('Specify a permutation or both index orders')
+            old,new=tuple(index_order_old),tuple(index_order_new)
+            perm=tuple(old.index(index) for index in new)
+        if perm is None:
+            raise ValueError('Permutation is not defined')
+        return _expressions()._permute_dims(expr,perm)
     expr=_array(expr)
     if index_order_old is not None or index_order_new is not None:
         if perm is not None or index_order_old is None or index_order_new is None:

@@ -3598,8 +3598,9 @@ Remaining unsupported:
   (`alg_field_from_poly(.., alias)`, `cyclotomic_field`) returns the root
   expression, not the alias. The native `AlgebraicNumber` does not survive
   arithmetic. Field elements print natively, not as `ANP(...)`.
-- `QQ.algebraic_field((T, theta))` with a symbolic `theta` raises
-  `NotAlgebraic`.
+- `QQ.algebraic_field((T, theta))` with a symbolic `theta` is supported
+  since c-doc (2026-10-23) for an irreducible rational `T`; see the c-doc
+  section at the end.
 - `GF(p, symmetric=False)` is the Python `Z/nZ` domain with the reference
   `ModularIntegerMod{p}` elements.
 - The reference `ModularInteger % ModularInteger` is not supported.
@@ -5287,11 +5288,11 @@ Intentional divergences:
 
 What remains:
 
-- `has_dups(Set())` is not supported: the abstract `Set` belongs to the
-  sets area.
+- `has_dups(Set())` is supported since c-doc (2026-10-23).
 - `julia_code` and `octave_code` of a Function applied to a Matrix
   (`g(mat)`) are not supported: the core cannot build that expression.
-- `MatrixKind`: the native binder refuses `Integral` of a `MatrixSymbol`.
+- `MatrixKind`: `Integral` of a `MatrixSymbol` is supported since c-doc
+  (2026-10-23).
 - The native matrix-expression `str` differs from SymPy in four ways:
   - It orders sums differently: `-B*D**(-1)*C + A` where SymPy has
     `A - B*D**(-1)*C`.
@@ -5307,9 +5308,8 @@ What remains:
   SymPy's galoisgroups, galois_resolvents and resolvent_lookup modules,
   plus the dense `dup_*` toolkits.
 - `prime_decomp` and `primes_above` over
-  `QQ.algebraic_field((T, theta))` with a symbolic `theta` raise an error,
-  because native algebraic fields need a numeric generator. With
-  `CRootOf(T, 0)` they work, but the generator prints as `_x`.
+  `QQ.algebraic_field((T, theta))` with a symbolic `theta` work since
+  c-doc (2026-10-23); see the c-doc section at the end.
 - Unsupported `Poly` domains raise an error:
   - composite domains with inexact or non-generator coefficients (`'R[y]'`,
     `'Z[y]'` or `'Q(y)'` with `sqrt(3)`);
@@ -5420,21 +5420,17 @@ Remaining gaps:
   (`VectorKind`).
 - `phase_margin`: the value is correct, but the native `arg` returns a
   different closed form.
-- `couple`/`uncouple` and `rewrite` with symbolic spins: the reference
-  `Sum` of states prints as `OrderedProduct` through the native `Sum`, so
-  NotImplementedError is kept.
-- `simplify_gpgp`: `TensMul.sorted_components` and the reference dummy
-  canonicalisation are missing. The result is an unchanged equal
-  expression.
-- Array expressions: `sort_args_by_name`, `PermuteDims` and
-  `convert_array_to_matrix` need the canonical array-expression forms, and
-  `tensorproduct` of `MatrixSymbol`s with symbolic shapes. These raise or
-  return explicit arrays. `convert_indexed_to_array` depends on `Indexed`
-  being a real node.
-- `ImplicitRegion.rational_parametrization`: the circle example picks a
-  different regular point because the native `diophantine` returns another
-  parametrisation, and the float example hits NotImplementedError in
-  `nonlinsolve` (solvers).
+- `couple`/`uncouple` with symbolic spins return the reference `Sum`
+  since c-doc (2026-10-23); `rewrite` with symbolic spins still raises
+  NotImplementedError.
+- `simplify_gpgp` follows the reference since c-doc (2026-10-23), see the
+  c-doc section at the end.
+- Array expressions: the `sort_args_by_name`, `PermuteDims`,
+  `convert_array_to_matrix` and `convert_indexed_to_array` doctests match
+  since c-doc (2026-10-23); see the c-doc section at the end for the
+  remaining canonicalization gaps.
+- `ImplicitRegion.rational_parametrization` matches the reference since
+  c-doc (2026-10-23), see the c-doc section at the end.
 - Divergence: for three variables, `ImplicitRegion.regular_point` skips
   grid points where the gradient vanishes. The reference returns such a
   singular point, for example `(-10, -10, 20)` for `(x + y + z)**4`. This
@@ -6392,32 +6388,25 @@ Still unsupported or different (none of them returns a wrong value):
 - c3:
   - `galois_group` of degree 6 over an AlgebraicField raises
     NotImplementedError.
-  - `prime_decomp` over `QQ.algebraic_field((T, theta))` with a symbolic
-    `theta` raises an error: the native field needs a concrete root.
-  - `has_dups(Set())`: the abstract `Set()` cannot be instantiated.
+  - `prime_decomp` over `QQ.algebraic_field((T, theta))` and
+    `has_dups(Set())`: resolved by c-doc (2026-10-23).
   - `julia_code` and `octave_code` of a user function applied to a
     Matrix, and `Integral` of a `MatrixSymbol` (`MatrixKind` doctest),
     raise TypeError or ValueError: native expressions cannot hold
-    matrices.
+    matrices. (`Integral` of a `MatrixSymbol` is resolved by c-doc,
+    2026-10-23.)
 - c4:
-  - `FiniteSet` of Python-level category values (`Category`,
-    `subdiagram_from_objects(FiniteSet(A, B))`) raises TypeError.
-  - `CoordinateSymbol` doctests need a `Lambda` with a Matrix body.
-  - `shape` and `ArrayKind` of `Integral(Array)` raise errors.
-  - The array-expression doctests (`sort_args_by_name`, `PermuteDims`,
-    `convert_array_to_matrix`, `convert_indexed_to_array`) still differ.
+  - `FiniteSet` of category values and the `CoordinateSymbol` doctests:
+    resolved by c-doc (2026-10-23).
+  - `shape`/`ArrayKind` of `Integral(Array)` and the array-expression
+    doctests: resolved by c-doc (2026-10-23).
   - `phase_margin` returns an equal closed form written differently,
     because of the native `arg`/`atan` simplification.
-  - `simplify_gpgp` leaves `ps*qs*qs` unchanged. SymPy contracts it to
-    `G(-L_0)*p(L_0)*q(L_1)*q(-L_1)`. The reference needs
-    `sorted_components` and SymPy's rank-3 `GammaMatrix`. Symox's
-    `GammaMatrix` has no spinor indices. The input is returned unchanged,
-    which is still equal.
-  - `couple` and `uncouple` with symbolic spins raise NotImplementedError.
-  - `ImplicitRegion.rational_parametrization`:
-    - The circle example uses another regular point, because the native
-      ternary-quadratic `diophantine` is not ported.
-    - The float example raises NotImplementedError.
+  - `simplify_gpgp(ps*qs*qs)`: resolved by c-doc (2026-10-23).
+  - `couple` and `uncouple` with symbolic spins: resolved by c-doc
+    (2026-10-23).
+  - `ImplicitRegion.rational_parametrization`: resolved by c-doc
+    (2026-10-23).
 
 ## Odd/even heads on noncommutative sums, DiracDelta real-value check (nc-segv, 2026-10-23)
 
@@ -6879,3 +6868,106 @@ Remaining gaps:
   Symox and stay unevaluated in SymPy. Conversely `(M*N)[i, j]` and
   `(M**5)[1, 2]` stay unevaluated in Symox, while SymPy expands them into a
   `Sum` over dummy indices.
+
+## Documented c objects of the final triage (c-doc, 2026-10-23)
+
+Implemented (doc examples now match SymPy 1.14):
+
+- `has_dups`: the abstract `Set(*args)` can be built (a bare node, as the
+  reference `Basic`), and `has_dups` returns False for `dict`, `set`,
+  `Dict` and `Set` without iterating, as the reference does.
+- `nonlinsolve` of a polynomial system with Float coefficients: the
+  rationalized system is solved exactly and its isolated solutions are
+  evaluated (`{(-0.5, -0.5), (0.5, 0.5)}` for `x**2 - 0.25, y - x`, as
+  the reference). Positive-dimensional Float systems still raise
+  NotImplementedError ("exact coefficients").
+- `ImplicitRegion.regular_point` / `rational_parametrization`: conic regular
+  points use a private port of the reference parametric solution of a
+  homogeneous ternary quadratic in normal form
+  (`vector/_ternary_reference.py`), so the circle example gives
+  `(4*t/(t**2 + 1), 4*t**2/(t**2 + 1) - 2)` and ellipses such as
+  `x**2 + 2*y**2 - 3` get the reference point instead of
+  NotImplementedError. The public `diophantine` still refuses this family,
+  because the reference two-parameter answer is not the complete integer
+  solution set. The port covers a positive `x**2` coefficient, the only
+  case conic regular points use. The Float `reg_point` example works through
+  the `nonlinsolve` change above.
+- `simplify_gpgp`: the reference algorithm with `sorted_components`
+  (`ps*qs*qs` gives `GammaMatrix(-L_0)*p(L_0)*q(L_1)*q(-L_1)`).
+- `QQ.algebraic_field((T, theta))` with a Symbol `theta` (`prime_decomp`
+  doctest): the field is generated by the last `CRootOf` of `T` under the
+  alias `theta`, with `T` kept as the defining polynomial, so
+  `primes_above`, `discriminant`, `galois_group` and the prime printing in
+  the variable of `T` match. A reducible `T` raises NotImplementedError.
+  As for other aliased fields, `to_sympy` writes the `CRootOf` instead of
+  `theta`.
+- `couple` / `uncouple` with symbolic spins return the reference held `Sum`
+  of CG terms (scalar arithmetic and `subs` supported; `doit()` raises the
+  reference `ValueError('Coefficients must be numerical')`; other
+  arithmetic raises NotImplementedError). `TensorProduct.subs` now reaches
+  its factors.
+- `Category` / `Diagram.subdiagram_from_objects`: `FiniteSet` holds
+  category objects and diagrams, so `K.commutative_diagrams ==
+  FiniteSet(d)` is True. The printed `Diagram` repr inside the set still
+  differs.
+- `CoordinateSymbol`: `Lambda` accepts a Matrix body, so `CoordSystem`
+  relations can be given; `x.coord_sys`, `x.index` and `rewrite(Pol)`
+  match.
+
+- `Integral` of an explicit array, Matrix or `MatrixSymbol` (`shape`,
+  `ArrayKind`, `MatrixKind` doctests) is a held shaped integral with the
+  reference `.kind` and `.shape`; `doit()` integrates explicit entries one
+  by one and a `MatrixSymbol` constant in the variable (`x*A`), and keeps
+  anything else unevaluated.
+- Array expressions: `tensorproduct`, `tensorcontraction`,
+  `tensordiagonal` and `permutedims` of `MatrixSymbol`s and array
+  expressions build symbolic array expressions; `PermuteDims` composes
+  nested permutations (`.expr`, `.permutation` as the reference);
+  `sort_args_by_name` is the reference algorithm; `convert_array_to_matrix`
+  turns contractions of rank-2 tensor products into matrix products,
+  transposes, `Trace` or an `ArrayTensorProduct` of products;
+  `convert_indexed_to_array` is the reference port for `Indexed`,
+  `MatrixElement`, `Mul` and `Sum`, with `first_indices`.
+
+Intentional divergences:
+
+- `combine_kronecker(KroneckerProduct(A, B) + KroneckerProduct(B.T, A.T))`
+  stays unchanged. The reference `KroneckerProduct(A + B.T, B + A.T)` drops
+  the cross terms (for 1x1 matrices equal to 1 it gives 4 instead of 2).
+- `simplify_gpgp(ps*ps)` gives `p(L_0)*p(-L_0)`; the reference multiplies a
+  lone pair by 4 (the trace), although the slashed square is `p.p` times
+  the identity, and does not do so when other factors remain
+  (`ps*qs*qs`). `qs*ps*ps*qs` likewise gives `p.p*q.q` (reference
+  `4*p.p*q.q`).
+- `Sum.euler_maclaurin` and `approximants`: unchanged, see the existing
+  notes (the reference `log(b) - log(a)` and the trailing `nan`).
+
+Remaining unsupported (all raise; none returns a wrong value):
+
+- `AlgebraicField.galois_group` of degree 5 and 6 (`C6` doctest) raises
+  NotImplementedError: SymPy's `galoisgroups`, `galois_resolvents` and
+  `resolvent_lookup` tables are not ported.
+- `julia_code` / `octave_code` of a user function applied to a Matrix
+  (`g(mat)`) raise TypeError: native expressions cannot hold an explicit
+  matrix as a function argument.
+- `DiscreteMarkovChain` with `Str` states raises NotImplementedError:
+  `Str` is not an expression atom in symox, so `Eq(Str(...), Y[t])` cannot
+  be built. Use symbols or integers as states.
+- `MultivariateNormal` with `MatrixSymbol` parameters of symbolic dimension
+  raises NotImplementedError: the reference density needs `exp` of an
+  abstract matrix expression, which the native core does not implement.
+- `shape(NewExpr(M))`: a user subclass of `Expr` cannot hold a Matrix
+  argument (arguments are stored natively), so this raises TypeError.
+- `convert_indexed_to_array`: summations that need the full reference
+  canonicalization (single-axis contractions such as `Sum(A[i, j], (j, 0,
+  d - 1))`, diagonals over several axes, `KroneckerDelta`, `Add`, `Pow`,
+  functions) fall back to the matrix-summation path, which gives an equal
+  form such as `Trace(A)*Trace(B)`, or raise NotImplementedError.
+- Array expressions apply only part of the reference canonicalization:
+  nested contractions, diagonals and permutations inside other operations
+  are not flattened, and `convert_array_to_matrix` leaves a `PermuteDims`
+  of a tensor product unconverted (an equal form, where the reference gives
+  for example `ArrayTensorProduct(A.T, B)`).
+- Printing: `Trace(A)*B` prints as `Expr(A)*B` (native printer), which
+  affects some `convert_array_to_matrix` results containing a trace; the
+  value is correct.

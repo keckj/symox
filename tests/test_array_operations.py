@@ -128,7 +128,9 @@ def test_tensor_contraction_reconstructs_ordered_matrix_multiplication():
     A=sx.MatrixSymbol('A',2,3)
     B=sx.MatrixSymbol('B',3,2)
     product=tensorcontraction(tensorproduct(A,B),(1,2))
-    assert product.tomatrix()==(A*B).as_explicit()
+    # as in SymPy, matrix symbols keep a held array contraction
+    assert str(product)=='ArrayContraction(ArrayTensorProduct(A, B), (1, 2))'
+    assert product.as_explicit().tomatrix()==(A*B).as_explicit()
 
 
 def test_sparse_tensor_operations_keep_large_implicit_zero_spaces():

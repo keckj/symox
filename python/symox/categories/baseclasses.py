@@ -354,7 +354,7 @@ class Category(_Value):
 
     name = property(lambda self:self.args[0])
     objects = property(lambda self:self.args[1])
-    commutative_diagrams = property(lambda self:self.args[2])
+    commutative_diagrams = property(lambda self:_MorphismSet(self.args[2]))
 
     def hom(self,A,B):
         raise NotImplementedError('an abstract category does not specify its hom sets')

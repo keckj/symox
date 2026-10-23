@@ -48,7 +48,7 @@ def nonlinsolve(system, *symbols):
     raised. Conditions on external parameters require including those symbols
     among the unknowns.
     """
-    from . import Complexes, Complement, EmptySet, FiniteSet, _core, _unwrap
+    from . import Complexes, Complement, EmptySet, FiniteSet, Float, _core, _unwrap
 
     variables = _symbols(symbols)
     if not variables:
@@ -69,7 +69,21 @@ def nonlinsolve(system, *symbols):
         return _noncommutative_nonlinsolve(equations, variables)
     try:
         result = _core._nonlinsolve_parametric(equations, variables)
-    except (ValueError, NotImplementedError):
+    except (ValueError, NotImplementedError) as error:
+        if 'exact coefficients' in str(error) and any(e.has(Float) for e in equations):
+            # The reference solves a polynomial system with Float
+            # coefficients numerically and prints Float solutions: solve the
+            # rationalized system exactly, then evaluate the solutions.
+            from . import nsimplify
+            exact = nonlinsolve([nsimplify(e, rational=True) for e in equations], variables)
+            if exact == EmptySet:
+                return EmptySet
+            # only isolated (zero-dimensional) numeric solutions; parametric
+            # components keep the explicit refusal
+            if not isinstance(exact, FiniteSet) or any(
+                    not getattr(v, 'is_number', False) for sol in exact for v in sol):
+                raise
+            return FiniteSet(*[_core._apply("Tuple", *(v.evalf() for v in sol)) for sol in exact])
         # A system with a non-polynomial equation (exp, log, trigonometric
         # functions of the unknowns) takes the reference branch: Groebner
         # elimination of the polynomial part, then substitution, which keeps

@@ -712,7 +712,8 @@ class PowerBasis(Module):
         """
         K = None
         if isinstance(T, AlgebraicField):
-            K, T = T, T.ext.minpoly_of_element()
+            from ..domains._algebraic_methods import defining_poly
+            K, T = T, defining_poly(T)
         # Sometimes incoming Polys are formally over QQ, although all their
         # coeffs are integral. We want them to be formally over ZZ.
         T = T.set_domain(ZZ)
