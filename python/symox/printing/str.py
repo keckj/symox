@@ -87,12 +87,12 @@ class StrPrinter(Printer):
         l = []
         for term in terms:
             t = self._print(term)
-            if t.startswith('-') and not term.is_Add:
+            if t.startswith('-') and not getattr(term, 'is_Add', False):
                 sign = "-"
                 t = t[1:]
             else:
                 sign = "+"
-            if precedence(term) < prec or term.is_Add:
+            if precedence(term) < prec or getattr(term, 'is_Add', False):
                 l.extend([sign, "(%s)" % t])
             else:
                 l.extend([sign, t])
@@ -130,12 +130,32 @@ class StrPrinter(Printer):
 
     def _print_Basic(self, expr):
         l = [self._print(o) for o in expr.args]
-        return expr.__class__.__name__ + "(%s)" % ", ".join(l)
+        # A native matrix expression is named by its SymPy class.
+        name = getattr(expr, '_kind_tag', None) or expr.__class__.__name__
+        return name + "(%s)" % ", ".join(l)
 
     def _print_BlockMatrix(self, B):
         if B.blocks.shape == (1, 1):
             self._print(B.blocks[0, 0])
-        return self._print(B.blocks)
+        blocks = B.blocks
+        if not hasattr(blocks, 'table'):
+            # The native block grid prints as SymPy's ImmutableMatrix of blocks.
+            return self._format_matrix(blocks)
+        return self._print(blocks)
+
+    def _format_matrix(self, expr):
+        # SymPy's ``MatrixBase._format_str`` and ``table``: right aligned
+        # columns.
+        rows, cols = expr.shape
+        if rows == 0 or cols == 0:
+            return 'Matrix(%s, %s, [])' % (rows, cols)
+        cells = [[self._print(expr[i, j]) for j in range(cols)] for i in range(rows)]
+        widths = [max(len(cells[i][j]) for i in range(rows)) for j in range(cols)]
+        table = ',\n'.join('[' + ', '.join(cell.rjust(width) for cell, width in zip(row, widths)) + ']'
+                            for row in cells)
+        if rows == 1:
+            return "Matrix([%s])" % table
+        return "Matrix([\n%s])" % table
 
     def _print_Catalan(self, expr):
         return 'Catalan'
@@ -267,7 +287,10 @@ class StrPrinter(Printer):
         return self._print_list(expr)
 
     def _print_MatrixBase(self, expr):
-        return expr._format_str(self)
+        format_str = getattr(expr, '_format_str', None)
+        if format_str is not None:
+            return format_str(self)
+        return self._format_matrix(expr)
 
     def _print_MatrixElement(self, expr):
         return self.parenthesize(expr.parent, PRECEDENCE["Atom"], strict=True) \
@@ -280,7 +303,7 @@ class StrPrinter(Printer):
                 del x[2]
             if x[0] == 0:
                 x[0] = ''
-            if x[1] == dim:
+            if x[1] == dim or (x[1].is_Number and getattr(dim, 'is_Number', False) and x[1] >= dim):
                 x[1] = ''
             return ':'.join((self._print(arg) for arg in x))
         return (self.parenthesize(expr.parent, PRECEDENCE["Atom"], strict=True) + '[' +

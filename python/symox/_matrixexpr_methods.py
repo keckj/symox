@@ -833,9 +833,35 @@ def _inverse(self):
     return _native_inverse(self)
 
 
+_native_str = None
+_printing = set()
+
+
+def _str(self):
+    # SymPy's ``Printable.__str__`` is ``sstr``: the Python printer orders
+    # the terms of a MatAdd as SymPy does (``A - B*D**(-1)*C``).  The native
+    # string is the fallback for a node the Python printer would print
+    # through ``repr`` of itself.
+    key = id(self)
+    if key in _printing:
+        return _native_str(self)
+    _printing.add(key)
+    try:
+        from .printing.str import sstr
+        return sstr(self)
+    except Exception:
+        return _native_str(self)
+    finally:
+        _printing.discard(key)
+
+
 def install():
     from . import _core
-    global _native_schur, _native_structurally_equal, _native_inverse
+    global _native_schur, _native_structurally_equal, _native_inverse, _native_str
+    if _native_str is None:
+        _native_str = _core._MatrixExpr.__str__
+        _core._MatrixExpr.__str__ = _str
+        _core._MatrixExpr.__repr__ = _str
     if _native_schur is None:
         _native_schur = _core._MatrixExpr.schur
         _native_structurally_equal = _core._MatrixExpr.structurally_equal
