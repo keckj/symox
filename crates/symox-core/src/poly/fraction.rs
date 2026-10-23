@@ -139,6 +139,74 @@ pub fn coefficient_expr(c: &RF, parameters: &[Expr]) -> Expr {
 }
 
 pub fn coefficient(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
+    match coefficient_direct(value, parameters) {
+        Ok(c) => Ok(c),
+        Err(first) => {
+            // The reference `FracField._rebuild_expr` reads a power
+            // `b**e` as `g**(e/eg)` for a generator `g = bg**eg` with the
+            // same base: over `QQ(exp(1/2))`, `E` is `exp(1/2)**2` and
+            // `exp(-3/2)` is `exp(1/2)**-3`.
+            match rebuild_powers(value, parameters) {
+                Some((rebuilt, dummies)) => coefficient_direct(&rebuilt, &dummies).map_err(|_| first),
+                None => Err(first),
+            }
+        }
+    }
+}
+
+/// `value` with the parameters and the integer powers of the power-like
+/// parameters (`Pow` or `exp`) replaced by fresh symbols, or `None` when no
+/// parameter is a power.
+fn rebuild_powers(value: &Expr, parameters: &[Expr]) -> Option<(Expr, Vec<Expr>)> {
+    use crate::decompose::as_base_exp;
+    let powered = |g: &Expr| matches!(g.kind(), Kind::Pow(..) | Kind::Func(crate::expr::Func::Exp, _));
+    if !parameters.iter().any(powered) {
+        return None;
+    }
+    let dummies: Vec<Expr> = parameters.iter().map(|_| Expr::dummy("g", crate::symbol::Assumptions::NONE)).collect();
+    let powers: Vec<(usize, Expr, Expr)> = parameters
+        .iter()
+        .enumerate()
+        .filter(|(_, g)| powered(g))
+        .map(|(i, g)| {
+            let (b, e) = as_base_exp(g);
+            (i, b, e)
+        })
+        .collect();
+    fn go(e: &Expr, parameters: &[Expr], dummies: &[Expr], powers: &[(usize, Expr, Expr)]) -> Expr {
+        if let Some(i) = parameters.iter().position(|p| p == e) {
+            return dummies[i].clone();
+        }
+        match e.kind() {
+            Kind::Num(_) | Kind::Sym(_) | Kind::Bool(_) => e.clone(),
+            Kind::Add(..) => add(&e.args().iter().map(|a| go(a, parameters, dummies, powers)).collect::<Vec<_>>()),
+            Kind::Mul(c, facs) => {
+                let mut fs = vec![Expr::num(c.clone())];
+                fs.extend(facs.iter().map(|(b, x)| go(&crate::ops::mul_factor(b, x), parameters, dummies, powers)));
+                mul(&fs)
+            }
+            Kind::Pow(..) | Kind::Func(crate::expr::Func::Exp, _) | Kind::Const(crate::expr::Constant::E) => {
+                let (b, x) = as_base_exp(e);
+                for (i, bg, eg) in powers {
+                    if *bg == b {
+                        let q = div(&x, eg);
+                        if let Some(n) = q.as_i64() {
+                            return pow(&dummies[*i], &Expr::int(n));
+                        }
+                    }
+                }
+                if x.as_i64().is_some_and(|n| n != 1) {
+                    return pow(&go(&b, parameters, dummies, powers), &x);
+                }
+                e.clone()
+            }
+            _ => e.clone(),
+        }
+    }
+    Some((go(value, parameters, &dummies, &powers), dummies))
+}
+
+fn coefficient_direct(value: &Expr, parameters: &[Expr]) -> PResult<RF> {
     let together = crate::simplify::together(value);
     let (num, den) = crate::simplify::numer_denom(&together);
     let first = from_exprs_gens(&[num, den], parameters);

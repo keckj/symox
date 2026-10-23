@@ -185,13 +185,18 @@ fn limit_one_sided_raw(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> LRes<Expr>
     m.insert(x.clone(), v);
     let et = xreplace(e, &m);
     let mut g = gruntz::Gruntz::new(&t);
-    match g.limitinf(&et) {
+    let r = match g.limitinf(&et) {
         Ok(r) => Ok(r),
         Err(err) => match bounded_heuristic(&et, &t) {
             Some(r) => Ok(r),
             None => Err(err),
         },
+    }?;
+    // The auxiliary functions of the tractable forms never leave the engine.
+    if crate::series::asym::contains_asym(&r) {
+        return unknown("auxiliary function in the limit value");
     }
+    Ok(r)
 }
 
 /// Value of the limit from a leading term `c * t**e` (with `t -> 0+`
@@ -270,6 +275,10 @@ fn has_bad(e: &Expr) -> bool {
 fn bounded_heuristic(e: &Expr, t: &Expr) -> Option<Expr> {
     let mut map: FxHashMap<Expr, Expr> = FxHashMap::default();
     let mut g = gruntz::Gruntz::new(t);
+    // The tractable forms of Si, Ci and the Fresnel integrals at an infinite
+    // argument hold their oscillating sin and cos.
+    let prepared = g.prepare(e).ok()?;
+    let e = &prepared;
     collect_oscillating(e, t, &mut g, &mut map);
     if map.is_empty() {
         return None;

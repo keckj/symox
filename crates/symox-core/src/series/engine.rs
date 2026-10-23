@@ -534,11 +534,17 @@ impl Engine {
                 return Err(SErr::Unsupported(format!("{}(...)", f.name())));
             }
         }
+        if let Some(kind) = super::asym::Asym::of(f) {
+            return self.ser_asym(kind, args, n);
+        }
         if let Func::Special(s) = f {
             if let Some(res) = self.ser_log_singular(*s, args, n)? {
                 return Ok(res);
             }
             if let Some(res) = self.ser_special_taylor(*s, args, n)? {
+                return Ok(res);
+            }
+            if let Some(res) = self.ser_entire_integral(*s, args, n)? {
                 return Ok(res);
             }
         }
@@ -679,6 +685,77 @@ impl Engine {
             }
             _ => Err(SErr::Unsupported(format!("{}({arg})", f.name()))),
         }
+    }
+
+    /// Entire integrals `F(u) = F(c0) + ∫ F'(a) a' dt` at a finite argument:
+    /// `Si` and `Shi` (`F' = sin(u)/u`, `sinh(u)/u`), `erfi`
+    /// (`2*exp(u**2)/sqrt(pi)`) and the Fresnel integrals (`sin(pi*u**2/2)`,
+    /// `cos(pi*u**2/2)`), the series SymPy reaches through
+    /// `TrigonometricIntegral._eval_nseries` and the Taylor terms.
+    fn ser_entire_integral(&mut self, s: crate::special::SpecialFn, args: &[Expr], n: i64) -> SRes<Option<Ser>> {
+        use crate::special::SpecialFn::*;
+        if !matches!(s, Si | Shi | Erfi | FresnelS | FresnelC) || args.len() != 1 {
+            return Ok(None);
+        }
+        let arg = &args[0];
+        let u = Expr::dummy("u", Default::default());
+        let half_pi_u2 = mul(&[Expr::rational(1, 2), Expr::pi(), pow(&u, &Expr::int(2))]);
+        let deriv = match s {
+            Si => crate::ops::div(&fx::sin(&u), &u),
+            Shi => crate::ops::div(&fx::sinh(&u), &u),
+            Erfi => mul(&[Expr::int(2), pow(&Expr::pi(), &Expr::rational(-1, 2)), fx::exp(&pow(&u, &Expr::int(2)))]),
+            FresnelS => fx::sin(&half_pi_u2),
+            _ => fx::cos(&half_pi_u2),
+        };
+        let mut m = n;
+        for _ in 0..5 {
+            let a = self.ser(arg, m.max(1))?;
+            let c0 = self.analytic_arg(&a, s.name())?;
+            let value = crate::special::apply(s, vec![c0.to_expr()]);
+            if contains_bad(&value) {
+                return Err(SErr::Pole(s.name().to_string()));
+            }
+            let integrand = crate::subs::subs(&deriv, &[(u.clone(), arg.clone())]);
+            let d = self.ser(&integrand, m.max(1))?;
+            let integ = d.mul(&a.deriv()).integ()?;
+            let r = integ.add(&Ser::constant(C::from_expr(value)));
+            if r.exact || r.prec >= n {
+                return Ok(Some(r));
+            }
+            m += (n - r.prec).max(1);
+        }
+        Err(SErr::Precision)
+    }
+
+    /// Asymptotic series `Σ c_k z**-k` of an auxiliary function (see
+    /// [`super::asym`]) whose argument `z` tends to an infinite value; the
+    /// truncation error is `O(z**-K)`, beyond the requested order.
+    fn ser_asym(&mut self, kind: super::asym::Asym, args: &[Expr], n: i64) -> SRes<Ser> {
+        let z = args.last().ok_or_else(|| SErr::Unsupported("auxiliary function".into()))?;
+        if args[..args.len() - 1].iter().any(|a| depends(a, &self.x)) {
+            return Err(SErr::Unsupported("auxiliary function with a varying order".into()));
+        }
+        let a = self.ser_nonzero(z, n.max(1))?;
+        if a.val >= 0
+            || matches!(a.lead(), Some(C::E(e)) if depends(e, &self.logt))
+            || !matches!(sign_of(a.lead().unwrap()), Some(1 | -1))
+        {
+            return Err(SErr::Unsupported("auxiliary function at a finite argument".into()));
+        }
+        let v = -a.val;
+        let u = a.inv(n)?;
+        // terms z**-k with k*v < n; the remainder is O(t**n)
+        let kmax = (n + v - 1) / v;
+        let mut coeffs = vec![C::zero()];
+        for k in 1..=kmax.max(0) {
+            coeffs.push(C::from_expr(kind.coeff(args, k)));
+        }
+        let mut r = u.compose(&coeffs, n);
+        // the k = 1 term carries the absolute precision of 1/z
+        let prec = if u.exact { n } else { n.min(u.prec) };
+        r.exact = false;
+        r.prec = r.prec.min(prec);
+        Ok(r.norm())
     }
 
     /// One-sided `floor`/`ceiling`: a constant near the point. A non-integer
