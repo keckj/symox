@@ -256,7 +256,8 @@ impl MpComplex {
             return Some(MpComplex::real(if e.re.exp == 0 && num_integer::Integer::is_odd(&e.re.man) { magnitude.neg() } else { magnitude }));
         }
         if e.re.mag() > 1 << 20 || e.im.mag() > 1 << 20 { return None; }
-        let wp = p + 20 + e.re.mag().max(0) as u32 + e.im.mag().max(0) as u32;
+        let size = self.re.ln_size().max(self.im.ln_size());
+        let wp = p + 20 + e.re.mag().max(0) as u32 + e.im.mag().max(0) as u32 + size;
         let l = self.ln(wp)?;
         l.mul(e, wp).exp(p)
     }
@@ -402,14 +403,72 @@ pub fn eval_number(e: &Expr, prec: u32) -> Option<Expr> {
 /// follows SymPy's schedule from its target and, under
 /// `EvalfOptions::residue`, may return its residue.
 fn eval_mp_root(e:&Expr,prec:u32)->Option<MpComplex>{
-    if OPTIONS.with(|cell|cell.get())==EvalfOptions::default() {return eval_mp(e,prec);}
+    if OPTIONS.with(|cell|cell.get())==EvalfOptions::default() {return eval_mp_componentwise(e,prec);}
     struct Root(usize);
     impl Drop for Root { fn drop(&mut self){RESIDUE_ROOT.with(|cell|cell.set(self.0));} }
     let _root=Root(RESIDUE_ROOT.with(|cell|cell.replace(e.dag_id())));
     RESIDUE.with(|cell|cell.set(None));
-    let value=eval_mp(e,prec);
+    let value=eval_mp_componentwise(e,prec);
     if value.is_none() {RESIDUE.with(|cell|cell.set(None));}
     value
+}
+
+/// Extra bits a public evaluation may add so that a small real or imaginary
+/// part holds the target precision on its own.
+const COMPONENT_BUDGET:u32=512;
+
+/// `eval_mp` of a public evaluation with each part accurate on its own.
+/// `eval_mp` bounds the error relative to the complex value, so a part
+/// `2**-g` times smaller than the other holds about `g` bits fewer. SymPy's
+/// evalf tracks each part's accuracy (`complex_accuracy`) and returns such a
+/// part with fewer digits; here the value is recomputed with `g` more bits,
+/// which leaves every printed digit correct. A part that stays unresolved
+/// within `COMPONENT_BUDGET` extra bits is returned, as SymPy's evalf does,
+/// with its own accuracy, or as a scaled zero without a correct bit.
+fn eval_mp_componentwise(e:&Expr,prec:u32)->Option<MpComplex>{
+    let mut value=eval_mp(e,prec)?;
+    let options=OPTIONS.with(|cell|cell.get());
+    if options.chop.is_some()||options.partial||RESIDUE.with(|cell|cell.get()).is_some()
+        ||ACHIEVED.with(|cell|cell.get()).is_some()||crate::complex_parts::literal_parts(e).is_some() {
+        return Some(value);
+    }
+    let gap=|value:&MpComplex|if value.re.is_zero()||value.im.is_zero(){0}
+        else{u32::try_from((value.re.mag()-value.im.mag()).unsigned_abs()).unwrap_or(u32::MAX)};
+    let mut extra=0u32;
+    loop {
+        let g=gap(&value);
+        // eval_mp works with 20 guard bits; 12 of them may cover the gap.
+        if g<=extra.saturating_add(12) {
+            return Some(if extra==0 {value} else {value.round_to(prec+4).round_to(prec)});
+        }
+        let next=g.saturating_add(8);
+        if next>COMPONENT_BUDGET {
+            // The gap exceeds the budget: a part computed at two working
+            // precisions keeps the bits on which both agree. Those of a
+            // part that is not cancelling (sin(10**-200)) all agree; an
+            // exact zero part computed as rounding noise has none and
+            // becomes SymPy's scaled zero, its absolute error bound with a
+            // precision of one bit.
+            let previous=value;
+            let value=eval_mp(e,prec+COMPONENT_BUDGET)?;
+            if gap(&value)<=COMPONENT_BUDGET+12 {return Some(value.round_to(prec+4).round_to(prec));}
+            let largest=value.re.mag().max(value.im.mag());
+            let error=largest.saturating_sub(i128::from(prec+COMPONENT_BUDGET+16));
+            let part=|v:&BigFloat,before:&BigFloat|{
+                if v.is_zero() {return (v.clone(),i128::MAX);}
+                let difference=v.sub(before,prec+COMPONENT_BUDGET+64);
+                let accuracy=if difference.is_zero(){i128::MAX}else{v.mag().saturating_sub(difference.mag()).saturating_sub(1)};
+                if accuracy>=i128::from(prec) {(v.round_to(prec+4).round_to(prec),i128::MAX)}
+                else if accuracy<1 {(BigFloat::one().ldexp(error.max(v.mag())),-1)}
+                else {(v.round_to(u32::try_from(accuracy).unwrap_or(prec)),accuracy)}
+            };
+            let (re,real)=part(&value.re,&previous.re);let (im,imaginary)=part(&value.im,&previous.im);
+            if real!=i128::MAX||imaginary!=i128::MAX {RESIDUE.with(|cell|cell.set(Some((real,imaginary))));}
+            return Some(MpComplex{re,im});
+        }
+        extra=next;
+        value=eval_mp(e,prec+extra)?;
+    }
 }
 
 /// The Floats of an exhausted sum: as SymPy's evalf, each part has precision
@@ -532,7 +591,12 @@ pub(crate) fn ev(e: &Expr, p: u32) -> Option<MpComplex> {
 
 fn ev_uncached(e: &Expr, p: u32) -> Option<MpComplex> {
     if e.has_wide_exponent()&&matches!(e.kind(),Kind::Add(..)|Kind::Mul(..)|Kind::Pow(..)){
-        return None;
+        // A numerical power of a Float with a wide exponent only needs the
+        // logarithm and the exponential of the checked kernels (mpmath's
+        // mpf_pow), as `sqrt(exp(10**30).evalf())`.
+        let numeric_power=matches!(e.kind(),Kind::Pow(b,x) if b.as_number().is_some()
+            && x.as_number().is_some_and(|x|!x.has_wide_exponent()));
+        if !numeric_power {return None;}
     }
     Some(match e.kind() {
         Kind::Num(n) => MpComplex::real(number(n, p)),
@@ -1053,8 +1117,9 @@ fn func(f: &Func, args: &[Expr], p: u32) -> Option<MpComplex> {
             // needs about mag(x) + log2(log(x)) more bits to keep p bits of
             // gamma(x).
             let size = a.re.mag();
-            // |log2 gamma(x)| ~ x log2(x) exceeds MAX_EXPONENT for |x| > 2**100.
-            if size > 100 {
+            // |log2 gamma(x)| ~ x log2(x) exceeds MAX_EXPONENT = 2**120 for
+            // |x| > 2**113; the result check below catches the rest.
+            if size > crate::bigfloat::MAX_EXPONENT_BITS as i128 - 7 {
                 return None;
             }
             let x = if size > 2 { ev(&args[0], wp + size as u32 + 16)?.re } else { a.re.clone() };
@@ -1216,10 +1281,10 @@ fn gamma_mp(x: &BigFloat, prec: u32) -> Option<BigFloat> {
     // integers: factorial; otherwise Spouge's approximation with a = prec*ln2/ln(2pi)
     let t = x.to_int_trunc();
     if BigFloat::from_int(&t) == *x {
-        let n = num_traits::ToPrimitive::to_i64(&t)?;
-        if n <= 0 {
+        if t.sign() != num_bigint::Sign::Plus {
             return None;
         }
+        let n = num_traits::ToPrimitive::to_i64(&t).unwrap_or(i64::MAX);
         if n > 4096 {
             // The exact product is quadratic in n; Spouge's sum below is
             // accurate for large integers as well.
@@ -1465,15 +1530,16 @@ mod tests {
             assert_eq!(value.re.cmp(&BigFloat::from_i64(sign)), std::cmp::Ordering::Equal);
         }
         // mpmath exponents are unbounded; binary exponents up to
-        // MAX_EXPONENT are materialized, so exp(2**63) evaluates as in the
-        // reference, while exp(2**110) stays symbolic.
+        // MAX_EXPONENT are materialized, so exp(2**63) and exp(2**110)
+        // evaluate as in the reference, while exp(2**125) stays symbolic.
         let exp = |n: Expr| Expr::from_kind(Kind::Func(Func::Exp, vec![n]));
         let power = |k: u32| Expr::num(Number::from_bigint(num_bigint::BigInt::from(1) << k as usize));
         assert!(eval_mp(&exp(Expr::int(2_303_000)), p).is_some());
         let value = eval_mp(&exp(Expr::int(i64::MAX)), p).unwrap();
         assert_eq!(value.re.to_string_dps(19, false), "7.375865886842630054e+4005659580146785380");
         assert!(eval_mp(&exp(crate::ops::neg(&power(63))), p).is_some_and(|v| v.re.sign() > 0));
-        assert!(eval_mp(&exp(power(110)), p).is_none());
-        assert_eq!(super::evalf(&exp(power(110)), p), exp(power(110)));
+        assert!(eval_mp(&exp(power(110)), p).is_some());
+        assert!(eval_mp(&exp(power(125)), p).is_none());
+        assert_eq!(super::evalf(&exp(power(125)), p), exp(power(125)));
     }
 }

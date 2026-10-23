@@ -32,9 +32,12 @@ pub fn prec_to_dps(prec: u32) -> u32 {
 }
 
 /// Largest binary exponent a materialized value may carry. mpmath has no
-/// bound; this one keeps exponent arithmetic exact in i128 while covering
-/// every magnitude whose exponent is itself representable in memory.
-pub const MAX_EXPONENT: i128 = 1 << 100;
+/// bound; this one keeps exponent arithmetic exact in i128 (sums of a few
+/// exponents and mantissa lengths, and the decimal scaling intervals, stay
+/// below 2**127) while covering every magnitude whose exponent is itself
+/// representable in memory.
+pub const MAX_EXPONENT_BITS: u32 = 120;
+pub const MAX_EXPONENT: i128 = 1 << MAX_EXPONENT_BITS;
 
 /// Exponents above this use checked interval arithmetic instead of the
 /// plain kernels.
@@ -506,7 +509,7 @@ impl BigFloat {
             return Some(BigFloat::one());
         }
         let mag = self.mag();
-        if mag > 102 { return None; }
+        if mag > MAX_EXPONENT_BITS as i128 + 2 { return None; }
         let wp = prec + 20 + mag.max(0) as u32;
         // x = k*ln2 + r, |r| <= ln2/2
         let l2 = ln2(wp + mag.max(0) as u32);
@@ -770,9 +773,18 @@ impl BigFloat {
         // An exponent above 2**(2**20) only has a representable power for
         // a base within an unrepresentably small distance of one.
         if y.mag() > 1 << 20 { return None; }
-        let wp = prec + 20 + y.mag().max(0) as u32;
+        // ln(x) has the size of the binary exponent of x: its absolute
+        // error, scaled by y, is the relative error of the power.
+        let wp = prec + 20 + y.mag().max(0) as u32 + self.ln_size();
         let l = self.ln(wp)?;
         l.mul(y, wp).checked_exp(prec)
+    }
+
+    /// Bits of the integer part of |ln x| (about log2 of the binary
+    /// exponent of x).
+    pub fn ln_size(&self) -> u32 {
+        if self.is_zero() { return 0; }
+        128 - self.mag().unsigned_abs().leading_zeros()
     }
 
     /// x**n for an integer n.

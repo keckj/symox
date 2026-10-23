@@ -7696,3 +7696,85 @@ Huge exponents, remaining (explicit, never a wrong number):
   answers. The values were checked against mpmath.
 
 Tests: `tests/test_prec_parity.py`.
+
+## Exponents past 2**100 and per-part accuracy (bigexp, wave 7, 2026-10-23)
+
+Huge exponents, fixed:
+- The binary exponent bound of `BigFloat` is now `MAX_EXPONENT = 2**120`,
+  up from `2**100`. It stays an i128 field, so the common path is unchanged:
+  the evalf and precision test files take 16.0 s against 17.2 s on the base
+  commit. The bound leaves room below 2**127 for exponent sums and decimal
+  scaling. SymPy's values are now returned for `exp(10**30).evalf()`
+  (any precision), `exp(2**100).evalf()`, `exp(+-2**118).evalf()`,
+  `Float(2)**(2**101)`, `Float(2)**(2**119)`, `exp(Float('1e30'))`, and for
+  arithmetic on these values (`V**2`, `V**1000`, `1/V`, `V*V*V`, `sqrt(V)`,
+  `V**0.5`, `log(V)`, comparisons, `_mpf_`).
+- Numeric powers whose base has a wide exponent (`V**2`, `V**Rational(1, 2)`)
+  are evaluated instead of being refused by the wide-exponent guard.
+- `factorial(10**30).evalf()`: integer arguments beyond i64 go through
+  Spouge's sum. mpmath at 120 digits agrees. SymPy does not finish in 20 s.
+- The working precision of real and complex `x**y` now includes the size of
+  ln(x). The absolute error of ln(x), multiplied by y, becomes the relative
+  error of the result. Before this fix, the guard bits were too few for a
+  base whose binary exponent is above about 2**20. Intentional corrections,
+  checked against mpmath at 60 digits:
+  - `(Float(2)**(2**40))**Rational(1, 3)` gives `4.31912023499076e+110328660180`.
+    SymPy gives `4.31905934482588e+...`.
+  - `V**Rational(1, 3)` with `V = exp(10**30).evalf()` gives
+    `3.42789437569241e+144764827301083942550376306305`. SymPy rounds 1/3 to
+    53 bits and moves the exponent by 8e15.
+  - `Float('1e1000000', 30)**Rational(1, 3)` ends in `...356652`. SymPy's
+    `...348497` is wrong.
+- Intentional correction: `gamma(Rational(10**30, 3)).evalf()` gives
+  `5.38088111291356e+9696194754459028578351281059261` (mpmath). SymPy rounds
+  the argument first and gives `9.23792600424838e+...7643`.
+
+Per-part accuracy, fixed:
+- symox does not print fewer digits the way SymPy's `complex_accuracy` does.
+  Instead, `eval_mp_root` recomputes a complex value whose parts differ in
+  magnitude by `gap` bits at `prec + gap + 8` bits, so every printed digit of
+  the small part is correct. The loop is bounded: past 512 extra bits, two
+  evaluations are compared. Only the bits they agree on are kept, and SymPy's
+  residue mechanism prints the shorter mantissa. A part with no agreeing bit
+  becomes a zero of precision 1 at the error scale.
+- Same strings as SymPy:
+  - `((1 + 10**-25)**I).evalf(50)`
+  - `Li(2 + I/10**30).evalf()`
+  - `log(-1 - I/10**30).evalf(20)`
+  - `asin(2 + I/10**30).evalf()`
+- Intentional corrections, checked against mpmath. In these cases SymPy drops
+  the small part to `0.e-n`, keeps a spurious one, or returns `oo`:
+  - `((-1 + 10**-25)**(1 + I)).evalf()` gives `-0.0432139182637723 + 4.32139182637722e-27*I`.
+    SymPy gives `+ 0.e-21*I`.
+  - The cancelling sum `-I*exp(3*I/5)/2 - exp(3*I/10)*sin(3/10) + I/2 + 10**-25`
+    at 50 digits gives `1.0000...e-25`, with an exactly zero imaginary part.
+    SymPy gives `1.0e-25 + 0.e-80*I`.
+  - `exp(I/10**200).evalf()` gives `1.0 + 1.0e-200*I`. SymPy gives `0.e-200*I`.
+  - `sqrt(-1 + I/10**40).evalf()` gives `5.0e-41 + 1.0*I`. SymPy gives `0.e-41`.
+  - `((1 + I/10**6)**(1/3)).evalf()` gives `3.33333333333272e-7*I`. SymPy
+    prints only 10 digits.
+  - `exp(I/10**8).evalf(30)` prints 30 correct digits of the imaginary part,
+    where SymPy prints 23.
+  - `atan(I*(1 + 10**-20)).evalf()` gives `1.5707963267949 + 23.3724245202204*I`.
+    SymPy gives `oo`.
+
+Remaining (explicit, never a wrong number):
+- Binary exponents beyond 2**120 still need big-integer exponents in
+  `BigFloat`. Changing the field touches about 95 constructors and over 100
+  field uses across the crates. The following stay unevaluated where SymPy
+  answers:
+  - `exp(10**40).evalf()`, `exp(10**100).evalf()`
+  - `Float(2)**(2**121)`
+  - `gamma(Rational(10**40, 3)).evalf()`, `gamma(Float(1e40))`
+- `factorial(10**40).evalf()` and `loggamma(10**40).evalf()` also stay
+  unevaluated. SymPy does not finish them.
+- `sin(exp(10**30).evalf())` stays symbolic. SymPy does not finish it.
+- Float literals with a decimal exponent above about 4e35 raise
+  `ValueError`, where SymPy returns a value. Up to about 1.7e38, the binary
+  exponent does not fit the 2**120 counter
+  (`Float('1e10000000000000000000000000000000000000')`). Beyond that, the
+  decimal exponent itself overflows i128 (`Float('1e10**39')`-sized
+  literals). `Float('1e1000000000000000000000000000000000')` is now
+  evaluated.
+
+Tests: `tests/test_bigexp_parity.py`, `tests/test_prec_parity.py`.
