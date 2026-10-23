@@ -80,9 +80,11 @@ def test_invalid_polynomials(source):
 
 def test_unsupported_degrees_and_domains():
     x, a = sx.symbols('x a')
-    for degree in (5, 6):
-        with pytest.raises(NotImplementedError, match='degree 5 and 6'):
-            sx.Poly(x**degree-2, x).galois_group()
+    # Degrees 5 and 6 are supported (SymPy 1.14: M20 and D6).
+    assert sx.Poly(x**5-2, x).galois_group(by_name=True)[0].name == 'M20'
+    assert sx.Poly(x**6-2, x).galois_group(by_name=True)[0].name == 'D6'
+    with pytest.raises(ValueError):
+        sx.Poly(x**7-2, x).galois_group()
     for p in (sx.Poly(x**2+x+1, x, modulus=2), sx.Poly(x**2-a, x),
               sx.Poly(x**2-sx.sqrt(2), x)):
         with pytest.raises(ValueError):

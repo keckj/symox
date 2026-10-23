@@ -116,9 +116,8 @@ def test_primes_above_common_index_divisor():
 def test_galois_groups_through_the_field():
     K = QQ.algebraic_field(sqrt(2) + sqrt(3))
     assert K.galois_group(by_name=True)[0].name == 'V'
-    # Degree 6 (e.g. QQ(zeta7)) needs resolvents not ported yet.
-    with pytest.raises(NotImplementedError):
-        QQ.cyclotomic_field(7).galois_group(by_name=True)
+    # Degree 6 uses the ported resolvent lookup (SymPy 1.14: C6).
+    assert QQ.cyclotomic_field(7).galois_group(by_name=True)[0].name == 'C6'
 
 
 # Number field modules, Round Two, primes

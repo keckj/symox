@@ -3285,7 +3285,7 @@ fn py_derivative(f: &Bound<'_, PyAny>, args: &Bound<'_, PyTuple>,evaluate:bool) 
 fn _undefined_function(name:&str,args:&Bound<'_,PyTuple>,assumptions:&Bound<'_,PyDict>,nargs:Option<Vec<usize>>)->PyResult<PyExpr>{
     let spec=function_spec(name,assumptions,nargs)?;
     if !spec.accepts(args.len()){return Err(PyTypeError::new_err(format!("{name} accepts argument counts {:?}, got {}",spec.nargs.as_ref().unwrap(),args.len())));}
-    Ok(wrap(fx::func(Func::Undefined(spec),args.iter().map(|arg|to_expr(&arg)).collect::<PyResult<Vec<_>>>()?)))
+    Ok(wrap(fx::func(Func::Undefined(spec),args.iter().map(|arg|replacement_expr(&arg)).collect::<PyResult<Vec<_>>>()?)))
 }
 
 #[pyfunction]

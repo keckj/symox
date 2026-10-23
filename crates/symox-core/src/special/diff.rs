@@ -218,6 +218,57 @@ pub fn partial(s: SpecialFn, a: &[Expr], i: usize) -> Option<Expr> {
         (Hermite, 1) => mul(&[int(2), a[0].clone(), super::hermite(&m1(&a[0]), &a[1])]),
         (Laguerre, 1) => neg(&super::assoc_laguerre(&m1(&a[0]), &one(), &a[1])),
         (AssocLaguerre, 2) => neg(&super::assoc_laguerre(&m1(&a[0]), &p1(&a[1]), &a[2])),
+        (AssocLaguerre, 1) => {
+            // d/da L_n^(a)(x) = Sum(L_k^(a)(x)/(n - k), (k, 0, n - 1)) (from the
+            // generating function (1-t)**(-a-1)*exp(-x*t/(1-t))). SymPy 1.14's fdiff(2)
+            // divides by (n - a) instead, which is wrong (e.g. n = 2,
+            // a = 1/3, x = 2/7 differs from the true derivative by 0.319).
+            let (n, al, x) = (&a[0], &a[1], &a[2]);
+            let k = Expr::dummy("k", crate::symbol::Assumptions::NONE);
+            let body = div(&super::assoc_laguerre(&k, al, x), &sub(n, &k));
+            crate::summation::sum_unevaluated(&body, &k, &Expr::zero(), &m1(n))
+        }
+        (Jacobi, 1) | (Jacobi, 2) => {
+            // SymPy jacobi.fdiff(2) and fdiff(3).
+            let (n, al, be, x) = (&a[0], &a[1], &a[2], &a[3]);
+            let k = Expr::dummy("k", crate::symbol::Assumptions::NONE);
+            let f1 = pow(&add(&[al.clone(), be.clone(), n.clone(), k.clone(), one()]), &Expr::minus_one());
+            let other = if i == 1 { be } else { al };
+            let mut f2 = div(
+                &mul2(
+                    &add(&[al.clone(), be.clone(), mul2(&Expr::int(2), &k), one()]),
+                    &super::rf(&add(&[other.clone(), k.clone(), one()]), &sub(n, &k)),
+                ),
+                &mul2(&sub(n, &k), &super::rf(&add(&[al.clone(), be.clone(), k.clone(), one()]), &sub(n, &k))),
+            );
+            if i == 2 {
+                f2 = mul2(&pow(&Expr::minus_one(), &sub(n, &k)), &f2);
+            }
+            let body = mul2(&f1, &add(&[super::jacobi(n, al, be, x), mul2(&f2, &super::jacobi(&k, al, be, x))]));
+            crate::summation::sum_unevaluated(&body, &k, &Expr::zero(), &m1(n))
+        }
+        (Gegenbauer, 1) => {
+            // SymPy gegenbauer.fdiff(2).
+            let (n, al, x) = (&a[0], &a[1], &a[2]);
+            let k = Expr::dummy("k", crate::symbol::Assumptions::NONE);
+            let two = Expr::int(2);
+            let factor1 = div(
+                &mul(&[two.clone(), add(&[one(), pow(&Expr::minus_one(), &sub(n, &k))]), add(&[k.clone(), al.clone()])]),
+                &mul2(&add(&[k.clone(), n.clone(), mul2(&two, al)]), &sub(n, &k)),
+            );
+            let factor2 = add(&[
+                div(
+                    &mul2(&two, &p1(&k)),
+                    &mul2(&add(&[k.clone(), mul2(&two, al)]), &add(&[mul2(&two, &k), mul2(&two, al), one()])),
+                ),
+                div(&two, &add(&[k.clone(), n.clone(), mul2(&two, al)])),
+            ]);
+            let body = add(&[
+                mul2(&factor1, &super::gegenbauer(&k, al, x)),
+                mul2(&factor2, &super::gegenbauer(n, al, x)),
+            ]);
+            crate::summation::sum_unevaluated(&body, &k, &Expr::zero(), &m1(n))
+        }
         (Jacobi, 3) => {
             let (n, al, be, x) = (&a[0], &a[1], &a[2], &a[3]);
             let c = div(&add(&[al.clone(), be.clone(), n.clone(), one()]), &int(2));

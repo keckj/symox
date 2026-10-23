@@ -180,48 +180,61 @@ pub fn newton(equations: &[Expr], variables: &[Expr], starts: &[MpComplex], opti
 }
 
 /// Derivative-free scalar secant iteration, including complex starting points.
-/// A single point uses the same exact quarter-unit perturbation as the
-/// reference solver. No coefficient or iterate is converted through f64.
+/// This mirrors mpmath's `Secant` solver driven by `findroot`: a single point
+/// is perturbed by the exact quarter unit, iterates are computed with 20 guard
+/// bits, the step size is the error estimate and the residual check of
+/// `verify` decides. No coefficient or iterate is converted through f64.
 pub fn secant(equation_expr: &Expr, variable: &Expr, starts: &[MpComplex], options: &Options) -> Result<MpComplex, String> {
-    let minimum = check(options)?;
+    let precision = check(options)?.max(options.precision + 20);
     if starts.is_empty() || starts.len() > 2 {
         return Err("secant requires one or two initial points".into());
     }
-    let start_precision = starts.iter().map(|v| v.re.man.bits().max(v.im.man.bits()) as u32).max().unwrap_or(0);
-    let precision = minimum.max(evalf_mp::max_precision(equation_expr).unwrap_or(0) + 64).max(start_precision + 64);
     let expressions = vec![equation(equation_expr)?];
     let variables = vec![variable.clone()];
     let at = |point: &MpComplex| -> Result<MpComplex, String> {
         Ok(evaluate(&expressions, &variables, std::slice::from_ref(point), precision)?[0].clone())
     };
-    let mut previous = starts[0].round_to(precision);
-    let mut current = starts.get(1).map(|v| v.round_to(precision)).unwrap_or_else(||
-        previous.add(&MpComplex::real(BigFloat::one().ldexp(-2)), precision));
-    let mut previous_value = at(&previous)?;
-    if previous_value.re.is_zero() && previous_value.im.is_zero() {
-        return Ok(previous.round_to(options.precision));
+    // mpmath evaluates the constants of the equation and the start at the
+    // same working precision; a start that is an exact root is returned.
+    let start_bits = starts[0].re.man.bits().max(starts[0].im.man.bits()) as u32;
+    let exact_start = evaluate(&expressions, &variables, std::slice::from_ref(&starts[0]), precision.max(start_bits + 64))?[0].clone();
+    if exact_start.re.is_zero() && exact_start.im.is_zero() {
+        return Ok(starts[0].round_to(options.precision));
     }
-    let mut current_value = at(&current)?;
-    for _ in 0..options.maxsteps {
-        if current_value.abs(precision).cmp(&options.tolerance) != Ordering::Greater { break; }
-        let denominator = current_value.sub(&previous_value, precision);
-        let correction = current_value.mul(&current.sub(&previous, precision), precision)
-            .div(&denominator, precision).ok_or("Could not find root: equal residuals in secant iteration")?;
-        let next = current.sub(&correction, precision);
-        let threshold = options.tolerance.mul(&next.abs(precision).add(&BigFloat::one(), precision), precision);
-        previous = current;
-        previous_value = current_value;
-        current = next;
-        current_value = at(&current)?;
-        if correction.abs(precision).cmp(&threshold) != Ordering::Greater { break; }
+    let mut x0 = starts[0].round_to(precision);
+    let mut x1 = starts.get(1).map(|v| v.round_to(precision)).unwrap_or_else(||
+        x0.add(&MpComplex::real(BigFloat::one().ldexp(-2)), precision));
+    let mut f0 = at(&x0)?;
+    if f0.re.is_zero() && f0.im.is_zero() {
+        return Ok(x0.round_to(options.precision));
     }
-    verify(&expressions, &variables, std::slice::from_ref(&current), options, precision)?;
-    Ok(current.round_to(options.precision))
+    let mut steps = 0;
+    while steps < options.maxsteps {
+        let f1 = at(&x1)?;
+        let l = x1.sub(&x0, precision);
+        if l.re.is_zero() && l.im.is_zero() { break; }
+        let s = match f1.sub(&f0, precision).div(&l, precision) { Some(s) => s, None => break };
+        if s.re.is_zero() && s.im.is_zero() { break; }
+        let next = match f1.div(&s, precision) { Some(q) => x1.sub(&q, precision), None => break };
+        x0 = std::mem::replace(&mut x1, next);
+        f0 = f1;
+        steps += 1;
+        let scale = x1.abs(precision);
+        let scale = if scale.cmp(&BigFloat::one()) == Ordering::Greater { scale } else { BigFloat::one() };
+        if l.abs(precision).cmp(&options.tolerance.mul(&scale, precision)) == Ordering::Less { break; }
+    }
+    if steps == 0 {
+        return Err("Could not find root using the given solver.\nTry another starting point or tweak arguments.".into());
+    }
+    verify(&expressions, &variables, std::slice::from_ref(&x1), options, precision)?;
+    Ok(x1.round_to(options.precision))
 }
 
+/// Bisection as in mpmath's `Bisection` solver driven by `findroot`: the
+/// returned point is the midpoint of the final bracket and the bracket half
+/// width is the error estimate.
 pub fn bisect(equation_expr: &Expr, variable: &Expr, a: &MpComplex, b: &MpComplex, options: &Options) -> Result<MpComplex, String> {
-    let precision = check(options)?.max(evalf_mp::max_precision(equation_expr).unwrap_or(0) + 64)
-        .max(a.re.man.bits().max(b.re.man.bits()) as u32 + 64);
+    let precision = check(options)?.max(options.precision + 20);
     if !a.is_real() || !b.is_real() || a.re.cmp(&b.re) != Ordering::Less {
         return Err("bisection requires a real bracket with lower endpoint less than upper endpoint".into());
     }
@@ -232,20 +245,27 @@ pub fn bisect(equation_expr: &Expr, variable: &Expr, a: &MpComplex, b: &MpComple
         if !values[0].is_real() { return Err("bisection requires a real-valued equation".into()); }
         Ok(values[0].re.clone())
     };
-    let (mut a, mut b) = (a.re.clone(), b.re.clone());
-    let (mut fa, fb) = (at(&a)?, at(&b)?);
+    let (mut a, mut b) = (a.re.round_to(precision), b.re.round_to(precision));
+    let fa = at(&a)?;
     if fa.is_zero() { return Ok(MpComplex::real(a.round_to(options.precision))); }
+    let mut fb = at(&b)?;
     if fb.is_zero() { return Ok(MpComplex::real(b.round_to(options.precision))); }
     if fa.sign() == fb.sign() { return Err("bisection requires opposite signs at the bracket endpoints".into()); }
-    let mut midpoint = a.clone();
+    let mut l = b.sub(&a, precision);
+    let mut result = a.clone();
     for _ in 0..options.maxsteps {
-        midpoint = a.add(&b, precision).ldexp(-1);
-        let fm = at(&midpoint)?;
-        let threshold = options.tolerance.mul(&midpoint.abs().add(&BigFloat::one(), precision), precision);
-        if fm.is_zero() || b.sub(&a, precision).abs().cmp(&threshold) != Ordering::Greater { break; }
-        if fm.sign() == fa.sign() { a = midpoint.clone(); fa = fm; } else { b = midpoint.clone(); }
+        let m = a.add(&b, precision).ldexp(-1);
+        let fm = at(&m)?;
+        let sign = fm.sign() * fb.sign();
+        if sign == 0 { result = m; break; }
+        if sign < 0 { a = m; } else { b = m; fb = fm; }
+        l = l.ldexp(-1);
+        result = a.add(&b, precision).ldexp(-1);
+        let scale = result.abs();
+        let scale = if scale.cmp(&BigFloat::one()) == Ordering::Greater { scale } else { BigFloat::one() };
+        if l.abs().cmp(&options.tolerance.mul(&scale, precision)) == Ordering::Less { break; }
     }
-    let result = MpComplex::real(midpoint);
+    let result = MpComplex::real(result);
     verify(&expressions, &variables, std::slice::from_ref(&result), options, precision)?;
     Ok(result.round_to(options.precision))
 }

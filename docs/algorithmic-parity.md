@@ -8257,3 +8257,50 @@ Tests: `tests/test_bigexp2_parity.py`. Older tests that expected the
 2**120 bound to hold values now check the evaluated values
 (`tests/test_bigexp_parity.py`, `tests/test_float_exponent_arithmetic.py`,
 `tests/test_precision.py`, `tests/test_prec_parity.py`).
+
+## Remaining c/f objects (audit9, wave 9, 2026-10-23)
+
+Replay of the 16 remaining c and f objects of `triage-wave8`: 16
+observation_difference before, 5 examples_match and 11
+observation_difference after (`audits/sympy-1.14.0/triage-wave9.md`).
+
+Implemented:
+- Galois groups of degree 5 and 6 (`galois_group`, `Poly.galois_group`,
+  `AlgebraicField.galois_group`), ported from SymPy with its resolvent
+  lookup table. Identical to SymPy on 29 test polynomials.
+- Parameter derivatives of `jacobi` (a and b), `gegenbauer` (a) and
+  `assoc_laguerre` (alpha), as Sum expressions.
+- `harmonic(oo, m)` for symbolic m: zeta(m) when m - 1 is positive, oo when
+  it is nonpositive.
+- Matrix arguments of undefined functions and of Expr subclasses (code
+  printers with matrix user functions, `shape` dispatch).
+- `nsolve`: the secant and bisection solvers follow mpmath's findroot
+  (start step, stop rule, step limits, midpoint result, error messages).
+  Complex multiplication and division round as mpmath's mpc_mul/mpc_div.
+- `SymPyDeprecationWarning`, `sympy_deprecation_warning`, `ignore_warnings`
+  and `warns`/`warns_deprecated_sympy` ported (message, repr, once filter,
+  stacklevel check).
+- `lambdify` raises SymPy's ImportError for a missing module
+  (tensorflow and the other string modules).
+
+Intentional divergences (SymPy is wrong, category h):
+- `diff(assoc_laguerre(n, a, x), a)`: SymPy gives
+  Sum(L_k^a(x)/(n - a)); the correct sum divides by n - k (checked against
+  the explicit polynomials for n = 2, 3, 5).
+- `lambdify` of a Piecewise at x = 0: SymPy raises ZeroDivisionError because
+  numpy evaluates every branch; symox returns the selected branch value.
+- Unchanged from earlier waves: `Sum.euler_maclaurin`, `approximants`,
+  `combine_kronecker`, `ImplicitRegion.regular_point`.
+
+Remaining (unsupported, raised or left unevaluated, never a wrong value):
+- `limit(harmonic(n, m + 1), n, oo)` stays unevaluated (SymPy uses the
+  limit of the Hurwitz zeta rewrite).
+- `DiscreteMarkovChain` with `Str` states and `MultivariateNormal` with
+  MatrixSymbol parameters raise NotImplementedError.
+- `lambdify`: `inspect.getsource` of the compiled function, numpy scalar
+  result types (`np.float64` and `np.True_` versus Python floats).
+- `nsolve`: a real part of about 1e-61 instead of 0 for
+  `nsolve(x**2 + 2, I)`, and the last digits or the format of the residual
+  in some "Could not find root" messages.
+
+Tests: `tests/test_audit9_parity.py`.
