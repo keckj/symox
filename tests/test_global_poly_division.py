@@ -304,7 +304,8 @@ def test_mixed_poly_expression_joint_inference_and_explicit_override(op, kind):
 @pytest.mark.parametrize('op', OPS)
 def test_unimplemented_valid_options_are_rejected_explicitly(op):
     x=sm.Symbol('x')
-    for option in ['greedy','sort','wrt','symmetric']:
+    # greedy and symmetric are ported (tests/test_small_rest_parity.py).
+    for option in ['sort','wrt']:
         with pytest.raises(NotImplementedError):
             getattr(sm,op)(x+1,x,x,**{option:True})
 

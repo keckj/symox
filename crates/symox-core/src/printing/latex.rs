@@ -963,14 +963,17 @@ impl<'a> LatexPrinter<'a> {
         }
         if matches!(f,Func::Limit){
             let direction=args[3].as_sym().map(|s|s.name()).unwrap_or("+");
-            let suffix=if !matches!(args[2].kind(),Kind::Const(crate::expr::Constant::Infinity|crate::expr::Constant::NegInfinity)) && direction!="+-" {format!("^{{{direction}}}")}else{String::new()};
-            let tex=format!("\\lim_{{{} \\to {}{suffix}}} {}",self.print(&args[1]),self.print(&args[2]),self.parenthesize(&args[0],PREC_MUL,false));
+            // `z0^dir` without braces, as the reference's _print_Limit
+            let suffix=if !matches!(args[2].kind(),Kind::Const(crate::expr::Constant::Infinity|crate::expr::Constant::NegInfinity)) && direction!="+-" {format!("^{direction}")}else{String::new()};
+            let head=format!("\\lim_{{{} \\to {}{suffix}}}",self.print(&args[1]),self.print(&args[2]));
+            // an AssocOp (Add, Mul) body is wrapped in \left( \right)
+            let tex=if args[0].is_add()||args[0].is_mul(){format!("{head}\\left({}\\right)",self.print(&args[0]))}else{format!("{head} {}",self.print(&args[0]))};
             return Self::do_exponent(tex,exp);
         }
         if matches!(f,Func::Subs){
             let variables=args[1].args();let points=args[2].args();
             let entries=variables.iter().zip(&points).map(|(v,p)|format!("{}={}",self.print(v),self.print(p))).collect::<Vec<_>>();
-            let lower=if entries.len()==1{entries[0].clone()}else{format!("\\substack{{{}}}",entries.join(" \\\\ "))};
+            let lower=format!("\\substack{{ {} }}",entries.join("\\\\ "));
             let value=format!("\\left. {} \\right|_{{{lower}}}",self.print(&args[0]));
             return exp.map_or_else(||value.clone(),|power|format!("\\left({value}\\right)^{{{power}}}"));
         }

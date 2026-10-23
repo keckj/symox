@@ -1419,6 +1419,9 @@ pub(crate) fn checked_subs(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],s
         result
     };
     symox::limits::validate_held(&result).map_err(PyNotImplementedError::new_err)?;
+    if pairs.iter().any(|(_,new)|new.is_number()) {
+        if let Some(msg)=symox::special::orthopoly_subs_error(expression,&result) { return Err(PyValueError::new_err(msg)); }
+    }
     symox::binders::validate_tree(&result).map_err(PyValueError::new_err)?;
     symox::sets::validate_lambda_tree(&result).map_err(logic::bad_signature)?;
     Ok(result)
@@ -3686,6 +3689,11 @@ fn py_apply(name: &str, args: &Bound<'_, PyTuple>, evaluate: bool) -> PyResult<P
                 }
                 if let Err((type_error, msg)) = symox::special::numtheory::check_args(*s, &v) {
                     return Err(if type_error { PyTypeError::new_err(msg) } else { PyValueError::new_err(msg) });
+                }
+                if evaluate {
+                    if let Some(msg) = symox::special::orthopoly_eval_error(*s, &v) {
+                        return Err(PyValueError::new_err(msg));
+                    }
                 }
             }
             if let Some(n) = f.arity() {

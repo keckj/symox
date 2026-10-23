@@ -44,6 +44,28 @@ pub mod mp;
 pub mod numeric;
 pub mod numtheory;
 pub(crate) mod orthopoly;
+/// The ValueError SymPy's evaluating constructor raises for an orthogonal
+/// polynomial with these arguments, if any.
+pub fn orthopoly_eval_error(s: SpecialFn, a: &[Expr]) -> Option<String> {
+    orthopoly::eval_error(s, a)
+}
+
+/// The error SymPy raises when substitution rebuilds an orthogonal
+/// polynomial of `after` absent from `before` with invalid arguments.
+pub fn orthopoly_subs_error(before: &Expr, after: &Expr) -> Option<String> {
+    fn walk(before: &Expr, e: &Expr, seen: &mut rustc_hash::FxHashSet<usize>, keep: &mut Vec<Expr>) -> Option<String> {
+        if e.is_atom() || !seen.insert(e.dag_id()) { return None; }
+        keep.push(e.clone());
+        if let Kind::Func(Func::Special(s @ (SpecialFn::Jacobi | SpecialFn::AssocLaguerre | SpecialFn::Laguerre)), args) = e.kind() {
+            if let Some(msg) = orthopoly::eval_error(*s, args) {
+                if !crate::traverse::has(before, e) { return Some(msg); }
+            }
+        }
+        for arg in e.args() { if let Some(msg) = walk(before, &arg, seen, keep) { return Some(msg); } }
+        None
+    }
+    walk(before, after, &mut Default::default(), &mut Vec::new())
+}
 mod zeta;
 
 pub use expand::{besselsimp, expand_func, expand_func_deep, hyperexpand};

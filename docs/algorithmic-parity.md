@@ -6121,3 +6121,71 @@ Remaining gaps:
   `Order(x**3, x, 0)` instead of `O(x**3)`; LaTeX and pretty of
   `SingularityFunction`; LaTeX and pretty of `Commutator` expansions, which
   print the `OrderedProduct` structure.
+
+## Small remaining gaps: order, containers, division options, orthopolys
+
+Implemented (regression tests in `tests/test_small_rest_parity.py`):
+- Add ordering of `Sum`, `Product`, `Integral`, `Limit`, `Subs` and
+  `Derivative` terms in str, LaTeX and pretty. As in `Expr.as_terms`, a
+  closed `Integral`/`Sum`/`Product` that is a number is folded into the
+  numeric coefficient, and a factor whose commutativity is unknown (`Limit`)
+  goes to the noncommutative part.
+- `re`, `im`, `Abs`, `arg` and `sign` of noncommutative arguments are
+  commutative, as in SymPy. This removes the order-only mismatches of the
+  previous probe.
+- Host `NumberSymbol` subclasses (`hbar`) report `is_number` True and order
+  as numeric coefficients (`x**2 + y + 2*hbar`).
+- LaTeX `Limit`: `\lim_{x \to 0^+} \frac{1}{x}`, with `\left(...\right)`
+  around Add/Mul bodies only. LaTeX `Subs` always uses `\substack{ ... }`.
+- Pretty printing of Python lists, tuples (with the one-element trailing
+  comma), dicts and sets (sorted by `default_sort_key`), frozensets, empty
+  `set()`, and `Tuple` without a `Tuple` prefix. Before, these fell back to
+  their str form. `Integral` pretty printing already matched in every probe
+  case.
+- `div`/`rem`/`quo`/`exquo`/`pdiv`/`prem`/...: `greedy` is accepted
+  (`greedy=False` turns numeric factors into coefficients, so the domain
+  becomes EX). `symmetric` is accepted. The requires/excludes checks of
+  `polyoptions` are ported, in keyword order, with SymPy's `OptionError`
+  messages (for example `'symmetric' option is only allowed together with
+  'modulus'`).
+- `jacobi` and `assoc_laguerre` with a negative number degree raise
+  SymPy's `ValueError` (`Cannot generate Jacobi polynomial of index -1/2`,
+  `The index n must be nonnegative integer (got -1/2)`). `laguerre` with a
+  non-integer degree raises `Error: n should be an integer.`, and with a
+  negative Float degree gives `exp(x)*laguerre(-n - 1, -x)`. The symmetric
+  Jacobi branches (`a == b`, `b == -a`) come first, as in SymPy. A
+  substitution that rebuilds such an application raises too. Held
+  applications (`evaluate=False`) still evaluate numerically through
+  mpmath.
+
+Probe counts (mismatching output lines against SymPy 1.14, before is the
+main build): order and LaTeX 19 -> 2, where both are the pretty `Sum` +
+`Limit` form below; re/im and hbar 15 -> 0; division options 80 -> 0;
+orthopolys 116 -> 26, where all 26 are the positive non-integer degree
+divergence below; container pretty printing 50 -> 0.
+
+Intentional divergences:
+- `jacobi` and `assoc_laguerre` with a positive non-integer number degree:
+  SymPy's `jacobi_poly`/`assoc_laguerre_poly` truncate the degree with
+  `int(n)`, so `jacobi(1/2, a, b, x)` returns 1, which is mathematically
+  wrong. Here the application stays unevaluated and evaluates numerically
+  through mpmath.
+- `gegenbauer` with a negative non-integer number degree: SymPy returns 0,
+  which holds only for negative integer degrees. Here it stays
+  unevaluated. This also applies to `jacobi(-1/2, a, a, x)`, which SymPy
+  reduces through `gegenbauer`.
+
+Remaining unsupported:
+- `elliptic_pi` outside the native real kernel domain (`n >= 1` or
+  `m >= 1`) evaluates through mpmath with the certified refinement loop,
+  which calls `mpmath.ellippi` at several precisions. mpmath's RJ
+  quadrature is very sensitive to the working precision:
+  `elliptic_pi(2, 7/2).evalf(50)` takes about 120 s here and 0.3 s in
+  SymPy, which makes a single call. Fixing this needs a native
+  multiprecision Carlson RJ, or branch-exact transformations to the real
+  domain.
+- With a modulus, `symmetric=False` raises `NotImplementedError`, because
+  there is no nonsymmetric finite-field display. `composite`, `sort`,
+  `wrt` and `split` are still `NotImplementedError` in division.
+- `Sum` and `Limit` pretty forms inside an Add still print their str form
+  on this branch. The 2D forms come from the separate pretty printing port.

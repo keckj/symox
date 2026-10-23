@@ -156,6 +156,9 @@ pub fn commutativity(e:&Expr)->Option<bool>{
             Kind::Pow(base,exponent)=>all(&mut [base,exponent].into_iter().map(|part|visit(part,cache))),
             Kind::Func(crate::expr::Func::Limit|crate::expr::Func::MatrixDotProduct(..),_)=>None,
             Kind::Func(crate::expr::Func::Undefined(head),_) if head.is_internal("UnevaluatedExpr")||head.is_internal("Tuple")=>None,
+            // re, im, Abs, arg and sign are (extended) real or complex, hence
+            // commutative, whatever their argument (SymPy's assumption rules).
+            Kind::Func(crate::expr::Func::Re|crate::expr::Func::Im|crate::expr::Func::Abs|crate::expr::Func::Arg|crate::expr::Func::Sign,_)=>Some(true),
             Kind::Func(_,arguments)=>all(&mut arguments.iter().map(|argument|visit(argument,cache))),
             _=>Some(true),
         }
