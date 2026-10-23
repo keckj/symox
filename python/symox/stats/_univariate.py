@@ -680,6 +680,19 @@ for _kind,_specs in [('continuous',CONTINUOUS),('finite',FINITE),('discrete',DIS
     for _family,_spec in _specs.items():globals()[_family] = _constructor(_family,_spec,_kind)
 
 
+def _laplace(scalar_laplace):
+    from functools import wraps
+    @wraps(scalar_laplace)
+    def Laplace(name,mu,b):
+        # SymPy: list or matrix location and scale give the multivariate law.
+        if isinstance(mu,(list,S.MatrixBase)) and isinstance(b,(list,S.MatrixBase)):
+            from ._joint import MultivariateLaplace
+            return MultivariateLaplace(name,mu,b)
+        return scalar_laplace(name,mu,b)
+    return Laplace
+Laplace = _laplace(Laplace)
+
+
 class FiniteDistributionHandmade(Distribution):
     kind = 'finite';family = 'FiniteHandmade'
     def __init__(self,density):

@@ -279,6 +279,11 @@ class JointVariable:
 def _vector(values):
     result = matrix(values)
     if result.cols != 1:raise ValueError('a location vector must be a column vector')
+    if not getattr(result.rows,'is_Integer',isinstance(result.rows,int)):
+        # SymPy holds a density of symbolic dimension as the matrix element
+        # (exp(matrix)/...)[0, 0]; the native exp of an abstract matrix is
+        # not implemented, so the dimension must be explicit.
+        raise NotImplementedError('multivariate distributions of symbolic dimension (MatrixSymbol parameters) are not supported')
     return result
 
 

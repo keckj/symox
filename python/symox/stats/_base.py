@@ -239,6 +239,20 @@ class HeldDensity:
     def __hash__(self):return hash(repr(self))
 
 
+class RandomAtom(S.Dummy):
+    """The native atom of a random symbol in arithmetic: an independent
+    Dummy that prints as the plain name, as SymPy prints a RandomSymbol."""
+    _symox_user_hooks = True
+    _symox_nominal = 'Dummy'
+    def _sympystr(self,printer):return self.name
+    def _latex(self,printer):return printer._print(S.Symbol(self.name))
+    def _pretty(self,printer):return printer._print(S.Symbol(self.name))
+    # The random symbol of this atom (a Tuple entry or an arithmetic
+    # operand) keeps its probability space, as SymPy's RandomSymbol.
+    pspace = property(lambda self:REGISTRY[self].pspace)
+    distribution = property(lambda self:REGISTRY[self].distribution)
+
+
 class RandomSymbol:
     """A probability-space scalar coercible to an independent native Dummy."""
     is_random = True
@@ -251,7 +265,7 @@ class RandomSymbol:
         self.symbol = S.Symbol(self.name,real=True) if distribution.kind != 'finite' else S.Symbol(self.name)
         assumptions = {'real':True} if distribution.kind != 'finite' or distribution._table is None or all(v.is_real is True for v in distribution.dict) else {}
         if distribution.kind == 'discrete':assumptions['integer'] = True
-        self._atom = S.Dummy(self.name,**assumptions)
+        self._atom = RandomAtom(self.name,**assumptions)
         self.group = self._atom if group is None else group
         self.process = None
         REGISTRY[self._atom] = self

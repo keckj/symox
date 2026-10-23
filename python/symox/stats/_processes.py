@@ -82,6 +82,15 @@ class _Markov:
             # Range(0, n) and only matrix-power queries are available.
             if state_space is not None:raise NotImplementedError('named states of a symbolic-size chain are not supported')
             self._states = ();self.state_space = S.Range(0,self._transition.rows);return
+        # SymPy (MarkovProcess._sanity_checks): a chain without transition
+        # data has the transition MatrixSymbol ``_T`` (of size a Dummy ``n``
+        # when the states are not given either). Queries keep using the
+        # transition data of their conditions.
+        self._default_transition = None
+        if self._transition is None and state_space is None:
+            size = S.Dummy('n',integer=True,nonnegative=True)
+            self._default_transition = S.MatrixSymbol('_T',size,size)
+            self._states = ();self.state_space = S.Range(0,size);return
         if state_space is None:
             state_space = list(range(self._transition.rows)) if self._transition is not None else []
         if any(type(x).__name__ == 'Str' for x in (state_space.args if isinstance(state_space,S.FiniteSet) else state_space)):
@@ -90,6 +99,7 @@ class _Markov:
         if len(set(self._states)) != len(self._states):raise ValueError('states must be distinct')
         self.state_space = S.FiniteSet(*self._states)
         if self._transition is not None:self._validate(self._transition,self._states)
+        else:self._default_transition = S.MatrixSymbol('_T',len(self._states),len(self._states))
     def _validate(self,T,states):
         check(T.rows == T.cols == len(states),'matrix and state-space dimensions differ')
         if isinstance(T,S.Matrix):
@@ -99,9 +109,13 @@ class _Markov:
                 gap = sum(T[i,j] for j in range(T.cols))-(0 if self.continuous else 1)
                 check(gap == 0 or S.simplify(gap) == 0,'transition rows must sum to zero (generator) or one')
     @property
-    def transition_probabilities(self):return self._transition if not self.continuous else None
+    def transition_probabilities(self):
+        if self.continuous:return None
+        return self._transition if self._transition is not None else getattr(self,'_default_transition',None)
     @property
-    def generator_matrix(self):return self._transition if self.continuous else None
+    def generator_matrix(self):
+        if not self.continuous:return None
+        return self._transition if self._transition is not None else getattr(self,'_default_transition',None)
     def _model(self,time):
         model = Distribution(time);model.kind = 'finite';model.family = 'MarkovState';model._support = self.state_space
         # An initial law is deliberately left unspecified: transition data
@@ -127,7 +141,58 @@ class _Markov:
         if T is None or not states:raise ValueError('a transition/generator matrix and a finite state space are required')
         return states,T,S.And(*ordinary) if ordinary else None
     def _transition_at(self,T,elapsed):
-        return (elapsed*T).exp() if self.continuous else T**elapsed
+        if elapsed.is_Rational or not isinstance(T,S.Matrix):
+            return (elapsed*T).exp() if self.continuous else T**elapsed
+        return self._symbolic_kernel(T,elapsed)
+    def _symbolic_kernel(self,T,elapsed):
+        # The reference transition function at a float or symbolic time:
+        # Q*exp(t*D)*Q**-1 (CTMC) or Q*D**t*Q**-1 (DTMC) when T is
+        # diagonalizable, else exp(t*G); evaluated at the elapsed time.
+        cache = self.__dict__.setdefault('_kernels',{})
+        key = (S.ImmutableMatrix(T),self.continuous)
+        if key not in cache:
+            t = S.Dummy('t');n = T.rows
+            try:diagonalizable = T.is_diagonalizable()
+            except Exception:diagonalizable = False
+            if diagonalizable:
+                Q,D = T.diagonalize()
+                powers = [S.exp(t*D[i,i]) if self.continuous else D[i,i]**t for i in range(n)]
+                kernel = Q*S.diag(*powers)*Q.inv()
+            elif self.continuous:kernel = (t*T).exp()
+            else:raise NotImplementedError('symbolic powers of a non-diagonalizable transition matrix are not implemented')
+            cache[key] = (t,kernel)
+        t,kernel = cache[key]
+        return kernel.subs(t,elapsed)
+    def _symbolic_time_query(self,operation,expr,states,T,gate):
+        # The reference _symbolic_probability: one Relational on one random
+        # indexed symbol, given one Eq at another (possibly symbolic) time.
+        from ._queries import random_symbols
+        from ._base import REGISTRY
+        from ._symbolic import Probability
+        relations = {'Equality','Unequality','StrictGreaterThan','GreaterThan','StrictLessThan','LessThan'}
+        name = getattr(expr,'class_name','')
+        targets = random_symbols(expr);given = random_symbols(gate)
+        if operation != 'P' or name not in relations or len(targets) != 1 or len(given) != 1 or getattr(gate,'class_name','') != 'Equality':
+            raise NotImplementedError('Markov queries at symbolic times support only P(Rel(X(a), b), Eq(X(c), d))')
+        rv, = targets;start, = given
+        curr = gate.rhs if gate.lhs == start._atom else gate.lhs
+        if expr.lhs == rv._atom:nxt = expr.rhs
+        else:
+            nxt = expr.lhs
+            name = {'StrictGreaterThan':'StrictLessThan','StrictLessThan':'StrictGreaterThan','GreaterThan':'LessThan','LessThan':'GreaterThan'}.get(name,name)
+        kernel = self._symbolic_kernel(T,rv.time-start.time)
+        index = range(len(states))
+        def element(j):
+            # Row ``curr`` of the kernel at column j (the state is a symbol).
+            return S.Piecewise(*[(kernel[i,j],S.Eq(curr,states[i])) for i in index])
+        if name in ('Equality','Unequality'):
+            prob = S.Piecewise(*[(element(j),S.Eq(nxt,states[j])) for j in index],(S.Integer(0),True))
+            if name == 'Unequality':prob = 1-prob
+        else:
+            upper = 0 if name in ('GreaterThan','StrictLessThan') else 1
+            total = S.Add(*[S.Piecewise((element(j),S.Ge(states[j],nxt+upper)),(S.Integer(0),True)) for j in index])
+            prob = total if name in ('GreaterThan','StrictGreaterThan') else 1-total
+        return S.Piecewise((prob,rv.time > start.time),(Probability(expr),True))
     def _symbolic_size_query(self,operation,expr,condition):
         from ._queries import _bindings
         bindings = _bindings(condition)
@@ -152,7 +217,7 @@ class _Markov:
         if not pinned:
             from ._symbolic import Probability,Expectation
             return Probability(expr,condition) if operation == 'P' else Expectation(expr,condition)
-        if any(not v.time.is_number for v in variables):raise NotImplementedError('Markov queries at symbolic times are not supported')
+        if any(not v.time.is_number for v in variables):return self._symbolic_time_query(operation,expr,states,T,gate)
         times = sorted({v.time for v in variables},key=lambda t:float(t) if t.is_number else str(t))
         earliest = times[0]
         anchors = [value for v,value in pinned if v.time == earliest]
@@ -183,15 +248,26 @@ class _Markov:
         check(denominator != 0,'conditioning event has zero probability')
         return S.simplify(numerator/denominator)
     def stationary_distribution(self,condition_set=False):
-        if self._transition is None:raise ValueError('transition data are required')
-        if self._symbolic:
-            n = self._transition.rows
-            if n == 0:return S.ImmutableMatrix(S.Matrix(0,0,[]))
+        T = self._transition if self._transition is not None else getattr(self,'_default_transition',None)
+        if T is None:raise ValueError('transition data are required')
+        if not isinstance(T,S.Matrix):
+            # The reference symbolic version.
+            n = T.rows
+            if n == 0:return S.ImmutableMatrix(S.Matrix([[]]))
             wm = S.MatrixSymbol('wm',1,n)
-            if condition_set:return S.ConditionSet(wm,S.Eq(wm*self._transition,wm))
-            raise NotImplementedError('a Lambda over matrix symbols is not supported; use condition_set=True')
-        n = len(self._states);symbols = S.symbols('_stationary0:'+str(n))
-        equations = list((S.Matrix(1,n,symbols)*self._transition-(S.zeros(1,n) if self.continuous else S.Matrix(1,n,symbols))))+[sum(symbols)-1]
+            if condition_set:return S.ConditionSet(wm,S.Eq(wm*T,wm))
+            return MatrixLambda((wm,T),S.Eq(wm*T,wm))
+        n = len(self._states)
+        if n == 0:return S.ImmutableMatrix(S.Matrix([[]]))
+        if not self.continuous:
+            # The reference linear system: (P - I)^T with its first row
+            # replaced by ones, solved by linsolve (free parameters tau0...).
+            a = S.Matrix(T-S.eye(n)).T
+            a[0,0:n] = S.ones(1,n)
+            b = S.zeros(n,1);b[0,0] = 1
+            return S.ImmutableMatrix([list(list(S.linsolve((a,b)))[0])])
+        symbols = S.symbols('_stationary0:'+str(n))
+        equations = list(S.Matrix(1,n,symbols)*T)+[sum(symbols)-1]
         solutions = S.solve(equations,symbols,dict=True)
         if len(solutions) != 1:raise ValueError('stationary distribution is not unique')
         return S.ImmutableMatrix([[solutions[0].get(x,x) for x in symbols]])
@@ -222,6 +298,27 @@ class _Markov:
             yield state
             row = np.array([float(kernel[states.index(state),j].evalf()) for j in range(len(states))]);row = np.maximum(row,0);row /= row.sum()
             state = states[int(rng.choice(len(states),p=row))]
+
+
+class MatrixLambda:
+    """``Lambda((wm, T), expr)`` over matrix symbols, which the native
+    ``Lambda`` (scalar signatures) does not hold: the reference value of a
+    symbolic ``stationary_distribution``. Calls substitute the arguments."""
+    is_Lambda = True
+    def __init__(self,signature,expr):
+        self.signature = S.Tuple(*signature);self.expr = expr
+    variables = property(lambda self:self.signature)
+    args = property(lambda self:(self.signature,self.expr))
+    nargs = property(lambda self:S.FiniteSet(len(self.signature)))
+    free_symbols = property(lambda self:self.expr.free_symbols-set(self.signature))
+    def __call__(self,*values):
+        if len(values) != len(self.signature):
+            raise TypeError('%s takes %d arguments (%d given)' % (self,len(self.signature),len(values)))
+        return self.expr.xreplace(dict(zip(self.signature,values)))
+    def __eq__(self,other):return isinstance(other,MatrixLambda) and self.args == other.args
+    def __hash__(self):return hash(('Lambda',self.signature,self.expr))
+    def __repr__(self):return 'Lambda(%s, %s)' % (self.signature,self.expr)
+    __str__ = __repr__
 
 
 class DiscreteMarkovChain(_Markov,DiscreteTimeStochasticProcess):
@@ -387,6 +484,8 @@ class _IncrementProcess(StochasticProcess):
         covariance = S.Matrix([[S.Min(a.time,b.time) for b in variables] for a in variables])-weights*cross.T
         return [mean[i,0] for i in range(len(variables))],covariance
     def query(self,operation,expr,condition):
+        if self.kind != 'Poisson' and _has_contains(condition):
+            return self._contains_query(operation,scalar(expr),scalar(condition))
         if self.kind == 'Poisson':
             result = self._poisson_query(operation,expr,condition)
             if result is not None:return result
@@ -432,6 +531,51 @@ class _IncrementProcess(StochasticProcess):
         else:raise NotImplementedError('conditional increment query requires ordered times')
         expression = expression.subs(target._atom,scalar(replacement))
         return P(expression) if operation == 'P' else E(expression)
+    def _contains_query(self,operation,expr,condition):
+        """The reference convention for conditions ``Contains(t, interval)``:
+        the value at the symbolic time t is the increment over that interval,
+        distributed as the process at time length (a Poisson count of mean
+        lamda*length, a Normal(0, sqrt(length)), a Gamma(gamma*length,
+        1/lamda)). Counts over pairwise
+        disjoint intervals are independent; overlapping intervals give an
+        unevaluated query."""
+        from itertools import combinations
+        from ._queries import random_symbols,P,E
+        from ._univariate import Poisson
+        args = condition.args if getattr(condition,'class_name','') in ('And','Or') else (condition,)
+        if not all(_has_contains(arg) for arg in args):
+            raise ValueError('If given condition is passed with `Contains`, then please pass the evaluated condition with its corresponding information in terms of intervals of each time stamp to be passed in given condition.')
+        lengths,intervals = {},[]
+        for v in sorted(random_symbols(expr),key=lambda v:str(v.time)):
+            for arg in args:
+                if arg.has(v.time) and v.time.is_Symbol:
+                    interval = arg.args[1]
+                    if isinstance(interval,(list,tuple,set)):interval = S.FiniteSet(*interval)
+                    elif not hasattr(interval,'sup'):
+                        # Boolean arguments hold structural copies of the
+                        # set; rebuild the set object to reach its bounds.
+                        interval = getattr(S,type(interval).__name__)(*interval.args)
+                    length = interval.sup-interval.inf
+                    if length == S.oo:raise ValueError('%s should have finite bounds' % str(v.name))
+                    if length == 0:length = interval.sup
+                    lengths[v] = length;intervals.append(interval)
+        if len(intervals) > 1 and not all(S.Intersection(*pair) == S.EmptySet for pair in combinations(intervals,2)):
+            from ._symbolic import Expectation,Probability
+            return Probability(expr,condition) if operation == 'P' else Expectation(expr,condition)
+        if any(v not in lengths for v in random_symbols(expr)):
+            expr = expr.subs({v._atom:self(length)._atom for v,length in lengths.items()},simultaneous=True)
+            return P(expr) if operation == 'P' else E(expr)
+        ordered = sorted(lengths,key=lambda v:str(v.time))
+        if operation == 'P' and self.kind == 'Poisson':
+            totals = _PoissonEvents([v._atom for v in ordered],[self.lamda*lengths[v] for v in ordered],False).probabilities([expr])
+            if totals is not None:return S.simplify(totals[0])
+        fresh = {}
+        for v in ordered:
+            PoissonProcess._increments += 1
+            name = '_%s_count%d' % (self.name,PoissonProcess._increments)
+            fresh[v._atom] = scalar(Poisson(name,self.lamda*lengths[v]) if self.kind == 'Poisson' else variable(name,self._model(lengths[v])))
+        expr = expr.subs(fresh,simultaneous=True)
+        return P(expr) if operation == 'P' else E(expr)
     def sample_mapping(self,rng,variables,condition=None):
         from ._queries import _bindings,_truth
         bindings = _bindings(condition)
@@ -572,50 +716,6 @@ class PoissonProcess(_IncrementProcess):
         if condition is None:return S.simplify(totals[0])
         if totals[1] == 0:return None
         return S.simplify(totals[0]/totals[1])
-
-    def _contains_query(self,operation,expr,condition):
-        """The reference convention for conditions ``Contains(t, interval)``:
-        the value at the symbolic time t is the count over that interval,
-        i.e. a Poisson variable of mean lamda*length. Counts over pairwise
-        disjoint intervals are independent; overlapping intervals give an
-        unevaluated query."""
-        from itertools import combinations
-        from ._queries import random_symbols,P,E
-        from ._univariate import Poisson
-        args = condition.args if getattr(condition,'class_name','') in ('And','Or') else (condition,)
-        if not all(_has_contains(arg) for arg in args):
-            raise ValueError('If given condition is passed with `Contains`, then please pass the evaluated condition with its corresponding information in terms of intervals of each time stamp to be passed in given condition.')
-        lengths,intervals = {},[]
-        for v in sorted(random_symbols(expr),key=lambda v:str(v.time)):
-            for arg in args:
-                if arg.has(v.time) and v.time.is_Symbol:
-                    interval = arg.args[1]
-                    if isinstance(interval,(list,tuple,set)):interval = S.FiniteSet(*interval)
-                    elif not hasattr(interval,'sup'):
-                        # Boolean arguments hold structural copies of the
-                        # set; rebuild the set object to reach its bounds.
-                        interval = getattr(S,type(interval).__name__)(*interval.args)
-                    length = interval.sup-interval.inf
-                    if length == S.oo:raise ValueError('%s should have finite bounds' % str(v.name))
-                    if length == 0:length = interval.sup
-                    lengths[v] = length;intervals.append(interval)
-        if len(intervals) > 1 and not all(S.Intersection(*pair) == S.EmptySet for pair in combinations(intervals,2)):
-            from ._symbolic import Expectation,Probability
-            return Probability(expr,condition) if operation == 'P' else Expectation(expr,condition)
-        if any(v not in lengths for v in random_symbols(expr)):
-            expr = expr.subs({v._atom:self(length)._atom for v,length in lengths.items()},simultaneous=True)
-            return P(expr) if operation == 'P' else E(expr)
-        ordered = sorted(lengths,key=lambda v:str(v.time))
-        if operation == 'P':
-            totals = _PoissonEvents([v._atom for v in ordered],[self.lamda*lengths[v] for v in ordered],False).probabilities([expr])
-            if totals is not None:return S.simplify(totals[0])
-        fresh = {}
-        for v in ordered:
-            PoissonProcess._increments += 1
-            fresh[v._atom] = scalar(Poisson('_%s_count%d' % (self.name,PoissonProcess._increments),self.lamda*lengths[v]))
-        expr = expr.subs(fresh,simultaneous=True)
-        return P(expr) if operation == 'P' else E(expr)
-
 
 class GammaProcess(_IncrementProcess):
     kind = 'Gamma'

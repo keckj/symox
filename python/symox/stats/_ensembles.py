@@ -22,6 +22,12 @@ class EnsembleDistribution(Distribution):
     def pdf(self,value):
         if self.owner.circular:raise NotImplementedError('circular ensembles have Haar measure, not an ambient Lebesgue density; use joint_eigen_distribution for eigenphases')
         n,beta = self.owner.n,self.owner.beta;value = matrix(value)
+        if beta == 4 and not isinstance(value,S.MatrixBase) and value.shape == (n,n):
+            # An abstract n x n matrix stands for the quaternion matrix, as in
+            # SymPy: exp(-n*Tr(H**2)) in its n + 4*n*(n-1)/2 real coordinates,
+            # with the evaluated normalising integral.
+            normalizer = (S.pi/n)**S.Rational(n,2)*(S.pi/(2*n))**(n*(n-1))
+            return S.exp(-n*S.Trace(value**2))/normalizer
         check(value.shape == self.owner.shape,'matrix dimensions differ from ensemble')
         if beta == 1:normalizer = (4*S.pi/n)**(S.Rational(n,2))*(2*S.pi/n)**(S.Rational(n*(n-1),4))
         elif beta == 2:normalizer = 2**S.Rational(n,2)*(S.pi/n)**S.Rational(n*n,2)
