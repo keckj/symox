@@ -15,6 +15,8 @@ import mpmath
 from mpmath import mp, workprec
 from mpmath.libmp import from_man_exp
 
+from ._ellippi import ellippi as _ellippi
+
 __all__ = ["evaluate"]
 
 
@@ -153,7 +155,7 @@ _GENERIC = {
     "zeta": mp.zeta, "dirichlet_eta": mp.altzeta, "polylog": mp.polylog,
     "lerchphi": mp.lerchphi, "beta": mp.beta,
     "elliptic_k": mp.ellipk, "elliptic_e": mp.ellipe, "elliptic_f": mp.ellipf,
-    "elliptic_pi": mp.ellippi, "LambertW": mp.lambertw,
+    "elliptic_pi": _ellippi, "LambertW": mp.lambertw,
     "hyper": mp.hyper, "appellf1": mp.appellf1,
     "legendre": mp.legendre, "assoc_legendre": mp.legenp,
     "chebyshevt": mp.chebyt, "chebyshevu": mp.chebyu, "hermite": mp.hermite,

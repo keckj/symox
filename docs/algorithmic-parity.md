@@ -6759,3 +6759,55 @@ Remaining gaps:
   conditions returning `nan`, float domains
   (`expr_to_holonomic(1.2*cos(3.1*x))`), symbolic or negative powers, and
   the reference expand canonicalization of rational coefficients.
+
+## elliptic_pi numerical evaluation (ellippi, 2026-10-23)
+
+SymPy 1.14 evaluates `elliptic_pi` with one `mpmath.ellippi` call at the
+target precision. When the Carlson `R_J` arguments leave the region where
+Carlson's duplication is valid (`m > 1`, `n > 1`, most complex arguments),
+mpmath integrates first along `[0, N + i*margin]` with `quadsubdiv`. That
+quadrature passes close to the integrand's singular points. Symox's evalf
+evaluates at two or more precisions (`refined` in `evalf_mp.rs`) and checks
+that the results agree, so `elliptic_pi(2, 7/2).evalf(50)` took about 120 s.
+SymPy took 0.3 s, but timed out on 7 of the evd probe evaluations. At 30
+digits SymPy also returns wrong trailing digits, for example `...923255`
+instead of `...933061` for `elliptic_pi(2, 7/2)`.
+
+`symox._ellippi` follows mpmath's `ellippi` and `elliprj` step by step: the
+same special values, the quasi-periodicity reduction, `sum_accurately` and
+the Carlson tail. Only the initial integral changes:
+
+- When mpmath's margin is `+i` or `-i`, the path is moved to the half-line
+  `i*sigma*[0, oo)`. The region between the two paths contains no singular
+  point and meets no branch cut. The integral is computed numerically on
+  `[0, i*sigma*H]`. The rest is `exp(-3*i*sigma*pi/4)*R_J(H - i*sigma*w)`,
+  where every argument has a positive real part.
+- Otherwise mpmath's own segment is kept.
+
+In both cases the segment is split until every piece is at least four times
+its length away from the singular points. The `t = 0` endpoint singularity
+is removed by `t = b*u**2`. Each piece is then integrated with cached
+Gauss-Legendre rules and an error check. Where mpmath applies Carlson's
+algorithm directly, symox calls it with the same arguments and gets the same
+bits.
+
+Results on the 342 evaluations of the elliptic_k, e, f and pi probe at 15,
+30 and 50 digits:
+
+- Symox takes 11 s in total, against 220 s for SymPy. SymPy times out (120
+  s) on 11 elliptic_pi evaluations. Before the change, symox had 7 timeouts
+  on the evd probe.
+- Every value is within one unit in the last digit of a 150-digit reference.
+  That reference agrees with mpmath at 100 digits to more than 60 digits,
+  which is the limit of mpmath's own quadrature.
+- SymPy returns wrong trailing digits on 23 elliptic_pi evaluations: about
+  25 correct digits out of 30, and 35 to 42 out of 50. Symox keeps the
+  correct value there.
+
+Remaining gaps:
+
+- The 50-digit `elliptic_pi(2/3, 2 + 3*I/2)` takes 0.5 s, against 0.3 s for
+  SymPy, because `refined` evaluates twice.
+- If a singular point lies on the integration path (bisection depth 64),
+  the integral falls back to mpmath's `quadsubdiv`, with mpmath's speed and
+  accuracy.
