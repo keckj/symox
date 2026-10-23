@@ -175,11 +175,13 @@ fn simple(f: &Expr, t: &Expr, s: &Expr) -> Option<R> {
     }
 }
 
-/// `t**n` rule; open conditions are returned (SymPy's integration
-/// fallback gives `re(n) > -1`).
+/// `t**n` rule (Bateman 4.3.1). As in `_laplace_apply_simple_rules`, it
+/// applies only when its condition `n > -1` is True; an open condition
+/// leaves the transform to the integration backend, which gives the
+/// reference form `gamma(a + 1)/(s*s**a)` under `re(a) > -1`.
 fn power_rule(n: &Expr, s: &Expr) -> Option<R> {
     let c = re_gt(n, &int(-1));
-    if truth(&c) == Some(false) {
+    if truth(&c) != Some(true) {
         return None;
     }
     let np1 = add(&[n.clone(), Expr::one()]);

@@ -381,7 +381,9 @@ fn functions(e: &Expr, x: &Expr) -> usize {
 
 /// `_find_splitting_points`: the roots of innermost linear arguments.
 pub(crate) fn find_splitting_points(e: &Expr, x: &Expr, out: &mut Vec<Expr>) {
-    if matches!(e.kind(), Kind::Rel(..) | Kind::Bool(_)) || crate::logic::is_boolean(e) { return; }
+    // SymPy: `if not isinstance(expr, Expr): return`; a Symbol is an Expr
+    if matches!(e.kind(), Kind::Rel(..) | Kind::Bool(_))
+        || (!matches!(e.kind(), Kind::Sym(_)) && crate::logic::is_boolean(e)) { return; }
     if let Kind::Func(Func::Undefined(n), _) = e.kind() { if n.is_internal("Tuple") { return; } }
     if let Some((p, q)) = linear(e, x) {
         if !p.is_zero() {
@@ -864,6 +866,18 @@ pub(crate) fn debug(op: &str, args: &[Expr]) -> Option<Vec<Expr>> {
         ("definite_4", [f, x]) => {
             let (v, c) = definite_4(f, x)?;
             Some(vec![v, c])
+        }
+        ("split_points", [f, x]) => {
+            let mut v = Vec::new();
+            find_splitting_points(f, x, &mut v);
+            Some(v)
+        }
+        ("split_try", [f, x, a, split]) => {
+            let g = mul2(&crate::subs::subs1(f, x, &add(&[x.clone(), split.clone()])),
+                &f::heaviside(&sub(&add(&[x.clone(), split.clone()]), a)));
+            let nn = crate::assumptions::is_nonnegative(&sub(a, split));
+            let (v, c) = definite_2(&g, x)?;
+            Some(vec![g, Expr::boolean(nn == Some(true)), v, c])
         }
         ("definite", [f, x, a, b]) => {
             let (v, c) = meijerint_definite(f, x, a, b)?;
