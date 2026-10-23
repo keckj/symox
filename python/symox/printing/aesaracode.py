@@ -33,7 +33,7 @@ class AesaraPrinter(Printer):
         import symox as S
         t=self.tensor
         if isinstance(expr,(list,tuple)):return [self._print(value) for value in expr]
-        if isinstance(expr,S.Matrix):return t.stack([t.stack([self._print(value) for value in row]) for row in expr.tolist()])
+        if isinstance(expr,S.DenseMatrix):return t.stack([t.stack([self._print(value) for value in row]) for row in expr.tolist()])
         kind=matrix_tag(expr)
         if kind=='MatrixSymbol' or getattr(expr,'is_Symbol',False):return self._symbol(expr)
         if not isinstance(kind,str):kind=getattr(expr,'class_name',type(expr).__name__)

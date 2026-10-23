@@ -179,7 +179,7 @@ def class_names(expr):
     if cls is _core._MatrixExpr:
         kind = matrix_tag(expr)
         return MATRIX_CLASSES.get(kind, (kind, 'MatrixExpr', 'Expr', 'Basic', 'Printable', 'EvalfMixin'))
-    if cls is _core.Matrix:
+    if cls is _core.Matrix or cls in _native_dense_classes():
         return MATRIX_CLASSES['ImmutableDenseMatrix' if expr._immutable else 'MutableDenseMatrix']
     if cls is _core.Expr:
         # A raw native node whose SymPy class is named by ``class_name``
@@ -188,3 +188,9 @@ def class_names(expr):
         if name in MATRIX_CLASSES:
             return MATRIX_CLASSES[name]
     return _type_names(cls)
+
+
+def _native_dense_classes():
+    """The native dense matrix class and its two public SymPy-named subclasses."""
+    import symox
+    return (symox.MutableDenseMatrix, symox.ImmutableDenseMatrix)

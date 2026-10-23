@@ -100,7 +100,7 @@ def is_expr(value):
         if name in _node_types.CLASSES:
             return issubclass(_node_types.node_class(name), _nominal_expr())
         return not getattr(value, 'is_Boolean', False)
-    if cls is _core.Matrix:
+    if cls is _core.Matrix or cls in _native_dense_classes():
         # The immutable matrices are matrix expressions in SymPy.
         return bool(value._immutable)
     if cls is _Function[0]:
@@ -121,3 +121,9 @@ def _install():
     from . import _CallableExpr as callable_class, Function
     _CallableExpr[0] = callable_class
     _Function[0] = Function
+
+
+def _native_dense_classes():
+    """The native dense matrix class and its two public SymPy-named subclasses."""
+    import symox
+    return (symox.MutableDenseMatrix, symox.ImmutableDenseMatrix)

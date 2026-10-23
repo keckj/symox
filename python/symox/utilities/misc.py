@@ -30,7 +30,7 @@ def _dense_matrix_name(x):
     from symox import _core,ImmutableMatrix
     if x is _core.Matrix:return 'MutableDenseMatrix'
     if x is ImmutableMatrix:return 'ImmutableDenseMatrix'
-    if type(x) is _core.Matrix:return 'ImmutableDenseMatrix' if x._immutable else 'MutableDenseMatrix'
+    if isinstance(x, _core.Matrix):return 'ImmutableDenseMatrix' if x._immutable else 'MutableDenseMatrix'
     return None
 
 def func_name(x,short=False):

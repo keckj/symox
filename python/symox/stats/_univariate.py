@@ -662,7 +662,7 @@ def _constructor(family,spec,kind):
     def create(*args,**kwargs):
         bound = signature.bind(*args,**kwargs);bound.apply_defaults()
         name = bound.arguments['name'];params = [bound.arguments[p] for p in names]
-        if family == 'Normal' and isinstance(params[0],(list,tuple,S.Matrix)):
+        if family == 'Normal' and isinstance(params[0],(list,tuple,S.DenseMatrix)):
             from ._joint import MultivariateNormal
             return MultivariateNormal(name,*params)
         if kind == 'continuous':model = continuous_model(family,params)

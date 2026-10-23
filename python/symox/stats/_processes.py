@@ -75,7 +75,7 @@ class _Markov:
         self.continuous = continuous
         self.index_set = S.Interval(0,S.oo) if continuous else S.Range(0,S.oo)
         self._transition = None if transition is None else matrix(transition)
-        self._symbolic = self._transition is not None and not isinstance(self._transition,S.Matrix)
+        self._symbolic = self._transition is not None and not isinstance(self._transition,S.DenseMatrix)
         if self._transition is not None:check(self._transition.rows == self._transition.cols,'transition matrix must be square')
         if self._symbolic and not self._transition.rows.is_Integer:
             # A transition MatrixSymbol of symbolic size: the states are
@@ -102,7 +102,7 @@ class _Markov:
         else:self._default_transition = S.MatrixSymbol('_T',len(self._states),len(self._states))
     def _validate(self,T,states):
         check(T.rows == T.cols == len(states),'matrix and state-space dimensions differ')
-        if isinstance(T,S.Matrix):
+        if isinstance(T,S.DenseMatrix):
             for i in range(T.rows):
                 for j in range(T.cols):
                     if not self.continuous or i != j:check(T[i,j] >= 0,'transition rates/probabilities must be nonnegative')
@@ -132,7 +132,7 @@ class _Markov:
                 if kind == 'states':states = value
                 else:T = value
             else:ordinary.append(item)
-        if T is not None and not isinstance(T,S.Matrix) and T.rows.is_Integer:
+        if T is not None and not isinstance(T,S.DenseMatrix) and T.rows.is_Integer:
             # An explicit-size MatrixSymbol is used entrywise: T[i, j].
             if not states:states = tuple(S.Integer(i) for i in range(T.rows))
             check(T.rows == len(states),'matrix and state-space dimensions differ')
@@ -141,7 +141,7 @@ class _Markov:
         if T is None or not states:raise ValueError('a transition/generator matrix and a finite state space are required')
         return states,T,S.And(*ordinary) if ordinary else None
     def _transition_at(self,T,elapsed):
-        if elapsed.is_Rational or not isinstance(T,S.Matrix):
+        if elapsed.is_Rational or not isinstance(T,S.DenseMatrix):
             return (elapsed*T).exp() if self.continuous else T**elapsed
         return self._symbolic_kernel(T,elapsed)
     def _symbolic_kernel(self,T,elapsed):
@@ -250,7 +250,7 @@ class _Markov:
     def stationary_distribution(self,condition_set=False):
         T = self._transition if self._transition is not None else getattr(self,'_default_transition',None)
         if T is None:raise ValueError('transition data are required')
-        if not isinstance(T,S.Matrix):
+        if not isinstance(T,S.DenseMatrix):
             # The reference symbolic version.
             n = T.rows
             if n == 0:return S.ImmutableMatrix(S.Matrix([[]]))
@@ -336,7 +336,7 @@ class DiscreteMarkovChain(_Markov,DiscreteTimeStochasticProcess):
         connected components, their recurrence and their periods."""
         from ..utilities.iterables import strongly_connected_components
         T = self.transition_probabilities
-        if T is None or not isinstance(T,S.Matrix):
+        if T is None or not isinstance(T,S.DenseMatrix):
             raise NotImplementedError("Cannot perform the operation with a symbolic matrix.")
         n = len(self._states)
         V = list(range(n))

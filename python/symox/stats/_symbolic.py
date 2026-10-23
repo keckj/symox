@@ -8,7 +8,7 @@ HELD = {}
 
 def _native(arg):
     if isinstance(arg,StatisticalExpression):return arg._expr
-    return arg if isinstance(arg,S.Matrix) else scalar(arg)
+    return arg if isinstance(arg,S.DenseMatrix) else scalar(arg)
 
 
 def _held_nodes(expr):
@@ -111,7 +111,7 @@ class StatisticalExpression:
     operation = None
     def __init__(self,*args,**kwargs):
         self.inputs = args;self.options = kwargs
-        native = [S.MatrixExpr(arg) if isinstance(arg,S.Matrix) else _native(arg) for arg in args if arg is not None]
+        native = [S.MatrixExpr(arg) if isinstance(arg,S.DenseMatrix) else _native(arg) for arg in args if arg is not None]
         self._expr = S._core._apply(type(self).__name__,*native,evaluate=False)
         HELD[self._expr] = self
     @property
@@ -145,7 +145,7 @@ class StatisticalExpression:
     def evaluate_integral(self):return self.rewrite('Integral').doit()
     evaluate_sum = evaluate_integral
     def subs(self,*args,**kwargs):
-        inputs = tuple((arg if isinstance(arg,S.Matrix) else scalar(arg)).subs(*args,**kwargs) if arg is not None else None for arg in self.inputs)
+        inputs = tuple((arg if isinstance(arg,S.DenseMatrix) else scalar(arg)).subs(*args,**kwargs) if arg is not None else None for arg in self.inputs)
         return type(self)(*inputs,**self.options)
     def xreplace(self,mapping):return _held_replace(self._expr,mapping)
     def has(self,*patterns):return self._expr.has(*(_native(p) if isinstance(p,StatisticalExpression) else p for p in patterns))
@@ -207,7 +207,7 @@ class Probability(StatisticalExpression):
 class Expectation(StatisticalExpression):
     operation = 'E'
     def __new__(cls,expr,condition=None,**kwargs):
-        if isinstance(expr,S.Matrix):return ExpectationMatrix(expr,condition)
+        if isinstance(expr,S.DenseMatrix):return ExpectationMatrix(expr,condition)
         if condition is None and not _is_random(expr):return _native(expr)
         return super().__new__(cls)
     def __init__(self,expr,condition=None,**kwargs):super().__init__(expr,condition,**kwargs)
@@ -304,7 +304,7 @@ def _coefficient_rv_pairs(expr):
 class Covariance(StatisticalExpression):
     operation = 'covariance'
     def __init__(self,arg1,arg2,condition=None,**kwargs):
-        if kwargs.pop('evaluate',True) and not isinstance(arg1,S.Matrix) and not isinstance(arg2,S.Matrix):
+        if kwargs.pop('evaluate',True) and not isinstance(arg1,S.DenseMatrix) and not isinstance(arg2,S.DenseMatrix):
             arg1,arg2 = sorted([arg1,arg2],key=_sort_key)
         super().__init__(arg1,arg2,condition,**kwargs)
     def expand(self,**kwargs):
@@ -364,7 +364,7 @@ def _mnative(value):
     random matrix symbols become their native matrix symbols."""
     if isinstance(value,_MatrixStatistic):return value._symox_()
     if getattr(value,'_stats_matrix',False):return value.symbol
-    if isinstance(value,S.Matrix):return value
+    if isinstance(value,S.DenseMatrix):return value
     return S.sympify(value)
 
 
@@ -459,7 +459,7 @@ def _expectation_matrix(expr,condition=None):
 
 class ExpectationMatrix(_MatrixStatistic):
     def __new__(cls,expr,condition=None):
-        if condition is None and not isinstance(expr,S.Matrix) and not _is_random_matrix(expr):return _mnative(expr)
+        if condition is None and not isinstance(expr,S.DenseMatrix) and not _is_random_matrix(expr):return _mnative(expr)
         return super().__new__(cls)
     def __init__(self,expr,condition=None):super().__init__(expr,condition)
     @property
@@ -498,7 +498,7 @@ def _variance_matrix_expand(arg,condition):
 
 class VarianceMatrix(_MatrixStatistic):
     def __init__(self,arg,condition=None):
-        if not isinstance(arg,S.Matrix) and not getattr(_mheld(arg),'_stats_matrix',False):
+        if not isinstance(arg,S.DenseMatrix) and not getattr(_mheld(arg),'_stats_matrix',False):
             shape = _shape(arg)
             if 1 not in shape:
                 from ..matrices import ShapeError
@@ -513,7 +513,7 @@ class VarianceMatrix(_MatrixStatistic):
         expr,condition = self.inputs;expr = _matrix_value(expr)
         if getattr(expr,'_stats_matrix',False):return expr.variance()
         from ._queries import covariance
-        if not isinstance(expr,S.Matrix):raise TypeError('matrix variance requires a random matrix or an explicit matrix of random scalars')
+        if not isinstance(expr,S.DenseMatrix):raise TypeError('matrix variance requires a random matrix or an explicit matrix of random scalars')
         if expr.cols == 1:
             return S.Matrix([[covariance(expr[i,0],expr[j,0],condition) for j in range(expr.rows)] for i in range(expr.rows)])
         return S.Matrix([[S.Add(*(covariance(expr[i,j],expr[i,k],condition) for i in range(expr.rows))) for k in range(expr.cols)] for j in range(expr.cols)])
@@ -521,7 +521,7 @@ class VarianceMatrix(_MatrixStatistic):
         # Reference VarianceMatrix.expand
         from itertools import combinations
         arg,condition = self.inputs
-        if isinstance(arg,S.Matrix):return self
+        if isinstance(arg,S.DenseMatrix):return self
         arg = _mnative(arg)
         if not _is_random_matrix(arg):return S.ZeroMatrix(*self.shape)
         if _is_random_matrix_symbol(arg):return self
@@ -563,7 +563,7 @@ def _expand_single_argument(expr):
 class CrossCovarianceMatrix(_MatrixStatistic):
     def __init__(self,arg1,arg2,condition=None):
         matrix_laws = all(getattr(_mheld(v),'_stats_matrix',False) for v in (arg1,arg2))
-        if not isinstance(arg1,S.Matrix) and not isinstance(arg2,S.Matrix) and not matrix_laws:
+        if not isinstance(arg1,S.DenseMatrix) and not isinstance(arg2,S.DenseMatrix) and not matrix_laws:
             shape1,shape2 = _shape(arg1),_shape(arg2)
             if 1 not in shape1 or 1 not in shape2 or shape1[1] != shape2[1]:
                 from ..matrices import ShapeError
@@ -572,7 +572,7 @@ class CrossCovarianceMatrix(_MatrixStatistic):
     @property
     def shape(self):
         left,right = map(_mheld,self.inputs[:2])
-        if isinstance(left,S.Matrix) or isinstance(right,S.Matrix):
+        if isinstance(left,S.DenseMatrix) or isinstance(right,S.DenseMatrix):
             return (left.rows,right.rows) if left.cols == right.cols == 1 else (left.cols,right.cols)
         return (left.shape[0],right.shape[0]) if left.shape[1] == 1 and right.shape[1] == 1 else (1,1)
     def doit(self,**hints):
@@ -587,7 +587,7 @@ class CrossCovarianceMatrix(_MatrixStatistic):
     def expand(self,**hints):
         # Reference CrossCovarianceMatrix.expand
         arg1,arg2,condition = self.inputs
-        if isinstance(arg1,S.Matrix) or isinstance(arg2,S.Matrix):return self
+        if isinstance(arg1,S.DenseMatrix) or isinstance(arg2,S.DenseMatrix):return self
         arg1,arg2 = _mnative(arg1),_mnative(arg2)
         if arg1 == arg2:return _expand_held(VarianceMatrix(arg1,condition))
         if not _is_random_matrix(arg1) or not _is_random_matrix(arg2):return S.ZeroMatrix(*self.shape)

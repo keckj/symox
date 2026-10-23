@@ -166,7 +166,7 @@ def decipher_vigenere(msg,key,symbols=None):return _vigenere(msg,key,symbols,-1)
 
 
 def _hill_matrix(key):
-    from .. import Matrix
+    from .. import DenseMatrix as Matrix
     if not isinstance(key,Matrix) and not getattr(key,'_symox_sparse',False):
         raise TypeError('a Hill key must be a native matrix')
     if key.rows != key.cols or key.rows < 1:raise ValueError('a Hill key must be nonempty and square')
@@ -229,7 +229,7 @@ def decipher_bifid(msg,key,symbols=None):
 
 def bifid_square(key):
     """Build a native symbolic matrix from distinct square-table characters."""
-    from .. import Matrix,Symbol
+    from .. import DenseMatrix as Matrix,Symbol
     alphabet = ''.join(dict.fromkeys(''.join(key)))
     width = _isqrt(len(alphabet))
     if width*width != len(alphabet):raise ValueError('Bifid requires a square alphabet length')

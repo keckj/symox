@@ -34,7 +34,7 @@ def checksol(f, symbol, sol=None, **flags):
     With numerical=True, scalar numerical residuals use an absolute 1e-9
     tolerance. This is approximate validation rather than an identity proof.
     """
-    from . import S, Abs, simplify, expand, Matrix
+    from . import S, Abs, simplify, expand, DenseMatrix as Matrix
     unknown=set(flags)-{'numerical','minimal','warn','simplify','force'}
     if unknown:
         raise TypeError('Unknown checksol options: '+', '.join(sorted(unknown)))
@@ -167,7 +167,7 @@ def solve_linear(lhs, rhs=0, symbols=(), exclude=()):
 
 
 def solve_linear_system_LU(matrix, syms):
-    from . import Matrix
+    from . import DenseMatrix as Matrix
     matrix=Matrix(matrix)
     symbols=tuple(_scalar(value) for value in syms)
     if matrix.rows!=matrix.cols-1:

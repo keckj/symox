@@ -263,14 +263,14 @@ class Permanent(metaclass=_ExprType):
 
 
 def per(matexpr):
-    from . import Matrix
+    from . import DenseMatrix as Matrix
     if isinstance(matexpr,Matrix) or getattr(matexpr,'_symox_sparse',False):
         return matexpr.per()
     return Permanent(matexpr)
 
 
 def diagonalize_vector(vector):
-    from . import Matrix,DiagMatrix,diag
+    from . import DenseMatrix as Matrix,DiagMatrix,diag
     if isinstance(vector,Matrix):
         if 1 not in vector.shape:
             raise ValueError('expected a row or column vector')

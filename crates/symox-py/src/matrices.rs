@@ -130,6 +130,32 @@ fn reject_kwargs(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<()> {
     Ok(())
 }
 
+/// Applies SymPy's `cls=` option of the special constructors: the native
+/// classes keep the native result (immutable when asked), any other class
+/// receives the explicit result through its own constructor.
+fn finish_special(py: Python<'_>, mut value: PyMatrix, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let mut cls = None;
+    if let Some(kwargs) = kwargs {
+        for (key, item) in kwargs.iter() {
+            if key.extract::<String>().ok().as_deref() == Some("cls") {
+                if !item.is_none() { cls = Some(item); }
+            } else {
+                return Err(PyNotImplementedError::new_err(format!("matrix option {key} is not implemented")));
+            }
+        }
+    }
+    let Some(cls) = cls else { return Ok(value.into_pyobject(py)?.into_any().unbind()) };
+    let base = py.get_type::<PyMatrix>();
+    let native = cls.is(&base)
+        || MUTABLE_TYPE.get(py).is_some_and(|t| cls.is(t.bind(py)))
+        || IMMUTABLE_TYPE.get(py).is_some_and(|t| cls.is(t.bind(py)));
+    if native {
+        if IMMUTABLE_TYPE.get(py).is_some_and(|t| cls.is(t.bind(py))) { value.immutable = true; }
+        return Ok(value.into_pyobject(py)?.into_any().unbind());
+    }
+    Ok(cls.call1((value,))?.unbind())
+}
+
 trait IntoPy<T> {
     fn py(self, py: Python<'_>) -> PyResult<T>;
 }
@@ -143,11 +169,52 @@ impl<T> IntoPy<T> for Result<T, MatrixError> {
 /// A mutable dense symbolic matrix.
 /// Instances carry a `__dict__` like SymPy matrices (downstream caches such as
 /// SageMath's `_sage_object` are stored on the matrix).
-#[pyclass(name = "Matrix", module = "symox._core", weakref, subclass, dict)]
+#[pyclass(name = "DenseMatrix", module = "symox.matrices.dense", weakref, subclass, dict, extends = pyo3::PyAny)]
 #[derive(Clone)]
 pub struct PyMatrix {
     pub m: Matrix,
     immutable: bool,
+}
+
+/// The Python classes `MutableDenseMatrix` and `ImmutableDenseMatrix`
+/// (subclasses of the native `DenseMatrix` that add no storage). Every
+/// native matrix result is allocated as one of them, according to its
+/// mutability, as SymPy's `cls._new` does.
+static MUTABLE_TYPE: pyo3::sync::GILOnceCell<Py<pyo3::types::PyType>> = pyo3::sync::GILOnceCell::new();
+static IMMUTABLE_TYPE: pyo3::sync::GILOnceCell<Py<pyo3::types::PyType>> = pyo3::sync::GILOnceCell::new();
+
+#[pyfunction]
+fn _register_matrix_types(py: Python<'_>, mutable: Bound<'_, pyo3::types::PyType>, immutable: Bound<'_, pyo3::types::PyType>) -> PyResult<()> {
+    let base = py.get_type::<PyMatrix>();
+    if !mutable.is_subclass(&base)? || !immutable.is_subclass(&base)? {
+        return Err(PyTypeError::new_err("matrix classes must derive from DenseMatrix"));
+    }
+    let _ = MUTABLE_TYPE.set(py, mutable.unbind());
+    let _ = IMMUTABLE_TYPE.set(py, immutable.unbind());
+    Ok(())
+}
+
+impl<'py> IntoPyObject<'py> for PyMatrix {
+    type Target = PyMatrix;
+    type Output = Bound<'py, PyMatrix>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> PyResult<Bound<'py, PyMatrix>> {
+        let cell = if self.immutable { &IMMUTABLE_TYPE } else { &MUTABLE_TYPE };
+        match cell.get(py) {
+            Some(class) => {
+                use pyo3::impl_::pyclass_init::PyObjectInit;
+                let initializer = pyo3::PyClassInitializer::from(self);
+                // SAFETY: the registered class is a Python subclass of
+                // DenseMatrix with the same layout (checked at registration).
+                unsafe {
+                    let obj = initializer.into_new_object(py, class.bind(py).as_type_ptr())?;
+                    Ok(Bound::from_owned_ptr(py, obj).downcast_into_unchecked())
+                }
+            }
+            None => Bound::new(py, self),
+        }
+    }
 }
 
 pub(crate) fn wrapm(m: Matrix) -> PyMatrix {
@@ -428,11 +495,8 @@ pub(crate) fn matrix_creation_options(args: &Bound<'_, PyTuple>, kwargs: Option<
     Ok(())
 }
 
-#[pymethods]
 impl PyMatrix {
-    #[new]
-    #[pyo3(signature = (*args, **kwargs))]
-    fn py_new(py: Python<'_>, args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+    fn py_new_value(py: Python<'_>, args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         matrix_creation_options(args, kwargs)?;
         match args.len() {
             0 => Ok(wrapm(Matrix::zeros(0, 0))),
@@ -467,6 +531,24 @@ impl PyMatrix {
                 "\nData type not understood; expecting list of lists or lists of values.")),
             _ => Err(PyTypeError::new_err("Matrix() takes at most 3 arguments")),
         }
+    }
+}
+
+#[pymethods]
+impl PyMatrix {
+    #[new]
+    #[classmethod]
+    #[pyo3(signature = (*args, **kwargs))]
+    fn py_new(cls: &Bound<'_, pyo3::types::PyType>, py: Python<'_>, args: &Bound<'_, PyTuple>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<pyo3::PyClassInitializer<Self>> {
+        let mut value = Self::py_new_value(py, args, kwargs)?;
+        if let Some(immutable) = IMMUTABLE_TYPE.get(py) {
+            if cls.is_subclass(immutable.bind(py))? { value.immutable = true; }
+        }
+        // The native base class itself builds the public mutable class.
+        if cls.is(&py.get_type::<PyMatrix>()) {
+            return Ok(pyo3::PyClassInitializer::from(value.into_pyobject(py)?.unbind()));
+        }
+        Ok(pyo3::PyClassInitializer::from(value))
     }
 
     // ------------------------------------------------------------------
@@ -1788,19 +1870,19 @@ impl PyMatrix {
 
     #[staticmethod]
     #[pyo3(name = "eye", signature = (n, m=None, **_kwargs))]
-    fn eye_s(n: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn eye_s(n: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
         eye(n, m, _kwargs)
     }
 
     #[staticmethod]
     #[pyo3(name = "zeros", signature = (r, c=None, **_kwargs))]
-    fn zeros_s(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn zeros_s(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
         zeros(r, c, _kwargs)
     }
 
     #[staticmethod]
     #[pyo3(name = "ones", signature = (r, c=None, **_kwargs))]
-    fn ones_s(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
+    fn ones_s(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
         ones(r, c, _kwargs)
     }
 
@@ -1877,26 +1959,25 @@ fn creation_dims(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>) -> PyResult
 
 #[pyfunction]
 #[pyo3(signature = (n, m=None, **_kwargs))]
-fn eye(n: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-    reject_kwargs(_kwargs)?;
+fn eye(n: &Bound<'_, PyAny>, m: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
     let (r, c) = creation_dims(n, m)?;
-    Ok(wrapm(Matrix::from_fn(r, c, |i, j| if i == j { Expr::one() } else { Expr::zero() })))
+    finish_special(n.py(), wrapm(Matrix::from_fn(r, c, |i, j| if i == j { Expr::one() } else { Expr::zero() })), _kwargs)
 }
 
 #[pyfunction]
 #[pyo3(signature = (r, c=None, **_kwargs))]
-fn zeros(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-    reject_kwargs(_kwargs)?;
+fn zeros(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let py = r.py();
     let (r, c) = creation_dims(r, c)?;
-    Ok(wrapm(Matrix::zeros(r, c)))
+    finish_special(py, wrapm(Matrix::zeros(r, c)), _kwargs)
 }
 
 #[pyfunction]
 #[pyo3(signature = (r, c=None, **_kwargs))]
-fn ones(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyMatrix> {
-    reject_kwargs(_kwargs)?;
+fn ones(r: &Bound<'_, PyAny>, c: Option<&Bound<'_, PyAny>>, _kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<PyObject> {
+    let py = r.py();
     let (r, c) = creation_dims(r, c)?;
-    Ok(wrapm(Matrix::ones(r, c)))
+    finish_special(py, wrapm(Matrix::ones(r, c)), _kwargs)
 }
 
 #[pyfunction]
@@ -1962,6 +2043,9 @@ fn py_cancel(e: &Bound<'_, PyAny>) -> PyResult<PyExpr> {
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMatrix>()?;
+    // Internal modules reach the native base as `_core.Matrix`.
+    m.add("Matrix", m.py().get_type::<PyMatrix>())?;
+    m.add_function(wrap_pyfunction!(_register_matrix_types, m)?)?;
     m.add_function(wrap_pyfunction!(eye, m)?)?;
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;

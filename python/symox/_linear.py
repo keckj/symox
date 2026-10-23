@@ -4,7 +4,7 @@ import itertools
 
 
 def _symbols(values, count=None):
-    from . import Matrix, sympify
+    from . import DenseMatrix as Matrix, sympify
     from ._core import Expr
 
     if len(values) == 1 and not isinstance(values[0], Expr):
@@ -22,7 +22,7 @@ def _symbols(values, count=None):
 
 
 def _equations(value):
-    from . import Matrix, sympify
+    from . import DenseMatrix as Matrix, sympify
     from ._core import Expr
 
     if isinstance(value, (Expr, str, int, float)):
@@ -38,7 +38,7 @@ def linear_eq_to_matrix(equations, *symbols):
     Coefficients can be symbolic expressions independent of the requested
     unknowns. Nonlinear terms raise ``NonlinearError``.
     """
-    from . import Matrix, _core
+    from . import DenseMatrix as Matrix, _core
 
     variables = _symbols(symbols)
     if not variables:
@@ -91,7 +91,7 @@ def _nonlinear_message(expressions, symset):
 
 
 def _matrix_system(system):
-    from . import Matrix
+    from . import DenseMatrix as Matrix
 
     if isinstance(system, Matrix) or (hasattr(system, "rows") and hasattr(system, "cols")):
         augmented = Matrix(system)
@@ -165,7 +165,7 @@ def linsolve(system, *symbols):
 
 def solve_linear_system(system, *symbols, **flags):
     """Solve an augmented linear Matrix; free unknowns are omitted from the dict."""
-    from . import Matrix, _core
+    from . import DenseMatrix as Matrix, _core
 
     if flags:
         raise NotImplementedError("solve_linear_system options are not implemented")
