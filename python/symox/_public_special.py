@@ -67,11 +67,20 @@ def chebyshevu_root(n,k):
 
 
 def hermite_prob(n,x):
-    from . import sympify
+    # Port of the reference hermite_prob.eval; a negative numeric degree is
+    # left unevaluated there (the ValueError is built but never raised).
+    from . import sympify,sqrt,pi,gamma,oo
     from .polys.orthopolys import hermite_prob_poly
     n,x = sympify(n),sympify(x)
-    if n.is_integer is False or n.is_negative is True:raise ValueError('polynomial degree must be a nonnegative integer')
-    if n.is_Integer:return hermite_prob_poly(int(n),x)
+    if not n.is_Number:
+        if x.could_extract_minus_sign():
+            return (-1)**n*hermite_prob(n,-x)
+        if x.is_zero:
+            return sqrt(pi)/gamma((1-n)/2)
+        elif x == oo:
+            return oo
+    elif not n.is_negative and n.is_integer and n >= 0:
+        return hermite_prob_poly(int(n),x)
     return _held('hermite_prob',n,x)
 
 

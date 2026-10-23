@@ -319,23 +319,37 @@ def cse_separate(r,e):
     return [reps_toposort(replacements),expressions]
 
 
-def cse_release_variables(r,e):
-    if not r:return r,e
-    occupied={str(s) for s,expr in r}|{str(s) for expr in e for s in expr.free_symbols}
-    outputs=[]
-    for i in range(len(e)):
-        name='_'+str(i)
-        while name in occupied:name='_'+name
-        occupied.add(name);outputs.append(S.Symbol(name))
-    assignments=list(r)+list(zip(outputs,e));last={}
-    for i,(symbol,expression) in enumerate(assignments):
-        for value in expression.free_symbols:last[value]=i
-    temporaries={symbol for symbol,expression in r};result=[]
-    for i,(symbol,expression) in enumerate(assignments):
-        result.append((symbol,expression))
-        result.extend((value,None) for value in sorted(expression.free_symbols&temporaries,key=str) if last[value]==i)
-        if symbol in temporaries and symbol not in last:result.append((symbol,None))
-    return result,tuple(outputs)
+def cse_release_variables(r, e):
+    # Verbatim port of the reference cse_release_variables.
+    if not r:
+        return r, e
+    s, p = zip(*r)
+    esyms = S.symbols('_:%d' % len(e))
+    syms = list(esyms)
+    s = list(s)
+    in_use = set(s)
+    p = list(p)
+    e = [(e[i], syms[i]) for i in range(len(e))]
+    e, syms = zip(*sorted(e,
+        key=lambda x: -sum(p[s.index(i)].count_ops()
+        for i in x[0].free_symbols & in_use)))
+    syms = list(syms)
+    p += e
+    rv = []
+    i = len(p) - 1
+    while i >= 0:
+        _p = p.pop()
+        c = in_use & _p.free_symbols
+        if c:
+            rv.extend([(s, None) for s in sorted(c, key=str)])
+        if i >= len(r):
+            rv.append((syms.pop(), _p))
+        else:
+            rv.append((s[i], _p))
+        in_use -= c
+        i -= 1
+    rv.reverse()
+    return rv, esyms
 
 
 def preprocess_for_cse(expr,optimizations):

@@ -445,8 +445,8 @@ def _inferred(exprs, symbols, options, fractions=False):
             symbols=tuple(polys[0].gens)
             if given is None:
                 domain=polys[0].domain
-                if field and domain==ZZ:
-                    domain=QQ
+                if field and not domain.is_Field:
+                    domain=domain.get_field()
                 return values,symbols,domain,order,single
         else:
             symbols=tuple(sorted(set().union(*(v.free_symbols for v in values)),key=str))
@@ -461,8 +461,8 @@ def _inferred(exprs, symbols, options, fractions=False):
                     from .constructor import construct_domain
                     d=construct_domain(part,**({'extension':extension} if extension else {}))[0]
                 domain=domain.unify(d)
-        if field and domain==ZZ:
-            domain=QQ
+        if field and not domain.is_Field:
+            domain=domain.get_field()
     return values,symbols,domain,order,single
 
 

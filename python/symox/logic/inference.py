@@ -30,24 +30,23 @@ def entails(expr,formula_set=None):
 
 class KB(ABC):
     def __init__(self,sentence=None):
-        self.clauses=[]
-        if sentence is not None:self.tell(sentence)
+        self.clauses_=set()
+        if sentence:self.tell(sentence)
     @abstractmethod
     def tell(self,sentence):raise NotImplementedError
     @abstractmethod
     def ask(self,query):raise NotImplementedError
     @abstractmethod
     def retract(self,sentence):raise NotImplementedError
+    @property
+    def clauses(self):
+        return list(S.ordered(self.clauses_))
 
 
 class PropKB(KB):
     def tell(self,sentence):
-        cnf=S.to_cnf(sentence)
-        for clause in cnf.args if cnf.class_name=='And' else (cnf,):
-            if clause not in self.clauses:self.clauses.append(clause)
+        for c in S.And.make_args(S.to_cnf(sentence)):self.clauses_.add(c)
     def ask(self,query):return entails(query,self.clauses)
     def retract(self,sentence):
-        cnf=S.to_cnf(sentence)
-        for clause in cnf.args if cnf.class_name=='And' else (cnf,):
-            if clause in self.clauses:self.clauses.remove(clause)
+        for c in S.And.make_args(S.to_cnf(sentence)):self.clauses_.discard(c)
 __all__ += ['KB','PropKB','entails','literal_symbol','pl_true','valid']

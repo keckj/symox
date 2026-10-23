@@ -3520,3 +3520,10 @@ from .integrals._integral_extras import install as _install_integral_extras  # n
 _install_integral_extras()
 from .series._order_contains import install as _install_order_contains  # noqa: E402
 _install_order_contains()
+# Public module paths of the reference classes (type() printing).
+for _cls, _mod in ((Tuple, 'symox.core.containers'), (AlgebraicNumber, 'symox.core.numbers')):
+    try:
+        _cls.__module__ = _mod
+    except (AttributeError, TypeError):
+        pass
+del _cls, _mod

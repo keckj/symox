@@ -1382,25 +1382,31 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
             }
         }
         Kind::Pow(bb, be) => {
-            if e.is_integer_number() {
-                return pow(bb, &mul2(be, e));
+            // Pow.as_base_exp: (1/q)**a is read as q**(-a).
+            let (rb, re) = match bb.kind() {
+                Kind::Num(n) if n.is_rational() && !n.is_integer() && n.numer().is_one() =>
+                    (Expr::num(n.denom()), neg(be)),
+                _ => (bb.clone(), be.clone()),
+            };
+            if e.is_integer_number() || (!e.is_number() && crate::assumptions::is_integer(e) == Some(true)) {
+                return pow(&rb, &mul2(&re, e));
             }
             // Pow._eval_power: a polar base never needs a branch factor.
             if crate::special::polar::is_polar(bb) {
-                return pow(bb, &mul2(be, e));
+                return pow(&rb, &mul2(&re, e));
             }
             // Pow._eval_power: the branch factor is 1 for a real exponent
             // a with |a| < 1, so (b**a)**e = b**(a*e) for every b and e.
             if let Kind::Num(a) = be.kind() {
                 if a.abs().cmp_value(&Number::ONE) == Some(std::cmp::Ordering::Less) {
-                    return pow(bb, &mul2(be, e));
+                    return pow(&rb, &mul2(&re, e));
                 }
             }
             // (b**a)**e = b**(a*e) when b >= 0 and a is real
             if crate::assumptions::is_nonnegative(bb) == Some(true)
                 && crate::assumptions::is_real(be) == Some(true)
             {
-                return pow(bb, &mul2(be, e));
+                return pow(&rb, &mul2(&re, e));
             }
             // (r**(2k))**e = Abs(r)**(2k*e) for real r
             if e.is_number()

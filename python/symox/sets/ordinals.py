@@ -156,7 +156,9 @@ class Ordinal:
             if t.exp==0:
                 parts.append(str(t.mult))
             else:
-                text='w' if t.exp==1 else 'w**(%s)'%t.exp
+                exp=t.exp
+                compound=isinstance(exp,Ordinal) and (len(exp.terms)>1 or exp.is_limit_ordinal)
+                text='w' if exp==1 else ('w**(%s)' if compound else 'w**%s')%exp
                 parts.append(text if t.mult==1 else text+'*%d'%t.mult)
         return ' + '.join(parts)
     __str__=__repr__

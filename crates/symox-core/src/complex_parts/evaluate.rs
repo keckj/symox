@@ -634,6 +634,46 @@ pub(crate) fn conjugate(a: &Expr) -> Option<Expr> {
             crate::special::SpecialFn::MathieuC|crate::special::SpecialFn::MathieuS|
             crate::special::SpecialFn::MathieuCPrime|crate::special::SpecialFn::MathieuSPrime)=>
             Some(f::func(Func::Special(*s),args.iter().map(c).collect())),
+        // The reference `_eval_conjugate` rules that conjugate every argument.
+        Kind::Func(Func::Special(s), args) if matches!(s,
+            crate::special::SpecialFn::Beta|crate::special::SpecialFn::Erfi|
+            crate::special::SpecialFn::Erf2|crate::special::SpecialFn::FresnelS|
+            crate::special::SpecialFn::FresnelC|crate::special::SpecialFn::AiryAi|
+            crate::special::SpecialFn::AiryBi|crate::special::SpecialFn::AiryAiPrime|
+            crate::special::SpecialFn::AiryBiPrime|crate::special::SpecialFn::Sech|
+            crate::special::SpecialFn::Csch)=>
+            Some(f::func(Func::Special(*s),args.iter().map(c).collect())),
+        // lowergamma/uppergamma: off the branch point 0 and -oo.
+        Kind::Func(Func::Special(s), args) if args.len()==2 && matches!(s,
+            crate::special::SpecialFn::LowerGamma|crate::special::SpecialFn::UpperGamma)=>{
+            let z=&args[1];
+            (!z.is_zero() && !z.is_constant(Constant::NegInfinity))
+                .then(|| f::func(Func::Special(*s),args.iter().map(c).collect()))
+        }
+        // li: excluding the branch cut (-oo, 0).
+        Kind::Func(Func::Special(crate::special::SpecialFn::Li), args) if args.len()==1 =>
+            (fact(&args[0],"extended_negative")!=Some(true))
+                .then(|| f::func(Func::Special(crate::special::SpecialFn::Li),vec![c(&args[0])])),
+        // OrthogonalPolynomial._eval_conjugate and the parametrised families:
+        // the degree is kept, every other argument is conjugated.
+        Kind::Func(Func::Special(s), args) if !args.is_empty() && matches!(s,
+            crate::special::SpecialFn::Legendre|crate::special::SpecialFn::AssocLegendre|
+            crate::special::SpecialFn::ChebyshevT|crate::special::SpecialFn::ChebyshevU|
+            crate::special::SpecialFn::Hermite|crate::special::SpecialFn::Laguerre|
+            crate::special::SpecialFn::AssocLaguerre|crate::special::SpecialFn::Jacobi|
+            crate::special::SpecialFn::Gegenbauer)=>{
+            let mut out=vec![args[0].clone()];
+            out.extend(args[1..].iter().map(c));
+            Some(f::func(Func::Special(*s),out))
+        }
+        // Held reference heads with a python-level constructor.
+        Kind::Func(Func::Undefined(head), args) if head.host().is_none() && (
+            (args.len()==4 && matches!(head.name.as_ref(),"betainc"|"betainc_regularized"))
+            || (args.len()==2 && head.name.as_ref()=="hermite_prob")) => {
+            let mut out:Vec<Expr>=args.iter().map(c).collect();
+            if head.name.as_ref()=="hermite_prob" { out[0]=args[0].clone(); }
+            Some(f::func(Func::Undefined(head.clone()),out))
+        }
         // Ynm._eval_conjugate: (-1)**m*Ynm(n, -m, theta, phi)
         Kind::Func(Func::Special(crate::special::SpecialFn::Ynm), args) if args.len() == 4 => Some(mul2(
             &pow(&Expr::minus_one(), &args[1]),

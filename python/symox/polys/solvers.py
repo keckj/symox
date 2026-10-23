@@ -37,7 +37,7 @@ def eqs_to_matrix(eqs_coeffs,eqs_rhs,gens,domain):
 
 def sympy_eqs_to_ring(eqs,symbols):
     ring,expressions=sring(list(eqs),list(symbols),field=True,extension=True)
-    return expressions,ring
+    return expressions,ring.to_domain()
 
 def _inexact(domain):
     """An inexact ground (``RR``, ``CC`` or a fraction field over them)."""

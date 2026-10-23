@@ -205,25 +205,34 @@ def print_latex(expr,**settings):
 
 
 def multiline_latex(lhs,rhs,terms_per_line=1,environment='align*',use_dots=False,**settings):
+    # The reference layout, including its spacing around each line break.
     from symox import sympify
-    import operator
-    terms_per_line=operator.index(terms_per_line)
-    if terms_per_line<1:raise ValueError('terms_per_line must be positive')
     lhs,rhs=sympify(lhs),sympify(rhs)
-    if environment not in ('align*','eqnarray','IEEEeqnarray'):raise ValueError('Unknown environment: '+environment)
-    array=environment!='align*'
-    lines=[];terms=rhs.as_ordered_terms()
-    for start in range(0,len(terms),terms_per_line):
-        chunk=[]
-        for index,term in enumerate(terms[start:start+terms_per_line],start):
-            minus=term.could_extract_minus_sign()
-            text=latex(-term if minus else term,**settings)
-            chunk.append(('- ' if minus else '+ ' if index else '')+text)
-        prefix=(latex(lhs,**settings)+(' & = & ' if array else ' = & ')) if start==0 else ('& & ' if array else '& ')
-        suffix=''
-        if start+terms_per_line<len(terms):suffix=(' \\dots' if use_dots else '')+('\\nonumber' if array else '')+r'\\'
-        lines.append(prefix+' '.join(chunk)+suffix)
-    return '\\begin{'+environment+'}'+('{rCl}' if environment=='IEEEeqnarray' else '')+'\n'+'\n'.join(lines)+'\n\\end{'+environment+'}'
+    doprint=lambda e:latex(e,**settings)
+    if environment=='eqnarray':
+        result='\\begin{eqnarray}\n';first_term='& = &';nonumber='\\nonumber';end_term='\n\\end{eqnarray}';doubleet=True
+    elif environment=='IEEEeqnarray':
+        result='\\begin{IEEEeqnarray}{rCl}\n';first_term='& = &';nonumber='\\nonumber';end_term='\n\\end{IEEEeqnarray}';doubleet=True
+    elif environment=='align*':
+        result='\\begin{align*}\n';first_term='= &';nonumber='';end_term='\n\\end{align*}';doubleet=False
+    else:raise ValueError('Unknown environment: {}'.format(environment))
+    dots='\\dots' if use_dots else ''
+    terms=rhs.as_ordered_terms();n_terms=len(terms);term_count=1
+    for i in range(n_terms):
+        term=terms[i];term_start='';term_end='';sign='+'
+        if term_count>terms_per_line:
+            term_start='& & ' if doubleet else '& ';term_count=1
+        if term_count==terms_per_line:
+            term_end=dots+nonumber+'\\\\'+'\n' if i<n_terms-1 else ''
+        if term.as_ordered_factors()[0]==-1:
+            term=-1*term;sign='-'
+        if i==0:
+            if sign=='+':sign=''
+            result+='{:s} {:s}{:s} {:s} {:s}'.format(doprint(lhs),first_term,sign,doprint(term),term_end)
+        else:
+            result+='{:s}{:s} {:s} {:s}'.format(term_start,sign,doprint(term),term_end)
+        term_count+=1
+    return result+end_term
 
 accepted_latex_functions='arcsin arccos arctan sin cos tan sinh cosh tanh sqrt ln log sec csc cot coth re im frac root arg'.split()
 

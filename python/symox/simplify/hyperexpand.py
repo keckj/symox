@@ -52,6 +52,15 @@ class Hyper_Function:
     def __hash__(self):
         return hash((type(self), self.args))
 
+    def __repr__(self):
+        # The reference prints the Expr form, one Tuple per parameter group.
+        def group(values):
+            values = tuple(values)
+            return '(%s,)' % values[0] if len(values) == 1 else '(%s)' % ', '.join(map(str, values))
+        return '%s(%s)' % (type(self).__name__, ', '.join(group(g) for g in self.args))
+
+    __str__ = __repr__
+
     def build_invariants(self):
         S = _S()
         return (self.gamma, *(tuple(sorted(Counter(_mod1(a) for a in group).items(),
@@ -274,28 +283,38 @@ class ReduceOrder(Operator):
         return cls._meijer(1-_S().sympify(a), 1-_S().sympify(b), 1)
 
 
-def reduce_order(func):
-    ap, bq, ops = list(func.ap), list(func.bq), []
-    for a in list(ap):
-        for b in list(bq):
-            operator = ReduceOrder(a, b)
-            if operator is not None:
-                ap.remove(a); bq.remove(b); ops.append(operator)
+def _reduce_order(ap, bq, gen, key):
+    # The reference greedy pairing over key-sorted parameters.
+    ap = sorted(ap, key=key)
+    bq = sorted(bq, key=key)
+    nap, operators = [], []
+    for a in ap:
+        op = None
+        for i in range(len(bq)):
+            op = gen(a, bq[i])
+            if op is not None:
+                bq.pop(i)
                 break
-    return Hyper_Function(ap, bq), ops
+        if op is None:
+            nap.append(a)
+        else:
+            operators.append(op)
+    return nap, bq, operators
+
+
+def reduce_order(func):
+    S = _S()
+    nap, nbq, operators = _reduce_order(func.ap, func.bq, ReduceOrder, S.default_sort_key)
+    return Hyper_Function(nap, nbq), operators
 
 
 def reduce_order_meijer(func):
-    an, ap, bm, bq = [list(group) for group in func.args]
-    ops = []
-    for upper, lower, factory in ((bm, ap, ReduceOrder.meijer_minus), (an, bq, ReduceOrder.meijer_plus)):
-        for a in list(upper):
-            for b in list(lower):
-                operator = factory(a, b)
-                if operator is not None:
-                    upper.remove(a); lower.remove(b); ops.append(operator)
-                    break
-    return G_Function(an, ap, bm, bq), ops
+    S = _S()
+    nan, nbq, ops1 = _reduce_order(func.an, func.bq, ReduceOrder.meijer_plus,
+                                   lambda x: S.default_sort_key(-x))
+    nbm, nap, ops2 = _reduce_order(func.bm, func.ap, ReduceOrder.meijer_minus,
+                                   S.default_sort_key)
+    return G_Function(nan, nap, nbm, nbq), ops1 + ops2
 
 
 def make_simp(z):

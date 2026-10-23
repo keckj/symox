@@ -205,5 +205,38 @@ class JuliaCodePrinter(ScalarCodePrinter):target='julia';printmethod='_julia'
 class OctaveCodePrinter(ScalarCodePrinter):target='octave';printmethod='_octave'
 class RCodePrinter(ScalarCodePrinter):target='r';printmethod='_rcode'
 class MapleCodePrinter(ScalarCodePrinter):target='maple';printmethod='_maple'
-class MCodePrinter(ScalarCodePrinter):target='mathematica';printmethod='_mcode'
+class MCodePrinter(ScalarCodePrinter):
+    target='mathematica';printmethod='_mcode'
+    def _print_Mul(self,expr):
+        # The reference CodePrinter._print_Mul, under MCodePrinter's
+        # commutative/noncommutative split.
+        from symox import Mul,Pow,S
+        from symox.core.mul import _keep_coeff
+        from .precedence import precedence
+        PREC=precedence(expr)
+        c,nc=expr.args_cnc()
+        expr=Mul(*c);prec=precedence(expr)
+        coeff,rest=expr.as_coeff_Mul()
+        if coeff<0:expr=_keep_coeff(-coeff,rest);sign='-'
+        else:sign=''
+        a=[];b=[];pow_paren=[]
+        args=expr.as_ordered_factors() if self.order not in ('old','none') else Mul.make_args(expr)
+        for item in args:
+            if item.is_commutative and item.is_Pow and item.exp.is_Rational and item.exp.is_negative:
+                if item.exp!=-1:b.append(Pow(item.base,-item.exp,evaluate=False))
+                else:
+                    if len(item.args[0].args)!=1 and isinstance(item.base,Mul):pow_paren.append(item)
+                    b.append(Pow(item.base,-item.exp))
+            else:a.append(item)
+        a=a or [S.One]
+        if len(a)==1 and sign=='-':a_str=[self.parenthesize(a[0],0.5*(PRECEDENCE['Pow']+PRECEDENCE['Mul']))]
+        else:a_str=[self.parenthesize(x,prec) for x in a]
+        b_str=[self.parenthesize(x,prec) for x in b]
+        for item in pow_paren:
+            if item.base in b:b_str[b.index(item.base)]='(%s)'%b_str[b.index(item.base)]
+        if not b:res=sign+'*'.join(a_str)
+        elif len(b)==1:res=sign+'*'.join(a_str)+'/'+b_str[0]
+        else:res=sign+'*'.join(a_str)+'/(%s)'%'*'.join(b_str)
+        if nc:res+='*'+'**'.join(self.parenthesize(x,PREC) for x in nc)
+        return res
 class GLSLPrinter(ScalarCodePrinter):target='glsl';printmethod='_glsl'
