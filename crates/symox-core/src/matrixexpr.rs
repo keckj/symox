@@ -1052,17 +1052,60 @@ impl MatrixExpr {
             MatrixKind::Pow(b,e)=>format!("{}, {}",b.to_repr(),s(e)),MatrixKind::Inverse(b)=>format!("{}, {}",b.to_repr(),s(&Expr::minus_one())),_=>self.children()[0].to_repr(),
         };format!("{}({args})",self.kind_name())
     }
+    /// SymPy's `precedence()` of a matrix expression, for the string printer.
+    fn str_precedence(&self)->i32{
+        use crate::printing::{PREC_ADD,PREC_ATOM,PREC_MUL,PREC_POW};
+        match self.kind(){
+            MatrixKind::Add(_)=>PREC_ADD,
+            MatrixKind::Mul(c,_)=>if crate::printing::minus_sign(c){PREC_ADD}else{PREC_MUL},
+            MatrixKind::Pow(..)|MatrixKind::Inverse(_)|MatrixKind::HadamardPower(..)=>PREC_POW,
+            MatrixKind::HadamardProduct(_)|MatrixKind::Kronecker(_)=>PREC_MUL,
+            _=>PREC_ATOM,
+        }
+    }
+    /// SymPy's `StrPrinter.parenthesize(item, level)` (not strict).
+    fn str_parenthesize(&self,level:i32)->String{let s=self.to_str();if self.str_precedence()<=level{format!("({s})")}else{s}}
+    /// SymPy's `Matrix._format_str` table: right aligned columns.
+    fn str_table(rows:usize,cols:usize,cells:&[String])->String{
+        if rows==0||cols==0{return format!("Matrix({rows}, {cols}, [])");}
+        let mut width=vec![0usize;cols];
+        for (k,s) in cells.iter().enumerate(){width[k%cols]=width[k%cols].max(s.chars().count());}
+        let lines:Vec<String>=(0..rows).map(|i|format!("[{}]",(0..cols).map(|j|{let s=&cells[i*cols+j];format!("{}{s}"," ".repeat(width[j]-s.chars().count()))}).collect::<Vec<_>>().join(", "))).collect();
+        if rows==1{format!("Matrix([{}])",lines[0])}else{format!("Matrix([\n{}])",lines.join(",\n"))}
+    }
     pub fn to_str(&self)->String{
-        let child=|e:&Self|if matches!(e.kind(),MatrixKind::Add(_)){format!("({})",e.to_str())}else{e.to_str()};
-        match self.kind(){MatrixKind::Permutation(p)=>format!("PermutationMatrix(Permutation({p:?}))"),MatrixKind::Permute(parent,p,axis)=>format!("MatrixPermute({}, Permutation({p:?}), {axis})",parent.to_str()),MatrixKind::ApplyFunction(function,parent)=>format!("{}.({})",function,parent),MatrixKind::Function(lambda)=>format!("FunctionMatrix({}, {}, {})",self.rows(),self.cols(),lambda),MatrixKind::Symbol(n)=>n.clone(),MatrixKind::Explicit(m)=>m.to_str(),MatrixKind::Identity=>"I".into(),MatrixKind::Zero=>"0".into(),MatrixKind::One=>"1".into(),
-            MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)|MatrixKind::BlockDiag(a)=>format!("{}({})",self.kind_name(),a.iter().map(Self::to_str).collect::<Vec<_>>().join(", ")),
-            MatrixKind::Block(grid)=>format!("BlockMatrix([{}])",(0..grid.shape().0).map(|i|format!("[{}]",(0..grid.shape().1).map(|j|grid.get(i,j).to_str()).collect::<Vec<_>>().join(", "))).collect::<Vec<_>>().join(", ")),
+        use crate::printing::{PREC_ATOM,PREC_POW};
+        // Scalars print nested, as in SymPy: a Float loses its trailing zeros.
+        let scalar=|e:&Expr|{let _session=crate::printing::order::session();let mut out=String::new();crate::printer::write_expr(e,&mut out);out};
+        let scalar_parenthesize=|e:&Expr,level:i32|if crate::printing::precedence(e)<=level{format!("({})",scalar(e))}else{scalar(e)};
+        // SymPy's `strslice`: a unit step, a zero start and a full stop are omitted.
+        let slice=|spec:&SliceSpec,dim:&Expr|{
+            let start=if spec.start.is_zero(){String::new()}else{spec.start.to_string()};
+            let full=spec.stop_is_omitted||&spec.stop==dim||(spec.stop.is_number()&&dim.is_number()&&sub(&spec.stop,dim).as_number().is_some_and(|d|!d.is_negative()));
+            let stop=if full{String::new()}else{spec.stop.to_string()};
+            if spec.step.is_one(){format!("{start}:{stop}")}else{format!("{start}:{stop}:{}",spec.step)}
+        };
+        match self.kind(){MatrixKind::Permutation(p)=>format!("PermutationMatrix(Permutation({p:?}))"),MatrixKind::Permute(parent,p,axis)=>format!("MatrixPermute({}, Permutation({p:?}), {axis})",parent.to_str()),MatrixKind::ApplyFunction(function,parent)=>format!("{}.({})",function,parent),MatrixKind::Function(lambda)=>format!("FunctionMatrix({}, {}, {})",self.rows(),self.cols(),lambda),MatrixKind::Symbol(n)=>n.clone(),MatrixKind::Explicit(m)=>m.to_repr(),MatrixKind::Identity=>"I".into(),MatrixKind::Zero=>"0".into(),MatrixKind::One=>"1".into(),
+            MatrixKind::HadamardProduct(a)|MatrixKind::Kronecker(a)=>format!("{}({})",self.kind_name(),a.iter().map(Self::to_str).collect::<Vec<_>>().join(", ")),
+            // SymPy prints the block grid as an explicit matrix of blocks.
+            MatrixKind::Block(grid)=>{let (r,c)=grid.shape();let cells:Vec<String>=(0..r*c).map(|k|grid.get(k/c,k%c).to_str()).collect();Self::str_table(r,c,&cells)},
+            MatrixKind::BlockDiag(a)=>{let k=a.len();let cells:Vec<String>=(0..k*k).map(|p|if p/k==p%k{a[p/k].to_str()}else{"0".into()}).collect();Self::str_table(k,k,&cells)},
             MatrixKind::Diag(parent)|MatrixKind::DiagonalOf(parent)|MatrixKind::Diagonal(parent)=>format!("{}({})",self.kind_name(),parent.to_str()),
-            MatrixKind::Slice(parent,rows,cols)=>format!("{}[{}:{}:{}, {}:{}:{}]",parent.to_str(),rows.start,if rows.stop_is_omitted{String::new()}else{rows.stop.to_string()},rows.step,cols.start,if cols.stop_is_omitted{String::new()}else{cols.stop.to_string()},cols.step),
-            MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>e.to_string(),MatrixOperand::Matrix(m)=>m.to_str()};format!("HadamardPower({}, {})",operand(a),operand(b))},
+            MatrixKind::Slice(parent,rows,cols)=>{let p=if parent.str_precedence()<PREC_ATOM{format!("({})",parent.to_str())}else{parent.to_str()};format!("{p}[{}, {}]",slice(rows,parent.rows()),slice(cols,parent.cols()))},
+            MatrixKind::HadamardPower(a,b)=>{let operand=|o:&MatrixOperand|match o{MatrixOperand::Scalar(e)=>scalar(e),MatrixOperand::Matrix(m)=>m.to_str()};format!("HadamardPower({}, {})",operand(a),operand(b))},
             MatrixKind::Add(a)=>{let mut out=String::new();for e in a{let v=e.to_str();if !out.is_empty(){if let Some(positive)=v.strip_prefix('-'){out.push_str(" - ");out.push_str(positive);continue;}out.push_str(" + ");}out.push_str(&v);}out},
-            MatrixKind::Mul(c,a)=>{let mut terms:Vec<_>=a.iter().map(child).collect();if !c.is_one(){let scalar=if c.is_add(){format!("({c})")}else{c.to_string()};if c==&Expr::minus_one(){return format!("-{}",terms.join("*"));}terms.insert(0,scalar);}terms.join("*")},
-            MatrixKind::Pow(b,e)=>format!("{}**{}",if matches!(b.kind(),MatrixKind::Add(_)|MatrixKind::Mul(..)|MatrixKind::Pow(..)|MatrixKind::Inverse(_)){format!("({})",b.to_str())}else{b.to_str()},if e.is_atom()&&!e.as_number().is_some_and(|n|n.is_negative()){e.to_string()}else{format!("({e})")}),MatrixKind::Inverse(b)=>format!("{}**(-1)",child(b)),MatrixKind::Transpose(b)=>format!("{}.T",child(b)),MatrixKind::Adjoint(b)=>format!("Adjoint({})",b.to_str()),MatrixKind::Conjugate(b)=>format!("Adjoint({}.T)",child(b)),
+            // SymPy's `_print_MatMul`: a real negative or negative imaginary
+            // numeric coefficient becomes a leading sign.
+            MatrixKind::Mul(c,a)=>{
+                let negative_imaginary=matches!(c.kind(),Kind::Mul(k,f) if k.is_negative()&&f.len()==1&&f[0].0==Expr::i()&&f[0].1.is_one());
+                let (sign,c)=if c.as_number().is_some_and(|n|n.is_negative())||negative_imaginary{("-",neg(c))}else{("",c.clone())};
+                let level=if sign.is_empty(){self.str_precedence()}else{crate::printing::PREC_MUL};
+                let mut terms:Vec<String>=a.iter().map(|e|e.str_parenthesize(level)).collect();
+                if !c.is_one(){terms.insert(0,scalar_parenthesize(&c,level));}
+                format!("{sign}{}",terms.join("*"))
+            },
+            MatrixKind::Pow(b,e)=>format!("{}**{}",b.str_parenthesize(PREC_POW),scalar_parenthesize(e,PREC_POW)),
+            MatrixKind::Inverse(b)=>format!("{}**(-1)",b.str_parenthesize(PREC_POW)),MatrixKind::Transpose(b)=>format!("{}.T",b.str_parenthesize(PREC_POW)),MatrixKind::Adjoint(b)=>format!("Adjoint({})",b.to_str()),MatrixKind::Conjugate(b)=>format!("Adjoint({}.T)",b.str_parenthesize(PREC_POW)),
         }
     }
 }

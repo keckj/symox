@@ -5506,3 +5506,72 @@ Remaining form gaps, by root cause. All are numerically equal.
     branch (`1/2` vs `1/factorial(a1)`).
 
 Tests: tests/test_stats_forms_parity.py.
+
+## Matrix-expression printing (c3 follow-up) on 2026-10-23
+
+This closes the `str` gaps that the c3 section lists for matrix expressions.
+
+Implemented:
+
+- `str` and `repr` of a native matrix expression go through the Python
+  `sstr`, as SymPy's `Printable.__str__` does. It orders MatAdd terms as
+  SymPy does (`A - B*D**(-1)*C`). If the Python printer fails, the native
+  string is used.
+- The native `to_str` in `crates/symox-core/src/matrixexpr.rs` follows
+  `StrPrinter`'s precedences:
+  - `Inverse`, `Transpose` and `MatPow` put parentheses around a product,
+    sum, power, Hadamard or Kronecker base: `(A*B)**(-1)`, `(A**(-1)).T`.
+  - A `MatPow` exponent with precedence Pow or lower gets parentheses:
+    `A**(1/2)`, `A**(2*x)`, `A**(x**2)`, `A**(-2)`. `A**sin(x)` and `A**x`
+    get none.
+  - A scalar is printed nested, so `A**0.5` drops the trailing zeros.
+  - `_print_MatMul` sign rules: a negative real or negative imaginary
+    coefficient becomes the leading sign (`-(2*I)*A`). A symbolic negative
+    coefficient keeps its parentheses (`(-x)*A`).
+  - `BlockMatrix` and `BlockDiagMatrix` print as SymPy's `Matrix([...])`
+    table of blocks: right aligned columns, one row per line, zero blocks
+    shown as `0`. An explicit matrix inside an expression uses the same
+    table.
+  - `MatrixSlice` drops a unit step, a zero start and a full stop
+    (`X[:2, 1:]`), and puts parentheses around a compound parent.
+  The native string still orders MatAdd terms by the internal order. It is
+  used only as the fallback.
+- Python `sstr`:
+  - `sstr(Matrix)` no longer raises AttributeError (`_format_str`). It
+    prints SymPy's right aligned table.
+  - `sstr(BlockMatrix)` prints the block table instead of
+    `BlockGrid(...)`.
+  - `sstr` of a MatAdd works (no `is_Add` lookup on a native node).
+  - `Adjoint`, `HadamardProduct`, `KroneckerProduct` and `HadamardPower`
+    print under their SymPy class names, not `_MatrixExpr(...)`.
+  - A slice stop at or past the dimension is omitted.
+- The `schur`, `LUdecomposition`, `LDUdecomposition` and
+  `UDLdecomposition` doctests of `BlockMatrix`/`BlockDiagMatrix` now match.
+  On 82 probe expressions, `str`/`repr` now match SymPy on 80. Before this
+  work, 17 differed.
+
+What remains:
+
+- The two remaining probe differences are about evaluation, not
+  printing. SymPy's `*` and unary minus call `doit()`, so
+  `Inverse(A*B)*Transpose(C + D)` becomes `B**(-1)*A**(-1)*(C.T + D.T)`
+  and `-Inverse(A*B)` becomes `-B**(-1)*A**(-1)`. Symox keeps
+  `(A*B)**(-1)*(C + D).T` and `-(A*B)**(-1)`.
+- `latex` and `pretty` have no matrix-expression printers. They fall
+  back to the `str` form (`A*B` instead of `A B`, `\left(A B\right)^{-1}`,
+  or the 2-D pretty layout). A port needs SymPy's `LatexPrinter` and
+  `PrettyPrinter` handlers for MatrixSymbol, MatMul, MatAdd, MatPow,
+  Inverse, Transpose, Adjoint, BlockMatrix, Identity, ZeroMatrix,
+  HadamardProduct and KroneckerProduct.
+- `julia_code(g(mat))` and `octave_code(g(mat))` remain unsupported, so
+  the `user_functions` docstring examples still fail. Building `g(mat)`
+  raises TypeError ("cannot convert object of type Matrix to a symox
+  expression"). SymPy holds an explicit matrix as a function argument. The
+  native core cannot, and supporting it needs a matrix-valued argument
+  node in the core.
+- `conjugate(A*B)` evaluates to `Adjoint(A.T)*Adjoint(B.T)`, where SymPy
+  keeps `Adjoint((A*B).T)`. This is evaluation, not printing.
+- A symbolic slice stop, as in `A[0:1, 0:1]` with symbolic `n`, is stored
+  as `Max(0, ceiling(Max(0, Min(1, n))))`, where SymPy stores `1`.
+
+Tests: `tests/test_matexpr_print_parity.py`.
