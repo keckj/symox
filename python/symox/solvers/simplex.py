@@ -74,7 +74,7 @@ def _simplex(cost,constraints):
 
 def _matrix_rows(matrix,n):
     if matrix is None:return []
-    if isinstance(matrix,S.Matrix):
+    if isinstance(matrix,S.DenseMatrix):
         if matrix.cols!=n:raise ValueError('constraint matrix has the wrong number of columns')
         return [[S.sympify(matrix[i,j]) for j in range(n)] for i in range(matrix.rows)]
     rows=[list(map(S.sympify,row)) for row in matrix]

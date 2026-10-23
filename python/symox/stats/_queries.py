@@ -375,7 +375,7 @@ def E(expr,condition=None,numsamples=None,evaluate=True,**kwargs):
     if numsamples is not None:return S.Float(float(np.mean(sample(expr,condition,size=(operator.index(numsamples),),**kwargs))))
     if getattr(expr,'_stats_matrix',False):return expr.mean()
     if getattr(expr,'_stats_joint',False):return S.Matrix([E(v,condition) for v in expr.components])
-    if isinstance(expr,S.Matrix) or getattr(expr,'_symox_sparse',False):return expr.applyfunc(lambda value:E(value,condition,**kwargs))
+    if isinstance(expr,S.DenseMatrix) or getattr(expr,'_symox_sparse',False):return expr.applyfunc(lambda value:E(value,condition,**kwargs))
     observed = _observed(condition)
     if observed is not None:return E(scalar(expr).xreplace(observed),None,**kwargs)
     expr = scalar(expr)

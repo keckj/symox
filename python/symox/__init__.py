@@ -767,11 +767,50 @@ def special_nstr(e, dps=15):
 # ---------------------------------------------------------------------------
 
 
+def _matrix_relation(op, lhs, rhs, evaluate):
+    """SymPy's Equality/Unequality with an explicit matrix side.
+
+    Relational sympifies matrices to ImmutableDenseMatrix; ``is_eq`` is False
+    against a non-matrix or a matrix of another shape, and otherwise
+    ``(lhs - rhs).is_zero_matrix`` (decided natively on the stored explicit
+    matrices, also after ``subs``). Returns None without an explicit matrix.
+    """
+    def kind(value):
+        if isinstance(value, _core.Matrix) or getattr(value, '_symox_sparse', False):
+            return 'explicit'
+        return 'expr' if getattr(value, 'is_MatrixExpr', False) else None
+    kinds = kind(lhs), kind(rhs)
+    if 'explicit' not in kinds:
+        return None
+    if evaluate:
+        if None in kinds:
+            return S.false if op == '==' else S.true
+        try:
+            shapes = [tuple(int(n) for n in side.shape) for side in (lhs, rhs)]
+        except TypeError:
+            shapes = None
+        if shapes is not None and shapes[0] != shapes[1]:
+            return S.false if op == '==' else S.true
+    elif None in kinds:
+        other = rhs if kinds[0] == 'explicit' else lhs
+        other = sympify(other)
+        if kinds[0] == 'explicit':
+            rhs = other
+        else:
+            lhs = other
+    sides = [_core._as_matrixexpr(side) if k == 'explicit' else side for side, k in zip((lhs, rhs), kinds)]
+    return _core.Rel(op, sides[0], sides[1], evaluate=evaluate)
+
+
 def Eq(lhs, rhs, **options):
     """Construct a symbolic equality, evaluating it when requested."""
     from ._public_core import _evaluation
     evaluate=options.pop('evaluate',None)
-    return _core.Rel("==", lhs, rhs, evaluate=_evaluation.get() if evaluate is None else evaluate)
+    evaluate=_evaluation.get() if evaluate is None else evaluate
+    matrix=_matrix_relation("==", lhs, rhs, evaluate)
+    if matrix is not None:
+        return matrix
+    return _core.Rel("==", lhs, rhs, evaluate=evaluate)
 
 
 def _ordered_relation(op,lhs,rhs,options):
@@ -781,6 +820,10 @@ def _ordered_relation(op,lhs,rhs,options):
     if not state and options:
         name=next(iter(options))
         raise TypeError("unexpected keyword argument %r" % name)
+    if op=='!=':
+        matrix=_matrix_relation(op,lhs,rhs,state)
+        if matrix is not None:
+            return matrix
     return _core.Rel(op,lhs,rhs,evaluate=state)
 
 
@@ -1011,22 +1054,68 @@ def hessian(f, varlist, constraints=()):
             out[j, i] = out[i, j]
     return out
 
-MutableDenseMatrix = Matrix
+# SymPy's hierarchy: DenseMatrix is the (native) base, MutableDenseMatrix
+# and ImmutableDenseMatrix are real subclasses. The native kernels allocate
+# every result as one of the two registered classes, by mutability.
 DenseMatrix = Matrix
-class _ImmutableMatrixMeta(type):
-    def __getattr__(cls,name):
-        from ._constructor_methods import instance_method
-        return instance_method(Matrix,name)
-
-    def __instancecheck__(cls, obj):
-        return isinstance(obj, Matrix) and obj._immutable
-
-    def __call__(cls, *args, **kwargs):
-        return Matrix(*args, **kwargs).as_immutable()
 
 
-class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
+class _DenseSpecialConstructors:
+    """SymPy's ``MatrixSpecial._eval_*`` hooks, used by ``cls=`` options."""
+    __slots__ = ()
+
+    @classmethod
+    def _eval_diag(cls, rows, cols, diag_dict):
+        return cls(rows, cols, lambda i, j: diag_dict[(i, j)])
+
+    @classmethod
+    def _eval_eye(cls, rows, cols):
+        return cls(rows, cols, lambda i, j: S.One if i == j else S.Zero)
+
+    @classmethod
+    def _eval_ones(cls, rows, cols):
+        return cls(rows, cols, lambda i, j: S.One)
+
+    @classmethod
+    def _eval_zeros(cls, rows, cols):
+        return cls(rows, cols, lambda i, j: S.Zero)
+
+    @classmethod
+    def _eval_jordan_block(cls, size, eigenvalue, band='upper'):
+        if band == 'lower':
+            return cls(size, size, lambda i, j: eigenvalue if i == j else S.One if j + 1 == i else S.Zero)
+        return cls(size, size, lambda i, j: eigenvalue if i == j else S.One if i + 1 == j else S.Zero)
+
+    @classmethod
+    def _eval_wilkinson(cls, n):
+        D = cls(2*n + 1, 2*n + 1, lambda i, j: S.One if i + 1 == j else S.Zero)
+        wminus = cls.diag(list(range(-n, n + 1)), unpack=True) + D + D.T
+        wplus = abs(cls.diag(list(range(-n, n + 1)), unpack=True)) + D + D.T
+        return wminus, wplus
+
+
+class MutableDenseMatrix(_DenseSpecialConstructors, DenseMatrix):
+    __slots__ = ()
+
+
+MutableDenseMatrix.__module__ = "symox.matrices.dense"
+
+
+def _immutable_static(name):
+    native = getattr(DenseMatrix, name)
+
+    def constructor(*args, **kwargs):
+        result = native(*args, **kwargs)
+        if isinstance(result, (tuple, list)):
+            return type(result)(r.as_immutable() if isinstance(r, DenseMatrix) else r for r in result)
+        return result.as_immutable() if isinstance(result, DenseMatrix) else result
+    constructor.__name__ = constructor.__qualname__ = name
+    return staticmethod(constructor)
+
+
+class ImmutableDenseMatrix(_DenseSpecialConstructors, DenseMatrix):
     """Immutable dense matrix, backed by the native matrix implementation."""
+    __slots__ = ()
 
     @staticmethod
     def eye(*args, **kwargs):
@@ -1043,22 +1132,20 @@ class ImmutableMatrix(metaclass=_ImmutableMatrixMeta):
     @staticmethod
     def diag(*args, **kwargs):
         kwargs.setdefault('cls', ImmutableMatrix)
-        return Matrix.diag(*args, **kwargs)
+        return DenseMatrix.diag(*args, **kwargs)
 
     @staticmethod
     def hstack(*args):
-        return Matrix.hstack(*args).as_immutable()
+        return DenseMatrix.hstack(*args).as_immutable()
 
     @staticmethod
     def vstack(*args):
-        return Matrix.vstack(*args).as_immutable()
+        return DenseMatrix.vstack(*args).as_immutable()
 
 
-ImmutableDenseMatrix = ImmutableMatrix
-# SymPy names the class ImmutableDenseMatrix (ImmutableMatrix is the alias),
-# which shows in reprs such as "Cannot set values of <class ...>".
-ImmutableMatrix.__name__ = ImmutableMatrix.__qualname__ = "ImmutableDenseMatrix"
-ImmutableMatrix.__module__ = "symox.matrices.immutable"
+ImmutableDenseMatrix.__module__ = "symox.matrices.immutable"
+ImmutableMatrix = ImmutableDenseMatrix
+_core._register_matrix_types(MutableDenseMatrix, ImmutableDenseMatrix)
 
 from . import _matrix_diag  # noqa: E402
 diag = _matrix_diag.install(globals())
@@ -4331,3 +4418,26 @@ _matrix_inverse.install()
 from . import _inverse_methods  # noqa: E402
 _inverse_methods.install(globals())
 _inverse_methods.install_rewrites(globals())
+
+# The public Matrix is SymPy's MutableDenseMatrix. Internal modules keep the
+# native DenseMatrix base (bound while the package was imported) for their
+# isinstance checks; the public modules get the mutable class.
+def _publish_mutable_matrix():
+    import sys
+    for _name, _module in list(sys.modules.items()):
+        if _module is None or not (_name == 'symox' or _name.startswith('symox.')):
+            continue
+        if any(part.startswith('_') for part in _name.split('.')):
+            continue
+        if type(_module).__name__ == '_LazyModule':
+            # Not loaded yet: reading it would import it (and its optional
+            # dependencies). It binds the public names when it loads.
+            continue
+        _namespace = vars(_module)
+        for _alias in ('Matrix', 'MutableMatrix', 'MutableDenseMatrix'):
+            if _namespace.get(_alias) is DenseMatrix:
+                _namespace[_alias] = MutableDenseMatrix
+
+
+_publish_mutable_matrix()
+del _publish_mutable_matrix

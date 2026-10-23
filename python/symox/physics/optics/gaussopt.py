@@ -58,7 +58,7 @@ class ThinLens(RayTransferMatrix):
 class GeometricRay:
     _symox_matrixexpr = True
     def __init__(self,*args):
-        self._matrix = S.Matrix(list(args) if len(args)==2 and not isinstance(args[0],(list,tuple,S.Matrix)) else args[0])
+        self._matrix = S.Matrix(list(args) if len(args)==2 and not isinstance(args[0],(list,tuple,S.DenseMatrix)) else args[0])
         if self._matrix.shape!=(2,1):raise ValueError('a geometric ray has height and angle components')
     def _symox_(self):return S.MatrixExpr(self._matrix)
     def __repr__(self):return repr(self._matrix)

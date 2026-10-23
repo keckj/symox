@@ -81,7 +81,7 @@ class IntQubitBra(IntQubit,QubitBra):
 
 
 def qubit_to_matrix(qubit,format='sympy'):
-    if isinstance(qubit,S.Matrix):return qubit
+    if isinstance(qubit,S.DenseMatrix):return qubit
     return represent(qubit,format=format)
 
 
@@ -94,7 +94,7 @@ def matrix_to_qubit(matrix):
 
 def matrix_to_density(mat):
     from .density import Density
-    if isinstance(mat,S.Matrix) and mat.cols!=1:raise ValueError('matrix_to_density requires a state vector')
+    if isinstance(mat,S.DenseMatrix) and mat.cols!=1:raise ValueError('matrix_to_density requires a state vector')
     return Density((matrix_to_qubit(S.Matrix(mat)),1))
 
 

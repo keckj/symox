@@ -13,7 +13,7 @@ class TableForm:
 
     def __init__(self, data, **kwarg):
         """Creates a TableForm."""
-        from symox import Matrix
+        from symox import DenseMatrix as Matrix
         if isinstance(data, Matrix):
             data = data.tolist()
         data = [list(row.args if getattr(row, "is_Tuple", False) else row) for row in data]
@@ -97,7 +97,7 @@ class TableForm:
 
     def as_matrix(self):
         """Returns the data of the table in Matrix form."""
-        from symox import Matrix
+        from symox import DenseMatrix as Matrix
         return Matrix(self._lines)
 
     def as_str(self):

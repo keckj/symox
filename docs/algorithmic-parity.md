@@ -8257,3 +8257,58 @@ Tests: `tests/test_bigexp2_parity.py`. Older tests that expected the
 2**120 bound to hold values now check the evaluated values
 (`tests/test_bigexp_parity.py`, `tests/test_float_exponent_arithmetic.py`,
 `tests/test_precision.py`, `tests/test_prec_parity.py`).
+
+## mat-rest3 (wave 9): dense matrix classes, matrix Eq, CSR helpers
+
+Done:
+- `MutableDenseMatrix` and `ImmutableDenseMatrix` are real classes. Both
+  derive from the native `DenseMatrix` (module `symox.matrices.dense`).
+  The native kernels allocate every result as one of the two classes,
+  chosen by mutability, so `type()`, `isinstance`, `issubclass` and the
+  class names match SymPy (`Matrix is MutableDenseMatrix`,
+  `ImmutableMatrix is ImmutableDenseMatrix`, an immutable matrix is not a
+  `MutableDenseMatrix`). Internal modules keep `isinstance` checks
+  against the native base, so they still accept both classes.
+- `eye`, `zeros` and `ones` (functions and static methods) accept SymPy's
+  `cls=` option. `_eval_eye`, `_eval_zeros`, `_eval_ones`, `_eval_diag`,
+  `_eval_jordan_block` and `_eval_wilkinson` exist on both dense classes,
+  for `SpecialOnlyMatrix`-style callers.
+- `Eq` and `Ne` with explicit matrices follow
+  `_eval_is_eq(ImmutableDenseMatrix, ...)`: different shapes or a
+  non-matrix side give `False`. Otherwise the entries decide: all zero
+  differences give `True`, any proven non-zero difference gives `False`,
+  and an undecided entry keeps the relation unevaluated (it re-evaluates
+  after `subs`). A `MatrixSymbol` against an explicit matrix of the same
+  shape stays unevaluated, as in SymPy.
+- `symox.matrices.sparsetools._doktocsr` and `_csrtodok` are ported
+  (including SymPy's ValueError for an all-zero matrix in `_doktocsr`).
+- `Trace(X).arg` returns the traced matrix, as in SymPy.
+- Internal checks that meant "any explicit dense matrix" now test the
+  native base (`DenseMatrix`) instead of the public `Matrix`, so they still
+  accept immutable matrices (stats, quantum, codegen, optics, simplex).
+
+Remaining (documented gaps):
+- `Eq(M, N).lhs` for explicit matrices is a matrix-expression proxy that
+  prints as `ImmutableMatrix`; SymPy gives an `ImmutableDenseMatrix`.
+- `Matrix([[a, 1]]).adjoint()` with a quantum `Operator('a')` gives
+  `conjugate(OrderedProduct(Operator(a)))`; SymPy gives `Dagger(a)`.
+- For a noncommutative `A`: `adjoint(Abs(A))` and `transpose(Abs(A))` stay
+  as `transpose(Abs(A))`, where SymPy gives `Abs(A)` (Abs is real).
+  `adjoint(sqrt(A))` stays `Dagger(sqrt(A))`, where SymPy expands it
+  through `re`/`im`/`atan2`. `transpose(sqrt(A))` matches.
+- `Trace(X*X).diff(X)` returns an explicit array of entries where SymPy
+  gives `2*X.T`.
+- Sparse `_rep.domain` of `SparseMatrix([[sqrt(2), 1], [0, 1]])` is
+  `EXRAW` in both libraries for this input; an algebraic-field domain
+  kept through `_fromrep` was not reproduced or changed here.
+- `DFT`, `IDFT`, `GenericIdentity` and `GenericZeroMatrix` are still
+  missing: they need new native matrix-expression node kinds.
+- `Poly` entries in a matrix are converted to expressions
+  (`Matrix([[Poly(x)]])` gives `Matrix([[x]])`), without SymPy's
+  deprecation warning; `test_smith_normal` still crashes.
+- `simplify(SparseMatrix(...))` returns a `MutableSparseMatrix`; SymPy
+  returns an `ImmutableSparseMatrix` (dense matrices match).
+- `BlockDiagMatrix`, `MatMul` and other matrix expressions still report
+  the native `_MatrixExpr` class from `type()` and `__class__`.
+
+Tests: `tests/test_mat_rest3_parity.py`.

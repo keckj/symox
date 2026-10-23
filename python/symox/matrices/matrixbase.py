@@ -14,7 +14,7 @@ def a2idx(j,n=None):
 
 def classof(A,B):
     if not hasattr(A,'shape') or not hasattr(B,'shape'):raise TypeError('matrix classes required')
-    from symox import ImmutableMatrix,Matrix,ImmutableSparseMatrix,SparseMatrix
+    from symox import ImmutableMatrix,DenseMatrix as Matrix,ImmutableSparseMatrix,SparseMatrix
     if isinstance(A,Matrix) and isinstance(B,Matrix) and not A._immutable and not B._immutable:
         return type(A) if A._class_priority>B._class_priority else type(B)
     immutable=isinstance(A,(ImmutableMatrix,ImmutableSparseMatrix)) or isinstance(B,(ImmutableMatrix,ImmutableSparseMatrix))

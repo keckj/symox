@@ -15,7 +15,7 @@ def matrix(value):
 def positive_matrix(value):
     result = matrix(value)
     if result.rows != result.cols:raise ValueError('scale/covariance matrix must be square')
-    if isinstance(result,S.Matrix):
+    if isinstance(result,S.DenseMatrix):
         for i in range(result.rows):
             for j in range(i):check(S.simplify(result[i,j]-result[j,i]).is_zero is not False,'scale/covariance matrix must be symmetric')
         for size in range(1,result.rows+1):
@@ -120,7 +120,7 @@ class JointVariable:
         counts = _compositions(n,self.dimension) if self.family == 'Multinomial' else _ewens_counts(n)
         return (({rv._atom:S.Integer(v) for rv,v in zip(self.components,row)},self.pdf(*row)) for row in counts)
     def pdf(self,*values):
-        if len(values) == 1 and isinstance(values[0],(list,tuple,S.Matrix)):values = tuple(values[0])
+        if len(values) == 1 and isinstance(values[0],(list,tuple,S.DenseMatrix)):values = tuple(values[0])
         if len(values) != self.dimension:raise ValueError('wrong number of joint density coordinates')
         x = tuple(map(scalar,values));f,p = self.family,self.params;k = self.dimension
         if f in ('MultivariateNormal','MultivariateT','MultivariateLaplace'):
@@ -321,7 +321,7 @@ def MultivariateLaplace(name,mu,sigma):
 
 
 def Dirichlet(syms,*alpha):
-    if len(alpha) == 1 and isinstance(alpha[0],(list,tuple,S.Matrix)):alpha = tuple(alpha[0])
+    if len(alpha) == 1 and isinstance(alpha[0],(list,tuple,S.DenseMatrix)):alpha = tuple(alpha[0])
     alpha = tuple(map(scalar,alpha))
     if len(alpha)<2:raise ValueError('Dirichlet requires at least two categories')
     positive(*alpha);total = S.Add(*alpha)

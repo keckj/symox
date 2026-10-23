@@ -14,12 +14,44 @@ pub fn rel(op: RelOp, a: &Expr, b: &Expr) -> Expr {
     Expr::from_kind(Kind::Rel(op, a.clone(), b.clone()))
 }
 
+/// SymPy's `_eval_is_eq(ImmutableDenseMatrix, ImmutableDenseMatrix)`:
+/// different shapes are unequal, otherwise `(lhs - rhs).is_zero_matrix`
+/// (False when an entry is nonzero, True when all are zero, else None).
+fn explicit_matrix_equality(a: &Expr, b: &Expr) -> Option<bool> {
+    use crate::matrixexpr::MatrixKind;
+    let explicit = |e: &Expr| match e.kind() {
+        Kind::Func(crate::Func::MatrixProxy(m), _) => match m.kind() {
+            MatrixKind::Explicit(x) => Some(x.clone()),
+            _ => None,
+        },
+        _ => None,
+    };
+    let (x, y) = (explicit(a)?, explicit(b)?);
+    if x.shape() != y.shape() {
+        return Some(false);
+    }
+    let mut all_zero = true;
+    for (p, q) in x.data().iter().zip(y.data()) {
+        match crate::assumptions::fact(&sub(p, q), "zero") {
+            Some(true) => {}
+            Some(false) => return Some(false),
+            None => all_zero = false,
+        }
+    }
+    if all_zero { Some(true) } else { None }
+}
+
 fn decide(op: RelOp, a: &Expr, b: &Expr) -> Option<bool> {
     use crate::expr::Constant;
     if a.is_constant(Constant::NaN) || b.is_constant(Constant::NaN) {
         return match op { RelOp::Eq=>Some(false),RelOp::Ne=>Some(true),_=>None };
     }
     let equality = matches!(op, RelOp::Eq | RelOp::Ne);
+    if equality {
+        if let Some(value) = explicit_matrix_equality(a, b) {
+            return Some(value == (op == RelOp::Eq));
+        }
+    }
     // SymPy's is_ge decides an ordering of symbolic sides only when both
     // are extended real (`y < y` stays unevaluated for a complex `y`).
     let extended_real = |e: &Expr| crate::assumptions::fact(e, "extended_real") == Some(true);

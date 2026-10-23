@@ -28,7 +28,7 @@ def count_ops(expression, visual=False):
 
 
 def _count_ops(expression, visual=False):
-    from . import S, Symbol, Add, fraction, MatrixExpr, Matrix, Set, sympify
+    from . import S, Symbol, Add, fraction, MatrixExpr, DenseMatrix as Matrix, Set, sympify
     from ._core import Expr
     from ._matrixexpr_methods import _children
 

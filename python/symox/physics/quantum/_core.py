@@ -238,7 +238,7 @@ _nc_adjoint_module.adjoint.__name__='Dagger'
 
 
 def Dagger(expr):
-    if isinstance(expr,S.Matrix):return expr.conjugate().T
+    if isinstance(expr,S.DenseMatrix):return expr.conjugate().T
     if isinstance(expr,InnerProduct):return expr._adjoint_product()
     if isinstance(expr,DaggerAtom):return expr.argument
     if isinstance(expr,StateBase):
@@ -542,7 +542,7 @@ def _tensor_factor_terms(value):
 
 
 def TensorProduct(*args):
-    if args and all(isinstance(v,S.Matrix) for v in args):return S.kronecker_product(*args)
+    if args and all(isinstance(v,S.DenseMatrix) for v in args):return S.kronecker_product(*args)
     if not args:return S.Integer(1)
     result=S.Integer(0)
     for combination in product(*(_tensor_factor_terms(v) for v in args)):
@@ -718,7 +718,7 @@ def _represent_atom(atom,**options):
 
 
 def _flatten_scalar(value):
-    if isinstance(value,S.Matrix) and value.shape==(1,1):return value[0]
+    if isinstance(value,S.DenseMatrix) and value.shape==(1,1):return value[0]
     return value
 
 
@@ -750,9 +750,9 @@ def represent(expr,**options):
         value=_represent_word(word,**options)
         value=c*value;shape=getattr(value,'shape',shape);results.append(value)
     if shape is None:return S.Add(*results)
-    output=S.zeros(*shape) if all(isinstance(v,(S.Expr,S.Matrix)) for v in results) else None
+    output=S.zeros(*shape) if all(isinstance(v,(S.Expr,S.DenseMatrix)) for v in results) else None
     for value in results:
-        if isinstance(value,S.Expr) and not isinstance(value,S.Matrix):
+        if isinstance(value,S.Expr) and not isinstance(value,S.DenseMatrix):
             if shape[0]!=shape[1]:raise ValueError('cannot add scalar identity to a nonsquare state representation')
             value=value*S.eye(shape[0])
         output=value if output is None else output+value
@@ -790,7 +790,7 @@ def rep_expectation(expr,**options):
 
 def _integrate_word(word,result,**options):
     # Reference integrate_result over the enumerated unity coordinates.
-    if not isinstance(result,S.Expr) or isinstance(result,S.Matrix):return result
+    if not isinstance(result,S.Expr) or isinstance(result,S.DenseMatrix):return result
     options['replace_none']=True
     if 'basis' not in options:options['basis']=get_basis(word[-1],**options)
     elif not isinstance(options['basis'],StateBase):options['basis']=get_basis(word[-1],**options)

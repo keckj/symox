@@ -513,7 +513,7 @@ def _zero(value):
 
 
 def equals(self, other, failing_expression=False):
-    from . import MatrixExpr, Matrix
+    from . import MatrixExpr, DenseMatrix as Matrix
     if not isinstance(other, MatrixExpr):
         if isinstance(other, Matrix):
             other = MatrixExpr(other)

@@ -17,9 +17,9 @@ class MatrixSolve:
     def func(self):return type(self)
     def _symox_(self):return S.MatrixExpr(self.A).inv()*S.MatrixExpr(self.b)
     def doit(self,**hints):
-        if isinstance(self.A,S.Matrix) and isinstance(self.b,S.Matrix):return self.A.LUsolve(self.b)
+        if isinstance(self.A,S.DenseMatrix) and isinstance(self.b,S.DenseMatrix):return self.A.LUsolve(self.b)
         return self
-    def as_explicit(self):return self.doit() if isinstance(self.A,S.Matrix) else self._symox_().as_explicit()
+    def as_explicit(self):return self.doit() if isinstance(self.A,S.DenseMatrix) else self._symox_().as_explicit()
     def rewrite(self,*args,**kwargs):return self._symox_()
     def __getitem__(self,key):return self._symox_()[key]
     def __mul__(self,value):return self._symox_()*value

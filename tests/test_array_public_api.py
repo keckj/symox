@@ -29,6 +29,9 @@ def test_scalar_operations_dispatch_entrywise(name,kind):
     assert operation(array)==array.applyfunc(operation)
     # SymPy sympifies a mutable array to its immutable counterpart first.
     expected=sx.ImmutableDenseNDimArray if kind is sx.MutableDenseNDimArray else kind
+    # SymPy 1.14: simplify(MutableDenseMatrix) is an ImmutableDenseMatrix.
+    if kind is sx.Matrix and name=='simplify':
+        expected=sx.ImmutableMatrix
     assert isinstance(operation(array),expected)
     assert operation(x).to_sympy()==getattr(sp,name)(sp.Symbol('x'))
 

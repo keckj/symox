@@ -28,7 +28,7 @@ def _trace(indices):
     return result
 
 def gamma_trace(t):
-    if isinstance(t, S.Matrix):return t.trace()
+    if isinstance(t, S.DenseMatrix):return t.trace()
     if isinstance(t, TensAdd):return sum((gamma_trace(term) for term in t.args),S.Integer(0))
     coefficient, factors = _parts(t)
     indices = [f.indices[0] for f in factors if f.component==GammaMatrix]
@@ -58,7 +58,7 @@ def _reduce(expression):
 
 def kahane_simplify(expression):
     """Eliminate contracted gamma pairs using the four-dimensional Clifford relation."""
-    if isinstance(expression,S.Matrix):return expression
+    if isinstance(expression,S.DenseMatrix):return expression
     result = _reduce(expression)
     if isinstance(result,TensExpr):return result
     return result*S.eye(4)

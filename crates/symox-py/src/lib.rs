@@ -2160,9 +2160,13 @@ impl PyExprNode {
         }
     }
     #[getter]
-    fn arg(&self)->PyResult<PyExpr>{
+    fn arg(&self,py:Python<'_>)->PyResult<PyObject>{
+        // SymPy's Trace.arg is the traced matrix.
+        if let Kind::Func(Func::MatrixTrace(parent), _) = self.e.kind() {
+            return expr_object(py, matrix_proxy((**parent).clone()));
+        }
         match symox::ask::as_applied(&self.e){
-            Some((_,[arg]))=>Ok(wrap(arg.clone())),
+            Some((_,[arg]))=>Ok(wrap(arg.clone()).into_pyobject(py)?.into_any().unbind()),
             Some(_)=>Err(PyTypeError::new_err("arg is allowed only for unary predicates")),
             None=>Err(pyo3::exceptions::PyAttributeError::new_err("only applied predicates have arg")),
         }

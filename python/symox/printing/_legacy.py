@@ -65,8 +65,13 @@ class LegacyPrinter(Printer):
             method = getattr(self, "_print_Symbol", None)
         if method is not None:
             return method(expr, **kwargs)
+        from .. import _core
         for cls in type(expr).__mro__:
             method = getattr(self, "_print_" + cls.__name__, None)
+            if method is None and cls is _core.Matrix:
+                # The native dense base (DenseMatrix) keeps the printers'
+                # historical ``_print_Matrix`` handlers.
+                method = getattr(self, "_print_Matrix", None)
             if method is not None:
                 return method(expr, **kwargs)
         return self.emptyPrinter(expr)

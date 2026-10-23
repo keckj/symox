@@ -147,7 +147,7 @@ def _arguments(args, backend="PyTorch"):
 
 def _expressions(exprs):
     import numpy as np
-    from symox import Matrix, sympify, _core
+    from symox import DenseMatrix as Matrix, sympify, _core
 
     leaves = []
 
