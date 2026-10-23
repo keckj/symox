@@ -19,12 +19,42 @@ def _cache(K):
     entry = _state.get(id(K))
     if entry is None or entry[0] is not K:
         entry = (K, {'orig_ext': None, 'maximal_order': None,
-                     'discriminant': None, 'nilradicals': {}})
+                     'discriminant': None, 'nilradicals': {}, 'minpoly': None})
         _state[id(K)] = entry
     return entry[1]
 
 
+def _symbolic_root_field(self, T, root, alias):
+    """The reference ``QQ.algebraic_field((T, theta))``: a root named by a
+    Symbol of the polynomial ``T``. The native field needs a numeric root;
+    any root of an irreducible ``T`` generates an isomorphic field, so the
+    last ``CRootOf`` is used (as ``alg_field_from_poly``) under the alias
+    ``theta``, keeping ``T`` itself as the defining polynomial."""
+    from ... import Poly, CRootOf
+    if not isinstance(T, Poly):
+        T = Poly(T)
+    if not T.is_univariate or not (T.domain.is_ZZ or T.domain.is_QQ):
+        raise NotImplementedError('a symbolic algebraic generator needs a univariate rational polynomial')
+    if not T.is_irreducible:
+        raise NotImplementedError('a symbolic algebraic generator needs an irreducible polynomial')
+    K = _native_algebraic_field(self, CRootOf(T.as_expr(), T.degree() - 1), alias=alias if alias is not None else root)
+    state = _cache(K)
+    state['orig_ext'] = (root,)
+    state['minpoly'] = T
+    return K
+
+
+def defining_poly(K):
+    """The defining polynomial of the field (``K.ext.minpoly_of_element()``),
+    or the polynomial given with a symbolic generator."""
+    stored = _cache(K).get('minpoly')
+    return stored if stored is not None else K.ext.minpoly_of_element()
+
+
 def algebraic_field(self, *extension, alias=None):
+    if (len(extension) == 1 and isinstance(extension[0], tuple) and len(extension[0]) == 2
+            and getattr(self, 'is_QQ', False) and getattr(extension[0][1], 'is_Symbol', False)):
+        return _symbolic_root_field(self, extension[0][0], extension[0][1], alias)
     K = _native_algebraic_field(self, *extension, alias=alias)
     if getattr(K, 'is_AlgebraicField', False) and getattr(self, 'is_QQ', False):
         if len(extension) == 1 and isinstance(extension[0], tuple):
@@ -104,7 +134,7 @@ def primes_above(self, p):
 
 
 def galois_group(self, by_name=False, max_tries=30, randomize=False):
-    return self.ext.minpoly_of_element().galois_group(
+    return defining_poly(self).galois_group(
         by_name=by_name, max_tries=max_tries, randomize=randomize)
 
 

@@ -466,6 +466,8 @@ class _CalculusMeta(type):
     def class_key(cls):return (5,0,cls.__name__)
 
     def __instancecheck__(cls, value):
+        if cls.__name__ == 'Integral' and type(value).__name__ == 'ShapedIntegral':
+            return True
         return isinstance(value, _core.Expr) and getattr(value, 'is_'+cls.__name__, False)
 
     __subclasscheck__ = _ExprType.__subclasscheck__
@@ -486,6 +488,9 @@ class Integral(metaclass=_CalculusMeta):
         hook = _user_hook(function, '_eval_Integral')
         if hook is not None:
             return hook(*limits)
+        from .integrals._shaped import is_shaped_integrand, ShapedIntegral
+        if is_shaped_integrand(function):
+            return ShapedIntegral(function, tuple(_flatten_limit(limit) for limit in limits))
         if not limits:
             f = sympify(function)
             free = getattr(f, 'free_symbols', None)
@@ -1231,6 +1236,11 @@ class Set(metaclass=_node_types.WrapperType):
         return self._e.is_Atom
 
     def __new__(cls, *args):
+        if cls is Set:
+            # SymPy's abstract ``Set(*args)`` is a bare Basic node.
+            obj = object.__new__(cls)
+            obj._e = _core._apply('Set', *(sympify(_unwrap(a)) for a in args))
+            return obj
         raise TypeError("use a concrete set class")
 
     # conversions -----------------------------------------------------------
@@ -1526,6 +1536,11 @@ class FiniteSet(Set):
     is_FiniteSet = True
 
     def __new__(cls, *args):
+        if args and all(type(a).__module__ == 'symox.categories.baseclasses' for a in args):
+            # Category objects, morphisms and diagrams are not expressions:
+            # hold them in the finite set the categories module compares with.
+            from .categories.baseclasses import _MorphismSet
+            return _MorphismSet(args)
         return _wrap_set(_core.FiniteSet(*[_unwrap(a) for a in args]))
 
     def __iter__(self):
@@ -1616,6 +1631,11 @@ class _LambdaMeta(type):
                 raise TypeError("IdentityFunction takes no constructor options")
             value = _core._apply("IdentityFunction", *args)
         else:
+            if (len(args) == 2 and not kwargs and getattr(args[1], 'is_Matrix', False)
+                    and not isinstance(args[1], _core.Expr)):
+                # An explicit matrix body (the reference ImmutableDenseMatrix).
+                from ._matrix_lambda import MatrixLambda
+                return MatrixLambda(*args)
             value = _core.Lambda(*args, **kwargs)
         if value.is_IdentityFunction:
             if _identity_lambda is None:
@@ -1624,6 +1644,8 @@ class _LambdaMeta(type):
         return value
 
     def __instancecheck__(cls, value):
+        if cls is Lambda and type(value).__name__ == 'MatrixLambda' and type(value).__module__ == 'symox._matrix_lambda':
+            return True
         if type(value) is Lambda or type(value) is IdentityFunction:
             return cls is Lambda or value._e.is_IdentityFunction
         return isinstance(value, _core.Expr) and (value.is_IdentityFunction if cls is IdentityFunction else value.is_Lambda)

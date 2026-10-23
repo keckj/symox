@@ -15,7 +15,7 @@ class _SpinState:
     axis='z'
     def _spin_init(self,j,m):
         self.j,self.m=S.sympify(j),S.sympify(m)
-        if self.j.is_number and self.m not in m_values(self.j)[1]:raise ValueError('magnetic quantum number lies outside the spin multiplet')
+        if self.j.is_number and self.m.is_number and self.m not in m_values(self.j)[1]:raise ValueError('magnetic quantum number lies outside the spin multiplet')
     def _basis_axis(self,basis):
         if basis is None:return self.axis
         if isinstance(basis,type) and issubclass(basis,_SpinOperator):basis=basis.axis
@@ -335,9 +335,17 @@ def _uncouple(state,jn,jcoupling_list):
     j,m=state.j,state.m;coupling_list=[];j_list=list(jn)
     for j3,(n1,n2) in zip(coupled_jn,coupled_n):
         j1=j_list[n1[0]-1];j2=j_list[n2[0]-1];coupling_list.append((n1,n2,j1,j2,S.sympify(j3)));j_list[min(n1+n2)-1]=j3
-    if not (j.is_number and m.is_number and all(x.is_number for x in jn)):
-        # The reference returns a held Sum of CG coefficients times states.
-        raise NotImplementedError('uncoupling symbolic spins (a Sum over m values) is not supported')
+    if not (j.is_number and m.is_number):
+        # Reference symbolic uncoupling: a held Sum over the m values.
+        from .cg import CG
+        mvals=S.symbols('m1:%d'%(len(jn)+1))
+        cg_terms=[(j1,S.Add(*[mvals[n-1] for n in j1_n]),j2,S.Add(*[mvals[n-1] for n in j2_n]),j3,S.Add(*[mvals[n-1] for n in j1_n+j2_n]))
+                  for j1_n,j2_n,j1,j2,j3 in coupling_list[:-1]]
+        j1_n,j2_n,j1,j2,_=coupling_list[-1]
+        cg_terms.append((j1,S.Add(*[mvals[n-1] for n in j1_n]),j2,S.Add(*[mvals[n-1] for n in j2_n]),j,m))
+        coefficient=S.Mul(*[CG(*t) for t in cg_terms])
+        state=TensorProduct(*[evect(ji,mi) for ji,mi in zip(jn,mvals)])
+        return _SpinSum(coefficient*state,*[(mi,-ji,ji) for ji,mi in zip(jn,mvals)])
     diff_max=[2*x for x in jn];diff=S.Add(*jn)-m;n=len(jn);result=S.Integer(0)
     for config_num in range(int(S.binomial(diff+n-1,diff))):
         diff_list=_confignum_to_difflist(config_num,diff,n)
@@ -367,8 +375,17 @@ def _couple(tp,jcoupling_list):
     for n1,n2 in jcoupling_list:
         j1_n=list(n_list[n1-1]);j2_n=list(n_list[n2-1]);coupling_list.append((j1_n,j2_n));n_list[min(n1,n2)-1]=sorted(j1_n+j2_n)
     if not all(state.j.is_number and state.m.is_number for state in states):
-        # The reference returns a held Sum over the coupled j values.
-        raise NotImplementedError('coupling symbolic spins (a Sum over j values) is not supported')
+        # Reference symbolic coupling: a held Sum over the coupled j values.
+        from .cg import CG
+        cg_terms=[];jcoupling=[];sum_terms=[];coupled_j=list(jn)
+        for j1_n,j2_n in coupling_list:
+            j1=coupled_j[min(j1_n)-1];j2=coupled_j[min(j2_n)-1]
+            j3=S.Symbol('j') if len(j1_n+j2_n)==len(states) else S.Symbol('j'+''.join('%s'%n for n in j1_n+j2_n))
+            coupled_j[min(j1_n+j2_n)-1]=j3
+            m1=S.Add(*[mn[x-1] for x in j1_n]);m2=S.Add(*[mn[x-1] for x in j2_n]);m3=m1+m2
+            cg_terms.append((j1,m1,j2,m2,j3,m3));jcoupling.append((min(j1_n),min(j2_n),j3));sum_terms.append((j3,m3,j1+j2))
+        coefficient=S.Mul(*[CG(*t) for t in cg_terms])
+        return _SpinSum(coefficient*coupled_evect(j3,m3,jn,jcoupling),*sum_terms)
     diff_max=[S.Add(*[jn[n-1]-mn[n-1] for n in coupling[0]+coupling[1]]) for coupling in coupling_list]
     result=S.Integer(0)
     for diff in range(int(diff_max[-1])+1):
@@ -388,6 +405,57 @@ def _couple(tp,jcoupling_list):
             coefficient=S.Mul(*[_cg(*t) for t in cg_terms])
             if coefficient:result+=coefficient*coupled_evect(j3,m3,jn,jcoupling)
     return result
+
+
+class _SpinSum:
+    """The reference held ``Sum`` of CG coefficients times spin states, as
+    returned by symbolic ``couple`` and ``uncouple``. Arithmetic other than
+    scaling is refused."""
+    def __init__(self,function,*limits,coeff=S.Integer(1)):
+        self.function=function;self.limits=tuple(tuple(S.sympify(x) for x in l) for l in limits);self.coeff=S.sympify(coeff)
+    @property
+    def args(self):return (self.function,)+tuple(S.Tuple(*l) for l in self.limits)
+    @property
+    def variables(self):return [l[0] for l in self.limits]
+    @property
+    def free_symbols(self):
+        bound=set(self.variables);inner=set(self.function.free_symbols)-bound
+        return inner.union(*(x.free_symbols for l in self.limits for x in l[1:]),self.coeff.free_symbols)
+    def __eq__(self,other):
+        return isinstance(other,_SpinSum) and (self.coeff,self.function,self.limits)==(other.coeff,other.function,other.limits)
+    def __hash__(self):return hash((_SpinSum,self.coeff,self.function,self.limits))
+    def __str__(self):
+        from ...printing.str import sstr
+        body='Sum(%s, %s)'%(sstr(self.function),', '.join(sstr(S.Tuple(*l)) for l in self.limits))
+        if self.coeff==1:return body
+        mark=S.Symbol('\uffff')
+        return sstr(self.coeff*mark).replace('\uffff',body)
+    __repr__=__str__
+    def _scaled(self,other):
+        other=S.sympify(other)
+        if not isinstance(other,S.Expr) or not other.is_commutative or isinstance(other,(Atom,OperatorExpr)):
+            raise NotImplementedError('only scalar multiples of a held symbolic spin Sum are supported')
+        return _SpinSum(self.function,*self.limits,coeff=self.coeff*other)
+    def __mul__(self,other):return self._scaled(other)
+    __rmul__=__mul__
+    def __neg__(self):return self._scaled(-1)
+    def __add__(self,other):
+        if isinstance(other,(int,S.Expr)) and not isinstance(other,(Atom,OperatorExpr)) and S.sympify(other)==0:return self
+        raise NotImplementedError('sums involving a held symbolic spin Sum are not supported')
+    __radd__=__add__
+    def __truediv__(self,other):return self._scaled(1/S.sympify(other))
+    def subs(self,*args,**kwargs):
+        # Bound summation variables are not substituted (reference Sum).
+        mapping=dict(args[0]) if len(args)==1 else {args[0]:args[1]}
+        mapping={S.sympify(k):S.sympify(v) for k,v in mapping.items()}
+        inner={k:v for k,v in mapping.items() if k not in self.variables}
+        if not inner:return self
+        return _SpinSum(self.function.subs(inner,**kwargs),*[(l[0],)+tuple(x.subs(inner,**kwargs) for x in l[1:]) for l in self.limits],coeff=self.coeff.subs(inner,**kwargs))
+    def doit(self,**hints):
+        # The reference Sum.doit evaluates the summand first, and CG.doit
+        # rejects symbolic arguments: the summation variables are CG
+        # arguments, so the held Sum never evaluates.
+        raise ValueError('Coefficients must be numerical')
 
 
 def _map_atoms(expr,function):

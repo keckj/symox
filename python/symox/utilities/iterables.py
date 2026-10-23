@@ -147,6 +147,9 @@ def rotations(s, dir=1):
 
 
 def has_dups(seq):
+    from symox import Dict, Set
+    if isinstance(seq, (dict, set, frozenset, Dict, Set)):
+        return False
     seen=set()
     unhashable=[]
     previous_values=[]

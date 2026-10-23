@@ -32,6 +32,21 @@ from ..geometry import Point
 from ..ntheory.factor_ import core
 
 
+def _first_element(s):
+    """``next(iter(s))`` with the reference ``Complement.__iter__`` order.
+
+    The reference iterates ``Complement(A, B)`` as ``A`` with the members of
+    ``B`` skipped; here ``A`` is ``Integers`` (0, 1, -1, 2, -2, ...).
+    """
+    if isinstance(s, Complement) and s.args[0] == S.Integers:
+        excluded = s.args[1]
+        if excluded.is_FiniteSet or excluded == S.EmptySet:
+            for i in S.Integers:
+                if i not in excluded:
+                    return i
+    return next(iter(s))
+
+
 class _ReferenceImplicitRegion:
     def regular_point(self):
         equation = self.equation
@@ -156,7 +171,10 @@ class _ReferenceImplicitRegion:
             x, y, z = symbols("x y z")
             eq = a2*x**2 + b2*y**2 + c2*z**2
 
-            solutions = diophantine(eq)
+            # The reference parametric answer of diophantine(eq) (the
+            # public diophantine refuses this incomplete family).
+            from ._ternary_reference import ternary_normal_diophantine
+            solutions = ternary_normal_diophantine(a2, b2, c2)
 
             if len(solutions) == 0:
                 raise ValueError("Rational Point on the conic does not exist")
@@ -177,7 +195,7 @@ class _ReferenceImplicitRegion:
                     if len(syms_z) == 1:
                         p = next(iter(syms_z))
                         p_values = Complement(S.Integers, solveset(Eq(sol_z, 0), p, S.Integers))
-                        rep[p] = next(iter(p_values))
+                        rep[p] = _first_element(p_values)
 
                     if len(syms_z) == 2:
                         p, q = list(ordered(syms_z))
@@ -188,7 +206,7 @@ class _ReferenceImplicitRegion:
 
                             if not q_values.is_empty:
                                 rep[p] = i
-                                rep[q] = next(iter(q_values))
+                                rep[q] = _first_element(q_values)
                                 break
 
                     if len(syms) != 0:

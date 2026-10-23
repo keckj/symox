@@ -189,7 +189,8 @@ def round_two(T, radicals=None):
     """
     K = None
     if isinstance(T, AlgebraicField):
-        K, T = T, T.ext.minpoly_of_element()
+        from ..domains._algebraic_methods import defining_poly
+        K, T = T, defining_poly(T)
     if (   not T.is_univariate
         or not T.is_irreducible
         or T.domain not in [ZZ, QQ]):

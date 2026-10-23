@@ -287,9 +287,9 @@ def test_array_expression_converter_modules():
     N = sx.Symbol('N')
     Ms = [sx.MatrixSymbol(n, N, N) for n in 'CDAB']
     cg = convert_matrix_to_array(Ms[0]*Ms[1]*Ms[2]*Ms[3])
-    # The reference canonicalizes the sorted tensor product again.
-    with pytest.raises(NotImplementedError):
-        cg.sort_args_by_name()
+    # SymPy 1.14 canonical forms
+    assert str(cg) == 'ArrayContraction(ArrayTensorProduct(A, D, C, B), (0, 3), (1, 6), (2, 5))'
+    assert str(cg.sort_args_by_name()) == 'ArrayContraction(ArrayTensorProduct(A, D, B, C), (0, 3), (1, 4), (2, 7))'
 
 
 def test_replace_with_arrays_symbol_indices():

@@ -489,6 +489,9 @@ def _tensor_factor_repr(factor):
 class TensorProductAtom(Atom):
     def __init__(self,*factors):self.factors=tuple(factors);super().__init__(*factors)
     def _atom_repr(self):return 'x'.join(map(_tensor_factor_repr,self.factors))
+    def _subs_parameters(self,mapping,**kwargs):
+        # Substitute inside the factors (their labels), as the reference does.
+        return TensorProduct(*(f._subs_parameters(mapping,**kwargs) if isinstance(f,Atom) else f.subs(mapping,**kwargs) for f in self.factors))
     def _apply_to(self,state,**options):
         if not isinstance(state,TensorProductAtom) or len(self.factors)!=len(state.factors):return None
         return TensorProduct(*(qapply(a*b,**options) for a,b in zip(self.factors,state.factors)))
