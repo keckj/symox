@@ -376,6 +376,11 @@ pub fn simplify(e: &Expr) -> Expr {
     if e.is_atom() {
         return e.clone();
     }
+    // SymPy's simplify returns 0 at once for an expression known to be
+    // zero; a numeric value decides it exactly (root objects included).
+    if crate::functions::is_numeric_value(e) && crate::assumptions::is_zero(e) == Some(true) {
+        return Expr::zero();
+    }
     let mut trig_memo = crate::simp::TrigMemo::default();
     let t = crate::simp::trigsimp_cached(e, &mut trig_memo);
     // Zero is already the smallest possible result. In particular, do not

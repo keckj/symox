@@ -7103,3 +7103,62 @@ Remaining gaps:
   numerically singular`.
 - The machine-precision Newton fast path for systems still verifies each
   squared residual against `1e-14`, not against mpmath's tolerance.
+
+## Algebraic fields, root objects and inexact domains (algfield, 2026-10-23)
+
+Probes against SymPy 1.14 for TODO section 1 (algebraic domains in
+polynomial operations, polynomial rings and fraction fields, exact reduction
+of radicals and root objects, numeric/expression domain differences, EX root
+forms and nroots digits). Two probe sets went from 158/177 to 166/177
+and to 57/59 matches. Regression tests: `tests/test_algfield_parity.py`, with
+values hard-coded from SymPy 1.14.
+
+Implemented:
+
+- `gcd`, `lcm`, `div`, `cancel` and `factor` with `extension=True` accept
+  `CRootOf` coefficients over the same symbol as the generator, as SymPy
+  does. Explicit generators keep SymPy's `PolynomialError`.
+- `CRootOf` nodes evaluate natively in `evalf` from their isolating
+  enclosure. Their sign, `is_zero` and `equals` are decided exactly, so
+  `simplify`, `Max`, `Min`, `sign`, `Abs`, `floor` and `Piecewise` see the
+  same decisions as SymPy.
+- `simplify` returns 0 at once for a numeric expression known to be zero,
+  like SymPy's `simplify`.
+- The extended signs (`is_extended_positive` and the other three) of a finite
+  numeric non-atom delegate to the plain sign queries.
+- Integer roots follow `Integer._eval_power` prime by prime: perfect
+  powers are extracted, a remainder sharing a factor with the denominator
+  gives a reduced radical, and the other primes share one radical. For example,
+  `sqrt(8)`, `12**(2/3)` and `(2**6*3**4)**(1/4)` give SymPy's forms.
+- A Float coefficient is a factor of `Term`, both in `exprtools` and in
+  the `gcd_terms` used by `together`. `factor_terms`, `gcd_terms`,
+  `together` and `factor` over RR therefore pull out the float content as SymPy
+  does (`factor(2.0*x**2 - 2.0)` is `2.0*(x - 1)*(x + 1)`).
+- `apart` of an expression with Float coefficients is a port of SymPy's
+  `apart` with `apart_undetermined_coeffs` over RR/CC, without turning
+  floats into binary rationals.
+
+Intentional divergences:
+
+- `nroots` of a polynomial with an exact double root gives the double root
+  exactly. SymPy's floating iteration gives two nearby values.
+- `minimal_polynomial` of sums and products of `CRootOf` gives a result,
+  where SymPy 1.14 does not finish in a reasonable time. Symox `is_zero`
+  gives None on a case where SymPy also does not finish.
+
+Remaining gaps:
+
+- `apart` with a non-field coefficient domain and `factor(...,
+  extension=a**(1/3))` raise different error types than SymPy.
+- `nsimplify((-2)**(1/6))`: SymPy gives the expanded complex radical.
+- An explicit `Poly(..., domain=CC)` raises NotImplementedError, from the
+  inexact backend in `crates/symox-py/src/domains.rs`. An inferred CC domain
+  and `CC[y]` work.
+- `nsimplify(CRootOf(x**2 - 2, 1) - sqrt(2))` is kept. SymPy gives 0
+  through evalf chopping.
+- `gcd(Float, Float)` without generators raises.
+- `10**(2/3)*2**(1/3)` is not combined into `2*5**(2/3)`, because the Mul
+  combination of radicals with different bases is missing.
+- `apart(1/(x**2 + 1.0*I))` falls back to the native path and gives
+  `1/(x**2 + I)`.
+- `roots` dictionaries can differ in key order only.

@@ -148,3 +148,60 @@ def _apart_full(f, x=None, **options):
     for term in Add.make_args(partial):
         terms.append(term if term.has(RootSum) else factor(term))
     return common*(poly.as_expr() + Add(*terms))
+
+
+def _apart_inexact(f, x=None, **options):
+    """SymPy's ``apart`` for an expression with Float coefficients.
+
+    Ported from ``sympy/polys/partfrac.py`` (BSD-3-Clause, see
+    LICENSE-SYMPY): the decomposition stays over the inexact domain (RR or
+    CC) by undetermined coefficients, so floats are not turned into exact
+    binary rationals. Returns None when the native path should decide.
+    """
+    from .. import Add, Dummy, Float, S, factor, numbered_symbols, solve, sympify
+    from .. import Expr
+    if options:
+        return None
+    f = sympify(f)
+    if not isinstance(f, Expr) or f.is_Atom or not f.is_commutative or not f.has(Float):
+        return None
+    P, Q = f.as_numer_denom()
+    gens = () if x is None else (x,)
+    try:
+        (P, Q), opt = parallel_poly_from_expr((P, Q), *gens, extension=True)
+    except Exception:
+        return None
+    if P.is_multivariate or P.get_domain().is_Exact:
+        return None
+    common, P, Q = P.cancel(Q)
+    poly, P = P.div(Q, auto=True)
+    P, Q = P.rat_clear_denoms(Q)
+    if Q.degree() <= 1:
+        partial = P.as_expr()/Q.as_expr()
+    else:
+        X = numbered_symbols(cls=Dummy)
+        partial, symbols = [], []
+        _, factors = Q.factor_list()
+        for g, k in factors:
+            n, q = g.degree(), Q
+            for i in range(1, k + 1):
+                coeffs = [next(X) for _ in range(n)]
+                q = q.quo(g)
+                partial.append((coeffs, q, g, i))
+                symbols.extend(coeffs)
+        dom = Q.get_domain().inject(*symbols)
+        F = Poly(0, Q.gen, domain=dom)
+        for i, (coeffs, q, g, k) in enumerate(partial):
+            h = Poly(coeffs, Q.gen, domain=dom)
+            partial[i] = (h, g, k)
+            F += h*q.set_domain(dom)
+        system = [coeff - P.nth(k) for (k,), coeff in F.terms()]
+        solution = solve(system, symbols)
+        result = S.Zero
+        for h, g, k in partial:
+            result += h.as_expr().subs(solution)/g.as_expr()**k
+        partial = result
+    terms = S.Zero
+    for term in Add.make_args(partial):
+        terms += factor(term)
+    return common*(poly.as_expr() + terms)

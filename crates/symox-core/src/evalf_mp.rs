@@ -557,6 +557,16 @@ fn ev_uncached(e: &Expr, p: u32) -> Option<MpComplex> {
             let value=head.host()?.evalf(e,p)?;
             ev(&value,p)?
         },
+        // A root object: the midpoint of a certified enclosure finer than
+        // the working precision (the reference refines its isolating
+        // interval in `_eval_evalf`).
+        Kind::Func(Func::Undefined(_),_) if crate::poly::rootof::is_rootof(e) => {
+            let (expr,index)=crate::poly::rootof::parts(e)?;
+            let (_,f)=crate::poly::rootof::integer_poly(&expr)?;
+            let enclosure=crate::poly::enclosure::root_enclosure(&f,index,p.saturating_add(16))?;
+            let (re,im)=enclosure.mid(p);
+            MpComplex{re,im}
+        },
         Kind::Func(f, args) => func(f, args, p)?,
         _ => return None,
     })
