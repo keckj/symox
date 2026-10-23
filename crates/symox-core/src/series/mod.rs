@@ -14,6 +14,7 @@
 //! (`exp`, `log`, powers, `sin`/`cos`, `tan`, inverse functions through
 //! `F(a) = F(a0) + ∫ F'(a) a'`), never by repeated differentiation.
 
+pub mod asym;
 pub mod coeff;
 pub mod engine;
 pub mod order;

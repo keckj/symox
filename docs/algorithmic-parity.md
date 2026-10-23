@@ -8540,3 +8540,57 @@ Remaining (documented gaps):
   the native `_MatrixExpr` class from `type()` and `__class__`.
 
 Tests: `tests/test_mat_rest3_parity.py`.
+
+## liminf (wave 10): limits of special functions at infinite arguments
+
+Implemented:
+- Gruntz preparation rewrites a special function whose argument tends to
+  +-oo the way SymPy's `_eval_rewrite_as_tractable` does: an elementary
+  part (exponentials, oscillating sin/cos, constants) times an auxiliary
+  function that has an asymptotic series in 1/z (`_erfs`, `_eis` and the
+  `_eval_aseries` of Si/Ci, expint and the Fresnel integrals). This covers
+  erf, erfc, erfi, Ei, li and Li (also at 0+), Si, Ci, Shi, Chi,
+  expint(nu, z), E1, uppergamma, lowergamma, fresnels and fresnelc
+  (`series/asym.rs`, `limits/gruntz.rs`). An auxiliary function never
+  escapes: a limit value that still contains one is left unevaluated.
+- The bounded heuristic (oscillating sin/cos replaced by parameters) runs
+  on the prepared expression, so `limit(Si(x) + erf(x), x, oo)` and the
+  other Si/Ci/Fresnel combinations get the rewrite's sin/cos.
+- Series of Si, Shi, erfi, fresnels and fresnelc at 0 and at finite points
+  through the derivative integral (`ser_entire_integral`). The results
+  match SymPy term for term, e.g. `limit((Si(x) - x)/x**3, x, 0) = -1/18`.
+- `integrate(log(log(x))/x**2, (x, 1, oo)) = -EulerGamma`,
+  `integrate(sqrt(log(1/x)), (x, 0, 1)) = sqrt(pi)/2` and
+  `limit(li(x) - li(2*x), x, 0) = 0`, as in SymPy.
+- Fraction-field coefficients follow `FracField._rebuild_expr`: a power
+  `b**e` is read as `g**(e/eg)` for a generator `g = b**eg`, so over
+  `ZZ(exp(1/2))`, `E` is `exp(1/2)**2`. This is only a fallback after the
+  direct conversion fails. With it, risch sees a single transcendental in
+  `integrate(1/(1 + exp(x - 1/2)/(1 + exp(x))), x)`, which used to never
+  finish and now returns SymPy's result in a few hundredths of a second.
+- Probe of 71 limits: 15 equal to SymPy before, 61 after. Of the other
+  10, 9 are the corrections below and 1 is still unevaluated.
+
+Intentional divergences (SymPy 1.14 is wrong or unevaluated; the values
+were checked with mpmath at x = 200):
+- `limit(expint(n, x), x, oo)` for n = 1, 2, 3 is 0. SymPy gives
+  `expint(1, oo)`, `-oo*I` and `oo*I`.
+- `limit(Chi(x)*x*exp(-x), x, oo)` and `limit(Shi(x)*x*exp(-x), x, oo)`
+  are 1/2. SymPy gives 0.
+- `limit(expint(a, x)*x*exp(x), x, oo) = 1` for a positive. SymPy gives
+  `oo*sign(expint(a, 1/_w))`.
+- SymPy leaves these unevaluated, and symox gives the value:
+  `x*exp(x)*expint(1, x)` -> 1, `erfc(x)/erfc(2*x)` -> oo and
+  `Shi(x) - Chi(x)` -> 0.
+- Equivalent form: `limit(lowergamma(a, x), x, oo)` gives `gamma(a)`.
+  SymPy gives `lowergamma(a, oo)`.
+
+Remaining (left unevaluated, never a wrong value):
+- AccumBounds limits of an oscillating rewrite times a growing factor:
+  `limit(x*Ci(x), x, oo)`, `limit(x*(Si(x) - pi/2), x, oo)` (SymPy:
+  AccumBounds(-1, 1)) and `limit(x*(fresnels(x) - 1/2), x, oo)` (SymPy:
+  AccumBounds(-1, 1)/pi).
+- Unchanged and not from this wave: `limit(x*sin(x), x, oo)` gives
+  AccumBounds(-oo, oo). SymPy gives `oo*sign(AccumBounds(-1, 1))`.
+
+Tests: `tests/test_liminf_parity.py`.

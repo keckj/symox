@@ -221,6 +221,9 @@ impl Gruntz {
     fn prepare_node(&mut self, e: &Expr) -> LRes<Expr> {
         let x = self.x.clone();
         let two = Expr::int(2);
+        if let Some(r) = self.infinite_argument_tractable(e) {
+            return self.prepare(&r);
+        }
         Ok(match e.kind() {
             // `x -> oo` is a positive variable in the reference gruntz, so a
             // Heaviside or DiracDelta whose argument has an eventual sign
@@ -295,6 +298,140 @@ impl Gruntz {
                 }
             }
             _ => e.clone(),
+        })
+    }
+
+    /// Tractable forms of the error functions, exponential, logarithmic,
+    /// trigonometric and Fresnel integrals and of the incomplete gamma
+    /// functions whose argument tends to `±oo` (`li` also at `0+`): the
+    /// reference `_eval_rewrite_as_tractable` (`erf`, `erfc`, `erfi`, `Ei`,
+    /// `li`, `Li`, `uppergamma`, with `_erfs` and `_eis`) and the
+    /// `_eval_aseries` of `Si`, `Ci`, `expint`, `fresnels` and `fresnelc`,
+    /// written with the auxiliary functions of [`crate::series::asym`]
+    /// that the series engine expands in powers of `1/z`. `Shi` and `Chi`
+    /// are `(Ei(z) -+ Ei(-z))/2` (plus `I*pi` for `Chi` at `-oo`).
+    fn infinite_argument_tractable(&mut self, e: &Expr) -> Option<Expr> {
+        use crate::series::asym::Asym;
+        use crate::special::SpecialFn as S;
+        let Kind::Func(f, args) = e.kind() else { return None };
+        let x = self.x.clone();
+        let z = args.last()?;
+        if !depends(z, &x) || args[..args.len() - 1].iter().any(|a| depends(a, &x)) {
+            return None;
+        }
+        let interesting = matches!(f, Func::Erf | Func::Erfc)
+            || matches!(f, Func::Special(
+                S::Erfi | S::Ei | S::Li | S::LiOffset | S::Si | S::Ci | S::Shi | S::Chi | S::Expint
+                    | S::E1 | S::UpperGamma | S::LowerGamma | S::FresnelS | S::FresnelC));
+        if !interesting {
+            return None;
+        }
+        let l = self.limitinf(z).ok()?;
+        let s: i64 = if l.is_constant(Constant::Infinity) {
+            1
+        } else if l.is_constant(Constant::NegInfinity) {
+            -1
+        } else {
+            0
+        };
+        let one = Expr::one();
+        let two = Expr::int(2);
+        let half = Expr::rational(1, 2);
+        let ipi = mul2(&Expr::i(), &Expr::pi());
+        let eis = |u: &Expr| mul2(&fx::exp(u), &Asym::Eis.apply(vec![u.clone()]));
+        let mz = neg(z);
+        // `uppergamma(a, z) = z**a*exp(-z)*expints(1 - a, z)`
+        let upper = |a: &Expr| {
+            let nu = sub(&one, a);
+            mul(&[pow(z, a), fx::exp(&mz), Asym::Expints.apply(vec![nu, z.clone()])])
+        };
+        if s == 0 {
+            // li(z) = z*_eis(log(z)) for z -> 0+
+            if matches!(f, Func::Special(S::Li | S::LiOffset)) && l.is_zero() && self.sign(z).ok()? == 1 {
+                let r = mul2(z, &Asym::Eis.apply(vec![fx::log(z)]));
+                return Some(if matches!(f, Func::Special(S::LiOffset)) {
+                    sub(&r, &crate::special::apply(S::Li, vec![two]))
+                } else {
+                    r
+                });
+            }
+            return None;
+        }
+        let sz = Expr::int(s);
+        Some(match f {
+            Func::Erf | Func::Erfc => {
+                let z2 = pow(z, &two);
+                // erf(z) = s - _erfs(s*z)*exp(-z**2)
+                let tail = mul2(&Asym::Erfs.apply(vec![mul2(&sz, z)]), &fx::exp(&neg(&z2)));
+                let erf = sub(&sz, &mul2(&sz, &tail));
+                if *f == Func::Erf {
+                    erf
+                } else {
+                    sub(&one, &erf)
+                }
+            }
+            Func::Special(S::Erfi) => mul2(&Asym::Erfis.apply(vec![z.clone()]), &fx::exp(&pow(z, &two))),
+            Func::Special(S::Ei) => eis(z),
+            Func::Special(S::Li | S::LiOffset) if s == 1 => {
+                let r = mul2(z, &Asym::Eis.apply(vec![fx::log(z)]));
+                if matches!(f, Func::Special(S::LiOffset)) {
+                    sub(&r, &crate::special::apply(S::Li, vec![two]))
+                } else {
+                    r
+                }
+            }
+            Func::Special(S::Si) => {
+                let fz = Asym::SiF.apply(vec![z.clone()]);
+                let gz = Asym::SiG.apply(vec![z.clone()]);
+                add(&[
+                    mul(&[sz, half, Expr::pi()]),
+                    neg(&mul2(&fx::cos(z), &fz)),
+                    neg(&mul2(&fx::sin(z), &gz)),
+                ])
+            }
+            Func::Special(S::Ci) => {
+                let fz = Asym::SiF.apply(vec![z.clone()]);
+                let gz = Asym::SiG.apply(vec![z.clone()]);
+                let r = sub(&mul2(&fx::sin(z), &fz), &mul2(&fx::cos(z), &gz));
+                if s == 1 {
+                    r
+                } else {
+                    add(&[r, ipi])
+                }
+            }
+            Func::Special(S::Shi) => div(&sub(&eis(z), &eis(&mz)), &two),
+            Func::Special(S::Chi) => {
+                let r = div(&add(&[eis(z), eis(&mz)]), &two);
+                if s == 1 {
+                    r
+                } else {
+                    add(&[r, ipi])
+                }
+            }
+            Func::Special(S::Expint) if s == 1 => {
+                mul2(&fx::exp(&mz), &Asym::Expints.apply(vec![args[0].clone(), z.clone()]))
+            }
+            Func::Special(S::E1) if s == 1 => mul2(&fx::exp(&mz), &Asym::Expints.apply(vec![one, z.clone()])),
+            Func::Special(S::UpperGamma) if s == 1 => upper(&args[0]),
+            Func::Special(S::LowerGamma) if s == 1 => {
+                let g = crate::functions::func(Func::Gamma, vec![args[0].clone()]);
+                if !is_finite_limit(&g) {
+                    return None;
+                }
+                sub(&g, &upper(&args[0]))
+            }
+            Func::Special(S::FresnelS | S::FresnelC) => {
+                let ph = mul(&[half.clone(), Expr::pi(), pow(z, &two)]);
+                let fz = Asym::FresF.apply(vec![z.clone()]);
+                let gz = Asym::FresG.apply(vec![z.clone()]);
+                let base = mul2(&sz, &half);
+                if matches!(f, Func::Special(S::FresnelS)) {
+                    add(&[base, neg(&mul2(&fx::cos(&ph), &fz)), neg(&mul2(&fx::sin(&ph), &gz))])
+                } else {
+                    add(&[base, mul2(&fx::sin(&ph), &fz), neg(&mul2(&fx::cos(&ph), &gz))])
+                }
+            }
+            _ => return None,
         })
     }
 
