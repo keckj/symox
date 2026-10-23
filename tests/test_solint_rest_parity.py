@@ -125,12 +125,10 @@ def test_limit_of_log_singular_difference_is_never_nan():
 
 
 def test_reals_never_false_empty_for_transcendental_candidates():
-    # SymPy: {3}; symox misses the real inverter of a negative base and
-    # must not turn its complex candidate into EmptySet
-    from symox import Eq
+    # SymPy: {3} (the real inverter of a negative base, simp-rest2)
+    from symox import Eq, FiniteSet
     r = solveset(Eq((-5)**(x + 1), 625), x, S.Reals)
-    assert r != S.EmptySet
-    assert str(r).startswith('Intersection(')
+    assert r == FiniteSet(3)
 
 
 def test_bivariate_type_dependent_generators():
