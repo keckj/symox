@@ -31,6 +31,9 @@ pub enum Number {
 
 use Number::*;
 
+/// Zero or a finite double with a full 53-bit significand.
+fn is_normal_double(v: f64) -> bool { v == 0.0 || v.is_normal() }
+
 impl Number {
     pub const ZERO: Number = Int(0);
     pub const ONE: Number = Int(1);
@@ -85,6 +88,20 @@ impl Number {
 
     fn mixed_precision(&self, other: &Number) -> u32 {
         self.float_precision().unwrap_or(0).max(other.float_precision().unwrap_or(0))
+    }
+
+    /// Whether a double precision operation `a op b = r` left the normal
+    /// double range (overflow to inf, underflow to a subnormal or to zero,
+    /// or an exact operand that is not a normal double) although every
+    /// operand is finite. SymPy's mpmath floats have unbounded exponents,
+    /// so such results must be recomputed with a wide exponent.
+    fn double_overflow(&self, a: f64, o: &Number, b: f64, r: f64, additive: bool) -> bool {
+        if !a.is_finite() && matches!(self, Float(_)) || !b.is_finite() && matches!(o, Float(_)) { return false; }
+        let operand_ok = |v: f64, n: &Number| matches!(n, Float(_)) || (is_normal_double(v) && (v == 0.0) == n.is_zero());
+        if !operand_ok(a, self) || !operand_ok(b, o) { return true; }
+        if !r.is_finite() { return true; }
+        if additive { return false; }
+        r == 0.0 && a != 0.0 && b != 0.0 || r != 0.0 && !r.is_normal()
     }
 
     /// Result of floating point arithmetic: like SymPy, an exact zero
@@ -292,8 +309,14 @@ impl Number {
                 Some(v) => Int(v),
                 None => BigInt(BigInt::from(*a) + BigInt::from(*b)),
             },
-            (Float(a), _) => Self::float_result(a + o.to_f64()),
-            (_, Float(b)) => Self::float_result(self.to_f64() + b),
+            (Float(_), _) | (_, Float(_)) => {
+                let (a, b) = (self.to_f64(), o.to_f64());
+                let r = a + b;
+                if self.double_overflow(a, o, b, r, true) {
+                    return Self::mp_result(self.to_bigfloat(53).add(&o.to_bigfloat(53), 53), 53);
+                }
+                Self::float_result(r)
+            }
             (Rational(_), _) | (_, Rational(_)) => {
                 Self::from_ratio(self.to_ratio().unwrap() + o.to_ratio().unwrap())
             }
@@ -321,8 +344,14 @@ impl Number {
                 Some(v) => Int(v),
                 None => BigInt(BigInt::from(*a) * BigInt::from(*b)),
             },
-            (Float(a), _) => Self::float_result(a * o.to_f64()),
-            (_, Float(b)) => Self::float_result(self.to_f64() * b),
+            (Float(_), _) | (_, Float(_)) => {
+                let (a, b) = (self.to_f64(), o.to_f64());
+                let r = a * b;
+                if self.double_overflow(a, o, b, r, false) {
+                    return Self::mp_result(self.to_bigfloat(53).mul(&o.to_bigfloat(53), 53), 53);
+                }
+                Self::float_result(r)
+            }
             (Rational(_), _) | (_, Rational(_)) => {
                 Self::from_ratio(self.to_ratio().unwrap() * o.to_ratio().unwrap())
             }
@@ -358,8 +387,14 @@ impl Number {
             return o.inv().map(|value|if self.is_negative(){value.neg()}else{value});
         }
         match (self, o) {
-            (Float(a), _) => Some(Self::float_result(a / o.to_f64())),
-            (_, Float(b)) => Some(Self::float_result(self.to_f64() / b)),
+            (Float(_), _) | (_, Float(_)) => {
+                let (a, b) = (self.to_f64(), o.to_f64());
+                let r = a / b;
+                if !o.is_zero() && self.double_overflow(a, o, b, r, false) {
+                    return self.to_bigfloat(53).div(&o.to_bigfloat(53), 53).map(|v| Self::mp_result(v, 53));
+                }
+                Some(Self::float_result(r))
+            }
             _ if o.is_zero() => None,
             (Int(a), Int(b)) => Self::rational_i64(*a, *b),
             _ => Some(Self::from_ratio(
@@ -389,7 +424,14 @@ impl Number {
     pub fn pow_i64(&self, n: i64) -> Option<Number> {
         if let MpFloat(value, p) = self { return value.powi(n, *p).map(|v| Self::mp_float(v, *p)); }
         if let Float(f) = self {
-            return Some(Self::float(f.powf(n as f64)));
+            let r = f.powf(n as f64);
+            // Outside the normal double range the power is rounded at 53
+            // bits like mpmath instead of overflowing to inf or flushing
+            // to zero.
+            if f.is_finite() && *f != 0.0 && !r.is_normal() {
+                return crate::bigfloat::BigFloat::from_f64(*f).powi(n, 53).map(|v| Self::mp_float(v, 53));
+            }
+            return Some(Self::float(r));
         }
         if n < 0 {
             if self.is_zero() {
@@ -417,7 +459,10 @@ impl Number {
                 let den = big_pow(r.denom(), n);
                 Self::from_ratio(BigRational::new_raw(num, den))
             }
-            Float(f) => Self::float(f.powf(n as f64)),
+            Float(f) => match i64::try_from(n) {
+                Ok(k) => self.pow_i64(k).unwrap(),
+                Err(_) => Self::float(f.powf(n as f64)),
+            },
             MpFloat(_, _) => self.pow_i64(n as i64).unwrap(),
         }
     }
