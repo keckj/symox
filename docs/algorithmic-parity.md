@@ -9851,3 +9851,77 @@ Remaining (documented, not fixed):
   backend output, devise_plan operator choice.
 
 Tests: `tests/test_audit15_parity.py`.
+
+## branchcut (wave 16): analytic continuation on cuts, branch points and poles
+
+The audit covered 265 expressions on and next to cuts, branch points, poles
+and cancellation points of log, root/Pow, the inverse trigonometric and
+hyperbolic functions, LambertW, polylog, lerchphi, zeta(s, a), hyper and
+meijerg, Bessel, gamma/loggamma/polygamma, expint/Ei/li/Ci/Shi/Chi, the
+elliptic integrals, erfinv/erfcinv and Legendre.  Each expression was
+evaluated at dps 15, 30 and 50, compared with SymPy 1.14, with the truth
+taken as SymPy and symox at 120 digits.  The `_prec` of each component was
+compared too.  Exact rational points were used, so 1 - 10**-30 is not
+rounded to 1.0 before the function is evaluated.  No wrong branch was found
+off the singular points.
+
+Fixed:
+- A Float argument on a singularity gives what SymPy gives, through
+  `Expr._from_mpmath`: erfinv(+-1.0), elliptic_k(1.0), li(1.0), atanh and
+  acoth at +-1.0, atan and acot at +-1.0*I, elliptic_pi(1.0, m),
+  N(expint(1, 0.0)), and sums or products of these (oo, -oo, oo*I, ...).
+  gamma at a nonpositive integer Float gives zoo (the intlike rule in
+  gamma.eval).  loggamma(0.0) gives oo.  N(digamma(-3.0)) and
+  N(polygamma(1, -3.0)) give nan.  The same holds through subs and
+  evalf(subs=...).
+- Float(0.0)**e with e < 0 gives zoo, as Float._eval_power does.  Before,
+  Float(0.0)**-1 was a Float inf and Float(0.0)**(-1/2) was oo.
+- When the host evaluation of a special function fails because the
+  argument is not yet resolved (the argument is next to a pole), the
+  argument is evaluated again at higher precision before the error is
+  reported.
+- The real gamma kernel adds -mag(x + n) bits to the argument next to the
+  pole -n.  Before, N(gamma(-3 + 10**-30), 50) had only 30 correct digits.
+- meijerg on an exp_polar argument at an exact odd multiple of pi: the
+  inner hypergeometric function is evaluated at the exact power, not at a
+  rounded `z**(1/r)`.  Before, the side of the cut followed rounding noise
+  and the value changed with the precision.
+
+Intentional corrections, checked against mpmath at 60 digits:
+- An exact argument next to a pole gives the value, where SymPy raises or
+  returns an infinity because it evaluates the argument at the working
+  precision only.  Examples: N(zeta(1 + 10**-30)) = 1.0e30 (SymPy raises);
+  N(elliptic_k(1 - 10**-30)) = 35.9250707560306 (SymPy: oo);
+  N(erfinv(-1 + 10**-30)) = -8.14861622316987 (SymPy: -oo);
+  N(erfinv(1 - 10**-20), 30) (SymPy: wrong digits after the 15th);
+  N(gamma(-3 + 10**-30), 30) (SymPy: wrong digits after the 4th);
+  N(loggamma(-3 + 10**-30)) (SymPy raises); the subs forms of these.
+- symox keeps tiny imaginary parts that SymPy drops at 15 digits next to a
+  cut, for example LambertW(-1/e - 10**-30) and Shi, Si, acosh and asech
+  just off their cuts.  SymPy's N(log(1 + 10**-40), 30) and
+  N(acosh(1 + 10**-40), 30) are 0; symox gives the correct values.
+- meijerg on exp_polar(k*I*pi)*z, where the inner factor lies on its cut:
+  symox takes the principal side for every k.  SymPy agrees for k = 1, 3,
+  -3 and -5, but for k = 5 it gives the other side.  For k = 7 its side
+  changes with the precision, so the side SymPy picks comes from mpmath
+  rounding noise.
+
+Remaining (documented, not fixed):
+- N(hyper([1, 1], [2], 1.0)) stays unevaluated; SymPy gives oo.
+- uppergamma(-n, 0.0) gives zoo*expint(n + 1, 0.0); SymPy gives zoo.  SymPy
+  gets there from its numeric sign fallback (expint(2, 0.0) is
+  extended_positive by evaluation), which symox does not have for special
+  functions.
+- erfcinv next to 0 and 2, and hyper on exp_polar(2*I*pi)*z, stay
+  unevaluated in both.  elliptic_pi(2 + I/10**30, 1/2) times out in both.
+- exp(2**70000).evalf() stays unevaluated in symox, because the bound on
+  the exponent stops it.  SymPy did not finish in 15 minutes.  The value
+  has a 21000-digit decimal exponent.
+- The retry at higher argument precision also runs when the host call failed
+  for another reason, so an exception raised from a Python signal handler
+  during the first attempt is swallowed and the evaluation goes on.
+  elliptic_pi(2 + I/10**30, 1/2) runs for more than 100 s at 15 digits
+  (it did not finish in 20 s before this change either).  A fix would
+  re-raise BaseException-type host errors at once.
+
+Tests: `tests/test_branchcut_parity.py`.
