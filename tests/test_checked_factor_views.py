@@ -175,6 +175,8 @@ def test_large_shapes_and_growth_fail_with_value_error_then_restore_scope():
         with pytest.raises(ValueError,match='resource limit') as failure:getattr(p,method)()
         assert type(failure.value) is ValueError
     p=sm.Poly(sm.Integer(1<<20000)*x+1,x)
+    assert p.ground_roots()=={-sm.Rational(1,1<<20000):1}
+    p=sm.Poly(sm.Integer(1<<(1<<21))*x+1,x)
     with pytest.raises(ValueError,match='coefficient size'):p.ground_roots()
     assert sm.Poly(x*x-1,x).ground_roots()=={sm.Integer(-1):1,sm.Integer(1):1}
     reconstruct(sm.Poly(2*(x+1)**2,x),sm.Poly(2*(x+1)**2,x).factor_list_include())

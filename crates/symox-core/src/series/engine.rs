@@ -86,8 +86,13 @@ pub fn hidden_zero(e: &Expr) -> Option<bool> {
     if e.is_zero() {
         return Some(true);
     }
-    if !e.is_add() || crate::traverse::node_count(e) > 400 {
+    if !e.is_add() {
         return Some(false);
+    }
+    // The screen below is linear in the size of `e`; past this size the
+    // coefficient is left undecided (never declared nonzero unchecked).
+    if crate::traverse::node_count(e) > 100_000 {
+        return None;
     }
     let syms = crate::traverse::free_symbols(e);
     if syms.is_empty() && crate::functions::is_numeric_value(e) {

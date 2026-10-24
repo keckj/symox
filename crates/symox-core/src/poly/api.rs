@@ -982,7 +982,9 @@ fn guard_symbolic_factor_work(e:&Expr,limits:super::factor_budget::Limits)->PRes
             _=>{for child in e.args(){children.push((child,weight));}},
         }
         bits=bits.saturating_add(coefficient.saturating_mul(weight));
-        if bits>limits.coefficient_bits{return Err(PolyError::Unsupported("factorization resource limit: symbolic coefficient products".into()));}
+        // `bits` sums the sizes of all coefficient products, so it is a storage
+        // measure, not the size of one coefficient.
+        if bits>limits.storage_bits{return Err(PolyError::Unsupported("factorization resource limit: symbolic coefficient products".into()));}
         super::factor_budget::charge(1);
         for(child,weight)in children{stack.push((child,depth+1,weight));}
     }

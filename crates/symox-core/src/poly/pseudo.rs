@@ -10,7 +10,9 @@ use std::collections::BTreeMap;
 const MAX_TERMS: usize = 100_000;
 const MAX_BITS: u64 = 262_144;
 const MAX_STORAGE: u64 = 64_000_000;
-const MAX_WORK: u64 = 10_000_000;
+// SymPy has no work cap: this only stops inputs far beyond what the
+// reference finishes (exhaustion raises, never a partial result).
+const MAX_WORK: u64 = 400_000_000;
 const MAX_INNER_PAIRS: usize = 20_000;
 fn limit(reason: &str) -> PolyError {
     PolyError::Unsupported(format!("pseudo-division resource limit: {reason}"))

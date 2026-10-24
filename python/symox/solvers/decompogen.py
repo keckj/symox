@@ -54,7 +54,12 @@ def decompogen(f, symbol):
                 return [expression.xreplace({generator:symbol})]+decompose(generator,depth+1)
             polynomial=Poly(expression,symbol)
             return [part.as_expr() for part in polynomial.decompose()]
-        except (ValueError,NotImplementedError,PolynomialError,CoercionFailed):
+        except (ValueError,NotImplementedError,PolynomialError,CoercionFailed) as error:
+            # A native resource limit is not a proof of indecomposability
+            # (SymPy has no such limit): never present it as one.
+            message=str(error)
+            if 'resource limit' in message or 'limited to degree' in message:
+                raise NotImplementedError('decompogen: %s'%message) from error
             return [expression]
     return decompose(f,0)
 

@@ -36,21 +36,36 @@ def _scalar_kind(name):
             'UndefinedKind':UndefinedKind}[name]
 
 
-def scalar_kind(value,_depth=0):
-    from . import true,false
-    if _depth>128:return UndefinedKind
+def _scalar_leaf(value,true,false):
     if value in (true,false) or getattr(value,'is_Relational',False) or getattr(value,'is_Boolean',False):
-        return BooleanKind
+        return BooleanKind,None
     if (not value.args or value.is_Number) and value.is_commutative is True:
-        return NumberKind
+        return NumberKind,None
     if getattr(value.func,'__name__','')=='exp' and value.is_commutative is True:
-        return NumberKind
+        return NumberKind,None
     if value.is_Add or value.is_Mul or value.is_Pow:
-        kinds={scalar_kind(arg,_depth+1) for arg in value.args}
-        return next(iter(kinds)) if len(kinds)==1 else UndefinedKind
+        return None,value.args
     if value.is_Integral or value.is_Sum or value.is_Product:
-        return scalar_kind(value.function,_depth+1)
-    return UndefinedKind
+        return None,(value.function,)
+    return UndefinedKind,None
+
+
+def scalar_kind(value,_depth=0):
+    # Iterative (no depth limit: SymPy's kind dispatch recurses without one).
+    from . import true,false
+    memo={};stack=[(value,None)]
+    while stack:
+        node,children=stack.pop()
+        if children is not None:
+            kinds={memo[child] for child in children}
+            memo[node]=next(iter(kinds)) if len(kinds)==1 else UndefinedKind
+            continue
+        if node in memo:continue
+        kind,children=_scalar_leaf(node,true,false)
+        if kind is not None:memo[node]=kind;continue
+        stack.append((node,children))
+        stack.extend((child,None) for child in children if child not in memo)
+    return memo[value]
 
 
 __all__ = ['Kind','NumberKind','BooleanKind','UndefinedKind']

@@ -79,7 +79,7 @@ fn checkodesol<'py>(py: Python<'py>, ode: &Bound<'py, PyAny>, sol: &Bound<'py, P
         symox::Kind::Rel(_, _, r) => r.clone(),
         _ => s.clone(),
     };
-    let ok = symox::ode::checkodesol(&e, &f, &y);
+    let ok = symox::ode::checkodesol_checked(&e, &f, &y).ok_or_else(|| PyNotImplementedError::new_err(format!("checkodesol: ODE order above {} exceeds the native resource limit", symox::ode::CHECKODESOL_MAX_ORDER)))?;
     PyTuple::new(py, [ok.into_pyobject(py)?.to_owned().into_any(), wrap(if ok { Expr::zero() } else { y }).into_pyobject(py)?.into_any()])
 }
 

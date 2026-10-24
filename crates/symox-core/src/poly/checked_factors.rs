@@ -31,13 +31,17 @@ pub fn normalize_natural_factor(p:Polynomial)->PResult<Polynomial>{
     if !field.belongs_to_ring(){return Err(failure("natural factor escaped its coefficient ring"));}
     Ok(field.into())
 }
+/// Variables (generators plus symbolic coefficients) of a checked
+/// factorization; SymPy has no such limit, this only bounds the dense
+/// exponent vectors.
+const MAX_VARIABLES: usize = 64;
 fn failure(message: &str) -> PolyError {
     PolyError::Unsupported(message.into())
 }
 fn check_rep<C: PseudoCoeff>(rep: &MPoly<C>, limits: Limits) -> PResult<()> {
-    if rep.nvars > 8 {
+    if rep.nvars > MAX_VARIABLES {
         return Err(failure(
-            "checked factorization supports at most eight polynomial/coefficient variables",
+            "factorization resource limit: more than 64 polynomial/coefficient variables",
         ));
     }
     if rep.degrees().iter().any(|&d| d as usize > limits.degree)
@@ -62,9 +66,9 @@ fn preflight_mode(p: &Polynomial, limits: Limits, legacy: bool) -> PResult<()> {
         return Err(failure("polynomial generators are required"));
     }
     if let Some(f) = &p.algebraic {
-        if f.gens.len() > 8 {
+        if f.gens.len() > MAX_VARIABLES {
             return Err(failure(
-                "checked factorization supports at most eight polynomial/coefficient variables",
+                "factorization resource limit: more than 64 polynomial/coefficient variables",
             ));
         }
         check_rep(&f.rep, limits)?;
@@ -88,9 +92,9 @@ fn preflight_mode(p: &Polynomial, limits: Limits, legacy: bool) -> PResult<()> {
             }
         }
     } else if let Some(f) = &p.field {
-        if f.gens.len() + f.parameters.len() > 8 {
+        if f.gens.len() + f.parameters.len() > MAX_VARIABLES {
             return Err(failure(
-                "checked factorization supports at most eight polynomial/coefficient variables",
+                "factorization resource limit: more than 64 polynomial/coefficient variables",
             ));
         }
         check_rep(&f.rep, limits)?;
