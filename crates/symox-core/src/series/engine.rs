@@ -71,6 +71,73 @@ pub fn linear_in(e: &Expr, s: &Expr) -> Option<(Number, Expr)> {
     }
 }
 
+/// Is the coefficient `e`, built by a cancellation in a sum, zero? The
+/// reference `Add._eval_as_leading_term` asks `is_zero` and, when that is
+/// undecided, `trigsimp().cancel()` (`1 - sin(a)**2 - cos(a)**2`); a
+/// numerical test at two generic points of the free symbols screens the
+/// candidates first. `Some(true)`: proven zero; `Some(false)`: numerically
+/// nonzero (or not testable); `None`: numerically zero but unproven.
+pub fn hidden_zero(e: &Expr) -> Option<bool> {
+    if e.is_zero() {
+        return Some(true);
+    }
+    if !e.is_add() || crate::traverse::node_count(e) > 400 {
+        return Some(false);
+    }
+    let syms = crate::traverse::free_symbols(e);
+    if syms.is_empty() && crate::functions::is_numeric_value(e) {
+        // a plain number would have been folded
+        return Some(false);
+    }
+    let point = |k: i64| -> Option<f64> {
+        let pairs: Vec<(Expr, Expr)> = syms
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let i = i as i64;
+                let neg = crate::assumptions::is_negative(s) == Some(true);
+                let v = if crate::assumptions::is_integer(s) == Some(true) {
+                    Expr::int(3 + i + 2 * k)
+                } else {
+                    Expr::rational(29 + 7 * i + 13 * k, 23 + 3 * k)
+                };
+                (s.clone(), if neg { neg_expr(&v) } else { v })
+            })
+            .collect();
+        let v = crate::subs::subs(e, &pairs);
+        let z = crate::evalf::eval_c64(&v)?;
+        let scale: f64 = v.args().iter().filter_map(|t| crate::evalf::eval_c64(t)).map(|t| t.norm()).sum();
+        Some(z.norm() / (1.0 + scale))
+    };
+    for k in 0..2 {
+        match point(k) {
+            Some(r) if r < 1e-11 => {}
+            _ => return Some(false),
+        }
+    }
+    let ex = crate::expand::expand(e);
+    if ex.is_zero() {
+        return Some(true);
+    }
+    // log(1/b) + log(b) with b > 0: the assumption-respecting log expansion.
+    let el = crate::expand::expand(&crate::simp::expand_log(&ex, false));
+    if el.is_zero() {
+        return Some(true);
+    }
+    let ts = crate::simptools::trigsimp::trigsimp(&ex);
+    if ts.is_zero() {
+        return Some(true);
+    }
+    if crate::poly::api::cancel(&ts).is_ok_and(|c| c.is_zero()) {
+        return Some(true);
+    }
+    None
+}
+
+fn neg_expr(e: &Expr) -> Expr {
+    neg(e)
+}
+
 /// Polynomial degree of `e` in the symbol `s` (`None` if not polynomial).
 pub fn degree_in(e: &Expr, s: &Expr) -> Option<i64> {
     if !depends(e, s) {
@@ -153,6 +220,8 @@ pub struct Engine {
     pub d: i64,
     /// symbol standing for `log(t^D)`
     pub logt: Expr,
+    /// value of `logt` when the caller knows it (the Gruntz `logw`)
+    pub logval: Option<Expr>,
     memo: FxHashMap<Expr, Ser>,
     depth: u32,
 }
@@ -160,7 +229,7 @@ pub struct Engine {
 impl Engine {
     /// Engine for `x = xser(t)`.
     pub fn new(x: &Expr, xser: Ser, d: i64, logt: &Expr) -> Engine {
-        Engine { x: x.clone(), xser, d, logt: logt.clone(), memo: FxHashMap::default(), depth: 0 }
+        Engine { x: x.clone(), xser, d, logt: logt.clone(), logval: None, memo: FxHashMap::default(), depth: 0 }
     }
 
     fn constant(&self, e: &Expr) -> SRes<Ser> {
@@ -235,9 +304,33 @@ impl Engine {
         match e.kind() {
             Kind::Add(c, terms) => {
                 let mut acc = Ser::constant(C::N(c.clone()));
+                let mut vals: Vec<i64> = vec![];
+                if !c.is_zero() {
+                    vals.push(0);
+                }
                 for (t, k) in terms {
                     let s = self.ser(t, n)?;
+                    if !s.is_zero() {
+                        vals.push(s.val);
+                    }
                     acc = acc.add(&s.scale(&C::N(k.clone())));
+                }
+                // A leading coefficient made by the cancellation of several
+                // terms may be a zero in disguise (1 - sin(a)**2 - cos(a)**2):
+                // drop it, as the reference Add leading term does.
+                for _ in 0..4 {
+                    let Some(C::E(lead)) = acc.lead().cloned() else { break };
+                    if vals.iter().filter(|v| **v <= acc.val).count() < 2 {
+                        break;
+                    }
+                    match hidden_zero(&lead) {
+                        Some(true) => {
+                            acc.c[0] = C::zero();
+                            acc = acc.norm();
+                        }
+                        Some(false) => break,
+                        None => return Err(SErr::Unsupported(format!("undecided zero coefficient {lead}"))),
+                    }
                 }
                 Ok(acc)
             }
@@ -409,6 +502,25 @@ impl Engine {
         Ok(Ser { val: vr, c: p, prec: vr + rel, exact: false }.norm().scale(&a0r))
     }
 
+    /// `exp(-t*k - k*log(w))` with `log(w) = -t`: a symbolic multiple of
+    /// `logt` that cancels exactly once its known value is substituted
+    /// (the exponent no longer involves the symbols of that value), so the
+    /// factor is the constant `exp` of the remainder.
+    fn fold_logt(&self, e: &Expr) -> Option<(Number, Expr)> {
+        let lv = self.logval.as_ref()?;
+        let m = {
+            let mut m = FxHashMap::default();
+            m.insert(self.logt.clone(), lv.clone());
+            m
+        };
+        let e2 = crate::expand::expand(&crate::subs::xreplace(e, &m));
+        let syms = crate::traverse::free_symbols(lv);
+        if syms.is_empty() || syms.iter().any(|s| depends(&e2, s)) {
+            return None;
+        }
+        Some((Number::ZERO, e2))
+    }
+
     fn exp_ser(&mut self, a: &Ser, n: i64) -> SRes<Ser> {
         if !a.is_zero() && a.val < 0 {
             if sign_of(a.lead().unwrap()) == Some(-1) {
@@ -420,8 +532,10 @@ impl Engine {
         let c0 = a.at(0);
         let (shift, beta) = match &c0 {
             C::E(e) if depends(e, &self.logt) => {
-                let (alpha, beta) =
-                    linear_in(e, &self.logt).ok_or_else(|| SErr::Unsupported("exp of log".into()))?;
+                let (alpha, beta) = linear_in(e, &self.logt)
+                    .or_else(|| linear_in(&crate::expand::expand(e), &self.logt))
+                    .or_else(|| self.fold_logt(e))
+                    .ok_or_else(|| SErr::Unsupported("exp of log".into()))?;
                 // exp(alpha*log(t^D)) = t^(alpha*D)
                 let s = alpha.mul(&Number::int(self.d));
                 if !s.is_integer() {
@@ -474,6 +588,33 @@ impl Engine {
         let inv0 = a0.inv().ok_or(SErr::Precision)?;
         let u: Vec<C> = (0..len).map(|i| if i < a.c.len() { a.c[i].mul(&inv0) } else { C::zero() }).collect();
         let mut l = log_kernel(&u, len);
+        // The reference log._eval_nseries on the branch cut: a negative
+        // leading coefficient followed by a term of negative imaginary part
+        // approaches the cut from below, adding -2*I*pi.
+        let mut logc = logc;
+        if sign_of(&a0) == Some(-1) {
+            for c in a.c.iter().skip(1).take(5) {
+                if c.is_zero() {
+                    continue;
+                }
+                let ce = c.to_expr();
+                if crate::assumptions::is_real(&ce) == Some(true) {
+                    continue;
+                }
+                if let Some(z) = crate::evalf::eval_c64(&ce) {
+                    if z.im.abs() > 1e-12 * (1.0 + z.re.abs()) {
+                        if z.im < 0.0 {
+                            logc = logc.add(&C::from_expr(mul(&[Expr::int(-2), Expr::i(), Expr::pi()])));
+                        }
+                        break;
+                    }
+                    if z.im == 0.0 && crate::traverse::free_symbols(&ce).is_empty() {
+                        continue;
+                    }
+                }
+                break;
+            }
+        }
         l[0] = logc;
         Ok(Ser { val: 0, c: l, prec: rel, exact: false }.norm())
     }

@@ -725,6 +725,9 @@ impl Gruntz {
     }
 
     fn leadterm_in(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> LRes<(Expr, Expr)> {
+        if let Some(r) = self.symbolic_power_leadterm(f, w, logw) {
+            return r;
+        }
         let l = self.fresh("logw");
         let plain = self.lt_cancel(f, w, &l, logw);
         let x = self.x.clone();
@@ -773,6 +776,40 @@ impl Gruntz {
             return unknown("leading coefficient depends on w");
         }
         Ok((c, e))
+    }
+
+    /// Powers `w**s` of the mrv variable with symbolic exponents differing
+    /// by numbers (`w**(-k)`, `w**(-k - 1)` from `(n + 1)**k` and
+    /// `(n + 1)**(k + 1)`): the reference series keeps `w**s` as a factor of
+    /// the terms. Each is written `P*w**d` with `P = w**s0` a positive
+    /// symbol; when every sum is homogeneous in `P`, `P` is a constant of
+    /// the expansion and `c*P**m*w**e` gives `(c, e + m*s0)`.
+    fn symbolic_power_leadterm(&mut self, f: &Expr, w: &Expr, logw: &Expr) -> Option<LRes<(Expr, Expr)>> {
+        let mut exps: Vec<Expr> = vec![];
+        collect_w_powers(f, w, &mut exps);
+        let s0 = exps.first()?.clone();
+        for s in &exps {
+            crate::expand::expand(&sub(s, &s0)).as_number()?;
+        }
+        let pp = Expr::dummy("P", crate::symbol::Assumptions::POSITIVE);
+        let g = subst_w_powers(f, w, &s0, &pp)?;
+        let mut left = vec![];
+        collect_w_powers(&g, w, &mut left);
+        if !left.is_empty() || p_degree(&g, &pp).is_none() {
+            return None;
+        }
+        let r = match self.leadterm_in(&g, w, logw) {
+            Ok((c, e)) => {
+                let m = p_degree(&c, &pp)?;
+                let c1 = div(&c, &pow(&pp, &Expr::num(m.clone())));
+                if depends(&c1, &pp) {
+                    return None;
+                }
+                Ok((c1, add(&[e, mul2(&Expr::num(m), &s0)])))
+            }
+            Err(err) => Err(err),
+        };
+        Some(r)
     }
 
     /// Leading term of `f` in `w`, the expansion keeping `log(w)` as the
@@ -844,6 +881,9 @@ impl Gruntz {
                     }
                 }
                 let c0 = add(&best.iter().map(|b| b.0.clone()).collect::<Vec<_>>());
+                if best.len() > 1 && crate::series::engine::hidden_zero(&c0) != Some(false) {
+                    return unknown("cancellation in symbolic leading term");
+                }
                 if c0.is_zero() {
                     return unknown("cancellation in symbolic leading term");
                 }
@@ -856,6 +896,30 @@ impl Gruntz {
                     return unknown("cancellation in log leading term");
                 }
                 Ok((r, Expr::zero()))
+            }
+            Kind::Func(Func::Special(crate::special::SpecialFn::Acoth), a) if a.len() == 1 => {
+                // The reference acoth._eval_as_leading_term: 1/arg at an
+                // infinite argument, the log form at the branch point 0
+                // (`-sign(c)*I*pi/2` for a real leading coefficient c); a
+                // value on the cut [-1, 1] needs the approach direction.
+                let (c1, e1) = self.lt_fallback(&a[0], w, logw)?;
+                match self.sign(&e1)? {
+                    -1 => Ok((pow(&c1, &Expr::minus_one()), neg(&e1))),
+                    1 => match self.sign(&c1) {
+                        Ok(s @ (1 | -1)) if crate::assumptions::is_real(&c1) == Some(true) || c1.is_number() => {
+                            Ok((mul(&[Expr::rational(-(s as i64), 2), Expr::i(), Expr::pi()]), Expr::zero()))
+                        }
+                        _ => unknown("acoth at its branch point"),
+                    },
+                    _ => {
+                        let r = crate::special::apply(crate::special::SpecialFn::Acoth, vec![c1.clone()]);
+                        let on_cut = crate::evalf::eval_c64(&c1).map_or(true, |z| z.im.abs() < 1e-12 && z.re.abs() <= 1.0);
+                        if on_cut || !is_finite_limit(&r) {
+                            return unknown("acoth on its branch cut");
+                        }
+                        Ok((r, Expr::zero()))
+                    }
+                }
             }
             Kind::Func(f0, a) if a.len() == 1 => {
                 let (c1, e1) = self.lt_fallback(&a[0], w, logw)?;
@@ -1059,4 +1123,139 @@ fn imaginary_multiple(e: &Expr) -> bool {
     let factors = e.args();
     let k = factors.iter().filter(|f| **f == i).count();
     k == 1 && factors.iter().filter(|f| **f != i).all(|f| !crate::traverse::has(f, &i))
+}
+
+/// The exponent of `w` in `b**p` (`w**p`, `(1/w)**p`) for a symbolic `p`.
+fn w_power_exponent(b: &Expr, p: &Expr, w: &Expr) -> Option<Expr> {
+    if p.is_number() || depends(p, w) {
+        return None;
+    }
+    if b == w {
+        return Some(p.clone());
+    }
+    match b.kind() {
+        Kind::Pow(bb, q) if bb == w && q.is_number() => Some(mul2(q, p)),
+        Kind::Mul(c, f) if f.len() == 1 && c.is_one() && f[0].0 == *w && f[0].1.is_number() => Some(mul2(&f[0].1, p)),
+        _ => None,
+    }
+}
+
+fn collect_w_powers(e: &Expr, w: &Expr, out: &mut Vec<Expr>) {
+    if !depends(e, w) {
+        return;
+    }
+    match e.kind() {
+        Kind::Pow(b, p) => {
+            if let Some(s) = w_power_exponent(b, p, w) {
+                out.push(s);
+                return;
+            }
+            collect_w_powers(b, w, out);
+            collect_w_powers(p, w, out);
+        }
+        Kind::Mul(_, facs) => {
+            for (b, p) in facs {
+                if let Some(s) = w_power_exponent(b, p, w) {
+                    out.push(s);
+                } else {
+                    collect_w_powers(b, w, out);
+                    collect_w_powers(p, w, out);
+                }
+            }
+        }
+        _ => {
+            for a in e.args() {
+                collect_w_powers(&a, w, out);
+            }
+        }
+    }
+}
+
+fn subst_w_power(b: &Expr, p: &Expr, w: &Expr, s0: &Expr, pp: &Expr) -> Option<Option<Expr>> {
+    match w_power_exponent(b, p, w) {
+        Some(s) => {
+            let d = crate::expand::expand(&sub(&s, s0));
+            let d = d.as_number()?.clone();
+            Some(Some(mul2(pp, &pow(w, &Expr::num(d)))))
+        }
+        None => Some(None),
+    }
+}
+
+fn subst_w_powers(e: &Expr, w: &Expr, s0: &Expr, pp: &Expr) -> Option<Expr> {
+    if !depends(e, w) {
+        return Some(e.clone());
+    }
+    match e.kind() {
+        Kind::Pow(b, p) => match subst_w_power(b, p, w, s0, pp)? {
+            Some(r) => Some(r),
+            None => Some(pow(&subst_w_powers(b, w, s0, pp)?, &subst_w_powers(p, w, s0, pp)?)),
+        },
+        Kind::Mul(c, facs) => {
+            let mut v = vec![Expr::num(c.clone())];
+            for (b, p) in facs {
+                match subst_w_power(b, p, w, s0, pp)? {
+                    Some(r) => v.push(r),
+                    None => v.push(pow(&subst_w_powers(b, w, s0, pp)?, &subst_w_powers(p, w, s0, pp)?)),
+                }
+            }
+            Some(mul(&v))
+        }
+        _ => {
+            let mut ok = true;
+            let r = crate::traverse::map_children(e, &mut |c: &Expr| match subst_w_powers(c, w, s0, pp) {
+                Some(v) => v,
+                None => {
+                    ok = false;
+                    c.clone()
+                }
+            });
+            ok.then_some(r)
+        }
+    }
+}
+
+/// Degree of `e` in `P` when every sum is homogeneous in `P` and `P`
+/// occurs only in products and numeric powers.
+fn p_degree(e: &Expr, pp: &Expr) -> Option<crate::number::Number> {
+    use crate::number::Number;
+    if !depends(e, pp) {
+        return Some(Number::ZERO);
+    }
+    if e == pp {
+        return Some(Number::ONE);
+    }
+    let factor = |b: &Expr, p: &Expr| -> Option<Number> {
+        if !depends(b, pp) && !depends(p, pp) {
+            return Some(Number::ZERO);
+        }
+        if depends(p, pp) {
+            return None;
+        }
+        let k = p.as_number()?;
+        Some(p_degree(b, pp)?.mul(k))
+    };
+    match e.kind() {
+        Kind::Pow(b, p) => factor(b, p),
+        Kind::Mul(_, facs) => {
+            let mut d = Number::ZERO;
+            for (b, p) in facs {
+                d = d.add(&factor(b, p)?);
+            }
+            Some(d)
+        }
+        Kind::Add(c, terms) => {
+            let mut d: Option<Number> = if c.is_zero() { None } else { Some(Number::ZERO) };
+            for (t, _) in terms {
+                let dt = p_degree(t, pp)?;
+                match &d {
+                    None => d = Some(dt),
+                    Some(d0) if *d0 == dt => {}
+                    _ => return None,
+                }
+            }
+            d
+        }
+        _ => None,
+    }
 }
