@@ -3,7 +3,6 @@ use super::ratfunc::{dotprodsimp, is_zero_assume};
 use super::{non_invertible, non_square, MResult, Matrix, MatrixError};
 use crate::expr::Expr;
 use crate::ops::{add, div, mul2, sub};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 impl Matrix {
     /// A defined rational specialization of full column rank proves generic
@@ -168,20 +167,10 @@ impl Matrix {
         let w = match arbitrary {
             Some(w) => w,
             None => {
-                // Expressions currently identify symbols by name; fresh suffixes give
-                // independent arbitrary matrices on successive calls as Dummy does.
-                static NEXT: AtomicU64 = AtomicU64::new(0);
-                let used = [self.free_symbols(), rhs.free_symbols()].concat();
-                loop {
-                    let id = NEXT.fetch_add(1, Ordering::Relaxed);
-                    let candidate = Matrix::from_fn(self.cols(), rhs.cols(), |i, j| {
-                        Expr::symbol(&format!("_w{i}_{j}_{id}"))
-                    });
-                    if !candidate.data().iter().any(|e| used.contains(e)) {
-                        generated = candidate;
-                        break;
-                    }
-                }
+                // SymPy: symbols('w:{rows}_:{cols}', cls=Dummy), printed `_w0_0`.
+                generated = Matrix::from_fn(self.cols(), rhs.cols(), |i, j| {
+                    Expr::dummy(&format!("w{i}_{j}"), Default::default())
+                });
                 &generated
             }
         };

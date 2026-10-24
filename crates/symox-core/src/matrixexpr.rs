@@ -1014,6 +1014,96 @@ impl MatrixExpr {
         memo.insert(self.dag_id(),result.clone());Ok(result)
     }
 
+    /// SymPy's constructor postprocessors for matrix operands
+    /// (`get_postprocessor` in matexpr.py), applied to a scalar tree that
+    /// received matrices through `subs`/`xreplace`: an `Add` whose terms are
+    /// all matrices becomes `MatAdd(...).doit(deep=False)` and a mixed one
+    /// keeps its scalar terms plus one `MatAdd`; a `Mul` with a matrix factor
+    /// becomes `MatMul(Mul(scalars), *matrices).doit(deep=False)`; a matrix
+    /// raised to a scalar power becomes a `MatPow`. Shape errors propagate.
+    pub fn promote_operands(e:&Expr)->MResult<Expr>{Self::promote_with(e,None)}
+    /// `xreplace(rules)` followed by the reference matrix postprocessor:
+    /// each rebuilt `Add`, `Mul` or `Pow` with matrix operands becomes a
+    /// `MatAdd`, `MatMul` or `MatPow` with its operands in the original
+    /// argument order.
+    pub fn xreplace_promote(e:&Expr,rules:&FxHashMap<Expr,Expr>)->MResult<Expr>{Self::promote_with(e,Some(rules))}
+    fn promote_with(e:&Expr,rules:Option<&FxHashMap<Expr,Expr>>)->MResult<Expr>{
+        fn proxy(m:MatrixExpr)->Expr{Expr::from_kind(Kind::Func(Func::MatrixProxy(Arc::new(m)),vec![]))}
+        fn operand(e:&Expr)->Option<MatrixExpr>{if let Kind::Func(Func::MatrixProxy(m),_)=e.kind(){Some((**m).clone())}else{None}}
+        // A matrix substituted into the scalar coefficient of a `MatMul`
+        // becomes its leading factor, as `MatMul(B, A)` in the reference.
+        fn settle(m:&MatrixExpr,memo:&mut FxHashMap<usize,Expr>)->MResult<Option<MatrixExpr>>{
+            match m.kind(){
+                MatrixKind::Mul(c,_)=>{
+                    let factors=m.children();
+                    let mut changed=false;let mut settled=Vec::with_capacity(factors.len());
+                    for f in &factors{match settle(f,memo)?{Some(n)=>{changed=true;settled.push(n);},None=>settled.push(f.clone())}}
+                    if c.has_matrix(){
+                        let c=walk(c,memo,None)?;
+                        if let Some(lead)=operand(&c){settled.insert(0,lead);return Ok(Some(MatrixExpr::mul(Expr::one(),&settled,true)?));}
+                        return Ok(Some(MatrixExpr::mul(c,&settled,true)?));
+                    }
+                    if changed{Ok(Some(MatrixExpr::mul(c.clone(),&settled,true)?))}else{Ok(None)}
+                }
+                MatrixKind::Add(_)=>{
+                    let terms=m.children();
+                    let mut changed=false;let mut settled=Vec::with_capacity(terms.len());
+                    for t in &terms{match settle(t,memo)?{Some(n)=>{changed=true;settled.push(n);},None=>settled.push(t.clone())}}
+                    if changed{Ok(Some(MatrixExpr::add(&settled,true)?))}else{Ok(None)}
+                }
+                _=>Ok(None),
+            }
+        }
+        fn walk(e:&Expr,memo:&mut FxHashMap<usize,Expr>,rules:Option<&FxHashMap<Expr,Expr>>)->MResult<Expr>{
+            if let Some(r)=rules.and_then(|r|r.get(e)){return Ok(r.clone());}
+            if let Some(m)=operand(e){
+                if rules.is_some(){return Ok(e.clone());}
+                return Ok(match settle(&m,memo)?{Some(n)=>proxy(n),None=>e.clone()});
+            }
+            if rules.is_none()&&!e.has_matrix(){return Ok(e.clone());}
+            if let Some(r)=memo.get(&e.dag_id()){return Ok(r.clone());}
+            let result=if e.is_add()||e.is_mul()||e.is_pow(){
+                let children=if e.is_pow(){e.args().to_vec()}else{crate::inspection::scalar_children(e)};
+                let args=children.iter().map(|a|walk(a,memo,rules)).collect::<MResult<Vec<_>>>()?;
+                if e.is_pow(){
+                    match (operand(&args[0]),args[1].has_matrix()){
+                        (Some(base),false)=>proxy(base.pow(args[1].clone(),true)?),
+                        _=>if args.iter().zip(children.iter()).all(|(a,b)|a.same_presentation(b)){e.clone()}else{pow(&args[0],&args[1])},
+                    }
+                }else{
+                    let mut matrices=Vec::new();let mut scalars=Vec::new();
+                    for a in &args{if let Some(m)=operand(a){matrices.push(m);}else{scalars.push(a.clone());}}
+                    if matrices.is_empty(){
+                        if args.iter().zip(children.iter()).all(|(a,b)|a.same_presentation(b)){e.clone()}else if e.is_add(){add(&args)}else{crate::ops::mul(&args)}
+                    }else if e.is_add(){
+                        let sum=proxy(MatrixExpr::add(&matrices,true)?);
+                        if scalars.is_empty(){sum}else{scalars.push(sum);add(&scalars)}
+                    }else{
+                        let coefficient=crate::ops::mul(&scalars);
+                        // An explicit matrix absorbs the scalar factors.
+                        if !coefficient.is_one(){
+                            if let Some(i)=matrices.iter().position(|m|matches!(m.kind(),MatrixKind::Explicit(_))){
+                                let MatrixKind::Explicit(value)=matrices[i].kind() else{unreachable!()};
+                                let scaled=MatrixExpr::explicit(value.scale(&coefficient));
+                                matrices[i]=scaled;
+                                return Ok(proxy(MatrixExpr::mul(Expr::one(),&matrices,true)?));
+                            }
+                        }
+                        proxy(MatrixExpr::mul(coefficient,&matrices,true)?)
+                    }
+                }
+            }else{
+                let mut failure=None;
+                let r=crate::traverse::map_children(e,&mut |c|match walk(c,memo,rules){Ok(v)=>v,Err(error)=>{if failure.is_none(){failure=Some(error);}c.clone()}});
+                if let Some(error)=failure{return Err(error);}
+                r
+            };
+            memo.insert(e.dag_id(),result.clone());
+            Ok(result)
+        }
+        walk(e,&mut FxHashMap::default(),rules)
+    }
+
     pub fn xreplace(&self,matrices:&[(Self,Self)],scalars:&FxHashMap<Expr,Expr>)->MResult<Self>{
         let mut rules=scalars.clone();
         for (old,new) in matrices{

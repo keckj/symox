@@ -1580,6 +1580,14 @@ impl PrettyPrinter<'_> {
                 p.func = Some(Rc::new((pf, pa)));
                 p
             }
+            // SymPy's _print_beta: the Greek capital Beta (ASCII `B`) as name.
+            Func::Special(crate::special::SpecialFn::Beta) => {
+                let pf = Pict::new(xsym("Β", "B"));
+                let pa = self.seq(args).paren();
+                let mut p = Pict::next(&[pf.clone(), pa.clone()]).bind(Binding::Func);
+                p.func = Some(Rc::new((pf, pa)));
+                p
+            }
             // SymPy prints a non-default H0 as an ordinary function argument.
             Func::Heaviside if args.len() > 1 && args[1] != Expr::rational(1, 2) => {
                 self.seq(args).paren().left(&[Pict::new(xsym("θ", "Heaviside"))])
@@ -1842,6 +1850,10 @@ impl PrettyPrinter<'_> {
                 p.func = Some(Rc::new((pf, pa)));
                 p
             }
+            // SymPy has no pretty form for these: the str form, whose
+            // Permutation is in cyclic notation.
+            crate::matrixexpr::MatrixKind::Permutation(p) => Pict::new(&format!("PermutationMatrix({})", crate::matrixexpr::permutation_label(p))),
+            crate::matrixexpr::MatrixKind::Permute(parent, p, axis) => Pict::new(&format!("MatrixPermute({}, {}, {axis})", parent.to_str(), crate::matrixexpr::permutation_label(p))),
             _ => Pict::new(&m.to_str()),
         }
     }

@@ -9546,3 +9546,59 @@ Remaining (documented, not fixed):
   These were not worked through in this task.
 
 Tests: `tests/test_audit14_parity.py`.
+
+## audit15 (wave 15)
+
+Replay of lots c1 (stochastic processes, to_meijerg, symbolic fps), c4
+(physics, tensor, vector, categories) and the printing "a" lots against
+SymPy 1.14. Counts (examples_match / total):
+- c1: 27/36 -> 27/36;
+- c4: 37/37 -> 37/37;
+- a: 127/199 -> 138/199. No object went from match to difference.
+
+Implemented:
+- The reference matrix postprocessor after `subs` and `xreplace`: an `Add`,
+  `Mul` or `Pow` with matrix operands becomes `MatAdd`, `MatMul` or
+  `MatPow`. `Add(x, y).subs({x: A, y: B})` is `A + B`, the sequential
+  `(x*y).subs({x: A, y: B})` is `B*A` (the matrix put into the scalar
+  coefficient of `MatMul(y, A)` becomes its first factor), the simultaneous
+  `(x*y).xreplace({x: A, y: B})` is `A*B`, and mismatched shapes raise
+  ShapeError. `x.subs(x, A)` returns the MatrixSymbol itself.
+- `ArraySymbol` and `Reshape(...).as_explicit()` elements print as
+  `A[0, 1]` and `{{B}_{1, 2}}` in LaTeX.
+- `pprint` of `PermutationMatrix` and `MatrixPermute`.
+- `pinv_solve` free parameters are Dummies named `_w0_0`, as in SymPy.
+- `beta` prints `B(a, b)` / `Β(a, b)` and `\operatorname{B}\left(a, b\right)`
+  (stats Beta, BetaPrime, FisherZ and StudentT densities).
+- `FiniteSet ∩ ImageSet`: the reference `_handle_finite_sets` with image set
+  membership. `{0, ..., 10} ∩ ImageSet(Lambda(x, x**2), Naturals)` is
+  `{1, 4, 9}`; undecided symbolic elements stay in an unevaluated
+  Intersection, as in SymPy.
+
+Intentional divergences:
+- `Subs(x, x, 0).subs(x, y)`: SymPy gives `has(x)` True and `has(y)` False
+  through its `@cacheit` cache, because `Subs(x, x, 0) == Subs(y, y, 0)`.
+  symox gives False and True, the values of `Subs(y, y, 0)` without the
+  cache.
+- DDM/SDM display of MPQ entries (already documented).
+- The ShapeError message text differs; the exception type is the same.
+
+Remaining (documented, not fixed):
+- c1: DiscreteMarkovChain with `Str` states (NotImplementedError, and
+  `Eq(Str, ...)` fails in the core), MultivariateNormal with MatrixSymbol
+  parameters (NotImplementedError). The other c1 items were already
+  documented (apply_finite_diff order, approximants, Expectation order,
+  GaussianSymplecticEnsemble, Moyal, WienerProcess, Sum.euler_maclaurin).
+- AlgebraicField alias display, Domain type names, UndefinedPredicate,
+  set and dict print order, last digits of catalan and of jn/yn at complex
+  float points.
+- Triangular piecewise branch order (same value), JointEigenDistribution
+  repr (`JointDistributionHandmade(...)` in SymPy), level_spacing_distribution
+  Dummy name (`_s` versus `_spacing`), solveset ConditionSet dummy `_R` for
+  an imaginary symbol.
+- `sin(A)` for a MatrixSymbol raises NotImplementedError; SymPy builds
+  `sin(A)`. (`sin(x).subs(x, A)` already gives `sin(A)`.)
+- wigner_9j (the reference value in the doctest is wrong), Matplotlib
+  backend output, devise_plan operator choice.
+
+Tests: `tests/test_audit15_parity.py`.
