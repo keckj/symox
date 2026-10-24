@@ -463,7 +463,7 @@ pub fn ratsimpmodprime(
         ));
     }
     let field = force_field || modulus.is_some() || conv.float || conv.polys.iter().any(|p| !is_integral(p));
-    let to_e = |p: &MPoly<Rat>| to_expr_f(p, &conv.gens, conv.float);
+    let to_e = |p: &MPoly<Rat>| crate::poly::convert::to_expr_prec(p, &conv.gens, conv.prec);
     let basis: Vec<MPoly<Rat>> = conv.polys[2..].to_vec();
     let lms = basis
         .iter()

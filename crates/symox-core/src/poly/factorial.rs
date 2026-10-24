@@ -252,7 +252,7 @@ pub fn gff_list(p: &Polynomial) -> PResult<Vec<(Polynomial, u32)>> {
                     .collect()
             });
     }
-    if p.domain == Domain::RR || !p.domain_gens().is_empty() {
+    if p.domain.is_rr() || !p.domain_gens().is_empty() {
         return Err(failure(
             "greatest factorial factorization requires an implemented exact coefficient domain",
         ));

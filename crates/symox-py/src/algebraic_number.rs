@@ -119,7 +119,7 @@ fn supplied_minimal(obj: &Bound<'_, PyAny>, root: &Expr) -> PyResult<()> {
         }
         Poly::from_expr(&expr, &gens).map_err(err)?
     };
-    if p.domain == Domain::RR {
+    if p.domain.is_rr() {
         return Err(PyValueError::new_err(
             "the defining polynomial must be exact",
         ));

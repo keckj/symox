@@ -819,7 +819,7 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
     let integral = match p.base.domain {
         super::polyobj::Domain::ZZ => true,
         super::polyobj::Domain::QQ => false,
-        super::polyobj::Domain::RR => {
+        super::polyobj::Domain::RR(precision) => {
             let symbols = p.base.domain_gens().to_vec();
             if symbols.iter().any(|s| *s == Expr::i() || (s.is_number() && s.is_pow())) {
                 return None;
@@ -829,7 +829,7 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
                 integral: false,
                 ring: true,
                 symbols,
-                inexact: Some(super::inexact_ground::Inexact { precision: 53, complex: false }),
+                inexact: Some(super::inexact_ground::Inexact { precision, complex: false }),
             });
         }
     };

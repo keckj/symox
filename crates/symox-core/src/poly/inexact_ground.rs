@@ -2281,16 +2281,16 @@ pub fn cofactors(f: &ExpressionPoly, g: &ExpressionPoly) -> PResult<(ExpressionP
 /// come back through `RR.from_QQ` and only the signs of the leading
 /// coefficients are normalized. `x/(0.3*x + 0.1)` keeps its coefficients,
 /// where clearing the binary denominators gave `2**55`-sized integers.
-fn rr_inner_gcd(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
-    let k = Inexact { precision: 53, complex: false };
+fn rr_inner_gcd(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> (MPoly<Rat>, MPoly<Rat>) {
+    let k = Inexact { precision, complex: false };
     let n = f.nvars;
     let to_qq = |p: &MPoly<Rat>| -> MPoly<Rat> {
         MPoly::from_terms(
             n,
             p.iter()
                 .map(|(e, c)| {
-                    let x = BF::from_ratio(&c.n.to_big(), &c.d.to_big(), 53);
-                    (e.to_vec(), k.to_rational(&x, 53))
+                    let x = BF::from_ratio(&c.n.to_big(), &c.d.to_big(), precision);
+                    (e.to_vec(), k.to_rational(&x, precision))
                 })
                 .filter(|(_, c)| !c.is_zero())
                 .collect(),
@@ -2315,7 +2315,7 @@ fn rr_inner_gcd(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
 /// The cofactors of `dmp_inner_gcd` over `RR`: the reference computes them
 /// over `QQ` after `RR.to_rational` of every coefficient, and rounds back.
 fn rr_cofactors(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
-    rr_inner_gcd(f, g)
+    rr_inner_gcd(f, g, 53)
 }
 
 /// `Poly.cancel` over `RR` (`dmp_cancel` over a field without associated
@@ -2335,7 +2335,12 @@ pub fn rr_poly_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (bool, MPoly<Rat>, MPol
 }
 
 pub fn rr_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
-    let (mut p, mut q) = rr_cofactors(f, g);
+    rr_cancel_prec(f, g, 53)
+}
+
+/// `rr_cancel` over `RealField(precision)`.
+pub fn rr_cancel_prec(f: &MPoly<Rat>, g: &MPoly<Rat>, precision: u32) -> (MPoly<Rat>, MPoly<Rat>) {
+    let (mut p, mut q) = rr_inner_gcd(f, g, precision);
     // `p_neg`/`q_neg`: a negative denominator is negated with the
     // numerator; a negative numerator alone is negated and multiplied by
     // `cp = -1` again (include=True), so it is kept.
@@ -2344,6 +2349,21 @@ pub fn rr_cancel(f: &MPoly<Rat>, g: &MPoly<Rat>) -> (MPoly<Rat>, MPoly<Rat>) {
         p = p.neg();
     }
     (p, q)
+}
+
+/// `RealField(precision).to_rational(x)` (with its bounded denominator) of
+/// the coefficient `r` rounded at `precision`.
+pub fn rr_to_rational(r: &Rat, precision: u32) -> Rat {
+    let k = Inexact { precision, complex: false };
+    let x = BF::from_ratio(&r.n.to_big(), &r.d.to_big(), precision);
+    k.to_rational(&x, precision)
+}
+
+/// `a/b` in `RealField(precision)` arithmetic, as an exact rational.
+pub fn rr_quotient(a: &Rat, b: &Rat, precision: u32) -> Rat {
+    let k = Inexact { precision, complex: false };
+    let q = k.div(&k.from_rat(a), &k.from_rat(b)).expect("nonzero divisor").re.to_ratio_exact();
+    Rat::new(Int::from_big(q.numer().clone()), Int::from_big(q.denom().clone()))
 }
 
 /// `Poly.cancel(g, include=False)`: `(cp, cq, p, q)` with `cp/cq` the

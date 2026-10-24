@@ -317,6 +317,9 @@ pub struct Converted {
     pub ngens: usize,
     /// Some coefficient was a float.
     pub float: bool,
+    /// The largest binary precision of the float coefficients (the
+    /// reference `RealField(prec)` of `construct_domain`), 0 without floats.
+    pub prec: u32,
 }
 
 fn factor_needs_expand(b: &Expr, x: &Expr, seen: &mut FxHashSet<usize>) -> bool {
@@ -390,6 +393,7 @@ pub(crate) fn generator_clash<'a>(factors: &'a [Expr], gens: &[Expr]) -> Option<
 /// Convert expressions with automatic generator detection.
 pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
     let mut float = false;
+    let mut prec = 0u32;
     let mut index: FxHashMap<Expr, usize> = FxHashMap::default();
     let mut gens: Vec<Expr> = Vec::new();
     let mut all_terms: Vec<Vec<(Rat, Vec<(usize, i64)>)>> = Vec::new();
@@ -401,6 +405,7 @@ pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
         for t in raw_terms(&ex) {
             if t.coeff.is_float() {
                 float = true;
+                prec = prec.max(t.coeff.float_precision().unwrap_or(53));
             }
             let mut mono = Vec::new();
             for f in &t.factors {
@@ -441,7 +446,7 @@ pub fn from_exprs(exprs: &[Expr]) -> PResult<Converted> {
             MPoly::from_terms(n, ts)
         })
         .collect();
-    Ok(Converted { polys, gens: sorted, ngens: n, float })
+    Ok(Converted { polys, gens: sorted, ngens: n, float, prec })
 }
 
 /// Convert expressions with respect to the given generators. Factors free
@@ -454,6 +459,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
         index.insert(g.clone(), i);
     }
     let mut float = false;
+    let mut prec = 0u32;
     // per expression: list of (gen monomial, coefficient expression factors, numeric coeff)
     let mut dom_index: FxHashMap<Expr, usize> = FxHashMap::default();
     let mut dom_gens: Vec<Expr> = Vec::new();
@@ -467,6 +473,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
         for t in raw_terms(&ex) {
             if t.coeff.is_float() {
                 float = true;
+                prec = prec.max(t.coeff.float_precision().unwrap_or(53));
             }
             let mut mono = vec![0u32; k];
             let mut dmono = Vec::new();
@@ -520,7 +527,7 @@ pub fn from_exprs_gens(exprs: &[Expr], gens: &[Expr]) -> PResult<Converted> {
             MPoly::from_terms(n, ts)
         })
         .collect();
-    Ok(Converted { polys, gens: allgens, ngens: k, float })
+    Ok(Converted { polys, gens: allgens, ngens: k, float, prec })
 }
 
 pub fn rat_to_expr(c: &Rat) -> Expr {
@@ -528,7 +535,17 @@ pub fn rat_to_expr(c: &Rat) -> Expr {
 }
 
 pub fn rat_to_expr_float(c: &Rat, float: bool) -> Expr {
-    if float {
+    rat_to_expr_prec(c, if float { 53 } else { 0 })
+}
+
+/// A coefficient as a `Float` of `prec` bits (the reference
+/// `RealField(prec).to_sympy`), or exactly when `prec` is 0.
+pub fn rat_to_expr_prec(c: &Rat, prec: u32) -> Expr {
+    if prec > 0 && prec != 53 {
+        let value = crate::bigfloat::BigFloat::from_ratio(&c.n.to_big(), &c.d.to_big(), prec);
+        return Expr::num(crate::number::Number::mp_float(value, prec));
+    }
+    if prec > 0 {
         let f = c.to_f64();
         if f.is_finite() && (f != 0.0 || c.is_zero()) {
             return Expr::float(f);
@@ -548,10 +565,16 @@ pub fn to_expr(p: &MPoly<Rat>, gens: &[Expr]) -> Expr {
 }
 
 pub fn to_expr_f(p: &MPoly<Rat>, gens: &[Expr], float: bool) -> Expr {
+    to_expr_prec(p, gens, if float { 53 } else { 0 })
+}
+
+/// Expression of a polynomial whose coefficients are `Float`s of `prec`
+/// bits (exact rationals when `prec` is 0).
+pub fn to_expr_prec(p: &MPoly<Rat>, gens: &[Expr], prec: u32) -> Expr {
     let mut terms = Vec::with_capacity(p.len());
     for (e, c) in p.iter() {
         let mut f = Vec::with_capacity(gens.len() + 1);
-        f.push(rat_to_expr_float(c, float));
+        f.push(rat_to_expr_prec(c, prec));
         for (v, &k) in e.iter().enumerate() {
             if k != 0 {
                 f.push(pow(&gens[v], &Expr::int(k as i64)));

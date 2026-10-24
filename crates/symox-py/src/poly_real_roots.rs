@@ -98,7 +98,7 @@ pub(super) fn sturm_method(py: Python<'_>, p: &PolyValue, auto: bool) -> PyResul
 /// The reference's `Poly.sturm`: exact over ZZ and QQ here, the other
 /// domains follow the reference's dense field arithmetic in Python.
 fn sturm_values(py: Python<'_>, p: &PolyValue, auto: bool) -> PyResult<Vec<PolyValue>> {
-    let plain = p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && p.domain != Domain::RR;
+    let plain = p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && !p.domain.is_rr();
     if plain && p.ngens == 1 && p.base.gens.len() == 1 {
         if p.domain == Domain::ZZ && !auto {
             return Err(domains::DomainError::new_err("Cannot compute Sturm sequence over ZZ"));
@@ -159,7 +159,7 @@ fn dense_rational(py: Python<'_>, p: &PolyValue, multivariate: &str, action: &st
         return Err(super::structural::polynomial_error(py, "PolynomialError", multivariate.into()));
     }
     let composite = p.base.gens.len() != 1;
-    if composite || p.field.is_some() || p.algebraic.is_some() || p.modulus.is_some() || p.domain == Domain::RR {
+    if composite || p.field.is_some() || p.algebraic.is_some() || p.modulus.is_some() || p.domain.is_rr() {
         let domain = match p.modulus {
             Some(prime) if p.base.gens.len() == p.ngens => format!("GF({prime})"),
             _ => p.domain_str(),
@@ -216,7 +216,7 @@ pub(super) fn count_method(
 /// `dup_count_real_roots`: exact over ZZ and QQ; other coefficient domains
 /// follow the reference's generic Sturm sequence over their field.
 fn count_real(py: Python<'_>, p: &PolyValue, inf: Option<Rat>, sup: Option<Rat>) -> PyResult<PyExpr> {
-    let plain = p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && p.domain != Domain::RR;
+    let plain = p.field.is_none() && p.algebraic.is_none() && p.modulus.is_none() && !p.domain.is_rr();
     if plain && p.ngens == 1 && p.base.gens.len() == 1 {
         if p.rep.degree(0) > iso::MAX_DENSE_DEGREE as i64 {
             return Err(degree_limit());

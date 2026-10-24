@@ -399,7 +399,7 @@ impl PyGroebnerBasis {
             }).collect();
             return Ok(Self {basis,generators,coefficient_domain:Domain::QQ,prime:None,monomial_order,return_polys:polys.unwrap_or(any_poly),fraction_domain:Some(prototype),algebraic_domain:None,expression:false,options:String::new()});
         }
-        if converted.ngens != converted.gens.len() || converted.float || poly_domain == Domain::RR {
+        if converted.ngens != converted.gens.len() || converted.float || poly_domain.is_rr() {
             return Err(PyNotImplementedError::new_err("Groebner bases require exact rational coefficients; coefficient extensions are not implemented"));
         }
         generators = converted.gens;
@@ -900,7 +900,7 @@ fn set_domain(mut p: Poly, domain: Option<&str>) -> PyResult<Poly> {
             Ok(p)
         }
         Some("RR") => {
-            p.domain = Domain::RR;
+            p.domain = Domain::RR53;
             Ok(p)
         }
         Some(d) => Err(PyValueError::new_err(format!("unsupported domain {d}"))),
@@ -989,7 +989,7 @@ impl PyPoly {
             let parameters=infer_parameters(std::slice::from_ref(&e),p.true_gens());
             // `_construct_composite` over RR or CC with several generators:
             // RR(y), CC(y), whose ring arithmetic is native.
-            if p.domain==Domain::RR {
+            if p.domain.is_rr() {
                 if let Some(ground)=symox::poly::inexact_ground::infer(&e,p.true_gens(),false).filter(|g|!g.ring) {
                     if let Ok(q)=ground.convert_expr(&e,p.true_gens()){return Ok(Self{p:q.into()});}
                 }
@@ -1085,17 +1085,19 @@ impl PyPoly {
         let plain=|p:&PolyValue|p.expression.is_none()&&p.algebraic.is_none()&&p.field.is_none()&&p.base.modulus.is_none()&&!p.base.has_domain_gens();
         let q=self.other(o)?;
         if !plain(&self.p)||!plain(&q)||self.p.base.gens!=q.base.gens||self.p.base.ngens!=q.base.ngens{return None;}
-        if self.p.base.domain!=Domain::RR&&q.base.domain!=Domain::RR{return None;}
+        if !self.p.base.domain.is_rr()&&!q.base.domain.is_rr(){return None;}
+        // the double-precision algorithms below; higher precisions keep the exact path
+        if self.p.base.domain.prec()>53||q.base.domain.prec()>53{return None;}
         Some(q.base)
     }
     /// A polynomial of `rr_plain_other` back over `RR`.
-    fn rr_poly(&self,rep:symox::poly::mpoly::MPoly<Rat>)->PyPoly{let mut p=self.p.base.clone();p.rep=rep;p.domain=Domain::RR;PyPoly{p:p.into()}}
+    fn rr_poly(&self,rep:symox::poly::mpoly::MPoly<Rat>)->PyPoly{let mut p=self.p.base.clone();p.rep=rep;p.domain=Domain::RR53;PyPoly{p:p.into()}}
     /// The reference `dmp_ground_content` over the field `RR` (no
     /// associated ring): one, or zero for the zero polynomial.
     fn rr_field_content(&self)->Option<Expr>{
         let p=&self.p;
-        if p.expression.is_some()||p.algebraic.is_some()||p.field.is_some()||p.base.domain!=Domain::RR||p.base.modulus.is_some()||p.base.has_domain_gens(){return None;}
-        Some(symox::poly::convert::rat_to_expr_float(&if p.base.rep.is_zero(){Rat::zero()}else{Rat::one()},true))
+        if p.expression.is_some()||p.algebraic.is_some()||p.field.is_some()||!p.base.domain.is_rr()||p.base.modulus.is_some()||p.base.has_domain_gens(){return None;}
+        Some(symox::poly::convert::rat_to_expr_prec(&if p.base.rep.is_zero(){Rat::zero()}else{Rat::one()},p.base.domain.prec()))
     }
     /// The `EX` representation and its composite Gaussian ground, when marked.
     fn gg(&self)->Option<(&ExpressionPoly,&symox::poly::gaussian_ground::GaussianGround)>{let e=self.p.expression.as_ref()?;Some((e,e.ground.as_ref()?))}
@@ -1427,7 +1429,14 @@ impl PyPoly {
 
     fn all_coeffs(&self,py:Python<'_>) -> PyResult<Vec<PyExpr>> {
         if self.p.ngens!=1{return Err(structural::polynomial_error(py,"PolynomialError","multivariate polynomials not supported".into()));}
-        Ok(self.p.all_coeffs().map_err(err)?.into_iter().map(w).collect())
+        let coeffs=self.p.all_coeffs().map_err(err)?;
+        // the zero of `RealField(prec)` is the Float 0.0 of the reference
+        let p=&self.p;
+        if p.expression.is_none()&&p.algebraic.is_none()&&p.field.is_none()&&p.base.modulus.is_none()&&p.base.domain.is_rr()&&!p.base.has_domain_gens(){
+            let zero=symox::poly::convert::rat_to_expr_prec(&Rat::zero(),p.base.domain.prec());
+            return Ok(coeffs.into_iter().map(|c|if c.is_zero(){zero.clone()}else{c}).map(w).collect());
+        }
+        Ok(coeffs.into_iter().map(w).collect())
     }
 
     fn deflate<'py>(&self,py:Python<'py>)->PyResult<(Bound<'py,PyTuple>,Self)>{let(j,p)=symox::poly::structure::deflate(&self.p).map_err(err)?;Ok((PyTuple::new(py,j)?,Self{p}))}
@@ -1518,7 +1527,7 @@ impl PyPoly {
         }else {
             let e=to_expr(monom)?;
             let p=Poly::from_expr(&e,self.p.true_gens()).map_err(err)?;
-            if p.gens!=self.p.true_gens() || p.rep.len()!=1 || !p.rep.lc().is_one() || p.domain==Domain::RR {return Err(PyValueError::new_err(format!("expected a monomial, got {e}")));}
+            if p.gens!=self.p.true_gens() || p.rep.len()!=1 || !p.rep.lc().is_one() || p.domain.is_rr() {return Err(PyValueError::new_err(format!("expected a monomial, got {e}")));}
             let powers=p.rep.iter().next().unwrap().0.to_vec();
             powers
         };
@@ -2902,8 +2911,8 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, G: &Bound<'_, PyAny>, gen
     let mut output_domain = match domain {
         Some("ZZ") => Domain::ZZ,
         Some("QQ") => Domain::QQ,
-        Some("RR") => Domain::RR,
-        _ if converted.float => Domain::RR,
+        Some("RR") => Domain::RR53,
+        _ if converted.float => Domain::RR(converted.prec),
         _ if !integral => Domain::QQ,
         _ => inferred_domain,
     };
@@ -2915,7 +2924,7 @@ fn reduced<'py>(py: Python<'py>, f: &Bound<'_, PyAny>, G: &Bound<'_, PyAny>, gen
     let object = |rep: symox::poly::MPoly<Rat>| -> PyResult<PyObject> {
         if return_polys {
             poly_obj(py,Poly {rep,gens:converted.gens.clone(),ngens:converted.ngens,domain:output_domain,modulus:prime})
-        } else {Ok(w(to_expr_f(&rep,&converted.gens,output_domain == Domain::RR)).into_pyobject(py)?.into_any().unbind())}
+        } else {Ok(w(symox::poly::convert::to_expr_prec(&rep,&converted.gens,output_domain.prec())).into_pyobject(py)?.into_any().unbind())}
     };
     let qs = PyList::new(py,q.into_iter().map(object).collect::<PyResult<Vec<_>>>()?)?;
     PyTuple::new(py,[qs.into_any(),object(r)?.into_bound(py)])
@@ -3234,7 +3243,7 @@ fn rr_expression_pair(f:&Bound<'_,PyAny>,g:&Bound<'_,PyAny>,gens:&Bound<'_,PyTup
     if kwargs.is_some_and(|k|!k.is_empty())||f.downcast::<PyPoly>().is_ok()||g.downcast::<PyPoly>().is_ok(){return Ok(None);}
     let (fe,ge)=(to_expr(f)?,to_expr(g)?);
     let Ok(ps)=Poly::from_exprs(&[fe,ge],&gens_of(gens)?) else {return Ok(None)};
-    if ps.len()!=2||ps.iter().any(|p|p.has_domain_gens()||p.modulus.is_some()||p.gens.len()!=1)||!ps.iter().any(|p|p.domain==Domain::RR){return Ok(None);}
+    if ps.len()!=2||ps.iter().any(|p|p.has_domain_gens()||p.modulus.is_some()||p.gens.len()!=1)||!ps.iter().any(|p|p.domain.is_rr())||ps.iter().any(|p|p.domain.prec()>53){return Ok(None);}
     Ok(Some((ps[0].gens.clone(),ps[0].rep.clone(),ps[1].rep.clone())))
 }
 

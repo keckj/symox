@@ -693,7 +693,7 @@ pub(super) fn ground(p: &PolyValue, py: Python<'_>) -> PyResult<PyObject> {
     if let Some(g) = p.expression.as_ref().and_then(|e| e.ground.as_ref()).filter(|g| g.inexact.is_some()) {
         return Err(err(symox::poly::inexact_ground::factor_error(g)));
     }
-    let legacy_float = p.expression.is_none() && p.field.is_none() && p.algebraic.is_none() && p.base.modulus.is_none() && p.base.domain == symox::poly::polyobj::Domain::RR && p.base.ngens == 1;
+    let legacy_float = p.expression.is_none() && p.field.is_none() && p.algebraic.is_none() && p.base.modulus.is_none() && p.base.domain.is_rr() && p.base.ngens == 1;
     if legacy_float && p.base.domain_gens().iter().any(|g| !g.is_constant(symox::expr::Constant::I)) {
         return Err(err(symox::poly::convert::PolyError::Reference { kind: "TypeError", message: "unsupported operand type(s) for *: 'PolyElement' and 'PolyElement'".into() }));
     }

@@ -997,7 +997,7 @@ impl Polynomial {
                     if d.with_rational_field()==target.with_rational_field() {target=target.with_rational_field();}
                     else {return Err(PolyError::Unsupported(format!("cannot unify the nested coefficient domains {d} and {target}")));}
                 }
-            } else if p.field.is_none()&&p.base.domain_gens().is_empty()&&p.modulus.is_none()&&p.algebraic.is_none()&&p.expression.is_none()&&p.domain!=super::polyobj::Domain::RR {
+            } else if p.field.is_none()&&p.base.domain_gens().is_empty()&&p.modulus.is_none()&&p.algebraic.is_none()&&p.expression.is_none()&&!p.domain.is_rr() {
                 if p.domain==super::polyobj::Domain::QQ {target=target.with_rational_field();}
             } else {
                 return Err(PolyError::Unsupported(format!("cannot unify the nested coefficient domain {target} with another coefficient domain")));
@@ -1186,7 +1186,7 @@ impl Polynomial {
     /// generators such as `ZZ[log(a)]`, as polynomials over the typed ring
     /// of `parameters`.
     fn legacy_ring_pair(&self,o:&Self,parameters:&[Expr])->PResult<Option<(Self,Self)>>{
-        let legacy=|p:&Self|p.field.is_none()&&p.algebraic.is_none()&&p.expression.is_none()&&p.modulus.is_none()&&p.base.domain!=super::polyobj::Domain::RR;
+        let legacy=|p:&Self|p.field.is_none()&&p.algebraic.is_none()&&p.expression.is_none()&&p.modulus.is_none()&&!p.base.domain.is_rr();
         if !legacy(self)||!legacy(o){return Ok(None);}
         let integral=self.base.domain.max(o.base.domain)==super::polyobj::Domain::ZZ;
         let descriptor=super::domains::ExactDomain::functions(integral,true,parameters.to_vec(),"lex")?;

@@ -21,7 +21,7 @@ pub struct Factorization {
 /// it never re-infers main generators or discards source parameters.
 pub fn normalize_natural_factor(p:Polynomial)->PResult<Polynomial>{
     if p.field.is_some()||p.algebraic.is_some()||p.domain_gens().is_empty()
-        ||p.modulus.is_some()||p.domain==Domain::RR||p.domain_gens().iter().any(|g|!g.is_symbol()){
+        ||p.modulus.is_some()||p.domain.is_rr()||p.domain_gens().iter().any(|g|!g.is_symbol()){
         return Ok(p);
     }
     let parameters=p.domain_gens().to_vec();
@@ -105,7 +105,7 @@ fn preflight_mode(p: &Polynomial, limits: Limits, legacy: bool) -> PResult<()> {
         if let Some(prime) = p.modulus {
             super::f5b::PrimeScope::new(prime)?;
         }
-        if !legacy && (p.domain == Domain::RR || !p.domain_gens().is_empty()) {
+        if !legacy && (p.domain.is_rr() || !p.domain_gens().is_empty()) {
             return Err(failure(
                 "checked factor views require an implemented exact coefficient domain",
             ));
@@ -252,7 +252,7 @@ fn same(a: &Polynomial, b: &Polynomial) -> bool {
     if let (Some(a), Some(b)) = (&a.field, &b.field) {
         return a.rep == b.rep;
     }
-    if a.domain == Domain::RR || b.domain == Domain::RR {
+    if a.domain.is_rr() || b.domain.is_rr() {
         // RR factors come from the bounded-denominator rational image of
         // the coefficients (RR.to_rational) and are rounded back to floats,
         // so the reconstruction is checked to a relative tolerance.
@@ -340,9 +340,9 @@ pub fn compatible_list(
     factor_budget::run(limits, || {
         let legacy = p.field.is_none()
             && p.algebraic.is_none()
-            && (p.domain == Domain::RR || !p.domain_gens().is_empty());
+            && (p.domain.is_rr() || !p.domain_gens().is_empty());
         preflight_mode(p, limits, legacy)?;
-        let mut result = raw(p, if legacy && p.domain != Domain::RR { false } else { squarefree })?;
+        let mut result = raw(p, if legacy && !p.domain.is_rr() { false } else { squarefree })?;
         if legacy {
             let mut kept = Vec::new();
             let mut budget = Budget::new();
@@ -421,7 +421,7 @@ pub fn symbolic_numerator(p: &Polynomial, limits: Limits) -> PResult<(Polynomial
     factor_budget::run(limits, || {
         let legacy = p.field.is_none()
             && p.algebraic.is_none()
-            && (p.domain == Domain::RR || !p.domain_gens().is_empty());
+            && (p.domain.is_rr() || !p.domain_gens().is_empty());
         preflight_mode(p, limits, legacy)?;
         if let Some(f) = &p.field {
             let _scope = Scope::new(f.parameters.len());
@@ -578,7 +578,7 @@ pub fn include(
         // unit as dmp_sqf_list does, and has already filled `all`.
         let legacy = p.field.is_none()
             && p.algebraic.is_none()
-            && (p.domain == Domain::RR || !p.domain_gens().is_empty());
+            && (p.domain.is_rr() || !p.domain_gens().is_empty());
         let factorization = if legacy {
             compatible_list(p, squarefree, all, limits)?
         } else {
