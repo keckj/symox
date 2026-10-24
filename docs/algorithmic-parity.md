@@ -9972,3 +9972,63 @@ Remaining (documented, not fixed):
 - The TypeError text of `trunc` over QQ names `QQ` (SymPy `PythonMPQ`).
 
 Tests: `tests/test_rrcc_parity.py`.
+
+## algroot (wave 16): root objects and algebraic fields
+
+Probe of 273 statements (CRootOf, RootOf, RootSum, AlgebraicNumber,
+minimal_polynomial, to_number_field, primitive_element, field_isomorphism,
+simplify/nsimplify, Poly and factor/gcd over QQ<CRootOf> and radical
+extensions, RootSum evaluation/doit/diff/subs): 257 same before, 262 after.
+
+Implemented:
+- Zassenhaus recombination: the l1-norm test of `dup_zz_zassenhaus`
+  (`|g|_1*|h|_1 <= B`, von zur Gathen and Gerhard Cor. 6.33) before every
+  trial division, and a work grant for the two products of each candidate
+  that passes the constant term test (the number of candidates stays
+  bounded by the attempt limit). `factor(x**6 + 2, extension=(-2)**(1/6))`
+  and `factor(x**6 - 2, extension=2**(1/6))` no longer hit the work limit.
+- Definite rational integrals: when a Sturm count proves that the
+  denominator has no real root on the closed interval, the antiderivative
+  is evaluated at the bounds even if `roots()` finds no radicals
+  (`integrate(1/(x**5 - x - 1), (x, 2, 3))`, as SymPy).
+- RootSum evalf: guard bits as for CRootOf (four alone, 64 inside an
+  expression, like evalf_add), the `as_real_imag` split of the reference's
+  evalf fallback (no `0.e-177*I` residue), and `N()` routes RootSum through
+  the special evaluator (it returned the expression unevaluated).
+- `latex(RootSum)` in the reference's `_print_RootSum` form.
+- `AlgebraicNumber.to_root`, `is_aliased` and `to_primitive_element(radicals=False)`
+  (a CRootOf, as SymPy; the old NotImplementedError and ValueError
+  expectations in `tests/test_algebraic_number_compat.py` were SymPy-divergent).
+- `RootSum.subs` keeps the polynomial generator and the summand variable
+  bound.
+
+Intentional corrections (symox right, SymPy 1.14 wrong):
+- `RootSum(x**5 - x - 1, Lambda(y, log(x - y))).subs(x, 2)`: SymPy
+  substitutes into the generator and gives 0; symox gives
+  `RootSum(x**5 - x - 1, Lambda(y, log(2 - y)))`, whose value is
+  log p(2) = log(29) = 3.36729582998647 (checked numerically).
+  `.subs(x, y)` (zoo in SymPy) and `.subs(a, x)` (generator capture in
+  SymPy) are handled the same way.
+- `minimal_polynomial(CRootOf(x**5 - x - 1, 0), x, compose=False)`:
+  SymPy raises NotAlgebraic, symox returns `x**5 - x - 1`.
+- `minimal_polynomial(r1**2 + r1, x)` with `r1 = CRootOf(x**3 - 2, 1)`:
+  SymPy does not finish within 20 s; symox gives `x**3 - 6*x - 6`
+  (residual below 1e-30).
+
+Remaining (documented, not fixed):
+- `simplify(sqrt(CRootOf(x**3 - 2, 1)**2))` is `-CRootOf(x**3 - 2, 1)` in
+  SymPy: it needs the `_half` branch of `Pow._eval_power` for a complex
+  base (symox also leaves `sqrt((-1 - 2*I)**2)` unevaluated).
+- AlgebraicNumber arithmetic: SymPy keeps the number atomic
+  (`a1*a1` is `sqrt(2)**2`, `a1 + sqrt(2)` is `sqrt(2) + sqrt(2)`); symox
+  evaluates (2, `2*sqrt(2)`). Same value.
+- `primitive_element(..., ex=True)` and `native_coeffs()` display
+  `Fraction`/Rational where SymPy displays `MPQ` (same values).
+- Sum of the three roots of `x**3 - 3*x - 1` evaluates to `0.e-129`
+  where SymPy gives `-0.e-125` (a zero at different precision).
+- `factor(x**12 + 2, extension=(-2)**(1/12))` still hits the work limit
+  outside the recombination (SymPy factors it).
+- `integrate(1/(x**3 + x + 1), x).diff(x).simplify()` runs out of memory
+  (SymPy does not finish either).
+
+Tests: `tests/test_algroot_parity.py`.

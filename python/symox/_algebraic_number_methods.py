@@ -424,3 +424,38 @@ def install():
         methods[name] = _kernel(name)
     for name, method in methods.items():
         setattr(AlgebraicNumber, name, method)
+    _install_reference_methods()
+
+
+def to_root(self, radicals=True, minpoly=None):
+    """The reference ``AlgebraicNumber.to_root``: the root of the minimal
+    polynomial of this element (a radical when ``radicals`` allows it, a
+    ``CRootOf`` otherwise) that equals the element."""
+    from . import AlgebraicNumber
+    if self.is_primitive_element and not isinstance(self.root, AlgebraicNumber):
+        return self.root
+    m = minpoly or self.minpoly_of_element()
+    roots = m.all_roots(radicals=radicals)
+    if len(roots) == 1:
+        return roots[0]
+    ex = self.as_expr()
+    for b in roots:
+        if m.same_root(b, ex):
+            return b
+
+
+def _install_reference_methods():
+    from . import AlgebraicNumber
+    AlgebraicNumber.to_root = to_root
+    native_primitive = AlgebraicNumber.to_primitive_element
+
+    def to_primitive_element(self, radicals=True):
+        # The reference: the element's minimal polynomial and its root,
+        # a CRootOf when radicals are not allowed.
+        if radicals or self.is_primitive_element:
+            return native_primitive(self, radicals=radicals)
+        m = self.minpoly_of_element()
+        return AlgebraicNumber((m, self.to_root(minpoly=m, radicals=False)))
+    AlgebraicNumber.to_primitive_element = to_primitive_element
+    # The reference ``is_aliased``: whether an alias symbol was given.
+    AlgebraicNumber.is_aliased = property(lambda self: self.alias is not None)
