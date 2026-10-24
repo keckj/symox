@@ -4357,7 +4357,7 @@ for _context_name in ('sqrt','cbrt','log'):
             if name in ('sqrt','cbrt'):
                 return _core._node('Pow',(args[0],Rational(1,2 if name=='sqrt' else 3)),False)
             if name == 'log' and len(args) == 2:
-                return _core._undefined_function('log',args,{},(1,2))
+                return _core._node('log',args,False)
             return _core._apply(name,*args,evaluate=False)
         if name == 'log':
             def f(arg,base=None,*,evaluate=None):

@@ -3036,6 +3036,8 @@ fn construct_node(name: &str, v: Vec<Expr>, evaluate: bool) -> PyResult<Expr> {
             // a tiny input such as Pow(2, 10**9) can allocate enormous integers.
             if evaluate { ops::pow(&v[0], &v[1]) } else { Expr::from_unevaluated_kind(Kind::Pow(v[0].clone(), v[1].clone())) }
         }
+        // SymPy's held log(x, b, evaluate=False).
+        "log" if !evaluate && v.len() == 2 => Expr::from_kind(Kind::Func(Func::Undefined(fx::held_log_base_head()), v)),
         "UnevaluatedExpr" => {
             if v.len() != 1 { return Err(PyTypeError::new_err("UnevaluatedExpr expects exactly one argument")); }
             Expr::from_kind(Kind::Func(Func::Undefined(name.into()), v))

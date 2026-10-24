@@ -538,7 +538,18 @@ impl PyMatrixExpr{
     fn as_explicit(&self,py:Python<'_>)->PyResult<crate::matrices::PyMatrix>{Ok(crate::matrices::wrapm(self.m.as_explicit().map_err(|e|error(py,e))?).into_pyobject(py)?.call_method0("as_immutable")?.extract()?)}
     fn as_mutable(&self,py:Python<'_>)->PyResult<crate::matrices::PyMatrix>{Ok(crate::matrices::wrapm(self.m.as_explicit().map_err(|e|error(py,e))?))}
     #[pyo3(signature=(deep=true,**kwargs))]
-    fn doit(&self,py:Python<'_>,deep:bool,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{if kwargs.is_some_and(|d|!d.is_empty()){return Err(PyNotImplementedError::new_err("MatrixExpr doit options are unsupported"));}Ok(matrix_object(py,&self.m.doit(deep).map_err(|e|error(py,e))?)?.unbind())}
+    fn doit(&self,py:Python<'_>,deep:bool,kwargs:Option<&Bound<'_,PyDict>>)->PyResult<PyObject>{
+        // Inverse.doit returns itself for inv_expand=False; other hints are
+        // not supported.
+        let mut inv_expand=true;
+        if let Some(options)=kwargs{
+            for (key,value) in options.iter(){
+                if key.extract::<String>().ok().as_deref()==Some("inv_expand"){inv_expand=value.is_truthy()?;}
+                else{return Err(PyNotImplementedError::new_err("MatrixExpr doit options are unsupported"));}
+            }
+        }
+        Ok(matrix_object(py,&self.m.doit_with(deep,inv_expand).map_err(|e|error(py,e))?)?.unbind())
+    }
     #[pyo3(signature=(deep=true,**hints))]
     fn expand(&self,py:Python<'_>,deep:bool,hints:Option<&Bound<'_,PyDict>>)->PyResult<Self>{
         let (options,mut budget)=crate::parse_expand_options(deep,hints)?;

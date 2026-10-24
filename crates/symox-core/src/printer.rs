@@ -513,6 +513,7 @@ fn write_srepr(e: &Expr, out: &mut String) {
         Kind::Func(Func::Undefined(n), args) if n.is_internal("Tuple") => list("Tuple", args, out),
         Kind::Func(Func::Undefined(n), args) if n.is_internal("UnevaluatedExpr") => list("UnevaluatedExpr", args, out),
         Kind::Func(Func::Undefined(n), args) if n.host().is_some() => list(crate::host::class_name(e).unwrap_or(&n.name), args, out),
+        Kind::Func(Func::Undefined(n), args) if args.len() == 2 && crate::functions::is_held_log_base(n) => list("log", args, out),
         Kind::Func(Func::Undefined(n), args) => {
             let escaped=n.name.replace('\\',"\\\\").replace('\'',"\\'").replace('\n',"\\n").replace('\r',"\\r");
             let mut head=format!("Function('{escaped}'");
