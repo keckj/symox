@@ -84,8 +84,7 @@ def test_symbolic_frequency_integrals():
     (I*x/(x + 1)*x, (oo,), 'oo*I'),
     (x*(1 + 2*I) + 1, (oo,), 'oo*sign(1 + 2*I)'),
     (I/x**2, (0,), 'oo*I'),
-    # symox leaves this one unevaluated (missing answer)
-    pytest.param(x*Shi(x)*I, (oo,), 'oo*I', marks=pytest.mark.xfail(strict=True)),
+    (x*Shi(x)*I, (oo,), 'oo*I'),
 ])
 def test_complex_infinite_limits(expr, args, expected):
     assert str(limit(expr, x, *args)) == expected
