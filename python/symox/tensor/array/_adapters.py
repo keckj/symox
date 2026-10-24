@@ -30,6 +30,15 @@ def _diff_dispatch(original):
         if len(variables) == 1 and _array_variable(variables[0]):
             _check_derivative_options(options)
             variable = variables[0]
+            if (isinstance(variable, _core._MatrixExpr) and variable._kind_tag == 'MatrixSymbol'
+                    and not isinstance(expression, (NDimArray, _core.Matrix))
+                    and not getattr(expression, '_symox_sparse', False)):
+                # SymPy's _matrix_derivative (matrix-line algorithm).
+                from ..._matrix_derivatives import _Unsupported, matrix_derivative
+                try:
+                    return matrix_derivative(expression, variable)
+                except _Unsupported:
+                    pass
             if (isinstance(variable, _core.Matrix) or getattr(variable, '_symox_sparse', False)) and not (
                     isinstance(expression, (NDimArray, _core.Matrix, _core._MatrixExpr))
                     or getattr(expression, '_symox_sparse', False) or getattr(expression, 'is_Matrix', False)):
@@ -61,9 +70,10 @@ def _entrywise(original):
         if (isinstance(expression, (NDimArray, _core.Matrix))
                 or getattr(expression, '_symox_sparse', False)):
             expression,rest,options=first.split(args,options)
-            if isinstance(expression, NDimArray):
-                # SymPy sympifies the argument first: mutable arrays become
-                # their immutable counterpart.
+            if isinstance(expression, NDimArray) or hasattr(expression, 'as_immutable'):
+                # SymPy sympifies the argument first: mutable arrays and
+                # matrices (dense or sparse) become their immutable
+                # counterpart.
                 expression=expression.as_immutable()
             return expression.applyfunc(lambda entry: original(entry, *rest, **options))
         return original(*args, **options)

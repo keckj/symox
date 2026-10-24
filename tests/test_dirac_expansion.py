@@ -58,7 +58,8 @@ def test_explicit_matrix_entries_expand_and_keep_their_storage_contract():
         matrix = constructor([[sx.DiracDelta(2*x), 0]])
         result = sx.expand(matrix, diracdelta=True, wrt=x)
         assert result[0, 0] == sx.DiracDelta(x)/2
-        assert result._immutable == matrix._immutable
+        # SymPy 1.14: expand sympifies the matrix to its immutable class.
+        assert result._immutable
         assert bool(getattr(result, '_symox_sparse', False)) == bool(getattr(matrix, '_symox_sparse', False))
 
 

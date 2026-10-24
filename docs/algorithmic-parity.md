@@ -8540,3 +8540,58 @@ Remaining (documented gaps):
   the native `_MatrixExpr` class from `type()` and `__class__`.
 
 Tests: `tests/test_mat_rest3_parity.py`.
+
+## mat-rest4 (wave 10)
+
+Implemented:
+- Derivatives of matrix expressions by a `MatrixSymbol` now follow
+  SymPy's matrix-line algorithm (`_eval_derivative_matrix_lines`,
+  `_LeftRightArgs`, `_matrix_derivative`), in
+  `python/symox/_matrix_derivatives.py`. It covers MatrixSymbol, MatAdd,
+  MatMul, Transpose, Inverse, MatPow (integer exponents and 1x1 bases),
+  Trace, scalar Add/Mul/Pow, and a scalar free of the variable (a
+  ZeroMatrix). Rank-2 results are contracted as in SymPy, and rank-4
+  results are `PermuteDims(ArrayTensorProduct(...))` / `ArrayAdd`, as in
+  SymPy. Examples: `Trace(X*X).diff(X) == 2*X.T` and
+  `(x*x.T*x).diff(x) == KroneckerProduct(I, x.T*x) + 2*x*x.T`. A vector
+  derived by a vector uses the products of SymPy's array conversion
+  (SymPy's old line contraction gives a wrong `x**2` term here). Any node
+  the port does not cover falls back to the previous array-of-entries
+  path, and never to a guessed matrix form. Probe
+  `matrices/expressions/tests/test_derivatives.py`: same 13 -> 67 of 107.
+- A native scalar node (Trace, Determinant, ...) used as a coefficient
+  prints under its head (`Trace(A)*I`, not `Expr(A)*I`).
+- `Eq(M, N).lhs` / `.rhs` of explicit matrices are `ImmutableDenseMatrix`.
+- The entrywise public functions (`simplify`, `expand`, `factor`,
+  `cancel`, `together`, `trigsimp`, `powsimp`, `N`, ...) applied to a dense
+  or sparse matrix return the immutable class, as SymPy's sympify does
+  (`simplify(SparseMatrix(...))` is an `ImmutableSparseMatrix`).
+
+Remaining (documented gaps):
+- Matrix derivatives that are still unsupported, and fall back to the
+  array path or raise: HadamardProduct/HadamardPower (SymPy gives
+  `DiagMatrix(...)`), ElementwiseApplyFunction, MatrixElement derivatives
+  (KroneckerDelta), `X.diff(A)` for a different symbol (ArrayDerivative),
+  `Trace(A)*A` (a rank-4 result with a scalar factor), and expressions
+  with explicit matrices of symbolic size.
+- Form differences in test_derivatives: a 1x1 factor in a product of
+  powers is placed differently (`b*(c.T*a*x.T*b)**(-1/2)*c.T*a` against
+  SymPy's `b*a.T*c*(...)**(-1/2)`; both are equal because the factor is
+  1x1). The large `test_derivatives_of_complicated_matrix_expr` sum also
+  orders its terms differently.
+- Items carried over from mat-rest3 and not done here: the adjoint of an
+  `Operator` entry (`Dagger(a)`), the adjoint/transpose of `Abs(A)` and
+  `sqrt(A)` for a noncommutative `A`, the `DFT`/`IDFT`/`GenericIdentity`/
+  `GenericZeroMatrix` nodes, the Poly-entry deprecation warning and
+  `test_smith_normal`, and the `type()` of BlockDiagMatrix/MatMul/... (still
+  the native `_MatrixExpr`).
+
+Tests: `tests/test_mat_rest4_parity.py`. Older tests that pinned the
+previous symox behaviour were updated to SymPy's results:
+`Trace(A).diff(A)` is `Identity(2)` (not an array), a symbolic-size
+`A.diff(A)` is a `PermuteDims` (it used to raise), and the entrywise
+functions return immutable matrices (test_array_public_api,
+test_differentiation_options, test_matrix_scalar_codegen,
+test_dirac_expansion). The finite jacobian test (each entry of a rank-4
+result against the derivative of the explicit matrix) checks the axis
+order of `A.T.diff(A)` and the other rank-4 results.

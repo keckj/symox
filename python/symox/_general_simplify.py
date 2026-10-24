@@ -12,7 +12,7 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
     from ._core import Expr
     options=dict(ratio=ratio,measure=measure,rational=rational,inverse=inverse,doit=doit)
     if getattr(expr,'_symox_sparse',False):
-        return expr.applyfunc(lambda entry:simplify(entry,**options))
+        return expr.as_immutable().applyfunc(lambda entry:simplify(entry,**options))
     expression=sympify(expr,rational=rational)
     if not isinstance(expression,Expr):
         if getattr(expression,'_symox_matrixexpr',False):

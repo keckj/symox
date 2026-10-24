@@ -510,7 +510,7 @@ def install(namespace):
     def N(x,n=15,**kwargs):
         from . import sympify
         if not isinstance(x,Expr) and hasattr(x,'applyfunc'):
-            if getattr(x,'is_NDimArray',False):x=x.as_immutable()
+            if getattr(x,'is_NDimArray',False) or getattr(x,'is_Matrix',False):x=x.as_immutable()
             return x.applyfunc(lambda entry:N(entry,n,**kwargs))
         value = sympify(x)
         if isinstance(value,Expr) and _any_sum(value):

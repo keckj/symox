@@ -30,8 +30,11 @@ def test_scalar_operations_dispatch_entrywise(name,kind):
     # SymPy sympifies a mutable array to its immutable counterpart first.
     expected=sx.ImmutableDenseNDimArray if kind is sx.MutableDenseNDimArray else kind
     # SymPy 1.14: simplify(MutableDenseMatrix) is an ImmutableDenseMatrix.
-    if kind is sx.Matrix and name=='simplify':
+    # SymPy 1.14: every one of these sympifies a matrix to its immutable class.
+    if kind is sx.Matrix:
         expected=sx.ImmutableMatrix
+    elif kind is sx.SparseMatrix:
+        expected=sx.ImmutableSparseMatrix
     assert isinstance(operation(array),expected)
     assert operation(x).to_sympy()==getattr(sp,name)(sp.Symbol('x'))
 
@@ -79,8 +82,8 @@ def test_derivative_limits_and_options():
                 sx.diff(value,variables,**options)
     n=sx.Symbol('n',integer=True,positive=True)
     A=sx.MatrixSymbol('A',n,n)
-    with pytest.raises((ValueError,NotImplementedError,TypeError)):
-        A.diff(A)
+    # SymPy 1.14 derives a symbolic-size MatrixSymbol by itself.
+    assert str(A.diff(A))=='PermuteDims(ArrayTensorProduct(I, I), (3)(1 2))'
 
 
 def test_shape_queries_and_registration():
@@ -109,7 +112,7 @@ x,y=symbols('x y')
 assert diff(x*x*y,Array([x,y])).tolist()==[2*x*y,x*x]
 assert simplify(Array([sin(x)**2+cos(x)**2])).tolist()==[1]
 A=MatrixSymbol('A',2,2)
-assert Trace(A).diff(A).tolist()==[[1,0],[0,1]]
+assert Trace(A).diff(A)==Identity(2)
 assert A.diff(A)[0,1,0,1]==1
 assert shape(tensorproduct(Array([1,2]),Array([3,4])))==(2,2)
 '''
