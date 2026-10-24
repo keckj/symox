@@ -154,6 +154,10 @@ fn release_unevaluated(e: &Expr, cache: &mut FxHashMap<Expr, Expr>) -> Expr {
         Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") && args.len() == 1 => {
             release_unevaluated(&args[0], cache)
         }
+        // A held log(x, b) (log(..., evaluate=False)) is evaluated again.
+        Kind::Func(Func::Undefined(head), args) if args.len() == 2 && crate::functions::is_held_log_base(head) => {
+            crate::functions::log_base(&release_unevaluated(&args[0], cache), &release_unevaluated(&args[1], cache))
+        }
         _ => crate::traverse::map_children(e, &mut |child| release_unevaluated(child, cache)),
     };
     cache.insert(e.clone(), result.clone());

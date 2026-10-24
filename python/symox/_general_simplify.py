@@ -28,6 +28,10 @@ def simplify(expr,ratio=1.7,measure=count_ops,rational=False,inverse=False,doit=
     # numeric values decide it exactly (algebraic root objects included).
     if expression.args and expression.is_number and expression.is_zero:
         return S.Zero if not expression.is_Number else expression
+    if len(expression.args)==2 and getattr(expression.func,'__name__',None)=='log':
+        # log._eval_simplify: a held log(x, b) is simplified in its
+        # evaluated form, log(x)/log(b).
+        return simplify(expression.func(*expression.args),**options)
     if doit and _core._host_contains(expression)[0]:
         # The reference simplify ends with doit() on unhandled heads; host
         # classes that opt in (held WignerD) are evaluated first here.

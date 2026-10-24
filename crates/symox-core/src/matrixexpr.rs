@@ -942,10 +942,13 @@ impl MatrixExpr {
         }
         self.map_all(matrices,&mut |e|crate::subs::xreplace(e,&rules))
     }
-    pub fn doit(&self,deep:bool)->MResult<Self>{self.doit_cached(deep,&mut FxHashMap::default())}
-    fn doit_cached(&self,deep:bool,memo:&mut FxHashMap<usize,Self>)->MResult<Self>{
+    pub fn doit(&self,deep:bool)->MResult<Self>{self.doit_cached(deep,true,&mut FxHashMap::default())}
+    /// `doit(inv_expand=False)`: `Inverse.doit` returns the inverse itself.
+    pub fn doit_with(&self,deep:bool,inv_expand:bool)->MResult<Self>{self.doit_cached(deep,inv_expand,&mut FxHashMap::default())}
+    fn doit_cached(&self,deep:bool,inv_expand:bool,memo:&mut FxHashMap<usize,Self>)->MResult<Self>{
         if let Some(result)=memo.get(&self.dag_id()){return Ok(result.clone());}
-        let children=if deep{self.children().iter().map(|c|c.doit_cached(true,memo)).collect::<MResult<Vec<_>>>()?}else{self.children()};
+        if !inv_expand&&matches!(self.kind(),MatrixKind::Inverse(_)){return Ok(self.clone());}
+        let children=if deep{self.children().iter().map(|c|c.doit_cached(true,inv_expand,memo)).collect::<MResult<Vec<_>>>()?}else{self.children()};
         let result=match self.kind(){MatrixKind::Permutation(p)=>Self::permutation(p.clone(),true),MatrixKind::Permute(_,p,axis)=>children[0].permute(p.clone(),*axis,true),MatrixKind::ApplyFunction(function,_)=>Self::apply_function(function.clone(),&children[0],true),MatrixKind::Diag(_)=>Self::diag(&children[0]),MatrixKind::DiagonalOf(_)=>Self::diagonal_of(&children[0]),MatrixKind::Diagonal(_)=>Self::diagonal(&children[0]),MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice_normalized(rows.clone(),cols.clone()),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>children[0].pow(e.clone(),true),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
         let result=if result==*self{self.clone()}else{result};
         memo.insert(self.dag_id(),result.clone());Ok(result)

@@ -757,7 +757,11 @@ fn real_signs_uncached(e: &Expr) -> Option<Signs> {
         Kind::Mul(c, facs) => {
             let mut s = number_sign(c);
             for (b, x) in facs {
-                s = s.mul(pow_signs(b, x)?);
+                match pow_signs(b, x) {
+                    Some(f) => s = s.mul(f),
+                    None if facs.len() > 1 && !noncommuting(e) => return imaginary_factors_signs(facs).map(|f| number_sign(c).mul(f)),
+                    None => return None,
+                }
             }
             Some(s)
         }
@@ -877,6 +881,13 @@ fn pow_signs(b: &Expr, x: &Expr) -> Option<Signs> {
             bs
         });
     }
+    // Pow._eval_is_extended_positive: an imaginary base to an imaginary
+    // power is positive when log(base) is imaginary (I**I = exp(-pi/2)).
+    // Its first branch tests `base == exp` and leaves the sign of I**I
+    // unknown; the value is still real and nonzero.
+    if bs.is_none() && !matches!(x.kind(), Kind::Num(_)) && imaginary_power_of_imaginary(b, x) {
+        return Some(if b == x { Signs::NONZERO } else { Signs::POS });
+    }
     // non-integer exponent: need a nonnegative base and a real exponent
     let bs = bs?;
     let xs = real_signs(x)?;
@@ -892,6 +903,34 @@ fn pow_signs(b: &Expr, x: &Expr) -> Option<Signs> {
         }
     }
     None
+}
+
+/// `base.is_imaginary and exp.is_imaginary and log(base).is_imaginary`.
+fn imaginary_power_of_imaginary(b: &Expr, x: &Expr) -> bool {
+    fact(b, "imaginary") == Some(true)
+        && fact(x, "imaginary") == Some(true)
+        && fact(&crate::functions::func(Func::Log, vec![b.clone()]), "imaginary") == Some(true)
+}
+
+/// The signs of a product of factors without real signs: an even number of
+/// imaginary factors (finite and nonzero) gives a nonzero real value, as
+/// `Mul._eval_real_imag` does (`I*i` is real for an imaginary `i`).
+fn imaginary_factors_signs(facs: &[(Expr, Expr)]) -> Option<Signs> {
+    let mut known = Signs::POS;
+    let mut imaginary = 0usize;
+    for (b, x) in facs {
+        match pow_signs(b, x) {
+            Some(s) => known = known.mul(s),
+            None => {
+                let factor = crate::ops::mul_factor(b, x);
+                if fact(&factor, "imaginary") != Some(true) {
+                    return None;
+                }
+                imaginary += 1;
+            }
+        }
+    }
+    (imaginary % 2 == 0).then(|| known.mul(Signs::NONZERO))
 }
 
 fn func_signs(f: &Func, args: &[Expr]) -> Option<Signs> {

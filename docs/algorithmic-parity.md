@@ -8743,3 +8743,59 @@ Remaining (unsupported or a different form, never a wrong value):
   `Poly(expr, x)` (pre-existing).
 
 Tests: `tests/test_simp_rest4_parity.py`.
+
+## simp-rest5 (wave 11)
+
+Simplify selection (measured, not kept): returning SymPy's own sequence
+(`reference_sequence`, the chain of `shorter` calls whose ties keep the
+earlier form) whenever it applies, skipping the later native tie rules and
+powsimp/exptrigsimp passes for it, and making the native `count_ops` rebuild
+the numerator and denominator the way `fraction` does (a number times a
+single sum is distributed, so 2*(8*x**2 + 14*x + 3) counts as
+16*x**2 + 28*x + 6) gives SymPy's forms for
+`simplify((x + 5)/(16*x**2 + 28*x + 6))` and issue 17141. It raised the
+simplify probe from same 1720 to 1730 with no regression, the ODE corpus
+from cls/hint/def 301/275/270 to 303/279/274 and the integration corpus
+from SAME 1161 to 1162. It also changed 7 tests of the suite: the form of
+the Poisson process probability
+`(9*t1**3 + 9*t1**2 + 6*t1 + 2)*exp(-3*t1)/2`, the period of
+`(sin(x) + cos(x))**2` (2*pi instead of pi), one ODE symmetry search, and 4
+nonlinsolve systems that became NotImplementedError. The wave budget left
+no time to track those callers down, so the native selection is unchanged
+and the two cases stay strict xfails.
+
+Assumptions (Pow._eval_is_extended_real / _eval_is_extended_positive):
+- An imaginary base to an imaginary power is real and nonzero when log(base)
+  is imaginary: `I**I`, `(-I)**I`, `I**(2*I)`, `I**i`, `exp(I)**i` with i
+  imaginary. They are positive except `I**I` itself: SymPy's positive test
+  starts with a `base == exp` branch, so `(I**I).is_positive` is None while
+  `is_real` is True; symox follows that.
+- A product of an even number of imaginary factors with known-sign real
+  factors is real and nonzero (`I*i`, `2*I*i`).
+
+Held two-argument log (`log(exp(x), 2, evaluate=False)`): it keeps its two
+arguments in str, args and srepr, and re-evaluates to `log(exp(x))/log(2)` in
+subs, doit, expand, `func(*args)` and simplify (log._eval_simplify), so
+`simplify(..., inverse=True)` gives `x/log(2)`.
+
+`MatrixExpr.doit(inv_expand=False)` keeps `Inverse(A*B)` unexpanded
+(Inverse.doit returns self); other doit hints still raise
+NotImplementedError.
+
+Simplify probe (sympy/simplify/tests) with the kept changes: same 1720 -> 1721
+(test_simplify_function_inverse, the held log), diff 127 -> 126, no
+statement from same to different. ODE corpus (cls/hint/def 301/275/270 of
+315) and integration corpus (SAME 1161, EQUIV 21, DIFF 10, MISSING 18) are
+unchanged.
+
+Remaining (unsupported or a different form, never a wrong value):
+- The simplify selection above: `simplify((x + 5)/(16*x**2 + 28*x + 6))`
+  keeps the cancelled form and issue 17141 keeps the expanded square.
+- Derivative with a symbolic integer order (issue 22210): the order of a
+  native Derivative is a machine integer, so `Derivative(f(x), (x, n))` with
+  a symbolic n raises ValueError where SymPy keeps it unevaluated.
+- `arg(I**I)` is printed in a different form.
+- `(2*I)**i` facts: symox gives None where SymPy proves positive/imaginary
+  False.
+
+Tests: `tests/test_simp_rest5_parity.py`.

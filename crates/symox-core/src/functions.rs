@@ -12,6 +12,11 @@ pub fn func(f: Func, args: Vec<Expr>) -> Expr {
     // A host-defined head evaluates only through its own class, as SymPy's
     // Function.__new__ calls cls.eval for each rebuilt application.
     if let Func::Undefined(head) = &f {
+        // A held two-argument log(x, b, evaluate=False) evaluates again when
+        // it is rebuilt (subs, doit, expand, func(*args)): log.eval(x, b).
+        if args.len() == 2 && is_held_log_base(head) {
+            return log_base(&args[0], &args[1]);
+        }
         if let Some(host) = head.host() {
             if let Some(value) = host.evaluate(&args) { return value; }
             // A new application gets its own handle, which binds the Python
@@ -307,6 +312,7 @@ pub fn doit(e: &Expr, deep: bool) -> Expr {
                 .unwrap_or_else(||Expr::from_kind(Kind::Func(Func::Limit,vec![body,args[1].clone(),args[2].clone(),args[3].clone()])))
         },
         Kind::Func(Func::Undefined(name), args) if name.is_internal("UnevaluatedExpr") => child(&args[0]),
+        Kind::Func(Func::Undefined(head), args) if args.len() == 2 && is_held_log_base(head) => log_base(&child(&args[0]), &child(&args[1])),
         Kind::Add(..) if !e.is_canonical() => add(&e.args().iter().map(child).collect::<Vec<_>>()),
         Kind::Mul(..) if !e.is_canonical() => mul(&e.args().iter().map(child).collect::<Vec<_>>()),
         Kind::Pow(base, exponent) if !e.is_canonical() => pow(&child(base), &child(exponent)),
@@ -423,6 +429,18 @@ pub fn min(args: Vec<Expr>) -> Expr {
 /// the result split off for rational arguments).
 pub fn log_base(x: &Expr, b: &Expr) -> Expr {
     crate::special::trig_eval::log_base(x, b)
+}
+
+/// The head of SymPy's held `log(x, b, evaluate=False)`: the native log is
+/// unary, so the held two-argument application keeps a `log` head with
+/// `nargs=(1, 2)`, which evaluates again through `log.eval(x, b)` when it is
+/// rebuilt.
+pub fn held_log_base_head() -> crate::expr::UndefinedFunction {
+    crate::expr::UndefinedFunction::new("log", crate::symbol::Assumptions::NONE, Some(vec![1, 2]))
+}
+
+pub fn is_held_log_base(head: &crate::expr::UndefinedFunction) -> bool {
+    !head.internal && head.host().is_none() && head.name.as_ref() == "log" && head.nargs.as_deref() == Some(&[1, 2][..])
 }
 
 /// Applied undefined function `name(args...)`.

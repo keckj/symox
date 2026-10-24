@@ -196,6 +196,10 @@ fn ex(
         // AddWithLimits._eval_expand_basic: an Integral or a Sum of a sum
         // is the sum of the Integrals (Sums) of its terms, when the summand
         // commutes and the limits are not known to be infinite (or force).
+        // A held log(x, b, evaluate=False) is rebuilt, which evaluates it.
+        Kind::Func(Func::Undefined(head), args) if args.len() == 2 && crate::functions::is_held_log_base(head) => {
+            exf(&crate::functions::log_base(&args[0], &args[1]), cache, options, opaque)
+        }
         Kind::Func(Func::Integral | Func::Sum, _) if options.basic => {
             let rebuilt = if options.deep {
                 crate::traverse::map_children(e, &mut |c| exf(c, cache, options, opaque))
