@@ -978,7 +978,21 @@ fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,se
     let e = match replacements {
         Some(mapping) => {
             let pairs = mapping.iter().map(|(old, new)| Ok((to_expr(&old)?, to_expr(&new)?))).collect::<PyResult<Vec<_>>>()?;
-            symox::evalf_mp::substitute_for_evalf(e, &pairs)
+            if !pairs.is_empty() && has_dirac_delta(e) {
+                // SymPy's evalf has no rule for DiracDelta: it falls back to
+                // `self.subs(subs)._eval_evalf(prec)` and returns `self` when
+                // that gives None, so DiracDelta(x).evalf(subs={x: 0}) is
+                // DiracDelta(x), while 2*DiracDelta(x) gives 2.0*DiracDelta(0).
+                // The arguments are substituted exactly, never as floats
+                // (DiracDelta(x + 1) at x = -1 is not 0).
+                let exact = symox::subs::subs(e, &pairs);
+                if matches!(exact.kind(), Kind::Func(Func::DiracDelta, _)) {
+                    return Ok(e.clone());
+                }
+                exact
+            } else {
+                symox::evalf_mp::substitute_for_evalf(e, &pairs)
+            }
         }
         None => e.clone(),
     };
@@ -996,6 +1010,14 @@ fn evalf_checked(e:&Expr,precision:u32,replacements:Option<&Bound<'_,PyDict>>,se
         });
     }
     Ok(value)
+}
+
+fn has_dirac_delta(e: &Expr) -> bool {
+    match e.kind() {
+        Kind::Func(Func::DiracDelta, _) => true,
+        Kind::Num(_) | Kind::Sym(_) | Kind::Const(_) | Kind::Bool(_) => false,
+        _ => e.args().iter().any(has_dirac_delta),
+    }
 }
 
 type IntegrationConditions=symox::integrate::Conds;
@@ -1409,15 +1431,37 @@ pub(crate) fn substitution_options(kwargs:Option<&Bound<'_,PyDict>>)->PyResult<b
 }
 
 /// Share scalar binder/dimension validation with entrywise matrix substitution.
+/// SymPy's `Order._eval_subs` rebuilds the order with the substituted
+/// variables, and `Order.__new__` rejects repeated ones:
+/// `O(x*y).subs(y, x)` raises "Variables are supposed to be unique symbols,
+/// got [x, x]".
+fn check_order_variables(e:&Expr,old:&Expr,new:&Expr)->Result<(),String> {
+    if !new.is_symbol() || old==new || !old.is_symbol() { return Ok(()); }
+    fn walk(e:&Expr,old:&Expr,new:&Expr,seen:&mut FxHashSet<usize>)->Result<(),String> {
+        if matches!(e.kind(),Kind::Num(_)|Kind::Sym(_)|Kind::Const(_)|Kind::Bool(_)) || !seen.insert(e.dag_id()) { return Ok(()); }
+        if let Some((_,vars))=symox::series::order::order_parts(e) {
+            if vars.iter().any(|(v,_)|v==old) && vars.iter().any(|(v,_)|v==new) {
+                let names=vars.iter().map(|(v,_)|if v==old {new.to_string()} else {v.to_string()}).collect::<Vec<_>>().join(", ");
+                return Err(format!("Variables are supposed to be unique symbols, got [{names}]"));
+            }
+            return Ok(());
+        }
+        for arg in e.args() { walk(&arg,old,new,seen)?; }
+        Ok(())
+    }
+    walk(e,old,new,&mut FxHashSet::default())
+}
+
 pub(crate) fn checked_subs(py:Python<'_>,expression:&Expr,pairs:&[(Expr,Expr)],simultaneous:bool)->PyResult<Expr> {
     let result=if simultaneous {
-        for (old,new) in pairs {symox::binders::check_substitution(expression,old,new).map_err(PyValueError::new_err)?;}
+        for (old,new) in pairs {symox::binders::check_substitution(expression,old,new).map_err(PyValueError::new_err)?;check_order_variables(expression,old,new).map_err(PyValueError::new_err)?;}
         validate_matrix_replacements(py,expression,pairs,true)?;
         subs::simultaneous(expression,pairs)
     } else {
         let mut result=expression.clone();
         for pair in pairs {
             symox::binders::check_substitution(&result,&pair.0,&pair.1).map_err(PyValueError::new_err)?;
+            check_order_variables(&result,&pair.0,&pair.1).map_err(PyValueError::new_err)?;
             validate_matrix_replacements(py,&result,std::slice::from_ref(pair),false)?;
             result=subs::subs1(&result,&pair.0,&pair.1);
         }

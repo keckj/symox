@@ -155,6 +155,15 @@ fn _limit(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir
     }
 }
 
+/// `(c0, [c_i])` of `limits::bounded_affine`: the limit is
+/// `c0 + sum(c_i*AccumBounds(-1, 1))`; `None` when it does not apply.
+#[pyfunction]
+fn _limit_bounded_affine(e: &Bound<'_, PyAny>, z: &Bound<'_, PyAny>, z0: &Bound<'_, PyAny>, dir: &str) -> PyResult<Option<(PyExpr, Vec<PyExpr>)>> {
+    let minus = match dir { "+" => false, "-" => true, _ => return Ok(None) };
+    Ok(lm::bounded_affine(&to_expr(e)?, &to_expr(z)?, &to_expr(z0)?, minus)
+        .map(|(c0, cs)| (w(c0), cs.into_iter().map(w).collect())))
+}
+
 #[pyfunction]
 #[pyo3(signature=(e,z,z0,dir="+"))]
 fn _held_limit(e:&Bound<'_,PyAny>,z:&Bound<'_,PyAny>,z0:&Bound<'_,PyAny>,dir:&str)->PyResult<PyExpr>{
@@ -186,6 +195,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     symox::subs::register_order_point_host(order_point_host);
     m.add_function(wrap_pyfunction!(_limit, m)?)?;
     m.add_function(wrap_pyfunction!(_held_limit, m)?)?;
+    m.add_function(wrap_pyfunction!(_limit_bounded_affine, m)?)?;
     m.add_function(wrap_pyfunction!(_series, m)?)?;
     m.add_function(wrap_pyfunction!(_order, m)?)?;
     m.add_function(wrap_pyfunction!(_remove_o, m)?)?;
