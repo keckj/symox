@@ -592,6 +592,15 @@ fn fraction_parts(m: &Expr) -> (Vec<Expr>, Vec<Expr>) {
     let mut num = Vec::new();
     let mut den = Vec::new();
     for t in m.args() {
+        // `term.is_commutative and (term.is_Pow or isinstance(term, exp))`:
+        // a noncommutative power stays in the numerator, in its place.
+        if matches!(t.kind(), Kind::Pow(..) | Kind::Func(Func::Exp, _))
+            && t.has_noncommutative_host()
+            && crate::decompose::commutativity(&t) != Some(true)
+        {
+            num.push(t);
+            continue;
+        }
         let (b, x) = match t.kind() {
             Kind::Pow(b, x) => (b.clone(), x.clone()),
             Kind::Func(Func::Exp, a) => (crate::expr::Expr::e(), a[0].clone()),

@@ -520,7 +520,7 @@ pub fn simplify(e: &Expr) -> Expr {
     let selected_ops = crate::simptools::methods::count_ops(&selected);
     let tie_keeps_reference = factored_ops == selected_ops && reference.as_ref() == Some(&selected);
     let selected = if ((factored_ops <= selected_ops && !tie_keeps_reference)
-        || (factored != selected && reference_factored_state(e).as_ref() == Some(&factored)))
+        || (!from_reference && factored != selected && reference_factored_state(e).as_ref() == Some(&factored)))
         && keeps_realness()
     {
         factored

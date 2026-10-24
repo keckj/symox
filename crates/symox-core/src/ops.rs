@@ -754,6 +754,17 @@ fn mul_infinite(coeff: Number, facs: Vec<(Expr, Expr)>, infs: &[Constant], cache
             crate::assumptions::fact(&factor,"extended_real"),
         ));
         if zero == Some(true) { return Expr::nan(); }
+        // Old assumptions: positive or negative implies nonzero and real
+        // (sqrt(5 - sqrt(5)) is positive while its real fact stays open).
+        let (zero, real) = if positive == Some(true) || negative == Some(true) { (Some(false), Some(true)) } else { (zero, real) };
+        // Mul.flatten queries c.is_zero and c.is_extended_real with numeric
+        // evaluation for a number factor beside zoo: zoo*sqrt(5 - sqrt(5)) is zoo.
+        let (zero, real) = if complex && !(zero == Some(false) && real.is_some())
+            && crate::symbolic_number::is_symbolic_number(&factor) {
+            let (z, r) = (crate::assumptions::is_zero(&factor), crate::assumptions::fact(&factor, "extended_real"));
+            let positive = crate::assumptions::is_positive(&factor) == Some(true) || crate::assumptions::is_negative(&factor) == Some(true);
+            if positive { (Some(false), Some(true)) } else { (z.or(zero), r.or(real)) }
+        } else { (zero, real) };
         if complex {
             // Infinity atoms are exactly nonzero, even where the generic
             // assumption query conservatively leaves is_zero unknown.
@@ -1480,6 +1491,22 @@ pub fn pow(b: &Expr, e: &Expr) -> Expr {
     }
     if b.has_nonfinite() || e.has_nonfinite() || b.is_zero() {
         if let Some(result) = infinite_power(b, e) { return result; }
+    }
+    // Pow.__new__: a number base with a negative coefficient to an integer
+    // Symbol exponent of known parity, (-b)**e for even e, -(-b)**e for odd.
+    if matches!(e.kind(), Kind::Sym(_)) && !b.is_minus_one() && !b.has_noncommutative_host() {
+        let negative_coefficient = match b.kind() {
+            Kind::Num(n) => n.is_negative(),
+            Kind::Mul(c, _) => c.is_negative(),
+            _ => false,
+        };
+        if negative_coefficient && crate::symbolic_number::is_symbolic_number(b) && crate::assumptions::is_integer(e) == Some(true) {
+            match crate::assumptions::parity_even(e) {
+                Some(true) => return pow(&neg(b), e),
+                Some(false) => return neg(&pow(&neg(b), e)),
+                None => {}
+            }
+        }
     }
     match b.kind() {
         Kind::Num(n) if n.is_one() => {

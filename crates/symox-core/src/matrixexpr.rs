@@ -519,6 +519,24 @@ impl MatrixExpr {
         let rows=first.rows().clone(); let cols=factors.last().unwrap().cols().clone();
         for pair in factors.windows(2){compatible(pair[0].cols(),pair[1].rows())?;}
         if !evaluate{return Ok(Self::new(MatrixKind::Mul(coefficient,factors.to_vec()),rows,cols));}
+        // canonicalize runs combine_powers before flatten: a nested product
+        // equal to B_base.inverse() combines with B_base**B_exp, as in
+        // MatMul(B**-1*A**-1, (A*B)**2).doit() == A*B.
+        let mut grouped:Vec<Self>=Vec::with_capacity(factors.len());
+        for factor in factors {
+            if let Some(prev)=grouped.last().cloned(){
+                if matches!(prev.kind(),MatrixKind::Mul(c,_) if c.is_one()){
+                    let (b,be)=factor.as_base_exp();
+                    if matches!(b.kind(),MatrixKind::Mul(..))&&b.rows()==b.cols()&&be.is_integer_number(){
+                        if let Ok(inverse)=b.inverse(true){
+                            if inverse==prev{grouped.pop();grouped.push(prev.pow(sub(&Expr::one(),&be),true)?);continue;}
+                        }
+                    }
+                }
+            }
+            grouped.push(factor.clone());
+        }
+        let factors=&grouped[..];
         let mut scalar=coefficient;
         let mut flat=Vec::new();
         for factor in factors {if let MatrixKind::Mul(c,fs)=factor.kind(){scalar=mul2(&scalar,c);flat.extend(fs.iter().cloned());}else{flat.push(factor.clone());}}
@@ -562,6 +580,9 @@ impl MatrixExpr {
         if evaluate {
             if exponent.is_zero(){return Self::identity(self.rows().clone());}
             if exponent.is_one(){return Ok(self.clone());}
+            // MatPow.doit combines nested powers before the exp == -1 case,
+            // so (X**2)**-1 is X**-2 rather than Inverse(X**2).
+            if exponent.as_i64().is_some(){if let MatrixKind::Pow(b,e)=self.kind(){if e.is_integer_number(){return b.pow(mul2(e,&exponent),true);}}}
             if exponent==Expr::minus_one(){return self.inverse(true);}
             if matches!(self.kind(),MatrixKind::Identity){return Ok(self.clone());}
             if let Some(n)=exponent.as_i64(){
@@ -1024,12 +1045,22 @@ impl MatrixExpr {
     }
     pub fn doit(&self,deep:bool)->MResult<Self>{self.doit_cached(deep,true,&mut FxHashMap::default())}
     /// `doit(inv_expand=False)`: `Inverse.doit` returns the inverse itself.
+    /// MatPow.doit: with inv_expand=False an overall exponent of -1 gives
+    /// Inverse(base).doit(inv_expand=False), which is the held Inverse.
+    fn pow_doit(base:&Self,exponent:&Expr,inv_expand:bool)->MResult<Self>{
+        if !inv_expand{
+            let(mut b,mut e)=(base.clone(),exponent.clone());
+            loop{match b.kind(){MatrixKind::Pow(bb,ee) if e.as_i64().is_some()&&ee.is_integer_number()=>{e=mul2(&e,ee);b=bb.clone();},MatrixKind::Inverse(bb) if e.as_i64().is_some()=>{e=neg(&e);b=bb.clone();},_=>break}}
+            if e==Expr::minus_one()&&!matches!(b.kind(),MatrixKind::Explicit(_)){return b.inverse(false);}
+        }
+        base.pow(exponent.clone(),true)
+    }
     pub fn doit_with(&self,deep:bool,inv_expand:bool)->MResult<Self>{self.doit_cached(deep,inv_expand,&mut FxHashMap::default())}
     fn doit_cached(&self,deep:bool,inv_expand:bool,memo:&mut FxHashMap<usize,Self>)->MResult<Self>{
         if let Some(result)=memo.get(&self.dag_id()){return Ok(result.clone());}
         if !inv_expand&&matches!(self.kind(),MatrixKind::Inverse(_)){return Ok(self.clone());}
         let children=if deep{self.children().iter().map(|c|c.doit_cached(true,inv_expand,memo)).collect::<MResult<Vec<_>>>()?}else{self.children()};
-        let result=match self.kind(){MatrixKind::Permutation(p)=>Self::permutation(p.clone(),true),MatrixKind::Permute(_,p,axis)=>children[0].permute(p.clone(),*axis,true),MatrixKind::ApplyFunction(function,_)=>Self::apply_function(function.clone(),&children[0],true),MatrixKind::Diag(_)=>Self::diag_doit(&children[0]),MatrixKind::DiagonalOf(_)=>Self::diagonal_of(&children[0]),MatrixKind::Diagonal(_)=>Self::diagonal(&children[0]),MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice_normalized(rows.clone(),cols.clone()),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>children[0].pow(e.clone(),true),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
+        let result=match self.kind(){MatrixKind::Permutation(p)=>Self::permutation(p.clone(),true),MatrixKind::Permute(_,p,axis)=>children[0].permute(p.clone(),*axis,true),MatrixKind::ApplyFunction(function,_)=>Self::apply_function(function.clone(),&children[0],true),MatrixKind::Diag(_)=>Self::diag_doit(&children[0]),MatrixKind::DiagonalOf(_)=>Self::diagonal_of(&children[0]),MatrixKind::Diagonal(_)=>Self::diagonal(&children[0]),MatrixKind::Block(grid)=>Self::block(BlockGrid::new(grid.shape().0,grid.shape().1,children.clone())?),MatrixKind::BlockDiag(_)=>Self::block_diag(&children),MatrixKind::Slice(_,rows,cols)=>children[0].slice_normalized(rows.clone(),cols.clone()),MatrixKind::HadamardProduct(_)=>Self::hadamard_product(&children,true),MatrixKind::Kronecker(_)=>Self::kronecker(&children,true),MatrixKind::HadamardPower(a,b)=>{let mut index=0;let mut map=|_:&Self|{let child=children[index].clone();index+=1;child};Self::hadamard_power(a.map(&mut map,&mut |e|e.clone()),b.map(&mut map,&mut |e|e.clone()),true)},MatrixKind::Add(_)=>Self::add(&children,true),MatrixKind::Mul(c,_)=>Self::mul(c.clone(),&children,true),MatrixKind::Pow(_,e)=>Self::pow_doit(&children[0],e,inv_expand),MatrixKind::Inverse(_)=>children[0].inverse(true),MatrixKind::Transpose(_)=>children[0].transpose(true),MatrixKind::Adjoint(_)=>children[0].adjoint(true),MatrixKind::Conjugate(_)=>children[0].conjugate(true),_=>Ok(self.clone())}?;
         let result=if result==*self{self.clone()}else{result};
         memo.insert(self.dag_id(),result.clone());Ok(result)
     }

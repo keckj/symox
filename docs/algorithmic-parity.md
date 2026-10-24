@@ -9546,3 +9546,70 @@ Remaining (documented, not fixed):
   These were not worked through in this task.
 
 Tests: `tests/test_audit14_parity.py`.
+
+## simp-rest6 (wave 15)
+
+The SymPy simplify test probe went from 1797 same / 108 diff / 39 not
+reached / 4 exc to 1822 same / 101 diff / 23 not reached / 2 exc. No
+statement went from same to different.
+
+Fixed:
+- `powdenest(..., polar=True)` is ported. `mellin_transform(besselj(0, x),
+  x, s)` gives `2**(s - 1)*gamma(s/2)/gamma(1 - s/2)` as in SymPy.
+- `simplify` keeps `2**(s - 1)*y` and `2*3**(x - 1)`. powsimp's
+  `multiplicity` subtracts the denominator multiplicity, so `powsimp(2*3**x/3)`
+  gives `2*3**(x - 1)`. powsimp returns matrix symbols unchanged and
+  rebuilds other matrix expressions from their arguments.
+- Noncommutative `expand(c**-1*a**-1)` keeps `c**(-1)*a**(-1)`. Before this
+  change it returned `(c*a)**(-1)`, which is the wrong value.
+- `nc_simplify(2.0*cos(pi/3)*X)` gives `X` because the coefficient test is
+  `equal_valued`.
+- MatPow:
+  - `MatPow(MatPow(M, 2), -1)` combines to `M**(-2)`.
+  - `MatPow(..., -1).doit(inv_expand=False)` returns the Inverse without
+    expanding it.
+  - MatMul combines a nested product with a following power of its inverse
+    before flattening, which is the order of SymPy's canonicalize.
+
+  `nc_simplify(MatMul(B**-1, A**-1, (A*B)**2))` gives `A*B`. Before this
+  change it hit a RecursionError.
+- `besselsimp(-besselj(1, x) - besselj(-1, x))` gives `0`. Before this
+  change it gave the unevaluated form `0/x`.
+- Mul with zoo: a number factor that is positive or negative is dropped, and
+  so is one whose numeric zero and real facts are known. `zoo*sqrt(5 -
+  sqrt(5))` is `zoo`.
+- Pow.__new__ negative-base rule: when the base is a number with a negative
+  coefficient and the exponent is an integer Symbol of known parity, the
+  sign is pulled out. `(-I)**n` is `-I**n` for odd n, `(-2*I)**m` is
+  `(2*I)**m` for even m.
+- New compatibility modules: `symox.simplify.gammasimp` and
+  `symox.polys.domains.realfield`. These modules let the hyperexpand
+  lerchphi tests and `test_meijerg_with_Floats` run.
+
+Remaining (documented, not fixed):
+- `radsimp(num/den)` for the issue 15119 radical example: SymPy gives
+  `nan`, symox gives `zoo*num`. Here den is exactly 0 and `num.is_zero` is
+  True in both. The step where SymPy turns 0/0 into nan was not traced.
+- `integrate(cos(x)/x, (x, 1, oo))`: the value is equal to SymPy's, but the
+  form after hyperexpand groups the EulerGamma and log terms differently.
+  The difference is in how the residue/series result is collected. Not
+  ported.
+- Differences that are form or order only:
+  - `test_cse` (75);
+  - the dummy numbering of `fu` `hyper_as_trig`;
+  - issue 25590, issue 23543, separatevars, `Eq(1, x)` and Boole orderings;
+  - reduce_inverses_nc_pow;
+  - collect_const L362, fraction L444, issue 13143;
+  - powsimp_negated_base `I*(-n)`.
+- `Derivative` with a symbolic order (issue 22210) is unsupported because
+  core derivative orders are u32.
+- `MatrixSymbol.args[0]` is a str, not a Str. `Hyper_Function.args` are
+  tuples, not Tuples.
+- hyperexpand:
+  - plan/ushift crashes;
+  - shift_operators timeouts;
+  - partial_simp and reduction_operators, whose parameters are random.
+- `test_nsimplify` L409, the polymorphism NotImplementedError and
+  exptrigsimp_noncommutative are still different.
+
+Tests: `tests/test_simp_rest6_parity.py`.
