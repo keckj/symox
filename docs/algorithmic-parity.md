@@ -10016,9 +10016,9 @@ Intentional corrections (symox right, SymPy 1.14 wrong):
   (residual below 1e-30).
 
 Remaining (documented, not fixed):
-- `simplify(sqrt(CRootOf(x**3 - 2, 1)**2))` is `-CRootOf(x**3 - 2, 1)` in
-  SymPy: it needs the `_half` branch of `Pow._eval_power` for a complex
-  base (symox also leaves `sqrt((-1 - 2*I)**2)` unevaluated).
+- (Resolved in ccdom, wave 17.) `simplify(sqrt(CRootOf(x**3 - 2, 1)**2))`
+  is `-CRootOf(x**3 - 2, 1)` as in SymPy, through the `_half` branch of
+  `Pow._eval_power`.
 - AlgebraicNumber arithmetic: SymPy keeps the number atomic
   (`a1*a1` is `sqrt(2)**2`, `a1 + sqrt(2)` is `sqrt(2) + sqrt(2)`); symox
   evaluates (2, `2*sqrt(2)`). Same value.
@@ -10109,3 +10109,69 @@ call stop the evaluation at once.  No later host call or retry is made, and
 the error propagates from N/evalf.
 
 Tests: `tests/test_branchcut_parity.py`.
+
+## ccdom (wave 17): explicit CC, RR[y] gcd, Gaussian composites
+
+Implemented (as SymPy 1.14):
+- `domain=CC`, `domain=ComplexField(100)`, `domain='CC'`/`'CC_100'`:
+  polynomials over the scalar ComplexField, with the precision kept
+  (`ComplexField(100)` stays at 100 bits); `CC.poly_ring(y)`,
+  `CC.frac_field(y)` and `CC[y]`.
+- gcd/lcm/cofactors/div/quo/rem/invert/gcdex/half_gcdex/sqf_list/
+  factor_list over explicit CC and over the inferred CC (`Poly(1.0*x + I,
+  x)`, which is RR with the generator `I`): the gcd runs over `QQ_I` as
+  `_dmp_inner_gcd` does with `CC.get_exact()`; factor_list over CC returns
+  `(1, [(f, 1)])` as `Poly.factor_list` does after the DomainError. Mixed
+  pairs such as `QQ_I` with `RR` unify to CC.
+- Expression-level factor, factor_list, sqf, sqf_list, gcd, lcm, div, quo,
+  rem, gcdex and invert with `domain=RR`, `CC`, `RR_n`, `CC_n`, `RR[y]`,
+  ... (`polys/_inexact_functions.py`: `_symbolic_factor_list` and
+  `parallel_poly_from_expr` with the `Poly` methods). `gcdex`/`invert` of
+  expressions with Float and `I` coefficients (inferred CC) as well.
+- Multivariate gcd and cofactors over `RR[y]` run over the exact `QQ[y]`
+  (`K.get_exact()`), then convert back.
+- Multivariate sqf_list over `ZZ_I[y]`/`QQ_I(y)` (from the irreducible
+  factors, grouped by multiplicity).
+- `Pow._eval_power` `_half` branch: for a numeric base `b`, an integer
+  `a` (|a| >= 2) and `e = p/2`, `(b**a)**e = s*b**(a*e)` with
+  `s = exp(2*pi*I*e*floor(1/2 - a*arg(b)/(2*pi)))` = +-1:
+  `sqrt((-1 - 2*I)**2) = 1 + 2*I`, `sqrt(CRootOf(x**3 - 2, 1)**2) =
+  -CRootOf(x**3 - 2, 1)`, `sqrt((1 - sqrt(2))**3) = -(1 - sqrt(2))**(3/2)`.
+  The floor is taken numerically and the power stays unevaluated when the
+  floor argument is within 1e-9 of an integer (except for a negative real
+  base, whose argument is exactly pi), so no branch is guessed.
+
+Probe (`rrcc` probe extended to 385 statements): 267/385 identical to
+SymPy before, 374/385 after; no statement went from identical to
+different.
+
+Intentional corrections (symox right, SymPy 1.14 wrong):
+- `Poly((I*x + y)**2, x, y).sqf_list()` and
+  `Poly((I*x + 2*y)**2*(x - 1), x, y).sqf_list()`: SymPy returns the unit
+  1 with the factor `-x + I*y` (resp. `-x + 2*I*y`), whose square is the
+  negative of the input; symox returns the unit -1 (product checked
+  exactly and at a rational point).
+
+Remaining (documented, not fixed):
+- `Poly(1.5*x*z + 1.5*y, x, z).gcd(Poly(3.0*x*z + 3.0*y, x, z))` and the
+  matching lcm over `RR[y]`: SymPy's `QQ[y]` subresultant gcd keeps the
+  scale 1.5 (lcm `3.0*x**2*z + ...`); symox returns the monic gcd
+  (`1.0*x*z + 1.0*y`). Same gcd up to a unit of RR. Likewise
+  `Poly(1.5*x*z + 1.5*y*x, x, z).sqf_list()` gives the content 1.5 and a
+  primitive factor where SymPy keeps the content in the factor.
+- `Poly(1.5*x*z + 1.5*y, x, z).integrate(x)` displays `RR[y]` where SymPy
+  displays `RR(y)` (same coefficients).
+- `RR.frac_field(x).field.gens[0]/2` prints `0.5*x` (SymPy `x/2.0`).
+- `Poly(x**2 + 1, x, domain=CC).set_domain(QQ_I)` raises CoercionFailed
+  (SymPy converts the Float coefficients exactly).
+- `Poly(x + 0.5*I)` without generators takes `I` as a generator over RR
+  (SymPy: `Poly(1.0*x + 0.5*I, x, domain='CC')`); with explicit
+  generators the domain is CC.
+- `cancel(..., domain=RR)` at expression level is not routed through the
+  inexact Poly path.
+- `factor(x**12 + 2, extension=(-2)**(1/12))` still hits the work limit
+  (SymPy factors it).
+
+Tests: `tests/test_ccdom_parity.py`; the two multivariate sqf_list gaps of
+`tests/test_gaussian_fractions_parity.py` now pass and moved to its
+reference list.

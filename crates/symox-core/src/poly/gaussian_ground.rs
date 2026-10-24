@@ -144,6 +144,10 @@ impl GaussianGround {
             Some(k) => ExactDomain::Inexact { precision: k.precision, complex: k.complex },
             None => ExactDomain::Gaussian { integral: self.integral },
         };
+        if self.symbols.is_empty() {
+            // the plain inexact field `CC` (or `ComplexField(prec)`)
+            return ground;
+        }
         ExactDomain::Composite {
             ground: Arc::new(ground),
             ring: self.ring,
@@ -159,6 +163,15 @@ impl GaussianGround {
     }
     pub fn to_ring(&self) -> Self {
         Self { ring: true, ..self.clone() }
+    }
+    /// The plain field `ComplexField(precision)` as a ground without
+    /// symbols.
+    pub fn complex_field(precision: u32) -> Self {
+        Self { integral: false, ring: true, symbols: Vec::new(), inexact: Some(super::inexact_ground::Inexact { precision, complex: true }) }
+    }
+    /// Whether this is the plain field `CC` (no domain symbols).
+    pub fn is_scalar(&self) -> bool {
+        self.symbols.is_empty() && self.inexact.is_some()
     }
     pub fn from_domain(d: &ExactDomain) -> Option<Self> {
         let ExactDomain::Composite { ground, ring, parameters, .. } = d else { return None };
@@ -574,6 +587,15 @@ impl GaussianGround {
     }
     /// `dmp_factor_list` over the composite ground.
     pub fn factor_list(&self, p: &ExpressionPoly) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+        if self.is_scalar() {
+            // `dup_factor_list` raises DomainError over `CC` (its exact
+            // domain `QQ_I` has the ring `ZZ_I`, which is neither `ZZ` nor
+            // a polynomial ring) and `Poly.factor_list` returns the input.
+            if p.is_zero() || p.terms().iter().all(|(m, _)| m.iter().all(|&e| e == 0)) {
+                return Ok((p.as_expr(), Vec::new()));
+            }
+            return Ok((Expr::one(), vec![(p.clone(), 1)]));
+        }
         if self.inexact.is_some() {
             return Err(super::inexact_ground::factor_error(self));
         }
@@ -621,10 +643,7 @@ impl GaussianGround {
             return super::inexact_ground::sqf_list(&self.marked(p), all);
         }
         if p.gens.len() != 1 {
-            return Err(PolyError::Unsupported(format!(
-                "multivariate square-free decomposition over {} is not implemented",
-                self.display()
-            )));
+            return self.sqf_list_multi(p, all);
         }
         let (coeff, f) = if self.ring {
             let (c, f) = self.primitive(p)?;
@@ -653,6 +672,45 @@ impl GaussianGround {
             pp = p2;
             q = q2;
             i += 1;
+        }
+        Ok((coeff, result))
+    }
+    /// `dmp_sqf_list` in several generators: the square-free part of
+    /// multiplicity `i` is the product of the irreducible factors of
+    /// multiplicity `i`, computed from the factorization in all variables.
+    /// The reference runs `dmp_inner_gcd` over the composite ground, whose
+    /// cofactors sometimes lose a unit `-1` (its product is then `-f`); the
+    /// product kept here is always `f`. Over a field the parts are monic.
+    fn sqf_list_multi(&self, p: &ExpressionPoly, all: bool) -> PResult<(Expr, Vec<(ExpressionPoly, usize)>)> {
+        let (mut coeff, factors) = self.factor_list(p)?;
+        let top = factors.iter().map(|(_, k)| *k).max().unwrap_or(0);
+        let one = self.convert_poly(&ExpressionPoly::from_expr(&Expr::one(), &p.gens)?)?;
+        let mut result = Vec::new();
+        for i in 1..=top {
+            let mut g: Option<ExpressionPoly> = None;
+            for (f, k) in &factors {
+                if *k == i {
+                    g = Some(match g {
+                        None => f.clone(),
+                        Some(h) => self.convert_poly(&h.mul(f)?)?,
+                    });
+                }
+            }
+            match g {
+                Some(mut g) => {
+                    if !self.ring {
+                        let lc = g.lc();
+                        g = self.monic(&g)?;
+                        coeff = crate::ops::mul2(&coeff, &crate::ops::powi(&lc, i as i64));
+                    }
+                    result.push((g, i));
+                }
+                None if all => result.push((one.clone(), i)),
+                None => {}
+            }
+        }
+        if !self.ring {
+            coeff = self.reduce(&coeff)?;
         }
         Ok((coeff, result))
     }
@@ -821,6 +879,16 @@ pub fn descriptor(p: &super::fraction::Polynomial) -> Option<Descriptor> {
         super::polyobj::Domain::QQ => false,
         super::polyobj::Domain::RR(precision) => {
             let symbols = p.base.domain_gens().to_vec();
+            if symbols == [Expr::i()] {
+                // the legacy float representation of `CC`
+                return Some(Descriptor {
+                    gaussian: false,
+                    integral: false,
+                    ring: true,
+                    symbols: Vec::new(),
+                    inexact: Some(super::inexact_ground::Inexact { precision, complex: true }),
+                });
+            }
             if symbols.iter().any(|s| *s == Expr::i() || (s.is_number() && s.is_pow())) {
                 return None;
             }
@@ -886,6 +954,14 @@ pub fn unify(a: &Descriptor, b: &Descriptor, gens: &[Expr]) -> PResult<Option<Ga
         integral = true;
     }
     if symbols.is_empty() {
+        // `CC` with anything, or `RR` with `ZZ_I`/`QQ_I`, unify to the plain
+        // field `CC` at the largest precision.
+        let inexact = a.inexact.is_some() || b.inexact.is_some();
+        let complex = [a, b].iter().any(|d| d.inexact.is_some_and(|k| k.complex)) || (inexact && (a.gaussian || b.gaussian));
+        if complex {
+            let precision = [a, b].iter().filter_map(|d| d.inexact.map(|k| k.precision)).max().unwrap_or(53);
+            return Ok(Some(GaussianGround::complex_field(precision)));
+        }
         return Ok(None);
     }
     if a.inexact.is_some() || b.inexact.is_some() {
