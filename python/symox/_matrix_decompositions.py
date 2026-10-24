@@ -37,7 +37,30 @@ def to_DM(self, domain=None, **kwargs):
         if kwargs:
             raise TypeError('Options cannot be used with domain parameter')
         return DomainMatrix(self.todod(), self.shape, domain)
-    return DomainMatrix.from_Matrix(self, **kwargs)
+    # The reference ``RepMatrix.to_DM``: ``choose_domain`` runs
+    # ``construct_domain`` on the nonzero entries (``to_flat_nz``), and an
+    # ``EX`` result becomes ``EXRAW``. This gives ``ZZ[sqrt(a)]``,
+    # ``ZZ(exp(a))``, ``ZZ_I[a]`` or ``RR[a]`` where the generic inference
+    # stopped at ``EXRAW``, and keeps ``[sqrt(2), 1.0]`` exact in ``EXRAW``.
+    from . import sympify
+    from .polys.constructor import construct_domain
+    from .polys.domains import EXRAW
+    keys, values = [], []
+    for key, value in self.todok().items():
+        value = sympify(value)
+        # The reference rep keeps ``0.0`` (``!=`` is structural).
+        if value != 0:
+            keys.append(key)
+            values.append(value)
+    domain, elements = construct_domain(values, **kwargs)
+    if domain.is_EX:
+        domain = EXRAW
+        elements = [EXRAW.from_sympy(value) for value in values]
+    rows = {}
+    for (i, j), element in zip(keys, elements):
+        if not domain.is_zero(element):
+            rows.setdefault(i, {})[j] = element
+    return DomainMatrix(rows, self.shape, domain)
 
 
 def install(matrix, sparse_base):

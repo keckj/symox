@@ -1185,6 +1185,24 @@ def _filter_solutions(result, others, syms):
     return result
 
 
+def _expand_float_logs(f):
+    """The reference ``sring`` expands its input, and the ``log`` hint of
+    ``expand`` splits ``log(1.0*I)`` into ``I*pi/2`` and ``log(2.0*x)``
+    into ``log(x) + 0.693147180559945``. The native ring construction
+    already does this for exact arguments; this pass covers ``log`` atoms
+    whose argument holds a Float."""
+    from . import log, Float
+    if not isinstance(f, _core.Expr) or not f.has(log) or not f.has(Float):
+        return f
+    reps = {}
+    for atom in f.atoms(log):
+        if atom.args[0].has(Float):
+            expanded = atom.expand()
+            if expanded != atom:
+                reps[atom] = expanded
+    return f.xreplace(reps) if reps else f
+
+
 # --- installation --------------------------------------------------------------
 
 def install(cancel_, factor_, apart_, together_, collect_):
@@ -1196,6 +1214,8 @@ def install(cancel_, factor_, apart_, together_, collect_):
     def cancel_entry(f, *gens, **args):
         if is_nc(f):
             return cancel(f, *gens, **args)
+        if args.get('expand', True) is not False:
+            f = _expand_float_logs(f)
         if args.get('expand', True) is False and set(args) == {'expand'}:
             result = _cancel_unexpanded(f, gens)
             if result is not None:

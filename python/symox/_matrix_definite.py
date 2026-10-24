@@ -376,6 +376,21 @@ def _eigenvects_mpmath(M):
 
 _native_eigenvals = None
 _wrapped_eigenvects = None
+_FLOAT_SYMBOLIC = "numerical eigenvalues of float matrices are not implemented"
+_REFERENCE_CHARPOLY = "reference charpoly"
+
+
+def _charpoly_needs_reference(M):
+    """True when SymPy's ``charpoly`` (EXRAW coefficients run through
+    ``simplify``) differs from the native one, which ``eigenvals`` then
+    has to follow: ``[[sin(x)**2 + cos(x)**2, 1], [1, 1]]`` has the
+    eigenvalues ``{2: 1, 0: 1}``."""
+    from . import _matrix_charpoly
+    route = _matrix_charpoly._reference_route(M)
+    if route is None or route[0] != 'EXRAW':
+        return False
+    native = _matrix_charpoly._native(M)
+    return native.all_coeffs() != M.charpoly().all_coeffs()
 
 
 def _eigenvals(M, error_when_incomplete=True, *, simplify=False,
@@ -395,11 +410,16 @@ def _eigenvals(M, error_when_incomplete=True, *, simplify=False,
         M = M.applyfunc(
             lambda x: nsimplify(x, rational=True) if x.has(Float) else x)
     try:
+        if _charpoly_needs_reference(M):
+            raise NotImplementedError(_REFERENCE_CHARPOLY)
         ret = _native_eigenvals(M, error_when_incomplete, multiple, **flags)
     except NotImplementedError as exc:
         from . import _matrix_eigen_rootof as rootof
-        if not rootof.is_unsupported(exc):
+        if not (rootof.is_unsupported(exc) or _REFERENCE_CHARPOLY in str(exc)
+                or _FLOAT_SYMBOLIC in str(exc)):
             raise
+        # SymPy's ``_eigenvals_dict``/``_eigenvals_list``: ``roots`` of the
+        # charpoly of each block, over ``RR[a]`` for Floats with symbols.
         ret = rootof.eigenvals(M, error_when_incomplete, multiple,
                                simplify, **flags)
     if not simplify:
@@ -431,6 +451,27 @@ def _eigenvects(M, error_when_incomplete=True, iszerofunc=None, **flags):
                 "Eigenvector computation is not implemented if the matrix have "
                 "eigenvalues in CRootOf form")
         raise
+
+
+_native_singular_values = None
+
+
+def _singular_values(M):
+    """SymPy's ``_singular_values`` when the eigenvalues of ``M.H*M`` follow
+    the simplified EXRAW charpoly (see ``_charpoly_needs_reference``)."""
+    from . import S, sqrt, default_sort_key
+    if not M.rows or not M.cols:
+        return _native_singular_values(M)
+    G = M.H * M if M.rows >= M.cols else M * M.H
+    if not _charpoly_needs_reference(G):
+        return _native_singular_values(M)
+    vals = []
+    for k, v in G.eigenvals().items():
+        vals += [sqrt(k)] * v
+    if len(vals) < M.cols:
+        vals += [S.Zero] * (M.cols - len(vals))
+    vals.sort(reverse=True, key=default_sort_key)
+    return vals
 
 
 _native_is_diagonalizable = None
@@ -501,6 +542,10 @@ def install():
         _wrapped_eigenvects = _core.Matrix.eigenvects
         _core.Matrix.eigenvals = _eigenvals
         _core.Matrix.eigenvects = _eigenvects
+    global _native_singular_values
+    if _native_singular_values is None:
+        _native_singular_values = _core.Matrix.singular_values
+        _core.Matrix.singular_values = _singular_values
     global _native_is_diagonalizable
     if _native_is_diagonalizable is None:
         _native_is_diagonalizable = _core.Matrix.is_diagonalizable

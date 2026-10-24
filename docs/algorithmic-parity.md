@@ -9851,3 +9851,62 @@ Remaining (documented, not fixed):
   backend output, devise_plan operator choice.
 
 Tests: `tests/test_audit15_parity.py`.
+
+## matparam (wave 16)
+
+Domain inference and parameter routes for matrices, compared with SymPy 1.14
+on a 308-statement probe (symbolic parameters, `QQ<sqrt(2)>`, Gaussian
+entries, Floats mixed with symbols, identity entries, errors). Probe:
+273 same / 35 different before, 301 same / 7 different after (28 fixed,
+0 regressions).
+
+Implemented:
+- `to_DM()` without a domain follows `RepMatrix.to_DM`: `construct_domain`
+  over the structurally nonzero entries (so `0.0` is kept), EX mapped to
+  EXRAW. Domains such as `ZZ[sqrt(a)]`, `ZZ(exp(a))`, `ZZ_I[a]`, `RR[a]`,
+  `ZZ[pi]`, `ZZ[sin(x)]` and EXRAW for `[sqrt(2), 1.0]` now match. An
+  unsupported option raises `OptionError` as in SymPy.
+- `inv()` over an inexact composite domain (`RR[a]`, `CC[a]`): the
+  reference route (exact conversion, `inv_den`, conversion back, division by
+  the denominator), including `NonInvertibleMatrixError` for a singular
+  matrix.
+- `charpoly()` over EXRAW applies `simplify` to the Berkowitz coefficients
+  (so `sin(x)**2 + cos(x)**2` entries give `_x**2 - 2*_x + 1`); over an
+  inexact composite domain the polynomial keeps that domain (`RR[a]`). The
+  default charpoly is evaluated under `evaluate(True)`. `eigenvals()` and
+  `singular_values()` follow the simplified charpoly when it differs from
+  the native one (`{2: 1, 0: 1}`, `[2, 0]`), and Float symbolic matrices
+  get their eigenvalues through the roots route.
+- `cancel()` expands `log` atoms with Float arguments, as `sring` does:
+  `cancel(log(1.0*I))` gives `I*pi/2`, and
+  `Matrix([[0, 1.0], [-1.0, 0]]).log()` gives `[[0, 0.5*pi], [-0.5*pi, 0]]`.
+- `Matrix.exp()` takes the Jordan route for symbolic matrices too (the
+  route was already used for Float matrices), so `[[0, r], [-r, 0]]`,
+  `[[x, 1], [1, x]]` and `[[0, 1], [-x**2, 0]]` give the reference
+  exponential forms. Exact numeric matrices keep the native Hermite route.
+  Declared nonfinite symbols keep the native `ValueError`, where SymPy
+  returns `exp(z)`.
+- The Bareiss det zero test with hidden-zero entries (`cos(2*x)` forms)
+  already matched SymPy.
+
+Remaining (documented, not fixed):
+- `eigenvals()` dict order for some algebraic and Gaussian matrices (roots
+  order in the core); `CC[a]` eigenvalues are the same values in another
+  sqrt normalization.
+- `QRdecomposition()` and `pinv()` forms for symbolic entries (`Abs` versus
+  `conjugate` products, an unexpanded denominator in the reference).
+- `Matrix([[1.0*a, 1], [1, 1.0*a]]).gauss_jordan_solve(...)` form (same
+  values), and `Matrix([[1.0, sqrt(2)], [2, 3.0]]).inv()` gives
+  `2.0*sqrt(2)` where SymPy gives `2*sqrt(2)`.
+- `construct_domain([0.0, a, 1, 1])` gives `RR[a]` (SymPy `ZZ[a]`).
+- `cancel(log(4))` stays `log(4)` (SymPy `2*log(2)`); only Float log
+  arguments are expanded.
+- `exp()` of exact numeric matrices (`[[1, 2], [3, 4]]`,
+  `[[sqrt(2), 1], [1, 0]]`, `[[0, 1], [-1, 0]]`) has other forms than the
+  reference (same values).
+- `eigenvects()` does not follow the simplified charpoly of identity
+  entries.
+- SymPy raises `TypeError` for `Matrix([[sin(x), 1], [0, log(x)]]).charpoly()`;
+  symox returns the polynomial.
+
+Tests: `tests/test_matparam_parity.py`.
