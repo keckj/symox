@@ -9016,3 +9016,48 @@ Remaining (unsupported or a different form, never a wrong value):
   False.
 
 Tests: `tests/test_simp_rest5_parity.py`.
+
+## limwrong (wave 12)
+
+Wrong limit values after limacc, by root cause:
+- Hidden zero leading coefficients (issues 6364, 6366/6843, 21598): the
+  series engine kept a leading coefficient such as
+  `1 - sin(a)**2 - cos(a)**2` or `log(1/b) + log(b)` (b > 0) as nonzero and
+  divided by it. A sum of two or more leading terms whose symbolic
+  coefficient vanishes numerically at two sample points is now proven zero
+  with expand, the assumption-respecting expand_log, trigsimp and cancel
+  (SymPy's Add._eval_as_leading_term uses trigsimp().cancel()); a zero that
+  cannot be proven makes the expansion unsupported instead of wrong. The
+  Gruntz symbolic-exponent fallback does the same for its sums.
+- log branch cut (issue 22220 at -pi and pi+): log_ser now ports STEP 5 of
+  log._eval_nseries: a negative leading coefficient followed by a nonreal
+  term adds `-2*I*pi` when that term's imaginary part is negative.
+- `base -> -oo` with `exponent -> oo` gives zoo (Limit.pow_heuristics,
+  issue 18399) instead of oo.
+- `AccumBounds**t` with `t -> 0` keeps zero and infinite endpoints
+  (`frac(x)**(1/x)` at oo is `AccumBounds(0, 1)`, `(tan(x)**2)**(2/x)` is
+  `AccumBounds(0, oo)`) instead of collapsing to 1.
+- acoth at a branch point (issue 25847): the Gruntz leading term of
+  `acoth(c*w**e)` follows acoth._eval_as_leading_term (`1/arg` for an
+  infinite argument, `-sign(c)*I*pi/2` for a vanishing real one) instead of
+  evaluating acoth(0) on the cut.
+- Issue 22334: symbolic powers of the mrv variable (`(1/w)**k`) are now
+  factored out through a positive placeholder when all exponents differ by
+  numbers, and `exp(c*log(w) + r)` with a symbolic c folds when the known
+  value of `log(w)` cancels exactly. The cancellation in the denominator is
+  still not resolved, so the limit stays unevaluated (it was the wrong 0).
+
+Probe (limacc's sympy/series/tests/test_limits.py + test_gruntz.py): same
+493 -> 516 of 648, no statement from same to different.
+
+Remaining (unsupported or a different form, never a wrong value):
+- Issue 22334: `Limit` instead of `1/(k + 1)` (strict xfail).
+- Issue 6364: `1/(-sin(a)**2/2 + cos(a)**2/2)`, equivalent to SymPy's
+  `1/(cos(a)**2 - 1/2)`.
+- Not addressed in this wave: Bessel functions at infinity, floor/ceiling,
+  asech/acsch, LambertW, Mod, asin(exp(x)), `x*Shi(x)*I`, `x**2*Ci(x)`;
+  intrest3's dependency (`integrate(atan(a*x)/x**2, (x, 1, oo))`,
+  `integrate(DiracDelta(a*x - b), (x, -oo, oo))`); float-vs-exact forms of
+  issues 5164 and 5383.
+
+Tests: `tests/test_limwrong_parity.py`.

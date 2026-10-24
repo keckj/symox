@@ -3287,6 +3287,11 @@ def limit(e, z, z0, dir="+"):
         # Limit.doit returns itself for an expression holding oo, zoo or nan
         # (`limit(oo/x, x, oo)`, `limit((1 + x)**oo, x, 0)`).
         return Limit(e, z, z0, dir)
+    if isinstance(ee, Expr) and ee.is_Pow and ee.base.has(z) and ee.exp.has(z):
+        # Limit.pow_heuristics: a base tending to -oo raised to an exponent
+        # tending to oo has no direction (`(-x)**x` at oo is zoo).
+        if limit(ee.base, z, z0, dir) is S.NegativeInfinity and limit(ee.exp, z, z0, dir) is S.Infinity:
+            return S.ComplexInfinity
     if str(dir) in ("+", "-"):
         # One-sided approach onto a branch cut from the non-principal side.
         from .calculus._branch_limit import branch_side_rewrite

@@ -95,6 +95,22 @@ def _walk(e, z, z0, dir, used):
     if e.is_Pow:
         base = _walk(e.base, z, z0, dir, used)
         exp = _walk(e.exp, z, z0, dir, used)
+        if _is_bounds(base) and exp == S.Zero and e.exp.has(z):
+            # The reference leading term keeps the vanishing exponent:
+            # AccumBounds(a, b)**t with t -> 0+ has the bounds of a**t and
+            # b**t, where a zero endpoint stays 0 (oo for t -> 0-), an infinite
+            # endpoint stays oo (0 for t -> 0-), so
+            # frac(x)**(1/x) at oo is AccumBounds(0, 1), not 1.
+            side = _native(1/e.exp, z, z0, dir)
+            if side not in (S.Infinity, S.NegativeInfinity) or base.min.is_nonnegative is not True:
+                raise _Fail
+            pos = side is S.Infinity
+            ends = [(S.Zero if pos else S.Infinity) if v == S.Zero
+                    else (S.Infinity if pos else S.Zero) if v is S.Infinity
+                    else S.One
+                    for v in (base.min, base.max)]
+            from .accumulationbounds import AccumBounds
+            return _bounded_value(AccumBounds(min(ends), max(ends)))
         return _bounded_value(base**exp)
     if e.is_Function and len(e.args) == 1:
         name = e.func.__name__

@@ -105,7 +105,10 @@ pub fn vanishes_near(e: &Expr, x: &Expr, x0: &Expr, minus: bool) -> bool {
 
 /// [`leading_term`] with a caller supplied `log` symbol and its value.
 pub fn leading_term_with(e: &Expr, x: &Expr, x0: &Expr, minus: bool, logt: &Expr, logval: &Expr) -> SRes<LeadTerm> {
-    let ((c, v), d) = with_engine(x, x0, minus, logt, |eng| eng.leading(e))?;
+    let ((c, v), d) = with_engine(x, x0, minus, logt, |eng| {
+        eng.logval = Some(logval.clone());
+        eng.leading(e)
+    })?;
     let ce = c.to_expr();
     let coeff = if depends(&ce, logt) { xreplace(&ce, &single(logt, logval)) } else { ce.clone() };
     Ok(LeadTerm { coeff, coeff_logt: ce, logt: logt.clone(), exp: Number::rational_i64(v, d).unwrap() })
